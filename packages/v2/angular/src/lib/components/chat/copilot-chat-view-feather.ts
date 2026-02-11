@@ -36,7 +36,7 @@ export class CopilotChatViewFeather {
       // Dark mode colors
       "dark:from-[rgb(33,33,33)] dark:via-[rgb(33,33,33)]",
       // Custom classes
-      this.inputClass()
+      this.inputClass(),
     );
   }
 }

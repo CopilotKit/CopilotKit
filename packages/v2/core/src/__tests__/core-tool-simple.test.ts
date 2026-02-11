@@ -26,7 +26,10 @@ describe("CopilotKitCore Tool Simple", () => {
 
     const message = createToolCallMessage(toolName, { input: "test" });
     const agent = new MockAgent({ newMessages: [message] });
-    copilotKitCore.addAgent__unsafe_dev_only({ id: "test", agent: agent as any });
+    copilotKitCore.addAgent__unsafe_dev_only({
+      id: "test",
+      agent: agent as any,
+    });
 
     console.log("About to run agent");
     await copilotKitCore.runAgent({ agent: agent as any });
@@ -67,7 +70,10 @@ describe("CopilotKitCore Tool Simple", () => {
 
     const message = createToolCallMessage(toolName, { value: "test" });
     const agent = new MockAgent({ newMessages: [message] });
-    copilotKitCore.addAgent__unsafe_dev_only({ id: expectedAgentId, agent: agent as any });
+    copilotKitCore.addAgent__unsafe_dev_only({
+      id: expectedAgentId,
+      agent: agent as any,
+    });
 
     await copilotKitCore.runAgent({ agent: agent as any });
 

@@ -16,7 +16,9 @@ export default function Home() {
             This client connects to the Express runtime at
             <code className="inline-code">{runtimeUrl}</code>.
           </p>
-          <p>Try asking it to "roast my name" to trigger the server-side tool.</p>
+          <p>
+            Try asking it to "roast my name" to trigger the server-side tool.
+          </p>
         </main>
         <CopilotSidebar
           defaultOpen

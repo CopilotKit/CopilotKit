@@ -32,7 +32,8 @@ interface GoogleGenerativeAIAdapterOptions {
 }
 
 const DEFAULT_MODEL = "gemini-2.5-flash";
-const DEFAULT_API_VERSION: GoogleGenerativeAIAdapterOptions["apiVersion"] = "v1";
+const DEFAULT_API_VERSION: GoogleGenerativeAIAdapterOptions["apiVersion"] =
+  "v1";
 let hasWarnedDefaultGoogleModel = false;
 
 export class GoogleGenerativeAIAdapter extends LangChainAdapter {
@@ -40,7 +41,11 @@ export class GoogleGenerativeAIAdapter extends LangChainAdapter {
   public model: string = DEFAULT_MODEL;
 
   constructor(options?: GoogleGenerativeAIAdapterOptions) {
-    if (!hasWarnedDefaultGoogleModel && !options?.model && !options?.apiVersion) {
+    if (
+      !hasWarnedDefaultGoogleModel &&
+      !options?.model &&
+      !options?.apiVersion
+    ) {
       console.warn(
         `You are using the GoogleGenerativeAIAdapter without explicitly setting a model or apiVersion. ` +
           `CopilotKit will default to apiVersion="v1" and model="${DEFAULT_MODEL}". ` +
@@ -81,7 +86,9 @@ export class GoogleGenerativeAIAdapter extends LangChainAdapter {
           apiVersion: options?.apiVersion ?? DEFAULT_API_VERSION,
         }).bindTools(tools);
 
-        return model.stream(filteredMessages, { metadata: { conversation_id: threadId } });
+        return model.stream(filteredMessages, {
+          metadata: { conversation_id: threadId },
+        });
       },
     });
   }

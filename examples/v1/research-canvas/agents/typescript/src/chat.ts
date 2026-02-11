@@ -80,7 +80,7 @@ export async function chat_node(state: AgentState, config: RunnableConfig) {
 
   const response = await model.bindTools!(
     [Search, WriteReport, WriteResearchQuestion, DeleteResources],
-    invokeArgs
+    invokeArgs,
   ).invoke(
     [
       new SystemMessage(
@@ -99,11 +99,11 @@ export async function chat_node(state: AgentState, config: RunnableConfig) {
 
         Here are the resources that you have available:
         ${JSON.stringify(resources)}
-        `
+        `,
       ),
       ...state.messages,
     ],
-    customConfig
+    customConfig,
   );
 
   const aiMessage = response as AIMessage;

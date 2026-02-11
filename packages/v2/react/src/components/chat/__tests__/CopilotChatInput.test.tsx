@@ -1,5 +1,11 @@
 import React from "react";
-import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
+import {
+  render,
+  screen,
+  fireEvent,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { vi } from "vitest";
 import { CopilotChatInput } from "../CopilotChatInput";
@@ -15,19 +21,23 @@ const renderWithProvider = (component: React.ReactElement) => {
   return render(
     <CopilotChatConfigurationProvider threadId={TEST_THREAD_ID}>
       {component}
-    </CopilotChatConfigurationProvider>
+    </CopilotChatConfigurationProvider>,
   );
 };
 
 const getSendButton = (container: HTMLElement) =>
-  container.querySelector("svg.lucide-arrow-up")?.closest("button") as HTMLButtonElement | null;
+  container
+    .querySelector("svg.lucide-arrow-up")
+    ?.closest("button") as HTMLButtonElement | null;
 
 const getAddMenuButton = (container: HTMLElement) =>
-  container.querySelector("svg.lucide-plus")?.closest("button") as HTMLButtonElement | null;
+  container
+    .querySelector("svg.lucide-plus")
+    ?.closest("button") as HTMLButtonElement | null;
 
 const mockLayoutMetrics = (
   container: HTMLElement,
-  options?: { gridWidth?: number; addWidth?: number; actionsWidth?: number }
+  options?: { gridWidth?: number; addWidth?: number; actionsWidth?: number },
 ) => {
   const grid = container.querySelector("div.grid") as HTMLElement | null;
   if (!grid) {
@@ -41,18 +51,17 @@ const mockLayoutMetrics = (
     configurable: true,
   });
 
-  const rectFactory = (width: number) =>
-    () => ({
-      width,
-      height: 40,
-      top: 0,
-      left: 0,
-      right: width,
-      bottom: 40,
-      x: 0,
-      y: 0,
-      toJSON: () => ({}),
-    });
+  const rectFactory = (width: number) => () => ({
+    width,
+    height: 40,
+    top: 0,
+    left: 0,
+    right: width,
+    bottom: 40,
+    x: 0,
+    y: 0,
+    toJSON: () => ({}),
+  });
 
   const addContainer = grid.children[0] as HTMLElement;
   const actionsContainer = grid.children[2] as HTMLElement;
@@ -103,7 +112,7 @@ describe("CopilotChatInput", () => {
         value=""
         onChange={mockOnChange}
         onSubmitMessage={mockOnSubmitMessage}
-      />
+      />,
     );
 
     const input = screen.getByPlaceholderText("Type a message...");
@@ -121,7 +130,7 @@ describe("CopilotChatInput", () => {
         value="  hello world  "
         onChange={mockOnChange}
         onSubmitMessage={mockOnSubmitMessage}
-      />
+      />,
     );
 
     const input = screen.getByPlaceholderText("Type a message...");
@@ -137,7 +146,7 @@ describe("CopilotChatInput", () => {
         value="test message"
         onChange={mockOnChange}
         onSubmitMessage={mockOnSubmitMessage}
-      />
+      />,
     );
 
     const sendButton = getSendButton(container);
@@ -149,7 +158,7 @@ describe("CopilotChatInput", () => {
 
   it("manages text state internally when uncontrolled", () => {
     const { container } = renderWithProvider(
-      <CopilotChatInput onSubmitMessage={mockOnSubmitMessage} />
+      <CopilotChatInput onSubmitMessage={mockOnSubmitMessage} />,
     );
 
     const input = screen.getByPlaceholderText("Type a message...");
@@ -169,7 +178,7 @@ describe("CopilotChatInput", () => {
         value="test"
         onChange={mockOnChange}
         onSubmitMessage={mockOnSubmitMessage}
-      />
+      />,
     );
 
     const input = screen.getByPlaceholderText("Type a message...");
@@ -187,7 +196,7 @@ describe("CopilotChatInput", () => {
         value=""
         onChange={mockOnChange}
         onSubmitMessage={mockOnSubmitMessage}
-      />
+      />,
     );
 
     let sendButton = getSendButton(container);
@@ -202,7 +211,7 @@ describe("CopilotChatInput", () => {
           onChange={mockOnChange}
           onSubmitMessage={mockOnSubmitMessage}
         />
-      </CopilotChatConfigurationProvider>
+      </CopilotChatConfigurationProvider>,
     );
     sendButton = getSendButton(container);
     fireEvent.click(sendButton!);
@@ -229,7 +238,7 @@ describe("CopilotChatInput", () => {
         value=""
         onChange={mockOnChange}
         onSubmitMessage={mockOnSubmitMessage}
-      />
+      />,
     );
 
     let sendButton = getSendButton(container);
@@ -243,7 +252,7 @@ describe("CopilotChatInput", () => {
           onChange={mockOnChange}
           onSubmitMessage={mockOnSubmitMessage}
         />
-      </CopilotChatConfigurationProvider>
+      </CopilotChatConfigurationProvider>,
     );
     sendButton = getSendButton(container);
     expect(sendButton?.disabled).toBe(false);
@@ -256,7 +265,7 @@ describe("CopilotChatInput", () => {
           onChange={mockOnChange}
           onSubmitMessage={mockOnSubmitMessage}
         />
-      </CopilotChatConfigurationProvider>
+      </CopilotChatConfigurationProvider>,
     );
     sendButton = getSendButton(container);
     expect(sendButton?.disabled).toBe(true);
@@ -272,7 +281,7 @@ describe("CopilotChatInput", () => {
         className="custom-container"
         textArea="custom-textarea"
         sendButton="custom-button"
-      />
+      />,
     );
 
     const containerDiv = container.firstChild as HTMLElement;
@@ -287,7 +296,7 @@ describe("CopilotChatInput", () => {
   it("accepts custom components via slots", () => {
     const mockOnChange = vi.fn();
     const CustomButton = (
-      props: React.ButtonHTMLAttributes<HTMLButtonElement>
+      props: React.ButtonHTMLAttributes<HTMLButtonElement>,
     ) => (
       <button {...props} data-testid="custom-button">
         Send Now
@@ -300,7 +309,7 @@ describe("CopilotChatInput", () => {
         onChange={mockOnChange}
         onSubmitMessage={mockOnSubmitMessage}
         sendButton={CustomButton}
-      />
+      />,
     );
 
     const customButton = screen.getByTestId("custom-button");
@@ -323,7 +332,7 @@ describe("CopilotChatInput", () => {
             {TextArea}
           </div>
         )}
-      </CopilotChatInput>
+      </CopilotChatInput>,
     );
 
     const customLayout = screen.getByTestId("custom-layout");
@@ -333,7 +342,7 @@ describe("CopilotChatInput", () => {
 
   it("updates its internal layout data attribute when content expands", async () => {
     renderWithProvider(
-      <CopilotChatInput onSubmitMessage={mockOnSubmitMessage} />
+      <CopilotChatInput onSubmitMessage={mockOnSubmitMessage} />,
     );
 
     const textarea = screen.getByRole("textbox");
@@ -358,7 +367,7 @@ describe("CopilotChatInput", () => {
           { label: "Say hi", action: handleFirst },
           { label: "Open docs", action: handleSecond },
         ]}
-      />
+      />,
     );
 
     const textarea = screen.getByRole("textbox");
@@ -369,7 +378,11 @@ describe("CopilotChatInput", () => {
     expect(screen.queryByText("Say hi")).not.toBeNull();
     expect(screen.queryByText("Open docs")).not.toBeNull();
 
-    fireEvent.keyDown(textarea, { key: "ArrowDown", code: "ArrowDown", keyCode: 40 });
+    fireEvent.keyDown(textarea, {
+      key: "ArrowDown",
+      code: "ArrowDown",
+      keyCode: 40,
+    });
     fireEvent.keyDown(textarea, { key: "Enter", code: "Enter", keyCode: 13 });
 
     expect(handleSecond).toHaveBeenCalledTimes(1);
@@ -391,7 +404,7 @@ describe("CopilotChatInput", () => {
           { label: "Open CopilotKit", action: vi.fn() },
           { label: "Help me operate", action: vi.fn() },
         ]}
-      />
+      />,
     );
 
     const textarea = screen.getByRole("textbox");
@@ -403,7 +416,11 @@ describe("CopilotChatInput", () => {
     expect(options[0]?.textContent?.includes("Open CopilotKit")).toBe(true);
     expect(options[0]?.getAttribute("aria-selected")).toBe("true");
 
-    fireEvent.keyDown(textarea, { key: "ArrowDown", code: "ArrowDown", keyCode: 40 });
+    fireEvent.keyDown(textarea, {
+      key: "ArrowDown",
+      code: "ArrowDown",
+      keyCode: 40,
+    });
     await waitFor(() => {
       const updated = within(menu).getAllByRole("option");
       expect(updated[1]?.getAttribute("aria-selected")).toBe("true");
@@ -414,7 +431,9 @@ describe("CopilotChatInput", () => {
     await waitFor(() => {
       const updatedOptions = within(menu).getAllByRole("option");
       expect(updatedOptions[0]?.getAttribute("aria-selected")).toBe("true");
-      expect(updatedOptions[0]?.textContent?.startsWith("Open CopilotKit")).toBe(true);
+      expect(
+        updatedOptions[0]?.textContent?.startsWith("Open CopilotKit"),
+      ).toBe(true);
     });
   });
 
@@ -425,7 +444,10 @@ describe("CopilotChatInput", () => {
     }));
 
     renderWithProvider(
-      <CopilotChatInput onSubmitMessage={mockOnSubmitMessage} toolsMenu={tools} />
+      <CopilotChatInput
+        onSubmitMessage={mockOnSubmitMessage}
+        toolsMenu={tools}
+      />,
     );
 
     const textarea = screen.getByRole("textbox");
@@ -452,19 +474,24 @@ describe("CopilotChatInput", () => {
           {
             label,
             action: () => {
-              const textareaElement = document.querySelector<HTMLTextAreaElement>("textarea");
+              const textareaElement =
+                document.querySelector<HTMLTextAreaElement>("textarea");
               if (!textareaElement) {
                 return;
               }
 
-              const nativeSetter =
-                Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, "value")?.set;
+              const nativeSetter = Object.getOwnPropertyDescriptor(
+                window.HTMLTextAreaElement.prototype,
+                "value",
+              )?.set;
               nativeSetter?.call(textareaElement, greeting);
-              textareaElement.dispatchEvent(new Event("input", { bubbles: true }));
+              textareaElement.dispatchEvent(
+                new Event("input", { bubbles: true }),
+              );
             },
           },
         ]}
-      />
+      />,
     );
 
     const textarea = screen.getByRole("textbox");
@@ -487,7 +514,7 @@ describe("CopilotChatInput", () => {
         onCancelTranscribe={() => {}}
         onFinishTranscribe={() => {}}
         onAddFile={() => {}}
-      />
+      />,
     );
 
     // Should show cancel button (X icon) - find by svg class
@@ -523,7 +550,7 @@ describe("CopilotChatInput", () => {
         onFinishTranscribe={() => {}}
         onAddFile={() => {}}
         toolsMenu={[{ label: "Test Tool", action: () => {} }]}
-      />
+      />,
     );
 
     // Add button should be disabled (find by Plus icon)
@@ -542,7 +569,7 @@ describe("CopilotChatInput", () => {
         onCancelTranscribe={() => {}}
         onFinishTranscribe={() => {}}
         onAddFile={() => {}}
-      />
+      />,
     );
 
     // Should show recording indicator (canvas element)
@@ -562,7 +589,7 @@ describe("CopilotChatInput", () => {
         onCancelTranscribe={() => {}}
         onFinishTranscribe={() => {}}
         onAddFile={() => {}}
-      />
+      />,
     );
 
     // Should show textarea in input mode
@@ -574,7 +601,9 @@ describe("CopilotChatInput", () => {
   });
 
   it("positions the textarea next to the add menu button when single line", () => {
-    renderWithProvider(<CopilotChatInput onSubmitMessage={mockOnSubmitMessage} />);
+    renderWithProvider(
+      <CopilotChatInput onSubmitMessage={mockOnSubmitMessage} />,
+    );
 
     const textarea = screen.getByRole("textbox");
     const layoutCell = textarea.parentElement as HTMLElement;
@@ -586,7 +615,9 @@ describe("CopilotChatInput", () => {
   });
 
   it("toggles textarea padding based on multiline state", async () => {
-    const { container } = renderWithProvider(<CopilotChatInput onSubmitMessage={mockOnSubmitMessage} />);
+    const { container } = renderWithProvider(
+      <CopilotChatInput onSubmitMessage={mockOnSubmitMessage} />,
+    );
 
     mockLayoutMetrics(container);
 
@@ -594,7 +625,12 @@ describe("CopilotChatInput", () => {
     expect(textarea.className).toContain("pr-5");
     expect(textarea.className).not.toContain("px-5");
 
-    fireEvent.change(textarea, { target: { value: "a very long line that should wrap once it exceeds the width of the input" } });
+    fireEvent.change(textarea, {
+      target: {
+        value:
+          "a very long line that should wrap once it exceeds the width of the input",
+      },
+    });
 
     await waitFor(() => {
       expect(textarea.className).toContain("px-5");
@@ -603,7 +639,9 @@ describe("CopilotChatInput", () => {
   });
 
   it("returns to the compact layout when text no longer needs extra space", async () => {
-    const { container } = renderWithProvider(<CopilotChatInput onSubmitMessage={mockOnSubmitMessage} />);
+    const { container } = renderWithProvider(
+      <CopilotChatInput onSubmitMessage={mockOnSubmitMessage} />,
+    );
 
     mockLayoutMetrics(container);
 
@@ -630,11 +668,15 @@ describe("CopilotChatInput", () => {
   });
 
   it("moves the textarea above the add menu button when multiple lines", async () => {
-    renderWithProvider(<CopilotChatInput onSubmitMessage={mockOnSubmitMessage} />);
+    renderWithProvider(
+      <CopilotChatInput onSubmitMessage={mockOnSubmitMessage} />,
+    );
 
     const textarea = screen.getByRole("textbox");
 
-    fireEvent.change(textarea, { target: { value: "first line\nsecond line" } });
+    fireEvent.change(textarea, {
+      target: { value: "first line\nsecond line" },
+    });
 
     await waitFor(() => {
       const layoutCell = textarea.parentElement as HTMLElement;
@@ -645,7 +687,7 @@ describe("CopilotChatInput", () => {
 
   it("disables the add menu button when no menu items are provided", () => {
     const { container } = renderWithProvider(
-      <CopilotChatInput onSubmitMessage={mockOnSubmitMessage} />
+      <CopilotChatInput onSubmitMessage={mockOnSubmitMessage} />,
     );
 
     const addButton = getAddMenuButton(container);
@@ -658,7 +700,10 @@ describe("CopilotChatInput", () => {
     const handleAddFile = vi.fn();
 
     const { container } = renderWithProvider(
-      <CopilotChatInput onAddFile={handleAddFile} onSubmitMessage={mockOnSubmitMessage} />
+      <CopilotChatInput
+        onAddFile={handleAddFile}
+        onSubmitMessage={mockOnSubmitMessage}
+      />,
     );
 
     mockLayoutMetrics(container);
@@ -674,7 +719,9 @@ describe("CopilotChatInput", () => {
       expect(addButton?.getAttribute("data-state")).toBe("open");
     });
 
-    const menuItem = await screen.findByRole("menuitem", { name: "Add photos or files" });
+    const menuItem = await screen.findByRole("menuitem", {
+      name: "Add photos or files",
+    });
     fireEvent.click(menuItem);
 
     expect(handleAddFile).toHaveBeenCalledTimes(1);
@@ -685,11 +732,9 @@ describe("CopilotChatInput", () => {
 
     const { container } = renderWithProvider(
       <CopilotChatInput
-        toolsMenu={[
-          { label: "Custom action", action: handleCustom },
-        ]}
+        toolsMenu={[{ label: "Custom action", action: handleCustom }]}
         onSubmitMessage={mockOnSubmitMessage}
-      />
+      />,
     );
 
     mockLayoutMetrics(container);
@@ -703,7 +748,9 @@ describe("CopilotChatInput", () => {
       expect(addButton?.getAttribute("data-state")).toBe("open");
     });
 
-    const menuItem = await screen.findByRole("menuitem", { name: "Custom action" });
+    const menuItem = await screen.findByRole("menuitem", {
+      name: "Custom action",
+    });
     fireEvent.click(menuItem);
 
     expect(handleCustom).toHaveBeenCalledTimes(1);
@@ -720,7 +767,7 @@ describe("CopilotChatInput", () => {
           value="test value"
           onChange={mockOnChange}
           onSubmitMessage={mockOnSubmitMessage}
-        />
+        />,
       );
 
       const input = screen.getByRole("textbox");
@@ -736,7 +783,7 @@ describe("CopilotChatInput", () => {
           value=""
           onChange={mockOnChange}
           onSubmitMessage={mockOnSubmitMessage}
-        />
+        />,
       );
 
       const input = screen.getByRole("textbox");
@@ -754,7 +801,7 @@ describe("CopilotChatInput", () => {
           value="hello world"
           onChange={mockOnChange}
           onSubmitMessage={mockOnSubmitMessage}
-        />
+        />,
       );
 
       const input = screen.getByRole("textbox");
@@ -772,7 +819,7 @@ describe("CopilotChatInput", () => {
           value="test message"
           onChange={mockOnChange}
           onSubmitMessage={mockOnSubmitMessage}
-        />
+        />,
       );
 
       const sendButton = getSendButton(container);
@@ -791,7 +838,7 @@ describe("CopilotChatInput", () => {
           value="  hello world  "
           onChange={mockOnChange}
           onSubmitMessage={mockOnSubmitMessage}
-        />
+        />,
       );
 
       const input = screen.getByRole("textbox");
@@ -809,7 +856,7 @@ describe("CopilotChatInput", () => {
           value="   "
           onChange={mockOnChange}
           onSubmitMessage={mockOnSubmitMessage}
-        />
+        />,
       );
 
       const sendButton = getSendButton(container);
@@ -823,7 +870,7 @@ describe("CopilotChatInput", () => {
       const mockOnChange = vi.fn();
 
       const { container } = renderWithProvider(
-        <CopilotChatInput value="some text" onChange={mockOnChange} />
+        <CopilotChatInput value="some text" onChange={mockOnChange} />,
       );
 
       const sendButton = getSendButton(container);
@@ -839,7 +886,7 @@ describe("CopilotChatInput", () => {
           value=""
           onChange={mockOnChange}
           onSubmitMessage={mockOnSubmitMessage}
-        />
+        />,
       );
 
       const sendButton = getSendButton(container);
@@ -855,7 +902,7 @@ describe("CopilotChatInput", () => {
           value="hello"
           onChange={mockOnChange}
           onSubmitMessage={mockOnSubmitMessage}
-        />
+        />,
       );
 
       const sendButton = getSendButton(container);
@@ -871,7 +918,7 @@ describe("CopilotChatInput", () => {
           value="initial"
           onChange={mockOnChange}
           onSubmitMessage={mockOnSubmitMessage}
-        />
+        />,
       );
 
       const input = screen.getByRole("textbox");
@@ -885,7 +932,7 @@ describe("CopilotChatInput", () => {
             onChange={mockOnChange}
             onSubmitMessage={mockOnSubmitMessage}
           />
-        </CopilotChatConfigurationProvider>
+        </CopilotChatConfigurationProvider>,
       );
 
       expect((input as HTMLTextAreaElement).value).toBe("updated");
@@ -900,7 +947,7 @@ describe("CopilotChatInput", () => {
           value="test message"
           onChange={mockOnChange}
           onSubmitMessage={mockOnSubmitMessage}
-        />
+        />,
       );
 
       const input = screen.getByRole("textbox");

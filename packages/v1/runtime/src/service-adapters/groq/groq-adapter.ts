@@ -125,7 +125,9 @@ export class GroqAdapter implements CopilotServiceAdapter {
         ...(forwardedParameters?.stop && { stop: forwardedParameters.stop }),
         ...(toolChoice && { tool_choice: toolChoice }),
         ...(this.disableParallelToolCalls && { parallel_tool_calls: false }),
-        ...(forwardedParameters?.temperature && { temperature: forwardedParameters.temperature }),
+        ...(forwardedParameters?.temperature && {
+          temperature: forwardedParameters.temperature,
+        }),
       });
     } catch (error) {
       throw convertServiceAdapterError(error, "Groq");
@@ -147,9 +149,14 @@ export class GroqAdapter implements CopilotServiceAdapter {
           if (mode === "message" && toolCall?.id) {
             mode = null;
             eventStream$.sendTextMessageEnd({ messageId: currentMessageId });
-          } else if (mode === "function" && (toolCall === undefined || toolCall?.id)) {
+          } else if (
+            mode === "function" &&
+            (toolCall === undefined || toolCall?.id)
+          ) {
             mode = null;
-            eventStream$.sendActionExecutionEnd({ actionExecutionId: currentToolCallId });
+            eventStream$.sendActionExecutionEnd({
+              actionExecutionId: currentToolCallId,
+            });
           }
 
           // If we send a new message type, send the appropriate start event.
@@ -165,7 +172,9 @@ export class GroqAdapter implements CopilotServiceAdapter {
             } else if (content) {
               mode = "message";
               currentMessageId = chunk.id;
-              eventStream$.sendTextMessageStart({ messageId: currentMessageId });
+              eventStream$.sendTextMessageStart({
+                messageId: currentMessageId,
+              });
             }
           }
 
@@ -187,7 +196,9 @@ export class GroqAdapter implements CopilotServiceAdapter {
         if (mode === "message") {
           eventStream$.sendTextMessageEnd({ messageId: currentMessageId });
         } else if (mode === "function") {
-          eventStream$.sendActionExecutionEnd({ actionExecutionId: currentToolCallId });
+          eventStream$.sendActionExecutionEnd({
+            actionExecutionId: currentToolCallId,
+          });
         }
       } catch (error) {
         throw convertServiceAdapterError(error, "Groq");

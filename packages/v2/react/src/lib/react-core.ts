@@ -51,22 +51,21 @@ export class CopilotKitCoreReact extends CopilotKitCore {
     this._toolCallRenderers = toolCallRenderers;
 
     // Notify React-specific subscribers
-    void this.notifySubscribers(
-      (subscriber) => {
-        const reactSubscriber = subscriber as CopilotKitCoreReactSubscriber;
-        if (reactSubscriber.onToolCallRenderersChanged) {
-          reactSubscriber.onToolCallRenderersChanged({
-            copilotkit: this,
-            toolCallRenderers: this.toolCallRenderers,
-          });
-        }
-      },
-      "Subscriber onToolCallRenderersChanged error:"
-    );
+    void this.notifySubscribers((subscriber) => {
+      const reactSubscriber = subscriber as CopilotKitCoreReactSubscriber;
+      if (reactSubscriber.onToolCallRenderersChanged) {
+        reactSubscriber.onToolCallRenderersChanged({
+          copilotkit: this,
+          toolCallRenderers: this.toolCallRenderers,
+        });
+      }
+    }, "Subscriber onToolCallRenderersChanged error:");
   }
 
   // Override to accept React-specific subscriber type
-  subscribe(subscriber: CopilotKitCoreReactSubscriber): CopilotKitCoreSubscription {
+  subscribe(
+    subscriber: CopilotKitCoreReactSubscriber,
+  ): CopilotKitCoreSubscription {
     return super.subscribe(subscriber);
   }
 }

@@ -49,7 +49,10 @@ export class MockAgent {
     this.state = options.state || {};
   }
 
-  async runAgent(input: any, subscriber?: any): Promise<{ newMessages: Message[] }> {
+  async runAgent(
+    input: any,
+    subscriber?: any,
+  ): Promise<{ newMessages: Message[] }> {
     this.runAgentCalls.push(input);
     // Also track on parent if this is a clone
     if (this._parentAgent) {
@@ -61,7 +64,7 @@ export class MockAgent {
     }
 
     if (this.runAgentDelay > 0) {
-      await new Promise(resolve => setTimeout(resolve, this.runAgentDelay));
+      await new Promise((resolve) => setTimeout(resolve, this.runAgentDelay));
     }
 
     if (this.error) {
@@ -71,7 +74,9 @@ export class MockAgent {
     // If there's a subscriber with onMessagesChanged, call it with the messages
     if (subscriber?.onMessagesChanged && this.newMessages.length > 0) {
       // Trigger the subscriber callback with messages
-      subscriber.onMessagesChanged({ messages: [...this.messages, ...this.newMessages] });
+      subscriber.onMessagesChanged({
+        messages: [...this.messages, ...this.newMessages],
+      });
     }
 
     // Simulate real agent behavior: during runAgent, streamed messages are
@@ -120,7 +125,7 @@ export function createMessage(overrides: Partial<Message> = {}): Message {
 }
 
 export function createAssistantMessage(
-  overrides: Partial<Message> = {}
+  overrides: Partial<Message> = {},
 ): Message {
   return createMessage({
     role: "assistant",
@@ -132,7 +137,7 @@ export function createAssistantMessage(
 export function createToolCallMessage(
   toolCallName: string,
   args: any = {},
-  overrides: Partial<Message> = {}
+  overrides: Partial<Message> = {},
 ): Message {
   const toolCallId = `tool-call-${Math.random().toString(36).substr(2, 9)}`;
   return createAssistantMessage({
@@ -154,7 +159,7 @@ export function createToolCallMessage(
 export function createToolResultMessage(
   toolCallId: string,
   content: string,
-  overrides: Partial<Message> = {}
+  overrides: Partial<Message> = {},
 ): Message {
   return createMessage({
     role: "tool",
@@ -165,7 +170,7 @@ export function createToolResultMessage(
 }
 
 export function createTool<T extends Record<string, unknown>>(
-  overrides: Partial<FrontendTool<T>> = {}
+  overrides: Partial<FrontendTool<T>> = {},
 ): FrontendTool<T> {
   return {
     name: `tool-${Math.random().toString(36).substr(2, 9)}`,
@@ -178,7 +183,7 @@ export function createTool<T extends Record<string, unknown>>(
 
 export function createMultipleToolCallsMessage(
   toolCalls: Array<{ name: string; args?: any }>,
-  overrides: Partial<Message> = {}
+  overrides: Partial<Message> = {},
 ): Message {
   return createAssistantMessage({
     content: "",
@@ -197,14 +202,14 @@ export function createMultipleToolCallsMessage(
 export async function waitForCondition(
   condition: () => boolean,
   timeout: number = 1000,
-  interval: number = 10
+  interval: number = 10,
 ): Promise<void> {
   const start = Date.now();
   while (!condition()) {
     if (Date.now() - start > timeout) {
       throw new Error("Timeout waiting for condition");
     }
-    await new Promise(resolve => setTimeout(resolve, interval));
+    await new Promise((resolve) => setTimeout(resolve, interval));
   }
 }
 
@@ -212,7 +217,7 @@ export async function waitForCondition(
  * Helper to create a dynamic suggestions config
  */
 export function createSuggestionsConfig(
-  overrides: Partial<DynamicSuggestionsConfig> = {}
+  overrides: Partial<DynamicSuggestionsConfig> = {},
 ): DynamicSuggestionsConfig {
   return {
     instructions: "Suggest helpful next actions",
@@ -230,7 +235,7 @@ export function createSuggestionsConfig(
  */
 export function createSuggestionToolCall(
   suggestions: Array<{ title: string; message: string }>,
-  overrides: Partial<Message> = {}
+  overrides: Partial<Message> = {},
 ): Message {
   const toolCallId = `suggest-call-${Math.random().toString(36).substr(2, 9)}`;
   return createAssistantMessage({
@@ -260,6 +265,6 @@ export function createStreamingSuggestionChunks(): string[] {
     ',{"title":"Second",',
     '"message":"Do second thing"}',
     ',{"title":"Third","message":"Do third thing"}',
-    ']}',
+    "]}",
   ];
 }

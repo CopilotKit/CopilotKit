@@ -1,4 +1,10 @@
-import { effect, inject, Injector, runInInjectionContext, Signal } from "@angular/core";
+import {
+  effect,
+  inject,
+  Injector,
+  runInInjectionContext,
+  Signal,
+} from "@angular/core";
 import { Context } from "@ag-ui/client";
 import { CopilotKit } from "./copilotkit";
 
@@ -12,7 +18,10 @@ export interface ConnectAgentContextConfig {
  * @param context - The context (or a signal of context) to connect to the agent.
  * @param config - Optional configuration for connecting the context.
  */
-export function connectAgentContext(context: Context | Signal<Context>, config?: ConnectAgentContextConfig) {
+export function connectAgentContext(
+  context: Context | Signal<Context>,
+  config?: ConnectAgentContextConfig,
+) {
   const injector = inject(Injector, { optional: true }) ?? config?.injector;
 
   if (!injector) {

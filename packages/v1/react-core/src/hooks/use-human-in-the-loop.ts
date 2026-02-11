@@ -1,4 +1,8 @@
-import { ActionRenderProps, ActionRenderPropsWait, FrontendAction } from "../types";
+import {
+  ActionRenderProps,
+  ActionRenderPropsWait,
+  FrontendAction,
+} from "../types";
 import {
   CopilotKitError,
   CopilotKitErrorCode,
@@ -9,11 +13,20 @@ import {
 } from "@copilotkit/shared";
 import { useHumanInTheLoop as useHumanInTheLoopVNext } from "@copilotkitnext/react";
 import { ToolCallStatus } from "@copilotkitnext/core";
-import React, { ComponentType, FunctionComponent, useEffect, useRef } from "react";
+import React, {
+  ComponentType,
+  FunctionComponent,
+  useEffect,
+  useRef,
+} from "react";
 
 type HumanInTheLoopOptions = Parameters<typeof useHumanInTheLoopVNext>[0];
 type HumanInTheLoopRender = HumanInTheLoopOptions["render"];
-type HumanInTheLoopRenderArgs = HumanInTheLoopRender extends (props: infer P) => any ? P : never;
+type HumanInTheLoopRenderArgs = HumanInTheLoopRender extends (
+  props: infer P,
+) => any
+  ? P
+  : never;
 
 export type UseHumanInTheLoopArgs<T extends Parameter[] | [] = []> = {
   available?: "disabled" | "enabled";
@@ -90,7 +103,9 @@ export function useHumanInTheLoop<const T extends Parameter[] | [] = []>(
               args: mappedArgs,
               respond: args.respond,
               status: args.status,
-              result: args.result ? parseJson(args.result, args.result) : args.result,
+              result: args.result
+                ? parseJson(args.result, args.result)
+                : args.result,
               handler: undefined,
             };
           default:
@@ -117,6 +132,7 @@ export function useHumanInTheLoop<const T extends Parameter[] | [] = []>(
     followUp,
     parameters: zodParameters,
     render: ((args: HumanInTheLoopRenderArgs) =>
-      renderRef.current?.(args as HitlRendererArgs) ?? null) as HumanInTheLoopOptions["render"],
+      renderRef.current?.(args as HitlRendererArgs) ??
+      null) as HumanInTheLoopOptions["render"],
   });
 }

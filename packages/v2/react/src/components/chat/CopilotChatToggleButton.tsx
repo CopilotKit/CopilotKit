@@ -12,7 +12,12 @@ const DefaultOpenIcon: React.FC<React.SVGProps<SVGSVGElement>> = ({
   className,
   ...props
 }) => (
-  <MessageCircle className={cn("h-6 w-6", className)} strokeWidth={1.75} fill="currentColor" {...props} />
+  <MessageCircle
+    className={cn("h-6 w-6", className)}
+    strokeWidth={1.75}
+    fill="currentColor"
+    {...props}
+  />
 );
 
 const DefaultCloseIcon: React.FC<React.SVGProps<SVGSVGElement>> = ({
@@ -23,8 +28,10 @@ const DefaultCloseIcon: React.FC<React.SVGProps<SVGSVGElement>> = ({
 DefaultOpenIcon.displayName = "CopilotChatToggleButton.OpenIcon";
 DefaultCloseIcon.displayName = "CopilotChatToggleButton.CloseIcon";
 
-export interface CopilotChatToggleButtonProps
-  extends Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, "children"> {
+export interface CopilotChatToggleButtonProps extends Omit<
+  React.ButtonHTMLAttributes<HTMLButtonElement>,
+  "children"
+> {
   /** Optional slot override for the chat (closed) icon. */
   openIcon?: SlotValue<typeof DefaultOpenIcon>;
   /** Optional slot override for the close icon. */
@@ -32,7 +39,8 @@ export interface CopilotChatToggleButtonProps
 }
 
 const ICON_TRANSITION_STYLE: React.CSSProperties = Object.freeze({
-  transition: "opacity 120ms ease-out, transform 260ms cubic-bezier(0.22, 1, 0.36, 1)",
+  transition:
+    "opacity 120ms ease-out, transform 260ms cubic-bezier(0.22, 1, 0.36, 1)",
 });
 
 const ICON_WRAPPER_BASE =
@@ -46,13 +54,16 @@ const BUTTON_BASE_CLASSES = cn(
   "cursor-pointer",
   "active:scale-[0.96]",
   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
-  "disabled:pointer-events-none disabled:opacity-60"
+  "disabled:pointer-events-none disabled:opacity-60",
 );
 
 export const CopilotChatToggleButton = React.forwardRef<
   HTMLButtonElement,
   CopilotChatToggleButtonProps
->(function CopilotChatToggleButton({ openIcon, closeIcon, className, ...buttonProps }, ref) {
+>(function CopilotChatToggleButton(
+  { openIcon, closeIcon, className, ...buttonProps },
+  ref,
+) {
   const { onClick, type, disabled, ...restProps } = buttonProps;
 
   const configuration = useCopilotChatConfiguration();
@@ -80,25 +91,17 @@ export const CopilotChatToggleButton = React.forwardRef<
     setModalOpen(nextOpen);
   };
 
-  const renderedOpenIcon = renderSlot(
-    openIcon,
-    DefaultOpenIcon,
-    {
-      className: "h-6 w-6",
-      "aria-hidden": true,
-      focusable: false,
-    }
-  );
+  const renderedOpenIcon = renderSlot(openIcon, DefaultOpenIcon, {
+    className: "h-6 w-6",
+    "aria-hidden": true,
+    focusable: false,
+  });
 
-  const renderedCloseIcon = renderSlot(
-    closeIcon,
-    DefaultCloseIcon,
-    {
-      className: "h-6 w-6",
-      "aria-hidden": true,
-      focusable: false,
-    }
-  );
+  const renderedCloseIcon = renderSlot(closeIcon, DefaultCloseIcon, {
+    className: "h-6 w-6",
+    "aria-hidden": true,
+    focusable: false,
+  });
 
   const openIconElement = (
     <span
@@ -137,7 +140,9 @@ export const CopilotChatToggleButton = React.forwardRef<
       data-slot="chat-toggle-button"
       data-state={isOpen ? "open" : "closed"}
       className={cn(BUTTON_BASE_CLASSES, className)}
-      aria-label={isOpen ? labels.chatToggleCloseLabel : labels.chatToggleOpenLabel}
+      aria-label={
+        isOpen ? labels.chatToggleCloseLabel : labels.chatToggleOpenLabel
+      }
       aria-pressed={isOpen}
       disabled={disabled}
       onClick={handleClick}

@@ -53,19 +53,23 @@ describe("useKeyboardHeight", () => {
     beforeEach(() => {
       mockVisualViewport = {
         height: 800,
-        addEventListener: vi.fn((type: string, listener: (event: Event) => void) => {
-          const listeners = visualViewportListeners.get(type) || [];
-          listeners.push(listener);
-          visualViewportListeners.set(type, listeners);
-        }),
-        removeEventListener: vi.fn((type: string, listener: (event: Event) => void) => {
-          const listeners = visualViewportListeners.get(type) || [];
-          const index = listeners.indexOf(listener);
-          if (index > -1) {
-            listeners.splice(index, 1);
-          }
-          visualViewportListeners.set(type, listeners);
-        }),
+        addEventListener: vi.fn(
+          (type: string, listener: (event: Event) => void) => {
+            const listeners = visualViewportListeners.get(type) || [];
+            listeners.push(listener);
+            visualViewportListeners.set(type, listeners);
+          },
+        ),
+        removeEventListener: vi.fn(
+          (type: string, listener: (event: Event) => void) => {
+            const listeners = visualViewportListeners.get(type) || [];
+            const index = listeners.indexOf(listener);
+            if (index > -1) {
+              listeners.splice(index, 1);
+            }
+            visualViewportListeners.set(type, listeners);
+          },
+        ),
       };
 
       Object.defineProperty(window, "visualViewport", {
@@ -164,13 +168,25 @@ describe("useKeyboardHeight", () => {
     it("cleans up event listeners on unmount", () => {
       const { unmount } = renderHook(() => useKeyboardHeight());
 
-      expect(mockVisualViewport!.addEventListener).toHaveBeenCalledWith("resize", expect.any(Function));
-      expect(mockVisualViewport!.addEventListener).toHaveBeenCalledWith("scroll", expect.any(Function));
+      expect(mockVisualViewport!.addEventListener).toHaveBeenCalledWith(
+        "resize",
+        expect.any(Function),
+      );
+      expect(mockVisualViewport!.addEventListener).toHaveBeenCalledWith(
+        "scroll",
+        expect.any(Function),
+      );
 
       unmount();
 
-      expect(mockVisualViewport!.removeEventListener).toHaveBeenCalledWith("resize", expect.any(Function));
-      expect(mockVisualViewport!.removeEventListener).toHaveBeenCalledWith("scroll", expect.any(Function));
+      expect(mockVisualViewport!.removeEventListener).toHaveBeenCalledWith(
+        "resize",
+        expect.any(Function),
+      );
+      expect(mockVisualViewport!.removeEventListener).toHaveBeenCalledWith(
+        "scroll",
+        expect.any(Function),
+      );
     });
   });
 });

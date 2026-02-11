@@ -1,7 +1,12 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { CopilotKitCore } from "../core";
 import { Suggestion } from "../types";
-import { MockAgent, createSuggestionsConfig, createMessage, createAssistantMessage } from "./test-utils";
+import {
+  MockAgent,
+  createSuggestionsConfig,
+  createMessage,
+  createAssistantMessage,
+} from "./test-utils";
 
 describe("CopilotKitCore - Suggestions E2E", () => {
   let copilotKitCore: CopilotKitCore;
@@ -19,8 +24,14 @@ describe("CopilotKitCore - Suggestions E2E", () => {
         messages: [createMessage({ content: "User asked something" })],
       });
 
-      copilotKitCore.addAgent__unsafe_dev_only({ id: "default", agent: providerAgent as any });
-      copilotKitCore.addAgent__unsafe_dev_only({ id: "consumer", agent: consumerAgent as any });
+      copilotKitCore.addAgent__unsafe_dev_only({
+        id: "default",
+        agent: providerAgent as any,
+      });
+      copilotKitCore.addAgent__unsafe_dev_only({
+        id: "consumer",
+        agent: consumerAgent as any,
+      });
 
       // Setup suggestions config
       const config = createSuggestionsConfig({
@@ -71,8 +82,16 @@ describe("CopilotKitCore - Suggestions E2E", () => {
       // Verify suggestions were generated
       const result = copilotKitCore.getSuggestions("consumer");
       expect(result.suggestions).toHaveLength(2);
-      expect(result.suggestions[0]).toEqual({ title: "Action 1", message: "Do action 1", isLoading: false });
-      expect(result.suggestions[1]).toEqual({ title: "Action 2", message: "Do action 2", isLoading: false });
+      expect(result.suggestions[0]).toEqual({
+        title: "Action 1",
+        message: "Do action 1",
+        isLoading: false,
+      });
+      expect(result.suggestions[1]).toEqual({
+        title: "Action 2",
+        message: "Do action 2",
+        isLoading: false,
+      });
 
       // Verify subscriber was notified
       await vi.waitFor(() => {
@@ -84,8 +103,14 @@ describe("CopilotKitCore - Suggestions E2E", () => {
       const providerAgent = new MockAgent({ agentId: "default" });
       const consumerAgent = new MockAgent({ agentId: "consumer" });
 
-      copilotKitCore.addAgent__unsafe_dev_only({ id: "default", agent: providerAgent as any });
-      copilotKitCore.addAgent__unsafe_dev_only({ id: "consumer", agent: consumerAgent as any });
+      copilotKitCore.addAgent__unsafe_dev_only({
+        id: "default",
+        agent: providerAgent as any,
+      });
+      copilotKitCore.addAgent__unsafe_dev_only({
+        id: "consumer",
+        agent: consumerAgent as any,
+      });
 
       const config = createSuggestionsConfig({
         instructions: "Focus on data analysis tasks",
@@ -103,7 +128,9 @@ describe("CopilotKitCore - Suggestions E2E", () => {
               type: "function",
               function: {
                 name: "copilotkitSuggest",
-                arguments: ['{"suggestions":[{"title":"Test","message":"Test"}]}'] as any,
+                arguments: [
+                  '{"suggestions":[{"title":"Test","message":"Test"}]}',
+                ] as any,
               },
             },
           ],
@@ -132,8 +159,14 @@ describe("CopilotKitCore - Suggestions E2E", () => {
       const providerAgent = new MockAgent({ agentId: "default" });
       const consumerAgent = new MockAgent({ agentId: "consumer" });
 
-      copilotKitCore.addAgent__unsafe_dev_only({ id: "default", agent: providerAgent as any });
-      copilotKitCore.addAgent__unsafe_dev_only({ id: "consumer", agent: consumerAgent as any });
+      copilotKitCore.addAgent__unsafe_dev_only({
+        id: "default",
+        agent: providerAgent as any,
+      });
+      copilotKitCore.addAgent__unsafe_dev_only({
+        id: "consumer",
+        agent: consumerAgent as any,
+      });
 
       const config = createSuggestionsConfig();
       copilotKitCore.addSuggestionsConfig(config);
@@ -147,7 +180,9 @@ describe("CopilotKitCore - Suggestions E2E", () => {
               type: "function",
               function: {
                 name: "copilotkitSuggest",
-                arguments: ['{"suggestions":[{"title":"Test","message":"Test"}]}'] as any,
+                arguments: [
+                  '{"suggestions":[{"title":"Test","message":"Test"}]}',
+                ] as any,
               },
             },
           ],
@@ -175,9 +210,18 @@ describe("CopilotKitCore - Suggestions E2E", () => {
       const targetAgent = new MockAgent({ agentId: "target" });
       const otherAgent = new MockAgent({ agentId: "other" });
 
-      copilotKitCore.addAgent__unsafe_dev_only({ id: "default", agent: providerAgent as any });
-      copilotKitCore.addAgent__unsafe_dev_only({ id: "target", agent: targetAgent as any });
-      copilotKitCore.addAgent__unsafe_dev_only({ id: "other", agent: otherAgent as any });
+      copilotKitCore.addAgent__unsafe_dev_only({
+        id: "default",
+        agent: providerAgent as any,
+      });
+      copilotKitCore.addAgent__unsafe_dev_only({
+        id: "target",
+        agent: targetAgent as any,
+      });
+      copilotKitCore.addAgent__unsafe_dev_only({
+        id: "other",
+        agent: otherAgent as any,
+      });
 
       const config = createSuggestionsConfig({
         consumerAgentId: "target",
@@ -193,7 +237,9 @@ describe("CopilotKitCore - Suggestions E2E", () => {
               type: "function",
               function: {
                 name: "copilotkitSuggest",
-                arguments: ['{"suggestions":[{"title":"Test","message":"Test"}]}'] as any,
+                arguments: [
+                  '{"suggestions":[{"title":"Test","message":"Test"}]}',
+                ] as any,
               },
             },
           ],
@@ -222,9 +268,18 @@ describe("CopilotKitCore - Suggestions E2E", () => {
       const agent1 = new MockAgent({ agentId: "agent1" });
       const agent2 = new MockAgent({ agentId: "agent2" });
 
-      copilotKitCore.addAgent__unsafe_dev_only({ id: "default", agent: providerAgent as any });
-      copilotKitCore.addAgent__unsafe_dev_only({ id: "agent1", agent: agent1 as any });
-      copilotKitCore.addAgent__unsafe_dev_only({ id: "agent2", agent: agent2 as any });
+      copilotKitCore.addAgent__unsafe_dev_only({
+        id: "default",
+        agent: providerAgent as any,
+      });
+      copilotKitCore.addAgent__unsafe_dev_only({
+        id: "agent1",
+        agent: agent1 as any,
+      });
+      copilotKitCore.addAgent__unsafe_dev_only({
+        id: "agent2",
+        agent: agent2 as any,
+      });
 
       const config = createSuggestionsConfig({
         consumerAgentId: "*",
@@ -240,7 +295,9 @@ describe("CopilotKitCore - Suggestions E2E", () => {
               type: "function",
               function: {
                 name: "copilotkitSuggest",
-                arguments: ['{"suggestions":[{"title":"Test","message":"Test"}]}'] as any,
+                arguments: [
+                  '{"suggestions":[{"title":"Test","message":"Test"}]}',
+                ] as any,
               },
             },
           ],
@@ -257,7 +314,9 @@ describe("CopilotKitCore - Suggestions E2E", () => {
 
       copilotKitCore.reloadSuggestions("agent2");
       await vi.waitFor(() => {
-        expect(providerAgent.runAgentCalls.length).toBeGreaterThan(callCountAfterFirst);
+        expect(providerAgent.runAgentCalls.length).toBeGreaterThan(
+          callCountAfterFirst,
+        );
       });
     });
 
@@ -265,8 +324,14 @@ describe("CopilotKitCore - Suggestions E2E", () => {
       const providerAgent = new MockAgent({ agentId: "default" });
       const consumerAgent = new MockAgent({ agentId: "consumer" });
 
-      copilotKitCore.addAgent__unsafe_dev_only({ id: "default", agent: providerAgent as any });
-      copilotKitCore.addAgent__unsafe_dev_only({ id: "consumer", agent: consumerAgent as any });
+      copilotKitCore.addAgent__unsafe_dev_only({
+        id: "default",
+        agent: providerAgent as any,
+      });
+      copilotKitCore.addAgent__unsafe_dev_only({
+        id: "consumer",
+        agent: consumerAgent as any,
+      });
 
       const config = createSuggestionsConfig({
         consumerAgentId: undefined,
@@ -282,7 +347,9 @@ describe("CopilotKitCore - Suggestions E2E", () => {
               type: "function",
               function: {
                 name: "copilotkitSuggest",
-                arguments: ['{"suggestions":[{"title":"Test","message":"Test"}]}'] as any,
+                arguments: [
+                  '{"suggestions":[{"title":"Test","message":"Test"}]}',
+                ] as any,
               },
             },
           ],
@@ -302,8 +369,14 @@ describe("CopilotKitCore - Suggestions E2E", () => {
       const providerAgent = new MockAgent({ agentId: "default" });
       const consumerAgent = new MockAgent({ agentId: "consumer" });
 
-      copilotKitCore.addAgent__unsafe_dev_only({ id: "default", agent: providerAgent as any });
-      copilotKitCore.addAgent__unsafe_dev_only({ id: "consumer", agent: consumerAgent as any });
+      copilotKitCore.addAgent__unsafe_dev_only({
+        id: "default",
+        agent: providerAgent as any,
+      });
+      copilotKitCore.addAgent__unsafe_dev_only({
+        id: "consumer",
+        agent: consumerAgent as any,
+      });
 
       const config = createSuggestionsConfig();
       copilotKitCore.addSuggestionsConfig(config);
@@ -326,7 +399,9 @@ describe("CopilotKitCore - Suggestions E2E", () => {
             function: {
               name: "copilotkitSuggest",
               // Incomplete JSON - missing closing bracket
-              arguments: ['{"suggestions":[{"title":"First","message":"First action"}'] as any,
+              arguments: [
+                '{"suggestions":[{"title":"First","message":"First action"}',
+              ] as any,
             },
           },
         ],
@@ -340,7 +415,9 @@ describe("CopilotKitCore - Suggestions E2E", () => {
       });
 
       // Find the update with suggestions (skip empty initial updates)
-      const streamingUpdate = suggestionUpdates.find(update => update.length > 0 && update[0].isLoading === true);
+      const streamingUpdate = suggestionUpdates.find(
+        (update) => update.length > 0 && update[0].isLoading === true,
+      );
       expect(streamingUpdate).toBeDefined();
       expect(streamingUpdate![0]).toMatchObject({
         title: "First",
@@ -367,8 +444,14 @@ describe("CopilotKitCore - Suggestions E2E", () => {
       const providerAgent = new MockAgent({ agentId: "default" });
       const consumerAgent = new MockAgent({ agentId: "consumer" });
 
-      copilotKitCore.addAgent__unsafe_dev_only({ id: "default", agent: providerAgent as any });
-      copilotKitCore.addAgent__unsafe_dev_only({ id: "consumer", agent: consumerAgent as any });
+      copilotKitCore.addAgent__unsafe_dev_only({
+        id: "default",
+        agent: providerAgent as any,
+      });
+      copilotKitCore.addAgent__unsafe_dev_only({
+        id: "consumer",
+        agent: consumerAgent as any,
+      });
 
       const config = createSuggestionsConfig();
       copilotKitCore.addSuggestionsConfig(config);
@@ -420,8 +503,14 @@ describe("CopilotKitCore - Suggestions E2E", () => {
       const providerAgent = new MockAgent({ agentId: "default" });
       const consumerAgent = new MockAgent({ agentId: "consumer" });
 
-      copilotKitCore.addAgent__unsafe_dev_only({ id: "default", agent: providerAgent as any });
-      copilotKitCore.addAgent__unsafe_dev_only({ id: "consumer", agent: consumerAgent as any });
+      copilotKitCore.addAgent__unsafe_dev_only({
+        id: "default",
+        agent: providerAgent as any,
+      });
+      copilotKitCore.addAgent__unsafe_dev_only({
+        id: "consumer",
+        agent: consumerAgent as any,
+      });
 
       // Add two different suggestion configs
       const config1 = createSuggestionsConfig({
@@ -443,7 +532,9 @@ describe("CopilotKitCore - Suggestions E2E", () => {
             type: "function",
             function: {
               name: "copilotkitSuggest",
-              arguments: ['{"suggestions":[{"title":"Action","message":"Do action"}]}'] as any,
+              arguments: [
+                '{"suggestions":[{"title":"Action","message":"Do action"}]}',
+              ] as any,
             },
           },
         ],
@@ -464,9 +555,18 @@ describe("CopilotKitCore - Suggestions E2E", () => {
       const agent1 = new MockAgent({ agentId: "agent1" });
       const agent2 = new MockAgent({ agentId: "agent2" });
 
-      copilotKitCore.addAgent__unsafe_dev_only({ id: "default", agent: providerAgent as any });
-      copilotKitCore.addAgent__unsafe_dev_only({ id: "agent1", agent: agent1 as any });
-      copilotKitCore.addAgent__unsafe_dev_only({ id: "agent2", agent: agent2 as any });
+      copilotKitCore.addAgent__unsafe_dev_only({
+        id: "default",
+        agent: providerAgent as any,
+      });
+      copilotKitCore.addAgent__unsafe_dev_only({
+        id: "agent1",
+        agent: agent1 as any,
+      });
+      copilotKitCore.addAgent__unsafe_dev_only({
+        id: "agent2",
+        agent: agent2 as any,
+      });
 
       const config = createSuggestionsConfig({
         consumerAgentId: "*",
@@ -481,7 +581,9 @@ describe("CopilotKitCore - Suggestions E2E", () => {
             type: "function",
             function: {
               name: "copilotkitSuggest",
-              arguments: ['{"suggestions":[{"title":"Test","message":"Test msg"}]}'] as any,
+              arguments: [
+                '{"suggestions":[{"title":"Test","message":"Test msg"}]}',
+              ] as any,
             },
           },
         ],
@@ -506,8 +608,14 @@ describe("CopilotKitCore - Suggestions E2E", () => {
       const providerAgent = new MockAgent({ agentId: "default" });
       const consumerAgent = new MockAgent({ agentId: "consumer" });
 
-      copilotKitCore.addAgent__unsafe_dev_only({ id: "default", agent: providerAgent as any });
-      copilotKitCore.addAgent__unsafe_dev_only({ id: "consumer", agent: consumerAgent as any });
+      copilotKitCore.addAgent__unsafe_dev_only({
+        id: "default",
+        agent: providerAgent as any,
+      });
+      copilotKitCore.addAgent__unsafe_dev_only({
+        id: "consumer",
+        agent: consumerAgent as any,
+      });
 
       const config1 = createSuggestionsConfig({ instructions: "Type 1" });
       const config2 = createSuggestionsConfig({ instructions: "Type 2" });
@@ -524,7 +632,9 @@ describe("CopilotKitCore - Suggestions E2E", () => {
               type: "function",
               function: {
                 name: "copilotkitSuggest",
-                arguments: ['{"suggestions":[{"title":"Suggestion 1","message":"msg1"}]}'] as any,
+                arguments: [
+                  '{"suggestions":[{"title":"Suggestion 1","message":"msg1"}]}',
+                ] as any,
               },
             },
           ],
@@ -551,8 +661,14 @@ describe("CopilotKitCore - Suggestions E2E", () => {
       const providerAgent = new MockAgent({ agentId: "default" });
       const consumerAgent = new MockAgent({ agentId: "consumer" });
 
-      copilotKitCore.addAgent__unsafe_dev_only({ id: "default", agent: providerAgent as any });
-      copilotKitCore.addAgent__unsafe_dev_only({ id: "consumer", agent: consumerAgent as any });
+      copilotKitCore.addAgent__unsafe_dev_only({
+        id: "default",
+        agent: providerAgent as any,
+      });
+      copilotKitCore.addAgent__unsafe_dev_only({
+        id: "consumer",
+        agent: consumerAgent as any,
+      });
 
       // Add context
       const contextId = copilotKitCore.addContext({
@@ -572,7 +688,9 @@ describe("CopilotKitCore - Suggestions E2E", () => {
               type: "function",
               function: {
                 name: "copilotkitSuggest",
-                arguments: ['{"suggestions":[{"title":"Test","message":"Test"}]}'] as any,
+                arguments: [
+                  '{"suggestions":[{"title":"Test","message":"Test"}]}',
+                ] as any,
               },
             },
           ],
@@ -587,7 +705,10 @@ describe("CopilotKitCore - Suggestions E2E", () => {
 
       const runAgentCall = providerAgent.runAgentCalls[0];
       expect(runAgentCall.context).toEqual([
-        { description: "User preferences", value: { theme: "dark", language: "en" } },
+        {
+          description: "User preferences",
+          value: { theme: "dark", language: "en" },
+        },
       ]);
 
       // Cleanup
@@ -602,8 +723,14 @@ describe("CopilotKitCore - Suggestions E2E", () => {
         properties: { userId: "123", sessionId: "abc" },
       });
 
-      core.addAgent__unsafe_dev_only({ id: "default", agent: providerAgent as any });
-      core.addAgent__unsafe_dev_only({ id: "consumer", agent: consumerAgent as any });
+      core.addAgent__unsafe_dev_only({
+        id: "default",
+        agent: providerAgent as any,
+      });
+      core.addAgent__unsafe_dev_only({
+        id: "consumer",
+        agent: consumerAgent as any,
+      });
 
       const config = createSuggestionsConfig();
       core.addSuggestionsConfig(config);
@@ -617,7 +744,9 @@ describe("CopilotKitCore - Suggestions E2E", () => {
               type: "function",
               function: {
                 name: "copilotkitSuggest",
-                arguments: ['{"suggestions":[{"title":"Test","message":"Test"}]}'] as any,
+                arguments: [
+                  '{"suggestions":[{"title":"Test","message":"Test"}]}',
+                ] as any,
               },
             },
           ],
@@ -641,8 +770,14 @@ describe("CopilotKitCore - Suggestions E2E", () => {
       const providerAgent = new MockAgent({ agentId: "default" });
       const consumerAgent = new MockAgent({ agentId: "consumer" });
 
-      copilotKitCore.addAgent__unsafe_dev_only({ id: "default", agent: providerAgent as any });
-      copilotKitCore.addAgent__unsafe_dev_only({ id: "consumer", agent: consumerAgent as any });
+      copilotKitCore.addAgent__unsafe_dev_only({
+        id: "default",
+        agent: providerAgent as any,
+      });
+      copilotKitCore.addAgent__unsafe_dev_only({
+        id: "consumer",
+        agent: consumerAgent as any,
+      });
 
       // Add some frontend tools
       copilotKitCore.addTool({
@@ -666,7 +801,9 @@ describe("CopilotKitCore - Suggestions E2E", () => {
               type: "function",
               function: {
                 name: "copilotkitSuggest",
-                arguments: ['{"suggestions":[{"title":"Test","message":"Test"}]}'] as any,
+                arguments: [
+                  '{"suggestions":[{"title":"Test","message":"Test"}]}',
+                ] as any,
               },
             },
           ],
@@ -693,8 +830,14 @@ describe("CopilotKitCore - Suggestions E2E", () => {
       });
       const consumerAgent = new MockAgent({ agentId: "consumer" });
 
-      copilotKitCore.addAgent__unsafe_dev_only({ id: "default", agent: providerAgent as any });
-      copilotKitCore.addAgent__unsafe_dev_only({ id: "consumer", agent: consumerAgent as any });
+      copilotKitCore.addAgent__unsafe_dev_only({
+        id: "default",
+        agent: providerAgent as any,
+      });
+      copilotKitCore.addAgent__unsafe_dev_only({
+        id: "consumer",
+        agent: consumerAgent as any,
+      });
 
       const config = createSuggestionsConfig();
       copilotKitCore.addSuggestionsConfig(config);
@@ -717,8 +860,14 @@ describe("CopilotKitCore - Suggestions E2E", () => {
         messages: consumerMessages,
       });
 
-      copilotKitCore.addAgent__unsafe_dev_only({ id: "default", agent: providerAgent as any });
-      copilotKitCore.addAgent__unsafe_dev_only({ id: "consumer", agent: consumerAgent as any });
+      copilotKitCore.addAgent__unsafe_dev_only({
+        id: "default",
+        agent: providerAgent as any,
+      });
+      copilotKitCore.addAgent__unsafe_dev_only({
+        id: "consumer",
+        agent: consumerAgent as any,
+      });
 
       const config = createSuggestionsConfig();
       copilotKitCore.addSuggestionsConfig(config);
@@ -741,8 +890,14 @@ describe("CopilotKitCore - Suggestions E2E", () => {
         state: { conversationContext: "important data", stepCount: 5 },
       });
 
-      copilotKitCore.addAgent__unsafe_dev_only({ id: "default", agent: providerAgent as any });
-      copilotKitCore.addAgent__unsafe_dev_only({ id: "consumer", agent: consumerAgent as any });
+      copilotKitCore.addAgent__unsafe_dev_only({
+        id: "default",
+        agent: providerAgent as any,
+      });
+      copilotKitCore.addAgent__unsafe_dev_only({
+        id: "consumer",
+        agent: consumerAgent as any,
+      });
 
       const config = createSuggestionsConfig();
       copilotKitCore.addSuggestionsConfig(config);
@@ -761,8 +916,14 @@ describe("CopilotKitCore - Suggestions E2E", () => {
       const providerAgent = new MockAgent({ agentId: "default" });
       const consumerAgent = new MockAgent({ agentId: "consumer" });
 
-      copilotKitCore.addAgent__unsafe_dev_only({ id: "default", agent: providerAgent as any });
-      copilotKitCore.addAgent__unsafe_dev_only({ id: "consumer", agent: consumerAgent as any });
+      copilotKitCore.addAgent__unsafe_dev_only({
+        id: "default",
+        agent: providerAgent as any,
+      });
+      copilotKitCore.addAgent__unsafe_dev_only({
+        id: "consumer",
+        agent: consumerAgent as any,
+      });
 
       const config = createSuggestionsConfig();
       copilotKitCore.addSuggestionsConfig(config);
@@ -781,14 +942,23 @@ describe("CopilotKitCore - Suggestions E2E", () => {
 
   describe("Suggestion abortion and reload", () => {
     it("should abort running suggestions when a user message is submitted (runAgent)", async () => {
-      const providerAgent = new MockAgent({ agentId: "default", runAgentDelay: 100 });
+      const providerAgent = new MockAgent({
+        agentId: "default",
+        runAgentDelay: 100,
+      });
       const consumerAgent = new MockAgent({
         agentId: "consumer",
         messages: [createMessage({ content: "Initial message" })],
       });
 
-      copilotKitCore.addAgent__unsafe_dev_only({ id: "default", agent: providerAgent as any });
-      copilotKitCore.addAgent__unsafe_dev_only({ id: "consumer", agent: consumerAgent as any });
+      copilotKitCore.addAgent__unsafe_dev_only({
+        id: "default",
+        agent: providerAgent as any,
+      });
+      copilotKitCore.addAgent__unsafe_dev_only({
+        id: "consumer",
+        agent: consumerAgent as any,
+      });
 
       const config = createSuggestionsConfig({ consumerAgentId: "consumer" });
       copilotKitCore.addSuggestionsConfig(config);
@@ -800,7 +970,8 @@ describe("CopilotKitCore - Suggestions E2E", () => {
       });
 
       // Grab the cloned suggestion agent instance to assert abort
-      const clonedSuggestionAgent = (providerAgent.clone as any).mock.results[0]?.value;
+      const clonedSuggestionAgent = (providerAgent.clone as any).mock.results[0]
+        ?.value;
       expect(clonedSuggestionAgent).toBeDefined();
 
       // Ensure loading state is on before user submits new message
@@ -834,8 +1005,14 @@ describe("CopilotKitCore - Suggestions E2E", () => {
       const providerAgent = new MockAgent({ agentId: "default" });
       const consumerAgent = new MockAgent({ agentId: "consumer" });
 
-      copilotKitCore.addAgent__unsafe_dev_only({ id: "default", agent: providerAgent as any });
-      copilotKitCore.addAgent__unsafe_dev_only({ id: "consumer", agent: consumerAgent as any });
+      copilotKitCore.addAgent__unsafe_dev_only({
+        id: "default",
+        agent: providerAgent as any,
+      });
+      copilotKitCore.addAgent__unsafe_dev_only({
+        id: "consumer",
+        agent: consumerAgent as any,
+      });
 
       const config = createSuggestionsConfig();
       copilotKitCore.addSuggestionsConfig(config);
@@ -849,7 +1026,9 @@ describe("CopilotKitCore - Suggestions E2E", () => {
               type: "function",
               function: {
                 name: "copilotkitSuggest",
-                arguments: ['{"suggestions":[{"title":"Test","message":"Test"}]}'] as any,
+                arguments: [
+                  '{"suggestions":[{"title":"Test","message":"Test"}]}',
+                ] as any,
               },
             },
           ],
@@ -876,8 +1055,14 @@ describe("CopilotKitCore - Suggestions E2E", () => {
       const providerAgent = new MockAgent({ agentId: "default" });
       const consumerAgent = new MockAgent({ agentId: "consumer" });
 
-      copilotKitCore.addAgent__unsafe_dev_only({ id: "default", agent: providerAgent as any });
-      copilotKitCore.addAgent__unsafe_dev_only({ id: "consumer", agent: consumerAgent as any });
+      copilotKitCore.addAgent__unsafe_dev_only({
+        id: "default",
+        agent: providerAgent as any,
+      });
+      copilotKitCore.addAgent__unsafe_dev_only({
+        id: "consumer",
+        agent: consumerAgent as any,
+      });
 
       const config = createSuggestionsConfig();
       copilotKitCore.addSuggestionsConfig(config);
@@ -891,7 +1076,9 @@ describe("CopilotKitCore - Suggestions E2E", () => {
               type: "function",
               function: {
                 name: "copilotkitSuggest",
-                arguments: ['{"suggestions":[{"title":"Test","message":"Test"}]}'] as any,
+                arguments: [
+                  '{"suggestions":[{"title":"Test","message":"Test"}]}',
+                ] as any,
               },
             },
           ],
@@ -918,8 +1105,14 @@ describe("CopilotKitCore - Suggestions E2E", () => {
       const providerAgent = new MockAgent({ agentId: "default" });
       const consumerAgent = new MockAgent({ agentId: "consumer" });
 
-      copilotKitCore.addAgent__unsafe_dev_only({ id: "default", agent: providerAgent as any });
-      copilotKitCore.addAgent__unsafe_dev_only({ id: "consumer", agent: consumerAgent as any });
+      copilotKitCore.addAgent__unsafe_dev_only({
+        id: "default",
+        agent: providerAgent as any,
+      });
+      copilotKitCore.addAgent__unsafe_dev_only({
+        id: "consumer",
+        agent: consumerAgent as any,
+      });
 
       const onSuggestionsChanged = vi.fn();
       copilotKitCore.subscribe({ onSuggestionsChanged });
@@ -936,7 +1129,9 @@ describe("CopilotKitCore - Suggestions E2E", () => {
               type: "function",
               function: {
                 name: "copilotkitSuggest",
-                arguments: ['{"suggestions":[{"title":"Test","message":"Test"}]}'] as any,
+                arguments: [
+                  '{"suggestions":[{"title":"Test","message":"Test"}]}',
+                ] as any,
               },
             },
           ],
@@ -954,7 +1149,8 @@ describe("CopilotKitCore - Suggestions E2E", () => {
 
       await vi.waitFor(() => {
         const clearCall = onSuggestionsChanged.mock.calls.find(
-          (call) => call[0].suggestions.length === 0 && call[0].agentId === "consumer",
+          (call) =>
+            call[0].suggestions.length === 0 && call[0].agentId === "consumer",
         );
         expect(clearCall).toBeDefined();
       });
@@ -969,8 +1165,14 @@ describe("CopilotKitCore - Suggestions E2E", () => {
       });
       const consumerAgent = new MockAgent({ agentId: "consumer" });
 
-      copilotKitCore.addAgent__unsafe_dev_only({ id: "default", agent: providerAgent as any });
-      copilotKitCore.addAgent__unsafe_dev_only({ id: "consumer", agent: consumerAgent as any });
+      copilotKitCore.addAgent__unsafe_dev_only({
+        id: "default",
+        agent: providerAgent as any,
+      });
+      copilotKitCore.addAgent__unsafe_dev_only({
+        id: "consumer",
+        agent: consumerAgent as any,
+      });
 
       const config = createSuggestionsConfig();
       copilotKitCore.addSuggestionsConfig(config);
@@ -991,8 +1193,14 @@ describe("CopilotKitCore - Suggestions E2E", () => {
       const providerAgent = new MockAgent({ agentId: "default" });
       const consumerAgent = new MockAgent({ agentId: "consumer" });
 
-      copilotKitCore.addAgent__unsafe_dev_only({ id: "default", agent: providerAgent as any });
-      copilotKitCore.addAgent__unsafe_dev_only({ id: "consumer", agent: consumerAgent as any });
+      copilotKitCore.addAgent__unsafe_dev_only({
+        id: "default",
+        agent: providerAgent as any,
+      });
+      copilotKitCore.addAgent__unsafe_dev_only({
+        id: "consumer",
+        agent: consumerAgent as any,
+      });
 
       // Return tool call without proper structure
       const malformedToolCall = createAssistantMessage({
@@ -1028,11 +1236,20 @@ describe("CopilotKitCore - Suggestions E2E", () => {
 
   describe("Loading state E2E", () => {
     it("should track isLoading state during suggestion generation lifecycle", async () => {
-      const providerAgent = new MockAgent({ agentId: "default", runAgentDelay: 50 });
+      const providerAgent = new MockAgent({
+        agentId: "default",
+        runAgentDelay: 50,
+      });
       const consumerAgent = new MockAgent({ agentId: "consumer" });
 
-      copilotKitCore.addAgent__unsafe_dev_only({ id: "default", agent: providerAgent as any });
-      copilotKitCore.addAgent__unsafe_dev_only({ id: "consumer", agent: consumerAgent as any });
+      copilotKitCore.addAgent__unsafe_dev_only({
+        id: "default",
+        agent: providerAgent as any,
+      });
+      copilotKitCore.addAgent__unsafe_dev_only({
+        id: "consumer",
+        agent: consumerAgent as any,
+      });
 
       const config = createSuggestionsConfig();
       copilotKitCore.addSuggestionsConfig(config);
@@ -1046,7 +1263,9 @@ describe("CopilotKitCore - Suggestions E2E", () => {
               type: "function",
               function: {
                 name: "copilotkitSuggest",
-                arguments: ['{"suggestions":[{"title":"Test","message":"Test"}]}'] as any,
+                arguments: [
+                  '{"suggestions":[{"title":"Test","message":"Test"}]}',
+                ] as any,
               },
             },
           ],
@@ -1077,8 +1296,14 @@ describe("CopilotKitCore - Suggestions E2E", () => {
       const providerAgent = new MockAgent({ agentId: "default" });
       const consumerAgent = new MockAgent({ agentId: "consumer" });
 
-      copilotKitCore.addAgent__unsafe_dev_only({ id: "default", agent: providerAgent as any });
-      copilotKitCore.addAgent__unsafe_dev_only({ id: "consumer", agent: consumerAgent as any });
+      copilotKitCore.addAgent__unsafe_dev_only({
+        id: "default",
+        agent: providerAgent as any,
+      });
+      copilotKitCore.addAgent__unsafe_dev_only({
+        id: "consumer",
+        agent: consumerAgent as any,
+      });
 
       const events: string[] = [];
       copilotKitCore.subscribe({
@@ -1104,7 +1329,9 @@ describe("CopilotKitCore - Suggestions E2E", () => {
               type: "function",
               function: {
                 name: "copilotkitSuggest",
-                arguments: ['{"suggestions":[{"title":"Test","message":"Test"}]}'] as any,
+                arguments: [
+                  '{"suggestions":[{"title":"Test","message":"Test"}]}',
+                ] as any,
               },
             },
           ],
@@ -1125,11 +1352,20 @@ describe("CopilotKitCore - Suggestions E2E", () => {
     });
 
     it("should handle isLoading with multiple concurrent configs", async () => {
-      const providerAgent = new MockAgent({ agentId: "default", runAgentDelay: 50 });
+      const providerAgent = new MockAgent({
+        agentId: "default",
+        runAgentDelay: 50,
+      });
       const consumerAgent = new MockAgent({ agentId: "consumer" });
 
-      copilotKitCore.addAgent__unsafe_dev_only({ id: "default", agent: providerAgent as any });
-      copilotKitCore.addAgent__unsafe_dev_only({ id: "consumer", agent: consumerAgent as any });
+      copilotKitCore.addAgent__unsafe_dev_only({
+        id: "default",
+        agent: providerAgent as any,
+      });
+      copilotKitCore.addAgent__unsafe_dev_only({
+        id: "consumer",
+        agent: consumerAgent as any,
+      });
 
       const config1 = createSuggestionsConfig({ instructions: "First" });
       const config2 = createSuggestionsConfig({ instructions: "Second" });
@@ -1144,7 +1380,9 @@ describe("CopilotKitCore - Suggestions E2E", () => {
               type: "function",
               function: {
                 name: "copilotkitSuggest",
-                arguments: ['{"suggestions":[{"title":"Test","message":"Test"}]}'] as any,
+                arguments: [
+                  '{"suggestions":[{"title":"Test","message":"Test"}]}',
+                ] as any,
               },
             },
           ],
@@ -1173,8 +1411,14 @@ describe("CopilotKitCore - Suggestions E2E", () => {
       });
       const consumerAgent = new MockAgent({ agentId: "consumer" });
 
-      copilotKitCore.addAgent__unsafe_dev_only({ id: "default", agent: providerAgent as any });
-      copilotKitCore.addAgent__unsafe_dev_only({ id: "consumer", agent: consumerAgent as any });
+      copilotKitCore.addAgent__unsafe_dev_only({
+        id: "default",
+        agent: providerAgent as any,
+      });
+      copilotKitCore.addAgent__unsafe_dev_only({
+        id: "consumer",
+        agent: consumerAgent as any,
+      });
 
       const config = createSuggestionsConfig();
       copilotKitCore.addSuggestionsConfig(config);
@@ -1192,10 +1436,19 @@ describe("CopilotKitCore - Suggestions E2E", () => {
   describe("SuggestionAvailability - Dynamic Suggestions", () => {
     it("should show dynamic suggestions with 'before-first-message' only when messages are empty", async () => {
       const providerAgent = new MockAgent({ agentId: "provider" });
-      const consumerAgent = new MockAgent({ agentId: "consumer", messages: [] });
+      const consumerAgent = new MockAgent({
+        agentId: "consumer",
+        messages: [],
+      });
 
-      copilotKitCore.addAgent__unsafe_dev_only({ id: "provider", agent: providerAgent as any });
-      copilotKitCore.addAgent__unsafe_dev_only({ id: "consumer", agent: consumerAgent as any });
+      copilotKitCore.addAgent__unsafe_dev_only({
+        id: "provider",
+        agent: providerAgent as any,
+      });
+      copilotKitCore.addAgent__unsafe_dev_only({
+        id: "consumer",
+        agent: consumerAgent as any,
+      });
 
       const config = createSuggestionsConfig({
         instructions: "Suggest actions",
@@ -1213,7 +1466,9 @@ describe("CopilotKitCore - Suggestions E2E", () => {
               type: "function",
               function: {
                 name: "copilotkitSuggest",
-                arguments: ['{"suggestions":[{"title":"Start","message":"Get started"}]}'] as any,
+                arguments: [
+                  '{"suggestions":[{"title":"Start","message":"Get started"}]}',
+                ] as any,
               },
             },
           ],
@@ -1241,10 +1496,19 @@ describe("CopilotKitCore - Suggestions E2E", () => {
 
     it("should show dynamic suggestions with 'after-first-message' only when messages exist", async () => {
       const providerAgent = new MockAgent({ agentId: "provider" });
-      const consumerAgent = new MockAgent({ agentId: "consumer", messages: [] });
+      const consumerAgent = new MockAgent({
+        agentId: "consumer",
+        messages: [],
+      });
 
-      copilotKitCore.addAgent__unsafe_dev_only({ id: "provider", agent: providerAgent as any });
-      copilotKitCore.addAgent__unsafe_dev_only({ id: "consumer", agent: consumerAgent as any });
+      copilotKitCore.addAgent__unsafe_dev_only({
+        id: "provider",
+        agent: providerAgent as any,
+      });
+      copilotKitCore.addAgent__unsafe_dev_only({
+        id: "consumer",
+        agent: consumerAgent as any,
+      });
 
       const config = createSuggestionsConfig({
         instructions: "Suggest next actions",
@@ -1262,7 +1526,9 @@ describe("CopilotKitCore - Suggestions E2E", () => {
               type: "function",
               function: {
                 name: "copilotkitSuggest",
-                arguments: ['{"suggestions":[{"title":"Continue","message":"Keep going"}]}'] as any,
+                arguments: [
+                  '{"suggestions":[{"title":"Continue","message":"Keep going"}]}',
+                ] as any,
               },
             },
           ],
@@ -1290,10 +1556,19 @@ describe("CopilotKitCore - Suggestions E2E", () => {
 
     it("should show dynamic suggestions with 'always' regardless of message count", async () => {
       const providerAgent = new MockAgent({ agentId: "provider" });
-      const consumerAgent = new MockAgent({ agentId: "consumer", messages: [] });
+      const consumerAgent = new MockAgent({
+        agentId: "consumer",
+        messages: [],
+      });
 
-      copilotKitCore.addAgent__unsafe_dev_only({ id: "provider", agent: providerAgent as any });
-      copilotKitCore.addAgent__unsafe_dev_only({ id: "consumer", agent: consumerAgent as any });
+      copilotKitCore.addAgent__unsafe_dev_only({
+        id: "provider",
+        agent: providerAgent as any,
+      });
+      copilotKitCore.addAgent__unsafe_dev_only({
+        id: "consumer",
+        agent: consumerAgent as any,
+      });
 
       const config = createSuggestionsConfig({
         instructions: "Always suggest",
@@ -1311,7 +1586,9 @@ describe("CopilotKitCore - Suggestions E2E", () => {
               type: "function",
               function: {
                 name: "copilotkitSuggest",
-                arguments: ['{"suggestions":[{"title":"Always","message":"Always available"}]}'] as any,
+                arguments: [
+                  '{"suggestions":[{"title":"Always","message":"Always available"}]}',
+                ] as any,
               },
             },
           ],
@@ -1343,10 +1620,19 @@ describe("CopilotKitCore - Suggestions E2E", () => {
 
     it("should not show dynamic suggestions with 'disabled'", async () => {
       const providerAgent = new MockAgent({ agentId: "provider" });
-      const consumerAgent = new MockAgent({ agentId: "consumer", messages: [] });
+      const consumerAgent = new MockAgent({
+        agentId: "consumer",
+        messages: [],
+      });
 
-      copilotKitCore.addAgent__unsafe_dev_only({ id: "provider", agent: providerAgent as any });
-      copilotKitCore.addAgent__unsafe_dev_only({ id: "consumer", agent: consumerAgent as any });
+      copilotKitCore.addAgent__unsafe_dev_only({
+        id: "provider",
+        agent: providerAgent as any,
+      });
+      copilotKitCore.addAgent__unsafe_dev_only({
+        id: "consumer",
+        agent: consumerAgent as any,
+      });
 
       const config = createSuggestionsConfig({
         instructions: "Should not appear",
@@ -1366,17 +1652,26 @@ describe("CopilotKitCore - Suggestions E2E", () => {
       const result2 = copilotKitCore.getSuggestions("consumer");
       expect(result2.suggestions).toHaveLength(0);
     });
-
   });
 
   describe("SuggestionAvailability - Static Suggestions", () => {
     it("should show static suggestions with 'before-first-message' only when messages are empty", () => {
-      const consumerAgent = new MockAgent({ agentId: "consumer", messages: [] });
-      copilotKitCore.addAgent__unsafe_dev_only({ id: "consumer", agent: consumerAgent as any });
+      const consumerAgent = new MockAgent({
+        agentId: "consumer",
+        messages: [],
+      });
+      copilotKitCore.addAgent__unsafe_dev_only({
+        id: "consumer",
+        agent: consumerAgent as any,
+      });
 
       copilotKitCore.addSuggestionsConfig({
         suggestions: [
-          { title: "Start Here", message: "Begin your journey", isLoading: false },
+          {
+            title: "Start Here",
+            message: "Begin your journey",
+            isLoading: false,
+          },
           { title: "Learn More", message: "Get information", isLoading: false },
         ],
         consumerAgentId: "consumer",
@@ -1398,11 +1693,19 @@ describe("CopilotKitCore - Suggestions E2E", () => {
     });
 
     it("should show static suggestions with 'after-first-message' only when messages exist", () => {
-      const consumerAgent = new MockAgent({ agentId: "consumer", messages: [] });
-      copilotKitCore.addAgent__unsafe_dev_only({ id: "consumer", agent: consumerAgent as any });
+      const consumerAgent = new MockAgent({
+        agentId: "consumer",
+        messages: [],
+      });
+      copilotKitCore.addAgent__unsafe_dev_only({
+        id: "consumer",
+        agent: consumerAgent as any,
+      });
 
       copilotKitCore.addSuggestionsConfig({
-        suggestions: [{ title: "Next Step", message: "Continue", isLoading: false }],
+        suggestions: [
+          { title: "Next Step", message: "Continue", isLoading: false },
+        ],
         consumerAgentId: "consumer",
         available: "after-first-message",
       });
@@ -1421,11 +1724,19 @@ describe("CopilotKitCore - Suggestions E2E", () => {
     });
 
     it("should show static suggestions with 'always' regardless of message count", () => {
-      const consumerAgent = new MockAgent({ agentId: "consumer", messages: [] });
-      copilotKitCore.addAgent__unsafe_dev_only({ id: "consumer", agent: consumerAgent as any });
+      const consumerAgent = new MockAgent({
+        agentId: "consumer",
+        messages: [],
+      });
+      copilotKitCore.addAgent__unsafe_dev_only({
+        id: "consumer",
+        agent: consumerAgent as any,
+      });
 
       copilotKitCore.addSuggestionsConfig({
-        suggestions: [{ title: "Persistent", message: "Always here", isLoading: false }],
+        suggestions: [
+          { title: "Persistent", message: "Always here", isLoading: false },
+        ],
         consumerAgentId: "consumer",
         available: "always",
       });
@@ -1443,11 +1754,19 @@ describe("CopilotKitCore - Suggestions E2E", () => {
     });
 
     it("should not show static suggestions with 'disabled'", () => {
-      const consumerAgent = new MockAgent({ agentId: "consumer", messages: [] });
-      copilotKitCore.addAgent__unsafe_dev_only({ id: "consumer", agent: consumerAgent as any });
+      const consumerAgent = new MockAgent({
+        agentId: "consumer",
+        messages: [],
+      });
+      copilotKitCore.addAgent__unsafe_dev_only({
+        id: "consumer",
+        agent: consumerAgent as any,
+      });
 
       copilotKitCore.addSuggestionsConfig({
-        suggestions: [{ title: "Hidden", message: "Should not appear", isLoading: false }],
+        suggestions: [
+          { title: "Hidden", message: "Should not appear", isLoading: false },
+        ],
         consumerAgentId: "consumer",
         available: "disabled",
       });
@@ -1458,11 +1777,23 @@ describe("CopilotKitCore - Suggestions E2E", () => {
     });
 
     it("should default to 'before-first-message' for static suggestions when availability not specified", () => {
-      const consumerAgent = new MockAgent({ agentId: "consumer", messages: [] });
-      copilotKitCore.addAgent__unsafe_dev_only({ id: "consumer", agent: consumerAgent as any });
+      const consumerAgent = new MockAgent({
+        agentId: "consumer",
+        messages: [],
+      });
+      copilotKitCore.addAgent__unsafe_dev_only({
+        id: "consumer",
+        agent: consumerAgent as any,
+      });
 
       copilotKitCore.addSuggestionsConfig({
-        suggestions: [{ title: "Default Static", message: "Default behavior", isLoading: false }],
+        suggestions: [
+          {
+            title: "Default Static",
+            message: "Default behavior",
+            isLoading: false,
+          },
+        ],
         consumerAgentId: "consumer",
         // No 'available' specified
       });

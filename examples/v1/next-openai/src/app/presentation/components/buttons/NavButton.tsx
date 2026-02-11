@@ -14,7 +14,9 @@ export function NavButton({ children, onClick, disabled }: NavButtonProps) {
       className={clsx(
         "w-7 h-7 border border-white rounded-md flex justify-center items-center",
         "focus:outline-none",
-        disabled ? "opacity-40 cursor-not-allowed" : "hover:bg-white hover:text-black",
+        disabled
+          ? "opacity-40 cursor-not-allowed"
+          : "hover:bg-white hover:text-black",
       )}
     >
       {children}

@@ -1,4 +1,8 @@
-import { CopilotKit, useCopilotAction, useCopilotReadable } from "@copilotkit/react-core";
+import {
+  CopilotKit,
+  useCopilotAction,
+  useCopilotReadable,
+} from "@copilotkit/react-core";
 import { CopilotSidebar } from "@copilotkit/react-ui";
 import "@copilotkit/react-ui/styles.css";
 import { useState } from "react";

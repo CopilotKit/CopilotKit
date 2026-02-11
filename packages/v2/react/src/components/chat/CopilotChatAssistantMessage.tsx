@@ -75,8 +75,7 @@ export function CopilotChatAssistantMessage({
     CopilotChatAssistantMessage.MarkdownRenderer,
     {
       content: message.content || "",
-      
-    }
+    },
   );
 
   const boundCopyButton = renderSlot(
@@ -92,7 +91,7 @@ export function CopilotChatAssistantMessage({
           }
         }
       },
-    }
+    },
   );
 
   const boundThumbsUpButton = renderSlot(
@@ -100,7 +99,7 @@ export function CopilotChatAssistantMessage({
     CopilotChatAssistantMessage.ThumbsUpButton,
     {
       onClick: onThumbsUp,
-    }
+    },
   );
 
   const boundThumbsDownButton = renderSlot(
@@ -108,7 +107,7 @@ export function CopilotChatAssistantMessage({
     CopilotChatAssistantMessage.ThumbsDownButton,
     {
       onClick: onThumbsDown,
-    }
+    },
   );
 
   const boundReadAloudButton = renderSlot(
@@ -116,7 +115,7 @@ export function CopilotChatAssistantMessage({
     CopilotChatAssistantMessage.ReadAloudButton,
     {
       onClick: onReadAloud,
-    }
+    },
   );
 
   const boundRegenerateButton = renderSlot(
@@ -124,7 +123,7 @@ export function CopilotChatAssistantMessage({
     CopilotChatAssistantMessage.RegenerateButton,
     {
       onClick: onRegenerate,
-    }
+    },
   );
 
   const boundToolbar = renderSlot(
@@ -141,7 +140,7 @@ export function CopilotChatAssistantMessage({
           {additionalToolbarItems}
         </div>
       ),
-    }
+    },
   );
 
   const boundToolCallsView = renderSlot(
@@ -150,14 +149,16 @@ export function CopilotChatAssistantMessage({
     {
       message,
       messages,
-    }
+    },
   );
 
   // Don't show toolbar if message has no content (only tool calls)
   const hasContent = !!(message.content && message.content.trim().length > 0);
   const isLatestAssistantMessage =
-    message.role === "assistant" && messages?.[messages.length - 1]?.id === message.id;
-  const shouldShowToolbar = toolbarVisible && hasContent && !(isRunning && isLatestAssistantMessage);
+    message.role === "assistant" &&
+    messages?.[messages.length - 1]?.id === message.id;
+  const shouldShowToolbar =
+    toolbarVisible && hasContent && !(isRunning && isLatestAssistantMessage);
 
   if (children) {
     return (
@@ -189,7 +190,7 @@ export function CopilotChatAssistantMessage({
     <div
       className={twMerge(
         "prose max-w-full break-words dark:prose-invert",
-        className
+        className,
       )}
       {...props}
       data-message-id={message.id}
@@ -220,7 +221,7 @@ export namespace CopilotChatAssistantMessage {
     <div
       className={twMerge(
         "w-full bg-transparent flex items-center -ml-[5px] -mt-[0px]",
-        className
+        className,
       )}
       {...props}
     />

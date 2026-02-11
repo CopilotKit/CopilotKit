@@ -93,7 +93,9 @@ export const CopilotChatSuggestionView = React.forwardRef<
     >(suggestionSlot, CopilotChatSuggestionPill, {
       children: suggestions[0]?.title ?? "",
       isLoading:
-        suggestions.length > 0 ? loadingSet.has(0) || suggestions[0]?.isLoading === true : false,
+        suggestions.length > 0
+          ? loadingSet.has(0) || suggestions[0]?.isLoading === true
+          : false,
       type: "button",
     });
 

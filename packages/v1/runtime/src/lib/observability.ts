@@ -1,4 +1,7 @@
-import { RuntimeEventSource, RuntimeEventTypes } from "../service-adapters/events";
+import {
+  RuntimeEventSource,
+  RuntimeEventTypes,
+} from "../service-adapters/events";
 
 export interface LLMRequestData {
   threadId?: string;
@@ -91,7 +94,11 @@ function setupProgressiveLogging(
   },
   publicApiKey?: string,
 ): void {
-  if (this.observability?.enabled && this.observability.progressive && publicApiKey) {
+  if (
+    this.observability?.enabled &&
+    this.observability.progressive &&
+    publicApiKey
+  ) {
     // Keep reference to original stream function
     const originalStream = eventSource.stream.bind(eventSource);
 

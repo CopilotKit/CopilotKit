@@ -370,7 +370,7 @@ export class CopilotChatAssistantMessageRenderer implements AfterViewInit {
 
     // Check if clicked on copy button or its children
     const copyButton = target.closest(
-      ".code-block-copy-button"
+      ".code-block-copy-button",
     ) as HTMLButtonElement;
     if (copyButton) {
       event.preventDefault();
@@ -391,7 +391,7 @@ export class CopilotChatAssistantMessageRenderer implements AfterViewInit {
       () => {
         // Update the button in the DOM
         const button = this.elementRef.nativeElement.querySelector(
-          `[data-code-block-id="${blockId}"]`
+          `[data-code-block-id="${blockId}"]`,
         );
         if (button) {
           const originalHTML = button.innerHTML;
@@ -401,7 +401,7 @@ export class CopilotChatAssistantMessageRenderer implements AfterViewInit {
           `;
           button.setAttribute(
             "aria-label",
-            `${this.labels.assistantMessageToolbarCopyCodeCopiedLabel} code`
+            `${this.labels.assistantMessageToolbarCopyCodeCopiedLabel} code`,
           );
 
           // Reset after 2 seconds
@@ -409,14 +409,14 @@ export class CopilotChatAssistantMessageRenderer implements AfterViewInit {
             button.innerHTML = originalHTML;
             button.setAttribute(
               "aria-label",
-              `${this.labels.assistantMessageToolbarCopyCodeLabel} code`
+              `${this.labels.assistantMessageToolbarCopyCodeLabel} code`,
             );
           }, 2000);
         }
       },
       (err) => {
         console.error("Failed to copy code:", err);
-      }
+      },
     );
   }
 

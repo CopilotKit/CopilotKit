@@ -60,7 +60,11 @@ export function usePopulateCopilotTextareaRef(
       get(target: any, propKey: keyof CustomMethods | keyof HTMLElement) {
         return target.get(target, propKey);
       },
-      set(target: any, propKey: keyof CustomMethods | keyof HTMLElement, value: any) {
+      set(
+        target: any,
+        propKey: keyof CustomMethods | keyof HTMLElement,
+        value: any,
+      ) {
         return target.set(target, propKey, value);
       },
     };

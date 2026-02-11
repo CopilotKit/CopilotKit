@@ -1,4 +1,10 @@
-import React, { createContext, useContext, ReactNode, useMemo, useState } from "react";
+import React, {
+  createContext,
+  useContext,
+  ReactNode,
+  useMemo,
+  useState,
+} from "react";
 import { DEFAULT_AGENT_ID, randomUUID } from "@copilotkitnext/shared";
 
 // Default labels
@@ -18,7 +24,8 @@ export const CopilotChatDefaultLabels = {
   assistantMessageToolbarRegenerateLabel: "Regenerate",
   userMessageToolbarCopyMessageLabel: "Copy",
   userMessageToolbarEditMessageLabel: "Edit",
-  chatDisclaimerText: "AI can make mistakes. Please verify important information.",
+  chatDisclaimerText:
+    "AI can make mistakes. Please verify important information.",
   chatToggleOpenLabel: "Open chat",
   chatToggleCloseLabel: "Close chat",
   modalHeaderTitle: "CopilotKit Chat",

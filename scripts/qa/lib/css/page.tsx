@@ -1,5 +1,9 @@
 "use client";
-import { CopilotKit, useCopilotAction, useCopilotReadable } from "@copilotkit/react-core";
+import {
+  CopilotKit,
+  useCopilotAction,
+  useCopilotReadable,
+} from "@copilotkit/react-core";
 import { CopilotTextarea } from "@copilotkit/react-textarea";
 import { CopilotKitCSSProperties, CopilotSidebar } from "@copilotkit/react-ui";
 import "@copilotkit/react-ui/styles.css";

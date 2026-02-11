@@ -101,7 +101,7 @@ export class CopilotChatAudioRecorder implements AfterViewInit, OnDestroy {
       // For now, we just simulate the recording state
     } catch (err) {
       const error = new AudioRecorderError(
-        err instanceof Error ? err.message : "Failed to start recording"
+        err instanceof Error ? err.message : "Failed to start recording",
       );
       this.error.emit(error);
       this.setState("idle");
@@ -120,7 +120,7 @@ export class CopilotChatAudioRecorder implements AfterViewInit, OnDestroy {
       return emptyBlob;
     } catch (err) {
       const error = new AudioRecorderError(
-        err instanceof Error ? err.message : "Failed to stop recording"
+        err instanceof Error ? err.message : "Failed to stop recording",
       );
       this.error.emit(error);
       this.setState("idle");
@@ -193,7 +193,7 @@ export class CopilotChatAudioRecorder implements AfterViewInit, OnDestroy {
       for (let i = 0; i < loudnessData.length; i++) {
         const sample = loudnessData[i] ?? 0;
         const barHeight = Math.round(
-          sample * (maxHeight - minHeight) + minHeight
+          sample * (maxHeight - minHeight) + minHeight,
         );
         const x = Math.round(i * (barWidth + gap));
         const y = Math.round(centerY - barHeight / 2);

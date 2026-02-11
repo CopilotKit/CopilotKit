@@ -28,7 +28,7 @@ export class ResizeObserverService implements OnDestroy {
   observeElement(
     element: ElementRef<HTMLElement> | HTMLElement,
     debounceMs: number = 0,
-    resizingDurationMs: number = 250
+    resizingDurationMs: number = 250,
   ): Observable<ResizeState> {
     const el = element instanceof ElementRef ? element.nativeElement : element;
 
@@ -103,9 +103,9 @@ export class ResizeObserverService implements OnDestroy {
         (a, b) =>
           a.width === b.width &&
           a.height === b.height &&
-          a.isResizing === b.isResizing
+          a.isResizing === b.isResizing,
       ),
-      takeUntil(this.destroy$)
+      takeUntil(this.destroy$),
     );
 
     return observable;
@@ -160,7 +160,7 @@ export class ResizeObserverService implements OnDestroy {
    * @param element Element to check
    */
   getCurrentState(
-    element: ElementRef<HTMLElement> | HTMLElement
+    element: ElementRef<HTMLElement> | HTMLElement,
   ): ResizeState | null {
     const el = element instanceof ElementRef ? element.nativeElement : element;
     const subject = this.resizeStates.get(el);

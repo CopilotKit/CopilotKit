@@ -213,7 +213,9 @@ const createNonFunctionalReturn = (): UseCopilotChatReturn_c => ({
  * const { messages, sendMessage, suggestions, interrupt } = useCopilotChatHeadless_c();
  * ```
  */
-function useCopilotChatHeadless_c(options: UseCopilotChatOptions_c = {}): UseCopilotChatReturn_c {
+function useCopilotChatHeadless_c(
+  options: UseCopilotChatOptions_c = {},
+): UseCopilotChatReturn_c {
   const { copilotApiConfig, setBannerError } = useCopilotContext();
 
   // Check if publicApiKey is available
@@ -251,7 +253,11 @@ function useCopilotChatHeadless_c(options: UseCopilotChatOptions_c = {}): UseCop
 }
 
 export { defaultSystemMessage, useCopilotChatHeadless_c };
-export type { UseCopilotChatOptions_c, UseCopilotChatReturn_c, MCPServerConfig };
+export type {
+  UseCopilotChatOptions_c,
+  UseCopilotChatReturn_c,
+  MCPServerConfig,
+};
 
 const noKeyWarning = () => {
   styledConsole.logCopilotKitPlatformMessage();

@@ -19,7 +19,7 @@ export interface CopilotKitConfig {
 }
 
 export const COPILOT_KIT_CONFIG = new InjectionToken<CopilotKitConfig>(
-  "COPILOT_KIT_CONFIG"
+  "COPILOT_KIT_CONFIG",
 );
 
 export function injectCopilotKitConfig(): CopilotKitConfig {

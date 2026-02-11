@@ -12,7 +12,10 @@ interface PresentationProps {
   setPerformResearch: (fn: (b: boolean) => boolean) => void;
 }
 
-export const Presentation = ({ performResearch, setPerformResearch }: PresentationProps) => {
+export const Presentation = ({
+  performResearch,
+  setPerformResearch,
+}: PresentationProps) => {
   // // Load messages from local storage
 
   // const { messages, setMessages } = useCopilotMessagesContext();
@@ -70,7 +73,10 @@ export const Presentation = ({ performResearch, setPerformResearch }: Presentati
     },
   ]);
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
-  const currentSlide = useMemo(() => slides[currentSlideIndex], [slides, currentSlideIndex]);
+  const currentSlide = useMemo(
+    () => slides[currentSlideIndex],
+    [slides, currentSlideIndex],
+  );
 
   /**
    * This makes all slides available to the Copilot.

@@ -23,7 +23,10 @@ import {
   CopilotServiceAdapter,
 } from "../service-adapter";
 import { randomId, randomUUID } from "@copilotkit/shared";
-import { convertActionInputToOpenAITool, convertMessageToOpenAIMessage } from "../openai/utils";
+import {
+  convertActionInputToOpenAITool,
+  convertMessageToOpenAIMessage,
+} from "../openai/utils";
 
 export interface UnifyAdapterParams {
   apiKey?: string;
@@ -63,14 +66,18 @@ export class UnifyAdapter implements CopilotServiceAdapter {
     });
     const forwardedParameters = request.forwardedParameters;
 
-    const messages = request.messages.map((m) => convertMessageToOpenAIMessage(m));
+    const messages = request.messages.map((m) =>
+      convertMessageToOpenAIMessage(m),
+    );
 
     const stream = await openai.chat.completions.create({
       model: this.model,
       messages: messages,
       stream: true,
       ...(tools.length > 0 && { tools }),
-      ...(forwardedParameters?.temperature && { temperature: forwardedParameters.temperature }),
+      ...(forwardedParameters?.temperature && {
+        temperature: forwardedParameters.temperature,
+      }),
     });
 
     let model = null;
@@ -99,9 +106,14 @@ export class UnifyAdapter implements CopilotServiceAdapter {
         if (mode === "message" && toolCall?.id) {
           mode = null;
           eventStream$.sendTextMessageEnd({ messageId: currentMessageId });
-        } else if (mode === "function" && (toolCall === undefined || toolCall?.id)) {
+        } else if (
+          mode === "function" &&
+          (toolCall === undefined || toolCall?.id)
+        ) {
           mode = null;
-          eventStream$.sendActionExecutionEnd({ actionExecutionId: currentToolCallId });
+          eventStream$.sendActionExecutionEnd({
+            actionExecutionId: currentToolCallId,
+          });
         }
 
         // If we send a new message type, send the appropriate start event.
@@ -138,7 +150,9 @@ export class UnifyAdapter implements CopilotServiceAdapter {
       if (mode === "message") {
         eventStream$.sendTextMessageEnd({ messageId: currentMessageId });
       } else if (mode === "function") {
-        eventStream$.sendActionExecutionEnd({ actionExecutionId: currentToolCallId });
+        eventStream$.sendActionExecutionEnd({
+          actionExecutionId: currentToolCallId,
+        });
       }
 
       eventStream$.complete();

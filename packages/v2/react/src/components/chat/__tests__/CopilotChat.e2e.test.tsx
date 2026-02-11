@@ -44,7 +44,9 @@ describe("CopilotChat E2E - Chat Basics and Streaming Patterns", () => {
 
       // Assistant message should accumulate
       await waitFor(() => {
-        const assistantMessage = screen.getByText("Hello! How can I help you today?");
+        const assistantMessage = screen.getByText(
+          "Hello! How can I help you today?",
+        );
         expect(assistantMessage).toBeDefined();
       });
     });
@@ -65,26 +67,28 @@ describe("CopilotChat E2E - Chat Basics and Streaming Patterns", () => {
 
       const messageId = testId("msg");
       agent.emit(runStartedEvent());
-      
+
       // Stream text progressively
       agent.emit(textChunkEvent(messageId, "Once upon"));
-      
+
       await waitFor(() => {
         expect(screen.getByText(/Once upon/)).toBeDefined();
       });
-      
+
       agent.emit(textChunkEvent(messageId, " a time"));
-      
+
       await waitFor(() => {
         expect(screen.getByText(/Once upon a time/)).toBeDefined();
       });
-      
+
       agent.emit(textChunkEvent(messageId, " there was a robot."));
-      
+
       await waitFor(() => {
-        expect(screen.getByText(/Once upon a time there was a robot\./)).toBeDefined();
+        expect(
+          screen.getByText(/Once upon a time there was a robot\./),
+        ).toBeDefined();
       });
-      
+
       agent.emit(runFinishedEvent());
       agent.complete();
     });
@@ -102,7 +106,7 @@ describe("CopilotChat E2E - Chat Basics and Streaming Patterns", () => {
           }),
           render: ({ name, args, result, status }) => (
             <div data-testid="weather-tool">
-              Tool: {name} | Status: {status} | Location: {args.location} | 
+              Tool: {name} | Status: {status} | Location: {args.location} |
               {result && ` Result: ${JSON.stringify(result)}`}
             </div>
           ),
@@ -126,22 +130,28 @@ describe("CopilotChat E2E - Chat Basics and Streaming Patterns", () => {
 
       // Stream: RUN_STARTED → TEXT_MESSAGE_CHUNK → TOOL_CALL_CHUNK → TOOL_CALL_RESULT → RUN_FINISHED
       agent.emit(runStartedEvent());
-      agent.emit(textChunkEvent(messageId, "Let me check the weather for you."));
-      
+      agent.emit(
+        textChunkEvent(messageId, "Let me check the weather for you."),
+      );
+
       // Start tool call with partial args
-      agent.emit(toolCallChunkEvent({
-        toolCallId,
-        toolCallName: "getWeather",
-        parentMessageId: messageId,
-        delta: '{"location":"Paris"',
-      }));
+      agent.emit(
+        toolCallChunkEvent({
+          toolCallId,
+          toolCallName: "getWeather",
+          parentMessageId: messageId,
+          delta: '{"location":"Paris"',
+        }),
+      );
 
       // Continue streaming args
-      agent.emit(toolCallChunkEvent({
-        toolCallId,
-        parentMessageId: messageId,
-        delta: ',"unit":"celsius"}',
-      }));
+      agent.emit(
+        toolCallChunkEvent({
+          toolCallId,
+          parentMessageId: messageId,
+          delta: ',"unit":"celsius"}',
+        }),
+      );
 
       // Wait for tool to render with complete args and verify name is provided
       await waitFor(() => {
@@ -151,11 +161,13 @@ describe("CopilotChat E2E - Chat Basics and Streaming Patterns", () => {
       });
 
       // Send tool result
-      agent.emit(toolCallResultEvent({
-        toolCallId,
-        messageId: `${messageId}_result`,
-        content: JSON.stringify({ temperature: 22, condition: "Sunny" }),
-      }));
+      agent.emit(
+        toolCallResultEvent({
+          toolCallId,
+          messageId: `${messageId}_result`,
+          content: JSON.stringify({ temperature: 22, condition: "Sunny" }),
+        }),
+      );
 
       // Check result appears
       await waitFor(() => {
@@ -179,7 +191,8 @@ describe("CopilotChat E2E - Chat Basics and Streaming Patterns", () => {
           args: z.object({ location: z.string() }),
           render: ({ name, args, result }) => (
             <div data-testid={`weather-${args.location}`}>
-              [{name}] Weather for {args.location}: {result ? JSON.stringify(result) : "Loading..."}
+              [{name}] Weather for {args.location}:{" "}
+              {result ? JSON.stringify(result) : "Loading..."}
             </div>
           ),
         }),
@@ -188,7 +201,8 @@ describe("CopilotChat E2E - Chat Basics and Streaming Patterns", () => {
           args: z.object({ timezone: z.string() }),
           render: ({ name, args, result }) => (
             <div data-testid={`time-${args.timezone}`}>
-              [{name}] Time in {args.timezone}: {result ? JSON.stringify(result) : "Loading..."}
+              [{name}] Time in {args.timezone}:{" "}
+              {result ? JSON.stringify(result) : "Loading..."}
             </div>
           ),
         }),
@@ -214,20 +228,24 @@ describe("CopilotChat E2E - Chat Basics and Streaming Patterns", () => {
       agent.emit(textChunkEvent(messageId, "I'll check both for you."));
 
       // Start first tool call (weather) with complete JSON in one chunk
-      agent.emit(toolCallChunkEvent({
-        toolCallId: toolCallId1,
-        toolCallName: "getWeather",
-        parentMessageId: messageId,
-        delta: '{"location":"London"}',
-      }));
+      agent.emit(
+        toolCallChunkEvent({
+          toolCallId: toolCallId1,
+          toolCallName: "getWeather",
+          parentMessageId: messageId,
+          delta: '{"location":"London"}',
+        }),
+      );
 
-      // Start second tool call (time) with complete JSON in one chunk  
-      agent.emit(toolCallChunkEvent({
-        toolCallId: toolCallId2,
-        toolCallName: "getTime",
-        parentMessageId: messageId,
-        delta: '{"timezone":"UTC"}',
-      }));
+      // Start second tool call (time) with complete JSON in one chunk
+      agent.emit(
+        toolCallChunkEvent({
+          toolCallId: toolCallId2,
+          toolCallName: "getTime",
+          parentMessageId: messageId,
+          delta: '{"timezone":"UTC"}',
+        }),
+      );
 
       // Both tools should render with partial/complete args
       await waitFor(() => {
@@ -236,23 +254,27 @@ describe("CopilotChat E2E - Chat Basics and Streaming Patterns", () => {
       });
 
       // Send results in different order
-      agent.emit(toolCallResultEvent({
-        toolCallId: toolCallId2,
-        messageId: `${messageId}_result2`,
-        content: JSON.stringify({ time: "12:00 PM" }),
-      }));
+      agent.emit(
+        toolCallResultEvent({
+          toolCallId: toolCallId2,
+          messageId: `${messageId}_result2`,
+          content: JSON.stringify({ time: "12:00 PM" }),
+        }),
+      );
 
-      agent.emit(toolCallResultEvent({
-        toolCallId: toolCallId1,
-        messageId: `${messageId}_result1`,
-        content: JSON.stringify({ temp: 18, condition: "Cloudy" }),
-      }));
+      agent.emit(
+        toolCallResultEvent({
+          toolCallId: toolCallId1,
+          messageId: `${messageId}_result1`,
+          content: JSON.stringify({ temp: 18, condition: "Cloudy" }),
+        }),
+      );
 
       // Both results should appear with correct names
       await waitFor(() => {
         const weatherTool = screen.getByTestId("weather-London");
         const timeTool = screen.getByTestId("time-UTC");
-        
+
         expect(weatherTool.textContent).toContain("[getWeather]");
         expect(weatherTool.textContent).toContain("18");
         expect(weatherTool.textContent).toContain("Cloudy");
@@ -296,14 +318,16 @@ describe("CopilotChat E2E - Chat Basics and Streaming Patterns", () => {
       const toolCallId = testId("tc");
 
       agent.emit(runStartedEvent());
-      
+
       // Call an undefined tool
-      agent.emit(toolCallChunkEvent({
-        toolCallId,
-        toolCallName: "unknownTool",
-        parentMessageId: messageId,
-        delta: '{"param":"value"}',
-      }));
+      agent.emit(
+        toolCallChunkEvent({
+          toolCallId,
+          toolCallName: "unknownTool",
+          parentMessageId: messageId,
+          delta: '{"param":"value"}',
+        }),
+      );
 
       // Wildcard renderer should handle it
       await waitFor(() => {
@@ -352,12 +376,14 @@ describe("CopilotChat E2E - Chat Basics and Streaming Patterns", () => {
       agent.emit(runStartedEvent());
 
       // Call an undefined tool with a specific name
-      agent.emit(toolCallChunkEvent({
-        toolCallId,
-        toolCallName: "myCustomTool",
-        parentMessageId: messageId,
-        delta: '{"param":"test","value":123}',
-      }));
+      agent.emit(
+        toolCallChunkEvent({
+          toolCallId,
+          toolCallName: "myCustomTool",
+          parentMessageId: messageId,
+          delta: '{"param":"test","value":123}',
+        }),
+      );
 
       // Wildcard renderer should receive the actual tool name, not "*"
       await waitFor(() => {
@@ -410,12 +436,14 @@ describe("CopilotChat E2E - Chat Basics and Streaming Patterns", () => {
       agent.emit(runStartedEvent());
 
       // Emit tool call WITHOUT any text content
-      agent.emit(toolCallChunkEvent({
-        toolCallId,
-        toolCallName: "testTool",
-        parentMessageId: messageId,
-        delta: '{"value":"test"}',
-      }));
+      agent.emit(
+        toolCallChunkEvent({
+          toolCallId,
+          toolCallName: "testTool",
+          parentMessageId: messageId,
+          delta: '{"value":"test"}',
+        }),
+      );
 
       // Tool call should be rendered
       await waitFor(() => {
@@ -427,28 +455,39 @@ describe("CopilotChat E2E - Chat Basics and Streaming Patterns", () => {
       // Toolbar should NOT be visible for assistant message since it has no text content
       await waitFor(() => {
         // Find the assistant message container (it should have the tool render)
-        const assistantMessageDiv = screen.getByTestId("test-tool").closest("[data-message-id]");
+        const assistantMessageDiv = screen
+          .getByTestId("test-tool")
+          .closest("[data-message-id]");
 
         if (assistantMessageDiv) {
           // Check that within the assistant message, there's no copy button
-          const copyButtonsInAssistant = assistantMessageDiv.querySelectorAll("button[aria-label*='Copy' i], button[aria-label*='copy' i]");
+          const copyButtonsInAssistant = assistantMessageDiv.querySelectorAll(
+            "button[aria-label*='Copy' i], button[aria-label*='copy' i]",
+          );
           expect(copyButtonsInAssistant.length).toBe(0);
         }
       });
 
       // Now emit a NEW message WITH text content
       const messageWithContentId = testId("msg2");
-      agent.emit(textChunkEvent(messageWithContentId, "Here is some actual text content"));
+      agent.emit(
+        textChunkEvent(
+          messageWithContentId,
+          "Here is some actual text content",
+        ),
+      );
 
       // Toolbar SHOULD be visible now for the message with content
       await waitFor(() => {
-        const allMessages = screen.getAllByText(/Here is some actual text content/);
+        const allMessages = screen.getAllByText(
+          /Here is some actual text content/,
+        );
         expect(allMessages.length).toBeGreaterThan(0);
 
         // Should now have copy button
         const toolbarButtons = screen.getAllByRole("button");
-        const copyButton = toolbarButtons.find(btn =>
-          btn.getAttribute("aria-label")?.toLowerCase().includes("copy")
+        const copyButton = toolbarButtons.find((btn) =>
+          btn.getAttribute("aria-label")?.toLowerCase().includes("copy"),
         );
         expect(copyButton).toBeDefined();
       });
@@ -464,18 +503,14 @@ describe("CopilotChat E2E - Chat Basics and Streaming Patterns", () => {
           name: "specificTool",
           args: z.object({ value: z.string() }),
           render: ({ args }) => (
-            <div data-testid="specific-renderer">
-              Specific: {args.value}
-            </div>
+            <div data-testid="specific-renderer">Specific: {args.value}</div>
           ),
         }),
         defineToolCallRenderer({
           name: "*",
           args: z.any(),
           render: ({ name }) => (
-            <div data-testid="wildcard-renderer">
-              Wildcard: {name}
-            </div>
+            <div data-testid="wildcard-renderer">Wildcard: {name}</div>
           ),
         }),
       ] as unknown as ReactToolCallRenderer<unknown>[];
@@ -497,22 +532,26 @@ describe("CopilotChat E2E - Chat Basics and Streaming Patterns", () => {
       const toolCallId2 = testId("tc2");
 
       agent.emit(runStartedEvent());
-      
+
       // Call the specific tool
-      agent.emit(toolCallChunkEvent({
-        toolCallId: toolCallId1,
-        toolCallName: "specificTool",
-        parentMessageId: messageId,
-        delta: '{"value":"test123"}',
-      }));
+      agent.emit(
+        toolCallChunkEvent({
+          toolCallId: toolCallId1,
+          toolCallName: "specificTool",
+          parentMessageId: messageId,
+          delta: '{"value":"test123"}',
+        }),
+      );
 
       // Call an unknown tool
-      agent.emit(toolCallChunkEvent({
-        toolCallId: toolCallId2,
-        toolCallName: "unknownTool",
-        parentMessageId: messageId,
-        delta: '{"data":"xyz"}',
-      }));
+      agent.emit(
+        toolCallChunkEvent({
+          toolCallId: toolCallId2,
+          toolCallName: "unknownTool",
+          parentMessageId: messageId,
+          delta: '{"data":"xyz"}',
+        }),
+      );
 
       // Specific renderer should be used for specificTool
       await waitFor(() => {
@@ -542,7 +581,14 @@ describe("CopilotChat E2E - Chat Basics and Streaming Patterns", () => {
       minSuggestions?: number;
       maxSuggestions?: number;
       onReady?: () => void;
-    }> = ({ consumerAgentId, providerAgentId, instructions, minSuggestions, maxSuggestions, onReady }) => {
+    }> = ({
+      consumerAgentId,
+      providerAgentId,
+      instructions,
+      minSuggestions,
+      maxSuggestions,
+      onReady,
+    }) => {
       useConfigureSuggestions({
         instructions: instructions || "Suggest helpful next actions",
         providerAgentId,
@@ -619,10 +665,13 @@ describe("CopilotChat E2E - Chat Basics and Streaming Patterns", () => {
       });
 
       // Verify suggestions appear (provider agent's run() method will be called automatically)
-      await waitFor(() => {
-        expect(screen.getByText("Option A")).toBeDefined();
-        expect(screen.getByText("Option B")).toBeDefined();
-      }, { timeout: 5000 });
+      await waitFor(
+        () => {
+          expect(screen.getByText("Option A")).toBeDefined();
+          expect(screen.getByText("Option B")).toBeDefined();
+        },
+        { timeout: 5000 },
+      );
 
       // Click on a suggestion
       const suggestionA = screen.getByText("Option A");
@@ -687,10 +736,13 @@ describe("CopilotChat E2E - Chat Basics and Streaming Patterns", () => {
       consumerAgent.complete();
 
       // Verify both suggestions are visible after streaming completes
-      await waitFor(() => {
-        expect(screen.getByText("First Action")).toBeDefined();
-        expect(screen.getByText("Second Action")).toBeDefined();
-      }, { timeout: 5000 });
+      await waitFor(
+        () => {
+          expect(screen.getByText("First Action")).toBeDefined();
+          expect(screen.getByText("Second Action")).toBeDefined();
+        },
+        { timeout: 5000 },
+      );
     });
 
     it("should handle multiple suggestions streaming concurrently", async () => {
@@ -748,11 +800,14 @@ describe("CopilotChat E2E - Chat Basics and Streaming Patterns", () => {
       consumerAgent.complete();
 
       // Verify all suggestions appear
-      await waitFor(() => {
-        expect(screen.getByText("Alpha")).toBeDefined();
-        expect(screen.getByText("Beta")).toBeDefined();
-        expect(screen.getByText("Gamma")).toBeDefined();
-      }, { timeout: 5000 });
+      await waitFor(
+        () => {
+          expect(screen.getByText("Alpha")).toBeDefined();
+          expect(screen.getByText("Beta")).toBeDefined();
+          expect(screen.getByText("Gamma")).toBeDefined();
+        },
+        { timeout: 5000 },
+      );
     });
   });
 });

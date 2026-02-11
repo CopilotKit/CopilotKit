@@ -13,7 +13,7 @@ export function injectChatState(): ChatState {
     return inject(ChatState);
   } catch {
     throw new Error(
-      "ChatState not found. A parent component must provide ChatState."
+      "ChatState not found. A parent component must provide ChatState.",
     );
   }
 }

@@ -6,9 +6,7 @@ import { CopilotKitProvider } from "@/providers/CopilotKitProvider";
 import { CopilotChatConfigurationProvider } from "@/providers/CopilotChatConfigurationProvider";
 
 // Wrapper to provide required context
-const TestWrapper: React.FC<{ children: React.ReactNode }> = ({
-  children,
-}) => (
+const TestWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   <CopilotKitProvider>
     <CopilotChatConfigurationProvider threadId="test-thread">
       {children}
@@ -34,7 +32,7 @@ describe("CopilotPopupView Slot System E2E Tests", () => {
               messages={sampleMessages}
               header="bg-indigo-500 text-white shadow-lg"
             />
-          </TestWrapper>
+          </TestWrapper>,
         );
 
         const header = container.querySelector(".bg-indigo-500");
@@ -51,7 +49,7 @@ describe("CopilotPopupView Slot System E2E Tests", () => {
               messages={sampleMessages}
               header="rounded-t-3xl border-none"
             />
-          </TestWrapper>
+          </TestWrapper>,
         );
 
         const header = container.querySelector(".rounded-t-3xl");
@@ -72,7 +70,7 @@ describe("CopilotPopupView Slot System E2E Tests", () => {
               messages={sampleMessages}
               header={{ "data-testid": "custom-popup-header" }}
             />
-          </TestWrapper>
+          </TestWrapper>,
         );
 
         const header = screen.queryByTestId("custom-popup-header");
@@ -86,7 +84,7 @@ describe("CopilotPopupView Slot System E2E Tests", () => {
               messages={sampleMessages}
               header={{ title: "Popup Assistant" }}
             />
-          </TestWrapper>
+          </TestWrapper>,
         );
 
         expect(screen.queryByText("Popup Assistant")).toBeDefined();
@@ -114,7 +112,7 @@ describe("CopilotPopupView Slot System E2E Tests", () => {
             messages={sampleMessages}
             header={CustomHeader as any}
           />
-        </TestWrapper>
+        </TestWrapper>,
       );
 
       const custom = screen.queryByTestId("custom-popup-header-component");
@@ -133,7 +131,7 @@ describe("CopilotPopupView Slot System E2E Tests", () => {
               closeButton: "text-gray-400",
             }}
           />
-        </TestWrapper>
+        </TestWrapper>,
       );
 
       expect(screen.queryByText("Chat Popup")).toBeDefined();
@@ -154,7 +152,7 @@ describe("CopilotPopupView Slot System E2E Tests", () => {
               messages={sampleMessages}
               messageView="bg-slate-50 p-4"
             />
-          </TestWrapper>
+          </TestWrapper>,
         );
 
         const messageView = container.querySelector(".bg-slate-50");
@@ -170,7 +168,7 @@ describe("CopilotPopupView Slot System E2E Tests", () => {
               messages={sampleMessages}
               input="border-t-2 border-indigo-300"
             />
-          </TestWrapper>
+          </TestWrapper>,
         );
 
         const input = container.querySelector(".border-indigo-300");
@@ -186,7 +184,7 @@ describe("CopilotPopupView Slot System E2E Tests", () => {
               messages={sampleMessages}
               scrollView="scrollbar-thin scrollbar-thumb-gray-300"
             />
-          </TestWrapper>
+          </TestWrapper>,
         );
 
         const scrollView = container.querySelector(".scrollbar-thin");
@@ -207,7 +205,7 @@ describe("CopilotPopupView Slot System E2E Tests", () => {
               suggestions={suggestions}
               suggestionView="flex-wrap gap-2"
             />
-          </TestWrapper>
+          </TestWrapper>,
         );
 
         const suggestionView = container.querySelector(".flex-wrap");
@@ -225,7 +223,7 @@ describe("CopilotPopupView Slot System E2E Tests", () => {
               messages={sampleMessages}
               input="bg-gray-100 rounded-b-2xl"
             />
-          </TestWrapper>
+          </TestWrapper>,
         );
 
         const input = container.querySelector(".bg-gray-100");
@@ -248,7 +246,7 @@ describe("CopilotPopupView Slot System E2E Tests", () => {
               titleContent: "text-xl text-indigo-600 tracking-wide",
             }}
           />
-        </TestWrapper>
+        </TestWrapper>,
       );
 
       const titleContent = container.querySelector(".text-xl");
@@ -267,7 +265,7 @@ describe("CopilotPopupView Slot System E2E Tests", () => {
               closeButton: "popup-close-btn",
             }}
           />
-        </TestWrapper>
+        </TestWrapper>,
       );
 
       const closeBtn = container.querySelector(".popup-close-btn");
@@ -288,7 +286,7 @@ describe("CopilotPopupView Slot System E2E Tests", () => {
             messages={sampleMessages}
             header={CustomHeader as any}
           />
-        </TestWrapper>
+        </TestWrapper>,
       );
 
       const customClose = screen.queryByTestId("popup-custom-close");
@@ -314,10 +312,12 @@ describe("CopilotPopupView Slot System E2E Tests", () => {
             messages={sampleMessages}
             header={CustomLayoutHeader as any}
           />
-        </TestWrapper>
+        </TestWrapper>,
       );
 
-      expect(container.querySelector(".custom-popup-header-layout")).toBeDefined();
+      expect(
+        container.querySelector(".custom-popup-header-layout"),
+      ).toBeDefined();
       expect(container.querySelector(".close-area")).toBeDefined();
       expect(container.querySelector(".title-area")).toBeDefined();
     });
@@ -334,7 +334,7 @@ describe("CopilotPopupView Slot System E2E Tests", () => {
             messages={sampleMessages}
             className="custom-popup-class"
           />
-        </TestWrapper>
+        </TestWrapper>,
       );
 
       const popup = container.querySelector(".custom-popup-class");
@@ -350,7 +350,7 @@ describe("CopilotPopupView Slot System E2E Tests", () => {
             messageView="message-style"
             input="input-style"
           />
-        </TestWrapper>
+        </TestWrapper>,
       );
 
       expect(container.querySelector(".header-style")).toBeDefined();
@@ -367,7 +367,7 @@ describe("CopilotPopupView Slot System E2E Tests", () => {
             header={{ onClick, className: "clickable-header" }}
             input="styled-input"
           />
-        </TestWrapper>
+        </TestWrapper>,
       );
 
       expect(container.querySelector(".styled-input")).toBeDefined();
@@ -387,11 +387,8 @@ describe("CopilotPopupView Slot System E2E Tests", () => {
     it("should support custom width prop", () => {
       const { container } = render(
         <TestWrapper>
-          <CopilotPopupView
-            messages={sampleMessages}
-            width={500}
-          />
-        </TestWrapper>
+          <CopilotPopupView messages={sampleMessages} width={500} />
+        </TestWrapper>,
       );
 
       const popup = container.querySelector("[data-copilot-popup]");
@@ -403,11 +400,8 @@ describe("CopilotPopupView Slot System E2E Tests", () => {
     it("should support custom height prop", () => {
       const { container } = render(
         <TestWrapper>
-          <CopilotPopupView
-            messages={sampleMessages}
-            height={700}
-          />
-        </TestWrapper>
+          <CopilotPopupView messages={sampleMessages} height={700} />
+        </TestWrapper>,
       );
 
       const popup = container.querySelector("[data-copilot-popup]");
@@ -424,7 +418,7 @@ describe("CopilotPopupView Slot System E2E Tests", () => {
             width="80vw"
             height="90vh"
           />
-        </TestWrapper>
+        </TestWrapper>,
       );
 
       const popup = container.querySelector("[data-copilot-popup]");
@@ -438,7 +432,7 @@ describe("CopilotPopupView Slot System E2E Tests", () => {
             messages={sampleMessages}
             clickOutsideToClose={true}
           />
-        </TestWrapper>
+        </TestWrapper>,
       );
 
       const popup = container.querySelector("[data-copilot-popup]");
@@ -454,19 +448,21 @@ describe("CopilotPopupView Slot System E2E Tests", () => {
       const { container } = render(
         <TestWrapper>
           <CopilotPopupView messages={sampleMessages} defaultOpen={true} />
-        </TestWrapper>
+        </TestWrapper>,
       );
 
       const popup = container.querySelector("[data-copilot-popup]");
       expect(popup).toBeDefined();
-      expect(container.querySelector('[data-slot="copilot-modal-header"]')).toBeDefined();
+      expect(
+        container.querySelector('[data-slot="copilot-modal-header"]'),
+      ).toBeDefined();
     });
 
     it("should render messages in popup", () => {
       render(
         <TestWrapper>
           <CopilotPopupView messages={sampleMessages} />
-        </TestWrapper>
+        </TestWrapper>,
       );
 
       expect(screen.queryByText("Hello")).toBeDefined();
@@ -477,7 +473,7 @@ describe("CopilotPopupView Slot System E2E Tests", () => {
       const { container } = render(
         <TestWrapper>
           <CopilotPopupView messages={[]} />
-        </TestWrapper>
+        </TestWrapper>,
       );
 
       const popup = container.querySelector("[data-copilot-popup]");
@@ -498,7 +494,7 @@ describe("CopilotPopupView Slot System E2E Tests", () => {
             input="custom-input"
             scrollView="custom-scroll"
           />
-        </TestWrapper>
+        </TestWrapper>,
       );
 
       expect(container.querySelector(".custom-header-root")).toBeDefined();
@@ -512,13 +508,15 @@ describe("CopilotPopupView Slot System E2E Tests", () => {
       const { container } = render(
         <TestWrapper>
           <CopilotPopupView messages={sampleMessages} defaultOpen={false} />
-        </TestWrapper>
+        </TestWrapper>,
       );
 
       // Popup should not be rendered when closed
       const popup = container.querySelector("[data-copilot-popup]");
       // Initially not rendered or hidden
-      expect(popup === null || popup?.classList.contains("pointer-events-none")).toBe(true);
+      expect(
+        popup === null || popup?.classList.contains("pointer-events-none"),
+      ).toBe(true);
     });
   });
 
@@ -534,12 +532,14 @@ describe("CopilotPopupView Slot System E2E Tests", () => {
               messages={sampleMessages}
               toggleButton="bg-purple-500 hover:bg-purple-600"
             />
-          </TestWrapper>
+          </TestWrapper>,
         );
 
         const toggleButton = container.querySelector(".bg-purple-500");
         expect(toggleButton).toBeDefined();
-        expect(toggleButton?.classList.contains("hover:bg-purple-600")).toBe(true);
+        expect(toggleButton?.classList.contains("hover:bg-purple-600")).toBe(
+          true,
+        );
       });
     });
 
@@ -551,7 +551,7 @@ describe("CopilotPopupView Slot System E2E Tests", () => {
               messages={sampleMessages}
               toggleButton={{ "data-testid": "popup-custom-toggle" }}
             />
-          </TestWrapper>
+          </TestWrapper>,
         );
 
         const toggleButton = screen.queryByTestId("popup-custom-toggle");
@@ -568,12 +568,16 @@ describe("CopilotPopupView Slot System E2E Tests", () => {
                 closeIcon: "text-orange-500",
               }}
             />
-          </TestWrapper>
+          </TestWrapper>,
         );
 
         // The icons should have custom classes applied
-        const openIconSlot = container.querySelector('[data-slot="chat-toggle-button-open-icon"]');
-        const closeIconSlot = container.querySelector('[data-slot="chat-toggle-button-close-icon"]');
+        const openIconSlot = container.querySelector(
+          '[data-slot="chat-toggle-button-open-icon"]',
+        );
+        const closeIconSlot = container.querySelector(
+          '[data-slot="chat-toggle-button-close-icon"]',
+        );
         expect(openIconSlot).toBeDefined();
         expect(closeIconSlot).toBeDefined();
       });
@@ -582,7 +586,10 @@ describe("CopilotPopupView Slot System E2E Tests", () => {
     describe("toggleButton slot - Custom component", () => {
       it("should allow custom component for toggle button", () => {
         const CustomToggleButton: React.FC = () => (
-          <button data-testid="popup-custom-toggle-component" className="popup-toggle">
+          <button
+            data-testid="popup-custom-toggle-component"
+            className="popup-toggle"
+          >
             Open Chat
           </button>
         );
@@ -593,7 +600,7 @@ describe("CopilotPopupView Slot System E2E Tests", () => {
               messages={sampleMessages}
               toggleButton={CustomToggleButton as any}
             />
-          </TestWrapper>
+          </TestWrapper>,
         );
 
         const custom = screen.queryByTestId("popup-custom-toggle-component");

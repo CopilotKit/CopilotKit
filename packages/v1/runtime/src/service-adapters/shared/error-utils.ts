@@ -1,4 +1,7 @@
-import { CopilotKitLowLevelError, CopilotKitErrorCode } from "@copilotkit/shared";
+import {
+  CopilotKitLowLevelError,
+  CopilotKitErrorCode,
+} from "@copilotkit/shared";
 
 /**
  * Converts service adapter errors to structured CopilotKitError format using HTTP status codes.

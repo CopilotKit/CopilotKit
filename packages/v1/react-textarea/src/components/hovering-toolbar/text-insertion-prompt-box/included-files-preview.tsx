@@ -23,7 +23,9 @@ export const IncludedFilesPreview = ({
               key={`file-${filePointer.sourceApplication}.${filePointer.name}`}
               filePointer={filePointer}
               onDelete={() => {
-                setIncludedFiles((prev) => prev.filter((fp) => fp !== filePointer));
+                setIncludedFiles((prev) =>
+                  prev.filter((fp) => fp !== filePointer),
+                );
               }}
             />
           );
@@ -38,7 +40,10 @@ export interface FileChipPreviewProps {
   onDelete: () => void;
 }
 
-export const FileChipPreview = ({ filePointer, onDelete }: FileChipPreviewProps) => {
+export const FileChipPreview = ({
+  filePointer,
+  onDelete,
+}: FileChipPreviewProps) => {
   return (
     <Chip
       label={filePointer.name}

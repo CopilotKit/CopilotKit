@@ -234,7 +234,11 @@ export const getErrorActions = (error: CopilotKitError) => {
         primary: {
           label: "Upgrade",
           onClick: () =>
-            window.open("https://cloud.copilotkit.ai", "_blank", "noopener,noreferrer"),
+            window.open(
+              "https://cloud.copilotkit.ai",
+              "_blank",
+              "noopener,noreferrer",
+            ),
         },
       };
     default:
@@ -242,7 +246,10 @@ export const getErrorActions = (error: CopilotKitError) => {
   }
 };
 
-export function renderCopilotKitUsage(error: CopilotKitError, onClose?: () => void) {
+export function renderCopilotKitUsage(
+  error: CopilotKitError,
+  onClose?: () => void,
+) {
   // Route based on error visibility level
   if (error.visibility !== ErrorVisibility.BANNER) {
     return null;

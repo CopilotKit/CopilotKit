@@ -12,10 +12,25 @@ const buildRuntime = () => {
       setMessages: () => undefined,
       setState: () => undefined,
       threadId: "thread",
-      runAgent: async (input: { runId: string }, { onEvent }: { onEvent: (payload: { event: unknown }) => void }) => {
-        onEvent({ event: { type: "RUN_STARTED", runId: input.runId, input: { runId: input.runId } } });
+      runAgent: async (
+        input: { runId: string },
+        { onEvent }: { onEvent: (payload: { event: unknown }) => void },
+      ) => {
+        onEvent({
+          event: {
+            type: "RUN_STARTED",
+            runId: input.runId,
+            input: { runId: input.runId },
+          },
+        });
         onEvent({ event: { type: "TEXT_MESSAGE_START", messageId: "m1" } });
-        onEvent({ event: { type: "TEXT_MESSAGE_CONTENT", messageId: "m1", delta: "hello" } });
+        onEvent({
+          event: {
+            type: "TEXT_MESSAGE_CONTENT",
+            messageId: "m1",
+            delta: "hello",
+          },
+        });
         onEvent({ event: { type: "TEXT_MESSAGE_END", messageId: "m1" } });
         onEvent({ event: { type: "RUN_FINISHED", runId: input.runId } });
       },
@@ -28,7 +43,9 @@ const buildRuntime = () => {
   });
 };
 
-async function readStreamText(stream: ReadableStream<Uint8Array>): Promise<string> {
+async function readStreamText(
+  stream: ReadableStream<Uint8Array>,
+): Promise<string> {
   const reader = stream.getReader();
   const decoder = new TextDecoder();
   let output = "";
@@ -64,7 +81,9 @@ describe("Express single-route SSE streaming", () => {
   it("streams SSE events for single-route run requests", async () => {
     const runtime = buildRuntime();
     const app = express();
-    app.use(createCopilotEndpointSingleRouteExpress({ runtime, basePath: "/" }));
+    app.use(
+      createCopilotEndpointSingleRouteExpress({ runtime, basePath: "/" }),
+    );
 
     server = app.listen(0);
     const { port } = server.address() as AddressInfo;

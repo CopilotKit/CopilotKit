@@ -2,12 +2,9 @@
 
 ![leafy-green](https://github.com/user-attachments/assets/63f347ef-fefe-49c5-9162-6c88161fd9e0)
 
-
 CopilotKit fully customized using components from MongoDB's Leafy Green Design System.
 
 https://github.com/user-attachments/assets/92356944-090a-440c-bf8f-749bec5475e2
-
-
 
 ## Tech Stack
 

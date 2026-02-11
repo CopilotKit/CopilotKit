@@ -1,6 +1,12 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { CopilotKitCore } from "../core";
-import { AbstractAgent, Message, State, RunAgentInput, EventType } from "@ag-ui/client";
+import {
+  AbstractAgent,
+  Message,
+  State,
+  RunAgentInput,
+  EventType,
+} from "@ag-ui/client";
 import { randomUUID } from "@copilotkitnext/shared";
 
 /**
@@ -86,7 +92,11 @@ class EventEmittingMockAgent extends AbstractAgent {
   }
 
   // Helper to emit state delta event
-  public async emitStateDelta(runId: string, delta: any[], currentState: State) {
+  public async emitStateDelta(
+    runId: string,
+    delta: any[],
+    currentState: State,
+  ) {
     this.state = currentState;
     for (const sub of this.subscribers) {
       if (sub.onStateDeltaEvent) {
@@ -168,7 +178,10 @@ describe("StateManager - Basic State Tracking", () => {
   beforeEach(() => {
     copilotKitCore = new CopilotKitCore({});
     agent = new EventEmittingMockAgent("agent1", "thread1", { count: 0 });
-    copilotKitCore.addAgent__unsafe_dev_only({ id: "agent1", agent: agent as any });
+    copilotKitCore.addAgent__unsafe_dev_only({
+      id: "agent1",
+      agent: agent as any,
+    });
   });
 
   it("should track state when run starts", async () => {
@@ -177,7 +190,11 @@ describe("StateManager - Basic State Tracking", () => {
 
     await agent.emitRunStarted(runId, state);
 
-    const storedState = copilotKitCore.getStateByRun("agent1", "thread1", runId);
+    const storedState = copilotKitCore.getStateByRun(
+      "agent1",
+      "thread1",
+      runId,
+    );
     expect(storedState).toEqual(state);
   });
 
@@ -188,7 +205,11 @@ describe("StateManager - Basic State Tracking", () => {
     await agent.emitRunStarted(runId, { count: 1 });
     await agent.emitRunFinished(runId, finalState);
 
-    const storedState = copilotKitCore.getStateByRun("agent1", "thread1", runId);
+    const storedState = copilotKitCore.getStateByRun(
+      "agent1",
+      "thread1",
+      runId,
+    );
     expect(storedState).toEqual(finalState);
   });
 
@@ -200,7 +221,11 @@ describe("StateManager - Basic State Tracking", () => {
     await agent.emitRunStarted(runId, initialState);
     await agent.emitStateSnapshot(runId, snapshot);
 
-    const storedState = copilotKitCore.getStateByRun("agent1", "thread1", runId);
+    const storedState = copilotKitCore.getStateByRun(
+      "agent1",
+      "thread1",
+      runId,
+    );
     // State should be merged with snapshot
     expect(storedState).toEqual({ count: 3, intermediate: true });
   });
@@ -211,24 +236,44 @@ describe("StateManager - Basic State Tracking", () => {
     const deltaState = { count: 2, user: "alice" };
 
     await agent.emitRunStarted(runId, initialState);
-    await agent.emitStateDelta(runId, [{ op: "replace", path: "/count", value: 2 }], deltaState);
+    await agent.emitStateDelta(
+      runId,
+      [{ op: "replace", path: "/count", value: 2 }],
+      deltaState,
+    );
 
-    const storedState = copilotKitCore.getStateByRun("agent1", "thread1", runId);
+    const storedState = copilotKitCore.getStateByRun(
+      "agent1",
+      "thread1",
+      runId,
+    );
     expect(storedState).toEqual(deltaState);
   });
 
   it("should return undefined for non-existent run", () => {
-    const storedState = copilotKitCore.getStateByRun("agent1", "thread1", "non-existent-run");
+    const storedState = copilotKitCore.getStateByRun(
+      "agent1",
+      "thread1",
+      "non-existent-run",
+    );
     expect(storedState).toBeUndefined();
   });
 
   it("should return undefined for non-existent agent", () => {
-    const storedState = copilotKitCore.getStateByRun("non-existent-agent", "thread1", "run1");
+    const storedState = copilotKitCore.getStateByRun(
+      "non-existent-agent",
+      "thread1",
+      "run1",
+    );
     expect(storedState).toBeUndefined();
   });
 
   it("should return undefined for non-existent thread", () => {
-    const storedState = copilotKitCore.getStateByRun("agent1", "non-existent-thread", "run1");
+    const storedState = copilotKitCore.getStateByRun(
+      "agent1",
+      "non-existent-thread",
+      "run1",
+    );
     expect(storedState).toBeUndefined();
   });
 });
@@ -240,7 +285,10 @@ describe("StateManager - Multiple Runs", () => {
   beforeEach(() => {
     copilotKitCore = new CopilotKitCore({});
     agent = new EventEmittingMockAgent("agent1", "thread1");
-    copilotKitCore.addAgent__unsafe_dev_only({ id: "agent1", agent: agent as any });
+    copilotKitCore.addAgent__unsafe_dev_only({
+      id: "agent1",
+      agent: agent as any,
+    });
   });
 
   it("should track multiple sequential runs independently", async () => {
@@ -257,9 +305,15 @@ describe("StateManager - Multiple Runs", () => {
     await agent.emitRunStarted("run3", run3State);
     await agent.emitRunFinished("run3", run3State);
 
-    expect(copilotKitCore.getStateByRun("agent1", "thread1", "run1")).toEqual(run1State);
-    expect(copilotKitCore.getStateByRun("agent1", "thread1", "run2")).toEqual(run2State);
-    expect(copilotKitCore.getStateByRun("agent1", "thread1", "run3")).toEqual(run3State);
+    expect(copilotKitCore.getStateByRun("agent1", "thread1", "run1")).toEqual(
+      run1State,
+    );
+    expect(copilotKitCore.getStateByRun("agent1", "thread1", "run2")).toEqual(
+      run2State,
+    );
+    expect(copilotKitCore.getStateByRun("agent1", "thread1", "run3")).toEqual(
+      run3State,
+    );
   });
 
   it("should list all run IDs for a thread", async () => {
@@ -280,7 +334,10 @@ describe("StateManager - Multiple Runs", () => {
   });
 
   it("should return empty array for thread with no runs", () => {
-    const runIds = copilotKitCore.getRunIdsForThread("agent1", "thread-no-runs");
+    const runIds = copilotKitCore.getRunIdsForThread(
+      "agent1",
+      "thread-no-runs",
+    );
     expect(runIds).toEqual([]);
   });
 
@@ -291,19 +348,25 @@ describe("StateManager - Multiple Runs", () => {
 
     // Simulate state changes during the run
     await agent.emitStateSnapshot(runId, { count: 1, status: "processing" });
-    expect(copilotKitCore.getStateByRun("agent1", "thread1", runId)).toMatchObject({
+    expect(
+      copilotKitCore.getStateByRun("agent1", "thread1", runId),
+    ).toMatchObject({
       count: 1,
       status: "processing",
     });
 
     await agent.emitStateDelta(runId, [], { count: 2, status: "processing" });
-    expect(copilotKitCore.getStateByRun("agent1", "thread1", runId)).toMatchObject({
+    expect(
+      copilotKitCore.getStateByRun("agent1", "thread1", runId),
+    ).toMatchObject({
       count: 2,
       status: "processing",
     });
 
     await agent.emitRunFinished(runId, { count: 3, status: "completed" });
-    expect(copilotKitCore.getStateByRun("agent1", "thread1", runId)).toMatchObject({
+    expect(
+      copilotKitCore.getStateByRun("agent1", "thread1", runId),
+    ).toMatchObject({
       count: 3,
       status: "completed",
     });
@@ -317,7 +380,10 @@ describe("StateManager - Message Tracking", () => {
   beforeEach(() => {
     copilotKitCore = new CopilotKitCore({});
     agent = new EventEmittingMockAgent("agent1", "thread1");
-    copilotKitCore.addAgent__unsafe_dev_only({ id: "agent1", agent: agent as any });
+    copilotKitCore.addAgent__unsafe_dev_only({
+      id: "agent1",
+      agent: agent as any,
+    });
   });
 
   it("should associate new messages with runs", async () => {
@@ -332,7 +398,11 @@ describe("StateManager - Message Tracking", () => {
     await agent.emitNewMessage(runId, message);
     await agent.emitRunFinished(runId, {});
 
-    const associatedRunId = copilotKitCore.getRunIdForMessage("agent1", "thread1", "msg1");
+    const associatedRunId = copilotKitCore.getRunIdForMessage(
+      "agent1",
+      "thread1",
+      "msg1",
+    );
     expect(associatedRunId).toBe(runId);
   });
 
@@ -348,9 +418,15 @@ describe("StateManager - Message Tracking", () => {
     await agent.emitMessagesSnapshot(runId, messages);
     await agent.emitRunFinished(runId, {});
 
-    expect(copilotKitCore.getRunIdForMessage("agent1", "thread1", "msg1")).toBe(runId);
-    expect(copilotKitCore.getRunIdForMessage("agent1", "thread1", "msg2")).toBe(runId);
-    expect(copilotKitCore.getRunIdForMessage("agent1", "thread1", "msg3")).toBe(runId);
+    expect(copilotKitCore.getRunIdForMessage("agent1", "thread1", "msg1")).toBe(
+      runId,
+    );
+    expect(copilotKitCore.getRunIdForMessage("agent1", "thread1", "msg2")).toBe(
+      runId,
+    );
+    expect(copilotKitCore.getRunIdForMessage("agent1", "thread1", "msg3")).toBe(
+      runId,
+    );
   });
 
   it("should track messages across multiple runs", async () => {
@@ -370,13 +446,23 @@ describe("StateManager - Message Tracking", () => {
     await agent.emitNewMessage("run3", msg3);
     await agent.emitRunFinished("run3", {});
 
-    expect(copilotKitCore.getRunIdForMessage("agent1", "thread1", "msg1")).toBe("run1");
-    expect(copilotKitCore.getRunIdForMessage("agent1", "thread1", "msg2")).toBe("run2");
-    expect(copilotKitCore.getRunIdForMessage("agent1", "thread1", "msg3")).toBe("run3");
+    expect(copilotKitCore.getRunIdForMessage("agent1", "thread1", "msg1")).toBe(
+      "run1",
+    );
+    expect(copilotKitCore.getRunIdForMessage("agent1", "thread1", "msg2")).toBe(
+      "run2",
+    );
+    expect(copilotKitCore.getRunIdForMessage("agent1", "thread1", "msg3")).toBe(
+      "run3",
+    );
   });
 
   it("should return undefined for non-existent message", () => {
-    const runId = copilotKitCore.getRunIdForMessage("agent1", "thread1", "non-existent-msg");
+    const runId = copilotKitCore.getRunIdForMessage(
+      "agent1",
+      "thread1",
+      "non-existent-msg",
+    );
     expect(runId).toBeUndefined();
   });
 
@@ -402,7 +488,11 @@ describe("StateManager - Message Tracking", () => {
     await agent.emitNewMessage(runId, message);
     await agent.emitRunFinished(runId, {});
 
-    const associatedRunId = copilotKitCore.getRunIdForMessage("agent1", "thread1", "msg1");
+    const associatedRunId = copilotKitCore.getRunIdForMessage(
+      "agent1",
+      "thread1",
+      "msg1",
+    );
     expect(associatedRunId).toBe(runId);
   });
 });
@@ -416,8 +506,14 @@ describe("StateManager - Multiple Agents and Threads", () => {
     copilotKitCore = new CopilotKitCore({});
     agent1 = new EventEmittingMockAgent("agent1", "thread1");
     agent2 = new EventEmittingMockAgent("agent2", "thread2");
-    copilotKitCore.addAgent__unsafe_dev_only({ id: "agent1", agent: agent1 as any });
-    copilotKitCore.addAgent__unsafe_dev_only({ id: "agent2", agent: agent2 as any });
+    copilotKitCore.addAgent__unsafe_dev_only({
+      id: "agent1",
+      agent: agent1 as any,
+    });
+    copilotKitCore.addAgent__unsafe_dev_only({
+      id: "agent2",
+      agent: agent2 as any,
+    });
   });
 
   it("should track state for multiple agents independently", async () => {
@@ -430,8 +526,12 @@ describe("StateManager - Multiple Agents and Threads", () => {
     await agent2.emitRunStarted("run1", agent2State);
     await agent2.emitRunFinished("run1", agent2State);
 
-    expect(copilotKitCore.getStateByRun("agent1", "thread1", "run1")).toEqual(agent1State);
-    expect(copilotKitCore.getStateByRun("agent2", "thread2", "run1")).toEqual(agent2State);
+    expect(copilotKitCore.getStateByRun("agent1", "thread1", "run1")).toEqual(
+      agent1State,
+    );
+    expect(copilotKitCore.getStateByRun("agent2", "thread2", "run1")).toEqual(
+      agent2State,
+    );
   });
 
   it("should track messages for multiple agents independently", async () => {
@@ -446,21 +546,35 @@ describe("StateManager - Multiple Agents and Threads", () => {
     await agent2.emitNewMessage("run1", msg2);
     await agent2.emitRunFinished("run1", {});
 
-    expect(copilotKitCore.getRunIdForMessage("agent1", "thread1", "msg1")).toBe("run1");
-    expect(copilotKitCore.getRunIdForMessage("agent2", "thread2", "msg2")).toBe("run1");
+    expect(copilotKitCore.getRunIdForMessage("agent1", "thread1", "msg1")).toBe(
+      "run1",
+    );
+    expect(copilotKitCore.getRunIdForMessage("agent2", "thread2", "msg2")).toBe(
+      "run1",
+    );
     // Cross-agent lookups should return undefined
-    expect(copilotKitCore.getRunIdForMessage("agent1", "thread1", "msg2")).toBeUndefined();
-    expect(copilotKitCore.getRunIdForMessage("agent2", "thread2", "msg1")).toBeUndefined();
+    expect(
+      copilotKitCore.getRunIdForMessage("agent1", "thread1", "msg2"),
+    ).toBeUndefined();
+    expect(
+      copilotKitCore.getRunIdForMessage("agent2", "thread2", "msg1"),
+    ).toBeUndefined();
   });
 
   it("should handle same agent with multiple threads", async () => {
     // Create first instance with thread-a
     const agent3ThreadA = new EventEmittingMockAgent("agent3", "thread-a");
-    copilotKitCore.addAgent__unsafe_dev_only({ id: "agent3", agent: agent3ThreadA as any });
+    copilotKitCore.addAgent__unsafe_dev_only({
+      id: "agent3",
+      agent: agent3ThreadA as any,
+    });
 
     // Create second instance without agentId initially, then assign it after registration
     const agent3ThreadB = new EventEmittingMockAgent("", "thread-b");
-    copilotKitCore.addAgent__unsafe_dev_only({ id: "agent3-threadb", agent: agent3ThreadB as any });
+    copilotKitCore.addAgent__unsafe_dev_only({
+      id: "agent3-threadb",
+      agent: agent3ThreadB as any,
+    });
 
     const threadAState = { thread: "a", count: 1 };
     const threadBState = { thread: "b", count: 2 };
@@ -471,8 +585,12 @@ describe("StateManager - Multiple Agents and Threads", () => {
     await agent3ThreadB.emitRunStarted("run1", threadBState);
     await agent3ThreadB.emitRunFinished("run1", threadBState);
 
-    expect(copilotKitCore.getStateByRun("agent3", "thread-a", "run1")).toEqual(threadAState);
-    expect(copilotKitCore.getStateByRun("agent3-threadb", "thread-b", "run1")).toEqual(threadBState);
+    expect(copilotKitCore.getStateByRun("agent3", "thread-a", "run1")).toEqual(
+      threadAState,
+    );
+    expect(
+      copilotKitCore.getStateByRun("agent3-threadb", "thread-b", "run1"),
+    ).toEqual(threadBState);
   });
 });
 
@@ -483,7 +601,10 @@ describe("StateManager - State Isolation", () => {
   beforeEach(() => {
     copilotKitCore = new CopilotKitCore({});
     agent = new EventEmittingMockAgent("agent1", "thread1");
-    copilotKitCore.addAgent__unsafe_dev_only({ id: "agent1", agent: agent as any });
+    copilotKitCore.addAgent__unsafe_dev_only({
+      id: "agent1",
+      agent: agent as any,
+    });
   });
 
   it("should deep copy state to prevent external mutations", async () => {
@@ -492,14 +613,22 @@ describe("StateManager - State Isolation", () => {
 
     await agent.emitRunStarted(runId, state);
 
-    const retrievedState = copilotKitCore.getStateByRun("agent1", "thread1", runId) as any;
+    const retrievedState = copilotKitCore.getStateByRun(
+      "agent1",
+      "thread1",
+      runId,
+    ) as any;
 
     // Mutate the retrieved state
     retrievedState.nested.count = 999;
     retrievedState.items.push(4);
 
     // Original stored state should be unchanged
-    const retrievedAgain = copilotKitCore.getStateByRun("agent1", "thread1", runId) as any;
+    const retrievedAgain = copilotKitCore.getStateByRun(
+      "agent1",
+      "thread1",
+      runId,
+    ) as any;
     expect(retrievedAgain.nested.count).toBe(1);
     expect(retrievedAgain.items).toEqual([1, 2, 3]);
   });
@@ -529,7 +658,11 @@ describe("StateManager - State Isolation", () => {
 
     await agent.emitRunStarted(runId, complexState);
 
-    const storedState = copilotKitCore.getStateByRun("agent1", "thread1", runId);
+    const storedState = copilotKitCore.getStateByRun(
+      "agent1",
+      "thread1",
+      runId,
+    );
     expect(storedState).toEqual(complexState);
   });
 
@@ -545,7 +678,11 @@ describe("StateManager - State Isolation", () => {
 
     await agent.emitRunStarted(runId, state);
 
-    const storedState = copilotKitCore.getStateByRun("agent1", "thread1", runId) as any;
+    const storedState = copilotKitCore.getStateByRun(
+      "agent1",
+      "thread1",
+      runId,
+    ) as any;
     expect(storedState.nullValue).toBeNull();
     // Note: undefined may not survive JSON serialization
     expect(storedState.zeroValue).toBe(0);
@@ -563,7 +700,10 @@ describe("StateManager - Edge Cases", () => {
 
   it("should handle agent without agentId gracefully", async () => {
     const agent = new EventEmittingMockAgent("", "thread1");
-    copilotKitCore.addAgent__unsafe_dev_only({ id: "test", agent: agent as any });
+    copilotKitCore.addAgent__unsafe_dev_only({
+      id: "test",
+      agent: agent as any,
+    });
 
     // Agent will get assigned "test" as its agentId during registration
     // So it should actually track the state under "test"
@@ -576,18 +716,28 @@ describe("StateManager - Edge Cases", () => {
 
   it("should handle empty state object", async () => {
     const agent = new EventEmittingMockAgent("agent1", "thread1");
-    copilotKitCore.addAgent__unsafe_dev_only({ id: "agent1", agent: agent as any });
+    copilotKitCore.addAgent__unsafe_dev_only({
+      id: "agent1",
+      agent: agent as any,
+    });
 
     await agent.emitRunStarted("run1", {});
     await agent.emitRunFinished("run1", {});
 
-    const storedState = copilotKitCore.getStateByRun("agent1", "thread1", "run1");
+    const storedState = copilotKitCore.getStateByRun(
+      "agent1",
+      "thread1",
+      "run1",
+    );
     expect(storedState).toEqual({});
   });
 
   it("should handle rapid successive runs", async () => {
     const agent = new EventEmittingMockAgent("agent1", "thread1");
-    copilotKitCore.addAgent__unsafe_dev_only({ id: "agent1", agent: agent as any });
+    copilotKitCore.addAgent__unsafe_dev_only({
+      id: "agent1",
+      agent: agent as any,
+    });
 
     // Fire multiple runs rapidly
     const promises = [];
@@ -595,7 +745,9 @@ describe("StateManager - Edge Cases", () => {
       const runId = `run${i}`;
       const state = { count: i };
       promises.push(
-        agent.emitRunStarted(runId, state).then(() => agent.emitRunFinished(runId, state))
+        agent
+          .emitRunStarted(runId, state)
+          .then(() => agent.emitRunFinished(runId, state)),
       );
     }
 
@@ -603,14 +755,21 @@ describe("StateManager - Edge Cases", () => {
 
     // All runs should be tracked correctly
     for (let i = 0; i < 10; i++) {
-      const storedState = copilotKitCore.getStateByRun("agent1", "thread1", `run${i}`);
+      const storedState = copilotKitCore.getStateByRun(
+        "agent1",
+        "thread1",
+        `run${i}`,
+      );
       expect(storedState).toEqual({ count: i });
     }
   });
 
   it("should handle messages without input parameter", async () => {
     const agent = new EventEmittingMockAgent("agent1", "thread1");
-    copilotKitCore.addAgent__unsafe_dev_only({ id: "agent1", agent: agent as any });
+    copilotKitCore.addAgent__unsafe_dev_only({
+      id: "agent1",
+      agent: agent as any,
+    });
 
     const message: Message = {
       id: "msg1",
@@ -632,7 +791,11 @@ describe("StateManager - Edge Cases", () => {
     }
 
     // Should not throw, but message won't be associated
-    const runId = copilotKitCore.getRunIdForMessage("agent1", "thread1", "msg1");
+    const runId = copilotKitCore.getRunIdForMessage(
+      "agent1",
+      "thread1",
+      "msg1",
+    );
     expect(runId).toBeUndefined();
   });
 });
@@ -644,7 +807,10 @@ describe("StateManager - Real-world Scenarios", () => {
   beforeEach(() => {
     copilotKitCore = new CopilotKitCore({});
     agent = new EventEmittingMockAgent("chatbot", "user-session-123");
-    copilotKitCore.addAgent__unsafe_dev_only({ id: "chatbot", agent: agent as any });
+    copilotKitCore.addAgent__unsafe_dev_only({
+      id: "chatbot",
+      agent: agent as any,
+    });
   });
 
   it("should track a complete conversation flow", async () => {
@@ -655,21 +821,42 @@ describe("StateManager - Real-world Scenarios", () => {
     const msg1: Message = { id: randomUUID(), role: "user", content: "Hello" };
     await agent.emitNewMessage(run1Id, msg1);
 
-    const msg2: Message = { id: randomUUID(), role: "assistant", content: "Hi! How can I help?" };
+    const msg2: Message = {
+      id: randomUUID(),
+      role: "assistant",
+      content: "Hi! How can I help?",
+    };
     await agent.emitNewMessage(run1Id, msg2);
 
-    await agent.emitRunFinished(run1Id, { conversationContext: "greeting", messageCount: 2 });
+    await agent.emitRunFinished(run1Id, {
+      conversationContext: "greeting",
+      messageCount: 2,
+    });
 
     // Second run - user asks for help
     const run2Id = randomUUID();
-    await agent.emitRunStarted(run2Id, { conversationContext: "help_request", messageCount: 2 });
+    await agent.emitRunStarted(run2Id, {
+      conversationContext: "help_request",
+      messageCount: 2,
+    });
 
-    const msg3: Message = { id: randomUUID(), role: "user", content: "I need help with my order" };
+    const msg3: Message = {
+      id: randomUUID(),
+      role: "user",
+      content: "I need help with my order",
+    };
     await agent.emitNewMessage(run2Id, msg3);
 
-    await agent.emitStateSnapshot(run2Id, { conversationContext: "help_request", topic: "orders" });
+    await agent.emitStateSnapshot(run2Id, {
+      conversationContext: "help_request",
+      topic: "orders",
+    });
 
-    const msg4: Message = { id: randomUUID(), role: "assistant", content: "I can help with that!" };
+    const msg4: Message = {
+      id: randomUUID(),
+      role: "assistant",
+      content: "I can help with that!",
+    };
     await agent.emitNewMessage(run2Id, msg4);
 
     await agent.emitRunFinished(run2Id, {
@@ -679,16 +866,35 @@ describe("StateManager - Real-world Scenarios", () => {
     });
 
     // Verify all messages are associated correctly
-    expect(copilotKitCore.getRunIdForMessage("chatbot", "user-session-123", msg1.id)).toBe(run1Id);
-    expect(copilotKitCore.getRunIdForMessage("chatbot", "user-session-123", msg2.id)).toBe(run1Id);
-    expect(copilotKitCore.getRunIdForMessage("chatbot", "user-session-123", msg3.id)).toBe(run2Id);
-    expect(copilotKitCore.getRunIdForMessage("chatbot", "user-session-123", msg4.id)).toBe(run2Id);
+    expect(
+      copilotKitCore.getRunIdForMessage("chatbot", "user-session-123", msg1.id),
+    ).toBe(run1Id);
+    expect(
+      copilotKitCore.getRunIdForMessage("chatbot", "user-session-123", msg2.id),
+    ).toBe(run1Id);
+    expect(
+      copilotKitCore.getRunIdForMessage("chatbot", "user-session-123", msg3.id),
+    ).toBe(run2Id);
+    expect(
+      copilotKitCore.getRunIdForMessage("chatbot", "user-session-123", msg4.id),
+    ).toBe(run2Id);
 
     // Verify states are tracked correctly
-    const run1State = copilotKitCore.getStateByRun("chatbot", "user-session-123", run1Id);
-    expect(run1State).toMatchObject({ conversationContext: "greeting", messageCount: 2 });
+    const run1State = copilotKitCore.getStateByRun(
+      "chatbot",
+      "user-session-123",
+      run1Id,
+    );
+    expect(run1State).toMatchObject({
+      conversationContext: "greeting",
+      messageCount: 2,
+    });
 
-    const run2State = copilotKitCore.getStateByRun("chatbot", "user-session-123", run2Id);
+    const run2State = copilotKitCore.getStateByRun(
+      "chatbot",
+      "user-session-123",
+      run2Id,
+    );
     expect(run2State).toMatchObject({
       conversationContext: "help_request",
       topic: "orders",
@@ -696,7 +902,10 @@ describe("StateManager - Real-world Scenarios", () => {
     });
 
     // Verify we can list all runs
-    const runIds = copilotKitCore.getRunIdsForThread("chatbot", "user-session-123");
+    const runIds = copilotKitCore.getRunIdsForThread(
+      "chatbot",
+      "user-session-123",
+    );
     expect(runIds).toHaveLength(2);
     expect(runIds).toContain(run1Id);
     expect(runIds).toContain(run2Id);
@@ -763,13 +972,41 @@ describe("StateManager - Real-world Scenarios", () => {
     });
 
     // Verify all messages are associated
-    expect(copilotKitCore.getRunIdForMessage("chatbot", "user-session-123", userMsg.id)).toBe(runId);
-    expect(copilotKitCore.getRunIdForMessage("chatbot", "user-session-123", toolCallMsg.id)).toBe(runId);
-    expect(copilotKitCore.getRunIdForMessage("chatbot", "user-session-123", toolResultMsg.id)).toBe(runId);
-    expect(copilotKitCore.getRunIdForMessage("chatbot", "user-session-123", responseMsg.id)).toBe(runId);
+    expect(
+      copilotKitCore.getRunIdForMessage(
+        "chatbot",
+        "user-session-123",
+        userMsg.id,
+      ),
+    ).toBe(runId);
+    expect(
+      copilotKitCore.getRunIdForMessage(
+        "chatbot",
+        "user-session-123",
+        toolCallMsg.id,
+      ),
+    ).toBe(runId);
+    expect(
+      copilotKitCore.getRunIdForMessage(
+        "chatbot",
+        "user-session-123",
+        toolResultMsg.id,
+      ),
+    ).toBe(runId);
+    expect(
+      copilotKitCore.getRunIdForMessage(
+        "chatbot",
+        "user-session-123",
+        responseMsg.id,
+      ),
+    ).toBe(runId);
 
     // Verify final state
-    const finalState = copilotKitCore.getStateByRun("chatbot", "user-session-123", runId);
+    const finalState = copilotKitCore.getStateByRun(
+      "chatbot",
+      "user-session-123",
+      runId,
+    );
     expect(finalState).toMatchObject({
       step: "completed",
       toolsExecuted: ["searchWeb"],

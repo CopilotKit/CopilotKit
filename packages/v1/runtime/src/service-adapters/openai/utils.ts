@@ -21,7 +21,9 @@ export function limitMessagesToTokenCount(
   const result: any[] = [];
   const toolsNumTokens = countToolsTokens(model, tools);
   if (toolsNumTokens > maxTokens) {
-    throw new Error(`Too many tokens in function definitions: ${toolsNumTokens} > ${maxTokens}`);
+    throw new Error(
+      `Too many tokens in function definitions: ${toolsNumTokens} > ${maxTokens}`,
+    );
   }
   maxTokens -= toolsNumTokens;
 
@@ -123,7 +125,9 @@ function countTokens(model: string, text: string): number {
   return text.length / 3;
 }
 
-export function convertActionInputToOpenAITool(action: ActionInput): ChatCompletionTool {
+export function convertActionInputToOpenAITool(
+  action: ActionInput,
+): ChatCompletionTool {
   return {
     type: "function",
     function: {
@@ -188,7 +192,9 @@ export function convertMessageToOpenAIMessage(
   }
 }
 
-export function convertSystemMessageToAssistantAPI(message: ChatCompletionMessageParam) {
+export function convertSystemMessageToAssistantAPI(
+  message: ChatCompletionMessageParam,
+) {
   return {
     ...message,
     ...(["system", "developer"].includes(message.role) && {

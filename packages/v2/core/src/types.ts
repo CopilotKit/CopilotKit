@@ -20,7 +20,9 @@ export type FrontendToolHandlerContext = {
   agent: AbstractAgent;
 };
 
-export type FrontendTool<T extends Record<string, unknown> = Record<string, unknown>> = {
+export type FrontendTool<
+  T extends Record<string, unknown> = Record<string, unknown>,
+> = {
   name: string;
   description?: string;
   parameters?: z.ZodType<T>;
@@ -40,7 +42,11 @@ export type Suggestion = {
   isLoading: boolean;
 };
 
-export type SuggestionAvailability = "before-first-message" | "after-first-message" | "always" | "disabled";
+export type SuggestionAvailability =
+  | "before-first-message"
+  | "after-first-message"
+  | "always"
+  | "disabled";
 
 export type DynamicSuggestionsConfig = {
   /**
@@ -91,4 +97,6 @@ export type StaticSuggestionsConfig = {
   consumerAgentId?: string;
 };
 
-export type SuggestionsConfig = DynamicSuggestionsConfig | StaticSuggestionsConfig;
+export type SuggestionsConfig =
+  | DynamicSuggestionsConfig
+  | StaticSuggestionsConfig;

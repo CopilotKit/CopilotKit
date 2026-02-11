@@ -1,7 +1,10 @@
 import React, { useCallback } from "react";
 
 import { cn } from "@/lib/utils";
-import { useCopilotChatConfiguration, CopilotChatDefaultLabels } from "@/providers/CopilotChatConfigurationProvider";
+import {
+  useCopilotChatConfiguration,
+  CopilotChatDefaultLabels,
+} from "@/providers/CopilotChatConfigurationProvider";
 import { renderSlot, WithSlots } from "@/lib/slots";
 import { X } from "lucide-react";
 
@@ -26,7 +29,9 @@ export function CopilotModalHeader({
 }: CopilotModalHeaderProps) {
   const configuration = useCopilotChatConfiguration();
 
-  const fallbackTitle = configuration?.labels.modalHeaderTitle ?? CopilotChatDefaultLabels.modalHeaderTitle;
+  const fallbackTitle =
+    configuration?.labels.modalHeaderTitle ??
+    CopilotChatDefaultLabels.modalHeaderTitle;
   const resolvedTitle = title ?? fallbackTitle;
 
   const handleClose = useCallback(() => {
@@ -37,9 +42,13 @@ export function CopilotModalHeader({
     children: resolvedTitle,
   });
 
-  const BoundCloseButton = renderSlot(closeButton, CopilotModalHeader.CloseButton, {
-    onClick: handleClose,
-  });
+  const BoundCloseButton = renderSlot(
+    closeButton,
+    CopilotModalHeader.CloseButton,
+    {
+      onClick: handleClose,
+    },
+  );
 
   if (children) {
     return children({
@@ -62,7 +71,9 @@ export function CopilotModalHeader({
     >
       <div className="flex w-full items-center gap-2">
         <div className="flex-1" aria-hidden="true" />
-        <div className="flex flex-1 justify-center text-center">{BoundTitle}</div>
+        <div className="flex flex-1 justify-center text-center">
+          {BoundTitle}
+        </div>
         <div className="flex flex-1 justify-end">{BoundCloseButton}</div>
       </div>
     </header>
@@ -72,7 +83,11 @@ export function CopilotModalHeader({
 CopilotModalHeader.displayName = "CopilotModalHeader";
 
 export namespace CopilotModalHeader {
-  export const Title: React.FC<React.HTMLAttributes<HTMLDivElement>> = ({ children, className, ...props }) => (
+  export const Title: React.FC<React.HTMLAttributes<HTMLDivElement>> = ({
+    children,
+    className,
+    ...props
+  }) => (
     <div
       className={cn(
         "w-full text-base font-medium leading-none tracking-tight text-foreground",
@@ -84,10 +99,9 @@ export namespace CopilotModalHeader {
     </div>
   );
 
-  export const CloseButton: React.FC<React.ButtonHTMLAttributes<HTMLButtonElement>> = ({
-    className,
-    ...props
-  }) => (
+  export const CloseButton: React.FC<
+    React.ButtonHTMLAttributes<HTMLButtonElement>
+  > = ({ className, ...props }) => (
     <button
       type="button"
       className={cn(

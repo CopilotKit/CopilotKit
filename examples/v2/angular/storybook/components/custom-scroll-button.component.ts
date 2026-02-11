@@ -1,12 +1,12 @@
-import { Component, Input, Output, EventEmitter } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, Input, Output, EventEmitter } from "@angular/core";
+import { CommonModule } from "@angular/common";
 
 @Component({
-  selector: 'custom-scroll-button',
+  selector: "custom-scroll-button",
   standalone: true,
   imports: [CommonModule],
   template: `
-    <button 
+    <button
       type="button"
       (click)="handleClick()"
       [class]="inputClass"
@@ -31,23 +31,28 @@ import { CommonModule } from '@angular/common';
         transition: transform 0.2s;
         z-index: 1000;
       "
-      [style.transform]="isHovered ? 'scale(1.1)' : 'scale(1)'">
-      <span style="color: white; font-size: 24px; pointer-events: none;">⬇️</span>
+      [style.transform]="isHovered ? 'scale(1.1)' : 'scale(1)'"
+    >
+      <span style="color: white; font-size: 24px; pointer-events: none;"
+        >⬇️</span
+      >
     </button>
   `,
-  styles: [`
-    button.hover {
-      transform: scale(1.1);
-    }
-  `]
+  styles: [
+    `
+      button.hover {
+        transform: scale(1.1);
+      }
+    `,
+  ],
 })
 export class CustomScrollButtonComponent {
   @Input() onClick?: () => void;
   @Input() inputClass?: string;
   @Output() clicked = new EventEmitter<void>();
-  
+
   isHovered = false;
-  
+
   handleClick() {
     // Emit the clicked event for the slot system to handle
     this.clicked.emit();

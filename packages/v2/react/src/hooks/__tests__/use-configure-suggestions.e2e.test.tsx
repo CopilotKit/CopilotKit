@@ -10,7 +10,13 @@ import { useConfigureSuggestions } from "../use-configure-suggestions";
 import { useSuggestions } from "../use-suggestions";
 import { DEFAULT_AGENT_ID, randomUUID } from "@copilotkitnext/shared";
 import { Suggestion } from "@copilotkitnext/core";
-import { AbstractAgent, AgentSubscriber, Message, RunAgentParameters, RunAgentResult } from "@ag-ui/client";
+import {
+  AbstractAgent,
+  AgentSubscriber,
+  Message,
+  RunAgentParameters,
+  RunAgentResult,
+} from "@ag-ui/client";
 import { useCopilotKit } from "@/providers/CopilotKitProvider";
 
 class ImmediateSuggestionsProviderAgent extends AbstractAgent {
@@ -112,7 +118,9 @@ const TestHarness: React.FC = () => {
     <div>
       <div data-testid="suggestions-count">{suggestions.length}</div>
       <div data-testid="suggestions-json">{JSON.stringify(suggestions)}</div>
-      <div data-testid="suggestions-loading">{isLoading ? "loading" : "idle"}</div>
+      <div data-testid="suggestions-loading">
+        {isLoading ? "loading" : "idle"}
+      </div>
       <button data-testid="reload-suggestions" onClick={handleReload}>
         Reload
       </button>
@@ -209,7 +217,10 @@ const RunClearsSuggestionsHarness: React.FC = () => {
       <button data-testid="complete-agent" onClick={handleComplete}>
         Complete
       </button>
-      <button data-testid="update-suggestions" onClick={handleUpdateSuggestions}>
+      <button
+        data-testid="update-suggestions"
+        onClick={handleUpdateSuggestions}
+      >
         Update Suggestions
       </button>
     </div>
@@ -342,7 +353,9 @@ const DualAgentGlobalHarness: React.FC<{ consumer?: "*" }> = ({ consumer }) => {
 
   useConfigureSuggestions(config as any);
 
-  const { suggestions: alphaSuggestions } = useSuggestions({ agentId: "alpha" });
+  const { suggestions: alphaSuggestions } = useSuggestions({
+    agentId: "alpha",
+  });
   const { suggestions: betaSuggestions } = useSuggestions({ agentId: "beta" });
 
   const handleUpdate = useCallback(() => {
@@ -373,7 +386,9 @@ const DynamicStreamingHarness: React.FC = () => {
     [topic],
   );
 
-  const { suggestions, reloadSuggestions } = useSuggestions({ agentId: "consumer" });
+  const { suggestions, reloadSuggestions } = useSuggestions({
+    agentId: "consumer",
+  });
 
   const handleReload = useCallback(() => {
     reloadSuggestions();
@@ -410,7 +425,9 @@ describe("useConfigureSuggestions", () => {
 
     await waitFor(() => {
       expect(screen.getByTestId("suggestions-count").textContent).toBe("2");
-      expect(screen.getByTestId("suggestions-loading").textContent).toBe("idle");
+      expect(screen.getByTestId("suggestions-loading").textContent).toBe(
+        "idle",
+      );
     });
 
     const json = screen.getByTestId("suggestions-json").textContent;
@@ -432,15 +449,23 @@ describe("global suggestions coverage", () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByTestId("alpha-json").textContent).toContain("Global v1");
-      expect(screen.getByTestId("beta-json").textContent).toContain("Global v1");
+      expect(screen.getByTestId("alpha-json").textContent).toContain(
+        "Global v1",
+      );
+      expect(screen.getByTestId("beta-json").textContent).toContain(
+        "Global v1",
+      );
     });
 
     fireEvent.click(screen.getByTestId("update-global"));
 
     await waitFor(() => {
-      expect(screen.getByTestId("alpha-json").textContent).toContain("Global v2");
-      expect(screen.getByTestId("beta-json").textContent).toContain("Global v2");
+      expect(screen.getByTestId("alpha-json").textContent).toContain(
+        "Global v2",
+      );
+      expect(screen.getByTestId("beta-json").textContent).toContain(
+        "Global v2",
+      );
     });
   });
 
@@ -456,15 +481,23 @@ describe("global suggestions coverage", () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByTestId("alpha-json").textContent).toContain("Global v1");
-      expect(screen.getByTestId("beta-json").textContent).toContain("Global v1");
+      expect(screen.getByTestId("alpha-json").textContent).toContain(
+        "Global v1",
+      );
+      expect(screen.getByTestId("beta-json").textContent).toContain(
+        "Global v1",
+      );
     });
 
     fireEvent.click(screen.getByTestId("update-global"));
 
     await waitFor(() => {
-      expect(screen.getByTestId("alpha-json").textContent).toContain("Global v2");
-      expect(screen.getByTestId("beta-json").textContent).toContain("Global v2");
+      expect(screen.getByTestId("alpha-json").textContent).toContain(
+        "Global v2",
+      );
+      expect(screen.getByTestId("beta-json").textContent).toContain(
+        "Global v2",
+      );
     });
   });
 });
@@ -489,8 +522,12 @@ describe("dynamic suggestions with MockAgent", () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
 
     await waitFor(() => {
-      expect(screen.getByTestId("dynamic-json").textContent).toContain("Alpha Choice");
-      expect(screen.getByTestId("dynamic-json").textContent).toContain("Alpha Backup");
+      expect(screen.getByTestId("dynamic-json").textContent).toContain(
+        "Alpha Choice",
+      );
+      expect(screen.getByTestId("dynamic-json").textContent).toContain(
+        "Alpha Backup",
+      );
     });
 
     provider.setResponses([
@@ -503,8 +540,12 @@ describe("dynamic suggestions with MockAgent", () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
 
     await waitFor(() => {
-      expect(screen.getByTestId("dynamic-json").textContent).toContain("Beta Pick");
-      expect(screen.getByTestId("dynamic-json").textContent).toContain("Beta Extra");
+      expect(screen.getByTestId("dynamic-json").textContent).toContain(
+        "Beta Pick",
+      );
+      expect(screen.getByTestId("dynamic-json").textContent).toContain(
+        "Beta Extra",
+      );
     });
   });
 });
@@ -520,7 +561,9 @@ describe("static suggestions defaults", () => {
 
     await waitFor(() => {
       expect(screen.getByTestId("suggestions-count").textContent).toBe("1");
-      expect(screen.getByTestId("suggestions-json").textContent).toContain('"isLoading":false');
+      expect(screen.getByTestId("suggestions-json").textContent).toContain(
+        '"isLoading":false',
+      );
     });
 
     fireEvent.click(screen.getByTestId("add-message"));
@@ -542,13 +585,17 @@ describe("suggestions lifecycle during runs", () => {
 
     await waitFor(() => {
       expect(screen.getByTestId("suggestions-count").textContent).toBe("1");
-      expect(screen.getByTestId("suggestions-json").textContent).toContain('"isLoading":false');
+      expect(screen.getByTestId("suggestions-json").textContent).toContain(
+        '"isLoading":false',
+      );
     });
 
     fireEvent.click(screen.getByTestId("update-suggestions"));
 
     await waitFor(() => {
-      expect(screen.getByTestId("suggestions-json").textContent).toContain("Updated static");
+      expect(screen.getByTestId("suggestions-json").textContent).toContain(
+        "Updated static",
+      );
     });
 
     fireEvent.click(screen.getByTestId("run-agent"));
@@ -580,13 +627,17 @@ describe("useConfigureSuggestions dependencies", () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByTestId("suggestions-json").textContent).toContain("First dynamic");
+      expect(screen.getByTestId("suggestions-json").textContent).toContain(
+        "First dynamic",
+      );
     });
 
     fireEvent.click(screen.getByTestId("update"));
 
     await waitFor(() => {
-      expect(screen.getByTestId("suggestions-json").textContent).toContain("Second dynamic");
+      expect(screen.getByTestId("suggestions-json").textContent).toContain(
+        "Second dynamic",
+      );
     });
   });
 
@@ -599,13 +650,17 @@ describe("useConfigureSuggestions dependencies", () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByTestId("suggestions-json").textContent).toContain("Version 0");
+      expect(screen.getByTestId("suggestions-json").textContent).toContain(
+        "Version 0",
+      );
     });
 
     fireEvent.click(screen.getByTestId("bump"));
 
     await waitFor(() => {
-      expect(screen.getByTestId("suggestions-json").textContent).toContain("Version 1");
+      expect(screen.getByTestId("suggestions-json").textContent).toContain(
+        "Version 1",
+      );
     });
   });
 
@@ -618,7 +673,9 @@ describe("useConfigureSuggestions dependencies", () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByTestId("suggestions-json").textContent).toContain("Initial");
+      expect(screen.getByTestId("suggestions-json").textContent).toContain(
+        "Initial",
+      );
     });
 
     fireEvent.click(screen.getByTestId("start-run"));
@@ -631,7 +688,9 @@ describe("useConfigureSuggestions dependencies", () => {
     fireEvent.click(screen.getByTestId("emit-finish"));
 
     await waitFor(() => {
-      expect(screen.getByTestId("suggestions-json").textContent).toContain("Deferred");
+      expect(screen.getByTestId("suggestions-json").textContent).toContain(
+        "Deferred",
+      );
     });
   });
 });

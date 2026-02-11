@@ -132,10 +132,19 @@
  */
 import { useEffect, useRef, useState } from "react";
 import { Parameter } from "@copilotkit/shared";
-import { CatchAllFrontendAction, FrontendAction } from "../types/frontend-action";
+import {
+  CatchAllFrontendAction,
+  FrontendAction,
+} from "../types/frontend-action";
 import { useFrontendTool, UseFrontendToolArgs } from "./use-frontend-tool";
-import { useRenderToolCall, UseRenderToolCallArgs } from "./use-render-tool-call";
-import { useHumanInTheLoop, UseHumanInTheLoopArgs } from "./use-human-in-the-loop";
+import {
+  useRenderToolCall,
+  UseRenderToolCallArgs,
+} from "./use-render-tool-call";
+import {
+  useHumanInTheLoop,
+  UseHumanInTheLoopArgs,
+} from "./use-human-in-the-loop";
 import { useCopilotContext } from "../context";
 
 // Helper to determine which component and action config to use

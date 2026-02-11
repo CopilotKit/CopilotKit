@@ -51,20 +51,20 @@ export class SqliteAgentRunner extends AgentRunner {
   constructor(options: SqliteAgentRunnerOptions = {}) {
     super();
     const dbPath = options.dbPath ?? ":memory:";
-    
+
     if (!Database) {
       throw new Error(
-        'better-sqlite3 is required for SqliteAgentRunner but was not found.\n' +
-        'Please install it in your project:\n' +
-        '  npm install better-sqlite3\n' +
-        '  or\n' +
-        '  pnpm add better-sqlite3\n' +
-        '  or\n' +
-        '  yarn add better-sqlite3\n\n' +
-        'If you don\'t need persistence, use InMemoryAgentRunner instead.'
+        "better-sqlite3 is required for SqliteAgentRunner but was not found.\n" +
+          "Please install it in your project:\n" +
+          "  npm install better-sqlite3\n" +
+          "  or\n" +
+          "  pnpm add better-sqlite3\n" +
+          "  or\n" +
+          "  yarn add better-sqlite3\n\n" +
+          "If you don't need persistence, use InMemoryAgentRunner instead.",
       );
     }
-    
+
     this.db = new Database(dbPath);
     this.initializeSchema();
   }
@@ -110,12 +110,16 @@ export class SqliteAgentRunner extends AgentRunner {
 
     // Check and set schema version
     const currentVersion = this.db
-      .prepare("SELECT version FROM schema_version ORDER BY version DESC LIMIT 1")
+      .prepare(
+        "SELECT version FROM schema_version ORDER BY version DESC LIMIT 1",
+      )
       .get() as { version: number } | undefined;
 
     if (!currentVersion || currentVersion.version < SCHEMA_VERSION) {
       this.db
-        .prepare("INSERT OR REPLACE INTO schema_version (version, applied_at) VALUES (?, ?)")
+        .prepare(
+          "INSERT OR REPLACE INTO schema_version (version, applied_at) VALUES (?, ?)",
+        )
         .run(SCHEMA_VERSION, Date.now());
     }
   }
@@ -125,11 +129,11 @@ export class SqliteAgentRunner extends AgentRunner {
     runId: string,
     events: BaseEvent[],
     input: RunAgentInput,
-    parentRunId?: string | null
+    parentRunId?: string | null,
   ): void {
     // Compact ONLY the events from this run
     const compactedEvents = compactEvents(events);
-    
+
     const stmt = this.db.prepare(`
       INSERT INTO agent_runs (thread_id, run_id, parent_run_id, events, input, created_at, version)
       VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -142,7 +146,7 @@ export class SqliteAgentRunner extends AgentRunner {
       JSON.stringify(compactedEvents), // Store only this run's compacted events
       JSON.stringify(input),
       Date.now(),
-      SCHEMA_VERSION
+      SCHEMA_VERSION,
     );
   }
 
@@ -165,8 +169,8 @@ export class SqliteAgentRunner extends AgentRunner {
     `);
 
     const rows = stmt.all(threadId, threadId) as any[];
-    
-    return rows.map(row => ({
+
+    return rows.map((row) => ({
       id: row.id,
       thread_id: row.thread_id,
       run_id: row.run_id,
@@ -174,7 +178,7 @@ export class SqliteAgentRunner extends AgentRunner {
       events: JSON.parse(row.events),
       input: JSON.parse(row.input),
       created_at: row.created_at,
-      version: row.version
+      version: row.version,
     }));
   }
 
@@ -190,7 +194,11 @@ export class SqliteAgentRunner extends AgentRunner {
     return result?.run_id ?? null;
   }
 
-  private setRunState(threadId: string, isRunning: boolean, runId?: string): void {
+  private setRunState(
+    threadId: string,
+    isRunning: boolean,
+    runId?: string,
+  ): void {
     const stmt = this.db.prepare(`
       INSERT OR REPLACE INTO run_state (thread_id, is_running, current_run_id, updated_at)
       VALUES (?, ?, ?, ?)
@@ -198,15 +206,20 @@ export class SqliteAgentRunner extends AgentRunner {
     stmt.run(threadId, isRunning ? 1 : 0, runId ?? null, Date.now());
   }
 
-  private getRunState(threadId: string): { isRunning: boolean; currentRunId: string | null } {
+  private getRunState(threadId: string): {
+    isRunning: boolean;
+    currentRunId: string | null;
+  } {
     const stmt = this.db.prepare(`
       SELECT is_running, current_run_id FROM run_state WHERE thread_id = ?
     `);
-    const result = stmt.get(threadId) as { is_running: number; current_run_id: string | null } | undefined;
-    
+    const result = stmt.get(threadId) as
+      | { is_running: number; current_run_id: string | null }
+      | undefined;
+
     return {
       isRunning: result?.is_running === 1,
-      currentRunId: result?.current_run_id ?? null
+      currentRunId: result?.current_run_id ?? null,
     };
   }
 
@@ -223,13 +236,13 @@ export class SqliteAgentRunner extends AgentRunner {
     // Track seen message IDs and current run events in memory for this run
     const seenMessageIds = new Set<string>();
     const currentRunEvents: BaseEvent[] = [];
-    
+
     // Get all previously seen message IDs from historic runs
     const historicRuns = this.getHistoricRuns(request.threadId);
     const historicMessageIds = new Set<string>();
     for (const run of historicRuns) {
       for (const event of run.events) {
-        if ('messageId' in event && typeof event.messageId === 'string') {
+        if ("messageId" in event && typeof event.messageId === "string") {
           historicMessageIds.add(event.messageId);
         }
         if (event.type === EventType.RUN_STARTED) {
@@ -246,7 +259,7 @@ export class SqliteAgentRunner extends AgentRunner {
     const nextSubject = new ReplaySubject<BaseEvent>(Infinity);
     const prevConnection = ACTIVE_CONNECTIONS.get(request.threadId);
     const prevSubject = prevConnection?.subject;
-    
+
     // Create a subject for run() return value
     const runSubject = new ReplaySubject<BaseEvent>(Infinity);
 
@@ -263,7 +276,7 @@ export class SqliteAgentRunner extends AgentRunner {
     const runAgent = async () => {
       // Get parent run ID for chaining
       const parentRunId = this.getLatestRunId(request.threadId);
-      
+
       try {
         await request.agent.runAgent(request.input, {
           onEvent: ({ event }) => {
@@ -310,7 +323,7 @@ export class SqliteAgentRunner extends AgentRunner {
             }
           },
         });
-        
+
         const connection = ACTIVE_CONNECTIONS.get(request.threadId);
         const appendedEvents = finalizeRunEvents(currentRunEvents, {
           stopRequested: connection?.stopRequested ?? false,
@@ -326,9 +339,9 @@ export class SqliteAgentRunner extends AgentRunner {
           request.input.runId,
           currentRunEvents,
           request.input,
-          parentRunId
+          parentRunId,
         );
-        
+
         // Mark run as complete in database
         this.setRunState(request.threadId, false);
 
@@ -361,10 +374,10 @@ export class SqliteAgentRunner extends AgentRunner {
             request.input.runId,
             currentRunEvents,
             request.input,
-            parentRunId
+            parentRunId,
           );
         }
-        
+
         // Mark run as complete in database
         this.setRunState(request.threadId, false);
 
@@ -407,46 +420,53 @@ export class SqliteAgentRunner extends AgentRunner {
 
     // Load historic runs from database
     const historicRuns = this.getHistoricRuns(request.threadId);
-    
+
     // Collect all historic events from database
     const allHistoricEvents: BaseEvent[] = [];
     for (const run of historicRuns) {
       allHistoricEvents.push(...run.events);
     }
-    
+
     // Compact all events together before emitting
     const compactedEvents = compactEvents(allHistoricEvents);
-    
+
     // Emit compacted events and track message IDs
     const emittedMessageIds = new Set<string>();
     for (const event of compactedEvents) {
       connectionSubject.next(event);
-      if ('messageId' in event && typeof event.messageId === 'string') {
+      if ("messageId" in event && typeof event.messageId === "string") {
         emittedMessageIds.add(event.messageId);
       }
     }
-    
+
     // Bridge active run to connection if exists
     const activeConnection = ACTIVE_CONNECTIONS.get(request.threadId);
     const runState = this.getRunState(request.threadId);
 
-    if (activeConnection && (runState.isRunning || activeConnection.stopRequested)) {
+    if (
+      activeConnection &&
+      (runState.isRunning || activeConnection.stopRequested)
+    ) {
       activeConnection.subject.subscribe({
         next: (event) => {
           // Skip message events that we've already emitted from historic
-          if ('messageId' in event && typeof event.messageId === 'string' && emittedMessageIds.has(event.messageId)) {
+          if (
+            "messageId" in event &&
+            typeof event.messageId === "string" &&
+            emittedMessageIds.has(event.messageId)
+          ) {
             return;
           }
           connectionSubject.next(event);
         },
         complete: () => connectionSubject.complete(),
-        error: (err) => connectionSubject.error(err)
+        error: (err) => connectionSubject.error(err),
       });
     } else {
       // No active run, complete after historic events
       connectionSubject.complete();
     }
-    
+
     return connectionSubject.asObservable();
   }
 

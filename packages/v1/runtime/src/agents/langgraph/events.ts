@@ -1,4 +1,8 @@
-import { ActionExecutionMessage, ResultMessage, TextMessage } from "../../graphql/types/converted";
+import {
+  ActionExecutionMessage,
+  ResultMessage,
+  TextMessage,
+} from "../../graphql/types/converted";
 
 export enum LangGraphEventTypes {
   OnChainStart = "on_chain_start",
@@ -206,7 +210,12 @@ type LangGraphOnChatModelEndEvent = {
             };
             type: string;
             id: string;
-            tool_calls: { name: string; args: { query: string }; id: string; type: string }[];
+            tool_calls: {
+              name: string;
+              args: { query: string };
+              id: string;
+              type: string;
+            }[];
             invalid_tool_calls: any[];
           };
         };
@@ -254,7 +263,12 @@ type LangGraphOnChainStreamEvent = {
           };
           type: string;
           id: string;
-          tool_calls?: { name: string; args: { query: string }; id: string; type: string }[];
+          tool_calls?: {
+            name: string;
+            args: { query: string };
+            id: string;
+            type: string;
+          }[];
           invalid_tool_calls?: any[];
         };
       }[];
@@ -342,7 +356,10 @@ interface LangGraphInterruptEvent {
 
 interface CopilotKitLangGraphInterruptEvent {
   event: LangGraphEventTypes.OnCopilotKitInterrupt;
-  data: { value: string; messages: (TextMessage | ActionExecutionMessage | ResultMessage)[] };
+  data: {
+    value: string;
+    messages: (TextMessage | ActionExecutionMessage | ResultMessage)[];
+  };
 }
 
 interface CopilotKitLangGraphErrorEvent {

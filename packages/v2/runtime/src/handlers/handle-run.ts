@@ -32,7 +32,7 @@ export async function handleRunAgent({
         {
           status: 404,
           headers: { "Content-Type": "application/json" },
-        }
+        },
       );
     }
 
@@ -42,8 +42,8 @@ export async function handleRunAgent({
     if (agent && "headers" in agent) {
       const forwardableHeaders = extractForwardableHeaders(request);
       agent.headers = {
-        ...agent.headers as Record<string, string>,
-        ...forwardableHeaders
+        ...(agent.headers as Record<string, string>),
+        ...forwardableHeaders,
       };
     }
 
@@ -63,7 +63,7 @@ export async function handleRunAgent({
         {
           status: 400,
           headers: { "Content-Type": "application/json" },
-        }
+        },
       );
     }
 
@@ -90,7 +90,7 @@ export async function handleRunAgent({
               try {
                 await writer.write(encoder.encode(event));
               } catch (error) {
-                if (error instanceof Error && error.name === 'AbortError') {
+                if (error instanceof Error && error.name === "AbortError") {
                   streamClosed = true;
                 }
               }
@@ -122,7 +122,7 @@ export async function handleRunAgent({
       console.error("Error running agent:", error);
       console.error(
         "Error stack:",
-        error instanceof Error ? error.stack : "No stack trace"
+        error instanceof Error ? error.stack : "No stack trace",
       );
       console.error("Error details:", {
         name: error instanceof Error ? error.name : "Unknown",
@@ -152,7 +152,7 @@ export async function handleRunAgent({
     console.error("Error running agent:", error);
     console.error(
       "Error stack:",
-      error instanceof Error ? error.stack : "No stack trace"
+      error instanceof Error ? error.stack : "No stack trace",
     );
     console.error("Error details:", {
       name: error instanceof Error ? error.name : "Unknown",
@@ -168,7 +168,7 @@ export async function handleRunAgent({
       {
         status: 500,
         headers: { "Content-Type": "application/json" },
-      }
+      },
     );
   }
 }

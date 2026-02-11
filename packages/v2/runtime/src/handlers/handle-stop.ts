@@ -26,7 +26,7 @@ export async function handleStopAgent({
         {
           status: 404,
           headers: { "Content-Type": "application/json" },
-        }
+        },
       );
     }
 
@@ -41,7 +41,7 @@ export async function handleStopAgent({
         {
           status: 200,
           headers: { "Content-Type": "application/json" },
-        }
+        },
       );
     }
 
@@ -57,7 +57,7 @@ export async function handleStopAgent({
       {
         status: 200,
         headers: { "Content-Type": "application/json" },
-      }
+      },
     );
   } catch (error) {
     console.error("Error stopping agent run:", error);
@@ -70,7 +70,7 @@ export async function handleStopAgent({
       {
         status: 500,
         headers: { "Content-Type": "application/json" },
-      }
+      },
     );
   }
 }

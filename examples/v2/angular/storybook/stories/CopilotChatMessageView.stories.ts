@@ -491,9 +491,9 @@ class CalculatorToolRenderComponent implements ToolRenderer<CalculatorArgs> {
     </div>
   `,
 })
-class WildcardToolRenderComponent
-  implements ToolRenderer<Record<string, unknown>>
-{
+class WildcardToolRenderComponent implements ToolRenderer<
+  Record<string, unknown>
+> {
   readonly ToolCallStatus = ToolCallStatus;
   readonly toolCall =
     input.required<AngularToolCall<Record<string, unknown>>>();

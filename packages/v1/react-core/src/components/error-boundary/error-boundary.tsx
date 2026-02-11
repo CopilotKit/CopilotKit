@@ -62,7 +62,9 @@ export class CopilotErrorBoundary extends React.Component<Props, State> {
             {this.props.children}
             {this.props.showUsageBanner && (
               <UsageBanner
-                severity={this.state.status?.severity ?? this.state.error.severity}
+                severity={
+                  this.state.status?.severity ?? this.state.error.severity
+                }
                 message={this.state.status?.message ?? this.state.error.message}
                 actions={getErrorActions(this.state.error)}
               />
@@ -77,7 +79,13 @@ export class CopilotErrorBoundary extends React.Component<Props, State> {
   }
 }
 
-export function ErrorToast({ error, children }: { error?: Error; children: React.ReactNode }) {
+export function ErrorToast({
+  error,
+  children,
+}: {
+  error?: Error;
+  children: React.ReactNode;
+}) {
   const addErrorToast = useErrorToast();
 
   useEffect(() => {

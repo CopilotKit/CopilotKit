@@ -28,7 +28,9 @@ export interface EditButtonContext {
 export interface BranchNavigationContext {
   currentBranch: number;
   numberOfBranches: number;
-  onSwitchToBranch?: (props: CopilotChatUserMessageOnSwitchToBranchProps) => void;
+  onSwitchToBranch?: (
+    props: CopilotChatUserMessageOnSwitchToBranchProps,
+  ) => void;
   message: UserMessage;
 }
 

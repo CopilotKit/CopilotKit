@@ -1,4 +1,8 @@
-import { CopilotErrorEvent, CopilotRequestContext, CopilotErrorHandler } from "@copilotkit/shared";
+import {
+  CopilotErrorEvent,
+  CopilotRequestContext,
+  CopilotErrorHandler,
+} from "@copilotkit/shared";
 
 describe("CopilotRuntime onError types", () => {
   it("should have correct CopilotTraceEvent type structure", () => {
@@ -108,7 +112,10 @@ describe("CopilotRuntime onError types", () => {
   });
 
   describe("publicApiKey gating logic", () => {
-    type ShouldHandleError = (onError?: CopilotErrorHandler, publicApiKey?: string) => boolean;
+    type ShouldHandleError = (
+      onError?: CopilotErrorHandler,
+      publicApiKey?: string,
+    ) => boolean;
 
     const shouldHandleError: ShouldHandleError = (onError, publicApiKey) => {
       return Boolean(onError && publicApiKey);
@@ -144,11 +151,18 @@ describe("CopilotRuntime onError types", () => {
 
     it("should extract publicApiKey from headers for both cloud and non-cloud requests", () => {
       // Test the logic we just fixed in the GraphQL resolver
-      const mockHeaders = new Map([["x-copilotcloud-public-api-key", "test-key-123"]]);
+      const mockHeaders = new Map([
+        ["x-copilotcloud-public-api-key", "test-key-123"],
+      ]);
 
       // Simulate header extraction logic
-      const extractPublicApiKey = (headers: Map<string, string>, hasCloudConfig: boolean) => {
-        const publicApiKeyFromHeaders = headers.get("x-copilotcloud-public-api-key");
+      const extractPublicApiKey = (
+        headers: Map<string, string>,
+        hasCloudConfig: boolean,
+      ) => {
+        const publicApiKeyFromHeaders = headers.get(
+          "x-copilotcloud-public-api-key",
+        );
         return publicApiKeyFromHeaders || null;
       };
 

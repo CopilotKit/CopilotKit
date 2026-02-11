@@ -2,7 +2,14 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { BasicAgent } from "../index";
 import { EventType, type RunAgentInput } from "@ag-ui/client";
 import { streamText } from "ai";
-import { mockStreamTextResponse, toolCallStreamingStart, toolCall, toolResult, finish, collectEvents } from "./test-helpers";
+import {
+  mockStreamTextResponse,
+  toolCallStreamingStart,
+  toolCall,
+  toolResult,
+  finish,
+  collectEvents,
+} from "./test-helpers";
 
 // Mock the ai module
 vi.mock("ai", () => ({
@@ -43,7 +50,10 @@ describe("State Update Tools", () => {
         mockStreamTextResponse([
           toolCallStreamingStart("call1", "AGUISendStateSnapshot"),
           toolCall("call1", "AGUISendStateSnapshot"),
-          toolResult("call1", "AGUISendStateSnapshot", { success: true, snapshot: newState }),
+          toolResult("call1", "AGUISendStateSnapshot", {
+            success: true,
+            snapshot: newState,
+          }),
           finish(),
         ]) as any,
       );
@@ -60,7 +70,9 @@ describe("State Update Tools", () => {
       const events = await collectEvents(agent["run"](input));
 
       // Find STATE_SNAPSHOT event
-      const snapshotEvent = events.find((e: any) => e.type === EventType.STATE_SNAPSHOT);
+      const snapshotEvent = events.find(
+        (e: any) => e.type === EventType.STATE_SNAPSHOT,
+      );
       expect(snapshotEvent).toBeDefined();
       expect(snapshotEvent).toMatchObject({
         type: EventType.STATE_SNAPSHOT,
@@ -77,7 +89,10 @@ describe("State Update Tools", () => {
         mockStreamTextResponse([
           toolCallStreamingStart("call1", "AGUISendStateSnapshot"),
           toolCall("call1", "AGUISendStateSnapshot"),
-          toolResult("call1", "AGUISendStateSnapshot", { success: true, snapshot: { value: 1 } }),
+          toolResult("call1", "AGUISendStateSnapshot", {
+            success: true,
+            snapshot: { value: 1 },
+          }),
           finish(),
         ]) as any,
       );
@@ -94,8 +109,12 @@ describe("State Update Tools", () => {
       const events = await collectEvents(agent["run"](input));
 
       // Should have both STATE_SNAPSHOT and TOOL_CALL_RESULT
-      const snapshotEvent = events.find((e: any) => e.type === EventType.STATE_SNAPSHOT);
-      const toolResultEvent = events.find((e: any) => e.type === EventType.TOOL_CALL_RESULT);
+      const snapshotEvent = events.find(
+        (e: any) => e.type === EventType.STATE_SNAPSHOT,
+      );
+      const toolResultEvent = events.find(
+        (e: any) => e.type === EventType.TOOL_CALL_RESULT,
+      );
 
       expect(snapshotEvent).toBeDefined();
       expect(toolResultEvent).toBeDefined();
@@ -138,7 +157,9 @@ describe("State Update Tools", () => {
       const events = await collectEvents(agent["run"](input));
 
       // Find STATE_DELTA event
-      const deltaEvent = events.find((e: any) => e.type === EventType.STATE_DELTA);
+      const deltaEvent = events.find(
+        (e: any) => e.type === EventType.STATE_DELTA,
+      );
       expect(deltaEvent).toBeDefined();
       expect(deltaEvent).toMatchObject({
         type: EventType.STATE_DELTA,
@@ -173,7 +194,9 @@ describe("State Update Tools", () => {
 
       const events = await collectEvents(agent["run"](input));
 
-      const deltaEvent = events.find((e: any) => e.type === EventType.STATE_DELTA);
+      const deltaEvent = events.find(
+        (e: any) => e.type === EventType.STATE_DELTA,
+      );
       expect(deltaEvent?.delta).toEqual(delta);
     });
 
@@ -204,7 +227,9 @@ describe("State Update Tools", () => {
 
       const events = await collectEvents(agent["run"](input));
 
-      const deltaEvent = events.find((e: any) => e.type === EventType.STATE_DELTA);
+      const deltaEvent = events.find(
+        (e: any) => e.type === EventType.STATE_DELTA,
+      );
       expect(deltaEvent?.delta).toEqual(delta);
     });
 
@@ -235,7 +260,9 @@ describe("State Update Tools", () => {
 
       const events = await collectEvents(agent["run"](input));
 
-      const deltaEvent = events.find((e: any) => e.type === EventType.STATE_DELTA);
+      const deltaEvent = events.find(
+        (e: any) => e.type === EventType.STATE_DELTA,
+      );
       expect(deltaEvent?.delta).toEqual(delta);
     });
 
@@ -270,7 +297,9 @@ describe("State Update Tools", () => {
 
       const events = await collectEvents(agent["run"](input));
 
-      const deltaEvent = events.find((e: any) => e.type === EventType.STATE_DELTA);
+      const deltaEvent = events.find(
+        (e: any) => e.type === EventType.STATE_DELTA,
+      );
       expect(deltaEvent?.delta).toEqual(delta);
     });
 
@@ -302,8 +331,12 @@ describe("State Update Tools", () => {
       const events = await collectEvents(agent["run"](input));
 
       // Should have both STATE_DELTA and TOOL_CALL_RESULT
-      const deltaEvent = events.find((e: any) => e.type === EventType.STATE_DELTA);
-      const toolResultEvent = events.find((e: any) => e.type === EventType.TOOL_CALL_RESULT);
+      const deltaEvent = events.find(
+        (e: any) => e.type === EventType.STATE_DELTA,
+      );
+      const toolResultEvent = events.find(
+        (e: any) => e.type === EventType.TOOL_CALL_RESULT,
+      );
 
       expect(deltaEvent).toBeDefined();
       expect(toolResultEvent).toBeDefined();
@@ -324,10 +357,16 @@ describe("State Update Tools", () => {
         mockStreamTextResponse([
           toolCallStreamingStart("call1", "AGUISendStateSnapshot"),
           toolCall("call1", "AGUISendStateSnapshot"),
-          toolResult("call1", "AGUISendStateSnapshot", { success: true, snapshot: { value: 1 } }),
+          toolResult("call1", "AGUISendStateSnapshot", {
+            success: true,
+            snapshot: { value: 1 },
+          }),
           toolCallStreamingStart("call2", "AGUISendStateDelta"),
           toolCall("call2", "AGUISendStateDelta"),
-          toolResult("call2", "AGUISendStateDelta", { success: true, delta: [{ op: "replace", path: "/value", value: 2 }] }),
+          toolResult("call2", "AGUISendStateDelta", {
+            success: true,
+            delta: [{ op: "replace", path: "/value", value: 2 }],
+          }),
           finish(),
         ]) as any,
       );
@@ -343,8 +382,12 @@ describe("State Update Tools", () => {
 
       const events = await collectEvents(agent["run"](input));
 
-      const snapshotEvents = events.filter((e: any) => e.type === EventType.STATE_SNAPSHOT);
-      const deltaEvents = events.filter((e: any) => e.type === EventType.STATE_DELTA);
+      const snapshotEvents = events.filter(
+        (e: any) => e.type === EventType.STATE_SNAPSHOT,
+      );
+      const deltaEvents = events.filter(
+        (e: any) => e.type === EventType.STATE_DELTA,
+      );
 
       expect(snapshotEvents).toHaveLength(1);
       expect(deltaEvents).toHaveLength(1);
@@ -382,7 +425,9 @@ describe("State Update Tools", () => {
       const events = await collectEvents(agent["run"](input));
 
       const stateEvents = events.filter(
-        (e: any) => e.type === EventType.STATE_SNAPSHOT || e.type === EventType.STATE_DELTA,
+        (e: any) =>
+          e.type === EventType.STATE_SNAPSHOT ||
+          e.type === EventType.STATE_DELTA,
       );
 
       expect(stateEvents).toHaveLength(0);

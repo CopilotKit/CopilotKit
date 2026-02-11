@@ -42,7 +42,9 @@ export class ContextStore {
    * Notify all subscribers of context changes
    */
   private async notifySubscribers(): Promise<void> {
-    await (this.core as unknown as CopilotKitCoreFriendsAccess).notifySubscribers(
+    await (
+      this.core as unknown as CopilotKitCoreFriendsAccess
+    ).notifySubscribers(
       (subscriber) =>
         subscriber.onContextChanged?.({
           copilotkit: this.core,

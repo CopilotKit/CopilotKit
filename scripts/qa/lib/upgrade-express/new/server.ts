@@ -1,5 +1,9 @@
 import express from "express";
-import { CopilotRuntime, OpenAIAdapter, copilotRuntimeNodeHttpEndpoint } from "@copilotkit/runtime";
+import {
+  CopilotRuntime,
+  OpenAIAdapter,
+  copilotRuntimeNodeHttpEndpoint,
+} from "@copilotkit/runtime";
 
 const port = 4000;
 var HEADERS = {

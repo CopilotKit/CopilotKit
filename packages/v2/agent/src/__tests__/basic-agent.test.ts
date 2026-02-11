@@ -64,7 +64,9 @@ describe("BasicAgent", () => {
         model: "openai/gpt-4o",
       });
 
-      vi.mocked(streamText).mockReturnValue(mockStreamTextResponse([textDelta("Hello"), finish()]) as any);
+      vi.mocked(streamText).mockReturnValue(
+        mockStreamTextResponse([textDelta("Hello"), finish()]) as any,
+      );
 
       const input: RunAgentInput = {
         threadId: "thread1",
@@ -96,7 +98,11 @@ describe("BasicAgent", () => {
       });
 
       vi.mocked(streamText).mockReturnValue(
-        mockStreamTextResponse([textDelta("Hello"), textDelta(" world"), finish()]) as any,
+        mockStreamTextResponse([
+          textDelta("Hello"),
+          textDelta(" world"),
+          finish(),
+        ]) as any,
       );
 
       const input: RunAgentInput = {
@@ -110,7 +116,9 @@ describe("BasicAgent", () => {
 
       const events = await collectEvents(agent["run"](input));
 
-      const textEvents = events.filter((e: any) => e.type === EventType.TEXT_MESSAGE_CHUNK);
+      const textEvents = events.filter(
+        (e: any) => e.type === EventType.TEXT_MESSAGE_CHUNK,
+      );
       expect(textEvents).toHaveLength(2);
       expect(textEvents[0]).toMatchObject({
         type: EventType.TEXT_MESSAGE_CHUNK,
@@ -147,12 +155,16 @@ describe("BasicAgent", () => {
 
       const events = await collectEvents(agent["run"](input));
 
-      const textEvents = events.filter((e: any) => e.type === EventType.TEXT_MESSAGE_CHUNK);
+      const textEvents = events.filter(
+        (e: any) => e.type === EventType.TEXT_MESSAGE_CHUNK,
+      );
       expect(textEvents).toHaveLength(1);
 
       // Verify that messageId is NOT "0" - should be a UUID
       expect(textEvents[0].messageId).not.toBe("0");
-      expect(textEvents[0].messageId).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
+      expect(textEvents[0].messageId).toMatch(
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
+      );
     });
 
     it("should use provider-supplied messageId when it's not '0'", async () => {
@@ -180,7 +192,9 @@ describe("BasicAgent", () => {
 
       const events = await collectEvents(agent["run"](input));
 
-      const textEvents = events.filter((e: any) => e.type === EventType.TEXT_MESSAGE_CHUNK);
+      const textEvents = events.filter(
+        (e: any) => e.type === EventType.TEXT_MESSAGE_CHUNK,
+      );
       expect(textEvents).toHaveLength(1);
 
       // Verify that the valid ID from provider is used
@@ -217,7 +231,9 @@ describe("BasicAgent", () => {
       const events = await collectEvents(agent["run"](input));
 
       // Check for TOOL_CALL_START
-      const startEvent = events.find((e: any) => e.type === EventType.TOOL_CALL_START);
+      const startEvent = events.find(
+        (e: any) => e.type === EventType.TOOL_CALL_START,
+      );
       expect(startEvent).toMatchObject({
         type: EventType.TOOL_CALL_START,
         toolCallId: "call1",
@@ -225,18 +241,24 @@ describe("BasicAgent", () => {
       });
 
       // Check for TOOL_CALL_ARGS
-      const argsEvents = events.filter((e: any) => e.type === EventType.TOOL_CALL_ARGS);
+      const argsEvents = events.filter(
+        (e: any) => e.type === EventType.TOOL_CALL_ARGS,
+      );
       expect(argsEvents).toHaveLength(2);
 
       // Check for TOOL_CALL_END
-      const endEvent = events.find((e: any) => e.type === EventType.TOOL_CALL_END);
+      const endEvent = events.find(
+        (e: any) => e.type === EventType.TOOL_CALL_END,
+      );
       expect(endEvent).toMatchObject({
         type: EventType.TOOL_CALL_END,
         toolCallId: "call1",
       });
 
       // Check for TOOL_CALL_RESULT
-      const resultEvent = events.find((e: any) => e.type === EventType.TOOL_CALL_RESULT);
+      const resultEvent = events.find(
+        (e: any) => e.type === EventType.TOOL_CALL_RESULT,
+      );
       expect(resultEvent).toMatchObject({
         type: EventType.TOOL_CALL_RESULT,
         role: "tool",
@@ -251,7 +273,9 @@ describe("BasicAgent", () => {
         model: "openai/gpt-4o",
       });
 
-      vi.mocked(streamText).mockReturnValue(mockStreamTextResponse([finish()]) as any);
+      vi.mocked(streamText).mockReturnValue(
+        mockStreamTextResponse([finish()]) as any,
+      );
 
       const input: RunAgentInput = {
         threadId: "thread1",
@@ -275,7 +299,9 @@ describe("BasicAgent", () => {
         prompt: "You are a helpful assistant.",
       });
 
-      vi.mocked(streamText).mockReturnValue(mockStreamTextResponse([finish()]) as any);
+      vi.mocked(streamText).mockReturnValue(
+        mockStreamTextResponse([finish()]) as any,
+      );
 
       const input: RunAgentInput = {
         threadId: "thread1",
@@ -301,7 +327,9 @@ describe("BasicAgent", () => {
         model: "openai/gpt-4o",
       });
 
-      vi.mocked(streamText).mockReturnValue(mockStreamTextResponse([finish()]) as any);
+      vi.mocked(streamText).mockReturnValue(
+        mockStreamTextResponse([finish()]) as any,
+      );
 
       const input: RunAgentInput = {
         threadId: "thread1",
@@ -332,7 +360,9 @@ describe("BasicAgent", () => {
         model: "openai/gpt-4o",
       });
 
-      vi.mocked(streamText).mockReturnValue(mockStreamTextResponse([finish()]) as any);
+      vi.mocked(streamText).mockReturnValue(
+        mockStreamTextResponse([finish()]) as any,
+      );
 
       const input: RunAgentInput = {
         threadId: "thread1",
@@ -361,7 +391,9 @@ describe("BasicAgent", () => {
         prompt: "You are helpful.",
       });
 
-      vi.mocked(streamText).mockReturnValue(mockStreamTextResponse([finish()]) as any);
+      vi.mocked(streamText).mockReturnValue(
+        mockStreamTextResponse([finish()]) as any,
+      );
 
       const input: RunAgentInput = {
         threadId: "thread1",
@@ -382,7 +414,9 @@ describe("BasicAgent", () => {
 
       // Check order: prompt, then context, then state
       const promptIndex = systemMessage.content.indexOf("You are helpful.");
-      const contextIndex = systemMessage.content.indexOf("Context from the application");
+      const contextIndex = systemMessage.content.indexOf(
+        "Context from the application",
+      );
       const stateIndex = systemMessage.content.indexOf("Application State");
 
       expect(promptIndex).toBeLessThan(contextIndex);
@@ -396,7 +430,9 @@ describe("BasicAgent", () => {
         model: "openai/gpt-4o",
       });
 
-      vi.mocked(streamText).mockReturnValue(mockStreamTextResponse([finish()]) as any);
+      vi.mocked(streamText).mockReturnValue(
+        mockStreamTextResponse([finish()]) as any,
+      );
 
       const input: RunAgentInput = {
         threadId: "thread1",
@@ -423,7 +459,9 @@ describe("BasicAgent", () => {
         model: "openai/gpt-4o",
       });
 
-      vi.mocked(streamText).mockReturnValue(mockStreamTextResponse([finish()]) as any);
+      vi.mocked(streamText).mockReturnValue(
+        mockStreamTextResponse([finish()]) as any,
+      );
 
       const input: RunAgentInput = {
         threadId: "thread1",
@@ -451,7 +489,9 @@ describe("BasicAgent", () => {
         forwardSystemMessages: true,
       });
 
-      vi.mocked(streamText).mockReturnValue(mockStreamTextResponse([finish()]) as any);
+      vi.mocked(streamText).mockReturnValue(
+        mockStreamTextResponse([finish()]) as any,
+      );
 
       const input: RunAgentInput = {
         threadId: "thread1",
@@ -482,7 +522,9 @@ describe("BasicAgent", () => {
         forwardDeveloperMessages: true,
       });
 
-      vi.mocked(streamText).mockReturnValue(mockStreamTextResponse([finish()]) as any);
+      vi.mocked(streamText).mockReturnValue(
+        mockStreamTextResponse([finish()]) as any,
+      );
 
       const input: RunAgentInput = {
         threadId: "thread1",
@@ -515,7 +557,9 @@ describe("BasicAgent", () => {
         forwardDeveloperMessages: true,
       });
 
-      vi.mocked(streamText).mockReturnValue(mockStreamTextResponse([finish()]) as any);
+      vi.mocked(streamText).mockReturnValue(
+        mockStreamTextResponse([finish()]) as any,
+      );
 
       const input: RunAgentInput = {
         threadId: "thread1",
@@ -553,7 +597,9 @@ describe("BasicAgent", () => {
         forwardDeveloperMessages: true,
       });
 
-      vi.mocked(streamText).mockReturnValue(mockStreamTextResponse([finish()]) as any);
+      vi.mocked(streamText).mockReturnValue(
+        mockStreamTextResponse([finish()]) as any,
+      );
 
       const input: RunAgentInput = {
         threadId: "thread1",
@@ -603,7 +649,9 @@ describe("BasicAgent", () => {
         tools: [tool1],
       });
 
-      vi.mocked(streamText).mockReturnValue(mockStreamTextResponse([finish()]) as any);
+      vi.mocked(streamText).mockReturnValue(
+        mockStreamTextResponse([finish()]) as any,
+      );
 
       const input: RunAgentInput = {
         threadId: "thread1",
@@ -633,7 +681,9 @@ describe("BasicAgent", () => {
         tools: [configTool],
       });
 
-      vi.mocked(streamText).mockReturnValue(mockStreamTextResponse([finish()]) as any);
+      vi.mocked(streamText).mockReturnValue(
+        mockStreamTextResponse([finish()]) as any,
+      );
 
       const input: RunAgentInput = {
         threadId: "thread1",
@@ -662,7 +712,9 @@ describe("BasicAgent", () => {
         model: "openai/gpt-4o",
       });
 
-      vi.mocked(streamText).mockReturnValue(mockStreamTextResponse([finish()]) as any);
+      vi.mocked(streamText).mockReturnValue(
+        mockStreamTextResponse([finish()]) as any,
+      );
 
       const input: RunAgentInput = {
         threadId: "thread1",
@@ -689,7 +741,9 @@ describe("BasicAgent", () => {
         overridableProperties: ["temperature"],
       });
 
-      vi.mocked(streamText).mockReturnValue(mockStreamTextResponse([finish()]) as any);
+      vi.mocked(streamText).mockReturnValue(
+        mockStreamTextResponse([finish()]) as any,
+      );
 
       const input: RunAgentInput = {
         threadId: "thread1",
@@ -714,7 +768,9 @@ describe("BasicAgent", () => {
         overridableProperties: [], // No properties can be overridden
       });
 
-      vi.mocked(streamText).mockReturnValue(mockStreamTextResponse([finish()]) as any);
+      vi.mocked(streamText).mockReturnValue(
+        mockStreamTextResponse([finish()]) as any,
+      );
 
       const input: RunAgentInput = {
         threadId: "thread1",

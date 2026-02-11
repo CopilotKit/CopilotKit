@@ -31,9 +31,12 @@ function toSerializable(value: unknown): unknown {
 export function dataToUUID(input: string | object, namespace?: string): string {
   const BASE_NAMESPACE = "e4b01160-ff74-4c6e-9b27-d53cd930fe8e";
   // Since namespace needs to be a uuid, we are creating a uuid for it.
-  const boundNamespace = namespace ? uuidv5(namespace, BASE_NAMESPACE) : BASE_NAMESPACE;
+  const boundNamespace = namespace
+    ? uuidv5(namespace, BASE_NAMESPACE)
+    : BASE_NAMESPACE;
 
-  const stringInput = typeof input === "string" ? input : JSON.stringify(toSerializable(input));
+  const stringInput =
+    typeof input === "string" ? input : JSON.stringify(toSerializable(input));
   return uuidv5(stringInput, boundNamespace);
 }
 

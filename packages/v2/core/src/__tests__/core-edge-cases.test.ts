@@ -29,15 +29,25 @@ describe("CopilotKitCore.runAgent - Edge Cases", () => {
 
     const toolCallId = "processed-call";
     const assistantMsg = createToolCallMessage("alreadyProcessedTool");
-    if (assistantMsg.role === 'assistant' && assistantMsg.toolCalls && assistantMsg.toolCalls[0]) {
+    if (
+      assistantMsg.role === "assistant" &&
+      assistantMsg.toolCalls &&
+      assistantMsg.toolCalls[0]
+    ) {
       assistantMsg.toolCalls[0].id = toolCallId;
     }
-    const existingResult = createToolResultMessage(toolCallId, "Already processed");
+    const existingResult = createToolResultMessage(
+      toolCallId,
+      "Already processed",
+    );
 
     const agent = new MockAgent({
       newMessages: [assistantMsg, existingResult],
     });
-    copilotKitCore.addAgent__unsafe_dev_only({ id: "test", agent: agent as any });
+    copilotKitCore.addAgent__unsafe_dev_only({
+      id: "test",
+      agent: agent as any,
+    });
 
     await copilotKitCore.runAgent({ agent: agent as any });
 
@@ -47,22 +57,27 @@ describe("CopilotKitCore.runAgent - Edge Cases", () => {
   it("should handle empty tool function name", async () => {
     const message = createAssistantMessage({
       content: "",
-      toolCalls: [{
-        id: "empty-name-call",
-        type: "function",
-        function: {
-          name: "",
-          arguments: "{}",
+      toolCalls: [
+        {
+          id: "empty-name-call",
+          type: "function",
+          function: {
+            name: "",
+            arguments: "{}",
+          },
         },
-      }],
+      ],
     });
 
     const agent = new MockAgent({ newMessages: [message] });
-    copilotKitCore.addAgent__unsafe_dev_only({ id: "test", agent: agent as any });
+    copilotKitCore.addAgent__unsafe_dev_only({
+      id: "test",
+      agent: agent as any,
+    });
 
     await copilotKitCore.runAgent({ agent: agent as any });
 
-    expect(agent.messages.filter(m => m.role === "tool")).toHaveLength(0);
+    expect(agent.messages.filter((m) => m.role === "tool")).toHaveLength(0);
   });
 
   it("should handle tool arguments as empty string", async () => {
@@ -74,20 +89,27 @@ describe("CopilotKitCore.runAgent - Edge Cases", () => {
 
     const message = createAssistantMessage({
       content: "",
-      toolCalls: [{
-        id: "empty-args-call",
-        type: "function",
-        function: {
-          name: "emptyArgsTool",
-          arguments: "",
+      toolCalls: [
+        {
+          id: "empty-args-call",
+          type: "function",
+          function: {
+            name: "emptyArgsTool",
+            arguments: "",
+          },
         },
-      }],
+      ],
     });
 
     const agent = new MockAgent({ newMessages: [message] });
-    copilotKitCore.addAgent__unsafe_dev_only({ id: "test", agent: agent as any });
+    copilotKitCore.addAgent__unsafe_dev_only({
+      id: "test",
+      agent: agent as any,
+    });
 
-    await expect(copilotKitCore.runAgent({ agent: agent as any })).rejects.toThrow();
+    await expect(
+      copilotKitCore.runAgent({ agent: agent as any }),
+    ).rejects.toThrow();
   });
 
   it("should handle very large tool result", async () => {
@@ -101,11 +123,14 @@ describe("CopilotKitCore.runAgent - Edge Cases", () => {
 
     const message = createToolCallMessage("largeTool");
     const agent = new MockAgent({ newMessages: [message] });
-    copilotKitCore.addAgent__unsafe_dev_only({ id: "test", agent: agent as any });
+    copilotKitCore.addAgent__unsafe_dev_only({
+      id: "test",
+      agent: agent as any,
+    });
 
     await copilotKitCore.runAgent({ agent: agent as any });
 
-    const toolMessage = agent.messages.find(m => m.role === "tool");
+    const toolMessage = agent.messages.find((m) => m.role === "tool");
     expect(toolMessage?.content).toBe(largeResult);
   });
 
@@ -123,26 +148,34 @@ describe("CopilotKitCore.runAgent - Edge Cases", () => {
 
     const message = createToolCallMessage("stateTool");
     const agent = new MockAgent({ newMessages: [message] });
-    copilotKitCore.addAgent__unsafe_dev_only({ id: "test", agent: agent as any });
+    copilotKitCore.addAgent__unsafe_dev_only({
+      id: "test",
+      agent: agent as any,
+    });
 
     await copilotKitCore.runAgent({ agent: agent as any });
 
     // The injected message should be present
-    expect(agent.messages.some(m => m.content === "Injected")).toBe(true);
+    expect(agent.messages.some((m) => m.content === "Injected")).toBe(true);
     // Tool result should still be added correctly
-    expect(agent.messages.some(m => m.role === "tool" && m.content === "Result")).toBe(true);
+    expect(
+      agent.messages.some((m) => m.role === "tool" && m.content === "Result"),
+    ).toBe(true);
   });
 
   it("should propagate errors from agent.runAgent", async () => {
     const errorMessage = "Agent execution failed";
     const agent = new MockAgent({
-      error: new Error(errorMessage)
+      error: new Error(errorMessage),
     });
-    copilotKitCore.addAgent__unsafe_dev_only({ id: "test", agent: agent as any });
+    copilotKitCore.addAgent__unsafe_dev_only({
+      id: "test",
+      agent: agent as any,
+    });
 
-    await expect(copilotKitCore.runAgent({ agent: agent as any }))
-      .rejects
-      .toThrow(errorMessage);
+    await expect(
+      copilotKitCore.runAgent({ agent: agent as any }),
+    ).rejects.toThrow(errorMessage);
   });
 
   it("should handle tool with invalid JSON arguments", async () => {
@@ -155,19 +188,26 @@ describe("CopilotKitCore.runAgent - Edge Cases", () => {
 
     const message = createAssistantMessage({
       content: "",
-      toolCalls: [{
-        id: "tool-call-1",
-        type: "function",
-        function: {
-          name: toolName,
-          arguments: "{ invalid json",
+      toolCalls: [
+        {
+          id: "tool-call-1",
+          type: "function",
+          function: {
+            name: toolName,
+            arguments: "{ invalid json",
+          },
         },
-      }],
+      ],
     });
     const agent = new MockAgent({ newMessages: [message] });
-    copilotKitCore.addAgent__unsafe_dev_only({ id: "test", agent: agent as any });
+    copilotKitCore.addAgent__unsafe_dev_only({
+      id: "test",
+      agent: agent as any,
+    });
 
-    await expect(copilotKitCore.runAgent({ agent: agent as any })).rejects.toThrow();
+    await expect(
+      copilotKitCore.runAgent({ agent: agent as any }),
+    ).rejects.toThrow();
     expect(tool.handler).not.toHaveBeenCalled();
   });
 });

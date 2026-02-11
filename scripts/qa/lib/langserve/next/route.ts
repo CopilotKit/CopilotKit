@@ -65,7 +65,8 @@ const runtime = new CopilotRuntime({
     {
       chainUrl: "http://localhost:8000/retriever",
       name: "askAboutAnimals",
-      description: "Always call this function if the users asks about a certain animal.",
+      description:
+        "Always call this function if the users asks about a certain animal.",
     },
     {
       chainUrl: "http://localhost:8000/agent",

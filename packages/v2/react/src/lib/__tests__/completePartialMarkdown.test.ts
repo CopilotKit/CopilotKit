@@ -244,7 +244,7 @@ describe("completePartialMarkdown", () => {
         "Visit [API docs](https://api.example.com/v1/docs?filter=all&sort=";
       const result = completePartialMarkdown(input);
       expect(result).toBe(
-        "Visit [API docs](https://api.example.com/v1/docs?filter=all&sort=)"
+        "Visit [API docs](https://api.example.com/v1/docs?filter=all&sort=)",
       );
     });
 
@@ -253,7 +253,7 @@ describe("completePartialMarkdown", () => {
         "See [section](https://example.com/page#section%20with%20spaces";
       const result = completePartialMarkdown(input);
       expect(result).toBe(
-        "See [section](https://example.com/page#section%20with%20spaces)"
+        "See [section](https://example.com/page#section%20with%20spaces)",
       );
     });
 
@@ -281,7 +281,7 @@ describe("completePartialMarkdown", () => {
       const input = "```markdown\n# Header\n**Bold** text\n*italic*";
       const result = completePartialMarkdown(input);
       expect(result).toBe(
-        "```markdown\n# Header\n**Bold** text\n*italic*\n```"
+        "```markdown\n# Header\n**Bold** text\n*italic*\n```",
       );
     });
 
@@ -289,7 +289,7 @@ describe("completePartialMarkdown", () => {
       const input = "````\n```javascript\nconsole.log('nested');\n```";
       const result = completePartialMarkdown(input);
       expect(result).toBe(
-        "````\n```javascript\nconsole.log('nested');\n```\n````"
+        "````\n```javascript\nconsole.log('nested');\n```\n````",
       );
     });
 
@@ -297,7 +297,7 @@ describe("completePartialMarkdown", () => {
       const input = "```sql\nSELECT * FROM users_table WHERE name LIKE '%test_";
       const result = completePartialMarkdown(input);
       expect(result).toBe(
-        "```sql\nSELECT * FROM users_table WHERE name LIKE '%test_\n```"
+        "```sql\nSELECT * FROM users_table WHERE name LIKE '%test_\n```",
       );
     });
 
@@ -305,7 +305,7 @@ describe("completePartialMarkdown", () => {
       const input = "```javascript\nconst pattern = /\\*{2,}.*_+.*`+/";
       const result = completePartialMarkdown(input);
       expect(result).toBe(
-        "```javascript\nconst pattern = /\\*{2,}.*_+.*`+/\n```"
+        "```javascript\nconst pattern = /\\*{2,}.*_+.*`+/\n```",
       );
     });
 
@@ -314,7 +314,7 @@ describe("completePartialMarkdown", () => {
         "```bash\nfind . -name '*.md' | grep -E '**bold**|_italic_|`code`";
       const result = completePartialMarkdown(input);
       expect(result).toBe(
-        "```bash\nfind . -name '*.md' | grep -E '**bold**|_italic_|`code`\n```"
+        "```bash\nfind . -name '*.md' | grep -E '**bold**|_italic_|`code`\n```",
       );
     });
   });
@@ -325,7 +325,7 @@ describe("completePartialMarkdown", () => {
         "The `POST /api/users` endpoint accepts **required parameters**: `name` (string), `email` (string), and **optional";
       const result = completePartialMarkdown(input);
       expect(result).toBe(
-        "The `POST /api/users` endpoint accepts **required parameters**: `name` (string), `email` (string), and **optional**"
+        "The `POST /api/users` endpoint accepts **required parameters**: `name` (string), `email` (string), and **optional**",
       );
     });
 
@@ -334,7 +334,7 @@ describe("completePartialMarkdown", () => {
         "This function `calculateTotal(items)` will **iterate through each item** and _sum the values_, then **return the";
       const result = completePartialMarkdown(input);
       expect(result).toBe(
-        "This function `calculateTotal(items)` will **iterate through each item** and _sum the values_, then **return the**"
+        "This function `calculateTotal(items)` will **iterate through each item** and _sum the values_, then **return the**",
       );
     });
 
@@ -343,7 +343,7 @@ describe("completePartialMarkdown", () => {
         "**Error**: Failed to connect to `database.example.com:5432`. Check [network settings](./troubleshooting.md#network";
       const result = completePartialMarkdown(input);
       expect(result).toBe(
-        "**Error**: Failed to connect to `database.example.com:5432`. Check [network settings](./troubleshooting.md#network)"
+        "**Error**: Failed to connect to `database.example.com:5432`. Check [network settings](./troubleshooting.md#network)",
       );
     });
 
@@ -352,7 +352,7 @@ describe("completePartialMarkdown", () => {
         "Set the environment variable `NODE_ENV=production` and ensure **all required fields** are configured in [config.json";
       const result = completePartialMarkdown(input);
       expect(result).toBe(
-        "Set the environment variable `NODE_ENV=production` and ensure **all required fields** are configured in [config.json]"
+        "Set the environment variable `NODE_ENV=production` and ensure **all required fields** are configured in [config.json]",
       );
     });
 
@@ -361,7 +361,7 @@ describe("completePartialMarkdown", () => {
         "1. Install dependencies with `npm install`\n2. **Configure** your `.env` file\n3. Run the [development server";
       const result = completePartialMarkdown(input);
       expect(result).toBe(
-        "1. Install dependencies with `npm install`\n2. **Configure** your `.env` file\n3. Run the [development server]"
+        "1. Install dependencies with `npm install`\n2. **Configure** your `.env` file\n3. Run the [development server]",
       );
     });
   });
@@ -371,7 +371,7 @@ describe("completePartialMarkdown", () => {
       const input = "This is **really important 🚨 información crítica";
       const result = completePartialMarkdown(input);
       expect(result).toBe(
-        "This is **really important 🚨 información crítica**"
+        "This is **really important 🚨 información crítica**",
       );
     });
 
@@ -379,7 +379,7 @@ describe("completePartialMarkdown", () => {
       const input = "Use `console.log('Hello 世界! ñáéíóú')` to **debug";
       const result = completePartialMarkdown(input);
       expect(result).toBe(
-        "Use `console.log('Hello 世界! ñáéíóú')` to **debug**"
+        "Use `console.log('Hello 世界! ñáéíóú')` to **debug**",
       );
     });
 
@@ -388,7 +388,7 @@ describe("completePartialMarkdown", () => {
         "Visit [日本語サイト](https://example.日本/path/to/resource";
       const result = completePartialMarkdown(input);
       expect(result).toBe(
-        "Visit [日本語サイト](https://example.日本/path/to/resource)"
+        "Visit [日本語サイト](https://example.日本/path/to/resource)",
       );
     });
 
@@ -396,7 +396,7 @@ describe("completePartialMarkdown", () => {
       const input = "The formula is **E = mc²** and the result _≈ 3.14159";
       const result = completePartialMarkdown(input);
       expect(result).toBe(
-        "The formula is **E = mc²** and the result _≈ 3.14159_"
+        "The formula is **E = mc²** and the result _≈ 3.14159_",
       );
     });
   });
@@ -426,7 +426,7 @@ describe("completePartialMarkdown", () => {
         "He said \"this is **really important** and 'very _critical";
       const result = completePartialMarkdown(input);
       expect(result).toBe(
-        "He said \"this is **really important** and 'very _critical_"
+        "He said \"this is **really important** and 'very _critical_",
       );
     });
   });
@@ -437,7 +437,7 @@ describe("completePartialMarkdown", () => {
         "The **API endpoint** returns _JSON data_ but **sometimes the response";
       const result = completePartialMarkdown(input);
       expect(result).toBe(
-        "The **API endpoint** returns _JSON data_ but **sometimes the response**"
+        "The **API endpoint** returns _JSON data_ but **sometimes the response**",
       );
     });
 
@@ -466,7 +466,7 @@ describe("completePartialMarkdown", () => {
         "Configure the `webpack.config.js` file with **optimization";
       const result = completePartialMarkdown(input);
       expect(result).toBe(
-        "Configure the `webpack.config.js` file with **optimization**"
+        "Configure the `webpack.config.js` file with **optimization**",
       );
     });
 
@@ -474,7 +474,7 @@ describe("completePartialMarkdown", () => {
       const input = "First step: **install Node.js**. Second step: **configure";
       const result = completePartialMarkdown(input);
       expect(result).toBe(
-        "First step: **install Node.js**. Second step: **configure**"
+        "First step: **install Node.js**. Second step: **configure**",
       );
     });
 
@@ -488,7 +488,7 @@ describe("completePartialMarkdown", () => {
       const input = "Version **2.1.0** introduces **new features like auto-";
       const result = completePartialMarkdown(input);
       expect(result).toBe(
-        "Version **2.1.0** introduces **new features like auto-**"
+        "Version **2.1.0** introduces **new features like auto-**",
       );
     });
   });

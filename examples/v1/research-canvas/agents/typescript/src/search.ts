@@ -122,7 +122,7 @@ export async function search_node(state: AgentState, config: RunnableConfig) {
       ...state["messages"],
       searchResultsToolMessageFull,
     ],
-    customConfig
+    customConfig,
   );
 
   const aiMessageResponse = response as AIMessage;

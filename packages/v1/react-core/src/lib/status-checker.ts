@@ -17,7 +17,10 @@ export class StatusChecker {
   private instanceCount = 0;
   private lastResponse: Status | null = null;
 
-  async start(publicApiKey: string, onUpdate?: (status: Status | null) => void) {
+  async start(
+    publicApiKey: string,
+    onUpdate?: (status: Status | null) => void,
+  ) {
     this.instanceCount++;
     if (this.activeKey === publicApiKey) return;
 

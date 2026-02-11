@@ -1,4 +1,7 @@
-import { CopilotKitLowLevelError, isStructuredCopilotKitError } from "@copilotkit/shared";
+import {
+  CopilotKitLowLevelError,
+  isStructuredCopilotKitError,
+} from "@copilotkit/shared";
 import { catchError, mergeMap, ReplaySubject, scan } from "rxjs";
 import { generateHelpfulErrorMessage } from "../../lib/streaming";
 import {
@@ -6,7 +9,11 @@ import {
   RuntimeEventTypes,
   RuntimeMetaEventName,
 } from "../../service-adapters/events";
-import { CustomEventNames, LangGraphEvent, LangGraphEventTypes } from "./events";
+import {
+  CustomEventNames,
+  LangGraphEvent,
+  LangGraphEventTypes,
+} from "./events";
 
 interface LangGraphEventWithState {
   event: LangGraphEvent | null;
@@ -42,7 +49,8 @@ export class RemoteLangGraphEventSource {
 
   private getCurrentContent(event: LangGraphEvent) {
     // @ts-expect-error -- LangGraph Platform implementation stores data outside of kwargs
-    const content = event.data?.chunk?.kwargs?.content ?? event.data?.chunk?.content;
+    const content =
+      event.data?.chunk?.kwargs?.content ?? event.data?.chunk?.content;
 
     if (!content) {
       const toolCallChunks = this.getCurrentToolCallChunks(event) ?? [];
@@ -69,12 +77,18 @@ export class RemoteLangGraphEventSource {
 
   private getCurrentToolCallChunks(event: LangGraphEvent) {
     // @ts-expect-error -- LangGraph Platform implementation stores data outside of kwargs
-    return event.data?.chunk?.kwargs?.tool_call_chunks ?? event.data?.chunk?.tool_call_chunks;
+    return (
+      event.data?.chunk?.kwargs?.tool_call_chunks ??
+      event.data?.chunk?.tool_call_chunks
+    );
   }
 
   private getResponseMetadata(event: LangGraphEvent) {
     // @ts-expect-error -- LangGraph Platform implementation stores data outside of kwargs
-    return event.data?.chunk?.kwargs?.response_metadata ?? event.data?.chunk?.response_metadata;
+    return (
+      event.data?.chunk?.kwargs?.response_metadata ??
+      event.data?.chunk?.response_metadata
+    );
   }
 
   processLangGraphEvents() {
@@ -86,15 +100,20 @@ export class RemoteLangGraphEventSource {
           if (event.event === LangGraphEventTypes.OnChatModelStream) {
             const prevMessageId = acc.lastMessageId;
             acc.currentContent = this.getCurrentContent(event);
-            acc.lastMessageId = this.getCurrentMessageId(event) ?? acc.lastMessageId;
+            acc.lastMessageId =
+              this.getCurrentMessageId(event) ?? acc.lastMessageId;
             const toolCallChunks = this.getCurrentToolCallChunks(event) ?? [];
             const responseMetadata = this.getResponseMetadata(event);
             // Check if a given event is a tool call
             const toolCallCheck = toolCallChunks && toolCallChunks.length > 0;
-            let isToolCallEnd = responseMetadata?.finish_reason === "tool_calls";
+            let isToolCallEnd =
+              responseMetadata?.finish_reason === "tool_calls";
 
-            acc.isToolCallStart = toolCallChunks.some((chunk: any) => chunk.name && chunk.id);
-            acc.isMessageStart = prevMessageId !== acc.lastMessageId && !acc.isToolCallStart;
+            acc.isToolCallStart = toolCallChunks.some(
+              (chunk: any) => chunk.name && chunk.id,
+            );
+            acc.isMessageStart =
+              prevMessageId !== acc.lastMessageId && !acc.isToolCallStart;
 
             let previousRoundHadToolCall = acc.isToolCall;
             acc.isToolCall = toolCallCheck;
@@ -104,9 +123,11 @@ export class RemoteLangGraphEventSource {
             }
             acc.isToolCallEnd = isToolCallEnd;
             acc.isMessageEnd = responseMetadata?.finish_reason === "stop";
-            ({ name: acc.lastToolCallName, id: acc.lastToolCallId } = toolCallChunks.find(
-              (chunk: any) => chunk.name && chunk.id,
-            ) ?? { name: acc.lastToolCallName, id: acc.lastToolCallId });
+            ({ name: acc.lastToolCallName, id: acc.lastToolCallId } =
+              toolCallChunks.find((chunk: any) => chunk.name && chunk.id) ?? {
+                name: acc.lastToolCallName,
+                id: acc.lastToolCallId,
+              });
           }
           acc.event = event;
           lastEventWithState = acc; // Capture the state
@@ -134,7 +155,8 @@ export class RemoteLangGraphEventSource {
 
         if (acc.event.event == LangGraphEventTypes.OnChatModelStream) {
           if ("copilotkit:emit-tool-calls" in (acc.event.metadata || {})) {
-            shouldEmitToolCalls = acc.event.metadata["copilotkit:emit-tool-calls"];
+            shouldEmitToolCalls =
+              acc.event.metadata["copilotkit:emit-tool-calls"];
           }
           if ("copilotkit:emit-messages" in (acc.event.metadata || {})) {
             shouldEmitMessages = acc.event.metadata["copilotkit:emit-messages"];
@@ -199,7 +221,10 @@ export class RemoteLangGraphEventSource {
         }
 
         // Message ended: emit TextMessageEnd
-        else if (responseMetadata?.finish_reason === "stop" && shouldEmitMessages) {
+        else if (
+          responseMetadata?.finish_reason === "stop" &&
+          shouldEmitMessages
+        ) {
           events.push({
             type: RuntimeEventTypes.TextMessageEnd,
             messageId: acc.lastMessageId,
@@ -214,7 +239,9 @@ export class RemoteLangGraphEventSource {
             //
             // Manually emit a message
             //
-            if (acc.event.name === CustomEventNames.CopilotKitManuallyEmitMessage) {
+            if (
+              acc.event.name === CustomEventNames.CopilotKitManuallyEmitMessage
+            ) {
               events.push({
                 type: RuntimeEventTypes.TextMessageStart,
                 messageId: acc.event.data.message_id,
@@ -232,7 +259,9 @@ export class RemoteLangGraphEventSource {
             //
             // Manually emit a tool call
             //
-            else if (acc.event.name === CustomEventNames.CopilotKitManuallyEmitToolCall) {
+            else if (
+              acc.event.name === CustomEventNames.CopilotKitManuallyEmitToolCall
+            ) {
               events.push({
                 type: RuntimeEventTypes.ActionExecutionStart,
                 actionExecutionId: acc.event.data.id,
@@ -297,7 +326,11 @@ export class RemoteLangGraphEventSource {
               });
             }
             // Message content: emit TextMessageContent
-            else if (!acc.isToolCall && acc.currentContent && shouldEmitMessages) {
+            else if (
+              !acc.isToolCall &&
+              acc.currentContent &&
+              shouldEmitMessages
+            ) {
               events.push({
                 type: RuntimeEventTypes.TextMessageContent,
                 messageId: acc.lastMessageId,
@@ -315,7 +348,10 @@ export class RemoteLangGraphEventSource {
         }
 
         // Determine a more helpful error message based on context
-        let helpfulMessage = generateHelpfulErrorMessage(error, "LangGraph agent connection");
+        let helpfulMessage = generateHelpfulErrorMessage(
+          error,
+          "LangGraph agent connection",
+        );
 
         // For all other errors, preserve the raw error information in a structured format
         throw new CopilotKitLowLevelError({

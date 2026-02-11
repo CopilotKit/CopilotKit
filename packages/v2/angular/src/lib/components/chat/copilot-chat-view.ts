@@ -191,7 +191,7 @@ export class CopilotChatView
   protected inputContainerHeight = signal<number>(0);
   protected isResizing = signal<boolean>(false);
   protected contentPaddingBottom = computed(
-    () => this.inputContainerHeight() + 32
+    () => this.inputContainerHeight() + 32,
   );
 
   // Computed signals
@@ -199,33 +199,33 @@ export class CopilotChatView
 
   // Slot resolution computed signals
   protected messageViewSlot = computed(
-    () => this.messageViewTemplate() || this.messageViewComponent()
+    () => this.messageViewTemplate() || this.messageViewComponent(),
   );
 
   protected scrollViewSlot = computed(
-    () => this.scrollViewTemplate() || this.scrollViewComponent()
+    () => this.scrollViewTemplate() || this.scrollViewComponent(),
   );
 
   protected scrollToBottomButtonSlot = computed(
     () =>
       this.scrollToBottomButtonTemplate() ||
-      this.scrollToBottomButtonComponent()
+      this.scrollToBottomButtonComponent(),
   );
 
   protected inputSlot = computed(
-    () => this.inputTemplate() || this.inputComponent()
+    () => this.inputTemplate() || this.inputComponent(),
   );
 
   protected inputContainerSlot = computed(
-    () => this.inputContainerTemplate() || this.inputContainerComponent()
+    () => this.inputContainerTemplate() || this.inputContainerComponent(),
   );
 
   protected featherSlot = computed(
-    () => this.featherTemplate() || this.featherComponent()
+    () => this.featherTemplate() || this.featherComponent(),
   );
 
   protected disclaimerSlot = computed(
-    () => this.disclaimerTemplate() || this.disclaimerComponent()
+    () => this.disclaimerTemplate() || this.disclaimerComponent(),
   );
 
   // Context objects for slots
@@ -269,7 +269,7 @@ export class CopilotChatView
   constructor(
     private resizeObserverService: ResizeObserverService,
     private cdr: ChangeDetectorRef,
-    private handlers: CopilotChatViewHandlers
+    private handlers: CopilotChatViewHandlers,
   ) {
     // Clear any pending resize timeout when toggling isResizing, without signal writes here
   }
@@ -311,7 +311,7 @@ export class CopilotChatView
       // We need to find the actual input container component inside it
       const slotElement = this.inputContainerSlotRef.nativeElement;
       const componentElement = slotElement.querySelector(
-        "copilot-chat-view-input-container"
+        "copilot-chat-view-input-container",
       );
 
       if (!componentElement) {
@@ -320,7 +320,7 @@ export class CopilotChatView
 
       // Look for the absolute positioned div that contains the input
       let innerDiv = componentElement.querySelector(
-        "div.absolute"
+        "div.absolute",
       ) as HTMLElement;
 
       // If not found by class, try first child

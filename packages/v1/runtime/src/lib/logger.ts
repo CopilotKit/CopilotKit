@@ -5,7 +5,10 @@ export type LogLevel = "debug" | "info" | "warn" | "error";
 
 export type CopilotRuntimeLogger = ReturnType<typeof createLogger>;
 
-export function createLogger(options?: { level?: LogLevel; component?: string }) {
+export function createLogger(options?: {
+  level?: LogLevel;
+  component?: string;
+}) {
   const { level, component } = options || {};
   const stream = pretty({ colorize: true });
 

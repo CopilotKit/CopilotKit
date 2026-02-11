@@ -57,7 +57,7 @@ export function ResearchCanvas() {
           </div>
           <Resources
             resources={resources.filter((resource) =>
-              (args.urls || []).includes(resource.url)
+              (args.urls || []).includes(resource.url),
             )}
             customWidth={200}
           />
@@ -106,7 +106,7 @@ export function ResearchCanvas() {
 
   const removeResource = (url: string) => {
     setResources(
-      resources.filter((resource: Resource) => resource.url !== url)
+      resources.filter((resource: Resource) => resource.url !== url),
     );
   };
 
@@ -124,8 +124,8 @@ export function ResearchCanvas() {
     if (editResource && originalUrl) {
       setResources(
         resources.map((resource) =>
-          resource.url === originalUrl ? { ...editResource } : resource
-        )
+          resource.url === originalUrl ? { ...editResource } : resource,
+        ),
       );
       setEditResource(null);
       setOriginalUrl(null);

@@ -11,17 +11,26 @@ export type ActionButtonsProps = {
   type?: "edit" | "add";
   placeIds?: string[][];
   setSelectedPlaceIds?: (placeIds: Set<string>) => void;
-}
+};
 
-export const ActionButtons = ({ status, handler, approve, reject, selectedPlaceIds, type="add", placeIds, setSelectedPlaceIds }: ActionButtonsProps) => {
+export const ActionButtons = ({
+  status,
+  handler,
+  approve,
+  reject,
+  selectedPlaceIds,
+  type = "add",
+  placeIds,
+  setSelectedPlaceIds,
+}: ActionButtonsProps) => {
   useEffect(() => {
     console.log(placeIds, "placeIdsplaceIdsplaceIds");
   }, [placeIds]);
-  
+
   useEffect(() => {
-    console.log(selectedPlaceIds,"btn");
+    console.log(selectedPlaceIds, "btn");
   }, [selectedPlaceIds]);
-  
+
   return (
     <div className="flex gap-4 justify-between">
       <Button
@@ -38,29 +47,30 @@ export const ActionButtons = ({ status, handler, approve, reject, selectedPlaceI
         onClick={() => {
           debugger;
           if (selectedPlaceIds && selectedPlaceIds.size > 0) {
-            if(type == "edit"){
-              console.log(Array.from(selectedPlaceIds), "selectedPlaceIds")
-              handler?.(JSON.stringify(Array.from(selectedPlaceIds)+"|||editMode"));
+            if (type == "edit") {
+              console.log(Array.from(selectedPlaceIds), "selectedPlaceIds");
+              handler?.(
+                JSON.stringify(Array.from(selectedPlaceIds) + "|||editMode"),
+              );
             } else {
-              console.log(Array.from(selectedPlaceIds), "selectedPlaceIds")
-              handler?.(JSON.stringify(Array.from(selectedPlaceIds)+"|||addMode"));
+              console.log(Array.from(selectedPlaceIds), "selectedPlaceIds");
+              handler?.(
+                JSON.stringify(Array.from(selectedPlaceIds) + "|||addMode"),
+              );
             }
-          } 
-          else if(selectedPlaceIds && selectedPlaceIds.size == 0){
+          } else if (selectedPlaceIds && selectedPlaceIds.size == 0) {
             setSelectedPlaceIds?.(new Set(placeIds?.[0] || []));
-            if(type == "edit"){
+            if (type == "edit") {
               // console.log(Array.from(selectedPlaceIds), "selectedPlaceIds")
-              handler?.(JSON.stringify(placeIds?.[0]+"|||editMode"));
+              handler?.(JSON.stringify(placeIds?.[0] + "|||editMode"));
             } else {
               // console.log(Array.from(selectedPlaceIds), "selectedPlaceIds")
-              handler?.(JSON.stringify(placeIds?.[0]+"|||addMode"));
+              handler?.(JSON.stringify(placeIds?.[0] + "|||addMode"));
             }
-          }
-          else {
+          } else {
             handler?.("SEND");
           }
-        }
-      }
+        }}
       >
         {approve}
       </Button>

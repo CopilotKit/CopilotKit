@@ -72,7 +72,7 @@ describe("InMemoryAgentRunner – run started inputs", () => {
           {
             id: "tool-call-1",
             type: "function",
-            function: { name: "calculator", arguments: "{\"a\":1}" },
+            function: { name: "calculator", arguments: '{"a":1}' },
           },
         ],
       },
@@ -101,7 +101,12 @@ describe("InMemoryAgentRunner – run started inputs", () => {
     expect(runStarted.input?.messages).toEqual(messages);
 
     const terminalTypes = runEvents.slice(1).map((event) => event.type);
-    expect(terminalTypes.every((type) => type === EventType.RUN_ERROR || type === EventType.RUN_FINISHED)).toBe(true);
+    expect(
+      terminalTypes.every(
+        (type) =>
+          type === EventType.RUN_ERROR || type === EventType.RUN_FINISHED,
+      ),
+    ).toBe(true);
 
     const connectEvents = await firstValueFrom(
       runner.connect({ threadId }).pipe(toArray()),
@@ -110,9 +115,14 @@ describe("InMemoryAgentRunner – run started inputs", () => {
     expect(connectEvents[0].type).toBe(EventType.RUN_STARTED);
     const connectRunStarted = connectEvents[0] as RunStartedEvent;
     expect(connectRunStarted.input?.messages).toEqual(messages);
-    const connectTerminalTypes = connectEvents.slice(1).map((event) => event.type);
+    const connectTerminalTypes = connectEvents
+      .slice(1)
+      .map((event) => event.type);
     expect(
-      connectTerminalTypes.every((type) => type === EventType.RUN_ERROR || type === EventType.RUN_FINISHED),
+      connectTerminalTypes.every(
+        (type) =>
+          type === EventType.RUN_ERROR || type === EventType.RUN_FINISHED,
+      ),
     ).toBe(true);
   });
 
@@ -158,9 +168,14 @@ describe("InMemoryAgentRunner – run started inputs", () => {
     expect(secondRunEvents[0].type).toBe(EventType.RUN_STARTED);
     const runStarted = secondRunEvents[0] as RunStartedEvent;
     expect(runStarted.input?.messages).toEqual([newMessage]);
-    const secondTerminalTypes = secondRunEvents.slice(1).map((event) => event.type);
+    const secondTerminalTypes = secondRunEvents
+      .slice(1)
+      .map((event) => event.type);
     expect(
-      secondTerminalTypes.every((type) => type === EventType.RUN_ERROR || type === EventType.RUN_FINISHED),
+      secondTerminalTypes.every(
+        (type) =>
+          type === EventType.RUN_ERROR || type === EventType.RUN_FINISHED,
+      ),
     ).toBe(true);
 
     const connectEvents = await firstValueFrom(

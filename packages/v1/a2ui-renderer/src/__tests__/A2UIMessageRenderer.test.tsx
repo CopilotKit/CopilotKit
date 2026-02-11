@@ -38,9 +38,12 @@ describe("A2UIMessageRenderer uses correct processor type", () => {
 
   it("REGRESSION: A2UIMessageRenderer must use signal-based processor (not standard) for reactive data updates", async () => {
     // Dynamically import to get fresh module with our spied constructors
-    const { createA2UIMessageRenderer } = await import("../A2UIMessageRenderer.js");
+    const { createA2UIMessageRenderer } =
+      await import("../A2UIMessageRenderer.js");
 
-    const renderer = createA2UIMessageRenderer({ theme: {} as v0_8.Types.Theme });
+    const renderer = createA2UIMessageRenderer({
+      theme: {} as v0_8.Types.Theme,
+    });
 
     // Create a test wrapper component that renders the A2UI message
     const TestWrapper = () => {
@@ -173,7 +176,9 @@ describe("A2UI Processor Data Updates", () => {
         {
           surfaceUpdate: {
             surfaceId: "test",
-            components: [{ id: "root", type: "text", text: { path: "/message" } }],
+            components: [
+              { id: "root", type: "text", text: { path: "/message" } },
+            ],
           },
         },
         {
@@ -236,16 +241,27 @@ describe("A2UIMessageRenderer rendering integration", () => {
     v0_8.Data.createSignalA2uiMessageProcessor = originalCreateSignal;
     (v0_8.Data as any).A2uiMessageProcessor = OriginalStandard;
 
-    const { createA2UIMessageRenderer } = await import("../A2UIMessageRenderer.js");
-    const renderer = createA2UIMessageRenderer({ theme: {} as v0_8.Types.Theme });
+    const { createA2UIMessageRenderer } =
+      await import("../A2UIMessageRenderer.js");
+    const renderer = createA2UIMessageRenderer({
+      theme: {} as v0_8.Types.Theme,
+    });
 
     const content = {
       operations: [
-        { beginRendering: { surfaceId: "test-surface", root: "root", styles: {} } },
+        {
+          beginRendering: {
+            surfaceId: "test-surface",
+            root: "root",
+            styles: {},
+          },
+        },
         {
           surfaceUpdate: {
             surfaceId: "test-surface",
-            components: [{ id: "root", text: { literalString: "Hello World" } }],
+            components: [
+              { id: "root", text: { literalString: "Hello World" } },
+            ],
           },
         },
       ],
@@ -253,7 +269,9 @@ describe("A2UIMessageRenderer rendering integration", () => {
 
     // Wrap in a component to properly invoke hooks
     const RenderComponent = renderer.render as React.FC<any>;
-    const TestWrapper = () => <RenderComponent content={content} agent={null} />;
+    const TestWrapper = () => (
+      <RenderComponent content={content} agent={null} />
+    );
 
     let container: HTMLElement;
     await act(async () => {
@@ -264,7 +282,9 @@ describe("A2UIMessageRenderer rendering integration", () => {
     // Verify the custom element was rendered
     const surfaceElement = container!.querySelector("themed-a2ui-surface");
     expect(surfaceElement).not.toBeNull();
-    expect(surfaceElement?.getAttribute("data-surface-id")).toBe("test-surface");
+    expect(surfaceElement?.getAttribute("data-surface-id")).toBe(
+      "test-surface",
+    );
 
     // Verify the surface element received the processor and surface data
     const element = surfaceElement as any;
@@ -277,8 +297,11 @@ describe("A2UIMessageRenderer rendering integration", () => {
     v0_8.Data.createSignalA2uiMessageProcessor = originalCreateSignal;
     (v0_8.Data as any).A2uiMessageProcessor = OriginalStandard;
 
-    const { createA2UIMessageRenderer } = await import("../A2UIMessageRenderer.js");
-    const renderer = createA2UIMessageRenderer({ theme: {} as v0_8.Types.Theme });
+    const { createA2UIMessageRenderer } =
+      await import("../A2UIMessageRenderer.js");
+    const renderer = createA2UIMessageRenderer({
+      theme: {} as v0_8.Types.Theme,
+    });
     const RenderComponent = renderer.render as React.FC<any>;
 
     // Component that allows us to update content
@@ -313,7 +336,9 @@ describe("A2UIMessageRenderer rendering integration", () => {
     });
 
     // Get initial surface element
-    const surfaceElement = container!.querySelector("themed-a2ui-surface") as any;
+    const surfaceElement = container!.querySelector(
+      "themed-a2ui-surface",
+    ) as any;
     expect(surfaceElement).not.toBeNull();
     const initialProcessor = surfaceElement.processor;
 
@@ -340,7 +365,9 @@ describe("A2UIMessageRenderer rendering integration", () => {
     });
 
     // Processor should have processed the new messages
-    const updatedSurfaceElement = container!.querySelector("themed-a2ui-surface") as any;
+    const updatedSurfaceElement = container!.querySelector(
+      "themed-a2ui-surface",
+    ) as any;
     expect(updatedSurfaceElement.processor).toBeDefined();
     expect(updatedSurfaceElement.surface).toBeDefined();
 
@@ -393,13 +420,23 @@ describe("A2UIMessageRenderer React behavior", () => {
       {
         surfaceUpdate: {
           surfaceId: "surface-1",
-          components: [{ id: "root1", text: { literalString: "Surface 1" } } as v0_8.Types.ComponentInstance],
+          components: [
+            {
+              id: "root1",
+              text: { literalString: "Surface 1" },
+            } as v0_8.Types.ComponentInstance,
+          ],
         },
       },
       {
         surfaceUpdate: {
           surfaceId: "surface-2",
-          components: [{ id: "root2", text: { literalString: "Surface 2" } } as v0_8.Types.ComponentInstance],
+          components: [
+            {
+              id: "root2",
+              text: { literalString: "Surface 2" },
+            } as v0_8.Types.ComponentInstance,
+          ],
         },
       },
     ];
@@ -421,7 +458,12 @@ describe("A2UIMessageRenderer React behavior", () => {
       {
         surfaceUpdate: {
           surfaceId,
-          components: [{ id: "root", text: { literalString: "Test" } } as v0_8.Types.ComponentInstance],
+          components: [
+            {
+              id: "root",
+              text: { literalString: "Test" },
+            } as v0_8.Types.ComponentInstance,
+          ],
         },
       },
     ];

@@ -48,9 +48,9 @@
 const { visibleMessages, appendMessage, setMessages, ... } = useCopilotChat();
 
 // Pre-built components with deep customization options (CSS + pass custom sub-components)
-<CopilotPopup 
-  instructions={"You are assisting the user as best as you can. Answer in the best way possible given the data you have."} 
-  labels={{ title: "Popup Assistant", initial: "Need any help?" }} 
+<CopilotPopup
+  instructions={"You are assisting the user as best as you can. Answer in the best way possible given the data you have."}
+  labels={{ title: "Popup Assistant", initial: "Need any help?" }}
 />
 ```
 
@@ -71,9 +71,9 @@ useCopilotAction({
 
 ```ts
 // Share state between app and agent
-const { agentState } = useCoAgent({ 
-  name: "basic_agent", 
-  initialState: { input: "NYC" } 
+const { agentState } = useCoAgent({
+  name: "basic_agent",
+  initialState: { input: "NYC" }
 });
 
 // agentic generative UI
@@ -114,14 +114,20 @@ useCopilotAction({
 ```ts
 // intermediate agent state streaming (supports both LangGraph.js + LangGraph python)
 const modifiedConfig = copilotKitCustomizeConfig(config, {
-  emitIntermediateState: [{ 
-    stateKey: "outline", 
-    tool: "set_outline", 
-    toolArgument: "outline" 
-  }],
+  emitIntermediateState: [
+    {
+      stateKey: "outline",
+      tool: "set_outline",
+      toolArgument: "outline",
+    },
+  ],
 });
-const response = await ChatOpenAI({ model: "gpt-4o" }).invoke(messages, modifiedConfig);
+const response = await ChatOpenAI({ model: "gpt-4o" }).invoke(
+  messages,
+  modifiedConfig,
+);
 ```
+
 ## 🏆 Featured Examples
 
 <p align="center">

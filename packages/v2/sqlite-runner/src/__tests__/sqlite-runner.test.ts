@@ -48,8 +48,10 @@ class MockAgent extends AbstractAgent {
       await callbacks.onEvent({ event });
     }
 
-    const hasTerminalEvent = this.events.some((event) =>
-      event.type === EventType.RUN_FINISHED || event.type === EventType.RUN_ERROR,
+    const hasTerminalEvent = this.events.some(
+      (event) =>
+        event.type === EventType.RUN_FINISHED ||
+        event.type === EventType.RUN_ERROR,
     );
 
     if (!hasTerminalEvent) {
@@ -84,10 +86,7 @@ class StoppableAgent extends AbstractAgent {
     this.eventDelay = eventDelay;
   }
 
-  async runAgent(
-    input: RunAgentInput,
-    callbacks: RunCallbacks,
-  ): Promise<void> {
+  async runAgent(input: RunAgentInput, callbacks: RunCallbacks): Promise<void> {
     this.shouldStop = false;
     let counter = 0;
 
@@ -123,10 +122,7 @@ class StoppableAgent extends AbstractAgent {
 class OpenEventsAgent extends AbstractAgent {
   private shouldStop = false;
 
-  async runAgent(
-    input: RunAgentInput,
-    callbacks: RunCallbacks,
-  ): Promise<void> {
+  async runAgent(input: RunAgentInput, callbacks: RunCallbacks): Promise<void> {
     this.shouldStop = false;
     const messageId = "open-message";
     const toolCallId = "open-tool";
@@ -189,10 +185,25 @@ describe("SqliteAgentRunner", () => {
   it("emits RUN_STARTED and agent events", async () => {
     const threadId = "sqlite-basic";
     const agent = new MockAgent([
-      { type: EventType.TEXT_MESSAGE_START, messageId: "msg-1", role: "assistant" } as TextMessageStartEvent,
-      { type: EventType.TEXT_MESSAGE_CONTENT, messageId: "msg-1", delta: "Hello" } as TextMessageContentEvent,
-      { type: EventType.TEXT_MESSAGE_END, messageId: "msg-1" } as TextMessageEndEvent,
-      { type: EventType.RUN_FINISHED, threadId, runId: "run-1" } as RunFinishedEvent,
+      {
+        type: EventType.TEXT_MESSAGE_START,
+        messageId: "msg-1",
+        role: "assistant",
+      } as TextMessageStartEvent,
+      {
+        type: EventType.TEXT_MESSAGE_CONTENT,
+        messageId: "msg-1",
+        delta: "Hello",
+      } as TextMessageContentEvent,
+      {
+        type: EventType.TEXT_MESSAGE_END,
+        messageId: "msg-1",
+      } as TextMessageEndEvent,
+      {
+        type: EventType.RUN_FINISHED,
+        threadId,
+        runId: "run-1",
+      } as RunFinishedEvent,
     ]);
 
     const events = await firstValueFrom(
@@ -228,7 +239,11 @@ describe("SqliteAgentRunner", () => {
         .pipe(toArray()),
     );
 
-    const newMessage: Message = { id: "new", role: "user", content: "follow up" };
+    const newMessage: Message = {
+      id: "new",
+      role: "user",
+      content: "follow up",
+    };
 
     const secondRun = await firstValueFrom(
       runner
@@ -250,7 +265,9 @@ describe("SqliteAgentRunner", () => {
 
     const db = new Database(dbPath);
     const rows = db
-      .prepare("SELECT events FROM agent_runs WHERE thread_id = ? ORDER BY created_at")
+      .prepare(
+        "SELECT events FROM agent_runs WHERE thread_id = ? ORDER BY created_at",
+      )
       .all(threadId) as { events: string }[];
     db.close();
 
@@ -258,10 +275,14 @@ describe("SqliteAgentRunner", () => {
     const run1Stored = JSON.parse(rows[0].events) as BaseEvent[];
     const run2Stored = JSON.parse(rows[1].events) as BaseEvent[];
 
-    const run1Started = run1Stored.find((event) => event.type === EventType.RUN_STARTED) as RunStartedEvent;
+    const run1Started = run1Stored.find(
+      (event) => event.type === EventType.RUN_STARTED,
+    ) as RunStartedEvent;
     expect(run1Started.input?.messages?.map((m) => m.id)).toEqual(["existing"]);
 
-    const run2Started = run2Stored.find((event) => event.type === EventType.RUN_STARTED) as RunStartedEvent;
+    const run2Started = run2Stored.find(
+      (event) => event.type === EventType.RUN_STARTED,
+    ) as RunStartedEvent;
     expect(run2Started.input?.messages?.map((m) => m.id)).toEqual(["new"]);
   });
 
@@ -317,10 +338,25 @@ describe("SqliteAgentRunner", () => {
   it("persists events across runner instances", async () => {
     const threadId = "sqlite-persist";
     const agent = new MockAgent([
-      { type: EventType.TEXT_MESSAGE_START, messageId: "msg", role: "assistant" } as TextMessageStartEvent,
-      { type: EventType.TEXT_MESSAGE_CONTENT, messageId: "msg", delta: "hi" } as TextMessageContentEvent,
-      { type: EventType.TEXT_MESSAGE_END, messageId: "msg" } as TextMessageEndEvent,
-      { type: EventType.RUN_FINISHED, threadId, runId: "run-1" } as RunFinishedEvent,
+      {
+        type: EventType.TEXT_MESSAGE_START,
+        messageId: "msg",
+        role: "assistant",
+      } as TextMessageStartEvent,
+      {
+        type: EventType.TEXT_MESSAGE_CONTENT,
+        messageId: "msg",
+        delta: "hi",
+      } as TextMessageContentEvent,
+      {
+        type: EventType.TEXT_MESSAGE_END,
+        messageId: "msg",
+      } as TextMessageEndEvent,
+      {
+        type: EventType.RUN_FINISHED,
+        threadId,
+        runId: "run-1",
+      } as RunFinishedEvent,
     ]);
 
     await firstValueFrom(
@@ -334,7 +370,9 @@ describe("SqliteAgentRunner", () => {
     );
 
     const newRunner = new SqliteAgentRunner({ dbPath });
-    const replayed = await firstValueFrom(newRunner.connect({ threadId }).pipe(toArray()));
+    const replayed = await firstValueFrom(
+      newRunner.connect({ threadId }).pipe(toArray()),
+    );
 
     expect(replayed[0].type).toBe(EventType.RUN_STARTED);
     expect(replayed.slice(1).map((event) => event.type)).toEqual([
@@ -346,7 +384,9 @@ describe("SqliteAgentRunner", () => {
   });
 
   it("returns false when stopping a thread that is not running", async () => {
-    await expect(runner.stop({ threadId: "sqlite-missing" })).resolves.toBe(false);
+    await expect(runner.stop({ threadId: "sqlite-missing" })).resolves.toBe(
+      false,
+    );
   });
 
   it("stops an active run and completes observables", async () => {

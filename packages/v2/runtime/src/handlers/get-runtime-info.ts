@@ -22,7 +22,7 @@ export async function handleGetRuntimeInfo({
         };
         return acc;
       },
-      {} as Record<string, AgentDescription>
+      {} as Record<string, AgentDescription>,
     );
 
     const runtimeInfo: RuntimeInfo = {
@@ -44,7 +44,7 @@ export async function handleGetRuntimeInfo({
       {
         status: 500,
         headers: { "Content-Type": "application/json" },
-      }
+      },
     );
   }
 }

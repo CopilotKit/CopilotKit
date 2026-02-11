@@ -28,7 +28,10 @@ export function Header({
   performResearch,
   setPerformResearch,
 }: HeaderProps) {
-  const currentSlide = useMemo(() => slides[currentSlideIndex], [slides, currentSlideIndex]);
+  const currentSlide = useMemo(
+    () => slides[currentSlideIndex],
+    [slides, currentSlideIndex],
+  );
 
   /**
    * We need to get the context here to run a Copilot task for generating a slide
@@ -55,19 +58,30 @@ export function Header({
         </NavButton>
 
         {/* Perform Research */}
-        <PerformResearchSwitch isEnabled={performResearch} setIsEnabled={setPerformResearch} />
+        <PerformResearchSwitch
+          isEnabled={performResearch}
+          setIsEnabled={setPerformResearch}
+        />
       </div>
 
-      <SlideNumberIndicator {...{ currentSlideIndex, totalSlides: slides.length }} />
+      <SlideNumberIndicator
+        {...{ currentSlideIndex, totalSlides: slides.length }}
+      />
 
       <div className="flex-0 flex space-x-1">
-        <AddSlideButton {...{ currentSlideIndex, setCurrentSlideIndex, setSlides }} />
+        <AddSlideButton
+          {...{ currentSlideIndex, setCurrentSlideIndex, setSlides }}
+        />
 
         <GenerateSlideButton context={context} />
 
-        <SpeakCurrentSlideButton spokenNarration={currentSlide.spokenNarration} />
+        <SpeakCurrentSlideButton
+          spokenNarration={currentSlide.spokenNarration}
+        />
 
-        <DeleteSlideButton {...{ currentSlideIndex, setCurrentSlideIndex, slides, setSlides }} />
+        <DeleteSlideButton
+          {...{ currentSlideIndex, setCurrentSlideIndex, slides, setSlides }}
+        />
       </div>
     </header>
   );

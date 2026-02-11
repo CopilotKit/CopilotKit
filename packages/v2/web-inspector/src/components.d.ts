@@ -5,20 +5,16 @@
  * It contains typing information for all components that exist in this project.
  */
 import { HTMLStencilElement, JSXBase } from "@stencil/core/internal";
-export namespace Components {
-}
+export namespace Components {}
 declare global {
-    interface HTMLElementTagNameMap {
-    }
+  interface HTMLElementTagNameMap {}
 }
 declare namespace LocalJSX {
-    interface IntrinsicElements {
-    }
+  interface IntrinsicElements {}
 }
 export { LocalJSX as JSX };
 declare module "@stencil/core" {
-    export namespace JSX {
-        interface IntrinsicElements {
-        }
-    }
+  export namespace JSX {
+    interface IntrinsicElements {}
+  }
 }

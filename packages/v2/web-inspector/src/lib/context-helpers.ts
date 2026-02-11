@@ -1,4 +1,4 @@
-import type { Anchor, ContextState, Position, Size } from './types';
+import type { Anchor, ContextState, Position, Size } from "./types";
 
 export function updateSizeFromElement(
   state: ContextState,
@@ -34,8 +34,14 @@ export function constrainToViewport(
   viewport: Size,
   edgeMargin: number,
 ): Position {
-  const maxX = Math.max(edgeMargin, viewport.width - state.size.width - edgeMargin);
-  const maxY = Math.max(edgeMargin, viewport.height - state.size.height - edgeMargin);
+  const maxX = Math.max(
+    edgeMargin,
+    viewport.width - state.size.width - edgeMargin,
+  );
+  const maxY = Math.max(
+    edgeMargin,
+    viewport.height - state.size.height - edgeMargin,
+  );
 
   return {
     x: clamp(position.x, edgeMargin, maxX),
@@ -48,7 +54,12 @@ export function keepPositionWithinViewport(
   viewport: Size,
   edgeMargin: number,
 ): void {
-  state.position = constrainToViewport(state, state.position, viewport, edgeMargin);
+  state.position = constrainToViewport(
+    state,
+    state.position,
+    viewport,
+    edgeMargin,
+  );
 }
 
 export function centerContext(
@@ -74,23 +85,39 @@ export function updateAnchorFromPosition(
   const centerX = state.position.x + state.size.width / 2;
   const centerY = state.position.y + state.size.height / 2;
 
-  const horizontal: Anchor['horizontal'] = centerX < viewport.width / 2 ? 'left' : 'right';
-  const vertical: Anchor['vertical'] = centerY < viewport.height / 2 ? 'top' : 'bottom';
+  const horizontal: Anchor["horizontal"] =
+    centerX < viewport.width / 2 ? "left" : "right";
+  const vertical: Anchor["vertical"] =
+    centerY < viewport.height / 2 ? "top" : "bottom";
 
   state.anchor = { horizontal, vertical };
 
-  const maxHorizontalOffset = Math.max(edgeMargin, viewport.width - state.size.width - edgeMargin);
-  const maxVerticalOffset = Math.max(edgeMargin, viewport.height - state.size.height - edgeMargin);
+  const maxHorizontalOffset = Math.max(
+    edgeMargin,
+    viewport.width - state.size.width - edgeMargin,
+  );
+  const maxVerticalOffset = Math.max(
+    edgeMargin,
+    viewport.height - state.size.height - edgeMargin,
+  );
 
   state.anchorOffset = {
     x:
-      horizontal === 'left'
+      horizontal === "left"
         ? clamp(state.position.x, edgeMargin, maxHorizontalOffset)
-        : clamp(viewport.width - state.position.x - state.size.width, edgeMargin, maxHorizontalOffset),
+        : clamp(
+            viewport.width - state.position.x - state.size.width,
+            edgeMargin,
+            maxHorizontalOffset,
+          ),
     y:
-      vertical === 'top'
+      vertical === "top"
         ? clamp(state.position.y, edgeMargin, maxVerticalOffset)
-        : clamp(viewport.height - state.position.y - state.size.height, edgeMargin, maxVerticalOffset),
+        : clamp(
+            viewport.height - state.position.y - state.size.height,
+            edgeMargin,
+            maxVerticalOffset,
+          ),
   };
 }
 
@@ -99,19 +126,33 @@ export function applyAnchorPosition(
   viewport: Size,
   edgeMargin: number,
 ): Position {
-  const maxHorizontalOffset = Math.max(edgeMargin, viewport.width - state.size.width - edgeMargin);
-  const maxVerticalOffset = Math.max(edgeMargin, viewport.height - state.size.height - edgeMargin);
+  const maxHorizontalOffset = Math.max(
+    edgeMargin,
+    viewport.width - state.size.width - edgeMargin,
+  );
+  const maxVerticalOffset = Math.max(
+    edgeMargin,
+    viewport.height - state.size.height - edgeMargin,
+  );
 
-  const horizontalOffset = clamp(state.anchorOffset.x, edgeMargin, maxHorizontalOffset);
-  const verticalOffset = clamp(state.anchorOffset.y, edgeMargin, maxVerticalOffset);
+  const horizontalOffset = clamp(
+    state.anchorOffset.x,
+    edgeMargin,
+    maxHorizontalOffset,
+  );
+  const verticalOffset = clamp(
+    state.anchorOffset.y,
+    edgeMargin,
+    maxVerticalOffset,
+  );
 
   const x =
-    state.anchor.horizontal === 'left'
+    state.anchor.horizontal === "left"
       ? horizontalOffset
       : viewport.width - state.size.width - horizontalOffset;
 
   const y =
-    state.anchor.vertical === 'top'
+    state.anchor.vertical === "top"
       ? verticalOffset
       : viewport.height - state.size.height - verticalOffset;
 

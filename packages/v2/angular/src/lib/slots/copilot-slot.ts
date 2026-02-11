@@ -65,7 +65,7 @@ export class CopilotSlot implements OnInit, OnChanges {
 
   constructor(
     @Inject(ViewContainerRef) private viewContainer: ViewContainerRef,
-    private cdr: ChangeDetectorRef
+    private cdr: ChangeDetectorRef,
   ) {}
 
   ngOnInit(): void {

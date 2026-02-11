@@ -1,4 +1,10 @@
-import React, { useState, useRef, useEffect, forwardRef, useImperativeHandle } from "react";
+import React, {
+  useState,
+  useRef,
+  useEffect,
+  forwardRef,
+  useImperativeHandle,
+} from "react";
 
 interface AutoResizingTextareaProps {
   maxRows?: number;
@@ -11,7 +17,10 @@ interface AutoResizingTextareaProps {
   autoFocus?: boolean;
 }
 
-const AutoResizingTextarea = forwardRef<HTMLTextAreaElement, AutoResizingTextareaProps>(
+const AutoResizingTextarea = forwardRef<
+  HTMLTextAreaElement,
+  AutoResizingTextareaProps
+>(
   (
     {
       maxRows = 1,
@@ -28,7 +37,10 @@ const AutoResizingTextarea = forwardRef<HTMLTextAreaElement, AutoResizingTextare
     const internalTextareaRef = useRef<HTMLTextAreaElement>(null);
     const [maxHeight, setMaxHeight] = useState<number>(0);
 
-    useImperativeHandle(ref, () => internalTextareaRef.current as HTMLTextAreaElement);
+    useImperativeHandle(
+      ref,
+      () => internalTextareaRef.current as HTMLTextAreaElement,
+    );
 
     useEffect(() => {
       const calculateMaxHeight = () => {

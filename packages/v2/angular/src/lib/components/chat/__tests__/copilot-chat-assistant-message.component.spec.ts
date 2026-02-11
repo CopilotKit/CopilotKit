@@ -1,4 +1,8 @@
-import { EnvironmentInjector, Injectable, runInInjectionContext } from "@angular/core";
+import {
+  EnvironmentInjector,
+  Injectable,
+  runInInjectionContext,
+} from "@angular/core";
 import { TestBed } from "@angular/core/testing";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { AssistantMessage } from "../copilot-chat-assistant-message.types";
@@ -33,18 +37,25 @@ describe("CopilotChatAssistantMessage", () => {
   beforeEach(() => {
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
-      providers: [{ provide: CopilotChatViewHandlers, useClass: ViewHandlersStub }],
+      providers: [
+        { provide: CopilotChatViewHandlers, useClass: ViewHandlersStub },
+      ],
     });
 
     injector = TestBed.inject(EnvironmentInjector);
-    component = runInInjectionContext(injector, () => new CopilotChatAssistantMessage());
+    component = runInInjectionContext(
+      injector,
+      () => new CopilotChatAssistantMessage(),
+    );
     (component as any).message = () => assistantMessage;
     (component as any).messages = () => [assistantMessage];
     (component as any).isLoading = () => false;
   });
 
   it("provides markdown renderer context", () => {
-    expect(component.markdownRendererContext().content).toBe("Assistant message");
+    expect(component.markdownRendererContext().content).toBe(
+      "Assistant message",
+    );
   });
 
   it("exposes tool call context", () => {

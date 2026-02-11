@@ -69,10 +69,11 @@ describe("defineToolCallRenderer", () => {
 
         // In real usage, this would be passed to CopilotKitProvider
         // We're just checking that the type is compatible
-        const providerProps: { toolCallRenderers?: ReactToolCallRenderer<any>[] } =
-          {
-            toolCallRenderers: toolCallRenderers,
-          };
+        const providerProps: {
+          toolCallRenderers?: ReactToolCallRenderer<any>[];
+        } = {
+          toolCallRenderers: toolCallRenderers,
+        };
 
         return <div data-testid="test">Test</div>;
       };
@@ -167,10 +168,10 @@ describe("defineToolCallRenderer", () => {
           args={{ location: "Paris" }}
           status={ToolCallStatus.InProgress}
           result={undefined}
-        />
+        />,
       );
       expect(screen.getByTestId("progress").textContent).toBe(
-        "Loading Paris..."
+        "Loading Paris...",
       );
 
       // Test Executing state
@@ -180,10 +181,10 @@ describe("defineToolCallRenderer", () => {
           args={{ location: "London", units: "celsius" }}
           status={ToolCallStatus.Executing}
           result={undefined}
-        />
+        />,
       );
       expect(screen.getByTestId("executing").textContent).toBe(
-        "Fetching weather for London"
+        "Fetching weather for London",
       );
 
       // Test Complete state
@@ -193,10 +194,10 @@ describe("defineToolCallRenderer", () => {
           args={{ location: "Tokyo", units: "fahrenheit" }}
           status={ToolCallStatus.Complete}
           result="Sunny, 75°F"
-        />
+        />,
       );
       expect(screen.getByTestId("complete").textContent).toBe(
-        "Weather in Tokyo: Sunny, 75°F"
+        "Weather in Tokyo: Sunny, 75°F",
       );
     });
 
@@ -222,7 +223,7 @@ describe("defineToolCallRenderer", () => {
           args={{ param1: "value1", param2: 42 }}
           status={ToolCallStatus.Executing}
           result={undefined}
-        />
+        />,
       );
 
       expect(screen.getByTestId("tool-name").textContent).toBe("customTool");
@@ -279,17 +280,17 @@ describe("defineToolCallRenderer", () => {
           }}
           status={ToolCallStatus.Executing}
           result={undefined}
-        />
+        />,
       );
 
       expect(screen.getByTestId("user-info").textContent).toBe(
-        "User: John Doe (john@example.com)"
+        "User: John Doe (john@example.com)",
       );
       expect(screen.getByTestId("options").textContent).toBe(
-        "Options: option1, option2, option3"
+        "Options: option1, option2, option3",
       );
       expect(screen.getByTestId("metadata").textContent).toBe(
-        "Metadata keys: key1, key2"
+        "Metadata keys: key1, key2",
       );
     });
 
@@ -330,10 +331,10 @@ describe("defineToolCallRenderer", () => {
           args={{ value: "partial" }}
           status={ToolCallStatus.InProgress}
           result={undefined}
-        />
+        />,
       );
       expect(screen.getByTestId("in-progress").textContent).toBe(
-        "In Progress: partial"
+        "In Progress: partial",
       );
 
       rerender(
@@ -342,10 +343,10 @@ describe("defineToolCallRenderer", () => {
           args={{ value: "test" }}
           status={ToolCallStatus.Executing}
           result={undefined}
-        />
+        />,
       );
       expect(screen.getByTestId("executing").textContent).toBe(
-        "Executing: test"
+        "Executing: test",
       );
 
       rerender(
@@ -354,10 +355,10 @@ describe("defineToolCallRenderer", () => {
           args={{ value: "test" }}
           status={ToolCallStatus.Complete}
           result="success"
-        />
+        />,
       );
       expect(screen.getByTestId("complete").textContent).toBe(
-        "Complete: test = success"
+        "Complete: test = success",
       );
     });
 
@@ -392,11 +393,11 @@ describe("defineToolCallRenderer", () => {
           args={{ anything: "goes" }}
           status={ToolCallStatus.Executing}
           result={undefined}
-        />
+        />,
       );
 
       expect(screen.getByTestId("wildcard-agent").textContent).toBe(
-        "Unknown: unknownTool"
+        "Unknown: unknownTool",
       );
     });
   });
@@ -422,11 +423,11 @@ describe("defineToolCallRenderer", () => {
           args={{ location: "San Francisco" }}
           status={ToolCallStatus.Executing}
           result={undefined}
-        />
+        />,
       );
 
       expect(screen.getByTestId("weather").textContent).toBe(
-        "Weather: San Francisco"
+        "Weather: San Francisco",
       );
     });
 
@@ -457,7 +458,7 @@ describe("defineToolCallRenderer", () => {
           args={{ id: 123 }}
           status={ToolCallStatus.Executing}
           result={undefined}
-        />
+        />,
       );
       expect(screen.getByTestId("known").textContent).toBe("Known tool: 123");
 
@@ -469,10 +470,10 @@ describe("defineToolCallRenderer", () => {
           args={{ data: "test" }}
           status={ToolCallStatus.Executing}
           result={undefined}
-        />
+        />,
       );
       expect(screen.getByTestId("fallback").textContent).toBe(
-        'Fallback for unknown_tool: {"data":"test"}'
+        'Fallback for unknown_tool: {"data":"test"}',
       );
     });
 
@@ -511,7 +512,7 @@ describe("defineToolCallRenderer", () => {
           }}
           status={ToolCallStatus.Executing}
           result={undefined}
-        />
+        />,
       );
 
       const element = screen.getByTestId("optional");

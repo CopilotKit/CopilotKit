@@ -245,7 +245,12 @@ describe("OpenAIAdapter", () => {
       await adapter.process({
         threadId: "test-thread",
         model: "gpt-4o",
-        messages: [systemMessage, toolExecution, firstToolResult, duplicateToolResult],
+        messages: [
+          systemMessage,
+          toolExecution,
+          firstToolResult,
+          duplicateToolResult,
+        ],
         actions: [],
         eventSource: mockEventSource,
         forwardedParameters: {},

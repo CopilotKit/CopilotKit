@@ -31,7 +31,8 @@ export const Slide = (props: SlideProps) => {
       {
         name: "content",
         type: "string",
-        description: "The content of the slide. Should generally consist of a few bullet points.",
+        description:
+          "The content of the slide. Should generally consist of a few bullet points.",
       },
       {
         name: "backgroundImageDescription",
@@ -46,7 +47,12 @@ export const Slide = (props: SlideProps) => {
           "The spoken narration for the slide. This is what the user will hear when the slide is shown.",
       },
     ],
-    handler: async ({ title, content, backgroundImageDescription, spokenNarration }) => {
+    handler: async ({
+      title,
+      content,
+      backgroundImageDescription,
+      spokenNarration,
+    }) => {
       props.partialUpdateSlide({
         title,
         content,

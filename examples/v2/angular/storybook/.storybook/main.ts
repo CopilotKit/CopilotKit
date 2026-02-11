@@ -9,7 +9,7 @@ const config: StorybookConfig = {
   addons: [
     "@storybook/addon-essentials",
     "@storybook/addon-interactions",
-    "@storybook/addon-themes"
+    "@storybook/addon-themes",
   ],
   webpackFinal: async (cfg) => {
     // Suppress size warnings for development

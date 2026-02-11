@@ -25,7 +25,7 @@ export class CopilotChatUserMessageToolbar {
   readonly computedClass = computed(() =>
     cn(
       "w-full bg-transparent flex items-center justify-end mt-[4px] invisible group-hover:visible",
-      this.inputClass()
-    )
+      this.inputClass(),
+    ),
   );
 }

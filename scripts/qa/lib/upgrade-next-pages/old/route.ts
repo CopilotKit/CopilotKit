@@ -4,5 +4,9 @@ import { CopilotRuntime, OpenAIAdapter } from "@copilotkit/backend";
 
 export default function handler(req: NextApiRequest, res: NextApiResponse) {
   const copilotKit = new CopilotRuntime({});
-  copilotKit.streamHttpServerResponse(req, res, new OpenAIAdapter({ model: "gpt-4o" }));
+  copilotKit.streamHttpServerResponse(
+    req,
+    res,
+    new OpenAIAdapter({ model: "gpt-4o" }),
+  );
 }

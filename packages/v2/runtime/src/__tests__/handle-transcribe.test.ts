@@ -12,7 +12,7 @@ class MockTranscriptionService extends TranscriptionService {
 
   constructor(
     private shouldThrow = false,
-    private returnText = "Mock transcription"
+    private returnText = "Mock transcription",
   ) {
     super();
   }
@@ -28,7 +28,7 @@ class MockTranscriptionService extends TranscriptionService {
 
 describe("handleTranscribe", () => {
   const createMockRuntime = (
-    transcriptionService?: TranscriptionService
+    transcriptionService?: TranscriptionService,
   ): CopilotRuntime => {
     return {
       agents: Promise.resolve({}),
@@ -41,7 +41,7 @@ describe("handleTranscribe", () => {
   const createMockAudioFile = (
     name = "test.mp3",
     type = "audio/mpeg",
-    size = 1024
+    size = 1024,
   ): File => {
     const content = new Uint8Array(size);
     return new File([content], name, { type });
@@ -117,7 +117,8 @@ describe("handleTranscribe", () => {
     const body = await response.json();
     expect(body).toEqual({
       error: "invalid_request",
-      message: "Request must include 'audio' field with base64-encoded audio data",
+      message:
+        "Request must include 'audio' field with base64-encoded audio data",
       retryable: false,
     });
   });
@@ -181,7 +182,7 @@ describe("handleTranscribe", () => {
     const runtime = createMockRuntime(mockService);
     const audioFile = createMockAudioFile(
       "test.mp3",
-      "application/octet-stream"
+      "application/octet-stream",
     );
     const request = createFormDataRequest(audioFile);
 
@@ -279,7 +280,7 @@ describe("handleTranscribe", () => {
     const audioFile = createMockAudioFile(
       "my-recording.wav",
       "audio/wav",
-      2048
+      2048,
     );
 
     const request = createFormDataRequest(audioFile);

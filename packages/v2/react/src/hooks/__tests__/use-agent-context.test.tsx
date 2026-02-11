@@ -45,7 +45,7 @@ describe("useAgentContext", () => {
       const { unmount } = render(
         <TestComponent
           context={{ description: "test context", value: "test value" }}
-        />
+        />,
       );
 
       // Context should be added
@@ -125,7 +125,7 @@ describe("useAgentContext", () => {
       };
 
       const { rerender } = render(
-        <TestComponent context={context} counter={0} />
+        <TestComponent context={context} counter={0} />,
       );
 
       // Initial render - context added once
@@ -157,7 +157,10 @@ describe("useAgentContext", () => {
         const [counter, setCounter] = useState(0);
         return (
           <>
-            <button data-testid="increment" onClick={() => setCounter((c) => c + 1)}>
+            <button
+              data-testid="increment"
+              onClick={() => setCounter((c) => c + 1)}
+            >
               Increment ({counter})
             </button>
             <ContextUser />
@@ -364,7 +367,8 @@ describe("useAgentContext", () => {
 
       expect(addContextMock).toHaveBeenCalledWith({
         description: "nested context",
-        value: '{"user":{"name":"Alice","settings":{"theme":"dark","notifications":true}},"items":[1,2,{"nested":"value"}]}',
+        value:
+          '{"user":{"name":"Alice","settings":{"theme":"dark","notifications":true}},"items":[1,2,{"nested":"value"}]}',
       });
     });
   });

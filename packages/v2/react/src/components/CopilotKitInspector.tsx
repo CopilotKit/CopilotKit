@@ -11,8 +11,12 @@ type InspectorComponent = React.ComponentType<CopilotKitInspectorBaseProps>;
 
 export interface CopilotKitInspectorProps extends CopilotKitInspectorBaseProps {}
 
-export const CopilotKitInspector: React.FC<CopilotKitInspectorProps> = ({ core, ...rest }) => {
-  const [InspectorComponent, setInspectorComponent] = React.useState<InspectorComponent | null>(null);
+export const CopilotKitInspector: React.FC<CopilotKitInspectorProps> = ({
+  core,
+  ...rest
+}) => {
+  const [InspectorComponent, setInspectorComponent] =
+    React.useState<InspectorComponent | null>(null);
 
   React.useEffect(() => {
     let mounted = true;

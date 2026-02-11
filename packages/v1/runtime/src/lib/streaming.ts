@@ -59,7 +59,10 @@ export async function writeJsonLineResponseToEventStream<T>(
     }
   } catch (error) {
     // Preserve already structured CopilotKit errors, only convert unstructured errors
-    const structuredError = ensureStructuredError(error, convertStreamingErrorToStructured);
+    const structuredError = ensureStructuredError(
+      error,
+      convertStreamingErrorToStructured,
+    );
     eventStream$.error(structuredError);
     return;
   }
@@ -99,11 +102,15 @@ function convertStreamingErrorToStructured(error: any): CopilotKitError {
 /**
  * Generates a helpful error message based on error patterns and context
  */
-export function generateHelpfulErrorMessage(error: any, context: string = "connection"): string {
+export function generateHelpfulErrorMessage(
+  error: any,
+  context: string = "connection",
+): string {
   const baseMessage = error?.message || String(error);
 
   // Check for preserved error information from Python agent
-  const originalErrorType = error?.originalErrorType || error?.extensions?.originalErrorType;
+  const originalErrorType =
+    error?.originalErrorType || error?.extensions?.originalErrorType;
   const statusCode = error?.statusCode || error?.extensions?.statusCode;
   const responseData = error?.responseData || error?.extensions?.responseData;
 
@@ -122,7 +129,8 @@ export function generateHelpfulErrorMessage(error: any, context: string = "conne
       error?.cause?.code === pattern ||
       error?.code === pattern ||
       statusCode === parseInt(pattern) ||
-      (pattern === "other_side_closed" && baseMessage?.includes("other side closed")) ||
+      (pattern === "other_side_closed" &&
+        baseMessage?.includes("other side closed")) ||
       (pattern === "fetch_failed" && baseMessage?.includes("fetch failed")) ||
       (responseData && JSON.stringify(responseData).includes(pattern));
 
@@ -153,7 +161,12 @@ export function generateHelpfulErrorMessage(error: any, context: string = "conne
  * Determines if an error is network-related
  */
 function isNetworkError(error: any): boolean {
-  const networkPatterns = ["ECONNREFUSED", "ENOTFOUND", "ETIMEDOUT", "fetch_failed"];
+  const networkPatterns = [
+    "ECONNREFUSED",
+    "ENOTFOUND",
+    "ETIMEDOUT",
+    "fetch_failed",
+  ];
   return networkPatterns.some(
     (pattern) =>
       error?.message?.includes(pattern) ||
@@ -166,7 +179,11 @@ function isNetworkError(error: any): boolean {
  * Determines if an error is connection-related
  */
 function isConnectionError(error: any): boolean {
-  const connectionPatterns = ["terminated", "UND_ERR_SOCKET", "other side closed"];
+  const connectionPatterns = [
+    "terminated",
+    "UND_ERR_SOCKET",
+    "other side closed",
+  ];
   return connectionPatterns.some(
     (pattern) =>
       error?.message?.includes(pattern) ||
@@ -188,7 +205,8 @@ function isAuthenticationError(error: any): boolean {
     "PermissionDeniedError",
   ];
   const baseMessage = error?.message || String(error);
-  const originalErrorType = error?.originalErrorType || error?.extensions?.originalErrorType;
+  const originalErrorType =
+    error?.originalErrorType || error?.extensions?.originalErrorType;
   const statusCode = error?.statusCode || error?.extensions?.statusCode;
 
   return authPatterns.some(

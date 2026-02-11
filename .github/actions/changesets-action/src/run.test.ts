@@ -18,17 +18,17 @@ jest.mock("@actions/github", () => ({
   },
 }));
 jest.mock("@actions/github/lib/utils", () => ({
-    GitHub: {
-        plugin: () => {
-            // function necessary to be used as constructor
-            return function() {
-                return {
-                    rest: mockedGithubMethods,
-                }
-            }
-        },
+  GitHub: {
+    plugin: () => {
+      // function necessary to be used as constructor
+      return function () {
+        return {
+          rest: mockedGithubMethods,
+        };
+      };
     },
-    getOctokitOptions: jest.fn(),
+  },
+  getOctokitOptions: jest.fn(),
 }));
 jest.mock("./gitUtils");
 
@@ -47,7 +47,7 @@ let f = fixturez(__dirname);
 const linkNodeModules = async (cwd: string) => {
   await fs.symlink(
     path.join(__dirname, "..", "node_modules"),
-    path.join(cwd, "node_modules")
+    path.join(cwd, "node_modules"),
   );
 };
 const writeChangesets = (changesets: Changeset[], cwd: string) => {
@@ -85,7 +85,7 @@ describe("version", () => {
           summary: "Awesome feature",
         },
       ],
-      cwd
+      cwd,
     );
 
     await runVersion({
@@ -118,7 +118,7 @@ describe("version", () => {
           summary: "Awesome feature",
         },
       ],
-      cwd
+      cwd,
     );
 
     await runVersion({
@@ -151,7 +151,7 @@ describe("version", () => {
           summary: "Awesome feature",
         },
       ],
-      cwd
+      cwd,
     );
 
     await runVersion({
@@ -204,7 +204,7 @@ fluminis divesque vulnere aquis parce lapsis rabie si visa fulmineis.
 `,
         },
       ],
-      cwd
+      cwd,
     );
 
     await runVersion({
@@ -215,7 +215,7 @@ fluminis divesque vulnere aquis parce lapsis rabie si visa fulmineis.
 
     expect(mockedGithubMethods.pulls.create.mock.calls[0]).toMatchSnapshot();
     expect(mockedGithubMethods.pulls.create.mock.calls[0][0].body).toMatch(
-      /The changelog information of each package has been omitted from this message/
+      /The changelog information of each package has been omitted from this message/,
     );
   });
 
@@ -261,7 +261,7 @@ fluminis divesque vulnere aquis parce lapsis rabie si visa fulmineis.
 `,
         },
       ],
-      cwd
+      cwd,
     );
 
     await runVersion({
@@ -272,7 +272,7 @@ fluminis divesque vulnere aquis parce lapsis rabie si visa fulmineis.
 
     expect(mockedGithubMethods.pulls.create.mock.calls[0]).toMatchSnapshot();
     expect(mockedGithubMethods.pulls.create.mock.calls[0][0].body).toMatch(
-      /All release information have been omitted from this message, as the content exceeds the size limit/
+      /All release information have been omitted from this message, as the content exceeds the size limit/,
     );
   });
 });

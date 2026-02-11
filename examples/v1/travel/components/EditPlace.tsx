@@ -24,7 +24,7 @@ export function EditPlace({ place, onOpenChange }: EditPlaceProps) {
 
   const handleEditPlace = (place: Place) => {
     updatePlace(selectedTrip.id, place.id, place);
-    
+
     setDialogOpen(false);
     onOpenChange?.(false);
   };
@@ -41,8 +41,8 @@ export function EditPlace({ place, onOpenChange }: EditPlaceProps) {
         Edit
       </DropdownMenuItem>
 
-      <Dialog 
-        open={dialogOpen} 
+      <Dialog
+        open={dialogOpen}
         onOpenChange={(open) => {
           setDialogOpen(open);
           if (!open) {
@@ -57,10 +57,7 @@ export function EditPlace({ place, onOpenChange }: EditPlaceProps) {
               Edit Place
             </DialogTitle>
           </DialogHeader>
-          <PlaceForm 
-            place={place}
-            onSubmit={handleEditPlace}
-          />
+          <PlaceForm place={place} onSubmit={handleEditPlace} />
         </DialogContent>
       </Dialog>
     </>

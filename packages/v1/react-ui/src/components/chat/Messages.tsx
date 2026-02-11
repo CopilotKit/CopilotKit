@@ -3,7 +3,10 @@ import { MessagesProps } from "./props";
 import { useChatContext } from "./ChatContext";
 import { Message } from "@copilotkit/shared";
 import { useCopilotChatInternal } from "@copilotkit/react-core";
-import { LegacyRenderMessage, LegacyRenderProps } from "./messages/LegacyRenderMessage";
+import {
+  LegacyRenderMessage,
+  LegacyRenderProps,
+} from "./messages/LegacyRenderMessage";
 
 export const Messages = ({
   inProgress,
@@ -30,7 +33,10 @@ export const Messages = ({
 }: MessagesProps) => {
   const { labels, icons } = useChatContext();
   const { messages: visibleMessages, interrupt } = useCopilotChatInternal();
-  const initialMessages = useMemo(() => makeInitialMessages(labels.initial), [labels.initial]);
+  const initialMessages = useMemo(
+    () => makeInitialMessages(labels.initial),
+    [labels.initial],
+  );
   const messages = [...initialMessages, ...visibleMessages];
   const { messagesContainerRef, messagesEndRef } = useScrollToBottom(messages);
 
@@ -74,7 +80,9 @@ export const Messages = ({
 
   // Determine which render component to use
   const MessageRenderer = hasLegacyProps
-    ? (props: any) => <LegacyRenderMessage {...props} legacyProps={legacyProps} />
+    ? (props: any) => (
+        <LegacyRenderMessage {...props} legacyProps={legacyProps} />
+      )
     : RenderMessage;
 
   const LoadingIcon = () => <span>{icons.activityIcon}</span>;
@@ -104,9 +112,13 @@ export const Messages = ({
             />
           );
         })}
-        {messages[messages.length - 1]?.role === "user" && inProgress && <LoadingIcon />}
+        {messages[messages.length - 1]?.role === "user" && inProgress && (
+          <LoadingIcon />
+        )}
         {interrupt}
-        {chatError && ErrorMessage && <ErrorMessage error={chatError} isCurrentMessage />}
+        {chatError && ErrorMessage && (
+          <ErrorMessage error={chatError} isCurrentMessage />
+        )}
       </div>
       <footer className="copilotKitMessagesFooter" ref={messagesEndRef}>
         {children}
@@ -115,7 +127,9 @@ export const Messages = ({
   );
 };
 
-function makeInitialMessages(initial: string | string[] | undefined): Message[] {
+function makeInitialMessages(
+  initial: string | string[] | undefined,
+): Message[] {
   if (!initial) return [];
 
   if (Array.isArray(initial)) {
@@ -146,7 +160,8 @@ export function useScrollToBottom(messages: Message[]) {
   const scrollToBottom = () => {
     if (messagesContainerRef.current && messagesEndRef.current) {
       isProgrammaticScrollRef.current = true;
-      messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+      messagesContainerRef.current.scrollTop =
+        messagesContainerRef.current.scrollHeight;
     }
   };
 
@@ -157,7 +172,8 @@ export function useScrollToBottom(messages: Message[]) {
     }
 
     if (messagesContainerRef.current) {
-      const { scrollTop, scrollHeight, clientHeight } = messagesContainerRef.current;
+      const { scrollTop, scrollHeight, clientHeight } =
+        messagesContainerRef.current;
       isUserScrollUpRef.current = scrollTop + clientHeight < scrollHeight;
     }
   };

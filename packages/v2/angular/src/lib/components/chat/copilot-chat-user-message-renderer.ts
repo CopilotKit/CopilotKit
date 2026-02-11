@@ -26,7 +26,7 @@ export class CopilotChatUserMessageRenderer {
   readonly computedClass = computed(() => {
     return cn(
       "prose dark:prose-invert bg-muted relative max-w-[80%] rounded-[18px] px-4 py-1.5 data-[multiline]:py-3 inline-block whitespace-pre-wrap",
-      this.inputClass()
+      this.inputClass(),
     );
   });
 }

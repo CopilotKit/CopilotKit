@@ -33,10 +33,15 @@ export function PaymentCards({ onSubmit }: PaymentCardsProps) {
 
   return (
     <div className="w-full">
-      {!selectedCard && <h1 className="text-2xl font-bold mb-2">Your payment methods</h1>}
+      {!selectedCard && (
+        <h1 className="text-2xl font-bold mb-2">Your payment methods</h1>
+      )}
       <div className="flex flex-row overflow-x-auto gap-4 py-4 w-full min-w-0 pb-6">
         {availableCardInfo
-          .filter((cardInfo) => selectedCard === null || selectedCard === cardInfo.name)
+          .filter(
+            (cardInfo) =>
+              selectedCard === null || selectedCard === cardInfo.name,
+          )
           .map(renderCard)}
       </div>
     </div>

@@ -1,9 +1,14 @@
 import type { IncomingMessage } from "http";
 import { Readable } from "node:stream";
 
-export type IncomingWithBody = IncomingMessage & { body?: unknown; complete?: boolean };
+export type IncomingWithBody = IncomingMessage & {
+  body?: unknown;
+  complete?: boolean;
+};
 
-export function readableStreamToNodeStream(webStream: ReadableStream): Readable {
+export function readableStreamToNodeStream(
+  webStream: ReadableStream,
+): Readable {
   const reader = webStream.getReader();
 
   return new Readable({
@@ -22,11 +27,15 @@ export function readableStreamToNodeStream(webStream: ReadableStream): Readable 
   });
 }
 
-export function nodeStreamToReadableStream(nodeStream: Readable): ReadableStream<Uint8Array> {
+export function nodeStreamToReadableStream(
+  nodeStream: Readable,
+): ReadableStream<Uint8Array> {
   return new ReadableStream({
     start(controller) {
       nodeStream.on("data", (chunk) => {
-        controller.enqueue(chunk instanceof Buffer ? new Uint8Array(chunk) : chunk);
+        controller.enqueue(
+          chunk instanceof Buffer ? new Uint8Array(chunk) : chunk,
+        );
       });
       nodeStream.on("end", () => {
         controller.close();
@@ -47,7 +56,9 @@ export function getFullUrl(req: IncomingMessage): string {
   // Pure Node HTTP sets req.url to the full path.
   const path = req.url || "/";
   const host =
-    (req.headers["x-forwarded-host"] as string) || (req.headers.host as string) || "localhost";
+    (req.headers["x-forwarded-host"] as string) ||
+    (req.headers.host as string) ||
+    "localhost";
   const proto =
     (req.headers["x-forwarded-proto"] as string) ||
     ((req.socket as any).encrypted ? "https" : "http");
@@ -76,7 +87,10 @@ export function isStreamConsumed(req: IncomingWithBody): boolean {
   const readableState = (req as any)._readableState;
 
   return Boolean(
-    req.readableEnded || req.complete || readableState?.ended || readableState?.endEmitted,
+    req.readableEnded ||
+    req.complete ||
+    readableState?.ended ||
+    readableState?.endEmitted,
   );
 }
 
@@ -93,7 +107,10 @@ export function synthesizeBodyFromParsedBody(
   }
 
   if (typeof parsedBody === "string") {
-    return { body: parsedBody, contentType: headers.get("content-type") ?? "text/plain" };
+    return {
+      body: parsedBody,
+      contentType: headers.get("content-type") ?? "text/plain",
+    };
   }
 
   return {

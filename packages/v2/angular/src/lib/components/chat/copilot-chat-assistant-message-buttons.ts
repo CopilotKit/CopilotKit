@@ -72,7 +72,7 @@ export class CopilotChatAssistantMessageToolbarButton {
       "[&_svg]:pointer-events-none [&_svg]:shrink-0",
       // Ensure proper sizing
       "shrink-0",
-      this.inputClass()
+      this.inputClass(),
     );
   });
 }
@@ -129,7 +129,7 @@ export class CopilotChatAssistantMessageCopyButton {
       (err) => {
         console.error("Failed to copy message:", err);
         this.copied.set(false);
-      }
+      },
     );
   }
 }

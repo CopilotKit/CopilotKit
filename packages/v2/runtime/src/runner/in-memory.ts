@@ -85,7 +85,10 @@ function getGlobalStore(): Map<string, InMemoryEventStore> {
   return data.stores;
 }
 
-function backupHistoricRuns(threadId: string, historicRuns: HistoricRun[]): void {
+function backupHistoricRuns(
+  threadId: string,
+  historicRuns: HistoricRun[],
+): void {
   const globalAny = globalThis as unknown as Record<symbol, GlobalStoreData>;
   if (globalAny[GLOBAL_STORE_KEY]) {
     globalAny[GLOBAL_STORE_KEY].historicRunsBackup.set(threadId, historicRuns);

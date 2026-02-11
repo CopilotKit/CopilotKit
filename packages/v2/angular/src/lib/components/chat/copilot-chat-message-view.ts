@@ -164,17 +164,17 @@ export class CopilotChatMessageView {
     messages: this.messagesValue(),
     showCursor: this.showCursorValue(),
     messageElements: this.messagesValue().filter(
-      (m) => m && (m.role === "assistant" || m.role === "user")
+      (m) => m && (m.role === "assistant" || m.role === "user"),
     ),
   }));
 
   // Slot resolution computed signals
   assistantMessageSlot = computed(
-    () => this.assistantMessageComponent() || this.assistantMessageClass()
+    () => this.assistantMessageComponent() || this.assistantMessageClass(),
   );
 
   userMessageSlot = computed(
-    () => this.userMessageComponent() || this.userMessageClass()
+    () => this.userMessageComponent() || this.userMessageClass(),
   );
 
   cursorSlot = computed(() => this.cursorComponent() || this.cursorClass());

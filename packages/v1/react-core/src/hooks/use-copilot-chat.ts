@@ -101,7 +101,9 @@ export type UseCopilotChatReturn = Omit<
  * **Open Source Friendly** - Works without requiring a `publicApiKey`.
  */
 // TODO: Do we need this? If so, does it work properly? test.
-export function useCopilotChat(options: UseCopilotChatOptions = {}): UseCopilotChatReturn {
+export function useCopilotChat(
+  options: UseCopilotChatOptions = {},
+): UseCopilotChatReturn {
   const {
     visibleMessages,
     appendMessage,

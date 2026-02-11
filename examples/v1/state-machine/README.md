@@ -34,12 +34,13 @@ The example showcases how to implement complex conversational flows using a stat
 
 ### Prerequisites
 
-- Node.js 18+ 
+- Node.js 18+
 - npm, yarn, or pnpm
 
 ### Installation
 
 1. Clone the repository:
+
    ```bash
    git clone https://github.com/CopilotKit/CopilotKit.git
    cd CopilotKit/examples/copilot-state-machine
@@ -64,6 +65,7 @@ The example showcases how to implement complex conversational flows using a stat
    </details>
 
 3. Create a `.env` file in the project root and add your [Copilot Cloud Public API Key](https://cloud.copilotkit.ai):
+
    ```
    NEXT_PUBLIC_CPK_PUBLIC_API_KEY=your_api_key_here
    ```
@@ -127,7 +129,7 @@ useCopilotAction({
       name: "model",
       type: "string",
       required: true,
-      description: "The car model selected by the user"
+      description: "The car model selected by the user",
     },
     // Other parameters...
   ],

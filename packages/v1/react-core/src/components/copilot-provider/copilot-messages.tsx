@@ -93,11 +93,16 @@ const MessagesTapContext = createContext<MessagesTap | null>(null);
 
 export function useMessagesTap() {
   const tap = useContext(MessagesTapContext);
-  if (!tap) throw new Error("useMessagesTap must be used inside <MessagesTapProvider>");
+  if (!tap)
+    throw new Error("useMessagesTap must be used inside <MessagesTapProvider>");
   return tap;
 }
 
-export function MessagesTapProvider({ children }: { children: React.ReactNode }) {
+export function MessagesTapProvider({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const messagesRef = useRef<Message[]>([]);
 
   const tapRef = useRef<MessagesTap>({
@@ -108,7 +113,9 @@ export function MessagesTapProvider({ children }: { children: React.ReactNode })
   });
 
   return (
-    <MessagesTapContext.Provider value={tapRef.current}>{children}</MessagesTapContext.Provider>
+    <MessagesTapContext.Provider value={tapRef.current}>
+      {children}
+    </MessagesTapContext.Provider>
   );
 }
 
@@ -124,7 +131,8 @@ export function CopilotMessages({ children }: { children: ReactNode }) {
 
   const { updateTapMessages } = useMessagesTap();
 
-  const { threadId, agentSession, showDevConsole, onError, copilotApiConfig } = useCopilotContext();
+  const { threadId, agentSession, showDevConsole, onError, copilotApiConfig } =
+    useCopilotContext();
   const { setBannerError } = useToast();
 
   // Helper function to trace UI errors (similar to useCopilotRuntimeClient)
@@ -146,8 +154,14 @@ export function CopilotMessages({ children }: { children: ReactNode }) {
             },
             technical: {
               environment: "browser",
-              userAgent: typeof navigator !== "undefined" ? navigator.userAgent : undefined,
-              stackTrace: originalError instanceof Error ? originalError.stack : undefined,
+              userAgent:
+                typeof navigator !== "undefined"
+                  ? navigator.userAgent
+                  : undefined,
+              stackTrace:
+                originalError instanceof Error
+                  ? originalError.stack
+                  : undefined,
             },
           },
           error,
@@ -160,17 +174,25 @@ export function CopilotMessages({ children }: { children: ReactNode }) {
     [onError, copilotApiConfig.publicApiKey, copilotApiConfig.chatApiEndpoint],
   );
 
-  const createStructuredError = (gqlError: GraphQLError): CopilotKitError | null => {
+  const createStructuredError = (
+    gqlError: GraphQLError,
+  ): CopilotKitError | null => {
     const extensions = gqlError.extensions;
     const originalError = extensions?.originalError as any;
 
     // Priority: Check stack trace for discovery errors first
     if (originalError?.stack) {
       if (originalError.stack.includes("CopilotApiDiscoveryError")) {
-        return new CopilotKitApiDiscoveryError({ message: originalError.message });
+        return new CopilotKitApiDiscoveryError({
+          message: originalError.message,
+        });
       }
-      if (originalError.stack.includes("CopilotKitRemoteEndpointDiscoveryError")) {
-        return new CopilotKitRemoteEndpointDiscoveryError({ message: originalError.message });
+      if (
+        originalError.stack.includes("CopilotKitRemoteEndpointDiscoveryError")
+      ) {
+        return new CopilotKitRemoteEndpointDiscoveryError({
+          message: originalError.message,
+        });
       }
       if (originalError.stack.includes("CopilotKitAgentDiscoveryError")) {
         return new CopilotKitAgentDiscoveryError({
@@ -203,7 +225,10 @@ export function CopilotMessages({ children }: { children: ReactNode }) {
           const isDev = shouldShowDevConsole(showDevConsole);
 
           if (!isDev) {
-            console.error("CopilotKit Error (hidden in production):", gqlError.message);
+            console.error(
+              "CopilotKit Error (hidden in production):",
+              gqlError.message,
+            );
             return;
           }
 

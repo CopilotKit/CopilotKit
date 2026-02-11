@@ -17,24 +17,34 @@ export interface LangGraphInterruptRender<TEventValue = any> {
   /**
    * The handler function to handle the event.
    */
-  handler?: (props: LangGraphInterruptRenderHandlerProps<TEventValue>) => any | Promise<any>;
+  handler?: (
+    props: LangGraphInterruptRenderHandlerProps<TEventValue>,
+  ) => any | Promise<any>;
   /**
    * The render function to handle the event.
    */
-  render?: (props: LangGraphInterruptRenderProps<TEventValue>) => string | React.ReactElement;
+  render?: (
+    props: LangGraphInterruptRenderProps<TEventValue>,
+  ) => string | React.ReactElement;
   /**
    * Method that returns a boolean, indicating if the interrupt action should run
    * Useful when using multiple interrupts
    */
-  enabled?: (args: { eventValue: TEventValue; agentMetadata: AgentSession }) => boolean;
+  enabled?: (args: {
+    eventValue: TEventValue;
+    agentMetadata: AgentSession;
+  }) => boolean;
 }
 
 export type LangGraphInterruptAction = LangGraphInterruptRender & {
   event?: LangGraphInterruptEvent;
 };
 
-export type LangGraphInterruptActionSetterArgs = Partial<LangGraphInterruptRender> | null;
-export type LangGraphInterruptActionSetter = (action: LangGraphInterruptActionSetterArgs) => void;
+export type LangGraphInterruptActionSetterArgs =
+  Partial<LangGraphInterruptRender> | null;
+export type LangGraphInterruptActionSetter = (
+  action: LangGraphInterruptActionSetterArgs,
+) => void;
 
 export interface QueuedInterruptEvent {
   eventId: string; // Generated unique ID for tracking

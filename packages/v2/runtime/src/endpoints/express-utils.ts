@@ -1,4 +1,7 @@
-import type { Request as ExpressRequest, Response as ExpressResponse } from "express";
+import type {
+  Request as ExpressRequest,
+  Response as ExpressResponse,
+} from "express";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream";
 import { promisify } from "node:util";
@@ -108,7 +111,10 @@ export function createFetchRequestFromExpress(req: ExpressRequest): Request {
   }
 }
 
-export async function sendFetchResponse(res: ExpressResponse, response: Response): Promise<void> {
+export async function sendFetchResponse(
+  res: ExpressResponse,
+  response: Response,
+): Promise<void> {
   res.status(response.status);
 
   response.headers.forEach((value, key) => {
@@ -138,19 +144,28 @@ function buildOrigin(req: ExpressRequest): string {
   return `${protocol}://${host}`;
 }
 
-function isStreamConsumed(req: ExpressRequest, hasParsedBody: boolean): boolean {
-  const state = (req as unknown as { _readableState?: { ended?: boolean; endEmitted?: boolean } })
-    ._readableState;
+function isStreamConsumed(
+  req: ExpressRequest,
+  hasParsedBody: boolean,
+): boolean {
+  const state = (
+    req as unknown as {
+      _readableState?: { ended?: boolean; endEmitted?: boolean };
+    }
+  )._readableState;
   return Boolean(
     hasParsedBody ||
-      req.readableEnded ||
-      req.complete ||
-      state?.ended ||
-      state?.endEmitted,
+    req.readableEnded ||
+    req.complete ||
+    state?.ended ||
+    state?.endEmitted,
   );
 }
 
-function synthesizeBody(body: unknown): { body?: BodyInit; contentType?: string } {
+function synthesizeBody(body: unknown): {
+  body?: BodyInit;
+  contentType?: string;
+} {
   if (Buffer.isBuffer(body) || body instanceof Uint8Array) {
     return { body };
   }

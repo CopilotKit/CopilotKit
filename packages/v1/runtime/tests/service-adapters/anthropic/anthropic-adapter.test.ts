@@ -179,7 +179,14 @@ describe("AnthropicAdapter", () => {
       await adapter.process({
         threadId: "test-thread",
         model: "claude-3-5-sonnet-latest",
-        messages: [systemMessage, userMessage, toolExecution, result1, result2, result3],
+        messages: [
+          systemMessage,
+          userMessage,
+          toolExecution,
+          result1,
+          result2,
+          result3,
+        ],
         actions: [],
         eventSource: mockEventSource,
         forwardedParameters: {},
@@ -223,7 +230,9 @@ describe("AnthropicAdapter", () => {
 
       // Count tool_result messages - should be only 1
       const toolResults = sentMessages.filter(
-        (msg: any) => msg.role === "user" && msg.content.some((c: any) => c.type === "tool_result"),
+        (msg: any) =>
+          msg.role === "user" &&
+          msg.content.some((c: any) => c.type === "tool_result"),
       );
       expect(toolResults).toHaveLength(1);
     });
@@ -270,7 +279,9 @@ describe("AnthropicAdapter", () => {
 
       // Should only include the valid tool result
       const toolResults = sentMessages.filter(
-        (msg: any) => msg.role === "user" && msg.content.some((c: any) => c.type === "tool_result"),
+        (msg: any) =>
+          msg.role === "user" &&
+          msg.content.some((c: any) => c.type === "tool_result"),
       );
       expect(toolResults).toHaveLength(1);
       expect(toolResults[0].content[0].tool_use_id).toBe("valid-tool");

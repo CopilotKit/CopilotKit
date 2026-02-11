@@ -23,10 +23,8 @@ describe("CopilotChatInput Slot System E2E Tests", () => {
       it("should apply tailwind class string to textArea", () => {
         const { container } = render(
           <TestWrapper>
-            <CopilotChatInput
-              textArea="border-2 border-blue-500 rounded-lg p-4"
-            />
-          </TestWrapper>
+            <CopilotChatInput textArea="border-2 border-blue-500 rounded-lg p-4" />
+          </TestWrapper>,
         );
 
         const textAreaEl = container.querySelector(".border-blue-500");
@@ -37,7 +35,7 @@ describe("CopilotChatInput Slot System E2E Tests", () => {
         const { container } = render(
           <TestWrapper>
             <CopilotChatInput textArea="custom-textarea-class" />
-          </TestWrapper>
+          </TestWrapper>,
         );
 
         expect(container.querySelector(".custom-textarea-class")).toBeDefined();
@@ -48,10 +46,8 @@ describe("CopilotChatInput Slot System E2E Tests", () => {
       it("should apply tailwind class string to sendButton", () => {
         const { container } = render(
           <TestWrapper>
-            <CopilotChatInput
-              sendButton="bg-green-500 hover:bg-green-600 rounded-full"
-            />
-          </TestWrapper>
+            <CopilotChatInput sendButton="bg-green-500 hover:bg-green-600 rounded-full" />
+          </TestWrapper>,
         );
 
         const sendBtn = container.querySelector(".bg-green-500");
@@ -67,7 +63,7 @@ describe("CopilotChatInput Slot System E2E Tests", () => {
               onStartTranscribe={() => {}}
               startTranscribeButton="bg-red-500 rounded"
             />
-          </TestWrapper>
+          </TestWrapper>,
         );
 
         const transcribeBtn = container.querySelector(".bg-red-500");
@@ -84,7 +80,7 @@ describe("CopilotChatInput Slot System E2E Tests", () => {
               onCancelTranscribe={() => {}}
               cancelTranscribeButton="bg-gray-500"
             />
-          </TestWrapper>
+          </TestWrapper>,
         );
 
         const cancelBtn = container.querySelector(".bg-gray-500");
@@ -101,7 +97,7 @@ describe("CopilotChatInput Slot System E2E Tests", () => {
               onFinishTranscribe={() => {}}
               finishTranscribeButton="bg-purple-500"
             />
-          </TestWrapper>
+          </TestWrapper>,
         );
 
         const finishBtn = container.querySelector(".bg-purple-500");
@@ -117,7 +113,7 @@ describe("CopilotChatInput Slot System E2E Tests", () => {
               toolsMenu={[{ label: "Test", action: () => {} }]}
               addMenuButton="bg-yellow-500"
             />
-          </TestWrapper>
+          </TestWrapper>,
         );
 
         const addBtn = container.querySelector(".bg-yellow-500");
@@ -133,7 +129,7 @@ describe("CopilotChatInput Slot System E2E Tests", () => {
               mode="transcribe"
               audioRecorder="border-dashed border-2"
             />
-          </TestWrapper>
+          </TestWrapper>,
         );
 
         const recorder = container.querySelector(".border-dashed");
@@ -153,10 +149,12 @@ describe("CopilotChatInput Slot System E2E Tests", () => {
             <CopilotChatInput
               textArea={{ placeholder: "Custom placeholder..." }}
             />
-          </TestWrapper>
+          </TestWrapper>,
         );
 
-        const textarea = await screen.findByPlaceholderText("Custom placeholder...");
+        const textarea = await screen.findByPlaceholderText(
+          "Custom placeholder...",
+        );
         expect(textarea).toBeDefined();
       });
 
@@ -164,9 +162,11 @@ describe("CopilotChatInput Slot System E2E Tests", () => {
         render(
           <TestWrapper>
             <CopilotChatInput
-              textArea={{ disabled: true, "data-testid": "disabled-textarea" } as any}
+              textArea={
+                { disabled: true, "data-testid": "disabled-textarea" } as any
+              }
             />
-          </TestWrapper>
+          </TestWrapper>,
         );
 
         const textarea = screen.queryByTestId("disabled-textarea");
@@ -180,10 +180,8 @@ describe("CopilotChatInput Slot System E2E Tests", () => {
 
         render(
           <TestWrapper>
-            <CopilotChatInput
-              textArea={{ onKeyDown: handleKeyDown }}
-            />
-          </TestWrapper>
+            <CopilotChatInput textArea={{ onKeyDown: handleKeyDown }} />
+          </TestWrapper>,
         );
 
         const textarea = await screen.findByRole("textbox");
@@ -194,10 +192,8 @@ describe("CopilotChatInput Slot System E2E Tests", () => {
       it("should pass autoFocus prop to textArea", () => {
         render(
           <TestWrapper>
-            <CopilotChatInput
-              textArea={{ autoFocus: true }}
-            />
-          </TestWrapper>
+            <CopilotChatInput textArea={{ autoFocus: true }} />
+          </TestWrapper>,
         );
 
         const textarea = document.querySelector("textarea");
@@ -213,9 +209,15 @@ describe("CopilotChatInput Slot System E2E Tests", () => {
           <TestWrapper>
             <CopilotChatInput
               // Need to provide onSubmitMessage and value to enable the button, or override disabled
-              sendButton={{ onClick: handleClick, disabled: false, "data-testid": "send-btn" } as any}
+              sendButton={
+                {
+                  onClick: handleClick,
+                  disabled: false,
+                  "data-testid": "send-btn",
+                } as any
+              }
             />
-          </TestWrapper>
+          </TestWrapper>,
         );
 
         const sendBtn = screen.queryByTestId("send-btn");
@@ -229,9 +231,11 @@ describe("CopilotChatInput Slot System E2E Tests", () => {
         render(
           <TestWrapper>
             <CopilotChatInput
-              sendButton={{ disabled: true, "data-testid": "disabled-send" } as any}
+              sendButton={
+                { disabled: true, "data-testid": "disabled-send" } as any
+              }
             />
-          </TestWrapper>
+          </TestWrapper>,
         );
 
         const sendBtn = screen.queryByTestId("disabled-send");
@@ -243,10 +247,8 @@ describe("CopilotChatInput Slot System E2E Tests", () => {
       it("should pass aria-label prop to sendButton", () => {
         render(
           <TestWrapper>
-            <CopilotChatInput
-              sendButton={{ "aria-label": "Submit message" }}
-            />
-          </TestWrapper>
+            <CopilotChatInput sendButton={{ "aria-label": "Submit message" }} />
+          </TestWrapper>,
         );
 
         const sendBtn = document.querySelector("[aria-label='Submit message']");
@@ -262,9 +264,11 @@ describe("CopilotChatInput Slot System E2E Tests", () => {
           <TestWrapper>
             <CopilotChatInput
               toolsMenu={[{ label: "Item", action: () => {} }]}
-              addMenuButton={{ onClick: handleClick, "data-testid": "add-menu" } as any}
+              addMenuButton={
+                { onClick: handleClick, "data-testid": "add-menu" } as any
+              }
             />
-          </TestWrapper>
+          </TestWrapper>,
         );
 
         const addBtn = screen.queryByTestId("add-menu");
@@ -279,9 +283,11 @@ describe("CopilotChatInput Slot System E2E Tests", () => {
         render(
           <TestWrapper>
             <CopilotChatInput
-              sendButton={{ disabled: false, "data-testid": "override-send" } as any}
+              sendButton={
+                { disabled: false, "data-testid": "override-send" } as any
+              }
             />
-          </TestWrapper>
+          </TestWrapper>,
         );
 
         const sendBtn = screen.queryByTestId("override-send");
@@ -306,13 +312,13 @@ describe("CopilotChatInput Slot System E2E Tests", () => {
               className="custom-input"
               {...props}
             />
-          )
+          ),
         );
 
         render(
           <TestWrapper>
             <CopilotChatInput textArea={CustomTextArea} />
-          </TestWrapper>
+          </TestWrapper>,
         );
 
         expect(screen.getByTestId("custom-textarea")).toBeDefined();
@@ -335,7 +341,7 @@ describe("CopilotChatInput Slot System E2E Tests", () => {
                 {...props}
               />
             );
-          }
+          },
         );
 
         render(
@@ -345,7 +351,7 @@ describe("CopilotChatInput Slot System E2E Tests", () => {
               value="test value"
               onChange={() => {}}
             />
-          </TestWrapper>
+          </TestWrapper>,
         );
 
         expect(receivedValue).toBe("test value");
@@ -368,7 +374,7 @@ describe("CopilotChatInput Slot System E2E Tests", () => {
         render(
           <TestWrapper>
             <CopilotChatInput sendButton={CustomSendButton} />
-          </TestWrapper>
+          </TestWrapper>,
         );
 
         expect(screen.getByTestId("custom-send")).toBeDefined();
@@ -390,7 +396,7 @@ describe("CopilotChatInput Slot System E2E Tests", () => {
               sendButton={CustomSendButton}
               onSubmitMessage={submitHandler}
             />
-          </TestWrapper>
+          </TestWrapper>,
         );
 
         fireEvent.click(screen.getByTestId("onclick-send"));
@@ -412,7 +418,7 @@ describe("CopilotChatInput Slot System E2E Tests", () => {
               onStartTranscribe={() => {}}
               startTranscribeButton={CustomStart}
             />
-          </TestWrapper>
+          </TestWrapper>,
         );
 
         const btn = screen.queryByTestId("custom-start-transcribe");
@@ -437,7 +443,7 @@ describe("CopilotChatInput Slot System E2E Tests", () => {
               onCancelTranscribe={() => {}}
               cancelTranscribeButton={CustomCancel}
             />
-          </TestWrapper>
+          </TestWrapper>,
         );
 
         const btn = screen.queryByTestId("custom-cancel-transcribe");
@@ -462,7 +468,7 @@ describe("CopilotChatInput Slot System E2E Tests", () => {
               onFinishTranscribe={() => {}}
               finishTranscribeButton={CustomFinish}
             />
-          </TestWrapper>
+          </TestWrapper>,
         );
 
         const btn = screen.queryByTestId("custom-finish-transcribe");
@@ -486,7 +492,7 @@ describe("CopilotChatInput Slot System E2E Tests", () => {
               toolsMenu={[{ label: "Tool", action: () => {} }]}
               addMenuButton={CustomAddMenu}
             />
-          </TestWrapper>
+          </TestWrapper>,
         );
 
         const btn = screen.queryByTestId("custom-add-menu");
@@ -513,7 +519,7 @@ describe("CopilotChatInput Slot System E2E Tests", () => {
               onFinishTranscribeWithAudio={async () => {}}
               audioRecorder={CustomRecorder}
             />
-          </TestWrapper>
+          </TestWrapper>,
         );
 
         const recorder = screen.queryByTestId("custom-recorder");
@@ -528,11 +534,13 @@ describe("CopilotChatInput Slot System E2E Tests", () => {
         const CustomTextArea = React.forwardRef<HTMLTextAreaElement, any>(
           (props, ref) => (
             <textarea ref={ref} data-testid="multi-textarea" {...props} />
-          )
+          ),
         );
 
         const CustomSendButton: React.FC<any> = (props) => (
-          <button data-testid="multi-send" {...props}>Send</button>
+          <button data-testid="multi-send" {...props}>
+            Send
+          </button>
         );
 
         render(
@@ -541,7 +549,7 @@ describe("CopilotChatInput Slot System E2E Tests", () => {
               textArea={CustomTextArea}
               sendButton={CustomSendButton}
             />
-          </TestWrapper>
+          </TestWrapper>,
         );
 
         expect(screen.getByTestId("multi-textarea")).toBeDefined();
@@ -559,19 +567,23 @@ describe("CopilotChatInput Slot System E2E Tests", () => {
         render(
           <TestWrapper>
             <CopilotChatInput
-              textArea={{
-                className: "complex-textarea",
-                placeholder: "Complex placeholder",
-                "data-testid": "complex-ta",
-                rows: 4,
-              } as any}
+              textArea={
+                {
+                  className: "complex-textarea",
+                  placeholder: "Complex placeholder",
+                  "data-testid": "complex-ta",
+                  rows: 4,
+                } as any
+              }
             />
-          </TestWrapper>
+          </TestWrapper>,
         );
 
         const textarea = screen.queryByTestId("complex-ta");
         if (textarea) {
-          expect(textarea.getAttribute("placeholder")).toBe("Complex placeholder");
+          expect(textarea.getAttribute("placeholder")).toBe(
+            "Complex placeholder",
+          );
         }
       });
     });
@@ -581,14 +593,16 @@ describe("CopilotChatInput Slot System E2E Tests", () => {
         render(
           <TestWrapper>
             <CopilotChatInput
-              sendButton={{
-                className: "complex-send",
-                "data-testid": "complex-send-btn",
-                "aria-label": "Send your message",
-                title: "Click to send",
-              } as any}
+              sendButton={
+                {
+                  className: "complex-send",
+                  "data-testid": "complex-send-btn",
+                  "aria-label": "Send your message",
+                  title: "Click to send",
+                } as any
+              }
             />
-          </TestWrapper>
+          </TestWrapper>,
         );
 
         const btn = screen.queryByTestId("complex-send-btn");
@@ -611,10 +625,12 @@ describe("CopilotChatInput Slot System E2E Tests", () => {
             <CopilotChatInput
               textArea={{ className: "textarea-class-override" }}
             />
-          </TestWrapper>
+          </TestWrapper>,
         );
 
-        expect(container.querySelector(".textarea-class-override")).toBeDefined();
+        expect(
+          container.querySelector(".textarea-class-override"),
+        ).toBeDefined();
       });
 
       it("should allow className prop in sendButton object slot", () => {
@@ -623,7 +639,7 @@ describe("CopilotChatInput Slot System E2E Tests", () => {
             <CopilotChatInput
               sendButton={{ className: "send-class-override" }}
             />
-          </TestWrapper>
+          </TestWrapper>,
         );
 
         expect(container.querySelector(".send-class-override")).toBeDefined();
@@ -635,7 +651,7 @@ describe("CopilotChatInput Slot System E2E Tests", () => {
         const { container } = render(
           <TestWrapper>
             <CopilotChatInput textArea="string-class-textarea" />
-          </TestWrapper>
+          </TestWrapper>,
         );
 
         expect(container.querySelector(".string-class-textarea")).toBeDefined();
@@ -645,7 +661,7 @@ describe("CopilotChatInput Slot System E2E Tests", () => {
         const { container } = render(
           <TestWrapper>
             <CopilotChatInput sendButton="string-class-send" />
-          </TestWrapper>
+          </TestWrapper>,
         );
 
         expect(container.querySelector(".string-class-send")).toBeDefined();
@@ -656,10 +672,8 @@ describe("CopilotChatInput Slot System E2E Tests", () => {
       it("should apply tailwind focus utilities to textArea", () => {
         const { container } = render(
           <TestWrapper>
-            <CopilotChatInput
-              textArea="focus:ring-2 focus:ring-blue-500 focus:outline-none"
-            />
-          </TestWrapper>
+            <CopilotChatInput textArea="focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+          </TestWrapper>,
         );
 
         const el = container.querySelector(".focus\\:ring-2");
@@ -669,10 +683,8 @@ describe("CopilotChatInput Slot System E2E Tests", () => {
       it("should apply tailwind hover utilities to sendButton", () => {
         const { container } = render(
           <TestWrapper>
-            <CopilotChatInput
-              sendButton="hover:bg-blue-600 active:bg-blue-700"
-            />
-          </TestWrapper>
+            <CopilotChatInput sendButton="hover:bg-blue-600 active:bg-blue-700" />
+          </TestWrapper>,
         );
 
         const el = container.querySelector(".hover\\:bg-blue-600");
@@ -698,7 +710,7 @@ describe("CopilotChatInput Slot System E2E Tests", () => {
               </div>
             )}
           </CopilotChatInput>
-        </TestWrapper>
+        </TestWrapper>,
       );
 
       expect(screen.getByTestId("custom-input-layout")).toBeDefined();
@@ -715,7 +727,7 @@ describe("CopilotChatInput Slot System E2E Tests", () => {
               return <div data-testid="slots-check">Rendered</div>;
             }}
           </CopilotChatInput>
-        </TestWrapper>
+        </TestWrapper>,
       );
 
       expect(screen.getByTestId("slots-check")).toBeDefined();
@@ -725,9 +737,7 @@ describe("CopilotChatInput Slot System E2E Tests", () => {
     it("children render function allows complete layout control", () => {
       render(
         <TestWrapper>
-          <CopilotChatInput
-            toolsMenu={[{ label: "Tool", action: () => {} }]}
-          >
+          <CopilotChatInput toolsMenu={[{ label: "Tool", action: () => {} }]}>
             {({ textArea, sendButton, addMenuButton }) => (
               <div data-testid="full-control-layout">
                 <div className="toolbar">{addMenuButton}</div>
@@ -736,7 +746,7 @@ describe("CopilotChatInput Slot System E2E Tests", () => {
               </div>
             )}
           </CopilotChatInput>
-        </TestWrapper>
+        </TestWrapper>,
       );
 
       expect(screen.getByTestId("full-control-layout")).toBeDefined();
@@ -754,11 +764,13 @@ describe("CopilotChatInput Slot System E2E Tests", () => {
       const { container } = render(
         <TestWrapper>
           <CopilotChatInput data-testid="input-container" />
-        </TestWrapper>
+        </TestWrapper>,
       );
 
       // By default (static), should NOT have absolute positioning classes
-      const inputContainer = container.querySelector('[data-testid="input-container"]') as HTMLElement;
+      const inputContainer = container.querySelector(
+        '[data-testid="input-container"]',
+      ) as HTMLElement;
       expect(inputContainer).not.toBeNull();
       expect(inputContainer.classList.contains("absolute")).toBe(false);
     });
@@ -766,11 +778,16 @@ describe("CopilotChatInput Slot System E2E Tests", () => {
     it("should render absolute positioning when positioning='absolute'", () => {
       const { container } = render(
         <TestWrapper>
-          <CopilotChatInput positioning="absolute" data-testid="absolute-input" />
-        </TestWrapper>
+          <CopilotChatInput
+            positioning="absolute"
+            data-testid="absolute-input"
+          />
+        </TestWrapper>,
       );
 
-      const inputContainer = container.querySelector('[data-testid="absolute-input"]') as HTMLElement;
+      const inputContainer = container.querySelector(
+        '[data-testid="absolute-input"]',
+      ) as HTMLElement;
       expect(inputContainer).not.toBeNull();
       expect(inputContainer.classList.contains("absolute")).toBe(true);
       expect(inputContainer.classList.contains("bottom-0")).toBe(true);
@@ -779,11 +796,17 @@ describe("CopilotChatInput Slot System E2E Tests", () => {
     it("should apply keyboard height transform", () => {
       const { container } = render(
         <TestWrapper>
-          <CopilotChatInput positioning="absolute" keyboardHeight={300} data-testid="keyboard-input" />
-        </TestWrapper>
+          <CopilotChatInput
+            positioning="absolute"
+            keyboardHeight={300}
+            data-testid="keyboard-input"
+          />
+        </TestWrapper>,
       );
 
-      const inputContainer = container.querySelector('[data-testid="keyboard-input"]') as HTMLElement;
+      const inputContainer = container.querySelector(
+        '[data-testid="keyboard-input"]',
+      ) as HTMLElement;
       expect(inputContainer).not.toBeNull();
       expect(inputContainer.style.transform).toBe("translateY(-300px)");
     });
@@ -815,22 +838,27 @@ describe("CopilotChatInput Slot System E2E Tests", () => {
       render(
         <TestWrapper>
           <CopilotChatInput showDisclaimer={true} />
-        </TestWrapper>
+        </TestWrapper>,
       );
 
       // Look for disclaimer text (from labels)
-      expect(screen.queryByText(/AI-generated responses/i) || document.querySelector('[class*="text-muted-foreground"]')).toBeDefined();
+      expect(
+        screen.queryByText(/AI-generated responses/i) ||
+          document.querySelector('[class*="text-muted-foreground"]'),
+      ).toBeDefined();
     });
 
     it("should hide disclaimer when showDisclaimer=false", () => {
       const { container } = render(
         <TestWrapper>
           <CopilotChatInput showDisclaimer={false} />
-        </TestWrapper>
+        </TestWrapper>,
       );
 
       // Disclaimer should not be rendered
-      const disclaimer = container.querySelector('[class*="text-center"][class*="text-xs"]');
+      const disclaimer = container.querySelector(
+        '[class*="text-center"][class*="text-xs"]',
+      );
       expect(disclaimer).toBeNull();
     });
 
@@ -838,11 +866,13 @@ describe("CopilotChatInput Slot System E2E Tests", () => {
       const { container } = render(
         <TestWrapper>
           <CopilotChatInput positioning="absolute" />
-        </TestWrapper>
+        </TestWrapper>,
       );
 
       // Disclaimer should be present with absolute positioning (default showDisclaimer=true)
-      const disclaimer = container.querySelector('[class*="text-center"][class*="text-xs"]');
+      const disclaimer = container.querySelector(
+        '[class*="text-center"][class*="text-xs"]',
+      );
       expect(disclaimer).not.toBeNull();
     });
 
@@ -850,19 +880,24 @@ describe("CopilotChatInput Slot System E2E Tests", () => {
       const { container } = render(
         <TestWrapper>
           <CopilotChatInput positioning="static" />
-        </TestWrapper>
+        </TestWrapper>,
       );
 
       // Disclaimer should NOT be present with static positioning (default showDisclaimer=false)
-      const disclaimer = container.querySelector('[class*="text-center"][class*="text-xs"]');
+      const disclaimer = container.querySelector(
+        '[class*="text-center"][class*="text-xs"]',
+      );
       expect(disclaimer).toBeNull();
     });
 
     it("should apply tailwind class to disclaimer", () => {
       const { container } = render(
         <TestWrapper>
-          <CopilotChatInput showDisclaimer={true} disclaimer="text-red-500 italic" />
-        </TestWrapper>
+          <CopilotChatInput
+            showDisclaimer={true}
+            disclaimer="text-red-500 italic"
+          />
+        </TestWrapper>,
       );
 
       const disclaimer = container.querySelector(".text-red-500");
@@ -878,8 +913,11 @@ describe("CopilotChatInput Slot System E2E Tests", () => {
 
       render(
         <TestWrapper>
-          <CopilotChatInput showDisclaimer={true} disclaimer={CustomDisclaimer} />
-        </TestWrapper>
+          <CopilotChatInput
+            showDisclaimer={true}
+            disclaimer={CustomDisclaimer}
+          />
+        </TestWrapper>,
       );
 
       const disclaimer = screen.queryByTestId("custom-disclaimer");

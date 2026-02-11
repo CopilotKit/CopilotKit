@@ -18,10 +18,10 @@ export class HumanInTheLoop {
       this.results.pipe(
         filter(
           (result) =>
-            result.toolCallId === toolCallId && result.toolName === toolName
+            result.toolCallId === toolCallId && result.toolName === toolName,
         ),
-        take(1)
-      )
+        take(1),
+      ),
     );
   }
 }

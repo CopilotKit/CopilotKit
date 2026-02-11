@@ -106,7 +106,7 @@ describe("CopilotChat tool rendering with mock agent", () => {
         <div style={{ height: 400 }}>
           <CopilotChat />
         </div>
-      </CopilotKitProvider>
+      </CopilotKitProvider>,
     );
   }
 
@@ -199,7 +199,7 @@ describe("Tool render status narrowing", () => {
             messages={messages}
           />
         </CopilotChatConfigurationProvider>
-      </CopilotKitProvider>
+      </CopilotKitProvider>,
     );
   }
 
@@ -287,7 +287,7 @@ describe("Streaming in-progress without timers", () => {
         <div style={{ height: 400 }}>
           <CopilotChat />
         </div>
-      </CopilotKitProvider>
+      </CopilotKitProvider>,
     );
 
     // Submit a user message to trigger runAgent
@@ -345,7 +345,7 @@ describe("Streaming in-progress without timers", () => {
         // Since we haven't sent a result yet, it should be INPROGRESS
         expect(el.textContent).toMatch(/INPROGRESS/);
       },
-      { timeout: 3000 }
+      { timeout: 3000 },
     );
 
     // Now send the tool result
@@ -400,7 +400,7 @@ describe("Executing State Transitions", () => {
         <div style={{ height: 400 }}>
           <CopilotChat />
         </div>
-      </CopilotKitProvider>
+      </CopilotKitProvider>,
     );
 
     const input = await screen.findByRole("textbox");
@@ -485,7 +485,7 @@ describe("Multiple Tool Calls in Same Message", () => {
         <div style={{ height: 400 }}>
           <CopilotChat />
         </div>
-      </CopilotKitProvider>
+      </CopilotKitProvider>,
     );
 
     // Submit message
@@ -607,7 +607,7 @@ describe("Partial Args Accumulation", () => {
         <div style={{ height: 400 }}>
           <CopilotChat />
         </div>
-      </CopilotKitProvider>
+      </CopilotKitProvider>,
     );
 
     // Submit message
@@ -708,7 +708,7 @@ describe("Status Persistence After Agent Stops", () => {
         toolCallRenderers={toolCallRenderers}
       >
         <CopilotChat />
-      </CopilotKitProvider>
+      </CopilotKitProvider>,
     );
 
     // Submit message to trigger tool call

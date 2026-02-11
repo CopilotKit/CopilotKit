@@ -199,7 +199,9 @@ export class OpenAIAdapter implements CopilotServiceAdapter {
         ...(forwardedParameters?.stop && { stop: forwardedParameters.stop }),
         ...(toolChoice && { tool_choice: toolChoice }),
         ...(this.disableParallelToolCalls && { parallel_tool_calls: false }),
-        ...(forwardedParameters?.temperature && { temperature: forwardedParameters.temperature }),
+        ...(forwardedParameters?.temperature && {
+          temperature: forwardedParameters.temperature,
+        }),
       });
 
       eventSource.stream(async (eventStream$) => {
@@ -222,9 +224,14 @@ export class OpenAIAdapter implements CopilotServiceAdapter {
             if (mode === "message" && toolCall?.id) {
               mode = null;
               eventStream$.sendTextMessageEnd({ messageId: currentMessageId });
-            } else if (mode === "function" && (toolCall === undefined || toolCall?.id)) {
+            } else if (
+              mode === "function" &&
+              (toolCall === undefined || toolCall?.id)
+            ) {
               mode = null;
-              eventStream$.sendActionExecutionEnd({ actionExecutionId: currentToolCallId });
+              eventStream$.sendActionExecutionEnd({
+                actionExecutionId: currentToolCallId,
+              });
             }
 
             // If we send a new message type, send the appropriate start event.
@@ -240,7 +247,9 @@ export class OpenAIAdapter implements CopilotServiceAdapter {
               } else if (content) {
                 mode = "message";
                 currentMessageId = chunk.id;
-                eventStream$.sendTextMessageStart({ messageId: currentMessageId });
+                eventStream$.sendTextMessageStart({
+                  messageId: currentMessageId,
+                });
               }
             }
 
@@ -262,7 +271,9 @@ export class OpenAIAdapter implements CopilotServiceAdapter {
           if (mode === "message") {
             eventStream$.sendTextMessageEnd({ messageId: currentMessageId });
           } else if (mode === "function") {
-            eventStream$.sendActionExecutionEnd({ actionExecutionId: currentToolCallId });
+            eventStream$.sendActionExecutionEnd({
+              actionExecutionId: currentToolCallId,
+            });
           }
         } catch (error) {
           console.error("[OpenAI] Error during API call:", error);

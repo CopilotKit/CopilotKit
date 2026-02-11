@@ -21,26 +21,36 @@ type ClaimsRef = Record<string, StateRenderClaim>;
 
 export interface CoAgentStateRendersContextValue {
   coAgentStateRenders: Record<string, CoAgentStateRender<any>>;
-  setCoAgentStateRender: (id: string, stateRender: CoAgentStateRender<any>) => void;
+  setCoAgentStateRender: (
+    id: string,
+    stateRender: CoAgentStateRender<any>,
+  ) => void;
   removeCoAgentStateRender: (id: string) => void;
   claimsRef: RefObject<ClaimsRef>;
 }
 
-const CoAgentStateRendersContext = createContext<CoAgentStateRendersContextValue | undefined>(
-  undefined,
-);
+const CoAgentStateRendersContext = createContext<
+  CoAgentStateRendersContextValue | undefined
+>(undefined);
 
-export function CoAgentStateRendersProvider({ children }: { children: ReactNode }) {
+export function CoAgentStateRendersProvider({
+  children,
+}: {
+  children: ReactNode;
+}) {
   const [coAgentStateRenders, setCoAgentStateRenders] = useState<
     Record<string, CoAgentStateRender<any>>
   >({});
 
-  const setCoAgentStateRender = useCallback((id: string, stateRender: CoAgentStateRender<any>) => {
-    setCoAgentStateRenders((prevPoints) => ({
-      ...prevPoints,
-      [id]: stateRender,
-    }));
-  }, []);
+  const setCoAgentStateRender = useCallback(
+    (id: string, stateRender: CoAgentStateRender<any>) => {
+      setCoAgentStateRenders((prevPoints) => ({
+        ...prevPoints,
+        [id]: stateRender,
+      }));
+    },
+    [],
+  );
 
   const removeCoAgentStateRender = useCallback((id: string) => {
     setCoAgentStateRenders((prevPoints) => {
@@ -69,7 +79,9 @@ export function CoAgentStateRendersProvider({ children }: { children: ReactNode 
 export function useCoAgentStateRenders() {
   const context = useContext(CoAgentStateRendersContext);
   if (!context) {
-    throw new Error("useCoAgentStateRenders must be used within CoAgentStateRendersProvider");
+    throw new Error(
+      "useCoAgentStateRenders must be used within CoAgentStateRendersProvider",
+    );
   }
   return context;
 }

@@ -1,4 +1,7 @@
-import { useCopilotContext, useCopilotMessagesContext } from "@copilotkit/react-core";
+import {
+  useCopilotContext,
+  useCopilotMessagesContext,
+} from "@copilotkit/react-core";
 import { gqlToAGUI } from "@copilotkit/runtime-client-gql";
 import { Message } from "@copilotkit/shared";
 import { MutableRefObject, useEffect, useRef, useState } from "react";
@@ -38,7 +41,9 @@ const startRecording = async (
   onStop: () => void,
 ) => {
   if (!mediaStreamRef.current || !audioContextRef.current) {
-    mediaStreamRef.current = await navigator.mediaDevices.getUserMedia({ audio: true });
+    mediaStreamRef.current = await navigator.mediaDevices.getUserMedia({
+      audio: true,
+    });
     audioContextRef.current = new window.AudioContext();
     await audioContextRef.current.resume();
   }
@@ -51,13 +56,21 @@ const startRecording = async (
   mediaRecorderRef.current.onstop = onStop;
 };
 
-const stopRecording = (mediaRecorderRef: MutableRefObject<MediaRecorder | null>) => {
-  if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+const stopRecording = (
+  mediaRecorderRef: MutableRefObject<MediaRecorder | null>,
+) => {
+  if (
+    mediaRecorderRef.current &&
+    mediaRecorderRef.current.state !== "inactive"
+  ) {
     mediaRecorderRef.current.stop();
   }
 };
 
-const transcribeAudio = async (recordedChunks: Blob[], transcribeAudioUrl: string) => {
+const transcribeAudio = async (
+  recordedChunks: Blob[],
+  transcribeAudioUrl: string,
+) => {
   const completeBlob = new Blob(recordedChunks, { type: "audio/mp4" });
   const formData = new FormData();
   formData.append("file", completeBlob, "recording.mp4");
@@ -75,7 +88,11 @@ const transcribeAudio = async (recordedChunks: Blob[], transcribeAudioUrl: strin
   return transcription.text;
 };
 
-const playAudioResponse = (text: string, textToSpeechUrl: string, audioContext: AudioContext) => {
+const playAudioResponse = (
+  text: string,
+  textToSpeechUrl: string,
+  audioContext: AudioContext,
+) => {
   const encodedText = encodeURIComponent(text);
   const url = `${textToSpeechUrl}?text=${encodedText}`;
 
@@ -104,7 +121,8 @@ export const usePushToTalk = ({
   sendFunction: SendFunction;
   inProgress: boolean;
 }) => {
-  const [pushToTalkState, setPushToTalkState] = useState<PushToTalkState>("idle");
+  const [pushToTalkState, setPushToTalkState] =
+    useState<PushToTalkState>("idle");
   const mediaStreamRef = useRef<MediaStream | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -112,7 +130,9 @@ export const usePushToTalk = ({
   const generalContext = useCopilotContext();
   const messagesContext = useCopilotMessagesContext();
   const context = { ...generalContext, ...messagesContext };
-  const [startReadingFromMessageId, setStartReadingFromMessageId] = useState<string | null>(null);
+  const [startReadingFromMessageId, setStartReadingFromMessageId] = useState<
+    string | null
+  >(null);
 
   useEffect(() => {
     if (pushToTalkState === "recording") {
@@ -128,14 +148,15 @@ export const usePushToTalk = ({
     } else {
       stopRecording(mediaRecorderRef);
       if (pushToTalkState === "transcribing") {
-        transcribeAudio(recordedChunks.current, context.copilotApiConfig.transcribeAudioUrl!).then(
-          async (transcription) => {
-            recordedChunks.current = [];
-            setPushToTalkState("idle");
-            const message = await sendFunction(transcription);
-            setStartReadingFromMessageId(message.id);
-          },
-        );
+        transcribeAudio(
+          recordedChunks.current,
+          context.copilotApiConfig.transcribeAudioUrl!,
+        ).then(async (transcription) => {
+          recordedChunks.current = [];
+          setPushToTalkState("idle");
+          const message = await sendFunction(transcription);
+          setStartReadingFromMessageId(message.id);
+        });
       }
     }
 
@@ -156,8 +177,14 @@ export const usePushToTalk = ({
         .slice(lastMessageIndex + 1)
         .filter((message) => message.role === "assistant");
 
-      const text = messagesAfterLast.map((message) => message.content).join("\n");
-      playAudioResponse(text, context.copilotApiConfig.textToSpeechUrl!, audioContextRef.current!);
+      const text = messagesAfterLast
+        .map((message) => message.content)
+        .join("\n");
+      playAudioResponse(
+        text,
+        context.copilotApiConfig.textToSpeechUrl!,
+        audioContextRef.current!,
+      );
 
       setStartReadingFromMessageId(null);
     }

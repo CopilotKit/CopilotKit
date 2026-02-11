@@ -41,7 +41,12 @@
 
 export interface ErrorPatternConfig {
   message: string;
-  category: "network" | "connection" | "authentication" | "validation" | "unknown";
+  category:
+    | "network"
+    | "connection"
+    | "authentication"
+    | "validation"
+    | "unknown";
   severity: "error" | "warning" | "info";
   actionable: boolean;
 }
@@ -119,7 +124,8 @@ export const errorConfig: ErrorConfig = {
       actionable: true,
     },
     unauthorized: {
-      message: "Unauthorized access. Please check your authentication credentials.",
+      message:
+        "Unauthorized access. Please check your authentication credentials.",
       category: "authentication",
       severity: "error",
       actionable: true,
@@ -161,7 +167,8 @@ export const errorConfig: ErrorConfig = {
       actionable: true,
     },
     NotFoundError: {
-      message: "OpenAI resource not found. Please check your model name and availability.",
+      message:
+        "OpenAI resource not found. Please check your model name and availability.",
       category: "validation",
       severity: "error",
       actionable: true,
@@ -172,10 +179,14 @@ export const errorConfig: ErrorConfig = {
       "A network error occurred while connecting to the agent service. Please check your connection and ensure the agent service is running.",
     connection:
       "The connection to the agent service was lost unexpectedly. This may indicate an issue with the agent service.",
-    authentication: "Authentication failed. Please check your API keys and credentials.",
-    validation: "Invalid input or configuration. Please check your parameters and try again.",
-    unknown: "An unexpected error occurred. Please check the logs for more details.",
-    default: "An unexpected error occurred. Please check the logs for more details.",
+    authentication:
+      "Authentication failed. Please check your API keys and credentials.",
+    validation:
+      "Invalid input or configuration. Please check your parameters and try again.",
+    unknown:
+      "An unexpected error occurred. Please check the logs for more details.",
+    default:
+      "An unexpected error occurred. Please check the logs for more details.",
   },
   contextTemplates: {
     connection: "connection",

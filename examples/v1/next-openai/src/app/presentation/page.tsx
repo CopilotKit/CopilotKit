@@ -13,7 +13,8 @@ export default function AIPresentation() {
   const serviceAdapter = searchParams.get("serviceAdapter") || "openai";
 
   const runtimeUrl =
-    searchParams.get("runtimeUrl") || `/api/copilotkit?serviceAdapter=${serviceAdapter}`;
+    searchParams.get("runtimeUrl") ||
+    `/api/copilotkit?serviceAdapter=${serviceAdapter}`;
   const publicApiKey = searchParams.get("publicApiKey");
 
   const copilotKitProps: Partial<React.ComponentProps<typeof CopilotKit>> = {
@@ -43,7 +44,8 @@ export default function AIPresentation() {
           defaultOpen={true}
           labels={{
             title: "Presentation Copilot",
-            initial: "Hi you! 👋 I can help you create a presentation on any topic.",
+            initial:
+              "Hi you! 👋 I can help you create a presentation on any topic.",
           }}
           clickOutsideToClose={false}
         >

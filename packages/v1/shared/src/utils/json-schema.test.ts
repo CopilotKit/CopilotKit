@@ -198,13 +198,22 @@ describe("jsonSchemaToActionParameters", () => {
     const jsonSchema: JSONSchema = {
       type: "object",
       properties: {
-        role: { type: "string", enum: ["admin", "user", "guest"], description: "User role" },
+        role: {
+          type: "string",
+          enum: ["admin", "user", "guest"],
+          description: "User role",
+        },
       },
       required: ["role"],
     };
 
     const expectedParameters: Parameter[] = [
-      { name: "role", type: "string", enum: ["admin", "user", "guest"], description: "User role" },
+      {
+        name: "role",
+        type: "string",
+        enum: ["admin", "user", "guest"],
+        description: "User role",
+      },
     ];
 
     const result = jsonSchemaToActionParameters(jsonSchema);
@@ -235,7 +244,12 @@ describe("jsonSchemaToActionParameters", () => {
         description: "User information",
         attributes: [
           { name: "name", type: "string", description: "User name" },
-          { name: "age", type: "number", description: "User age", required: false },
+          {
+            name: "age",
+            type: "number",
+            description: "User age",
+            required: false,
+          },
         ],
       },
     ];
@@ -292,7 +306,12 @@ describe("jsonSchemaToActionParameters", () => {
         description: "User addresses",
         attributes: [
           { name: "street", type: "string", description: "Street name" },
-          { name: "city", type: "string", description: "City name", required: false },
+          {
+            name: "city",
+            type: "string",
+            description: "City name",
+            required: false,
+          },
         ],
       },
     ];
@@ -354,7 +373,12 @@ describe("jsonSchemaToActionParameters", () => {
     const originalParameters: Parameter[] = [
       { name: "name", type: "string", description: "User name" },
       { name: "age", type: "number", description: "User age", required: false },
-      { name: "role", type: "string", enum: ["admin", "user"], description: "User role" },
+      {
+        name: "role",
+        type: "string",
+        enum: ["admin", "user"],
+        description: "User role",
+      },
       {
         name: "address",
         type: "object",

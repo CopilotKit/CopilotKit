@@ -41,7 +41,7 @@ export class ScrollPosition implements OnDestroy {
   constructor(
     private scrollDispatcher: ScrollDispatcher,
     private viewportRuler: ViewportRuler,
-    private ngZone: NgZone
+    private ngZone: NgZone,
   ) {}
 
   /**
@@ -51,14 +51,14 @@ export class ScrollPosition implements OnDestroy {
    */
   monitorScrollPosition(
     element: ElementRef<HTMLElement> | HTMLElement,
-    threshold: number = 10
+    threshold: number = 10,
   ): Observable<ScrollState> {
     const el = element instanceof ElementRef ? element.nativeElement : element;
 
     // Create scroll observable
     const scroll$ = merge(
       fromEvent(el, "scroll"),
-      this.viewportRuler.change(150) // Monitor viewport changes
+      this.viewportRuler.change(150), // Monitor viewport changes
     ).pipe(
       startWith(null), // Emit initial state
       throttleTime(16, animationFrameScheduler, { trailing: true }), // ~60fps
@@ -67,9 +67,9 @@ export class ScrollPosition implements OnDestroy {
         (a, b) =>
           a.isAtBottom === b.isAtBottom &&
           a.scrollTop === b.scrollTop &&
-          a.scrollHeight === b.scrollHeight
+          a.scrollHeight === b.scrollHeight,
       ),
-      takeUntil(this.destroy$)
+      takeUntil(this.destroy$),
     );
 
     // Subscribe and update subject
@@ -87,7 +87,7 @@ export class ScrollPosition implements OnDestroy {
    */
   scrollToBottom(
     element: ElementRef<HTMLElement> | HTMLElement,
-    smooth: boolean = true
+    smooth: boolean = true,
   ): void {
     const el = element instanceof ElementRef ? element.nativeElement : element;
 
@@ -110,7 +110,7 @@ export class ScrollPosition implements OnDestroy {
    */
   isAtBottom(
     element: ElementRef<HTMLElement> | HTMLElement,
-    threshold: number = 10
+    threshold: number = 10,
   ): boolean {
     const el = element instanceof ElementRef ? element.nativeElement : element;
     return this.getScrollState(el, threshold).isAtBottom;
@@ -141,7 +141,7 @@ export class ScrollPosition implements OnDestroy {
    */
   observeResize(
     element: ElementRef<HTMLElement> | HTMLElement,
-    debounceMs: number = 250
+    debounceMs: number = 250,
   ): Observable<ResizeObserverEntry> {
     const el = element instanceof ElementRef ? element.nativeElement : element;
     const resize$ = new Subject<ResizeObserverEntry>();

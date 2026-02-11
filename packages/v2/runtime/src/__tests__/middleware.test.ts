@@ -97,7 +97,7 @@ describe("CopilotEndpoint middleware", () => {
 
     const endpoint = createCopilotEndpoint({ runtime, basePath: "/" });
     const response = await endpoint.fetch(
-      new Request("https://example.com/info")
+      new Request("https://example.com/info"),
     );
 
     expect(response.status).toBe(400);
@@ -107,7 +107,7 @@ describe("CopilotEndpoint middleware", () => {
         url: "https://example.com/info",
         path: expect.any(String),
       }),
-      "Error running before request middleware"
+      "Error running before request middleware",
     );
     expect(after).not.toHaveBeenCalled();
   });
@@ -128,7 +128,7 @@ describe("CopilotEndpoint middleware", () => {
     const endpoint = createCopilotEndpoint({ runtime, basePath: "/" });
 
     const response = await endpoint.fetch(
-      new Request("https://example.com/info")
+      new Request("https://example.com/info"),
     );
 
     // Hono catches errors and returns them as 500 responses
@@ -140,7 +140,7 @@ describe("CopilotEndpoint middleware", () => {
         url: "https://example.com/info",
         path: expect.any(String),
       }),
-      "Error running before request middleware"
+      "Error running before request middleware",
     );
     expect(after).not.toHaveBeenCalled();
   });
@@ -170,7 +170,7 @@ describe("CopilotEndpoint middleware", () => {
     const response = await endpoint.fetch(
       new Request("https://example.com/agent/errorAgent/run", {
         method: "POST",
-      })
+      }),
     );
 
     // Hono catches errors and returns them as 500 responses
@@ -198,7 +198,7 @@ describe("CopilotEndpoint middleware", () => {
 
     const endpoint = createCopilotEndpoint({ runtime, basePath: "/" });
     const response = await endpoint.fetch(
-      new Request("https://example.com/info")
+      new Request("https://example.com/info"),
     );
 
     await new Promise((r) => setImmediate(r));
@@ -217,7 +217,7 @@ describe("CopilotEndpoint middleware", () => {
         err: error,
         url: "https://example.com/info",
       }),
-      "Error running after request middleware"
+      "Error running after request middleware",
     );
   });
 });

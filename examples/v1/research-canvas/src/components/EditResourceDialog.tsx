@@ -14,7 +14,7 @@ type EditResourceDialogProps = {
   onOpenChange: (isOpen: boolean) => void;
   editResource: Resource | null;
   setEditResource: (
-    resource: ((prev: Resource | null) => Resource | null) | Resource | null
+    resource: ((prev: Resource | null) => Resource | null) | Resource | null,
   ) => void;
   updateResource: () => void;
 };
@@ -42,7 +42,7 @@ export function EditResourceDialog({
             value={editResource?.url || ""}
             onChange={(e) =>
               setEditResource((prev) =>
-                prev ? { ...prev, url: e.target.value } : null
+                prev ? { ...prev, url: e.target.value } : null,
               )
             }
             aria-label="Edit resource URL"
@@ -57,7 +57,7 @@ export function EditResourceDialog({
             value={editResource?.title || ""}
             onChange={(e) =>
               setEditResource((prev: any) =>
-                prev ? { ...prev, title: e.target.value } : null
+                prev ? { ...prev, title: e.target.value } : null,
               )
             }
             aria-label="Edit resource title"
@@ -72,7 +72,7 @@ export function EditResourceDialog({
             value={editResource?.description || ""}
             onChange={(e) =>
               setEditResource((prev) =>
-                prev ? { ...prev, description: e.target.value } : null
+                prev ? { ...prev, description: e.target.value } : null,
               )
             }
             aria-label="Edit resource description"

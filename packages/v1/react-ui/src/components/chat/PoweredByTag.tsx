@@ -1,7 +1,11 @@
 import React, { useState, useEffect } from "react";
 import { useDarkMode } from "../../hooks/use-dark-mode";
 
-export function PoweredByTag({ showPoweredBy = true }: { showPoweredBy?: boolean }) {
+export function PoweredByTag({
+  showPoweredBy = true,
+}: {
+  showPoweredBy?: boolean;
+}) {
   const [mounted, setMounted] = useState(false);
   const isDark = useDarkMode();
 

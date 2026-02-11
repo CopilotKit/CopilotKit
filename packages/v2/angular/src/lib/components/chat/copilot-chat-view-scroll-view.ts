@@ -266,7 +266,7 @@ export class CopilotChatViewScrollView
           // Check initial scroll position
           const initialState = this.scrollPositionService.getScrollState(
             this.scrollContainer.nativeElement,
-            10
+            10,
           );
           this.showScrollButton.set(!initialState.isAtBottom);
 

@@ -1,4 +1,7 @@
-import { useCopilotKit, type ReactActivityMessageRenderer } from "@copilotkit/react-core/v2";
+import {
+  useCopilotKit,
+  type ReactActivityMessageRenderer,
+} from "@copilotkit/react-core/v2";
 import { v0_8 } from "@a2ui/lit";
 import type {
   ThemedA2UISurfaceActionCallback,
@@ -43,14 +46,19 @@ export function createA2UIMessageRenderer(
       const processorsRef = useRef(new Map<string, A2UIProcessor>());
       const { copilotkit } = useCopilotKit();
       const actionLogger = useCallback<ThemedA2UISurfaceActionCallback>(
-        async (event: v0_8.Events.StateEvent<"a2ui.action">, context: ThemedA2UISurfaceContext) => {
+        async (
+          event: v0_8.Events.StateEvent<"a2ui.action">,
+          context: ThemedA2UISurfaceContext,
+        ) => {
           if (!agent) {
             return;
           }
 
           const resolvedContext: Record<string, unknown> = {};
           const processorInstance = context.processor;
-          const surfaceKey = context.surfaceId ?? v0_8.Data.A2uiMessageProcessor.DEFAULT_SURFACE_ID;
+          const surfaceKey =
+            context.surfaceId ??
+            v0_8.Data.A2uiMessageProcessor.DEFAULT_SURFACE_ID;
           const actionContext = event.detail.action?.context;
 
           if (Array.isArray(actionContext) && actionContext.length > 0) {
@@ -128,7 +136,9 @@ export function createA2UIMessageRenderer(
 
       useEffect(() => {
         if (!content || !Array.isArray(content.operations)) {
-          processorsRef.current.forEach((processor) => processor.clearSurfaces());
+          processorsRef.current.forEach((processor) =>
+            processor.clearSurfaces(),
+          );
           processorsRef.current.clear();
           lastSignatureRef.current = null;
           setOperations([]);
@@ -147,7 +157,8 @@ export function createA2UIMessageRenderer(
 
         for (const operation of incoming) {
           const surfaceId =
-            getOperationSurfaceId(operation) ?? v0_8.Data.A2uiMessageProcessor.DEFAULT_SURFACE_ID;
+            getOperationSurfaceId(operation) ??
+            v0_8.Data.A2uiMessageProcessor.DEFAULT_SURFACE_ID;
 
           if (!groupedOperations.has(surfaceId)) {
             groupedOperations.set(surfaceId, []);
@@ -262,7 +273,13 @@ type SurfaceHostProps = {
   key?: string;
 };
 
-function SurfaceHost({ actionLogger, processor, surface, surfaceId, theme }: SurfaceHostProps) {
+function SurfaceHost({
+  actionLogger,
+  processor,
+  surface,
+  surfaceId,
+  theme,
+}: SurfaceHostProps) {
   const elementRef = useRef<ThemedSurfaceElement | null>(null);
 
   useEffect(() => {

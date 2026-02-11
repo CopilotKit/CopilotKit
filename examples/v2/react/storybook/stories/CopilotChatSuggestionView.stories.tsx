@@ -7,9 +7,21 @@ import { Suggestion } from "@copilotkitnext/core";
 import { Sparkles } from "lucide-react";
 
 const suggestions: Suggestion[] = [
-  { title: "Summarize this thread", message: "Summarize the latest chat", isLoading: false },
-  { title: "Draft a reply", message: "Draft a polite follow-up", isLoading: false },
-  { title: "Create action items", message: "List next steps", isLoading: false },
+  {
+    title: "Summarize this thread",
+    message: "Summarize the latest chat",
+    isLoading: false,
+  },
+  {
+    title: "Draft a reply",
+    message: "Draft a polite follow-up",
+    isLoading: false,
+  },
+  {
+    title: "Create action items",
+    message: "List next steps",
+    isLoading: false,
+  },
 ];
 
 const meta = {

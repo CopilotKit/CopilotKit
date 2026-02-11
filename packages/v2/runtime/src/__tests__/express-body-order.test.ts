@@ -26,12 +26,14 @@ const createRuntime = () =>
 describe("createCopilotEndpointExpress with body parsers", () => {
   beforeEach(() => {
     handleRunAgentMock.mockReset();
-    handleRunAgentMock.mockImplementation(async ({ request }: { request: Request }) => {
-      const body = await request.json();
-      return new Response(JSON.stringify({ body }), {
-        headers: { "content-type": "application/json" },
-      });
-    });
+    handleRunAgentMock.mockImplementation(
+      async ({ request }: { request: Request }) => {
+        const body = await request.json();
+        return new Response(JSON.stringify({ body }), {
+          headers: { "content-type": "application/json" },
+        });
+      },
+    );
   });
 
   afterEach(() => {
@@ -46,7 +48,9 @@ describe("createCopilotEndpointExpress with body parsers", () => {
 
   it("handles requests when CopilotKit router is registered before express.json()", async () => {
     const app = express();
-    app.use(createCopilotEndpointExpress({ runtime: createRuntime(), basePath: "/" }));
+    app.use(
+      createCopilotEndpointExpress({ runtime: createRuntime(), basePath: "/" }),
+    );
     app.use(express.json());
 
     const response = await sendRunRequest(app);
@@ -59,7 +63,9 @@ describe("createCopilotEndpointExpress with body parsers", () => {
   it("handles requests when express.json() runs before the CopilotKit router", async () => {
     const app = express();
     app.use(express.json());
-    app.use(createCopilotEndpointExpress({ runtime: createRuntime(), basePath: "/" }));
+    app.use(
+      createCopilotEndpointExpress({ runtime: createRuntime(), basePath: "/" }),
+    );
 
     const response = await sendRunRequest(app);
 

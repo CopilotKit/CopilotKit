@@ -24,8 +24,8 @@ export const ModelSelectorProvider = ({
   const model =
     globalThis.window === undefined
       ? "openai"
-      : new URL(window.location.href).searchParams.get("coAgentsModel") ??
-        "openai";
+      : (new URL(window.location.href).searchParams.get("coAgentsModel") ??
+        "openai");
   const [hidden, setHidden] = useState<boolean>(false);
 
   const setModel = (model: string) => {
@@ -66,7 +66,7 @@ export const useModelSelectorContext = () => {
   const context = useContext(ModelSelectorContext);
   if (context === undefined) {
     throw new Error(
-      "useModelSelectorContext must be used within a ModelSelectorProvider"
+      "useModelSelectorContext must be used within a ModelSelectorProvider",
     );
   }
   return context;

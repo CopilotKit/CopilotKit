@@ -13,7 +13,10 @@ import { CopilotKitProviderProps } from "@copilotkitnext/react";
  *
  * TODO: Remove this `Omit` once this is resolved.
  */
-export interface CopilotKitProps extends Omit<CopilotKitProviderProps, "children"> {
+export interface CopilotKitProps extends Omit<
+  CopilotKitProviderProps,
+  "children"
+> {
   /**
    * Your Copilot Cloud API key.
    *

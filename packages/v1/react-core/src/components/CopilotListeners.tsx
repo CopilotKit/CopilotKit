@@ -1,8 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef } from "react";
-import { useAgent, useCopilotChatConfiguration, useCopilotKit } from "@copilotkitnext/react";
+import {
+  useAgent,
+  useCopilotChatConfiguration,
+  useCopilotKit,
+} from "@copilotkitnext/react";
 import { CopilotKitError, parseJson } from "@copilotkit/shared";
 import { useCopilotContext } from "../context";
-import { AbstractAgent, AgentSubscriber, AGUIConnectNotImplementedError } from "@ag-ui/client";
+import {
+  AbstractAgent,
+  AgentSubscriber,
+  AGUIConnectNotImplementedError,
+} from "@ag-ui/client";
 import { useErrorToast } from "./error-boundary/error-utils";
 import { CopilotKitCoreSubscriber } from "@copilotkitnext/core";
 import { useToast } from "./toast/toast-provider";
@@ -30,7 +38,10 @@ const usePredictStateSubscription = (agent?: AbstractAgent) => {
 
           const emittedState =
             typeof partialToolCallArgs === "string"
-              ? parseJson(partialToolCallArgs as unknown as string, partialToolCallArgs)
+              ? parseJson(
+                  partialToolCallArgs as unknown as string,
+                  partialToolCallArgs,
+                )
               : partialToolCallArgs;
 
           agent.setState({
@@ -67,7 +78,9 @@ export function CopilotListeners() {
     const subscriber: CopilotKitCoreSubscriber = {
       onError: ({ error }) => {
         // @ts-expect-error -- for now, choose a random CPK error type to display the error toast
-        setBannerError(new CopilotKitLowLevelError({ error, message: error.message }));
+        setBannerError(
+          new CopilotKitLowLevelError({ error, message: error.message }),
+        );
       },
     };
     const subscription = copilotkit.subscribe(subscriber);

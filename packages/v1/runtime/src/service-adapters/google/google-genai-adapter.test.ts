@@ -1,5 +1,9 @@
 import { GoogleGenerativeAIAdapter } from "./google-genai-adapter";
-import { AIMessage, HumanMessage, SystemMessage } from "@langchain/core/messages";
+import {
+  AIMessage,
+  HumanMessage,
+  SystemMessage,
+} from "@langchain/core/messages";
 
 // Mock ChatGoogle to capture what messages are passed to it
 jest.mock("@langchain/google-gauth", () => ({

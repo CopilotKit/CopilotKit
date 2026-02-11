@@ -8,8 +8,12 @@ export function useLangGraphInterrupt<TEventValue = any>(
   action: Omit<LangGraphInterruptRender<TEventValue>, "id">,
   dependencies?: any[],
 ) {
-  const { setInterruptAction, removeInterruptAction, interruptActions, threadId } =
-    useContext(CopilotContext);
+  const {
+    setInterruptAction,
+    removeInterruptAction,
+    interruptActions,
+    threadId,
+  } = useContext(CopilotContext);
   const { addToast } = useToast();
 
   const actionId = dataToUUID(action, "lgAction");
@@ -32,5 +36,11 @@ export function useLangGraphInterrupt<TEventValue = any>(
     return () => {
       removeInterruptAction(actionId);
     };
-  }, [setInterruptAction, removeInterruptAction, threadId, actionId, ...(dependencies || [])]);
+  }, [
+    setInterruptAction,
+    removeInterruptAction,
+    threadId,
+    actionId,
+    ...(dependencies || []),
+  ]);
 }

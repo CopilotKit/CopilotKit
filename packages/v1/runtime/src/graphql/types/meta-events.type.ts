@@ -1,4 +1,10 @@
-import { createUnionType, Field, InterfaceType, ObjectType, registerEnumType } from "type-graphql";
+import {
+  createUnionType,
+  Field,
+  InterfaceType,
+  ObjectType,
+  registerEnumType,
+} from "type-graphql";
 import {
   ActionExecutionMessageOutput,
   AgentStateMessageOutput,
@@ -48,7 +54,8 @@ export class CopilotKitLangGraphInterruptEventData {
 @ObjectType({ implements: BaseMetaEvent })
 export class LangGraphInterruptEvent {
   @Field(() => MetaEventName)
-  name: MetaEventName.LangGraphInterruptEvent = MetaEventName.LangGraphInterruptEvent;
+  name: MetaEventName.LangGraphInterruptEvent =
+    MetaEventName.LangGraphInterruptEvent;
 
   @Field(() => String)
   value: string;

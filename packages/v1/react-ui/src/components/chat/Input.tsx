@@ -3,7 +3,10 @@ import { InputProps } from "./props";
 import { useChatContext } from "./ChatContext";
 import AutoResizingTextarea from "./Textarea";
 import { usePushToTalk } from "../../hooks/use-push-to-talk";
-import { useCopilotContext, useCopilotChatInternal } from "@copilotkit/react-core";
+import {
+  useCopilotContext,
+  useCopilotChatInternal,
+} from "@copilotkit/react-core";
 import { PoweredByTag } from "./PoweredByTag";
 
 const MAX_NEWLINES = 6;
@@ -72,11 +75,18 @@ export const Input = ({
 
   const isInProgress = inProgress || pushToTalkState === "transcribing";
   const { buttonIcon, buttonAlt } = useMemo(() => {
-    if (!chatReady) return { buttonIcon: context.icons.spinnerIcon, buttonAlt: "Loading" };
+    if (!chatReady)
+      return { buttonIcon: context.icons.spinnerIcon, buttonAlt: "Loading" };
     return isInProgress && !hideStopButton && chatReady
       ? { buttonIcon: context.icons.stopIcon, buttonAlt: "Stop" }
       : { buttonIcon: context.icons.sendIcon, buttonAlt: "Send" };
-  }, [isInProgress, chatReady, hideStopButton, context.icons.stopIcon, context.icons.sendIcon]);
+  }, [
+    isInProgress,
+    chatReady,
+    hideStopButton,
+    context.icons.stopIcon,
+    context.icons.sendIcon,
+  ]);
   const showPushToTalk =
     pushToTalkConfigured &&
     (pushToTalkState === "idle" || pushToTalkState === "recording") &&
@@ -85,7 +95,12 @@ export const Input = ({
   const { interrupt } = useCopilotChatInternal();
 
   const canSend = useMemo(() => {
-    return !isInProgress && text.trim().length > 0 && pushToTalkState === "idle" && !interrupt;
+    return (
+      !isInProgress &&
+      text.trim().length > 0 &&
+      pushToTalkState === "idle" &&
+      !interrupt
+    );
   }, [interrupt, isInProgress, text, pushToTalkState]);
 
   const canStop = useMemo(() => {
@@ -95,7 +110,9 @@ export const Input = ({
   const sendDisabled = !canSend && !canStop;
 
   return (
-    <div className={`copilotKitInputContainer ${showPoweredBy ? "poweredByContainer" : ""}`}>
+    <div
+      className={`copilotKitInputContainer ${showPoweredBy ? "poweredByContainer" : ""}`}
+    >
       <div className="copilotKitInput" onClick={handleDivClick}>
         <AutoResizingTextarea
           ref={textareaRef}
@@ -127,7 +144,9 @@ export const Input = ({
           {showPushToTalk && (
             <button
               onClick={() =>
-                setPushToTalkState(pushToTalkState === "idle" ? "recording" : "transcribing")
+                setPushToTalkState(
+                  pushToTalkState === "idle" ? "recording" : "transcribing",
+                )
               }
               className={
                 pushToTalkState === "recording"
@@ -142,7 +161,11 @@ export const Input = ({
             disabled={sendDisabled}
             onClick={isInProgress && !hideStopButton ? onStop : send}
             data-copilotkit-in-progress={inProgress}
-            data-test-id={inProgress ? "copilot-chat-request-in-progress" : "copilot-chat-ready"}
+            data-test-id={
+              inProgress
+                ? "copilot-chat-request-in-progress"
+                : "copilot-chat-ready"
+            }
             className="copilotKitInputControlButton"
             aria-label={buttonAlt}
           >

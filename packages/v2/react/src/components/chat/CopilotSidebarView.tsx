@@ -1,6 +1,9 @@
 import React, { useEffect, useRef, useState } from "react";
 
-import CopilotChatView, { CopilotChatViewProps, WelcomeScreenProps } from "./CopilotChatView";
+import CopilotChatView, {
+  CopilotChatViewProps,
+  WelcomeScreenProps,
+} from "./CopilotChatView";
 import {
   CopilotChatConfigurationProvider,
   useCopilotChatConfiguration,
@@ -20,21 +23,39 @@ export type CopilotSidebarViewProps = CopilotChatViewProps & {
   defaultOpen?: boolean;
 };
 
-export function CopilotSidebarView({ header, toggleButton, width, defaultOpen = true, ...props }: CopilotSidebarViewProps) {
+export function CopilotSidebarView({
+  header,
+  toggleButton,
+  width,
+  defaultOpen = true,
+  ...props
+}: CopilotSidebarViewProps) {
   return (
     <CopilotChatConfigurationProvider isModalDefaultOpen={defaultOpen}>
-      <CopilotSidebarViewInternal header={header} toggleButton={toggleButton} width={width} {...props} />
+      <CopilotSidebarViewInternal
+        header={header}
+        toggleButton={toggleButton}
+        width={width}
+        {...props}
+      />
     </CopilotChatConfigurationProvider>
   );
 }
 
-function CopilotSidebarViewInternal({ header, toggleButton, width, ...props }: Omit<CopilotSidebarViewProps, "defaultOpen">) {
+function CopilotSidebarViewInternal({
+  header,
+  toggleButton,
+  width,
+  ...props
+}: Omit<CopilotSidebarViewProps, "defaultOpen">) {
   const configuration = useCopilotChatConfiguration();
 
   const isSidebarOpen = configuration?.isModalOpen ?? false;
 
   const sidebarRef = useRef<HTMLDivElement | null>(null);
-  const [sidebarWidth, setSidebarWidth] = useState<number | string>(width ?? DEFAULT_SIDEBAR_WIDTH);
+  const [sidebarWidth, setSidebarWidth] = useState<number | string>(
+    width ?? DEFAULT_SIDEBAR_WIDTH,
+  );
 
   // Helper to convert width to CSS value
   const widthToCss = (w: number | string): string => {
@@ -85,7 +106,11 @@ function CopilotSidebarViewInternal({ header, toggleButton, width, ...props }: O
   }, [width]);
 
   const headerElement = renderSlot(header, CopilotModalHeader, {});
-  const toggleButtonElement = renderSlot(toggleButton, CopilotChatToggleButton, {});
+  const toggleButtonElement = renderSlot(
+    toggleButton,
+    CopilotChatToggleButton,
+    {},
+  );
 
   return (
     <>
@@ -114,15 +139,19 @@ function CopilotSidebarViewInternal({ header, toggleButton, width, ...props }: O
           "w-full",
           "border-l border-border bg-background text-foreground shadow-xl",
           "transition-transform duration-300 ease-out",
-          isSidebarOpen ? "translate-x-0" : "translate-x-full pointer-events-none",
+          isSidebarOpen
+            ? "translate-x-0"
+            : "translate-x-full pointer-events-none",
         )}
-        style={{
-          // Use CSS custom property for responsive width
-          ["--sidebar-width" as string]: widthToCss(sidebarWidth),
-          // Safe area insets for iOS
-          paddingTop: "env(safe-area-inset-top)",
-          paddingBottom: "env(safe-area-inset-bottom)",
-        } as React.CSSProperties}
+        style={
+          {
+            // Use CSS custom property for responsive width
+            ["--sidebar-width" as string]: widthToCss(sidebarWidth),
+            // Safe area insets for iOS
+            paddingTop: "env(safe-area-inset-top)",
+            paddingBottom: "env(safe-area-inset-bottom)",
+          } as React.CSSProperties
+        }
         aria-hidden={!isSidebarOpen}
         aria-label="Copilot chat sidebar"
         role="complementary"
@@ -160,7 +189,7 @@ export namespace CopilotSidebarView {
     const BoundWelcomeMessage = renderSlot(
       welcomeMessage,
       CopilotChatView.WelcomeMessage,
-      {}
+      {},
     );
 
     if (children) {
@@ -178,10 +207,7 @@ export namespace CopilotSidebarView {
     }
 
     return (
-      <div
-        className={cn("h-full flex flex-col", className)}
-        {...props}
-      >
+      <div className={cn("h-full flex flex-col", className)} {...props}>
         {/* Welcome message - centered vertically */}
         <div className="flex-1 flex flex-col items-center justify-center px-4">
           {BoundWelcomeMessage}
@@ -191,9 +217,7 @@ export namespace CopilotSidebarView {
         <div className="px-8 pb-4">
           <div className="max-w-3xl mx-auto">
             {/* Suggestions above input */}
-            <div className="mb-4 flex justify-center">
-              {suggestionView}
-            </div>
+            <div className="mb-4 flex justify-center">{suggestionView}</div>
             {input}
           </div>
         </div>

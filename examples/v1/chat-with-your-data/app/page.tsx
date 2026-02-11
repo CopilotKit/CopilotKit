@@ -11,7 +11,6 @@ import { useCopilotReadable } from "@copilotkit/react-core";
 import { Suspense } from "react";
 
 function HomeContent() {
-
   useCopilotReadable({
     description: "Current time",
     value: new Date().toLocaleTimeString(),

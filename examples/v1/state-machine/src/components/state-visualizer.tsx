@@ -15,7 +15,8 @@ export function StateVisualizer() {
         id: "getContactInfo",
         data: { label: "Contact Info" },
         position: { x: 250, y: 0 },
-        className: stage === "getContactInfo" ? activeNodeStyles : inactiveNodeStyles,
+        className:
+          stage === "getContactInfo" ? activeNodeStyles : inactiveNodeStyles,
         sourcePosition: Position.Bottom,
         targetPosition: Position.Top,
       },
@@ -31,7 +32,8 @@ export function StateVisualizer() {
         id: "sellFinancing",
         data: { label: "Sell Financing" },
         position: { x: 250, y: 200 },
-        className: stage === "sellFinancing" ? activeNodeStyles : inactiveNodeStyles,
+        className:
+          stage === "sellFinancing" ? activeNodeStyles : inactiveNodeStyles,
         sourcePosition: Position.Bottom,
         targetPosition: Position.Top,
       },
@@ -39,7 +41,8 @@ export function StateVisualizer() {
         id: "getPaymentInfo",
         data: { label: "Payment Info" },
         position: { x: 150, y: 300 },
-        className: stage === "getPaymentInfo" ? activeNodeStyles : inactiveNodeStyles,
+        className:
+          stage === "getPaymentInfo" ? activeNodeStyles : inactiveNodeStyles,
         sourcePosition: Position.Bottom,
         targetPosition: Position.Top,
       },
@@ -47,7 +50,8 @@ export function StateVisualizer() {
         id: "getFinancingInfo",
         data: { label: "Financing Info" },
         position: { x: 350, y: 300 },
-        className: stage === "getFinancingInfo" ? activeNodeStyles : inactiveNodeStyles,
+        className:
+          stage === "getFinancingInfo" ? activeNodeStyles : inactiveNodeStyles,
         sourcePosition: Position.Bottom,
         targetPosition: Position.Top,
       },
@@ -55,7 +59,8 @@ export function StateVisualizer() {
         id: "confirmOrder",
         data: { label: "Confirm Order" },
         position: { x: 250, y: 400 },
-        className: stage === "confirmOrder" ? activeNodeStyles : inactiveNodeStyles,
+        className:
+          stage === "confirmOrder" ? activeNodeStyles : inactiveNodeStyles,
         targetPosition: Position.Top,
       },
     ],
@@ -71,7 +76,8 @@ export function StateVisualizer() {
       source: "getContactInfo",
       target: "buildCar",
       markerEnd: { type: MarkerType.Arrow },
-      className: stage === "getContactInfo" ? activeEdgeStyles : inactiveEdgeStyles,
+      className:
+        stage === "getContactInfo" ? activeEdgeStyles : inactiveEdgeStyles,
     },
     {
       id: "buildCar-sellFinancing",
@@ -86,7 +92,8 @@ export function StateVisualizer() {
       target: "getPaymentInfo",
       markerEnd: { type: MarkerType.Arrow },
       type: "smoothstep",
-      className: stage === "sellFinancing" ? activeEdgeStyles : inactiveEdgeStyles,
+      className:
+        stage === "sellFinancing" ? activeEdgeStyles : inactiveEdgeStyles,
     },
     {
       id: "sellFinancing-getFinancingInfo",
@@ -94,14 +101,16 @@ export function StateVisualizer() {
       target: "getFinancingInfo",
       markerEnd: { type: MarkerType.Arrow },
       type: "smoothstep",
-      className: stage === "sellFinancing" ? activeEdgeStyles : inactiveEdgeStyles,
+      className:
+        stage === "sellFinancing" ? activeEdgeStyles : inactiveEdgeStyles,
     },
     {
       id: "getPaymentInfo-confirmOrder",
       source: "getPaymentInfo",
       target: "confirmOrder",
       markerEnd: { type: MarkerType.Arrow },
-      className: stage === "getPaymentInfo" ? activeEdgeStyles : inactiveEdgeStyles,
+      className:
+        stage === "getPaymentInfo" ? activeEdgeStyles : inactiveEdgeStyles,
       type: "smoothstep",
     },
     {
@@ -109,7 +118,8 @@ export function StateVisualizer() {
       source: "getFinancingInfo",
       target: "confirmOrder",
       markerEnd: { type: MarkerType.Arrow },
-      className: stage === "getFinancingInfo" ? activeEdgeStyles : inactiveEdgeStyles,
+      className:
+        stage === "getFinancingInfo" ? activeEdgeStyles : inactiveEdgeStyles,
       type: "smoothstep",
     },
   ];

@@ -7,7 +7,10 @@ import {
   useCopilotChatHeadless_c,
   useLangGraphInterrupt,
 } from "@copilotkit/react-core";
-import { CopilotSidebar, useCopilotChatSuggestions } from "@copilotkit/react-ui";
+import {
+  CopilotSidebar,
+  useCopilotChatSuggestions,
+} from "@copilotkit/react-ui";
 import { randomId } from "@copilotkit/shared";
 import { AnimatedMarkdown } from "flowtoken";
 import { useSearchParams } from "next/navigation";
@@ -37,7 +40,12 @@ function MessageDetailsModal({
               onClick={onClose}
               className="text-white/80 hover:text-white transition-colors rounded-full p-1 hover:bg-white/10"
             >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg
+                className="w-6 h-6"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
                 <path
                   strokeLinecap="round"
                   strokeLinejoin="round"
@@ -62,7 +70,8 @@ export default function PanelPage() {
   const searchParams = useSearchParams();
   const serviceAdapter = searchParams.get("serviceAdapter") || "openai";
   const runtimeUrl =
-    searchParams.get("runtimeUrl") || `/api/copilotkit?serviceAdapter=${serviceAdapter}`;
+    searchParams.get("runtimeUrl") ||
+    `/api/copilotkit?serviceAdapter=${serviceAdapter}`;
   const publicApiKey = searchParams.get("publicApiKey");
   const publicLicenseKey = searchParams.get("publicLicenseKey");
   const copilotKitProps: Partial<React.ComponentProps<typeof CopilotKit>> = {
@@ -92,7 +101,12 @@ function ScrollToBottomButton() {
       onClick={() => scrollToBottom()}
       title="Scroll to bottom"
     >
-      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <svg
+        className="w-4 h-4"
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
+      >
         <path
           strokeLinecap="round"
           strokeLinejoin="round"
@@ -123,7 +137,8 @@ function ChatApp() {
   useEffect(() => {
     if (textareaRef.current) {
       textareaRef.current.style.height = "auto";
-      textareaRef.current.style.height = textareaRef.current.scrollHeight + "px";
+      textareaRef.current.style.height =
+        textareaRef.current.scrollHeight + "px";
     }
   }, [newMessage]);
 
@@ -132,7 +147,9 @@ function ChatApp() {
     render: (state) => {
       return (
         <details className="mb-4">
-          <summary className="cursor-pointer text-sm text-gray-600">Agent State</summary>
+          <summary className="cursor-pointer text-sm text-gray-600">
+            Agent State
+          </summary>
           <pre className="text-xs bg-gray-100 p-2 rounded mt-2 overflow-auto">
             {JSON.stringify(state, null, 2)}
           </pre>
@@ -149,7 +166,9 @@ function ChatApp() {
             <summary className="cursor-pointer text-sm font-medium text-yellow-800">
               LangGraph Interrupt
             </summary>
-            <pre className="text-xs mt-2">{JSON.stringify({ result, event }, null, 2)}</pre>
+            <pre className="text-xs mt-2">
+              {JSON.stringify({ result, event }, null, 2)}
+            </pre>
           </details>
           <button
             onClick={() => resolve("the secret is 1234")}
@@ -190,7 +209,9 @@ function ChatApp() {
                 />
               </svg>
             </div>
-            <div className="text-blue-700 font-medium">🔧 Generative UI Activated</div>
+            <div className="text-blue-700 font-medium">
+              🔧 Generative UI Activated
+            </div>
           </div>
         </div>
       );
@@ -258,7 +279,9 @@ function ChatApp() {
                 />
               </svg>
             </div>
-            <div className="text-purple-700 font-medium text-sm">🔧 Waiting for Response</div>
+            <div className="text-purple-700 font-medium text-sm">
+              🔧 Waiting for Response
+            </div>
           </div>
           <button
             onClick={() => props.respond?.("the secret is 120")}
@@ -303,11 +326,17 @@ function ChatApp() {
                 />
               </svg>
             </div>
-            <div className="text-amber-700 font-medium">✨ Poem Generator Activated</div>
+            <div className="text-amber-700 font-medium">
+              ✨ Poem Generator Activated
+            </div>
           </div>
           <div className="bg-white/60 rounded-lg p-3 border border-amber-100">
-            <div className="text-xs text-amber-600 font-medium mb-2">Generated Content:</div>
-            <div className="text-amber-800 font-medium text-sm">{props.args.generatedPoem}</div>
+            <div className="text-xs text-amber-600 font-medium mb-2">
+              Generated Content:
+            </div>
+            <div className="text-amber-800 font-medium text-sm">
+              {props.args.generatedPoem}
+            </div>
           </div>
         </div>
       );
@@ -340,9 +369,18 @@ function ChatApp() {
   useEffect(() => {
     setSuggestions([
       { title: "Generative UI", message: "Please call the generativeUI tool" },
-      { title: "Tool with handler", message: "Please call the toolWithHandler tool" },
-      { title: "Poem Generator", message: "Please call the poemGenerator tool" },
-      { title: "Human-in-the-loop", message: "Please call the Human-in-the-loop tool" },
+      {
+        title: "Tool with handler",
+        message: "Please call the toolWithHandler tool",
+      },
+      {
+        title: "Poem Generator",
+        message: "Please call the poemGenerator tool",
+      },
+      {
+        title: "Human-in-the-loop",
+        message: "Please call the Human-in-the-loop tool",
+      },
     ]);
   }, []);
 
@@ -435,11 +473,14 @@ function ChatApp() {
                               isLoading && (
                                 <div className="flex items-center gap-2 mt-2">
                                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600"></div>
-                                  <span className="text-sm text-gray-500">Thinking...</span>
+                                  <span className="text-sm text-gray-500">
+                                    Thinking...
+                                  </span>
                                 </div>
                               )}
 
-                            {message.role === "assistant" && message.generativeUI?.()}
+                            {message.role === "assistant" &&
+                              message.generativeUI?.()}
 
                             {message.role === "tool" && (
                               <div className="flex items-center gap-2 mt-2">
@@ -482,46 +523,47 @@ function ChatApp() {
                                 </button>
 
                                 {/* Thumbs up/down only for assistant messages */}
-                                {message.role === "assistant" && message.content && (
-                                  <>
-                                    <button
-                                      className="text-gray-500 hover:text-gray-700 p-1 rounded transition-colors"
-                                      title="Thumbs up"
-                                    >
-                                      <svg
-                                        className="w-4 h-4"
-                                        fill="none"
-                                        stroke="currentColor"
-                                        viewBox="0 0 24 24"
+                                {message.role === "assistant" &&
+                                  message.content && (
+                                    <>
+                                      <button
+                                        className="text-gray-500 hover:text-gray-700 p-1 rounded transition-colors"
+                                        title="Thumbs up"
                                       >
-                                        <path
-                                          strokeLinecap="round"
-                                          strokeLinejoin="round"
-                                          strokeWidth={2}
-                                          d="M14 10h4.764a2 2 0 011.789 2.894l-3.5 7A2 2 0 0115.263 21h-4.017c-.163 0-.326-.02-.485-.06L7 20m7-10V5a2 2 0 00-2-2h-.095c-.5 0-.905.405-.905.905 0 .714-.211 1.412-.608 2.006L7 11v9m7-10h-2M7 20H5a2 2 0 01-2-2v-6a2 2 0 012-2h2.5"
-                                        />
-                                      </svg>
-                                    </button>
-                                    <button
-                                      className="text-gray-500 hover:text-gray-700 p-1 rounded transition-colors"
-                                      title="Thumbs down"
-                                    >
-                                      <svg
-                                        className="w-4 h-4"
-                                        fill="none"
-                                        stroke="currentColor"
-                                        viewBox="0 0 24 24"
+                                        <svg
+                                          className="w-4 h-4"
+                                          fill="none"
+                                          stroke="currentColor"
+                                          viewBox="0 0 24 24"
+                                        >
+                                          <path
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                            strokeWidth={2}
+                                            d="M14 10h4.764a2 2 0 011.789 2.894l-3.5 7A2 2 0 0115.263 21h-4.017c-.163 0-.326-.02-.485-.06L7 20m7-10V5a2 2 0 00-2-2h-.095c-.5 0-.905.405-.905.905 0 .714-.211 1.412-.608 2.006L7 11v9m7-10h-2M7 20H5a2 2 0 01-2-2v-6a2 2 0 012-2h2.5"
+                                          />
+                                        </svg>
+                                      </button>
+                                      <button
+                                        className="text-gray-500 hover:text-gray-700 p-1 rounded transition-colors"
+                                        title="Thumbs down"
                                       >
-                                        <path
-                                          strokeLinecap="round"
-                                          strokeLinejoin="round"
-                                          strokeWidth={2}
-                                          d="M10 14H5.236a2 2 0 01-1.789-2.894l3.5-7A2 2 0 018.736 3h4.018c.163 0 .326.02.485.06L17 4m-7 10v5a2 2 0 002 2h.095c.5 0 .905-.405.905-.905 0-.714.211-1.412.608-2.006L17 13V4m-7 10h2"
-                                        />
-                                      </svg>
-                                    </button>
-                                  </>
-                                )}
+                                        <svg
+                                          className="w-4 h-4"
+                                          fill="none"
+                                          stroke="currentColor"
+                                          viewBox="0 0 24 24"
+                                        >
+                                          <path
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                            strokeWidth={2}
+                                            d="M10 14H5.236a2 2 0 01-1.789-2.894l3.5-7A2 2 0 018.736 3h4.018c.163 0 .326.02.485.06L17 4m-7 10v5a2 2 0 002 2h.095c.5 0 .905-.405.905-.905 0-.714.211-1.412.608-2.006L17 13V4m-7 10h2"
+                                          />
+                                        </svg>
+                                      </button>
+                                    </>
+                                  )}
 
                                 <button
                                   onClick={() => handleShowDetails(message)}

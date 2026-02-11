@@ -1,4 +1,8 @@
-import { CopilotRuntime, createCopilotEndpoint, VERSION } from "@copilotkitnext/runtime";
+import {
+  CopilotRuntime,
+  createCopilotEndpoint,
+  VERSION,
+} from "@copilotkitnext/runtime";
 import { BasicAgent } from "@copilotkitnext/agent";
 import { serve } from "@hono/node-server";
 
@@ -15,7 +19,10 @@ const runtime = new CopilotRuntime({
   },
 });
 
-const endpoint = createCopilotEndpoint({ basePath: "/api/copilotkit", runtime });
+const endpoint = createCopilotEndpoint({
+  basePath: "/api/copilotkit",
+  runtime,
+});
 
 serve({
   fetch: endpoint.fetch,

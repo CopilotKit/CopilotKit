@@ -23,7 +23,7 @@ describe("CopilotChatMessageView activity rendering", () => {
         <CopilotChatConfigurationProvider agentId={agentId} threadId={threadId}>
           <CopilotChatMessageView messages={messages} />
         </CopilotChatConfigurationProvider>
-      </CopilotKitProvider>
+      </CopilotKitProvider>,
     );
   }
 
@@ -42,7 +42,9 @@ describe("CopilotChatMessageView activity rendering", () => {
         activityType: "search-progress",
         content: z.object({ percent: z.number() }),
         render: ({ content }) => (
-          <div data-testid="activity-renderer">Progress: {content.percent}%</div>
+          <div data-testid="activity-renderer">
+            Progress: {content.percent}%
+          </div>
         ),
       },
     ];

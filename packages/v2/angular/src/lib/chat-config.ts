@@ -42,7 +42,7 @@ export const COPILOT_CHAT_DEFAULT_LABELS: CopilotChatLabels = {
 };
 
 export const COPILOT_CHAT_LABELS = new InjectionToken<CopilotChatLabels>(
-  "COPILOT_CHAT_LABELS"
+  "COPILOT_CHAT_LABELS",
 );
 
 export function injectChatLabels(): CopilotChatLabels {
@@ -53,7 +53,7 @@ export function injectChatLabels(): CopilotChatLabels {
 }
 
 export function provideCopilotChatLabels(
-  config: Partial<CopilotChatLabels>
+  config: Partial<CopilotChatLabels>,
 ): Provider {
   return {
     provide: COPILOT_CHAT_LABELS,

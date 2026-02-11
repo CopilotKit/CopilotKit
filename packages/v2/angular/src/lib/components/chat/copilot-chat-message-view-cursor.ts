@@ -27,7 +27,7 @@ export class CopilotChatMessageViewCursor {
   computedClass = computed(() =>
     cn(
       "w-[11px] h-[11px] rounded-full bg-foreground animate-pulse-cursor ml-1",
-      this.inputClass()
-    )
+      this.inputClass(),
+    ),
   );
 }

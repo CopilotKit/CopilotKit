@@ -41,7 +41,9 @@ const document: DocumentPointer = {
 } as DocumentPointer;
 
 export function VacationList() {
-  const [newDestinations, setNewDestinations] = useState<Destination[]>(data.newDestinations);
+  const [newDestinations, setNewDestinations] = useState<Destination[]>(
+    data.newDestinations,
+  );
   const [visitedDestinations, setVisitedDestinations] = useState<Destination[]>(
     data.visitedDestinations,
   );
@@ -76,7 +78,10 @@ export function VacationList() {
       },
     ],
     handler: async ({ name, country, image, description, activities }) => {
-      setNewDestinations((prev) => [...prev, { name, country, image, description, activities }]);
+      setNewDestinations((prev) => [
+        ...prev,
+        { name, country, image, description, activities },
+      ]);
     },
   });
 
@@ -152,7 +157,9 @@ export function VacationList() {
     <div className="px-4 sm:px-6 lg:px-8 bg-slate-50 py-4">
       <div className="sm:flex sm:items-center">
         <div className="sm:flex-auto">
-          <h1 className="text-3xl font-semibold leading-6 text-gray-900">WaterBnB (Toy Example)</h1>
+          <h1 className="text-3xl font-semibold leading-6 text-gray-900">
+            WaterBnB (Toy Example)
+          </h1>
         </div>
       </div>
       <div className="mt-8 flow-root bg-slate-200">
@@ -165,14 +172,20 @@ export function VacationList() {
       <div className="mt-8 flow-root bg-slate-200">
         <div className="-mx-4 -my-2 overflow-x-auto sm:-mx-6 lg:-mx-8">
           <div className="inline-block min-w-full py-2 align-middle sm:px-6 lg:px-8">
-            <DestinationTable destinations={visitedDestinations} heading="Visited Destinations" />
+            <DestinationTable
+              destinations={visitedDestinations}
+              heading="Visited Destinations"
+            />
           </div>
         </div>
       </div>
       <div className="mt-8 flow-root bg-slate-200">
         <div className="-mx-4 -my-2 overflow-x-auto sm:-mx-6 lg:-mx-8">
           <div className="inline-block min-w-full py-2 align-middle sm:px-6 lg:px-8">
-            <DestinationTable destinations={newDestinations} heading="New Destinations" />
+            <DestinationTable
+              destinations={newDestinations}
+              heading="New Destinations"
+            />
           </div>
         </div>
       </div>
@@ -185,10 +198,12 @@ const data: Record<string, Destination[]> = {
     {
       name: "New York City",
       country: "USA",
-      image: "https://worldstrides.com/wp-content/uploads/2015/07/iStock_000040849990_Large.jpg",
+      image:
+        "https://worldstrides.com/wp-content/uploads/2015/07/iStock_000040849990_Large.jpg",
       description:
         'Known as "The Big Apple", famous for its high energy, arts scene, and iconic landmarks.',
-      activities: "Visit the Statue of Liberty, Central Park, Times Square, etc.",
+      activities:
+        "Visit the Statue of Liberty, Central Park, Times Square, etc.",
     },
     {
       name: "London",
@@ -197,7 +212,8 @@ const data: Record<string, Destination[]> = {
         "https://assets.editorial.aetnd.com/uploads/2019/03/topic-london-gettyimages-760251843-feature.jpg",
       description:
         "England's capital known for its rich history, art, culture, and famous landmarks.",
-      activities: "Visit the British Museum, the Tower of London, Buckingham Palace, etc.",
+      activities:
+        "Visit the British Museum, the Tower of London, Buckingham Palace, etc.",
     },
     {
       name: "Sydney",
@@ -206,7 +222,8 @@ const data: Record<string, Destination[]> = {
         "https://media.tatler.com/photos/6141d37b9ce9874a3e40107d/16:9/w_2560%2Cc_limit/social_crop_sydney_opera_house_gettyimages-869714270.jpg",
       description:
         "Australia's biggest city known for its harbourfront Sydney Opera House, arched Harbour Bridge and Darling Harbour.",
-      activities: "Visit Sydney Opera House, Sydney Harbour Bridge, Bondi Beach, etc.",
+      activities:
+        "Visit Sydney Opera House, Sydney Harbour Bridge, Bondi Beach, etc.",
     },
   ],
   newDestinations: [
@@ -222,7 +239,8 @@ const data: Record<string, Destination[]> = {
     {
       name: "Tokyo",
       country: "Japan",
-      image: "https://th.bing.com/th/id/OIP.MzXk5dvbrXpDe1b8bjkfpQHaFC?pid=ImgDet&rs=1",
+      image:
+        "https://th.bing.com/th/id/OIP.MzXk5dvbrXpDe1b8bjkfpQHaFC?pid=ImgDet&rs=1",
       description:
         "A bustling city known for its modern architecture, nightlife, and hearty street food.",
       activities: "Visit Tokyo Tower, Meiji Shrine, Tokyo Disneyland, etc.",
@@ -243,12 +261,14 @@ const data: Record<string, Destination[]> = {
         "https://th.bing.com/th/id/R.58c7cd07743a65337c18c919bcaa1fc5?rik=TJqBfegI01c7Gw&riu=http%3a%2f%2fwww.getsready.com%2fwp-content%2fuploads%2f2016%2f08%2fRio-de-Janeiro-an-amazing-part-in-brazil.jpg&ehk=Dx7YdRlKPvbF%2fRsGg%2fGXOhSNQyYcyiqFKpqr7IoS3s8%3d&risl=&pid=ImgRaw&r=0",
       description:
         "A huge seaside city in Brazil, known for its Copacabana and Ipanema beaches, and the Christ the Redeemer statue.",
-      activities: "Visit Sugarloaf Mountain, the Christ the Redeemer statue, Ipanema Beach, etc.",
+      activities:
+        "Visit Sugarloaf Mountain, the Christ the Redeemer statue, Ipanema Beach, etc.",
     },
     {
       name: "Istanbul",
       country: "Turkey",
-      image: "https://th.bing.com/th/id/OIP.S4Al32XFCu0bS99Tf2DCnwHaE8?pid=ImgDet&rs=1",
+      image:
+        "https://th.bing.com/th/id/OIP.S4Al32XFCu0bS99Tf2DCnwHaE8?pid=ImgDet&rs=1",
       description:
         "A city straddling Europe and Asia across the Bosphorus Strait, known for its historic sites.",
       activities: "Visit Hagia Sophia, Blue Mosque, Topkapi Palace, etc.",
@@ -265,10 +285,12 @@ const data: Record<string, Destination[]> = {
     {
       name: "Vienna",
       country: "Austria",
-      image: "https://lp-cms-production.imgix.net/2020-11/500pxRF_124014183.jpg",
+      image:
+        "https://lp-cms-production.imgix.net/2020-11/500pxRF_124014183.jpg",
       description:
         "A city marked by its imperial palaces and musical heritage, located on the Danube River.",
-      activities: "Visit Schönbrunn Palace, St. Stephen's Cathedral, Vienna State Opera, etc.",
+      activities:
+        "Visit Schönbrunn Palace, St. Stephen's Cathedral, Vienna State Opera, etc.",
     },
     {
       name: "Havana",
@@ -293,7 +315,8 @@ const data: Record<string, Destination[]> = {
       country: "Scotland",
       image:
         "https://static.nationalgeographic.co.uk/files/styles/image_3200/public/neighbourhood_edinburgh_awl_sco35873aw_hr.jpg?w=1600",
-      description: "Scotland's compact, hilly capital known for its historical sites.",
+      description:
+        "Scotland's compact, hilly capital known for its historical sites.",
       activities: "Visit Edinburgh Castle, Arthur's Seat, Royal Mile, etc.",
     },
     {
@@ -301,8 +324,10 @@ const data: Record<string, Destination[]> = {
       country: "Morocco",
       image:
         "https://www.nomadicchica.com/en/productive/wp-content/uploads/2020/02/Marrakesh-best-things-to-do-Morocco-Woman-Gloria-Apara-Nomadicchica.com-7.jpg",
-      description: "A city steeped in rich history and culture, known for its palaces and gardens.",
-      activities: "Visit Jardin Majorelle, Koutoubia Mosque, Bahia Palace, etc.",
+      description:
+        "A city steeped in rich history and culture, known for its palaces and gardens.",
+      activities:
+        "Visit Jardin Majorelle, Koutoubia Mosque, Bahia Palace, etc.",
     },
     {
       name: "Prague",
@@ -339,7 +364,8 @@ const data: Record<string, Destination[]> = {
         "https://lp-cms-production.imgix.net/features/2018/03/islamic-cairo-egypt-324042f64d76.jpg?auto=format&q=75&w=1920",
       description:
         "Egypt's sprawling capital, set on the Nile River, is a vibrant merging of the ancient and the modern.",
-      activities: "Visit the Egyptian Museum, Pyramids of Giza, The Sphinx, etc.",
+      activities:
+        "Visit the Egyptian Museum, Pyramids of Giza, The Sphinx, etc.",
     },
     {
       name: "Athens",
@@ -357,7 +383,8 @@ const data: Record<string, Destination[]> = {
         "https://www.travelandleisure.com/thmb/LzWpzDihxjffaFmM9TZWCvm9VyY=/1500x0/filters:no_upscale():max_bytes(150000):strip_icc()/lisbon-portugal-LISBONTG0521-c933a0fb669647619fa580f6c602c4c8.jpg",
       description:
         "Portugal's hilly, coastal capital city known for its cafe culture and soulful Fado music.",
-      activities: "Visit Belém Tower, Jerónimos Monastery, Praça do Comércio, etc.",
+      activities:
+        "Visit Belém Tower, Jerónimos Monastery, Praça do Comércio, etc.",
     },
     {
       name: "Buenos Aires",
@@ -385,7 +412,8 @@ const data: Record<string, Destination[]> = {
         "https://www.newzealand.com/assets/Operator-Database/img-1612224709-7722-18346-sel-20452d-summer-brand-campaign-web-banner-1920x1280-dining__aWxvdmVrZWxseQo_CropResizeWzEyMDAsNjMwLDc1LCJqcGciXQ.jpg",
       description:
         "Queenstown, New Zealand, sits on the shores of the South Island's Lake Wakatipu, set against the dramatic Southern Alps.",
-      activities: "Adventure sports like bungee jumping, skydiving, Visit Lake Wakatipu, etc.",
+      activities:
+        "Adventure sports like bungee jumping, skydiving, Visit Lake Wakatipu, etc.",
     },
     // More destinations...
   ],

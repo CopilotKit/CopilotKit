@@ -49,7 +49,13 @@ function ToolRenderHost() {
   );
 }
 
-function RunActionButton({ onMount, onUnmount }: { onMount: jest.Mock; onUnmount: jest.Mock }) {
+function RunActionButton({
+  onMount,
+  onUnmount,
+}: {
+  onMount: jest.Mock;
+  onUnmount: jest.Mock;
+}) {
   useEffect(() => {
     onMount();
     return () => onUnmount();
@@ -68,7 +74,9 @@ describe("useFrontendTool dependency changes", () => {
         {
           name: "actionOne",
           description: "Execute action one",
-          render: () => <RunActionButton onMount={mounted} onUnmount={unmounted} />,
+          render: () => (
+            <RunActionButton onMount={mounted} onUnmount={unmounted} />
+          ),
         },
         [version],
       );

@@ -21,7 +21,13 @@ import {
   MCPAppsActivityContentSchema,
 } from "@/components/MCPAppsActivityRenderer";
 import { ReactActivityMessageRenderer } from "@/types";
-import { AbstractAgent, RunAgentInput, RunAgentResult, BaseEvent, EventType } from "@ag-ui/client";
+import {
+  AbstractAgent,
+  RunAgentInput,
+  RunAgentResult,
+  BaseEvent,
+  EventType,
+} from "@ag-ui/client";
 import { Observable, Subject } from "rxjs";
 
 /**
@@ -213,7 +219,7 @@ describe("MCP Apps Activity Renderer E2E", () => {
             resourceUri: "ui://test-server/dashboard",
             serverHash: "dashboard-hash-123",
           }),
-        })
+        }),
       );
       agent.emit(runFinishedEvent());
 
@@ -222,7 +228,7 @@ describe("MCP Apps Activity Renderer E2E", () => {
         () => {
           expect(screen.getByText("Loading...")).toBeDefined();
         },
-        { timeout: 2000 }
+        { timeout: 2000 },
       );
 
       // Wait for resource fetch to be called
@@ -230,18 +236,18 @@ describe("MCP Apps Activity Renderer E2E", () => {
         () => {
           expect(agent.runAgentCalls.length).toBeGreaterThan(0);
         },
-        { timeout: 2000 }
+        { timeout: 2000 },
       );
 
       // Verify the proxied MCP request was made correctly
       const resourceCall = agent.runAgentCalls.find(
         (call) =>
           call.input.forwardedProps?.__proxiedMCPRequest?.method ===
-          "resources/read"
+          "resources/read",
       );
       expect(resourceCall).toBeDefined();
       expect(
-        resourceCall?.input.forwardedProps?.__proxiedMCPRequest
+        resourceCall?.input.forwardedProps?.__proxiedMCPRequest,
       ).toMatchObject({
         serverHash: "dashboard-hash-123",
         method: "resources/read",
@@ -287,7 +293,7 @@ describe("MCP Apps Activity Renderer E2E", () => {
             serverHash: "fallback-hash",
             serverId: "my-app-stable-id", // Should take precedence
           }),
-        })
+        }),
       );
       agent.emit(runFinishedEvent());
 
@@ -295,14 +301,14 @@ describe("MCP Apps Activity Renderer E2E", () => {
         const resourceCall = agent.runAgentCalls.find(
           (call) =>
             call.input.forwardedProps?.__proxiedMCPRequest?.method ===
-            "resources/read"
+            "resources/read",
         );
         expect(resourceCall).toBeDefined();
         expect(
-          resourceCall?.input.forwardedProps?.__proxiedMCPRequest?.serverId
+          resourceCall?.input.forwardedProps?.__proxiedMCPRequest?.serverId,
         ).toBe("my-app-stable-id");
         expect(
-          resourceCall?.input.forwardedProps?.__proxiedMCPRequest?.serverHash
+          resourceCall?.input.forwardedProps?.__proxiedMCPRequest?.serverHash,
         ).toBe("fallback-hash");
       });
     });
@@ -320,7 +326,9 @@ describe("MCP Apps Activity Renderer E2E", () => {
 
       // Override runAgent to use our controlled promise
       const originalRunAgent = agent.runAgent.bind(agent);
-      agent.runAgent = async (input?: Partial<RunAgentInput>): Promise<RunAgentResult> => {
+      agent.runAgent = async (
+        input?: Partial<RunAgentInput>,
+      ): Promise<RunAgentResult> => {
         const proxiedRequest = input?.forwardedProps?.__proxiedMCPRequest as
           | { method: string }
           | undefined;
@@ -353,7 +361,7 @@ describe("MCP Apps Activity Renderer E2E", () => {
             resourceUri: "ui://test/app",
             serverHash: "test-hash",
           }),
-        })
+        }),
       );
       agent.emit(runFinishedEvent());
 
@@ -372,7 +380,7 @@ describe("MCP Apps Activity Renderer E2E", () => {
         () => {
           expect(screen.queryByText("Loading...")).toBeNull();
         },
-        { timeout: 3000 }
+        { timeout: 3000 },
       );
     });
 
@@ -383,7 +391,9 @@ describe("MCP Apps Activity Renderer E2E", () => {
 
       // Make proxied MCP requests throw an error
       const originalRunAgent = agent.runAgent.bind(agent);
-      agent.runAgent = async (input?: Partial<RunAgentInput>): Promise<RunAgentResult> => {
+      agent.runAgent = async (
+        input?: Partial<RunAgentInput>,
+      ): Promise<RunAgentResult> => {
         const proxiedRequest = input?.forwardedProps?.__proxiedMCPRequest as
           | { method: string }
           | undefined;
@@ -415,14 +425,14 @@ describe("MCP Apps Activity Renderer E2E", () => {
             resourceUri: "ui://broken/resource",
             serverHash: "broken-hash",
           }),
-        })
+        }),
       );
       agent.emit(runFinishedEvent());
 
       // Should show error state
       await waitFor(() => {
         expect(
-          screen.getByText(/Error:.*Failed to fetch resource/i)
+          screen.getByText(/Error:.*Failed to fetch resource/i),
         ).toBeDefined();
       });
     });
@@ -459,7 +469,7 @@ describe("MCP Apps Activity Renderer E2E", () => {
             resourceUri: "ui://empty/resource",
             serverHash: "empty-hash",
           }),
-        })
+        }),
       );
       agent.emit(runFinishedEvent());
 
@@ -490,7 +500,8 @@ describe("MCP Apps Activity Renderer E2E", () => {
         ...validContent,
         serverId: "stable-server-id",
       };
-      const serverIdResult = MCPAppsActivityContentSchema.safeParse(withServerId);
+      const serverIdResult =
+        MCPAppsActivityContentSchema.safeParse(withServerId);
       expect(serverIdResult.success).toBe(true);
 
       // With toolInput
@@ -498,7 +509,8 @@ describe("MCP Apps Activity Renderer E2E", () => {
         ...validContent,
         toolInput: { param1: "value1", param2: 42 },
       };
-      const toolInputResult = MCPAppsActivityContentSchema.safeParse(withToolInput);
+      const toolInputResult =
+        MCPAppsActivityContentSchema.safeParse(withToolInput);
       expect(toolInputResult.success).toBe(true);
     });
 
@@ -508,23 +520,25 @@ describe("MCP Apps Activity Renderer E2E", () => {
         serverHash: "hash123",
         result: { isError: false },
       };
-      expect(MCPAppsActivityContentSchema.safeParse(missingResourceUri).success).toBe(
-        false
-      );
+      expect(
+        MCPAppsActivityContentSchema.safeParse(missingResourceUri).success,
+      ).toBe(false);
 
       const missingServerHash = {
         resourceUri: "ui://server/resource",
         result: { isError: false },
       };
-      expect(MCPAppsActivityContentSchema.safeParse(missingServerHash).success).toBe(
-        false
-      );
+      expect(
+        MCPAppsActivityContentSchema.safeParse(missingServerHash).success,
+      ).toBe(false);
 
       const missingResult = {
         resourceUri: "ui://server/resource",
         serverHash: "hash123",
       };
-      expect(MCPAppsActivityContentSchema.safeParse(missingResult).success).toBe(false);
+      expect(
+        MCPAppsActivityContentSchema.safeParse(missingResult).success,
+      ).toBe(false);
     });
   });
 
@@ -557,7 +571,7 @@ describe("MCP Apps Activity Renderer E2E", () => {
             resourceUri: "ui://builtin/test",
             serverHash: "builtin-hash",
           }),
-        })
+        }),
       );
       agent.emit(runFinishedEvent());
 
@@ -606,7 +620,7 @@ describe("MCP Apps Activity Renderer E2E", () => {
             resourceUri: "ui://custom/resource",
             serverHash: "custom-hash",
           }),
-        })
+        }),
       );
       agent.emit(runFinishedEvent());
 
@@ -614,7 +628,7 @@ describe("MCP Apps Activity Renderer E2E", () => {
       await waitFor(() => {
         expect(screen.getByTestId("custom-mcp-renderer")).toBeDefined();
         expect(
-          screen.getByText(/Custom MCP Renderer:.*ui:\/\/custom\/resource/)
+          screen.getByText(/Custom MCP Renderer:.*ui:\/\/custom\/resource/),
         ).toBeDefined();
       });
     });
@@ -628,7 +642,9 @@ describe("MCP Apps Activity Renderer E2E", () => {
 
       // Set up different responses for different URIs
       const originalRunAgent = agent.runAgent.bind(agent);
-      agent.runAgent = async (input?: Partial<RunAgentInput>): Promise<RunAgentResult> => {
+      agent.runAgent = async (
+        input?: Partial<RunAgentInput>,
+      ): Promise<RunAgentResult> => {
         const proxiedRequest = input?.forwardedProps?.__proxiedMCPRequest as {
           method: string;
           params?: { uri?: string };
@@ -638,7 +654,9 @@ describe("MCP Apps Activity Renderer E2E", () => {
           if (uri === "ui://first/app") {
             return {
               result: {
-                contents: [{ uri, mimeType: "text/html", text: "<div>First App</div>" }],
+                contents: [
+                  { uri, mimeType: "text/html", text: "<div>First App</div>" },
+                ],
               },
               newMessages: [],
             };
@@ -646,7 +664,9 @@ describe("MCP Apps Activity Renderer E2E", () => {
           if (uri === "ui://second/app") {
             return {
               result: {
-                contents: [{ uri, mimeType: "text/html", text: "<div>Second App</div>" }],
+                contents: [
+                  { uri, mimeType: "text/html", text: "<div>Second App</div>" },
+                ],
               },
               newMessages: [],
             };
@@ -680,7 +700,7 @@ describe("MCP Apps Activity Renderer E2E", () => {
             resourceUri: "ui://first/app",
             serverHash: "first-hash",
           }),
-        })
+        }),
       );
 
       agent.emit(
@@ -691,7 +711,7 @@ describe("MCP Apps Activity Renderer E2E", () => {
             resourceUri: "ui://second/app",
             serverHash: "second-hash",
           }),
-        })
+        }),
       );
 
       agent.emit(runFinishedEvent());
@@ -701,10 +721,10 @@ describe("MCP Apps Activity Renderer E2E", () => {
       // so we verify both iframes are eventually created.
       await waitFor(
         () => {
-          const iframes = document.querySelectorAll('iframe[srcdoc]');
+          const iframes = document.querySelectorAll("iframe[srcdoc]");
           expect(iframes.length).toBe(2);
         },
-        { timeout: 2000 }
+        { timeout: 2000 },
       );
     });
   });
@@ -747,7 +767,7 @@ describe("MCP Apps Activity Renderer E2E", () => {
             resourceUri: "ui://test/text",
             serverHash: "text-hash",
           }),
-        })
+        }),
       );
       agent.emit(runFinishedEvent());
 
@@ -797,7 +817,7 @@ describe("MCP Apps Activity Renderer E2E", () => {
             resourceUri: "ui://test/blob",
             serverHash: "blob-hash",
           }),
-        })
+        }),
       );
       agent.emit(runFinishedEvent());
 
@@ -853,7 +873,7 @@ describe("MCP Apps Activity Renderer E2E", () => {
             resourceUri: "ui://test/empty",
             serverHash: "empty-hash",
           }),
-        })
+        }),
       );
       agent.emit(runFinishedEvent());
 
@@ -862,10 +882,10 @@ describe("MCP Apps Activity Renderer E2E", () => {
       // is never reached. This is a limitation of jsdom testing.
       await waitFor(
         () => {
-          const iframe = document.querySelector('iframe[srcdoc]');
+          const iframe = document.querySelector("iframe[srcdoc]");
           expect(iframe).not.toBeNull();
         },
-        { timeout: 2000 }
+        { timeout: 2000 },
       );
     });
   });
@@ -913,7 +933,7 @@ describe("MCP Apps Activity Renderer E2E", () => {
             resourceUri: "ui://test/bordered",
             serverHash: "bordered-hash",
           }),
-        })
+        }),
       );
       agent.emit(runFinishedEvent());
 
@@ -923,10 +943,10 @@ describe("MCP Apps Activity Renderer E2E", () => {
           // Loading should disappear
           expect(screen.queryByText("Loading...")).toBeNull();
           // Iframe should be created
-          const iframe = document.querySelector('iframe[srcdoc]');
+          const iframe = document.querySelector("iframe[srcdoc]");
           expect(iframe).not.toBeNull();
         },
-        { timeout: 3000 }
+        { timeout: 3000 },
       );
 
       // Note: Border styling is applied via inline styles based on prefersBorder metadata.
@@ -976,7 +996,7 @@ describe("MCP Apps Activity Renderer E2E", () => {
             resourceUri: "ui://test/borderless",
             serverHash: "borderless-hash",
           }),
-        })
+        }),
       );
       agent.emit(runFinishedEvent());
 

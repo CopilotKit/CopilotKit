@@ -7,7 +7,10 @@ export type CopilotChatToolCallsViewProps = {
   messages?: Message[];
 };
 
-export function CopilotChatToolCallsView({ message, messages = [] }: CopilotChatToolCallsViewProps) {
+export function CopilotChatToolCallsView({
+  message,
+  messages = [],
+}: CopilotChatToolCallsViewProps) {
   const { renderAllToolCalls } = useToolCallRenderer({ messages });
 
   if (!message.toolCalls || message.toolCalls.length === 0) {

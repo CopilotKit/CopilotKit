@@ -35,7 +35,7 @@ describe("CopilotChatAssistantMessage Slot System E2E Tests", () => {
               message={message}
               markdownRenderer="bg-blue-100 rounded-lg p-4"
             />
-          </TestWrapper>
+          </TestWrapper>,
         );
 
         const markdown = container.querySelector(".bg-blue-100");
@@ -53,7 +53,7 @@ describe("CopilotChatAssistantMessage Slot System E2E Tests", () => {
               message={message}
               toolbar="bg-gray-100 border-t"
             />
-          </TestWrapper>
+          </TestWrapper>,
         );
 
         const toolbar = container.querySelector(".bg-gray-100");
@@ -71,7 +71,7 @@ describe("CopilotChatAssistantMessage Slot System E2E Tests", () => {
               message={message}
               copyButton="text-green-500 hover:text-green-700"
             />
-          </TestWrapper>
+          </TestWrapper>,
         );
 
         const copyBtn = container.querySelector(".text-green-500");
@@ -90,7 +90,7 @@ describe("CopilotChatAssistantMessage Slot System E2E Tests", () => {
               onThumbsUp={onThumbsUp}
               thumbsUpButton="text-blue-500"
             />
-          </TestWrapper>
+          </TestWrapper>,
         );
 
         const thumbsUp = container.querySelector(".text-blue-500");
@@ -109,7 +109,7 @@ describe("CopilotChatAssistantMessage Slot System E2E Tests", () => {
               onThumbsDown={onThumbsDown}
               thumbsDownButton="text-red-500"
             />
-          </TestWrapper>
+          </TestWrapper>,
         );
 
         const thumbsDown = container.querySelector(".text-red-500");
@@ -128,7 +128,7 @@ describe("CopilotChatAssistantMessage Slot System E2E Tests", () => {
               onReadAloud={onReadAloud}
               readAloudButton="text-purple-500"
             />
-          </TestWrapper>
+          </TestWrapper>,
         );
 
         const readAloud = container.querySelector(".text-purple-500");
@@ -147,7 +147,7 @@ describe("CopilotChatAssistantMessage Slot System E2E Tests", () => {
               onRegenerate={onRegenerate}
               regenerateButton="text-orange-500"
             />
-          </TestWrapper>
+          </TestWrapper>,
         );
 
         const regenerate = container.querySelector(".text-orange-500");
@@ -173,7 +173,7 @@ describe("CopilotChatAssistantMessage Slot System E2E Tests", () => {
               message={message}
               toolCallsView="bg-yellow-50 p-2"
             />
-          </TestWrapper>
+          </TestWrapper>,
         );
 
         const toolCalls = container.querySelector(".bg-yellow-50");
@@ -198,7 +198,7 @@ describe("CopilotChatAssistantMessage Slot System E2E Tests", () => {
               message={message}
               markdownRenderer={{ "data-testid": "custom-markdown" }}
             />
-          </TestWrapper>
+          </TestWrapper>,
         );
 
         const markdown = screen.queryByTestId("custom-markdown");
@@ -216,7 +216,7 @@ describe("CopilotChatAssistantMessage Slot System E2E Tests", () => {
               message={message}
               toolbar={{ onClick, "data-testid": "custom-toolbar" }}
             />
-          </TestWrapper>
+          </TestWrapper>,
         );
 
         const toolbar = screen.queryByTestId("custom-toolbar");
@@ -237,7 +237,7 @@ describe("CopilotChatAssistantMessage Slot System E2E Tests", () => {
               message={message}
               copyButton={{ onClick: customOnClick }}
             />
-          </TestWrapper>
+          </TestWrapper>,
         );
 
         // Find copy button by aria-label
@@ -256,7 +256,7 @@ describe("CopilotChatAssistantMessage Slot System E2E Tests", () => {
               message={message}
               copyButton={{ disabled: true }}
             />
-          </TestWrapper>
+          </TestWrapper>,
         );
 
         const copyBtn = container.querySelector('button[aria-label*="Copy"]');
@@ -278,10 +278,12 @@ describe("CopilotChatAssistantMessage Slot System E2E Tests", () => {
               onThumbsUp={onThumbsUp}
               thumbsUpButton={{ onClick: customOnClick }}
             />
-          </TestWrapper>
+          </TestWrapper>,
         );
 
-        const thumbsUpBtn = container.querySelector('button[aria-label*="Thumbs up"]');
+        const thumbsUpBtn = container.querySelector(
+          'button[aria-label*="Thumbs up"]',
+        );
         if (thumbsUpBtn) {
           fireEvent.click(thumbsUpBtn);
           expect(customOnClick).toHaveBeenCalled();
@@ -301,10 +303,12 @@ describe("CopilotChatAssistantMessage Slot System E2E Tests", () => {
               onThumbsDown={onThumbsDown}
               thumbsDownButton={{ onClick: customOnClick }}
             />
-          </TestWrapper>
+          </TestWrapper>,
         );
 
-        const thumbsDownBtn = container.querySelector('button[aria-label*="Thumbs down"]');
+        const thumbsDownBtn = container.querySelector(
+          'button[aria-label*="Thumbs down"]',
+        );
         if (thumbsDownBtn) {
           fireEvent.click(thumbsDownBtn);
           expect(customOnClick).toHaveBeenCalled();
@@ -324,10 +328,12 @@ describe("CopilotChatAssistantMessage Slot System E2E Tests", () => {
               onReadAloud={onReadAloud}
               readAloudButton={{ onClick: customOnClick }}
             />
-          </TestWrapper>
+          </TestWrapper>,
         );
 
-        const readAloudBtn = container.querySelector('button[aria-label*="Read"]');
+        const readAloudBtn = container.querySelector(
+          'button[aria-label*="Read"]',
+        );
         if (readAloudBtn) {
           fireEvent.click(readAloudBtn);
           expect(customOnClick).toHaveBeenCalled();
@@ -347,10 +353,12 @@ describe("CopilotChatAssistantMessage Slot System E2E Tests", () => {
               onRegenerate={onRegenerate}
               regenerateButton={{ onClick: customOnClick }}
             />
-          </TestWrapper>
+          </TestWrapper>,
         );
 
-        const regenerateBtn = container.querySelector('button[aria-label*="Regenerate"]');
+        const regenerateBtn = container.querySelector(
+          'button[aria-label*="Regenerate"]',
+        );
         if (regenerateBtn) {
           fireEvent.click(regenerateBtn);
           expect(customOnClick).toHaveBeenCalled();
@@ -365,7 +373,9 @@ describe("CopilotChatAssistantMessage Slot System E2E Tests", () => {
   describe("3. Custom Component Receiving Sub-components", () => {
     it("should allow custom component for markdownRenderer", () => {
       const CustomMarkdown: React.FC<{ content: string }> = ({ content }) => (
-        <div data-testid="custom-markdown-component">{content.toUpperCase()}</div>
+        <div data-testid="custom-markdown-component">
+          {content.toUpperCase()}
+        </div>
       );
 
       const message = createAssistantMessage("hello");
@@ -375,7 +385,7 @@ describe("CopilotChatAssistantMessage Slot System E2E Tests", () => {
             message={message}
             markdownRenderer={CustomMarkdown as any}
           />
-        </TestWrapper>
+        </TestWrapper>,
       );
 
       const custom = screen.queryByTestId("custom-markdown-component");
@@ -384,7 +394,9 @@ describe("CopilotChatAssistantMessage Slot System E2E Tests", () => {
     });
 
     it("should allow custom component for toolbar", () => {
-      const CustomToolbar: React.FC<React.PropsWithChildren> = ({ children }) => (
+      const CustomToolbar: React.FC<React.PropsWithChildren> = ({
+        children,
+      }) => (
         <div data-testid="custom-toolbar-component">
           <span>Custom Toolbar:</span>
           {children}
@@ -398,7 +410,7 @@ describe("CopilotChatAssistantMessage Slot System E2E Tests", () => {
             message={message}
             toolbar={CustomToolbar as any}
           />
-        </TestWrapper>
+        </TestWrapper>,
       );
 
       const custom = screen.queryByTestId("custom-toolbar-component");
@@ -407,7 +419,9 @@ describe("CopilotChatAssistantMessage Slot System E2E Tests", () => {
     });
 
     it("should allow custom component for copyButton", () => {
-      const CustomCopyButton: React.FC<React.ButtonHTMLAttributes<HTMLButtonElement>> = (props) => (
+      const CustomCopyButton: React.FC<
+        React.ButtonHTMLAttributes<HTMLButtonElement>
+      > = (props) => (
         <button data-testid="custom-copy" {...props}>
           Custom Copy
         </button>
@@ -420,7 +434,7 @@ describe("CopilotChatAssistantMessage Slot System E2E Tests", () => {
             message={message}
             copyButton={CustomCopyButton as any}
           />
-        </TestWrapper>
+        </TestWrapper>,
       );
 
       const custom = screen.queryByTestId("custom-copy");
@@ -458,7 +472,7 @@ describe("CopilotChatAssistantMessage Slot System E2E Tests", () => {
           >
             {childrenFn}
           </CopilotChatAssistantMessage>
-        </TestWrapper>
+        </TestWrapper>,
       );
 
       expect(childrenFn).toHaveBeenCalled();
@@ -489,7 +503,7 @@ describe("CopilotChatAssistantMessage Slot System E2E Tests", () => {
           >
             {childrenFn}
           </CopilotChatAssistantMessage>
-        </TestWrapper>
+        </TestWrapper>,
       );
 
       const callArgs = childrenFn.mock.calls[0][0];
@@ -511,7 +525,7 @@ describe("CopilotChatAssistantMessage Slot System E2E Tests", () => {
             message={message}
             className="custom-root-class bg-custom"
           />
-        </TestWrapper>
+        </TestWrapper>,
       );
 
       const root = container.querySelector(".custom-root-class");
@@ -524,11 +538,8 @@ describe("CopilotChatAssistantMessage Slot System E2E Tests", () => {
       const message = createAssistantMessage("Hello");
       const { container } = render(
         <TestWrapper>
-          <CopilotChatAssistantMessage
-            message={message}
-            className="max-w-sm"
-          />
-        </TestWrapper>
+          <CopilotChatAssistantMessage message={message} className="max-w-sm" />
+        </TestWrapper>,
       );
 
       // max-w-sm should override the default max-w-full
@@ -546,7 +557,7 @@ describe("CopilotChatAssistantMessage Slot System E2E Tests", () => {
             toolbar="toolbar-custom"
             copyButton="copy-custom"
           />
-        </TestWrapper>
+        </TestWrapper>,
       );
 
       expect(container.querySelector(".root-custom")).toBeDefined();
@@ -576,7 +587,7 @@ describe("CopilotChatAssistantMessage Slot System E2E Tests", () => {
             thumbsUpButton="thumbs-up-style"
             thumbsDownButton="thumbs-down-style"
           />
-        </TestWrapper>
+        </TestWrapper>,
       );
 
       expect(container.querySelector(".markdown-style")).toBeDefined();
@@ -597,7 +608,7 @@ describe("CopilotChatAssistantMessage Slot System E2E Tests", () => {
             markdownRenderer="text-lg"
             toolbar={{ onClick, className: "flex gap-2" }}
           />
-        </TestWrapper>
+        </TestWrapper>,
       );
 
       expect(container.querySelector(".text-lg")).toBeDefined();

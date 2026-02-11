@@ -17,7 +17,12 @@ type InterruptProps = {
   resolve: (response: string) => void;
 };
 
-const InterruptRenderer: React.FC<InterruptProps> = ({ event, result, render, resolve }) => {
+const InterruptRenderer: React.FC<InterruptProps> = ({
+  event,
+  result,
+  render,
+  resolve,
+}) => {
   return render({ event, result, resolve });
 };
 
@@ -132,5 +137,11 @@ export function useLangGraphInterruptRender(
       render,
       resolve: resolveInterrupt,
     });
-  }, [interruptActions, interruptEventQueue, threadId, agentSession, handleResolve]);
+  }, [
+    interruptActions,
+    interruptEventQueue,
+    threadId,
+    agentSession,
+    handleResolve,
+  ]);
 }

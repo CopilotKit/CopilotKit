@@ -35,7 +35,7 @@ describe("CopilotChatSuggestionView Slot System E2E Tests", () => {
               suggestions={suggestions}
               container="flex gap-4 bg-blue-50 p-4"
             />
-          </TestWrapper>
+          </TestWrapper>,
         );
 
         const containerEl = container.querySelector(".bg-blue-50");
@@ -52,7 +52,7 @@ describe("CopilotChatSuggestionView Slot System E2E Tests", () => {
               suggestions={suggestions}
               container="custom-container-class"
             />
-          </TestWrapper>
+          </TestWrapper>,
         );
 
         const containerEl = container.querySelector(".custom-container-class");
@@ -69,7 +69,7 @@ describe("CopilotChatSuggestionView Slot System E2E Tests", () => {
               suggestions={suggestions}
               suggestion="bg-green-100 hover:bg-green-200 rounded-full"
             />
-          </TestWrapper>
+          </TestWrapper>,
         );
 
         const pills = container.querySelectorAll(".bg-green-100");
@@ -94,7 +94,7 @@ describe("CopilotChatSuggestionView Slot System E2E Tests", () => {
               suggestions={suggestions}
               container={{ "data-testid": "custom-container" }}
             />
-          </TestWrapper>
+          </TestWrapper>,
         );
 
         const containerEl = screen.queryByTestId("custom-container");
@@ -110,7 +110,7 @@ describe("CopilotChatSuggestionView Slot System E2E Tests", () => {
               suggestions={suggestions}
               container={{ onClick, "data-testid": "clickable-container" }}
             />
-          </TestWrapper>
+          </TestWrapper>,
         );
 
         const containerEl = screen.queryByTestId("clickable-container");
@@ -130,7 +130,7 @@ describe("CopilotChatSuggestionView Slot System E2E Tests", () => {
               suggestions={suggestions}
               suggestion={{ type: "submit" }}
             />
-          </TestWrapper>
+          </TestWrapper>,
         );
 
         const buttons = container.querySelectorAll('button[type="submit"]');
@@ -146,7 +146,7 @@ describe("CopilotChatSuggestionView Slot System E2E Tests", () => {
               suggestions={suggestions}
               suggestion={{ disabled: true }}
             />
-          </TestWrapper>
+          </TestWrapper>,
         );
 
         const buttons = container.querySelectorAll("button[disabled]");
@@ -164,7 +164,7 @@ describe("CopilotChatSuggestionView Slot System E2E Tests", () => {
               suggestions={suggestions}
               onSelectSuggestion={onSelectSuggestion}
             />
-          </TestWrapper>
+          </TestWrapper>,
         );
 
         const firstSuggestion = screen.getByText("Suggestion 1");
@@ -181,7 +181,7 @@ describe("CopilotChatSuggestionView Slot System E2E Tests", () => {
               suggestions={suggestions}
               onSelectSuggestion={onSelectSuggestion}
             />
-          </TestWrapper>
+          </TestWrapper>,
         );
 
         const secondSuggestion = screen.getByText("Suggestion 2");
@@ -217,7 +217,7 @@ describe("CopilotChatSuggestionView Slot System E2E Tests", () => {
             suggestions={suggestions}
             container={CustomContainer as any}
           />
-        </TestWrapper>
+        </TestWrapper>,
       );
 
       const custom = screen.queryByTestId("custom-container-component");
@@ -247,7 +247,7 @@ describe("CopilotChatSuggestionView Slot System E2E Tests", () => {
             suggestions={suggestions}
             suggestion={CustomSuggestionPill as any}
           />
-        </TestWrapper>
+        </TestWrapper>,
       );
 
       const customPills = screen.queryAllByTestId("custom-pill");
@@ -276,7 +276,7 @@ describe("CopilotChatSuggestionView Slot System E2E Tests", () => {
             suggestions={suggestions}
             suggestion={CustomSuggestionPill as any}
           />
-        </TestWrapper>
+        </TestWrapper>,
       );
 
       const pills = screen.queryAllByTestId("custom-pill");
@@ -304,7 +304,7 @@ describe("CopilotChatSuggestionView Slot System E2E Tests", () => {
           <CopilotChatSuggestionView suggestions={suggestions}>
             {childrenFn}
           </CopilotChatSuggestionView>
-        </TestWrapper>
+        </TestWrapper>,
       );
 
       expect(childrenFn).toHaveBeenCalled();
@@ -326,7 +326,7 @@ describe("CopilotChatSuggestionView Slot System E2E Tests", () => {
           <CopilotChatSuggestionView suggestions={suggestions}>
             {childrenFn}
           </CopilotChatSuggestionView>
-        </TestWrapper>
+        </TestWrapper>,
       );
 
       const callArgs = childrenFn.mock.calls[0][0];
@@ -347,7 +347,7 @@ describe("CopilotChatSuggestionView Slot System E2E Tests", () => {
           >
             {childrenFn}
           </CopilotChatSuggestionView>
-        </TestWrapper>
+        </TestWrapper>,
       );
 
       const callArgs = childrenFn.mock.calls[0][0];
@@ -372,7 +372,7 @@ describe("CopilotChatSuggestionView Slot System E2E Tests", () => {
               </div>
             )}
           </CopilotChatSuggestionView>
-        </TestWrapper>
+        </TestWrapper>,
       );
 
       const customLayout = screen.queryByTestId("custom-layout");
@@ -394,7 +394,7 @@ describe("CopilotChatSuggestionView Slot System E2E Tests", () => {
             suggestions={suggestions}
             className="custom-root-class mt-4"
           />
-        </TestWrapper>
+        </TestWrapper>,
       );
 
       const containerEl = container.querySelector(".custom-root-class");
@@ -411,7 +411,7 @@ describe("CopilotChatSuggestionView Slot System E2E Tests", () => {
             className="root-class"
             container="container-class"
           />
-        </TestWrapper>
+        </TestWrapper>,
       );
 
       // Both classes should be present
@@ -429,7 +429,7 @@ describe("CopilotChatSuggestionView Slot System E2E Tests", () => {
             suggestions={suggestions}
             container="pointer-events-auto"
           />
-        </TestWrapper>
+        </TestWrapper>,
       );
 
       const containerEl = container.querySelector(".pointer-events-auto");
@@ -453,7 +453,7 @@ describe("CopilotChatSuggestionView Slot System E2E Tests", () => {
             container="container-style"
             suggestion="suggestion-style"
           />
-        </TestWrapper>
+        </TestWrapper>,
       );
 
       expect(container.querySelector(".container-style")).toBeDefined();
@@ -468,7 +468,7 @@ describe("CopilotChatSuggestionView Slot System E2E Tests", () => {
             suggestions={suggestions}
             loadingIndexes={[1]}
           />
-        </TestWrapper>
+        </TestWrapper>,
       );
 
       // The second suggestion should show loading state
@@ -481,7 +481,7 @@ describe("CopilotChatSuggestionView Slot System E2E Tests", () => {
       const { container } = render(
         <TestWrapper>
           <CopilotChatSuggestionView suggestions={[]} />
-        </TestWrapper>
+        </TestWrapper>,
       );
 
       // Container should exist but have no suggestion pills
@@ -497,7 +497,7 @@ describe("CopilotChatSuggestionView Slot System E2E Tests", () => {
       render(
         <TestWrapper>
           <CopilotChatSuggestionView suggestions={suggestions} />
-        </TestWrapper>
+        </TestWrapper>,
       );
 
       expect(screen.getByText("Only One")).toBeDefined();
@@ -514,7 +514,7 @@ describe("CopilotChatSuggestionView Slot System E2E Tests", () => {
             container={{ onClick, className: "flex gap-2" }}
             suggestion="pill-style"
           />
-        </TestWrapper>
+        </TestWrapper>,
       );
 
       expect(container.querySelector(".flex.gap-2")).toBeDefined();

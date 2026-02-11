@@ -2,12 +2,16 @@ import React, { useEffect, useReducer } from "react";
 import { WithSlots, renderSlot, isReactComponentType } from "@/lib/slots";
 import CopilotChatAssistantMessage from "./CopilotChatAssistantMessage";
 import CopilotChatUserMessage from "./CopilotChatUserMessage";
-import { ActivityMessage, AssistantMessage, Message, UserMessage } from "@ag-ui/core";
+import {
+  ActivityMessage,
+  AssistantMessage,
+  Message,
+  UserMessage,
+} from "@ag-ui/core";
 import { twMerge } from "tailwind-merge";
 import { useRenderActivityMessage, useRenderCustomMessages } from "@/hooks";
 import { useCopilotKit } from "@/providers/CopilotKitProvider";
 import { useCopilotChatConfiguration } from "@/providers/CopilotChatConfigurationProvider";
-
 
 /**
  * Memoized wrapper for assistant messages to prevent re-renders when other messages change.
@@ -24,7 +28,9 @@ const MemoizedAssistantMessage = React.memo(
     messages: Message[];
     isRunning: boolean;
     AssistantMessageComponent: typeof CopilotChatAssistantMessage;
-    slotProps?: Partial<React.ComponentProps<typeof CopilotChatAssistantMessage>>;
+    slotProps?: Partial<
+      React.ComponentProps<typeof CopilotChatAssistantMessage>
+    >;
   }) {
     return (
       <AssistantMessageComponent
@@ -50,20 +56,21 @@ const MemoizedAssistantMessage = React.memo(
         const nextTc = nextToolCalls[i];
         if (!prevTc || !nextTc) return false;
         if (prevTc.id !== nextTc.id) return false;
-        if (prevTc.function.arguments !== nextTc.function.arguments) return false;
+        if (prevTc.function.arguments !== nextTc.function.arguments)
+          return false;
       }
     }
 
     // Check if tool results changed for this message's tool calls
     // Tool results are separate messages with role="tool" that reference tool call IDs
     if (prevToolCalls && prevToolCalls.length > 0) {
-      const toolCallIds = new Set(prevToolCalls.map(tc => tc.id));
+      const toolCallIds = new Set(prevToolCalls.map((tc) => tc.id));
 
       const prevToolResults = prevProps.messages.filter(
-        m => m.role === "tool" && toolCallIds.has((m as any).toolCallId)
+        (m) => m.role === "tool" && toolCallIds.has((m as any).toolCallId),
       );
       const nextToolResults = nextProps.messages.filter(
-        m => m.role === "tool" && toolCallIds.has((m as any).toolCallId)
+        (m) => m.role === "tool" && toolCallIds.has((m as any).toolCallId),
       );
 
       // If number of tool results changed, re-render
@@ -71,23 +78,34 @@ const MemoizedAssistantMessage = React.memo(
 
       // If any tool result content changed, re-render
       for (let i = 0; i < prevToolResults.length; i++) {
-        if ((prevToolResults[i] as any).content !== (nextToolResults[i] as any).content) return false;
+        if (
+          (prevToolResults[i] as any).content !==
+          (nextToolResults[i] as any).content
+        )
+          return false;
       }
     }
 
     // Only care about isRunning if this message is CURRENTLY the latest
     // (we don't need to re-render just because a message stopped being the latest)
-    const nextIsLatest = nextProps.messages[nextProps.messages.length - 1]?.id === nextProps.message.id;
-    if (nextIsLatest && prevProps.isRunning !== nextProps.isRunning) return false;
+    const nextIsLatest =
+      nextProps.messages[nextProps.messages.length - 1]?.id ===
+      nextProps.message.id;
+    if (nextIsLatest && prevProps.isRunning !== nextProps.isRunning)
+      return false;
 
     // Check if component reference changed
-    if (prevProps.AssistantMessageComponent !== nextProps.AssistantMessageComponent) return false;
+    if (
+      prevProps.AssistantMessageComponent !==
+      nextProps.AssistantMessageComponent
+    )
+      return false;
 
     // Check if slot props changed
     if (prevProps.slotProps !== nextProps.slotProps) return false;
 
     return true;
-  }
+  },
 );
 
 /**
@@ -109,11 +127,12 @@ const MemoizedUserMessage = React.memo(
     // Only re-render if this specific message changed
     if (prevProps.message.id !== nextProps.message.id) return false;
     if (prevProps.message.content !== nextProps.message.content) return false;
-    if (prevProps.UserMessageComponent !== nextProps.UserMessageComponent) return false;
+    if (prevProps.UserMessageComponent !== nextProps.UserMessageComponent)
+      return false;
     // Check if slot props changed
     if (prevProps.slotProps !== nextProps.slotProps) return false;
     return true;
-  }
+  },
 );
 
 /**
@@ -125,7 +144,9 @@ const MemoizedActivityMessage = React.memo(
     renderActivityMessage,
   }: {
     message: ActivityMessage;
-    renderActivityMessage: (message: ActivityMessage) => React.ReactElement | null;
+    renderActivityMessage: (
+      message: ActivityMessage,
+    ) => React.ReactElement | null;
   }) {
     return renderActivityMessage(message);
   },
@@ -134,13 +155,18 @@ const MemoizedActivityMessage = React.memo(
     if (prevProps.message.id !== nextProps.message.id) return false;
 
     // Activity type changed = must re-render
-    if (prevProps.message.activityType !== nextProps.message.activityType) return false;
+    if (prevProps.message.activityType !== nextProps.message.activityType)
+      return false;
 
     // Compare content using JSON.stringify (native code, handles deep comparison)
-    if (JSON.stringify(prevProps.message.content) !== JSON.stringify(nextProps.message.content)) return false;
+    if (
+      JSON.stringify(prevProps.message.content) !==
+      JSON.stringify(nextProps.message.content)
+    )
+      return false;
 
     return true;
-  }
+  },
 );
 
 /**
@@ -154,7 +180,10 @@ const MemoizedCustomMessage = React.memo(
   }: {
     message: Message;
     position: "before" | "after";
-    renderCustomMessage: (params: { message: Message; position: "before" | "after" }) => React.ReactElement | null;
+    renderCustomMessage: (params: {
+      message: Message;
+      position: "before" | "after";
+    }) => React.ReactElement | null;
     stateSnapshot?: unknown;
   }) {
     return renderCustomMessage({ message, position });
@@ -167,11 +196,15 @@ const MemoizedCustomMessage = React.memo(
     if (prevProps.message.content !== nextProps.message.content) return false;
     if (prevProps.message.role !== nextProps.message.role) return false;
     // Compare state snapshot - custom renderers may depend on state
-    if (JSON.stringify(prevProps.stateSnapshot) !== JSON.stringify(nextProps.stateSnapshot)) return false;
+    if (
+      JSON.stringify(prevProps.stateSnapshot) !==
+      JSON.stringify(nextProps.stateSnapshot)
+    )
+      return false;
     // Note: We don't compare renderCustomMessage function reference because it changes
     // frequently. The message and state comparison is sufficient to determine if a re-render is needed.
     return true;
-  }
+  },
 );
 
 export type CopilotChatMessageViewProps = Omit<
@@ -227,10 +260,20 @@ export function CopilotChatMessageView({
   const getStateSnapshotForMessage = (messageId: string): unknown => {
     if (!config) return undefined;
     const resolvedRunId =
-      copilotkit.getRunIdForMessage(config.agentId, config.threadId, messageId) ??
-      copilotkit.getRunIdsForThread(config.agentId, config.threadId).slice(-1)[0];
+      copilotkit.getRunIdForMessage(
+        config.agentId,
+        config.threadId,
+        messageId,
+      ) ??
+      copilotkit
+        .getRunIdsForThread(config.agentId, config.threadId)
+        .slice(-1)[0];
     if (!resolvedRunId) return undefined;
-    return copilotkit.getStateByRun(config.agentId, config.threadId, resolvedRunId);
+    return copilotkit.getStateByRun(
+      config.agentId,
+      config.threadId,
+      resolvedRunId,
+    );
   };
 
   const messageElements: React.ReactElement[] = messages
@@ -247,7 +290,7 @@ export function CopilotChatMessageView({
             position="before"
             renderCustomMessage={renderCustomMessage}
             stateSnapshot={stateSnapshot}
-          />
+          />,
         );
       }
 
@@ -255,17 +298,22 @@ export function CopilotChatMessageView({
       if (message.role === "assistant") {
         // Determine the component and props from slot value
         let AssistantComponent = CopilotChatAssistantMessage;
-        let assistantSlotProps: Partial<React.ComponentProps<typeof CopilotChatAssistantMessage>> | undefined;
+        let assistantSlotProps:
+          | Partial<React.ComponentProps<typeof CopilotChatAssistantMessage>>
+          | undefined;
 
         if (isReactComponentType(assistantMessage)) {
           // Custom component (function, forwardRef, memo, etc.)
-          AssistantComponent = assistantMessage as typeof CopilotChatAssistantMessage;
+          AssistantComponent =
+            assistantMessage as typeof CopilotChatAssistantMessage;
         } else if (typeof assistantMessage === "string") {
           // className string
           assistantSlotProps = { className: assistantMessage };
         } else if (assistantMessage && typeof assistantMessage === "object") {
           // Props object
-          assistantSlotProps = assistantMessage as Partial<React.ComponentProps<typeof CopilotChatAssistantMessage>>;
+          assistantSlotProps = assistantMessage as Partial<
+            React.ComponentProps<typeof CopilotChatAssistantMessage>
+          >;
         }
 
         elements.push(
@@ -276,12 +324,14 @@ export function CopilotChatMessageView({
             isRunning={isRunning}
             AssistantMessageComponent={AssistantComponent}
             slotProps={assistantSlotProps}
-          />
+          />,
         );
       } else if (message.role === "user") {
         // Determine the component and props from slot value
         let UserComponent = CopilotChatUserMessage;
-        let userSlotProps: Partial<React.ComponentProps<typeof CopilotChatUserMessage>> | undefined;
+        let userSlotProps:
+          | Partial<React.ComponentProps<typeof CopilotChatUserMessage>>
+          | undefined;
 
         if (isReactComponentType(userMessage)) {
           // Custom component (function, forwardRef, memo, etc.)
@@ -291,7 +341,9 @@ export function CopilotChatMessageView({
           userSlotProps = { className: userMessage };
         } else if (userMessage && typeof userMessage === "object") {
           // Props object
-          userSlotProps = userMessage as Partial<React.ComponentProps<typeof CopilotChatUserMessage>>;
+          userSlotProps = userMessage as Partial<
+            React.ComponentProps<typeof CopilotChatUserMessage>
+          >;
         }
 
         elements.push(
@@ -300,7 +352,7 @@ export function CopilotChatMessageView({
             message={message as UserMessage}
             UserMessageComponent={UserComponent}
             slotProps={userSlotProps}
-          />
+          />,
         );
       } else if (message.role === "activity") {
         // Use memoized wrapper to prevent re-renders when other messages change
@@ -310,7 +362,7 @@ export function CopilotChatMessageView({
             key={message.id}
             message={activityMsg}
             renderActivityMessage={renderActivityMessage}
-          />
+          />,
         );
       }
 
@@ -323,7 +375,7 @@ export function CopilotChatMessageView({
             position="after"
             renderCustomMessage={renderCustomMessage}
             stateSnapshot={stateSnapshot}
-          />
+          />,
         );
       }
 
@@ -343,10 +395,16 @@ export function CopilotChatMessageView({
   );
 }
 
-CopilotChatMessageView.Cursor = function Cursor({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
+CopilotChatMessageView.Cursor = function Cursor({
+  className,
+  ...props
+}: React.HTMLAttributes<HTMLDivElement>) {
   return (
     <div
-      className={twMerge("w-[11px] h-[11px] rounded-full bg-foreground animate-pulse-cursor ml-1", className)}
+      className={twMerge(
+        "w-[11px] h-[11px] rounded-full bg-foreground animate-pulse-cursor ml-1",
+        className,
+      )}
       {...props}
     />
   );

@@ -21,7 +21,11 @@ import {
   Subject,
 } from "rxjs";
 import { ActionInput } from "../graphql/inputs/action.input";
-import { ActionExecutionMessage, ResultMessage, TextMessage } from "../graphql/types/converted";
+import {
+  ActionExecutionMessage,
+  ResultMessage,
+  TextMessage,
+} from "../graphql/types/converted";
 import { GuardrailsResult } from "../graphql/types/guardrails-result.type";
 import { generateHelpfulErrorMessage } from "../lib/streaming";
 import telemetry from "../lib/telemetry-client";
@@ -55,7 +59,10 @@ export type RunTimeMetaEvent =
   | {
       type: RuntimeEventTypes.MetaEvent;
       name: RuntimeMetaEventName.CopilotKitLangGraphInterruptEvent;
-      data: { value: string; messages: (TextMessage | ActionExecutionMessage | ResultMessage)[] };
+      data: {
+        value: string;
+        messages: (TextMessage | ActionExecutionMessage | ResultMessage)[];
+      };
     }
   | {
       type: RuntimeEventTypes.MetaEvent;
@@ -70,7 +77,11 @@ export type RuntimeErrorEvent = {
 };
 
 export type RuntimeEvent =
-  | { type: RuntimeEventTypes.TextMessageStart; messageId: string; parentMessageId?: string }
+  | {
+      type: RuntimeEventTypes.TextMessageStart;
+      messageId: string;
+      parentMessageId?: string;
+    }
   | {
       type: RuntimeEventTypes.TextMessageContent;
       messageId: string;
@@ -83,7 +94,11 @@ export type RuntimeEvent =
       actionName: string;
       parentMessageId?: string;
     }
-  | { type: RuntimeEventTypes.ActionExecutionArgs; actionExecutionId: string; args: string }
+  | {
+      type: RuntimeEventTypes.ActionExecutionArgs;
+      actionExecutionId: string;
+      args: string;
+    }
   | { type: RuntimeEventTypes.ActionExecutionEnd; actionExecutionId: string }
   | {
       type: RuntimeEventTypes.ActionExecutionResult;
@@ -128,11 +143,25 @@ export class RuntimeEventSubject extends ReplaySubject<RuntimeEvent> {
     messageId: string;
     parentMessageId?: string;
   }) {
-    this.next({ type: RuntimeEventTypes.TextMessageStart, messageId, parentMessageId });
+    this.next({
+      type: RuntimeEventTypes.TextMessageStart,
+      messageId,
+      parentMessageId,
+    });
   }
 
-  sendTextMessageContent({ messageId, content }: { messageId: string; content: string }) {
-    this.next({ type: RuntimeEventTypes.TextMessageContent, content, messageId });
+  sendTextMessageContent({
+    messageId,
+    content,
+  }: {
+    messageId: string;
+    content: string;
+  }) {
+    this.next({
+      type: RuntimeEventTypes.TextMessageContent,
+      content,
+      messageId,
+    });
   }
 
   sendTextMessageEnd({ messageId }: { messageId: string }) {
@@ -169,11 +198,18 @@ export class RuntimeEventSubject extends ReplaySubject<RuntimeEvent> {
     actionExecutionId: string;
     args: string;
   }) {
-    this.next({ type: RuntimeEventTypes.ActionExecutionArgs, args, actionExecutionId });
+    this.next({
+      type: RuntimeEventTypes.ActionExecutionArgs,
+      args,
+      actionExecutionId,
+    });
   }
 
   sendActionExecutionEnd({ actionExecutionId }: { actionExecutionId: string }) {
-    this.next({ type: RuntimeEventTypes.ActionExecutionEnd, actionExecutionId });
+    this.next({
+      type: RuntimeEventTypes.ActionExecutionEnd,
+      actionExecutionId,
+    });
   }
 
   sendActionExecution({
@@ -187,7 +223,11 @@ export class RuntimeEventSubject extends ReplaySubject<RuntimeEvent> {
     args: string;
     parentMessageId?: string;
   }) {
-    this.sendActionExecutionStart({ actionExecutionId, actionName, parentMessageId });
+    this.sendActionExecutionStart({
+      actionExecutionId,
+      actionName,
+      parentMessageId,
+    });
     this.sendActionExecutionArgs({ actionExecutionId, args });
     this.sendActionExecutionEnd({ actionExecutionId });
   }
@@ -265,7 +305,10 @@ export class RuntimeEventSource {
 
 function convertStreamingErrorToStructured(error: any): CopilotKitError {
   // Determine a more helpful error message based on context
-  let helpfulMessage = generateHelpfulErrorMessage(error, "event streaming connection");
+  let helpfulMessage = generateHelpfulErrorMessage(
+    error,
+    "event streaming connection",
+  );
 
   // For network-related errors, use CopilotKitLowLevelError to preserve the original error
   if (

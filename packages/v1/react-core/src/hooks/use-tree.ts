@@ -15,7 +15,11 @@ export type Tree = TreeNode[];
 
 export interface UseTreeReturn {
   tree: Tree;
-  addElement: (value: string, categories: string[], parentId?: TreeNodeId) => TreeNodeId;
+  addElement: (
+    value: string,
+    categories: string[],
+    parentId?: TreeNodeId,
+  ) => TreeNodeId;
   printTree: (categories: string[]) => string;
   removeElement: (id: TreeNodeId) => void;
   getAllElements: () => Tree;
@@ -44,7 +48,11 @@ const removeNode = (nodes: Tree, id: TreeNodeId): Tree => {
   }, []);
 };
 
-const addNode = (nodes: Tree, newNode: TreeNode, parentId?: TreeNodeId): Tree => {
+const addNode = (
+  nodes: Tree,
+  newNode: TreeNode,
+  parentId?: TreeNodeId,
+): Tree => {
   if (!parentId) {
     return [...nodes, newNode];
   }
@@ -58,7 +66,10 @@ const addNode = (nodes: Tree, newNode: TreeNode, parentId?: TreeNodeId): Tree =>
   });
 };
 
-const treeIndentationRepresentation = (index: number, indentLevel: number): string => {
+const treeIndentationRepresentation = (
+  index: number,
+  indentLevel: number,
+): string => {
   if (indentLevel === 0) {
     return (index + 1).toString();
   } else if (indentLevel === 1) {
@@ -182,7 +193,10 @@ const useTree = (): UseTreeReturn => {
           output += "\n";
         }
 
-        output += printNode(node, `${treeIndentationRepresentation(index, 0)}. `);
+        output += printNode(
+          node,
+          `${treeIndentationRepresentation(index, 0)}. `,
+        );
       });
       return output;
     },
@@ -195,7 +209,8 @@ const useTree = (): UseTreeReturn => {
 export default useTree;
 
 function setsHaveIntersection<T>(setA: Set<T>, setB: Set<T>): boolean {
-  const [smallerSet, largerSet] = setA.size <= setB.size ? [setA, setB] : [setB, setA];
+  const [smallerSet, largerSet] =
+    setA.size <= setB.size ? [setA, setB] : [setB, setA];
 
   for (let item of smallerSet) {
     if (largerSet.has(item)) {

@@ -1,5 +1,9 @@
 import { Button } from "@/components/ui/button";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { useTrips } from "@/lib/hooks/use-trips";
 import { Plus, MapPin } from "lucide-react";
 import {
@@ -24,8 +28,8 @@ export function AddPlace({ map }: { map: Map }) {
 
   const handleStartPlacing = () => {
     setIsPlacing(true);
-    map.getContainer().style.cursor = 'crosshair';
-    
+    map.getContainer().style.cursor = "crosshair";
+
     const clickHandler = (e: any) => {
       const latlng = e.latlng;
       if (marker) {
@@ -34,25 +38,25 @@ export function AddPlace({ map }: { map: Map }) {
       const newMarker = new Marker(latlng).addTo(map);
       setMarker(newMarker);
       setPosition([latlng.lat, latlng.lng]);
-      map.getContainer().style.cursor = '';
-      map.off('click', clickHandler);
+      map.getContainer().style.cursor = "";
+      map.off("click", clickHandler);
       setIsPlacing(false);
       setOpen(true);
     };
-    
-    map.on('click', clickHandler);
+
+    map.on("click", clickHandler);
   };
 
   const handleStopPlacing = () => {
     setIsPlacing(false);
-    map.getContainer().style.cursor = '';
+    map.getContainer().style.cursor = "";
   };
 
   const handleAddPlace = (place: Place) => {
     if (!position) return;
-    
+
     const [latitude, longitude] = position;
-    const newPlace = { 
+    const newPlace = {
       ...place,
       latitude,
       longitude,
@@ -72,16 +76,20 @@ export function AddPlace({ map }: { map: Map }) {
     <>
       <Tooltip delayDuration={0}>
         <TooltipTrigger asChild>
-          <Button 
-            size="icon" 
-            className={`bg-white text-black hover:bg-white/80 ring-2 ring-border shadow-xl border-black rounded-full ${isPlacing ? 'ring-2 ring-primary' : ''}`}
+          <Button
+            size="icon"
+            className={`bg-white text-black hover:bg-white/80 ring-2 ring-border shadow-xl border-black rounded-full ${isPlacing ? "ring-2 ring-primary" : ""}`}
             onClick={isPlacing ? handleStopPlacing : handleStartPlacing}
           >
-            {isPlacing ? <MapPin className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+            {isPlacing ? (
+              <MapPin className="w-4 h-4" />
+            ) : (
+              <Plus className="w-4 h-4" />
+            )}
           </Button>
         </TooltipTrigger>
         <TooltipContent side="left">
-          {isPlacing ? 'Click on map to place marker' : 'Add a place'}
+          {isPlacing ? "Click on map to place marker" : "Add a place"}
         </TooltipContent>
       </Tooltip>
 
@@ -93,9 +101,7 @@ export function AddPlace({ map }: { map: Map }) {
               Add a New Place
             </DialogTitle>
           </DialogHeader>
-          <PlaceForm 
-            onSubmit={handleAddPlace} 
-          />
+          <PlaceForm onSubmit={handleAddPlace} />
         </DialogContent>
       </Dialog>
     </>

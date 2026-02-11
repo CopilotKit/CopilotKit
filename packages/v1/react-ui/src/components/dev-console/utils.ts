@@ -25,25 +25,31 @@ export async function getPublishedCopilotKitVersion(
         return parsedVersion;
       }
     } catch (error) {
-      console.error("Failed to parse CopilotKitVersion from localStorage", error);
+      console.error(
+        "Failed to parse CopilotKitVersion from localStorage",
+        error,
+      );
     }
   }
 
   try {
-    const response = await fetch("https://api.cloud.copilotkit.ai/check-for-updates", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
+    const response = await fetch(
+      "https://api.cloud.copilotkit.ai/check-for-updates",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          packages: [
+            {
+              packageName: "@copilotkit/shared",
+              packageVersion: current,
+            },
+          ],
+        }),
       },
-      body: JSON.stringify({
-        packages: [
-          {
-            packageName: "@copilotkit/shared",
-            packageVersion: current,
-          },
-        ],
-      }),
-    });
+    );
 
     const data = await response.json();
 
@@ -66,7 +72,9 @@ export async function getPublishedCopilotKitVersion(
 export function logReadables(context: CopilotContextParams) {
   console.log("%cCurrent Readables:", "font-size: 16px; font-weight: bold;");
 
-  const readables = context.getContextString([], defaultCopilotContextCategories).trim();
+  const readables = context
+    .getContextString([], defaultCopilotContextCategories)
+    .trim();
   if (readables.length === 0) {
     console.log("No readables found");
     return;

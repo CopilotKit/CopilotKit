@@ -1,4 +1,9 @@
-import React, { useCallback, useMemo, useRef, useSyncExternalStore } from "react";
+import React, {
+  useCallback,
+  useMemo,
+  useRef,
+  useSyncExternalStore,
+} from "react";
 import { Message, ToolCall, ToolMessage } from "@ag-ui/core";
 import { ToolCallStatus } from "@copilotkitnext/core";
 import { useCopilotKit } from "@/providers/CopilotKitProvider";
@@ -30,7 +35,9 @@ export interface UseToolCallRendererResult {
   /**
    * Render a list of tool calls using renderToolCall.
    */
-  renderAllToolCalls: (toolCalls?: ToolCall[] | null) => Array<React.ReactElement | null> | null;
+  renderAllToolCalls: (
+    toolCalls?: ToolCall[] | null,
+  ) => Array<React.ReactElement | null> | null;
 }
 
 /**
@@ -46,7 +53,9 @@ export interface UseToolCallRendererProps {
  * - New API: Pass a ToolCall directly (requires messages in hook options)
  * - Legacy API: Pass an object with toolCall and optional toolMessage
  */
-export type RenderToolCallInput = ToolCall | { toolCall: ToolCall; toolMessage?: ToolMessage };
+export type RenderToolCallInput =
+  | ToolCall
+  | { toolCall: ToolCall; toolMessage?: ToolMessage };
 
 /**
  * Props for the memoized MemoizedToolCallRenderer component
@@ -71,27 +80,54 @@ const MemoizedToolCallRenderer = React.memo(
     isExecuting,
   }: MemoizedToolCallRendererProps) {
     // Memoize args based on the arguments string to maintain stable reference
-    const args = useMemo(() => partialJSONParse(toolCall.function.arguments), [toolCall.function.arguments]);
+    const args = useMemo(
+      () => partialJSONParse(toolCall.function.arguments),
+      [toolCall.function.arguments],
+    );
 
     const toolName = toolCall.function.name;
 
     // Render based on status to preserve discriminated union type inference
     if (toolMessage) {
       return (
-        <RenderComponent name={toolName} args={args} status={ToolCallStatus.Complete} result={toolMessage.content} />
+        <RenderComponent
+          name={toolName}
+          args={args}
+          status={ToolCallStatus.Complete}
+          result={toolMessage.content}
+        />
       );
     } else if (isExecuting) {
-      return <RenderComponent name={toolName} args={args} status={ToolCallStatus.Executing} result={undefined} />;
+      return (
+        <RenderComponent
+          name={toolName}
+          args={args}
+          status={ToolCallStatus.Executing}
+          result={undefined}
+        />
+      );
     } else {
-      return <RenderComponent name={toolName} args={args} status={ToolCallStatus.InProgress} result={undefined} />;
+      return (
+        <RenderComponent
+          name={toolName}
+          args={args}
+          status={ToolCallStatus.InProgress}
+          result={undefined}
+        />
+      );
     }
   },
   // Custom comparison function to prevent re-renders when tool call data hasn't changed
   (prevProps, nextProps) => {
     // Compare tool call identity and content
     if (prevProps.toolCall.id !== nextProps.toolCall.id) return false;
-    if (prevProps.toolCall.function.name !== nextProps.toolCall.function.name) return false;
-    if (prevProps.toolCall.function.arguments !== nextProps.toolCall.function.arguments) return false;
+    if (prevProps.toolCall.function.name !== nextProps.toolCall.function.name)
+      return false;
+    if (
+      prevProps.toolCall.function.arguments !==
+      nextProps.toolCall.function.arguments
+    )
+      return false;
 
     // Compare tool message (result)
     const prevResult = prevProps.toolMessage?.content;
@@ -126,7 +162,9 @@ const MemoizedToolCallRenderer = React.memo(
  * const toolMessage = messages.find((m) => m.role === "tool" && m.toolCallId === toolCall.id);
  * renderToolCall({ toolCall, toolMessage });
  */
-export function useToolCallRenderer(options?: UseToolCallRendererOptions): UseToolCallRendererResult {
+export function useToolCallRenderer(
+  options?: UseToolCallRendererOptions,
+): UseToolCallRendererResult {
   const { copilotkit, executingToolCallIds } = useCopilotKit();
   const config = useCopilotChatConfiguration();
   const agentId = config?.agentId ?? DEFAULT_AGENT_ID;
@@ -166,9 +204,9 @@ export function useToolCallRenderer(options?: UseToolCallRendererOptions): UseTo
 
       // Auto-find toolMessage from ref if not provided
       if (!toolMessage && messagesRef.current.length > 0) {
-        toolMessage = messagesRef.current.find((m) => m.role === "tool" && m.toolCallId === toolCall.id) as
-          | ToolMessage
-          | undefined;
+        toolMessage = messagesRef.current.find(
+          (m) => m.role === "tool" && m.toolCallId === toolCall.id,
+        ) as ToolMessage | undefined;
       }
       // Find the render config for this tool call by name
       // For rendering, we show all tool calls regardless of agentId
@@ -176,7 +214,9 @@ export function useToolCallRenderer(options?: UseToolCallRendererOptions): UseTo
       // Priority order:
       // 1. Exact match by name (prefer agent-specific if multiple exist)
       // 2. Wildcard (*) renderer
-      const exactMatches = toolCallRenderers.filter((rc) => rc.name === toolCall.function.name);
+      const exactMatches = toolCallRenderers.filter(
+        (rc) => rc.name === toolCall.function.name,
+      );
 
       // If multiple renderers with same name exist, prefer the one matching our agentId
       const renderConfig =
@@ -206,7 +246,9 @@ export function useToolCallRenderer(options?: UseToolCallRendererOptions): UseTo
     [toolCallRenderers, executingToolCallIds, agentId],
   );
 
-  const renderAllToolCalls = useCallback<UseToolCallRendererResult["renderAllToolCalls"]>(
+  const renderAllToolCalls = useCallback<
+    UseToolCallRendererResult["renderAllToolCalls"]
+  >(
     (toolCalls) => {
       if (!toolCalls?.length) {
         return null;

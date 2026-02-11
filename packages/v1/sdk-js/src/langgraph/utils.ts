@@ -1,6 +1,10 @@
 import { RunnableConfig } from "@langchain/core/runnables";
 import { dispatchCustomEvent } from "@langchain/core/callbacks/dispatch";
-import { convertJsonSchemaToZodSchema, randomId, CopilotKitMisuseError } from "@copilotkit/shared";
+import {
+  convertJsonSchemaToZodSchema,
+  randomId,
+  CopilotKitMisuseError,
+} from "@copilotkit/shared";
 import { interrupt } from "@langchain/langgraph";
 import { DynamicStructuredTool } from "@langchain/core/tools";
 import { AIMessage } from "@langchain/core/messages";
@@ -129,13 +133,16 @@ export function copilotkitCustomizeConfig(
     }
 
     if (options?.emitIntermediateState) {
-      const snakeCaseIntermediateState = options.emitIntermediateState.map((state) => ({
-        tool: state.tool,
-        tool_argument: state.toolArgument,
-        state_key: state.stateKey,
-      }));
+      const snakeCaseIntermediateState = options.emitIntermediateState.map(
+        (state) => ({
+          tool: state.tool,
+          tool_argument: state.toolArgument,
+          state_key: state.stateKey,
+        }),
+      );
 
-      metadata["copilotkit:emit-intermediate-state"] = snakeCaseIntermediateState;
+      metadata["copilotkit:emit-intermediate-state"] =
+        snakeCaseIntermediateState;
     }
 
     baseConfig = baseConfig || {};
@@ -223,7 +230,11 @@ export async function copilotkitEmitState(
   }
 
   try {
-    await dispatchCustomEvent("copilotkit_manually_emit_intermediate_state", state, config);
+    await dispatchCustomEvent(
+      "copilotkit_manually_emit_intermediate_state",
+      state,
+      config,
+    );
   } catch (error) {
     throw new CopilotKitMisuseError({
       message: `Failed to emit state: ${error instanceof Error ? error.message : String(error)}`,
@@ -315,7 +326,8 @@ export async function copilotkitEmitToolCall(
 
   if (!name || typeof name !== "string") {
     throw new CopilotKitMisuseError({
-      message: "Tool name must be a non-empty string for copilotkitEmitToolCall",
+      message:
+        "Tool name must be a non-empty string for copilotkitEmitToolCall",
     });
   }
 
@@ -338,7 +350,9 @@ export async function copilotkitEmitToolCall(
   }
 }
 
-export function convertActionToDynamicStructuredTool(actionInput: any): DynamicStructuredTool<any> {
+export function convertActionToDynamicStructuredTool(
+  actionInput: any,
+): DynamicStructuredTool<any> {
   if (!actionInput) {
     throw new CopilotKitMisuseError({
       message: "Action input is required but was not provided",

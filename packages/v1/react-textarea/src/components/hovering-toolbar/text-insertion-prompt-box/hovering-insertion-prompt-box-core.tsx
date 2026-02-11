@@ -33,13 +33,13 @@ export const HoveringInsertionPromptBoxCore = ({
   const { getDocumentsContext } = useCopilotContext();
 
   const [editSuggestion, setEditSuggestion] = useState<string>("");
-  const [suggestionIsLoading, setSuggestionIsLoading] = useState<boolean>(false);
+  const [suggestionIsLoading, setSuggestionIsLoading] =
+    useState<boolean>(false);
 
   const [adjustmentPrompt, setAdjustmentPrompt] = useState<string>("");
 
-  const [generatingSuggestion, setGeneratingSuggestion] = useState<ReadableStream<string> | null>(
-    null,
-  );
+  const [generatingSuggestion, setGeneratingSuggestion] =
+    useState<ReadableStream<string> | null>(null);
 
   const adjustmentTextAreaRef = useRef<HTMLTextAreaElement>(null);
   const suggestionTextAreaRef = useRef<HTMLTextAreaElement>(null);
@@ -88,7 +88,8 @@ export const HoveringInsertionPromptBoxCore = ({
 
           // Scroll to the bottom of the textarea. We call this here to make sure scroll-to-bottom is synchronous with the state update.
           if (suggestionTextAreaRef.current) {
-            suggestionTextAreaRef.current.scrollTop = suggestionTextAreaRef.current.scrollHeight;
+            suggestionTextAreaRef.current.scrollTop =
+              suggestionTextAreaRef.current.scrollHeight;
           }
           return newSuggestion;
         });
@@ -251,14 +252,19 @@ export const HoveringInsertionPromptBoxCore = ({
     <div className="w-full flex flex-col items-start relative gap-2">
       {AdjustmentPromptComponent}
       {filePointers.length > 0 && (
-        <IncludedFilesPreview includedFiles={filePointers} setIncludedFiles={setFilePointers} />
+        <IncludedFilesPreview
+          includedFiles={filePointers}
+          setIncludedFiles={setFilePointers}
+        />
       )}
       {sourceSearchWord !== undefined && (
         <SourceSearchBox
           searchTerm={sourceSearchWord}
           suggestedFiles={suggestedFiles}
           onSelectedFile={(filePointer) => {
-            setAdjustmentPrompt(adjustmentPrompt.replace(new RegExp(`@${sourceSearchWord}$`), ""));
+            setAdjustmentPrompt(
+              adjustmentPrompt.replace(new RegExp(`@${sourceSearchWord}$`), ""),
+            );
             setFilePointers((prev) => [...prev, filePointer]);
 
             // focus back on the adjustment prompt, and move the cursor to the end

@@ -66,7 +66,7 @@ describe("slot utils", () => {
 
       expect(ref).toBeTruthy();
       expect(
-        (ref as any).location.nativeElement.querySelector(".default")
+        (ref as any).location.nativeElement.querySelector(".default"),
       ).toBeTruthy();
     });
 
@@ -162,7 +162,7 @@ describe("slot utils", () => {
     it("creates slot configuration map with defaults", () => {
       const config = createSlotConfig(
         { button: CustomComponent },
-        { button: DefaultComponent, toolbar: DefaultComponent }
+        { button: DefaultComponent, toolbar: DefaultComponent },
       );
 
       expect(config.get("button")).toEqual({ component: CustomComponent });
@@ -188,11 +188,11 @@ describe("slot utils", () => {
       const parent = TestBed.inject(EnvironmentInjector);
       const env = createEnvironmentInjector(
         [provideSlots({ button: CustomComponent })],
-        parent
+        parent,
       );
 
       const renderer = runInInjectionContext(env, () =>
-        createSlotRenderer(DefaultComponent, "button")
+        createSlotRenderer(DefaultComponent, "button"),
       );
 
       @Component({
@@ -210,7 +210,7 @@ describe("slot utils", () => {
 
       const ref = renderer(fixture.componentInstance.container);
       expect(
-        (ref as any).location.nativeElement.querySelector(".custom")
+        (ref as any).location.nativeElement.querySelector(".custom"),
       ).toBeTruthy();
     });
   });

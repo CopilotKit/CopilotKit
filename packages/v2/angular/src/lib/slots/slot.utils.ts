@@ -40,7 +40,7 @@ import {
  */
 export function renderSlot<T = any>(
   viewContainer: ViewContainerRef,
-  options: RenderSlotOptions<T>
+  options: RenderSlotOptions<T>,
 ): ComponentRef<T> | EmbeddedViewRef<T> | null {
   const { slot, defaultComponent, props, injector, outputs } = options;
 
@@ -63,7 +63,7 @@ export function renderSlot<T = any>(
         effectiveSlot as Type<T>,
         props,
         effectiveInjector,
-        outputs
+        outputs,
       );
     } catch (error) {
       console.warn("Failed to create component:", effectiveSlot, error);
@@ -78,7 +78,7 @@ export function renderSlot<T = any>(
         defaultComponent,
         props,
         effectiveInjector,
-        outputs
+        outputs,
       )
     : null;
 }
@@ -91,7 +91,7 @@ function createComponent<T>(
   component: Type<T>,
   props?: Partial<T>,
   injector?: Injector,
-  outputs?: Record<string, (event: any) => void>
+  outputs?: Record<string, (event: any) => void>,
 ): ComponentRef<T> {
   const componentRef = viewContainer.createComponent(component, {
     injector,
@@ -159,7 +159,7 @@ export function isSlotValue(value: any): value is SlotValue {
  */
 export function normalizeSlotValue<T = any>(
   value: SlotValue<T> | undefined,
-  defaultComponent: Type<T> | undefined
+  defaultComponent: Type<T> | undefined,
 ): SlotRegistryEntry<T> {
   if (!value) {
     return { component: defaultComponent };
@@ -195,7 +195,7 @@ export function normalizeSlotValue<T = any>(
  */
 export function createSlotConfig<T extends Record<string, Type<any>>>(
   overrides: Partial<Record<keyof T, SlotValue>>,
-  defaults: T
+  defaults: T,
 ): Map<keyof T, SlotRegistryEntry> {
   const config = new Map<keyof T, SlotRegistryEntry>();
 
@@ -276,7 +276,7 @@ export function getSlotConfig(): ReadonlyMap<string, SlotRegistryEntry> | null {
  */
 export function createSlotRenderer<T>(
   defaultComponent: Type<T>,
-  slotName?: string
+  slotName?: string,
 ) {
   // Get config in the injection context when the renderer is created
   const config = slotName ? getSlotConfig() : null;
@@ -285,7 +285,7 @@ export function createSlotRenderer<T>(
     viewContainer: ViewContainerRef,
     slot?: SlotValue<T>,
     props?: Partial<T>,
-    outputs?: Record<string, (event: any) => void>
+    outputs?: Record<string, (event: any) => void>,
   ) => {
     // Check DI for overrides if slot name provided
     if (slotName && !slot && config) {

@@ -29,11 +29,11 @@ Uses [OpenAI Whisper](https://platform.openai.com/docs/guides/speech-to-text) fo
 
 ```typescript
 new TranscriptionServiceOpenAI({
-  openai: new OpenAI({ apiKey: "..." }),  // required
-  model: "whisper-1",                      // default
-  language: "en",                          // optional, ISO-639-1 code
-  prompt: "Technical discussion context",  // optional, helps with domain terms
-  temperature: 0,                          // optional, 0 = deterministic
+  openai: new OpenAI({ apiKey: "..." }), // required
+  model: "whisper-1", // default
+  language: "en", // optional, ISO-639-1 code
+  prompt: "Technical discussion context", // optional, helps with domain terms
+  temperature: 0, // optional, 0 = deterministic
 });
 ```
 
@@ -42,7 +42,10 @@ new TranscriptionServiceOpenAI({
 Extend `TranscriptionService` from runtime:
 
 ```typescript
-import { TranscriptionService, TranscribeFileOptions } from "@copilotkitnext/runtime";
+import {
+  TranscriptionService,
+  TranscribeFileOptions,
+} from "@copilotkitnext/runtime";
 
 class MyTranscriptionService extends TranscriptionService {
   async transcribeFile(options: TranscribeFileOptions): Promise<string> {

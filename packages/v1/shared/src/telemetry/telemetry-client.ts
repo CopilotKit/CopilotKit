@@ -12,9 +12,12 @@ import scarfClient from "./scarf-client";
  */
 export function isTelemetryDisabled(): boolean {
   return (
-    (process.env as Record<string, string | undefined>).COPILOTKIT_TELEMETRY_DISABLED === "true" ||
-    (process.env as Record<string, string | undefined>).COPILOTKIT_TELEMETRY_DISABLED === "1" ||
-    (process.env as Record<string, string | undefined>).DO_NOT_TRACK === "true" ||
+    (process.env as Record<string, string | undefined>)
+      .COPILOTKIT_TELEMETRY_DISABLED === "true" ||
+    (process.env as Record<string, string | undefined>)
+      .COPILOTKIT_TELEMETRY_DISABLED === "1" ||
+    (process.env as Record<string, string | undefined>).DO_NOT_TRACK ===
+      "true" ||
     (process.env as Record<string, string | undefined>).DO_NOT_TRACK === "1"
   );
 }
@@ -53,7 +56,9 @@ export class TelemetryClient {
     this.setSampleRate(sampleRate);
 
     // eslint-disable-next-line
-    const writeKey = process.env.COPILOTKIT_SEGMENT_WRITE_KEY || "n7XAZtQCGS2v1vvBy3LgBCv2h3Y8whja";
+    const writeKey =
+      process.env.COPILOTKIT_SEGMENT_WRITE_KEY ||
+      "n7XAZtQCGS2v1vvBy3LgBCv2h3Y8whja";
 
     this.segment = new Analytics({
       writeKey,
@@ -70,7 +75,10 @@ export class TelemetryClient {
     return randomNumber < this.sampleRate;
   }
 
-  async capture<K extends keyof AnalyticsEvents>(event: K, properties: AnalyticsEvents[K]) {
+  async capture<K extends keyof AnalyticsEvents>(
+    event: K,
+    properties: AnalyticsEvents[K],
+  ) {
     if (!this.shouldSendEvent() || !this.segment) {
       return;
     }
@@ -103,7 +111,10 @@ export class TelemetryClient {
 
   setGlobalProperties(properties: Record<string, any>) {
     const flattenedProperties = flattenObject(properties);
-    this.globalProperties = { ...this.globalProperties, ...flattenedProperties };
+    this.globalProperties = {
+      ...this.globalProperties,
+      ...flattenedProperties,
+    };
   }
 
   setCloudConfiguration(properties: { publicApiKey: string; baseUrl: string }) {

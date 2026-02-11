@@ -24,7 +24,10 @@ describe("useHumanInTheLoop E2E - HITL Tool Rendering", () => {
       const statusHistory: ToolCallStatus[] = [];
 
       const HITLComponent: React.FC = () => {
-        const hitlTool: ReactHumanInTheLoop<{ action: string; reason: string }> = {
+        const hitlTool: ReactHumanInTheLoop<{
+          action: string;
+          reason: string;
+        }> = {
           name: "approvalTool",
           description: "Requires human approval",
           parameters: z.object({
@@ -93,11 +96,13 @@ describe("useHumanInTheLoop E2E - HITL Tool Rendering", () => {
           toolCallName: "approvalTool",
           parentMessageId: messageId,
           delta: JSON.stringify({ action: "delete", reason: "cleanup" }),
-        })
+        }),
       );
 
       await waitFor(() => {
-        expect(screen.getByTestId("hitl-status").textContent).toBe(ToolCallStatus.InProgress);
+        expect(screen.getByTestId("hitl-status").textContent).toBe(
+          ToolCallStatus.InProgress,
+        );
         expect(screen.getByTestId("hitl-action").textContent).toBe("delete");
         expect(screen.getByTestId("hitl-reason").textContent).toBe("cleanup");
       });
@@ -106,13 +111,19 @@ describe("useHumanInTheLoop E2E - HITL Tool Rendering", () => {
       agent.complete();
 
       const approveButton = await screen.findByTestId("hitl-approve");
-      expect(screen.getByTestId("hitl-status").textContent).toBe(ToolCallStatus.Executing);
+      expect(screen.getByTestId("hitl-status").textContent).toBe(
+        ToolCallStatus.Executing,
+      );
 
       fireEvent.click(approveButton);
 
       await waitFor(() => {
-        expect(screen.getByTestId("hitl-status").textContent).toBe(ToolCallStatus.Complete);
-        expect(screen.getByTestId("hitl-result").textContent).toContain("approved");
+        expect(screen.getByTestId("hitl-status").textContent).toBe(
+          ToolCallStatus.Complete,
+        );
+        expect(screen.getByTestId("hitl-result").textContent).toContain(
+          "approved",
+        );
         // Also wait for the useEffect to update statusHistory
         expect(statusHistory).toEqual([
           ToolCallStatus.InProgress,
@@ -129,7 +140,10 @@ describe("useHumanInTheLoop E2E - HITL Tool Rendering", () => {
       const respondSelections: string[] = [];
 
       const InteractiveHITLComponent: React.FC = () => {
-        const hitlTool: ReactHumanInTheLoop<{ question: string; options: string[] }> = {
+        const hitlTool: ReactHumanInTheLoop<{
+          question: string;
+          options: string[];
+        }> = {
           name: "interactiveTool",
           description: "Interactive human-in-the-loop tool",
           parameters: z.object({
@@ -140,8 +154,12 @@ describe("useHumanInTheLoop E2E - HITL Tool Rendering", () => {
             <div data-testid="interactive-hitl">
               <div data-testid="interactive-name">{name}</div>
               <div data-testid="interactive-status">{status}</div>
-              <div data-testid="interactive-question">{args.question ?? ""}</div>
-              <div data-testid="interactive-options">{args.options?.join(", ") ?? ""}</div>
+              <div data-testid="interactive-question">
+                {args.question ?? ""}
+              </div>
+              <div data-testid="interactive-options">
+                {args.options?.join(", ") ?? ""}
+              </div>
 
               {status === ToolCallStatus.Executing && respond && (
                 <div data-testid="respond-section">
@@ -208,15 +226,19 @@ describe("useHumanInTheLoop E2E - HITL Tool Rendering", () => {
             question: "Proceed with operation?",
             options: ["yes", "no"],
           }),
-        })
+        }),
       );
 
       await waitFor(() => {
-        expect(screen.getByTestId("interactive-question").textContent).toContain(
-          "Proceed with operation?"
+        expect(
+          screen.getByTestId("interactive-question").textContent,
+        ).toContain("Proceed with operation?");
+        expect(screen.getByTestId("interactive-options").textContent).toContain(
+          "yes",
         );
-        expect(screen.getByTestId("interactive-options").textContent).toContain("yes");
-        expect(screen.getByTestId("interactive-options").textContent).toContain("no");
+        expect(screen.getByTestId("interactive-options").textContent).toContain(
+          "no",
+        );
       });
 
       agent.emit(runFinishedEvent());
@@ -224,7 +246,7 @@ describe("useHumanInTheLoop E2E - HITL Tool Rendering", () => {
 
       await waitFor(() => {
         expect(screen.getByTestId("interactive-status").textContent).toBe(
-          ToolCallStatus.Executing
+          ToolCallStatus.Executing,
         );
         expect(screen.getByTestId("respond-section")).toBeDefined();
       });
@@ -233,9 +255,11 @@ describe("useHumanInTheLoop E2E - HITL Tool Rendering", () => {
 
       await waitFor(() => {
         expect(screen.getByTestId("interactive-status").textContent).toBe(
-          ToolCallStatus.Complete
+          ToolCallStatus.Complete,
         );
-        expect(screen.getByTestId("interactive-result").textContent).toContain("yes");
+        expect(screen.getByTestId("interactive-result").textContent).toContain(
+          "yes",
+        );
       });
 
       expect(respondSelections).toEqual(["yes"]);
@@ -253,7 +277,8 @@ describe("useHumanInTheLoop E2E - HITL Tool Rendering", () => {
           parameters: z.object({ changes: z.array(z.string()) }),
           render: ({ name, description, args, status }) => (
             <div data-testid="review-tool">
-              {name} - {description} | Status: {status} | Changes: {args.changes?.length ?? 0}
+              {name} - {description} | Status: {status} | Changes:{" "}
+              {args.changes?.length ?? 0}
             </div>
           ),
         };
@@ -264,7 +289,8 @@ describe("useHumanInTheLoop E2E - HITL Tool Rendering", () => {
           parameters: z.object({ action: z.string() }),
           render: ({ name, description, args, status }) => (
             <div data-testid="confirm-tool">
-              {name} - {description} | Status: {status} | Action: {args.action ?? ""}
+              {name} - {description} | Status: {status} | Action:{" "}
+              {args.action ?? ""}
             </div>
           ),
         };
@@ -305,7 +331,7 @@ describe("useHumanInTheLoop E2E - HITL Tool Rendering", () => {
           toolCallName: "reviewTool",
           parentMessageId: messageId,
           delta: JSON.stringify({ changes: ["file1.ts", "file2.ts"] }),
-        })
+        }),
       );
       agent.emit(
         toolCallChunkEvent({
@@ -313,7 +339,7 @@ describe("useHumanInTheLoop E2E - HITL Tool Rendering", () => {
           toolCallName: "confirmTool",
           parentMessageId: messageId,
           delta: JSON.stringify({ action: "deploy" }),
-        })
+        }),
       );
 
       await waitFor(() => {
@@ -413,7 +439,7 @@ describe("useHumanInTheLoop E2E - HITL Tool Rendering", () => {
           toolCallName: "primaryTool",
           parentMessageId: messageId,
           delta: JSON.stringify({ action: "archive" }),
-        })
+        }),
       );
       agent.emit(
         toolCallChunkEvent({
@@ -421,14 +447,22 @@ describe("useHumanInTheLoop E2E - HITL Tool Rendering", () => {
           toolCallName: "secondaryTool",
           parentMessageId: messageId,
           delta: JSON.stringify({ detail: "requires confirmation" }),
-        })
+        }),
       );
 
       await waitFor(() => {
-        expect(screen.getByTestId("primary-status").textContent).toBe(ToolCallStatus.InProgress);
-        expect(screen.getByTestId("primary-action").textContent).toBe("archive");
-        expect(screen.getByTestId("secondary-status").textContent).toBe(ToolCallStatus.InProgress);
-        expect(screen.getByTestId("secondary-detail").textContent).toBe("requires confirmation");
+        expect(screen.getByTestId("primary-status").textContent).toBe(
+          ToolCallStatus.InProgress,
+        );
+        expect(screen.getByTestId("primary-action").textContent).toBe(
+          "archive",
+        );
+        expect(screen.getByTestId("secondary-status").textContent).toBe(
+          ToolCallStatus.InProgress,
+        );
+        expect(screen.getByTestId("secondary-detail").textContent).toBe(
+          "requires confirmation",
+        );
       });
 
       agent.emit(runFinishedEvent());
@@ -436,26 +470,41 @@ describe("useHumanInTheLoop E2E - HITL Tool Rendering", () => {
 
       const primaryRespondButton = await screen.findByTestId("primary-respond");
 
-      expect(screen.getByTestId("primary-status").textContent).toBe(ToolCallStatus.Executing);
-      expect(screen.getByTestId("secondary-status").textContent).toBe(ToolCallStatus.InProgress);
+      expect(screen.getByTestId("primary-status").textContent).toBe(
+        ToolCallStatus.Executing,
+      );
+      expect(screen.getByTestId("secondary-status").textContent).toBe(
+        ToolCallStatus.InProgress,
+      );
       expect(screen.queryByTestId("secondary-respond")).toBeNull();
 
       fireEvent.click(primaryRespondButton);
 
       await waitFor(() => {
-        expect(screen.getByTestId("primary-status").textContent).toBe(ToolCallStatus.Complete);
-        expect(screen.getByTestId("primary-result").textContent).toContain("approved");
-        expect(screen.getByTestId("secondary-status").textContent).toBe(ToolCallStatus.Executing);
+        expect(screen.getByTestId("primary-status").textContent).toBe(
+          ToolCallStatus.Complete,
+        );
+        expect(screen.getByTestId("primary-result").textContent).toContain(
+          "approved",
+        );
+        expect(screen.getByTestId("secondary-status").textContent).toBe(
+          ToolCallStatus.Executing,
+        );
         expect(screen.queryByTestId("secondary-result")).toBeNull();
       });
 
-      const secondaryRespondButton = await screen.findByTestId("secondary-respond");
+      const secondaryRespondButton =
+        await screen.findByTestId("secondary-respond");
 
       fireEvent.click(secondaryRespondButton);
 
       await waitFor(() => {
-        expect(screen.getByTestId("secondary-status").textContent).toBe(ToolCallStatus.Complete);
-        expect(screen.getByTestId("secondary-result").textContent).toContain("confirmed");
+        expect(screen.getByTestId("secondary-status").textContent).toBe(
+          ToolCallStatus.Complete,
+        );
+        expect(screen.getByTestId("secondary-result").textContent).toContain(
+          "confirmed",
+        );
       });
     });
   });
@@ -485,7 +534,10 @@ describe("useHumanInTheLoop E2E - HITL Tool Rendering", () => {
 
         return (
           <>
-            <button data-testid="toggle-hitl" onClick={() => setEnabled((prev) => !prev)}>
+            <button
+              data-testid="toggle-hitl"
+              onClick={() => setEnabled((prev) => !prev)}
+            >
               Toggle HITL
             </button>
             {enabled && <DynamicHITLComponent />}
@@ -528,7 +580,7 @@ describe("useHumanInTheLoop E2E - HITL Tool Rendering", () => {
           toolCallName: "dynamicHitl",
           parentMessageId: messageId,
           delta: JSON.stringify({ data: "test data" }),
-        })
+        }),
       );
 
       await waitFor(() => {
@@ -562,15 +614,18 @@ describe("useHumanInTheLoop E2E - HITL Tool Rendering", () => {
           toolCallName: "dynamicHitl",
           parentMessageId: messageId2,
           delta: JSON.stringify({ data: "should not render" }),
-        })
+        }),
       );
 
       // Wait and verify that dynamic HITL does not render
-      await waitFor(() => {
-        const dynamicRenders = screen.queryAllByTestId("dynamic-hitl");
-        expect(dynamicRenders.length).toBe(0);
-        expect(screen.queryByText(/should not render/)).toBeNull();
-      }, { timeout: 200 });
+      await waitFor(
+        () => {
+          const dynamicRenders = screen.queryAllByTestId("dynamic-hitl");
+          expect(dynamicRenders.length).toBe(0);
+          expect(screen.queryByText(/should not render/)).toBeNull();
+        },
+        { timeout: 200 },
+      );
 
       agent.emit(runFinishedEvent());
       agent.complete();
@@ -715,11 +770,13 @@ describe("HITL Thread Reconnection Bug", () => {
         toolCallName: "approvalTool",
         parentMessageId: messageId,
         delta: JSON.stringify({ action: "delete" }),
-      })
+      }),
     );
 
     await waitFor(() => {
-      expect(screen.getByTestId("hitl-status").textContent).toBe(ToolCallStatus.InProgress);
+      expect(screen.getByTestId("hitl-status").textContent).toBe(
+        ToolCallStatus.InProgress,
+      );
     });
 
     // Complete run WITHOUT responding to HITL (simulating user refresh before clicking)
@@ -728,7 +785,9 @@ describe("HITL Thread Reconnection Bug", () => {
 
     // Verify status is Executing (the tool handler should be running waiting for response)
     await waitFor(() => {
-      expect(screen.getByTestId("hitl-status").textContent).toBe(ToolCallStatus.Executing);
+      expect(screen.getByTestId("hitl-status").textContent).toBe(
+        ToolCallStatus.Executing,
+      );
     });
 
     // Phase 2: Unmount and remount (simulating page reload + reconnect)
@@ -761,7 +820,9 @@ describe("HITL Thread Reconnection Bug", () => {
     // After reconnection, status should be 'executing' with respond available
     // The tool handler is re-invoked for pending HITL tools that were never responded to.
     await waitFor(() => {
-      expect(screen.getByTestId("hitl-status").textContent).toBe(ToolCallStatus.Executing);
+      expect(screen.getByTestId("hitl-status").textContent).toBe(
+        ToolCallStatus.Executing,
+      );
     });
 
     // respond button should be present so user can interact
@@ -783,7 +844,14 @@ describe("HITL Thread Reconnection Bug", () => {
           <div data-testid="task-tool">
             <div data-testid="task-status">{status}</div>
             <div data-testid="task-name">{args.task ?? "no-task"}</div>
-            {respond && <button data-testid="task-respond" onClick={() => respond("done")}>Done</button>}
+            {respond && (
+              <button
+                data-testid="task-respond"
+                onClick={() => respond("done")}
+              >
+                Done
+              </button>
+            )}
           </div>
         ),
       };
@@ -823,12 +891,14 @@ describe("HITL Thread Reconnection Bug", () => {
         toolCallName: "taskTool",
         parentMessageId: messageId,
         delta: JSON.stringify({ task: "review PR" }),
-      })
+      }),
     );
 
     // Should show inProgress while streaming
     await waitFor(() => {
-      expect(screen.getByTestId("task-status").textContent).toBe(ToolCallStatus.InProgress);
+      expect(screen.getByTestId("task-status").textContent).toBe(
+        ToolCallStatus.InProgress,
+      );
       expect(screen.getByTestId("task-name").textContent).toBe("review PR");
     });
 
@@ -837,7 +907,9 @@ describe("HITL Thread Reconnection Bug", () => {
     agent.complete();
 
     await waitFor(() => {
-      expect(screen.getByTestId("task-status").textContent).toBe(ToolCallStatus.Executing);
+      expect(screen.getByTestId("task-status").textContent).toBe(
+        ToolCallStatus.Executing,
+      );
     });
 
     // Respond - should transition to complete
@@ -845,7 +917,9 @@ describe("HITL Thread Reconnection Bug", () => {
     fireEvent.click(respondButton);
 
     await waitFor(() => {
-      expect(screen.getByTestId("task-status").textContent).toBe(ToolCallStatus.Complete);
+      expect(screen.getByTestId("task-status").textContent).toBe(
+        ToolCallStatus.Complete,
+      );
     });
   });
 
@@ -865,7 +939,11 @@ describe("HITL Thread Reconnection Bug", () => {
           <div data-testid="tool1">
             <div data-testid="tool1-status">{status}</div>
             <div data-testid="tool1-id">{args.id ?? ""}</div>
-            {respond && <button data-testid="tool1-respond" onClick={() => respond("ok")}>OK</button>}
+            {respond && (
+              <button data-testid="tool1-respond" onClick={() => respond("ok")}>
+                OK
+              </button>
+            )}
           </div>
         ),
       };
@@ -878,7 +956,11 @@ describe("HITL Thread Reconnection Bug", () => {
           <div data-testid="tool2">
             <div data-testid="tool2-status">{status}</div>
             <div data-testid="tool2-id">{args.id ?? ""}</div>
-            {respond && <button data-testid="tool2-respond" onClick={() => respond("ok")}>OK</button>}
+            {respond && (
+              <button data-testid="tool2-respond" onClick={() => respond("ok")}>
+                OK
+              </button>
+            )}
           </div>
         ),
       };
@@ -914,23 +996,31 @@ describe("HITL Thread Reconnection Bug", () => {
 
     // Emit both tool calls
     agent.emit(runStartedEvent());
-    agent.emit(toolCallChunkEvent({
-      toolCallId: tc1,
-      toolCallName: "tool1",
-      parentMessageId: messageId,
-      delta: JSON.stringify({ id: "first" }),
-    }));
-    agent.emit(toolCallChunkEvent({
-      toolCallId: tc2,
-      toolCallName: "tool2",
-      parentMessageId: messageId,
-      delta: JSON.stringify({ id: "second" }),
-    }));
+    agent.emit(
+      toolCallChunkEvent({
+        toolCallId: tc1,
+        toolCallName: "tool1",
+        parentMessageId: messageId,
+        delta: JSON.stringify({ id: "first" }),
+      }),
+    );
+    agent.emit(
+      toolCallChunkEvent({
+        toolCallId: tc2,
+        toolCallName: "tool2",
+        parentMessageId: messageId,
+        delta: JSON.stringify({ id: "second" }),
+      }),
+    );
 
     // Both should be inProgress (tool calls received but not yet executed)
     await waitFor(() => {
-      expect(screen.getByTestId("tool1-status").textContent).toBe(ToolCallStatus.InProgress);
-      expect(screen.getByTestId("tool2-status").textContent).toBe(ToolCallStatus.InProgress);
+      expect(screen.getByTestId("tool1-status").textContent).toBe(
+        ToolCallStatus.InProgress,
+      );
+      expect(screen.getByTestId("tool2-status").textContent).toBe(
+        ToolCallStatus.InProgress,
+      );
     });
 
     // Complete run - FIRST tool starts executing, second remains inProgress
@@ -939,9 +1029,13 @@ describe("HITL Thread Reconnection Bug", () => {
     agent.complete();
 
     await waitFor(() => {
-      expect(screen.getByTestId("tool1-status").textContent).toBe(ToolCallStatus.Executing);
+      expect(screen.getByTestId("tool1-status").textContent).toBe(
+        ToolCallStatus.Executing,
+      );
       // Tool2 is still inProgress because tool1 hasn't completed yet
-      expect(screen.getByTestId("tool2-status").textContent).toBe(ToolCallStatus.InProgress);
+      expect(screen.getByTestId("tool2-status").textContent).toBe(
+        ToolCallStatus.InProgress,
+      );
     });
 
     // Respond to first tool
@@ -949,15 +1043,21 @@ describe("HITL Thread Reconnection Bug", () => {
 
     // After first tool completes, second tool starts executing
     await waitFor(() => {
-      expect(screen.getByTestId("tool1-status").textContent).toBe(ToolCallStatus.Complete);
-      expect(screen.getByTestId("tool2-status").textContent).toBe(ToolCallStatus.Executing);
+      expect(screen.getByTestId("tool1-status").textContent).toBe(
+        ToolCallStatus.Complete,
+      );
+      expect(screen.getByTestId("tool2-status").textContent).toBe(
+        ToolCallStatus.Executing,
+      );
     });
 
     // Respond to second tool
     fireEvent.click(screen.getByTestId("tool2-respond"));
 
     await waitFor(() => {
-      expect(screen.getByTestId("tool2-status").textContent).toBe(ToolCallStatus.Complete);
+      expect(screen.getByTestId("tool2-status").textContent).toBe(
+        ToolCallStatus.Complete,
+      );
     });
   });
 
@@ -991,7 +1091,9 @@ describe("HITL Thread Reconnection Bug", () => {
 
       // Only render the tool view if show is true
       // The tool is registered regardless, but rendering is conditional
-      return show ? <div data-testid="late-tool-container">Tool is visible</div> : null;
+      return show ? (
+        <div data-testid="late-tool-container">Tool is visible</div>
+      ) : null;
     };
 
     renderWithCopilotKit({
@@ -1019,19 +1121,23 @@ describe("HITL Thread Reconnection Bug", () => {
 
     // Emit tool call and complete run BEFORE showing the component
     agent.emit(runStartedEvent());
-    agent.emit(toolCallChunkEvent({
-      toolCallId,
-      toolCallName: "lateTool",
-      parentMessageId: messageId,
-      delta: JSON.stringify({ data: "late-data" }),
-    }));
+    agent.emit(
+      toolCallChunkEvent({
+        toolCallId,
+        toolCallName: "lateTool",
+        parentMessageId: messageId,
+        delta: JSON.stringify({ data: "late-data" }),
+      }),
+    );
     agent.emit(runFinishedEvent());
     agent.complete();
 
     // Wait for tool execution to start
     await waitFor(() => {
       // The tool should be rendered by CopilotChat even if our custom component isn't shown
-      expect(screen.getByTestId("late-status").textContent).toBe(ToolCallStatus.Executing);
+      expect(screen.getByTestId("late-status").textContent).toBe(
+        ToolCallStatus.Executing,
+      );
     });
 
     // Now show our custom component - it should also see the executing status
@@ -1045,7 +1151,9 @@ describe("HITL Thread Reconnection Bug", () => {
     });
 
     // The status should still be executing (tracked at provider level)
-    expect(screen.getByTestId("late-status").textContent).toBe(ToolCallStatus.Executing);
+    expect(screen.getByTestId("late-status").textContent).toBe(
+      ToolCallStatus.Executing,
+    );
   });
 
   it("should maintain executing state across component remount", async () => {
@@ -1061,7 +1169,7 @@ describe("HITL Thread Reconnection Bug", () => {
 
     const RemountableHITL: React.FC = () => {
       const [key, setKey] = useState(0);
-      toggleRemount = () => setKey(k => k + 1);
+      toggleRemount = () => setKey((k) => k + 1);
 
       return <HITLChild key={key} />;
     };
@@ -1109,19 +1217,25 @@ describe("HITL Thread Reconnection Bug", () => {
 
     // Emit tool call and complete run
     agent.emit(runStartedEvent());
-    agent.emit(toolCallChunkEvent({
-      toolCallId,
-      toolCallName: "remountTool",
-      parentMessageId: messageId,
-      delta: JSON.stringify({ action: "test-action" }),
-    }));
+    agent.emit(
+      toolCallChunkEvent({
+        toolCallId,
+        toolCallName: "remountTool",
+        parentMessageId: messageId,
+        delta: JSON.stringify({ action: "test-action" }),
+      }),
+    );
     agent.emit(runFinishedEvent());
     agent.complete();
 
     // Verify executing status before remount
     await waitFor(() => {
-      expect(screen.getByTestId("remount-status").textContent).toBe(ToolCallStatus.Executing);
-      expect(screen.getByTestId("remount-action").textContent).toBe("test-action");
+      expect(screen.getByTestId("remount-status").textContent).toBe(
+        ToolCallStatus.Executing,
+      );
+      expect(screen.getByTestId("remount-action").textContent).toBe(
+        "test-action",
+      );
     });
 
     // Remount the component by changing its key
@@ -1133,8 +1247,12 @@ describe("HITL Thread Reconnection Bug", () => {
     // This is the key assertion: executingToolCallIds survives component remounts
     // because it's tracked at the CopilotKitProvider level
     await waitFor(() => {
-      expect(screen.getByTestId("remount-status").textContent).toBe(ToolCallStatus.Executing);
-      expect(screen.getByTestId("remount-action").textContent).toBe("test-action");
+      expect(screen.getByTestId("remount-status").textContent).toBe(
+        ToolCallStatus.Executing,
+      );
+      expect(screen.getByTestId("remount-action").textContent).toBe(
+        "test-action",
+      );
     });
 
     // The respond button should be present (status is executing)

@@ -10,7 +10,10 @@ import { CopilotRuntime } from "../../lib";
 @Resolver(() => LoadAgentStateResponse)
 export class StateResolver {
   @Query(() => LoadAgentStateResponse)
-  async loadAgentState(@Ctx() ctx: GraphQLContext, @Arg("data") data: LoadAgentStateInput) {
+  async loadAgentState(
+    @Ctx() ctx: GraphQLContext,
+    @Arg("data") data: LoadAgentStateInput,
+  ) {
     const agents = [];
     const hasAgent = agents.some((agent) => agent.name === data.agentName);
     if (!hasAgent) {

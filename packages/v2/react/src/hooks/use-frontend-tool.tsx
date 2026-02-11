@@ -17,7 +17,7 @@ export function useFrontendTool<
     // Always register/override the tool for this name on mount
     if (copilotkit.getTool({ toolName: name, agentId: tool.agentId })) {
       console.warn(
-        `Tool '${name}' already exists for agent '${tool.agentId || 'global'}'. Overriding with latest registration.`
+        `Tool '${name}' already exists for agent '${tool.agentId || "global"}'. Overriding with latest registration.`,
       );
       copilotkit.removeTool(name, tool.agentId);
     }
@@ -26,8 +26,10 @@ export function useFrontendTool<
     // Register/override renderer by name and agentId through core
     if (tool.render) {
       // Get current tool call renderers and merge with new entry
-      const keyOf = (rc: ReactToolCallRenderer<any>) => `${rc.agentId ?? ""}:${rc.name}`;
-      const currentToolCallRenderers = copilotkit.toolCallRenderers as ReactToolCallRenderer<any>[];
+      const keyOf = (rc: ReactToolCallRenderer<any>) =>
+        `${rc.agentId ?? ""}:${rc.name}`;
+      const currentToolCallRenderers =
+        copilotkit.toolCallRenderers as ReactToolCallRenderer<any>[];
 
       // Build map from existing entries
       const mergedMap = new Map<string, ReactToolCallRenderer<any>>();

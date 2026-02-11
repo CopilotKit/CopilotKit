@@ -1,7 +1,9 @@
 import { RenderElementProps } from "slate-react";
 import React from "react";
 
-export type RenderElementFunction = (props: RenderElementProps) => React.JSX.Element;
+export type RenderElementFunction = (
+  props: RenderElementProps,
+) => React.JSX.Element;
 
 export function makeRenderElementFunction(
   suggestionsStyle: React.CSSProperties,
@@ -11,7 +13,9 @@ export function makeRenderElementFunction(
       case "paragraph":
         return <DefaultElement {...props} />;
       case "suggestion":
-        return <SuggestionElement {...props} suggestionsStyle={suggestionsStyle} />;
+        return (
+          <SuggestionElement {...props} suggestionsStyle={suggestionsStyle} />
+        );
     }
   };
 }

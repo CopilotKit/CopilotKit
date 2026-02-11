@@ -12,7 +12,10 @@ import {
 import { addAutocompletionsToEditor } from "../../lib/slatejs-edits/add-autocompletions";
 import { clearAutocompletionsFromEditor } from "../../lib/slatejs-edits/clear-autocompletions";
 import { replaceEditorText } from "../../lib/slatejs-edits/replace-text";
-import { BaseAutosuggestionsConfig, defaultBaseAutosuggestionsConfig } from "../../types/base";
+import {
+  BaseAutosuggestionsConfig,
+  defaultBaseAutosuggestionsConfig,
+} from "../../types/base";
 import { AutosuggestionState } from "../../types/base/autosuggestion-state";
 import { BaseCopilotTextareaProps } from "../../types/base/base-copilot-textarea-props";
 import "./base-copilot-textarea.css";
@@ -64,7 +67,10 @@ export interface HTMLCopilotTextAreaElement extends HTMLElement {
  * for figuring out which contnet to fill in.
  */
 export const BaseCopilotTextarea = React.forwardRef(
-  (props: BaseCopilotTextareaProps, ref: React.Ref<HTMLCopilotTextAreaElement>) => {
+  (
+    props: BaseCopilotTextareaProps,
+    ref: React.Ref<HTMLCopilotTextAreaElement>,
+  ) => {
     return (
       <HoveringEditorProvider>
         <BaseCopilotTextareaWithHoveringContext {...props} ref={ref} />
@@ -83,15 +89,20 @@ export const BaseCopilotTextarea = React.forwardRef(
  * and wrap it in a `HoveringEditorProviderContext` in `BaseCopilotTextarea`.
  */
 const BaseCopilotTextareaWithHoveringContext = React.forwardRef(
-  (props: BaseCopilotTextareaProps, ref: React.Ref<HTMLCopilotTextAreaElement>) => {
+  (
+    props: BaseCopilotTextareaProps,
+    ref: React.Ref<HTMLCopilotTextAreaElement>,
+  ) => {
     const autosuggestionsConfig: BaseAutosuggestionsConfig = {
       ...defaultBaseAutosuggestionsConfig,
       ...props.baseAutosuggestionsConfig,
     };
 
     const valueOnInitialRender = useMemo(() => props.value ?? "", []);
-    const [lastKnownFullEditorText, setLastKnownFullEditorText] = useState(valueOnInitialRender);
-    const [cursorMovedSinceLastTextChange, setCursorMovedSinceLastTextChange] = useState(false);
+    const [lastKnownFullEditorText, setLastKnownFullEditorText] =
+      useState(valueOnInitialRender);
+    const [cursorMovedSinceLastTextChange, setCursorMovedSinceLastTextChange] =
+      useState(false);
     const [isUserInputActive, setIsUserInputActive] = useState(false);
 
     // // When the editor text changes, we want to reset the `textEditedSinceLastCursorMovement` state.
@@ -110,8 +121,10 @@ const BaseCopilotTextareaWithHoveringContext = React.forwardRef(
 
     const editor = useCopilotTextareaEditor();
 
-    const { isDisplayed: hoveringEditorIsDisplayed, setIsDisplayed: setHoveringEditorIsDisplayed } =
-      useHoveringEditorContext();
+    const {
+      isDisplayed: hoveringEditorIsDisplayed,
+      setIsDisplayed: setHoveringEditorIsDisplayed,
+    } = useHoveringEditorContext();
 
     const insertText = useCallback(
       (autosuggestion: AutosuggestionState) => {
@@ -131,7 +144,8 @@ const BaseCopilotTextareaWithHoveringContext = React.forwardRef(
       (cursorMovedSinceLastTextChange &&
         autosuggestionsConfig.temporarilyDisableWhenMovingCursorWithoutChangingText) ||
       // not user input and we want to disable non-trusted events (like text insertion from autocomplete plugins):
-      (!isUserInputActive && autosuggestionsConfig.temporarilyDisableNotTrustedEvents);
+      (!isUserInputActive &&
+        autosuggestionsConfig.temporarilyDisableNotTrustedEvents);
 
     const {
       currentAutocompleteSuggestion,
@@ -151,7 +165,10 @@ const BaseCopilotTextareaWithHoveringContext = React.forwardRef(
     const onKeyDownHandlerForHoveringEditor = useCallback(
       (event: React.KeyboardEvent<HTMLDivElement>) => {
         if (
-          autosuggestionsConfig.shouldToggleHoveringEditorOnKeyPress(event, props.shortcut ?? "k")
+          autosuggestionsConfig.shouldToggleHoveringEditorOnKeyPress(
+            event,
+            props.shortcut ?? "k",
+          )
         ) {
           event.preventDefault();
           setHoveringEditorIsDisplayed(!hoveringEditorIsDisplayed);
@@ -233,7 +250,10 @@ const BaseCopilotTextareaWithHoveringContext = React.forwardRef(
       const baseClassName = "copilot-textarea";
       const brandingClass = disableBranding ? "no-branding" : "with-branding";
       const defaultTailwindClassName = "bg-white overflow-y-auto resize-y";
-      const mergedClassName = twMerge(defaultTailwindClassName, className ?? "");
+      const mergedClassName = twMerge(
+        defaultTailwindClassName,
+        className ?? "",
+      );
       return `${baseClassName} ${brandingClass} ${mergedClassName}`;
     })();
 

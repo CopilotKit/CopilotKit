@@ -57,9 +57,9 @@ export class ExperimentalOllamaAdapter implements CopilotServiceAdapter {
     const ollama = new Ollama({
       model: this.model,
     });
-    const contents = (messages.filter((m) => m.isTextMessage()) as TextMessage[]).map(
-      (m) => m.content,
-    );
+    const contents = (
+      messages.filter((m) => m.isTextMessage()) as TextMessage[]
+    ).map((m) => m.content);
     const _stream = await ollama.stream(contents); // [TODO] role info is dropped...
 
     eventSource.stream(async (eventStream$) => {

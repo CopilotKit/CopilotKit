@@ -75,7 +75,10 @@ export class TelemetryAgentRunner implements AgentRunner {
         // Try to extract provider/model info from raw events
         const rawEvent = (
           event as {
-            rawEvent?: { metadata?: Record<string, unknown>; data?: Record<string, unknown> };
+            rawEvent?: {
+              metadata?: Record<string, unknown>;
+              data?: Record<string, unknown>;
+            };
           }
         ).rawEvent;
         if (rawEvent?.data) {
@@ -110,7 +113,10 @@ export class TelemetryAgentRunner implements AgentRunner {
       finalize(() => {
         // Capture stream ended event (only if not errored)
         if (!streamErrored) {
-          telemetry.capture("oss.runtime.agent_execution_stream_ended", streamInfo);
+          telemetry.capture(
+            "oss.runtime.agent_execution_stream_ended",
+            streamInfo,
+          );
         }
       }),
     );
@@ -119,21 +125,27 @@ export class TelemetryAgentRunner implements AgentRunner {
   /**
    * Delegates to the underlying runner's connect method
    */
-  connect(...args: Parameters<AgentRunner["connect"]>): ReturnType<AgentRunner["connect"]> {
+  connect(
+    ...args: Parameters<AgentRunner["connect"]>
+  ): ReturnType<AgentRunner["connect"]> {
     return this._runner.connect(...args);
   }
 
   /**
    * Delegates to the underlying runner's isRunning method
    */
-  isRunning(...args: Parameters<AgentRunner["isRunning"]>): ReturnType<AgentRunner["isRunning"]> {
+  isRunning(
+    ...args: Parameters<AgentRunner["isRunning"]>
+  ): ReturnType<AgentRunner["isRunning"]> {
     return this._runner.isRunning(...args);
   }
 
   /**
    * Delegates to the underlying runner's stop method
    */
-  stop(...args: Parameters<AgentRunner["stop"]>): ReturnType<AgentRunner["stop"]> {
+  stop(
+    ...args: Parameters<AgentRunner["stop"]>
+  ): ReturnType<AgentRunner["stop"]> {
     return this._runner.stop(...args);
   }
 }

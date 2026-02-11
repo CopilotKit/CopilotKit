@@ -17,7 +17,9 @@ import { toArray } from "rxjs/operators";
 
 const stripTerminalEvents = (events: BaseEvent[]) =>
   events.filter(
-    (event) => event.type !== EventType.RUN_FINISHED && event.type !== EventType.RUN_ERROR,
+    (event) =>
+      event.type !== EventType.RUN_FINISHED &&
+      event.type !== EventType.RUN_ERROR,
   );
 
 class TestAgent extends AbstractAgent {
@@ -113,19 +115,32 @@ describe("InMemoryAgentRunner", () => {
 
     it("attaches only new messages to the RUN_STARTED input", async () => {
       const threadId = "in-memory-new-messages";
-      const existing: Message = { id: "existing-msg", role: "user", content: "Hi" };
+      const existing: Message = {
+        id: "existing-msg",
+        role: "user",
+        content: "Hi",
+      };
 
       await firstValueFrom(
         runner
           .run({
             threadId,
             agent: new TestAgent(),
-            input: { threadId, runId: "run-0", messages: [existing], state: {} },
+            input: {
+              threadId,
+              runId: "run-0",
+              messages: [existing],
+              state: {},
+            },
           })
           .pipe(toArray()),
       );
 
-      const newMessage: Message = { id: "new-msg", role: "user", content: "Follow up" };
+      const newMessage: Message = {
+        id: "new-msg",
+        role: "user",
+        content: "Follow up",
+      };
 
       const secondRun = await firstValueFrom(
         runner
@@ -150,9 +165,14 @@ describe("InMemoryAgentRunner", () => {
         runner.connect({ threadId }).pipe(toArray()),
       );
       const latestRunStarted = connectEvents
-        .filter((event): event is RunStartedEvent => event.type === EventType.RUN_STARTED)
+        .filter(
+          (event): event is RunStartedEvent =>
+            event.type === EventType.RUN_STARTED,
+        )
         .pop();
-      expect(latestRunStarted?.input?.messages?.map((m) => m.id)).toEqual(["new-msg"]);
+      expect(latestRunStarted?.input?.messages?.map((m) => m.id)).toEqual([
+        "new-msg",
+      ]);
     });
 
     it("preserves agent-provided RUN_STARTED input", async () => {

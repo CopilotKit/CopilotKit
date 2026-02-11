@@ -12,10 +12,26 @@ describe("OpenAI Adapter - Allowlist Approach", () => {
     // Messages to filter - valid and invalid ones
     const messages = [
       { type: "text", role: "user", content: "Hello" },
-      { type: "tool_result", actionExecutionId: "valid-id-1", result: "result1" },
-      { type: "tool_result", actionExecutionId: "invalid-id", result: "invalid" },
-      { type: "tool_result", actionExecutionId: "valid-id-2", result: "result2" },
-      { type: "tool_result", actionExecutionId: "valid-id-1", result: "duplicate" }, // Duplicate ID
+      {
+        type: "tool_result",
+        actionExecutionId: "valid-id-1",
+        result: "result1",
+      },
+      {
+        type: "tool_result",
+        actionExecutionId: "invalid-id",
+        result: "invalid",
+      },
+      {
+        type: "tool_result",
+        actionExecutionId: "valid-id-2",
+        result: "result2",
+      },
+      {
+        type: "tool_result",
+        actionExecutionId: "valid-id-1",
+        result: "duplicate",
+      }, // Duplicate ID
     ];
 
     // Implement the filtering logic, similar to the adapter
@@ -78,9 +94,17 @@ describe("OpenAI Adapter - Allowlist Approach", () => {
       { type: "text", role: "assistant", content: "Got the first result" },
       { type: "tool_call", id: "tool-2", name: "secondTool" },
       { type: "tool_result", actionExecutionId: "tool-2", result: "result2" },
-      { type: "tool_result", actionExecutionId: "invalid-id", result: "invalid-result" },
+      {
+        type: "tool_result",
+        actionExecutionId: "invalid-id",
+        result: "invalid-result",
+      },
       { type: "tool_call", id: "tool-3", name: "thirdTool" },
-      { type: "tool_result", actionExecutionId: "tool-1", result: "duplicate-result" }, // Duplicate
+      {
+        type: "tool_result",
+        actionExecutionId: "tool-1",
+        result: "duplicate-result",
+      }, // Duplicate
       { type: "tool_result", actionExecutionId: "tool-3", result: "result3" },
       { type: "text", role: "user", content: "Final message" },
     ];
@@ -161,9 +185,17 @@ describe("OpenAI Adapter - Allowlist Approach", () => {
     const messages = [
       { type: "text", role: "user", content: "Hello" },
       { type: "image", url: "https://example.com/image.jpg" }, // Non-tool message type
-      { type: "tool_result", actionExecutionId: "valid-id-1", result: "result1" },
+      {
+        type: "tool_result",
+        actionExecutionId: "valid-id-1",
+        result: "result1",
+      },
       { type: "custom", data: { key: "value" } }, // Another custom type
-      { type: "tool_result", actionExecutionId: "valid-id-1", result: "duplicate" }, // Duplicate
+      {
+        type: "tool_result",
+        actionExecutionId: "valid-id-1",
+        result: "duplicate",
+      }, // Duplicate
       { type: "null", value: null }, // Edge case
       { type: "undefined" }, // Edge case
     ];
@@ -183,7 +215,9 @@ describe("OpenAI Adapter - Allowlist Approach", () => {
     expect(filteredMessages.length).toBe(6); // 7 original - 1 duplicate
 
     // Valid tool_result should be included exactly once
-    const toolResults = filteredMessages.filter((m) => m.type === "tool_result");
+    const toolResults = filteredMessages.filter(
+      (m) => m.type === "tool_result",
+    );
     expect(toolResults.length).toBe(1);
     expect(toolResults[0].actionExecutionId).toBe("valid-id-1");
 
@@ -192,7 +226,9 @@ describe("OpenAI Adapter - Allowlist Approach", () => {
     expect(filteredMessages.filter((m) => m.type === "image").length).toBe(1);
     expect(filteredMessages.filter((m) => m.type === "custom").length).toBe(1);
     expect(filteredMessages.filter((m) => m.type === "null").length).toBe(1);
-    expect(filteredMessages.filter((m) => m.type === "undefined").length).toBe(1);
+    expect(filteredMessages.filter((m) => m.type === "undefined").length).toBe(
+      1,
+    );
   });
 
   it("should properly handle multiple duplicate tool results", () => {
@@ -202,13 +238,37 @@ describe("OpenAI Adapter - Allowlist Approach", () => {
     const messages = [
       { type: "text", role: "user", content: "Initial prompt" },
       { type: "tool_call", id: "tool-1", name: "firstTool" },
-      { type: "tool_result", actionExecutionId: "tool-1", result: "first-result" },
-      { type: "tool_result", actionExecutionId: "tool-1", result: "duplicate-1" }, // Duplicate 1
+      {
+        type: "tool_result",
+        actionExecutionId: "tool-1",
+        result: "first-result",
+      },
+      {
+        type: "tool_result",
+        actionExecutionId: "tool-1",
+        result: "duplicate-1",
+      }, // Duplicate 1
       { type: "tool_call", id: "tool-2", name: "secondTool" },
-      { type: "tool_result", actionExecutionId: "tool-1", result: "duplicate-2" }, // Duplicate 2
-      { type: "tool_result", actionExecutionId: "tool-2", result: "second-result" },
-      { type: "tool_result", actionExecutionId: "tool-2", result: "duplicate-3" }, // Duplicate 3
-      { type: "tool_result", actionExecutionId: "tool-1", result: "duplicate-4" }, // Duplicate 4
+      {
+        type: "tool_result",
+        actionExecutionId: "tool-1",
+        result: "duplicate-2",
+      }, // Duplicate 2
+      {
+        type: "tool_result",
+        actionExecutionId: "tool-2",
+        result: "second-result",
+      },
+      {
+        type: "tool_result",
+        actionExecutionId: "tool-2",
+        result: "duplicate-3",
+      }, // Duplicate 3
+      {
+        type: "tool_result",
+        actionExecutionId: "tool-1",
+        result: "duplicate-4",
+      }, // Duplicate 4
     ];
 
     // Apply OpenAI's filter approach
@@ -226,7 +286,9 @@ describe("OpenAI Adapter - Allowlist Approach", () => {
     expect(filteredMessages.length).toBe(5);
 
     // Check that only the first occurrence of each tool result is kept
-    const toolResults = filteredMessages.filter((m) => m.type === "tool_result");
+    const toolResults = filteredMessages.filter(
+      (m) => m.type === "tool_result",
+    );
     expect(toolResults.length).toBe(2);
 
     expect(toolResults[0].actionExecutionId).toBe("tool-1");

@@ -42,6 +42,6 @@ if (!customElements.get("themed-a2ui-surface")) {
       surfaceId: string | null = null;
       onAction: any = null;
       theme: any = null;
-    }
+    },
   );
 }

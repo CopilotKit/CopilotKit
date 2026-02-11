@@ -35,7 +35,7 @@ describe("CopilotChatUserMessage Slot System E2E Tests", () => {
               message={message}
               messageRenderer="bg-blue-500 text-white rounded-xl"
             />
-          </TestWrapper>
+          </TestWrapper>,
         );
 
         const renderer = container.querySelector(".bg-blue-500");
@@ -54,7 +54,7 @@ describe("CopilotChatUserMessage Slot System E2E Tests", () => {
               message={message}
               toolbar="bg-gray-50 border rounded"
             />
-          </TestWrapper>
+          </TestWrapper>,
         );
 
         const toolbar = container.querySelector(".bg-gray-50");
@@ -72,7 +72,7 @@ describe("CopilotChatUserMessage Slot System E2E Tests", () => {
               message={message}
               copyButton="text-indigo-500 hover:text-indigo-700"
             />
-          </TestWrapper>
+          </TestWrapper>,
         );
 
         const copyBtn = container.querySelector(".text-indigo-500");
@@ -91,7 +91,7 @@ describe("CopilotChatUserMessage Slot System E2E Tests", () => {
               onEditMessage={onEditMessage}
               editButton="text-yellow-500"
             />
-          </TestWrapper>
+          </TestWrapper>,
         );
 
         const editBtn = container.querySelector(".text-yellow-500");
@@ -112,7 +112,7 @@ describe("CopilotChatUserMessage Slot System E2E Tests", () => {
               onSwitchToBranch={onSwitchToBranch}
               branchNavigation="bg-slate-100 px-2 py-1"
             />
-          </TestWrapper>
+          </TestWrapper>,
         );
 
         const branchNav = container.querySelector(".bg-slate-100");
@@ -135,7 +135,7 @@ describe("CopilotChatUserMessage Slot System E2E Tests", () => {
               message={message}
               messageRenderer={{ "data-testid": "custom-message-renderer" }}
             />
-          </TestWrapper>
+          </TestWrapper>,
         );
 
         const renderer = screen.queryByTestId("custom-message-renderer");
@@ -153,7 +153,7 @@ describe("CopilotChatUserMessage Slot System E2E Tests", () => {
               message={message}
               toolbar={{ onClick, "data-testid": "custom-toolbar" }}
             />
-          </TestWrapper>
+          </TestWrapper>,
         );
 
         const toolbar = screen.queryByTestId("custom-toolbar");
@@ -174,7 +174,7 @@ describe("CopilotChatUserMessage Slot System E2E Tests", () => {
               message={message}
               copyButton={{ onClick: customOnClick }}
             />
-          </TestWrapper>
+          </TestWrapper>,
         );
 
         const copyBtn = container.querySelector('button[aria-label*="Copy"]');
@@ -192,7 +192,7 @@ describe("CopilotChatUserMessage Slot System E2E Tests", () => {
               message={message}
               copyButton={{ disabled: true }}
             />
-          </TestWrapper>
+          </TestWrapper>,
         );
 
         const copyBtn = container.querySelector('button[aria-label*="Copy"]');
@@ -214,7 +214,7 @@ describe("CopilotChatUserMessage Slot System E2E Tests", () => {
               onEditMessage={onEditMessage}
               editButton={{ onClick: customOnClick }}
             />
-          </TestWrapper>
+          </TestWrapper>,
         );
 
         const editBtn = container.querySelector('button[aria-label*="Edit"]');
@@ -234,7 +234,7 @@ describe("CopilotChatUserMessage Slot System E2E Tests", () => {
               onEditMessage={onEditMessage}
               editButton={{ disabled: true }}
             />
-          </TestWrapper>
+          </TestWrapper>,
         );
 
         const editBtn = container.querySelector('button[aria-label*="Edit"]');
@@ -257,7 +257,7 @@ describe("CopilotChatUserMessage Slot System E2E Tests", () => {
               onSwitchToBranch={onSwitchToBranch}
               branchNavigation={{ "data-testid": "custom-branch-nav" }}
             />
-          </TestWrapper>
+          </TestWrapper>,
         );
 
         const branchNav = screen.queryByTestId("custom-branch-nav");
@@ -282,7 +282,7 @@ describe("CopilotChatUserMessage Slot System E2E Tests", () => {
             message={message}
             messageRenderer={CustomRenderer as any}
           />
-        </TestWrapper>
+        </TestWrapper>,
       );
 
       const custom = screen.queryByTestId("custom-renderer");
@@ -291,7 +291,9 @@ describe("CopilotChatUserMessage Slot System E2E Tests", () => {
     });
 
     it("should allow custom component for toolbar", () => {
-      const CustomToolbar: React.FC<React.PropsWithChildren> = ({ children }) => (
+      const CustomToolbar: React.FC<React.PropsWithChildren> = ({
+        children,
+      }) => (
         <div data-testid="custom-toolbar-component">
           <span>Actions:</span>
           {children}
@@ -305,7 +307,7 @@ describe("CopilotChatUserMessage Slot System E2E Tests", () => {
             message={message}
             toolbar={CustomToolbar as any}
           />
-        </TestWrapper>
+        </TestWrapper>,
       );
 
       const custom = screen.queryByTestId("custom-toolbar-component");
@@ -314,7 +316,9 @@ describe("CopilotChatUserMessage Slot System E2E Tests", () => {
     });
 
     it("should allow custom component for copyButton", () => {
-      const CustomCopyButton: React.FC<React.ButtonHTMLAttributes<HTMLButtonElement>> = (props) => (
+      const CustomCopyButton: React.FC<
+        React.ButtonHTMLAttributes<HTMLButtonElement>
+      > = (props) => (
         <button data-testid="custom-copy-btn" {...props}>
           Copy It
         </button>
@@ -327,7 +331,7 @@ describe("CopilotChatUserMessage Slot System E2E Tests", () => {
             message={message}
             copyButton={CustomCopyButton as any}
           />
-        </TestWrapper>
+        </TestWrapper>,
       );
 
       const custom = screen.queryByTestId("custom-copy-btn");
@@ -336,7 +340,9 @@ describe("CopilotChatUserMessage Slot System E2E Tests", () => {
     });
 
     it("should allow custom component for editButton", () => {
-      const CustomEditButton: React.FC<React.ButtonHTMLAttributes<HTMLButtonElement>> = (props) => (
+      const CustomEditButton: React.FC<
+        React.ButtonHTMLAttributes<HTMLButtonElement>
+      > = (props) => (
         <button data-testid="custom-edit-btn" {...props}>
           Modify
         </button>
@@ -351,7 +357,7 @@ describe("CopilotChatUserMessage Slot System E2E Tests", () => {
             onEditMessage={onEditMessage}
             editButton={CustomEditButton as any}
           />
-        </TestWrapper>
+        </TestWrapper>,
       );
 
       const custom = screen.queryByTestId("custom-edit-btn");
@@ -379,7 +385,7 @@ describe("CopilotChatUserMessage Slot System E2E Tests", () => {
             onSwitchToBranch={onSwitchToBranch}
             branchNavigation={CustomBranchNav as any}
           />
-        </TestWrapper>
+        </TestWrapper>,
       );
 
       const custom = screen.queryByTestId("custom-branch-nav");
@@ -417,7 +423,7 @@ describe("CopilotChatUserMessage Slot System E2E Tests", () => {
           >
             {childrenFn}
           </CopilotChatUserMessage>
-        </TestWrapper>
+        </TestWrapper>,
       );
 
       expect(childrenFn).toHaveBeenCalled();
@@ -445,7 +451,7 @@ describe("CopilotChatUserMessage Slot System E2E Tests", () => {
           >
             {childrenFn}
           </CopilotChatUserMessage>
-        </TestWrapper>
+        </TestWrapper>,
       );
 
       const callArgs = childrenFn.mock.calls[0][0];
@@ -460,7 +466,10 @@ describe("CopilotChatUserMessage Slot System E2E Tests", () => {
 
       const { container } = render(
         <TestWrapper>
-          <CopilotChatUserMessage message={message} onEditMessage={onEditMessage}>
+          <CopilotChatUserMessage
+            message={message}
+            onEditMessage={onEditMessage}
+          >
             {({ messageRenderer, toolbar, copyButton, editButton }) => (
               <div data-testid="custom-layout">
                 <div className="message-area">{messageRenderer}</div>
@@ -472,7 +481,7 @@ describe("CopilotChatUserMessage Slot System E2E Tests", () => {
               </div>
             )}
           </CopilotChatUserMessage>
-        </TestWrapper>
+        </TestWrapper>,
       );
 
       const customLayout = screen.queryByTestId("custom-layout");
@@ -495,7 +504,7 @@ describe("CopilotChatUserMessage Slot System E2E Tests", () => {
             message={message}
             className="custom-root-class bg-purple-50"
           />
-        </TestWrapper>
+        </TestWrapper>,
       );
 
       const root = container.querySelector(".custom-root-class");
@@ -507,11 +516,8 @@ describe("CopilotChatUserMessage Slot System E2E Tests", () => {
       const message = createUserMessage("Hello");
       const { container } = render(
         <TestWrapper>
-          <CopilotChatUserMessage
-            message={message}
-            className="pt-0"
-          />
-        </TestWrapper>
+          <CopilotChatUserMessage message={message} className="pt-0" />
+        </TestWrapper>,
       );
 
       // pt-0 should override the default pt-10
@@ -533,7 +539,7 @@ describe("CopilotChatUserMessage Slot System E2E Tests", () => {
             copyButton="copy-custom"
             editButton="edit-custom"
           />
-        </TestWrapper>
+        </TestWrapper>,
       );
 
       expect(container.querySelector(".root-custom")).toBeDefined();
@@ -567,7 +573,7 @@ describe("CopilotChatUserMessage Slot System E2E Tests", () => {
             editButton="edit-style"
             branchNavigation="branch-style"
           />
-        </TestWrapper>
+        </TestWrapper>,
       );
 
       expect(container.querySelector(".renderer-style")).toBeDefined();
@@ -588,7 +594,7 @@ describe("CopilotChatUserMessage Slot System E2E Tests", () => {
             messageRenderer="text-lg font-bold"
             toolbar={{ onClick, className: "flex gap-4" }}
           />
-        </TestWrapper>
+        </TestWrapper>,
       );
 
       expect(container.querySelector(".text-lg")).toBeDefined();
@@ -606,7 +612,7 @@ describe("CopilotChatUserMessage Slot System E2E Tests", () => {
       render(
         <TestWrapper>
           <CopilotChatUserMessage message={message} />
-        </TestWrapper>
+        </TestWrapper>,
       );
 
       expect(screen.getByText("This is my message content")).toBeDefined();

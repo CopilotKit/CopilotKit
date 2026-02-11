@@ -52,7 +52,9 @@ function isValidAudioType(type: string): boolean {
   );
 }
 
-function createErrorResponse(errorResponse: TranscriptionErrorResponse): Response {
+function createErrorResponse(
+  errorResponse: TranscriptionErrorResponse,
+): Response {
   const status = ERROR_STATUS_CODES[errorResponse.error] ?? 500;
   return new Response(JSON.stringify(errorResponse), {
     status,
@@ -60,9 +62,15 @@ function createErrorResponse(errorResponse: TranscriptionErrorResponse): Respons
   });
 }
 
-function base64ToFile(base64: string, mimeType: string, filename: string): File {
+function base64ToFile(
+  base64: string,
+  mimeType: string,
+  filename: string,
+): File {
   // Remove data URL prefix if present (e.g., "data:audio/webm;base64,")
-  const base64Data = base64.includes(",") ? base64.split(",")[1] ?? base64 : base64;
+  const base64Data = base64.includes(",")
+    ? (base64.split(",")[1] ?? base64)
+    : base64;
 
   // Decode base64 to binary
   const binaryString = atob(base64Data);
@@ -76,20 +84,23 @@ function base64ToFile(base64: string, mimeType: string, filename: string): File 
 }
 
 async function extractAudioFromFormData(
-  request: Request
+  request: Request,
 ): Promise<{ file: File } | { error: Response }> {
   const formData = await request.formData();
   const audioFile = formData.get("audio") as File | null;
 
   if (!audioFile || !(audioFile instanceof File)) {
     const err = TranscriptionErrors.invalidRequest(
-      "No audio file found in form data. Please include an 'audio' field."
+      "No audio file found in form data. Please include an 'audio' field.",
     );
     return { error: createErrorResponse(err) };
   }
 
   if (!isValidAudioType(audioFile.type)) {
-    const err = TranscriptionErrors.invalidAudioFormat(audioFile.type, VALID_AUDIO_TYPES);
+    const err = TranscriptionErrors.invalidAudioFormat(
+      audioFile.type,
+      VALID_AUDIO_TYPES,
+    );
     return { error: createErrorResponse(err) };
   }
 
@@ -97,33 +108,38 @@ async function extractAudioFromFormData(
 }
 
 async function extractAudioFromJson(
-  request: Request
+  request: Request,
 ): Promise<{ file: File } | { error: Response }> {
   let body: Base64AudioInput;
 
   try {
     body = await request.json();
   } catch {
-    const err = TranscriptionErrors.invalidRequest("Request body must be valid JSON");
+    const err = TranscriptionErrors.invalidRequest(
+      "Request body must be valid JSON",
+    );
     return { error: createErrorResponse(err) };
   }
 
   if (!body.audio || typeof body.audio !== "string") {
     const err = TranscriptionErrors.invalidRequest(
-      "Request must include 'audio' field with base64-encoded audio data"
+      "Request must include 'audio' field with base64-encoded audio data",
     );
     return { error: createErrorResponse(err) };
   }
 
   if (!body.mimeType || typeof body.mimeType !== "string") {
     const err = TranscriptionErrors.invalidRequest(
-      "Request must include 'mimeType' field (e.g., 'audio/webm')"
+      "Request must include 'mimeType' field (e.g., 'audio/webm')",
     );
     return { error: createErrorResponse(err) };
   }
 
   if (!isValidAudioType(body.mimeType)) {
-    const err = TranscriptionErrors.invalidAudioFormat(body.mimeType, VALID_AUDIO_TYPES);
+    const err = TranscriptionErrors.invalidAudioFormat(
+      body.mimeType,
+      VALID_AUDIO_TYPES,
+    );
     return { error: createErrorResponse(err) };
   }
 
@@ -132,7 +148,9 @@ async function extractAudioFromJson(
     const file = base64ToFile(body.audio, body.mimeType, filename);
     return { file };
   } catch {
-    const err = TranscriptionErrors.invalidRequest("Failed to decode base64 audio data");
+    const err = TranscriptionErrors.invalidRequest(
+      "Failed to decode base64 audio data",
+    );
     return { error: createErrorResponse(err) };
   }
 }
@@ -141,11 +159,16 @@ async function extractAudioFromJson(
  * Categorize provider errors into appropriate transcription error responses.
  */
 function categorizeProviderError(error: unknown): TranscriptionErrorResponse {
-  const message = error instanceof Error ? error.message : "Unknown error occurred";
+  const message =
+    error instanceof Error ? error.message : "Unknown error occurred";
   const errorStr = String(error).toLowerCase();
 
   // Check for rate limiting
-  if (errorStr.includes("rate") || errorStr.includes("429") || errorStr.includes("too many")) {
+  if (
+    errorStr.includes("rate") ||
+    errorStr.includes("429") ||
+    errorStr.includes("too many")
+  ) {
     return TranscriptionErrors.rateLimited();
   }
 
@@ -160,7 +183,11 @@ function categorizeProviderError(error: unknown): TranscriptionErrorResponse {
   }
 
   // Check for audio too long
-  if (errorStr.includes("too long") || errorStr.includes("duration") || errorStr.includes("length")) {
+  if (
+    errorStr.includes("too long") ||
+    errorStr.includes("duration") ||
+    errorStr.includes("length")
+  ) {
     return TranscriptionErrors.audioTooLong();
   }
 
@@ -192,7 +219,7 @@ export async function handleTranscribe({
       extractResult = await extractAudioFromJson(request);
     } else {
       const err = TranscriptionErrors.invalidRequest(
-        "Request must be multipart/form-data or application/json with base64 audio"
+        "Request must be multipart/form-data or application/json with base64 audio",
       );
       return createErrorResponse(err);
     }
@@ -220,7 +247,7 @@ export async function handleTranscribe({
       {
         status: 200,
         headers: { "Content-Type": "application/json" },
-      }
+      },
     );
   } catch (error) {
     // Categorize the error for better client-side handling

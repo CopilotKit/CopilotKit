@@ -6,9 +6,7 @@ import { CopilotKitProvider } from "@/providers/CopilotKitProvider";
 import { CopilotChatConfigurationProvider } from "@/providers/CopilotChatConfigurationProvider";
 
 // Wrapper to provide required context
-const TestWrapper: React.FC<{ children: React.ReactNode }> = ({
-  children,
-}) => (
+const TestWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   <CopilotKitProvider>
     <CopilotChatConfigurationProvider threadId="test-thread">
       {children}
@@ -34,7 +32,7 @@ describe("CopilotSidebarView Slot System E2E Tests", () => {
               messages={sampleMessages}
               header="bg-gradient-to-r from-blue-500 to-purple-500 text-white"
             />
-          </TestWrapper>
+          </TestWrapper>,
         );
 
         const header = container.querySelector(".bg-gradient-to-r");
@@ -51,7 +49,7 @@ describe("CopilotSidebarView Slot System E2E Tests", () => {
               messages={sampleMessages}
               header="border-b-2 border-blue-500"
             />
-          </TestWrapper>
+          </TestWrapper>,
         );
 
         const header = container.querySelector(".border-b-2");
@@ -72,7 +70,7 @@ describe("CopilotSidebarView Slot System E2E Tests", () => {
               messages={sampleMessages}
               header={{ "data-testid": "custom-sidebar-header" }}
             />
-          </TestWrapper>
+          </TestWrapper>,
         );
 
         const header = screen.queryByTestId("custom-sidebar-header");
@@ -86,7 +84,7 @@ describe("CopilotSidebarView Slot System E2E Tests", () => {
               messages={sampleMessages}
               header={{ title: "My Sidebar Chat" }}
             />
-          </TestWrapper>
+          </TestWrapper>,
         );
 
         // The title should be rendered in the header
@@ -101,7 +99,10 @@ describe("CopilotSidebarView Slot System E2E Tests", () => {
   describe("3. Custom Component - Header Slot", () => {
     it("should allow custom component for header", () => {
       const CustomHeader: React.FC = () => (
-        <header data-testid="custom-header-component" className="custom-sidebar-header">
+        <header
+          data-testid="custom-header-component"
+          className="custom-sidebar-header"
+        >
           <span>Custom Sidebar Header</span>
           <button>Custom Close</button>
         </header>
@@ -113,7 +114,7 @@ describe("CopilotSidebarView Slot System E2E Tests", () => {
             messages={sampleMessages}
             header={CustomHeader as any}
           />
-        </TestWrapper>
+        </TestWrapper>,
       );
 
       const custom = screen.queryByTestId("custom-header-component");
@@ -132,7 +133,7 @@ describe("CopilotSidebarView Slot System E2E Tests", () => {
               closeButton: "bg-red-500",
             }}
           />
-        </TestWrapper>
+        </TestWrapper>,
       );
 
       expect(screen.queryByText("Customized Header")).toBeDefined();
@@ -152,7 +153,7 @@ describe("CopilotSidebarView Slot System E2E Tests", () => {
               messages={sampleMessages}
               messageView="bg-gray-50 rounded-lg"
             />
-          </TestWrapper>
+          </TestWrapper>,
         );
 
         const messageView = container.querySelector(".bg-gray-50");
@@ -168,7 +169,7 @@ describe("CopilotSidebarView Slot System E2E Tests", () => {
               messages={sampleMessages}
               input="border-2 border-blue-400"
             />
-          </TestWrapper>
+          </TestWrapper>,
         );
 
         const input = container.querySelector(".border-blue-400");
@@ -184,7 +185,7 @@ describe("CopilotSidebarView Slot System E2E Tests", () => {
               messages={sampleMessages}
               scrollView="overflow-y-scroll bg-white"
             />
-          </TestWrapper>
+          </TestWrapper>,
         );
 
         const scrollView = container.querySelector(".overflow-y-scroll");
@@ -205,7 +206,7 @@ describe("CopilotSidebarView Slot System E2E Tests", () => {
               suggestions={suggestions}
               suggestionView="gap-4 p-2"
             />
-          </TestWrapper>
+          </TestWrapper>,
         );
 
         const suggestionView = container.querySelector(".gap-4");
@@ -230,7 +231,7 @@ describe("CopilotSidebarView Slot System E2E Tests", () => {
               titleContent: "text-2xl text-purple-600 font-extrabold",
             }}
           />
-        </TestWrapper>
+        </TestWrapper>,
       );
 
       const titleContent = container.querySelector(".text-2xl");
@@ -248,7 +249,7 @@ describe("CopilotSidebarView Slot System E2E Tests", () => {
               closeButton: "custom-close-btn",
             }}
           />
-        </TestWrapper>
+        </TestWrapper>,
       );
 
       const closeBtn = container.querySelector(".custom-close-btn");
@@ -269,7 +270,7 @@ describe("CopilotSidebarView Slot System E2E Tests", () => {
             messages={sampleMessages}
             header={CustomHeader as any}
           />
-        </TestWrapper>
+        </TestWrapper>,
       );
 
       const customClose = screen.queryByTestId("sidebar-custom-close");
@@ -291,7 +292,7 @@ describe("CopilotSidebarView Slot System E2E Tests", () => {
             messageView="message-style"
             input="input-style"
           />
-        </TestWrapper>
+        </TestWrapper>,
       );
 
       expect(container.querySelector(".header-style")).toBeDefined();
@@ -308,7 +309,7 @@ describe("CopilotSidebarView Slot System E2E Tests", () => {
             header={{ onClick, className: "clickable-header" }}
             input="styled-input"
           />
-        </TestWrapper>
+        </TestWrapper>,
       );
 
       expect(container.querySelector(".styled-input")).toBeDefined();
@@ -323,11 +324,8 @@ describe("CopilotSidebarView Slot System E2E Tests", () => {
     it("should support custom width prop", () => {
       const { container } = render(
         <TestWrapper>
-          <CopilotSidebarView
-            messages={sampleMessages}
-            width={600}
-          />
-        </TestWrapper>
+          <CopilotSidebarView messages={sampleMessages} width={600} />
+        </TestWrapper>,
       );
 
       const sidebar = container.querySelector("[data-copilot-sidebar]");
@@ -339,11 +337,8 @@ describe("CopilotSidebarView Slot System E2E Tests", () => {
     it("should support string width prop", () => {
       const { container } = render(
         <TestWrapper>
-          <CopilotSidebarView
-            messages={sampleMessages}
-            width="50vw"
-          />
-        </TestWrapper>
+          <CopilotSidebarView messages={sampleMessages} width="50vw" />
+        </TestWrapper>,
       );
 
       const sidebar = container.querySelector("[data-copilot-sidebar]");
@@ -359,20 +354,22 @@ describe("CopilotSidebarView Slot System E2E Tests", () => {
       const { container } = render(
         <TestWrapper>
           <CopilotSidebarView messages={sampleMessages} />
-        </TestWrapper>
+        </TestWrapper>,
       );
 
       const sidebar = container.querySelector("[data-copilot-sidebar]");
       expect(sidebar).toBeDefined();
       // Should have header
-      expect(container.querySelector('[data-slot="copilot-modal-header"]')).toBeDefined();
+      expect(
+        container.querySelector('[data-slot="copilot-modal-header"]'),
+      ).toBeDefined();
     });
 
     it("should render messages in sidebar", () => {
       render(
         <TestWrapper>
           <CopilotSidebarView messages={sampleMessages} />
-        </TestWrapper>
+        </TestWrapper>,
       );
 
       expect(screen.queryByText("Hello")).toBeDefined();
@@ -383,7 +380,7 @@ describe("CopilotSidebarView Slot System E2E Tests", () => {
       const { container } = render(
         <TestWrapper>
           <CopilotSidebarView messages={[]} />
-        </TestWrapper>
+        </TestWrapper>,
       );
 
       const sidebar = container.querySelector("[data-copilot-sidebar]");
@@ -404,7 +401,7 @@ describe("CopilotSidebarView Slot System E2E Tests", () => {
             input="custom-input"
             scrollView="custom-scroll"
           />
-        </TestWrapper>
+        </TestWrapper>,
       );
 
       expect(container.querySelector(".custom-header-root")).toBeDefined();
@@ -427,7 +424,7 @@ describe("CopilotSidebarView Slot System E2E Tests", () => {
               messages={sampleMessages}
               toggleButton="bg-red-500 hover:bg-red-600"
             />
-          </TestWrapper>
+          </TestWrapper>,
         );
 
         const toggleButton = container.querySelector(".bg-red-500");
@@ -444,7 +441,7 @@ describe("CopilotSidebarView Slot System E2E Tests", () => {
               messages={sampleMessages}
               toggleButton={{ "data-testid": "custom-toggle-button" }}
             />
-          </TestWrapper>
+          </TestWrapper>,
         );
 
         const toggleButton = screen.queryByTestId("custom-toggle-button");
@@ -461,12 +458,16 @@ describe("CopilotSidebarView Slot System E2E Tests", () => {
                 closeIcon: "text-red-500",
               }}
             />
-          </TestWrapper>
+          </TestWrapper>,
         );
 
         // The icons should have custom classes applied
-        const openIconSlot = container.querySelector('[data-slot="chat-toggle-button-open-icon"]');
-        const closeIconSlot = container.querySelector('[data-slot="chat-toggle-button-close-icon"]');
+        const openIconSlot = container.querySelector(
+          '[data-slot="chat-toggle-button-open-icon"]',
+        );
+        const closeIconSlot = container.querySelector(
+          '[data-slot="chat-toggle-button-close-icon"]',
+        );
         expect(openIconSlot).toBeDefined();
         expect(closeIconSlot).toBeDefined();
       });
@@ -475,7 +476,10 @@ describe("CopilotSidebarView Slot System E2E Tests", () => {
     describe("toggleButton slot - Custom component", () => {
       it("should allow custom component for toggle button", () => {
         const CustomToggleButton: React.FC = () => (
-          <button data-testid="custom-toggle-component" className="custom-toggle">
+          <button
+            data-testid="custom-toggle-component"
+            className="custom-toggle"
+          >
             Toggle Chat
           </button>
         );
@@ -486,7 +490,7 @@ describe("CopilotSidebarView Slot System E2E Tests", () => {
               messages={sampleMessages}
               toggleButton={CustomToggleButton as any}
             />
-          </TestWrapper>
+          </TestWrapper>,
         );
 
         const custom = screen.queryByTestId("custom-toggle-component");

@@ -400,7 +400,7 @@ export class CopilotChatAssistantMessage {
   readonly messages = input<Message[]>([]);
   readonly isLoading = input<boolean>(false);
   readonly additionalToolbarItems = input<TemplateRef<any> | undefined>(
-    undefined
+    undefined,
   );
   readonly toolbarVisible = input<boolean>(true);
   readonly inputClass = input<string | undefined>(undefined);
@@ -412,7 +412,7 @@ export class CopilotChatAssistantMessage {
   constructor(
     @Optional()
     @Inject(CopilotChatViewHandlers)
-    handlers?: CopilotChatViewHandlers | null
+    handlers?: CopilotChatViewHandlers | null,
   ) {
     this.handlers = handlers || new CopilotChatViewHandlers();
   }
@@ -430,7 +430,7 @@ export class CopilotChatAssistantMessage {
   computedClass = computed(() => {
     return cn(
       "prose max-w-full break-words dark:prose-invert",
-      this.customClass()
+      this.customClass(),
     );
   });
 
@@ -451,7 +451,7 @@ export class CopilotChatAssistantMessage {
   markdownRendererContext = computed<AssistantMessageMarkdownRendererContext>(
     () => ({
       content: this.message()?.content || "",
-    })
+    }),
   );
 
   // Output maps for slots

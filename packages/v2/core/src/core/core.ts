@@ -1,5 +1,10 @@
 import { AbstractAgent, Context, State } from "@ag-ui/client";
-import { FrontendTool, SuggestionsConfig, Suggestion, CopilotRuntimeTransport } from "../types";
+import {
+  FrontendTool,
+  SuggestionsConfig,
+  Suggestion,
+  CopilotRuntimeTransport,
+} from "../types";
 import { AgentRegistry, CopilotKitCoreAddAgentParams } from "./agent-registry";
 import { ContextStore } from "./context-store";
 import { SuggestionEngine } from "./suggestion-engine";
@@ -32,7 +37,11 @@ export interface CopilotKitCoreConfig {
 }
 
 export type { CopilotKitCoreAddAgentParams };
-export type { CopilotKitCoreRunAgentParams, CopilotKitCoreConnectAgentParams, CopilotKitCoreGetToolParams };
+export type {
+  CopilotKitCoreRunAgentParams,
+  CopilotKitCoreConnectAgentParams,
+  CopilotKitCoreGetToolParams,
+};
 
 export interface CopilotKitCoreStopAgentParams {
   agent: AbstractAgent;
@@ -97,8 +106,14 @@ export interface CopilotKitCoreSubscriber {
     agentId: string;
     suggestions: Suggestion[];
   }) => void | Promise<void>;
-  onSuggestionsStartedLoading?: (event: { copilotkit: CopilotKitCore; agentId: string }) => void | Promise<void>;
-  onSuggestionsFinishedLoading?: (event: { copilotkit: CopilotKitCore; agentId: string }) => void | Promise<void>;
+  onSuggestionsStartedLoading?: (event: {
+    copilotkit: CopilotKitCore;
+    agentId: string;
+  }) => void | Promise<void>;
+  onSuggestionsFinishedLoading?: (event: {
+    copilotkit: CopilotKitCore;
+    agentId: string;
+  }) => void | Promise<void>;
   onPropertiesChanged?: (event: {
     copilotkit: CopilotKitCore;
     properties: Readonly<Record<string, unknown>>;
@@ -138,7 +153,11 @@ export interface CopilotKitCoreFriendsAccess {
     errorMessage: string,
   ): Promise<void>;
 
-  emitError(params: { error: Error; code: CopilotKitCoreErrorCode; context?: Record<string, any> }): Promise<void>;
+  emitError(params: {
+    error: Error;
+    code: CopilotKitCoreErrorCode;
+    context?: Record<string, any>;
+  }): Promise<void>;
 
   // Getters for internal state
   readonly headers: Readonly<Record<string, string>>;
@@ -315,7 +334,9 @@ export class CopilotKitCore {
    */
   setHeaders(headers: Record<string, string>): void {
     this._headers = headers;
-    this.agentRegistry.applyHeadersToAgents(this.agentRegistry.agents as Record<string, AbstractAgent>);
+    this.agentRegistry.applyHeadersToAgents(
+      this.agentRegistry.agents as Record<string, AbstractAgent>,
+    );
     void this.notifySubscribers(
       (subscriber) =>
         subscriber.onHeadersChanged?.({
@@ -328,7 +349,9 @@ export class CopilotKitCore {
 
   setCredentials(credentials: RequestCredentials | undefined): void {
     this._credentials = credentials;
-    this.agentRegistry.applyCredentialsToAgents(this.agentRegistry.agents as Record<string, AbstractAgent>);
+    this.agentRegistry.applyCredentialsToAgents(
+      this.agentRegistry.agents as Record<string, AbstractAgent>,
+    );
   }
 
   setProperties(properties: Record<string, unknown>): void {
@@ -399,7 +422,9 @@ export class CopilotKitCore {
   /**
    * Tool management (delegated to RunHandler)
    */
-  addTool<T extends Record<string, unknown> = Record<string, unknown>>(tool: FrontendTool<T>): void {
+  addTool<T extends Record<string, unknown> = Record<string, unknown>>(
+    tool: FrontendTool<T>,
+  ): void {
     this.runHandler.addTool(tool);
   }
 
@@ -432,7 +457,9 @@ export class CopilotKitCore {
   /**
    * Agent connectivity (delegated to RunHandler)
    */
-  async connectAgent(params: CopilotKitCoreConnectAgentParams): Promise<import("@ag-ui/client").RunAgentResult> {
+  async connectAgent(
+    params: CopilotKitCoreConnectAgentParams,
+  ): Promise<import("@ag-ui/client").RunAgentResult> {
     return this.runHandler.connectAgent(params);
   }
 
@@ -440,18 +467,28 @@ export class CopilotKitCore {
     params.agent.abortRun();
   }
 
-  async runAgent(params: CopilotKitCoreRunAgentParams): Promise<import("@ag-ui/client").RunAgentResult> {
+  async runAgent(
+    params: CopilotKitCoreRunAgentParams,
+  ): Promise<import("@ag-ui/client").RunAgentResult> {
     return this.runHandler.runAgent(params);
   }
 
   /**
    * State management (delegated to StateManager)
    */
-  getStateByRun(agentId: string, threadId: string, runId: string): State | undefined {
+  getStateByRun(
+    agentId: string,
+    threadId: string,
+    runId: string,
+  ): State | undefined {
     return this.stateManager.getStateByRun(agentId, threadId, runId);
   }
 
-  getRunIdForMessage(agentId: string, threadId: string, messageId: string): string | undefined {
+  getRunIdForMessage(
+    agentId: string,
+    threadId: string,
+    messageId: string,
+  ): string | undefined {
     return this.stateManager.getRunIdForMessage(agentId, threadId, messageId);
   }
 

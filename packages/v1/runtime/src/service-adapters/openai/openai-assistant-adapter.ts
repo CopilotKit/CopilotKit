@@ -25,13 +25,20 @@
 import type OpenAI from "openai";
 import type { RunSubmitToolOutputsStreamParams } from "openai/resources/beta/threads/runs/runs";
 import type { AssistantStream } from "openai/lib/AssistantStream";
-import type { AssistantStreamEvent, AssistantTool } from "openai/resources/beta/assistants";
+import type {
+  AssistantStreamEvent,
+  AssistantTool,
+} from "openai/resources/beta/assistants";
 import {
   CopilotServiceAdapter,
   CopilotRuntimeChatCompletionRequest,
   CopilotRuntimeChatCompletionResponse,
 } from "../service-adapter";
-import { Message, ResultMessage, TextMessage } from "../../graphql/types/converted";
+import {
+  Message,
+  ResultMessage,
+  TextMessage,
+} from "../../graphql/types/converted";
 import {
   convertActionInputToOpenAITool,
   convertMessageToOpenAIMessage,
@@ -100,7 +107,8 @@ export class OpenAIAssistantAdapter implements CopilotServiceAdapter {
       this._openai = params.openai;
     }
     // If no instance provided, we'll lazy-load in ensureOpenAI()
-    this.codeInterpreterEnabled = params.codeInterpreterEnabled === false || true;
+    this.codeInterpreterEnabled =
+      params.codeInterpreterEnabled === false || true;
     this.fileSearchEnabled = params.fileSearchEnabled === false || true;
     this.assistantId = params.assistantId;
     this.disableParallelToolCalls = params?.disableParallelToolCalls || false;
@@ -119,7 +127,8 @@ export class OpenAIAssistantAdapter implements CopilotServiceAdapter {
   async process(
     request: CopilotRuntimeChatCompletionRequest,
   ): Promise<CopilotRuntimeChatCompletionResponse> {
-    const { messages, actions, eventSource, runId, forwardedParameters } = request;
+    const { messages, actions, eventSource, runId, forwardedParameters } =
+      request;
 
     // if we don't have a threadId, create a new thread
     let threadId = request.extensions?.openaiAssistantAPI?.threadId;
@@ -135,7 +144,12 @@ export class OpenAIAssistantAdapter implements CopilotServiceAdapter {
 
     // submit function outputs
     if (lastMessage.isResultMessage() && runId) {
-      nextRunId = await this.submitToolOutputs(threadId, runId, messages, eventSource);
+      nextRunId = await this.submitToolOutputs(
+        threadId,
+        runId,
+        messages,
+        eventSource,
+      );
     }
     // submit user message
     else if (lastMessage.isTextMessage()) {
@@ -185,27 +199,34 @@ export class OpenAIAssistantAdapter implements CopilotServiceAdapter {
 
     // search for these tool calls
     const resultMessages = messages.filter(
-      (message) => message.isResultMessage() && toolCallsIds.includes(message.actionExecutionId),
+      (message) =>
+        message.isResultMessage() &&
+        toolCallsIds.includes(message.actionExecutionId),
     ) as ResultMessage[];
 
     if (toolCallsIds.length != resultMessages.length) {
-      throw new Error("Number of function results does not match the number of tool calls");
+      throw new Error(
+        "Number of function results does not match the number of tool calls",
+      );
     }
 
     // submit the tool outputs
-    const toolOutputs: RunSubmitToolOutputsStreamParams.ToolOutput[] = resultMessages.map(
-      (message) => {
+    const toolOutputs: RunSubmitToolOutputsStreamParams.ToolOutput[] =
+      resultMessages.map((message) => {
         return {
           tool_call_id: message.actionExecutionId,
           output: message.result,
         };
+      });
+
+    const stream = openai.beta.threads.runs.submitToolOutputsStream(
+      threadId,
+      runId,
+      {
+        tool_outputs: toolOutputs,
+        ...(this.disableParallelToolCalls && { parallel_tool_calls: false }),
       },
     );
-
-    const stream = openai.beta.threads.runs.submitToolOutputsStream(threadId, runId, {
-      tool_outputs: toolOutputs,
-      ...(this.disableParallelToolCalls && { parallel_tool_calls: false }),
-    });
 
     await this.streamResponse(stream, eventSource);
     return runId;
@@ -223,11 +244,17 @@ export class OpenAIAssistantAdapter implements CopilotServiceAdapter {
 
     // get the instruction message
     const instructionsMessage = messages.shift();
-    const instructions = instructionsMessage.isTextMessage() ? instructionsMessage.content : "";
+    const instructions = instructionsMessage.isTextMessage()
+      ? instructionsMessage.content
+      : "";
 
     // get the latest user message
     const userMessage = messages
-      .map((m) => convertMessageToOpenAIMessage(m, { keepSystemRole: this.keepSystemRole }))
+      .map((m) =>
+        convertMessageToOpenAIMessage(m, {
+          keepSystemRole: this.keepSystemRole,
+        }),
+      )
       .map(convertSystemMessageToAssistantAPI)
       .at(-1);
 
@@ -244,8 +271,12 @@ export class OpenAIAssistantAdapter implements CopilotServiceAdapter {
 
     const tools = [
       ...openaiTools,
-      ...(this.codeInterpreterEnabled ? [{ type: "code_interpreter" } as AssistantTool] : []),
-      ...(this.fileSearchEnabled ? [{ type: "file_search" } as AssistantTool] : []),
+      ...(this.codeInterpreterEnabled
+        ? [{ type: "code_interpreter" } as AssistantTool]
+        : []),
+      ...(this.fileSearchEnabled
+        ? [{ type: "file_search" } as AssistantTool]
+        : []),
     ];
 
     let stream = openai.beta.threads.runs.stream(threadId, {
@@ -263,7 +294,10 @@ export class OpenAIAssistantAdapter implements CopilotServiceAdapter {
     return getRunIdFromStream(stream);
   }
 
-  private async streamResponse(stream: AssistantStream, eventSource: RuntimeEventSource) {
+  private async streamResponse(
+    stream: AssistantStream,
+    eventSource: RuntimeEventSource,
+  ) {
     eventSource.stream(async (eventStream$) => {
       let inFunctionCall = false;
       let currentMessageId: string;
@@ -273,7 +307,9 @@ export class OpenAIAssistantAdapter implements CopilotServiceAdapter {
         switch (chunk.event) {
           case "thread.message.created":
             if (inFunctionCall) {
-              eventStream$.sendActionExecutionEnd({ actionExecutionId: currentToolCallId });
+              eventStream$.sendActionExecutionEnd({
+                actionExecutionId: currentToolCallId,
+              });
             }
             currentMessageId = chunk.data.id;
             eventStream$.sendTextMessageStart({ messageId: currentMessageId });
@@ -298,13 +334,18 @@ export class OpenAIAssistantAdapter implements CopilotServiceAdapter {
               chunk.data.delta.step_details.tool_calls?.[0].type === "function"
             ) {
               toolCallId = chunk.data.delta.step_details.tool_calls?.[0].id;
-              toolCallName = chunk.data.delta.step_details.tool_calls?.[0].function.name;
-              toolCallArgs = chunk.data.delta.step_details.tool_calls?.[0].function.arguments;
+              toolCallName =
+                chunk.data.delta.step_details.tool_calls?.[0].function.name;
+              toolCallArgs =
+                chunk.data.delta.step_details.tool_calls?.[0].function
+                  .arguments;
             }
 
             if (toolCallName && toolCallId) {
               if (inFunctionCall) {
-                eventStream$.sendActionExecutionEnd({ actionExecutionId: currentToolCallId });
+                eventStream$.sendActionExecutionEnd({
+                  actionExecutionId: currentToolCallId,
+                });
               }
               inFunctionCall = true;
               currentToolCallId = toolCallId;
@@ -323,7 +364,9 @@ export class OpenAIAssistantAdapter implements CopilotServiceAdapter {
         }
       }
       if (inFunctionCall) {
-        eventStream$.sendActionExecutionEnd({ actionExecutionId: currentToolCallId });
+        eventStream$.sendActionExecutionEnd({
+          actionExecutionId: currentToolCallId,
+        });
       }
       eventStream$.complete();
     });

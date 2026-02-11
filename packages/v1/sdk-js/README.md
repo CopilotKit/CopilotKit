@@ -1,6 +1,5 @@
 # CopilotKit - SDK JS
 
-
 <img src="https://github.com/user-attachments/assets/0a6b64d9-e193-4940-a3f6-60334ac34084" alt="banner" style="border-radius: 12px; border: 2px solid #d6d4fa;" />
 
 <br>

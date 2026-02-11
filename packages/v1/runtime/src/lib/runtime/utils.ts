@@ -29,7 +29,10 @@ async function fetchRemoteInfo({
     const response = await fetch(fetchUrl, {
       method: "POST",
       headers,
-      body: JSON.stringify({ properties: graphqlContext.properties, frontendUrl }),
+      body: JSON.stringify({
+        properties: graphqlContext.properties,
+        frontendUrl,
+      }),
     });
 
     if (!response.ok) {
@@ -58,7 +61,8 @@ async function fetchRemoteInfo({
 // Utility to determine if an error is a user configuration issue vs system error
 export function isUserConfigurationError(error: any): boolean {
   return (
-    (error instanceof CopilotKitError || error instanceof CopilotKitLowLevelError) &&
+    (error instanceof CopilotKitError ||
+      error instanceof CopilotKitLowLevelError) &&
     (error.code === "NETWORK_ERROR" ||
       error.code === "AUTHENTICATION_ERROR" ||
       error.statusCode === 401 ||
@@ -77,7 +81,9 @@ export function createHeaders(
   };
 
   if (onBeforeRequest) {
-    const { headers: additionalHeaders } = onBeforeRequest({ ctx: graphqlContext });
+    const { headers: additionalHeaders } = onBeforeRequest({
+      ctx: graphqlContext,
+    });
     if (additionalHeaders) {
       Object.assign(headers, additionalHeaders);
     }

@@ -47,7 +47,9 @@ export class ThemedA2UISurface extends SignalWatcher(LitElement) {
   accessor surface: v0_8.Types.Surface | null = null;
 
   @property({ attribute: false })
-  accessor processor: InstanceType<typeof v0_8.Data.A2uiMessageProcessor> | null = null;
+  accessor processor: InstanceType<
+    typeof v0_8.Data.A2uiMessageProcessor
+  > | null = null;
 
   @property({ attribute: false })
   accessor onAction: ThemedA2UISurfaceActionCallback | null = null;

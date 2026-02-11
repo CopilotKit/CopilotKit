@@ -89,12 +89,12 @@ Example PR data:
             {
               name: "userId",
               type: "number",
-              description: "The user ID to filter PRs by"
-            }
+              description: "The user ID to filter PRs by",
+            },
           ],
           handler: async ({ userId }: { userId: number }) => {
-            return prData.filter(pr => pr.userId === userId);
-          }
+            return prData.filter((pr) => pr.userId === userId);
+          },
         },
         {
           name: "fetchData_AuthorNames",
@@ -130,11 +130,11 @@ Example PR data:
           }`,
           parameters: [],
           handler: async () => {
-            let authorNames = prData.map(pr => pr.author);
+            let authorNames = prData.map((pr) => pr.author);
             let uniqueAuthorNames = [...new Set(authorNames)];
-            console.log(uniqueAuthorNames, "uniqueAuthorNames");            
+            console.log(uniqueAuthorNames, "uniqueAuthorNames");
             return uniqueAuthorNames;
-          }
+          },
         },
         {
           name: "fetchData_ReviewerNames",
@@ -170,11 +170,11 @@ Example PR data:
           }`,
           parameters: [],
           handler: async () => {
-            let reviewerNames = prData.map(pr => pr.assignedReviewer);
+            let reviewerNames = prData.map((pr) => pr.assignedReviewer);
             let uniqueReviewerNames = [...new Set(reviewerNames)];
-            console.log(uniqueReviewerNames, "uniqueReviewerNames");            
+            console.log(uniqueReviewerNames, "uniqueReviewerNames");
             return uniqueReviewerNames;
-          }
+          },
         },
         {
           name: "fetchData_TesterNames",
@@ -238,19 +238,20 @@ Example PR data:
             }`,
           parameters: [],
           handler: async () => {
-            let testerNames = testData.map(test => test.executedBy);
+            let testerNames = testData.map((test) => test.executedBy);
             let uniqueTesterNames = [...new Set(testerNames)];
-            console.log(uniqueTesterNames, "uniqueTesterNames");            
+            console.log(uniqueTesterNames, "uniqueTesterNames");
             return uniqueTesterNames;
-          }
-        }
-      ] as any
+          },
+        },
+      ] as any;
     },
-    remoteEndpoints : [
+    remoteEndpoints: [
       {
-        url : process.env.REMOTE_ACTION_URL || "http://localhost:8000/copilotkit",
-      }
-    ]
+        url:
+          process.env.REMOTE_ACTION_URL || "http://localhost:8000/copilotkit",
+      },
+    ],
   });
   const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
     runtime,

@@ -29,11 +29,20 @@ export function useDefaultRenderTool(
   );
 }
 
-function DefaultToolCallRenderer({ name, args, status, result }: DefaultRenderProps): React.ReactElement {
+function DefaultToolCallRenderer({
+  name,
+  args,
+  status,
+  result,
+}: DefaultRenderProps): React.ReactElement {
   const [isExpanded, setIsExpanded] = useState(false);
 
-  const statusString = String(status) as "inProgress" | "executing" | "complete";
-  const isActive = statusString === "inProgress" || statusString === "executing";
+  const statusString = String(status) as
+    | "inProgress"
+    | "executing"
+    | "complete";
+  const isActive =
+    statusString === "inProgress" || statusString === "executing";
   const isComplete = statusString === "complete";
 
   const statusLabel = isActive ? "Running" : isComplete ? "Done" : status;
@@ -68,7 +77,14 @@ function DefaultToolCallRenderer({ name, args, status, result }: DefaultRenderPr
             userSelect: "none",
           }}
         >
-          <div style={{ display: "flex", alignItems: "center", gap: "8px", minWidth: 0 }}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+              minWidth: 0,
+            }}
+          >
             <svg
               style={{
                 height: "14px",
@@ -83,7 +99,11 @@ function DefaultToolCallRenderer({ name, args, status, result }: DefaultRenderPr
               strokeWidth={2}
               stroke="currentColor"
             >
-              <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M8.25 4.5l7.5 7.5-7.5 7.5"
+              />
             </svg>
             <span
               style={{
@@ -130,7 +150,14 @@ function DefaultToolCallRenderer({ name, args, status, result }: DefaultRenderPr
         {isExpanded && (
           <div style={{ marginTop: "12px", display: "grid", gap: "12px" }}>
             <div>
-              <div style={{ fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.05em", color: "#71717a" }}>
+              <div
+                style={{
+                  fontSize: "10px",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.05em",
+                  color: "#71717a",
+                }}
+              >
                 Arguments
               </div>
               <pre
@@ -155,7 +182,12 @@ function DefaultToolCallRenderer({ name, args, status, result }: DefaultRenderPr
             {result !== undefined && (
               <div>
                 <div
-                  style={{ fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.05em", color: "#71717a" }}
+                  style={{
+                    fontSize: "10px",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.05em",
+                    color: "#71717a",
+                  }}
                 >
                   Result
                 </div>
@@ -174,7 +206,9 @@ function DefaultToolCallRenderer({ name, args, status, result }: DefaultRenderPr
                     wordBreak: "break-word",
                   }}
                 >
-                  {typeof result === "string" ? result : JSON.stringify(result, null, 2)}
+                  {typeof result === "string"
+                    ? result
+                    : JSON.stringify(result, null, 2)}
                 </pre>
               </div>
             )}

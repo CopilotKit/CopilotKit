@@ -18,7 +18,10 @@ export function useRenderCustomMessages() {
   const { agentId, threadId } = config;
 
   const customMessageRenderers = copilotkit.renderCustomMessages
-    .filter((renderer) => renderer.agentId === undefined || renderer.agentId === agentId)
+    .filter(
+      (renderer) =>
+        renderer.agentId === undefined || renderer.agentId === agentId,
+    )
     .sort((a, b) => {
       const aHasAgent = a.agentId !== undefined;
       const bHasAgent = b.agentId !== undefined;
@@ -42,13 +45,21 @@ export function useRenderCustomMessages() {
 
     const messagesIdsInRun = resolvedRunId
       ? agent.messages
-          .filter((msg) => copilotkit.getRunIdForMessage(agentId, threadId, msg.id) === resolvedRunId)
+          .filter(
+            (msg) =>
+              copilotkit.getRunIdForMessage(agentId, threadId, msg.id) ===
+              resolvedRunId,
+          )
           .map((msg) => msg.id)
       : [message.id];
 
-    const rawMessageIndex = agent.messages.findIndex((msg) => msg.id === message.id);
+    const rawMessageIndex = agent.messages.findIndex(
+      (msg) => msg.id === message.id,
+    );
     const messageIndex = rawMessageIndex >= 0 ? rawMessageIndex : 0;
-    const messageIndexInRun = resolvedRunId ? Math.max(messagesIdsInRun.indexOf(message.id), 0) : 0;
+    const messageIndexInRun = resolvedRunId
+      ? Math.max(messagesIdsInRun.indexOf(message.id), 0)
+      : 0;
     const numberOfMessagesInRun = resolvedRunId ? messagesIdsInRun.length : 1;
     const stateSnapshot = resolvedRunId
       ? copilotkit.getStateByRun(agentId, threadId, resolvedRunId)

@@ -1,6 +1,9 @@
 import { FinancingForm } from "@/components/generative-ui/financing-form";
 import { useGlobalState } from "@/lib/stages";
-import { useCopilotAction, useCopilotAdditionalInstructions } from "@copilotkit/react-core";
+import {
+  useCopilotAction,
+  useCopilotAdditionalInstructions,
+} from "@copilotkit/react-core";
 
 /**
   useStateGetFinancingInfo is a hook that will add this stage to the state machine. It is responsible for:
@@ -36,7 +39,9 @@ export function useStageGetFinancingInfo() {
               setFinancingInfo({ creditScore, loanTerm });
 
               // Let the agent know that the user has submitted their financing information.
-              respond?.("User has submitted their financing information, moving to the next state");
+              respond?.(
+                "User has submitted their financing information, moving to the next state",
+              );
 
               // Move to the next stage, confirmOrder.
               setStage("confirmOrder");

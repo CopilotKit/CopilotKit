@@ -34,13 +34,13 @@ describe("CopilotChatConfigurationProvider", () => {
       render(
         <CopilotChatConfigurationProvider threadId="test-thread">
           <ConfigurationDisplay />
-        </CopilotChatConfigurationProvider>
+        </CopilotChatConfigurationProvider>,
       );
 
       expect(screen.getByTestId("agentId").textContent).toBe(DEFAULT_AGENT_ID);
       expect(screen.getByTestId("threadId").textContent).toBe("test-thread");
       expect(screen.getByTestId("placeholder").textContent).toBe(
-        CopilotChatDefaultLabels.chatInputPlaceholder
+        CopilotChatDefaultLabels.chatInputPlaceholder,
       );
     });
 
@@ -51,7 +51,7 @@ describe("CopilotChatConfigurationProvider", () => {
           agentId="custom-agent"
         >
           <ConfigurationDisplay />
-        </CopilotChatConfigurationProvider>
+        </CopilotChatConfigurationProvider>,
       );
 
       expect(screen.getByTestId("agentId").textContent).toBe("custom-agent");
@@ -68,15 +68,15 @@ describe("CopilotChatConfigurationProvider", () => {
           labels={customLabels}
         >
           <ConfigurationDisplay />
-        </CopilotChatConfigurationProvider>
+        </CopilotChatConfigurationProvider>,
       );
 
       expect(screen.getByTestId("placeholder").textContent).toBe(
-        "Custom placeholder"
+        "Custom placeholder",
       );
       // Other labels should still have defaults
       expect(screen.getByTestId("copyLabel").textContent).toBe(
-        CopilotChatDefaultLabels.assistantMessageToolbarCopyMessageLabel
+        CopilotChatDefaultLabels.assistantMessageToolbarCopyMessageLabel,
       );
     });
   });
@@ -96,21 +96,29 @@ describe("CopilotChatConfigurationProvider", () => {
       // CopilotChat creates its own provider, so we need to check inside it
       // We'll check the input placeholder which uses the configuration
       const { container } = render(
-        <CopilotKitProvider agents__unsafe_dev_only={{ [DEFAULT_AGENT_ID]: new MockStepwiseAgent() }}>
+        <CopilotKitProvider
+          agents__unsafe_dev_only={{
+            [DEFAULT_AGENT_ID]: new MockStepwiseAgent(),
+          }}
+        >
           <CopilotChat />
-        </CopilotKitProvider>
+        </CopilotKitProvider>,
       );
 
       // Find the input element and check its placeholder
       const input = container.querySelector('textarea, input[type="text"]');
       expect(input?.getAttribute("placeholder")).toBe(
-        CopilotChatDefaultLabels.chatInputPlaceholder
+        CopilotChatDefaultLabels.chatInputPlaceholder,
       );
     });
 
     it("should inherit from existing provider when CopilotChat has no props", () => {
       const { container } = render(
-        <CopilotKitProvider agents__unsafe_dev_only={{ "outer-agent": new MockStepwiseAgent({ agentId: "outer-agent" }) }}>
+        <CopilotKitProvider
+          agents__unsafe_dev_only={{
+            "outer-agent": new MockStepwiseAgent({ agentId: "outer-agent" }),
+          }}
+        >
           <CopilotChatConfigurationProvider
             threadId="outer-thread"
             agentId="outer-agent"
@@ -118,7 +126,7 @@ describe("CopilotChatConfigurationProvider", () => {
           >
             <CopilotChat />
           </CopilotChatConfigurationProvider>
-        </CopilotKitProvider>
+        </CopilotKitProvider>,
       );
 
       // Check that the input inherits the outer placeholder
@@ -128,7 +136,11 @@ describe("CopilotChatConfigurationProvider", () => {
 
     it("should override existing provider with CopilotChat props", () => {
       const { container } = render(
-        <CopilotKitProvider agents__unsafe_dev_only={{ "inner-agent": new MockStepwiseAgent({ agentId: "inner-agent" }) }}>
+        <CopilotKitProvider
+          agents__unsafe_dev_only={{
+            "inner-agent": new MockStepwiseAgent({ agentId: "inner-agent" }),
+          }}
+        >
           <CopilotChatConfigurationProvider
             threadId="outer-thread"
             agentId="outer-agent"
@@ -140,7 +152,7 @@ describe("CopilotChatConfigurationProvider", () => {
               labels={{ chatInputPlaceholder: "Inner placeholder" }}
             />
           </CopilotChatConfigurationProvider>
-        </CopilotKitProvider>
+        </CopilotKitProvider>,
       );
 
       // CopilotChat props should win - check the input placeholder
@@ -150,7 +162,11 @@ describe("CopilotChatConfigurationProvider", () => {
 
     it("should merge labels correctly with priority: default < existing < props", () => {
       const { container } = render(
-        <CopilotKitProvider agents__unsafe_dev_only={{ [DEFAULT_AGENT_ID]: new MockStepwiseAgent() }}>
+        <CopilotKitProvider
+          agents__unsafe_dev_only={{
+            [DEFAULT_AGENT_ID]: new MockStepwiseAgent(),
+          }}
+        >
           <CopilotChatConfigurationProvider
             threadId="outer-thread"
             labels={{
@@ -165,7 +181,7 @@ describe("CopilotChatConfigurationProvider", () => {
               }}
             />
           </CopilotChatConfigurationProvider>
-        </CopilotKitProvider>
+        </CopilotKitProvider>,
       );
 
       const input = container.querySelector('textarea, input[type="text"]');
@@ -175,7 +191,11 @@ describe("CopilotChatConfigurationProvider", () => {
 
     it("should handle partial overrides correctly", () => {
       const { container } = render(
-        <CopilotKitProvider agents__unsafe_dev_only={{ "outer-agent": new MockStepwiseAgent({ agentId: "outer-agent" }) }}>
+        <CopilotKitProvider
+          agents__unsafe_dev_only={{
+            "outer-agent": new MockStepwiseAgent({ agentId: "outer-agent" }),
+          }}
+        >
           <CopilotChatConfigurationProvider
             threadId="outer-thread"
             agentId="outer-agent"
@@ -189,7 +209,7 @@ describe("CopilotChatConfigurationProvider", () => {
               }}
             />
           </CopilotChatConfigurationProvider>
-        </CopilotKitProvider>
+        </CopilotKitProvider>,
       );
 
       // Check the placeholder was overridden
@@ -202,7 +222,11 @@ describe("CopilotChatConfigurationProvider", () => {
       // This shows that ConfigurationDisplay outside CopilotChat
       // sees the outer provider values, not the inner merged ones
       render(
-        <CopilotKitProvider agents__unsafe_dev_only={{ "outer-agent": new MockStepwiseAgent({ agentId: "outer-agent" }) }}>
+        <CopilotKitProvider
+          agents__unsafe_dev_only={{
+            "outer-agent": new MockStepwiseAgent({ agentId: "outer-agent" }),
+          }}
+        >
           <CopilotChatConfigurationProvider
             threadId="outer-thread"
             agentId="outer-agent"
@@ -214,13 +238,15 @@ describe("CopilotChatConfigurationProvider", () => {
             />
             <ConfigurationDisplay />
           </CopilotChatConfigurationProvider>
-        </CopilotKitProvider>
+        </CopilotKitProvider>,
       );
 
       // ConfigurationDisplay is outside CopilotChat, so it sees outer values
       expect(screen.getByTestId("agentId").textContent).toBe("outer-agent");
       expect(screen.getByTestId("threadId").textContent).toBe("outer-thread");
-      expect(screen.getByTestId("placeholder").textContent).toBe("Outer placeholder");
+      expect(screen.getByTestId("placeholder").textContent).toBe(
+        "Outer placeholder",
+      );
     });
   });
 
@@ -245,7 +271,7 @@ describe("CopilotChatConfigurationProvider", () => {
               <ConfigurationDisplay />
             </CopilotChatConfigurationProvider>
           </CopilotChatConfigurationProvider>
-        </CopilotChatConfigurationProvider>
+        </CopilotChatConfigurationProvider>,
       );
 
       // Innermost provider should win

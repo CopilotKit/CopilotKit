@@ -13,7 +13,9 @@ export function limitMessagesToTokenCount(
   const result: any[] = [];
   const toolsNumTokens = countToolsTokens(model, tools);
   if (toolsNumTokens > maxTokens) {
-    throw new Error(`Too many tokens in function definitions: ${toolsNumTokens} > ${maxTokens}`);
+    throw new Error(
+      `Too many tokens in function definitions: ${toolsNumTokens} > ${maxTokens}`,
+    );
   }
   maxTokens -= toolsNumTokens;
 
@@ -68,7 +70,9 @@ function countTokens(model: string, text: string): number {
   return text.length / 3;
 }
 
-export function convertActionInputToAnthropicTool(action: ActionInput): Anthropic.Messages.Tool {
+export function convertActionInputToAnthropicTool(
+  action: ActionInput,
+): Anthropic.Messages.Tool {
   return {
     name: action.name,
     description: action.description,
@@ -84,7 +88,11 @@ export function convertMessageToAnthropicMessage(
       return {
         role: "assistant",
         content: [
-          { type: "text", text: "THE FOLLOWING MESSAGE IS A SYSTEM MESSAGE: " + message.content },
+          {
+            type: "text",
+            text:
+              "THE FOLLOWING MESSAGE IS A SYSTEM MESSAGE: " + message.content,
+          },
         ],
       };
     } else {

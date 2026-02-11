@@ -57,7 +57,9 @@ export function getRuntimeInstanceTelemetryInfo(
     hashedLgcKey: endpointsInfo.hashedKey,
     "cloud.api_key_provided": apiKeyProvided,
     ...(apiKeyProvided ? { "cloud.public_api_key": publicApiKey } : {}),
-    ...(options.cloud?.baseUrl ? { "cloud.base_url": options.cloud.baseUrl } : {}),
+    ...(options.cloud?.baseUrl
+      ? { "cloud.base_url": options.cloud.baseUrl }
+      : {}),
   } as RuntimeInstanceCreatedInfo;
 }
 

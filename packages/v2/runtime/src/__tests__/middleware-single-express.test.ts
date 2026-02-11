@@ -22,12 +22,17 @@ describe("CopilotEndpointSingleRouteExpress middleware", () => {
 
   const buildApp = (runtime: CopilotRuntime) => {
     const app = express();
-    app.use(createCopilotEndpointSingleRouteExpress({ runtime, basePath: "/rpc" }));
+    app.use(
+      createCopilotEndpointSingleRouteExpress({ runtime, basePath: "/rpc" }),
+    );
     return app;
   };
 
   const rpcRequest = (app: express.Express, body: Record<string, unknown>) =>
-    request(app).post("/rpc").set("Content-Type", "application/json").send(body);
+    request(app)
+      .post("/rpc")
+      .set("Content-Type", "application/json")
+      .send(body);
 
   it("processes middleware and handler", async () => {
     const before = vi.fn().mockResolvedValue(undefined);
@@ -67,7 +72,9 @@ describe("CopilotEndpointSingleRouteExpress middleware", () => {
       beforeRequestMiddleware: before,
       afterRequestMiddleware: after,
     });
-    const logSpy = vi.spyOn(logger, "error").mockImplementation(() => undefined as unknown as void);
+    const logSpy = vi
+      .spyOn(logger, "error")
+      .mockImplementation(() => undefined as unknown as void);
 
     const app = buildApp(runtime);
     const response = await rpcRequest(app, { method: "info" });
@@ -92,7 +99,9 @@ describe("CopilotEndpointSingleRouteExpress middleware", () => {
       beforeRequestMiddleware: before,
       afterRequestMiddleware: after,
     });
-    const logSpy = vi.spyOn(logger, "error").mockImplementation(() => undefined as unknown as void);
+    const logSpy = vi
+      .spyOn(logger, "error")
+      .mockImplementation(() => undefined as unknown as void);
 
     const app = buildApp(runtime);
     const response = await rpcRequest(app, { method: "info" });
@@ -123,7 +132,9 @@ describe("CopilotEndpointSingleRouteExpress middleware", () => {
       afterRequestMiddleware: after,
       agents: { agent: errorAgent },
     });
-    const logSpy = vi.spyOn(logger, "error").mockImplementation(() => undefined as unknown as void);
+    const logSpy = vi
+      .spyOn(logger, "error")
+      .mockImplementation(() => undefined as unknown as void);
 
     const app = buildApp(runtime);
     const response = await rpcRequest(app, {
@@ -146,7 +157,9 @@ describe("CopilotEndpointSingleRouteExpress middleware", () => {
       beforeRequestMiddleware: before,
       afterRequestMiddleware: after,
     });
-    const logSpy = vi.spyOn(logger, "error").mockImplementation(() => undefined as unknown as void);
+    const logSpy = vi
+      .spyOn(logger, "error")
+      .mockImplementation(() => undefined as unknown as void);
 
     const app = buildApp(runtime);
     const response = await rpcRequest(app, { method: "info" });

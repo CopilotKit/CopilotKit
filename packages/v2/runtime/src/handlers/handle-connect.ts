@@ -27,7 +27,7 @@ export async function handleConnectAgent({
         {
           status: 404,
           headers: { "Content-Type": "application/json" },
-        }
+        },
       );
     }
 
@@ -47,7 +47,7 @@ export async function handleConnectAgent({
         {
           status: 400,
           headers: { "Content-Type": "application/json" },
-        }
+        },
       );
     }
 
@@ -103,7 +103,7 @@ export async function handleConnectAgent({
       console.error("Error running agent:", error);
       console.error(
         "Error stack:",
-        error instanceof Error ? error.stack : "No stack trace"
+        error instanceof Error ? error.stack : "No stack trace",
       );
       console.error("Error details:", {
         name: error instanceof Error ? error.name : "Unknown",
@@ -133,7 +133,7 @@ export async function handleConnectAgent({
     console.error("Error running agent:", error);
     console.error(
       "Error stack:",
-      error instanceof Error ? error.stack : "No stack trace"
+      error instanceof Error ? error.stack : "No stack trace",
     );
     console.error("Error details:", {
       name: error instanceof Error ? error.name : "Unknown",
@@ -149,7 +149,7 @@ export async function handleConnectAgent({
       {
         status: 500,
         headers: { "Content-Type": "application/json" },
-      }
+      },
     );
   }
 }

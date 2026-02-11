@@ -10,7 +10,10 @@ export type SlotValue<C extends React.ComponentType<any>> =
 /**
  * Shallow equality comparison for objects.
  */
-export function shallowEqual<T extends Record<string, unknown>>(obj1: T, obj2: T): boolean {
+export function shallowEqual<T extends Record<string, unknown>>(
+  obj1: T,
+  obj2: T,
+): boolean {
   const keys1 = Object.keys(obj1);
   const keys2 = Object.keys(obj2);
 
@@ -39,12 +42,19 @@ export type WithSlots<
 /**
  * Check if a value is a React component type (function, class, forwardRef, memo, etc.)
  */
-export function isReactComponentType(value: unknown): value is React.ComponentType<any> {
+export function isReactComponentType(
+  value: unknown,
+): value is React.ComponentType<any> {
   if (typeof value === "function") {
     return true;
   }
   // forwardRef, memo, lazy have $$typeof but are not valid elements
-  if (value && typeof value === "object" && "$$typeof" in value && !React.isValidElement(value)) {
+  if (
+    value &&
+    typeof value === "object" &&
+    "$$typeof" in value &&
+    !React.isValidElement(value)
+  ) {
     return true;
   }
   return false;
@@ -56,7 +66,7 @@ export function isReactComponentType(value: unknown): value is React.ComponentTy
 function renderSlotElement(
   slot: SlotValue<React.ComponentType<any>> | undefined,
   DefaultComponent: React.ComponentType<any>,
-  props: Record<string, unknown>
+  props: Record<string, unknown>,
 ): React.ReactElement {
   if (typeof slot === "string") {
     // When slot is a string, treat it as a className and merge with existing className
@@ -90,7 +100,8 @@ function renderSlotElement(
 const MemoizedSlotWrapper = React.memo(
   React.forwardRef<unknown, any>(function MemoizedSlotWrapper(props, ref) {
     const { $slot, $component, ...rest } = props;
-    const propsWithRef: Record<string, unknown> = ref !== null ? { ...rest, ref } : rest;
+    const propsWithRef: Record<string, unknown> =
+      ref !== null ? { ...rest, ref } : rest;
     return renderSlotElement($slot, $component, propsWithRef);
   }),
   (prev: any, next: any) => {
@@ -103,9 +114,9 @@ const MemoizedSlotWrapper = React.memo(
     const { $slot: _ns, $component: _nc, ...nextRest } = next;
     return shallowEqual(
       prevRest as Record<string, unknown>,
-      nextRest as Record<string, unknown>
+      nextRest as Record<string, unknown>,
     );
-  }
+  },
 );
 
 /**
@@ -116,10 +127,13 @@ const MemoizedSlotWrapper = React.memo(
  * @example
  * renderSlot(customInput, CopilotChatInput, { onSubmit: handleSubmit })
  */
-export function renderSlot<C extends React.ComponentType<any>, P = React.ComponentProps<C>>(
+export function renderSlot<
+  C extends React.ComponentType<any>,
+  P = React.ComponentProps<C>,
+>(
   slot: SlotValue<C> | undefined,
   DefaultComponent: C,
-  props: P
+  props: P,
 ): React.ReactElement {
   return React.createElement(MemoizedSlotWrapper, {
     ...props,

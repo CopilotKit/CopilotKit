@@ -15,10 +15,15 @@ export interface UseSuggestionsResult {
   isLoading: boolean;
 }
 
-export function useSuggestions({ agentId }: UseSuggestionsOptions = {}): UseSuggestionsResult {
+export function useSuggestions({
+  agentId,
+}: UseSuggestionsOptions = {}): UseSuggestionsResult {
   const { copilotkit } = useCopilotKit();
   const config = useCopilotChatConfiguration();
-  const resolvedAgentId = useMemo(() => agentId ?? config?.agentId ?? DEFAULT_AGENT_ID, [agentId, config?.agentId]);
+  const resolvedAgentId = useMemo(
+    () => agentId ?? config?.agentId ?? DEFAULT_AGENT_ID,
+    [agentId, config?.agentId],
+  );
 
   const [suggestions, setSuggestions] = useState<Suggestion[]>(() => {
     const result = copilotkit.getSuggestions(resolvedAgentId);

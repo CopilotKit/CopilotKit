@@ -1,5 +1,5 @@
 import { Card, CardTitle, CardContent } from "@/components/ui/card";
-import { Place  } from "@/lib/types";
+import { Place } from "@/lib/types";
 import { Stars } from "@/components/Stars";
 import { MapPin, Info } from "lucide-react";
 import { ReactNode } from "react";
@@ -18,10 +18,23 @@ type PlaceCardProps = {
   shouldShowCheckbox?: boolean;
 };
 
-export function PlaceCard({ place, actions, onMouseEnter, onMouseLeave, className, number, checked, onCheck, shouldShowCheckbox = true }: PlaceCardProps) {
+export function PlaceCard({
+  place,
+  actions,
+  onMouseEnter,
+  onMouseLeave,
+  className,
+  number,
+  checked,
+  onCheck,
+  shouldShowCheckbox = true,
+}: PlaceCardProps) {
   return (
-    <Card 
-      className={cn("hover:shadow-md transition-shadow duration-200", className)}
+    <Card
+      className={cn(
+        "hover:shadow-md transition-shadow duration-200",
+        className,
+      )}
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
     >
@@ -41,7 +54,9 @@ export function PlaceCard({ place, actions, onMouseEnter, onMouseLeave, classNam
             </div>
             <div className="flex flex-col items-end gap-2 min-w-[2rem]">
               {actions}
-              {shouldShowCheckbox && <Checkbox checked={checked} onCheckedChange={onCheck} />}
+              {shouldShowCheckbox && (
+                <Checkbox checked={checked} onCheckedChange={onCheck} />
+              )}
             </div>
           </div>
 
@@ -61,4 +76,4 @@ export function PlaceCard({ place, actions, onMouseEnter, onMouseLeave, classNam
       </CardContent>
     </Card>
   );
-} 
+}

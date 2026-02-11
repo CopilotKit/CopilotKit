@@ -72,7 +72,10 @@ export const LegacyRenderMessage: React.FC<LegacyRenderMessageProps> = ({
     );
   }
 
-  if (deprecatedMessage.isActionExecutionMessage() && RenderActionExecutionMessage) {
+  if (
+    deprecatedMessage.isActionExecutionMessage() &&
+    RenderActionExecutionMessage
+  ) {
     return (
       <RenderActionExecutionMessage
         messages={messages}

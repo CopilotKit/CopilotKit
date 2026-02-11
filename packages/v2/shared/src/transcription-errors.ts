@@ -44,7 +44,10 @@ export const TranscriptionErrors = {
     retryable: false,
   }),
 
-  invalidAudioFormat: (format: string, supported: string[]): TranscriptionErrorResponse => ({
+  invalidAudioFormat: (
+    format: string,
+    supported: string[],
+  ): TranscriptionErrorResponse => ({
     error: TranscriptionErrorCode.INVALID_AUDIO_FORMAT,
     message: `Unsupported audio format: ${format}. Supported: ${supported.join(", ")}`,
     retryable: false,
@@ -74,7 +77,9 @@ export const TranscriptionErrors = {
     retryable: true,
   }),
 
-  networkError: (message: string = "Network error during transcription"): TranscriptionErrorResponse => ({
+  networkError: (
+    message: string = "Network error during transcription",
+  ): TranscriptionErrorResponse => ({
     error: TranscriptionErrorCode.NETWORK_ERROR,
     message,
     retryable: true,

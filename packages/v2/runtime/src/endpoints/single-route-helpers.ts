@@ -24,7 +24,10 @@ export async function parseMethodCall(request: Request): Promise<MethodCall> {
   const contentType = request.headers.get("content-type") || "";
 
   if (!contentType.includes("application/json")) {
-    throw createResponseError("Single-route endpoint expects JSON payloads", 415);
+    throw createResponseError(
+      "Single-route endpoint expects JSON payloads",
+      415,
+    );
   }
 
   let jsonEnvelope: JsonEnvelope;
@@ -43,7 +46,10 @@ export async function parseMethodCall(request: Request): Promise<MethodCall> {
   };
 }
 
-export function expectString(params: Record<string, unknown> | undefined, key: string): string {
+export function expectString(
+  params: Record<string, unknown> | undefined,
+  key: string,
+): string {
   const value = params?.[key];
   if (typeof value === "string" && value.trim().length > 0) {
     return value;
@@ -103,7 +109,11 @@ function serializeJsonBody(body: unknown): BodyInit {
     return body;
   }
 
-  if (body instanceof Blob || body instanceof ArrayBuffer || body instanceof Uint8Array) {
+  if (
+    body instanceof Blob ||
+    body instanceof ArrayBuffer ||
+    body instanceof Uint8Array
+  ) {
     return body;
   }
 

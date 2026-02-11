@@ -64,19 +64,28 @@ export function useCoAgentStateRender<T = any>(
   dependencies?: any[],
 ): void {
   const { chatComponentsCache, availableAgents } = useContext(CopilotContext);
-  const { setCoAgentStateRender, removeCoAgentStateRender, coAgentStateRenders } =
-    useCoAgentStateRenders();
+  const {
+    setCoAgentStateRender,
+    removeCoAgentStateRender,
+    coAgentStateRenders,
+  } = useCoAgentStateRenders();
   const idRef = useRef<string>(randomId());
   const { setBannerError, addToast } = useToast();
 
   useEffect(() => {
-    if (availableAgents?.length && !availableAgents.some((a) => a.name === action.name)) {
+    if (
+      availableAgents?.length &&
+      !availableAgents.some((a) => a.name === action.name)
+    ) {
       const message = `(useCoAgentStateRender): Agent "${action.name}" not found. Make sure the agent exists and is properly configured.`;
 
       // Route to banner instead of toast for consistency
       const agentError = new CopilotKitAgentDiscoveryError({
         agentName: action.name,
-        availableAgents: availableAgents.map((a) => ({ name: a.name, id: a.id })),
+        availableAgents: availableAgents.map((a) => ({
+          name: a.name,
+          id: a.id,
+        })),
       });
       setBannerError(agentError);
     }
@@ -98,26 +107,28 @@ export function useCoAgentStateRender<T = any>(
   useEffect(() => {
     // Check for duplicates by comparing against all other actions
     const currentId = idRef.current;
-    const hasDuplicate = Object.entries(coAgentStateRenders).some(([id, otherAction]) => {
-      // Skip comparing with self
-      if (id === currentId) return false;
+    const hasDuplicate = Object.entries(coAgentStateRenders).some(
+      ([id, otherAction]) => {
+        // Skip comparing with self
+        if (id === currentId) return false;
 
-      // Different agent names are never duplicates
-      if (otherAction.name !== action.name) return false;
+        // Different agent names are never duplicates
+        if (otherAction.name !== action.name) return false;
 
-      // Same agent names:
-      const hasNodeName = !!action.nodeName;
-      const hasOtherNodeName = !!otherAction.nodeName;
+        // Same agent names:
+        const hasNodeName = !!action.nodeName;
+        const hasOtherNodeName = !!otherAction.nodeName;
 
-      // If neither has nodeName, they're duplicates
-      if (!hasNodeName && !hasOtherNodeName) return true;
+        // If neither has nodeName, they're duplicates
+        if (!hasNodeName && !hasOtherNodeName) return true;
 
-      // If one has nodeName and other doesn't, they're not duplicates
-      if (hasNodeName !== hasOtherNodeName) return false;
+        // If one has nodeName and other doesn't, they're not duplicates
+        if (hasNodeName !== hasOtherNodeName) return false;
 
-      // If both have nodeName, they're duplicates only if the names match
-      return action.nodeName === otherAction.nodeName;
-    });
+        // If both have nodeName, they're duplicates only if the names match
+        return action.nodeName === otherAction.nodeName;
+      },
+    );
 
     if (hasDuplicate) {
       const message = action.nodeName

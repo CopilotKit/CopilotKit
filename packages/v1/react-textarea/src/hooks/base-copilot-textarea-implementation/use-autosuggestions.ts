@@ -17,8 +17,12 @@ export interface UseAutosuggestionsResult {
 
 export function useAutosuggestions(
   debounceTime: number,
-  shouldAcceptAutosuggestionOnKeyPress: (event: React.KeyboardEvent<HTMLDivElement>) => boolean,
-  shouldAcceptAutosuggestionOnTouch: (event: React.TouchEvent<HTMLDivElement>) => boolean,
+  shouldAcceptAutosuggestionOnKeyPress: (
+    event: React.KeyboardEvent<HTMLDivElement>,
+  ) => boolean,
+  shouldAcceptAutosuggestionOnTouch: (
+    event: React.TouchEvent<HTMLDivElement>,
+  ) => boolean,
   autosuggestionFunction: AutosuggestionsBareFunction,
   insertAutocompleteSuggestion: (suggestion: AutosuggestionState) => void,
   disableWhenEmpty: boolean,
@@ -34,7 +38,10 @@ export function useAutosuggestions(
     editorAutocompleteState: EditorAutocompleteState,
     abortSignal: AbortSignal,
   ) => Promise<void> = useCallback(
-    async (editorAutocompleteState: EditorAutocompleteState, abortSignal: AbortSignal) => {
+    async (
+      editorAutocompleteState: EditorAutocompleteState,
+      abortSignal: AbortSignal,
+    ) => {
       // early return if disabled
       if (disabled) {
         return;
@@ -49,7 +56,10 @@ export function useAutosuggestions(
       }
 
       // fetch the suggestion
-      const suggestion = await autosuggestionFunction(editorAutocompleteState, abortSignal);
+      const suggestion = await autosuggestionFunction(
+        editorAutocompleteState,
+        abortSignal,
+      );
 
       // We'll assume for now that the autocomplete function might or might not respect the abort signal.
       if (!suggestion || abortSignal.aborted) {
@@ -61,11 +71,19 @@ export function useAutosuggestions(
         point: editorAutocompleteState.cursorPoint,
       });
     },
-    [autosuggestionFunction, setCurrentAutocompleteSuggestion, disableWhenEmpty, disabled],
+    [
+      autosuggestionFunction,
+      setCurrentAutocompleteSuggestion,
+      disableWhenEmpty,
+      disabled,
+    ],
   );
 
   const debouncedFunction = useMemo(
-    () => new Debouncer<[editorAutocompleteState: EditorAutocompleteState]>(debounceTime),
+    () =>
+      new Debouncer<[editorAutocompleteState: EditorAutocompleteState]>(
+        debounceTime,
+      ),
     [debounceTime],
   );
 
@@ -111,12 +129,20 @@ export function useAutosuggestions(
   );
 
   const keyDownOrTouchHandler = useCallback(
-    (event: React.KeyboardEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>) => {
+    (
+      event:
+        | React.KeyboardEvent<HTMLDivElement>
+        | React.TouchEvent<HTMLDivElement>,
+    ) => {
       if (currentAutocompleteSuggestion) {
         const shouldAcceptSuggestion =
           event.type === "touchstart"
-            ? shouldAcceptAutosuggestionOnTouch(event as React.TouchEvent<HTMLDivElement>)
-            : shouldAcceptAutosuggestionOnKeyPress(event as React.KeyboardEvent<HTMLDivElement>);
+            ? shouldAcceptAutosuggestionOnTouch(
+                event as React.TouchEvent<HTMLDivElement>,
+              )
+            : shouldAcceptAutosuggestionOnKeyPress(
+                event as React.KeyboardEvent<HTMLDivElement>,
+              );
 
         if (shouldAcceptSuggestion) {
           event.preventDefault();

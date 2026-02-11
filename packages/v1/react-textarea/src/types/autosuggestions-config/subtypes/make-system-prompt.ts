@@ -1,1 +1,4 @@
-export type MakeSystemPrompt = (textareaPurpose: string, contextString: string) => string;
+export type MakeSystemPrompt = (
+  textareaPurpose: string,
+  contextString: string,
+) => string;

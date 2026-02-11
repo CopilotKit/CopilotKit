@@ -1,6 +1,9 @@
 "use client";
 
-import { useCopilotContext, useCopilotMessagesContext } from "@copilotkit/react-core";
+import {
+  useCopilotContext,
+  useCopilotMessagesContext,
+} from "@copilotkit/react-core";
 import {
   getPublishedCopilotKitVersion,
   logActions,
@@ -21,7 +24,12 @@ import { COPILOTKIT_VERSION } from "@copilotkit/shared";
 import { SmallSpinnerIcon } from "../chat/Icons";
 import { CopilotKitHelpModal } from "../help-modal";
 
-type VersionStatus = "unknown" | "checking" | "latest" | "update-available" | "outdated";
+type VersionStatus =
+  | "unknown"
+  | "checking"
+  | "latest"
+  | "update-available"
+  | "outdated";
 
 export function CopilotDevConsole() {
   const currentVersion = COPILOTKIT_VERSION;
@@ -42,7 +50,9 @@ export function CopilotDevConsole() {
   const [versionStatus, setVersionStatus] = useState<VersionStatus>("unknown");
   const [latestVersion, setLatestVersion] = useState<string>("");
   const consoleRef = useRef<HTMLDivElement>(null);
-  const [debugButtonMode, setDebugButtonMode] = useState<"full" | "compact">("full");
+  const [debugButtonMode, setDebugButtonMode] = useState<"full" | "compact">(
+    "full",
+  );
 
   const checkForUpdates = (force: boolean = false) => {
     setVersionStatus("checking");
@@ -90,7 +100,9 @@ export function CopilotDevConsole() {
       ref={consoleRef}
       className={
         "copilotKitDevConsole " +
-        (versionStatus === "update-available" ? "copilotKitDevConsoleUpgrade" : "") +
+        (versionStatus === "update-available"
+          ? "copilotKitDevConsoleUpgrade"
+          : "") +
         (versionStatus === "outdated" ? "copilotKitDevConsoleWarnOutdated" : "")
       }
     >
@@ -171,7 +183,9 @@ function VersionInfo({
         <p>
           {currentVersionLabel} {versionIcon}
         </p>
-        <button onClick={handleCopyClick}>{copyStatus || installCommand}</button>
+        <button onClick={handleCopyClick}>
+          {copyStatus || installCommand}
+        </button>
       </div>
     );
   }
@@ -207,12 +221,18 @@ export default function DebugMenuButton({
           style={{ zIndex: 40 }}
         >
           <MenuItem>
-            <button className="copilotKitDebugMenuItem" onClick={() => logReadables(context)}>
+            <button
+              className="copilotKitDebugMenuItem"
+              onClick={() => logReadables(context)}
+            >
               Log Readables
             </button>
           </MenuItem>
           <MenuItem>
-            <button className="copilotKitDebugMenuItem" onClick={() => logActions(context)}>
+            <button
+              className="copilotKitDebugMenuItem"
+              onClick={() => logActions(context)}
+            >
               Log Actions
             </button>
           </MenuItem>
@@ -225,13 +245,19 @@ export default function DebugMenuButton({
             </button>
           </MenuItem>
           <MenuItem>
-            <button className="copilotKitDebugMenuItem" onClick={() => checkForUpdates(true)}>
+            <button
+              className="copilotKitDebugMenuItem"
+              onClick={() => checkForUpdates(true)}
+            >
               Check for Updates
             </button>
           </MenuItem>
           <hr />
           <MenuItem>
-            <button className="copilotKitDebugMenuItem" onClick={() => setShowDevConsole(false)}>
+            <button
+              className="copilotKitDebugMenuItem"
+              onClick={() => setShowDevConsole(false)}
+            >
               Hide Dev Console
             </button>
           </MenuItem>

@@ -386,9 +386,9 @@ export function CopilotChat({
   const { publicApiKey, chatApiEndpoint } = copilotApiConfig;
   const [selectedImages, setSelectedImages] = useState<Array<ImageUpload>>([]);
   const [chatError, setChatError] = useState<ChatError | null>(null);
-  const [messageFeedback, setMessageFeedback] = useState<Record<string, "thumbsUp" | "thumbsDown">>(
-    {},
-  );
+  const [messageFeedback, setMessageFeedback] = useState<
+    Record<string, "thumbsUp" | "thumbsDown">
+  >({});
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Helper function to trigger event hooks only if publicApiKey is provided
@@ -415,7 +415,8 @@ export function CopilotChat({
   // Helper function to trigger chat error and render error UI
   const triggerChatError = useCallback(
     (error: any, operation: string, originalError?: any) => {
-      const errorMessage = error?.message || error?.toString() || "An error occurred";
+      const errorMessage =
+        error?.message || error?.toString() || "An error occurred";
 
       // Set chat error state for rendering
       setChatError({
@@ -436,8 +437,12 @@ export function CopilotChat({
           },
           technical: {
             environment: "browser",
-            userAgent: typeof navigator !== "undefined" ? navigator.userAgent : undefined,
-            stackTrace: originalError instanceof Error ? originalError.stack : undefined,
+            userAgent:
+              typeof navigator !== "undefined"
+                ? navigator.userAgent
+                : undefined,
+            stackTrace:
+              originalError instanceof Error ? originalError.stack : undefined,
           },
         },
         error,
@@ -456,7 +461,8 @@ export function CopilotChat({
       if (observabilityHooks?.onError && !publicApiKey) {
         setBannerError(
           new CopilotKitError({
-            message: "observabilityHooks.onError requires a publicApiKey to function.",
+            message:
+              "observabilityHooks.onError requires a publicApiKey to function.",
             code: CopilotKitErrorCode.MISSING_PUBLIC_API_KEY_ERROR,
             severity: Severity.CRITICAL,
             visibility: ErrorVisibility.BANNER,
@@ -497,30 +503,34 @@ export function CopilotChat({
 
       e.preventDefault(); // Prevent default paste behavior for images
 
-      const imagePromises: Promise<ImageUpload | null>[] = imageItems.map((item) => {
-        const file = item.getAsFile();
-        if (!file) return Promise.resolve(null);
+      const imagePromises: Promise<ImageUpload | null>[] = imageItems.map(
+        (item) => {
+          const file = item.getAsFile();
+          if (!file) return Promise.resolve(null);
 
-        return new Promise<ImageUpload | null>((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = (e) => {
-            const base64String = (e.target?.result as string)?.split(",")[1];
-            if (base64String) {
-              resolve({
-                contentType: file.type,
-                bytes: base64String,
-              });
-            } else {
-              resolve(null);
-            }
-          };
-          reader.onerror = reject;
-          reader.readAsDataURL(file);
-        });
-      });
+          return new Promise<ImageUpload | null>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+              const base64String = (e.target?.result as string)?.split(",")[1];
+              if (base64String) {
+                resolve({
+                  contentType: file.type,
+                  bytes: base64String,
+                });
+              } else {
+                resolve(null);
+              }
+            };
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+          });
+        },
+      );
 
       try {
-        const loadedImages = (await Promise.all(imagePromises)).filter((img) => img !== null);
+        const loadedImages = (await Promise.all(imagePromises)).filter(
+          (img) => img !== null,
+        );
         setSelectedImages((prev) => [...prev, ...loadedImages]);
       } catch (error) {
         // Trigger chat-level error handler
@@ -630,29 +640,36 @@ export function CopilotChat({
     triggerObservabilityHook("onMessageCopied", message);
   };
 
-  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
     if (!event.target.files || event.target.files.length === 0) {
       return;
     }
 
-    const files = Array.from(event.target.files).filter((file) => file.type.startsWith("image/"));
+    const files = Array.from(event.target.files).filter((file) =>
+      file.type.startsWith("image/"),
+    );
     if (files.length === 0) return;
 
     const fileReadPromises = files.map((file) => {
-      return new Promise<{ contentType: string; bytes: string }>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          const base64String = (e.target?.result as string)?.split(",")[1] || "";
-          if (base64String) {
-            resolve({
-              contentType: file.type,
-              bytes: base64String,
-            });
-          }
-        };
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-      });
+      return new Promise<{ contentType: string; bytes: string }>(
+        (resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            const base64String =
+              (e.target?.result as string)?.split(",")[1] || "";
+            if (base64String) {
+              resolve({
+                contentType: file.type,
+                bytes: base64String,
+              });
+            }
+          };
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        },
+      );
     });
 
     try {
@@ -747,7 +764,10 @@ export function CopilotChat({
 
       {imageUploadsEnabled && (
         <>
-          <ImageUploadQueue images={selectedImages} onRemoveImage={removeSelectedImage} />
+          <ImageUploadQueue
+            images={selectedImages}
+            onRemoveImage={removeSelectedImage}
+          />
           <input
             type="file"
             multiple
@@ -765,7 +785,9 @@ export function CopilotChat({
         onSend={handleSendMessage}
         isVisible={isVisible}
         onStop={stopGeneration}
-        onUpload={imageUploadsEnabled ? () => fileInputRef.current?.click() : undefined}
+        onUpload={
+          imageUploadsEnabled ? () => fileInputRef.current?.click() : undefined
+        }
         hideStopButton={hideStopButton}
       />
     </WrappedCopilotChat>
@@ -786,7 +808,12 @@ export function WrappedCopilotChat({
   const chatContext = React.useContext(ChatContext);
   if (!chatContext) {
     return (
-      <ChatContextProvider icons={icons} labels={labels} open={true} setOpen={() => {}}>
+      <ChatContextProvider
+        icons={icons}
+        labels={labels}
+        open={true}
+        setOpen={() => {}}
+      >
         <div className={`copilotKitChat ${className ?? ""}`}>{children}</div>
       </ChatContextProvider>
     );

@@ -1,4 +1,4 @@
-"use client"
+"use client";
 
 import { useState, useEffect } from "react";
 import {
@@ -51,11 +51,9 @@ export default function KnowledgeBase() {
       },
     ],
 
-      handler: async ({ query }: { query: string }) => {
-      },   
-       render: "Getting relevant answers to your query...",
+    handler: async ({ query }: { query: string }) => {},
+    render: "Getting relevant answers to your query...",
   });
-
 
   const handlePostClick = (post: Post) => {
     setSelectedPost(post);
@@ -127,7 +125,8 @@ export default function KnowledgeBase() {
             <CopilotSidebar
               instructions="Help the user get the information they need."
               labels={{
-                initial: "Welcome! Describe the query you need assistance with.",
+                initial:
+                  "Welcome! Describe the query you need assistance with.",
               }}
               defaultOpen={true}
               clickOutsideToClose={false}

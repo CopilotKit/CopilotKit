@@ -31,7 +31,10 @@ describe("CopilotEndpointSingleRoute routing", () => {
 
   const callEndpoint = async (body: Record<string, unknown>) => {
     const runtime = createMockRuntime();
-    const endpoint = createCopilotEndpointSingleRoute({ runtime, basePath: "/rpc" });
+    const endpoint = createCopilotEndpointSingleRoute({
+      runtime,
+      basePath: "/rpc",
+    });
     const request = new Request("https://example.com/rpc", {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -125,7 +128,10 @@ describe("CopilotEndpointSingleRoute routing", () => {
 
     it("handles query parameters", async () => {
       const runtime = createMockRuntime();
-      const endpoint = createCopilotEndpointSingleRoute({ runtime, basePath: "/rpc" });
+      const endpoint = createCopilotEndpointSingleRoute({
+        runtime,
+        basePath: "/rpc",
+      });
       const request = new Request("https://example.com/rpc?foo=bar", {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -148,7 +154,10 @@ describe("CopilotEndpointSingleRoute routing", () => {
   describe("invalid inputs", () => {
     it("returns 415 for non-JSON content", async () => {
       const runtime = createMockRuntime();
-      const endpoint = createCopilotEndpointSingleRoute({ runtime, basePath: "/rpc" });
+      const endpoint = createCopilotEndpointSingleRoute({
+        runtime,
+        basePath: "/rpc",
+      });
       const request = new Request("https://example.com/rpc", {
         method: "POST",
         headers: { "content-type": "text/plain" },
@@ -167,7 +176,10 @@ describe("CopilotEndpointSingleRoute routing", () => {
 
     it("returns 404 for unmatched path", async () => {
       const runtime = createMockRuntime();
-      const endpoint = createCopilotEndpointSingleRoute({ runtime, basePath: "/rpc" });
+      const endpoint = createCopilotEndpointSingleRoute({
+        runtime,
+        basePath: "/rpc",
+      });
       const request = new Request("https://example.com/other", {
         method: "POST",
         headers: { "content-type": "application/json" },

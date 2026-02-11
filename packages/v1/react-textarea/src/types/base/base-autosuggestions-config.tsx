@@ -67,8 +67,12 @@ export interface BaseAutosuggestionsConfig {
   disabled: boolean;
   temporarilyDisableWhenMovingCursorWithoutChangingText: boolean;
   temporarilyDisableNotTrustedEvents: boolean;
-  shouldAcceptAutosuggestionOnKeyPress: (event: React.KeyboardEvent<HTMLDivElement>) => boolean;
-  shouldAcceptAutosuggestionOnTouch: (event: React.TouchEvent<HTMLDivElement>) => boolean;
+  shouldAcceptAutosuggestionOnKeyPress: (
+    event: React.KeyboardEvent<HTMLDivElement>,
+  ) => boolean;
+  shouldAcceptAutosuggestionOnTouch: (
+    event: React.TouchEvent<HTMLDivElement>,
+  ) => boolean;
   shouldToggleHoveringEditorOnKeyPress: (
     event: React.KeyboardEvent<HTMLDivElement>,
     shortcut: string,
@@ -122,7 +126,9 @@ export const defaultBaseAutosuggestionsConfig: Omit<
   disabled: false,
   temporarilyDisableWhenMovingCursorWithoutChangingText: true,
   temporarilyDisableNotTrustedEvents: true,
-  shouldToggleHoveringEditorOnKeyPress: defaultShouldToggleHoveringEditorOnKeyPress,
-  shouldAcceptAutosuggestionOnKeyPress: defaultShouldAcceptAutosuggestionOnKeyPress,
+  shouldToggleHoveringEditorOnKeyPress:
+    defaultShouldToggleHoveringEditorOnKeyPress,
+  shouldAcceptAutosuggestionOnKeyPress:
+    defaultShouldAcceptAutosuggestionOnKeyPress,
   shouldAcceptAutosuggestionOnTouch: defaultShouldAcceptAutosuggestionOnTouch,
 };

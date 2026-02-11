@@ -1,5 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import CopilotChatView, { CopilotChatViewProps, WelcomeScreenProps } from "./CopilotChatView";
+import CopilotChatView, {
+  CopilotChatViewProps,
+  WelcomeScreenProps,
+} from "./CopilotChatView";
 import CopilotChatToggleButton from "./CopilotChatToggleButton";
 import { CopilotModalHeader } from "./CopilotModalHeader";
 import { cn } from "@/lib/utils";
@@ -22,7 +25,10 @@ export type CopilotPopupViewProps = CopilotChatViewProps & {
   defaultOpen?: boolean;
 };
 
-const dimensionToCss = (value: number | string | undefined, fallback: number): string => {
+const dimensionToCss = (
+  value: number | string | undefined,
+  fallback: number,
+): string => {
   if (typeof value === "number" && Number.isFinite(value)) {
     return `${value}px`;
   }
@@ -153,7 +159,9 @@ function CopilotPopupViewInternal({
         return;
       }
 
-      const toggleButton = document.querySelector("[data-slot='chat-toggle-button']");
+      const toggleButton = document.querySelector(
+        "[data-slot='chat-toggle-button']",
+      );
       if (toggleButton && toggleButton.contains(target)) {
         return;
       }
@@ -165,8 +173,14 @@ function CopilotPopupViewInternal({
     return () => document.removeEventListener("pointerdown", handlePointerDown);
   }, [isPopupOpen, clickOutsideToClose, setModalOpen]);
 
-  const headerElement = useMemo(() => renderSlot(header, CopilotModalHeader, {}), [header]);
-  const toggleButtonElement = useMemo(() => renderSlot(toggleButton, CopilotChatToggleButton, {}), [toggleButton]);
+  const headerElement = useMemo(
+    () => renderSlot(header, CopilotModalHeader, {}),
+    [header],
+  );
+  const toggleButtonElement = useMemo(
+    () => renderSlot(toggleButton, CopilotChatToggleButton, {}),
+    [toggleButton],
+  );
 
   const resolvedWidth = dimensionToCss(width, DEFAULT_POPUP_WIDTH);
   const resolvedHeight = dimensionToCss(height, DEFAULT_POPUP_HEIGHT);
@@ -257,7 +271,7 @@ export namespace CopilotPopupView {
     const BoundWelcomeMessage = renderSlot(
       welcomeMessage,
       CopilotChatView.WelcomeMessage,
-      {}
+      {},
     );
 
     if (children) {
@@ -275,10 +289,7 @@ export namespace CopilotPopupView {
     }
 
     return (
-      <div
-        className={cn("h-full flex flex-col", className)}
-        {...props}
-      >
+      <div className={cn("h-full flex flex-col", className)} {...props}>
         {/* Welcome message - centered vertically */}
         <div className="flex-1 flex flex-col items-center justify-center px-4">
           {BoundWelcomeMessage}
@@ -287,9 +298,7 @@ export namespace CopilotPopupView {
         {/* Suggestions and input at bottom */}
         <div>
           {/* Suggestions above input */}
-          <div className="mb-4 flex justify-center px-4">
-            {suggestionView}
-          </div>
+          <div className="mb-4 flex justify-center px-4">{suggestionView}</div>
           {input}
         </div>
       </div>

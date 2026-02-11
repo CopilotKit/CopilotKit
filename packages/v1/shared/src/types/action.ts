@@ -31,16 +31,18 @@ interface ObjectArrayParameter extends AbstractParameter {
   attributes?: Parameter[];
 }
 
-type SpecialParameters = StringParameter | ObjectParameter | ObjectArrayParameter;
+type SpecialParameters =
+  | StringParameter
+  | ObjectParameter
+  | ObjectArrayParameter;
 interface BaseParameter extends AbstractParameter {
   type?: Exclude<AbstractParameter["type"], SpecialParameters["type"]>;
 }
 
 export type Parameter = BaseParameter | SpecialParameters;
 
-type OptionalParameterType<P extends AbstractParameter> = P["required"] extends false
-  ? undefined
-  : never;
+type OptionalParameterType<P extends AbstractParameter> =
+  P["required"] extends false ? undefined : never;
 
 type StringParameterType<P> = P extends StringParameter
   ? P extends { enum?: Array<infer E> }
@@ -61,7 +63,9 @@ type ObjectArrayParameterType<P> = P extends ObjectArrayParameter
   : never;
 
 type MappedTypeOrString<T> = T extends keyof TypeMap ? TypeMap[T] : string;
-type BaseParameterType<P extends AbstractParameter> = P extends { type: infer T }
+type BaseParameterType<P extends AbstractParameter> = P extends {
+  type: infer T;
+}
   ? T extends BaseParameter["type"]
     ? MappedTypeOrString<T>
     : never

@@ -60,7 +60,7 @@ export class CopilotChatUserMessageToolbarButton {
       "focus:outline-none focus:ring-2 focus:ring-offset-2",
       // Disabled state
       "disabled:opacity-50 disabled:cursor-not-allowed",
-      this.inputClass()
+      this.inputClass(),
     );
   });
 }
@@ -116,7 +116,7 @@ export class CopilotChatUserMessageCopyButton {
       (err) => {
         console.error("Failed to copy message:", err);
         this.copied.set(false);
-      }
+      },
     );
   }
 }

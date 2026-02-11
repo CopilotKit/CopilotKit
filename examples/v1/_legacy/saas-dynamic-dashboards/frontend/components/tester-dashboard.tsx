@@ -1,22 +1,28 @@
-"use client"
+"use client";
 
-import { useEffect, useState } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { DataTable } from "@/components/data-table-results"
-import { DataTable as DataTableTests } from "@/components/data-table-tests"
-import { DataChart } from "@/components/data-chart"
-import { Button } from "@/components/ui/button"
-import { BarChart3, Table2, Code2 } from "lucide-react"
-import { getTestsService } from "@/app/Services/service"
-import Loader from "./ui/loader"
-import { testData } from "@/lib/testData"
-import { DataCode } from "./data-code"
-import { useCoAgentStateRender } from "@copilotkit/react-core"
-import { ChatGrid } from "./data-chat-grid"
-import { useCopilotChatSuggestions } from "@copilotkit/react-ui"
-import { testerPersonaSuggestions } from "@/lib/prompts"
-import { useSharedTestsContext } from "@/lib/shared-tests-context"
-import { TestsData } from "@/app/Interfaces/interface"
+import { useEffect, useState } from "react";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { DataTable } from "@/components/data-table-results";
+import { DataTable as DataTableTests } from "@/components/data-table-tests";
+import { DataChart } from "@/components/data-chart";
+import { Button } from "@/components/ui/button";
+import { BarChart3, Table2, Code2 } from "lucide-react";
+import { getTestsService } from "@/app/Services/service";
+import Loader from "./ui/loader";
+import { testData } from "@/lib/testData";
+import { DataCode } from "./data-code";
+import { useCoAgentStateRender } from "@copilotkit/react-core";
+import { ChatGrid } from "./data-chat-grid";
+import { useCopilotChatSuggestions } from "@copilotkit/react-ui";
+import { testerPersonaSuggestions } from "@/lib/prompts";
+import { useSharedTestsContext } from "@/lib/shared-tests-context";
+import { TestsData } from "@/app/Interfaces/interface";
 // Sample data for the tester dashboard
 const tableColumns = [
   {
@@ -39,7 +45,7 @@ const tableColumns = [
     accessorKey: "status",
     header: "Status",
   },
-]
+];
 
 const tableColumnsTests = [
   {
@@ -62,9 +68,7 @@ const tableColumnsTests = [
     accessorKey: "status",
     header: "Action",
   },
-]
-
-
+];
 
 const chartData = [
   {
@@ -109,62 +113,82 @@ const chartData = [
     Failed: 2,
     Skipped: 1,
   },
-]
+];
 
 export function TesterDashboard() {
-  const [viewMode, setViewMode] = useState<"results" | "tests" | "code">("results")
-  const { testsData, setTestsData } = useSharedTestsContext()
-  const [testSuites, setTestSuites] = useState<any>([])
-  const [loading, setLoading] = useState(true)
-  const [testCaseStatus, setTestCaseStatus] = useState<{ [rowIndex: number]: string[] }>({})
+  const [viewMode, setViewMode] = useState<"results" | "tests" | "code">(
+    "results",
+  );
+  const { testsData, setTestsData } = useSharedTestsContext();
+  const [testSuites, setTestSuites] = useState<any>([]);
+  const [loading, setLoading] = useState(true);
+  const [testCaseStatus, setTestCaseStatus] = useState<{
+    [rowIndex: number]: string[];
+  }>({});
 
   useCopilotChatSuggestions({
     available: "enabled",
     instructions: testerPersonaSuggestions,
     minSuggestions: 2,
     maxSuggestions: 4,
-  })
+  });
 
   useCoAgentStateRender({
     name: "testing_agent",
     render: (props) => {
-      return <ChatGrid
-        status={props.status}
-        state={props.state}
-        testSuite={testSuites}
-        setTestSuite={setTestSuites}
-        testCaseStatus={testCaseStatus}
-        setTestCaseStatus={setTestCaseStatus}
-      />
-    }
-  })
+      return (
+        <ChatGrid
+          status={props.status}
+          state={props.state}
+          testSuite={testSuites}
+          setTestSuite={setTestSuites}
+          testCaseStatus={testCaseStatus}
+          setTestCaseStatus={setTestCaseStatus}
+        />
+      );
+    },
+  });
 
   useEffect(() => {
-    getTests()
-  }, [])
+    getTests();
+  }, []);
 
   async function getTests() {
     // const tests = await getTestsService()
-    const tests = testData
+    const tests = testData;
     // console.log(tests)
-    setTestsData(tests as TestsData[])
-    setLoading(false)
+    setTestsData(tests as TestsData[]);
+    setLoading(false);
   }
   return (
     <div className="space-y-6">
       {loading && <Loader />}
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-semibold tracking-tight">Tester Dashboard</h1>
+        <h1 className="text-3xl font-semibold tracking-tight">
+          Tester Dashboard
+        </h1>
         <div className="flex items-center gap-2">
-          <Button variant={viewMode === "code" ? "default" : "outline"} size="sm" onClick={() => setViewMode("code")}>
+          <Button
+            variant={viewMode === "code" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setViewMode("code")}
+          >
             <Code2 className=" h-4 w-4" />
             Code
           </Button>
-          <Button variant={viewMode === "results" ? "default" : "outline"} size="sm" onClick={() => setViewMode("results")}>
+          <Button
+            variant={viewMode === "results" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setViewMode("results")}
+          >
             <Table2 className="mr-2 h-4 w-4" />
             Results
           </Button>
-          <Button variant={viewMode === "tests" ? "default" : "outline"} size="sm" onClick={() => setViewMode("tests")}>
+          <Button
+            variant={viewMode === "tests" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setViewMode("tests")}
+          >
             <Table2 className="mr-2 h-4 w-4" />
             Tests
           </Button>
@@ -177,19 +201,35 @@ export function TesterDashboard() {
 
       <Card>
         <CardHeader>
-          {viewMode != "code" && <><CardTitle>{viewMode === "results" ? "Test Results" : "Testing Grounds"}</CardTitle>
-            <CardDescription>{viewMode === "results" ? "Monitor test results and performance metrics" : "Perform testing on the latest PRs"}</CardDescription></>}
+          {viewMode != "code" && (
+            <>
+              <CardTitle>
+                {viewMode === "results" ? "Test Results" : "Testing Grounds"}
+              </CardTitle>
+              <CardDescription>
+                {viewMode === "results"
+                  ? "Monitor test results and performance metrics"
+                  : "Perform testing on the latest PRs"}
+              </CardDescription>
+            </>
+          )}
         </CardHeader>
         <CardContent>
           {viewMode === "results" ? (
             <DataTable columns={tableColumns} data={testsData} />
           ) : viewMode === "tests" ? (
-            <DataTableTests columns={tableColumnsTests} data={testSuites} onToggle={setTestSuites} setTestsData={setTestsData} testsData={testsData} />
+            <DataTableTests
+              columns={tableColumnsTests}
+              data={testSuites}
+              onToggle={setTestSuites}
+              setTestsData={setTestsData}
+              testsData={testsData}
+            />
           ) : (
             <DataCode />
           )}
         </CardContent>
       </Card>
     </div>
-  )
+  );
 }

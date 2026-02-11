@@ -20,7 +20,11 @@ describe("useCoAgentStateRenderBridge helpers", () => {
         runId: "run-123",
       };
 
-      const result = resolveClaim({ claims, context, stateSnapshot: { step: 1 } });
+      const result = resolveClaim({
+        claims,
+        context,
+        stateSnapshot: { step: 1 },
+      });
       expect(result.action).toBe(ClaimAction.Existing);
       expect(result.canRender).toBe(true);
       expect(result.updateRunId).toBe("run-123");
@@ -43,7 +47,11 @@ describe("useCoAgentStateRenderBridge helpers", () => {
         messageIndex: 1,
       };
 
-      const result = resolveClaim({ claims, context, stateSnapshot: { step: 2 } });
+      const result = resolveClaim({
+        claims,
+        context,
+        stateSnapshot: { step: 2 },
+      });
       expect(result.action).toBe(ClaimAction.Override);
       expect(result.canRender).toBe(true);
       expect(result.nextClaim).toMatchObject({
@@ -53,7 +61,6 @@ describe("useCoAgentStateRenderBridge helpers", () => {
       });
       expect(result.lockOthers).toBe(true);
     });
-
   });
 
   describe("selectSnapshot", () => {
@@ -67,7 +74,7 @@ describe("useCoAgentStateRenderBridge helpers", () => {
         messageId: "msg1",
         stateRenderId: "render-a",
         effectiveRunId: "run-1",
-        stateSnapshotProp: "{\"phase\":\"planning\"}",
+        stateSnapshotProp: '{"phase":"planning"}',
         agentState: { phase: "ignored" },
         agentMessages: [{ id: "assistant-1", role: "assistant" }],
         caches,

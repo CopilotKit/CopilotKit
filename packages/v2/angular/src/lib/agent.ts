@@ -63,7 +63,7 @@ export class CopilotkitAgentFactory {
 
   createAgentStoreSignal(
     agentId: Signal<string | undefined>,
-    destroyRef: DestroyRef
+    destroyRef: DestroyRef,
   ): Signal<AgentStore | undefined> {
     let lastAgentStore: AgentStore | undefined;
 
@@ -76,7 +76,7 @@ export class CopilotkitAgentFactory {
       }
 
       const abstractAgent = this.#copilotkit.getAgent(
-        agentId() || DEFAULT_AGENT_ID
+        agentId() || DEFAULT_AGENT_ID,
       );
       if (!abstractAgent) return undefined;
 
@@ -87,7 +87,7 @@ export class CopilotkitAgentFactory {
 }
 
 export function injectAgentStore(
-  agentId: string | Signal<string | undefined>
+  agentId: string | Signal<string | undefined>,
 ): Signal<AgentStore | undefined> {
   const agentFactory = inject(CopilotkitAgentFactory);
   const destroyRef = inject(DestroyRef);

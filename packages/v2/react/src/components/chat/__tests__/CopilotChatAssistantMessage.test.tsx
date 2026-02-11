@@ -31,7 +31,7 @@ const renderWithProvider = (component: React.ReactElement) => {
       <CopilotChatConfigurationProvider threadId={TEST_THREAD_ID}>
         {component}
       </CopilotChatConfigurationProvider>
-    </CopilotKitProvider>
+    </CopilotKitProvider>,
   );
 };
 
@@ -54,7 +54,7 @@ describe("CopilotChatAssistantMessage", () => {
   describe("Basic rendering", () => {
     it("renders with default components and styling", () => {
       renderWithProvider(
-        <CopilotChatAssistantMessage message={basicMessage} />
+        <CopilotChatAssistantMessage message={basicMessage} />,
       );
 
       // Check if elements exist (getBy throws if not found, so this is sufficient)
@@ -71,11 +71,13 @@ describe("CopilotChatAssistantMessage", () => {
       };
 
       renderWithProvider(
-        <CopilotChatAssistantMessage message={emptyMessage} />
+        <CopilotChatAssistantMessage message={emptyMessage} />,
       );
 
       // Should render the component structure but NOT show toolbar for empty content
-      const container = document.querySelector('[data-message-id="empty-message"]');
+      const container = document.querySelector(
+        '[data-message-id="empty-message"]',
+      );
       expect(container).toBeDefined();
 
       // Should NOT have a copy button since there's no content to copy
@@ -86,7 +88,7 @@ describe("CopilotChatAssistantMessage", () => {
   describe("Callback functionality", () => {
     it("renders only copy button when no callbacks provided", () => {
       renderWithProvider(
-        <CopilotChatAssistantMessage message={basicMessage} />
+        <CopilotChatAssistantMessage message={basicMessage} />,
       );
 
       expect(screen.getByRole("button", { name: /copy/i })).toBeDefined();
@@ -104,15 +106,15 @@ describe("CopilotChatAssistantMessage", () => {
           onThumbsDown={mockOnThumbsDown}
           onReadAloud={mockOnReadAloud}
           onRegenerate={mockOnRegenerate}
-        />
+        />,
       );
 
       expect(screen.getByRole("button", { name: /copy/i })).toBeDefined();
       expect(
-        screen.getByRole("button", { name: /good response/i })
+        screen.getByRole("button", { name: /good response/i }),
       ).toBeDefined();
       expect(
-        screen.getByRole("button", { name: /bad response/i })
+        screen.getByRole("button", { name: /bad response/i }),
       ).toBeDefined();
       expect(screen.getByRole("button", { name: /read aloud/i })).toBeDefined();
       expect(screen.getByRole("button", { name: /regenerate/i })).toBeDefined();
@@ -120,7 +122,7 @@ describe("CopilotChatAssistantMessage", () => {
 
     it("calls copy functionality when copy button clicked", async () => {
       renderWithProvider(
-        <CopilotChatAssistantMessage message={basicMessage} />
+        <CopilotChatAssistantMessage message={basicMessage} />,
       );
 
       const copyButton = screen.getByRole("button", { name: /copy/i });
@@ -136,7 +138,7 @@ describe("CopilotChatAssistantMessage", () => {
         <CopilotChatAssistantMessage
           message={basicMessage}
           onThumbsUp={mockOnThumbsUp}
-        />
+        />,
       );
 
       const thumbsUpButton = screen.getByRole("button", {
@@ -152,7 +154,7 @@ describe("CopilotChatAssistantMessage", () => {
         <CopilotChatAssistantMessage
           message={basicMessage}
           onThumbsDown={mockOnThumbsDown}
-        />
+        />,
       );
 
       const thumbsDownButton = screen.getByRole("button", {
@@ -168,7 +170,7 @@ describe("CopilotChatAssistantMessage", () => {
         <CopilotChatAssistantMessage
           message={basicMessage}
           onReadAloud={mockOnReadAloud}
-        />
+        />,
       );
 
       const readAloudButton = screen.getByRole("button", {
@@ -184,7 +186,7 @@ describe("CopilotChatAssistantMessage", () => {
         <CopilotChatAssistantMessage
           message={basicMessage}
           onRegenerate={mockOnRegenerate}
-        />
+        />,
       );
 
       const regenerateButton = screen.getByRole("button", {
@@ -206,7 +208,7 @@ describe("CopilotChatAssistantMessage", () => {
         <CopilotChatAssistantMessage
           message={basicMessage}
           additionalToolbarItems={additionalItems}
-        />
+        />,
       );
 
       expect(screen.getByTestId("custom-toolbar-item")).toBeDefined();
@@ -223,14 +225,14 @@ describe("CopilotChatAssistantMessage", () => {
         <CopilotChatAssistantMessage
           message={basicMessage}
           markdownRenderer={CustomMarkdownRenderer}
-        />
+        />,
       );
 
       expect(screen.getByTestId("custom-markdown")).toBeDefined();
       expect(
         screen
           .getByTestId("custom-markdown")
-          .textContent?.includes(basicMessage.content!.toUpperCase())
+          .textContent?.includes(basicMessage.content!.toUpperCase()),
       ).toBe(true);
     });
 
@@ -246,14 +248,14 @@ describe("CopilotChatAssistantMessage", () => {
         <CopilotChatAssistantMessage
           message={basicMessage}
           toolbar={CustomToolbar}
-        />
+        />,
       );
 
       expect(screen.getByTestId("custom-toolbar")).toBeDefined();
       expect(
         screen
           .getByTestId("custom-toolbar")
-          .textContent?.includes("Custom Toolbar:")
+          .textContent?.includes("Custom Toolbar:"),
       ).toBe(true);
     });
 
@@ -269,14 +271,14 @@ describe("CopilotChatAssistantMessage", () => {
         <CopilotChatAssistantMessage
           message={basicMessage}
           copyButton={CustomCopyButton}
-        />
+        />,
       );
 
       expect(screen.getByTestId("custom-copy-button")).toBeDefined();
       expect(
         screen
           .getByTestId("custom-copy-button")
-          .textContent?.includes("Custom Copy")
+          .textContent?.includes("Custom Copy"),
       ).toBe(true);
     });
 
@@ -293,14 +295,14 @@ describe("CopilotChatAssistantMessage", () => {
           message={basicMessage}
           onThumbsUp={mockOnThumbsUp}
           thumbsUpButton={CustomThumbsUpButton}
-        />
+        />,
       );
 
       expect(screen.getByTestId("custom-thumbs-up")).toBeDefined();
       expect(
         screen
           .getByTestId("custom-thumbs-up")
-          .textContent?.includes("Custom Like")
+          .textContent?.includes("Custom Like"),
       ).toBe(true);
     });
 
@@ -317,14 +319,14 @@ describe("CopilotChatAssistantMessage", () => {
           message={basicMessage}
           onThumbsDown={mockOnThumbsDown}
           thumbsDownButton={CustomThumbsDownButton}
-        />
+        />,
       );
 
       expect(screen.getByTestId("custom-thumbs-down")).toBeDefined();
       expect(
         screen
           .getByTestId("custom-thumbs-down")
-          .textContent?.includes("Custom Dislike")
+          .textContent?.includes("Custom Dislike"),
       ).toBe(true);
     });
 
@@ -341,14 +343,14 @@ describe("CopilotChatAssistantMessage", () => {
           message={basicMessage}
           onReadAloud={mockOnReadAloud}
           readAloudButton={CustomReadAloudButton}
-        />
+        />,
       );
 
       expect(screen.getByTestId("custom-read-aloud")).toBeDefined();
       expect(
         screen
           .getByTestId("custom-read-aloud")
-          .textContent?.includes("Custom Speak")
+          .textContent?.includes("Custom Speak"),
       ).toBe(true);
     });
 
@@ -365,14 +367,14 @@ describe("CopilotChatAssistantMessage", () => {
           message={basicMessage}
           onRegenerate={mockOnRegenerate}
           regenerateButton={CustomRegenerateButton}
-        />
+        />,
       );
 
       expect(screen.getByTestId("custom-regenerate")).toBeDefined();
       expect(
         screen
           .getByTestId("custom-regenerate")
-          .textContent?.includes("Custom Retry")
+          .textContent?.includes("Custom Retry"),
       ).toBe(true);
     });
   });
@@ -383,11 +385,11 @@ describe("CopilotChatAssistantMessage", () => {
         <CopilotChatAssistantMessage
           message={basicMessage}
           className="custom-container-class"
-        />
+        />,
       );
 
       const containerElement = container.querySelector(
-        ".custom-container-class"
+        ".custom-container-class",
       );
       expect(containerElement).toBeDefined();
     });
@@ -397,7 +399,7 @@ describe("CopilotChatAssistantMessage", () => {
         <CopilotChatAssistantMessage
           message={basicMessage}
           markdownRenderer="custom-markdown-class"
-        />
+        />,
       );
 
       const markdownElement = container.querySelector(".custom-markdown-class");
@@ -409,7 +411,7 @@ describe("CopilotChatAssistantMessage", () => {
         <CopilotChatAssistantMessage
           message={basicMessage}
           toolbar="custom-toolbar-class"
-        />
+        />,
       );
 
       const toolbarElement = container.querySelector(".custom-toolbar-class");
@@ -421,11 +423,11 @@ describe("CopilotChatAssistantMessage", () => {
         <CopilotChatAssistantMessage
           message={basicMessage}
           copyButton="custom-copy-button-class"
-        />
+        />,
       );
 
       const copyButtonElement = container.querySelector(
-        ".custom-copy-button-class"
+        ".custom-copy-button-class",
       );
       expect(copyButtonElement).toBeDefined();
     });
@@ -446,12 +448,12 @@ describe("CopilotChatAssistantMessage", () => {
               <div data-testid="custom-toolbar-wrapper">{Toolbar}</div>
             </div>
           )}
-        </CopilotChatAssistantMessage>
+        </CopilotChatAssistantMessage>,
       );
 
       expect(screen.getByTestId("custom-layout")).toBeDefined();
       expect(
-        screen.getByText(`Custom Layout for: ${basicMessage.id}`)
+        screen.getByText(`Custom Layout for: ${basicMessage.id}`),
       ).toBeDefined();
       expect(screen.getByTestId("custom-toolbar-wrapper")).toBeDefined();
       // Note: Markdown content may not render in test environment, check toolbar instead
@@ -488,7 +490,7 @@ describe("CopilotChatAssistantMessage", () => {
               </div>
             </div>
           )}
-        </CopilotChatAssistantMessage>
+        </CopilotChatAssistantMessage>,
       );
 
       expect(screen.getByTestId("all-slots-layout")).toBeDefined();
@@ -536,7 +538,7 @@ describe("CopilotChatAssistantMessage", () => {
               </button>
             </div>
           )}
-        </CopilotChatAssistantMessage>
+        </CopilotChatAssistantMessage>,
       );
 
       fireEvent.click(screen.getByTestId("custom-thumbs-up"));
@@ -554,7 +556,7 @@ describe("CopilotChatAssistantMessage", () => {
   describe("Toolbar visibility functionality", () => {
     it("shows toolbar by default (toolbarVisible = true by default)", () => {
       renderWithProvider(
-        <CopilotChatAssistantMessage message={basicMessage} />
+        <CopilotChatAssistantMessage message={basicMessage} />,
       );
 
       expect(screen.getByRole("button", { name: /copy/i })).toBeDefined();
@@ -562,10 +564,10 @@ describe("CopilotChatAssistantMessage", () => {
 
     it("shows toolbar when toolbarVisible is explicitly true", () => {
       renderWithProvider(
-        <CopilotChatAssistantMessage 
-          message={basicMessage} 
+        <CopilotChatAssistantMessage
+          message={basicMessage}
           toolbarVisible={true}
-        />
+        />,
       );
 
       expect(screen.getByRole("button", { name: /copy/i })).toBeDefined();
@@ -573,10 +575,10 @@ describe("CopilotChatAssistantMessage", () => {
 
     it("hides toolbar when toolbarVisible is false", () => {
       renderWithProvider(
-        <CopilotChatAssistantMessage 
-          message={basicMessage} 
+        <CopilotChatAssistantMessage
+          message={basicMessage}
           toolbarVisible={false}
-        />
+        />,
       );
 
       expect(screen.queryByRole("button", { name: /copy/i })).toBeNull();
@@ -586,12 +588,12 @@ describe("CopilotChatAssistantMessage", () => {
       const childrenSpy = vi.fn(() => <div data-testid="children-render" />);
 
       renderWithProvider(
-        <CopilotChatAssistantMessage 
-          message={basicMessage} 
+        <CopilotChatAssistantMessage
+          message={basicMessage}
           toolbarVisible={false}
         >
           {childrenSpy}
-        </CopilotChatAssistantMessage>
+        </CopilotChatAssistantMessage>,
       );
 
       expect(childrenSpy).toHaveBeenCalledWith(
@@ -599,7 +601,7 @@ describe("CopilotChatAssistantMessage", () => {
           toolbar: expect.anything(),
           toolbarVisible: false,
           message: basicMessage,
-        })
+        }),
       );
       expect(screen.getByTestId("children-render")).toBeDefined();
     });
@@ -610,7 +612,7 @@ describe("CopilotChatAssistantMessage", () => {
       renderWithProvider(
         <CopilotChatAssistantMessage message={basicMessage}>
           {childrenSpy}
-        </CopilotChatAssistantMessage>
+        </CopilotChatAssistantMessage>,
       );
 
       expect(childrenSpy).toHaveBeenCalledWith(
@@ -618,24 +620,28 @@ describe("CopilotChatAssistantMessage", () => {
           toolbar: expect.anything(),
           toolbarVisible: true,
           message: basicMessage,
-        })
+        }),
       );
     });
 
     it("children can use toolbarVisible to conditionally render toolbar", () => {
       renderWithProvider(
-        <CopilotChatAssistantMessage 
-          message={basicMessage} 
+        <CopilotChatAssistantMessage
+          message={basicMessage}
           toolbarVisible={false}
         >
           {({ toolbar, toolbarVisible }) => (
             <div data-testid="custom-layout">
               <div data-testid="content">Custom content</div>
-              {toolbarVisible && <div data-testid="conditional-toolbar">{toolbar}</div>}
-              {!toolbarVisible && <div data-testid="no-toolbar">No toolbar</div>}
+              {toolbarVisible && (
+                <div data-testid="conditional-toolbar">{toolbar}</div>
+              )}
+              {!toolbarVisible && (
+                <div data-testid="no-toolbar">No toolbar</div>
+              )}
             </div>
           )}
-        </CopilotChatAssistantMessage>
+        </CopilotChatAssistantMessage>,
       );
 
       expect(screen.getByTestId("custom-layout")).toBeDefined();
@@ -655,7 +661,7 @@ describe("CopilotChatAssistantMessage", () => {
         .mockImplementation(() => {});
 
       renderWithProvider(
-        <CopilotChatAssistantMessage message={basicMessage} />
+        <CopilotChatAssistantMessage message={basicMessage} />,
       );
 
       const copyButton = screen.getByRole("button", { name: /copy/i });
@@ -664,7 +670,7 @@ describe("CopilotChatAssistantMessage", () => {
       await waitFor(() => {
         expect(consoleSpy).toHaveBeenCalledWith(
           "Failed to copy message:",
-          expect.any(Error)
+          expect.any(Error),
         );
       });
 
@@ -680,11 +686,13 @@ describe("CopilotChatAssistantMessage", () => {
       };
 
       renderWithProvider(
-        <CopilotChatAssistantMessage message={nullContentMessage} />
+        <CopilotChatAssistantMessage message={nullContentMessage} />,
       );
 
       // Should render the component structure but NOT show toolbar for empty content
-      const container = document.querySelector('[data-message-id="null-content"]');
+      const container = document.querySelector(
+        '[data-message-id="null-content"]',
+      );
       expect(container).toBeDefined();
 
       // Should NOT have a copy button since there's no content to copy

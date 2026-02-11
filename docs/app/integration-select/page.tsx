@@ -1,4 +1,4 @@
-import { IntegrationsGrid } from '@/components/react/integrations';
+import { IntegrationsGrid } from "@/components/react/integrations";
 
 export default function QuickstartSelectPage() {
   return (
@@ -15,4 +15,3 @@ export default function QuickstartSelectPage() {
     </div>
   );
 }
-

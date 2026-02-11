@@ -8,15 +8,21 @@ import { createCopilotEndpointSingleRouteExpress } from "../express";
 import { CopilotRuntime } from "../runtime";
 
 vi.mock("../handlers/handle-run", () => ({
-  handleRunAgent: vi.fn().mockResolvedValue(new Response(null, { status: 200 })),
+  handleRunAgent: vi
+    .fn()
+    .mockResolvedValue(new Response(null, { status: 200 })),
 }));
 
 vi.mock("../handlers/handle-connect", () => ({
-  handleConnectAgent: vi.fn().mockResolvedValue(new Response(null, { status: 200 })),
+  handleConnectAgent: vi
+    .fn()
+    .mockResolvedValue(new Response(null, { status: 200 })),
 }));
 
 vi.mock("../handlers/handle-stop", () => ({
-  handleStopAgent: vi.fn().mockResolvedValue(new Response(null, { status: 200 })),
+  handleStopAgent: vi
+    .fn()
+    .mockResolvedValue(new Response(null, { status: 200 })),
 }));
 
 describe("CopilotEndpointSingleRouteExpress routing", () => {
@@ -59,7 +65,9 @@ describe("CopilotEndpointSingleRouteExpress routing", () => {
   const createApp = () => {
     const runtime = createMockRuntime();
     const app = express();
-    app.use(createCopilotEndpointSingleRouteExpress({ runtime, basePath: "/rpc" }));
+    app.use(
+      createCopilotEndpointSingleRouteExpress({ runtime, basePath: "/rpc" }),
+    );
     return { app, runtime };
   };
 

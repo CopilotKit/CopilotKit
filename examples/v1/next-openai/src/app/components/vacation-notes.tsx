@@ -18,7 +18,9 @@ export function VacationNotes() {
           disableWhenEmpty: true,
 
           // Accept on tab is the default behavior, but we can override it if we wanted to, as so:
-          shouldAcceptAutosuggestionOnKeyPress: (event: React.KeyboardEvent<HTMLDivElement>) => {
+          shouldAcceptAutosuggestionOnKeyPress: (
+            event: React.KeyboardEvent<HTMLDivElement>,
+          ) => {
             // if tab, accept the autosuggestion
             if (event.key === "Tab") {
               return true;

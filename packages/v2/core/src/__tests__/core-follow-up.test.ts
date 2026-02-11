@@ -30,10 +30,15 @@ describe("CopilotKitCore.runAgent - Follow-up Logic", () => {
     copilotKitCore.addTool(tool);
 
     const message = createToolCallMessage("followUpTool");
-    const followUpMessage = createAssistantMessage({ content: "Follow-up response" });
-    
+    const followUpMessage = createAssistantMessage({
+      content: "Follow-up response",
+    });
+
     const agent = new MockAgent({ newMessages: [message] });
-    copilotKitCore.addAgent__unsafe_dev_only({ id: "test", agent: agent as any });
+    copilotKitCore.addAgent__unsafe_dev_only({
+      id: "test",
+      agent: agent as any,
+    });
     let callCount = 0;
     agent.runAgentCallback = () => {
       callCount++;
@@ -58,7 +63,10 @@ describe("CopilotKitCore.runAgent - Follow-up Logic", () => {
 
     const message = createToolCallMessage("noFollowUpTool");
     const agent = new MockAgent({ newMessages: [message] });
-    copilotKitCore.addAgent__unsafe_dev_only({ id: "test", agent: agent as any });
+    copilotKitCore.addAgent__unsafe_dev_only({
+      id: "test",
+      agent: agent as any,
+    });
 
     await copilotKitCore.runAgent({ agent: agent as any });
 
@@ -75,9 +83,12 @@ describe("CopilotKitCore.runAgent - Follow-up Logic", () => {
 
     const message = createToolCallMessage("defaultFollowUpTool");
     const followUpMessage = createAssistantMessage({ content: "Follow-up" });
-    
+
     const agent = new MockAgent({ newMessages: [message] });
-    copilotKitCore.addAgent__unsafe_dev_only({ id: "test", agent: agent as any });
+    copilotKitCore.addAgent__unsafe_dev_only({
+      id: "test",
+      agent: agent as any,
+    });
     let callCount = 0;
     agent.runAgentCallback = () => {
       callCount++;
@@ -116,9 +127,12 @@ describe("CopilotKitCore.runAgent - Follow-up Logic", () => {
       { name: "tool2" },
       { name: "tool3" },
     ]);
-    
+
     const agent = new MockAgent({ newMessages: [message] });
-    copilotKitCore.addAgent__unsafe_dev_only({ id: "test", agent: agent as any });
+    copilotKitCore.addAgent__unsafe_dev_only({
+      id: "test",
+      agent: agent as any,
+    });
     let callCount = 0;
     agent.runAgentCallback = () => {
       callCount++;
@@ -150,9 +164,12 @@ describe("CopilotKitCore.runAgent - Follow-up Logic", () => {
       { name: "tool1" },
       { name: "tool2" },
     ]);
-    
+
     const agent = new MockAgent({ newMessages: [message] });
-    copilotKitCore.addAgent__unsafe_dev_only({ id: "test", agent: agent as any });
+    copilotKitCore.addAgent__unsafe_dev_only({
+      id: "test",
+      agent: agent as any,
+    });
 
     await copilotKitCore.runAgent({ agent: agent as any });
 
@@ -169,9 +186,12 @@ describe("CopilotKitCore.runAgent - Follow-up Logic", () => {
 
     const initialMessage = createToolCallMessage("recursiveTool");
     const finalMessage = createAssistantMessage({ content: "Final response" });
-    
+
     const agent = new MockAgent({ newMessages: [initialMessage] });
-    copilotKitCore.addAgent__unsafe_dev_only({ id: "test", agent: agent as any });
+    copilotKitCore.addAgent__unsafe_dev_only({
+      id: "test",
+      agent: agent as any,
+    });
     let callCount = 0;
     agent.runAgentCallback = () => {
       callCount++;
@@ -202,9 +222,12 @@ describe("CopilotKitCore.runAgent - Follow-up Logic", () => {
     const msg1 = createToolCallMessage("chainTool1");
     const msg2 = createToolCallMessage("chainTool2");
     const finalMsg = createAssistantMessage({ content: "Done" });
-    
+
     const agent = new MockAgent({ newMessages: [msg1] });
-    copilotKitCore.addAgent__unsafe_dev_only({ id: "test", agent: agent as any });
+    copilotKitCore.addAgent__unsafe_dev_only({
+      id: "test",
+      agent: agent as any,
+    });
     let callCount = 0;
     agent.runAgentCallback = () => {
       callCount++;

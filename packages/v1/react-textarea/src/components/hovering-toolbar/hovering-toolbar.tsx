@@ -58,7 +58,12 @@ export const HoveringToolbar = (props: HoveringToolbarProps) => {
     // but inside the hovering window.
     //
     // in such case, we simply do nothing.
-    if (rect.top === 0 && rect.left === 0 && rect.width === 0 && rect.height === 0) {
+    if (
+      rect.top === 0 &&
+      rect.left === 0 &&
+      rect.width === 0 &&
+      rect.height === 0
+    ) {
       return;
     }
 
@@ -69,20 +74,31 @@ export const HoveringToolbar = (props: HoveringToolbarProps) => {
     let top = rect.bottom + window.scrollY + verticalOffsetFromCorner;
 
     // no space left at bottom, move up
-    if (rect.bottom + el.offsetHeight > window.innerHeight - verticalOffsetFromCorner) {
-      top = rect.top + window.scrollY - el.offsetHeight - verticalOffsetFromCorner;
+    if (
+      rect.bottom + el.offsetHeight >
+      window.innerHeight - verticalOffsetFromCorner
+    ) {
+      top =
+        rect.top + window.scrollY - el.offsetHeight - verticalOffsetFromCorner;
     }
 
     // position the toolbar in the center of the selection
     let left =
-      rect.left + window.scrollX - el.offsetWidth / 2 + rect.width / 2 + horizontalOffsetFromCorner;
+      rect.left +
+      window.scrollX -
+      el.offsetWidth / 2 +
+      rect.width / 2 +
+      horizontalOffsetFromCorner;
 
     // no space left at left, move right
     if (left < horizontalOffsetFromCorner) {
       left = horizontalOffsetFromCorner;
     }
     // no space left at right, move left
-    else if (left + el.offsetWidth > window.innerWidth - horizontalOffsetFromCorner) {
+    else if (
+      left + el.offsetWidth >
+      window.innerWidth - horizontalOffsetFromCorner
+    ) {
       left = window.innerWidth - el.offsetWidth - horizontalOffsetFromCorner;
     }
 

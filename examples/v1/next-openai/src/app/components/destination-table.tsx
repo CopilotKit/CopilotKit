@@ -26,10 +26,16 @@ function Thead() {
         >
           Selected
         </th>
-        <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+        <th
+          scope="col"
+          className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900"
+        >
           Description
         </th>
-        <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+        <th
+          scope="col"
+          className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900"
+        >
           Activities
         </th>
       </tr>
@@ -37,13 +43,18 @@ function Thead() {
   );
 }
 
-export function DestinationTable({ destinations, heading }: DestinationTableProps) {
+export function DestinationTable({
+  destinations,
+  heading,
+}: DestinationTableProps) {
   const copilotPointer = useCopilotReadable({
     description: "Destination table",
     value: heading,
   });
 
-  const [checkedRows, setCheckedRows] = React.useState<Record<string, boolean>>({});
+  const [checkedRows, setCheckedRows] = React.useState<Record<string, boolean>>(
+    {},
+  );
   const handleCheckChange = (destinationName: string, isChecked: boolean) => {
     setCheckedRows((prevState) => ({
       ...prevState,
@@ -103,7 +114,9 @@ export function DestinationTable({ destinations, heading }: DestinationTableProp
 
   return (
     <div>
-      <h2 className="text-lg font-semibold leading-6 text-gray-900 mb-4 p-2">{heading}</h2>
+      <h2 className="text-lg font-semibold leading-6 text-gray-900 mb-4 p-2">
+        {heading}
+      </h2>
       <table className="min-w-full divide-y divide-gray-300">
         <Thead />
         <tbody className="divide-y divide-gray-200 bg-white">
@@ -112,7 +125,9 @@ export function DestinationTable({ destinations, heading }: DestinationTableProp
               key={destination.name}
               destination={destination}
               isChecked={!!checkedRows[destination.name]}
-              onCheckChange={(isChecked) => handleCheckChange(destination.name, isChecked)}
+              onCheckChange={(isChecked) =>
+                handleCheckChange(destination.name, isChecked)
+              }
               parentCopilotPointer={copilotPointer}
             />
           ))}

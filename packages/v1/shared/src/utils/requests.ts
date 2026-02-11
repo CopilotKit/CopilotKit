@@ -5,7 +5,9 @@
  * - Tries JSON first regardless of content-type
  * - Falls back to text and optionally parses when it "looks" like JSON
  */
-export async function readBody<T extends Response | Request>(r: T): Promise<unknown> {
+export async function readBody<T extends Response | Request>(
+  r: T,
+): Promise<unknown> {
   // skip GET/HEAD requests (unchanged)
   const method = "method" in r ? r.method.toUpperCase() : undefined;
   if (method === "GET" || method === "HEAD") {

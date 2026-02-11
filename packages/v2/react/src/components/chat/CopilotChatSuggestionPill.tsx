@@ -2,8 +2,7 @@ import React from "react";
 import { Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-export interface CopilotChatSuggestionPillProps
-  extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+export interface CopilotChatSuggestionPillProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   /** Optional icon to render on the left side when not loading. */
   icon?: React.ReactNode;
   /** Whether the pill should display a loading spinner. */
@@ -20,7 +19,7 @@ export const CopilotChatSuggestionPill = React.forwardRef<
   CopilotChatSuggestionPillProps
 >(function CopilotChatSuggestionPill(
   { className, children, icon, isLoading, type, ...props },
-  ref
+  ref,
 ) {
   const showIcon = !isLoading && icon;
 
@@ -36,11 +35,16 @@ export const CopilotChatSuggestionPill = React.forwardRef<
     >
       {isLoading ? (
         <span className="flex h-3.5 sm:h-4 w-3.5 sm:w-4 items-center justify-center text-muted-foreground">
-          <Loader2 className="h-3.5 sm:h-4 w-3.5 sm:w-4 animate-spin" aria-hidden="true" />
+          <Loader2
+            className="h-3.5 sm:h-4 w-3.5 sm:w-4 animate-spin"
+            aria-hidden="true"
+          />
         </span>
       ) : (
         showIcon && (
-          <span className="flex h-3.5 sm:h-4 w-3.5 sm:w-4 items-center justify-center text-muted-foreground">{icon}</span>
+          <span className="flex h-3.5 sm:h-4 w-3.5 sm:w-4 items-center justify-center text-muted-foreground">
+            {icon}
+          </span>
         )
       )}
       <span className={labelClasses}>{children}</span>

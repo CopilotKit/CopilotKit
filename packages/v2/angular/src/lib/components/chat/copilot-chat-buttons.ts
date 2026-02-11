@@ -25,7 +25,7 @@ const buttonBase = cn(
   "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium",
   "transition-all disabled:pointer-events-none disabled:opacity-50",
   "shrink-0 outline-none",
-  "focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]"
+  "focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]",
 );
 
 const chatInputToolbarPrimary = cn(
@@ -44,7 +44,7 @@ const chatInputToolbarPrimary = cn(
   "hover:opacity-70 disabled:hover:opacity-100",
   // Disabled states
   "disabled:cursor-not-allowed disabled:bg-[#00000014] disabled:text-[rgb(13,13,13)]",
-  "dark:disabled:bg-[#454545] dark:disabled:text-white"
+  "dark:disabled:bg-[#454545] dark:disabled:text-white",
 );
 
 const chatInputToolbarSecondary = cn(
@@ -65,7 +65,7 @@ const chatInputToolbarSecondary = cn(
   // Disabled states
   "disabled:cursor-not-allowed disabled:opacity-50",
   "disabled:hover:bg-transparent disabled:hover:text-[#444444]",
-  "dark:disabled:hover:bg-transparent dark:disabled:hover:text-[#CCCCCC]"
+  "dark:disabled:hover:bg-transparent dark:disabled:hover:text-[#CCCCCC]",
 );
 
 @Component({

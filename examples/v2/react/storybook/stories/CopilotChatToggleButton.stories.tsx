@@ -46,7 +46,9 @@ export const WithCustomIcons: Story = {
     openIcon: (props) => (
       <MessageCirclePlus
         {...props}
-        className={[props.className, "text-emerald-400"].filter(Boolean).join(" ")}
+        className={[props.className, "text-emerald-400"]
+          .filter(Boolean)
+          .join(" ")}
         strokeWidth={1.5}
       />
     ),

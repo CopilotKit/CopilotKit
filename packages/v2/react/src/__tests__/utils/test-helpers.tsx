@@ -166,7 +166,7 @@ export function renderWithCopilotKit({
           </div>
         )}
       </CopilotChatConfigurationProvider>
-    </CopilotKitProvider>
+    </CopilotKitProvider>,
   );
 }
 
@@ -231,7 +231,10 @@ export function textMessageStartEvent(
 /**
  * Helper to stream text message content
  */
-export function textMessageContentEvent(messageId: string, delta: string): BaseEvent {
+export function textMessageContentEvent(
+  messageId: string,
+  delta: string,
+): BaseEvent {
   return {
     type: EventType.TEXT_MESSAGE_CONTENT,
     messageId,
@@ -323,28 +326,32 @@ export function emitSuggestionToolCall(
     toolCallId: string;
     parentMessageId: string;
     suggestions: Array<{ title: string; message: string }>;
-  }
+  },
 ) {
   // Convert suggestions to JSON string
   const suggestionsJson = JSON.stringify({ suggestions });
 
   // Emit the tool call name first
-  agent.emit(toolCallChunkEvent({
-    toolCallId,
-    toolCallName: "copilotkitSuggest",
-    parentMessageId,
-    delta: "",
-  }));
+  agent.emit(
+    toolCallChunkEvent({
+      toolCallId,
+      toolCallName: "copilotkitSuggest",
+      parentMessageId,
+      delta: "",
+    }),
+  );
 
   // Stream the JSON in chunks to simulate streaming
   const chunkSize = 10; // Characters per chunk
   for (let i = 0; i < suggestionsJson.length; i += chunkSize) {
     const chunk = suggestionsJson.substring(i, i + chunkSize);
-    agent.emit(toolCallChunkEvent({
-      toolCallId,
-      parentMessageId,
-      delta: chunk,
-    }));
+    agent.emit(
+      toolCallChunkEvent({
+        toolCallId,
+        parentMessageId,
+        delta: chunk,
+      }),
+    );
   }
 }
 

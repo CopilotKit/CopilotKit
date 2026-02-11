@@ -1,24 +1,36 @@
-"use client"
+"use client";
 
-import { useEffect, useRef, useState } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { DataTable } from "@/components/data-table"
-import { DataChart } from "@/components/data-chart"
-import { Button } from "@/components/ui/button"
-import { BarChart3, Table2, Filter } from "lucide-react"
-import { getPRDataService } from "@/app/Services/service"
-import { PRData } from "@/app/Interfaces/interface"
-import { useSharedContext } from "@/lib/shared-context"
-import { useCopilotAction, useCopilotReadable } from "@copilotkit/react-core"
-import { PieChart, Pie, Cell, Tooltip } from "recharts"
-import { PRPieData } from "./pr-pie-all-data"
-import { PRReviewBarData } from "./pr-review-bar-data"
-import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select"
-import { PRPieFilterData } from "./pr-pie-filter-data"
-import { PRLineChartData } from "./pr-line-chart-data"
-import { Loader } from "./ui/loader"
-import { useCopilotChatSuggestions } from "@copilotkit/react-ui"
-import { devSuggestions } from "@/lib/prompts"
+import { useEffect, useRef, useState } from "react";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { DataTable } from "@/components/data-table";
+import { DataChart } from "@/components/data-chart";
+import { Button } from "@/components/ui/button";
+import { BarChart3, Table2, Filter } from "lucide-react";
+import { getPRDataService } from "@/app/Services/service";
+import { PRData } from "@/app/Interfaces/interface";
+import { useSharedContext } from "@/lib/shared-context";
+import { useCopilotAction, useCopilotReadable } from "@copilotkit/react-core";
+import { PieChart, Pie, Cell, Tooltip } from "recharts";
+import { PRPieData } from "./pr-pie-all-data";
+import { PRReviewBarData } from "./pr-review-bar-data";
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from "@/components/ui/select";
+import { PRPieFilterData } from "./pr-pie-filter-data";
+import { PRLineChartData } from "./pr-line-chart-data";
+import { Loader } from "./ui/loader";
+import { useCopilotChatSuggestions } from "@copilotkit/react-ui";
+import { devSuggestions } from "@/lib/prompts";
 // Sample data for the developer dashboard
 const tableColumns = [
   {
@@ -41,27 +53,30 @@ const tableColumns = [
     accessorKey: "status",
     header: "STATUS",
   },
-]
+];
 
 export function DeveloperDashboard() {
-  const { prData, setPrData } = useSharedContext()
-  const [filteredData, setFilteredData] = useState<PRData[]>([])
-  const [filterParams, setFilterParams] = useState<{ status: string, author: string }>({ status: "a", author: "b" })
-  const [viewMode, setViewMode] = useState<"table" | "chart">("table")
-  const [isLoading, setIsLoading] = useState(true)
+  const { prData, setPrData } = useSharedContext();
+  const [filteredData, setFilteredData] = useState<PRData[]>([]);
+  const [filterParams, setFilterParams] = useState<{
+    status: string;
+    author: string;
+  }>({ status: "a", author: "b" });
+  const [viewMode, setViewMode] = useState<"table" | "chart">("table");
+  const [isLoading, setIsLoading] = useState(true);
   useEffect(() => {
-    getPRData()
-  }, [])
+    getPRData();
+  }, []);
 
   useCopilotReadable({
     description: "A list of all the PR Data",
-    value: JSON.stringify(prData)
-  })
+    value: JSON.stringify(prData),
+  });
 
   useCopilotReadable({
     description: "The currently logged in username and userId",
-    value: JSON.stringify({ username: "Jon.Snow@got.com", userId: 1 })
-  })
+    value: JSON.stringify({ username: "Jon.Snow@got.com", userId: 1 }),
+  });
 
   useCopilotAction({
     name: "renderData_PieChart",
@@ -79,39 +94,37 @@ export function DeveloperDashboard() {
               name: "name",
               type: "string",
               description: "Name of the item",
-              required: true
+              required: true,
             },
             {
               name: "shortName",
               type: "string",
               description: "Short Name of the item",
-              required: true
+              required: true,
             },
             {
               name: "value",
               type: "number",
               description: "Value of the item",
-              required: true
+              required: true,
             },
             {
               name: "color",
               type: "string",
               description: "Color of the item",
-              required: true
-            }
-          ]
-        }
-      }
+              required: true,
+            },
+          ],
+        },
+      },
     ],
     render: ({ args }: any) => {
       useEffect(() => {
-        console.log(args, "args")
-      }, [args])
-      return <PRPieData args={args} />
-
-
-    }
-  })
+        console.log(args, "args");
+      }, [args]);
+      return <PRPieData args={args} />;
+    },
+  });
 
   useCopilotAction({
     name: "renderData_BarChart",
@@ -129,23 +142,22 @@ export function DeveloperDashboard() {
               name: "name",
               type: "string",
               description: "Name of the item",
-              required: true
+              required: true,
             },
             {
               name: "value",
               type: "number",
               description: "Value of the item",
-              required: true
-            }
-          ]
-        }
-      }
+              required: true,
+            },
+          ],
+        },
+      },
     ],
     render: ({ args }: any) => {
-      return <PRReviewBarData args={args} />
-    }
-  })
-
+      return <PRReviewBarData args={args} />;
+    },
+  });
 
   useCopilotAction({
     name: "renderData_LineChart",
@@ -163,31 +175,31 @@ export function DeveloperDashboard() {
               name: "name",
               type: "string",
               description: "The name of the item",
-              required: true
+              required: true,
             },
             {
               name: "value",
               type: "number",
               description: "The value of the item",
-              required: true
+              required: true,
             },
             {
               name: "accessorKey",
               type: "string",
-              description: "The accessor key of the item. It can be the author name or the repository name or the branch name or the status name or the date just value.",
-              required: true
-            }
-          ]
-        }
-      }
+              description:
+                "The accessor key of the item. It can be the author name or the repository name or the branch name or the status name or the date just value.",
+              required: true,
+            },
+          ],
+        },
+      },
     ],
     render: ({ args }: any) => {
-      console.log(args, "args")
+      console.log(args, "args");
       // return <div>Hello</div>
-      return <PRLineChartData args={args} />
-    }
-  })
-
+      return <PRLineChartData args={args} />;
+    },
+  });
 
   useCopilotAction({
     name: "renderData_Table",
@@ -196,126 +208,135 @@ export function DeveloperDashboard() {
       {
         name: "items",
         type: "object[]",
-        description: "The data to be displayed in the table. It should be an array of objects",
+        description:
+          "The data to be displayed in the table. It should be an array of objects",
         required: true,
         attributes: [
           {
             name: "id",
             type: "string",
             description: "The id of the PR",
-            required: true
+            required: true,
           },
           {
             name: "title",
             type: "string",
             description: "The title of the PR",
-            required: true
+            required: true,
           },
           {
             name: "status",
             type: "string",
             description: "The status of the PR",
-            required: true
+            required: true,
           },
           {
             name: "assignedReviewer",
             type: "string",
             description: "The assigned reviewer of the PR",
-            required: true
+            required: true,
           },
           {
             name: "assignedTester",
             type: "string",
             description: "The assigned tester of the PR",
-            required: true
+            required: true,
           },
           {
             name: "daysSinceStatusChange",
             type: "number",
-            description: "The number of days since the status of the PR was changed",
-            required: true
+            description:
+              "The number of days since the status of the PR was changed",
+            required: true,
           },
           {
             name: "createdAt",
             type: "string",
             description: "The date and time when the PR was created",
-            required: true
+            required: true,
           },
           {
             name: "updatedAt",
             type: "string",
             description: "The date and time when the PR was last updated",
-            required: true
+            required: true,
           },
           {
             name: "userId",
             type: "number",
             description: "The id of the user who created the PR",
-            required: true
+            required: true,
           },
           {
             name: "author",
             type: "string",
             description: "The author of the PR",
-            required: true
+            required: true,
           },
           {
             name: "repository",
             type: "string",
             description: "The repository of the PR",
-            required: true
+            required: true,
           },
           {
             name: "branch",
             type: "string",
             description: "The branch of the PR",
-            required: true
-          }
-        ]
-      }
+            required: true,
+          },
+        ],
+      },
     ],
     render: ({ args, status }) => {
       useEffect(() => {
         if (args?.items) {
           setFilteredData(args.items);
         }
-      }, [args.items])
+      }, [args.items]);
 
       if (status === "inProgress") {
-        return "..."
+        return "...";
       }
-      return <></>
+      return <></>;
     },
     handler: (items: any) => {
-      setFilteredData(items?.items)
-    }
-  })
-
-
+      setFilteredData(items?.items);
+    },
+  });
 
   async function getPRData() {
     try {
-      const res = await getPRDataService()
-      setPrData(res)
-      setFilteredData(res)
-      setIsLoading(false)
+      const res = await getPRDataService();
+      setPrData(res);
+      setFilteredData(res);
+      setIsLoading(false);
     } catch (error) {
-      console.log(error)
+      console.log(error);
     }
   }
-
 
   return (
     <div className="space-y-6">
       {isLoading && <Loader />}
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-semibold tracking-tight">Developer Dashboard</h1>
+        <h1 className="text-3xl font-semibold tracking-tight">
+          Developer Dashboard
+        </h1>
         <div className="flex items-center gap-2">
-          <Button variant={viewMode === "table" ? "default" : "outline"} size="sm" onClick={() => setViewMode("table")}>
+          <Button
+            variant={viewMode === "table" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setViewMode("table")}
+          >
             <Table2 className="mr-2 h-4 w-4" />
             Table
           </Button>
-          <Button variant={viewMode === "chart" ? "default" : "outline"} size="sm" onClick={() => setViewMode("chart")}>
+          <Button
+            variant={viewMode === "chart" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setViewMode("chart")}
+          >
             <BarChart3 className="mr-2 h-4 w-4" />
             Chart
           </Button>
@@ -325,17 +346,21 @@ export function DeveloperDashboard() {
       <Card>
         <CardHeader>
           <CardTitle>Repository Performance</CardTitle>
-          <CardDescription>Monitor build times and test coverage across repositories</CardDescription>
+          <CardDescription>
+            Monitor build times and test coverage across repositories
+          </CardDescription>
           <div className="flex flex-wrap gap-4 mt-4 items-center">
             <div className="flex items-center gap-2">
               <Filter className="h-4 w-4 text-muted-foreground" />
               <span className="text-sm text-muted-foreground">Filters:</span>
             </div>
-            <Select value={filterParams.status} onValueChange={(e) => {
-              debugger
-              setFilterParams({ ...filterParams, status: e })
-
-            }}>
+            <Select
+              value={filterParams.status}
+              onValueChange={(e) => {
+                debugger;
+                setFilterParams({ ...filterParams, status: e });
+              }}
+            >
               <SelectTrigger className="w-[180px]">
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
@@ -347,33 +372,89 @@ export function DeveloperDashboard() {
                 <SelectItem value="in review">in review</SelectItem>
               </SelectContent>
             </Select>
-            <Select value={filterParams.author} onValueChange={(e) => {
-              debugger
-              setFilterParams({ ...filterParams, author: e })
-            }}>
+            <Select
+              value={filterParams.author}
+              onValueChange={(e) => {
+                debugger;
+                setFilterParams({ ...filterParams, author: e });
+              }}
+            >
               <SelectTrigger className="w-[180px]">
                 <SelectValue placeholder="Author" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="b">All Authors</SelectItem>
-                <SelectItem value="Jon.snow@got.com">Jon.snow@got.com</SelectItem>
-                <SelectItem value="robert.baratheon@got.com">robert.baratheon@got.com</SelectItem>
-                <SelectItem value="ned.stark@got.com">ned.stark@got.com</SelectItem>
-                <SelectItem value="cersei.lannister@got.com">cersei.lannister@got.com</SelectItem>
+                <SelectItem value="Jon.snow@got.com">
+                  Jon.snow@got.com
+                </SelectItem>
+                <SelectItem value="robert.baratheon@got.com">
+                  robert.baratheon@got.com
+                </SelectItem>
+                <SelectItem value="ned.stark@got.com">
+                  ned.stark@got.com
+                </SelectItem>
+                <SelectItem value="cersei.lannister@got.com">
+                  cersei.lannister@got.com
+                </SelectItem>
               </SelectContent>
             </Select>
-            <Button onClick={() => {
-              if (filterParams.status === "a" && filterParams.author === "b") {
-                setFilteredData(prData.filter((pr: PRData) => pr.status !== 'running'))
-              } else if (filterParams.status === "a") {
-                setFilteredData(prData.filter((pr: PRData) => pr.author.toLowerCase() === filterParams.author?.toLowerCase() && pr.status !== 'running'))
-              } else if (filterParams.author === "b") {
-                setFilteredData(prData.filter((pr: PRData) => pr.status.split("_").join(" ").toLowerCase() === filterParams.status?.toLowerCase() && pr.status !== 'running'))
-              } else {
-                setFilteredData(prData.filter((pr: PRData) => pr.status.split("_").join(" ").toLowerCase() === filterParams.status?.toLowerCase() && pr.author.toLowerCase() === filterParams.author?.toLowerCase() && pr.status !== 'running'))
-              }
-            }} variant="ghost" size="sm">Apply Filters</Button>
-            <Button onClick={() => { setFilteredData(prData.filter((pr: PRData) => pr.status !== 'running')); setFilterParams({ status: "a", author: "b" }) }} variant="ghost" size="sm">Clear Filters</Button>
+            <Button
+              onClick={() => {
+                if (
+                  filterParams.status === "a" &&
+                  filterParams.author === "b"
+                ) {
+                  setFilteredData(
+                    prData.filter((pr: PRData) => pr.status !== "running"),
+                  );
+                } else if (filterParams.status === "a") {
+                  setFilteredData(
+                    prData.filter(
+                      (pr: PRData) =>
+                        pr.author.toLowerCase() ===
+                          filterParams.author?.toLowerCase() &&
+                        pr.status !== "running",
+                    ),
+                  );
+                } else if (filterParams.author === "b") {
+                  setFilteredData(
+                    prData.filter(
+                      (pr: PRData) =>
+                        pr.status.split("_").join(" ").toLowerCase() ===
+                          filterParams.status?.toLowerCase() &&
+                        pr.status !== "running",
+                    ),
+                  );
+                } else {
+                  setFilteredData(
+                    prData.filter(
+                      (pr: PRData) =>
+                        pr.status.split("_").join(" ").toLowerCase() ===
+                          filterParams.status?.toLowerCase() &&
+                        pr.author.toLowerCase() ===
+                          filterParams.author?.toLowerCase() &&
+                        pr.status !== "running",
+                    ),
+                  );
+                }
+              }}
+              variant="ghost"
+              size="sm"
+            >
+              Apply Filters
+            </Button>
+            <Button
+              onClick={() => {
+                setFilteredData(
+                  prData.filter((pr: PRData) => pr.status !== "running"),
+                );
+                setFilterParams({ status: "a", author: "b" });
+              }}
+              variant="ghost"
+              size="sm"
+            >
+              Clear Filters
+            </Button>
           </div>
         </CardHeader>
         <CardContent>
@@ -385,7 +466,5 @@ export function DeveloperDashboard() {
         </CardContent>
       </Card>
     </div>
-  )
+  );
 }
-
-

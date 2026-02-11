@@ -1,5 +1,11 @@
 import React, { useRef, useState } from "react";
-import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
+import {
+  render,
+  screen,
+  fireEvent,
+  waitFor,
+  act,
+} from "@testing-library/react";
 import { z } from "zod";
 import { CopilotKitProvider } from "@/providers/CopilotKitProvider";
 import { CopilotChat } from "../CopilotChat";
@@ -10,16 +16,16 @@ import {
   type RunAgentInput,
 } from "@ag-ui/client";
 import { Observable, Subject } from "rxjs";
-import {
-  defineToolCallRenderer,
-  ReactToolCallRenderer,
-} from "@/types";
+import { defineToolCallRenderer, ReactToolCallRenderer } from "@/types";
 import { ToolCallStatus } from "@copilotkitnext/core";
 import { CopilotChatMessageView } from "../CopilotChatMessageView";
 import { CopilotChatView, CopilotChatViewProps } from "../CopilotChatView";
 import { CopilotChatConfigurationProvider } from "@/providers/CopilotChatConfigurationProvider";
 import { ActivityMessage, AssistantMessage, Message } from "@ag-ui/core";
-import { ReactActivityMessageRenderer, ReactCustomMessageRenderer } from "@/types";
+import {
+  ReactActivityMessageRenderer,
+  ReactCustomMessageRenderer,
+} from "@/types";
 import CopilotChatInput, { CopilotChatInputProps } from "../CopilotChatInput";
 import { CopilotChatSuggestionView } from "../CopilotChatSuggestionView";
 import { CopilotChatAssistantMessage } from "../CopilotChatAssistantMessage";
@@ -80,7 +86,9 @@ describe("Tool Call Re-render Prevention", () => {
               <span data-testid="render-count">{toolRenderCount}</span>
               <span data-testid="status">{status}</span>
               <span data-testid="location">{args.location}</span>
-              <span data-testid="result">{result ? String(result) : "pending"}</span>
+              <span data-testid="result">
+                {result ? String(result) : "pending"}
+              </span>
             </div>
           );
         },
@@ -95,7 +103,7 @@ describe("Tool Call Re-render Prevention", () => {
         <div style={{ height: 400 }}>
           <CopilotChat />
         </div>
-      </CopilotKitProvider>
+      </CopilotKitProvider>,
     );
 
     // Submit a user message to trigger runAgent
@@ -235,7 +243,7 @@ describe("Tool Call Re-render Prevention", () => {
         <div style={{ height: 400 }}>
           <CopilotChat />
         </div>
-      </CopilotKitProvider>
+      </CopilotKitProvider>,
     );
 
     const input = await screen.findByRole("textbox");
@@ -261,7 +269,9 @@ describe("Tool Call Re-render Prevention", () => {
     } as BaseEvent);
 
     await waitFor(() => {
-      expect(screen.getByTestId("search-query").textContent).toBe("React hooks");
+      expect(screen.getByTestId("search-query").textContent).toBe(
+        "React hooks",
+      );
     });
 
     const renderCountAfterToolCall = toolRenderCount;
@@ -323,7 +333,7 @@ describe("Tool Call Re-render Prevention", () => {
         <div style={{ height: 400 }}>
           <CopilotChat />
         </div>
-      </CopilotKitProvider>
+      </CopilotKitProvider>,
     );
 
     const input = await screen.findByRole("textbox");
@@ -364,13 +374,17 @@ describe("Tool Call Re-render Prevention", () => {
     } as BaseEvent);
 
     await waitFor(() => {
-      expect(screen.getByTestId("search-query").textContent).toBe("React hooks");
+      expect(screen.getByTestId("search-query").textContent).toBe(
+        "React hooks",
+      );
     });
 
     const renderCountAfterSecondChunk = toolRenderCount;
 
     // THE KEY ASSERTION: Tool should re-render when arguments change
-    expect(renderCountAfterSecondChunk).toBeGreaterThan(renderCountAfterFirstChunk);
+    expect(renderCountAfterSecondChunk).toBeGreaterThan(
+      renderCountAfterFirstChunk,
+    );
     expect(capturedArgs).toContain("Rea");
     expect(capturedArgs).toContain("React hooks");
 
@@ -395,7 +409,9 @@ describe("Tool Call Re-render Prevention", () => {
           return (
             <div data-testid="data-tool">
               <span data-testid="data-status">{status}</span>
-              <span data-testid="data-result">{result ? String(result) : "none"}</span>
+              <span data-testid="data-result">
+                {result ? String(result) : "none"}
+              </span>
             </div>
           );
         },
@@ -410,7 +426,7 @@ describe("Tool Call Re-render Prevention", () => {
         <div style={{ height: 400 }}>
           <CopilotChat />
         </div>
-      </CopilotKitProvider>
+      </CopilotKitProvider>,
     );
 
     const input = await screen.findByRole("textbox");
@@ -507,7 +523,7 @@ describe("Text Message Re-render Prevention", () => {
             assistantMessage={TrackedAssistantMessage as any}
           />
         </CopilotChatConfigurationProvider>
-      </CopilotKitProvider>
+      </CopilotKitProvider>,
     );
 
     // Verify first message rendered
@@ -537,7 +553,7 @@ describe("Text Message Re-render Prevention", () => {
             assistantMessage={TrackedAssistantMessage as any}
           />
         </CopilotChatConfigurationProvider>
-      </CopilotKitProvider>
+      </CopilotKitProvider>,
     );
 
     await waitFor(() => {
@@ -565,12 +581,12 @@ describe("Text Message Re-render Prevention", () => {
             assistantMessage={TrackedAssistantMessage as any}
           />
         </CopilotChatConfigurationProvider>
-      </CopilotKitProvider>
+      </CopilotKitProvider>,
     );
 
     await waitFor(() => {
       expect(screen.getByTestId("content-msg-2").textContent).toBe(
-        "Let me help you with that task."
+        "Let me help you with that task.",
       );
     });
 
@@ -593,12 +609,12 @@ describe("Text Message Re-render Prevention", () => {
             assistantMessage={TrackedAssistantMessage as any}
           />
         </CopilotChatConfigurationProvider>
-      </CopilotKitProvider>
+      </CopilotKitProvider>,
     );
 
     await waitFor(() => {
       expect(screen.getByTestId("content-msg-2").textContent).toContain(
-        "Here's what I found"
+        "Here's what I found",
       );
     });
 
@@ -607,7 +623,7 @@ describe("Text Message Re-render Prevention", () => {
     // THE KEY ASSERTION: The first message should NOT have re-rendered
     // when the second message was streaming
     expect(firstMessageRenderCountAfterAllStreaming).toBe(
-      firstMessageRenderCountAfterInitial
+      firstMessageRenderCountAfterInitial,
     );
 
     // Verify the second message did update (it should have rendered multiple times)
@@ -664,7 +680,7 @@ describe("Text Message Re-render Prevention", () => {
             userMessage={TrackedUserMessage as any}
           />
         </CopilotChatConfigurationProvider>
-      </CopilotKitProvider>
+      </CopilotKitProvider>,
     );
 
     await waitFor(() => {
@@ -694,7 +710,7 @@ describe("Text Message Re-render Prevention", () => {
             userMessage={TrackedUserMessage as any}
           />
         </CopilotChatConfigurationProvider>
-      </CopilotKitProvider>
+      </CopilotKitProvider>,
     );
 
     // Stream more content
@@ -717,12 +733,12 @@ describe("Text Message Re-render Prevention", () => {
             userMessage={TrackedUserMessage as any}
           />
         </CopilotChatConfigurationProvider>
-      </CopilotKitProvider>
+      </CopilotKitProvider>,
     );
 
     await waitFor(() => {
       expect(screen.getByTestId("content-assistant-1").textContent).toContain(
-        "How can I assist"
+        "How can I assist",
       );
     });
 
@@ -730,7 +746,7 @@ describe("Text Message Re-render Prevention", () => {
 
     // THE KEY ASSERTION: User message should not re-render when assistant streams
     expect(userMessageRenderCountAfterStreaming).toBe(
-      userMessageRenderCountInitial
+      userMessageRenderCountInitial,
     );
   });
 
@@ -769,7 +785,7 @@ describe("Text Message Re-render Prevention", () => {
             assistantMessage={TrackedAssistantMessage as any}
           />
         </CopilotChatConfigurationProvider>
-      </CopilotKitProvider>
+      </CopilotKitProvider>,
     );
 
     await waitFor(() => {
@@ -797,12 +813,12 @@ describe("Text Message Re-render Prevention", () => {
             assistantMessage={TrackedAssistantMessage as any}
           />
         </CopilotChatConfigurationProvider>
-      </CopilotKitProvider>
+      </CopilotKitProvider>,
     );
 
     await waitFor(() => {
       expect(screen.getByTestId("content-msg-1").textContent).toBe(
-        "Hello! How can I help"
+        "Hello! How can I help",
       );
     });
 
@@ -822,7 +838,8 @@ describe("Text Message Re-render Prevention", () => {
       message: Message;
     }> = ({ message }) => {
       renderCounts[message.id] = (renderCounts[message.id] || 0) + 1;
-      const content = typeof message.content === "string" ? message.content : "";
+      const content =
+        typeof message.content === "string" ? message.content : "";
       capturedContent.push(content);
       return (
         <div data-testid={`user-message-${message.id}`}>
@@ -848,7 +865,7 @@ describe("Text Message Re-render Prevention", () => {
             userMessage={TrackedUserMessage as any}
           />
         </CopilotChatConfigurationProvider>
-      </CopilotKitProvider>
+      </CopilotKitProvider>,
     );
 
     await waitFor(() => {
@@ -876,12 +893,12 @@ describe("Text Message Re-render Prevention", () => {
             userMessage={TrackedUserMessage as any}
           />
         </CopilotChatConfigurationProvider>
-      </CopilotKitProvider>
+      </CopilotKitProvider>,
     );
 
     await waitFor(() => {
       expect(screen.getByTestId("user-content-user-1").textContent).toBe(
-        "Updated message"
+        "Updated message",
       );
     });
 
@@ -900,7 +917,10 @@ describe("Activity Message Re-render Prevention", () => {
     const renderCounts: Record<string, number> = {};
 
     // Custom activity renderer that tracks renders
-    const activityRenderer: ReactActivityMessageRenderer<{ status: string; percent: number }> = {
+    const activityRenderer: ReactActivityMessageRenderer<{
+      status: string;
+      percent: number;
+    }> = {
       activityType: "search-progress",
       content: z.object({ status: z.string(), percent: z.number() }),
       render: ({ content, message }) => {
@@ -931,12 +951,9 @@ describe("Activity Message Re-render Prevention", () => {
     const { rerender } = render(
       <CopilotKitProvider renderActivityMessages={[activityRenderer]}>
         <CopilotChatConfigurationProvider agentId="default" threadId="test">
-          <CopilotChatMessageView
-            messages={initialMessages}
-            isRunning={true}
-          />
+          <CopilotChatMessageView messages={initialMessages} isRunning={true} />
         </CopilotChatConfigurationProvider>
-      </CopilotKitProvider>
+      </CopilotKitProvider>,
     );
 
     // Verify first activity rendered
@@ -966,7 +983,7 @@ describe("Activity Message Re-render Prevention", () => {
             isRunning={true}
           />
         </CopilotChatConfigurationProvider>
-      </CopilotKitProvider>
+      </CopilotKitProvider>,
     );
 
     await waitFor(() => {
@@ -992,13 +1009,13 @@ describe("Activity Message Re-render Prevention", () => {
             isRunning={true}
           />
         </CopilotChatConfigurationProvider>
-      </CopilotKitProvider>
+      </CopilotKitProvider>,
     );
 
     await waitFor(() => {
-      expect(screen.getByTestId("activity-content-activity-2").textContent).toContain(
-        "Almost done"
-      );
+      expect(
+        screen.getByTestId("activity-content-activity-2").textContent,
+      ).toContain("Almost done");
     });
 
     const firstActivityRenderCountAfterAllUpdates = renderCounts["activity-1"];
@@ -1006,7 +1023,7 @@ describe("Activity Message Re-render Prevention", () => {
     // THE KEY ASSERTION: The first activity should NOT have re-rendered
     // when the second activity was added or updated
     expect(firstActivityRenderCountAfterAllUpdates).toBe(
-      firstActivityRenderCountAfterInitial
+      firstActivityRenderCountAfterInitial,
     );
 
     // Verify the second activity did update (it should have rendered multiple times)
@@ -1022,9 +1039,7 @@ describe("Activity Message Re-render Prevention", () => {
       render: ({ content, message }) => {
         renderCounts[message.id] = (renderCounts[message.id] || 0) + 1;
         return (
-          <div data-testid={`activity-${message.id}`}>
-            {content.status}
-          </div>
+          <div data-testid={`activity-${message.id}`}>{content.status}</div>
         );
       },
     };
@@ -1036,9 +1051,7 @@ describe("Activity Message Re-render Prevention", () => {
     }> = ({ message }) => {
       renderCounts[message.id] = (renderCounts[message.id] || 0) + 1;
       return (
-        <div data-testid={`assistant-${message.id}`}>
-          {message.content}
-        </div>
+        <div data-testid={`assistant-${message.id}`}>{message.content}</div>
       );
     };
 
@@ -1060,7 +1073,7 @@ describe("Activity Message Re-render Prevention", () => {
             assistantMessage={TrackedAssistantMessage as any}
           />
         </CopilotChatConfigurationProvider>
-      </CopilotKitProvider>
+      </CopilotKitProvider>,
     );
 
     await waitFor(() => {
@@ -1089,7 +1102,7 @@ describe("Activity Message Re-render Prevention", () => {
             assistantMessage={TrackedAssistantMessage as any}
           />
         </CopilotChatConfigurationProvider>
-      </CopilotKitProvider>
+      </CopilotKitProvider>,
     );
 
     // Stream more content
@@ -1111,12 +1124,12 @@ describe("Activity Message Re-render Prevention", () => {
             assistantMessage={TrackedAssistantMessage as any}
           />
         </CopilotChatConfigurationProvider>
-      </CopilotKitProvider>
+      </CopilotKitProvider>,
     );
 
     await waitFor(() => {
       expect(screen.getByTestId("assistant-assistant-1").textContent).toContain(
-        "The results show"
+        "The results show",
       );
     });
 
@@ -1130,7 +1143,10 @@ describe("Activity Message Re-render Prevention", () => {
     const renderCounts: Record<string, number> = {};
     const capturedContent: { status: string; percent: number }[] = [];
 
-    const activityRenderer: ReactActivityMessageRenderer<{ status: string; percent: number }> = {
+    const activityRenderer: ReactActivityMessageRenderer<{
+      status: string;
+      percent: number;
+    }> = {
       activityType: "progress",
       content: z.object({ status: z.string(), percent: z.number() }),
       render: ({ content, message }) => {
@@ -1138,8 +1154,12 @@ describe("Activity Message Re-render Prevention", () => {
         capturedContent.push({ ...content });
         return (
           <div data-testid={`activity-${message.id}`}>
-            <span data-testid={`activity-status-${message.id}`}>{content.status}</span>
-            <span data-testid={`activity-percent-${message.id}`}>{content.percent}</span>
+            <span data-testid={`activity-status-${message.id}`}>
+              {content.status}
+            </span>
+            <span data-testid={`activity-percent-${message.id}`}>
+              {content.percent}
+            </span>
           </div>
         );
       },
@@ -1157,12 +1177,9 @@ describe("Activity Message Re-render Prevention", () => {
     const { rerender } = render(
       <CopilotKitProvider renderActivityMessages={[activityRenderer]}>
         <CopilotChatConfigurationProvider agentId="default" threadId="test">
-          <CopilotChatMessageView
-            messages={initialMessages}
-            isRunning={true}
-          />
+          <CopilotChatMessageView messages={initialMessages} isRunning={true} />
         </CopilotChatConfigurationProvider>
-      </CopilotKitProvider>
+      </CopilotKitProvider>,
     );
 
     await waitFor(() => {
@@ -1185,17 +1202,18 @@ describe("Activity Message Re-render Prevention", () => {
     rerender(
       <CopilotKitProvider renderActivityMessages={[activityRenderer]}>
         <CopilotChatConfigurationProvider agentId="default" threadId="test">
-          <CopilotChatMessageView
-            messages={updatedMessages}
-            isRunning={true}
-          />
+          <CopilotChatMessageView messages={updatedMessages} isRunning={true} />
         </CopilotChatConfigurationProvider>
-      </CopilotKitProvider>
+      </CopilotKitProvider>,
     );
 
     await waitFor(() => {
-      expect(screen.getByTestId("activity-status-activity-1").textContent).toBe("Processing");
-      expect(screen.getByTestId("activity-percent-activity-1").textContent).toBe("50");
+      expect(screen.getByTestId("activity-status-activity-1").textContent).toBe(
+        "Processing",
+      );
+      expect(
+        screen.getByTestId("activity-percent-activity-1").textContent,
+      ).toBe("50");
     });
 
     const renderCountAfterUpdate = renderCounts["activity-1"]!;
@@ -1203,7 +1221,10 @@ describe("Activity Message Re-render Prevention", () => {
     // THE KEY ASSERTION: Activity should re-render when content changes
     expect(renderCountAfterUpdate).toBeGreaterThan(renderCountAfterInitial);
     expect(capturedContent).toContainEqual({ status: "Starting", percent: 0 });
-    expect(capturedContent).toContainEqual({ status: "Processing", percent: 50 });
+    expect(capturedContent).toContainEqual({
+      status: "Processing",
+      percent: 50,
+    });
   });
 
   it("should re-render an activity message when its activityType changes", async () => {
@@ -1217,25 +1238,30 @@ describe("Activity Message Re-render Prevention", () => {
         return (
           <div data-testid={`activity-${message.id}`}>
             <span data-testid={`activity-type-${message.id}`}>progress</span>
-            <span data-testid={`activity-status-${message.id}`}>{content.status}</span>
+            <span data-testid={`activity-status-${message.id}`}>
+              {content.status}
+            </span>
           </div>
         );
       },
     };
 
-    const completedRenderer: ReactActivityMessageRenderer<{ result: string }> = {
-      activityType: "completed",
-      content: z.object({ result: z.string() }),
-      render: ({ content, message }) => {
-        renderCounts[message.id] = (renderCounts[message.id] || 0) + 1;
-        return (
-          <div data-testid={`activity-${message.id}`}>
-            <span data-testid={`activity-type-${message.id}`}>completed</span>
-            <span data-testid={`activity-result-${message.id}`}>{content.result}</span>
-          </div>
-        );
-      },
-    };
+    const completedRenderer: ReactActivityMessageRenderer<{ result: string }> =
+      {
+        activityType: "completed",
+        content: z.object({ result: z.string() }),
+        render: ({ content, message }) => {
+          renderCounts[message.id] = (renderCounts[message.id] || 0) + 1;
+          return (
+            <div data-testid={`activity-${message.id}`}>
+              <span data-testid={`activity-type-${message.id}`}>completed</span>
+              <span data-testid={`activity-result-${message.id}`}>
+                {content.result}
+              </span>
+            </div>
+          );
+        },
+      };
 
     const initialMessages: Message[] = [
       {
@@ -1247,18 +1273,19 @@ describe("Activity Message Re-render Prevention", () => {
     ];
 
     const { rerender } = render(
-      <CopilotKitProvider renderActivityMessages={[progressRenderer, completedRenderer]}>
+      <CopilotKitProvider
+        renderActivityMessages={[progressRenderer, completedRenderer]}
+      >
         <CopilotChatConfigurationProvider agentId="default" threadId="test">
-          <CopilotChatMessageView
-            messages={initialMessages}
-            isRunning={true}
-          />
+          <CopilotChatMessageView messages={initialMessages} isRunning={true} />
         </CopilotChatConfigurationProvider>
-      </CopilotKitProvider>
+      </CopilotKitProvider>,
     );
 
     await waitFor(() => {
-      expect(screen.getByTestId("activity-type-activity-1").textContent).toBe("progress");
+      expect(screen.getByTestId("activity-type-activity-1").textContent).toBe(
+        "progress",
+      );
     });
 
     const renderCountAfterInitial = renderCounts["activity-1"]!;
@@ -1275,18 +1302,22 @@ describe("Activity Message Re-render Prevention", () => {
     ];
 
     rerender(
-      <CopilotKitProvider renderActivityMessages={[progressRenderer, completedRenderer]}>
+      <CopilotKitProvider
+        renderActivityMessages={[progressRenderer, completedRenderer]}
+      >
         <CopilotChatConfigurationProvider agentId="default" threadId="test">
           <CopilotChatMessageView
             messages={updatedMessages}
             isRunning={false}
           />
         </CopilotChatConfigurationProvider>
-      </CopilotKitProvider>
+      </CopilotKitProvider>,
     );
 
     await waitFor(() => {
-      expect(screen.getByTestId("activity-type-activity-1").textContent).toBe("completed");
+      expect(screen.getByTestId("activity-type-activity-1").textContent).toBe(
+        "completed",
+      );
     });
 
     const renderCountAfterTypeChange = renderCounts["activity-1"]!;
@@ -1347,7 +1378,7 @@ describe("Custom Message Re-render Prevention", () => {
             isRunning={false}
           />
         </CopilotChatConfigurationProvider>
-      </CopilotKitProvider>
+      </CopilotKitProvider>,
     );
 
     // Verify first custom message rendered
@@ -1355,7 +1386,8 @@ describe("Custom Message Re-render Prevention", () => {
       expect(screen.getByTestId("custom-assistant-1")).toBeDefined();
     });
 
-    const firstCustomRenderCountAfterInitial = renderCounts["assistant-1-after"];
+    const firstCustomRenderCountAfterInitial =
+      renderCounts["assistant-1-after"];
     expect(firstCustomRenderCountAfterInitial).toBe(1);
 
     // Add a second assistant message
@@ -1379,7 +1411,7 @@ describe("Custom Message Re-render Prevention", () => {
             isRunning={true}
           />
         </CopilotChatConfigurationProvider>
-      </CopilotKitProvider>
+      </CopilotKitProvider>,
     );
 
     await waitFor(() => {
@@ -1407,7 +1439,7 @@ describe("Custom Message Re-render Prevention", () => {
             isRunning={true}
           />
         </CopilotChatConfigurationProvider>
-      </CopilotKitProvider>
+      </CopilotKitProvider>,
     );
 
     // Stream even more content
@@ -1416,7 +1448,8 @@ describe("Custom Message Re-render Prevention", () => {
       {
         id: "assistant-2",
         role: "assistant",
-        content: "Here's some more info... Let me explain in detail. This is comprehensive.",
+        content:
+          "Here's some more info... Let me explain in detail. This is comprehensive.",
       } as AssistantMessage,
     ];
 
@@ -1431,15 +1464,16 @@ describe("Custom Message Re-render Prevention", () => {
             isRunning={false}
           />
         </CopilotChatConfigurationProvider>
-      </CopilotKitProvider>
+      </CopilotKitProvider>,
     );
 
-    const firstCustomRenderCountAfterAllUpdates = renderCounts["assistant-1-after"];
+    const firstCustomRenderCountAfterAllUpdates =
+      renderCounts["assistant-1-after"];
 
     // THE KEY ASSERTION: The first custom message should NOT have re-rendered
     // when the second message was streaming
     expect(firstCustomRenderCountAfterAllUpdates).toBe(
-      firstCustomRenderCountAfterInitial
+      firstCustomRenderCountAfterInitial,
     );
 
     // Verify the second custom message did update
@@ -1481,12 +1515,9 @@ describe("Custom Message Re-render Prevention", () => {
         renderCustomMessages={[customRenderer]}
       >
         <CopilotChatConfigurationProvider agentId="default" threadId="test">
-          <CopilotChatMessageView
-            messages={messages}
-            isRunning={true}
-          />
+          <CopilotChatMessageView messages={messages} isRunning={true} />
         </CopilotChatConfigurationProvider>
-      </CopilotKitProvider>
+      </CopilotKitProvider>,
     );
 
     await waitFor(() => {
@@ -1503,12 +1534,9 @@ describe("Custom Message Re-render Prevention", () => {
         renderCustomMessages={[customRenderer]}
       >
         <CopilotChatConfigurationProvider agentId="default" threadId="test">
-          <CopilotChatMessageView
-            messages={messages}
-            isRunning={false}
-          />
+          <CopilotChatMessageView messages={messages} isRunning={false} />
         </CopilotChatConfigurationProvider>
-      </CopilotKitProvider>
+      </CopilotKitProvider>,
     );
 
     const renderCountAfterRunningChanged = renderCounts["assistant-1-after"]!;
@@ -1530,7 +1558,8 @@ describe("Custom Message Re-render Prevention", () => {
 
         const key = `${message.id}-${position}`;
         renderCounts[key] = (renderCounts[key] || 0) + 1;
-        const content = typeof message.content === "string" ? message.content : "";
+        const content =
+          typeof message.content === "string" ? message.content : "";
         capturedContent.push(content);
 
         return (
@@ -1558,12 +1587,9 @@ describe("Custom Message Re-render Prevention", () => {
         renderCustomMessages={[customRenderer]}
       >
         <CopilotChatConfigurationProvider agentId="default" threadId="test">
-          <CopilotChatMessageView
-            messages={initialMessages}
-            isRunning={true}
-          />
+          <CopilotChatMessageView messages={initialMessages} isRunning={true} />
         </CopilotChatConfigurationProvider>
-      </CopilotKitProvider>
+      </CopilotKitProvider>,
     );
 
     await waitFor(() => {
@@ -1588,17 +1614,14 @@ describe("Custom Message Re-render Prevention", () => {
         renderCustomMessages={[customRenderer]}
       >
         <CopilotChatConfigurationProvider agentId="default" threadId="test">
-          <CopilotChatMessageView
-            messages={updatedMessages}
-            isRunning={true}
-          />
+          <CopilotChatMessageView messages={updatedMessages} isRunning={true} />
         </CopilotChatConfigurationProvider>
-      </CopilotKitProvider>
+      </CopilotKitProvider>,
     );
 
     await waitFor(() => {
       expect(screen.getByTestId("custom-content-assistant-1").textContent).toBe(
-        "Hello! How can I help you today?"
+        "Hello! How can I help you today?",
       );
     });
 
@@ -1625,7 +1648,9 @@ describe("Custom Message Re-render Prevention", () => {
 
         return (
           <div data-testid={`custom-${message.id}`}>
-            <span data-testid={`custom-role-${message.id}`}>{message.role}</span>
+            <span data-testid={`custom-role-${message.id}`}>
+              {message.role}
+            </span>
             <span data-testid={`custom-render-count-${message.id}`}>
               {renderCounts[key]}
             </span>
@@ -1653,7 +1678,7 @@ describe("Custom Message Re-render Prevention", () => {
             isRunning={false}
           />
         </CopilotChatConfigurationProvider>
-      </CopilotKitProvider>
+      </CopilotKitProvider>,
     );
 
     await waitFor(() => {
@@ -1683,11 +1708,13 @@ describe("Custom Message Re-render Prevention", () => {
             isRunning={false}
           />
         </CopilotChatConfigurationProvider>
-      </CopilotKitProvider>
+      </CopilotKitProvider>,
     );
 
     await waitFor(() => {
-      expect(screen.getByTestId("custom-role-msg-1").textContent).toBe("assistant");
+      expect(screen.getByTestId("custom-role-msg-1").textContent).toBe(
+        "assistant",
+      );
     });
 
     const renderCountAfterRoleChange = renderCounts["msg-1-after"]!;
@@ -1733,7 +1760,7 @@ describe("Input Component Re-render Prevention", () => {
             onSubmitMessage={stableOnSubmit}
           />
         </CopilotChatConfigurationProvider>
-      </CopilotKitProvider>
+      </CopilotKitProvider>,
     );
 
     await waitFor(() => {
@@ -1763,7 +1790,7 @@ describe("Input Component Re-render Prevention", () => {
             onSubmitMessage={stableOnSubmit}
           />
         </CopilotChatConfigurationProvider>
-      </CopilotKitProvider>
+      </CopilotKitProvider>,
     );
 
     // Continue streaming
@@ -1786,7 +1813,7 @@ describe("Input Component Re-render Prevention", () => {
             onSubmitMessage={stableOnSubmit}
           />
         </CopilotChatConfigurationProvider>
-      </CopilotKitProvider>
+      </CopilotKitProvider>,
     );
 
     // Even more streaming
@@ -1809,7 +1836,7 @@ describe("Input Component Re-render Prevention", () => {
             onSubmitMessage={stableOnSubmit}
           />
         </CopilotChatConfigurationProvider>
-      </CopilotKitProvider>
+      </CopilotKitProvider>,
     );
 
     const renderCountAfterStreaming = inputRenderCount;
@@ -1859,7 +1886,7 @@ describe("Input Component Re-render Prevention", () => {
             input={InputWithInternalState as any}
           />
         </CopilotChatConfigurationProvider>
-      </CopilotKitProvider>
+      </CopilotKitProvider>,
     );
 
     await waitFor(() => {
@@ -1923,10 +1950,11 @@ describe("Input Component Re-render Prevention", () => {
             messages={messages}
             isRunning={false}
             input={TrackedInput as any}
-            onSubmitMessage={() => {}} inputMode="input"
+            onSubmitMessage={() => {}}
+            inputMode="input"
           />
         </CopilotChatConfigurationProvider>
-      </CopilotKitProvider>
+      </CopilotKitProvider>,
     );
 
     await waitFor(() => {
@@ -1944,10 +1972,11 @@ describe("Input Component Re-render Prevention", () => {
             messages={messages}
             isRunning={true}
             input={TrackedInput as any}
-            onSubmitMessage={() => {}} inputMode="processing"
+            onSubmitMessage={() => {}}
+            inputMode="processing"
           />
         </CopilotChatConfigurationProvider>
-      </CopilotKitProvider>
+      </CopilotKitProvider>,
     );
 
     await waitFor(() => {
@@ -1990,7 +2019,11 @@ describe("Suggestion View Re-render Prevention", () => {
 
     const suggestions = [
       { title: "Tell me a joke", message: "Tell me a joke", isLoading: false },
-      { title: "What's the weather?", message: "What's the weather?", isLoading: false },
+      {
+        title: "What's the weather?",
+        message: "What's the weather?",
+        isLoading: false,
+      },
     ];
 
     const { rerender } = render(
@@ -2001,11 +2034,13 @@ describe("Suggestion View Re-render Prevention", () => {
             suggestion={TrackedSuggestionPill as any}
           />
         </CopilotChatConfigurationProvider>
-      </CopilotKitProvider>
+      </CopilotKitProvider>,
     );
 
     await waitFor(() => {
-      expect(screen.getByTestId("suggestion-loading-Tell me a joke").textContent).toBe("ready");
+      expect(
+        screen.getByTestId("suggestion-loading-Tell me a joke").textContent,
+      ).toBe("ready");
     });
 
     const initialRenderCount = suggestionRenderCounts["Tell me a joke"]!;
@@ -2020,15 +2055,19 @@ describe("Suggestion View Re-render Prevention", () => {
             suggestion={TrackedSuggestionPill as any}
           />
         </CopilotChatConfigurationProvider>
-      </CopilotKitProvider>
+      </CopilotKitProvider>,
     );
 
     await waitFor(() => {
-      expect(screen.getByTestId("suggestion-loading-Tell me a joke").textContent).toBe("loading");
+      expect(
+        screen.getByTestId("suggestion-loading-Tell me a joke").textContent,
+      ).toBe("loading");
     });
 
     // THE KEY ASSERTION: Suggestion SHOULD re-render when loading state changes
-    expect(suggestionRenderCounts["Tell me a joke"]).toBeGreaterThan(initialRenderCount);
+    expect(suggestionRenderCounts["Tell me a joke"]).toBeGreaterThan(
+      initialRenderCount,
+    );
   });
 });
 
@@ -2042,7 +2081,9 @@ describe("Markdown Renderer Re-render Prevention", () => {
       markdownRenderCounts[content] = (markdownRenderCounts[content] || 0) + 1;
       return (
         <div data-testid={`markdown-${content.slice(0, 20)}`}>
-          <span data-testid={`markdown-content-${content.slice(0, 20)}`}>{content}</span>
+          <span data-testid={`markdown-content-${content.slice(0, 20)}`}>
+            {content}
+          </span>
           <span data-testid={`markdown-render-count-${content.slice(0, 20)}`}>
             {markdownRenderCounts[content]}
           </span>
@@ -2082,7 +2123,7 @@ describe("Markdown Renderer Re-render Prevention", () => {
             assistantMessage={TrackedAssistantMessage as any}
           />
         </CopilotChatConfigurationProvider>
-      </CopilotKitProvider>
+      </CopilotKitProvider>,
     );
 
     await waitFor(() => {
@@ -2110,7 +2151,7 @@ describe("Markdown Renderer Re-render Prevention", () => {
             assistantMessage={TrackedAssistantMessage as any}
           />
         </CopilotChatConfigurationProvider>
-      </CopilotKitProvider>
+      </CopilotKitProvider>,
     );
 
     await waitFor(() => {
@@ -2118,7 +2159,9 @@ describe("Markdown Renderer Re-render Prevention", () => {
     });
 
     // THE KEY ASSERTION: First message's markdown should NOT re-render
-    expect(markdownRenderCounts["Hello! How can I help?"]).toBe(initialRenderCount);
+    expect(markdownRenderCounts["Hello! How can I help?"]).toBe(
+      initialRenderCount,
+    );
   });
 
   it("should re-render markdown when its content changes", async () => {
@@ -2169,7 +2212,7 @@ describe("Markdown Renderer Re-render Prevention", () => {
             assistantMessage={TrackedAssistantMessage as any}
           />
         </CopilotChatConfigurationProvider>
-      </CopilotKitProvider>
+      </CopilotKitProvider>,
     );
 
     await waitFor(() => {
@@ -2194,11 +2237,13 @@ describe("Markdown Renderer Re-render Prevention", () => {
             assistantMessage={TrackedAssistantMessage as any}
           />
         </CopilotChatConfigurationProvider>
-      </CopilotKitProvider>
+      </CopilotKitProvider>,
     );
 
     await waitFor(() => {
-      expect(screen.getByTestId("markdown-content").textContent).toBe("Hello! How are you today?");
+      expect(screen.getByTestId("markdown-content").textContent).toBe(
+        "Hello! How are you today?",
+      );
     });
 
     // THE KEY ASSERTION: Markdown SHOULD re-render when content changes
@@ -2256,7 +2301,7 @@ describe("Copy Button Re-render Prevention", () => {
             assistantMessage={TrackedAssistantMessage as any}
           />
         </CopilotChatConfigurationProvider>
-      </CopilotKitProvider>
+      </CopilotKitProvider>,
     );
 
     await waitFor(() => {
@@ -2284,7 +2329,7 @@ describe("Copy Button Re-render Prevention", () => {
             assistantMessage={TrackedAssistantMessage as any}
           />
         </CopilotChatConfigurationProvider>
-      </CopilotKitProvider>
+      </CopilotKitProvider>,
     );
 
     // Wait for second message to render
@@ -2327,7 +2372,7 @@ describe("Copy Button Re-render Prevention", () => {
             copyButton={TrackedCopyButton as any}
           />
         </CopilotChatConfigurationProvider>
-      </CopilotKitProvider>
+      </CopilotKitProvider>,
     );
 
     await waitFor(() => {
@@ -2352,7 +2397,7 @@ describe("Copy Button Re-render Prevention", () => {
             copyButton={TrackedCopyButton as any}
           />
         </CopilotChatConfigurationProvider>
-      </CopilotKitProvider>
+      </CopilotKitProvider>,
     );
 
     await waitFor(() => {

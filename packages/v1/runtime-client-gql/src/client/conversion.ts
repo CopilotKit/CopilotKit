@@ -96,7 +96,9 @@ export function filterAdjacentAgentStateMessages(
     } else {
       const prevAgentStateMessageIndex = filteredMessages.findIndex(
         // TODO: also check runId
-        (m) => m.__typename === "AgentStateMessageOutput" && m.agentName === message.agentName,
+        (m) =>
+          m.__typename === "AgentStateMessageOutput" &&
+          m.agentName === message.agentName,
       );
       if (prevAgentStateMessageIndex === -1) {
         filteredMessages.push(message);

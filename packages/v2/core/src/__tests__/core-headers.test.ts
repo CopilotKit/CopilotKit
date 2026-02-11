@@ -50,7 +50,7 @@ describe("CopilotKitCore headers", () => {
       "https://runtime.example/info",
       expect.objectContaining({
         headers: expect.objectContaining(headers),
-      })
+      }),
     );
   });
 
@@ -90,12 +90,16 @@ describe("CopilotKitCore headers", () => {
 
       async connectAgent(...args: Parameters<HttpAgent["connectAgent"]>) {
         recorded.push({ ...this.headers });
-        return Promise.resolve({ newMessages: [] }) as ReturnType<HttpAgent["connectAgent"]>;
+        return Promise.resolve({ newMessages: [] }) as ReturnType<
+          HttpAgent["connectAgent"]
+        >;
       }
 
       async runAgent(...args: Parameters<HttpAgent["runAgent"]>) {
         recorded.push({ ...this.headers });
-        return Promise.resolve({ newMessages: [] }) as ReturnType<HttpAgent["runAgent"]>;
+        return Promise.resolve({ newMessages: [] }) as ReturnType<
+          HttpAgent["runAgent"]
+        >;
       }
     }
 
@@ -145,7 +149,9 @@ describe("CopilotKitCore headers", () => {
   });
 
   it("applies headers to agents provided via setAgents", () => {
-    const originalAgent = new HttpAgent({ url: "https://runtime.example/original" });
+    const originalAgent = new HttpAgent({
+      url: "https://runtime.example/original",
+    });
     const replacementAgent = new HttpAgent({
       url: "https://runtime.example/replacement",
     });
@@ -192,7 +198,9 @@ describe("CopilotKitCore headers", () => {
 
       async runAgent(...args: Parameters<HttpAgent["runAgent"]>) {
         recorded.push({ ...this.headers });
-        return Promise.resolve({ newMessages: [] }) as ReturnType<HttpAgent["runAgent"]>;
+        return Promise.resolve({ newMessages: [] }) as ReturnType<
+          HttpAgent["runAgent"]
+        >;
       }
     }
 
@@ -260,7 +268,7 @@ describe("CopilotKitCore headers", () => {
           Authorization: "Bearer cfg",
           "X-Team": "angular",
         }),
-      })
+      }),
     );
   });
 });

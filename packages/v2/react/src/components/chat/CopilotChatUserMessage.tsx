@@ -61,7 +61,7 @@ export type CopilotChatUserMessageProps = WithSlots<
   {
     onEditMessage?: (props: CopilotChatUserMessageOnEditMessageProps) => void;
     onSwitchToBranch?: (
-      props: CopilotChatUserMessageOnSwitchToBranchProps
+      props: CopilotChatUserMessageOnSwitchToBranchProps,
     ) => void;
     message: UserMessage;
     branchIndex?: number;
@@ -88,7 +88,7 @@ export function CopilotChatUserMessage({
 }: CopilotChatUserMessageProps) {
   const flattenedContent = useMemo(
     () => flattenUserMessageContent(message.content),
-    [message.content]
+    [message.content],
   );
 
   const BoundMessageRenderer = renderSlot(
@@ -96,7 +96,7 @@ export function CopilotChatUserMessage({
     CopilotChatUserMessage.MessageRenderer,
     {
       content: flattenedContent,
-    }
+    },
   );
 
   const BoundCopyButton = renderSlot(
@@ -112,7 +112,7 @@ export function CopilotChatUserMessage({
           }
         }
       },
-    }
+    },
   );
 
   const BoundEditButton = renderSlot(
@@ -120,7 +120,7 @@ export function CopilotChatUserMessage({
     CopilotChatUserMessage.EditButton,
     {
       onClick: () => onEditMessage?.({ message }),
-    }
+    },
   );
 
   const BoundBranchNavigation = renderSlot(
@@ -131,7 +131,7 @@ export function CopilotChatUserMessage({
       numberOfBranches,
       onSwitchToBranch,
       message,
-    }
+    },
   );
 
   const showBranchNavigation =
@@ -198,7 +198,7 @@ export namespace CopilotChatUserMessage {
     <div
       className={twMerge(
         "prose dark:prose-invert bg-muted relative max-w-[80%] rounded-[18px] px-4 py-1.5 data-[multiline]:py-3 inline-block whitespace-pre-wrap",
-        className
+        className,
       )}
     >
       {content}
@@ -212,7 +212,7 @@ export namespace CopilotChatUserMessage {
     <div
       className={twMerge(
         "w-full bg-transparent flex items-center justify-end -mr-[5px] mt-[4px] invisible group-hover:visible",
-        className
+        className,
       )}
       {...props}
     />
@@ -297,7 +297,7 @@ export namespace CopilotChatUserMessage {
       currentBranch?: number;
       numberOfBranches?: number;
       onSwitchToBranch?: (
-        props: CopilotChatUserMessageOnSwitchToBranchProps
+        props: CopilotChatUserMessageOnSwitchToBranchProps,
       ) => void;
       message: UserMessage;
     }

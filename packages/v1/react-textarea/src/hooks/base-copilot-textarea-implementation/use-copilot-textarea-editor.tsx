@@ -35,7 +35,11 @@ const shouldSave: ShouldSaveToHistory = (op, prev) => {
     return false;
   }
 
-  if (op.type == "set_node" && "type" in op.properties && op.properties.type === excludedNodeType) {
+  if (
+    op.type == "set_node" &&
+    "type" in op.properties &&
+    op.properties.type === excludedNodeType
+  ) {
     return false;
   }
 

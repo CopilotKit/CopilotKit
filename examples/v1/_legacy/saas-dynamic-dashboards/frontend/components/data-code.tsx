@@ -1,5 +1,5 @@
 export function DataCode() {
-    const pythonCode = `"""
+  const pythonCode = `"""
 A LangGraph implementation for the testing agent.
 """
 from fastapi import FastAPI
@@ -293,19 +293,19 @@ def main():
     )
 
 if __name__ == "__main__":
-    main()`
+    main()`;
 
-    return (
-        <div className="p-4 bg-white rounded-lg border border-gray-200 shadow-sm w-full">
-            <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-semibold text-gray-800">Agent Code</h2>
-                <span className="text-sm text-gray-500">Python</span>
-            </div>
-            <pre className="overflow-x-auto">
-                <code className="text-sm text-gray-700 font-mono whitespace-pre-wrap break-words">
-                    {pythonCode}
-                </code>
-            </pre>
-        </div>
-    )
+  return (
+    <div className="p-4 bg-white rounded-lg border border-gray-200 shadow-sm w-full">
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-xl font-semibold text-gray-800">Agent Code</h2>
+        <span className="text-sm text-gray-500">Python</span>
+      </div>
+      <pre className="overflow-x-auto">
+        <code className="text-sm text-gray-700 font-mono whitespace-pre-wrap break-words">
+          {pythonCode}
+        </code>
+      </pre>
+    </div>
+  );
 }

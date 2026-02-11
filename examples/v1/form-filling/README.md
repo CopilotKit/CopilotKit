@@ -1,6 +1,5 @@
-
-
 # Form-Filling Copilot
+
 Transform tedious form-filling into natural conversations. Your AI assistant asks the right questions, understands context, and completes forms for you—no more field-by-field drudgery.
 
 [Click here for a running example](https://copilotkit.ai/examples/form-filling-copilot)
@@ -23,12 +22,13 @@ Transform tedious form-filling into natural conversations. Your AI assistant ask
 
 ### Prerequisites
 
-- Node.js 18+ 
+- Node.js 18+
 - npm, yarn, or pnpm
 
 ### Installation
 
 1. Clone the repository:
+
    ```bash
    git clone https://github.com/CopilotKit/CopilotKit.git
    cd CopilotKit/examples/copilot-form-filling
@@ -53,6 +53,7 @@ Transform tedious form-filling into natural conversations. Your AI assistant ask
    </details>
 
 3. Create a `.env` file in the project root and add your [Copilot Cloud Public API Key](https://cloud.copilotkit.ai):
+
    ```
    NEXT_PUBLIC_COPILOT_PUBLIC_API_KEY=your_copilotkit_api_key
    ```
@@ -82,16 +83,23 @@ Transform tedious form-filling into natural conversations. Your AI assistant ask
 This demo uses several key CopilotKit features:
 
 ### CopilotKit Provider
+
 This provides the chat context to all of the children components.
 
 <em>[app/layout.tsx](./app/layout.tsx)</em>
 
 ```tsx
-export default function RootLayout({children}: Readonly<{children: React.ReactNode}>) {
+export default function RootLayout({
+  children,
+}: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en">
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
-        <CopilotKit publicApiKey={process.env.NEXT_PUBLIC_COPILOT_PUBLIC_API_KEY}>
+      <body
+        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+      >
+        <CopilotKit
+          publicApiKey={process.env.NEXT_PUBLIC_COPILOT_PUBLIC_API_KEY}
+        >
           {children}
         </CopilotKit>
       </body>
@@ -101,6 +109,7 @@ export default function RootLayout({children}: Readonly<{children: React.ReactNo
 ```
 
 ### CopilotReadable
+
 This provides the form fields and their current values to the AI so it understands the current state of the form and session.
 
 <em>[components/IncidentReportForm.tsx](./components/IncidentReportForm.tsx)</em>
@@ -108,7 +117,7 @@ This provides the form fields and their current values to the AI so it understan
 ```tsx
 useCopilotReadable({
   description: "The security incident form fields and their current values",
-  value: formState
+  value: formState,
 });
 ```
 
@@ -118,10 +127,11 @@ useCopilotReadable({
 useCopilotReadable({
   description: "The current user information",
   value: retrieveUserInfo(),
-})
+});
 ```
 
 ### CopilotAction
+
 This allows the AI to update the form fields.
 
 <em>[components/IncidentReportForm.tsx](./components/IncidentReportForm.tsx)</em>
@@ -135,7 +145,7 @@ useCopilotAction({
       name: "fullName",
       type: "string",
       required: true,
-      description: "The full name of the person reporting the incident"
+      description: "The full name of the person reporting the incident",
     },
     // other parameters ...
   ],

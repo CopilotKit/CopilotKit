@@ -20,7 +20,9 @@ jest.mock("../../components/toast/toast-provider", () => ({
   }),
 }));
 
-function createWrapper(copilotContextValue: ReturnType<typeof createTestCopilotContext>) {
+function createWrapper(
+  copilotContextValue: ReturnType<typeof createTestCopilotContext>,
+) {
   return function Wrapper({ children }: { children: ReactNode }) {
     return (
       <CopilotContext.Provider value={copilotContextValue}>
@@ -30,7 +32,10 @@ function createWrapper(copilotContextValue: ReturnType<typeof createTestCopilotC
   };
 }
 
-function useHarness<T>(action: Parameters<typeof useCoAgentStateRender<T>>[0], deps?: unknown[]) {
+function useHarness<T>(
+  action: Parameters<typeof useCoAgentStateRender<T>>[0],
+  deps?: unknown[],
+) {
   useCoAgentStateRender(action, deps);
   return useCoAgentStateRenders();
 }
@@ -58,11 +63,15 @@ describe("useCoAgentStateRender (hook behaviors)", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     idCounter = 0;
-    (randomId as jest.Mock).mockImplementation(() => `test-random-id-${++idCounter}`);
+    (randomId as jest.Mock).mockImplementation(
+      () => `test-random-id-${++idCounter}`,
+    );
   });
 
   it("registers state render and writes to the render cache", async () => {
-    const chatComponentsCache = { current: { actions: {}, coAgentStateRenders: {} } };
+    const chatComponentsCache = {
+      current: { actions: {}, coAgentStateRenders: {} },
+    };
     const wrapper = createWrapper(
       createTestCopilotContext({
         chatComponentsCache,
@@ -85,11 +94,15 @@ describe("useCoAgentStateRender (hook behaviors)", () => {
       expect(Object.keys(result.current.coAgentStateRenders)).toHaveLength(1);
     });
 
-    expect(chatComponentsCache.current.coAgentStateRenders["agent-a-node-1"]).toBe(renderFn);
+    expect(
+      chatComponentsCache.current.coAgentStateRenders["agent-a-node-1"],
+    ).toBe(renderFn);
   });
 
   it("mutates handler + cache in place when dependencies are omitted", async () => {
-    const chatComponentsCache = { current: { actions: {}, coAgentStateRenders: {} } };
+    const chatComponentsCache = {
+      current: { actions: {}, coAgentStateRenders: {} },
+    };
     const wrapper = createWrapper(
       createTestCopilotContext({
         chatComponentsCache,
@@ -122,13 +135,17 @@ describe("useCoAgentStateRender (hook behaviors)", () => {
     const [id, initialRender] = getSingleEntry(initialRenders);
 
     expect(initialRender.handler).toBe(handlerOne);
-    expect(chatComponentsCache.current.coAgentStateRenders["agent-b-global"]).toBe(renderOne);
+    expect(
+      chatComponentsCache.current.coAgentStateRenders["agent-b-global"],
+    ).toBe(renderOne);
 
     rerender({ handler: handlerTwo, renderFn: renderTwo });
 
     expect(result.current.coAgentStateRenders).toBe(initialRenders);
     expect(result.current.coAgentStateRenders[id].handler).toBe(handlerTwo);
-    expect(chatComponentsCache.current.coAgentStateRenders["agent-b-global"]).toBe(renderTwo);
+    expect(
+      chatComponentsCache.current.coAgentStateRenders["agent-b-global"],
+    ).toBe(renderTwo);
   });
 
   it("re-registers when dependencies change", async () => {
@@ -169,7 +186,9 @@ describe("useCoAgentStateRender (hook behaviors)", () => {
   });
 
   it("re-registers when string render changes", async () => {
-    const chatComponentsCache = { current: { actions: {}, coAgentStateRenders: {} } };
+    const chatComponentsCache = {
+      current: { actions: {}, coAgentStateRenders: {} },
+    };
     const wrapper = createWrapper(
       createTestCopilotContext({
         chatComponentsCache,
@@ -199,7 +218,9 @@ describe("useCoAgentStateRender (hook behaviors)", () => {
       expect(result.current.coAgentStateRenders).not.toBe(initialRenders);
     });
 
-    expect(chatComponentsCache.current.coAgentStateRenders["agent-d-global"]).toBe("Step 2");
+    expect(
+      chatComponentsCache.current.coAgentStateRenders["agent-d-global"],
+    ).toBe("Step 2");
   });
 
   it("warns when duplicate registrations target the same agent + node", async () => {

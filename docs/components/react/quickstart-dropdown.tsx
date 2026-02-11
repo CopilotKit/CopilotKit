@@ -49,9 +49,7 @@ export function QuickstartDropdown() {
           </option>
         ))}
       </select>
-      <ChevronDownIcon
-        className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#010507] dark:text-white"
-      />
+      <ChevronDownIcon className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#010507] dark:text-white" />
     </div>
   );
 }

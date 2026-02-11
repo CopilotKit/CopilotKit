@@ -32,7 +32,9 @@ export const ErrorMessage = (props: ErrorMessageProps) => {
     <div className="copilotKitMessage copilotKitAssistantMessage">
       <Markdown content={error.message} />
 
-      <div className={`copilotKitMessageControls ${isCurrentMessage ? "currentMessage" : ""}`}>
+      <div
+        className={`copilotKitMessageControls ${isCurrentMessage ? "currentMessage" : ""}`}
+      >
         <button
           className="copilotKitMessageControlButton"
           onClick={handleRegenerate}

@@ -194,7 +194,10 @@ describe("Config Tools Server-Side Execution", () => {
           {
             name: "clientTool",
             description: "Runs on client",
-            parameters: { type: "object", properties: { input: { type: "string" } } },
+            parameters: {
+              type: "object",
+              properties: { input: { type: "string" } },
+            },
           },
         ],
         context: [],
@@ -215,7 +218,9 @@ describe("Config Tools Server-Side Execution", () => {
 
   describe("Execute Function Invocation", () => {
     it("execute function can be called with correct arguments", async () => {
-      const executeFn = vi.fn().mockResolvedValue({ weather: "sunny", temp: 72 });
+      const executeFn = vi
+        .fn()
+        .mockResolvedValue({ weather: "sunny", temp: 72 });
 
       const weatherTool = defineTool({
         name: "getWeather",
@@ -252,9 +257,15 @@ describe("Config Tools Server-Side Execution", () => {
       const passedExecute = callArgs.tools.getWeather.execute;
 
       // Manually invoke it to verify it works correctly
-      const result = await passedExecute({ city: "New York", units: "fahrenheit" });
+      const result = await passedExecute({
+        city: "New York",
+        units: "fahrenheit",
+      });
 
-      expect(executeFn).toHaveBeenCalledWith({ city: "New York", units: "fahrenheit" });
+      expect(executeFn).toHaveBeenCalledWith({
+        city: "New York",
+        units: "fahrenheit",
+      });
       expect(result).toEqual({ weather: "sunny", temp: 72 });
     });
 
@@ -377,7 +388,9 @@ describe("Config Tools Server-Side Execution", () => {
 
       const events = await collectEvents(agent["run"](input));
 
-      const textEvents = events.filter((e: any) => e.type === EventType.TEXT_MESSAGE_CHUNK);
+      const textEvents = events.filter(
+        (e: any) => e.type === EventType.TEXT_MESSAGE_CHUNK,
+      );
 
       // First two text chunks should have messageId from first text-start
       expect(textEvents[0].messageId).toBe("msg-1");

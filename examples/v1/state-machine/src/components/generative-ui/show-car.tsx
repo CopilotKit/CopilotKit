@@ -47,7 +47,13 @@ const CarImage = ({ car }: { car: Car }) => {
   );
 };
 
-export function ShowCar({ car, onSelect, onReject, status, className }: ShowCarProps) {
+export function ShowCar({
+  car,
+  onSelect,
+  onReject,
+  status,
+  className,
+}: ShowCarProps) {
   const carDetails = [
     { label: "Make", value: car.make },
     { label: "Model", value: car.model },
@@ -80,14 +86,24 @@ export function ShowCar({ car, onSelect, onReject, status, className }: ShowCarP
           {carDetails.map(({ label, value, bold }) => (
             <div key={label} className="flex justify-between items-center py-1">
               <span className="text-gray-500 text-sm">{label}</span>
-              <span className={cn("text-gray-900", bold ? "font-semibold text-lg" : "text-sm")}>
+              <span
+                className={cn(
+                  "text-gray-900",
+                  bold ? "font-semibold text-lg" : "text-sm",
+                )}
+              >
                 {value}
               </span>
             </div>
           ))}
         </div>
 
-        <div className={cn("px-6 pt-2", status === "complete" ? "hidden" : "animate-fade-in")}>
+        <div
+          className={cn(
+            "px-6 pt-2",
+            status === "complete" ? "hidden" : "animate-fade-in",
+          )}
+        >
           <hr className="mb-4 border-gray-100" />
           <div className="flex gap-3">
             {onReject && (
@@ -132,7 +148,11 @@ export function ShowCars({ cars, onSelect, status }: ShowCarsProps) {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: index * 0.2 }}
           >
-            <ShowCar car={car} onSelect={() => handleSelect(car)} status={status} />
+            <ShowCar
+              car={car}
+              onSelect={() => handleSelect(car)}
+              status={status}
+            />
           </motion.div>
         );
       })}

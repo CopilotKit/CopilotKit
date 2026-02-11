@@ -1,8 +1,4 @@
-import {
-  BaseEvent,
-  EventType,
-  RunErrorEvent,
-} from "@ag-ui/client";
+import { BaseEvent, EventType, RunErrorEvent } from "@ag-ui/client";
 import { randomUUID } from "./utils";
 
 interface FinalizeRunOptions {
@@ -83,8 +79,12 @@ export function finalizeRunEvents(
     }
   }
 
-  const hasRunFinished = events.some((event) => event.type === EventType.RUN_FINISHED);
-  const hasRunError = events.some((event) => event.type === EventType.RUN_ERROR);
+  const hasRunFinished = events.some(
+    (event) => event.type === EventType.RUN_FINISHED,
+  );
+  const hasRunError = events.some(
+    (event) => event.type === EventType.RUN_ERROR,
+  );
   const hasTerminalEvent = hasRunFinished || hasRunError;
   const terminalEventMissing = !hasTerminalEvent;
 

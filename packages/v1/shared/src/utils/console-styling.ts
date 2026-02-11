@@ -105,13 +105,15 @@ export function logStyled(template: string, styles: string[]) {
  */
 export const styledConsole = {
   /** Log a success message */
-  success: (message: string) => logStyled(`%c✅ ${message}`, [ConsoleStyles.section]),
+  success: (message: string) =>
+    logStyled(`%c✅ ${message}`, [ConsoleStyles.section]),
 
   /** Log an info message */
   info: (message: string) => logStyled(`%cℹ️ ${message}`, [ConsoleStyles.info]),
 
   /** Log a feature highlight */
-  feature: (message: string) => logStyled(`%c✨ ${message}`, [ConsoleStyles.highlight]),
+  feature: (message: string) =>
+    logStyled(`%c✨ ${message}`, [ConsoleStyles.highlight]),
 
   /** Log a call-to-action */
   cta: (message: string) => logStyled(`%c🚀 ${message}`, [ConsoleStyles.cta]),

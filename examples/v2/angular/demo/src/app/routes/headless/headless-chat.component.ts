@@ -1,4 +1,13 @@
-import { Component, ChangeDetectionStrategy, computed, inject, input, signal, OnDestroy, OnInit } from "@angular/core";
+import {
+  Component,
+  ChangeDetectionStrategy,
+  computed,
+  inject,
+  input,
+  signal,
+  OnDestroy,
+  OnInit,
+} from "@angular/core";
 import { CommonModule } from "@angular/common";
 import { FormsModule } from "@angular/forms";
 import {
@@ -10,7 +19,10 @@ import {
   registerHumanInTheLoop,
 } from "@copilotkitnext/angular";
 import { RenderToolCalls } from "@copilotkitnext/angular";
-import { WEB_INSPECTOR_TAG, type WebInspectorElement } from "@copilotkitnext/web-inspector";
+import {
+  WEB_INSPECTOR_TAG,
+  type WebInspectorElement,
+} from "@copilotkitnext/web-inspector";
 import { z } from "zod";
 
 @Component({
@@ -24,7 +36,10 @@ import { z } from "zod";
   `,
 })
 export class RequireApprovalComponent implements HumanInTheLoopToolRenderer {
-  toolCall = input.required<HumanInTheLoopToolCall<{ action: string; reason: string }>>();
+  toolCall =
+    input.required<
+      HumanInTheLoopToolCall<{ action: string; reason: string }>
+    >();
 
   respond(result: { approved: boolean }) {
     this.toolCall().respond(result);
@@ -37,8 +52,14 @@ export class RequireApprovalComponent implements HumanInTheLoopToolRenderer {
   imports: [CommonModule, FormsModule, RenderToolCalls],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <div class="headless-container" style="display:flex;flex-direction:column;height:100vh;width:100vw;">
-      <div class="messages" style="flex:1;overflow:auto;padding:16px;background:#f9fafb;color:#111827;">
+    <div
+      class="headless-container"
+      style="display:flex;flex-direction:column;height:100vh;width:100vw;"
+    >
+      <div
+        class="messages"
+        style="flex:1;overflow:auto;padding:16px;background:#f9fafb;color:#111827;"
+      >
         <div *ngFor="let m of messages()" style="margin-bottom:16px;">
           <div style="font-weight:600;color:#374151;">
             {{ m.role | titlecase }}
@@ -52,7 +73,9 @@ export class RequireApprovalComponent implements HumanInTheLoopToolRenderer {
             ></copilot-render-tool-calls>
           </ng-container>
         </div>
-        <div *ngIf="isRunning()" style="opacity:0.9;color:#6b7280;">Thinking…</div>
+        <div *ngIf="isRunning()" style="opacity:0.9;color:#6b7280;">
+          Thinking…
+        </div>
       </div>
 
       <form
@@ -109,8 +132,11 @@ export class HeadlessChatComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     if (typeof document === "undefined") return;
 
-    const existing = document.querySelector<WebInspectorElement>(WEB_INSPECTOR_TAG);
-    const inspector = existing ?? (document.createElement(WEB_INSPECTOR_TAG) as WebInspectorElement);
+    const existing =
+      document.querySelector<WebInspectorElement>(WEB_INSPECTOR_TAG);
+    const inspector =
+      existing ??
+      (document.createElement(WEB_INSPECTOR_TAG) as WebInspectorElement);
     inspector.core = this.copilotkit.core;
     inspector.setAttribute("auto-attach-core", "false");
 

@@ -24,14 +24,17 @@ const createAppContextBeforeAgent = (state, runtime) => {
 
   // Create the context content
   const contextContent =
-    typeof appContext === "string" ? appContext : JSON.stringify(appContext, null, 2);
+    typeof appContext === "string"
+      ? appContext
+      : JSON.stringify(appContext, null, 2);
   const contextMessageContent = `App Context:\n${contextContent}`;
   const contextMessagePrefix = "App Context:\n";
 
   // Helper to get message content as string
   const getContentString = (msg: any): string | null => {
     if (typeof msg.content === "string") return msg.content;
-    if (Array.isArray(msg.content) && msg.content[0]?.text) return msg.content[0].text;
+    if (Array.isArray(msg.content) && msg.content[0]?.text)
+      return msg.content[0].text;
     return null;
   };
 
@@ -194,7 +197,9 @@ const middlewareInput = {
     const frontendTools = state["copilotkit"]?.actions ?? [];
     if (frontendTools.length === 0) return;
 
-    const frontendToolNames = new Set(frontendTools.map((t: any) => t.function?.name || t.name));
+    const frontendToolNames = new Set(
+      frontendTools.map((t: any) => t.function?.name || t.name),
+    );
 
     const lastMessage = state.messages[state.messages.length - 1];
     if (!AIMessage.isInstance(lastMessage) || !lastMessage.tool_calls?.length) {

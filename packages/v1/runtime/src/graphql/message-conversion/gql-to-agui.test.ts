@@ -67,7 +67,9 @@ describe("message-conversion", () => {
         role: "unknown" as any,
       });
 
-      expect(() => gqlTextMessageToAGUIMessage(gqlMessage)).toThrow("Unknown message role");
+      expect(() => gqlTextMessageToAGUIMessage(gqlMessage)).toThrow(
+        "Unknown message role",
+      );
     });
   });
 
@@ -371,7 +373,8 @@ describe("message-conversion", () => {
       });
 
       const mockRender = jest.fn();
-      const mockRenderAndWaitForResponse = (props: any) => "Test Render With Response";
+      const mockRenderAndWaitForResponse = (props: any) =>
+        "Test Render With Response";
 
       const actions = {
         testAction: {
@@ -494,7 +497,9 @@ describe("message-conversion", () => {
       const result = gqlToAGUI([actionExecMsg, resultMsg], actions);
 
       // Find the action execution message result (not the tool result)
-      const actionMessage = result.find((msg) => msg.role === "assistant" && "toolCalls" in msg);
+      const actionMessage = result.find(
+        (msg) => msg.role === "assistant" && "toolCalls" in msg,
+      );
 
       // Call the generativeUI function
       (actionMessage as any)?.generativeUI?.();
@@ -748,7 +753,11 @@ describe("message-conversion", () => {
         },
       };
 
-      const result = gqlToAGUI([textMsg, agentStateMsg], undefined, coAgentStateRenders);
+      const result = gqlToAGUI(
+        [textMsg, agentStateMsg],
+        undefined,
+        coAgentStateRenders,
+      );
 
       expect(result).toHaveLength(2);
       expect(result[0]).toEqual({
@@ -775,7 +784,9 @@ describe("message-conversion", () => {
         bytes: "somebase64string",
         role: gql.Role.user,
       });
-      expect(() => gqlImageMessageToAGUIMessage(invalidImageMsg)).toThrow("Invalid image format");
+      expect(() => gqlImageMessageToAGUIMessage(invalidImageMsg)).toThrow(
+        "Invalid image format",
+      );
     });
 
     test("should throw error for empty image bytes", () => {
@@ -864,7 +875,10 @@ describe("message-conversion", () => {
         parentMessageId: "parent-1",
       });
 
-      const result = gqlActionExecutionMessageToAGUIMessage(actionExecMsg, actions);
+      const result = gqlActionExecutionMessageToAGUIMessage(
+        actionExecMsg,
+        actions,
+      );
 
       expect(result).toMatchObject({
         id: "action-1",
@@ -900,7 +914,10 @@ describe("message-conversion", () => {
         parentMessageId: "parent-2",
       });
 
-      const result = gqlActionExecutionMessageToAGUIMessage(actionExecMsg, actions);
+      const result = gqlActionExecutionMessageToAGUIMessage(
+        actionExecMsg,
+        actions,
+      );
 
       expect(result).toMatchObject({
         id: "action-2",
@@ -923,7 +940,8 @@ describe("message-conversion", () => {
 
     test("should pass tool name to wildcard action render function", () => {
       const mockRender = jest.fn(
-        (props) => `Wildcard rendered: ${props.name} with args: ${JSON.stringify(props.args)}`,
+        (props) =>
+          `Wildcard rendered: ${props.name} with args: ${JSON.stringify(props.args)}`,
       );
       const actions = {
         "*": {
@@ -939,7 +957,10 @@ describe("message-conversion", () => {
         parentMessageId: "parent-wildcard-name",
       });
 
-      const result = gqlActionExecutionMessageToAGUIMessage(actionExecMsg, actions);
+      const result = gqlActionExecutionMessageToAGUIMessage(
+        actionExecMsg,
+        actions,
+      );
 
       // Call the generativeUI function to trigger the render
       (result as any).generativeUI?.();
@@ -971,7 +992,10 @@ describe("message-conversion", () => {
         parentMessageId: "parent-regular-name",
       });
 
-      const result = gqlActionExecutionMessageToAGUIMessage(actionExecMsg, actions);
+      const result = gqlActionExecutionMessageToAGUIMessage(
+        actionExecMsg,
+        actions,
+      );
 
       // Call the generativeUI function to trigger the render
       (result as any).generativeUI?.();
@@ -1009,7 +1033,10 @@ describe("message-conversion", () => {
         parentMessageId: "parent-3",
       });
 
-      const result = gqlActionExecutionMessageToAGUIMessage(actionExecMsg, actions);
+      const result = gqlActionExecutionMessageToAGUIMessage(
+        actionExecMsg,
+        actions,
+      );
 
       expect(result).toMatchObject({
         id: "action-3",
@@ -1045,7 +1072,10 @@ describe("message-conversion", () => {
         parentMessageId: "parent-4",
       });
 
-      const result = gqlActionExecutionMessageToAGUIMessage(actionExecMsg, actions);
+      const result = gqlActionExecutionMessageToAGUIMessage(
+        actionExecMsg,
+        actions,
+      );
 
       expect(result).toMatchObject({
         id: "action-4",
@@ -1110,7 +1140,11 @@ describe("message-conversion", () => {
 
       const actionResults = new Map([["action-6", "completed result"]]);
 
-      const result = gqlActionExecutionMessageToAGUIMessage(actionExecMsg, actions, actionResults);
+      const result = gqlActionExecutionMessageToAGUIMessage(
+        actionExecMsg,
+        actions,
+        actionResults,
+      );
 
       expect(result).toMatchObject({
         id: "action-6",
@@ -1147,7 +1181,10 @@ describe("message-conversion", () => {
         status: { code: MessageStatusCode.Success },
       });
 
-      const result = gqlActionExecutionMessageToAGUIMessage(actionExecMsg, actions);
+      const result = gqlActionExecutionMessageToAGUIMessage(
+        actionExecMsg,
+        actions,
+      );
 
       expect(result).toMatchObject({
         id: "action-7",
@@ -1184,7 +1221,10 @@ describe("message-conversion", () => {
         status: { code: MessageStatusCode.Pending },
       });
 
-      const result = gqlActionExecutionMessageToAGUIMessage(actionExecMsg, actions);
+      const result = gqlActionExecutionMessageToAGUIMessage(
+        actionExecMsg,
+        actions,
+      );
 
       expect(result).toMatchObject({
         id: "action-8",
@@ -1221,7 +1261,10 @@ describe("message-conversion", () => {
         status: { code: MessageStatusCode.Failed },
       });
 
-      const result = gqlActionExecutionMessageToAGUIMessage(actionExecMsg, actions);
+      const result = gqlActionExecutionMessageToAGUIMessage(
+        actionExecMsg,
+        actions,
+      );
 
       expect(result).toMatchObject({
         id: "action-9",
@@ -1258,7 +1301,10 @@ describe("message-conversion", () => {
         // No status field
       });
 
-      const result = gqlActionExecutionMessageToAGUIMessage(actionExecMsg, actions);
+      const result = gqlActionExecutionMessageToAGUIMessage(
+        actionExecMsg,
+        actions,
+      );
 
       expect(result).toMatchObject({
         id: "action-10",
@@ -1294,7 +1340,10 @@ describe("message-conversion", () => {
         parentMessageId: "parent-11",
       });
 
-      const result = gqlActionExecutionMessageToAGUIMessage(actionExecMsg, actions);
+      const result = gqlActionExecutionMessageToAGUIMessage(
+        actionExecMsg,
+        actions,
+      );
 
       expect(result).toMatchObject({
         id: "action-11",
@@ -1330,7 +1379,10 @@ describe("message-conversion", () => {
         parentMessageId: "parent-12",
       });
 
-      const result = gqlActionExecutionMessageToAGUIMessage(actionExecMsg, actions);
+      const result = gqlActionExecutionMessageToAGUIMessage(
+        actionExecMsg,
+        actions,
+      );
 
       expect(result).toMatchObject({
         id: "action-12",
@@ -1378,7 +1430,10 @@ describe("message-conversion", () => {
         parentMessageId: "parent-13",
       });
 
-      const result = gqlActionExecutionMessageToAGUIMessage(actionExecMsg, actions);
+      const result = gqlActionExecutionMessageToAGUIMessage(
+        actionExecMsg,
+        actions,
+      );
 
       expect(result).toMatchObject({
         id: "action-13",
@@ -1418,7 +1473,10 @@ describe("message-conversion", () => {
         parentMessageId: "parent-14",
       });
 
-      const result = gqlActionExecutionMessageToAGUIMessage(actionExecMsg, actions);
+      const result = gqlActionExecutionMessageToAGUIMessage(
+        actionExecMsg,
+        actions,
+      );
 
       expect(result).toMatchObject({
         id: "action-14",
@@ -1455,9 +1513,16 @@ describe("message-conversion", () => {
       });
 
       const actionResults = new Map<string, string>();
-      actionResults.set("action-string-result", '{"parsed": true, "value": 42}');
+      actionResults.set(
+        "action-string-result",
+        '{"parsed": true, "value": 42}',
+      );
 
-      const result = gqlActionExecutionMessageToAGUIMessage(actionExecMsg, actions, actionResults);
+      const result = gqlActionExecutionMessageToAGUIMessage(
+        actionExecMsg,
+        actions,
+        actionResults,
+      );
 
       expect((result as AIMessage).generativeUI).toBeDefined();
       // Call the render function to test the result parsing
@@ -1494,7 +1559,11 @@ describe("message-conversion", () => {
       const actionResults = new Map<string, string>();
       actionResults.set("action-malformed", "invalid json {");
 
-      const result = gqlActionExecutionMessageToAGUIMessage(actionExecMsg, actions, actionResults);
+      const result = gqlActionExecutionMessageToAGUIMessage(
+        actionExecMsg,
+        actions,
+        actionResults,
+      );
 
       expect((result as AIMessage).generativeUI).toBeDefined();
       // Call the render function to test malformed JSON handling
@@ -1531,7 +1600,11 @@ describe("message-conversion", () => {
       const actionResults = new Map<string, string>();
       actionResults.set("action-object-result", '{"already": "parsed"}');
 
-      const result = gqlActionExecutionMessageToAGUIMessage(actionExecMsg, actions, actionResults);
+      const result = gqlActionExecutionMessageToAGUIMessage(
+        actionExecMsg,
+        actions,
+        actionResults,
+      );
 
       expect((result as AIMessage).generativeUI).toBeDefined();
       // Call the render function with an object result

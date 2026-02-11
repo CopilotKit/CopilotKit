@@ -70,7 +70,8 @@ export const defaultEditingFewShotMessages: Message[] = [
   }),
   new TextMessage({
     role: Role.User,
-    content: "<TextToEdit>It's quite challenging and requires a lot of focus.</TextToEdit>",
+    content:
+      "<TextToEdit>It's quite challenging and requires a lot of focus.</TextToEdit>",
   }),
   new TextMessage({
     role: Role.User,

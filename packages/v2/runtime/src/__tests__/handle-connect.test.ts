@@ -8,7 +8,9 @@ import { AgentRunnerConnectRequest } from "../runner/agent-runner";
 describe("handleConnectAgent", () => {
   const createMockRuntime = (
     agents: Record<string, unknown> = {},
-    connectHandler?: (request: AgentRunnerConnectRequest) => Observable<BaseEvent>
+    connectHandler?: (
+      request: AgentRunnerConnectRequest,
+    ) => Observable<BaseEvent>,
   ): CopilotRuntime => {
     return {
       agents: Promise.resolve(agents),
@@ -20,10 +22,12 @@ describe("handleConnectAgent", () => {
           new Observable<BaseEvent>((subscriber) => {
             subscriber.complete();
           }),
-        connect: connectHandler ?? (() =>
-          new Observable<BaseEvent>((subscriber) => {
-            subscriber.complete();
-          })),
+        connect:
+          connectHandler ??
+          (() =>
+            new Observable<BaseEvent>((subscriber) => {
+              subscriber.complete();
+            })),
         isRunning: async () => false,
         stop: async () => false,
       },
@@ -32,19 +36,22 @@ describe("handleConnectAgent", () => {
 
   it("should return 404 when agent does not exist", async () => {
     const runtime = createMockRuntime({});
-    const request = new Request("https://example.com/agent/nonexistent/connect", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        threadId: "thread-1",
-        runId: "run-1",
-        state: {},
-        messages: [],
-        tools: [],
-        context: [],
-        forwardedProps: {},
-      }),
-    });
+    const request = new Request(
+      "https://example.com/agent/nonexistent/connect",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          threadId: "thread-1",
+          runId: "run-1",
+          state: {},
+          messages: [],
+          tools: [],
+          context: [],
+          forwardedProps: {},
+        }),
+      },
+    );
 
     const response = await handleConnectAgent({
       runtime,
@@ -76,7 +83,7 @@ describe("handleConnectAgent", () => {
           recordedRequests.push(request);
           resolveConnect?.();
           subscriber.complete();
-        })
+        }),
     );
 
     const requestBody = {
@@ -89,18 +96,21 @@ describe("handleConnectAgent", () => {
       forwardedProps: {},
     };
 
-    const request = new Request("https://example.com/agent/test-agent/connect", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Custom": "custom-value",
-        "X-Another-Header": "another-value",
-        Authorization: "Bearer forwarded-token",
-        Origin: "http://localhost:4200",
-        "User-Agent": "test-agent",
+    const request = new Request(
+      "https://example.com/agent/test-agent/connect",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Custom": "custom-value",
+          "X-Another-Header": "another-value",
+          Authorization: "Bearer forwarded-token",
+          Origin: "http://localhost:4200",
+          "User-Agent": "test-agent",
+        },
+        body: JSON.stringify(requestBody),
       },
-      body: JSON.stringify(requestBody),
-    });
+    );
 
     const response = await handleConnectAgent({
       runtime,
@@ -137,7 +147,7 @@ describe("handleConnectAgent", () => {
           recordedRequests.push(request);
           resolveConnect?.();
           subscriber.complete();
-        })
+        }),
     );
 
     const requestBody = {
@@ -150,14 +160,17 @@ describe("handleConnectAgent", () => {
       forwardedProps: {},
     };
 
-    const request = new Request("https://example.com/agent/test-agent/connect", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Origin: "http://localhost:4200",
+    const request = new Request(
+      "https://example.com/agent/test-agent/connect",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Origin: "http://localhost:4200",
+        },
+        body: JSON.stringify(requestBody),
       },
-      body: JSON.stringify(requestBody),
-    });
+    );
 
     const response = await handleConnectAgent({
       runtime,

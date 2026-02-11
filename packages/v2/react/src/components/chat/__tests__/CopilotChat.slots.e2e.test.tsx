@@ -31,10 +31,8 @@ describe("CopilotChat Slot System E2E Tests", () => {
       it("should apply tailwind class string to chatView", () => {
         const { container } = render(
           <TestWrapper>
-            <CopilotChat
-              chatView="bg-gradient-to-b from-white to-gray-50 rounded-xl shadow-2xl"
-            />
-          </TestWrapper>
+            <CopilotChat chatView="bg-gradient-to-b from-white to-gray-50 rounded-xl shadow-2xl" />
+          </TestWrapper>,
         );
 
         const chatView = container.querySelector(".bg-gradient-to-b");
@@ -47,7 +45,7 @@ describe("CopilotChat Slot System E2E Tests", () => {
         const { container } = render(
           <TestWrapper>
             <CopilotChat chatView="bg-blue-50" />
-          </TestWrapper>
+          </TestWrapper>,
         );
 
         const chatView = container.querySelector(".bg-blue-50");
@@ -64,10 +62,8 @@ describe("CopilotChat Slot System E2E Tests", () => {
       it("should pass custom props to chatView", () => {
         render(
           <TestWrapper>
-            <CopilotChat
-              chatView={{ "data-testid": "custom-chat-view" }}
-            />
-          </TestWrapper>
+            <CopilotChat chatView={{ "data-testid": "custom-chat-view" }} />
+          </TestWrapper>,
         );
 
         const chatView = screen.queryByTestId("custom-chat-view");
@@ -77,10 +73,8 @@ describe("CopilotChat Slot System E2E Tests", () => {
       it("should pass className through props object", () => {
         const { container } = render(
           <TestWrapper>
-            <CopilotChat
-              chatView={{ className: "custom-class-from-props" }}
-            />
-          </TestWrapper>
+            <CopilotChat chatView={{ className: "custom-class-from-props" }} />
+          </TestWrapper>,
         );
 
         const chatView = container.querySelector(".custom-class-from-props");
@@ -94,7 +88,11 @@ describe("CopilotChat Slot System E2E Tests", () => {
   // ============================================================================
   describe("3. Custom Component - chatView Slot", () => {
     it("should allow custom component for chatView", () => {
-      const CustomChatView: React.FC<any> = ({ messages, isRunning, ...props }) => (
+      const CustomChatView: React.FC<any> = ({
+        messages,
+        isRunning,
+        ...props
+      }) => (
         <div data-testid="custom-chat-view-component" {...props}>
           <div className="custom-header">Custom Chat Interface</div>
           <div className="messages-area">
@@ -113,7 +111,7 @@ describe("CopilotChat Slot System E2E Tests", () => {
       render(
         <TestWrapper>
           <CopilotChat chatView={CustomChatView as any} />
-        </TestWrapper>
+        </TestWrapper>,
       );
 
       const custom = screen.queryByTestId("custom-chat-view-component");
@@ -125,13 +123,17 @@ describe("CopilotChat Slot System E2E Tests", () => {
       const receivedProps: any[] = [];
       const CustomChatView: React.FC<any> = (props) => {
         receivedProps.push(props);
-        return <div data-testid="custom-view">Messages: {props.messages?.length ?? 0}</div>;
+        return (
+          <div data-testid="custom-view">
+            Messages: {props.messages?.length ?? 0}
+          </div>
+        );
       };
 
       render(
         <TestWrapper>
           <CopilotChat chatView={CustomChatView as any} />
-        </TestWrapper>
+        </TestWrapper>,
       );
 
       expect(receivedProps.length).toBeGreaterThan(0);
@@ -148,10 +150,8 @@ describe("CopilotChat Slot System E2E Tests", () => {
 
       render(
         <TestWrapper>
-          <CopilotChat
-            chatView={CustomChatView as any}
-          />
-        </TestWrapper>
+          <CopilotChat chatView={CustomChatView as any} />
+        </TestWrapper>,
       );
 
       expect(receivedProps.length).toBeGreaterThan(0);
@@ -175,7 +175,7 @@ describe("CopilotChat Slot System E2E Tests", () => {
               messageView: "custom-message-view-class",
             }}
           />
-        </TestWrapper>
+        </TestWrapper>,
       );
 
       const messageView = container.querySelector(".custom-message-view-class");
@@ -190,7 +190,7 @@ describe("CopilotChat Slot System E2E Tests", () => {
               input: "custom-input-class border-2 border-green-400",
             }}
           />
-        </TestWrapper>
+        </TestWrapper>,
       );
 
       const input = container.querySelector(".custom-input-class");
@@ -205,7 +205,7 @@ describe("CopilotChat Slot System E2E Tests", () => {
               scrollView: "custom-scroll-view",
             }}
           />
-        </TestWrapper>
+        </TestWrapper>,
       );
 
       const scrollView = container.querySelector(".custom-scroll-view");
@@ -220,7 +220,7 @@ describe("CopilotChat Slot System E2E Tests", () => {
               input: "custom-input bg-slate-100",
             }}
           />
-        </TestWrapper>
+        </TestWrapper>,
       );
 
       const input = container.querySelector(".custom-input");
@@ -246,7 +246,7 @@ describe("CopilotChat Slot System E2E Tests", () => {
       const { container } = render(
         <TestWrapper>
           <CopilotChat chatView={CustomChatView as any} />
-        </TestWrapper>
+        </TestWrapper>,
       );
 
       expect(screen.queryByTestId("fully-custom-chat")).toBeDefined();
@@ -262,7 +262,7 @@ describe("CopilotChat Slot System E2E Tests", () => {
       const { container } = render(
         <TestWrapper>
           <CopilotChat chatView="h-full min-h-0 flex flex-col" />
-        </TestWrapper>
+        </TestWrapper>,
       );
 
       const chatView = container.querySelector(".h-full");
@@ -275,7 +275,7 @@ describe("CopilotChat Slot System E2E Tests", () => {
       const { container } = render(
         <TestWrapper>
           <CopilotChat chatView="custom-override-class" />
-        </TestWrapper>
+        </TestWrapper>,
       );
 
       const chatView = container.querySelector(".custom-override-class");
@@ -291,11 +291,16 @@ describe("CopilotChat Slot System E2E Tests", () => {
       // Create wrapper with the custom-agent registered
       const customAgent = createMockAgent();
       const { container } = render(
-        <CopilotKitProvider agents__unsafe_dev_only={{ default: createMockAgent(), "custom-agent": customAgent }}>
+        <CopilotKitProvider
+          agents__unsafe_dev_only={{
+            default: createMockAgent(),
+            "custom-agent": customAgent,
+          }}
+        >
           <CopilotChatConfigurationProvider threadId="test-thread">
             <CopilotChat agentId="custom-agent" />
           </CopilotChatConfigurationProvider>
-        </CopilotKitProvider>
+        </CopilotKitProvider>,
       );
 
       // Component should render without errors
@@ -306,7 +311,7 @@ describe("CopilotChat Slot System E2E Tests", () => {
       const { container } = render(
         <TestWrapper>
           <CopilotChat threadId="custom-thread-123" />
-        </TestWrapper>
+        </TestWrapper>,
       );
 
       expect(container.firstChild).toBeDefined();
@@ -320,13 +325,12 @@ describe("CopilotChat Slot System E2E Tests", () => {
               chatInputPlaceholder: "Custom placeholder text...",
             }}
           />
-        </TestWrapper>
+        </TestWrapper>,
       );
 
       const input = screen.queryByPlaceholderText("Custom placeholder text...");
       expect(input).toBeDefined();
     });
-
   });
 
   // ============================================================================
@@ -337,7 +341,7 @@ describe("CopilotChat Slot System E2E Tests", () => {
       const { container } = render(
         <TestWrapper>
           <CopilotChat />
-        </TestWrapper>
+        </TestWrapper>,
       );
 
       // Should render the chat interface
@@ -355,7 +359,7 @@ describe("CopilotChat Slot System E2E Tests", () => {
               scrollView: "custom-scroll",
             }}
           />
-        </TestWrapper>
+        </TestWrapper>,
       );
 
       expect(container.querySelector(".root-chat-view")).toBeDefined();
@@ -372,7 +376,7 @@ describe("CopilotChat Slot System E2E Tests", () => {
               className: "mixed-class",
             }}
           />
-        </TestWrapper>
+        </TestWrapper>,
       );
 
       const chatView = container.querySelector(".mixed-class");
@@ -383,7 +387,7 @@ describe("CopilotChat Slot System E2E Tests", () => {
       const { container } = render(
         <TestWrapper>
           <CopilotChat />
-        </TestWrapper>
+        </TestWrapper>,
       );
 
       // Component should render without errors even with transcription features
@@ -405,7 +409,7 @@ describe("CopilotChat Slot System E2E Tests", () => {
       render(
         <TestWrapper>
           <CopilotChat chatView={CustomChatView as any} />
-        </TestWrapper>
+        </TestWrapper>,
       );
 
       // The component should render without errors
@@ -418,7 +422,7 @@ describe("CopilotChat Slot System E2E Tests", () => {
       render(
         <TestWrapper>
           <CopilotChat />
-        </TestWrapper>
+        </TestWrapper>,
       );
 
       // CopilotChat should render without errors

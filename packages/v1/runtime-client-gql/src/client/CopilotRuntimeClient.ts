@@ -7,7 +7,10 @@ import {
   LoadAgentStateQuery,
 } from "../graphql/@generated/graphql";
 import { generateCopilotResponseMutation } from "../graphql/definitions/mutations";
-import { getAvailableAgentsQuery, loadAgentStateQuery } from "../graphql/definitions/queries";
+import {
+  getAvailableAgentsQuery,
+  loadAgentStateQuery,
+} from "../graphql/definitions/queries";
 import { OperationResultSource, OperationResult } from "urql";
 import {
   ResolvedCopilotKitError,
@@ -58,7 +61,10 @@ const createFetchFn =
       if (error instanceof CopilotKitError) {
         throw error;
       }
-      throw new CopilotKitLowLevelError({ error: error as Error, url: args[0] as string });
+      throw new CopilotKitLowLevelError({
+        error: error as Error,
+        url: args[0] as string,
+      });
     }
   };
 
@@ -116,12 +122,18 @@ export class CopilotRuntimeClient {
     const result = this.client.mutation<
       GenerateCopilotResponseMutation,
       GenerateCopilotResponseMutationVariables
-    >(generateCopilotResponseMutation, { data, properties }, { fetch: fetchFn });
+    >(
+      generateCopilotResponseMutation,
+      { data, properties },
+      { fetch: fetchFn },
+    );
 
     return result;
   }
 
-  public asStream<S, T>(source: OperationResultSource<OperationResult<S, { data: T }>>) {
+  public asStream<S, T>(
+    source: OperationResultSource<OperationResult<S, { data: T }>>,
+  ) {
     const handleGQLErrors = this.handleGQLErrors;
     return new ReadableStream<S>({
       start(controller) {
@@ -175,7 +187,11 @@ export class CopilotRuntimeClient {
 
   availableAgents() {
     const fetchFn = createFetchFn();
-    return this.client.query<AvailableAgentsQuery>(getAvailableAgentsQuery, {}, { fetch: fetchFn });
+    return this.client.query<AvailableAgentsQuery>(
+      getAvailableAgentsQuery,
+      {},
+      { fetch: fetchFn },
+    );
   }
 
   loadAgentState(data: { threadId: string; agentName: string }) {

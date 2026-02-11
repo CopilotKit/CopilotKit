@@ -44,7 +44,7 @@ export class CopilotChatViewDisclaimer {
   get computedClass(): string {
     return cn(
       "text-center text-xs text-muted-foreground py-3 px-4 max-w-3xl mx-auto",
-      this.inputClass()
+      this.inputClass(),
     );
   }
 }

@@ -5,7 +5,10 @@ import { handleRunAgent } from "../handlers/handle-run";
 import { handleGetRuntimeInfo } from "../handlers/get-runtime-info";
 import { handleTranscribe } from "../handlers/handle-transcribe";
 import { logger } from "@copilotkitnext/shared";
-import { callBeforeRequestMiddleware, callAfterRequestMiddleware } from "../middleware";
+import {
+  callBeforeRequestMiddleware,
+  callAfterRequestMiddleware,
+} from "../middleware";
 import { handleConnectAgent } from "../handlers/handle-connect";
 import { handleStopAgent } from "../handlers/handle-stop";
 
@@ -22,7 +25,10 @@ export interface CopilotEndpointCorsConfig {
    *
    * Note: When credentials is true, origin cannot be "*"
    */
-  origin: string | string[] | ((origin: string, c: any) => string | undefined | null);
+  origin:
+    | string
+    | string[]
+    | ((origin: string, c: any) => string | undefined | null);
   /**
    * Whether to allow credentials (cookies, HTTP authentication).
    * When true, origin must be explicitly specified (not "*").
@@ -47,7 +53,11 @@ type CopilotEndpointContext = {
   };
 };
 
-export function createCopilotEndpoint({ runtime, basePath, cors: corsConfig }: CopilotEndpointParams) {
+export function createCopilotEndpoint({
+  runtime,
+  basePath,
+  cors: corsConfig,
+}: CopilotEndpointParams) {
   const app = new Hono<CopilotEndpointContext>();
 
   return app
@@ -56,7 +66,15 @@ export function createCopilotEndpoint({ runtime, basePath, cors: corsConfig }: C
       "*",
       cors({
         origin: corsConfig?.origin ?? "*",
-        allowMethods: ["GET", "HEAD", "PUT", "POST", "DELETE", "PATCH", "OPTIONS"],
+        allowMethods: [
+          "GET",
+          "HEAD",
+          "PUT",
+          "POST",
+          "DELETE",
+          "PATCH",
+          "OPTIONS",
+        ],
         allowHeaders: ["*"],
         credentials: corsConfig?.credentials ?? false,
       }),
@@ -75,7 +93,10 @@ export function createCopilotEndpoint({ runtime, basePath, cors: corsConfig }: C
           c.set("modifiedRequest", maybeModifiedRequest);
         }
       } catch (error) {
-        logger.error({ err: error, url: request.url, path }, "Error running before request middleware");
+        logger.error(
+          { err: error, url: request.url, path },
+          "Error running before request middleware",
+        );
         if (error instanceof Response) {
           return error;
         }
@@ -96,7 +117,10 @@ export function createCopilotEndpoint({ runtime, basePath, cors: corsConfig }: C
         response,
         path,
       }).catch((error) => {
-        logger.error({ err: error, url: c.req.url, path }, "Error running after request middleware");
+        logger.error(
+          { err: error, url: c.req.url, path },
+          "Error running after request middleware",
+        );
       });
     })
     .post("/agent/:agentId/run", async (c) => {
@@ -110,7 +134,10 @@ export function createCopilotEndpoint({ runtime, basePath, cors: corsConfig }: C
           agentId,
         });
       } catch (error) {
-        logger.error({ err: error, url: request.url, path: c.req.path }, "Error running request handler");
+        logger.error(
+          { err: error, url: request.url, path: c.req.path },
+          "Error running request handler",
+        );
         throw error;
       }
     })
@@ -125,7 +152,10 @@ export function createCopilotEndpoint({ runtime, basePath, cors: corsConfig }: C
           agentId,
         });
       } catch (error) {
-        logger.error({ err: error, url: request.url, path: c.req.path }, "Error running request handler");
+        logger.error(
+          { err: error, url: request.url, path: c.req.path },
+          "Error running request handler",
+        );
         throw error;
       }
     })
@@ -143,7 +173,10 @@ export function createCopilotEndpoint({ runtime, basePath, cors: corsConfig }: C
           threadId,
         });
       } catch (error) {
-        logger.error({ err: error, url: request.url, path: c.req.path }, "Error running request handler");
+        logger.error(
+          { err: error, url: request.url, path: c.req.path },
+          "Error running request handler",
+        );
         throw error;
       }
     })
@@ -156,7 +189,10 @@ export function createCopilotEndpoint({ runtime, basePath, cors: corsConfig }: C
           request,
         });
       } catch (error) {
-        logger.error({ err: error, url: request.url, path: c.req.path }, "Error running request handler");
+        logger.error(
+          { err: error, url: request.url, path: c.req.path },
+          "Error running request handler",
+        );
         throw error;
       }
     })
@@ -169,7 +205,10 @@ export function createCopilotEndpoint({ runtime, basePath, cors: corsConfig }: C
           request,
         });
       } catch (error) {
-        logger.error({ err: error, url: request.url, path: c.req.path }, "Error running request handler");
+        logger.error(
+          { err: error, url: request.url, path: c.req.path },
+          "Error running request handler",
+        );
         throw error;
       }
     })

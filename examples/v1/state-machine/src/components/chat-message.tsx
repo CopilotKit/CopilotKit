@@ -1,21 +1,22 @@
 import { UserMessageProps, AssistantMessageProps } from "@copilotkit/react-ui";
 import { Markdown } from "@copilotkit/react-ui";
 
- function normalizeMarkdownContent(content: unknown): string {
-   if (typeof content === "string") return content;
-   if (content == null) return "";
-   if (Array.isArray(content)) return content.map((c) => normalizeMarkdownContent(c)).join("");
+function normalizeMarkdownContent(content: unknown): string {
+  if (typeof content === "string") return content;
+  if (content == null) return "";
+  if (Array.isArray(content))
+    return content.map((c) => normalizeMarkdownContent(c)).join("");
 
-   if (typeof content === "object") {
-     try {
-       return JSON.stringify(content);
-     } catch {
-       return String(content);
-     }
-   }
+  if (typeof content === "object") {
+    try {
+      return JSON.stringify(content);
+    } catch {
+      return String(content);
+    }
+  }
 
-   return String(content);
- }
+  return String(content);
+}
 
 export function UserMessage({ message }: UserMessageProps) {
   const content = normalizeMarkdownContent(message?.content);
@@ -53,7 +54,11 @@ export function UserMessage({ message }: UserMessageProps) {
   );
 }
 
-export function AssistantMessage({ message, subComponent, isLoading }: AssistantMessageProps) {
+export function AssistantMessage({
+  message,
+  subComponent,
+  isLoading,
+}: AssistantMessageProps) {
   const content = normalizeMarkdownContent(message?.content);
 
   return (
@@ -61,7 +66,11 @@ export function AssistantMessage({ message, subComponent, isLoading }: Assistant
       {/* Avatar */}
       <div className="shrink-0 w-10 h-10 rounded-xl overflow-hidden border-2 border-neutral-200 bg-white">
         <div className="w-full h-full flex items-center justify-center">
-          <svg className="w-6 h-6 text-pink-600" viewBox="0 0 24 24" fill="none">
+          <svg
+            className="w-6 h-6 text-pink-600"
+            viewBox="0 0 24 24"
+            fill="none"
+          >
             <path
               d="M12 4L14 6H18C19.1046 6 20 6.89543 20 8V17C20 18.1046 19.1046 19 18 19H6C4.89543 19 4 18.1046 4 17V8C4 6.89543 4.89543 6 6 6H10L12 4Z"
               stroke="currentColor"
@@ -76,8 +85,18 @@ export function AssistantMessage({ message, subComponent, isLoading }: Assistant
               strokeLinecap="round"
               strokeLinejoin="round"
             />
-            <path d="M9 11H9.01" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-            <path d="M15 11H15.01" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+            <path
+              d="M9 11H9.01"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+            />
+            <path
+              d="M15 11H15.01"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+            />
           </svg>
         </div>
       </div>

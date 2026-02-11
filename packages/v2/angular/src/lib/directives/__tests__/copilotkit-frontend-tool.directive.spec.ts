@@ -44,7 +44,7 @@ describe("tool registration helpers", () => {
 
     const fixture = TestBed.createComponent(HostComponent);
     expect(copilotKitStub.addRenderToolCall).toHaveBeenCalledWith(
-      expect.objectContaining({ name: "tool" })
+      expect.objectContaining({ name: "tool" }),
     );
 
     fixture.destroy();
@@ -69,7 +69,7 @@ describe("tool registration helpers", () => {
 
     const fixture = TestBed.createComponent(HostComponent);
     expect(copilotKitStub.addFrontendTool).toHaveBeenCalledWith(
-      expect.objectContaining({ name: "client-tool" })
+      expect.objectContaining({ name: "client-tool" }),
     );
 
     const added = copilotKitStub.addFrontendTool.mock.calls.at(-1)![0];
@@ -99,7 +99,7 @@ describe("tool registration helpers", () => {
 
     const fixture = TestBed.createComponent(HostComponent);
     expect(copilotKitStub.addHumanInTheLoop).toHaveBeenCalledWith(
-      expect.objectContaining({ name: "approval" })
+      expect.objectContaining({ name: "approval" }),
     );
 
     fixture.destroy();

@@ -35,10 +35,17 @@ export function useMakeStandardAutosuggestionFunction(
 ): AutosuggestionsBareFunction {
   const runtimeClient = { generateCopilotResponse: (...args: any[]) => {} };
   const { getContextString, copilotApiConfig } = useCopilotContext();
-  const { chatApiEndpoint: url, publicApiKey, credentials, properties } = copilotApiConfig;
+  const {
+    chatApiEndpoint: url,
+    publicApiKey,
+    credentials,
+    properties,
+  } = copilotApiConfig;
   const headers = {
     ...copilotApiConfig.headers,
-    ...(publicApiKey ? { [COPILOT_CLOUD_PUBLIC_API_KEY_HEADER]: publicApiKey } : {}),
+    ...(publicApiKey
+      ? { [COPILOT_CLOUD_PUBLIC_API_KEY_HEADER]: publicApiKey }
+      : {}),
   };
   const { maxTokens, stop, temperature = 0 } = apiConfig;
 

@@ -1,7 +1,10 @@
 import type { Meta, StoryObj } from "@storybook/angular";
 import { moduleMetadata } from "@storybook/angular";
 import { CommonModule } from "@angular/common";
-import { CopilotChatUserMessage, provideCopilotChatLabels } from "@copilotkitnext/angular";
+import {
+  CopilotChatUserMessage,
+  provideCopilotChatLabels,
+} from "@copilotkitnext/angular";
 import { UserMessage } from "@ag-ui/client";
 
 // Simple default message
@@ -515,7 +518,8 @@ export const CustomComponents: Story = {
   args: {
     message: simpleMessage,
     editMessage: () => console.log("Edit clicked!"),
-    inputClass: "bg-gradient-to-r from-purple-100 to-pink-100 rounded-xl p-4 shadow-sm",
+    inputClass:
+      "bg-gradient-to-r from-purple-100 to-pink-100 rounded-xl p-4 shadow-sm",
   },
   render: () => ({
     props: {
@@ -551,13 +555,15 @@ export const WithBranchNavigation: Story = {
   args: {
     message: {
       id: "branch-message",
-      content: "This message has multiple branches. You can navigate between them using the branch controls.",
+      content:
+        "This message has multiple branches. You can navigate between them using the branch controls.",
       role: "user",
     },
     editMessage: () => console.log("Edit clicked!"),
     branchIndex: 2,
     numberOfBranches: 3,
-    switchToBranch: ({ branchIndex }) => console.log(`Switching to branch ${branchIndex + 1}`),
+    switchToBranch: ({ branchIndex }) =>
+      console.log(`Switching to branch ${branchIndex + 1}`),
   },
 };
 
@@ -565,12 +571,14 @@ export const WithManyBranches: Story = {
   args: {
     message: {
       id: "many-branches-message",
-      content: "This is branch 5 of 10. Use the navigation arrows to explore different variations of this message.",
+      content:
+        "This is branch 5 of 10. Use the navigation arrows to explore different variations of this message.",
       role: "user",
     },
     editMessage: () => console.log("Edit clicked!"),
     branchIndex: 4,
     numberOfBranches: 10,
-    switchToBranch: ({ branchIndex }) => alert(`Would switch to branch ${branchIndex + 1} of 10`),
+    switchToBranch: ({ branchIndex }) =>
+      alert(`Would switch to branch ${branchIndex + 1} of 10`),
   },
 };

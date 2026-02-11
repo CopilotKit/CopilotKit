@@ -27,7 +27,7 @@ describe("CopilotModalHeader Slot System E2E Tests", () => {
               title="Test Title"
               titleContent="text-2xl font-bold text-blue-600"
             />
-          </TestWrapper>
+          </TestWrapper>,
         );
 
         const title = container.querySelector(".text-2xl");
@@ -43,7 +43,7 @@ describe("CopilotModalHeader Slot System E2E Tests", () => {
               title="Test Title"
               titleContent="custom-title-class"
             />
-          </TestWrapper>
+          </TestWrapper>,
         );
 
         const title = container.querySelector(".custom-title-class");
@@ -61,7 +61,7 @@ describe("CopilotModalHeader Slot System E2E Tests", () => {
               title="Test Title"
               closeButton="bg-red-100 hover:bg-red-200 text-red-600"
             />
-          </TestWrapper>
+          </TestWrapper>,
         );
 
         const closeBtn = container.querySelector(".bg-red-100");
@@ -72,11 +72,8 @@ describe("CopilotModalHeader Slot System E2E Tests", () => {
       it("should override default rounded-full with custom border radius", () => {
         const { container } = render(
           <TestWrapper>
-            <CopilotModalHeader
-              title="Test Title"
-              closeButton="rounded-lg"
-            />
-          </TestWrapper>
+            <CopilotModalHeader title="Test Title" closeButton="rounded-lg" />
+          </TestWrapper>,
         );
 
         const closeBtn = container.querySelector(".rounded-lg");
@@ -97,7 +94,7 @@ describe("CopilotModalHeader Slot System E2E Tests", () => {
               title="Test Title"
               titleContent={{ "data-testid": "custom-title" }}
             />
-          </TestWrapper>
+          </TestWrapper>,
         );
 
         const title = screen.queryByTestId("custom-title");
@@ -113,7 +110,7 @@ describe("CopilotModalHeader Slot System E2E Tests", () => {
               title="Click Me"
               titleContent={{ onClick, "data-testid": "clickable-title" }}
             />
-          </TestWrapper>
+          </TestWrapper>,
         );
 
         const title = screen.queryByTestId("clickable-title");
@@ -133,7 +130,7 @@ describe("CopilotModalHeader Slot System E2E Tests", () => {
               title="Test Title"
               closeButton={{ onClick: customOnClick }}
             />
-          </TestWrapper>
+          </TestWrapper>,
         );
 
         const closeBtn = container.querySelector('button[aria-label="Close"]');
@@ -150,7 +147,7 @@ describe("CopilotModalHeader Slot System E2E Tests", () => {
               title="Test Title"
               closeButton={{ disabled: true }}
             />
-          </TestWrapper>
+          </TestWrapper>,
         );
 
         const closeBtn = container.querySelector('button[aria-label="Close"]');
@@ -166,10 +163,12 @@ describe("CopilotModalHeader Slot System E2E Tests", () => {
               title="Test Title"
               closeButton={{ "aria-label": "Dismiss dialog" }}
             />
-          </TestWrapper>
+          </TestWrapper>,
         );
 
-        const closeBtn = container.querySelector('button[aria-label="Dismiss dialog"]');
+        const closeBtn = container.querySelector(
+          'button[aria-label="Dismiss dialog"]',
+        );
         expect(closeBtn).toBeDefined();
       });
     });
@@ -192,7 +191,7 @@ describe("CopilotModalHeader Slot System E2E Tests", () => {
             title="Custom Header"
             titleContent={CustomTitle as any}
           />
-        </TestWrapper>
+        </TestWrapper>,
       );
 
       const custom = screen.queryByTestId("custom-title-component");
@@ -202,7 +201,9 @@ describe("CopilotModalHeader Slot System E2E Tests", () => {
     });
 
     it("should allow custom component for closeButton", () => {
-      const CustomCloseButton: React.FC<React.ButtonHTMLAttributes<HTMLButtonElement>> = (props) => (
+      const CustomCloseButton: React.FC<
+        React.ButtonHTMLAttributes<HTMLButtonElement>
+      > = (props) => (
         <button data-testid="custom-close-btn" {...props}>
           X Close
         </button>
@@ -214,7 +215,7 @@ describe("CopilotModalHeader Slot System E2E Tests", () => {
             title="Test Title"
             closeButton={CustomCloseButton as any}
           />
-        </TestWrapper>
+        </TestWrapper>,
       );
 
       const custom = screen.queryByTestId("custom-close-btn");
@@ -224,10 +225,9 @@ describe("CopilotModalHeader Slot System E2E Tests", () => {
 
     it("should call onClick when custom closeButton is clicked", () => {
       const handleClose = vi.fn();
-      const CustomCloseButton: React.FC<React.ButtonHTMLAttributes<HTMLButtonElement>> = ({
-        onClick,
-        ...props
-      }) => (
+      const CustomCloseButton: React.FC<
+        React.ButtonHTMLAttributes<HTMLButtonElement>
+      > = ({ onClick, ...props }) => (
         <button
           data-testid="custom-close-btn"
           onClick={(e) => {
@@ -246,7 +246,7 @@ describe("CopilotModalHeader Slot System E2E Tests", () => {
             title="Test Title"
             closeButton={CustomCloseButton as any}
           />
-        </TestWrapper>
+        </TestWrapper>,
       );
 
       const closeBtn = screen.queryByTestId("custom-close-btn");
@@ -274,7 +274,7 @@ describe("CopilotModalHeader Slot System E2E Tests", () => {
           <CopilotModalHeader title="Test Title">
             {childrenFn}
           </CopilotModalHeader>
-        </TestWrapper>
+        </TestWrapper>,
       );
 
       expect(childrenFn).toHaveBeenCalled();
@@ -294,7 +294,7 @@ describe("CopilotModalHeader Slot System E2E Tests", () => {
           <CopilotModalHeader title="My Custom Title">
             {childrenFn}
           </CopilotModalHeader>
-        </TestWrapper>
+        </TestWrapper>,
       );
 
       const callArgs = childrenFn.mock.calls[0][0];
@@ -306,7 +306,10 @@ describe("CopilotModalHeader Slot System E2E Tests", () => {
         <TestWrapper>
           <CopilotModalHeader title="Custom Layout">
             {({ titleContent, closeButton, title }) => (
-              <header data-testid="custom-header-layout" className="custom-header">
+              <header
+                data-testid="custom-header-layout"
+                className="custom-header"
+              >
                 <div className="left-side">{closeButton}</div>
                 <div className="center">{titleContent}</div>
                 <div className="right-side">
@@ -315,7 +318,7 @@ describe("CopilotModalHeader Slot System E2E Tests", () => {
               </header>
             )}
           </CopilotModalHeader>
-        </TestWrapper>
+        </TestWrapper>,
       );
 
       const customLayout = screen.queryByTestId("custom-header-layout");
@@ -338,7 +341,7 @@ describe("CopilotModalHeader Slot System E2E Tests", () => {
               </nav>
             )}
           </CopilotModalHeader>
-        </TestWrapper>
+        </TestWrapper>,
       );
 
       const customNav = screen.queryByTestId("custom-nav");
@@ -360,7 +363,7 @@ describe("CopilotModalHeader Slot System E2E Tests", () => {
             title="Test Title"
             className="custom-header-class bg-slate-100"
           />
-        </TestWrapper>
+        </TestWrapper>,
       );
 
       const header = container.querySelector(".custom-header-class");
@@ -372,11 +375,8 @@ describe("CopilotModalHeader Slot System E2E Tests", () => {
     it("should override default border and padding", () => {
       const { container } = render(
         <TestWrapper>
-          <CopilotModalHeader
-            title="Test Title"
-            className="border-0 p-2"
-          />
-        </TestWrapper>
+          <CopilotModalHeader title="Test Title" className="border-0 p-2" />
+        </TestWrapper>,
       );
 
       const header = container.querySelector(".border-0");
@@ -393,7 +393,7 @@ describe("CopilotModalHeader Slot System E2E Tests", () => {
             titleContent="title-custom"
             closeButton="close-custom"
           />
-        </TestWrapper>
+        </TestWrapper>,
       );
 
       expect(container.querySelector(".header-custom")).toBeDefined();
@@ -415,7 +415,7 @@ describe("CopilotModalHeader Slot System E2E Tests", () => {
             titleContent="title-style"
             closeButton="close-style"
           />
-        </TestWrapper>
+        </TestWrapper>,
       );
 
       expect(container.querySelector(".header-style")).toBeDefined();
@@ -432,7 +432,7 @@ describe("CopilotModalHeader Slot System E2E Tests", () => {
             titleContent="text-xl"
             closeButton={{ onClick, className: "bg-gray-200" }}
           />
-        </TestWrapper>
+        </TestWrapper>,
       );
 
       expect(container.querySelector(".text-xl")).toBeDefined();
@@ -448,11 +448,13 @@ describe("CopilotModalHeader Slot System E2E Tests", () => {
       render(
         <TestWrapper>
           <CopilotModalHeader />
-        </TestWrapper>
+        </TestWrapper>,
       );
 
       // Should render with default "CopilotKit" title from CopilotChatDefaultLabels
-      const header = document.querySelector('[data-slot="copilot-modal-header"]');
+      const header = document.querySelector(
+        '[data-slot="copilot-modal-header"]',
+      );
       expect(header).toBeDefined();
     });
 
@@ -460,7 +462,7 @@ describe("CopilotModalHeader Slot System E2E Tests", () => {
       render(
         <TestWrapper>
           <CopilotModalHeader title="My Chat Header" />
-        </TestWrapper>
+        </TestWrapper>,
       );
 
       expect(screen.getByText("My Chat Header")).toBeDefined();
@@ -470,7 +472,7 @@ describe("CopilotModalHeader Slot System E2E Tests", () => {
       const { container } = render(
         <TestWrapper>
           <CopilotModalHeader title="Test" />
-        </TestWrapper>
+        </TestWrapper>,
       );
 
       const closeBtn = container.querySelector('button[aria-label="Close"]');

@@ -32,7 +32,10 @@ export interface ExistenceCondition extends BaseCondition {
   rule: ExistenceRule;
 }
 
-export type Condition = ComparisonCondition | LogicalCondition | ExistenceCondition;
+export type Condition =
+  | ComparisonCondition
+  | LogicalCondition
+  | ExistenceCondition;
 
 export function executeConditions({
   conditions,
@@ -49,16 +52,24 @@ export function executeConditions({
 }
 
 function executeCondition(condition: Condition, value: any): boolean {
-  const targetValue = condition.path ? getValueFromPath(value, condition.path) : value;
+  const targetValue = condition.path
+    ? getValueFromPath(value, condition.path)
+    : value;
 
   switch (condition.rule) {
     // Logical
     case "AND":
-      return (condition as LogicalCondition).conditions.every((c) => executeCondition(c, value));
+      return (condition as LogicalCondition).conditions.every((c) =>
+        executeCondition(c, value),
+      );
     case "OR":
-      return (condition as LogicalCondition).conditions.some((c) => executeCondition(c, value));
+      return (condition as LogicalCondition).conditions.some((c) =>
+        executeCondition(c, value),
+      );
     case "NOT":
-      return !(condition as LogicalCondition).conditions.every((c) => executeCondition(c, value));
+      return !(condition as LogicalCondition).conditions.every((c) =>
+        executeCondition(c, value),
+      );
 
     // Comparison
     case "EQUALS":
@@ -71,7 +82,8 @@ function executeCondition(condition: Condition, value: any): boolean {
       return targetValue < (condition as ComparisonCondition).value;
     case "CONTAINS":
       return (
-        Array.isArray(targetValue) && targetValue.includes((condition as ComparisonCondition).value)
+        Array.isArray(targetValue) &&
+        targetValue.includes((condition as ComparisonCondition).value)
       );
     case "NOT_CONTAINS":
       return (
@@ -79,11 +91,17 @@ function executeCondition(condition: Condition, value: any): boolean {
         !targetValue.includes((condition as ComparisonCondition).value)
       );
     case "MATCHES":
-      return new RegExp((condition as ComparisonCondition).value).test(String(targetValue));
+      return new RegExp((condition as ComparisonCondition).value).test(
+        String(targetValue),
+      );
     case "STARTS_WITH":
-      return String(targetValue).startsWith((condition as ComparisonCondition).value);
+      return String(targetValue).startsWith(
+        (condition as ComparisonCondition).value,
+      );
     case "ENDS_WITH":
-      return String(targetValue).endsWith((condition as ComparisonCondition).value);
+      return String(targetValue).endsWith(
+        (condition as ComparisonCondition).value,
+      );
 
     // Existence
     case "EXISTS":

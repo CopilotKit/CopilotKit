@@ -1,9 +1,13 @@
 import { createCopilotEndpointSingleRoute } from "@copilotkitnext/runtime";
 import { CreateCopilotRuntimeServerOptions, getCommonConfig } from "../shared";
-import telemetry, { getRuntimeInstanceTelemetryInfo } from "../../telemetry-client";
+import telemetry, {
+  getRuntimeInstanceTelemetryInfo,
+} from "../../telemetry-client";
 import { handle } from "hono/vercel";
 
-export function copilotRuntimeNextJSAppRouterEndpoint(options: CreateCopilotRuntimeServerOptions) {
+export function copilotRuntimeNextJSAppRouterEndpoint(
+  options: CreateCopilotRuntimeServerOptions,
+) {
   const commonConfig = getCommonConfig(options);
 
   telemetry.setGlobalProperties({
@@ -18,7 +22,10 @@ export function copilotRuntimeNextJSAppRouterEndpoint(options: CreateCopilotRunt
     });
   }
 
-  telemetry.capture("oss.runtime.instance_created", getRuntimeInstanceTelemetryInfo(options));
+  telemetry.capture(
+    "oss.runtime.instance_created",
+    getRuntimeInstanceTelemetryInfo(options),
+  );
 
   const logger = commonConfig.logging;
   logger.debug("Creating NextJS App Router endpoint");

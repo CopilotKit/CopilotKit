@@ -19,7 +19,10 @@ export interface CopilotEndpointCorsConfig {
   /**
    * Allowed origin(s). Can be a string, array of strings, or a function that returns the origin.
    */
-  origin: string | string[] | ((origin: string, c: any) => string | undefined | null);
+  origin:
+    | string
+    | string[]
+    | ((origin: string, c: any) => string | undefined | null);
   /**
    * Whether to include credentials (cookies, authorization headers) in CORS requests.
    * When true, origin cannot be "*" - must be an explicit origin.
@@ -105,9 +108,17 @@ export type CommonConfig = {
   };
 };
 
-export function getCommonConfig(options: CreateCopilotRuntimeServerOptions): CommonConfig {
-  const logLevel = (process.env.LOG_LEVEL as LogLevel) || (options.logLevel as LogLevel) || "error";
-  const logger = createLogger({ level: logLevel, component: "getCommonConfig" });
+export function getCommonConfig(
+  options: CreateCopilotRuntimeServerOptions,
+): CommonConfig {
+  const logLevel =
+    (process.env.LOG_LEVEL as LogLevel) ||
+    (options.logLevel as LogLevel) ||
+    "error";
+  const logger = createLogger({
+    level: logLevel,
+    component: "getCommonConfig",
+  });
 
   const contextLogger = createLogger({ level: logLevel });
 

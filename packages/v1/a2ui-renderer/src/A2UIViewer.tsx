@@ -79,7 +79,10 @@ export function A2UIViewer({
   }, [baseId, root, components]);
 
   // Create signal-based processor for reactive updates - new one when surfaceId changes
-  const processor = useMemo(() => v0_8.Data.createSignalA2uiMessageProcessor(), [surfaceId]);
+  const processor = useMemo(
+    () => v0_8.Data.createSignalA2uiMessageProcessor(),
+    [surfaceId],
+  );
 
   // Build and process messages, returning the surface
   const surface = useMemo(() => {
@@ -133,7 +136,10 @@ export function A2UIViewer({
           // Handle path-based values
           const path = valueDescriptor.path;
           if (path && processorInstance && typeof path === "string") {
-            const resolvedPath = processorInstance.resolvePath(path, event.detail.dataContextPath);
+            const resolvedPath = processorInstance.resolvePath(
+              path,
+              event.detail.dataContextPath,
+            );
             const value = processorInstance.getData(
               event.detail.sourceComponent,
               resolvedPath,
@@ -177,7 +183,10 @@ export function A2UIViewer({
   // Show placeholder if no content
   if (!surface?.componentTree) {
     return (
-      <div className={className} style={{ padding: 16, color: "#666", fontFamily: "system-ui" }}>
+      <div
+        className={className}
+        style={{ padding: 16, color: "#666", fontFamily: "system-ui" }}
+      >
         No content to display
       </div>
     );
@@ -194,7 +203,9 @@ export function A2UIViewer({
  * Converts a nested JavaScript object to the ValueMap[] format
  * expected by A2UI's dataModelUpdate message.
  */
-function objectToValueMaps(obj: Record<string, unknown>): v0_8.Types.ValueMap[] {
+function objectToValueMaps(
+  obj: Record<string, unknown>,
+): v0_8.Types.ValueMap[] {
   return Object.entries(obj).map(([key, value]) => valueToValueMap(key, value));
 }
 
@@ -216,7 +227,9 @@ function valueToValueMap(key: string, value: unknown): v0_8.Types.ValueMap {
   }
   if (Array.isArray(value)) {
     // Convert array items with index as key
-    const valueMap = value.map((item, index) => valueToValueMap(String(index), item));
+    const valueMap = value.map((item, index) =>
+      valueToValueMap(String(index), item),
+    );
     return { key, valueMap };
   }
   if (typeof value === "object") {

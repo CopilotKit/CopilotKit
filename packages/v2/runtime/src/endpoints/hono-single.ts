@@ -8,7 +8,10 @@ import { handleStopAgent } from "../handlers/handle-stop";
 import { handleGetRuntimeInfo } from "../handlers/get-runtime-info";
 import { handleTranscribe } from "../handlers/handle-transcribe";
 import { logger } from "@copilotkitnext/shared";
-import { callBeforeRequestMiddleware, callAfterRequestMiddleware } from "../middleware";
+import {
+  callBeforeRequestMiddleware,
+  callAfterRequestMiddleware,
+} from "../middleware";
 import {
   createJsonRequest,
   expectString,
@@ -37,7 +40,11 @@ type CopilotEndpointContext = {
   };
 };
 
-export function createCopilotEndpointSingleRoute({ runtime, basePath, cors: corsConfig }: CopilotSingleEndpointParams) {
+export function createCopilotEndpointSingleRoute({
+  runtime,
+  basePath,
+  cors: corsConfig,
+}: CopilotSingleEndpointParams) {
   const app = new Hono<CopilotEndpointContext>();
   const routePath = normalizePath(basePath);
 
@@ -47,7 +54,15 @@ export function createCopilotEndpointSingleRoute({ runtime, basePath, cors: cors
       "*",
       cors({
         origin: corsConfig?.origin ?? "*",
-        allowMethods: ["GET", "HEAD", "PUT", "POST", "DELETE", "PATCH", "OPTIONS"],
+        allowMethods: [
+          "GET",
+          "HEAD",
+          "PUT",
+          "POST",
+          "DELETE",
+          "PATCH",
+          "OPTIONS",
+        ],
         allowHeaders: ["*"],
         credentials: corsConfig?.credentials ?? false,
       }),
@@ -66,7 +81,10 @@ export function createCopilotEndpointSingleRoute({ runtime, basePath, cors: cors
           c.set("modifiedRequest", maybeModifiedRequest);
         }
       } catch (error) {
-        logger.error({ err: error, url: request.url, path }, "Error running before request middleware");
+        logger.error(
+          { err: error, url: request.url, path },
+          "Error running before request middleware",
+        );
         if (error instanceof Response) {
           return error;
         }
@@ -86,7 +104,10 @@ export function createCopilotEndpointSingleRoute({ runtime, basePath, cors: cors
         response,
         path,
       }).catch((error) => {
-        logger.error({ err: error, url: c.req.url, path }, "Error running after request middleware");
+        logger.error(
+          { err: error, url: c.req.url, path },
+          "Error running after request middleware",
+        );
       });
     })
     .post("/", async (c) => {
@@ -100,11 +121,17 @@ export function createCopilotEndpointSingleRoute({ runtime, basePath, cors: cors
           logger.warn({ url: request.url }, "Invalid single-route payload");
           return error;
         }
-        logger.warn({ err: error, url: request.url }, "Invalid single-route payload");
+        logger.warn(
+          { err: error, url: request.url },
+          "Invalid single-route payload",
+        );
         return c.json(
           {
             error: "invalid_request",
-            message: error instanceof Error ? error.message : "Invalid request payload",
+            message:
+              error instanceof Error
+                ? error.message
+                : "Invalid request payload",
           },
           400,
         );
@@ -115,17 +142,30 @@ export function createCopilotEndpointSingleRoute({ runtime, basePath, cors: cors
           case "agent/run": {
             const agentId = expectString(methodCall.params, "agentId");
             const handlerRequest = createJsonRequest(request, methodCall.body);
-            return await handleRunAgent({ runtime, request: handlerRequest, agentId });
+            return await handleRunAgent({
+              runtime,
+              request: handlerRequest,
+              agentId,
+            });
           }
           case "agent/connect": {
             const agentId = expectString(methodCall.params, "agentId");
             const handlerRequest = createJsonRequest(request, methodCall.body);
-            return await handleConnectAgent({ runtime, request: handlerRequest, agentId });
+            return await handleConnectAgent({
+              runtime,
+              request: handlerRequest,
+              agentId,
+            });
           }
           case "agent/stop": {
             const agentId = expectString(methodCall.params, "agentId");
             const threadId = expectString(methodCall.params, "threadId");
-            return await handleStopAgent({ runtime, request, agentId, threadId });
+            return await handleStopAgent({
+              runtime,
+              request,
+              agentId,
+              threadId,
+            });
           }
           case "info": {
             return await handleGetRuntimeInfo({ runtime, request });
@@ -143,7 +183,10 @@ export function createCopilotEndpointSingleRoute({ runtime, basePath, cors: cors
         if (error instanceof Response) {
           return error;
         }
-        logger.error({ err: error, url: request.url, method: methodCall.method }, "Error running single-route handler");
+        logger.error(
+          { err: error, url: request.url, method: methodCall.method },
+          "Error running single-route handler",
+        );
         throw error;
       }
     })

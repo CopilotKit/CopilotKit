@@ -10,7 +10,8 @@ Develop a tool where students can enter study topics and get AI-generated study 
 - Shadcn-UI Component Styling
 - CopilotKit
 
-### GitHub Repo Link: 
+### GitHub Repo Link:
+
 https://github.com/kom-senapati/study-buddy
 
 - [Live Demo](https://study-buddy-xi.vercel.app/)
@@ -24,6 +25,5 @@ https://github.com/kom-senapati/study-buddy
 
 - [Github](https://github.com/kom-senapati)
 - [Twitter](https://x.com/kom_senapati)
-
 
 - [Tweet Link](https://x.com/kom_senapati/status/1846416046015893934)

@@ -9,7 +9,12 @@ interface SuggestionsProps {
   onClick: () => void;
 }
 
-export function Suggestion({ title, onClick, partial, className }: SuggestionsProps) {
+export function Suggestion({
+  title,
+  onClick,
+  partial,
+  className,
+}: SuggestionsProps) {
   const { isLoading } = useCopilotChatInternal();
   if (!title) return null;
 

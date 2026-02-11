@@ -40,8 +40,14 @@ export default function Home() {
   });
 
   return (
-    <CopilotKitProvider runtimeUrl="/api/copilotkit" toolCallRenderers={[wildcardRenderer]} showDevConsole="auto">
-      <div style={{ height: "100vh", margin: 0, padding: 0, overflow: "hidden" }}>
+    <CopilotKitProvider
+      runtimeUrl="/api/copilotkit"
+      toolCallRenderers={[wildcardRenderer]}
+      showDevConsole="auto"
+    >
+      <div
+        style={{ height: "100vh", margin: 0, padding: 0, overflow: "hidden" }}
+      >
         <Chat />
       </div>
     </CopilotKitProvider>
@@ -49,7 +55,9 @@ export default function Home() {
 }
 
 function Chat() {
-  const [selectedThreadId, setSelectedThreadId] = useState<"thread---a" | "thread---b" | "thread---c">("thread---a");
+  const [selectedThreadId, setSelectedThreadId] = useState<
+    "thread---a" | "thread---b" | "thread---c"
+  >("thread---a");
   const threadOptions: Array<{ id: typeof selectedThreadId; label: string }> = [
     { id: "thread---a", label: "Thread A" },
     { id: "thread---b", label: "Thread B" },
@@ -61,7 +69,10 @@ function Chat() {
     available: "always",
   });
 
-  useAgentContext({ description: "The current Thread ID is:", value: selectedThreadId });
+  useAgentContext({
+    description: "The current Thread ID is:",
+    value: selectedThreadId,
+  });
 
   //useConfigureSuggestions({
   //  instructions: "Suggest helpful next actions",
@@ -95,12 +106,15 @@ function Chat() {
       {
         label: "Say hi to CopilotKit",
         action: () => {
-          const textarea = document.querySelector<HTMLTextAreaElement>("textarea[placeholder='Type a message...']");
+          const textarea = document.querySelector<HTMLTextAreaElement>(
+            "textarea[placeholder='Type a message...']",
+          );
           if (!textarea) {
             return;
           }
 
-          const greeting = "Hello Copilot! 👋 Could you help me with something?";
+          const greeting =
+            "Hello Copilot! 👋 Could you help me with something?";
 
           const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
             window.HTMLTextAreaElement.prototype,
@@ -115,7 +129,11 @@ function Chat() {
       {
         label: "Open CopilotKit Docs",
         action: () => {
-          window.open("https://docs.copilotkit.ai", "_blank", "noopener,noreferrer");
+          window.open(
+            "https://docs.copilotkit.ai",
+            "_blank",
+            "noopener,noreferrer",
+          );
         },
       },
     ],
@@ -123,7 +141,15 @@ function Chat() {
   );
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", padding: "16px", gap: "16px" }}>
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        height: "100%",
+        padding: "16px",
+        gap: "16px",
+      }}
+    >
       <div style={{ display: "flex", gap: "10px", justifyContent: "center" }}>
         {threadOptions.map(({ id, label }) => {
           const isActive = id === selectedThreadId;

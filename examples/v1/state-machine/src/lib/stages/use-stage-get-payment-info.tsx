@@ -1,7 +1,10 @@
 import { PaymentCards } from "@/components/generative-ui/payment-cards";
 import { CardInfo } from "@/lib/types";
 import { useGlobalState } from "@/lib/stages";
-import { useCopilotAction, useCopilotAdditionalInstructions } from "@copilotkit/react-core";
+import {
+  useCopilotAction,
+  useCopilotAdditionalInstructions,
+} from "@copilotkit/react-core";
 
 export interface UseGetPaymentInfoStateOptions {
   enabled: boolean;

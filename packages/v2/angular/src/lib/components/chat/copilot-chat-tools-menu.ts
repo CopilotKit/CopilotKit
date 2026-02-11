@@ -167,7 +167,7 @@ export class CopilotChatToolsMenu {
       "disabled:hover:bg-transparent disabled:hover:text-[#444444]",
       "dark:disabled:hover:bg-transparent dark:disabled:hover:text-[#CCCCCC]",
       // Size
-      "h-9 px-3 gap-2 font-normal"
+      "h-9 px-3 gap-2 font-normal",
     );
     return cn(baseClasses, this.customClass());
   });

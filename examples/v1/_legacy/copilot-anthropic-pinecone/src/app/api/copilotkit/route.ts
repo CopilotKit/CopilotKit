@@ -51,7 +51,7 @@ const initializePinecone = async () => {
     } catch (error) {
       if (i === maxRetries - 1) throw error;
       console.warn(
-        `Retrying Pinecone initialization... (${i + 1}/${maxRetries})`
+        `Retrying Pinecone initialization... (${i + 1}/${maxRetries})`,
       );
       await new Promise((resolve) => setTimeout(resolve, retryDelay));
     }
@@ -66,7 +66,7 @@ const initializePinecone = async () => {
       const embeddings = await pinecone.inference.embed(
         model,
         posts.map((d) => d.content),
-        { inputType: "passage", truncate: "END" }
+        { inputType: "passage", truncate: "END" },
       );
 
       const records = posts.map((d, i) => ({
@@ -78,7 +78,7 @@ const initializePinecone = async () => {
         records.map((record) => ({
           ...record,
           values: record.values || [],
-        }))
+        })),
       );
     }
   } catch (error) {
@@ -104,13 +104,13 @@ const runtime = new CopilotRuntime({
       ],
       handler: async ({ query }: { query: string }) => {
         console.log(
-          `[Pinecone] Executing FetchKnowledgebaseArticles with query: "${query}"`
+          `[Pinecone] Executing FetchKnowledgebaseArticles with query: "${query}"`,
         );
         try {
           const queryEmbedding = await pinecone.inference.embed(
             model,
             [query],
-            { inputType: "query" }
+            { inputType: "query" },
           );
           console.log(`[Pinecone] Successfully generated embedding for query`);
 
@@ -127,7 +127,7 @@ const runtime = new CopilotRuntime({
           console.log(
             `[Pinecone] Query response: Found ${
               queryResponse?.matches?.length || 0
-            } matches`
+            } matches`,
           );
 
           // Format the results in a more structured way for the AI
@@ -142,11 +142,11 @@ const runtime = new CopilotRuntime({
 
           if (queryResponse?.matches?.length > 0) {
             console.log(
-              `[Pinecone] First match score: ${queryResponse.matches[0].score}`
+              `[Pinecone] First match score: ${queryResponse.matches[0].score}`,
             );
             console.log(
               `[Pinecone] First match metadata:`,
-              queryResponse.matches[0].metadata
+              queryResponse.matches[0].metadata,
             );
           }
 
@@ -161,7 +161,7 @@ const runtime = new CopilotRuntime({
                   formattedResults
                     .map(
                       (result, i) =>
-                        `${i + 1}. ${String(result.content).trim()}`
+                        `${i + 1}. ${String(result.content).trim()}`,
                     )
                     .join("\n\n")
                 : "No relevant articles found about CopilotKit features. The knowledge base may not contain comprehensive documentation.",

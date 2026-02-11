@@ -2,9 +2,17 @@
 
 import { CopilotChat } from "@copilotkit/react-ui";
 import "./styles.css";
-import { CopilotKit, useCopilotAction, useCopilotChat } from "@copilotkit/react-core";
+import {
+  CopilotKit,
+  useCopilotAction,
+  useCopilotChat,
+} from "@copilotkit/react-core";
 import { useSearchParams } from "next/navigation";
-import { MessageRole, TextMessage, Message } from "@copilotkit/runtime-client-gql";
+import {
+  MessageRole,
+  TextMessage,
+  Message,
+} from "@copilotkit/runtime-client-gql";
 import { randomId } from "@copilotkit/shared";
 
 const testMessages = [
@@ -33,7 +41,8 @@ export default function PanelPage() {
   const searchParams = useSearchParams();
   const serviceAdapter = searchParams.get("serviceAdapter") || "openai";
   const runtimeUrl =
-    searchParams.get("runtimeUrl") || `/api/copilotkit?serviceAdapter=${serviceAdapter}`;
+    searchParams.get("runtimeUrl") ||
+    `/api/copilotkit?serviceAdapter=${serviceAdapter}`;
   const publicApiKey = searchParams.get("publicApiKey");
   const copilotKitProps: Partial<React.ComponentProps<typeof CopilotKit>> = {
     runtimeUrl,

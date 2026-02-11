@@ -6,14 +6,17 @@ interface UpdateSlideParams {
   partialUpdateSlide: (partialSlide: Partial<SlideModel>) => void;
 }
 
-export default function useUpdateSlide({ partialUpdateSlide }: UpdateSlideParams) {
+export default function useUpdateSlide({
+  partialUpdateSlide,
+}: UpdateSlideParams) {
   useFrontendTool({
     name: "updateSlide",
     description: "Update the current slide.",
     parameters: [
       {
         name: "content",
-        description: "The content of the slide. Should generally consist of a few bullet points.",
+        description:
+          "The content of the slide. Should generally consist of a few bullet points.",
       },
       {
         name: "backgroundImageUrl",

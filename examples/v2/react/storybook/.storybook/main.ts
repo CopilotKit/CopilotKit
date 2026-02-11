@@ -6,10 +6,7 @@ const config: StorybookConfig = {
     options: {},
   },
   stories: ["../stories/**/*.stories.@(tsx|mdx)"],
-  addons: [
-    "@storybook/addon-docs",
-    "@storybook/addon-themes"
-  ],
+  addons: ["@storybook/addon-docs", "@storybook/addon-themes"],
   webpackFinal: async (cfg) => {
     // Suppress size warnings for development
     cfg.performance = {

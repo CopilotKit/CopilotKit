@@ -59,10 +59,10 @@ export class CopilotChatTextarea implements AfterViewInit {
 
   // Computed values
   computedValue = computed(
-    () => this.inputValue() ?? this.chatState.inputValue() ?? ""
+    () => this.inputValue() ?? this.chatState.inputValue() ?? "",
   );
   placeholder = computed(
-    () => this.inputPlaceholder() || this.chatLabels.chatInputPlaceholder
+    () => this.inputPlaceholder() || this.chatLabels.chatInputPlaceholder,
   );
   disabled = computed(() => this.inputDisabled() ?? false);
 
@@ -77,7 +77,7 @@ export class CopilotChatTextarea implements AfterViewInit {
       // Typography
       "antialiased font-regular leading-relaxed text-[16px]",
       // Placeholder styles
-      "placeholder:text-[#00000077] dark:placeholder:text-[#fffc]"
+      "placeholder:text-[#00000077] dark:placeholder:text-[#fffc]",
     );
     return cn(baseClasses, this.inputClass());
   });

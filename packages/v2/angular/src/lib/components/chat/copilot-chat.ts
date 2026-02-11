@@ -57,7 +57,7 @@ export class CopilotChat implements ChatState {
   readonly threadId = input<string | undefined>();
   readonly inputComponent = input<Type<any> | undefined>();
   private readonly resolvedAgentId = computed(
-    () => this.agentId() ?? DEFAULT_AGENT_ID
+    () => this.agentId() ?? DEFAULT_AGENT_ID,
   );
   readonly agentStore = injectAgentStore(this.resolvedAgentId);
   // readonly chatConfig = injectChatConfig();
@@ -89,7 +89,7 @@ export class CopilotChat implements ChatState {
           }
         }
       },
-      { allowSignalWrites: true }
+      { allowSignalWrites: true },
     );
 
     // Keep agent threadId in sync with input
@@ -119,7 +119,7 @@ export class CopilotChat implements ChatState {
             this.showCursor.set(false);
             this.cdr.detectChanges();
           },
-        }
+        },
       );
       this.showCursor.set(false);
       this.cdr.markForCheck();
@@ -162,7 +162,7 @@ export class CopilotChat implements ChatState {
             this.showCursor.set(false);
             this.cdr.detectChanges();
           },
-        }
+        },
       );
     } catch (error) {
       console.error("Agent run error:", error);

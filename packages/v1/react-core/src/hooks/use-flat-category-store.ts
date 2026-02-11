@@ -21,16 +21,19 @@ const useFlatCategoryStore = <T>(): UseFlatCategoryStoreReturn<T> => {
     new Map<FlatCategoryStoreId, FlatCategoryStoreElement<T>>(),
   );
 
-  const addElement = useCallback((value: T, categories: string[]): FlatCategoryStoreId => {
-    const newId = randomId();
-    dispatch({
-      type: "ADD_ELEMENT",
-      value,
-      id: newId,
-      categories,
-    });
-    return newId;
-  }, []);
+  const addElement = useCallback(
+    (value: T, categories: string[]): FlatCategoryStoreId => {
+      const newId = randomId();
+      dispatch({
+        type: "ADD_ELEMENT",
+        value,
+        id: newId,
+        categories,
+      });
+      return newId;
+    },
+    [],
+  );
 
   const removeElement = useCallback((id: FlatCategoryStoreId): void => {
     dispatch({ type: "REMOVE_ELEMENT", id });
@@ -93,7 +96,8 @@ function flatCategoryStoreReducer<T>(
 }
 
 function setsHaveIntersection<T>(setA: Set<T>, setB: Set<T>): boolean {
-  const [smallerSet, largerSet] = setA.size <= setB.size ? [setA, setB] : [setB, setA];
+  const [smallerSet, largerSet] =
+    setA.size <= setB.size ? [setA, setB] : [setB, setA];
 
   for (let item of smallerSet) {
     if (largerSet.has(item)) {

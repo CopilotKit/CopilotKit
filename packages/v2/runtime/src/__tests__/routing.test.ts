@@ -38,7 +38,7 @@ describe("CopilotEndpoint routing", () => {
   const testRoute = async (
     url: string,
     method: string = "GET",
-    body?: unknown
+    body?: unknown,
   ) => {
     const runtime = createMockRuntime();
     const endpoint = createCopilotEndpoint({ runtime, basePath: "/" });
@@ -59,7 +59,7 @@ describe("CopilotEndpoint routing", () => {
         "POST",
         {
           agentId: "myAgent",
-        }
+        },
       );
 
       // Should not be 404
@@ -72,7 +72,7 @@ describe("CopilotEndpoint routing", () => {
         "POST",
         {
           agentId: "agent123",
-        }
+        },
       );
 
       expect(response.status).not.toBe(404);
@@ -84,7 +84,7 @@ describe("CopilotEndpoint routing", () => {
         "POST",
         {
           agentId: "my-agent",
-        }
+        },
       );
 
       expect(response.status).not.toBe(404);
@@ -96,7 +96,7 @@ describe("CopilotEndpoint routing", () => {
         "POST",
         {
           agentId: "my_agent",
-        }
+        },
       );
 
       expect(response.status).not.toBe(404);
@@ -105,7 +105,7 @@ describe("CopilotEndpoint routing", () => {
     it("should not match agent run URL with empty agent name", async () => {
       const response = await testRoute(
         "https://example.com/agent//run",
-        "POST"
+        "POST",
       );
 
       expect(response.status).toBe(404);
@@ -116,7 +116,7 @@ describe("CopilotEndpoint routing", () => {
     it("should not match partial agent run URL", async () => {
       const response = await testRoute(
         "https://example.com/agent/myAgent",
-        "POST"
+        "POST",
       );
 
       expect(response.status).toBe(404);
@@ -125,7 +125,7 @@ describe("CopilotEndpoint routing", () => {
     it("should not match agent run URL with extra path segments", async () => {
       const response = await testRoute(
         "https://example.com/agent/myAgent/run/extra",
-        "POST"
+        "POST",
       );
 
       expect(response.status).toBe(404);
@@ -160,7 +160,7 @@ describe("CopilotEndpoint routing", () => {
       const response = await testRoute(
         "https://example.com/transcribe",
         "POST",
-        {}
+        {},
       );
 
       // It might return an error since we're not providing audio, but it shouldn't be 404
@@ -171,7 +171,7 @@ describe("CopilotEndpoint routing", () => {
       const response = await testRoute(
         "https://example.com/transcribe?format=json",
         "POST",
-        {}
+        {},
       );
 
       expect(response.status).not.toBe(404);
@@ -180,7 +180,7 @@ describe("CopilotEndpoint routing", () => {
     it("should not match transcribe URLs with extra path segments", async () => {
       const response = await testRoute(
         "https://example.com/transcribe/extra",
-        "POST"
+        "POST",
       );
 
       expect(response.status).toBe(404);
@@ -222,7 +222,7 @@ describe("CopilotEndpoint routing", () => {
         "POST",
         {
           agentId: "test",
-        }
+        },
       );
 
       expect(response.status).not.toBe(404);
@@ -238,7 +238,7 @@ describe("CopilotEndpoint routing", () => {
       const response = await testRoute(
         "https://api.example.com:8080/transcribe",
         "POST",
-        {}
+        {},
       );
 
       expect(response.status).not.toBe(404);
@@ -248,7 +248,7 @@ describe("CopilotEndpoint routing", () => {
       const response = await testRoute(
         "https://example.com/agent/test%20agent/run",
         "POST",
-        { agentId: "test%20agent" }
+        { agentId: "test%20agent" },
       );
 
       expect(response.status).not.toBe(404);

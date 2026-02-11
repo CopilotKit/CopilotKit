@@ -6,7 +6,6 @@ Plan your next trip with an AI-powered travel planner. This demo showcases a tra
 
 <div align="center">
 
-
   <a href="https://copilotkit.ai" target="_blank">
     <img src="https://img.shields.io/badge/Built%20with-CopilotKit-6963ff" alt="Built with CopilotKit"/>
   </a>
@@ -48,6 +47,7 @@ This application demonstrates the power of CopilotKit working with an Agent Fram
 ### Installation
 
 1. Clone the repository:
+
    ```bash
    git clone https://github.com/CopilotKit/CopilotKit.git
    cd CopilotKit/examples/v1/travel
@@ -62,13 +62,14 @@ This application demonstrates the power of CopilotKit working with an Agent Fram
    <details>
      <summary><b>Using other package managers</b></summary>
 
-     ```bash
-     # Using yarn
-     yarn install
+   ```bash
+   # Using yarn
+   yarn install
 
-     # Using npm
-     npm install
-     ```
+   # Using npm
+   npm install
+   ```
+
    </details>
 
 3. Install agent dependencies:
@@ -78,12 +79,14 @@ This application demonstrates the power of CopilotKit working with an Agent Fram
    ```
 
 4. Create a `.env` file in the project root:
+
    ```
    OPENAI_API_KEY=your_openai_api_key
    GOOGLE_MAPS_API_KEY=your_google_maps_api_key
    ```
 
    Alternatively, use [Copilot Cloud](https://cloud.copilotkit.ai) by setting:
+
    ```
    NEXT_PUBLIC_CPK_PUBLIC_API_KEY=your_copilotkit_api_key
    ```
@@ -97,13 +100,14 @@ This application demonstrates the power of CopilotKit working with an Agent Fram
    <details>
      <summary><b>Using other package managers</b></summary>
 
-     ```bash
-     # Using yarn
-     yarn dev
+   ```bash
+   # Using yarn
+   yarn dev
 
-     # Using npm
-     npm run dev
-     ```
+   # Using npm
+   npm run dev
+   ```
+
    </details>
 
 6. Open [http://localhost:3000](http://localhost:3000) in your browser to see the application.

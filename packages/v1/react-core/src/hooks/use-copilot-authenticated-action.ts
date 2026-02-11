@@ -45,7 +45,10 @@ export function useCopilotAuthenticatedAction_c<T extends Parameter[]>(
         return authConfig_c?.SignInComponent
           ? React.createElement(authConfig_c.SignInComponent, {
               onSignInComplete: (authState) => {
-                setAuthStates_c?.((prev) => ({ ...prev, [action.name]: authState }));
+                setAuthStates_c?.((prev) => ({
+                  ...prev,
+                  [action.name]: authState,
+                }));
                 if (pendingActionRef.current) {
                   executeAction(pendingActionRef.current);
                   pendingActionRef.current = null;

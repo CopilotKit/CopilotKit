@@ -144,7 +144,10 @@ export type MCPClientConfig = MCPClientConfigHTTP | MCPClientConfigSSE;
  * @param apiKey - Optional API key to use instead of environment variables
  * @returns LanguageModel instance
  */
-export function resolveModel(spec: ModelSpecifier, apiKey?: string): LanguageModel {
+export function resolveModel(
+  spec: ModelSpecifier,
+  apiKey?: string,
+): LanguageModel {
   // If already a LanguageModel instance, pass through
   if (typeof spec !== "string") {
     return spec;
@@ -205,14 +208,18 @@ export function resolveModel(spec: ModelSpecifier, apiKey?: string): LanguageMod
     }
 
     default:
-      throw new Error(`Unknown provider "${provider}" in "${spec}". Supported: openai, anthropic, google (gemini).`);
+      throw new Error(
+        `Unknown provider "${provider}" in "${spec}". Supported: openai, anthropic, google (gemini).`,
+      );
   }
 }
 
 /**
  * Tool definition for BuiltInAgent
  */
-export interface ToolDefinition<TParameters extends z.ZodTypeAny = z.ZodTypeAny> {
+export interface ToolDefinition<
+  TParameters extends z.ZodTypeAny = z.ZodTypeAny,
+> {
   name: string;
   description: string;
   parameters: TParameters;
@@ -243,7 +250,9 @@ export function defineTool<TParameters extends z.ZodTypeAny>(config: {
 
 type AGUIUserMessage = Extract<Message, { role: "user" }>;
 
-function flattenUserMessageContent(content?: AGUIUserMessage["content"]): string {
+function flattenUserMessageContent(
+  content?: AGUIUserMessage["content"],
+): string {
   if (!content) {
     return "";
   }
@@ -293,14 +302,19 @@ export function convertMessagesToVercelAISDKMessages(
         content: message.content ?? "",
       };
       result.push(systemMsg);
-    } else if (message.role === "developer" && options.forwardDeveloperMessages) {
+    } else if (
+      message.role === "developer" &&
+      options.forwardDeveloperMessages
+    ) {
       const systemMsg: SystemModelMessage = {
         role: "system",
         content: message.content ?? "",
       };
       result.push(systemMsg);
     } else if (message.role === "assistant") {
-      const parts: Array<TextPart | ToolCallPart> = message.content ? [{ type: "text", text: message.content }] : [];
+      const parts: Array<TextPart | ToolCallPart> = message.content
+        ? [{ type: "text", text: message.content }]
+        : [];
 
       for (const toolCall of message.toolCalls ?? []) {
         const toolCallPart: ToolCallPart = {
@@ -372,7 +386,10 @@ interface JsonSchema {
 /**
  * Converts JSON Schema to Zod schema
  */
-export function convertJsonSchemaToZodSchema(jsonSchema: JsonSchema, required: boolean): z.ZodSchema {
+export function convertJsonSchemaToZodSchema(
+  jsonSchema: JsonSchema,
+  required: boolean,
+): z.ZodSchema {
   // Handle empty schemas {} (no input required) - treat as empty object
   if (!jsonSchema.type) {
     return required ? z.object({}) : z.object({}).optional();
@@ -385,7 +402,10 @@ export function convertJsonSchemaToZodSchema(jsonSchema: JsonSchema, required: b
     }
 
     for (const [key, value] of Object.entries(jsonSchema.properties)) {
-      spec[key] = convertJsonSchemaToZodSchema(value, jsonSchema.required ? jsonSchema.required.includes(key) : false);
+      spec[key] = convertJsonSchemaToZodSchema(
+        value,
+        jsonSchema.required ? jsonSchema.required.includes(key) : false,
+      );
     }
     let schema = z.object(spec).describe(jsonSchema.description ?? "");
     return required ? schema : schema.optional();
@@ -420,11 +440,15 @@ function isJsonSchema(obj: unknown): obj is JsonSchema {
   if (Object.keys(schema).length === 0) return true;
   return (
     typeof schema.type === "string" &&
-    ["object", "string", "number", "integer", "boolean", "array"].includes(schema.type)
+    ["object", "string", "number", "integer", "boolean", "array"].includes(
+      schema.type,
+    )
   );
 }
 
-export function convertToolsToVercelAITools(tools: RunAgentInput["tools"]): ToolSet {
+export function convertToolsToVercelAITools(
+  tools: RunAgentInput["tools"],
+): ToolSet {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const result: Record<string, any> = {};
 
@@ -445,7 +469,9 @@ export function convertToolsToVercelAITools(tools: RunAgentInput["tools"]): Tool
 /**
  * Converts ToolDefinition array to Vercel AI SDK ToolSet
  */
-export function convertToolDefinitionsToVercelAITools(tools: ToolDefinition[]): ToolSet {
+export function convertToolDefinitionsToVercelAITools(
+  tools: ToolDefinition[],
+): ToolSet {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const result: Record<string, any> = {};
 
@@ -587,7 +613,10 @@ export class BuiltInAgent extends AbstractAgent {
       const hasState =
         input.state !== undefined &&
         input.state !== null &&
-        !(typeof input.state === "object" && Object.keys(input.state).length === 0);
+        !(
+          typeof input.state === "object" &&
+          Object.keys(input.state).length === 0
+        );
 
       if (hasPrompt || hasContext || hasState) {
         const parts: string[] = [];
@@ -632,7 +661,9 @@ export class BuiltInAgent extends AbstractAgent {
       // Merge tools from input and config
       let allTools: ToolSet = convertToolsToVercelAITools(input.tools);
       if (this.config.tools && this.config.tools.length > 0) {
-        const configTools = convertToolDefinitionsToVercelAITools(this.config.tools);
+        const configTools = convertToolDefinitionsToVercelAITools(
+          this.config.tools,
+        );
         allTools = { ...allTools, ...configTools };
       }
 
@@ -641,7 +672,9 @@ export class BuiltInAgent extends AbstractAgent {
         messages,
         tools: allTools,
         toolChoice: this.config.toolChoice,
-        stopWhen: this.config.maxSteps ? stepCountIs(this.config.maxSteps) : undefined,
+        stopWhen: this.config.maxSteps
+          ? stepCountIs(this.config.maxSteps)
+          : undefined,
         maxOutputTokens: this.config.maxOutputTokens,
         temperature: this.config.temperature,
         topP: this.config.topP,
@@ -659,10 +692,16 @@ export class BuiltInAgent extends AbstractAgent {
 
         // Check and apply each overridable property
         if (props.model !== undefined && this.canOverride("model")) {
-          if (typeof props.model === "string" || typeof props.model === "object") {
+          if (
+            typeof props.model === "string" ||
+            typeof props.model === "object"
+          ) {
             // Accept any string or LanguageModel instance for model override
             // Use the configured API key when resolving overridden models
-            streamTextParams.model = resolveModel(props.model as string | LanguageModel, this.config.apiKey);
+            streamTextParams.model = resolveModel(
+              props.model as string | LanguageModel,
+              this.config.apiKey,
+            );
           }
         }
         if (props.toolChoice !== undefined && this.canOverride("toolChoice")) {
@@ -677,13 +716,21 @@ export class BuiltInAgent extends AbstractAgent {
               "type" in toolChoice &&
               toolChoice.type === "tool")
           ) {
-            streamTextParams.toolChoice = toolChoice as ToolChoice<Record<string, unknown>>;
+            streamTextParams.toolChoice = toolChoice as ToolChoice<
+              Record<string, unknown>
+            >;
           }
         }
-        if (typeof props.maxOutputTokens === "number" && this.canOverride("maxOutputTokens")) {
+        if (
+          typeof props.maxOutputTokens === "number" &&
+          this.canOverride("maxOutputTokens")
+        ) {
           streamTextParams.maxOutputTokens = props.maxOutputTokens;
         }
-        if (typeof props.temperature === "number" && this.canOverride("temperature")) {
+        if (
+          typeof props.temperature === "number" &&
+          this.canOverride("temperature")
+        ) {
           streamTextParams.temperature = props.temperature;
         }
         if (typeof props.topP === "number" && this.canOverride("topP")) {
@@ -692,22 +739,38 @@ export class BuiltInAgent extends AbstractAgent {
         if (typeof props.topK === "number" && this.canOverride("topK")) {
           streamTextParams.topK = props.topK;
         }
-        if (typeof props.presencePenalty === "number" && this.canOverride("presencePenalty")) {
+        if (
+          typeof props.presencePenalty === "number" &&
+          this.canOverride("presencePenalty")
+        ) {
           streamTextParams.presencePenalty = props.presencePenalty;
         }
-        if (typeof props.frequencyPenalty === "number" && this.canOverride("frequencyPenalty")) {
+        if (
+          typeof props.frequencyPenalty === "number" &&
+          this.canOverride("frequencyPenalty")
+        ) {
           streamTextParams.frequencyPenalty = props.frequencyPenalty;
         }
-        if (Array.isArray(props.stopSequences) && this.canOverride("stopSequences")) {
+        if (
+          Array.isArray(props.stopSequences) &&
+          this.canOverride("stopSequences")
+        ) {
           // Validate all elements are strings
-          if (props.stopSequences.every((item): item is string => typeof item === "string")) {
+          if (
+            props.stopSequences.every(
+              (item): item is string => typeof item === "string",
+            )
+          ) {
             streamTextParams.stopSequences = props.stopSequences;
           }
         }
         if (typeof props.seed === "number" && this.canOverride("seed")) {
           streamTextParams.seed = props.seed;
         }
-        if (typeof props.maxRetries === "number" && this.canOverride("maxRetries")) {
+        if (
+          typeof props.maxRetries === "number" &&
+          this.canOverride("maxRetries")
+        ) {
           streamTextParams.maxRetries = props.maxRetries;
         }
       }
@@ -725,7 +788,8 @@ export class BuiltInAgent extends AbstractAgent {
           streamTextParams.tools = {
             ...streamTextParams.tools,
             AGUISendStateSnapshot: createVercelAISDKTool({
-              description: "Replace the entire application state with a new snapshot",
+              description:
+                "Replace the entire application state with a new snapshot",
               inputSchema: z.object({
                 snapshot: z.any().describe("The complete new state object"),
               }),
@@ -734,13 +798,18 @@ export class BuiltInAgent extends AbstractAgent {
               },
             }),
             AGUISendStateDelta: createVercelAISDKTool({
-              description: "Apply incremental updates to application state using JSON Patch operations",
+              description:
+                "Apply incremental updates to application state using JSON Patch operations",
               inputSchema: z.object({
                 delta: z
                   .array(
                     z.object({
-                      op: z.enum(["add", "replace", "remove"]).describe("The operation to perform"),
-                      path: z.string().describe("JSON Pointer path (e.g., '/foo/bar')"),
+                      op: z
+                        .enum(["add", "replace", "remove"])
+                        .describe("The operation to perform"),
+                      path: z
+                        .string()
+                        .describe("JSON Pointer path (e.g., '/foo/bar')"),
                       value: z
                         .any()
                         .optional()
@@ -764,9 +833,15 @@ export class BuiltInAgent extends AbstractAgent {
 
               if (serverConfig.type === "http") {
                 const url = new URL(serverConfig.url);
-                transport = new StreamableHTTPClientTransport(url, serverConfig.options);
+                transport = new StreamableHTTPClientTransport(
+                  url,
+                  serverConfig.options,
+                );
               } else if (serverConfig.type === "sse") {
-                transport = new SSEClientTransport(new URL(serverConfig.url), serverConfig.headers);
+                transport = new SSEClientTransport(
+                  new URL(serverConfig.url),
+                  serverConfig.headers,
+                );
               }
 
               if (transport) {
@@ -775,13 +850,19 @@ export class BuiltInAgent extends AbstractAgent {
 
                 // Get tools from this MCP server and merge with existing tools
                 const mcpTools = await mcpClient.tools();
-                streamTextParams.tools = { ...streamTextParams.tools, ...mcpTools } as ToolSet;
+                streamTextParams.tools = {
+                  ...streamTextParams.tools,
+                  ...mcpTools,
+                } as ToolSet;
               }
             }
           }
 
           // Call streamText and process the stream
-          const response = streamText({ ...streamTextParams, abortSignal: abortController.signal });
+          const response = streamText({
+            ...streamTextParams,
+            abortSignal: abortController.signal,
+          });
 
           let messageId = randomUUID();
 
@@ -859,7 +940,10 @@ export class BuiltInAgent extends AbstractAgent {
                 // New text message starting - use the SDK-provided id
                 // Use randomUUID() if part.id is falsy or "0" to prevent message merging issues
                 const providedId = "id" in part ? part.id : undefined;
-                messageId = providedId && providedId !== "0" ? (providedId as typeof messageId) : randomUUID();
+                messageId =
+                  providedId && providedId !== "0"
+                    ? (providedId as typeof messageId)
+                    : randomUUID();
                 break;
               }
 
@@ -893,7 +977,11 @@ export class BuiltInAgent extends AbstractAgent {
                   subscriber.next(startEvent);
                 }
 
-                if (!state.hasArgsDelta && "input" in part && part.input !== undefined) {
+                if (
+                  !state.hasArgsDelta &&
+                  "input" in part &&
+                  part.input !== undefined
+                ) {
                   let serializedInput = "";
                   if (typeof part.input === "string") {
                     serializedInput = part.input;
@@ -933,14 +1021,22 @@ export class BuiltInAgent extends AbstractAgent {
                 toolCallStates.delete(part.toolCallId);
 
                 // Check if this is a state update tool
-                if (toolName === "AGUISendStateSnapshot" && toolResult && typeof toolResult === "object") {
+                if (
+                  toolName === "AGUISendStateSnapshot" &&
+                  toolResult &&
+                  typeof toolResult === "object"
+                ) {
                   // Emit StateSnapshotEvent
                   const stateSnapshotEvent: StateSnapshotEvent = {
                     type: EventType.STATE_SNAPSHOT,
                     snapshot: toolResult.snapshot,
                   };
                   subscriber.next(stateSnapshotEvent);
-                } else if (toolName === "AGUISendStateDelta" && toolResult && typeof toolResult === "object") {
+                } else if (
+                  toolName === "AGUISendStateDelta" &&
+                  toolResult &&
+                  typeof toolResult === "object"
+                ) {
                   // Emit StateDeltaEvent
                   const stateDeltaEvent: StateDeltaEvent = {
                     type: EventType.STATE_DELTA,

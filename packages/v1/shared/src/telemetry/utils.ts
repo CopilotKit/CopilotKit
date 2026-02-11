@@ -29,9 +29,13 @@ export function printSecurityNotice(advisory: {
     }[advisory.severity.toLowerCase()] || chalk.white;
 
   console.log();
-  console.log(`━━━━━━━━━━━━━━━━━━ ${chalk.bold(`CopilotKit`)} ━━━━━━━━━━━━━━━━━━`);
+  console.log(
+    `━━━━━━━━━━━━━━━━━━ ${chalk.bold(`CopilotKit`)} ━━━━━━━━━━━━━━━━━━`,
+  );
   console.log();
-  console.log(`${chalk.bold(`Severity: ${severityColor(advisory.severity.toUpperCase())}`)}`);
+  console.log(
+    `${chalk.bold(`Severity: ${severityColor(advisory.severity.toUpperCase())}`)}`,
+  );
   console.log();
   console.log(`${chalk.bold(advisory.message)}`);
   console.log();

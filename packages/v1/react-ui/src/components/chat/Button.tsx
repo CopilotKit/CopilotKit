@@ -10,8 +10,12 @@ export const Button = ({}: ButtonProps) => {
         className={`copilotKitButton ${open ? "open" : ""}`}
         aria-label={open ? "Close Chat" : "Open Chat"}
       >
-        <div className="copilotKitButtonIcon copilotKitButtonIconOpen">{icons.openIcon}</div>
-        <div className="copilotKitButtonIcon copilotKitButtonIconClose">{icons.closeIcon}</div>
+        <div className="copilotKitButtonIcon copilotKitButtonIconOpen">
+          {icons.openIcon}
+        </div>
+        <div className="copilotKitButtonIcon copilotKitButtonIconClose">
+          {icons.closeIcon}
+        </div>
       </button>
     </div>
   );

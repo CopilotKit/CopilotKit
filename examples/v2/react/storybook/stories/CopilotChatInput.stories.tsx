@@ -177,7 +177,8 @@ export const Default: Story = {
   parameters: {
     docs: {
       description: {
-        story: "Default configuration with the add menu enabled and empty input.",
+        story:
+          "Default configuration with the add menu enabled and empty input.",
       },
       source: {
         code: `<CopilotChatInput />`,
@@ -212,7 +213,8 @@ export const WithMenuItems: Story = {
   parameters: {
     docs: {
       description: {
-        story: "Demonstrates configuring nested items inside the add menu dropdown.",
+        story:
+          "Demonstrates configuring nested items inside the add menu dropdown.",
       },
       source: {
         code: `<CopilotChatInput
@@ -249,7 +251,8 @@ export const TranscribeMode: Story = {
   parameters: {
     docs: {
       description: {
-        story: "Shows the audio recorder interface with cancel/finish controls in transcription mode.",
+        story:
+          "Shows the audio recorder interface with cancel/finish controls in transcription mode.",
       },
       source: {
         code: `<CopilotChatInput mode="transcribe" />`,
@@ -270,13 +273,15 @@ export const CustomButtons: Story = {
       </button>
     ),
     addMenuButton: {
-      className: "border border-indigo-200 bg-white text-indigo-500 hover:bg-indigo-50",
+      className:
+        "border border-indigo-200 bg-white text-indigo-500 hover:bg-indigo-50",
     },
   },
   parameters: {
     docs: {
       description: {
-        story: "Overrides the send button with a custom component and tweaks the add menu button styling via slot props.",
+        story:
+          "Overrides the send button with a custom component and tweaks the add menu button styling via slot props.",
       },
       source: {
         code: `<CopilotChatInput
@@ -305,7 +310,8 @@ export const PrefilledText: Story = {
   parameters: {
     docs: {
       description: {
-        story: "Illustrates controlled usage by supplying a preset value to the textarea.",
+        story:
+          "Illustrates controlled usage by supplying a preset value to the textarea.",
       },
       source: {
         code: `<CopilotChatInput value="Hello, this is a prefilled message!" />`,
@@ -325,7 +331,8 @@ export const ExpandedTextarea: Story = {
   parameters: {
     docs: {
       description: {
-        story: "Demonstrates automatic multiline layout when the message spans multiple rows.",
+        story:
+          "Demonstrates automatic multiline layout when the message spans multiple rows.",
       },
       source: {
         code: `<CopilotChatInput
@@ -373,7 +380,8 @@ export const CustomStyling: Story = {
   parameters: {
     docs: {
       description: {
-        story: "Applies custom classes to the container and key slots to achieve a distinct visual style.",
+        story:
+          "Applies custom classes to the container and key slots to achieve a distinct visual style.",
       },
       source: {
         code: `<CopilotChatInput
@@ -393,14 +401,7 @@ export const CustomStyling: Story = {
 export const CustomLayout: Story = {
   render: (args) => (
     <CopilotChatInput {...args}>
-      {(
-        {
-          textArea,
-          sendButton,
-          addMenuButton,
-          isMultiline,
-        },
-      ) => (
+      {({ textArea, sendButton, addMenuButton, isMultiline }) => (
         <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
           <div className="flex items-center justify-between">
             <span className="text-sm font-medium text-slate-600">
@@ -419,7 +420,8 @@ export const CustomLayout: Story = {
   parameters: {
     docs: {
       description: {
-        story: "Uses the render prop API to compose a custom layout while still leveraging the provided slots.",
+        story:
+          "Uses the render prop API to compose a custom layout while still leveraging the provided slots.",
       },
       source: {
         code: `<CopilotChatInput>
@@ -462,7 +464,8 @@ export const ControlledInputExample: Story = {
   parameters: {
     docs: {
       description: {
-        story: "Showcases a controlled input pattern with external state management.",
+        story:
+          "Showcases a controlled input pattern with external state management.",
       },
       source: {
         code: `const [value, setValue] = useState("Draft message ready to send.");

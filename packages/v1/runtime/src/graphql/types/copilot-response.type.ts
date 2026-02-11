@@ -15,7 +15,10 @@ import { BaseMetaEvent } from "./meta-events.type";
       return ResultMessageOutput;
     } else if (value.hasOwnProperty("state")) {
       return AgentStateMessageOutput;
-    } else if (value.hasOwnProperty("format") && value.hasOwnProperty("bytes")) {
+    } else if (
+      value.hasOwnProperty("format") &&
+      value.hasOwnProperty("bytes")
+    ) {
       return ImageMessageOutput;
     }
     return undefined;

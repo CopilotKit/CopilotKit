@@ -346,7 +346,7 @@ export class CopilotChatInput implements AfterViewInit, OnDestroy {
     "focus:outline-none",
     "hover:opacity-70 disabled:hover:opacity-100",
     "disabled:cursor-not-allowed disabled:bg-[#00000014] disabled:text-[rgb(13,13,13)]",
-    "dark:disabled:bg-[#454545] dark:disabled:text-white"
+    "dark:disabled:bg-[#454545] dark:disabled:text-white",
   );
 
   // Services
@@ -392,7 +392,7 @@ export class CopilotChatInput implements AfterViewInit, OnDestroy {
       // Background
       "bg-white dark:bg-[#303030]",
       // Visual effects
-      "shadow-[0_4px_4px_0_#0000000a,0_0_1px_0_#0000009e] rounded-[28px]"
+      "shadow-[0_4px_4px_0_#0000000a,0_0_1px_0_#0000009e] rounded-[28px]",
     );
     return cn(baseClasses, this.customClass());
   });

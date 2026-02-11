@@ -1,4 +1,11 @@
-import { useRef, useEffect, useImperativeHandle, forwardRef, useCallback, useState } from "react";
+import {
+  useRef,
+  useEffect,
+  useImperativeHandle,
+  forwardRef,
+  useCallback,
+  useState,
+} from "react";
 import { twMerge } from "tailwind-merge";
 
 /** Finite-state machine for every recorder implementation */
@@ -27,7 +34,8 @@ export const CopilotChatAudioRecorder = forwardRef<
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   // Recording state
-  const [recorderState, setRecorderState] = useState<AudioRecorderState>("idle");
+  const [recorderState, setRecorderState] =
+    useState<AudioRecorderState>("idle");
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
@@ -48,7 +56,10 @@ export const CopilotChatAudioRecorder = forwardRef<
       cancelAnimationFrame(animationIdRef.current);
       animationIdRef.current = null;
     }
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+    if (
+      mediaRecorderRef.current &&
+      mediaRecorderRef.current.state !== "inactive"
+    ) {
       try {
         mediaRecorderRef.current.stop();
       } catch {
@@ -127,7 +138,7 @@ export const CopilotChatAudioRecorder = forwardRef<
         throw new AudioRecorderError("No microphone found");
       }
       throw new AudioRecorderError(
-        error instanceof Error ? error.message : "Failed to start recording"
+        error instanceof Error ? error.message : "Failed to start recording",
       );
     }
   }, [recorderState, cleanup]);
@@ -193,7 +204,10 @@ export const CopilotChatAudioRecorder = forwardRef<
       const dpr = window.devicePixelRatio || 1;
 
       // Update canvas dimensions if container resized
-      if (canvas.width !== rect.width * dpr || canvas.height !== rect.height * dpr) {
+      if (
+        canvas.width !== rect.width * dpr ||
+        canvas.height !== rect.height * dpr
+      ) {
         canvas.width = rect.width * dpr;
         canvas.height = rect.height * dpr;
         ctx.scale(dpr, dpr);
@@ -226,8 +240,12 @@ export const CopilotChatAudioRecorder = forwardRef<
         // Smoothing: gradual attack and decay
         const attackSpeed = 0.12; // Smooth rise
         const decaySpeed = 0.08; // Smooth fade out
-        const speed = rawAmplitude > smoothedAmplitudeRef.current ? attackSpeed : decaySpeed;
-        smoothedAmplitudeRef.current += (rawAmplitude - smoothedAmplitudeRef.current) * speed;
+        const speed =
+          rawAmplitude > smoothedAmplitudeRef.current
+            ? attackSpeed
+            : decaySpeed;
+        smoothedAmplitudeRef.current +=
+          (rawAmplitude - smoothedAmplitudeRef.current) * speed;
 
         // When offset reaches a full bar width, add a new sample and reset offset
         if (scrollOffsetRef.current >= barSpacing) {
@@ -236,7 +254,8 @@ export const CopilotChatAudioRecorder = forwardRef<
 
           // Trim history to fit canvas
           if (amplitudeHistoryRef.current.length > maxBars) {
-            amplitudeHistoryRef.current = amplitudeHistoryRef.current.slice(-maxBars);
+            amplitudeHistoryRef.current =
+              amplitudeHistoryRef.current.slice(-maxBars);
           }
         }
       }
@@ -315,7 +334,7 @@ export const CopilotChatAudioRecorder = forwardRef<
       stop,
       dispose: cleanup,
     }),
-    [recorderState, start, stop, cleanup]
+    [recorderState, start, stop, cleanup],
   );
 
   return (

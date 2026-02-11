@@ -1,9 +1,19 @@
-import { useRef, useEffect, useCallback, useMemo, useState, createElement } from "react";
+import {
+  useRef,
+  useEffect,
+  useCallback,
+  useMemo,
+  useState,
+  createElement,
+} from "react";
 import { useCopilotContext } from "../context/copilot-context";
 import { SystemMessageFunction } from "../types";
 import { useAsyncCallback } from "../components/error-boundary/error-utils";
 import { Message } from "@copilotkit/shared";
-import { gqlToAGUI, Message as DeprecatedGqlMessage } from "@copilotkit/runtime-client-gql";
+import {
+  gqlToAGUI,
+  Message as DeprecatedGqlMessage,
+} from "@copilotkit/runtime-client-gql";
 import { useLangGraphInterruptRender } from "./use-langgraph-interrupt-render";
 import {
   useAgent,
@@ -27,7 +37,10 @@ import {
  * `manual` - Suggestions are controlled programmatically.
  * `SuggestionItem[]` - Static suggestions array.
  */
-export type ChatSuggestions = "auto" | "manual" | Omit<Suggestion, "isLoading">[];
+export type ChatSuggestions =
+  | "auto"
+  | "manual"
+  | Omit<Suggestion, "isLoading">[];
 
 export interface AppendMessageOptions {
   /**
@@ -143,7 +156,10 @@ export interface UseCopilotChatReturn {
   messages: Message[];
 
   /** @deprecated use `sendMessage` in `useCopilotChatHeadless_c` instead. This will be removed in a future major version. */
-  appendMessage: (message: DeprecatedGqlMessage, options?: AppendMessageOptions) => Promise<void>;
+  appendMessage: (
+    message: DeprecatedGqlMessage,
+    options?: AppendMessageOptions,
+  ) => Promise<void>;
 
   /**
    * Send a new message to the chat
@@ -156,7 +172,10 @@ export interface UseCopilotChatReturn {
    * });
    * ```
    */
-  sendMessage: (message: Message, options?: AppendMessageOptions) => Promise<void>;
+  sendMessage: (
+    message: Message,
+    options?: AppendMessageOptions,
+  ) => Promise<void>;
 
   /**
    * Replace all messages in the chat
@@ -329,7 +348,11 @@ export function useCopilotChatInternal({
         }
       }
     };
-    if (agent && existingConfig?.threadId && agent.threadId !== existingConfig.threadId) {
+    if (
+      agent &&
+      existingConfig?.threadId &&
+      agent.threadId !== existingConfig.threadId
+    ) {
       agent.threadId = existingConfig.threadId;
       connect(agent);
     }
@@ -376,7 +399,9 @@ export function useCopilotChatInternal({
         return;
       }
 
-      const reloadMessageIndex = messages.findIndex((msg) => msg.id === reloadMessageId);
+      const reloadMessageIndex = messages.findIndex(
+        (msg) => msg.id === reloadMessageId,
+      );
       if (reloadMessageIndex === -1) {
         console.warn(`Message with id ${reloadMessageId} not found`);
         return;
@@ -384,7 +409,9 @@ export function useCopilotChatInternal({
 
       const reloadMessageRole = messages[reloadMessageIndex].role;
       if (reloadMessageRole !== "assistant") {
-        console.warn(`Regenerate cannot be performed on ${reloadMessageRole} role`);
+        console.warn(
+          `Regenerate cannot be performed on ${reloadMessageRole} role`,
+        );
         return;
       }
       let historyCutoff: Message[] = [messages[0]];
@@ -404,7 +431,10 @@ export function useCopilotChatInternal({
             (msg) => msg.id === lastUserMessageBeforeRegenerate.id,
           );
           // Include the user message, remove everything after it
-          historyCutoff = messages.slice(0, indexOfLastUserMessageBeforeRegenerate + 1);
+          historyCutoff = messages.slice(
+            0,
+            indexOfLastUserMessageBeforeRegenerate + 1,
+          );
         }
       } else if (messages.length > 2 && reloadMessageIndex === 0) {
         historyCutoff = [messages[0], messages[1]];
@@ -422,7 +452,12 @@ export function useCopilotChatInternal({
       }
       return;
     },
-    [agent?.messages.length, agent?.isRunning ,agent?.setMessages, copilotkit?.runAgent],
+    [
+      agent?.messages.length,
+      agent?.isRunning,
+      agent?.setMessages,
+      copilotkit?.runAgent,
+    ],
   );
 
   const latestSendMessageFunc = useAsyncCallback(
@@ -473,7 +508,9 @@ export function useCopilotChatInternal({
 
   const latestSetMessagesFunc = useCallback(
     (messages: Message[] | DeprecatedGqlMessage[]) => {
-      if (messages.every((message) => message instanceof DeprecatedGqlMessage)) {
+      if (
+        messages.every((message) => message instanceof DeprecatedGqlMessage)
+      ) {
         return agent?.setMessages?.(gqlToAGUI(messages));
       }
       return agent?.setMessages?.(messages);
@@ -534,10 +571,15 @@ export function useCopilotChatInternal({
         legacyCustomMessageRenderer || renderCustomMessage
           ? () => {
               if (legacyCustomMessageRenderer) {
-                return legacyCustomMessageRenderer({ message, position: "before" });
+                return legacyCustomMessageRenderer({
+                  message,
+                  position: "before",
+                });
               }
               try {
-                return renderCustomMessage?.({ message, position: "before" }) ?? null;
+                return (
+                  renderCustomMessage?.({ message, position: "before" }) ?? null
+                );
               } catch (error) {
                 console.warn(
                   "[CopilotKit] renderCustomMessages failed, falling back to legacy renderer",
@@ -559,7 +601,9 @@ export function useCopilotChatInternal({
       return message;
     });
 
-    const hasAssistantMessages = processedMessages.some((msg) => msg.role === "assistant");
+    const hasAssistantMessages = processedMessages.some(
+      (msg) => msg.role === "assistant",
+    );
     const canUseCustomRenderer = Boolean(
       renderCustomMessage && copilotkit?.getAgent?.(resolvedAgentId),
     );
@@ -570,7 +614,8 @@ export function useCopilotChatInternal({
         : null;
 
     const shouldRenderPlaceholder =
-      Boolean(agent?.isRunning) || Boolean(agent?.state && Object.keys(agent.state).length);
+      Boolean(agent?.isRunning) ||
+      Boolean(agent?.state && Object.keys(agent.state).length);
 
     const effectiveThreadId = threadId ?? agent?.threadId ?? "default";
     let latestUserIndex = -1;
@@ -583,8 +628,11 @@ export function useCopilotChatInternal({
     const latestUserMessageId =
       latestUserIndex >= 0 ? processedMessages[latestUserIndex].id : undefined;
     const currentRunId = latestUserMessageId
-      ? copilotkit.getRunIdForMessage(resolvedAgentId, effectiveThreadId, latestUserMessageId) ||
-        `pending:${latestUserMessageId}`
+      ? copilotkit.getRunIdForMessage(
+          resolvedAgentId,
+          effectiveThreadId,
+          latestUserMessageId,
+        ) || `pending:${latestUserMessageId}`
       : undefined;
     const hasAssistantForCurrentRun =
       latestUserIndex >= 0
@@ -595,7 +643,11 @@ export function useCopilotChatInternal({
 
     // Insert a placeholder assistant message so state snapshots can render before any
     // assistant text exists for the current run.
-    if (placeholderRenderer && shouldRenderPlaceholder && !hasAssistantForCurrentRun) {
+    if (
+      placeholderRenderer &&
+      shouldRenderPlaceholder &&
+      !hasAssistantForCurrentRun
+    ) {
       const placeholderId = currentRunId
         ? `coagent-state-render-${resolvedAgentId}-${currentRunId}`
         : `coagent-state-render-${resolvedAgentId}`;
@@ -660,7 +712,8 @@ export function useCopilotChatInternal({
     suggestions: renderedSuggestions.suggestions,
     setSuggestions: (suggestions: Omit<Suggestion, "isLoading">[]) =>
       copilotkit.addSuggestionsConfig({ suggestions }),
-    generateSuggestions: async () => copilotkit.reloadSuggestions(resolvedAgentId),
+    generateSuggestions: async () =>
+      copilotkit.reloadSuggestions(resolvedAgentId),
     resetSuggestions: () => copilotkit.clearSuggestions(resolvedAgentId),
     isLoadingSuggestions: renderedSuggestions.isLoading,
     interrupt,

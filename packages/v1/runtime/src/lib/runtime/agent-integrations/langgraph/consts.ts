@@ -18,7 +18,10 @@ export type TextMessageEvents =
   | TextMessageContentEvent
   | TextMessageEndEvent;
 
-export type ToolCallEvents = ToolCallStartEvent | ToolCallArgsEvent | ToolCallEndEvent;
+export type ToolCallEvents =
+  | ToolCallStartEvent
+  | ToolCallArgsEvent
+  | ToolCallEndEvent;
 
 export enum CustomEventNames {
   CopilotKitManuallyEmitMessage = "copilotkit_manually_emit_message",

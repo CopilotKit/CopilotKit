@@ -1,20 +1,23 @@
-import { Component, Input } from '@angular/core';
-import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms';
-import { ChatState } from '@copilotkitnext/angular';
+import { Component, Input } from "@angular/core";
+import { CommonModule } from "@angular/common";
+import { FormsModule } from "@angular/forms";
+import { ChatState } from "@copilotkitnext/angular";
 
 @Component({
-  selector: 'custom-input',
+  selector: "custom-input",
   standalone: true,
   imports: [CommonModule, FormsModule],
   template: `
-    <div [class]="inputClass" style="
+    <div
+      [class]="inputClass"
+      style="
       background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
       padding: 20px;
       border-radius: 15px;
       margin: 10px;
-    ">
-      <input 
+    "
+    >
+      <input
         type="text"
         [(ngModel)]="inputValue"
         placeholder="💬 Ask me anything..."
@@ -30,7 +33,7 @@ import { ChatState } from '@copilotkitnext/angular';
         "
         (keyup.enter)="handleSend()"
       />
-      <button 
+      <button
         style="
           margin-top: 10px;
           padding: 10px 20px;
@@ -41,24 +44,25 @@ import { ChatState } from '@copilotkitnext/angular';
           font-weight: bold;
           cursor: pointer;
         "
-        (click)="handleSend()">
+        (click)="handleSend()"
+      >
         Send Message ✨
       </button>
     </div>
-  `
+  `,
 })
 export class CustomInputComponent {
   @Input() inputClass?: string;
-  
-  inputValue = '';
-  
+
+  inputValue = "";
+
   constructor(private chat: ChatState) {}
-  
+
   handleSend() {
     const value = this.inputValue.trim();
     if (value) {
       this.chat.submitInput(value);
-      this.inputValue = '';
+      this.inputValue = "";
     }
   }
 }

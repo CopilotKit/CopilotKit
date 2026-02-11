@@ -6,12 +6,11 @@ import { CustomResponseButton } from "./chat/ResponseButton";
 import ContactInfo from "./generative-ui/ContactInfo";
 import { useCopilotAction } from "@copilotkit/react-core";
 
-export function Chat({className}: {className?: string}) {
-
+export function Chat({ className }: { className?: string }) {
   useCopilotAction({
     name: "contactInfo",
     description: "Collect contact information from the user",
-    renderAndWaitForResponse: ({respond, status}) => {
+    renderAndWaitForResponse: ({ respond, status }) => {
       if (status === "complete") return <></>;
       return <ContactInfo onSubmit={(form) => respond?.(form)} />;
     },
@@ -19,16 +18,17 @@ export function Chat({className}: {className?: string}) {
 
   return (
     <div>
-        <Header />
-        <CopilotChat
-            className={`rounded-xl border border-t-0 rounded-t-none shadow-xl ${className}`}
-            UserMessage={CustomUserMessage}
-            AssistantMessage={CustomAssistantMessage}
-            ResponseButton={CustomResponseButton}
-            labels={{
-              initial: "Hi! I'm a fully customized CopilotKit assistant. How can I help you today? \n\nTry asking me to collect your contact information."
-            }}
-        />
+      <Header />
+      <CopilotChat
+        className={`rounded-xl border border-t-0 rounded-t-none shadow-xl ${className}`}
+        UserMessage={CustomUserMessage}
+        AssistantMessage={CustomAssistantMessage}
+        ResponseButton={CustomResponseButton}
+        labels={{
+          initial:
+            "Hi! I'm a fully customized CopilotKit assistant. How can I help you today? \n\nTry asking me to collect your contact information.",
+        }}
+      />
     </div>
   );
 }

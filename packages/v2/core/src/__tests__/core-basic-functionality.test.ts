@@ -26,7 +26,10 @@ describe("CopilotKitCore.runAgent - Basic Functionality", () => {
       createAssistantMessage({ content: "Hi there!" }),
     ];
     const agent = new MockAgent({ newMessages: messages });
-    copilotKitCore.addAgent__unsafe_dev_only({ id: "test", agent: agent as any });
+    copilotKitCore.addAgent__unsafe_dev_only({
+      id: "test",
+      agent: agent as any,
+    });
 
     const result = await copilotKitCore.runAgent({ agent: agent as any });
 
@@ -39,7 +42,10 @@ describe("CopilotKitCore.runAgent - Basic Functionality", () => {
     const properties = { apiKey: "test-key", model: "gpt-4" };
     copilotKitCore = new CopilotKitCore({ properties });
     const agent = new MockAgent({ newMessages: [] });
-    copilotKitCore.addAgent__unsafe_dev_only({ id: "test", agent: agent as any });
+    copilotKitCore.addAgent__unsafe_dev_only({
+      id: "test",
+      agent: agent as any,
+    });
 
     await copilotKitCore.runAgent({ agent: agent as any });
 
@@ -48,7 +54,10 @@ describe("CopilotKitCore.runAgent - Basic Functionality", () => {
 
   it("should handle empty newMessages array", async () => {
     const agent = new MockAgent({ newMessages: [] });
-    copilotKitCore.addAgent__unsafe_dev_only({ id: "test", agent: agent as any });
+    copilotKitCore.addAgent__unsafe_dev_only({
+      id: "test",
+      agent: agent as any,
+    });
 
     const result = await copilotKitCore.runAgent({ agent: agent as any });
 
@@ -60,10 +69,17 @@ describe("CopilotKitCore.runAgent - Basic Functionality", () => {
     const messages = [
       createMessage({ role: "user", content: "User message" }),
       createMessage({ role: "system", content: "System message" }),
-      createMessage({ role: "tool", content: "Tool result", toolCallId: "123" }),
+      createMessage({
+        role: "tool",
+        content: "Tool result",
+        toolCallId: "123",
+      }),
     ];
     const agent = new MockAgent({ newMessages: messages });
-    copilotKitCore.addAgent__unsafe_dev_only({ id: "test", agent: agent as any });
+    copilotKitCore.addAgent__unsafe_dev_only({
+      id: "test",
+      agent: agent as any,
+    });
 
     const result = await copilotKitCore.runAgent({ agent: agent as any });
 
@@ -74,10 +90,13 @@ describe("CopilotKitCore.runAgent - Basic Functionality", () => {
   it("should handle messages with undefined toolCalls", async () => {
     const message = createAssistantMessage({
       content: "Response",
-      toolCalls: undefined
+      toolCalls: undefined,
     });
     const agent = new MockAgent({ newMessages: [message] });
-    copilotKitCore.addAgent__unsafe_dev_only({ id: "test", agent: agent as any });
+    copilotKitCore.addAgent__unsafe_dev_only({
+      id: "test",
+      agent: agent as any,
+    });
 
     const result = await copilotKitCore.runAgent({ agent: agent as any });
 
@@ -95,7 +114,10 @@ describe("CopilotKitCore.runAgent - Basic Functionality", () => {
 
     const message = createToolCallMessage(toolName);
     const agent = new MockAgent({ newMessages: [message] });
-    copilotKitCore.addAgent__unsafe_dev_only({ id: "test", agent: agent as any });
+    copilotKitCore.addAgent__unsafe_dev_only({
+      id: "test",
+      agent: agent as any,
+    });
 
     await copilotKitCore.runAgent({ agent: agent as any });
 
@@ -103,7 +125,7 @@ describe("CopilotKitCore.runAgent - Basic Functionality", () => {
       expect.objectContaining({
         role: "tool",
         content: "", // Should be empty string, not "undefined"
-      })
+      }),
     );
   });
 
@@ -117,7 +139,10 @@ describe("CopilotKitCore.runAgent - Basic Functionality", () => {
 
     const message = createToolCallMessage(toolName);
     const agent = new MockAgent({ newMessages: [message] });
-    copilotKitCore.addAgent__unsafe_dev_only({ id: "test", agent: agent as any });
+    copilotKitCore.addAgent__unsafe_dev_only({
+      id: "test",
+      agent: agent as any,
+    });
 
     await copilotKitCore.runAgent({ agent: agent as any });
 
@@ -125,16 +150,17 @@ describe("CopilotKitCore.runAgent - Basic Functionality", () => {
       expect.objectContaining({
         role: "tool",
         content: "", // Should be empty string, not "null"
-      })
+      }),
     );
   });
 
   it("should return correct result structure", async () => {
-    const newMessages = [
-      createAssistantMessage({ content: "Test" })
-    ];
+    const newMessages = [createAssistantMessage({ content: "Test" })];
     const agent = new MockAgent({ newMessages });
-    copilotKitCore.addAgent__unsafe_dev_only({ id: "test", agent: agent as any });
+    copilotKitCore.addAgent__unsafe_dev_only({
+      id: "test",
+      agent: agent as any,
+    });
 
     const result = await copilotKitCore.runAgent({ agent: agent as any });
 

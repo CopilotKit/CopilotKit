@@ -1,12 +1,19 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { InMemoryAgentRunner } from "../runner/in-memory";
-import { AbstractAgent, BaseEvent, EventType, RunAgentInput } from "@ag-ui/client";
+import {
+  AbstractAgent,
+  BaseEvent,
+  EventType,
+  RunAgentInput,
+} from "@ag-ui/client";
 import { firstValueFrom } from "rxjs";
 import { toArray } from "rxjs/operators";
 
 const stripTerminalEvents = (events: BaseEvent[]) =>
   events.filter(
-    (event) => event.type !== EventType.RUN_FINISHED && event.type !== EventType.RUN_ERROR,
+    (event) =>
+      event.type !== EventType.RUN_FINISHED &&
+      event.type !== EventType.RUN_ERROR,
   );
 
 // Mock agent implementations for testing
@@ -22,7 +29,7 @@ class MockAgent extends AbstractAgent {
 
   async runAgent(
     input: RunAgentInput,
-    options: { onEvent: (event: { event: BaseEvent }) => void }
+    options: { onEvent: (event: { event: BaseEvent }) => void },
   ): Promise<void> {
     for (const event of this.events) {
       if (this.delay > 0) {
@@ -42,7 +49,11 @@ class DelayedEventAgent extends AbstractAgent {
   private eventDelay: number;
   private prefix: string;
 
-  constructor(eventCount: number = 5, eventDelay: number = 10, prefix: string = "delayed") {
+  constructor(
+    eventCount: number = 5,
+    eventDelay: number = 10,
+    prefix: string = "delayed",
+  ) {
     super();
     this.eventCount = eventCount;
     this.eventDelay = eventDelay;
@@ -51,7 +62,7 @@ class DelayedEventAgent extends AbstractAgent {
 
   async runAgent(
     input: RunAgentInput,
-    options: { onEvent: (event: { event: BaseEvent }) => void }
+    options: { onEvent: (event: { event: BaseEvent }) => void },
   ): Promise<void> {
     for (let i = 0; i < this.eventCount; i++) {
       await new Promise((resolve) => setTimeout(resolve, this.eventDelay));
@@ -60,8 +71,8 @@ class DelayedEventAgent extends AbstractAgent {
           type: "message",
           id: `${this.prefix}-${i}`,
           timestamp: new Date().toISOString(),
-          data: { index: i, prefix: this.prefix }
-        } as BaseEvent
+          data: { index: i, prefix: this.prefix },
+        } as BaseEvent,
       });
     }
   }
@@ -75,7 +86,10 @@ class ErrorThrowingAgent extends AbstractAgent {
   private throwAfterEvents: number;
   private errorMessage: string;
 
-  constructor(throwAfterEvents: number = 2, errorMessage: string = "Test error") {
+  constructor(
+    throwAfterEvents: number = 2,
+    errorMessage: string = "Test error",
+  ) {
     super();
     this.throwAfterEvents = throwAfterEvents;
     this.errorMessage = errorMessage;
@@ -83,7 +97,7 @@ class ErrorThrowingAgent extends AbstractAgent {
 
   async runAgent(
     input: RunAgentInput,
-    options: { onEvent: (event: { event: BaseEvent }) => void }
+    options: { onEvent: (event: { event: BaseEvent }) => void },
   ): Promise<void> {
     for (let i = 0; i < this.throwAfterEvents; i++) {
       options.onEvent({
@@ -91,8 +105,8 @@ class ErrorThrowingAgent extends AbstractAgent {
           type: "message",
           id: `error-agent-${i}`,
           timestamp: new Date().toISOString(),
-          data: { index: i }
-        } as BaseEvent
+          data: { index: i },
+        } as BaseEvent,
       });
     }
     throw new Error(this.errorMessage);
@@ -114,7 +128,7 @@ class StoppableAgent extends AbstractAgent {
 
   async runAgent(
     input: RunAgentInput,
-    options: { onEvent: (event: { event: BaseEvent }) => void }
+    options: { onEvent: (event: { event: BaseEvent }) => void },
   ): Promise<void> {
     this.shouldStop = false;
     let counter = 0;
@@ -146,7 +160,7 @@ class OpenEventsAgent extends AbstractAgent {
 
   async runAgent(
     input: RunAgentInput,
-    options: { onEvent: (event: { event: BaseEvent }) => void }
+    options: { onEvent: (event: { event: BaseEvent }) => void },
   ): Promise<void> {
     this.shouldStop = false;
     const messageId = "open-message";
@@ -201,23 +215,23 @@ class MultiEventAgent extends AbstractAgent {
 
   async runAgent(
     input: RunAgentInput,
-    options: { onEvent: (event: { event: BaseEvent }) => void }
+    options: { onEvent: (event: { event: BaseEvent }) => void },
   ): Promise<void> {
     // Emit different types of events
     const eventTypes = ["start", "message", "tool_call", "tool_result", "end"];
-    
+
     for (const eventType of eventTypes) {
       options.onEvent({
         event: {
           type: eventType,
           id: `${this.runId}-${eventType}`,
           timestamp: new Date().toISOString(),
-          data: { 
+          data: {
             runId: this.runId,
             eventType,
-            metadata: { source: "MultiEventAgent" }
-          }
-        } as BaseEvent
+            metadata: { source: "MultiEventAgent" },
+          },
+        } as BaseEvent,
       });
     }
   }
@@ -238,9 +252,24 @@ describe("InMemoryAgentRunner", () => {
     it("should run a single agent and collect all events", async () => {
       const threadId = "test-thread-1";
       const events: BaseEvent[] = [
-        { type: "start", id: "1", timestamp: new Date().toISOString(), data: {} } as BaseEvent,
-        { type: "message", id: "2", timestamp: new Date().toISOString(), data: { text: "Hello" } } as BaseEvent,
-        { type: "end", id: "3", timestamp: new Date().toISOString(), data: {} } as BaseEvent,
+        {
+          type: "start",
+          id: "1",
+          timestamp: new Date().toISOString(),
+          data: {},
+        } as BaseEvent,
+        {
+          type: "message",
+          id: "2",
+          timestamp: new Date().toISOString(),
+          data: { text: "Hello" },
+        } as BaseEvent,
+        {
+          type: "end",
+          id: "3",
+          timestamp: new Date().toISOString(),
+          data: {},
+        } as BaseEvent,
       ];
 
       const agent = new MockAgent(events);
@@ -252,7 +281,9 @@ describe("InMemoryAgentRunner", () => {
       };
 
       const runObservable = runner.run({ threadId, agent, input });
-      const collectedEvents = await firstValueFrom(runObservable.pipe(toArray()));
+      const collectedEvents = await firstValueFrom(
+        runObservable.pipe(toArray()),
+      );
 
       const agentEvents = stripTerminalEvents(collectedEvents);
       expect(agentEvents).toEqual(events);
@@ -261,8 +292,18 @@ describe("InMemoryAgentRunner", () => {
     it("should allow connecting after run completes and receive all past events", async () => {
       const threadId = "test-thread-3";
       const events: BaseEvent[] = [
-        { type: "message", id: "past-1", timestamp: new Date().toISOString(), data: {} } as BaseEvent,
-        { type: "message", id: "past-2", timestamp: new Date().toISOString(), data: {} } as BaseEvent,
+        {
+          type: "message",
+          id: "past-1",
+          timestamp: new Date().toISOString(),
+          data: {},
+        } as BaseEvent,
+        {
+          type: "message",
+          id: "past-2",
+          timestamp: new Date().toISOString(),
+          data: {},
+        } as BaseEvent,
       ];
 
       const agent = new MockAgent(events);
@@ -279,7 +320,9 @@ describe("InMemoryAgentRunner", () => {
 
       // Connect after completion
       const connectObservable = runner.connect({ threadId });
-      const collectedEvents = await firstValueFrom(connectObservable.pipe(toArray()));
+      const collectedEvents = await firstValueFrom(
+        connectObservable.pipe(toArray()),
+      );
 
       const storedAgentEvents = stripTerminalEvents(collectedEvents);
       expect(storedAgentEvents).toEqual(events);
@@ -289,7 +332,7 @@ describe("InMemoryAgentRunner", () => {
   describe("Multiple Runs", () => {
     it("should accumulate events from multiple sequential runs on same thread", async () => {
       const threadId = "test-thread-multi-1";
-      
+
       // First run
       const agent1 = new MultiEventAgent("run-1");
       const input1: RunAgentInput = {
@@ -343,15 +386,23 @@ describe("InMemoryAgentRunner", () => {
       expect(run3Events).toHaveLength(5);
 
       // Verify order preservation
-      const runOrder = agentEvents.map((e) => e.id?.split("-")[0] + "-" + e.id?.split("-")[1]);
-      expect(runOrder.slice(0, 5).every((id) => id?.startsWith("run-1"))).toBe(true);
-      expect(runOrder.slice(5, 10).every((id) => id?.startsWith("run-2"))).toBe(true);
-      expect(runOrder.slice(10, 15).every((id) => id?.startsWith("run-3"))).toBe(true);
+      const runOrder = agentEvents.map(
+        (e) => e.id?.split("-")[0] + "-" + e.id?.split("-")[1],
+      );
+      expect(runOrder.slice(0, 5).every((id) => id?.startsWith("run-1"))).toBe(
+        true,
+      );
+      expect(runOrder.slice(5, 10).every((id) => id?.startsWith("run-2"))).toBe(
+        true,
+      );
+      expect(
+        runOrder.slice(10, 15).every((id) => id?.startsWith("run-3")),
+      ).toBe(true);
     });
 
     it("should handle connect during multiple runs", async () => {
       const threadId = "test-thread-multi-2";
-      
+
       // Start first run
       const agent1 = new DelayedEventAgent(5, 20, "first");
       const input1: RunAgentInput = {
@@ -361,10 +412,14 @@ describe("InMemoryAgentRunner", () => {
         runId: "run-1",
       };
 
-      const run1Observable = runner.run({ threadId, agent: agent1, input: input1 });
+      const run1Observable = runner.run({
+        threadId,
+        agent: agent1,
+        input: input1,
+      });
 
       // Wait a bit to ensure first run is in progress
-      await new Promise(resolve => setTimeout(resolve, 50));
+      await new Promise((resolve) => setTimeout(resolve, 50));
 
       // Connect during first run
       const connectObservable = runner.connect({ threadId });
@@ -379,7 +434,9 @@ describe("InMemoryAgentRunner", () => {
       // Connect only receives events from the first run since it completes
       const firstRunAgentEvents = stripTerminalEvents(allEvents);
       expect(firstRunAgentEvents).toHaveLength(5);
-      const firstRunEvents = firstRunAgentEvents.filter((e) => e.id?.startsWith("first"));
+      const firstRunEvents = firstRunAgentEvents.filter((e) =>
+        e.id?.startsWith("first"),
+      );
 
       expect(firstRunEvents).toHaveLength(5);
 
@@ -392,22 +449,38 @@ describe("InMemoryAgentRunner", () => {
         runId: "run-2",
       };
 
-      const run2Observable = runner.run({ threadId, agent: agent2, input: input2 });
+      const run2Observable = runner.run({
+        threadId,
+        agent: agent2,
+        input: input2,
+      });
       await firstValueFrom(run2Observable.pipe(toArray()));
 
       // Connect after both runs to verify all events are accumulated
-      const allEventsAfter = await firstValueFrom(runner.connect({ threadId }).pipe(toArray()));
+      const allEventsAfter = await firstValueFrom(
+        runner.connect({ threadId }).pipe(toArray()),
+      );
       expect(stripTerminalEvents(allEventsAfter)).toHaveLength(8); // 5 from first + 3 from second
     });
 
     it("should preserve event order across different agent types", async () => {
       const threadId = "test-thread-multi-3";
-      
+
       // Run different types of agents
       const agents = [
         new MockAgent([
-          { type: "mock", id: "mock-1", timestamp: new Date().toISOString(), data: {} } as BaseEvent,
-          { type: "mock", id: "mock-2", timestamp: new Date().toISOString(), data: {} } as BaseEvent,
+          {
+            type: "mock",
+            id: "mock-1",
+            timestamp: new Date().toISOString(),
+            data: {},
+          } as BaseEvent,
+          {
+            type: "mock",
+            id: "mock-2",
+            timestamp: new Date().toISOString(),
+            data: {},
+          } as BaseEvent,
         ]),
         new MultiEventAgent("multi"),
         new DelayedEventAgent(2, 0, "delayed"),
@@ -491,13 +564,13 @@ describe("InMemoryAgentRunner", () => {
       runner.run({ threadId, agent, input });
 
       // Connect at different times during the run
-      await new Promise(resolve => setTimeout(resolve, 50)); // After ~2 events
+      await new Promise((resolve) => setTimeout(resolve, 50)); // After ~2 events
       const connect1 = runner.connect({ threadId });
-      
-      await new Promise(resolve => setTimeout(resolve, 60)); // After ~5 events
+
+      await new Promise((resolve) => setTimeout(resolve, 60)); // After ~5 events
       const connect2 = runner.connect({ threadId });
 
-      await new Promise(resolve => setTimeout(resolve, 80)); // After ~9 events
+      await new Promise((resolve) => setTimeout(resolve, 80)); // After ~9 events
       const connect3 = runner.connect({ threadId });
 
       const [events1, events2, events3] = await Promise.all([
@@ -515,8 +588,8 @@ describe("InMemoryAgentRunner", () => {
       expect(agentEvents3).toHaveLength(10);
 
       // Verify they all have the same events
-      expect(events1.map(e => e.id)).toEqual(events2.map(e => e.id));
-      expect(events2.map(e => e.id)).toEqual(events3.map(e => e.id));
+      expect(events1.map((e) => e.id)).toEqual(events2.map((e) => e.id));
+      expect(events2.map((e) => e.id)).toEqual(events3.map((e) => e.id));
     });
   });
 
@@ -557,11 +630,18 @@ describe("InMemoryAgentRunner", () => {
       expect(events.at(-1)?.type).toBe(EventType.RUN_ERROR);
       const preErrorEvents = events.slice(0, -1);
       expect(preErrorEvents).toHaveLength(3);
-      expect(preErrorEvents.every((e) => e.id?.startsWith("error-agent"))).toBe(true);
+      expect(preErrorEvents.every((e) => e.id?.startsWith("error-agent"))).toBe(
+        true,
+      );
 
       // Should be able to run again after error
       const agent2 = new MockAgent([
-        { type: "recovery", id: "recovery-1", timestamp: new Date().toISOString(), data: {} } as BaseEvent,
+        {
+          type: "recovery",
+          id: "recovery-1",
+          timestamp: new Date().toISOString(),
+          data: {},
+        } as BaseEvent,
       ]);
 
       const input2: RunAgentInput = {
@@ -579,8 +659,12 @@ describe("InMemoryAgentRunner", () => {
       expect(recoveryEvents[0].id).toBe("recovery-1");
 
       // Connect should have all events including from errored run
-      const allEvents = await firstValueFrom(runner.connect({ threadId }).pipe(toArray()));
-      expect(allEvents.filter((event) => event.type === EventType.RUN_ERROR).length).toBeGreaterThanOrEqual(1);
+      const allEvents = await firstValueFrom(
+        runner.connect({ threadId }).pipe(toArray()),
+      );
+      expect(
+        allEvents.filter((event) => event.type === EventType.RUN_ERROR).length,
+      ).toBeGreaterThanOrEqual(1);
       const storedAgentEvents = stripTerminalEvents(allEvents);
       expect(storedAgentEvents).toHaveLength(4); // 3 from error run + 1 from recovery
     });
@@ -598,14 +682,19 @@ describe("InMemoryAgentRunner", () => {
       // Run and wait for completion (even with error)
       const runObservable = runner.run({ threadId, agent, input });
       await firstValueFrom(runObservable.pipe(toArray()));
-      
+
       // Verify thread is not running
       const isRunning = await runner.isRunning({ threadId });
       expect(isRunning).toBe(false);
 
       // Should be able to run again
       const agent2 = new MockAgent([
-        { type: "test", id: "after-error", timestamp: new Date().toISOString(), data: {} } as BaseEvent,
+        {
+          type: "test",
+          id: "after-error",
+          timestamp: new Date().toISOString(),
+          data: {},
+        } as BaseEvent,
       ]);
 
       const input2: RunAgentInput = {
@@ -623,19 +712,21 @@ describe("InMemoryAgentRunner", () => {
 
   describe("Edge Cases", () => {
     it("should return EMPTY observable when connecting to non-existent thread", async () => {
-      const connectObservable = runner.connect({ threadId: "non-existent-thread" });
-      
+      const connectObservable = runner.connect({
+        threadId: "non-existent-thread",
+      });
+
       // EMPTY completes immediately with no values
       let completed = false;
       let eventCount = 0;
-      
+
       await new Promise<void>((resolve) => {
         connectObservable.subscribe({
           next: () => eventCount++,
           complete: () => {
             completed = true;
             resolve();
-          }
+          },
         });
       });
 
@@ -653,7 +744,7 @@ describe("InMemoryAgentRunner", () => {
           type: "bulk",
           id: `bulk-${i}`,
           timestamp: new Date().toISOString(),
-          data: { index: i, payload: "x".repeat(100) }
+          data: { index: i, payload: "x".repeat(100) },
         } as BaseEvent);
       }
 
@@ -671,7 +762,9 @@ describe("InMemoryAgentRunner", () => {
 
       // Connect and verify all events are preserved
       const connectObservable = runner.connect({ threadId });
-      const collectedEvents = await firstValueFrom(connectObservable.pipe(toArray()));
+      const collectedEvents = await firstValueFrom(
+        connectObservable.pipe(toArray()),
+      );
 
       const bulkEvents = stripTerminalEvents(collectedEvents);
       expect(bulkEvents).toHaveLength(eventCount);
@@ -711,7 +804,9 @@ describe("InMemoryAgentRunner", () => {
     });
 
     it("should return false when stopping a non-existent thread", async () => {
-      await expect(runner.stop({ threadId: "missing-thread" })).resolves.toBe(false);
+      await expect(runner.stop({ threadId: "missing-thread" })).resolves.toBe(
+        false,
+      );
     });
 
     it("should stop an active run and complete streams", async () => {
@@ -771,32 +866,46 @@ describe("InMemoryAgentRunner", () => {
       const thread2 = "test-thread-iso-2";
 
       const agent1 = new MockAgent([
-        { type: "thread1", id: "t1-event", timestamp: new Date().toISOString(), data: {} } as BaseEvent,
+        {
+          type: "thread1",
+          id: "t1-event",
+          timestamp: new Date().toISOString(),
+          data: {},
+        } as BaseEvent,
       ]);
       const agent2 = new MockAgent([
-        { type: "thread2", id: "t2-event", timestamp: new Date().toISOString(), data: {} } as BaseEvent,
+        {
+          type: "thread2",
+          id: "t2-event",
+          timestamp: new Date().toISOString(),
+          data: {},
+        } as BaseEvent,
       ]);
 
       // Run on different threads
       const run1 = runner.run({
         threadId: thread1,
         agent: agent1,
-        input: { messages: [], state: {}, threadId: thread1, runId: "run-t1" }
+        input: { messages: [], state: {}, threadId: thread1, runId: "run-t1" },
       });
       const run2 = runner.run({
         threadId: thread2,
         agent: agent2,
-        input: { messages: [], state: {}, threadId: thread2, runId: "run-t2" }
+        input: { messages: [], state: {}, threadId: thread2, runId: "run-t2" },
       });
 
       await Promise.all([
         firstValueFrom(run1.pipe(toArray())),
-        firstValueFrom(run2.pipe(toArray()))
+        firstValueFrom(run2.pipe(toArray())),
       ]);
 
       // Connect to each thread
-      const events1 = await firstValueFrom(runner.connect({ threadId: thread1 }).pipe(toArray()));
-      const events2 = await firstValueFrom(runner.connect({ threadId: thread2 }).pipe(toArray()));
+      const events1 = await firstValueFrom(
+        runner.connect({ threadId: thread1 }).pipe(toArray()),
+      );
+      const events2 = await firstValueFrom(
+        runner.connect({ threadId: thread2 }).pipe(toArray()),
+      );
 
       // Verify isolation
       const thread1Events = stripTerminalEvents(events1);
@@ -813,9 +922,29 @@ describe("InMemoryAgentRunner", () => {
     it("should handle rapid sequential runs with mixed event patterns", async () => {
       const threadId = "test-thread-complex-1";
       const runs = [
-        { agent: new MockAgent([{ type: "instant", id: "instant-1", timestamp: new Date().toISOString(), data: {} } as BaseEvent]), runId: "run-1" },
+        {
+          agent: new MockAgent([
+            {
+              type: "instant",
+              id: "instant-1",
+              timestamp: new Date().toISOString(),
+              data: {},
+            } as BaseEvent,
+          ]),
+          runId: "run-1",
+        },
         { agent: new DelayedEventAgent(3, 5, "delayed"), runId: "run-2" },
-        { agent: new MockAgent([{ type: "instant", id: "instant-2", timestamp: new Date().toISOString(), data: {} } as BaseEvent]), runId: "run-3" },
+        {
+          agent: new MockAgent([
+            {
+              type: "instant",
+              id: "instant-2",
+              timestamp: new Date().toISOString(),
+              data: {},
+            } as BaseEvent,
+          ]),
+          runId: "run-3",
+        },
         { agent: new MultiEventAgent("multi"), runId: "run-4" },
         { agent: new DelayedEventAgent(2, 10, "slow"), runId: "run-5" },
       ];
@@ -832,7 +961,9 @@ describe("InMemoryAgentRunner", () => {
         await firstValueFrom(run.pipe(toArray()));
       }
 
-      const allEvents = await firstValueFrom(runner.connect({ threadId }).pipe(toArray()));
+      const allEvents = await firstValueFrom(
+        runner.connect({ threadId }).pipe(toArray()),
+      );
 
       const agentEvents = stripTerminalEvents(allEvents);
       expect(agentEvents).toHaveLength(12); // 1 + 3 + 1 + 5 + 2
@@ -847,41 +978,51 @@ describe("InMemoryAgentRunner", () => {
 
     it("should handle subscriber that connects between runs", async () => {
       const threadId = "test-thread-complex-2";
-      
+
       // First run
       const agent1 = new MultiEventAgent("first");
       const run1 = runner.run({
         threadId,
         agent: agent1,
-        input: { messages: [], state: {}, threadId, runId: "run-1" }
+        input: { messages: [], state: {}, threadId, runId: "run-1" },
       });
       await firstValueFrom(run1.pipe(toArray()));
 
       // Connect after first run - should only get first run events
       const midConnectObservable = runner.connect({ threadId });
-      const midEvents = await firstValueFrom(midConnectObservable.pipe(toArray()));
+      const midEvents = await firstValueFrom(
+        midConnectObservable.pipe(toArray()),
+      );
 
       const midAgentEvents = stripTerminalEvents(midEvents);
       expect(midAgentEvents).toHaveLength(5); // Only events from first run
-      const firstRunEvents = midAgentEvents.filter((e) => e.id?.includes("first"));
+      const firstRunEvents = midAgentEvents.filter((e) =>
+        e.id?.includes("first"),
+      );
       expect(firstRunEvents).toHaveLength(5);
-      
+
       // Second run
       const agent2 = new MultiEventAgent("second");
       const run2 = runner.run({
         threadId,
         agent: agent2,
-        input: { messages: [], state: {}, threadId, runId: "run-2" }
+        input: { messages: [], state: {}, threadId, runId: "run-2" },
       });
       await firstValueFrom(run2.pipe(toArray()));
 
       // Connect after both runs to verify all events
-      const allEvents = await firstValueFrom(runner.connect({ threadId }).pipe(toArray()));
+      const allEvents = await firstValueFrom(
+        runner.connect({ threadId }).pipe(toArray()),
+      );
       const allAgentEvents = stripTerminalEvents(allEvents);
       expect(allAgentEvents).toHaveLength(10); // Events from both runs
 
-      const allFirstRunEvents = allAgentEvents.filter((e) => e.id?.includes("first"));
-      const allSecondRunEvents = allAgentEvents.filter((e) => e.id?.includes("second"));
+      const allFirstRunEvents = allAgentEvents.filter((e) =>
+        e.id?.includes("first"),
+      );
+      const allSecondRunEvents = allAgentEvents.filter((e) =>
+        e.id?.includes("second"),
+      );
       expect(allFirstRunEvents).toHaveLength(5);
       expect(allSecondRunEvents).toHaveLength(5);
     });

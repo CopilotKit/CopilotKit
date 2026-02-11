@@ -5,7 +5,10 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-export async function fetcher<JSON = any>(input: RequestInfo, init?: RequestInit): Promise<JSON> {
+export async function fetcher<JSON = any>(
+  input: RequestInfo,
+  init?: RequestInit,
+): Promise<JSON> {
   const res = await fetch(input, init);
 
   if (!res.ok) {
@@ -34,7 +37,8 @@ export function formatDate(input: string | number | Date): string {
 }
 
 export const arraysAreEqual = (arr1: number[], arr2: number[]): boolean =>
-  arr1.length === arr2.length && arr1.every((value, index) => value === arr2[index]);
+  arr1.length === arr2.length &&
+  arr1.every((value, index) => value === arr2[index]);
 
 export function nullableCompatibleEqualityCheck<T>(
   naiveEqualityCheck: (a: T, b: T) => boolean,

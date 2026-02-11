@@ -1,6 +1,11 @@
 import React, { useMemo, useCallback, useEffect, useRef } from "react";
 import { ChatContextProvider, useChatContext } from "./ChatContext";
-import { ButtonProps, HeaderProps, WindowProps, CopilotObservabilityHooks } from "./props";
+import {
+  ButtonProps,
+  HeaderProps,
+  WindowProps,
+  CopilotObservabilityHooks,
+} from "./props";
 import { Window as DefaultWindow } from "./Window";
 import { Button as DefaultButton } from "./Button";
 import { Header as DefaultHeader } from "./Header";
@@ -185,7 +190,12 @@ export const CopilotModal = ({
   const [openState, setOpenState] = React.useState(defaultOpen);
 
   return (
-    <ChatContextProvider icons={icons} labels={labels} open={openState} setOpen={setOpenState}>
+    <ChatContextProvider
+      icons={icons}
+      labels={labels}
+      open={openState}
+      setOpen={setOpenState}
+    >
       <CopilotModalInner
         observabilityHooks={observabilityHooks}
         onSetOpen={onSetOpen}

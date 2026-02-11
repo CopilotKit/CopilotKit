@@ -70,7 +70,9 @@ describe("roundtrip message conversion", () => {
     const gqlMsgs2 = aguiToGQL(aguiMsgs);
     expect(gqlMsgs2[0].id).toBe(gqlMsg.id);
     expect((gqlMsgs2[0] as any).result).toBe(gqlMsg.result);
-    expect((gqlMsgs2[0] as any).actionExecutionId).toBe(gqlMsg.actionExecutionId);
+    expect((gqlMsgs2[0] as any).actionExecutionId).toBe(
+      gqlMsg.actionExecutionId,
+    );
   });
 
   test("action execution AGUI -> GQL -> AGUI", () => {
@@ -96,7 +98,9 @@ describe("roundtrip message conversion", () => {
     expect(aguiMsgs2[1].role).toBe("assistant");
     // Only check toolCalls if present
     if ("toolCalls" in aguiMsgs2[1]) {
-      expect((aguiMsgs2[1] as any).toolCalls[0].function.name).toBe("doSomething");
+      expect((aguiMsgs2[1] as any).toolCalls[0].function.name).toBe(
+        "doSomething",
+      );
     }
   });
 
@@ -148,14 +152,18 @@ describe("roundtrip message conversion", () => {
       ],
       generativeUI: mockRender,
     };
-    const actions: Record<string, any> = { doSomething: { name: "doSomething" } };
+    const actions: Record<string, any> = {
+      doSomething: { name: "doSomething" },
+    };
     const gqlMsgs = aguiToGQL(aguiMsg, actions);
     const aguiMsgs2 = gqlToAGUI(gqlMsgs, actions);
     // The render function should be preserved in actions context
     expect(typeof actions.doSomething.render).toBe("function");
     // The roundtripped message should have the same tool call
     if ("toolCalls" in aguiMsgs2[1]) {
-      expect((aguiMsgs2[1] as any).toolCalls[0].function.name).toBe("doSomething");
+      expect((aguiMsgs2[1] as any).toolCalls[0].function.name).toBe(
+        "doSomething",
+      );
     }
   });
 
@@ -190,7 +198,9 @@ describe("roundtrip message conversion", () => {
     expect(aguiAssistantMsgs2[0].id).toBe(aguiAssistantImageMsg.id);
     expect(aguiAssistantMsgs2[0].role).toBe("assistant");
     expect((aguiAssistantMsgs2[0] as any).image.format).toBe("jpeg");
-    expect((aguiAssistantMsgs2[0] as any).image.bytes).toBe("assistantbase64data");
+    expect((aguiAssistantMsgs2[0] as any).image.bytes).toBe(
+      "assistantbase64data",
+    );
 
     // User image message
     const aguiUserImageMsg: agui.Message = {
@@ -211,7 +221,9 @@ describe("roundtrip message conversion", () => {
   });
 
   test("wild card action roundtrip conversion", () => {
-    const mockRender = vi.fn((props) => `Wildcard rendered: ${props.args.test}`);
+    const mockRender = vi.fn(
+      (props) => `Wildcard rendered: ${props.args.test}`,
+    );
     const aguiMsg: agui.Message = {
       id: "assistant-wildcard-1",
       role: "assistant",
@@ -248,7 +260,9 @@ describe("roundtrip message conversion", () => {
 
     // Check that the tool call is preserved
     if ("toolCalls" in aguiMsgs2[1]) {
-      expect((aguiMsgs2[1] as any).toolCalls[0].function.name).toBe("unknownAction");
+      expect((aguiMsgs2[1] as any).toolCalls[0].function.name).toBe(
+        "unknownAction",
+      );
       expect((aguiMsgs2[1] as any).toolCalls[0].function.arguments).toBe(
         '{"test":"wildcard-value"}',
       );
@@ -256,7 +270,9 @@ describe("roundtrip message conversion", () => {
   });
 
   test("wild card action with specific action priority roundtrip", () => {
-    const mockRender = vi.fn((props) => `Specific action rendered: ${props.args.test}`);
+    const mockRender = vi.fn(
+      (props) => `Specific action rendered: ${props.args.test}`,
+    );
     const aguiMsg: agui.Message = {
       id: "assistant-priority-1",
       role: "assistant",
@@ -295,7 +311,9 @@ describe("roundtrip message conversion", () => {
 
     // Check that the tool call is preserved
     if ("toolCalls" in aguiMsgs2[1]) {
-      expect((aguiMsgs2[1] as any).toolCalls[0].function.name).toBe("specificAction");
+      expect((aguiMsgs2[1] as any).toolCalls[0].function.name).toBe(
+        "specificAction",
+      );
       expect((aguiMsgs2[1] as any).toolCalls[0].function.arguments).toBe(
         '{"test":"specific-value"}',
       );
@@ -329,7 +347,9 @@ describe("roundtrip message conversion", () => {
     expect((gqlMsgs2[0] as any).role).toBe(gql.Role.Assistant);
     expect(gqlMsgs2[1].id).toBe("wildcard-action-1");
     expect((gqlMsgs2[1] as any).name).toBe("unknownAction");
-    expect((gqlMsgs2[1] as any).arguments).toEqual({ test: "wildcard-gql-value" });
+    expect((gqlMsgs2[1] as any).arguments).toEqual({
+      test: "wildcard-gql-value",
+    });
   });
 
   test("roundtrip conversion with result parsing edge cases", () => {
@@ -348,11 +368,15 @@ describe("roundtrip message conversion", () => {
 
     expect(gqlMsgs).toHaveLength(1);
     expect(gqlMsgs[0]).toBeInstanceOf(gql.ResultMessage);
-    expect((gqlMsgs[0] as any).result).toBe('{"status": "success", "data": {"value": 42}}');
+    expect((gqlMsgs[0] as any).result).toBe(
+      '{"status": "success", "data": {"value": 42}}',
+    );
 
     expect(aguiMsgs).toHaveLength(1);
     expect(aguiMsgs[0].role).toBe("tool");
-    expect(aguiMsgs[0].content).toBe('{"status": "success", "data": {"value": 42}}');
+    expect(aguiMsgs[0].content).toBe(
+      '{"status": "success", "data": {"value": 42}}',
+    );
   });
 
   test("roundtrip conversion with object content in tool results", () => {
@@ -371,15 +395,21 @@ describe("roundtrip message conversion", () => {
 
     expect(gqlMsgs).toHaveLength(1);
     expect(gqlMsgs[0]).toBeInstanceOf(gql.ResultMessage);
-    expect((gqlMsgs[0] as any).result).toBe('{"status":"success","data":{"value":42}}');
+    expect((gqlMsgs[0] as any).result).toBe(
+      '{"status":"success","data":{"value":42}}',
+    );
 
     expect(aguiMsgs).toHaveLength(1);
     expect(aguiMsgs[0].role).toBe("tool");
-    expect(aguiMsgs[0].content).toBe('{"status":"success","data":{"value":42}}');
+    expect(aguiMsgs[0].content).toBe(
+      '{"status":"success","data":{"value":42}}',
+    );
   });
 
   test("roundtrip conversion with action execution and result parsing", () => {
-    const mockRender = vi.fn((props) => `Rendered: ${JSON.stringify(props.result)}`);
+    const mockRender = vi.fn(
+      (props) => `Rendered: ${JSON.stringify(props.result)}`,
+    );
 
     // Create action execution message
     const actionExecMsg = new gql.ActionExecutionMessage({
@@ -435,11 +465,15 @@ describe("roundtrip message conversion", () => {
 
     // Check that arguments roundtripped correctly
     expect((gqlMsgs2[1] as any).arguments).toEqual({ input: "test-value" });
-    expect((gqlMsgs2[2] as any).result).toBe('{"output": "processed", "count": 5}');
+    expect((gqlMsgs2[2] as any).result).toBe(
+      '{"output": "processed", "count": 5}',
+    );
   });
 
   test("roundtrip conversion verifies correct property distribution for regular actions", () => {
-    const mockRender = vi.fn((props) => `Regular action: ${JSON.stringify(props.args)}`);
+    const mockRender = vi.fn(
+      (props) => `Regular action: ${JSON.stringify(props.args)}`,
+    );
 
     const actionExecMsg = new gql.ActionExecutionMessage({
       id: "regular-action-test",
@@ -482,7 +516,8 @@ describe("roundtrip message conversion", () => {
 
   test("roundtrip conversion verifies correct property distribution for wildcard actions", () => {
     const mockRender = vi.fn(
-      (props) => `Wildcard action: ${props.name} with ${JSON.stringify(props.args)}`,
+      (props) =>
+        `Wildcard action: ${props.name} with ${JSON.stringify(props.args)}`,
     );
 
     const actionExecMsg = new gql.ActionExecutionMessage({

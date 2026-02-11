@@ -74,7 +74,9 @@ describe("ProxiedCopilotRuntimeAgent transport integration", () => {
         expect(fetchMock).toHaveBeenCalledTimes(1);
         const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
         if (transport === "rest") {
-          expect(url).toBe(`${runtimeUrl}/agent/${encodeURIComponent(agentId)}/run`);
+          expect(url).toBe(
+            `${runtimeUrl}/agent/${encodeURIComponent(agentId)}/run`,
+          );
         } else {
           expect(url).toBe(runtimeUrl);
           const body = JSON.parse(init.body as string);
@@ -110,7 +112,9 @@ describe("ProxiedCopilotRuntimeAgent transport integration", () => {
         expect(fetchMock).toHaveBeenCalledTimes(1);
         const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
         if (transport === "rest") {
-          expect(url).toBe(`${runtimeUrl}/agent/${encodeURIComponent(agentId)}/connect`);
+          expect(url).toBe(
+            `${runtimeUrl}/agent/${encodeURIComponent(agentId)}/connect`,
+          );
         } else {
           expect(url).toBe(runtimeUrl);
           const body = JSON.parse(init.body as string);
@@ -231,7 +235,9 @@ describe("Suggestions engine with single-endpoint runtime agents", () => {
       agentId: "provider",
       transport: "single",
     });
-    const consumerAgent = new MockAgent({ agentId: "consumer" }) as unknown as any;
+    const consumerAgent = new MockAgent({
+      agentId: "consumer",
+    }) as unknown as any;
 
     const core = new CopilotKitCore({
       runtimeUrl,
@@ -284,7 +290,9 @@ function createSseResponse(): Response {
           result: { newMessages: [] },
         },
       ];
-      const payload = events.map((event) => `data: ${JSON.stringify(event)}\n\n`).join("");
+      const payload = events
+        .map((event) => `data: ${JSON.stringify(event)}\n\n`)
+        .join("");
       controller.enqueue(encoder.encode(payload));
       controller.close();
     },

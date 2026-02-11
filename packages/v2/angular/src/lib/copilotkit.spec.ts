@@ -132,19 +132,24 @@ describe("CopilotKit", () => {
       name: "client",
       description: "Client tool",
       args: z.object({ value: z.string() }),
-      component: class { toolCall = signal({} as any); },
+      component: class {
+        toolCall = signal({} as any);
+      },
       handler: handlerSpy,
       injector,
     });
 
     expect(mockAddTool).toHaveBeenCalledWith(
-      expect.objectContaining({ name: "client" })
+      expect.objectContaining({ name: "client" }),
     );
     expect(copilotKit.clientToolCallRenderConfigs()).toHaveLength(1);
 
     const tool = mockAddTool.mock.calls.at(-1)![0];
     const mockAgent = { agentId: "test-agent" };
-    const mockContext = { toolCall: { id: "call-1", function: { name: "client" } }, agent: mockAgent };
+    const mockContext = {
+      toolCall: { id: "call-1", function: { name: "client" } },
+      agent: mockAgent,
+    };
     await tool.handler({ value: "ok" }, mockContext);
     expect(handlerSpy).toHaveBeenCalledWith({ value: "ok" }, mockContext);
   });
@@ -163,23 +168,29 @@ describe("CopilotKit", () => {
     const toolConfig = {
       name: "approval",
       args: z.object({ summary: z.string() }),
-      component: class { toolCall = signal({} as any); },
+      component: class {
+        toolCall = signal({} as any);
+      },
       toolCall: vi.fn(),
       agentId: "agent-1",
     } as const;
 
     copilotKit.addHumanInTheLoop(toolConfig);
 
-    expect(copilotKit.humanInTheLoopToolRenderConfigs()).toEqual([
-      toolConfig,
-    ]);
+    expect(copilotKit.humanInTheLoopToolRenderConfigs()).toEqual([toolConfig]);
     expect(mockAddTool).toHaveBeenCalledWith(
-      expect.objectContaining({ name: "approval" })
+      expect.objectContaining({ name: "approval" }),
     );
 
     const tool = mockAddTool.mock.calls.at(-1)![0];
     const mockAgent = { agentId: "agent-1" };
-    await tool.handler({}, { toolCall: { id: "call-1", function: { name: "approval" } }, agent: mockAgent });
+    await tool.handler(
+      {},
+      {
+        toolCall: { id: "call-1", function: { name: "approval" } },
+        agent: mockAgent,
+      },
+    );
     expect(onResultSpy).toHaveBeenCalledWith("call-1", "approval");
 
     onResultSpy.mockRestore();
@@ -195,7 +206,9 @@ describe("CopilotKit", () => {
     copilotKit.addRenderToolCall({
       name: "temp",
       args: z.object({}),
-      component: class { toolCall = signal({} as any); },
+      component: class {
+        toolCall = signal({} as any);
+      },
       agentId: undefined,
     });
 

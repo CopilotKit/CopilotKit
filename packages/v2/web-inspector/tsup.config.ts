@@ -1,15 +1,15 @@
-import { defineConfig } from 'tsup';
+import { defineConfig } from "tsup";
 
 export default defineConfig({
-  entry: ['src/index.ts'],
-  format: ['cjs', 'esm'],
+  entry: ["src/index.ts"],
+  format: ["cjs", "esm"],
   dts: true,
   sourcemap: true,
   clean: true,
-  target: 'es2022',
-  outDir: 'dist',
+  target: "es2022",
+  outDir: "dist",
   loader: {
-    '.css': 'text',
-    '.svg': 'dataurl',
+    ".css": "text",
+    ".svg": "dataurl",
   },
 });

@@ -1,4 +1,4 @@
-import type { Anchor, DockMode, Position, Size } from './types';
+import type { Anchor, DockMode, Position, Size } from "./types";
 
 export type PersistedContextState = {
   anchor?: Anchor;
@@ -8,7 +8,7 @@ export type PersistedContextState = {
 };
 
 export type PersistedState = {
-  button?: Omit<PersistedContextState, 'size'>;
+  button?: Omit<PersistedContextState, "size">;
   window?: PersistedContextState;
   isOpen?: boolean;
   dockMode?: DockMode;
@@ -36,7 +36,9 @@ export function loadInspectorState(storageKey: string): PersistedState | null {
   // Backwards compatibility: try to read the legacy cookie and migrate it
   if (typeof document !== "undefined") {
     const prefix = `${storageKey}=`;
-    const entry = document.cookie.split("; ").find((cookie) => cookie.startsWith(prefix));
+    const entry = document.cookie
+      .split("; ")
+      .find((cookie) => cookie.startsWith(prefix));
     if (entry) {
       const legacyRaw = entry.substring(prefix.length);
       try {
@@ -53,7 +55,10 @@ export function loadInspectorState(storageKey: string): PersistedState | null {
   return null;
 }
 
-export function saveInspectorState(storageKey: string, state: PersistedState): void {
+export function saveInspectorState(
+  storageKey: string,
+  state: PersistedState,
+): void {
   if (typeof window === "undefined") {
     return;
   }
@@ -66,19 +71,19 @@ export function saveInspectorState(storageKey: string, state: PersistedState): v
 }
 
 export function isValidAnchor(value: unknown): value is Anchor {
-  if (!value || typeof value !== 'object') {
+  if (!value || typeof value !== "object") {
     return false;
   }
 
   const candidate = value as Anchor;
   return (
-    (candidate.horizontal === 'left' || candidate.horizontal === 'right') &&
-    (candidate.vertical === 'top' || candidate.vertical === 'bottom')
+    (candidate.horizontal === "left" || candidate.horizontal === "right") &&
+    (candidate.vertical === "top" || candidate.vertical === "bottom")
   );
 }
 
 export function isValidPosition(value: unknown): value is Position {
-  if (!value || typeof value !== 'object') {
+  if (!value || typeof value !== "object") {
     return false;
   }
 
@@ -87,7 +92,7 @@ export function isValidPosition(value: unknown): value is Position {
 }
 
 export function isValidSize(value: unknown): value is Size {
-  if (!value || typeof value !== 'object') {
+  if (!value || typeof value !== "object") {
     return false;
   }
 
@@ -96,9 +101,9 @@ export function isValidSize(value: unknown): value is Size {
 }
 
 export function isFiniteNumber(value: unknown): value is number {
-  return typeof value === 'number' && Number.isFinite(value);
+  return typeof value === "number" && Number.isFinite(value);
 }
 
 export function isValidDockMode(value: unknown): value is DockMode {
-  return value === 'floating' || value === 'docked-left';
+  return value === "floating" || value === "docked-left";
 }

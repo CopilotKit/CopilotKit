@@ -10,7 +10,8 @@ export default function WaterBnb() {
   const serviceAdapter = searchParams.get("serviceAdapter") || "openai";
 
   const runtimeUrl =
-    searchParams.get("runtimeUrl") || `/api/copilotkit?serviceAdapter=${serviceAdapter}`;
+    searchParams.get("runtimeUrl") ||
+    `/api/copilotkit?serviceAdapter=${serviceAdapter}`;
   const publicApiKey = searchParams.get("publicApiKey");
   const copilotKitProps: Partial<React.ComponentProps<typeof CopilotKit>> = {
     runtimeUrl,

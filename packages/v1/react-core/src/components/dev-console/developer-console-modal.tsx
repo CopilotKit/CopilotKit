@@ -4,7 +4,11 @@ import { useCopilotContext } from "../../context/copilot-context";
 import { useCopilotMessagesContext } from "../../context/copilot-messages-context";
 import { COPILOTKIT_VERSION } from "@copilotkit/shared";
 import { useEffect, useState } from "react";
-import { CheckIcon, CopilotKitIcon, ExclamationMarkTriangleIcon } from "./icons";
+import {
+  CheckIcon,
+  CopilotKitIcon,
+  ExclamationMarkTriangleIcon,
+} from "./icons";
 
 // Type definitions for the developer console
 interface ActionParameter {
@@ -66,7 +70,11 @@ interface DeveloperConsoleModalProps {
   hasApiKey: boolean;
 }
 
-export function DeveloperConsoleModal({ isOpen, onClose, hasApiKey }: DeveloperConsoleModalProps) {
+export function DeveloperConsoleModal({
+  isOpen,
+  onClose,
+  hasApiKey,
+}: DeveloperConsoleModalProps) {
   const context = useCopilotContext();
   const messagesContext = useCopilotMessagesContext();
   const [activeTab, setActiveTab] = useState("actions");
@@ -97,9 +105,18 @@ export function DeveloperConsoleModal({ isOpen, onClose, hasApiKey }: DeveloperC
     ? (context as DisplayContext)
     : {
         actions: {
-          search_web: { name: "search_web", description: "Search the web for information" },
-          send_email: { name: "send_email", description: "Send an email to a contact" },
-          create_document: { name: "create_document", description: "Create a new document" },
+          search_web: {
+            name: "search_web",
+            description: "Search the web for information",
+          },
+          send_email: {
+            name: "send_email",
+            description: "Send an email to a contact",
+          },
+          create_document: {
+            name: "create_document",
+            description: "Create a new document",
+          },
           analyze_code: {
             name: "analyze_code",
             description: "Analyze code for issues and improvements",
@@ -111,11 +128,13 @@ export function DeveloperConsoleModal({ isOpen, onClose, hasApiKey }: DeveloperC
         },
         getAllContext: () => [
           {
-            content: "User preferences: dark mode enabled, TypeScript preferred",
+            content:
+              "User preferences: dark mode enabled, TypeScript preferred",
             metadata: { source: "settings" },
           },
           {
-            content: "Current project: Building a React application with CopilotKit",
+            content:
+              "Current project: Building a React application with CopilotKit",
             metadata: { source: "project" },
           },
           {
@@ -129,7 +148,10 @@ export function DeveloperConsoleModal({ isOpen, onClose, hasApiKey }: DeveloperC
         ],
         coagentStates: {
           "main-agent": { status: "active", lastUpdate: Date.now() },
-          "code-assistant": { status: "active", lastUpdate: Date.now() - 15000 },
+          "code-assistant": {
+            status: "active",
+            lastUpdate: Date.now() - 15000,
+          },
           "search-agent": { status: "idle", lastUpdate: Date.now() - 60000 },
         },
         getDocumentsContext: () => [
@@ -155,7 +177,8 @@ export function DeveloperConsoleModal({ isOpen, onClose, hasApiKey }: DeveloperC
           {
             id: "1",
             role: "user",
-            content: "Help me implement a todo list with drag and drop functionality",
+            content:
+              "Help me implement a todo list with drag and drop functionality",
           },
           {
             id: "2",
@@ -163,14 +186,22 @@ export function DeveloperConsoleModal({ isOpen, onClose, hasApiKey }: DeveloperC
             content:
               "I'll help you create a todo list with drag and drop. Let me start by setting up the basic components and then add the drag and drop functionality using React DnD.",
           },
-          { id: "3", role: "user", content: "Can you also add priority levels and due dates?" },
+          {
+            id: "3",
+            role: "user",
+            content: "Can you also add priority levels and due dates?",
+          },
           {
             id: "4",
             role: "assistant",
             content:
               "Absolutely! I'll enhance the todo items with priority levels (high, medium, low) and due date functionality. This will make your todo list much more powerful for task management.",
           },
-          { id: "5", role: "user", content: "Perfect! How about adding categories or tags?" },
+          {
+            id: "5",
+            role: "user",
+            content: "Perfect! How about adding categories or tags?",
+          },
         ],
       };
 
@@ -275,14 +306,26 @@ export function DeveloperConsoleModal({ isOpen, onClose, hasApiKey }: DeveloperC
           }}
         >
           {[
-            { id: "actions", label: "Actions", count: Object.keys(displayContext.actions).length },
-            { id: "readables", label: "Readables", count: displayContext.getAllContext().length },
+            {
+              id: "actions",
+              label: "Actions",
+              count: Object.keys(displayContext.actions).length,
+            },
+            {
+              id: "readables",
+              label: "Readables",
+              count: displayContext.getAllContext().length,
+            },
             {
               id: "agent",
               label: "Agent Status",
               count: Object.keys(displayContext.coagentStates).length,
             },
-            { id: "messages", label: "Messages", count: displayMessagesContext.messages.length },
+            {
+              id: "messages",
+              label: "Messages",
+              count: displayMessagesContext.messages.length,
+            },
             {
               id: "context",
               label: "Context",
@@ -300,7 +343,8 @@ export function DeveloperConsoleModal({ isOpen, onClose, hasApiKey }: DeveloperC
                 cursor: "pointer",
                 backgroundColor: activeTab === tab.id ? "white" : "transparent",
                 color: activeTab === tab.id ? "#2563eb" : "#6b7280",
-                borderBottom: activeTab === tab.id ? "2px solid #2563eb" : "none",
+                borderBottom:
+                  activeTab === tab.id ? "2px solid #2563eb" : "none",
                 transition: "all 0.2s",
               }}
               onMouseEnter={(e) => {
@@ -347,9 +391,13 @@ export function DeveloperConsoleModal({ isOpen, onClose, hasApiKey }: DeveloperC
           }}
         >
           {activeTab === "actions" && <ActionsTab context={displayContext} />}
-          {activeTab === "readables" && <ReadablesTab context={displayContext} />}
+          {activeTab === "readables" && (
+            <ReadablesTab context={displayContext} />
+          )}
           {activeTab === "agent" && <AgentStatusTab context={displayContext} />}
-          {activeTab === "messages" && <MessagesTab messagesContext={displayMessagesContext} />}
+          {activeTab === "messages" && (
+            <MessagesTab messagesContext={displayMessagesContext} />
+          )}
           {activeTab === "context" && <ContextTab context={displayContext} />}
         </div>
 
@@ -374,8 +422,12 @@ export function DeveloperConsoleModal({ isOpen, onClose, hasApiKey }: DeveloperC
               target="_blank"
               rel="noopener noreferrer"
               style={{ color: "#2563eb", textDecoration: "none" }}
-              onMouseEnter={(e) => (e.currentTarget.style.textDecoration = "underline")}
-              onMouseLeave={(e) => (e.currentTarget.style.textDecoration = "none")}
+              onMouseEnter={(e) =>
+                (e.currentTarget.style.textDecoration = "underline")
+              }
+              onMouseLeave={(e) =>
+                (e.currentTarget.style.textDecoration = "none")
+              }
             >
               Report an issue
             </a>
@@ -386,8 +438,12 @@ export function DeveloperConsoleModal({ isOpen, onClose, hasApiKey }: DeveloperC
               target="_blank"
               rel="noopener noreferrer"
               style={{ color: "#2563eb", textDecoration: "none" }}
-              onMouseEnter={(e) => (e.currentTarget.style.textDecoration = "underline")}
-              onMouseLeave={(e) => (e.currentTarget.style.textDecoration = "none")}
+              onMouseEnter={(e) =>
+                (e.currentTarget.style.textDecoration = "underline")
+              }
+              onMouseLeave={(e) =>
+                (e.currentTarget.style.textDecoration = "none")
+              }
             >
               Add MCP Server →
             </a>
@@ -415,7 +471,9 @@ export function DeveloperConsoleModal({ isOpen, onClose, hasApiKey }: DeveloperC
             onClick={(e) => e.stopPropagation()}
           >
             <button
-              onClick={() => window.open("https://cloud.copilotkit.ai/sign-in", "_blank")}
+              onClick={() =>
+                window.open("https://cloud.copilotkit.ai/sign-in", "_blank")
+              }
               style={{
                 // Following button system specifications
                 height: "48px",
@@ -427,9 +485,11 @@ export function DeveloperConsoleModal({ isOpen, onClose, hasApiKey }: DeveloperC
                 cursor: "pointer",
                 fontSize: "14px", // Medium Semi Bold typography
                 fontWeight: "600",
-                fontFamily: "'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif",
+                fontFamily:
+                  "'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif",
                 lineHeight: "22px",
-                boxShadow: "0 4px 16px rgba(3, 5, 7, 0.2), 0 1px 3px rgba(3, 5, 7, 0.1)",
+                boxShadow:
+                  "0 4px 16px rgba(3, 5, 7, 0.2), 0 1px 3px rgba(3, 5, 7, 0.1)",
                 transition: "all 200ms ease", // 200ms ease as per specs
                 display: "inline-flex",
                 alignItems: "center",
@@ -482,8 +542,12 @@ function ActionsTab({ context }: { context: DisplayContext }) {
   if (actions.length === 0) {
     return (
       <div style={{ textAlign: "center", padding: "48px 0", color: "#6b7280" }}>
-        <p style={{ fontSize: "18px", margin: "0 0 8px 0" }}>No actions available</p>
-        <p style={{ fontSize: "14px", margin: 0 }}>Actions will appear here when registered</p>
+        <p style={{ fontSize: "18px", margin: "0 0 8px 0" }}>
+          No actions available
+        </p>
+        <p style={{ fontSize: "14px", margin: 0 }}>
+          Actions will appear here when registered
+        </p>
       </div>
     );
   }
@@ -502,14 +566,30 @@ function ActionsTab({ context }: { context: DisplayContext }) {
           }}
         >
           <div
-            style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}
+            style={{
+              display: "flex",
+              alignItems: "flex-start",
+              justifyContent: "space-between",
+            }}
           >
             <div style={{ flex: 1 }}>
-              <h3 style={{ fontWeight: "600", color: "#1f2937", margin: "0 0 4px 0" }}>
+              <h3
+                style={{
+                  fontWeight: "600",
+                  color: "#1f2937",
+                  margin: "0 0 4px 0",
+                }}
+              >
                 {action.name}
               </h3>
               {action.description && (
-                <p style={{ fontSize: "14px", color: "#4b5563", margin: "0 0 12px 0" }}>
+                <p
+                  style={{
+                    fontSize: "14px",
+                    color: "#4b5563",
+                    margin: "0 0 12px 0",
+                  }}
+                >
                   {action.description}
                 </p>
               )}
@@ -526,30 +606,59 @@ function ActionsTab({ context }: { context: DisplayContext }) {
                   >
                     Parameters:
                   </p>
-                  <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-                    {action.parameters.map((param: ActionParameter, pIndex: number) => (
-                      <div key={pIndex} style={{ fontSize: "14px" }}>
-                        <span style={{ fontFamily: "monospace", color: "#374151" }}>
-                          {param.name}
-                        </span>
-                        {param.required && (
-                          <span style={{ marginLeft: "4px", fontSize: "12px", color: "#ef4444" }}>
-                            *required
+                  <div
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: "4px",
+                    }}
+                  >
+                    {action.parameters.map(
+                      (param: ActionParameter, pIndex: number) => (
+                        <div key={pIndex} style={{ fontSize: "14px" }}>
+                          <span
+                            style={{
+                              fontFamily: "monospace",
+                              color: "#374151",
+                            }}
+                          >
+                            {param.name}
                           </span>
-                        )}
-                        {param.type && (
-                          <span style={{ marginLeft: "8px", fontSize: "12px", color: "#6b7280" }}>
-                            ({param.type})
-                          </span>
-                        )}
-                      </div>
-                    ))}
+                          {param.required && (
+                            <span
+                              style={{
+                                marginLeft: "4px",
+                                fontSize: "12px",
+                                color: "#ef4444",
+                              }}
+                            >
+                              *required
+                            </span>
+                          )}
+                          {param.type && (
+                            <span
+                              style={{
+                                marginLeft: "8px",
+                                fontSize: "12px",
+                                color: "#6b7280",
+                              }}
+                            >
+                              ({param.type})
+                            </span>
+                          )}
+                        </div>
+                      ),
+                    )}
                   </div>
                 </div>
               )}
             </div>
             <div style={{ marginLeft: "16px" }}>
-              {action.status === "available" ? <CheckIcon /> : <ExclamationMarkTriangleIcon />}
+              {action.status === "available" ? (
+                <CheckIcon />
+              ) : (
+                <ExclamationMarkTriangleIcon />
+              )}
             </div>
           </div>
         </div>
@@ -564,7 +673,9 @@ function ReadablesTab({ context }: { context: DisplayContext }) {
   if (readables.length === 0) {
     return (
       <div style={{ textAlign: "center", padding: "48px 0", color: "#6b7280" }}>
-        <p style={{ fontSize: "18px", margin: "0 0 8px 0" }}>No readable context available</p>
+        <p style={{ fontSize: "18px", margin: "0 0 8px 0" }}>
+          No readable context available
+        </p>
         <p style={{ fontSize: "14px", margin: 0 }}>
           Readable context will appear here when provided
         </p>
@@ -586,14 +697,30 @@ function ReadablesTab({ context }: { context: DisplayContext }) {
           }}
         >
           <div
-            style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}
+            style={{
+              display: "flex",
+              alignItems: "flex-start",
+              justifyContent: "space-between",
+            }}
           >
             <div style={{ flex: 1 }}>
-              <h3 style={{ fontWeight: "600", color: "#1f2937", margin: "0 0 4px 0" }}>
+              <h3
+                style={{
+                  fontWeight: "600",
+                  color: "#1f2937",
+                  margin: "0 0 4px 0",
+                }}
+              >
                 {readable.name || `Readable ${index + 1}`}
               </h3>
               {readable.description && (
-                <p style={{ fontSize: "14px", color: "#4b5563", margin: "0 0 12px 0" }}>
+                <p
+                  style={{
+                    fontSize: "14px",
+                    color: "#4b5563",
+                    margin: "0 0 12px 0",
+                  }}
+                >
                   {readable.description}
                 </p>
               )}
@@ -627,7 +754,9 @@ function AgentStatusTab({ context }: { context: DisplayContext }) {
   if (agentStateEntries.length === 0) {
     return (
       <div style={{ textAlign: "center", padding: "48px 0", color: "#6b7280" }}>
-        <p style={{ fontSize: "18px", margin: "0 0 8px 0" }}>No agent states available</p>
+        <p style={{ fontSize: "18px", margin: "0 0 8px 0" }}>
+          No agent states available
+        </p>
         <p style={{ fontSize: "14px", margin: 0 }}>
           Agent states will appear here when agents are active
         </p>
@@ -656,7 +785,14 @@ function AgentStatusTab({ context }: { context: DisplayContext }) {
               marginBottom: "16px",
             }}
           >
-            <h3 style={{ fontWeight: "600", fontSize: "18px", color: "#1f2937", margin: 0 }}>
+            <h3
+              style={{
+                fontWeight: "600",
+                fontSize: "18px",
+                color: "#1f2937",
+                margin: 0,
+              }}
+            >
               {agentName}
             </h3>
             <span
@@ -749,7 +885,11 @@ function AgentStatusTab({ context }: { context: DisplayContext }) {
   );
 }
 
-function MessagesTab({ messagesContext }: { messagesContext: MessagesContext }) {
+function MessagesTab({
+  messagesContext,
+}: {
+  messagesContext: MessagesContext;
+}) {
   const messages = messagesContext.messages || [];
 
   if (messages.length === 0) {
@@ -806,7 +946,13 @@ function MessagesTab({ messagesContext }: { messagesContext: MessagesContext }) 
               </span>
             )}
           </div>
-          <div style={{ fontSize: "14px", color: "#1f2937", whiteSpace: "pre-wrap" }}>
+          <div
+            style={{
+              fontSize: "14px",
+              color: "#1f2937",
+              whiteSpace: "pre-wrap",
+            }}
+          >
             {message.content || ""}
           </div>
         </div>
@@ -821,7 +967,9 @@ function ContextTab({ context }: { context: DisplayContext }) {
   if (documents.length === 0) {
     return (
       <div style={{ textAlign: "center", padding: "48px 0", color: "#6b7280" }}>
-        <p style={{ fontSize: "18px", margin: "0 0 8px 0" }}>No document context available</p>
+        <p style={{ fontSize: "18px", margin: "0 0 8px 0" }}>
+          No document context available
+        </p>
         <p style={{ fontSize: "14px", margin: 0 }}>
           Document context will appear here when provided
         </p>
@@ -842,7 +990,9 @@ function ContextTab({ context }: { context: DisplayContext }) {
             border: "1px solid #e5e7eb",
           }}
         >
-          <h3 style={{ fontWeight: "600", color: "#1f2937", margin: "0 0 8px 0" }}>
+          <h3
+            style={{ fontWeight: "600", color: "#1f2937", margin: "0 0 8px 0" }}
+          >
             {doc.name || `Document ${index + 1}`}
           </h3>
           {doc.content && (

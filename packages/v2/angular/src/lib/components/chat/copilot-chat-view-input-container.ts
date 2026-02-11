@@ -74,7 +74,7 @@ export class CopilotChatViewInputContainer extends ElementRef {
   get computedClass(): string {
     return cn(
       "absolute bottom-0 left-0 right-0 z-20",
-      this.inputContainerClass()
+      this.inputContainerClass(),
     );
   }
 }

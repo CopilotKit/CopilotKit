@@ -3,7 +3,10 @@ interface PerformResearchSwitchProps {
   setIsEnabled: (fn: (b: boolean) => boolean) => void;
 }
 
-export const PerformResearchSwitch = ({ isEnabled, setIsEnabled }: PerformResearchSwitchProps) => {
+export const PerformResearchSwitch = ({
+  isEnabled,
+  setIsEnabled,
+}: PerformResearchSwitchProps) => {
   return (
     <label className="flex items-center cursor-pointer pl-4">
       <div className="relative">

@@ -14,18 +14,24 @@ const preview: Preview = {
     docs: {
       toc: true,
       // Canvas (bottom) code panel behavior
-      canvas: { sourceState: 'shown' }, // Show source code by default
+      canvas: { sourceState: "shown" }, // Show source code by default
       // Enable the separate Code panel in Docs tab
       codePanel: true,
       // Configure source display
       source: {
-        type: 'dynamic', // Update snippet as args/Controls change
+        type: "dynamic", // Update snippet as args/Controls change
         // Ensure the code pane reflects the actual story template
         transform: (src: string, ctx: any) => {
           try {
             // Prefer the currently rendered story function
-            const storyResult = (ctx?.storyFn || ctx?.originalStoryFn)?.(ctx?.args || {});
-            if (storyResult && typeof storyResult === 'object' && 'template' in storyResult) {
+            const storyResult = (ctx?.storyFn || ctx?.originalStoryFn)?.(
+              ctx?.args || {},
+            );
+            if (
+              storyResult &&
+              typeof storyResult === "object" &&
+              "template" in storyResult
+            ) {
               return (storyResult as any).template as string;
             }
           } catch {}

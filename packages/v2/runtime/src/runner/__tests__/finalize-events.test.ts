@@ -7,15 +7,17 @@ import {
 } from "@ag-ui/client";
 import { finalizeRunEvents } from "@copilotkitnext/shared";
 
-const createTextStart = (messageId: string): BaseEvent => ({
-  type: EventType.TEXT_MESSAGE_START,
-  messageId,
-} as BaseEvent);
+const createTextStart = (messageId: string): BaseEvent =>
+  ({
+    type: EventType.TEXT_MESSAGE_START,
+    messageId,
+  }) as BaseEvent;
 
-const createToolStart = (toolCallId: string): BaseEvent => ({
-  type: EventType.TOOL_CALL_START,
-  toolCallId,
-} as BaseEvent);
+const createToolStart = (toolCallId: string): BaseEvent =>
+  ({
+    type: EventType.TOOL_CALL_START,
+    toolCallId,
+  }) as BaseEvent;
 
 describe("finalizeRunEvents", () => {
   it("closes streams with a RUN_FINISHED event when a stop was requested", () => {
@@ -34,7 +36,8 @@ describe("finalizeRunEvents", () => {
     ]);
 
     const resultEvent = appended.find(
-      (event): event is ToolCallResultEvent => event.type === EventType.TOOL_CALL_RESULT,
+      (event): event is ToolCallResultEvent =>
+        event.type === EventType.TOOL_CALL_RESULT,
     );
     expect(JSON.parse(resultEvent?.content ?? "")).toEqual(
       expect.objectContaining({
@@ -62,7 +65,8 @@ describe("finalizeRunEvents", () => {
     ]);
 
     const resultEvent = appended.find(
-      (event): event is ToolCallResultEvent => event.type === EventType.TOOL_CALL_RESULT,
+      (event): event is ToolCallResultEvent =>
+        event.type === EventType.TOOL_CALL_RESULT,
     );
     expect(JSON.parse(resultEvent?.content ?? "")).toEqual(
       expect.objectContaining({
@@ -92,8 +96,14 @@ describe("finalizeRunEvents", () => {
       EventType.TOOL_CALL_END,
     ]);
 
-    expect(appended.some((event) => event.type === EventType.TOOL_CALL_RESULT)).toBe(false);
-    expect(appended.some((event) => event.type === EventType.RUN_ERROR)).toBe(false);
-    expect(appended.some((event) => event.type === EventType.RUN_FINISHED)).toBe(false);
+    expect(
+      appended.some((event) => event.type === EventType.TOOL_CALL_RESULT),
+    ).toBe(false);
+    expect(appended.some((event) => event.type === EventType.RUN_ERROR)).toBe(
+      false,
+    );
+    expect(
+      appended.some((event) => event.type === EventType.RUN_FINISHED),
+    ).toBe(false);
   });
 });

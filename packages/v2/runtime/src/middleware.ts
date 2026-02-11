@@ -32,10 +32,10 @@ export interface AfterRequestMiddlewareParameters {
 }
 
 export type BeforeRequestMiddlewareFn = (
-  params: BeforeRequestMiddlewareParameters
+  params: BeforeRequestMiddlewareParameters,
 ) => MaybePromise<Request | void>;
 export type AfterRequestMiddlewareFn = (
-  params: AfterRequestMiddlewareParameters
+  params: AfterRequestMiddlewareParameters,
 ) => MaybePromise<void>;
 
 /**

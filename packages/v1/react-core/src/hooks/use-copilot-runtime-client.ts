@@ -22,12 +22,17 @@ export interface CopilotRuntimeClientHookOptions extends CopilotRuntimeClientOpt
   onError: CopilotErrorHandler;
 }
 
-export const useCopilotRuntimeClient = (options: CopilotRuntimeClientHookOptions) => {
+export const useCopilotRuntimeClient = (
+  options: CopilotRuntimeClientHookOptions,
+) => {
   const { setBannerError } = useToast();
   const { showDevConsole, onError, ...runtimeOptions } = options;
 
   // Deduplication state for structured errors
-  const lastStructuredErrorRef = useRef<{ message: string; timestamp: number } | null>(null);
+  const lastStructuredErrorRef = useRef<{
+    message: string;
+    timestamp: number;
+  } | null>(null);
 
   // Helper function to trace UI errors
   const traceUIError = async (error: CopilotKitError, originalError?: any) => {
@@ -44,8 +49,12 @@ export const useCopilotRuntimeClient = (options: CopilotRuntimeClientHookOptions
           },
           technical: {
             environment: "browser",
-            userAgent: typeof navigator !== "undefined" ? navigator.userAgent : undefined,
-            stackTrace: originalError instanceof Error ? originalError.stack : undefined,
+            userAgent:
+              typeof navigator !== "undefined"
+                ? navigator.userAgent
+                : undefined,
+            stackTrace:
+              originalError instanceof Error ? originalError.stack : undefined,
           },
         },
         error,
@@ -85,7 +94,10 @@ export const useCopilotRuntimeClient = (options: CopilotRuntimeClientHookOptions
             ) {
               return; // Skip duplicate
             }
-            lastStructuredErrorRef.current = { message: errorMessage, timestamp: now };
+            lastStructuredErrorRef.current = {
+              message: errorMessage,
+              timestamp: now,
+            };
 
             const ckError = createStructuredError(gqlError);
             if (ckError) {
@@ -150,7 +162,9 @@ function createStructuredError(gqlError: GraphQLError): CopilotKitError | null {
   if (originalError?.stack?.includes("CopilotApiDiscoveryError")) {
     return new CopilotKitApiDiscoveryError({ message });
   }
-  if (originalError?.stack?.includes("CopilotKitRemoteEndpointDiscoveryError")) {
+  if (
+    originalError?.stack?.includes("CopilotKitRemoteEndpointDiscoveryError")
+  ) {
     return new CopilotKitRemoteEndpointDiscoveryError({ message });
   }
   if (originalError?.stack?.includes("CopilotKitAgentDiscoveryError")) {

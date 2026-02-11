@@ -32,7 +32,9 @@ pnpm clean
    ```bash
    pnpm dev  # Watches and compiles libraries only
    ```
-   - Includes: @copilotkitnext/core, @copilotkitnext/shared, @copilotkitnext/runtime, @copilotkitnext/react, @copilotkitnext/angular
+
+   - Includes: @copilotkitnext/core, @copilotkitnext/shared, @copilotkitnext/runtime, @copilotkitnext/react,
+     @copilotkitnext/angular
    - Produces dist and styles.css with hot reload for dependent apps
    - Wait for this to be ready before starting apps
 
@@ -103,7 +105,8 @@ pnpm build-storybook
 
 When creating or modifying Storybook stories, especially for Angular components:
 
-1. **Always manually provide source code** - Do not rely on automatic source extraction. Use the `parameters.docs.source` configuration:
+1. **Always manually provide source code** - Do not rely on automatic source extraction. Use the
+   `parameters.docs.source` configuration:
 
    ```typescript
    parameters: {
@@ -117,11 +120,13 @@ When creating or modifying Storybook stories, especially for Angular components:
    },
    ```
 
-2. **Show complete, working examples** - The code in the source panel should be a complete, copy-pasteable example that shows all necessary imports, component definitions, and event handlers.
+2. **Show complete, working examples** - The code in the source panel should be a complete, copy-pasteable example that
+   shows all necessary imports, component definitions, and event handlers.
 
 ## Architecture Overview
 
-CopilotKit vnext_experimental is a TypeScript-first monorepo built with React components and AI agents. The codebase follows a modular workspace architecture managed by Turbo and pnpm.
+CopilotKit vnext_experimental is a TypeScript-first monorepo built with React components and AI agents. The codebase
+follows a modular workspace architecture managed by Turbo and pnpm.
 
 ### Package Structure
 
@@ -142,9 +147,12 @@ CopilotKit vnext_experimental is a TypeScript-first monorepo built with React co
 
 ### Web Development and UI Testing
 
-- **Always verify UI changes with Playwright MCP when available** - When working on web UI components, especially when matching behavior between frameworks (React/Angular), use Playwright to verify that changes work correctly
-- **Don't stop until functionality is confirmed** - Continue working on UI issues until they are fully resolved and verified with Playwright or other testing tools
-- **Test interactively** - Use Playwright to interact with components (clicking buttons, scrolling, etc.) to ensure they behave as expected
+- **Always verify UI changes with Playwright MCP when available** - When working on web UI components, especially when
+  matching behavior between frameworks (React/Angular), use Playwright to verify that changes work correctly
+- **Don't stop until functionality is confirmed** - Continue working on UI issues until they are fully resolved and
+  verified with Playwright or other testing tools
+- **Test interactively** - Use Playwright to interact with components (clicking buttons, scrolling, etc.) to ensure they
+  behave as expected
 
 ### Package Management
 

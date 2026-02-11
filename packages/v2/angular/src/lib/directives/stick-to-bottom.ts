@@ -70,7 +70,7 @@ export class StickToBottom implements OnInit, AfterViewInit, OnDestroy {
 
     // Find or create content wrapper
     this.contentElement = element.querySelector(
-      "[data-stick-to-bottom-content]"
+      "[data-stick-to-bottom-content]",
     ) as HTMLElement;
     if (!this.contentElement) {
       this.contentElement = element;
@@ -100,7 +100,7 @@ export class StickToBottom implements OnInit, AfterViewInit, OnDestroy {
       .pipe(
         takeUntil(this.destroy$),
         debounceTime(this.debounceMs()),
-        distinctUntilChanged((a, b) => a.isAtBottom === b.isAtBottom)
+        distinctUntilChanged((a, b) => a.isAtBottom === b.isAtBottom),
       )
       .subscribe((state) => {
         const wasAtBottom = this.wasAtBottom;
@@ -126,7 +126,7 @@ export class StickToBottom implements OnInit, AfterViewInit, OnDestroy {
       .observeElement(this.contentElement, 0, 250)
       .pipe(
         takeUntil(this.destroy$),
-        filter(() => this.enabled() && !this.userHasScrolled)
+        filter(() => this.enabled() && !this.userHasScrolled),
       )
       .subscribe((state) => {
         // Auto-scroll on resize if we were at bottom
@@ -142,8 +142,8 @@ export class StickToBottom implements OnInit, AfterViewInit, OnDestroy {
       .pipe(
         takeUntil(this.destroy$),
         filter(
-          () => this.enabled() && !this.userHasScrolled && this.wasAtBottom
-        )
+          () => this.enabled() && !this.userHasScrolled && this.wasAtBottom,
+        ),
       )
       .subscribe(() => {
         // Adjust scroll on container resize
@@ -194,7 +194,7 @@ export class StickToBottom implements OnInit, AfterViewInit, OnDestroy {
   public isAtBottom(): boolean {
     return this.scrollService.isAtBottom(
       this.elementRef.nativeElement,
-      this.threshold()
+      this.threshold(),
     );
   }
 

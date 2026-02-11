@@ -13,7 +13,10 @@ import React from "react";
 import { TreeNodeId, Tree } from "../hooks/use-tree";
 import { DocumentPointer } from "../types";
 import { CopilotChatSuggestionConfiguration } from "../types/chat-suggestion-configuration";
-import { CoAgentStateRender, CoAgentStateRenderProps } from "../types/coagent-action";
+import {
+  CoAgentStateRender,
+  CoAgentStateRenderProps,
+} from "../types/coagent-action";
 import { CoagentState } from "../types/coagent-state";
 import {
   CopilotRuntimeClient,
@@ -94,8 +97,9 @@ export interface CopilotApiConfig {
   mcpServers?: Array<{ endpoint: string; apiKey?: string }>;
 }
 
-export type InChatRenderFunction<TProps = ActionRenderProps<any> | CatchAllActionRenderProps<any>> =
-  (props: TProps) => string | React.JSX.Element;
+export type InChatRenderFunction<
+  TProps = ActionRenderProps<any> | CatchAllActionRenderProps<any>,
+> = (props: TProps) => string | React.JSX.Element;
 export type CoagentInChatRenderFunction = (
   props: CoAgentStateRenderProps<any>,
 ) => string | React.JSX.Element | undefined | null;
@@ -138,20 +142,32 @@ export interface CopilotContextParams {
   ) => FunctionCallHandler;
 
   // text context
-  addContext: (context: string, parentId?: string, categories?: string[]) => TreeNodeId;
+  addContext: (
+    context: string,
+    parentId?: string,
+    categories?: string[],
+  ) => TreeNodeId;
   removeContext: (id: TreeNodeId) => void;
   getAllContext: () => Tree;
-  getContextString: (documents: DocumentPointer[], categories: string[]) => string;
+  getContextString: (
+    documents: DocumentPointer[],
+    categories: string[],
+  ) => string;
 
   // document context
-  addDocumentContext: (documentPointer: DocumentPointer, categories?: string[]) => TreeNodeId;
+  addDocumentContext: (
+    documentPointer: DocumentPointer,
+    categories?: string[],
+  ) => TreeNodeId;
   removeDocumentContext: (documentId: string) => void;
   getDocumentsContext: (categories: string[]) => DocumentPointer[];
 
   isLoading: boolean;
   setIsLoading: React.Dispatch<React.SetStateAction<boolean>>;
 
-  chatSuggestionConfiguration: { [key: string]: CopilotChatSuggestionConfiguration };
+  chatSuggestionConfiguration: {
+    [key: string]: CopilotChatSuggestionConfiguration;
+  };
   addChatSuggestionConfiguration: (
     id: string,
     suggestion: CopilotChatSuggestionConfiguration,
@@ -171,7 +187,9 @@ export interface CopilotContextParams {
 
   // agents
   coagentStates: Record<string, CoagentState>;
-  setCoagentStates: React.Dispatch<React.SetStateAction<Record<string, CoagentState>>>;
+  setCoagentStates: React.Dispatch<
+    React.SetStateAction<Record<string, CoagentState>>
+  >;
   coagentStatesRef: React.RefObject<Record<string, CoagentState>>;
   setCoagentStatesWithRef: (
     value:
@@ -204,7 +222,9 @@ export interface CopilotContextParams {
    * The auth states for the CopilotKit.
    */
   authStates_c?: Record<ActionName, AuthState>;
-  setAuthStates_c?: React.Dispatch<React.SetStateAction<Record<ActionName, AuthState>>>;
+  setAuthStates_c?: React.Dispatch<
+    React.SetStateAction<Record<ActionName, AuthState>>
+  >;
 
   /**
    * The auth config for the CopilotKit.
@@ -222,7 +242,11 @@ export interface CopilotContextParams {
   removeInterruptAction: (actionId: string) => void;
   interruptEventQueue: Record<string, QueuedInterruptEvent[]>;
   addInterruptEvent: (queuedEvent: QueuedInterruptEvent) => void;
-  resolveInterruptEvent: (threadId: string, eventId: string, response: string) => void;
+  resolveInterruptEvent: (
+    threadId: string,
+    eventId: string,
+    response: string,
+  ) => void;
 
   /**
    * Optional trace handler for comprehensive debugging and observability.
@@ -236,7 +260,9 @@ export interface CopilotContextParams {
   // These are used to handle errors that occur during the execution of the chat.
   // They are not intended for use by the developer. A component can register itself an error listener to be activated somewhere else as needed
   internalErrorHandlers: Record<string, CopilotErrorHandler>;
-  setInternalErrorHandler: (handler: Record<string, CopilotErrorHandler>) => void;
+  setInternalErrorHandler: (
+    handler: Record<string, CopilotErrorHandler>,
+  ) => void;
   removeInternalErrorHandler: (id: string) => void;
 }
 
@@ -272,7 +298,9 @@ const emptyCopilotContext: CopilotContextParams = {
 
   copilotApiConfig: new (class implements CopilotApiConfig {
     get chatApiEndpoint(): string {
-      throw new Error("Remember to wrap your app in a `<CopilotKit> {...} </CopilotKit>` !!!");
+      throw new Error(
+        "Remember to wrap your app in a `<CopilotKit> {...} </CopilotKit>` !!!",
+      );
     }
 
     get headers(): Record<string, string> {
@@ -317,16 +345,21 @@ const emptyCopilotContext: CopilotContextParams = {
   removeInternalErrorHandler: () => {},
 };
 
-export const CopilotContext = React.createContext<CopilotContextParams>(emptyCopilotContext);
+export const CopilotContext =
+  React.createContext<CopilotContextParams>(emptyCopilotContext);
 
 export function useCopilotContext(): CopilotContextParams {
   const context = React.useContext(CopilotContext);
   if (context === emptyCopilotContext) {
-    throw new Error("Remember to wrap your app in a `<CopilotKit> {...} </CopilotKit>` !!!");
+    throw new Error(
+      "Remember to wrap your app in a `<CopilotKit> {...} </CopilotKit>` !!!",
+    );
   }
   return context;
 }
 
 function returnAndThrowInDebug<T>(_value: T): T {
-  throw new Error("Remember to wrap your app in a `<CopilotKit> {...} </CopilotKit>` !!!");
+  throw new Error(
+    "Remember to wrap your app in a `<CopilotKit> {...} </CopilotKit>` !!!",
+  );
 }

@@ -20,7 +20,9 @@ import { LangChainReturnType } from "./types";
 import { RuntimeEventSubject } from "../events";
 import { randomId, convertJsonSchemaToZodSchema } from "@copilotkit/shared";
 
-export function convertMessageToLangChainMessage(message: Message): BaseMessage {
+export function convertMessageToLangChainMessage(
+  message: Message,
+): BaseMessage {
   if (message.isTextMessage()) {
     if (message.role == "user") {
       return new HumanMessage(message.content);
@@ -48,7 +50,9 @@ export function convertMessageToLangChainMessage(message: Message): BaseMessage 
   }
 }
 
-export function convertActionInputToLangChainTool(actionInput: ActionInput): any {
+export function convertActionInputToLangChainTool(
+  actionInput: ActionInput,
+): any {
   return new DynamicStructuredTool({
     ...actionInput,
     name: actionInput.name,
@@ -74,7 +78,12 @@ interface StreamLangChainResponseParams {
 }
 
 function getConstructorName(object: any): string {
-  if (object && typeof object === "object" && object.constructor && object.constructor.name) {
+  if (
+    object &&
+    typeof object === "object" &&
+    object.constructor &&
+    object.constructor.name
+  ) {
     return object.constructor.name;
   }
   return "";
@@ -89,7 +98,9 @@ function isAIMessageChunk(message: any): message is AIMessageChunk {
 }
 
 function isBaseMessageChunk(message: any): message is BaseMessageChunk {
-  return Object.prototype.toString.call(message) === "[object BaseMessageChunk]";
+  return (
+    Object.prototype.toString.call(message) === "[object BaseMessageChunk]"
+  );
 }
 
 function maybeSendActionExecutionResultIsMessage(
@@ -211,11 +222,13 @@ export async function streamLangChainResponse({
           // track different index on the same tool cool
           if (chunk?.index != null) {
             toolCallDetails.index = chunk.index; // 1
-            if (toolCallDetails.prevIndex == null) toolCallDetails.prevIndex = chunk.index;
+            if (toolCallDetails.prevIndex == null)
+              toolCallDetails.prevIndex = chunk.index;
           }
           // Differentiate when calling the same tool but with different index
           if (chunk?.id)
-            toolCallDetails.id = chunk.index != null ? `${chunk.id}-idx-${chunk.index}` : chunk.id;
+            toolCallDetails.id =
+              chunk.index != null ? `${chunk.id}-idx-${chunk.index}` : chunk.id;
 
           // Assign to internal variables that the entire script here knows how to work with
           toolCallName = toolCallDetails.name;
@@ -236,7 +249,9 @@ export async function streamLangChainResponse({
           eventStream$.sendTextMessageEnd({ messageId: currentMessageId });
         } else if (mode === "function" && (!hasToolCall || done)) {
           mode = null;
-          eventStream$.sendActionExecutionEnd({ actionExecutionId: toolCallId });
+          eventStream$.sendActionExecutionEnd({
+            actionExecutionId: toolCallId,
+          });
         }
 
         if (done) {
@@ -268,7 +283,9 @@ export async function streamLangChainResponse({
         } else if (mode === "function" && toolCallArgs) {
           // For calls of the same tool with different index, we seal last tool call and register a new one
           if (toolCallDetails.index !== toolCallDetails.prevIndex) {
-            eventStream$.sendActionExecutionEnd({ actionExecutionId: toolCallId });
+            eventStream$.sendActionExecutionEnd({
+              actionExecutionId: toolCallId,
+            });
             eventStream$.sendActionExecutionStart({
               actionExecutionId: toolCallId,
               actionName: toolCallName,

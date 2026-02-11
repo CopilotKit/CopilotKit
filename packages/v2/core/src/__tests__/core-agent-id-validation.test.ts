@@ -46,7 +46,7 @@ describe("CopilotKitCore agent ID validation", () => {
       });
     }).toThrow(
       'Agent registration mismatch: Agent with ID "differentId" cannot be registered under key "myAgent". ' +
-        "The agent ID must match the registration key or be undefined."
+        "The agent ID must match the registration key or be undefined.",
     );
   });
 
@@ -70,7 +70,7 @@ describe("CopilotKitCore agent ID validation", () => {
       core.addAgent__unsafe_dev_only({ id: "agent3", agent: agent3 });
     }).toThrow(
       'Agent registration mismatch: Agent with ID "wrongId" cannot be registered under key "agent3". ' +
-        "The agent ID must match the registration key or be undefined."
+        "The agent ID must match the registration key or be undefined.",
     );
   });
 
@@ -100,7 +100,7 @@ describe("CopilotKitCore agent ID validation", () => {
       });
     }).toThrow(
       'Agent registration mismatch: Agent with ID "wrongId" cannot be registered under key "agent3". ' +
-        "The agent ID must match the registration key or be undefined."
+        "The agent ID must match the registration key or be undefined.",
     );
   });
 

@@ -1,5 +1,9 @@
 import type { MetaFunction } from "@remix-run/node";
-import { CopilotKit, useCopilotAction, useCopilotReadable } from "@copilotkit/react-core";
+import {
+  CopilotKit,
+  useCopilotAction,
+  useCopilotReadable,
+} from "@copilotkit/react-core";
 import { CopilotTextarea } from "@copilotkit/react-textarea";
 import { CopilotSidebar } from "@copilotkit/react-ui";
 import { useState } from "react";
@@ -7,7 +11,10 @@ import "@copilotkit/react-textarea/styles.css";
 import "@copilotkit/react-ui/styles.css";
 
 export const meta: MetaFunction = () => {
-  return [{ title: "New Remix App" }, { name: "description", content: "Welcome to Remix!" }];
+  return [
+    { title: "New Remix App" },
+    { name: "description", content: "Welcome to Remix!" },
+  ];
 };
 
 function InsideHome() {

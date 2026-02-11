@@ -10,7 +10,11 @@ import { defineToolCallRenderer, ReactToolCallRenderer } from "@/types";
 import { ToolCallStatus } from "@copilotkitnext/core";
 
 // Helper to create a tool call
-function createToolCall(id: string, name: string, args: Record<string, unknown>): ToolCall {
+function createToolCall(
+  id: string,
+  name: string,
+  args: Record<string, unknown>,
+): ToolCall {
   return {
     id,
     type: "function",
@@ -22,7 +26,11 @@ function createToolCall(id: string, name: string, args: Record<string, unknown>)
 }
 
 // Helper to create a tool message (result)
-function createToolMessage(id: string, toolCallId: string, content: string): ToolMessage {
+function createToolMessage(
+  id: string,
+  toolCallId: string,
+  content: string,
+): ToolMessage {
   return {
     id,
     role: "tool",
@@ -54,7 +62,9 @@ describe("useToolCallRenderer", () => {
         }),
       ] as unknown as ReactToolCallRenderer<unknown>[];
 
-      const toolCall = createToolCall("tc-1", "getWeather", { location: "Paris" });
+      const toolCall = createToolCall("tc-1", "getWeather", {
+        location: "Paris",
+      });
       const toolMessage = createToolMessage("tm-1", "tc-1", "Sunny, 22°C");
 
       const messages: Message[] = [
@@ -69,7 +79,9 @@ describe("useToolCallRenderer", () => {
       ];
 
       // Component that uses the new API
-      const TestComponent: React.FC<{ messages: Message[] }> = ({ messages }) => {
+      const TestComponent: React.FC<{ messages: Message[] }> = ({
+        messages,
+      }) => {
         const { renderToolCall } = useToolCallRenderer({ messages });
         return <div>{renderToolCall(toolCall)}</div>;
       };
@@ -103,7 +115,9 @@ describe("useToolCallRenderer", () => {
         }),
       ] as unknown as ReactToolCallRenderer<unknown>[];
 
-      const toolCall = createToolCall("tc-1", "search", { query: "React hooks" });
+      const toolCall = createToolCall("tc-1", "search", {
+        query: "React hooks",
+      });
 
       // Messages without a tool result
       const messages: Message[] = [
@@ -116,7 +130,9 @@ describe("useToolCallRenderer", () => {
         } as Message,
       ];
 
-      const TestComponent: React.FC<{ messages: Message[] }> = ({ messages }) => {
+      const TestComponent: React.FC<{ messages: Message[] }> = ({
+        messages,
+      }) => {
         const { renderToolCall } = useToolCallRenderer({ messages });
         return <div>{renderToolCall(toolCall)}</div>;
       };
@@ -157,7 +173,11 @@ describe("useToolCallRenderer", () => {
       ] as unknown as ReactToolCallRenderer<unknown>[];
 
       const toolCall = createToolCall("tc-1", "getData", { id: "123" });
-      const toolMessage = createToolMessage("tm-1", "tc-1", '{"data": "found"}');
+      const toolMessage = createToolMessage(
+        "tm-1",
+        "tc-1",
+        '{"data": "found"}',
+      );
 
       // Component that uses the legacy API
       const TestComponent: React.FC = () => {
@@ -174,7 +194,9 @@ describe("useToolCallRenderer", () => {
       );
 
       expect(screen.getByTestId("status").textContent).toBe("complete");
-      expect(screen.getByTestId("result").textContent).toBe('{"data": "found"}');
+      expect(screen.getByTestId("result").textContent).toBe(
+        '{"data": "found"}',
+      );
       expect(capturedStatus).toBe(ToolCallStatus.Complete);
       expect(capturedResult).toBe('{"data": "found"}');
     });
@@ -197,7 +219,9 @@ describe("useToolCallRenderer", () => {
 
       const TestComponent: React.FC = () => {
         const { renderToolCall } = useToolCallRenderer();
-        return <div>{renderToolCall({ toolCall, toolMessage: undefined })}</div>;
+        return (
+          <div>{renderToolCall({ toolCall, toolMessage: undefined })}</div>
+        );
       };
 
       render(
@@ -215,7 +239,9 @@ describe("useToolCallRenderer", () => {
 
   describe("callback stability (ref-based memoization)", () => {
     it("renderToolCall callback stays stable when messages change", () => {
-      const callbackRefs: Array<ReturnType<typeof useToolCallRenderer>["renderToolCall"]> = [];
+      const callbackRefs: Array<
+        ReturnType<typeof useToolCallRenderer>["renderToolCall"]
+      > = [];
 
       const toolCallRenderers = [
         defineToolCallRenderer({
@@ -225,13 +251,17 @@ describe("useToolCallRenderer", () => {
         }),
       ] as unknown as ReactToolCallRenderer<unknown>[];
 
-      const TestComponent: React.FC<{ messages: Message[] }> = ({ messages }) => {
+      const TestComponent: React.FC<{ messages: Message[] }> = ({
+        messages,
+      }) => {
         const { renderToolCall } = useToolCallRenderer({ messages });
         callbackRefs.push(renderToolCall);
         return <div>Callback captured</div>;
       };
 
-      const initialMessages: Message[] = [{ id: "msg-1", role: "user", content: "Hello" }];
+      const initialMessages: Message[] = [
+        { id: "msg-1", role: "user", content: "Hello" },
+      ];
 
       const { rerender } = render(
         <CopilotKitProvider toolCallRenderers={toolCallRenderers}>
@@ -256,7 +286,10 @@ describe("useToolCallRenderer", () => {
       );
 
       // Add even more messages
-      const moreMessages: Message[] = [...updatedMessages, { id: "msg-3", role: "user", content: "How are you?" }];
+      const moreMessages: Message[] = [
+        ...updatedMessages,
+        { id: "msg-3", role: "user", content: "How are you?" },
+      ];
 
       rerender(
         <CopilotKitProvider toolCallRenderers={toolCallRenderers}>
@@ -295,7 +328,9 @@ describe("useToolCallRenderer", () => {
       const toolCall = createToolCall("tc-1", "getStatus", {});
 
       // Component that renders tool call and tracks callback stability
-      const TestComponent: React.FC<{ messages: Message[] }> = ({ messages }) => {
+      const TestComponent: React.FC<{ messages: Message[] }> = ({
+        messages,
+      }) => {
         const { renderToolCall } = useToolCallRenderer({ messages });
         return <div>{renderToolCall(toolCall)}</div>;
       };
@@ -323,7 +358,10 @@ describe("useToolCallRenderer", () => {
       const renderCountBeforeResult = renderCount;
 
       // Add tool result to messages
-      const messagesWithResult: Message[] = [...messagesWithoutResult, createToolMessage("tm-1", "tc-1", "Status: OK")];
+      const messagesWithResult: Message[] = [
+        ...messagesWithoutResult,
+        createToolMessage("tm-1", "tc-1", "Status: OK"),
+      ];
 
       rerender(
         <CopilotKitProvider toolCallRenderers={toolCallRenderers}>
@@ -362,7 +400,9 @@ describe("useToolCallRenderer", () => {
         }),
       ] as unknown as ReactToolCallRenderer<unknown>[];
 
-      const toolCall = createToolCall("tc-1", "completedTool", { data: "test" });
+      const toolCall = createToolCall("tc-1", "completedTool", {
+        data: "test",
+      });
       const toolMessage = createToolMessage("tm-1", "tc-1", "Done!");
 
       // Start with completed tool call
@@ -377,7 +417,9 @@ describe("useToolCallRenderer", () => {
         toolMessage,
       ];
 
-      const TestComponent: React.FC<{ messages: Message[] }> = ({ messages }) => {
+      const TestComponent: React.FC<{ messages: Message[] }> = ({
+        messages,
+      }) => {
         const { renderToolCall } = useToolCallRenderer({ messages });
         return <div>{renderToolCall(toolCall)}</div>;
       };
@@ -396,7 +438,11 @@ describe("useToolCallRenderer", () => {
       // Add unrelated messages (new assistant message, new user message)
       const messagesWithMore: Message[] = [
         ...initialMessages,
-        { id: "msg-3", role: "assistant", content: "Here are the results..." } as Message,
+        {
+          id: "msg-3",
+          role: "assistant",
+          content: "Here are the results...",
+        } as Message,
       ];
 
       rerender(
@@ -411,7 +457,11 @@ describe("useToolCallRenderer", () => {
       const messagesWithEvenMore: Message[] = [
         ...messagesWithMore,
         { id: "msg-4", role: "user", content: "Thanks!" },
-        { id: "msg-5", role: "assistant", content: "You're welcome!" } as Message,
+        {
+          id: "msg-5",
+          role: "assistant",
+          content: "You're welcome!",
+        } as Message,
       ];
 
       rerender(
@@ -461,7 +511,9 @@ describe("useToolCallRenderer", () => {
         } as Message,
       ];
 
-      const TestComponent: React.FC<{ messages: Message[] }> = ({ messages }) => {
+      const TestComponent: React.FC<{ messages: Message[] }> = ({
+        messages,
+      }) => {
         const { renderToolCall } = useToolCallRenderer({ messages });
         return <div>{renderToolCall(toolCall)}</div>;
       };
@@ -478,7 +530,10 @@ describe("useToolCallRenderer", () => {
       const renderCountBeforeResult = toolRenderCount;
 
       // Add initial result
-      const messagesWithResult: Message[] = [...messagesNoResult, createToolMessage("tm-1", "tc-1", "Processing...")];
+      const messagesWithResult: Message[] = [
+        ...messagesNoResult,
+        createToolMessage("tm-1", "tc-1", "Processing..."),
+      ];
 
       rerender(
         <CopilotKitProvider toolCallRenderers={toolCallRenderers}>
@@ -538,7 +593,9 @@ describe("useToolCallRenderer", () => {
       ] as unknown as ReactToolCallRenderer<unknown>[];
 
       // Initial tool call with partial args (simulating streaming)
-      const toolCallPartial = createToolCall("tc-1", "search", { query: "Rea" });
+      const toolCallPartial = createToolCall("tc-1", "search", {
+        query: "Rea",
+      });
 
       const messages: Message[] = [
         { id: "msg-1", role: "user", content: "Search" },
@@ -550,7 +607,9 @@ describe("useToolCallRenderer", () => {
         } as Message,
       ];
 
-      const TestComponent: React.FC<{ toolCall: ToolCall }> = ({ toolCall }) => {
+      const TestComponent: React.FC<{ toolCall: ToolCall }> = ({
+        toolCall,
+      }) => {
         const { renderToolCall } = useToolCallRenderer({ messages });
         return <div>{renderToolCall(toolCall)}</div>;
       };
@@ -567,7 +626,9 @@ describe("useToolCallRenderer", () => {
       const renderCountAfterPartial = toolRenderCount;
 
       // Update tool call with complete args
-      const toolCallComplete = createToolCall("tc-1", "search", { query: "React hooks" });
+      const toolCallComplete = createToolCall("tc-1", "search", {
+        query: "React hooks",
+      });
 
       rerender(
         <CopilotKitProvider toolCallRenderers={toolCallRenderers}>
@@ -595,7 +656,11 @@ describe("useToolCallRenderer", () => {
       const TestComponent: React.FC = () => {
         const { renderToolCall } = useToolCallRenderer({ messages });
         const result = renderToolCall(toolCall);
-        return <div data-testid="result">{result === null ? "null" : "rendered"}</div>;
+        return (
+          <div data-testid="result">
+            {result === null ? "null" : "rendered"}
+          </div>
+        );
       };
 
       render(
@@ -672,7 +737,9 @@ describe("useToolCallRenderer", () => {
         toolMessage1,
       ];
 
-      const TestComponent: React.FC<{ messages: Message[] }> = ({ messages }) => {
+      const TestComponent: React.FC<{ messages: Message[] }> = ({
+        messages,
+      }) => {
         const { renderAllToolCalls } = useToolCallRenderer({ messages });
         return <div>{renderAllToolCalls([toolCall1, toolCall2])}</div>;
       };
@@ -711,7 +778,9 @@ describe("useToolCallRenderer", () => {
       // First tool should NOT have re-rendered (its result didn't change)
       expect(renderCounts["first"]).toBe(renderCountFirstAfterInitial);
       // Second tool should have re-rendered (its result changed)
-      expect(renderCounts["second"]).toBeGreaterThan(renderCountSecondAfterInitial);
+      expect(renderCounts["second"]).toBeGreaterThan(
+        renderCountSecondAfterInitial,
+      );
     });
   });
 });

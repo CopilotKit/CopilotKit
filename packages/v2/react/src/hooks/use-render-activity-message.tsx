@@ -19,7 +19,7 @@ export function useRenderActivityMessage() {
       }
 
       const matches = renderers.filter(
-        (renderer) => renderer.activityType === activityType
+        (renderer) => renderer.activityType === activityType,
       );
 
       return (
@@ -29,7 +29,7 @@ export function useRenderActivityMessage() {
         null
       );
     },
-    [agentId, renderers]
+    [agentId, renderers],
   );
 
   const renderActivityMessage = useCallback(
@@ -45,7 +45,7 @@ export function useRenderActivityMessage() {
       if (!parseResult.success) {
         console.warn(
           `Failed to parse content for activity message '${message.activityType}':`,
-          parseResult.error
+          parseResult.error,
         );
         return null;
       }
@@ -63,11 +63,11 @@ export function useRenderActivityMessage() {
         />
       );
     },
-    [agentId, copilotkit, findRenderer]
+    [agentId, copilotkit, findRenderer],
   );
 
   return useMemo(
     () => ({ renderActivityMessage, findRenderer }),
-    [renderActivityMessage, findRenderer]
+    [renderActivityMessage, findRenderer],
   );
 }

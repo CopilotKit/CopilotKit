@@ -41,7 +41,9 @@ export function useRenderToolCall<const T extends Parameter[] | [] = []>(
             render: ((args) => {
               return render({
                 ...args,
-                result: args.result ? parseJson(args.result, args.result) : args.result,
+                result: args.result
+                  ? parseJson(args.result, args.result)
+                  : args.result,
               });
             }) as ToolCallRendererDefinition["render"],
           })
@@ -51,13 +53,17 @@ export function useRenderToolCall<const T extends Parameter[] | [] = []>(
             render: ((args) => {
               return render({
                 ...args,
-                result: args.result ? parseJson(args.result, args.result) : args.result,
+                result: args.result
+                  ? parseJson(args.result, args.result)
+                  : args.result,
               });
             }) as ToolCallRendererDefinition["render"],
           });
 
     // Remove any existing renderer with the same name
-    const existingIndex = copilotkit.toolCallRenderers.findIndex((r) => r.name === name);
+    const existingIndex = copilotkit.toolCallRenderers.findIndex(
+      (r) => r.name === name,
+    );
     if (existingIndex !== -1) {
       copilotkit.toolCallRenderers.splice(existingIndex, 1);
     }
@@ -69,7 +75,9 @@ export function useRenderToolCall<const T extends Parameter[] | [] = []>(
     // Cleanup: remove this renderer when the component unmounts or tool changes
     return () => {
       if (hasAddedRef.current) {
-        const index = copilotkit.toolCallRenderers.findIndex((r) => r.name === name);
+        const index = copilotkit.toolCallRenderers.findIndex(
+          (r) => r.name === name,
+        );
         if (index !== -1) {
           copilotkit.toolCallRenderers.splice(index, 1);
         }

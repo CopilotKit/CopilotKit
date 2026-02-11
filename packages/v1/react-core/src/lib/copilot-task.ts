@@ -58,7 +58,10 @@ import {
   CopilotRequestType,
   ForwardedParametersInput,
 } from "@copilotkit/runtime-client-gql";
-import { FrontendAction, processActionsForRuntimeRequest } from "../types/frontend-action";
+import {
+  FrontendAction,
+  processActionsForRuntimeRequest,
+} from "../types/frontend-action";
 import { CopilotContextParams } from "../context";
 import { defaultCopilotContextCategories } from "../components";
 
@@ -107,7 +110,9 @@ export class CopilotTask<T = any> {
    * @param data The data to use for the task.
    */
   async run(context: CopilotContextParams, data?: T): Promise<void> {
-    const actions = this.includeCopilotActions ? Object.assign({}, context.actions) : {};
+    const actions = this.includeCopilotActions
+      ? Object.assign({}, context.actions)
+      : {};
 
     // merge functions into entry points
     for (const fn of this.actions) {
@@ -117,11 +122,15 @@ export class CopilotTask<T = any> {
     let contextString = "";
 
     if (data) {
-      contextString = (typeof data === "string" ? data : JSON.stringify(data)) + "\n\n";
+      contextString =
+        (typeof data === "string" ? data : JSON.stringify(data)) + "\n\n";
     }
 
     if (this.includeCopilotReadable) {
-      contextString += context.getContextString([], defaultCopilotContextCategories);
+      contextString += context.getContextString(
+        [],
+        defaultCopilotContextCategories,
+      );
     }
 
     const systemMessage = new TextMessage({
@@ -145,7 +154,9 @@ export class CopilotTask<T = any> {
             actions: processActionsForRuntimeRequest(Object.values(actions)),
             url: window.location.href,
           },
-          messages: convertMessagesToGqlInput(filterAgentStateMessages(messages)),
+          messages: convertMessagesToGqlInput(
+            filterAgentStateMessages(messages),
+          ),
           metadata: {
             requestType: CopilotRequestType.Task,
           },
@@ -174,7 +185,10 @@ export class CopilotTask<T = any> {
   }
 }
 
-function taskSystemMessage(contextString: string, instructions: string): string {
+function taskSystemMessage(
+  contextString: string,
+  instructions: string,
+): string {
   return `
 Please act as an efficient, competent, conscientious, and industrious professional assistant.
 

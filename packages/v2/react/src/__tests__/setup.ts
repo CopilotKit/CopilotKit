@@ -25,32 +25,32 @@ afterEach(() => {
 });
 
 // Mock canvas getContext used by audio recorder during tests
-HTMLCanvasElement.prototype.getContext = function(contextId: any) {
-  if (contextId === '2d') {
+HTMLCanvasElement.prototype.getContext = function (contextId: any) {
+  if (contextId === "2d") {
     return {
-    fillRect: () => {},
-    clearRect: () => {},
-    getImageData: () => ({ data: [] }),
-    putImageData: () => {},
-    createImageData: () => ({ data: [] }),
-    setTransform: () => {},
-    drawImage: () => {},
-    save: () => {},
-    restore: () => {},
-    beginPath: () => {},
-    closePath: () => {},
-    moveTo: () => {},
-    lineTo: () => {},
-    stroke: () => {},
-    translate: () => {},
-    scale: () => {},
-    rotate: () => {},
-    arc: () => {},
-    fill: () => {},
-    measureText: (text: string) => ({ width: text.length * 8 }),
-    transform: () => {},
-    rect: () => {},
-    clip: () => {},
+      fillRect: () => {},
+      clearRect: () => {},
+      getImageData: () => ({ data: [] }),
+      putImageData: () => {},
+      createImageData: () => ({ data: [] }),
+      setTransform: () => {},
+      drawImage: () => {},
+      save: () => {},
+      restore: () => {},
+      beginPath: () => {},
+      closePath: () => {},
+      moveTo: () => {},
+      lineTo: () => {},
+      stroke: () => {},
+      translate: () => {},
+      scale: () => {},
+      rotate: () => {},
+      arc: () => {},
+      fill: () => {},
+      measureText: (text: string) => ({ width: text.length * 8 }),
+      transform: () => {},
+      rect: () => {},
+      clip: () => {},
     } as unknown as CanvasRenderingContext2D;
   }
   return null;
@@ -59,22 +59,26 @@ HTMLCanvasElement.prototype.getContext = function(contextId: any) {
 // Simplify Radix tooltip behavior to avoid act() noise in jsdom
 vi.mock("@radix-ui/react-tooltip", async () => {
   const forward = (
-    renderFn: React.ForwardRefRenderFunction<HTMLElement, any>
+    renderFn: React.ForwardRefRenderFunction<HTMLElement, any>,
   ) => React.forwardRef(renderFn);
 
-  const SimpleProvider: React.FC<{ children?: React.ReactNode }> = ({ children }) =>
-    React.createElement(React.Fragment, null, children);
+  const SimpleProvider: React.FC<{ children?: React.ReactNode }> = ({
+    children,
+  }) => React.createElement(React.Fragment, null, children);
 
-  const SimplePortal: React.FC<{ children?: React.ReactNode }> = ({ children }) =>
-    React.createElement(React.Fragment, null, children);
+  const SimplePortal: React.FC<{ children?: React.ReactNode }> = ({
+    children,
+  }) => React.createElement(React.Fragment, null, children);
 
   const createWrapper = () =>
-    forward(({ children, asChild, sideOffset: _sideOffset, ...rest }: any, ref) => {
-      if (asChild && React.isValidElement(children)) {
-        return React.cloneElement(children, { ref, ...rest });
-      }
-      return React.createElement("div", { ref, ...rest }, children);
-    });
+    forward(
+      ({ children, asChild, sideOffset: _sideOffset, ...rest }: any, ref) => {
+        if (asChild && React.isValidElement(children)) {
+          return React.cloneElement(children, { ref, ...rest });
+        }
+        return React.createElement("div", { ref, ...rest }, children);
+      },
+    );
 
   const passthrough = createWrapper();
 

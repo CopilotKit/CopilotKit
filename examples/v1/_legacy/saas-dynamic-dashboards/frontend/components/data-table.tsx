@@ -1,17 +1,24 @@
-"use client"
+"use client";
 
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Badge } from "@/components/ui/badge"
-import { cn } from "@/lib/utils"
-import { PRData } from "@/app/Interfaces/interface"
-import React, { useState } from "react"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
+import { PRData } from "@/app/Interfaces/interface";
+import React, { useState } from "react";
 
 interface DataTableProps {
   columns: {
-    accessorKey: string
-    header: string
-  }[]
-  data: PRData[]
+    accessorKey: string;
+    header: string;
+  }[];
+  data: PRData[];
 }
 
 export function DataTable({ columns, data }: DataTableProps) {
@@ -32,7 +39,9 @@ export function DataTable({ columns, data }: DataTableProps) {
         <TableHeader>
           <TableRow>
             {columns.map((column) => (
-              <TableHead className="font-bold" key={column.accessorKey}>{column.header}</TableHead>
+              <TableHead className="font-bold" key={column.accessorKey}>
+                {column.header}
+              </TableHead>
             ))}
           </TableRow>
         </TableHeader>
@@ -55,34 +64,69 @@ export function DataTable({ columns, data }: DataTableProps) {
               </TableRow>
               {expandedRow === rowIndex && (
                 <TableRow>
-                  <TableCell colSpan={columns.length} className="bg-gray-50 dark:bg-[#181f2a] p-0 border-t-0">
+                  <TableCell
+                    colSpan={columns.length}
+                    className="bg-gray-50 dark:bg-[#181f2a] p-0 border-t-0"
+                  >
                     <div
-                      className={`overflow-hidden transition-all duration-300 ease-in-out ${expandedRow === rowIndex ? 'max-h-96 opacity-100 scale-y-100' : 'max-h-0 opacity-0 scale-y-95'}`}
+                      className={`overflow-hidden transition-all duration-300 ease-in-out ${expandedRow === rowIndex ? "max-h-96 opacity-100 scale-y-100" : "max-h-0 opacity-0 scale-y-95"}`}
                     >
                       <div className="p-4 grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
                         <div>
-                          <span className="text-gray-500 dark:text-gray-400 mr-1">Branch:</span>
+                          <span className="text-gray-500 dark:text-gray-400 mr-1">
+                            Branch:
+                          </span>
                           <span className="font-semibold">{row.branch}</span>
                         </div>
                         <div>
-                          <span className="text-gray-500 dark:text-gray-400 mr-1">Days in Status:</span>
-                          <span className="font-semibold">{row.daysSinceStatusChange} days</span>
+                          <span className="text-gray-500 dark:text-gray-400 mr-1">
+                            Days in Status:
+                          </span>
+                          <span className="font-semibold">
+                            {row.daysSinceStatusChange} days
+                          </span>
                         </div>
                         <div>
-                          <span className="text-gray-500 dark:text-gray-400 mr-1">Created:</span>
-                          <span className="font-semibold">{row.createdAt ? new Date(row.createdAt).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }) : ''}</span>
+                          <span className="text-gray-500 dark:text-gray-400 mr-1">
+                            Created:
+                          </span>
+                          <span className="font-semibold">
+                            {row.createdAt
+                              ? new Date(row.createdAt).toLocaleString(
+                                  undefined,
+                                  { dateStyle: "medium", timeStyle: "short" },
+                                )
+                              : ""}
+                          </span>
                         </div>
                         <div>
-                          <span className="text-gray-500 dark:text-gray-400 mr-1">Updated:</span>
-                          <span className="font-semibold">{row.updatedAt ? new Date(row.updatedAt).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }) : ''}</span>
+                          <span className="text-gray-500 dark:text-gray-400 mr-1">
+                            Updated:
+                          </span>
+                          <span className="font-semibold">
+                            {row.updatedAt
+                              ? new Date(row.updatedAt).toLocaleString(
+                                  undefined,
+                                  { dateStyle: "medium", timeStyle: "short" },
+                                )
+                              : ""}
+                          </span>
                         </div>
                         <div>
-                          <span className="text-gray-500 dark:text-gray-400 mr-1">Reviewer:</span>
-                          <span className="font-semibold">{row.assignedReviewer}</span>
+                          <span className="text-gray-500 dark:text-gray-400 mr-1">
+                            Reviewer:
+                          </span>
+                          <span className="font-semibold">
+                            {row.assignedReviewer}
+                          </span>
                         </div>
                         <div>
-                          <span className="text-gray-500 dark:text-gray-400 mr-1">Tester:</span>
-                          <span className="font-semibold">{row.assignedTester}</span>
+                          <span className="text-gray-500 dark:text-gray-400 mr-1">
+                            Tester:
+                          </span>
+                          <span className="font-semibold">
+                            {row.assignedTester}
+                          </span>
                         </div>
                       </div>
                     </div>
@@ -94,21 +138,21 @@ export function DataTable({ columns, data }: DataTableProps) {
         </TableBody>
       </Table>
     </div>
-  )
+  );
 }
 
 const getStatusColor = (status: string) => {
   switch (status) {
-    case 'in_review':
-      return 'bg-blue-100 text-blue-700';
-    case 'approved':
-      return 'bg-green-100 text-green-700';
-    case 'needs_revision':
-      return 'bg-yellow-100 text-yellow-700';
-    case 'merged':
-      return 'bg-purple-100 text-purple-700';
+    case "in_review":
+      return "bg-blue-100 text-blue-700";
+    case "approved":
+      return "bg-green-100 text-green-700";
+    case "needs_revision":
+      return "bg-yellow-100 text-yellow-700";
+    case "merged":
+      return "bg-purple-100 text-purple-700";
     default:
-      return 'bg-gray-100 text-gray-700';
+      return "bg-gray-100 text-gray-700";
   }
 };
 
@@ -120,5 +164,5 @@ function StatusBadge({ status }: { status: string }) {
     >
       {status?.split("_").join(" ")}
     </Badge>
-  )
+  );
 }

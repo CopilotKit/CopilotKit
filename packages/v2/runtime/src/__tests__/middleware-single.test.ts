@@ -37,7 +37,10 @@ describe("CopilotEndpointSingleRoute middleware", () => {
       afterRequestMiddleware: after,
     });
 
-    const endpoint = createCopilotEndpointSingleRoute({ runtime, basePath: "/rpc" });
+    const endpoint = createCopilotEndpointSingleRoute({
+      runtime,
+      basePath: "/rpc",
+    });
     const response = await endpoint.fetch(originalRequest);
 
     expect(before).toHaveBeenCalledWith({
@@ -62,9 +65,14 @@ describe("CopilotEndpointSingleRoute middleware", () => {
       beforeRequestMiddleware: before,
       afterRequestMiddleware: after,
     });
-    const logSpy = vi.spyOn(logger, "error").mockImplementation(() => undefined as unknown as void);
+    const logSpy = vi
+      .spyOn(logger, "error")
+      .mockImplementation(() => undefined as unknown as void);
 
-    const endpoint = createCopilotEndpointSingleRoute({ runtime, basePath: "/rpc" });
+    const endpoint = createCopilotEndpointSingleRoute({
+      runtime,
+      basePath: "/rpc",
+    });
     const response = await endpoint.fetch(buildRequest({ method: "info" }));
 
     expect(response.status).toBe(400);
@@ -87,9 +95,14 @@ describe("CopilotEndpointSingleRoute middleware", () => {
       beforeRequestMiddleware: before,
       afterRequestMiddleware: after,
     });
-    const logSpy = vi.spyOn(logger, "error").mockImplementation(() => undefined as unknown as void);
+    const logSpy = vi
+      .spyOn(logger, "error")
+      .mockImplementation(() => undefined as unknown as void);
 
-    const endpoint = createCopilotEndpointSingleRoute({ runtime, basePath: "/rpc" });
+    const endpoint = createCopilotEndpointSingleRoute({
+      runtime,
+      basePath: "/rpc",
+    });
     const response = await endpoint.fetch(buildRequest({ method: "info" }));
 
     expect(response.status).toBe(500);
@@ -119,9 +132,14 @@ describe("CopilotEndpointSingleRoute middleware", () => {
       agents: { agent: errorAgent },
     });
 
-    const logSpy = vi.spyOn(logger, "error").mockImplementation(() => undefined as unknown as void);
+    const logSpy = vi
+      .spyOn(logger, "error")
+      .mockImplementation(() => undefined as unknown as void);
 
-    const endpoint = createCopilotEndpointSingleRoute({ runtime, basePath: "/rpc" });
+    const endpoint = createCopilotEndpointSingleRoute({
+      runtime,
+      basePath: "/rpc",
+    });
     const response = await endpoint.fetch(
       buildRequest({
         method: "agent/run",
@@ -144,9 +162,14 @@ describe("CopilotEndpointSingleRoute middleware", () => {
       beforeRequestMiddleware: before,
       afterRequestMiddleware: after,
     });
-    const logSpy = vi.spyOn(logger, "error").mockImplementation(() => undefined as unknown as void);
+    const logSpy = vi
+      .spyOn(logger, "error")
+      .mockImplementation(() => undefined as unknown as void);
 
-    const endpoint = createCopilotEndpointSingleRoute({ runtime, basePath: "/rpc" });
+    const endpoint = createCopilotEndpointSingleRoute({
+      runtime,
+      basePath: "/rpc",
+    });
     const response = await endpoint.fetch(buildRequest({ method: "info" }));
 
     await new Promise((r) => setImmediate(r));
@@ -168,5 +191,4 @@ describe("CopilotEndpointSingleRoute middleware", () => {
       "Error running after request middleware",
     );
   });
-
 });
