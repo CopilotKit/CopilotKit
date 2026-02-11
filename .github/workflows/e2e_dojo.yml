@@ -69,7 +69,7 @@ jobs:
           unset TURBO_API
           unset TURBO_TOKEN
           unset TURBO_TEAM
-          pnpm build
+          pnpm build:packages
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
@@ -78,7 +78,9 @@ jobs:
           retention-days: 1
           path: |
             CopilotKit/packages/v1/*/dist/
+            CopilotKit/packages/v1/*/package.json
             CopilotKit/packages/v2/*/dist/
+            CopilotKit/packages/v2/*/package.json
 
   dojo:
     name: ${{ matrix.suite }}
