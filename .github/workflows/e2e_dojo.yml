@@ -22,81 +22,10 @@ on:
         type: string
 
 jobs:
-  build:
-    name: Build CPK
-    runs-on: depot-ubuntu-24.04
-    timeout-minutes: 15
-    steps:
-      - name: Checkout CPK
-        uses: actions/checkout@v4
-        with:
-          path: CopilotKit
-          ref: ${{ github.event.inputs.branch || github.ref }}
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-
-      - name: Install pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 10.13.1
-
-      # Now that pnpm is available, cache its store to speed installs
-      - name: Resolve pnpm store path
-        id: pnpm-store
-        run: echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_OUTPUT
-
-      - name: Cache pnpm store
-        uses: actions/cache@v4
-        with:
-          path: ${{ steps.pnpm-store.outputs.STORE_PATH }}
-          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-pnpm-store-
-
-      - name: Install cpk dependencies
-        working-directory: CopilotKit
-        run: pnpm install --frozen-lockfile
-
-      - name: Build cpk
-        working-directory: CopilotKit
-        env:
-          NODE_OPTIONS: --max-old-space-size=8192
-          TURBO_CONCURRENCY: 2
-        run: |
-          unset TURBO_API
-          unset TURBO_TOKEN
-          unset TURBO_TEAM
-          pnpm build:packages
-
-      - name: Debug - Verify dist folders exist after build
-        run: |
-          echo "=== Checking if dist folders were created (from workspace root) ==="
-          echo "react-core dist:"
-          ls -la CopilotKit/packages/v1/react-core/dist/ 2>/dev/null && echo "✅ FOUND" || echo "❌ NOT FOUND"
-          echo ""
-          echo "react-ui dist:"
-          ls -la CopilotKit/packages/v1/react-ui/dist/ 2>/dev/null && echo "✅ FOUND" || echo "❌ NOT FOUND"
-          echo ""
-          echo "=== Checking what will be uploaded ==="
-          ls -la CopilotKit/packages/v1/react-core/dist/index.* 2>/dev/null || echo "No index files"
-          echo ""
-          ls -la CopilotKit/packages/v1/react-ui/dist/index.* 2>/dev/null || echo "No index files"
-
-      - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: cpk-dist
-          retention-days: 1
-          path: CopilotKit/packages
-
   dojo:
     name: ${{ matrix.suite }}
-    needs: build
     runs-on: depot-ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
@@ -245,31 +174,16 @@ jobs:
         working-directory: CopilotKit
         run: pnpm install --frozen-lockfile
 
-      - name: Download build artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: cpk-dist
-          path: .
-
-      - name: Debug - Show artifact contents
+      - name: Build cpk packages
+        working-directory: CopilotKit
+        env:
+          NODE_OPTIONS: --max-old-space-size=8192
+          TURBO_CONCURRENCY: 2
         run: |
-          echo "=== CopilotKit directory structure ==="
-          ls -la CopilotKit/packages/v1/ || echo "v1 packages directory not found"
-          echo ""
-          echo "=== react-core package contents ==="
-          ls -la CopilotKit/packages/v1/react-core/ || echo "react-core not found"
-          echo ""
-          echo "=== react-core dist contents ==="
-          ls -la CopilotKit/packages/v1/react-core/dist/ || echo "react-core dist not found"
-          echo ""
-          echo "=== react-ui package contents ==="
-          ls -la CopilotKit/packages/v1/react-ui/ || echo "react-ui not found"
-          echo ""
-          echo "=== react-ui dist contents ==="
-          ls -la CopilotKit/packages/v1/react-ui/dist/ || echo "react-ui dist not found"
-          echo ""
-          echo "=== react-ui package.json exports ==="
-          cat CopilotKit/packages/v1/react-ui/package.json | grep -A 5 '"exports"' || echo "package.json not found"
+          unset TURBO_API
+          unset TURBO_TOKEN
+          unset TURBO_TEAM
+          pnpm build:packages
 
       - name: Install ag-ui dependencies
         working-directory: ag-ui
@@ -277,27 +191,7 @@ jobs:
 
       - name: Link cpk into ag-ui
         working-directory: CopilotKit
-        run: |
-          echo "=== Running link-cpk.js ==="
-          echo "CPK path: ${{ github.workspace }}/CopilotKit/packages/v1"
-          echo "Workspace: ${{ github.workspace }}"
-          echo ""
-          node ../ag-ui/apps/dojo/scripts/link-cpk.js ${{ github.workspace }}/CopilotKit/packages/v1
-
-      - name: Debug - Show linked package.json
-        working-directory: ag-ui/apps/dojo
-        run: |
-          echo "=== Dojo package.json dependencies (CopilotKit packages) ==="
-          cat package.json | grep -A 1 '"@copilotkit/' | head -30
-          echo ""
-          echo "=== Checking if linked paths exist ==="
-          REACT_CORE_PATH=$(cat package.json | grep '@copilotkit/react-core' | cut -d'"' -f4)
-          echo "react-core path from package.json: $REACT_CORE_PATH"
-          ls -la "$REACT_CORE_PATH" 2>/dev/null || echo "Path does not exist!"
-          echo ""
-          REACT_UI_PATH=$(cat package.json | grep '@copilotkit/react-ui' | cut -d'"' -f4)
-          echo "react-ui path from package.json: $REACT_UI_PATH"
-          ls -la "$REACT_UI_PATH" 2>/dev/null || echo "Path does not exist!"
+        run: node ../ag-ui/apps/dojo/scripts/link-cpk.js ${{ github.workspace }}/CopilotKit/packages/v1
 
       - name: Prepare dojo for e2e
         working-directory: ag-ui/apps/dojo
