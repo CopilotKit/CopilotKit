@@ -13,7 +13,7 @@
     "clean": "turbo clean",
     "clean:classic": "turbo run clean --filter=@copilotkit/*",
     "clean:next": "turbo run clean --filter=@copilotkitnext/*",
-    "lint": "turbo lint",
+    "lint": "turbo lint --filter=!@copilotkit-examples/* --filter=!@copilotkit-storybook/* --filter=!demo --filter=!next-openai --filter=!next-pages-router --filter=!node-express --filter=!node-http --filter=!@copilotkitnext/next-pages-router --filter=!@copilotkitnext/node-express",
     "lint:classic": "turbo run lint --filter=@copilotkit/*",
     "lint:next": "turbo run lint --filter=@copilotkitnext/*",
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
