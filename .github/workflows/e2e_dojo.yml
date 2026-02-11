@@ -90,41 +90,7 @@ jobs:
         with:
           name: cpk-dist
           retention-days: 1
-          path: |
-            CopilotKit/packages/v1/a2ui-renderer/dist
-            CopilotKit/packages/v1/a2ui-renderer/package.json
-            CopilotKit/packages/v1/react-core/dist
-            CopilotKit/packages/v1/react-core/package.json
-            CopilotKit/packages/v1/react-textarea/dist
-            CopilotKit/packages/v1/react-textarea/package.json
-            CopilotKit/packages/v1/react-ui/dist
-            CopilotKit/packages/v1/react-ui/package.json
-            CopilotKit/packages/v1/runtime/dist
-            CopilotKit/packages/v1/runtime/package.json
-            CopilotKit/packages/v1/runtime-client-gql/dist
-            CopilotKit/packages/v1/runtime-client-gql/package.json
-            CopilotKit/packages/v1/sdk-js/dist
-            CopilotKit/packages/v1/sdk-js/package.json
-            CopilotKit/packages/v1/shared/dist
-            CopilotKit/packages/v1/shared/package.json
-            CopilotKit/packages/v2/agent/dist
-            CopilotKit/packages/v2/agent/package.json
-            CopilotKit/packages/v2/angular/dist
-            CopilotKit/packages/v2/angular/package.json
-            CopilotKit/packages/v2/core/dist
-            CopilotKit/packages/v2/core/package.json
-            CopilotKit/packages/v2/demo-agents/dist
-            CopilotKit/packages/v2/demo-agents/package.json
-            CopilotKit/packages/v2/react/dist
-            CopilotKit/packages/v2/react/package.json
-            CopilotKit/packages/v2/runtime/dist
-            CopilotKit/packages/v2/runtime/package.json
-            CopilotKit/packages/v2/shared/dist
-            CopilotKit/packages/v2/shared/package.json
-            CopilotKit/packages/v2/sqlite-runner/dist
-            CopilotKit/packages/v2/sqlite-runner/package.json
-            CopilotKit/packages/v2/web-inspector/dist
-            CopilotKit/packages/v2/web-inspector/package.json
+          path: CopilotKit/packages
 
   dojo:
     name: ${{ matrix.suite }}
