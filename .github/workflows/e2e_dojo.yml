@@ -72,17 +72,18 @@ jobs:
           pnpm build:packages
 
       - name: Debug - Verify dist folders exist after build
-        working-directory: CopilotKit
         run: |
-          echo "=== Checking if dist folders were created ==="
+          echo "=== Checking if dist folders were created (from workspace root) ==="
           echo "react-core dist:"
-          ls -la packages/v1/react-core/dist/ 2>/dev/null || echo "❌ NOT FOUND"
+          ls -la CopilotKit/packages/v1/react-core/dist/ 2>/dev/null && echo "✅ FOUND" || echo "❌ NOT FOUND"
           echo ""
           echo "react-ui dist:"
-          ls -la packages/v1/react-ui/dist/ 2>/dev/null || echo "❌ NOT FOUND"
+          ls -la CopilotKit/packages/v1/react-ui/dist/ 2>/dev/null && echo "✅ FOUND" || echo "❌ NOT FOUND"
           echo ""
-          echo "=== Checking from workspace root (for artifact upload) ==="
-          ls -la CopilotKit/packages/v1/react-core/dist/ 2>/dev/null && echo "✅ Found from root" || echo "❌ Not found from root"
+          echo "=== Checking what will be uploaded ==="
+          ls -la CopilotKit/packages/v1/react-core/dist/index.* 2>/dev/null || echo "No index files"
+          echo ""
+          ls -la CopilotKit/packages/v1/react-ui/dist/index.* 2>/dev/null || echo "No index files"
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
