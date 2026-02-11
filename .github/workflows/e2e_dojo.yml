@@ -76,7 +76,9 @@ jobs:
         with:
           name: cpk-dist
           retention-days: 1
-          path: CopilotKit/src/v1.x/packages/*/dist/
+          path: |
+            CopilotKit/src/v1.x/packages/*/dist/
+            CopilotKit/src/v2.x/packages/*/dist/
 
   dojo:
     name: ${{ matrix.suite }}
@@ -235,7 +237,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: cpk-dist
-          path: CopilotKit/src/v1.x/packages
+          path: CopilotKit/src
 
       - name: Install ag-ui dependencies
         working-directory: ag-ui
@@ -244,6 +246,31 @@ jobs:
       - name: Link cpk into ag-ui
         working-directory: CopilotKit
         run: node ../ag-ui/apps/dojo/scripts/link-cpk.js src/v1.x/packages
+
+      - name: Link v2.x packages into ag-ui
+        working-directory: CopilotKit
+        run: |
+          node -e "
+          const fs = require('fs');
+          const path = require('path');
+          const dojoDir = path.resolve('../ag-ui/apps/dojo');
+          const v2PkgDir = path.resolve('src/v2.x/packages');
+          const pkgPath = path.join(dojoDir, 'package.json');
+          const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
+          const relative = './' + path.relative(dojoDir, v2PkgDir);
+          const v2Packages = Object.keys(pkg.dependencies).filter(p => p.startsWith('@copilotkitnext/'));
+          v2Packages.forEach(name => {
+            const folder = name.replace('@copilotkitnext/', '');
+            const localPath = path.join(v2PkgDir, folder);
+            if (fs.existsSync(localPath)) {
+              pkg.dependencies[name] = path.join(relative, folder);
+              console.log('Linked ' + name + ' -> ' + path.join(relative, folder));
+            } else {
+              console.warn('Package ' + name + ' not found at ' + localPath);
+            }
+          });
+          fs.writeFileSync(pkgPath, JSON.stringify(pkg, null, 2));
+          "
 
       - name: Prepare dojo for e2e
         working-directory: ag-ui/apps/dojo
