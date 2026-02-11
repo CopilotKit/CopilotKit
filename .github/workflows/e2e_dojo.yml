@@ -237,7 +237,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: cpk-dist
-          path: CopilotKit/packages
+          path: .
 
       - name: Install ag-ui dependencies
         working-directory: ag-ui
