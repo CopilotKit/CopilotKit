@@ -76,7 +76,9 @@ jobs:
         with:
           name: cpk-dist
           retention-days: 1
-          path: CopilotKit/packages/v1/*/dist/
+          path: |
+            CopilotKit/packages/v1/*/dist/
+            CopilotKit/packages/v2/*/dist/
 
   dojo:
     name: ${{ matrix.suite }}
@@ -235,7 +237,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: cpk-dist
-          path: CopilotKit/packages/v1
+          path: CopilotKit/packages
 
       - name: Install ag-ui dependencies
         working-directory: ag-ui
@@ -243,7 +245,7 @@ jobs:
 
       - name: Link cpk into ag-ui
         working-directory: CopilotKit
-        run: node ../ag-ui/apps/dojo/scripts/link-cpk.js packages/v1
+        run: node ../ag-ui/apps/dojo/scripts/link-cpk.js packages
 
       - name: Prepare dojo for e2e
         working-directory: ag-ui/apps/dojo
