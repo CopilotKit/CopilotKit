@@ -77,9 +77,9 @@ jobs:
           name: cpk-dist
           retention-days: 1
           path: |
-            CopilotKit/packages/v1/*/dist/
+            CopilotKit/packages/v1/*/dist/**
             CopilotKit/packages/v1/*/package.json
-            CopilotKit/packages/v2/*/dist/
+            CopilotKit/packages/v2/*/dist/**
             CopilotKit/packages/v2/*/package.json
 
   dojo:

@@ -54,5 +54,8 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Generate GraphQL codegen files
+        run: pnpm turbo run graphql-codegen --filter=@copilotkit/runtime-client-gql
+
       - name: Run tests
         run: npm run test:classic
