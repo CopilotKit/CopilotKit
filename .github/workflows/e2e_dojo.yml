@@ -245,7 +245,7 @@ jobs:
 
       - name: Link cpk into ag-ui
         working-directory: CopilotKit
-        run: node ../ag-ui/apps/dojo/scripts/link-cpk.js packages
+        run: node ../ag-ui/apps/dojo/scripts/link-cpk.js packages/v1
 
       - name: Prepare dojo for e2e
         working-directory: ag-ui/apps/dojo
