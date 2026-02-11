@@ -388,7 +388,7 @@ I don't have a LangGraph agent yet, but want to get started quickly.
 
 Local (LangGraph Studio)Self hosted (FastAPI)LangGraph Platform
 
-For local development, you can use the [LangGraph CLI](https://langchain-ai.github.io/langgraph/cloud/reference/cli/) to start a development server and LangGraph studio session.
+For local development, you can use the [LangGraph CLI](https://docs.langchain.com/langsmith/cli) to start a development server and LangGraph studio session.
 
 You will need a [LangSmith account](https://smith.langchain.com/) to use this method.
 
@@ -3478,7 +3478,7 @@ I don't have a LangGraph agent yet, but want to get started quickly.
 
 Local (LangGraph Studio)Self hosted (FastAPI)LangGraph Platform
 
-For local development, you can use the [LangGraph CLI](https://langchain-ai.github.io/langgraph/cloud/reference/cli/) to start a development server and LangGraph studio session.
+For local development, you can use the [LangGraph CLI](https://docs.langchain.com/langsmith/cli) to start a development server and LangGraph studio session.
 
 You will need a [LangSmith account](https://smith.langchain.com/) to use this method.
 
@@ -3658,12 +3658,12 @@ An agentic framework for building LLM applications that can be used with Copilot
 ![CoAgents High Level Overview](https://docs.copilotkit.aihttps://cdn.copilotkit.ai/docs/copilotkit/images/coagents/coagents-highlevel-overview.png)
 
 LangGraph is an agentic framework for building LLM applications that can be used with CopilotKit. It is built on top of LangChain's
-[LangGraph](https://langchain-ai.github.io/langgraph/) library and extends it with additional functionality for building agentic
+[LangGraph](https://docs.langchain.com/oss/python/langgraph/overview) library and extends it with additional functionality for building agentic
 applications.
 
 ## [CoAgents and LangGraph](https://docs.copilotkit.ai/coagents/concepts/langgraph\#coagents-and-langgraph)
 
-How do CoAgents extend LangGraph? Let's read the first sentence of their [project page](https://langchain-ai.github.io/langgraph/) to understand.
+How do CoAgents extend LangGraph? Let's read the first sentence of their [project page](https://docs.langchain.com/oss/python/langgraph/overview) to understand.
 
 > LangGraph is a library for building stateful, multi-actor applications with LLMs, used to create agent and multi-agent workflows.
 
@@ -3691,14 +3691,14 @@ tool calls in the UI so your users know what's happening. Read more about stream
 You can natively build LangGraph applications using Python or JavaScript. Throughout our documentation of integrating with LangGraph
 you will see options for building in Python or JavaScript.
 
-For a quick refresher on each, check out the [Python](https://langchain-ai.github.io/langgraph) and
-[JavaScript](https://langchain-ai.github.io/langgraphjs/) guides from LangGraph:
+For a quick refresher on each, check out the [Python](https://docs.langchain.com/oss/python/langgraph/overview) and
+[JavaScript](https://docs.langchain.com/oss/javascript/langgraph/overview) guides from LangGraph:
 
 ## [LangGraph Platform](https://docs.copilotkit.ai/coagents/concepts/langgraph\#langgraph-platform)
 
 LangGraph Platform is a platform for building and deploying LangGraph applications. It is built on top of the LangGraph library and
 allows you to build, manage, and deploy graphs that CopilotKit can interface with. For more information checkout the official
-[LangGraph Platform](https://langchain-ai.github.io/langgraph/concepts/langgraph_platform) documentation.
+[LangGraph Platform](https://docs.langchain.com/oss/python/langgraph/overview) documentation.
 
 If you want to take the next step to deploy your LangGraph application as an CoAgent, check out our [quickstart guide](https://docs.copilotkit.ai/coagents/quickstart/langgraph).
 
@@ -4552,7 +4552,7 @@ CoAgents are what we call CopilotKit's approach to building agentic experiences!
 
 ### [When should I use CopilotKit's CoAgents?](https://docs.copilotkit.ai/coagents/concepts/agentic-copilots\#when-should-i-use-copilotkits-coagents)
 
-You should use CoAgents when you require tight control over the Agentic runloop, as facilitated by an Agentic Orchestration framework like [LangGraph](https://langchain-ai.github.io/langgraph/).
+You should use CoAgents when you require tight control over the Agentic runloop, as facilitated by an Agentic Orchestration framework like [LangGraph](https://docs.langchain.com/oss/python/langgraph/overview).
 With CoAgents, you can carry all of your existing CopilotKit-enabled Copilot capabilities into a customized agentic runloop.
 
 We suggest beginning with a basic Copilot and gradually transitioning specific components to CoAgents.
@@ -7199,7 +7199,7 @@ Human-in-the-loop (HITL) allows agents to request human input or approval during
 
 ![Agentic Copilot Human in the Loop](https://docs.copilotkit.aihttps://cdn.copilotkit.ai/docs/copilotkit/images/coagents/coagents-hitl-infographic.png)
 
-Learn more about HITL in [LangGraph's concept guide](https://langchain-ai.github.io/langgraph/concepts/human_in_the_loop/).
+Learn more about HITL in [LangGraph's concept guide](https://docs.langchain.com/oss/python/langgraph/interrupts).
 
 ## [When should I use this?](https://docs.copilotkit.ai/coagents/human-in-the-loop\#when-should-i-use-this)
 
@@ -8152,7 +8152,7 @@ Decide which state properties are received and returned to the frontend
 Not all state properties are relevant for frontend-backend sharing.
 This guide shows how to ensure only the right portion of state is communicated back and forth.
 
-This guide is based on [LangGraph's Input/Output Schema feature](https://langchain-ai.github.io/langgraph/how-tos/input_output_schema/)
+This guide is based on [LangGraph's Input/Output Schema feature](https://docs.langchain.com/oss/python/langgraph/use-graph-api#define-input-and-output-schemas)
 
 ## [When should I use this?](https://docs.copilotkit.ai/coagents/shared-state/workflow-execution\#when-should-i-use-this)
 
@@ -9104,7 +9104,7 @@ On this pageDeploy a Graph to LangGraph Platform
 Connect your CopilotKit application to an agent deployed on LangGraph Platform.
 
 This guide assumes you've created a LangGraph agent, and have a `langgraph.json` file set up. If you need a quick introduction, check out [this brief example\\
-from the LangGraph docs](https://langchain-ai.github.io/langgraph/) or follow one of our demos.
+from the LangGraph docs](https://docs.langchain.com/oss/python/langgraph/overview) or follow one of our demos.
 
 ## [Deploy a Graph to LangGraph Platform](https://docs.copilotkit.ai/guides/backend-actions/langgraph-platform-endpoint\#deploy-a-graph-to-langgraph-platform)
 
@@ -9114,7 +9114,7 @@ First, you need to host your agent so that CopilotKit can access it.
 
 Local (LangGraph Studio)Self hosted (FastAPI)LangGraph Platform
 
-For local development, you can use the [LangGraph CLI](https://langchain-ai.github.io/langgraph/cloud/reference/cli/) to start a development server and LangGraph studio session.
+For local development, you can use the [LangGraph CLI](https://docs.langchain.com/langsmith/cli) to start a development server and LangGraph studio session.
 
 You will need a [LangSmith account](https://smith.langchain.com/) to use this method.
 
@@ -9632,7 +9632,7 @@ Here are the key terms and concepts used throughout CoAgents:
 | Ground Truth | In CoAgents, CopilotKit serves as the "ground truth" for the full chat session, maintaining the persistent chat history and ensuring conversational continuity across different agents. |
 | Human-in-the-Loop (HITL) | A workflow pattern where human input or validation is required during agent execution, enabling quality control and oversight at critical decision points. |
 | Intermediate State | The updates to agent state that occur during node execution, rather than only at node transitions, enabling real-time feedback about the agent's progress. |
-| [LangGraph](https://langchain-ai.github.io/langgraph/) | The agent framework integrated with CopilotKit that provides the orchestration layer for CoAgents, enabling sophisticated multi-step reasoning and state management. |
+| [LangGraph](https://docs.langchain.com/oss/python/langgraph/overview) | The agent framework integrated with CopilotKit that provides the orchestration layer for CoAgents, enabling sophisticated multi-step reasoning and state management. |
 | Agent Lock Mode | A mode where CopilotKit is configured to work exclusively with a specific agent, ensuring all requests stay within a single workflow graph for precise control. |
 | Router Mode | A mode where CopilotKit dynamically routes requests between different agents and tools based on context and user input, enabling flexible multi-agent workflows. |
 | State Streaming | The real-time synchronization of agent state between the backend and frontend, enabling immediate updates to the UI as the agent performs tasks. |
@@ -9831,7 +9831,7 @@ On this pageWhat is this?
 
 Learn how to implement Human-in-the-Loop (HITL) using a node-based flow.
 
-The usage of node based interrupt is [now discouraged](https://langchain-ai.github.io/langgraph/concepts/v0-human-in-the-loop/) by both LangGraph and CopilotKit.
+The usage of node based interrupt is [now discouraged](https://docs.langchain.com/oss/python/langgraph/interrupts) by both LangGraph and CopilotKit.
 As of LangGraph 0.2.57, the recommended way to set breakpoints is using [the interrupt function](https://https//docs.copilotkit.ai/coagents/human-in-the-loop/interrupt-flow) as it simplifies human-in-the-loop patterns.
 
 Pictured above is the [coagent starter](https://github.com/copilotkit/copilotkit/tree/main/examples/coagents-starter) with
@@ -9839,7 +9839,7 @@ the implementation below applied!
 
 ## [What is this?](https://docs.copilotkit.ai/coagents/human-in-the-loop/node-flow\#what-is-this)
 
-[Node based flows](https://langchain-ai.github.io/langgraph/concepts/v0-human-in-the-loop/#dynamic-breakpoints) are predicated on LangGraph concept
+[Node based flows](https://docs.langchain.com/oss/python/langgraph/interrupts#debugging-with-interrupts) are predicated on LangGraph concept
 of `breakpoints` which will interrupt a node before or after its execution to allow for user input.
 
 CopilotKit allows you to add custom UI to take user input and then pass it back to the agent upon completion.
@@ -10600,7 +10600,7 @@ the implementation below applied!
 
 ## [What is this?](https://docs.copilotkit.ai/coagents/human-in-the-loop/interrupt-flow\#what-is-this)
 
-[LangGraph's interrupt flow](https://langchain-ai.github.io/langgraph/concepts/human_in_the_loop/) provides an intuitive way to implement Human-in-the-loop workflows.
+[LangGraph's interrupt flow](https://docs.langchain.com/oss/python/langgraph/interrupts) provides an intuitive way to implement Human-in-the-loop workflows.
 
 This guide will show you how to both use `interrupt` and how to integrate it with CopilotKit.
 
@@ -11145,7 +11145,7 @@ def a_node(state: AgentState, config):
     return {"messages":  [RemoveMessage(id=m.id) for m in state['messages']]}
 ```
 
-See the [LangGraph documentation](https://langchain-ai.github.io/langgraph/how-tos/memory/delete-messages/) for more information.
+See the [LangGraph documentation](https://docs.langchain.com/oss/python/langgraph/add-memory#delete-messages) for more information.
 
 Editing the message history is not currently supported on the front-end, but will be soon.
 
@@ -11343,7 +11343,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(lifespan=lifespan)
 ```
 
-To learn more about persistence in LangGraph, check out the [LangGraph documentation](https://langchain-ai.github.io/langgraph/how-tos/#persistence).
+To learn more about persistence in LangGraph, check out the [LangGraph documentation](https://docs.langchain.com/oss/python/langgraph/persistence).
 
 [Previous\\
 \\

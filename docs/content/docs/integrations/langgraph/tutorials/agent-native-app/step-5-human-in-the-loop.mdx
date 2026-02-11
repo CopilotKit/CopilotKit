@@ -10,8 +10,8 @@ implementing this in our application by allowing the user to review and approve 
 <Step>
 ## Understanding Human-in-the-Loop
 
-In LangGraph, the current suggested way to implement human-in-the-loop is to use the [interrupt](https://langchain-ai.github.io/langgraph/concepts/human_in_the_loop/) method. Calling this
-function will pause the node at the call site and rerun the node with the user's decision. You can learn more about interrupt [here](https://langchain-ai.github.io/langgraph/cloud/how-tos/interrupt_concurrent/?h=interrupt).
+In LangGraph, the current suggested way to implement human-in-the-loop is to use the [interrupt](https://docs.langchain.com/oss/python/langgraph/interrupts) method. Calling this
+function will pause the node at the call site and rerun the node with the user's decision. You can learn more about interrupt [here](https://docs.langchain.com/langsmith/interrupt-concurrent).
 
 All together, this process will look like this:
 
