@@ -53,7 +53,7 @@
     "zod": "^3.23.3"
   },
   "peerDependencies": {
-    "@ag-ui/core": "^0.0.43"
+    "@ag-ui/core": "^0.0.45"
   },
   "keywords": [
     "copilotkit",
