@@ -1,5 +1,36 @@
 # ui
 
+## 1.51.4-next.5
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.51.4-next.5
+- @copilotkit/shared@1.51.4-next.5
+- @copilotkitnext/core@1.51.4-next.5
+- @copilotkitnext/react@1.51.4-next.5
+
+## 1.51.4-next.4
+
+### Patch Changes
+
+- c998f30: fix(core): prevent tool call results from leaking into wrong thread on thread switch
+- Updated dependencies [c998f30]
+  - @copilotkitnext/core@1.51.4-next.4
+  - @copilotkitnext/react@1.51.4-next.4
+  - @copilotkit/runtime-client-gql@1.51.4-next.4
+  - @copilotkit/shared@1.51.4-next.4
+
+## 1.51.4-next.3
+
+### Patch Changes
+
+- 6b9c60e: fix: add dependencies to fix stale state of regenerate method
+- Updated dependencies [a3090d5]
+  - @copilotkitnext/react@1.51.4-next.3
+  - @copilotkit/runtime-client-gql@1.51.4-next.3
+  - @copilotkit/shared@1.51.4-next.3
+  - @copilotkitnext/core@1.51.4-next.3
+
 ## 1.51.4-next.2
 
 ### Patch Changes

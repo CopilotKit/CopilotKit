@@ -1,5 +1,31 @@
 # @copilotkitnext/react
 
+## 1.51.4-next.5
+
+### Patch Changes
+
+- @copilotkitnext/core@1.51.4-next.5
+- @copilotkitnext/shared@1.51.4-next.5
+- @copilotkitnext/web-inspector@1.51.4-next.5
+
+## 1.51.4-next.4
+
+### Patch Changes
+
+- Updated dependencies [c998f30]
+  - @copilotkitnext/core@1.51.4-next.4
+  - @copilotkitnext/web-inspector@1.51.4-next.4
+  - @copilotkitnext/shared@1.51.4-next.4
+
+## 1.51.4-next.3
+
+### Patch Changes
+
+- a3090d5: feat: use render tool on v2
+  - @copilotkitnext/core@1.51.4-next.3
+  - @copilotkitnext/shared@1.51.4-next.3
+  - @copilotkitnext/web-inspector@1.51.4-next.3
+
 ## 1.51.4-next.2
 
 ### Patch Changes

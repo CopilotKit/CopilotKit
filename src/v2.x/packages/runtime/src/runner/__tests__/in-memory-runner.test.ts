@@ -6,6 +6,7 @@ import {
   EventType,
   Message,
   RunAgentInput,
+  RunErrorEvent,
   RunStartedEvent,
   TextMessageContentEvent,
   TextMessageEndEvent,
@@ -53,6 +54,28 @@ class TestAgent extends AbstractAgent {
 
   clone(): AbstractAgent {
     return new TestAgent(this.events, this.emitDefaultRunStarted);
+  }
+
+  protected run(): ReturnType<AbstractAgent["run"]> {
+    return EMPTY;
+  }
+
+  protected connect(): ReturnType<AbstractAgent["connect"]> {
+    return EMPTY;
+  }
+}
+
+class ThrowingAgent extends AbstractAgent {
+  constructor(private readonly error: Error) {
+    super();
+  }
+
+  async runAgent(): Promise<void> {
+    throw this.error;
+  }
+
+  clone(): AbstractAgent {
+    return new ThrowingAgent(this.error);
   }
 
   protected run(): ReturnType<AbstractAgent["run"]> {
@@ -268,6 +291,53 @@ describe("InMemoryAgentRunner", () => {
       expect(nonTerminalEvents).toHaveLength(2);
       const [, toolResult] = nonTerminalEvents;
       expect(toolResult.type).toBe(EventType.TOOL_CALL_RESULT);
+    });
+  });
+
+  describe("Error propagation", () => {
+    it("propagates the agent error message into the RUN_ERROR event", async () => {
+      const threadId = "in-memory-error-propagation";
+      const httpError = new Error("HTTP 401: Unauthorized");
+      const agent = new ThrowingAgent(httpError);
+
+      const events = await firstValueFrom(
+        runner
+          .run({
+            threadId,
+            agent,
+            input: { threadId, runId: "run-err", messages: [], state: {} },
+          })
+          .pipe(toArray()),
+      );
+
+      const errorEvent = events.find(
+        (event): event is RunErrorEvent => event.type === EventType.RUN_ERROR,
+      );
+
+      expect(errorEvent).toBeDefined();
+      expect(errorEvent!.message).toBe("HTTP 401: Unauthorized");
+    });
+
+    it("propagates non-HTTP error messages into the RUN_ERROR event", async () => {
+      const threadId = "in-memory-error-generic";
+      const agent = new ThrowingAgent(new Error("Connection refused"));
+
+      const events = await firstValueFrom(
+        runner
+          .run({
+            threadId,
+            agent,
+            input: { threadId, runId: "run-err-2", messages: [], state: {} },
+          })
+          .pipe(toArray()),
+      );
+
+      const errorEvent = events.find(
+        (event): event is RunErrorEvent => event.type === EventType.RUN_ERROR,
+      );
+
+      expect(errorEvent).toBeDefined();
+      expect(errorEvent!.message).toBe("Connection refused");
     });
   });
 });

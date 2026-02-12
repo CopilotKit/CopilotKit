@@ -1,5 +1,11 @@
 # @copilotkitnext/agent
 
+## 1.51.4-next.5
+
+## 1.51.4-next.4
+
+## 1.51.4-next.3
+
 ## 1.51.4-next.2
 
 ## 1.51.4-next.1
