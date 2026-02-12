@@ -42,9 +42,9 @@
     "vitest": "^3.0.5"
   },
   "dependencies": {
-    "@ag-ui/client": "https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@119135f",
-    "@ag-ui/core": "https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@119135f",
-    "@ag-ui/encoder": "https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/encoder@1050",
+    "@ag-ui/client": "0.0.45",
+    "@ag-ui/core": "0.0.45",
+    "@ag-ui/encoder": "0.0.45",
     "@copilotkitnext/shared": "workspace:*",
     "cors": "^2.8.5",
     "express": "^4.21.2",

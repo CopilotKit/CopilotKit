@@ -28,7 +28,7 @@
     "test": "pnpm run build:css && vitest run"
   },
   "dependencies": {
-    "@ag-ui/client": "https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@119135f",
+    "@ag-ui/client": "0.0.45",
     "@copilotkitnext/core": "workspace:*",
     "lit": "^3.2.0",
     "lucide": "^0.525.0",
