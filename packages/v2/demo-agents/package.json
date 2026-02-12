@@ -1,6 +1,6 @@
 {
   "name": "@copilotkitnext/demo-agents",
-  "version": "1.51.4-next.5",
+  "version": "1.51.4-next.6",
   "private": true,
   "main": "dist/index.js",
   "module": "dist/index.mjs",

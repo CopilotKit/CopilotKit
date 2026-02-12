@@ -1,5 +1,12 @@
 # @copilotkit/a2ui-renderer
 
+## 1.51.4-next.6
+
+### Patch Changes
+
+- ac64163: feat(a2ui-renderer): replace Lit wrapper with React renderer
+  - @copilotkit/react-core@1.51.4-next.6
+
 ## 1.51.4-next.5
 
 ### Patch Changes
