@@ -524,9 +524,9 @@ export function useCopilotChatInternal({
 
       const lazyRendered = lazyToolRendered(message, allMessages);
       if (lazyRendered) {
-        const renderedGenUi = lazyRendered();
-        if (renderedGenUi) {
-          return { ...message, generativeUI: () => renderedGenUi };
+        const renderedGenUiArray = lazyRendered();
+        if (renderedGenUiArray && renderedGenUiArray.length > 0) {
+          return { ...message, generativeUI: () => renderedGenUiArray };
         }
       }
 
