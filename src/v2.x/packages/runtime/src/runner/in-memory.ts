@@ -230,9 +230,12 @@ export class InMemoryAgentRunner extends AgentRunner {
         store.isRunning = false;
         runSubject.complete();
         nextSubject.complete();
-      } catch {
+      } catch (error) {
+        const interruptionMessage =
+          error instanceof Error ? error.message : String(error);
         const appendedEvents = finalizeRunEvents(currentRunEvents, {
           stopRequested: store.stopRequested,
+          interruptionMessage,
         });
         for (const event of appendedEvents) {
           runSubject.next(event);
