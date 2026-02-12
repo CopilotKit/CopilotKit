@@ -1,6 +1,6 @@
 {
   "name": "@copilotkitnext/web-inspector",
-  "version": "1.51.4-next.4",
+  "version": "1.51.4-next.5",
   "description": "Lit-based web component for the CopilotKit web inspector",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

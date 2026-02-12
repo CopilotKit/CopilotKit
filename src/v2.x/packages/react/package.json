@@ -1,6 +1,6 @@
 {
   "name": "@copilotkitnext/react",
-  "version": "1.51.4-next.4",
+  "version": "1.51.4-next.5",
   "description": "React components for CopilotKit2",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
