@@ -67,7 +67,7 @@ import { useEffect, useRef } from "react";
 /**
  * Options for the useCopilotReadable hook.
  */
-export interface UseCopilotReadableOptions {
+export interface UseCopilotReadableOptions<T> {
   /**
    * The description of the information to be added to the Copilot context.
    */
@@ -75,7 +75,7 @@ export interface UseCopilotReadableOptions {
   /**
    * The value to be added to the Copilot context. Object values are automatically stringified.
    */
-  value: any;
+  value: T;
   /**
    * The ID of the parent context, if any.
    */
@@ -95,15 +95,14 @@ export interface UseCopilotReadableOptions {
    * A custom conversion function to use to serialize the value to a string. If not provided, the value
    * will be serialized using `JSON.stringify`.
    */
-  convert?: (description: string, value: any) => string;
+  convert?: (value: T) => string;
 }
 
 /**
  * Adds the given information to the Copilot context to make it readable by Copilot.
  */
-export function useCopilotReadable(
-  { description, value, convert, available }: UseCopilotReadableOptions,
-  dependencies?: any[],
+export function useCopilotReadable<T,>(
+  { description, value, convert, available }: UseCopilotReadableOptions<T>
 ): string | undefined {
   const { copilotkit } = useCopilotKit();
   const ctxIdRef = useRef<string | undefined>(undefined);
