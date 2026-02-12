@@ -31,17 +31,3 @@ vi.mock("@copilotkit/react-core/v2", () => ({
     },
   })),
 }));
-
-// Define custom element to avoid errors
-if (!customElements.get("themed-a2ui-surface")) {
-  customElements.define(
-    "themed-a2ui-surface",
-    class extends HTMLElement {
-      processor: any = null;
-      surface: any = null;
-      surfaceId: string | null = null;
-      onAction: any = null;
-      theme: any = null;
-    }
-  );
-}
