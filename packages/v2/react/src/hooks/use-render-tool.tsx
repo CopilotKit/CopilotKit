@@ -84,11 +84,9 @@ export function useRenderTool<S extends z.ZodTypeAny>(
             ...(config.agentId ? { agentId: config.agentId } : {}),
           });
 
-    // Dedup by "agentId:name" key, same pattern as useFrontendTool
-    const keyOf = (rc: ReactToolCallRenderer<any>) =>
-      `${rc.agentId ?? ""}:${rc.name}`;
-    const currentRenderToolCalls =
-      copilotkit.toolCallRenderers as ReactToolCallRenderer<any>[];
+    // Dedupe by "agentId:name" key, same pattern as useFrontendTool
+    const keyOf = (rc: ReactToolCallRenderer<any>) => `${rc.agentId ?? ""}:${rc.name}`;
+    const currentRenderToolCalls = copilotkit.renderToolCalls as ReactToolCallRenderer<any>[];
 
     const mergedMap = new Map<string, ReactToolCallRenderer<any>>();
     for (const rc of currentRenderToolCalls) {
@@ -97,7 +95,7 @@ export function useRenderTool<S extends z.ZodTypeAny>(
 
     mergedMap.set(keyOf(renderer), renderer);
 
-    copilotkit.setToolCallRenderers(Array.from(mergedMap.values()));
+    copilotkit.setRenderToolCalls(Array.from(mergedMap.values()));
 
     // No cleanup removal — keeps renderer for chat history, same as useFrontendTool
   }, [config.name, copilotkit, extraDeps.length, ...extraDeps]);

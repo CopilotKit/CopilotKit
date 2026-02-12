@@ -46,6 +46,7 @@
     "@types/react": "^19.1.0",
     "@types/react-dom": "^19.0.2",
     "@types/react-syntax-highlighter": "^15.5.7",
+    "autoprefixer": "^10.4.24",
     "eslint": "^8.56.0",
     "eslint-config-custom": "workspace:*",
     "jest": "^29.6.4",
