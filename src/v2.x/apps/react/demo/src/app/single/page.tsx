@@ -39,7 +39,7 @@ export default function SingleEndpointDemo() {
     <CopilotKitProvider
       runtimeUrl="/api/copilotkit-single"
       useSingleEndpoint
-      toolCallRenderers={[wildcardRenderer]}
+      renderToolCalls={[wildcardRenderer]}
       showDevConsole="auto"
     >
       <div style={{ height: "100vh", margin: 0, padding: 0, overflow: "hidden" }}>

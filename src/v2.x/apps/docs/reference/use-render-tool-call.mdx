@@ -1,6 +1,6 @@
 ---
-title: useToolCallRenderer
-description: "useToolCallRenderer Hook API Reference"
+title: useRenderToolCall
+description: "useRenderToolCall Hook API Reference"
 ---
 
 <Warning>
@@ -8,15 +8,15 @@ description: "useToolCallRenderer Hook API Reference"
   default `CopilotChat`. If you are using `CopilotChat`, you don't need to use this hook.
 </Warning>
 
-`useToolCallRenderer` is a React hook that provides helper functions to render visual representations of tool calls in
-the chat interface. It manages the rendering of tool execution states (InProgress, Executing, Complete) based on
-configured render functions.
+`useRenderToolCall` is a React hook that provides a function to render visual representations of tool calls in the chat
+interface. It manages the rendering of tool execution states (InProgress, Executing, Complete) based on configured
+render functions.
 
-## What is useToolCallRenderer?
+## What is useRenderToolCall?
 
-The useToolCallRenderer hook:
+The useRenderToolCall hook:
 
-- Returns helper functions for rendering one or many tool calls
+- Returns a render function for tool calls
 - Automatically determines the appropriate status (InProgress, Executing, or Complete)
 - Manages tool execution state transitions
 - Supports agent-specific and wildcard renderers
@@ -25,11 +25,11 @@ The useToolCallRenderer hook:
 ## Basic Usage
 
 ```tsx
-import { useToolCallRenderer } from "@copilotkitnext/react";
+import { useRenderToolCall } from "@copilotkitnext/react";
 import { ToolCall } from "@ag-ui/core";
 
 function ToolCallDisplay({ toolCall, toolMessage }) {
-  const { renderToolCall } = useToolCallRenderer();
+  const renderToolCall = useRenderToolCall();
 
   return <div className="tool-call-container">{renderToolCall({ toolCall, toolMessage })}</div>;
 }
@@ -37,19 +37,16 @@ function ToolCallDisplay({ toolCall, toolMessage }) {
 
 ## Return Value
 
-The hook returns an object with the following shape:
+The hook returns a function with the following signature:
 
 ```tsx
-{
-  renderToolCall: (input: RenderToolCallInput) => React.ReactElement | null;
-  renderAllToolCalls: (toolCalls?: ToolCall[] | null) => Array<React.ReactElement | null> | null;
-}
+(props: UseRenderToolCallProps) => React.ReactElement | null;
 ```
 
-### UseToolCallRendererProps
+### UseRenderToolCallProps
 
 ```tsx
-interface UseToolCallRendererProps {
+interface UseRenderToolCallProps {
   toolCall: ToolCall; // The tool call to render
   toolMessage?: ToolMessage; // Optional result message
 }
@@ -59,7 +56,7 @@ interface UseToolCallRendererProps {
 
 ### Status Determination
 
-The `renderToolCall` function automatically determines the tool's status:
+The render function automatically determines the tool's status:
 
 1. **Complete**: When a `toolMessage` is provided
 2. **Executing**: When the tool is currently running (tracked internally)
@@ -67,7 +64,7 @@ The `renderToolCall` function automatically determines the tool's status:
 
 ### Renderer Selection
 
-The `renderToolCall` function selects renderers based on priority:
+The function selects renderers based on priority:
 
 1. **Exact match** with matching agentId
 2. **Exact match** without agentId (global)
@@ -80,11 +77,11 @@ The `renderToolCall` function selects renderers based on priority:
 ### Basic Tool Call Rendering
 
 ```tsx
-import { useToolCallRenderer } from "@copilotkitnext/react";
+import { useRenderToolCall } from "@copilotkitnext/react";
 import { AssistantMessage } from "@ag-ui/core";
 
 function ChatMessage({ message }: { message: AssistantMessage }) {
-  const { renderAllToolCalls } = useToolCallRenderer();
+  const renderToolCall = useRenderToolCall();
 
   if (!message.toolCalls) {
     return <div>{message.content}</div>;
@@ -93,7 +90,11 @@ function ChatMessage({ message }: { message: AssistantMessage }) {
   return (
     <div>
       {message.content}
-      <div className="tool-call">{renderAllToolCalls(message.toolCalls)}</div>
+      {message.toolCalls.map((toolCall) => (
+        <div key={toolCall.id} className="tool-call">
+          {renderToolCall({ toolCall })}
+        </div>
+      ))}
     </div>
   );
 }
@@ -102,11 +103,11 @@ function ChatMessage({ message }: { message: AssistantMessage }) {
 ### With Tool Results
 
 ```tsx
-import { useToolCallRenderer } from "@copilotkitnext/react";
+import { useRenderToolCall } from "@copilotkitnext/react";
 import { Message, ToolMessage } from "@ag-ui/core";
 
 function ChatWithResults({ message, allMessages }: { message: AssistantMessage; allMessages: Message[] }) {
-  const { renderToolCall } = useToolCallRenderer();
+  const renderToolCall = useRenderToolCall();
 
   return (
     <>
@@ -148,8 +149,8 @@ const searchRenderer = defineToolCallRenderer({
 
 function App() {
   return (
-    <CopilotKitProvider toolCallRenderers={[searchRenderer]}>
-      {/* Components using useToolCallRenderer will use this renderer */}
+    <CopilotKitProvider renderToolCalls={[searchRenderer]}>
+      {/* Components using useRenderToolCall will use this renderer */}
     </CopilotKitProvider>
   );
 }
@@ -169,7 +170,7 @@ function DynamicTool() {
     render: ({ args, status }) => <div>Dynamic tool: {status}</div>,
   });
 
-  // This renderer is automatically available to useToolCallRenderer
+  // This renderer is automatically available to useRenderToolCall
   return null;
 }
 ```
@@ -244,7 +245,7 @@ The hook supports agent-specific renderers:
 import { useCopilotChatConfiguration } from "@copilotkitnext/react";
 
 function AgentAwareRendering() {
-  const { renderToolCall } = useToolCallRenderer();
+  const renderToolCall = useRenderToolCall();
   const config = useCopilotChatConfiguration();
 
   // The hook automatically selects renderers based on the current agent
