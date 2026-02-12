@@ -27,23 +27,28 @@ export default {
     inlineDynamicImports: true,
     globals: {
       'react': 'React',
+      'react/jsx-runtime': 'React',
       'react-dom': 'ReactDOM',
       '@copilotkit/react-core': 'CopilotKitReactCore',
+      '@copilotkit/react-core/v2': 'CopilotKitReactCore',
       '@copilotkitnext/react': 'CopilotKitNextReact',
-      'lit': 'Lit',
       '@a2ui/lit': 'A2UILit',
+      '@a2ui/lit/0.8': 'A2UILit',
       'zod': 'Zod',
     },
   },
-  external: [
-    'react',
-    'react-dom',
-    '@copilotkit/react-core',
-    '@copilotkitnext/react',
-    'lit',
-    '@a2ui/lit',
-    'zod',
-  ],
+  external: (id) => {
+    // Match exact package names and all subpath imports (e.g., @a2ui/lit/0.8)
+    const externalPkgs = [
+      'react',
+      'react-dom',
+      '@copilotkit/react-core',
+      '@copilotkitnext/react',
+      '@a2ui/lit',
+      'zod',
+    ];
+    return externalPkgs.some(pkg => id === pkg || id.startsWith(pkg + '/'));
+  },
   onwarn,
   plugins: [
     postcss({ inject: true, minimize: true }),
