@@ -1,5 +1,14 @@
 # @copilotkit/runtime
 
+## 1.51.4-next.5
+
+### Patch Changes
+
+- 8d67519: fix: propagate agent error messages into RUN_ERROR events
+  - @copilotkit/shared@1.51.4-next.5
+  - @copilotkitnext/agent@1.51.4-next.5
+  - @copilotkitnext/runtime@1.51.4-next.5
+
 ## 1.51.4-next.4
 
 ### Patch Changes
