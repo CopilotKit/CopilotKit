@@ -90,12 +90,12 @@ You can use this when you want to keep your interface and backend agent state sy
 
   </Step>
   <Step>
-    ### Call `setState` function from the `useCoAgent` hook
-    `useCoAgent` returns a `setState` function that you can use to update the agent state. Calling this
+    ### Call `setState` function from the `useAgent` hook
+    `useAgent` returns an `agent` object with a `setState` function that you can use to update the agent state. Calling this
     will update the agent state and trigger a rerender of anything that depends on the agent state.
 
     ```tsx title="ui/app/page.tsx"
-    import { useCoAgent } from "@copilotkit/react-core"; // [!code highlight]
+    import { useAgent } from "@copilotkit/react-core/v2"; // [!code highlight]
 
     // Define the agent state type, should match the actual state of your agent
     type AgentState = {
@@ -104,15 +104,15 @@ You can use this when you want to keep your interface and backend agent state sy
 
     // Example usage in a pseudo React component
     function YourMainContent() {
-      const { state, setState } = useCoAgent<AgentState>({ // [!code highlight]
-        name: "my_agent", // MUST match the agent name in CopilotRuntime
+      const { agent } = useAgent<AgentState>({ // [!code highlight]
+        agentId: "my_agent", // MUST match the agent name in CopilotRuntime
         initialState: { language: "english" }  // optionally provide an initial state
       });
 
       // ...
 
       const toggleLanguage = () => {
-        setState({ language: state.language === "english" ? "spanish" : "english" }); // [!code highlight]
+        agent.setState({ language: agent.state.language === "english" ? "spanish" : "english" }); // [!code highlight]
       };
 
       // ...
@@ -122,7 +122,7 @@ You can use this when you want to keep your interface and backend agent state sy
         <div>
           <h1>Your main content</h1>
           {/* [!code highlight:2] */}
-          <p>Language: {state.language}</p>
+          <p>Language: {agent.state.language}</p>
           <button onClick={toggleLanguage}>Toggle Language</button>
         </div>
       );
@@ -130,13 +130,13 @@ You can use this when you want to keep your interface and backend agent state sy
     ```
 
     <Callout type="warn" title="Important">
-      The `name` parameter must exactly match the agent name you defined in your CopilotRuntime configuration (e.g., `my_agent` from the quickstart).
+      The `agentId` parameter must exactly match the agent name you defined in your CopilotRuntime configuration (e.g., `my_agent` from the quickstart).
     </Callout>
 
   </Step>
   <Step>
     ### Give it a try
-    You can now use the `setState` function to update the agent state and `state` to read it. Try toggling the language button
+    You can now use `agent.setState` to update the agent state and `agent.state` to read it. Try toggling the language button
     and talking to your agent. You'll see the language change to match the agent's state.
   </Step>
 </Steps>
@@ -146,31 +146,31 @@ You can use this when you want to keep your interface and backend agent state sy
 ### Re-run the agent with a hint about what's changed
 
 The new agent state will be used next time the agent runs.
-If you want to re-run it manually, use the `run` argument on the `useCoAgent` hook.
+If you want to re-run it manually, use the `run` method on the `agent` object returned by the `useAgent` hook.
 
 The agent will be re-run, and it will get not only the latest updated state, but also a **hint** that can depend on the data delta between the previous and the current state.
 
 ```tsx title="ui/app/page.tsx"
-import { useCoAgent } from "@copilotkit/react-core";
+import { useAgent } from "@copilotkit/react-core/v2";
 import { TextMessage, MessageRole } from "@copilotkit/runtime-client-gql";  // [!code highlight]
 
 // ...
 
 function YourMainContent() {
   // [!code word:run:1]
-  const { state, setState, run } = useCoAgent<AgentState>({
-    name: "my_agent", // MUST match the agent name in CopilotRuntime
+  const { agent } = useAgent<AgentState>({
+    agentId: "my_agent", // MUST match the agent name in CopilotRuntime
     initialState: { language: "english" }  // optionally provide an initial state
   });
 
   // setup to be called when some event in the app occurs
   const toggleLanguage = () => {
-    const newLanguage = state.language === "english" ? "spanish" : "english";
-    setState({ language: newLanguage });
+    const newLanguage = agent.state.language === "english" ? "spanish" : "english";
+    agent.setState({ language: newLanguage });
 
     // re-run the agent and provide a hint about what's changed
     // [!code highlight:6]
-    run(({ previousState, currentState }) => {
+    agent.run(({ previousState, currentState }) => {
       return new TextMessage({
         role: MessageRole.User,
         content: `the language has been updated to ${currentState.language}`,
