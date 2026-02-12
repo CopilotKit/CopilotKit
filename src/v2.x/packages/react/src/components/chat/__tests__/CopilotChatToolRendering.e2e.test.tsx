@@ -82,7 +82,7 @@ class MockStreamingAgent extends AbstractAgent {
 describe("CopilotChat tool rendering with mock agent", () => {
   function renderWithProvider() {
     const agents = { default: new MockStreamingAgent() };
-    const toolCallRenderers = [
+    const renderToolCalls = [
       defineToolCallRenderer({
         name: "getWeather",
         args: z.object({
@@ -101,7 +101,7 @@ describe("CopilotChat tool rendering with mock agent", () => {
     return render(
       <CopilotKitProvider
         agents__unsafe_dev_only={agents}
-        toolCallRenderers={toolCallRenderers}
+        renderToolCalls={renderToolCalls}
       >
         <div style={{ height: 400 }}>
           <CopilotChat />
@@ -138,7 +138,7 @@ describe("Tool render status narrowing", () => {
     isRunning: boolean;
     withResult: boolean;
   }) {
-    const toolCallRenderers = [
+    const renderToolCalls = [
       defineToolCallRenderer({
         name: "getWeather",
         args: z.object({ city: z.string().optional() }),
@@ -189,7 +189,7 @@ describe("Tool render status narrowing", () => {
     }
 
     return render(
-      <CopilotKitProvider toolCallRenderers={toolCallRenderers}>
+      <CopilotKitProvider renderToolCalls={renderToolCalls}>
         <CopilotChatConfigurationProvider
           agentId="default"
           threadId="test-thread"
@@ -261,7 +261,7 @@ describe("Streaming in-progress without timers", () => {
   it("shows InProgress for partial args and Complete after result", async () => {
     const agent = new MockStepwiseAgent();
 
-    const toolCallRenderers = [
+    const renderToolCalls = [
       defineToolCallRenderer({
         name: "getWeather",
         args: z.object({
@@ -282,7 +282,7 @@ describe("Streaming in-progress without timers", () => {
     render(
       <CopilotKitProvider
         agents__unsafe_dev_only={{ default: agent }}
-        toolCallRenderers={toolCallRenderers}
+        renderToolCalls={renderToolCalls}
       >
         <div style={{ height: 400 }}>
           <CopilotChat />
@@ -454,7 +454,7 @@ describe("Multiple Tool Calls in Same Message", () => {
   it("should render multiple tools independently with their own status", async () => {
     const agent = new MockStepwiseAgent();
 
-    const toolCallRenderers = [
+    const renderToolCalls = [
       defineToolCallRenderer({
         name: "tool1",
         args: z.object({ id: z.string() }),
@@ -480,7 +480,7 @@ describe("Multiple Tool Calls in Same Message", () => {
     render(
       <CopilotKitProvider
         agents__unsafe_dev_only={{ default: agent }}
-        toolCallRenderers={toolCallRenderers}
+        renderToolCalls={renderToolCalls}
       >
         <div style={{ height: 400 }}>
           <CopilotChat />
@@ -580,7 +580,7 @@ describe("Partial Args Accumulation", () => {
   it("should properly show InProgress status with accumulating partial args", async () => {
     const agent = new MockStepwiseAgent();
 
-    const toolCallRenderers = [
+    const renderToolCalls = [
       defineToolCallRenderer({
         name: "complexTool",
         args: z.object({
@@ -602,7 +602,7 @@ describe("Partial Args Accumulation", () => {
     render(
       <CopilotKitProvider
         agents__unsafe_dev_only={{ default: agent }}
-        toolCallRenderers={toolCallRenderers}
+        renderToolCalls={renderToolCalls}
       >
         <div style={{ height: 400 }}>
           <CopilotChat />
@@ -689,7 +689,7 @@ describe("Status Persistence After Agent Stops", () => {
   it("should remain in InProgress status after agent stops if no result", async () => {
     const agent = new MockStepwiseAgent();
 
-    const toolCallRenderers = [
+    const renderToolCalls = [
       defineToolCallRenderer({
         name: "testTool",
         args: z.object({ value: z.string() }),
@@ -705,7 +705,7 @@ describe("Status Persistence After Agent Stops", () => {
     render(
       <CopilotKitProvider
         agents__unsafe_dev_only={{ default: agent }}
-        toolCallRenderers={toolCallRenderers}
+        renderToolCalls={renderToolCalls}
       >
         <CopilotChat />
       </CopilotKitProvider>

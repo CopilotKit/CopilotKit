@@ -9,7 +9,7 @@ import {
 
 export interface CopilotKitCoreReactConfig extends CopilotKitCoreConfig {
   // Add any additional configuration properties specific to the React implementation
-  toolCallRenderers?: ReactToolCallRenderer<any>[];
+  renderToolCalls?: ReactToolCallRenderer<any>[];
   renderActivityMessages?: ReactActivityMessageRenderer<any>[];
 
   // Add custom message renderers
@@ -17,20 +17,20 @@ export interface CopilotKitCoreReactConfig extends CopilotKitCoreConfig {
 }
 
 export interface CopilotKitCoreReactSubscriber extends CopilotKitCoreSubscriber {
-  onToolCallRenderersChanged?: (event: {
+  onRenderToolCallsChanged?: (event: {
     copilotkit: CopilotKitCore;
-    toolCallRenderers: ReactToolCallRenderer<any>[];
+    renderToolCalls: ReactToolCallRenderer<any>[];
   }) => void | Promise<void>;
 }
 
 export class CopilotKitCoreReact extends CopilotKitCore {
-  private _toolCallRenderers: ReactToolCallRenderer<any>[] = [];
+  private _renderToolCalls: ReactToolCallRenderer<any>[] = [];
   private _renderCustomMessages: ReactCustomMessageRenderer[] = [];
   private _renderActivityMessages: ReactActivityMessageRenderer<any>[] = [];
 
   constructor(config: CopilotKitCoreReactConfig) {
     super(config);
-    this._toolCallRenderers = config.toolCallRenderers ?? [];
+    this._renderToolCalls = config.renderToolCalls ?? [];
     this._renderCustomMessages = config.renderCustomMessages ?? [];
     this._renderActivityMessages = config.renderActivityMessages ?? [];
   }
@@ -43,25 +43,25 @@ export class CopilotKitCoreReact extends CopilotKitCore {
     return this._renderActivityMessages;
   }
 
-  get toolCallRenderers(): Readonly<ReactToolCallRenderer<any>>[] {
-    return this._toolCallRenderers;
+  get renderToolCalls(): Readonly<ReactToolCallRenderer<any>>[] {
+    return this._renderToolCalls;
   }
 
-  setToolCallRenderers(toolCallRenderers: ReactToolCallRenderer<any>[]): void {
-    this._toolCallRenderers = toolCallRenderers;
+  setRenderToolCalls(renderToolCalls: ReactToolCallRenderer<any>[]): void {
+    this._renderToolCalls = renderToolCalls;
 
     // Notify React-specific subscribers
     void this.notifySubscribers(
       (subscriber) => {
         const reactSubscriber = subscriber as CopilotKitCoreReactSubscriber;
-        if (reactSubscriber.onToolCallRenderersChanged) {
-          reactSubscriber.onToolCallRenderersChanged({
+        if (reactSubscriber.onRenderToolCallsChanged) {
+          reactSubscriber.onRenderToolCallsChanged({
             copilotkit: this,
-            toolCallRenderers: this.toolCallRenderers,
+            renderToolCalls: this.renderToolCalls,
           });
         }
       },
-      "Subscriber onToolCallRenderersChanged error:"
+      "Subscriber onRenderToolCallsChanged error:"
     );
   }
 
