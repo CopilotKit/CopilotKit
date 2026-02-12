@@ -24,7 +24,6 @@
     "dev:css": "npx @tailwindcss/cli -i ./src/styles/tailwind.css -o ./src/styles/generated.css --watch --minify",
     "lint": "eslint .",
     "check-types": "pnpm run build:css && tsc --noEmit",
-    "clean": "rm -rf dist src/styles/generated.css",
     "test": "pnpm run build:css && vitest run"
   },
   "dependencies": {

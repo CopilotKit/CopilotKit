@@ -178,12 +178,8 @@ jobs:
         working-directory: CopilotKit
         env:
           NODE_OPTIONS: --max-old-space-size=8192
-          TURBO_CONCURRENCY: 2
-        run: |
-          unset TURBO_API
-          unset TURBO_TOKEN
-          unset TURBO_TEAM
-          pnpm build:packages
+          NX_PARALLEL: 2
+        run: pnpm build
 
       - name: Install ag-ui dependencies
         working-directory: ag-ui

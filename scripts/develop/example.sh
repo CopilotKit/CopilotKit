@@ -98,7 +98,7 @@ if [[ "$backend" == "fastapi" ]]; then
 fi
 
 echo "Linking packages globally..."
-turbo link:global
+npx nx run-many -t link:global
 
 echo "Setting up the JS environment..."
 cd "$root_dir/../examples/$example_dir/ui"
@@ -136,7 +136,7 @@ fi
 
 echo "Running the app..."
 parallel --ungroup ::: \
-  "cd $root_dir && exec > >(sed 's/^/$copilotkit_prompt /') 2>&1 && turbo run dev" \
+  "cd $root_dir && exec > >(sed 's/^/$copilotkit_prompt /') 2>&1 && npx nx run-many -t dev" \
   "cd $root_dir/../examples/$example_dir/$agent_dir && exec > >(sed 's/^/$agent_prompt /') 2>&1 && $agent_command" \
   "cd $root_dir/../examples/$example_dir/ui && exec > >(sed 's/^/$frontend_prompt /') 2>&1 && pnpm dev"
 

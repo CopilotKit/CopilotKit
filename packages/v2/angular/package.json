@@ -23,7 +23,6 @@
     "build:css": "npx @tailwindcss/cli -i ./src/styles/globals.css -o ./dist/styles.css",
     "dev": "concurrently \"ng-packagr -p ng-package.json --watch\" \"npm run dev:css\"",
     "dev:css": "npx @tailwindcss/cli -i ./src/styles/globals.css -o ./dist/styles.css --watch",
-    "clean": "rimraf dist",
     "lint": "eslint .",
     "check-types": "tsc --noEmit",
     "test": "vitest run",

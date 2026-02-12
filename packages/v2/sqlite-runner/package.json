@@ -19,7 +19,6 @@
     "dev": "tsup --watch",
     "lint": "eslint .",
     "check-types": "tsc --noEmit",
-    "clean": "rm -rf dist",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage"

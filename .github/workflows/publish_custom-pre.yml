@@ -34,7 +34,7 @@ jobs:
         run: pnpm i
 
       - name: Build
-        run: pnpm run build:packages
+        run: pnpm run build
 
       - name: Publish snapshot
         run: ./scripts/release/publish-snapshot-release.sh

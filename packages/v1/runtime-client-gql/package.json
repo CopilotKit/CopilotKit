@@ -30,7 +30,6 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "check-types": "tsc --noEmit",
-    "clean": "rm -rf .turbo && rm -rf node_modules && rm -rf ./src/graphql/@generated && rm -rf dist && rm -rf .next",
     "graphql-codegen": "graphql-codegen -c codegen.ts",
     "graphql-codegen:watch": "graphql-codegen -c codegen.ts --watch",
     "link:global": "pnpm link --global",

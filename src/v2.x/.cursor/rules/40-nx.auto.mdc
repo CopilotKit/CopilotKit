@@ -1,0 +1,9 @@
+---
+description: NX task runner guidance.
+globs: "**/nx.{json,js}"
+---
+
+- Tasks are inferred from package.json scripts. Target defaults (dependsOn, cache, inputs, outputs) are configured in `nx.json`.
+- Use `nx run <project>:<target>` for single-project tasks.
+- Use `nx run-many -t <target>` for workspace-wide tasks.
+- Avoid adding new targetDefaults without discussion.

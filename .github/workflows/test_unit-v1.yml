@@ -55,7 +55,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Generate GraphQL codegen files
-        run: pnpm turbo run graphql-codegen --filter=@copilotkit/runtime-client-gql
+        run: npx nx run @copilotkit/runtime-client-gql:graphql-codegen
 
       - name: Run tests
         run: npm run test:classic

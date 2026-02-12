@@ -11,7 +11,7 @@ node_modules
 .pnpm-store
 .idea/
 cdk_outputs.json
-.turbo
+.nx
 test-run-comment.md
 
 *.egg-info/
@@ -34,7 +34,9 @@ docs/next-env.d.ts
 # External repos (cloned for development)
 ext-apps/
 dist
-.turbo
+.nx
 .angular
 build
 debug-storybook.log
+storybook-static
+coverage
