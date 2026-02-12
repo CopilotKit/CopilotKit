@@ -14,13 +14,11 @@
  limitations under the License.
  */
 
-export { ThemedA2UISurface } from "./themed-surface.js";
-export type { ThemedA2UISurfaceActionCallback } from "./themed-surface.js";
-export { globalStyles } from "./styles/global.js";
 export { createA2UIMessageRenderer } from "./A2UIMessageRenderer.js";
 export type { A2UIMessageRendererOptions } from "./A2UIMessageRenderer.js";
 export { A2UIViewer } from "./A2UIViewer.js";
 export type { A2UIViewerProps } from "./A2UIViewer.js";
+export { theme as viewerTheme } from "./theme/viewer-theme.js";
 
 // Re-export v0_8 types namespace for consumers
 import { v0_8 } from "@a2ui/lit";

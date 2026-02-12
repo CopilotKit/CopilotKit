@@ -1,21 +1,25 @@
-"use client";
+'use client';
 
-import React, { useId, useMemo, useEffect, useRef } from "react";
-import type { Types } from "@a2ui/lit/0.8";
-import { v0_8 } from "@a2ui/lit";
-import { A2UIProvider, useA2UIActions } from "./react-renderer/core/A2UIProvider";
-import { A2UIRenderer } from "./react-renderer/core/A2UIRenderer";
-import { initializeDefaultCatalog } from "./react-renderer/registry/defaultCatalog";
-import { litTheme } from "./react-renderer/theme/litTheme";
-import { injectStyles } from "./react-renderer/styles";
-import { theme as viewerTheme } from "./theme/viewer-theme.js";
+import React, { useId, useMemo, useEffect, useRef } from 'react';
+import type { Types } from '@a2ui/lit/0.8';
+import { A2UIProvider, useA2UIActions } from './A2UIProvider';
+import { A2UIRenderer } from './A2UIRenderer';
+import { initializeDefaultCatalog } from '../registry/defaultCatalog';
+import { litTheme } from '../theme/litTheme';
+import { injectStyles } from '../styles';
+import type { OnActionCallback } from '../types';
 
-// Re-export types that consumers may need
+/**
+ * Component instance format for static A2UI definitions.
+ */
 export interface ComponentInstance {
   id: string;
   component: Record<string, unknown>;
 }
 
+/**
+ * Action event dispatched when a user interacts with a component.
+ */
 export interface A2UIActionEvent {
   actionName: string;
   sourceComponentId: string;
@@ -24,48 +28,64 @@ export interface A2UIActionEvent {
 }
 
 export interface A2UIViewerProps {
-  /** ID of the root component to render */
+  /** The root component ID */
   root: string;
-  /** Component definitions - array of ComponentInstance */
-  components: v0_8.Types.ComponentInstance[];
-  /** Data model - nested object, e.g. { user: { name: "John" }, items: ["a", "b"] } */
+  /** Array of component definitions */
+  components: ComponentInstance[];
+  /** Data model for the surface */
   data?: Record<string, unknown>;
-  /** Called when user triggers an action (button click, etc.) */
+  /** Callback when an action is triggered */
   onAction?: (action: A2UIActionEvent) => void;
-  /** Surface styles (primaryColor, font, logoUrl) */
-  styles?: Record<string, string>;
-  /** Optional className for the container */
+  /** Custom theme (defaults to litTheme) */
+  theme?: Types.Theme;
+  /** Additional CSS class */
   className?: string;
 }
 
-// Initialize the React renderer's component catalog and styles once
+// Initialize the component catalog and styles once
 let initialized = false;
 function ensureInitialized() {
   if (!initialized) {
     initializeDefaultCatalog();
-    injectStyles();
+    injectStyles(); // Inject structural CSS for litTheme utility classes
     initialized = true;
   }
 }
 
 /**
- * A2UIViewer renders an A2UI component tree from a JSON definition and data.
- * It re-renders cleanly when props change, discarding previous state.
+ * A2UIViewer renders an A2UI component tree from static JSON definitions.
+ *
+ * Use this when you have component definitions and data as props rather than
+ * streaming messages from a server. For streaming use cases, use A2UIProvider
+ * with A2UIRenderer and useA2UI instead.
+ *
+ * @example
+ * ```tsx
+ * const components = [
+ *   { id: 'root', component: { Card: { child: 'text' } } },
+ *   { id: 'text', component: { Text: { text: { path: '/message' } } } },
+ * ];
+ *
+ * <A2UIViewer
+ *   root="root"
+ *   components={components}
+ *   data={{ message: 'Hello World!' }}
+ *   onAction={(action) => console.log('Action:', action)}
+ * />
+ * ```
  */
 export function A2UIViewer({
   root,
   components,
-  data,
+  data = {},
   onAction,
-  styles,
+  theme = litTheme,
   className,
-}: A2UIViewerProps): React.JSX.Element {
+}: A2UIViewerProps) {
   ensureInitialized();
 
-  // Use React's useId for SSR-safe base ID
+  // Generate a stable surface ID based on the definition
   const baseId = useId();
-
-  // Generate a stable surfaceId that changes when definition changes
   const surfaceId = useMemo(() => {
     const definitionKey = `${root}-${JSON.stringify(components)}`;
     let hash = 0;
@@ -74,11 +94,11 @@ export function A2UIViewer({
       hash = (hash << 5) - hash + char;
       hash = hash & hash;
     }
-    return `surface${baseId.replace(/:/g, "-")}${hash}`;
+    return `surface${baseId.replace(/:/g, '-')}${hash}`;
   }, [baseId, root, components]);
 
   // Convert onAction callback to internal format
-  const handleAction = useMemo(() => {
+  const handleAction: OnActionCallback | undefined = useMemo(() => {
     if (!onAction) return undefined;
 
     return (message: Types.A2UIClientEventMessage) => {
@@ -94,23 +114,13 @@ export function A2UIViewer({
     };
   }, [onAction]);
 
-  // Show placeholder if no components provided
-  if (!components || components.length === 0) {
-    return (
-      <div className={className} style={{ padding: 16, color: "#666", fontFamily: "system-ui" }}>
-        No content to display
-      </div>
-    );
-  }
-
   return (
-    <A2UIProvider onAction={handleAction} theme={viewerTheme}>
+    <A2UIProvider onAction={handleAction} theme={theme}>
       <A2UIViewerInner
         surfaceId={surfaceId}
         root={root}
         components={components}
-        data={data ?? {}}
-        styles={styles}
+        data={data}
         className={className}
       />
     </A2UIProvider>
@@ -125,18 +135,16 @@ function A2UIViewerInner({
   root,
   components,
   data,
-  styles,
   className,
 }: {
   surfaceId: string;
   root: string;
-  components: v0_8.Types.ComponentInstance[];
+  components: ComponentInstance[];
   data: Record<string, unknown>;
-  styles?: Record<string, string>;
   className?: string;
 }) {
   const { processMessages } = useA2UIActions();
-  const lastProcessedRef = useRef<string>("");
+  const lastProcessedRef = useRef<string>('');
 
   // Process messages when props change
   useEffect(() => {
@@ -145,7 +153,7 @@ function A2UIViewerInner({
     lastProcessedRef.current = key;
 
     const messages: Types.ServerToClientMessage[] = [
-      { beginRendering: { surfaceId, root, styles: styles ?? {} } },
+      { beginRendering: { surfaceId, root, styles: {} } },
       { surfaceUpdate: { surfaceId, components } },
     ];
 
@@ -154,13 +162,13 @@ function A2UIViewerInner({
       const contents = objectToValueMaps(data);
       if (contents.length > 0) {
         messages.push({
-          dataModelUpdate: { surfaceId, path: "/", contents },
+          dataModelUpdate: { surfaceId, path: '/', contents },
         });
       }
     }
 
     processMessages(messages);
-  }, [processMessages, surfaceId, root, components, data, styles]);
+  }, [processMessages, surfaceId, root, components, data]);
 
   return (
     <div className={className}>
@@ -181,25 +189,29 @@ function objectToValueMaps(obj: Record<string, unknown>): Types.ValueMap[] {
  * Converts a single key-value pair to a ValueMap.
  */
 function valueToValueMap(key: string, value: unknown): Types.ValueMap {
-  if (typeof value === "string") {
+  if (typeof value === 'string') {
     return { key, valueString: value };
   }
-  if (typeof value === "number") {
+  if (typeof value === 'number') {
     return { key, valueNumber: value };
   }
-  if (typeof value === "boolean") {
+  if (typeof value === 'boolean') {
     return { key, valueBoolean: value };
   }
   if (value === null || value === undefined) {
     return { key };
   }
   if (Array.isArray(value)) {
-    const valueMap = value.map((item, index) => valueToValueMap(String(index), item));
+    const valueMap = value.map((item, index) =>
+      valueToValueMap(String(index), item)
+    );
     return { key, valueMap };
   }
-  if (typeof value === "object") {
+  if (typeof value === 'object') {
     const valueMap = objectToValueMaps(value as Record<string, unknown>);
     return { key, valueMap };
   }
   return { key };
 }
+
+export default A2UIViewer;

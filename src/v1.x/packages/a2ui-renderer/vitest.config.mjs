@@ -8,7 +8,7 @@ export default defineConfig({
     globals: true,
     server: {
       deps: {
-        inline: ["@a2ui/lit", "@lit-labs/signals", "lit"],
+        inline: ["@a2ui/lit"],
       },
     },
   },
