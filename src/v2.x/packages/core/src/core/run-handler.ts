@@ -28,6 +28,10 @@ export class RunHandler {
 
   constructor(private core: CopilotKitCore) {}
 
+  private isToolEnabled(tool: FrontendTool<any>): boolean {
+    return tool.available !== "disabled";
+  }
+
   /**
    * Get all tools as a readonly array
    */
@@ -81,14 +85,16 @@ export class RunHandler {
 
     // If agentId is provided, first look for agent-specific tool
     if (agentId) {
-      const agentTool = this._tools.find((tool) => tool.name === toolName && tool.agentId === agentId);
+      const agentTool = this._tools.find(
+        (tool) => tool.name === toolName && tool.agentId === agentId && this.isToolEnabled(tool),
+      );
       if (agentTool) {
         return agentTool;
       }
     }
 
     // Fall back to global tool (no agentId)
-    return this._tools.find((tool) => tool.name === toolName && !tool.agentId);
+    return this._tools.find((tool) => tool.name === toolName && !tool.agentId && this.isToolEnabled(tool));
   }
 
   /**
@@ -493,6 +499,7 @@ export class RunHandler {
    */
   buildFrontendTools(agentId?: string): Tool[] {
     return this._tools
+      .filter((tool) => this.isToolEnabled(tool))
       .filter((tool) => !tool.agentId || tool.agentId === agentId)
       .map((tool) => ({
         name: tool.name,

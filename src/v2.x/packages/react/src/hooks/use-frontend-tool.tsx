@@ -10,6 +10,7 @@ export function useFrontendTool<
 >(tool: ReactFrontendTool<T>, deps?: ReadonlyArray<unknown>) {
   const { copilotkit } = useCopilotKit();
   const extraDeps = deps ?? EMPTY_DEPS;
+  const isDisabled = tool.available === "disabled";
 
   useEffect(() => {
     const name = tool.name;
@@ -21,7 +22,9 @@ export function useFrontendTool<
       );
       copilotkit.removeTool(name, tool.agentId);
     }
-    copilotkit.addTool(tool);
+    if (!isDisabled) {
+      copilotkit.addTool(tool);
+    }
 
     // Register/override renderer by name and agentId through core
     if (tool.render) {
@@ -54,5 +57,5 @@ export function useFrontendTool<
     };
     // Depend on stable keys by default and allow callers to opt into
     // additional dependencies for dynamic tool configuration.
-  }, [tool.name, copilotkit, extraDeps.length, ...extraDeps]);
+  }, [tool.name, tool.agentId, tool.available, copilotkit, isDisabled, extraDeps.length, ...extraDeps]);
 }

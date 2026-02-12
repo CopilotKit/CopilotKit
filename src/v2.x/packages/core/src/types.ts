@@ -20,12 +20,19 @@ export type FrontendToolHandlerContext = {
   agent: AbstractAgent;
 };
 
+export type FrontendToolAvailability = "enabled" | "disabled";
+
 export type FrontendTool<T extends Record<string, unknown> = Record<string, unknown>> = {
   name: string;
   description?: string;
   parameters?: z.ZodType<T>;
   handler?: (args: T, context: FrontendToolHandlerContext) => Promise<unknown>;
   followUp?: boolean;
+  /**
+   * Whether this tool is available to be executed by the agent.
+   * @default "enabled"
+   */
+  available?: FrontendToolAvailability;
   /**
    * Optional agent ID to constrain this tool to a specific agent.
    * If specified, this tool will only be available to the specified agent.
