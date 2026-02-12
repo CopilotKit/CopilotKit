@@ -10,13 +10,17 @@ describe("CopilotKit config", () => {
       config = injectCopilotKitConfig();
     }
 
-    const headers = { Authorization: "token" };
+    const headers = {
+      Authorization: "token",
+      "X-CopilotCloud-Public-Api-Key": "ck_pub_" + "b".repeat(32),
+    };
 
     TestBed.configureTestingModule({
       providers: [
         provideCopilotKit({
           runtimeUrl: "https://example.com",
           headers,
+          licenseKey: "ck_pub_" + "a".repeat(32),
         }),
       ],
     });

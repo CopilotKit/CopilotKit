@@ -15,6 +15,8 @@ const mockSetProperties = vi.fn();
 const mockSetAgents = vi.fn();
 const mockGetAgent = vi.fn();
 
+const licenseKey = "ck_pub_" + "a".repeat(32);
+
 let lastCoreInstance: any;
 let lastCoreConfig: any;
 
@@ -66,6 +68,7 @@ describe("CopilotKit", () => {
           runtimeUrl: "https://runtime.local",
           headers: { Authorization: "token" },
           properties: { region: "eu" },
+          licenseKey,
           tools: [
             {
               name: "search",
@@ -92,6 +95,7 @@ describe("CopilotKit", () => {
     expect(lastCoreConfig.runtimeUrl).toBe("https://runtime.local");
     expect(lastCoreConfig.headers).toEqual({
       Authorization: "token",
+      "X-CopilotCloud-Public-Api-Key": licenseKey,
     });
     expect(lastCoreConfig.tools).toEqual([
       expect.objectContaining({
@@ -122,7 +126,7 @@ describe("CopilotKit", () => {
   it("tracks client tools and executes handlers within injection context", async () => {
     const handlerSpy = vi.fn().mockResolvedValue("handled");
     TestBed.configureTestingModule({
-      providers: [provideCopilotKit({})],
+      providers: [provideCopilotKit({ licenseKey })],
     });
 
     const copilotKit = TestBed.inject(CopilotKit);
@@ -155,7 +159,7 @@ describe("CopilotKit", () => {
       .mockResolvedValue("result");
 
     TestBed.configureTestingModule({
-      providers: [provideCopilotKit({})],
+      providers: [provideCopilotKit({ licenseKey })],
     });
 
     const copilotKit = TestBed.inject(CopilotKit);
@@ -187,7 +191,7 @@ describe("CopilotKit", () => {
 
   it("removes tools and renderer configs", () => {
     TestBed.configureTestingModule({
-      providers: [provideCopilotKit({})],
+      providers: [provideCopilotKit({ licenseKey })],
     });
 
     const copilotKit = TestBed.inject(CopilotKit);
@@ -207,7 +211,7 @@ describe("CopilotKit", () => {
 
   it("updates runtime configuration via core methods", () => {
     TestBed.configureTestingModule({
-      providers: [provideCopilotKit({})],
+      providers: [provideCopilotKit({ licenseKey })],
     });
 
     const copilotKit = TestBed.inject(CopilotKit);
@@ -227,7 +231,7 @@ describe("CopilotKit", () => {
 
   it("reflects agent updates from core subscriptions", () => {
     TestBed.configureTestingModule({
-      providers: [provideCopilotKit({})],
+      providers: [provideCopilotKit({ licenseKey })],
     });
 
     const copilotKit = TestBed.inject(CopilotKit);

@@ -57,7 +57,7 @@ Reference the package CSS so the components render correctly:
 
 ## App Wiring (Providers)
 
-Add CopilotKit providers in your application config to set labels and runtime URL.
+Add CopilotKit providers in your application config to set labels, runtime URL, and the license key.
 
 ### Example (`app.config.ts`):
 
@@ -71,6 +71,7 @@ export const appConfig: ApplicationConfig = {
   providers: [
     importProvidersFrom(BrowserModule),
     ...provideCopilotKit({
+      licenseKey: "ck_pub_your_public_api_key",
       // runtimeUrl can also be set via template directive; see below
     }),
     provideCopilotChatConfiguration({
@@ -438,6 +439,7 @@ export const appConfig: ApplicationConfig = {
   providers: [
     importProvidersFrom(BrowserModule),
     ...provideCopilotKit({
+      licenseKey: "ck_pub_your_public_api_key",
       renderToolCalls: [
         { name: '*', render: WildcardToolRenderComponent },
       ],
