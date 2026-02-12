@@ -22,7 +22,7 @@ export interface CopilotKitConfig {
   properties?: Record<string, unknown>;
   agents?: Record<string, AbstractAgent>;
   tools?: ClientTool[];
-  toolCallRenderers?: ToolCallRendererConfig[];
+  renderToolCalls?: ToolCallRendererConfig[];
 }
 
 const COPILOT_KIT_CONFIG = new InjectionToken<CopilotKitConfig>(
@@ -49,7 +49,7 @@ const appConfig: AppConfig = {
       properties: {},
       agents: {},
       tools: [],
-      toolCallRenderers: [],
+      renderToolCalls: [],
     }),
   ],
 };
@@ -102,14 +102,14 @@ export class CopilotKit {
     ),
   });
 
-  readonly #toolCallRenderers: WritableSignal<ToolCallRendererConfig[]> = signal(
+  readonly #renderToolCalls: WritableSignal<ToolCallRendererConfig[]> = signal(
     []
   );
-  readonly toolCallRenderers: Signal<ToolCallRendererConfig[]> =
-    this.#toolCallRenderers.asReadonly();
+  readonly renderToolCalls: Signal<ToolCallRendererConfig[]> =
+    this.#renderToolCalls.asReadonly();
 
   constructor() {
-    this.#config.toolCallRenderers?.forEach((renderConfig) => {
+    this.#config.renderToolCalls?.forEach((renderConfig) => {
       this.addRenderToolCall(renderConfig);
     });
 
@@ -156,7 +156,7 @@ export class CopilotKit {
   }
 
   addRenderToolCall(renderConfig: ToolCallRendererConfig): void {
-    this.#toolCallRenderers.update((current) => [
+    this.#renderToolCalls.update((current) => [
       ...current.filter(
         (existing) =>
           existing.name !== renderConfig.name ||
@@ -167,7 +167,7 @@ export class CopilotKit {
   }
 
   removeRenderToolCall(name: string, agentId?: string): void {
-    this.#toolCallRenderers.update((current) =>
+    this.#renderToolCalls.update((current) =>
       current.filter(
         (renderConfig) =>
           renderConfig.name !== name || renderConfig.agentId !== agentId
@@ -473,7 +473,7 @@ export class RenderToolCalls {
 
   pickRenderer(name: string): ToolCallRendererConfig | undefined {
     const messageAgentId = this.message().agentId;
-    const renderers = this.copilotKit.toolCallRenderers();
+    const renderers = this.copilotKit.renderToolCalls();
 
     return (
       renderers.find(

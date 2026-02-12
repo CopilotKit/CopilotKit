@@ -12,7 +12,7 @@ describe("defineToolCallRenderer", () => {
   describe("Array compatibility", () => {
     it("should work with multiple tool renders in an array", () => {
       // This test verifies that multiple tool renders with different arg types
-      // can be used together in the toolCallRenderers array
+      // can be used together in the renderToolCalls array
       const WildCardRender = defineToolCallRenderer({
         name: "*",
         render: ({ args, result, name, status }) => {
@@ -32,16 +32,16 @@ describe("defineToolCallRenderer", () => {
 
       // This should compile without errors
       // Testing that mixed types can be used together
-      const toolCallRenderers = [WildCardRender, OtherToolRender];
+      const renderToolCalls = [WildCardRender, OtherToolRender];
 
-      expect(toolCallRenderers).toHaveLength(2);
-      expect(toolCallRenderers[0]!.name).toBe("*");
-      expect(toolCallRenderers[1]!.name).toBe("get_weather");
+      expect(renderToolCalls).toHaveLength(2);
+      expect(renderToolCalls[0]!.name).toBe("*");
+      expect(renderToolCalls[1]!.name).toBe("get_weather");
 
       // Verify they have the expected structure
-      expect(toolCallRenderers[0]!.render).toBeDefined();
-      expect(toolCallRenderers[1]!.render).toBeDefined();
-      expect(toolCallRenderers[1]!.args).toBeDefined();
+      expect(renderToolCalls[0]!.render).toBeDefined();
+      expect(renderToolCalls[1]!.render).toBeDefined();
+      expect(renderToolCalls[1]!.args).toBeDefined();
     });
 
     it("should work with CopilotKitProvider accepting mixed tool renders", () => {
@@ -65,13 +65,13 @@ describe("defineToolCallRenderer", () => {
 
       // This should compile without type errors
       const TestComponent = () => {
-        const toolCallRenderers = [WildCardRender, OtherToolRender];
+        const renderToolCalls = [WildCardRender, OtherToolRender];
 
         // In real usage, this would be passed to CopilotKitProvider
         // We're just checking that the type is compatible
-        const providerProps: { toolCallRenderers?: ReactToolCallRenderer<any>[] } =
+        const providerProps: { renderToolCalls?: ReactToolCallRenderer<any>[] } =
           {
-            toolCallRenderers: toolCallRenderers,
+            renderToolCalls: renderToolCalls,
           };
 
         return <div data-testid="test">Test</div>;
@@ -114,7 +114,7 @@ describe("defineToolCallRenderer", () => {
           agents__unsafe_dev_only={{
             default: mockAgent,
           }}
-          toolCallRenderers={[WildCardRender, OtherToolRender]}
+          renderToolCalls={[WildCardRender, OtherToolRender]}
         >
           <div data-testid="app">App content</div>
         </CopilotKitProvider>

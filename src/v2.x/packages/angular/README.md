@@ -438,7 +438,7 @@ export const appConfig: ApplicationConfig = {
   providers: [
     importProvidersFrom(BrowserModule),
     ...provideCopilotKit({
-      toolCallRenderers: [
+      renderToolCalls: [
         { name: '*', render: WildcardToolRenderComponent },
       ],
     }),
