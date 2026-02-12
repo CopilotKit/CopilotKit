@@ -1,13 +1,14 @@
 import { useEffect } from "react";
 import { useCopilotKit } from "../providers/CopilotKitProvider";
-import { ReactFrontendTool } from "../types/frontend-tool";
-import { ReactToolCallRenderer } from "../types/react-tool-call-renderer";
+import type { ReactFrontendTool } from "../types/frontend-tool";
+import type { ReactToolCallRenderer } from "../types/react-tool-call-renderer";
 
 const EMPTY_DEPS: ReadonlyArray<unknown> = [];
 
-export function useFrontendTool<
-  T extends Record<string, unknown> = Record<string, unknown>,
->(tool: ReactFrontendTool<T>, deps?: ReadonlyArray<unknown>) {
+export function useFrontendTool<T extends Record<string, unknown> = Record<string, unknown>>(
+  tool: ReactFrontendTool<T>,
+  deps?: ReadonlyArray<unknown>,
+) {
   const { copilotkit } = useCopilotKit();
   const extraDeps = deps ?? EMPTY_DEPS;
 
@@ -25,15 +26,13 @@ export function useFrontendTool<
 
     // Register/override renderer by name and agentId through core
     if (tool.render) {
-      // Get current tool call renderers and merge with new entry
-      const keyOf = (rc: ReactToolCallRenderer<any>) =>
-        `${rc.agentId ?? ""}:${rc.name}`;
-      const currentToolCallRenderers =
-        copilotkit.toolCallRenderers as ReactToolCallRenderer<any>[];
+      // Get current render tool calls and merge with new entry
+      const keyOf = (rc: ReactToolCallRenderer<any>) => `${rc.agentId ?? ""}:${rc.name}`;
+      const currentRenderToolCalls = copilotkit.renderToolCalls as ReactToolCallRenderer<any>[];
 
       // Build map from existing entries
       const mergedMap = new Map<string, ReactToolCallRenderer<any>>();
-      for (const rc of currentToolCallRenderers) {
+      for (const rc of currentRenderToolCalls) {
         mergedMap.set(keyOf(rc), rc);
       }
 
@@ -47,7 +46,7 @@ export function useFrontendTool<
       mergedMap.set(keyOf(newEntry), newEntry);
 
       // Set the merged list back
-      copilotkit.setToolCallRenderers(Array.from(mergedMap.values()));
+      copilotkit.setRenderToolCalls(Array.from(mergedMap.values()));
     }
 
     return () => {

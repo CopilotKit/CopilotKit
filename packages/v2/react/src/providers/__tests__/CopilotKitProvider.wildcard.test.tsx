@@ -1,10 +1,10 @@
-import React from "react";
 import { renderHook } from "@testing-library/react";
-import { describe, it, expect, vi } from "vitest";
-import { CopilotKitProvider, useCopilotKit } from "../CopilotKitProvider";
-import { ReactFrontendTool } from "../../types/frontend-tool";
-import { ReactHumanInTheLoop } from "../../types/human-in-the-loop";
+import type React from "react";
+import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
+import type { ReactFrontendTool } from "../../types/frontend-tool";
+import type { ReactHumanInTheLoop } from "../../types/human-in-the-loop";
+import { CopilotKitProvider, useCopilotKit } from "../CopilotKitProvider";
 
 describe("CopilotKitProvider - Wildcard Tool", () => {
   describe("Wildcard Frontend Tool", () => {
@@ -17,11 +17,7 @@ describe("CopilotKitProvider - Wildcard Tool", () => {
       };
 
       const { result } = renderHook(() => useCopilotKit(), {
-        wrapper: ({ children }) => (
-          <CopilotKitProvider frontendTools={[wildcardTool]}>
-            {children}
-          </CopilotKitProvider>
-        ),
+        wrapper: ({ children }) => <CopilotKitProvider frontendTools={[wildcardTool]}>{children}</CopilotKitProvider>,
       });
 
       const retrievedTool = result.current.copilotkit.getTool({
@@ -48,24 +44,16 @@ describe("CopilotKitProvider - Wildcard Tool", () => {
 
       const { result } = renderHook(() => useCopilotKit(), {
         wrapper: ({ children }) => (
-          <CopilotKitProvider frontendTools={[specificTool, wildcardTool]}>
-            {children}
-          </CopilotKitProvider>
+          <CopilotKitProvider frontendTools={[specificTool, wildcardTool]}>{children}</CopilotKitProvider>
         ),
       });
 
-      expect(
-        result.current.copilotkit.getTool({ toolName: "specific" }),
-      ).toBeDefined();
-      expect(
-        result.current.copilotkit.getTool({ toolName: "*" }),
-      ).toBeDefined();
+      expect(result.current.copilotkit.getTool({ toolName: "specific" })).toBeDefined();
+      expect(result.current.copilotkit.getTool({ toolName: "*" })).toBeDefined();
     });
 
     it("should register wildcard with render component", () => {
-      const WildcardRender: React.FC<any> = ({ args }) => (
-        <div>Unknown tool: {args.toolName}</div>
-      );
+      const WildcardRender: React.FC<any> = ({ args }) => <div>Unknown tool: {args.toolName}</div>;
 
       const wildcardTool: ReactFrontendTool = {
         name: "*",
@@ -78,16 +66,10 @@ describe("CopilotKitProvider - Wildcard Tool", () => {
       };
 
       const { result } = renderHook(() => useCopilotKit(), {
-        wrapper: ({ children }) => (
-          <CopilotKitProvider frontendTools={[wildcardTool]}>
-            {children}
-          </CopilotKitProvider>
-        ),
+        wrapper: ({ children }) => <CopilotKitProvider frontendTools={[wildcardTool]}>{children}</CopilotKitProvider>,
       });
 
-      const wildcardRender = result.current.copilotkit.toolCallRenderers.find(
-        (rc) => rc.name === "*",
-      );
+      const wildcardRender = result.current.copilotkit.renderToolCalls.find((rc) => rc.name === "*");
       expect(wildcardRender).toBeDefined();
       expect(wildcardRender?.render).toBe(WildcardRender);
     });
@@ -101,11 +83,7 @@ describe("CopilotKitProvider - Wildcard Tool", () => {
       };
 
       const { result } = renderHook(() => useCopilotKit(), {
-        wrapper: ({ children }) => (
-          <CopilotKitProvider frontendTools={[wildcardTool]}>
-            {children}
-          </CopilotKitProvider>
-        ),
+        wrapper: ({ children }) => <CopilotKitProvider frontendTools={[wildcardTool]}>{children}</CopilotKitProvider>,
       });
 
       const retrievedTool = result.current.copilotkit.getTool({
@@ -118,9 +96,7 @@ describe("CopilotKitProvider - Wildcard Tool", () => {
 
   describe("Wildcard Human-in-the-Loop", () => {
     it("should register wildcard human-in-the-loop tool", () => {
-      const WildcardComponent: React.FC<any> = ({ args }) => (
-        <div>Unknown interaction: {args.toolName}</div>
-      );
+      const WildcardComponent: React.FC<any> = ({ args }) => <div>Unknown interaction: {args.toolName}</div>;
 
       const wildcardHitl: ReactHumanInTheLoop = {
         name: "*",
@@ -133,19 +109,11 @@ describe("CopilotKitProvider - Wildcard Tool", () => {
       };
 
       const { result } = renderHook(() => useCopilotKit(), {
-        wrapper: ({ children }) => (
-          <CopilotKitProvider humanInTheLoop={[wildcardHitl]}>
-            {children}
-          </CopilotKitProvider>
-        ),
+        wrapper: ({ children }) => <CopilotKitProvider humanInTheLoop={[wildcardHitl]}>{children}</CopilotKitProvider>,
       });
 
-      expect(
-        result.current.copilotkit.getTool({ toolName: "*" }),
-      ).toBeDefined();
-      const wildcardRender = result.current.copilotkit.toolCallRenderers.find(
-        (rc) => rc.name === "*",
-      );
+      expect(result.current.copilotkit.getTool({ toolName: "*" })).toBeDefined();
+      const wildcardRender = result.current.copilotkit.renderToolCalls.find((rc) => rc.name === "*");
       expect(wildcardRender).toBeDefined();
       expect(wildcardRender?.render).toBe(WildcardComponent);
     });
@@ -164,11 +132,7 @@ describe("CopilotKitProvider - Wildcard Tool", () => {
       };
 
       const { result } = renderHook(() => useCopilotKit(), {
-        wrapper: ({ children }) => (
-          <CopilotKitProvider humanInTheLoop={[wildcardHitl]}>
-            {children}
-          </CopilotKitProvider>
-        ),
+        wrapper: ({ children }) => <CopilotKitProvider humanInTheLoop={[wildcardHitl]}>{children}</CopilotKitProvider>,
       });
 
       const retrievedTool = result.current.copilotkit.getTool({
@@ -181,9 +145,7 @@ describe("CopilotKitProvider - Wildcard Tool", () => {
 
   describe("Wildcard Render Tool Calls", () => {
     it("should register wildcard in renderToolCalls", () => {
-      const WildcardRender: React.FC<any> = ({ args }) => (
-        <div>Fallback render</div>
-      );
+      const WildcardRender: React.FC<any> = ({ args }) => <div>Fallback render</div>;
 
       const renderToolCalls = [
         {
@@ -198,15 +160,11 @@ describe("CopilotKitProvider - Wildcard Tool", () => {
 
       const { result } = renderHook(() => useCopilotKit(), {
         wrapper: ({ children }) => (
-          <CopilotKitProvider toolCallRenderers={renderToolCalls}>
-            {children}
-          </CopilotKitProvider>
+          <CopilotKitProvider renderToolCalls={renderToolCalls}>{children}</CopilotKitProvider>
         ),
       });
 
-      const wildcardRender = result.current.copilotkit.toolCallRenderers.find(
-        (rc) => rc.name === "*",
-      );
+      const wildcardRender = result.current.copilotkit.renderToolCalls.find((rc) => rc.name === "*");
       expect(wildcardRender).toBeDefined();
       expect(wildcardRender?.render).toBe(WildcardRender);
     });
@@ -228,15 +186,11 @@ describe("CopilotKitProvider - Wildcard Tool", () => {
 
       const { result } = renderHook(() => useCopilotKit(), {
         wrapper: ({ children }) => (
-          <CopilotKitProvider toolCallRenderers={renderToolCalls}>
-            {children}
-          </CopilotKitProvider>
+          <CopilotKitProvider renderToolCalls={renderToolCalls}>{children}</CopilotKitProvider>
         ),
       });
 
-      const wildcardRender = result.current.copilotkit.toolCallRenderers.find(
-        (rc) => rc.name === "*",
-      );
+      const wildcardRender = result.current.copilotkit.renderToolCalls.find((rc) => rc.name === "*");
       expect(wildcardRender?.agentId).toBe("agent1");
     });
   });
@@ -265,29 +219,16 @@ describe("CopilotKitProvider - Wildcard Tool", () => {
       ];
 
       const { result } = renderHook(() => useCopilotKit(), {
-        wrapper: ({ children }) => (
-          <CopilotKitProvider frontendTools={frontendTools}>
-            {children}
-          </CopilotKitProvider>
-        ),
+        wrapper: ({ children }) => <CopilotKitProvider frontendTools={frontendTools}>{children}</CopilotKitProvider>,
       });
 
       // Both tools should be registered
-      expect(
-        result.current.copilotkit.getTool({ toolName: "specificTool" }),
-      ).toBeDefined();
-      expect(
-        result.current.copilotkit.getTool({ toolName: "*" }),
-      ).toBeDefined();
+      expect(result.current.copilotkit.getTool({ toolName: "specificTool" })).toBeDefined();
+      expect(result.current.copilotkit.getTool({ toolName: "*" })).toBeDefined();
 
       // Both renders should be registered
-      const specificToolRender =
-        result.current.copilotkit.toolCallRenderers.find(
-          (rc) => rc.name === "specificTool",
-        );
-      const wildcardRender = result.current.copilotkit.toolCallRenderers.find(
-        (rc) => rc.name === "*",
-      );
+      const specificToolRender = result.current.copilotkit.renderToolCalls.find((rc) => rc.name === "specificTool");
+      const wildcardRender = result.current.copilotkit.renderToolCalls.find((rc) => rc.name === "*");
       expect(specificToolRender).toBeDefined();
       expect(wildcardRender).toBeDefined();
     });

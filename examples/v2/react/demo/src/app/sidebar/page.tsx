@@ -26,11 +26,7 @@ export default function SidebarDemoPage() {
   });
 
   return (
-    <CopilotKitProvider
-      runtimeUrl="/api/copilotkit"
-      toolCallRenderers={[wildcardRenderer]}
-      showDevConsole="auto"
-    >
+    <CopilotKitProvider runtimeUrl="/api/copilotkit" renderToolCalls={[wildcardRenderer]} showDevConsole="auto">
       <AppLayout />
     </CopilotKitProvider>
   );
@@ -41,13 +37,10 @@ function AppLayout() {
     <div className="relative min-h-screen bg-gradient-to-br from-slate-100 via-white to-slate-200">
       <main className="mx-auto flex w-full max-w-5xl flex-col gap-8 px-6 py-12">
         <section className="space-y-4">
-          <h1 className="text-3xl font-semibold tracking-tight text-slate-900">
-            Copilot Sidebar Demo
-          </h1>
+          <h1 className="text-3xl font-semibold tracking-tight text-slate-900">Copilot Sidebar Demo</h1>
           <p className="max-w-2xl text-slate-600">
-            This page shows the chat embedded as a right-aligned sidebar. Toggle
-            the chat to see the main content reflow. The assistant can suggest
-            actions and invoke custom tools just like the full-screen chat.
+            This page shows the chat embedded as a right-aligned sidebar. Toggle the chat to see the main content
+            reflow. The assistant can suggest actions and invoke custom tools just like the full-screen chat.
           </p>
         </section>
 
@@ -57,12 +50,9 @@ function AppLayout() {
               key={index}
               className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition hover:shadow-md"
             >
-              <h2 className="text-lg font-medium text-slate-900">
-                Project Card {index + 1}
-              </h2>
+              <h2 className="text-lg font-medium text-slate-900">Project Card {index + 1}</h2>
               <p className="mt-2 text-sm text-slate-600">
-                Placeholder content to demonstrate how the sidebar pushes layout
-                elements without overlapping the page.
+                Placeholder content to demonstrate how the sidebar pushes layout elements without overlapping the page.
               </p>
             </article>
           ))}

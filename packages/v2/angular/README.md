@@ -62,10 +62,7 @@ Add CopilotKit providers in your application config to set labels and runtime UR
 ### Example (`app.config.ts`):
 
 ```typescript
-import {
-  provideCopilotKit,
-  provideCopilotChatConfiguration,
-} from "@copilotkitnext/angular";
+import { provideCopilotKit, provideCopilotChatConfiguration } from "@copilotkitnext/angular";
 
 export const appConfig: ApplicationConfig = {
   providers: [
@@ -90,10 +87,7 @@ You can declare the CopilotKit runtime endpoint directly in templates via the `C
 ### Component Template Example:
 
 ```html
-<div
-  [copilotkitConfig]="{ runtimeUrl: runtimeUrl }"
-  style="display:block;height:100vh"
->
+<div [copilotkitConfig]="{ runtimeUrl: runtimeUrl }" style="display:block;height:100vh">
   <copilot-chat></copilot-chat>
 </div>
 ```
@@ -141,11 +135,7 @@ import { CopilotChatConfigurationService } from "@copilotkitnext/angular";
   imports: [FormsModule],
   template: `
     <div class="custom-input-wrapper">
-      <input
-        [(ngModel)]="inputValue"
-        (keyup.enter)="submitMessage()"
-        placeholder="Type your message..."
-      />
+      <input [(ngModel)]="inputValue" (keyup.enter)="submitMessage()" placeholder="Type your message..." />
       <button (click)="submitMessage()">Send</button>
     </div>
   `,
@@ -177,13 +167,7 @@ import { MyCustomInputComponent } from "./my-custom-input.component";
   selector: "app-chat",
   standalone: true,
   imports: [CopilotChatViewComponent],
-  template: `
-    <copilot-chat-view
-      [messages]="messages"
-      [inputComponent]="customInputComponent"
-    >
-    </copilot-chat-view>
-  `,
+  template: ` <copilot-chat-view [messages]="messages" [inputComponent]="customInputComponent"> </copilot-chat-view> `,
 })
 export class ChatComponent {
   messages = [];
@@ -246,11 +230,7 @@ Example Angular server (from `apps/angular/demo-server`):
 import { serve } from "@hono/node-server";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
-import {
-  CopilotRuntime,
-  createCopilotEndpoint,
-  InMemoryAgentRunner,
-} from "@copilotkitnext/runtime";
+import { CopilotRuntime, createCopilotEndpoint, InMemoryAgentRunner } from "@copilotkitnext/runtime";
 import { AnyAGUIAgent } from "@ag-ui/your-desired-agent-framework";
 
 const runtime = new CopilotRuntime({
@@ -284,9 +264,7 @@ app.route("/", copilotApp);
 
 const port = Number(process.env.PORT || 3001);
 serve({ fetch: app.fetch, port });
-console.log(
-  `CopilotKit runtime listening at http://localhost:${port}/api/copilotkit`,
-);
+console.log(`CopilotKit runtime listening at http://localhost:${port}/api/copilotkit`);
 ```
 
 ## CopilotKit Angular APIs (Most Used)
@@ -420,9 +398,7 @@ import { provideCopilotKit } from "@copilotkitnext/angular";
 @Component({
   standalone: true,
   template: `
-    <div
-      style="padding:12px;border:1px solid #e5e7eb;border-radius:8px;background:#fff;margin:8px 0;"
-    >
+    <div style="padding:12px;border:1px solid #e5e7eb;border-radius:8px;background:#fff;margin:8px 0;">
       <div style="font-weight:600;margin-bottom:6px;">Tool: {{ name }}</div>
       <pre style="margin:0;white-space:pre-wrap;">{{ args | json }}</pre>
       <div *ngIf="result" style="margin-top:6px;">Result: {{ result }}</div>
@@ -440,7 +416,7 @@ export const appConfig: ApplicationConfig = {
   providers: [
     importProvidersFrom(BrowserModule),
     ...provideCopilotKit({
-      toolCallRenderers: [{ name: "*", render: WildcardToolRenderComponent }],
+      renderToolCalls: [{ name: "*", render: WildcardToolRenderComponent }],
     }),
   ],
 };
@@ -450,10 +426,7 @@ export const appConfig: ApplicationConfig = {
 
 ```ts
 import { Component } from "@angular/core";
-import {
-  watchAgent,
-  CopilotChatToolCallsViewComponent,
-} from "@copilotkitnext/angular";
+import { watchAgent, CopilotChatToolCallsViewComponent } from "@copilotkitnext/angular";
 
 @Component({
   standalone: true,
@@ -462,11 +435,7 @@ import {
     <div *ngFor="let m of messages()">
       <div>{{ m.role }}: {{ m.content }}</div>
       <ng-container *ngIf="m.role === 'assistant'">
-        <copilot-chat-tool-calls-view
-          [message]="m"
-          [messages]="messages()"
-          [isLoading]="isRunning()"
-        />
+        <copilot-chat-tool-calls-view [message]="m" [messages]="messages()" [isLoading]="isRunning()" />
       </ng-container>
     </div>
   `,

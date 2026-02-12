@@ -75,7 +75,7 @@ describe("CopilotKit", () => {
               renderer: DummyToolComponent,
             },
           ],
-          toolCallRenderers: [
+          renderToolCalls: [
             {
               name: "custom",
               args: z.object({ query: z.string() }),

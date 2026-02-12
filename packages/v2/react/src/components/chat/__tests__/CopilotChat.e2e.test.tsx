@@ -97,7 +97,7 @@ describe("CopilotChat E2E - Chat Basics and Streaming Patterns", () => {
   describe("Single Tool Flow", () => {
     it("should handle complete tool call lifecycle", async () => {
       const agent = new MockStepwiseAgent();
-      const toolCallRenderers = [
+      const renderToolCalls = [
         defineToolCallRenderer({
           name: "getWeather",
           args: z.object({
@@ -113,7 +113,7 @@ describe("CopilotChat E2E - Chat Basics and Streaming Patterns", () => {
         }),
       ] as unknown as ReactToolCallRenderer<unknown>[];
 
-      renderWithCopilotKit({ agent, toolCallRenderers });
+      renderWithCopilotKit({ agent, renderToolCalls });
 
       // Submit message
       const input = await screen.findByRole("textbox");
@@ -185,7 +185,7 @@ describe("CopilotChat E2E - Chat Basics and Streaming Patterns", () => {
   describe("Multiple Tools Interleaved", () => {
     it("should handle multiple tool calls in one assistant message", async () => {
       const agent = new MockStepwiseAgent();
-      const toolCallRenderers = [
+      const renderToolCalls = [
         defineToolCallRenderer({
           name: "getWeather",
           args: z.object({ location: z.string() }),
@@ -208,7 +208,7 @@ describe("CopilotChat E2E - Chat Basics and Streaming Patterns", () => {
         }),
       ] as unknown as ReactToolCallRenderer<unknown>[];
 
-      renderWithCopilotKit({ agent, toolCallRenderers });
+      renderWithCopilotKit({ agent, renderToolCalls });
 
       // Submit message
       const input = await screen.findByRole("textbox");
@@ -290,7 +290,7 @@ describe("CopilotChat E2E - Chat Basics and Streaming Patterns", () => {
   describe("Wildcard Fallback", () => {
     it("should use wildcard renderer when no specific renderer exists", async () => {
       const agent = new MockStepwiseAgent();
-      const toolCallRenderers = [
+      const renderToolCalls = [
         defineToolCallRenderer({
           name: "*",
           args: z.any(),
@@ -302,7 +302,7 @@ describe("CopilotChat E2E - Chat Basics and Streaming Patterns", () => {
         }),
       ] as unknown as ReactToolCallRenderer<unknown>[];
 
-      renderWithCopilotKit({ agent, toolCallRenderers });
+      renderWithCopilotKit({ agent, renderToolCalls });
 
       // Submit message
       const input = await screen.findByRole("textbox");
@@ -345,7 +345,7 @@ describe("CopilotChat E2E - Chat Basics and Streaming Patterns", () => {
     it("should use wildcard renderer without args definition", async () => {
       const agent = new MockStepwiseAgent();
       // Test that wildcard tool works without explicit args definition
-      const toolCallRenderers = [
+      const renderToolCalls = [
         defineToolCallRenderer({
           name: "*",
           // No args field - should default to z.any()
@@ -358,7 +358,7 @@ describe("CopilotChat E2E - Chat Basics and Streaming Patterns", () => {
         }),
       ] as unknown as ReactToolCallRenderer<unknown>[];
 
-      renderWithCopilotKit({ agent, toolCallRenderers });
+      renderWithCopilotKit({ agent, renderToolCalls });
 
       // Submit message
       const input = await screen.findByRole("textbox");
@@ -408,7 +408,7 @@ describe("CopilotChat E2E - Chat Basics and Streaming Patterns", () => {
 
     it("should not show toolbar for messages with only tool calls and no content", async () => {
       const agent = new MockStepwiseAgent();
-      const toolCallRenderers = [
+      const renderToolCalls = [
         defineToolCallRenderer({
           name: "testTool",
           args: z.object({ value: z.string() }),
@@ -418,7 +418,7 @@ describe("CopilotChat E2E - Chat Basics and Streaming Patterns", () => {
         }),
       ] as unknown as ReactToolCallRenderer<unknown>[];
 
-      renderWithCopilotKit({ agent, toolCallRenderers });
+      renderWithCopilotKit({ agent, renderToolCalls });
 
       // Submit message
       const input = await screen.findByRole("textbox");
@@ -498,7 +498,7 @@ describe("CopilotChat E2E - Chat Basics and Streaming Patterns", () => {
 
     it("should prefer specific renderer over wildcard when both exist", async () => {
       const agent = new MockStepwiseAgent();
-      const toolCallRenderers = [
+      const renderToolCalls = [
         defineToolCallRenderer({
           name: "specificTool",
           args: z.object({ value: z.string() }),
@@ -515,7 +515,7 @@ describe("CopilotChat E2E - Chat Basics and Streaming Patterns", () => {
         }),
       ] as unknown as ReactToolCallRenderer<unknown>[];
 
-      renderWithCopilotKit({ agent, toolCallRenderers });
+      renderWithCopilotKit({ agent, renderToolCalls });
 
       // Submit message
       const input = await screen.findByRole("textbox");

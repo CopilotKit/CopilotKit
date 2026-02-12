@@ -3,14 +3,14 @@
 import {
   CopilotChat,
   CopilotKitProvider,
-  useFrontendTool,
   defineToolCallRenderer,
-  useConfigureSuggestions,
   useAgentContext,
+  useConfigureSuggestions,
+  useFrontendTool,
 } from "@copilotkitnext/react";
 import type { ToolsMenuItem } from "@copilotkitnext/react";
-import { z } from "zod";
 import { useMemo, useState } from "react";
+import { z } from "zod";
 
 // Disable static optimization for this page
 export const dynamic = "force-dynamic";
@@ -40,14 +40,8 @@ export default function Home() {
   });
 
   return (
-    <CopilotKitProvider
-      runtimeUrl="/api/copilotkit"
-      toolCallRenderers={[wildcardRenderer]}
-      showDevConsole="auto"
-    >
-      <div
-        style={{ height: "100vh", margin: 0, padding: 0, overflow: "hidden" }}
-      >
+    <CopilotKitProvider runtimeUrl="/api/copilotkit" renderToolCalls={[wildcardRenderer]} showDevConsole="auto">
+      <div style={{ height: "100vh", margin: 0, padding: 0, overflow: "hidden" }}>
         <Chat />
       </div>
     </CopilotKitProvider>
@@ -55,9 +49,7 @@ export default function Home() {
 }
 
 function Chat() {
-  const [selectedThreadId, setSelectedThreadId] = useState<
-    "thread---a" | "thread---b" | "thread---c"
-  >("thread---a");
+  const [selectedThreadId, setSelectedThreadId] = useState<"thread---a" | "thread---b" | "thread---c">("thread---a");
   const threadOptions: Array<{ id: typeof selectedThreadId; label: string }> = [
     { id: "thread---a", label: "Thread A" },
     { id: "thread---b", label: "Thread B" },
@@ -106,15 +98,12 @@ function Chat() {
       {
         label: "Say hi to CopilotKit",
         action: () => {
-          const textarea = document.querySelector<HTMLTextAreaElement>(
-            "textarea[placeholder='Type a message...']",
-          );
+          const textarea = document.querySelector<HTMLTextAreaElement>("textarea[placeholder='Type a message...']");
           if (!textarea) {
             return;
           }
 
-          const greeting =
-            "Hello Copilot! 👋 Could you help me with something?";
+          const greeting = "Hello Copilot! 👋 Could you help me with something?";
 
           const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
             window.HTMLTextAreaElement.prototype,
@@ -129,11 +118,7 @@ function Chat() {
       {
         label: "Open CopilotKit Docs",
         action: () => {
-          window.open(
-            "https://docs.copilotkit.ai",
-            "_blank",
-            "noopener,noreferrer",
-          );
+          window.open("https://docs.copilotkit.ai", "_blank", "noopener,noreferrer");
         },
       },
     ],

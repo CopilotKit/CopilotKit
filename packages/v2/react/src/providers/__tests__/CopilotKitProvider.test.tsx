@@ -1,10 +1,10 @@
-import React from "react";
 import { render, renderHook, waitFor } from "@testing-library/react";
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { CopilotKitProvider, useCopilotKit } from "../CopilotKitProvider";
-import { ReactFrontendTool } from "../../types/frontend-tool";
-import { ReactHumanInTheLoop } from "../../types/human-in-the-loop";
+import type React from "react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
+import type { ReactFrontendTool } from "../../types/frontend-tool";
+import type { ReactHumanInTheLoop } from "../../types/human-in-the-loop";
+import { CopilotKitProvider, useCopilotKit } from "../CopilotKitProvider";
 
 // Mock console methods
 const originalConsoleError = console.error;
@@ -27,9 +27,7 @@ describe("CopilotKitProvider", () => {
   describe("Basic functionality", () => {
     it("provides context to children", () => {
       const { result } = renderHook(() => useCopilotKit(), {
-        wrapper: ({ children }) => (
-          <CopilotKitProvider>{children}</CopilotKitProvider>
-        ),
+        wrapper: ({ children }) => <CopilotKitProvider>{children}</CopilotKitProvider>,
       });
 
       expect(result.current).toBeDefined();
@@ -65,11 +63,7 @@ describe("CopilotKitProvider", () => {
       ];
 
       const { result } = renderHook(() => useCopilotKit(), {
-        wrapper: ({ children }) => (
-          <CopilotKitProvider frontendTools={frontendTools}>
-            {children}
-          </CopilotKitProvider>
-        ),
+        wrapper: ({ children }) => <CopilotKitProvider frontendTools={frontendTools}>{children}</CopilotKitProvider>,
       });
 
       const tool = result.current.copilotkit.getTool({ toolName: "testTool" });
@@ -92,16 +86,10 @@ describe("CopilotKitProvider", () => {
       ];
 
       const { result } = renderHook(() => useCopilotKit(), {
-        wrapper: ({ children }) => (
-          <CopilotKitProvider frontendTools={frontendTools}>
-            {children}
-          </CopilotKitProvider>
-        ),
+        wrapper: ({ children }) => <CopilotKitProvider frontendTools={frontendTools}>{children}</CopilotKitProvider>,
       });
 
-      const renderTool = result.current.copilotkit.toolCallRenderers.find(
-        (rc) => rc.name === "renderTool",
-      );
+      const renderTool = result.current.copilotkit.renderToolCalls.find((rc) => rc.name === "renderTool");
       expect(renderTool).toBeDefined();
       expect(renderTool?.render).toBe(TestComponent);
     });
@@ -134,9 +122,7 @@ describe("CopilotKitProvider", () => {
       );
 
       await waitFor(() => {
-        expect(consoleErrorSpy).toHaveBeenCalledWith(
-          expect.stringContaining("frontendTools must be a stable array"),
-        );
+        expect(consoleErrorSpy).toHaveBeenCalledWith(expect.stringContaining("frontendTools must be a stable array"));
       });
     });
   });
@@ -157,9 +143,7 @@ describe("CopilotKitProvider", () => {
 
       const { result } = renderHook(() => useCopilotKit(), {
         wrapper: ({ children }) => (
-          <CopilotKitProvider humanInTheLoop={humanInTheLoopTools}>
-            {children}
-          </CopilotKitProvider>
+          <CopilotKitProvider humanInTheLoop={humanInTheLoopTools}>{children}</CopilotKitProvider>
         ),
       });
 
@@ -172,9 +156,7 @@ describe("CopilotKitProvider", () => {
       expect(tool?.handler).toBeDefined();
 
       // Check that render component is registered
-      const approvalTool = result.current.copilotkit.toolCallRenderers.find(
-        (rc) => rc.name === "approvalTool",
-      );
+      const approvalTool = result.current.copilotkit.renderToolCalls.find((rc) => rc.name === "approvalTool");
       expect(approvalTool).toBeDefined();
       expect(approvalTool?.render).toBe(TestComponent);
     });
@@ -194,9 +176,7 @@ describe("CopilotKitProvider", () => {
 
       const { result } = renderHook(() => useCopilotKit(), {
         wrapper: ({ children }) => (
-          <CopilotKitProvider humanInTheLoop={humanInTheLoopTools}>
-            {children}
-          </CopilotKitProvider>
+          <CopilotKitProvider humanInTheLoop={humanInTheLoopTools}>{children}</CopilotKitProvider>
         ),
       });
 
@@ -210,9 +190,7 @@ describe("CopilotKitProvider", () => {
 
       await waitFor(() => {
         expect(consoleWarnSpy).toHaveBeenCalledWith(
-          expect.stringContaining(
-            "Human-in-the-loop tool 'interactiveTool' called",
-          ),
+          expect.stringContaining("Human-in-the-loop tool 'interactiveTool' called"),
         );
       });
 
@@ -251,9 +229,7 @@ describe("CopilotKitProvider", () => {
       );
 
       await waitFor(() => {
-        expect(consoleErrorSpy).toHaveBeenCalledWith(
-          expect.stringContaining("humanInTheLoop must be a stable array"),
-        );
+        expect(consoleErrorSpy).toHaveBeenCalledWith(expect.stringContaining("humanInTheLoop must be a stable array"));
       });
     });
   });
@@ -278,21 +254,14 @@ describe("CopilotKitProvider", () => {
 
       const { result } = renderHook(() => useCopilotKit(), {
         wrapper: ({ children }) => (
-          <CopilotKitProvider
-            frontendTools={frontendTools}
-            humanInTheLoop={humanInTheLoopTools}
-          >
+          <CopilotKitProvider frontendTools={frontendTools} humanInTheLoop={humanInTheLoopTools}>
             {children}
           </CopilotKitProvider>
         ),
       });
 
-      expect(
-        result.current.copilotkit.getTool({ toolName: "frontendTool" }),
-      ).toBeDefined();
-      expect(
-        result.current.copilotkit.getTool({ toolName: "humanTool" }),
-      ).toBeDefined();
+      expect(result.current.copilotkit.getTool({ toolName: "frontendTool" })).toBeDefined();
+      expect(result.current.copilotkit.getTool({ toolName: "humanTool" })).toBeDefined();
     });
 
     it("should handle agentId in frontend tools", () => {
@@ -314,11 +283,7 @@ describe("CopilotKitProvider", () => {
       ];
 
       const { result } = renderHook(() => useCopilotKit(), {
-        wrapper: ({ children }) => (
-          <CopilotKitProvider frontendTools={frontendTools}>
-            {children}
-          </CopilotKitProvider>
-        ),
+        wrapper: ({ children }) => <CopilotKitProvider frontendTools={frontendTools}>{children}</CopilotKitProvider>,
       });
 
       const globalTool = result.current.copilotkit.getTool({
@@ -370,23 +335,18 @@ describe("CopilotKitProvider", () => {
           <CopilotKitProvider
             frontendTools={frontendTools}
             humanInTheLoop={humanInTheLoopTools}
-            toolCallRenderers={renderToolCalls}
+            renderToolCalls={renderToolCalls}
           >
             {children}
           </CopilotKitProvider>
         ),
       });
 
-      const frontendRenderTool =
-        result.current.copilotkit.toolCallRenderers.find(
-          (rc) => rc.name === "frontendRenderTool",
-        );
-      const humanRenderTool = result.current.copilotkit.toolCallRenderers.find(
-        (rc) => rc.name === "humanRenderTool",
+      const frontendRenderTool = result.current.copilotkit.renderToolCalls.find(
+        (rc) => rc.name === "frontendRenderTool",
       );
-      const directRenderTool = result.current.copilotkit.toolCallRenderers.find(
-        (rc) => rc.name === "directRenderTool",
-      );
+      const humanRenderTool = result.current.copilotkit.renderToolCalls.find((rc) => rc.name === "humanRenderTool");
+      const directRenderTool = result.current.copilotkit.renderToolCalls.find((rc) => rc.name === "directRenderTool");
 
       expect(frontendRenderTool).toBeDefined();
       expect(humanRenderTool).toBeDefined();
@@ -398,7 +358,7 @@ describe("CopilotKitProvider", () => {
     });
   });
 
-  describe("toolCallRenderers management", () => {
+  describe("renderToolCalls management", () => {
     it("includes render tools from frontendTools prop", async () => {
       const TestComponent: React.FC<any> = () => <div>Test</div>;
       const frontendTools: ReactFrontendTool[] = [
@@ -411,16 +371,10 @@ describe("CopilotKitProvider", () => {
       ];
 
       const { result } = renderHook(() => useCopilotKit(), {
-        wrapper: ({ children }) => (
-          <CopilotKitProvider frontendTools={frontendTools}>
-            {children}
-          </CopilotKitProvider>
-        ),
+        wrapper: ({ children }) => <CopilotKitProvider frontendTools={frontendTools}>{children}</CopilotKitProvider>,
       });
 
-      const tool1 = result.current.copilotkit.toolCallRenderers.find(
-        (rc) => rc.name === "tool1",
-      );
+      const tool1 = result.current.copilotkit.renderToolCalls.find((rc) => rc.name === "tool1");
       expect(tool1).toBeDefined();
       expect(tool1?.render).toBe(TestComponent);
     });
@@ -437,7 +391,7 @@ describe("CopilotKitProvider", () => {
       });
 
       expect(result.current.copilotkit.tools).toHaveLength(0);
-      expect(result.current.copilotkit.toolCallRenderers).toHaveLength(0);
+      expect(result.current.copilotkit.renderToolCalls).toHaveLength(0);
     });
 
     it("handles tools without render components", () => {
@@ -450,19 +404,11 @@ describe("CopilotKitProvider", () => {
       ];
 
       const { result } = renderHook(() => useCopilotKit(), {
-        wrapper: ({ children }) => (
-          <CopilotKitProvider frontendTools={frontendTools}>
-            {children}
-          </CopilotKitProvider>
-        ),
+        wrapper: ({ children }) => <CopilotKitProvider frontendTools={frontendTools}>{children}</CopilotKitProvider>,
       });
 
-      expect(
-        result.current.copilotkit.getTool({ toolName: "noRenderTool" }),
-      ).toBeDefined();
-      const noRenderTool = result.current.copilotkit.toolCallRenderers.find(
-        (rc) => rc.name === "noRenderTool",
-      );
+      expect(result.current.copilotkit.getTool({ toolName: "noRenderTool" })).toBeDefined();
+      const noRenderTool = result.current.copilotkit.renderToolCalls.find((rc) => rc.name === "noRenderTool");
       expect(noRenderTool).toBeUndefined();
     });
 
@@ -480,16 +426,11 @@ describe("CopilotKitProvider", () => {
 
       const { result } = renderHook(() => useCopilotKit(), {
         wrapper: ({ children }) => (
-          <CopilotKitProvider humanInTheLoop={humanInTheLoopTools}>
-            {children}
-          </CopilotKitProvider>
+          <CopilotKitProvider humanInTheLoop={humanInTheLoopTools}>{children}</CopilotKitProvider>
         ),
       });
 
-      expect(
-        result.current.copilotkit.getTool({ toolName: "followUpTool" })
-          ?.followUp,
-      ).toBe(false);
+      expect(result.current.copilotkit.getTool({ toolName: "followUpTool" })?.followUp).toBe(false);
     });
   });
 });

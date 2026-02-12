@@ -1,14 +1,15 @@
-import { ReactToolCallRenderer } from "@/types/react-tool-call-renderer";
-import { useFrontendTool } from "./use-frontend-tool";
-import { ReactFrontendTool } from "@/types/frontend-tool";
-import { ReactHumanInTheLoop } from "@/types/human-in-the-loop";
-import { useCallback, useRef, useEffect } from "react";
-import React from "react";
 import { useCopilotKit } from "@/providers/CopilotKitProvider";
+import type { ReactFrontendTool } from "@/types/frontend-tool";
+import type { ReactHumanInTheLoop } from "@/types/human-in-the-loop";
+import type { ReactToolCallRenderer } from "@/types/react-tool-call-renderer";
+import { useCallback, useEffect, useRef } from "react";
+import React from "react";
+import { useFrontendTool } from "./use-frontend-tool";
 
-export function useHumanInTheLoop<
-  T extends Record<string, unknown> = Record<string, unknown>,
->(tool: ReactHumanInTheLoop<T>, deps?: ReadonlyArray<unknown>) {
+export function useHumanInTheLoop<T extends Record<string, unknown> = Record<string, unknown>>(
+  tool: ReactHumanInTheLoop<T>,
+  deps?: ReadonlyArray<unknown>,
+) {
   const { copilotkit } = useCopilotKit();
   const resolvePromiseRef = useRef<((result: unknown) => void) | null>(null);
 
@@ -75,16 +76,12 @@ export function useHumanInTheLoop<
   // since they can't respond to user interactions anymore
   useEffect(() => {
     return () => {
-      const keyOf = (rc: ReactToolCallRenderer<any>) =>
-        `${rc.agentId ?? ""}:${rc.name}`;
-      const currentToolCallRenderers =
-        copilotkit.toolCallRenderers as ReactToolCallRenderer<any>[];
-      const filtered = currentToolCallRenderers.filter(
-        (rc) =>
-          keyOf(rc) !==
-          keyOf({ name: tool.name, agentId: tool.agentId } as any),
+      const keyOf = (rc: ReactToolCallRenderer<any>) => `${rc.agentId ?? ""}:${rc.name}`;
+      const currentRenderToolCalls = copilotkit.renderToolCalls as ReactToolCallRenderer<any>[];
+      const filtered = currentRenderToolCalls.filter(
+        (rc) => keyOf(rc) !== keyOf({ name: tool.name, agentId: tool.agentId } as any),
       );
-      copilotkit.setToolCallRenderers(filtered);
+      copilotkit.setRenderToolCalls(filtered);
     };
   }, [copilotkit, tool.name, tool.agentId]);
 }

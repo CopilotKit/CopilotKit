@@ -1,13 +1,14 @@
-import {
-  ActionRenderProps,
-  ActionRenderPropsNoArgs,
-  ActionRenderPropsWait,
-  FrontendAction,
-} from "../types";
-import { Parameter, getZodParameters } from "@copilotkit/shared";
-import React, { useEffect, useRef } from "react";
-import { defineToolCallRenderer, useCopilotKit } from "@copilotkitnext/react";
+import { type Parameter, getZodParameters } from "@copilotkit/shared";
 import { parseJson } from "@copilotkit/shared";
+import { defineToolCallRenderer, useCopilotKit } from "@copilotkitnext/react";
+import type React from "react";
+import { useEffect, useRef } from "react";
+import {
+  type ActionRenderProps,
+  type ActionRenderPropsNoArgs,
+  ActionRenderPropsWait,
+  type FrontendAction,
+} from "../types";
 
 type ToolCallRendererDefinition = Parameters<typeof defineToolCallRenderer>[0];
 
@@ -41,9 +42,7 @@ export function useRenderToolCall<const T extends Parameter[] | [] = []>(
             render: ((args) => {
               return render({
                 ...args,
-                result: args.result
-                  ? parseJson(args.result, args.result)
-                  : args.result,
+                result: args.result ? parseJson(args.result, args.result) : args.result,
               });
             }) as ToolCallRendererDefinition["render"],
           })
@@ -53,33 +52,27 @@ export function useRenderToolCall<const T extends Parameter[] | [] = []>(
             render: ((args) => {
               return render({
                 ...args,
-                result: args.result
-                  ? parseJson(args.result, args.result)
-                  : args.result,
+                result: args.result ? parseJson(args.result, args.result) : args.result,
               });
             }) as ToolCallRendererDefinition["render"],
           });
 
     // Remove any existing renderer with the same name
-    const existingIndex = copilotkit.toolCallRenderers.findIndex(
-      (r) => r.name === name,
-    );
+    const existingIndex = copilotkit.renderToolCalls.findIndex((r) => r.name === name);
     if (existingIndex !== -1) {
-      copilotkit.toolCallRenderers.splice(existingIndex, 1);
+      copilotkit.renderToolCalls.splice(existingIndex, 1);
     }
 
     // Add the new renderer
-    copilotkit.toolCallRenderers.push(renderToolCall);
+    copilotkit.renderToolCalls.push(renderToolCall);
     hasAddedRef.current = true;
 
     // Cleanup: remove this renderer when the component unmounts or tool changes
     return () => {
       if (hasAddedRef.current) {
-        const index = copilotkit.toolCallRenderers.findIndex(
-          (r) => r.name === name,
-        );
+        const index = copilotkit.renderToolCalls.findIndex((r) => r.name === name);
         if (index !== -1) {
-          copilotkit.toolCallRenderers.splice(index, 1);
+          copilotkit.renderToolCalls.splice(index, 1);
         }
         hasAddedRef.current = false;
       }

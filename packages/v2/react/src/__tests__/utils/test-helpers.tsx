@@ -123,7 +123,7 @@ export class MockReconnectableAgent extends AbstractAgent {
 export function renderWithCopilotKit({
   agent,
   agents,
-  toolCallRenderers,
+  renderToolCalls,
   renderCustomMessages,
   renderActivityMessages,
   frontendTools,
@@ -134,7 +134,7 @@ export function renderWithCopilotKit({
 }: {
   agent?: AbstractAgent;
   agents?: Record<string, AbstractAgent>;
-  toolCallRenderers?: ReactToolCallRenderer<any>[];
+  renderToolCalls?: ReactToolCallRenderer<any>[];
   renderCustomMessages?: ReactCustomMessageRenderer[];
   renderActivityMessages?: ReactActivityMessageRenderer<any>[];
   frontendTools?: any[];
@@ -150,7 +150,7 @@ export function renderWithCopilotKit({
   return render(
     <CopilotKitProvider
       agents__unsafe_dev_only={resolvedAgents}
-      toolCallRenderers={toolCallRenderers}
+      renderToolCalls={renderToolCalls}
       renderCustomMessages={renderCustomMessages}
       renderActivityMessages={renderActivityMessages}
       frontendTools={frontendTools}
