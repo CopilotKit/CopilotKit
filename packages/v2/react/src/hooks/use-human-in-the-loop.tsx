@@ -6,10 +6,9 @@ import { useCallback, useEffect, useRef } from "react";
 import React from "react";
 import { useFrontendTool } from "./use-frontend-tool";
 
-export function useHumanInTheLoop<T extends Record<string, unknown> = Record<string, unknown>>(
-  tool: ReactHumanInTheLoop<T>,
-  deps?: ReadonlyArray<unknown>,
-) {
+export function useHumanInTheLoop<
+  T extends Record<string, unknown> = Record<string, unknown>,
+>(tool: ReactHumanInTheLoop<T>, deps?: ReadonlyArray<unknown>) {
   const { copilotkit } = useCopilotKit();
   const resolvePromiseRef = useRef<((result: unknown) => void) | null>(null);
 
@@ -76,10 +75,14 @@ export function useHumanInTheLoop<T extends Record<string, unknown> = Record<str
   // since they can't respond to user interactions anymore
   useEffect(() => {
     return () => {
-      const keyOf = (rc: ReactToolCallRenderer<any>) => `${rc.agentId ?? ""}:${rc.name}`;
-      const currentRenderToolCalls = copilotkit.renderToolCalls as ReactToolCallRenderer<any>[];
+      const keyOf = (rc: ReactToolCallRenderer<any>) =>
+        `${rc.agentId ?? ""}:${rc.name}`;
+      const currentRenderToolCalls =
+        copilotkit.renderToolCalls as ReactToolCallRenderer<any>[];
       const filtered = currentRenderToolCalls.filter(
-        (rc) => keyOf(rc) !== keyOf({ name: tool.name, agentId: tool.agentId } as any),
+        (rc) =>
+          keyOf(rc) !==
+          keyOf({ name: tool.name, agentId: tool.agentId } as any),
       );
       copilotkit.setRenderToolCalls(filtered);
     };

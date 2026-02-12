@@ -85,8 +85,10 @@ export function useRenderTool<S extends z.ZodTypeAny>(
           });
 
     // Dedupe by "agentId:name" key, same pattern as useFrontendTool
-    const keyOf = (rc: ReactToolCallRenderer<any>) => `${rc.agentId ?? ""}:${rc.name}`;
-    const currentRenderToolCalls = copilotkit.renderToolCalls as ReactToolCallRenderer<any>[];
+    const keyOf = (rc: ReactToolCallRenderer<any>) =>
+      `${rc.agentId ?? ""}:${rc.name}`;
+    const currentRenderToolCalls =
+      copilotkit.renderToolCalls as ReactToolCallRenderer<any>[];
 
     const mergedMap = new Map<string, ReactToolCallRenderer<any>>();
     for (const rc of currentRenderToolCalls) {

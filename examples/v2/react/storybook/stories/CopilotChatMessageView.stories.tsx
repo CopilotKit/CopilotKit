@@ -1,6 +1,10 @@
 import React from "react";
 import type { Meta, StoryObj } from "@storybook/react";
-import { CopilotChatConfigurationProvider, CopilotChatMessageView, CopilotKitProvider } from "@copilotkitnext/react";
+import {
+  CopilotChatConfigurationProvider,
+  CopilotChatMessageView,
+  CopilotKitProvider,
+} from "@copilotkitnext/react";
 import { z } from "zod";
 import { ToolCallStatus } from "@copilotkitnext/core";
 
@@ -11,7 +15,8 @@ const meta = {
   parameters: {
     docs: {
       description: {
-        component: "A simple conversation between user and AI using CopilotChatMessageView component.",
+        component:
+          "A simple conversation between user and AI using CopilotChatMessageView component.",
       },
     },
   },
@@ -161,7 +166,8 @@ export const WithToolCalls: Story = {
     layout: "fullscreen",
     docs: {
       description: {
-        story: "Demonstrates tool call rendering with CopilotKitProvider's renderToolCalls prop",
+        story:
+          "Demonstrates tool call rendering with CopilotKitProvider's renderToolCalls prop",
       },
       source: {
         type: "code",
@@ -345,19 +351,28 @@ export function WithToolCallsExample() {
         style={{
           padding: "12px",
           margin: "8px 0",
-          backgroundColor: status === ToolCallStatus.InProgress ? "#f0f4f8" : "#e6f3ff",
+          backgroundColor:
+            status === ToolCallStatus.InProgress ? "#f0f4f8" : "#e6f3ff",
           borderRadius: "8px",
           border: "1px solid #cce0ff",
         }}
       >
-        <div style={{ fontWeight: "bold", marginBottom: "4px" }}>🔍 Search Tool</div>
+        <div style={{ fontWeight: "bold", marginBottom: "4px" }}>
+          🔍 Search Tool
+        </div>
         <div style={{ fontSize: "14px", color: "#666" }}>
           Query: {args?.query}
-          {args?.filters && args.filters.length > 0 && <div>Filters: {args.filters.join(", ")}</div>}
+          {args?.filters && args.filters.length > 0 && (
+            <div>Filters: {args.filters.join(", ")}</div>
+          )}
         </div>
-        {status === ToolCallStatus.InProgress && <div style={{ marginTop: "8px", color: "#0066cc" }}>Searching...</div>}
+        {status === ToolCallStatus.InProgress && (
+          <div style={{ marginTop: "8px", color: "#0066cc" }}>Searching...</div>
+        )}
         {status === ToolCallStatus.Complete && result && (
-          <div style={{ marginTop: "8px", color: "#006600" }}>Results: {result}</div>
+          <div style={{ marginTop: "8px", color: "#006600" }}>
+            Results: {result}
+          </div>
         )}
       </div>
     );
@@ -370,18 +385,27 @@ export function WithToolCallsExample() {
           style={{
             padding: "12px",
             margin: "8px 0",
-            backgroundColor: status === ToolCallStatus.InProgress ? "#fff9e6" : "#fff4cc",
+            backgroundColor:
+              status === ToolCallStatus.InProgress ? "#fff9e6" : "#fff4cc",
             borderRadius: "8px",
             border: "1px solid #ffcc66",
           }}
         >
-          <div style={{ fontWeight: "bold", marginBottom: "4px" }}>🧮 Calculator</div>
-          <div style={{ fontSize: "14px", color: "#666" }}>Expression: {args?.expression}</div>
+          <div style={{ fontWeight: "bold", marginBottom: "4px" }}>
+            🧮 Calculator
+          </div>
+          <div style={{ fontSize: "14px", color: "#666" }}>
+            Expression: {args?.expression}
+          </div>
           {status === ToolCallStatus.InProgress && (
-            <div style={{ marginTop: "8px", color: "#cc6600" }}>Calculating...</div>
+            <div style={{ marginTop: "8px", color: "#cc6600" }}>
+              Calculating...
+            </div>
           )}
           {status === ToolCallStatus.Complete && result && (
-            <div style={{ marginTop: "8px", color: "#006600" }}>Result: {result}</div>
+            <div style={{ marginTop: "8px", color: "#006600" }}>
+              Result: {result}
+            </div>
           )}
           <div
             style={{
@@ -391,7 +415,11 @@ export function WithToolCallsExample() {
               borderRadius: "4px",
             }}
           >
-            <div style={{ fontSize: "13px", color: "#666", marginBottom: "4px" }}>Local counter: {counter}</div>
+            <div
+              style={{ fontSize: "13px", color: "#666", marginBottom: "4px" }}
+            >
+              Local counter: {counter}
+            </div>
             <div style={{ display: "flex", gap: "8px", marginBottom: "8px" }}>
               <button
                 onClick={() => setCounter(counter - 1)}
@@ -477,13 +505,19 @@ export function WithToolCallsExample() {
           border: "1px solid #ddd",
         }}
       >
-        <div style={{ fontWeight: "bold", marginBottom: "4px" }}>🔧 Tool Execution</div>
+        <div style={{ fontWeight: "bold", marginBottom: "4px" }}>
+          🔧 Tool Execution
+        </div>
         <div style={{ fontSize: "14px", color: "#666" }}>
           <pre>{JSON.stringify(args, null, 2)}</pre>
         </div>
-        {status === ToolCallStatus.InProgress && <div style={{ marginTop: "8px", color: "#666" }}>Processing...</div>}
+        {status === ToolCallStatus.InProgress && (
+          <div style={{ marginTop: "8px", color: "#666" }}>Processing...</div>
+        )}
         {status === ToolCallStatus.Complete && result && (
-          <div style={{ marginTop: "8px", color: "#333" }}>Output: {result}</div>
+          <div style={{ marginTop: "8px", color: "#333" }}>
+            Output: {result}
+          </div>
         )}
       </div>
     );
@@ -567,7 +601,8 @@ export function WithToolCallsExample() {
         id: "tool-weather-1",
         role: "tool" as const,
         toolCallId: "weather-1",
-        content: "Current weather in San Francisco: 68°F, partly cloudy with a gentle breeze.",
+        content:
+          "Current weather in San Francisco: 68°F, partly cloudy with a gentle breeze.",
       },
     ];
 
@@ -593,7 +628,10 @@ export function WithToolCallsExample() {
     );
 
     return (
-      <CopilotKitProvider renderToolCalls={renderToolCalls} runtimeUrl="https://copilotkit.ai">
+      <CopilotKitProvider
+        renderToolCalls={renderToolCalls}
+        runtimeUrl="https://copilotkit.ai"
+      >
         <CopilotChatConfigurationProvider threadId={"123"}>
           <div style={{ height: "100%" }}>
             <CopilotChatMessageView messages={messages} />

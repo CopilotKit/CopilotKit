@@ -37,7 +37,7 @@ const ToolCallRenderer = React.memo(
     // Memoize args based on the arguments string to maintain stable reference
     const args = useMemo(
       () => partialJSONParse(toolCall.function.arguments),
-      [toolCall.function.arguments]
+      [toolCall.function.arguments],
     );
 
     const toolName = toolCall.function.name;
@@ -76,8 +76,13 @@ const ToolCallRenderer = React.memo(
   (prevProps, nextProps) => {
     // Compare tool call identity and content
     if (prevProps.toolCall.id !== nextProps.toolCall.id) return false;
-    if (prevProps.toolCall.function.name !== nextProps.toolCall.function.name) return false;
-    if (prevProps.toolCall.function.arguments !== nextProps.toolCall.function.arguments) return false;
+    if (prevProps.toolCall.function.name !== nextProps.toolCall.function.name)
+      return false;
+    if (
+      prevProps.toolCall.function.arguments !==
+      nextProps.toolCall.function.arguments
+    )
+      return false;
 
     // Compare tool message (result)
     const prevResult = prevProps.toolMessage?.content;
@@ -91,7 +96,7 @@ const ToolCallRenderer = React.memo(
     if (prevProps.RenderComponent !== nextProps.RenderComponent) return false;
 
     return true;
-  }
+  },
 );
 
 /**
@@ -114,7 +119,7 @@ export function useRenderToolCall() {
       }).unsubscribe;
     },
     () => copilotkit.renderToolCalls,
-    () => copilotkit.renderToolCalls
+    () => copilotkit.renderToolCalls,
   );
 
   // Note: executingToolCallIds is now provided by CopilotKitProvider context.
@@ -135,7 +140,7 @@ export function useRenderToolCall() {
       // 1. Exact match by name (prefer agent-specific if multiple exist)
       // 2. Wildcard (*) renderer
       const exactMatches = renderToolCalls.filter(
-        (rc) => rc.name === toolCall.function.name
+        (rc) => rc.name === toolCall.function.name,
       );
 
       // If multiple renderers with same name exist, prefer the one matching our agentId
@@ -163,7 +168,7 @@ export function useRenderToolCall() {
         />
       );
     },
-    [renderToolCalls, executingToolCallIds, agentId]
+    [renderToolCalls, executingToolCallIds, agentId],
   );
 
   return renderToolCall;

@@ -1,4 +1,7 @@
-import type { ReactActivityMessageRenderer, ReactToolCallRenderer } from "@/types";
+import type {
+  ReactActivityMessageRenderer,
+  ReactToolCallRenderer,
+} from "@/types";
 import type { ReactCustomMessageRenderer } from "@/types/react-custom-message-renderer";
 import {
   CopilotKitCore,
@@ -63,7 +66,9 @@ export class CopilotKitCoreReact extends CopilotKitCore {
   }
 
   // Override to accept React-specific subscriber type
-  subscribe(subscriber: CopilotKitCoreReactSubscriber): CopilotKitCoreSubscription {
+  subscribe(
+    subscriber: CopilotKitCoreReactSubscriber,
+  ): CopilotKitCoreSubscription {
     return super.subscribe(subscriber);
   }
 }

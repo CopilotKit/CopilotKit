@@ -5,10 +5,9 @@ import type { ReactToolCallRenderer } from "../types/react-tool-call-renderer";
 
 const EMPTY_DEPS: ReadonlyArray<unknown> = [];
 
-export function useFrontendTool<T extends Record<string, unknown> = Record<string, unknown>>(
-  tool: ReactFrontendTool<T>,
-  deps?: ReadonlyArray<unknown>,
-) {
+export function useFrontendTool<
+  T extends Record<string, unknown> = Record<string, unknown>,
+>(tool: ReactFrontendTool<T>, deps?: ReadonlyArray<unknown>) {
   const { copilotkit } = useCopilotKit();
   const extraDeps = deps ?? EMPTY_DEPS;
 
@@ -27,8 +26,10 @@ export function useFrontendTool<T extends Record<string, unknown> = Record<strin
     // Register/override renderer by name and agentId through core
     if (tool.render) {
       // Get current render tool calls and merge with new entry
-      const keyOf = (rc: ReactToolCallRenderer<any>) => `${rc.agentId ?? ""}:${rc.name}`;
-      const currentRenderToolCalls = copilotkit.renderToolCalls as ReactToolCallRenderer<any>[];
+      const keyOf = (rc: ReactToolCallRenderer<any>) =>
+        `${rc.agentId ?? ""}:${rc.name}`;
+      const currentRenderToolCalls =
+        copilotkit.renderToolCalls as ReactToolCallRenderer<any>[];
 
       // Build map from existing entries
       const mergedMap = new Map<string, ReactToolCallRenderer<any>>();

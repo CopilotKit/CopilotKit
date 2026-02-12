@@ -26,7 +26,11 @@ export default function PopupDemoPage() {
   });
 
   return (
-    <CopilotKitProvider runtimeUrl="/api/copilotkit" renderToolCalls={[wildcardRenderer]} showDevConsole="auto">
+    <CopilotKitProvider
+      runtimeUrl="/api/copilotkit"
+      renderToolCalls={[wildcardRenderer]}
+      showDevConsole="auto"
+    >
       <PopupLayout />
     </CopilotKitProvider>
   );
@@ -40,11 +44,14 @@ function PopupLayout() {
           <span className="inline-flex items-center rounded-full bg-slate-900/10 px-3 py-1 text-xs font-medium text-slate-700">
             Overlay Chat Demo
           </span>
-          <h1 className="text-3xl font-semibold tracking-tight text-slate-900">Copilot Popup Demo</h1>
+          <h1 className="text-3xl font-semibold tracking-tight text-slate-900">
+            Copilot Popup Demo
+          </h1>
           <p className="max-w-2xl text-slate-600">
-            This page mounts the chat as a floating popup anchored to the bottom-right corner. The popup animates in and
-            out, and leaves the rest of the interface interactive. Try clicking outside the popup or using the toggle
-            button to open and close the assistant.
+            This page mounts the chat as a floating popup anchored to the
+            bottom-right corner. The popup animates in and out, and leaves the
+            rest of the interface interactive. Try clicking outside the popup or
+            using the toggle button to open and close the assistant.
           </p>
         </section>
 
@@ -54,22 +61,35 @@ function PopupLayout() {
               key={index}
               className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition hover:shadow-md"
             >
-              <h2 className="text-lg font-medium text-slate-900">In-Flow Task {index + 1}</h2>
+              <h2 className="text-lg font-medium text-slate-900">
+                In-Flow Task {index + 1}
+              </h2>
               <p className="mt-2 text-sm text-slate-600">
-                Use the popup assistant to draft updates, summarize status, or trigger custom tools without losing
-                context.
+                Use the popup assistant to draft updates, summarize status, or
+                trigger custom tools without losing context.
               </p>
             </article>
           ))}
         </section>
 
         <section className="rounded-2xl border border-dashed border-slate-300 bg-white/70 p-6 shadow-inner">
-          <h3 className="text-base font-semibold text-slate-900">How the popup behaves</h3>
+          <h3 className="text-base font-semibold text-slate-900">
+            How the popup behaves
+          </h3>
           <ul className="mt-3 space-y-2 text-sm text-slate-600">
-            <li>• Appears with a bottom-right scale and translate animation.</li>
-            <li>• Leaves the page scrollable and interactive—no backdrop overlay.</li>
-            <li>• Supports closing when you click outside (enabled in this demo).</li>
-            <li>• Reuses all chat slots, tools, and suggestion hooks from the core chat.</li>
+            <li>
+              • Appears with a bottom-right scale and translate animation.
+            </li>
+            <li>
+              • Leaves the page scrollable and interactive—no backdrop overlay.
+            </li>
+            <li>
+              • Supports closing when you click outside (enabled in this demo).
+            </li>
+            <li>
+              • Reuses all chat slots, tools, and suggestion hooks from the core
+              chat.
+            </li>
           </ul>
         </section>
       </main>
@@ -81,7 +101,8 @@ function PopupLayout() {
 
 function PopupChat() {
   useConfigureSuggestions({
-    instructions: "Suggest short summaries or next actions based on the dashboard content",
+    instructions:
+      "Suggest short summaries or next actions based on the dashboard content",
     available: "always",
     maxSuggestions: 2,
   });
