@@ -139,6 +139,7 @@ export function aguiToGQL(
       message.role === "developer" ||
       message.role === "system" ||
       message.role === "assistant" ||
+      message.role === "reasoning" ||
       message.role === "user"
     ) {
       gqlMessages.push(aguiTextMessageToGQLMessage(message));
