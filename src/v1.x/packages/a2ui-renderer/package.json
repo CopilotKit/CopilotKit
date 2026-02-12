@@ -45,12 +45,12 @@
   ],
   "dependencies": {
     "@a2ui/lit": "^0.8.1",
-    "@copilotkit/react-core": "workspace:*",
     "clsx": "^2.1.1",
     "markdown-it": "^14.1.0",
     "zod": "^3.25.75"
   },
   "peerDependencies": {
+    "@copilotkit/react-core": ">=1.51.0",
     "react": "^18 || ^19 || ^19.0.0-rc",
     "react-dom": "^18 || ^19 || ^19.0.0-rc"
   },
