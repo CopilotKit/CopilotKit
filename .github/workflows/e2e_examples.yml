@@ -14,9 +14,9 @@ on:
   workflow_dispatch:
     inputs:
       branch:
-        description: 'Branch to run the workflow on'
+        description: "Branch to run the workflow on"
         required: true
-        default: 'main'
+        default: "main"
         type: string
 
 jobs:

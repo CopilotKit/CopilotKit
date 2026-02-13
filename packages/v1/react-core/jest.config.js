@@ -10,6 +10,7 @@ module.exports = {
   moduleNameMapper: {
     "^@/(.*)$": "<rootDir>/src/$1",
     "\\.(css|less|scss|sass)$": "identity-obj-proxy",
+    "^@segment/analytics-node$": "<rootDir>/src/__mocks__/analytics-node.js",
   },
   transformIgnorePatterns: [
     "node_modules/(?!(react-markdown|streamdown|@copilotkitnext)/)",

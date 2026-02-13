@@ -17,7 +17,6 @@ export const appConfig: ApplicationConfig = {
           component: WildcardToolRenderComponent,
         } as any,
       ],
-      frontendTools: [],
       humanInTheLoop: [],
     }),
     provideCopilotChatLabels({
