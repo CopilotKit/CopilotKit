@@ -38,7 +38,7 @@ For more information on agentic generative UI, checkout the [docs](/coagents/sha
 
 ### useCopilotAction
 
-This hook is used to add front-end functions as tool calls to an agent or LLM. This is particularly useful for human in the loop components. If you're completely new to the concept of human in the loop, checkout LangGraph's [docs](https://langchain-ai.github.io/langgraph/concepts/human_in_the_loop/?h=human) where they talk about the concept in more detail with some examples.
+This hook is used to add front-end functions as tool calls to an agent or LLM. This is particularly useful for human in the loop components. If you're completely new to the concept of human in the loop, checkout LangGraph's [docs](https://docs.langchain.com/oss/python/langgraph/interrupts) where they talk about the concept in more detail with some examples.
 
 For our needs, we can keep it simple and think of it as a way to force the LLM for user approval before performing some action. This is accomplished two ways.
 
