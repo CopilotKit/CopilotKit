@@ -1,11 +1,11 @@
-import React from "react"
-import { cn } from "@/lib/utils"
+import React from "react";
+import { cn } from "@/lib/utils";
 
 interface ConsoleIconProps {
-  className?: string
+  className?: string;
 }
 
-const DEFAULT_CLASSNAME = "text-icon"
+const DEFAULT_CLASSNAME = "text-icon";
 
 const ConsoleIcon = ({ className }: ConsoleIconProps) => {
   return (
@@ -22,7 +22,7 @@ const ConsoleIcon = ({ className }: ConsoleIconProps) => {
         fill="currentColor"
       />
     </svg>
-  )
-}
+  );
+};
 
-export default ConsoleIcon
+export default ConsoleIcon;

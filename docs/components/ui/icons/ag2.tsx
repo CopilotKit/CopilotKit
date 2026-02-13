@@ -1,13 +1,13 @@
-import React from "react"
-import { cn } from "@/lib/utils"
+import React from "react";
+import { cn } from "@/lib/utils";
 
 interface Ag2IconProps {
-  className?: string
-  width?: number
-  height?: number
+  className?: string;
+  width?: number;
+  height?: number;
 }
 
-const DEFAULT_CLASSNAME = "text-icon"
+const DEFAULT_CLASSNAME = "text-icon";
 
 const Ag2Icon = ({ className, width = 23, height = 23 }: Ag2IconProps) => {
   return (
@@ -40,8 +40,7 @@ const Ag2Icon = ({ className, width = 23, height = 23 }: Ag2IconProps) => {
         fill="currentColor"
       />
     </svg>
-  )
-}
+  );
+};
 
-export default Ag2Icon
-
+export default Ag2Icon;

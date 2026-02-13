@@ -1,11 +1,11 @@
-import React from "react"
-import { cn } from "@/lib/utils"
+import React from "react";
+import { cn } from "@/lib/utils";
 
 interface RocketIconProps {
-  className?: string
+  className?: string;
 }
 
-const DEFAULT_CLASSNAME = "text-icon"
+const DEFAULT_CLASSNAME = "text-icon";
 
 const RocketIcon = ({ className }: RocketIconProps) => {
   return (
@@ -22,7 +22,7 @@ const RocketIcon = ({ className }: RocketIconProps) => {
         fill="currentColor"
       />
     </svg>
-  )
-}
+  );
+};
 
-export default RocketIcon
+export default RocketIcon;

@@ -739,8 +739,7 @@ export const handleMouseMove = (e: React.MouseEvent<HTMLElement>) => {
         "<b>--copilot-kit-separator-color</b>: Input box border color.<br/><br/><b>--copilot-kit-muted-color</b>: Placeholder color.";
       return;
     } else if (element.classList.contains("poweredBy")) {
-      tooltip.innerHTML =
-          `The "Powered by CopilotKit" watermark is removed automatically for Copilot Cloud users`;
+      tooltip.innerHTML = `The "Powered by CopilotKit" watermark is removed automatically for Copilot Cloud users`;
       return;
     }
     element = element.parentElement as HTMLElement;
@@ -802,52 +801,60 @@ export const InteractiveCSSInspector = () => {
             <div className="copilotKitInputContainer">
               <div className="copilotKitInput">
                 <input
-                    placeholder="Type a message..."
-                    // style={{
-                    //   overflow: "auto",
-                    //   resize: "none",
-                    //   maxHeight: 100,
-                    //   height: 20,
-                    // }}
-                    defaultValue={""}
-                    disabled={false}
+                  placeholder="Type a message..."
+                  // style={{
+                  //   overflow: "auto",
+                  //   resize: "none",
+                  //   maxHeight: 100,
+                  //   height: 20,
+                  // }}
+                  defaultValue={""}
+                  disabled={false}
                 />
                 <div className="copilotKitInputControls">
                   <div style={{ flexGrow: 1 }} />
-                  <button className="micButton copilotKitInputControlButton" disabled>
+                  <button
+                    className="micButton copilotKitInputControlButton"
+                    disabled
+                  >
                     <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        strokeWidth="1.5"
-                        stroke="currentColor"
-                        className="w-6 h-6"
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      strokeWidth="1.5"
+                      stroke="currentColor"
+                      className="w-6 h-6"
                     >
                       <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          d="M12 18.75a6 6 0 0 0 6-6v-1.5m-6 7.5a6 6 0 0 1-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 0 1-3-3V4.5a3 3 0 1 1 6 0v8.25a3 3 0 0 1-3 3Z"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M12 18.75a6 6 0 0 0 6-6v-1.5m-6 7.5a6 6 0 0 1-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 0 1-3-3V4.5a3 3 0 1 1 6 0v8.25a3 3 0 0 1-3 3Z"
                       />
                     </svg>
                   </button>
-                  <button className="sendButton copilotKitInputControlButton" disabled={false}>
+                  <button
+                    className="sendButton copilotKitInputControlButton"
+                    disabled={false}
+                  >
                     <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        strokeWidth="1.5"
-                        stroke="currentColor"
-                        width="24"
-                        height="24"
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      strokeWidth="1.5"
+                      stroke="currentColor"
+                      width="24"
+                      height="24"
                     >
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 19V5m0 0l-7 7m7-7l7 7" />
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M12 19V5m0 0l-7 7m7-7l7 7"
+                      />
                     </svg>
                   </button>
                 </div>
               </div>
-              <p className="poweredBy">
-                Powered by CopilotKit
-              </p>
+              <p className="poweredBy">Powered by CopilotKit</p>
             </div>
           </div>
         </div>

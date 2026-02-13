@@ -1,11 +1,11 @@
-import React from "react"
-import { cn } from "@/lib/utils"
+import React from "react";
+import { cn } from "@/lib/utils";
 
 interface ChevronDownIconProps {
-  className?: string
+  className?: string;
 }
 
-const DEFAULT_CLASSNAME = "text-icon"
+const DEFAULT_CLASSNAME = "text-icon";
 
 const ChevronDownIcon = ({ className }: ChevronDownIconProps) => {
   return (
@@ -22,7 +22,7 @@ const ChevronDownIcon = ({ className }: ChevronDownIconProps) => {
         fill="currentColor"
       />
     </svg>
-  )
-}
+  );
+};
 
-export default ChevronDownIcon
+export default ChevronDownIcon;

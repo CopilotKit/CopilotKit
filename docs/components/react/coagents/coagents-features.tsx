@@ -1,4 +1,4 @@
-"use client"
+"use client";
 
 import { useTailoredContent } from "@/lib/hooks/use-tailored-content";
 import cn from "classnames";
@@ -8,12 +8,23 @@ import { TbActivityHeartbeat as StreamAgentStateIcon } from "react-icons/tb";
 import { IoShareSocialOutline as ShareAgentStateIcon } from "react-icons/io5";
 import { FaQuestionCircle as AgentQAndAIcon } from "react-icons/fa";
 
-type FeatureMode = "generative-ui" | "stream-agent-state" | "share-agent-state" | "agent-q-and-a";
+type FeatureMode =
+  | "generative-ui"
+  | "stream-agent-state"
+  | "share-agent-state"
+  | "agent-q-and-a";
 
-export const CoAgentsFeatureToggle: React.FC<{ className?: string }> = ({ className }) => {
+export const CoAgentsFeatureToggle: React.FC<{ className?: string }> = ({
+  className,
+}) => {
   const { mode, setMode } = useTailoredContent<FeatureMode>(
-    ["generative-ui", "stream-agent-state", "share-agent-state", "agent-q-and-a"],
-    "generative-ui"
+    [
+      "generative-ui",
+      "stream-agent-state",
+      "share-agent-state",
+      "agent-q-and-a",
+    ],
+    "generative-ui",
   );
   const [isClient, setIsClient] = useState(false);
 
@@ -32,23 +43,31 @@ export const CoAgentsFeatureToggle: React.FC<{ className?: string }> = ({ classN
   const iconCn =
     "w-7 h-7 mb-2 opacity-20 group-[.selected]:text-indigo-500 group-[.selected]:opacity-60  dark:group-[.selected]:text-indigo-100 transition-all";
 
-  const features: { id: FeatureMode; title: string; description: string; Icon: React.FC<React.SVGProps<SVGSVGElement>> }[] = [
+  const features: {
+    id: FeatureMode;
+    title: string;
+    description: string;
+    Icon: React.FC<React.SVGProps<SVGSVGElement>>;
+  }[] = [
     {
       id: "generative-ui",
       title: "Generative UI",
-      description: "Create dynamic user interfaces with AI-generated components.",
+      description:
+        "Create dynamic user interfaces with AI-generated components.",
       Icon: GenerativeUiIcon,
     },
     {
       id: "stream-agent-state",
       title: "Stream Agent State",
-      description: "Real-time updates on agent activities and decision-making processes.",
+      description:
+        "Real-time updates on agent activities and decision-making processes.",
       Icon: StreamAgentStateIcon,
     },
     {
       id: "share-agent-state",
       title: "Share Agent State",
-      description: "Collaborate and share agent states across different sessions or users.",
+      description:
+        "Collaborate and share agent states across different sessions or users.",
       Icon: ShareAgentStateIcon,
     },
     {
@@ -68,9 +87,15 @@ export const CoAgentsFeatureToggle: React.FC<{ className?: string }> = ({ classN
             className={cn(itemCn, mode === feature.id && selectedCn)}
             onClick={() => setMode(feature.id)}
           >
-            <feature.Icon className={cn(iconCn, mode === feature.id && "text-indigo-500")} />
-            <p className="font-semibold text-sm md:text-base text-center">{feature.title}</p>
-            <p className="text-xs text-center hidden md:block">{feature.description}</p>
+            <feature.Icon
+              className={cn(iconCn, mode === feature.id && "text-indigo-500")}
+            />
+            <p className="font-semibold text-sm md:text-base text-center">
+              {feature.title}
+            </p>
+            <p className="text-xs text-center hidden md:block">
+              {feature.description}
+            </p>
           </div>
         ))}
       </div>
@@ -84,10 +109,15 @@ const FeatureContent: React.FC<{
   mode: FeatureMode;
 }> = ({ children, className, mode }) => {
   const { mode: currentMode } = useTailoredContent<FeatureMode>(
-    ["generative-ui", "stream-agent-state", "share-agent-state", "agent-q-and-a"],
-    "generative-ui"
+    [
+      "generative-ui",
+      "stream-agent-state",
+      "share-agent-state",
+      "agent-q-and-a",
+    ],
+    "generative-ui",
   );
-  
+
   const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {
@@ -103,7 +133,7 @@ const FeatureContent: React.FC<{
       className={cn(
         "feature-content mt-6",
         currentMode !== mode && "hidden",
-        className
+        className,
       )}
     >
       {children}
@@ -111,6 +141,12 @@ const FeatureContent: React.FC<{
   );
 };
 
-export const CoAgentsFeatureRender: React.FC<{ children: React.ReactNode; className?: string, feature: "generative-ui" | "stream-agent-state" | "share-agent-state" | "agent-q-and-a" }> = (props) => (
-  <FeatureContent {...props} mode={props.feature} />
-);
+export const CoAgentsFeatureRender: React.FC<{
+  children: React.ReactNode;
+  className?: string;
+  feature:
+    | "generative-ui"
+    | "stream-agent-state"
+    | "share-agent-state"
+    | "agent-q-and-a";
+}> = (props) => <FeatureContent {...props} mode={props.feature} />;
