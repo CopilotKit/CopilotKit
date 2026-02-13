@@ -25,7 +25,7 @@ def a_node(state: AgentState, config):
     return {"messages":  [RemoveMessage(id=m.id) for m in state['messages']]}
 ```
 
-See the [LangGraph documentation](https://langchain-ai.github.io/langgraph/how-tos/memory/delete-messages/) for more information.
+See the [LangGraph documentation](https://docs.langchain.com/oss/python/langgraph/add-memory#delete-messages) for more information.
 
 <Callout>
 Editing the message history is not currently supported on the front-end, but will be soon.

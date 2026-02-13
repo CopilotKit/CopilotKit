@@ -1,33 +1,33 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
-import Image from "next/image"
-import Link from "fumadocs-core/link"
-import { usePathname } from "next/navigation"
-import { DocsLayoutProps } from "fumadocs-ui/layouts/docs"
+import { useState, useEffect } from "react";
+import Image from "next/image";
+import Link from "fumadocs-core/link";
+import { usePathname } from "next/navigation";
+import { DocsLayoutProps } from "fumadocs-ui/layouts/docs";
 // Components
-import { Logo } from "@/app/logo"
-import SearchDialogButton from "@/components/ui/search-button"
-import MobileSidebar from "@/components/layout/mobile-sidebar"
+import { Logo } from "@/app/logo";
+import SearchDialogButton from "@/components/ui/search-button";
+import MobileSidebar from "@/components/layout/mobile-sidebar";
 // Icons
-import RocketIcon from "@/components/ui/icons/rocket"
-import ConsoleIcon from "@/components/ui/icons/console"
-import CloudIcon from "@/components/ui/icons/cloud"
-import GithubIcon from "@/components/ui/icons/github"
-import DiscordIcon from "@/components/ui/icons/discord"
-import ExternalLinkIcon from "@/components/ui/icons/external-link"
-import BurgerMenuIcon from "@/components/ui/icons/burger-menu"
+import RocketIcon from "@/components/ui/icons/rocket";
+import ConsoleIcon from "@/components/ui/icons/console";
+import CloudIcon from "@/components/ui/icons/cloud";
+import GithubIcon from "@/components/ui/icons/github";
+import DiscordIcon from "@/components/ui/icons/discord";
+import ExternalLinkIcon from "@/components/ui/icons/external-link";
+import BurgerMenuIcon from "@/components/ui/icons/burger-menu";
 
 export interface NavbarLink {
-  href: string
-  icon: React.ReactNode
-  label?: string
-  target?: "_blank" | "_self" | "_parent" | "_top"
-  showExternalLinkIcon?: boolean
+  href: string;
+  icon: React.ReactNode;
+  label?: string;
+  target?: "_blank" | "_self" | "_parent" | "_top";
+  showExternalLinkIcon?: boolean;
 }
 
 interface NavbarProps {
-  pageTree: DocsLayoutProps["tree"]
+  pageTree: DocsLayoutProps["tree"];
 }
 
 export const LEFT_LINKS: NavbarLink[] = [
@@ -48,7 +48,7 @@ export const LEFT_LINKS: NavbarLink[] = [
     target: "_blank",
     showExternalLinkIcon: true,
   },
-]
+];
 
 const RIGHT_LINKS: NavbarLink[] = [
   {
@@ -67,54 +67,54 @@ const RIGHT_LINKS: NavbarLink[] = [
     href: "https://discord.gg/6dffbvGU3D",
     target: "_blank",
   },
-]
+];
 
 const Navbar = ({ pageTree }: NavbarProps) => {
-  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false)
-  const [lastDocsPath, setLastDocsPath] = useState<string | null>(null)
-  const pathname = usePathname()
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+  const [lastDocsPath, setLastDocsPath] = useState<string | null>(null);
+  const pathname = usePathname();
 
   // Read sessionStorage on client only to avoid hydration mismatch (tab-specific)
   useEffect(() => {
-    setLastDocsPath(sessionStorage.getItem('lastDocsPath'))
-  }, [])
+    setLastDocsPath(sessionStorage.getItem("lastDocsPath"));
+  }, []);
 
   // Determine active route based on current path
-  const firstSegment = pathname === "/" ? "/" : `/${pathname.split("/")[1]}`
-  const isReferencePage = firstSegment === "/reference"
+  const firstSegment = pathname === "/" ? "/" : `/${pathname.split("/")[1]}`;
+  const isReferencePage = firstSegment === "/reference";
   // Reference pages → /reference, Everything else (root + integrations) → /
-  const activeRoute = isReferencePage ? "/reference" : "/"
+  const activeRoute = isReferencePage ? "/reference" : "/";
 
   // Get the appropriate href for Documentation link
   const getDocumentationHref = () => {
     // If we're on a reference page, try to restore last docs path
     if (isReferencePage && lastDocsPath) {
-      return lastDocsPath
+      return lastDocsPath;
     }
-    return '/'
-  }
+    return "/";
+  };
 
   // Close mobile sidebar when viewport expands beyond mobile breakpoint (md: 768px)
   useEffect(() => {
     const handleResize = () => {
       if (window.innerWidth >= 768 && isMobileSidebarOpen) {
-        setIsMobileSidebarOpen(false)
+        setIsMobileSidebarOpen(false);
       }
-    }
+    };
 
-    window.addEventListener('resize', handleResize)
+    window.addEventListener("resize", handleResize);
     // Check on mount in case viewport is already large
-    handleResize()
+    handleResize();
 
     return () => {
-      window.removeEventListener('resize', handleResize)
-    }
-  }, [isMobileSidebarOpen])
+      window.removeEventListener("resize", handleResize);
+    };
+  }, [isMobileSidebarOpen]);
 
   const handleToggleTheme = () => {
-    document.documentElement.classList.toggle("dark")
-    localStorage.theme = localStorage.theme === "dark" ? "light" : "dark"
-  }
+    document.documentElement.classList.toggle("dark");
+    localStorage.theme = localStorage.theme === "dark" ? "light" : "dark";
+  };
 
   return (
     <nav className="h-[68px] xl:h-[88px] p-1 xl:p-2 relative">
@@ -128,9 +128,9 @@ const Navbar = ({ pageTree }: NavbarProps) => {
 
       <div className="flex justify-between items-center w-full h-full">
         <div className="flex w-full h-full">
-          <div 
+          <div
             className="flex gap-11 items-center w-full h-full rounded-l-2xl border border-r-0 backdrop-blur-lg border-border"
-            style={{ backgroundColor: 'var(--sidebar)' }}
+            style={{ backgroundColor: "var(--sidebar)" }}
           >
             <Logo className="pl-6" />
             <ul className="hidden gap-6 items-center h-full md:flex">
@@ -138,12 +138,20 @@ const Navbar = ({ pageTree }: NavbarProps) => {
                 // Hide only Copilot Cloud at narrow widths
                 const hideAtNarrow = link.label === "Copilot Cloud";
                 // Hide icons for Documentation and API Reference at very narrow widths
-                const hideIconAtNarrow = link.label === "Documentation" || link.label === "API Reference";
+                const hideIconAtNarrow =
+                  link.label === "Documentation" ||
+                  link.label === "API Reference";
                 // Use dynamic href for Documentation link
-                const href = link.label === "Documentation" ? getDocumentationHref() : link.href;
+                const href =
+                  link.label === "Documentation"
+                    ? getDocumentationHref()
+                    : link.href;
 
                 return (
-                  <li key={link.href} className={`relative h-full group ${hideAtNarrow ? '[@media(width<1028px)]:hidden' : ''}`}>
+                  <li
+                    key={link.href}
+                    className={`relative h-full group ${hideAtNarrow ? "[@media(width<1028px)]:hidden" : ""}`}
+                  >
                     <Link
                       href={href}
                       target={link.target}
@@ -153,11 +161,19 @@ const Navbar = ({ pageTree }: NavbarProps) => {
                       suppressHydrationWarning={link.target === "_blank"}
                     >
                       <span className="flex gap-2 items-center h-full">
-                        <span className={hideIconAtNarrow ? '[@media(width<808px)]:hidden' : ''}>
+                        <span
+                          className={
+                            hideIconAtNarrow
+                              ? "[@media(width<808px)]:hidden"
+                              : ""
+                          }
+                        >
                           {link.icon}
                         </span>
 
-                        <span className="text-sm font-medium">{link.label}</span>
+                        <span className="text-sm font-medium">
+                          {link.label}
+                        </span>
 
                         {link.showExternalLinkIcon && <ExternalLinkIcon />}
                       </span>
@@ -207,9 +223,9 @@ const Navbar = ({ pageTree }: NavbarProps) => {
             className="-mr-px dark:hidden shrink-0 w-[24px] h-[60px] xl:w-[29px] xl:h-[72px] object-cover"
           />
 
-          <div 
+          <div
             className="flex gap-1 items-center pr-2 w-max h-full rounded-r-2xl border border-l-0 backdrop-blur-lg md:pr-4 shrink-0 border-border"
-            style={{ backgroundColor: 'var(--sidebar)' }}
+            style={{ backgroundColor: "var(--sidebar)" }}
           >
             {RIGHT_LINKS.map((link) => {
               // Only show Copilot Cloud at narrow widths (between 768px and 1028px)
@@ -220,7 +236,7 @@ const Navbar = ({ pageTree }: NavbarProps) => {
                   key={link.href}
                   href={link.href}
                   target={link.target}
-                  className={`${isIconOnlyLink ? '[@media(width>=1028px)]:hidden [@media(width<768px)]:hidden' : 'hidden'} justify-center items-center w-11 h-full md:flex`}
+                  className={`${isIconOnlyLink ? "[@media(width>=1028px)]:hidden [@media(width<768px)]:hidden" : "hidden"} justify-center items-center w-11 h-full md:flex`}
                   title={link.label}
                   suppressHydrationWarning={link.target === "_blank"}
                 >
@@ -261,7 +277,7 @@ const Navbar = ({ pageTree }: NavbarProps) => {
         </div>
       </div>
     </nav>
-  )
-}
+  );
+};
 
-export default Navbar
+export default Navbar;

@@ -9,7 +9,7 @@
       "interactive": false,
       "dependsOn": ["^build"],
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
-      "outputs": ["dist/**", ".next/**", "!.next/cache/**"],
+      "outputs": ["dist/**"],
       "outputLogs": "full"
     },
     "@copilotkit/runtime#generate-graphql-schema": {

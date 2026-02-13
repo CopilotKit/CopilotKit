@@ -1,13 +1,13 @@
-import React from "react"
-import { cn } from "@/lib/utils"
+import React from "react";
+import { cn } from "@/lib/utils";
 
 interface AgnoIconProps {
-  className?: string
-  width?: number
-  height?: number
+  className?: string;
+  width?: number;
+  height?: number;
 }
 
-const DEFAULT_CLASSNAME = "text-icon"
+const DEFAULT_CLASSNAME = "text-icon";
 
 const AgnoIcon = ({ className, width = 20, height = 18 }: AgnoIconProps) => {
   return (
@@ -28,8 +28,7 @@ const AgnoIcon = ({ className, width = 20, height = 18 }: AgnoIconProps) => {
         fill="currentColor"
       />
     </svg>
-  )
-}
+  );
+};
 
-export default AgnoIcon
-
+export default AgnoIcon;

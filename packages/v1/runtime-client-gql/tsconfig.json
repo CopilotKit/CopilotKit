@@ -1,0 +1,16 @@
+{
+  "extends": "../tsconfig/base.json",
+  "compilerOptions": {
+    "strictPropertyInitialization": false,
+    "resolveJsonModule": true
+  },
+  "include": ["."],
+  "exclude": [
+    "dist",
+    "build",
+    "node_modules",
+    "**/*.test.ts", 
+    "**/*.test.tsx",
+    "**/__tests__/*"
+  ]
+}

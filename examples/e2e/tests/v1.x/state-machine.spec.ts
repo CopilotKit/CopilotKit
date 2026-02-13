@@ -9,7 +9,7 @@ test.describe("state-machine", () => {
     await page.goto("/");
     await expect(page.getByRole("button", { name: "Orders" })).toBeVisible();
     await expect(
-      page.getByRole("button", { name: "State Visualizer" })
+      page.getByRole("button", { name: "State Visualizer" }),
     ).toBeVisible();
   });
 });

@@ -1,11 +1,11 @@
 ## AI-Powered Open-Source Financial Manager
 
+## Use Case
 
-## Use Case 
 An AI-powered open-source Financial Manager that helps you plan your savings and investments.
 
+## Technologies Used
 
-## Technologies Used 
 - Next.js
 - CopilotKit
 - Maybe Finance + Synth
@@ -13,22 +13,20 @@ An AI-powered open-source Financial Manager that helps you plan your savings and
 - MongoDB Vector Database
 - Recharts for visualization
 - Google OAuth with NextAuth.js
-  
 
 ## GitHub + YouTube
 
 - [ ] GitHub Repo:
-https://github.com/Tabintel/finance_ai
+      https://github.com/Tabintel/finance_ai
 
-- [ ] YouTube: 
-https://www.youtube.com/watch?v=Pn-pONOwfwg&embeds_referring_euri=https%3A%2F%2Fdev.to%2F
+- [ ] YouTube:
+      https://www.youtube.com/watch?v=Pn-pONOwfwg&embeds_referring_euri=https%3A%2F%2Fdev.to%2F
 
 ![image](https://github.com/user-attachments/assets/26e9cdb5-f667-421f-a58d-b97e0877bd06)
 
-
 ## Who Are You?
-I'm Ekemini, a Technical writer and Software developer, we can connect on [Twitter](https://twitter.com/realEkemini) and [LinkedIn](https://www.linkedin.com/in/ekeminisamuel/). 
 
+I'm Ekemini, a Technical writer and Software developer, we can connect on [Twitter](https://twitter.com/realEkemini) and [LinkedIn](https://www.linkedin.com/in/ekeminisamuel/).
 
 ## ⭐️ Project README with installation and getting started steps ⭐️👇
 
@@ -73,17 +71,20 @@ Coyamin is an AI-powered financial insights application that helps users underst
 ### Setup
 
 1. Clone the repository:
+
    ```bash
    git clone https://github.com/Tabintel/ai-savings.git
    cd ai-savings
    ```
 
 2. Install dependencies:
+
    ```bash
    npm install
    ```
 
 3. Create a `.env` file based on `.env.example`:
+
    ```bash
    cd .env.example .env
    ```
@@ -91,6 +92,7 @@ Coyamin is an AI-powered financial insights application that helps users underst
 4. Fill in your API keys and environment variables in the `.env` file
 
 5. Run the development server:
+
    ```bash
    npm run dev
    ```

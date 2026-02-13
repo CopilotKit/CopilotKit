@@ -1,11 +1,11 @@
-import React from "react"
-import { cn } from "@/lib/utils"
+import React from "react";
+import { cn } from "@/lib/utils";
 
 interface CloudIconProps {
-  className?: string
+  className?: string;
 }
 
-const DEFAULT_CLASSNAME = "text-icon"
+const DEFAULT_CLASSNAME = "text-icon";
 
 const CloudIcon = ({ className }: CloudIconProps) => {
   return (
@@ -29,7 +29,7 @@ const CloudIcon = ({ className }: CloudIconProps) => {
         </clipPath>
       </defs>
     </svg>
-  )
-}
+  );
+};
 
-export default CloudIcon
+export default CloudIcon;
