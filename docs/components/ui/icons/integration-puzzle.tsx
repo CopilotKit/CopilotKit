@@ -1,11 +1,11 @@
-import React from "react"
-import { cn } from "@/lib/utils"
+import React from "react";
+import { cn } from "@/lib/utils";
 
 interface IntegrationPuzzleIconProps {
-  className?: string
+  className?: string;
 }
 
-const DEFAULT_CLASSNAME = "text-icon"
+const DEFAULT_CLASSNAME = "text-icon";
 
 const IntegrationPuzzleIcon = ({ className }: IntegrationPuzzleIconProps) => {
   return (
@@ -22,8 +22,7 @@ const IntegrationPuzzleIcon = ({ className }: IntegrationPuzzleIconProps) => {
         fill="currentColor"
       />
     </svg>
-  )
-}
+  );
+};
 
-export default IntegrationPuzzleIcon
-
+export default IntegrationPuzzleIcon;

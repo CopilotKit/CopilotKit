@@ -1,0 +1,66 @@
+{
+  "name": "@copilotkit/a2ui-renderer",
+  "private": false,
+  "version": "1.51.4-next.8",
+  "description": "A2UI Renderer for CopilotKit - render A2UI surfaces in React applications",
+  "homepage": "https://github.com/CopilotKit/CopilotKit",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/CopilotKit/CopilotKit.git",
+    "directory": "packages/a2ui-renderer"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "license": "MIT",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "unpkg": "./dist/index.umd.js",
+  "jsdelivr": "./dist/index.umd.js",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "prepack": "pnpm run build",
+    "build": "tsc -p tsconfig.json && rollup -c rollup.config.mjs",
+    "check-types": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
+  },
+  "keywords": [
+    "copilotkit",
+    "a2ui",
+    "react",
+    "ai",
+    "ui",
+    "renderer"
+  ],
+  "dependencies": {
+    "@a2ui/lit": "^0.8.1",
+    "clsx": "^2.1.1",
+    "markdown-it": "^14.1.0",
+    "zod": "^3.25.75"
+  },
+  "peerDependencies": {
+    "@copilotkit/react-core": ">=1.51.4-next.8",
+    "react": "^18 || ^19 || ^19.0.0-rc",
+    "react-dom": "^18 || ^19 || ^19.0.0-rc"
+  },
+  "devDependencies": {
+    "@testing-library/react": "^16.0.0",
+    "@types/markdown-it": "^14.1.2",
+    "@types/react": "^19.2.3",
+    "@types/react-dom": "^19.2.3",
+    "jsdom": "^26.1.0",
+    "typescript": "5.9.2",
+    "vitest": "^3.2.4"
+  }
+}

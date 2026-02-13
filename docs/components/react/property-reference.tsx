@@ -1,4 +1,4 @@
-"use client"
+"use client";
 
 import React from "react";
 import { IoSparklesSharp } from "react-icons/io5";
@@ -26,7 +26,7 @@ export function PropertyReference({
   collapsable = false,
 }: Props) {
   const [isCollapsed, setIsCollapsed] = React.useState(
-    collapsable ? true : false
+    collapsable ? true : false,
   );
 
   const enhancedChildren = React.Children.map(children, (child) => {

@@ -1,23 +1,22 @@
 ## **News Aggregator**
+
 News Aggregator uses a large language model with the copilot kit eco-system to generate a summary of news and happenings based on specified topics keywords or even provided articles.
+
 ### 📝 **Name of Issue/Topic**
 
- 15 - News Aggregator (Hacktoberfest Demo)
+15 - News Aggregator (Hacktoberfest Demo)
 
 ### 🛠️ **Technologies Used**
 
-- **Frameworks**:  Node.js and React.js
-- **Styling**: v0 Styling, Shadcn-UI Component Styling, 
+- **Frameworks**: Node.js and React.js
+- **Styling**: v0 Styling, Shadcn-UI Component Styling,
 - **Developer Tools**: CopilotKit, groq-sdk
-
-
 
 ---
 
 ### 🌐 **App Link**
 
 [Live Demo](https://news-aggregator-sharp.vercel.app/)
-
 
 ### 🎯 **Bonus Points**
 
@@ -26,7 +25,6 @@ News Aggregator uses a large language model with the copilot kit eco-system to g
 ---
 
 ### 📸 **Screenshot**
-
 
 ![alt text](image.png)
 

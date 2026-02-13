@@ -11,9 +11,31 @@ const path = require('path');
 // Configuration
 const DOCS_DIR = 'content/docs';
 const EXCLUDE_PATTERNS = ['**/node_modules/**', '**/dist/**', '**/build/**'];
+const NEXT_CONFIG_PATH = 'next.config.mjs';
 
 /**
- * Extract all markdown links from a file
+ * Parse redirects from next.config.mjs by executing it
+ */
+async function parseRedirects() {
+  try {
+    // Import the next.config.mjs module
+    const configModule = await import('../next.config.mjs');
+    const config = configModule.default;
+
+    // Execute the redirects function to get all redirects (including auto-generated)
+    if (config.redirects && typeof config.redirects === 'function') {
+      const redirects = await config.redirects();
+      return redirects;
+    }
+  } catch (error) {
+    console.warn('Warning: Could not load redirects from next.config.mjs:', error.message);
+  }
+
+  return [];
+}
+
+/**
+ * Extract all markdown links and JSX href attributes from a file
  */
 function extractLinks(filePath, content) {
   const links = [];
@@ -41,6 +63,34 @@ function extractLinks(filePath, content) {
 
     links.push({
       text: text.trim(),
+      url: cleanUrl.trim(),
+      file: filePath,
+      line: content.substring(0, match.index).split('\n').length
+    });
+  }
+
+  // Also extract JSX href attributes: href="..." or href='...'
+  const jsxHrefRegex = /href=["']([^"']+)["']/g;
+
+  while ((match = jsxHrefRegex.exec(content)) !== null) {
+    const [fullMatch, url] = match;
+
+    // Skip external links
+    if (url.startsWith('http') || url.startsWith('mailto:') || url.startsWith('tel:')) {
+      continue;
+    }
+
+    // Skip anchor links
+    if (url.startsWith('#')) {
+      continue;
+    }
+
+    // Remove anchors from internal links
+    const cleanUrl = url.split('#')[0];
+    if (!cleanUrl) continue; // Skip if it was only an anchor
+
+    links.push({
+      text: `<${fullMatch}>`,
       url: cleanUrl.trim(),
       file: filePath,
       line: content.substring(0, match.index).split('\n').length
@@ -81,7 +131,7 @@ function filePathToUrl(relativePath) {
 /**
  * Check if a link is valid
  */
-function isValidLink(url, allPages, sourceFile = null) {
+function isValidLink(url, allPages, sourceFile = null, redirects = []) {
   // Handle absolute links (starting with /)
   if (url.startsWith('/')) {
     // Remove leading slash and normalize
@@ -89,6 +139,23 @@ function isValidLink(url, allPages, sourceFile = null) {
 
     // Remove trailing slash
     const cleanUrl = normalizedUrl.replace(/\/$/, '');
+
+    // Check if there's a redirect for this URL
+    const redirect = redirects.find(r => {
+      // Match exact path or with wildcards
+      const sourcePath = r.source.replace(/:\w+\*/g, '.*');
+      const regex = new RegExp(`^${sourcePath}$`);
+      return regex.test(url);
+    });
+
+    // If there's a redirect, validate the destination instead
+    if (redirect) {
+      const destUrl = redirect.destination.slice(1).replace(/\/$/, ''); // Remove leading / and trailing /
+      return allPages.some(page => {
+        const pageUrl = page.url.replace(/\/$/, '');
+        return pageUrl === destUrl;
+      });
+    }
 
     // Check if page exists
     return allPages.some(page => {
@@ -183,6 +250,9 @@ function getAllPages() {
 async function main() {
   console.log('🔍 Checking for broken links...\n');
 
+  const redirects = await parseRedirects();
+  console.log(`🔀 Found ${redirects.length} redirects in next.config.mjs\n`);
+
   const allPages = getAllPages();
   const allLinks = [];
   const brokenLinks = [];
@@ -208,7 +278,7 @@ async function main() {
 
   // Check each link
   allLinks.forEach(link => {
-    if (!isValidLink(link.url, allPages, link.file)) {
+    if (!isValidLink(link.url, allPages, link.file, redirects)) {
       brokenLinks.push(link);
     }
   });
@@ -216,6 +286,7 @@ async function main() {
   // Report results
   if (brokenLinks.length === 0) {
     console.log('✅ No broken links found!');
+    return 0; // Success
   } else {
     console.log(`❌ Found ${brokenLinks.length} broken links:\n`);
 
@@ -230,12 +301,21 @@ async function main() {
     console.log('  - Verify the path is correct');
     console.log('  - Consider adding redirects in middleware.ts');
     console.log('  - Update the link to point to the correct page');
+
+    return 1; // Error - broken links found
   }
 }
 
 // Run the script
 if (require.main === module) {
-  main().catch(console.error);
+  main()
+    .then(exitCode => {
+      process.exit(exitCode || 0);
+    })
+    .catch(error => {
+      console.error(error);
+      process.exit(1);
+    });
 }
 
-module.exports = { extractLinks, isValidLink, getAllPages, filePathToUrl };
+module.exports = { extractLinks, isValidLink, getAllPages, filePathToUrl, parseRedirects };

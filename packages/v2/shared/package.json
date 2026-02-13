@@ -1,0 +1,41 @@
+{
+  "name": "@copilotkitnext/shared",
+  "version": "1.51.4-next.8",
+  "description": "Shared utilities and types for CopilotKit2",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js"
+    }
+  },
+  "unpkg": "./dist/index.umd.js",
+  "jsdelivr": "./dist/index.umd.js",
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsup && rollup -c rollup.config.mjs",
+    "dev": "tsup --watch",
+    "lint": "eslint .",
+    "check-types": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@copilotkitnext/eslint-config": "workspace:*",
+    "@copilotkitnext/typescript-config": "workspace:*",
+    "@types/node": "^22.15.3",
+    "eslint": "^9.30.0",
+    "tsup": "^8.5.0",
+    "typescript": "5.8.2"
+  },
+  "dependencies": {
+    "@ag-ui/client": "0.0.42",
+    "uuid": "^11.1.0",
+    "partial-json": "^0.1.7"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
