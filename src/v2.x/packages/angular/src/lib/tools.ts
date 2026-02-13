@@ -105,7 +105,7 @@ export function registerFrontendTool<Args extends Record<string, unknown> = Reco
   });
 
   destroyRef.onDestroy(() => {
-    copilotKit.removeTool(frontendTool.name);
+    copilotKit.removeTool(frontendTool.name, frontendTool.agentId);
   });
 }
 
@@ -118,6 +118,6 @@ export function registerHumanInTheLoop<Args extends Record<string, unknown> = Re
   copilotKit.addHumanInTheLoop(humanInTheLoop);
 
   destroyRef.onDestroy(() => {
-    copilotKit.removeTool(humanInTheLoop.name);
+    copilotKit.removeTool(humanInTheLoop.name, humanInTheLoop.agentId);
   });
 }
