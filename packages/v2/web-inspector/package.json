@@ -2,13 +2,18 @@
   "name": "@copilotkitnext/web-inspector",
   "version": "1.51.4-next.7",
   "description": "Lit-based web component for the CopilotKit web inspector",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "main": "dist/index.cjs",
+  "types": "dist/index.d.cts",
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.mjs",
-      "require": "./dist/index.js"
+      "import": {
+        "types": "./dist/index.d.mts",
+        "default": "./dist/index.mjs"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
     }
   },
   "unpkg": "./dist/index.umd.js",
@@ -17,11 +22,10 @@
     "access": "public"
   },
   "scripts": {
-    "build": "pnpm run build:ts && rollup -c rollup.config.mjs && pnpm run build:css",
-    "build:ts": "tsup",
-    "build:css": "npx @tailwindcss/cli -i ./src/styles/tailwind.css -o ./src/styles/generated.css -m",
-    "dev": "pnpm run build:css && concurrently \"pnpm run dev:css\" \"tsup --watch\"",
-    "dev:css": "npx @tailwindcss/cli -i ./src/styles/tailwind.css -o ./src/styles/generated.css --watch --minify",
+    "build": "tsdown && pnpm run build:css",
+    "build:css": "tailwindcss -i ./src/styles/tailwind.css -o ./src/styles/generated.css -m",
+    "dev": "pnpm run build:css && concurrently \"pnpm run dev:css\" \"tsdown --watch\"",
+    "dev:css": "tailwindcss -i ./src/styles/tailwind.css -o ./src/styles/generated.css --watch --minify",
     "lint": "eslint .",
     "check-types": "pnpm run build:css && tsc --noEmit",
     "test": "pnpm run build:css && vitest run"
@@ -41,7 +45,7 @@
     "concurrently": "^9.1.0",
     "eslint": "^9.30.0",
     "tailwindcss": "^4.0.8",
-    "tsup": "^8.5.0",
+    "tsdown": "^0.20.3",
     "typescript": "5.8.2",
     "vitest": "^3.0.5"
   },

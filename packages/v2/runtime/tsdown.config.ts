@@ -1,11 +1,11 @@
-import { defineConfig } from "tsup";
+import { defineConfig } from "tsdown";
 
 const isWatch = process.argv.includes("--watch");
 
 export default defineConfig({
   entry: ["src/index.ts", "src/express.ts"],
-  format: ["cjs", "esm"],
-  dts: isWatch ? false : true,
+  format: ["esm", "cjs"],
+  dts: !isWatch,
   sourcemap: true,
   clean: !isWatch,
   target: "es2022",

@@ -2,13 +2,18 @@
   "name": "@copilotkitnext/shared",
   "version": "1.51.4-next.7",
   "description": "Shared utilities and types for CopilotKit2",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "main": "dist/index.cjs",
+  "types": "dist/index.d.cts",
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.mjs",
-      "require": "./dist/index.js"
+      "import": {
+        "types": "./dist/index.d.mts",
+        "default": "./dist/index.mjs"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
     }
   },
   "unpkg": "./dist/index.umd.js",
@@ -17,8 +22,8 @@
     "access": "public"
   },
   "scripts": {
-    "build": "tsup && rollup -c rollup.config.mjs",
-    "dev": "tsup --watch",
+    "build": "tsdown",
+    "dev": "tsdown --watch",
     "lint": "eslint .",
     "check-types": "tsc --noEmit"
   },
@@ -27,7 +32,7 @@
     "@copilotkitnext/typescript-config": "workspace:*",
     "@types/node": "^22.15.3",
     "eslint": "^9.30.0",
-    "tsup": "^8.5.0",
+    "tsdown": "^0.20.3",
     "typescript": "5.8.2"
   },
   "dependencies": {

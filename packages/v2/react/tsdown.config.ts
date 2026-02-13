@@ -1,0 +1,52 @@
+import { defineConfig } from "tsdown";
+
+const isWatch = process.argv.includes("--watch");
+
+export default defineConfig([
+  {
+    entry: ["src/index.ts"],
+    format: ["esm", "cjs"],
+    dts: !isWatch,
+    sourcemap: true,
+    clean: !isWatch,
+    target: "es2022",
+    outDir: "dist",
+    external: ["react", "react-dom"],
+    alias: {
+      "@": "./src",
+    },
+  },
+  {
+    entry: ["src/index.ts"],
+    format: ["umd"],
+    globalName: "CopilotKitNextReact",
+    sourcemap: true,
+    target: "es2018",
+    outDir: "dist",
+    external: [
+      "react",
+      "react-dom",
+      "@copilotkitnext/core",
+      "@copilotkitnext/shared",
+      "@copilotkitnext/web-inspector",
+      "@ag-ui/client",
+      "@ag-ui/core",
+      "zod",
+    ],
+    codeSplitting: false,
+    outputOptions(options) {
+      options.entryFileNames = "[name].umd.js";
+      options.globals = {
+        react: "React",
+        "react-dom": "ReactDOM",
+        "@copilotkitnext/core": "CopilotKitNextCore",
+        "@copilotkitnext/shared": "CopilotKitNextShared",
+        "@copilotkitnext/web-inspector": "CopilotKitNextWebInspector",
+        "@ag-ui/client": "AgUIClient",
+        "@ag-ui/core": "AgUICore",
+        zod: "Zod",
+      };
+      return options;
+    },
+  },
+]);
