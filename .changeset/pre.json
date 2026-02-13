@@ -40,7 +40,9 @@
     "@copilotkitnext/sqlite-runner": "1.51.3",
     "@copilotkitnext/typescript-config": "1.51.3",
     "@copilotkit/voice": "1.51.3",
-    "@copilotkitnext/web-inspector": "1.51.3"
+    "@copilotkitnext/web-inspector": "1.51.3",
+    "@copilotkitnext/next-pages-router": "0.0.0",
+    "@copilotkitnext/node-express": "0.0.0"
   },
   "changesets": [
     "brave-cats-dance",
@@ -49,6 +51,7 @@
     "forty-papayas-smash",
     "happy-hounds-study",
     "lucky-flies-scream",
+    "stale-walls-jump",
     "stale-walls-move",
     "three-ads-wait",
     "warm-flowers-sort"
