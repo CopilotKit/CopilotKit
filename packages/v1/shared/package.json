@@ -28,7 +28,8 @@
   "scripts": {
     "build": "tsdown",
     "dev": "tsdown --watch",
-    "test": "jest --passWithNoTests",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "check-types": "tsc --noEmit",
     "link:global": "pnpm link --global",
     "unlink:global": "pnpm unlink --global",
@@ -36,15 +37,13 @@
     "attw": "attw --pack . --profile node16"
   },
   "devDependencies": {
-    "@types/jest": "^29.5.4",
     "@types/uuid": "^10.0.0",
     "eslint": "^8.56.0",
     "eslint-config-custom": "workspace:*",
-    "jest": "^29.6.4",
-    "ts-jest": "^29.1.1",
     "tsconfig": "workspace:*",
     "tsdown": "^0.20.3",
     "typescript": "^5.2.3",
+    "vitest": "^3.2.4",
     "zod-to-json-schema": "^3.23.5"
   },
   "dependencies": {

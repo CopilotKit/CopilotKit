@@ -1,9 +1,3 @@
-/**
- * @jest-environment node
- */
-
-import { describe, it, expect } from "@jest/globals";
-
 describe("OpenAI Adapter - Allowlist Approach", () => {
   it("should filter out tool_result messages with no corresponding tool_call ID", () => {
     // Setup test data

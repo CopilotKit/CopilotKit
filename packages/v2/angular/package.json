@@ -65,7 +65,7 @@
     "@tailwindcss/typography": "^0.5.16",
     "@types/katex": "^0.16.7",
     "@types/node": "^22.5.1",
-    "@vitest/ui": "^2.0.5",
+    "@vitest/ui": "^3.2.4",
     "autoprefixer": "^10.4.16",
     "concurrently": "^9.1.0",
     "jsdom": "^24.0.0",
@@ -80,7 +80,7 @@
     "typescript": "~5.4.5",
     "typescript-eslint": "^8.35.0",
     "vite": "^7.1.4",
-    "vitest": "^2.0.5",
+    "vitest": "^3.2.4",
     "zone.js": "^0.14.0"
   },
   "publishConfig": {

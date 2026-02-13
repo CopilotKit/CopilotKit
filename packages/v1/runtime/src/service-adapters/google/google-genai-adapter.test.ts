@@ -1,22 +1,65 @@
-import { GoogleGenerativeAIAdapter } from "./google-genai-adapter";
 import {
   AIMessage,
   HumanMessage,
   SystemMessage,
 } from "@langchain/core/messages";
+import * as langchainMessages from "@langchain/core/messages";
 
-// Mock ChatGoogle to capture what messages are passed to it
-jest.mock("@langchain/google-gauth", () => ({
-  ChatGoogle: jest.fn().mockImplementation(() => ({
-    bindTools: jest.fn().mockReturnThis(),
-    stream: jest.fn().mockImplementation((messages) => {
-      // Return the messages so we can verify filtering
-      return Promise.resolve({ filteredMessages: messages });
-    }),
-  })),
-}));
+// Create mock ChatGoogle that captures the filtered messages passed to stream()
+const mockStream = vi.fn();
+const mockBindTools = vi.fn();
+const MockChatGoogle = vi.fn();
+
+// The adapter's chainFn uses lazy require() calls for @langchain/google-gauth
+// and @langchain/core/messages. Vitest's vi.mock cannot intercept CJS require()
+// calls in all environments. Instead, inject mocks directly into Node's require
+// cache so that:
+// 1. require("@langchain/google-gauth") returns our mock ChatGoogle
+// 2. require("@langchain/core/messages") returns the same module instance as
+//    the ESM import above, ensuring instanceof checks work correctly
+beforeAll(() => {
+  mockStream.mockImplementation((messages: any) =>
+    Promise.resolve({ filteredMessages: messages }),
+  );
+  mockBindTools.mockReturnValue({ stream: mockStream });
+  MockChatGoogle.mockImplementation(() => ({ bindTools: mockBindTools }));
+
+  const googleAuthPath = require.resolve("@langchain/google-gauth");
+  require.cache[googleAuthPath] = {
+    id: googleAuthPath,
+    filename: googleAuthPath,
+    loaded: true,
+    exports: { ChatGoogle: MockChatGoogle },
+  } as any;
+
+  const messagesPath = require.resolve("@langchain/core/messages");
+  require.cache[messagesPath] = {
+    id: messagesPath,
+    filename: messagesPath,
+    loaded: true,
+    exports: langchainMessages,
+  } as any;
+});
+
+afterAll(() => {
+  const googleAuthPath = require.resolve("@langchain/google-gauth");
+  delete require.cache[googleAuthPath];
+  const messagesPath = require.resolve("@langchain/core/messages");
+  delete require.cache[messagesPath];
+});
+
+import { GoogleGenerativeAIAdapter } from "./google-genai-adapter";
 
 describe("GoogleGenerativeAIAdapter", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockStream.mockImplementation((messages: any) =>
+      Promise.resolve({ filteredMessages: messages }),
+    );
+    mockBindTools.mockReturnValue({ stream: mockStream });
+    MockChatGoogle.mockImplementation(() => ({ bindTools: mockBindTools }));
+  });
+
   it("should filter out empty AIMessages to prevent Gemini validation errors", async () => {
     const adapter = new GoogleGenerativeAIAdapter();
 

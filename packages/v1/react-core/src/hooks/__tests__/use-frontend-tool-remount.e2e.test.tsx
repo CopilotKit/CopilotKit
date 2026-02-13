@@ -1,14 +1,16 @@
+import { vi } from "vitest";
 import React, { useEffect } from "react";
 import { render, waitFor } from "@testing-library/react";
 import { ToolCallStatus } from "@copilotkitnext/core";
 import { useFrontendTool } from "../use-frontend-tool";
+import * as copilotkitNextReact from "@copilotkitnext/react";
 
-jest.mock("@copilotkitnext/react", () => {
+vi.mock("@copilotkitnext/react", () => {
   let currentRender: any = null;
   const listeners = new Set<() => void>();
 
   return {
-    useFrontendTool: jest.fn((tool: { render?: any }) => {
+    useFrontendTool: vi.fn((tool: { render?: any }) => {
       React.useEffect(() => {
         currentRender = tool.render ?? null;
         listeners.forEach((listener) => listener());
@@ -22,7 +24,7 @@ jest.mock("@copilotkitnext/react", () => {
   };
 });
 
-const toolRenderModule = jest.requireMock("@copilotkitnext/react") as {
+const toolRenderModule = copilotkitNextReact as unknown as {
   __getCurrentRender: () => any;
   __subscribeRender: (listener: () => void) => () => void;
 };
@@ -53,8 +55,8 @@ function RunActionButton({
   onMount,
   onUnmount,
 }: {
-  onMount: jest.Mock;
-  onUnmount: jest.Mock;
+  onMount: () => void;
+  onUnmount: () => void;
 }) {
   useEffect(() => {
     onMount();
@@ -66,8 +68,8 @@ function RunActionButton({
 
 describe("useFrontendTool dependency changes", () => {
   it("should not remount rendered tool UI when deps change", async () => {
-    const mounted = jest.fn();
-    const unmounted = jest.fn();
+    const mounted = vi.fn();
+    const unmounted = vi.fn();
 
     const ToolUser = ({ version }: { version: number }) => {
       useFrontendTool(

@@ -33,7 +33,8 @@
   "scripts": {
     "build": "pnpm run generate-graphql-schema && tsdown",
     "dev": "tsdown --watch",
-    "test": "jest --passWithNoTests",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "check-types": "tsc --noEmit",
     "generate-graphql-schema": "rm -rf __snapshots__ && ts-node ./scripts/generate-gql-schema.ts",
     "link:global": "pnpm link --global",
@@ -42,16 +43,12 @@
     "attw": "attw --pack . --profile node16"
   },
   "devDependencies": {
-    "@jest/globals": "^29.7.0",
     "@swc/core": "1.5.28",
-    "@types/jest": "^29.5.12",
     "@types/node": "^18.11.17",
     "@whatwg-node/server": "^0.9.34",
     "eslint": "^8.56.0",
     "eslint-config-custom": "workspace:*",
-    "jest": "^29.6.4",
     "nodemon": "^3.1.3",
-    "ts-jest": "^29.1.1",
     "ts-node": "^10.9.2",
     "tsconfig": "workspace:*",
     "tsdown": "^0.20.3",
