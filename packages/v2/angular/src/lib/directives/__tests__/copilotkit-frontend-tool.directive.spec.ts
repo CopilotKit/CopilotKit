@@ -77,7 +77,10 @@ describe("tool registration helpers", () => {
     expect(handler).toHaveBeenCalled();
 
     fixture.destroy();
-    expect(copilotKitStub.removeTool).toHaveBeenCalledWith("client-tool", undefined);
+    expect(copilotKitStub.removeTool).toHaveBeenCalledWith(
+      "client-tool",
+      undefined,
+    );
   });
 
   it("registers human-in-the-loop tools and removes them on destroy", () => {
@@ -103,6 +106,9 @@ describe("tool registration helpers", () => {
     );
 
     fixture.destroy();
-    expect(copilotKitStub.removeTool).toHaveBeenCalledWith("approval", undefined);
+    expect(copilotKitStub.removeTool).toHaveBeenCalledWith(
+      "approval",
+      undefined,
+    );
   });
 });

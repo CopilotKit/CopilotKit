@@ -10,7 +10,9 @@ class CopilotKitCoreStub {
   removeContext = vi.fn<(id: string) => void>();
 
   constructor() {
-    this.addContext.mockImplementation(() => `ctx-${this.addContext.mock.calls.length}`);
+    this.addContext.mockImplementation(
+      () => `ctx-${this.addContext.mock.calls.length}`,
+    );
   }
 }
 
@@ -72,6 +74,8 @@ describe("connectAgentContext", () => {
   });
 
   it("throws when used outside of an injection context", () => {
-    expect(() => connectAgentContext({ description: "missing", value: "0" })).toThrow(/NG0203/);
+    expect(() =>
+      connectAgentContext({ description: "missing", value: "0" }),
+    ).toThrow(/NG0203/);
   });
 });

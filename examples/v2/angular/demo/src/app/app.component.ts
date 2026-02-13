@@ -8,9 +8,17 @@ import { CoPilotPortComponent } from "./routes/ukg-port/co-pilot-port.component"
 @Component({
   selector: "app-root",
   standalone: true,
-  imports: [CommonModule, HeadlessChatComponent, CustomInputChatComponent, DefaultChatComponent, CoPilotPortComponent],
+  imports: [
+    CommonModule,
+    HeadlessChatComponent,
+    CustomInputChatComponent,
+    DefaultChatComponent,
+    CoPilotPortComponent,
+  ],
   template: `
-    <div style="height: 100vh; width: 100vw; margin: 0; padding: 0; overflow: hidden; display: block;">
+    <div
+      style="height: 100vh; width: 100vw; margin: 0; padding: 0; overflow: hidden; display: block;"
+    >
       <ng-container *ngIf="isHeadless">
         <headless-chat></headless-chat>
       </ng-container>
@@ -27,7 +35,13 @@ import { CoPilotPortComponent } from "./routes/ukg-port/co-pilot-port.component"
   `,
 })
 export class AppComponent {
-  isHeadless = typeof window !== "undefined" && window.location?.pathname.startsWith("/headless");
-  isCustomInput = typeof window !== "undefined" && window.location?.pathname.startsWith("/custom-input");
-  isUkgPort = typeof window !== "undefined" && window.location?.pathname.startsWith("/ukg-port");
+  isHeadless =
+    typeof window !== "undefined" &&
+    window.location?.pathname.startsWith("/headless");
+  isCustomInput =
+    typeof window !== "undefined" &&
+    window.location?.pathname.startsWith("/custom-input");
+  isUkgPort =
+    typeof window !== "undefined" &&
+    window.location?.pathname.startsWith("/ukg-port");
 }
