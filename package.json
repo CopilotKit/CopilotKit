@@ -11,6 +11,8 @@
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
     "check-prettier": "prettier --check \"**/*.{ts,tsx,md}\"",
     "test": "nx run-many -t test",
+    "test:classic": "nx run-many -t test --projects=packages/v1/**,@copilotkit/voice",
+    "test:next": "nx run-many -t test --projects=packages/v2/**",
     "test:watch": "pnpm run test && nx watch --all -- pnpm run test",
     "test:watch:classic": "nx run-many -t test --projects=packages/v1/**,@copilotkit/voice && nx watch --projects=packages/v1/**,@copilotkit/voice -- nx run-many -t test --projects=packages/v1/**,@copilotkit/voice",
     "test:watch:next": "nx run-many -t test --projects=packages/v2/** && nx watch --projects=packages/v2/** -- nx run-many -t test --projects=packages/v2/**",
