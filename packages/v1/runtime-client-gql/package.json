@@ -9,7 +9,6 @@
   "publishConfig": {
     "access": "public"
   },
-  "type": "module",
   "version": "1.51.4-next.7",
   "sideEffects": false,
   "main": "./dist/index.cjs",
