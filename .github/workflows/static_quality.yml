@@ -103,4 +103,4 @@ jobs:
         run: pnpm run build
 
       - name: Run publint and attw
-        run: pnpm run check:package
+        run: pnpm run check:packages
