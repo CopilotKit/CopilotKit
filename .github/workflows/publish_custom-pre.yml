@@ -21,7 +21,6 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v6
 
-
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
@@ -34,7 +33,7 @@ jobs:
         run: pnpm i
 
       - name: Build
-        run: pnpm run build:packages
+        run: pnpm run build
 
       - name: Publish snapshot
         run: ./scripts/release/publish-snapshot-release.sh
