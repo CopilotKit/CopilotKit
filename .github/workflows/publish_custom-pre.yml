@@ -34,9 +34,9 @@ jobs:
         run: pnpm i
 
       - name: Build
-        run: pnpm run build
+        run: pnpm run build:packages
 
       - name: Publish snapshot
-        run: ./src/v1.x/scripts/release/publish-snapshot-release.sh
+        run: ./scripts/release/publish-snapshot-release.sh
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}

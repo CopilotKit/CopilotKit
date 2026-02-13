@@ -24,35 +24,42 @@ export function PostHogProvider({ children }: { children: React.ReactNode }) {
 
   // Initialize PostHog once (only on mount)
   useEffect(() => {
-    if (POSTHOG_KEY && POSTHOG_HOST && !posthog?.__loaded && !isInitializedRef.current) {
+    if (
+      POSTHOG_KEY &&
+      POSTHOG_HOST &&
+      !posthog?.__loaded &&
+      !isInitializedRef.current
+    ) {
       isInitializedRef.current = true;
-      
+
       // Read sessionId from URL at initialization time
-      const params = typeof window !== "undefined" 
-        ? new URLSearchParams(window.location.search)
-        : null;
+      const params =
+        typeof window !== "undefined"
+          ? new URLSearchParams(window.location.search)
+          : null;
       const initSessionId = params?.get("session_id") ?? sessionId;
 
       // Suppress all PostHog-related console errors and warnings
       const originalError = console.error;
       const originalWarn = console.warn;
       const originalLog = console.log;
-      
+
       const suppressPostHogErrors = () => {
         console.error = (...args: any[]) => {
           const errorString = args.join(" ");
-          const isPostHogError = 
-            errorString.includes("posthog") || 
+          const isPostHogError =
+            errorString.includes("posthog") ||
             errorString.includes("PostHog") ||
             errorString.includes("request.ts") ||
             errorString.includes("posthog-core.ts") ||
             errorString.includes("ERR_BLOCKED_BY_CONTENT_BLOCKER") ||
-            args.some(arg => 
-              typeof arg === "string" && arg.includes("posthog") ||
-              arg?.stack?.includes("posthog") ||
-              arg?.message?.includes("posthog")
+            args.some(
+              (arg) =>
+                (typeof arg === "string" && arg.includes("posthog")) ||
+                arg?.stack?.includes("posthog") ||
+                arg?.message?.includes("posthog"),
             );
-          
+
           if (isPostHogError) {
             // Suppress in production, log as warning in development
             if (process.env.NODE_ENV === "development") {
@@ -65,11 +72,11 @@ export function PostHogProvider({ children }: { children: React.ReactNode }) {
 
         console.warn = (...args: any[]) => {
           const warnString = args.join(" ");
-          const isPostHogWarn = 
-            warnString.includes("posthog") || 
+          const isPostHogWarn =
+            warnString.includes("posthog") ||
             warnString.includes("PostHog") ||
             warnString.includes("[PostHog.js]");
-          
+
           if (isPostHogWarn) {
             // Suppress in production, log in development
             if (process.env.NODE_ENV === "development") {
@@ -84,13 +91,15 @@ export function PostHogProvider({ children }: { children: React.ReactNode }) {
       try {
         // Suppress PostHog errors permanently (they're just noise from ad blockers)
         suppressPostHogErrors();
-        
+
         posthog.init(POSTHOG_KEY, {
           api_host: POSTHOG_HOST,
           person_profiles: "identified_only",
-          bootstrap: initSessionId ? {
-            sessionID: initSessionId,
-          } : undefined,
+          bootstrap: initSessionId
+            ? {
+                sessionID: initSessionId,
+              }
+            : undefined,
           // Disable automatic pageview capture (we do it manually)
           capture_pageview: false,
           // Reduce network requests by batching

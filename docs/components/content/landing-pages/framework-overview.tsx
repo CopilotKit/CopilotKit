@@ -117,7 +117,10 @@ export function FrameworkOverview({
           <div className="flex flex-wrap lg:flex-nowrap justify-center gap-3 sm:gap-4 px-4">
             {/* Quickstart and View Features stay together on small screens */}
             <div className="flex gap-3 sm:gap-4 w-full lg:w-auto lg:contents">
-              <Link href={guideLink} className="flex-1 lg:flex-none lg:w-auto lg:order-1">
+              <Link
+                href={guideLink}
+                className="flex-1 lg:flex-none lg:w-auto lg:order-1"
+              >
                 <Button
                   size="lg"
                   variant="outline"

@@ -4,7 +4,7 @@ interface SparkIconProps {
   className?: string;
 }
 
-const DEFAULT_CLASSNAME = "text-icon"
+const DEFAULT_CLASSNAME = "text-icon";
 
 const SparkIcon = ({ className }: SparkIconProps) => (
   <svg
@@ -26,5 +26,5 @@ const SparkIcon = ({ className }: SparkIconProps) => (
       </clipPath>
     </defs>
   </svg>
-)
-export default SparkIcon
+);
+export default SparkIcon;

@@ -1,13 +1,13 @@
-import React from "react"
-import { cn } from "@/lib/utils"
+import React from "react";
+import { cn } from "@/lib/utils";
 
 interface PydanticAiIconProps {
-  className?: string
-  width?: number
-  height?: number
+  className?: string;
+  width?: number;
+  height?: number;
 }
 
-const DEFAULT_CLASSNAME = "text-icon"
+const DEFAULT_CLASSNAME = "text-icon";
 
 const PydanticAiIcon = ({
   className,
@@ -28,8 +28,7 @@ const PydanticAiIcon = ({
         fill="currentColor"
       />
     </svg>
-  )
-}
+  );
+};
 
-export default PydanticAiIcon
-
+export default PydanticAiIcon;

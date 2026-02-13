@@ -43,4 +43,3 @@ Include a screenshot of your demo in action:
 ### 🙋‍♂️ **List your repo here**
 
 Please list your GitHub project link.
-
