@@ -1,0 +1,157 @@
+---
+title: Human-in-the-Loop
+icon: "lucide/Wrench"
+description: Create frontend tools and use them within your AG2 agent for human-in-the-loop interactions.
+---
+<video
+  src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/human-in-the-loop-example.mp4"
+  className="rounded-lg shadow-xl"
+  loop
+  playsInline
+  controls
+  autoPlay
+  muted
+/>
+<Callout>
+  This video shows the result of `npx copilotkit@latest init` with the [implementation](#implementation) section applied to it.
+</Callout>
+
+## What is this?
+
+Frontend tools enable you to define client-side functions that your AG2 agent can invoke, with execution happening entirely in the user's browser. When your agent calls a frontend tool,
+the logic runs on the client side, giving you direct access to the frontend environment.
+
+This can be utilized to let [your agent control the UI](/ag2/frontend-actions), [generative UI](/ag2/generative-ui/frontend-tools), or for Human-in-the-loop interactions.
+
+In this guide, we cover the use of frontend tools for Human-in-the-loop.
+
+<Callout type="info">
+  CopilotKit consumes AG-UI protocol events streamed by AG2 over <code>/chat</code>. See the <a href="https://docs.ag2.ai/latest/docs/user-guide/ag-ui/" target="_blank">AG2 AG-UI integration docs</a>.
+</Callout>
+
+## When should I use this?
+
+Use frontend tools when you need your agent to interact with client-side primitives such as:
+- Reading or modifying React component state
+- Accessing browser APIs like localStorage, sessionStorage, or cookies
+- Triggering UI updates or animations
+- Interacting with third-party frontend libraries
+- Performing actions that require the user's immediate browser context
+
+## Implementation
+
+<Steps>
+    <Step>
+      ### Run and connect your agent
+
+      Start your AG2 backend on a `/chat` endpoint and connect your frontend to it with CopilotKit.
+    </Step>
+
+    <Step>
+        ### Create a frontend human-in-the-loop tool
+
+        Frontend tools can be leveraged in a variety of ways. One of those ways is to have a human-in-the-loop flow where the response
+        of the tool is gated by a user's decision.
+
+        In this example we will simulate an "approval" flow for executing a command. First, use the `useHumanInTheLoop` hook to create a tool that
+        prompts the user for approval.
+
+        ```tsx title="page.tsx"
+        import { useHumanInTheLoop } from "@copilotkit/react-core" // [!code highlight]
+
+        export function Page() {
+          // ...
+
+          useHumanInTheLoop({
+            name: "offerOptions",
+            description: "Give the user a choice between two options and have them select one.",
+            parameters: [
+              {
+                name: "option_1",
+                type: "string",
+                description: "The first option",
+                required: true,
+              },
+              {
+                name: "option_2",
+                type: "string",
+                description: "The second option",
+                required: true,
+              },
+            ],
+            render: ({ args, respond }) => {
+              if (!respond) return <></>;
+              return (
+                <div>
+                  {/* [!code highlight:2] */}
+                  <button onClick={() => respond(`${args.option_1} was selected`)}>{args.option_1}</button>
+                  <button onClick={() => respond(`${args.option_2} was selected`)}>{args.option_2}</button>
+                </div>
+              );
+            },
+          });
+
+          // ...
+        }
+        ```
+    </Step>
+    <Step>
+        ###  Set up your AG2 backend
+
+        The frontend tool emits AG-UI tool events. AG2 can consume those events, then persist the user decision to shared state:
+
+        ```python title="agent.py"
+        from typing import Annotated
+
+        from ag_ui.core import EventType, StateSnapshotEvent
+        from fastapi import FastAPI, Header
+        from fastapi.responses import StreamingResponse
+        from autogen import ContextVariables, ConversableAgent, LLMConfig
+        from autogen.ag_ui import AGUIStream, RunAgentInput
+
+        agent = ConversableAgent(
+            name="assistant",
+            system_message=(
+                "When you need the user to choose, call the frontend tool `offerOptions`. "
+                "After it returns, call `store_user_choice` with the selected value."
+            ),
+            llm_config=LLMConfig({"model": "gpt-4o-mini"}),
+        )
+
+        @agent.register_for_llm(description="Store the latest user choice in shared state.")
+        def store_user_choice(
+            context: ContextVariables,
+            choice: Annotated[str, "The option selected by the user"],
+        ) -> StateSnapshotEvent:
+            snapshot = {"hitl": {"latest_choice": choice}}
+            context["hitl"] = snapshot["hitl"]
+            return StateSnapshotEvent(type=EventType.STATE_SNAPSHOT, snapshot=snapshot)
+
+        agent.register_for_execution(name="store_user_choice")(store_user_choice)
+
+        stream = AGUIStream(agent)
+        app = FastAPI()
+
+        @app.post("/chat")
+        async def run_agent(
+            message: RunAgentInput,
+            accept: str | None = Header(None),
+        ):
+            return StreamingResponse(
+                stream.dispatch(message, accept=accept),
+                media_type=accept or "text/event-stream",
+            )
+        ```
+
+        The frontend tools are automatically populated by CopilotKit through the AG-UI protocol and are available to your AG2 backend.
+    </Step>
+    <Step>
+        ### Try it out
+
+        You've now given your agent the ability to show the user two options and have them select one. The agent will then be aware of the user's choice and can use it in subsequent steps.
+
+        ```
+        Can you show me two good options for a restaurant name?
+        ```
+    </Step>
+</Steps>

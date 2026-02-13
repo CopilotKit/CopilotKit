@@ -1,0 +1,127 @@
+---
+title: Backend Tools
+icon: "lucide/Server"
+description: Render your agent's tool calls with custom UI components.
+---
+import DefaultToolRendering from "@/snippets/shared/guides/default-tool-rendering.mdx";
+
+## What is this?
+
+Tools are a way for the LLM to call predefined, typically, deterministic functions. CopilotKit allows you to render these tools in the UI
+as a custom component, which we call **Generative UI**.
+
+<Callout type="info">
+  CopilotKit consumes AG-UI protocol events streamed by AG2 over <code>/chat</code>. See the <a href="https://docs.ag2.ai/latest/docs/user-guide/ag-ui/" target="_blank">AG2 AG-UI integration docs</a>.
+</Callout>
+
+## When should I use this?
+
+Rendering tools in the UI is useful when you want to provide the user with feedback about what your agent is doing, specifically
+when your agent is calling tools. CopilotKit allows you to fully customize how these tools are rendered in the chat.
+
+## Implementation
+
+<Steps>
+<Step>
+### Run and connect your agent
+Start your AG2 backend with a `/chat` endpoint and connect CopilotKit to that endpoint.
+</Step>
+<Step>
+### Give your agent a tool to call
+
+<Tabs groupId="language_ag2_agent_backend_tools" items={['Python']} default="Python" persist>
+    <Tab value="Python">
+        ```python title="agent.py"
+        from typing import Annotated
+
+        from fastapi import FastAPI, Header
+        from fastapi.responses import StreamingResponse
+        from autogen import ConversableAgent, LLMConfig
+        from autogen.ag_ui import AGUIStream, RunAgentInput
+
+        agent = ConversableAgent(
+            name="assistant",
+            system_message="You are a helpful assistant.",
+            llm_config=LLMConfig({"model": "gpt-4o-mini"}),
+        )
+
+        @agent.register_for_llm(
+            description="Get the weather for a given location. Ensure location is fully spelled out."
+        )
+        def get_weather(location: Annotated[str, "Fully spelled out location"]) -> str:
+            return f"The weather in {location} is sunny."
+
+        # Register the same function for execution on this backend process.
+        agent.register_for_execution(name="get_weather")(get_weather)
+
+        stream = AGUIStream(agent)
+        app = FastAPI()
+
+        @app.post("/chat")
+        async def run_agent(
+            message: RunAgentInput,
+            accept: str | None = Header(None),
+        ):
+            return StreamingResponse(
+                stream.dispatch(message, accept=accept),
+                media_type=accept or "text/event-stream",
+            )
+        ```
+    </Tab>
+
+</Tabs>
+</Step>
+<Step>
+### Render the tool call in your frontend
+At this point, your agent will be able to call the `get_weather` tool. Now
+we just need to add a `useRenderToolCall` hook to render the tool call in
+the UI.
+
+<Callout type="info" title="Important">
+  In order to render a tool call in the UI, the name of the action must match the name of the tool.
+</Callout>
+
+```tsx title="app/page.tsx"
+import { useRenderToolCall } from "@copilotkit/react-core"; // [!code highlight]
+// ...
+
+const YourMainContent = () => {
+  // ...
+  // [!code highlight:12]
+  useRenderToolCall({
+    name: "get_weather",
+    render: ({status, args}) => {
+      return (
+        <p className="text-gray-500 mt-2">
+          {status !== "complete" && "Calling weather API..."}
+          {status === "complete" && `Called the weather API for ${args.location}.`}
+        </p>
+      );
+    },
+  });
+  // ...
+}
+```
+
+</Step>
+<Step>
+### Give it a try!
+
+Try asking the agent to get the weather for a location. You should see the custom UI component that we added
+render the tool call and display the arguments that were passed to the tool.
+
+<video
+  src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/tool-based-gen-ui.mp4"
+  className="rounded-lg shadow-xl"
+  loop
+  playsInline
+  controls
+  autoPlay
+  muted
+/>
+</Step>
+</Steps>
+
+## Default Tool Rendering
+
+<DefaultToolRendering components={props.components} />
