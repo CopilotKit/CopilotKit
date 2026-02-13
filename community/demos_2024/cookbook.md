@@ -25,13 +25,14 @@ Recipe Generator (Hacktoberfest Demo)
 - [Repo](https://github.com/RohittCodes/cookbook)
 
 ## Bonus Points
+
 X post: [CookBook](https://x.com/RohittCodes/status/1850148812528169220)
 
 ## Screenshots
+
 ![Cookbook-1](https://github.com/user-attachments/assets/c152ae2b-aa96-421a-b567-8af37a89253d)
 
 ![Cookbook2](https://github.com/user-attachments/assets/4591fc5b-2811-44df-b5cd-b631cdbc4420)
-
 
 ## Who Are You?
 

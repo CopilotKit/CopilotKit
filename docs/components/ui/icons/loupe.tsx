@@ -1,11 +1,11 @@
-import React from "react"
-import { cn } from "@/lib/utils"
+import React from "react";
+import { cn } from "@/lib/utils";
 
 interface LoupeIconProps {
-  className?: string
+  className?: string;
 }
 
-const DEFAULT_CLASSNAME = "text-icon"
+const DEFAULT_CLASSNAME = "text-icon";
 
 const LoupeIcon = ({ className }: LoupeIconProps) => {
   return (
@@ -22,7 +22,7 @@ const LoupeIcon = ({ className }: LoupeIconProps) => {
         fill="currentColor"
       />
     </svg>
-  )
-}
+  );
+};
 
-export default LoupeIcon
+export default LoupeIcon;

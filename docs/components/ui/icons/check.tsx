@@ -1,11 +1,11 @@
-import React from "react"
-import { cn } from "@/lib/utils"
+import React from "react";
+import { cn } from "@/lib/utils";
 
 interface CheckIconProps {
-  className?: string
+  className?: string;
 }
 
-const DEFAULT_CLASSNAME = "text-icon"
+const DEFAULT_CLASSNAME = "text-icon";
 
 const CheckIcon = ({ className }: CheckIconProps) => {
   return (
@@ -22,8 +22,7 @@ const CheckIcon = ({ className }: CheckIconProps) => {
         fill="currentColor"
       />
     </svg>
-  )
-}
+  );
+};
 
-export default CheckIcon
-
+export default CheckIcon;

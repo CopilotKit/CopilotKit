@@ -20,7 +20,7 @@ AI Powered FAQ Bot ( Hacktoberfest Demo )
 ---
 
 ### 🌐 **App Link**
-  
+
 - [MINI-FAQ-BOT Live Demo](https://mini-faq-bot.vercel.app/)
 - [Github Repo](https://github.com/AJBrownson/mini-faq-bot)
 

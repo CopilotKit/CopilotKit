@@ -4,19 +4,21 @@ on:
   push:
     branches: [main]
     paths:
-      - "src/v2.x/**"
+      - "packages/v2/**"
+      - "examples/v2/**"
       - ".github/workflows/test_unit-v2.yml"
   pull_request:
     branches: [main]
     paths:
-      - "src/v2.x/**"
+      - "packages/v2/**"
+      - "examples/v2/**"
       - ".github/workflows/test_unit-v2.yml"
   workflow_dispatch:
     inputs:
       branch:
-        description: 'Branch to run the workflow on'
+        description: "Branch to run the workflow on"
         required: true
-        default: 'main'
+        default: "main"
         type: string
 jobs:
   v2:
@@ -48,7 +50,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Build
-        run: pnpm build
+        run: pnpm run build
 
       - name: Run tests
-        run: pnpm test:next
+        run: pnpm run test:next

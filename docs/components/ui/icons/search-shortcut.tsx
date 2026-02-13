@@ -1,11 +1,11 @@
-import React from "react"
-import { cn } from "@/lib/utils"
+import React from "react";
+import { cn } from "@/lib/utils";
 
 interface SearchShortcutIconProps {
-  className?: string
+  className?: string;
 }
 
-const DEFAULT_CLASSNAME = "text-icon"
+const DEFAULT_CLASSNAME = "text-icon";
 
 const SearchShortcutIcon = ({ className }: SearchShortcutIconProps) => {
   return (
@@ -26,7 +26,7 @@ const SearchShortcutIcon = ({ className }: SearchShortcutIconProps) => {
         fill="currentColor"
       />
     </svg>
-  )
-}
+  );
+};
 
-export default SearchShortcutIcon
+export default SearchShortcutIcon;
