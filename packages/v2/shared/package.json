@@ -20,8 +20,7 @@
     "build": "tsup && rollup -c rollup.config.mjs",
     "dev": "tsup --watch",
     "lint": "eslint .",
-    "check-types": "tsc --noEmit",
-    "clean": "rm -rf dist"
+    "check-types": "tsc --noEmit"
   },
   "devDependencies": {
     "@copilotkitnext/eslint-config": "workspace:*",
