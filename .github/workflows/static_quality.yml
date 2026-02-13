@@ -46,7 +46,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Run Prettier check
-        run: npx turbo run check-prettier
+        run: pnpm run check-prettier
 
   eslint:
     runs-on: ubuntu-latest

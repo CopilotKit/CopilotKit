@@ -1,0 +1,113 @@
+{
+  "$schema": "https://nx.dev/reference/nx-json",
+  "namedInputs": {
+    "default": [
+      "{projectRoot}/**/*",
+      "!{projectRoot}/node_modules/**/*"
+    ],
+    "production": [
+      "default",
+      "!{projectRoot}/**/*.test.*",
+      "!{projectRoot}/**/*.spec.*",
+      "!{projectRoot}/**/__tests__/**"
+    ],
+    "test": [
+      "{projectRoot}/src/**/*.ts",
+      "{projectRoot}/src/**/*.tsx",
+      "{projectRoot}/**/__tests__/**",
+      "{projectRoot}/**/*.test.*",
+      "{projectRoot}/**/*.spec.*"
+    ]
+  },
+  "targetDefaults": {
+    "build": {
+      "dependsOn": [
+        "^build"
+      ],
+      "inputs": [
+        "production",
+        "{projectRoot}/.env*"
+      ],
+      "outputs": [
+        "{projectRoot}/dist/**"
+      ],
+      "cache": true
+    },
+    "dev": {
+      "dependsOn": [
+        "^build"
+      ],
+      "cache": false
+    },
+    "test": {
+      "inputs": [
+        "test"
+      ],
+      "outputs": [
+        "{projectRoot}/coverage/**"
+      ],
+      "cache": true
+    },
+    "test:watch": {
+      "cache": false
+    },
+    "test:coverage": {
+      "inputs": [
+        "test"
+      ],
+      "outputs": [
+        "{projectRoot}/coverage/**"
+      ],
+      "cache": true
+    },
+    "lint": {
+      "dependsOn": [
+        "^lint"
+      ],
+      "cache": true
+    },
+    "check-types": {
+      "dependsOn": [
+        "^build",
+        "^check-types"
+      ],
+      "cache": true
+    },
+    "generate-graphql-schema": {
+      "dependsOn": [
+        "^build"
+      ],
+      "cache": true
+    },
+    "graphql-codegen": {
+      "dependsOn": [
+        "^build"
+      ],
+      "cache": true
+    },
+    "link:global": {
+      "cache": false
+    },
+    "unlink:global": {
+      "cache": false
+    },
+    "build:css": {
+      "cache": true,
+      "outputs": [
+        "{projectRoot}/dist/styles.css",
+        "{projectRoot}/src/styles/generated.css"
+      ]
+    },
+    "storybook:build": {
+      "dependsOn": [
+        "^build"
+      ],
+      "outputs": [
+        "{projectRoot}/storybook-static/**"
+      ],
+      "cache": true
+    }
+  },
+  "parallel": 14,
+  "defaultBase": "main"
+}
