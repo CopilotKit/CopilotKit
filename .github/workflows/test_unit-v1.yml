@@ -57,5 +57,8 @@ jobs:
       - name: Generate GraphQL codegen files
         run: npx nx run @copilotkit/runtime-client-gql:graphql-codegen
 
+      - name: Build
+        run: pnpm run build
+
       - name: Run tests
         run: npm run test:classic
