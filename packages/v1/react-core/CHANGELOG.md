@@ -1,5 +1,15 @@
 # ui
 
+## 1.51.4-next.8
+
+### Patch Changes
+
+- 9bc868d: Frontend tools integration with core in Angular package
+  - @copilotkit/runtime-client-gql@1.51.4-next.8
+  - @copilotkit/shared@1.51.4-next.8
+  - @copilotkitnext/core@1.51.4-next.8
+  - @copilotkitnext/react@1.51.4-next.8
+
 ## 1.51.4-next.7
 
 ### Patch Changes
