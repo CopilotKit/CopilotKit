@@ -3,7 +3,7 @@ import { defineConfig } from "tsdown";
 export default defineConfig([
   {
     entry: ["src/index.ts"],
-    format: ["esm"],
+    format: ["esm", "cjs"],
     dts: true,
     sourcemap: true,
     target: "es2022",
@@ -19,6 +19,7 @@ export default defineConfig([
       ];
       return externalPkgs.some((pkg) => id === pkg || id.startsWith(pkg + "/"));
     },
+    exports: true,
   },
   {
     entry: ["src/index.ts"],

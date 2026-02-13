@@ -11,6 +11,7 @@ export default defineConfig([
     clean: !isWatch,
     target: "es2022",
     outDir: "dist",
+    exports: true,
   },
   {
     entry: ["src/index.ts"],

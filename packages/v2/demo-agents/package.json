@@ -2,9 +2,9 @@
   "name": "@copilotkitnext/demo-agents",
   "version": "1.51.4-next.7",
   "private": true,
-  "main": "dist/index.cjs",
-  "module": "dist/index.mjs",
-  "types": "dist/index.d.cts",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.cts",
   "type": "module",
   "files": [
     "dist"
@@ -30,5 +30,12 @@
     "tsdown": "^0.20.3",
     "typescript": "^5.8.2",
     "vitest": "^2.1.8"
+  },
+  "exports": {
+    ".": {
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.cjs"
+    },
+    "./package.json": "./package.json"
   }
 }

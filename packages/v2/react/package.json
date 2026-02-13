@@ -2,19 +2,14 @@
   "name": "@copilotkitnext/react",
   "version": "1.51.4-next.7",
   "description": "React components for CopilotKit2",
-  "main": "dist/index.cjs",
-  "types": "dist/index.d.cts",
+  "main": "./dist/index.cjs",
+  "types": "./dist/index.d.cts",
   "exports": {
     ".": {
-      "import": {
-        "types": "./dist/index.d.mts",
-        "default": "./dist/index.mjs"
-      },
-      "require": {
-        "types": "./dist/index.d.cts",
-        "default": "./dist/index.cjs"
-      }
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.cjs"
     },
+    "./package.json": "./package.json",
     "./styles.css": "./dist/styles.css"
   },
   "unpkg": "./dist/index.umd.js",
@@ -87,5 +82,6 @@
   },
   "engines": {
     "node": ">=18"
-  }
+  },
+  "module": "./dist/index.mjs"
 }

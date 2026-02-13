@@ -9,6 +9,12 @@ export default defineConfig([
     target: "es2022",
     outDir: "dist",
     external: ["react", "react-dom"],
+    exports: {
+      customExports: (exports) => ({
+        ...exports,
+        "./styles.css": "./dist/index.css",
+      }),
+    },
   },
   {
     entry: ["src/index.tsx"],

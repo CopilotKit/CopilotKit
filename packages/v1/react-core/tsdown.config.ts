@@ -14,6 +14,12 @@ export default defineConfig([
       "@copilotkitnext/core",
       "@copilotkitnext/react",
     ],
+    exports: {
+      customExports: (exports) => ({
+        ...exports,
+        "./v2/styles.css": "./dist/v2/index.css",
+      }),
+    },
   },
   {
     entry: ["src/index.tsx"],

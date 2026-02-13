@@ -15,6 +15,12 @@ export default defineConfig([
     alias: {
       "@": "./src",
     },
+    exports: {
+      customExports: (exports) => ({
+        ...exports,
+        "./styles.css": "./dist/styles.css",
+      }),
+    },
   },
   {
     entry: ["src/index.ts"],

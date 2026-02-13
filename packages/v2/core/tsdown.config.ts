@@ -9,6 +9,7 @@ export default defineConfig([
     target: "es2022",
     outDir: "dist",
     checks: { pluginTimings: false },
+    exports: true,
   },
   {
     entry: ["src/index.ts"],

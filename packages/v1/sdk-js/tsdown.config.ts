@@ -12,4 +12,5 @@ export default defineConfig({
   target: "es2022",
   outDir: "dist",
   exclude: ["**/*.test.ts", "**/*.test.tsx", "**/__tests__/*"],
+  exports: true,
 });

@@ -10,6 +10,7 @@ export default defineConfig([
     outDir: "dist",
     external: ["react", "@graphql-typed-document-node/core"],
     exclude: ["**/*.test.ts", "**/*.test.tsx", "**/__tests__/*"],
+    exports: true,
   },
   {
     entry: ["src/index.ts"],

@@ -23,4 +23,5 @@ export default defineConfig({
   ],
   exclude: ["**/*.test.ts", "**/*.test.tsx", "**/__tests__/*"],
   codeSplitting: false,
+  exports: true,
 });

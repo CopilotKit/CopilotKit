@@ -12,6 +12,7 @@ export default defineConfig([
       ".css": "text",
       ".svg": "dataurl",
     },
+    exports: true,
   },
   {
     entry: ["src/index.ts"],
