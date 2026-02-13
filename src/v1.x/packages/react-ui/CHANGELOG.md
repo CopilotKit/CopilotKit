@@ -1,5 +1,14 @@
 # ui
 
+## 1.51.4-next.7
+
+### Patch Changes
+
+- Updated dependencies [6b7d8ef]
+  - @copilotkit/react-core@1.51.4-next.7
+  - @copilotkit/runtime-client-gql@1.51.4-next.7
+  - @copilotkit/shared@1.51.4-next.7
+
 ## 1.51.4-next.6
 
 ### Patch Changes
