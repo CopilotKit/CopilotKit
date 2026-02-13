@@ -25,6 +25,8 @@ export default defineConfig([
         graphql: "GraphQL",
         uuid: "UUID",
         "@ag-ui/core": "AgUICore",
+        "@segment/analytics-node": "SegmentAnalyticsNode",
+        chalk: "chalk",
       };
       return options;
     },

@@ -35,9 +35,16 @@ export default defineConfig([
       options.globals = {
         react: "React",
         "react-dom": "ReactDOM",
+        "react/jsx-runtime": "ReactJsxRuntime",
         "@copilotkit/react-core": "CopilotKitReactCore",
         "@copilotkit/shared": "CopilotKitShared",
         "@copilotkit/runtime-client-gql": "CopilotKitRuntimeClientGQL",
+        "@headlessui/react": "HeadlessUIReact",
+        "react-markdown": "ReactMarkdown",
+        "react-syntax-highlighter": "ReactSyntaxHighlighter",
+        "remark-gfm": "remarkGfm",
+        "remark-math": "remarkMath",
+        "rehype-raw": "rehypeRaw",
       };
       return options;
     },

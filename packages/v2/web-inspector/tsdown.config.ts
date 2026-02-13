@@ -31,6 +31,11 @@ export default defineConfig([
       options.globals = {
         lit: "Lit",
         "lit/decorators.js": "LitDecorators",
+        "lit/directives/style-map.js": "LitDirectivesStyleMap",
+        "lit/directives/unsafe-html.js": "LitDirectivesUnsafeHtml",
+        marked: "marked",
+        lucide: "lucide",
+        "@copilotkitnext/core": "CopilotKitNextCore",
       };
       return options;
     },

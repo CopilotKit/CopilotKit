@@ -10,4 +10,5 @@ export default defineConfig({
   clean: !isWatch,
   target: "es2022",
   outDir: "dist",
+  checks: { pluginTimings: false },
 });

@@ -8,6 +8,7 @@ export default defineConfig([
     sourcemap: true,
     target: "es2022",
     outDir: "dist",
+    checks: { pluginTimings: false },
   },
   {
     entry: ["src/index.ts"],
@@ -18,10 +19,14 @@ export default defineConfig([
     outDir: "dist",
     external: ["zod"],
     codeSplitting: false,
+    checks: { pluginTimings: false },
     outputOptions(options) {
       options.entryFileNames = "[name].umd.js";
       options.globals = {
         zod: "Zod",
+        uuid: "uuid",
+        "partial-json": "partialJson",
+        "@ag-ui/client": "AgUIClient",
       };
       return options;
     },

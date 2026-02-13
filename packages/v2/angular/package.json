@@ -8,9 +8,7 @@
   "type": "module",
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/fesm2022/copilotkitnext-angular.mjs",
-      "default": "./dist/fesm2022/copilotkitnext-angular.mjs"
+      "import": "./dist/fesm2022/copilotkitnext-angular.mjs"
     },
     "./testing": {
       "types": "./dist/testing/index.d.ts",
@@ -41,14 +39,14 @@
     "marked": "^16.2.0",
     "rxjs": "^7.8.1",
     "tailwind-merge": "^2.6.0",
-    "zod": "^3.22.4"
+    "zod": "^3.22.4",
+    "tslib": "^2.6.0"
   },
   "peerDependencies": {
     "@angular/cdk": "^18.0.0 || ^19.0.0",
     "@angular/common": "^18.0.0 || ^19.0.0",
     "@angular/core": "^18.0.0 || ^19.0.0",
-    "rxjs": "^7.8.0",
-    "tslib": "^2.6.0"
+    "rxjs": "^7.8.0"
   },
   "devDependencies": {
     "@analogjs/vite-plugin-angular": "^1.20.2",

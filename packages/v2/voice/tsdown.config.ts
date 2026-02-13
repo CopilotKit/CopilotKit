@@ -23,6 +23,10 @@ export default defineConfig([
     codeSplitting: false,
     outputOptions(options) {
       options.entryFileNames = "[name].umd.js";
+      options.globals = {
+        "@copilotkitnext/runtime": "CopilotKitNextRuntime",
+        openai: "openai",
+      };
       return options;
     },
   },

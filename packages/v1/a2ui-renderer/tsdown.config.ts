@@ -51,6 +51,8 @@ export default defineConfig([
         "@a2ui/lit": "A2UILit",
         "@a2ui/lit/0.8": "A2UILit",
         zod: "Zod",
+        clsx: "clsx",
+        "markdown-it": "markdownit",
       };
       return options;
     },

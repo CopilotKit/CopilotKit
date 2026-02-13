@@ -38,11 +38,13 @@ export default defineConfig([
       options.globals = {
         react: "React",
         "react-dom": "ReactDOM",
+        "react/jsx-runtime": "ReactJsxRuntime",
         "@copilotkit/shared": "CopilotKitShared",
         "@copilotkit/runtime-client-gql": "CopilotKitRuntimeClientGQL",
         "@copilotkitnext/core": "CopilotKitNextCore",
         "@copilotkitnext/react": "CopilotKitNextReact",
         "@ag-ui/client": "AgUIClient",
+        "react-markdown": "ReactMarkdown",
         zod: "Zod",
       };
       return options;
@@ -71,11 +73,13 @@ export default defineConfig([
       options.globals = {
         react: "React",
         "react-dom": "ReactDOM",
+        "react/jsx-runtime": "ReactJsxRuntime",
         "@copilotkit/shared": "CopilotKitShared",
         "@copilotkit/runtime-client-gql": "CopilotKitRuntimeClientGQL",
         "@copilotkitnext/core": "CopilotKitNextCore",
         "@copilotkitnext/react": "CopilotKitNextReact",
         "@ag-ui/client": "AgUIClient",
+        "react-markdown": "ReactMarkdown",
         zod: "Zod",
       };
       return options;
