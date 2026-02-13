@@ -178,6 +178,8 @@ describe("SqliteAgentRunner", () => {
   });
 
   afterEach(() => {
+    runner.close();
+
     if (fs.existsSync(dbPath)) fs.unlinkSync(dbPath);
     if (fs.existsSync(tempDir)) fs.rmdirSync(tempDir);
   });
@@ -268,7 +270,9 @@ describe("SqliteAgentRunner", () => {
       .prepare(
         "SELECT events FROM agent_runs WHERE thread_id = ? ORDER BY created_at",
       )
-      .all(threadId) as { events: string }[];
+      .all(threadId) as {
+      events: string;
+    }[];
     db.close();
 
     expect(rows).toHaveLength(2);
@@ -370,17 +374,21 @@ describe("SqliteAgentRunner", () => {
     );
 
     const newRunner = new SqliteAgentRunner({ dbPath });
-    const replayed = await firstValueFrom(
-      newRunner.connect({ threadId }).pipe(toArray()),
-    );
+    try {
+      const replayed = await firstValueFrom(
+        newRunner.connect({ threadId }).pipe(toArray()),
+      );
 
-    expect(replayed[0].type).toBe(EventType.RUN_STARTED);
-    expect(replayed.slice(1).map((event) => event.type)).toEqual([
-      EventType.TEXT_MESSAGE_START,
-      EventType.TEXT_MESSAGE_CONTENT,
-      EventType.TEXT_MESSAGE_END,
-      EventType.RUN_FINISHED,
-    ]);
+      expect(replayed[0].type).toBe(EventType.RUN_STARTED);
+      expect(replayed.slice(1).map((event) => event.type)).toEqual([
+        EventType.TEXT_MESSAGE_START,
+        EventType.TEXT_MESSAGE_CONTENT,
+        EventType.TEXT_MESSAGE_END,
+        EventType.RUN_FINISHED,
+      ]);
+    } finally {
+      newRunner.close();
+    }
   });
 
   it("returns false when stopping a thread that is not running", async () => {
