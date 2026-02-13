@@ -11,30 +11,45 @@
   },
   "version": "1.51.4-next.7",
   "sideEffects": false,
-  "main": "./dist/index.js",
+  "main": "./dist/index.cjs",
   "module": "./dist/index.mjs",
   "exports": {
     ".": {
-      "import": "./dist/index.mjs",
-      "require": "./dist/index.js",
-      "types": "./dist/index.d.ts"
+      "import": {
+        "types": "./dist/index.d.mts",
+        "default": "./dist/index.mjs"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
     },
     "./v2": {
-      "import": "./dist/v2/index.mjs",
-      "require": "./dist/v2/index.js",
-      "types": "./dist/v2/index.d.ts"
+      "import": {
+        "types": "./dist/v2/index.d.mts",
+        "default": "./dist/v2/index.mjs"
+      },
+      "require": {
+        "types": "./dist/v2/index.d.cts",
+        "default": "./dist/v2/index.cjs"
+      }
     },
     "./langgraph": {
-      "import": "./dist/langgraph.mjs",
-      "require": "./dist/langgraph.js",
-      "types": "./dist/langgraph.d.ts"
+      "import": {
+        "types": "./dist/langgraph.d.mts",
+        "default": "./dist/langgraph.mjs"
+      },
+      "require": {
+        "types": "./dist/langgraph.d.cts",
+        "default": "./dist/langgraph.cjs"
+      }
     }
   },
-  "types": "./dist/index.d.ts",
+  "types": "./dist/index.d.cts",
   "license": "MIT",
   "scripts": {
-    "build": "pnpm run generate-graphql-schema && tsup",
-    "dev": "tsup --watch --onSuccess \"pnpm run generate-graphql-schema\"",
+    "build": "pnpm run generate-graphql-schema && tsdown",
+    "dev": "tsdown --watch",
     "test": "jest --passWithNoTests",
     "check-types": "tsc --noEmit",
     "generate-graphql-schema": "rm -rf __snapshots__ && ts-node ./scripts/generate-gql-schema.ts",
@@ -54,7 +69,7 @@
     "ts-jest": "^29.1.1",
     "ts-node": "^10.9.2",
     "tsconfig": "workspace:*",
-    "tsup": "^6.7.0",
+    "tsdown": "^0.20.3",
     "typescript": "^5.2.3",
     "vitest": "^3.2.4"
   },

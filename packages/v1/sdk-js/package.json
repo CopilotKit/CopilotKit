@@ -1,6 +1,7 @@
 {
   "name": "@copilotkit/sdk-js",
   "private": false,
+  "type": "module",
   "homepage": "https://github.com/CopilotKit/CopilotKit",
   "repository": {
     "type": "git",
@@ -11,30 +12,45 @@
   },
   "version": "1.51.4-next.7",
   "sideEffects": false,
-  "main": "./dist/index.js",
+  "main": "./dist/index.cjs",
   "module": "./dist/index.mjs",
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "require": "./dist/index.js",
-      "import": "./dist/index.mjs"
+      "import": {
+        "types": "./dist/index.d.mts",
+        "default": "./dist/index.mjs"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
     },
     "./langchain": {
-      "types": "./dist/langchain.d.ts",
-      "require": "./dist/langchain.js",
-      "import": "./dist/langchain.mjs"
+      "import": {
+        "types": "./dist/langchain.d.mts",
+        "default": "./dist/langchain.mjs"
+      },
+      "require": {
+        "types": "./dist/langchain.d.cts",
+        "default": "./dist/langchain.cjs"
+      }
     },
     "./langgraph": {
-      "types": "./dist/langgraph.d.ts",
-      "require": "./dist/langgraph.js",
-      "import": "./dist/langgraph.mjs"
+      "import": {
+        "types": "./dist/langgraph.d.mts",
+        "default": "./dist/langgraph.mjs"
+      },
+      "require": {
+        "types": "./dist/langgraph.d.cts",
+        "default": "./dist/langgraph.cjs"
+      }
     }
   },
-  "types": "./dist/index.d.ts",
+  "types": "./dist/index.d.cts",
   "license": "MIT",
   "scripts": {
-    "build": "tsup --clean",
-    "dev": "tsup --watch --no-splitting",
+    "build": "tsdown",
+    "dev": "tsdown --watch",
     "test": "jest --passWithNoTests",
     "check-types": "tsc --noEmit",
     "link:global": "pnpm link --global",
@@ -59,7 +75,7 @@
     "ts-jest": "^29.1.1",
     "ts-node": "^10.9.2",
     "tsconfig": "workspace:*",
-    "tsup": "^6.7.0",
+    "tsdown": "^0.20.3",
     "typescript": "^5.2.3"
   },
   "peerDependencies": {

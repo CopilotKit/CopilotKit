@@ -1,0 +1,40 @@
+import { defineConfig } from "tsdown";
+
+export default defineConfig([
+  {
+    entry: ["src/index.tsx"],
+    format: ["esm", "cjs"],
+    dts: true,
+    sourcemap: true,
+    target: "es2022",
+    outDir: "dist",
+    external: ["react", "react-dom", "@copilotkitnext/core", "@copilotkitnext/react"],
+  },
+  {
+    entry: ["src/index.tsx"],
+    format: ["umd"],
+    globalName: "CopilotKitReactUI",
+    sourcemap: true,
+    target: "es2018",
+    outDir: "dist",
+    external: [
+      "react",
+      "react-dom",
+      "@copilotkit/react-core",
+      "@copilotkit/shared",
+      "@copilotkit/runtime-client-gql",
+    ],
+    codeSplitting: false,
+    outputOptions(options) {
+      options.entryFileNames = "[name].umd.js";
+      options.globals = {
+        react: "React",
+        "react-dom": "ReactDOM",
+        "@copilotkit/react-core": "CopilotKitReactCore",
+        "@copilotkit/shared": "CopilotKitShared",
+        "@copilotkit/runtime-client-gql": "CopilotKitRuntimeClientGQL",
+      };
+      return options;
+    },
+  },
+]);

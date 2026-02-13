@@ -9,28 +9,34 @@
   "publishConfig": {
     "access": "public"
   },
+  "type": "module",
   "version": "1.51.4-next.7",
   "sideEffects": [
     "**/*.css"
   ],
-  "main": "./dist/index.js",
+  "main": "./dist/index.cjs",
   "module": "./dist/index.mjs",
   "exports": {
     ".": {
-      "import": "./dist/index.mjs",
-      "require": "./dist/index.js",
-      "types": "./dist/index.d.ts"
+      "import": {
+        "types": "./dist/index.d.mts",
+        "default": "./dist/index.mjs"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
     },
     "./styles.css": "./dist/index.css",
     "./v2/styles.css": "./dist/v2/index.css"
   },
   "unpkg": "./dist/index.umd.js",
   "jsdelivr": "./dist/index.umd.js",
-  "types": "./dist/index.d.ts",
+  "types": "./dist/index.d.cts",
   "license": "MIT",
   "scripts": {
-    "build": "tsup --clean && rollup -c rollup.config.mjs",
-    "dev": "tsup --watch --no-splitting",
+    "build": "tsdown",
+    "dev": "tsdown --watch",
     "test": "jest",
     "check-types": "tsc --noEmit",
     "link:global": "pnpm link --global",
@@ -52,7 +58,7 @@
     "tailwindcss": "^3.3.0",
     "ts-jest": "^29.1.1",
     "tsconfig": "workspace:*",
-    "tsup": "^6.7.0",
+    "tsdown": "^0.20.3",
     "typescript": "^5.2.3"
   },
   "dependencies": {

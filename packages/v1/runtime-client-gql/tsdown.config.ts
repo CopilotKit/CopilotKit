@@ -1,0 +1,43 @@
+import { defineConfig } from "tsdown";
+
+export default defineConfig([
+  {
+    entry: ["src/index.ts"],
+    format: ["esm", "cjs"],
+    dts: true,
+    sourcemap: true,
+    target: "es2022",
+    outDir: "dist",
+    external: ["react"],
+    exclude: ["**/*.test.ts", "**/*.test.tsx", "**/__tests__/*"],
+  },
+  {
+    entry: ["src/index.ts"],
+    format: ["umd"],
+    globalName: "CopilotKitRuntimeClientGQL",
+    sourcemap: true,
+    target: "es2018",
+    outDir: "dist",
+    external: [
+      "react",
+      "@copilotkit/runtime",
+      "@copilotkit/shared",
+      "urql",
+      "@urql/core",
+      "graphql",
+    ],
+    codeSplitting: false,
+    outputOptions(options) {
+      options.entryFileNames = "[name].umd.js";
+      options.globals = {
+        react: "React",
+        "@copilotkit/runtime": "CopilotKitRuntime",
+        "@copilotkit/shared": "CopilotKitShared",
+        urql: "Urql",
+        "@urql/core": "UrqlCore",
+        graphql: "GraphQL",
+      };
+      return options;
+    },
+  },
+]);

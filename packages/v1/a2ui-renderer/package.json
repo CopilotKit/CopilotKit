@@ -13,13 +13,15 @@
     "access": "public"
   },
   "license": "MIT",
-  "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
+  "main": "./dist/index.mjs",
+  "types": "./dist/index.d.mts",
   "type": "module",
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "default": "./dist/index.js"
+      "import": {
+        "types": "./dist/index.d.mts",
+        "default": "./dist/index.mjs"
+      }
     }
   },
   "unpkg": "./dist/index.umd.js",
@@ -29,7 +31,7 @@
   ],
   "scripts": {
     "prepack": "pnpm run build",
-    "build": "tsc -p tsconfig.json && rollup -c rollup.config.mjs",
+    "build": "tsdown",
     "check-types": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -56,6 +58,7 @@
   },
   "devDependencies": {
     "@testing-library/react": "^16.0.0",
+    "tsdown": "^0.20.3",
     "@types/markdown-it": "^14.1.2",
     "@types/react": "^19.2.3",
     "@types/react-dom": "^19.2.3",
