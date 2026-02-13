@@ -1127,7 +1127,8 @@ export class BuiltInAgent extends AbstractAgent {
                 break;
               }
 
-              case "finish": { // Emit run finished event
+              case "finish": {
+                // Emit run finished event
                 const finishedEvent: RunFinishedEvent = {
                   type: EventType.RUN_FINISHED,
                   threadId: input.threadId,
