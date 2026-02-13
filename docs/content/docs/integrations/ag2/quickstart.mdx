@@ -41,58 +41,64 @@ import CopilotUI from "@/snippets/copilot-ui.mdx";
 
 ## Introduction
 
-This quickstart guide shows how to create a simple **Personalized Travel Planner** using AG2 and CopilotKit. In just minutes, you'll build an application that collects user travel preferences and generates custom day-by-day itineraries tailored to their destination, budget, and interests.
+This quickstart guide shows how to build a **Weather Agent** using AG2 and CopilotKit. In just minutes, you'll have a working application where users can ask for real-time weather conditions in any city worldwide — powered by AG2's `AGUIStream` over the AG-UI protocol and rendered with CopilotKit's chat UI.
+
+<Callout type="info">
+  CopilotKit consumes AG-UI protocol events streamed by AG2 over <code>/chat</code>. See the <a href="https://docs.ag2.ai/latest/docs/user-guide/ag-ui/" target="_blank">AG2 AG-UI integration docs</a>.
+</Callout>
+
+## AG2 Bootstrap Template
+
+If you prefer a generated starter instead of cloning the repo, use the CopilotKit bootstrap template and select **AG2** during setup. This wires up an AG2 backend over AG-UI and a ready-to-run frontend.
+
+```bash
+npx copilotkit@latest init
+```
+
+Follow the prompts to pick AG2 and the features you want, then run the install/start commands it prints.
 
 ## Prerequisites
 
 Before you begin, you'll need the following:
 
-- **Python 3.9** or newer for running the AG2 backend
+- **Python 3.10–3.13** for running the AG2 backend
+- <a href="https://docs.astral.sh/uv/getting-started/installation/" target="_blank">uv</a> (for Python dependency management)
 - <a href="https://nodejs.org/en/download" target="_blank">Node.js</a> 18.18.0 or newer (specifically: ^18.18.0 || ^19.8.0 || >= 20.0.0)
-- <a href="https://pnpm.io/installation" target="_blank">pnpm</a> (for package management)
+- <a href="https://pnpm.io/installation" target="_blank">pnpm</a> (for frontend package management)
 - <a href="https://platform.openai.com/api-keys" target="_blank">OpenAI API key</a>
 
 ## Getting started
 
 <Steps>
     <Step>
-        ### Clone the Starter Repository
+        ### Clone the AG2 Samples Repository
 
-        <Tabs groupId="language_ag2_agent" items={["Python"]} persist>
-            <Tab value="Python">
-                ```bash
-                git clone https://github.com/ag2ai/ag2-copilotkit-starter.git
-                cd ag2-copilotkit-starter
-                ```
-            </Tab>
-        </Tabs>
+        ```bash
+        git clone https://github.com/ag2ai/ag2-samples.git
+        cd ag2-samples
+        ```
     </Step>
     <Step>
         ### Set Up the AG2 Backend
 
-        <Callout type="info">
-            We recommend using a virtual environment for your project to keep your packages contained. See <a href="https://docs.python.org/3/library/venv.html" target="_blank">venv</a>.
-        </Callout>
-
-        #### Install the dependencies and set your `OPENAI_API_KEY`:
+        #### Install the dependencies:
 
         ```bash
-        cd agent-py
-        pip install -r requirements.txt
+        uv sync
         ```
 
-        #### Set up your `OPENAI_API_KEY`:
+        #### Set your `OPENAI_API_KEY`:
 
         ```sh
         export OPENAI_API_KEY="your_openai_api_key"
         ```
 
-        #### Launch your AG2 agent:
+        #### Launch the AG2 weather agent:
 
         ```bash
-        uvicorn simple_workflow:app --port 8008 --reload
+        uv run python weather.py
         ```
-        The backend server will start at http://localhost:8008.
+        The backend server will start at http://localhost:8000 and serve the agent at `/weather`.
     </Step>
     <Step>
         ### Set Up the CopilotKit UI
@@ -103,8 +109,8 @@ Before you begin, you'll need the following:
 
         ```bash
         cd ui
-        pnpm i
-        pnpm run dev
+        pnpm install
+        pnpm dev
         ```
 
         The frontend application will start at http://localhost:3000.
@@ -112,22 +118,23 @@ Before you begin, you'll need the following:
     <Step>
         ### 🎉 Talk to your agent!
 
-        Congrats! You've successfully integrated a AG2 Agent chatbot to your application. To start, try asking a few questions to your agent.
+        Congrats! You've successfully integrated an AG2 Agent chatbot into your application. Try asking a few questions:
 
         ```
-        I plan to visit the USA for 4 days on a budget.
-        ```
-
-        ```
-        I want to plan a trip to Paris for 5 days. I have a mid-range budget and I'm interested in art, history, and food.
+        What's the weather in London?
         ```
 
         ```
-        I'd like a luxury weekend in New York with focus on Broadway shows and fine dining.
+        Weather in Tokyo
         ```
 
-        <img src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/ag2/quick-start-1.png" className="rounded-lg shadow-xl"/>
-        <img src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/ag2/quick-start-2.png" className="rounded-lg shadow-xl"/>
+        ```
+        What's the weather here?
+        ```
+
+        <Callout type="info">
+            Asking "What's the weather here?" will use your browser's location if you allow it. If location access is denied, the agent will ask you for a city name instead.
+        </Callout>
     </Step>
 
 </Steps>
@@ -136,7 +143,7 @@ Before you begin, you'll need the following:
 
 ## What's next?
 
-You've now got a simple Personalized Travel Planner running with CopilotKit! This demonstrates how quickly you can build practical AI applications by combining AG2's conversational capabilities with CopilotKit's user interface components.
+You've now got a Weather Agent running with CopilotKit! This demonstrates how quickly you can build practical AI applications by combining AG2's `AGUIStream` with CopilotKit's user interface components.
 
 <Cards>
   <Card
