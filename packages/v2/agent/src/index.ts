@@ -785,9 +785,18 @@ export class BuiltInAgent extends AbstractAgent {
         ) {
           streamTextParams.maxRetries = props.maxRetries;
         }
-        if (props.providerOptions !== undefined && this.canOverride("providerOptions")) {
-          if (typeof props.providerOptions === "object" && props.providerOptions !== null) {
-            streamTextParams.providerOptions = props.providerOptions as Record<string, any>;
+        if (
+          props.providerOptions !== undefined &&
+          this.canOverride("providerOptions")
+        ) {
+          if (
+            typeof props.providerOptions === "object" &&
+            props.providerOptions !== null
+          ) {
+            streamTextParams.providerOptions = props.providerOptions as Record<
+              string,
+              any
+            >;
           }
         }
       }
@@ -943,7 +952,8 @@ export class BuiltInAgent extends AbstractAgent {
                 const reasoningDeltaEvent: ReasoningMessageContentEvent = {
                   type: EventType.REASONING_MESSAGE_CONTENT,
                   messageId: reasoningMessageId,
-                  delta: ("text" in part ? part.text : (part as any).delta) ?? "",
+                  delta:
+                    ("text" in part ? part.text : (part as any).delta) ?? "",
                 };
                 subscriber.next(reasoningDeltaEvent);
                 break;
@@ -1117,8 +1127,7 @@ export class BuiltInAgent extends AbstractAgent {
                 break;
               }
 
-              case "finish": // Emit run finished event
-              {
+              case "finish": { // Emit run finished event
                 const finishedEvent: RunFinishedEvent = {
                   type: EventType.RUN_FINISHED,
                   threadId: input.threadId,

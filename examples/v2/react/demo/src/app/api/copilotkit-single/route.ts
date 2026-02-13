@@ -1,4 +1,8 @@
-import { CopilotRuntime, InMemoryAgentRunner, createCopilotEndpointSingleRoute } from "@copilotkitnext/runtime";
+import {
+  CopilotRuntime,
+  InMemoryAgentRunner,
+  createCopilotEndpointSingleRoute,
+} from "@copilotkitnext/runtime";
 import { TranscriptionServiceOpenAI } from "@copilotkit/voice";
 import { handle } from "hono/vercel";
 import { BuiltInAgent } from "@copilotkitnext/agent";

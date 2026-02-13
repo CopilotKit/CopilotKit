@@ -83,7 +83,9 @@ export function CopilotChatReasoningMessage({
     }
   }, [isStreaming]);
 
-  const label = isStreaming ? "Thinking…" : `Thought for ${formatDuration(elapsed)}`;
+  const label = isStreaming
+    ? "Thinking…"
+    : `Thought for ${formatDuration(elapsed)}`;
 
   const boundHeader = renderSlot(header, CopilotChatReasoningMessage.Header, {
     isOpen,
@@ -93,11 +95,15 @@ export function CopilotChatReasoningMessage({
     onClick: hasContent ? () => setIsOpen((prev) => !prev) : undefined,
   });
 
-  const boundContent = renderSlot(contentView, CopilotChatReasoningMessage.Content, {
-    isStreaming,
-    hasContent,
-    children: message.content,
-  });
+  const boundContent = renderSlot(
+    contentView,
+    CopilotChatReasoningMessage.Content,
+    {
+      isStreaming,
+      hasContent,
+      children: message.content,
+    },
+  );
 
   const boundToggle = renderSlot(toggle, CopilotChatReasoningMessage.Toggle, {
     isOpen,
@@ -155,7 +161,9 @@ export namespace CopilotChatReasoningMessage {
         type="button"
         className={twMerge(
           "inline-flex items-center gap-1 py-1 text-sm text-muted-foreground transition-colors select-none",
-          isExpandable ? "hover:text-foreground cursor-pointer" : "cursor-default",
+          isExpandable
+            ? "hover:text-foreground cursor-pointer"
+            : "cursor-default",
           className,
         )}
         aria-expanded={isExpandable ? isOpen : undefined}
@@ -185,14 +193,22 @@ export namespace CopilotChatReasoningMessage {
       isStreaming?: boolean;
       hasContent?: boolean;
     }
-  > = ({ isStreaming, hasContent, className, children: contentChildren, ...contentProps }) => {
+  > = ({
+    isStreaming,
+    hasContent,
+    className,
+    children: contentChildren,
+    ...contentProps
+  }) => {
     // Don't render the content area at all when there's nothing to show
     if (!hasContent && !isStreaming) return null;
 
     return (
       <div className={twMerge("pb-2 pt-1", className)} {...contentProps}>
         <div className="text-sm text-muted-foreground">
-          <Streamdown>{typeof contentChildren === "string" ? contentChildren : ""}</Streamdown>
+          <Streamdown>
+            {typeof contentChildren === "string" ? contentChildren : ""}
+          </Streamdown>
           {isStreaming && hasContent && (
             <span className="inline-flex items-center ml-1 align-middle">
               <span className="w-2 h-2 rounded-full bg-muted-foreground animate-pulse-cursor" />
@@ -210,7 +226,10 @@ export namespace CopilotChatReasoningMessage {
   > = ({ isOpen, className, children: toggleChildren, ...toggleProps }) => {
     return (
       <div
-        className={twMerge("grid transition-[grid-template-rows] duration-200 ease-in-out", className)}
+        className={twMerge(
+          "grid transition-[grid-template-rows] duration-200 ease-in-out",
+          className,
+        )}
         style={{ gridTemplateRows: isOpen ? "1fr" : "0fr" }}
         {...toggleProps}
       >
@@ -220,8 +239,11 @@ export namespace CopilotChatReasoningMessage {
   };
 }
 
-CopilotChatReasoningMessage.Header.displayName = "CopilotChatReasoningMessage.Header";
-CopilotChatReasoningMessage.Content.displayName = "CopilotChatReasoningMessage.Content";
-CopilotChatReasoningMessage.Toggle.displayName = "CopilotChatReasoningMessage.Toggle";
+CopilotChatReasoningMessage.Header.displayName =
+  "CopilotChatReasoningMessage.Header";
+CopilotChatReasoningMessage.Content.displayName =
+  "CopilotChatReasoningMessage.Content";
+CopilotChatReasoningMessage.Toggle.displayName =
+  "CopilotChatReasoningMessage.Toggle";
 
 export default CopilotChatReasoningMessage;

@@ -2,7 +2,10 @@ import { useCopilotKit } from "@/providers/CopilotKitProvider";
 import { useMemo, useEffect, useReducer } from "react";
 import { DEFAULT_AGENT_ID } from "@copilotkitnext/shared";
 import { AbstractAgent } from "@ag-ui/client";
-import { ProxiedCopilotRuntimeAgent, CopilotKitCoreRuntimeConnectionStatus } from "@copilotkitnext/core";
+import {
+  ProxiedCopilotRuntimeAgent,
+  CopilotKitCoreRuntimeConnectionStatus,
+} from "@copilotkitnext/core";
 
 export enum UseAgentUpdate {
   OnMessagesChanged = "OnMessagesChanged",
@@ -27,7 +30,10 @@ export function useAgent({ agentId, updates }: UseAgentProps = {}) {
   const { copilotkit } = useCopilotKit();
   const [, forceUpdate] = useReducer((x) => x + 1, 0);
 
-  const updateFlags = useMemo(() => updates ?? ALL_UPDATES, [JSON.stringify(updates)]);
+  const updateFlags = useMemo(
+    () => updates ?? ALL_UPDATES,
+    [JSON.stringify(updates)],
+  );
 
   const agent: AbstractAgent = useMemo(() => {
     const existing = copilotkit.getAgent(agentId);
@@ -59,10 +65,14 @@ export function useAgent({ agentId, updates }: UseAgentProps = {}) {
     // non-undefined contract without forcing network behavior.
     // After runtime has synced (Connected or Error) or no runtime configured and the agent doesn't exist, throw a descriptive error
     const knownAgents = Object.keys(copilotkit.agents ?? {});
-    const runtimePart = isRuntimeConfigured ? `runtimeUrl=${copilotkit.runtimeUrl}` : "no runtimeUrl";
+    const runtimePart = isRuntimeConfigured
+      ? `runtimeUrl=${copilotkit.runtimeUrl}`
+      : "no runtimeUrl";
     throw new Error(
       `useAgent: Agent '${agentId}' not found after runtime sync (${runtimePart}). ` +
-        (knownAgents.length ? `Known agents: [${knownAgents.join(", ")}]` : "No agents registered.") +
+        (knownAgents.length
+          ? `Known agents: [${knownAgents.join(", ")}]`
+          : "No agents registered.") +
         " Verify your runtime /info and/or agents__unsafe_dev_only.",
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
