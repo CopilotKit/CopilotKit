@@ -116,16 +116,13 @@ export class CopilotKit {
   }
 
   removeTool(toolName: string, agentId?: string): void {
-    this.core.removeTool(toolName);
-    this.#clientToolCallRenderConfigs.update((current) =>
-      current.filter((renderConfig) => renderConfig.name !== toolName && this.#isSameAgentId(renderConfig, agentId)),
-    );
-    this.#humanInTheLoopToolRenderConfigs.update((current) =>
-      current.filter((renderConfig) => renderConfig.name !== toolName && this.#isSameAgentId(renderConfig, agentId)),
-    );
-    this.#toolCallRenderConfigs.update((current) =>
-      current.filter((renderConfig) => renderConfig.name !== toolName && this.#isSameAgentId(renderConfig, agentId)),
-    );
+    this.core.removeTool(toolName, agentId);
+    const keep = (config: { name: string; agentId?: string }) =>
+      config.name !== toolName ||
+      (agentId === undefined ? !!config.agentId : !this.#isSameAgentId(config, agentId));
+    this.#clientToolCallRenderConfigs.update((current) => current.filter(keep));
+    this.#humanInTheLoopToolRenderConfigs.update((current) => current.filter(keep));
+    this.#toolCallRenderConfigs.update((current) => current.filter(keep));
   }
 
   getAgent(agentId: string): AbstractAgent | undefined {
