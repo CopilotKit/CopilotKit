@@ -8,7 +8,7 @@ export default defineConfig([
     sourcemap: true,
     target: "es2022",
     outDir: "dist",
-    external: ["react"],
+    external: ["react", "@graphql-typed-document-node/core"],
     exclude: ["**/*.test.ts", "**/*.test.tsx", "**/__tests__/*"],
   },
   {
@@ -25,6 +25,8 @@ export default defineConfig([
       "urql",
       "@urql/core",
       "graphql",
+      "@graphql-typed-document-node/core",
+      "untruncate-json",
     ],
     codeSplitting: false,
     outputOptions(options) {
@@ -36,6 +38,8 @@ export default defineConfig([
         urql: "Urql",
         "@urql/core": "UrqlCore",
         graphql: "GraphQL",
+        "@graphql-typed-document-node/core": "GraphQLTypedDocumentNode",
+        "untruncate-json": "untruncateJson",
       };
       return options;
     },
