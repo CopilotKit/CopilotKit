@@ -214,7 +214,7 @@ describe("CopilotKit", () => {
 
     copilotKit.removeTool("temp");
 
-    expect(mockRemoveTool).toHaveBeenCalledWith("temp");
+    expect(mockRemoveTool).toHaveBeenCalledWith("temp", undefined);
     expect(copilotKit.toolCallRenderConfigs()).toEqual([]);
   });
 

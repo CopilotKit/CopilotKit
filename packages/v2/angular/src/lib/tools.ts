@@ -121,7 +121,7 @@ export function registerFrontendTool<
   });
 
   destroyRef.onDestroy(() => {
-    copilotKit.removeTool(frontendTool.name);
+    copilotKit.removeTool(frontendTool.name, frontendTool.agentId);
   });
 }
 
@@ -134,6 +134,6 @@ export function registerHumanInTheLoop<
   copilotKit.addHumanInTheLoop(humanInTheLoop);
 
   destroyRef.onDestroy(() => {
-    copilotKit.removeTool(humanInTheLoop.name);
+    copilotKit.removeTool(humanInTheLoop.name, humanInTheLoop.agentId);
   });
 }
