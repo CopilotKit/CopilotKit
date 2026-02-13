@@ -66,8 +66,8 @@ export class CopilotChat implements ChatState {
   readonly cdr = inject(ChangeDetectorRef);
   readonly injector = inject(Injector);
 
-  protected messages = computed(() => this.agentStore()?.messages());
-  protected isRunning = computed(() => this.agentStore()?.isRunning());
+  protected messages = computed(() => this.agentStore().messages());
+  protected isRunning = computed(() => this.agentStore().isRunning());
   protected showCursor = signal<boolean>(false);
 
   private generatedThreadId: string = randomUUID();
@@ -78,7 +78,7 @@ export class CopilotChat implements ChatState {
     // Connect once when agent becomes available
     effect(
       () => {
-        const a = this.agentStore()?.agent;
+        const a = this.agentStore().agent;
         if (!a) return;
         // Apply thread id when agent is available
         a.threadId = this.threadId() || this.generatedThreadId;
@@ -96,7 +96,7 @@ export class CopilotChat implements ChatState {
 
     // Keep agent threadId in sync with input
     effect(() => {
-      const a = this.agentStore()?.agent;
+      const a = this.agentStore().agent;
       if (a) {
         a.threadId = this.threadId() || this.generatedThreadId;
       }
@@ -136,7 +136,7 @@ export class CopilotChat implements ChatState {
   }
 
   async submitInput(value: string): Promise<void> {
-    const agent = this.agentStore()?.agent;
+    const agent = this.agentStore().agent;
     if (!agent || !value.trim()) return;
 
     // Add user message
