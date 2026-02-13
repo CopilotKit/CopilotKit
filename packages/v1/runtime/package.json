@@ -54,7 +54,9 @@
     "check-types": "tsc --noEmit",
     "generate-graphql-schema": "rm -rf __snapshots__ && ts-node ./scripts/generate-gql-schema.ts",
     "link:global": "pnpm link --global",
-    "unlink:global": "pnpm unlink --global"
+    "unlink:global": "pnpm unlink --global",
+    "publint": "publint .",
+    "attw": "attw --pack . --profile node16"
   },
   "devDependencies": {
     "@jest/globals": "^29.7.0",

@@ -10,11 +10,6 @@
     ".": {
       "import": "./dist/fesm2022/copilotkitnext-angular.mjs"
     },
-    "./testing": {
-      "types": "./dist/testing/index.d.ts",
-      "import": "./dist/testing/index.mjs",
-      "default": "./dist/testing/index.mjs"
-    },
     "./styles.css": "./dist/styles.css"
   },
   "scripts": {
@@ -25,7 +20,9 @@
     "lint": "eslint .",
     "check-types": "tsc --noEmit",
     "test": "vitest run",
-    "test:watch": "vitest --watch"
+    "test:watch": "vitest --watch",
+    "publint": "publint .",
+    "attw": "attw --pack . --profile node16"
   },
   "dependencies": {
     "@ag-ui/client": "0.0.42",

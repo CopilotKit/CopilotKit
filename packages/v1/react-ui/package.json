@@ -27,8 +27,7 @@
         "default": "./dist/index.cjs"
       }
     },
-    "./styles.css": "./dist/index.css",
-    "./v2/styles.css": "./dist/v2/index.css"
+    "./styles.css": "./dist/index.css"
   },
   "unpkg": "./dist/index.umd.js",
   "jsdelivr": "./dist/index.umd.js",
@@ -40,7 +39,9 @@
     "test": "jest",
     "check-types": "tsc --noEmit",
     "link:global": "pnpm link --global",
-    "unlink:global": "pnpm unlink --global"
+    "unlink:global": "pnpm unlink --global",
+    "publint": "publint .",
+    "attw": "attw --pack . --profile node16"
   },
   "peerDependencies": {
     "react": "^18 || ^19 || ^19.0.0-rc"

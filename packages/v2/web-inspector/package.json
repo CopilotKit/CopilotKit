@@ -29,7 +29,9 @@
     "dev:css": "tailwindcss -i ./src/styles/tailwind.css -o ./src/styles/generated.css --watch --minify",
     "lint": "eslint .",
     "check-types": "pnpm run build:css && tsc --noEmit",
-    "test": "pnpm run build:css && vitest run"
+    "test": "pnpm run build:css && vitest run",
+    "publint": "publint .",
+    "attw": "attw --pack . --profile node16"
   },
   "dependencies": {
     "@ag-ui/client": "0.0.42",

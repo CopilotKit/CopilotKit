@@ -30,7 +30,9 @@
     "check-types": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "publint": "publint .",
+    "attw": "attw --pack . --profile node16"
   },
   "devDependencies": {
     "@copilotkitnext/eslint-config": "workspace:*",

@@ -54,7 +54,9 @@
     "test": "jest --passWithNoTests",
     "check-types": "tsc --noEmit",
     "link:global": "pnpm link --global",
-    "unlink:global": "pnpm unlink --global"
+    "unlink:global": "pnpm unlink --global",
+    "publint": "publint .",
+    "attw": "attw --pack . --profile node16"
   },
   "dependencies": {
     "@copilotkit/shared": "workspace:*"

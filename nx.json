@@ -106,6 +106,26 @@
         "{projectRoot}/storybook-static/**"
       ],
       "cache": true
+    },
+    "publint": {
+      "dependsOn": [
+        "build"
+      ],
+      "inputs": [
+        "{projectRoot}/package.json",
+        "{projectRoot}/dist/**"
+      ],
+      "cache": true
+    },
+    "attw": {
+      "dependsOn": [
+        "build"
+      ],
+      "inputs": [
+        "{projectRoot}/package.json",
+        "{projectRoot}/dist/**"
+      ],
+      "cache": true
     }
   },
   "parallel": 14,

@@ -38,7 +38,9 @@
     "graphql-codegen": "graphql-codegen -c codegen.ts",
     "graphql-codegen:watch": "graphql-codegen -c codegen.ts --watch",
     "link:global": "pnpm link --global",
-    "unlink:global": "pnpm unlink --global"
+    "unlink:global": "pnpm unlink --global",
+    "publint": "publint .",
+    "attw": "attw --pack . --profile node16"
   },
   "peerDependencies": {
     "react": "^18 || ^19 || ^19.0.0-rc"

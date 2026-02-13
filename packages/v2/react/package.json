@@ -33,7 +33,9 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "test:ui": "vitest --ui"
+    "test:ui": "vitest --ui",
+    "publint": "publint .",
+    "attw": "attw --pack . --profile node16"
   },
   "devDependencies": {
     "@copilotkitnext/eslint-config": "workspace:*",
