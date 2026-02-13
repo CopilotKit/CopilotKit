@@ -18,6 +18,8 @@ export default defineConfig({
     "langchain",
     "@anthropic-ai/sdk",
     "groq-sdk",
+    "@whatwg-node/fetch",
+    "@whatwg-node/server",
   ],
   exclude: ["**/*.test.ts", "**/*.test.tsx", "**/__tests__/*"],
   codeSplitting: false,
