@@ -11,7 +11,6 @@ export default defineConfig([
     clean: !isWatch,
     target: "es2022",
     outDir: "dist",
-    unbundle: true,
     exports: true,
   },
   {

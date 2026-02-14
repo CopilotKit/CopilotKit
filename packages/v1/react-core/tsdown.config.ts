@@ -8,7 +8,6 @@ export default defineConfig([
     sourcemap: true,
     target: "es2022",
     outDir: "dist",
-    unbundle: true,
     external: ["react", "react-dom", "@copilotkitnext/core", "@copilotkitnext/react"],
     exports: {
       customExports: (exports) => ({

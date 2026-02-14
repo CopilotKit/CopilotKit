@@ -11,7 +11,6 @@ export default defineConfig({
   sourcemap: true,
   target: "es2022",
   outDir: "dist",
-  unbundle: true,
   exclude: ["**/*.test.ts", "**/*.test.tsx", "**/__tests__/*"],
   exports: true,
 });
