@@ -99,8 +99,5 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Build packages
-        run: pnpm run build
-
       - name: Run publint and attw
         run: pnpm run check:packages
