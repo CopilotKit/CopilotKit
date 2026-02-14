@@ -5,6 +5,7 @@
   "main": "dist/fesm2022/copilotkitnext-angular.mjs",
   "module": "dist/fesm2022/copilotkitnext-angular.mjs",
   "types": "dist/index.d.ts",
+  "type": "module",
   "exports": {
     ".": {
       "import": "./dist/fesm2022/copilotkitnext-angular.mjs"

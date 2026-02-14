@@ -14,6 +14,7 @@
   },
   "license": "MIT",
   "types": "./dist/index.d.cts",
+  "type": "module",
   "exports": {
     ".": {
       "import": "./dist/index.mjs",

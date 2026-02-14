@@ -8,6 +8,7 @@ export default defineConfig([
     sourcemap: true,
     target: "es2022",
     outDir: "dist",
+    unbundle: true,
     external: (id) => {
       const externalPkgs = [
         "react",

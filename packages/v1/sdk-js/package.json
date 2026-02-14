@@ -1,6 +1,7 @@
 {
   "name": "@copilotkit/sdk-js",
   "private": false,
+  "type": "module",
   "homepage": "https://github.com/CopilotKit/CopilotKit",
   "repository": {
     "type": "git",
