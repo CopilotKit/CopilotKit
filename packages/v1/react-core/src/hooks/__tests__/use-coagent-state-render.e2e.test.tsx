@@ -507,7 +507,9 @@ describe("useCoAgentStateRender", () => {
 
   it("prefers legacy renderer over renderCustomMessages when both exist", async () => {
     const renderCustomSpy = vi.fn(() => null);
-    vi.mocked(useRenderCustomMessages).mockImplementationOnce(() => renderCustomSpy);
+    vi.mocked(useRenderCustomMessages).mockImplementationOnce(
+      () => renderCustomSpy,
+    );
 
     const copilotContextValue = createTestCopilotContext({
       threadId: "thread-1",

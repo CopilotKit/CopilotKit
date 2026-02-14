@@ -14,7 +14,9 @@ export default defineConfig({
     // The _virtual/_rolldown/runtime banner propagates to all output files per format,
     // ensuring reflect-metadata is always the first thing that runs.
     if (fileName.includes("_virtual/_rolldown/runtime")) {
-      return format === "cjs" ? 'require("reflect-metadata");' : 'import "reflect-metadata";';
+      return format === "cjs"
+        ? 'require("reflect-metadata");'
+        : 'import "reflect-metadata";';
     }
   },
   external: [

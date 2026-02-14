@@ -23,7 +23,13 @@ export default defineConfig([
     sourcemap: true,
     target: "es2018",
     outDir: "dist",
-    external: ["react", "react-dom", "@copilotkit/react-core", "@copilotkit/shared", "@copilotkit/runtime-client-gql"],
+    external: [
+      "react",
+      "react-dom",
+      "@copilotkit/react-core",
+      "@copilotkit/shared",
+      "@copilotkit/runtime-client-gql",
+    ],
     codeSplitting: false,
     outputOptions(options) {
       options.entryFileNames = "[name].umd.js";

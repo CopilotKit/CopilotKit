@@ -140,7 +140,6 @@ describe("AnthropicAdapter", () => {
 
   describe("Deduplication Logic", () => {
     it("should filter out duplicate result messages", async () => {
-
       const systemMessage = new TextMessage("system", "System message");
       const userMessage = new TextMessage("user", "Set theme to orange");
 
@@ -234,7 +233,6 @@ describe("AnthropicAdapter", () => {
     });
 
     it("should filter out invalid result messages without corresponding tool_use", async () => {
-
       const systemMessage = new TextMessage("system", "System message");
 
       // Valid tool execution
@@ -281,7 +279,6 @@ describe("AnthropicAdapter", () => {
 
   describe("Fallback Response Logic", () => {
     it("should generate contextual fallback when Anthropic returns no content", async () => {
-
       const systemMessage = new TextMessage("system", "System message");
       const userMessage = new TextMessage("user", "Set theme to orange");
 
@@ -333,7 +330,6 @@ describe("AnthropicAdapter", () => {
     });
 
     it("should use generic fallback when no tool result content available", async () => {
-
       const systemMessage = new TextMessage("system", "System message");
 
       const toolExecution = new ActionExecutionMessage({
