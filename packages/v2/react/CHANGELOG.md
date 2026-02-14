@@ -1,5 +1,13 @@
 # @copilotkitnext/react
 
+## 1.51.4-next.8
+
+### Patch Changes
+
+- @copilotkitnext/core@1.51.4-next.8
+- @copilotkitnext/shared@1.51.4-next.8
+- @copilotkitnext/web-inspector@1.51.4-next.8
+
 ## 1.51.4-next.7
 
 ### Patch Changes

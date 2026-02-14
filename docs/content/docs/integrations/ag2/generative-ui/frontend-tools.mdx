@@ -1,0 +1,124 @@
+---
+title: Frontend Tools
+icon: "lucide/Wrench"
+description: Create frontend tools and use them within your AG2 agent.
+---
+## What is this?
+Frontend tools enable you to define client-side functions that your AG2 agent can invoke, with execution happening entirely in the user's browser. When your agent calls a frontend tool,
+the logic runs on the client side, giving you direct access to the frontend environment.
+
+This can be utilized for to let [your agent control the UI](/ag2/frontend-actions), [generative UI](/ag2/generative-ui/frontend-tools), or for Human-in-the-loop interactions.
+
+In this guide, we cover the use of frontend tools for generative UI.
+
+<Callout type="info">
+  CopilotKit consumes AG-UI protocol events streamed by AG2 over <code>/chat</code>. See the <a href="https://docs.ag2.ai/latest/docs/user-guide/ag-ui/" target="_blank">AG2 AG-UI integration docs</a>.
+</Callout>
+
+## When should I use this?
+Use frontend tools when you need your agent to interact with client-side primitives such as:
+- Reading or modifying React component state
+- Accessing browser APIs like localStorage, sessionStorage, or cookies
+- Triggering UI updates or animations
+- Interacting with third-party frontend libraries
+- Performing actions that require the user's immediate browser context
+
+## Implementation
+
+<Steps>
+    <Step>
+      ### Run and connect your agent
+
+      Start your AG2 backend with AG-UI streaming on `/chat`:
+
+      ```python title="agent.py"
+      from fastapi import FastAPI, Header
+      from fastapi.responses import StreamingResponse
+      from autogen import ConversableAgent, LLMConfig
+      from autogen.ag_ui import AGUIStream, RunAgentInput
+
+      agent = ConversableAgent(
+          name="assistant",
+          system_message="You are a helpful assistant.",
+          llm_config=LLMConfig({"model": "gpt-4o-mini"}),
+      )
+
+      stream = AGUIStream(agent)
+      app = FastAPI()
+
+      @app.post("/chat")
+      async def run_agent(
+          message: RunAgentInput,
+          accept: str | None = Header(None),
+      ):
+          return StreamingResponse(
+              stream.dispatch(message, accept=accept),
+              media_type=accept or "text/event-stream",
+          )
+      ```
+    </Step>
+
+    <Step>
+        ### Create a frontend tool
+
+        First, you'll need to create a frontend tool using the [useFrontendTool](/reference/hooks/useFrontendTool) hook. Here's a simple one to get you started
+        that says hello to the user.
+
+        ```tsx title="page.tsx"
+        import { useFrontendTool } from "@copilotkit/react-core" // [!code highlight]
+
+        export function Page() {
+          // ...
+
+          // [!code highlight:25]
+          useFrontendTool({
+            name: "sayHello",
+            description: "Say hello to the user",
+            parameters: [
+              {
+                name: "name",
+                type: "string",
+                description: "The name of the user to say hello to",
+                required: true,
+              },
+            ],
+            handler({ name }) {
+              // Handler returns the result of the tool call
+              return { currentURLPath: window.location.href, userName: name };
+            },
+            render: ({ args }) => {
+              // Renders UI based on the data of the tool call
+              return (
+                <div>
+                  <h1>Hello, {args.name}!</h1>
+                  <h1>You're currently on {window.location.href}</h1>
+                </div>
+              );
+            },
+          });
+
+          // ...
+        }
+        ```
+
+        That's it. Your AG2 backend will automatically receive these frontend tools as AG-UI client tool events.
+
+        <Callout type="info">
+          Frontend tools registered with `useFrontendTool` are AG-UI client tools that emit tool events. AG2 can invoke them, and execution happens on the frontend.
+        </Callout>
+    </Step>
+    <Step>
+        ### Give it a try
+        You've now given your agent the ability to directly call any frontend tools you've defined. These tools will be available to the agent where they can be used as needed.
+
+        <video
+          src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/tool-based-gen-ui.mp4"
+          className="rounded-lg shadow-xl"
+          loop
+          playsInline
+          controls
+          autoPlay
+          muted
+        />
+    </Step>
+</Steps>

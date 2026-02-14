@@ -1,0 +1,190 @@
+---
+title: Writing agent state
+icon: "lucide/ArrowRight"
+description: Write to agent's state from your application.
+---
+<video
+  src="https://cdn.copilotkit.ai/docs/copilotkit/videos/coagents/shared-state.mp4"
+  className="rounded-lg shadow-xl"
+  loop
+  playsInline
+  controls
+  autoPlay
+  muted
+/>
+<Callout>
+  This video shows the result of `npx copilotkit@latest init` with the [implementation](#implementation) section applied to it.
+</Callout>
+
+## What is this?
+
+This guide shows you how to write to your agent's state from your application.
+
+<Callout type="info">
+  CopilotKit consumes AG-UI protocol events streamed by AG2 over <code>/chat</code>. See the <a href="https://docs.ag2.ai/latest/docs/user-guide/ag-ui/" target="_blank">AG2 AG-UI integration docs</a>.
+</Callout>
+
+## When should I use this?
+
+You can use this when you want to keep your interface and backend agent state synchronized. CopilotKit lets you update state from the UI, while AG2 consumes that state in subsequent turns.
+
+## Implementation
+
+<Steps>
+  <Step>
+    ### Run and connect your agent
+    Start your AG2 backend and connect your CopilotKit frontend to the AG-UI `/chat` endpoint.
+  </Step>
+  <Step>
+    ### Define the Agent State
+
+    Create your AG2 backend with `ContextVariables` and emit `StateSnapshotEvent` whenever state changes:
+
+    ```python title="agent.py"
+    from typing import Annotated
+
+    from ag_ui.core import EventType, StateSnapshotEvent
+    from fastapi import FastAPI, Header
+    from fastapi.responses import StreamingResponse
+    from autogen import ContextVariables, ConversableAgent, LLMConfig
+    from autogen.ag_ui import AGUIStream, RunAgentInput
+
+    def read_state(context: ContextVariables) -> dict:
+        return context.get("agent_state", {"language": "english"})
+
+    def write_state(context: ContextVariables, state: dict) -> StateSnapshotEvent:
+        context["agent_state"] = state
+        return StateSnapshotEvent(type=EventType.STATE_SNAPSHOT, snapshot=state)
+
+    agent = ConversableAgent(
+        name="assistant",
+        system_message=(
+            "You are a helpful assistant for tracking language. "
+            "Always respond in the current language."
+        ),
+        llm_config=LLMConfig({"model": "gpt-4o-mini"}),
+    )
+
+    @agent.register_for_llm(description="Update the language in shared state.")
+    def set_language(
+        context: ContextVariables,
+        language: Annotated[str, "language such as english or spanish"],
+    ) -> StateSnapshotEvent:
+        return write_state(context, {"language": language.lower()})
+
+    agent.register_for_execution(name="set_language")(set_language)
+
+    stream = AGUIStream(agent)
+    app = FastAPI()
+
+    @app.post("/chat")
+    async def run_agent(
+        message: RunAgentInput,
+        accept: str | None = Header(None),
+    ):
+        return StreamingResponse(
+            stream.dispatch(message, accept=accept),
+            media_type=accept or "text/event-stream",
+        )
+    ```
+
+  </Step>
+  <Step>
+    ### Call `setState` function from the `useAgent` hook
+    `useAgent` returns an `agent` object with a `setState` function that you can use to update the agent state. Calling this
+    will update the agent state and trigger a rerender of anything that depends on the agent state.
+
+    ```tsx title="ui/app/page.tsx"
+    import { useAgent } from "@copilotkit/react-core/v2"; // [!code highlight]
+
+    // Define the agent state type, should match the actual state of your agent
+    type AgentState = {
+      language: "english" | "spanish";
+    }
+
+    // Example usage in a pseudo React component
+    function YourMainContent() {
+      const { agent } = useAgent<AgentState>({ // [!code highlight]
+        agentId: "my_agent", // MUST match the agent name in CopilotRuntime
+        initialState: { language: "english" }  // optionally provide an initial state
+      });
+
+      // ...
+
+      const toggleLanguage = () => {
+        agent.setState({ language: agent.state.language === "english" ? "spanish" : "english" }); // [!code highlight]
+      };
+
+      // ...
+
+      return (
+        // style excluded for brevity
+        <div>
+          <h1>Your main content</h1>
+          {/* [!code highlight:2] */}
+          <p>Language: {agent.state.language}</p>
+          <button onClick={toggleLanguage}>Toggle Language</button>
+        </div>
+      );
+    }
+    ```
+
+    <Callout type="warn" title="Important">
+      The `agentId` parameter must exactly match the agent name you defined in your CopilotRuntime configuration (e.g., `my_agent` from the quickstart).
+    </Callout>
+
+  </Step>
+  <Step>
+    ### Give it a try
+    You can now use `agent.setState` to update the agent state and `agent.state` to read it. Try toggling the language button
+    and talking to your agent. You'll see the language change to match the agent's state.
+  </Step>
+</Steps>
+
+## Advanced Usage
+
+### Re-run the agent with a hint about what's changed
+
+The new agent state will be used next time the agent runs.
+If you want to re-run it manually, use the `run` method on the `agent` object returned by the `useAgent` hook.
+
+The agent will be re-run, and it will get not only the latest updated state, but also a **hint** that can depend on the data delta between the previous and the current state.
+
+```tsx title="ui/app/page.tsx"
+import { useAgent } from "@copilotkit/react-core/v2";
+import { TextMessage, MessageRole } from "@copilotkit/runtime-client-gql";  // [!code highlight]
+
+// ...
+
+function YourMainContent() {
+  // [!code word:run:1]
+  const { agent } = useAgent<AgentState>({
+    agentId: "my_agent", // MUST match the agent name in CopilotRuntime
+    initialState: { language: "english" }  // optionally provide an initial state
+  });
+
+  // setup to be called when some event in the app occurs
+  const toggleLanguage = () => {
+    const newLanguage = agent.state.language === "english" ? "spanish" : "english";
+    agent.setState({ language: newLanguage });
+
+    // re-run the agent and provide a hint about what's changed
+    // [!code highlight:6]
+    agent.run(({ previousState, currentState }) => {
+      return new TextMessage({
+        role: MessageRole.User,
+        content: `the language has been updated to ${currentState.language}`,
+      });
+    });
+  };
+
+  return (
+    // ...
+  );
+}
+```
+
+### Intermediately Stream and Render Agent State
+
+By default, AG2 state updates are visible to CopilotKit whenever your backend emits `StateSnapshotEvent`.
+For smoother long-running workflows, emit additional intermediate snapshots from your backend tools.
