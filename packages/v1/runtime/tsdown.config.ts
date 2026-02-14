@@ -7,6 +7,7 @@ export default defineConfig({
   sourcemap: true,
   target: "es2022",
   outDir: "dist",
+  unbundle: true,
   external: [
     "@ag-ui/langgraph",
     "@langchain/core",
@@ -21,7 +22,5 @@ export default defineConfig({
     "@whatwg-node/fetch",
     "@whatwg-node/server",
   ],
-  exclude: ["**/*.test.ts", "**/*.test.tsx", "**/__tests__/*"],
-  codeSplitting: false,
   exports: true,
 });
