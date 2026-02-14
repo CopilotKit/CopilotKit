@@ -6,16 +6,16 @@ import { Field, InputType } from "type-graphql";
  */
 
 @InputType()
-export class ExtensionsInput {
-  @Field(() => OpenAIApiAssistantAPIInput, { nullable: true })
-  openaiAssistantAPI?: OpenAIApiAssistantAPIInput;
-}
-
-@InputType()
 export class OpenAIApiAssistantAPIInput {
   @Field(() => String, { nullable: true })
   runId?: string;
 
   @Field(() => String, { nullable: true })
   threadId?: string;
+}
+
+@InputType()
+export class ExtensionsInput {
+  @Field(() => OpenAIApiAssistantAPIInput, { nullable: true })
+  openaiAssistantAPI?: OpenAIApiAssistantAPIInput;
 }

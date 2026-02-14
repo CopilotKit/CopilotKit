@@ -8,16 +8,16 @@ import { Field, ObjectType } from "type-graphql";
  */
 
 @ObjectType()
-export class ExtensionsResponse {
-  @Field(() => OpenAIApiAssistantAPIResponse, { nullable: true })
-  openaiAssistantAPI?: OpenAIApiAssistantAPIResponse;
-}
-
-@ObjectType()
 export class OpenAIApiAssistantAPIResponse {
   @Field(() => String, { nullable: true })
   runId?: string;
 
   @Field(() => String, { nullable: true })
   threadId?: string;
+}
+
+@ObjectType()
+export class ExtensionsResponse {
+  @Field(() => OpenAIApiAssistantAPIResponse, { nullable: true })
+  openaiAssistantAPI?: OpenAIApiAssistantAPIResponse;
 }
