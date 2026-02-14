@@ -19,13 +19,7 @@ export default defineConfig([
     sourcemap: true,
     target: "es2018",
     outDir: "dist",
-    external: [
-      "@copilotkitnext/shared",
-      "@ag-ui/client",
-      "@ag-ui/core",
-      "rxjs",
-      "zod",
-    ],
+    external: ["@copilotkitnext/shared", "@ag-ui/client", "@ag-ui/core", "rxjs", "zod"],
     codeSplitting: false,
     checks: { pluginTimings: false },
     outputOptions(options) {

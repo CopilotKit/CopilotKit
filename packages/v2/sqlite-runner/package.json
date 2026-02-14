@@ -4,7 +4,6 @@
   "description": "SQLite-backed agent runner for CopilotKit2",
   "main": "./dist/index.cjs",
   "types": "./dist/index.d.cts",
-  "type": "module",
   "exports": {
     ".": {
       "import": "./dist/index.mjs",
