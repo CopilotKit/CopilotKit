@@ -67,6 +67,7 @@ import {
   BuiltInAgent,
   type BuiltInAgentConfiguration,
 } from "@copilotkitnext/agent";
+import { LegacyServiceAdapterAgent } from "./legacy-service-adapter-agent";
 // Define the function type alias here or import if defined elsewhere
 type CreateMCPClientFunction = (
   config: MCPEndpointConfig,
@@ -416,9 +417,13 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
       }
 
       if (isAgentsListEmpty) {
-        agentsList.default = new BuiltInAgent({
-          model: `${serviceAdapter.provider}/${serviceAdapter.model}`,
-        });
+        if (serviceAdapter.provider && serviceAdapter.model) {
+          agentsList.default = new BuiltInAgent({
+            model: `${serviceAdapter.provider}/${serviceAdapter.model}`,
+          });
+        } else {
+          agentsList.default = new LegacyServiceAdapterAgent(serviceAdapter);
+        }
       }
 
       const actions = this.params?.actions;
