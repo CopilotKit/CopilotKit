@@ -10,7 +10,12 @@
     "access": "public"
   },
   "version": "1.51.4-next.8",
-  "sideEffects": false,
+  "sideEffects": [
+    "./dist/index.mjs",
+    "./dist/index.cjs",
+    "./dist/v2/index.mjs",
+    "./dist/v2/index.cjs"
+  ],
   "main": "./dist/index.cjs",
   "module": "./dist/index.mjs",
   "exports": {
