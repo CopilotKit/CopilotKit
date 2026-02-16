@@ -24,6 +24,8 @@
     "model-context-protocol",
     "guardrails",
     "messages-localstorage",
+    "---Migration---",
+    "migrate-from-adapters",
     "---Legacy Features---",
     "copilot-textarea"
   ]

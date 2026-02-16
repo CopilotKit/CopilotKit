@@ -1,0 +1,381 @@
+---
+title: "Migrating from Adapters to BuiltInAgent"
+description: "Upgrade from the old adapter-based approach to the new BuiltInAgent."
+icon: "lucide/ArrowRightLeft"
+---
+
+CopilotKit has replaced the old provider-specific adapter pattern (e.g. `OpenAIAdapter`, `AnthropicAdapter`) with a
+unified `BuiltInAgent`. This guide walks you through the migration.
+
+## What Changed
+
+**Before:** You had to create a provider-specific adapter and pass it as `serviceAdapter` to the runtime endpoint.
+
+**After:** You configure a `BuiltInAgent` with a `"provider/model"` string and pass it via the `agents` option in the `CopilotRuntime` constructor. No separate adapter or SDK initialization needed.
+
+## Adapter Mapping
+
+| Old Adapter | New Model Format |
+|-------------|-----------------|
+| `OpenAIAdapter()` | `"openai/gpt-4o"` |
+| `AnthropicAdapter()` | `"anthropic/claude-sonnet-4.5"` |
+| `GoogleGenerativeAIAdapter()` | `"google/gemini-2.5-pro"` |
+| `GroqAdapter({ model: "..." })` | `"groq/model-name"` (via Vercel AI SDK) |
+| `LangChainAdapter(...)` | Use Vercel AI SDK provider directly |
+| `OpenAIAssistantAdapter(...)` | Use OpenAI models directly |
+| `EmptyAdapter()` | No longer needed |
+
+## Migration Examples
+
+### OpenAI
+
+<Tabs groupId="migration" items={["Before", "After"]}>
+<Tab value="Before">
+```ts title="app/api/copilotkit/route.ts"
+import {
+  CopilotRuntime,
+  OpenAIAdapter,
+  copilotRuntimeNextJSAppRouterEndpoint,
+} from "@copilotkit/runtime";
+import { NextRequest } from "next/server";
+
+const serviceAdapter = new OpenAIAdapter();
+const runtime = new CopilotRuntime();
+
+export const POST = async (req: NextRequest) => {
+  const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
+    runtime,
+    serviceAdapter,
+    endpoint: "/api/copilotkit",
+  });
+
+  return handleRequest(req);
+};
+```
+</Tab>
+<Tab value="After">
+```ts title="app/api/copilotkit/route.ts"
+import {
+  CopilotRuntime,
+  copilotRuntimeNextJSAppRouterEndpoint,
+} from "@copilotkit/runtime";
+import { BuiltInAgent } from "@copilotkit/runtime/v2";
+import { NextRequest } from "next/server";
+
+const runtime = new CopilotRuntime({
+  agents: {
+    default: new BuiltInAgent({
+      model: "openai/gpt-4o",
+    }),
+  },
+});
+
+export const POST = async (req: NextRequest) => {
+  const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
+    runtime,
+    endpoint: "/api/copilotkit",
+  });
+
+  return handleRequest(req);
+};
+```
+</Tab>
+</Tabs>
+
+### Anthropic
+
+<Tabs groupId="migration-anthropic" items={["Before", "After"]}>
+<Tab value="Before">
+```ts
+import {
+  CopilotRuntime,
+  AnthropicAdapter,
+  copilotRuntimeNextJSAppRouterEndpoint,
+} from "@copilotkit/runtime";
+
+const serviceAdapter = new AnthropicAdapter();
+const runtime = new CopilotRuntime();
+```
+</Tab>
+<Tab value="After">
+```ts
+import { CopilotRuntime } from "@copilotkit/runtime";
+import { BuiltInAgent } from "@copilotkit/runtime/v2";
+
+const runtime = new CopilotRuntime({
+  agents: {
+    default: new BuiltInAgent({
+      model: "anthropic/claude-sonnet-4.5",
+    }),
+  },
+});
+```
+</Tab>
+</Tabs>
+
+### Google Gemini
+
+<Tabs groupId="migration-google" items={["Before", "After"]}>
+<Tab value="Before">
+```ts
+import {
+  CopilotRuntime,
+  GoogleGenerativeAIAdapter,
+  copilotRuntimeNextJSAppRouterEndpoint,
+} from "@copilotkit/runtime";
+
+const serviceAdapter = new GoogleGenerativeAIAdapter({
+  model: "gemini-2.5-flash",
+});
+const runtime = new CopilotRuntime();
+```
+</Tab>
+<Tab value="After">
+```ts
+import { CopilotRuntime } from "@copilotkit/runtime";
+import { BuiltInAgent } from "@copilotkit/runtime/v2";
+
+const runtime = new CopilotRuntime({
+  agents: {
+    default: new BuiltInAgent({
+      model: "google/gemini-2.5-flash",
+    }),
+  },
+});
+```
+</Tab>
+</Tabs>
+
+### Azure OpenAI
+
+<Tabs groupId="migration-azure" items={["Before", "After"]}>
+<Tab value="Before">
+```ts
+import {
+  CopilotRuntime,
+  OpenAIAdapter,
+  copilotRuntimeNextJSAppRouterEndpoint,
+} from "@copilotkit/runtime";
+import OpenAI from "openai";
+
+const openai = new OpenAI({
+  apiKey: process.env.AZURE_OPENAI_API_KEY,
+  baseURL: "https://your-instance.openai.azure.com/openai/deployments/your-model",
+  defaultQuery: { "api-version": "2024-04-01-preview" },
+  defaultHeaders: { "api-key": process.env.AZURE_OPENAI_API_KEY! },
+});
+
+const serviceAdapter = new OpenAIAdapter({ openai });
+const runtime = new CopilotRuntime();
+```
+</Tab>
+<Tab value="After">
+```ts
+import { CopilotRuntime } from "@copilotkit/runtime";
+import { BuiltInAgent } from "@copilotkit/runtime/v2";
+import { createOpenAI } from "@ai-sdk/openai";
+
+const azure = createOpenAI({
+  apiKey: process.env.AZURE_OPENAI_API_KEY,
+  baseURL: "https://your-instance.openai.azure.com/openai/deployments/your-model",
+  headers: { "api-key": process.env.AZURE_OPENAI_API_KEY! },
+});
+
+const runtime = new CopilotRuntime({
+  agents: {
+    default: new BuiltInAgent({
+      model: azure("gpt-4o"),
+    }),
+  },
+});
+```
+</Tab>
+</Tabs>
+
+### LangChain Adapter
+
+<Tabs groupId="migration-langchain" items={["Before", "After"]}>
+<Tab value="Before">
+```ts
+import {
+  CopilotRuntime,
+  LangChainAdapter,
+  copilotRuntimeNextJSAppRouterEndpoint,
+} from "@copilotkit/runtime";
+import { ChatOpenAI } from "@langchain/openai";
+
+const model = new ChatOpenAI({ model: "gpt-4o" });
+
+const serviceAdapter = new LangChainAdapter({
+  chainFn: async ({ messages, tools }) => {
+    return model.bindTools(tools).stream(messages);
+  },
+});
+const runtime = new CopilotRuntime();
+```
+</Tab>
+<Tab value="After">
+```ts
+import { CopilotRuntime } from "@copilotkit/runtime";
+import { BuiltInAgent } from "@copilotkit/runtime/v2";
+
+// No LangChain dependency needed - use the model string directly
+const runtime = new CopilotRuntime({
+  agents: {
+    default: new BuiltInAgent({
+      model: "openai/gpt-4o",
+    }),
+  },
+});
+```
+
+<Callout type="info">
+  The LangChain adapter was typically used to access models that CopilotKit didn't natively support.
+  With `BuiltInAgent`, you can use any [Vercel AI SDK](https://sdk.vercel.ai/providers/ai-sdk-providers)
+  provider directly, which covers a wide range of LLM providers.
+</Callout>
+</Tab>
+</Tabs>
+
+### Node.js Express
+
+<Tabs groupId="migration-express" items={["Before", "After"]}>
+<Tab value="Before">
+```ts title="server.ts"
+import express from "express";
+import {
+  CopilotRuntime,
+  OpenAIAdapter,
+  copilotRuntimeNodeHttpEndpoint,
+} from "@copilotkit/runtime";
+
+const app = express();
+const serviceAdapter = new OpenAIAdapter();
+
+app.use("/copilotkit", (req, res, next) => {
+  const runtime = new CopilotRuntime();
+  const handler = copilotRuntimeNodeHttpEndpoint({
+    endpoint: "/copilotkit",
+    runtime,
+    serviceAdapter,
+  });
+  return handler(req, res);
+});
+
+app.listen(4000);
+```
+</Tab>
+<Tab value="After">
+```ts title="server.ts"
+import express from "express";
+import {
+  CopilotRuntime,
+  copilotRuntimeNodeHttpEndpoint,
+} from "@copilotkit/runtime";
+import { BuiltInAgent } from "@copilotkit/runtime/v2";
+
+const app = express();
+
+app.use("/copilotkit", (req, res, next) => {
+  (async () => {
+    const runtime = new CopilotRuntime({
+      agents: {
+        default: new BuiltInAgent({
+          model: "openai/gpt-4o",
+        }),
+      },
+    });
+    const handler = copilotRuntimeNodeHttpEndpoint({
+      endpoint: "/copilotkit",
+      runtime,
+    });
+    return handler(req, res);
+  })().catch(next);
+});
+
+app.listen(4000);
+```
+</Tab>
+</Tabs>
+
+## Step-by-Step Migration
+
+<Steps>
+<Step>
+### Update your dependencies
+
+```npm
+npm install @copilotkit/runtime@latest
+```
+
+You can remove provider-specific SDK packages that were only needed for the old adapters (e.g. `openai`, `@anthropic-ai/sdk`, `@google/generative-ai`).
+
+</Step>
+<Step>
+### Update your imports
+
+Add the `BuiltInAgent` import and remove the old adapter import:
+
+```diff
+  import {
+    CopilotRuntime,
+-   OpenAIAdapter,
+    copilotRuntimeNextJSAppRouterEndpoint,
+  } from "@copilotkit/runtime";
++ import { BuiltInAgent } from "@copilotkit/runtime/v2";
+```
+</Step>
+<Step>
+### Replace adapter with BuiltInAgent
+
+Move from the adapter pattern to the agent pattern:
+
+```diff
+- const serviceAdapter = new OpenAIAdapter();
+- const runtime = new CopilotRuntime();
++ const runtime = new CopilotRuntime({
++   agents: {
++     default: new BuiltInAgent({
++       model: "openai/gpt-4o",
++     }),
++   },
++ });
+```
+</Step>
+<Step>
+### Remove serviceAdapter from endpoint
+
+The endpoint no longer needs a `serviceAdapter`:
+
+```diff
+  const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
+    runtime,
+-   serviceAdapter,
+    endpoint: "/api/copilotkit",
+  });
+```
+</Step>
+<Step>
+### Verify your environment variables
+
+Make sure you have the correct environment variable set for your provider:
+
+| Provider | Environment Variable |
+|----------|---------------------|
+| OpenAI | `OPENAI_API_KEY` |
+| Anthropic | `ANTHROPIC_API_KEY` |
+| Google | `GOOGLE_API_KEY` |
+
+These are automatically picked up by `BuiltInAgent` - no manual SDK initialization needed.
+</Step>
+</Steps>
+
+## Key Differences
+
+| Aspect | Old (Adapters) | New (BuiltInAgent) |
+|--------|---------------|-------------------|
+| Configuration | Separate adapter class per provider | Single `BuiltInAgent` with model string |
+| SDK management | Manual SDK initialization | Automatic, based on model prefix |
+| Import path (agent) | N/A (adapters from `@copilotkit/runtime`) | `BuiltInAgent` from `@copilotkit/runtime/v2` |
+| Runtime setup | Adapter passed to endpoint as `serviceAdapter` | Agent passed to `CopilotRuntime` constructor via `agents` |
+| Custom providers | Required LangChain adapter | Direct Vercel AI SDK `LanguageModel` |

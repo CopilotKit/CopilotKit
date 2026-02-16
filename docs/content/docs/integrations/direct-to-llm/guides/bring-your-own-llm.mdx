@@ -7,3 +7,41 @@ icon: "lucide/Plug"
 import LLMAdapters from "@/snippets/llm-adapters.mdx";
 
 <LLMAdapters components={props.components} />
+
+## Using Custom Providers (Vercel AI SDK)
+
+If your provider isn't natively supported, you can pass any [Vercel AI SDK](https://sdk.vercel.ai/docs) `LanguageModel` instance directly:
+
+```ts
+import { CopilotRuntime } from "@copilotkit/runtime";
+import { BuiltInAgent } from "@copilotkit/runtime/v2";
+import { createOpenAI } from "@ai-sdk/openai";
+
+// Example: Azure OpenAI
+const azure = createOpenAI({
+  apiKey: process.env.AZURE_OPENAI_API_KEY,
+  baseURL: "https://your-instance.openai.azure.com/openai/deployments/your-model",
+  headers: { "api-key": process.env.AZURE_OPENAI_API_KEY },
+});
+
+const runtime = new CopilotRuntime({
+  agents: {
+    default: new BuiltInAgent({
+      model: azure("gpt-4o"),
+    }),
+  },
+});
+```
+
+This pattern works with any Vercel AI SDK compatible provider, including:
+- Azure OpenAI (`@ai-sdk/openai`)
+- Amazon Bedrock (`@ai-sdk/amazon-bedrock`)
+- Mistral (`@ai-sdk/mistral`)
+- Cohere (`@ai-sdk/cohere`)
+- And [many more](https://sdk.vercel.ai/providers/ai-sdk-providers)
+
+<Callout type="info">
+  Previously, CopilotKit used provider-specific adapters (e.g. `OpenAIAdapter`, `AnthropicAdapter`). These have been
+  replaced by the unified `BuiltInAgent`. See the [Migration Guide](/direct-to-llm/guides/migrate-from-adapters)
+  for details on upgrading.
+</Callout>
