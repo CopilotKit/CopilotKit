@@ -57,13 +57,13 @@
     "react-dom": "^18 || ^19 || ^19.0.0-rc"
   },
   "devDependencies": {
-    "@testing-library/react": "^16.0.0",
-    "tsdown": "^0.20.3",
+    "@testing-library/react": "^16.3.0",
     "@types/markdown-it": "^14.1.2",
     "@types/react": "^19.2.3",
     "@types/react-dom": "^19.2.3",
     "jsdom": "^26.1.0",
-    "typescript": "5.9.2",
+    "tsdown": "^0.20.3",
+    "typescript": "~5.5.0",
     "vitest": "^3.2.4"
   },
   "main": "./dist/index.cjs",

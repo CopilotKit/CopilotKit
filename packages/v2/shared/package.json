@@ -31,12 +31,12 @@
     "@types/node": "^22.15.3",
     "eslint": "^9.30.0",
     "tsdown": "^0.20.3",
-    "typescript": "5.8.2"
+    "typescript": "~5.5.0"
   },
   "dependencies": {
-    "@ag-ui/client": "0.0.42",
-    "uuid": "^11.1.0",
-    "partial-json": "^0.1.7"
+    "@ag-ui/client": "^0.0.43",
+    "partial-json": "^0.1.7",
+    "uuid": "^11.1.0"
   },
   "engines": {
     "node": ">=18"

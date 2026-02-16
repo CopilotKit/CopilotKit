@@ -9,7 +9,7 @@
     "storybook:build": "ng run storybook-angular:build-storybook"
   },
   "dependencies": {
-    "@ag-ui/client": "0.0.42",
+    "@ag-ui/client": "^0.0.43",
     "@angular/animations": "^18.2.0",
     "@angular/common": "^18.2.0",
     "@angular/compiler": "^18.2.0",
@@ -31,18 +31,18 @@
     "@copilotkitnext/typescript-config": "workspace:*",
     "@storybook/addon-essentials": "^8",
     "@storybook/addon-interactions": "^8",
-    "@storybook/addon-themes": "^8",
+    "@storybook/addon-themes": "^10.1.10",
     "@storybook/angular": "^8",
     "@storybook/test": "^8",
     "@tailwindcss/postcss": "^4.1.12",
-    "@types/node": "^22",
-    "autoprefixer": "^10.4.21",
+    "@types/node": "^22.15.3",
+    "autoprefixer": "^10.4.24",
     "css-loader": "^7.1.2",
     "postcss": "^8.4.31",
     "postcss-loader": "^8.1.1",
-    "storybook": "^8",
+    "storybook": "^10.1.10",
     "style-loader": "^4.0.0",
     "tailwindcss": "^4.1.11",
-    "typescript": "~5.4.5"
+    "typescript": "~5.5.0"
   }
 }

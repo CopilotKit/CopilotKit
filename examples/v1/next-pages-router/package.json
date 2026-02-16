@@ -15,26 +15,26 @@
     "@copilotkit/react-ui": "workspace:*",
     "@copilotkit/runtime": "workspace:*",
     "@copilotkit/shared": "workspace:*",
-    "@google/generative-ai": "^0.11.2",
+    "@google/generative-ai": "^0.11.5",
     "@heroicons/react": "^2.0.18",
-    "clsx": "^1.2.1",
-    "next": "14.2.35",
-    "openai": "^4.85.1",
-    "react": "^18",
-    "react-dom": "^18"
+    "clsx": "^2.1.1",
+    "next": "15.4.10",
+    "openai": "^5.9.0",
+    "react": "19.1.0",
+    "react-dom": "^19.2.0"
   },
   "devDependencies": {
-    "@types/node": "^18.11.17",
-    "@types/react": "^18.2.5",
-    "@types/react-dom": "^18.2.4",
-    "autoprefixer": "^10.4.13",
-    "eslint": "^8",
+    "@types/node": "^22.15.3",
+    "@types/react": "^19.2.3",
+    "@types/react-dom": "^19.2.3",
+    "autoprefixer": "^10.4.24",
+    "eslint": "^9.30.0",
     "eslint-config-custom": "workspace:*",
-    "eslint-config-next": "14.2.4",
-    "postcss": "^8.4.20",
+    "eslint-config-next": "15.4.4",
+    "postcss": "^8.4.31",
     "tailwind-config": "workspace:*",
-    "tailwindcss": "^3.2.4",
+    "tailwindcss": "^4.1.11",
     "tsconfig": "workspace:*",
-    "typescript": "^5.2.3"
+    "typescript": "~5.5.0"
   }
 }

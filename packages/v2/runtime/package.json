@@ -39,18 +39,18 @@
     "eslint": "^9.30.0",
     "supertest": "^7.1.1",
     "tsdown": "^0.20.3",
-    "typescript": "5.8.2",
-    "vitest": "^3.0.5"
+    "typescript": "~5.5.0",
+    "vitest": "^3.2.4"
   },
   "dependencies": {
-    "@ag-ui/client": "0.0.42",
-    "@ag-ui/core": "0.0.42",
+    "@ag-ui/client": "^0.0.43",
+    "@ag-ui/core": "^0.0.43",
     "@ag-ui/encoder": "0.0.42",
     "@copilotkitnext/shared": "workspace:*",
     "cors": "^2.8.5",
     "express": "^4.21.2",
     "hono": "^4.11.4",
-    "rxjs": "7.8.1"
+    "rxjs": "^7.8.1"
   },
   "peerDependencies": {
     "@ag-ui/client": "0.0.42",

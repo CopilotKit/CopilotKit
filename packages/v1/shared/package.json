@@ -38,20 +38,20 @@
   },
   "devDependencies": {
     "@types/uuid": "^10.0.0",
-    "eslint": "^8.56.0",
+    "eslint": "^9.30.0",
     "eslint-config-custom": "workspace:*",
     "tsconfig": "workspace:*",
     "tsdown": "^0.20.3",
-    "typescript": "^5.2.3",
+    "typescript": "~5.5.0",
     "vitest": "^3.2.4",
-    "zod-to-json-schema": "^3.23.5"
+    "zod-to-json-schema": "^3.24.6"
   },
   "dependencies": {
     "@segment/analytics-node": "^2.1.2",
     "chalk": "4.1.2",
     "graphql": "^16.8.1",
-    "uuid": "^10.0.0",
-    "zod": "^3.23.3"
+    "uuid": "^11.1.0",
+    "zod": "^3.25.75"
   },
   "peerDependencies": {
     "@ag-ui/core": "^0.0.43"

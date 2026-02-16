@@ -43,18 +43,18 @@
     "react": "^18 || ^19 || ^19.0.0-rc"
   },
   "devDependencies": {
-    "@types/react": "^19.1.0",
+    "@types/react": "^19.2.3",
     "@types/react-syntax-highlighter": "^15.5.7",
-    "eslint": "^8.56.0",
+    "eslint": "^9.30.0",
     "eslint-config-custom": "workspace:*",
-    "postcss": "^8.4.20",
-    "react": "^18.2.0",
+    "postcss": "^8.4.31",
+    "react": "19.1.0",
     "tailwind-config": "workspace:*",
-    "tailwindcss": "^3.3.0",
+    "tailwindcss": "^4.1.11",
     "tsconfig": "workspace:*",
-    "vitest": "^3.2.4",
     "tsdown": "^0.20.3",
-    "typescript": "^5.2.3"
+    "typescript": "~5.5.0",
+    "vitest": "^3.2.4"
   },
   "dependencies": {
     "@copilotkit/react-core": "workspace:*",
