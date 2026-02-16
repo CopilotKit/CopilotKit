@@ -33,18 +33,18 @@ import { injectChatLabels } from "../../chat-config";
 
       <ng-template #menu>
         <div
-          class="min-w-[200px] bg-white dark:bg-[#1F1F1F] border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg p-1"
+          class="min-w-[200px] rounded-lg border border-gray-200 bg-white p-1 shadow-lg dark:border-gray-700 dark:bg-[#1F1F1F]"
           cdkMenu
         >
           @for (item of toolsMenu(); track $index) {
             @if (item === "-") {
-              <div class="h-px bg-gray-200 dark:bg-gray-700 my-1"></div>
+              <div class="my-1 h-px bg-gray-200 dark:bg-gray-700"></div>
             } @else if (isMenuItem(item)) {
               @if (item.items && item.items.length > 0) {
                 <!-- Submenu trigger -->
                 <button
                   type="button"
-                  class="w-full px-3 py-2 text-left bg-transparent border-none rounded hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer text-sm flex items-center justify-between"
+                  class="flex w-full cursor-pointer items-center justify-between rounded border-none bg-transparent px-3 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-800"
                   [cdkMenuTriggerFor]="submenu"
                   cdkMenuItem
                 >
@@ -59,18 +59,16 @@ import { injectChatLabels } from "../../chat-config";
                 <!-- Submenu template -->
                 <ng-template #submenu>
                   <div
-                    class="min-w-[200px] bg-white dark:bg-[#1F1F1F] border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg p-1"
+                    class="min-w-[200px] rounded-lg border border-gray-200 bg-white p-1 shadow-lg dark:border-gray-700 dark:bg-[#1F1F1F]"
                     cdkMenu
                   >
                     @for (subItem of item.items; track $index) {
                       @if (subItem === "-") {
-                        <div
-                          class="h-px bg-gray-200 dark:bg-gray-700 my-1"
-                        ></div>
+                        <div class="my-1 h-px bg-gray-200 dark:bg-gray-700"></div>
                       } @else if (isMenuItem(subItem)) {
                         <button
                           type="button"
-                          class="w-full px-3 py-2 text-left bg-transparent border-none rounded hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer text-sm"
+                          class="w-full cursor-pointer rounded border-none bg-transparent px-3 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-800"
                           (click)="handleItemClick(subItem)"
                           cdkMenuItem
                         >
@@ -84,7 +82,7 @@ import { injectChatLabels } from "../../chat-config";
                 <!-- Regular menu item -->
                 <button
                   type="button"
-                  class="w-full px-3 py-2 text-left bg-transparent border-none rounded hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer text-sm"
+                  class="w-full cursor-pointer rounded border-none bg-transparent px-3 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-800"
                   (click)="handleItemClick(item)"
                   cdkMenuItem
                 >

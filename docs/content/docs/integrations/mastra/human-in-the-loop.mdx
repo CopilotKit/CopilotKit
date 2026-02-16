@@ -4,8 +4,8 @@ description: Learn how to implement Human-in-the-Loop (HITL) using Mastra Agents
 icon: lucide/Pause
 ---
 
-import { IframeSwitcher } from "@/components/content"
-import RunAndConnect from "@/snippets/integrations/mastra/run-and-connect.mdx"
+import { IframeSwitcher } from "@/components/content";
+import RunAndConnect from "@/snippets/integrations/mastra/run-and-connect.mdx";
 
 <IframeSwitcher
   id="human-in-the-loop-example"
@@ -21,7 +21,8 @@ import RunAndConnect from "@/snippets/integrations/mastra/run-and-connect.mdx"
 CopilotKit lets you to add custom UI to take user input and then pass it back to the agent upon completion.
 
 <Callout type="warning">
-Calling `suspend()` or `resume()` inside of a workflow is not currently supported in this integration.
+  Calling `suspend()` or `resume()` inside of a workflow is not currently
+  supported in this integration.
 </Callout>
 
 ## Why should I use this?
@@ -79,6 +80,7 @@ you can ensure that the agent is always making the right decisions and ultimatel
       // ...
     }
     ```
+
   </Step>
 
   <Step>
@@ -95,5 +97,6 @@ you can ensure that the agent is always making the right decisions and ultimatel
     ```
 
     You'll see that the agent will present two options and wait for you to select one before continuing.
+
   </Step>
 </Steps>

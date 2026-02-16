@@ -173,7 +173,7 @@ export function TesterDashboard() {
             size="sm"
             onClick={() => setViewMode("code")}
           >
-            <Code2 className=" h-4 w-4" />
+            <Code2 className="h-4 w-4" />
             Code
           </Button>
           <Button

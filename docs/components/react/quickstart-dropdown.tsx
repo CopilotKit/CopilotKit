@@ -36,8 +36,7 @@ export function QuickstartDropdown() {
     <div className="relative w-full">
       <select
         onChange={handleSelectChange}
-        className="
-        text-[#010507] font-medium dark:text-white text-sm p-3 pl-4 pr-10 transition-all duration-100 rounded-lg cursor-pointer w-full bg-[#0105070D] dark:bg-[#FFFFFF1A] font-spline appearance-none"
+        className="font-spline w-full cursor-pointer appearance-none rounded-lg bg-[#0105070D] p-3 pr-10 pl-4 text-sm font-medium text-[#010507] transition-all duration-100 dark:bg-[#FFFFFF1A] dark:text-white"
         defaultValue=""
       >
         <option value="" disabled>
@@ -49,7 +48,7 @@ export function QuickstartDropdown() {
           </option>
         ))}
       </select>
-      <ChevronDownIcon className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#010507] dark:text-white" />
+      <ChevronDownIcon className="pointer-events-none absolute top-1/2 right-3 h-4 w-4 -translate-y-1/2 text-[#010507] dark:text-white" />
     </div>
   );
 }

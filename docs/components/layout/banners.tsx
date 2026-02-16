@@ -19,14 +19,14 @@ export function Banners() {
 
   const bannerContent = [
     {
-      icon: <Rocket className="w-5 h-5 hidden md:block flex-shrink-0" />,
+      icon: <Rocket className="hidden h-5 w-5 flex-shrink-0 md:block" />,
       mobileText: "CopilotKit fully supports MCP Apps!",
       desktopText: "Bring MCP Apps interaction to your users with CopilotKit!",
       buttonText: "See What's New",
       href: "/whats-new/mcp-apps-support",
     },
     {
-      icon: <Sparkles className="w-5 h-5 hidden md:block flex-shrink-0" />,
+      icon: <Sparkles className="hidden h-5 w-5 flex-shrink-0 md:block" />,
       mobileText: "CopilotKit 1.50 is available!",
       desktopText:
         "CopilotKit 1.50 is available, featuring threads, no GraphQL, new interfaces, and more!",
@@ -106,25 +106,25 @@ export function Banners() {
   const content = bannerContent[currentBanner];
 
   return (
-    <div key={key} className="w-full px-1 mt-1 xl:px-2 xl:mt-2">
+    <div key={key} className="mt-1 w-full px-1 xl:mt-2 xl:px-2">
       <Banner
-        className="w-full text-foreground bg-secondary/80 backdrop-blur-sm border border-border rounded-2xl py-1.5 md:py-2"
+        className="text-foreground bg-secondary/80 border-border w-full rounded-2xl border py-1.5 backdrop-blur-sm md:py-2"
         id="rotating-banner"
       >
-        <div className="flex flex-row items-center justify-center gap-1.5 md:gap-3 w-full px-1 md:px-4">
+        <div className="flex w-full flex-row items-center justify-center gap-1.5 px-1 md:gap-3 md:px-4">
           <div
             key={currentBanner}
-            className="flex items-center gap-1.5 md:gap-2 flex-shrink min-w-0"
+            className="flex min-w-0 flex-shrink items-center gap-1.5 md:gap-2"
           >
             {content.icon}
             <p
-              className="text-xs md:text-base font-normal md:hidden font-sans"
+              className="font-sans text-xs font-normal md:hidden md:text-base"
               style={{ fontWeight: 400 }}
             >
               {content.mobileText}
             </p>
             <p
-              className="text-sm sm:text-base font-normal hidden md:block font-sans"
+              className="hidden font-sans text-sm font-normal sm:text-base md:block"
               style={{ fontWeight: 400 }}
             >
               {content.desktopText}
@@ -132,7 +132,7 @@ export function Banners() {
           </div>
           <Link
             href={content.href}
-            className="text-indigo-800 dark:text-indigo-300 ring-1 ring-indigo-200 dark:ring-indigo-900 text-xs md:text-sm items-center bg-gradient-to-r from-indigo-200/50 to-purple-200/80 dark:from-indigo-900/40 dark:to-purple-900/50 flex px-2 py-0.5 md:px-4 md:py-1 no-underline whitespace-nowrap transition-all duration-100 hover:ring-2 hover:ring-indigo-400 hover:dark:text-indigo-200 rounded-lg flex-shrink-0"
+            className="flex flex-shrink-0 items-center rounded-lg bg-gradient-to-r from-indigo-200/50 to-purple-200/80 px-2 py-0.5 text-xs whitespace-nowrap text-indigo-800 no-underline ring-1 ring-indigo-200 transition-all duration-100 hover:ring-2 hover:ring-indigo-400 md:px-4 md:py-1 md:text-sm dark:from-indigo-900/40 dark:to-purple-900/50 dark:text-indigo-300 dark:ring-indigo-900 hover:dark:text-indigo-200"
           >
             {content.buttonText}
           </Link>
@@ -145,11 +145,11 @@ export function Banners() {
 export function NewLookAndFeelBanner() {
   return (
     <Banner
-      className="w-full text-white gap-2 bg-indigo-500 dark:bg-indigo-900 h-2!"
+      className="h-2! w-full gap-2 bg-indigo-500 text-white dark:bg-indigo-900"
       variant="rainbow"
       id="new-look-and-feel-banner"
     >
-      <PaintbrushIcon className="w-5 h-5" />
+      <PaintbrushIcon className="h-5 w-5" />
       <p>
         We are launching a new default look and feel! Checkout the{" "}
         <span className="underline">
@@ -167,11 +167,11 @@ export function NewLookAndFeelBanner() {
 export function CoagentsCrewAnnouncementBanner() {
   return (
     <Banner
-      className="w-full text-white gap-2 bg-indigo-500 dark:bg-indigo-900"
+      className="w-full gap-2 bg-indigo-500 text-white dark:bg-indigo-900"
       variant="rainbow"
       id="coagents-crew-announcement-banner"
     >
-      <SiCrewai className="w-5 h-5 inline mb-1" /> CrewAI support is here!
+      <SiCrewai className="mb-1 inline h-5 w-5" /> CrewAI support is here!
       Checkout the{" "}
       <Link href="/crewai-crews" className="underline">
         Crew
@@ -188,12 +188,12 @@ export function CoagentsCrewAnnouncementBanner() {
 export function ModelContextProtocolBanner() {
   return (
     <Banner
-      className="w-full text-white bg-indigo-500 dark:bg-indigo-900 h-24 sm:h-14 !important"
+      className="!important h-24 w-full bg-indigo-500 text-white sm:h-14 dark:bg-indigo-900"
       variant="rainbow"
       id="model-context-protocol-banner"
     >
       <p className="w-3/4">
-        <PiGraph className="w-5 h-5 inline mr-2" /> Model Context Protocol (MCP)
+        <PiGraph className="mr-2 inline h-5 w-5" /> Model Context Protocol (MCP)
         support is here! Try it out{" "}
         <Link
           href="/direct-to-llm/guides/model-context-protocol"
@@ -205,7 +205,7 @@ export function ModelContextProtocolBanner() {
         <Link
           href="https://go.copilotkit.ai/webinarMastra"
           target="_blank"
-          className="underline ml-1"
+          className="ml-1 underline"
         >
           webinar
         </Link>{" "}
@@ -218,7 +218,7 @@ export function ModelContextProtocolBanner() {
 export function AGUIBanner() {
   return (
     <Banner
-      className="w-full text-white bg-indigo-500 dark:bg-indigo-900 h-24 sm:h-14 !important"
+      className="!important h-24 w-full bg-indigo-500 text-white sm:h-14 dark:bg-indigo-900"
       variant="rainbow"
       id="agui-banner"
     >
@@ -241,24 +241,24 @@ export function AGUIBanner() {
 
 export function V150Banner() {
   return (
-    <div className="w-full px-1 mt-1 xl:px-2 xl:mt-2">
+    <div className="mt-1 w-full px-1 xl:mt-2 xl:px-2">
       <Banner
-        className="w-full text-foreground bg-secondary/80 backdrop-blur-sm border border-border rounded-2xl py-1.5 md:py-2"
+        className="text-foreground bg-secondary/80 border-border w-full rounded-2xl border py-1.5 backdrop-blur-sm md:py-2"
         id="v150-banner"
       >
-        <div className="flex flex-row items-center justify-center gap-1.5 md:gap-3 w-full px-1 md:px-4">
-          <div className="flex items-center gap-1.5 md:gap-2 flex-shrink min-w-0">
-            <Sparkles className="w-5 h-5 hidden md:block flex-shrink-0" />
+        <div className="flex w-full flex-row items-center justify-center gap-1.5 px-1 md:gap-3 md:px-4">
+          <div className="flex min-w-0 flex-shrink items-center gap-1.5 md:gap-2">
+            <Sparkles className="hidden h-5 w-5 flex-shrink-0 md:block" />
             {/* Short text for mobile (below 768px) */}
             <p
-              className="text-xs md:text-base font-normal md:hidden font-sans"
+              className="font-sans text-xs font-normal md:hidden md:text-base"
               style={{ fontWeight: 400 }}
             >
               CopilotKit 1.50 is available!
             </p>
             {/* Full text for desktop (768px and above) */}
             <p
-              className="text-sm sm:text-base font-normal hidden md:block font-sans"
+              className="hidden font-sans text-sm font-normal sm:text-base md:block"
               style={{ fontWeight: 400 }}
             >
               CopilotKit 1.50 is available, featuring threads, no GraphQL, new
@@ -267,7 +267,7 @@ export function V150Banner() {
           </div>
           <Link
             href="/whats-new/v1-50"
-            className="text-indigo-800 dark:text-indigo-300 ring-1 ring-indigo-200 dark:ring-indigo-900 text-xs md:text-sm items-center bg-gradient-to-r from-indigo-200/50 to-purple-200/80 dark:from-indigo-900/40 dark:to-purple-900/50 flex px-2 py-0.5 md:px-4 md:py-1 no-underline whitespace-nowrap transition-all duration-100 hover:ring-2 hover:ring-indigo-400 hover:dark:text-indigo-200 rounded-lg flex-shrink-0"
+            className="flex flex-shrink-0 items-center rounded-lg bg-gradient-to-r from-indigo-200/50 to-purple-200/80 px-2 py-0.5 text-xs whitespace-nowrap text-indigo-800 no-underline ring-1 ring-indigo-200 transition-all duration-100 hover:ring-2 hover:ring-indigo-400 md:px-4 md:py-1 md:text-sm dark:from-indigo-900/40 dark:to-purple-900/50 dark:text-indigo-300 dark:ring-indigo-900 hover:dark:text-indigo-200"
           >
             See What&apos;s New
           </Link>
@@ -279,24 +279,24 @@ export function V150Banner() {
 
 export function MCPAppsLaunchBanner() {
   return (
-    <div className="w-full px-1 mt-1 xl:px-2 xl:mt-2">
+    <div className="mt-1 w-full px-1 xl:mt-2 xl:px-2">
       <Banner
-        className="w-full text-foreground bg-secondary/80 backdrop-blur-sm border border-border rounded-2xl py-1.5 md:py-2"
+        className="text-foreground bg-secondary/80 border-border w-full rounded-2xl border py-1.5 backdrop-blur-sm md:py-2"
         id="mcp-apps-launch-banner"
       >
-        <div className="flex flex-row items-center justify-center gap-1.5 md:gap-3 w-full px-1 md:px-4">
-          <div className="flex items-center gap-1.5 md:gap-2 flex-shrink min-w-0">
-            <Rocket className="w-5 h-5 hidden md:block flex-shrink-0" />
+        <div className="flex w-full flex-row items-center justify-center gap-1.5 px-1 md:gap-3 md:px-4">
+          <div className="flex min-w-0 flex-shrink items-center gap-1.5 md:gap-2">
+            <Rocket className="hidden h-5 w-5 flex-shrink-0 md:block" />
             {/* Short text for mobile (below 768px) */}
             <p
-              className="text-xs md:text-base font-normal md:hidden font-sans"
+              className="font-sans text-xs font-normal md:hidden md:text-base"
               style={{ fontWeight: 400 }}
             >
               Use MCP Apps with CopilotKit and AG-UI
             </p>
             {/* Full text for desktop (768px and above) */}
             <p
-              className="text-sm sm:text-base font-normal hidden md:block font-sans"
+              className="hidden font-sans text-sm font-normal sm:text-base md:block"
               style={{ fontWeight: 400 }}
             >
               Use MCP Apps with CopilotKit and AG-UI
@@ -304,7 +304,7 @@ export function MCPAppsLaunchBanner() {
           </div>
           <Link
             href="/whats-new/mcp-apps-support"
-            className="text-indigo-800 dark:text-indigo-300 ring-1 ring-indigo-200 dark:ring-indigo-900 text-xs md:text-sm items-center bg-gradient-to-r from-indigo-200/50 to-purple-200/80 dark:from-indigo-900/40 dark:to-purple-900/50 flex px-2 py-0.5 md:px-4 md:py-1 no-underline whitespace-nowrap transition-all duration-100 hover:ring-2 hover:ring-indigo-400 hover:dark:text-indigo-200 rounded-lg flex-shrink-0"
+            className="flex flex-shrink-0 items-center rounded-lg bg-gradient-to-r from-indigo-200/50 to-purple-200/80 px-2 py-0.5 text-xs whitespace-nowrap text-indigo-800 no-underline ring-1 ring-indigo-200 transition-all duration-100 hover:ring-2 hover:ring-indigo-400 md:px-4 md:py-1 md:text-sm dark:from-indigo-900/40 dark:to-purple-900/50 dark:text-indigo-300 dark:ring-indigo-900 hover:dark:text-indigo-200"
           >
             See What's New
           </Link>

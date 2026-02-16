@@ -3,9 +3,10 @@ title: Reading agent state
 icon: "lucide/ArrowLeft"
 description: Read the realtime agent state in your native application.
 ---
-import { ImageZoom } from 'fumadocs-ui/components/image-zoom';
-import { IframeSwitcher } from "@/components/content"
-import RunAndConnect from "@/snippets/integrations/aws-strands/run-and-connect.mdx"
+
+import { ImageZoom } from "fumadocs-ui/components/image-zoom";
+import { IframeSwitcher } from "@/components/content";
+import RunAndConnect from "@/snippets/integrations/aws-strands/run-and-connect.mdx";
 
 <IframeSwitcher
   id="shared-state-read-example"
@@ -17,7 +18,8 @@ import RunAndConnect from "@/snippets/integrations/aws-strands/run-and-connect.m
 />
 
 <Callout type="info">
-  This example demonstrates reading from shared state in the [CopilotKit Feature Viewer](https://feature-viewer.copilotkit.ai/aws-strands/feature/shared_state).
+  This example demonstrates reading from shared state in the [CopilotKit Feature
+  Viewer](https://feature-viewer.copilotkit.ai/aws-strands/feature/shared_state).
 </Callout>
 
 ## What is this?
@@ -58,6 +60,7 @@ state updates, you can reflect these updates natively in your application.
         instructions="Always communicate in the preferred language of the user as defined in your state. Do not communicate in any other language."
     )
     ```
+
   </Step>
 
   <Step>
@@ -97,6 +100,7 @@ state updates, you can reflect these updates natively in your application.
     <Callout type="info">
       The `state` in `useCoAgent` is reactive and will automatically update when the agent state changes.
     </Callout>
+
   </Step>
 
   <Step>
@@ -104,6 +108,7 @@ state updates, you can reflect these updates natively in your application.
 
     As the agent state updates, your `state` variable will automatically update with it! In this case, you'll see the
     language set to "spanish" as that's the initial state we set.
+
   </Step>
 </Steps>
 
@@ -118,7 +123,7 @@ import { useCoAgentStateRender } from "@copilotkit/react-core"; // [!code highli
 // Define the agent state type, should match the actual state of your agent
 type AgentState = {
   language: "english" | "spanish";
-}
+};
 
 function YourMainContent() {
   // ...
@@ -135,5 +140,6 @@ function YourMainContent() {
 ```
 
 <Callout type="info">
-  The `state` in `useCoAgentStateRender` is reactive and will automatically update when the agent state changes.
+  The `state` in `useCoAgentStateRender` is reactive and will automatically
+  update when the agent state changes.
 </Callout>

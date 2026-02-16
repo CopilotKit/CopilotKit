@@ -1,8 +1,4 @@
 {
   "title": "Chat Components",
-  "pages": [
-    "CopilotChat",
-    "CopilotPopup",
-    "CopilotSidebar"
-  ]
+  "pages": ["CopilotChat", "CopilotPopup", "CopilotSidebar"]
 }

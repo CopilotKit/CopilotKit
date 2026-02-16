@@ -52,7 +52,7 @@ export function ResearchCanvas() {
           className=""
           data-test-id="delete-resource-generative-ui-container"
         >
-          <div className="font-bold text-base mb-2">
+          <div className="mb-2 text-base font-bold">
             Delete these resources?
           </div>
           <Resources
@@ -65,14 +65,14 @@ export function ResearchCanvas() {
             <div className="mt-4 flex justify-start space-x-2">
               <button
                 onClick={() => handler("NO")}
-                className="px-4 py-2 text-[#6766FC] border border-[#6766FC] rounded text-sm font-bold"
+                className="rounded border border-[#6766FC] px-4 py-2 text-sm font-bold text-[#6766FC]"
               >
                 Cancel
               </button>
               <button
                 data-test-id="button-delete"
                 onClick={() => handler("YES")}
-                className="px-4 py-2 bg-[#6766FC] text-white rounded text-sm font-bold"
+                className="rounded bg-[#6766FC] px-4 py-2 text-sm font-bold text-white"
               >
                 Delete
               </button>
@@ -134,10 +134,10 @@ export function ResearchCanvas() {
   };
 
   return (
-    <div className="w-full h-full overflow-y-auto p-10 bg-[#F5F8FF]">
+    <div className="h-full w-full overflow-y-auto bg-[#F5F8FF] p-10">
       <div className="space-y-8 pb-10">
         <div>
-          <h2 className="text-lg font-medium mb-3 text-primary">
+          <h2 className="mb-3 text-lg font-medium text-primary">
             Research Question
           </h2>
           <Input
@@ -147,12 +147,12 @@ export function ResearchCanvas() {
               setState({ ...state, research_question: e.target.value })
             }
             aria-label="Research question"
-            className="bg-background px-6 py-8 border-0 shadow-none rounded-xl text-md font-extralight focus-visible:ring-0 placeholder:text-slate-400"
+            className="text-md rounded-xl border-0 bg-background px-6 py-8 font-extralight shadow-none placeholder:text-slate-400 focus-visible:ring-0"
           />
         </div>
 
         <div>
-          <div className="flex justify-between items-center mb-4">
+          <div className="mb-4 flex items-center justify-between">
             <h2 className="text-lg font-medium text-primary">Resources</h2>
             <EditResourceDialog
               isOpen={isEditResourceOpen}
@@ -184,8 +184,8 @@ export function ResearchCanvas() {
           )}
         </div>
 
-        <div className="flex flex-col h-full">
-          <h2 className="text-lg font-medium mb-3 text-primary">
+        <div className="flex h-full flex-col">
+          <h2 className="mb-3 text-lg font-medium text-primary">
             Research Draft
           </h2>
           <Textarea
@@ -195,7 +195,7 @@ export function ResearchCanvas() {
             onChange={(e) => setState({ ...state, report: e.target.value })}
             rows={10}
             aria-label="Research draft"
-            className="bg-background px-6 py-8 border-0 shadow-none rounded-xl text-md font-extralight focus-visible:ring-0 placeholder:text-slate-400"
+            className="text-md rounded-xl border-0 bg-background px-6 py-8 font-extralight shadow-none placeholder:text-slate-400 focus-visible:ring-0"
             style={{ minHeight: "200px" }}
           />
         </div>

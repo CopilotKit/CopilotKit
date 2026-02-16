@@ -62,21 +62,21 @@ export function V150EarlyAccessModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
       onClick={onClose}
     >
       <div
-        className="bg-white dark:bg-gray-900 rounded-lg shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto"
+        className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-lg bg-white shadow-xl dark:bg-gray-900"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="p-6">
           {/* Header */}
-          <div className="flex justify-between items-start mb-4">
+          <div className="mb-4 flex items-start justify-between">
             <div>
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+              <h2 className="mb-2 text-2xl font-bold text-gray-900 dark:text-white">
                 Get Early Access to v1.50
               </h2>
-              <p className="text-gray-600 dark:text-gray-400 text-sm">
+              <p className="text-sm text-gray-600 dark:text-gray-400">
                 Submit your name and email below to be one of the first to
                 experience v1.50.
               </p>
@@ -86,12 +86,12 @@ export function V150EarlyAccessModal({
               className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
               aria-label="Close modal"
             >
-              <X className="w-6 h-6" />
+              <X className="h-6 w-6" />
             </button>
           </div>
 
           {/* Video Preview */}
-          <div className="mb-6 rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-800">
+          <div className="mb-6 overflow-hidden rounded-lg bg-gray-100 dark:bg-gray-800">
             <video className="w-full" controls autoPlay muted loop playsInline>
               <source
                 src="https://copilotkit-public-assets.s3.us-east-1.amazonaws.com/corp-site/videos/cpk-150-v2.mp4"
@@ -103,8 +103,8 @@ export function V150EarlyAccessModal({
 
           {/* Success State */}
           {submitted ? (
-            <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-6 text-center">
-              <h3 className="text-xl font-bold text-green-800 dark:text-green-300 mb-2">
+            <div className="rounded-lg border border-green-200 bg-green-50 p-6 text-center dark:border-green-800 dark:bg-green-900/20">
+              <h3 className="mb-2 text-xl font-bold text-green-800 dark:text-green-300">
                 Thanks for registering! 🎉
               </h3>
               <p className="text-green-700 dark:text-green-400">
@@ -118,7 +118,7 @@ export function V150EarlyAccessModal({
               <div>
                 <label
                   htmlFor="email"
-                  className="block text-sm font-medium mb-2 text-gray-900 dark:text-white"
+                  className="mb-2 block text-sm font-medium text-gray-900 dark:text-white"
                 >
                   Email *
                 </label>
@@ -127,7 +127,7 @@ export function V150EarlyAccessModal({
                   name="email"
                   type="email"
                   required
-                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                  className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-gray-900 focus:border-transparent focus:ring-2 focus:ring-purple-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
                   placeholder="your@email.com"
                 />
               </div>
@@ -135,7 +135,7 @@ export function V150EarlyAccessModal({
               <div>
                 <label
                   htmlFor="firstName"
-                  className="block text-sm font-medium mb-2 text-gray-900 dark:text-white"
+                  className="mb-2 block text-sm font-medium text-gray-900 dark:text-white"
                 >
                   First Name *
                 </label>
@@ -144,7 +144,7 @@ export function V150EarlyAccessModal({
                   name="firstName"
                   type="text"
                   required
-                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                  className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-gray-900 focus:border-transparent focus:ring-2 focus:ring-purple-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
                   placeholder="John"
                 />
               </div>
@@ -152,7 +152,7 @@ export function V150EarlyAccessModal({
               <div>
                 <label
                   htmlFor="lastName"
-                  className="block text-sm font-medium mb-2 text-gray-900 dark:text-white"
+                  className="mb-2 block text-sm font-medium text-gray-900 dark:text-white"
                 >
                   Last Name *
                 </label>
@@ -161,7 +161,7 @@ export function V150EarlyAccessModal({
                   name="lastName"
                   type="text"
                   required
-                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                  className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-gray-900 focus:border-transparent focus:ring-2 focus:ring-purple-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
                   placeholder="Doe"
                 />
               </div>
@@ -169,7 +169,7 @@ export function V150EarlyAccessModal({
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full bg-purple-600 text-white py-2 px-4 rounded-lg hover:bg-purple-700 disabled:opacity-50 transition-colors font-medium"
+                className="w-full rounded-lg bg-purple-600 px-4 py-2 font-medium text-white transition-colors hover:bg-purple-700 disabled:opacity-50"
               >
                 {loading ? "Submitting..." : "Submit"}
               </button>

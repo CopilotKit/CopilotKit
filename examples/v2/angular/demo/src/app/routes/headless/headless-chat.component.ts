@@ -36,10 +36,9 @@ import { z } from "zod";
   `,
 })
 export class RequireApprovalComponent implements HumanInTheLoopToolRenderer {
-  toolCall =
-    input.required<
-      HumanInTheLoopToolCall<{ action: string; reason: string }>
-    >();
+  toolCall = input.required<
+    HumanInTheLoopToolCall<{ action: string; reason: string }>
+  >();
 
   respond(result: { approved: boolean }) {
     this.toolCall().respond(result);
@@ -54,17 +53,23 @@ export class RequireApprovalComponent implements HumanInTheLoopToolRenderer {
   template: `
     <div
       class="headless-container"
-      style="display:flex;flex-direction:column;height:100vh;width:100vw;"
+      style="display: flex; flex-direction: column; height: 100vh; width: 100vw"
     >
       <div
         class="messages"
-        style="flex:1;overflow:auto;padding:16px;background:#f9fafb;color:#111827;"
+        style="
+          flex: 1;
+          overflow: auto;
+          padding: 16px;
+          background: #f9fafb;
+          color: #111827;
+        "
       >
-        <div *ngFor="let m of messages()" style="margin-bottom:16px;">
-          <div style="font-weight:600;color:#374151;">
+        <div *ngFor="let m of messages()" style="margin-bottom: 16px">
+          <div style="font-weight: 600; color: #374151">
             {{ m.role | titlecase }}
           </div>
-          <div style="white-space:pre-wrap">{{ m.content }}</div>
+          <div style="white-space: pre-wrap">{{ m.content }}</div>
           <ng-container *ngIf="m.role === 'assistant'">
             <copilot-render-tool-calls
               [message]="m"
@@ -73,26 +78,47 @@ export class RequireApprovalComponent implements HumanInTheLoopToolRenderer {
             ></copilot-render-tool-calls>
           </ng-container>
         </div>
-        <div *ngIf="isRunning()" style="opacity:0.9;color:#6b7280;">
+        <div *ngIf="isRunning()" style="opacity: 0.9; color: #6b7280">
           Thinking…
         </div>
       </div>
 
       <form
         (ngSubmit)="send()"
-        style="display:flex;gap:8px;padding:12px;background:#ffffff;border-top:1px solid #e5e7eb;"
+        style="
+          display: flex;
+          gap: 8px;
+          padding: 12px;
+          background: #ffffff;
+          border-top: 1px solid #e5e7eb;
+        "
       >
         <input
           name="message"
           [(ngModel)]="inputValue"
           [disabled]="isRunning()"
           placeholder="Type a message…"
-          style="flex:1;padding:10px 12px;border-radius:8px;border:1px solid #d1d5db;background:#ffffff;color:#111827;outline:none;"
+          style="
+            flex: 1;
+            padding: 10px 12px;
+            border-radius: 8px;
+            border: 1px solid #d1d5db;
+            background: #ffffff;
+            color: #111827;
+            outline: none;
+          "
         />
         <button
           type="submit"
           [disabled]="!inputValue.trim() || isRunning()"
-          style="padding:10px 14px;border-radius:8px;border:1px solid #1d4ed8;background:#2563eb;color:#ffffff;cursor:pointer;"
+          style="
+            padding: 10px 14px;
+            border-radius: 8px;
+            border: 1px solid #1d4ed8;
+            background: #2563eb;
+            color: #ffffff;
+            cursor: pointer;
+          "
         >
           Send
         </button>

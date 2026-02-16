@@ -3,13 +3,17 @@ title: "Predictive state updates"
 icon: "lucide/Podcast"
 description: Stream in-progress agent state updates to the frontend.
 ---
-import { IframeSwitcher } from "@/components/content"
-import { TailoredContent, TailoredContentOption } from "@/components/react/tailored-content.tsx";
+
+import { IframeSwitcher } from "@/components/content";
+import {
+  TailoredContent,
+  TailoredContentOption,
+} from "@/components/react/tailored-content.tsx";
 import { FaWrench } from "react-icons/fa";
 import { FaArrowUp } from "react-icons/fa";
 
 {/* TODO: Re-add once the dojo example is updated and works */}
-{/* <IframeSwitcher
+{/\* <IframeSwitcher
   id="predictive-state-updates-example"
   exampleUrl="https://feature-viewer.copilotkit.ai/adk-middleware/feature/predictive_state_updates?sidebar=false&chatDefaultOpen=false"
   codeUrl="https://feature-viewer.copilotkit.ai/adk-middleware/feature/predictive_state_updates?view=code&sidebar=false&codeLayout=tabs"
@@ -34,6 +38,7 @@ CopilotKit enables this through its concept of **_predictive state updates_**.
 ## When should I use this?
 
 Use predictive state updates when you want to:
+
 - **Keep users engaged** by avoiding long loading indicators
 - **Build trust** by demonstrating what the agent is working on
 - Enable **agent steering** - allowing users to course-correct the agent if needed
@@ -62,6 +67,7 @@ When your agent finishes executing, **its final state becomes the single source 
         """State for the agent."""
         observed_steps: List[str] = []
     ```
+
   </Step>
   <Step>
     ### Emit the intermediate state
@@ -144,6 +150,7 @@ When your agent finishes executing, **its final state becomes the single source 
             </Callout>
         </TailoredContentOption>
     </TailoredContent>
+
   </Step>
   <Step>
     ### Observe the predictions
@@ -151,7 +158,7 @@ When your agent finishes executing, **its final state becomes the single source 
 
     ```tsx title="ui/app/page.tsx"
     "use client";
-    
+
     import { useCoAgent, useCoAgentStateRender } from '@copilotkit/react-core';
 
     // ...
@@ -202,6 +209,7 @@ When your agent finishes executing, **its final state becomes the single source 
     <Callout type="warn" title="Important">
       The `name` parameter must exactly match the agent name you defined in your CopilotRuntime configuration (e.g., `my_agent` from the quickstart).
     </Callout>
+
   </Step>
   <Step>
     ### Give it a try!
@@ -209,4 +217,3 @@ When your agent finishes executing, **its final state becomes the single source 
     You can apply this pattern to any long-running task in your agent.
   </Step>
 </Steps>
-

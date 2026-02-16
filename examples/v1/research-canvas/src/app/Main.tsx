@@ -24,7 +24,7 @@ export default function Main() {
 
   return (
     <>
-      <h1 className="flex h-[60px] bg-[#0E103D] text-white items-center px-10 text-2xl font-medium">
+      <h1 className="flex h-[60px] items-center bg-[#0E103D] px-10 text-2xl font-medium text-white">
         Research Helper
       </h1>
 
@@ -36,7 +36,7 @@ export default function Main() {
           <ResearchCanvas />
         </div>
         <div
-          className="w-[500px] h-full flex-shrink-0"
+          className="h-full w-[500px] flex-shrink-0"
           style={
             {
               "--copilot-kit-background-color": "#E0E9FD",

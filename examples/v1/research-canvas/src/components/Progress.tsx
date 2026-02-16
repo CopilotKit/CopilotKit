@@ -16,7 +16,7 @@ export function Progress({
 
   return (
     <div data-test-id="progress-steps">
-      <div className="border border-slate-200 bg-slate-100/30 shadow-md rounded-lg overflow-hidden text-sm py-2">
+      <div className="overflow-hidden rounded-lg border border-slate-200 bg-slate-100/30 py-2 text-sm shadow-md">
         {logs.map((log, index) => (
           <div
             key={index}
@@ -29,7 +29,7 @@ export function Progress({
           >
             <div className="w-8">
               <div
-                className="w-4 h-4 bg-slate-700 flex items-center justify-center rounded-full mt-[10px] ml-[12px]"
+                className="ml-[12px] mt-[10px] flex h-4 w-4 items-center justify-center rounded-full bg-slate-700"
                 data-test-id={
                   log.done
                     ? "progress-step-item_done"
@@ -37,9 +37,9 @@ export function Progress({
                 }
               >
                 {log.done ? (
-                  <CheckIcon className="w-3 h-3 text-white" />
+                  <CheckIcon className="h-3 w-3 text-white" />
                 ) : (
-                  <LoaderCircle className="w-3 h-3 text-white animate-spin" />
+                  <LoaderCircle className="h-3 w-3 animate-spin text-white" />
                 )}
               </div>
               {index < logs.length - 1 && (
@@ -48,8 +48,8 @@ export function Progress({
                 ></div>
               )}
             </div>
-            <div className="flex-1 flex justify-center py-2 pl-2 pr-4">
-              <div className="flex-1 flex items-center text-xs">
+            <div className="flex flex-1 justify-center py-2 pl-2 pr-4">
+              <div className="flex flex-1 items-center text-xs">
                 {log.message.replace(
                   /https?:\/\/[^\s]+/g, // Regex to match URLs
                   (url) => truncateUrl(url), // Replace with truncated URL

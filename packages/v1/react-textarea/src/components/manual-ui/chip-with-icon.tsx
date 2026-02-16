@@ -10,9 +10,9 @@ export const ChipWithIcon = ({
   iconUrl,
 }: ChipWithIconProps) => {
   return (
-    <span className="inline-flex items-center px-3 py-1 rounded-full bg-slate-200 text-sm font-medium text-white">
+    <span className="inline-flex items-center rounded-full bg-slate-200 px-3 py-1 text-sm font-medium text-white">
       {iconUrl && (
-        <img src={iconUrl} alt="icon" className="w-4 h-4 rounded-full mr-2" />
+        <img src={iconUrl} alt="icon" className="mr-2 h-4 w-4 rounded-full" />
       )}
       {label}
       <button

@@ -3,10 +3,12 @@ title: Agent State
 icon: "lucide/Bot"
 description: Render the state of your agent with custom UI components.
 ---
+
 import { Accordions, Accordion } from "fumadocs-ui/components/accordion";
-import { IframeSwitcher } from "@/components/content"
+import { IframeSwitcher } from "@/components/content";
 
 {/* TODO: Swap these links for Microsoft Agent Framework links once Microsoft Agent Framework is officially added to the feature viewer */}
+
 <IframeSwitcher
   id="agent-state-example"
   exampleUrl="https://feature-viewer.copilotkit.ai/microsoft-agent-framework-dotnet/feature/agentic_generative_ui?sidebar=false&chatDefaultOpen=false"
@@ -96,6 +98,7 @@ is a situation where a user and an agent are working together to solve a problem
       searches: SearchInfo[];
     };
     ```
+
   </Step>
   <Step>
     ### Stream state from your agent
@@ -303,6 +306,7 @@ is a situation where a user and an agent are working together to solve a problem
     <Callout type="tip">
       For a complete, production-ready implementation of state streaming, see the [SharedStateAgent sample](https://github.com/microsoft/agent-framework/blob/main/dotnet/samples/AGUIClientServer/AGUIDojoServer/SharedStateAgent.cs) in the Agent Framework repository.
     </Callout>
+
   </Step>
   <Step>
     ### Render state of the agent in the chat
@@ -342,6 +346,7 @@ is a situation where a user and an agent are working together to solve a problem
       return <div>...</div>;
     }
     ```
+
   </Step>
   <Step>
     ### Render state outside of the chat
@@ -385,10 +390,12 @@ is a situation where a user and an agent are working together to solve a problem
       )
     }
     ```
+
   </Step>
   <Step>
     ### Give it a try!
 
     You've now created a component that will render the agent's state in the chat.
+
   </Step>
 </Steps>

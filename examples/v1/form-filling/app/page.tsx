@@ -13,7 +13,7 @@ export default function Home() {
   });
 
   return (
-    <div className="min-h-screen p-8 pb-20 sm:p-12 font-[family-name:var(--font-geist-sans)]">
+    <div className="min-h-screen p-8 pb-20 font-[family-name:var(--font-geist-sans)] sm:p-12">
       <CopilotPopup
         instructions={prompt}
         defaultOpen
@@ -24,9 +24,9 @@ export default function Home() {
           ],
         }}
       />
-      <div className="max-w-5xl mx-auto">
+      <div className="mx-auto max-w-5xl">
         <header className="mb-12 text-center">
-          <h1 className="text-3xl font-bold mb-2">Security Incident Report</h1>
+          <h1 className="mb-2 text-3xl font-bold">Security Incident Report</h1>
           <p className="text-muted-foreground">
             Please fill out the form below to report an incident
           </p>
@@ -36,7 +36,7 @@ export default function Home() {
           <IncidentReportForm />
         </main>
 
-        <footer className="mt-16 text-center text-sm text-muted-foreground">
+        <footer className="text-muted-foreground mt-16 text-center text-sm">
           <p>🪁 Powered by CopilotKit</p>
         </footer>
       </div>

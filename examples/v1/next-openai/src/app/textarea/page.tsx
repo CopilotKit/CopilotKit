@@ -76,13 +76,13 @@ function TextAreas() {
   );
 
   return (
-    <div className="w-full h-full gap-10 flex flex-col items-center p-10">
+    <div className="flex h-full w-full flex-col items-center gap-10 p-10">
       <div className="flex w-1/2 items-start gap-3">
-        <span className="text-3xl text-white whitespace-nowrap">
+        <span className="whitespace-nowrap text-3xl text-white">
           Textarea Purpose:
         </span>
         <textarea
-          className="p-2 h-12 rounded-lg flex-grow overflow-x-auto overflow-y-hidden whitespace-nowrap"
+          className="h-12 flex-grow overflow-x-auto overflow-y-hidden whitespace-nowrap rounded-lg p-2"
           value={textareaPurpose}
           onChange={(event) => setTextareaPurpose(event.target.value)}
         />
@@ -91,7 +91,7 @@ function TextAreas() {
         value={copilotText}
         ref={copilotTextareaRef}
         onChange={(event) => setCopilotText(event.target.value)}
-        className="p-4 w-1/2 aspect-square font-bold text-3xl bg-slate-800 text-white rounded-lg resize-none"
+        className="aspect-square w-1/2 resize-none rounded-lg bg-slate-800 p-4 text-3xl font-bold text-white"
         placeholderStyle={{
           color: "white",
           opacity: 0.5,
@@ -113,14 +113,14 @@ function TextAreas() {
       />
 
       <textarea
-        className="p-4 w-1/2 h-80 rounded-lg"
+        className="h-80 w-1/2 rounded-lg p-4"
         value={detailsText}
         placeholder="the normal textarea"
         onChange={(event) => setDetailsText(event.target.value)}
       />
 
       <button
-        className="p-4 w-1/2 bg-slate-800 text-white rounded-lg"
+        className="w-1/2 rounded-lg bg-slate-800 p-4 text-white"
         onClick={() => {
           if (copilotTextareaRef.current) {
             copilotTextareaRef.current.focus();

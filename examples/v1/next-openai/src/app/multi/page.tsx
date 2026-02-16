@@ -82,12 +82,12 @@ function TravelPlanner() {
     name: "getWeather",
     renderAndWaitForResponse({ status, respond }) {
       return (
-        <div className="flex flex-col gap-2 bg-blue-500/50 p-4 border border-blue-500 rounded-md w-1/2">
+        <div className="flex w-1/2 flex-col gap-2 rounded-md border border-blue-500 bg-blue-500/50 p-4">
           <p>Weather</p>
           <p>Status: {status}</p>
           {status !== "complete" && (
             <button
-              className="bg-blue-500 text-white p-2 rounded-md"
+              className="rounded-md bg-blue-500 p-2 text-white"
               onClick={() => respond?.("the weather is 70 degrees")}
             >
               Continue
@@ -103,12 +103,12 @@ function TravelPlanner() {
     name: "getHotel",
     renderAndWaitForResponse({ status, args, respond }) {
       return (
-        <div className="flex flex-col gap-2 bg-blue-500/50 p-4 border border-blue-500 rounded-md w-1/2">
+        <div className="flex w-1/2 flex-col gap-2 rounded-md border border-blue-500 bg-blue-500/50 p-4">
           <p>Hotel</p>
           <p>Status: {status}</p>
           {status !== "complete" && (
             <button
-              className="bg-blue-500 text-white p-2 rounded-md"
+              className="rounded-md bg-blue-500 p-2 text-white"
               onClick={() => respond?.("Marriott")}
             >
               Continue
@@ -125,7 +125,7 @@ function TravelPlanner() {
     followUp: false,
     render() {
       return (
-        <div className="flex flex-col gap-2 bg-blue-500/50 p-4 border border-blue-500 rounded-md w-1/2">
+        <div className="flex w-1/2 flex-col gap-2 rounded-md border border-blue-500 bg-blue-500/50 p-4">
           <p>Adding a message...</p>
         </div>
       );
@@ -143,15 +143,15 @@ function TravelPlanner() {
   });
 
   return (
-    <div className="w-screen h-screen flex items-center justify-center">
+    <div className="flex h-screen w-screen items-center justify-center">
       <CopilotChat
-        className="w-4/5 h-4/5 border p-4 rounded-xl border-gray-200"
+        className="h-4/5 w-4/5 rounded-xl border border-gray-200 p-4"
         labels={{
           initial: "Hi you! 👋 Let's book your next vacation. Ask me anything.",
         }}
         instructions="You are a travel planner. You help the user plan their vacation. After presenting something, don't summarize, but keep the reply short."
       />
-      {/* 
+      {/*
           ----------------------------------------------------------------
             Buttons for triggering different cases 
           ----------------------------------------------------------------
@@ -160,7 +160,7 @@ function TravelPlanner() {
         {testMessages.map((testMessage) => (
           <div key={testMessage.name}>
             <button
-              className="bg-blue-500 text-white p-2 rounded-md"
+              className="rounded-md bg-blue-500 p-2 text-white"
               onClick={() =>
                 appendMessage(
                   new TextMessage({

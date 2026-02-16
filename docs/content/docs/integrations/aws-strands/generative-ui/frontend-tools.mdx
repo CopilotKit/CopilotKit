@@ -3,9 +3,10 @@ title: Frontend Tools
 icon: "lucide/Wrench"
 description: Create frontend tools and use them within your AWS Strands agent.
 ---
-import { IframeSwitcher } from "@/components/content"
-import { Tabs, Tab } from "fumadocs-ui/components/tabs"
-import RunAndConnect from "@/snippets/integrations/aws-strands/run-and-connect.mdx"
+
+import { IframeSwitcher } from "@/components/content";
+import { Tabs, Tab } from "fumadocs-ui/components/tabs";
+import RunAndConnect from "@/snippets/integrations/aws-strands/run-and-connect.mdx";
 
 <IframeSwitcher
   id="frontend-tools-generative-ui-example"
@@ -17,6 +18,7 @@ import RunAndConnect from "@/snippets/integrations/aws-strands/run-and-connect.m
 />
 
 ## What is this?
+
 Frontend tools enable you to define client-side functions that your AWS Strands agent can invoke, with execution happening entirely in the user's browser. When your agent calls a frontend tool,
 the logic runs on the client side, giving you direct access to the frontend environment.
 
@@ -25,7 +27,9 @@ This can be utilized to let [your agent control the UI](/aws-strands/frontend-ac
 In this guide, we cover the use of frontend tools for generative UI.
 
 ## When should I use this?
+
 Use frontend tools when you need your agent to interact with client-side primitives such as:
+
 - Reading or modifying React component state
 - Accessing browser APIs like localStorage, sessionStorage, or cookies
 - Triggering UI updates or animations
@@ -149,4 +153,5 @@ Use frontend tools when you need your agent to interact with client-side primiti
           muted
         />
     </Step>
+
 </Steps>

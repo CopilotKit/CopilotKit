@@ -3,8 +3,12 @@ title: "Predictive state updates"
 icon: "lucide/Podcast"
 description: Stream in-progress agent state updates to the frontend.
 ---
-import { IframeSwitcher } from "@/components/content"
-import { TailoredContent, TailoredContentOption } from "@/components/react/tailored-content.tsx";
+
+import { IframeSwitcher } from "@/components/content";
+import {
+  TailoredContent,
+  TailoredContentOption,
+} from "@/components/react/tailored-content.tsx";
 import { FaWrench } from "react-icons/fa";
 
 <IframeSwitcher
@@ -17,7 +21,8 @@ import { FaWrench } from "react-icons/fa";
 />
 
 <Callout type="info">
-  This example demonstrates predictive state updates in the CopilotKit Feature Viewer.
+  This example demonstrates predictive state updates in the CopilotKit Feature
+  Viewer.
 </Callout>
 
 ## What is this?
@@ -27,13 +32,16 @@ Microsoft Agent Framework agents can stream state updates through AG-UI as tool 
 ## When should I use this?
 
 Use predictive state updates when you want to:
+
 - Keep users engaged during long-running operations
 - Show step-by-step progress
 - Build trust by exposing what the agent is doing now, not only at the end
 - Enable agent steering (users can intervene if needed)
 
 <Callout type="info" title="Source of truth">
-When the tool completes, the agent emits a final state snapshot. Any predictive updates should be reflected in that final state or they will be overwritten.
+  When the tool completes, the agent emits a final state snapshot. Any
+  predictive updates should be reflected in that final state or they will be
+  overwritten.
 </Callout>
 
 ## Implementation
@@ -68,6 +76,7 @@ When the tool completes, the agent emits a final state snapshot. Any predictive 
         ```
       </Tab>
     </Tabs>
+
   </Step>
 
   <Step>
@@ -245,6 +254,7 @@ When the tool completes, the agent emits a final state snapshot. Any predictive 
     <Callout>
       With this configuration, AG-UI emits predictive state updates as soon as the model streams the tool arguments, without waiting for tool completion.
     </Callout>
+
   </Step>
 
   <Step>
@@ -283,11 +293,10 @@ When the tool completes, the agent emits a final state snapshot. Any predictive 
       return <div>...</div>;
     }
     ```
+
   </Step>
   <Step>
     ### Give it a try!
     Ask the agent to perform a multi-step task (e.g., “write a short outline and report progress each step”). You’ll see `observed_steps` update in real time as the tool arguments stream in.
   </Step>
 </Steps>
-
-

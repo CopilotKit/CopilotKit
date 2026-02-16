@@ -20,7 +20,7 @@ on:
       - "examples/**"
 
 jobs:
-  prettier:
+  format:
     runs-on: ubuntu-latest
 
     steps:
@@ -45,10 +45,10 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Run Prettier check
-        run: pnpm run check-prettier
+      - name: Run format check
+        run: pnpm run check-format
 
-  eslint:
+  lint:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -72,7 +72,7 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Run ESLint check
+      - name: Run lint check
         run: pnpm run lint
 
   package-quality:

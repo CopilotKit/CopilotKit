@@ -166,14 +166,14 @@ export const WithAdditionalToolbarItems: Story = {
     additionalToolbarItems: (
       <>
         <button
-          className="h-8 w-8 p-0 rounded-md bg-gray-100 hover:bg-gray-200 flex items-center justify-center"
+          className="flex h-8 w-8 items-center justify-center rounded-md bg-gray-100 p-0 hover:bg-gray-200"
           onClick={() => alert("Custom button 1 clicked!")}
           title="Custom Action 1"
         >
           📎
         </button>
         <button
-          className="h-8 w-8 p-0 rounded-md bg-gray-100 hover:bg-gray-200 flex items-center justify-center"
+          className="flex h-8 w-8 items-center justify-center rounded-md bg-gray-100 p-0 hover:bg-gray-200"
           onClick={() => alert("Custom button 2 clicked!")}
           title="Custom Action 2"
         >
@@ -223,7 +223,7 @@ export const CustomAppearance: Story = {
     onEditMessage: () => console.log("Edit clicked!"),
     className: "bg-blue-50 border border-blue-200 rounded-lg p-4",
     messageRenderer: ({ content }) => (
-      <div className="prose dark:prose-invert bg-muted relative max-w-[80%] rounded-[18px] px-4 py-1.5 data-[multiline]:py-3 inline-block whitespace-pre-wrap text-blue-900 font-medium">
+      <div className="prose dark:prose-invert bg-muted relative inline-block max-w-[80%] whitespace-pre-wrap rounded-[18px] px-4 py-1.5 font-medium text-blue-900 data-[multiline]:py-3">
         {content}
       </div>
     ),
@@ -233,7 +233,7 @@ export const CustomAppearance: Story = {
       ...props
     }: React.HTMLAttributes<HTMLDivElement>) => (
       <div
-        className="w-full bg-transparent flex items-center justify-end -mr-[5px] mt-[8px] invisible group-hover:visible"
+        className="invisible -mr-[5px] mt-[8px] flex w-full items-center justify-end bg-transparent group-hover:visible"
         {...props}
       >
         {children}
@@ -245,7 +245,7 @@ export const CustomAppearance: Story = {
       ...props
     }: React.ButtonHTMLAttributes<HTMLButtonElement>) => (
       <button
-        className="h-8 w-8 p-0 rounded-md text-blue-600 hover:bg-blue-100 flex items-center justify-center"
+        className="flex h-8 w-8 items-center justify-center rounded-md p-0 text-blue-600 hover:bg-blue-100"
         {...props}
       >
         {children}
@@ -257,7 +257,7 @@ export const CustomAppearance: Story = {
       ...props
     }: React.ButtonHTMLAttributes<HTMLButtonElement>) => (
       <button
-        className="h-8 w-8 p-0 rounded-md text-blue-600 hover:bg-blue-100 flex items-center justify-center"
+        className="flex h-8 w-8 items-center justify-center rounded-md p-0 text-blue-600 hover:bg-blue-100"
         {...props}
       >
         {children}
@@ -273,7 +273,7 @@ export const CustomComponents: Story = {
     className:
       "bg-gradient-to-r from-purple-100 to-pink-100 rounded-xl p-4 shadow-sm",
     messageRenderer: ({ content }: { content: string; className?: string }) => (
-      <div className="font-mono text-purple-800 bg-white/50 rounded-lg px-3 py-2 inline-block">
+      <div className="inline-block rounded-lg bg-white/50 px-3 py-2 font-mono text-purple-800">
         💬 {content}
       </div>
     ),
@@ -300,9 +300,9 @@ export const UsingChildrenRenderProp: Story = {
       numberOfBranches?: number;
       additionalToolbarItems?: React.ReactNode;
     }) => (
-      <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4">
+      <div className="border-l-4 border-yellow-400 bg-yellow-50 p-4">
         <div className="flex items-start justify-between">
-          <div className="flex-1 mr-4">{messageRenderer}</div>
+          <div className="mr-4 flex-1">{messageRenderer}</div>
           <div className="flex items-center gap-1">
             {copyButton}
             {editButton}

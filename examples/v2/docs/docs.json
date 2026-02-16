@@ -45,14 +45,21 @@
         "pages": [
           {
             "group": "Core",
-            "pages": ["reference/copilotkit-core", "reference/proxied-copilot-runtime-agent", "reference/frontend-tool"]
+            "pages": [
+              "reference/copilotkit-core",
+              "reference/proxied-copilot-runtime-agent",
+              "reference/frontend-tool"
+            ]
           },
           {
             "group": "React",
             "pages": [
               {
                 "group": "Providers",
-                "pages": ["reference/copilotkit-provider", "reference/copilot-chat-configuration-provider"]
+                "pages": [
+                  "reference/copilotkit-provider",
+                  "reference/copilot-chat-configuration-provider"
+                ]
               },
               {
                 "group": "Components",

@@ -13,17 +13,17 @@ This guide assumes you have already gone through the [quickstart](/langgraph/qui
 
 To load an existing thread in CopilotKit, you can simply set the `threadId` property on `<CopilotKit>` like so.
 
-<Callout>
-  When using LangGraph platform, the `threadId` must be a UUID.
-</Callout>
+<Callout>When using LangGraph platform, the `threadId` must be a UUID.</Callout>
 
 ```tsx
 import { CopilotKit } from "@copilotkit/react-core";
 
-{/* [!code highlight:1] */}
+{
+  /* [!code highlight:1] */
+}
 <CopilotKit threadId="37aa68d0-d15b-45ae-afc1-0ba6c3e11353">
   <YourApp />
-</CopilotKit>
+</CopilotKit>;
 ```
 
 ## Dynamically Switching Threads

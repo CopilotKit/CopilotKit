@@ -84,13 +84,13 @@ const IntegrationLink = ({ node }: IntegrationLinkProps) => {
     >
       <Link
         href={normalizedUrl}
-        className="flex gap-2 justify-between items-center w-full h-full text-foreground dark:text-white"
+        className="text-foreground flex h-full w-full items-center justify-between gap-2 dark:text-white"
       >
-        <div className="flex gap-2 items-center">
+        <div className="flex items-center gap-2">
           {Icon && <Icon width={ICON_SIZE} height={ICON_SIZE} />}
           {node.name}
         </div>
-        <ChevronRightIcon className="text-white -rotate-90" />
+        <ChevronRightIcon className="-rotate-90 text-white" />
       </Link>
     </li>
   );

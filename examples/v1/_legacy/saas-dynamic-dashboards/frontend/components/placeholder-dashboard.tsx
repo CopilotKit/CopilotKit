@@ -58,7 +58,7 @@ export function PlaceholderDashboard({ title }: { title: string }) {
             later.
           </CardDescription>
         </CardHeader>
-        <CardContent className="h-80 flex items-center justify-center">
+        <CardContent className="flex h-80 items-center justify-center">
           <div className="text-center text-muted-foreground">
             <p className="text-lg">Content coming soon</p>
             <p className="text-sm">

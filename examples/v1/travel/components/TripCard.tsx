@@ -51,7 +51,7 @@ export function TripCard({ className, map }: TripCardProps) {
           >
             {minimized ? <ChevronDown /> : <ChevronUp />}
           </Button>
-          <CardTitle className="text-wrap truncate max-w-full font-bold">
+          <CardTitle className="max-w-full truncate text-wrap font-bold">
             {selectedTrip?.name || "Untitled Trip"}
           </CardTitle>
         </div>

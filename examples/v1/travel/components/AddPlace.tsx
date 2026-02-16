@@ -78,13 +78,13 @@ export function AddPlace({ map }: { map: Map }) {
         <TooltipTrigger asChild>
           <Button
             size="icon"
-            className={`bg-white text-black hover:bg-white/80 ring-2 ring-border shadow-xl border-black rounded-full ${isPlacing ? "ring-2 ring-primary" : ""}`}
+            className={`rounded-full border-black bg-white text-black shadow-xl ring-2 ring-border hover:bg-white/80 ${isPlacing ? "ring-2 ring-primary" : ""}`}
             onClick={isPlacing ? handleStopPlacing : handleStartPlacing}
           >
             {isPlacing ? (
-              <MapPin className="w-4 h-4" />
+              <MapPin className="h-4 w-4" />
             ) : (
-              <Plus className="w-4 h-4" />
+              <Plus className="h-4 w-4" />
             )}
           </Button>
         </TooltipTrigger>
@@ -97,7 +97,7 @@ export function AddPlace({ map }: { map: Map }) {
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center">
-              <Plus className="w-4 h-4 mr-2" />
+              <Plus className="mr-2 h-4 w-4" />
               Add a New Place
             </DialogTitle>
           </DialogHeader>

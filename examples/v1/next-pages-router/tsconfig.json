@@ -8,27 +8,12 @@
     ],
     "strictNullChecks": true
   },
-  "include": [
-    "next-env.d.ts",
-    "**/*.ts",
-    "**/*.tsx",
-    ".next/types/**/*.ts"
-  ],
-  "exclude": [
-    "node_modules"
-  ],
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
+  "exclude": ["node_modules"],
   "paths": {
-    "@/*": [
-      "./src/*"
-    ],
-    "@copilotkit/react-core/*": [
-      "../../packages/v1/react-core/*"
-    ],
-    "@copilotkit/react-ui/*": [
-      "../../packages/v1/react-ui/*"
-    ],
-    "@copilotkit/react-textarea/*": [
-      "../../packages/v1/react-textarea/*"
-    ]
+    "@/*": ["./src/*"],
+    "@copilotkit/react-core/*": ["../../packages/v1/react-core/*"],
+    "@copilotkit/react-ui/*": ["../../packages/v1/react-ui/*"],
+    "@copilotkit/react-textarea/*": ["../../packages/v1/react-textarea/*"]
   }
 }

@@ -57,7 +57,7 @@ const INTEGRATIONS: Integration[] = INTEGRATION_ORDER.map((id) => {
 
 export const IntegrationButtonGroup = () => {
   return (
-    <div className="grid grid-cols-1 gap-2 w-full min-[500px]:grid-cols-2 lg:grid-cols-3">
+    <div className="grid w-full grid-cols-1 gap-2 min-[500px]:grid-cols-2 lg:grid-cols-3">
       {INTEGRATIONS.map((integration) => (
         <IntegrationLinkButton key={integration.label} {...integration} />
       ))}

@@ -3,6 +3,7 @@ title: Backend Tools
 icon: "lucide/Server"
 description: Render your agent's tool calls with custom UI components.
 ---
+
 import DefaultToolRendering from "@/snippets/shared/guides/default-tool-rendering.mdx";
 
 ## What is this?
@@ -11,7 +12,12 @@ Tools are a way for the LLM to call predefined, typically, deterministic functio
 as a custom component, which we call **Generative UI**.
 
 <Callout type="info">
-  CopilotKit consumes AG-UI protocol events streamed by AG2 over <code>/chat</code>. See the <a href="https://docs.ag2.ai/latest/docs/user-guide/ag-ui/" target="_blank">AG2 AG-UI integration docs</a>.
+  CopilotKit consumes AG-UI protocol events streamed by AG2 over{" "}
+  <code>/chat</code>. See the{" "}
+  <a href="https://docs.ag2.ai/latest/docs/user-guide/ag-ui/" target="_blank">
+    AG2 AG-UI integration docs
+  </a>
+  .
 </Callout>
 
 ## When should I use this?
@@ -78,7 +84,8 @@ we just need to add a `useRenderToolCall` hook to render the tool call in
 the UI.
 
 <Callout type="info" title="Important">
-  In order to render a tool call in the UI, the name of the action must match the name of the tool.
+  In order to render a tool call in the UI, the name of the action must match
+  the name of the tool.
 </Callout>
 
 ```tsx title="app/page.tsx"
@@ -90,17 +97,18 @@ const YourMainContent = () => {
   // [!code highlight:12]
   useRenderToolCall({
     name: "get_weather",
-    render: ({status, args}) => {
+    render: ({ status, args }) => {
       return (
         <p className="text-gray-500 mt-2">
           {status !== "complete" && "Calling weather API..."}
-          {status === "complete" && `Called the weather API for ${args.location}.`}
+          {status === "complete" &&
+            `Called the weather API for ${args.location}.`}
         </p>
       );
     },
   });
   // ...
-}
+};
 ```
 
 </Step>

@@ -48,7 +48,7 @@ import { takeUntil } from "rxjs/operators";
     @if (!hasMounted()) {
       <!-- SSR/Initial render without stick-to-bottom -->
       <div
-        class="h-full max-h-full flex flex-col min-h-0 overflow-y-scroll overflow-x-hidden"
+        class="flex h-full max-h-full min-h-0 flex-col overflow-x-hidden overflow-y-scroll"
       >
         <div class="px-4 sm:px-0">
           <ng-content></ng-content>
@@ -56,17 +56,17 @@ import { takeUntil } from "rxjs/operators";
       </div>
     } @else if (!autoScroll()) {
       <!-- Manual scroll mode -->
-      <div class="h-full max-h-full flex flex-col min-h-0 relative">
+      <div class="relative flex h-full max-h-full min-h-0 flex-col">
         <div
           #scrollContainer
           cdkScrollable
           [class]="computedClass()"
-          class="overflow-y-scroll overflow-x-hidden"
+          class="overflow-x-hidden overflow-y-scroll"
         >
           <div #contentContainer class="px-4 sm:px-0">
             <!-- Content with padding-bottom matching React -->
             <div [style.padding-bottom.px]="paddingBottom()">
-              <div class="max-w-3xl mx-auto">
+              <div class="mx-auto max-w-3xl">
                 @if (messageView()) {
                   <copilot-slot
                     [slot]="messageView()"
@@ -104,7 +104,7 @@ import { takeUntil } from "rxjs/operators";
         <!-- Scroll to bottom button for manual mode, OUTSIDE scrollable content -->
         @if (showScrollButton() && !isResizing()) {
           <div
-            class="absolute inset-x-0 flex justify-center z-30"
+            class="absolute inset-x-0 z-30 flex justify-center"
             [style.bottom.px]="inputContainerHeight() + 16"
           >
             <copilot-slot
@@ -119,7 +119,7 @@ import { takeUntil } from "rxjs/operators";
       </div>
     } @else {
       <!-- Auto-scroll mode with StickToBottom directive -->
-      <div class="h-full max-h-full flex flex-col min-h-0 relative">
+      <div class="relative flex h-full max-h-full min-h-0 flex-col">
         <div
           #scrollContainer
           cdkScrollable
@@ -131,13 +131,13 @@ import { takeUntil } from "rxjs/operators";
           [resizeBehavior]="'smooth'"
           (isAtBottomChange)="onIsAtBottomChange($event)"
           [class]="computedClass()"
-          class="overflow-y-scroll overflow-x-hidden"
+          class="overflow-x-hidden overflow-y-scroll"
         >
           <!-- Scrollable content wrapper -->
           <div class="px-4 sm:px-0">
             <!-- Content with padding-bottom matching React -->
             <div [style.padding-bottom.px]="paddingBottom()">
-              <div class="max-w-3xl mx-auto">
+              <div class="mx-auto max-w-3xl">
                 @if (messageView()) {
                   <copilot-slot
                     [slot]="messageView()"
@@ -175,7 +175,7 @@ import { takeUntil } from "rxjs/operators";
         <!-- Scroll to bottom button - hidden during resize, OUTSIDE scrollable content -->
         @if (!isAtBottom() && !isResizing()) {
           <div
-            class="absolute inset-x-0 flex justify-center z-30"
+            class="absolute inset-x-0 z-30 flex justify-center"
             [style.bottom.px]="inputContainerHeight() + 16"
           >
             <copilot-slot

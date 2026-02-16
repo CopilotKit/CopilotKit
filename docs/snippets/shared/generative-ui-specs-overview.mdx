@@ -1,16 +1,16 @@
-import Image from "next/image"
+import Image from "next/image";
 
-<Image 
-  src="/images/gen-ui-specs-light.png" 
-  alt="Generative UI Specs" 
-  width={4096} 
+<Image
+  src="/images/gen-ui-specs-light.png"
+  alt="Generative UI Specs"
+  width={4096}
   height={2304}
   className="block dark:hidden mb-8"
 />
-<Image 
-  src="/images/gen-ui-specs-dark.png" 
-  alt="Generative UI Specs" 
-  width={4096} 
+<Image
+  src="/images/gen-ui-specs-dark.png"
+  alt="Generative UI Specs"
+  width={4096}
   height={2304}
   className="hidden dark:block mb-8"
 />
@@ -22,11 +22,11 @@ Several recently released specifications enable agents to return generative UI, 
 **A2UI**, **MCP Apps**, and **Open-JSON-UI** are all generative UI specifications that allow agents to respond to users not only with text but also with dynamic UI components.
 CopilotKit now provides universal support for all major Generative UI specifications.
 
-| **Specification** | **Origin / Maintainer** | **Purpose** |
-| --- | --- | --- |
-| **A2UI** | Google | A declarative, LLM-friendly Generative UI spec. JSONL-based and streaming, designed for platform-agnostic rendering. |
-| **Open-JSON-UI** | OpenAI | An open standardization of OpenAI's internal declarative Generative UI schema. |
-| **MCP Apps** | MCP Ecosystem | Iframe-based Generative UI extending MCP, enabling servers to return interactive UI components. |
+| **Specification** | **Origin / Maintainer** | **Purpose**                                                                                                          |
+| ----------------- | ----------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| **A2UI**          | Google                  | A declarative, LLM-friendly Generative UI spec. JSONL-based and streaming, designed for platform-agnostic rendering. |
+| **Open-JSON-UI**  | OpenAI                  | An open standardization of OpenAI's internal declarative Generative UI schema.                                       |
+| **MCP Apps**      | MCP Ecosystem           | Iframe-based Generative UI extending MCP, enabling servers to return interactive UI components.                      |
 
 ## **AG-UI vs Generative UI Specs**
 
@@ -46,4 +46,3 @@ Or learn about related protocols:
 
 - [AG-UI Protocol](/ag-ui-protocol) - The user interaction protocol that supports all these specs
 - [Generative UI Guide](/generative-ui) - Build with Generative UI in CopilotKit
-

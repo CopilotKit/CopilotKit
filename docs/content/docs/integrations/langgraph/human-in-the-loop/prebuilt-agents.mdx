@@ -3,6 +3,7 @@ title: Prebuilt Agents
 icon: "lucide/Boxes"
 description: Learn how to implement Human-in-the-Loop (HITL) with LangGraph prebuilt agents.
 ---
+
 import { Tabs, Tab } from "fumadocs-ui/components/tabs";
 
 ## What is this?
@@ -11,18 +12,22 @@ LangGraph's prebuilt agents (like `create_agent`) support Human-in-the-Loop (HIT
 This allows you to require human approval before certain tools are executed.
 
 <Callout type="info">
-  This guide covers HITL with **prebuilt agents**. If you're building a custom graph with manual `interrupt()` calls,
-  see [Interrupt based](/langgraph/human-in-the-loop/interrupt-flow) instead.
+  This guide covers HITL with **prebuilt agents**. If you're building a custom
+  graph with manual `interrupt()` calls, see [Interrupt
+  based](/langgraph/human-in-the-loop/interrupt-flow) instead.
 </Callout>
 
 <Callout type="warn">
-  **Important**: This integration passes data in LangGraph's native format. You should be familiar with
-  [LangChain's HITL documentation](https://docs.langchain.com/oss/python/langchain/human-in-the-loop) before proceeding.
+  **Important**: This integration passes data in LangGraph's native format. You
+  should be familiar with [LangChain's HITL
+  documentation](https://docs.langchain.com/oss/python/langchain/human-in-the-loop)
+  before proceeding.
 </Callout>
 
 ## When should I use this?
 
 Use this approach when:
+
 - You're using LangGraph's prebuilt agents (`create_react_agent`, `create_agent`, etc.)
 - You want to require human approval before specific tools are executed
 - You want to allow humans to edit or reject tool calls before execution
@@ -62,18 +67,21 @@ Each decision corresponds to an action request (in the same order):
 ```typescript
 // Decision types
 type Decision =
-  | { type: "approve" }                                             // Approve the tool call as-is
-  | { type: "edit", edited_action: { name: string, args: object } } // Approve with modified arguments
-  | { type: "reject", message: string }                             // Reject the tool call
+  | { type: "approve" } // Approve the tool call as-is
+  | { type: "edit"; edited_action: { name: string; args: object } } // Approve with modified arguments
+  | { type: "reject"; message: string }; // Reject the tool call
 
 // resolve() expects { decisions: [...] }, one decision per action_request
 resolve({
   decisions: [
     { type: "approve" },
-    { type: "edit", edited_action: { name: "send_email", args: { to: "other@example.com" } } },
+    {
+      type: "edit",
+      edited_action: { name: "send_email", args: { to: "other@example.com" } },
+    },
     { type: "reject", message: "Not authorized to delete files" },
-  ]
-})
+  ],
+});
 ```
 
 ## Implementation
@@ -82,7 +90,7 @@ resolve({
 <Step>
   ### Run and connect your agent
 
-  This guide assumes you already have a LangGraph prebuilt agent set up, similar to this:
+This guide assumes you already have a LangGraph prebuilt agent set up, similar to this:
 
   <Tabs groupId="language_langgraph_agent" items={['Python', 'TypeScript']} default="Python" persist>
     <Tab value="Python">
@@ -107,13 +115,14 @@ resolve({
       });
       ```
     </Tab>
+
   </Tabs>
 </Step>
 <Step>
   ### Configure HITL in your prebuilt agent
 
-  Add the `HumanInTheLoopMiddleware` to require approval for specific tools.
-  Configure `interrupt_on` with a mapping of tool names to approval settings.
+Add the `HumanInTheLoopMiddleware` to require approval for specific tools.
+Configure `interrupt_on` with a mapping of tool names to approval settings.
 
   <Tabs groupId="language_langgraph_agent" items={['Python', 'TypeScript']} default="Python" persist>
     <Tab value="Python">
@@ -157,6 +166,7 @@ resolve({
       });
       ```
     </Tab>
+
   </Tabs>
 
   <Callout type="info">
@@ -167,65 +177,66 @@ resolve({
 <Step>
   ### Handle the interrupt in your frontend
 
-  Use the `useLangGraphInterrupt` hook to render approval UI and respond with decisions.
+Use the `useLangGraphInterrupt` hook to render approval UI and respond with decisions.
 
-  ```tsx title="app/page.tsx"
-  import { useLangGraphInterrupt } from "@copilotkit/react-core";
+```tsx title="app/page.tsx"
+import { useLangGraphInterrupt } from "@copilotkit/react-core";
 
-  const YourMainContent = () => {
-    useLangGraphInterrupt({
-      render: ({ event, resolve }) => {
-        // event.value contains LangGraph's native structure
-        const actionRequests = event.value.action_requests;
+const YourMainContent = () => {
+  useLangGraphInterrupt({
+    render: ({ event, resolve }) => {
+      // event.value contains LangGraph's native structure
+      const actionRequests = event.value.action_requests;
 
-        return (
-          <div className="p-4 border rounded-lg">
-            <h3 className="font-bold mb-4">Tool Approval Required</h3>
+      return (
+        <div className="p-4 border rounded-lg">
+          <h3 className="font-bold mb-4">Tool Approval Required</h3>
 
-            {actionRequests.map((request, index) => (
-              <div key={index} className="mb-4 p-3 bg-gray-100 rounded">
-                <p className="font-medium">Tool: {request.name}</p>
-                <pre className="text-sm mt-2">
-                  {JSON.stringify(request.arguments, null, 2)}
-                </pre>
-              </div>
-            ))}
-
-            <div className="flex gap-2 mt-4">
-              <button
-                className="px-4 py-2 bg-green-500 text-white rounded"
-                onClick={() => {
-                  // Approve all actions - one decision per action_request
-                  resolve({
-                    decisions: actionRequests.map(() => ({ type: "approve" }))
-                  });
-                }}
-              >
-                Approve All
-              </button>
-              <button
-                className="px-4 py-2 bg-red-500 text-white rounded"
-                onClick={() => {
-                  // Reject all actions
-                  resolve({
-                    decisions: actionRequests.map(() => ({
-                      type: "reject",
-                      message: "User declined"
-                    }))
-                  });
-                }}
-              >
-                Reject All
-              </button>
+          {actionRequests.map((request, index) => (
+            <div key={index} className="mb-4 p-3 bg-gray-100 rounded">
+              <p className="font-medium">Tool: {request.name}</p>
+              <pre className="text-sm mt-2">
+                {JSON.stringify(request.arguments, null, 2)}
+              </pre>
             </div>
-          </div>
-        );
-      }
-    });
+          ))}
 
-    return <div>{/* Your app content */}</div>;
-  };
-  ```
+          <div className="flex gap-2 mt-4">
+            <button
+              className="px-4 py-2 bg-green-500 text-white rounded"
+              onClick={() => {
+                // Approve all actions - one decision per action_request
+                resolve({
+                  decisions: actionRequests.map(() => ({ type: "approve" })),
+                });
+              }}
+            >
+              Approve All
+            </button>
+            <button
+              className="px-4 py-2 bg-red-500 text-white rounded"
+              onClick={() => {
+                // Reject all actions
+                resolve({
+                  decisions: actionRequests.map(() => ({
+                    type: "reject",
+                    message: "User declined",
+                  })),
+                });
+              }}
+            >
+              Reject All
+            </button>
+          </div>
+        </div>
+      );
+    },
+  });
+
+  return <div>{/* Your app content */}</div>;
+};
+```
+
 </Step>
 <Step>
   ### Give it a try!
@@ -237,5 +248,6 @@ resolve({
 ## Reference
 
 For complete details on LangGraph's HITL format and options, see:
+
 - [LangChain Human-in-the-Loop (Python)](https://docs.langchain.com/oss/python/langchain/human-in-the-loop)
 - [LangChain Human-in-the-Loop (TypeScript)](https://docs.langchain.com/oss/javascript/langchain/human-in-the-loop)

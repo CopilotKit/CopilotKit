@@ -1,19 +1,32 @@
 {
   "name": "@copilotkit/shared",
+  "version": "1.51.4-next.8",
   "private": false,
+  "keywords": [
+    "ai",
+    "assistant",
+    "automation",
+    "copilot",
+    "copilotkit",
+    "javascript",
+    "nextjs",
+    "nodejs",
+    "react",
+    "textarea"
+  ],
   "homepage": "https://github.com/CopilotKit/CopilotKit",
+  "license": "MIT",
   "repository": {
     "type": "git",
     "url": "https://github.com/CopilotKit/CopilotKit.git"
   },
-  "publishConfig": {
-    "access": "public"
-  },
   "type": "module",
-  "version": "1.51.4-next.8",
   "sideEffects": false,
   "main": "./dist/index.cjs",
   "module": "./dist/index.mjs",
+  "types": "./dist/index.d.cts",
+  "unpkg": "./dist/index.umd.js",
+  "jsdelivr": "./dist/index.umd.js",
   "exports": {
     ".": {
       "import": "./dist/index.mjs",
@@ -21,10 +34,9 @@
     },
     "./package.json": "./package.json"
   },
-  "unpkg": "./dist/index.umd.js",
-  "jsdelivr": "./dist/index.umd.js",
-  "types": "./dist/index.d.cts",
-  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "build": "tsdown",
     "dev": "tsdown --watch",
@@ -36,16 +48,6 @@
     "publint": "publint .",
     "attw": "attw --pack . --profile node16"
   },
-  "devDependencies": {
-    "@types/uuid": "^10.0.0",
-    "eslint": "^8.56.0",
-    "eslint-config-custom": "workspace:*",
-    "tsconfig": "workspace:*",
-    "tsdown": "^0.20.3",
-    "typescript": "^5.2.3",
-    "vitest": "^3.2.4",
-    "zod-to-json-schema": "^3.23.5"
-  },
   "dependencies": {
     "@segment/analytics-node": "^2.1.2",
     "chalk": "4.1.2",
@@ -53,19 +55,15 @@
     "uuid": "^10.0.0",
     "zod": "^3.23.3"
   },
+  "devDependencies": {
+    "@types/uuid": "^10.0.0",
+    "tsconfig": "workspace:*",
+    "tsdown": "^0.20.3",
+    "typescript": "^5.2.3",
+    "vitest": "^3.2.4",
+    "zod-to-json-schema": "^3.23.5"
+  },
   "peerDependencies": {
     "@ag-ui/core": "^0.0.43"
-  },
-  "keywords": [
-    "copilotkit",
-    "copilot",
-    "react",
-    "nextjs",
-    "nodejs",
-    "ai",
-    "assistant",
-    "javascript",
-    "automation",
-    "textarea"
-  ]
+  }
 }

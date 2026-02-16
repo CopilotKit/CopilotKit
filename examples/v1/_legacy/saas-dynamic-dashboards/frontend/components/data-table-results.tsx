@@ -35,7 +35,7 @@ export function DataTable({ columns, data }: DataTableProps) {
   };
 
   return (
-    <div className="rounded-md border w-full min-w-[700px]">
+    <div className="w-full min-w-[700px] rounded-md border">
       <Table>
         <TableHeader>
           <TableRow>
@@ -59,7 +59,7 @@ export function DataTable({ columns, data }: DataTableProps) {
             <TableRow>
               <TableCell
                 colSpan={columns.length}
-                className="text-center text-gray-400 py-8"
+                className="py-8 text-center text-gray-400"
               >
                 No test data available.
               </TableCell>
@@ -68,7 +68,7 @@ export function DataTable({ columns, data }: DataTableProps) {
             data.map((row, rowIndex) => (
               <React.Fragment key={rowIndex}>
                 <TableRow
-                  className="cursor-pointer hover:bg-gray-50 transition"
+                  className="cursor-pointer transition hover:bg-gray-50"
                   onClick={() => handleRowClick(rowIndex)}
                 >
                   <TableCell className="w-[50px]">
@@ -101,17 +101,17 @@ export function DataTable({ columns, data }: DataTableProps) {
                   <TableRow>
                     <TableCell
                       colSpan={columns.length}
-                      className="bg-gray-50 dark:bg-[#181f2a] p-0 border-t-0"
+                      className="border-t-0 bg-gray-50 p-0 dark:bg-[#181f2a]"
                     >
-                      <div className="p-4 grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                      <div className="grid grid-cols-1 gap-4 p-4 text-sm md:grid-cols-3">
                         <div>
-                          <span className="text-gray-500 dark:text-gray-400 mr-1">
+                          <span className="mr-1 text-gray-500 dark:text-gray-400">
                             Coverage:
                           </span>
                           <span className="font-semibold">{row.coverage}%</span>
                         </div>
                         <div>
-                          <span className="text-gray-500 dark:text-gray-400 mr-1">
+                          <span className="mr-1 text-gray-500 dark:text-gray-400">
                             Created:
                           </span>
                           <span className="font-semibold">
@@ -119,7 +119,7 @@ export function DataTable({ columns, data }: DataTableProps) {
                           </span>
                         </div>
                         <div>
-                          <span className="text-gray-500 dark:text-gray-400 mr-1">
+                          <span className="mr-1 text-gray-500 dark:text-gray-400">
                             Updated:
                           </span>
                           <span className="font-semibold">
@@ -127,7 +127,7 @@ export function DataTable({ columns, data }: DataTableProps) {
                           </span>
                         </div>
                         <div>
-                          <span className="text-gray-500 dark:text-gray-400 mr-1">
+                          <span className="mr-1 text-gray-500 dark:text-gray-400">
                             Test Cases:
                           </span>
                           <span className="font-semibold">
@@ -137,7 +137,7 @@ export function DataTable({ columns, data }: DataTableProps) {
                         </div>
                       </div>
                       <div className="p-4">
-                        <div className="font-semibold mb-2">Test Cases:</div>
+                        <div className="mb-2 font-semibold">Test Cases:</div>
                         <ul className="space-y-1">
                           {row.testCases.map((tc) => (
                             <li key={tc.id} className="flex items-center gap-2">
@@ -178,7 +178,7 @@ function StatusBadge({ status }: { status: string }) {
   return (
     <Badge
       variant="outline"
-      className={`px-2 py-1 rounded-full text-xs font-medium text-center ${getStatusColor(status)}`}
+      className={`rounded-full px-2 py-1 text-center text-xs font-medium ${getStatusColor(status)}`}
     >
       {status.split("_").join(" ")}
     </Badge>

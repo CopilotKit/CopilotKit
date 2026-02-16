@@ -31,17 +31,17 @@ function MessageDetailsModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[80vh] overflow-hidden">
-        <div className="bg-gray-800 text-white p-6">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+      <div className="max-h-[80vh] w-full max-w-2xl overflow-hidden rounded-2xl bg-white shadow-2xl">
+        <div className="bg-gray-800 p-6 text-white">
           <div className="flex items-center justify-between">
             <h3 className="text-xl font-semibold">Message Details</h3>
             <button
               onClick={onClose}
-              className="text-white/80 hover:text-white transition-colors rounded-full p-1 hover:bg-white/10"
+              className="rounded-full p-1 text-white/80 transition-colors hover:bg-white/10 hover:text-white"
             >
               <svg
-                className="w-6 h-6"
+                className="h-6 w-6"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -56,8 +56,8 @@ function MessageDetailsModal({
             </button>
           </div>
         </div>
-        <div className="p-6 overflow-y-auto max-h-[calc(80vh-100px)]">
-          <pre className="bg-gray-50 rounded-lg p-4 text-sm overflow-x-auto text-gray-800">
+        <div className="max-h-[calc(80vh-100px)] overflow-y-auto p-6">
+          <pre className="overflow-x-auto rounded-lg bg-gray-50 p-4 text-sm text-gray-800">
             {JSON.stringify(message, null, 2)}
           </pre>
         </div>
@@ -97,12 +97,12 @@ function ScrollToBottomButton() {
 
   return (
     <button
-      className="bg-gray-800 hover:bg-gray-900 text-white rounded-full p-2 shadow-lg hover:shadow-xl transition-all duration-200"
+      className="rounded-full bg-gray-800 p-2 text-white shadow-lg transition-all duration-200 hover:bg-gray-900 hover:shadow-xl"
       onClick={() => scrollToBottom()}
       title="Scroll to bottom"
     >
       <svg
-        className="w-4 h-4"
+        className="h-4 w-4"
         fill="none"
         stroke="currentColor"
         viewBox="0 0 24 24"
@@ -150,7 +150,7 @@ function ChatApp() {
           <summary className="cursor-pointer text-sm text-gray-600">
             Agent State
           </summary>
-          <pre className="text-xs bg-gray-100 p-2 rounded mt-2 overflow-auto">
+          <pre className="mt-2 overflow-auto rounded bg-gray-100 p-2 text-xs">
             {JSON.stringify(state, null, 2)}
           </pre>
         </details>
@@ -161,18 +161,18 @@ function ChatApp() {
   useLangGraphInterrupt({
     render: ({ event, resolve, result }) => {
       return (
-        <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+        <div className="mb-4 rounded-lg border border-yellow-200 bg-yellow-50 p-4">
           <details>
             <summary className="cursor-pointer text-sm font-medium text-yellow-800">
               LangGraph Interrupt
             </summary>
-            <pre className="text-xs mt-2">
+            <pre className="mt-2 text-xs">
               {JSON.stringify({ result, event }, null, 2)}
             </pre>
           </details>
           <button
             onClick={() => resolve("the secret is 1234")}
-            className="mt-2 px-3 py-1 bg-yellow-600 text-white text-sm rounded hover:bg-yellow-700"
+            className="mt-2 rounded bg-yellow-600 px-3 py-1 text-sm text-white hover:bg-yellow-700"
           >
             Resolve
           </button>
@@ -186,11 +186,11 @@ function ChatApp() {
     description: "Generative UI",
     render: () => {
       return (
-        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-4 my-2 shadow-sm">
+        <div className="my-2 rounded-xl border border-blue-200 bg-gradient-to-r from-blue-50 to-indigo-50 p-4 shadow-sm">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-100">
               <svg
-                className="w-4 h-4 text-blue-600"
+                className="h-4 w-4 text-blue-600"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -209,7 +209,7 @@ function ChatApp() {
                 />
               </svg>
             </div>
-            <div className="text-blue-700 font-medium">
+            <div className="font-medium text-blue-700">
               🔧 Generative UI Activated
             </div>
           </div>
@@ -233,7 +233,7 @@ function ChatApp() {
         return <div>Loading weather for {args.location}...</div>;
       }
       return (
-        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-4 my-2 shadow-sm">
+        <div className="my-2 rounded-xl border border-blue-200 bg-gradient-to-r from-blue-50 to-indigo-50 p-4 shadow-sm">
           <h1>Weather for {args.location}</h1>
           {result ? (
             <div>
@@ -262,11 +262,11 @@ function ChatApp() {
     description: "Human-in-the-loop",
     renderAndWaitForResponse: (props) => {
       return (
-        <div className="bg-gradient-to-r from-purple-50 to-pink-50 border border-purple-200 rounded-xl p-4 my-2 shadow-sm">
-          <div className="flex items-center gap-2 mb-3">
-            <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center">
+        <div className="my-2 rounded-xl border border-purple-200 bg-gradient-to-r from-purple-50 to-pink-50 p-4 shadow-sm">
+          <div className="mb-3 flex items-center gap-2">
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-purple-100">
               <svg
-                className="w-4 h-4 text-purple-600"
+                className="h-4 w-4 text-purple-600"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -279,13 +279,13 @@ function ChatApp() {
                 />
               </svg>
             </div>
-            <div className="text-purple-700 font-medium text-sm">
+            <div className="text-sm font-medium text-purple-700">
               🔧 Waiting for Response
             </div>
           </div>
           <button
             onClick={() => props.respond?.("the secret is 120")}
-            className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-200 shadow-sm"
+            className="rounded-lg bg-purple-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors duration-200 hover:bg-purple-700"
           >
             Respond
           </button>
@@ -309,11 +309,11 @@ function ChatApp() {
     },
     render: (props) => {
       return (
-        <div className="bg-gradient-to-r from-amber-50 via-orange-50 to-red-50 border border-amber-200 rounded-xl p-4 my-2 shadow-sm">
-          <div className="flex items-center gap-2 mb-3">
-            <div className="w-8 h-8 bg-amber-100 rounded-full flex items-center justify-center">
+        <div className="my-2 rounded-xl border border-amber-200 bg-gradient-to-r from-amber-50 via-orange-50 to-red-50 p-4 shadow-sm">
+          <div className="mb-3 flex items-center gap-2">
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-amber-100">
               <svg
-                className="w-4 h-4 text-amber-600"
+                className="h-4 w-4 text-amber-600"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -326,15 +326,15 @@ function ChatApp() {
                 />
               </svg>
             </div>
-            <div className="text-amber-700 font-medium">
+            <div className="font-medium text-amber-700">
               ✨ Poem Generator Activated
             </div>
           </div>
-          <div className="bg-white/60 rounded-lg p-3 border border-amber-100">
-            <div className="text-xs text-amber-600 font-medium mb-2">
+          <div className="rounded-lg border border-amber-100 bg-white/60 p-3">
+            <div className="mb-2 text-xs font-medium text-amber-600">
               Generated Content:
             </div>
-            <div className="text-amber-800 font-medium text-sm">
+            <div className="text-sm font-medium text-amber-800">
               {props.args.generatedPoem}
             </div>
           </div>
@@ -412,17 +412,17 @@ function ChatApp() {
     <>
       <CopilotSidebar suggestions="manual" clickOutsideToClose={false} />
       <StickToBottom className="h-full" resize="smooth" initial="smooth">
-        <div className="h-screen w-screen flex flex-col">
+        <div className="flex h-screen w-screen flex-col">
           {/* Main Chat Area */}
-          <div className="flex-1 flex flex-col min-h-0">
+          <div className="flex min-h-0 flex-1 flex-col">
             {/* Messages */}
             <div className="flex-1 overflow-y-auto">
-              <StickToBottom.Content className="flex flex-col h-full">
+              <StickToBottom.Content className="flex h-full flex-col">
                 {messages.length === 0 ? (
-                  <div className="flex-1 flex items-center justify-center h-full">
+                  <div className="flex h-full flex-1 items-center justify-center">
                     <div className="text-center">
-                      <div className="text-4xl mb-4">💬</div>
-                      <h2 className="text-2xl font-semibold text-gray-900 mb-2">
+                      <div className="mb-4 text-4xl">💬</div>
+                      <h2 className="mb-2 text-2xl font-semibold text-gray-900">
                         What is on the agenda today?
                       </h2>
                       <p className="text-gray-600">
@@ -431,7 +431,7 @@ function ChatApp() {
                     </div>
                   </div>
                 ) : (
-                  <div className="max-w-4xl mx-auto w-full px-4 py-8">
+                  <div className="mx-auto w-full max-w-4xl px-4 py-8">
                     {messages.map((message) => {
                       let userMessageContent: null | string = null;
                       if (message.role === "user") {
@@ -448,7 +448,7 @@ function ChatApp() {
                             className={`${
                               message.role === "user"
                                 ? "inline-block max-w-3xl bg-gray-900 text-white"
-                                : "w-full text-gray-900 bg-transparent"
+                                : "w-full bg-transparent text-gray-900"
                             } rounded-2xl px-6 py-4`}
                           >
                             {message.role === "assistant" && (
@@ -471,8 +471,8 @@ function ChatApp() {
                               !message.content &&
                               !message.toolCalls &&
                               isLoading && (
-                                <div className="flex items-center gap-2 mt-2">
-                                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600"></div>
+                                <div className="mt-2 flex items-center gap-2">
+                                  <div className="h-4 w-4 animate-spin rounded-full border-b-2 border-gray-600"></div>
                                   <span className="text-sm text-gray-500">
                                     Thinking...
                                   </span>
@@ -483,10 +483,10 @@ function ChatApp() {
                               message.generativeUI?.()}
 
                             {message.role === "tool" && (
-                              <div className="flex items-center gap-2 mt-2">
+                              <div className="mt-2 flex items-center gap-2">
                                 <span className="text-sm text-gray-500">
                                   Called tool {message.toolName} and got:{" "}
-                                  <span className="font-bold block pt-4">
+                                  <span className="block pt-4 font-bold">
                                     {message.content || "nothing in response"}
                                   </span>
                                 </span>
@@ -495,7 +495,7 @@ function ChatApp() {
 
                             {/* Action buttons for non-user messages (inside bubble) */}
                             {message.role !== "user" && (
-                              <div className="flex items-center gap-2 mt-4">
+                              <div className="mt-4 flex items-center gap-2">
                                 <button
                                   onClick={() =>
                                     handleCopyMessage(
@@ -504,11 +504,11 @@ function ChatApp() {
                                         : JSON.stringify(message, null, 2),
                                     )
                                   }
-                                  className="text-gray-500 hover:text-gray-700 p-1 rounded transition-colors"
+                                  className="rounded p-1 text-gray-500 transition-colors hover:text-gray-700"
                                   title="Copy message"
                                 >
                                   <svg
-                                    className="w-4 h-4"
+                                    className="h-4 w-4"
                                     fill="none"
                                     stroke="currentColor"
                                     viewBox="0 0 24 24"
@@ -527,11 +527,11 @@ function ChatApp() {
                                   message.content && (
                                     <>
                                       <button
-                                        className="text-gray-500 hover:text-gray-700 p-1 rounded transition-colors"
+                                        className="rounded p-1 text-gray-500 transition-colors hover:text-gray-700"
                                         title="Thumbs up"
                                       >
                                         <svg
-                                          className="w-4 h-4"
+                                          className="h-4 w-4"
                                           fill="none"
                                           stroke="currentColor"
                                           viewBox="0 0 24 24"
@@ -545,11 +545,11 @@ function ChatApp() {
                                         </svg>
                                       </button>
                                       <button
-                                        className="text-gray-500 hover:text-gray-700 p-1 rounded transition-colors"
+                                        className="rounded p-1 text-gray-500 transition-colors hover:text-gray-700"
                                         title="Thumbs down"
                                       >
                                         <svg
-                                          className="w-4 h-4"
+                                          className="h-4 w-4"
                                           fill="none"
                                           stroke="currentColor"
                                           viewBox="0 0 24 24"
@@ -567,11 +567,11 @@ function ChatApp() {
 
                                 <button
                                   onClick={() => handleShowDetails(message)}
-                                  className="text-gray-500 hover:text-gray-700 p-1 rounded transition-colors"
+                                  className="rounded p-1 text-gray-500 transition-colors hover:text-gray-700"
                                   title="Show details"
                                 >
                                   <svg
-                                    className="w-4 h-4"
+                                    className="h-4 w-4"
                                     fill="none"
                                     stroke="currentColor"
                                     viewBox="0 0 24 24"
@@ -590,7 +590,7 @@ function ChatApp() {
 
                           {/* Action buttons for user messages (outside bubble) */}
                           {message.role === "user" && (
-                            <div className="flex items-center justify-end gap-2 mt-2">
+                            <div className="mt-2 flex items-center justify-end gap-2">
                               <button
                                 onClick={() =>
                                   handleCopyMessage(
@@ -599,11 +599,11 @@ function ChatApp() {
                                       : JSON.stringify(message, null, 2),
                                   )
                                 }
-                                className="text-gray-500 hover:text-gray-700 p-1 rounded transition-colors"
+                                className="rounded p-1 text-gray-500 transition-colors hover:text-gray-700"
                                 title="Copy message"
                               >
                                 <svg
-                                  className="w-4 h-4"
+                                  className="h-4 w-4"
                                   fill="none"
                                   stroke="currentColor"
                                   viewBox="0 0 24 24"
@@ -619,11 +619,11 @@ function ChatApp() {
 
                               <button
                                 onClick={() => handleShowDetails(message)}
-                                className="text-gray-500 hover:text-gray-700 p-1 rounded transition-colors"
+                                className="rounded p-1 text-gray-500 transition-colors hover:text-gray-700"
                                 title="Show details"
                               >
                                 <svg
-                                  className="w-4 h-4"
+                                  className="h-4 w-4"
                                   fill="none"
                                   stroke="currentColor"
                                   viewBox="0 0 24 24"
@@ -647,9 +647,9 @@ function ChatApp() {
             </div>
 
             {/* Input Area */}
-            <div className="bg-white flex-shrink-0 bg-opacity-50">
-              <div className="max-w-4xl mx-auto p-4">
-                <div className="flex justify-center mb-2 px-4">
+            <div className="flex-shrink-0 bg-white bg-opacity-50">
+              <div className="mx-auto max-w-4xl p-4">
+                <div className="mb-2 flex justify-center px-4">
                   <ScrollToBottomButton />
                 </div>
 
@@ -660,7 +660,7 @@ function ChatApp() {
                       <button
                         key={index}
                         onClick={() => callSendMessage(suggestion.message)}
-                        className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200"
+                        className="rounded-full bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 transition-all duration-200 hover:bg-gray-200"
                       >
                         {suggestion.title}
                       </button>
@@ -670,10 +670,10 @@ function ChatApp() {
 
                 {/* Input Bar */}
                 <div className="relative">
-                  <div className="flex bg-gray-50 border border-gray-200 rounded-3xl px-4 py-3 items-center">
+                  <div className="flex items-center rounded-3xl border border-gray-200 bg-gray-50 px-4 py-3">
                     <textarea
                       ref={textareaRef}
-                      className="flex-1 bg-transparent border-none outline-none text-gray-900 placeholder-gray-500 resize-none min-h-[20px] max-h-[200px] overflow-y-auto"
+                      className="max-h-[200px] min-h-[20px] flex-1 resize-none overflow-y-auto border-none bg-transparent text-gray-900 placeholder-gray-500 outline-none"
                       placeholder="Ask anything"
                       value={newMessage}
                       onChange={(e) => setNewMessage(e.target.value)}
@@ -688,10 +688,10 @@ function ChatApp() {
                     <button
                       onClick={handleSendMessage}
                       disabled={!newMessage.trim()}
-                      className="bg-gray-900 hover:bg-gray-800 disabled:bg-gray-300 text-white p-2 rounded-full transition-all duration-200 ml-2"
+                      className="ml-2 rounded-full bg-gray-900 p-2 text-white transition-all duration-200 hover:bg-gray-800 disabled:bg-gray-300"
                     >
                       <svg
-                        className="w-5 h-5"
+                        className="h-5 w-5"
                         fill="none"
                         stroke="currentColor"
                         viewBox="0 0 24 24"

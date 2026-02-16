@@ -39,7 +39,9 @@ useHumanInTheLoop({
     if (status === "executing" && respond) {
       return (
         <div className="p-4 border rounded">
-          <p>Are you sure you want to delete {args.itemCount} {args.itemName}(s)?</p>
+          <p>
+            Are you sure you want to delete {args.itemCount} {args.itemName}(s)?
+          </p>
           <div className="flex gap-2 mt-4">
             <button
               onClick={() => respond({ confirmed: true })}
@@ -105,10 +107,12 @@ useHumanInTheLoop({
       return (
         <div className="p-4 border rounded">
           <h3 className="font-bold mb-2">{args.context}</h3>
-          <form onSubmit={(e) => {
-            e.preventDefault();
-            respond(preferences);
-          }}>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              respond(preferences);
+            }}
+          >
             <button
               type="submit"
               className="bg-blue-500 text-white px-4 py-2 rounded"
@@ -141,9 +145,7 @@ If you're migrating from `useCopilotAction` with `renderAndWaitForResponse`:
 // Before with useCopilotAction
 useCopilotAction({
   name: "confirmAction",
-  parameters: [
-    { name: "message", type: "string", required: true },
-  ],
+  parameters: [{ name: "message", type: "string", required: true }],
   renderAndWaitForResponse: ({ args, respond, status }) => {
     return (
       <ConfirmDialog
@@ -184,17 +186,19 @@ useHumanInTheLoop({
 ```
 
 The main differences are:
+
 1. The property is called `render` instead of `renderAndWaitForResponse`
 2. You need to check for the `respond` function's existence
 
 ## Parameters
 
-<PropertyReference name="name" type="string" required >
-The name of the tool.
+<PropertyReference name="name" type="string" required>
+  The name of the tool.
 </PropertyReference>
 
-<PropertyReference name="description" type="string"  >
-A description of the tool. This is used to instruct the Copilot on when to request human input.
+<PropertyReference name="description" type="string">
+  A description of the tool. This is used to instruct the Copilot on when to
+  request human input.
 </PropertyReference>
 
 <PropertyReference name="parameters" type="T"  >
@@ -208,6 +212,7 @@ Array of parameter definitions that will be passed to the render function. Each 
 Simple example: `[{ name: "itemName", type: "string", description: "Name of the item", required: true }]`
 
 Nested example:
+
 ```typescript
 [
   {
@@ -216,18 +221,35 @@ Nested example:
     description: "Approval request details",
     required: true,
     properties: [
-      { name: "action", type: "string", description: "Action requiring approval", required: true },
-      { name: "reason", type: "string", description: "Reason for the action", required: false }
-    ]
-  }
-]
+      {
+        name: "action",
+        type: "string",
+        description: "Action requiring approval",
+        required: true,
+      },
+      {
+        name: "reason",
+        type: "string",
+        description: "Reason for the action",
+        required: false,
+      },
+    ],
+  },
+];
 ```
+
 </PropertyReference>
 
-<PropertyReference name="render" type="FrontendAction<T>['renderAndWaitForResponse']" required >
-A React component that renders the interactive UI for human input. The component receives props including `args`, `status`, and `respond` function.
+<PropertyReference
+  name="render"
+  type="FrontendAction<T>['renderAndWaitForResponse']"
+  required
+>
+  A React component that renders the interactive UI for human input. The
+  component receives props including `args`, `status`, and `respond` function.
 </PropertyReference>
 
-<PropertyReference name="available" type="'disabled' | 'enabled'"  >
-Whether the tool is available. Set to "disabled" to prevent the tool from being called.
+<PropertyReference name="available" type="'disabled' | 'enabled'">
+  Whether the tool is available. Set to "disabled" to prevent the tool from
+  being called.
 </PropertyReference>

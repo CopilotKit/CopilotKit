@@ -12,7 +12,7 @@ export const NewLookAndFeelPreview = () => {
   // Only render if API key is available
   if (!apiKey) {
     return (
-      <div className="p-4 text-sm text-muted-foreground border rounded-lg">
+      <div className="text-muted-foreground rounded-lg border p-4 text-sm">
         Preview unavailable: API key not configured
       </div>
     );

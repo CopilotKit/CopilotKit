@@ -125,7 +125,7 @@ export function StateVisualizer() {
   ];
 
   return (
-    <div className="h-full w-full border rounded-lg">
+    <div className="h-full w-full rounded-lg border">
       <ReactFlow
         nodes={nodes}
         edges={edges}

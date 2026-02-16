@@ -32,7 +32,7 @@ export const AddTrips = ({ args, status, handler }: AddTripsProps) => {
   };
 
   return (
-    <div className="space-y-4 w-full bg-secondary p-6 rounded-lg">
+    <div className="w-full space-y-4 rounded-lg bg-secondary p-6">
       {args.trips?.map((trip: Trip) => (
         <div key={trip.id} className="flex flex-col gap-4">
           <h1 className="text-sm">The following trips will be added:</h1>
@@ -60,12 +60,12 @@ export const AddTrips = ({ args, status, handler }: AddTripsProps) => {
         handler={handler}
         approve={
           <>
-            <Plus className="w-4 h-4 mr-2" /> Add
+            <Plus className="mr-2 h-4 w-4" /> Add
           </>
         }
         reject={
           <>
-            <X className="w-4 h-4 mr-2" /> Cancel
+            <X className="mr-2 h-4 w-4" /> Cancel
           </>
         }
       />

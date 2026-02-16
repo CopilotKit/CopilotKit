@@ -50,8 +50,8 @@ export function MultiProviderContent({
   return (
     <div>
       <Select value={currentProvider} onValueChange={handleSelectChange}>
-        <div className="flex items-center w-full flex-col sm:flex-row">
-          <h5 className="mb-2 sm:mb-0 sm:mr-2">Choose your provider:</h5>
+        <div className="flex w-full flex-col items-center sm:flex-row">
+          <h5 className="mb-2 sm:mr-2 sm:mb-0">Choose your provider:</h5>
           <SelectTrigger className="w-full sm:w-[280px]">
             <SelectValue placeholder="Theme" />
           </SelectTrigger>

@@ -61,7 +61,7 @@ export function DataChart({ data }: DataChartProps) {
     <>
       {/* <div className="flex-1 p-4 rounded-2xl shadow-lg flex flex-col items-center min-w-[250px] max-w-[350px]"> */}
       {/* <h2 className="text-2xl font-semibold mb-2 text-gray-700 text-center">PR Status Distribution</h2> */}
-      <div className="h-[250px] flex flex-col items-center justify-center align-center">
+      <div className="align-center flex h-[250px] flex-col items-center justify-center">
         <PieChart width={260} height={200}>
           <Pie
             data={chartData}
@@ -88,11 +88,11 @@ export function DataChart({ data }: DataChartProps) {
           <Tooltip content={<CustomPieTooltip />} />
         </PieChart>
         {/* Custom Legend */}
-        <div className="flex flex-row justify-center gap-6 mt-2">
+        <div className="mt-2 flex flex-row justify-center gap-6">
           {chartData.map((entry, idx) => (
             <div key={entry.name} className="flex items-center gap-1">
               <span
-                className={`inline-block w-4 h-4 rounded-full ${status.find((status) => status.name === entry.name)?.color}`}
+                className={`inline-block h-4 w-4 rounded-full ${status.find((status) => status.name === entry.name)?.color}`}
               />
               <span className="text-sm text-black">
                 {entry.name.split("_").join(" ")}

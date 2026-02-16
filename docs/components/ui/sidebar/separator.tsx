@@ -10,7 +10,7 @@ interface SeparatorProps {
 
 const Separator = ({ node, minimal = false }: SeparatorProps) => {
   return (
-    <li className="flex gap-2 justify-between items-center mt-6 mb-3 w-full h-4 shrink-0">
+    <li className="mt-6 mb-3 flex h-4 w-full shrink-0 items-center justify-between gap-2">
       <span
         className={cn(
           "uppercase text-[10px] w-max shrink-0 text-sidebar-separator",
@@ -19,7 +19,7 @@ const Separator = ({ node, minimal = false }: SeparatorProps) => {
       >
         {node.name}
       </span>
-      {!minimal && <div className="w-full h-px bg-foreground/10" />}
+      {!minimal && <div className="bg-foreground/10 h-px w-full" />}
     </li>
   );
 };

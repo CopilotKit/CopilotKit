@@ -28,7 +28,7 @@ import { cn } from "../../utils";
     >
       <lucide-angular
         [img]="ChevronDown"
-        class="w-4 h-4 text-gray-600 dark:text-white"
+        class="h-4 w-4 text-gray-600 dark:text-white"
       >
       </lucide-angular>
     </button>

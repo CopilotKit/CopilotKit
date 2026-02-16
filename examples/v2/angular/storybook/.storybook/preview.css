@@ -16,7 +16,12 @@ html.dark .sb-main-padded {
 
 /* Custom disclaimer demo styles (global to ensure they apply in stories) */
 .custom-disclaimer {
-  background: linear-gradient(90deg, #FF6B6B 0%, #4ECDC4 50%, #45B7D1 100%) !important;
+  background: linear-gradient(
+    90deg,
+    #ff6b6b 0%,
+    #4ecdc4 50%,
+    #45b7d1 100%
+  ) !important;
   color: white;
   font-weight: 600;
   font-size: 14px;
@@ -31,25 +36,39 @@ html.dark .sb-main-padded {
 }
 
 .custom-disclaimer::before {
-  content: '';
+  content: "";
   position: absolute;
   top: -50%;
   left: -50%;
   width: 200%;
   height: 200%;
-  background: linear-gradient(45deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+  background: linear-gradient(
+    45deg,
+    transparent,
+    rgba(255, 255, 255, 0.1),
+    transparent
+  );
   transform: rotate(45deg);
   animation: disclaimer-shimmer 3s infinite;
 }
 
 @keyframes disclaimer-pulse {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.02); }
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.02);
+  }
 }
 
 @keyframes disclaimer-shimmer {
-  0% { transform: translateX(-100%) translateY(-100%) rotate(45deg); }
-  100% { transform: translateX(100%) translateY(100%) rotate(45deg); }
+  0% {
+    transform: translateX(-100%) translateY(-100%) rotate(45deg);
+  }
+  100% {
+    transform: translateX(100%) translateY(100%) rotate(45deg);
+  }
 }
 
 .custom-disclaimer-text {
@@ -68,6 +87,11 @@ html.dark .sb-main-padded {
 }
 
 @keyframes disclaimer-bounce {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-5px); }
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-5px);
+  }
 }

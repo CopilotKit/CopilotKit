@@ -6,7 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "oxlint ."
   },
   "dependencies": {
     "@copilotkit/react-core": "^1.8.12",

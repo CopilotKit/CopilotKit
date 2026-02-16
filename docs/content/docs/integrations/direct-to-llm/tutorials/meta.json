@@ -1,7 +1,4 @@
 {
   "title": "tutorials",
-  "pages": [
-    "ai-todo-app",
-    "ai-powered-textarea"
-  ]
+  "pages": ["ai-todo-app", "ai-powered-textarea"]
 }

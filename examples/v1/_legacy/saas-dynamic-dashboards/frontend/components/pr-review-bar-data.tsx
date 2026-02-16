@@ -42,11 +42,11 @@ export function PRReviewBarData({ args }: any) {
   return (
     <>
       {/* Bar Chart Section */}
-      <div className="flex-1 p-4 rounded-2xl shadow-lg flex flex-col items-center min-w-[250px] max-w-[350px]">
-        <h2 className="text-xl font-semibold mb-2 text-gray-700 text-center">
+      <div className="flex min-w-[250px] max-w-[350px] flex-1 flex-col items-center rounded-2xl p-4 shadow-lg">
+        <h2 className="mb-2 text-center text-xl font-semibold text-gray-700">
           Data Distribution
         </h2>
-        <div className="h-[180px] flex items-center justify-center">
+        <div className="flex h-[180px] items-center justify-center">
           <BarChart width={260} height={180} data={data}>
             <CartesianGrid strokeDasharray="3 3" stroke="#94a3b855" />
             <XAxis

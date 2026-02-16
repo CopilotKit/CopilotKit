@@ -17,9 +17,9 @@ The chat components now have `onThumbsUp` and `onThumbsDown` handlers. Specifyin
 on hover allowing the user to provide feedback.
 
 ```tsx
-<CopilotChat 
-  onThumbsUp={(message) => console.log(message)} 
-  onThumbsDown={(message) => console.log(message)}     
+<CopilotChat
+  onThumbsUp={(message) => console.log(message)}
+  onThumbsDown={(message) => console.log(message)}
 />
 ```
 
@@ -29,9 +29,10 @@ or just generally track user feedback.
 ### ResponseButton prop removed
 
 The `ResponseButton` prop has been removed. This was a prop that was used to customize the button that appears after a response was generated
-in the chat. 
+in the chat.
 
 In its place, we now place buttons below each message for:
+
 - Thumbs up
 - Thumbs down
 - Copy
@@ -41,9 +42,9 @@ The behvior, icons and styling for each of these buttons can be customized. Chec
 
 ### Out-of-the-box dark mode support
 
-CopilotKit now has out-of-the-box dark mode support. This is controlled by the `.dark` class (Tailwind) as well as the 
+CopilotKit now has out-of-the-box dark mode support. This is controlled by the `.dark` class (Tailwind) as well as the
 `color-scheme` CSS selector.
 
 If you would like to make a custom theme, you can do so by checking out the [custom look and feel](/custom-look-and-feel) guides.
 
-<NewLookAndFeelPreview/>
+<NewLookAndFeelPreview />

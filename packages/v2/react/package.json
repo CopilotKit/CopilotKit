@@ -3,7 +3,10 @@
   "version": "1.51.4-next.8",
   "description": "React components for CopilotKit2",
   "main": "./dist/index.cjs",
+  "module": "./dist/index.mjs",
   "types": "./dist/index.d.cts",
+  "unpkg": "./dist/index.umd.js",
+  "jsdelivr": "./dist/index.umd.js",
   "exports": {
     ".": {
       "import": "./dist/index.mjs",
@@ -12,8 +15,6 @@
     "./package.json": "./package.json",
     "./styles.css": "./dist/styles.css"
   },
-  "unpkg": "./dist/index.umd.js",
-  "jsdelivr": "./dist/index.umd.js",
   "publishConfig": {
     "access": "public"
   },
@@ -23,7 +24,7 @@
     "dev": "concurrently \"npm:dev:css\" \"tsdown --watch\"",
     "build": "tsdown && npm run build:css",
     "prepublishOnly": "pnpm run build",
-    "lint": "eslint .",
+    "lint": "oxlint .",
     "check-types": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -31,29 +32,6 @@
     "test:ui": "vitest --ui",
     "publint": "publint .",
     "attw": "attw --pack . --profile node16"
-  },
-  "devDependencies": {
-    "@copilotkitnext/eslint-config": "workspace:*",
-    "@copilotkitnext/typescript-config": "workspace:*",
-    "@tailwindcss/cli": "^4.1.11",
-    "@tailwindcss/postcss": "^4.1.11",
-    "@tailwindcss/typography": "^0.5.16",
-    "@testing-library/jest-dom": "^6.0.0",
-    "@testing-library/react": "^16.0.0",
-    "@testing-library/user-event": "^14.0.0",
-    "@types/node": "^22.15.3",
-    "@types/react": "^19.1.0",
-    "@types/react-dom": "^19.0.2",
-    "@vitest/ui": "^3.2.4",
-    "autoprefixer": "^10.4.20",
-    "concurrently": "^9.1.0",
-    "eslint": "^9.30.0",
-    "jsdom": "^26.1.0",
-    "tailwindcss": "^4.0.8",
-    "rxjs": "^7.8.1",
-    "tsdown": "^0.20.3",
-    "typescript": "5.8.2",
-    "vitest": "^3.2.4"
   },
   "dependencies": {
     "@ag-ui/client": "0.0.42",
@@ -76,12 +54,32 @@
     "use-stick-to-bottom": "^1.1.1",
     "zod": "^3.25.75"
   },
+  "devDependencies": {
+    "@copilotkitnext/typescript-config": "workspace:*",
+    "@tailwindcss/cli": "^4.1.11",
+    "@tailwindcss/postcss": "^4.1.11",
+    "@tailwindcss/typography": "^0.5.16",
+    "@testing-library/jest-dom": "^6.0.0",
+    "@testing-library/react": "^16.0.0",
+    "@testing-library/user-event": "^14.0.0",
+    "@types/node": "^22.15.3",
+    "@types/react": "^19.1.0",
+    "@types/react-dom": "^19.0.2",
+    "@vitest/ui": "^3.2.4",
+    "autoprefixer": "^10.4.20",
+    "concurrently": "^9.1.0",
+    "jsdom": "^26.1.0",
+    "rxjs": "^7.8.1",
+    "tailwindcss": "^4.0.8",
+    "tsdown": "^0.20.3",
+    "typescript": "5.8.2",
+    "vitest": "^3.2.4"
+  },
   "peerDependencies": {
     "react": ">=16.8.0",
     "react-dom": ">=16.8.0"
   },
   "engines": {
     "node": ">=18"
-  },
-  "module": "./dist/index.mjs"
+  }
 }

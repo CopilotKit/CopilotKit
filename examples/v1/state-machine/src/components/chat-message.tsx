@@ -22,11 +22,11 @@ export function UserMessage({ message }: UserMessageProps) {
   const content = normalizeMarkdownContent(message?.content);
 
   return (
-    <div className="flex items-start gap-4 px-6 py-4 flex-row-reverse">
+    <div className="flex flex-row-reverse items-start gap-4 px-6 py-4">
       {/* Avatar */}
-      <div className="shrink-0 w-10 h-10 rounded-xl overflow-hidden border-2 border-neutral-200 bg-white">
-        <div className="w-full h-full flex items-center justify-center">
-          <svg className="w-6 h-6 text-primary" viewBox="0 0 24 24" fill="none">
+      <div className="h-10 w-10 shrink-0 overflow-hidden rounded-xl border-2 border-neutral-200 bg-white">
+        <div className="flex h-full w-full items-center justify-center">
+          <svg className="text-primary h-6 w-6" viewBox="0 0 24 24" fill="none">
             <path
               d="M17.5 21.0001H6.5C5.11929 21.0001 4 19.8808 4 18.5001C4 14.4194 10 14.5001 12 14.5001C14 14.5001 20 14.4194 20 18.5001C20 19.8808 18.8807 21.0001 17.5 21.0001Z"
               stroke="currentColor"
@@ -46,8 +46,8 @@ export function UserMessage({ message }: UserMessageProps) {
       </div>
 
       {/* Message */}
-      <div className="relative py-2 px-4 rounded-2xl rounded-tr-sm max-w-[80%] text-sm leading-relaxed bg-white border border-neutral-200 shadow-sm">
-        <div className="font-medium text-blue-600 mb-1">You</div>
+      <div className="relative max-w-[80%] rounded-2xl rounded-tr-sm border border-neutral-200 bg-white px-4 py-2 text-sm leading-relaxed shadow-sm">
+        <div className="mb-1 font-medium text-blue-600">You</div>
         {content}
       </div>
     </div>
@@ -64,10 +64,10 @@ export function AssistantMessage({
   return (
     <div className="flex items-start gap-4 px-6 py-4">
       {/* Avatar */}
-      <div className="shrink-0 w-10 h-10 rounded-xl overflow-hidden border-2 border-neutral-200 bg-white">
-        <div className="w-full h-full flex items-center justify-center">
+      <div className="h-10 w-10 shrink-0 overflow-hidden rounded-xl border-2 border-neutral-200 bg-white">
+        <div className="flex h-full w-full items-center justify-center">
           <svg
-            className="w-6 h-6 text-pink-600"
+            className="h-6 w-6 text-pink-600"
             viewBox="0 0 24 24"
             fill="none"
           >
@@ -103,13 +103,13 @@ export function AssistantMessage({
 
       {/* Message */}
       {(message || isLoading) && (
-        <div className="relative py-2 px-4 rounded-2xl rounded-tl-sm max-w-[80%] text-sm leading-relaxed bg-white border border-neutral-200 shadow-sm">
-          <div className="font-medium text-pink-600 mb-1">Fio</div>
+        <div className="relative max-w-[80%] rounded-2xl rounded-tl-sm border border-neutral-200 bg-white px-4 py-2 text-sm leading-relaxed shadow-sm">
+          <div className="mb-1 font-medium text-pink-600">Fio</div>
           {isLoading ? (
             <div className="flex items-center gap-2 p-1">
-              <div className="w-2 h-2 bg-pink-600 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
-              <div className="w-2 h-2 bg-pink-600 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
-              <div className="w-2 h-2 bg-pink-600 rounded-full animate-bounce"></div>
+              <div className="h-2 w-2 animate-bounce rounded-full bg-pink-600 [animation-delay:-0.3s]"></div>
+              <div className="h-2 w-2 animate-bounce rounded-full bg-pink-600 [animation-delay:-0.15s]"></div>
+              <div className="h-2 w-2 animate-bounce rounded-full bg-pink-600"></div>
             </div>
           ) : (
             <>{content && <Markdown content={content} />}</>

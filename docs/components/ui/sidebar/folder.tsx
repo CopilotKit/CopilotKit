@@ -136,15 +136,15 @@ const Folder = ({ node }: FolderProps) => {
         <button
           type="button"
           onClick={handleLinkClick}
-          className="flex gap-2 justify-between items-center px-3 w-full h-10 cursor-pointer"
+          className="flex h-10 w-full cursor-pointer items-center justify-between gap-2 px-3"
         >
-          <span className="w-max text-sm shrink-0">{node.name}</span>
+          <span className="w-max shrink-0 text-sm">{node.name}</span>
           <ChevronDownIcon className={cn(isOpen ? "rotate-180" : "")} />
         </button>
       </li>
       {isOpen && (
-        <ul className="flex relative flex-col gap-2 ml-4">
-          <div className="absolute top-1/2 -translate-y-1/2 -left-2 w-px h-[calc(100%-8px)] bg-foreground/10" />
+        <ul className="relative ml-4 flex flex-col gap-2">
+          <div className="bg-foreground/10 absolute top-1/2 -left-2 h-[calc(100%-8px)] w-px -translate-y-1/2" />
 
           {(node as { children: Node[] }).children.map((page, index) => {
             const Component =

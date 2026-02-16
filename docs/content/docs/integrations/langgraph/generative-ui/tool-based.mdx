@@ -3,12 +3,23 @@ title: Tool-based Generative UI
 icon: "lucide/Wrench"
 description: Render your agent's tool calls with custom UI components.
 ---
-import { Accordions, Accordion } from "fumadocs-ui/components/accordion";
-import RunAndConnect from "@/snippets/integrations/langgraph/run-and-connect.mdx"
 
-<video src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/tool-based-gen-ui.mp4" className="rounded-lg shadow-xl" loop playsInline controls autoPlay muted />
+import { Accordions, Accordion } from "fumadocs-ui/components/accordion";
+import RunAndConnect from "@/snippets/integrations/langgraph/run-and-connect.mdx";
+
+<video
+  src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/tool-based-gen-ui.mp4"
+  className="rounded-lg shadow-xl"
+  loop
+  playsInline
+  controls
+  autoPlay
+  muted
+/>
 <Callout>
-  This video demonstrates the [implementation](#implementation) section applied to our [coagents starter project](https://github.com/CopilotKit/CopilotKit/tree/main/examples/coagents-starter).
+  This video demonstrates the [implementation](#implementation) section applied
+  to our [coagents starter
+  project](https://github.com/CopilotKit/CopilotKit/tree/main/examples/coagents-starter).
 </Callout>
 
 ## What is this?
@@ -92,6 +103,7 @@ when your agent is calling tools. CopilotKit allows you to fully customize how t
         }
         ```
     </Tab>
+
 </Tabs>
 </Step>
 <Step>
@@ -101,7 +113,8 @@ we just need to add a `useCopilotAction` hook to render the tool call in
 the UI.
 
 <Callout type="info" title="Important">
-  In order to render a tool call in the UI, the name of the action must match the name of the tool.
+  In order to render a tool call in the UI, the name of the action must match
+  the name of the tool.
 </Callout>
 
 ```tsx title="app/page.tsx"
@@ -114,17 +127,18 @@ const YourMainContent = () => {
   useCopilotAction({
     name: "get_weather",
     available: "disabled", // Don't allow the agent or UI to call this tool as its only for rendering
-    render: ({status, args}) => {
+    render: ({ status, args }) => {
       return (
         <p className="text-gray-500 mt-2">
           {status !== "complete" && "Calling weather API..."}
-          {status === "complete" && `Called the weather API for ${args.location}.`}
+          {status === "complete" &&
+            `Called the weather API for ${args.location}.`}
         </p>
       );
     },
   });
   // ...
-}
+};
 ```
 
 </Step>

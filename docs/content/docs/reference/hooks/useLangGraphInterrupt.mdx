@@ -4,7 +4,15 @@ description: "The useLangGraphInterrupt hook allows setting the generative UI to
 ---
 
 <br />
-<video src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/interrupt-flow.mp4" className="rounded-lg shadow-xl" loop playsInline controls autoPlay muted />
+<video
+  src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/interrupt-flow.mp4"
+  className="rounded-lg shadow-xl"
+  loop
+  playsInline
+  controls
+  autoPlay
+  muted
+/>
 
 `useLangGraphInterrupt` is a React hook that you can use in your application to provide
 custom UI to be rendered when using `interrupt` by LangGraph.
@@ -26,20 +34,26 @@ const YourMainContent = () => {
     render: ({ event, resolve }) => (
       <div>
         <p>{event.value}</p>
-        <form onSubmit={(e) => {
-          e.preventDefault();
-          resolve((e.target as HTMLFormElement).response.value);
-        }}>
-          <input type="text" name="response" placeholder="Enter your response" />
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            resolve((e.target as HTMLFormElement).response.value);
+          }}
+        >
+          <input
+            type="text"
+            name="response"
+            placeholder="Enter your response"
+          />
           <button type="submit">Submit</button>
         </form>
       </div>
-    )
+    ),
   });
   // ...
 
-  return <div>{/* ... */}</div>
-}
+  return <div>{/* ... */}</div>;
+};
 ```
 
 ## Parameters
@@ -62,6 +76,7 @@ const YourMainContent = () => {
     <PropertyReference name="enabled" type="(args: { eventValue: TEventValue; agentMetadata: AgentSession }) => boolean">
         Method that returns a boolean, indicating if the interrupt action should run. Useful when using multiple interrupts
     </PropertyReference>
+
 </PropertyReference>
 
 <PropertyReference name="dependencies" type="any[]">

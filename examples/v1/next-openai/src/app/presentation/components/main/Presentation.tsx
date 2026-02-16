@@ -153,11 +153,11 @@ export const Presentation = ({
         setPerformResearch={setPerformResearch}
       />
       <div
-        className="flex items-center justify-center flex-1"
+        className="flex flex-1 items-center justify-center"
         style={{ backgroundColor: "#414247", overflow: "auto" }}
       >
         <div
-          className="aspect-ratio-box bg-white flex shadow-2xl"
+          className="aspect-ratio-box flex bg-white shadow-2xl"
           style={{ margin: "5rem", maxHeight: "70vh" }}
         >
           <Slide slide={currentSlide} partialUpdateSlide={updateCurrentSlide} />

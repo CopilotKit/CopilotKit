@@ -118,28 +118,23 @@ export function Tabs({
 
   return (
     <TabsPrimitive.Root
-      className="border rounded-md"
+      className="rounded-md border"
       value={value}
       onValueChange={handleValueChange}
       {...props}
     >
-      <ScrollArea className="w-full rounded-md rounded-b-none relative bg-secondary dark:bg-secondary/40 border-b">
-        <TabsPrimitive.List className="px-4 py-3 flex" role="tablist">
+      <ScrollArea className="bg-secondary dark:bg-secondary/40 relative w-full rounded-md rounded-b-none border-b">
+        <TabsPrimitive.List className="flex px-4 py-3" role="tablist">
           {normalizedItems.map((item) => (
             <TabsPrimitive.Trigger
               key={item.value}
               value={item.value}
-              className="relative px-3 mr-2 py-1 text-sm font-medium rounded-md whitespace-nowrap flex gap-2 items-center border text-primary
-                hover:bg-indigo-200/80 dark:hover:bg-indigo-900/80
-                bg-indigo-200/30 dark:bg-indigo-800/20
-                border-black/20 dark:border-gray-500/50
-                data-[state=active]:bg-indigo-200/80 dark:data-[state=active]:bg-indigo-800/50
-                data-[state=active]:border-indigo-400 dark:data-[state=active]:border-indigo-400"
+              className="text-primary relative mr-2 flex items-center gap-2 rounded-md border border-black/20 bg-indigo-200/30 px-3 py-1 text-sm font-medium whitespace-nowrap hover:bg-indigo-200/80 data-[state=active]:border-indigo-400 data-[state=active]:bg-indigo-200/80 dark:border-gray-500/50 dark:bg-indigo-800/20 dark:hover:bg-indigo-900/80 dark:data-[state=active]:border-indigo-400 dark:data-[state=active]:bg-indigo-800/50"
               role="tab"
               aria-selected={value === item.value}
             >
               {item.icon && (
-                <span className="w-4 h-4 flex items-center justify-center">
+                <span className="flex h-4 w-4 items-center justify-center">
                   {item.icon}
                 </span>
               )}

@@ -34,9 +34,9 @@ export function PaymentCards({ onSubmit }: PaymentCardsProps) {
   return (
     <div className="w-full">
       {!selectedCard && (
-        <h1 className="text-2xl font-bold mb-2">Your payment methods</h1>
+        <h1 className="mb-2 text-2xl font-bold">Your payment methods</h1>
       )}
-      <div className="flex flex-row overflow-x-auto gap-4 py-4 w-full min-w-0 pb-6">
+      <div className="flex w-full min-w-0 flex-row gap-4 overflow-x-auto py-4 pb-6">
         {availableCardInfo
           .filter(
             (cardInfo) =>
@@ -73,20 +73,20 @@ const CreditCard = ({
         background: "linear-gradient(135deg, #000428 0%, #004e92 100%)",
       }}
     >
-      <div className="text-white space-y-4">
+      <div className="space-y-4 text-white">
         {/* Card Header */}
-        <div className="flex justify-between items-center">
+        <div className="flex items-center justify-between">
           <div className="text-xl font-bold">{cardInfo.name}</div>
           <div className="text-2xl">💳</div>
         </div>
 
         {/* Card Number */}
-        <div className="text-2xl tracking-wider flex justify-center w-full font-mono mt-8 mb-4">
+        <div className="mb-4 mt-8 flex w-full justify-center font-mono text-2xl tracking-wider">
           **** **** **** {cardInfo?.cardNumber?.slice(-4)}
         </div>
 
         {/* Card Footer */}
-        <div className="flex justify-between items-end mt-8">
+        <div className="mt-8 flex items-end justify-between">
           <div>
             <div className="text-xs opacity-80">VALID THRU</div>
             <div>{cardInfo.cardExpiration}</div>

@@ -3,22 +3,37 @@ title: Node-based
 description: Learn how to implement Human-in-the-Loop (HITL) using a node-based flow.
 icon: lucide/Share2
 ---
-import RunAndConnect from "@/snippets/integrations/langgraph/run-and-connect.mdx"
-import InstallSDKSnippet from "@/snippets/install-sdk.mdx"
+
+import RunAndConnect from "@/snippets/integrations/langgraph/run-and-connect.mdx";
+import InstallSDKSnippet from "@/snippets/install-sdk.mdx";
 
 <Callout type="error">
-    The usage of node based interrupt is [now discouraged](https://docs.langchain.com/oss/python/langgraph/interrupts) by both LangGraph and CopilotKit.
-    As of LangGraph 0.2.57, the recommended way to set breakpoints is using [the interrupt function](https://docs.copilotkit.ai/coagents/human-in-the-loop/interrupt-flow) as it simplifies human-in-the-loop patterns.
+  The usage of node based interrupt is [now
+  discouraged](https://docs.langchain.com/oss/python/langgraph/interrupts) by
+  both LangGraph and CopilotKit. As of LangGraph 0.2.57, the recommended way to
+  set breakpoints is using [the interrupt
+  function](https://docs.copilotkit.ai/coagents/human-in-the-loop/interrupt-flow)
+  as it simplifies human-in-the-loop patterns.
 </Callout>
 
-<video src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/node-hitl.mp4" className="rounded-lg shadow-xl" loop playsInline controls autoPlay muted />
+<video
+  src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/node-hitl.mp4"
+  className="rounded-lg shadow-xl"
+  loop
+  playsInline
+  controls
+  autoPlay
+  muted
+/>
 
 <Callout type="info">
-  Pictured above is the [coagent starter](https://github.com/copilotkit/copilotkit/tree/main/examples/coagents-starter) with
-  the implementation below applied!
+  Pictured above is the [coagent
+  starter](https://github.com/copilotkit/copilotkit/tree/main/examples/coagents-starter)
+  with the implementation below applied!
 </Callout>
 
 ## What is this?
+
 [Node based flows](https://docs.langchain.com/oss/python/langgraph/interrupts#debugging-with-interrupts) are predicated on LangGraph concept
 of `breakpoints` which will interrupt a node before or after its execution to allow for user input.
 
@@ -57,7 +72,7 @@ is interrupted and then resumes execution from where it left off, unaware of the
         function YourMainContent() {
           // ...
 
-          useHumanInTheLoop({ 
+          useHumanInTheLoop({
             name: "writeEssay",
             description: "Writes an essay and takes the draft as an argument.",
             parameters: [
@@ -68,9 +83,9 @@ is interrupted and then resumes execution from where it left off, unaware of the
               return (
                 <div>
                   <Markdown content={args.draft || 'Preparing your draft...'} />
-                  
+
                   <div className={`flex gap-4 pt-4 ${status !== "executing" ? "hidden" : ""}`}>
-                    <button 
+                    <button
                       onClick={() => respond?.("CANCEL")}
                       disabled={status !== "executing"}
                       className="border p-2 rounded-xl w-full"
@@ -79,7 +94,7 @@ is interrupted and then resumes execution from where it left off, unaware of the
                     </button>
                     <button
                       onClick={() => respond?.("SEND")}
-                      disabled={status !== "executing"} 
+                      disabled={status !== "executing"}
                       className="bg-blue-500 text-white p-2 rounded-xl w-full"
                     >
                       Approve Draft
@@ -159,7 +174,7 @@ is interrupted and then resumes execution from where it left off, unaware of the
         #    where CopilotKit's renderAndWaitForResponse provide the user's response.
         def user_feedback_node(state: AgentState, config: RunnableConfig) -> Command[Literal["chat_node"]]:
             # [!code highlight:3]
-            # 3.1 Get the last message from the state, this will be 
+            # 3.1 Get the last message from the state, this will be
             #     what is returned by respond() in the frontend
             last_message = state["messages"][-1]
 
@@ -238,7 +253,7 @@ is interrupted and then resumes execution from where it left off, unaware of the
             // 3.5.1 If the tool call is "writeEssay", we need to get feedback from the user
             //       by going to the getFeedback node which will be interrupted after
             //       execution, giving CopilotKit a chance to get feedback from the user.
-            //       
+            //
             //       The "writeEssay" tool is a CopilotKit tool and is binded in step 3.2.
             if (toolCall.name === "writeEssay") {
               return new Command({
@@ -272,8 +287,8 @@ is interrupted and then resumes execution from where it left off, unaware of the
           const userResponse = state.messages[state.messages.length - 1].content
 
           // 5.2 Process a informative message for the AI based on the user response
-          const informativeMessage = userResponse === "SEND" ? 
-            "The user accepted the essay, please ask them how you can help now." : 
+          const informativeMessage = userResponse === "SEND" ?
+            "The user accepted the essay, please ask them how you can help now." :
             "The user declined the essay, please ask them how to improve it.";
 
           // 5.3 Return the new state with the informative message as a system message
@@ -305,4 +320,5 @@ is interrupted and then resumes execution from where it left off, unaware of the
         Try asking your agent to write an essay about the benefits of AI. You'll see that it will generate an essay,
         stream the progress and eventually ask you to review it.
     </Step>
+
 </Steps>

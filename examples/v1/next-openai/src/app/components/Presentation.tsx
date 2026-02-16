@@ -114,7 +114,7 @@ export const Presentation = ({
       <Slide slide={currentSlide} partialUpdateSlide={updateCurrentSlide} />
 
       {/* Add the action buttons below */}
-      <div className="absolute top-0 left-0 mt-6 ml-4 z-30">
+      <div className="absolute left-0 top-0 z-30 ml-4 mt-6">
         <ActionButton
           disabled={generateSlideTaskRunning || chatInProgress}
           onClick={() => {
@@ -142,13 +142,13 @@ export const Presentation = ({
             await generateSlideTask.run(context);
             setGenerateSlideTaskRunning(false);
           }}
-          className="rounded-l-none ml-[1px]"
+          className="ml-[1px] rounded-l-none"
         >
           <SparklesIcon className="h-6 w-6" />
         </ActionButton>
       </div>
 
-      <div className="absolute top-0 right-0 mt-6 mr-24">
+      <div className="absolute right-0 top-0 mr-24 mt-6">
         <ActionButton
           disabled={
             generateSlideTaskRunning || chatInProgress || slides.length === 1
@@ -172,14 +172,14 @@ export const Presentation = ({
             resetGlobalAudio();
             speak(currentSlide.spokenNarration);
           }}
-          className="rounded-l-none rounded-r-none ml-[1px]"
+          className="ml-[1px] rounded-l-none rounded-r-none"
         >
           <SpeakerWaveIcon className="h-6 w-6" />
         </ActionButton>
       </div>
 
       <div
-        className="absolute bottom-0 right-0 mb-20 mx-24 text-xl"
+        className="absolute bottom-0 right-0 mx-24 mb-20 text-xl"
         style={{
           textShadow:
             "1px 1px 0 #ddd, -1px -1px 0 #ddd, 1px -1px 0 #ddd, -1px 1px 0 #ddd",
@@ -188,7 +188,7 @@ export const Presentation = ({
         Slide {currentSlideIndex + 1} of {slides.length}
       </div>
 
-      <div className="absolute bottom-0 right-0 mb-6 mx-24">
+      <div className="absolute bottom-0 right-0 mx-24 mb-6">
         <ActionButton
           className="rounded-r-none"
           disabled={

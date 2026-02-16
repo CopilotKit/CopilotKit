@@ -16,16 +16,9 @@ export const Button = React.forwardRef<
     ref={ref}
     className={cx(
       className as string,
-      css`
-        cursor: pointer;
-        color: ${reversed
-          ? active
-            ? "white"
-            : "#aaa"
-          : active
-            ? "black"
-            : "#ccc"};
-      `,
+      css`cursor: pointer; color: ${
+        reversed ? (active ? "white" : "#aaa") : active ? "black" : "#ccc"
+      }; `,
     )}
   />
 ));
@@ -63,7 +56,6 @@ export const Menu = React.forwardRef<
           & > * {
             display: inline-block;
           }
-
           & > * + * {
             margin-left: 15px;
           }

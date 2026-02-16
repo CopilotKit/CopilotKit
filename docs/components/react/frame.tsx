@@ -12,7 +12,7 @@ export function Frame({
   return (
     <>
       <div
-        className={`flex space-x-4 w-full mx-auto justify-center ${className}`}
+        className={`mx-auto flex w-full justify-center space-x-4 ${className}`}
       >
         {React.Children.map(children, (child) => {
           if (React.isValidElement(child)) {
@@ -27,7 +27,7 @@ export function Frame({
         })}
       </div>
       {description && (
-        <p className="text-sm text-neutral-500 text-center">{description}</p>
+        <p className="text-center text-sm text-neutral-500">{description}</p>
       )}
     </>
   );

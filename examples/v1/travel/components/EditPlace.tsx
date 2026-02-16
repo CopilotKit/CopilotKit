@@ -37,7 +37,7 @@ export function EditPlace({ place, onOpenChange }: EditPlaceProps) {
           setDialogOpen(true);
         }}
       >
-        <Pencil className="w-4 h-4 mr-2" />
+        <Pencil className="mr-2 h-4 w-4" />
         Edit
       </DropdownMenuItem>
 
@@ -53,7 +53,7 @@ export function EditPlace({ place, onOpenChange }: EditPlaceProps) {
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center">
-              <Pencil className="w-4 h-4 mr-2" />
+              <Pencil className="mr-2 h-4 w-4" />
               Edit Place
             </DialogTitle>
           </DialogHeader>

@@ -17,7 +17,7 @@ export default function SidebarDemoPage() {
     render: ({ name, args, status }) => (
       <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700 shadow-sm">
         <strong className="block text-slate-900">Unknown Tool: {name}</strong>
-        <pre className="mt-2 whitespace-pre-wrap text-xs text-slate-600">
+        <pre className="mt-2 text-xs whitespace-pre-wrap text-slate-600">
           Status: {status}
           {args && "\nArguments: " + JSON.stringify(args, null, 2)}
         </pre>

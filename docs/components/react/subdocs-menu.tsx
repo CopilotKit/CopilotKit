@@ -421,14 +421,14 @@ export function SubdocsMenu({
           return (
             <hr
               key={`separator-${index}`}
-              className="my-2 border-t border-primary/40"
+              className="border-primary/40 my-2 border-t"
             />
           );
         } else if (isLabel(item)) {
           return (
             <div
               key={`label-${index}`}
-              className="px-2 py-1 text-xs font-semibold text-gray-400 uppercase tracking-wider"
+              className="px-2 py-1 text-xs font-semibold tracking-wider text-gray-400 uppercase"
             >
               {item.text}
             </div>
@@ -445,7 +445,7 @@ export function SubdocsMenu({
           );
         }
       })}
-      <hr className="mt-2 border-t border-primary/40" />
+      <hr className="border-primary/40 mt-2 border-t" />
     </div>
   );
 }
@@ -480,7 +480,7 @@ function SubdocsMenuItem({
         className={cn(
           "px-1 py-0.5 rounded-xl flex flex-row gap-3 items-center cursor-pointer group opacity-60 hover:opacity-100",
           item.props?.className,
-          selected === item && `opacity-100 bg-primary/10 text-primary`,
+          selected === item && `bg-primary/10 text-primary opacity-100`,
         )}
         suppressHydrationWarning
       >
@@ -569,7 +569,7 @@ function SubdocsMenuItemDropdown({
                 >
                   {selectedOption?.icon || (
                     <PlugIcon
-                      className="w-4 h-4"
+                      className="h-4 w-4"
                       style={{
                         fontSize: "16px",
                         width: "16px",
@@ -583,7 +583,7 @@ function SubdocsMenuItemDropdown({
             }
           />
         </SelectTrigger>
-        <SelectContent className="p-1 rounded-2xl max-h-[800px] shadow-lg">
+        <SelectContent className="max-h-[800px] rounded-2xl p-1 shadow-lg">
           {item.options.map((option, index) => (
             <SelectItem
               key={`${option.url}-${index}`}

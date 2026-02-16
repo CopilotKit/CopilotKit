@@ -7,8 +7,8 @@ hideTOC: true
 
 import { Tabs, Tab } from "fumadocs-ui/components/tabs";
 import {
-    TailoredContent,
-    TailoredContentOption,
+  TailoredContent,
+  TailoredContentOption,
 } from "@/components/react/tailored-content.tsx";
 
 One of the most common use cases for CopilotKit is to register app state and context using `useCopilotReadable`.
@@ -18,12 +18,20 @@ Some examples might be: the current user, the current page, etc.
 This context can then be shared with your AG2 backend.
 
 ## Implementation
+
 <Callout>
-    Check out the [Frontend Data documentation](https://docs.copilotkit.ai/direct-to-llm/guides/connect-your-data/frontend) to understand what this is and how to use it.
+  Check out the [Frontend Data
+  documentation](https://docs.copilotkit.ai/direct-to-llm/guides/connect-your-data/frontend)
+  to understand what this is and how to use it.
 </Callout>
 
 <Callout type="info">
-  CopilotKit consumes AG-UI protocol events streamed by AG2 over <code>/chat</code>. See the <a href="https://docs.ag2.ai/latest/docs/user-guide/ag-ui/" target="_blank">AG2 AG-UI integration docs</a>.
+  CopilotKit consumes AG-UI protocol events streamed by AG2 over{" "}
+  <code>/chat</code>. See the{" "}
+  <a href="https://docs.ag2.ai/latest/docs/user-guide/ag-ui/" target="_blank">
+    AG2 AG-UI integration docs
+  </a>
+  .
 </Callout>
 
 <TailoredContent
@@ -239,4 +247,5 @@ This context can then be shared with your AG2 backend.
             </Step>
         </Steps>
     </TailoredContentOption>
+
 </TailoredContent>

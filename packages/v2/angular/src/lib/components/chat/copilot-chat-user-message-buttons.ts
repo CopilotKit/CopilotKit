@@ -20,7 +20,9 @@ import { injectChatLabels } from "../../chat-config";
   imports: [CommonModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
-  template: ` <ng-content></ng-content> `,
+  template: `
+    <ng-content></ng-content>
+  `,
   host: {
     "[class]": "computedClass()",
     "[attr.disabled]": "disabled() ? true : null",

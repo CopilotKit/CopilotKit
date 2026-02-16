@@ -80,11 +80,11 @@ export function CTACard({
 
   return (
     <Link href={href} className="no-underline">
-      <Card className="transition-transform hover:scale-105 cursor-pointer shadow-xl shadow-indigo-500/20 h-full">
+      <Card className="h-full cursor-pointer shadow-xl shadow-indigo-500/20 transition-transform hover:scale-105">
         <CardHeader>
           <div className="flex items-center gap-3">
             <div
-              className={`flex items-center justify-center ${iconBgColor} rounded-full w-10 h-10`}
+              className={`flex items-center justify-center ${iconBgColor} h-10 w-10 rounded-full`}
             >
               <Icon className="h-6 w-6 text-white" />
             </div>
@@ -107,7 +107,7 @@ export function CTACards({ cards, columns = 3 }: CTACardsProps) {
 
   return (
     <div
-      className={`grid grid-cols-1 gap-y-8 gap-x-10 xl:grid-cols-${columns} py-6`}
+      className={`grid grid-cols-1 gap-x-10 gap-y-8 xl:grid-cols-${columns} py-6`}
     >
       {cards.map((card, index) => (
         <div

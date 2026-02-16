@@ -12,9 +12,7 @@ export const ActionButton = ({
   return (
     <button
       disabled={disabled}
-      className={`bg-blue-500 text-white font-bold py-2 px-4 rounded
-      ${disabled ? "opacity-50 cursor-not-allowed" : "hover:bg-blue-700"}
-      ${className}`}
+      className={`rounded bg-blue-500 px-4 py-2 font-bold text-white ${disabled ? "cursor-not-allowed opacity-50" : "hover:bg-blue-700"} ${className}`}
       onClick={onClick}
     >
       {children}

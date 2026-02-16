@@ -3,10 +3,11 @@ title: Migrate to AG-UI
 description: Migration guide for agents streaming through the AG-UI protocol
 icon: "lucide/RefreshCw"
 ---
+
 import { Accordions, Accordion } from "fumadocs-ui/components/accordion";
 import {
-    TailoredContent,
-    TailoredContentOption,
+  TailoredContent,
+  TailoredContentOption,
 } from "@/components/react/tailored-content.tsx";
 
 AG-UI is the new agent-to-UI protocol used in CopilotKit.
@@ -65,6 +66,7 @@ This guide shows how to make the transition.
     >
 
 Assuming your Python agent setup is as follows:
+
 ```python
 from fastapi import FastAPI
 from copilotkit.integrations.fastapi import add_fastapi_endpoint
@@ -121,6 +123,7 @@ Everything else (mainly your graph) stays the same.
         })
         ```
     </Step>
+
 </Steps>
         <Accordions>
             <Accordion title="What about the old LangGraph config parameter which was used to configure the agent?">

@@ -134,7 +134,7 @@ export const HoveringToolbar = (props: HoveringToolbarProps) => {
         className={
           "copilot-kit-textarea-css-scope " +
           (props.hoverMenuClassname ||
-            "p-2 absolute z-10 top-[-10000px] left-[-10000px] mt-[-6px] opacity-0 transition-opacity duration-700")
+            "absolute left-[-10000px] top-[-10000px] z-10 mt-[-6px] p-2 opacity-0 transition-opacity duration-700")
         }
         data-testid="hovering-toolbar"
       >

@@ -34,7 +34,7 @@ const CustomTooltip = ({
 }: CustomTooltipProps) => {
   if (active && payload && payload.length) {
     return (
-      <div className="bg-white p-2 border border-gray-200 rounded-md shadow-sm text-sm">
+      <div className="rounded-md border border-gray-200 bg-white p-2 text-sm shadow-sm">
         <p className="font-medium text-gray-700">{payload[0].name}</p>
         <p style={{ color: payload[0].color }}>
           {valueFormatter

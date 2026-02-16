@@ -28,11 +28,11 @@ graph LR
 
 ### Slot Descriptions
 
-| Slot/Prop | Description |
-|-----------|-------------|
+| Slot/Prop        | Description                                         |
+| ---------------- | --------------------------------------------------- |
 | `welcomeMessage` | The greeting text or component displayed at the top |
-| `input` | The chat input component (passed as a prop) |
-| `suggestionView` | Suggestion chips component (passed as a prop) |
+| `input`          | The chat input component (passed as a prop)         |
+| `suggestionView` | Suggestion chips component (passed as a prop)       |
 
 ## Basic Usage
 
@@ -65,7 +65,8 @@ Or style the welcome message component:
 <CopilotChat
   welcomeScreen={{
     welcomeMessage: {
-      className: "text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent",
+      className:
+        "text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent",
     },
   }}
 />
@@ -117,7 +118,7 @@ function CustomWelcomeMessage() {
   welcomeScreen={{
     welcomeMessage: CustomWelcomeMessage,
   }}
-/>
+/>;
 ```
 
 ## Replacing the Welcome Screen
@@ -132,27 +133,21 @@ function CustomWelcomeScreen({ input, suggestionView }) {
     <div className="flex flex-col items-center justify-center h-full bg-gradient-to-b from-indigo-50 to-white p-8">
       <img src="/mascot.svg" alt="AI Mascot" className="w-32 h-32 mb-6" />
 
-      <h1 className="text-3xl font-bold text-gray-900 mb-2">
-        Hi there!
-      </h1>
+      <h1 className="text-3xl font-bold text-gray-900 mb-2">Hi there!</h1>
 
       <p className="text-gray-600 text-center max-w-md mb-8">
-        I'm your AI assistant. I can help you with coding, research,
-        writing, and much more. What would you like to explore?
+        I'm your AI assistant. I can help you with coding, research, writing,
+        and much more. What would you like to explore?
       </p>
 
-      <div className="w-full max-w-2xl">
-        {input}
-      </div>
+      <div className="w-full max-w-2xl">{input}</div>
 
-      <div className="mt-6">
-        {suggestionView}
-      </div>
+      <div className="mt-6">{suggestionView}</div>
     </div>
   );
 }
 
-<CopilotChat welcomeScreen={CustomWelcomeScreen} />
+<CopilotChat welcomeScreen={CustomWelcomeScreen} />;
 ```
 
 ### Using the Render Function
@@ -169,7 +164,8 @@ function CustomWelcomeScreen(props) {
             <div className="max-w-md">
               <h1 className="text-4xl font-bold mb-4">AI Assistant</h1>
               <p className="text-indigo-200">
-                Your intelligent companion for coding, writing, and problem-solving.
+                Your intelligent companion for coding, writing, and
+                problem-solving.
               </p>
             </div>
           </div>
@@ -187,15 +183,15 @@ function CustomWelcomeScreen(props) {
   );
 }
 
-<CopilotChat welcomeScreen={CustomWelcomeScreen} />
+<CopilotChat welcomeScreen={CustomWelcomeScreen} />;
 ```
 
 The render function receives:
 
-| Property | Type | Description |
-|----------|------|-------------|
-| `welcomeMessage` | `ReactElement` | The rendered welcome message |
-| `input` | `ReactElement` | The chat input component |
+| Property         | Type           | Description                     |
+| ---------------- | -------------- | ------------------------------- |
+| `welcomeMessage` | `ReactElement` | The rendered welcome message    |
+| `input`          | `ReactElement` | The chat input component        |
 | `suggestionView` | `ReactElement` | The suggestions chips component |
 
 ## Examples
@@ -241,13 +237,9 @@ function CenteredWelcome({ input, suggestionView }) {
         Ready to help
       </h1>
 
-      <p className="text-gray-500 mb-8">
-        Start a conversation below
-      </p>
+      <p className="text-gray-500 mb-8">Start a conversation below</p>
 
-      <div className="w-full max-w-xl">
-        {input}
-      </div>
+      <div className="w-full max-w-xl">{input}</div>
 
       <div className="mt-4 flex flex-wrap justify-center gap-2">
         {suggestionView}
@@ -256,7 +248,7 @@ function CenteredWelcome({ input, suggestionView }) {
   );
 }
 
-<CopilotChat welcomeScreen={CenteredWelcome} />
+<CopilotChat welcomeScreen={CenteredWelcome} />;
 ```
 
 ### Welcome Screen with Feature List
@@ -282,16 +274,14 @@ function FeatureWelcome({ input, suggestionView }) {
         </div>
       </div>
 
-      <div className="w-full max-w-xl">
-        {input}
-      </div>
+      <div className="w-full max-w-xl">{input}</div>
 
       <div className="mt-4">{suggestionView}</div>
     </div>
   );
 }
 
-<CopilotChat welcomeScreen={FeatureWelcome} />
+<CopilotChat welcomeScreen={FeatureWelcome} />;
 ```
 
 ## Related

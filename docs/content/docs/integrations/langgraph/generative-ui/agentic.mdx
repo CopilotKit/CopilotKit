@@ -3,10 +3,11 @@ title: Agent State
 icon: "lucide/Bot"
 description: Render the state of your agent with custom UI components.
 ---
+
 import { Accordions, Accordion } from "fumadocs-ui/components/accordion";
-import { IframeSwitcher } from "@/components/content"
-import { Tabs, Tab } from "fumadocs-ui/components/tabs"
-import RunAndConnect from "@/snippets/integrations/langgraph/run-and-connect.mdx"
+import { IframeSwitcher } from "@/components/content";
+import { Tabs, Tab } from "fumadocs-ui/components/tabs";
+import RunAndConnect from "@/snippets/integrations/langgraph/run-and-connect.mdx";
 
 <IframeSwitcher
   id="agent-state-example"
@@ -67,6 +68,7 @@ is a situation where a user and an agent are working together to solve a problem
           ```
         </Tab>
     </Tabs>
+
   </Step>
   <Step>
     ### Simulate state updates
@@ -165,6 +167,7 @@ is a situation where a user and an agent are working together to solve a problem
         ```
       </Tab>
     </Tabs>
+
   </Step>
   <Step>
     ### Render state of the agent in the chat
@@ -205,6 +208,7 @@ is a situation where a user and an agent are working together to solve a problem
       return <div>...</div>;
     }
     ```
+
   </Step>
   <Step>
     ### Render state outside of the chat
@@ -248,10 +252,12 @@ is a situation where a user and an agent are working together to solve a problem
       )
     }
     ```
+
   </Step>
   <Step>
     ### Give it a try!
 
     You've now created a component that will render the agent's state in the chat.
+
   </Step>
 </Steps>

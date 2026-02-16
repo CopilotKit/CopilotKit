@@ -14,7 +14,7 @@ const defaultUnauthenticatedComponent = (
     <h3 className="text-xl font-bold">
       This content is protected by a password.
     </h3>
-    <div className="text-base mx-auto">
+    <div className="mx-auto text-base">
       <p>
         This content is for an upcoming release and not yet publicly available.
         If you’d like to apply for early access, please
@@ -87,7 +87,7 @@ export function InsecurePasswordProtected({
         to make it impossible for users to access this content just difficult
         until we're ready to make it readily available.
       </div>
-      <div className="flex flex-col gap-6 p-8 border rounded-lg shadow-lg">
+      <div className="flex flex-col gap-6 rounded-lg border p-8 shadow-lg">
         {unauthenticatedComponent}
         <hr className="my-0" />
         <div className="flex gap-4">
@@ -112,7 +112,7 @@ export function InsecurePasswordProtected({
           <Button onClick={handleSubmit}>Submit</Button>
         </div>
         {error && (
-          <p id="password-error" className="text-sm text-red-500 mt-1">
+          <p id="password-error" className="mt-1 text-sm text-red-500">
             {error}
           </p>
         )}

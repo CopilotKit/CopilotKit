@@ -3,10 +3,11 @@ title: "Frontend - Backend Action Pairing"
 description: "Learn how to react to a Backend only operation on the Frontend."
 icon: "lucide/Wrench"
 ---
+
 import { LinkIcon } from "lucide-react";
 import UseClientCalloutSnippet from "@/snippets/use-client-callout.mdx";
 
-Some actions, although having UI implications, would need to be performed on a Backend  secured environment.
+Some actions, although having UI implications, would need to be performed on a Backend secured environment.
 In order to "render UI from the Backend", it is possible to pair a Frontend only action with its Backend equivalent, so one execution follows the other.
 
 <Steps>
@@ -87,46 +88,46 @@ In order to "render UI from the Backend", it is possible to pair a Frontend only
     );
     }
     ```
+
 </Step>
 
 <Step>
-    <UseClientCalloutSnippet components={props.components} />
+  <UseClientCalloutSnippet components={props.components} />
 </Step>
 
-
 <Step>
-    ### Test it out!
-    After adding the action, test it by asking the copilot to perform the task. Observe how it selects the correct task, executes it, and the UI action defined is reflecting the result.
+  ### Test it out! After adding the action, test it by asking the copilot to
+  perform the task. Observe how it selects the correct task, executes it, and
+  the UI action defined is reflecting the result.
 </Step>
 
 </Steps>
 
-
 ## Next Steps
 
 <Cards>
-    <Card
-        title="useCopilotAction Reference"
-        description="Refer to the documentation for the useCopilotAction hook."
-        href="/reference/hooks/useCopilotAction"
-        icon={<LinkIcon />}
-    />
-    <Card
-        title="Frontend Actions"
-        description="Learn how to enable your Copilot to take actions in the frontend."
-        href="/direct-to-llm/guides/frontend-actions"
-        icon={<LinkIcon />}
-    />
-    <Card
-        title="Actions + Generative UI"
-        description="Learn how to render custom UI components alongside your actions, directly in the CopilotKit chat window."
-        href="/direct-to-llm/guides/generative-ui"
-        icon={<LinkIcon />}
-    />
-    <Card
-        title="Backend Actions"
-        description="Enable backend services to trigger actions via copilot backend hooks."
-        href="/direct-to-llm/guides/backend-actions"
-        icon={<LinkIcon />}
-    />
+  <Card
+    title="useCopilotAction Reference"
+    description="Refer to the documentation for the useCopilotAction hook."
+    href="/reference/hooks/useCopilotAction"
+    icon={<LinkIcon />}
+  />
+  <Card
+    title="Frontend Actions"
+    description="Learn how to enable your Copilot to take actions in the frontend."
+    href="/direct-to-llm/guides/frontend-actions"
+    icon={<LinkIcon />}
+  />
+  <Card
+    title="Actions + Generative UI"
+    description="Learn how to render custom UI components alongside your actions, directly in the CopilotKit chat window."
+    href="/direct-to-llm/guides/generative-ui"
+    icon={<LinkIcon />}
+  />
+  <Card
+    title="Backend Actions"
+    description="Enable backend services to trigger actions via copilot backend hooks."
+    href="/direct-to-llm/guides/backend-actions"
+    icon={<LinkIcon />}
+  />
 </Cards>

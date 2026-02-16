@@ -227,10 +227,10 @@ const IntegrationSelector = ({
   return (
     <div className="relative w-full">
       <div
-        className={`flex justify-between items-center p-2 mt-3 mb-3 w-full h-14 rounded-lg border cursor-pointer ${
+        className={`mt-3 mb-3 flex h-14 w-full cursor-pointer items-center justify-between rounded-lg border p-2 ${
           selectedIntegration || !pathname.startsWith("/reference")
-            ? "bg-[#BEC2FF33] dark:bg-[#7076D533] border-[#7076D5] dark:border-[#BEC2FF] [box-shadow:0px_17px_12px_-10px_rgba(112,118,213,0.3)]"
-            : "bg-white/50 dark:bg-foreground/5 border-[#0C1112]/10 dark:border-border"
+            ? "border-[#7076D5] bg-[#BEC2FF33] [box-shadow:0px_17px_12px_-10px_rgba(112,118,213,0.3)] dark:border-[#BEC2FF] dark:bg-[#7076D533]"
+            : "dark:bg-foreground/5 dark:border-border border-[#0C1112]/10 bg-white/50"
         }`}
         onClick={() => setIsOpen(!isOpen)}
         onMouseEnter={() => setIsHovering(true)}
@@ -245,9 +245,9 @@ const IntegrationSelector = ({
         aria-label="Toggle integration selector"
         aria-expanded={isOpen}
       >
-        <div className="flex gap-2 items-center">
+        <div className="flex items-center gap-2">
           <div
-            className={`flex justify-center items-center w-10 h-10 shrink-0 rounded-md ${
+            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-md ${
               selectedIntegration || !pathname.startsWith("/reference")
                 ? "bg-[#BEC2FF] dark:bg-[#7076D5]"
                 : "bg-[#0C1112]/5 dark:bg-white/5"
@@ -266,18 +266,18 @@ const IntegrationSelector = ({
         </div>
 
         <div className="flex items-center gap-1">
-          <ChevronDownIcon className="mr-1 w-4 h-4" />
+          <ChevronDownIcon className="mr-1 h-4 w-4" />
         </div>
       </div>
 
       {isOpen && (
-        <div className="absolute top-full left-0 w-full max-w-[275px] bg-[#F7F7FA] shadow-2xl dark:bg-[#0C1112] border border-border rounded-lg p-1 z-30 max-h-[calc(100vh-200px)] overflow-y-auto custom-scrollbar">
+        <div className="border-border custom-scrollbar absolute top-full left-0 z-30 max-h-[calc(100vh-200px)] w-full max-w-[275px] overflow-y-auto rounded-lg border bg-[#F7F7FA] p-1 shadow-2xl dark:bg-[#0C1112]">
           {visibleIntegrations.map(
             ([key, { label, Icon: OptionIcon, href }]) => (
               <Link
                 key={href}
                 href={href}
-                className={`flex gap-2 justify-between items-center p-1 rounded-lg cursor-pointer group pr-3 ${
+                className={`group flex cursor-pointer items-center justify-between gap-2 rounded-lg p-1 pr-3 ${
                   integration.href === href
                     ? "bg-[#BEC2FF33] dark:bg-[#7076D533]"
                     : "hover:bg-[#0C1112]/5 dark:hover:bg-white/5"
@@ -286,15 +286,15 @@ const IntegrationSelector = ({
                   handleIntegrationClick(e, key as Integration, href)
                 }
               >
-                <div className="flex gap-4 items-center">
+                <div className="flex items-center gap-4">
                   <div
-                    className={`flex justify-center items-center w-10 h-10 shrink-0 rounded-md transition-all duration-200 ${
+                    className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-md transition-all duration-200 ${
                       integration.href === href
                         ? "bg-[#BEC2FF] dark:bg-[#7076D5]"
-                        : "bg-[#0C1112]/5 dark:bg-white/5 group-hover:bg-[#0C1112]/10 dark:group-hover:bg-white/5"
+                        : "bg-[#0C1112]/5 group-hover:bg-[#0C1112]/10 dark:bg-white/5 dark:group-hover:bg-white/5"
                     }`}
                   >
-                    <OptionIcon className="text-[#0C1112] dark:text-white dark:group-hover:text-white transition-all duration-200" />
+                    <OptionIcon className="text-[#0C1112] transition-all duration-200 dark:text-white dark:group-hover:text-white" />
                   </div>
                   <span className="text-sm font-medium">{label}</span>
                 </div>
@@ -308,7 +308,7 @@ const IntegrationSelector = ({
       )}
 
       {showTooltip && (
-        <div className="absolute top-full left-0 mt-2 w-full px-3 py-2 rounded-lg bg-[#0C1112] dark:bg-white text-white dark:text-[#0C1112] text-xs font-medium shadow-lg z-30">
+        <div className="absolute top-full left-0 z-30 mt-2 w-full rounded-lg bg-[#0C1112] px-3 py-2 text-xs font-medium text-white shadow-lg dark:bg-white dark:text-[#0C1112]">
           See what CopilotKit and your chosen agentic backend can do.
         </div>
       )}

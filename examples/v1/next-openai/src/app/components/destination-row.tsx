@@ -32,7 +32,7 @@ export function DestinationRow({
 
   return (
     <tr key={destination.name}>
-      <td className="whitespace-nowrap py-5 pl-4 px-3 text-sm">
+      <td className="whitespace-nowrap px-3 py-5 pl-4 text-sm">
         <div className="flex items-center">
           <div className="h-20 w-20 flex-shrink-0">
             <img
@@ -48,8 +48,8 @@ export function DestinationRow({
         </div>
       </td>
       <td className="whitespace-nowrap py-5 pl-4 pr-3 text-sm">
-        <div className="w-full flex items-stretch">
-          <div className="flex items-center justify-center w-full">
+        <div className="flex w-full items-stretch">
+          <div className="flex w-full items-center justify-center">
             <input
               data-test-id={`checkbox-${destination.name.toLowerCase().replace(/\s+/g, "-")}-${isChecked ? "checked" : "unchecked"}`}
               type="checkbox"

@@ -8,36 +8,36 @@ interface OrderCardsProps {
 
 export function OrderCard({ order, index }: { order: Order; index: number }) {
   return (
-    <div className="group bg-white shadow-sm hover:shadow transition-all duration-200 rounded-lg border border-neutral-200">
+    <div className="group rounded-lg border border-neutral-200 bg-white shadow-sm transition-all duration-200 hover:shadow">
       <div className="flex items-start gap-4 p-4">
         {/* Car Image */}
         <div className="relative w-[140px] shrink-0">
-          <div className="aspect-[4/3] rounded-md overflow-hidden bg-neutral-100">
+          <div className="aspect-[4/3] overflow-hidden rounded-md bg-neutral-100">
             <Image
               width={280}
               height={210}
               src={order.car.image?.src || ""}
               alt={order.car.image?.alt || ""}
-              className="object-cover w-full h-full"
+              className="h-full w-full object-cover"
             />
           </div>
-          <div className="absolute top-2 left-2">
-            <div className="text-xs font-medium bg-white shadow-sm text-neutral-900 px-2 py-1 rounded">
+          <div className="absolute left-2 top-2">
+            <div className="rounded bg-white px-2 py-1 text-xs font-medium text-neutral-900 shadow-sm">
               #{String(index + 1).padStart(3, "0")}
             </div>
           </div>
         </div>
 
         {/* Content */}
-        <div className="flex-1 min-w-0">
+        <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <h3 className="font-medium text-neutral-900 mb-1">
+              <h3 className="mb-1 font-medium text-neutral-900">
                 {order.car.year} {order.car.make} {order.car.model}
               </h3>
-              <div className="text-sm text-neutral-500 flex items-center">
+              <div className="flex items-center text-sm text-neutral-500">
                 <svg
-                  className="w-4 h-4 mr-1.5"
+                  className="mr-1.5 h-4 w-4"
                   fill="none"
                   viewBox="0 0 24 24"
                   stroke="currentColor"
@@ -52,14 +52,14 @@ export function OrderCard({ order, index }: { order: Order; index: number }) {
                 {order.contactInfo.name}
               </div>
             </div>
-            <div className="text-right shrink-0">
-              <div className="text-lg font-medium text-neutral-900 mb-1">
+            <div className="shrink-0 text-right">
+              <div className="mb-1 text-lg font-medium text-neutral-900">
                 ${order.car.price?.toLocaleString()}
               </div>
               {order.paymentType === "card" ? (
-                <div className="text-sm text-neutral-500 flex items-center justify-end">
+                <div className="flex items-center justify-end text-sm text-neutral-500">
                   <svg
-                    className="w-4 h-4 mr-1.5"
+                    className="mr-1.5 h-4 w-4"
                     fill="none"
                     viewBox="0 0 24 24"
                     stroke="currentColor"
@@ -74,9 +74,9 @@ export function OrderCard({ order, index }: { order: Order; index: number }) {
                   •••• {order.cardInfo?.cardNumber?.slice(-4)}
                 </div>
               ) : (
-                <div className="text-sm text-neutral-500 flex items-center justify-end">
+                <div className="flex items-center justify-end text-sm text-neutral-500">
                   <svg
-                    className="w-4 h-4 mr-1.5"
+                    className="mr-1.5 h-4 w-4"
                     fill="none"
                     viewBox="0 0 24 24"
                     stroke="currentColor"
@@ -102,10 +102,10 @@ export function OrderCard({ order, index }: { order: Order; index: number }) {
 export function OrderCards({ orders }: OrderCardsProps) {
   if (!orders.length) {
     return (
-      <div className="flex flex-col items-center justify-center h-full p-6">
-        <div className="w-16 h-16 mb-4 relative">
+      <div className="flex h-full flex-col items-center justify-center p-6">
+        <div className="relative mb-4 h-16 w-16">
           <svg
-            className="w-full h-full text-neutral-200"
+            className="h-full w-full text-neutral-200"
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
@@ -117,14 +117,14 @@ export function OrderCards({ orders }: OrderCardsProps) {
               d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"
             />
           </svg>
-          <div className="absolute -bottom-2 -right-2 w-8 h-8 bg-neutral-900 rounded-full flex items-center justify-center text-white font-bold text-sm shadow-md">
+          <div className="absolute -bottom-2 -right-2 flex h-8 w-8 items-center justify-center rounded-full bg-neutral-900 text-sm font-bold text-white shadow-md">
             FIO
           </div>
         </div>
-        <h3 className="text-neutral-900 font-medium mb-1">
+        <h3 className="mb-1 font-medium text-neutral-900">
           No Vehicle Orders Yet
         </h3>
-        <p className="text-neutral-500 text-sm text-center max-w-[240px] mb-4">
+        <p className="mb-4 max-w-[240px] text-center text-sm text-neutral-500">
           Ready to find your perfect vehicle? Start a conversation with Fio,
           your personal sales assistant.
         </p>
@@ -132,10 +132,10 @@ export function OrderCards({ orders }: OrderCardsProps) {
           onClick={() => {
             /* This could trigger the chat focus */
           }}
-          className="inline-flex items-center px-4 py-2 bg-neutral-900 text-white text-sm font-medium rounded-md hover:bg-neutral-800 transition-colors"
+          className="inline-flex items-center rounded-md bg-neutral-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-neutral-800"
         >
           <svg
-            className="w-4 h-4 mr-2"
+            className="mr-2 h-4 w-4"
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"

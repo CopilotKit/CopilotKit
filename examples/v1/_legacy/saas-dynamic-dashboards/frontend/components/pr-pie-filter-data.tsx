@@ -60,12 +60,12 @@ export function PRPieFilterData({ args }: any) {
     }, {});
   };
   return (
-    <div className="flex-1 p-4 rounded-2xl shadow-lg flex flex-col items-center min-w-[250px] max-w-[350px]">
-      <h2 className="text-xl font-semibold mb-2 text-gray-700 text-center">
+    <div className="flex min-w-[250px] max-w-[350px] flex-1 flex-col items-center rounded-2xl p-4 shadow-lg">
+      <h2 className="mb-2 text-center text-xl font-semibold text-gray-700">
         PR Status Distribution
       </h2>
       {/* <h2 className="text-xl font-semibold mb-2 text-gray-700 text-center">DANDTIME</h2> */}
-      <div className="h-[180px] flex flex-col items-center justify-center">
+      <div className="flex h-[180px] flex-col items-center justify-center">
         <PieChart width={260} height={180}>
           <Pie
             data={userPRData}
@@ -89,19 +89,19 @@ export function PRPieFilterData({ args }: any) {
           {/* <Tooltip contentStyle={{ background: '', border: 'none', color: 'white' }} /> */}
         </PieChart>
       </div>
-      <div className="flex flex-col items-center mt-4">
+      <div className="mt-4 flex flex-col items-center">
         {chunkArray(status, 2).map((row, rowIdx) => (
           <div
             key={rowIdx}
-            className="flex flex-row justify-center items-center gap-x-6 gap-y-2 w-full"
+            className="flex w-full flex-row items-center justify-center gap-x-6 gap-y-2"
           >
             {row.map((entry: any) => (
               <div
                 key={entry.name}
-                className="flex items-center gap-1 min-w-[110px]"
+                className="flex min-w-[110px] items-center gap-1"
               >
                 <span
-                  className={`inline-block w-4 h-4 rounded-full ${entry.color}`}
+                  className={`inline-block h-4 w-4 rounded-full ${entry.color}`}
                   // style={{ backgroundColor: entry.color }}
                 />
                 <span className="text-sm text-black">

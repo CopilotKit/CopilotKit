@@ -154,7 +154,7 @@ export function VacationList() {
   }, []);
 
   return (
-    <div className="px-4 sm:px-6 lg:px-8 bg-slate-50 py-4">
+    <div className="bg-slate-50 px-4 py-4 sm:px-6 lg:px-8">
       <div className="sm:flex sm:items-center">
         <div className="sm:flex-auto">
           <h1 className="text-3xl font-semibold leading-6 text-gray-900">

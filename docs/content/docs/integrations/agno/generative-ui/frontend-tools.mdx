@@ -3,7 +3,8 @@ title: Frontend Tools
 icon: "lucide/Wrench"
 description: Create frontend tools and use them within your Agno agent for generative UI.
 ---
-import { IframeSwitcher } from "@/components/content"
+
+import { IframeSwitcher } from "@/components/content";
 
 <IframeSwitcher
   id="frontend-tools-example"
@@ -15,6 +16,7 @@ import { IframeSwitcher } from "@/components/content"
 />
 
 ## What is this?
+
 Frontend tools enable you to define client-side functions that your Agno agent can invoke, with execution happening entirely in the user's browser. When your agent calls a frontend tool,
 the logic runs on the client side, giving you direct access to the frontend environment.
 
@@ -23,7 +25,9 @@ This can be utilized to let [your agent control the UI](/agno/frontend-tools), [
 In this guide, we cover the use of frontend tools for generative UI.
 
 ## When should I use this?
+
 Use frontend tools when you need your agent to interact with client-side primitives such as:
+
 - Reading or modifying React component state
 - Accessing browser APIs like localStorage, sessionStorage, or cookies
 - Triggering UI updates or animations
@@ -135,4 +139,5 @@ Use frontend tools when you need your agent to interact with client-side primiti
           project](https://github.com/CopilotKit/CopilotKit/tree/main/examples/agno/starter).
         </Callout>
     </Step>
+
 </Steps>

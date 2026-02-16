@@ -188,10 +188,10 @@ export function CopilotChatView({
           paddingBottom: `${inputContainerHeight + FEATHER_HEIGHT + (hasSuggestions ? 4 : 32)}px`,
         }}
       >
-        <div className="max-w-3xl mx-auto">
+        <div className="mx-auto max-w-3xl">
           {BoundMessageView}
           {hasSuggestions ? (
-            <div className="pl-0 pr-4 sm:px-0 mt-4">{BoundSuggestionView}</div>
+            <div className="mt-4 pr-4 pl-0 sm:px-0">{BoundSuggestionView}</div>
           ) : null}
         </div>
       </div>
@@ -286,10 +286,10 @@ export namespace CopilotChatView {
     return (
       <>
         <StickToBottom.Content
-          className="overflow-y-scroll overflow-x-hidden"
+          className="overflow-x-hidden overflow-y-scroll"
           style={{ flex: "1 1 0%", minHeight: 0 }}
         >
-          <div className="px-4 sm:px-0 [div[data-sidebar-chat]_&]:px-8 [div[data-popup-chat]_&]:px-6">
+          <div className="px-4 sm:px-0 [div[data-popup-chat]_&]:px-6 [div[data-sidebar-chat]_&]:px-8">
             {children}
           </div>
         </StickToBottom.Content>
@@ -300,7 +300,7 @@ export namespace CopilotChatView {
         {/* Scroll to bottom button - hidden during resize */}
         {!isAtBottom && !isResizing && (
           <div
-            className="absolute inset-x-0 flex justify-center z-30 pointer-events-none"
+            className="pointer-events-none absolute inset-x-0 z-30 flex justify-center"
             style={{
               bottom: `${inputContainerHeight + FEATHER_HEIGHT + 16}px`,
             }}
@@ -377,8 +377,8 @@ export namespace CopilotChatView {
 
     if (!hasMounted) {
       return (
-        <div className="h-full max-h-full flex flex-col min-h-0 overflow-y-scroll overflow-x-hidden">
-          <div className="px-4 sm:px-0 [div[data-sidebar-chat]_&]:px-8 [div[data-popup-chat]_&]:px-6">
+        <div className="flex h-full max-h-full min-h-0 flex-col overflow-x-hidden overflow-y-scroll">
+          <div className="px-4 sm:px-0 [div[data-popup-chat]_&]:px-6 [div[data-sidebar-chat]_&]:px-8">
             {children}
           </div>
         </div>
@@ -400,7 +400,7 @@ export namespace CopilotChatView {
         >
           <div
             ref={contentRef}
-            className="px-4 sm:px-0 [div[data-sidebar-chat]_&]:px-8 [div[data-popup-chat]_&]:px-6"
+            className="px-4 sm:px-0 [div[data-popup-chat]_&]:px-6 [div[data-sidebar-chat]_&]:px-8"
           >
             {children}
           </div>
@@ -411,7 +411,7 @@ export namespace CopilotChatView {
           {/* Scroll to bottom button for manual mode */}
           {showScrollButton && !isResizing && (
             <div
-              className="absolute inset-x-0 flex justify-center z-30 pointer-events-none"
+              className="pointer-events-none absolute inset-x-0 z-30 flex justify-center"
               style={{
                 bottom: `${inputContainerHeight + FEATHER_HEIGHT + 16}px`,
               }}
@@ -467,7 +467,7 @@ export namespace CopilotChatView {
       )}
       {...props}
     >
-      <ChevronDown className="w-4 h-4 text-gray-600 dark:text-white" />
+      <ChevronDown className="h-4 w-4 text-gray-600 dark:text-white" />
     </Button>
   );
 
@@ -544,7 +544,7 @@ export namespace CopilotChatView {
         )}
         {...props}
       >
-        <div className="w-full max-w-3xl flex flex-col items-center">
+        <div className="flex w-full max-w-3xl flex-col items-center">
           {/* Welcome message */}
           <div className="mb-6">{BoundWelcomeMessage}</div>
 

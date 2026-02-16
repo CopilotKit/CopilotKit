@@ -3,11 +3,12 @@ title: Frontend Tools
 icon: "lucide/Wrench"
 description: Create frontend tools and use them within your LangGraph agent.
 ---
-import InstallSDKSnippet from "@/snippets/install-sdk.mdx"
-import { IframeSwitcher } from "@/components/content"
-import RunAndConnect from "@/snippets/integrations/langgraph/run-and-connect.mdx"
-import FrontEndToolsImpl from "@/snippets/integrations/langgraph/frontend-tools.mdx"
-import { Tabs, Tab } from "fumadocs-ui/components/tabs"
+
+import InstallSDKSnippet from "@/snippets/install-sdk.mdx";
+import { IframeSwitcher } from "@/components/content";
+import RunAndConnect from "@/snippets/integrations/langgraph/run-and-connect.mdx";
+import FrontEndToolsImpl from "@/snippets/integrations/langgraph/frontend-tools.mdx";
+import { Tabs, Tab } from "fumadocs-ui/components/tabs";
 
 <IframeSwitcher
   id="frontend-tools-example"
@@ -19,6 +20,7 @@ import { Tabs, Tab } from "fumadocs-ui/components/tabs"
 />
 
 ## What is this?
+
 Frontend tools enable you to define client-side functions that your LangGraph agent can invoke, with execution happening entirely in the user's browser. When your agent calls a frontend tool,
 the logic runs on the client side, giving you direct access to the frontend environment.
 
@@ -27,7 +29,9 @@ This can be utilized for to let [your agent control the UI](/langgraph/frontend-
 In this guide, we cover the use of frontend tools for generative UI.
 
 ## When should I use this?
+
 Use frontend tools when you need your agent to interact with client-side primitives such as:
+
 - Reading or modifying React component state
 - Accessing browser APIs like localStorage, sessionStorage, or cookies
 - Triggering UI updates or animations
@@ -87,7 +91,7 @@ Use frontend tools when you need your agent to interact with client-side primiti
     </Step>
     <Step>
         ### Install the CopilotKit SDK
-        
+
         Now, we'll need to modify the agent to access these frontend tools. In your terminal, navigate to your agent's folder and continue from there!
 
         <InstallSDKSnippet components={props.components}/>
@@ -137,4 +141,5 @@ Use frontend tools when you need your agent to interact with client-side primiti
         ### Give it a try!
         You've now given your agent the ability to directly call any frontend tools you've defined. These tools will be available to the agent where they can be used as needed.
     </Step>
+
 </Steps>

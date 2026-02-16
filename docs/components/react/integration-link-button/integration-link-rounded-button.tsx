@@ -15,23 +15,23 @@ export const IntegrationLinkRoundedButton = ({
   return (
     <Link
       href={href}
-      className="w-full no-underline h-9 lg:min-h-[60px] hover:opacity-100"
+      className="h-9 w-full no-underline hover:opacity-100 lg:min-h-[60px]"
     >
       <div
-        className={`flex gap-2 justify-between items-center p-1 w-full h-full rounded-full bg-white dark:bg-background/50 hover:bg-white dark:hover:bg-[#1A2022] group pr-4 border border-black/5 dark:border-transparent`}
+        className={`dark:bg-background/50 group flex h-full w-full items-center justify-between gap-2 rounded-full border border-black/5 bg-white p-1 pr-4 hover:bg-white dark:border-transparent dark:hover:bg-[#1A2022]`}
       >
-        <div className="flex gap-2 justify-start items-center w-full min-w-0 overflow-hidden">
+        <div className="flex w-full min-w-0 items-center justify-start gap-2 overflow-hidden">
           <div
-            className={`w-9 lg:w-[52px] h-9 lg:h-[52px] flex shrink-0 items-center justify-center bg-[#0105070D] dark:bg-white/5 rounded-full group-hover:bg-[#BEC2FF] dark:group-hover:bg-[#7076D5] transition-all duration-200`}
+            className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#0105070D] transition-all duration-200 group-hover:bg-[#BEC2FF] lg:h-[52px] lg:w-[52px] dark:bg-white/5 dark:group-hover:bg-[#7076D5]`}
           >
             <Icon className="text-foreground" />
           </div>
-          <span className="text-xs lg:text-sm font-medium no-underline leading-tight break-words">
+          <span className="text-xs leading-tight font-medium break-words no-underline lg:text-sm">
             {label}
           </span>
         </div>
 
-        <div className="hidden lg:block invisible group-hover:visible text-foreground">
+        <div className="text-foreground invisible hidden group-hover:visible lg:block">
           <svg
             width="20"
             height="20"

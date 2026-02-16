@@ -4,16 +4,18 @@ description: "CopilotKit Remote Endpoints allow you to connect actions and agent
 ---
 
 {
- /*
-  * ATTENTION! DO NOT MODIFY THIS FILE!
-  * This page is auto-generated. If you want to make any changes to this page, changes must be made at:
-  * sdk-python/copilotkit/sdk.py
-  */
-}
+/\*
+
+- ATTENTION! DO NOT MODIFY THIS FILE!
+- This page is auto-generated. If you want to make any changes to this page, changes must be made at:
+- sdk-python/copilotkit/sdk.py
+  \*/
+  }
+
 ## CopilotKitRemoteEndpoint
 
-CopilotKitRemoteEndpoint lets you connect actions and agents written in Python to your 
-    CopilotKit application.
+CopilotKitRemoteEndpoint lets you connect actions and agents written in Python to your
+CopilotKit application.
 
     To install CopilotKit for Python, run:
 
@@ -58,7 +60,7 @@ CopilotKitRemoteEndpoint lets you connect actions and agents written in Python t
         actions=lambda context: [
             Action(
                 name="greet_user",
-                handler=make_greet_user_handler(context["properties"]["name"]), 
+                handler=make_greet_user_handler(context["properties"]["name"]),
                 description="Greet the user"
             )
         ]
@@ -153,12 +155,18 @@ CopilotKitRemoteEndpoint lets you connect actions and agents written in Python t
 
 ### Parameters
 
-<PropertyReference name="actions" type="Optional[Union[List[Action], Callable[[CopilotKitContext], List[Action]]]]" > 
-The actions to make available to the Copilot.
+<PropertyReference
+  name="actions"
+  type="Optional[Union[List[Action], Callable[[CopilotKitContext], List[Action]]]]"
+>
+  The actions to make available to the Copilot.
 </PropertyReference>
 
-<PropertyReference name="agents" type="Optional[Union[List[Agent], Callable[[CopilotKitContext], List[Agent]]]]" > 
-The agents to make available to the Copilot.
+<PropertyReference
+  name="agents"
+  type="Optional[Union[List[Agent], Callable[[CopilotKitContext], List[Agent]]]]"
+>
+  The agents to make available to the Copilot.
 </PropertyReference>
 
 ## CopilotKitContext
@@ -171,11 +179,10 @@ CopilotKit Context
 The properties provided to the frontend via `<CopilotKit properties={...} />`
 </PropertyReference>
 
-<PropertyReference name="frontend_url" type="Optional[str]" > 
-The current URL of the frontend
+<PropertyReference name="frontend_url" type="Optional[str]">
+  The current URL of the frontend
 </PropertyReference>
 
-<PropertyReference name="headers" type="Mapping[str, str]" required> 
-The headers of the request
+<PropertyReference name="headers" type="Mapping[str, str]" required>
+  The headers of the request
 </PropertyReference>
-

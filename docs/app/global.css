@@ -1,6 +1,6 @@
-@import 'tailwindcss';
-@import 'fumadocs-ui/css/shadcn.css';
-@import 'fumadocs-ui/css/preset.css';
+@import "tailwindcss";
+@import "fumadocs-ui/css/shadcn.css";
+@import "fumadocs-ui/css/preset.css";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -11,7 +11,7 @@
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
-  
+
   --breakpoint-nav: 1112px;
   --breakpoint-nav-icons: 808px;
   --color-background: var(--background);
@@ -68,7 +68,7 @@
   #nd-sidebar {
     display: flex !important;
   }
-} 
+}
 
 :root {
   --radius: 0.65rem;
@@ -95,7 +95,7 @@
   --chart-3: oklch(0.398 0.07 227.392);
   --chart-4: oklch(0.828 0.189 84.429);
   --chart-5: oklch(0.769 0.188 70.08);
-  --sidebar: #EFEFF3;
+  --sidebar: #efeff3;
   --sidebar-foreground: oklch(0.141 0.005 285.823);
   --sidebar-primary: oklch(0.55 0.25 285);
   --sidebar-primary-foreground: oklch(0.98 0.005 285);
@@ -105,8 +105,8 @@
   --sidebar-ring: oklch(0.55 0.25 285);
   --sidebar-separator: oklch(0.4582 0.0064 286.14);
   --scrollbar-color: oklch(0.1081 0.0147 220.92 / 30.2%);
-  --scrollbar-track: #EAEAEE;
-  --glass-background: #EAEAEE; 
+  --scrollbar-track: #eaeaee;
+  --glass-background: #eaeaee;
   --icon: oklch(0.1081 0.0147 220.92);
 }
 
@@ -144,8 +144,8 @@
   --sidebar-ring: oklch(0.65 0.15 285);
   --sidebar-separator: oklch(0.6119 0.0089 286.13);
   --scrollbar-color: oklch(1 0 0 / 30.2%);
-  --scrollbar-track: #292D2F;
-  --glass-background: rgba(255, 255, 255, 0.1); 
+  --scrollbar-track: #292d2f;
+  --glass-background: rgba(255, 255, 255, 0.1);
   --icon: oklch(1 0 0);
 }
 
@@ -215,7 +215,8 @@
 
 /* TOC is handled via fumadocs v16 grid layout - no need to hide */
 
-figure > div.bg-fd-secondary.rounded-lg.border.text-\[13px\].py-3\.5.overflow-auto.max-h-\[600px\].fd-scroll-container {
+figure
+  > div.bg-fd-secondary.rounded-lg.border.text-\[13px\].py-3\.5.overflow-auto.max-h-\[600px\].fd-scroll-container {
   background-color: var(--background) !important;
 }
 
@@ -235,7 +236,8 @@ figure > div.bg-fd-secondary.rounded-lg.border.text-\[13px\].py-3\.5.overflow-au
   border-left: none !important;
   border-radius: 0 var(--radius) var(--radius) 0 !important;
   position: relative;
-  background: linear-gradient(to right, rgba(1, 5, 7, 0.10), rgba(1, 5, 7, 0)), #FFFFFF !important;
+  background:
+    linear-gradient(to right, rgba(1, 5, 7, 0.1), rgba(1, 5, 7, 0)), #ffffff !important;
   scrollbar-color: var(--scrollbar-color) var(--scrollbar-track);
   scrollbar-width: thin;
 }
@@ -250,7 +252,9 @@ figure > div.bg-fd-secondary.rounded-lg.border.text-\[13px\].py-3\.5.overflow-au
 }
 
 .dark .docs-content-wrapper {
-  background: linear-gradient(to right, rgba(1, 5, 7, 0.10), rgba(1, 5, 7, 0)), var(--sidebar) !important;
+  background:
+    linear-gradient(to right, rgba(1, 5, 7, 0.1), rgba(1, 5, 7, 0)),
+    var(--sidebar) !important;
 }
 
 .dark .docs-content-wrapper #nd-docs-layout,
@@ -355,11 +359,15 @@ figure > div.bg-fd-secondary.rounded-lg.border.text-\[13px\].py-3\.5.overflow-au
   color: #ffffff !important;
 }
 
-h2, h3, p {
+h2,
+h3,
+p {
   color: #010507 !important;
 }
 
-.dark h2, .dark h3, .dark p {
+.dark h2,
+.dark h3,
+.dark p {
   color: #ffffff !important;
 }
 
@@ -371,9 +379,11 @@ h2, h3, p {
 
 /* Quickstart select page background - matches article background */
 .quickstart-select-bg {
-  background: linear-gradient(to right, rgba(1, 5, 7, 0.10), rgba(1, 5, 7, 0)), #FFFFFF;
+  background:
+    linear-gradient(to right, rgba(1, 5, 7, 0.1), rgba(1, 5, 7, 0)), #ffffff;
 }
 
 .dark .quickstart-select-bg {
-  background: linear-gradient(to right, rgba(1, 5, 7, 0.10), rgba(1, 5, 7, 0)), #111618;
+  background:
+    linear-gradient(to right, rgba(1, 5, 7, 0.1), rgba(1, 5, 7, 0)), #111618;
 }

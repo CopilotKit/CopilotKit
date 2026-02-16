@@ -1,15 +1,25 @@
 {
   "name": "@copilotkit/runtime",
+  "version": "1.51.4-next.8",
   "private": false,
+  "keywords": [
+    "ai",
+    "assistant",
+    "automation",
+    "copilot",
+    "copilotkit",
+    "javascript",
+    "nextjs",
+    "nodejs",
+    "react",
+    "textarea"
+  ],
   "homepage": "https://github.com/CopilotKit/CopilotKit",
+  "license": "MIT",
   "repository": {
     "type": "git",
     "url": "https://github.com/CopilotKit/CopilotKit.git"
   },
-  "publishConfig": {
-    "access": "public"
-  },
-  "version": "1.51.4-next.8",
   "sideEffects": [
     "./dist/index.mjs",
     "./dist/index.cjs",
@@ -18,6 +28,7 @@
   ],
   "main": "./dist/index.cjs",
   "module": "./dist/index.mjs",
+  "types": "./dist/index.d.cts",
   "exports": {
     ".": {
       "import": "./dist/index.mjs",
@@ -33,8 +44,9 @@
     },
     "./package.json": "./package.json"
   },
-  "types": "./dist/index.d.cts",
-  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "build": "pnpm run generate-graphql-schema && tsdown",
     "dev": "tsdown --watch",
@@ -46,19 +58,6 @@
     "unlink:global": "pnpm unlink --global",
     "publint": "publint .",
     "attw": "attw --pack . --profile node16"
-  },
-  "devDependencies": {
-    "@swc/core": "1.5.28",
-    "@types/node": "^18.11.17",
-    "@whatwg-node/server": "^0.9.34",
-    "eslint": "^8.56.0",
-    "eslint-config-custom": "workspace:*",
-    "nodemon": "^3.1.3",
-    "ts-node": "^10.9.2",
-    "tsconfig": "workspace:*",
-    "tsdown": "^0.20.3",
-    "typescript": "^5.2.3",
-    "vitest": "^3.2.4"
   },
   "dependencies": {
     "@ag-ui/client": "^0.0.43",
@@ -85,14 +84,25 @@
     "type-graphql": "2.0.0-rc.1",
     "zod": "^3.23.3"
   },
+  "devDependencies": {
+    "@swc/core": "1.5.28",
+    "@types/node": "^18.11.17",
+    "@whatwg-node/server": "^0.9.34",
+    "nodemon": "^3.1.3",
+    "ts-node": "^10.9.2",
+    "tsconfig": "workspace:*",
+    "tsdown": "^0.20.3",
+    "typescript": "^5.2.3",
+    "vitest": "^3.2.4"
+  },
   "peerDependencies": {
     "@anthropic-ai/sdk": "^0.57.0",
     "@copilotkit/shared": "workspace:*",
     "@copilotkitnext/agent": "workspace:*",
     "@copilotkitnext/runtime": "workspace:*",
     "@langchain/aws": ">=0.1.9",
-    "@langchain/core": ">=0.3.66",
     "@langchain/community": ">=0.3.58",
+    "@langchain/core": ">=0.3.66",
     "@langchain/google-gauth": ">=0.1.0",
     "@langchain/langgraph-sdk": ">=0.1.2",
     "@langchain/openai": ">=0.4.2",
@@ -128,17 +138,5 @@
     "openai": {
       "optional": true
     }
-  },
-  "keywords": [
-    "copilotkit",
-    "copilot",
-    "react",
-    "nextjs",
-    "nodejs",
-    "ai",
-    "assistant",
-    "javascript",
-    "automation",
-    "textarea"
-  ]
+  }
 }

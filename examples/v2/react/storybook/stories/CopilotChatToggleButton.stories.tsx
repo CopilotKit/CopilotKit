@@ -15,7 +15,7 @@ const StatePreview: React.FC<CopilotChatToggleButtonProps> = (args) => {
   return (
     <div className="flex flex-col items-center gap-3">
       <CopilotChatToggleButton {...args} />
-      <span className="text-sm text-muted-foreground">
+      <span className="text-muted-foreground text-sm">
         {configuration?.isModalOpen ? "Chat is open" : "Chat is closed"}
       </span>
     </div>

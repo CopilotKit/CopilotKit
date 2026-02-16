@@ -27,9 +27,9 @@ graph LR
 
 ### Slot Descriptions
 
-| Slot | Description |
-|------|-------------|
-| `header` | Header bar with title and close button |
+| Slot           | Description                             |
+| -------------- | --------------------------------------- |
+| `header`       | Header bar with title and close button  |
 | `toggleButton` | Floating button to open/close the popup |
 
 CopilotPopup also inherits all slots from CopilotChat: `messageView`, `scrollView`, `input`, `suggestionView`, and `welcomeScreen`.
@@ -56,14 +56,14 @@ function App() {
 
 These props are unique to CopilotPopup:
 
-| Prop | Type | Default | Description |
-|------|------|---------|-------------|
-| `defaultOpen` | `boolean` | `true` | Whether the popup is open initially |
-| `width` | `number \| string` | `420` | Popup width in pixels or CSS unit |
-| `height` | `number \| string` | `560` | Popup height in pixels or CSS unit |
-| `clickOutsideToClose` | `boolean` | `false` | Close the popup when clicking outside |
-| `header` | `SlotValue` | - | Custom header component with title and close button |
-| `toggleButton` | `SlotValue` | - | Custom toggle button to open/close the popup |
+| Prop                  | Type               | Default | Description                                         |
+| --------------------- | ------------------ | ------- | --------------------------------------------------- |
+| `defaultOpen`         | `boolean`          | `true`  | Whether the popup is open initially                 |
+| `width`               | `number \| string` | `420`   | Popup width in pixels or CSS unit                   |
+| `height`              | `number \| string` | `560`   | Popup height in pixels or CSS unit                  |
+| `clickOutsideToClose` | `boolean`          | `false` | Close the popup when clicking outside               |
+| `header`              | `SlotValue`        | -       | Custom header component with title and close button |
+| `toggleButton`        | `SlotValue`        | -       | Custom toggle button to open/close the popup        |
 
 ### Shared Props
 
@@ -92,10 +92,10 @@ The popup includes a header with a title and close button. Customize it through 
 
 ### Header Sub-Slots
 
-| Sub-Slot | Description |
-|----------|-------------|
-| `titleContent` | The title text or component |
-| `closeButton` | The close button (can be hidden) |
+| Sub-Slot       | Description                      |
+| -------------- | -------------------------------- |
+| `titleContent` | The title text or component      |
+| `closeButton`  | The close button (can be hidden) |
 
 ### Custom Header Component
 
@@ -135,10 +135,10 @@ The popup includes a floating toggle button to open and close it. Customize it t
 
 ### Toggle Button Sub-Slots
 
-| Sub-Slot | Description |
-|----------|-------------|
-| `openIcon` | Icon shown when popup is closed (click to open) |
-| `closeIcon` | Icon shown when popup is open (click to close) |
+| Sub-Slot    | Description                                     |
+| ----------- | ----------------------------------------------- |
+| `openIcon`  | Icon shown when popup is closed (click to open) |
+| `closeIcon` | Icon shown when popup is open (click to close)  |
 
 ### Custom Toggle Button Component
 
@@ -153,7 +153,7 @@ function CustomToggleButton() {
   );
 }
 
-<CopilotPopup toggleButton={CustomToggleButton} />
+<CopilotPopup toggleButton={CustomToggleButton} />;
 ```
 
 ## Slot Customization

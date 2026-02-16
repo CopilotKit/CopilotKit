@@ -3,6 +3,7 @@ title: "Frontend Data"
 description: "Learn how to connect your data to CopilotKit."
 icon: "lucide/CodeXml"
 ---
+
 import UseClientCalloutSnippet from "@/snippets/use-client-callout.mdx";
 
 For your copilot to best answer your users' needs, you will want to provide it with **context-specific**, **user-specific**, and oftentimes **realtime** data. CopilotKit makes it easy to do so.
@@ -17,7 +18,7 @@ For your copilot to best answer your users' needs, you will want to provide it w
     "use client" // only necessary if you are using Next.js with the App Router. // [!code highlight]
     import { useCopilotReadable } from "@copilotkit/react-core"; // [!code highlight]
     import { useState } from 'react';
-    
+
     export function YourComponent() {
       // Create colleagues state with some sample data
       const [colleagues, setColleagues] = useState([
@@ -25,7 +26,7 @@ For your copilot to best answer your users' needs, you will want to provide it w
         { id: 2, name: "Jane Smith", role: "Designer" },
         { id: 3, name: "Bob Wilson", role: "Product Manager" }
       ]);
-    
+
       // Define Copilot readable state
       // [!code highlight:4]
       useCopilotReadable({
@@ -38,12 +39,12 @@ For your copilot to best answer your users' needs, you will want to provide it w
       );
     }
     ```
+
   </Step>
 
-  <Step>
-    <UseClientCalloutSnippet components={props.components} />
-  </Step>
-
+<Step>
+  <UseClientCalloutSnippet components={props.components} />
+</Step>
 
   <Step>
     ### Test it out!
@@ -52,11 +53,12 @@ For your copilot to best answer your users' needs, you will want to provide it w
     Test it out by passing some data in the hook and asking the copilot questions about it.
 
     <div className="mt-2 mb-4">
-      <img 
-        src="https://cdn.copilotkit.ai/docs/copilotkit/images/connect-your-data-example.gif" 
-        alt="Example of connecting data to Copilot" 
+      <img
+        src="https://cdn.copilotkit.ai/docs/copilotkit/images/connect-your-data-example.gif"
+        alt="Example of connecting data to Copilot"
         className="rounded-lg shadow-md w-full max-w-md mx-auto"
       />
     </div>
+
   </Step>
 </Steps>

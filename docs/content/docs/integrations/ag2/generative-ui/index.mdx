@@ -3,6 +3,7 @@ title: Generative UI
 icon: "lucide/Paintbrush"
 description: Render your agent's behavior with custom UI components.
 ---
+
 import { ServerIcon, SquareMousePointerIcon, BotIcon } from "lucide-react";
 
 <Frame>
@@ -28,7 +29,12 @@ agents and user interfaces. As your agent processes information and makes decisi
 - Animate transitions between different states
 
 <Callout type="info">
-  CopilotKit consumes AG-UI protocol events streamed by AG2 over <code>/chat</code>. See the <a href="https://docs.ag2.ai/latest/docs/user-guide/ag-ui/" target="_blank">AG2 AG-UI integration docs</a>.
+  CopilotKit consumes AG-UI protocol events streamed by AG2 over{" "}
+  <code>/chat</code>. See the{" "}
+  <a href="https://docs.ag2.ai/latest/docs/user-guide/ag-ui/" target="_blank">
+    AG2 AG-UI integration docs
+  </a>
+  .
 </Callout>
 
 ## How can I use this?
@@ -43,14 +49,14 @@ To get started, you first need to decide what is going to be backing your genera
     href="/ag2/generative-ui/backend-tools"
   />
   <Card
-    icon={<SquareMousePointerIcon className="text-primary"/>}
+    icon={<SquareMousePointerIcon className="text-primary" />}
     title="Frontend Tools"
     description="Provide your agent with client-side tools to show custom components and drive the UI."
     href="/ag2/generative-ui/frontend-tools"
   />
   <Card
     className="col-span-2"
-    icon={<BotIcon className="text-primary"/>}
+    icon={<BotIcon className="text-primary" />}
     title="Agent State"
     description="Render your agent's state, progress, and outputs with custom UI components."
     href="/ag2/generative-ui/agent-state"

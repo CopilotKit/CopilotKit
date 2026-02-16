@@ -139,7 +139,7 @@ export function CopilotChatUserMessage({
 
   const BoundToolbar = renderSlot(toolbar, CopilotChatUserMessage.Toolbar, {
     children: (
-      <div className="flex items-center gap-1 justify-end">
+      <div className="flex items-center justify-end gap-1">
         {additionalToolbarItems}
         {BoundCopyButton}
         {onEditMessage && BoundEditButton}
@@ -333,7 +333,7 @@ export namespace CopilotChatUserMessage {
         >
           <ChevronLeft className="size-[20px]" />
         </Button>
-        <span className="text-sm text-muted-foreground px-0 font-medium">
+        <span className="text-muted-foreground px-0 text-sm font-medium">
           {currentBranch + 1}/{numberOfBranches}
         </span>
         <Button

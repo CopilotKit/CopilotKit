@@ -15,11 +15,11 @@ interface AttributeCardsProps {
 
 export function AttributeCards({ cards }: AttributeCardsProps) {
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 my-8">
+    <div className="my-8 grid grid-cols-1 gap-6 md:grid-cols-2">
       {cards.map((card, index) => (
         <div
           key={index}
-          className="bg-card border border-border rounded-lg p-6 md:p-8 flex flex-col gap-4"
+          className="bg-card border-border flex flex-col gap-4 rounded-lg border p-6 md:p-8"
         >
           <h3 className="text-2xl font-semibold">{card.title}</h3>
           <p className="text-muted-foreground">{card.content}</p>
@@ -29,7 +29,7 @@ export function AttributeCards({ cards }: AttributeCardsProps) {
               alt={card.imageAlt}
               width={500}
               height={300}
-              className="rounded-lg w-full h-auto"
+              className="h-auto w-full rounded-lg"
             />
           </div>
         </div>

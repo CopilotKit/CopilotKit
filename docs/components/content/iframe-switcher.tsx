@@ -28,11 +28,11 @@ export function IframeSwitcher({
     <Tabs defaultValue={exampleLabel} id={id}>
       <TabsList>
         <TabsTrigger value={exampleLabel}>
-          <Monitor className="w-4 h-4" />
+          <Monitor className="h-4 w-4" />
           {exampleLabel}
         </TabsTrigger>
         <TabsTrigger value={codeLabel}>
-          <Code className="w-4 h-4" />
+          <Code className="h-4 w-4" />
           {codeLabel}
         </TabsTrigger>
       </TabsList>

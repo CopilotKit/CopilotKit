@@ -236,6 +236,7 @@ If you're seeing this error, it means the LangGraph platform client cannot conne
         });
         ```
     </Accordion>
+
 </Accordions>
 
 ## I am getting a "No checkpointer set" error when using LangGraph with FastAPI
@@ -246,8 +247,8 @@ You can visit the [LangGraph Persistence guide](https://docs.langchain.com/oss/p
 ## I see messages being streamed and disappear
 
 LangGraph agents are stateful. As a graph is traversed, the state is saved at the end of each node. CopilotKit uses the agent's state as
-the source of truth for what to display in the frontend chat. However, since state is only emitted at the end of a node,  CopilotKit allows
-you to stream predictive state updates *in the middle of a node*. By default, CopilotKit will stream messages and tool calls being actively
+the source of truth for what to display in the frontend chat. However, since state is only emitted at the end of a node, CopilotKit allows
+you to stream predictive state updates _in the middle of a node_. By default, CopilotKit will stream messages and tool calls being actively
 generated to the frontend chat that initiated the interaction. **If this predictive state is not persisted at the end of the node, it will
 disappear in the frontend chat**.
 
@@ -343,4 +344,5 @@ persisted at the end of a node.
             Just make sure to pass the modified config we defined above as your `RunnableConfig` for the subgraph or langchain!
         </Callout>
     </Accordion>
+
 </Accordions>

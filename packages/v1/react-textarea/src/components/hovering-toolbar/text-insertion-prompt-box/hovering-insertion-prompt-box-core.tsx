@@ -164,7 +164,7 @@ export const HoveringInsertionPromptBoxCore = ({
   const AdjustmentPromptComponent = (
     <>
       <Label className="">{adjustmentLabel}</Label>
-      <div className="relative w-full flex items-center">
+      <div className="relative flex w-full items-center">
         <textarea
           data-testid="adjustment-prompt"
           disabled={suggestionIsLoading}
@@ -182,12 +182,12 @@ export const HoveringInsertionPromptBoxCore = ({
           }}
           placeholder={placeholder}
           style={{ minHeight: "3rem" }}
-          className="w-full bg-slate-100 h-auto h-min-14 text-sm p-2 rounded-md resize-none overflow-visible focus:outline-none focus:ring-0 focus:border-non pr-[3rem]"
+          className="h-min-14 focus:border-non h-auto w-full resize-none overflow-visible rounded-md bg-slate-100 p-2 pr-[3rem] text-sm focus:outline-none focus:ring-0"
           rows={1}
         />
         <button
           onClick={beginGeneratingAdjustment}
-          className="absolute right-2 bg-blue-500 text-white w-8 h-8 rounded-full flex items-center justify-center"
+          className="absolute right-2 flex h-8 w-8 items-center justify-center rounded-full bg-blue-500 text-white"
           data-testid="generate-button"
         >
           <i className="material-icons">arrow_forward</i>
@@ -198,11 +198,11 @@ export const HoveringInsertionPromptBoxCore = ({
 
   const SuggestionComponent = (
     <>
-      <div className="flex justify-between items-end w-full">
+      <div className="flex w-full items-end justify-between">
         <Label className="mt-4">Suggested:</Label>
         <div className="ml-auto">
           {isLoading && (
-            <div className="flex justify-center items-center">
+            <div className="flex items-center justify-center">
               <div
                 className="inline-block h-4 w-4 animate-spin rounded-full border-4 border-solid border-current border-r-transparent align-[-0.125em] motion-reduce:animate-[spin_1.5s_linear_infinite]"
                 role="status"
@@ -221,17 +221,17 @@ export const HoveringInsertionPromptBoxCore = ({
         value={editSuggestion}
         disabled={suggestionIsLoading}
         onChange={(e) => setEditSuggestion(e.target.value)}
-        className="w-full text-base p-2 border border-gray-300 rounded-md resize-none bg-green-50"
+        className="w-full resize-none rounded-md border border-gray-300 bg-green-50 p-2 text-base"
         style={{ overflow: "auto", maxHeight: "10em" }}
       />
     </>
   );
 
   const SubmitComponent = (
-    <div className="flex w-full gap-4 justify-start">
+    <div className="flex w-full justify-start gap-4">
       <Button
         data-testid="insert-button"
-        className=" bg-green-700 text-white"
+        className="bg-green-700 text-white"
         onClick={() => {
           performInsertion(editSuggestion);
         }}
@@ -249,7 +249,7 @@ export const HoveringInsertionPromptBoxCore = ({
     : undefined;
 
   return (
-    <div className="w-full flex flex-col items-start relative gap-2">
+    <div className="relative flex w-full flex-col items-start gap-2">
       {AdjustmentPromptComponent}
       {filePointers.length > 0 && (
         <IncludedFilesPreview

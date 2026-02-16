@@ -18,7 +18,7 @@ export function TripSelect() {
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button size="icon" className="bg-white text-black hover:bg-white/80">
-          <Plane className="w-5 h-5" />
+          <Plane className="h-5 w-5" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
@@ -33,7 +33,7 @@ export function TripSelect() {
             key={trip.id}
             onClick={() => setSelectedTripId(trip.id)}
           >
-            <Plane className="w-4 h-4 mr-2" />
+            <Plane className="mr-2 h-4 w-4" />
             {trip.name}
           </DropdownMenuItem>
         ))}

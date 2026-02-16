@@ -25,7 +25,7 @@ import {
     <div [class]="computedClass()">
       <canvas
         #canvasRef
-        class="w-full h-full"
+        class="h-full w-full"
         [style.imageRendering]="'pixelated'"
       ></canvas>
     </div>

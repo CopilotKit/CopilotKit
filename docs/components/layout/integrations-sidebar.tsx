@@ -128,7 +128,7 @@ const IntegrationsSidebar = ({
     <OpenedFoldersProvider>
       <aside
         id="nd-sidebar"
-        className="w-full flex-col max-w-[260px] h-full border backdrop-blur-lg border-r-0 border-border bg-glass-background rounded-l-2xl pl-3 pr-3 flex"
+        className="border-border bg-glass-background flex h-full w-full max-w-[260px] flex-col rounded-l-2xl border border-r-0 pr-3 pl-3 backdrop-blur-lg"
       >
         <IntegrationSelector
           selectedIntegration={selectedIntegration}
@@ -136,8 +136,8 @@ const IntegrationsSidebar = ({
         />
 
         {selectedIntegration ? (
-          <ul className="flex overflow-y-auto flex-col pr-1 max-h-full custom-scrollbar">
-            <li className="w-full h-6" />
+          <ul className="custom-scrollbar flex max-h-full flex-col overflow-y-auto pr-1">
+            <li className="h-6 w-full" />
             {integrationPages.map((page, index) => {
               const Component = NODE_COMPONENTS[page.type];
               const pageUrl = page.index?.url || page.url || `page-${index}`;

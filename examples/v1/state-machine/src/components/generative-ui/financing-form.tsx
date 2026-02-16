@@ -24,14 +24,14 @@ export function FinancingForm({ onSubmit, status }: FinancingFormProps) {
 
   return (
     <AnimatedCard status={status}>
-      <h1 className="text-2xl text-center font-semibold antialiased">
+      <h1 className="text-center text-2xl font-semibold antialiased">
         Financing Information
       </h1>
       <h2 className="text-center text-base text-gray-400 antialiased">
         Please provide your financial information to process your financing
         application.
       </h2>
-      <hr className="border-pink-300 mt-4 mb-4" />
+      <hr className="mb-4 mt-4 border-pink-300" />
 
       <select {...selectProps(creditScore, setCreditScore)}>
         <option value="750+">Excellent (750+)</option>
@@ -51,7 +51,7 @@ export function FinancingForm({ onSubmit, status }: FinancingFormProps) {
       <AnimatePresence>
         {!isSubmitted && (
           <motion.button
-            className="bg-pink-500 hover:bg-pink-700 transition-colors duration-300 text-white px-4 py-2 my-4 rounded-md"
+            className="my-4 rounded-md bg-pink-500 px-4 py-2 text-white transition-colors duration-300 hover:bg-pink-700"
             onClick={() => {
               setIsSubmitted(true);
               onSubmit(creditScore, loanTerm);

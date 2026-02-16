@@ -45,14 +45,14 @@ export function CopilotKitHelpModal() {
       {showHelpModal && (
         <div
           ref={popoverRef}
-          className="absolute mt-2 z-50"
+          className="absolute z-50 mt-2"
           style={{
             top: "100%",
             right: "-120px",
             width: "380px",
           }}
         >
-          <div className="copilotKitHelpModal rounded-lg shadow-xl w-full p-4 flex-col relative">
+          <div className="copilotKitHelpModal relative w-full flex-col rounded-lg p-4 shadow-xl">
             <button
               className="copilotKitHelpModalCloseButton absolute text-gray-400 hover:text-gray-600 focus:outline-none"
               style={{ top: "10px", right: "10px" }}
@@ -61,10 +61,10 @@ export function CopilotKitHelpModal() {
             >
               <CloseIcon />
             </button>
-            <div className="w-full flex mb-6 justify-center">
+            <div className="mb-6 flex w-full justify-center">
               <h2 className="text-2xl font-bold">Help Options</h2>
             </div>
-            <div className="space-y-4 mb-4">
+            <div className="mb-4 space-y-4">
               <div className="copilotKitHelpItemButton">
                 <a
                   href="https://docs.copilotkit.ai/coagents/troubleshooting/common-issues"

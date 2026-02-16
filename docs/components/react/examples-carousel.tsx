@@ -58,7 +58,7 @@ export function ExamplesCarousel({
         const Icon = example.icon;
         return {
           value: example.title,
-          icon: <Icon className="w-4 h-4" />,
+          icon: <Icon className="h-4 w-4" />,
         };
       })}
     >
@@ -72,7 +72,7 @@ export function ExamplesCarousel({
                   <Icon className="mr-2" />
                   {example.title}
                 </CardTitle>
-                <div className="flex flex-wrap gap-2 my-2 pt-2">
+                <div className="my-2 flex flex-wrap gap-2 pt-2">
                   {example.links.source && (
                     <Link
                       href={example.links.source}
@@ -107,7 +107,7 @@ export function ExamplesCarousel({
                     </Link>
                   )}
                 </div>
-                <CardDescription className="text-base pt-6 text-primary">
+                <CardDescription className="text-primary pt-6 text-base">
                   {example.description}
                 </CardDescription>
                 <div className="w-full">
@@ -119,20 +119,20 @@ export function ExamplesCarousel({
                       controls
                       playsInline
                       src={example.media.src}
-                      className="rounded-2xl shadow-xl border w-full h-auto"
+                      className="h-auto w-full rounded-2xl border shadow-xl"
                     />
                   )}
                   {example.media.type === "image" && (
                     <Frame className="rounded-2xl shadow-xl">
                       <img
                         src={example.media.src}
-                        className="w-full h-auto"
+                        className="h-auto w-full"
                         alt=""
                       />
                     </Frame>
                   )}
                   {example.media.type === "youtube" && (
-                    <div className="flex justify-center mt-6">
+                    <div className="mt-6 flex justify-center">
                       <YouTubeVideo videoId={example.media.src} />
                     </div>
                   )}

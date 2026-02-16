@@ -75,6 +75,7 @@ Configure authentication in your AG-UI server:
 
     await app.RunAsync();
     ```
+
   </Tab>
   <Tab value="Python">
     ```python title="agent/src/main.py (excerpt)"
@@ -132,6 +133,7 @@ Configure authentication in your AG-UI server:
     my_agent = create_agent(chat_client)
     add_agent_framework_fastapi_endpoint(app=app, agent=my_agent, path="/")
     ```
+
   </Tab>
 </Tabs>
 
@@ -188,10 +190,13 @@ app.UseAuthorization();
 - Use HTTPS in production
 
 <Callout type="warning" title="Avoid shared-secret bearer tokens in production">
-  Examples that validate a bearer token against a single shared secret (e.g., an environment variable) are for local demos only.
-  For production, use proper authentication:
-  - .NET: Validate JWTs with `Microsoft.AspNetCore.Authentication.JwtBearer` (as shown above), backed by your IdP (e.g., Entra ID).
-  - Python: Use OAuth 2.0 / OpenID Connect JWT validation or an API gateway that validates tokens before requests reach your AG‑UI server.
+  Examples that validate a bearer token against a single shared secret (e.g., an
+  environment variable) are for local demos only. For production, use proper
+  authentication: - .NET: Validate JWTs with
+  `Microsoft.AspNetCore.Authentication.JwtBearer` (as shown above), backed by
+  your IdP (e.g., Entra ID). - Python: Use OAuth 2.0 / OpenID Connect JWT
+  validation or an API gateway that validates tokens before requests reach your
+  AG‑UI server.
 </Callout>
 
 ## Troubleshooting

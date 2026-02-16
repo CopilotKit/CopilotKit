@@ -29,9 +29,9 @@ function HomeContent() {
           placeholder: "Ask about sales, trends, or metrics...",
         }}
       >
-        <div className="min-h-screen bg-gray-50 flex flex-col">
+        <div className="flex min-h-screen flex-col bg-gray-50">
           <Header />
-          <main className="w-full max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8 flex-grow">
+          <main className="mx-auto w-full max-w-7xl flex-grow px-4 py-6 sm:px-6 lg:px-8">
             <Dashboard />
           </main>
           <Footer />
@@ -45,8 +45,8 @@ export default function Home() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+        <div className="flex min-h-screen items-center justify-center bg-gray-50">
+          <div className="h-12 w-12 animate-spin rounded-full border-b-2 border-blue-500"></div>
         </div>
       }
     >

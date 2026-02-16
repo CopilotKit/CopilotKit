@@ -18,8 +18,8 @@ export function ServiceAdapterSelector() {
   };
 
   return (
-    <div className="fixed bottom-0 p-4 z-50">
-      <div className="bg-white shadow-md border-black/50 border p-2 rounded-md text-black">
+    <div className="fixed bottom-0 z-50 p-4">
+      <div className="rounded-md border border-black/50 bg-white p-2 text-black shadow-md">
         <select value={serviceAdapter} onChange={handleChange}>
           <option value="openai">OpenAI</option>
           <option value="azure_openai">Azure OpenAI</option>

@@ -16,7 +16,7 @@ function Thead() {
       <tr>
         <th
           scope="col"
-          className="py-3.5 pl-4 px-3 text-left text-sm font-semibold text-gray-900 sm:pl-0"
+          className="px-3 py-3.5 pl-4 text-left text-sm font-semibold text-gray-900 sm:pl-0"
         >
           Destination
         </th>
@@ -114,7 +114,7 @@ export function DestinationTable({
 
   return (
     <div>
-      <h2 className="text-lg font-semibold leading-6 text-gray-900 mb-4 p-2">
+      <h2 className="mb-4 p-2 text-lg font-semibold leading-6 text-gray-900">
         {heading}
       </h2>
       <table className="min-w-full divide-y divide-gray-300">

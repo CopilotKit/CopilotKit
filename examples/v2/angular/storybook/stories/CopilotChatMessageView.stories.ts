@@ -288,20 +288,18 @@ type SearchArgs = z.infer<typeof searchArgsSchema>;
   imports: [CommonModule],
   template: `
     <div [style]="containerStyle">
-      <div style="font-weight: bold; margin-bottom: 4px;">🔍 Search Tool</div>
-      <div style="font-size: 14px; color: #666;">
+      <div style="font-weight: bold; margin-bottom: 4px">🔍 Search Tool</div>
+      <div style="font-size: 14px; color: #666">
         Query: {{ args?.query }}
         @if (args?.filters && args.filters.length > 0) {
           <div>Filters: {{ args.filters.join(", ") }}</div>
         }
       </div>
       @if (status === ToolCallStatus.InProgress) {
-        <div style="margin-top: 8px; color: #0066cc;">Searching...</div>
+        <div style="margin-top: 8px; color: #0066cc">Searching...</div>
       }
       @if (status === ToolCallStatus.Complete && result) {
-        <div style="margin-top: 8px; color: #006600;">
-          Results: {{ result }}
-        </div>
+        <div style="margin-top: 8px; color: #006600">Results: {{ result }}</div>
       }
     </div>
   `,
@@ -358,53 +356,91 @@ export class CalculatorCounterService {
   imports: [CommonModule],
   template: `
     <div [style]="containerStyle">
-      <div style="font-weight: bold; margin-bottom: 4px;">🧮 Calculator</div>
-      <div style="font-size: 14px; color: #666;">
+      <div style="font-weight: bold; margin-bottom: 4px">🧮 Calculator</div>
+      <div style="font-size: 14px; color: #666">
         Expression: {{ args?.expression }}
       </div>
       @if (status === ToolCallStatus.InProgress) {
-        <div style="margin-top: 8px; color: #cc6600;">Calculating...</div>
+        <div style="margin-top: 8px; color: #cc6600">Calculating...</div>
       }
       @if (status === ToolCallStatus.Complete && result) {
-        <div style="margin-top: 8px; color: #006600;">Result: {{ result }}</div>
+        <div style="margin-top: 8px; color: #006600">Result: {{ result }}</div>
       }
       <div
-        style="margin-top: 12px; padding: 8px; background-color: #fff8e6; border-radius: 4px;"
+        style="
+          margin-top: 12px;
+          padding: 8px;
+          background-color: #fff8e6;
+          border-radius: 4px;
+        "
       >
-        <div style="font-size: 13px; color: #666; margin-bottom: 4px;">
+        <div style="font-size: 13px; color: #666; margin-bottom: 4px">
           Local counter: {{ counter() }}
         </div>
-        <div style="display: flex; gap: 8px; margin-bottom: 8px;">
+        <div style="display: flex; gap: 8px; margin-bottom: 8px">
           <button
             (click)="decrementLocal()"
-            style="padding: 4px 12px; background-color: #ff9933; color: white; border: none; border-radius: 4px; cursor: pointer;"
+            style="
+              padding: 4px 12px;
+              background-color: #ff9933;
+              color: white;
+              border: none;
+              border-radius: 4px;
+              cursor: pointer;
+            "
           >
             -
           </button>
           <button
             (click)="incrementLocal()"
-            style="padding: 4px 12px; background-color: #ff9933; color: white; border: none; border-radius: 4px; cursor: pointer;"
+            style="
+              padding: 4px 12px;
+              background-color: #ff9933;
+              color: white;
+              border: none;
+              border-radius: 4px;
+              cursor: pointer;
+            "
           >
             +
           </button>
         </div>
 
-        <div style="border-top: 1px solid #ffcc66; padding-top: 8px;">
+        <div style="border-top: 1px solid #ffcc66; padding-top: 8px">
           <div
-            style="font-size: 13px; color: #666; margin-bottom: 4px; font-weight: bold;"
+            style="
+              font-size: 13px;
+              color: #666;
+              margin-bottom: 4px;
+              font-weight: bold;
+            "
           >
             Global counter: {{ globalCounter() }}
           </div>
-          <div style="display: flex; gap: 8px;">
+          <div style="display: flex; gap: 8px">
             <button
               (click)="decrementGlobal()"
-              style="padding: 4px 12px; background-color: #cc6600; color: white; border: none; border-radius: 4px; cursor: pointer;"
+              style="
+                padding: 4px 12px;
+                background-color: #cc6600;
+                color: white;
+                border: none;
+                border-radius: 4px;
+                cursor: pointer;
+              "
             >
               Global -
             </button>
             <button
               (click)="incrementGlobal()"
-              style="padding: 4px 12px; background-color: #cc6600; color: white; border: none; border-radius: 4px; cursor: pointer;"
+              style="
+                padding: 4px 12px;
+                background-color: #cc6600;
+                color: white;
+                border: none;
+                border-radius: 4px;
+                cursor: pointer;
+              "
             >
               Global +
             </button>
@@ -474,19 +510,23 @@ class CalculatorToolRenderComponent implements ToolRenderer<CalculatorArgs> {
   imports: [CommonModule],
   template: `
     <div
-      style="padding: 12px; margin: 8px 0; background-color: #f5f5f5; border-radius: 8px; border: 1px solid #ddd;"
+      style="
+        padding: 12px;
+        margin: 8px 0;
+        background-color: #f5f5f5;
+        border-radius: 8px;
+        border: 1px solid #ddd;
+      "
     >
-      <div style="font-weight: bold; margin-bottom: 4px;">
-        🔧 Tool Execution
-      </div>
-      <div style="font-size: 14px; color: #666;">
+      <div style="font-weight: bold; margin-bottom: 4px">🔧 Tool Execution</div>
+      <div style="font-size: 14px; color: #666">
         <pre>{{ argsJson }}</pre>
       </div>
       @if (status === ToolCallStatus.InProgress) {
-        <div style="margin-top: 8px; color: #666;">Processing...</div>
+        <div style="margin-top: 8px; color: #666">Processing...</div>
       }
       @if (status === ToolCallStatus.Complete && result) {
-        <div style="margin-top: 8px; color: #333;">Output: {{ result }}</div>
+        <div style="margin-top: 8px; color: #333">Output: {{ result }}</div>
       }
     </div>
   `,

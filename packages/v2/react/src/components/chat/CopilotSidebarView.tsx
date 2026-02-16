@@ -209,13 +209,13 @@ export namespace CopilotSidebarView {
     return (
       <div className={cn("h-full flex flex-col", className)} {...props}>
         {/* Welcome message - centered vertically */}
-        <div className="flex-1 flex flex-col items-center justify-center px-4">
+        <div className="flex flex-1 flex-col items-center justify-center px-4">
           {BoundWelcomeMessage}
         </div>
 
         {/* Suggestions and input at bottom */}
         <div className="px-8 pb-4">
-          <div className="max-w-3xl mx-auto">
+          <div className="mx-auto max-w-3xl">
             {/* Suggestions above input */}
             <div className="mb-4 flex justify-center">{suggestionView}</div>
             {input}

@@ -32,13 +32,13 @@ new CopilotRuntime(options: CopilotRuntimeOptions)
 
 ### `CopilotRuntimeOptions`
 
-| Option | Type | Description |
-| --- | --- | --- |
-| `agents` | `Promise<Record<string, AbstractAgent>> \| Record<string, AbstractAgent>` | Required. A map from agent identifier to an `AbstractAgent`. You can return the map synchronously or asynchronously. |
-| `runner` | `AgentRunner` | Optional. Defaults to `new InMemoryAgentRunner()`. Controls how agent runs are scheduled and streamed. |
-| `transcriptionService` | `TranscriptionService` | Optional. Enables `/transcribe` and reports `audioFileTranscriptionEnabled: true` from `/info`. |
-| `beforeRequestMiddleware` | `BeforeRequestMiddleware` | Optional. Runs before every request. Can mutate the incoming `Request` or return `void`. |
-| `afterRequestMiddleware` | `AfterRequestMiddleware` | Optional. Runs after every handler resolves. Use this for logging, metrics, etc. |
+| Option                    | Type                                                                      | Description                                                                                                          |
+| ------------------------- | ------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `agents`                  | `Promise<Record<string, AbstractAgent>> \| Record<string, AbstractAgent>` | Required. A map from agent identifier to an `AbstractAgent`. You can return the map synchronously or asynchronously. |
+| `runner`                  | `AgentRunner`                                                             | Optional. Defaults to `new InMemoryAgentRunner()`. Controls how agent runs are scheduled and streamed.               |
+| `transcriptionService`    | `TranscriptionService`                                                    | Optional. Enables `/transcribe` and reports `audioFileTranscriptionEnabled: true` from `/info`.                      |
+| `beforeRequestMiddleware` | `BeforeRequestMiddleware`                                                 | Optional. Runs before every request. Can mutate the incoming `Request` or return `void`.                             |
+| `afterRequestMiddleware`  | `AfterRequestMiddleware`                                                  | Optional. Runs after every handler resolves. Use this for logging, metrics, etc.                                     |
 
 ### Passing Agents
 
@@ -61,7 +61,9 @@ const runtime = new CopilotRuntime({
 `InMemoryAgentRunner` is the default and streams events directly from your Node.js process. Swap it with a custom `AgentRunner` if you need to enqueue work or forward to another service:
 
 ```ts
-class QueueBackedRunner implements AgentRunner { /* ... */ }
+class QueueBackedRunner implements AgentRunner {
+  /* ... */
+}
 
 const runtime = new CopilotRuntime({
   agents,
@@ -110,7 +112,10 @@ This enables the `/transcribe` endpoint and shows a microphone button in the cha
 For custom providers, extend `TranscriptionService` from runtime:
 
 ```ts
-import { TranscriptionService, TranscribeFileOptions } from "@copilotkitnext/runtime";
+import {
+  TranscriptionService,
+  TranscribeFileOptions,
+} from "@copilotkitnext/runtime";
 
 class MyTranscriptionService extends TranscriptionService {
   async transcribeFile(options: TranscribeFileOptions): Promise<string> {
@@ -137,20 +142,23 @@ app.route("/", copilot);
 
 This mounts five routes under the base path:
 
-| Method | Path | Purpose |
-| --- | --- | --- |
-| `POST` | `/agent/:agentId/run` | Streams agent events (SSE). |
-| `POST` | `/agent/:agentId/connect` | Creates a live WebSocket/stream connection. |
-| `POST` | `/agent/:agentId/stop/:threadId` | Cancels an in-flight thread. |
-| `GET` | `/info` | Returns runtime metadata and agent list. |
-| `POST` | `/transcribe` | Proxies audio transcription (requires `transcriptionService`). |
+| Method | Path                             | Purpose                                                        |
+| ------ | -------------------------------- | -------------------------------------------------------------- |
+| `POST` | `/agent/:agentId/run`            | Streams agent events (SSE).                                    |
+| `POST` | `/agent/:agentId/connect`        | Creates a live WebSocket/stream connection.                    |
+| `POST` | `/agent/:agentId/stop/:threadId` | Cancels an in-flight thread.                                   |
+| `GET`  | `/info`                          | Returns runtime metadata and agent list.                       |
+| `POST` | `/transcribe`                    | Proxies audio transcription (requires `transcriptionService`). |
 
 ### Hono (Single-route)
 
 ```ts
 import { createCopilotEndpointSingleRoute } from "@copilotkitnext/runtime";
 
-const copilot = createCopilotEndpointSingleRoute({ runtime, basePath: "/api/copilotkit" });
+const copilot = createCopilotEndpointSingleRoute({
+  runtime,
+  basePath: "/api/copilotkit",
+});
 
 const app = new Hono();
 app.route("/", copilot);
@@ -230,26 +238,29 @@ NestJS uses Express by default. Mount the Express router in `main.ts`:
 
 ```ts
 // main.ts
-import { NestFactory } from '@nestjs/core';
-import { AppModule } from './app.module';
-import { NestExpressApplication } from '@nestjs/platform-express';
-import { CopilotRuntime } from '@copilotkitnext/runtime';
-import { createCopilotEndpointExpress } from '@copilotkitnext/runtime/express';
-import { BasicAgent } from '@copilotkitnext/agent';
+import { NestFactory } from "@nestjs/core";
+import { AppModule } from "./app.module";
+import { NestExpressApplication } from "@nestjs/platform-express";
+import { CopilotRuntime } from "@copilotkitnext/runtime";
+import { createCopilotEndpointExpress } from "@copilotkitnext/runtime/express";
+import { BasicAgent } from "@copilotkitnext/agent";
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
   const runtime = new CopilotRuntime({
     agents: {
-      default: new BasicAgent({ model: 'openai/gpt-4o', prompt: 'You are helpful.' }),
+      default: new BasicAgent({
+        model: "openai/gpt-4o",
+        prompt: "You are helpful.",
+      }),
     },
   });
 
   // Mount under /api/copilotkit (REST-style routes)
   app.use(
-    '/api/copilotkit',
-    createCopilotEndpointExpress({ runtime, basePath: '/' }),
+    "/api/copilotkit",
+    createCopilotEndpointExpress({ runtime, basePath: "/" }),
   );
 
   await app.listen(3000);
@@ -268,11 +279,11 @@ Available routes (no global prefix):
 If you prefer the single-route transport, mount the single-route helper instead and set `useSingleEndpoint` on the client:
 
 ```ts
-import { createCopilotEndpointSingleRouteExpress } from '@copilotkitnext/runtime/express';
+import { createCopilotEndpointSingleRouteExpress } from "@copilotkitnext/runtime/express";
 
 app.use(
-  '/api/copilotkit',
-  createCopilotEndpointSingleRouteExpress({ runtime, basePath: '/' }),
+  "/api/copilotkit",
+  createCopilotEndpointSingleRouteExpress({ runtime, basePath: "/" }),
 );
 ```
 

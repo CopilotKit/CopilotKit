@@ -10,7 +10,7 @@ export function V150SignupLink({ children }: { children: React.ReactNode }) {
     <>
       <button
         onClick={() => setIsModalOpen(true)}
-        className="text-primary hover:underline font-medium cursor-pointer bg-transparent border-none p-0"
+        className="text-primary cursor-pointer border-none bg-transparent p-0 font-medium hover:underline"
       >
         {children}
       </button>

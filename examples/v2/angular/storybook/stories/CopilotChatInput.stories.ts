@@ -18,7 +18,7 @@ import { CustomSendButtonComponent } from "../components/custom-send-button.comp
     <button
       [disabled]="disabled"
       (click)="handleClick()"
-      class="rounded-full w-10 h-10 bg-blue-500 text-white hover:bg-blue-600 transition-colors mr-2 disabled:opacity-50 disabled:cursor-not-allowed"
+      class="mr-2 h-10 w-10 rounded-full bg-blue-500 text-white transition-colors hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-50"
       aria-label="Send message"
     >
       ✈️
@@ -43,7 +43,7 @@ class AirplaneSendButtonComponent {
     <button
       [disabled]="disabled"
       (click)="handleClick()"
-      class="rounded-full w-10 h-10 bg-green-500 text-white hover:bg-green-600 transition-colors mr-2 disabled:opacity-50 disabled:cursor-not-allowed"
+      class="mr-2 h-10 w-10 rounded-full bg-green-500 text-white transition-colors hover:bg-green-600 disabled:cursor-not-allowed disabled:opacity-50"
       aria-label="Send message"
     >
       🚀

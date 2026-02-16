@@ -29,7 +29,7 @@ import { UserMessage } from "@ag-ui/core";
         >
           <lucide-angular [img]="ChevronLeftIcon" [size]="20"></lucide-angular>
         </button>
-        <span class="text-sm text-muted-foreground px-0 font-medium">
+        <span class="text-muted-foreground px-0 text-sm font-medium">
           {{ currentBranch() + 1 }}/{{ numberOfBranches() }}
         </span>
         <button

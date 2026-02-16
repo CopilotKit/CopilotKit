@@ -3,6 +3,7 @@ title: Reading agent state
 icon: "lucide/ArrowLeft"
 description: Read the realtime agent state in your native application.
 ---
+
 <video
   src="https://cdn.copilotkit.ai/docs/copilotkit/videos/coagents/shared-state.mp4"
   className="rounded-lg shadow-xl"
@@ -13,7 +14,8 @@ description: Read the realtime agent state in your native application.
   muted
 />
 <Callout>
-  This video shows the result of `npx copilotkit@latest init` with the [implementation](#implementation) section applied to it.
+  This video shows the result of `npx copilotkit@latest init` with the
+  [implementation](#implementation) section applied to it.
 </Callout>
 
 ## What is this?
@@ -21,7 +23,12 @@ description: Read the realtime agent state in your native application.
 You can easily use the realtime agent state not only in the chat UI, but also in the native application UX.
 
 <Callout type="info">
-  CopilotKit consumes AG-UI protocol events streamed by AG2 over <code>/chat</code>. See the <a href="https://docs.ag2.ai/latest/docs/user-guide/ag-ui/" target="_blank">AG2 AG-UI integration docs</a>.
+  CopilotKit consumes AG-UI protocol events streamed by AG2 over{" "}
+  <code>/chat</code>. See the{" "}
+  <a href="https://docs.ag2.ai/latest/docs/user-guide/ag-ui/" target="_blank">
+    AG2 AG-UI integration docs
+  </a>
+  .
 </Callout>
 
 ## When should I use this?
@@ -167,7 +174,8 @@ function YourMainContent() {
 ```
 
 <Callout type="warn" title="Important">
-  The `name` parameter must exactly match the agent name you defined in your CopilotRuntime configuration (e.g., `my_agent` from the quickstart).
+  The `name` parameter must exactly match the agent name you defined in your
+  CopilotRuntime configuration (e.g., `my_agent` from the quickstart).
 </Callout>
 
 <Callout type="info">

@@ -32,7 +32,7 @@ export const ActionButtons = ({
   }, [selectedPlaceIds]);
 
   return (
-    <div className="flex gap-4 justify-between">
+    <div className="flex justify-between gap-4">
       <Button
         className="w-full"
         variant="outline"

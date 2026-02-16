@@ -35,7 +35,7 @@ export function Socials({ className }: SocialProps) {
           className="h-10 w-10 text-indigo-500/80 hover:bg-indigo-500 hover:text-white"
         >
           <Link href={social.href} target="_blank" rel="noopener noreferrer">
-            <social.icon className="w-4 h-4" />
+            <social.icon className="h-4 w-4" />
           </Link>
         </Button>
       ))}

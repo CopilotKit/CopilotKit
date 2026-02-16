@@ -34,16 +34,16 @@ graph LR
 
 ### Slot Descriptions
 
-| Slot | Description |
-|------|-------------|
+| Slot               | Description                                       |
+| ------------------ | ------------------------------------------------- |
 | `markdownRenderer` | Renders the message content with markdown support |
-| `toolbar` | Container for action buttons |
-| `copyButton` | Button to copy message content |
-| `thumbsUpButton` | Positive feedback button |
-| `thumbsDownButton` | Negative feedback button |
-| `readAloudButton` | Text-to-speech button |
-| `regenerateButton` | Button to regenerate the response |
-| `toolCallsView` | Renders tool call executions |
+| `toolbar`          | Container for action buttons                      |
+| `copyButton`       | Button to copy message content                    |
+| `thumbsUpButton`   | Positive feedback button                          |
+| `thumbsDownButton` | Negative feedback button                          |
+| `readAloudButton`  | Text-to-speech button                             |
+| `regenerateButton` | Button to regenerate the response                 |
+| `toolCallsView`    | Renders tool call executions                      |
 
 ## Basic Usage
 
@@ -94,12 +94,12 @@ CopilotChatAssistantMessage provides callbacks for user feedback:
 
 ### Callback Props
 
-| Callback | Signature | Description |
-|----------|-----------|-------------|
-| `onThumbsUp` | `(message: AssistantMessage) => void` | Called when user clicks thumbs up |
-| `onThumbsDown` | `(message: AssistantMessage) => void` | Called when user clicks thumbs down |
+| Callback       | Signature                             | Description                            |
+| -------------- | ------------------------------------- | -------------------------------------- |
+| `onThumbsUp`   | `(message: AssistantMessage) => void` | Called when user clicks thumbs up      |
+| `onThumbsDown` | `(message: AssistantMessage) => void` | Called when user clicks thumbs down    |
 | `onRegenerate` | `(message: AssistantMessage) => void` | Called when user requests regeneration |
-| `onReadAloud` | `(message: AssistantMessage) => void` | Called when user clicks read aloud |
+| `onReadAloud`  | `(message: AssistantMessage) => void` | Called when user clicks read aloud     |
 
 ## Slot Customization
 
@@ -228,7 +228,7 @@ function CustomAssistantMessage({ message, isRunning, ...props }) {
   messageView={{
     assistantMessage: CustomAssistantMessage,
   }}
-/>
+/>;
 ```
 
 ### Using the Render Function
@@ -258,24 +258,24 @@ function CustomAssistantMessage(props) {
   messageView={{
     assistantMessage: CustomAssistantMessage,
   }}
-/>
+/>;
 ```
 
 The render function receives:
 
-| Property | Type | Description |
-|----------|------|-------------|
-| `markdownRenderer` | `ReactElement` | The rendered markdown content |
-| `toolbar` | `ReactElement` | The action buttons toolbar |
-| `toolCallsView` | `ReactElement` | Tool call display |
-| `copyButton` | `ReactElement` | Copy button |
-| `thumbsUpButton` | `ReactElement` | Thumbs up button |
-| `thumbsDownButton` | `ReactElement` | Thumbs down button |
-| `readAloudButton` | `ReactElement` | Read aloud button |
-| `regenerateButton` | `ReactElement` | Regenerate button |
-| `message` | `AssistantMessage` | The message data |
-| `isRunning` | `boolean` | Whether AI is generating |
-| `toolbarVisible` | `boolean` | Whether toolbar should show |
+| Property           | Type               | Description                   |
+| ------------------ | ------------------ | ----------------------------- |
+| `markdownRenderer` | `ReactElement`     | The rendered markdown content |
+| `toolbar`          | `ReactElement`     | The action buttons toolbar    |
+| `toolCallsView`    | `ReactElement`     | Tool call display             |
+| `copyButton`       | `ReactElement`     | Copy button                   |
+| `thumbsUpButton`   | `ReactElement`     | Thumbs up button              |
+| `thumbsDownButton` | `ReactElement`     | Thumbs down button            |
+| `readAloudButton`  | `ReactElement`     | Read aloud button             |
+| `regenerateButton` | `ReactElement`     | Regenerate button             |
+| `message`          | `AssistantMessage` | The message data              |
+| `isRunning`        | `boolean`          | Whether AI is generating      |
+| `toolbarVisible`   | `boolean`          | Whether toolbar should show   |
 
 ## Examples
 

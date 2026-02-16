@@ -3,6 +3,7 @@ title: "LangChain.js"
 description: "Integrate LangChain JS chains as backend actions in your CopilotKit application."
 icon: "custom/langchain"
 ---
+
 import FindCopilotRuntimeSnippet from "@/snippets/find-your-copilot-runtime.mdx";
 
 <Steps>
@@ -20,8 +21,8 @@ CopilotKit allows actions to return not only values but also LangChain streams. 
 This generator takes `properties` and `url` as input.
 
 This means you can **customize which backend actions are made available** according to the current frontend URL, as well as custom properties you can pass from the frontend.
-</Callout>
 
+</Callout>
 
 ```tsx title="/api/copilotkit/route.ts"
 import { ChatOpenAI } from "@langchain/openai";
@@ -29,9 +30,9 @@ import { ChatPromptTemplate } from "@langchain/core/prompts";
 
 const runtime = new CopilotRuntime({
   // ... existing configuration
-  actions: ({properties, url}) => {
+  actions: ({ properties, url }) => {
     // Note that actions returns not an array, but an array **generator**.
-    // You can use the input parameters to the actions generator to expose different backend actions to the Copilot at different times: 
+    // You can use the input parameters to the actions generator to expose different backend actions to the Copilot at different times:
     // `url` is the current URL on the frontend application.
     // `properties` contains custom properties you can pass from the frontend application.
 
@@ -47,7 +48,7 @@ const runtime = new CopilotRuntime({
             required: true,
           },
         ],
-        handler: async ({topic}: {topic: string}) => {
+        handler: async ({ topic }: { topic: string }) => {
           const prompt = ChatPromptTemplate.fromMessages([
             [
               "system",
@@ -57,13 +58,14 @@ const runtime = new CopilotRuntime({
           ]);
           const chain = prompt.pipe(new ChatOpenAI());
           // [!code highlight:3]
-          return chain.stream({ // return directly chain.stream
+          return chain.stream({
+            // return directly chain.stream
             topic: topic,
           });
         },
       },
-    ]
-  }
+    ];
+  },
 });
 
 // ... rest of your route definition
@@ -75,6 +77,7 @@ const runtime = new CopilotRuntime({
 ### Test your implementation
 
 After adding the LangChain JS action, test it by asking the copilot to generate a joke about a specific topic. Observe how it uses the LangChain components to generate and stream the response.
+
 </Step>
 
 </Steps>

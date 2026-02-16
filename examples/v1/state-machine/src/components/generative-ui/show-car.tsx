@@ -21,23 +21,23 @@ const ColorDisplay = ({ color }: { color?: string }) => {
   return (
     <span className="flex items-center gap-2">
       <span
-        className="w-5 h-5 rounded-full border border-gray-200 shadow-sm"
+        className="h-5 w-5 rounded-full border border-gray-200 shadow-sm"
         style={{ backgroundColor: color }}
       />
-      <span className="text-gray-600 text-sm">{color}</span>
+      <span className="text-sm text-gray-600">{color}</span>
     </span>
   );
 };
 
 const CarImage = ({ car }: { car: Car }) => {
   return (
-    <div className="relative aspect-[3/3] w-full overflow-hidden h-[250px]">
+    <div className="relative aspect-[3/3] h-[250px] w-full overflow-hidden">
       <Image
         width={300}
         height={250}
         src={car?.image?.src || ""}
         alt={car?.image?.alt || ""}
-        className="object-cover w-full h-full hover:scale-105 transition-transform duration-300 transform-gpu"
+        className="h-full w-full transform-gpu object-cover transition-transform duration-300 hover:scale-105"
         style={{
           imageRendering: "auto",
           WebkitFontSmoothing: "antialiased",
@@ -84,8 +84,8 @@ export function ShowCar({
             {car.year} {car.make} {car.model}
           </div>
           {carDetails.map(({ label, value, bold }) => (
-            <div key={label} className="flex justify-between items-center py-1">
-              <span className="text-gray-500 text-sm">{label}</span>
+            <div key={label} className="flex items-center justify-between py-1">
+              <span className="text-sm text-gray-500">{label}</span>
               <span
                 className={cn(
                   "text-gray-900",
@@ -136,7 +136,7 @@ export function ShowCars({ cars, onSelect, status }: ShowCarsProps) {
   };
 
   return (
-    <div className="flex flex-row overflow-x-auto gap-4 py-4 space-x-6">
+    <div className="flex flex-row gap-4 space-x-6 overflow-x-auto py-4">
       {cars.map((car, index) => {
         // Don't render if there's a selected car and this isn't it
         if (selectedCar && car !== selectedCar) return null;

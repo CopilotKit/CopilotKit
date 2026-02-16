@@ -296,13 +296,13 @@ if __name__ == "__main__":
     main()`;
 
   return (
-    <div className="p-4 bg-white rounded-lg border border-gray-200 shadow-sm w-full">
-      <div className="flex items-center justify-between mb-4">
+    <div className="w-full rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+      <div className="mb-4 flex items-center justify-between">
         <h2 className="text-xl font-semibold text-gray-800">Agent Code</h2>
         <span className="text-sm text-gray-500">Python</span>
       </div>
       <pre className="overflow-x-auto">
-        <code className="text-sm text-gray-700 font-mono whitespace-pre-wrap break-words">
+        <code className="whitespace-pre-wrap break-words font-mono text-sm text-gray-700">
           {pythonCode}
         </code>
       </pre>

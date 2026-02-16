@@ -118,13 +118,13 @@ const IntegrationsGrid: React.FC<IntegrationsGridProps> = ({
   }
 
   return (
-    <div className="flex flex-row flex-wrap justify-center items-center gap-x-6 gap-y-6 my-8">
+    <div className="my-8 flex flex-row flex-wrap items-center justify-center gap-x-6 gap-y-6">
       {/* Large desktop: 4 columns (2xl+) */}
-      <div className="hidden 2xl:flex items-center">
+      <div className="hidden items-center 2xl:flex">
         {/* Kite icon - positioned separately to avoid SVG distortion */}
         <div className="relative flex items-center">
-          <KiteIconLight className="block dark:hidden w-[120px] h-[120px]" />
-          <KiteIconDark className="hidden dark:block w-[120px] h-[120px]" />
+          <KiteIconLight className="block h-[120px] w-[120px] dark:hidden" />
+          <KiteIconDark className="hidden h-[120px] w-[120px] dark:block" />
         </div>
         {/* Connectors SVG - overlaps with kite to attach to circle edge */}
         <div className="-ml-[40px]">
@@ -164,7 +164,7 @@ const IntegrationsGrid: React.FC<IntegrationsGridProps> = ({
             rowHeight={36}
           />
         </div>
-        <div className="grid grid-cols-2 gap-2 -ml-5 pt-[90px]">
+        <div className="-ml-5 grid grid-cols-2 gap-2 pt-[90px]">
           {filteredIntegrations.map((integration) => (
             <IntegrationLinkRoundedButton
               key={integration.id}
@@ -176,7 +176,7 @@ const IntegrationsGrid: React.FC<IntegrationsGridProps> = ({
         </div>
       </div>
       {/* Medium screens (lg to 2xl): 2 columns with 60px row height */}
-      <div className="hidden lg:flex 2xl:hidden flex-row items-start gap-2">
+      <div className="hidden flex-row items-start gap-2 lg:flex 2xl:hidden">
         <div className="-ml-11 shrink-0">
           <IntegrationsSelectorLightMobile
             className="block dark:hidden"
@@ -189,7 +189,7 @@ const IntegrationsGrid: React.FC<IntegrationsGridProps> = ({
             rowHeight={60}
           />
         </div>
-        <div className="grid grid-cols-2 gap-2 -ml-5 pt-[90px]">
+        <div className="-ml-5 grid grid-cols-2 gap-2 pt-[90px]">
           {filteredIntegrations.map((integration) => (
             <IntegrationLinkRoundedButton
               key={integration.id}

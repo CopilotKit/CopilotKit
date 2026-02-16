@@ -15,11 +15,11 @@ export default function RootLayout({
       <body>
         <CopilotKit runtimeUrl="/api/copilotkit" showDevConsole={false}>
           <GlobalStateProvider>
-            <div className="h-screen w-screen grid grid-cols-[40fr,60fr] p-10 gap-5">
+            <div className="grid h-screen w-screen grid-cols-[40fr,60fr] gap-5 p-10">
               <div className="overflow-y-auto rounded-xl border">
                 {children}
               </div>
-              <div className="flex justify-center items-center overflow-y-auto rounded-xl">
+              <div className="flex items-center justify-center overflow-y-auto rounded-xl">
                 <CarSalesChat className="w-full" />
               </div>
             </div>

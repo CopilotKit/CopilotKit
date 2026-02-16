@@ -34,17 +34,17 @@ export function MobileTripCard({ className, map }: MobileTripCardProps) {
             "absolute bottom-20 right-4 w-14 h-14 rounded-full",
           )}
         >
-          <Plane className="w-6 h-6" />
+          <Plane className="h-6 w-6" />
         </Button>
       </DrawerTrigger>
-      <DrawerContent className="border-none bg-foreground max-h-[75vh] flex flex-col">
-        <div className="flex flex-row justify-between items-center gap-2 text-white p-4">
-          <CardTitle className="text-wrap truncate max-w-full font-bold">
+      <DrawerContent className="flex max-h-[75vh] flex-col border-none bg-foreground">
+        <div className="flex flex-row items-center justify-between gap-2 p-4 text-white">
+          <CardTitle className="max-w-full truncate text-wrap font-bold">
             {selectedTrip?.name || "Untitled Trip"}
           </CardTitle>
           <TripSelect />
         </div>
-        <div className="h-full overflow-y-auto p-4 bg-background">
+        <div className="h-full overflow-y-auto bg-background p-4">
           {selectedTrip && (
             <>
               <div className="h-2" />

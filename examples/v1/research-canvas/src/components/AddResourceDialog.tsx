@@ -34,7 +34,7 @@ export function AddResourceDialog({
           size="sm"
           className="text-sm font-bold text-[#6766FC]"
         >
-          Add Resource <PlusCircle className="w-6 h-6 ml-2" />
+          Add Resource <PlusCircle className="ml-2 h-6 w-6" />
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[425px]">
@@ -92,7 +92,7 @@ export function AddResourceDialog({
             !newResource.url || !newResource.title || !newResource.description
           }
         >
-          <Plus className="w-4 h-4 mr-2" /> Add Resource
+          <Plus className="mr-2 h-4 w-4" /> Add Resource
         </Button>
       </DialogContent>
     </Dialog>

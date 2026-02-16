@@ -1,7 +1,4 @@
 {
   "title": "Generative UI",
-  "pages": [
-    "index",
-    "specs"
-  ]
+  "pages": ["index", "specs"]
 }

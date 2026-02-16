@@ -155,8 +155,7 @@ export interface ToolbarContext {
           <div class="flex items-center">
             @if (computedMode() === "transcribe") {
               @if (
-                cancelTranscribeButtonTemplate ||
-                cancelTranscribeButtonComponent()
+                cancelTranscribeButtonTemplate || cancelTranscribeButtonComponent()
               ) {
                 <copilot-slot
                   [slot]="
@@ -175,8 +174,7 @@ export interface ToolbarContext {
                 </copilot-chat-cancel-transcribe-button>
               }
               @if (
-                finishTranscribeButtonTemplate ||
-                finishTranscribeButtonComponent()
+                finishTranscribeButtonTemplate || finishTranscribeButtonComponent()
               ) {
                 <copilot-slot
                   [slot]="
@@ -196,8 +194,7 @@ export interface ToolbarContext {
               }
             } @else {
               @if (
-                startTranscribeButtonTemplate ||
-                startTranscribeButtonComponent()
+                startTranscribeButtonTemplate || startTranscribeButtonComponent()
               ) {
                 <copilot-slot
                   [slot]="

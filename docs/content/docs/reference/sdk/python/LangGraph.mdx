@@ -4,12 +4,14 @@ description: "The CopilotKit LangGraph SDK for Python allows you to build and ru
 ---
 
 {
- /*
-  * ATTENTION! DO NOT MODIFY THIS FILE!
-  * This page is auto-generated. If you want to make any changes to this page, changes must be made at:
-  * sdk-python/copilotkit/langgraph.py
-  */
-}
+/\*
+
+- ATTENTION! DO NOT MODIFY THIS FILE!
+- This page is auto-generated. If you want to make any changes to this page, changes must be made at:
+- sdk-python/copilotkit/langgraph.py
+  \*/
+  }
+
 ## copilotkit_customize_config
 
 Customize the LangGraph configuration for use in CopilotKit.
@@ -23,7 +25,7 @@ Customize the LangGraph configuration for use in CopilotKit.
     ### Examples
 
     Disable emitting messages and tool calls:
-    
+
     ```python
     from copilotkit.langgraph import copilotkit_customize_config
 
@@ -55,33 +57,43 @@ Customize the LangGraph configuration for use in CopilotKit.
 
 ### Parameters
 
-<PropertyReference name="base_config" type="Optional[RunnableConfig]" > 
-The LangChain/LangGraph configuration to customize. Pass None to make a new configuration.
+<PropertyReference name="base_config" type="Optional[RunnableConfig]">
+  The LangChain/LangGraph configuration to customize. Pass None to make a new
+  configuration.
 </PropertyReference>
 
-<PropertyReference name="emit_messages" type="Optional[bool]" > 
-Configure how messages are emitted. By default, all messages are emitted. Pass False to disable emitting messages.
+<PropertyReference name="emit_messages" type="Optional[bool]">
+  Configure how messages are emitted. By default, all messages are emitted. Pass
+  False to disable emitting messages.
 </PropertyReference>
 
-<PropertyReference name="emit_tool_calls" type="Optional[Union[bool, str, List[str]]]" > 
-Configure how tool calls are emitted. By default, all tool calls are emitted. Pass False to disable emitting tool calls. Pass a string or list of strings to emit only specific tool calls.
+<PropertyReference
+  name="emit_tool_calls"
+  type="Optional[Union[bool, str, List[str]]]"
+>
+  Configure how tool calls are emitted. By default, all tool calls are emitted.
+  Pass False to disable emitting tool calls. Pass a string or list of strings to
+  emit only specific tool calls.
 </PropertyReference>
 
-<PropertyReference name="emit_intermediate_state" type="Optional[List[IntermediateStateConfig]]" > 
-Lets you emit tool calls as streaming LangGraph state.
+<PropertyReference
+  name="emit_intermediate_state"
+  type="Optional[List[IntermediateStateConfig]]"
+>
+  Lets you emit tool calls as streaming LangGraph state.
 </PropertyReference>
 
 ### Returns
 
 <PropertyReference name="returns" type="RunnableConfig">
-The customized LangGraph configuration.
+  The customized LangGraph configuration.
 </PropertyReference>
 
 ## copilotkit_exit
 
 Exits the current agent after the run completes. Calling copilotkit_exit() will
-    not immediately stop the agent. Instead, it signals to CopilotKit to stop the agent after
-    the run completes.
+not immediately stop the agent. Instead, it signals to CopilotKit to stop the agent after
+the run completes.
 
     ### Examples
 
@@ -95,20 +107,20 @@ Exits the current agent after the run completes. Calling copilotkit_exit() will
 
 ### Parameters
 
-<PropertyReference name="config" type="RunnableConfig" required> 
-The LangGraph configuration.
+<PropertyReference name="config" type="RunnableConfig" required>
+  The LangGraph configuration.
 </PropertyReference>
 
 ### Returns
 
 <PropertyReference name="returns" type="Awaitable[bool]">
-Always return True.
+  Always return True.
 </PropertyReference>
 
 ## copilotkit_emit_state
 
 Emits intermediate state to CopilotKit. Useful if you have a longer running node and you want to
-    update the user with the current state of the node.
+update the user with the current state of the node.
 
     ### Examples
 
@@ -122,24 +134,24 @@ Emits intermediate state to CopilotKit. Useful if you have a longer running node
 
 ### Parameters
 
-<PropertyReference name="config" type="RunnableConfig" required> 
-The LangGraph configuration.
+<PropertyReference name="config" type="RunnableConfig" required>
+  The LangGraph configuration.
 </PropertyReference>
 
-<PropertyReference name="state" type="Any" required> 
-The state to emit (Must be JSON serializable).
+<PropertyReference name="state" type="Any" required>
+  The state to emit (Must be JSON serializable).
 </PropertyReference>
 
 ### Returns
 
 <PropertyReference name="returns" type="Awaitable[bool]">
-Always return True.
+  Always return True.
 </PropertyReference>
 
 ## copilotkit_emit_message
 
 Manually emits a message to CopilotKit. Useful in longer running nodes to update the user.
-    Important: You still need to return the messages from the node.
+Important: You still need to return the messages from the node.
 
     ### Examples
 
@@ -157,18 +169,18 @@ Manually emits a message to CopilotKit. Useful in longer running nodes to update
 
 ### Parameters
 
-<PropertyReference name="config" type="RunnableConfig" required> 
-The LangGraph configuration.
+<PropertyReference name="config" type="RunnableConfig" required>
+  The LangGraph configuration.
 </PropertyReference>
 
-<PropertyReference name="message" type="str" required> 
-The message to emit.
+<PropertyReference name="message" type="str" required>
+  The message to emit.
 </PropertyReference>
 
 ### Returns
 
 <PropertyReference name="returns" type="Awaitable[bool]">
-Always return True.
+  Always return True.
 </PropertyReference>
 
 ## copilotkit_emit_tool_call
@@ -183,21 +195,20 @@ Manually emits a tool call to CopilotKit.
 
 ### Parameters
 
-<PropertyReference name="config" type="RunnableConfig" required> 
-The LangGraph configuration.
+<PropertyReference name="config" type="RunnableConfig" required>
+  The LangGraph configuration.
 </PropertyReference>
 
-<PropertyReference name="name" type="str" required> 
-The name of the tool to emit.
+<PropertyReference name="name" type="str" required>
+  The name of the tool to emit.
 </PropertyReference>
 
-<PropertyReference name="args" type="Dict[str, Any]" required> 
-The arguments to emit.
+<PropertyReference name="args" type="Dict[str, Any]" required>
+  The arguments to emit.
 </PropertyReference>
 
 ### Returns
 
 <PropertyReference name="returns" type="Awaitable[bool]">
-Always return True.
+  Always return True.
 </PropertyReference>
-

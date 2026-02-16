@@ -81,7 +81,7 @@ export function ChatGrid({
   return (
     <>
       {newScriptsData && (
-        <div className="rounded-md border w-full min-w-[200px]">
+        <div className="w-full min-w-[200px] rounded-md border">
           <Table>
             <TableHeader>
               <TableRow>
@@ -100,7 +100,7 @@ export function ChatGrid({
               {newScriptsData?.map((script, index) => (
                 <React.Fragment key={index}>
                   <TableRow
-                    className="hover:bg-gray-50 transition"
+                    className="transition hover:bg-gray-50"
                     onClick={() => handleRowClick(index)}
                   >
                     <TableCell className="w-[50px]">
@@ -124,20 +124,20 @@ export function ChatGrid({
                       <TableRow>
                         <TableCell
                           colSpan={3}
-                          className="bg-gray-50 dark:bg-[#181f2a] p-0 border-t-0"
+                          className="border-t-0 bg-gray-50 p-0 dark:bg-[#181f2a]"
                         >
                           <div className="p-4">
-                            <div className="font-semibold mb-2">
+                            <div className="mb-2 font-semibold">
                               Test Suite Description:
                             </div>
                             <div className="mb-4 text-sm text-gray-600 dark:text-gray-300">
                               {script.shortDescription ||
                                 "No description available."}
                             </div>
-                            <div className="font-semibold mb-2">
+                            <div className="mb-2 font-semibold">
                               Code Snippet:
                             </div>
-                            <pre className="bg-gray-100 dark:bg-[#181f2a] rounded p-2 mb-4 overflow-x-auto text-xs">
+                            <pre className="mb-4 overflow-x-auto rounded bg-gray-100 p-2 text-xs dark:bg-[#181f2a]">
                               {
                                 codeSnippets[
                                   Math.floor(
@@ -146,14 +146,14 @@ export function ChatGrid({
                                 ]
                               }
                             </pre>
-                            <div className="font-semibold mb-2">
+                            <div className="mb-2 font-semibold">
                               Test Cases Details:
                             </div>
                             <ul className="space-y-4">
                               {script.testCases.map((tc, idx) => (
                                 <li
                                   key={tc.id}
-                                  className="border rounded p-3 bg-white dark:bg-[#232b3b]"
+                                  className="rounded border bg-white p-3 dark:bg-[#232b3b]"
                                 >
                                   <div className="mb-1 flex items-center gap-2">
                                     <StatusBadge
@@ -178,14 +178,14 @@ export function ChatGrid({
             </TableBody>
           </Table>
           {selectedRows.length > 0 && (
-            <div className="p-4 border-t flex justify-between items-center bg-gray-50 dark:bg-[#181f2a]">
+            <div className="flex items-center justify-between border-t bg-gray-50 p-4 dark:bg-[#181f2a]">
               <div className="text-sm text-gray-600 dark:text-gray-300">
                 {selectedRows.length}{" "}
                 {selectedRows.length === 1 ? "row" : "rows"} selected
               </div>
               <Button
                 onClick={handleSelectedAction}
-                className="bg-blue-600 hover:bg-blue-700 text-white"
+                className="bg-blue-600 text-white hover:bg-blue-700"
               >
                 Add Selected Tests
               </Button>
@@ -201,7 +201,7 @@ function StatusBadge({ status }: { status: string }) {
   return (
     <Badge
       variant="outline"
-      className={`px-2 py-1 rounded-full text-xs font-medium text-center ${getStatusColor(status)}`}
+      className={`rounded-full px-2 py-1 text-center text-xs font-medium ${getStatusColor(status)}`}
     >
       {status.split("_").join(" ")}
     </Badge>

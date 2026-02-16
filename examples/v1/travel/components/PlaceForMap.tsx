@@ -39,7 +39,7 @@ export function PlaceForMap({ place, number, map }: PlaceProps) {
       <DropdownMenuContent align="end">
         <EditPlace place={place} onOpenChange={setDropdownOpen} />
         <DropdownMenuItem onClick={handleDelete} className="text-destructive">
-          <Trash className="w-4 h-4 mr-2" />
+          <Trash className="mr-2 h-4 w-4" />
           Delete
         </DropdownMenuItem>
       </DropdownMenuContent>

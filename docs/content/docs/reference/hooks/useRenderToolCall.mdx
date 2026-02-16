@@ -83,12 +83,12 @@ The migration is straightforward - just change the hook name. The render props r
 
 ## Parameters
 
-<PropertyReference name="name" type="string" required >
-The name of the tool to render. Use `"*"` to catch all tool calls.
+<PropertyReference name="name" type="string" required>
+  The name of the tool to render. Use `"*"` to catch all tool calls.
 </PropertyReference>
 
-<PropertyReference name="description" type="string"  >
-A description of what this renderer does. Mainly for documentation purposes.
+<PropertyReference name="description" type="string">
+  A description of what this renderer does. Mainly for documentation purposes.
 </PropertyReference>
 
 <PropertyReference name="parameters" type="T"  >
@@ -102,6 +102,7 @@ Optional array of parameter definitions. If provided, adds type safety to the ar
 Simple example: `[{ name: "datasetName", type: "string", description: "Name of the dataset", required: true }]`
 
 Nested example:
+
 ```typescript
 [
   {
@@ -110,18 +111,30 @@ Nested example:
     description: "Configuration for the analysis",
     required: true,
     properties: [
-      { name: "method", type: "string", description: "Analysis method to use", required: true },
-      { name: "threshold", type: "number", description: "Threshold value", required: false }
-    ]
-  }
-]
+      {
+        name: "method",
+        type: "string",
+        description: "Analysis method to use",
+        required: true,
+      },
+      {
+        name: "threshold",
+        type: "number",
+        description: "Threshold value",
+        required: false,
+      },
+    ],
+  },
+];
 ```
+
 </PropertyReference>
 
-<PropertyReference name="render" type="FrontendAction<T>['render']"  >
-A React component that renders the tool call UI. The component receives props with `status`, `args`, `result`, `name`, and `description`.
+<PropertyReference name="render" type="FrontendAction<T>['render']">
+  A React component that renders the tool call UI. The component receives props
+  with `status`, `args`, `result`, `name`, and `description`.
 </PropertyReference>
 
-<PropertyReference name="available" type="'disabled' | 'enabled'"  >
-Whether the renderer is available. Set to "disabled" to prevent rendering.
+<PropertyReference name="available" type="'disabled' | 'enabled'">
+  Whether the renderer is available. Set to "disabled" to prevent rendering.
 </PropertyReference>

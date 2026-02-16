@@ -3,9 +3,10 @@ title: Human-in-the-Loop
 icon: "lucide/Wrench"
 description: Create frontend tools and use them within your Pydantic AI agent for human-in-the-loop interactions.
 ---
-import InstallSDKSnippet from "@/snippets/install-sdk.mdx"
-import RunAndConnect from "@/snippets/integrations/pydantic-ai/run-and-connect.mdx"
-import { IframeSwitcher } from "@/components/content"
+
+import InstallSDKSnippet from "@/snippets/install-sdk.mdx";
+import RunAndConnect from "@/snippets/integrations/pydantic-ai/run-and-connect.mdx";
+import { IframeSwitcher } from "@/components/content";
 
 <IframeSwitcher
   id="frontend-tools-based-hitl-example"
@@ -28,6 +29,7 @@ In this guide, we cover the use of frontend tools for Human-in-the-loop.
 ## When should I use this?
 
 Use frontend tools when you need your agent to interact with client-side primitives such as:
+
 - Reading or modifying React component state
 - Accessing browser APIs like localStorage, sessionStorage, or cookies
 - Triggering UI updates or animations
@@ -113,4 +115,5 @@ Use frontend tools when you need your agent to interact with client-side primiti
         Can you show me two good options for a restaurant name?
         ````
     </Step>
+
 </Steps>

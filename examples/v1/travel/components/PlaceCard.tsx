@@ -40,11 +40,11 @@ export function PlaceCard({
     >
       <CardContent className="pt-6">
         <div className="space-y-4">
-          <div className="flex justify-between items-start">
+          <div className="flex items-start justify-between">
             <div className="space-y-2">
-              <CardTitle className="text-xl font-semibold flex items-center gap-2">
+              <CardTitle className="flex items-center gap-2 text-xl font-semibold">
                 {number && (
-                  <div className="text-sm text-background drop-shadow-md bg-foreground rounded-full flex items-center justify-center font-bold border-2 border-white w-7 h-7">
+                  <div className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-white bg-foreground text-sm font-bold text-background drop-shadow-md">
                     {number}
                   </div>
                 )}
@@ -52,7 +52,7 @@ export function PlaceCard({
               </CardTitle>
               <Stars rating={place.rating} />
             </div>
-            <div className="flex flex-col items-end gap-2 min-w-[2rem]">
+            <div className="flex min-w-[2rem] flex-col items-end gap-2">
               {actions}
               {shouldShowCheckbox && (
                 <Checkbox checked={checked} onCheckedChange={onCheck} />
@@ -62,12 +62,12 @@ export function PlaceCard({
 
           <div className="space-y-2 text-sm text-muted-foreground">
             <div className="flex items-center gap-2">
-              <MapPin className="w-4 h-4" />
+              <MapPin className="h-4 w-4" />
               <span>{place.address}</span>
             </div>
             {place.description && (
               <div className="flex items-center gap-2 pt-2">
-                <Info className="w-4 h-4" />
+                <Info className="h-4 w-4" />
                 <p className="flex-1">{place.description}</p>
               </div>
             )}
