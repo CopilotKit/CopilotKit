@@ -252,7 +252,7 @@ export interface ToolbarContext {
         display: block;
         width: 100%;
       }
-      .shadow-\\[0_4px_4px_0_\\#0000000a\\2c_0_0_1px_0_\\#0000009e\\] {
+      .copilot-chat-input-shadow {
         box-shadow:
           0 4px 4px 0 #0000000a,
           0 0 1px 0 #0000009e !important;
@@ -392,7 +392,7 @@ export class CopilotChatInput implements AfterViewInit, OnDestroy {
       // Background
       "bg-white dark:bg-[#303030]",
       // Visual effects
-      "shadow-[0_4px_4px_0_#0000000a,0_0_1px_0_#0000009e] rounded-[28px]",
+      "copilot-chat-input-shadow rounded-[28px]",
     );
     return cn(baseClasses, this.customClass());
   });

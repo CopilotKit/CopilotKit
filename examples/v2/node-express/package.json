@@ -17,8 +17,8 @@
   "devDependencies": {
     "@copilotkitnext/typescript-config": "workspace:^",
     "@types/express": "^4.17.21",
-    "@types/node": "^22.10.7",
+    "@types/node": "^22.15.3",
     "tsx": "^4.19.2",
-    "typescript": "^5.8.2"
+    "typescript": "~5.5.0"
   }
 }

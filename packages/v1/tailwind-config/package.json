@@ -4,6 +4,6 @@
   "private": true,
   "main": "index.js",
   "devDependencies": {
-    "tailwindcss": "^3.2.4"
+    "tailwindcss": "^4.1.11"
   }
 }

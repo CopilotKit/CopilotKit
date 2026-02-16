@@ -35,8 +35,8 @@
     "@types/node": "^22.15.3",
     "eslint": "^9.30.0",
     "tsdown": "^0.20.3",
-    "typescript": "5.8.2",
-    "vitest": "^3.0.5"
+    "typescript": "~5.5.0",
+    "vitest": "^3.2.4"
   },
   "dependencies": {
     "@copilotkitnext/runtime": "workspace:*",

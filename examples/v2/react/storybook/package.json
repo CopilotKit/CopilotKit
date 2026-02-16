@@ -11,23 +11,23 @@
   "dependencies": {
     "@storybook/nextjs": "^10.1.10",
     "@storybook/react": "^10.1.10",
-    "next": "^15",
-    "react": "^19",
-    "react-dom": "^19",
+    "next": "15.4.10",
+    "react": "19.1.0",
+    "react-dom": "^19.2.0",
     "storybook": "^10.1.10"
   },
   "devDependencies": {
     "@copilotkitnext/core": "workspace:*",
     "@copilotkitnext/react": "workspace:*",
     "@copilotkitnext/typescript-config": "workspace:*",
-    "@storybook/addon-docs": "^10",
+    "@storybook/addon-docs": "^10.1.10",
     "@storybook/addon-themes": "^10.1.10",
-    "@types/node": "^22",
-    "@types/react": "^19",
-    "@types/react-dom": "^19",
+    "@types/node": "^22.15.3",
+    "@types/react": "^19.2.3",
+    "@types/react-dom": "^19.2.3",
     "concurrently": "^9.1.0",
     "lucide-react": "^0.525.0",
-    "typescript": "5.8.2",
+    "typescript": "~5.5.0",
     "zod": "^3.25.75"
   }
 }

@@ -50,13 +50,13 @@
     "@graphql-codegen/urql-introspection": "^3.0.0",
     "@graphql-typed-document-node/core": "^3.2.0",
     "@parcel/watcher": "^2.4.1",
-    "@types/node": "^20.12.12",
-    "concurrently": "^8.2.2",
+    "@types/node": "^22.15.3",
+    "concurrently": "^9.1.0",
     "esbuild": "^0.23.0",
     "graphql": "^16.8.1",
     "ts-node": "^10.9.2",
     "tsdown": "^0.20.3",
-    "typescript": "^5.4.5",
+    "typescript": "~5.5.0",
     "vitest": "^3.2.4"
   },
   "dependencies": {

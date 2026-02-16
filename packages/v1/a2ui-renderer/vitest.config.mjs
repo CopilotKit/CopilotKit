@@ -20,9 +20,6 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      "@": path.join(dirname, "src"),
-      clsx: path.join(dirname, "src/__tests__/clsx-shim.ts"),
-      "markdown-it": path.join(root, "node_modules/.pnpm/markdown-it@14.1.0/node_modules/markdown-it"),
-    },
+      "@": path.join(dirname, "src"), 
   },
 });
