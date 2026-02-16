@@ -118,12 +118,15 @@ export function aguiToGQL(
       }
       continue;
     }
+    // Reasoning messages are ephemeral display-only content with no GQL equivalent — skip them
+    if (message.role === "reasoning") {
+      continue;
+    }
     // Regular text messages
     if (
       message.role === "developer" ||
       message.role === "system" ||
       message.role === "assistant" ||
-      message.role === "reasoning" ||
       message.role === "user"
     ) {
       gqlMessages.push(aguiTextMessageToGQLMessage(message));
