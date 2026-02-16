@@ -10,6 +10,7 @@ import { IntegrationId } from "./integrations";
 export const INTEGRATION_FEATURES: Record<string, IntegrationId[]> = {
   "shared-state": [
     "adk",
+    "ag2",
     "agent-spec",
     "aws-strands",
     "crewai-crews",
@@ -23,6 +24,7 @@ export const INTEGRATION_FEATURES: Record<string, IntegrationId[]> = {
   "generative-ui": [
     "a2a",
     "adk",
+    "ag2",
     "agent-spec",
     "agno",
     "aws-strands",
