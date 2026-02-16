@@ -87,17 +87,17 @@ export default function NotFound() {
   }, [pathname, searchParams]);
 
   return (
-    <div className="fixed inset-0 flex flex-col items-center justify-center p-4 bg-background z-50">
-      <div className="max-w-md w-full text-center space-y-8">
-        <div className="flex justify-center mb-8">
+    <div className="bg-background fixed inset-0 z-50 flex flex-col items-center justify-center p-4">
+      <div className="w-full max-w-md space-y-8 text-center">
+        <div className="mb-8 flex justify-center">
           <div className="scale-150">
             <Logo />
           </div>
         </div>
 
         <div className="space-y-4">
-          <h1 className="text-6xl font-bold text-foreground">404</h1>
-          <h2 className="text-2xl font-semibold text-foreground">
+          <h1 className="text-foreground text-6xl font-bold">404</h1>
+          <h2 className="text-foreground text-2xl font-semibold">
             Page Not Found
           </h2>
           <p className="text-muted-foreground">
@@ -106,19 +106,19 @@ export default function NotFound() {
           </p>
         </div>
 
-        <div className="flex gap-4 justify-center">
+        <div className="flex justify-center gap-4">
           <Link
             href="/"
-            className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-md hover:opacity-90 transition-opacity font-medium"
+            className="bg-primary text-primary-foreground inline-flex items-center gap-2 rounded-md px-4 py-2 font-medium transition-opacity hover:opacity-90"
           >
-            <Home className="w-4 h-4" />
+            <Home className="h-4 w-4" />
             Go Home
           </Link>
           <button
             onClick={() => window.history.back()}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-secondary text-secondary-foreground rounded-md hover:bg-accent transition-colors font-medium"
+            className="bg-secondary text-secondary-foreground hover:bg-accent inline-flex items-center gap-2 rounded-md px-4 py-2 font-medium transition-colors"
           >
-            <ArrowLeft className="w-4 h-4" />
+            <ArrowLeft className="h-4 w-4" />
             Go Back
           </button>
         </div>

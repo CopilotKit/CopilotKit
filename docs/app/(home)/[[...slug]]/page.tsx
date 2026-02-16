@@ -176,33 +176,33 @@ export default async function Page({
       }}
       breadcrumb={{ enabled: false }}
     >
-      <div className="px-8 py-6 xl:py-12 xl:px-16 max-sm:px-4 max-sm:py-6">
+      <div className="px-8 py-6 max-sm:px-4 max-sm:py-6 xl:px-16 xl:py-12">
         <PageBreadcrumb className="mb-4" />
         <div>
           {!hideHeader && (
             <div className="flex flex-col gap-5">
-              <div className="flex gap-3 items-center">
-                <DocsTitle className="flex flex-col md:flex-row items-start md:items-center text-[32px] font-medium text-[#010507] dark:text-white md:text-[40px] leading-12">
+              <div className="flex items-center gap-3">
+                <DocsTitle className="flex flex-col items-start text-[32px] leading-12 font-medium text-[#010507] md:flex-row md:items-center md:text-[40px] dark:text-white">
                   {page.data.title}
                   {cloudOnly && (
                     <Badge
                       variant="secondary"
-                      className="ml-3 mt-1 inline-flex items-center gap-1.5 py-1.5 px-3 bg-indigo-600/90 text-white hover:bg-indigo-600 border-0 rounded-md transition-colors"
+                      className="mt-1 ml-3 inline-flex items-center gap-1.5 rounded-md border-0 bg-indigo-600/90 px-3 py-1.5 text-white transition-colors hover:bg-indigo-600"
                     >
-                      <CloudIcon className="w-3 h-3" />
+                      <CloudIcon className="h-3 w-3" />
                       <span className="text-xs">Cloud Only</span>
                     </Badge>
                   )}
                   {isPremium && (
-                    <a href={premiumOverviewHref} className="lg:ml-3 shrink-0">
+                    <a href={premiumOverviewHref} className="shrink-0 lg:ml-3">
                       <Badge
                         variant="secondary"
-                        className="inline-flex items-center gap-2 py-2 px-3.5 bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-200 hover:bg-indigo-200 border-0 rounded-md transition-colors"
+                        className="inline-flex items-center gap-2 rounded-md border-0 bg-indigo-100 px-3.5 py-2 text-indigo-700 transition-colors hover:bg-indigo-200 dark:bg-indigo-900/40 dark:text-indigo-200"
                       >
                         <img
                           src="https://cdn.copilotkit.ai/docs/copilotkit/icons/copilotkit-color.svg"
                           alt="CopilotKit"
-                          className="w-4 h-4"
+                          className="h-4 w-4"
                         />
                         <span className="text-sm font-semibold tracking-tight">
                           Premium
@@ -212,7 +212,7 @@ export default async function Page({
                   )}
                 </DocsTitle>
               </div>
-              <DocsDescription className="text-[#010507] text-lg font-normal dark:text-white mb-14 max-sm:mb-10 max-lg:mb-12">
+              <DocsDescription className="mb-14 text-lg font-normal text-[#010507] max-lg:mb-12 max-sm:mb-10 dark:text-white">
                 {page.data.description}
               </DocsDescription>
             </div>

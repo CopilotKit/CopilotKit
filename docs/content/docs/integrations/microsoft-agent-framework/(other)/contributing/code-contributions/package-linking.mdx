@@ -13,43 +13,48 @@ We will use pnpm's [global linking feature](https://pnpm.io/cli/link#pnpm-link--
   ### In The CopilotKit Monorepo
   Assuming you followed all steps in the contribution guide, you should have everything set up properly and ready to go.
 
-  Navigate to the CopilotKit monorepo and run the following command to link the packages globally:
+Navigate to the CopilotKit monorepo and run the following command to link the packages globally:
 
-  ```bash
-  turbo run link:global
-  ```
+```bash
+turbo run link:global
+```
+
   </Step>
   <Step>
   ### In Your Project
   In your project, ensure you have pnpm configured. This will not prevent you from using npm or yarn as well. But for the purpose of global linking, you must use pnpm.
 
-  ```bash
-  cd your-project
-  pnpm i
-  ```
+```bash
+cd your-project
+pnpm i
+```
 
-  Next, link the desired package in your project:
-  ```bash
-  # For example, to link the @copilotkit/react-core package:
-  pnpm link --global @copilotkit/react-core
-  ```
+Next, link the desired package in your project:
 
-  You can run this for all packages, or just the ones you need. Your changes will now be synced.
+```bash
+# For example, to link the @copilotkit/react-core package:
+pnpm link --global @copilotkit/react-core
+```
+
+You can run this for all packages, or just the ones you need. Your changes will now be synced.
+
   </Step>
   <Step>
   ### Unlinking
   Once you are done, you can undo the global linking by running the following command in the CopilotKit monorepo:
 
-  ```bash
-  turbo run unlink:global
-  ```
+```bash
+turbo run unlink:global
+```
 
-  And then in your project:
-  ```bash
-  pnpm install
-  ```
+And then in your project:
 
-  That's it, everything is now back to normal!
+```bash
+pnpm install
+```
+
+That's it, everything is now back to normal!
+
   </Step>
 </Steps>
 

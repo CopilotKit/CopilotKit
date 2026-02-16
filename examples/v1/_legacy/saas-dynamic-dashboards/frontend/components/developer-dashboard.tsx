@@ -349,7 +349,7 @@ export function DeveloperDashboard() {
           <CardDescription>
             Monitor build times and test coverage across repositories
           </CardDescription>
-          <div className="flex flex-wrap gap-4 mt-4 items-center">
+          <div className="mt-4 flex flex-wrap items-center gap-4">
             <div className="flex items-center gap-2">
               <Filter className="h-4 w-4 text-muted-foreground" />
               <span className="text-sm text-muted-foreground">Filters:</span>

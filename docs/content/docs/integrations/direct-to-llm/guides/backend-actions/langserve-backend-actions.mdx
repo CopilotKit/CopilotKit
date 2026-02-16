@@ -3,12 +3,13 @@ title: "LangServe actions"
 description: "Connect your CopilotKit application to LangChain chains hosted as separate services using LangServe."
 icon: "custom/langchain"
 ---
+
 import FindCopilotRuntimeSnippet from "@/snippets/find-your-copilot-runtime.mdx";
 
 <Steps>
 
 <Step>
-<FindCopilotRuntimeSnippet />
+  <FindCopilotRuntimeSnippet />
 </Step>
 
 <Step>
@@ -35,12 +36,14 @@ const runtime = new CopilotRuntime({
 
 // ... rest of your route definition
 ```
+
 </Step>
 
 <Step>
 ### Test your implementation
 
 After adding the LangServe integration, test it by asking the copilot to perform research on a topic. Observe how it connects to the external LangServe chain and returns the results.
+
 </Step>
 
 </Steps>

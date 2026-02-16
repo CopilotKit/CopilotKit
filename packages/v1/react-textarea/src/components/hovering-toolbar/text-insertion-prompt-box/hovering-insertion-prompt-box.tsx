@@ -14,7 +14,7 @@ export interface Props {
 export const HoveringInsertionPromptBox = (props: Props) => {
   return (
     <div
-      className="flex flex-col justify-center items-center space-y-4 rounded-md border shadow-lg p-4 border-gray- bg-white"
+      className="border-gray- flex flex-col items-center justify-center space-y-4 rounded-md border bg-white p-4 shadow-lg"
       style={{ width: "35rem" }}
     >
       <HoveringInsertionPromptBoxCore

@@ -3,8 +3,9 @@ title: Writing agent state
 icon: "lucide/ArrowRight"
 description: Write to agent's state from your application.
 ---
-import RunAndConnect from "@/snippets/integrations/pydantic-ai/run-and-connect.mdx"
-import { IframeSwitcher } from "@/components/content"
+
+import RunAndConnect from "@/snippets/integrations/pydantic-ai/run-and-connect.mdx";
+import { IframeSwitcher } from "@/components/content";
 
 <IframeSwitcher
   id="shared-state-write-example"
@@ -16,7 +17,8 @@ import { IframeSwitcher } from "@/components/content"
 />
 
 <Callout type="info">
-  This example demonstrates writing to shared state in the [CopilotKit Feature Viewer](https://feature-viewer.copilotkit.ai/pydantic-ai/feature/shared_state).
+  This example demonstrates writing to shared state in the [CopilotKit Feature
+  Viewer](https://feature-viewer.copilotkit.ai/pydantic-ai/feature/shared_state).
 </Callout>
 
 ## What is this?
@@ -185,6 +187,6 @@ function YourMainContent() {
 By default, the Pydantic AI Agent state will only update _between_ Pydantic AI Agent node transitions --
 which means state updates will be discontinuous and delayed.
 
-{/* You likely want to render the agent state as it updates **continuously.**
+{/\* You likely want to render the agent state as it updates **continuously.**
 
-See **[emit intermediate state](/pydantic-ai/shared-state/predictive-state-updates).**  */}
+See **[emit intermediate state](/pydantic-ai/shared-state/predictive-state-updates).** \*/}

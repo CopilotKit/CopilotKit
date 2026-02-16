@@ -4,12 +4,14 @@ description: "The CopilotKit CrewAI SDK for Python allows you to build and run C
 ---
 
 {
- /*
-  * ATTENTION! DO NOT MODIFY THIS FILE!
-  * This page is auto-generated. If you want to make any changes to this page, changes must be made at:
-  * sdk-python/copilotkit/crewai/crewai_sdk.py
-  */
-}
+/\*
+
+- ATTENTION! DO NOT MODIFY THIS FILE!
+- This page is auto-generated. If you want to make any changes to this page, changes must be made at:
+- sdk-python/copilotkit/crewai/crewai_sdk.py
+  \*/
+  }
+
 ## copilotkit_predict_state
 
 Stream tool calls as state to CopilotKit.
@@ -33,20 +35,24 @@ Stream tool calls as state to CopilotKit.
 
 ### Parameters
 
-<PropertyReference name="config" type="Dict[str, CopilotKitPredictStateConfig]" required> 
-The configuration to predict the state.
+<PropertyReference
+  name="config"
+  type="Dict[str, CopilotKitPredictStateConfig]"
+  required
+>
+  The configuration to predict the state.
 </PropertyReference>
 
 ### Returns
 
 <PropertyReference name="returns" type="Awaitable[bool]">
-Always return True.
+  Always return True.
 </PropertyReference>
 
 ## copilotkit_emit_message
 
 Manually emits a message to CopilotKit. Useful in longer running nodes to update the user.
-    Important: You still need to return the messages from the node.
+Important: You still need to return the messages from the node.
 
     ### Examples
 
@@ -64,14 +70,14 @@ Manually emits a message to CopilotKit. Useful in longer running nodes to update
 
 ### Parameters
 
-<PropertyReference name="message" type="str" required> 
-The message to emit.
+<PropertyReference name="message" type="str" required>
+  The message to emit.
 </PropertyReference>
 
 ### Returns
 
 <PropertyReference name="returns" type="Awaitable[bool]">
-Always return True.
+  Always return True.
 </PropertyReference>
 
 ## copilotkit_emit_tool_call
@@ -86,17 +92,16 @@ Manually emits a tool call to CopilotKit.
 
 ### Parameters
 
-<PropertyReference name="name" type="str" required> 
-The name of the tool to emit.
+<PropertyReference name="name" type="str" required>
+  The name of the tool to emit.
 </PropertyReference>
 
-<PropertyReference name="args" type="Dict[str, Any]" required> 
-The arguments to emit.
+<PropertyReference name="args" type="Dict[str, Any]" required>
+  The arguments to emit.
 </PropertyReference>
 
 ### Returns
 
 <PropertyReference name="returns" type="Awaitable[bool]">
-Always return True.
+  Always return True.
 </PropertyReference>
-

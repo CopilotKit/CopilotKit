@@ -66,14 +66,14 @@ export const Slide = (props: SlideProps) => {
   return (
     <>
       <div
-        className="w-full relative bg-slate-200"
+        className="relative w-full bg-slate-200"
         style={{
           height: `calc(100vh - ${heightOfSpeakerNotes}px)`,
         }}
       >
-        <div className="h-1/3 flex items-center justify-center text-5xl text-white p-10 text-center z-10">
+        <div className="z-10 flex h-1/3 items-center justify-center p-10 text-center text-5xl text-white">
           <textarea
-            className="mt-16 text-7xl bg-white text-gray-400 p-4 text-center font-bold uppercase italic line-clamp-2 flex items-center"
+            className="mt-16 line-clamp-2 flex items-center bg-white p-4 text-center text-7xl font-bold uppercase italic text-gray-400"
             style={{
               border: "none",
               outline: "none",
@@ -86,9 +86,9 @@ export const Slide = (props: SlideProps) => {
           />
         </div>
 
-        <div className="h-2/3 flex">
+        <div className="flex h-2/3">
           <textarea
-            className="w-1/2 text-3xl text-black font-medium p-10 resize-none bg-transparent m-12 rounded-xl"
+            className="m-12 w-1/2 resize-none rounded-xl bg-transparent p-10 text-3xl font-medium text-black"
             style={{
               lineHeight: "1.5",
             }}
@@ -100,7 +100,7 @@ export const Slide = (props: SlideProps) => {
           />
 
           <div
-            className="w-1/2 z-10 rounded-xl m-12 mr-24"
+            className="z-10 m-12 mr-24 w-1/2 rounded-xl"
             style={{
               backgroundImage,
               backgroundSize: "cover",
@@ -111,7 +111,7 @@ export const Slide = (props: SlideProps) => {
       </div>
 
       <textarea
-        className=" w-9/12 h-full bg-transparent text-5xl p-10 resize-none bg-gray-500 pr-36"
+        className="h-full w-9/12 resize-none bg-gray-500 bg-transparent p-10 pr-36 text-5xl"
         style={{
           height: `${heightOfSpeakerNotes}px`,
           background: "none",

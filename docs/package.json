@@ -67,8 +67,6 @@
     "@types/react-dom": "^19.2.3",
     "autoprefixer": "^10.4.20",
     "esbuild": "^0.27.2",
-    "eslint": "^9.31.0",
-    "eslint-config-next": "^16.0.0",
     "husky": "^9.1.6",
     "postcss": "^8.4.45",
     "tailwindcss": "^4.1.11",

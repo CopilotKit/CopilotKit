@@ -19,7 +19,12 @@ body,
 .page {
   min-height: 100%;
   display: flex;
-  background: radial-gradient(circle at top, #e2e8f0, #f8fafc 55%, #ffffff 100%);
+  background: radial-gradient(
+    circle at top,
+    #e2e8f0,
+    #f8fafc 55%,
+    #ffffff 100%
+  );
 }
 
 .content {
@@ -43,6 +48,8 @@ body,
   border-radius: 6px;
   padding: 2px 6px;
   margin-left: 6px;
-  font-family: "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-family:
+    "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New",
+    monospace;
   font-size: 13px;
 }

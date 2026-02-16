@@ -1,6 +1,7 @@
 ---
 title: Overview
 ---
+
 import { YouTubeVideo } from "@/components/react/youtube-video";
 import { FaGithub } from "react-icons/fa";
 import Link from "next/link";
@@ -28,7 +29,11 @@ You will learn:
 
 You can try out an interactive example of the end result below:
 
-<Link href="https://github.com/CopilotKit/example-textarea?ref=docs-tutorial" className="no-underline" target="_blank">
+<Link
+  href="https://github.com/CopilotKit/example-textarea?ref=docs-tutorial"
+  className="no-underline"
+  target="_blank"
+>
   <button className="bg-neutral-800 text-white px-4 py-2 rounded-lg flex items-center gap-2 mt-2 font-medium">
     <FaGithub className="w-4 h-4" />
     <span>View source code on GitHub</span>
@@ -37,7 +42,9 @@ You can try out an interactive example of the end result below:
 
 <div className="flex flex-col shadow-lg rounded-lg my-4">
   <div className="bg-neutral-800 h-11 rounded-t-lg flex items-center px-4">
-    <div className="flex-1 text-center text-white font-medium">CopilotKit Todo List Copilot Demo</div>
+    <div className="flex-1 text-center text-white font-medium">
+      CopilotKit Todo List Copilot Demo
+    </div>
   </div>
   <iframe
     className="rounded-b-lg h-[850px]"
@@ -47,7 +54,7 @@ You can try out an interactive example of the end result below:
     title="CopilotKit Textarea Demo"
     frameBorder="0"
     allowFullScreen
-    ></iframe>
+  ></iframe>
 </div>
 
 In the next step, we'll start building our copilot.

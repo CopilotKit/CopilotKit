@@ -89,41 +89,41 @@ export function Dashboard() {
   };
 
   return (
-    <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-4 w-full">
+    <div className="grid w-full grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
       {/* Key Metrics */}
       <div className="col-span-1 md:col-span-2 lg:col-span-4">
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-          <div className="bg-white p-3 rounded-lg border border-gray-100 shadow-sm">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+          <div className="rounded-lg border border-gray-100 bg-white p-3 shadow-sm">
             <p className="text-xs text-gray-500">Total Revenue</p>
             <p className="text-xl font-semibold text-gray-900">
               ${totalRevenue.toLocaleString()}
             </p>
           </div>
-          <div className="bg-white p-3 rounded-lg border border-gray-100 shadow-sm">
+          <div className="rounded-lg border border-gray-100 bg-white p-3 shadow-sm">
             <p className="text-xs text-gray-500">Total Profit</p>
             <p className="text-xl font-semibold text-gray-900">
               ${totalProfit.toLocaleString()}
             </p>
           </div>
-          <div className="bg-white p-3 rounded-lg border border-gray-100 shadow-sm">
+          <div className="rounded-lg border border-gray-100 bg-white p-3 shadow-sm">
             <p className="text-xs text-gray-500">Customers</p>
             <p className="text-xl font-semibold text-gray-900">
               {totalCustomers.toLocaleString()}
             </p>
           </div>
-          <div className="bg-white p-3 rounded-lg border border-gray-100 shadow-sm">
+          <div className="rounded-lg border border-gray-100 bg-white p-3 shadow-sm">
             <p className="text-xs text-gray-500">Conversion Rate</p>
             <p className="text-xl font-semibold text-gray-900">
               {conversionRate}
             </p>
           </div>
-          <div className="bg-white p-3 rounded-lg border border-gray-100 shadow-sm">
+          <div className="rounded-lg border border-gray-100 bg-white p-3 shadow-sm">
             <p className="text-xs text-gray-500">Avg Order Value</p>
             <p className="text-xl font-semibold text-gray-900">
               ${averageOrderValue}
             </p>
           </div>
-          <div className="bg-white p-3 rounded-lg border border-gray-100 shadow-sm">
+          <div className="rounded-lg border border-gray-100 bg-white p-3 shadow-sm">
             <p className="text-xs text-gray-500">Profit Margin</p>
             <p className="text-xl font-semibold text-gray-900">
               {profitMargin}
@@ -134,7 +134,7 @@ export function Dashboard() {
 
       {/* Charts */}
       <Card className="col-span-1 md:col-span-2 lg:col-span-4">
-        <CardHeader className="pb-1 pt-3">
+        <CardHeader className="pt-3 pb-1">
           <CardTitle className="text-base font-medium">
             Sales Overview
           </CardTitle>
@@ -160,7 +160,7 @@ export function Dashboard() {
       </Card>
 
       <Card className="col-span-1 md:col-span-1 lg:col-span-2">
-        <CardHeader className="pb-1 pt-3">
+        <CardHeader className="pt-3 pb-1">
           <CardTitle className="text-base font-medium">
             Product Performance
           </CardTitle>
@@ -185,7 +185,7 @@ export function Dashboard() {
       </Card>
 
       <Card className="col-span-1 md:col-span-1 lg:col-span-2">
-        <CardHeader className="pb-1 pt-3">
+        <CardHeader className="pt-3 pb-1">
           <CardTitle className="text-base font-medium">
             Sales by Category
           </CardTitle>
@@ -213,7 +213,7 @@ export function Dashboard() {
       </Card>
 
       <Card className="col-span-1 md:col-span-1 lg:col-span-2">
-        <CardHeader className="pb-1 pt-3">
+        <CardHeader className="pt-3 pb-1">
           <CardTitle className="text-base font-medium">
             Regional Sales
           </CardTitle>
@@ -238,7 +238,7 @@ export function Dashboard() {
       </Card>
 
       <Card className="col-span-1 md:col-span-1 lg:col-span-2">
-        <CardHeader className="pb-1 pt-3">
+        <CardHeader className="pt-3 pb-1">
           <CardTitle className="text-base font-medium">
             Customer Demographics
           </CardTitle>

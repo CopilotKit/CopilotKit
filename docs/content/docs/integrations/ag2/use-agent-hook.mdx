@@ -4,12 +4,7 @@ description: "Access and interact with your AG2 agent directly from React compon
 icon: "lucide/Cpu"
 ---
 
-import {
-  MessageCircle,
-  Database,
-  Zap,
-  BookOpen,
-} from "lucide-react"
+import { MessageCircle, Database, Zap, BookOpen } from "lucide-react";
 
 ## Overview
 
@@ -18,7 +13,12 @@ The `useAgent` hook provides direct access to your AG2 agent from any React comp
 This enables you to build custom agent dashboards, monitoring tools, and interactive features that respond to your agent's behavior.
 
 <Callout type="info">
-  CopilotKit consumes AG-UI protocol events streamed by AG2 over <code>/chat</code>. See the <a href="https://docs.ag2.ai/latest/docs/user-guide/ag-ui/" target="_blank">AG2 AG-UI integration docs</a>.
+  CopilotKit consumes AG-UI protocol events streamed by AG2 over{" "}
+  <code>/chat</code>. See the{" "}
+  <a href="https://docs.ag2.ai/latest/docs/user-guide/ag-ui/" target="_blank">
+    AG2 AG-UI integration docs
+  </a>
+  .
 </Callout>
 
 ## Navigation

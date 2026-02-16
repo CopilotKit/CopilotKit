@@ -44,16 +44,16 @@ export function PropertyReference({
   const renderChips = () => {
     return (
       <>
-        <span className="font-mono text-info-muted-foreground bg-info-muted py-1 px-2 rounded-md text-xs font-semibold">
+        <span className="text-info-muted-foreground bg-info-muted rounded-md px-2 py-1 font-mono text-xs font-semibold">
           {type}
         </span>
         {required && (
-          <span className="font-mono text-error-muted-foreground bg-error-muted py-1 px-2 rounded-md text-xs font-semibold">
+          <span className="text-error-muted-foreground bg-error-muted rounded-md px-2 py-1 font-mono text-xs font-semibold">
             required
           </span>
         )}
         {deprecated && (
-          <span className="font-mono text-warning-muted-foreground bg-warning-muted py-1 px-2 rounded-md text-xs font-semibold">
+          <span className="text-warning-muted-foreground bg-warning-muted rounded-md px-2 py-1 font-mono text-xs font-semibold">
             deprecated
           </span>
         )}
@@ -62,20 +62,20 @@ export function PropertyReference({
   };
 
   return (
-    <div className="ck-property-reference py-4 space-y-3 text-sm">
-      <div className="flex justify-betweem items-center">
+    <div className="ck-property-reference space-y-3 py-4 text-sm">
+      <div className="justify-betweem flex items-center">
         <div className="flex-1 space-x-3">
           {collapsable ? (
             <button
               onClick={() => setIsCollapsed(!isCollapsed)}
-              className="flex gap-x-2 items-center font-mono font-semibold text-indigo-600"
+              className="flex items-center gap-x-2 font-mono font-semibold text-indigo-600"
             >
               {isCollapsed ? <FaCaretRight /> : <FaCaretDown />}
               {name}
               {renderChips()}
             </button>
           ) : (
-            <span className="flex gap-x-2 items-center font-mono font-semibold text-indigo-600">
+            <span className="flex items-center gap-x-2 font-mono font-semibold text-indigo-600">
               {name}
               {renderChips()}
             </span>
@@ -84,8 +84,8 @@ export function PropertyReference({
 
         <div>
           {cloudOnly && (
-            <span className="flex space-x-1 items-center justify-center bg-indigo-500 text-white py-1 px-2 rounded-md text-xs font-semibold">
-              <IoSparklesSharp className="w-3 h-3" />
+            <span className="flex items-center justify-center space-x-1 rounded-md bg-indigo-500 px-2 py-1 text-xs font-semibold text-white">
+              <IoSparklesSharp className="h-3 w-3" />
               <span>COPILOT CLOUD</span>
             </span>
           )}

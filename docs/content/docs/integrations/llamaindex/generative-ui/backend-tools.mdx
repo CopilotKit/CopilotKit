@@ -3,10 +3,11 @@ title: Backend Tools
 icon: "lucide/Server"
 description: Render your agent's tool calls with custom UI components.
 ---
+
 import { Accordions, Accordion } from "fumadocs-ui/components/accordion";
-import { IframeSwitcher } from "@/components/content"
-import DefaultToolRendering from "@/snippets/shared/guides/default-tool-rendering.mdx"
-import RunAndConnect from "@/snippets/integrations/llamaindex/run-and-connect.mdx"
+import { IframeSwitcher } from "@/components/content";
+import DefaultToolRendering from "@/snippets/shared/guides/default-tool-rendering.mdx";
+import RunAndConnect from "@/snippets/integrations/llamaindex/run-and-connect.mdx";
 
 <IframeSwitcher
   id="backend-tools-example"
@@ -18,7 +19,15 @@ import RunAndConnect from "@/snippets/integrations/llamaindex/run-and-connect.md
 />
 
 <Callout>
-  This example demonstrates the [implementation](#implementation) section applied in the <a href="https://feature-viewer.copilotkit.ai/llama-index/feature/agentic_chat" target="_blank">CopilotKit feature viewer</a>.
+  This example demonstrates the [implementation](#implementation) section
+  applied in the{" "}
+  <a
+    href="https://feature-viewer.copilotkit.ai/llama-index/feature/agentic_chat"
+    target="_blank"
+  >
+    CopilotKit feature viewer
+  </a>
+  .
 </Callout>
 
 ## What is this?
@@ -82,7 +91,7 @@ if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="localhost", port=8000)
 ```
-    
+
 </Step>
 <Step>
 ### Render the tool call in your frontend
@@ -104,11 +113,12 @@ const YourMainContent = () => {
   // [!code highlight:12]
   useRenderToolCall({
     name: "getWeather",
-    render: ({status, args}) => {
+    render: ({ status, args }) => {
       return (
         <p className="text-gray-500 mt-2">
           {status !== "complete" && "Calling weather API..."}
-          {status === "complete" && `Called the weather API for ${args.location}.`}
+          {status === "complete" &&
+            `Called the weather API for ${args.location}.`}
         </p>
       );
     },

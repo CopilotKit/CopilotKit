@@ -3,9 +3,10 @@ title: Reading agent state
 icon: "lucide/ArrowLeft"
 description: Read the realtime agent state in your native application.
 ---
+
 import { ImageZoom } from "fumadocs-ui/components/image-zoom";
-import RunAndConnect from "@/snippets/integrations/llamaindex/run-and-connect.mdx"
-import { IframeSwitcher } from "@/components/content"
+import RunAndConnect from "@/snippets/integrations/llamaindex/run-and-connect.mdx";
+import { IframeSwitcher } from "@/components/content";
 
 <IframeSwitcher
   id="shared-state-read-example"
@@ -17,7 +18,8 @@ import { IframeSwitcher } from "@/components/content"
 />
 
 <Callout type="info">
-  This example demonstrates reading from shared state in the [CopilotKit Feature Viewer](https://feature-viewer.copilotkit.ai/llama-index/feature/shared_state).
+  This example demonstrates reading from shared state in the [CopilotKit Feature
+  Viewer](https://feature-viewer.copilotkit.ai/llama-index/feature/shared_state).
 </Callout>
 
 ## What is this?
@@ -164,11 +166,11 @@ function YourMainContent() {
 ```
 
 <Callout type="warn" title="Important">
-  The `name` parameter must exactly match the agent name you defined in your CopilotRuntime configuration (e.g., `my_agent` from the quickstart).
+  The `name` parameter must exactly match the agent name you defined in your
+  CopilotRuntime configuration (e.g., `my_agent` from the quickstart).
 </Callout>
 
 <Callout type="info">
   The `state` in `useCoAgentStateRender` is reactive and will automatically
   update when the agent's state changes.
 </Callout>
-

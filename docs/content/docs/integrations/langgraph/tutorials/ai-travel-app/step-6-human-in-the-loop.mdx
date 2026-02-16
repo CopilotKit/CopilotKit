@@ -2,14 +2,15 @@
 title: "Step 6: Human in the Loop"
 ---
 
-Now its time to add human in the loop to the application. This will allow the user to approve, reject, or modify mutative actions the 
+Now its time to add human in the loop to the application. This will allow the user to approve, reject, or modify mutative actions the
 agent wants to perform. For simplicity, we'll be only implementing approve and reject actions in this step.
 
-Our plan is to add a "breakpoint" to the application. This is a LangGraph concept that will force the agent to pause and wait for the 
-human approval before continuing execution. 
+Our plan is to add a "breakpoint" to the application. This is a LangGraph concept that will force the agent to pause and wait for the
+human approval before continuing execution.
 
 <Callout>
-You can learn more about breakpoints [here](https://docs.langchain.com/oss/python/langgraph/interrupts#debugging-with-interrupts).
+  You can learn more about breakpoints
+  [here](https://docs.langchain.com/oss/python/langgraph/interrupts#debugging-with-interrupts).
 </Callout>
 
 The breakpoint will then be communicated to our front-end which we'll use to render and take the user's decision. Finally, the user's
@@ -18,7 +19,10 @@ decision will be communicated back to the agent and execution will continue.
 All together, this process will look like this:
 
 <Frame>
-    <img src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/coagents-hitl-infographic.png" alt="Human in the loop" />
+  <img
+    src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/coagents-hitl-infographic.png"
+    alt="Human in the loop"
+  />
 </Frame>
 
 If you'd like to learn even more about human in the loop before proceeding, checkout our [Human in the Loop concept guide](/langgraph/human-in-the-loop).
@@ -36,6 +40,7 @@ to the `trips_node`. This will then force the agent to pause and wait for the hu
 To add a breakpoint to the agent, we'll be editing the graph definition in the `agent/travel/agent.py` file.
 
 At the very bottom of the file, add the following line to the `compile` function:
+
 ```python title="agent/travel/agent.py"
 # ...
 
@@ -46,6 +51,7 @@ graph = graph_builder.compile(
 ```
 
 This will force the agent to pause execution at the `trips_node` and wait for the human to approve the action before continuing.
+
 </Step>
 <Step>
 ## Update the perform_trips_node node to properly handle the user's decision
@@ -87,11 +93,11 @@ async def perform_trips_node(state: AgentState, config: RunnableConfig):
     if tool_message.content == "CANCEL":
       await copilotkit_emit_message(config, "Cancelled operation of trip.")
       return state
-    
+
     # handle the edge case where the AI message is not an AIMessage or does not have tool calls, should never happen.
     if not isinstance(ai_message, AIMessage) or not ai_message.tool_calls:
         return state
-    
+
     # ...
 ```
 
@@ -126,7 +132,7 @@ With that, our work on the agent is complete and we are ready to update the fron
 
 ## Rendering the tool calls and taking the user's decision
 
-Now we need to update the front-end to render the tool calls and emit the user's decision back to the agent. To do this, 
+Now we need to update the front-end to render the tool calls and emit the user's decision back to the agent. To do this,
 we'll be adding `useCopilotAction` hooks for each tool call with the `renderAndWait` option.
 
 ```typescript title="ui/lib/hooks/use-trips.tsx"
@@ -147,7 +153,7 @@ export const TripsProvider = ({ children }: { children: ReactNode }) => {
   });
 
   // [!code ++:42]
-  useCopilotAction({ 
+  useCopilotAction({
     name: "add_trips",
     description: "Add some trips",
     parameters: [
@@ -216,32 +222,48 @@ export type DeleteTripsProps = {
   trips: Trip[];
 };
 
-export const DeleteTrips = ({ args, status, handler, trips }: DeleteTripsProps) => {
-  const tripsToDelete = trips.filter((trip: Trip) => args?.trip_ids?.includes(trip.id));
+export const DeleteTrips = ({
+  args,
+  status,
+  handler,
+  trips,
+}: DeleteTripsProps) => {
+  const tripsToDelete = trips.filter((trip: Trip) =>
+    args?.trip_ids?.includes(trip.id),
+  );
 
   return (
     <div className="space-y-4 w-full bg-secondary p-6 rounded-lg">
-    <h1 className="text-sm">The following trips will be deleted:</h1>
-      {status !== "complete" && tripsToDelete?.map((trip: Trip) => (
-        <div key={trip.id} className="flex flex-col gap-4">
-          <>
-            <hr className="my-2" />
-            <div className="flex flex-col gap-4">
-            <h2 className="text-lg font-bold">{trip.name}</h2>
-            {trip.places?.map((place) => (
-              <PlaceCard key={place.id} place={place} />
-            ))}
-            </div>
-          </>
-        </div>
-      ))}
-      { status !== "complete" && (
+      <h1 className="text-sm">The following trips will be deleted:</h1>
+      {status !== "complete" &&
+        tripsToDelete?.map((trip: Trip) => (
+          <div key={trip.id} className="flex flex-col gap-4">
+            <>
+              <hr className="my-2" />
+              <div className="flex flex-col gap-4">
+                <h2 className="text-lg font-bold">{trip.name}</h2>
+                {trip.places?.map((place) => (
+                  <PlaceCard key={place.id} place={place} />
+                ))}
+              </div>
+            </>
+          </div>
+        ))}
+      {status !== "complete" && (
         // [!code highlight:6]
         <ActionButtons
-          status={status} 
-          handler={handler} 
-          approve={<><Trash className="w-4 h-4 mr-2" /> Delete</>} 
-          reject={<><X className="w-4 h-4 mr-2" /> Cancel</>} 
+          status={status}
+          handler={handler}
+          approve={
+            <>
+              <Trash className="w-4 h-4 mr-2" /> Delete
+            </>
+          }
+          reject={
+            <>
+              <X className="w-4 h-4 mr-2" /> Cancel
+            </>
+          }
         />
       )}
     </div>
@@ -257,25 +279,30 @@ import { RenderFunctionStatus } from "@copilotkit/react-core";
 import { Button } from "../ui/button";
 
 export type ActionButtonsProps = {
-    status: RenderFunctionStatus;
-    handler: any;
-    approve: React.ReactNode;
-    reject: React.ReactNode;
-}
+  status: RenderFunctionStatus;
+  handler: any;
+  approve: React.ReactNode;
+  reject: React.ReactNode;
+};
 
-export const ActionButtons = ({ status, handler, approve, reject }: ActionButtonsProps) => (
+export const ActionButtons = ({
+  status,
+  handler,
+  approve,
+  reject,
+}: ActionButtonsProps) => (
   <div className="flex gap-4 justify-between">
-    <Button 
+    <Button
       className="w-full"
       variant="outline"
-      disabled={status === "complete" || status === "inProgress"} 
+      disabled={status === "complete" || status === "inProgress"}
       onClick={() => handler?.("CANCEL")} // [!code highlight]
     >
       {reject}
     </Button>
-    <Button 
+    <Button
       className="w-full"
-      disabled={status === "complete" || status === "inProgress"} 
+      disabled={status === "complete" || status === "inProgress"}
       onClick={() => handler?.("SEND")} // [!code highlight]
     >
       {approve}
@@ -285,12 +312,14 @@ export const ActionButtons = ({ status, handler, approve, reject }: ActionButton
 ```
 
 The important piece here is that the `onClick` handlers emit the user's decision back to the agent. If the user clicks the `Delete` button
-then the `handler?.("SEND")` is called. If the user clicks the `Cancel` button then the `handler?.("CANCEL")` is called. This is how the 
-agent recieves the user's decision. 
+then the `handler?.("SEND")` is called. If the user clicks the `Cancel` button then the `handler?.("CANCEL")` is called. This is how the
+agent recieves the user's decision.
 
 <Callout>
-If you wanted to implement a more complex UI that allows for the human to edit the tool call arguments before sending them back to the agent,
-you could do so by adding additional logic to the `onClick` handlers and the agent's handling of the tool call.
+  If you wanted to implement a more complex UI that allows for the human to edit
+  the tool call arguments before sending them back to the agent, you could do so
+  by adding additional logic to the `onClick` handlers and the agent's handling
+  of the tool call.
 </Callout>
 
 </Step>

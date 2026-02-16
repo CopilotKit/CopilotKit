@@ -25,7 +25,7 @@ export function Stars({
           {interactive ? (
             <button
               type="button"
-              className="p-0 hover:scale-110 transition-transform"
+              className="p-0 transition-transform hover:scale-110"
               onMouseEnter={() => onHover?.(star)}
               onMouseLeave={() => onHover?.(0)}
               onClick={() => onRate?.(star)}
@@ -41,7 +41,7 @@ export function Stars({
             </button>
           ) : (
             <div className="relative">
-              <Star className="w-5 h-5 text-gray-300" aria-hidden="true" />
+              <Star className="h-5 w-5 text-gray-300" aria-hidden="true" />
               <div
                 className="absolute inset-0 overflow-hidden"
                 style={{
@@ -49,7 +49,7 @@ export function Stars({
                 }}
               >
                 <Star
-                  className="w-5 h-5 text-yellow-400 fill-yellow-400"
+                  className="h-5 w-5 fill-yellow-400 text-yellow-400"
                   aria-hidden="true"
                 />
               </div>
@@ -58,7 +58,7 @@ export function Stars({
         </div>
       ))}
       {showNumber && rating && (
-        <p className="text-sm text-muted-foreground ml-2">
+        <p className="ml-2 text-sm text-muted-foreground">
           {rating.toFixed(1)}
         </p>
       )}

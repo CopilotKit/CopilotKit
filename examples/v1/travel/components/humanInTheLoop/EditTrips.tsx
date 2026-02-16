@@ -44,7 +44,7 @@ export const EditTrips = ({
     return [...onlyInArr1, ...onlyInArr2];
   }
   return (
-    <div className="space-y-4 w-full bg-secondary p-6 rounded-lg">
+    <div className="w-full space-y-4 rounded-lg bg-secondary p-6">
       {Array.isArray(args.trips) &&
         args.trips.length > 0 &&
         args.trips.map(
@@ -82,12 +82,12 @@ export const EditTrips = ({
         selectedPlaceIds={selectedPlaceIds}
         approve={
           <>
-            <Save className="w-4 h-4 mr-2" /> Save
+            <Save className="mr-2 h-4 w-4" /> Save
           </>
         }
         reject={
           <>
-            <X className="w-4 h-4 mr-2" /> Cancel
+            <X className="mr-2 h-4 w-4" /> Cancel
           </>
         }
         type="edit"

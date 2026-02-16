@@ -82,7 +82,7 @@ export function TailoredContent({
     <div>
       <div className={cn("tailored-content-wrapper mt-4", className)}>
         {header}
-        <div className="flex flex-col md:flex-row gap-3 my-2 w-full">
+        <div className="my-2 flex w-full flex-col gap-3 md:flex-row">
           {options.map((option, index) => (
             <div
               key={option.props.id}
@@ -105,7 +105,7 @@ export function TailoredContent({
                 )}
               </div>
               <div>
-                <p className="font-semibold text-lg">{option.props.title}</p>
+                <p className="text-lg font-semibold">{option.props.title}</p>
                 <p className="text-xs md:text-sm">{option.props.description}</p>
               </div>
             </div>

@@ -47,7 +47,7 @@ export function MapCanvas({ className }: MapCanvasProps) {
               <Tooltip offset={[10, 0]} opacity={1}>
                 <PlaceCard
                   shouldShowCheckbox={false}
-                  className="border-none overflow-y-auto shadow-none"
+                  className="overflow-y-auto border-none shadow-none"
                   place={place}
                 />
               </Tooltip>
@@ -57,15 +57,15 @@ export function MapCanvas({ className }: MapCanvasProps) {
       {map && (
         <>
           {isDesktop ? (
-            <div className="absolute h-screen top-0 p-10 pointer-events-none flex items-start w-[30%] md:w-[50%] lg:w-[40%] 2xl:w-[35%]">
+            <div className="pointer-events-none absolute top-0 flex h-screen w-[30%] items-start p-10 md:w-[50%] lg:w-[40%] 2xl:w-[35%]">
               <TripCard
-                className="w-full h-full pointer-events-auto"
+                className="pointer-events-auto h-full w-full"
                 map={map}
               />
             </div>
           ) : (
             <MobileTripCard
-              className="w-full h-full pointer-events-auto"
+              className="pointer-events-auto h-full w-full"
               map={map}
             />
           )}

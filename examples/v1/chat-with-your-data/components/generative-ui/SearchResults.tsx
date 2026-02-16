@@ -8,13 +8,13 @@ type SearchResultsProps = {
 
 export function SearchResults({ query, status }: SearchResultsProps) {
   return (
-    <div className="bg-white dark:bg-gray-800 p-3 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm">
-      <div className="flex items-center gap-2 mb-2">
+    <div className="rounded-lg border border-gray-200 bg-white p-3 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+      <div className="mb-2 flex items-center gap-2">
         <Search className="h-4 w-4 text-blue-500" />
         <h3 className="text-sm font-medium">Search Results</h3>
       </div>
 
-      <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+      <p className="mb-2 text-xs text-gray-500 dark:text-gray-400">
         Query: {query}
       </p>
 

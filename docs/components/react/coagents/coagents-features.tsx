@@ -80,7 +80,7 @@ export const CoAgentsFeatureToggle: React.FC<{ className?: string }> = ({
 
   return (
     <div className={cn("coagents-features-wrapper mt-4", className)}>
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 my-2 w-full">
+      <div className="my-2 grid w-full grid-cols-2 gap-3 md:grid-cols-4">
         {features.map((feature) => (
           <div
             key={feature.id}
@@ -90,10 +90,10 @@ export const CoAgentsFeatureToggle: React.FC<{ className?: string }> = ({
             <feature.Icon
               className={cn(iconCn, mode === feature.id && "text-indigo-500")}
             />
-            <p className="font-semibold text-sm md:text-base text-center">
+            <p className="text-center text-sm font-semibold md:text-base">
               {feature.title}
             </p>
-            <p className="text-xs text-center hidden md:block">
+            <p className="hidden text-center text-xs md:block">
               {feature.description}
             </p>
           </div>

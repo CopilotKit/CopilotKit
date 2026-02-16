@@ -16,8 +16,8 @@ export const Slide = (props: SlideProps) => {
   useUpdateSlide({ partialUpdateSlide: props.partialUpdateSlide });
 
   return (
-    <div className="w-full h-full flex flex-row bg-white">
-      <div className="flex-grow h-full flex flex-col" style={{ flex: "2" }}>
+    <div className="flex h-full w-full flex-row bg-white">
+      <div className="flex h-full flex-grow flex-col" style={{ flex: "2" }}>
         <SlideContent
           content={props.slide.content}
           onChange={(newContent) => {
@@ -39,7 +39,7 @@ export const Slide = (props: SlideProps) => {
 function SlideImage({ backgroundImage }: { backgroundImage: string }) {
   return (
     <div
-      className="flex-grow h-full bg-slate-200"
+      className="h-full flex-grow bg-slate-200"
       style={{
         flex: "1",
         backgroundImage,
@@ -57,9 +57,9 @@ interface SpeakerNotesProps {
 
 function SlideSpeakerNotes({ spokenNarration, onChange }: SpeakerNotesProps) {
   return (
-    <div className="bg-gray-200 relative h-20 flex flex-col">
+    <div className="relative flex h-20 flex-col bg-gray-200">
       <textarea
-        className="w-full h-full bg-transparent p-2 text-base"
+        className="h-full w-full bg-transparent p-2 text-base"
         style={{
           border: "none",
           outline: "none",
@@ -84,7 +84,7 @@ interface SlideContentProps {
 function SlideContent({ content, onChange }: SlideContentProps) {
   return (
     <textarea
-      className="flex-1 w-full text-gray-800 p-4 px-10 font-bold flex items-center line-clamp-6"
+      className="line-clamp-6 flex w-full flex-1 items-center p-4 px-10 font-bold text-gray-800"
       style={{
         border: "none",
         outline: "none",

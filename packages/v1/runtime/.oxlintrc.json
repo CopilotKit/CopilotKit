@@ -1,0 +1,7 @@
+{
+  "rules": {
+    "react/rules-of-hooks": "off",
+    "react/exhaustive-deps": "off",
+    "turbo/no-undeclared-env-vars": "off"
+  }
+}

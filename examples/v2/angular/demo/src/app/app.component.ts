@@ -17,7 +17,14 @@ import { CoPilotPortComponent } from "./routes/ukg-port/co-pilot-port.component"
   ],
   template: `
     <div
-      style="height: 100vh; width: 100vw; margin: 0; padding: 0; overflow: hidden; display: block;"
+      style="
+        height: 100vh;
+        width: 100vw;
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+        display: block;
+      "
     >
       <ng-container *ngIf="isHeadless">
         <headless-chat></headless-chat>

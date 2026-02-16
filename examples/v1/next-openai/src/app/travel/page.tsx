@@ -61,8 +61,8 @@ function TravelPlanner() {
     },
     render({ status, args }) {
       return (
-        <div className="bg-white w-96 rounded-lg shadow-sm border">
-          <div className="py-4 px-4">
+        <div className="w-96 rounded-lg border bg-white shadow-sm">
+          <div className="px-4 py-4">
             <h1 className="text-xl font-bold">{args.title || ""}</h1>
             <p className="text-sm">{args.description || ""}</p>
           </div>
@@ -106,29 +106,29 @@ function TravelPlanner() {
   });
 
   return (
-    <div className="h-full flex">
+    <div className="flex h-full">
       <CopilotChat
-        className="w-2/3 h-full border-r border-gray-200"
+        className="h-full w-2/3 border-r border-gray-200"
         labels={{
           initial: "Hi you! 👋 Let's book your next vacation. Ask me anything.",
         }}
         instructions="You are a travel planner. You help the user plan their vacation. After presenting something, don't summarize, but keep the reply short."
       />
-      <div className="h-full flex-1 flex flex-col p-4 space-y-4">
+      <div className="flex h-full flex-1 flex-col space-y-4 p-4">
         {bookableItems.length === 0 ? (
-          <p className="text-black h-full p-3 text-sm pt-8 items-center justify-center w-full flex">
+          <p className="flex h-full w-full items-center justify-center p-3 pt-8 text-sm text-black">
             No items booked yet. Your cart is empty.
           </p>
         ) : (
           <>
-            <h2 className="text-2xl font-bold mb-4">Your Bookings</h2>
+            <h2 className="mb-4 text-2xl font-bold">Your Bookings</h2>
             {bookableItems.map((item, index) => (
               <div
                 key={index}
-                className="bg-white p-4 rounded-lg shadow-md border relative"
+                className="relative rounded-lg border bg-white p-4 shadow-md"
               >
                 <button
-                  className="absolute top-2 right-2 text-red-500 text-xs"
+                  className="absolute right-2 top-2 text-xs text-red-500"
                   onClick={() =>
                     setBookableItems((prev) =>
                       prev.filter((_, i) => i !== index),

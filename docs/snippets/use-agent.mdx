@@ -7,6 +7,7 @@
     ```tsx title="page.tsx"
     import { useAgent } from "@copilotkit/react-core/v2"; // [!code highlight]
     ```
+
   </Step>
 
   <Step>
@@ -31,6 +32,7 @@
     ```
 
     The hook will throw an error if no agent is configured, so you can safely use `agent` without null checks.
+
   </Step>
 
   <Step>
@@ -55,6 +57,7 @@
       );
     }
     ```
+
   </Step>
 
   <Step>
@@ -81,6 +84,7 @@
       );
     }
     ```
+
   </Step>
 </Steps>
 
@@ -105,7 +109,9 @@ export function StateDisplay() {
       {/* Access specific properties */}
       {/* [!code highlight:2] */}
       {agent.state.user_name && <p>User: {agent.state.user_name}</p>}
-      {agent.state.preferences && <p>Preferences: {JSON.stringify(agent.state.preferences)}</p>}
+      {agent.state.preferences && (
+        <p>Preferences: {JSON.stringify(agent.state.preferences)}</p>
+      )}
     </div>
   );
 }
@@ -207,7 +213,13 @@ export const weatherToolRender = defineToolCallRenderer({
   },
 });
 
-function WeatherCard({ location, status }: { location?: string; status: string }) {
+function WeatherCard({
+  location,
+  status,
+}: {
+  location?: string;
+  status: string;
+}) {
   return (
     <div className="rounded-lg border p-6 shadow-sm">
       <h3 className="text-xl font-semibold">Weather in {location}</h3>
@@ -257,16 +269,17 @@ export function MessageList() {
 
           {/* Render tool calls if present */}
           {/* [!code highlight:9] */}
-          {message.role === "assistant" && message.toolCalls?.map((toolCall) => {
-            const toolMessage = agent.messages.find(
-              (m) => m.role === "tool" && m.toolCallId === toolCall.id
-            );
-            return (
-              <div key={toolCall.id}>
-                {renderToolCall({ toolCall, toolMessage })}
-              </div>
-            );
-          })}
+          {message.role === "assistant" &&
+            message.toolCalls?.map((toolCall) => {
+              const toolMessage = agent.messages.find(
+                (m) => m.role === "tool" && m.toolCallId === toolCall.id,
+              );
+              return (
+                <div key={toolCall.id}>
+                  {renderToolCall({ toolCall, toolMessage })}
+                </div>
+              );
+            })}
         </div>
       ))}
     </div>
@@ -294,9 +307,11 @@ export default function AgentDashboard() {
         <div className="space-y-2">
           {/* [!code highlight:6] */}
           <div className="flex items-center gap-2">
-            <div className={`w-3 h-3 rounded-full ${
-              agent.isRunning ? "bg-yellow-500 animate-pulse" : "bg-green-500"
-            }`} />
+            <div
+              className={`w-3 h-3 rounded-full ${
+                agent.isRunning ? "bg-yellow-500 animate-pulse" : "bg-green-500"
+              }`}
+            />
             <span>{agent.isRunning ? "Running" : "Idle"}</span>
           </div>
           <div>Thread: {agent.threadId}</div>

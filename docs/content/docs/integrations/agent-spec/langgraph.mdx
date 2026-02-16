@@ -12,6 +12,7 @@ import { Steps, Step } from "fumadocs-ui/components/steps";
 Wire an Agent Spec agent backed by LangGraph to CopilotKit’s UI via the AG‑UI event protocol. You’ll run a FastAPI endpoint that emits AG‑UI events and point your Next.js app at it.
 
 Key pieces:
+
 - Backend endpoint: `ag-ui/integrations/agent-spec/python/ag_ui_agentspec/endpoint.py`
 - Example server: `ag-ui/integrations/agent-spec/python/examples/server.py`
 - Template UI: `npx copilotkit@latest create -f agent-spec`
@@ -56,7 +57,7 @@ from fastapi import FastAPI
 from ag_ui_agentspec.agent import AgentSpecAgent
 from ag_ui_agentspec.endpoint import add_agentspec_fastapi_endpoint
 
-agentspec_json = <loaded json/yaml string of your Agent Spec config> 
+agentspec_json = <loaded json/yaml string of your Agent Spec config>
 
 app = FastAPI()
 agent = AgentSpecAgent(agentspec_json, runtime="langgraph")

@@ -12,11 +12,11 @@ const SearchDialogButton = () => {
   return (
     <button
       onClick={() => setOpenSearch(true)}
-      className="-ml-2 lg:ml-0 flex gap-2 items-center px-3 h-11 rounded-lg lg:border cursor-pointer bg-transparent lg:bg-glass-background dark:border-border border-[#01050726]"
+      className="lg:bg-glass-background dark:border-border -ml-2 flex h-11 cursor-pointer items-center gap-2 rounded-lg border-[#01050726] bg-transparent px-3 lg:ml-0 lg:border"
     >
       <LoupeIcon />
 
-      <span className="hidden text-sm font-medium text-foreground/50 dark:text-white/50 lg:block">
+      <span className="text-foreground/50 hidden text-sm font-medium lg:block dark:text-white/50">
         Search...
       </span>
 

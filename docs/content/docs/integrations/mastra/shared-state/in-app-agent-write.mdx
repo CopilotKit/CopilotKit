@@ -3,9 +3,10 @@ title: Writing agent state
 icon: "lucide/ArrowRight"
 description: Write to agent's state from your application.
 ---
-import { ImageZoom } from 'fumadocs-ui/components/image-zoom';
-import RunAndConnect from "@/snippets/integrations/mastra/run-and-connect.mdx"
-import { IframeSwitcher } from "@/components/content"
+
+import { ImageZoom } from "fumadocs-ui/components/image-zoom";
+import RunAndConnect from "@/snippets/integrations/mastra/run-and-connect.mdx";
+import { IframeSwitcher } from "@/components/content";
 
 <IframeSwitcher
   id="shared-state-write-example"
@@ -17,7 +18,8 @@ import { IframeSwitcher } from "@/components/content"
 />
 
 <Callout type="info">
-  This example demonstrates writing to shared state in the [CopilotKit Feature Viewer](https://feature-viewer.copilotkit.ai/mastra/feature/shared_state).
+  This example demonstrates writing to shared state in the [CopilotKit Feature
+  Viewer](https://feature-viewer.copilotkit.ai/mastra/feature/shared_state).
 </Callout>
 
 ## What is this?
@@ -27,13 +29,14 @@ You can easily write to your agent's state from your native application, allowin
 <Callout type="info" title="Important">
   This guide assumes you are embedding your Mastra agent inside of Copilot Runtime, like so.
 
-  ```ts
-  const runtime = new CopilotRuntime({
-    agents: MastraAgent.getLocalAgents({ mastra }),
-  });
-  ```
+```ts
+const runtime = new CopilotRuntime({
+  agents: MastraAgent.getLocalAgents({ mastra }),
+});
+```
 
-  This feature will **not work** if you are using a **remote Mastra agent**.
+This feature will **not work** if you are using a **remote Mastra agent**.
+
 </Callout>
 
 ## When should I use this?
@@ -86,7 +89,8 @@ You can use this when you want to provide user input or control to your agent's 
         },
       }),
     });
-    ```    
+    ```
+
   </Step>
   <Step>
     ### Use the `useCoAgent` Hook
@@ -102,7 +106,7 @@ You can use this when you want to provide user input or control to your agent's 
       const { state, setState } = useCoAgent<AgentState>({
         name: "your-mastra-agent-name",
         // optionally provide a type-safe initial state
-        initialState: { language: "english" }  
+        initialState: { language: "english" }
       });
 
       const toggleLanguage = () => {
@@ -114,7 +118,7 @@ You can use this when you want to provide user input or control to your agent's 
         <div>
           <h1>Your main content</h1>
           {/* [!code highlight:2] */}
-          <p>Language: {state.language}</p> 
+          <p>Language: {state.language}</p>
           <button onClick={toggleLanguage}>Toggle Language</button>
         </div>
       );
@@ -123,6 +127,7 @@ You can use this when you want to provide user input or control to your agent's 
     <Callout type="info">
       The `setState` function in `useCoAgent` will update the working memory and trigger a rerender when the state changes.
     </Callout>
+
   </Step>
   <Step>
     ### Give it a try!
@@ -133,5 +138,6 @@ You can use this when you want to provide user input or control to your agent's 
       Shared-state in Mastra is prompt-driven. This means that your Agent's awareness of the shared state will be augmented
       by the instructions you provide to your agent.
     </Callout>
+
   </Step>
 </Steps>

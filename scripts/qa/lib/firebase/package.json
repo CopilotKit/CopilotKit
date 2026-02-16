@@ -1,5 +1,7 @@
 {
   "name": "functions",
+  "private": true,
+  "main": "lib/index.js",
   "scripts": {
     "lint": "eslint --ext .js,.ts .",
     "build": "tsc",
@@ -10,10 +12,6 @@
     "deploy": "firebase deploy --only functions",
     "logs": "firebase functions:log"
   },
-  "engines": {
-    "node": "18"
-  },
-  "main": "lib/index.js",
   "dependencies": {
     "@copilotkit/backend": "^0.7.0-mme-firebase-fixes.0",
     "@copilotkit/react-core": "^0.23.0-mme-firebase-fixes.0",
@@ -33,5 +31,7 @@
     "firebase-tools": "^13.6.0",
     "typescript": "^5.4.3"
   },
-  "private": true
+  "engines": {
+    "node": "18"
+  }
 }

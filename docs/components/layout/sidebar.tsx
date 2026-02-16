@@ -59,7 +59,7 @@ const Sidebar = ({
     <OpenedFoldersProvider>
       <aside
         id="nd-sidebar"
-        className={`w-full max-w-[260px] h-full border backdrop-blur-lg border-r-0 border-border rounded-l-2xl pl-3 ${showIntegrationSelector ? "pr-3" : "pr-1"} flex flex-col`}
+        className={`border-border h-full w-full max-w-[260px] rounded-l-2xl border border-r-0 pl-3 backdrop-blur-lg ${showIntegrationSelector ? "pr-3" : "pr-1"} flex flex-col`}
         style={{ backgroundColor: "var(--sidebar)" }}
       >
         {showIntegrationSelector && (
@@ -70,9 +70,9 @@ const Sidebar = ({
         )}
 
         <ul
-          className={`flex overflow-y-auto flex-col pr-1 max-h-full custom-scrollbar ${!showIntegrationSelector ? "pt-6" : ""}`}
+          className={`custom-scrollbar flex max-h-full flex-col overflow-y-auto pr-1 ${!showIntegrationSelector ? "pt-6" : ""}`}
         >
-          <li className="w-full h-6" />
+          <li className="h-6 w-full" />
           {pages.map((page, index) => {
             const nodeType = isIntegrationFolder(page as Node)
               ? "integrationLink"

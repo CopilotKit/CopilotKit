@@ -250,14 +250,14 @@ export const WithAdditionalToolbarItems: Story = {
     additionalToolbarItems: (
       <>
         <button
-          className="h-8 w-8 p-0 rounded-md bg-gray-100 hover:bg-gray-200 flex items-center justify-center"
+          className="flex h-8 w-8 items-center justify-center rounded-md bg-gray-100 p-0 hover:bg-gray-200"
           onClick={() => alert("Custom button 1 clicked!")}
           title="Custom Action 1"
         >
           📌
         </button>
         <button
-          className="h-8 w-8 p-0 rounded-md bg-gray-100 hover:bg-gray-200 flex items-center justify-center"
+          className="flex h-8 w-8 items-center justify-center rounded-md bg-gray-100 p-0 hover:bg-gray-200"
           onClick={() => alert("Custom button 2 clicked!")}
           title="Custom Action 2"
         >

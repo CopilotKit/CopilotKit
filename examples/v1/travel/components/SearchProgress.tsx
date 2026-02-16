@@ -14,11 +14,11 @@ export function SearchProgressItem({
   progress: SearchProgressType;
 }) {
   return (
-    <Card className="p-4 flex items-center gap-2">
+    <Card className="flex items-center gap-2 p-4">
       {progress.done ? (
-        <CheckIcon className="w-4 h-4 text-green-500 bg-green-500/20 rounded-full p-0.5" />
+        <CheckIcon className="h-4 w-4 rounded-full bg-green-500/20 p-0.5 text-green-500" />
       ) : (
-        <LoaderCircle className="w-4 h-4 text-muted-foreground bg-muted-foreground/20 rounded-full p-1 animate-spin" />
+        <LoaderCircle className="h-4 w-4 animate-spin rounded-full bg-muted-foreground/20 p-1 text-muted-foreground" />
       )}
       <p className="text-sm font-medium capitalize">{progress.query}</p>
     </Card>

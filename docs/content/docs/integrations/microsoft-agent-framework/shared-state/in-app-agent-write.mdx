@@ -3,10 +3,12 @@ title: Writing agent state
 icon: "lucide/ArrowRight"
 description: Write to agent's state from your application.
 ---
-import RunAndConnect from "@/snippets/integrations/microsoft-agent-framework/run-and-connect.mdx"
-import { IframeSwitcher } from "@/components/content"
+
+import RunAndConnect from "@/snippets/integrations/microsoft-agent-framework/run-and-connect.mdx";
+import { IframeSwitcher } from "@/components/content";
 
 {/* TODO: Swap these links for Microsoft Agent Framework links once Microsoft Agent Framework is officially added to the feature viewer */}
+
 <IframeSwitcher
   id="shared-state-example"
   exampleUrl="https://feature-viewer.copilotkit.ai/microsoft-agent-framework-dotnet/feature/shared_state?sidebar=false&chatDefaultOpen=false"
@@ -17,7 +19,8 @@ import { IframeSwitcher } from "@/components/content"
 />
 
 <Callout type="info">
-  This example demonstrates reading from shared state in the [CopilotKit Feature Viewer](https://feature-viewer.copilotkit.ai/microsoft-agent-framework-dotnet/feature/shared_state).
+  This example demonstrates reading from shared state in the [CopilotKit Feature
+  Viewer](https://feature-viewer.copilotkit.ai/microsoft-agent-framework-dotnet/feature/shared_state).
 </Callout>
 
 ## What is this?
@@ -104,6 +107,7 @@ You can use this when you need to update agent state from your application — f
       language: "english" | "spanish";
     }
     ```
+
   </Step>
   <Step>
     ### Call `setState` function from the `useCoAgent` hook
@@ -144,6 +148,7 @@ You can use this when you need to update agent state from your application — f
       );
     }
     ```
+
   </Step>
   <Step>
     ### Give it a try!
@@ -201,4 +206,5 @@ function YourMainContent() {
 ```
 
 ### Notes on state updates
+
 Depending on your agent implementation, you may choose to surface progress via tool responses or messages rather than frequent state snapshots. See [Generative UI](/microsoft-agent-framework/generative-ui) for recommended patterns.

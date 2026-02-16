@@ -28,13 +28,13 @@ const CustomCodeBlock = ({ code }: CustomCodeBlockProps) => {
       <div className="flex items-center justify-between px-4 py-3">
         <pre className="text-sm">
           <code
-            className="font-mono text-[#010507] bg-transparent dark:text-white border-none!"
+            className="border-none! bg-transparent font-mono text-[#010507] dark:text-white"
             dangerouslySetInnerHTML={{ __html: highlightCode(code) }}
           />
         </pre>
         <button
           onClick={handleCopy}
-          className="ml-4 shrink-0 rounded p-1.5 text-gray-500 transition-colors hover:bg-black/5 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/10 dark:hover:text-gray-200 cursor-pointer"
+          className="ml-4 shrink-0 cursor-pointer rounded p-1.5 text-gray-500 transition-colors hover:bg-black/5 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/10 dark:hover:text-gray-200"
           aria-label="Copy code"
         >
           {copied ? (

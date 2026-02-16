@@ -15,7 +15,7 @@ export function ImageAndCode({
       <Tab value="Preview">
         {typeof preview === "string" ? (
           <Frame>
-            <img className="rounded-lg w-full" src={preview} />
+            <img className="w-full rounded-lg" src={preview} />
           </Frame>
         ) : (
           preview

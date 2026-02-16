@@ -3,15 +3,19 @@ title: "Remote Endpoint (Python)"
 description: "Connect your CopilotKit application to a remote backend endpoint, allowing integration with Python-based services or other non-Node.js backends."
 icon: "custom/python"
 ---
+
 import FindCopilotRuntimeSnippet from "@/snippets/find-your-copilot-runtime.mdx";
 import CopilotCloudConfigureRemoteEndpointSnippet from "@/snippets/copilot-cloud-configure-remote-endpoint.mdx";
 import CopilotCloudConfigureCopilotKitProviderSnippet from "@/snippets/copilot-cloud-configure-copilotkit-provider.mdx";
-import { TailoredContent, TailoredContentOption } from "@/components/react/tailored-content";
+import {
+  TailoredContent,
+  TailoredContentOption,
+} from "@/components/react/tailored-content";
 import { Accordions, Accordion } from "fumadocs-ui/components/accordion";
 import { FaCloud, FaServer } from "react-icons/fa";
 
-
 ## Stand up a FastAPI server using the CopilotKit Python SDK
+
 <Steps>
 
 <Step>
@@ -19,88 +23,43 @@ import { FaCloud, FaServer } from "react-icons/fa";
 
 To integrate a Python backend with your CopilotKit application, set up your project and install the necessary dependencies by choosing your dependency management solution below.
 
+<Tabs groupId="python-pm" items={["Poetry", "pip", "conda"]} default="Poetry">
+  <Tab value="Poetry">
+    #### Initialize a New Poetry Project Run the following command to create and
+    initialize a new Poetry project: ```bash poetry new
+    My-CopilotKit-Remote-Endpoint ``` Follow the prompts to set up your
+    `pyproject.toml`. #### Install Dependencies After initializing the project,
+    install the dependencies: ```bash poetry add copilotkit fastapi uvicorn # or
+    including support for crewai poetry add copilotkit[crewai] fastapi uvicorn
+    ```
+  </Tab>
 
-<Tabs groupId="python-pm" items={['Poetry', 'pip', 'conda']} default="Poetry">
-    <Tab value="Poetry">
-    
-    #### Initialize a New Poetry Project
-    
-    Run the following command to create and initialize a new Poetry project:
-    
-    ```bash
-    poetry new My-CopilotKit-Remote-Endpoint
-    ```
-    
-    Follow the prompts to set up your `pyproject.toml`.
-    
-    #### Install Dependencies
-    
-    After initializing the project, install the dependencies:
-    
-    ```bash
-    poetry add copilotkit fastapi uvicorn
-    # or including support for crewai
-    poetry add copilotkit[crewai] fastapi uvicorn
-    ```
-    
-    </Tab>
-    
-    <Tab value="pip">
-    
-    #### Set Up a Virtual Environment (optional)
-    
-    Create and activate a virtual environment using `venv`:
-    
-    ```bash
-    python3 -m venv venv
-    source venv/bin/activate
-    ```
-    
-    #### Install Dependencies
-    
-    With the virtual environment activated, install the dependencies:
-    
-    ```bash
-    pip install copilotkit fastapi uvicorn --extra-index-url https://copilotkit.gateway.scarf.sh/simple/
-    # or including support for crewai
-    pip install copilotkit[crewai] fastapi uvicorn --extra-index-url https://copilotkit.gateway.scarf.sh/simple/
-    ```
-    
-    </Tab>
-    
-    <Tab value="conda">
-    
-    #### Create a New Conda Environment
-    
-    Create and activate a new Conda environment:
-    
-    ```bash
-    conda create -n your_env_name python=3.8
-    conda activate your_env_name
-    ```
-    
-    #### Install Dependencies
-    
-    With the Conda environment activated, install the dependencies:
-    
-    ```bash
-    conda install copilotkit fastapi uvicorn -c copilotkit-channel
-    # or including support for crewai
-    conda install copilotkit[crewai] fastapi uvicorn -c copilotkit-channel
-    ```
-    
-    </Tab>
-    
+<Tab value="pip">
+  #### Set Up a Virtual Environment (optional) Create and activate a virtual
+  environment using `venv`: ```bash python3 -m venv venv source
+  venv/bin/activate ``` #### Install Dependencies With the virtual environment
+  activated, install the dependencies: ```bash pip install copilotkit fastapi
+  uvicorn --extra-index-url https://copilotkit.gateway.scarf.sh/simple/ # or
+  including support for crewai pip install copilotkit[crewai] fastapi uvicorn
+  --extra-index-url https://copilotkit.gateway.scarf.sh/simple/ ```
+</Tab>
+
+  <Tab value="conda">
+    #### Create a New Conda Environment Create and activate a new Conda
+    environment: ```bash conda create -n your_env_name python=3.8 conda activate
+    your_env_name ``` #### Install Dependencies With the Conda environment
+    activated, install the dependencies: ```bash conda install copilotkit
+    fastapi uvicorn -c copilotkit-channel # or including support for crewai
+    conda install copilotkit[crewai] fastapi uvicorn -c copilotkit-channel ```
+  </Tab>
 </Tabs>
-
 
 **Dependencies:**
 
 - **copilotkit**: The CopilotKit Python SDK.
 - **fastapi**: A modern, fast (high-performance) web framework for building APIs with Python.
 - **uvicorn**: A lightning-fast ASGI server for Python.
-</Step>
-
+  </Step>
 
 <Step>
 ### Set Up a FastAPI Server
@@ -169,29 +128,16 @@ if __name__ == "__main__":
 
 Since we've added the entry point in `server.py`, you can run your FastAPI server directly by executing the script:
 
-<Tabs groupId="python-pm" items={['Poetry', 'pip', 'conda']} default="Poetry">
-    <Tab value="Poetry">
-        ```bash
-        poetry run python3 server.py
-        ```
-    </Tab>
-    <Tab value="pip">
-        ```bash
-        python3 server.py
-        ```
-    </Tab>
-    <Tab value="conda">
-        ```bash
-        python3 server.py
-        ```
-    </Tab>
+<Tabs groupId="python-pm" items={["Poetry", "pip", "conda"]} default="Poetry">
+  <Tab value="Poetry">```bash poetry run python3 server.py ```</Tab>
+  <Tab value="pip">```bash python3 server.py ```</Tab>
+  <Tab value="conda">```bash python3 server.py ```</Tab>
 </Tabs>
 
 **Note:** Ensure that you're in the same directory as `server.py` when running this command.
 
 </Step>
 </Steps>
-
 
 ## Connect your app to the remote endpoint
 
@@ -239,6 +185,7 @@ Now that you've set up your FastAPI server with the backend actions, integrate i
         2. Under `/agent/my_agent/demo.py`, change host from `0.0.0.0` to `127.0.0.1` or to `localhost`
 
     </TailoredContentOption>
+
 </TailoredContent>
 
 ### Test Your Implementation
@@ -262,8 +209,8 @@ Both the `actions` and `agents` parameters can optionally be functions that retu
 For example, to dynamically configure an agent based on properties from the frontend, set the properties on the frontend first:
 
 ```tsx
-<CopilotKit properties={{someProperty: "xyz"}}>
-   <YourApp />
+<CopilotKit properties={{ someProperty: "xyz" }}>
+  <YourApp />
 </CopilotKit>
 ```
 

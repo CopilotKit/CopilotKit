@@ -20,7 +20,7 @@ export function Chat({ className }: { className?: string }) {
     <div>
       <Header />
       <CopilotChat
-        className={`rounded-xl border border-t-0 rounded-t-none shadow-xl ${className}`}
+        className={`rounded-xl rounded-t-none border border-t-0 shadow-xl ${className}`}
         UserMessage={CustomUserMessage}
         AssistantMessage={CustomAssistantMessage}
         ResponseButton={CustomResponseButton}

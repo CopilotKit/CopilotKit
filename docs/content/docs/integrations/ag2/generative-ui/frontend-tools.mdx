@@ -3,7 +3,9 @@ title: Frontend Tools
 icon: "lucide/Wrench"
 description: Create frontend tools and use them within your AG2 agent.
 ---
+
 ## What is this?
+
 Frontend tools enable you to define client-side functions that your AG2 agent can invoke, with execution happening entirely in the user's browser. When your agent calls a frontend tool,
 the logic runs on the client side, giving you direct access to the frontend environment.
 
@@ -12,11 +14,18 @@ This can be utilized for to let [your agent control the UI](/ag2/frontend-action
 In this guide, we cover the use of frontend tools for generative UI.
 
 <Callout type="info">
-  CopilotKit consumes AG-UI protocol events streamed by AG2 over <code>/chat</code>. See the <a href="https://docs.ag2.ai/latest/docs/user-guide/ag-ui/" target="_blank">AG2 AG-UI integration docs</a>.
+  CopilotKit consumes AG-UI protocol events streamed by AG2 over{" "}
+  <code>/chat</code>. See the{" "}
+  <a href="https://docs.ag2.ai/latest/docs/user-guide/ag-ui/" target="_blank">
+    AG2 AG-UI integration docs
+  </a>
+  .
 </Callout>
 
 ## When should I use this?
+
 Use frontend tools when you need your agent to interact with client-side primitives such as:
+
 - Reading or modifying React component state
 - Accessing browser APIs like localStorage, sessionStorage, or cookies
 - Triggering UI updates or animations
@@ -121,4 +130,5 @@ Use frontend tools when you need your agent to interact with client-side primiti
           muted
         />
     </Step>
+
 </Steps>

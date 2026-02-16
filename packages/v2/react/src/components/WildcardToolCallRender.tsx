@@ -21,14 +21,14 @@ export const WildcardToolCallRender = defineToolCallRenderer({
 
     return (
       <div className="mt-2 pb-2">
-        <div className="rounded-xl border border-zinc-200/60 dark:border-zinc-800/60 bg-white/70 dark:bg-zinc-900/50 shadow-sm backdrop-blur p-4">
+        <div className="rounded-xl border border-zinc-200/60 bg-white/70 p-4 shadow-sm backdrop-blur dark:border-zinc-800/60 dark:bg-zinc-900/50">
           <div
-            className="flex items-center justify-between gap-3 cursor-pointer"
+            className="flex cursor-pointer items-center justify-between gap-3"
             onClick={() => setIsExpanded(!isExpanded)}
           >
-            <div className="flex items-center gap-2 min-w-0">
+            <div className="flex min-w-0 items-center gap-2">
               <svg
-                className={`h-4 w-4 text-zinc-500 dark:text-zinc-400 transition-transform ${
+                className={`h-4 w-4 text-zinc-500 transition-transform dark:text-zinc-400 ${
                   isExpanded ? "rotate-90" : ""
                 }`}
                 fill="none"
@@ -57,20 +57,20 @@ export const WildcardToolCallRender = defineToolCallRenderer({
           {isExpanded && (
             <div className="mt-3 grid gap-4">
               <div>
-                <div className="text-xs uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+                <div className="text-xs tracking-wide text-zinc-500 uppercase dark:text-zinc-400">
                   Arguments
                 </div>
-                <pre className="mt-2 max-h-64 overflow-auto rounded-md bg-zinc-50 dark:bg-zinc-800/60 p-3 text-xs leading-relaxed text-zinc-800 dark:text-zinc-200 whitespace-pre-wrap break-words">
+                <pre className="mt-2 max-h-64 overflow-auto rounded-md bg-zinc-50 p-3 text-xs leading-relaxed break-words whitespace-pre-wrap text-zinc-800 dark:bg-zinc-800/60 dark:text-zinc-200">
                   {JSON.stringify(args ?? {}, null, 2)}
                 </pre>
               </div>
 
               {result !== undefined && (
                 <div>
-                  <div className="text-xs uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+                  <div className="text-xs tracking-wide text-zinc-500 uppercase dark:text-zinc-400">
                     Result
                   </div>
-                  <pre className="mt-2 max-h-64 overflow-auto rounded-md bg-zinc-50 dark:bg-zinc-800/60 p-3 text-xs leading-relaxed text-zinc-800 dark:text-zinc-200 whitespace-pre-wrap break-words">
+                  <pre className="mt-2 max-h-64 overflow-auto rounded-md bg-zinc-50 p-3 text-xs leading-relaxed break-words whitespace-pre-wrap text-zinc-800 dark:bg-zinc-800/60 dark:text-zinc-200">
                     {typeof result === "string"
                       ? result
                       : JSON.stringify(result, null, 2)}

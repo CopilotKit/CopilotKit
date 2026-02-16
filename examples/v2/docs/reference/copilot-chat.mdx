@@ -33,13 +33,13 @@ graph LR
 
 ### Slot Descriptions
 
-| Slot | Description | Reference |
-|------|-------------|-----------|
-| `messageView` | Container for the message list (user and assistant messages) | [CopilotChatMessageView](/reference/copilot-chat-message-view) |
-| `scrollView` | Scrollable container with auto-scroll behavior | [CopilotChatScrollView](/reference/copilot-chat-scroll-view) |
-| `input` | Text input with toolbar, transcription support, and disclaimer | [CopilotChatInput](/reference/copilot-chat-input) |
-| `suggestionView` | Clickable suggestion chips | [CopilotChatSuggestionView](/reference/copilot-chat-suggestion-view) |
-| `welcomeScreen` | Initial screen before any messages | [CopilotChatWelcomeScreen](/reference/copilot-chat-welcome-screen) |
+| Slot             | Description                                                    | Reference                                                            |
+| ---------------- | -------------------------------------------------------------- | -------------------------------------------------------------------- |
+| `messageView`    | Container for the message list (user and assistant messages)   | [CopilotChatMessageView](/reference/copilot-chat-message-view)       |
+| `scrollView`     | Scrollable container with auto-scroll behavior                 | [CopilotChatScrollView](/reference/copilot-chat-scroll-view)         |
+| `input`          | Text input with toolbar, transcription support, and disclaimer | [CopilotChatInput](/reference/copilot-chat-input)                    |
+| `suggestionView` | Clickable suggestion chips                                     | [CopilotChatSuggestionView](/reference/copilot-chat-suggestion-view) |
+| `welcomeScreen`  | Initial screen before any messages                             | [CopilotChatWelcomeScreen](/reference/copilot-chat-welcome-screen)   |
 
 See [Slot Customization](#slot-customization) for details on how to customize these slots.
 
@@ -200,7 +200,7 @@ function CustomChatView(props) {
   );
 }
 
-<CopilotChat chatView={CustomChatView} />
+<CopilotChat chatView={CustomChatView} />;
 ```
 
 ## Message View Customization
@@ -356,7 +356,7 @@ function CustomWelcomeScreen() {
   );
 }
 
-<CopilotChat welcomeScreen={CustomWelcomeScreen} />
+<CopilotChat welcomeScreen={CustomWelcomeScreen} />;
 ```
 
 ## Auto-scrolling Behavior
@@ -382,10 +382,7 @@ The scroll-to-bottom button appears when the user scrolls up and new content is 
 Here's a fully customized CopilotChat implementation:
 
 ```tsx
-import {
-  CopilotChat,
-  CopilotKitProvider
-} from "@copilotkitnext/react";
+import { CopilotChat, CopilotKitProvider } from "@copilotkitnext/react";
 
 function App() {
   const handleFeedback = (messageId: string, type: "positive" | "negative") => {
@@ -423,6 +420,7 @@ function App() {
 ## Related
 
 ### Slot Components
+
 - [CopilotChatMessageView](/reference/copilot-chat-message-view) - Message list customization
 - [CopilotChatScrollView](/reference/copilot-chat-scroll-view) - Scroll container customization
 - [CopilotChatInput](/reference/copilot-chat-input) - Input component customization
@@ -431,13 +429,16 @@ function App() {
 - [CopilotChatAssistantMessage](/reference/copilot-chat-assistant-message) - Assistant message customization
 
 ### Other Components
+
 - [CopilotSidebar](/reference/copilot-sidebar) - Slide-in sidebar chat interface
 - [CopilotPopup](/reference/copilot-popup) - Floating popup chat dialog
 
 ### Guides & Concepts
+
 - [Slot System](/reference/slot-system) - Deep dive into slot customization
 
 ### Providers & Hooks
+
 - [CopilotKitProvider](/reference/copilotkit-provider) - Provider configuration
 - [useAgent](/reference/use-agent) - Hook for programmatic agent control
 - [useFrontendTool](/reference/use-frontend-tool) - Adding custom tools to the chat

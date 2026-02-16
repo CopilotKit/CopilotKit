@@ -3,15 +3,16 @@ title: Interrupt Based
 icon: "lucide/CirclePause"
 description: Learn how to implement Human-in-the-Loop (HITL) using a interrupt-based flow.
 ---
-import InstallSDKSnippet from "@/snippets/install-sdk.mdx"
+
+import InstallSDKSnippet from "@/snippets/install-sdk.mdx";
 import {
   TailoredContent,
   TailoredContentOption,
 } from "@/components/react/tailored-content.tsx";
-import RunAndConnectAgentSnippet from "@/snippets/coagents/run-and-connect-agent.mdx"
+import RunAndConnectAgentSnippet from "@/snippets/coagents/run-and-connect-agent.mdx";
 import { MessageCircle, PanelsTopLeft } from "lucide-react";
-import { IframeSwitcher } from "@/components/content"
-import RunAndConnect from "@/snippets/integrations/langgraph/run-and-connect.mdx"
+import { IframeSwitcher } from "@/components/content";
+import RunAndConnect from "@/snippets/integrations/langgraph/run-and-connect.mdx";
 import { Tabs, Tab } from "fumadocs-ui/components/tabs";
 
 <IframeSwitcher
@@ -24,7 +25,9 @@ import { Tabs, Tab } from "fumadocs-ui/components/tabs";
 />
 
 <Callout type="info">
-  This example demonstrates interrupt-based human-in-the-loop (HITL) in the [CopilotKit Feature Viewer](https://feature-viewer.copilotkit.ai/langgraph/feature/human_in_the_loop).
+  This example demonstrates interrupt-based human-in-the-loop (HITL) in the
+  [CopilotKit Feature
+  Viewer](https://feature-viewer.copilotkit.ai/langgraph/feature/human_in_the_loop).
 </Callout>
 
 ## What is this?
@@ -86,6 +89,7 @@ We're going to have the agent ask us to name it, so we'll need a state property 
         export type AgentState = typeof AgentStateAnnotation.State;
         ```
     </Tab>
+
 </Tabs>
 
 </Step>
@@ -168,6 +172,7 @@ We're going to have the agent ask us to name it, so we'll need a state property 
             ```
         </Tab>
     </Tabs>
+
 </Step>
 <Step>
     ### Handle the interrupt in your frontend
@@ -343,6 +348,7 @@ For this reason, the hook can take an `enabled` argument which will apply it con
         }
     ```
     </Step>
+
 </Steps>
 
 ### Preprocessing of an interrupt and programmatically handling an interrupt value
@@ -351,56 +357,67 @@ When opting for custom chat UI, some cases may require pre-processing of the inc
 This can be achieved using the `handler` property, which is not required to return a React component.
 
 The return value of the handler will be passed to the `render` method as the `result` argument.
+
 ```tsx title="app/page.tsx"
 // We will assume an interrupt event in the following shape
-type Department = 'finance' | 'engineering' | 'admin'
+type Department = "finance" | "engineering" | "admin";
 interface AuthorizationInterruptEvent {
-    type: 'auth',
-    accessDepartment: Department,
+  type: "auth";
+  accessDepartment: Department;
 }
 
 import { useLangGraphInterrupt } from "@copilotkit/react-core";
 
 const YourMainContent = () => {
-    const [userEmail, setUserEmail] = useState({ email: 'example@user.com' })
-    function getUserByEmail(email: string): { id: string; department: Department } {
-        // ... an implementation of user fetching
-    }
+  const [userEmail, setUserEmail] = useState({ email: "example@user.com" });
+  function getUserByEmail(email: string): {
+    id: string;
+    department: Department;
+  } {
+    // ... an implementation of user fetching
+  }
 
-    // ...
-    // styles omitted for brevity
-    // [!code highlight:28]
-    useLangGraphInterrupt({
-        handler: async ({ result, event, resolve }) => {
-            const { department } = await getUserByEmail(userEmail)
-            if (event.value.accessDepartment === department || department === 'admin') {
-                // Following the resolution of the event, we will not proceed to the render method
-                resolve({ code: 'AUTH_BY_DEPARTMENT' })
-                return;
-            }
+  // ...
+  // styles omitted for brevity
+  // [!code highlight:28]
+  useLangGraphInterrupt({
+    handler: async ({ result, event, resolve }) => {
+      const { department } = await getUserByEmail(userEmail);
+      if (
+        event.value.accessDepartment === department ||
+        department === "admin"
+      ) {
+        // Following the resolution of the event, we will not proceed to the render method
+        resolve({ code: "AUTH_BY_DEPARTMENT" });
+        return;
+      }
 
-            return { department, userId }
-        },
-        render: ({ result, event, resolve }) => (
-            <div>
-                <h1>Request for {event.value.type}</h1>
-                <p>Members from {result.department} department cannot access this information</p>
-                <p>You can request access from an administrator to continue.</p>
-                <button
-                    onClick={() => resolve({ code: 'REQUEST_AUTH', data: { department: result.department, userId: result.userId } })}
-                >
-                    Request Access
-                </button>
-                <button
-                    onClick={() => resolve({ code: 'CANCEL' })}
-                >
-                    Cancel
-                </button>
-            </div>
-        )
-    });
-    // ...
+      return { department, userId };
+    },
+    render: ({ result, event, resolve }) => (
+      <div>
+        <h1>Request for {event.value.type}</h1>
+        <p>
+          Members from {result.department} department cannot access this
+          information
+        </p>
+        <p>You can request access from an administrator to continue.</p>
+        <button
+          onClick={() =>
+            resolve({
+              code: "REQUEST_AUTH",
+              data: { department: result.department, userId: result.userId },
+            })
+          }
+        >
+          Request Access
+        </button>
+        <button onClick={() => resolve({ code: "CANCEL" })}>Cancel</button>
+      </div>
+    ),
+  });
+  // ...
 
-    return <div>{/* ... */}</div>
-}
+  return <div>{/* ... */}</div>;
+};
 ```

@@ -28,10 +28,10 @@ const defaultContent = (
       {Array.from({ length: 4 }).map((_, index) => (
         <article
           key={index}
-          className="rounded-xl border border-border bg-card p-4 shadow-sm transition hover:shadow-md"
+          className="border-border bg-card rounded-xl border p-4 shadow-sm transition hover:shadow-md"
         >
           <h2 className="text-lg font-medium">Task {index + 1}</h2>
-          <p className="mt-2 text-sm text-muted-foreground">
+          <p className="text-muted-foreground mt-2 text-sm">
             Placeholder content to illustrate how the assistant integrates
             alongside your existing workflow.
           </p>
@@ -54,7 +54,7 @@ export const CopilotStoryLayout: React.FC<CopilotStoryLayoutProps> = ({
       threadId={"123"}
       isModalDefaultOpen={isModalDefaultOpen}
     >
-      <div className="min-h-screen bg-background text-foreground">
+      <div className="bg-background text-foreground min-h-screen">
         <div className="mx-auto grid max-w-5xl grid-cols-1 gap-6 px-6 py-10">
           {content ?? defaultContent}
         </div>

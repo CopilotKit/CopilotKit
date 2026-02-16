@@ -34,16 +34,16 @@ graph LR
 
 ### Slot Descriptions
 
-| Slot | Description |
-|------|-------------|
-| `textArea` | The main textarea input element |
-| `sendButton` | Send message or stop generation button |
-| `startTranscribeButton` | Button to start voice recording |
-| `cancelTranscribeButton` | Button to cancel voice recording |
-| `finishTranscribeButton` | Button to finish voice recording |
-| `addMenuButton` | Plus button for file uploads and tools menu |
-| `audioRecorder` | Voice recording visualization component |
-| `disclaimer` | Disclaimer text shown below the input |
+| Slot                     | Description                                 |
+| ------------------------ | ------------------------------------------- |
+| `textArea`               | The main textarea input element             |
+| `sendButton`             | Send message or stop generation button      |
+| `startTranscribeButton`  | Button to start voice recording             |
+| `cancelTranscribeButton` | Button to cancel voice recording            |
+| `finishTranscribeButton` | Button to finish voice recording            |
+| `addMenuButton`          | Plus button for file uploads and tools menu |
+| `audioRecorder`          | Voice recording visualization component     |
+| `disclaimer`             | Disclaimer text shown below the input       |
 
 ## Basic Usage
 
@@ -62,10 +62,10 @@ Customize the input through the `input` prop on [CopilotChat](/reference/copilot
 
 CopilotChatInput operates in three modes:
 
-| Mode | Description |
-|------|-------------|
-| `input` | Normal text input mode (default) |
-| `transcribe` | Voice recording mode |
+| Mode         | Description                              |
+| ------------ | ---------------------------------------- |
+| `input`      | Normal text input mode (default)         |
+| `transcribe` | Voice recording mode                     |
 | `processing` | Shows loading spinner while transcribing |
 
 The component automatically switches between modes based on user interaction with the transcription buttons.
@@ -125,7 +125,7 @@ function CustomSendButton({ onClick, disabled, children }) {
   input={{
     sendButton: CustomSendButton,
   }}
-/>
+/>;
 ```
 
 ### Transcription Buttons
@@ -198,7 +198,7 @@ function CustomInput({ onSubmitMessage, isRunning, onStop, ...props }) {
   );
 }
 
-<CopilotChat input={CustomInput} />
+<CopilotChat input={CustomInput} />;
 ```
 
 ### Using the Render Function
@@ -220,33 +220,33 @@ function CustomInput(props) {
   );
 }
 
-<CopilotChat input={CustomInput} />
+<CopilotChat input={CustomInput} />;
 ```
 
 The render function receives:
 
-| Property | Type | Description |
-|----------|------|-------------|
-| `textArea` | `ReactElement` | The bound textarea component |
-| `sendButton` | `ReactElement` | The bound send/stop button |
-| `startTranscribeButton` | `ReactElement` | Start recording button |
-| `cancelTranscribeButton` | `ReactElement` | Cancel recording button |
-| `finishTranscribeButton` | `ReactElement` | Finish recording button |
-| `addMenuButton` | `ReactElement` | The tools menu button |
-| `audioRecorder` | `ReactElement` | Voice recording visualization |
-| `disclaimer` | `ReactElement` | The disclaimer text |
-| `mode` | `'input' \| 'transcribe' \| 'processing'` | Current input mode |
-| `isRunning` | `boolean` | Whether AI is generating |
+| Property                 | Type                                      | Description                   |
+| ------------------------ | ----------------------------------------- | ----------------------------- |
+| `textArea`               | `ReactElement`                            | The bound textarea component  |
+| `sendButton`             | `ReactElement`                            | The bound send/stop button    |
+| `startTranscribeButton`  | `ReactElement`                            | Start recording button        |
+| `cancelTranscribeButton` | `ReactElement`                            | Cancel recording button       |
+| `finishTranscribeButton` | `ReactElement`                            | Finish recording button       |
+| `addMenuButton`          | `ReactElement`                            | The tools menu button         |
+| `audioRecorder`          | `ReactElement`                            | Voice recording visualization |
+| `disclaimer`             | `ReactElement`                            | The disclaimer text           |
+| `mode`                   | `'input' \| 'transcribe' \| 'processing'` | Current input mode            |
+| `isRunning`              | `boolean`                                 | Whether AI is generating      |
 
 ## Keyboard Shortcuts
 
-| Shortcut | Action |
-|----------|--------|
-| `Enter` | Send message (or stop if generating) |
-| `Shift+Enter` | Insert newline |
-| `/` | Open slash command menu |
-| `Escape` | Close slash command menu |
-| `↑/↓` | Navigate slash menu items |
+| Shortcut      | Action                               |
+| ------------- | ------------------------------------ |
+| `Enter`       | Send message (or stop if generating) |
+| `Shift+Enter` | Insert newline                       |
+| `/`           | Open slash command menu              |
+| `Escape`      | Close slash command menu             |
+| `↑/↓`         | Navigate slash menu items            |
 
 ## Examples
 
@@ -280,7 +280,8 @@ Use labels to customize the disclaimer text:
 ```tsx
 <CopilotChat
   labels={{
-    chatDisclaimerText: "AI responses may contain errors. Always verify important information.",
+    chatDisclaimerText:
+      "AI responses may contain errors. Always verify important information.",
   }}
 />
 ```

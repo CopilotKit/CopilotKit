@@ -5,11 +5,12 @@ icon: "lucide/Activity"
 ---
 
 Monitor CopilotKit with first‑class observability hooks that emit structured signals for chat events, user interactions, and runtime errors. Send these signals straight to your existing stack, including Sentry, Datadog, New Relic, and OpenTelemetry, or route them to your analytics pipeline. The hooks expose stable schemas and IDs so you can join agent events with app telemetry, trace sessions end to end, and alert on failures in real time. Works with Copilot Cloud via `publicApiKey`, or self‑hosted via `publicLicenseKey`.
+
 ## Quick Start
 
 <Callout type="info">
-  All observability hooks require a `publicLicenseKey` or `publicAPIkey` - Get yours free at
-  [https://cloud.copilotkit.ai](https://cloud.copilotkit.ai)
+  All observability hooks require a `publicLicenseKey` or `publicAPIkey` - Get
+  yours free at [https://cloud.copilotkit.ai](https://cloud.copilotkit.ai)
 </Callout>
 
 <Steps>
@@ -95,6 +96,7 @@ export default function App() {
   );
 }
 ```
+
 </Step>
 </Steps>
 
@@ -176,9 +178,9 @@ import { CopilotChat } from "@copilotkit/react-ui";
 - ✅ Works with `CopilotChat`, `CopilotPopup`, `CopilotSidebar`, and all pre-built components
 
 <Callout type="warn">
-  **Important:** Observability hooks will **not trigger** without a valid
-  key. This is a security feature to ensure observability hooks only
-  work in authorized applications.
+  **Important:** Observability hooks will **not trigger** without a valid key.
+  This is a security feature to ensure observability hooks only work in
+  authorized applications.
 </Callout>
 
 ## Error Event Structure
@@ -455,11 +457,11 @@ To use observability hooks (event hooks and error observability), you'll need a 
    ```
 4. **Use it in your CopilotKit provider**:
    ```tsx
-   <CopilotKit 
-      publicLicenseKey={process.env.NEXT_PUBLIC_COPILOTKIT_LICENSE_KEY}
-      // OR
-      publicApiKey={process.env.NEXT_PUBLIC_COPILOTKIT_API_KEY}
-      >
+   <CopilotKit
+     publicLicenseKey={process.env.NEXT_PUBLIC_COPILOTKIT_LICENSE_KEY}
+     // OR
+     publicApiKey={process.env.NEXT_PUBLIC_COPILOTKIT_API_KEY}
+   >
      <CopilotChat
        observabilityHooks={{
          onMessageSent: (message) => console.log("Message:", message),

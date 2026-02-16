@@ -99,7 +99,7 @@ describe("CopilotPopupView Slot System E2E Tests", () => {
     it("should allow custom component for header", () => {
       const CustomHeader: React.FC = () => (
         <header data-testid="custom-popup-header-component">
-          <div className="flex justify-between items-center p-4">
+          <div className="flex items-center justify-between p-4">
             <span>AI Assistant</span>
             <button>×</button>
           </div>

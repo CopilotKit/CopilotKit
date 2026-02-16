@@ -1,8 +1,8 @@
 {
-    "pages": [
-        "in-app-agent-read",
-        "in-app-agent-write",
-        "workflow-execution",
-        "predictive-state-updates"
-    ]
+  "pages": [
+    "in-app-agent-read",
+    "in-app-agent-write",
+    "workflow-execution",
+    "predictive-state-updates"
+  ]
 }

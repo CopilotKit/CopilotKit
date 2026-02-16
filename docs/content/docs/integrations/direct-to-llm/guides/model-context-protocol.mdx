@@ -275,8 +275,8 @@ export default function MCPToolCall({
               status === "complete"
                 ? "bg-gray-300"
                 : status === "inProgress" || status === "executing"
-                ? "bg-gray-500 animate-pulse"
-                : "bg-gray-700"
+                  ? "bg-gray-500 animate-pulse"
+                  : "bg-gray-700"
             }`}
           />
         </div>
@@ -326,7 +326,7 @@ To configure your self-hosted runtime with MCP servers, you'll need to implement
 
 ```typescript
 type CreateMCPClientFunction = (
-  config: MCPEndpointConfig
+  config: MCPEndpointConfig,
 ) => Promise<MCPClient>;
 ```
 

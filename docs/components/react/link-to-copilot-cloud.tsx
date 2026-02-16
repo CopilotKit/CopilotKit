@@ -61,7 +61,7 @@ export function LinkToCopilotCloud({
   }
   return (
     <Link href={href} target="_blank" className={cn} suppressHydrationWarning>
-      {asButton ? <CloudIcon className="w-5 h-5 mr-2" /> : null}
+      {asButton ? <CloudIcon className="mr-2 h-5 w-5" /> : null}
       {children ? children : "Copilot Cloud"}
     </Link>
   );

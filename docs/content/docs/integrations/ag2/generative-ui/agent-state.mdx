@@ -3,12 +3,18 @@ title: Agent State
 icon: "lucide/Bot"
 description: Render the state of your agent with custom UI components.
 ---
+
 ## What is this?
 
 AG2 agents can maintain state across a session through `ContextVariables`. CopilotKit can render this state in your application with custom UI components, which we call **Agentic Generative UI**.
 
 <Callout type="info">
-  CopilotKit consumes AG-UI protocol events streamed by AG2 over <code>/chat</code>. See the <a href="https://docs.ag2.ai/latest/docs/user-guide/ag-ui/" target="_blank">AG2 AG-UI integration docs</a>.
+  CopilotKit consumes AG-UI protocol events streamed by AG2 over{" "}
+  <code>/chat</code>. See the{" "}
+  <a href="https://docs.ag2.ai/latest/docs/user-guide/ag-ui/" target="_blank">
+    AG2 AG-UI integration docs
+  </a>
+  .
 </Callout>
 
 ## When should I use this?
@@ -214,5 +220,6 @@ is a situation where a user and an agent are working together to solve a problem
       autoPlay
       muted
     />
+
   </Step>
 </Steps>

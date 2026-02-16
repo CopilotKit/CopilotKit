@@ -26,11 +26,7 @@ describe("CopilotKitAgentContext", () => {
       standalone: true,
       imports: [CopilotKitAgentContext],
       template: `
-        <div
-          copilotkitAgentContext
-          [description]="description"
-          [value]="value"
-        ></div>
+        <div copilotkitAgentContext [description]="description" [value]="value"></div>
       `,
     })
     class HostComponent {
@@ -64,7 +60,9 @@ describe("CopilotKitAgentContext", () => {
     @Component({
       standalone: true,
       imports: [CopilotKitAgentContext],
-      template: ` <div [copilotkitAgentContext]="context"></div> `,
+      template: `
+        <div [copilotkitAgentContext]="context"></div>
+      `,
     })
     class ObjectHostComponent {
       context = { description: "All", value: 42 };

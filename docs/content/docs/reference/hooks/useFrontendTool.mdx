@@ -8,6 +8,7 @@ This is the primary way to give your AI agent the ability to perform actions in 
 that's updating state, making API calls, or triggering side effects.
 
 The hook requires three main pieces:
+
 1. A name and description so the AI knows when to call it
 2. A parameters definition describing what inputs the tool accepts
 3. A handler function that executes when the AI calls the tool
@@ -131,12 +132,13 @@ useFrontendTool({
 
 ## Parameters
 
-<PropertyReference name="name" type="string" required >
-The name of the tool.
+<PropertyReference name="name" type="string" required>
+  The name of the tool.
 </PropertyReference>
 
-<PropertyReference name="description" type="string"  >
-A description of the tool. This is used to instruct the Copilot on how to use the tool.
+<PropertyReference name="description" type="string">
+  A description of the tool. This is used to instruct the Copilot on how to use
+  the tool.
 </PropertyReference>
 
 <PropertyReference name="parameters" type="T"  >
@@ -150,6 +152,7 @@ Array of parameter definitions for the tool. Each parameter object should have:
 Simple example: `[{ name: "query", type: "string", description: "The search query", required: true }]`
 
 Nested example:
+
 ```typescript
 [
   {
@@ -158,26 +161,39 @@ Nested example:
     description: "User information",
     required: true,
     properties: [
-      { name: "name", type: "string", description: "User's name", required: true },
-      { name: "age", type: "number", description: "User's age", required: false }
-    ]
-  }
-]
+      {
+        name: "name",
+        type: "string",
+        description: "User's name",
+        required: true,
+      },
+      {
+        name: "age",
+        type: "number",
+        description: "User's age",
+        required: false,
+      },
+    ],
+  },
+];
 ```
+
 </PropertyReference>
 
-<PropertyReference name="handler" type="FrontendAction<T>['handler']"  >
-The handler function that executes the tool logic.
+<PropertyReference name="handler" type="FrontendAction<T>['handler']">
+  The handler function that executes the tool logic.
 </PropertyReference>
 
-<PropertyReference name="followUp" type="boolean"  >
-Whether to report the result of the tool call to the LLM which will then provide a follow-up response. Pass `false` to disable.
+<PropertyReference name="followUp" type="boolean">
+  Whether to report the result of the tool call to the LLM which will then
+  provide a follow-up response. Pass `false` to disable.
 </PropertyReference>
 
-<PropertyReference name="render" type="FrontendAction<T>['render']"  >
-A React component that renders custom UI for the tool.
+<PropertyReference name="render" type="FrontendAction<T>['render']">
+  A React component that renders custom UI for the tool.
 </PropertyReference>
 
-<PropertyReference name="available" type="'disabled' | 'enabled'"  >
-Whether the tool is available. Set to "disabled" to prevent the tool from being called.
+<PropertyReference name="available" type="'disabled' | 'enabled'">
+  Whether the tool is available. Set to "disabled" to prevent the tool from
+  being called.
 </PropertyReference>

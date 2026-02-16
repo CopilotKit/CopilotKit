@@ -3,6 +3,7 @@ title: Human-in-the-Loop
 icon: "lucide/Wrench"
 description: Create frontend tools and use them within your AG2 agent for human-in-the-loop interactions.
 ---
+
 <video
   src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/human-in-the-loop-example.mp4"
   className="rounded-lg shadow-xl"
@@ -13,7 +14,8 @@ description: Create frontend tools and use them within your AG2 agent for human-
   muted
 />
 <Callout>
-  This video shows the result of `npx copilotkit@latest init` with the [implementation](#implementation) section applied to it.
+  This video shows the result of `npx copilotkit@latest init` with the
+  [implementation](#implementation) section applied to it.
 </Callout>
 
 ## What is this?
@@ -26,12 +28,18 @@ This can be utilized to let [your agent control the UI](/ag2/frontend-actions), 
 In this guide, we cover the use of frontend tools for Human-in-the-loop.
 
 <Callout type="info">
-  CopilotKit consumes AG-UI protocol events streamed by AG2 over <code>/chat</code>. See the <a href="https://docs.ag2.ai/latest/docs/user-guide/ag-ui/" target="_blank">AG2 AG-UI integration docs</a>.
+  CopilotKit consumes AG-UI protocol events streamed by AG2 over{" "}
+  <code>/chat</code>. See the{" "}
+  <a href="https://docs.ag2.ai/latest/docs/user-guide/ag-ui/" target="_blank">
+    AG2 AG-UI integration docs
+  </a>
+  .
 </Callout>
 
 ## When should I use this?
 
 Use frontend tools when you need your agent to interact with client-side primitives such as:
+
 - Reading or modifying React component state
 - Accessing browser APIs like localStorage, sessionStorage, or cookies
 - Triggering UI updates or animations
@@ -154,4 +162,5 @@ Use frontend tools when you need your agent to interact with client-side primiti
         Can you show me two good options for a restaurant name?
         ```
     </Step>
+
 </Steps>

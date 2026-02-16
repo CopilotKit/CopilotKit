@@ -89,7 +89,7 @@ function AppLayout() {
             </ul>
             <div className="mt-3 space-y-1 text-xs text-slate-500">
               <p className="font-medium">To run the MCP servers:</p>
-              <pre className="rounded bg-slate-100 p-2 overflow-x-auto">
+              <pre className="overflow-x-auto rounded bg-slate-100 p-2">
                 {`git clone https://github.com/modelcontextprotocol/ext-apps
 cd ext-apps
 npm install

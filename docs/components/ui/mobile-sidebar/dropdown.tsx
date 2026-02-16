@@ -95,11 +95,11 @@ const Dropdown = ({ onSelect }: DropdownProps) => {
         <button
           ref={buttonRef}
           onClick={() => setIsOpen(!isOpen)}
-          className={`flex justify-between items-center px-3 w-full h-14 rounded-xl border border-foreground/10 dark:border-white/5 bg-white/5 ${
+          className={`border-foreground/10 flex h-14 w-full items-center justify-between rounded-xl border bg-white/5 px-3 dark:border-white/5 ${
             isOpen && "!border-[#BEC2FF] dark:!border-[#7076D5]"
           }`}
         >
-          <div className="flex gap-3 items-center">
+          <div className="flex items-center gap-3">
             {selectedItem?.icon}
             <span className="text-sm font-medium">{selectedItem?.label}</span>
           </div>
@@ -114,7 +114,7 @@ const Dropdown = ({ onSelect }: DropdownProps) => {
         createPortal(
           <div
             data-dropdown-menu
-            className="z-[60] fixed rounded-xl border border-foreground/10 dark:border-white/5 dark:bg-background/30 bg-white/50 backdrop-blur-3xl p-1"
+            className="border-foreground/10 dark:bg-background/30 fixed z-[60] rounded-xl border bg-white/50 p-1 backdrop-blur-3xl dark:border-white/5"
             style={{
               top: `${position.top}px`,
               left: `${position.left}px`,
@@ -128,11 +128,11 @@ const Dropdown = ({ onSelect }: DropdownProps) => {
                   setIsOpen(false);
                   onSelect?.();
                 }}
-                className="flex justify-start items-center pl-2 h-12 rounded-xl"
+                className="flex h-12 items-center justify-start rounded-xl pl-2"
               >
                 <Link
                   href={getHrefForItem(item)}
-                  className="flex gap-2 items-center w-full"
+                  className="flex w-full items-center gap-2"
                 >
                   {item.icon}
                   <span className="text-sm font-medium">{item.label}</span>

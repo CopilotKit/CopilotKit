@@ -2,22 +2,31 @@
   "name": "@copilotkitnext/angular",
   "version": "1.51.4-next.8",
   "description": "Angular library for CopilotKit",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/CopilotKit/CopilotKit.git",
+    "directory": "packages/angular"
+  },
+  "type": "module",
   "main": "dist/fesm2022/copilotkitnext-angular.mjs",
   "module": "dist/fesm2022/copilotkitnext-angular.mjs",
   "types": "dist/index.d.ts",
-  "type": "module",
   "exports": {
     ".": {
       "import": "./dist/fesm2022/copilotkitnext-angular.mjs"
     },
     "./styles.css": "./dist/styles.css"
   },
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "build": "ng-packagr -p ng-package.json && npm run build:css",
     "build:css": "tailwindcss -i ./src/styles/globals.css -o ./dist/styles.css",
     "dev": "concurrently \"ng-packagr -p ng-package.json --watch\" \"npm run dev:css\"",
     "dev:css": "tailwindcss -i ./src/styles/globals.css -o ./dist/styles.css --watch",
-    "lint": "eslint .",
+    "lint": "oxlint .",
     "check-types": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest --watch",
@@ -36,14 +45,8 @@
     "marked": "^16.2.0",
     "rxjs": "^7.8.1",
     "tailwind-merge": "^2.6.0",
-    "zod": "^3.22.4",
-    "tslib": "^2.6.0"
-  },
-  "peerDependencies": {
-    "@angular/cdk": "^18.0.0 || ^19.0.0",
-    "@angular/common": "^18.0.0 || ^19.0.0",
-    "@angular/core": "^18.0.0 || ^19.0.0",
-    "rxjs": "^7.8.0"
+    "tslib": "^2.6.0",
+    "zod": "^3.22.4"
   },
   "devDependencies": {
     "@analogjs/vite-plugin-angular": "^1.20.2",
@@ -55,10 +58,7 @@
     "@angular/core": "^18.0.0",
     "@angular/platform-browser": "^18.0.0",
     "@angular/platform-browser-dynamic": "^18.0.0",
-    "@copilotkitnext/eslint-config": "workspace:*",
     "@copilotkitnext/typescript-config": "workspace:*",
-    "eslint": "^9.17.0",
-    "@eslint/js": "^9.30.0",
     "@lucide/build-icons": "^1.1.0",
     "@tailwindcss/cli": "^4.1.11",
     "@tailwindcss/postcss": "^4.1.11",
@@ -78,18 +78,14 @@
     "tslib": "^2.8.1",
     "tw-animate-css": "^1.3.5",
     "typescript": "~5.4.5",
-    "typescript-eslint": "^8.35.0",
     "vite": "^7.1.4",
     "vitest": "^3.2.4",
     "zone.js": "^0.14.0"
   },
-  "publishConfig": {
-    "access": "public"
-  },
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/CopilotKit/CopilotKit.git",
-    "directory": "packages/angular"
-  },
-  "license": "MIT"
+  "peerDependencies": {
+    "@angular/cdk": "^18.0.0 || ^19.0.0",
+    "@angular/common": "^18.0.0 || ^19.0.0",
+    "@angular/core": "^18.0.0 || ^19.0.0",
+    "rxjs": "^7.8.0"
+  }
 }

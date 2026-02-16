@@ -6,6 +6,8 @@ import { CopilotChat } from "@copilotkitnext/angular";
   selector: "default-chat",
   standalone: true,
   imports: [CommonModule, CopilotChat],
-  template: ` <copilot-chat [threadId]="'xyz'"></copilot-chat> `,
+  template: `
+    <copilot-chat [threadId]="'xyz'"></copilot-chat>
+  `,
 })
 export class DefaultChatComponent {}

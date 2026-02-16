@@ -120,7 +120,8 @@
 }
 
 @theme {
-  --animate-pulse-cursor: pulse-cursor 0.9s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  --animate-pulse-cursor: pulse-cursor 0.9s cubic-bezier(0.4, 0, 0.2, 1)
+    infinite;
   @keyframes pulse-cursor {
     0%,
     100% {

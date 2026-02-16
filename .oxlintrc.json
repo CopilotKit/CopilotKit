@@ -1,0 +1,30 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["typescript", "react", "nextjs", "import", "unicorn"],
+  "categories": {
+    "correctness": "warn"
+  },
+  "jsPlugins": ["eslint-plugin-turbo"],
+  "env": {
+    "browser": true,
+    "es2024": true,
+    "node": true
+  },
+  "rules": {
+    "turbo/no-undeclared-env-vars": "warn",
+    "typescript/no-unused-vars": "warn",
+    "typescript/no-explicit-any": "warn",
+    "react/react-in-jsx-scope": "off",
+    "react/prop-types": "off"
+  },
+  "settings": {
+    "react": { "version": "19.0" }
+  },
+  "ignorePatterns": [
+    "dist/**",
+    "node_modules/**",
+    ".next/**",
+    "coverage/**",
+    "storybook-static/**"
+  ]
+}

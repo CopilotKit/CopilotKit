@@ -3,7 +3,8 @@ title: Subgraphs
 description: Use multiple agents as subgraphs in your application.
 icon: "lucide/Network"
 ---
-import { IframeSwitcher } from "@/components/content"
+
+import { IframeSwitcher } from "@/components/content";
 
 <IframeSwitcher
   id="subgraphs-example"
@@ -15,7 +16,8 @@ import { IframeSwitcher } from "@/components/content"
 />
 
 <Callout type="info">
-  This example demonstrates subgraphs in the [CopilotKit Feature Viewer](https://feature-viewer.copilotkit.ai/langgraph/feature/subgraphs).
+  This example demonstrates subgraphs in the [CopilotKit Feature
+  Viewer](https://feature-viewer.copilotkit.ai/langgraph/feature/subgraphs).
 </Callout>
 
 ## What are Subgraphs?
@@ -34,14 +36,15 @@ CopilotKit supports streaming directly from subgraphs, so nested graphs can emit
 
 Using this feature requires no extra steps on the agent side.
 All you need to do, is to enable subgraph streaming in the `useCoAgent` hook:
+
 ```tsx
-  const { state, nodeName } = useCoAgent<AgentState>({
-    name: "sample_agent",
-    initialState: INITIAL_STATE,
-    config: {
-      streamSubgraphs: true, // [!code highlight]
-    }
-  });
+const { state, nodeName } = useCoAgent<AgentState>({
+  name: "sample_agent",
+  initialState: INITIAL_STATE,
+  config: {
+    streamSubgraphs: true, // [!code highlight]
+  },
+});
 ```
 
 The subgraph nodes will stream as usual, and you will be able to see which subgraph is streaming using the `nodeName` variable.

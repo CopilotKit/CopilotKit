@@ -1,9 +1,7 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "dependencyDashboard": true,
-  "extends": [
-    "config:recommended"
-  ],
+  "extends": ["config:recommended"],
   "poetry": {
     "enabled": true
   },
@@ -13,47 +11,28 @@
   "npm": {
     "enabled": true
   },
-  "ignorePaths": [
-    "node_modules"
-  ],
+  "ignorePaths": ["node_modules"],
   "packageRules": [
     {
       "description": "[All] Ignore all packages initially",
       "enabled": false,
-      "matchPackageNames": [
-        "*"
-      ],
-      "labels": [
-        "dependencies"
-      ]
+      "matchPackageNames": ["*"],
+      "labels": ["dependencies"]
     },
     {
       "description": "[Examples] Enable Renovate for CopilotKit packages only",
       "enabled": true,
-      "matchFileNames": [
-        "examples/**"
-      ],
-      "matchPackageNames": [
-        "/^@copilotkit/",
-        "/^copilotkit/"
-      ],
-      "labels": [
-        "examples"
-      ],
+      "matchFileNames": ["examples/**"],
+      "matchPackageNames": ["/^@copilotkit/", "/^copilotkit/"],
+      "labels": ["examples"],
       "groupName": "CopilotKit Examples"
     },
     {
       "description": "[@copilotkit/*] Dependencies",
       "enabled": true,
-      "matchFileNames": [
-        "packages/v1/**"
-      ],
-      "matchPackageNames": [
-        "*"
-      ],
-      "labels": [
-        "dependencies-core"
-      ],
+      "matchFileNames": ["packages/v1/**"],
+      "matchPackageNames": ["*"],
+      "labels": ["dependencies-core"],
       "groupName": "Core Dependencies"
     }
   ]

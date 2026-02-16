@@ -22,7 +22,7 @@ export const DeleteTrips = ({
   );
 
   return (
-    <div className="space-y-4 w-full bg-secondary p-6 rounded-lg">
+    <div className="w-full space-y-4 rounded-lg bg-secondary p-6">
       <h1 className="text-sm">The following trips will be deleted:</h1>
       {status !== "complete" &&
         tripsToDelete?.map((trip: Trip) => (
@@ -44,12 +44,12 @@ export const DeleteTrips = ({
           handler={handler}
           approve={
             <>
-              <Trash className="w-4 h-4 mr-2" /> Delete
+              <Trash className="mr-2 h-4 w-4" /> Delete
             </>
           }
           reject={
             <>
-              <X className="w-4 h-4 mr-2" /> Cancel
+              <X className="mr-2 h-4 w-4" /> Cancel
             </>
           }
         />

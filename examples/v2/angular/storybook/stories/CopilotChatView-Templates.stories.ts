@@ -132,20 +132,13 @@ export const CustomDisclaimerTemplate: Story = {
   template: `
     <div
       style="
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      padding: 24px;
-      margin: 0;
-      box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.1);
-    "
-    >
-      <div
-        style="
-        display: flex;
-        gap: 12px;
-        max-width: 1200px;
-        margin: 0 auto;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        padding: 24px;
+        margin: 0;
+        box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.1);
       "
-      >
+    >
+      <div style="display: flex; gap: 12px; max-width: 1200px; margin: 0 auto">
         <input
           type="text"
           [(ngModel)]="inputValue"
@@ -183,11 +176,11 @@ export const CustomDisclaimerTemplate: Story = {
       </div>
       <div
         style="
-        text-align: center;
-        margin-top: 8px;
-        font-size: 12px;
-        color: rgba(255, 255, 255, 0.8);
-      "
+          text-align: center;
+          margin-top: 8px;
+          font-size: 12px;
+          color: rgba(255, 255, 255, 0.8);
+        "
       >
         Press Enter to send • Powered by Templates
       </div>
@@ -324,9 +317,9 @@ export const CustomScrollButtonTemplate: Story = {
   template: `
     <div
       style="
-      background: linear-gradient(90deg, #00d2ff 0%, #3a47d5 100%);
-      padding: 20px;
-    "
+        background: linear-gradient(90deg, #00d2ff 0%, #3a47d5 100%);
+        padding: 20px;
+      "
     >
       <input
         type="text"

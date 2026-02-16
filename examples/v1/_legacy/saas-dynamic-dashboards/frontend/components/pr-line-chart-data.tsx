@@ -85,11 +85,11 @@ export function PRLineChartData({ args }: any) {
     "hsl(197, 37%, 24%)",
   ];
   return (
-    <div className="p-4 rounded-2xl shadow-lg flex flex-col items-center w-full min-w-[250px] max-w-full">
-      <h2 className="text-xl font-semibold mb-2 text-gray-700 text-center">
+    <div className="flex w-full min-w-[250px] max-w-full flex-col items-center rounded-2xl p-4 shadow-lg">
+      <h2 className="mb-2 text-center text-xl font-semibold text-gray-700">
         Trend Distribution
       </h2>
-      <div className="h-[200px] w-full flex items-center justify-center">
+      <div className="flex h-[200px] w-full items-center justify-center">
         <LineChart width={520} height={220} data={lineData}>
           <CartesianGrid strokeDasharray="4 4" stroke="#B6C7DB" />
           <XAxis dataKey="name" stroke="#4F5A66" />
@@ -126,7 +126,7 @@ const CustomPieTooltip = ({ active, payload }: any) => {
     debugger;
     const { week, count } = payload[0].payload;
     return (
-      <div className="bg-white p-2 rounded shadow text-black">
+      <div className="rounded bg-white p-2 text-black shadow">
         {`${week} - ${count}`}
       </div>
     );

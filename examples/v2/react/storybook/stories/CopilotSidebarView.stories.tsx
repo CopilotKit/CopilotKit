@@ -38,10 +38,10 @@ export const CustomHeader: Story = {
       titleContent: (props) => (
         <CopilotModalHeader.Title
           {...props}
-          className="text-lg font-semibold tracking-tight text-foreground"
+          className="text-foreground text-lg font-semibold tracking-tight"
         >
           <span>{props.children}</span>
-          <span className="mt-1 block text-xs font-normal text-muted-foreground">
+          <span className="text-muted-foreground mt-1 block text-xs font-normal">
             Always-on teammate
           </span>
         </CopilotModalHeader.Title>

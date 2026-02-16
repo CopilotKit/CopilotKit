@@ -1,7 +1,7 @@
 {
   "name": "@copilotkit-storybook/react",
-  "private": true,
   "version": "0.0.0",
+  "private": true,
   "scripts": {
     "dev": "pnpm --filter @copilotkitnext/react run build:css && sleep 1 && concurrently \"pnpm --filter @copilotkitnext/react run dev\" \"pnpm --filter @copilotkitnext/web-inspector run dev\" \"storybook dev -p 6006 --no-open\"",
     "build": "storybook build",

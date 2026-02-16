@@ -57,11 +57,25 @@ useDefaultTool({
   render: ({ name, args, status, result }) => {
     // Custom rendering for MCP tools
     if (name.startsWith("mcp_")) {
-      return <MCPToolRenderer name={name} args={args} status={status} result={result} />;
+      return (
+        <MCPToolRenderer
+          name={name}
+          args={args}
+          status={status}
+          result={result}
+        />
+      );
     }
 
     // Default rendering for other tools
-    return <DefaultToolRenderer name={name} args={args} status={status} result={result} />;
+    return (
+      <DefaultToolRenderer
+        name={name}
+        args={args}
+        status={status}
+        result={result}
+      />
+    );
   },
 });
 ```
@@ -99,6 +113,7 @@ useDefaultTool({
         </PropertyReference>
       </div>
     </PropertyReference>
+
 </PropertyReference>
 
 <PropertyReference name="dependencies" type="any[]">

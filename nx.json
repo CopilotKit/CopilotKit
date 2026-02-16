@@ -1,10 +1,7 @@
 {
   "$schema": "https://nx.dev/reference/nx-json",
   "namedInputs": {
-    "default": [
-      "{projectRoot}/**/*",
-      "!{projectRoot}/node_modules/**/*"
-    ],
+    "default": ["{projectRoot}/**/*", "!{projectRoot}/node_modules/**/*"],
     "production": [
       "default",
       "!{projectRoot}/**/*.test.*",
@@ -21,68 +18,43 @@
   },
   "targetDefaults": {
     "build": {
-      "dependsOn": [
-        "^build"
-      ],
-      "inputs": [
-        "production",
-        "{projectRoot}/.env*"
-      ],
-      "outputs": [
-        "{projectRoot}/dist/**"
-      ],
+      "dependsOn": ["^build"],
+      "inputs": ["production", "{projectRoot}/.env*"],
+      "outputs": ["{projectRoot}/dist/**"],
       "cache": true
     },
     "dev": {
-      "dependsOn": [
-        "^build"
-      ],
+      "dependsOn": ["^build"],
       "cache": false
     },
     "test": {
-      "inputs": [
-        "test"
-      ],
-      "outputs": [
-        "{projectRoot}/coverage/**"
-      ],
+      "inputs": ["test"],
+      "outputs": ["{projectRoot}/coverage/**"],
       "cache": true
     },
     "test:watch": {
       "cache": false
     },
     "test:coverage": {
-      "inputs": [
-        "test"
-      ],
-      "outputs": [
-        "{projectRoot}/coverage/**"
-      ],
+      "inputs": ["test"],
+      "outputs": ["{projectRoot}/coverage/**"],
       "cache": true
     },
     "lint": {
-      "dependsOn": [
-        "^lint"
-      ],
+      "dependsOn": ["^lint"],
+      "inputs": ["default", "{workspaceRoot}/.oxlintrc.json"],
       "cache": true
     },
     "check-types": {
-      "dependsOn": [
-        "^build",
-        "^check-types"
-      ],
+      "dependsOn": ["^build", "^check-types"],
       "cache": true
     },
     "generate-graphql-schema": {
-      "dependsOn": [
-        "^build"
-      ],
+      "dependsOn": ["^build"],
       "cache": true
     },
     "graphql-codegen": {
-      "dependsOn": [
-        "^build"
-      ],
+      "dependsOn": ["^build"],
       "cache": true
     },
     "link:global": {
@@ -99,32 +71,18 @@
       ]
     },
     "storybook:build": {
-      "dependsOn": [
-        "^build"
-      ],
-      "outputs": [
-        "{projectRoot}/storybook-static/**"
-      ],
+      "dependsOn": ["^build"],
+      "outputs": ["{projectRoot}/storybook-static/**"],
       "cache": true
     },
     "publint": {
-      "dependsOn": [
-        "build"
-      ],
-      "inputs": [
-        "{projectRoot}/package.json",
-        "{projectRoot}/dist/**"
-      ],
+      "dependsOn": ["build"],
+      "inputs": ["{projectRoot}/package.json", "{projectRoot}/dist/**"],
       "cache": true
     },
     "attw": {
-      "dependsOn": [
-        "build"
-      ],
-      "inputs": [
-        "{projectRoot}/package.json",
-        "{projectRoot}/dist/**"
-      ],
+      "dependsOn": ["build"],
+      "inputs": ["{projectRoot}/package.json", "{projectRoot}/dist/**"],
       "cache": true
     }
   },

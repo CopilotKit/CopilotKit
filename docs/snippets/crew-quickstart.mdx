@@ -55,7 +55,7 @@ function CrewStateRenderer({
     if (!state) return [];
     return [...(state.steps || []), ...(state.tasks || [])].sort(
       (a, b) =>
-        new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+        new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime(),
     );
   }, [state]);
 
@@ -290,7 +290,7 @@ export const useCrewQuickstart = ({
         new TextMessage({
           content: "Hi, Please provide your inputs before we get started.",
           role: MessageRole.Developer,
-        })
+        }),
       );
       setInitialMessageSent(true);
     }, 0);
@@ -302,7 +302,7 @@ export const useCrewQuickstart = ({
         new TextMessage({
           role: MessageRole.Developer,
           content: "My inputs are: " + JSON.stringify(state?.inputs),
-        })
+        }),
       ).then(() => {
         setInitialMessageSent(true);
       });
@@ -329,7 +329,7 @@ export const useCrewQuickstart = ({
               e.preventDefault();
               const form = e.currentTarget;
               const input = form.elements.namedItem(
-                "input"
+                "input",
               ) as HTMLTextAreaElement;
               const inputValue = input.value;
               const inputKey = input.id;

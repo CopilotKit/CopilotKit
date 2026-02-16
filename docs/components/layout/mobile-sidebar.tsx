@@ -202,7 +202,7 @@ const MobileSidebar = ({
 
   return (
     <div
-      className={`flex fixed top-0 left-0 z-50 justify-end p-1 w-full h-full transition-colors duration-300 ${
+      className={`fixed top-0 left-0 z-50 flex h-full w-full justify-end p-1 transition-colors duration-300 ${
         isVisible ? "bg-black/30" : "bg-black/0"
       }`}
       onClick={(e) => {
@@ -212,24 +212,24 @@ const MobileSidebar = ({
     >
       <OpenedFoldersProvider>
         <aside
-          className={`flex flex-col w-full max-w-[280px] h-[calc(100vh-8px)] border backdrop-blur-3xl border-r-0 border-border bg-white/50 dark:bg-white/[0.01] rounded-2xl pl-3 pr-1 transition-transform duration-300 ease-out ${
+          className={`border-border flex h-[calc(100vh-8px)] w-full max-w-[280px] flex-col rounded-2xl border border-r-0 bg-white/50 pr-1 pl-3 backdrop-blur-3xl transition-transform duration-300 ease-out dark:bg-white/[0.01] ${
             isVisible ? "translate-x-0" : "translate-x-full"
           }`}
         >
-          <div className="flex justify-between items-center my-2 w-full">
-            <div className="flex gap-1 items-center">
+          <div className="my-2 flex w-full items-center justify-between">
+            <div className="flex items-center gap-1">
               {LEFT_LINKS.map((link) => (
                 <Link
                   key={link.href}
                   href={link.href}
                   target={link.target}
-                  className="flex justify-center items-center w-11 h-11 shrink-0"
+                  className="flex h-11 w-11 shrink-0 items-center justify-center"
                 >
-                  <span className="flex items-center h-full">{link.icon}</span>
+                  <span className="flex h-full items-center">{link.icon}</span>
                 </Link>
               ))}
               <button
-                className="flex justify-center items-center w-11 h-11 cursor-pointer"
+                className="flex h-11 w-11 cursor-pointer items-center justify-center"
                 onClick={handleToggleTheme}
               >
                 <Image
@@ -249,7 +249,7 @@ const MobileSidebar = ({
               </button>
             </div>
             <button
-              className="flex justify-center items-center w-11 h-full cursor-pointer"
+              className="flex h-full w-11 cursor-pointer items-center justify-center"
               onClick={handleClose}
             >
               <CrossIcon />
@@ -267,7 +267,7 @@ const MobileSidebar = ({
           )}
 
           {isIntegrationRoute && selectedIntegration ? (
-            <ul className="flex overflow-y-auto flex-col mt-6 max-h-full custom-scrollbar [&>*:first-child]:mt-0">
+            <ul className="custom-scrollbar mt-6 flex max-h-full flex-col overflow-y-auto [&>*:first-child]:mt-0">
               {integrationPages.map((page, index) => {
                 const Component = NODE_COMPONENTS[page.type];
                 const pageUrl =
@@ -287,7 +287,7 @@ const MobileSidebar = ({
           ) : isIntegrationRoute && !selectedIntegration ? (
             <IntegrationSelectorSkeleton />
           ) : (
-            <ul className="flex overflow-y-auto flex-col mt-6 max-h-full custom-scrollbar [&>*:first-child]:mt-0">
+            <ul className="custom-scrollbar mt-6 flex max-h-full flex-col overflow-y-auto [&>*:first-child]:mt-0">
               {pagesToShow.map((page, index) => {
                 const Component = NODE_COMPONENTS[page.type];
                 const pageUrl =

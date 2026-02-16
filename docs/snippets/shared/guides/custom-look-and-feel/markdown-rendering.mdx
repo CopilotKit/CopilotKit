@@ -1,4 +1,4 @@
-import { Frame } from "@/components/react/frame"
+import { Frame } from "@/components/react/frame";
 
 When rendering an assistant message, CopilotKit uses [`react-markdown`](https://remarkjs.github.io/react-markdown/) under the hood.
 This allows us to render rich text with links, headers and other UI components.
@@ -7,13 +7,18 @@ If you wish to modify this behavior, you can either enrich and override the indi
 This is useful for displaying elements within the assistant answer text, such as source citing, reasoning steps etc.
 
 <Frame>
-    <img className="rounded-none w-80" src="https://cdn.copilotkit.ai/docs/copilotkit/images/custom-markdown-example.png" />
+  <img
+    className="rounded-none w-80"
+    src="https://cdn.copilotkit.ai/docs/copilotkit/images/custom-markdown-example.png"
+  />
 </Frame>
 
 Here's how it can be done:
 
 ## Replacing/Providing the markdown components with your own
+
 We will be adding a chip component. Similar to the one available with ChatGPT when sources are cited.
+
 <Steps>
 <Step>
 First, let's create a chip component
@@ -25,22 +30,22 @@ import "@copilotkit/react-ui/styles.css";
 import "./styles.css";
 
 function YourComponent() {
-    const customMarkdownTagRenderers: ComponentsMap<{ "reference-chip": { href: string } }> = {
-        // You can make up your own tags, or use existing, valid HTML ones!
-        "reference-chip": ({ children, href }) => {
-            return (
-                <a
-                href={href}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="w-fit border rounded-xl py-1 px-2 text-xs" // Classes list trimmed for brevity
-                >
-                    {children}
-                    <LinkIcon className="w-3.5 h-3.5" />
-                </a>
-            );
-        },
-    };
+const customMarkdownTagRenderers: ComponentsMap<{ "reference-chip": { href: string } }> = {
+// You can make up your own tags, or use existing, valid HTML ones!
+"reference-chip": ({ children, href }) => {
+return (
+
+<a
+href={href}
+target="\_blank"
+rel="noopener noreferrer"
+className="w-fit border rounded-xl py-1 px-2 text-xs" // Classes list trimmed for brevity >
+{children}
+<LinkIcon className="w-3.5 h-3.5" />
+</a>
+);
+},
+};
 
     return (
         <CopilotKit>
@@ -55,8 +60,10 @@ function YourComponent() {
           />
         </CopilotKit>
     )
+
 }
-```
+
+````
 </Step>
 <Step>
 Now, let's add styles to the component
@@ -77,7 +84,8 @@ Now, let's add styles to the component
     cursor: pointer;
     box-shadow: 0 1px 2px rgba(0,0,0,0.05);
 }
-```
+````
+
 </Step>
 </Steps>
 

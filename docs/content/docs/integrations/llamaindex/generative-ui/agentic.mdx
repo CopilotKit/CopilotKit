@@ -3,9 +3,10 @@ title: Agent State
 icon: "lucide/Bot"
 description: Render the state of your agent with custom UI components.
 ---
+
 import { Accordions, Accordion } from "fumadocs-ui/components/accordion";
-import { IframeSwitcher } from "@/components/content"
-import RunAndConnect from "@/snippets/integrations/llamaindex/run-and-connect.mdx"
+import { IframeSwitcher } from "@/components/content";
+import RunAndConnect from "@/snippets/integrations/llamaindex/run-and-connect.mdx";
 
 <IframeSwitcher
   id="agent-state-example"
@@ -56,23 +57,23 @@ is a situation where a user and an agent are working together to solve a problem
             state = global_state.get("state", {})
             if state is None:
                 state = {}
-            
+
             if "searches" not in state:
                 state["searches"] = []
-            
+
             # Add new search
             new_search = {"query": query, "done": False}
             state["searches"].append(new_search)
-            
+
             # Emit state snapshot to frontend
             ctx.write_event_to_stream(
                 StateSnapshotWorkflowEvent(
                     snapshot=state
                 )
             )
-            
+
             global_state["state"] = state
-        
+
         return f"Added search: {query}"
 
     async def runSearches(ctx: Context) -> str:
@@ -81,25 +82,25 @@ is a situation where a user and an agent are working together to solve a problem
             state = global_state.get("state", {})
             if state is None:
                 state = {}
-            
+
             if "searches" not in state:
                 state["searches"] = []
-            
+
             # Update each search to done
             for search in state["searches"]:
                 if not search.get("done", False):
                     await asyncio.sleep(1)  # Simulate search execution
                     search["done"] = True
-                    
+
                     # Emit state update as each search completes
                     ctx.write_event_to_stream(
                         StateSnapshotWorkflowEvent(
                             snapshot=state
                         )
                     )
-            
+
             global_state["state"] = state
-        
+
         return "All searches completed!"
 
     # Initialize the LLM
@@ -115,7 +116,7 @@ is a situation where a user and an agent are working together to solve a problem
         - Use the addSearch tool to add a search to the agent's state
         - After using the addSearch tool, YOU MUST ALWAYS use the runSearches tool to run the searches
         - ONLY USE THE addSearch TOOL ONCE FOR A GIVEN QUERY
-        
+
         When adding searches, update the state to track:
         - query: the search query
         - done: whether the search is complete (false initially, true after running)
@@ -255,5 +256,6 @@ is a situation where a user and an agent are working together to solve a problem
       autoPlay
       muted
     />
+
   </Step>
 </Steps>

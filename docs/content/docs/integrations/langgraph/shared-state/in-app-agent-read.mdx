@@ -3,9 +3,10 @@ title: Reading agent state
 icon: "lucide/ArrowLeft"
 description: Read the realtime agent state in your native application.
 ---
-import { ImageZoom } from 'fumadocs-ui/components/image-zoom';
-import RunAndConnect from "@/snippets/integrations/langgraph/run-and-connect.mdx"
-import { IframeSwitcher } from "@/components/content"
+
+import { ImageZoom } from "fumadocs-ui/components/image-zoom";
+import RunAndConnect from "@/snippets/integrations/langgraph/run-and-connect.mdx";
+import { IframeSwitcher } from "@/components/content";
 
 <IframeSwitcher
   id="shared-state-example"
@@ -17,7 +18,8 @@ import { IframeSwitcher } from "@/components/content"
 />
 
 <Callout type="info">
-  This example demonstrates reading from shared state in the [CopilotKit Feature Viewer](https://feature-viewer.copilotkit.ai/langgraph/feature/shared_state).
+  This example demonstrates reading from shared state in the [CopilotKit Feature
+  Viewer](https://feature-viewer.copilotkit.ai/langgraph/feature/shared_state).
 </Callout>
 
 ## What is this?
@@ -90,6 +92,7 @@ state updates, you can reflect these updates natively in your application.
         ```
       </Tab>
     </Tabs>
+
   </Step>
   <Step>
     ### Use the `useCoAgent` Hook
@@ -126,6 +129,7 @@ state updates, you can reflect these updates natively in your application.
     <Callout type="info">
       The `state` in `useCoAgent` is reactive and will automatically update when the agent's state changes.
     </Callout>
+
   </Step>
   <Step>
     ### Give it a try!
@@ -140,6 +144,7 @@ state updates, you can reflect these updates natively in your application.
       Pictured above is the [coagent starter](https://github.com/copilotkit/copilotkit/tree/main/examples/coagents-starter) with
       the [implementation](#implementation) section applied!
     </Callout>
+
   </Step>
 </Steps>
 
@@ -154,7 +159,7 @@ import { useCoAgentStateRender } from "@copilotkit/react-core"; // [!code highli
 // Define the agent state type, should match the actual state of your agent
 type AgentState = {
   language: "english" | "spanish";
-}
+};
 
 function YourMainContent() {
   // ...
@@ -171,11 +176,13 @@ function YourMainContent() {
 ```
 
 <Callout type="info">
-  The `state` in `useCoAgentStateRender` is reactive and will automatically update when the agent's state changes.
+  The `state` in `useCoAgentStateRender` is reactive and will automatically
+  update when the agent's state changes.
 </Callout>
 
 ## Intermediately Stream and Render Agent State
-By default, the LangGraph agent state will only update *between* LangGraph node transitions --
+
+By default, the LangGraph agent state will only update _between_ LangGraph node transitions --
 which means state updates will be discontinuous and delayed.
 
 You likely want to render the agent state as it updates **continuously.**

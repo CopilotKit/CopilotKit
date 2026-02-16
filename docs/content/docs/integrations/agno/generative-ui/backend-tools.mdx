@@ -3,11 +3,12 @@ title: Backend Tools
 icon: "lucide/Server"
 description: Render your agent's tool calls with custom UI components.
 ---
+
 import { Accordions, Accordion } from "fumadocs-ui/components/accordion";
-import { IframeSwitcher } from "@/components/content"
-import { Tabs, Tab } from "fumadocs-ui/components/tabs"
-import DefaultToolRendering from "@/snippets/shared/guides/default-tool-rendering.mdx"
-import RunAndConnect from "@/snippets/integrations/agno/run-and-connect.mdx"
+import { IframeSwitcher } from "@/components/content";
+import { Tabs, Tab } from "fumadocs-ui/components/tabs";
+import DefaultToolRendering from "@/snippets/shared/guides/default-tool-rendering.mdx";
+import RunAndConnect from "@/snippets/integrations/agno/run-and-connect.mdx";
 
 <IframeSwitcher
   id="backend-tools-example"
@@ -19,7 +20,15 @@ import RunAndConnect from "@/snippets/integrations/agno/run-and-connect.mdx"
 />
 
 <Callout>
-  This example demonstrates the [implementation](#implementation) section applied in the <a href="https://feature-viewer.copilotkit.ai/langgraph/feature/agentic_chat" target="_blank">CopilotKit feature viewer</a>.
+  This example demonstrates the [implementation](#implementation) section
+  applied in the{" "}
+  <a
+    href="https://feature-viewer.copilotkit.ai/langgraph/feature/agentic_chat"
+    target="_blank"
+  >
+    CopilotKit feature viewer
+  </a>
+  .
 </Callout>
 
 ## What is this?
@@ -78,7 +87,8 @@ we just need to add a `useRenderToolCall` hook to render the tool call in
 the UI.
 
 <Callout type="info" title="Important">
-  In order to render a tool call in the UI, the name of the action must match the name of the tool.
+  In order to render a tool call in the UI, the name of the action must match
+  the name of the tool.
 </Callout>
 
 ```tsx title="app/page.tsx"
@@ -87,20 +97,23 @@ import { useRenderToolCall } from "@copilotkit/react-core"; // [!code highlight]
 
 const YourMainContent = () => {
   // ...
-  {/* [!code highlight:12] */}
+  {
+    /* [!code highlight:12] */
+  }
   useRenderToolCall({
     name: "get_weather",
-    render: ({status, args}) => {
+    render: ({ status, args }) => {
       return (
         <p className="text-gray-500 mt-2">
           {status !== "complete" && "Calling weather API..."}
-          {status === "complete" && `Called the weather API for ${args.location}.`}
+          {status === "complete" &&
+            `Called the weather API for ${args.location}.`}
         </p>
       );
     },
   });
   // ...
-}
+};
 ```
 
 </Step>

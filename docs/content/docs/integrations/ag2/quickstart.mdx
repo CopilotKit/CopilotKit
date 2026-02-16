@@ -44,7 +44,12 @@ import CopilotUI from "@/snippets/copilot-ui.mdx";
 This quickstart guide shows how to build a **Weather Agent** using AG2 and CopilotKit. In just minutes, you'll have a working application where users can ask for real-time weather conditions in any city worldwide — powered by AG2's `AGUIStream` over the AG-UI protocol and rendered with CopilotKit's chat UI.
 
 <Callout type="info">
-  CopilotKit consumes AG-UI protocol events streamed by AG2 over <code>/chat</code>. See the <a href="https://docs.ag2.ai/latest/docs/user-guide/ag-ui/" target="_blank">AG2 AG-UI integration docs</a>.
+  CopilotKit consumes AG-UI protocol events streamed by AG2 over{" "}
+  <code>/chat</code>. See the{" "}
+  <a href="https://docs.ag2.ai/latest/docs/user-guide/ag-ui/" target="_blank">
+    AG2 AG-UI integration docs
+  </a>
+  .
 </Callout>
 
 ## AG2 Bootstrap Template
@@ -62,10 +67,21 @@ Follow the prompts to pick AG2 and the features you want, then run the install/s
 Before you begin, you'll need the following:
 
 - **Python 3.10–3.13** for running the AG2 backend
-- <a href="https://docs.astral.sh/uv/getting-started/installation/" target="_blank">uv</a> (for Python dependency management)
+- <a
+    href="https://docs.astral.sh/uv/getting-started/installation/"
+    target="_blank"
+  >
+    uv
+  </a>
+  (for Python dependency management)
 - <a href="https://nodejs.org/en/download" target="_blank">Node.js</a> 18.18.0 or newer (specifically: ^18.18.0 || ^19.8.0 || >= 20.0.0)
-- <a href="https://pnpm.io/installation" target="_blank">pnpm</a> (for frontend package management)
-- <a href="https://platform.openai.com/api-keys" target="_blank">OpenAI API key</a>
+- <a href="https://pnpm.io/installation" target="_blank">
+    pnpm
+  </a>
+  (for frontend package management)
+- <a href="https://platform.openai.com/api-keys" target="_blank">
+    OpenAI API key
+  </a>
 
 ## Getting started
 
@@ -102,7 +118,7 @@ Before you begin, you'll need the following:
     </Step>
     <Step>
         ### Set Up the CopilotKit UI
-        
+
         The last step is to use CopilotKit's UI components to render the chat interaction with your agent.
 
         In a new terminal:

@@ -6,7 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "oxlint ."
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.36.3",
@@ -28,8 +28,6 @@
     "@types/node": "^22",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "eslint": "^9",
-    "eslint-config-next": "15.1.7",
     "typescript": "^5"
   }
 }

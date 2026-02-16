@@ -58,7 +58,7 @@ export function BrokenLinkHandler({
         onClick={handleClick}
       >
         {children}
-        <ExternalLink className="w-3 h-3 opacity-60" />
+        <ExternalLink className="h-3 w-3 opacity-60" />
       </Link>
     );
   }
@@ -67,7 +67,7 @@ export function BrokenLinkHandler({
     <Link href={href} className={className} onClick={handleClick}>
       {children}
       {showWarning && isBroken && (
-        <AlertTriangle className="w-3 h-3 text-yellow-500 ml-1" />
+        <AlertTriangle className="ml-1 h-3 w-3 text-yellow-500" />
       )}
     </Link>
   );
@@ -109,11 +109,11 @@ export function EnhancedNavigationLink({
   if (linkStatus === "broken") {
     return (
       <span
-        className={`${className} text-red-600 dark:text-red-400 cursor-not-allowed`}
+        className={`${className} cursor-not-allowed text-red-600 dark:text-red-400`}
         title="This link appears to be broken"
       >
         {children}
-        <AlertTriangle className="w-3 h-3 inline ml-1" />
+        <AlertTriangle className="ml-1 inline h-3 w-3" />
       </span>
     );
   }

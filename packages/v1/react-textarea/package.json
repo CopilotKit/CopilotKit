@@ -1,21 +1,34 @@
 {
   "name": "@copilotkit/react-textarea",
+  "version": "1.51.4-next.8",
   "private": false,
+  "keywords": [
+    "ai",
+    "assistant",
+    "automation",
+    "copilot",
+    "copilotkit",
+    "javascript",
+    "nextjs",
+    "nodejs",
+    "react",
+    "textarea"
+  ],
   "homepage": "https://github.com/CopilotKit/CopilotKit",
+  "license": "MIT",
   "repository": {
     "type": "git",
     "url": "https://github.com/CopilotKit/CopilotKit.git"
   },
   "type": "module",
-  "publishConfig": {
-    "access": "public"
-  },
-  "version": "1.51.4-next.8",
   "sideEffects": [
     "**/*.css"
   ],
   "main": "./dist/index.cjs",
   "module": "./dist/index.mjs",
+  "types": "./dist/index.d.cts",
+  "unpkg": "./dist/index.umd.js",
+  "jsdelivr": "./dist/index.umd.js",
   "exports": {
     ".": {
       "import": "./dist/index.mjs",
@@ -24,10 +37,9 @@
     "./package.json": "./package.json",
     "./styles.css": "./dist/index.css"
   },
-  "unpkg": "./dist/index.umd.js",
-  "jsdelivr": "./dist/index.umd.js",
-  "types": "./dist/index.d.cts",
-  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "build": "tsdown",
     "dev": "tsdown --watch",
@@ -38,29 +50,6 @@
     "unlink:global": "pnpm unlink --global",
     "publint": "publint .",
     "attw": "attw --pack . --profile node16"
-  },
-  "peerDependencies": {
-    "react": "^18 || ^19 || ^19.0.0-rc",
-    "react-dom": "^18 || ^19 || ^19.0.0-rc"
-  },
-  "devDependencies": {
-    "@types/lodash.merge": "^4.6.7",
-    "@types/react": "^19.1.0",
-    "@types/react-dom": "^19.0.2",
-    "@types/react-syntax-highlighter": "^15.5.7",
-    "autoprefixer": "^10.4.24",
-    "eslint": "^8.56.0",
-    "eslint-config-custom": "workspace:*",
-    "postcss": "^8.4.20",
-    "postcss-prefix-selector": "^1.16.1",
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0",
-    "tailwind-config": "workspace:*",
-    "tailwindcss": "^3.3.0",
-    "tsconfig": "workspace:*",
-    "vitest": "^3.2.4",
-    "tsdown": "^0.20.3",
-    "typescript": "^5.2.3"
   },
   "dependencies": {
     "@copilotkit/react-core": "workspace:*",
@@ -85,16 +74,25 @@
     "slate-react": "^0.98.1",
     "tailwind-merge": "^1.13.2"
   },
-  "keywords": [
-    "copilotkit",
-    "copilot",
-    "react",
-    "nextjs",
-    "nodejs",
-    "ai",
-    "assistant",
-    "javascript",
-    "automation",
-    "textarea"
-  ]
+  "devDependencies": {
+    "@types/lodash.merge": "^4.6.7",
+    "@types/react": "^19.1.0",
+    "@types/react-dom": "^19.0.2",
+    "@types/react-syntax-highlighter": "^15.5.7",
+    "autoprefixer": "^10.4.24",
+    "postcss": "^8.4.20",
+    "postcss-prefix-selector": "^1.16.1",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "tailwind-config": "workspace:*",
+    "tailwindcss": "^3.3.0",
+    "tsconfig": "workspace:*",
+    "tsdown": "^0.20.3",
+    "typescript": "^5.2.3",
+    "vitest": "^3.2.4"
+  },
+  "peerDependencies": {
+    "react": "^18 || ^19 || ^19.0.0-rc",
+    "react-dom": "^18 || ^19 || ^19.0.0-rc"
+  }
 }

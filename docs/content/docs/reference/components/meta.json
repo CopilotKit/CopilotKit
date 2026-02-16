@@ -1,8 +1,4 @@
 {
   "title": "UI Components",
-  "pages": [
-    "chat",
-    "CopilotTextarea",
-    "CopilotKit"
-  ]
+  "pages": ["chat", "CopilotTextarea", "CopilotKit"]
 }

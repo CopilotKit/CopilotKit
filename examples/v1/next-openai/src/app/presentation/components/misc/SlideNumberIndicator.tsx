@@ -8,7 +8,7 @@ export function SlideNumberIndicator({
   totalSlides,
 }: SlideNumberIndicatorProps) {
   return (
-    <div className="flex-1 items-center justify-center flex uppercase text-xs font-bold tracking-widest">
+    <div className="flex flex-1 items-center justify-center text-xs font-bold uppercase tracking-widest">
       <span className="mr-3">{SLIDES_ICON}</span>
       Slide {currentSlideIndex + 1} of {totalSlides}
     </div>

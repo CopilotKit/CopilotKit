@@ -5,8 +5,8 @@ description: Render your agent's tool calls with custom UI components.
 ---
 
 import { Accordions, Accordion } from "fumadocs-ui/components/accordion";
-import { IframeSwitcher } from "@/components/content"
-import RunAndConnect from "@/snippets/integrations/aws-strands/run-and-connect.mdx"
+import { IframeSwitcher } from "@/components/content";
+import RunAndConnect from "@/snippets/integrations/aws-strands/run-and-connect.mdx";
 
 <IframeSwitcher
   id="tool-based-generative-ui-example"
@@ -97,7 +97,8 @@ app = create_strands_app(agui_agent, "/")
 Now we'll use the `useRenderToolCall` hook to render the tool call in the UI with a custom component.
 
 <Callout type="info" title="Important">
-  The tool name in `useRenderToolCall` must match the name of the tool defined in your agent.
+  The tool name in `useRenderToolCall` must match the name of the tool defined
+  in your agent.
 </Callout>
 
 ```tsx title="app/page.tsx"
@@ -193,11 +194,11 @@ useRenderToolCall({
 
     return (
       <div className="p-4 bg-blue-50 rounded-lg">
-        {status === "executing" && (
-          <p>Fetching weather for {location}...</p>
-        )}
+        {status === "executing" && <p>Fetching weather for {location}...</p>}
         {status === "complete" && result && (
-          <p>Weather in {location}: {result.temperature}°F</p>
+          <p>
+            Weather in {location}: {result.temperature}°F
+          </p>
         )}
       </div>
     );

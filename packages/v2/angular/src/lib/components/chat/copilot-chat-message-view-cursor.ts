@@ -18,7 +18,9 @@ import { cn } from "../../utils";
   imports: [CommonModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
-  template: ` <div [class]="computedClass()"></div> `,
+  template: `
+    <div [class]="computedClass()"></div>
+  `,
 })
 export class CopilotChatMessageViewCursor {
   inputClass = input<string | undefined>();

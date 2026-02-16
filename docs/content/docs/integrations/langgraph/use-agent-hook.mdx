@@ -10,7 +10,7 @@ import {
   Zap,
   AlertCircle,
   BookOpen,
-} from "lucide-react"
+} from "lucide-react";
 
 ## Overview
 
@@ -178,11 +178,13 @@ export function CustomInterruptHandler() {
     <div className="interrupt-modal">
       <h3>Agent Needs Your Input</h3>
       <p>{interrupt.message}</p>
-      <form onSubmit={(e) => {
-        e.preventDefault();
-        const formData = new FormData(e.currentTarget);
-        handleResponse(formData.get("response") as string);
-      }}>
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          const formData = new FormData(e.currentTarget);
+          handleResponse(formData.get("response") as string);
+        }}
+      >
         <input type="text" name="response" placeholder="Your response" />
         <button type="submit">Submit</button>
       </form>

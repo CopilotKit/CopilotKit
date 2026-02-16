@@ -19,9 +19,9 @@ export const Loader: React.FC<LoaderProps> = ({
 }) => {
   if (fullScreen) {
     return (
-      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
         <div className={`${sizeClasses[size]} ${className}`}>
-          <div className="w-full h-full border-4 border-gray-200 border-t-blue-600 rounded-full animate-spin" />
+          <div className="h-full w-full animate-spin rounded-full border-4 border-gray-200 border-t-blue-600" />
         </div>
       </div>
     );
@@ -29,7 +29,7 @@ export const Loader: React.FC<LoaderProps> = ({
 
   return (
     <div className={`inline-block ${sizeClasses[size]} ${className}`}>
-      <div className="w-full h-full border-4 border-gray-200 border-t-blue-600 rounded-full animate-spin" />
+      <div className="h-full w-full animate-spin rounded-full border-4 border-gray-200 border-t-blue-600" />
     </div>
   );
 };

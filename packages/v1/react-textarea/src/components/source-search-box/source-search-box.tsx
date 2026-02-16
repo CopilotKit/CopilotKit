@@ -51,7 +51,7 @@ export function SourceSearchBox(props: SourceSearchBoxProps) {
     >
       <CommandInput
         value={props.searchTerm}
-        className="rounded-t-lg hidden"
+        className="hidden rounded-t-lg"
         placeholder="Search for a command..."
       />
       <CommandList>
@@ -67,12 +67,12 @@ export function SourceSearchBox(props: SourceSearchBoxProps) {
                   props.onSelectedFile(filePointer);
                 }}
               >
-                <div className=" px-3  flex flex-row gap-1 items-center">
+                <div className="flex flex-row items-center gap-1 px-3">
                   <Logo width="20px" height="20px">
                     <img
                       src={filePointer.iconImageUri}
                       alt={filePointer.sourceApplication}
-                      className="w-full h-full"
+                      className="h-full w-full"
                     />
                   </Logo>
                   {filePointer.name}

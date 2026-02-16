@@ -98,7 +98,7 @@ function flattenUserMessageContent(content?: UserMessage["content"]): string {
         </copilot-slot>
       } @else {
         <div copilotChatUserMessageToolbar [inputClass]="toolbarClass()">
-          <div class="flex items-center gap-1 justify-end">
+          <div class="flex items-center justify-end gap-1">
             <!-- Additional toolbar items -->
             @if (additionalToolbarItems()) {
               <ng-container
@@ -147,9 +147,7 @@ function flattenUserMessageContent(content?: UserMessage["content"]): string {
             @if (showBranchNavigation()) {
               @if (branchNavigationTemplate || branchNavigationComponent()) {
                 <copilot-slot
-                  [slot]="
-                    branchNavigationTemplate || branchNavigationComponent()
-                  "
+                  [slot]="branchNavigationTemplate || branchNavigationComponent()"
                   [context]="branchNavigationContext()"
                   [defaultComponent]="CopilotChatUserMessageBranchNavigation"
                 >

@@ -22,10 +22,10 @@ export function YouTubeVideo({
   };
 
   return (
-    <div className="w-full aspect-video rounded-lg overflow-hidden">
+    <div className="aspect-video w-full overflow-hidden rounded-lg">
       <YouTube
         videoId={videoId}
-        className="w-full h-full rounded-lg"
+        className="h-full w-full rounded-lg"
         iframeClassName="rounded-2xl w-full h-full shadow-xl border"
         opts={opts}
         onReady={onPlayerReady}

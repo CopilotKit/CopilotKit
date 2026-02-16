@@ -3,10 +3,12 @@ title: Frontend Tools
 icon: "lucide/Wrench"
 description: Create frontend tools and use them within your Microsoft Agent Framework agent.
 ---
-import { IframeSwitcher } from "@/components/content"
-import RunAndConnect from "@/snippets/integrations/microsoft-agent-framework/run-and-connect.mdx"
+
+import { IframeSwitcher } from "@/components/content";
+import RunAndConnect from "@/snippets/integrations/microsoft-agent-framework/run-and-connect.mdx";
 
 {/* TODO: Swap these links for Microsoft Agent Framework links once Microsoft Agent Framework is officially added to the feature viewer */}
+
 <IframeSwitcher
   id="frontend-actions-example"
   exampleUrl="https://feature-viewer.copilotkit.ai/microsoft-agent-framework-dotnet/feature/agentic_chat?sidebar=false&chatDefaultOpen=false"
@@ -17,6 +19,7 @@ import RunAndConnect from "@/snippets/integrations/microsoft-agent-framework/run
 />
 
 ## What is this?
+
 Frontend tools enable you to define client-side functions that your agent can invoke, with execution happening entirely in the user's browser. When your agent calls a frontend tool,
 the logic runs on the client side, giving you direct access to the frontend environment.
 
@@ -25,7 +28,9 @@ This can be utilized to let your agent control the UI, power generative UI, or s
 In this guide, we cover the use of frontend tools driving and interacting with the UI.
 
 ## When should I use this?
+
 Use frontend tools when you need your agent to interact with client-side primitives such as:
+
 - Reading or modifying React component state
 - Accessing browser APIs like localStorage, sessionStorage, or cookies
 - Triggering UI updates or animations
@@ -160,4 +165,5 @@ Use frontend tools when you need your agent to interact with client-side primiti
 
         <video src="https://cdn.copilotkit.ai/docs/copilotkit/images/frontend-actions-demo.mp4" className="rounded-lg shadow-xl" loop playsInline controls autoPlay muted />
     </Step>
+
 </Steps>

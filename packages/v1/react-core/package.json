@@ -1,21 +1,34 @@
 {
   "name": "@copilotkit/react-core",
+  "version": "1.51.4-next.8",
   "private": false,
+  "keywords": [
+    "ai",
+    "assistant",
+    "automation",
+    "copilot",
+    "copilotkit",
+    "javascript",
+    "nextjs",
+    "nodejs",
+    "react",
+    "textarea"
+  ],
   "homepage": "https://github.com/CopilotKit/CopilotKit",
+  "license": "MIT",
   "repository": {
     "type": "git",
     "url": "https://github.com/CopilotKit/CopilotKit.git"
   },
   "type": "module",
-  "publishConfig": {
-    "access": "public"
-  },
-  "version": "1.51.4-next.8",
   "sideEffects": [
     "**/*.css"
   ],
   "main": "./dist/index.cjs",
   "module": "./dist/index.mjs",
+  "types": "./dist/index.d.cts",
+  "unpkg": "./dist/index.umd.js",
+  "jsdelivr": "./dist/index.umd.js",
   "exports": {
     ".": {
       "import": "./dist/index.mjs",
@@ -28,10 +41,9 @@
     "./package.json": "./package.json",
     "./v2/styles.css": "./dist/v2/index.css"
   },
-  "unpkg": "./dist/index.umd.js",
-  "jsdelivr": "./dist/index.umd.js",
-  "types": "./dist/index.d.cts",
-  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "build": "tsdown",
     "dev": "tsdown --watch",
@@ -43,27 +55,6 @@
     "publint": "publint .",
     "attw": "attw --pack . --profile node16"
   },
-  "peerDependencies": {
-    "react": "^18 || ^19 || ^19.0.0-rc",
-    "react-dom": "^18 || ^19 || ^19.0.0-rc",
-    "zod": ">=3.0.0"
-  },
-  "devDependencies": {
-    "@testing-library/react": "^16.3.0",
-    "@testing-library/react-hooks": "^8.0.1",
-    "@types/react": "^19.1.0",
-    "@types/react-dom": "^19.0.2",
-    "eslint": "^8.56.0",
-    "eslint-config-custom": "workspace:*",
-    "jsdom": "^26.1.0",
-    "react": "^19.1.0",
-    "react-dom": "^19.2.0",
-    "tsconfig": "workspace:*",
-    "vitest": "^3.2.4",
-    "tsdown": "^0.20.3",
-    "typescript": "^5.2.3",
-    "zod": ">=3.0.0"
-  },
   "dependencies": {
     "@ag-ui/client": "^0.0.43",
     "@copilotkit/runtime-client-gql": "workspace:*",
@@ -74,16 +65,23 @@
     "react-markdown": "^8.0.7",
     "untruncate-json": "^0.0.1"
   },
-  "keywords": [
-    "copilotkit",
-    "copilot",
-    "react",
-    "nextjs",
-    "nodejs",
-    "ai",
-    "assistant",
-    "javascript",
-    "automation",
-    "textarea"
-  ]
+  "devDependencies": {
+    "@testing-library/react": "^16.3.0",
+    "@testing-library/react-hooks": "^8.0.1",
+    "@types/react": "^19.1.0",
+    "@types/react-dom": "^19.0.2",
+    "jsdom": "^26.1.0",
+    "react": "^19.1.0",
+    "react-dom": "^19.2.0",
+    "tsconfig": "workspace:*",
+    "tsdown": "^0.20.3",
+    "typescript": "^5.2.3",
+    "vitest": "^3.2.4",
+    "zod": ">=3.0.0"
+  },
+  "peerDependencies": {
+    "react": "^18 || ^19 || ^19.0.0-rc",
+    "react-dom": "^18 || ^19 || ^19.0.0-rc",
+    "zod": ">=3.0.0"
+  }
 }

@@ -32,7 +32,7 @@ import { cn } from "../../utils";
   template: `
     <div [class]="computedClass">
       <!-- Input component -->
-      <div class="max-w-3xl mx-auto py-0 px-4 sm:px-0">
+      <div class="mx-auto max-w-3xl px-4 py-0 sm:px-0">
         <copilot-slot
           [slot]="input()"
           [context]="{ inputClass: inputClass() }"

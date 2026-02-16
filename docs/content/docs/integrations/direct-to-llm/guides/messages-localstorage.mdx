@@ -5,19 +5,24 @@ icon: "lucide/Save"
 ---
 
 <Callout>
-  See [Loading Message History](/langgraph/persistence/loading-message-history) for an automated way to load the chat history.
+  See [Loading Message History](/langgraph/persistence/loading-message-history)
+  for an automated way to load the chat history.
 </Callout>
 
-As you're building agentic experiences, you may want to persist the user's chat history across runs. 
-One way to do this is through the use of `localstorage` where chat history is saved in the browser. 
-In this guide we demonstrate how you can store the state into `localstorage` and how it can be inserted 
+As you're building agentic experiences, you may want to persist the user's chat history across runs.
+One way to do this is through the use of `localstorage` where chat history is saved in the browser.
+In this guide we demonstrate how you can store the state into `localstorage` and how it can be inserted
 into the agent.
 
 The following example shows how to save and restore your message history using `localStorage`:
 
 ```typescript
 import { useCopilotMessagesContext } from "@copilotkit/react-core";
-import { ActionExecutionMessage, ResultMessage, TextMessage } from "@copilotkit/runtime-client-gql";
+import {
+  ActionExecutionMessage,
+  ResultMessage,
+  TextMessage,
+} from "@copilotkit/runtime-client-gql";
 
 const { messages, setMessages } = useCopilotMessagesContext();
 

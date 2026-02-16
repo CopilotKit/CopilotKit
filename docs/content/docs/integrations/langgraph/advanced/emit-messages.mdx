@@ -2,14 +2,24 @@
 title: "Manually emitting messages"
 icon: "lucide/Radio"
 ---
-import InstallSDKSnippet from "@/snippets/install-sdk.mdx"
-import RunAndConnect from "@/snippets/integrations/langgraph/run-and-connect.mdx"
+
+import InstallSDKSnippet from "@/snippets/install-sdk.mdx";
+import RunAndConnect from "@/snippets/integrations/langgraph/run-and-connect.mdx";
 
 While most agent interactions happen automatically through shared state updates as the agent runs, you can also **manually send messages from within your agent code** to provide immediate feedback to users.
 
-<video src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/emit-messages.mp4" className="rounded-lg shadow-xl" loop playsInline controls autoPlay muted />
+<video
+  src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/emit-messages.mp4"
+  className="rounded-lg shadow-xl"
+  loop
+  playsInline
+  controls
+  autoPlay
+  muted
+/>
 <Callout>
-    This video shows the result of `npx copilotkit@latest init` with the [implementation](#implementation) section applied to it!
+  This video shows the result of `npx copilotkit@latest init` with the
+  [implementation](#implementation) section applied to it!
 </Callout>
 
 ## What is this?
@@ -20,6 +30,7 @@ in the middle of a node's execution to provide immediate feedback to the user.
 ## When should I use this?
 
 Manually emitted messages are great for **when you don't want to wait for the node** to complete **and you**:
+
 - Have a long running task that you want to provide feedback on
 - Want to provide a status update to the user
 - Want to provide a warning or error message
@@ -110,4 +121,5 @@ Manually emitted messages are great for **when you don't want to wait for the no
         Now when you talk to your agent you'll notice that it immediately responds with the message "Thinking really hard..."
         before giving you a response 2 seconds later.
     </Step>
+
 </Steps>

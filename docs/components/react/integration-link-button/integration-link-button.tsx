@@ -15,17 +15,17 @@ export const IntegrationLinkButton = ({
   return (
     <Link
       href={href}
-      className="w-full no-underline h-[60px] hover:opacity-100"
+      className="h-[60px] w-full no-underline hover:opacity-100"
     >
-      <div className="flex gap-2 justify-between items-center p-1 w-full h-full rounded-lg bg-[#FFFFFF80]/50 dark:bg-background/50 hover:bg-white/50 dark:hover:bg-[#1A2022] group pr-4">
-        <div className="flex gap-2 justify-start items-center w-full">
-          <div className="w-[52px] h-[52px] shrink-0 flex items-center justify-center bg-[#0105070D] dark:bg-white/5 rounded-md group-hover:bg-[#BEC2FF] dark:group-hover:bg-[#7076D5] transition-all duration-200">
+      <div className="dark:bg-background/50 group flex h-full w-full items-center justify-between gap-2 rounded-lg bg-[#FFFFFF80]/50 p-1 pr-4 hover:bg-white/50 dark:hover:bg-[#1A2022]">
+        <div className="flex w-full items-center justify-start gap-2">
+          <div className="flex h-[52px] w-[52px] shrink-0 items-center justify-center rounded-md bg-[#0105070D] transition-all duration-200 group-hover:bg-[#BEC2FF] dark:bg-white/5 dark:group-hover:bg-[#7076D5]">
             <Icon className="text-foreground" />
           </div>
           <span className="text-sm font-medium no-underline">{label}</span>
         </div>
 
-        <div className="hidden group-hover:block text-foreground">
+        <div className="text-foreground hidden group-hover:block">
           <svg
             width="20"
             height="20"

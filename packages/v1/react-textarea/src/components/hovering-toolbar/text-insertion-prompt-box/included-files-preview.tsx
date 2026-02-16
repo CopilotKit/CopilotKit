@@ -14,7 +14,7 @@ export const IncludedFilesPreview = ({
   setIncludedFiles,
 }: IncludedFilesPreviewProps) => {
   return (
-    <div className="flex flex-col gap-2 mt-2">
+    <div className="mt-2 flex flex-col gap-2">
       <Label className="">Included context:</Label>
       <div className="flex flex-wrap gap-2">
         {includedFiles.map((filePointer, index) => {

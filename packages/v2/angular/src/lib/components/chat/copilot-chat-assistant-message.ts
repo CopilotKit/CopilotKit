@@ -140,9 +140,7 @@ import { CopilotChatViewHandlers } from "./copilot-chat-view-handlers";
                 handlers.hasAssistantThumbsDownHandler()
               ) {
                 <copilot-slot
-                  [slot]="
-                    thumbsDownButtonTemplate || thumbsDownButtonComponent()
-                  "
+                  [slot]="thumbsDownButtonTemplate || thumbsDownButtonComponent()"
                   [context]="{}"
                   [defaultComponent]="defaultThumbsDownButtonComponent"
                   [outputs]="thumbsDownButtonOutputs"
@@ -163,9 +161,7 @@ import { CopilotChatViewHandlers } from "./copilot-chat-view-handlers";
               <!-- Regenerate button - only show if custom slot provided -->
               @if (regenerateButtonComponent() || regenerateButtonTemplate) {
                 <copilot-slot
-                  [slot]="
-                    regenerateButtonTemplate || regenerateButtonComponent()
-                  "
+                  [slot]="regenerateButtonTemplate || regenerateButtonComponent()"
                   [context]="{}"
                   [outputs]="regenerateButtonOutputs"
                 >

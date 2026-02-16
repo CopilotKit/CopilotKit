@@ -142,7 +142,7 @@ export function DataTable({
             <TableRow>
               <TableCell
                 colSpan={columns.length}
-                className="text-center text-gray-400 py-8"
+                className="py-8 text-center text-gray-400"
               >
                 No test data available.
               </TableCell>
@@ -151,7 +151,7 @@ export function DataTable({
             testSuite.map((row, rowIndex) => (
               <React.Fragment key={rowIndex}>
                 <TableRow
-                  className="hover:bg-gray-50 transition"
+                  className="transition hover:bg-gray-50"
                   onClick={() => handleRowClick(rowIndex)}
                   style={{ cursor: "default" }}
                 >
@@ -175,14 +175,14 @@ export function DataTable({
                       {column.accessorKey === "status" ? (
                         <div className="flex items-center justify-center">
                           {testStatus[rowIndex] === "running" ? (
-                            <Loader2 className="w-5 h-5 text-blue-600 animate-spin" />
+                            <Loader2 className="h-5 w-5 animate-spin text-blue-600" />
                           ) : testStatus[rowIndex] === "passed" ? (
-                            <CheckCircle2 className="w-5 h-5 text-green-600" />
+                            <CheckCircle2 className="h-5 w-5 text-green-600" />
                           ) : testStatus[rowIndex] === "failed" ? (
-                            <XCircle className="w-5 h-5 text-red-600" />
+                            <XCircle className="h-5 w-5 text-red-600" />
                           ) : (
                             <PlayCircle
-                              className="w-5 h-5 text-blue-600 hover:text-blue-700 cursor-pointer"
+                              className="h-5 w-5 cursor-pointer text-blue-600 hover:text-blue-700"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 if (
@@ -206,27 +206,27 @@ export function DataTable({
                   <TableRow>
                     <TableCell
                       colSpan={columns.length}
-                      className="!p-0 border-t-0"
+                      className="border-t-0 !p-0"
                       style={{ background: "none" }}
                     >
-                      <div className="relative bg-gray-50 dark:bg-[#f5f7fa]/10 rounded-b-lg shadow-sm mx-2 my-2 p-6 border-2 border-dotted border-gray-300 dark:border-gray-600">
-                        <div className="font-semibold mb-2 text-gray-800 dark:text-gray-100">
+                      <div className="relative mx-2 my-2 rounded-b-lg border-2 border-dotted border-gray-300 bg-gray-50 p-6 shadow-sm dark:border-gray-600 dark:bg-[#f5f7fa]/10">
+                        <div className="mb-2 font-semibold text-gray-800 dark:text-gray-100">
                           Description:
                         </div>
                         <div className="mb-4 text-sm text-gray-600 dark:text-gray-300">
                           {row.shortDescription || "No description available."}
                         </div>
-                        <div className="font-semibold mb-2 text-gray-800 dark:text-gray-100">
+                        <div className="mb-2 font-semibold text-gray-800 dark:text-gray-100">
                           Code Snippet:
                         </div>
-                        <pre className="bg-gray-100 dark:bg-[#181f2a] rounded p-3 mb-4 overflow-x-auto text-xs border border-gray-200 dark:border-gray-700">
+                        <pre className="mb-4 overflow-x-auto rounded border border-gray-200 bg-gray-100 p-3 text-xs dark:border-gray-700 dark:bg-[#181f2a]">
                           {
                             codeSnippets[
                               Math.floor(Math.random() * codeSnippets.length)
                             ]
                           }
                         </pre>
-                        <div className="font-semibold mb-2 text-gray-800 dark:text-gray-100">
+                        <div className="mb-2 font-semibold text-gray-800 dark:text-gray-100">
                           Test Cases:
                         </div>
                         <ul className="space-y-1">
@@ -250,7 +250,7 @@ export function DataTable({
           )}
         </TableBody>
       </Table>
-      <div className="flex justify-center my-4">
+      <div className="my-4 flex justify-center">
         <Button
           variant="outline"
           className="mt-4"
@@ -294,7 +294,7 @@ function StatusBadge({ status }: { status: string }) {
   return (
     <Badge
       variant="outline"
-      className={`px-2 py-1 rounded-full text-xs font-medium text-center ${getStatusColor(status)}`}
+      className={`rounded-full px-2 py-1 text-center text-xs font-medium ${getStatusColor(status)}`}
     >
       {status.split("_").join(" ")}
     </Badge>

@@ -1,18 +1,31 @@
 {
   "name": "@copilotkit/runtime-client-gql",
+  "version": "1.51.4-next.8",
   "private": false,
+  "keywords": [
+    "ai",
+    "assistant",
+    "automation",
+    "copilot",
+    "copilotkit",
+    "javascript",
+    "nextjs",
+    "nodejs",
+    "react",
+    "textarea"
+  ],
   "homepage": "https://github.com/CopilotKit/CopilotKit",
+  "license": "MIT",
   "repository": {
     "type": "git",
     "url": "https://github.com/CopilotKit/CopilotKit.git"
   },
-  "publishConfig": {
-    "access": "public"
-  },
-  "version": "1.51.4-next.8",
   "sideEffects": false,
   "main": "./dist/index.cjs",
   "module": "./dist/index.mjs",
+  "types": "./dist/index.d.cts",
+  "unpkg": "./dist/index.umd.js",
+  "jsdelivr": "./dist/index.umd.js",
   "exports": {
     ".": {
       "import": "./dist/index.mjs",
@@ -20,10 +33,9 @@
     },
     "./package.json": "./package.json"
   },
-  "unpkg": "./dist/index.umd.js",
-  "jsdelivr": "./dist/index.umd.js",
-  "types": "./dist/index.d.cts",
-  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "build": "pnpm run graphql-codegen && tsdown",
     "dev": "concurrently \"pnpm run graphql-codegen:watch\" \"tsdown --watch\"",
@@ -37,8 +49,12 @@
     "publint": "publint .",
     "attw": "attw --pack . --profile node16"
   },
-  "peerDependencies": {
-    "react": "^18 || ^19 || ^19.0.0-rc"
+  "dependencies": {
+    "@copilotkit/runtime": "workspace:*",
+    "@copilotkit/shared": "workspace:*",
+    "@urql/core": "^5.0.3",
+    "untruncate-json": "^0.0.1",
+    "urql": "^4.1.0"
   },
   "devDependencies": {
     "@graphql-codegen/cli": "^5.0.2",
@@ -59,23 +75,7 @@
     "typescript": "^5.4.5",
     "vitest": "^3.2.4"
   },
-  "dependencies": {
-    "@copilotkit/runtime": "workspace:*",
-    "@copilotkit/shared": "workspace:*",
-    "@urql/core": "^5.0.3",
-    "untruncate-json": "^0.0.1",
-    "urql": "^4.1.0"
-  },
-  "keywords": [
-    "copilotkit",
-    "copilot",
-    "react",
-    "nextjs",
-    "nodejs",
-    "ai",
-    "assistant",
-    "javascript",
-    "automation",
-    "textarea"
-  ]
+  "peerDependencies": {
+    "react": "^18 || ^19 || ^19.0.0-rc"
+  }
 }

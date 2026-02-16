@@ -3,19 +3,20 @@ title: Message flow
 icon: lucide/MessageCircle
 ---
 
-Message management in CoAgents operates with CopilotKit as the "ground truth" for the full chat session. 
+Message management in CoAgents operates with CopilotKit as the "ground truth" for the full chat session.
 When an CoAgent session begins, it receives the existing CopilotKit chat history to maintain conversational
 continuity across different agents.
 
 <Callout>
-While all of this information is great to know, in most cases you won't need to worry about these details to
-build rich agentic applications. Use the information here as a reference when getting really deep into 
-the CoAgent internals.
+  While all of this information is great to know, in most cases you won't need
+  to worry about these details to build rich agentic applications. Use the
+  information here as a reference when getting really deep into the CoAgent
+  internals.
 </Callout>
 
 ### Can I modify the message history?
 
-You can modify the message history from LangGraph by using the `RemoveMessage` class. For example to remove all messages from the chat history: 
+You can modify the message history from LangGraph by using the `RemoveMessage` class. For example to remove all messages from the chat history:
 
 ```python
 from langchain_core.messages import RemoveMessage
@@ -28,12 +29,14 @@ def a_node(state: AgentState, config):
 See the [LangGraph documentation](https://docs.langchain.com/oss/python/langgraph/add-memory#delete-messages) for more information.
 
 <Callout>
-Editing the message history is not currently supported on the front-end, but will be soon.
+  Editing the message history is not currently supported on the front-end, but
+  will be soon.
 </Callout>
 
 ### Can I persist chat history?
 
 Yes! There are a few ways to persist various portions of a chat's history:
+
 - [Threads](/langgraph/persistence/loading-message-history)
 - [Message Persistence](/langgraph/persistence/message-persistence)
 - [Agent State](/langgraph/persistence/loading-agent-state)
@@ -61,11 +64,11 @@ async def ask_name_node(state: GreetAgentState, config: RunnableConfig):
     """
 
     content = "Hey, what is your name? 🙂"
- 
+
     await copilotkit_emit_message(config, content)
 
     # something long running here...
- 
+
     return {
         "messages": AIMessage(content=content),
     }
@@ -74,6 +77,7 @@ async def ask_name_node(state: GreetAgentState, config: RunnableConfig):
 Want some more help managing messages in your CoAgent application? Check out our guide on [emitting messages](/langgraph/advanced/emit-messages).
 
 ## Message Flow
+
 Messages flow between CopilotKit and LangGraph in a specific way:
 
 - All messages from LangGraph are forwarded to CopilotKit

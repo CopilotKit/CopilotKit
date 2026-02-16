@@ -852,13 +852,13 @@ export function CopilotChatInput({
       role="listbox"
       aria-label="Slash commands"
       ref={slashMenuRef}
-      className="absolute bottom-full left-0 right-0 z-30 mb-2 max-h-64 overflow-y-auto rounded-lg border border-border bg-white shadow-lg dark:border-[#3a3a3a] dark:bg-[#1f1f1f]"
+      className="border-border absolute right-0 bottom-full left-0 z-30 mb-2 max-h-64 overflow-y-auto rounded-lg border bg-white shadow-lg dark:border-[#3a3a3a] dark:bg-[#1f1f1f]"
       style={{
         maxHeight: `${SLASH_MENU_MAX_VISIBLE_ITEMS * SLASH_MENU_ITEM_HEIGHT_PX}px`,
       }}
     >
       {filteredCommands.length === 0 ? (
-        <div className="px-3 py-2 text-sm text-muted-foreground">
+        <div className="text-muted-foreground px-3 py-2 text-sm">
           No commands found
         </div>
       ) : (
@@ -938,8 +938,8 @@ export function CopilotChatInput({
           {mode === "transcribe" ? (
             BoundAudioRecorder
           ) : mode === "processing" ? (
-            <div className="flex w-full items-center justify-center py-3 px-5">
-              <Loader2 className="size-[26px] animate-spin text-muted-foreground" />
+            <div className="flex w-full items-center justify-center px-5 py-3">
+              <Loader2 className="text-muted-foreground size-[26px] animate-spin" />
             </div>
           ) : (
             <>
@@ -986,7 +986,7 @@ export function CopilotChatInput({
       }}
       {...props}
     >
-      <div className="max-w-3xl mx-auto py-0 px-4 sm:px-0 [div[data-sidebar-chat]_&]:px-8 [div[data-popup-chat]_&]:px-4 pointer-events-auto">
+      <div className="pointer-events-auto mx-auto max-w-3xl px-4 py-0 sm:px-0 [div[data-popup-chat]_&]:px-4 [div[data-sidebar-chat]_&]:px-8">
         {inputPill}
       </div>
       {shouldShowDisclaimer && BoundDisclaimer}

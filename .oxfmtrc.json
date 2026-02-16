@@ -1,0 +1,27 @@
+{
+  "$schema": "./node_modules/oxfmt/configuration_schema.json",
+  "printWidth": 80,
+  "tabWidth": 2,
+  "semi": true,
+  "singleQuote": false,
+  "trailingComma": "all",
+  "ignorePatterns": [
+    "node_modules",
+    "dist",
+    ".next",
+    "coverage",
+    "storybook-static",
+    "**/@generated",
+    "**/*.mdx"
+  ],
+  "overrides": [
+    {
+      "files": ["src/v1.x/**"],
+      "options": { "printWidth": 100 }
+    },
+    {
+      "files": ["src/v2.x/**"],
+      "options": { "printWidth": 120, "proseWrap": "always" }
+    }
+  ]
+}

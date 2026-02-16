@@ -15,7 +15,7 @@ export function EcosystemTable({ data }: EcosystemTableProps) {
   return (
     <div className="my-8">
       {/* Desktop table */}
-      <div className="hidden md:block overflow-x-auto">
+      <div className="hidden overflow-x-auto md:block">
         <table className="w-full border-collapse">
           <thead>
             <tr className="bg-foreground text-background">
@@ -29,14 +29,14 @@ export function EcosystemTable({ data }: EcosystemTableProps) {
             {data.map((row, index) => (
               <tr
                 key={index}
-                className={`border-b border-border ${
+                className={`border-border border-b ${
                   index % 2 === 0 ? "bg-card/50" : "bg-transparent"
                 }`}
               >
                 <td className="p-4 font-semibold">{row.approach}</td>
-                <td className="p-4 text-muted-foreground">{row.examples}</td>
-                <td className="p-4 text-muted-foreground">{row.strengths}</td>
-                <td className="p-4 text-muted-foreground">{row.weaknesses}</td>
+                <td className="text-muted-foreground p-4">{row.examples}</td>
+                <td className="text-muted-foreground p-4">{row.strengths}</td>
+                <td className="text-muted-foreground p-4">{row.weaknesses}</td>
               </tr>
             ))}
           </tbody>
@@ -44,32 +44,32 @@ export function EcosystemTable({ data }: EcosystemTableProps) {
       </div>
 
       {/* Mobile stacked cards */}
-      <div className="md:hidden space-y-4">
+      <div className="space-y-4 md:hidden">
         {data.map((row, index) => (
           <div
             key={index}
-            className="bg-card border border-border rounded-lg p-4"
+            className="bg-card border-border rounded-lg border p-4"
           >
             <div className="mb-3">
-              <div className="font-semibold text-sm text-muted-foreground mb-1">
+              <div className="text-muted-foreground mb-1 text-sm font-semibold">
                 Approach
               </div>
-              <div className="font-bold text-lg">{row.approach}</div>
+              <div className="text-lg font-bold">{row.approach}</div>
             </div>
             <div className="mb-3">
-              <div className="font-semibold text-sm text-muted-foreground mb-1">
+              <div className="text-muted-foreground mb-1 text-sm font-semibold">
                 Examples
               </div>
               <div>{row.examples}</div>
             </div>
             <div className="mb-3">
-              <div className="font-semibold text-sm text-muted-foreground mb-1">
+              <div className="text-muted-foreground mb-1 text-sm font-semibold">
                 Strengths
               </div>
               <div>{row.strengths}</div>
             </div>
             <div>
-              <div className="font-semibold text-sm text-muted-foreground mb-1">
+              <div className="text-muted-foreground mb-1 text-sm font-semibold">
                 Weaknesses
               </div>
               <div>{row.weaknesses}</div>

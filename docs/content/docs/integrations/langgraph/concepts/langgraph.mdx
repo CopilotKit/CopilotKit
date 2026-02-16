@@ -5,18 +5,22 @@ icon: custom/langchain
 ---
 
 <Frame>
-    <img src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/coagents-highlevel-overview.png" alt="CoAgents High Level Overview" className="mb-10"/>
+  <img
+    src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/coagents-highlevel-overview.png"
+    alt="CoAgents High Level Overview"
+    className="mb-10"
+  />
 </Frame>
 
 LangGraph is an agentic framework for building LLM applications that can be used with CopilotKit. It is built on top of LangChain's
 [LangGraph](https://docs.langchain.com/oss/python/langgraph/overview) library and extends it with additional functionality for building agentic
-applications. 
+applications.
 
 ## CoAgents and LangGraph
 
 How do CoAgents extend LangGraph? Let's read the first sentence of their [project page](https://docs.langchain.com/oss/python/langgraph/overview) to understand.
 
-> LangGraph is a library for building stateful, multi-actor applications with LLMs, used to create agent and multi-agent workflows. 
+> LangGraph is a library for building stateful, multi-actor applications with LLMs, used to create agent and multi-agent workflows.
 
 There are some key terms here so let's break them down and understand how they relate to and are implemented by CoAgents.
 
@@ -29,6 +33,7 @@ There are some key terms here so let's break them down and understand how they r
   generate natural language responses.
 
 Some additional functionality not mentioned here is:
+
 - **Human in the loop**: CoAgents enabled human review and approval of generated responses. Read more about how this works
   [here](/langgraph/human-in-the-loop).
 - **Tool calling**: Tool calling is a fundamental building block for agentic workflows. They allow for greater control over what

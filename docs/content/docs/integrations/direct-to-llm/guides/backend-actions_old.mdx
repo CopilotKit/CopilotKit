@@ -11,6 +11,7 @@ The starting point for backend actions is the `CopilotRuntime` you setup during 
 For a refresher, see [Self-Hosting](./self-hosting) (or alternatively, revisit the [quickstart](/direct-to-llm/guides/quickstart)).
 
 Backend actions can return (and stream) values -- which will be piped back to the Copilot system and which may result in additional agentic action.
+
 </Step>
 
 <Step>
@@ -21,23 +22,23 @@ Choose any of the methods below to integrate backend actions into your Copilot s
 
 <Tabs items={['TypeScript / Node.js', 'LangChain JS', 'LangServe', 'Python + Remote Actions']}>
 
+{/* Native Backend Action tab */}
 
-  {/* Native Backend Action tab */}
   <Tab value="TypeScript / Node.js">
 
-  When you initialize the `CopilotRuntime`, you can provide backend actions in the same format as frontend Copilot actions.
+When you initialize the `CopilotRuntime`, you can provide backend actions in the same format as frontend Copilot actions.
 
-  **Note that `actions` is not merely an array of actions, but rather a _generator_ of actions.**
-  This generator takes `properties` and `url` as input -- which means you can customize which backend actions are made available according to the current frontend URL,
-  as well as custom properties you can pass from the frontend.
+**Note that `actions` is not merely an array of actions, but rather a _generator_ of actions.**
+This generator takes `properties` and `url` as input -- which means you can customize which backend actions are made available according to the current frontend URL,
+as well as custom properties you can pass from the frontend.
 
     ```tsx title="/api/copilotkit/route.ts"
     const runtime = new CopilotRuntime({
       actions: ({properties, url}) => {
-        // You can use the input parameters to the actions generator to expose different backend actions to the Copilot at different times: 
+        // You can use the input parameters to the actions generator to expose different backend actions to the Copilot at different times:
         // `url` is the current URL on the frontend application.
         // `properties` contains custom properties you can pass from the frontend application.
-        
+
         return [
           {
             name: "fetchNameForUserId",
@@ -64,9 +65,11 @@ Choose any of the methods below to integrate backend actions into your Copilot s
 
     // ... define the route using the CopilotRuntime.
     ```
+
   </Tab>
 
-  {/* LangChain JS Backend Action tab */}
+{/* LangChain JS Backend Action tab */}
+
   <Tab value="LangChain JS">
   The backend action interface also supports LangChain JS natively.
   Simply return chain.stream and the results will be piped back to the Copilot.
@@ -107,9 +110,11 @@ Choose any of the methods below to integrate backend actions into your Copilot s
       }
     });
     ```
+
   </Tab>
 
     {/* LangServe tab */}
+
   <Tab value="LangServe">
     LangServe allows you to integrate LangChain chains hosted as separate services into your CopilotKit application.
     You can easily connect to existing chains, whether they're written in Python or JavaScript.
@@ -130,8 +135,8 @@ Choose any of the methods below to integrate backend actions into your Copilot s
 
   </Tab>
 
+{/* Remote Actions tab */}
 
-  {/* Remote Actions tab */}
   <Tab value="Python + Remote Actions">
     Remote actions allow you to integrate external services or APIs into your CopilotKit application.
     Any service that conforms to the Open-Source CopilotKit backend protocol can be served here.

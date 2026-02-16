@@ -20,7 +20,7 @@ export const CustomAssistantMessage = (props: AssistantMessageProps) => {
         {subComponent ? (
           subComponent
         ) : (
-          <Card className="flex w-full justify-start flex-col">
+          <Card className="flex w-full flex-col justify-start">
             {message && <Markdown content={message.content || ""} />}
             {isLoading && (
               <div className="flex justify-start">
@@ -39,7 +39,7 @@ const ResponseButtons = ({ id }: { id: string }) => {
   const { reloadMessages } = useCopilotChat();
 
   return (
-    <div className="flex gap-2 items-center mt-6">
+    <div className="mt-6 flex items-center gap-2">
       <p className="text-gray-500">How was this response?</p>
       <Button size={"xsmall"} onClick={() => alert("Thumbs up sent")}>
         <Icon glyph="ThumbsUp" />
@@ -47,7 +47,7 @@ const ResponseButtons = ({ id }: { id: string }) => {
       <Button size={"xsmall"} onClick={() => alert("Thumbs down sent")}>
         <Icon glyph="ThumbsDown" />
       </Button>
-      <div className="flex gap-2 items-center">
+      <div className="flex items-center gap-2">
         |
         <Button size={"xsmall"} onClick={() => reloadMessages(id)}>
           <Icon glyph="Refresh" />

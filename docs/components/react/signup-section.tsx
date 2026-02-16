@@ -12,7 +12,7 @@ export function SignUpSection() {
         Want to be the first to know about new features?{" "}
         <button
           onClick={() => setIsModalOpen(true)}
-          className="text-primary hover:underline font-medium cursor-pointer bg-transparent border-none p-0"
+          className="text-primary cursor-pointer border-none bg-transparent p-0 font-medium hover:underline"
         >
           Sign up for early access
         </button>{" "}

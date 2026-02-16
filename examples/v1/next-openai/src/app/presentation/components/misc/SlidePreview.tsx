@@ -16,17 +16,17 @@ export function SlidePreview({
 }: SlidePreviewProps) {
   return (
     <div className="">
-      <div className=" w-full relative max-w-xs">
-        <div className="absolute inset-0 h-full w-full bg-gradient-to-r from-blue-500 to-teal-500 transform scale-[0.80] bg-red-500 rounded-full blur-3xl" />
-        <div className="relative shadow-xl bg-gray-900 border border-gray-800  px-4 py-8 h-full overflow-hidden rounded-2xl flex flex-col justify-end items-start">
-          <h1 className="font-bold text-xl text-white mb-4 relative z-50">
+      <div className="relative w-full max-w-xs">
+        <div className="absolute inset-0 h-full w-full scale-[0.80] transform rounded-full bg-red-500 bg-gradient-to-r from-blue-500 to-teal-500 blur-3xl" />
+        <div className="relative flex h-full flex-col items-start justify-end overflow-hidden rounded-2xl border border-gray-800 bg-gray-900 px-4 py-8 shadow-xl">
+          <h1 className="relative z-50 mb-4 text-xl font-bold text-white">
             {done ? doneLabel : inProgressLabel}
           </h1>
-          <p className="font-normal text-base text-slate-500 mb-4 relative z-50 whitespace-pre">
+          <p className="relative z-50 mb-4 whitespace-pre text-base font-normal text-slate-500">
             {content}
           </p>
           {spokenNarration && (
-            <p className="font-normal text-sm text-slate-500 mb-4 relative z-50">
+            <p className="relative z-50 mb-4 text-sm font-normal text-slate-500">
               &quot;{spokenNarration}&quot;
             </p>
           )}

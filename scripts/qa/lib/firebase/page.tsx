@@ -36,7 +36,7 @@ function InsideHome() {
     [],
   );
   return (
-    <div className="h-screen w-full flex items-center justify-center text-2xl">
+    <div className="flex h-screen w-full items-center justify-center text-2xl">
       {message}
     </div>
   );

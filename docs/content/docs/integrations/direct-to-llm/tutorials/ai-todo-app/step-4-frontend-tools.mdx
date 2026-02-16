@@ -53,7 +53,9 @@ export const TasksProvider = ({ children }: { children: ReactNode }) => {
     description: "Sets the status of a task",
     parameters: z.object({
       id: z.number().describe("The id of the task"),
-      status: z.enum(Object.values(TaskStatus) as [string, ...string[]]).describe("The status of the task"),
+      status: z
+        .enum(Object.values(TaskStatus) as [string, ...string[]])
+        .describe("The status of the task"),
     }),
     handler: ({ id, status }) => {
       setTaskStatus(id, status);

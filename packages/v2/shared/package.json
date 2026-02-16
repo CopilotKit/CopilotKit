@@ -2,9 +2,12 @@
   "name": "@copilotkitnext/shared",
   "version": "1.51.4-next.8",
   "description": "Shared utilities and types for CopilotKit2",
-  "main": "./dist/index.cjs",
-  "types": "./dist/index.d.cts",
   "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.cts",
+  "unpkg": "./dist/index.umd.js",
+  "jsdelivr": "./dist/index.umd.js",
   "exports": {
     ".": {
       "import": "./dist/index.mjs",
@@ -12,34 +15,29 @@
     },
     "./package.json": "./package.json"
   },
-  "unpkg": "./dist/index.umd.js",
-  "jsdelivr": "./dist/index.umd.js",
   "publishConfig": {
     "access": "public"
   },
   "scripts": {
     "build": "tsdown",
     "dev": "tsdown --watch",
-    "lint": "eslint .",
+    "lint": "oxlint .",
     "check-types": "tsc --noEmit",
     "publint": "publint .",
     "attw": "attw --pack . --profile node16"
   },
+  "dependencies": {
+    "@ag-ui/client": "0.0.42",
+    "partial-json": "^0.1.7",
+    "uuid": "^11.1.0"
+  },
   "devDependencies": {
-    "@copilotkitnext/eslint-config": "workspace:*",
     "@copilotkitnext/typescript-config": "workspace:*",
     "@types/node": "^22.15.3",
-    "eslint": "^9.30.0",
     "tsdown": "^0.20.3",
     "typescript": "5.8.2"
   },
-  "dependencies": {
-    "@ag-ui/client": "0.0.42",
-    "uuid": "^11.1.0",
-    "partial-json": "^0.1.7"
-  },
   "engines": {
     "node": ">=18"
-  },
-  "module": "./dist/index.mjs"
+  }
 }

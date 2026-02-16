@@ -3,24 +3,29 @@ title: Backend Tools
 icon: "lucide/Server"
 description: Render your agent's tool calls with custom UI components.
 ---
+
 import { Accordions, Accordion } from "fumadocs-ui/components/accordion";
-import { IframeSwitcherGroup } from "@/components/content"
-import { Tabs, Tab } from "fumadocs-ui/components/tabs"
-import DefaultToolRendering from "@/snippets/shared/guides/default-tool-rendering.mdx"
-import RunAndConnect from "@/snippets/integrations/agent-spec/run-and-connect.mdx"
+import { IframeSwitcherGroup } from "@/components/content";
+import { Tabs, Tab } from "fumadocs-ui/components/tabs";
+import DefaultToolRendering from "@/snippets/shared/guides/default-tool-rendering.mdx";
+import RunAndConnect from "@/snippets/integrations/agent-spec/run-and-connect.mdx";
 
 <IframeSwitcherGroup
   id="backend-tools-example"
   variants={[
     {
       label: "LangGraph",
-      exampleUrl: "https://feature-viewer.copilotkit.ai/agent-spec-langgraph/feature/backend_tool_rendering?sidebar=false&chatDefaultOpen=false",
-      codeUrl: "https://feature-viewer.copilotkit.ai/agent-spec-langgraph/feature/backend_tool_rendering?view=code&sidebar=false&codeLayout=tabs",
+      exampleUrl:
+        "https://feature-viewer.copilotkit.ai/agent-spec-langgraph/feature/backend_tool_rendering?sidebar=false&chatDefaultOpen=false",
+      codeUrl:
+        "https://feature-viewer.copilotkit.ai/agent-spec-langgraph/feature/backend_tool_rendering?view=code&sidebar=false&codeLayout=tabs",
     },
     {
       label: "WayFlow",
-      exampleUrl: "https://feature-viewer.copilotkit.ai/agent-spec-wayflow/feature/backend_tool_rendering?sidebar=false&chatDefaultOpen=false",
-      codeUrl: "https://feature-viewer.copilotkit.ai/agent-spec-wayflow/feature/backend_tool_rendering?view=code&sidebar=false&codeLayout=tabs",
+      exampleUrl:
+        "https://feature-viewer.copilotkit.ai/agent-spec-wayflow/feature/backend_tool_rendering?sidebar=false&chatDefaultOpen=false",
+      codeUrl:
+        "https://feature-viewer.copilotkit.ai/agent-spec-wayflow/feature/backend_tool_rendering?view=code&sidebar=false&codeLayout=tabs",
     },
   ]}
   exampleLabel="Demo"
@@ -29,7 +34,15 @@ import RunAndConnect from "@/snippets/integrations/agent-spec/run-and-connect.md
 />
 
 <Callout>
-  This example demonstrates the [implementation](#implementation) section applied in the <a href="https://feature-viewer.copilotkit.ai/agent-spec-wayflow/feature/agentic_chat" target="_blank">CopilotKit feature viewer</a>.
+  This example demonstrates the [implementation](#implementation) section
+  applied in the{" "}
+  <a
+    href="https://feature-viewer.copilotkit.ai/agent-spec-wayflow/feature/agentic_chat"
+    target="_blank"
+  >
+    CopilotKit feature viewer
+  </a>
+  .
 </Callout>
 
 ## What is this?
@@ -110,7 +123,7 @@ when your agent is calling tools. CopilotKit allows you to fully customize how t
         if __name__ == "__main__":
             import uvicorn
             uvicorn.run(app, host="0.0.0.0", port=8000)
-          
+
         ```
     </Tab>
 
@@ -123,7 +136,8 @@ we just need to add a `useRenderToolCall` hook to render the tool call in
 the UI.
 
 <Callout type="info" title="Important">
-  In order to render a tool call in the UI, the name of the action must match the name of the tool.
+  In order to render a tool call in the UI, the name of the action must match
+  the name of the tool.
 </Callout>
 
 ```tsx title="app/page.tsx"
@@ -135,17 +149,18 @@ const YourMainContent = () => {
   // [!code highlight:12]
   useRenderToolCall({
     name: "get_weather",
-    render: ({status, args}) => {
+    render: ({ status, args }) => {
       return (
         <p className="text-gray-500 mt-2">
           {status !== "complete" && "Calling weather API..."}
-          {status === "complete" && `Called the weather API for ${args.location}.`}
+          {status === "complete" &&
+            `Called the weather API for ${args.location}.`}
         </p>
       );
     },
   });
   // ...
-}
+};
 ```
 
 </Step>
@@ -170,4 +185,3 @@ render the tool call and display the arguments that were passed to the tool.
 ## Default Tool Rendering
 
 <DefaultToolRendering components={props.components} />
-

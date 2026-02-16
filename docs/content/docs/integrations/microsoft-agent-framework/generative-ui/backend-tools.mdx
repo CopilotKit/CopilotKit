@@ -3,11 +3,13 @@ title: Backend Tools
 icon: "lucide/Server"
 description: Render your agent's tool calls with custom UI components.
 ---
+
 import { Accordions, Accordion } from "fumadocs-ui/components/accordion";
-import { IframeSwitcher } from "@/components/content"
-import DefaultToolRendering from "@/snippets/shared/guides/default-tool-rendering.mdx"
+import { IframeSwitcher } from "@/components/content";
+import DefaultToolRendering from "@/snippets/shared/guides/default-tool-rendering.mdx";
 
 {/* TODO: Swap these links for Microsoft Agent Framework links once Microsoft Agent Framework is officially added to the feature viewer */}
+
 <IframeSwitcher
   id="backend-tools-example"
   exampleUrl="https://feature-viewer.copilotkit.ai/microsoft-agent-framework-dotnet/feature/backend_tool_rendering?sidebar=false&chatDefaultOpen=false"
@@ -18,7 +20,15 @@ import DefaultToolRendering from "@/snippets/shared/guides/default-tool-renderin
 />
 
 <Callout>
-  This example demonstrates the [implementation](#implementation) section applied in the <a href="https://feature-viewer.copilotkit.ai/microsoft-agent-framework-dotnet/feature/agentic_chat" target="_blank">CopilotKit feature viewer</a>.
+  This example demonstrates the [implementation](#implementation) section
+  applied in the{" "}
+  <a
+    href="https://feature-viewer.copilotkit.ai/microsoft-agent-framework-dotnet/feature/agentic_chat"
+    target="_blank"
+  >
+    CopilotKit feature viewer
+  </a>
+  .
 </Callout>
 
 ## What is this?
@@ -73,6 +83,7 @@ Define a tool function that your agent can call. Microsoft Agent Framework will 
 
     await app.RunAsync();
     ```
+
   </Tab>
   <Tab value="Python">
     ```python title="agent/src/agent.py"
@@ -108,6 +119,7 @@ Define a tool function that your agent can call. Microsoft Agent Framework will 
             require_confirmation=False,
         )
     ```
+
   </Tab>
 </Tabs>
 </Step>
@@ -118,7 +130,8 @@ we just need to add a `useCopilotAction` hook to render the tool call in
 the UI.
 
 <Callout type="info" title="Important">
-  In order to render a tool call in the UI, the name of the action must match the name of the tool.
+  In order to render a tool call in the UI, the name of the action must match
+  the name of the tool.
 </Callout>
 
 ```tsx title="app/page.tsx"
@@ -131,17 +144,18 @@ const YourMainContent = () => {
   useCopilotAction({
     name: "get_weather",
     available: "disabled", // Don't allow the agent or UI to call this tool as its only for rendering
-    render: ({status, args}) => {
+    render: ({ status, args }) => {
       return (
         <p className="text-gray-500 mt-2">
           {status !== "complete" && "Calling weather API..."}
-          {status === "complete" && `Called the weather API for ${args.location}.`}
+          {status === "complete" &&
+            `Called the weather API for ${args.location}.`}
         </p>
       );
     },
   });
   // ...
-}
+};
 ```
 
 </Step>

@@ -16,7 +16,7 @@ export function MaximizableVideo({
 
   return (
     <>
-      <div className={`relative group ${className}`}>
+      <div className={`group relative ${className}`}>
         <div className="absolute -inset-1 rounded-3xl"></div>
         <video
           src={src}
@@ -24,34 +24,34 @@ export function MaximizableVideo({
           loop
           muted
           playsInline
-          className="relative rounded-2xl w-full"
+          className="relative w-full rounded-2xl"
         />
         <button
           onClick={() => setIsModalOpen(true)}
-          className="absolute top-4 right-4 p-2 bg-black/50 hover:bg-black/70 rounded-lg transition-all duration-200 opacity-0 group-hover:opacity-100"
+          className="absolute top-4 right-4 rounded-lg bg-black/50 p-2 opacity-0 transition-all duration-200 group-hover:opacity-100 hover:bg-black/70"
           aria-label="Maximize video"
         >
-          <Maximize2 className="w-4 h-4 text-white" />
+          <Maximize2 className="h-4 w-4 text-white" />
         </button>
       </div>
 
       {isModalOpen && (
         <div
-          className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
           onClick={(e) => {
             if (e.target === e.currentTarget) {
               setIsModalOpen(false);
             }
           }}
         >
-          <div className="relative max-w-4xl w-full">
+          <div className="relative w-full max-w-4xl">
             <button
               onClick={() => setIsModalOpen(false)}
-              className="absolute -top-12 right-0 p-2 text-white hover:text-gray-300 transition-colors"
+              className="absolute -top-12 right-0 p-2 text-white transition-colors hover:text-gray-300"
               aria-label="Close video"
             >
               <svg
-                className="w-6 h-6"
+                className="h-6 w-6"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -70,7 +70,7 @@ export function MaximizableVideo({
               loop
               muted
               playsInline
-              className="rounded-2xl w-full"
+              className="w-full rounded-2xl"
             />
           </div>
         </div>

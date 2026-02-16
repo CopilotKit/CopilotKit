@@ -17,7 +17,8 @@ import RunAndConnectAgentSnippet from "@/snippets/coagents/run-and-connect-agent
 />
 
 <Callout type="info">
-  Pictured above is the [coagent starter](https://github.com/copilotkit/copilotkit/tree/main/examples/coagents-starter-crewai-crews)
+  Pictured above is the [coagent
+  starter](https://github.com/copilotkit/copilotkit/tree/main/examples/coagents-starter-crewai-crews)
   with the implementation below applied!
 </Callout>
 
@@ -29,6 +30,7 @@ CopilotKit provides custom UI hooks to capture that input and feed it back into 
 
 > **Important**
 > To implement HITL with CrewAI, you'll need:
+>
 > - [CrewAI](https://www.crewai.com/) for managing and orchestrating the agents
 > - [Copilot Cloud](https://cloud.copilotkit.ai/) to handle UI workflows and communication
 
@@ -47,7 +49,6 @@ Crew-based agents are ideal for HITL because they preserve execution state and c
     Make sure your agent is running and connected to CopilotKit. If you haven’t set this up, start with the [Getting Started guide](/crewai-crews/quickstart).
 
   </Step>
-
 
   <Step>
     ### Add a `useCopilotAction` to your frontend
@@ -86,6 +87,7 @@ Crew-based agents are ideal for HITL because they preserve execution state and c
       });
     }
     ```
+
   </Step>
 
   <Step>
@@ -97,6 +99,7 @@ Crew-based agents are ideal for HITL because they preserve execution state and c
     - Reference this working example: [restaurant-finder-crew with HITL](https://github.com/suhasdeshpande/restaurant-finder-crew/tree/main/src/similar_company_finder_template)
 
     > Reminder: To make this work end-to-end, you must run your crew on [CrewAI](https://www.crewai.com/) and connect it to [Copilot Cloud](https://cloud.copilotkit.ai/). These hosted solutions take care of message passing, HITL state syncing, and UI orchestration.
+
   </Step>
 
   <Step>
@@ -106,5 +109,6 @@ Crew-based agents are ideal for HITL because they preserve execution state and c
     **"Research the state of AI in 2025."**
 
     You’ll see your custom UI appear, giving you the chance to approve or cancel the crew’s execution before it continues.
+
   </Step>
 </Steps>

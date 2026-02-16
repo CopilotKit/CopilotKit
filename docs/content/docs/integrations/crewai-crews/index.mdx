@@ -4,6 +4,7 @@ icon: "custom/crewai"
 description: Bring your CrewAI Crews agents to your users with CopilotKit.
 hideHeader: true
 ---
+
 import { FrameworkOverview } from "@/components/content/landing-pages/framework-overview";
 import { customIcons } from "@/lib/icons/custom-icons";
 
@@ -17,36 +18,46 @@ import { customIcons } from "@/lib/icons/custom-icons";
   guideLink="/crewai-crews/quickstart"
   initCommand="npx copilotkit@latest init"
   featuresLink="https://feature-viewer.copilotkit.ai/crewai/feature/agentic_chat?frameworkPicker=false"
-   supportedFeatures={[
+  supportedFeatures={[
     {
       title: "Generative UI",
-      description: "Render your agent's state, progress, outputs, and tool calls with custom UI components in real-time. Bridges the gap between AI agents and user interfaces.",
+      description:
+        "Render your agent's state, progress, outputs, and tool calls with custom UI components in real-time. Bridges the gap between AI agents and user interfaces.",
       documentationLink: "/crewai-crews/generative-ui",
-      demoLink: "https://feature-viewer.copilotkit.ai/crewai/feature/agentic_chat",
-      videoUrl: "https://cdn.copilotkit.ai/docs/copilotkit/videos/coagents/haiku.mp4"
+      demoLink:
+        "https://feature-viewer.copilotkit.ai/crewai/feature/agentic_chat",
+      videoUrl:
+        "https://cdn.copilotkit.ai/docs/copilotkit/videos/coagents/haiku.mp4",
     },
     {
       title: "Human in the Loop",
-      description: "Empower users to guide agents at key checkpoints. Combine the best of AI and human judgment for more reliable and controllable agent behavior.",
+      description:
+        "Empower users to guide agents at key checkpoints. Combine the best of AI and human judgment for more reliable and controllable agent behavior.",
       documentationLink: "/crewai-crews/human-in-the-loop",
-      demoLink: "https://feature-viewer.copilotkit.ai/crewai/feature/human_in_the_loop",
-      videoUrl: "https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/human-in-the-loop-example.mp4"
+      demoLink:
+        "https://feature-viewer.copilotkit.ai/crewai/feature/human_in_the_loop",
+      videoUrl:
+        "https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/human-in-the-loop-example.mp4",
     },
     {
       title: "Shared State",
-      description: "Keep your agent and your app in sync. Your agent can see everything in your app, and your app can react to your agent in real-time.",
+      description:
+        "Keep your agent and your app in sync. Your agent can see everything in your app, and your app can react to your agent in real-time.",
       documentationLink: "/crewai-crews/shared-state",
-      demoLink: "https://feature-viewer.copilotkit.ai/crewai/feature/shared_state",
-      videoUrl: "https://cdn.copilotkit.ai/docs/copilotkit/videos/coagents/shared-state.mp4"
-    }
+      demoLink:
+        "https://feature-viewer.copilotkit.ai/crewai/feature/shared_state",
+      videoUrl:
+        "https://cdn.copilotkit.ai/docs/copilotkit/videos/coagents/shared-state.mp4",
+    },
   ]}
   architectureImage="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/crew-ai/crews/architecture.png"
   liveDemos={[
     {
       type: "canvas",
       title: "Canvas Copilot",
-      description: "A canvas interface where users collaborate with AI agents in a spatial, visual environment. These copilots excel at research, brainstorming, content creation, and complex problem-solving where information needs to be organized, connected, and explored in a non-linear, creative way.",
-      iframeUrl: "https://examples-coagents-research-canvas-ui.vercel.app/"
-    }
+      description:
+        "A canvas interface where users collaborate with AI agents in a spatial, visual environment. These copilots excel at research, brainstorming, content creation, and complex problem-solving where information needs to be organized, connected, and explored in a non-linear, creative way.",
+      iframeUrl: "https://examples-coagents-research-canvas-ui.vercel.app/",
+    },
   ]}
 />

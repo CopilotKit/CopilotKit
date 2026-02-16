@@ -3,10 +3,14 @@ title: Multi-Agent Flows
 description: Use multiple agents to orchestrate complex flows.
 icon: "lucide/Users"
 ---
+
 import { Callout } from "fumadocs-ui/components/callout";
 
 <Frame>
-    <img src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/multi-agent-flows.png" alt="Multi-Agent Flows" />
+  <img
+    src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/multi-agent-flows.png"
+    alt="Multi-Agent Flows"
+  />
 </Frame>
 
 ## What are Multi-Agent Flows?
@@ -18,6 +22,7 @@ agents. This is traditionally called multi-agent orchestration.
 
 Multi-agent flows are useful when you want to orchestrate complex flows together that require the coordination of multiple agents. As
 your agentic application grows, delegation of sub-tasks to other agents can help you scale key pieces of your application.
+
 - Divide context into smaller chunks
 - Delegate sub-tasks to other agents
 - Use a single agent to orchestrate the flow
@@ -28,7 +33,9 @@ CopilotKit can be used in either of two distinct modes: **Router Mode**, or **Ag
 will use Router Mode, leveraging your defined LLM to route requests between agents.
 
 ### Router Mode (default)
+
 Router Mode is enabled by default when using CoAgents. To use it, specify a runtime URL prop in the `CopilotKit` provider component and omit the `agent` prop, like so:
+
 ```tsx
 <CopilotKit runtimeUrl="<copilot-runtime-url>">
   {/* Your application components */}
@@ -43,11 +50,16 @@ Be advised that when using this mode, you'll have to "exit the workflow" explici
 You can find more information about it in the ["Exiting the agent loop" section](https://docs.copilotkit.ai/coagents/advanced/exit-agent).
 
 <Callout type="warn">
-    Router mode requires that you set up an LLM adapter. See how in ["Set up a copilot runtime"](https://docs.copilotkit.ai/direct-to-llm/guides/quickstart?copilot-hosting=self-hosted#set-up-a-copilot-runtime-endpoint) section of the docs.
+  Router mode requires that you set up an LLM adapter. See how in ["Set up a
+  copilot
+  runtime"](https://docs.copilotkit.ai/direct-to-llm/guides/quickstart?copilot-hosting=self-hosted#set-up-a-copilot-runtime-endpoint)
+  section of the docs.
 </Callout>
 
 ### Agent Lock Mode
+
 To use Agent Lock Mode, specify the agent name in the `CopilotKit` component with the `agent` prop:
+
 ```tsx
 // [!code word:agent]
 <CopilotKit runtimeUrl="<copilot-runtime-url>" agent="<the-name-of-the-agent>">

@@ -34,15 +34,15 @@ export const CopilotChatSuggestionPill = React.forwardRef<
       {...props}
     >
       {isLoading ? (
-        <span className="flex h-3.5 sm:h-4 w-3.5 sm:w-4 items-center justify-center text-muted-foreground">
+        <span className="text-muted-foreground flex h-3.5 w-3.5 items-center justify-center sm:h-4 sm:w-4">
           <Loader2
-            className="h-3.5 sm:h-4 w-3.5 sm:w-4 animate-spin"
+            className="h-3.5 w-3.5 animate-spin sm:h-4 sm:w-4"
             aria-hidden="true"
           />
         </span>
       ) : (
         showIcon && (
-          <span className="flex h-3.5 sm:h-4 w-3.5 sm:w-4 items-center justify-center text-muted-foreground">
+          <span className="text-muted-foreground flex h-3.5 w-3.5 items-center justify-center sm:h-4 sm:w-4">
             {icon}
           </span>
         )

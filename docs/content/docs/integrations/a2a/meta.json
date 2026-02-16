@@ -1,10 +1,5 @@
 {
   "title": "A2A",
   "root": true,
-  "pages": [
-    "---Getting Started---",
-    "index",
-    "quickstart",
-    "generative-ui"
-  ]
+  "pages": ["---Getting Started---", "index", "quickstart", "generative-ui"]
 }

@@ -5,16 +5,16 @@ icon: "lucide/Sparkles"
 hideTOC: true
 ---
 
-import Image from "next/image"
-import { ImageZoom } from "fumadocs-ui/components/image-zoom"
-import { ExamplesCarousel } from "@/components/react/examples-carousel"
-import { CTACards } from "@/components/react/cta-cards"
-import { YouTubeVideo } from "@/components/react/youtube-video"
-import { MdMessage } from "react-icons/md"
-import { TbSparkles } from "react-icons/tb"
-import { SiLangchain } from "react-icons/si"
-import { AG2Icon } from "@/lib/icons/custom-icons"
-import { SiCrewai } from "@icons-pack/react-simple-icons"
+import Image from "next/image";
+import { ImageZoom } from "fumadocs-ui/components/image-zoom";
+import { ExamplesCarousel } from "@/components/react/examples-carousel";
+import { CTACards } from "@/components/react/cta-cards";
+import { YouTubeVideo } from "@/components/react/youtube-video";
+import { MdMessage } from "react-icons/md";
+import { TbSparkles } from "react-icons/tb";
+import { SiLangchain } from "react-icons/si";
+import { AG2Icon } from "@/lib/icons/custom-icons";
+import { SiCrewai } from "@icons-pack/react-simple-icons";
 import {
   FileSpreadsheet,
   Banknote,
@@ -30,22 +30,22 @@ import {
   Server,
   Activity,
   SearchCheck,
-} from "lucide-react"
-import { Accordions } from "fumadocs-ui/components/accordion"
-import { Accordion } from "fumadocs-ui/components/accordion"
-import { LinkToCopilotCloud } from "@/components/react/link-to-copilot-cloud"
-import { QuickstartDropdown } from "@/components/react/quickstart-dropdown"
-import { IntegrationsGrid } from "@/components/react/integrations"
-import { MaximizableVideo } from "@/components/react/maximizable-video"
-import { CopilotKitHero } from "@/components/branding/CopilotKitHero"
+} from "lucide-react";
+import { Accordions } from "fumadocs-ui/components/accordion";
+import { Accordion } from "fumadocs-ui/components/accordion";
+import { LinkToCopilotCloud } from "@/components/react/link-to-copilot-cloud";
+import { QuickstartDropdown } from "@/components/react/quickstart-dropdown";
+import { IntegrationsGrid } from "@/components/react/integrations";
+import { MaximizableVideo } from "@/components/react/maximizable-video";
+import { CopilotKitHero } from "@/components/branding/CopilotKitHero";
 
 <div className="grid grid-cols-1 2xl:grid-cols-2 2xl:gap-2 2xl:items-center">
   <div>
     # What is CopilotKit?
     CopilotKit is the Agentic Application Platform — an open-source framework with cloud or self-hosted services for building AI-powered, user-facing agentic applications.
 
-    CopilotKit connects your application’s logic, state, UI, and context to agentic backends, enabling interactive experiences across embedded UIs and headless interfaces. 
-    
+    CopilotKit connects your application’s logic, state, UI, and context to agentic backends, enabling interactive experiences across embedded UIs and headless interfaces.
+
     Teams use CopilotKit to build, deploy, and operate agentic features that feel deeply integrated into their products.
 
   </div>
@@ -99,7 +99,10 @@ import { CopilotKitHero } from "@/components/branding/CopilotKitHero"
   <div className="xl:col-span-3 w-full max-w-sm xl:max-w-none border-2 border-border px-6 pt-1 pb-4 rounded-xl text-center transition-colors min-h-[180px] flex flex-col justify-between">
     <div>
       <h3 className="text-xl font-bold mb-3 text-foreground">Quickstart</h3>
-      <div className="text-sm text-muted-foreground mb-8">Start with an LLM<br /> or Agent Framework</div>
+      <div className="text-sm text-muted-foreground mb-8">
+        Start with an LLM
+        <br /> or Agent Framework
+      </div>
     </div>
     <div className="h-12 flex items-center justify-center">
       <QuickstartDropdown />
@@ -108,25 +111,28 @@ import { CopilotKitHero } from "@/components/branding/CopilotKitHero"
   <div className="xl:col-span-4 w-full max-w-sm xl:max-w-none border-2 border-border px-6 pt-1 pb-4 rounded-xl text-center transition-colors min-h-[180px] flex flex-col justify-between">
     <div>
       <h3 className="text-xl font-bold mb-3 text-foreground">CLI</h3>
-      <div className="text-sm text-muted-foreground mb-4">Bootstrap your NextJS<br />application with CopilotKit</div>
+      <div className="text-sm text-muted-foreground mb-4">
+        Bootstrap your NextJS
+        <br />
+        application with CopilotKit
+      </div>
     </div>
     <div className="h-12 flex items-center justify-center">
-      
-```bash
-npx copilotkit@latest init
-```
+      ```bash npx copilotkit@latest init ```
     </div>
   </div>
   <div className="xl:col-span-3 w-full max-w-sm xl:max-w-none border-2 border-border px-6 pt-1 pb-4 rounded-xl text-center transition-colors min-h-[180px] flex flex-col justify-between">
     <div>
       <h3 className="text-xl font-bold mb-3 text-foreground">Cloud</h3>
-      <div className="text-sm text-muted-foreground mb-4">Start the easiest way<br /> with our hosted service</div>
+      <div className="text-sm text-muted-foreground mb-4">
+        Start the easiest way
+        <br /> with our hosted service
+      </div>
     </div>
     <div className="h-12 flex items-center justify-center">
       <LinkToCopilotCloud asButton={true} />
     </div>
   </div>
-  
 </div>
 
 <div className="mb-16 text-center">
@@ -361,7 +367,7 @@ npx copilotkit@latest init
   </div>
 </div>
 
-import { LiveDemoViewer } from "@/components/react/live-demo-viewer"
+import { LiveDemoViewer } from "@/components/react/live-demo-viewer";
 
 <div className="text-center mb-8">
   <h2 className="text-4xl font-bold mb-4 text-foreground">Live Demos</h2>

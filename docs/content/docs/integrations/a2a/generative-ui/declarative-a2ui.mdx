@@ -3,15 +3,27 @@ title: Declarative (A2UI)
 icon: "lucide/Bot"
 description: Use A2UI to declaratively generate user interfaces.
 ---
-import Image from "next/image"
+
+import Image from "next/image";
 
 Build an A2A agent, configure it to use A2UI, use the A2UI composer to generate widgets, and render them in your CopilotKit powered app.
-  <div>
-    <video src="https://cdn.copilotkit.ai/a2ui/demo.mp4" autoPlay controls loop muted playsInline className="rounded-xl shadow-lg mx-auto mt-auto w-5/6" />
-    <div className="text-center text-sm text-muted-foreground mt-4">
-      Demo of the <a href="https://a2ui-editor.ag-ui.com">A2UI Composer</a> - powered by CopilotKit<br />
-    </div>
+
+<div>
+  <video
+    src="https://cdn.copilotkit.ai/a2ui/demo.mp4"
+    autoPlay
+    controls
+    loop
+    muted
+    playsInline
+    className="rounded-xl shadow-lg mx-auto mt-auto w-5/6"
+  />
+  <div className="text-center text-sm text-muted-foreground mt-4">
+    Demo of the <a href="https://a2ui-editor.ag-ui.com">A2UI Composer</a> -
+    powered by CopilotKit
+    <br />
   </div>
+</div>
 
 ## Getting started
 
@@ -24,6 +36,7 @@ Build an A2A agent, configure it to use A2UI, use the A2UI composer to generate 
     ```
 
     The agent and application from the starter template are already configured to use A2UI, but details are included below for completeness.
+
   </Step>
   <Step>
     ### Install dependencies
@@ -46,7 +59,6 @@ Build an A2A agent, configure it to use A2UI, use the A2UI composer to generate 
     ### Configure your agent to use A2UI
 
   </Step>
-
 
   <Step>
     ### Setting up your agent with components
@@ -116,6 +128,7 @@ Build an A2A agent, configure it to use A2UI, use the A2UI composer to generate 
 
     In the example repo, all of the widgets are defined in a single variable int the prompt_builder.py file, but you can structure them however you like,
     they simply need to be be injected into the agent's prompt in a clearly delineated way.
+
   </Step>
   <Step>
     ### Generating components with the A2UI Composer
@@ -586,5 +599,6 @@ Build an A2A agent, configure it to use A2UI, use the A2UI composer to generate 
 
     That's it! When your agent generates an A2UI message, it will be rendered in your frontend.
     A2UI actions (like button clicks) are automatically sent back to your agent via AG-UI.
+
   </Step>
 </Steps>

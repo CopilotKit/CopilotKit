@@ -4,17 +4,22 @@ description: "The useCopilotAction hook allows your copilot to take action in th
 ---
 
 <Callout type="warning">
-  **Deprecation Notice**: `useCopilotAction` is being deprecated in favor of more specialized hooks:
-  
-  - Use [`useFrontendTool`](/reference/hooks/useFrontendTool) for frontend tools with handlers
-  - Use [`useHumanInTheLoop`](/reference/hooks/useHumanInTheLoop) for interactive workflows requiring user input
-  - Use [`useRenderToolCall`](/reference/hooks/useRenderToolCall) for rendering backend tool calls
-  
-  While `useCopilotAction` continues to work for backwards compatibility, we recommend migrating to the new hooks for better type safety and clearer intent.
+  **Deprecation Notice**: `useCopilotAction` is being deprecated in favor of
+  more specialized hooks: - Use
+  [`useFrontendTool`](/reference/hooks/useFrontendTool) for frontend tools with
+  handlers - Use [`useHumanInTheLoop`](/reference/hooks/useHumanInTheLoop) for
+  interactive workflows requiring user input - Use
+  [`useRenderToolCall`](/reference/hooks/useRenderToolCall) for rendering
+  backend tool calls While `useCopilotAction` continues to work for backwards
+  compatibility, we recommend migrating to the new hooks for better type safety
+  and clearer intent.
 </Callout>
 
 <br />
-<img src="https://cdn.copilotkit.ai/docs/copilotkit/images/use-copilot-action/useCopilotAction.gif" width="500" />
+<img
+  src="https://cdn.copilotkit.ai/docs/copilotkit/images/use-copilot-action/useCopilotAction.gif"
+  width="500"
+/>
 
 `useCopilotAction` is a React hook that you can use in your application to provide
 custom actions that can be called by the AI. Essentially, it allows the Copilot to
@@ -81,7 +86,7 @@ This hooks enables you to dynamically generate UI elements and render them in th
     </PropertyReference>
 
     <PropertyReference name="available" type="'enabled' | 'disabled' | 'remote'">
-      Use this property to control when the action is available to the Copilot. When set to `"remote"`, the action is 
+      Use this property to control when the action is available to the Copilot. When set to `"remote"`, the action is
       available only for remote agents.
     </PropertyReference>
 

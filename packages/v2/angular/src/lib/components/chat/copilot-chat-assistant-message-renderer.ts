@@ -45,8 +45,8 @@ import { injectChatLabels } from "../../chat-config";
         border-radius: 0.25rem;
         font-size: 0.875rem;
         font-family:
-          ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono",
-          Menlo, monospace;
+          ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", Menlo,
+          monospace;
         font-weight: 500;
         color: #000000;
       }
@@ -133,8 +133,8 @@ import { injectChatLabels } from "../../chat-config";
         padding: 0;
         font-size: 0.875rem;
         font-family:
-          ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono",
-          Menlo, monospace;
+          ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", Menlo,
+          monospace;
       }
 
       /* Highlight.js theme adjustments */

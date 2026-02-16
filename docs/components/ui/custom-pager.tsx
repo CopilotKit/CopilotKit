@@ -35,29 +35,29 @@ export function CustomPager({ tree, page }: CustomPagerProps): ReactNode {
   }
 
   return (
-    <div className="box-content flex flex-row gap-0 justify-between items-center px-4 pb-12 lg:px-8 h-20 shrink-0">
+    <div className="box-content flex h-20 shrink-0 flex-row items-center justify-between gap-0 px-4 pb-12 lg:px-8">
       <div className={`flex h-full ${prev ? "w-full" : "w-max"}`}>
         {prev ? (
           <>
             <Link
               href={prev?.url}
-              className="flex flex-col gap-1 justify-center px-3 lg:px-5 w-full h-[80px] rounded-2xl rounded-r-none border border-r-0 backdrop-blur-lg border-border "
+              className="border-border flex h-[80px] w-full flex-col justify-center gap-1 rounded-2xl rounded-r-none border border-r-0 px-3 backdrop-blur-lg lg:px-5"
               style={{ backgroundColor: "var(--sidebar)" }}
             >
-              <div className="flex gap-2 justify-start items-center">
-                <ChevronLeft className="size-4 shrink-0 text-fd-muted-foreground" />
-                <span className="text-xs font-medium text-left font-spline">
+              <div className="flex items-center justify-start gap-2">
+                <ChevronLeft className="text-fd-muted-foreground size-4 shrink-0" />
+                <span className="font-spline text-left text-xs font-medium">
                   PREV
                 </span>
               </div>
-              <span className="text-sm text-left line-clamp-2 lg:text-base">
+              <span className="line-clamp-2 text-left text-sm lg:text-base">
                 {prev.title}
               </span>
             </Link>
           </>
         ) : (
           <div
-            className="w-11 h-full rounded-2xl rounded-r-none border border-r-0 backdrop-blur-lg border-border "
+            className="border-border h-full w-11 rounded-2xl rounded-r-none border border-r-0 backdrop-blur-lg"
             style={{ backgroundColor: "var(--sidebar)" }}
           />
         )}
@@ -80,7 +80,7 @@ export function CustomPager({ tree, page }: CustomPagerProps): ReactNode {
         </div>
       </div>
 
-      <div className={`flex -ml-3 h-full ${next ? "w-full" : "w-max"}`}>
+      <div className={`-ml-3 flex h-full ${next ? "w-full" : "w-max"}`}>
         <div className="flex shrink-0">
           <Image
             src="/images/redirects/slanted-start-border-dark.svg"
@@ -101,22 +101,22 @@ export function CustomPager({ tree, page }: CustomPagerProps): ReactNode {
         {next ? (
           <Link
             href={next.url}
-            className="flex flex-col gap-1 justify-center px-3 lg:px-5 w-full h-[80px] rounded-2xl rounded-l-none border border-l-0 backdrop-blur-lg border-border "
+            className="border-border flex h-[80px] w-full flex-col justify-center gap-1 rounded-2xl rounded-l-none border border-l-0 px-3 backdrop-blur-lg lg:px-5"
             style={{ backgroundColor: "var(--sidebar)" }}
           >
-            <div className="flex gap-2 justify-end items-center">
-              <span className="text-xs font-medium text-right font-spline">
+            <div className="flex items-center justify-end gap-2">
+              <span className="font-spline text-right text-xs font-medium">
                 NEXT
               </span>
-              <ChevronRight className="size-4 shrink-0 text-fd-muted-foreground" />
+              <ChevronRight className="text-fd-muted-foreground size-4 shrink-0" />
             </div>
-            <span className="text-sm text-right line-clamp-2 lg:text-base">
+            <span className="line-clamp-2 text-right text-sm lg:text-base">
               {next.title}
             </span>
           </Link>
         ) : (
           <div
-            className="w-11 h-full rounded-2xl rounded-l-none border border-l-0 backdrop-blur-lg border-border "
+            className="border-border h-full w-11 rounded-2xl rounded-l-none border border-l-0 backdrop-blur-lg"
             style={{ backgroundColor: "var(--sidebar)" }}
           />
         )}

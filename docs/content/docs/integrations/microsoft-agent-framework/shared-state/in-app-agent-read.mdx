@@ -3,11 +3,13 @@ title: Reading agent state
 icon: "lucide/ArrowLeft"
 description: Read the realtime agent state in your native application.
 ---
-import { ImageZoom } from 'fumadocs-ui/components/image-zoom';
-import RunAndConnect from "@/snippets/integrations/microsoft-agent-framework/run-and-connect.mdx"
-import { IframeSwitcher } from "@/components/content"
+
+import { ImageZoom } from "fumadocs-ui/components/image-zoom";
+import RunAndConnect from "@/snippets/integrations/microsoft-agent-framework/run-and-connect.mdx";
+import { IframeSwitcher } from "@/components/content";
 
 {/* TODO: Swap these links for Microsoft Agent Framework links once Microsoft Agent Framework is officially added to the feature viewer */}
+
 <IframeSwitcher
   id="shared-state-example"
   exampleUrl="https://feature-viewer.copilotkit.ai/microsoft-agent-framework-dotnet/feature/shared_state?sidebar=false&chatDefaultOpen=false"
@@ -18,7 +20,8 @@ import { IframeSwitcher } from "@/components/content"
 />
 
 <Callout type="info">
-  This example demonstrates reading from shared state in the [CopilotKit Feature Viewer](https://feature-viewer.copilotkit.ai/microsoft-agent-framework-dotnet/feature/shared_state).
+  This example demonstrates reading from shared state in the [CopilotKit Feature
+  Viewer](https://feature-viewer.copilotkit.ai/microsoft-agent-framework-dotnet/feature/shared_state).
 </Callout>
 
 ## What is this?
@@ -68,6 +71,7 @@ state updates, you can reflect these updates natively in your application.
       language: "english" | "spanish";
     }
     ```
+
   </Step>
   <Step>
     ### Use the `useCoAgent` Hook
@@ -104,6 +108,7 @@ state updates, you can reflect these updates natively in your application.
     <Callout type="info">
       The `state` in `useCoAgent` is reactive and will automatically update when the agent's state changes.
     </Callout>
+
   </Step>
   <Step>
     ### Give it a try!
@@ -118,6 +123,7 @@ state updates, you can reflect these updates natively in your application.
       Pictured above is the [agent starter](https://github.com/copilotkit/copilotkit/tree/main/examples/agents-starter) with
       the implementation section applied!
     </Callout>
+
   </Step>
 </Steps>
 
@@ -132,7 +138,7 @@ import { useCoAgentStateRender } from "@copilotkit/react-core"; // [!code highli
 // Define the agent state type, should match the actual state of your agent
 type AgentState = {
   language: "english" | "spanish";
-}
+};
 
 function YourMainContent() {
   // ...
@@ -149,7 +155,8 @@ function YourMainContent() {
 ```
 
 <Callout type="info">
-  The `state` in `useCoAgentStateRender` is reactive and will automatically update when the agent's state changes.
+  The `state` in `useCoAgentStateRender` is reactive and will automatically
+  update when the agent's state changes.
 </Callout>
 
 ## Advanced: Emitting Intermediate State

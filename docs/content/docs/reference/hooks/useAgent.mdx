@@ -12,7 +12,7 @@ description: "React hook for accessing AG-UI agent instances"
 ## Signature
 
 ```tsx
-function useAgent(options?: UseAgentOptions): { agent: AbstractAgent }
+function useAgent(options?: UseAgentOptions): { agent: AbstractAgent };
 ```
 
 ## Parameters
@@ -20,9 +20,10 @@ function useAgent(options?: UseAgentOptions): { agent: AbstractAgent }
 <PropertyReference name="options" type="UseAgentOptions">
   Configuration object for the hook.
 
-  <PropertyReference name="agentId" type="string" default='"default"'>
-    ID of the agent to retrieve. Must match an agent configured in `CopilotKitProvider`.
-  </PropertyReference>
+<PropertyReference name="agentId" type="string" default='"default"'>
+  ID of the agent to retrieve. Must match an agent configured in
+  `CopilotKitProvider`.
+</PropertyReference>
 
   <PropertyReference name="updates" type="UseAgentUpdate[]" default="[OnMessagesChanged, OnStateChanged, OnRunStatusChanged]">
     Controls which agent changes trigger component re-renders. Options:
@@ -31,6 +32,7 @@ function useAgent(options?: UseAgentOptions): { agent: AbstractAgent }
     - `UseAgentUpdate.OnRunStatusChanged` - Re-render when execution status changes
 
     Pass an empty array `[]` to prevent automatic re-renders.
+
   </PropertyReference>
 </PropertyReference>
 
@@ -265,7 +267,7 @@ import { useAgent, UseAgentUpdate } from "@copilotkit/react-core/v2";
 // Only re-render when messages change
 function MessageCount() {
   const { agent } = useAgent({
-    updates: [UseAgentUpdate.OnMessagesChanged]
+    updates: [UseAgentUpdate.OnMessagesChanged],
   });
 
   return <div>Messages: {agent.messages.length}</div>;
@@ -279,7 +281,7 @@ function ManualSubscription() {
     const { unsubscribe } = agent.subscribe({
       onMessagesChanged: () => {
         // Handle changes manually
-      }
+      },
     });
     return unsubscribe;
   }, [agent]);

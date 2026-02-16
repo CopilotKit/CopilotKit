@@ -33,6 +33,7 @@ In addition, some state properties contain a lot of information. Syncing them ba
         answer: str = ""         # Output to user
         resources: List[str] = []  # Internal use only
     ```
+
   </Step>
   <Step>
     ### Organize state by purpose
@@ -96,7 +97,7 @@ In addition, some state properties contain a lot of information. Syncing them ba
         You are a helpful assistant. When answering questions:
         1. Use add_resource to track any sources you reference (internal use)
         2. Use answer_question to provide your final answer to the user
-        
+
         The question from the user is available in state as 'question'.
         """,
         tools=[answer_question, add_resource],
@@ -117,6 +118,7 @@ In addition, some state properties contain a lot of information. Syncing them ba
         import uvicorn
         uvicorn.run(app, host="0.0.0.0", port=8000)
     ```
+
   </Step>
   <Step>
     ### Use the state in your frontend
@@ -127,7 +129,7 @@ In addition, some state properties contain a lot of information. Syncing them ba
 
     ```tsx title="ui/app/page.tsx"
     "use client";
-    
+
     import { useCoAgent } from "@copilotkit/react-core";
 
     // Only define the types for state you'll interact with
@@ -166,6 +168,7 @@ In addition, some state properties contain a lot of information. Syncing them ba
     <Callout type="warn" title="Important">
       The `name` parameter must exactly match the agent name you defined in your CopilotRuntime configuration (e.g., `my_agent` from the quickstart).
     </Callout>
+
   </Step>
   <Step>
     ### Give it a try!
@@ -175,4 +178,3 @@ In addition, some state properties contain a lot of information. Syncing them ba
     - State updates flow efficiently between frontend and backend
   </Step>
 </Steps>
-

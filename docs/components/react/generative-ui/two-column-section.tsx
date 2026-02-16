@@ -26,7 +26,7 @@ export function TwoColumnSection({
 }: TwoColumnSectionProps) {
   return (
     <div
-      className={`grid grid-cols-1 lg:grid-cols-2 gap-8 items-center my-8 ${imagePosition === "left" ? "lg:flex-row-reverse" : ""} ${className}`}
+      className={`my-8 grid grid-cols-1 items-center gap-8 lg:grid-cols-2 ${imagePosition === "left" ? "lg:flex-row-reverse" : ""} ${className}`}
     >
       <div
         className={`${imagePosition === "left" ? "lg:order-2" : "lg:order-1"}`}
@@ -43,14 +43,14 @@ export function TwoColumnSection({
               alt={imageAlt}
               width={imageWidth}
               height={imageHeight}
-              className="rounded-lg w-full h-auto block dark:hidden"
+              className="block h-auto w-full rounded-lg dark:hidden"
             />
             <Image
               src={imageSrcDark}
               alt={imageAlt}
               width={imageWidth}
               height={imageHeight}
-              className="rounded-lg w-full h-auto hidden dark:block"
+              className="hidden h-auto w-full rounded-lg dark:block"
             />
           </>
         ) : (
@@ -59,7 +59,7 @@ export function TwoColumnSection({
             alt={imageAlt}
             width={imageWidth}
             height={imageHeight}
-            className="rounded-lg w-full h-auto"
+            className="h-auto w-full rounded-lg"
           />
         )}
       </div>

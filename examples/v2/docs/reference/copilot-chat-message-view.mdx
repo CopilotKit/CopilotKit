@@ -29,11 +29,11 @@ graph LR
 
 ### Slot Descriptions
 
-| Slot | Description |
-|------|-------------|
+| Slot               | Description                                     |
+| ------------------ | ----------------------------------------------- |
 | `assistantMessage` | Component for rendering assistant (AI) messages |
-| `userMessage` | Component for rendering user messages |
-| `cursor` | Typing indicator shown during streaming |
+| `userMessage`      | Component for rendering user messages           |
+| `cursor`           | Typing indicator shown during streaming         |
 
 ## Basic Usage
 
@@ -77,16 +77,16 @@ The `assistantMessage` slot controls how AI responses are rendered:
 
 #### Assistant Message Sub-Slots
 
-| Sub-Slot | Description |
-|----------|-------------|
+| Sub-Slot           | Description                                       |
+| ------------------ | ------------------------------------------------- |
 | `markdownRenderer` | Renders the message content with markdown support |
-| `toolbar` | Container for action buttons |
-| `copyButton` | Button to copy message content |
-| `thumbsUpButton` | Positive feedback button |
-| `thumbsDownButton` | Negative feedback button |
-| `readAloudButton` | Text-to-speech button |
-| `regenerateButton` | Button to regenerate the response |
-| `toolCallsView` | Renders tool call executions |
+| `toolbar`          | Container for action buttons                      |
+| `copyButton`       | Button to copy message content                    |
+| `thumbsUpButton`   | Positive feedback button                          |
+| `thumbsDownButton` | Negative feedback button                          |
+| `readAloudButton`  | Text-to-speech button                             |
+| `regenerateButton` | Button to regenerate the response                 |
+| `toolCallsView`    | Renders tool call executions                      |
 
 For full details, see [CopilotChatAssistantMessage](/reference/copilot-chat-assistant-message).
 
@@ -107,12 +107,12 @@ The `userMessage` slot controls how user messages are rendered:
 
 #### User Message Sub-Slots
 
-| Sub-Slot | Description |
-|----------|-------------|
-| `messageRenderer` | Renders the message text content |
-| `toolbar` | Container for action buttons |
-| `copyButton` | Button to copy message content |
-| `editButton` | Button to edit the message |
+| Sub-Slot           | Description                          |
+| ------------------ | ------------------------------------ |
+| `messageRenderer`  | Renders the message text content     |
+| `toolbar`          | Container for action buttons         |
+| `copyButton`       | Button to copy message content       |
+| `editButton`       | Button to edit the message           |
 | `branchNavigation` | Navigation for conversation branches |
 
 For full details, see [CopilotChatUserMessage](/reference/copilot-chat-user-message).
@@ -146,7 +146,7 @@ function CustomCursor() {
   messageView={{
     cursor: CustomCursor,
   }}
-/>
+/>;
 ```
 
 ## Replacing the Message View
@@ -182,7 +182,7 @@ function CustomMessageView({ messages, isRunning, ...props }) {
   );
 }
 
-<CopilotChat messageView={CustomMessageView} />
+<CopilotChat messageView={CustomMessageView} />;
 ```
 
 ### Using the Render Function
@@ -199,9 +199,7 @@ function CustomMessageView({ messages, isRunning }) {
             {messages.length} messages
           </header>
 
-          <div className="messages p-4">
-            {messageElements}
-          </div>
+          <div className="messages p-4">{messageElements}</div>
 
           {isRunning && (
             <footer className="sticky bottom-0 bg-background p-2">
@@ -214,16 +212,16 @@ function CustomMessageView({ messages, isRunning }) {
   );
 }
 
-<CopilotChat messageView={CustomMessageView} />
+<CopilotChat messageView={CustomMessageView} />;
 ```
 
 The render function receives:
 
-| Property | Type | Description |
-|----------|------|-------------|
+| Property          | Type             | Description                     |
+| ----------------- | ---------------- | ------------------------------- |
 | `messageElements` | `ReactElement[]` | Pre-rendered message components |
-| `messages` | `Message[]` | Raw message data |
-| `isRunning` | `boolean` | Whether AI is generating |
+| `messages`        | `Message[]`      | Raw message data                |
+| `isRunning`       | `boolean`        | Whether AI is generating        |
 
 ## Examples
 
@@ -277,7 +275,7 @@ function CustomAssistantMessage({ message, isRunning }) {
   messageView={{
     assistantMessage: CustomAssistantMessage,
   }}
-/>
+/>;
 ```
 
 ## Related

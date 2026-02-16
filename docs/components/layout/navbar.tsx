@@ -117,7 +117,7 @@ const Navbar = ({ pageTree }: NavbarProps) => {
   };
 
   return (
-    <nav className="h-[68px] xl:h-[88px] p-1 xl:p-2 relative">
+    <nav className="relative h-[68px] p-1 xl:h-[88px] xl:p-2">
       {isMobileSidebarOpen && (
         <MobileSidebar
           pageTree={pageTree}
@@ -126,14 +126,14 @@ const Navbar = ({ pageTree }: NavbarProps) => {
         />
       )}
 
-      <div className="flex justify-between items-center w-full h-full">
-        <div className="flex w-full h-full">
+      <div className="flex h-full w-full items-center justify-between">
+        <div className="flex h-full w-full">
           <div
-            className="flex gap-11 items-center w-full h-full rounded-l-2xl border border-r-0 backdrop-blur-lg border-border"
+            className="border-border flex h-full w-full items-center gap-11 rounded-l-2xl border border-r-0 backdrop-blur-lg"
             style={{ backgroundColor: "var(--sidebar)" }}
           >
             <Logo className="pl-6" />
-            <ul className="hidden gap-6 items-center h-full md:flex">
+            <ul className="hidden h-full items-center gap-6 md:flex">
               {LEFT_LINKS.map((link) => {
                 // Hide only Copilot Cloud at narrow widths
                 const hideAtNarrow = link.label === "Copilot Cloud";
@@ -150,17 +150,17 @@ const Navbar = ({ pageTree }: NavbarProps) => {
                 return (
                   <li
                     key={link.href}
-                    className={`relative h-full group ${hideAtNarrow ? "[@media(width<1028px)]:hidden" : ""}`}
+                    className={`group relative h-full ${hideAtNarrow ? "[@media(width<1028px)]:hidden" : ""}`}
                   >
                     <Link
                       href={href}
                       target={link.target}
                       className={`h-full ${
                         activeRoute === link.href ? "opacity-100" : "opacity-50"
-                      } hover:opacity-100 transition-opacity duration-300`}
+                      } transition-opacity duration-300 hover:opacity-100`}
                       suppressHydrationWarning={link.target === "_blank"}
                     >
-                      <span className="flex gap-2 items-center h-full">
+                      <span className="flex h-full items-center gap-2">
                         <span
                           className={
                             hideIconAtNarrow
@@ -179,7 +179,7 @@ const Navbar = ({ pageTree }: NavbarProps) => {
                       </span>
                     </Link>
                     <div
-                      className={`absolute bottom-0 left-0 w-full h-[3px] bg-[#7076D5] transition-opacity duration-300 ${
+                      className={`absolute bottom-0 left-0 h-[3px] w-full bg-[#7076D5] transition-opacity duration-300 ${
                         activeRoute === link.href
                           ? "opacity-100"
                           : "opacity-0 group-hover:opacity-100"
@@ -196,35 +196,35 @@ const Navbar = ({ pageTree }: NavbarProps) => {
             alt="Slanted end border"
             width={29}
             height={72}
-            className="hidden -ml-px dark:inline-block shrink-0 w-[24px] h-[60px] xl:w-[29px] xl:h-[72px] object-cover"
+            className="-ml-px hidden h-[60px] w-[24px] shrink-0 object-cover xl:h-[72px] xl:w-[29px] dark:inline-block"
           />
           <Image
             src="/images/navbar/slanted-end-border-light.svg"
             alt="Slanted end border"
             width={29}
             height={72}
-            className="-ml-px dark:hidden shrink-0 w-[24px] h-[60px] xl:w-[29px] xl:h-[72px] object-cover"
+            className="-ml-px h-[60px] w-[24px] shrink-0 object-cover xl:h-[72px] xl:w-[29px] dark:hidden"
           />
         </div>
 
-        <div className="flex items-center w-max h-full shrink-0 -ml-[7px]">
+        <div className="-ml-[7px] flex h-full w-max shrink-0 items-center">
           <Image
             src="/images/navbar/slanted-start-border-dark.svg"
             alt="Slanted start border"
             width={29}
             height={72}
-            className="hidden -mr-px dark:inline-block shrink-0 w-[24px] h-[60px] xl:w-[29px] xl:h-[72px] object-cover"
+            className="-mr-px hidden h-[60px] w-[24px] shrink-0 object-cover xl:h-[72px] xl:w-[29px] dark:inline-block"
           />
           <Image
             src="/images/navbar/slanted-start-border-light.svg"
             alt="Slanted start border"
             width={29}
             height={72}
-            className="-mr-px dark:hidden shrink-0 w-[24px] h-[60px] xl:w-[29px] xl:h-[72px] object-cover"
+            className="-mr-px h-[60px] w-[24px] shrink-0 object-cover xl:h-[72px] xl:w-[29px] dark:hidden"
           />
 
           <div
-            className="flex gap-1 items-center pr-2 w-max h-full rounded-r-2xl border border-l-0 backdrop-blur-lg md:pr-4 shrink-0 border-border"
+            className="border-border flex h-full w-max shrink-0 items-center gap-1 rounded-r-2xl border border-l-0 pr-2 backdrop-blur-lg md:pr-4"
             style={{ backgroundColor: "var(--sidebar)" }}
           >
             {RIGHT_LINKS.map((link) => {
@@ -236,17 +236,17 @@ const Navbar = ({ pageTree }: NavbarProps) => {
                   key={link.href}
                   href={link.href}
                   target={link.target}
-                  className={`${isIconOnlyLink ? "[@media(width>=1028px)]:hidden [@media(width<768px)]:hidden" : "hidden"} justify-center items-center w-11 h-full md:flex`}
+                  className={`${isIconOnlyLink ? "[@media(width<768px)]:hidden [@media(width>=1028px)]:hidden" : "hidden"} h-full w-11 items-center justify-center md:flex`}
                   title={link.label}
                   suppressHydrationWarning={link.target === "_blank"}
                 >
-                  <span className="flex items-center h-full">{link.icon}</span>
+                  <span className="flex h-full items-center">{link.icon}</span>
                 </Link>
               );
             })}
 
             <button
-              className="hidden justify-center items-center w-11 h-full cursor-pointer md:flex"
+              className="hidden h-full w-11 cursor-pointer items-center justify-center md:flex"
               onClick={handleToggleTheme}
             >
               <Image
@@ -268,7 +268,7 @@ const Navbar = ({ pageTree }: NavbarProps) => {
             <SearchDialogButton />
 
             <button
-              className="flex justify-center items-center w-11 h-full cursor-pointer md:hidden"
+              className="flex h-full w-11 cursor-pointer items-center justify-center md:hidden"
               onClick={() => setIsMobileSidebarOpen(true)}
             >
               <BurgerMenuIcon />
