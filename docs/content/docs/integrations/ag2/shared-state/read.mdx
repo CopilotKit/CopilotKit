@@ -92,7 +92,7 @@ state updates, you can reflect these updates natively in your application.
   </Step>
   <Step>
     ### Use the `useAgent` Hook
-    With your agent connected and running all that is left is to call the [useAgent](/reference/hooks/useAgent) hook, pass the agent's ID, and
+    With your agent connected and running all that is left is to call the [useAgent](/reference/v1/hooks/useAgent) hook, pass the agent's ID, and
     optionally provide an initial state.
 
     ```tsx title="ui/app/page.tsx"
@@ -142,7 +142,7 @@ state updates, you can reflect these updates natively in your application.
 ## Rendering agent state in the chat
 
 You can also render the agent's state in the chat UI. This is useful for informing the user about the agent's state in a
-more in-context way. To do this, you can use the [useCoAgentStateRender](/reference/hooks/useCoAgentStateRender) hook.
+more in-context way. To do this, you can use the [useCoAgentStateRender](/reference/v1/hooks/useCoAgentStateRender) hook.
 
 ```tsx title="ui/app/page.tsx"
 import { useCoAgentStateRender } from "@copilotkit/react-core"; // [!code highlight]

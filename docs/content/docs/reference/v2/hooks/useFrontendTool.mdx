@@ -1,0 +1,166 @@
+---
+title: "useFrontendTool"
+description: "React hook for registering client-side tool handlers with optional UI rendering"
+---
+
+## Overview
+
+`useFrontendTool` registers a client-side tool with CopilotKit at component scope. When the agent decides to call the tool, the provided `handler` function executes in the browser. Optionally, you can supply a `render` component to display custom UI in the chat showing the tool's execution progress and results.
+
+The hook manages the full registration lifecycle: it warns if a tool with the same name already exists, registers the tool and its render component on mount, and cleans up both registrations on unmount. In v2, parameter schemas are defined using [Zod](https://zod.dev) instead of plain parameter arrays.
+
+## Signature
+
+```tsx
+import { useFrontendTool } from "@copilotkit/react-core/v2";
+
+function useFrontendTool<T extends Record<string, unknown>>(
+  tool: ReactFrontendTool<T>,
+  deps?: ReadonlyArray<unknown>,
+): void;
+```
+
+## Parameters
+
+<PropertyReference name="tool" type="ReactFrontendTool<T>" required>
+  The tool definition object.
+
+  <PropertyReference name="name" type="string" required>
+    A unique name for the tool. The agent references this name when deciding to call the tool. If a tool with this name is already registered, a warning is logged.
+  </PropertyReference>
+
+  <PropertyReference name="description" type="string" required>
+    A natural-language description that tells the agent what the tool does and when to use it.
+  </PropertyReference>
+
+  <PropertyReference name="parameters" type="z.ZodSchema" required>
+    A Zod schema defining the tool's input parameters. The schema is used for both validation and type inference.
+  </PropertyReference>
+
+  <PropertyReference name="handler" type="(args: T) => Promise<string>" required>
+    An async function that executes when the agent calls the tool. Receives the validated, typed arguments and should return a string result that is sent back to the agent.
+  </PropertyReference>
+
+  <PropertyReference name="render" type="React.ComponentType<{ name: string; args: Partial<T>; status: ToolCallStatus; result: string | undefined }>">
+    An optional React component rendered in the chat interface to visualize tool execution. The component receives:
+    - `name` -- the tool name
+    - `args` -- the arguments (partial while streaming, complete once execution starts)
+    - `status` -- one of `ToolCallStatus.InProgress`, `ToolCallStatus.Executing`, or `ToolCallStatus.Complete`
+    - `result` -- the string result returned by the handler (only available when status is `Complete`)
+  </PropertyReference>
+
+  <PropertyReference name="available" type='"enabled" | "disabled" | "remote"' default='"enabled"'>
+    Controls tool availability. Set to `"disabled"` to temporarily prevent the agent from calling the tool, or `"remote"` to indicate the tool is handled server-side.
+  </PropertyReference>
+</PropertyReference>
+
+<PropertyReference name="deps" type="ReadonlyArray<unknown>">
+  An optional dependency array, similar to `useEffect`. When provided, the tool registration is refreshed whenever any value in the array changes. Use this when your handler or render function captures external state.
+</PropertyReference>
+
+## Usage
+
+### Basic Tool with Zod Parameters
+
+```tsx
+import { z } from "zod";
+import { useFrontendTool } from "@copilotkit/react-core/v2";
+
+function TodoManager() {
+  const [todos, setTodos] = useState<string[]>([]);
+
+  useFrontendTool({
+    name: "addTodo",
+    description: "Add a new item to the user's todo list",
+    parameters: z.object({
+      text: z.string().describe("The todo item text"),
+      priority: z.enum(["low", "medium", "high"]).describe("Priority level"),
+    }),
+    handler: async ({ text, priority }) => {
+      setTodos((prev) => [...prev, text]);
+      return `Added "${text}" with ${priority} priority`;
+    },
+  }, []);
+
+  return <ul>{todos.map((t, i) => <li key={i}>{t}</li>)}</ul>;
+}
+```
+
+### Tool with Custom Render Component
+
+```tsx
+import { z } from "zod";
+import { useFrontendTool, ToolCallStatus } from "@copilotkit/react-core/v2";
+
+function WeatherWidget() {
+  useFrontendTool({
+    name: "getWeather",
+    description: "Fetch and display weather information for a city",
+    parameters: z.object({
+      city: z.string().describe("City name"),
+      units: z.enum(["celsius", "fahrenheit"]).default("celsius"),
+    }),
+    handler: async ({ city, units }) => {
+      const response = await fetch(`/api/weather?city=${city}&units=${units}`);
+      const data = await response.json();
+      return JSON.stringify(data);
+    },
+    render: ({ args, status, result }) => {
+      if (status === ToolCallStatus.InProgress) {
+        return <div className="animate-pulse">Fetching weather for {args.city}...</div>;
+      }
+      if (status === ToolCallStatus.Complete && result) {
+        const data = JSON.parse(result);
+        return (
+          <div className="p-4 border rounded">
+            <h3>{data.city}</h3>
+            <p>{data.temperature}&deg; {data.units}</p>
+            <p>{data.conditions}</p>
+          </div>
+        );
+      }
+      return null;
+    },
+  }, []);
+
+  return null;
+}
+```
+
+### Conditionally Available Tool
+
+```tsx
+import { z } from "zod";
+import { useFrontendTool } from "@copilotkit/react-core/v2";
+
+function AdminPanel({ isAdmin }: { isAdmin: boolean }) {
+  useFrontendTool({
+    name: "deleteUser",
+    description: "Delete a user account by ID (admin only)",
+    parameters: z.object({
+      userId: z.string().describe("The ID of the user to delete"),
+    }),
+    handler: async ({ userId }) => {
+      await fetch(`/api/users/${userId}`, { method: "DELETE" });
+      return `User ${userId} deleted`;
+    },
+    available: isAdmin ? "enabled" : "disabled",
+  }, [isAdmin]);
+
+  return <div>{/* admin UI */}</div>;
+}
+```
+
+## Behavior
+
+- **Duplicate detection**: If a tool with the same `name` is already registered, the hook logs a warning. Only one tool per name is active at a time.
+- **Mount/Unmount lifecycle**: The tool and its optional render component are registered on mount and removed on unmount.
+- **Dependency tracking**: When `deps` is provided, the tool registration is refreshed whenever any dependency value changes, similar to `useEffect`.
+- **Render component lifecycle**: If a `render` function is provided, it is added to the internal render tool calls registry. It receives streaming `args` (partial during `InProgress`, complete during `Executing` and `Complete`).
+- **No return value**: The hook returns `void`.
+
+## Related
+
+- [`useHumanInTheLoop`](/reference/v2/hooks/useHumanInTheLoop) -- for tools that pause execution and wait for user input
+- [`useRenderToolCall`](/reference/v2/hooks/useRenderToolCall) -- for rendering backend tool calls without a client-side handler
+- [`useCopilotAction`](/reference/v1/hooks/useCopilotAction) -- v1 equivalent

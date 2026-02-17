@@ -7,7 +7,7 @@ import {
   DocsTitle,
 } from "fumadocs-ui/page";
 import { PageBreadcrumb } from "fumadocs-ui/layouts/docs/page";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import defaultMdxComponents from "fumadocs-ui/mdx";
 import { Badge } from "@/components/ui/badge";
 import { CloudIcon } from "lucide-react";
@@ -129,7 +129,26 @@ export default async function Page({
   params: Promise<{ slug?: string[] }>;
 }) {
   const resolvedParams = await params;
-  const page = source.getPage(resolvedParams.slug);
+  let page = source.getPage(resolvedParams.slug);
+
+  // Legacy reference URLs without v1/v2 prefix: try v2 first, then v1
+  if (
+    !page &&
+    resolvedParams.slug &&
+    resolvedParams.slug[0] === "reference" &&
+    resolvedParams.slug[1] !== "v1" &&
+    resolvedParams.slug[1] !== "v2"
+  ) {
+    const rest = resolvedParams.slug.slice(1);
+    const v2Slug = ["reference", "v2", ...rest];
+    const v1Slug = ["reference", "v1", ...rest];
+    if (source.getPage(v2Slug)) {
+      redirect(`/${v2Slug.join("/")}`);
+    } else if (source.getPage(v1Slug)) {
+      redirect(`/${v1Slug.join("/")}`);
+    }
+  }
+
   if (!page) notFound();
   const MDX = page.data.body;
   const cloudOnly = cloudOnlyFeatures.includes(page.data.title);
@@ -236,7 +255,22 @@ export async function generateMetadata({
   params: Promise<{ slug?: string[] }>;
 }) {
   const resolvedParams = await params;
-  const page = source.getPage(resolvedParams.slug);
+  let page = source.getPage(resolvedParams.slug);
+
+  // Legacy reference URLs without v1/v2 prefix: try v2 first, then v1
+  if (
+    !page &&
+    resolvedParams.slug &&
+    resolvedParams.slug[0] === "reference" &&
+    resolvedParams.slug[1] !== "v1" &&
+    resolvedParams.slug[1] !== "v2"
+  ) {
+    const rest = resolvedParams.slug.slice(1);
+    const v2Slug = ["reference", "v2", ...rest];
+    const v1Slug = ["reference", "v1", ...rest];
+    page = source.getPage(v2Slug) || source.getPage(v1Slug);
+  }
+
   if (!page) notFound();
 
   return {

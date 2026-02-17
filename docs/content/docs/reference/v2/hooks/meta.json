@@ -1,0 +1,14 @@
+{
+  "title": "hooks",
+  "pages": [
+    "useAgent",
+    "useAgentContext",
+    "useFrontendTool",
+    "useHumanInTheLoop",
+    "useRenderToolCall",
+    "useSuggestions",
+    "useConfigureSuggestions",
+    "useCopilotKit",
+    "useCopilotChatConfiguration"
+  ]
+}
