@@ -2,10 +2,12 @@ import React, { useEffect, useReducer } from "react";
 import { WithSlots, renderSlot, isReactComponentType } from "@/lib/slots";
 import CopilotChatAssistantMessage from "./CopilotChatAssistantMessage";
 import CopilotChatUserMessage from "./CopilotChatUserMessage";
+import CopilotChatReasoningMessage from "./CopilotChatReasoningMessage";
 import {
   ActivityMessage,
   AssistantMessage,
   Message,
+  ReasoningMessage,
   UserMessage,
 } from "@ag-ui/core";
 import { twMerge } from "tailwind-merge";
@@ -170,6 +172,67 @@ const MemoizedActivityMessage = React.memo(
 );
 
 /**
+ * Memoized wrapper for reasoning messages to prevent re-renders when other messages change.
+ */
+const MemoizedReasoningMessage = React.memo(
+  function MemoizedReasoningMessage({
+    message,
+    messages,
+    isRunning,
+    ReasoningMessageComponent,
+    slotProps,
+  }: {
+    message: ReasoningMessage;
+    messages: Message[];
+    isRunning: boolean;
+    ReasoningMessageComponent: typeof CopilotChatReasoningMessage;
+    slotProps?: Partial<
+      React.ComponentProps<typeof CopilotChatReasoningMessage>
+    >;
+  }) {
+    return (
+      <ReasoningMessageComponent
+        message={message}
+        messages={messages}
+        isRunning={isRunning}
+        {...slotProps}
+      />
+    );
+  },
+  (prevProps, nextProps) => {
+    // Only re-render if this specific message changed
+    if (prevProps.message.id !== nextProps.message.id) return false;
+    if (prevProps.message.content !== nextProps.message.content) return false;
+
+    // Re-render when "latest" status changes (e.g. reasoning message is no longer the last message
+    // because a text message was added after it — this transitions isStreaming from true to false)
+    const prevIsLatest =
+      prevProps.messages[prevProps.messages.length - 1]?.id ===
+      prevProps.message.id;
+    const nextIsLatest =
+      nextProps.messages[nextProps.messages.length - 1]?.id ===
+      nextProps.message.id;
+    if (prevIsLatest !== nextIsLatest) return false;
+
+    // Only care about isRunning if this message is CURRENTLY the latest
+    if (nextIsLatest && prevProps.isRunning !== nextProps.isRunning)
+      return false;
+
+    // Check if component reference changed
+    if (
+      prevProps.ReasoningMessageComponent !==
+      nextProps.ReasoningMessageComponent
+    )
+      return false;
+
+    // Check if slot props changed
+    if (prevProps.slotProps !== nextProps.slotProps) return false;
+
+    return true;
+  },
+);
+
+/**
  * Memoized wrapper for custom messages to prevent re-renders when other messages change.
  */
 const MemoizedCustomMessage = React.memo(
@@ -212,6 +275,7 @@ export type CopilotChatMessageViewProps = Omit<
     {
       assistantMessage: typeof CopilotChatAssistantMessage;
       userMessage: typeof CopilotChatUserMessage;
+      reasoningMessage: typeof CopilotChatReasoningMessage;
       cursor: typeof CopilotChatMessageView.Cursor;
     },
     {
@@ -232,6 +296,7 @@ export function CopilotChatMessageView({
   messages = [],
   assistantMessage,
   userMessage,
+  reasoningMessage,
   cursor,
   isRunning = false,
   children,
@@ -364,6 +429,34 @@ export function CopilotChatMessageView({
             renderActivityMessage={renderActivityMessage}
           />,
         );
+      } else if (message.role === "reasoning") {
+        // Determine the component and props from slot value
+        let ReasoningComponent = CopilotChatReasoningMessage;
+        let reasoningSlotProps:
+          | Partial<React.ComponentProps<typeof CopilotChatReasoningMessage>>
+          | undefined;
+
+        if (isReactComponentType(reasoningMessage)) {
+          ReasoningComponent =
+            reasoningMessage as typeof CopilotChatReasoningMessage;
+        } else if (typeof reasoningMessage === "string") {
+          reasoningSlotProps = { className: reasoningMessage };
+        } else if (reasoningMessage && typeof reasoningMessage === "object") {
+          reasoningSlotProps = reasoningMessage as Partial<
+            React.ComponentProps<typeof CopilotChatReasoningMessage>
+          >;
+        }
+
+        elements.push(
+          <MemoizedReasoningMessage
+            key={message.id}
+            message={message as ReasoningMessage}
+            messages={messages}
+            isRunning={isRunning}
+            ReasoningMessageComponent={ReasoningComponent}
+            slotProps={reasoningSlotProps}
+          />,
+        );
       }
 
       // Render custom message after (using memoized wrapper)
@@ -387,10 +480,19 @@ export function CopilotChatMessageView({
     return children({ messageElements, messages, isRunning });
   }
 
+  // Hide the chat-level loading cursor when the last message is a reasoning
+  // message — the reasoning card already shows its own loading indicator.
+  const lastMessage = messages[messages.length - 1];
+  const showCursor = isRunning && lastMessage?.role !== "reasoning";
+
   return (
     <div className={twMerge("flex flex-col", className)} {...props}>
       {messageElements}
-      {isRunning && renderSlot(cursor, CopilotChatMessageView.Cursor, {})}
+      {showCursor && (
+        <div className="mt-2">
+          {renderSlot(cursor, CopilotChatMessageView.Cursor, {})}
+        </div>
+      )}
     </div>
   );
 }

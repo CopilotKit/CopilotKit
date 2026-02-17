@@ -11,6 +11,7 @@ export type SystemMessage = agui.SystemMessage;
 export type DeveloperMessage = agui.DeveloperMessage;
 export type ToolCall = agui.ToolCall;
 export type ActivityMessage = agui.ActivityMessage;
+export type ReasoningMessage = agui.ReasoningMessage;
 
 // Extended message types
 export type ToolResult = agui.ToolMessage & {
@@ -36,4 +37,5 @@ export type Message =
   | UserMessage
   | SystemMessage
   | DeveloperMessage
-  | ActivityMessage;
+  | ActivityMessage
+  | ReasoningMessage;

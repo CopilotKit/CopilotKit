@@ -104,6 +104,38 @@ export function toolResult(
 }
 
 /**
+ * Helper to create a reasoning-start event
+ */
+export function reasoningStart(id?: string): MockStreamEvent {
+  const event: MockStreamEvent = {
+    type: "reasoning-start",
+  };
+  if (id !== undefined) {
+    event.id = id;
+  }
+  return event;
+}
+
+/**
+ * Helper to create a reasoning-delta event
+ */
+export function reasoningDelta(text: string): MockStreamEvent {
+  return {
+    type: "reasoning-delta",
+    text,
+  };
+}
+
+/**
+ * Helper to create a reasoning-end event
+ */
+export function reasoningEnd(): MockStreamEvent {
+  return {
+    type: "reasoning-end",
+  };
+}
+
+/**
  * Helper to create a finish event
  */
 export function finish(): MockStreamEvent {

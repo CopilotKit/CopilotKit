@@ -307,6 +307,76 @@ export function toolCallResultEvent({
 }
 
 /**
+ * Helper to create a REASONING_START event
+ */
+export function reasoningStartEvent(messageId: string): BaseEvent {
+  return {
+    type: EventType.REASONING_START,
+    messageId,
+  } as BaseEvent;
+}
+
+/**
+ * Helper to create a REASONING_MESSAGE_START event
+ */
+export function reasoningMessageStartEvent(messageId: string): BaseEvent {
+  return {
+    type: EventType.REASONING_MESSAGE_START,
+    messageId,
+    role: "reasoning",
+  } as BaseEvent;
+}
+
+/**
+ * Helper to create a REASONING_MESSAGE_CONTENT event
+ */
+export function reasoningMessageContentEvent(
+  messageId: string,
+  delta: string,
+): BaseEvent {
+  return {
+    type: EventType.REASONING_MESSAGE_CONTENT,
+    messageId,
+    delta,
+  } as BaseEvent;
+}
+
+/**
+ * Helper to create a REASONING_MESSAGE_END event
+ */
+export function reasoningMessageEndEvent(messageId: string): BaseEvent {
+  return {
+    type: EventType.REASONING_MESSAGE_END,
+    messageId,
+  } as BaseEvent;
+}
+
+/**
+ * Helper to create a REASONING_END event
+ */
+export function reasoningEndEvent(messageId: string): BaseEvent {
+  return {
+    type: EventType.REASONING_END,
+    messageId,
+  } as BaseEvent;
+}
+
+/**
+ * Helper to emit a complete reasoning sequence (all 5 events)
+ */
+export function emitReasoningSequence(
+  agent: MockStepwiseAgent,
+  messageId: string,
+  content: string,
+) {
+  agent.emit(reasoningStartEvent(messageId));
+  agent.emit(reasoningMessageStartEvent(messageId));
+  agent.emit(reasoningMessageContentEvent(messageId, content));
+  agent.emit(reasoningMessageEndEvent(messageId));
+  agent.emit(reasoningEndEvent(messageId));
+}
+
+/**
  * Helper to generate unique IDs for tests
  */
 export function testId(prefix: string): string {
