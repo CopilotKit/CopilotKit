@@ -12,3 +12,7 @@
 - For Nx plugin best practices, check `node_modules/@nx/<plugin>/PLUGIN.md`. Not all plugins have this file - proceed without it if unavailable.
 
 <!-- nx configuration end-->
+
+# Bug Fix Methodology
+
+When fixing bugs, always use the `/tdd` skill to follow the red-green-refactor workflow (failing test → fix → passing test).
