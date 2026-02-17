@@ -5,9 +5,7 @@ import { AbstractAgent } from "@ag-ui/client";
 import { useCopilotKit } from "@/providers/CopilotKitProvider";
 import { MockStepwiseAgent } from "@/__tests__/utils/test-helpers";
 import { useAgent } from "../use-agent";
-import {
-  CopilotKitCoreRuntimeConnectionStatus,
-} from "@copilotkitnext/core";
+import { CopilotKitCoreRuntimeConnectionStatus } from "@copilotkitnext/core";
 
 // Mock the CopilotKitProvider to control copilotkit state directly
 vi.mock("@/providers/CopilotKitProvider", () => ({
@@ -37,7 +35,8 @@ describe("useAgent stability during runtime connection", () => {
     mockCopilotkit = {
       getAgent: vi.fn(() => undefined),
       runtimeUrl: "http://localhost:3000/api/copilotkit",
-      runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus.Disconnected,
+      runtimeConnectionStatus:
+        CopilotKitCoreRuntimeConnectionStatus.Disconnected,
       runtimeTransport: "rest",
       headers: {},
       agents: {},

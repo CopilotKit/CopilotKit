@@ -102,7 +102,10 @@ function resolveAgent(
   );
 }
 
-export function useAgent({ agentId = DEFAULT_AGENT_ID, updates }: UseAgentProps = {}) {  
+export function useAgent({
+  agentId = DEFAULT_AGENT_ID,
+  updates,
+}: UseAgentProps = {}) {
   const { copilotkit } = useCopilotKit();
   const [, forceUpdate] = useReducer((x) => x + 1, 0);
 
