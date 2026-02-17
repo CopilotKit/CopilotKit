@@ -6,6 +6,7 @@ on:
     paths:
       - "examples/**"
       - ".github/workflows/e2e_examples.yml"
+      - ".changeset"
   pull_request:
     branches: [main]
     paths:
