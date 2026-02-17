@@ -5,14 +5,14 @@ import { useFrontendTool } from "../use-frontend-tool";
 import { useCopilotKit } from "@/providers/CopilotKitProvider";
 import { ReactFrontendTool } from "@/types";
 import { CopilotKitCoreReact } from "@/lib/react-core";
-import {
-  renderWithCopilotKit,
-} from "@/__tests__/utils/test-helpers";
+import { renderWithCopilotKit } from "@/__tests__/utils/test-helpers";
 
 /**
  * Component that captures the copilotkit core ref for test assertions.
  */
-const CoreCapture: React.FC<{ onCore: (core: CopilotKitCoreReact) => void }> = ({ onCore }) => {
+const CoreCapture: React.FC<{
+  onCore: (core: CopilotKitCoreReact) => void;
+}> = ({ onCore }) => {
   const { copilotkit } = useCopilotKit();
   useEffect(() => {
     onCore(copilotkit);
@@ -40,7 +40,11 @@ describe("useFrontendTool available flag", () => {
       children: (
         <>
           <ToolComponent />
-          <CoreCapture onCore={(c) => { coreRef = c; }} />
+          <CoreCapture
+            onCore={(c) => {
+              coreRef = c;
+            }}
+          />
         </>
       ),
     });
@@ -74,7 +78,11 @@ describe("useFrontendTool available flag", () => {
       children: (
         <>
           <ToolComponent />
-          <CoreCapture onCore={(c) => { coreRef = c; }} />
+          <CoreCapture
+            onCore={(c) => {
+              coreRef = c;
+            }}
+          />
         </>
       ),
     });
@@ -118,7 +126,11 @@ describe("useFrontendTool available flag", () => {
       children: (
         <>
           <ToolWithToggle />
-          <CoreCapture onCore={(c) => { coreRef = c; }} />
+          <CoreCapture
+            onCore={(c) => {
+              coreRef = c;
+            }}
+          />
         </>
       ),
     });
