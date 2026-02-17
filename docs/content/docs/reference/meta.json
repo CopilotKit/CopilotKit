@@ -2,14 +2,7 @@
   "title": "Reference",
   "root": true,
   "pages": [
-    "index",
-    "---UI Components---",
-    "...components",
-    "---Hooks---",
-    "...hooks",
-    "---Classes---",
-    "...classes",
-    "---SDKs---",
-    "...sdk"
+    "v2",
+    "v1"
   ]
 }

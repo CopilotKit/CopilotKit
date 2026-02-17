@@ -1,0 +1,183 @@
+---
+title: "useRenderToolCall"
+description: "React hook that returns a renderer function for tool calls in the chat interface"
+---
+
+## Overview
+
+`useRenderToolCall` returns a renderer function that maps tool calls to React elements. The returned function looks up the first matching render configuration by tool name (falling back to a wildcard `"*"` renderer if no exact match is found), parses the JSON arguments, determines the current `ToolCallStatus`, and returns the appropriate React element -- or `null` if no renderer is registered for the tool.
+
+This hook is primarily used by chat UI components to display visual feedback for tool calls. In most applications you will not call it directly; instead, you register render components via `useFrontendTool` or `useHumanInTheLoop`, and the chat components use `useRenderToolCall` internally to resolve them.
+
+## Signature
+
+```tsx
+import { useRenderToolCall } from "@copilotkit/react-core/v2";
+
+function useRenderToolCall(): (props: UseRenderToolCallProps) => React.ReactElement | null;
+```
+
+## Return Value
+
+<PropertyReference name="renderer" type="(props: UseRenderToolCallProps) => React.ReactElement | null">
+  A function that accepts tool call props and returns a React element or `null`.
+
+  <PropertyReference name="props" type="UseRenderToolCallProps" required>
+    The input object describing the tool call to render.
+
+    <PropertyReference name="toolCall" type="ToolCall" required>
+      The tool call object containing the tool `name` and its JSON-encoded `args`.
+    </PropertyReference>
+
+    <PropertyReference name="toolMessage" type="ToolMessage">
+      The tool result message, if available. When present, indicates the tool call has completed and contains the result string.
+    </PropertyReference>
+  </PropertyReference>
+</PropertyReference>
+
+## Status Resolution
+
+The renderer determines the `ToolCallStatus` based on the inputs:
+
+| Condition | Status | `result` |
+|-----------|--------|----------|
+| No `toolMessage` and tool call is still loading | `ToolCallStatus.InProgress` | `undefined` |
+| Tool call is executing (arguments resolved, no result yet) | `ToolCallStatus.Executing` | `undefined` |
+| A matching `toolMessage` exists | `ToolCallStatus.Complete` | The result string from the tool message |
+
+## ToolCallStatus
+
+The `ToolCallStatus` enum is exported from `@copilotkit/react-core/v2`:
+
+| Value | Description |
+|-------|-------------|
+| `ToolCallStatus.InProgress` | The tool call's arguments are still being streamed. |
+| `ToolCallStatus.Executing` | Arguments are fully resolved; the tool is executing. |
+| `ToolCallStatus.Complete` | Execution is finished and a result is available. |
+
+## Usage
+
+### Using the Renderer in a Custom Chat Component
+
+```tsx
+import { useRenderToolCall } from "@copilotkit/react-core/v2";
+
+function CustomChatMessage({ message }) {
+  const renderToolCall = useRenderToolCall();
+
+  if (message.type === "tool_call") {
+    const element = renderToolCall({
+      toolCall: message.toolCall,
+      toolMessage: message.toolMessage,
+    });
+
+    if (element) {
+      return <div className="tool-call-container">{element}</div>;
+    }
+
+    return <div className="text-gray-400">Tool call: {message.toolCall.name}</div>;
+  }
+
+  return <div>{message.content}</div>;
+}
+```
+
+### Registering Renderers with useFrontendTool
+
+Tool call renderers are typically registered through `useFrontendTool` or directly via the `renderToolCalls` prop on the provider. The `useRenderToolCall` hook resolves these registrations at render time.
+
+```tsx
+import { z } from "zod";
+import { useFrontendTool, ToolCallStatus } from "@copilotkit/react-core/v2";
+
+function App() {
+  // Register a tool with a render component
+  useFrontendTool({
+    name: "searchDatabase",
+    description: "Search the product database",
+    parameters: z.object({
+      query: z.string().describe("Search query"),
+    }),
+    handler: async ({ query }) => {
+      const results = await fetch(`/api/search?q=${query}`);
+      return JSON.stringify(await results.json());
+    },
+    render: ({ args, status, result }) => {
+      if (status === ToolCallStatus.InProgress) {
+        return <div>Searching for "{args.query}"...</div>;
+      }
+      if (status === ToolCallStatus.Complete && result) {
+        const data = JSON.parse(result);
+        return (
+          <div>
+            <p>Found {data.length} results for "{args.query}"</p>
+            <ul>
+              {data.map((item: any) => (
+                <li key={item.id}>{item.name}</li>
+              ))}
+            </ul>
+          </div>
+        );
+      }
+      return null;
+    },
+  }, []);
+
+  return <ChatInterface />;
+}
+```
+
+### Wildcard Renderer
+
+If no exact name match is found, the hook falls back to a wildcard `"*"` renderer. This is useful for providing a generic UI for all unhandled tool calls.
+
+```tsx
+import { CopilotKitProvider } from "@copilotkit/react-core/v2";
+import { ToolCallStatus } from "@copilotkit/react-core/v2";
+
+function App() {
+  return (
+    <CopilotKitProvider
+      runtimeUrl="/api/copilotkit"
+      renderToolCalls={[
+        {
+          name: "*",
+          render: ({ name, args, status, result }) => {
+            if (status === ToolCallStatus.InProgress) {
+              return (
+                <div className="text-gray-500 text-sm">
+                  Running {name}...
+                </div>
+              );
+            }
+            if (status === ToolCallStatus.Complete) {
+              return (
+                <div className="text-green-600 text-sm">
+                  {name} completed.
+                </div>
+              );
+            }
+            return null;
+          },
+        },
+      ]}
+    >
+      <YourApp />
+    </CopilotKitProvider>
+  );
+}
+```
+
+## Behavior
+
+- **Name-based lookup**: The renderer searches registered render configurations for an exact tool name match first, then falls back to a wildcard (`"*"`) renderer.
+- **JSON parsing**: The tool call's `args` string is parsed from JSON before being passed to the render component. If parsing fails, args default to an empty object.
+- **Status inference**: Status is determined from the presence and state of the `toolMessage` prop. The render component always receives a consistent shape with `name`, `args`, `status`, and `result`.
+- **Returns null for unmatched tools**: If no renderer is registered for the tool name and no wildcard renderer exists, the function returns `null`.
+- **Used internally by chat components**: The built-in `CopilotChat`, `CopilotPopup`, and `CopilotSidebar` components use this hook to render tool calls. You only need to call it directly when building custom chat UIs.
+
+## Related
+
+- [`useFrontendTool`](/reference/v2/hooks/useFrontendTool) -- register tools with render components
+- [`useHumanInTheLoop`](/reference/v2/hooks/useHumanInTheLoop) -- register interactive tools with render components
+- [`CopilotKitProvider`](/reference/v2) -- configure static render tool calls at the provider level

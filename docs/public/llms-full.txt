@@ -245,15 +245,15 @@ On this page
 API Reference for CopilotKit's components, classes and hooks.
 
 [**UI Components** \\
-See the list of all available UI components in CopilotKit.](https://docs.copilotkit.ai/reference/components/chat/CopilotChat) [**Hooks** \\
-See the list of all available hooks in CopilotKit.](https://docs.copilotkit.ai/reference/hooks/useCopilotReadable) [**Classes** \\
-See the list of all available classes in CopilotKit.](https://docs.copilotkit.ai/reference/classes/CopilotRuntime) [**LLM Adapters** \\
-See the list of all available LLM Adapters in CopilotKit.](https://docs.copilotkit.ai/reference/classes/llm-adapters/OpenAIAdapter) [**SDKs** \\
-Python and JavaScript SDKs for CopilotKit.](https://docs.copilotkit.ai/reference/sdk/python/LangGraph)
+See the list of all available UI components in CopilotKit.](https://docs.copilotkit.ai/reference/v1/components/chat/CopilotChat) [**Hooks** \\
+See the list of all available hooks in CopilotKit.](https://docs.copilotkit.ai/reference/v1/hooks/useCopilotReadable) [**Classes** \\
+See the list of all available classes in CopilotKit.](https://docs.copilotkit.ai/reference/v1/classes/CopilotRuntime) [**LLM Adapters** \\
+See the list of all available LLM Adapters in CopilotKit.](https://docs.copilotkit.ai/reference/v1/classes/llm-adapters/OpenAIAdapter) [**SDKs** \\
+Python and JavaScript SDKs for CopilotKit.](https://docs.copilotkit.ai/reference/v1/sdk/python/LangGraph)
 
 [Next\\
 \\
-All Chat Components](https://docs.copilotkit.ai/reference/components/chat)
+All Chat Components](https://docs.copilotkit.ai/reference/v1/components/chat)
 
 ### On this page
 
@@ -439,7 +439,7 @@ npx copilotkit@latest dev --port 8000
 
 ### [Setup your CopilotKit provider](https://docs.copilotkit.ai/coagents/quickstart/langgraph\#setup-your-copilotkit-provider)
 
-The [`<CopilotKit>`](https://docs.copilotkit.ai/reference/components/CopilotKit) component must wrap the Copilot-aware parts of your application. For most use-cases,
+The [`<CopilotKit>`](https://docs.copilotkit.ai/reference/v1/components/CopilotKit) component must wrap the Copilot-aware parts of your application. For most use-cases,
 it's appropriate to wrap the CopilotKit provider around the entire app, e.g. in your layout.tsx.
 
 Since we're using Copilot Cloud, we need to grab our public API key from the [Copilot Cloud dashboard](https://cloud.copilotkit.ai/).
@@ -754,8 +754,8 @@ export default function RootLayout({ children }: { children: ReactNode }) {
 
 ## [Next Steps](https://docs.copilotkit.ai/guides/self-hosting\#next-steps)
 
-- [`CopilotRuntime` Reference](https://docs.copilotkit.ai/reference/classes/CopilotRuntime)
-- [LLM Adapters](https://docs.copilotkit.ai/reference/classes/llm-adapters/OpenAIAdapter)
+- [`CopilotRuntime` Reference](https://docs.copilotkit.ai/reference/v1/classes/CopilotRuntime)
+- [LLM Adapters](https://docs.copilotkit.ai/reference/v1/classes/llm-adapters/OpenAIAdapter)
 
 [Previous\\
 \\
@@ -807,9 +807,9 @@ and autocompletion for free.
 To render a custom UI for the action, you can provide a `render()` function. This function
 lets you render a custom component or return a string to display.
 
-## [Usage](https://docs.copilotkit.ai/reference/hooks/useCopilotAction\#usage)
+## [Usage](https://docs.copilotkit.ai/reference/v1/hooks/useCopilotAction\#usage)
 
-### [Simple Usage](https://docs.copilotkit.ai/reference/hooks/useCopilotAction\#simple-usage)
+### [Simple Usage](https://docs.copilotkit.ai/reference/v1/hooks/useCopilotAction\#simple-usage)
 
 ```
 useCopilotAction({
@@ -828,15 +828,15 @@ useCopilotAction({
 });
 ```
 
-## [Generative UI](https://docs.copilotkit.ai/reference/hooks/useCopilotAction\#generative-ui)
+## [Generative UI](https://docs.copilotkit.ai/reference/v1/hooks/useCopilotAction\#generative-ui)
 
 This hooks enables you to dynamically generate UI elements and render them in the copilot chat. For more information, check out the [Generative UI](https://docs.copilotkit.ai/guides/generative-ui) page.
 
-## [Parameters](https://docs.copilotkit.ai/reference/hooks/useCopilotAction\#parameters)
+## [Parameters](https://docs.copilotkit.ai/reference/v1/hooks/useCopilotAction\#parameters)
 
 actionActionrequired
 
-The function made available to the Copilot. See [Action](https://docs.copilotkit.ai/reference/hooks/useCopilotAction#action).
+The function made available to the Copilot. See [Action](https://docs.copilotkit.ai/reference/v1/hooks/useCopilotAction#action).
 
 namestringrequired
 
@@ -864,7 +864,7 @@ Whether to report the result of a function call to the LLM which will then provi
 
 parametersParameter\[\]
 
-The parameters of the action. See [Parameter](https://docs.copilotkit.ai/reference/hooks/useCopilotAction#parameter).
+The parameters of the action. See [Parameter](https://docs.copilotkit.ai/reference/v1/hooks/useCopilotAction#parameter).
 
 namestringrequired
 
@@ -972,15 +972,15 @@ An optional array of dependencies.
 
 [Previous\\
 \\
-useCopilotReadable](https://docs.copilotkit.ai/reference/hooks/useCopilotReadable) [Next\\
+useCopilotReadable](https://docs.copilotkit.ai/reference/v1/hooks/useCopilotReadable) [Next\\
 \\
-useCopilotAdditionalInstructions](https://docs.copilotkit.ai/reference/hooks/useCopilotAdditionalInstructions)
+useCopilotAdditionalInstructions](https://docs.copilotkit.ai/reference/v1/hooks/useCopilotAdditionalInstructions)
 
 ### On this page
 
-[Usage](https://docs.copilotkit.ai/reference/hooks/useCopilotAction#usage) [Simple Usage](https://docs.copilotkit.ai/reference/hooks/useCopilotAction#simple-usage) [Generative UI](https://docs.copilotkit.ai/reference/hooks/useCopilotAction#generative-ui) [Parameters](https://docs.copilotkit.ai/reference/hooks/useCopilotAction#parameters)
+[Usage](https://docs.copilotkit.ai/reference/v1/hooks/useCopilotAction#usage) [Simple Usage](https://docs.copilotkit.ai/reference/v1/hooks/useCopilotAction#simple-usage) [Generative UI](https://docs.copilotkit.ai/reference/v1/hooks/useCopilotAction#generative-ui) [Parameters](https://docs.copilotkit.ai/reference/v1/hooks/useCopilotAction#parameters)
 
-[Edit on GitHub](https://github.com/CopilotKit/CopilotKit/blob/main/docs/content/docs/reference/hooks/useCopilotAction.mdx)
+[Edit on GitHub](https://github.com/CopilotKit/CopilotKit/blob/main/docs/content/docs/reference/v1/hooks/useCopilotAction.mdx)
 
 ![](https://static.scarf.sh/a.png?x-pxid=ffc9f65d-0186-4575-b065-61d62ea9d7d3)
 
@@ -1427,9 +1427,9 @@ This hook is used to integrate an agent into your application. With its use, you
 render and update the state of an agent, allowing for a dynamic and interactive experience.
 We call these shared state experiences agentic copilots, or CoAgents for short.
 
-## [Usage](https://docs.copilotkit.ai/reference/hooks/useCoAgent\#usage)
+## [Usage](https://docs.copilotkit.ai/reference/v1/hooks/useCoAgent\#usage)
 
-### [Simple Usage](https://docs.copilotkit.ai/reference/hooks/useCoAgent\#simple-usage)
+### [Simple Usage](https://docs.copilotkit.ai/reference/v1/hooks/useCoAgent\#simple-usage)
 
 ```
 import { useCoAgent } from "@copilotkit/react-core";
@@ -1482,7 +1482,7 @@ return (
 
 This reactivity is bidirectional, meaning that changes to the state from the agent will be reflected in the UI and vice versa.
 
-## [Parameters](https://docs.copilotkit.ai/reference/hooks/useCoAgent\#parameters)
+## [Parameters](https://docs.copilotkit.ai/reference/v1/hooks/useCoAgent\#parameters)
 
 optionsUseCoagentOptions<T>required
 
@@ -1506,15 +1506,15 @@ A function to update the state of the agent if you are using this hook with exte
 
 [Previous\\
 \\
-useCopilotChatSuggestions](https://docs.copilotkit.ai/reference/hooks/useCopilotChatSuggestions) [Next\\
+useCopilotChatSuggestions](https://docs.copilotkit.ai/reference/v1/hooks/useCopilotChatSuggestions) [Next\\
 \\
-useCoAgentStateRender](https://docs.copilotkit.ai/reference/hooks/useCoAgentStateRender)
+useCoAgentStateRender](https://docs.copilotkit.ai/reference/v1/hooks/useCoAgentStateRender)
 
 ### On this page
 
-[Usage](https://docs.copilotkit.ai/reference/hooks/useCoAgent#usage) [Simple Usage](https://docs.copilotkit.ai/reference/hooks/useCoAgent#simple-usage) [Parameters](https://docs.copilotkit.ai/reference/hooks/useCoAgent#parameters)
+[Usage](https://docs.copilotkit.ai/reference/v1/hooks/useCoAgent#usage) [Simple Usage](https://docs.copilotkit.ai/reference/v1/hooks/useCoAgent#simple-usage) [Parameters](https://docs.copilotkit.ai/reference/v1/hooks/useCoAgent#parameters)
 
-[Edit on GitHub](https://github.com/CopilotKit/CopilotKit/blob/main/docs/content/docs/reference/hooks/useCoAgent.mdx)
+[Edit on GitHub](https://github.com/CopilotKit/CopilotKit/blob/main/docs/content/docs/reference/v1/hooks/useCoAgent.mdx)
 
 ![](https://static.scarf.sh/a.png?x-pxid=ffc9f65d-0186-4575-b065-61d62ea9d7d3)
 
@@ -1533,7 +1533,7 @@ The CopilotKit provider component, wrapping your application.
 
 This component will typically wrap your entire application (or a sub-tree of your application where you want to have a copilot). It provides the copilot context to all other components and hooks.
 
-## [Example](https://docs.copilotkit.ai/reference/components/CopilotKit\#example)
+## [Example](https://docs.copilotkit.ai/reference/v1/components/CopilotKit\#example)
 
 You can find more information about self-hosting CopilotKit [here](https://docs.copilotkit.ai/guides/self-hosting).
 
@@ -1545,7 +1545,7 @@ import { CopilotKit } from "@copilotkit/react-core";
 </CopilotKit>
 ```
 
-## [Properties](https://docs.copilotkit.ai/reference/components/CopilotKit\#properties)
+## [Properties](https://docs.copilotkit.ai/reference/v1/components/CopilotKit\#properties)
 
 publicApiKeystring
 
@@ -1644,13 +1644,13 @@ Note: A `createMCPClient` function is still needed during runtime initialization
 
 [Previous\\
 \\
-CopilotTextarea](https://docs.copilotkit.ai/reference/components/CopilotTextarea) [Next\\
+CopilotTextarea](https://docs.copilotkit.ai/reference/v1/components/CopilotTextarea) [Next\\
 \\
-useCopilotReadable](https://docs.copilotkit.ai/reference/hooks/useCopilotReadable)
+useCopilotReadable](https://docs.copilotkit.ai/reference/v1/hooks/useCopilotReadable)
 
 ### On this page
 
-[Example](https://docs.copilotkit.ai/reference/components/CopilotKit#example) [Properties](https://docs.copilotkit.ai/reference/components/CopilotKit#properties)
+[Example](https://docs.copilotkit.ai/reference/v1/components/CopilotKit#example) [Properties](https://docs.copilotkit.ai/reference/v1/components/CopilotKit#properties)
 
 [Edit on GitHub](https://github.com/CopilotKit/CopilotKit/blob/main/docs/content/docs/reference/components/CopilotKit.mdx)
 
@@ -1697,7 +1697,7 @@ Check out our [getting started guide](https://docs.copilotkit.ai/coagents/quicks
 
 ### [Create a frontend action](https://docs.copilotkit.ai/coagents/frontend-actions\#create-a-frontend-action)
 
-First, you'll need to create a frontend action using the [useCopilotAction](https://docs.copilotkit.ai/reference/hooks/useCopilotAction) hook. Here's a simple one to get you started
+First, you'll need to create a frontend action using the [useCopilotAction](https://docs.copilotkit.ai/reference/v1/hooks/useCopilotAction) hook. Here's a simple one to get you started
 that says hello to the user.
 
 page.tsx
@@ -1896,7 +1896,7 @@ Navigate to [Copilot Cloud](https://cloud.copilotkit.ai/) and follow the instruc
 
 ## [Setup the CopilotKit Provider](https://docs.copilotkit.ai/quickstart?component=CopilotChat\#setup-the-copilotkit-provider)
 
-The [`<CopilotKit>`](https://docs.copilotkit.ai/reference/components/CopilotKit) component must wrap the Copilot-aware parts of your application. For most use-cases,
+The [`<CopilotKit>`](https://docs.copilotkit.ai/reference/v1/components/CopilotKit) component must wrap the Copilot-aware parts of your application. For most use-cases,
 it's appropriate to wrap the CopilotKit provider around the entire app, e.g. in your layout.tsx.
 
 layout.tsx
@@ -2083,7 +2083,7 @@ Learn how to auto-generate suggestions in the chat window based on real time app
 useCopilotChatSuggestions is experimental. The interface is not final and can
 change without notice.
 
-[`useCopilotChatSuggestions`](https://docs.copilotkit.ai/reference/hooks/useCopilotChatSuggestions) is a React hook that generates suggestions in the chat window based on real time application state.
+[`useCopilotChatSuggestions`](https://docs.copilotkit.ai/reference/v1/hooks/useCopilotChatSuggestions) is a React hook that generates suggestions in the chat window based on real time application state.
 
 ![](https://docs.copilotkit.aihttps://cdn.copilotkit.ai/docs/copilotkit/images/use-copilot-chat-suggestions/use-copilot-chat-suggestions.gif)
 
@@ -2140,7 +2140,7 @@ If you're using Next.js with the App Router, you'll need to add the `"use client
 
 ## [Next Steps](https://docs.copilotkit.ai/guides/copilot-suggestions\#next-steps)
 
-- Check out the [useCopilotChatSuggestions reference](https://docs.copilotkit.ai/reference/hooks/useCopilotChatSuggestions) for more details.
+- Check out the [useCopilotChatSuggestions reference](https://docs.copilotkit.ai/reference/v1/hooks/useCopilotChatSuggestions) for more details.
 
 [Previous\\
 \\
@@ -2169,9 +2169,9 @@ On this pageExample
 
 CopilotTask is used to execute one-off tasks, for example on button click.
 
-This class is used to execute one-off tasks, for example on button press. It can use the context available via [useCopilotReadable](https://docs.copilotkit.ai/reference/hooks/useCopilotReadable) and the actions provided by [useCopilotAction](https://docs.copilotkit.ai/reference/hooks/useCopilotAction), or you can provide your own context and actions.
+This class is used to execute one-off tasks, for example on button press. It can use the context available via [useCopilotReadable](https://docs.copilotkit.ai/reference/v1/hooks/useCopilotReadable) and the actions provided by [useCopilotAction](https://docs.copilotkit.ai/reference/v1/hooks/useCopilotAction), or you can provide your own context and actions.
 
-## [Example](https://docs.copilotkit.ai/reference/classes/CopilotTask\#example)
+## [Example](https://docs.copilotkit.ai/reference/v1/classes/CopilotTask\#example)
 
 In the simplest case, use CopilotTask in the context of your app by giving it instructions on what to do.
 
@@ -2216,7 +2216,7 @@ export function MyComponent() {
 
 Have a look at the [Presentation Example App](https://github.com/CopilotKit/CopilotKit/blob/main/CopilotKit/examples/next-openai/src/app/presentation/page.tsx) for a more complete example.
 
-## [Constructor Parameters](https://docs.copilotkit.ai/reference/classes/CopilotTask\#constructor-parameters)
+## [Constructor Parameters](https://docs.copilotkit.ai/reference/v1/classes/CopilotTask\#constructor-parameters)
 
 instructionsstringrequired
 
@@ -2252,15 +2252,15 @@ The data to use for the task.
 
 [Previous\\
 \\
-GoogleGenerativeAIAdapter](https://docs.copilotkit.ai/reference/classes/llm-adapters/GoogleGenerativeAIAdapter) [Next\\
+GoogleGenerativeAIAdapter](https://docs.copilotkit.ai/reference/v1/classes/llm-adapters/GoogleGenerativeAIAdapter) [Next\\
 \\
-Remote Endpoints](https://docs.copilotkit.ai/reference/sdk/python/RemoteEndpoints)
+Remote Endpoints](https://docs.copilotkit.ai/reference/v1/sdk/python/RemoteEndpoints)
 
 ### On this page
 
-[Example](https://docs.copilotkit.ai/reference/classes/CopilotTask#example) [Constructor Parameters](https://docs.copilotkit.ai/reference/classes/CopilotTask#constructor-parameters)
+[Example](https://docs.copilotkit.ai/reference/v1/classes/CopilotTask#example) [Constructor Parameters](https://docs.copilotkit.ai/reference/v1/classes/CopilotTask#constructor-parameters)
 
-[Edit on GitHub](https://github.com/CopilotKit/CopilotKit/blob/main/docs/content/docs/reference/classes/CopilotTask.mdx)
+[Edit on GitHub](https://github.com/CopilotKit/CopilotKit/blob/main/docs/content/docs/reference/v1/classes/CopilotTask.mdx)
 
 ![](https://static.scarf.sh/a.png?x-pxid=ffc9f65d-0186-4575-b065-61d62ea9d7d3)
 
@@ -2281,7 +2281,7 @@ Learn how to use the Copilot Textarea for AI-powered autosuggestions.
 
 `<CopilotTextarea>` is a React component that acts as a drop-in replacement for the standard `<textarea>`,
 offering enhanced autocomplete features powered by AI. It is context-aware, integrating seamlessly with the
-[`useCopilotReadable`](https://docs.copilotkit.ai/reference/hooks/useCopilotReadable) hook to provide intelligent suggestions based on the application context.
+[`useCopilotReadable`](https://docs.copilotkit.ai/reference/v1/hooks/useCopilotReadable) hook to provide intelligent suggestions based on the application context.
 
 In addition, it provides a hovering editor window (available by default via `Cmd + K` on Mac and `Ctrl + K` on Windows) that allows the user to
 suggest changes to the text, for example providing a summary or rephrasing the text.
@@ -2339,7 +2339,7 @@ const ExampleComponent: FC = () => {
 ## [Next Steps](https://docs.copilotkit.ai/guides/copilot-textarea\#next-steps)
 
 - We highly recommend that you check out our simple [Copilot Textarea Tutorial](https://docs.copilotkit.ai/tutorials/ai-powered-textarea/overview).
-- Check out the full [CopilotTextarea reference](https://docs.copilotkit.ai/reference/components/CopilotTextarea)
+- Check out the full [CopilotTextarea reference](https://docs.copilotkit.ai/reference/v1/components/CopilotTextarea)
 
 [Previous\\
 \\
@@ -2383,7 +2383,7 @@ Copilot Runtime is the back-end component of CopilotKit, enabling interaction wi
 
 This is the reference for the `CopilotRuntime` class. For more information and example code snippets, please see [Concept: Copilot Runtime](https://docs.copilotkit.ai/concepts/copilot-runtime).
 
-## [Usage](https://docs.copilotkit.ai/reference/classes/CopilotRuntime\#usage)
+## [Usage](https://docs.copilotkit.ai/reference/v1/classes/CopilotRuntime\#usage)
 
 ```
 import { CopilotRuntime } from "@copilotkit/runtime";
@@ -2391,7 +2391,7 @@ import { CopilotRuntime } from "@copilotkit/runtime";
 const copilotKit = new CopilotRuntime();
 ```
 
-## [Constructor Parameters](https://docs.copilotkit.ai/reference/classes/CopilotRuntime\#constructor-parameters)
+## [Constructor Parameters](https://docs.copilotkit.ai/reference/v1/classes/CopilotRuntime\#constructor-parameters)
 
 middlewareMiddleware
 
@@ -2515,15 +2515,15 @@ agentNamestringrequired
 
 [Previous\\
 \\
-useLangGraphInterrupt](https://docs.copilotkit.ai/reference/hooks/useLangGraphInterrupt) [Next\\
+useLangGraphInterrupt](https://docs.copilotkit.ai/reference/v1/hooks/useLangGraphInterrupt) [Next\\
 \\
-OpenAIAdapter](https://docs.copilotkit.ai/reference/classes/llm-adapters/OpenAIAdapter)
+OpenAIAdapter](https://docs.copilotkit.ai/reference/v1/classes/llm-adapters/OpenAIAdapter)
 
 ### On this page
 
-[Usage](https://docs.copilotkit.ai/reference/classes/CopilotRuntime#usage) [Constructor Parameters](https://docs.copilotkit.ai/reference/classes/CopilotRuntime#constructor-parameters)
+[Usage](https://docs.copilotkit.ai/reference/v1/classes/CopilotRuntime#usage) [Constructor Parameters](https://docs.copilotkit.ai/reference/v1/classes/CopilotRuntime#constructor-parameters)
 
-[Edit on GitHub](https://github.com/CopilotKit/CopilotKit/blob/main/docs/content/docs/reference/classes/CopilotRuntime.mdx)
+[Edit on GitHub](https://github.com/CopilotKit/CopilotKit/blob/main/docs/content/docs/reference/v1/classes/CopilotRuntime.mdx)
 
 ![](https://static.scarf.sh/a.png?x-pxid=ffc9f65d-0186-4575-b065-61d62ea9d7d3)
 
@@ -2544,9 +2544,9 @@ The useLangGraphInterrupt hook allows setting the generative UI to be displayed 
 custom UI to be rendered when using `interrupt` by LangGraph.
 Once an Interrupt event is emitted, that hook would execute, allowing to receive user input with a user experience to your choice.
 
-## [Usage](https://docs.copilotkit.ai/reference/hooks/useLangGraphInterrupt\#usage)
+## [Usage](https://docs.copilotkit.ai/reference/v1/hooks/useLangGraphInterrupt\#usage)
 
-### [Simple Usage](https://docs.copilotkit.ai/reference/hooks/useLangGraphInterrupt\#simple-usage)
+### [Simple Usage](https://docs.copilotkit.ai/reference/v1/hooks/useLangGraphInterrupt\#simple-usage)
 
 app/page.tsx
 
@@ -2578,7 +2578,7 @@ const YourMainContent = () => {
 }
 ```
 
-## [Parameters](https://docs.copilotkit.ai/reference/hooks/useLangGraphInterrupt\#parameters)
+## [Parameters](https://docs.copilotkit.ai/reference/v1/hooks/useLangGraphInterrupt\#parameters)
 
 actionActionrequired
 
@@ -2606,15 +2606,15 @@ An optional array of dependencies.
 
 [Previous\\
 \\
-useCoAgentStateRender](https://docs.copilotkit.ai/reference/hooks/useCoAgentStateRender) [Next\\
+useCoAgentStateRender](https://docs.copilotkit.ai/reference/v1/hooks/useCoAgentStateRender) [Next\\
 \\
-CopilotRuntime](https://docs.copilotkit.ai/reference/classes/CopilotRuntime)
+CopilotRuntime](https://docs.copilotkit.ai/reference/v1/classes/CopilotRuntime)
 
 ### On this page
 
-[Usage](https://docs.copilotkit.ai/reference/hooks/useLangGraphInterrupt#usage) [Simple Usage](https://docs.copilotkit.ai/reference/hooks/useLangGraphInterrupt#simple-usage) [Parameters](https://docs.copilotkit.ai/reference/hooks/useLangGraphInterrupt#parameters)
+[Usage](https://docs.copilotkit.ai/reference/v1/hooks/useLangGraphInterrupt#usage) [Simple Usage](https://docs.copilotkit.ai/reference/v1/hooks/useLangGraphInterrupt#simple-usage) [Parameters](https://docs.copilotkit.ai/reference/v1/hooks/useLangGraphInterrupt#parameters)
 
-[Edit on GitHub](https://github.com/CopilotKit/CopilotKit/blob/main/docs/content/docs/reference/hooks/useLangGraphInterrupt.mdx)
+[Edit on GitHub](https://github.com/CopilotKit/CopilotKit/blob/main/docs/content/docs/reference/v1/hooks/useLangGraphInterrupt.mdx)
 
 ![](https://static.scarf.sh/a.png?x-pxid=ffc9f65d-0186-4575-b065-61d62ea9d7d3)
 
@@ -2635,12 +2635,12 @@ An AI-powered textarea component for your application, which serves as a drop-in
 
 `<CopilotTextarea>` is a React component that acts as a drop-in replacement for the standard `<textarea>`,
 offering enhanced autocomplete features powered by AI. It is context-aware, integrating seamlessly with the
-[`useCopilotReadable`](https://docs.copilotkit.ai/reference/hooks/useCopilotReadable) hook to provide intelligent suggestions based on the application context.
+[`useCopilotReadable`](https://docs.copilotkit.ai/reference/v1/hooks/useCopilotReadable) hook to provide intelligent suggestions based on the application context.
 
 In addition, it provides a hovering editor window (available by default via `Cmd + K` on Mac and `Ctrl + K` on Windows) that allows the user to
 suggest changes to the text, for example providing a summary or rephrasing the text.
 
-## [Example](https://docs.copilotkit.ai/reference/components/CopilotTextarea\#example)
+## [Example](https://docs.copilotkit.ai/reference/v1/components/CopilotTextarea\#example)
 
 ```
 import { CopilotTextarea } from '@copilotkit/react-textarea';
@@ -2655,9 +2655,9 @@ import "@copilotkit/react-textarea/styles.css";
 />
 ```
 
-## [Usage](https://docs.copilotkit.ai/reference/components/CopilotTextarea\#usage)
+## [Usage](https://docs.copilotkit.ai/reference/v1/components/CopilotTextarea\#usage)
 
-### [Install Dependencies](https://docs.copilotkit.ai/reference/components/CopilotTextarea\#install-dependencies)
+### [Install Dependencies](https://docs.copilotkit.ai/reference/v1/components/CopilotTextarea\#install-dependencies)
 
 This component is part of the [@copilotkit/react-textarea](https://npmjs.com/package/@copilotkit/react-textarea) package.
 
@@ -2665,7 +2665,7 @@ This component is part of the [@copilotkit/react-textarea](https://npmjs.com/pac
 npm install @copilotkit/react-core @copilotkit/react-textarea
 ```
 
-### [Usage](https://docs.copilotkit.ai/reference/components/CopilotTextarea\#usage-1)
+### [Usage](https://docs.copilotkit.ai/reference/v1/components/CopilotTextarea\#usage-1)
 
 Use the CopilotTextarea component in your React application similarly to a standard `<textarea />`,
 with additional configurations for AI-powered features.
@@ -2700,7 +2700,7 @@ export function ExampleComponent() {
 }
 ```
 
-### [Look & Feel](https://docs.copilotkit.ai/reference/components/CopilotTextarea\#look--feel)
+### [Look & Feel](https://docs.copilotkit.ai/reference/v1/components/CopilotTextarea\#look--feel)
 
 By default, CopilotKit components do not have any styles. You can import CopilotKit's stylesheet at the root of your project:
 
@@ -2721,7 +2721,7 @@ export function YourRootComponent() {
 
 For more information about how to customize the styles, check out the [Customize Look & Feel](https://docs.copilotkit.ai/guides/custom-look-and-feel/customize-built-in-ui-components) guide.
 
-## [Properties](https://docs.copilotkit.ai/reference/components/CopilotTextarea\#properties)
+## [Properties](https://docs.copilotkit.ai/reference/v1/components/CopilotTextarea\#properties)
 
 disableBrandingboolean
 
@@ -2818,13 +2818,13 @@ The shortcut to use to open the editor popover window. Default is `"Cmd-k"`.
 
 [Previous\\
 \\
-CopilotSidebar](https://docs.copilotkit.ai/reference/components/chat/CopilotSidebar) [Next\\
+CopilotSidebar](https://docs.copilotkit.ai/reference/v1/components/chat/CopilotSidebar) [Next\\
 \\
-CopilotKit](https://docs.copilotkit.ai/reference/components/CopilotKit)
+CopilotKit](https://docs.copilotkit.ai/reference/v1/components/CopilotKit)
 
 ### On this page
 
-[Example](https://docs.copilotkit.ai/reference/components/CopilotTextarea#example) [Usage](https://docs.copilotkit.ai/reference/components/CopilotTextarea#usage) [Install Dependencies](https://docs.copilotkit.ai/reference/components/CopilotTextarea#install-dependencies) [Usage](https://docs.copilotkit.ai/reference/components/CopilotTextarea#usage-1) [Look & Feel](https://docs.copilotkit.ai/reference/components/CopilotTextarea#look--feel) [Properties](https://docs.copilotkit.ai/reference/components/CopilotTextarea#properties)
+[Example](https://docs.copilotkit.ai/reference/v1/components/CopilotTextarea#example) [Usage](https://docs.copilotkit.ai/reference/v1/components/CopilotTextarea#usage) [Install Dependencies](https://docs.copilotkit.ai/reference/v1/components/CopilotTextarea#install-dependencies) [Usage](https://docs.copilotkit.ai/reference/v1/components/CopilotTextarea#usage-1) [Look & Feel](https://docs.copilotkit.ai/reference/v1/components/CopilotTextarea#look--feel) [Properties](https://docs.copilotkit.ai/reference/v1/components/CopilotTextarea#properties)
 
 [Edit on GitHub](https://github.com/CopilotKit/CopilotKit/blob/main/docs/content/docs/reference/components/CopilotTextarea.mdx)
 
@@ -2867,7 +2867,7 @@ Navigate to [Copilot Cloud](https://cloud.copilotkit.ai/) and follow the instruc
 
 ## [Setup the CopilotKit Provider](https://docs.copilotkit.ai/quickstart?component=CopilotSidebar\#setup-the-copilotkit-provider)
 
-The [`<CopilotKit>`](https://docs.copilotkit.ai/reference/components/CopilotKit) component must wrap the Copilot-aware parts of your application. For most use-cases,
+The [`<CopilotKit>`](https://docs.copilotkit.ai/reference/v1/components/CopilotKit) component must wrap the Copilot-aware parts of your application. For most use-cases,
 it's appropriate to wrap the CopilotKit provider around the entire app, e.g. in your layout.tsx.
 
 layout.tsx
@@ -2970,12 +2970,12 @@ Learn how to embed custom UI components in the chat window.
 
 # [Render custom components in the chat UI](https://docs.copilotkit.ai/guides/generative-ui\#render-custom-components-in-the-chat-ui)
 
-When a user interacts with your Copilot, you may want to render a custom UI component. [`useCopilotAction`](https://docs.copilotkit.ai/reference/hooks/useCopilotAction) allows to give the LLM the
+When a user interacts with your Copilot, you may want to render a custom UI component. [`useCopilotAction`](https://docs.copilotkit.ai/reference/v1/hooks/useCopilotAction) allows to give the LLM the
 option to render your custom component through the `render` property.
 
 Render a componentFetch data & renderrenderAndWaitForResponse (HITL)Render stringsCatch all renders
 
-[`useCopilotAction`](https://docs.copilotkit.ai/reference/hooks/useCopilotAction) can be used with a `render` function and without a `handler` to display information or UI elements within the chat.
+[`useCopilotAction`](https://docs.copilotkit.ai/reference/v1/hooks/useCopilotAction) can be used with a `render` function and without a `handler` to display information or UI elements within the chat.
 
 Here's an example to render a calendar meeting.
 
@@ -3041,7 +3041,7 @@ export function YourComponent() {
 After defining the action with a render method, ask the copilot to perform the task. For example, you can now ask the copilot to "show tasks" and see the custom UI component rendered in the chat interface.
 
 You can read more about the `useCopilotAction` hook
-[here](https://docs.copilotkit.ai/reference/hooks/useCopilotAction).
+[here](https://docs.copilotkit.ai/reference/v1/hooks/useCopilotAction).
 
 [Previous\\
 \\
@@ -3079,9 +3079,9 @@ application, passing these parent-child relationships to the Copilot.
 
 ![](https://docs.copilotkit.aihttps://cdn.copilotkit.ai/docs/copilotkit/images/use-copilot-chat-suggestions/use-copilot-chat-suggestions.gif)
 
-## [Usage](https://docs.copilotkit.ai/reference/hooks/useCopilotChatSuggestions\#usage)
+## [Usage](https://docs.copilotkit.ai/reference/v1/hooks/useCopilotChatSuggestions\#usage)
 
-### [Install Dependencies](https://docs.copilotkit.ai/reference/hooks/useCopilotChatSuggestions\#install-dependencies)
+### [Install Dependencies](https://docs.copilotkit.ai/reference/v1/hooks/useCopilotChatSuggestions\#install-dependencies)
 
 This component is part of the [@copilotkit/react-ui](https://npmjs.com/package/@copilotkit/react-ui) package.
 
@@ -3089,7 +3089,7 @@ This component is part of the [@copilotkit/react-ui](https://npmjs.com/package/@
 npm install @copilotkit/react-core @copilotkit/react-ui
 ```
 
-### [Simple Usage](https://docs.copilotkit.ai/reference/hooks/useCopilotChatSuggestions\#simple-usage)
+### [Simple Usage](https://docs.copilotkit.ai/reference/v1/hooks/useCopilotChatSuggestions\#simple-usage)
 
 ```
 import { useCopilotChatSuggestions } from "@copilotkit/react-ui";
@@ -3103,7 +3103,7 @@ export function MyComponent() {
 }
 ```
 
-### [Dependency Management](https://docs.copilotkit.ai/reference/hooks/useCopilotChatSuggestions\#dependency-management)
+### [Dependency Management](https://docs.copilotkit.ai/reference/v1/hooks/useCopilotChatSuggestions\#dependency-management)
 
 ```
 import { useCopilotChatSuggestions } from "@copilotkit/react-ui";
@@ -3121,12 +3121,12 @@ export function MyComponent() {
 In the example above, the suggestions are generated based on the given instructions.
 The hook monitors `appState`, and updates suggestions accordingly whenever it changes.
 
-### [Behavior and Lifecycle](https://docs.copilotkit.ai/reference/hooks/useCopilotChatSuggestions\#behavior-and-lifecycle)
+### [Behavior and Lifecycle](https://docs.copilotkit.ai/reference/v1/hooks/useCopilotChatSuggestions\#behavior-and-lifecycle)
 
 The hook registers the configuration with the chat context upon component mount and
 removes it on unmount, ensuring a clean and efficient lifecycle management.
 
-## [Parameters](https://docs.copilotkit.ai/reference/hooks/useCopilotChatSuggestions\#parameters)
+## [Parameters](https://docs.copilotkit.ai/reference/v1/hooks/useCopilotChatSuggestions\#parameters)
 
 instructionsstringrequired
 
@@ -3156,15 +3156,15 @@ An optional class name to apply to the suggestions.
 
 [Previous\\
 \\
-useCopilotChat](https://docs.copilotkit.ai/reference/hooks/useCopilotChat) [Next\\
+useCopilotChat](https://docs.copilotkit.ai/reference/v1/hooks/useCopilotChat) [Next\\
 \\
-useCoAgent](https://docs.copilotkit.ai/reference/hooks/useCoAgent)
+useCoAgent](https://docs.copilotkit.ai/reference/v1/hooks/useCoAgent)
 
 ### On this page
 
-[Usage](https://docs.copilotkit.ai/reference/hooks/useCopilotChatSuggestions#usage) [Install Dependencies](https://docs.copilotkit.ai/reference/hooks/useCopilotChatSuggestions#install-dependencies) [Simple Usage](https://docs.copilotkit.ai/reference/hooks/useCopilotChatSuggestions#simple-usage) [Dependency Management](https://docs.copilotkit.ai/reference/hooks/useCopilotChatSuggestions#dependency-management) [Behavior and Lifecycle](https://docs.copilotkit.ai/reference/hooks/useCopilotChatSuggestions#behavior-and-lifecycle) [Parameters](https://docs.copilotkit.ai/reference/hooks/useCopilotChatSuggestions#parameters)
+[Usage](https://docs.copilotkit.ai/reference/v1/hooks/useCopilotChatSuggestions#usage) [Install Dependencies](https://docs.copilotkit.ai/reference/v1/hooks/useCopilotChatSuggestions#install-dependencies) [Simple Usage](https://docs.copilotkit.ai/reference/v1/hooks/useCopilotChatSuggestions#simple-usage) [Dependency Management](https://docs.copilotkit.ai/reference/v1/hooks/useCopilotChatSuggestions#dependency-management) [Behavior and Lifecycle](https://docs.copilotkit.ai/reference/v1/hooks/useCopilotChatSuggestions#behavior-and-lifecycle) [Parameters](https://docs.copilotkit.ai/reference/v1/hooks/useCopilotChatSuggestions#parameters)
 
-[Edit on GitHub](https://github.com/CopilotKit/CopilotKit/blob/main/docs/content/docs/reference/hooks/useCopilotChatSuggestions.mdx)
+[Edit on GitHub](https://github.com/CopilotKit/CopilotKit/blob/main/docs/content/docs/reference/v1/hooks/useCopilotChatSuggestions.mdx)
 
 ![](https://static.scarf.sh/a.png?x-pxid=ffc9f65d-0186-4575-b065-61d62ea9d7d3)
 
@@ -3288,7 +3288,7 @@ Learn how to enable your Copilot to take actions in the frontend.
 
 ### [`useCopilotAction`](https://docs.copilotkit.ai/guides/frontend-actions\#usecopilotaction)
 
-In addition to understanding state, you can empower the copilot to take actions. Use the [`useCopilotAction`](https://docs.copilotkit.ai/reference/hooks/useCopilotAction) hook to define specific tasks that the copilot can perform based on user input.
+In addition to understanding state, you can empower the copilot to take actions. Use the [`useCopilotAction`](https://docs.copilotkit.ai/reference/v1/hooks/useCopilotAction) hook to define specific tasks that the copilot can perform based on user input.
 
 YourComponent.tsx
 
@@ -3350,7 +3350,7 @@ After defining the action, ask the copilot to perform the task. For example, you
 ## [Next Steps](https://docs.copilotkit.ai/guides/frontend-actions\#next-steps)
 
 [**useCopilotAction Reference** \\
-Refer to the documentation for the useCopilotAction hook.](https://docs.copilotkit.ai/reference/hooks/useCopilotAction) [**Actions + Generative UI** \\
+Refer to the documentation for the useCopilotAction hook.](https://docs.copilotkit.ai/reference/v1/hooks/useCopilotAction) [**Actions + Generative UI** \\
 Learn how to render custom UI components alongside your actions, directly in the CopilotKit chat window.](https://docs.copilotkit.ai/guides/generative-ui) [**Backend Actions** \\
 Enable backend services to trigger actions via copilot backend hooks.](https://docs.copilotkit.ai/guides/backend-actions)
 
@@ -3529,7 +3529,7 @@ npx copilotkit@latest dev --port 8000
 
 ### [Setup your CopilotKit provider](https://docs.copilotkit.ai/coagents/quickstart/langgraph\#setup-your-copilotkit-provider)
 
-The [`<CopilotKit>`](https://docs.copilotkit.ai/reference/components/CopilotKit) component must wrap the Copilot-aware parts of your application. For most use-cases,
+The [`<CopilotKit>`](https://docs.copilotkit.ai/reference/v1/components/CopilotKit) component must wrap the Copilot-aware parts of your application. For most use-cases,
 it's appropriate to wrap the CopilotKit provider around the entire app, e.g. in your layout.tsx.
 
 Since we're using Copilot Cloud, we need to grab our public API key from the [Copilot Cloud dashboard](https://cloud.copilotkit.ai/).
@@ -3766,9 +3766,9 @@ The useCoAgentStateRender hook allows you to render the state of the agent in th
 The useCoAgentStateRender hook allows you to render UI or text based components on a Agentic Copilot's state in the chat.
 This is particularly useful for showing intermediate state or progress during Agentic Copilot operations.
 
-## [Usage](https://docs.copilotkit.ai/reference/hooks/useCoAgentStateRender\#usage)
+## [Usage](https://docs.copilotkit.ai/reference/v1/hooks/useCoAgentStateRender\#usage)
 
-### [Simple Usage](https://docs.copilotkit.ai/reference/hooks/useCoAgentStateRender\#simple-usage)
+### [Simple Usage](https://docs.copilotkit.ai/reference/v1/hooks/useCoAgentStateRender\#simple-usage)
 
 ```
 import { useCoAgentStateRender } from "@copilotkit/react-core";
@@ -3794,7 +3794,7 @@ useCoAgentStateRender<YourAgentState>({
 
 This allows for you to render UI components or text based on what is happening within the agent.
 
-### [Example](https://docs.copilotkit.ai/reference/hooks/useCoAgentStateRender\#example)
+### [Example](https://docs.copilotkit.ai/reference/v1/hooks/useCoAgentStateRender\#example)
 
 A great example of this is in our Perplexity Clone where we render the progress of an agent's internet search as it is happening.
 You can play around with it below or learn how to build it with its [demo](https://docs.copilotkit.ai/coagents/videos/perplexity-clone).
@@ -3819,7 +3819,7 @@ Research
 
 OpenAI
 
-## [Parameters](https://docs.copilotkit.ai/reference/hooks/useCoAgentStateRender\#parameters)
+## [Parameters](https://docs.copilotkit.ai/reference/v1/hooks/useCoAgentStateRender\#parameters)
 
 namestringrequired
 
@@ -3839,15 +3839,15 @@ The render function to handle the state of the agent.
 
 [Previous\\
 \\
-useCoAgent](https://docs.copilotkit.ai/reference/hooks/useCoAgent) [Next\\
+useCoAgent](https://docs.copilotkit.ai/reference/v1/hooks/useCoAgent) [Next\\
 \\
-useLangGraphInterrupt](https://docs.copilotkit.ai/reference/hooks/useLangGraphInterrupt)
+useLangGraphInterrupt](https://docs.copilotkit.ai/reference/v1/hooks/useLangGraphInterrupt)
 
 ### On this page
 
-[Usage](https://docs.copilotkit.ai/reference/hooks/useCoAgentStateRender#usage) [Simple Usage](https://docs.copilotkit.ai/reference/hooks/useCoAgentStateRender#simple-usage) [Example](https://docs.copilotkit.ai/reference/hooks/useCoAgentStateRender#example) [Parameters](https://docs.copilotkit.ai/reference/hooks/useCoAgentStateRender#parameters)
+[Usage](https://docs.copilotkit.ai/reference/v1/hooks/useCoAgentStateRender#usage) [Simple Usage](https://docs.copilotkit.ai/reference/v1/hooks/useCoAgentStateRender#simple-usage) [Example](https://docs.copilotkit.ai/reference/v1/hooks/useCoAgentStateRender#example) [Parameters](https://docs.copilotkit.ai/reference/v1/hooks/useCoAgentStateRender#parameters)
 
-[Edit on GitHub](https://github.com/CopilotKit/CopilotKit/blob/main/docs/content/docs/reference/hooks/useCoAgentStateRender.mdx)
+[Edit on GitHub](https://github.com/CopilotKit/CopilotKit/blob/main/docs/content/docs/reference/v1/hooks/useCoAgentStateRender.mdx)
 
 ![](https://static.scarf.sh/a.png?x-pxid=ffc9f65d-0186-4575-b065-61d62ea9d7d3)
 
@@ -3868,9 +3868,9 @@ The useCopilotReadable hook allows you to provide knowledge to your copilot (e.g
 to the Copilot. Optionally, the hook can also handle hierarchical state within your
 application, passing these parent-child relationships to the Copilot.
 
-## [Usage](https://docs.copilotkit.ai/reference/hooks/useCopilotReadable\#usage)
+## [Usage](https://docs.copilotkit.ai/reference/v1/hooks/useCopilotReadable\#usage)
 
-### [Simple Usage](https://docs.copilotkit.ai/reference/hooks/useCopilotReadable\#simple-usage)
+### [Simple Usage](https://docs.copilotkit.ai/reference/v1/hooks/useCopilotReadable\#simple-usage)
 
 In its most basic usage, useCopilotReadable accepts a single string argument
 representing any piece of app state, making it available for the Copilot to use
@@ -3889,7 +3889,7 @@ export function MyComponent() {
 }
 ```
 
-### [Nested Components](https://docs.copilotkit.ai/reference/hooks/useCopilotReadable\#nested-components)
+### [Nested Components](https://docs.copilotkit.ai/reference/v1/hooks/useCopilotReadable\#nested-components)
 
 Optionally, you can maintain the hierarchical structure of information by passing
 `parentId`. This allows you to use `useCopilotReadable` in nested components:
@@ -3926,7 +3926,7 @@ function Employee(props: EmployeeProps) {
 }
 ```
 
-## [Parameters](https://docs.copilotkit.ai/reference/hooks/useCopilotReadable\#parameters)
+## [Parameters](https://docs.copilotkit.ai/reference/v1/hooks/useCopilotReadable\#parameters)
 
 descriptionstringrequired
 
@@ -3956,15 +3956,15 @@ will be serialized using `JSON.stringify`.
 
 [Previous\\
 \\
-CopilotKit](https://docs.copilotkit.ai/reference/components/CopilotKit) [Next\\
+CopilotKit](https://docs.copilotkit.ai/reference/v1/components/CopilotKit) [Next\\
 \\
-useCopilotAction](https://docs.copilotkit.ai/reference/hooks/useCopilotAction)
+useCopilotAction](https://docs.copilotkit.ai/reference/v1/hooks/useCopilotAction)
 
 ### On this page
 
-[Usage](https://docs.copilotkit.ai/reference/hooks/useCopilotReadable#usage) [Simple Usage](https://docs.copilotkit.ai/reference/hooks/useCopilotReadable#simple-usage) [Nested Components](https://docs.copilotkit.ai/reference/hooks/useCopilotReadable#nested-components) [Parameters](https://docs.copilotkit.ai/reference/hooks/useCopilotReadable#parameters)
+[Usage](https://docs.copilotkit.ai/reference/v1/hooks/useCopilotReadable#usage) [Simple Usage](https://docs.copilotkit.ai/reference/v1/hooks/useCopilotReadable#simple-usage) [Nested Components](https://docs.copilotkit.ai/reference/v1/hooks/useCopilotReadable#nested-components) [Parameters](https://docs.copilotkit.ai/reference/v1/hooks/useCopilotReadable#parameters)
 
-[Edit on GitHub](https://github.com/CopilotKit/CopilotKit/blob/main/docs/content/docs/reference/hooks/useCopilotReadable.mdx)
+[Edit on GitHub](https://github.com/CopilotKit/CopilotKit/blob/main/docs/content/docs/reference/v1/hooks/useCopilotReadable.mdx)
 
 ![](https://static.scarf.sh/a.png?x-pxid=ffc9f65d-0186-4575-b065-61d62ea9d7d3)
 
@@ -3977,7 +3977,7 @@ Search docs
 
 On this pageInstall Dependencies
 
-[Chat Components](https://docs.copilotkit.ai/reference/components/chat)
+[Chat Components](https://docs.copilotkit.ai/reference/v1/components/chat)
 
 # CopilotPopup
 
@@ -3988,9 +3988,9 @@ The CopilotPopup component, providing a popup interface for interacting with you
 A chatbot popup component for the CopilotKit framework. The component allows for a high degree
 of customization through various props and custom CSS.
 
-See [CopilotSidebar](https://docs.copilotkit.ai/reference/components/chat/CopilotSidebar) for a sidebar version of this component.
+See [CopilotSidebar](https://docs.copilotkit.ai/reference/v1/components/chat/CopilotSidebar) for a sidebar version of this component.
 
-## [Install Dependencies](https://docs.copilotkit.ai/reference/components/chat/CopilotPopup\#install-dependencies)
+## [Install Dependencies](https://docs.copilotkit.ai/reference/v1/components/chat/CopilotPopup\#install-dependencies)
 
 This component is part of the [@copilotkit/react-ui](https://npmjs.com/package/@copilotkit/react-ui) package.
 
@@ -3998,7 +3998,7 @@ This component is part of the [@copilotkit/react-ui](https://npmjs.com/package/@
 npm install @copilotkit/react-core @copilotkit/react-ui
 ```
 
-## [Usage](https://docs.copilotkit.ai/reference/components/chat/CopilotPopup\#usage)
+## [Usage](https://docs.copilotkit.ai/reference/v1/components/chat/CopilotPopup\#usage)
 
 ```
 import { CopilotPopup } from "@copilotkit/react-ui";
@@ -4012,7 +4012,7 @@ import "@copilotkit/react-ui/styles.css";
 />
 ```
 
-### [Look & Feel](https://docs.copilotkit.ai/reference/components/chat/CopilotPopup\#look--feel)
+### [Look & Feel](https://docs.copilotkit.ai/reference/v1/components/chat/CopilotPopup\#look--feel)
 
 By default, CopilotKit components do not have any styles. You can import CopilotKit's stylesheet at the root of your project:
 
@@ -4033,7 +4033,7 @@ export function YourRootComponent() {
 
 For more information about how to customize the styles, check out the [Customize Look & Feel](https://docs.copilotkit.ai/guides/custom-look-and-feel/customize-built-in-ui-components) guide.
 
-## [Properties](https://docs.copilotkit.ai/reference/components/chat/CopilotPopup\#properties)
+## [Properties](https://docs.copilotkit.ai/reference/v1/components/chat/CopilotPopup\#properties)
 
 instructionsstring
 
@@ -4174,13 +4174,13 @@ A custom Header component to use instead of the default.
 
 [Previous\\
 \\
-CopilotChat](https://docs.copilotkit.ai/reference/components/chat/CopilotChat) [Next\\
+CopilotChat](https://docs.copilotkit.ai/reference/v1/components/chat/CopilotChat) [Next\\
 \\
-CopilotSidebar](https://docs.copilotkit.ai/reference/components/chat/CopilotSidebar)
+CopilotSidebar](https://docs.copilotkit.ai/reference/v1/components/chat/CopilotSidebar)
 
 ### On this page
 
-[Install Dependencies](https://docs.copilotkit.ai/reference/components/chat/CopilotPopup#install-dependencies) [Usage](https://docs.copilotkit.ai/reference/components/chat/CopilotPopup#usage) [Look & Feel](https://docs.copilotkit.ai/reference/components/chat/CopilotPopup#look--feel) [Properties](https://docs.copilotkit.ai/reference/components/chat/CopilotPopup#properties)
+[Install Dependencies](https://docs.copilotkit.ai/reference/v1/components/chat/CopilotPopup#install-dependencies) [Usage](https://docs.copilotkit.ai/reference/v1/components/chat/CopilotPopup#usage) [Look & Feel](https://docs.copilotkit.ai/reference/v1/components/chat/CopilotPopup#look--feel) [Properties](https://docs.copilotkit.ai/reference/v1/components/chat/CopilotPopup#properties)
 
 [Edit on GitHub](https://github.com/CopilotKit/CopilotKit/blob/main/docs/content/docs/reference/components/chat/CopilotPopup.mdx)
 
@@ -4640,7 +4640,7 @@ Search docs
 
 On this pageInstall Dependencies
 
-[Chat Components](https://docs.copilotkit.ai/reference/components/chat)
+[Chat Components](https://docs.copilotkit.ai/reference/v1/components/chat)
 
 # CopilotChat
 
@@ -4651,7 +4651,7 @@ The CopilotChat component, providing a chat interface for interacting with your 
 A chatbot panel component for the CopilotKit framework. The component allows for a high degree
 of customization through various props and custom CSS.
 
-## [Install Dependencies](https://docs.copilotkit.ai/reference/components/chat/CopilotChat\#install-dependencies)
+## [Install Dependencies](https://docs.copilotkit.ai/reference/v1/components/chat/CopilotChat\#install-dependencies)
 
 This component is part of the [@copilotkit/react-ui](https://npmjs.com/package/@copilotkit/react-ui) package.
 
@@ -4659,7 +4659,7 @@ This component is part of the [@copilotkit/react-ui](https://npmjs.com/package/@
 npm install @copilotkit/react-core @copilotkit/react-ui
 ```
 
-## [Usage](https://docs.copilotkit.ai/reference/components/chat/CopilotChat\#usage)
+## [Usage](https://docs.copilotkit.ai/reference/v1/components/chat/CopilotChat\#usage)
 
 ```
 import { CopilotChat } from "@copilotkit/react-ui";
@@ -4673,7 +4673,7 @@ import "@copilotkit/react-ui/styles.css";
 />
 ```
 
-### [Look & Feel](https://docs.copilotkit.ai/reference/components/chat/CopilotChat\#look--feel)
+### [Look & Feel](https://docs.copilotkit.ai/reference/v1/components/chat/CopilotChat\#look--feel)
 
 By default, CopilotKit components do not have any styles. You can import CopilotKit's stylesheet at the root of your project:
 
@@ -4694,7 +4694,7 @@ export function YourRootComponent() {
 
 For more information about how to customize the styles, check out the [Customize Look & Feel](https://docs.copilotkit.ai/guides/custom-look-and-feel/customize-built-in-ui-components) guide.
 
-## [Properties](https://docs.copilotkit.ai/reference/components/chat/CopilotChat\#properties)
+## [Properties](https://docs.copilotkit.ai/reference/v1/components/chat/CopilotChat\#properties)
 
 instructionsstring
 
@@ -4794,13 +4794,13 @@ Children to render.
 
 [Previous\\
 \\
-All Chat Components](https://docs.copilotkit.ai/reference/components/chat) [Next\\
+All Chat Components](https://docs.copilotkit.ai/reference/v1/components/chat) [Next\\
 \\
-CopilotPopup](https://docs.copilotkit.ai/reference/components/chat/CopilotPopup)
+CopilotPopup](https://docs.copilotkit.ai/reference/v1/components/chat/CopilotPopup)
 
 ### On this page
 
-[Install Dependencies](https://docs.copilotkit.ai/reference/components/chat/CopilotChat#install-dependencies) [Usage](https://docs.copilotkit.ai/reference/components/chat/CopilotChat#usage) [Look & Feel](https://docs.copilotkit.ai/reference/components/chat/CopilotChat#look--feel) [Properties](https://docs.copilotkit.ai/reference/components/chat/CopilotChat#properties)
+[Install Dependencies](https://docs.copilotkit.ai/reference/v1/components/chat/CopilotChat#install-dependencies) [Usage](https://docs.copilotkit.ai/reference/v1/components/chat/CopilotChat#usage) [Look & Feel](https://docs.copilotkit.ai/reference/v1/components/chat/CopilotChat#look--feel) [Properties](https://docs.copilotkit.ai/reference/v1/components/chat/CopilotChat#properties)
 
 [Edit on GitHub](https://github.com/CopilotKit/CopilotKit/blob/main/docs/content/docs/reference/components/chat/CopilotChat.mdx)
 
@@ -4856,7 +4856,7 @@ Navigate to [Copilot Cloud](https://cloud.copilotkit.ai/) and follow the instruc
 
 ## [Setup the CopilotKit Provider](https://docs.copilotkit.ai/quickstart?component=Headless+UI\#setup-the-copilotkit-provider)
 
-The [`<CopilotKit>`](https://docs.copilotkit.ai/reference/components/CopilotKit) component must wrap the Copilot-aware parts of your application. For most use-cases,
+The [`<CopilotKit>`](https://docs.copilotkit.ai/reference/v1/components/CopilotKit) component must wrap the Copilot-aware parts of your application. For most use-cases,
 it's appropriate to wrap the CopilotKit provider around the entire app, e.g. in your layout.tsx.
 
 layout.tsx
@@ -4967,7 +4967,7 @@ Python
 
 The CopilotKit LangGraph SDK for Python allows you to build and run LangGraph workflows with CopilotKit.
 
-## [copilotkit\_customize\_config](https://docs.copilotkit.ai/reference/sdk/python/LangGraph\#copilotkit_customize_config)
+## [copilotkit\_customize\_config](https://docs.copilotkit.ai/reference/v1/sdk/python/LangGraph\#copilotkit_customize_config)
 
 Customize the LangGraph configuration for use in CopilotKit.
 
@@ -4977,7 +4977,7 @@ To install the CopilotKit SDK, run:
 pip install copilotkit
 ```
 
-### [Examples](https://docs.copilotkit.ai/reference/sdk/python/LangGraph\#examples)
+### [Examples](https://docs.copilotkit.ai/reference/v1/sdk/python/LangGraph\#examples)
 
 Disable emitting messages and tool calls:
 
@@ -5010,7 +5010,7 @@ config = copilotkit_customize_config(
 )
 ```
 
-### [Parameters](https://docs.copilotkit.ai/reference/sdk/python/LangGraph\#parameters)
+### [Parameters](https://docs.copilotkit.ai/reference/v1/sdk/python/LangGraph\#parameters)
 
 base\_configOptional\[RunnableConfig\]
 
@@ -5028,19 +5028,19 @@ emit\_intermediate\_stateOptional\[List\[IntermediateStateConfig\]\]
 
 Lets you emit tool calls as streaming LangGraph state.
 
-### [Returns](https://docs.copilotkit.ai/reference/sdk/python/LangGraph\#returns)
+### [Returns](https://docs.copilotkit.ai/reference/v1/sdk/python/LangGraph\#returns)
 
 returnsRunnableConfig
 
 The customized LangGraph configuration.
 
-## [copilotkit\_exit](https://docs.copilotkit.ai/reference/sdk/python/LangGraph\#copilotkit_exit)
+## [copilotkit\_exit](https://docs.copilotkit.ai/reference/v1/sdk/python/LangGraph\#copilotkit_exit)
 
 Exits the current agent after the run completes. Calling copilotkit\_exit() will
 not immediately stop the agent. Instead, it signals to CopilotKit to stop the agent after
 the run completes.
 
-### [Examples](https://docs.copilotkit.ai/reference/sdk/python/LangGraph\#examples-1)
+### [Examples](https://docs.copilotkit.ai/reference/v1/sdk/python/LangGraph\#examples-1)
 
 ```
 from copilotkit.langgraph import copilotkit_exit
@@ -5050,24 +5050,24 @@ def my_node(state: Any):
     return state
 ```
 
-### [Parameters](https://docs.copilotkit.ai/reference/sdk/python/LangGraph\#parameters-1)
+### [Parameters](https://docs.copilotkit.ai/reference/v1/sdk/python/LangGraph\#parameters-1)
 
 configRunnableConfigrequired
 
 The LangGraph configuration.
 
-### [Returns](https://docs.copilotkit.ai/reference/sdk/python/LangGraph\#returns-1)
+### [Returns](https://docs.copilotkit.ai/reference/v1/sdk/python/LangGraph\#returns-1)
 
 returnsAwaitable\[bool\]
 
 Always return True.
 
-## [copilotkit\_emit\_state](https://docs.copilotkit.ai/reference/sdk/python/LangGraph\#copilotkit_emit_state)
+## [copilotkit\_emit\_state](https://docs.copilotkit.ai/reference/v1/sdk/python/LangGraph\#copilotkit_emit_state)
 
 Emits intermediate state to CopilotKit. Useful if you have a longer running node and you want to
 update the user with the current state of the node.
 
-### [Examples](https://docs.copilotkit.ai/reference/sdk/python/LangGraph\#examples-2)
+### [Examples](https://docs.copilotkit.ai/reference/v1/sdk/python/LangGraph\#examples-2)
 
 ```
 from copilotkit.langgraph import copilotkit_emit_state
@@ -5077,7 +5077,7 @@ for i in range(10):
     await copilotkit_emit_state(config, {"progress": i})
 ```
 
-### [Parameters](https://docs.copilotkit.ai/reference/sdk/python/LangGraph\#parameters-2)
+### [Parameters](https://docs.copilotkit.ai/reference/v1/sdk/python/LangGraph\#parameters-2)
 
 configRunnableConfigrequired
 
@@ -5087,18 +5087,18 @@ stateAnyrequired
 
 The state to emit (Must be JSON serializable).
 
-### [Returns](https://docs.copilotkit.ai/reference/sdk/python/LangGraph\#returns-2)
+### [Returns](https://docs.copilotkit.ai/reference/v1/sdk/python/LangGraph\#returns-2)
 
 returnsAwaitable\[bool\]
 
 Always return True.
 
-## [copilotkit\_emit\_message](https://docs.copilotkit.ai/reference/sdk/python/LangGraph\#copilotkit_emit_message)
+## [copilotkit\_emit\_message](https://docs.copilotkit.ai/reference/v1/sdk/python/LangGraph\#copilotkit_emit_message)
 
 Manually emits a message to CopilotKit. Useful in longer running nodes to update the user.
 Important: You still need to return the messages from the node.
 
-### [Examples](https://docs.copilotkit.ai/reference/sdk/python/LangGraph\#examples-3)
+### [Examples](https://docs.copilotkit.ai/reference/v1/sdk/python/LangGraph\#examples-3)
 
 ```
 from copilotkit.langgraph import copilotkit_emit_message
@@ -5112,7 +5112,7 @@ return {
 }
 ```
 
-### [Parameters](https://docs.copilotkit.ai/reference/sdk/python/LangGraph\#parameters-3)
+### [Parameters](https://docs.copilotkit.ai/reference/v1/sdk/python/LangGraph\#parameters-3)
 
 configRunnableConfigrequired
 
@@ -5122,13 +5122,13 @@ messagestrrequired
 
 The message to emit.
 
-### [Returns](https://docs.copilotkit.ai/reference/sdk/python/LangGraph\#returns-3)
+### [Returns](https://docs.copilotkit.ai/reference/v1/sdk/python/LangGraph\#returns-3)
 
 returnsAwaitable\[bool\]
 
 Always return True.
 
-## [copilotkit\_emit\_tool\_call](https://docs.copilotkit.ai/reference/sdk/python/LangGraph\#copilotkit_emit_tool_call)
+## [copilotkit\_emit\_tool\_call](https://docs.copilotkit.ai/reference/v1/sdk/python/LangGraph\#copilotkit_emit_tool_call)
 
 Manually emits a tool call to CopilotKit.
 
@@ -5138,7 +5138,7 @@ from copilotkit.langgraph import copilotkit_emit_tool_call
 await copilotkit_emit_tool_call(config, name="SearchTool", args={"steps": 10})
 ```
 
-### [Parameters](https://docs.copilotkit.ai/reference/sdk/python/LangGraph\#parameters-4)
+### [Parameters](https://docs.copilotkit.ai/reference/v1/sdk/python/LangGraph\#parameters-4)
 
 configRunnableConfigrequired
 
@@ -5152,7 +5152,7 @@ argsDict\[str, Any\]required
 
 The arguments to emit.
 
-### [Returns](https://docs.copilotkit.ai/reference/sdk/python/LangGraph\#returns-4)
+### [Returns](https://docs.copilotkit.ai/reference/v1/sdk/python/LangGraph\#returns-4)
 
 returnsAwaitable\[bool\]
 
@@ -5160,13 +5160,13 @@ Always return True.
 
 [Previous\\
 \\
-LangGraphAgent](https://docs.copilotkit.ai/reference/sdk/python/LangGraphAgent) [Next\\
+LangGraphAgent](https://docs.copilotkit.ai/reference/v1/sdk/python/LangGraphAgent) [Next\\
 \\
-CrewAIAgent](https://docs.copilotkit.ai/reference/sdk/python/CrewAIAgent)
+CrewAIAgent](https://docs.copilotkit.ai/reference/v1/sdk/python/CrewAIAgent)
 
 ### On this page
 
-[copilotkit\_customize\_config](https://docs.copilotkit.ai/reference/sdk/python/LangGraph#copilotkit_customize_config) [Examples](https://docs.copilotkit.ai/reference/sdk/python/LangGraph#examples) [Parameters](https://docs.copilotkit.ai/reference/sdk/python/LangGraph#parameters) [Returns](https://docs.copilotkit.ai/reference/sdk/python/LangGraph#returns) [copilotkit\_exit](https://docs.copilotkit.ai/reference/sdk/python/LangGraph#copilotkit_exit) [Examples](https://docs.copilotkit.ai/reference/sdk/python/LangGraph#examples-1) [Parameters](https://docs.copilotkit.ai/reference/sdk/python/LangGraph#parameters-1) [Returns](https://docs.copilotkit.ai/reference/sdk/python/LangGraph#returns-1) [copilotkit\_emit\_state](https://docs.copilotkit.ai/reference/sdk/python/LangGraph#copilotkit_emit_state) [Examples](https://docs.copilotkit.ai/reference/sdk/python/LangGraph#examples-2) [Parameters](https://docs.copilotkit.ai/reference/sdk/python/LangGraph#parameters-2) [Returns](https://docs.copilotkit.ai/reference/sdk/python/LangGraph#returns-2) [copilotkit\_emit\_message](https://docs.copilotkit.ai/reference/sdk/python/LangGraph#copilotkit_emit_message) [Examples](https://docs.copilotkit.ai/reference/sdk/python/LangGraph#examples-3) [Parameters](https://docs.copilotkit.ai/reference/sdk/python/LangGraph#parameters-3) [Returns](https://docs.copilotkit.ai/reference/sdk/python/LangGraph#returns-3) [copilotkit\_emit\_tool\_call](https://docs.copilotkit.ai/reference/sdk/python/LangGraph#copilotkit_emit_tool_call) [Parameters](https://docs.copilotkit.ai/reference/sdk/python/LangGraph#parameters-4) [Returns](https://docs.copilotkit.ai/reference/sdk/python/LangGraph#returns-4)
+[copilotkit\_customize\_config](https://docs.copilotkit.ai/reference/v1/sdk/python/LangGraph#copilotkit_customize_config) [Examples](https://docs.copilotkit.ai/reference/v1/sdk/python/LangGraph#examples) [Parameters](https://docs.copilotkit.ai/reference/v1/sdk/python/LangGraph#parameters) [Returns](https://docs.copilotkit.ai/reference/v1/sdk/python/LangGraph#returns) [copilotkit\_exit](https://docs.copilotkit.ai/reference/v1/sdk/python/LangGraph#copilotkit_exit) [Examples](https://docs.copilotkit.ai/reference/v1/sdk/python/LangGraph#examples-1) [Parameters](https://docs.copilotkit.ai/reference/v1/sdk/python/LangGraph#parameters-1) [Returns](https://docs.copilotkit.ai/reference/v1/sdk/python/LangGraph#returns-1) [copilotkit\_emit\_state](https://docs.copilotkit.ai/reference/v1/sdk/python/LangGraph#copilotkit_emit_state) [Examples](https://docs.copilotkit.ai/reference/v1/sdk/python/LangGraph#examples-2) [Parameters](https://docs.copilotkit.ai/reference/v1/sdk/python/LangGraph#parameters-2) [Returns](https://docs.copilotkit.ai/reference/v1/sdk/python/LangGraph#returns-2) [copilotkit\_emit\_message](https://docs.copilotkit.ai/reference/v1/sdk/python/LangGraph#copilotkit_emit_message) [Examples](https://docs.copilotkit.ai/reference/v1/sdk/python/LangGraph#examples-3) [Parameters](https://docs.copilotkit.ai/reference/v1/sdk/python/LangGraph#parameters-3) [Returns](https://docs.copilotkit.ai/reference/v1/sdk/python/LangGraph#returns-3) [copilotkit\_emit\_tool\_call](https://docs.copilotkit.ai/reference/v1/sdk/python/LangGraph#copilotkit_emit_tool_call) [Parameters](https://docs.copilotkit.ai/reference/v1/sdk/python/LangGraph#parameters-4) [Returns](https://docs.copilotkit.ai/reference/v1/sdk/python/LangGraph#returns-4)
 
 [Edit on GitHub](https://github.com/CopilotKit/CopilotKit/blob/main/docs/content/docs/reference/sdk/python/LangGraph.mdx)
 
@@ -5187,7 +5187,7 @@ Python
 
 CopilotKit Remote Endpoints allow you to connect actions and agents written in Python to your CopilotKit application.
 
-## [CopilotKitRemoteEndpoint](https://docs.copilotkit.ai/reference/sdk/python/RemoteEndpoints\#copilotkitremoteendpoint)
+## [CopilotKitRemoteEndpoint](https://docs.copilotkit.ai/reference/v1/sdk/python/RemoteEndpoints\#copilotkitremoteendpoint)
 
 CopilotKitRemoteEndpoint lets you connect actions and agents written in Python to your
 CopilotKit application.
@@ -5200,7 +5200,7 @@ pip install copilotkit
 pip install copilotkit[crewai]
 ```
 
-## [Adding actions](https://docs.copilotkit.ai/reference/sdk/python/RemoteEndpoints\#adding-actions)
+## [Adding actions](https://docs.copilotkit.ai/reference/v1/sdk/python/RemoteEndpoints\#adding-actions)
 
 In this example, we provide a simple action to the Copilot:
 
@@ -5254,7 +5254,7 @@ sdk = CopilotKitRemoteEndpoint(
 )
 ```
 
-## [Adding agents](https://docs.copilotkit.ai/reference/sdk/python/RemoteEndpoints\#adding-agents)
+## [Adding agents](https://docs.copilotkit.ai/reference/v1/sdk/python/RemoteEndpoints\#adding-agents)
 
 Serving agents works in a similar way to serving actions:
 
@@ -5306,7 +5306,7 @@ sdk = CopilotKitRemoteEndpoint(
 )
 ```
 
-## [Serving the CopilotKit SDK](https://docs.copilotkit.ai/reference/sdk/python/RemoteEndpoints\#serving-the-copilotkit-sdk)
+## [Serving the CopilotKit SDK](https://docs.copilotkit.ai/reference/v1/sdk/python/RemoteEndpoints\#serving-the-copilotkit-sdk)
 
 To serve the CopilotKit SDK, you can use the `add_fastapi_endpoint` function from the `copilotkit.integrations.fastapi` module:
 
@@ -5327,7 +5327,7 @@ def main():
     )
 ```
 
-### [Parameters](https://docs.copilotkit.ai/reference/sdk/python/RemoteEndpoints\#parameters)
+### [Parameters](https://docs.copilotkit.ai/reference/v1/sdk/python/RemoteEndpoints\#parameters)
 
 actionsOptional\[Union\[List\[Action\], Callable\[\[CopilotKitContext\], List\[Action\]\]\]\]
 
@@ -5337,11 +5337,11 @@ agentsOptional\[Union\[List\[Agent\], Callable\[\[CopilotKitContext\], List\[Age
 
 The agents to make available to the Copilot.
 
-## [CopilotKitContext](https://docs.copilotkit.ai/reference/sdk/python/RemoteEndpoints\#copilotkitcontext)
+## [CopilotKitContext](https://docs.copilotkit.ai/reference/v1/sdk/python/RemoteEndpoints\#copilotkitcontext)
 
 CopilotKit Context
 
-### [Parameters](https://docs.copilotkit.ai/reference/sdk/python/RemoteEndpoints\#parameters-1)
+### [Parameters](https://docs.copilotkit.ai/reference/v1/sdk/python/RemoteEndpoints\#parameters-1)
 
 propertiesAnyrequired
 
@@ -5357,13 +5357,13 @@ The headers of the request
 
 [Previous\\
 \\
-CopilotTask](https://docs.copilotkit.ai/reference/classes/CopilotTask) [Next\\
+CopilotTask](https://docs.copilotkit.ai/reference/v1/classes/CopilotTask) [Next\\
 \\
-LangGraphAgent](https://docs.copilotkit.ai/reference/sdk/python/LangGraphAgent)
+LangGraphAgent](https://docs.copilotkit.ai/reference/v1/sdk/python/LangGraphAgent)
 
 ### On this page
 
-[CopilotKitRemoteEndpoint](https://docs.copilotkit.ai/reference/sdk/python/RemoteEndpoints#copilotkitremoteendpoint) [Adding actions](https://docs.copilotkit.ai/reference/sdk/python/RemoteEndpoints#adding-actions) [Adding agents](https://docs.copilotkit.ai/reference/sdk/python/RemoteEndpoints#adding-agents) [Serving the CopilotKit SDK](https://docs.copilotkit.ai/reference/sdk/python/RemoteEndpoints#serving-the-copilotkit-sdk) [Parameters](https://docs.copilotkit.ai/reference/sdk/python/RemoteEndpoints#parameters) [CopilotKitContext](https://docs.copilotkit.ai/reference/sdk/python/RemoteEndpoints#copilotkitcontext) [Parameters](https://docs.copilotkit.ai/reference/sdk/python/RemoteEndpoints#parameters-1)
+[CopilotKitRemoteEndpoint](https://docs.copilotkit.ai/reference/v1/sdk/python/RemoteEndpoints#copilotkitremoteendpoint) [Adding actions](https://docs.copilotkit.ai/reference/v1/sdk/python/RemoteEndpoints#adding-actions) [Adding agents](https://docs.copilotkit.ai/reference/v1/sdk/python/RemoteEndpoints#adding-agents) [Serving the CopilotKit SDK](https://docs.copilotkit.ai/reference/v1/sdk/python/RemoteEndpoints#serving-the-copilotkit-sdk) [Parameters](https://docs.copilotkit.ai/reference/v1/sdk/python/RemoteEndpoints#parameters) [CopilotKitContext](https://docs.copilotkit.ai/reference/v1/sdk/python/RemoteEndpoints#copilotkitcontext) [Parameters](https://docs.copilotkit.ai/reference/v1/sdk/python/RemoteEndpoints#parameters-1)
 
 [Edit on GitHub](https://github.com/CopilotKit/CopilotKit/blob/main/docs/content/docs/reference/sdk/python/RemoteEndpoints.mdx)
 
@@ -5384,7 +5384,7 @@ JavaScript
 
 The CopilotKit LangGraph SDK for JavaScript allows you to build and run LangGraph workflows with CopilotKit.
 
-## [copilotkitCustomizeConfig](https://docs.copilotkit.ai/reference/sdk/js/LangGraph\#copilotkitcustomizeconfig)
+## [copilotkitCustomizeConfig](https://docs.copilotkit.ai/reference/v1/sdk/js/LangGraph\#copilotkitcustomizeconfig)
 
 Customize the LangGraph configuration for use in CopilotKit.
 
@@ -5394,7 +5394,7 @@ To the CopilotKit SDK, run:
 npm install @copilotkit/sdk-js
 ```
 
-### [Examples](https://docs.copilotkit.ai/reference/sdk/js/LangGraph\#examples)
+### [Examples](https://docs.copilotkit.ai/reference/v1/sdk/js/LangGraph\#examples)
 
 Disable emitting messages and tool calls:
 
@@ -5427,7 +5427,7 @@ config = copilotkitCustomizeConfig(
 )
 ```
 
-### [Parameters](https://docs.copilotkit.ai/reference/sdk/js/LangGraph\#parameters)
+### [Parameters](https://docs.copilotkit.ai/reference/v1/sdk/js/LangGraph\#parameters)
 
 baseConfigRunnableConfigrequired
 
@@ -5446,13 +5446,13 @@ disable emitting tool calls. Pass a string or list of strings to emit only speci
 - `emitIntermediateState: IntermediateStateConfig[]?`
 Lets you emit tool calls as streaming LangGraph state.
 
-## [copilotkitExit](https://docs.copilotkit.ai/reference/sdk/js/LangGraph\#copilotkitexit)
+## [copilotkitExit](https://docs.copilotkit.ai/reference/v1/sdk/js/LangGraph\#copilotkitexit)
 
 Exits the current agent after the run completes. Calling copilotkit\_exit() will
 not immediately stop the agent. Instead, it signals to CopilotKit to stop the agent after
 the run completes.
 
-### [Examples](https://docs.copilotkit.ai/reference/sdk/js/LangGraph\#examples-1)
+### [Examples](https://docs.copilotkit.ai/reference/v1/sdk/js/LangGraph\#examples-1)
 
 ```
 import { copilotkitExit } from "@copilotkit/sdk-js";
@@ -5462,18 +5462,18 @@ async function myNode(state: Any):
   return state
 ```
 
-### [Parameters](https://docs.copilotkit.ai/reference/sdk/js/LangGraph\#parameters-1)
+### [Parameters](https://docs.copilotkit.ai/reference/v1/sdk/js/LangGraph\#parameters-1)
 
 configRunnableConfigrequired
 
 The LangChain/LangGraph configuration.
 
-## [copilotkitEmitState](https://docs.copilotkit.ai/reference/sdk/js/LangGraph\#copilotkitemitstate)
+## [copilotkitEmitState](https://docs.copilotkit.ai/reference/v1/sdk/js/LangGraph\#copilotkitemitstate)
 
 Emits intermediate state to CopilotKit. Useful if you have a longer running node and you want to
 update the user with the current state of the node.
 
-### [Examples](https://docs.copilotkit.ai/reference/sdk/js/LangGraph\#examples-2)
+### [Examples](https://docs.copilotkit.ai/reference/v1/sdk/js/LangGraph\#examples-2)
 
 ```
 import { copilotkitEmitState } from "@copilotkit/sdk-js";
@@ -5484,7 +5484,7 @@ for (let i = 0; i < 10; i++) {
 }
 ```
 
-### [Parameters](https://docs.copilotkit.ai/reference/sdk/js/LangGraph\#parameters-2)
+### [Parameters](https://docs.copilotkit.ai/reference/v1/sdk/js/LangGraph\#parameters-2)
 
 configRunnableConfigrequired
 
@@ -5494,12 +5494,12 @@ stateanyrequired
 
 The state to emit.
 
-## [copilotkitEmitMessage](https://docs.copilotkit.ai/reference/sdk/js/LangGraph\#copilotkitemitmessage)
+## [copilotkitEmitMessage](https://docs.copilotkit.ai/reference/v1/sdk/js/LangGraph\#copilotkitemitmessage)
 
 Manually emits a message to CopilotKit. Useful in longer running nodes to update the user.
 Important: You still need to return the messages from the node.
 
-### [Examples](https://docs.copilotkit.ai/reference/sdk/js/LangGraph\#examples-3)
+### [Examples](https://docs.copilotkit.ai/reference/v1/sdk/js/LangGraph\#examples-3)
 
 ```
 import { copilotkitEmitMessage } from "@copilotkit/sdk-js";
@@ -5513,7 +5513,7 @@ return {
 }
 ```
 
-### [Parameters](https://docs.copilotkit.ai/reference/sdk/js/LangGraph\#parameters-3)
+### [Parameters](https://docs.copilotkit.ai/reference/v1/sdk/js/LangGraph\#parameters-3)
 
 configRunnableConfigrequired
 
@@ -5523,11 +5523,11 @@ messagestringrequired
 
 The message to emit.
 
-## [copilotkitEmitToolCall](https://docs.copilotkit.ai/reference/sdk/js/LangGraph\#copilotkitemittoolcall)
+## [copilotkitEmitToolCall](https://docs.copilotkit.ai/reference/v1/sdk/js/LangGraph\#copilotkitemittoolcall)
 
 Manually emits a tool call to CopilotKit.
 
-### [Examples](https://docs.copilotkit.ai/reference/sdk/js/LangGraph\#examples-4)
+### [Examples](https://docs.copilotkit.ai/reference/v1/sdk/js/LangGraph\#examples-4)
 
 ```
 import { copilotkitEmitToolCall } from "@copilotkit/sdk-js";
@@ -5535,7 +5535,7 @@ import { copilotkitEmitToolCall } from "@copilotkit/sdk-js";
 await copilotkitEmitToolCall(config, name="SearchTool", args={"steps": 10})
 ```
 
-### [Parameters](https://docs.copilotkit.ai/reference/sdk/js/LangGraph\#parameters-4)
+### [Parameters](https://docs.copilotkit.ai/reference/v1/sdk/js/LangGraph\#parameters-4)
 
 configRunnableConfigrequired
 
@@ -5551,11 +5551,11 @@ The arguments to emit.
 
 [Previous\\
 \\
-CrewAI SDK](https://docs.copilotkit.ai/reference/sdk/python/CrewAI)
+CrewAI SDK](https://docs.copilotkit.ai/reference/v1/sdk/python/CrewAI)
 
 ### On this page
 
-[copilotkitCustomizeConfig](https://docs.copilotkit.ai/reference/sdk/js/LangGraph#copilotkitcustomizeconfig) [Examples](https://docs.copilotkit.ai/reference/sdk/js/LangGraph#examples) [Parameters](https://docs.copilotkit.ai/reference/sdk/js/LangGraph#parameters) [copilotkitExit](https://docs.copilotkit.ai/reference/sdk/js/LangGraph#copilotkitexit) [Examples](https://docs.copilotkit.ai/reference/sdk/js/LangGraph#examples-1) [Parameters](https://docs.copilotkit.ai/reference/sdk/js/LangGraph#parameters-1) [copilotkitEmitState](https://docs.copilotkit.ai/reference/sdk/js/LangGraph#copilotkitemitstate) [Examples](https://docs.copilotkit.ai/reference/sdk/js/LangGraph#examples-2) [Parameters](https://docs.copilotkit.ai/reference/sdk/js/LangGraph#parameters-2) [copilotkitEmitMessage](https://docs.copilotkit.ai/reference/sdk/js/LangGraph#copilotkitemitmessage) [Examples](https://docs.copilotkit.ai/reference/sdk/js/LangGraph#examples-3) [Parameters](https://docs.copilotkit.ai/reference/sdk/js/LangGraph#parameters-3) [copilotkitEmitToolCall](https://docs.copilotkit.ai/reference/sdk/js/LangGraph#copilotkitemittoolcall) [Examples](https://docs.copilotkit.ai/reference/sdk/js/LangGraph#examples-4) [Parameters](https://docs.copilotkit.ai/reference/sdk/js/LangGraph#parameters-4)
+[copilotkitCustomizeConfig](https://docs.copilotkit.ai/reference/v1/sdk/js/LangGraph#copilotkitcustomizeconfig) [Examples](https://docs.copilotkit.ai/reference/v1/sdk/js/LangGraph#examples) [Parameters](https://docs.copilotkit.ai/reference/v1/sdk/js/LangGraph#parameters) [copilotkitExit](https://docs.copilotkit.ai/reference/v1/sdk/js/LangGraph#copilotkitexit) [Examples](https://docs.copilotkit.ai/reference/v1/sdk/js/LangGraph#examples-1) [Parameters](https://docs.copilotkit.ai/reference/v1/sdk/js/LangGraph#parameters-1) [copilotkitEmitState](https://docs.copilotkit.ai/reference/v1/sdk/js/LangGraph#copilotkitemitstate) [Examples](https://docs.copilotkit.ai/reference/v1/sdk/js/LangGraph#examples-2) [Parameters](https://docs.copilotkit.ai/reference/v1/sdk/js/LangGraph#parameters-2) [copilotkitEmitMessage](https://docs.copilotkit.ai/reference/v1/sdk/js/LangGraph#copilotkitemitmessage) [Examples](https://docs.copilotkit.ai/reference/v1/sdk/js/LangGraph#examples-3) [Parameters](https://docs.copilotkit.ai/reference/v1/sdk/js/LangGraph#parameters-3) [copilotkitEmitToolCall](https://docs.copilotkit.ai/reference/v1/sdk/js/LangGraph#copilotkitemittoolcall) [Examples](https://docs.copilotkit.ai/reference/v1/sdk/js/LangGraph#examples-4) [Parameters](https://docs.copilotkit.ai/reference/v1/sdk/js/LangGraph#parameters-4)
 
 [Edit on GitHub](https://github.com/CopilotKit/CopilotKit/blob/main/docs/content/docs/reference/sdk/js/LangGraph.mdx)
 
@@ -5651,7 +5651,7 @@ Search docs
 
 On this pageInstall Dependencies
 
-[Chat Components](https://docs.copilotkit.ai/reference/components/chat)
+[Chat Components](https://docs.copilotkit.ai/reference/v1/components/chat)
 
 # CopilotSidebar
 
@@ -5661,9 +5661,9 @@ The CopilotSidebar component, providing a sidebar interface for interacting with
 
 A chatbot sidebar component for the CopilotKit framework. Highly customizable through various props and custom CSS.
 
-See [CopilotPopup](https://docs.copilotkit.ai/reference/components/chat/CopilotPopup) for a popup version of this component.
+See [CopilotPopup](https://docs.copilotkit.ai/reference/v1/components/chat/CopilotPopup) for a popup version of this component.
 
-## [Install Dependencies](https://docs.copilotkit.ai/reference/components/chat/CopilotSidebar\#install-dependencies)
+## [Install Dependencies](https://docs.copilotkit.ai/reference/v1/components/chat/CopilotSidebar\#install-dependencies)
 
 This component is part of the [@copilotkit/react-ui](https://npmjs.com/package/@copilotkit/react-ui) package.
 
@@ -5671,7 +5671,7 @@ This component is part of the [@copilotkit/react-ui](https://npmjs.com/package/@
 npm install @copilotkit/react-core @copilotkit/react-ui
 ```
 
-## [Usage](https://docs.copilotkit.ai/reference/components/chat/CopilotSidebar\#usage)
+## [Usage](https://docs.copilotkit.ai/reference/v1/components/chat/CopilotSidebar\#usage)
 
 ```
 import { CopilotSidebar } from "@copilotkit/react-ui";
@@ -5687,7 +5687,7 @@ import "@copilotkit/react-ui/styles.css";
 </CopilotSidebar>
 ```
 
-### [Look & Feel](https://docs.copilotkit.ai/reference/components/chat/CopilotSidebar\#look--feel)
+### [Look & Feel](https://docs.copilotkit.ai/reference/v1/components/chat/CopilotSidebar\#look--feel)
 
 By default, CopilotKit components do not have any styles. You can import CopilotKit's stylesheet at the root of your project:
 
@@ -5708,7 +5708,7 @@ export function YourRootComponent() {
 
 For more information about how to customize the styles, check out the [Customize Look & Feel](https://docs.copilotkit.ai/guides/custom-look-and-feel/customize-built-in-ui-components) guide.
 
-## [Properties](https://docs.copilotkit.ai/reference/components/chat/CopilotSidebar\#properties)
+## [Properties](https://docs.copilotkit.ai/reference/v1/components/chat/CopilotSidebar\#properties)
 
 instructionsstring
 
@@ -5849,13 +5849,13 @@ A custom Header component to use instead of the default.
 
 [Previous\\
 \\
-CopilotPopup](https://docs.copilotkit.ai/reference/components/chat/CopilotPopup) [Next\\
+CopilotPopup](https://docs.copilotkit.ai/reference/v1/components/chat/CopilotPopup) [Next\\
 \\
-CopilotTextarea](https://docs.copilotkit.ai/reference/components/CopilotTextarea)
+CopilotTextarea](https://docs.copilotkit.ai/reference/v1/components/CopilotTextarea)
 
 ### On this page
 
-[Install Dependencies](https://docs.copilotkit.ai/reference/components/chat/CopilotSidebar#install-dependencies) [Usage](https://docs.copilotkit.ai/reference/components/chat/CopilotSidebar#usage) [Look & Feel](https://docs.copilotkit.ai/reference/components/chat/CopilotSidebar#look--feel) [Properties](https://docs.copilotkit.ai/reference/components/chat/CopilotSidebar#properties)
+[Install Dependencies](https://docs.copilotkit.ai/reference/v1/components/chat/CopilotSidebar#install-dependencies) [Usage](https://docs.copilotkit.ai/reference/v1/components/chat/CopilotSidebar#usage) [Look & Feel](https://docs.copilotkit.ai/reference/v1/components/chat/CopilotSidebar#look--feel) [Properties](https://docs.copilotkit.ai/reference/v1/components/chat/CopilotSidebar#properties)
 
 [Edit on GitHub](https://github.com/CopilotKit/CopilotKit/blob/main/docs/content/docs/reference/components/chat/CopilotSidebar.mdx)
 
@@ -5959,7 +5959,7 @@ npx copilotkit@latest dev --port 8000
 
 ### [Setup your CopilotKit provider](https://docs.copilotkit.ai/crewai-flows/quickstart/crewai\#setup-your-copilotkit-provider)
 
-The [`<CopilotKit>`](https://docs.copilotkit.ai/reference/components/CopilotKit) component must wrap the Copilot-aware parts of your application. For most use-cases,
+The [`<CopilotKit>`](https://docs.copilotkit.ai/reference/v1/components/CopilotKit) component must wrap the Copilot-aware parts of your application. For most use-cases,
 it's appropriate to wrap the CopilotKit provider around the entire app, e.g. in your layout.tsx.
 
 layout.tsx
@@ -6207,7 +6207,7 @@ Python
 
 CrewAIAgent lets you define your agent for use with CopilotKit.
 
-## [CrewAIAgent](https://docs.copilotkit.ai/reference/sdk/python/CrewAIAgent\#crewaiagent)
+## [CrewAIAgent](https://docs.copilotkit.ai/reference/v1/sdk/python/CrewAIAgent\#crewaiagent)
 
 CrewAIAgent lets you define your agent for use with CopilotKit.
 
@@ -6221,7 +6221,7 @@ Every agent must have the `name` and either `crew` or `flow` properties defined.
 `description` can also be provided. This is used when CopilotKit is dynamically routing requests
 to the agent.
 
-## [Serving a Crew based agent](https://docs.copilotkit.ai/reference/sdk/python/CrewAIAgent\#serving-a-crew-based-agent)
+## [Serving a Crew based agent](https://docs.copilotkit.ai/reference/v1/sdk/python/CrewAIAgent\#serving-a-crew-based-agent)
 
 To serve a Crew based agent, pass in a `Crew` object to the `crew` parameter.
 
@@ -6240,7 +6240,7 @@ CrewAIAgent(
 )
 ```
 
-## [Serving a Flow based agent](https://docs.copilotkit.ai/reference/sdk/python/CrewAIAgent\#serving-a-flow-based-agent)
+## [Serving a Flow based agent](https://docs.copilotkit.ai/reference/v1/sdk/python/CrewAIAgent\#serving-a-flow-based-agent)
 
 To serve a Flow based agent, pass in a `Flow` object to the `flow` parameter.
 
@@ -6255,7 +6255,7 @@ CrewAIAgent(
 Note:
 Either a `crew` or `flow` must be provided to CrewAIAgent.
 
-### [Parameters](https://docs.copilotkit.ai/reference/sdk/python/CrewAIAgent\#parameters)
+### [Parameters](https://docs.copilotkit.ai/reference/v1/sdk/python/CrewAIAgent\#parameters)
 
 namestrrequired
 
@@ -6277,7 +6277,7 @@ copilotkit\_configOptional\[CopilotKitConfig\]
 
 The CopilotKit config to use with the agent.
 
-## [CopilotKitConfig](https://docs.copilotkit.ai/reference/sdk/python/CrewAIAgent\#copilotkitconfig)
+## [CopilotKitConfig](https://docs.copilotkit.ai/reference/v1/sdk/python/CrewAIAgent\#copilotkitconfig)
 
 CopilotKit config for CrewAIAgent
 
@@ -6296,7 +6296,7 @@ def merge_state(
     # ...implementation...
 ```
 
-### [Parameters](https://docs.copilotkit.ai/reference/sdk/python/CrewAIAgent\#parameters-1)
+### [Parameters](https://docs.copilotkit.ai/reference/v1/sdk/python/CrewAIAgent\#parameters-1)
 
 merge\_stateCallablerequired
 
@@ -6304,13 +6304,13 @@ This function lets you customize how CopilotKit merges the agent state.
 
 [Previous\\
 \\
-LangGraph SDK](https://docs.copilotkit.ai/reference/sdk/python/LangGraph) [Next\\
+LangGraph SDK](https://docs.copilotkit.ai/reference/v1/sdk/python/LangGraph) [Next\\
 \\
-CrewAI SDK](https://docs.copilotkit.ai/reference/sdk/python/CrewAI)
+CrewAI SDK](https://docs.copilotkit.ai/reference/v1/sdk/python/CrewAI)
 
 ### On this page
 
-[CrewAIAgent](https://docs.copilotkit.ai/reference/sdk/python/CrewAIAgent#crewaiagent) [Serving a Crew based agent](https://docs.copilotkit.ai/reference/sdk/python/CrewAIAgent#serving-a-crew-based-agent) [Serving a Flow based agent](https://docs.copilotkit.ai/reference/sdk/python/CrewAIAgent#serving-a-flow-based-agent) [Parameters](https://docs.copilotkit.ai/reference/sdk/python/CrewAIAgent#parameters) [CopilotKitConfig](https://docs.copilotkit.ai/reference/sdk/python/CrewAIAgent#copilotkitconfig) [Parameters](https://docs.copilotkit.ai/reference/sdk/python/CrewAIAgent#parameters-1)
+[CrewAIAgent](https://docs.copilotkit.ai/reference/v1/sdk/python/CrewAIAgent#crewaiagent) [Serving a Crew based agent](https://docs.copilotkit.ai/reference/v1/sdk/python/CrewAIAgent#serving-a-crew-based-agent) [Serving a Flow based agent](https://docs.copilotkit.ai/reference/v1/sdk/python/CrewAIAgent#serving-a-flow-based-agent) [Parameters](https://docs.copilotkit.ai/reference/v1/sdk/python/CrewAIAgent#parameters) [CopilotKitConfig](https://docs.copilotkit.ai/reference/v1/sdk/python/CrewAIAgent#copilotkitconfig) [Parameters](https://docs.copilotkit.ai/reference/v1/sdk/python/CrewAIAgent#parameters-1)
 
 [Edit on GitHub](https://github.com/CopilotKit/CopilotKit/blob/main/docs/content/docs/reference/sdk/python/CrewAIAgent.mdx)
 
@@ -6406,7 +6406,7 @@ Python
 
 LangGraphAgent lets you define your agent for use with CopilotKit.
 
-## [LangGraphAgent](https://docs.copilotkit.ai/reference/sdk/python/LangGraphAgent\#langgraphagent)
+## [LangGraphAgent](https://docs.copilotkit.ai/reference/v1/sdk/python/LangGraphAgent\#langgraphagent)
 
 LangGraphAgent lets you define your agent for use with CopilotKit.
 
@@ -6416,7 +6416,7 @@ To install, run:
 pip install copilotkit
 ```
 
-### [Examples](https://docs.copilotkit.ai/reference/sdk/python/LangGraphAgent\#examples)
+### [Examples](https://docs.copilotkit.ai/reference/v1/sdk/python/LangGraphAgent\#examples)
 
 Every agent must have the `name` and `graph` properties defined. An optional `description`
 can also be provided. This is used when CopilotKit is dynamically routing requests to the
@@ -6442,7 +6442,7 @@ LangGraphAgent(
 )
 ```
 
-### [Parameters](https://docs.copilotkit.ai/reference/sdk/python/LangGraphAgent\#parameters)
+### [Parameters](https://docs.copilotkit.ai/reference/v1/sdk/python/LangGraphAgent\#parameters)
 
 namestrrequired
 
@@ -6464,7 +6464,7 @@ copilotkit\_configOptional\[CopilotKitConfig\]
 
 The CopilotKit config to use with the agent.
 
-## [CopilotKitConfig](https://docs.copilotkit.ai/reference/sdk/python/LangGraphAgent\#copilotkitconfig)
+## [CopilotKitConfig](https://docs.copilotkit.ai/reference/v1/sdk/python/LangGraphAgent\#copilotkitconfig)
 
 CopilotKit config for LangGraphAgent
 
@@ -6486,7 +6486,7 @@ def convert_messages(messages: List[Message]):
     # ...implementation...
 ```
 
-### [Parameters](https://docs.copilotkit.ai/reference/sdk/python/LangGraphAgent\#parameters-1)
+### [Parameters](https://docs.copilotkit.ai/reference/v1/sdk/python/LangGraphAgent\#parameters-1)
 
 merge\_stateCallablerequired
 
@@ -6498,13 +6498,13 @@ Use this function to customize how CopilotKit converts its messages to LangChain
 
 [Previous\\
 \\
-Remote Endpoints](https://docs.copilotkit.ai/reference/sdk/python/RemoteEndpoints) [Next\\
+Remote Endpoints](https://docs.copilotkit.ai/reference/v1/sdk/python/RemoteEndpoints) [Next\\
 \\
-LangGraph SDK](https://docs.copilotkit.ai/reference/sdk/python/LangGraph)
+LangGraph SDK](https://docs.copilotkit.ai/reference/v1/sdk/python/LangGraph)
 
 ### On this page
 
-[LangGraphAgent](https://docs.copilotkit.ai/reference/sdk/python/LangGraphAgent#langgraphagent) [Examples](https://docs.copilotkit.ai/reference/sdk/python/LangGraphAgent#examples) [Parameters](https://docs.copilotkit.ai/reference/sdk/python/LangGraphAgent#parameters) [CopilotKitConfig](https://docs.copilotkit.ai/reference/sdk/python/LangGraphAgent#copilotkitconfig) [Parameters](https://docs.copilotkit.ai/reference/sdk/python/LangGraphAgent#parameters-1)
+[LangGraphAgent](https://docs.copilotkit.ai/reference/v1/sdk/python/LangGraphAgent#langgraphagent) [Examples](https://docs.copilotkit.ai/reference/v1/sdk/python/LangGraphAgent#examples) [Parameters](https://docs.copilotkit.ai/reference/v1/sdk/python/LangGraphAgent#parameters) [CopilotKitConfig](https://docs.copilotkit.ai/reference/v1/sdk/python/LangGraphAgent#copilotkitconfig) [Parameters](https://docs.copilotkit.ai/reference/v1/sdk/python/LangGraphAgent#parameters-1)
 
 [Edit on GitHub](https://github.com/CopilotKit/CopilotKit/blob/main/docs/content/docs/reference/sdk/python/LangGraphAgent.mdx)
 
@@ -6728,14 +6728,14 @@ LLM Adapters are responsible for executing the request with the LLM and standard
 
 Currently, we support the following LLM adapters natively:
 
-- [OpenAI Adapter (Azure also supported)](https://docs.copilotkit.ai/reference/classes/llm-adapters/OpenAIAdapter)
-- [OpenAI Assistant Adapter](https://docs.copilotkit.ai/reference/classes/llm-adapters/OpenAIAssistantAdapter)
-- [LangChain Adapter](https://docs.copilotkit.ai/reference/classes/llm-adapters/LangChainAdapter)
-- [Groq Adapter](https://docs.copilotkit.ai/reference/classes/llm-adapters/GroqAdapter)
-- [Google Generative AI Adapter](https://docs.copilotkit.ai/reference/classes/llm-adapters/GoogleGenerativeAIAdapter)
-- [Anthropic Adapter](https://docs.copilotkit.ai/reference/classes/llm-adapters/AnthropicAdapter)
+- [OpenAI Adapter (Azure also supported)](https://docs.copilotkit.ai/reference/v1/classes/llm-adapters/OpenAIAdapter)
+- [OpenAI Assistant Adapter](https://docs.copilotkit.ai/reference/v1/classes/llm-adapters/OpenAIAssistantAdapter)
+- [LangChain Adapter](https://docs.copilotkit.ai/reference/v1/classes/llm-adapters/LangChainAdapter)
+- [Groq Adapter](https://docs.copilotkit.ai/reference/v1/classes/llm-adapters/GroqAdapter)
+- [Google Generative AI Adapter](https://docs.copilotkit.ai/reference/v1/classes/llm-adapters/GoogleGenerativeAIAdapter)
+- [Anthropic Adapter](https://docs.copilotkit.ai/reference/v1/classes/llm-adapters/AnthropicAdapter)
 
-You can use the [LangChain Adapter](https://docs.copilotkit.ai/reference/classes/llm-adapters/LangChainAdapter) to use any LLM provider we don't yet natively support!
+You can use the [LangChain Adapter](https://docs.copilotkit.ai/reference/v1/classes/llm-adapters/LangChainAdapter) to use any LLM provider we don't yet natively support!
 
 It's not too hard to write your own LLM adapter from scratch -- see the existing adapters for inspiration. And of course, we would love a contribution! ⭐️
 
@@ -7023,7 +7023,7 @@ For your copilot to best answer your users' needs, you will want to provide it w
 
 ### [Add the data to the Copilot](https://docs.copilotkit.ai/guides/connect-your-data/frontend\#add-the-data-to-the-copilot)
 
-The [`useCopilotReadable` hook](https://docs.copilotkit.ai/reference/hooks/useCopilotReadable) is used to add data as context to the Copilot.
+The [`useCopilotReadable` hook](https://docs.copilotkit.ai/reference/v1/hooks/useCopilotReadable) is used to add data as context to the Copilot.
 
 YourComponent.tsx
 
@@ -7275,7 +7275,7 @@ Navigate to [Copilot Cloud](https://cloud.copilotkit.ai/) and follow the instruc
 
 ## [Setup the CopilotKit Provider](https://docs.copilotkit.ai/quickstart?component=Headless%20UI\#setup-the-copilotkit-provider)
 
-The [`<CopilotKit>`](https://docs.copilotkit.ai/reference/components/CopilotKit) component must wrap the Copilot-aware parts of your application. For most use-cases,
+The [`<CopilotKit>`](https://docs.copilotkit.ai/reference/v1/components/CopilotKit) component must wrap the Copilot-aware parts of your application. For most use-cases,
 it's appropriate to wrap the CopilotKit provider around the entire app, e.g. in your layout.tsx.
 
 layout.tsx
@@ -7392,7 +7392,7 @@ There are three main ways to customize the behavior of your AI assistant:
 
 ## [Appending to the prompt (Recommended)](https://docs.copilotkit.ai/guides/custom-ai-assistant-behavior\#appending-to-the-prompt-recommended)
 
-CopilotKit provides the [useCopilotAdditionalInstructions](https://docs.copilotkit.ai/reference/hooks/useCopilotAdditionalInstructions) hook which allows you to add content to the prompt with whatever
+CopilotKit provides the [useCopilotAdditionalInstructions](https://docs.copilotkit.ai/reference/v1/hooks/useCopilotAdditionalInstructions) hook which allows you to add content to the prompt with whatever
 you want.
 
 Home.tsx
@@ -7575,7 +7575,7 @@ Copilot Runtime adapter for OpenAI.
 
 Copilot Runtime adapter for OpenAI.
 
-## [Example](https://docs.copilotkit.ai/reference/classes/llm-adapters/OpenAIAdapter\#example)
+## [Example](https://docs.copilotkit.ai/reference/v1/classes/llm-adapters/OpenAIAdapter\#example)
 
 ```
 import { CopilotRuntime, OpenAIAdapter } from "@copilotkit/runtime";
@@ -7591,7 +7591,7 @@ const openai = new OpenAI({
 return new OpenAIAdapter({ openai });
 ```
 
-## [Example with Azure OpenAI](https://docs.copilotkit.ai/reference/classes/llm-adapters/OpenAIAdapter\#example-with-azure-openai)
+## [Example with Azure OpenAI](https://docs.copilotkit.ai/reference/v1/classes/llm-adapters/OpenAIAdapter\#example-with-azure-openai)
 
 ```
 import { CopilotRuntime, OpenAIAdapter } from "@copilotkit/runtime";
@@ -7622,7 +7622,7 @@ const openai = new OpenAI({
 return new OpenAIAdapter({ openai });
 ```
 
-## [Constructor Parameters](https://docs.copilotkit.ai/reference/classes/llm-adapters/OpenAIAdapter\#constructor-parameters)
+## [Constructor Parameters](https://docs.copilotkit.ai/reference/v1/classes/llm-adapters/OpenAIAdapter\#constructor-parameters)
 
 openaiOpenAI
 
@@ -7644,15 +7644,15 @@ introduced by one tool call are visible to the next tool call. (i.e. new actions
 
 [Previous\\
 \\
-CopilotRuntime](https://docs.copilotkit.ai/reference/classes/CopilotRuntime) [Next\\
+CopilotRuntime](https://docs.copilotkit.ai/reference/v1/classes/CopilotRuntime) [Next\\
 \\
-OpenAIAssistantAdapter](https://docs.copilotkit.ai/reference/classes/llm-adapters/OpenAIAssistantAdapter)
+OpenAIAssistantAdapter](https://docs.copilotkit.ai/reference/v1/classes/llm-adapters/OpenAIAssistantAdapter)
 
 ### On this page
 
-[Example](https://docs.copilotkit.ai/reference/classes/llm-adapters/OpenAIAdapter#example) [Example with Azure OpenAI](https://docs.copilotkit.ai/reference/classes/llm-adapters/OpenAIAdapter#example-with-azure-openai) [Constructor Parameters](https://docs.copilotkit.ai/reference/classes/llm-adapters/OpenAIAdapter#constructor-parameters)
+[Example](https://docs.copilotkit.ai/reference/v1/classes/llm-adapters/OpenAIAdapter#example) [Example with Azure OpenAI](https://docs.copilotkit.ai/reference/v1/classes/llm-adapters/OpenAIAdapter#example-with-azure-openai) [Constructor Parameters](https://docs.copilotkit.ai/reference/v1/classes/llm-adapters/OpenAIAdapter#constructor-parameters)
 
-[Edit on GitHub](https://github.com/CopilotKit/CopilotKit/blob/main/docs/content/docs/reference/classes/llm-adapters/OpenAIAdapter.mdx)
+[Edit on GitHub](https://github.com/CopilotKit/CopilotKit/blob/main/docs/content/docs/reference/v1/classes/llm-adapters/OpenAIAdapter.mdx)
 
 ![](https://static.scarf.sh/a.png?x-pxid=ffc9f65d-0186-4575-b065-61d62ea9d7d3)
 
@@ -7673,7 +7673,7 @@ Copilot Runtime adapter for Groq.
 
 Copilot Runtime adapter for Groq.
 
-## [Example](https://docs.copilotkit.ai/reference/classes/llm-adapters/GroqAdapter\#example)
+## [Example](https://docs.copilotkit.ai/reference/v1/classes/llm-adapters/GroqAdapter\#example)
 
 ```
 import { CopilotRuntime, GroqAdapter } from "@copilotkit/runtime";
@@ -7686,7 +7686,7 @@ const copilotKit = new CopilotRuntime();
 return new GroqAdapter({ groq, model: "<model-name>" });
 ```
 
-## [Constructor Parameters](https://docs.copilotkit.ai/reference/classes/llm-adapters/GroqAdapter\#constructor-parameters)
+## [Constructor Parameters](https://docs.copilotkit.ai/reference/v1/classes/llm-adapters/GroqAdapter\#constructor-parameters)
 
 groqGroq
 
@@ -7707,15 +7707,15 @@ introduced by one tool call are visible to the next tool call. (i.e. new actions
 
 [Previous\\
 \\
-LangChainAdapter](https://docs.copilotkit.ai/reference/classes/llm-adapters/LangChainAdapter) [Next\\
+LangChainAdapter](https://docs.copilotkit.ai/reference/v1/classes/llm-adapters/LangChainAdapter) [Next\\
 \\
-GoogleGenerativeAIAdapter](https://docs.copilotkit.ai/reference/classes/llm-adapters/GoogleGenerativeAIAdapter)
+GoogleGenerativeAIAdapter](https://docs.copilotkit.ai/reference/v1/classes/llm-adapters/GoogleGenerativeAIAdapter)
 
 ### On this page
 
-[Example](https://docs.copilotkit.ai/reference/classes/llm-adapters/GroqAdapter#example) [Constructor Parameters](https://docs.copilotkit.ai/reference/classes/llm-adapters/GroqAdapter#constructor-parameters)
+[Example](https://docs.copilotkit.ai/reference/v1/classes/llm-adapters/GroqAdapter#example) [Constructor Parameters](https://docs.copilotkit.ai/reference/v1/classes/llm-adapters/GroqAdapter#constructor-parameters)
 
-[Edit on GitHub](https://github.com/CopilotKit/CopilotKit/blob/main/docs/content/docs/reference/classes/llm-adapters/GroqAdapter.mdx)
+[Edit on GitHub](https://github.com/CopilotKit/CopilotKit/blob/main/docs/content/docs/reference/v1/classes/llm-adapters/GroqAdapter.mdx)
 
 ![](https://static.scarf.sh/a.png?x-pxid=ffc9f65d-0186-4575-b065-61d62ea9d7d3)
 
@@ -7736,7 +7736,7 @@ Copilot Runtime adapter for OpenAI Assistant API.
 
 Copilot Runtime adapter for the OpenAI Assistant API.
 
-## [Example](https://docs.copilotkit.ai/reference/classes/llm-adapters/OpenAIAssistantAdapter\#example)
+## [Example](https://docs.copilotkit.ai/reference/v1/classes/llm-adapters/OpenAIAssistantAdapter\#example)
 
 ```
 import { CopilotRuntime, OpenAIAssistantAdapter } from "@copilotkit/runtime";
@@ -7757,7 +7757,7 @@ return new OpenAIAssistantAdapter({
 });
 ```
 
-## [Constructor Parameters](https://docs.copilotkit.ai/reference/classes/llm-adapters/OpenAIAssistantAdapter\#constructor-parameters)
+## [Constructor Parameters](https://docs.copilotkit.ai/reference/v1/classes/llm-adapters/OpenAIAssistantAdapter\#constructor-parameters)
 
 assistantIdstringrequired
 
@@ -7790,15 +7790,15 @@ introduced by one tool call are visible to the next tool call. (i.e. new actions
 
 [Previous\\
 \\
-OpenAIAdapter](https://docs.copilotkit.ai/reference/classes/llm-adapters/OpenAIAdapter) [Next\\
+OpenAIAdapter](https://docs.copilotkit.ai/reference/v1/classes/llm-adapters/OpenAIAdapter) [Next\\
 \\
-AnthropicAdapter](https://docs.copilotkit.ai/reference/classes/llm-adapters/AnthropicAdapter)
+AnthropicAdapter](https://docs.copilotkit.ai/reference/v1/classes/llm-adapters/AnthropicAdapter)
 
 ### On this page
 
-[Example](https://docs.copilotkit.ai/reference/classes/llm-adapters/OpenAIAssistantAdapter#example) [Constructor Parameters](https://docs.copilotkit.ai/reference/classes/llm-adapters/OpenAIAssistantAdapter#constructor-parameters)
+[Example](https://docs.copilotkit.ai/reference/v1/classes/llm-adapters/OpenAIAssistantAdapter#example) [Constructor Parameters](https://docs.copilotkit.ai/reference/v1/classes/llm-adapters/OpenAIAssistantAdapter#constructor-parameters)
 
-[Edit on GitHub](https://github.com/CopilotKit/CopilotKit/blob/main/docs/content/docs/reference/classes/llm-adapters/OpenAIAssistantAdapter.mdx)
+[Edit on GitHub](https://github.com/CopilotKit/CopilotKit/blob/main/docs/content/docs/reference/v1/classes/llm-adapters/OpenAIAssistantAdapter.mdx)
 
 ![](https://static.scarf.sh/a.png?x-pxid=ffc9f65d-0186-4575-b065-61d62ea9d7d3)
 
@@ -7819,7 +7819,7 @@ Copilot Runtime adapter for LangChain.
 
 Copilot Runtime adapter for LangChain.
 
-## [Example](https://docs.copilotkit.ai/reference/classes/llm-adapters/LangChainAdapter\#example)
+## [Example](https://docs.copilotkit.ai/reference/v1/classes/llm-adapters/LangChainAdapter\#example)
 
 ```
 import { CopilotRuntime, LangChainAdapter } from "@copilotkit/runtime";
@@ -7848,7 +7848,7 @@ The asynchronous handler function ( `chainFn`) can return any of the following:
 - A LangChain `BaseMessageChunk` object
 - A LangChain `AIMessage` object
 
-## [Constructor Parameters](https://docs.copilotkit.ai/reference/classes/llm-adapters/LangChainAdapter\#constructor-parameters)
+## [Constructor Parameters](https://docs.copilotkit.ai/reference/v1/classes/llm-adapters/LangChainAdapter\#constructor-parameters)
 
 chainFn(parameters: ChainFnParameters) => Promise<LangChainReturnType>required
 
@@ -7856,15 +7856,15 @@ A function that uses the LangChain API to generate a response.
 
 [Previous\\
 \\
-AnthropicAdapter](https://docs.copilotkit.ai/reference/classes/llm-adapters/AnthropicAdapter) [Next\\
+AnthropicAdapter](https://docs.copilotkit.ai/reference/v1/classes/llm-adapters/AnthropicAdapter) [Next\\
 \\
-GroqAdapter](https://docs.copilotkit.ai/reference/classes/llm-adapters/GroqAdapter)
+GroqAdapter](https://docs.copilotkit.ai/reference/v1/classes/llm-adapters/GroqAdapter)
 
 ### On this page
 
-[Example](https://docs.copilotkit.ai/reference/classes/llm-adapters/LangChainAdapter#example) [Constructor Parameters](https://docs.copilotkit.ai/reference/classes/llm-adapters/LangChainAdapter#constructor-parameters)
+[Example](https://docs.copilotkit.ai/reference/v1/classes/llm-adapters/LangChainAdapter#example) [Constructor Parameters](https://docs.copilotkit.ai/reference/v1/classes/llm-adapters/LangChainAdapter#constructor-parameters)
 
-[Edit on GitHub](https://github.com/CopilotKit/CopilotKit/blob/main/docs/content/docs/reference/classes/llm-adapters/LangChainAdapter.mdx)
+[Edit on GitHub](https://github.com/CopilotKit/CopilotKit/blob/main/docs/content/docs/reference/v1/classes/llm-adapters/LangChainAdapter.mdx)
 
 ![](https://static.scarf.sh/a.png?x-pxid=ffc9f65d-0186-4575-b065-61d62ea9d7d3)
 
@@ -8028,7 +8028,7 @@ Copilot Runtime adapter for Google Generative AI (e.g. Gemini).
 
 Copilot Runtime adapter for Google Generative AI (e.g. Gemini).
 
-## [Example](https://docs.copilotkit.ai/reference/classes/llm-adapters/GoogleGenerativeAIAdapter\#example)
+## [Example](https://docs.copilotkit.ai/reference/v1/classes/llm-adapters/GoogleGenerativeAIAdapter\#example)
 
 ```
 import { CopilotRuntime, GoogleGenerativeAIAdapter } from "@copilotkit/runtime";
@@ -8041,7 +8041,7 @@ const copilotKit = new CopilotRuntime();
 return new GoogleGenerativeAIAdapter({ model: "gemini-1.5-pro" });
 ```
 
-## [Constructor Parameters](https://docs.copilotkit.ai/reference/classes/llm-adapters/GoogleGenerativeAIAdapter\#constructor-parameters)
+## [Constructor Parameters](https://docs.copilotkit.ai/reference/v1/classes/llm-adapters/GoogleGenerativeAIAdapter\#constructor-parameters)
 
 modelstring
 
@@ -8049,15 +8049,15 @@ A custom Google Generative AI model to use.
 
 [Previous\\
 \\
-GroqAdapter](https://docs.copilotkit.ai/reference/classes/llm-adapters/GroqAdapter) [Next\\
+GroqAdapter](https://docs.copilotkit.ai/reference/v1/classes/llm-adapters/GroqAdapter) [Next\\
 \\
-CopilotTask](https://docs.copilotkit.ai/reference/classes/CopilotTask)
+CopilotTask](https://docs.copilotkit.ai/reference/v1/classes/CopilotTask)
 
 ### On this page
 
-[Example](https://docs.copilotkit.ai/reference/classes/llm-adapters/GoogleGenerativeAIAdapter#example) [Constructor Parameters](https://docs.copilotkit.ai/reference/classes/llm-adapters/GoogleGenerativeAIAdapter#constructor-parameters)
+[Example](https://docs.copilotkit.ai/reference/v1/classes/llm-adapters/GoogleGenerativeAIAdapter#example) [Constructor Parameters](https://docs.copilotkit.ai/reference/v1/classes/llm-adapters/GoogleGenerativeAIAdapter#constructor-parameters)
 
-[Edit on GitHub](https://github.com/CopilotKit/CopilotKit/blob/main/docs/content/docs/reference/classes/llm-adapters/GoogleGenerativeAIAdapter.mdx)
+[Edit on GitHub](https://github.com/CopilotKit/CopilotKit/blob/main/docs/content/docs/reference/v1/classes/llm-adapters/GoogleGenerativeAIAdapter.mdx)
 
 ![](https://static.scarf.sh/a.png?x-pxid=ffc9f65d-0186-4575-b065-61d62ea9d7d3)
 
@@ -8565,12 +8565,12 @@ Learn how to embed custom UI components in the chat window.
 
 # [Render custom components in the chat UI](https://docs.copilotkit.ai/guides/generative-ui?ref=hackernoon.com\#render-custom-components-in-the-chat-ui)
 
-When a user interacts with your Copilot, you may want to render a custom UI component. [`useCopilotAction`](https://docs.copilotkit.ai/reference/hooks/useCopilotAction) allows to give the LLM the
+When a user interacts with your Copilot, you may want to render a custom UI component. [`useCopilotAction`](https://docs.copilotkit.ai/reference/v1/hooks/useCopilotAction) allows to give the LLM the
 option to render your custom component through the `render` property.
 
 Render a componentFetch data & renderrenderAndWaitForResponse (HITL)Render stringsCatch all renders
 
-[`useCopilotAction`](https://docs.copilotkit.ai/reference/hooks/useCopilotAction) can be used with a `render` function and without a `handler` to display information or UI elements within the chat.
+[`useCopilotAction`](https://docs.copilotkit.ai/reference/v1/hooks/useCopilotAction) can be used with a `render` function and without a `handler` to display information or UI elements within the chat.
 
 Here's an example to render a calendar meeting.
 
@@ -8636,7 +8636,7 @@ export function YourComponent() {
 After defining the action with a render method, ask the copilot to perform the task. For example, you can now ask the copilot to "show tasks" and see the custom UI component rendered in the chat interface.
 
 You can read more about the `useCopilotAction` hook
-[here](https://docs.copilotkit.ai/reference/hooks/useCopilotAction).
+[here](https://docs.copilotkit.ai/reference/v1/hooks/useCopilotAction).
 
 [Previous\\
 \\
@@ -9744,9 +9744,9 @@ Copilot instance. Use to implement a fully custom UI (headless UI) or to
 programmatically interact with the Copilot instance managed by the default
 UI.
 
-## [Usage](https://docs.copilotkit.ai/reference/hooks/useCopilotChat\#usage)
+## [Usage](https://docs.copilotkit.ai/reference/v1/hooks/useCopilotChat\#usage)
 
-### [Simple Usage](https://docs.copilotkit.ai/reference/hooks/useCopilotChat\#simple-usage)
+### [Simple Usage](https://docs.copilotkit.ai/reference/v1/hooks/useCopilotChat\#simple-usage)
 
 ```
 import { useCopilotChat } from "@copilotkit/react-core";
@@ -9782,7 +9782,7 @@ const {
 } = useCopilotChat();
 ```
 
-## [Parameters](https://docs.copilotkit.ai/reference/hooks/useCopilotChat\#parameters)
+## [Parameters](https://docs.copilotkit.ai/reference/v1/hooks/useCopilotChat\#parameters)
 
 idstring
 
@@ -9804,15 +9804,15 @@ A function to generate the system message. Defaults to `defaultSystemMessage`.
 
 [Previous\\
 \\
-useCopilotAdditionalInstructions](https://docs.copilotkit.ai/reference/hooks/useCopilotAdditionalInstructions) [Next\\
+useCopilotAdditionalInstructions](https://docs.copilotkit.ai/reference/v1/hooks/useCopilotAdditionalInstructions) [Next\\
 \\
-useCopilotChatSuggestions](https://docs.copilotkit.ai/reference/hooks/useCopilotChatSuggestions)
+useCopilotChatSuggestions](https://docs.copilotkit.ai/reference/v1/hooks/useCopilotChatSuggestions)
 
 ### On this page
 
-[Usage](https://docs.copilotkit.ai/reference/hooks/useCopilotChat#usage) [Simple Usage](https://docs.copilotkit.ai/reference/hooks/useCopilotChat#simple-usage) [Parameters](https://docs.copilotkit.ai/reference/hooks/useCopilotChat#parameters)
+[Usage](https://docs.copilotkit.ai/reference/v1/hooks/useCopilotChat#usage) [Simple Usage](https://docs.copilotkit.ai/reference/v1/hooks/useCopilotChat#simple-usage) [Parameters](https://docs.copilotkit.ai/reference/v1/hooks/useCopilotChat#parameters)
 
-[Edit on GitHub](https://github.com/CopilotKit/CopilotKit/blob/main/docs/content/docs/reference/hooks/useCopilotChat.mdx)
+[Edit on GitHub](https://github.com/CopilotKit/CopilotKit/blob/main/docs/content/docs/reference/v1/hooks/useCopilotChat.mdx)
 
 ![](https://static.scarf.sh/a.png?x-pxid=ffc9f65d-0186-4575-b065-61d62ea9d7d3)
 
@@ -10298,15 +10298,15 @@ On this page
 # All Chat Components
 
 [**<CopilotChat />** \\
-The CopilotChat component, providing a chat interface for interacting with your copilot.](https://docs.copilotkit.ai/reference/components/chat/CopilotChat) [**<CopilotPopup />** \\
-The CopilotPopup component, providing a popup interface for interacting with your copilot.](https://docs.copilotkit.ai/reference/components/chat/CopilotPopup) [**<CopilotSidebar />** \\
-The CopilotSidebar component, providing a sidebar interface for interacting with your copilot.](https://docs.copilotkit.ai/reference/components/chat/CopilotSidebar)
+The CopilotChat component, providing a chat interface for interacting with your copilot.](https://docs.copilotkit.ai/reference/v1/components/chat/CopilotChat) [**<CopilotPopup />** \\
+The CopilotPopup component, providing a popup interface for interacting with your copilot.](https://docs.copilotkit.ai/reference/v1/components/chat/CopilotPopup) [**<CopilotSidebar />** \\
+The CopilotSidebar component, providing a sidebar interface for interacting with your copilot.](https://docs.copilotkit.ai/reference/v1/components/chat/CopilotSidebar)
 
 [Previous\\
 \\
 API Reference](https://docs.copilotkit.ai/reference) [Next\\
 \\
-CopilotChat](https://docs.copilotkit.ai/reference/components/chat/CopilotChat)
+CopilotChat](https://docs.copilotkit.ai/reference/v1/components/chat/CopilotChat)
 
 ### On this page
 
@@ -10486,7 +10486,7 @@ def chat_node(state: AgentState, config: RunnableConfig):
 
 ### [Use the `useCoAgent` Hook](https://docs.copilotkit.ai/coagents/shared-state/in-app-agent-read\#use-the-usecoagent-hook)
 
-With your agent connected and running all that is left is to call the [useCoAgent](https://docs.copilotkit.ai/reference/hooks/useCoAgent) hook, pass the agent's name, and
+With your agent connected and running all that is left is to call the [useCoAgent](https://docs.copilotkit.ai/reference/v1/hooks/useCoAgent) hook, pass the agent's name, and
 optionally provide an initial state.
 
 ui/app/page.tsx
@@ -10527,7 +10527,7 @@ language set to "spanish" as that's the initial state we set.
 ## [Rendering agent state in the chat](https://docs.copilotkit.ai/coagents/shared-state/in-app-agent-read\#rendering-agent-state-in-the-chat)
 
 You can also render the agent's state in the chat UI. This is useful for informing the user about the agent's state in a
-more in-context way. To do this, you can use the [useCoAgentStateRender](https://docs.copilotkit.ai/reference/hooks/useCoAgentStateRender) hook.
+more in-context way. To do this, you can use the [useCoAgentStateRender](https://docs.copilotkit.ai/reference/v1/hooks/useCoAgentStateRender) hook.
 
 ui/app/page.tsx
 
@@ -11469,4 +11469,3 @@ Exiting the agent loop](https://docs.copilotkit.ai/coagents/advanced/exit-agent)
 [Edit on GitHub](https://github.com/CopilotKit/CopilotKit/blob/main/docs/content/docs/coagents/advanced/emit-messages.mdx)
 
 ![](https://static.scarf.sh/a.png?x-pxid=ffc9f65d-0186-4575-b065-61d62ea9d7d3)
-

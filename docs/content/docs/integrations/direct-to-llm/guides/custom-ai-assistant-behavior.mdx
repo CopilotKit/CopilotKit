@@ -10,13 +10,13 @@ There are three main ways to customize the behavior of your AI assistant:
 - [Overwriting the default `makeSystemMessage`](#overwriting-the-default-makesystemmessage-not-recommended)
 
 ## Appending to the prompt (Recommended)
-CopilotKit provides the [useCopilotAdditionalInstructions](/reference/hooks/useCopilotAdditionalInstructions) hook which allows you to add content to the prompt with whatever
+CopilotKit provides the [useCopilotAdditionalInstructions](/reference/v1/hooks/useCopilotAdditionalInstructions) hook which allows you to add content to the prompt with whatever
 you want.
 
 ```tsx title="Home.tsx"
 import { CopilotKit, useCopilotAdditionalInstructions } from "@copilotkit/react-core";
 import { CopilotPopup } from "@copilotkit/react-ui"
- 
+
 function Chat() {
   useCopilotAdditionalInstructions({
     instructions: "Do not answer questions about the weather.",
@@ -143,4 +143,3 @@ This approach is **not recommended** as it may interfere with more advanced opti
     ```
   </Tab>
 </Tabs>
-
