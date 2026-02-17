@@ -4,6 +4,7 @@
   "pages": [
     "customize-built-in-ui-components",
     "bring-your-own-components",
+    "reasoning-messages",
     "headless-ui",
     "markdown-rendering"
   ]

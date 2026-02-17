@@ -1,6 +1,6 @@
 {
   "name": "@copilotkitnext/react",
-  "version": "1.51.4",
+  "version": "1.51.5-next.0",
   "description": "React components for CopilotKit2",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -54,8 +54,8 @@
     "vitest": "^3.2.4"
   },
   "dependencies": {
-    "@ag-ui/client": "0.0.42",
-    "@ag-ui/core": "0.0.42",
+    "@ag-ui/client": "0.0.45",
+    "@ag-ui/core": "0.0.45",
     "@copilotkitnext/core": "workspace:*",
     "@copilotkitnext/shared": "workspace:*",
     "@copilotkitnext/web-inspector": "workspace:*",

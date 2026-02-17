@@ -1,6 +1,6 @@
 {
   "name": "@copilotkitnext/angular",
-  "version": "1.51.4",
+  "version": "1.51.5-next.0",
   "description": "Angular library for CopilotKit",
   "main": "dist/fesm2022/copilotkitnext-angular.mjs",
   "module": "dist/fesm2022/copilotkitnext-angular.mjs",
@@ -29,8 +29,8 @@
     "test:watch": "vitest --watch"
   },
   "dependencies": {
-    "@ag-ui/client": "0.0.42",
-    "@ag-ui/core": "0.0.42",
+    "@ag-ui/client": "0.0.45",
+    "@ag-ui/core": "0.0.45",
     "@copilotkitnext/core": "workspace:*",
     "@copilotkitnext/shared": "workspace:*",
     "clsx": "^2.1.1",

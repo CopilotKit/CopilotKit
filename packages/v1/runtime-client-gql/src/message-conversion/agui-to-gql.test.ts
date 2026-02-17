@@ -1292,4 +1292,74 @@ describe("agui-to-gql", () => {
       expect((result[0] as any).actionName).toBe("booleanAction");
     });
   });
+
+  describe("Reasoning Messages", () => {
+    test("should silently skip reasoning messages in aguiToGQL", () => {
+      const aguiMessages: agui.Message[] = [
+        { id: "user-1", role: "user", content: "Hello" },
+        {
+          id: "reasoning-1",
+          role: "reasoning",
+          content: "thinking about this",
+        } as agui.Message,
+        { id: "assistant-1", role: "assistant", content: "Hi there" },
+      ];
+
+      const result = aguiToGQL(aguiMessages);
+
+      // Only user and assistant messages should be converted; reasoning is skipped
+      expect(result).toHaveLength(2);
+      expect(result[0]).toBeInstanceOf(gql.TextMessage);
+      expect(result[0].id).toBe("user-1");
+      expect(result[1]).toBeInstanceOf(gql.TextMessage);
+      expect(result[1].id).toBe("assistant-1");
+    });
+
+    test("should handle conversation with reasoning messages interleaved", () => {
+      const aguiMessages: agui.Message[] = [
+        { id: "user-1", role: "user", content: "What is 2+2?" },
+        {
+          id: "reasoning-1",
+          role: "reasoning",
+          content: "Let me calculate...",
+        } as agui.Message,
+        { id: "assistant-1", role: "assistant", content: "The answer is 4." },
+        {
+          id: "reasoning-2",
+          role: "reasoning",
+          content: "User might ask follow-up",
+        } as agui.Message,
+        { id: "user-2", role: "user", content: "And 3+3?" },
+        {
+          id: "reasoning-3",
+          role: "reasoning",
+          content: "Another calculation",
+        } as agui.Message,
+        { id: "assistant-2", role: "assistant", content: "That's 6." },
+      ];
+
+      const result = aguiToGQL(aguiMessages);
+
+      // 4 non-reasoning messages: user-1, assistant-1, user-2, assistant-2
+      expect(result).toHaveLength(4);
+      expect(result.map((m) => m.id)).toEqual([
+        "user-1",
+        "assistant-1",
+        "user-2",
+        "assistant-2",
+      ]);
+    });
+
+    test("should handle a single reasoning message without throwing", () => {
+      const aguiMessage: agui.Message = {
+        id: "reasoning-only",
+        role: "reasoning",
+        content: "just thinking",
+      } as agui.Message;
+
+      const result = aguiToGQL(aguiMessage);
+
+      expect(result).toHaveLength(0);
+    });
+  });
 });
