@@ -49,10 +49,10 @@ import { createCopilotEndpointExpress } from "@copilotkitnext/runtime/express";
 const runtime = new CopilotRuntime({
   agents: {
     // Each key is the agent ID
-    default: generalAgent,      // Fallback agent
-    research: researchAgent,    // Specialist for research
-    coding: codingAgent,        // Specialist for code
-    writing: writingAgent,      // Specialist for content
+    default: generalAgent, // Fallback agent
+    research: researchAgent, // Specialist for research
+    coding: codingAgent, // Specialist for code
+    writing: writingAgent, // Specialist for content
   },
 });
 
@@ -61,12 +61,12 @@ app.use("/api/copilotkit", createCopilotEndpointExpress({ runtime }));
 
 The runtime exposes each agent at its own endpoint:
 
-| Agent ID | Run Endpoint |
-|---|---|
-| `default` | `POST /agent/default/run` |
+| Agent ID   | Run Endpoint               |
+| ---------- | -------------------------- |
+| `default`  | `POST /agent/default/run`  |
 | `research` | `POST /agent/research/run` |
-| `coding` | `POST /agent/coding/run` |
-| `writing` | `POST /agent/writing/run` |
+| `coding`   | `POST /agent/coding/run`   |
+| `writing`  | `POST /agent/writing/run`  |
 
 ```mermaid
 graph LR
@@ -140,7 +140,9 @@ function App() {
 ### Angular
 
 ```typescript
-@Component({ /* ... */ })
+@Component({
+  /* ... */
+})
 export class MultiAgentComponent {
   private copilotKit = inject(CopilotKit);
 
@@ -168,13 +170,13 @@ When you don't specify an `agentId`, CopilotKit uses `"default"`:
 
 ```typescript
 // These are equivalent:
-useAgent()                        // Uses "default"
-useAgent({ agentId: "default" }) // Explicit
+useAgent(); // Uses "default"
+useAgent({ agentId: "default" }); // Explicit
 
 // Your backend must have a "default" agent:
 const runtime = new CopilotRuntime({
   agents: {
-    default: myAgent,  // This is required if any component omits agentId
+    default: myAgent, // This is required if any component omits agentId
   },
 });
 ```
@@ -266,7 +268,10 @@ Context is shared across all agents by default:
 function App() {
   // Both research and coding agents can see this
   useAgentContext("Current user", { name: "Alice", role: "developer" });
-  useAgentContext("Current project", { name: "my-app", language: "TypeScript" });
+  useAgentContext("Current project", {
+    name: "my-app",
+    language: "TypeScript",
+  });
 
   return (
     <>
@@ -324,6 +329,7 @@ graph LR
 ```
 
 Each thread maintains its own:
+
 - Message history
 - Agent state
 - Running status
@@ -346,7 +352,8 @@ const agents = {
   }),
   research: new BuiltInAgent({
     model: "openai/gpt-4o",
-    systemPrompt: "You are a research specialist. Search for papers and summarize findings.",
+    systemPrompt:
+      "You are a research specialist. Search for papers and summarize findings.",
   }),
   coding: new BuiltInAgent({
     model: "openai/gpt-4o",
@@ -361,7 +368,13 @@ app.use("/api/copilotkit", createCopilotEndpointExpress({ runtime }));
 ### Frontend (React)
 
 ```tsx
-import { CopilotKitProvider, CopilotChat, useAgent, useFrontendTool, useAgentContext } from "@copilotkitnext/react";
+import {
+  CopilotKitProvider,
+  CopilotChat,
+  useAgent,
+  useFrontendTool,
+  useAgentContext,
+} from "@copilotkitnext/react";
 import { z } from "zod";
 
 export default function App() {

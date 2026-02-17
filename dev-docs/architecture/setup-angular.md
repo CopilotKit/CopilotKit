@@ -135,11 +135,11 @@ export class ChatComponent {
 
 ### AgentStore Signals
 
-| Signal | Type | What it tracks |
-|---|---|---|
-| `messages()` | `Message[]` | All messages in the conversation |
-| `isRunning()` | `boolean` | Whether the agent is currently running |
-| `state()` | `any` | Agent state (arbitrary JSON) |
+| Signal        | Type        | What it tracks                         |
+| ------------- | ----------- | -------------------------------------- |
+| `messages()`  | `Message[]` | All messages in the conversation       |
+| `isRunning()` | `boolean`   | Whether the agent is currently running |
+| `state()`     | `any`       | Agent state (arbitrary JSON)           |
 
 ```mermaid
 graph TB
@@ -172,7 +172,9 @@ graph TB
 import { CopilotKit } from "@copilotkitnext/angular";
 import { z } from "zod";
 
-@Component({ /* ... */ })
+@Component({
+  /* ... */
+})
 export class ProductComponent implements OnInit, OnDestroy {
   private copilotKit = inject(CopilotKit);
 
@@ -204,7 +206,9 @@ export class ProductComponent implements OnInit, OnDestroy {
 ## Providing Context
 
 ```typescript
-@Component({ /* ... */ })
+@Component({
+  /* ... */
+})
 export class DashboardComponent implements OnInit, OnDestroy {
   private copilotKit = inject(CopilotKit);
   private contextId?: string;
@@ -245,7 +249,7 @@ provideCopilotKit({
       // The Angular component receives the AngularToolCall
     },
   ],
-})
+});
 ```
 
 ### AngularToolCall Status Flow
@@ -258,12 +262,12 @@ graph LR
     IP --> EX --> CO
 ```
 
-| Field | Type | Description |
-|---|---|---|
-| `status` | `"in-progress" \| "executing" \| "complete"` | Current lifecycle stage |
-| `name` | `string` | Tool name |
-| `args` | `Partial<T>` or `T` | Tool arguments (partial while streaming) |
-| `result` | `string \| undefined` | Result (only when complete) |
+| Field    | Type                                         | Description                              |
+| -------- | -------------------------------------------- | ---------------------------------------- |
+| `status` | `"in-progress" \| "executing" \| "complete"` | Current lifecycle stage                  |
+| `name`   | `string`                                     | Tool name                                |
+| `args`   | `Partial<T>` or `T`                          | Tool arguments (partial while streaming) |
+| `result` | `string \| undefined`                        | Result (only when complete)              |
 
 ---
 
@@ -296,13 +300,19 @@ provideCopilotKit({
   ],
 
   // Tool call rendering
-  renderToolCalls: [/* ... */],
+  renderToolCalls: [
+    /* ... */
+  ],
 
   // Frontend tools
-  frontendTools: [/* ... */],
+  frontendTools: [
+    /* ... */
+  ],
 
   // Human-in-the-loop
-  humanInTheLoop: [/* ... */],
+  humanInTheLoop: [
+    /* ... */
+  ],
 });
 ```
 
@@ -436,11 +446,11 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
 ## Key Differences from React
 
-| Aspect | React | Angular |
-|---|---|---|
-| Configuration | `<CopilotKitProvider>` JSX | `provideCopilotKit()` DI token |
-| Service access | `useCopilotKit()` hook | `inject(CopilotKit)` |
-| Agent state | `useAgent()` hook returns reactive values | `AgentStore` with Angular signals |
-| Tool registration | `useFrontendTool()` hook (auto-cleanup) | `addTool()` / `removeTool()` (manual cleanup) |
-| Context | `useAgentContext()` hook (auto-cleanup) | `addContext()` / `removeContext()` (manual cleanup) |
-| Reactivity | React re-renders on state change | Angular signals trigger change detection |
+| Aspect            | React                                     | Angular                                             |
+| ----------------- | ----------------------------------------- | --------------------------------------------------- |
+| Configuration     | `<CopilotKitProvider>` JSX                | `provideCopilotKit()` DI token                      |
+| Service access    | `useCopilotKit()` hook                    | `inject(CopilotKit)`                                |
+| Agent state       | `useAgent()` hook returns reactive values | `AgentStore` with Angular signals                   |
+| Tool registration | `useFrontendTool()` hook (auto-cleanup)   | `addTool()` / `removeTool()` (manual cleanup)       |
+| Context           | `useAgentContext()` hook (auto-cleanup)   | `addContext()` / `removeContext()` (manual cleanup) |
+| Reactivity        | React re-renders on state change          | Angular signals trigger change detection            |

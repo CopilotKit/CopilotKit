@@ -75,13 +75,13 @@ app.listen(3000);
 
 That's it. The endpoint handler creates these routes automatically:
 
-| Route | Method | What it does |
-|---|---|---|
-| `/api/copilotkit/info` | GET | Returns list of available agents |
-| `/api/copilotkit/agent/:agentId/run` | POST | Run an agent (returns SSE stream) |
-| `/api/copilotkit/agent/:agentId/connect` | POST | Connect/reconnect to a thread |
-| `/api/copilotkit/agent/:agentId/stop/:threadId` | POST | Stop a running agent |
-| `/api/copilotkit/transcribe` | POST | Audio transcription (if configured) |
+| Route                                           | Method | What it does                        |
+| ----------------------------------------------- | ------ | ----------------------------------- |
+| `/api/copilotkit/info`                          | GET    | Returns list of available agents    |
+| `/api/copilotkit/agent/:agentId/run`            | POST   | Run an agent (returns SSE stream)   |
+| `/api/copilotkit/agent/:agentId/connect`        | POST   | Connect/reconnect to a thread       |
+| `/api/copilotkit/agent/:agentId/stop/:threadId` | POST   | Stop a running agent                |
+| `/api/copilotkit/transcribe`                    | POST   | Audio transcription (if configured) |
 
 ```mermaid
 sequenceDiagram
@@ -372,11 +372,14 @@ class OpenAITranscription extends TranscriptionService {
     formData.append("file", audioFile);
     formData.append("model", "whisper-1");
 
-    const response = await fetch("https://api.openai.com/v1/audio/transcriptions", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${process.env.OPENAI_API_KEY}` },
-      body: formData,
-    });
+    const response = await fetch(
+      "https://api.openai.com/v1/audio/transcriptions",
+      {
+        method: "POST",
+        headers: { Authorization: `Bearer ${process.env.OPENAI_API_KEY}` },
+        body: formData,
+      },
+    );
 
     const result = await response.json();
     return result.text;

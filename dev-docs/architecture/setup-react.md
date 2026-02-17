@@ -279,25 +279,40 @@ function App() {
 <CopilotKitProvider
   // Required
   runtimeUrl="/api/copilotkit"
-
   // Authentication
   headers={{ Authorization: "Bearer token" }}
-  credentials="include"                         // Forward cookies
-  publicApiKey="ck_..."                         // CopilotKit Cloud key
-
+  credentials="include" // Forward cookies
+  publicApiKey="ck_..." // CopilotKit Cloud key
   // Custom properties forwarded to agents
   properties={{ userId: "123", plan: "pro" }}
-
   // Tools & rendering (can also use hooks instead)
-  frontendTools={[/* ... */]}
-  renderToolCalls={[/* ... */]}
-  renderActivityMessages={[/* ... */]}
-  renderCustomMessages={[/* ... */]}
-  humanInTheLoop={[/* ... */]}
-
+  frontendTools={
+    [
+      /* ... */
+    ]
+  }
+  renderToolCalls={
+    [
+      /* ... */
+    ]
+  }
+  renderActivityMessages={
+    [
+      /* ... */
+    ]
+  }
+  renderCustomMessages={
+    [
+      /* ... */
+    ]
+  }
+  humanInTheLoop={
+    [
+      /* ... */
+    ]
+  }
   // Dev tools
-  showDevConsole="auto"                         // true | false | "auto"
-
+  showDevConsole="auto" // true | false | "auto"
   // Advanced: local agents for development
   agents__unsafe_dev_only={{ test: myTestAgent }}
 />
@@ -340,21 +355,21 @@ graph TB
 
 ```tsx
 import {
-  CopilotChat,     // Inline chat, fills its container
-  CopilotPopup,    // Floating popup button + chat
-  CopilotSidebar,  // Side panel
-  CopilotPanel,    // Inline panel
+  CopilotChat, // Inline chat, fills its container
+  CopilotPopup, // Floating popup button + chat
+  CopilotSidebar, // Side panel
+  CopilotPanel, // Inline panel
 } from "@copilotkit/react-ui";
 
 // All accept the same core props:
 <CopilotChat
-  agentId="research"          // Which agent to talk to (default: "default")
+  agentId="research" // Which agent to talk to (default: "default")
   labels={{
     title: "Research Assistant",
     initial: "What would you like to research?",
     placeholder: "Ask me anything...",
   }}
-/>
+/>;
 ```
 
 ---
@@ -386,7 +401,7 @@ function ProductCatalog() {
 
   // Context: tell the agent what the user sees
   useAgentContext("Product catalog the user is browsing", {
-    products: products.map(p => ({ id: p.id, name: p.name, price: p.price })),
+    products: products.map((p) => ({ id: p.id, name: p.name, price: p.price })),
     cartTotal: cart.total,
     cartItems: cart.items.length,
   });
@@ -400,7 +415,7 @@ function ProductCatalog() {
       quantity: z.number().default(1),
     }),
     handler: async ({ productId, quantity }) => {
-      setCart(prev => addItem(prev, productId, quantity));
+      setCart((prev) => addItem(prev, productId, quantity));
       return "Added to cart";
     },
   });
@@ -411,16 +426,19 @@ function ProductCatalog() {
     description: "Search for products by name or category",
     parameters: z.object({ query: z.string() }),
     handler: async ({ query }) => {
-      const results = products.filter(p =>
-        p.name.toLowerCase().includes(query.toLowerCase())
+      const results = products.filter((p) =>
+        p.name.toLowerCase().includes(query.toLowerCase()),
       );
-      return JSON.stringify(results.map(p => ({ id: p.id, name: p.name, price: p.price })));
+      return JSON.stringify(
+        results.map((p) => ({ id: p.id, name: p.name, price: p.price })),
+      );
     },
   });
 
   // Suggestions
   useConfigureSuggestions({
-    instructions: "Suggest shopping-related questions based on the product catalog",
+    instructions:
+      "Suggest shopping-related questions based on the product catalog",
     maxSuggestions: 3,
     available: "always",
   });

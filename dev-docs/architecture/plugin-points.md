@@ -40,6 +40,7 @@ graph TB
 **What:** Functions in your app that agents can call during a conversation.
 
 **Where configured:**
+
 - React: `useFrontendTool()` hook or `frontendTools` provider prop
 - Angular: `copilotKit.addTool()` or `tools` in config
 - Vanilla: `copilotKit.addTool()`
@@ -53,8 +54,8 @@ type FrontendTool<T> = {
   description?: string;
   parameters?: z.ZodType<T>;
   handler?: (args: T, context: FrontendToolHandlerContext) => Promise<unknown>;
-  followUp?: boolean;    // Re-run agent after tool completes
-  agentId?: string;      // Scope to specific agent
+  followUp?: boolean; // Re-run agent after tool completes
+  agentId?: string; // Scope to specific agent
 };
 ```
 
@@ -81,6 +82,7 @@ sequenceDiagram
 **What:** JSON data that gets sent to agents as context (like "the user is on the settings page").
 
 **Where configured:**
+
 - React: `useAgentContext()` hook
 - Angular / Vanilla: `copilotKit.addContext()` / `removeContext()`
 
@@ -88,8 +90,8 @@ sequenceDiagram
 
 ```typescript
 type AgentContextInput = {
-  description: string;         // Human-readable label
-  value: JsonSerializable;     // Any JSON value
+  description: string; // Human-readable label
+  value: JsonSerializable; // Any JSON value
 };
 ```
 
@@ -100,6 +102,7 @@ type AgentContextInput = {
 **What:** Custom React components that render while a tool is being called — showing progress, args, and results.
 
 **Where configured:**
+
 - React: `useRenderToolCall()` hook or `renderToolCalls` provider prop
 - Angular: `renderToolCalls` in config
 
@@ -107,13 +110,13 @@ type AgentContextInput = {
 
 ```typescript
 type ReactToolCallRenderer<T> = {
-  name: string;                // Tool name to render
-  args: z.ZodSchema<T>;       // Schema for type-safe args
-  agentId?: string;            // Scope to specific agent
+  name: string; // Tool name to render
+  args: z.ZodSchema<T>; // Schema for type-safe args
+  agentId?: string; // Scope to specific agent
   render: React.ComponentType<
     | { status: "in-progress"; args: Partial<T>; result: undefined }
-    | { status: "executing";   args: T;          result: undefined }
-    | { status: "complete";    args: T;          result: string }
+    | { status: "executing"; args: T; result: undefined }
+    | { status: "complete"; args: T; result: string }
   >;
 };
 ```
@@ -133,6 +136,7 @@ graph LR
 **What:** Tools that pause and wait for user input before continuing. The user sees a custom UI with approve/deny buttons.
 
 **Where configured:**
+
 - React: `useHumanInTheLoop()` hook or `humanInTheLoop` provider prop
 - Angular: `humanInTheLoop` in config
 
@@ -143,7 +147,7 @@ type ReactHumanInTheLoop<T> = Omit<FrontendTool<T>, "handler"> & {
   render: React.ComponentType<{
     args: T;
     status: "in-progress" | "executing" | "complete";
-    respond: (result: unknown) => Promise<void>;  // Call this to approve/deny
+    respond: (result: unknown) => Promise<void>; // Call this to approve/deny
   }>;
 };
 ```
@@ -171,13 +175,14 @@ sequenceDiagram
 **What:** Custom UI for structured activity messages (non-chat messages like progress indicators or MCP app outputs).
 
 **Where configured:**
+
 - React: `useRenderActivityMessage()` hook or `renderActivityMessages` provider prop
 
 **Default when not provided:** Built-in MCP Apps renderer is included. Other activity types show generic display.
 
 ```typescript
 type ReactActivityMessageRenderer<T> = {
-  activityType: string;              // Use "*" for wildcard
+  activityType: string; // Use "*" for wildcard
   agentId?: string;
   content: z.ZodSchema<T>;
   render: React.ComponentType<{
@@ -196,6 +201,7 @@ type ReactActivityMessageRenderer<T> = {
 **What:** Inject custom UI before or after specific messages (e.g., add a "copy" button, show state snapshots).
 
 **Where configured:**
+
 - React: `useRenderCustomMessages()` hook or `renderCustomMessages` provider prop
 
 **Default when not provided:** No custom rendering — standard message display.
@@ -221,6 +227,7 @@ type ReactCustomMessageRenderer = {
 **What:** Configure AI-generated or static prompt suggestions shown to users.
 
 **Where configured:**
+
 - React: `useConfigureSuggestions()` hook
 - Core: `suggestionsConfig` in config
 
@@ -229,12 +236,12 @@ type ReactCustomMessageRenderer = {
 ```typescript
 // AI-generated suggestions
 type DynamicSuggestionsConfig = {
-  instructions: string;           // What to suggest
-  minSuggestions?: number;        // Default: 1
-  maxSuggestions?: number;        // Default: 3
+  instructions: string; // What to suggest
+  minSuggestions?: number; // Default: 1
+  maxSuggestions?: number; // Default: 3
   available?: SuggestionAvailability; // When to show
-  providerAgentId?: string;       // Which agent generates them
-  consumerAgentId?: string;       // Which agent receives them ("*" = all)
+  providerAgentId?: string; // Which agent generates them
+  consumerAgentId?: string; // Which agent receives them ("*" = all)
 };
 
 // Static suggestions
@@ -245,8 +252,8 @@ type StaticSuggestionsConfig = {
 };
 
 type SuggestionAvailability =
-  | "before-first-message"  // Default for static
-  | "after-first-message"   // Default for dynamic
+  | "before-first-message" // Default for static
+  | "after-first-message" // Default for dynamic
   | "always"
   | "disabled";
 ```
@@ -276,6 +283,7 @@ graph TB
 **What:** Listen to lifecycle events — connection status, tool execution, agent changes, errors.
 
 **Where configured:**
+
 - Any: `copilotKit.subscribe(subscriber)`
 - Returns: `{ unsubscribe() }` for cleanup
 
@@ -368,11 +376,11 @@ abstract class AgentRunner {
 }
 ```
 
-| Implementation | Storage | Persistence | Use case |
-|---|---|---|---|
-| `InMemoryAgentRunner` | RAM | No | Development, stateless apps |
-| `SQLiteAgentRunner` | Disk | Yes | Production, long-running threads |
-| Custom | Your choice | Your choice | Redis, PostgreSQL, etc. |
+| Implementation        | Storage     | Persistence | Use case                         |
+| --------------------- | ----------- | ----------- | -------------------------------- |
+| `InMemoryAgentRunner` | RAM         | No          | Development, stateless apps      |
+| `SQLiteAgentRunner`   | Disk        | Yes         | Production, long-running threads |
+| Custom                | Your choice | Your choice | Redis, PostgreSQL, etc.          |
 
 ```mermaid
 graph TB
@@ -428,7 +436,7 @@ abstract class TranscriptionService {
 abstract class Middleware {
   abstract run(
     input: RunAgentInput,
-    next: AbstractAgent
+    next: AbstractAgent,
   ): Observable<BaseEvent>;
 }
 
@@ -496,18 +504,18 @@ graph TB
 
 ## Summary Table
 
-| Extension Point | Location | Config Method | Default | Optional |
-|---|---|---|---|---|
-| **Frontend Tools** | Frontend | Hook / Provider / `addTool()` | None | Yes |
-| **Agent Context** | Frontend | Hook / `addContext()` | None | Yes |
-| **Tool Call Renderers** | Frontend | Hook / Provider | Generic rendering | Yes |
-| **Human-in-the-Loop** | Frontend | Hook / Provider | Immediate execution | Yes |
-| **Activity Renderers** | Frontend | Hook / Provider | MCP Apps included | Yes |
-| **Custom Message Renderers** | Frontend | Hook / Provider | None | Yes |
-| **Suggestions Config** | Frontend | Hook / Config | None | Yes |
-| **Event Subscribers** | Frontend | `subscribe()` | None | Yes |
-| **Before Middleware** | Backend | Runtime constructor | Pass-through | Yes |
-| **After Middleware** | Backend | Runtime constructor | None | Yes |
-| **Agent Runner** | Backend | Runtime constructor | InMemoryAgentRunner | Yes |
-| **Transcription Service** | Backend | Runtime constructor | None (404) | Yes |
-| **AG-UI Middleware** | Agent | Agent-level config | Direct execution | Yes |
+| Extension Point              | Location | Config Method                 | Default             | Optional |
+| ---------------------------- | -------- | ----------------------------- | ------------------- | -------- |
+| **Frontend Tools**           | Frontend | Hook / Provider / `addTool()` | None                | Yes      |
+| **Agent Context**            | Frontend | Hook / `addContext()`         | None                | Yes      |
+| **Tool Call Renderers**      | Frontend | Hook / Provider               | Generic rendering   | Yes      |
+| **Human-in-the-Loop**        | Frontend | Hook / Provider               | Immediate execution | Yes      |
+| **Activity Renderers**       | Frontend | Hook / Provider               | MCP Apps included   | Yes      |
+| **Custom Message Renderers** | Frontend | Hook / Provider               | None                | Yes      |
+| **Suggestions Config**       | Frontend | Hook / Config                 | None                | Yes      |
+| **Event Subscribers**        | Frontend | `subscribe()`                 | None                | Yes      |
+| **Before Middleware**        | Backend  | Runtime constructor           | Pass-through        | Yes      |
+| **After Middleware**         | Backend  | Runtime constructor           | None                | Yes      |
+| **Agent Runner**             | Backend  | Runtime constructor           | InMemoryAgentRunner | Yes      |
+| **Transcription Service**    | Backend  | Runtime constructor           | None (404)          | Yes      |
+| **AG-UI Middleware**         | Agent    | Agent-level config            | Direct execution    | Yes      |
