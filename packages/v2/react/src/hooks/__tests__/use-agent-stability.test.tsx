@@ -162,13 +162,14 @@ describe("useAgent stability during runtime connection", () => {
     // Phase 5: agents notification (separate re-render in real app)
     rerender(<AgentTracker />);
 
-    // The provisional is kept and updated in-place — same reference throughout.
-    // This means CopilotChat's connect effect fires exactly once (on mount).
-    expect(agentInstances.length).toBe(1);
-    // ThreadId is stable across all phases
+    // At most 2 instances: 1 provisional (Disconnected/Connecting) + 1 registered (Connected).
+    // The provisional is stable across all pre-connection renders, then replaced by the
+    // registered agent once — so CopilotChat's connect effect fires at most twice.
+    expect(agentInstances.length).toBe(2);
+    // First instance was the provisional
     expect(agentInstances[0]!.threadId).toBe(provisionalThreadId);
-    // Description was synced from the registered agent
-    expect(agentInstances[0]!.description).toBe("Agent from /info");
+    // Second instance is the registered agent
+    expect(agentInstances[1]).toBe(registeredAgent);
   });
 
   it("should return local dev agents directly without a provisional", () => {

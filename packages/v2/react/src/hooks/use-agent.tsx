@@ -34,9 +34,7 @@ export interface UseAgentProps {
  * reference on every status/header change and firing duplicate connect requests.
  *
  * When the runtime finishes connecting and a registered agent becomes available,
- * the provisional's metadata is updated in-place rather than switching to the
- * registered instance. This keeps the agent reference fully stable for the
- * entire lifecycle, resulting in exactly one connect call.
+ * the provisional is cleared from cache and the registered agent is returned.
  */
 function resolveAgent(
   copilotkit: CopilotKitCoreReact,
@@ -48,19 +46,8 @@ function resolveAgent(
   const existing = copilotkit.getAgent(agentId);
 
   if (existing) {
-    const provisional = provisionalCache.get(agentId);
-    if (provisional) {
-      // A provisional was created while the runtime was connecting.
-      // Update it with metadata from the registered agent so consumers
-      // keep a stable reference — this avoids a second connect call.
-      provisional.description = existing.description;
-      if (existing instanceof ProxiedCopilotRuntimeAgent) {
-        provisional.credentials = existing.credentials;
-      }
-      provisional.headers = { ...copilotkit.headers };
-      return provisional;
-    }
-    // No provisional was created (e.g., local dev agent found immediately)
+    // Clean up any provisional that was used during connecting phase
+    provisionalCache.delete(agentId);
     return existing;
   }
 
