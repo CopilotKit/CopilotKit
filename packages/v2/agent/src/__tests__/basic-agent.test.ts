@@ -13,6 +13,9 @@ import {
   toolCallDelta,
   toolCall,
   toolResult,
+  reasoningStart,
+  reasoningDelta,
+  reasoningEnd,
 } from "./test-helpers";
 
 // Mock the ai module
@@ -816,6 +819,430 @@ describe("BasicAgent", () => {
         // Note: The error is thrown after emitting the event
         expect(error.message).toContain("Test error");
       }
+    });
+  });
+
+  describe("Reasoning Event Emission", () => {
+    it("should emit full reasoning lifecycle events", async () => {
+      const agent = new BasicAgent({
+        model: "openai/gpt-4o",
+      });
+
+      vi.mocked(streamText).mockReturnValue(
+        mockStreamTextResponse([
+          reasoningStart(),
+          reasoningDelta("Let me think..."),
+          reasoningDelta(" about this."),
+          reasoningEnd(),
+          finish(),
+        ]) as any,
+      );
+
+      const input: RunAgentInput = {
+        threadId: "thread1",
+        runId: "run1",
+        messages: [],
+        tools: [],
+        context: [],
+        state: {},
+      };
+
+      const events = await collectEvents(agent["run"](input));
+
+      // Verify event order
+      const eventTypes = events.map((e: any) => e.type);
+      expect(eventTypes[0]).toBe(EventType.RUN_STARTED);
+
+      const reasoningStartIdx = eventTypes.indexOf(EventType.REASONING_START);
+      const reasoningMsgStartIdx = eventTypes.indexOf(
+        EventType.REASONING_MESSAGE_START,
+      );
+      const reasoningContentIndices = eventTypes.reduce(
+        (acc: number[], type: string, idx: number) =>
+          type === EventType.REASONING_MESSAGE_CONTENT ? [...acc, idx] : acc,
+        [],
+      );
+      const reasoningMsgEndIdx = eventTypes.indexOf(
+        EventType.REASONING_MESSAGE_END,
+      );
+      const reasoningEndIdx = eventTypes.indexOf(EventType.REASONING_END);
+
+      expect(reasoningStartIdx).toBeGreaterThan(0);
+      expect(reasoningMsgStartIdx).toBeGreaterThan(reasoningStartIdx);
+      expect(reasoningContentIndices).toHaveLength(2);
+      expect(reasoningContentIndices[0]).toBeGreaterThan(reasoningMsgStartIdx);
+      expect(reasoningMsgEndIdx).toBeGreaterThan(
+        reasoningContentIndices[reasoningContentIndices.length - 1],
+      );
+      expect(reasoningEndIdx).toBeGreaterThan(reasoningMsgEndIdx);
+
+      // Verify consistent messageId across all reasoning events
+      const reasoningEvents = events.filter((e: any) =>
+        [
+          EventType.REASONING_START,
+          EventType.REASONING_MESSAGE_START,
+          EventType.REASONING_MESSAGE_CONTENT,
+          EventType.REASONING_MESSAGE_END,
+          EventType.REASONING_END,
+        ].includes(e.type),
+      );
+      const messageIds = reasoningEvents.map((e: any) => e.messageId);
+      expect(new Set(messageIds).size).toBe(1);
+
+      // Verify REASONING_MESSAGE_START has role "reasoning"
+      const msgStartEvent = events.find(
+        (e: any) => e.type === EventType.REASONING_MESSAGE_START,
+      );
+      expect(msgStartEvent).toMatchObject({ role: "reasoning" });
+
+      // Verify content deltas
+      const contentEvents = events.filter(
+        (e: any) => e.type === EventType.REASONING_MESSAGE_CONTENT,
+      );
+      expect(contentEvents[0]).toMatchObject({ delta: "Let me think..." });
+      expect(contentEvents[1]).toMatchObject({ delta: " about this." });
+
+      // Verify last event is RUN_FINISHED
+      expect(eventTypes[eventTypes.length - 1]).toBe(EventType.RUN_FINISHED);
+    });
+
+    it("should emit reasoning events followed by text events", async () => {
+      const agent = new BasicAgent({
+        model: "openai/gpt-4o",
+      });
+
+      vi.mocked(streamText).mockReturnValue(
+        mockStreamTextResponse([
+          reasoningStart(),
+          reasoningDelta("thinking"),
+          reasoningEnd(),
+          textDelta("Hello"),
+          finish(),
+        ]) as any,
+      );
+
+      const input: RunAgentInput = {
+        threadId: "thread1",
+        runId: "run1",
+        messages: [],
+        tools: [],
+        context: [],
+        state: {},
+      };
+
+      const events = await collectEvents(agent["run"](input));
+      const eventTypes = events.map((e: any) => e.type);
+
+      // Reasoning events should come before text events
+      const reasoningEndIdx = eventTypes.indexOf(EventType.REASONING_END);
+      const textChunkIdx = eventTypes.indexOf(EventType.TEXT_MESSAGE_CHUNK);
+      expect(reasoningEndIdx).toBeLessThan(textChunkIdx);
+
+      // Reasoning messageId should differ from text messageId
+      const reasoningEvent = events.find(
+        (e: any) => e.type === EventType.REASONING_START,
+      );
+      const textEvent = events.find(
+        (e: any) => e.type === EventType.TEXT_MESSAGE_CHUNK,
+      );
+      expect(reasoningEvent.messageId).not.toBe(textEvent.messageId);
+    });
+
+    it("should use provider-supplied reasoning id", async () => {
+      const agent = new BasicAgent({
+        model: "openai/gpt-4o",
+      });
+
+      vi.mocked(streamText).mockReturnValue(
+        mockStreamTextResponse([
+          reasoningStart("reasoning-msg-123"),
+          reasoningDelta("content"),
+          reasoningEnd(),
+          finish(),
+        ]) as any,
+      );
+
+      const input: RunAgentInput = {
+        threadId: "thread1",
+        runId: "run1",
+        messages: [],
+        tools: [],
+        context: [],
+        state: {},
+      };
+
+      const events = await collectEvents(agent["run"](input));
+
+      const reasoningEvents = events.filter((e: any) =>
+        [
+          EventType.REASONING_START,
+          EventType.REASONING_MESSAGE_START,
+          EventType.REASONING_MESSAGE_CONTENT,
+          EventType.REASONING_MESSAGE_END,
+          EventType.REASONING_END,
+        ].includes(e.type),
+      );
+
+      for (const event of reasoningEvents) {
+        expect(event.messageId).toBe("reasoning-msg-123");
+      }
+    });
+
+    it("should generate unique reasoningMessageId when provider returns id '0'", async () => {
+      const agent = new BasicAgent({
+        model: "openai/gpt-4o",
+      });
+
+      vi.mocked(streamText).mockReturnValue(
+        mockStreamTextResponse([
+          reasoningStart("0"),
+          reasoningDelta("content"),
+          reasoningEnd(),
+          finish(),
+        ]) as any,
+      );
+
+      const input: RunAgentInput = {
+        threadId: "thread1",
+        runId: "run1",
+        messages: [],
+        tools: [],
+        context: [],
+        state: {},
+      };
+
+      const events = await collectEvents(agent["run"](input));
+
+      const reasoningEvent = events.find(
+        (e: any) => e.type === EventType.REASONING_START,
+      );
+      expect(reasoningEvent.messageId).not.toBe("0");
+      expect(reasoningEvent.messageId).toMatch(
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
+      );
+    });
+
+    it("should handle empty reasoning content", async () => {
+      const agent = new BasicAgent({
+        model: "openai/gpt-4o",
+      });
+
+      vi.mocked(streamText).mockReturnValue(
+        mockStreamTextResponse([
+          reasoningStart(),
+          reasoningDelta(""),
+          reasoningEnd(),
+          finish(),
+        ]) as any,
+      );
+
+      const input: RunAgentInput = {
+        threadId: "thread1",
+        runId: "run1",
+        messages: [],
+        tools: [],
+        context: [],
+        state: {},
+      };
+
+      const events = await collectEvents(agent["run"](input));
+
+      const contentEvent = events.find(
+        (e: any) => e.type === EventType.REASONING_MESSAGE_CONTENT,
+      );
+      expect(contentEvent).toMatchObject({ delta: "" });
+
+      // Full lifecycle should still complete
+      const eventTypes = events.map((e: any) => e.type);
+      expect(eventTypes).toContain(EventType.REASONING_START);
+      expect(eventTypes).toContain(EventType.REASONING_MESSAGE_START);
+      expect(eventTypes).toContain(EventType.REASONING_MESSAGE_END);
+      expect(eventTypes).toContain(EventType.REASONING_END);
+      expect(eventTypes).toContain(EventType.RUN_FINISHED);
+    });
+
+    it("should handle reasoning-only stream (no text output)", async () => {
+      const agent = new BasicAgent({
+        model: "openai/gpt-4o",
+      });
+
+      vi.mocked(streamText).mockReturnValue(
+        mockStreamTextResponse([
+          reasoningStart(),
+          reasoningDelta("Deep thought"),
+          reasoningEnd(),
+          finish(),
+        ]) as any,
+      );
+
+      const input: RunAgentInput = {
+        threadId: "thread1",
+        runId: "run1",
+        messages: [],
+        tools: [],
+        context: [],
+        state: {},
+      };
+
+      const events = await collectEvents(agent["run"](input));
+
+      // No TEXT_MESSAGE_CHUNK events
+      const textEvents = events.filter(
+        (e: any) => e.type === EventType.TEXT_MESSAGE_CHUNK,
+      );
+      expect(textEvents).toHaveLength(0);
+
+      // Reasoning events are present
+      const reasoningContentEvents = events.filter(
+        (e: any) => e.type === EventType.REASONING_MESSAGE_CONTENT,
+      );
+      expect(reasoningContentEvents).toHaveLength(1);
+      expect(reasoningContentEvents[0]).toMatchObject({
+        delta: "Deep thought",
+      });
+    });
+
+    it("should handle reasoning interleaved with tool calls", async () => {
+      const agent = new BasicAgent({
+        model: "openai/gpt-4o",
+      });
+
+      vi.mocked(streamText).mockReturnValue(
+        mockStreamTextResponse([
+          reasoningStart(),
+          reasoningDelta("I need to call a tool"),
+          reasoningEnd(),
+          toolCallStreamingStart("call1", "testTool"),
+          toolCallDelta("call1", '{"arg":"val"}'),
+          toolCall("call1", "testTool", { arg: "val" }),
+          toolResult("call1", "testTool", { result: "success" }),
+          finish(),
+        ]) as any,
+      );
+
+      const input: RunAgentInput = {
+        threadId: "thread1",
+        runId: "run1",
+        messages: [],
+        tools: [],
+        context: [],
+        state: {},
+      };
+
+      const events = await collectEvents(agent["run"](input));
+      const eventTypes = events.map((e: any) => e.type);
+
+      // Reasoning events precede tool call events
+      const reasoningEndIdx = eventTypes.indexOf(EventType.REASONING_END);
+      const toolCallStartIdx = eventTypes.indexOf(EventType.TOOL_CALL_START);
+      expect(reasoningEndIdx).toBeLessThan(toolCallStartIdx);
+
+      // Both lifecycles complete
+      expect(eventTypes).toContain(EventType.REASONING_START);
+      expect(eventTypes).toContain(EventType.REASONING_END);
+      expect(eventTypes).toContain(EventType.TOOL_CALL_START);
+      expect(eventTypes).toContain(EventType.TOOL_CALL_END);
+    });
+  });
+
+  describe("Provider Options", () => {
+    it("should pass providerOptions to streamText", async () => {
+      const agent = new BasicAgent({
+        model: "openai/gpt-4o",
+        providerOptions: {
+          openai: { reasoningEffort: "high", reasoningSummary: "detailed" },
+        },
+      });
+
+      vi.mocked(streamText).mockReturnValue(
+        mockStreamTextResponse([finish()]) as any,
+      );
+
+      const input: RunAgentInput = {
+        threadId: "thread1",
+        runId: "run1",
+        messages: [],
+        tools: [],
+        context: [],
+        state: {},
+      };
+
+      await collectEvents(agent["run"](input));
+
+      const callArgs = vi.mocked(streamText).mock.calls[0][0];
+      expect(callArgs.providerOptions).toEqual({
+        openai: { reasoningEffort: "high", reasoningSummary: "detailed" },
+      });
+    });
+
+    it("should allow providerOptions override via forwardedProps when overridable", async () => {
+      const agent = new BasicAgent({
+        model: "openai/gpt-4o",
+        providerOptions: {
+          openai: { reasoningEffort: "low" },
+        },
+        overridableProperties: ["providerOptions"],
+      });
+
+      vi.mocked(streamText).mockReturnValue(
+        mockStreamTextResponse([finish()]) as any,
+      );
+
+      const input: RunAgentInput = {
+        threadId: "thread1",
+        runId: "run1",
+        messages: [],
+        tools: [],
+        context: [],
+        state: {},
+        forwardedProps: {
+          providerOptions: {
+            openai: { reasoningEffort: "high" },
+          },
+        },
+      };
+
+      await collectEvents(agent["run"](input));
+
+      const callArgs = vi.mocked(streamText).mock.calls[0][0];
+      expect(callArgs.providerOptions).toEqual({
+        openai: { reasoningEffort: "high" },
+      });
+    });
+
+    it("should NOT allow providerOptions override when not in overridableProperties", async () => {
+      const agent = new BasicAgent({
+        model: "openai/gpt-4o",
+        providerOptions: {
+          openai: { reasoningEffort: "low" },
+        },
+        overridableProperties: [],
+      });
+
+      vi.mocked(streamText).mockReturnValue(
+        mockStreamTextResponse([finish()]) as any,
+      );
+
+      const input: RunAgentInput = {
+        threadId: "thread1",
+        runId: "run1",
+        messages: [],
+        tools: [],
+        context: [],
+        state: {},
+        forwardedProps: {
+          providerOptions: {
+            openai: { reasoningEffort: "high" },
+          },
+        },
+      };
+
+      await collectEvents(agent["run"](input));
+
+      const callArgs = vi.mocked(streamText).mock.calls[0][0];
+      expect(callArgs.providerOptions).toEqual({
+        openai: { reasoningEffort: "low" },
+      });
     });
   });
 });

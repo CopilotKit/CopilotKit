@@ -81,7 +81,13 @@ type InspectorAgentEventType =
   | "STATE_DELTA"
   | "MESSAGES_SNAPSHOT"
   | "RAW_EVENT"
-  | "CUSTOM_EVENT";
+  | "CUSTOM_EVENT"
+  | "REASONING_START"
+  | "REASONING_MESSAGE_START"
+  | "REASONING_MESSAGE_CONTENT"
+  | "REASONING_MESSAGE_END"
+  | "REASONING_END"
+  | "REASONING_ENCRYPTED_VALUE";
 
 const AGENT_EVENT_TYPES: readonly InspectorAgentEventType[] = [
   "RUN_STARTED",
@@ -99,6 +105,12 @@ const AGENT_EVENT_TYPES: readonly InspectorAgentEventType[] = [
   "MESSAGES_SNAPSHOT",
   "RAW_EVENT",
   "CUSTOM_EVENT",
+  "REASONING_START",
+  "REASONING_MESSAGE_START",
+  "REASONING_MESSAGE_CONTENT",
+  "REASONING_MESSAGE_END",
+  "REASONING_END",
+  "REASONING_ENCRYPTED_VALUE",
 ] as const;
 
 type SanitizedValue =
@@ -479,6 +491,30 @@ export class WebInspectorElement extends LitElement {
       },
       onCustomEvent: ({ event }) => {
         this.recordAgentEvent(agentId, "CUSTOM_EVENT", event);
+      },
+      onReasoningStartEvent: ({ event }) => {
+        this.recordAgentEvent(agentId, "REASONING_START", event);
+      },
+      onReasoningMessageStartEvent: ({ event }) => {
+        this.recordAgentEvent(agentId, "REASONING_MESSAGE_START", event);
+      },
+      onReasoningMessageContentEvent: ({ event, reasoningMessageBuffer }) => {
+        this.recordAgentEvent(agentId, "REASONING_MESSAGE_CONTENT", {
+          event,
+          reasoningMessageBuffer,
+        });
+      },
+      onReasoningMessageEndEvent: ({ event, reasoningMessageBuffer }) => {
+        this.recordAgentEvent(agentId, "REASONING_MESSAGE_END", {
+          event,
+          reasoningMessageBuffer,
+        });
+      },
+      onReasoningEndEvent: ({ event }) => {
+        this.recordAgentEvent(agentId, "REASONING_END", event);
+      },
+      onReasoningEncryptedValueEvent: ({ event }) => {
+        this.recordAgentEvent(agentId, "REASONING_ENCRYPTED_VALUE", event);
       },
     };
 
@@ -867,6 +903,10 @@ ${argsString}</pre
 
     if (type.startsWith("TOOL_CALL")) {
       return `${base} bg-amber-50 text-amber-700 border-amber-200`;
+    }
+
+    if (type.startsWith("REASONING")) {
+      return `${base} bg-fuchsia-50 text-fuchsia-700 border-fuchsia-200`;
     }
 
     if (type.startsWith("STATE")) {

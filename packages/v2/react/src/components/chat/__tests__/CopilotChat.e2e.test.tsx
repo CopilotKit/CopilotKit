@@ -13,6 +13,12 @@ import {
   toolCallResultEvent,
   testId,
   emitSuggestionToolCall,
+  emitReasoningSequence,
+  reasoningStartEvent,
+  reasoningMessageStartEvent,
+  reasoningMessageContentEvent,
+  reasoningMessageEndEvent,
+  reasoningEndEvent,
 } from "@/__tests__/utils/test-helpers";
 import { useConfigureSuggestions } from "@/hooks/use-configure-suggestions";
 import { CopilotChat } from "../CopilotChat";
@@ -808,6 +814,298 @@ describe("CopilotChat E2E - Chat Basics and Streaming Patterns", () => {
         },
         { timeout: 5000 },
       );
+    });
+  });
+
+  describe("Reasoning Message Flow", () => {
+    it("should display reasoning message with 'Thinking...' label while streaming", async () => {
+      const agent = new MockStepwiseAgent();
+      renderWithCopilotKit({ agent });
+
+      // Submit message
+      const input = await screen.findByRole("textbox");
+      fireEvent.change(input, { target: { value: "Think about this" } });
+      fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
+
+      await waitFor(() => {
+        expect(screen.getByText("Think about this")).toBeDefined();
+      });
+
+      const reasoningId = testId("reasoning");
+
+      agent.emit(runStartedEvent());
+      agent.emit(reasoningStartEvent(reasoningId));
+      agent.emit(reasoningMessageStartEvent(reasoningId));
+      agent.emit(
+        reasoningMessageContentEvent(reasoningId, "Let me analyze..."),
+      );
+
+      // "Thinking..." label should appear while streaming
+      await waitFor(() => {
+        expect(screen.getByText("Thinking…")).toBeDefined();
+      });
+
+      // Clean up
+      agent.emit(reasoningMessageEndEvent(reasoningId));
+      agent.emit(reasoningEndEvent(reasoningId));
+      agent.emit(runFinishedEvent());
+      agent.complete();
+    });
+
+    it("should display 'Thought for X seconds' after reasoning completes", async () => {
+      const agent = new MockStepwiseAgent();
+      renderWithCopilotKit({ agent });
+
+      const input = await screen.findByRole("textbox");
+      fireEvent.change(input, { target: { value: "Reason please" } });
+      fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
+
+      await waitFor(() => {
+        expect(screen.getByText("Reason please")).toBeDefined();
+      });
+
+      const reasoningId = testId("reasoning");
+      const textId = testId("text");
+
+      agent.emit(runStartedEvent());
+      emitReasoningSequence(agent, reasoningId, "Some deep thought");
+      agent.emit(textChunkEvent(textId, "Here is my answer."));
+      agent.emit(runFinishedEvent());
+      agent.complete();
+
+      // After reasoning finishes, should show elapsed time label
+      await waitFor(() => {
+        expect(screen.getByText(/Thought for/)).toBeDefined();
+      });
+    });
+
+    it("should accumulate content from multiple delta events", async () => {
+      const agent = new MockStepwiseAgent();
+      renderWithCopilotKit({ agent });
+
+      const input = await screen.findByRole("textbox");
+      fireEvent.change(input, { target: { value: "Elaborate" } });
+      fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
+
+      await waitFor(() => {
+        expect(screen.getByText("Elaborate")).toBeDefined();
+      });
+
+      const reasoningId = testId("reasoning");
+
+      agent.emit(runStartedEvent());
+      agent.emit(reasoningStartEvent(reasoningId));
+      agent.emit(reasoningMessageStartEvent(reasoningId));
+      agent.emit(reasoningMessageContentEvent(reasoningId, "Part 1"));
+      agent.emit(reasoningMessageContentEvent(reasoningId, " Part 2"));
+      agent.emit(reasoningMessageContentEvent(reasoningId, " Part 3"));
+      agent.emit(reasoningMessageEndEvent(reasoningId));
+      agent.emit(reasoningEndEvent(reasoningId));
+
+      // The accumulated content should be present
+      await waitFor(() => {
+        expect(screen.getByText(/Part 1 Part 2 Part 3/)).toBeDefined();
+      });
+
+      agent.emit(runFinishedEvent());
+      agent.complete();
+    });
+
+    it("should render reasoning before text in a single agent run", async () => {
+      const agent = new MockStepwiseAgent();
+      renderWithCopilotKit({ agent });
+
+      const input = await screen.findByRole("textbox");
+      fireEvent.change(input, { target: { value: "Answer with thought" } });
+      fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
+
+      await waitFor(() => {
+        expect(screen.getByText("Answer with thought")).toBeDefined();
+      });
+
+      const reasoningId = testId("reasoning");
+      const textId = testId("text");
+
+      agent.emit(runStartedEvent());
+      emitReasoningSequence(agent, reasoningId, "Thinking about the answer");
+      agent.emit(textChunkEvent(textId, "The answer is 42."));
+      agent.emit(runFinishedEvent());
+      agent.complete();
+
+      // Both should appear
+      await waitFor(() => {
+        expect(screen.getByText(/Thought for/)).toBeDefined();
+        expect(screen.getByText("The answer is 42.")).toBeDefined();
+      });
+
+      // Reasoning should come before text in the DOM
+      const reasoningEl = screen
+        .getByText(/Thought for/)
+        .closest("[data-message-id]");
+      const textEl = screen
+        .getByText("The answer is 42.")
+        .closest("[data-message-id]");
+
+      if (reasoningEl && textEl) {
+        // Use compareDocumentPosition to verify ordering
+        const position = reasoningEl.compareDocumentPosition(textEl);
+        // DOCUMENT_POSITION_FOLLOWING means textEl comes after reasoningEl
+        expect(position & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+      }
+    });
+
+    it("should handle reasoning-only response (no text output)", async () => {
+      const agent = new MockStepwiseAgent();
+      renderWithCopilotKit({ agent });
+
+      const input = await screen.findByRole("textbox");
+      fireEvent.change(input, { target: { value: "Just think" } });
+      fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
+
+      await waitFor(() => {
+        expect(screen.getByText("Just think")).toBeDefined();
+      });
+
+      const reasoningId = testId("reasoning");
+
+      agent.emit(runStartedEvent());
+      emitReasoningSequence(agent, reasoningId, "Only reasoning, no text");
+      agent.emit(runFinishedEvent());
+      agent.complete();
+
+      // Reasoning message should appear
+      await waitFor(() => {
+        expect(screen.getByText(/Thought for/)).toBeDefined();
+      });
+    });
+
+    it("should not show cursor when last message is reasoning", async () => {
+      const agent = new MockStepwiseAgent();
+      renderWithCopilotKit({ agent });
+
+      const input = await screen.findByRole("textbox");
+      fireEvent.change(input, { target: { value: "Think deeply" } });
+      fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
+
+      await waitFor(() => {
+        expect(screen.getByText("Think deeply")).toBeDefined();
+      });
+
+      const reasoningId = testId("reasoning");
+
+      agent.emit(runStartedEvent());
+      agent.emit(reasoningStartEvent(reasoningId));
+      agent.emit(reasoningMessageStartEvent(reasoningId));
+      agent.emit(
+        reasoningMessageContentEvent(reasoningId, "Deep reasoning..."),
+      );
+
+      // "Thinking..." should appear (reasoning is streaming)
+      await waitFor(() => {
+        expect(screen.getByText("Thinking…")).toBeDefined();
+      });
+
+      // Chat-level cursor (pulsing dot) should NOT be visible when last message is reasoning
+      // The cursor has animate-pulse-cursor class
+      const cursors = document.querySelectorAll(".animate-pulse-cursor");
+      // Only the reasoning indicator should be present, not the chat-level cursor
+      // The chat-level cursor is a direct child of the message view container
+      const chatLevelCursor = document.querySelector(
+        ".flex.flex-col > .mt-2 .animate-pulse-cursor",
+      );
+      expect(chatLevelCursor).toBeNull();
+
+      // Clean up
+      agent.emit(reasoningMessageEndEvent(reasoningId));
+      agent.emit(reasoningEndEvent(reasoningId));
+      agent.emit(runFinishedEvent());
+      agent.complete();
+    });
+
+    it("should show cursor after reasoning when text message follows", async () => {
+      const agent = new MockStepwiseAgent();
+      renderWithCopilotKit({ agent });
+
+      const input = await screen.findByRole("textbox");
+      fireEvent.change(input, { target: { value: "Think then answer" } });
+      fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
+
+      await waitFor(() => {
+        expect(screen.getByText("Think then answer")).toBeDefined();
+      });
+
+      const reasoningId = testId("reasoning");
+      const textId = testId("text");
+
+      agent.emit(runStartedEvent());
+      emitReasoningSequence(agent, reasoningId, "Let me think first");
+
+      // Now start streaming text - text is now the last message, cursor should show
+      agent.emit(textChunkEvent(textId, "Starting answer..."));
+
+      await waitFor(() => {
+        expect(screen.getByText(/Starting answer/)).toBeDefined();
+      });
+
+      // Chat-level cursor should now be visible since last message is text (not reasoning)
+      // Note: The cursor shows while isRunning=true and last message is not reasoning
+      await waitFor(() => {
+        const chatLevelCursor = document.querySelector(".animate-pulse-cursor");
+        expect(chatLevelCursor).not.toBeNull();
+      });
+
+      agent.emit(runFinishedEvent());
+      agent.complete();
+    });
+
+    it("should expand and collapse reasoning content on click", async () => {
+      const agent = new MockStepwiseAgent();
+      renderWithCopilotKit({ agent });
+
+      const input = await screen.findByRole("textbox");
+      fireEvent.change(input, { target: { value: "Toggle test" } });
+      fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
+
+      await waitFor(() => {
+        expect(screen.getByText("Toggle test")).toBeDefined();
+      });
+
+      const reasoningId = testId("reasoning");
+      const textId = testId("text");
+
+      agent.emit(runStartedEvent());
+      emitReasoningSequence(
+        agent,
+        reasoningId,
+        "This is expandable reasoning content",
+      );
+      agent.emit(textChunkEvent(textId, "Done thinking."));
+      agent.emit(runFinishedEvent());
+      agent.complete();
+
+      // After reasoning finishes, it should auto-collapse
+      await waitFor(() => {
+        const header = screen.getByText(/Thought for/);
+        expect(header).toBeDefined();
+        // The header's button should have aria-expanded="false" after collapsing
+        const button = header.closest("button");
+        expect(button?.getAttribute("aria-expanded")).toBe("false");
+      });
+
+      // Click to expand
+      const header = screen.getByText(/Thought for/);
+      const button = header.closest("button");
+      if (button) {
+        fireEvent.click(button);
+      }
+
+      // Should now be expanded
+      await waitFor(() => {
+        const expandedButton = screen
+          .getByText(/Thought for/)
+          .closest("button");
+        expect(expandedButton?.getAttribute("aria-expanded")).toBe("true");
+      });
     });
   });
 });
