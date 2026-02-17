@@ -1,5 +1,15 @@
 # @copilotkit/runtime
 
+## 1.51.5-next.0
+
+### Patch Changes
+
+- ef0f539: Add reasoning support and default components for reasoning messages
+- Updated dependencies [ef0f539]
+  - @copilotkitnext/runtime@1.51.5-next.0
+  - @copilotkit/shared@1.51.5-next.0
+  - @copilotkitnext/agent@1.51.5-next.0
+
 ## 1.51.4
 
 ### Patch Changes

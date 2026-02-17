@@ -1,5 +1,16 @@
 # ui
 
+## 1.51.5-next.0
+
+### Patch Changes
+
+- ef0f539: Add reasoning support and default components for reasoning messages
+- Updated dependencies [ef0f539]
+  - @copilotkit/shared@1.51.5-next.0
+  - @copilotkitnext/react@1.51.5-next.0
+  - @copilotkitnext/core@1.51.5-next.0
+  - @copilotkit/runtime-client-gql@1.51.5-next.0
+
 ## 1.51.4
 
 ### Patch Changes
