@@ -1,6 +1,5 @@
 import {
   AbstractAgent,
-  HttpAgent,
   RunAgentInput,
   RunAgentInputSchema,
 } from "@ag-ui/client";

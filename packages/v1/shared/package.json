@@ -10,7 +10,7 @@
     "access": "public"
   },
   "type": "module",
-  "version": "1.51.4",
+  "version": "1.51.5-next.0",
   "sideEffects": false,
   "main": "./dist/index.cjs",
   "module": "./dist/index.mjs",
@@ -54,7 +54,7 @@
     "zod": "^3.23.3"
   },
   "peerDependencies": {
-    "@ag-ui/core": "^0.0.43"
+    "@ag-ui/core": "^0.0.45"
   },
   "keywords": [
     "copilotkit",

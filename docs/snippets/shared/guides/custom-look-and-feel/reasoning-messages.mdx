@@ -1,0 +1,231 @@
+import { ImageAndCode } from "@/components/react/image-and-code"
+import { Callout } from "fumadocs-ui/components/callout"
+
+Some models (like OpenAI's o1, o3, and o4-mini) emit **reasoning tokens** — internal
+"thinking" traces that show the model's chain-of-thought before it produces a final
+answer. CopilotKit surfaces these tokens automatically with a collapsible
+**Reasoning Message** card.
+
+## Default Behavior
+
+When reasoning events arrive from the agent, CopilotKit renders them inside a
+built-in card that:
+
+- Shows a **"Thinking…"** label with a pulsating indicator while the model is
+  reasoning.
+- Expands automatically so you can follow the model's thought process in
+  real-time.
+- Collapses and switches to **"Thought for X seconds"** once reasoning finishes.
+- Renders the reasoning content as **Markdown**.
+- Includes a chevron toggle so users can re-expand and review the reasoning
+  at any time.
+
+No extra configuration is needed — if your model emits reasoning tokens,
+the card appears automatically.
+
+## Customizing the Reasoning Message
+
+The reasoning message is composed of three sub-components that can each be
+replaced independently via **slot props**:
+
+| Sub-component | Slot prop | Description |
+| --- | --- | --- |
+| `Header` | `header` | The clickable bar with the brain icon, label, and chevron |
+| `Content` | `contentView` | The reasoning text area (Markdown) |
+| `Toggle` | `toggle` | The expand/collapse animation wrapper |
+
+You pass custom sub-components through the `messageView` prop on
+`CopilotChat`, `CopilotPopup`, or `CopilotSidebar`:
+
+```tsx
+<CopilotChat
+  messageView={{
+    reasoningMessage: {
+      header: CustomHeader,
+      contentView: CustomContent,
+    },
+  }}
+/>
+```
+
+### Custom Header
+
+Replace the header to change the icon, label text, or styling. The header
+receives these props:
+
+| Prop | Type | Description |
+| --- | --- | --- |
+| `isOpen` | `boolean` | Whether the content panel is currently expanded |
+| `label` | `string` | `"Thinking…"` while streaming, `"Thought for X seconds"` after |
+| `hasContent` | `boolean` | Whether any reasoning text has been received |
+| `isStreaming` | `boolean` | Whether reasoning is actively streaming |
+| `onClick` | `() => void` | Toggle handler (only present when `hasContent` is `true`) |
+
+```tsx
+import { CopilotChat } from "@copilotkit/react-ui";
+import "@copilotkit/react-ui/styles.css";
+
+function CustomHeader({
+  isOpen,
+  label,
+  hasContent,
+  isStreaming,
+  ...props
+}: React.ButtonHTMLAttributes<HTMLButtonElement> & {
+  isOpen?: boolean;
+  label?: string;
+  hasContent?: boolean;
+  isStreaming?: boolean;
+}) {
+  return (
+    <button
+      className="flex w-full items-center gap-2 px-3 py-2 text-sm font-medium"
+      {...props}
+    >
+      {isStreaming ? "🧠" : "💡"}
+      <span>{label}</span>
+      {hasContent && (
+        <span className="ml-auto text-xs">{isOpen ? "Hide" : "Show"}</span>
+      )}
+    </button>
+  );
+}
+
+// [!code highlight:5]
+<CopilotChat
+  messageView={{
+    reasoningMessage: { header: CustomHeader },
+  }}
+/>
+```
+
+### Custom Content
+
+Replace the content area to change how reasoning text is displayed:
+
+| Prop | Type | Description |
+| --- | --- | --- |
+| `isStreaming` | `boolean` | Whether reasoning tokens are still arriving |
+| `hasContent` | `boolean` | Whether any reasoning text has been received |
+| `children` | `string` | The raw reasoning text |
+
+```tsx
+function CustomContent({
+  isStreaming,
+  hasContent,
+  children,
+  ...props
+}: React.HTMLAttributes<HTMLDivElement> & {
+  isStreaming?: boolean;
+  hasContent?: boolean;
+}) {
+  if (!hasContent && !isStreaming) return null;
+
+  return (
+    <div className="px-4 pb-3 text-sm text-gray-500 font-mono" {...props}>
+      {children}
+      {isStreaming && <span className="animate-pulse ml-1">▊</span>}
+    </div>
+  );
+}
+
+// [!code highlight:5]
+<CopilotChat
+  messageView={{
+    reasoningMessage: { contentView: CustomContent },
+  }}
+/>
+```
+
+## Fully Custom Reasoning Message
+
+For complete control over the entire reasoning card, pass a **component** instead of
+slot props. Your component receives the same top-level props as the built-in one:
+
+| Prop | Type | Description |
+| --- | --- | --- |
+| `message` | `ReasoningMessage` | The reasoning message object (`.content` holds the text) |
+| `messages` | `Message[]` | All messages in the conversation |
+| `isRunning` | `boolean` | Whether the agent is currently running |
+
+```tsx
+import {
+  type CopilotChatReasoningMessageProps,
+} from "@copilotkit/react-ui";
+import { CopilotChat } from "@copilotkit/react-ui";
+import "@copilotkit/react-ui/styles.css";
+
+function MyReasoningMessage({
+  message,
+  messages,
+  isRunning,
+}: CopilotChatReasoningMessageProps) {
+  const isLatest = messages?.[messages.length - 1]?.id === message.id;
+  const isStreaming = !!(isRunning && isLatest);
+
+  if (!message.content && !isStreaming) return null;
+
+  return (
+    <details open={isStreaming} className="my-2 rounded border p-3">
+      <summary className="cursor-pointer font-medium text-sm">
+        {isStreaming ? "Thinking…" : "View reasoning"}
+      </summary>
+      <p className="mt-2 text-sm text-gray-600 whitespace-pre-wrap">
+        {message.content}
+      </p>
+    </details>
+  );
+}
+
+// [!code highlight:5]
+<CopilotChat
+  messageView={{
+    reasoningMessage: MyReasoningMessage,
+  }}
+/>
+```
+
+## Render-Prop Children
+
+The built-in `CopilotChatReasoningMessage` also supports a **render-prop**
+pattern for cases where you want to rearrange the built-in sub-components
+without reimplementing them:
+
+```tsx
+import {
+  CopilotChatReasoningMessage,
+} from "@copilotkit/react-ui";
+import { CopilotChat } from "@copilotkit/react-ui";
+import "@copilotkit/react-ui/styles.css";
+
+function MyReasoningLayout(props: React.ComponentProps<typeof CopilotChatReasoningMessage>) {
+  return (
+    <CopilotChatReasoningMessage {...props}>
+      {({ header, toggle }) => (
+        // [!code highlight:5]
+        <div className="rounded-lg border bg-yellow-50 my-2">
+          {header}
+          {toggle}
+        </div>
+      )}
+    </CopilotChatReasoningMessage>
+  );
+}
+
+<CopilotChat
+  messageView={{
+    reasoningMessage: MyReasoningLayout,
+  }}
+/>
+```
+
+The render-prop callback receives:
+
+| Property | Description |
+| --- | --- |
+| `header` | Pre-rendered header element |
+| `contentView` | Pre-rendered content element |
+| `toggle` | Pre-rendered expand/collapse wrapper (contains `contentView`) |
+| `message` | The reasoning message object |
+| `messages` | All messages |
+| `isRunning` | Whether the agent is running |

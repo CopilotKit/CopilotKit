@@ -1,7 +1,7 @@
 {
   "name": "@copilotkit-storybook/angular",
   "private": true,
-  "version": "0.0.1",
+  "version": "0.0.2-next.0",
   "scripts": {
     "dev": "pnpm --filter @copilotkitnext/angular run build:css && sleep 1 && ng run storybook-angular:storybook",
     "build": "ng run storybook-angular:build-storybook",
@@ -9,7 +9,7 @@
     "storybook:build": "ng run storybook-angular:build-storybook"
   },
   "dependencies": {
-    "@ag-ui/client": "0.0.42",
+    "@ag-ui/client": "0.0.45",
     "@angular/animations": "^18.2.0",
     "@angular/common": "^18.2.0",
     "@angular/compiler": "^18.2.0",

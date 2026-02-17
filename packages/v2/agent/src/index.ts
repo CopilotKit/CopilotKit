@@ -4,6 +4,11 @@ import {
   RunAgentInput,
   EventType,
   Message,
+  ReasoningEndEvent,
+  ReasoningMessageContentEvent,
+  ReasoningMessageEndEvent,
+  ReasoningMessageStartEvent,
+  ReasoningStartEvent,
   RunFinishedEvent,
   RunStartedEvent,
   TextMessageChunkEvent,
@@ -60,7 +65,8 @@ export type OverridableProperty =
   | "stopSequences"
   | "seed"
   | "maxRetries"
-  | "prompt";
+  | "prompt"
+  | "providerOptions";
 
 /**
  * Supported model identifiers for BuiltInAgent
@@ -572,6 +578,11 @@ export interface BuiltInAgentConfiguration {
    * Default: false
    */
   forwardDeveloperMessages?: boolean;
+  /**
+   * Provider-specific options passed to the model (e.g., OpenAI reasoningEffort).
+   * Example: `{ openai: { reasoningEffort: "high" } }`
+   */
+  providerOptions?: Record<string, any>;
 }
 
 export class BuiltInAgent extends AbstractAgent {
@@ -683,6 +694,7 @@ export class BuiltInAgent extends AbstractAgent {
         frequencyPenalty: this.config.frequencyPenalty,
         stopSequences: this.config.stopSequences,
         seed: this.config.seed,
+        providerOptions: this.config.providerOptions,
         maxRetries: this.config.maxRetries,
       };
 
@@ -772,6 +784,20 @@ export class BuiltInAgent extends AbstractAgent {
           this.canOverride("maxRetries")
         ) {
           streamTextParams.maxRetries = props.maxRetries;
+        }
+        if (
+          props.providerOptions !== undefined &&
+          this.canOverride("providerOptions")
+        ) {
+          if (
+            typeof props.providerOptions === "object" &&
+            props.providerOptions !== null
+          ) {
+            streamTextParams.providerOptions = props.providerOptions as Record<
+              string,
+              any
+            >;
+          }
         }
       }
 
@@ -865,6 +891,7 @@ export class BuiltInAgent extends AbstractAgent {
           });
 
           let messageId = randomUUID();
+          let reasoningMessageId = randomUUID();
 
           const toolCallStates = new Map<
             string,
@@ -888,7 +915,7 @@ export class BuiltInAgent extends AbstractAgent {
           // Process fullStream events
           for await (const part of response.fullStream) {
             switch (part.type) {
-              case "abort":
+              case "abort": {
                 const abortEndEvent: RunFinishedEvent = {
                   type: EventType.RUN_FINISHED,
                   threadId: input.threadId,
@@ -900,7 +927,50 @@ export class BuiltInAgent extends AbstractAgent {
                 // Complete the observable
                 subscriber.complete();
                 break;
-
+              }
+              case "reasoning-start": {
+                // New text message starting - use the SDK-provided id
+                // Use randomUUID() if part.id is falsy or "0" to prevent message merging issues
+                const providedId = "id" in part ? part.id : undefined;
+                if (providedId && providedId !== "0") {
+                  reasoningMessageId = providedId as typeof reasoningMessageId;
+                }
+                const reasoningStartEvent: ReasoningStartEvent = {
+                  type: EventType.REASONING_START,
+                  messageId: reasoningMessageId,
+                };
+                subscriber.next(reasoningStartEvent);
+                const reasoningMessageStart: ReasoningMessageStartEvent = {
+                  type: EventType.REASONING_MESSAGE_START,
+                  messageId: reasoningMessageId,
+                  role: "reasoning",
+                };
+                subscriber.next(reasoningMessageStart);
+                break;
+              }
+              case "reasoning-delta": {
+                const reasoningDeltaEvent: ReasoningMessageContentEvent = {
+                  type: EventType.REASONING_MESSAGE_CONTENT,
+                  messageId: reasoningMessageId,
+                  delta:
+                    ("text" in part ? part.text : (part as any).delta) ?? "",
+                };
+                subscriber.next(reasoningDeltaEvent);
+                break;
+              }
+              case "reasoning-end": {
+                const reasoningMessageEnd: ReasoningMessageEndEvent = {
+                  type: EventType.REASONING_MESSAGE_END,
+                  messageId: reasoningMessageId,
+                };
+                subscriber.next(reasoningMessageEnd);
+                const reasoningEndEvent: ReasoningEndEvent = {
+                  type: EventType.REASONING_END,
+                  messageId: reasoningMessageId,
+                };
+                subscriber.next(reasoningEndEvent);
+                break;
+              }
               case "tool-input-start": {
                 const toolCallId = part.id;
                 const state = ensureToolCallState(toolCallId);
@@ -1057,7 +1127,7 @@ export class BuiltInAgent extends AbstractAgent {
                 break;
               }
 
-              case "finish":
+              case "finish": {
                 // Emit run finished event
                 const finishedEvent: RunFinishedEvent = {
                   type: EventType.RUN_FINISHED,
@@ -1070,6 +1140,7 @@ export class BuiltInAgent extends AbstractAgent {
                 // Complete the observable
                 subscriber.complete();
                 break;
+              }
 
               case "error": {
                 if (abortController.signal.aborted) {

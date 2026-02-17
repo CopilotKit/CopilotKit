@@ -15,6 +15,11 @@ export {
 } from "./CopilotChatUserMessage";
 
 export {
+  default as CopilotChatReasoningMessage,
+  type CopilotChatReasoningMessageProps,
+} from "./CopilotChatReasoningMessage";
+
+export {
   CopilotChatAudioRecorder,
   type AudioRecorderState,
   AudioRecorderError,
