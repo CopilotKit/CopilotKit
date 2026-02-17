@@ -1,3 +1,4 @@
+import { vi } from "vitest";
 import React from "react";
 import { act, render, screen, waitFor, within } from "@testing-library/react";
 import { useCoAgentStateRender } from "../use-coagent-state-render";
@@ -10,6 +11,7 @@ import {
 } from "../../context";
 import type { Claim } from "../use-coagent-state-render-bridge.helpers";
 import { createTestCopilotContext } from "../../test-helpers/copilot-context";
+import { useRenderCustomMessages } from "@copilotkitnext/react";
 
 type TestMessage = {
   id: string;
@@ -27,50 +29,50 @@ const mockAgent = {
   messages: [] as TestMessage[],
   state: {},
   isRunning: true,
-  subscribe: jest.fn(),
-  setMessages: jest.fn(),
-  setState: jest.fn(),
-  addMessage: jest.fn(),
-  abortRun: jest.fn(),
-  runAgent: jest.fn(),
+  subscribe: vi.fn(),
+  setMessages: vi.fn(),
+  setState: vi.fn(),
+  addMessage: vi.fn(),
+  abortRun: vi.fn(),
+  runAgent: vi.fn(),
 };
 
 let lastSubscriber: TestAgentSubscriber | null = null;
 
-jest.mock("@copilotkitnext/react", () => ({
-  useAgent: jest.fn(() => ({ agent: mockAgent })),
-  useCopilotKit: jest.fn(() => ({
+vi.mock("@copilotkitnext/react", () => ({
+  useAgent: vi.fn(() => ({ agent: mockAgent })),
+  useCopilotKit: vi.fn(() => ({
     copilotkit: {
-      connectAgent: jest.fn(),
-      getRunIdForMessage: jest.fn(),
-      runAgent: jest.fn(),
-      clearSuggestions: jest.fn(),
-      addSuggestionsConfig: jest.fn(),
-      reloadSuggestions: jest.fn(),
+      connectAgent: vi.fn(),
+      getRunIdForMessage: vi.fn(),
+      runAgent: vi.fn(),
+      clearSuggestions: vi.fn(),
+      addSuggestionsConfig: vi.fn(),
+      reloadSuggestions: vi.fn(),
     },
   })),
-  useCopilotChatConfiguration: jest.fn(() => ({ agentId: "test-agent" })),
-  useRenderCustomMessages: jest.fn(() => undefined),
-  useSuggestions: jest.fn(() => ({ suggestions: [], isLoading: false })),
+  useCopilotChatConfiguration: vi.fn(() => ({ agentId: "test-agent" })),
+  useRenderCustomMessages: vi.fn(() => undefined),
+  useSuggestions: vi.fn(() => ({ suggestions: [], isLoading: false })),
 }));
 
-jest.mock("../../components/toast/toast-provider", () => ({
+vi.mock("../../components/toast/toast-provider", () => ({
   useToast: () => ({
-    setBannerError: jest.fn(),
-    addToast: jest.fn(),
+    setBannerError: vi.fn(),
+    addToast: vi.fn(),
   }),
 }));
 
-jest.mock("../../components/error-boundary/error-utils", () => ({
+vi.mock("../../components/error-boundary/error-utils", () => ({
   useAsyncCallback: <T extends (...args: unknown[]) => unknown>(fn: T) => fn,
 }));
 
-jest.mock("../use-langgraph-interrupt-render", () => ({
-  useLangGraphInterruptRender: jest.fn(() => null),
+vi.mock("../use-langgraph-interrupt-render", () => ({
+  useLangGraphInterruptRender: vi.fn(() => null),
 }));
 
-jest.mock("../use-lazy-tool-renderer", () => ({
-  useLazyToolRenderer: jest.fn(() => () => null),
+vi.mock("../use-lazy-tool-renderer", () => ({
+  useLazyToolRenderer: vi.fn(() => () => null),
 }));
 
 function TestHarness({ snapshot }: { snapshot: string }) {
@@ -247,7 +249,7 @@ describe("useCoAgentStateRender", () => {
     mockAgent.subscribe.mockImplementation(
       (subscriber: TestAgentSubscriber) => {
         lastSubscriber = subscriber;
-        return { unsubscribe: jest.fn() };
+        return { unsubscribe: vi.fn() };
       },
     );
   });
@@ -474,10 +476,7 @@ describe("useCoAgentStateRender", () => {
   });
 
   it("falls back to legacy renderer when renderCustomMessages throws", async () => {
-    const { useRenderCustomMessages } = jest.requireMock(
-      "@copilotkitnext/react",
-    );
-    useRenderCustomMessages.mockImplementationOnce(() => () => {
+    vi.mocked(useRenderCustomMessages).mockImplementationOnce(() => () => {
       throw new Error("boom");
     });
 
@@ -507,11 +506,10 @@ describe("useCoAgentStateRender", () => {
   });
 
   it("prefers legacy renderer over renderCustomMessages when both exist", async () => {
-    const { useRenderCustomMessages } = jest.requireMock(
-      "@copilotkitnext/react",
+    const renderCustomSpy = vi.fn(() => null);
+    vi.mocked(useRenderCustomMessages).mockImplementationOnce(
+      () => renderCustomSpy,
     );
-    const renderCustomSpy = jest.fn(() => null);
-    useRenderCustomMessages.mockImplementationOnce(() => renderCustomSpy);
 
     const copilotContextValue = createTestCopilotContext({
       threadId: "thread-1",

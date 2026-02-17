@@ -25,7 +25,7 @@
     "noUnusedLocals": false,
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
-    "types": ["react", "react-dom"]
+    "types": ["react", "react-dom", "vitest/globals"]
   },
   "include": ["src/**/*.ts", "src/**/*.tsx"]
 }

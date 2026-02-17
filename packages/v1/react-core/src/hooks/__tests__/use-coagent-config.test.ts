@@ -1,13 +1,14 @@
+import { vi } from "vitest";
 import { renderHook, waitFor } from "@testing-library/react";
 import { useCoAgent } from "../use-coagent";
 import type { AgentSubscriber } from "@ag-ui/client";
 
 // Mock functions for @copilotkitnext/react
-const mockSetState = jest.fn();
-const mockRunAgent = jest.fn();
-const mockAbortRun = jest.fn();
-const mockSubscribe = jest.fn();
-const mockSetProperties = jest.fn();
+const mockSetState = vi.fn();
+const mockRunAgent = vi.fn();
+const mockAbortRun = vi.fn();
+const mockSubscribe = vi.fn();
+const mockSetProperties = vi.fn();
 
 // Store the last subscriber for triggering events
 let lastSubscriber: AgentSubscriber | null = null;
@@ -23,14 +24,14 @@ const mockAgent = {
   subscribe: mockSubscribe.mockImplementation((subscriber: AgentSubscriber) => {
     lastSubscriber = subscriber;
     return {
-      unsubscribe: jest.fn(),
+      unsubscribe: vi.fn(),
     };
   }),
 };
 
-jest.mock("@copilotkitnext/react", () => ({
-  useAgent: jest.fn(() => ({ agent: mockAgent })),
-  useCopilotKit: jest.fn(() => ({
+vi.mock("@copilotkitnext/react", () => ({
+  useAgent: vi.fn(() => ({ agent: mockAgent })),
+  useCopilotKit: vi.fn(() => ({
     copilotkit: {
       setProperties: mockSetProperties,
     },
@@ -38,26 +39,26 @@ jest.mock("@copilotkitnext/react", () => ({
 }));
 
 // Mock other dependencies
-const mockAppendMessage = jest.fn();
-const mockRunChatCompletion = jest.fn();
+const mockAppendMessage = vi.fn();
+const mockRunChatCompletion = vi.fn();
 
-jest.mock("../use-copilot-chat_internal", () => ({
+vi.mock("../use-copilot-chat_internal", () => ({
   useCopilotChat: () => ({
     appendMessage: mockAppendMessage,
     runChatCompletion: mockRunChatCompletion,
   }),
 }));
 
-jest.mock("../use-copilot-runtime-client", () => ({
+vi.mock("../use-copilot-runtime-client", () => ({
   useCopilotRuntimeClient: () => ({
-    loadAgentState: jest.fn().mockResolvedValue({
+    loadAgentState: vi.fn().mockResolvedValue({
       data: { loadAgentState: { state: "{}", threadExists: false } },
       error: null,
     }),
   }),
 }));
 
-jest.mock("../../context", () => ({
+vi.mock("../../context", () => ({
   useCopilotContext: () => ({
     availableAgents: [],
     coagentStates: {},
@@ -75,26 +76,26 @@ jest.mock("../../context", () => ({
   }),
 }));
 
-jest.mock("../../components/toast/toast-provider", () => ({
+vi.mock("../../components/toast/toast-provider", () => ({
   useToast: () => ({
-    setBannerError: jest.fn(),
+    setBannerError: vi.fn(),
   }),
 }));
 
-jest.mock("../../components/error-boundary/error-utils", () => ({
+vi.mock("../../components/error-boundary/error-utils", () => ({
   useAsyncCallback: (fn: any) => fn,
 }));
 
-jest.mock("../../components/copilot-provider/copilot-messages", () => ({
+vi.mock("../../components/copilot-provider/copilot-messages", () => ({
   useMessagesTap: () => ({
-    getMessagesFromTap: jest.fn(() => []),
-    updateTapMessages: jest.fn(),
+    getMessagesFromTap: vi.fn(() => []),
+    updateTapMessages: vi.fn(),
   }),
 }));
 
 describe("useCoAgent config synchronization", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     lastSubscriber = null;
   });
 

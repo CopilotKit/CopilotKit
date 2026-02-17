@@ -58,6 +58,8 @@ git clone https://github.com/<your-GitHub-username>/CopilotKit
 - Node.js 20.x or later
 - pnpm v9.x installed globally (npm i -g pnpm@^9)
 
+> **Windows users:** Enable **Developer Mode** (Settings > System > For developers > Developer Mode → On) to allow symlink creation. This is required for Next.js standalone builds and pnpm to work correctly.
+
 ### 2)Install Dependencies
 
 To install the dependencies using pnpm

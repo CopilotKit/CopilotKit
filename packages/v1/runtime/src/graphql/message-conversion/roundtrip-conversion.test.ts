@@ -1,4 +1,4 @@
-import { describe, test, expect } from "@jest/globals";
+import { vi } from "vitest";
 import * as gql from "../types/converted/index";
 import agui from "@copilotkit/shared";
 import { aguiToGQL } from "./agui-to-gql";
@@ -135,7 +135,7 @@ describe("roundtrip message conversion", () => {
   });
 
   test("action execution with render function roundtrip", () => {
-    const mockRender = jest.fn();
+    const mockRender = vi.fn();
     const aguiMsg: agui.Message = {
       id: "assistant-1",
       role: "assistant",
@@ -221,7 +221,7 @@ describe("roundtrip message conversion", () => {
   });
 
   test("wild card action roundtrip conversion", () => {
-    const mockRender = jest.fn(
+    const mockRender = vi.fn(
       (props) => `Wildcard rendered: ${props.args.test}`,
     );
     const aguiMsg: agui.Message = {
@@ -270,7 +270,7 @@ describe("roundtrip message conversion", () => {
   });
 
   test("wild card action with specific action priority roundtrip", () => {
-    const mockRender = jest.fn(
+    const mockRender = vi.fn(
       (props) => `Specific action rendered: ${props.args.test}`,
     );
     const aguiMsg: agui.Message = {
@@ -331,7 +331,7 @@ describe("roundtrip message conversion", () => {
     const actions: Record<string, any> = {
       "*": {
         name: "*",
-        render: jest.fn((props) => `GQL wildcard rendered: ${props.args.test}`),
+        render: vi.fn((props) => `GQL wildcard rendered: ${props.args.test}`),
       },
     };
 
@@ -407,7 +407,7 @@ describe("roundtrip message conversion", () => {
   });
 
   test("roundtrip conversion with action execution and result parsing", () => {
-    const mockRender = jest.fn(
+    const mockRender = vi.fn(
       (props) => `Rendered: ${JSON.stringify(props.result)}`,
     );
 
@@ -471,7 +471,7 @@ describe("roundtrip message conversion", () => {
   });
 
   test("roundtrip conversion verifies correct property distribution for regular actions", () => {
-    const mockRender = jest.fn(
+    const mockRender = vi.fn(
       (props) => `Regular action: ${JSON.stringify(props.args)}`,
     );
 
@@ -515,7 +515,7 @@ describe("roundtrip message conversion", () => {
   });
 
   test("roundtrip conversion verifies correct property distribution for wildcard actions", () => {
-    const mockRender = jest.fn(
+    const mockRender = vi.fn(
       (props) =>
         `Wildcard action: ${props.name} with ${JSON.stringify(props.args)}`,
     );
