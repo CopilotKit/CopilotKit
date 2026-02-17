@@ -12,7 +12,11 @@ import {
   randomUUID,
   TranscriptionErrorCode,
 } from "@copilotkitnext/shared";
-import { Suggestion, CopilotKitCoreErrorCode } from "@copilotkitnext/core";
+import {
+  Suggestion,
+  CopilotKitCoreErrorCode,
+  CopilotKitCoreRuntimeConnectionStatus,
+} from "@copilotkitnext/core";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { merge } from "ts-deepmerge";
 import { useCopilotKit } from "@/providers/CopilotKitProvider";
@@ -83,7 +87,21 @@ export function CopilotChat({
     ...restProps
   } = props;
 
+  const runtimeConnectionStatus = copilotkit.runtimeConnectionStatus;
+
   useEffect(() => {
+    // Don't connect until the runtime has finished resolving agents.
+    // Without this guard the provisional agent would fire an early connect
+    // before headers/credentials are ready, and since the agent reference is
+    // stable (useRef cache) the effect would never re-fire to retry.
+    if (
+      copilotkit.runtimeUrl &&
+      runtimeConnectionStatus !==
+        CopilotKitCoreRuntimeConnectionStatus.Connected
+    ) {
+      return;
+    }
+
     const connect = async (agent: AbstractAgent) => {
       try {
         await copilotkit.connectAgent({ agent });
@@ -98,7 +116,7 @@ export function CopilotChat({
     agent.threadId = resolvedThreadId;
     connect(agent);
     return () => {};
-  }, [resolvedThreadId, agent, copilotkit, resolvedAgentId]);
+  }, [resolvedThreadId, agent, copilotkit, resolvedAgentId, runtimeConnectionStatus]);
 
   const onSubmitInput = useCallback(
     async (value: string) => {
