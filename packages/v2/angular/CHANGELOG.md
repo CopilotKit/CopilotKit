@@ -1,5 +1,14 @@
 # @copilotkitnext/angular
 
+## 1.51.4
+
+### Patch Changes
+
+- 9bc868d: Frontend tools integration with core in Angular package
+- Updated dependencies [c998f30]
+  - @copilotkitnext/core@1.51.4
+  - @copilotkitnext/shared@1.51.4
+
 ## 1.51.4-next.8
 
 ### Patch Changes
