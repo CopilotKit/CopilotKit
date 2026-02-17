@@ -1,11 +1,12 @@
 import { useCopilotKit } from "@/providers/CopilotKitProvider";
-import { useMemo, useEffect, useReducer } from "react";
+import { useMemo, useEffect, useReducer, useRef } from "react";
 import { DEFAULT_AGENT_ID } from "@copilotkitnext/shared";
 import { AbstractAgent } from "@ag-ui/client";
 import {
   ProxiedCopilotRuntimeAgent,
   CopilotKitCoreRuntimeConnectionStatus,
 } from "@copilotkitnext/core";
+import type { CopilotKitCoreReact } from "@/lib/react-core";
 
 export enum UseAgentUpdate {
   OnMessagesChanged = "OnMessagesChanged",
@@ -24,67 +25,108 @@ export interface UseAgentProps {
   updates?: UseAgentUpdate[];
 }
 
-export function useAgent({ agentId, updates }: UseAgentProps = {}) {
-  agentId ??= DEFAULT_AGENT_ID;
+/**
+ * Resolve the current agent for the given agentId.
+ *
+ * Uses a ref-backed cache for provisional agents so that the same instance is
+ * returned across re-renders while the runtime is still connecting. This
+ * prevents CopilotChat (and any other consumer) from seeing a new agent
+ * reference on every status/header change and firing duplicate connect requests.
+ *
+ * When the runtime finishes connecting and a registered agent becomes available,
+ * the provisional's metadata is updated in-place rather than switching to the
+ * registered instance. This keeps the agent reference fully stable for the
+ * entire lifecycle, resulting in exactly one connect call.
+ */
+function resolveAgent(
+  copilotkit: CopilotKitCoreReact,
+  agentId: string,
+  provisionalCache: Map<string, ProxiedCopilotRuntimeAgent>,
+): AbstractAgent {
+  // 1. Check if a registered agent exists (runtime connected and /info returned
+  //    it, or a local dev agent was provided via agents__unsafe_dev_only).
+  const existing = copilotkit.getAgent(agentId);
 
+  if (existing) {
+    const provisional = provisionalCache.get(agentId);
+    if (provisional) {
+      // A provisional was created while the runtime was connecting.
+      // Update it with metadata from the registered agent so consumers
+      // keep a stable reference — this avoids a second connect call.
+      provisional.description = existing.description;
+      if (existing instanceof ProxiedCopilotRuntimeAgent) {
+        provisional.credentials = existing.credentials;
+      }
+      provisional.headers = { ...copilotkit.headers };
+      return provisional;
+    }
+    // No provisional was created (e.g., local dev agent found immediately)
+    return existing;
+  }
+
+  const isRuntimeConfigured = copilotkit.runtimeUrl !== undefined;
+  const status = copilotkit.runtimeConnectionStatus;
+
+  // 2. While runtime is not yet synced, return a stable provisional agent
+  if (
+    isRuntimeConfigured &&
+    (status === CopilotKitCoreRuntimeConnectionStatus.Disconnected ||
+      status === CopilotKitCoreRuntimeConnectionStatus.Connecting)
+  ) {
+    let provisional = provisionalCache.get(agentId);
+    if (!provisional) {
+      provisional = new ProxiedCopilotRuntimeAgent({
+        runtimeUrl: copilotkit.runtimeUrl,
+        agentId,
+        transport: copilotkit.runtimeTransport,
+      });
+      provisionalCache.set(agentId, provisional);
+    }
+    // Always update headers to reflect the latest state
+    provisional.headers = { ...copilotkit.headers };
+    return provisional;
+  }
+
+  // 3. After runtime has synced (Connected or Error) and the agent doesn't
+  //    exist, throw a descriptive error.
+  const knownAgents = Object.keys(copilotkit.agents ?? {});
+  const runtimePart = isRuntimeConfigured
+    ? `runtimeUrl=${copilotkit.runtimeUrl}`
+    : "no runtimeUrl";
+  throw new Error(
+    `useAgent: Agent '${agentId}' not found after runtime sync (${runtimePart}). ` +
+      (knownAgents.length
+        ? `Known agents: [${knownAgents.join(", ")}]`
+        : "No agents registered.") +
+      " Verify your runtime /info and/or agents__unsafe_dev_only.",
+  );
+}
+
+export function useAgent({ agentId = DEFAULT_AGENT_ID, updates }: UseAgentProps = {}) {  
   const { copilotkit } = useCopilotKit();
   const [, forceUpdate] = useReducer((x) => x + 1, 0);
 
   const updateFlags = useMemo(
     () => updates ?? ALL_UPDATES,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [JSON.stringify(updates)],
   );
 
-  const agent: AbstractAgent = useMemo(() => {
-    const existing = copilotkit.getAgent(agentId);
-    if (existing) {
-      return existing;
-    }
+  // Cache provisional agents by agentId so that the same instance is returned
+  // across re-renders. This avoids the old useMemo approach where volatile
+  // dependencies (runtimeConnectionStatus, agents, headers) caused a new
+  // ProxiedCopilotRuntimeAgent to be created on every state transition.
+  const provisionalCacheRef = useRef(
+    new Map<string, ProxiedCopilotRuntimeAgent>(),
+  );
 
-    const isRuntimeConfigured = copilotkit.runtimeUrl !== undefined;
-    const status = copilotkit.runtimeConnectionStatus;
-
-    // While runtime is not yet synced, return a provisional runtime agent
-    if (
-      isRuntimeConfigured &&
-      (status === CopilotKitCoreRuntimeConnectionStatus.Disconnected ||
-        status === CopilotKitCoreRuntimeConnectionStatus.Connecting)
-    ) {
-      const provisional = new ProxiedCopilotRuntimeAgent({
-        runtimeUrl: copilotkit.runtimeUrl,
-        agentId,
-        transport: copilotkit.runtimeTransport,
-      });
-      // Apply current headers so runs/connects inherit them
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (provisional as any).headers = { ...copilotkit.headers };
-      return provisional;
-    }
-
-    // If no runtime is configured (dev/local), return a no-op agent to satisfy the
-    // non-undefined contract without forcing network behavior.
-    // After runtime has synced (Connected or Error) or no runtime configured and the agent doesn't exist, throw a descriptive error
-    const knownAgents = Object.keys(copilotkit.agents ?? {});
-    const runtimePart = isRuntimeConfigured
-      ? `runtimeUrl=${copilotkit.runtimeUrl}`
-      : "no runtimeUrl";
-    throw new Error(
-      `useAgent: Agent '${agentId}' not found after runtime sync (${runtimePart}). ` +
-        (knownAgents.length
-          ? `Known agents: [${knownAgents.join(", ")}]`
-          : "No agents registered.") +
-        " Verify your runtime /info and/or agents__unsafe_dev_only.",
-    );
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    agentId,
-    copilotkit.agents,
-    copilotkit.runtimeConnectionStatus,
-    copilotkit.runtimeUrl,
-    copilotkit.runtimeTransport,
-    JSON.stringify(copilotkit.headers),
+  // Resolve the agent synchronously during render.
+  // The ref-backed cache ensures referential stability for provisional agents.
+  const agent: AbstractAgent = resolveAgent(
     copilotkit,
-  ]);
+    agentId,
+    provisionalCacheRef.current,
+  );
 
   useEffect(() => {
     if (updateFlags.length === 0) {
