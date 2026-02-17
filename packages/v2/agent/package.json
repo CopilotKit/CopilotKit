@@ -1,6 +1,6 @@
 {
   "name": "@copilotkitnext/agent",
-  "version": "1.51.4-next.8",
+  "version": "1.51.4",
   "description": "Basic Agent for CopilotKit",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

@@ -1,5 +1,15 @@
 # @copilotkit/runtime
 
+## 1.51.4
+
+### Patch Changes
+
+- 8d67519: fix: propagate agent error messages into RUN_ERROR events
+- 4886f18: fix: use langgraph clone fix on latest agui
+  - @copilotkit/shared@1.51.4
+  - @copilotkitnext/agent@1.51.4
+  - @copilotkitnext/runtime@1.51.4
+
 ## 1.51.4-next.8
 
 ### Patch Changes

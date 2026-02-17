@@ -1,5 +1,12 @@
 # @copilotkitnext/core
 
+## 1.51.4
+
+### Patch Changes
+
+- c998f30: fix(core): prevent tool call results from leaking into wrong thread on thread switch
+  - @copilotkitnext/shared@1.51.4
+
 ## 1.51.4-next.8
 
 ### Patch Changes

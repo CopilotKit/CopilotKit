@@ -1,5 +1,21 @@
 # ui
 
+## 1.51.4
+
+### Patch Changes
+
+- 6b9c60e: fix: add dependencies to fix stale state of regenerate method
+- 12ee574: v2 UI improvements
+- 9bc868d: Frontend tools integration with core in Angular package
+- c998f30: fix(core): prevent tool call results from leaking into wrong thread on thread switch
+- 6b7d8ef: feat(react): apply resource CSP domains to MCP Apps sandbox iframe
+- Updated dependencies [c998f30]
+- Updated dependencies [a3090d5]
+  - @copilotkitnext/core@1.51.4
+  - @copilotkitnext/react@1.51.4
+  - @copilotkit/runtime-client-gql@1.51.4
+  - @copilotkit/shared@1.51.4
+
 ## 1.51.4-next.8
 
 ### Patch Changes
