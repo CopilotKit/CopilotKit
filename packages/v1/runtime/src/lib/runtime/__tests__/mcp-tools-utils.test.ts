@@ -394,7 +394,7 @@ describe("MCP Tools Utils", () => {
     });
 
     it("should handle tool execution correctly", async () => {
-      const mockExecute = jest.fn().mockResolvedValue("mock result");
+      const mockExecute = vi.fn().mockResolvedValue("mock result");
       const mcpTools: Record<string, MCPTool> = {
         testTool: {
           description: "A test tool",

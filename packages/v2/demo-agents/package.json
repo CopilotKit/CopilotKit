@@ -2,15 +2,16 @@
   "name": "@copilotkitnext/demo-agents",
   "version": "1.51.5-next.0",
   "private": true,
-  "main": "dist/index.js",
-  "module": "dist/index.mjs",
-  "types": "dist/index.d.ts",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.cts",
+  "type": "module",
   "files": [
     "dist"
   ],
   "scripts": {
-    "build": "tsup",
-    "dev": "tsup --watch",
+    "build": "tsdown",
+    "dev": "tsdown --watch",
     "check-types": "tsc --noEmit",
     "lint": "eslint .",
     "test": "vitest run",
@@ -26,8 +27,15 @@
     "@copilotkitnext/typescript-config": "workspace:*",
     "@types/node": "^22.10.5",
     "eslint": "^9.17.0",
-    "tsup": "^8.0.1",
+    "tsdown": "^0.20.3",
     "typescript": "^5.8.2",
     "vitest": "^2.1.8"
+  },
+  "exports": {
+    ".": {
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.cjs"
+    },
+    "./package.json": "./package.json"
   }
 }

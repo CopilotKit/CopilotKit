@@ -13,14 +13,14 @@
     "access": "public"
   },
   "license": "MIT",
-  "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
+  "types": "./dist/index.d.cts",
   "type": "module",
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "default": "./dist/index.js"
-    }
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.cjs"
+    },
+    "./package.json": "./package.json"
   },
   "unpkg": "./dist/index.umd.js",
   "jsdelivr": "./dist/index.umd.js",
@@ -29,11 +29,13 @@
   ],
   "scripts": {
     "prepack": "pnpm run build",
-    "build": "tsc -p tsconfig.json && rollup -c rollup.config.mjs",
+    "build": "tsdown",
     "check-types": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "publint": "publint .",
+    "attw": "attw --pack . --profile node16"
   },
   "keywords": [
     "copilotkit",
@@ -56,11 +58,14 @@
   },
   "devDependencies": {
     "@testing-library/react": "^16.0.0",
+    "tsdown": "^0.20.3",
     "@types/markdown-it": "^14.1.2",
     "@types/react": "^19.2.3",
     "@types/react-dom": "^19.2.3",
     "jsdom": "^26.1.0",
     "typescript": "5.9.2",
     "vitest": "^3.2.4"
-  }
+  },
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.mjs"
 }

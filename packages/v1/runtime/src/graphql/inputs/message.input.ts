@@ -2,26 +2,6 @@ import { Field, InputType } from "type-graphql";
 import { MessageRole } from "../types/enums";
 import { BaseMessageInput } from "../types/base";
 
-// GraphQL does not support union types in inputs, so we need to use
-// optional fields for the different subtypes.
-@InputType()
-export class MessageInput extends BaseMessageInput {
-  @Field(() => TextMessageInput, { nullable: true })
-  textMessage?: TextMessageInput;
-
-  @Field(() => ActionExecutionMessageInput, { nullable: true })
-  actionExecutionMessage?: ActionExecutionMessageInput;
-
-  @Field(() => ResultMessageInput, { nullable: true })
-  resultMessage?: ResultMessageInput;
-
-  @Field(() => AgentStateMessageInput, { nullable: true })
-  agentStateMessage?: AgentStateMessageInput;
-
-  @Field(() => ImageMessageInput, { nullable: true })
-  imageMessage?: ImageMessageInput;
-}
-
 @InputType()
 export class TextMessageInput {
   @Field(() => String)
@@ -107,4 +87,24 @@ export class ImageMessageInput {
 
   @Field(() => MessageRole)
   role: MessageRole;
+}
+
+// GraphQL does not support union types in inputs, so we need to use
+// optional fields for the different subtypes.
+@InputType()
+export class MessageInput extends BaseMessageInput {
+  @Field(() => TextMessageInput, { nullable: true })
+  textMessage?: TextMessageInput;
+
+  @Field(() => ActionExecutionMessageInput, { nullable: true })
+  actionExecutionMessage?: ActionExecutionMessageInput;
+
+  @Field(() => ResultMessageInput, { nullable: true })
+  resultMessage?: ResultMessageInput;
+
+  @Field(() => AgentStateMessageInput, { nullable: true })
+  agentStateMessage?: AgentStateMessageInput;
+
+  @Field(() => ImageMessageInput, { nullable: true })
+  imageMessage?: ImageMessageInput;
 }

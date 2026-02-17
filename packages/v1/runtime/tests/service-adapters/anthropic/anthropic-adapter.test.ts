@@ -1,22 +1,23 @@
-/**
- * @jest-environment node
- */
-
 import { AnthropicAdapter } from "../../../src/service-adapters/anthropic/anthropic-adapter";
+import {
+  TextMessage,
+  ActionExecutionMessage,
+  ResultMessage,
+} from "../../../src/graphql/types/converted";
 
 // Mock only the Anthropic SDK, not our adapter
-jest.mock("@anthropic-ai/sdk", () => {
+vi.mock("@anthropic-ai/sdk", () => {
   return {
-    default: jest.fn().mockImplementation(() => ({
+    default: vi.fn().mockImplementation(() => ({
       messages: {
-        create: jest.fn(),
+        create: vi.fn(),
       },
     })),
   };
 });
 
 // Mock the message classes
-jest.mock("../../../src/graphql/types/converted", () => {
+vi.mock("../../../src/graphql/types/converted", () => {
   class MockTextMessage {
     content: string;
     role: string;
@@ -102,15 +103,15 @@ jest.mock("../../../src/graphql/types/converted", () => {
 describe("AnthropicAdapter", () => {
   let adapter: AnthropicAdapter;
   let mockEventSource: any;
-  let mockAnthropicCreate: jest.Mock;
+  let mockAnthropicCreate: any;
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
 
     // Create a mock Anthropic instance
     const mockAnthropic = {
       messages: {
-        create: jest.fn(),
+        create: vi.fn(),
       },
     };
 
@@ -121,15 +122,15 @@ describe("AnthropicAdapter", () => {
     mockAnthropicCreate = mockAnthropic.messages.create;
 
     mockEventSource = {
-      stream: jest.fn((callback) => {
+      stream: vi.fn((callback) => {
         const mockStream = {
-          sendTextMessageStart: jest.fn(),
-          sendTextMessageContent: jest.fn(),
-          sendTextMessageEnd: jest.fn(),
-          sendActionExecutionStart: jest.fn(),
-          sendActionExecutionArgs: jest.fn(),
-          sendActionExecutionEnd: jest.fn(),
-          complete: jest.fn(),
+          sendTextMessageStart: vi.fn(),
+          sendTextMessageContent: vi.fn(),
+          sendTextMessageEnd: vi.fn(),
+          sendActionExecutionStart: vi.fn(),
+          sendActionExecutionArgs: vi.fn(),
+          sendActionExecutionEnd: vi.fn(),
+          complete: vi.fn(),
         };
         callback(mockStream);
         return Promise.resolve();
@@ -139,12 +140,6 @@ describe("AnthropicAdapter", () => {
 
   describe("Deduplication Logic", () => {
     it("should filter out duplicate result messages", async () => {
-      const {
-        TextMessage,
-        ActionExecutionMessage,
-        ResultMessage,
-      } = require("../../../src/graphql/types/converted");
-
       const systemMessage = new TextMessage("system", "System message");
       const userMessage = new TextMessage("user", "Set theme to orange");
 
@@ -238,12 +233,6 @@ describe("AnthropicAdapter", () => {
     });
 
     it("should filter out invalid result messages without corresponding tool_use", async () => {
-      const {
-        TextMessage,
-        ActionExecutionMessage,
-        ResultMessage,
-      } = require("../../../src/graphql/types/converted");
-
       const systemMessage = new TextMessage("system", "System message");
 
       // Valid tool execution
@@ -290,12 +279,6 @@ describe("AnthropicAdapter", () => {
 
   describe("Fallback Response Logic", () => {
     it("should generate contextual fallback when Anthropic returns no content", async () => {
-      const {
-        TextMessage,
-        ActionExecutionMessage,
-        ResultMessage,
-      } = require("../../../src/graphql/types/converted");
-
       const systemMessage = new TextMessage("system", "System message");
       const userMessage = new TextMessage("user", "Set theme to orange");
 
@@ -318,10 +301,10 @@ describe("AnthropicAdapter", () => {
       });
 
       const mockStream = {
-        sendTextMessageStart: jest.fn(),
-        sendTextMessageContent: jest.fn(),
-        sendTextMessageEnd: jest.fn(),
-        complete: jest.fn(),
+        sendTextMessageStart: vi.fn(),
+        sendTextMessageContent: vi.fn(),
+        sendTextMessageEnd: vi.fn(),
+        complete: vi.fn(),
       };
 
       mockEventSource.stream.mockImplementation((callback) => {
@@ -347,12 +330,6 @@ describe("AnthropicAdapter", () => {
     });
 
     it("should use generic fallback when no tool result content available", async () => {
-      const {
-        TextMessage,
-        ActionExecutionMessage,
-        ResultMessage,
-      } = require("../../../src/graphql/types/converted");
-
       const systemMessage = new TextMessage("system", "System message");
 
       const toolExecution = new ActionExecutionMessage({
@@ -371,10 +348,10 @@ describe("AnthropicAdapter", () => {
       });
 
       const mockStream = {
-        sendTextMessageStart: jest.fn(),
-        sendTextMessageContent: jest.fn(),
-        sendTextMessageEnd: jest.fn(),
-        complete: jest.fn(),
+        sendTextMessageStart: vi.fn(),
+        sendTextMessageContent: vi.fn(),
+        sendTextMessageEnd: vi.fn(),
+        complete: vi.fn(),
       };
 
       mockEventSource.stream.mockImplementation((callback) => {

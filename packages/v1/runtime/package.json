@@ -10,51 +10,53 @@
     "access": "public"
   },
   "version": "1.51.5-next.0",
-  "sideEffects": false,
-  "main": "./dist/index.js",
+  "sideEffects": [
+    "./dist/index.mjs",
+    "./dist/index.cjs",
+    "./dist/v2/index.mjs",
+    "./dist/v2/index.cjs"
+  ],
+  "main": "./dist/index.cjs",
   "module": "./dist/index.mjs",
   "exports": {
     ".": {
       "import": "./dist/index.mjs",
-      "require": "./dist/index.js",
-      "types": "./dist/index.d.ts"
-    },
-    "./v2": {
-      "import": "./dist/v2/index.mjs",
-      "require": "./dist/v2/index.js",
-      "types": "./dist/v2/index.d.ts"
+      "require": "./dist/index.cjs"
     },
     "./langgraph": {
       "import": "./dist/langgraph.mjs",
-      "require": "./dist/langgraph.js",
-      "types": "./dist/langgraph.d.ts"
-    }
+      "require": "./dist/langgraph.cjs"
+    },
+    "./v2": {
+      "import": "./dist/v2/index.mjs",
+      "require": "./dist/v2/index.cjs"
+    },
+    "./package.json": "./package.json"
   },
-  "types": "./dist/index.d.ts",
+  "types": "./dist/index.d.cts",
   "license": "MIT",
   "scripts": {
-    "build": "pnpm run generate-graphql-schema && tsup",
-    "dev": "tsup --watch --onSuccess \"pnpm run generate-graphql-schema\"",
-    "test": "jest --passWithNoTests",
+    "build": "pnpm run generate-graphql-schema && tsdown",
+    "dev": "tsdown --watch",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "check-types": "tsc --noEmit",
     "generate-graphql-schema": "rm -rf __snapshots__ && ts-node ./scripts/generate-gql-schema.ts",
     "link:global": "pnpm link --global",
-    "unlink:global": "pnpm unlink --global"
+    "unlink:global": "pnpm unlink --global",
+    "publint": "publint .",
+    "attw": "attw --pack . --profile node16"
   },
   "devDependencies": {
-    "@jest/globals": "^29.7.0",
     "@swc/core": "1.5.28",
-    "@types/jest": "^29.5.12",
     "@types/node": "^18.11.17",
     "@whatwg-node/server": "^0.9.34",
     "eslint": "^8.56.0",
     "eslint-config-custom": "workspace:*",
-    "jest": "^29.6.4",
     "nodemon": "^3.1.3",
-    "ts-jest": "^29.1.1",
     "ts-node": "^10.9.2",
     "tsconfig": "workspace:*",
-    "tsup": "^6.7.0",
+    "tsdown": "^0.20.3",
     "typescript": "^5.2.3",
     "vitest": "^3.2.4"
   },

@@ -9,39 +9,41 @@
   "publishConfig": {
     "access": "public"
   },
+  "type": "module",
   "version": "1.51.5-next.0",
   "sideEffects": false,
-  "main": "./dist/index.js",
+  "main": "./dist/index.cjs",
   "module": "./dist/index.mjs",
   "exports": {
     ".": {
       "import": "./dist/index.mjs",
-      "require": "./dist/index.js",
-      "types": "./dist/index.d.ts"
-    }
+      "require": "./dist/index.cjs"
+    },
+    "./package.json": "./package.json"
   },
   "unpkg": "./dist/index.umd.js",
   "jsdelivr": "./dist/index.umd.js",
-  "types": "./dist/index.d.ts",
+  "types": "./dist/index.d.cts",
   "license": "MIT",
   "scripts": {
-    "build": "tsup --clean && rollup -c rollup.config.mjs",
-    "dev": "tsup --watch --no-splitting",
-    "test": "jest --passWithNoTests",
+    "build": "tsdown",
+    "dev": "tsdown --watch",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "check-types": "tsc --noEmit",
     "link:global": "pnpm link --global",
-    "unlink:global": "pnpm unlink --global"
+    "unlink:global": "pnpm unlink --global",
+    "publint": "publint .",
+    "attw": "attw --pack . --profile node16"
   },
   "devDependencies": {
-    "@types/jest": "^29.5.4",
     "@types/uuid": "^10.0.0",
     "eslint": "^8.56.0",
     "eslint-config-custom": "workspace:*",
-    "jest": "^29.6.4",
-    "ts-jest": "^29.1.1",
     "tsconfig": "workspace:*",
-    "tsup": "^6.7.0",
+    "tsdown": "^0.20.3",
     "typescript": "^5.2.3",
+    "vitest": "^3.2.4",
     "zod-to-json-schema": "^3.23.5"
   },
   "dependencies": {

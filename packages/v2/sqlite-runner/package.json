@@ -2,26 +2,29 @@
   "name": "@copilotkitnext/sqlite-runner",
   "version": "1.51.5-next.0",
   "description": "SQLite-backed agent runner for CopilotKit2",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "main": "./dist/index.cjs",
+  "types": "./dist/index.d.cts",
+  "type": "module",
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
       "import": "./dist/index.mjs",
-      "require": "./dist/index.js"
-    }
+      "require": "./dist/index.cjs"
+    },
+    "./package.json": "./package.json"
   },
   "publishConfig": {
     "access": "public"
   },
   "scripts": {
-    "build": "tsup",
-    "dev": "tsup --watch",
+    "build": "tsdown",
+    "dev": "tsdown --watch",
     "lint": "eslint .",
     "check-types": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "publint": "publint .",
+    "attw": "attw --pack . --profile node16"
   },
   "devDependencies": {
     "@copilotkitnext/eslint-config": "workspace:*",
@@ -30,7 +33,7 @@
     "@types/node": "^22.15.3",
     "better-sqlite3": "^12.2.0",
     "eslint": "^9.30.0",
-    "tsup": "^8.5.0",
+    "tsdown": "^0.20.3",
     "typescript": "5.8.2",
     "vitest": "^3.0.5"
   },
@@ -49,5 +52,6 @@
   },
   "engines": {
     "node": ">=18"
-  }
+  },
+  "module": "./dist/index.mjs"
 }

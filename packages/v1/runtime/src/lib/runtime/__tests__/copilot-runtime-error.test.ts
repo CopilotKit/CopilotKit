@@ -122,7 +122,7 @@ describe("CopilotRuntime onError types", () => {
     };
 
     it("should return true when both onError and publicApiKey are provided", () => {
-      const onError = jest.fn();
+      const onError = vi.fn();
       const result = shouldHandleError(onError, "valid-api-key");
       expect(result).toBe(true);
     });
@@ -133,13 +133,13 @@ describe("CopilotRuntime onError types", () => {
     });
 
     it("should return false when publicApiKey is missing", () => {
-      const onError = jest.fn();
+      const onError = vi.fn();
       const result = shouldHandleError(onError, undefined);
       expect(result).toBe(false);
     });
 
     it("should return false when publicApiKey is empty string", () => {
-      const onError = jest.fn();
+      const onError = vi.fn();
       const result = shouldHandleError(onError, "");
       expect(result).toBe(false);
     });
@@ -175,7 +175,7 @@ describe("CopilotRuntime onError types", () => {
       expect(nonCloudKey).toBe("test-key-123");
 
       // Both should enable error handling when onError is present
-      const onError = jest.fn();
+      const onError = vi.fn();
       expect(shouldHandleError(onError, cloudKey)).toBe(true);
       expect(shouldHandleError(onError, nonCloudKey)).toBe(true);
     });

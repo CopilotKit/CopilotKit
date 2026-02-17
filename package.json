@@ -34,7 +34,10 @@
     "demo:next:react": "pnpm -C examples/v2/react/demo dev",
     "changeset": "changeset",
     "prepare": "husky",
-    "graph": "nx graph"
+    "graph": "nx graph",
+    "publint": "nx run-many -t publint --projects=packages/**",
+    "attw": "nx run-many -t attw --projects=packages/**",
+    "check:packages": "nx run-many -t publint,attw --projects=packages/**"
   },
   "v2Leftovers": {
     "bump:prerelease": "pnpm -r --filter='@copilotkitnext/agent' --filter='@copilotkitnext/angular' --filter='@copilotkitnext/core' --filter='@copilotkitnext/react' --filter='@copilotkitnext/runtime' --filter='@copilotkitnext/sqlite-runner' --filter='@copilotkitnext/shared' --filter='@copilotkitnext/web-inspector' exec pnpm version prerelease --preid=alpha",
@@ -50,20 +53,15 @@
     "prepublish": "nx run-many -t build"
   },
   "devDependencies": {
+    "@arethetypeswrong/cli": "^0.18.2",
     "@changesets/cli": "^2.29.8",
     "@commitlint/cli": "^20.3.0",
     "@commitlint/config-conventional": "^20.3.0",
-    "@vitest/coverage-v8": "^3.2.4",
-    "@rollup/plugin-commonjs": "^29.0.0",
-    "@rollup/plugin-json": "^6.1.0",
-    "@rollup/plugin-node-resolve": "^16.0.3",
-    "@rollup/plugin-terser": "^0.4.4",
-    "@rollup/plugin-typescript": "^12.3.0",
-    "@rollup/plugin-url": "^8.0.2",
     "@storybook/addon-docs": "^10.1.10",
     "@storybook/addon-webpack5-compiler-swc": "^4.0.2",
     "@storybook/react-webpack5": "^10.1.10",
     "@types/node": "^18.11.17",
+    "@vitest/coverage-v8": "^3.2.4",
     "danger": "^12.3.3",
     "eslint": "^8.56.0",
     "eslint-config-custom": "workspace:*",
@@ -74,10 +72,10 @@
     "nx": "^22.5.0",
     "prettier": "^3.6.0",
     "prettier-plugin-tailwindcss": "^0.1.11",
-    "rollup": "^4.55.3",
-    "rollup-plugin-postcss": "^4.0.2",
+    "publint": "^0.3.17",
     "storybook": "^10.1.10",
     "ts-node": "^10.9.2",
+    "tsdown": "^0.20.3",
     "typescript": "^5.2.3"
   },
   "packageManager": "pnpm@10.13.1",
