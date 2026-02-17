@@ -60,7 +60,8 @@ export const REFERENCE_DOCS: ReferenceDocConfiguration[] = [
   },
   {
     sourcePath: "packages/runtime/src/lib/runtime/copilot-runtime.ts",
-    destinationPath: "docs/content/docs/reference/v1/classes/CopilotRuntime.mdx",
+    destinationPath:
+      "docs/content/docs/reference/v1/classes/CopilotRuntime.mdx",
     className: "CopilotRuntime",
     description:
       "Copilot Runtime is the back-end component of CopilotKit, enabling interaction with LLMs.",
@@ -129,7 +130,8 @@ export const REFERENCE_DOCS: ReferenceDocConfiguration[] = [
   },
   {
     sourcePath: "packages/react-core/src/hooks/use-copilot-readable.ts",
-    destinationPath: "docs/content/docs/reference/v1/hooks/useCopilotReadable.mdx",
+    destinationPath:
+      "docs/content/docs/reference/v1/hooks/useCopilotReadable.mdx",
     hook: "useCopilotReadable",
     description:
       "The useCopilotReadable hook allows you to provide knowledge to your copilot (e.g. application state).",
