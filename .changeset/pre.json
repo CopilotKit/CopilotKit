@@ -44,5 +44,7 @@
     "@copilotkit/voice": "1.51.4",
     "@copilotkitnext/web-inspector": "1.51.4"
   },
-  "changesets": []
+  "changesets": [
+    "quiet-eggs-double"
+  ]
 }
