@@ -7,27 +7,18 @@ import SelfHostingCopilotRuntimeCreateEndpoint from "@/snippets/self-hosting-cop
 import { FaCloud, FaServer } from "react-icons/fa";
 import FindYourCopilotRuntime from "@/snippets/find-your-copilot-runtime.mdx";
 
-LLM Adapters are responsible for executing the request with the LLM and standardizing the request/response format in a way that the Copilot Runtime can understand.
+CopilotKit uses `BuiltInAgent` to handle LLM communication. Simply specify the model you want to use with the
+`"provider/model"` format, and CopilotKit handles provider initialization and API key management automatically.
 
-Currently, we support the following LLM adapters natively:
+Currently, we natively support the following providers:
 
-- [OpenAI Adapter (Azure also supported)](/reference/classes/llm-adapters/OpenAIAdapter)
-- [OpenAI Assistant Adapter](/reference/classes/llm-adapters/OpenAIAssistantAdapter)
-- [LangChain Adapter](/reference/classes/llm-adapters/LangChainAdapter)
-- [Groq Adapter](/reference/classes/llm-adapters/GroqAdapter)
-- [Google Generative AI Adapter](/reference/classes/llm-adapters/GoogleGenerativeAIAdapter)
-- [Anthropic Adapter](/reference/classes/llm-adapters/AnthropicAdapter)
+- **OpenAI** - `"openai/gpt-4o"`, `"openai/gpt-4o-mini"`, `"openai/o3-mini"`, etc.
+- **Anthropic (Claude)** - `"anthropic/claude-sonnet-4.5"`, `"anthropic/claude-opus-4"`, etc.
+- **Google (Gemini)** - `"google/gemini-2.5-pro"`, `"google/gemini-2.5-flash"`, etc.
 
 <Callout type="info">
-  You can use the [LangChain
-  Adapter](/reference/classes/llm-adapters/LangChainAdapter) to use any LLM
-  provider we don't yet natively support!
-</Callout>
-
-<Callout type="info">
-  It's not too hard to write your own LLM adapter from scratch -- see the
-  existing adapters for inspiration. And of course, we would love a
-  contribution! ⭐️
+  You can also pass any [Vercel AI SDK](https://sdk.vercel.ai/docs) `LanguageModel` instance directly to
+  `BuiltInAgent` for providers not listed above. This gives you access to dozens of additional providers.
 </Callout>
 
 <TailoredContent id="hosting">
@@ -37,7 +28,7 @@ Currently, we support the following LLM adapters natively:
     description="Use our hosted backend endpoint to get started quickly."
     icon={<FaCloud />}
   >
-  Configure the used LLM adapter [on your Copilot Cloud dashboard](https://cloud.copilotkit.ai/)!
+  Configure the used LLM model [on your Copilot Cloud dashboard](https://cloud.copilotkit.ai/)!
 
   </TailoredContentOption>
 
@@ -56,16 +47,67 @@ Currently, we support the following LLM adapters natively:
     </Step>
 
     <Step>
-    ## Modify the used LLM Adapter
+    ## Configure your BuiltInAgent model
 
-    Use the example code below to tailor your CopilotRuntime instantiation to your desired llm adapter.
+    Update the `BuiltInAgent` in your CopilotRuntime to use your desired model:
 
-    <SelfHostingCopilotRuntimeCreateEndpoint components={props.components} />
+    ```ts
+    import { CopilotRuntime } from "@copilotkit/runtime";
+    import { BuiltInAgent } from "@copilotkit/runtime/v2";
+
+    const runtime = new CopilotRuntime({
+      agents: {
+        default: new BuiltInAgent({
+          model: "openai/gpt-4o", // Change to your desired provider/model
+        }),
+      },
+    });
+    ```
+
+    You can also configure additional options:
+
+    ```ts
+    import { CopilotRuntime } from "@copilotkit/runtime";
+    import { BuiltInAgent } from "@copilotkit/runtime/v2";
+
+    const runtime = new CopilotRuntime({
+      agents: {
+        default: new BuiltInAgent({
+          model: "anthropic/claude-sonnet-4.5",
+          temperature: 0.7,
+          maxOutputTokens: 4096,
+          prompt: "You are a helpful AI assistant.",
+        }),
+      },
+    });
+    ```
+
     </Step>
 
     <Step>
-    ## Make further customizations
-    See the reference documentation linked above for further customization parameters.
+    ## Set your API key
+
+    Make sure the appropriate environment variable is set for your provider:
+
+    ```plaintext title=".env"
+    # OpenAI
+    OPENAI_API_KEY=your_key_here
+
+    # Anthropic
+    ANTHROPIC_API_KEY=your_key_here
+
+    # Google
+    GOOGLE_API_KEY=your_key_here
+    ```
+
+    Or pass the key directly:
+
+    ```ts
+    new BuiltInAgent({
+      model: "openai/gpt-4o",
+      apiKey: "sk-...",
+    })
+    ```
     </Step>
 
   </Steps>
