@@ -33,6 +33,12 @@ export type FrontendTool<
    * If specified, this tool will only be available to the specified agent.
    */
   agentId?: string;
+  /**
+   * Whether this tool is available to the agent.
+   * Set to false to hide the tool from the agent without unregistering it.
+   * Defaults to true when not specified.
+   */
+  available?: boolean;
 };
 
 export type Suggestion = {
