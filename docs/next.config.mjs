@@ -160,6 +160,12 @@ const config = {
 
     // Manual redirects for specific cases
     const manualRedirects = [
+      // Redirect /reference root to /reference/v2
+      {
+        source: '/reference',
+        destination: '/reference/v2',
+        permanent: false,
+      },
       {
         source: '/generative-ui-specs/:path*',
         destination: '/generative-ui/specs/:path*',

@@ -1,11 +1,11 @@
-import React from "react"
-import { cn } from "@/lib/utils"
+import React from "react";
+import { cn } from "@/lib/utils";
 
 interface BurgerMenuIconProps {
-  className?: string
+  className?: string;
 }
 
-const DEFAULT_CLASSNAME = "text-icon"
+const DEFAULT_CLASSNAME = "text-icon";
 
 const BurgerMenuIcon = ({ className }: BurgerMenuIconProps) => {
   return (
@@ -22,7 +22,7 @@ const BurgerMenuIcon = ({ className }: BurgerMenuIconProps) => {
         fill="currentColor"
       />
     </svg>
-  )
-}
+  );
+};
 
-export default BurgerMenuIcon
+export default BurgerMenuIcon;

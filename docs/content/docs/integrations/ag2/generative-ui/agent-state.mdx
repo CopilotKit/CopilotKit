@@ -1,0 +1,218 @@
+---
+title: Agent State
+icon: "lucide/Bot"
+description: Render the state of your agent with custom UI components.
+---
+## What is this?
+
+AG2 agents can maintain state across a session through `ContextVariables`. CopilotKit can render this state in your application with custom UI components, which we call **Agentic Generative UI**.
+
+<Callout type="info">
+  CopilotKit consumes AG-UI protocol events streamed by AG2 over <code>/chat</code>. See the <a href="https://docs.ag2.ai/latest/docs/user-guide/ag-ui/" target="_blank">AG2 AG-UI integration docs</a>.
+</Callout>
+
+## When should I use this?
+
+Rendering the state of your agent in the UI is useful when you want to provide the user with feedback about the overall state of a session. A great example of this
+is a situation where a user and an agent are working together to solve a problem. The agent can store a draft in its state which is then rendered in the UI.
+
+## Implementation
+
+<Steps>
+  <Step>
+    ### Run and connect your agent
+    Start your AG2 backend with AG-UI streaming enabled on `/chat`.
+  </Step>
+  <Step>
+    ### Set up your agent with state
+
+    Create your AG2 agent with `ContextVariables` and emit `StateSnapshotEvent` updates:
+
+    ```python title="agent.py"
+    from typing import Annotated
+
+    from ag_ui.core import EventType, StateSnapshotEvent
+    from fastapi import FastAPI, Header
+    from fastapi.responses import StreamingResponse
+    from pydantic import BaseModel, Field
+    from autogen import ContextVariables, ConversableAgent, LLMConfig
+    from autogen.ag_ui import AGUIStream, RunAgentInput
+
+
+    class Search(BaseModel):
+        query: str
+        done: bool
+
+
+    class AgentState(BaseModel):
+        searches: list[Search] = Field(default_factory=list)
+
+
+    def read_state(context: ContextVariables) -> AgentState:
+        raw_state = context.get("agent_state", {"searches": []})
+        return AgentState.model_validate(raw_state)
+
+
+    def write_state(context: ContextVariables, state: AgentState) -> StateSnapshotEvent:
+        snapshot = state.model_dump()
+        context["agent_state"] = snapshot
+        return StateSnapshotEvent(type=EventType.STATE_SNAPSHOT, snapshot=snapshot)
+
+
+    agent = ConversableAgent(
+        name="assistant",
+        system_message=(
+            "You are a helpful assistant for storing searches. "
+            "Use `add_search` once per query, then call `run_searches`."
+        ),
+        llm_config=LLMConfig({"model": "gpt-4o-mini"}),
+    )
+
+
+    @agent.register_for_llm(description="Add a search to the state.")
+    def add_search(
+        context: ContextVariables,
+        new_query: Annotated[str, "The query to add to state"],
+    ) -> StateSnapshotEvent:
+        state = read_state(context)
+        state.searches.append(Search(query=new_query, done=False))
+        return write_state(context, state)
+
+
+    @agent.register_for_llm(description="Run the queued searches and mark them done.")
+    def run_searches(context: ContextVariables) -> StateSnapshotEvent:
+        state = read_state(context)
+        for search in state.searches:
+            search.done = True
+        return write_state(context, state)
+
+
+    agent.register_for_execution(name="add_search")(add_search)
+    agent.register_for_execution(name="run_searches")(run_searches)
+
+    stream = AGUIStream(agent)
+    app = FastAPI()
+
+
+    @app.post("/chat")
+    async def run_agent(
+        message: RunAgentInput,
+        accept: str | None = Header(None),
+    ):
+        return StreamingResponse(
+            stream.dispatch(message, accept=accept),
+            media_type=accept or "text/event-stream",
+        )
+    ```
+
+  </Step>
+  <Step>
+    ### Render state of the agent in the chat
+    Now we can utilize `useCoAgentStateRender` to render the state of our agent **in the chat**.
+
+    ```tsx title="app/page.tsx"
+    // ...
+    import { useCoAgentStateRender } from "@copilotkit/react-core";
+    // ...
+
+    // Define the state of the agent, should match the state streamed by your AG2 backend.
+    type AgentState = {
+      searches: {
+        query: string;
+        done: boolean;
+      }[];
+    };
+
+    function YourMainContent() {
+      // ...
+
+      // [!code highlight:13]
+      // styles omitted for brevity
+      useCoAgentStateRender<AgentState>({
+        name: "my_agent", // MUST match the agent name in CopilotRuntime
+        render: ({ state }) => (
+          <div>
+            {state.searches?.map((search, index) => (
+              <div key={index}>
+                {search.done ? "✅" : "❌"} {search.query}{search.done ? "" : "..."}
+              </div>
+            ))}
+          </div>
+        ),
+      });
+
+      // ...
+
+      return <div>...</div>;
+    }
+    ```
+
+    <Callout type="warn" title="Important">
+      The `name` parameter must exactly match the agent name you defined in your CopilotRuntime configuration (e.g., `my_agent` from the quickstart).
+    </Callout>
+
+  </Step>
+  <Step>
+    ### Render state outside of the chat
+    You can also render the state of your agent **outside of the chat**. This is useful when you want to render the state of your agent anywhere
+    other than the chat.
+
+    ```tsx title="app/page.tsx"
+    import { useAgent } from "@copilotkit/react-core/v2"; // [!code highlight]
+    // ...
+
+    // Define the state of the agent, should match the state streamed by your AG2 backend.
+    type AgentState = {
+      searches: {
+        query: string;
+        done: boolean;
+      }[];
+    };
+
+    function YourMainContent() {
+      // ...
+
+      // [!code highlight:3]
+      const { agent } = useAgent<AgentState>({
+        agentId: "my_agent", // MUST match the agent name in CopilotRuntime
+      })
+
+      // ...
+
+      return (
+        <div>
+          {/* ... */}
+          <div className="flex flex-col gap-2 mt-4">
+            {/* [!code highlight:5] */}
+            {agent.state.searches?.map((search, index) => (
+              <div key={index} className="flex flex-row">
+                {search.done ? "✅" : "❌"} {search.query}
+              </div>
+            ))}
+          </div>
+        </div>
+      )
+    }
+    ```
+
+    <Callout type="warn" title="Important">
+      The `agentId` parameter must exactly match the agent name you defined in your CopilotRuntime configuration (e.g., `my_agent` from the quickstart).
+    </Callout>
+
+  </Step>
+  <Step>
+    ### Give it a try
+
+    You've now created a component that will render the agent's state in the chat.
+
+    <video
+      src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/agentic-generative-ui.mp4"
+      className="rounded-lg shadow-xl"
+      loop
+      playsInline
+      controls
+      autoPlay
+      muted
+    />
+  </Step>
+</Steps>

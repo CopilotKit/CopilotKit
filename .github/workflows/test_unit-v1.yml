@@ -9,9 +9,9 @@ on:
       - "examples/**"
       - ".github/workflows/demos_preview.yml"
       - ".github/workflows/release.yml"
-      - "src/v1.x/packages/**/package.json"
-      - "src/v1.x/packages/**/CHANGELOG.md"
-      - "src/v1.x/.changeset/**"
+      - "packages/v1/**/package.json"
+      - "packages/v1/**/CHANGELOG.md"
+      - ".changeset/**"
   pull_request:
     branches: [main]
     paths-ignore:
@@ -21,9 +21,9 @@ on:
   workflow_dispatch:
     inputs:
       branch:
-        description: 'Branch to run the workflow on'
+        description: "Branch to run the workflow on"
         required: true
-        default: 'main'
+        default: "main"
         type: string
 jobs:
   v1:
@@ -54,8 +54,11 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Generate GraphQL codegen files
+        run: npx nx run @copilotkit/runtime-client-gql:graphql-codegen
+
       - name: Build
-        run: pnpm build
+        run: pnpm run build
 
       - name: Run tests
         run: npm run test:classic

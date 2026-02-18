@@ -36,7 +36,6 @@
 <img width="1413" alt="Screenshot 2024-10-26 at 4 44 57 PM" src="https://github.com/user-attachments/assets/99569477-bb15-4903-9146-3f17341aec7c">
 <img width="836" alt="Screenshot 2024-10-26 at 4 44 46 PM" src="https://github.com/user-attachments/assets/f4000f7c-7dce-4e60-9ed6-9e9eb6d841b3">
 
-
 ---
 
 ### 🙋‍♂️ **Who Are You?**

@@ -16,7 +16,8 @@
 
 ## 4. GitHub Project Link
 
-### GitHub Repo Link: 
+### GitHub Repo Link:
+
 https://github.com/jainanuj94/summarify
 
 - Try it out: [Live Demo](https://summarify-puce.vercel.app/)
@@ -24,9 +25,9 @@ https://github.com/jainanuj94/summarify
 ## 5. Features
 
 - Summarize your content using CopilotKit API.
-    - useCopilotReadable and useCopilotChat to get the summarized version of your content.
+  - useCopilotReadable and useCopilotChat to get the summarized version of your content.
 - Provide suggestions for writing an article to summerize
-    - useCopilotAction to handle suggestions coming from LLM and rendering them on the UI.
+  - useCopilotAction to handle suggestions coming from LLM and rendering them on the UI.
 - Use Extract to extract the contents from the URL.
 
 ## 6. Screenshot
@@ -38,7 +39,7 @@ Suggestions:
 
 ## 7. Who Are You?
 
-[**GitHub Username:**](https://github.com/jainanuj94) 
+[**GitHub Username:**](https://github.com/jainanuj94)
 [**Twitter Handle:**](https://x.com/jainanuj94)
 [**LinkedIn Profile:**](https://www.linkedin.com/in/anuj-jain-5300448a)
 

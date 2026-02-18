@@ -30,11 +30,12 @@ https://copilotkitcoder.vercel.app/
 
 Fixes #678
 Shared on X: [Post Link](https://x.com/Dev_in_making/status/1851232161103515761)
+
 ---
 
 ### 📸 **Screenshot**
 
-Autocompletes and gives shareable snippets 
+Autocompletes and gives shareable snippets
 ![Snippet generator in action](https://github.com/user-attachments/assets/f3e91ef0-b8a8-4a07-893a-c71d639cc7a5)
 
 Provides explanation in different tab

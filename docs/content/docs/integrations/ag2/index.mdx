@@ -15,13 +15,13 @@ import { FrameworkOverview } from "@/components/content/landing-pages/framework-
   bannerVideo="https://cdn.copilotkit.ai/docs/copilotkit/videos/coagents/overview.mp4"
   guideLink="/ag2/quickstart"
   initCommand="npx copilotkit@latest init"
-  featuresLink="https://feature-viewer.copilotkit.ai"
+  featuresLink="/ag2/generative-ui"
   supportedFeatures={[
     {
       title: "Generative UI",
       description: "Render your agent's state, progress, outputs, and tool calls with custom UI components in real-time. Bridges the gap between AI agents and user interfaces.",
-      documentationLink: "/ag2/agentic-chat-ui",
-      demoLink: "https://feature-viewer.copilotkit.ai/",
+      documentationLink: "/ag2/generative-ui",
+      demoLink: "/ag2/generative-ui",
       videoUrl: "https://cdn.copilotkit.ai/docs/copilotkit/videos/coagents/haiku.mp4"
     },
     {
@@ -31,6 +31,13 @@ import { FrameworkOverview } from "@/components/content/landing-pages/framework-
       demoLink: "https://examples-coagents-ai-travel-app.vercel.app/",
       videoUrl: "https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/human-in-the-loop-example.mp4"
     },
+    {
+      title: "Shared State",
+      description: "Keep your agent and your app in sync. Your agent can see everything in your app, and your app can react to your agent in real-time.",
+      documentationLink: "/ag2/shared-state",
+      demoLink: "/ag2/shared-state",
+      videoUrl: "https://cdn.copilotkit.ai/docs/copilotkit/videos/coagents/shared-state.mp4"
+    }
   ]}
   architectureImage="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/ag2/architecture.png"
   liveDemos={[
@@ -48,4 +55,8 @@ import { FrameworkOverview } from "@/components/content/landing-pages/framework-
     }
   ]}
 />
+
+<Callout type="info">
+  CopilotKit consumes AG-UI protocol events streamed by AG2 over <code>/chat</code>. See the <a href="https://docs.ag2.ai/latest/docs/user-guide/ag-ui/" target="_blank">AG2 AG-UI integration docs</a>.
+</Callout>
 

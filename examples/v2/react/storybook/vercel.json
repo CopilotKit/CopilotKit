@@ -1,0 +1,5 @@
+{
+  "buildCommand": "cd ../../../../ && npx nx run @copilotkit-storybook/react:storybook:build",
+  "installCommand": "cd ../../../../ && pnpm install",
+  "outputDirectory": "storybook-static"
+}

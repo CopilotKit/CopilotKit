@@ -1,0 +1,3 @@
+{
+  "excludeEntrypoints": ["./v2/styles.css"]
+}

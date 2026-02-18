@@ -21,7 +21,6 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v6
 
-
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
@@ -37,6 +36,6 @@ jobs:
         run: pnpm run build
 
       - name: Publish snapshot
-        run: ./src/v1.x/scripts/release/publish-snapshot-release.sh
+        run: ./scripts/release/publish-snapshot-release.sh
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}

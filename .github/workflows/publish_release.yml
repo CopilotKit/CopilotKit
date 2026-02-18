@@ -52,7 +52,7 @@ jobs:
       - name: Get current version
         id: current-version
         run: |
-          echo "version=$(node -p "require('./src/v1.x/packages/react-core/package.json').version")" >> "$GITHUB_OUTPUT"
+          echo "version=$(node -p "require('./packages/v1/react-core/package.json').version")" >> "$GITHUB_OUTPUT"
 
       - name: Prepare version
         id: prepare-version
@@ -61,7 +61,7 @@ jobs:
 
       - name: Build
         id: build
-        run: pnpm run build:packages
+        run: pnpm run build
 
       - name: NPM Publish
         id: publish
@@ -74,7 +74,7 @@ jobs:
       - name: Get new version
         id: new-version
         run: |
-          echo "version=$(node -p "require('./src/v1.x/packages/react-core/package.json').version")" >> "$GITHUB_OUTPUT"
+          echo "version=$(node -p "require('./packages/v1/react-core/package.json').version")" >> "$GITHUB_OUTPUT"
 
       - name: Check if published
         id: check-if-published
@@ -109,7 +109,7 @@ jobs:
       - name: Git Tag
         if: ${{ steps.check-if-published.outputs.published == 'true' && steps.is-in-prerelease-mode.outputs.is_in_prerelease_mode == 'false' }}
         run: |
-          node -p "require('./src/v1.x/scripts/release/generate-changelog')('${{ steps.new-version.outputs.version }}')" > changelog.txt
+          node -p "require('./scripts/release/generate-changelog')('${{ steps.new-version.outputs.version }}')" > changelog.txt
           git tag -a v${{ steps.new-version.outputs.version }} -m "Release ${{ steps.new-version.outputs.version }}"
           git push origin v${{ steps.new-version.outputs.version }}
           git push origin main --force
@@ -123,6 +123,6 @@ jobs:
         with:
           tag_name: v${{ steps.new-version.outputs.version }}
           release_name: v${{ steps.new-version.outputs.version }}
-          body_path: ./src/v1.x/changelog.txt
+          body_path: ./changelog.txt
           draft: false
           prerelease: false

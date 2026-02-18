@@ -7,7 +7,7 @@ import RunAndConnect from "@/snippets/integrations/langgraph/run-and-connect.mdx
 import InstallSDKSnippet from "@/snippets/install-sdk.mdx"
 
 <Callout type="error">
-    The usage of node based interrupt is [now discouraged](https://langchain-ai.github.io/langgraph/concepts/v0-human-in-the-loop/) by both LangGraph and CopilotKit.
+    The usage of node based interrupt is [now discouraged](https://docs.langchain.com/oss/python/langgraph/interrupts) by both LangGraph and CopilotKit.
     As of LangGraph 0.2.57, the recommended way to set breakpoints is using [the interrupt function](https://docs.copilotkit.ai/coagents/human-in-the-loop/interrupt-flow) as it simplifies human-in-the-loop patterns.
 </Callout>
 
@@ -19,7 +19,7 @@ import InstallSDKSnippet from "@/snippets/install-sdk.mdx"
 </Callout>
 
 ## What is this?
-[Node based flows](https://langchain-ai.github.io/langgraph/concepts/v0-human-in-the-loop/#dynamic-breakpoints) are predicated on LangGraph concept
+[Node based flows](https://docs.langchain.com/oss/python/langgraph/interrupts#debugging-with-interrupts) are predicated on LangGraph concept
 of `breakpoints` which will interrupt a node before or after its execution to allow for user input.
 
 CopilotKit allows you to add custom UI to take user input and then pass it back to the agent upon completion.

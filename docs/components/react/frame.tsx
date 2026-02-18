@@ -26,7 +26,9 @@ export function Frame({
           return child;
         })}
       </div>
-      {description && <p className="text-sm text-neutral-500 text-center">{description}</p>}
+      {description && (
+        <p className="text-sm text-neutral-500 text-center">{description}</p>
+      )}
     </>
   );
 }

@@ -31,7 +31,7 @@ Event Planner ( Hacktoberfest Demo )
 
 ![Landing Page](https://github.com/ChiragAgg5k/cal-buddy/blob/master/assets/thumbnail.png?raw=true)
 
-## Brought to you by - 
+## Brought to you by -
 
 - [Chirag Aggarwal](https://github.com/RohittCodes)
 - [Github](https://github.com/ChiragAgg5k)
