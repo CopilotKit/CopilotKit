@@ -111,6 +111,7 @@ jobs:
       - name: Checkout CPK
         uses: actions/checkout@v4
         with:
+          lfs: true
           path: CopilotKit
           ref: ${{ github.event.inputs.branch || github.ref }}
 
