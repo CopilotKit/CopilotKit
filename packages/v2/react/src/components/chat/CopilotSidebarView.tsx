@@ -111,18 +111,20 @@ function CopilotSidebarViewInternal({
   const hasMounted = useRef(false);
 
   useLayoutEffect(() => {
-    if (typeof window === "undefined" || typeof window.matchMedia !== "function") return;
+    if (
+      typeof window === "undefined" ||
+      typeof window.matchMedia !== "function"
+    )
+      return;
     if (!window.matchMedia("(min-width: 768px)").matches) return;
 
     if (isSidebarOpen) {
       if (hasMounted.current) {
-        document.body.style.transition =
-          `margin-inline-end ${SIDEBAR_TRANSITION_MS}ms ease`;
+        document.body.style.transition = `margin-inline-end ${SIDEBAR_TRANSITION_MS}ms ease`;
       }
       document.body.style.marginInlineEnd = widthToMargin(sidebarWidth);
     } else if (hasMounted.current) {
-      document.body.style.transition =
-        `margin-inline-end ${SIDEBAR_TRANSITION_MS}ms ease`;
+      document.body.style.transition = `margin-inline-end ${SIDEBAR_TRANSITION_MS}ms ease`;
       document.body.style.marginInlineEnd = "";
     }
 

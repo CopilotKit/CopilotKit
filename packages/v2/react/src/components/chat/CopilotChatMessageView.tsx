@@ -490,7 +490,11 @@ export function CopilotChatMessageView({
   const showCursor = isRunning && lastMessage?.role !== "reasoning";
 
   return (
-    <div data-copilotkit className={twMerge("flex flex-col", className)} {...props}>
+    <div
+      data-copilotkit
+      className={twMerge("flex flex-col", className)}
+      {...props}
+    >
       {messageElements}
       {showCursor && (
         <div className="mt-2">

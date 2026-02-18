@@ -39,7 +39,7 @@ import { ChatState } from "../../chat-state";
   imports: [CommonModule, CopilotChatView],
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
-  host: { 'data-copilotkit': '' },
+  host: { "data-copilotkit": "" },
   template: `
     <copilot-chat-view
       [messages]="messages() ?? []"

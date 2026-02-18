@@ -259,7 +259,11 @@ export function CopilotChatView({
   }
 
   return (
-    <div data-copilotkit className={twMerge("relative h-full", className)} {...props}>
+    <div
+      data-copilotkit
+      className={twMerge("relative h-full", className)}
+      {...props}
+    >
       {BoundScrollView}
 
       {BoundInput}
