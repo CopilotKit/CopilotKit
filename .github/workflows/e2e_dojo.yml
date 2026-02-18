@@ -147,7 +147,7 @@ jobs:
       - name: Cache Nx build output
         uses: actions/cache@v4
         with:
-          path: .nx/cache
+          path: ${{ github.workspace }}/CopilotKit/.nx/cache
           key: ${{ runner.os }}-nx-${{ hashFiles('**/pnpm-lock.yaml') }}-${{ hashFiles('**/*.js', '**/*.jsx', '**/*.ts', '**/*.tsx') }}
           restore-keys: |
             ${{ runner.os }}-nx-${{ hashFiles('**/pnpm-lock.yaml') }}-
@@ -156,7 +156,7 @@ jobs:
       - name: Cache Next.js build
         uses: actions/cache@v4
         with:
-          path: ${{ github.workspace }}/apps/dojo/.next/cache
+          path: ${{ github.workspace }}/ag-ui/apps/dojo/.next/cache
           key: ${{ runner.os }}-nextjs-${{ hashFiles('**/pnpm-lock.yaml') }}-${{ hashFiles('**/*.js', '**/*.jsx', '**/*.ts', '**/*.tsx') }}
           restore-keys: |
             ${{ runner.os }}-nextjs-${{ hashFiles('**/pnpm-lock.yaml') }}-
