@@ -1,0 +1,71 @@
+{
+  "name": "@copilotkit/shared",
+  "private": false,
+  "homepage": "https://github.com/CopilotKit/CopilotKit",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/CopilotKit/CopilotKit.git"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "type": "module",
+  "version": "1.51.5-next.0",
+  "sideEffects": false,
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.mjs",
+  "exports": {
+    ".": {
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.cjs"
+    },
+    "./package.json": "./package.json"
+  },
+  "unpkg": "./dist/index.umd.js",
+  "jsdelivr": "./dist/index.umd.js",
+  "types": "./dist/index.d.cts",
+  "license": "MIT",
+  "scripts": {
+    "build": "tsdown",
+    "dev": "tsdown --watch",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "check-types": "tsc --noEmit",
+    "link:global": "pnpm link --global",
+    "unlink:global": "pnpm unlink --global",
+    "publint": "publint .",
+    "attw": "attw --pack . --profile node16"
+  },
+  "devDependencies": {
+    "@types/uuid": "^10.0.0",
+    "eslint": "^8.56.0",
+    "eslint-config-custom": "workspace:*",
+    "tsconfig": "workspace:*",
+    "tsdown": "^0.20.3",
+    "typescript": "^5.2.3",
+    "vitest": "^3.2.4",
+    "zod-to-json-schema": "^3.23.5"
+  },
+  "dependencies": {
+    "@segment/analytics-node": "^2.1.2",
+    "chalk": "4.1.2",
+    "graphql": "^16.8.1",
+    "uuid": "^10.0.0",
+    "zod": "^3.23.3"
+  },
+  "peerDependencies": {
+    "@ag-ui/core": "^0.0.45"
+  },
+  "keywords": [
+    "copilotkit",
+    "copilot",
+    "react",
+    "nextjs",
+    "nodejs",
+    "ai",
+    "assistant",
+    "javascript",
+    "automation",
+    "textarea"
+  ]
+}

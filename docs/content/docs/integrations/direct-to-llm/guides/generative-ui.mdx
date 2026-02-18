@@ -8,14 +8,14 @@ import UseClientCalloutSnippet from "@/snippets/use-client-callout.mdx";
 
 # Render custom components in the chat UI
 
-When a user interacts with your Copilot, you may want to render a custom UI component. The new hooks [`useRenderToolCall`](/reference/hooks/useRenderToolCall), [`useFrontendTool`](/reference/hooks/useFrontendTool), and [`useHumanInTheLoop`](/reference/hooks/useHumanInTheLoop) allow you to give the LLM the
+When a user interacts with your Copilot, you may want to render a custom UI component. The new hooks [`useRenderToolCall`](/reference/v1/hooks/useRenderToolCall), [`useFrontendTool`](/reference/v1/hooks/useFrontendTool), and [`useHumanInTheLoop`](/reference/v1/hooks/useHumanInTheLoop) allow you to give the LLM the
 option to render your custom component through the `render` property.
 
 <Tabs groupId="gen-ui-type" items={['Render a component', 'Fetch data & render', 'renderAndWaitForResponse (HITL)', 'Render strings', 'Catch all renders']}>
 
   <Tab value="Render a component">
-    [`useRenderToolCall`](/reference/hooks/useRenderToolCall) can be used with a `render` function to display information or UI elements within the chat.
-    
+    [`useRenderToolCall`](/reference/v1/hooks/useRenderToolCall) can be used with a `render` function to display information or UI elements within the chat.
+
     Here's an example to render a calendar meeting.
 
     <Frame>
@@ -80,7 +80,7 @@ option to render your custom component through the `render` property.
   </Tab>
 
   <Tab value="Fetch data & render">
-    The [`useFrontendTool`](/reference/hooks/useFrontendTool) hook accepts both `handler` and `render` methods. The `handler` executes the tool, while `render` displays UI in the copilot chat window.
+    The [`useFrontendTool`](/reference/v1/hooks/useFrontendTool) hook accepts both `handler` and `render` methods. The `handler` executes the tool, while `render` displays UI in the copilot chat window.
 
     <Frame>
       <img
@@ -128,7 +128,7 @@ option to render your custom component through the `render` property.
   </Tab>
 
   <Tab value="renderAndWaitForResponse (HITL)">
-    The `render` method with [`useHumanInTheLoop`](/reference/hooks/useHumanInTheLoop) allows for returning values asynchronously from the render function.
+    The `render` method with [`useHumanInTheLoop`](/reference/v1/hooks/useHumanInTheLoop) allows for returning values asynchronously from the render function.
 
     This is great for Human-in-the-Loop flows, where the AI assistant can prompt the end-user with a choice (rendered inside the chat UI),
     and the user can make the choice by pressing a button in the chat UI.
@@ -213,7 +213,7 @@ option to render your custom component through the `render` property.
   </Tab>
 
   <Tab value="Catch all renders">
-    If you want to render tools that are not explicitly referenced in any specific hook call, you can pass `"*"` as the tool name with [`useDefaultTool`](/reference/hooks/useDefaultTool).
+    If you want to render tools that are not explicitly referenced in any specific hook call, you can pass `"*"` as the tool name with [`useDefaultTool`](/reference/v1/hooks/useDefaultTool).
     In this case, the render method will receive an additional `name` parameter. This is particularly useful when working with agents that may call arbitrary tools - see more in our [Tool-based Generative UI](/crewai-crews/generative-ui/tool-based) guide.
 
     ```tsx
@@ -245,7 +245,7 @@ After defining the tool with a render method, ask the copilot to perform the tas
 
 <Callout type="info">
   You can read more about the tool hooks:
-  - [`useRenderToolCall`](/reference/hooks/useRenderToolCall) for render-only tools
-  - [`useFrontendTool`](/reference/hooks/useFrontendTool) for tools with handler + render
-  - [`useHumanInTheLoop`](/reference/hooks/useHumanInTheLoop) for human-in-the-loop tools
+  - [`useRenderToolCall`](/reference/v1/hooks/useRenderToolCall) for render-only tools
+  - [`useFrontendTool`](/reference/v1/hooks/useFrontendTool) for tools with handler + render
+  - [`useHumanInTheLoop`](/reference/v1/hooks/useHumanInTheLoop) for human-in-the-loop tools
 </Callout>

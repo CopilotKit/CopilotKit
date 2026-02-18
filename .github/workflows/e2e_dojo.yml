@@ -4,85 +4,29 @@ on:
   push:
     branches: [main]
     paths:
-      - "src/v1.x/**"
-      - "src/v2.x/**"
+      - "packages/v1/**"
+      - "packages/v2/**"
       - ".github/workflows/e2e_dojo.yml"
   pull_request:
     branches: [main]
     paths:
-      - "src/v1.x/**"
-      - "src/v2.x/**"
+      - "packages/v1/**"
+      - "packages/v2/**"
       - ".github/workflows/e2e_dojo.yml"
+      - ".changeset"
   workflow_dispatch:
     inputs:
       branch:
-        description: 'Branch to run the workflow on'
+        description: "Branch to run the workflow on"
         required: true
-        default: 'main'
+        default: "main"
         type: string
 
 jobs:
-  build:
-    name: Build CPK
-    runs-on: depot-ubuntu-24.04
-    timeout-minutes: 15
-    steps:
-      - name: Checkout CPK
-        uses: actions/checkout@v4
-        with:
-          path: CopilotKit
-          ref: ${{ github.event.inputs.branch || github.ref }}
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-
-      - name: Install pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 10.13.1
-
-      # Now that pnpm is available, cache its store to speed installs
-      - name: Resolve pnpm store path
-        id: pnpm-store
-        run: echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_OUTPUT
-
-      - name: Cache pnpm store
-        uses: actions/cache@v4
-        with:
-          path: ${{ steps.pnpm-store.outputs.STORE_PATH }}
-          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-pnpm-store-
-
-      - name: Install cpk dependencies
-        working-directory: CopilotKit/src/v1.x
-        run: pnpm install --frozen-lockfile
-
-      - name: Build cpk
-        working-directory: CopilotKit/src/v1.x
-        env:
-          NODE_OPTIONS: --max-old-space-size=8192
-          TURBO_CONCURRENCY: 2
-        run: |
-          unset TURBO_API
-          unset TURBO_TOKEN
-          unset TURBO_TEAM
-          pnpm build
-
-      - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: cpk-dist
-          retention-days: 1
-          path: CopilotKit/src/v1.x/packages/*/dist/
-
   dojo:
     name: ${{ matrix.suite }}
-    needs: build
     runs-on: depot-ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
@@ -228,14 +172,15 @@ jobs:
         uses: astral-sh/setup-uv@v6
 
       - name: Install cpk dependencies
-        working-directory: CopilotKit/src/v1.x
+        working-directory: CopilotKit
         run: pnpm install --frozen-lockfile
 
-      - name: Download build artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: cpk-dist
-          path: CopilotKit/src/v1.x/packages
+      - name: Build cpk packages
+        working-directory: CopilotKit
+        env:
+          NODE_OPTIONS: --max-old-space-size=8192
+          NX_PARALLEL: 2
+        run: pnpm build
 
       - name: Install ag-ui dependencies
         working-directory: ag-ui
@@ -243,7 +188,7 @@ jobs:
 
       - name: Link cpk into ag-ui
         working-directory: CopilotKit
-        run: node ../ag-ui/apps/dojo/scripts/link-cpk.js src/v1.x/packages
+        run: node ../ag-ui/apps/dojo/scripts/link-cpk.js ${{ github.workspace }}/CopilotKit/packages/v1
 
       - name: Prepare dojo for e2e
         working-directory: ag-ui/apps/dojo

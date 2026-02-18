@@ -1,0 +1,82 @@
+{
+  "name": "@copilotkit/react-ui",
+  "private": false,
+  "homepage": "https://github.com/CopilotKit/CopilotKit",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/CopilotKit/CopilotKit.git"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "type": "module",
+  "version": "1.51.5-next.0",
+  "sideEffects": [
+    "**/*.css"
+  ],
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.mjs",
+  "exports": {
+    ".": {
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.cjs"
+    },
+    "./package.json": "./package.json",
+    "./styles.css": "./dist/index.css"
+  },
+  "unpkg": "./dist/index.umd.js",
+  "jsdelivr": "./dist/index.umd.js",
+  "types": "./dist/index.d.cts",
+  "license": "MIT",
+  "scripts": {
+    "build": "tsdown",
+    "dev": "tsdown --watch",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "check-types": "tsc --noEmit",
+    "link:global": "pnpm link --global",
+    "unlink:global": "pnpm unlink --global",
+    "publint": "publint .",
+    "attw": "attw --pack . --profile node16"
+  },
+  "peerDependencies": {
+    "react": "^18 || ^19 || ^19.0.0-rc"
+  },
+  "devDependencies": {
+    "@types/react": "^19.1.0",
+    "@types/react-syntax-highlighter": "^15.5.7",
+    "eslint": "^8.56.0",
+    "eslint-config-custom": "workspace:*",
+    "postcss": "^8.4.20",
+    "react": "^18.2.0",
+    "tailwind-config": "workspace:*",
+    "tailwindcss": "^3.3.0",
+    "tsconfig": "workspace:*",
+    "vitest": "^3.2.4",
+    "tsdown": "^0.20.3",
+    "typescript": "^5.2.3"
+  },
+  "dependencies": {
+    "@copilotkit/react-core": "workspace:*",
+    "@copilotkit/runtime-client-gql": "workspace:*",
+    "@copilotkit/shared": "workspace:*",
+    "@headlessui/react": "^2.2.9",
+    "react-markdown": "^10.1.0",
+    "react-syntax-highlighter": "^15.6.1",
+    "rehype-raw": "^7.0.0",
+    "remark-gfm": "^4.0.1",
+    "remark-math": "^6.0.0"
+  },
+  "keywords": [
+    "copilotkit",
+    "copilot",
+    "react",
+    "nextjs",
+    "nodejs",
+    "ai",
+    "assistant",
+    "javascript",
+    "automation",
+    "textarea"
+  ]
+}

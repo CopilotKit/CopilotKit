@@ -5,9 +5,11 @@ const EXAMPLE = process.env.EXAMPLE ?? "form-filling";
 const PORT = Number(process.env.PORT ?? "3000");
 
 const HYBRID_EXAMPLES = new Set(["travel", "research-canvas"]);
-const webServerCommand = HYBRID_EXAMPLES.has(EXAMPLE) ? "pnpm dev:ui" : "pnpm dev";
+const webServerCommand = HYBRID_EXAMPLES.has(EXAMPLE)
+  ? "pnpm dev:ui"
+  : "pnpm dev";
 
-const exampleDir = path.resolve(__dirname, "../v1.x", EXAMPLE);
+const exampleDir = path.resolve(__dirname, "../v1", EXAMPLE);
 
 export default defineConfig({
   testDir: "./tests",
@@ -31,10 +33,13 @@ export default defineConfig({
       PORT: String(PORT),
       NEXT_TELEMETRY_DISABLED: "1",
       OPENAI_API_KEY: process.env.OPENAI_API_KEY ?? "test",
-      NEXT_PUBLIC_CPK_PUBLIC_API_KEY: process.env.NEXT_PUBLIC_CPK_PUBLIC_API_KEY ?? "",
-      NEXT_PUBLIC_COPILOT_PUBLIC_API_KEY: process.env.NEXT_PUBLIC_COPILOT_PUBLIC_API_KEY ?? "",
+      NEXT_PUBLIC_CPK_PUBLIC_API_KEY:
+        process.env.NEXT_PUBLIC_CPK_PUBLIC_API_KEY ?? "",
+      NEXT_PUBLIC_COPILOT_PUBLIC_API_KEY:
+        process.env.NEXT_PUBLIC_COPILOT_PUBLIC_API_KEY ?? "",
       LANGSMITH_API_KEY: process.env.LANGSMITH_API_KEY ?? "",
-      REMOTE_ACTION_URL: process.env.REMOTE_ACTION_URL ?? "http://127.0.0.1:8000/copilotkit",
+      REMOTE_ACTION_URL:
+        process.env.REMOTE_ACTION_URL ?? "http://127.0.0.1:8000/copilotkit",
     },
   },
   projects: [

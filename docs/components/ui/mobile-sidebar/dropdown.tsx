@@ -1,66 +1,67 @@
-import { useEffect, useState, useRef } from "react"
-import { createPortal } from "react-dom"
-import Link from "fumadocs-core/link"
-import { usePathname } from "next/navigation"
+import { useEffect, useState, useRef } from "react";
+import { createPortal } from "react-dom";
+import Link from "fumadocs-core/link";
+import { usePathname } from "next/navigation";
 import {
   LEFT_LINKS as DROPDOWN_ITEMS,
   NavbarLink,
-} from "@/components/layout/navbar"
-import ChevronDownIcon from "@/components/ui/icons/chevron"
+} from "@/components/layout/navbar";
+import ChevronDownIcon from "@/components/ui/icons/chevron";
 
 interface DropdownProps {
-  onSelect?: () => void
+  onSelect?: () => void;
 }
 
 const Dropdown = ({ onSelect }: DropdownProps) => {
-  const [isOpen, setIsOpen] = useState(false)
+  const [isOpen, setIsOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<NavbarLink | null>(
-    DROPDOWN_ITEMS[0]
-  )
-  const [position, setPosition] = useState({ top: 0, left: 0, width: 0 })
-  const [isPositionReady, setIsPositionReady] = useState(false)
-  const buttonRef = useRef<HTMLButtonElement>(null)
-  const pathname = usePathname()
-  const [lastDocsPath, setLastDocsPath] = useState<string | null>(null)
+    DROPDOWN_ITEMS[0],
+  );
+  const [position, setPosition] = useState({ top: 0, left: 0, width: 0 });
+  const [isPositionReady, setIsPositionReady] = useState(false);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const pathname = usePathname();
+  const [lastDocsPath, setLastDocsPath] = useState<string | null>(null);
 
   // Read sessionStorage on client only to avoid hydration mismatch (tab-specific)
   useEffect(() => {
-    setLastDocsPath(sessionStorage.getItem('lastDocsPath'))
-  }, [])
+    setLastDocsPath(sessionStorage.getItem("lastDocsPath"));
+  }, []);
 
   // Get the appropriate href for Documentation link
   const getHrefForItem = (item: NavbarLink) => {
     if (item.label === "Documentation") {
       // Check if we're on a reference page
-      const firstSegment = pathname === "/" ? "/" : `/${pathname.split("/")[1]}`
-      const isReferencePage = firstSegment === "/reference"
+      const firstSegment =
+        pathname === "/" ? "/" : `/${pathname.split("/")[1]}`;
+      const isReferencePage = firstSegment === "/reference";
 
       if (isReferencePage && lastDocsPath) {
-        return lastDocsPath
+        return lastDocsPath;
       }
     }
-    return item.href
-  }
+    return item.href;
+  };
 
   useEffect(() => {
-    const activeItem = DROPDOWN_ITEMS.find((item) => item.href === pathname)
-    if (activeItem) setSelectedItem(activeItem)
-  }, [isOpen, pathname])
+    const activeItem = DROPDOWN_ITEMS.find((item) => item.href === pathname);
+    if (activeItem) setSelectedItem(activeItem);
+  }, [isOpen, pathname]);
 
   useEffect(() => {
     if (isOpen && buttonRef.current) {
-      setIsPositionReady(false)
+      setIsPositionReady(false);
       const updatePosition = () => {
         if (buttonRef.current) {
-          const rect = buttonRef.current.getBoundingClientRect()
+          const rect = buttonRef.current.getBoundingClientRect();
           setPosition({
             top: rect.bottom + 8,
             left: rect.left,
             width: rect.width,
-          })
-          setIsPositionReady(true)
+          });
+          setIsPositionReady(true);
         }
-      }
+      };
 
       const handleClickOutside = (event: MouseEvent) => {
         if (
@@ -68,25 +69,25 @@ const Dropdown = ({ onSelect }: DropdownProps) => {
           !buttonRef.current.contains(event.target as Node) &&
           !(event.target as Element).closest("[data-dropdown-menu]")
         ) {
-          setIsOpen(false)
+          setIsOpen(false);
         }
-      }
+      };
 
-      updatePosition()
-      window.addEventListener("scroll", updatePosition, true)
-      window.addEventListener("resize", updatePosition)
-      document.addEventListener("mousedown", handleClickOutside)
+      updatePosition();
+      window.addEventListener("scroll", updatePosition, true);
+      window.addEventListener("resize", updatePosition);
+      document.addEventListener("mousedown", handleClickOutside);
 
       return () => {
-        window.removeEventListener("scroll", updatePosition, true)
-        window.removeEventListener("resize", updatePosition)
-        document.removeEventListener("mousedown", handleClickOutside)
-        setIsPositionReady(false)
-      }
+        window.removeEventListener("scroll", updatePosition, true);
+        window.removeEventListener("resize", updatePosition);
+        document.removeEventListener("mousedown", handleClickOutside);
+        setIsPositionReady(false);
+      };
     } else {
-      setIsPositionReady(false)
+      setIsPositionReady(false);
     }
-  }, [isOpen])
+  }, [isOpen]);
 
   return (
     <>
@@ -124,8 +125,8 @@ const Dropdown = ({ onSelect }: DropdownProps) => {
               <div
                 key={item.href}
                 onClick={() => {
-                  setIsOpen(false)
-                  onSelect?.()
+                  setIsOpen(false);
+                  onSelect?.();
                 }}
                 className="flex justify-start items-center pl-2 h-12 rounded-xl"
               >
@@ -139,10 +140,10 @@ const Dropdown = ({ onSelect }: DropdownProps) => {
               </div>
             ))}
           </div>,
-          document.body
+          document.body,
         )}
     </>
-  )
-}
+  );
+};
 
-export default Dropdown
+export default Dropdown;

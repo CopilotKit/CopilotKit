@@ -1,0 +1,129 @@
+---
+title: "API Reference"
+description: "API Reference for the next-generation CopilotKit React API."
+---
+
+import { LinkIcon } from "lucide-react";
+import { Accordions, Accordion } from "fumadocs-ui/components/accordion";
+
+The v2 React API (`@copilotkit/react-core/v2`) is the next-generation interface for building copilot-powered applications. It provides a streamlined set of hooks and components built on top of the [AG-UI](https://docs.ag-ui.com) agent protocol.
+
+## Provider Setup
+
+The v2 API uses the [`<CopilotKit>`](/reference/v2/components/CopilotKit) provider. Wrap your application with it to configure the runtime connection:
+
+```tsx
+// CopilotKit is imported from the root package, not from the v2 subpackage
+import { CopilotKit } from "@copilotkit/react-core";
+
+function App() {
+  return (
+    <CopilotKit runtimeUrl="/api/copilotkit">
+      <YourApp />
+    </CopilotKit>
+  );
+}
+```
+
+<Accordions>
+<Accordion title="Advanced: Using CopilotKitProvider directly">
+
+<Callout type="warn">
+  `CopilotKitProvider` is a low-level provider intended for advanced use cases. Most applications should use the `<CopilotKit>` component from `@copilotkit/react-core` instead.
+</Callout>
+
+If you need direct control over the v2 provider (e.g. for custom integrations), you can import `CopilotKitProvider` from `@copilotkit/react-core/v2`:
+
+```tsx
+import { CopilotKitProvider } from "@copilotkit/react-core/v2";
+
+<CopilotKitProvider runtimeUrl="/api/copilotkit">
+  <App />
+</CopilotKitProvider>
+```
+
+### Props
+
+<PropertyReference name="runtimeUrl" type="string">
+  URL of the CopilotKit runtime endpoint. Lazily forwarded to the core after mount.
+</PropertyReference>
+
+<PropertyReference name="headers" type="Record<string, string>" default="{}">
+  Request headers forwarded with runtime calls.
+</PropertyReference>
+
+<PropertyReference name="credentials" type="RequestCredentials">
+  Credentials mode for fetch requests (e.g. `"include"` for HTTP-only cookies in cross-origin requests).
+</PropertyReference>
+
+<PropertyReference name="publicApiKey" type="string">
+  Copilot Cloud public API key.
+</PropertyReference>
+
+<PropertyReference name="publicLicenseKey" type="string">
+  Alias for `publicApiKey`.
+</PropertyReference>
+
+<PropertyReference name="properties" type="Record<string, unknown>" default="{}">
+  Runtime metadata payload.
+</PropertyReference>
+
+<PropertyReference name="useSingleEndpoint" type="boolean">
+  When enabled, all runtime calls use a single endpoint.
+</PropertyReference>
+
+<PropertyReference name="agents__unsafe_dev_only" type="Record<string, AbstractAgent>">
+  Preinstantiated agents for development/testing. **Not intended for production use.**
+</PropertyReference>
+
+<PropertyReference name="renderToolCalls" type="ReactToolCallRenderer[]">
+  Static set of tool call renderers. The array should be stable across renders.
+</PropertyReference>
+
+<PropertyReference name="renderActivityMessages" type="ReactActivityMessageRenderer[]">
+  Static set of activity message renderers.
+</PropertyReference>
+
+<PropertyReference name="renderCustomMessages" type="ReactCustomMessageRenderer[]">
+  Static set of custom message renderers.
+</PropertyReference>
+
+<PropertyReference name="frontendTools" type="ReactFrontendTool[]">
+  Static tool handlers defined at the provider level. The array should be stable across renders.
+</PropertyReference>
+
+<PropertyReference name="humanInTheLoop" type="ReactHumanInTheLoop[]">
+  Declarative human-in-the-loop tool definitions. Each becomes both a tool handler and a tool call renderer.
+</PropertyReference>
+
+<PropertyReference name="showDevConsole" type='boolean | "auto"'>
+  Show the CopilotKit developer console for debugging.
+</PropertyReference>
+
+</Accordion>
+</Accordions>
+
+## Styling
+
+When using v2 UI components, import the stylesheet once at your app boundary:
+
+```tsx
+import "@copilotkit/react-core/v2/styles.css";
+```
+
+## API Reference
+
+<Cards>
+  <Card
+    title="Hooks"
+    description="React hooks for agents, tools, context, and chat configuration."
+    href="/reference/v2/hooks/useAgent"
+    icon={<LinkIcon />}
+  />
+  <Card
+    title="UI Components"
+    description="Pre-built chat components: CopilotChat, CopilotPopup, CopilotSidebar, and more."
+    href="/reference/v2/components/CopilotChat"
+    icon={<LinkIcon />}
+  />
+</Cards>

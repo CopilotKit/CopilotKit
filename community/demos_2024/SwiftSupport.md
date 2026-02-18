@@ -30,12 +30,12 @@ Dev.to[https://dev.to/avradeep_nayak_fa8d5f6995] -> https://dev.to/avradeep_naya
 ## Screenshots
 
 ### Chatbot UI for Customer Support
+
 <img width="1677" alt="Screenshot 2024-10-27 at 14 42 24" src="https://github.com/user-attachments/assets/3a589614-b302-4c35-bd13-9f3aec483adf">
 
-
 ### Real-time conversation with AI Copilot responses
-<img width="1667" alt="Screenshot 2024-10-27 at 14 47 24" src="https://github.com/user-attachments/assets/e33a366f-1dd0-4c20-86fa-13fd23d114ba">
 
+<img width="1667" alt="Screenshot 2024-10-27 at 14 47 24" src="https://github.com/user-attachments/assets/e33a366f-1dd0-4c20-86fa-13fd23d114ba">
 
 ## Who Are You?
 

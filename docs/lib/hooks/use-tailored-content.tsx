@@ -20,7 +20,7 @@ export const TailoredContentProvider = <T extends TailoredContentOption>({
 }) => {
   const [mode, setMode] = useLocalStorage<T>(
     "copilotkit-tailored-content",
-    "empty" as T
+    "empty" as T,
   );
 
   return (
@@ -32,12 +32,12 @@ export const TailoredContentProvider = <T extends TailoredContentOption>({
 
 export const useTailoredContent = <T extends TailoredContentOption>(
   options: T[],
-  defaultOption: T
+  defaultOption: T,
 ): TailoredContentContextType<T> => {
   const context = useContext(TailoredContentContext);
   if (context === undefined) {
     throw new Error(
-      "useTailoredContent must be used within a TailoredContentProvider"
+      "useTailoredContent must be used within a TailoredContentProvider",
     );
   }
 

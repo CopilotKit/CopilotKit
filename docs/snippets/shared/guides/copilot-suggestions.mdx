@@ -5,7 +5,7 @@ import UseClientCalloutSnippet from "@/snippets/use-client-callout.mdx";
   change without notice.
 </Callout>
 
-[`useCopilotChatSuggestions`](/reference/hooks/useCopilotChatSuggestions) is a React hook that generates suggestions in the chat window based on real time application state.
+[`useCopilotChatSuggestions`](/reference/v1/hooks/useCopilotChatSuggestions) is a React hook that generates suggestions in the chat window based on real time application state.
 
 <Frame>
   <img
@@ -19,10 +19,10 @@ import UseClientCalloutSnippet from "@/snippets/use-client-callout.mdx";
 
 <Step>
 ### Simple Usage
- 
+
 ```tsx
 import { useCopilotChatSuggestions } from "@copilotkit/react-ui"; // [!code highlight]
- 
+
 export function MyComponent() {
   // [!code highlight:8]
   useCopilotChatSuggestions(
@@ -39,10 +39,10 @@ export function MyComponent() {
 
 <Step>
 ### Dependency Management
- 
+
 ```tsx
 import { useCopilotChatSuggestions } from "@copilotkit/react-ui";
- 
+
 export function MyComponent() {
   useCopilotChatSuggestions(
     {
@@ -54,7 +54,7 @@ export function MyComponent() {
   );
 }
 ```
- 
+
 In the example above, the suggestions are generated based on the given instructions.
 The hook monitors `relevantState`, and updates suggestions accordingly whenever it changes.
 
@@ -71,4 +71,4 @@ The hook monitors `relevantState`, and updates suggestions accordingly whenever 
 ## Next Steps
 
 - Check out [how to customize the suggestions look](/guides/custom-look-and-feel/bring-your-own-components#suggestions).
-- Check out the [useCopilotChatSuggestions reference](/reference/hooks/useCopilotChatSuggestions) for more details.
+- Check out the [useCopilotChatSuggestions reference](/reference/v1/hooks/useCopilotChatSuggestions) for more details.

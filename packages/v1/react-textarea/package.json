@@ -1,0 +1,100 @@
+{
+  "name": "@copilotkit/react-textarea",
+  "private": false,
+  "homepage": "https://github.com/CopilotKit/CopilotKit",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/CopilotKit/CopilotKit.git"
+  },
+  "type": "module",
+  "publishConfig": {
+    "access": "public"
+  },
+  "version": "1.51.5-next.0",
+  "sideEffects": [
+    "**/*.css"
+  ],
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.mjs",
+  "exports": {
+    ".": {
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.cjs"
+    },
+    "./package.json": "./package.json",
+    "./styles.css": "./dist/index.css"
+  },
+  "unpkg": "./dist/index.umd.js",
+  "jsdelivr": "./dist/index.umd.js",
+  "types": "./dist/index.d.cts",
+  "license": "MIT",
+  "scripts": {
+    "build": "tsdown",
+    "dev": "tsdown --watch",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "check-types": "tsc --noEmit",
+    "link:global": "pnpm link --global",
+    "unlink:global": "pnpm unlink --global",
+    "publint": "publint .",
+    "attw": "attw --pack . --profile node16"
+  },
+  "peerDependencies": {
+    "react": "^18 || ^19 || ^19.0.0-rc",
+    "react-dom": "^18 || ^19 || ^19.0.0-rc"
+  },
+  "devDependencies": {
+    "@types/lodash.merge": "^4.6.7",
+    "@types/react": "^19.1.0",
+    "@types/react-dom": "^19.0.2",
+    "@types/react-syntax-highlighter": "^15.5.7",
+    "autoprefixer": "^10.4.24",
+    "eslint": "^8.56.0",
+    "eslint-config-custom": "workspace:*",
+    "postcss": "^8.4.20",
+    "postcss-prefix-selector": "^1.16.1",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "tailwind-config": "workspace:*",
+    "tailwindcss": "^3.3.0",
+    "tsconfig": "workspace:*",
+    "vitest": "^3.2.4",
+    "tsdown": "^0.20.3",
+    "typescript": "^5.2.3"
+  },
+  "dependencies": {
+    "@copilotkit/react-core": "workspace:*",
+    "@copilotkit/runtime-client-gql": "workspace:*",
+    "@copilotkit/shared": "workspace:*",
+    "@emotion/css": "^11.11.2",
+    "@emotion/react": "^11.11.1",
+    "@emotion/styled": "^11.11.0",
+    "@mui/material": "^5.14.11",
+    "@radix-ui/react-dialog": "^1.1.1",
+    "@radix-ui/react-label": "^2.0.2",
+    "@radix-ui/react-separator": "^1.0.3",
+    "@radix-ui/react-slot": "^1.0.2",
+    "class-variance-authority": "^0.6.1",
+    "clsx": "^1.2.1",
+    "cmdk": "^0.2.0",
+    "lodash.merge": "^4.6.2",
+    "lucide-react": "^0.274.0",
+    "material-icons": "^1.13.10",
+    "slate": "^0.94.1",
+    "slate-history": "^0.93.0",
+    "slate-react": "^0.98.1",
+    "tailwind-merge": "^1.13.2"
+  },
+  "keywords": [
+    "copilotkit",
+    "copilot",
+    "react",
+    "nextjs",
+    "nodejs",
+    "ai",
+    "assistant",
+    "javascript",
+    "automation",
+    "textarea"
+  ]
+}

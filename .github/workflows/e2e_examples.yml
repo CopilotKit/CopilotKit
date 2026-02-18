@@ -6,6 +6,7 @@ on:
     paths:
       - "examples/**"
       - ".github/workflows/e2e_examples.yml"
+      - ".changeset"
   pull_request:
     branches: [main]
     paths:
@@ -14,9 +15,9 @@ on:
   workflow_dispatch:
     inputs:
       branch:
-        description: 'Branch to run the workflow on'
+        description: "Branch to run the workflow on"
         required: true
-        default: 'main'
+        default: "main"
         type: string
 
 jobs:
@@ -70,7 +71,7 @@ jobs:
 
       - name: Build CopilotKit
         id: build-cpk
-        run: pnpm build:classic
+        run: pnpm build
 
       - name: Install e2e dependencies
         working-directory: examples/e2e

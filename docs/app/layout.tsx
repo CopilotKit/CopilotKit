@@ -1,24 +1,24 @@
-import "./global.css"
-import { RootProvider } from "fumadocs-ui/provider/next"
-import { Plus_Jakarta_Sans, Spline_Sans_Mono } from "next/font/google"
-import type { ReactNode } from "react"
-import { ProvidersWrapper } from "@/lib/providers/providers-wrapper"
-import { Banners } from "@/components/layout/banners"
-import Script from "next/script"
-import SearchDialog from "@/components/ui/search-dialog"
+import "./global.css";
+import { RootProvider } from "fumadocs-ui/provider/next";
+import { Plus_Jakarta_Sans, Spline_Sans_Mono } from "next/font/google";
+import type { ReactNode } from "react";
+import { ProvidersWrapper } from "@/lib/providers/providers-wrapper";
+import { Banners } from "@/components/layout/banners";
+import Script from "next/script";
+import SearchDialog from "@/components/ui/search-dialog";
 
 const plusJakartaSans = Plus_Jakarta_Sans({
   subsets: ["latin"],
-})
+});
 
 const splineSansMono = Spline_Sans_Mono({
   subsets: ["latin"],
   variable: "--font-spline-sans-mono",
-})
+});
 
 export default async function Layout({ children }: { children: ReactNode }) {
-  const REB2B_KEY = process.env.NEXT_PUBLIC_REB2B_KEY
-  const REO_KEY = process.env.NEXT_PUBLIC_REO_KEY
+  const REB2B_KEY = process.env.NEXT_PUBLIC_REB2B_KEY;
+  const REO_KEY = process.env.NEXT_PUBLIC_REO_KEY;
 
   return (
     <html
@@ -74,5 +74,5 @@ export default async function Layout({ children }: { children: ReactNode }) {
         </ProvidersWrapper>
       </body>
     </html>
-  )
+  );
 }

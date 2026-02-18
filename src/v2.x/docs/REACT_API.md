@@ -15,9 +15,9 @@ Creates and owns a `CopilotKitCore` instance that manages agents, frontend tools
 - `headers?: Record<string,string>` – request headers forwarded with runtime calls; default `{}`.
 - `properties?: Record<string,unknown>` – runtime metadata payload; default `{}`.
 - `agents?: Record<string, AbstractAgent>` – preinstantiated agents, keyed by id.
-- `toolCallRenderers?: ReactToolCallRenderer[]` – static set of tool renderers. The provider expects a stable array
+- `renderToolCalls?: ReactToolCallRenderer[]` – static set of tool renderers. The provider expects a stable array
   identity; changing the structure logs a console error.
-- `frontendTools?: ReactFrontendTool[]` – static tool handlers defined up front. Like `toolCallRenderers`, the array
+- `frontendTools?: ReactFrontendTool[]` – static tool handlers defined up front. Like `renderToolCalls`, the array
   should be stable.
 - `humanInTheLoop?: ReactHumanInTheLoop[]` – declarative human-in-the-loop tool definitions. Each becomes both a tool
   handler and a tool call renderer.
@@ -41,8 +41,8 @@ import { CopilotKitProvider } from "@copilotkitnext/react";
 Context hook that returns:
 
 - `copilotkit: CopilotKitCore` – the live core instance.
-- `toolCallRenderers: ReactToolCallRenderer[]` – full render list derived from provider props.
-- `currentRenderToolCalls: ReactToolCallRenderer[]` – current stateful render list used by `useToolCallRenderer`.
+- `renderToolCalls: ReactToolCallRenderer[]` – full render list derived from provider props.
+- `currentRenderToolCalls: ReactToolCallRenderer[]` – current stateful render list used by `useRenderToolCall`.
 - `setCurrentRenderToolCalls` – setter for augmenting renderers (used internally by tooling hooks).
 
 The hook subscribes to runtime load events so components re-render if the core finishes loading or fails to load.
@@ -100,21 +100,16 @@ Wraps `useFrontendTool` for interactive tools that pause agent execution. Expect
 The render component receives consistent shape based on the tool call status so you can drive bespoke UI/UX for human
 confirmations.
 
-### `useToolCallRenderer(options?)`
+### `useRenderToolCall()`
 
-Returns `{ renderToolCall, renderAllToolCalls }`:
-
-- `renderToolCall(input)` renders a single tool call (`input` can be `toolCall` or `{ toolCall, toolMessage }`).
-- `renderAllToolCalls(toolCalls)` renders a list of tool calls.
-
-The hook looks up the first matching render config by name (falling back to a wildcard `"*"` renderer), parses JSON
+Returns a renderer function that takes `{ toolCall, toolMessage, isLoading }` and returns a React element or `null`. The
+hook looks up the first matching render config by name (falling back to a wildcard `"*"` renderer), parses the JSON
 arguments, and chooses status props:
 
-- `ToolCallStatus.InProgress` when no tool message exists.
-- `ToolCallStatus.Executing` while the tool call id is tracked as executing.
+- `ToolCallStatus.InProgress` when no tool message exists and `isLoading` is true.
 - `ToolCallStatus.Complete` with `result` populated when a matching `ToolMessage` exists.
 
-Use these helpers to project tool call UI inside chat transcripts.
+Use this helper to project tool call UI inside chat transcripts.
 
 ## Components
 
@@ -231,7 +226,8 @@ implementation.
 ### `CopilotChatToolCallsView`
 
 Given an assistant message, renders each of its tool calls using the closest registered tool renderer. It looks up the
-matching `ToolMessage` inside the provided `messages` list to supply a `result`.
+matching `ToolMessage` inside the provided `messages` list to supply a `result`. When `isLoading` is true and there is
+no tool response yet, the renderer is invoked with `ToolCallStatus.InProgress`.
 
 ## Types and Utilities
 
@@ -257,4 +253,4 @@ at the app boundary (after your Tailwind base) to ensure animations, prose styli
 3. Render `CopilotChat` for an out-of-the-box experience, or compose `CopilotChatView`, `CopilotChatMessageView`, and
    `CopilotChatInput` manually for deeper customization.
 4. Register custom tools with `useFrontendTool` or `useHumanInTheLoop`, and render tool call output with
-   `useToolCallRenderer` or `CopilotChatToolCallsView`.
+   `useRenderToolCall` or `CopilotChatToolCallsView`.
