@@ -1,0 +1,4 @@
+{
+  "installCommand": "npm i -g pnpm@10.13.1 && pnpm install --no-frozen-lockfile",
+  "framework": "nextjs"
+}
