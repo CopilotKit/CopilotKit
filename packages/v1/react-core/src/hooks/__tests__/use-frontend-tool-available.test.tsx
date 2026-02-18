@@ -1,3 +1,4 @@
+import { vi } from "vitest";
 import React from "react";
 import { render, waitFor } from "@testing-library/react";
 import { useFrontendTool } from "../use-frontend-tool";
@@ -5,8 +6,8 @@ import { useFrontendTool } from "../use-frontend-tool";
 // Track what gets passed to the v2 hook
 let lastV2ToolCall: any = null;
 
-jest.mock("@copilotkitnext/react", () => ({
-  useFrontendTool: jest.fn((tool: any) => {
+vi.mock("@copilotkitnext/react", () => ({
+  useFrontendTool: vi.fn((tool: any) => {
     lastV2ToolCall = tool;
   }),
 }));
