@@ -10,9 +10,9 @@ export interface CopilotChatSuggestionPillProps extends React.ButtonHTMLAttribut
 }
 
 const baseClasses =
-  "group inline-flex h-7 sm:h-8 items-center gap-1 sm:gap-1.5 rounded-full border border-border/60 bg-background px-2.5 sm:px-3 text-[11px] sm:text-xs leading-none text-foreground transition-colors cursor-pointer hover:bg-accent/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:text-muted-foreground disabled:hover:bg-background disabled:hover:text-muted-foreground pointer-events-auto";
+  "group cpk:inline-flex cpk:h-7 cpk:sm:h-8 cpk:items-center cpk:gap-1 cpk:sm:gap-1.5 cpk:rounded-full cpk:border cpk:border-border/60 cpk:bg-background cpk:px-2.5 cpk:sm:px-3 cpk:text-[11px] cpk:sm:text-xs cpk:leading-none cpk:text-foreground cpk:transition-colors cpk:cursor-pointer cpk:hover:bg-accent/60 cpk:hover:text-foreground cpk:focus-visible:outline-none cpk:focus-visible:ring-2 cpk:focus-visible:ring-ring cpk:focus-visible:ring-offset-2 cpk:focus-visible:ring-offset-background cpk:disabled:cursor-not-allowed cpk:disabled:text-muted-foreground cpk:disabled:hover:bg-background cpk:disabled:hover:text-muted-foreground cpk:pointer-events-auto";
 
-const labelClasses = "whitespace-nowrap font-medium leading-none";
+const labelClasses = "cpk:whitespace-nowrap cpk:font-medium cpk:leading-none";
 
 export const CopilotChatSuggestionPill = React.forwardRef<
   HTMLButtonElement,
@@ -26,6 +26,7 @@ export const CopilotChatSuggestionPill = React.forwardRef<
   return (
     <button
       ref={ref}
+      data-copilotkit
       data-slot="suggestion-pill"
       className={cn(baseClasses, className)}
       type={type ?? "button"}
@@ -34,15 +35,15 @@ export const CopilotChatSuggestionPill = React.forwardRef<
       {...props}
     >
       {isLoading ? (
-        <span className="flex h-3.5 sm:h-4 w-3.5 sm:w-4 items-center justify-center text-muted-foreground">
+        <span className="cpk:flex cpk:h-3.5 cpk:sm:h-4 cpk:w-3.5 cpk:sm:w-4 cpk:items-center cpk:justify-center cpk:text-muted-foreground">
           <Loader2
-            className="h-3.5 sm:h-4 w-3.5 sm:w-4 animate-spin"
+            className="cpk:h-3.5 cpk:sm:h-4 cpk:w-3.5 cpk:sm:w-4 cpk:animate-spin"
             aria-hidden="true"
           />
         </span>
       ) : (
         showIcon && (
-          <span className="flex h-3.5 sm:h-4 w-3.5 sm:w-4 items-center justify-center text-muted-foreground">
+          <span className="cpk:flex cpk:h-3.5 cpk:sm:h-4 cpk:w-3.5 cpk:sm:w-4 cpk:items-center cpk:justify-center cpk:text-muted-foreground">
             {icon}
           </span>
         )

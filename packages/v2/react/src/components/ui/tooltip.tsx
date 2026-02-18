@@ -41,16 +41,17 @@ function TooltipContent({
   return (
     <TooltipPrimitive.Portal>
       <TooltipPrimitive.Content
+        data-copilotkit
         data-slot="tooltip-content"
         sideOffset={sideOffset}
         className={cn(
-          "bg-primary text-primary-foreground animate-in fade-in-0 zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 z-50 w-fit origin-(--radix-tooltip-content-transform-origin) rounded-md px-3 py-1.5 text-xs text-balance",
+          "cpk:bg-primary cpk:text-primary-foreground cpk:animate-in cpk:fade-in-0 cpk:zoom-in-95 cpk:data-[state=closed]:animate-out cpk:data-[state=closed]:fade-out-0 cpk:data-[state=closed]:zoom-out-95 cpk:data-[side=bottom]:slide-in-from-top-2 cpk:data-[side=left]:slide-in-from-right-2 cpk:data-[side=right]:slide-in-from-left-2 cpk:data-[side=top]:slide-in-from-bottom-2 cpk:z-50 cpk:w-fit cpk:origin-(--radix-tooltip-content-transform-origin) cpk:rounded-md cpk:px-3 cpk:py-1.5 cpk:text-xs cpk:text-balance",
           className,
         )}
         {...props}
       >
         {children}
-        <TooltipPrimitive.Arrow className="bg-primary fill-primary z-50 size-2.5 translate-y-[calc(-50%_-_2px)] rotate-45 rounded-[2px]" />
+        <TooltipPrimitive.Arrow className="cpk:bg-primary cpk:fill-primary cpk:z-50 cpk:size-2.5 cpk:translate-y-[calc(-50%_-_2px)] cpk:rotate-45 cpk:rounded-[2px]" />
       </TooltipPrimitive.Content>
     </TooltipPrimitive.Portal>
   );

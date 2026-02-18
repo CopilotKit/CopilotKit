@@ -530,8 +530,9 @@ describe("CopilotChatAssistantMessage Slot System E2E Tests", () => {
 
       const root = container.querySelector(".custom-root-class");
       expect(root).toBeDefined();
-      // Should also have default prose classes merged
-      expect(root?.classList.contains("prose")).toBe(true);
+      // Prose classes are on an inner div wrapping the markdown content
+      const proseDiv = root?.querySelector(".cpk\\:prose");
+      expect(proseDiv).toBeDefined();
     });
 
     it("should allow tailwind utilities to override default styles", () => {
