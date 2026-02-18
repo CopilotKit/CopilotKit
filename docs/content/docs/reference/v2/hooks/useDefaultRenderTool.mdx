@@ -1,0 +1,80 @@
+---
+title: "useDefaultRenderTool"
+description: "Register a wildcard default renderer for unhandled tool calls"
+---
+
+## Overview
+
+`useDefaultRenderTool` is a convenience wrapper around `useRenderTool` with `name: "*"`.
+
+This is part of the v2 tool rendering hook set with [`useComponent`](/reference/v2/hooks/useComponent), [`useRenderTool`](/reference/v2/hooks/useRenderTool), and [`useRenderToolCall`](/reference/v2/hooks/useRenderToolCall).
+
+- With no config, it registers CopilotKit's built-in default tool-call UI.
+- With `render`, it replaces that default UI with your own wildcard renderer.
+
+Use this for catch-all rendering of tool calls that do not have a specific named renderer.
+
+## Signature
+
+```tsx
+import { useDefaultRenderTool } from "@copilotkit/react-core/v2";
+
+function useDefaultRenderTool(
+  config?: {
+    render?: (props: {
+      name: string;
+      args: any;
+      status: string;
+      result: string | undefined;
+    }) => React.ReactElement;
+  },
+  deps?: ReadonlyArray<unknown>,
+): void;
+```
+
+## Behavior
+
+- Internally calls `useRenderTool({ name: "*", ... })`.
+- If `config.render` is omitted, uses an expandable default card UI that shows status, args, and result.
+- If `config.render` is provided, your renderer is used instead.
+- Inherits `useRenderTool` registration behavior and dependency semantics.
+
+## Usage
+
+### Built-in default renderer
+
+```tsx
+import { useDefaultRenderTool } from "@copilotkit/react-core/v2";
+
+function App() {
+  useDefaultRenderTool();
+  return null;
+}
+```
+
+### Custom wildcard renderer
+
+```tsx
+import { useDefaultRenderTool } from "@copilotkit/react-core/v2";
+
+function App() {
+  useDefaultRenderTool(
+    {
+      render: ({ name, status, result }) => (
+        <div>
+          <strong>{name}</strong>: {status}
+          {status === "complete" && result ? <pre>{result}</pre> : null}
+        </div>
+      ),
+    },
+    [],
+  );
+
+  return null;
+}
+```
+
+## Related
+
+- [`useRenderTool`](/reference/v2/hooks/useRenderTool)
+- [`useRenderToolCall`](/reference/v2/hooks/useRenderToolCall)

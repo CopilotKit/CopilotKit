@@ -27,7 +27,7 @@ const V1_TO_V2: Record<string, string> = {
   "hooks/useCopilotChatSuggestions": "hooks/useConfigureSuggestions",
   "hooks/useCoAgent": "hooks/useAgent",
   "hooks/useCoAgentStateRender": "hooks/useRenderToolCall",
-  "hooks/useDefaultTool": "hooks/useFrontendTool",
+  "hooks/useDefaultTool": "hooks/useDefaultRenderTool",
   "hooks/useLangGraphInterrupt": "hooks/useHumanInTheLoop",
   "components/chat/CopilotChat": "components/CopilotChat",
   "components/chat/CopilotPopup": "components/CopilotPopup",
