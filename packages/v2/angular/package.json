@@ -14,7 +14,7 @@
   },
   "scripts": {
     "build": "ng-packagr -p ng-package.json && npm run build:css",
-    "build:css": "tailwindcss -i ./src/styles/globals.css -o ./dist/styles.css",
+    "build:css": "tailwindcss -i ./src/styles/globals.css -o ./dist/styles.css && node scripts/scope-preflight.mjs ./dist/styles.css",
     "dev": "concurrently \"ng-packagr -p ng-package.json --watch\" \"npm run dev:css\"",
     "dev:css": "tailwindcss -i ./src/styles/globals.css -o ./dist/styles.css --watch",
     "lint": "eslint .",

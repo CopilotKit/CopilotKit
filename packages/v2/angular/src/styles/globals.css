@@ -7,7 +7,7 @@
 
 @custom-variant dark (&:is(.dark *));
 
-:root {
+[data-copilotkit] {
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
@@ -43,7 +43,8 @@
   --sidebar-ring: oklch(0.708 0 0);
 }
 
-.dark {
+.dark [data-copilotkit],
+[data-copilotkit].dark {
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);
   --card: oklch(0.145 0 0);
@@ -137,44 +138,44 @@
   * {
     @apply border-border outline-ring/50;
   }
-  body {
-    @apply bg-background text-foreground;
+  /* Apply foreground/background on CopilotKit roots (replaces body rule) */
+  [data-copilotkit] {
+    color: var(--foreground);
+    background-color: var(--background);
   }
 }
 
-/* Shiki styles removed - Angular uses highlight.js instead */
-
-.prose {
+[data-copilotkit] .prose {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-.prose
+[data-copilotkit] .prose
   :where(code):not(
     :where([class~="not-prose"], [class~="not-prose"] *)
   )::before {
   content: none;
 }
 
-.prose
+[data-copilotkit] .prose
   :where(code):not(
     :where([class~="not-prose"], [class~="not-prose"] *)
   )::after {
   content: none;
 }
 
-.prose :where(code):not(:where([class~="not-prose"], [class~="not-prose"] *)) {
+[data-copilotkit] .prose :where(code):not(:where([class~="not-prose"], [class~="not-prose"] *)) {
   font-weight: 400;
 }
 
-.prose h1 {
+[data-copilotkit] .prose h1 {
   margin-block-end: 8px;
   margin-bottom: 8px;
   font-size: 24px;
   font-weight: 600;
 }
 
-.prose h2 {
+[data-copilotkit] .prose h2 {
   margin-block-end: 4px;
   margin-block-start: 16px;
   margin-top: 16px;
@@ -183,7 +184,7 @@
   font-weight: 600;
 }
 
-.prose h3 {
+[data-copilotkit] .prose h3 {
   margin-block-end: 4px;
   margin-block-start: 16px;
   margin-top: 16px;
@@ -192,35 +193,35 @@
   font-weight: 600;
 }
 
-.prose p {
+[data-copilotkit] .prose p {
   margin-block-start: 8px;
   margin-block-end: 4px;
   margin-top: 4px;
   margin-bottom: 8px;
 }
 
-.prose a {
+[data-copilotkit] .prose a {
   color: #2964aa;
   text-decoration: none;
 }
 
-.prose a:hover {
+[data-copilotkit] .prose a:hover {
   color: #749ac8;
 }
 
-.prose
+[data-copilotkit] .prose
   :where(blockquote p:first-of-type):not(
     :where([class~="not-prose"], [class~="not-prose"] *)
   )::before {
   content: none;
 }
 
-.prose blockquote {
+[data-copilotkit] .prose blockquote {
   font-style: normal;
   font-weight: 400;
 }
 
-.prose input[type="checkbox"] {
+[data-copilotkit] .prose input[type="checkbox"] {
   appearance: none;
   background-color: #fff;
   background-origin: border-box;
@@ -240,7 +241,7 @@
   border-radius: 2px;
 }
 
-.prose input[type="checkbox"]:checked {
+[data-copilotkit] .prose input[type="checkbox"]:checked {
   background-color: #004f99;
   border-color: #004f99;
   background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg viewBox='0 0 16 16' fill='%23fff' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M12.207 4.793a1 1 0 0 1 0 1.414l-5 5a1 1 0 0 1-1.414 0l-2-2a1 1 0 0 1 1.414-1.414L6.5 9.086l4.293-4.293a1 1 0 0 1 1.414 0z'/%3E%3C/svg%3E");
@@ -249,11 +250,11 @@
   background-size: 100% 100%;
 }
 
-.prose em {
+[data-copilotkit] .prose em {
   @apply text-foreground;
 }
 
-.prose hr {
+[data-copilotkit] .prose hr {
   margin-block-start: 0px;
   margin-block-end: 0px;
   margin-top: 28px;
@@ -261,6 +262,6 @@
   color: rgb(13, 13, 13);
 }
 
-.prose td {
+[data-copilotkit] .prose td {
   @apply text-foreground;
 }

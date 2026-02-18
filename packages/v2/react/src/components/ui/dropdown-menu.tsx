@@ -39,10 +39,11 @@ function DropdownMenuContent({
   return (
     <DropdownMenuPrimitive.Portal>
       <DropdownMenuPrimitive.Content
+        data-copilotkit
         data-slot="dropdown-menu-content"
         sideOffset={sideOffset}
         className={cn(
-          "bg-popover text-popover-foreground data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 z-50 max-h-(--radix-dropdown-menu-content-available-height) min-w-[8rem] origin-(--radix-dropdown-menu-content-transform-origin) overflow-x-hidden overflow-y-auto rounded-md border p-1 shadow-md",
+          "cpk:bg-popover cpk:text-popover-foreground cpk:data-[state=open]:animate-in cpk:data-[state=closed]:animate-out cpk:data-[state=closed]:fade-out-0 cpk:data-[state=open]:fade-in-0 cpk:data-[state=closed]:zoom-out-95 cpk:data-[state=open]:zoom-in-95 cpk:data-[side=bottom]:slide-in-from-top-2 cpk:data-[side=left]:slide-in-from-right-2 cpk:data-[side=right]:slide-in-from-left-2 cpk:data-[side=top]:slide-in-from-bottom-2 cpk:z-50 cpk:max-h-(--radix-dropdown-menu-content-available-height) cpk:min-w-[8rem] cpk:origin-(--radix-dropdown-menu-content-transform-origin) cpk:overflow-x-hidden cpk:overflow-y-auto cpk:rounded-md cpk:border cpk:p-1 cpk:shadow-md",
           className,
         )}
         {...props}
@@ -74,7 +75,7 @@ function DropdownMenuItem({
       data-inset={inset}
       data-variant={variant}
       className={cn(
-        "focus:bg-accent focus:text-accent-foreground data-[variant=destructive]:text-destructive data-[variant=destructive]:focus:bg-destructive/10 dark:data-[variant=destructive]:focus:bg-destructive/20 data-[variant=destructive]:focus:text-destructive data-[variant=destructive]:*:[svg]:!text-destructive [&_svg:not([class*='text-'])]:text-muted-foreground relative flex cursor-default items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-hidden select-none data-[disabled]:pointer-events-none data-[disabled]:opacity-50 data-[inset]:pl-8 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+        "cpk:focus:bg-accent cpk:focus:text-accent-foreground cpk:data-[variant=destructive]:text-destructive cpk:data-[variant=destructive]:focus:bg-destructive/10 cpk:dark:data-[variant=destructive]:focus:bg-destructive/20 cpk:data-[variant=destructive]:focus:text-destructive cpk:data-[variant=destructive]:*:[svg]:!text-destructive cpk:[&_svg:not([class*='text-'])]:text-muted-foreground cpk:relative cpk:flex cpk:cursor-default cpk:items-center cpk:gap-2 cpk:rounded-sm cpk:px-2 cpk:py-1.5 cpk:text-sm cpk:outline-hidden cpk:select-none cpk:data-[disabled]:pointer-events-none cpk:data-[disabled]:opacity-50 cpk:data-[inset]:pl-8 cpk:[&_svg]:pointer-events-none cpk:[&_svg]:shrink-0 cpk:[&_svg:not([class*='size-'])]:size-4",
         className,
       )}
       {...props}
@@ -92,15 +93,15 @@ function DropdownMenuCheckboxItem({
     <DropdownMenuPrimitive.CheckboxItem
       data-slot="dropdown-menu-checkbox-item"
       className={cn(
-        "focus:bg-accent focus:text-accent-foreground relative flex cursor-default items-center gap-2 rounded-sm py-1.5 pr-2 pl-8 text-sm outline-hidden select-none data-[disabled]:pointer-events-none data-[disabled]:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+        "cpk:focus:bg-accent cpk:focus:text-accent-foreground cpk:relative cpk:flex cpk:cursor-default cpk:items-center cpk:gap-2 cpk:rounded-sm cpk:py-1.5 cpk:pr-2 cpk:pl-8 cpk:text-sm cpk:outline-hidden cpk:select-none cpk:data-[disabled]:pointer-events-none cpk:data-[disabled]:opacity-50 cpk:[&_svg]:pointer-events-none cpk:[&_svg]:shrink-0 cpk:[&_svg:not([class*='size-'])]:size-4",
         className,
       )}
       checked={checked}
       {...props}
     >
-      <span className="pointer-events-none absolute left-2 flex size-3.5 items-center justify-center">
+      <span className="cpk:pointer-events-none cpk:absolute cpk:left-2 cpk:flex cpk:size-3.5 cpk:items-center cpk:justify-center">
         <DropdownMenuPrimitive.ItemIndicator>
-          <CheckIcon className="size-4" />
+          <CheckIcon className="cpk:size-4" />
         </DropdownMenuPrimitive.ItemIndicator>
       </span>
       {children}
@@ -128,14 +129,14 @@ function DropdownMenuRadioItem({
     <DropdownMenuPrimitive.RadioItem
       data-slot="dropdown-menu-radio-item"
       className={cn(
-        "focus:bg-accent focus:text-accent-foreground relative flex cursor-default items-center gap-2 rounded-sm py-1.5 pr-2 pl-8 text-sm outline-hidden select-none data-[disabled]:pointer-events-none data-[disabled]:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+        "cpk:focus:bg-accent cpk:focus:text-accent-foreground cpk:relative cpk:flex cpk:cursor-default cpk:items-center cpk:gap-2 cpk:rounded-sm cpk:py-1.5 cpk:pr-2 cpk:pl-8 cpk:text-sm cpk:outline-hidden cpk:select-none cpk:data-[disabled]:pointer-events-none cpk:data-[disabled]:opacity-50 cpk:[&_svg]:pointer-events-none cpk:[&_svg]:shrink-0 cpk:[&_svg:not([class*='size-'])]:size-4",
         className,
       )}
       {...props}
     >
-      <span className="pointer-events-none absolute left-2 flex size-3.5 items-center justify-center">
+      <span className="cpk:pointer-events-none cpk:absolute cpk:left-2 cpk:flex cpk:size-3.5 cpk:items-center cpk:justify-center">
         <DropdownMenuPrimitive.ItemIndicator>
-          <CircleIcon className="size-2 fill-current" />
+          <CircleIcon className="cpk:size-2 cpk:fill-current" />
         </DropdownMenuPrimitive.ItemIndicator>
       </span>
       {children}
@@ -155,7 +156,7 @@ function DropdownMenuLabel({
       data-slot="dropdown-menu-label"
       data-inset={inset}
       className={cn(
-        "px-2 py-1.5 text-sm font-medium data-[inset]:pl-8",
+        "cpk:px-2 cpk:py-1.5 cpk:text-sm cpk:font-medium cpk:data-[inset]:pl-8",
         className,
       )}
       {...props}
@@ -170,7 +171,7 @@ function DropdownMenuSeparator({
   return (
     <DropdownMenuPrimitive.Separator
       data-slot="dropdown-menu-separator"
-      className={cn("bg-border -mx-1 my-1 h-px", className)}
+      className={cn("cpk:bg-border cpk:-mx-1 cpk:my-1 cpk:h-px", className)}
       {...props}
     />
   );
@@ -184,7 +185,7 @@ function DropdownMenuShortcut({
     <span
       data-slot="dropdown-menu-shortcut"
       className={cn(
-        "text-muted-foreground ml-auto text-xs tracking-widest",
+        "cpk:text-muted-foreground cpk:ml-auto cpk:text-xs cpk:tracking-widest",
         className,
       )}
       {...props}
@@ -211,13 +212,13 @@ function DropdownMenuSubTrigger({
       data-slot="dropdown-menu-sub-trigger"
       data-inset={inset}
       className={cn(
-        "focus:bg-accent focus:text-accent-foreground data-[state=open]:bg-accent data-[state=open]:text-accent-foreground flex cursor-default items-center rounded-sm px-2 py-1.5 text-sm outline-hidden select-none data-[inset]:pl-8",
+        "cpk:focus:bg-accent cpk:focus:text-accent-foreground cpk:data-[state=open]:bg-accent cpk:data-[state=open]:text-accent-foreground cpk:flex cpk:cursor-default cpk:items-center cpk:rounded-sm cpk:px-2 cpk:py-1.5 cpk:text-sm cpk:outline-hidden cpk:select-none cpk:data-[inset]:pl-8",
         className,
       )}
       {...props}
     >
       {children}
-      <ChevronRightIcon className="ml-auto size-4" />
+      <ChevronRightIcon className="cpk:ml-auto cpk:size-4" />
     </DropdownMenuPrimitive.SubTrigger>
   );
 }
@@ -230,7 +231,7 @@ function DropdownMenuSubContent({
     <DropdownMenuPrimitive.SubContent
       data-slot="dropdown-menu-sub-content"
       className={cn(
-        "bg-popover text-popover-foreground data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 z-50 min-w-[8rem] origin-(--radix-dropdown-menu-content-transform-origin) overflow-hidden rounded-md border p-1 shadow-lg",
+        "cpk:bg-popover cpk:text-popover-foreground cpk:data-[state=open]:animate-in cpk:data-[state=closed]:animate-out cpk:data-[state=closed]:fade-out-0 cpk:data-[state=open]:fade-in-0 cpk:data-[state=closed]:zoom-out-95 cpk:data-[state=open]:zoom-in-95 cpk:data-[side=bottom]:slide-in-from-top-2 cpk:data-[side=left]:slide-in-from-right-2 cpk:data-[side=right]:slide-in-from-left-2 cpk:data-[side=top]:slide-in-from-bottom-2 cpk:z-50 cpk:min-w-[8rem] cpk:origin-(--radix-dropdown-menu-content-transform-origin) cpk:overflow-hidden cpk:rounded-md cpk:border cpk:p-1 cpk:shadow-lg",
         className,
       )}
       {...props}

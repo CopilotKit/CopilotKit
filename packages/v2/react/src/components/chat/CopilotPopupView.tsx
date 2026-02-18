@@ -202,14 +202,15 @@ function CopilotPopupViewInternal({
 
   const popupAnimationClass =
     isPopupOpen && !isAnimatingOut
-      ? "pointer-events-auto translate-y-0 opacity-100 md:scale-100"
-      : "pointer-events-none translate-y-4 opacity-0 md:translate-y-5 md:scale-[0.95]";
+      ? "cpk:pointer-events-auto cpk:translate-y-0 cpk:opacity-100 cpk:md:scale-100"
+      : "cpk:pointer-events-none cpk:translate-y-4 cpk:opacity-0 cpk:md:translate-y-5 cpk:md:scale-[0.95]";
 
   const popupContent = isRendered ? (
     <div
+      data-copilotkit
       className={cn(
-        "fixed inset-0 z-[1200] flex max-w-full flex-col items-stretch",
-        "md:inset-auto md:bottom-24 md:right-6 md:items-end md:gap-4",
+        "cpk:fixed cpk:inset-0 cpk:z-[1200] cpk:flex cpk:max-w-full cpk:flex-col cpk:items-stretch",
+        "cpk:md:inset-auto cpk:md:bottom-24 cpk:md:right-6 cpk:md:items-end cpk:md:gap-4",
       )}
     >
       <div
@@ -219,22 +220,22 @@ function CopilotPopupViewInternal({
         aria-label={labels.modalHeaderTitle}
         data-copilot-popup
         className={cn(
-          "relative flex h-full w-full flex-col overflow-hidden bg-background text-foreground",
-          "origin-bottom focus:outline-none transform-gpu transition-transform transition-opacity duration-200 ease-out",
-          "md:transition-transform md:transition-opacity",
-          "rounded-none border border-border/0 shadow-none ring-0",
-          "md:h-[var(--copilot-popup-height)] md:w-[var(--copilot-popup-width)]",
-          "md:max-h-[var(--copilot-popup-max-height)] md:max-w-[var(--copilot-popup-max-width)]",
-          "md:origin-bottom-right md:rounded-2xl md:border-border md:shadow-xl md:ring-1 md:ring-border/40",
+          "cpk:relative cpk:flex cpk:h-full cpk:w-full cpk:flex-col cpk:overflow-hidden cpk:bg-background cpk:text-foreground",
+          "cpk:origin-bottom cpk:focus:outline-none cpk:transform-gpu cpk:transition-transform cpk:transition-opacity cpk:duration-200 cpk:ease-out",
+          "cpk:md:transition-transform cpk:md:transition-opacity",
+          "cpk:rounded-none cpk:border cpk:border-border/0 cpk:shadow-none cpk:ring-0",
+          "cpk:md:h-[var(--copilot-popup-height)] cpk:md:w-[var(--copilot-popup-width)]",
+          "cpk:md:max-h-[var(--copilot-popup-max-height)] cpk:md:max-w-[var(--copilot-popup-max-width)]",
+          "cpk:md:origin-bottom-right cpk:md:rounded-2xl cpk:md:border-border cpk:md:shadow-xl cpk:md:ring-1 cpk:md:ring-border/40",
           popupAnimationClass,
         )}
         style={popupStyle}
       >
         {headerElement}
-        <div className="flex-1 overflow-hidden" data-popup-chat>
+        <div className="cpk:flex-1 cpk:overflow-hidden" data-popup-chat>
           <CopilotChatView
             {...restProps}
-            className={cn("h-full min-h-0", className)}
+            className={cn("cpk:h-full cpk:min-h-0", className)}
           />
         </div>
       </div>
@@ -276,7 +277,7 @@ export namespace CopilotPopupView {
 
     if (children) {
       return (
-        <>
+        <div data-copilotkit style={{ display: "contents" }}>
           {children({
             welcomeMessage: BoundWelcomeMessage,
             input,
@@ -284,21 +285,26 @@ export namespace CopilotPopupView {
             className,
             ...props,
           })}
-        </>
+        </div>
       );
     }
 
     return (
-      <div className={cn("h-full flex flex-col", className)} {...props}>
+      <div
+        className={cn("cpk:h-full cpk:flex cpk:flex-col", className)}
+        {...props}
+      >
         {/* Welcome message - centered vertically */}
-        <div className="flex-1 flex flex-col items-center justify-center px-4">
+        <div className="cpk:flex-1 cpk:flex cpk:flex-col cpk:items-center cpk:justify-center cpk:px-4">
           {BoundWelcomeMessage}
         </div>
 
         {/* Suggestions and input at bottom */}
         <div>
           {/* Suggestions above input */}
-          <div className="mb-4 flex justify-center px-4">{suggestionView}</div>
+          <div className="cpk:mb-4 cpk:flex cpk:justify-center cpk:px-4">
+            {suggestionView}
+          </div>
           {input}
         </div>
       </div>

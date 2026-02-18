@@ -59,6 +59,7 @@ function flattenUserMessageContent(content?: UserMessage["content"]): string {
 @Component({
   standalone: true,
   selector: "copilot-chat-user-message",
+  host: { "data-copilotkit": "" },
   imports: [
     CommonModule,
     CopilotSlot,

@@ -25,6 +25,7 @@ import { cn } from "../../utils";
 @Component({
   selector: "copilot-chat-message-view",
   standalone: true,
+  host: { "data-copilotkit": "" },
   imports: [
     CommonModule,
     CopilotSlot,

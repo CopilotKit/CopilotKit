@@ -39,7 +39,7 @@ const mockLayoutMetrics = (
   container: HTMLElement,
   options?: { gridWidth?: number; addWidth?: number; actionsWidth?: number },
 ) => {
-  const grid = container.querySelector("div.grid") as HTMLElement | null;
+  const grid = container.querySelector("div.cpk\\:grid") as HTMLElement | null;
   if (!grid) {
     throw new Error("Grid container not found in CopilotChatInput layout");
   }
