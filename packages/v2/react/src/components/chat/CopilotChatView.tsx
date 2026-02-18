@@ -236,6 +236,7 @@ export function CopilotChatView({
 
     return (
       <div
+        data-copilotkit
         className={twMerge("relative h-full flex flex-col", className)}
         {...props}
       >
@@ -245,16 +246,20 @@ export function CopilotChatView({
   }
 
   if (children) {
-    return children({
-      messageView: BoundMessageView,
-      input: BoundInput,
-      scrollView: BoundScrollView,
-      suggestionView: BoundSuggestionView ?? <></>,
-    });
+    return (
+      <div data-copilotkit style={{ display: "contents" }}>
+        {children({
+          messageView: BoundMessageView,
+          input: BoundInput,
+          scrollView: BoundScrollView,
+          suggestionView: BoundSuggestionView ?? <></>,
+        })}
+      </div>
+    );
   }
 
   return (
-    <div className={twMerge("relative h-full", className)} {...props}>
+    <div data-copilotkit className={twMerge("relative h-full", className)} {...props}>
       {BoundScrollView}
 
       {BoundInput}
@@ -524,7 +529,7 @@ export namespace CopilotChatView {
 
     if (children) {
       return (
-        <>
+        <div data-copilotkit style={{ display: "contents" }}>
           {children({
             welcomeMessage: BoundWelcomeMessage,
             input,
@@ -532,7 +537,7 @@ export namespace CopilotChatView {
             className,
             ...props,
           })}
-        </>
+        </div>
       );
     }
 

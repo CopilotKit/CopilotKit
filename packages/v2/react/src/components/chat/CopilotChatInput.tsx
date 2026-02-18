@@ -582,7 +582,11 @@ export function CopilotChatInput({
       showDisclaimer: shouldShowDisclaimer,
     } as CopilotChatInputChildrenArgs;
 
-    return <>{children(childProps)}</>;
+    return (
+      <div data-copilotkit style={{ display: "contents" }}>
+        {children(childProps)}
+      </div>
+    );
   }
 
   const handleContainerClick = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -973,6 +977,7 @@ export function CopilotChatInput({
 
   return (
     <div
+      data-copilotkit
       ref={containerRef}
       className={cn(
         positioning === "absolute" &&

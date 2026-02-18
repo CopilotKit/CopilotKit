@@ -477,7 +477,11 @@ export function CopilotChatMessageView({
     .filter(Boolean) as React.ReactElement[];
 
   if (children) {
-    return children({ messageElements, messages, isRunning });
+    return (
+      <div data-copilotkit style={{ display: "contents" }}>
+        {children({ messageElements, messages, isRunning })}
+      </div>
+    );
   }
 
   // Hide the chat-level loading cursor when the last message is a reasoning
@@ -486,7 +490,7 @@ export function CopilotChatMessageView({
   const showCursor = isRunning && lastMessage?.role !== "reasoning";
 
   return (
-    <div className={twMerge("flex flex-col", className)} {...props}>
+    <div data-copilotkit className={twMerge("flex flex-col", className)} {...props}>
       {messageElements}
       {showCursor && (
         <div className="mt-2">

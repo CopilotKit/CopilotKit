@@ -112,7 +112,7 @@ export function CopilotChatReasoningMessage({
 
   if (children) {
     return (
-      <>
+      <div data-copilotkit style={{ display: "contents" }}>
         {children({
           header: boundHeader,
           contentView: boundContent,
@@ -121,7 +121,7 @@ export function CopilotChatReasoningMessage({
           messages,
           isRunning,
         })}
-      </>
+      </div>
     );
   }
 

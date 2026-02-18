@@ -207,6 +207,7 @@ function CopilotPopupViewInternal({
 
   const popupContent = isRendered ? (
     <div
+      data-copilotkit
       className={cn(
         "fixed inset-0 z-[1200] flex max-w-full flex-col items-stretch",
         "md:inset-auto md:bottom-24 md:right-6 md:items-end md:gap-4",
@@ -276,7 +277,7 @@ export namespace CopilotPopupView {
 
     if (children) {
       return (
-        <>
+        <div data-copilotkit style={{ display: "contents" }}>
           {children({
             welcomeMessage: BoundWelcomeMessage,
             input,
@@ -284,7 +285,7 @@ export namespace CopilotPopupView {
             className,
             ...props,
           })}
-        </>
+        </div>
       );
     }
 

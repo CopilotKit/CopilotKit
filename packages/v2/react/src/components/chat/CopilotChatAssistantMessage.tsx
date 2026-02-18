@@ -162,7 +162,7 @@ export function CopilotChatAssistantMessage({
 
   if (children) {
     return (
-      <>
+      <div data-copilotkit style={{ display: "contents" }}>
         {children({
           markdownRenderer: boundMarkdownRenderer,
           toolbar: boundToolbar,
@@ -182,12 +182,13 @@ export function CopilotChatAssistantMessage({
           additionalToolbarItems,
           toolbarVisible: shouldShowToolbar,
         })}
-      </>
+      </div>
     );
   }
 
   return (
     <div
+      data-copilotkit
       className={twMerge(
         "prose max-w-full break-words dark:prose-invert",
         className,

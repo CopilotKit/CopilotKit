@@ -39,6 +39,7 @@ function DropdownMenuContent({
   return (
     <DropdownMenuPrimitive.Portal>
       <DropdownMenuPrimitive.Content
+        data-copilotkit
         data-slot="dropdown-menu-content"
         sideOffset={sideOffset}
         className={cn(

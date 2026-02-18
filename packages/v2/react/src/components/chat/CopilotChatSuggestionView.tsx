@@ -13,6 +13,7 @@ const DefaultContainer = React.forwardRef<
   return (
     <div
       ref={ref}
+      data-copilotkit
       className={cn(
         "flex flex-wrap items-center gap-1.5 sm:gap-2 pl-0 pr-4 sm:px-0 pointer-events-none",
         className,
@@ -100,7 +101,7 @@ export const CopilotChatSuggestionView = React.forwardRef<
     });
 
     return (
-      <>
+      <div data-copilotkit style={{ display: "contents" }}>
         {children({
           container: boundContainer,
           suggestion: sampleSuggestion,
@@ -110,16 +111,16 @@ export const CopilotChatSuggestionView = React.forwardRef<
           className,
           ...restProps,
         })}
-      </>
+      </div>
     );
   }
 
   if (children) {
     return (
-      <>
+      <div data-copilotkit style={{ display: "contents" }}>
         {boundContainer}
         {children}
-      </>
+      </div>
     );
   }
 

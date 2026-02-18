@@ -150,7 +150,7 @@ export function CopilotChatUserMessage({
 
   if (children) {
     return (
-      <>
+      <div data-copilotkit style={{ display: "contents" }}>
         {children({
           messageRenderer: BoundMessageRenderer,
           toolbar: BoundToolbar,
@@ -162,12 +162,13 @@ export function CopilotChatUserMessage({
           numberOfBranches,
           additionalToolbarItems,
         })}
-      </>
+      </div>
     );
   }
 
   return (
     <div
+      data-copilotkit
       className={twMerge("flex flex-col items-end group pt-10", className)}
       data-message-id={message.id}
       {...props}

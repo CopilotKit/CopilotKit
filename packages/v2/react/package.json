@@ -19,7 +19,7 @@
   },
   "scripts": {
     "dev:css": "tailwindcss -i ./src/styles/globals.css -o ./dist/styles.css --watch --minify",
-    "build:css": "tailwindcss -i ./src/styles/globals.css -o ./dist/styles.css -m",
+    "build:css": "tailwindcss -i ./src/styles/globals.css -o ./dist/styles.css -m && node scripts/scope-preflight.mjs ./dist/styles.css",
     "dev": "concurrently \"npm:dev:css\" \"tsdown --watch\"",
     "build": "tsdown && npm run build:css",
     "prepublishOnly": "pnpm run build",
@@ -49,8 +49,9 @@
     "concurrently": "^9.1.0",
     "eslint": "^9.30.0",
     "jsdom": "^26.1.0",
-    "tailwindcss": "^4.0.8",
+    "postcss": "^8.5.6",
     "rxjs": "^7.8.1",
+    "tailwindcss": "^4.0.8",
     "tsdown": "^0.20.3",
     "typescript": "5.8.2",
     "vitest": "^3.2.4"

@@ -26,6 +26,7 @@ export const CopilotChatSuggestionPill = React.forwardRef<
   return (
     <button
       ref={ref}
+      data-copilotkit
       data-slot="suggestion-pill"
       className={cn(baseClasses, className)}
       type={type ?? "button"}
