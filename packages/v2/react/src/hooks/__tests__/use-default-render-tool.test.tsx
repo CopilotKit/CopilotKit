@@ -86,13 +86,12 @@ describe("useDefaultRenderTool", () => {
       },
     ];
 
-    const DefaultRenderer =
-      config.render as React.ComponentType<{
-        name: string;
-        args: unknown;
-        status: string;
-        result: string | undefined;
-      }>;
+    const DefaultRenderer = config.render as React.ComponentType<{
+      name: string;
+      args: unknown;
+      status: string;
+      result: string | undefined;
+    }>;
 
     render(
       <DefaultRenderer
@@ -130,13 +129,12 @@ describe("useDefaultRenderTool", () => {
       },
     ];
 
-    const DefaultRenderer =
-      config.render as React.ComponentType<{
-        name: string;
-        args: unknown;
-        status: string;
-        result: string | undefined;
-      }>;
+    const DefaultRenderer = config.render as React.ComponentType<{
+      name: string;
+      args: unknown;
+      status: string;
+      result: string | undefined;
+    }>;
 
     render(
       <DefaultRenderer

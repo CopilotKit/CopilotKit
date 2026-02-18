@@ -51,9 +51,9 @@ describe("useComponent", () => {
       unit: z.enum(["c", "f"]),
     });
 
-    const DemoComponent: React.FC<z.infer<typeof weatherSchema>> = ({ city }) => (
-      <div>{city}</div>
-    );
+    const DemoComponent: React.FC<z.infer<typeof weatherSchema>> = ({
+      city,
+    }) => <div>{city}</div>;
 
     const deps = ["v1"] as const;
 
@@ -115,7 +115,9 @@ describe("useComponent", () => {
       },
     ];
 
-    const { getByTestId } = render(toolConfig.render({ args: { city: "Paris" } }));
+    const { getByTestId } = render(
+      toolConfig.render({ args: { city: "Paris" } }),
+    );
     expect(getByTestId("city").textContent).toBe("Paris");
   });
 });
