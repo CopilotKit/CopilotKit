@@ -161,7 +161,10 @@ export class RunHandler {
   /**
    * Run an agent
    */
-  async runAgent({ agent, forwardedProps }: CopilotKitCoreRunAgentParams): Promise<RunAgentResult> {
+  async runAgent({
+    agent,
+    forwardedProps,
+  }: CopilotKitCoreRunAgentParams): Promise<RunAgentResult> {
     // Agent ID is guaranteed to be set by validateAndAssignAgentId
     if (agent.agentId) {
       void (

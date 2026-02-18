@@ -8,8 +8,8 @@ export interface InterruptHandlerProps<TValue = unknown> {
   resolve: (response: unknown) => void;
 }
 
-export interface InterruptRenderProps<TValue = unknown> {
+export interface InterruptRenderProps<TValue = unknown, TResult = unknown> {
   event: InterruptEvent<TValue>;
-  result: unknown;
+  result: TResult;
   resolve: (response: unknown) => void;
 }

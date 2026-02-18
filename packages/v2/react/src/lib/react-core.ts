@@ -74,16 +74,13 @@ export class CopilotKitCoreReact extends CopilotKitCore {
 
   setInterruptElement(element: React.ReactElement | null): void {
     this._interruptElement = element;
-    void this.notifySubscribers(
-      (subscriber) => {
-        const reactSubscriber = subscriber as CopilotKitCoreReactSubscriber;
-        reactSubscriber.onInterruptElementChanged?.({
-          copilotkit: this,
-          interruptElement: this._interruptElement,
-        });
-      },
-      "Subscriber onInterruptElementChanged error:",
-    );
+    void this.notifySubscribers((subscriber) => {
+      const reactSubscriber = subscriber as CopilotKitCoreReactSubscriber;
+      reactSubscriber.onInterruptElementChanged?.({
+        copilotkit: this,
+        interruptElement: this._interruptElement,
+      });
+    }, "Subscriber onInterruptElementChanged error:");
   }
 
   // Override to accept React-specific subscriber type

@@ -323,7 +323,8 @@ export function CopilotChatMessageView({
   }, [config?.agentId, copilotkit, forceUpdate]);
 
   // Subscribe to interrupt element changes for in-chat rendering.
-  const [interruptElement, setInterruptElement] = useState<React.ReactElement | null>(null);
+  const [interruptElement, setInterruptElement] =
+    useState<React.ReactElement | null>(null);
   useEffect(() => {
     setInterruptElement(copilotkit.interruptElement);
     const subscription = copilotkit.subscribe({

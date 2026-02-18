@@ -5,6 +5,7 @@
     "useAgentContext",
     "useFrontendTool",
     "useHumanInTheLoop",
+    "useInterrupt",
     "useRenderToolCall",
     "useSuggestions",
     "useConfigureSuggestions",

@@ -1,0 +1,135 @@
+---
+title: "useInterrupt"
+description: "React hook for handling agent interrupt events and resuming execution with user input"
+---
+
+## Overview
+
+`useInterrupt` listens for agent custom events named `on_interrupt`, captures the latest interrupt payload for a run, and renders interrupt UI once the run finalizes. Your UI can call `resolve(response)` to resume the agent with a resume payload.
+
+By default, interrupt UI is rendered inside `<CopilotChat>` automatically. If you set `renderInChat: false`, the hook returns the element so you can place it manually.
+
+`event.value` is typed as `any` since the interrupt payload shape depends on your agent. Type-narrow it in your callbacks (e.g. `handler`, `enabled`, `render`) as needed.
+
+## Signature
+
+```tsx
+import { useInterrupt } from "@copilotkit/react-core/v2";
+
+function useInterrupt<
+  TResult = never,
+  TRenderInChat extends boolean | undefined = undefined,
+>(
+  config: UseInterruptConfig<any, TResult, TRenderInChat>,
+): TRenderInChat extends false
+  ? React.ReactElement | null
+  : TRenderInChat extends true | undefined
+    ? void
+    : React.ReactElement | null | void;
+```
+
+## Parameters
+
+<PropertyReference name="config" type="UseInterruptConfig<any, TResult, TRenderInChat>" required>
+  Interrupt configuration.
+
+  <PropertyReference name="render" type="(props: InterruptRenderProps<any, TResult | null>) => React.ReactElement" required>
+    Render callback for interrupt UI. Called when an interrupt is available. The callback receives:
+    - `event` -- interrupt event (`{ name, value }`). `value` is `any`; type-narrow in your callback as needed.
+    - `result` -- inferred from `handler` return type, or `null`
+    - `resolve(response)` -- resumes the agent with `command.resume = response`
+  </PropertyReference>
+
+  <PropertyReference name="handler" type="(props: InterruptHandlerProps) => TResult | PromiseLike<TResult>">
+    Optional preprocessing callback. Runs before rendering and can return sync or async data that is exposed as `result` in `render`.
+    `TResult` is automatically inferred from the handler's return type.
+    If the handler throws/rejects, `result` is `null`.
+  </PropertyReference>
+
+  <PropertyReference name="enabled" type="(event: InterruptEvent) => boolean">
+    Optional filter. Return `false` to ignore matching interrupts for this hook instance.
+  </PropertyReference>
+
+  <PropertyReference name="agentId" type="string">
+    Optional agent id. Defaults to the currently configured chat agent.
+  </PropertyReference>
+
+  <PropertyReference name="renderInChat" type="boolean" default="true">
+    Controls where UI renders:
+    - `true` (default): publishes interrupt UI into `<CopilotChat>`
+    - `false`: returns interrupt element from the hook for manual placement
+  </PropertyReference>
+</PropertyReference>
+
+## Return Value
+
+<PropertyReference name="element" type="Conditional by renderInChat">
+  Return type is inferred from `renderInChat`:
+  - `renderInChat: false` -> `React.ReactElement | null`
+  - `renderInChat: true` or omitted -> `void`
+  - dynamic boolean -> `React.ReactElement | null | void`
+</PropertyReference>
+
+## Usage
+
+### In-chat interrupt UI (default)
+
+```tsx
+import { useInterrupt } from "@copilotkit/react-core/v2";
+
+function ApprovalInterrupt() {
+  useInterrupt({
+    render: ({ event, resolve }) => (
+      <div className="p-3 border rounded">
+        <p>{event.value.question}</p>
+        <div className="mt-2 flex gap-2">
+          <button onClick={() => resolve({ approved: true })}>Approve</button>
+          <button onClick={() => resolve({ approved: false })}>Reject</button>
+        </div>
+      </div>
+    ),
+  });
+
+  return null;
+}
+```
+
+### Manual placement with async preprocessing
+
+```tsx
+import { useInterrupt } from "@copilotkit/react-core/v2";
+
+function SidePanelInterrupt() {
+  const element = useInterrupt({
+    renderInChat: false,
+    enabled: (event) => event.value.startsWith("approval:"),
+    handler: async ({ event }) => ({ label: event.value.toUpperCase() }),
+    render: ({ event, result, resolve }) => (
+      <aside className="rounded border p-3">
+        <div className="font-medium">{result?.label ?? ""}</div>
+        <div className="mt-2">{event.value}</div>
+        <button className="mt-2" onClick={() => resolve({ accepted: true })}>
+          Continue
+        </button>
+      </aside>
+    ),
+  });
+
+  return <>{element}</>;
+}
+```
+
+## Behavior
+
+- Interrupts are collected from agent custom events named `on_interrupt`.
+- Interrupt UI is surfaced when the run finalizes.
+- Starting a new run clears pending interrupt state.
+- `event.value` is `any` -- type-narrow in your callbacks as needed.
+- `render.result` is inferred from `handler` return type and is always `TResult | null`.
+- If `handler` throws or rejects, `result` is set to `null`.
+
+## Related
+
+- [`useHumanInTheLoop`](/reference/v2/hooks/useHumanInTheLoop) -- structured interactive tool workflows
+- [`useFrontendTool`](/reference/v2/hooks/useFrontendTool) -- client-side tool registration
+- [`useAgent`](/reference/v2/hooks/useAgent) -- access and subscribe to agent events
