@@ -49,7 +49,7 @@
     "@a2ui/lit": "^0.8.1",
     "clsx": "^2.1.1",
     "markdown-it": "^14.1.0",
-    "zod": "^3.25.75"
+    "zod": "^4.0.0"
   },
   "peerDependencies": {
     "@copilotkit/react-core": "workspace:*",
@@ -62,9 +62,9 @@
     "@types/markdown-it": "^14.1.2",
     "@types/react": "^19.2.3",
     "@types/react-dom": "^19.2.3",
-    "jsdom": "^26.1.0",
+    "jsdom": "^28.0.0",
     "typescript": "5.9.2",
-    "vitest": "^3.2.4"
+    "vitest": "^4.0.0"
   },
   "main": "./dist/index.cjs",
   "module": "./dist/index.mjs"
