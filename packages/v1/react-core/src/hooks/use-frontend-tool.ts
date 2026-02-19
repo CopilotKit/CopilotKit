@@ -46,7 +46,7 @@ export function useFrontendTool<const T extends Parameter[] = []>(
   tool: UseFrontendToolArgs<T>,
   dependencies?: any[],
 ) {
-  const { name, description, parameters, render, followUp } = tool;
+  const { name, description, parameters, render, followUp, available } = tool;
   const zodParameters = getZodParameters(parameters);
 
   const renderRef = useRef<typeof render>(render);
@@ -108,5 +108,6 @@ export function useFrontendTool<const T extends Parameter[] = []>(
     handler: normalizedHandler,
     followUp,
     render: normalizedRender,
+    available: available === undefined ? undefined : available !== "disabled",
   });
 }

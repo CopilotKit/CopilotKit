@@ -1,6 +1,6 @@
 {
   "name": "@copilotkitnext/angular",
-  "version": "1.51.5-next.0",
+  "version": "1.51.5-next.2",
   "description": "Angular library for CopilotKit",
   "main": "dist/fesm2022/copilotkitnext-angular.mjs",
   "module": "dist/fesm2022/copilotkitnext-angular.mjs",

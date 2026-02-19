@@ -56,5 +56,6 @@ export function useFrontendTool<
     };
     // Depend on stable keys by default and allow callers to opt into
     // additional dependencies for dynamic tool configuration.
-  }, [tool.name, copilotkit, extraDeps.length, ...extraDeps]);
+    // tool.available is included so toggling availability re-registers the tool.
+  }, [tool.name, tool.available, copilotkit, extraDeps.length, ...extraDeps]);
 }
