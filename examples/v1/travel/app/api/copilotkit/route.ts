@@ -14,11 +14,10 @@ import OpenAI from "openai";
 
 const openai = new OpenAI();
 const llmAdapter = new OpenAIAdapter({ openai } as any);
-const langsmithApiKey = process.env.LANGSMITH_API_KEY as string;
 
 export const POST = async (req: NextRequest) => {
-  const searchParams = req.nextUrl.searchParams;
-  const deploymentUrl = searchParams.get("lgcDeploymentUrl");
+  const langsmithApiKey = process.env.LANGSMITH_API_KEY || "";
+  const deploymentUrl = process.env.LANGGRAPH_DEPLOYMENT_URL || "";
 
   const travel = deploymentUrl
     ? new LangGraphAgent({
