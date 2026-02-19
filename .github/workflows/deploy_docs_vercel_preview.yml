@@ -1,0 +1,151 @@
+name: deploy / docs / vercel / preview
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "docs/**"
+      - ".gitattributes"
+      - ".github/workflows/deploy_docs_vercel_preview.yml"
+
+jobs:
+  deploy-preview:
+    name: preview
+    if: ${{ github.event.pull_request.head.repo.fork == false }}
+    runs-on: ubuntu-latest
+    concurrency: docs-vercel-preview-pr-${{ github.event.pull_request.number }}
+    permissions:
+      contents: read
+      pull-requests: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Verify LFS hydration in docs
+        run: |
+          if grep -RIl --binary-files=text "version https://git-lfs.github.com/spec/v1" docs; then
+            echo "Detected unresolved Git LFS pointer files in docs/."
+            echo "Ensure checkout runs with lfs: true and LFS objects are available."
+            exit 1
+          fi
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: "10.13.1"
+
+      - name: Use Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Pull Vercel preview environment
+        working-directory: docs
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_DOCS }}
+        run: pnpm dlx vercel@latest pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Build Vercel prebuilt output
+        working-directory: docs
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_DOCS }}
+        run: pnpm dlx vercel@latest build --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Deploy to Vercel preview
+        id: deploy
+        working-directory: docs
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_DOCS }}
+        run: |
+          set -euo pipefail
+          DEPLOY_LOG=$(mktemp)
+          pnpm dlx vercel@latest deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }} 2>&1 | tee "$DEPLOY_LOG"
+          PREVIEW_URL=$(grep -Eo 'https://[^ ]+\.vercel\.app' "$DEPLOY_LOG" | tail -n 1)
+          if [ -z "$PREVIEW_URL" ]; then
+            echo "Failed to parse Vercel preview URL from deploy output."
+            exit 1
+          fi
+          echo "preview_url=$PREVIEW_URL" >> "$GITHUB_OUTPUT"
+          echo "preview_url=$PREVIEW_URL" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Comment preview URL on PR
+        uses: actions/github-script@v7
+        env:
+          PREVIEW_URL: ${{ steps.deploy.outputs.preview_url }}
+        with:
+          script: |
+            const marker = '<!-- docs-vercel-preview -->';
+            const body = `${marker}\n🚀 Docs preview is ready:\n\n[Open Docs Preview](${process.env.PREVIEW_URL})`;
+            const { owner, repo } = context.repo;
+            const issue_number = context.issue.number;
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner,
+              repo,
+              issue_number,
+              per_page: 100,
+            });
+            const existing = comments.find(
+              (comment) => comment.user.type === 'Bot' && comment.body.includes(marker),
+            );
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner,
+                repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner,
+                repo,
+                issue_number,
+                body,
+              });
+            }
+
+  preview-unavailable-for-forks:
+    name: preview unavailable (fork)
+    if: ${{ github.event.pull_request.head.repo.fork == true }}
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+
+    steps:
+      - name: Comment preview unavailable for forks
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const marker = '<!-- docs-vercel-preview -->';
+            const body = `${marker}\nℹ️ Docs preview was skipped because this PR comes from a fork and deployment secrets are not available.`;
+            const { owner, repo } = context.repo;
+            const issue_number = context.issue.number;
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner,
+              repo,
+              issue_number,
+              per_page: 100,
+            });
+            const existing = comments.find(
+              (comment) => comment.user.type === 'Bot' && comment.body.includes(marker),
+            );
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner,
+                repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner,
+                repo,
+                issue_number,
+                body,
+              });
+            }
