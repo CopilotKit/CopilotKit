@@ -48,9 +48,9 @@
     "attw": "attw --pack . --profile node16"
   },
   "devDependencies": {
-    "@swc/core": "1.5.28",
+    "@swc/core": "1.15.11",
     "@types/node": "^18.11.17",
-    "@whatwg-node/server": "^0.9.34",
+    "@whatwg-node/server": "^0.10.0",
     "eslint": "^8.56.0",
     "eslint-config-custom": "workspace:*",
     "nodemon": "^3.1.3",
@@ -78,15 +78,15 @@
     "hono": "^4.11.4",
     "openai": "^4.85.1",
     "partial-json": "^0.1.7",
-    "pino": "^9.2.0",
+    "pino": "^10.1.1",
     "pino-pretty": "^11.2.1",
     "reflect-metadata": "^0.2.2",
-    "rxjs": "7.8.1",
-    "type-graphql": "2.0.0-rc.1",
+    "rxjs": "7.8.2",
+    "type-graphql": "2.0.0-rc.3",
     "zod": "^3.23.3"
   },
   "peerDependencies": {
-    "@anthropic-ai/sdk": "^0.57.0",
+    "@anthropic-ai/sdk": "^0.57.0 || ^0.77.0",
     "@copilotkit/shared": "workspace:*",
     "@copilotkitnext/agent": "workspace:*",
     "@copilotkitnext/runtime": "workspace:*",

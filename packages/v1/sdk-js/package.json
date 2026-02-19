@@ -48,10 +48,10 @@
   "devDependencies": {
     "@langchain/core": "^1.1.8",
     "@langchain/langgraph": "^1.0.7",
-    "@swc/core": "1.5.28",
+    "@swc/core": "1.15.11",
     "@types/express": "^4.17.21",
     "@types/node": "^18.11.17",
-    "@whatwg-node/server": "^0.9.34",
+    "@whatwg-node/server": "^0.10.0",
     "eslint": "^8.56.0",
     "eslint-config-custom": "workspace:*",
     "langchain": "^1.2.3",
