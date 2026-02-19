@@ -191,6 +191,12 @@ class LangGraphAgent(Agent):
         self.graph = cast(CompiledStateGraph, graph or agent)
         self.active_interrupt_event = False
 
+        # Get the output and input schema keys the user has allowed for this graph
+        input_keys, output_keys, config_keys = self.get_schema_keys()
+        self.output_schema_keys = output_keys
+        self.input_schema_keys = input_keys
+        self.config_schema_keys = config_keys
+
     def execute( # pylint: disable=too-many-arguments
             self,
             *,
@@ -262,14 +268,9 @@ class LangGraphAgent(Agent):
 
         # Use provided resume_input or fallback to initial_state
         stream_input = resume_input if resume_input else initial_state
-
-        # Get the output and input schema keys the user has allowed for this graph
-        input_keys, output_keys, config_keys = self.get_schema_keys(config)
-        self.output_schema_keys = output_keys
-        self.input_schema_keys = input_keys
-
+    
         stream_input = self.filter_state_on_schema_keys(stream_input, 'input')
-        config["configurable"] = filter_by_schema_keys(config["configurable"], config_keys)
+        config["configurable"] = filter_by_schema_keys(config["configurable"], self.config_schema_keys)
 
         if has_active_interrupts and (not resume_input):
             value = active_interrupts[0].value
@@ -636,6 +637,8 @@ class LangGraphAgent(Agent):
         state_copy = state.copy()
         state_copy.pop("messages", None)
 
+        state = self.filter_state_on_schema_keys(state, 'output')
+
         return {
             "threadId": thread_id,
             "threadExists": True,
@@ -650,12 +653,12 @@ class LangGraphAgent(Agent):
             'type': 'langgraph'
         }
 
-    def get_schema_keys(self, config):
+    def get_schema_keys(self):
         CONSTANT_KEYS = ['copilotkit', 'messages']
         CONSTANT_CONFIG_KEYS = ['checkpoint_id', 'checkpoint_ns', 'thread_id']
         try:
-            input_schema = self.graph.get_input_jsonschema(config)
-            output_schema = self.graph.get_output_jsonschema(config)
+            input_schema = self.graph.get_input_jsonschema()
+            output_schema = self.graph.get_output_jsonschema()
             input_schema_keys = list(input_schema["properties"].keys())
             output_schema_keys = list(output_schema["properties"].keys())
 
