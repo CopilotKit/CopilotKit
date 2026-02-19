@@ -45,6 +45,8 @@
     "@copilotkitnext/web-inspector": "1.51.4"
   },
   "changesets": [
-    "quiet-eggs-double"
+    "fix-a2ui-renderer-workspace-dep",
+    "quiet-eggs-double",
+    "rich-cameras-bake"
   ]
 }

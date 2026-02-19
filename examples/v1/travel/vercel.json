@@ -1,0 +1,5 @@
+{
+  "buildCommand": "cd ../../../ && npx nx run @copilotkit-examples/travel:build",
+  "installCommand": "cd ../../../ && npm i -g pnpm@10.13.1 && pnpm install --no-frozen-lockfile",
+  "framework": "nextjs"
+}

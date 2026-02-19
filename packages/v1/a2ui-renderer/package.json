@@ -1,7 +1,7 @@
 {
   "name": "@copilotkit/a2ui-renderer",
   "private": false,
-  "version": "1.51.5-next.0",
+  "version": "1.51.5-next.2",
   "description": "A2UI Renderer for CopilotKit - render A2UI surfaces in React applications",
   "homepage": "https://github.com/CopilotKit/CopilotKit",
   "repository": {
@@ -52,7 +52,7 @@
     "zod": "^3.25.75"
   },
   "peerDependencies": {
-    "@copilotkit/react-core": ">=1.51.5-next.0",
+    "@copilotkit/react-core": "workspace:*",
     "react": "^18 || ^19 || ^19.0.0-rc",
     "react-dom": "^18 || ^19 || ^19.0.0-rc"
   },
