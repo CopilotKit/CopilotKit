@@ -58,6 +58,7 @@ jobs:
         id: prepare-version
         run: |
           pnpm changeset version
+          pnpm install --no-frozen-lockfile
 
       - name: Build
         id: build

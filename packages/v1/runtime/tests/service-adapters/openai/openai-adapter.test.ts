@@ -1,11 +1,11 @@
 // Mock the modules first
-jest.mock("openai", () => {
+vi.mock("openai", () => {
   function MockOpenAI() {}
   return { default: MockOpenAI };
 });
 
 // Mock the OpenAIAdapter class to avoid the "new OpenAI()" issue
-jest.mock("../../../src/service-adapters/openai/openai-adapter", () => {
+vi.mock("../../../src/service-adapters/openai/openai-adapter", () => {
   class MockOpenAIAdapter {
     _openai: any;
     model: string = "gpt-4o";
@@ -17,7 +17,7 @@ jest.mock("../../../src/service-adapters/openai/openai-adapter", () => {
         beta: {
           chat: {
             completions: {
-              stream: jest.fn(),
+              stream: vi.fn(),
             },
           },
         },
@@ -42,11 +42,8 @@ jest.mock("../../../src/service-adapters/openai/openai-adapter", () => {
   return { OpenAIAdapter: MockOpenAIAdapter };
 });
 
-// Now import the modules
-import { OpenAIAdapter } from "../../../src/service-adapters/openai/openai-adapter";
-
 // Mock the Message classes since they use TypeGraphQL decorators
-jest.mock("../../../src/graphql/types/converted", () => {
+vi.mock("../../../src/graphql/types/converted", () => {
   // Create minimal implementations of the message classes
   class MockTextMessage {
     content: string;
@@ -130,23 +127,31 @@ jest.mock("../../../src/graphql/types/converted", () => {
   };
 });
 
+// Now import the modules (vi.mock is hoisted above imports, so these get the mocked versions)
+import { OpenAIAdapter } from "../../../src/service-adapters/openai/openai-adapter";
+import {
+  TextMessage,
+  ActionExecutionMessage,
+  ResultMessage,
+} from "../../../src/graphql/types/converted";
+
 describe("OpenAIAdapter", () => {
   let adapter: OpenAIAdapter;
   let mockEventSource: any;
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     adapter = new OpenAIAdapter();
     mockEventSource = {
-      stream: jest.fn((callback) => {
+      stream: vi.fn((callback) => {
         const mockStream = {
-          sendTextMessageStart: jest.fn(),
-          sendTextMessageContent: jest.fn(),
-          sendTextMessageEnd: jest.fn(),
-          sendActionExecutionStart: jest.fn(),
-          sendActionExecutionArgs: jest.fn(),
-          sendActionExecutionEnd: jest.fn(),
-          complete: jest.fn(),
+          sendTextMessageStart: vi.fn(),
+          sendTextMessageContent: vi.fn(),
+          sendTextMessageEnd: vi.fn(),
+          sendActionExecutionStart: vi.fn(),
+          sendActionExecutionArgs: vi.fn(),
+          sendActionExecutionEnd: vi.fn(),
+          complete: vi.fn(),
         };
         callback(mockStream);
       }),
@@ -155,13 +160,6 @@ describe("OpenAIAdapter", () => {
 
   describe("Tool ID handling", () => {
     it("should filter out tool_result messages that don't have corresponding tool_call IDs", async () => {
-      // Import dynamically after mocking
-      const {
-        TextMessage,
-        ActionExecutionMessage,
-        ResultMessage,
-      } = require("../../../src/graphql/types/converted");
-
       // Create messages including one valid pair and one invalid tool_result
       const systemMessage = new TextMessage("system", "System message");
       const userMessage = new TextMessage("user", "User message");
@@ -186,7 +184,7 @@ describe("OpenAIAdapter", () => {
       });
 
       // Spy on the process method to test it's called properly
-      const processSpy = jest.spyOn(adapter, "process");
+      const processSpy = vi.spyOn(adapter, "process");
 
       await adapter.process({
         threadId: "test-thread",
@@ -211,13 +209,6 @@ describe("OpenAIAdapter", () => {
     });
 
     it("should handle duplicate tool IDs by only using each once", async () => {
-      // Import dynamically after mocking
-      const {
-        TextMessage,
-        ActionExecutionMessage,
-        ResultMessage,
-      } = require("../../../src/graphql/types/converted");
-
       // Create messages including duplicate tool results for the same ID
       const systemMessage = new TextMessage("system", "System message");
 
@@ -240,7 +231,7 @@ describe("OpenAIAdapter", () => {
       });
 
       // Spy on the process method to test it's called properly
-      const processSpy = jest.spyOn(adapter, "process");
+      const processSpy = vi.spyOn(adapter, "process");
 
       await adapter.process({
         threadId: "test-thread",
@@ -264,9 +255,6 @@ describe("OpenAIAdapter", () => {
     });
 
     it("should call the stream method on eventSource", async () => {
-      // Import dynamically after mocking
-      const { TextMessage } = require("../../../src/graphql/types/converted");
-
       // Create messages
       const systemMessage = new TextMessage("system", "System message");
       const userMessage = new TextMessage("user", "User message");
@@ -285,9 +273,6 @@ describe("OpenAIAdapter", () => {
     });
 
     it("should return the provided threadId", async () => {
-      // Import dynamically after mocking
-      const { TextMessage } = require("../../../src/graphql/types/converted");
-
       // Create a message
       const systemMessage = new TextMessage("system", "System message");
 

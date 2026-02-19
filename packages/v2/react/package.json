@@ -1,15 +1,15 @@
 {
   "name": "@copilotkitnext/react",
-  "version": "1.51.5-next.0",
+  "version": "1.51.5-next.2",
   "description": "React components for CopilotKit2",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "main": "./dist/index.cjs",
+  "types": "./dist/index.d.cts",
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
       "import": "./dist/index.mjs",
-      "require": "./dist/index.js"
+      "require": "./dist/index.cjs"
     },
+    "./package.json": "./package.json",
     "./styles.css": "./dist/styles.css"
   },
   "unpkg": "./dist/index.umd.js",
@@ -18,17 +18,19 @@
     "access": "public"
   },
   "scripts": {
-    "dev:css": "npx @tailwindcss/cli -i ./src/styles/globals.css -o ./dist/styles.css --watch --minify",
-    "build:css": "npx @tailwindcss/cli -i ./src/styles/globals.css -o ./dist/styles.css -m",
-    "dev": "concurrently \"npm:dev:css\" \"tsup --watch\"",
-    "build": "tsup && rollup -c rollup.config.mjs && npm run build:css",
+    "dev:css": "tailwindcss -i ./src/styles/globals.css -o ./dist/styles.css --watch --minify",
+    "build:css": "tailwindcss -i ./src/styles/globals.css -o ./dist/styles.css -m",
+    "dev": "concurrently \"npm:dev:css\" \"tsdown --watch\"",
+    "build": "tsdown && npm run build:css",
     "prepublishOnly": "pnpm run build",
     "lint": "eslint .",
     "check-types": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "test:ui": "vitest --ui"
+    "test:ui": "vitest --ui",
+    "publint": "publint .",
+    "attw": "attw --pack . --profile node16"
   },
   "devDependencies": {
     "@copilotkitnext/eslint-config": "workspace:*",
@@ -49,7 +51,7 @@
     "jsdom": "^26.1.0",
     "tailwindcss": "^4.0.8",
     "rxjs": "^7.8.1",
-    "tsup": "^8.5.0",
+    "tsdown": "^0.20.3",
     "typescript": "5.8.2",
     "vitest": "^3.2.4"
   },
@@ -80,5 +82,6 @@
   },
   "engines": {
     "node": ">=18"
-  }
+  },
+  "module": "./dist/index.mjs"
 }

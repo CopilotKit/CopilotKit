@@ -1,11 +1,11 @@
-/// <reference types="jest" />
+import { vi, type Mock } from "vitest";
 import { CopilotErrorEvent, CopilotErrorHandler } from "@copilotkit/shared";
 
 describe("CopilotKit onError types", () => {
-  let mockError: jest.Mock;
+  let mockError: Mock;
 
   beforeEach(() => {
-    mockError = jest.fn();
+    mockError = vi.fn();
   });
 
   describe("onError type checking", () => {

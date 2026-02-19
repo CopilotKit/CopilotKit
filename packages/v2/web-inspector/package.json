@@ -1,15 +1,16 @@
 {
   "name": "@copilotkitnext/web-inspector",
-  "version": "1.51.5-next.0",
+  "version": "1.51.5-next.2",
   "description": "Lit-based web component for the CopilotKit web inspector",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "main": "./dist/index.cjs",
+  "types": "./dist/index.d.cts",
+  "type": "module",
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
       "import": "./dist/index.mjs",
-      "require": "./dist/index.js"
-    }
+      "require": "./dist/index.cjs"
+    },
+    "./package.json": "./package.json"
   },
   "unpkg": "./dist/index.umd.js",
   "jsdelivr": "./dist/index.umd.js",
@@ -17,14 +18,15 @@
     "access": "public"
   },
   "scripts": {
-    "build": "pnpm run build:ts && rollup -c rollup.config.mjs && pnpm run build:css",
-    "build:ts": "tsup",
-    "build:css": "npx @tailwindcss/cli -i ./src/styles/tailwind.css -o ./src/styles/generated.css -m",
-    "dev": "pnpm run build:css && concurrently \"pnpm run dev:css\" \"tsup --watch\"",
-    "dev:css": "npx @tailwindcss/cli -i ./src/styles/tailwind.css -o ./src/styles/generated.css --watch --minify",
+    "build": "tsdown && pnpm run build:css",
+    "build:css": "tailwindcss -i ./src/styles/tailwind.css -o ./src/styles/generated.css -m",
+    "dev": "pnpm run build:css && concurrently \"pnpm run dev:css\" \"tsdown --watch\"",
+    "dev:css": "tailwindcss -i ./src/styles/tailwind.css -o ./src/styles/generated.css --watch --minify",
     "lint": "eslint .",
     "check-types": "pnpm run build:css && tsc --noEmit",
-    "test": "pnpm run build:css && vitest run"
+    "test": "pnpm run build:css && vitest run",
+    "publint": "publint .",
+    "attw": "attw --pack . --profile node16"
   },
   "dependencies": {
     "@ag-ui/client": "0.0.45",
@@ -41,11 +43,12 @@
     "concurrently": "^9.1.0",
     "eslint": "^9.30.0",
     "tailwindcss": "^4.0.8",
-    "tsup": "^8.5.0",
+    "tsdown": "^0.20.3",
     "typescript": "5.8.2",
     "vitest": "^3.0.5"
   },
   "engines": {
     "node": ">=18"
-  }
+  },
+  "module": "./dist/index.mjs"
 }

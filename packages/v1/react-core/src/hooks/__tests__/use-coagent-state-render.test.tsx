@@ -1,3 +1,4 @@
+import { vi, type Mock } from "vitest";
 import React, { type ReactNode } from "react";
 import { render, renderHook, waitFor } from "@testing-library/react";
 import { useCoAgentStateRender } from "../use-coagent-state-render";
@@ -10,10 +11,10 @@ import {
 import { CopilotKitAgentDiscoveryError, randomId } from "@copilotkit/shared";
 import { createTestCopilotContext } from "../../test-helpers/copilot-context";
 
-const addToast = jest.fn();
-const setBannerError = jest.fn();
+const addToast = vi.fn();
+const setBannerError = vi.fn();
 
-jest.mock("../../components/toast/toast-provider", () => ({
+vi.mock("../../components/toast/toast-provider", () => ({
   useToast: () => ({
     addToast,
     setBannerError,
@@ -61,9 +62,9 @@ describe("useCoAgentStateRender (hook behaviors)", () => {
   let idCounter = 0;
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     idCounter = 0;
-    (randomId as jest.Mock).mockImplementation(
+    (randomId as Mock).mockImplementation(
       () => `test-random-id-${++idCounter}`,
     );
   });
@@ -78,7 +79,7 @@ describe("useCoAgentStateRender (hook behaviors)", () => {
       }),
     );
 
-    const renderFn = jest.fn(() => null);
+    const renderFn = vi.fn(() => null);
 
     const { result } = renderHook(
       () =>
@@ -109,10 +110,10 @@ describe("useCoAgentStateRender (hook behaviors)", () => {
       }),
     );
 
-    const handlerOne = jest.fn();
-    const handlerTwo = jest.fn();
-    const renderOne = jest.fn(() => null);
-    const renderTwo = jest.fn(() => null);
+    const handlerOne = vi.fn();
+    const handlerTwo = vi.fn();
+    const renderOne = vi.fn(() => null);
+    const renderTwo = vi.fn(() => null);
 
     const { result, rerender } = renderHook(
       ({ handler, renderFn }) =>
@@ -151,8 +152,8 @@ describe("useCoAgentStateRender (hook behaviors)", () => {
   it("re-registers when dependencies change", async () => {
     const wrapper = createWrapper(createTestCopilotContext());
 
-    const handlerOne = jest.fn();
-    const handlerTwo = jest.fn();
+    const handlerOne = vi.fn();
+    const handlerTwo = vi.fn();
 
     const { result, rerender } = renderHook(
       ({ deps, handler }) =>
@@ -233,14 +234,14 @@ describe("useCoAgentStateRender (hook behaviors)", () => {
             action={{
               name: "agent-dup",
               nodeName: "node-x",
-              handler: jest.fn(),
+              handler: vi.fn(),
             }}
           />
           <HookUser
             action={{
               name: "agent-dup",
               nodeName: "node-x",
-              handler: jest.fn(),
+              handler: vi.fn(),
             }}
           />
         </>
@@ -278,14 +279,14 @@ describe("useCoAgentStateRender (hook behaviors)", () => {
             action={{
               name: "agent-ok",
               nodeName: "node-a",
-              handler: jest.fn(),
+              handler: vi.fn(),
             }}
           />
           <HookUser
             action={{
               name: "agent-ok",
               nodeName: "node-b",
-              handler: jest.fn(),
+              handler: vi.fn(),
             }}
           />
         </>
@@ -317,7 +318,7 @@ describe("useCoAgentStateRender (hook behaviors)", () => {
       () =>
         useHarness({
           name: "missing-agent",
-          handler: jest.fn(),
+          handler: vi.fn(),
         }),
       { wrapper },
     );
@@ -343,7 +344,7 @@ describe("useCoAgentStateRender (hook behaviors)", () => {
       () =>
         useHarness({
           name: "agent-present",
-          handler: jest.fn(),
+          handler: vi.fn(),
         }),
       { wrapper },
     );

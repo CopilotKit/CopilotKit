@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, type ReactNode } from "react";
 import { DocsLayoutProps } from "fumadocs-ui/layouts/docs";
 import Separator from "../ui/sidebar/separator";
 import Page from "../ui/sidebar/page";
@@ -39,9 +39,11 @@ const isIntegrationFolder = (node: Node): boolean => {
 const Sidebar = ({
   pageTree,
   showIntegrationSelector = true,
+  headerSlot,
 }: {
   pageTree: DocsLayoutProps["tree"];
   showIntegrationSelector?: boolean;
+  headerSlot?: ReactNode;
 }) => {
   const pages = pageTree.children;
   const [selectedIntegration, setSelectedIntegration] =
@@ -69,8 +71,10 @@ const Sidebar = ({
           />
         )}
 
+        {headerSlot && <div className="pr-2">{headerSlot}</div>}
+
         <ul
-          className={`flex overflow-y-auto flex-col pr-1 max-h-full custom-scrollbar ${!showIntegrationSelector ? "pt-6" : ""}`}
+          className={`flex overflow-y-auto flex-col pr-1 max-h-full custom-scrollbar ${!showIntegrationSelector && !headerSlot ? "pt-6" : ""}`}
         >
           <li className="w-full h-6" />
           {pages.map((page, index) => {

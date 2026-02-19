@@ -1,4 +1,4 @@
-import { describe, test, expect } from "@jest/globals";
+import { vi } from "vitest";
 import * as gql from "../types/converted/index";
 import agui from "@copilotkit/shared";
 import {
@@ -616,7 +616,7 @@ describe("agui-to-gql", () => {
     });
 
     test("should verify render function receives correct props including name", () => {
-      const mockRender = jest.fn(
+      const mockRender = vi.fn(
         (props) =>
           `Rendered: ${props.name} with args: ${JSON.stringify(props.args)}`,
       );

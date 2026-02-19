@@ -1,5 +1,5 @@
 {
   "buildCommand": "cd ../../../../ && npx nx run @copilotkit-storybook/react:storybook:build",
-  "installCommand": "cd ../../../../ && pnpm install",
+  "installCommand": "cd ../../../../ && npm i -g pnpm@10.13.1 && pnpm install --no-frozen-lockfile",
   "outputDirectory": "storybook-static"
 }

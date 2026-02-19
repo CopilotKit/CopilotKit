@@ -1,7 +1,7 @@
 {
   "extends": "../tsconfig/react-library.json",
   "compilerOptions": {
-    "types": ["jest", "@types/jest"]
+    "types": ["vitest/globals"]
   },
   "include": ["src/**/*"],
   "exclude": ["dist", "build", "node_modules"]

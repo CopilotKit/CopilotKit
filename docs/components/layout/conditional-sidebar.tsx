@@ -7,6 +7,9 @@ import IntegrationsSidebar from "./integrations-sidebar";
 import { INTEGRATION_ORDER } from "@/lib/integrations";
 import { normalizeUrl } from "@/lib/analytics-utils";
 import { useMemo } from "react";
+import VersionSelector, {
+  getVersionFromPathname,
+} from "@/components/ui/reference-sidebar/version-selector";
 
 interface ConditionalSidebarProps {
   pageTree: DocsLayoutProps["tree"];
@@ -30,8 +33,9 @@ export default function ConditionalSidebar({
 
   // Check if this is a reference route (e.g., /reference)
   const isReferenceRoute = firstSegment === "reference";
+  const currentVersion = getVersionFromPathname(pathname);
 
-  // Find the reference folder and create a filtered pageTree
+  // Find the reference folder and drill into the active version
   const referencePageTree = useMemo(() => {
     if (!isReferenceRoute) return null;
 
@@ -46,15 +50,36 @@ export default function ConditionalSidebar({
     }) as Node | undefined;
 
     if (referenceFolder && "children" in referenceFolder) {
-      // Return a pageTree with only the reference folder's children
+      const referenceChildren = (referenceFolder as any).children || [];
+
+      // Find the version folder (v1 or v2) within the reference folder
+      const versionFolder = referenceChildren.find((node: any) => {
+        if (node.type !== "folder") return false;
+        const url = node.index?.url || node.url;
+        const name = typeof node.name === "string" ? node.name : undefined;
+        return (
+          url === `/reference/${currentVersion}` ||
+          name?.toLowerCase() === currentVersion
+        );
+      });
+
+      if (versionFolder && "children" in versionFolder) {
+        // Return a pageTree with only the version folder's children
+        return {
+          ...pageTree,
+          children: (versionFolder as any).children || [],
+        };
+      }
+
+      // Fallback: return the reference folder's children directly
       return {
         ...pageTree,
-        children: (referenceFolder as any).children || [],
+        children: referenceChildren,
       };
     }
 
     return null;
-  }, [isReferenceRoute, pageTree]);
+  }, [isReferenceRoute, pageTree, currentVersion]);
 
   if (isIntegrationRoute) {
     return <IntegrationsSidebar pageTree={pageTree} />;
@@ -62,7 +87,11 @@ export default function ConditionalSidebar({
 
   if (isReferenceRoute && referencePageTree) {
     return (
-      <Sidebar pageTree={referencePageTree} showIntegrationSelector={false} />
+      <Sidebar
+        pageTree={referencePageTree}
+        showIntegrationSelector={false}
+        headerSlot={<VersionSelector />}
+      />
     );
   }
 

@@ -567,7 +567,11 @@ export class RunHandler {
    */
   buildFrontendTools(agentId?: string): Tool[] {
     return this._tools
-      .filter((tool) => !tool.agentId || tool.agentId === agentId)
+      .filter(
+        (tool) =>
+          tool.available !== false &&
+          (!tool.agentId || tool.agentId === agentId),
+      )
       .map((tool) => ({
         name: tool.name,
         description: tool.description ?? "",

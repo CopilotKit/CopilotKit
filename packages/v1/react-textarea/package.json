@@ -6,41 +6,44 @@
     "type": "git",
     "url": "https://github.com/CopilotKit/CopilotKit.git"
   },
+  "type": "module",
   "publishConfig": {
     "access": "public"
   },
-  "version": "1.51.5-next.0",
+  "version": "1.51.5-next.2",
   "sideEffects": [
     "**/*.css"
   ],
-  "main": "./dist/index.js",
+  "main": "./dist/index.cjs",
   "module": "./dist/index.mjs",
   "exports": {
     ".": {
       "import": "./dist/index.mjs",
-      "require": "./dist/index.js",
-      "types": "./dist/index.d.ts"
+      "require": "./dist/index.cjs"
     },
+    "./package.json": "./package.json",
     "./styles.css": "./dist/index.css"
   },
   "unpkg": "./dist/index.umd.js",
   "jsdelivr": "./dist/index.umd.js",
-  "types": "./dist/index.d.ts",
+  "types": "./dist/index.d.cts",
   "license": "MIT",
   "scripts": {
-    "build": "tsup --clean && rollup -c rollup.config.mjs",
-    "dev": "tsup --watch --no-splitting",
-    "test": "jest",
+    "build": "tsdown",
+    "dev": "tsdown --watch",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "check-types": "tsc --noEmit",
     "link:global": "pnpm link --global",
-    "unlink:global": "pnpm unlink --global"
+    "unlink:global": "pnpm unlink --global",
+    "publint": "publint .",
+    "attw": "attw --pack . --profile node16"
   },
   "peerDependencies": {
     "react": "^18 || ^19 || ^19.0.0-rc",
     "react-dom": "^18 || ^19 || ^19.0.0-rc"
   },
   "devDependencies": {
-    "@types/jest": "^29.5.4",
     "@types/lodash.merge": "^4.6.7",
     "@types/react": "^19.1.0",
     "@types/react-dom": "^19.0.2",
@@ -48,16 +51,15 @@
     "autoprefixer": "^10.4.24",
     "eslint": "^8.56.0",
     "eslint-config-custom": "workspace:*",
-    "jest": "^29.6.4",
     "postcss": "^8.4.20",
     "postcss-prefix-selector": "^1.16.1",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "tailwind-config": "workspace:*",
     "tailwindcss": "^3.3.0",
-    "ts-jest": "^29.1.1",
     "tsconfig": "workspace:*",
-    "tsup": "^6.7.0",
+    "vitest": "^3.2.4",
+    "tsdown": "^0.20.3",
     "typescript": "^5.2.3"
   },
   "dependencies": {
