@@ -4,6 +4,7 @@
       "maxDuration": 60
     }
   },
+  "installCommand": "git lfs install --local && git lfs pull && pnpm install --frozen-lockfile",
   "buildCommand": "next build",
   "images": {
     "sizes": [640, 750, 828, 1080, 1200, 1920, 2048, 3840],
