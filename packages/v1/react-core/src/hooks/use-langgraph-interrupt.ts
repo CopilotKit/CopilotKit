@@ -1,63 +1,46 @@
-import React, { useCallback, useRef } from "react";
+import { useContext, useEffect } from "react";
+import { CopilotContext } from "../context/copilot-context";
 import { LangGraphInterruptRender } from "../types/interrupt-action";
-import { useInterrupt, type UseInterruptConfig } from "@copilotkitnext/react";
-import type { InterruptEvent, InterruptRenderProps, InterruptHandlerProps } from "@copilotkitnext/react";
+import { useToast } from "../components/toast/toast-provider";
+import { dataToUUID } from "@copilotkit/shared";
 
 export function useLangGraphInterrupt<TEventValue = any>(
   action: Omit<LangGraphInterruptRender<TEventValue>, "id">,
-  _dependencies?: any[],
+  dependencies?: any[],
 ) {
-  const actionRef = useRef(action);
-  // Update ref synchronously during render so it's always current
-  // when callbacks read from it (useEffect would be one tick late).
-  actionRef.current = action;
+  const {
+    setInterruptAction,
+    removeInterruptAction,
+    interruptActions,
+    threadId,
+  } = useContext(CopilotContext);
+  const { addToast } = useToast();
 
-  // Stable callback references that always read the latest action from the ref.
-  // This prevents useInterrupt's internal useMemo/useEffect from seeing new
-  // function identities on every render, which would cause an infinite loop.
-  const render = useCallback(
-    ({ event, result, resolve }: InterruptRenderProps<TEventValue>) => {
-      const renderFn = actionRef.current.render;
-      if (!renderFn) return React.createElement(React.Fragment);
-      const rendered = renderFn({
-        event: event as any,
-        result,
-        resolve: (r) => resolve(r),
-      });
-      if (typeof rendered === "string") {
-        return React.createElement(React.Fragment, null, rendered);
-      }
-      return rendered;
-    },
-    [],
-  );
+  const actionId = dataToUUID(action, "lgAction");
 
-  // Handler always delegates to the ref — if no handler is set at call time,
-  // the optional chaining returns undefined which useInterrupt treats as null.
-  const handler = useCallback(
-    ({ event, resolve }: InterruptHandlerProps<TEventValue>) => {
-      return actionRef.current.handler?.({
-        event: event as any,
-        resolve: (r) => resolve(r),
-      });
-    },
-    [],
-  );
+  useEffect(() => {
+    if (!action) return;
 
-  const enabled = useCallback(
-    (event: InterruptEvent<TEventValue>) => {
-      if (!actionRef.current.enabled) return true;
-      return actionRef.current.enabled({
-        eventValue: event.value,
-        agentMetadata: {} as any,
-      });
-    },
-    [],
-  );
+    // if (!action.enabled) {
+    // TODO: if there are any other actions registered, we need to warn the user that a current action without "enabled" might render for everything
+    //   addToast({
+    //     type: "warning",
+    //     message: "An action is already registered for the interrupt event",
+    //   });
+    //   return;
+    // }
 
-  useInterrupt<TEventValue>({
-    render,
-    handler,
-    enabled,
-  });
+    setInterruptAction({ ...action, id: actionId });
+
+    // Cleanup: remove action on unmount
+    return () => {
+      removeInterruptAction(actionId);
+    };
+  }, [
+    setInterruptAction,
+    removeInterruptAction,
+    threadId,
+    actionId,
+    ...(dependencies || []),
+  ]);
 }
