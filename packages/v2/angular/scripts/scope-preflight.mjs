@@ -45,10 +45,16 @@ function scopeSelector(sel) {
   // Bare universal selector → scope to container + descendants
   if (sel === "*") return `${SCOPE}, ${SCOPE} *`;
 
-  // Pseudo-elements that start with :: (e.g. ::file-selector-button,
-  // ::placeholder, ::-webkit-*) → scope as descendant
-  // Pseudo-classes starting with : (e.g. :-moz-focusring) → scope as descendant
-  return `${SCOPE} ${sel}`;
+  // Pseudo-elements (::) and vendor pseudo-classes (:-) → descendant only
+  // These can't be combined with an attribute selector suffix
+  if (sel.startsWith(":")) {
+    return `${SCOPE} ${sel}`;
+  }
+
+  // Element / attribute selectors → descendant AND self-matching
+  // e.g. button → [data-copilotkit] button, button[data-copilotkit]
+  // This ensures <button data-copilotkit> also receives the preflight reset
+  return `${SCOPE} ${sel}, ${sel}${SCOPE}`;
 }
 
 function scopeRule(rule) {

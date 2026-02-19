@@ -138,7 +138,11 @@
   * {
     @apply border-border outline-ring/50;
   }
-  /* NOTE: no body rule — scoped via [data-copilotkit] variables */
+  /* Apply foreground/background on CopilotKit roots (replaces body rule) */
+  [data-copilotkit] {
+    color: var(--foreground);
+    background-color: var(--background);
+  }
 }
 
 [data-copilotkit] .prose {
