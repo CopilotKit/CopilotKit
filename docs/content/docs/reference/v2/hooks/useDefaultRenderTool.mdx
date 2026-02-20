@@ -23,7 +23,7 @@ function useDefaultRenderTool(
   config?: {
     render?: (props: {
       name: string;
-      args: any;
+      parameters: any;
       status: string;
       result: string | undefined;
     }) => React.ReactElement;
@@ -35,7 +35,7 @@ function useDefaultRenderTool(
 ## Behavior
 
 - Internally calls `useRenderTool({ name: "*", ... })`.
-- If `config.render` is omitted, uses an expandable default card UI that shows status, args, and result.
+- If `config.render` is omitted, uses an expandable default card UI that shows status, parameters, and result.
 - If `config.render` is provided, your renderer is used instead.
 - Inherits `useRenderTool` registration behavior and dependency semantics.
 

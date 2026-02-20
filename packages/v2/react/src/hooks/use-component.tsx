@@ -2,27 +2,43 @@ import { z } from "zod";
 import type { ComponentType } from "react";
 import { useFrontendTool } from "./use-frontend-tool";
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type InferRenderProps<T> = T extends z.ZodTypeAny ? z.infer<T> : any;
+
 /**
  * Registers a React component as a frontend tool renderer in chat.
  *
  * This hook is a convenience wrapper around `useFrontendTool` that:
  * - builds a model-facing tool description,
  * - forwards optional Zod parameters,
- * - renders your component with tool call args.
+ * - renders your component with tool call parameters.
  *
  * Use this when you want to display a typed visual component for a tool call
  * without manually wiring a full frontend tool object.
  *
- * @typeParam T - Shape of tool args expected by the component.
+ * When `parameters` is provided, render props are inferred from the schema
+ * via `z.infer`. When omitted, the render component may accept any props.
+ *
+ * @typeParam TSchema - Zod schema describing tool parameters, or `undefined` when no schema is given.
  * @param config - Tool registration config.
  * @param deps - Optional dependencies to refresh registration (same semantics as `useEffect`).
  *
  * @example
  * ```tsx
+ * // Without parameters — render accepts any props
+ * useComponent({
+ *   name: "showGreeting",
+ *   render: ({ message }: { message: string }) => <div>{message}</div>,
+ * });
+ * ```
+ *
+ * @example
+ * ```tsx
+ * // With parameters — render props inferred from schema
  * useComponent({
  *   name: "showWeatherCard",
  *   parameters: z.object({ city: z.string() }),
- *   component: ({ city }: { city: string }) => <div>{city}</div>,
+ *   render: ({ city }) => <div>{city}</div>,
  * });
  * ```
  *
@@ -32,7 +48,7 @@ import { useFrontendTool } from "./use-frontend-tool";
  *   {
  *     name: "renderProfile",
  *     parameters: z.object({ userId: z.string() }),
- *     component: ProfileCard,
+ *     render: ProfileCard,
  *     agentId: "support-agent",
  *   },
  *   [selectedAgentId],
@@ -40,13 +56,13 @@ import { useFrontendTool } from "./use-frontend-tool";
  * ```
  */
 export function useComponent<
-  T extends Record<string, unknown> = Record<string, unknown>,
+  TSchema extends z.ZodTypeAny | undefined = undefined,
 >(
   config: {
     name: string;
     description?: string;
-    parameters?: z.ZodType<T>;
-    component: ComponentType<T>;
+    parameters?: TSchema;
+    render: ComponentType<NoInfer<InferRenderProps<TSchema>>>;
     agentId?: string;
   },
   deps?: ReadonlyArray<unknown>,
@@ -61,9 +77,9 @@ export function useComponent<
       name: config.name,
       description: fullDescription,
       parameters: config.parameters,
-      render: ({ args }) => {
-        const Component = config.component;
-        return <Component {...(args as T)} />;
+      render: ({ args }: { args: unknown }) => {
+        const Component = config.render;
+        return <Component {...(args as InferRenderProps<TSchema>)} />;
       },
       agentId: config.agentId,
     },
