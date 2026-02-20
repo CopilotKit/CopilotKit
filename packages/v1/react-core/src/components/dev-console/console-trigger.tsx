@@ -135,7 +135,7 @@ export function ConsoleTrigger({
         onClick={(e) => {
           if (!isDragging) {
             // Modifier-click hides
-            if (e.metaKey || e.altKey) {
+            if (e.metaKey || e.ctrlKey || e.altKey) {
               try {
                 localStorage.setItem(INSPECTOR_HIDE_KEY, "1");
               } catch {}

@@ -45,12 +45,12 @@ import { isMacOS } from "@copilotkit/shared";
  * }
  * ```
  *
- * @property {(event: React.KeyboardEvent<HTMLDivElement>) => boolean} shouldToggleHoveringEditorOnKeyPress - A function that determines whether to toggle the hovering editor based on a key press event. By default, the Command + K key combination is used to toggle the hovering editor. Example code:
+ * @property {(event: React.KeyboardEvent<HTMLDivElement>) => boolean} shouldToggleHoveringEditorOnKeyPress - A function that determines whether to toggle the hovering editor based on a key press event. By default, the Cmd + K (Mac) / Ctrl + K (Windows/Linux) key combination is used to toggle the hovering editor. Example code:
  *
  * ```typescript
  * const defaultShouldToggleHoveringEditorOnKeyPress =  (event: React.KeyboardEvent<HTMLDivElement>) => {
- *   // if command-k, toggle the hovering editor
- *   if (event.key === "k" && event.metaKey) {
+ *   // if command-k (Mac) or ctrl-k (Windows/Linux), toggle the hovering editor
+ *   if (event.key === "k" && (event.metaKey || event.ctrlKey)) {
  *     return true;
  *   }
  *   return false;
