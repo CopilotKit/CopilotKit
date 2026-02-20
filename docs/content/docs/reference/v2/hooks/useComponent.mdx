@@ -1,0 +1,90 @@
+---
+title: "useComponent"
+description: "Register a React component as a frontend tool renderer in chat"
+---
+
+## Overview
+
+`useComponent` is a convenience hook built on top of `useFrontendTool`.
+It registers a tool and renders a React component in chat using the tool call arguments.
+
+This is part of the v2 tool rendering hook set with [`useRenderTool`](/reference/v2/hooks/useRenderTool), [`useDefaultRenderTool`](/reference/v2/hooks/useDefaultRenderTool), and [`useRenderToolCall`](/reference/v2/hooks/useRenderToolCall).
+
+Use this when you want a visual component renderer without writing a full frontend tool config manually.
+
+## Signature
+
+```tsx
+import { z } from "zod";
+import type { ComponentType } from "react";
+import { useComponent } from "@copilotkit/react-core/v2";
+
+function useComponent<T extends Record<string, unknown>>(
+  config: {
+    name: string;
+    description?: string;
+    parameters?: z.ZodType<T>;
+    component: ComponentType<T>;
+    agentId?: string;
+  },
+  deps?: ReadonlyArray<unknown>,
+): void;
+```
+
+## Parameters
+
+- `config.name`: tool name used by the agent to invoke this component tool.
+- `config.description`: optional extra description for model guidance.
+- `config.parameters`: optional Zod schema for typed/validated args.
+- `config.component`: React component rendered with parsed tool args.
+- `config.agentId`: optional agent scope for the registration.
+- `deps`: optional dependency array for refreshing registration.
+
+## Behavior
+
+- Prepends a default instruction to the description: _"Use this tool to display the \"&lt;name&gt;\" component in the chat..."_.
+- Calls `useFrontendTool` internally with a `render` function that does `<Component {...args} />`.
+- Inherits `useFrontendTool` lifecycle behavior: duplicate-name override warning, tool removal on unmount, and renderer retention for chat history.
+- Tracks updates by `config.name` plus `deps` (include any changing captured values in `deps`).
+
+## Usage
+
+```tsx
+import { z } from "zod";
+import { useComponent } from "@copilotkit/react-core/v2";
+
+const weatherCardSchema = z.object({
+  city: z.string().describe("City name"),
+  unit: z.enum(["c", "f"]).default("c"),
+});
+
+type WeatherCardProps = z.infer<typeof weatherCardSchema>;
+
+function WeatherCard({ city, unit }: WeatherCardProps) {
+  return (
+    <div className="rounded border p-3">
+      <div className="text-sm text-zinc-500">Weather request</div>
+      <div className="font-medium">{city} ({unit.toUpperCase()})</div>
+    </div>
+  );
+}
+
+function App() {
+  useComponent(
+    {
+      name: "showWeatherCard",
+      description: "Render a weather card in chat for the requested city.",
+      parameters: weatherCardSchema,
+      component: WeatherCard,
+    },
+    [],
+  );
+
+  return null;
+}
+```
+
+## Related
+
+- [`useFrontendTool`](/reference/v2/hooks/useFrontendTool)
+- [`useRenderTool`](/reference/v2/hooks/useRenderTool)
