@@ -294,51 +294,93 @@ export class InMemoryAgentRunner extends AgentRunner {
   connect(request: AgentRunnerConnectRequest): Observable<BaseEvent> {
     const store = GLOBAL_STORE.get(request.threadId);
     const connectionSubject = new ReplaySubject<BaseEvent>(Infinity);
+    const hasHistoricRuns = store && store.historicRuns.length > 0;
 
-    if (!store) {
-      // No store means no events
-      connectionSubject.complete();
-      return connectionSubject.asObservable();
-    }
-
-    // Collect all historic events from memory
-    const allHistoricEvents: BaseEvent[] = [];
-    for (const run of store.historicRuns) {
-      allHistoricEvents.push(...run.events);
-    }
-
-    // Apply compaction to all historic events together (like SQLite)
-    const compactedEvents = compactEvents(allHistoricEvents);
-
-    // Emit compacted events and track message IDs
-    const emittedMessageIds = new Set<string>();
-    for (const event of compactedEvents) {
-      connectionSubject.next(event);
-      if ("messageId" in event && typeof event.messageId === "string") {
-        emittedMessageIds.add(event.messageId);
+    const continueConnect = () => {
+      if (!store) {
+        connectionSubject.complete();
+        return;
       }
-    }
 
-    // Bridge active run to connection if exists
-    if (store.subject && (store.isRunning || store.stopRequested)) {
-      store.subject.subscribe({
-        next: (event) => {
-          // Skip message events that we've already emitted from historic
-          if (
-            "messageId" in event &&
-            typeof event.messageId === "string" &&
-            emittedMessageIds.has(event.messageId)
-          ) {
-            return;
+      // Collect all historic events from memory
+      const allHistoricEvents: BaseEvent[] = [];
+      for (const run of store.historicRuns) {
+        allHistoricEvents.push(...run.events);
+      }
+
+      // Apply compaction to all historic events together (like SQLite)
+      const compactedEvents = compactEvents(allHistoricEvents);
+
+      // Emit replay events and track message IDs
+      const emittedMessageIds = new Set<string>();
+      for (const event of compactedEvents) {
+        connectionSubject.next(event);
+        if ("messageId" in event && typeof event.messageId === "string") {
+          emittedMessageIds.add(event.messageId);
+        }
+      }
+
+      // Bridge active run to connection if exists
+      if (store.subject && (store.isRunning || store.stopRequested)) {
+        store.subject.subscribe({
+          next: (event) => {
+            // Skip message events that we've already emitted from historic
+            if (
+              "messageId" in event &&
+              typeof event.messageId === "string" &&
+              emittedMessageIds.has(event.messageId)
+            ) {
+              return;
+            }
+            connectionSubject.next(event);
+          },
+          complete: () => connectionSubject.complete(),
+          error: (err) => connectionSubject.error(err),
+        });
+      } else {
+        // No active run, complete after historic events
+        connectionSubject.complete();
+      }
+    };
+
+    if (!hasHistoricRuns && request.stateLoader) {
+      request.stateLoader
+        .loadState(request.threadId, request.headers)
+        .then((loaded) => {
+          if (loaded?.state || loaded?.messages?.length) {
+            const syntheticRunId = `state-hydration-${Date.now()}`;
+            connectionSubject.next({
+              type: EventType.RUN_STARTED,
+              threadId: request.threadId,
+              runId: syntheticRunId,
+            });
+            if (loaded?.state) {
+              connectionSubject.next({
+                type: EventType.STATE_SNAPSHOT,
+                snapshot: loaded.state,
+              });
+            }
+            if (loaded?.messages?.length) {
+              connectionSubject.next({
+                type: EventType.MESSAGES_SNAPSHOT,
+                messages: loaded.messages,
+              });
+            }
+            connectionSubject.next({
+              type: EventType.RUN_FINISHED,
+              threadId: request.threadId,
+              runId: syntheticRunId,
+            });
           }
-          connectionSubject.next(event);
-        },
-        complete: () => connectionSubject.complete(),
-        error: (err) => connectionSubject.error(err),
-      });
+        })
+        .catch((error) => {
+          console.error("Failed to load agent state:", error);
+        })
+        .finally(() => {
+          continueConnect();
+        });
     } else {
-      // No active run, complete after historic events
-      connectionSubject.complete();
+      continueConnect();
     }
 
     return connectionSubject.asObservable();

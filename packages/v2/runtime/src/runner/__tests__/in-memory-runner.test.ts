@@ -5,14 +5,17 @@ import {
   BaseEvent,
   EventType,
   Message,
+  MessagesSnapshotEvent,
   RunAgentInput,
   RunErrorEvent,
   RunStartedEvent,
+  StateSnapshotEvent,
   TextMessageContentEvent,
   TextMessageEndEvent,
   TextMessageStartEvent,
   ToolCallResultEvent,
 } from "@ag-ui/client";
+import type { StateLoadableAgent } from "../../types/state-loadable";
 import { EMPTY, firstValueFrom } from "rxjs";
 import { toArray } from "rxjs/operators";
 
@@ -358,6 +361,126 @@ describe("InMemoryAgentRunner", () => {
 
       expect(errorEvent).toBeDefined();
       expect(errorEvent!.message).toBe("Connection refused");
+    });
+  });
+
+  describe("stateLoader on connect", () => {
+    it("wraps stateLoader events in RUN_STARTED/RUN_FINISHED envelope", async () => {
+      const threadId = "state-loader-envelope-" + Math.random();
+      const stateLoader: StateLoadableAgent = {
+        loadState: async () => ({
+          state: { count: 42 },
+        }),
+      };
+
+      const events = await firstValueFrom(
+        runner.connect({ threadId, stateLoader }).pipe(toArray()),
+      );
+
+      expect(events[0].type).toBe(EventType.RUN_STARTED);
+      const finished = events[events.length - 1];
+      expect(finished.type).toBe(EventType.RUN_FINISHED);
+      expect(finished).toHaveProperty("threadId", threadId);
+      expect(finished).toHaveProperty("runId");
+
+      const snapshot = events.find(
+        (e): e is StateSnapshotEvent => e.type === EventType.STATE_SNAPSHOT,
+      );
+      expect(snapshot).toBeDefined();
+      expect(snapshot!.snapshot).toEqual({ count: 42 });
+    });
+
+    it("emits MESSAGES_SNAPSHOT from stateLoader when messages are returned", async () => {
+      const threadId = "state-loader-messages-" + Math.random();
+      const messages: Message[] = [
+        { id: "msg-1", role: "user", content: "Hello" },
+        { id: "msg-2", role: "assistant", content: "Hi there" },
+      ];
+      const stateLoader: StateLoadableAgent = {
+        loadState: async () => ({
+          state: { count: 1 },
+          messages,
+        }),
+      };
+
+      const events = await firstValueFrom(
+        runner.connect({ threadId, stateLoader }).pipe(toArray()),
+      );
+
+      // First event must be RUN_STARTED per AG-UI protocol
+      expect(events[0].type).toBe(EventType.RUN_STARTED);
+
+      const stateSnapshot = events.find(
+        (e): e is StateSnapshotEvent => e.type === EventType.STATE_SNAPSHOT,
+      );
+      expect(stateSnapshot).toBeDefined();
+      expect(stateSnapshot!.snapshot).toEqual({ count: 1 });
+
+      const messagesSnapshot = events.find(
+        (e): e is MessagesSnapshotEvent =>
+          e.type === EventType.MESSAGES_SNAPSHOT,
+      );
+      expect(messagesSnapshot).toBeDefined();
+      expect(messagesSnapshot!.messages).toEqual(messages);
+    });
+
+    it("does NOT call stateLoader when historic runs exist", async () => {
+      const threadId = "state-loader-has-history-" + Math.random();
+      const agent = new TestAgent([
+        {
+          type: EventType.TEXT_MESSAGE_START,
+          messageId: "msg-1",
+          role: "assistant",
+        } as TextMessageStartEvent,
+        {
+          type: EventType.TEXT_MESSAGE_END,
+          messageId: "msg-1",
+        } as TextMessageEndEvent,
+      ]);
+
+      // First run creates history
+      await firstValueFrom(
+        runner
+          .run({
+            threadId,
+            agent,
+            input: { threadId, runId: "run-1", messages: [], state: {} },
+          })
+          .pipe(toArray()),
+      );
+
+      let loadStateCalled = false;
+      const stateLoader: StateLoadableAgent = {
+        loadState: async () => {
+          loadStateCalled = true;
+          return { state: { should: "not appear" } };
+        },
+      };
+
+      const events = await firstValueFrom(
+        runner.connect({ threadId, stateLoader }).pipe(toArray()),
+      );
+
+      expect(loadStateCalled).toBe(false);
+      // Should still have historic events replayed
+      expect(events.length).toBeGreaterThan(0);
+    });
+
+    it("completes normally when stateLoader throws", async () => {
+      const threadId = "state-loader-error-" + Math.random();
+      const stateLoader: StateLoadableAgent = {
+        loadState: async () => {
+          throw new Error("Network failure");
+        },
+      };
+
+      // Should not throw — error is caught internally
+      const events = await firstValueFrom(
+        runner.connect({ threadId, stateLoader }).pipe(toArray()),
+      );
+
+      // No state events emitted, but the observable completes
+      expect(events).toEqual([]);
     });
   });
 });
