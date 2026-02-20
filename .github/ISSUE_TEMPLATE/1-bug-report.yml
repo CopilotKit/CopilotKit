@@ -47,6 +47,11 @@ body:
       required: true
 
   - type: textarea
+    attributes:
+      label: Screenshots
+      description: If applicable, add screenshots to help explain your problem.
+
+  - type: textarea
     id: version
     attributes:
       label: 𝌚 CopilotKit Version
