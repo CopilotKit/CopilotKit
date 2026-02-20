@@ -22,14 +22,16 @@
       "require": "./dist/index.cjs"
     },
     "./package.json": "./package.json",
-    "./styles.css": "./dist/index.css"
+    "./styles.css": "./dist/index.css",
+    "./v2/styles.css": "./dist/v2/index.css"
   },
   "unpkg": "./dist/index.umd.js",
   "jsdelivr": "./dist/index.umd.js",
   "types": "./dist/index.d.cts",
   "license": "MIT",
   "scripts": {
-    "build": "tsdown",
+    "build:css": "node -e \"const fs=require('fs');fs.mkdirSync('./dist/v2',{recursive:true});fs.cpSync('./src/v2/styles.css','./dist/v2/index.css')\"",
+    "build": "tsdown && pnpm run build:css",
     "dev": "tsdown --watch",
     "test": "vitest run",
     "test:watch": "vitest",
