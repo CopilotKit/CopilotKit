@@ -3,13 +3,14 @@ import { LangGraphEventTypes } from "../../../../agents/langgraph/events";
 import { RawEvent } from "@ag-ui/core";
 import {
   LangGraphAgent as AGUILangGraphAgent,
-  LangGraphHttpAgent,
+  LangGraphHttpAgent as AGUILangGraphHttpAgent,
   type LangGraphAgentConfig,
   ProcessedEvents,
   SchemaKeys,
   type State,
   StateEnrichment,
 } from "@ag-ui/langgraph";
+import type { HttpAgentConfig, Message } from "@ag-ui/client";
 import { Message as LangGraphMessage } from "@langchain/langgraph-sdk/dist/types.messages";
 import { ThreadState } from "@langchain/langgraph-sdk";
 
@@ -232,6 +233,34 @@ export class LangGraphAgent extends AGUILangGraphAgent {
         : null,
     };
   }
+
+  async loadState(threadId: string) {
+    const threadState = await this.client.threads.getState(threadId);
+    return {
+      state: threadState.values as Record<string, any>,
+    };
+  }
 }
 
-export { LangGraphHttpAgent };
+type LoadStateFn = (
+  threadId: string,
+  headers?: Record<string, string>,
+) => Promise<{ state: Record<string, any>; messages?: Message[] } | null>;
+
+interface LangGraphHttpAgentConfig extends HttpAgentConfig {
+  loadState?: LoadStateFn;
+}
+
+export class LangGraphHttpAgent extends AGUILangGraphHttpAgent {
+  private _loadState?: LoadStateFn;
+
+  constructor(config: LangGraphHttpAgentConfig) {
+    super(config);
+    this._loadState = config.loadState;
+  }
+
+  async loadState(threadId: string, headers?: Record<string, string>) {
+    if (!this._loadState) return null;
+    return this._loadState(threadId, headers);
+  }
+}

@@ -2,6 +2,7 @@ import { RunAgentInput, RunAgentInputSchema } from "@ag-ui/client";
 import { EventEncoder } from "@ag-ui/encoder";
 import { CopilotRuntime } from "../runtime";
 import { extractForwardableHeaders } from "./header-utils";
+import { isStateLoadable } from "../types/state-loadable";
 
 interface ConnectAgentParameters {
   request: Request;
@@ -59,11 +60,13 @@ export async function handleConnectAgent({
     // Process the agent connect in the background
     (async () => {
       const forwardableHeaders = extractForwardableHeaders(request);
+      const agent = agents[agentId];
 
       runtime.runner
         .connect({
           threadId: input.threadId,
           headers: forwardableHeaders,
+          stateLoader: isStateLoadable(agent) ? agent : undefined,
         })
         .subscribe({
           next: async (event) => {

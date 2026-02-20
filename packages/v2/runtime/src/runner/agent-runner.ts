@@ -1,5 +1,6 @@
 import { AbstractAgent, BaseEvent, RunAgentInput } from "@ag-ui/client";
 import { Observable } from "rxjs";
+import type { StateLoadableAgent } from "../types/state-loadable";
 
 export interface AgentRunnerRunRequest {
   threadId: string;
@@ -10,6 +11,7 @@ export interface AgentRunnerRunRequest {
 export interface AgentRunnerConnectRequest {
   threadId: string;
   headers?: Record<string, string>;
+  stateLoader?: StateLoadableAgent;
 }
 
 export interface AgentRunnerIsRunningRequest {
