@@ -378,7 +378,10 @@ describe("InMemoryAgentRunner", () => {
       );
 
       expect(events[0].type).toBe(EventType.RUN_STARTED);
-      expect(events[events.length - 1].type).toBe(EventType.RUN_FINISHED);
+      const finished = events[events.length - 1];
+      expect(finished.type).toBe(EventType.RUN_FINISHED);
+      expect(finished).toHaveProperty("threadId", threadId);
+      expect(finished).toHaveProperty("runId");
 
       const snapshot = events.find(
         (e): e is StateSnapshotEvent => e.type === EventType.STATE_SNAPSHOT,

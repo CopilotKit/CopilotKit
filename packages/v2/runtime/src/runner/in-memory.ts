@@ -311,7 +311,7 @@ export class InMemoryAgentRunner extends AgentRunner {
       // Apply compaction to all historic events together (like SQLite)
       const compactedEvents = compactEvents(allHistoricEvents);
 
-      // Emit compacted events and track message IDs
+      // Emit replay events and track message IDs
       const emittedMessageIds = new Set<string>();
       for (const event of compactedEvents) {
         connectionSubject.next(event);
@@ -368,6 +368,8 @@ export class InMemoryAgentRunner extends AgentRunner {
             }
             connectionSubject.next({
               type: EventType.RUN_FINISHED,
+              threadId: request.threadId,
+              runId: syntheticRunId,
             });
           }
         })
