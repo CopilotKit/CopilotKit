@@ -1,0 +1,27 @@
+{
+  "name": "agent-langraph-interrupt",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "apps/agent/src",
+  "projectType": "application",
+  "targets": {
+    "dev": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "pnpm --filter agent-langraph-interrupt dev"
+      }
+    },
+    "build": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "node -e \"console.log('Agent app has no separate build target yet.')\""
+      }
+    },
+    "lint": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "node -e \"console.log('Agent app has no lint target yet.')\""
+      }
+    }
+  },
+  "tags": []
+}

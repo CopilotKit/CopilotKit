@@ -12,3 +12,5 @@ export { useAgentContext } from "./use-agent-context";
 export type { AgentContextInput, JsonSerializable } from "./use-agent-context";
 export { useSuggestions } from "./use-suggestions";
 export { useConfigureSuggestions } from "./use-configure-suggestions";
+export { useInterrupt } from "./use-interrupt";
+export type { UseInterruptConfig } from "./use-interrupt";

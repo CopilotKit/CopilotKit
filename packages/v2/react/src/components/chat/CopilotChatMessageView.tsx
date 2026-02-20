@@ -1,4 +1,4 @@
-import React, { useEffect, useReducer } from "react";
+import React, { useEffect, useReducer, useState } from "react";
 import { WithSlots, renderSlot, isReactComponentType } from "@/lib/slots";
 import CopilotChatAssistantMessage from "./CopilotChatAssistantMessage";
 import CopilotChatUserMessage from "./CopilotChatUserMessage";
@@ -289,6 +289,7 @@ export type CopilotChatMessageViewProps = Omit<
     isRunning: boolean;
     messages: Message[];
     messageElements: React.ReactElement[];
+    interruptElement: React.ReactElement | null;
   }) => React.ReactElement;
 };
 
@@ -320,6 +321,19 @@ export function CopilotChatMessageView({
     });
     return () => subscription.unsubscribe();
   }, [config?.agentId, copilotkit, forceUpdate]);
+
+  // Subscribe to interrupt element changes for in-chat rendering.
+  const [interruptElement, setInterruptElement] =
+    useState<React.ReactElement | null>(null);
+  useEffect(() => {
+    setInterruptElement(copilotkit.interruptElement);
+    const subscription = copilotkit.subscribe({
+      onInterruptElementChanged: ({ interruptElement }) => {
+        setInterruptElement(interruptElement);
+      },
+    });
+    return () => subscription.unsubscribe();
+  }, [copilotkit]);
 
   // Helper to get state snapshot for a message (used for memoization)
   const getStateSnapshotForMessage = (messageId: string): unknown => {
@@ -477,7 +491,7 @@ export function CopilotChatMessageView({
     .filter(Boolean) as React.ReactElement[];
 
   if (children) {
-    return children({ messageElements, messages, isRunning });
+    return children({ messageElements, messages, isRunning, interruptElement });
   }
 
   // Hide the chat-level loading cursor when the last message is a reasoning
@@ -488,6 +502,7 @@ export function CopilotChatMessageView({
   return (
     <div className={twMerge("flex flex-col", className)} {...props}>
       {messageElements}
+      {interruptElement}
       {showCursor && (
         <div className="mt-2">
           {renderSlot(cursor, CopilotChatMessageView.Cursor, {})}

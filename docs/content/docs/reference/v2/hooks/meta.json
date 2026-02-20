@@ -12,6 +12,8 @@
     "---Frontend Tools---",
     "useFrontendTool",
     "useHumanInTheLoop",
+    "useInterrupt",
+    "useRenderToolCall",
     "---Suggestions---",
     "useSuggestions",
     "useConfigureSuggestions",

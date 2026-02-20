@@ -1,0 +1,27 @@
+{
+  "name": "langgraph-js-starter",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "lint": "turbo run lint"
+  },
+  "devDependencies": {
+    "@langchain/langgraph-cli": "^1.0.4",
+    "eslint": "^9.39.1",
+    "eslint-config-next": "^16.0.8",
+    "turbo": "^2.3.3"
+  },
+  "packageManager": "pnpm@9.15.0",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "overrides": {
+    "@langchain/core": "^1.0.1",
+    "@langchain/langgraph": "1.0.2"
+  }
+}
