@@ -1,5 +1,24 @@
 # ui
 
+## 1.51.5-next.2
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.51.5-next.2
+- @copilotkit/shared@1.51.5-next.2
+- @copilotkitnext/core@1.51.5-next.2
+- @copilotkitnext/react@1.51.5-next.2
+
+## 1.51.5-next.1
+
+### Patch Changes
+
+- 412965a: Introducing available prop to useFrontendTool()
+  - @copilotkit/runtime-client-gql@1.51.5-next.1
+  - @copilotkit/shared@1.51.5-next.1
+  - @copilotkitnext/core@1.51.5-next.1
+  - @copilotkitnext/react@1.51.5-next.1
+
 ## 1.51.5-next.0
 
 ### Patch Changes

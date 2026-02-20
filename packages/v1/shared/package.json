@@ -10,7 +10,7 @@
     "access": "public"
   },
   "type": "module",
-  "version": "1.51.5-next.0",
+  "version": "1.51.5-next.2",
   "sideEffects": false,
   "main": "./dist/index.cjs",
   "module": "./dist/index.mjs",
