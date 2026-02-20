@@ -1,6 +1,0 @@
-{
-  "installCommand": "cd examples/v1/_legacy/saas-dynamic-dashboards/frontend && npm i -g pnpm@10.13.1 && pnpm install --no-frozen-lockfile",
-  "buildCommand": "cd examples/v1/_legacy/saas-dynamic-dashboards/frontend && npx next build",
-  "outputDirectory": "examples/v1/_legacy/saas-dynamic-dashboards/frontend/.next",
-  "framework": null
-}
