@@ -19,7 +19,7 @@
   },
   "scripts": {
     "dev:css": "tailwindcss -i ./src/styles/globals.css -o ./dist/styles.css --watch --minify",
-    "build:css": "tailwindcss -i ./src/styles/globals.css -o ./dist/styles.css -m && node scripts/scope-preflight.mjs ./dist/styles.css",
+    "build:css": "tailwindcss -i ./src/styles/globals.css -o ./dist/styles.css -m",
     "dev": "concurrently \"npm:dev:css\" \"tsdown --watch\"",
     "build": "tsdown && npm run build:css",
     "prepublishOnly": "pnpm run build",

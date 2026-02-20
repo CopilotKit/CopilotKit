@@ -189,14 +189,13 @@ export function CopilotChatAssistantMessage({
   return (
     <div
       data-copilotkit
-      className={twMerge(
-        "cpk:prose cpk:max-w-full cpk:break-words cpk:dark:prose-invert",
-        className,
-      )}
+      className={twMerge(className)}
       {...props}
       data-message-id={message.id}
     >
-      {boundMarkdownRenderer}
+      <div className="cpk:prose cpk:max-w-full cpk:break-words cpk:dark:prose-invert">
+        {boundMarkdownRenderer}
+      </div>
       {boundToolCallsView}
       {shouldShowToolbar && boundToolbar}
     </div>
