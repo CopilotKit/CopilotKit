@@ -11,7 +11,7 @@ type InferRenderProps<T> = T extends z.ZodTypeAny ? z.infer<T> : any;
  * This hook is a convenience wrapper around `useFrontendTool` that:
  * - builds a model-facing tool description,
  * - forwards optional Zod parameters,
- * - renders your component with tool call args.
+ * - renders your component with tool call parameters.
  *
  * Use this when you want to display a typed visual component for a tool call
  * without manually wiring a full frontend tool object.
@@ -19,7 +19,7 @@ type InferRenderProps<T> = T extends z.ZodTypeAny ? z.infer<T> : any;
  * When `parameters` is provided, render props are inferred from the schema
  * via `z.infer`. When omitted, the render component may accept any props.
  *
- * @typeParam TSchema - Zod schema describing tool args, or `undefined` when no schema is given.
+ * @typeParam TSchema - Zod schema describing tool parameters, or `undefined` when no schema is given.
  * @param config - Tool registration config.
  * @param deps - Optional dependencies to refresh registration (same semantics as `useEffect`).
  *
@@ -86,4 +86,3 @@ export function useComponent<
     deps,
   );
 }
-   
