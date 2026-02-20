@@ -5,90 +5,90 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-all disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive",
+  "cpk:inline-flex cpk:items-center cpk:justify-center cpk:gap-2 cpk:whitespace-nowrap cpk:rounded-md cpk:text-sm cpk:font-medium cpk:transition-all cpk:disabled:pointer-events-none cpk:disabled:opacity-50 cpk:[&_svg]:pointer-events-none cpk:[&_svg:not([class*='size-'])]:size-4 cpk:shrink-0 cpk:[&_svg]:shrink-0 cpk:outline-none cpk:focus-visible:border-ring cpk:focus-visible:ring-ring/50 cpk:focus-visible:ring-[3px] cpk:aria-invalid:ring-destructive/20 cpk:dark:aria-invalid:ring-destructive/40 cpk:aria-invalid:border-destructive",
   {
     variants: {
       variant: {
         default:
-          "bg-primary text-primary-foreground shadow-xs hover:bg-primary/90",
+          "cpk:bg-primary cpk:text-primary-foreground cpk:shadow-xs cpk:hover:bg-primary/90",
         destructive:
-          "bg-destructive text-white shadow-xs hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 dark:bg-destructive/60",
+          "cpk:bg-destructive cpk:text-white cpk:shadow-xs cpk:hover:bg-destructive/90 cpk:focus-visible:ring-destructive/20 cpk:dark:focus-visible:ring-destructive/40 cpk:dark:bg-destructive/60",
         outline:
-          "border bg-background shadow-xs hover:bg-accent hover:text-accent-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50",
+          "cpk:border cpk:bg-background cpk:shadow-xs cpk:hover:bg-accent cpk:hover:text-accent-foreground cpk:dark:bg-input/30 cpk:dark:border-input cpk:dark:hover:bg-input/50",
         secondary:
-          "bg-secondary text-secondary-foreground shadow-xs hover:bg-secondary/80",
+          "cpk:bg-secondary cpk:text-secondary-foreground cpk:shadow-xs cpk:hover:bg-secondary/80",
         ghost:
-          "hover:bg-accent hover:text-accent-foreground dark:hover:bg-accent/50 cursor-pointer",
-        link: "text-primary underline-offset-4 hover:underline",
+          "cpk:hover:bg-accent cpk:hover:text-accent-foreground cpk:dark:hover:bg-accent/50 cpk:cursor-pointer",
+        link: "cpk:text-primary cpk:underline-offset-4 cpk:hover:underline",
         assistantMessageToolbarButton: [
-          "cursor-pointer",
+          "cpk:cursor-pointer",
           // Background and text
-          "p-0 text-[rgb(93,93,93)] hover:bg-[#E8E8E8]",
+          "cpk:p-0 cpk:text-[rgb(93,93,93)] cpk:hover:bg-[#E8E8E8]",
           // Dark mode - lighter gray for better contrast
-          "dark:text-[rgb(243,243,243)] dark:hover:bg-[#303030]",
+          "cpk:dark:text-[rgb(243,243,243)] cpk:dark:hover:bg-[#303030]",
           // Shape and sizing
-          "h-8 w-8",
+          "cpk:h-8 cpk:w-8",
           // Interactions
-          "transition-colors",
+          "cpk:transition-colors",
           // Hover states
-          "hover:text-[rgb(93,93,93)]",
-          "dark:hover:text-[rgb(243,243,243)]",
+          "cpk:hover:text-[rgb(93,93,93)]",
+          "cpk:dark:hover:text-[rgb(243,243,243)]",
         ],
         chatInputToolbarPrimary: [
-          "cursor-pointer",
+          "cpk:cursor-pointer",
           // Background and text
-          "bg-black text-white",
+          "cpk:bg-black cpk:text-white",
           // Dark mode
-          "dark:bg-white dark:text-black dark:focus-visible:outline-white",
+          "cpk:dark:bg-white cpk:dark:text-black cpk:dark:focus-visible:outline-white",
           // Shape and sizing
-          "rounded-full",
+          "cpk:rounded-full",
           // Interactions
-          "transition-colors",
+          "cpk:transition-colors",
           // Focus states
-          "focus:outline-none",
+          "cpk:focus:outline-none",
           // Hover states
-          "hover:opacity-70 disabled:hover:opacity-100",
+          "cpk:hover:opacity-70 cpk:disabled:hover:opacity-100",
           // Disabled states
-          "disabled:cursor-not-allowed disabled:bg-[#00000014] disabled:text-[rgb(13,13,13)]",
-          "dark:disabled:bg-[#454545] dark:disabled:text-white ",
+          "cpk:disabled:cursor-not-allowed cpk:disabled:bg-[#00000014] cpk:disabled:text-[rgb(13,13,13)]",
+          "cpk:dark:disabled:bg-[#454545] cpk:dark:disabled:text-white ",
         ],
         chatInputToolbarSecondary: [
-          "cursor-pointer",
+          "cpk:cursor-pointer",
           // Background and text
-          "bg-transparent text-[#444444]",
+          "cpk:bg-transparent cpk:text-[#444444]",
           // Dark mode
-          "dark:text-white dark:border-[#404040]",
+          "cpk:dark:text-white cpk:dark:border-[#404040]",
           // Shape and sizing
-          "rounded-full",
+          "cpk:rounded-full",
           // Interactions
-          "transition-colors",
+          "cpk:transition-colors",
           // Focus states
-          "focus:outline-none",
+          "cpk:focus:outline-none",
           // Hover states
-          "hover:bg-[#f8f8f8] hover:text-[#333333]",
-          "dark:hover:bg-[#404040] dark:hover:text-[#FFFFFF]",
+          "cpk:hover:bg-[#f8f8f8] cpk:hover:text-[#333333]",
+          "cpk:dark:hover:bg-[#404040] cpk:dark:hover:text-[#FFFFFF]",
           // Disabled states
-          "disabled:cursor-not-allowed disabled:opacity-50",
-          "disabled:hover:bg-transparent disabled:hover:text-[#444444]",
-          "dark:disabled:hover:bg-transparent dark:disabled:hover:text-[#CCCCCC]",
+          "cpk:disabled:cursor-not-allowed cpk:disabled:opacity-50",
+          "cpk:disabled:hover:bg-transparent cpk:disabled:hover:text-[#444444]",
+          "cpk:dark:disabled:hover:bg-transparent cpk:dark:disabled:hover:text-[#CCCCCC]",
         ],
       },
       size: {
-        default: "h-9 px-4 py-2 has-[>svg]:px-3",
-        sm: "h-8 rounded-md gap-1.5 px-3 has-[>svg]:px-2.5",
-        lg: "h-10 rounded-md px-6 has-[>svg]:px-4",
-        icon: "size-9",
+        default: "cpk:h-9 cpk:px-4 cpk:py-2 cpk:has-[>svg]:px-3",
+        sm: "cpk:h-8 cpk:rounded-md cpk:gap-1.5 cpk:px-3 cpk:has-[>svg]:px-2.5",
+        lg: "cpk:h-10 cpk:rounded-md cpk:px-6 cpk:has-[>svg]:px-4",
+        icon: "cpk:size-9",
         chatInputToolbarIcon: [
           // Shape and sizing
-          "h-9 w-9 rounded-full",
+          "cpk:h-9 cpk:w-9 cpk:rounded-full",
         ],
         chatInputToolbarIconLabel: [
           // Shape and sizing
-          "h-9 px-3 rounded-full",
+          "cpk:h-9 cpk:px-3 cpk:rounded-full",
           // Layout
-          "gap-2",
+          "cpk:gap-2",
           // Typography
-          "font-normal",
+          "cpk:font-normal",
         ],
       },
     },

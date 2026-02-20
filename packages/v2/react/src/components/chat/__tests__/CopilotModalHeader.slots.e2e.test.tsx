@@ -49,7 +49,7 @@ describe("CopilotModalHeader Slot System E2E Tests", () => {
         const title = container.querySelector(".custom-title-class");
         expect(title).toBeDefined();
         // Should still have default text-foreground
-        expect(title?.classList.contains("text-foreground")).toBe(true);
+        expect(title?.classList.contains("cpk:text-foreground")).toBe(true);
       });
     });
 

@@ -531,7 +531,7 @@ describe("CopilotChatAssistantMessage Slot System E2E Tests", () => {
       const root = container.querySelector(".custom-root-class");
       expect(root).toBeDefined();
       // Should also have default prose classes merged
-      expect(root?.classList.contains("prose")).toBe(true);
+      expect(root?.classList.contains("cpk:prose")).toBe(true);
     });
 
     it("should allow tailwind utilities to override default styles", () => {

@@ -492,12 +492,12 @@ export function CopilotChatMessageView({
   return (
     <div
       data-copilotkit
-      className={twMerge("flex flex-col", className)}
+      className={twMerge("cpk:flex cpk:flex-col", className)}
       {...props}
     >
       {messageElements}
       {showCursor && (
-        <div className="mt-2">
+        <div className="cpk:mt-2">
           {renderSlot(cursor, CopilotChatMessageView.Cursor, {})}
         </div>
       )}
@@ -512,7 +512,7 @@ CopilotChatMessageView.Cursor = function Cursor({
   return (
     <div
       className={twMerge(
-        "w-[11px] h-[11px] rounded-full bg-foreground animate-pulse-cursor ml-1",
+        "cpk:w-[11px] cpk:h-[11px] cpk:rounded-full cpk:bg-foreground cpk:animate-pulse-cursor cpk:ml-1",
         className,
       )}
       {...props}

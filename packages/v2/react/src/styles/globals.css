@@ -1,4 +1,4 @@
-@import "tailwindcss";
+@import "tailwindcss" prefix(cpk);
 @plugin "@tailwindcss/typography";
 @source "../**/*.{ts,tsx}";
 @source "../../node_modules/streamdown/dist/index.js";
@@ -135,7 +135,7 @@
 
 @layer base {
   * {
-    @apply border-border outline-ring/50;
+    @apply cpk:border-border cpk:outline-ring/50;
   }
   /* Apply foreground/background on CopilotKit roots (replaces body rule) */
   [data-copilotkit] {
@@ -176,7 +176,7 @@
 }
 
 [data-copilotkit] div[data-streamdown="code-block"] > pre {
-  @apply mt-0 mb-0;
+  @apply cpk:mt-0 cpk:mb-0;
 }
 
 [data-copilotkit] .prose input[type="checkbox"] {

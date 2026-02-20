@@ -151,16 +151,16 @@ function CopilotSidebarViewInternal({
         data-copilotkit
         data-copilot-sidebar
         className={cn(
-          "fixed right-0 top-0 z-[1200] flex",
+          "cpk:fixed cpk:right-0 cpk:top-0 cpk:z-[1200] cpk:flex",
           // Height with dvh fallback and safe area support
-          "h-[100vh] h-[100dvh] max-h-screen",
+          "cpk:h-[100vh] cpk:h-[100dvh] cpk:max-h-screen",
           // Responsive width: full on mobile, custom on desktop
-          "w-full",
-          "border-l border-border bg-background text-foreground shadow-xl",
-          "transition-transform duration-300 ease-out",
+          "cpk:w-full",
+          "cpk:border-l cpk:border-border cpk:bg-background cpk:text-foreground cpk:shadow-xl",
+          "cpk:transition-transform cpk:duration-300 cpk:ease-out",
           isSidebarOpen
-            ? "translate-x-0"
-            : "translate-x-full pointer-events-none",
+            ? "cpk:translate-x-0"
+            : "cpk:translate-x-full cpk:pointer-events-none",
         )}
         style={
           {
@@ -175,9 +175,9 @@ function CopilotSidebarViewInternal({
         aria-label="Copilot chat sidebar"
         role="complementary"
       >
-        <div className="flex h-full w-full flex-col overflow-hidden">
+        <div className="cpk:flex cpk:h-full cpk:w-full cpk:flex-col cpk:overflow-hidden">
           {headerElement}
-          <div className="flex-1 overflow-hidden" data-sidebar-chat>
+          <div className="cpk:flex-1 cpk:overflow-hidden" data-sidebar-chat>
             <CopilotChatView {...props} />
           </div>
         </div>
@@ -226,17 +226,22 @@ export namespace CopilotSidebarView {
     }
 
     return (
-      <div className={cn("h-full flex flex-col", className)} {...props}>
+      <div
+        className={cn("cpk:h-full cpk:flex cpk:flex-col", className)}
+        {...props}
+      >
         {/* Welcome message - centered vertically */}
-        <div className="flex-1 flex flex-col items-center justify-center px-4">
+        <div className="cpk:flex-1 cpk:flex cpk:flex-col cpk:items-center cpk:justify-center cpk:px-4">
           {BoundWelcomeMessage}
         </div>
 
         {/* Suggestions and input at bottom */}
-        <div className="px-8 pb-4">
-          <div className="max-w-3xl mx-auto">
+        <div className="cpk:px-8 cpk:pb-4">
+          <div className="cpk:max-w-3xl cpk:mx-auto">
             {/* Suggestions above input */}
-            <div className="mb-4 flex justify-center">{suggestionView}</div>
+            <div className="cpk:mb-4 cpk:flex cpk:justify-center">
+              {suggestionView}
+            </div>
             {input}
           </div>
         </div>

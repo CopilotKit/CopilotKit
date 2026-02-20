@@ -89,47 +89,6 @@ function scopeChildren(node) {
   });
 }
 
-/**
- * Rewrite a single selector in @layer utilities to be scoped under [data-copilotkit].
- * For class selectors like .bg-white, we prefix with the scope so they only apply
- * inside CopilotKit containers and don't clobber the host app's utilities.
- */
-function scopeUtilitySelector(sel) {
-  sel = sel.trim();
-
-  // Already scoped — keep as-is
-  if (isAlreadyScoped(sel)) return sel;
-
-  // Class selectors (the vast majority of utilities) → descendant scope
-  // e.g. .bg-white → [data-copilotkit] .bg-white
-  return `${SCOPE} ${sel}`;
-}
-
-function scopeUtilityRule(rule) {
-  const newSelectors = [];
-
-  for (const sel of rule.selectors) {
-    const scoped = scopeUtilitySelector(sel);
-    if (scoped !== null) {
-      newSelectors.push(scoped);
-    }
-  }
-
-  if (newSelectors.length === 0) {
-    rule.remove();
-  } else {
-    rule.selectors = newSelectors;
-  }
-}
-
-function scopeUtilityChildren(node) {
-  node.walk((child) => {
-    if (child.type === "rule") {
-      scopeUtilityRule(child);
-    }
-  });
-}
-
 // --- Main ---
 const css = readFileSync(file, "utf8");
 const root = postcss.parse(css);
@@ -137,9 +96,10 @@ const root = postcss.parse(css);
 root.walkAtRules("layer", (layer) => {
   if (layer.params === "base") {
     scopeChildren(layer);
-  } else if (layer.params === "utilities") {
-    scopeUtilityChildren(layer);
   }
+  // Note: utilities are no longer scoped here because we use Tailwind v4's
+  // prefix(cpk) feature instead, which makes all utility classes unique
+  // (e.g. .cpk\:bg-white) and eliminates collisions with the host app.
 });
 
 writeFileSync(file, root.toString());
