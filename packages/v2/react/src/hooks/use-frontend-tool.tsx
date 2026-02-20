@@ -26,24 +26,24 @@ export function useFrontendTool<
     // Register/override renderer by name and agentId through core
     if (tool.render) {
       // Get current render tool calls and merge with new entry
-      const keyOf = (rc: ReactToolCallRenderer<any>) =>
+      const keyOf = (rc: ReactToolCallRenderer) =>
         `${rc.agentId ?? ""}:${rc.name}`;
       const currentRenderToolCalls =
-        copilotkit.renderToolCalls as ReactToolCallRenderer<any>[];
+        copilotkit.renderToolCalls as ReactToolCallRenderer[];
 
       // Build map from existing entries
-      const mergedMap = new Map<string, ReactToolCallRenderer<any>>();
+      const mergedMap = new Map<string, ReactToolCallRenderer>();
       for (const rc of currentRenderToolCalls) {
         mergedMap.set(keyOf(rc), rc);
       }
 
       // Add/overwrite with new entry
-      const newEntry = {
+      const newEntry: ReactToolCallRenderer = {
         name,
         args: tool.parameters,
         agentId: tool.agentId,
         render: tool.render,
-      } as ReactToolCallRenderer<any>;
+      } as ReactToolCallRenderer;
       mergedMap.set(keyOf(newEntry), newEntry);
 
       // Set the merged list back

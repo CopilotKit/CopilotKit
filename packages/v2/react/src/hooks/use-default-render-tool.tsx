@@ -9,10 +9,40 @@ type DefaultRenderProps = {
 };
 
 /**
- * Registers a wildcard ("*") tool-call renderer via `useRenderTool`.
+ * Registers a wildcard (`"*"`) tool-call renderer via `useRenderTool`.
  *
- * - Call with no arguments to get a sensible default UI.
- * - Pass a `render` function to fully replace the default UI.
+ * - Call with no config to use CopilotKit's built-in default tool-call card.
+ * - Pass `config.render` to replace the default UI with your own fallback renderer.
+ *
+ * This is useful when you want a generic renderer for tools that do not have a
+ * dedicated `useRenderTool({ name: "..." })` registration.
+ *
+ * @param config - Optional custom wildcard render function.
+ * @param deps - Optional dependencies to refresh registration.
+ *
+ * @example
+ * ```tsx
+ * useDefaultRenderTool();
+ * ```
+ *
+ * @example
+ * ```tsx
+ * useDefaultRenderTool({
+ *   render: ({ name, status }) => <div>{name}: {status}</div>,
+ * });
+ * ```
+ *
+ * @example
+ * ```tsx
+ * useDefaultRenderTool(
+ *   {
+ *     render: ({ name, result }) => (
+ *       <ToolEventRow title={name} payload={result} compact={compactMode} />
+ *     ),
+ *   },
+ *   [compactMode],
+ * );
+ * ```
  */
 export function useDefaultRenderTool(
   config?: {

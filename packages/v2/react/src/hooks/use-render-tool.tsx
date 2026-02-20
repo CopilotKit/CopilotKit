@@ -39,7 +39,30 @@ type RenderToolConfig<S extends z.ZodTypeAny> = {
   agentId?: string;
 };
 
-// Overload: wildcard without args
+/**
+ * Registers a wildcard (`"*"`) renderer for tool calls.
+ *
+ * The wildcard renderer is used as a fallback when no exact name-matched
+ * renderer is registered for a tool call.
+ *
+ * @param config - Wildcard renderer configuration.
+ * @param deps - Optional dependencies to refresh registration.
+ *
+ * @example
+ * ```tsx
+ * useRenderTool(
+ *   {
+ *     name: "*",
+ *     render: ({ name, status }) => (
+ *       <div>
+ *         {status === "complete" ? "✓" : "⏳"} {name}
+ *       </div>
+ *     ),
+ *   },
+ *   [],
+ * );
+ * ```
+ */
 export function useRenderTool(
   config: {
     name: "*";
@@ -49,7 +72,32 @@ export function useRenderTool(
   deps?: ReadonlyArray<unknown>,
 ): void;
 
-// Overload: named tool with args
+/**
+ * Registers a name-scoped renderer for tool calls.
+ *
+ * The provided `args` Zod schema defines the typed shape of `props.args`
+ * in `render` for `executing` and `complete` states.
+ *
+ * @typeParam S - Zod schema type describing tool call args.
+ * @param config - Named renderer configuration.
+ * @param deps - Optional dependencies to refresh registration.
+ *
+ * @example
+ * ```tsx
+ * useRenderTool(
+ *   {
+ *     name: "searchDocs",
+ *     args: z.object({ query: z.string() }),
+ *     render: ({ status, args, result }) => {
+ *       if (status === "inProgress") return <div>Preparing...</div>;
+ *       if (status === "executing") return <div>Searching {args.query}</div>;
+ *       return <div>{result}</div>;
+ *     },
+ *   },
+ *   [],
+ * );
+ * ```
+ */
 export function useRenderTool<S extends z.ZodTypeAny>(
   config: {
     name: string;
@@ -60,7 +108,47 @@ export function useRenderTool<S extends z.ZodTypeAny>(
   deps?: ReadonlyArray<unknown>,
 ): void;
 
-// Implementation
+/**
+ * Registers a renderer entry in CopilotKit's `renderToolCalls` registry.
+ *
+ * Key behavior:
+ * - deduplicates by `agentId:name` (latest registration wins),
+ * - keeps renderer entries on cleanup so historical chat tool calls can still render,
+ * - refreshes registration when `deps` change.
+ *
+ * @typeParam S - Zod schema type describing tool call args.
+ * @param config - Renderer config for wildcard or named tools.
+ * @param deps - Optional dependencies to refresh registration.
+ *
+ * @example
+ * ```tsx
+ * useRenderTool(
+ *   {
+ *     name: "searchDocs",
+ *     args: z.object({ query: z.string() }),
+ *     render: ({ status, args, result }) => {
+ *       if (status === "executing") return <div>Searching {args.query}</div>;
+ *       if (status === "complete") return <div>{result}</div>;
+ *       return <div>Preparing...</div>;
+ *     },
+ *   },
+ *   [],
+ * );
+ * ```
+ *
+ * @example
+ * ```tsx
+ * useRenderTool(
+ *   {
+ *     name: "summarize",
+ *     args: z.object({ text: z.string() }),
+ *     agentId: "research-agent",
+ *     render: ({ name, status }) => <div>{name}: {status}</div>,
+ *   },
+ *   [selectedAgentId],
+ * );
+ * ```
+ */
 export function useRenderTool<S extends z.ZodTypeAny>(
   config: RenderToolConfig<S>,
   deps?: ReadonlyArray<unknown>,
@@ -74,23 +162,23 @@ export function useRenderTool<S extends z.ZodTypeAny>(
       config.name === "*" && !config.args
         ? defineToolCallRenderer({
             name: "*",
-            render: config.render as any,
+            render: config.render,
             ...(config.agentId ? { agentId: config.agentId } : {}),
           })
         : defineToolCallRenderer({
             name: config.name,
             args: config.args!,
-            render: config.render as any,
+            render: config.render,
             ...(config.agentId ? { agentId: config.agentId } : {}),
           });
 
     // Dedupe by "agentId:name" key, same pattern as useFrontendTool
-    const keyOf = (rc: ReactToolCallRenderer<any>) =>
+    const keyOf = (rc: ReactToolCallRenderer) =>
       `${rc.agentId ?? ""}:${rc.name}`;
     const currentRenderToolCalls =
-      copilotkit.renderToolCalls as ReactToolCallRenderer<any>[];
+      copilotkit.renderToolCalls as ReactToolCallRenderer[];
 
-    const mergedMap = new Map<string, ReactToolCallRenderer<any>>();
+    const mergedMap = new Map<string, ReactToolCallRenderer>();
     for (const rc of currentRenderToolCalls) {
       mergedMap.set(keyOf(rc), rc);
     }
