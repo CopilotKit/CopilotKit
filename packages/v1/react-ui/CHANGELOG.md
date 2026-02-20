@@ -1,5 +1,14 @@
 # ui
 
+## 1.51.5-next.4
+
+### Patch Changes
+
+- 7e32e69: chore: fix up style generation
+  - @copilotkit/react-core@1.51.5-next.4
+  - @copilotkit/runtime-client-gql@1.51.5-next.4
+  - @copilotkit/shared@1.51.5-next.4
+
 ## 1.51.5-next.3
 
 ### Patch Changes
