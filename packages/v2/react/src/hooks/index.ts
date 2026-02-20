@@ -3,6 +3,7 @@ export { useRenderToolCall } from "./use-render-tool-call";
 export { useRenderCustomMessages } from "./use-render-custom-messages";
 export { useRenderActivityMessage } from "./use-render-activity-message";
 export { useFrontendTool } from "./use-frontend-tool";
+export { useComponent } from "./use-component";
 export { useRenderTool } from "./use-render-tool";
 export { useDefaultRenderTool } from "./use-default-render-tool";
 export { useHumanInTheLoop } from "./use-human-in-the-loop";

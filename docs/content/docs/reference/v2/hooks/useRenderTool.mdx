@@ -1,0 +1,118 @@
+---
+title: "useRenderTool"
+description: "Register typed renderers for tool calls, by tool name or wildcard"
+---
+
+## Overview
+
+`useRenderTool` registers a chat renderer for tool calls.
+You can target a specific tool name (with typed Zod args) or use a wildcard (`"*"`) fallback renderer.
+
+This is part of the v2 tool rendering hook set with [`useComponent`](/reference/v2/hooks/useComponent), [`useDefaultRenderTool`](/reference/v2/hooks/useDefaultRenderTool), and [`useRenderToolCall`](/reference/v2/hooks/useRenderToolCall).
+
+This hook only handles rendering. It does not register a frontend handler.
+
+## Signature
+
+### Wildcard overload
+
+```tsx
+import { useRenderTool } from "@copilotkit/react-core/v2";
+
+useRenderTool(
+  {
+    name: "*",
+    render: (props) => React.ReactElement,
+    agentId?: string,
+  },
+  deps?: ReadonlyArray<unknown>,
+);
+```
+
+### Named overload
+
+```tsx
+import { z } from "zod";
+import { useRenderTool } from "@copilotkit/react-core/v2";
+
+useRenderTool(
+  {
+    name: string,
+    args: z.ZodTypeAny,
+    render: (props) => React.ReactElement,
+    agentId?: string,
+  },
+  deps?: ReadonlyArray<unknown>,
+);
+```
+
+## Render Props
+
+`render` receives one of these states:
+
+- `{ status: "inProgress", args: Partial<T>, result: undefined }`
+- `{ status: "executing", args: T, result: undefined }`
+- `{ status: "complete", args: T, result: string }`
+
+`name` is always present in all states.
+
+## Behavior
+
+- Builds a renderer entry with `defineToolCallRenderer`.
+- Deduplicates by `agentId:name` key (latest registration wins).
+- Intentionally does not remove the renderer on cleanup so previous chat history can still render.
+- Tracks updates by `config.name` plus values in `deps` (include changing captures in `deps`).
+
+## Usage
+
+### Named tool renderer
+
+```tsx
+import { z } from "zod";
+import { useRenderTool } from "@copilotkit/react-core/v2";
+
+function App() {
+  useRenderTool(
+    {
+      name: "searchDocs",
+      args: z.object({ query: z.string() }),
+      render: ({ name, args, status, result }) => {
+        if (status === "inProgress") return <div>Preparing {name}…</div>;
+        if (status === "executing") return <div>Searching for: {args.query}</div>;
+        return <div>Done: {result}</div>;
+      },
+    },
+    [],
+  );
+
+  return null;
+}
+```
+
+### Wildcard fallback renderer
+
+```tsx
+import { useRenderTool } from "@copilotkit/react-core/v2";
+
+function App() {
+  useRenderTool(
+    {
+      name: "*",
+      render: ({ name, status }) => (
+        <div>
+          {status === "complete" ? "✓" : "⏳"} {name}
+        </div>
+      ),
+    },
+    [],
+  );
+
+  return null;
+}
+```
+
+## Related
+
+- [`useDefaultRenderTool`](/reference/v2/hooks/useDefaultRenderTool)
+- [`useRenderToolCall`](/reference/v2/hooks/useRenderToolCall)
+- [`useFrontendTool`](/reference/v2/hooks/useFrontendTool)

@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { ToolCallStatus } from "@copilotkitnext/core";
 
-export interface ReactToolCallRenderer<T> {
+export interface ReactToolCallRenderer<T = unknown> {
   name: string;
   args: z.ZodSchema<T>;
   /**

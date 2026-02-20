@@ -12,3 +12,12 @@
 - For Nx plugin best practices, check `node_modules/@nx/<plugin>/PLUGIN.md`. Not all plugins have this file - proceed without it if unavailable.
 
 <!-- nx configuration end-->
+
+# Hook Development Requirements
+
+When creating a new hook, always complete all of the following:
+
+- Add dedicated documentation for the hook under `/docs`.
+- Update the relevant docs metadata file(s) so the page appears in docs navigation.
+- Add JSDoc on top of the hook implementation, including usage examples.
+- Write extensive tests for the hook (covering behavior, edge cases, and lifecycle where applicable).
