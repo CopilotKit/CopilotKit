@@ -6,7 +6,7 @@ description: "Register typed renderers for tool calls, by tool name or wildcard"
 ## Overview
 
 `useRenderTool` registers a chat renderer for tool calls.
-You can target a specific tool name (with typed Zod args) or use a wildcard (`"*"`) fallback renderer.
+You can target a specific tool name (with a typed Zod `parameters` schema) or use a wildcard (`"*"`) fallback renderer.
 
 This is part of the v2 tool rendering hook set with [`useComponent`](/reference/v2/hooks/useComponent), [`useDefaultRenderTool`](/reference/v2/hooks/useDefaultRenderTool), and [`useRenderToolCall`](/reference/v2/hooks/useRenderToolCall).
 
@@ -38,7 +38,7 @@ import { useRenderTool } from "@copilotkit/react-core/v2";
 useRenderTool(
   {
     name: string,
-    args: z.ZodTypeAny,
+    parameters: z.ZodTypeAny,
     render: (props) => React.ReactElement,
     agentId?: string,
   },
@@ -50,9 +50,9 @@ useRenderTool(
 
 `render` receives one of these states:
 
-- `{ status: "inProgress", args: Partial<T>, result: undefined }`
-- `{ status: "executing", args: T, result: undefined }`
-- `{ status: "complete", args: T, result: string }`
+- `{ status: "inProgress", parameters: Partial<T>, result: undefined }`
+- `{ status: "executing", parameters: T, result: undefined }`
+- `{ status: "complete", parameters: T, result: string }`
 
 `name` is always present in all states.
 
@@ -75,10 +75,10 @@ function App() {
   useRenderTool(
     {
       name: "searchDocs",
-      args: z.object({ query: z.string() }),
-      render: ({ name, args, status, result }) => {
+      parameters: z.object({ query: z.string() }),
+      render: ({ name, parameters, status, result }) => {
         if (status === "inProgress") return <div>Preparing {name}…</div>;
-        if (status === "executing") return <div>Searching for: {args.query}</div>;
+        if (status === "executing") return <div>Searching for: {parameters.query}</div>;
         return <div>Done: {result}</div>;
       },
     },
