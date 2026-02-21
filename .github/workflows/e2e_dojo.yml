@@ -23,8 +23,81 @@ on:
         type: string
 
 jobs:
+  build:
+    name: build
+    runs-on: depot-ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout CPK
+        uses: actions/checkout@v4
+        with:
+          path: CopilotKit
+          ref: ${{ github.event.inputs.branch || github.ref }}
+
+      - name: Checkout AGUI
+        uses: actions/checkout@v4
+        with:
+          repository: ag-ui-protocol/ag-ui
+          path: ag-ui
+          ref: main
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.13.1
+
+      - name: Resolve pnpm store path
+        id: pnpm-store
+        run: echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_OUTPUT
+
+      - name: Cache pnpm store
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.pnpm-store.outputs.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      - name: Cache Nx build output
+        uses: actions/cache@v4
+        with:
+          path: ${{ github.workspace }}/CopilotKit/.nx/cache
+          key: ${{ runner.os }}-nx-${{ hashFiles('**/pnpm-lock.yaml') }}-${{ hashFiles('**/*.js', '**/*.jsx', '**/*.ts', '**/*.tsx') }}
+          restore-keys: |
+            ${{ runner.os }}-nx-${{ hashFiles('**/pnpm-lock.yaml') }}-
+            ${{ runner.os }}-nx-
+
+      - name: Cache Next.js build
+        uses: actions/cache@v4
+        with:
+          path: ${{ github.workspace }}/ag-ui/apps/dojo/.next/cache
+          key: ${{ runner.os }}-nextjs-${{ hashFiles('**/pnpm-lock.yaml') }}-${{ hashFiles('**/*.js', '**/*.jsx', '**/*.ts', '**/*.tsx') }}
+          restore-keys: |
+            ${{ runner.os }}-nextjs-${{ hashFiles('**/pnpm-lock.yaml') }}-
+
+      - name: Install cpk dependencies
+        working-directory: CopilotKit
+        run: pnpm install --frozen-lockfile
+
+      - name: Build cpk packages
+        working-directory: CopilotKit
+        env:
+          NODE_OPTIONS: --max-old-space-size=8192
+          NX_PARALLEL: 2
+        run: pnpm build
+
+      - name: Install ag-ui dependencies
+        working-directory: ag-ui
+        run: pnpm install --frozen-lockfile
+
   dojo:
     name: ${{ matrix.suite }}
+    needs: build
     runs-on: depot-ubuntu-24.04
     timeout-minutes: 30
     strategy:
@@ -131,18 +204,34 @@ jobs:
         with:
           version: 10.13.1
 
-      # Now that pnpm is available, cache its store to speed installs
       - name: Resolve pnpm store path
         id: pnpm-store
         run: echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_OUTPUT
 
-      - name: Cache pnpm store
-        uses: actions/cache@v4
+      - name: Restore pnpm store
+        uses: actions/cache/restore@v4
         with:
           path: ${{ steps.pnpm-store.outputs.STORE_PATH }}
           key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
           restore-keys: |
             ${{ runner.os }}-pnpm-store-
+
+      - name: Restore Nx build output
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ github.workspace }}/CopilotKit/.nx/cache
+          key: ${{ runner.os }}-nx-${{ hashFiles('**/pnpm-lock.yaml') }}-${{ hashFiles('**/*.js', '**/*.jsx', '**/*.ts', '**/*.tsx') }}
+          restore-keys: |
+            ${{ runner.os }}-nx-${{ hashFiles('**/pnpm-lock.yaml') }}-
+            ${{ runner.os }}-nx-
+
+      - name: Restore Next.js build
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ github.workspace }}/ag-ui/apps/dojo/.next/cache
+          key: ${{ runner.os }}-nextjs-${{ hashFiles('**/pnpm-lock.yaml') }}-${{ hashFiles('**/*.js', '**/*.jsx', '**/*.ts', '**/*.tsx') }}
+          restore-keys: |
+            ${{ runner.os }}-nextjs-${{ hashFiles('**/pnpm-lock.yaml') }}-
 
       # Cache Python tool caches and virtualenvs; restore only to avoid long saves
       - name: Cache Python dependencies (restore-only)

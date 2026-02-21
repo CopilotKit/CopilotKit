@@ -6,7 +6,7 @@
     "build:examples": "nx run-many -t build --projects=examples/**",
     "build:storybook": "nx run-many -t build --projects=examples/v2/*/storybook",
     "check-types": "nx run-many -t check-types",
-    "clean": "git clean -fdX --exclude=\"!.env\"",
+    "clean": "git clean -fdX --exclude=\".env\"",
     "lint": "nx run-many -t lint --projects=packages/**",
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
     "check-prettier": "prettier --check \"**/*.{ts,tsx,md}\"",
