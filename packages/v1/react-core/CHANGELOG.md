@@ -1,5 +1,17 @@
 # ui
 
+## 1.52.0-next.6
+
+### Patch Changes
+
+- 2007f8b: feat: useComponent improvements
+- 5f941db: Prevent CPK styles from polluting user app
+- Updated dependencies [2007f8b]
+  - @copilotkitnext/react@1.52.0-next.6
+  - @copilotkit/runtime-client-gql@1.52.0-next.6
+  - @copilotkit/shared@1.52.0-next.6
+  - @copilotkitnext/core@1.52.0-next.6
+
 ## 1.52.0-next.5
 
 ### Minor Changes
