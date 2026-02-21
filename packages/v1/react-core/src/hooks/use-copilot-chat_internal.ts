@@ -22,7 +22,10 @@ import {
   useRenderCustomMessages,
   useSuggestions,
 } from "@copilotkitnext/react";
-import { Suggestion, CopilotKitCoreRuntimeConnectionStatus } from "@copilotkitnext/core";
+import {
+  Suggestion,
+  CopilotKitCoreRuntimeConnectionStatus,
+} from "@copilotkitnext/core";
 import { useLazyToolRenderer } from "./use-lazy-tool-renderer";
 import { AbstractAgent, AGUIConnectNotImplementedError } from "@ag-ui/client";
 import {
@@ -359,7 +362,13 @@ export function useCopilotChatInternal({
       connect(agent);
     }
     return () => {};
-  }, [existingConfig?.threadId, agent, copilotkit, copilotkit.runtimeConnectionStatus, resolvedAgentId]);
+  }, [
+    existingConfig?.threadId,
+    agent,
+    copilotkit,
+    copilotkit.runtimeConnectionStatus,
+    resolvedAgentId,
+  ]);
 
   useEffect(() => {
     onInProgress?.(Boolean(agent?.isRunning));
