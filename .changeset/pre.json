@@ -45,6 +45,7 @@
     "@copilotkitnext/web-inspector": "1.51.4"
   },
   "changesets": [
+    "deep-pigs-burn",
     "dry-knives-decide",
     "early-buckets-tease",
     "fix-a2ui-renderer-workspace-dep",

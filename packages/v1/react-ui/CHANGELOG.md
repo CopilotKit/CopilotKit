@@ -1,5 +1,24 @@
 # ui
 
+## 1.52.0-next.5
+
+### Minor Changes
+
+- 6dd6c84: Adding new v2 features:
+  - useComponent
+  - useRenderTool
+  - useDefaultRenderTool
+
+  Also, fixing issues with styles not being
+  properly scoped for tailwind.
+
+### Patch Changes
+
+- Updated dependencies [6dd6c84]
+  - @copilotkit/react-core@1.52.0-next.5
+  - @copilotkit/runtime-client-gql@1.52.0-next.5
+  - @copilotkit/shared@1.52.0-next.5
+
 ## 1.51.5-next.4
 
 ### Patch Changes
