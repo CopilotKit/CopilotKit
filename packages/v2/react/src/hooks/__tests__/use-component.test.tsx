@@ -24,7 +24,7 @@ describe("useComponent", () => {
     const Harness: React.FC = () => {
       useComponent({
         name: "showWeatherCard",
-        component: DemoComponent,
+        render: DemoComponent,
       });
       return null;
     };
@@ -63,7 +63,7 @@ describe("useComponent", () => {
           name: "showWeatherCard",
           description: "Render a weather card for the selected city.",
           parameters: weatherSchema,
-          component: DemoComponent,
+          render: DemoComponent,
           agentId: "weather-agent",
         },
         deps,
@@ -102,7 +102,7 @@ describe("useComponent", () => {
     const Harness: React.FC = () => {
       useComponent({
         name: "showWeatherCard",
-        component: DemoComponent,
+        render: DemoComponent,
       });
       return null;
     };

@@ -1,5 +1,39 @@
 # @copilotkit/runtime
 
+## 1.52.0-next.6
+
+### Patch Changes
+
+- @copilotkit/shared@1.52.0-next.6
+- @copilotkitnext/agent@1.52.0-next.6
+- @copilotkitnext/runtime@1.52.0-next.6
+
+## 1.52.0-next.5
+
+### Minor Changes
+
+- 6dd6c84: Adding new v2 features:
+  - useComponent
+  - useRenderTool
+  - useDefaultRenderTool
+
+  Also, fixing issues with styles not being
+  properly scoped for tailwind.
+
+### Patch Changes
+
+- @copilotkit/shared@1.52.0-next.5
+- @copilotkitnext/agent@1.52.0-next.5
+- @copilotkitnext/runtime@1.52.0-next.5
+
+## 1.51.5-next.4
+
+### Patch Changes
+
+- @copilotkit/shared@1.51.5-next.4
+- @copilotkitnext/agent@1.51.5-next.4
+- @copilotkitnext/runtime@1.51.5-next.4
+
 ## 1.51.5-next.3
 
 ### Patch Changes

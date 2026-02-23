@@ -174,7 +174,7 @@ export function CopilotChatView({
         suggestions,
         loadingIndexes: suggestionLoadingIndexes,
         onSelectSuggestion,
-        className: "mb-3 lg:ml-4 lg:mr-4 ml-0 mr-0",
+        className: "cpk:mb-3 cpk:lg:ml-4 cpk:lg:mr-4 cpk:ml-0 cpk:mr-0",
       })
     : null;
 
@@ -188,10 +188,12 @@ export function CopilotChatView({
           paddingBottom: `${inputContainerHeight + FEATHER_HEIGHT + (hasSuggestions ? 4 : 32)}px`,
         }}
       >
-        <div className="max-w-3xl mx-auto">
+        <div className="cpk:max-w-3xl cpk:mx-auto">
           {BoundMessageView}
           {hasSuggestions ? (
-            <div className="pl-0 pr-4 sm:px-0 mt-4">{BoundSuggestionView}</div>
+            <div className="cpk:pl-0 cpk:pr-4 cpk:sm:px-0 cpk:mt-4">
+              {BoundSuggestionView}
+            </div>
           ) : null}
         </div>
       </div>
@@ -236,7 +238,11 @@ export function CopilotChatView({
 
     return (
       <div
-        className={twMerge("relative h-full flex flex-col", className)}
+        data-copilotkit
+        className={twMerge(
+          "cpk:relative cpk:h-full cpk:flex cpk:flex-col",
+          className,
+        )}
         {...props}
       >
         {BoundWelcomeScreen}
@@ -245,16 +251,24 @@ export function CopilotChatView({
   }
 
   if (children) {
-    return children({
-      messageView: BoundMessageView,
-      input: BoundInput,
-      scrollView: BoundScrollView,
-      suggestionView: BoundSuggestionView ?? <></>,
-    });
+    return (
+      <div data-copilotkit style={{ display: "contents" }}>
+        {children({
+          messageView: BoundMessageView,
+          input: BoundInput,
+          scrollView: BoundScrollView,
+          suggestionView: BoundSuggestionView ?? <></>,
+        })}
+      </div>
+    );
   }
 
   return (
-    <div className={twMerge("relative h-full", className)} {...props}>
+    <div
+      data-copilotkit
+      className={twMerge("cpk:relative cpk:h-full", className)}
+      {...props}
+    >
       {BoundScrollView}
 
       {BoundInput}
@@ -286,10 +300,10 @@ export namespace CopilotChatView {
     return (
       <>
         <StickToBottom.Content
-          className="overflow-y-scroll overflow-x-hidden"
+          className="cpk:overflow-y-scroll cpk:overflow-x-hidden"
           style={{ flex: "1 1 0%", minHeight: 0 }}
         >
-          <div className="px-4 sm:px-0 [div[data-sidebar-chat]_&]:px-8 [div[data-popup-chat]_&]:px-6">
+          <div className="cpk:px-4 cpk:sm:px-0 cpk:[div[data-sidebar-chat]_&]:px-8 cpk:[div[data-popup-chat]_&]:px-6">
             {children}
           </div>
         </StickToBottom.Content>
@@ -300,7 +314,7 @@ export namespace CopilotChatView {
         {/* Scroll to bottom button - hidden during resize */}
         {!isAtBottom && !isResizing && (
           <div
-            className="absolute inset-x-0 flex justify-center z-30 pointer-events-none"
+            className="cpk:absolute cpk:inset-x-0 cpk:flex cpk:justify-center cpk:z-30 cpk:pointer-events-none"
             style={{
               bottom: `${inputContainerHeight + FEATHER_HEIGHT + 16}px`,
             }}
@@ -377,8 +391,8 @@ export namespace CopilotChatView {
 
     if (!hasMounted) {
       return (
-        <div className="h-full max-h-full flex flex-col min-h-0 overflow-y-scroll overflow-x-hidden">
-          <div className="px-4 sm:px-0 [div[data-sidebar-chat]_&]:px-8 [div[data-popup-chat]_&]:px-6">
+        <div className="cpk:h-full cpk:max-h-full cpk:flex cpk:flex-col cpk:min-h-0 cpk:overflow-y-scroll cpk:overflow-x-hidden">
+          <div className="cpk:px-4 cpk:sm:px-0 cpk:[div[data-sidebar-chat]_&]:px-8 cpk:[div[data-popup-chat]_&]:px-6">
             {children}
           </div>
         </div>
@@ -393,14 +407,14 @@ export namespace CopilotChatView {
         <div
           ref={scrollRef}
           className={cn(
-            "h-full max-h-full flex flex-col min-h-0 overflow-y-scroll overflow-x-hidden relative",
+            "cpk:h-full cpk:max-h-full cpk:flex cpk:flex-col cpk:min-h-0 cpk:overflow-y-scroll cpk:overflow-x-hidden cpk:relative",
             className,
           )}
           {...props}
         >
           <div
             ref={contentRef}
-            className="px-4 sm:px-0 [div[data-sidebar-chat]_&]:px-8 [div[data-popup-chat]_&]:px-6"
+            className="cpk:px-4 cpk:sm:px-0 cpk:[div[data-sidebar-chat]_&]:px-8 cpk:[div[data-popup-chat]_&]:px-6"
           >
             {children}
           </div>
@@ -411,7 +425,7 @@ export namespace CopilotChatView {
           {/* Scroll to bottom button for manual mode */}
           {showScrollButton && !isResizing && (
             <div
-              className="absolute inset-x-0 flex justify-center z-30 pointer-events-none"
+              className="cpk:absolute cpk:inset-x-0 cpk:flex cpk:justify-center cpk:z-30 cpk:pointer-events-none"
               style={{
                 bottom: `${inputContainerHeight + FEATHER_HEIGHT + 16}px`,
               }}
@@ -432,7 +446,7 @@ export namespace CopilotChatView {
     return (
       <StickToBottom
         className={cn(
-          "h-full max-h-full flex flex-col min-h-0 relative",
+          "cpk:h-full cpk:max-h-full cpk:flex cpk:flex-col cpk:min-h-0 cpk:relative",
           className,
         )}
         resize="smooth"
@@ -458,16 +472,16 @@ export namespace CopilotChatView {
       variant="outline"
       size="sm"
       className={twMerge(
-        "rounded-full w-10 h-10 p-0 pointer-events-auto",
-        "bg-white dark:bg-gray-900",
-        "shadow-lg border border-gray-200 dark:border-gray-700",
-        "hover:bg-gray-50 dark:hover:bg-gray-800",
-        "flex items-center justify-center cursor-pointer",
+        "cpk:rounded-full cpk:w-10 cpk:h-10 cpk:p-0 cpk:pointer-events-auto",
+        "cpk:bg-white cpk:dark:bg-gray-900",
+        "cpk:shadow-lg cpk:border cpk:border-gray-200 cpk:dark:border-gray-700",
+        "cpk:hover:bg-gray-50 cpk:dark:hover:bg-gray-800",
+        "cpk:flex cpk:items-center cpk:justify-center cpk:cursor-pointer",
         className,
       )}
       {...props}
     >
-      <ChevronDown className="w-4 h-4 text-gray-600 dark:text-white" />
+      <ChevronDown className="cpk:w-4 cpk:h-4 cpk:text-gray-600 cpk:dark:text-white" />
     </Button>
   );
 
@@ -478,9 +492,9 @@ export namespace CopilotChatView {
   }) => (
     <div
       className={cn(
-        "absolute bottom-0 left-0 right-4 h-24 pointer-events-none z-10 bg-gradient-to-t",
-        "from-white via-white to-transparent",
-        "dark:from-[rgb(33,33,33)] dark:via-[rgb(33,33,33)]",
+        "cpk:absolute cpk:bottom-0 cpk:left-0 cpk:right-4 cpk:h-24 cpk:pointer-events-none cpk:z-10 cpk:bg-gradient-to-t",
+        "cpk:from-white cpk:via-white cpk:to-transparent",
+        "cpk:dark:from-[rgb(33,33,33)] cpk:dark:via-[rgb(33,33,33)]",
         className,
       )}
       style={style}
@@ -497,7 +511,7 @@ export namespace CopilotChatView {
     return (
       <h1
         className={cn(
-          "text-xl sm:text-2xl font-medium text-foreground text-center",
+          "cpk:text-xl cpk:sm:text-2xl cpk:font-medium cpk:text-foreground cpk:text-center",
           className,
         )}
         {...props}
@@ -524,7 +538,7 @@ export namespace CopilotChatView {
 
     if (children) {
       return (
-        <>
+        <div data-copilotkit style={{ display: "contents" }}>
           {children({
             welcomeMessage: BoundWelcomeMessage,
             input,
@@ -532,27 +546,29 @@ export namespace CopilotChatView {
             className,
             ...props,
           })}
-        </>
+        </div>
       );
     }
 
     return (
       <div
         className={cn(
-          "flex-1 flex flex-col items-center justify-center px-4",
+          "cpk:flex-1 cpk:flex cpk:flex-col cpk:items-center cpk:justify-center cpk:px-4",
           className,
         )}
         {...props}
       >
-        <div className="w-full max-w-3xl flex flex-col items-center">
+        <div className="cpk:w-full cpk:max-w-3xl cpk:flex cpk:flex-col cpk:items-center">
           {/* Welcome message */}
-          <div className="mb-6">{BoundWelcomeMessage}</div>
+          <div className="cpk:mb-6">{BoundWelcomeMessage}</div>
 
           {/* Input */}
-          <div className="w-full">{input}</div>
+          <div className="cpk:w-full">{input}</div>
 
           {/* Suggestions */}
-          <div className="mt-4 flex justify-center">{suggestionView}</div>
+          <div className="cpk:mt-4 cpk:flex cpk:justify-center">
+            {suggestionView}
+          </div>
         </div>
       </div>
     );

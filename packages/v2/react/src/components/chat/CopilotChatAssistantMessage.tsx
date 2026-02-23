@@ -131,7 +131,7 @@ export function CopilotChatAssistantMessage({
     CopilotChatAssistantMessage.Toolbar,
     {
       children: (
-        <div className="flex items-center gap-1">
+        <div className="cpk:flex cpk:items-center cpk:gap-1">
           {boundCopyButton}
           {(onThumbsUp || thumbsUpButton) && boundThumbsUpButton}
           {(onThumbsDown || thumbsDownButton) && boundThumbsDownButton}
@@ -162,7 +162,7 @@ export function CopilotChatAssistantMessage({
 
   if (children) {
     return (
-      <>
+      <div data-copilotkit style={{ display: "contents" }}>
         {children({
           markdownRenderer: boundMarkdownRenderer,
           toolbar: boundToolbar,
@@ -182,20 +182,20 @@ export function CopilotChatAssistantMessage({
           additionalToolbarItems,
           toolbarVisible: shouldShowToolbar,
         })}
-      </>
+      </div>
     );
   }
 
   return (
     <div
-      className={twMerge(
-        "prose max-w-full break-words dark:prose-invert",
-        className,
-      )}
+      data-copilotkit
+      className={twMerge(className)}
       {...props}
       data-message-id={message.id}
     >
-      {boundMarkdownRenderer}
+      <div className="cpk:prose cpk:max-w-full cpk:break-words cpk:dark:prose-invert">
+        {boundMarkdownRenderer}
+      </div>
       {boundToolCallsView}
       {shouldShowToolbar && boundToolbar}
     </div>
@@ -220,7 +220,7 @@ export namespace CopilotChatAssistantMessage {
   }) => (
     <div
       className={twMerge(
-        "w-full bg-transparent flex items-center -ml-[5px] -mt-[0px]",
+        "cpk:w-full cpk:bg-transparent cpk:flex cpk:items-center cpk:-ml-[5px] cpk:-mt-[0px]",
         className,
       )}
       {...props}
@@ -276,9 +276,9 @@ export namespace CopilotChatAssistantMessage {
         {...props}
       >
         {copied ? (
-          <Check className="size-[18px]" />
+          <Check className="cpk:size-[18px]" />
         ) : (
-          <Copy className="size-[18px]" />
+          <Copy className="cpk:size-[18px]" />
         )}
       </ToolbarButton>
     );
@@ -294,7 +294,7 @@ export namespace CopilotChatAssistantMessage {
         title={title || labels.assistantMessageToolbarThumbsUpLabel}
         {...props}
       >
-        <ThumbsUp className="size-[18px]" />
+        <ThumbsUp className="cpk:size-[18px]" />
       </ToolbarButton>
     );
   };
@@ -309,7 +309,7 @@ export namespace CopilotChatAssistantMessage {
         title={title || labels.assistantMessageToolbarThumbsDownLabel}
         {...props}
       >
-        <ThumbsDown className="size-[18px]" />
+        <ThumbsDown className="cpk:size-[18px]" />
       </ToolbarButton>
     );
   };
@@ -324,7 +324,7 @@ export namespace CopilotChatAssistantMessage {
         title={title || labels.assistantMessageToolbarReadAloudLabel}
         {...props}
       >
-        <Volume2 className="size-[20px]" />
+        <Volume2 className="cpk:size-[20px]" />
       </ToolbarButton>
     );
   };
@@ -339,7 +339,7 @@ export namespace CopilotChatAssistantMessage {
         title={title || labels.assistantMessageToolbarRegenerateLabel}
         {...props}
       >
-        <RefreshCw className="size-[18px]" />
+        <RefreshCw className="cpk:size-[18px]" />
       </ToolbarButton>
     );
   };

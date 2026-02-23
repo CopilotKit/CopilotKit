@@ -13,7 +13,7 @@ const DefaultOpenIcon: React.FC<React.SVGProps<SVGSVGElement>> = ({
   ...props
 }) => (
   <MessageCircle
-    className={cn("h-6 w-6", className)}
+    className={cn("cpk:h-6 cpk:w-6", className)}
     strokeWidth={1.75}
     fill="currentColor"
     {...props}
@@ -23,7 +23,13 @@ const DefaultOpenIcon: React.FC<React.SVGProps<SVGSVGElement>> = ({
 const DefaultCloseIcon: React.FC<React.SVGProps<SVGSVGElement>> = ({
   className,
   ...props
-}) => <X className={cn("h-6 w-6", className)} strokeWidth={1.75} {...props} />;
+}) => (
+  <X
+    className={cn("cpk:h-6 cpk:w-6", className)}
+    strokeWidth={1.75}
+    {...props}
+  />
+);
 
 DefaultOpenIcon.displayName = "CopilotChatToggleButton.OpenIcon";
 DefaultCloseIcon.displayName = "CopilotChatToggleButton.CloseIcon";
@@ -44,17 +50,17 @@ const ICON_TRANSITION_STYLE: React.CSSProperties = Object.freeze({
 });
 
 const ICON_WRAPPER_BASE =
-  "pointer-events-none absolute inset-0 flex items-center justify-center will-change-transform";
+  "cpk:pointer-events-none cpk:absolute cpk:inset-0 cpk:flex cpk:items-center cpk:justify-center cpk:will-change-transform";
 
 const BUTTON_BASE_CLASSES = cn(
-  "fixed bottom-6 right-6 z-[1100] flex h-14 w-14 items-center justify-center",
-  "rounded-full border border-primary bg-primary text-primary-foreground",
-  "shadow-sm transition-all duration-200 ease-out",
-  "hover:scale-[1.04] hover:shadow-md",
-  "cursor-pointer",
-  "active:scale-[0.96]",
-  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
-  "disabled:pointer-events-none disabled:opacity-60",
+  "cpk:fixed cpk:bottom-6 cpk:right-6 cpk:z-[1100] cpk:flex cpk:h-14 cpk:w-14 cpk:items-center cpk:justify-center",
+  "cpk:rounded-full cpk:border cpk:border-primary cpk:bg-primary cpk:text-primary-foreground",
+  "cpk:shadow-sm cpk:transition-all cpk:duration-200 cpk:ease-out",
+  "cpk:hover:scale-[1.04] cpk:hover:shadow-md",
+  "cpk:cursor-pointer",
+  "cpk:active:scale-[0.96]",
+  "cpk:focus-visible:outline-none cpk:focus-visible:ring-2 cpk:focus-visible:ring-primary/50 cpk:focus-visible:ring-offset-2 cpk:focus-visible:ring-offset-background",
+  "cpk:disabled:pointer-events-none cpk:disabled:opacity-60",
 );
 
 export const CopilotChatToggleButton = React.forwardRef<
@@ -92,13 +98,13 @@ export const CopilotChatToggleButton = React.forwardRef<
   };
 
   const renderedOpenIcon = renderSlot(openIcon, DefaultOpenIcon, {
-    className: "h-6 w-6",
+    className: "cpk:h-6 cpk:w-6",
     "aria-hidden": true,
     focusable: false,
   });
 
   const renderedCloseIcon = renderSlot(closeIcon, DefaultCloseIcon, {
-    className: "h-6 w-6",
+    className: "cpk:h-6 cpk:w-6",
     "aria-hidden": true,
     focusable: false,
   });
@@ -137,6 +143,7 @@ export const CopilotChatToggleButton = React.forwardRef<
     <button
       ref={ref}
       type={type ?? "button"}
+      data-copilotkit
       data-slot="chat-toggle-button"
       data-state={isOpen ? "open" : "closed"}
       className={cn(BUTTON_BASE_CLASSES, className)}

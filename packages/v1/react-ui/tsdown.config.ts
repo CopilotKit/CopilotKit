@@ -18,6 +18,7 @@ export default defineConfig([
       customExports: (exports) => ({
         ...exports,
         "./styles.css": "./dist/index.css",
+        "./v2/styles.css": "./dist/v2/index.css",
       }),
     },
   },

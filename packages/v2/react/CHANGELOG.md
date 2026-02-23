@@ -1,5 +1,30 @@
 # @copilotkitnext/react
 
+## 1.52.0-next.6
+
+### Patch Changes
+
+- 2007f8b: feat: useComponent improvements
+  - @copilotkitnext/core@1.52.0-next.6
+  - @copilotkitnext/shared@1.52.0-next.6
+  - @copilotkitnext/web-inspector@1.52.0-next.6
+
+## 1.52.0-next.5
+
+### Patch Changes
+
+- @copilotkitnext/core@1.52.0-next.5
+- @copilotkitnext/shared@1.52.0-next.5
+- @copilotkitnext/web-inspector@1.52.0-next.5
+
+## 1.51.5-next.4
+
+### Patch Changes
+
+- @copilotkitnext/core@1.51.5-next.4
+- @copilotkitnext/shared@1.51.5-next.4
+- @copilotkitnext/web-inspector@1.51.5-next.4
+
 ## 1.51.5-next.3
 
 ### Patch Changes

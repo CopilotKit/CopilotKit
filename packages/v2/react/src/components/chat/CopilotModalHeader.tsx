@@ -63,18 +63,20 @@ export function CopilotModalHeader({
     <header
       data-slot="copilot-modal-header"
       className={cn(
-        "flex items-center justify-between border-b border-border px-4 py-4",
-        "bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80",
+        "cpk:flex cpk:items-center cpk:justify-between cpk:border-b cpk:border-border cpk:px-4 cpk:py-4",
+        "cpk:bg-background/95 cpk:backdrop-blur cpk:supports-[backdrop-filter]:bg-background/80",
         className,
       )}
       {...rest}
     >
-      <div className="flex w-full items-center gap-2">
-        <div className="flex-1" aria-hidden="true" />
-        <div className="flex flex-1 justify-center text-center">
+      <div className="cpk:flex cpk:w-full cpk:items-center cpk:gap-2">
+        <div className="cpk:flex-1" aria-hidden="true" />
+        <div className="cpk:flex cpk:flex-1 cpk:justify-center cpk:text-center">
           {BoundTitle}
         </div>
-        <div className="flex flex-1 justify-end">{BoundCloseButton}</div>
+        <div className="cpk:flex cpk:flex-1 cpk:justify-end">
+          {BoundCloseButton}
+        </div>
       </div>
     </header>
   );
@@ -90,7 +92,7 @@ export namespace CopilotModalHeader {
   }) => (
     <div
       className={cn(
-        "w-full text-base font-medium leading-none tracking-tight text-foreground",
+        "cpk:w-full cpk:text-base cpk:font-medium cpk:leading-none cpk:tracking-tight cpk:text-foreground",
         className,
       )}
       {...props}
@@ -105,14 +107,14 @@ export namespace CopilotModalHeader {
     <button
       type="button"
       className={cn(
-        "inline-flex size-8 items-center justify-center rounded-full text-muted-foreground transition cursor-pointer",
-        "hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+        "cpk:inline-flex cpk:size-8 cpk:items-center cpk:justify-center cpk:rounded-full cpk:text-muted-foreground cpk:transition cpk:cursor-pointer",
+        "cpk:hover:bg-muted cpk:hover:text-foreground cpk:focus-visible:outline-none cpk:focus-visible:ring-2 cpk:focus-visible:ring-ring",
         className,
       )}
       aria-label="Close"
       {...props}
     >
-      <X className="h-4 w-4" aria-hidden="true" />
+      <X className="cpk:h-4 cpk:w-4" aria-hidden="true" />
     </button>
   );
 }

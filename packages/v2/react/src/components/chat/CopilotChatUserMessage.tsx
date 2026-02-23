@@ -139,7 +139,7 @@ export function CopilotChatUserMessage({
 
   const BoundToolbar = renderSlot(toolbar, CopilotChatUserMessage.Toolbar, {
     children: (
-      <div className="flex items-center gap-1 justify-end">
+      <div className="cpk:flex cpk:items-center cpk:gap-1 cpk:justify-end">
         {additionalToolbarItems}
         {BoundCopyButton}
         {onEditMessage && BoundEditButton}
@@ -150,7 +150,7 @@ export function CopilotChatUserMessage({
 
   if (children) {
     return (
-      <>
+      <div data-copilotkit style={{ display: "contents" }}>
         {children({
           messageRenderer: BoundMessageRenderer,
           toolbar: BoundToolbar,
@@ -162,13 +162,17 @@ export function CopilotChatUserMessage({
           numberOfBranches,
           additionalToolbarItems,
         })}
-      </>
+      </div>
     );
   }
 
   return (
     <div
-      className={twMerge("flex flex-col items-end group pt-10", className)}
+      data-copilotkit
+      className={twMerge(
+        "cpk:flex cpk:flex-col cpk:items-end cpk:group cpk:pt-10",
+        className,
+      )}
       data-message-id={message.id}
       {...props}
     >
@@ -184,7 +188,10 @@ export namespace CopilotChatUserMessage {
     React.PropsWithChildren<React.HTMLAttributes<HTMLDivElement>>
   > = ({ children, className, ...props }) => (
     <div
-      className={twMerge("flex flex-col items-end group", className)}
+      className={twMerge(
+        "cpk:flex cpk:flex-col cpk:items-end cpk:group",
+        className,
+      )}
       {...props}
     >
       {children}
@@ -197,7 +204,7 @@ export namespace CopilotChatUserMessage {
   }> = ({ content, className }) => (
     <div
       className={twMerge(
-        "prose dark:prose-invert bg-muted relative max-w-[80%] rounded-[18px] px-4 py-1.5 data-[multiline]:py-3 inline-block whitespace-pre-wrap",
+        "cpk:prose cpk:dark:prose-invert cpk:bg-muted cpk:relative cpk:max-w-[80%] cpk:rounded-[18px] cpk:px-4 cpk:py-1.5 cpk:data-[multiline]:py-3 cpk:inline-block cpk:whitespace-pre-wrap",
         className,
       )}
     >
@@ -211,7 +218,7 @@ export namespace CopilotChatUserMessage {
   }) => (
     <div
       className={twMerge(
-        "w-full bg-transparent flex items-center justify-end -mr-[5px] mt-[4px] invisible group-hover:visible",
+        "cpk:w-full cpk:bg-transparent cpk:flex cpk:items-center cpk:justify-end cpk:-mr-[5px] cpk:mt-[4px] cpk:invisible cpk:group-hover:visible",
         className,
       )}
       {...props}
@@ -268,9 +275,9 @@ export namespace CopilotChatUserMessage {
         {...props}
       >
         {copied ? (
-          <Check className="size-[18px]" />
+          <Check className="cpk:size-[18px]" />
         ) : (
-          <Copy className="size-[18px]" />
+          <Copy className="cpk:size-[18px]" />
         )}
       </ToolbarButton>
     );
@@ -287,7 +294,7 @@ export namespace CopilotChatUserMessage {
         className={className}
         {...props}
       >
-        <Edit className="size-[18px]" />
+        <Edit className="cpk:size-[18px]" />
       </ToolbarButton>
     );
   };
@@ -317,7 +324,10 @@ export namespace CopilotChatUserMessage {
     const canGoNext = currentBranch < numberOfBranches - 1;
 
     return (
-      <div className={twMerge("flex items-center gap-1", className)} {...props}>
+      <div
+        className={twMerge("cpk:flex cpk:items-center cpk:gap-1", className)}
+        {...props}
+      >
         <Button
           type="button"
           variant="assistantMessageToolbarButton"
@@ -329,11 +339,11 @@ export namespace CopilotChatUserMessage {
             })
           }
           disabled={!canGoPrev}
-          className="h-6 w-6 p-0"
+          className="cpk:h-6 cpk:w-6 cpk:p-0"
         >
-          <ChevronLeft className="size-[20px]" />
+          <ChevronLeft className="cpk:size-[20px]" />
         </Button>
-        <span className="text-sm text-muted-foreground px-0 font-medium">
+        <span className="cpk:text-sm cpk:text-muted-foreground cpk:px-0 cpk:font-medium">
           {currentBranch + 1}/{numberOfBranches}
         </span>
         <Button
@@ -347,9 +357,9 @@ export namespace CopilotChatUserMessage {
             })
           }
           disabled={!canGoNext}
-          className="h-6 w-6 p-0"
+          className="cpk:h-6 cpk:w-6 cpk:p-0"
         >
-          <ChevronRight className="size-[20px]" />
+          <ChevronRight className="cpk:size-[20px]" />
         </Button>
       </div>
     );

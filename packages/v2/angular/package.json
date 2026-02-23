@@ -1,6 +1,6 @@
 {
   "name": "@copilotkitnext/angular",
-  "version": "1.51.5-next.3",
+  "version": "1.52.0-next.6",
   "description": "Angular library for CopilotKit",
   "main": "dist/fesm2022/copilotkitnext-angular.mjs",
   "module": "dist/fesm2022/copilotkitnext-angular.mjs",
@@ -14,7 +14,7 @@
   },
   "scripts": {
     "build": "ng-packagr -p ng-package.json && npm run build:css",
-    "build:css": "tailwindcss -i ./src/styles/globals.css -o ./dist/styles.css",
+    "build:css": "tailwindcss -i ./src/styles/globals.css -o ./dist/styles.css && node scripts/scope-preflight.mjs ./dist/styles.css",
     "dev": "concurrently \"ng-packagr -p ng-package.json --watch\" \"npm run dev:css\"",
     "dev:css": "tailwindcss -i ./src/styles/globals.css -o ./dist/styles.css --watch",
     "lint": "eslint .",

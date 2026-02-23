@@ -280,7 +280,7 @@ export function CopilotChat({
 
   // Memoize messages array - only create new reference when content actually changes
   // (agent.messages is mutated in place, so we need a new reference for React to detect changes)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+
   const messages = useMemo(
     () => [...agent.messages],
     [JSON.stringify(agent.messages)],

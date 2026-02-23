@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 
 import CopilotChatView, {
   CopilotChatViewProps,
@@ -105,6 +105,37 @@ function CopilotSidebarViewInternal({
     return () => window.removeEventListener("resize", updateWidth);
   }, [width]);
 
+  // Manage body margin for sidebar docking (desktop only).
+  // useLayoutEffect runs before paint, so defaultOpen={true} never causes a
+  // visible layout shift — the margin is already applied on the first frame.
+  const hasMounted = useRef(false);
+
+  useLayoutEffect(() => {
+    if (
+      typeof window === "undefined" ||
+      typeof window.matchMedia !== "function"
+    )
+      return;
+    if (!window.matchMedia("(min-width: 768px)").matches) return;
+
+    if (isSidebarOpen) {
+      if (hasMounted.current) {
+        document.body.style.transition = `margin-inline-end ${SIDEBAR_TRANSITION_MS}ms ease`;
+      }
+      document.body.style.marginInlineEnd = widthToMargin(sidebarWidth);
+    } else if (hasMounted.current) {
+      document.body.style.transition = `margin-inline-end ${SIDEBAR_TRANSITION_MS}ms ease`;
+      document.body.style.marginInlineEnd = "";
+    }
+
+    hasMounted.current = true;
+
+    return () => {
+      document.body.style.marginInlineEnd = "";
+      document.body.style.transition = "";
+    };
+  }, [isSidebarOpen, sidebarWidth]);
+
   const headerElement = renderSlot(header, CopilotModalHeader, {});
   const toggleButtonElement = renderSlot(
     toggleButton,
@@ -114,34 +145,22 @@ function CopilotSidebarViewInternal({
 
   return (
     <>
-      {isSidebarOpen && (
-        <style
-          dangerouslySetInnerHTML={{
-            __html: `
-            @media (min-width: 768px) {
-              body {
-                margin-inline-end: ${widthToMargin(sidebarWidth)};
-                transition: margin-inline-end ${SIDEBAR_TRANSITION_MS}ms ease;
-              }
-            }`,
-          }}
-        />
-      )}
       {toggleButtonElement}
       <aside
         ref={sidebarRef}
+        data-copilotkit
         data-copilot-sidebar
         className={cn(
-          "fixed right-0 top-0 z-[1200] flex",
+          "cpk:fixed cpk:right-0 cpk:top-0 cpk:z-[1200] cpk:flex",
           // Height with dvh fallback and safe area support
-          "h-[100vh] h-[100dvh] max-h-screen",
+          "cpk:h-[100vh] cpk:h-[100dvh] cpk:max-h-screen",
           // Responsive width: full on mobile, custom on desktop
-          "w-full",
-          "border-l border-border bg-background text-foreground shadow-xl",
-          "transition-transform duration-300 ease-out",
+          "cpk:w-full",
+          "cpk:border-l cpk:border-border cpk:bg-background cpk:text-foreground cpk:shadow-xl",
+          "cpk:transition-transform cpk:duration-300 cpk:ease-out",
           isSidebarOpen
-            ? "translate-x-0"
-            : "translate-x-full pointer-events-none",
+            ? "cpk:translate-x-0"
+            : "cpk:translate-x-full cpk:pointer-events-none",
         )}
         style={
           {
@@ -156,9 +175,9 @@ function CopilotSidebarViewInternal({
         aria-label="Copilot chat sidebar"
         role="complementary"
       >
-        <div className="flex h-full w-full flex-col overflow-hidden">
+        <div className="cpk:flex cpk:h-full cpk:w-full cpk:flex-col cpk:overflow-hidden">
           {headerElement}
-          <div className="flex-1 overflow-hidden" data-sidebar-chat>
+          <div className="cpk:flex-1 cpk:overflow-hidden" data-sidebar-chat>
             <CopilotChatView {...props} />
           </div>
         </div>
@@ -194,7 +213,7 @@ export namespace CopilotSidebarView {
 
     if (children) {
       return (
-        <>
+        <div data-copilotkit style={{ display: "contents" }}>
           {children({
             welcomeMessage: BoundWelcomeMessage,
             input,
@@ -202,22 +221,27 @@ export namespace CopilotSidebarView {
             className,
             ...props,
           })}
-        </>
+        </div>
       );
     }
 
     return (
-      <div className={cn("h-full flex flex-col", className)} {...props}>
+      <div
+        className={cn("cpk:h-full cpk:flex cpk:flex-col", className)}
+        {...props}
+      >
         {/* Welcome message - centered vertically */}
-        <div className="flex-1 flex flex-col items-center justify-center px-4">
+        <div className="cpk:flex-1 cpk:flex cpk:flex-col cpk:items-center cpk:justify-center cpk:px-4">
           {BoundWelcomeMessage}
         </div>
 
         {/* Suggestions and input at bottom */}
-        <div className="px-8 pb-4">
-          <div className="max-w-3xl mx-auto">
+        <div className="cpk:px-8 cpk:pb-4">
+          <div className="cpk:max-w-3xl cpk:mx-auto">
             {/* Suggestions above input */}
-            <div className="mb-4 flex justify-center">{suggestionView}</div>
+            <div className="cpk:mb-4 cpk:flex cpk:justify-center">
+              {suggestionView}
+            </div>
             {input}
           </div>
         </div>
