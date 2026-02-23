@@ -310,7 +310,7 @@ export interface UseCopilotChatReturn {
   isLoadingSuggestions: boolean;
 
   /** Interrupt content for human-in-the-loop workflows */
-  interrupt: React.ReactElement | null;
+  interrupt: string | React.ReactElement | null;
 
   agent?: ReturnType<typeof useAgent>["agent"];
 
@@ -363,16 +363,7 @@ export function useCopilotChatInternal({
     onInProgress?.(Boolean(agent?.isRunning));
   }, [agent?.isRunning, onInProgress]);
 
-  const [interrupt, setInterrupt] = useState<React.ReactElement | null>(null);
-  useEffect(() => {
-    setInterrupt(copilotkit.interruptElement);
-    const subscription = copilotkit.subscribe({
-      onInterruptElementChanged: ({ interruptElement }) => {
-        setInterrupt(interruptElement);
-      },
-    });
-    return () => subscription.unsubscribe();
-  }, [copilotkit]);
+  const interrupt = useLangGraphInterruptRender(agent);
 
   const reset = () => {
     agent?.setMessages([]);
