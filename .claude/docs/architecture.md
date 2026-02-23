@@ -47,22 +47,29 @@ V2 (`@copilotkitnext/`) is the real implementation. V1 (`@copilotkit/`) is the p
 ## Core Concepts
 
 ### AG-UI Protocol
+
 All agent↔UI communication is event-based. Events follow a structured lifecycle: `RUN_STARTED` → `STEP_STARTED` → message/tool events → `STEP_FINISHED` → `RUN_FINISHED`. Events are streamed over SSE and validated with Zod schemas. The `EventType` enum in `@ag-ui/core` defines all event types.
 
 ### ProxiedAgent
+
 The frontend representation of a remote agent. Implements the `AbstractAgent` interface but translates calls into HTTP requests to the runtime, streaming SSE events back. Created automatically when the runtime reports available agents.
 
 ### AgentRunner
+
 An abstract class on the runtime side responsible for managing thread state (conversation history, agent state). The default `InMemoryAgentRunner` is ephemeral; `SQLiteAgentRunner` provides persistence. Custom runners can be built for any storage backend.
 
 ### Tool Registration
+
 Tools can be **frontend tools** (handler runs in the browser, registered via `useFrontendTool`) or **backend tools** (handler runs on the server, defined in the agent config). Tools can be scoped to a specific agent via `agentId`, or available to all agents by omitting it.
 
 ### Context
+
 Application data sent alongside messages to give agents awareness of the current UI state. Registered via `useAgentContext(description, data)` where data is any JSON-serializable value. Automatically included in every agent run.
 
 ### Multi-Agent
+
 Multiple agents can be registered in a single `CopilotRuntime`. Each agent gets its own endpoint, message thread, state, and optionally scoped tools. The frontend selects which agent to interact with via `useAgent({ agentId })`.
 
 ### Middleware
+
 `CopilotRuntime` supports `beforeRequestMiddleware` and `afterRequestMiddleware` for cross-cutting concerns like authentication, logging, and request/response transformation.
