@@ -4,7 +4,7 @@ import {
   RunAgentInputSchema,
 } from "@ag-ui/client";
 import { EventEncoder } from "@ag-ui/encoder";
-import { CopilotRuntime } from "../runtime";
+import { CopilotRuntime } from "../core/runtime";
 import { extractForwardableHeaders } from "./header-utils";
 
 interface RunAgentParameters {

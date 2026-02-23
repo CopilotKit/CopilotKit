@@ -2,7 +2,7 @@ import { Observable } from "rxjs";
 import { describe, it, expect, vi } from "vitest";
 import { AbstractAgent, BaseEvent, HttpAgent } from "@ag-ui/client";
 import { handleRunAgent } from "../handlers/handle-run";
-import { CopilotRuntime } from "../runtime";
+import { CopilotRuntime } from "../core/runtime";
 
 describe("handleRunAgent", () => {
   const createMockRuntime = (

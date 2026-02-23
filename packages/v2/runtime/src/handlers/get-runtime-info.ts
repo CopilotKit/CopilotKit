@@ -1,6 +1,6 @@
-import { CopilotRuntime } from "../runtime";
+import { CopilotRuntime } from "../core/runtime";
 import { AgentDescription, RuntimeInfo } from "@copilotkitnext/shared";
-import { VERSION } from "../runtime";
+import { VERSION } from "../core/runtime";
 
 interface HandleGetRuntimeInfoParameters {
   runtime: CopilotRuntime;

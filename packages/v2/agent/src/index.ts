@@ -41,13 +41,17 @@ import { Observable } from "rxjs";
 import { createOpenAI } from "@ai-sdk/openai";
 import { createAnthropic } from "@ai-sdk/anthropic";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
-import { randomUUID } from "crypto";
+ 
 import { z } from "zod";
 import {
   StreamableHTTPClientTransport,
   StreamableHTTPClientTransportOptions,
 } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
+import { randomUUID } from "./uuid.js";
+
+ 
+ 
 
 /**
  * Properties that can be overridden by forwardedProps

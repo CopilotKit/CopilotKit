@@ -14,6 +14,14 @@
       "import": "./dist/express.mjs",
       "require": "./dist/express.cjs"
     },
+    "./hono": {
+      "import": "./dist/hono.mjs",
+      "require": "./dist/hono.cjs"
+    },
+    "./node": {
+      "import": "./dist/node.mjs",
+      "require": "./dist/node.cjs"
+    },
     "./package.json": "./package.json"
   },
   "publishConfig": {
@@ -47,18 +55,29 @@
     "@ag-ui/core": "0.0.45",
     "@ag-ui/encoder": "0.0.45",
     "@copilotkitnext/shared": "workspace:*",
-    "cors": "^2.8.5",
-    "express": "^4.21.2",
-    "hono": "^4.11.4",
+    "@remix-run/node-fetch-server": "^0.13.0",
     "rxjs": "7.8.1"
   },
   "peerDependencies": {
     "@ag-ui/client": "0.0.45",
     "@ag-ui/core": "0.0.45",
     "@ag-ui/encoder": "0.0.45",
-    "@copilotkitnext/shared": "workspace:*"
+    "@copilotkitnext/shared": "workspace:*",
+    "cors": "^2.8.5",
+    "express": "^4.21.2",
+    "hono": "^4.11.4"
   },
-  "peerDependenciesMeta": {},
+  "peerDependenciesMeta": {
+    "cors": {
+      "optional": true
+    },
+    "express": {
+      "optional": true
+    },
+    "hono": {
+      "optional": true
+    }
+  },
   "engines": {
     "node": ">=18"
   },

@@ -1,5 +1,5 @@
 import { handleGetRuntimeInfo } from "../handlers/get-runtime-info";
-import { CopilotRuntime } from "../runtime";
+import { CopilotRuntime } from "../core/runtime";
 import { TranscriptionService } from "../transcription-service/transcription-service";
 import { describe, it, expect } from "vitest";
 import type { AbstractAgent } from "@ag-ui/client";
