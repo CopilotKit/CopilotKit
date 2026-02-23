@@ -13,7 +13,7 @@ import { Message } from "@copilotkit/shared";
 import {
   gqlToAGUI,
   Message as DeprecatedGqlMessage,
-} from "@copilotkit/runtime-client-gql"; 
+} from "@copilotkit/runtime-client-gql";
 import {
   useAgent,
   useCopilotChatConfiguration,

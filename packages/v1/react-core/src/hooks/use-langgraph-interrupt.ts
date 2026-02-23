@@ -1,6 +1,9 @@
 import React, { useCallback, useRef } from "react";
 import { LangGraphInterruptRender } from "../types/interrupt-action";
-import { useInterrupt, useCopilotChatConfiguration } from "@copilotkitnext/react";
+import {
+  useInterrupt,
+  useCopilotChatConfiguration,
+} from "@copilotkitnext/react";
 import type {
   InterruptEvent,
   InterruptRenderProps,
@@ -85,16 +88,13 @@ export function useLangGraphInterrupt<TEventValue = any>(
     [],
   );
 
-  const enabled = useCallback(
-    (event: InterruptEvent<TEventValue>) => {
-      if (!actionRef.current.enabled) return true;
-      return actionRef.current.enabled({
-        eventValue: toV1Event(event).value,
-        agentMetadata: metadataRef.current,
-      });
-    },
-    [],
-  );
+  const enabled = useCallback((event: InterruptEvent<TEventValue>) => {
+    if (!actionRef.current.enabled) return true;
+    return actionRef.current.enabled({
+      eventValue: toV1Event(event).value,
+      agentMetadata: metadataRef.current,
+    });
+  }, []);
 
   useInterrupt({
     render,
