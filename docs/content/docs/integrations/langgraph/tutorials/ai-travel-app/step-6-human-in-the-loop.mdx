@@ -132,8 +132,8 @@ we'll be adding `useCopilotAction` hooks for each tool call with the `renderAndW
 ```typescript title="ui/lib/hooks/use-trips.tsx"
 // ...
 import { AddTrips, EditTrips, DeleteTrips } from "@/components/humanInTheLoop"; // [!code ++]
-import { useCoAgent, useCoAgentStateRender } from "@copilotkit/react-core"; // [!code --]
-import { useCoAgent, useCoAgentStateRender, useCopilotAction } from "@copilotkit/react-core"; // [!code ++]
+import { useAgent, useCoAgentStateRender } from "@copilotkit/react-core/v2"; // [!code --]
+import { useAgent, useCoAgentStateRender, useFrontendTool } from "@copilotkit/react-core/v2"; // [!code ++]
 // ...
 
 export const TripsProvider = ({ children }: { children: ReactNode }) => {
@@ -147,7 +147,7 @@ export const TripsProvider = ({ children }: { children: ReactNode }) => {
   });
 
   // [!code ++:42]
-  useCopilotAction({ 
+  useFrontendTool({
     name: "add_trips",
     description: "Add some trips",
     parameters: [
@@ -161,7 +161,7 @@ export const TripsProvider = ({ children }: { children: ReactNode }) => {
     renderAndWait: AddTrips,
   });
 
-  useCopilotAction({
+  useFrontendTool({
     name: "update_trips",
     description: "Update some trips",
     parameters: [
@@ -175,7 +175,7 @@ export const TripsProvider = ({ children }: { children: ReactNode }) => {
     renderAndWait: EditTrips,
   });
 
-  useCopilotAction({
+  useFrontendTool({
     name: "delete_trips",
     description: "Delete some trips",
     parameters: [
@@ -207,7 +207,7 @@ import { Trip } from "@/lib/types";
 import { PlaceCard } from "@/components/PlaceCard";
 import { X, Trash } from "lucide-react";
 import { ActionButtons } from "./ActionButtons"; // [!code highlight]
-import { RenderFunctionStatus } from "@copilotkit/react-core";
+import { RenderFunctionStatus } from "@copilotkit/react-core/v2";
 
 export type DeleteTripsProps = {
   args: any;
@@ -253,7 +253,7 @@ As you can see, this is a fairly standard component that renders the trips that 
 component. Let's take a look at it.
 
 ```tsx title="ui/lib/components/humanInTheLoop/ActionButtons.tsx"
-import { RenderFunctionStatus } from "@copilotkit/react-core";
+import { RenderFunctionStatus } from "@copilotkit/react-core/v2";
 import { Button } from "../ui/button";
 
 export type ActionButtonsProps = {

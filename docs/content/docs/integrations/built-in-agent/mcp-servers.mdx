@@ -1,0 +1,130 @@
+---
+title: "MCP Servers"
+icon: "lucide/Plug"
+description: "Connect MCP servers to your Built-in Agent."
+---
+
+## What are MCP Servers?
+
+MCP (Model Context Protocol) servers provide additional tools and capabilities to your agent. The Built-in Agent supports connecting to MCP servers via **HTTP** or **SSE** transports.
+
+## When should I use this?
+
+- You want to connect your agent to existing MCP-compatible tool servers
+- You need to add capabilities from third-party MCP providers
+- You want to share tools across multiple agents or applications
+
+## SSE transport
+
+The SSE (Server-Sent Events) transport is the most common option:
+
+```typescript title="src/copilotkit.ts"
+import { BuiltInAgent } from "@copilotkit/runtime/v2";
+
+const builtInAgent = new BuiltInAgent({
+  model: "openai:gpt-5.2",
+  mcpServers: [
+    {
+      type: "sse", // [!code highlight]
+      url: "https://my-mcp-server.example.com/sse",
+    },
+  ],
+});
+```
+
+### Authentication headers
+
+Pass custom headers for authentication:
+
+```typescript
+const builtInAgent = new BuiltInAgent({
+  model: "openai:gpt-5.2",
+  mcpServers: [
+    {
+      type: "sse",
+      url: "https://my-mcp-server.example.com/sse",
+      headers: { // [!code highlight:3]
+        Authorization: `Bearer ${process.env.MCP_API_KEY}`,
+      },
+    },
+  ],
+});
+```
+
+## HTTP transport
+
+The HTTP (Streamable HTTP) transport uses standard HTTP requests:
+
+```typescript
+const builtInAgent = new BuiltInAgent({
+  model: "openai:gpt-5.2",
+  mcpServers: [
+    {
+      type: "http", // [!code highlight]
+      url: "https://my-mcp-server.example.com/mcp",
+    },
+  ],
+});
+```
+
+The HTTP transport also accepts optional `options` for advanced configuration of the underlying `StreamableHTTPClientTransport`.
+
+## Multiple servers
+
+Connect multiple MCP servers — tools from all servers are available to the agent:
+
+```typescript
+const builtInAgent = new BuiltInAgent({
+  model: "openai:gpt-5.2",
+  mcpServers: [
+    {
+      type: "sse",
+      url: "https://search-mcp.example.com/sse",
+    },
+    {
+      type: "sse",
+      url: "https://db-mcp.example.com/sse",
+      headers: { Authorization: `Bearer ${process.env.DB_MCP_KEY}` },
+    },
+    {
+      type: "http",
+      url: "https://analytics-mcp.example.com/mcp",
+    },
+  ],
+});
+```
+
+## Combining with server tools
+
+MCP servers work alongside `defineTool` server tools — the agent sees all tools from both sources:
+
+```typescript
+import { BuiltInAgent, defineTool } from "@copilotkit/runtime/v2";
+import { z } from "zod";
+
+const customTool = defineTool({
+  name: "getUser",
+  description: "Get the current user",
+  parameters: z.object({}),
+  execute: async () => {
+    return { name: "Jane", role: "Admin" };
+  },
+});
+
+const builtInAgent = new BuiltInAgent({
+  model: "openai:gpt-5.2",
+  tools: [customTool], // Your custom tools
+  mcpServers: [        // Plus tools from MCP servers
+    { type: "sse", url: "https://search-mcp.example.com/sse" },
+  ],
+});
+```
+
+## Transport reference
+
+| Property | SSE | HTTP | Description |
+|----------|-----|------|-------------|
+| `type` | `"sse"` | `"http"` | Transport type |
+| `url` | string | string | MCP server URL |
+| `headers` | `Record<string, string>` | — | Custom HTTP headers (SSE only) |
+| `options` | — | `StreamableHTTPClientTransportOptions` | Transport options (HTTP only) |

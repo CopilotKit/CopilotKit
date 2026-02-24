@@ -21,7 +21,7 @@ import { IframeSwitcher } from "@/components/content"
 Frontend tools enable you to define client-side functions that your Pydantic AI agent can invoke, with execution happening entirely in the user's browser. When your agent calls a frontend tool,
 the logic runs on the client side, giving you direct access to the frontend environment.
 
-This can be utilized to let [your agent control the UI](/pydantic-ai/frontend-actions), [generative UI](/pydantic-ai/generative-ui/frontend-tools), or for Human-in-the-loop interactions.
+This can be utilized to let [your agent control the UI](/pydantic-ai/frontend-tools), [generative UI](/pydantic-ai/frontend-tools), or for Human-in-the-loop interactions.
 
 In this guide, we cover the use of frontend tools for Human-in-the-loop.
 
@@ -52,7 +52,7 @@ Use frontend tools when you need your agent to interact with client-side primiti
         prompts the user for approval.
 
         ```tsx title="page.tsx"
-        import { useHumanInTheLoop } from "@copilotkit/react-core" // [!code highlight]
+        import { useHumanInTheLoop } from "@copilotkit/react-core/v2" // [!code highlight]
 
         export function Page() {
           // ...
@@ -98,7 +98,7 @@ Use frontend tools when you need your agent to interact with client-side primiti
         ```python title="agent.py"
         from pydantic_ai import Agent
 
-        agent = Agent('openai:gpt-4o-mini')
+        agent = Agent('openai:gpt-5.2-mini')
         app = agent.to_ag_ui()
         ```
 

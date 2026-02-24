@@ -57,17 +57,17 @@ of everything that has happened during a HITL interaction.
     </Step>
 
     <Step>
-        ### Add a `useCopilotAction` to your Frontend
+        ### Add a `useFrontendTool` to your Frontend
         First, we'll create a component that renders the agent's essay draft and waits for user approval.
 
         ```tsx title="ui/app/page.tsx"
-        import { useCopilotAction } from "@copilotkit/react-core"
-        import { Markdown } from "@copilotkit/react-ui"
+        import { useFrontendTool } from "@copilotkit/react-core/v2"
+        import { Markdown } from "@copilotkit/react-core/v2"
 
         function YourMainContent() {
           // ...
 
-          useCopilotAction({
+          useFrontendTool({
             name: "writeEssay",
             available: "remote",
             description: "Writes an essay and takes the draft as an argument.",
@@ -182,7 +182,7 @@ of everything that has happened during a HITL interaction.
 
                 response = await copilotkit_stream(
                     completion(
-                        model="openai/gpt-4o",
+                        model="openai/gpt-5.2",
                         messages=[system_message, *messages],
                         tools=self.state["copilotkit"]["actions"],
                         stream=True

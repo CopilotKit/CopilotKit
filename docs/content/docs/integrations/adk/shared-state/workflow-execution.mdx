@@ -127,8 +127,8 @@ In addition, some state properties contain a lot of information. Syncing them ba
 
     ```tsx title="ui/app/page.tsx"
     "use client";
-    
-    import { useCoAgent } from "@copilotkit/react-core";
+
+    import { useAgent } from "@copilotkit/react-core/v2";
 
     // Only define the types for state you'll interact with
     type AgentState = {
@@ -138,7 +138,7 @@ In addition, some state properties contain a lot of information. Syncing them ba
     }
 
     function YourMainContent() {
-      const { state, setState } = useCoAgent<AgentState>({
+      const { agentState, setAgentState } = useAgent<AgentState>({
         name: "my_agent",
         initialState: {
           question: "How's the weather in SF?",
@@ -147,14 +147,14 @@ In addition, some state properties contain a lot of information. Syncing them ba
       });
 
       const askQuestion = (newQuestion: string) => {
-        setState({ ...state, question: newQuestion });
+        setAgentState({ ...agentState, question: newQuestion });
       };
 
       return (
         <div>
           <h1>Q&A Assistant</h1>
-          <p><strong>Question:</strong> {state.question}</p>
-          <p><strong>Answer:</strong> {state.answer || "Waiting for response..."}</p>
+          <p><strong>Question:</strong> {agentState.question}</p>
+          <p><strong>Answer:</strong> {agentState.answer || "Waiting for response..."}</p>
           <button onClick={() => askQuestion("What's the capital of France?")}>
             Ask New Question
           </button>

@@ -18,7 +18,6 @@ import { AgentSpecMarkIcon, A2AIcon } from "@/lib/icons/custom-icons";
 import AdkIcon from "../ui/icons/adk";
 import Ag2Icon from "../ui/icons/ag2";
 import CrewaiIcon from "../ui/icons/crewai";
-import DirectToLlmIcon from "../ui/icons/direct-to-llm";
 import LanggraphIcon from "../ui/icons/langgraph";
 import LlamaIndexIcon from "../ui/icons/llama-index";
 import MastraIcon from "../ui/icons/mastra";
@@ -32,25 +31,25 @@ const INTEGRATION_ICONS: Record<
   IntegrationId,
   ComponentType<{ className?: string }>
 > = {
-  a2a: A2AIcon,
-  adk: AdkIcon,
-  ag2: Ag2Icon,
-  "agent-spec": AgentSpecMarkIcon,
-  agno: AgnoIcon,
-  "crewai-flows": CrewaiIcon,
-  "crewai-crews": CrewaiIcon,
-  "direct-to-llm": DirectToLlmIcon,
+  "built-in-agent": () => <p>🪁</p>,
   langgraph: LanggraphIcon,
-  llamaindex: LlamaIndexIcon,
-  mastra: MastraIcon,
-  "pydantic-ai": PydanticAiIcon,
+  adk: AdkIcon,
   "microsoft-agent-framework": MicrosoftIcon,
   "aws-strands": AwsStrandsIcon,
+  mastra: MastraIcon,
+  "pydantic-ai": PydanticAiIcon,
+  "crewai-flows": CrewaiIcon,
+  agno: AgnoIcon,
+  ag2: Ag2Icon,
+  "agent-spec": AgentSpecMarkIcon,
+  llamaindex: LlamaIndexIcon,
+  a2a: A2AIcon,
 };
 
 interface Integration {
   id: IntegrationId;
   label: string;
+  description: string;
   Icon: ComponentType<{ className?: string }>;
   href: string;
 }
@@ -61,6 +60,7 @@ const INTEGRATIONS: Integration[] = INTEGRATION_ORDER.map((id) => {
   return {
     id,
     label: meta.label,
+    description: meta.description,
     Icon: INTEGRATION_ICONS[id],
     href: meta.href,
   };
@@ -68,12 +68,16 @@ const INTEGRATIONS: Integration[] = INTEGRATION_ORDER.map((id) => {
 
 interface IntegrationsGridProps {
   targetPage?: string;
+  route?: string;
   suppressDirectToLLM?: boolean;
+  variant?: "default" | "simple";
 }
 
 const IntegrationsGrid: React.FC<IntegrationsGridProps> = ({
   targetPage,
+  route,
   suppressDirectToLLM = false,
+  variant = "default",
 }) => {
   const hasTargetPage = (
     integration: Integration,
@@ -88,17 +92,19 @@ const IntegrationsGrid: React.FC<IntegrationsGridProps> = ({
   };
 
   const getHref = (integration: Integration) => {
-    if (!targetPage) {
-      return integration.href;
+    if (targetPage) {
+      // Special case: direct-to-llm has pages in /guides/ subdirectory
+      if (integration.id === "built-in-agent") {
+        return `${integration.href}/guides/${targetPage}`;
+      }
+      return `${integration.href}/${targetPage}`;
     }
 
-    // Special case: direct-to-llm has pages in /guides/ subdirectory
-    if (integration.id === "direct-to-llm") {
-      return `${integration.href}/guides/${targetPage}`;
+    if (route) {
+      return `${integration.href}/${route}`;
     }
 
-    // For all other frameworks, append the target page
-    return `${integration.href}/${targetPage}`;
+    return integration.href;
   };
 
   let filteredIntegrations = INTEGRATIONS;
@@ -106,7 +112,7 @@ const IntegrationsGrid: React.FC<IntegrationsGridProps> = ({
   // Filter out Direct to LLM if suppressed
   if (suppressDirectToLLM) {
     filteredIntegrations = filteredIntegrations.filter(
-      (integration) => integration.id !== "direct-to-llm",
+      (integration) => integration.id !== "built-in-agent",
     );
   }
 
@@ -114,6 +120,35 @@ const IntegrationsGrid: React.FC<IntegrationsGridProps> = ({
   if (targetPage) {
     filteredIntegrations = filteredIntegrations.filter((integration) =>
       hasTargetPage(integration, targetPage),
+    );
+  }
+
+  if (variant === "simple") {
+    return (
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-8 my-8 not-prose">
+        {filteredIntegrations.map((integration) => (
+          <a
+            key={integration.id}
+            href={getHref(integration)}
+            className="group flex items-start gap-3 no-underline"
+          >
+            <div className="flex-shrink-0 mt-1">
+              <integration.Icon className="h-6 w-6 text-primary" />
+            </div>
+            <div>
+              <div className="font-semibold text-foreground group-hover:text-primary transition-colors">
+                {integration.label}{" "}
+                <span className="text-muted-foreground group-hover:text-primary">
+                  &rsaquo;
+                </span>
+              </div>
+              <div className="text-sm text-muted-foreground leading-relaxed mt-0.5">
+                {integration.description}
+              </div>
+            </div>
+          </a>
+        ))}
+      </div>
     );
   }
 

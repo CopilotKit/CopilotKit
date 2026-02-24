@@ -1,0 +1,83 @@
+import {
+  MessageCircle,
+  Database,
+  Zap,
+  BookOpen,
+  Play,
+  Settings,
+} from "lucide-react"
+
+## Overview
+
+The `useAgent` hook provides direct access to your agent from any React component. It gives you real-time access to the agent's state, messages, execution status, and allows you to subscribe to custom events.
+
+This enables you to build custom agent dashboards, monitoring tools, and interactive features that respond to your agent's behavior.
+
+<Cards className="gap-6 mt-6 mb-8">
+  <Card
+    icon={<Play className="text-primary" />}
+    className="p-6 rounded-xl text-base"
+    title="Running the Agent"
+    description="Trigger your agent programmatically with copilotkit.runAgent()."
+    href="#running-the-agent-programmatically"
+  />
+  <Card
+    icon={<Settings className="text-primary" />}
+    className="p-6 rounded-xl text-base"
+    title="Fully Headless UI"
+    description="Build a completely custom chat interface from the ground up using CopilotKit's headless hooks."
+    href="custom-look-and-feel/headless-ui"
+  />
+</Cards>
+
+import UseAgentSnippet from "@/snippets/use-agent.mdx";
+
+<UseAgentSnippet components={props.components} />
+
+## Running the Agent Programmatically
+
+Use `copilotkit.runAgent()` to trigger your agent from any component — no chat UI required. This is the same method CopilotKit's built-in `<CopilotChat />` uses internally.
+
+```tsx title="page.tsx"
+import { useAgent } from "@copilotkit/react-core/v2";
+import { useCopilotKit } from "@copilotkit/react-core/v2";
+import { randomUUID } from "@copilotkit/shared/v2";
+
+export function AgentTrigger() {
+  const { agent } = useAgent();
+  // [!code highlight:1]
+  const { copilotkit } = useCopilotKit();
+
+  const handleRun = async () => {
+    // Add a user message to the agent's conversation
+    agent.addMessage({
+      id: randomUUID(),
+      role: "user",
+      content: "Summarize the latest sales data",
+    });
+
+    // [!code highlight:2]
+    // Run the agent — handles tool execution, follow-ups, and streaming
+    await copilotkit.runAgent({ agent });
+  };
+
+  return <button onClick={handleRun}>Run Agent</button>;
+}
+```
+
+### `copilotkit.runAgent()` vs `agent.runAgent()`
+
+Both methods trigger the agent, but they operate at different levels:
+
+- **`copilotkit.runAgent({ agent })`** — The recommended approach. Orchestrates the full agent lifecycle: executes frontend tools, handles follow-up runs when tools request them, and manages errors through the subscriber system.
+- **`agent.runAgent()`** — Low-level method on the agent instance. Sends the request to the runtime but does **not** execute frontend tools or handle follow-ups. Use this only when you need direct control over the agent execution (e.g., resuming from an interrupt with `forwardedProps`).
+
+### Stopping a Run
+
+You can stop a running agent using `copilotkit.stopAgent()`:
+
+```tsx title="page.tsx"
+const handleStop = () => {
+  copilotkit.stopAgent({ agent });
+};
+```
