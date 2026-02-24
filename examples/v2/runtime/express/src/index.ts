@@ -18,5 +18,7 @@ app.use(
 
 const port = Number(process.env.PORT ?? 4002);
 app.listen(port, () => {
-  console.log(`Express runtime listening on http://localhost:${port}/api/copilotkit`);
+  console.log(
+    `Express runtime listening on http://localhost:${port}/api/copilotkit`,
+  );
 });

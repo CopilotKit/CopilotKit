@@ -12,13 +12,18 @@ const runtime = new CopilotRuntime({
 const app = new Hono();
 
 // Root
-app.get("/", (c) => c.json({ status: "ok", message: "CopilotKit Hono runtime" }));
+app.get("/", (c) =>
+  c.json({ status: "ok", message: "CopilotKit Hono runtime" }),
+);
 
 // Health check
 app.get("/health", (c) => c.json({ status: "healthy" }));
 
 // CopilotKit endpoints
-app.route("/", createCopilotHonoHandler({ runtime, basePath: "/api/copilotkit" }));
+app.route(
+  "/",
+  createCopilotHonoHandler({ runtime, basePath: "/api/copilotkit" }),
+);
 
 const port = Number(process.env.PORT ?? 4003);
 serve({ fetch: app.fetch, port }, () => {

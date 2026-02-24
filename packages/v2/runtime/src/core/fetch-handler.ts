@@ -27,11 +27,7 @@
  */
 
 import type { CopilotRuntime } from "./runtime";
-import type {
-  CopilotRuntimeHooks,
-  RouteInfo,
-  HookContext,
-} from "./hooks";
+import type { CopilotRuntimeHooks, RouteInfo, HookContext } from "./hooks";
 import {
   runOnRequest,
   runOnBeforeHandler,
@@ -62,7 +58,6 @@ import { logger } from "@copilotkitnext/shared";
  * --------------------------------------------------------------------------------------------- */
 
 export interface CopilotRuntimeHandlerOptions {
- 
   runtime: CopilotRuntime;
 
   /**
@@ -107,13 +102,7 @@ export type CopilotRuntimeFetchHandler = (
 export function createCopilotRuntimeHandler(
   options: CopilotRuntimeHandlerOptions,
 ): CopilotRuntimeFetchHandler {
-  const {
-    runtime,
-    basePath,
-    mode = "multi-route",
-    cors,
-    hooks,
-  } = options;
+  const { runtime, basePath, mode = "multi-route", cors, hooks } = options;
 
   const corsConfig = resolveCorsConfig(cors);
 
@@ -260,9 +249,7 @@ export function createCopilotRuntimeHandler(
           {
             error: "internal_error",
             message:
-              error instanceof Error
-                ? error.message
-                : "Internal server error",
+              error instanceof Error ? error.message : "Internal server error",
           },
           500,
         ),

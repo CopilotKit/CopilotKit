@@ -108,9 +108,9 @@ describe("hooks — onRequest", () => {
   });
 
   it("throwing a non-Response error triggers onError", async () => {
-    const onError = vi.fn().mockReturnValue(
-      new Response("Custom error", { status: 503 }),
-    );
+    const onError = vi
+      .fn()
+      .mockReturnValue(new Response("Custom error", { status: 503 }));
     const runtime = createRuntime();
     const handler = createCopilotRuntimeHandler({
       runtime,
@@ -530,9 +530,11 @@ describe("hooks — composition with legacy middleware", () => {
   it("request modifications from hooks are visible to legacy middleware", async () => {
     let legacySawCustomHeader = false;
 
-    const beforeRequestMiddleware = vi.fn().mockImplementation(({ request }: { request: Request }) => {
-      legacySawCustomHeader = request.headers.get("x-from-hook") === "hello";
-    });
+    const beforeRequestMiddleware = vi
+      .fn()
+      .mockImplementation(({ request }: { request: Request }) => {
+        legacySawCustomHeader = request.headers.get("x-from-hook") === "hello";
+      });
 
     const runtime = createRuntime({ beforeRequestMiddleware });
     const handler = createCopilotRuntimeHandler({

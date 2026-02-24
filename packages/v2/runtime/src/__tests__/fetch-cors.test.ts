@@ -29,12 +29,12 @@ describe("fetch-cors", () => {
       });
       const response = handleCors(request, {})!;
       expect(response.headers.get("Access-Control-Allow-Origin")).toBe("*");
-      expect(
-        response.headers.get("Access-Control-Allow-Methods"),
-      ).toContain("GET");
-      expect(
-        response.headers.get("Access-Control-Allow-Methods"),
-      ).toContain("POST");
+      expect(response.headers.get("Access-Control-Allow-Methods")).toContain(
+        "GET",
+      );
+      expect(response.headers.get("Access-Control-Allow-Methods")).toContain(
+        "POST",
+      );
       expect(response.headers.get("Access-Control-Allow-Headers")).toBe("*");
     });
 
@@ -82,8 +82,7 @@ describe("fetch-cors", () => {
         headers: { Origin: "https://dynamic.com" },
       });
       const config: CopilotCorsConfig = {
-        origin: (origin: string) =>
-          origin.endsWith(".com") ? origin : null,
+        origin: (origin: string) => (origin.endsWith(".com") ? origin : null),
       };
       const response = handleCors(request, config)!;
       expect(response.headers.get("Access-Control-Allow-Origin")).toBe(
@@ -101,9 +100,9 @@ describe("fetch-cors", () => {
         credentials: true,
       };
       const response = handleCors(request, config)!;
-      expect(
-        response.headers.get("Access-Control-Allow-Credentials"),
-      ).toBe("true");
+      expect(response.headers.get("Access-Control-Allow-Credentials")).toBe(
+        "true",
+      );
     });
 
     it("sets custom allowMethods", () => {
@@ -150,9 +149,9 @@ describe("fetch-cors", () => {
       expect(response.headers.get("Access-Control-Allow-Origin")).toBe("*");
       // The implementation sets credentials even with wildcard origin;
       // browsers will reject this combination, but the header IS emitted.
-      expect(
-        response.headers.get("Access-Control-Allow-Credentials"),
-      ).toBe("true");
+      expect(response.headers.get("Access-Control-Allow-Credentials")).toBe(
+        "true",
+      );
     });
   });
 

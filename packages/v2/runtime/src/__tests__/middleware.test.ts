@@ -2,7 +2,7 @@ import { vi, type MockedFunction } from "vitest";
 import { createCopilotEndpoint } from "../endpoints";
 import { CopilotRuntime } from "../core/runtime";
 import { logger } from "@copilotkitnext/shared";
-import type { AbstractAgent } from "@ag-ui/client"; 
+import type { AbstractAgent } from "@ag-ui/client";
 import { afterEach, describe, expect, it } from "vitest";
 
 const dummyRuntime = (opts: Partial<CopilotRuntime> = {}) => {

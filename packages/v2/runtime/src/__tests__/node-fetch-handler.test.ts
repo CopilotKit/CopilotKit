@@ -1,4 +1,4 @@
-import { describe, it, expect,   } from "vitest";
+import { describe, it, expect } from "vitest";
 import { createServer, type Server } from "node:http";
 import { createNodeFetchHandler } from "../endpoints/node-fetch-handler";
 import type { CopilotRuntimeFetchHandler } from "../core/fetch-handler";
@@ -121,9 +121,7 @@ describe("createNodeFetchHandler", () => {
     try {
       const response = await fetch(`http://localhost:${port}/sse`);
       expect(response.status).toBe(200);
-      expect(response.headers.get("Content-Type")).toBe(
-        "text/event-stream",
-      );
+      expect(response.headers.get("Content-Type")).toBe("text/event-stream");
       const text = await response.text();
       expect(text).toContain("data: event1");
       expect(text).toContain("data: event2");

@@ -45,7 +45,11 @@ export function QuickstartDropdown() {
           CHOOSE INTEGRATION
         </option>
         {options.map((option) => (
-          <option key={option.url} value={option.url} className="text-black dark:text-white bg-white dark:bg-neutral-800">
+          <option
+            key={option.url}
+            value={option.url}
+            className="text-black dark:text-white bg-white dark:bg-neutral-800"
+          >
             {option.label}
           </option>
         ))}

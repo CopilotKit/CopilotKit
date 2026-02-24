@@ -50,7 +50,7 @@ interface CopilotEndpointParams {
   hooks?: CopilotRuntimeHooks;
 }
 /** @deprecated Use `createCopilotHonoHandler` instead. */
-export const createCopilotEndpoint = createCopilotHonoHandler 
+export const createCopilotEndpoint = createCopilotHonoHandler;
 
 export function createCopilotHonoHandler({
   runtime,

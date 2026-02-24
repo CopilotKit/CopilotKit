@@ -27,9 +27,7 @@ vi.mock("../handlers/handle-stop", () => ({
 }));
 
 describe("Express adapter with hooks", () => {
-  const createMockRuntime = (
-    opts?: Partial<CopilotRuntime>,
-  ) => {
+  const createMockRuntime = (opts?: Partial<CopilotRuntime>) => {
     const createMockAgent = () => {
       const agent: unknown = {
         execute: async () => ({ events: [] }),

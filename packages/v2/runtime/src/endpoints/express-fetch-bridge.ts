@@ -41,10 +41,7 @@ export function createExpressNodeHandler(
     const method = (req.method ?? "GET").toUpperCase();
 
     // Fast path: if no body parser consumed the stream, use the generic handler.
-    if (
-      METHODS_WITHOUT_BODY.has(method) ||
-      !hasPreParsedBody(req  )
-    ) {
+    if (METHODS_WITHOUT_BODY.has(method) || !hasPreParsedBody(req)) {
       return nodeHandler(req, res);
     }
 
@@ -69,7 +66,7 @@ export function createExpressNodeHandler(
 function buildPreParsedRequest(req: IncomingMessage): Request {
   const expressReq = req as IncomingMessage & { body?: unknown };
   const method = (req.method ?? "GET").toUpperCase();
-   
+
   const protocol = (req as any).protocol || "http";
   const host = req.headers.host ?? "localhost";
   const url = `${protocol}://${host}${(req as any).originalUrl ?? req.url ?? ""}`;
@@ -104,10 +101,7 @@ function hasPreParsedBody(req: IncomingMessage & { body?: unknown }): boolean {
   // Check if the stream has already been consumed.
   const state = (req as any)._readableState;
   return Boolean(
-    req.readableEnded ||
-      req.complete ||
-      state?.ended ||
-      state?.endEmitted,
+    req.readableEnded || req.complete || state?.ended || state?.endEmitted,
   );
 }
 

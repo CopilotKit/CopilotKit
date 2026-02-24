@@ -1,5 +1,3 @@
-
-
 import { createCopilotRuntimeHandler } from "../core/fetch-handler";
 import type { CopilotRuntimeHandlerOptions } from "../core/fetch-handler";
 import { createCopilotNodeHandler } from "./node-fetch-handler";

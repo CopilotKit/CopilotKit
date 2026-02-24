@@ -1,4 +1,8 @@
-import { CopilotRuntime, createCopilotRuntimeHandler, BuiltInAgent } from "@copilotkit/runtime/v2";
+import {
+  CopilotRuntime,
+  createCopilotRuntimeHandler,
+  BuiltInAgent,
+} from "@copilotkit/runtime/v2";
 
 export interface Env {
   OPENAI_API_KEY: string;
