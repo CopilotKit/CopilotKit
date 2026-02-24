@@ -903,6 +903,7 @@ export function CopilotChatInput({
   // The input pill (inner component)
   const inputPill = (
     <div
+      data-testid="copilot-chat-input"
       className={twMerge(
         // Layout
         "cpk:flex cpk:w-full cpk:flex-col cpk:items-center cpk:justify-center",
@@ -1016,6 +1017,7 @@ export namespace CopilotChatInput {
     <div className="cpk:mr-[10px]">
       <Button
         type="button"
+        data-testid="copilot-send-button"
         variant="chatInputToolbarPrimary"
         size="chatInputToolbarIcon"
         className={className}
@@ -1059,6 +1061,7 @@ export namespace CopilotChatInput {
     React.ButtonHTMLAttributes<HTMLButtonElement>
   > = (props) => (
     <ToolbarButton
+      data-testid="copilot-start-transcribe-button"
       icon={<Mic className="cpk:size-[18px]" />}
       labelKey="chatInputToolbarStartTranscribeButtonLabel"
       defaultClassName="cpk:mr-2"
@@ -1070,6 +1073,7 @@ export namespace CopilotChatInput {
     React.ButtonHTMLAttributes<HTMLButtonElement>
   > = (props) => (
     <ToolbarButton
+      data-testid="copilot-cancel-transcribe-button"
       icon={<X className="cpk:size-[18px]" />}
       labelKey="chatInputToolbarCancelTranscribeButtonLabel"
       defaultClassName="cpk:mr-2"
@@ -1081,6 +1085,7 @@ export namespace CopilotChatInput {
     React.ButtonHTMLAttributes<HTMLButtonElement>
   > = (props) => (
     <ToolbarButton
+      data-testid="copilot-finish-transcribe-button"
       icon={<Check className="cpk:size-[18px]" />}
       labelKey="chatInputToolbarFinishTranscribeButtonLabel"
       defaultClassName="cpk:mr-[10px]"
@@ -1168,6 +1173,7 @@ export namespace CopilotChatInput {
             <DropdownMenuTrigger asChild>
               <Button
                 type="button"
+                data-testid="copilot-add-menu-button"
                 variant="chatInputToolbarSecondary"
                 size="chatInputToolbarIcon"
                 className={twMerge("cpk:ml-1", className)}
@@ -1237,6 +1243,7 @@ export namespace CopilotChatInput {
       return (
         <textarea
           ref={internalTextareaRef}
+          data-testid="copilot-chat-textarea"
           placeholder={placeholder ?? labels.chatInputPlaceholder}
           className={twMerge(
             "cpk:bg-transparent cpk:outline-none cpk:antialiased cpk:font-regular cpk:leading-relaxed cpk:text-[16px] cpk:placeholder:text-[#00000077] cpk:dark:placeholder:text-[#fffc]",

@@ -169,6 +169,7 @@ export function CopilotChatUserMessage({
   return (
     <div
       data-copilotkit
+      data-testid="copilot-user-message"
       className={twMerge(
         "cpk:flex cpk:flex-col cpk:items-end cpk:group cpk:pt-10",
         className,
@@ -217,6 +218,7 @@ export namespace CopilotChatUserMessage {
     ...props
   }) => (
     <div
+      data-testid="copilot-user-toolbar"
       className={twMerge(
         "cpk:w-full cpk:bg-transparent cpk:flex cpk:items-center cpk:justify-end cpk:-mr-[5px] cpk:mt-[4px] cpk:invisible cpk:group-hover:visible",
         className,
@@ -269,6 +271,7 @@ export namespace CopilotChatUserMessage {
 
     return (
       <ToolbarButton
+        data-testid="copilot-user-copy-button"
         title={title || labels.userMessageToolbarCopyMessageLabel}
         onClick={handleClick}
         className={className}
@@ -290,6 +293,7 @@ export namespace CopilotChatUserMessage {
     const labels = config?.labels ?? CopilotChatDefaultLabels;
     return (
       <ToolbarButton
+        data-testid="copilot-edit-button"
         title={title || labels.userMessageToolbarEditMessageLabel}
         className={className}
         {...props}
@@ -325,6 +329,7 @@ export namespace CopilotChatUserMessage {
 
     return (
       <div
+        data-testid="copilot-branch-navigation"
         className={twMerge("cpk:flex cpk:items-center cpk:gap-1", className)}
         {...props}
       >

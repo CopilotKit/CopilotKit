@@ -218,6 +218,7 @@ function CopilotPopupViewInternal({
         tabIndex={-1}
         role="dialog"
         aria-label={labels.modalHeaderTitle}
+        data-testid="copilot-popup"
         data-copilot-popup
         className={cn(
           "cpk:relative cpk:flex cpk:h-full cpk:w-full cpk:flex-col cpk:overflow-hidden cpk:bg-background cpk:text-foreground",

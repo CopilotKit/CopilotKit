@@ -144,6 +144,7 @@ export const CopilotChatToggleButton = React.forwardRef<
       ref={ref}
       type={type ?? "button"}
       data-copilotkit
+      data-testid="copilot-chat-toggle"
       data-slot="chat-toggle-button"
       data-state={isOpen ? "open" : "closed"}
       className={cn(BUTTON_BASE_CLASSES, className)}
