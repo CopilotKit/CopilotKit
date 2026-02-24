@@ -25,9 +25,8 @@ export interface CopilotExpressEndpointParams {
 
   /**
    * CORS configuration for the Express router.
-   * - `false` (default): no CORS middleware is applied — handle it yourself or
-   *   let the framework-level fetch handler manage it.
-   * - `true`: permissive CORS (`origin: "*"`, all methods, all headers).
+   * - `true` (default): permissive CORS (`origin: "*"`, all methods, all headers).
+   * - `false`: no CORS middleware is applied — handle it yourself.
    * - object: passed directly to the Express `cors()` middleware.
    */
   cors?: boolean | CorsOptions;
@@ -94,7 +93,7 @@ export function createCopilotExpressHandler({
   runtime,
   basePath,
   mode = "multi-route",
-  cors: corsOption = false,
+  cors: corsOption = true,
   hooks,
 }: CopilotExpressEndpointParams): Router {
   const normalizedBase = normalizeBasePath(basePath);

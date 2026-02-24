@@ -1,9 +1,8 @@
 import { Hono } from "hono";
-import { cors } from "hono/cors";
 import { CopilotRuntime } from "../core/runtime";
 import { createCopilotRuntimeHandler } from "../core/fetch-handler";
 import type { CopilotRuntimeHooks } from "../core/hooks";
-import { CopilotEndpointCorsConfig } from "./hono";
+import { CopilotEndpointCorsConfig, toFetchCorsConfig } from "./hono";
 
 interface CopilotSingleEndpointParams {
   runtime: CopilotRuntime;
@@ -35,32 +34,13 @@ export function createCopilotEndpointSingleRoute({
     runtime,
     basePath: routePath,
     mode: "single-route",
-    cors: false,
+    cors: toFetchCorsConfig(corsConfig),
     hooks,
   });
 
   const app = new Hono();
 
-  return app
-    .basePath(routePath)
-    .use(
-      "*",
-      cors({
-        origin: corsConfig?.origin ?? "*",
-        allowMethods: [
-          "GET",
-          "HEAD",
-          "PUT",
-          "POST",
-          "DELETE",
-          "PATCH",
-          "OPTIONS",
-        ],
-        allowHeaders: ["*"],
-        credentials: corsConfig?.credentials ?? false,
-      }),
-    )
-    .all("*", async (c) => handler(c.req.raw));
+  return app.basePath(routePath).all("*", async (c) => handler(c.req.raw));
 }
 
 function normalizePath(path: string): string {

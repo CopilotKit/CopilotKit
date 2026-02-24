@@ -1,7 +1,7 @@
 import { Hono } from "hono";
-import { cors } from "hono/cors";
 import { CopilotRuntime } from "../core/runtime";
 import { createCopilotRuntimeHandler } from "../core/fetch-handler";
+import type { CopilotCorsConfig } from "../core/fetch-cors";
 import type { CopilotRuntimeHooks } from "../core/hooks";
 
 /**
@@ -63,30 +63,29 @@ export function createCopilotHonoHandler({
     runtime,
     basePath,
     mode,
-    cors: false,
+    cors: toFetchCorsConfig(corsConfig),
     hooks,
   });
 
   const app = new Hono();
 
-  return app
-    .basePath(basePath)
-    .use(
-      "*",
-      cors({
-        origin: corsConfig?.origin ?? "*",
-        allowMethods: [
-          "GET",
-          "HEAD",
-          "PUT",
-          "POST",
-          "DELETE",
-          "PATCH",
-          "OPTIONS",
-        ],
-        allowHeaders: ["*"],
-        credentials: corsConfig?.credentials ?? false,
-      }),
-    )
-    .all("*", async (c) => handler(c.req.raw));
+  return app.basePath(basePath).all("*", async (c) => handler(c.req.raw));
+}
+
+/**
+ * Convert Hono-specific CORS config to the fetch handler's CopilotCorsConfig.
+ */
+export function toFetchCorsConfig(
+  config: CopilotEndpointCorsConfig | undefined,
+): CopilotCorsConfig {
+  if (!config) return {};
+
+  const origin = config.origin;
+  return {
+    origin:
+      typeof origin === "function"
+        ? (reqOrigin: string) => origin(reqOrigin, undefined) ?? null
+        : origin,
+    credentials: config.credentials,
+  };
 }

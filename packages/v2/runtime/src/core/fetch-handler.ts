@@ -201,7 +201,10 @@ export function createCopilotRuntimeHandler(
         route,
       });
 
-      // 8. Legacy afterRequestMiddleware (non-blocking)
+      // 8. CORS headers on response
+      response = maybeAddCors(response, corsConfig, requestOrigin);
+
+      // 9. Legacy afterRequestMiddleware (non-blocking)
       callAfterRequestMiddleware({ runtime, response, path }).catch(
         (error: unknown) => {
           logger.error(
@@ -211,8 +214,7 @@ export function createCopilotRuntimeHandler(
         },
       );
 
-      // 9. CORS headers on response
-      return maybeAddCors(response, corsConfig, requestOrigin);
+      return response;
     } catch (error) {
       // Short-circuit with thrown Response
       if (error instanceof Response) {
