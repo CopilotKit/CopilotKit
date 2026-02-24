@@ -89,10 +89,23 @@ function getErrorColors(severity: ErrorSeverity): ErrorColors {
   }
 }
 
+const noopToastContext: ToastContextValue = {
+  toasts: [],
+  addToast: () => {},
+  addGraphQLErrorsToast: () => {},
+  removeToast: () => {},
+  enabled: false,
+  bannerError: null,
+  setBannerError: () => {},
+};
+
 export function useToast() {
   const context = useContext(ToastContext);
+  // Return a no-op implementation when no provider exists.
+  // This allows v1 hooks (e.g. useLangGraphInterrupt) to work
+  // when used inside the v2 CopilotKitProvider which doesn't include ToastProvider.
   if (!context) {
-    throw new Error("useToast must be used within a ToastProvider");
+    return noopToastContext;
   }
   return context;
 }

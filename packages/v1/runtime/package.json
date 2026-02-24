@@ -87,9 +87,6 @@
   },
   "peerDependencies": {
     "@anthropic-ai/sdk": "^0.57.0",
-    "@copilotkit/shared": "workspace:*",
-    "@copilotkitnext/agent": "workspace:*",
-    "@copilotkitnext/runtime": "workspace:*",
     "@langchain/aws": ">=0.1.9",
     "@langchain/core": ">=0.3.66",
     "@langchain/community": ">=0.3.58",
