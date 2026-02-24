@@ -662,7 +662,7 @@ function createToolSchema(tool: FrontendTool<any>): Record<string, unknown> {
     return { ...EMPTY_TOOL_SCHEMA };
   }
 
-  const rawSchema = zodToJsonSchema(tool.parameters, {
+  const rawSchema = zodToJsonSchema(tool.parameters as any, {
     $refStrategy: "none",
   });
 

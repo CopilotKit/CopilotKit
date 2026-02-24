@@ -10,13 +10,13 @@
   },
   "dependencies": {
     "@ag-ui/client": "0.0.45",
-    "@angular/animations": "^18.2.0",
-    "@angular/common": "^18.2.0",
-    "@angular/compiler": "^18.2.0",
-    "@angular/core": "^18.2.0",
-    "@angular/forms": "^18.2.0",
-    "@angular/platform-browser": "^18.2.0",
-    "@angular/platform-browser-dynamic": "^18.2.0",
+    "@angular/animations": "^19.0.0",
+    "@angular/common": "^19.0.0",
+    "@angular/compiler": "^19.0.0",
+    "@angular/core": "^19.0.0",
+    "@angular/forms": "^19.0.0",
+    "@angular/platform-browser": "^19.0.0",
+    "@angular/platform-browser-dynamic": "^19.0.0",
     "@copilotkitnext/core": "workspace:^",
     "rxjs": "^7.8.1",
     "tslib": "^2.8.1",
@@ -24,9 +24,9 @@
     "zone.js": "^0.14.0"
   },
   "devDependencies": {
-    "@angular-devkit/build-angular": "^18.2.0",
-    "@angular/cli": "^18.2.0",
-    "@angular/compiler-cli": "^18.2.0",
+    "@angular-devkit/build-angular": "^19.0.0",
+    "@angular/cli": "^19.0.0",
+    "@angular/compiler-cli": "^19.0.0",
     "@copilotkitnext/angular": "workspace:*",
     "@copilotkitnext/typescript-config": "workspace:*",
     "@storybook/addon-essentials": "^8",
@@ -43,6 +43,6 @@
     "storybook": "^8",
     "style-loader": "^4.0.0",
     "tailwindcss": "^4.1.11",
-    "typescript": "~5.4.5"
+    "typescript": "5.8.2"
   }
 }
