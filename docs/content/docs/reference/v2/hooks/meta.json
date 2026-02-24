@@ -13,7 +13,6 @@
     "useFrontendTool",
     "useHumanInTheLoop",
     "useInterrupt",
-    "useRenderToolCall",
     "---Suggestions---",
     "useSuggestions",
     "useConfigureSuggestions",
