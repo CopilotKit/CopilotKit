@@ -40,6 +40,9 @@
       "cache": false
     },
     "test": {
+      "dependsOn": [
+        "^build"
+      ],
       "inputs": [
         "test"
       ],

@@ -1,0 +1,21 @@
+pre-commit:
+  parallel: true
+  commands:
+    lint-fix:
+      env:
+        NX_TUI: "false"
+      run: pnpm run lint --fix && pnpm run format
+      stage_fixed: true
+    test:
+      env:
+        NX_TUI: "false"
+      run: pnpm run test
+    check-packages:
+      env:
+        NX_TUI: "false"
+      run: pnpm run check:packages
+
+commit-msg:
+  commands:
+    commitlint:
+      run: pnpm commitlint --edit {1}

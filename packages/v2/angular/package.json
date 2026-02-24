@@ -46,8 +46,8 @@
     "rxjs": "^7.8.0"
   },
   "devDependencies": {
-    "@analogjs/vite-plugin-angular": "^1.20.2",
-    "@analogjs/vitest-angular": "^1.20.2",
+    "@analogjs/vite-plugin-angular": "^2.2.3",
+    "@analogjs/vitest-angular": "^2.2.3",
     "@angular/cdk": "^18.0.0",
     "@angular/common": "^18.0.0",
     "@angular/compiler": "^18.0.0",

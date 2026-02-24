@@ -17,6 +17,8 @@ overrides:
   prismjs@<=1.30.0: 1.30.0
   pino@<=10.1.1: 10.1.1
 
+packageExtensionsChecksum: sha256-3hJydVFmCaefOIJ6bva0g63mEavwXASEKe/V0PyUieo=
+
 patchedDependencies:
   '@changesets/assemble-release-plan@6.0.9':
     hash: 1bc53c741da20baad9cdeb674c599225dcf9fe6aa7b0de16ff87e63f12a97b24
@@ -65,12 +67,12 @@ importers:
       glob:
         specifier: ^10.3.12
         version: 10.5.0
-      husky:
-        specifier: ^9.1.4
-        version: 9.1.7
       install:
         specifier: ^0.13.0
         version: 0.13.0
+      lefthook:
+        specifier: ^2.1.1
+        version: 2.1.1
       npm:
         specifier: ^10.7.0
         version: 10.9.4
@@ -2061,11 +2063,11 @@ importers:
         version: 3.25.76
     devDependencies:
       '@analogjs/vite-plugin-angular':
-        specifier: ^1.20.2
-        version: 1.22.5(37f91ab50aed11daabae415a22a54033)
+        specifier: ^2.2.3
+        version: 2.2.3(d4338d3e5a7a0b467a97417332912dc8)
       '@analogjs/vitest-angular':
-        specifier: ^1.20.2
-        version: 1.22.5(@analogjs/vite-plugin-angular@1.22.5(37f91ab50aed11daabae415a22a54033))(@angular-devkit/architect@0.1802.21(chokidar@3.6.0))(vitest@3.2.4)
+        specifier: ^2.2.3
+        version: 2.2.3(@analogjs/vite-plugin-angular@2.2.3(d4338d3e5a7a0b467a97417332912dc8))(@angular-devkit/architect@0.1802.21(chokidar@3.6.0))(vitest@3.2.4)
       '@angular/cdk':
         specifier: ^18.0.0
         version: 18.2.14(@angular/common@18.2.14(@angular/core@18.2.14(rxjs@7.8.1)(zone.js@0.14.10))(rxjs@7.8.1))(@angular/core@18.2.14(rxjs@7.8.1)(zone.js@0.14.10))(rxjs@7.8.1)
@@ -2737,22 +2739,23 @@ packages:
     resolution: {integrity: sha512-30iZtAPgz+LTIYoeivqYo853f02jBYSd5uGnGpkFV0M3xOt9aN73erkgYAmZU43x4VfqcnLxW9Kpg3R5LC4YYw==}
     engines: {node: '>=6.0.0'}
 
-  '@analogjs/vite-plugin-angular@1.22.5':
-    resolution: {integrity: sha512-N1BQD6HQSp2Imbb1fThymskWFSLq0ZF+d2fe3DgErwlBFf6SzRp++iFltddQc3wIzenTXE+5brS4fAPXO8UT9g==}
+  '@analogjs/vite-plugin-angular@2.2.3':
+    resolution: {integrity: sha512-OqVfiJsaHdHMxzvK0heVvp8MenSXh+xib6/p+v3d44kJ3J7ooD4gRx/jKC350zkgRKwcZc3a0ybGUnG6LEF7mg==}
     peerDependencies:
-      '@angular-devkit/build-angular': ^15.0.0 || ^16.0.0 || ^17.0.0 || ^18.0.0 || ^19.0.0 || ^20.0.0
-      '@angular/build': ^18.0.0 || ^19.0.0 || ^20.0.0
+      '@angular-devkit/build-angular': ^15.0.0 || ^16.0.0 || ^17.0.0 || ^18.0.0 || ^19.0.0 || ^20.0.0 || ^21.0.0
+      '@angular/build': ^18.0.0 || ^19.0.0 || ^20.0.0 || ^21.0.0
+      vite: '*'
     peerDependenciesMeta:
       '@angular-devkit/build-angular':
         optional: true
       '@angular/build':
         optional: true
 
-  '@analogjs/vitest-angular@1.22.5':
-    resolution: {integrity: sha512-lYwa9f6LFClW80sPhCydTOQvKnpWPnyChFhYdgMRpUZuKYo9102PndOLZkqR5K8WlKSilbP2293whaG1vZBMyA==}
+  '@analogjs/vitest-angular@2.2.3':
+    resolution: {integrity: sha512-514A8RqT4sQnWj/3pHnoGrvDLYjcUTWL3d00GCQ4MVRUpisUg2R8tC/PZ/3ZARK5SskIwy5LwPEg4RFX0iOSug==}
     peerDependencies:
       '@analogjs/vite-plugin-angular': '*'
-      '@angular-devkit/architect': '>=0.1500.0 < 0.2100.0'
+      '@angular-devkit/architect': '>=0.1500.0 < 0.2200.0'
       vitest: ^1.3.1 || ^2.0.0 || ^3.0.0 || ^4.0.0
 
   '@andrewbranch/untar.js@1.0.3':
@@ -3315,12 +3318,14 @@ packages:
   '@babel/plugin-proposal-class-properties@7.18.6':
     resolution: {integrity: sha512-cumfXOF0+nzZrrN8Rf0t7M+tF6sZc7vhQwYQck9q1/5w2OExlD+b4v4RpMJFaV1Z7WcDRgO6FqvxqxGlwo+RHQ==}
     engines: {node: '>=6.9.0'}
+    deprecated: This proposal has been merged to the ECMAScript standard and thus this plugin is no longer maintained. Please use @babel/plugin-transform-class-properties instead.
     peerDependencies:
       '@babel/core': ^7.0.0-0
 
   '@babel/plugin-proposal-object-rest-spread@7.20.7':
     resolution: {integrity: sha512-d2S98yCiLxDVmBmE8UjGcfPvNEUbA1U5q5WxaWFUGRzJSVAZqm5W6MbPct0jxnegUZ0niLeNX+IOzEs7wYg9Dg==}
     engines: {node: '>=6.9.0'}
+    deprecated: This proposal has been merged to the ECMAScript standard and thus this plugin is no longer maintained. Please use @babel/plugin-transform-object-rest-spread instead.
     peerDependencies:
       '@babel/core': ^7.0.0-0
 
@@ -5076,6 +5081,7 @@ packages:
   '@graphql-tools/prisma-loader@8.0.17':
     resolution: {integrity: sha512-fnuTLeQhqRbA156pAyzJYN0KxCjKYRU5bz1q/SKOwElSnAU4k7/G1kyVsWLh7fneY78LoMNH5n+KlFV8iQlnyg==}
     engines: {node: '>=16.0.0'}
+    deprecated: 'This package was intended to be used with an older versions of Prisma.\nThe newer versions of Prisma has a different approach to GraphQL integration.\nTherefore, this package is no longer needed and has been deprecated and removed.\nLearn more: https://www.prisma.io/graphql'
     peerDependencies:
       graphql: ^14.0.0 || ^15.0.0 || ^16.0.0 || ^17.0.0
 
@@ -5199,6 +5205,7 @@ packages:
   '@humanwhocodes/config-array@0.13.0':
     resolution: {integrity: sha512-DZLEEqFWQFiyK6h5YIeynKx7JlvCYWL0cImfSRXZ9l4Sg2efkFGTuFf6vzXjK1cq6IYkU+Eg/JizXw+TD2vRNw==}
     engines: {node: '>=10.10.0'}
+    deprecated: Use @eslint/config-array instead
 
   '@humanwhocodes/module-importer@1.0.1':
     resolution: {integrity: sha512-bxveV4V8v5Yb4ncFTT3rPSgZBOpCkjfK0y4oVVVJwIuDVBRMDXrPyXRL988i5ap9m9bnyEEjWfm5WkBmtffLfA==}
@@ -5206,6 +5213,7 @@ packages:
 
   '@humanwhocodes/object-schema@2.0.3':
     resolution: {integrity: sha512-93zYdMES/c1D69yZiKDBj0V24vqNzB/koF26KPaagAfd3P/4gUlh3Dys5ogAK+Exi9QyzlD8x/08Zt7wIKcDcA==}
+    deprecated: Use @eslint/object-schema instead
 
   '@humanwhocodes/retry@0.4.3':
     resolution: {integrity: sha512-bV0Tgo9K4hfPCek+aMAn81RppFKv2ySDQeMoSZuvTASywNTnVJCArCZE2FWqpvIatKu7VMRLWlR1EazvVhDyhQ==}
@@ -11190,6 +11198,7 @@ packages:
 
   critters@0.0.24:
     resolution: {integrity: sha512-Oyqew0FGM0wYUSNqR0L6AteO5MpMoUU0rhKRieXeiKs+PmRTxiJMyaunYB2KF6fQ3dzChXKCpbFOEJx3OQ1v/Q==}
+    deprecated: Ownership of Critters has moved to the Nuxt team, who will be maintaining the project going forward. If you'd like to keep using Critters, please switch to the actively-maintained fork at https://github.com/danielroe/beasties
 
   cross-env@7.0.3:
     resolution: {integrity: sha512-+/HKd6EgcQCJGh2PSjZuUitQBQynKor4wrFbRg4DtAgS1aWO+gU52xpH7M9ScGgXSYmAVS9bIJ8EzuaGw0oNAw==}
@@ -12221,6 +12230,7 @@ packages:
   eslint@8.57.1:
     resolution: {integrity: sha512-ypowyDxpVSYpkXr9WPv2PAZCtNip1Mv5KTW0SCurXv/9iOpcrH9PaqUElksqEB6pChqHGDRCFTyrZlGhnLNGiA==}
     engines: {node: ^12.22.0 || ^14.17.0 || >=16.0.0}
+    deprecated: This version is no longer supported. Please see https://eslint.org/version-support for other options.
     hasBin: true
 
   eslint@9.39.2:
@@ -12840,10 +12850,12 @@ packages:
   glob@10.3.10:
     resolution: {integrity: sha512-fa46+tv1Ak0UPK1TOy/pZrIybNNt4HCv7SDzwyfiOZkvZLEbjsZkJBPtDHVshZjbecAoAGSC20MjLDG/qr679g==}
     engines: {node: '>=16 || 14 >=14.17'}
+    deprecated: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
     hasBin: true
 
   glob@10.5.0:
     resolution: {integrity: sha512-DfXN8DfhJ7NH3Oe7cFmu3NCu1wKbkReJ8TorzSAFbSKrlNaQSKfIzqYqVY8zlbs2NLBbWpRiU52GX2PbaBVNkg==}
+    deprecated: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
     hasBin: true
 
   glob@13.0.0:
@@ -12852,6 +12864,7 @@ packages:
 
   glob@7.2.3:
     resolution: {integrity: sha512-nFR0zLpU2YCaRxwoCJvL6UvCH2JFyFVIvwTLsIf21AuHlMskA1hhTdk+LlYJtOlYt9v6dvszD2BGRqBL+iQK9Q==}
+    deprecated: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
 
   global-directory@4.0.1:
     resolution: {integrity: sha512-wHTUcDUoZ1H5/0iVqEudYW4/kAlN5cZ3j/bXn0Dpbizl9iaUVeWSHqiOjsgk6OW2bkLclbBjzewBz6weQ1zA2Q==}
@@ -12888,6 +12901,7 @@ packages:
   google-p12-pem@4.0.1:
     resolution: {integrity: sha512-WPkN4yGtz05WZ5EhtlxNDWPhC4JIic6G8ePitwUWy4l+XPVYec+a0j0Ts47PDtW59y3RwAhUd9/h9ZZ63px6RQ==}
     engines: {node: '>=12.0.0'}
+    deprecated: Package is no longer maintained
     hasBin: true
 
   gopd@1.2.0:
@@ -13107,6 +13121,7 @@ packages:
 
   hast@1.0.0:
     resolution: {integrity: sha512-vFUqlRV5C+xqP76Wwq2SrM0kipnmpxJm7OfvVXpB35Fp+Fn4MV+ozr+JZr5qFvyR1q/U+Foim2x+3P+x9S1PLA==}
+    deprecated: Renamed to rehype
 
   hastscript@6.0.0:
     resolution: {integrity: sha512-nDM6bvd7lIqDUiYEiu5Sl/+6ReP0BMk/2f4U/Rooccxkj0P5nm+acM5PrGJ/t5I8qPGiqZSE6hVAwZEdZIvP4w==}
@@ -13277,11 +13292,6 @@ packages:
   humanize-ms@1.2.1:
     resolution: {integrity: sha512-Fl70vYtsAFb/C06PTS9dZBo7ihau+Tu/DNCk/OyHhea07S+aeMWpFFkUaXRa8fI+ScZbEI8dfSxwY7gxZ9SAVQ==}
 
-  husky@9.1.7:
-    resolution: {integrity: sha512-5gs5ytaNjBrh5Ow3zrvdUUY+0VxIuWVL4i9irt6friV+BqdCfmV11CQTWMiBYWHbXhco+J1kHfTOUkePhCDvMA==}
-    engines: {node: '>=18'}
-    hasBin: true
-
   hyperdyperid@1.2.0:
     resolution: {integrity: sha512-Y93lCzHYgGWdrJ66yIktxiaGULYc6oGiABxhcO5AufBeOyoIdZF7bIfLaOrbM0iGIOXQQgxxRrFEnb+Y6w1n4A==}
     engines: {node: '>=10.18'}
@@ -13390,6 +13400,7 @@ packages:
 
   inflight@1.0.6:
     resolution: {integrity: sha512-k92I/b08q4wvFscXCLvqfsHCrjrF7yiXsQuIVvVE7N82W3+aqpzuUdBbfhWcy/FZR3/4IgflMgKLOsvPDrGCJA==}
+    deprecated: This module is not supported, and leaks memory. Do not use it. Check out lru-cache if you want a good and tested way to coalesce async requests by a key value, which is much more comprehensive and powerful.
 
   inherits@2.0.3:
     resolution: {integrity: sha512-x00IRNXNy63jwGkJmzPigoySHbaqpNuzKbBOmzK+g2OdZpQ9w+sxCN+VSB3ja7IAge2OP2qpfxTjeNcyjmW1uw==}
@@ -14293,6 +14304,60 @@ packages:
   leaflet@1.9.4:
     resolution: {integrity: sha512-nxS1ynzJOmOlHp+iL3FyWqK89GtNL8U8rvlMOsQdTTssxZwCXh8N2NB3GDQOL+YR3XnWyZAxwQixURb+FA74PA==}
 
+  lefthook-darwin-arm64@2.1.1:
+    resolution: {integrity: sha512-O/RS1j03/Fnq5zCzEb2r7UOBsqPeBuf1C5pMkIJcO4TSE6hf3rhLUkcorKc2M5ni/n5zLGtzQUXHV08/fSAT3Q==}
+    cpu: [arm64]
+    os: [darwin]
+
+  lefthook-darwin-x64@2.1.1:
+    resolution: {integrity: sha512-mm/kdKl81ROPoYnj9XYk5JDqj+/6Al8w/SSPDfhItkLJyl4pqS+hWUOP6gDGrnuRk8S0DvJ2+hzhnDsQnZohWQ==}
+    cpu: [x64]
+    os: [darwin]
+
+  lefthook-freebsd-arm64@2.1.1:
+    resolution: {integrity: sha512-F7JXlKmjxGqGbCWPLND0bVB4DMQezIe48pEwTlUQZbxh450c2gP5Q8FdttMZKOT163kBGGTqJAJSEC6zW+QSxA==}
+    cpu: [arm64]
+    os: [freebsd]
+
+  lefthook-freebsd-x64@2.1.1:
+    resolution: {integrity: sha512-Po8/lJMqNzKSZPuEI46dLuWoBoXtAxCuRpeOh6DAV/M4RhBynaCu8rLMZ9BqF7cVbZEWoplOmYo6HdOuiYpCkQ==}
+    cpu: [x64]
+    os: [freebsd]
+
+  lefthook-linux-arm64@2.1.1:
+    resolution: {integrity: sha512-mI2ljFgPEqHxI8vrN9nKgnVu63Rz1KisDbPwlvs7BTYNwq3sncdK5ukpGR4zzWdh6saNJ5tCtHEtep5GQI11nw==}
+    cpu: [arm64]
+    os: [linux]
+
+  lefthook-linux-x64@2.1.1:
+    resolution: {integrity: sha512-m3G/FaxC+crxeg9XeaUuHfEoL+i9gbkg2Hp2KD2IcVVIxprqlyqf0Hb8zbLV2NMXuo5RSGokJu44oAoTO3Ou2g==}
+    cpu: [x64]
+    os: [linux]
+
+  lefthook-openbsd-arm64@2.1.1:
+    resolution: {integrity: sha512-gz/8FJPvhjOdOFt1GmFvuvDOe+W+BBRjoeAT1/mTgkN7HCXMXgqNjjvakQKQeGz1I1v08wXG1ZNf5y+T9XBCDQ==}
+    cpu: [arm64]
+    os: [openbsd]
+
+  lefthook-openbsd-x64@2.1.1:
+    resolution: {integrity: sha512-ch3lyMUtbmtWUufaQVn4IoEs/2hjK51XqaCdY1mh5ca//VctR1peknIwQ5feHu+vATCDviWQ7HsdNDewm3HMPg==}
+    cpu: [x64]
+    os: [openbsd]
+
+  lefthook-windows-arm64@2.1.1:
+    resolution: {integrity: sha512-mm3PZhKDs9FE/jQDimkfWxtoj9xQ2k8uw2MdhtC825bhvIh+MEi0WFj/MOW+ug0RBg0I55tGYzZ5aVuozAWpTQ==}
+    cpu: [arm64]
+    os: [win32]
+
+  lefthook-windows-x64@2.1.1:
+    resolution: {integrity: sha512-1L2oGIzmhfOTxfwbe5mpSQ+m3ilpvGNymwIhn4UHq6hwHsUL6HEhODqx02GfBn6OXpVIr56bvdBAusjL/SVYGQ==}
+    cpu: [x64]
+    os: [win32]
+
+  lefthook@2.1.1:
+    resolution: {integrity: sha512-Tl9h9c+sG3ShzTHKuR3LAIblnnh+Mgxnm2Ul7yu9cu260Z27LEbO3V6Zw4YZFP59/2rlD42pt/llYsQCkkCFzw==}
+    hasBin: true
+
   less-loader@12.2.0:
     resolution: {integrity: sha512-MYUxjSQSBUQmowc0l5nPieOYwMzGPUaTzB6inNW/bdPEG9zOL3eAAD1Qw5ZxSPk7we5dMojHwNODYMV1hq4EVg==}
     engines: {node: '>= 18.12.0'}
@@ -14494,6 +14559,7 @@ packages:
 
   lodash.get@4.4.2:
     resolution: {integrity: sha512-z+Uw/vLuy6gQe8cfaFWD7p0wVv8fJl3mbzXh33RS+0oW2wvUqiRXiQ69gLWSLpgB5/6sU+r6BlQR0MBILadqTQ==}
+    deprecated: This package is deprecated. Use the optional chaining (?.) operator instead.
 
   lodash.includes@4.3.0:
     resolution: {integrity: sha512-W3Bx6mdkRTGtlJISOvVD/lbqjTlPPUDTMnlXZFnVwi9NKJ6tiAk6LVdlhZMm17VZisqhKcgzpO5Wz91PCt5b0w==}
@@ -15455,6 +15521,7 @@ packages:
   node-domexception@1.0.0:
     resolution: {integrity: sha512-/jKZoMpw0F8GRwl4/eLROPA3cfcXtLApP0QzLmUT/HuPCZWyB7IY9ZrMeKw2O/nFIqPQB3PVM9aYm0F312AXDQ==}
     engines: {node: '>=10.5.0'}
+    deprecated: Use your platform's native DOMException instead
 
   node-emoji@2.2.0:
     resolution: {integrity: sha512-Z3lTE9pLaJF47NyMhd4ww1yFTAP8YhYI8SleJiHzM46Fgpm5cnNzSl9XfzFNqbaz+VlJrIj3fXQ4DeN1Rjm6cw==}
@@ -16487,6 +16554,7 @@ packages:
   puppeteer@22.14.0:
     resolution: {integrity: sha512-MGTR6/pM8zmWbTdazb6FKnwIihzsSEXBPH49mFFU96DNZpQOevCAZMnjBZGlZRGRzRK6aADCavR6SQtrbv5dQw==}
     engines: {node: '>=18'}
+    deprecated: < 24.15.0 is no longer supported
     hasBin: true
 
   pure-rand@6.1.0:
@@ -17056,6 +17124,7 @@ packages:
 
   rimraf@3.0.2:
     resolution: {integrity: sha512-JZkJMZkAGFFPP2YqXZXPbMlMBgsxzE8ILs4lMIX/2o0L9UBw9O/Y3o6wFw/i9YLapcUJWwqbi3kdxIPdC62TIA==}
+    deprecated: Rimraf versions prior to v4 are no longer supported
     hasBin: true
 
   rimraf@6.1.2:
@@ -17939,10 +18008,12 @@ packages:
   tar@6.1.15:
     resolution: {integrity: sha512-/zKt9UyngnxIT/EAGYuxaMYgOIJiP81ab9ZfkILq4oNLPFX50qyYmu7jRj9qeXoxmJHjGlbH0+cm2uy1WCs10A==}
     engines: {node: '>=10'}
+    deprecated: Old versions of tar are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
 
   tar@6.2.1:
     resolution: {integrity: sha512-DZ4yORTwrbTj/7MZYq2w+/ZFdI6OZ/f9SFHR+71gIVUZhOQPHzVCLpvRnPgyaMpfWxxk/4ONva3GQSyNIKRv6A==}
     engines: {node: '>=10'}
+    deprecated: Old versions of tar are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
 
   telejson@7.2.0:
     resolution: {integrity: sha512-1QTEcJkJEhc8OnStBx/ILRu5J2p0GjvWsBx56bmZRqnrkdBMUe+nX92jxV+p3dB4CP6PZCdJMQJwCggkNBMzkQ==}
@@ -19034,6 +19105,7 @@ packages:
   whatwg-encoding@3.1.1:
     resolution: {integrity: sha512-6qN4hJdMwfYBtE3YBTTHhoeuUrDBPZmbQaxWAqSALV/MeEnR5z1xd8UKud2RAkFoPkmB+hli1TZSnyi84xz1vQ==}
     engines: {node: '>=18'}
+    deprecated: Use @exodus/bytes instead for a more spec-conformant and faster implementation
 
   whatwg-mimetype@4.0.0:
     resolution: {integrity: sha512-QaKxh0eNIi2mE9p2vEdzfagOKHCcj1pJ56EEHGQOVxp8r9/iszLUUV7v89x9O1p/T+NlTM5W7jW6+cz4Fq1YVg==}
@@ -19486,17 +19558,17 @@ snapshots:
       '@jridgewell/gen-mapping': 0.3.13
       '@jridgewell/trace-mapping': 0.3.31
 
-  '@analogjs/vite-plugin-angular@1.22.5(37f91ab50aed11daabae415a22a54033)':
+  '@analogjs/vite-plugin-angular@2.2.3(d4338d3e5a7a0b467a97417332912dc8)':
     dependencies:
       ts-morph: 21.0.1
-      vfile: 6.0.3
+      vite: 7.3.1(@types/node@22.19.3)(jiti@2.6.1)(less@4.5.1)(lightningcss@1.30.2)(sass@1.97.2)(terser@5.44.1)(tsx@4.21.0)(yaml@2.8.2)
     optionalDependencies:
       '@angular-devkit/build-angular': 18.2.21(@angular/compiler-cli@18.2.14(@angular/compiler@18.2.14(@angular/core@18.2.14(rxjs@7.8.1)(zone.js@0.14.10)))(typescript@5.4.5))(@swc/core@1.15.8(@swc/helpers@0.5.18))(@types/node@22.19.3)(chokidar@3.6.0)(html-webpack-plugin@5.6.5(webpack@5.104.1(@swc/core@1.15.8(@swc/helpers@0.5.18))(esbuild@0.27.2)))(jest@29.7.0(@types/node@22.19.3)(babel-plugin-macros@3.1.0)(ts-node@10.9.2(@swc/core@1.15.8(@swc/helpers@0.5.18))(@types/node@22.19.3)(typescript@5.4.5)))(lightningcss@1.30.2)(ng-packagr@18.2.1(@angular/compiler-cli@18.2.14(@angular/compiler@18.2.14(@angular/core@18.2.14(rxjs@7.8.1)(zone.js@0.14.10)))(typescript@5.4.5))(tailwindcss@4.1.18)(tslib@2.8.1)(typescript@5.4.5))(tailwindcss@4.1.18)(typescript@5.4.5)
       '@angular/build': 18.2.21(@angular/compiler-cli@18.2.14(@angular/compiler@18.2.14(@angular/core@18.2.14(rxjs@7.8.1)(zone.js@0.14.10)))(typescript@5.4.5))(@types/node@22.19.3)(chokidar@3.6.0)(less@4.5.1)(lightningcss@1.30.2)(postcss@8.5.6)(tailwindcss@4.1.18)(terser@5.44.1)(typescript@5.4.5)
 
-  '@analogjs/vitest-angular@1.22.5(@analogjs/vite-plugin-angular@1.22.5(37f91ab50aed11daabae415a22a54033))(@angular-devkit/architect@0.1802.21(chokidar@3.6.0))(vitest@3.2.4)':
+  '@analogjs/vitest-angular@2.2.3(@analogjs/vite-plugin-angular@2.2.3(d4338d3e5a7a0b467a97417332912dc8))(@angular-devkit/architect@0.1802.21(chokidar@3.6.0))(vitest@3.2.4)':
     dependencies:
-      '@analogjs/vite-plugin-angular': 1.22.5(37f91ab50aed11daabae415a22a54033)
+      '@analogjs/vite-plugin-angular': 2.2.3(d4338d3e5a7a0b467a97417332912dc8)
       '@angular-devkit/architect': 0.1802.21(chokidar@3.6.0)
       vitest: 3.2.4(@types/debug@4.1.12)(@types/node@22.19.3)(@vitest/ui@3.2.4)(jiti@2.6.1)(jsdom@24.1.3)(less@4.5.1)(lightningcss@1.30.2)(sass@1.97.2)(terser@5.44.1)(tsx@4.21.0)(yaml@2.8.2)
 
@@ -32182,7 +32254,7 @@ snapshots:
       '@typescript-eslint/parser': 7.2.0(eslint@8.57.1)(typescript@5.9.2)
       eslint: 8.57.1
       eslint-import-resolver-node: 0.3.9
-      eslint-import-resolver-typescript: 3.10.1(eslint-plugin-import@2.32.0(@typescript-eslint/parser@7.2.0(eslint@8.57.1)(typescript@5.9.2))(eslint@8.57.1))(eslint@8.57.1)
+      eslint-import-resolver-typescript: 3.10.1(eslint-plugin-import@2.32.0)(eslint@8.57.1)
       eslint-plugin-import: 2.32.0(@typescript-eslint/parser@7.2.0(eslint@8.57.1)(typescript@5.9.2))(eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0(@typescript-eslint/parser@7.2.0(eslint@8.57.1)(typescript@5.9.2))(eslint@8.57.1))(eslint@8.57.1))(eslint@8.57.1)
       eslint-plugin-jsx-a11y: 6.10.2(eslint@8.57.1)
       eslint-plugin-react: 7.37.5(eslint@8.57.1)
@@ -32280,7 +32352,7 @@ snapshots:
       '@typescript-eslint/parser': 7.2.0(eslint@8.57.1)(typescript@5.9.2)
       eslint: 8.57.1
       eslint-import-resolver-node: 0.3.9
-      eslint-import-resolver-typescript: 3.10.1(eslint-plugin-import@2.32.0(@typescript-eslint/parser@7.2.0(eslint@8.57.1)(typescript@5.9.2))(eslint@8.57.1))(eslint@8.57.1)
+      eslint-import-resolver-typescript: 3.10.1(eslint-plugin-import@2.32.0)(eslint@8.57.1)
       eslint-plugin-import: 2.32.0(@typescript-eslint/parser@7.2.0(eslint@8.57.1)(typescript@5.9.2))(eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0(@typescript-eslint/parser@7.2.0(eslint@8.57.1)(typescript@5.9.2))(eslint@8.57.1))(eslint@8.57.1))(eslint@8.57.1)
       eslint-plugin-jsx-a11y: 6.10.2(eslint@8.57.1)
       eslint-plugin-react: 7.37.5(eslint@8.57.1)
@@ -32300,7 +32372,7 @@ snapshots:
       '@typescript-eslint/parser': 7.2.0(eslint@8.57.1)(typescript@5.9.2)
       eslint: 8.57.1
       eslint-import-resolver-node: 0.3.9
-      eslint-import-resolver-typescript: 3.10.1(eslint-plugin-import@2.32.0(@typescript-eslint/parser@7.2.0(eslint@8.57.1)(typescript@5.9.2))(eslint@8.57.1))(eslint@8.57.1)
+      eslint-import-resolver-typescript: 3.10.1(eslint-plugin-import@2.32.0)(eslint@8.57.1)
       eslint-plugin-import: 2.32.0(@typescript-eslint/parser@7.2.0(eslint@8.57.1)(typescript@5.9.2))(eslint-import-resolver-typescript@3.10.1)(eslint@8.57.1)
       eslint-plugin-jsx-a11y: 6.10.2(eslint@8.57.1)
       eslint-plugin-react: 7.37.5(eslint@8.57.1)
@@ -32373,21 +32445,6 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0(@typescript-eslint/parser@7.2.0(eslint@8.57.1)(typescript@5.9.2))(eslint@8.57.1))(eslint@8.57.1):
-    dependencies:
-      '@nolyfill/is-core-module': 1.0.39
-      debug: 4.4.3(supports-color@5.5.0)
-      eslint: 8.57.1
-      get-tsconfig: 4.13.0
-      is-bun-module: 2.0.0
-      stable-hash: 0.0.5
-      tinyglobby: 0.2.15
-      unrs-resolver: 1.11.1
-    optionalDependencies:
-      eslint-plugin-import: 2.32.0(@typescript-eslint/parser@7.2.0(eslint@8.57.1)(typescript@5.9.2))(eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0(@typescript-eslint/parser@7.2.0(eslint@8.57.1)(typescript@5.9.2))(eslint@8.57.1))(eslint@8.57.1))(eslint@8.57.1)
-    transitivePeerDependencies:
-      - supports-color
-
   eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0(@typescript-eslint/parser@7.2.0(eslint@9.39.2(jiti@2.6.1))(typescript@5.9.2))(eslint@9.39.2(jiti@2.6.1)))(eslint@9.39.2(jiti@2.6.1)):
     dependencies:
       '@nolyfill/is-core-module': 1.0.39
@@ -32415,6 +32472,21 @@ snapshots:
       unrs-resolver: 1.11.1
     optionalDependencies:
       eslint-plugin-import: 2.32.0(@typescript-eslint/parser@7.2.0(eslint@8.57.1)(typescript@5.9.2))(eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0(eslint@8.57.1))(eslint@8.57.1))(eslint@8.57.1)
+    transitivePeerDependencies:
+      - supports-color
+
+  eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0)(eslint@8.57.1):
+    dependencies:
+      '@nolyfill/is-core-module': 1.0.39
+      debug: 4.4.3(supports-color@5.5.0)
+      eslint: 8.57.1
+      get-tsconfig: 4.13.0
+      is-bun-module: 2.0.0
+      stable-hash: 0.0.5
+      tinyglobby: 0.2.15
+      unrs-resolver: 1.11.1
+    optionalDependencies:
+      eslint-plugin-import: 2.32.0(@typescript-eslint/parser@7.2.0(eslint@8.57.1)(typescript@5.9.2))(eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0(@typescript-eslint/parser@7.2.0(eslint@8.57.1)(typescript@5.9.2))(eslint@8.57.1))(eslint@8.57.1))(eslint@8.57.1)
     transitivePeerDependencies:
       - supports-color
 
@@ -32455,7 +32527,7 @@ snapshots:
       '@typescript-eslint/parser': 7.2.0(eslint@8.57.1)(typescript@5.9.2)
       eslint: 8.57.1
       eslint-import-resolver-node: 0.3.9
-      eslint-import-resolver-typescript: 3.10.1(eslint-plugin-import@2.32.0(@typescript-eslint/parser@7.2.0(eslint@8.57.1)(typescript@5.9.2))(eslint@8.57.1))(eslint@8.57.1)
+      eslint-import-resolver-typescript: 3.10.1(eslint-plugin-import@2.32.0)(eslint@8.57.1)
     transitivePeerDependencies:
       - supports-color
 
@@ -32477,7 +32549,7 @@ snapshots:
       '@typescript-eslint/parser': 7.2.0(eslint@8.57.1)(typescript@5.9.2)
       eslint: 8.57.1
       eslint-import-resolver-node: 0.3.9
-      eslint-import-resolver-typescript: 3.10.1(eslint-plugin-import@2.32.0(@typescript-eslint/parser@7.2.0(eslint@8.57.1)(typescript@5.9.2))(eslint@8.57.1))(eslint@8.57.1)
+      eslint-import-resolver-typescript: 3.10.1(eslint-plugin-import@2.32.0)(eslint@8.57.1)
     transitivePeerDependencies:
       - supports-color
 
@@ -34527,8 +34599,6 @@ snapshots:
     dependencies:
       ms: 2.1.3
 
-  husky@9.1.7: {}
-
   hyperdyperid@1.2.0: {}
 
   hyperlinker@1.0.0: {}
@@ -35815,6 +35885,49 @@ snapshots:
       gcd: 0.0.1
 
   leaflet@1.9.4: {}
+
+  lefthook-darwin-arm64@2.1.1:
+    optional: true
+
+  lefthook-darwin-x64@2.1.1:
+    optional: true
+
+  lefthook-freebsd-arm64@2.1.1:
+    optional: true
+
+  lefthook-freebsd-x64@2.1.1:
+    optional: true
+
+  lefthook-linux-arm64@2.1.1:
+    optional: true
+
+  lefthook-linux-x64@2.1.1:
+    optional: true
+
+  lefthook-openbsd-arm64@2.1.1:
+    optional: true
+
+  lefthook-openbsd-x64@2.1.1:
+    optional: true
+
+  lefthook-windows-arm64@2.1.1:
+    optional: true
+
+  lefthook-windows-x64@2.1.1:
+    optional: true
+
+  lefthook@2.1.1:
+    optionalDependencies:
+      lefthook-darwin-arm64: 2.1.1
+      lefthook-darwin-x64: 2.1.1
+      lefthook-freebsd-arm64: 2.1.1
+      lefthook-freebsd-x64: 2.1.1
+      lefthook-linux-arm64: 2.1.1
+      lefthook-linux-x64: 2.1.1
+      lefthook-openbsd-arm64: 2.1.1
+      lefthook-openbsd-x64: 2.1.1
+      lefthook-windows-arm64: 2.1.1
+      lefthook-windows-x64: 2.1.1
 
   less-loader@12.2.0(less@4.2.0)(webpack@5.94.0(@swc/core@1.15.8(@swc/helpers@0.5.18))(esbuild@0.23.0)):
     dependencies:
