@@ -1,5 +1,12 @@
 # @copilotkitnext/web-inspector
 
+## 1.52.0-next.7
+
+### Patch Changes
+
+- Updated dependencies [d77f347]
+  - @copilotkitnext/core@1.52.0-next.7
+
 ## 1.52.0-next.6
 
 ### Patch Changes

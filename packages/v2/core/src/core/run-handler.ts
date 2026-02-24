@@ -14,6 +14,7 @@ import { FrontendTool } from "../types";
 
 export interface CopilotKitCoreRunAgentParams {
   agent: AbstractAgent;
+  forwardedProps?: Record<string, unknown>;
 }
 
 export interface CopilotKitCoreConnectAgentParams {
@@ -162,6 +163,7 @@ export class RunHandler {
    */
   async runAgent({
     agent,
+    forwardedProps,
   }: CopilotKitCoreRunAgentParams): Promise<RunAgentResult> {
     // Agent ID is guaranteed to be set by validateAndAssignAgentId
     if (agent.agentId) {
@@ -179,8 +181,10 @@ export class RunHandler {
     try {
       const runAgentResult = await agent.runAgent(
         {
-          forwardedProps: (this.core as unknown as CopilotKitCoreFriendsAccess)
-            .properties,
+          forwardedProps: {
+            ...(this.core as unknown as CopilotKitCoreFriendsAccess).properties,
+            ...forwardedProps,
+          },
           tools: this.buildFrontendTools(agent.agentId),
           context: Object.values(
             (this.core as unknown as CopilotKitCoreFriendsAccess).context,

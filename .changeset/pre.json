@@ -42,12 +42,16 @@
     "@copilotkitnext/sqlite-runner": "1.51.4",
     "@copilotkitnext/typescript-config": "1.51.4",
     "@copilotkit/voice": "1.51.4",
-    "@copilotkitnext/web-inspector": "1.51.4"
+    "@copilotkitnext/web-inspector": "1.51.4",
+    "langgraph-js-starter": "0.1.0",
+    "agent-langraph-interrupt": "0.0.1",
+    "web-langraph-interrupt": "0.1.0"
   },
   "changesets": [
     "deep-pigs-burn",
     "dry-knives-decide",
     "early-buckets-tease",
+    "eleven-oranges-hear",
     "fair-rivers-mate",
     "five-dodos-fly",
     "fix-a2ui-renderer-workspace-dep",

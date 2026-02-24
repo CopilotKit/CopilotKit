@@ -1,5 +1,12 @@
 # @copilotkitnext/node-express
 
+## 1.52.0-next.7
+
+### Patch Changes
+
+- @copilotkitnext/agent@1.52.0-next.7
+- @copilotkitnext/runtime@1.52.0-next.7
+
 ## 1.52.0-next.6
 
 ### Patch Changes

@@ -1,0 +1,25 @@
+{
+  "name": "agent-langraph-interrupt",
+  "version": "0.0.1",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "dev": "npx @langchain/langgraph-cli dev --port 8125 --no-browser"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@types/html-to-text": "^9.0.4",
+    "@types/node": "^22.19.11",
+    "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "@copilotkit/sdk-js": "^1.51.4",
+    "@langchain/core": "^1.1.26",
+    "@langchain/langgraph": "1.1.5",
+    "@langchain/langgraph-checkpoint": "1.0.0",
+    "@langchain/openai": "^1.2.8",
+    "zod": "^3.25.76"
+  }
+}

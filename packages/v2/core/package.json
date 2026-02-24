@@ -1,6 +1,6 @@
 {
   "name": "@copilotkitnext/core",
-  "version": "1.52.0-next.6",
+  "version": "1.52.0-next.7",
   "description": "Core web utilities for CopilotKit2",
   "main": "./dist/index.cjs",
   "types": "./dist/index.d.cts",
