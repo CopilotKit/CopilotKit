@@ -58,9 +58,7 @@ describe("parseSSEResponse", () => {
     expect(result.messages[0]).toMatchObject({
       id: "m-1",
       role: "assistant",
-      toolCalls: [
-        { id: "tc-1", name: "get_weather", args: '{"city":"NYC"}' },
-      ],
+      toolCalls: [{ id: "tc-1", name: "get_weather", args: '{"city":"NYC"}' }],
     });
   });
 
