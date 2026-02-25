@@ -96,7 +96,7 @@ export function createCopilotEndpointSingleRoute({
     .use("*", async (c, next) => {
       await next();
 
-      const response = c.res;
+      const response = c.res.clone();
       const path = c.req.path;
 
       callAfterRequestMiddleware({
