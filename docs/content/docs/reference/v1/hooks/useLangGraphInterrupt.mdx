@@ -66,6 +66,10 @@ const YourMainContent = () => {
     <PropertyReference name="enabled" type="(args: { eventValue: TEventValue; agentMetadata: AgentSession }) => boolean">
         Method that returns a boolean, indicating if the interrupt action should run. Useful when using multiple interrupts
     </PropertyReference>
+
+    <PropertyReference name="agentId" type="string">
+        Optional agent ID to scope this interrupt to a specific agent. Defaults to the agent configured in the CopilotKit chat configuration.
+    </PropertyReference>
 </PropertyReference>
 
 <PropertyReference name="dependencies" type="any[]">
