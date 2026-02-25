@@ -30,10 +30,13 @@
     "@copilotkitnext/eslint-config": "workspace:*",
     "@copilotkitnext/typescript-config": "workspace:*",
     "@types/node": "^22.15.3",
+    "@valibot/to-json-schema": "^1.5.0",
     "@vitest/coverage-v8": "^3.2.4",
+    "arktype": "^2.1.29",
     "eslint": "^9.30.0",
     "tsdown": "^0.20.3",
     "typescript": "5.8.2",
+    "valibot": "^1.2.0",
     "vitest": "^3.0.5"
   },
   "dependencies": {
