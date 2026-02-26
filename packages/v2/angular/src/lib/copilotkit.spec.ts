@@ -41,7 +41,8 @@ vi.mock("@copilotkitnext/core", () => {
     runtimeUrl = undefined;
     runtimeTransport = "rest";
     headers: Record<string, string> = {};
-    runtimeConnectionStatus = CopilotKitCoreRuntimeConnectionStatus.Disconnected;
+    runtimeConnectionStatus =
+      CopilotKitCoreRuntimeConnectionStatus.Disconnected;
     listener?: Parameters<typeof mockSubscribe>[0];
 
     constructor(config: any) {
@@ -54,7 +55,10 @@ vi.mock("@copilotkitnext/core", () => {
     }
   }
 
-  return { CopilotKitCore: MockCopilotKitCore, CopilotKitCoreRuntimeConnectionStatus } as any;
+  return {
+    CopilotKitCore: MockCopilotKitCore,
+    CopilotKitCoreRuntimeConnectionStatus,
+  } as any;
 });
 
 describe("CopilotKit", () => {
