@@ -15,7 +15,7 @@
     "typescript": "^5.9.3"
   },
   "dependencies": {
-    "@copilotkit/sdk-js": "^1.51.4",
+    "@copilotkit/sdk-js": "workspace:*",
     "@langchain/core": "^1.1.26",
     "@langchain/langgraph": "1.1.5",
     "@langchain/langgraph-checkpoint": "1.0.0",
