@@ -13,6 +13,7 @@ export interface CopilotKitConfig {
   licenseKey?: string;
   properties?: Record<string, unknown>;
   agents?: Record<string, AbstractAgent>;
+  selfManagedAgents?: Record<string, AbstractAgent>;
   tools?: ClientTool[];
   renderToolCalls?: RenderToolCallConfig[];
   frontendTools?: FrontendToolConfig[];

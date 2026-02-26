@@ -1,4 +1,5 @@
 import { AbstractAgent, HttpAgent } from "@ag-ui/client";
+import { validateSelfManagedAgentMiddlewares } from "./self-managed-agent-validator";
 import { logger, RuntimeInfo, AgentDescription } from "@copilotkitnext/shared";
 import { ProxiedCopilotRuntimeAgent } from "../agent";
 import type { CopilotKitCore } from "./core";
@@ -21,6 +22,7 @@ export interface CopilotKitCoreAddAgentParams {
 export class AgentRegistry {
   private _agents: Record<string, AbstractAgent> = {};
   private localAgents: Record<string, AbstractAgent> = {};
+  private selfManagedAgents: Record<string, AbstractAgent> = {};
   private remoteAgents: Record<string, AbstractAgent> = {};
 
   private _runtimeUrl?: string;
@@ -62,10 +64,21 @@ export class AgentRegistry {
   /**
    * Initialize agents from configuration
    */
-  initialize(agents: Record<string, AbstractAgent>): void {
+  initialize(
+    agents: Record<string, AbstractAgent>,
+    selfManagedAgents: Record<string, AbstractAgent> = {},
+  ): void {
     this.localAgents = this.assignAgentIds(agents);
-    this.applyHeadersToAgents(this.localAgents);
-    this._agents = this.localAgents;
+
+    // Validate and register self-managed agents
+    this.selfManagedAgents = this.assignAgentIds(selfManagedAgents);
+    this.validateSelfManagedMiddlewares(this.selfManagedAgents);
+
+    this.applyHeadersToAgents({
+      ...this.localAgents,
+      ...this.selfManagedAgents,
+    });
+    this._agents = { ...this.localAgents, ...this.selfManagedAgents };
   }
 
   /**
@@ -104,7 +117,11 @@ export class AgentRegistry {
       }
     });
     this.localAgents = agents;
-    this._agents = { ...this.localAgents, ...this.remoteAgents };
+    this._agents = {
+      ...this.localAgents,
+      ...this.selfManagedAgents,
+      ...this.remoteAgents,
+    };
     this.applyHeadersToAgents(this._agents);
     void this.notifyAgentsChanged();
   }
@@ -116,7 +133,11 @@ export class AgentRegistry {
     this.validateAndAssignAgentId(id, agent);
     this.localAgents[id] = agent;
     this.applyHeadersToAgent(agent);
-    this._agents = { ...this.localAgents, ...this.remoteAgents };
+    this._agents = {
+      ...this.localAgents,
+      ...this.selfManagedAgents,
+      ...this.remoteAgents,
+    };
     void this.notifyAgentsChanged();
   }
 
@@ -125,7 +146,31 @@ export class AgentRegistry {
    */
   removeAgent__unsafe_dev_only(id: string): void {
     delete this.localAgents[id];
-    this._agents = { ...this.localAgents, ...this.remoteAgents };
+    this._agents = {
+      ...this.localAgents,
+      ...this.selfManagedAgents,
+      ...this.remoteAgents,
+    };
+    void this.notifyAgentsChanged();
+  }
+
+  /**
+   * Set all self-managed agents at once
+   */
+  setSelfManagedAgents(agents: Record<string, AbstractAgent>): void {
+    Object.entries(agents).forEach(([id, agent]) => {
+      if (agent) {
+        this.validateAndAssignAgentId(id, agent);
+      }
+    });
+    this.validateSelfManagedMiddlewares(agents);
+    this.selfManagedAgents = agents;
+    this._agents = {
+      ...this.localAgents,
+      ...this.selfManagedAgents,
+      ...this.remoteAgents,
+    };
+    this.applyHeadersToAgents(this._agents);
     void this.notifyAgentsChanged();
   }
 
@@ -207,7 +252,7 @@ export class AgentRegistry {
       this._runtimeVersion = undefined;
       this._audioFileTranscriptionEnabled = false;
       this.remoteAgents = {};
-      this._agents = this.localAgents;
+      this._agents = { ...this.localAgents, ...this.selfManagedAgents };
 
       await this.notifyRuntimeStatusChanged(
         CopilotKitCoreRuntimeConnectionStatus.Disconnected,
@@ -249,7 +294,11 @@ export class AgentRegistry {
       );
 
       this.remoteAgents = agents;
-      this._agents = { ...this.localAgents, ...this.remoteAgents };
+      this._agents = {
+        ...this.localAgents,
+        ...this.selfManagedAgents,
+        ...this.remoteAgents,
+      };
       this._runtimeConnectionStatus =
         CopilotKitCoreRuntimeConnectionStatus.Connected;
       this._runtimeVersion = version;
@@ -266,7 +315,7 @@ export class AgentRegistry {
       this._runtimeVersion = undefined;
       this._audioFileTranscriptionEnabled = false;
       this.remoteAgents = {};
-      this._agents = this.localAgents;
+      this._agents = { ...this.localAgents, ...this.selfManagedAgents };
 
       await this.notifyRuntimeStatusChanged(
         CopilotKitCoreRuntimeConnectionStatus.Error,
@@ -331,6 +380,19 @@ export class AgentRegistry {
       );
     }
     return (await response.json()) as RuntimeInfo;
+  }
+
+  /**
+   * Validate that self-managed agents don't use disallowed middlewares
+   */
+  private validateSelfManagedMiddlewares(
+    agents: Record<string, AbstractAgent>,
+  ): void {
+    Object.entries(agents).forEach(([id, agent]) => {
+      if (agent) {
+        validateSelfManagedAgentMiddlewares(id, agent);
+      }
+    });
   }
 
   /**
