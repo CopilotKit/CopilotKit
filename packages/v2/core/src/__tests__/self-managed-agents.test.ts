@@ -22,7 +22,9 @@ describe("CopilotKitCore selfManagedAgents", () => {
         runtimeUrl: undefined,
         selfManagedAgents: { myAgent: agent },
       });
-    }).toThrow(/FilterToolCallsMiddleware cannot be used with selfManagedAgents/);
+    }).toThrow(
+      /FilterToolCallsMiddleware cannot be used with selfManagedAgents/,
+    );
   });
 
   it("should allow agents with no disallowed middlewares", () => {
@@ -43,7 +45,9 @@ describe("CopilotKitCore selfManagedAgents", () => {
 
     expect(() => {
       core.setSelfManagedAgents({ myAgent: agent });
-    }).toThrow(/FilterToolCallsMiddleware cannot be used with selfManagedAgents/);
+    }).toThrow(
+      /FilterToolCallsMiddleware cannot be used with selfManagedAgents/,
+    );
   });
 
   it("should merge selfManagedAgents with agents__unsafe_dev_only", () => {

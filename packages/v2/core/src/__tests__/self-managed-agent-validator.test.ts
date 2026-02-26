@@ -5,7 +5,9 @@ import { validateSelfManagedAgentMiddlewares } from "../core/self-managed-agent-
 describe("validateSelfManagedAgentMiddlewares", () => {
   it("should pass for an agent with no middlewares", () => {
     const agent = new HttpAgent({ url: "https://example.com" });
-    expect(() => validateSelfManagedAgentMiddlewares("myAgent", agent)).not.toThrow();
+    expect(() =>
+      validateSelfManagedAgentMiddlewares("myAgent", agent),
+    ).not.toThrow();
   });
 
   it("should throw for an agent with FilterToolCallsMiddleware", () => {
@@ -18,9 +20,11 @@ describe("validateSelfManagedAgentMiddlewares", () => {
 
   it("should include agent name in error message", () => {
     const agent = new HttpAgent({ url: "https://example.com" });
-    agent.use(new FilterToolCallsMiddleware({ disallowedToolCalls: ["dangerous"] }));
-    expect(() => validateSelfManagedAgentMiddlewares("badAgent", agent)).toThrow(
-      /badAgent/,
+    agent.use(
+      new FilterToolCallsMiddleware({ disallowedToolCalls: ["dangerous"] }),
     );
+    expect(() =>
+      validateSelfManagedAgentMiddlewares("badAgent", agent),
+    ).toThrow(/badAgent/);
   });
 });

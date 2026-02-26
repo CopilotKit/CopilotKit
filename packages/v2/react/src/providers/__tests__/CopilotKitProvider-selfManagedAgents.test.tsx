@@ -26,7 +26,9 @@ describe("CopilotKitProvider selfManagedAgents", () => {
           <div />
         </CopilotKitProvider>,
       );
-    }).toThrow(/selfManagedAgents requires a 'publicApiKey' or 'publicLicenseKey'/);
+    }).toThrow(
+      /selfManagedAgents requires a 'publicApiKey' or 'publicLicenseKey'/,
+    );
   });
 
   it("should work when selfManagedAgents is used with a license key", () => {
@@ -57,6 +59,8 @@ describe("CopilotKitProvider selfManagedAgents", () => {
           <div />
         </CopilotKitProvider>,
       );
-    }).toThrow(/FilterToolCallsMiddleware cannot be used with selfManagedAgents/);
+    }).toThrow(
+      /FilterToolCallsMiddleware cannot be used with selfManagedAgents/,
+    );
   });
 });

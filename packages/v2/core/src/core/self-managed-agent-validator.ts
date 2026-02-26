@@ -1,4 +1,8 @@
-import { AbstractAgent, FilterToolCallsMiddleware, Middleware } from "@ag-ui/client";
+import {
+  AbstractAgent,
+  FilterToolCallsMiddleware,
+  Middleware,
+} from "@ag-ui/client";
 
 /**
  * Middlewares that are not allowed on client-side self-managed agents.
@@ -25,15 +29,14 @@ export function validateSelfManagedAgentMiddlewares(
   agent: AbstractAgent,
 ): void {
   // Access private middlewares array — necessary for validation
-  const middlewares: Middleware[] =
-    (agent as any).middlewares ?? [];
+  const middlewares: Middleware[] = (agent as any).middlewares ?? [];
 
   for (const mw of middlewares) {
     for (const disallowed of DISALLOWED_MIDDLEWARES) {
       if (mw instanceof disallowed.ctor) {
         throw new Error(
           `${disallowed.name} cannot be used with selfManagedAgents (agent: "${agentId}") — ` +
-          `${disallowed.reason}. Use a server-side CopilotRuntime instead.`,
+            `${disallowed.reason}. Use a server-side CopilotRuntime instead.`,
         );
       }
     }
