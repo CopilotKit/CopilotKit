@@ -10,6 +10,10 @@ import { CopilotKit } from "./copilotkit";
 import type { AbstractAgent } from "@ag-ui/client";
 import type { Message } from "@ag-ui/client";
 import { DEFAULT_AGENT_ID } from "@copilotkitnext/shared";
+import {
+  ProxiedCopilotRuntimeAgent,
+  CopilotKitCoreRuntimeConnectionStatus,
+} from "@copilotkitnext/core";
 
 export class AgentStore {
   readonly #subscription?: {
@@ -64,21 +68,58 @@ export class CopilotkitAgentFactory {
   createAgentStoreSignal(
     agentId: Signal<string | undefined>,
     destroyRef: DestroyRef,
-  ): Signal<AgentStore | undefined> {
+  ): Signal<AgentStore> {
     let lastAgentStore: AgentStore | undefined;
 
     return computed(() => {
       this.#copilotkit.agents();
+      this.#copilotkit.runtimeConnectionStatus();
+      const runtimeUrl = this.#copilotkit.runtimeUrl();
+      const runtimeTransport = this.#copilotkit.runtimeTransport();
+      const headers = this.#copilotkit.headers();
 
       if (lastAgentStore) {
         lastAgentStore.teardown();
         lastAgentStore = undefined;
       }
 
-      const abstractAgent = this.#copilotkit.getAgent(
-        agentId() || DEFAULT_AGENT_ID,
-      );
-      if (!abstractAgent) return undefined;
+      const resolvedAgentId = agentId() || DEFAULT_AGENT_ID;
+      const abstractAgent = this.#copilotkit.getAgent(resolvedAgentId);
+      if (!abstractAgent) {
+        const { runtimeConnectionStatus } = this.#copilotkit.core;
+        const isRuntimeConfigured = runtimeUrl !== undefined;
+
+        if (
+          isRuntimeConfigured &&
+          (runtimeConnectionStatus ===
+            CopilotKitCoreRuntimeConnectionStatus.Disconnected ||
+            runtimeConnectionStatus ===
+              CopilotKitCoreRuntimeConnectionStatus.Connecting)
+        ) {
+          const provisional = new ProxiedCopilotRuntimeAgent({
+            runtimeUrl,
+            agentId: resolvedAgentId,
+            transport: runtimeTransport,
+          });
+          // Apply current headers so runs/connects inherit them
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (provisional as any).headers = { ...headers };
+          lastAgentStore = new AgentStore(provisional, destroyRef);
+          return lastAgentStore;
+        }
+
+        const knownAgents = Object.keys(this.#copilotkit.agents() ?? {});
+        const runtimePart = isRuntimeConfigured
+          ? `runtimeUrl=${runtimeUrl}`
+          : "no runtimeUrl";
+        throw new Error(
+          `injectAgentStore: Agent '${resolvedAgentId}' not found after runtime sync (${runtimePart}). ` +
+            (knownAgents.length
+              ? `Known agents: [${knownAgents.join(", ")}]`
+              : "No agents registered.") +
+            " Verify your runtime /info and/or agents__unsafe_dev_only.",
+        );
+      }
 
       lastAgentStore = new AgentStore(abstractAgent, destroyRef);
       return lastAgentStore;
@@ -88,7 +129,7 @@ export class CopilotkitAgentFactory {
 
 export function injectAgentStore(
   agentId: string | Signal<string | undefined>,
-): Signal<AgentStore | undefined> {
+): Signal<AgentStore> {
   const agentFactory = inject(CopilotkitAgentFactory);
   const destroyRef = inject(DestroyRef);
   const agentIdSignal =

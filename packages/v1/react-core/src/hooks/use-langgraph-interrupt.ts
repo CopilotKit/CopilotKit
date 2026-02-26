@@ -40,7 +40,8 @@ export function useLangGraphInterrupt<TEventValue = any>(
   actionRef.current = action;
 
   const existingConfig = useCopilotChatConfiguration();
-  const resolvedAgentId = existingConfig?.agentId ?? "default";
+  const resolvedAgentId =
+    action.agentId ?? existingConfig?.agentId ?? "default";
   const threadId = existingConfig?.threadId;
   const nodeName = useAgentNodeName(resolvedAgentId);
 

@@ -1,5 +1,10 @@
 import { AbstractAgent } from "@ag-ui/client";
-import { FrontendTool, CopilotKitCore } from "@copilotkitnext/core";
+import {
+  FrontendTool,
+  CopilotKitCore,
+  CopilotKitCoreRuntimeConnectionStatus,
+  CopilotRuntimeTransport,
+} from "@copilotkitnext/core";
 import {
   Injectable,
   Injector,
@@ -16,6 +21,7 @@ import {
 } from "./tools";
 import { injectCopilotKitConfig } from "./config";
 import { HumanInTheLoop } from "./human-in-the-loop";
+import { ensureLicenseWatermark } from "./license-watermark";
 
 @Injectable({ providedIn: "root" })
 export class CopilotKit {
@@ -26,6 +32,17 @@ export class CopilotKit {
     this.#config.agents ?? {},
   );
   readonly agents = this.#agents.asReadonly();
+  readonly #runtimeConnectionStatus =
+    signal<CopilotKitCoreRuntimeConnectionStatus>(
+      CopilotKitCoreRuntimeConnectionStatus.Disconnected,
+    );
+  readonly runtimeConnectionStatus = this.#runtimeConnectionStatus.asReadonly();
+  readonly #runtimeUrl = signal<string | undefined>(undefined);
+  readonly runtimeUrl = this.#runtimeUrl.asReadonly();
+  readonly #runtimeTransport = signal<CopilotRuntimeTransport>("rest");
+  readonly runtimeTransport = this.#runtimeTransport.asReadonly();
+  readonly #headers = signal<Record<string, string>>({});
+  readonly headers = this.#headers.asReadonly();
 
   readonly core = new CopilotKitCore({
     runtimeUrl: this.#config.runtimeUrl,
@@ -52,6 +69,12 @@ export class CopilotKit {
     this.#humanInTheLoopToolRenderConfigs.asReadonly();
 
   constructor() {
+    ensureLicenseWatermark(this.#config.headers);
+
+    this.#runtimeConnectionStatus.set(this.core.runtimeConnectionStatus);
+    this.#runtimeUrl.set(this.core.runtimeUrl);
+    this.#runtimeTransport.set(this.core.runtimeTransport);
+    this.#headers.set(this.core.headers);
     this.#config.renderToolCalls?.forEach((renderConfig) => {
       this.addRenderToolCall(renderConfig);
     });
@@ -78,6 +101,12 @@ export class CopilotKit {
     this.core.subscribe({
       onAgentsChanged: () => {
         this.#agents.set(this.core.agents);
+      },
+      onRuntimeConnectionStatusChanged: ({ status }) => {
+        this.#runtimeConnectionStatus.set(status);
+      },
+      onHeadersChanged: ({ headers }) => {
+        this.#headers.set(headers);
       },
     });
   }
@@ -168,6 +197,7 @@ export class CopilotKit {
 
   updateRuntime(options: {
     runtimeUrl?: string;
+    runtimeTransport?: CopilotRuntimeTransport;
     headers?: Record<string, string>;
     properties?: Record<string, unknown>;
     agents?: Record<string, AbstractAgent>;
@@ -175,9 +205,15 @@ export class CopilotKit {
   }): void {
     if (options.runtimeUrl !== undefined) {
       this.core.setRuntimeUrl(options.runtimeUrl);
+      this.#runtimeUrl.set(options.runtimeUrl);
+    }
+    if (options.runtimeTransport !== undefined) {
+      this.core.setRuntimeTransport(options.runtimeTransport);
+      this.#runtimeTransport.set(options.runtimeTransport);
     }
     if (options.headers !== undefined) {
       this.core.setHeaders(options.headers);
+      this.#headers.set(options.headers);
     }
     if (options.properties !== undefined) {
       this.core.setProperties(options.properties);

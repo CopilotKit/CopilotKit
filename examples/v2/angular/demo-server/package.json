@@ -4,7 +4,7 @@
   "type": "module",
   "version": "0.0.0",
   "scripts": {
-    "dev": "nodemon --verbose --cwd ../../../ --watch packages/core/dist/** --watch packages/shared/dist/** --watch packages/runtime/dist/** --watch packages/demo-agents/dist/** --watch apps/angular/demo-server/src/** --ext mjs,js,json,ts --delay 800ms --signal SIGTERM --exec \"tsx --env-file=apps/angular/demo-server/.env apps/angular/demo-server/src/index.ts\"",
+    "dev": "nodemon --verbose --cwd ../../../../ --watch packages/core/dist/** --watch packages/shared/dist/** --watch packages/runtime/dist/** --watch packages/demo-agents/dist/** --watch examples/v2/angular/demo-server/src/** --ext mjs,js,json,ts --delay 800ms --signal SIGTERM --exec \"tsx --env-file=examples/v2/angular/demo-server/.env examples/v2/angular/demo-server/src/index.ts\"",
     "start": "node --env-file=.env --loader tsx src/index.ts"
   },
   "dependencies": {
