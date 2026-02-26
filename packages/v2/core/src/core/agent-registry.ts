@@ -74,7 +74,10 @@ export class AgentRegistry {
     this.selfManagedAgents = this.assignAgentIds(selfManagedAgents);
     this.validateSelfManagedMiddlewares(this.selfManagedAgents);
 
-    this.applyHeadersToAgents({ ...this.localAgents, ...this.selfManagedAgents });
+    this.applyHeadersToAgents({
+      ...this.localAgents,
+      ...this.selfManagedAgents,
+    });
     this._agents = { ...this.localAgents, ...this.selfManagedAgents };
   }
 
@@ -114,7 +117,11 @@ export class AgentRegistry {
       }
     });
     this.localAgents = agents;
-    this._agents = { ...this.localAgents, ...this.selfManagedAgents, ...this.remoteAgents };
+    this._agents = {
+      ...this.localAgents,
+      ...this.selfManagedAgents,
+      ...this.remoteAgents,
+    };
     this.applyHeadersToAgents(this._agents);
     void this.notifyAgentsChanged();
   }
@@ -126,7 +133,11 @@ export class AgentRegistry {
     this.validateAndAssignAgentId(id, agent);
     this.localAgents[id] = agent;
     this.applyHeadersToAgent(agent);
-    this._agents = { ...this.localAgents, ...this.selfManagedAgents, ...this.remoteAgents };
+    this._agents = {
+      ...this.localAgents,
+      ...this.selfManagedAgents,
+      ...this.remoteAgents,
+    };
     void this.notifyAgentsChanged();
   }
 
@@ -135,7 +146,11 @@ export class AgentRegistry {
    */
   removeAgent__unsafe_dev_only(id: string): void {
     delete this.localAgents[id];
-    this._agents = { ...this.localAgents, ...this.selfManagedAgents, ...this.remoteAgents };
+    this._agents = {
+      ...this.localAgents,
+      ...this.selfManagedAgents,
+      ...this.remoteAgents,
+    };
     void this.notifyAgentsChanged();
   }
 
@@ -150,7 +165,11 @@ export class AgentRegistry {
     });
     this.validateSelfManagedMiddlewares(agents);
     this.selfManagedAgents = agents;
-    this._agents = { ...this.localAgents, ...this.selfManagedAgents, ...this.remoteAgents };
+    this._agents = {
+      ...this.localAgents,
+      ...this.selfManagedAgents,
+      ...this.remoteAgents,
+    };
     this.applyHeadersToAgents(this._agents);
     void this.notifyAgentsChanged();
   }
@@ -275,7 +294,11 @@ export class AgentRegistry {
       );
 
       this.remoteAgents = agents;
-      this._agents = { ...this.localAgents, ...this.selfManagedAgents, ...this.remoteAgents };
+      this._agents = {
+        ...this.localAgents,
+        ...this.selfManagedAgents,
+        ...this.remoteAgents,
+      };
       this._runtimeConnectionStatus =
         CopilotKitCoreRuntimeConnectionStatus.Connected;
       this._runtimeVersion = version;
@@ -362,7 +385,9 @@ export class AgentRegistry {
   /**
    * Validate that self-managed agents don't use disallowed middlewares
    */
-  private validateSelfManagedMiddlewares(agents: Record<string, AbstractAgent>): void {
+  private validateSelfManagedMiddlewares(
+    agents: Record<string, AbstractAgent>,
+  ): void {
     Object.entries(agents).forEach(([id, agent]) => {
       if (agent) {
         validateSelfManagedAgentMiddlewares(id, agent);

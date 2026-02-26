@@ -195,16 +195,18 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   }, [renderActivityMessagesList, builtInActivityRenderers]);
 
   const resolvedPublicKey = publicApiKey ?? publicLicenseKey;
-  const hasSelfManagedAgents = selfManagedAgents && Object.keys(selfManagedAgents).length > 0;
+  const hasSelfManagedAgents =
+    selfManagedAgents && Object.keys(selfManagedAgents).length > 0;
 
   if (hasSelfManagedAgents && !resolvedPublicKey) {
     throw new Error(
       "selfManagedAgents requires a 'publicApiKey' or 'publicLicenseKey' prop. " +
-      "Get one for free at https://cloud.copilotkit.ai",
+        "Get one for free at https://cloud.copilotkit.ai",
     );
   }
 
-  const hasLocalAgents = (agents && Object.keys(agents).length > 0) || hasSelfManagedAgents;
+  const hasLocalAgents =
+    (agents && Object.keys(agents).length > 0) || hasSelfManagedAgents;
 
   // Merge a provided publicApiKey into headers (without overwriting an explicit header).
   const mergedHeaders = useMemo(() => {
