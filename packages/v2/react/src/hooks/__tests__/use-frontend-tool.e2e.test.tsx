@@ -30,7 +30,6 @@ import {
 describe("useFrontendTool E2E - Dynamic Registration", () => {
   describe("Minimal dynamic registration without chat run", () => {
     it("registers tool and renders tool call via ToolCallsView", async () => {
-       
       // No agent run; we render ToolCallsView directly
       const DynamicToolComponent: React.FC = () => {
         const tool: ReactFrontendTool<{ message: string }> = {
