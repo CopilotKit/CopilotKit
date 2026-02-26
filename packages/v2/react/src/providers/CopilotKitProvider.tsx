@@ -72,6 +72,7 @@ export interface CopilotKitProviderProps {
   properties?: Record<string, unknown>;
   useSingleEndpoint?: boolean;
   agents__unsafe_dev_only?: Record<string, AbstractAgent>;
+  selfManagedAgents?: Record<string, AbstractAgent>;
   renderToolCalls?: ReactToolCallRenderer<any>[];
   renderActivityMessages?: ReactActivityMessageRenderer<any>[];
   renderCustomMessages?: ReactCustomMessageRenderer[];
@@ -113,6 +114,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   publicLicenseKey,
   properties = {},
   agents__unsafe_dev_only: agents = {},
+  selfManagedAgents = {},
   renderToolCalls,
   renderActivityMessages,
   renderCustomMessages,
@@ -193,7 +195,16 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   }, [renderActivityMessagesList, builtInActivityRenderers]);
 
   const resolvedPublicKey = publicApiKey ?? publicLicenseKey;
-  const hasLocalAgents = agents && Object.keys(agents).length > 0;
+  const hasSelfManagedAgents = selfManagedAgents && Object.keys(selfManagedAgents).length > 0;
+
+  if (hasSelfManagedAgents && !resolvedPublicKey) {
+    throw new Error(
+      "selfManagedAgents requires a 'publicApiKey' or 'publicLicenseKey' prop. " +
+      "Get one for free at https://cloud.copilotkit.ai",
+    );
+  }
+
+  const hasLocalAgents = (agents && Object.keys(agents).length > 0) || hasSelfManagedAgents;
 
   // Merge a provided publicApiKey into headers (without overwriting an explicit header).
   const mergedHeaders = useMemo(() => {
@@ -319,6 +330,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
       credentials,
       properties,
       agents__unsafe_dev_only: agents,
+      selfManagedAgents,
       tools: allTools,
       renderToolCalls: allRenderToolCalls,
       renderActivityMessages: allActivityRenderers,
@@ -391,12 +403,14 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     copilotkit.setCredentials(credentials);
     copilotkit.setProperties(properties);
     copilotkit.setAgents__unsafe_dev_only(agents);
+    copilotkit.setSelfManagedAgents(selfManagedAgents);
   }, [
     chatApiEndpoint,
     mergedHeaders,
     credentials,
     properties,
     agents,
+    selfManagedAgents,
     useSingleEndpoint,
   ]);
 

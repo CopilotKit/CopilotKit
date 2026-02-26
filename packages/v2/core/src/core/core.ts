@@ -24,6 +24,8 @@ export interface CopilotKitCoreConfig {
   runtimeTransport?: CopilotRuntimeTransport;
   /** Mapping from agent name to its `AbstractAgent` instance. For development only - production requires CopilotRuntime. */
   agents__unsafe_dev_only?: Record<string, AbstractAgent>;
+  /** Mapping from agent name to its `AbstractAgent` instance. Requires a license key. */
+  selfManagedAgents?: Record<string, AbstractAgent>;
   /** Headers appended to every HTTP request made by `CopilotKitCore`. */
   headers?: Record<string, string>;
   /** Credentials mode for fetch requests (e.g., "include" for HTTP-only cookies). */
@@ -197,6 +199,7 @@ export class CopilotKitCore {
     credentials,
     properties = {},
     agents__unsafe_dev_only = {},
+    selfManagedAgents = {},
     tools = [],
     suggestionsConfig = [],
   }: CopilotKitCoreConfig) {
@@ -212,7 +215,7 @@ export class CopilotKitCore {
     this.stateManager = new StateManager(this);
 
     // Initialize each subsystem
-    this.agentRegistry.initialize(agents__unsafe_dev_only);
+    this.agentRegistry.initialize(agents__unsafe_dev_only, selfManagedAgents);
     this.runHandler.initialize(tools);
     this.suggestionEngine.initialize(suggestionsConfig);
     this.stateManager.initialize();
@@ -379,6 +382,10 @@ export class CopilotKitCore {
 
   removeAgent__unsafe_dev_only(id: string): void {
     this.agentRegistry.removeAgent__unsafe_dev_only(id);
+  }
+
+  setSelfManagedAgents(agents: Record<string, AbstractAgent>): void {
+    this.agentRegistry.setSelfManagedAgents(agents);
   }
 
   getAgent(id: string): AbstractAgent | undefined {
