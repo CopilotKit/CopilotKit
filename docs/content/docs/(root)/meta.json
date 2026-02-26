@@ -17,6 +17,7 @@
     "frontend-actions",
     "backend-actions",
     "shared-state",
+    "typegen",
     "---Generative UI---",
     "...generative-ui",
     "---Agentic Protocols---",

@@ -9,7 +9,8 @@
     "lint": "eslint \"src/**/*.{js,jsx,ts,tsx}\" \"*.{js,cjs,mjs,ts}\"",
     "test": "vitest",
     "test:watch": "vitest --watch",
-    "test:coverage": "vitest --coverage"
+    "test:coverage": "vitest --coverage",
+    "typegen": "copilotkit typegen http://localhost:3001/api/copilotkit"
   },
   "dependencies": {
     "@ag-ui/client": "0.0.45",
@@ -40,6 +41,7 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@copilotkit/cli": "workspace:*",
     "eslint": "^8.57.0",
     "eslint-config-next": "15.4.4",
     "tailwindcss": "^4",

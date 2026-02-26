@@ -43,6 +43,8 @@ import { createAnthropic } from "@ai-sdk/anthropic";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { randomUUID } from "crypto";
 import { z } from "zod";
+import { zodToJsonSchema } from "zod-to-json-schema";
+import type { AgentToolDescription } from "@copilotkitnext/shared";
 import {
   StreamableHTTPClientTransport,
   StreamableHTTPClientTransportOptions,
@@ -590,6 +592,28 @@ export class BuiltInAgent extends AbstractAgent {
 
   constructor(private config: BuiltInAgentConfiguration) {
     super();
+  }
+
+  /**
+   * Returns serializable tool definitions for the info endpoint.
+   */
+  getToolDefinitions(): AgentToolDescription[] {
+    if (!this.config.tools || this.config.tools.length === 0) {
+      return [];
+    }
+
+    return this.config.tools.map((tool) => {
+      const rawSchema = zodToJsonSchema(tool.parameters, {
+        $refStrategy: "none",
+      });
+      const { $schema, ...parameters } = rawSchema as Record<string, unknown>;
+
+      return {
+        name: tool.name,
+        description: tool.description,
+        parameters,
+      };
+    });
   }
 
   /**

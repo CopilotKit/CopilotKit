@@ -20,6 +20,15 @@ export async function handleGetRuntimeInfo({
           description: agent.description,
           className: agent.constructor.name,
         };
+        // TODO Extend AbstractAgent to support this
+        // Include tool definitions if the agent exposes them
+        if (typeof (agent as any).getToolDefinitions === "function") {
+          const tools = (agent as any).getToolDefinitions();
+          if (tools && tools.length > 0) {
+            acc[name].tools = tools;
+          }
+        }
+
         return acc;
       },
       {} as Record<string, AgentDescription>,

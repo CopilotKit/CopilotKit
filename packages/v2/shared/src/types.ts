@@ -11,12 +11,22 @@ export type NonEmptyRecord<T> =
     : never;
 
 /**
+ * Type representing a tool's basic information for the info endpoint
+ */
+export interface AgentToolDescription {
+  name: string;
+  description: string;
+  parameters?: Record<string, unknown>;
+}
+
+/**
  * Type representing an agent's basic information
  */
 export interface AgentDescription {
   name: string;
   className: string;
   description: string;
+  tools?: AgentToolDescription[];
 }
 
 export interface RuntimeInfo {

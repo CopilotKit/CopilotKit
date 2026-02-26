@@ -6,6 +6,7 @@ import {
   ProxiedCopilotRuntimeAgent,
   CopilotKitCoreRuntimeConnectionStatus,
 } from "@copilotkitnext/core";
+import type { AgentId } from "@/types/copilotkit-types";
 
 export enum UseAgentUpdate {
   OnMessagesChanged = "OnMessagesChanged",
@@ -20,7 +21,7 @@ const ALL_UPDATES: UseAgentUpdate[] = [
 ];
 
 export interface UseAgentProps {
-  agentId?: string;
+  agentId?: AgentId;
   updates?: UseAgentUpdate[];
 }
 
