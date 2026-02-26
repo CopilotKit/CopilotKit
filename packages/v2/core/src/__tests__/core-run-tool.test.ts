@@ -1,9 +1,6 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from "vitest";
 import { CopilotKitCore, CopilotKitCoreErrorCode } from "../core";
-import {
-  MockAgent,
-  createTool,
-} from "./test-utils";
+import { MockAgent, createTool } from "./test-utils";
 
 describe("CopilotKitCore.runTool", () => {
   let copilotKitCore: CopilotKitCore;
@@ -431,10 +428,7 @@ describe("CopilotKitCore.runTool", () => {
     await copilotKitCore.runTool({ name: "NoParams" });
 
     // Handler should receive empty object
-    expect(handler).toHaveBeenCalledWith(
-      {},
-      expect.anything(),
-    );
+    expect(handler).toHaveBeenCalledWith({}, expect.anything());
 
     // Assistant message should have empty args
     const assistantMsg = agent.messages[0];
