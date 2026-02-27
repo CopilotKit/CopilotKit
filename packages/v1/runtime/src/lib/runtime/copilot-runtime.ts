@@ -454,7 +454,13 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
         name: action.name,
         description: action.description || "",
         parameters: zodSchema,
-        execute: () => Promise.resolve(),
+        execute: async (args: any) => {
+          // Call the actual backend action handler if one exists
+          if (action.handler) {
+            return action.handler(args);
+          }
+          return "";
+        },
       };
     });
   }

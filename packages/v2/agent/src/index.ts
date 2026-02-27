@@ -1116,12 +1116,15 @@ export class BuiltInAgent extends AbstractAgent {
                 }
 
                 // Always emit the tool result event for the LLM
+                // JSON.stringify(undefined) returns undefined (not a string),
+                // so we fall back to "" to satisfy the Zod schema requirement
+                // that content is always a string.
                 const resultEvent: ToolCallResultEvent = {
                   type: EventType.TOOL_CALL_RESULT,
                   role: "tool",
                   messageId: randomUUID(),
                   toolCallId: part.toolCallId,
-                  content: JSON.stringify(toolResult),
+                  content: JSON.stringify(toolResult) ?? "",
                 };
                 subscriber.next(resultEvent);
                 break;
