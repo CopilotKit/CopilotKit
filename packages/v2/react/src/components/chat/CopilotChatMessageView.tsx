@@ -355,7 +355,15 @@ export function CopilotChatMessageView({
     );
   };
 
-  const messageElements: React.ReactElement[] = messages
+  // Deduplicate messages by id, keeping the last occurrence of each.
+  // During streaming, AbstractAgent.addMessage() can push duplicate messages
+  // (same id) which causes React "duplicate key" warnings and rendering glitches.
+  const deduplicatedMessages = messages.filter(
+    (message, index, arr) =>
+      arr.findLastIndex((m) => m.id === message.id) === index,
+  );
+
+  const messageElements: React.ReactElement[] = deduplicatedMessages
     .flatMap((message) => {
       const elements: (React.ReactElement | null | undefined)[] = [];
       const stateSnapshot = getStateSnapshotForMessage(message.id);
