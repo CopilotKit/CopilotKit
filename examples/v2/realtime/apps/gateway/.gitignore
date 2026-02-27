@@ -1,0 +1,5 @@
+_build/
+deps/
+.elixir_ls/
+/node_modules/
+/dist/

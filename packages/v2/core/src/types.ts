@@ -12,6 +12,26 @@ export enum ToolCallStatus {
 
 export type CopilotRuntimeTransport = "rest" | "single";
 
+export type WebSocketTokenResponse = {
+  token: string;
+  expiresInSeconds: number;
+  threadId: string;
+  wsUrl?: string;
+};
+
+export type WebSocketAgentConfig = {
+  restUrl: string;
+  wsUrl: string;
+  agentId: string;
+  headers?: Record<string, string>;
+  credentials?: RequestCredentials;
+  threadId?: string;
+  description?: string;
+  initialMessages?: import("@ag-ui/client").Message[];
+  initialState?: import("@ag-ui/client").State;
+  debug?: boolean;
+};
+
 /**
  * Context passed to a frontend tool handler
  */

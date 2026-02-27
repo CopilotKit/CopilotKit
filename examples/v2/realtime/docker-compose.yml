@@ -1,0 +1,49 @@
+version: "3.9"
+
+services:
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+  gateway:
+    build:
+      context: ../../..
+      dockerfile: examples/v2/realtime/apps/gateway/Dockerfile
+    environment:
+      REDIS_URL: redis://redis:6379
+      GATEWAY_PORT: 4200
+    depends_on:
+      - redis
+    ports:
+      - "4200:4200"
+
+  bff:
+    build:
+      context: ../../..
+      dockerfile: examples/v2/realtime/apps/bff/Dockerfile
+    environment:
+      REDIS_URL: redis://redis:6379
+      BFF_PORT: 4100
+      GATEWAY_WS_URL: ws://localhost:4200/ws/websocket
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-openai/gpt-5.1}
+    depends_on:
+      - redis
+      - gateway
+    ports:
+      - "4100:4100"
+
+  client:
+    build:
+      context: ../../..
+      dockerfile: examples/v2/realtime/apps/client/Dockerfile
+    environment:
+      CLIENT_PORT: 4000
+      NEXT_PUBLIC_BFF_REST_URL: http://localhost:4100/api/copilotkit
+      NEXT_PUBLIC_GATEWAY_WS_URL: ws://localhost:4200/ws/websocket
+    depends_on:
+      - bff
+      - gateway
+    ports:
+      - "4000:4000"

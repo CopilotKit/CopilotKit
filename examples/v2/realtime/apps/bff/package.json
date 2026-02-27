@@ -1,0 +1,31 @@
+{
+  "name": "realtime-bff",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/index.js",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@ag-ui/client": "0.0.45",
+    "@copilotkitnext/agent": "workspace:*",
+    "@copilotkitnext/runtime": "workspace:*",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "redis": "^4.7.0",
+    "zod": "^3.25.75"
+  },
+  "devDependencies": {
+    "@copilotkitnext/typescript-config": "workspace:*",
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
+    "@types/node": "^22.10.7",
+    "tsx": "^4.19.2",
+    "typescript": "^5.8.2",
+    "vitest": "^3.2.4"
+  }
+}

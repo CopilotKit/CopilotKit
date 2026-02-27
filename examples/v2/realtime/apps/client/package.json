@@ -1,0 +1,28 @@
+{
+  "name": "realtime-client",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --turbopack --port ${CLIENT_PORT:-4000}",
+    "build": "next build",
+    "start": "next start --port ${CLIENT_PORT:-4000}",
+    "test": "vitest run --passWithNoTests",
+    "lint": "eslint \"src/**/*.{ts,tsx}\""
+  },
+  "dependencies": {
+    "@copilotkitnext/core": "workspace:*",
+    "@copilotkitnext/react": "workspace:*",
+    "next": "15.4.4",
+    "react": "19.1.0",
+    "react-dom": "19.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.7",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "typescript": "^5.8.2",
+    "vitest": "^3.2.4",
+    "eslint": "^8.57.0",
+    "eslint-config-next": "15.4.4"
+  }
+}

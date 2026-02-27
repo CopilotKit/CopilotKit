@@ -1,0 +1,27 @@
+{
+  "name": "realtime-gateway",
+  "$schema": "../../../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "apps/gateway/lib",
+  "projectType": "application",
+  "targets": {
+    "dev": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "cd examples/v2/realtime/apps/gateway && mix phx.server"
+      }
+    },
+    "build": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "cd examples/v2/realtime/apps/gateway && mix compile"
+      }
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "cd examples/v2/realtime/apps/gateway && mix test --no-start"
+      }
+    }
+  },
+  "tags": []
+}

@@ -1,0 +1,26 @@
+{
+  "name": "realtime-stack",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "application",
+  "targets": {
+    "dev": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "pnpm nx run-many -t dev --projects=realtime-client,realtime-bff,realtime-gateway --parallel=3"
+      }
+    },
+    "build": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "pnpm nx run-many -t build --projects=realtime-client,realtime-bff,realtime-gateway"
+      }
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "pnpm nx run-many -t test --projects=realtime-client,realtime-bff,realtime-gateway"
+      }
+    }
+  },
+  "tags": []
+}

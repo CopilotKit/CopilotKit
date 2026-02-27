@@ -1,0 +1,25 @@
+:root {
+  --bg: #f3f6ff;
+  --ink: #1f2430;
+  --card: #ffffff;
+  --accent: #005cc5;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
+  color: var(--ink);
+  background:
+    radial-gradient(circle at 20% 0%, #dce7ff 0%, transparent 40%),
+    radial-gradient(circle at 90% 10%, #f0ffd8 0%, transparent 35%),
+    var(--bg);
+}
+
+main {
+  min-height: 100vh;
+  padding: 24px;
+}
