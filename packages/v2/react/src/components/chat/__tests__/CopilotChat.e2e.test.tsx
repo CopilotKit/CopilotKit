@@ -1113,9 +1113,6 @@ describe("CopilotChat E2E - Chat Basics and Streaming Patterns", () => {
   });
 
   describe("Instructions Prop", () => {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const _ContextCapturingAgent = ContextCapturingAgent;
-
     it("should pass instructions as context to the agent when running", async () => {
       const agent = new ContextCapturingAgent();
       const instructions =

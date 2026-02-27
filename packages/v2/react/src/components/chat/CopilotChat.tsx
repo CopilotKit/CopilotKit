@@ -69,6 +69,7 @@ export function CopilotChat({
   // Register instructions as context so they reach the agent's system prompt
   useEffect(() => {
     if (!instructions) return;
+    if (!copilotkit) return;
     const contextId = copilotkit.addContext({
       description: "Custom Instructions",
       value: instructions,
