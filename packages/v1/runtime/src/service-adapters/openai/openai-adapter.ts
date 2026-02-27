@@ -48,6 +48,8 @@
  * return new OpenAIAdapter({ openai });
  * ```
  */
+import type { LanguageModel } from "ai";
+import { createOpenAI } from "@ai-sdk/openai";
 import type OpenAI from "openai";
 import {
   CopilotServiceAdapter,
@@ -60,7 +62,7 @@ import {
   limitMessagesToTokenCount,
 } from "./utils";
 import { randomUUID } from "@copilotkit/shared";
-import { convertServiceAdapterError } from "../shared";
+import { convertServiceAdapterError, getSdkClientOptions } from "../shared";
 
 const DEFAULT_MODEL = "gpt-4o";
 
@@ -121,6 +123,20 @@ export class OpenAIAdapter implements CopilotServiceAdapter {
     }
     this.disableParallelToolCalls = params?.disableParallelToolCalls || false;
     this.keepSystemRole = params?.keepSystemRole ?? false;
+  }
+
+  getLanguageModel(): LanguageModel {
+    const openai = this.ensureOpenAI();
+    const options = getSdkClientOptions(openai);
+    const provider = createOpenAI({
+      baseURL: openai.baseURL,
+      apiKey: openai.apiKey,
+      organization: openai.organization ?? undefined,
+      project: openai.project ?? undefined,
+      headers: options.defaultHeaders,
+      fetch: options.fetch,
+    });
+    return provider(this.model);
   }
 
   private ensureOpenAI(): OpenAI {

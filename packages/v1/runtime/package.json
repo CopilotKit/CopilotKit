@@ -9,7 +9,7 @@
   "publishConfig": {
     "access": "public"
   },
-  "version": "1.51.5-next.3",
+  "version": "1.52.1-next.1",
   "sideEffects": [
     "./dist/index.mjs",
     "./dist/index.cjs",
@@ -64,6 +64,8 @@
     "@ag-ui/client": "^0.0.45",
     "@ag-ui/core": "^0.0.45",
     "@ag-ui/langgraph": "^0.0.24",
+    "@ai-sdk/anthropic": "^2.0.22",
+    "@ai-sdk/openai": "^2.0.42",
     "@copilotkit/shared": "workspace:*",
     "@copilotkitnext/agent": "workspace:*",
     "@copilotkitnext/runtime": "workspace:*",
@@ -75,6 +77,7 @@
     "graphql": "^16.8.1",
     "graphql-scalars": "^1.23.0",
     "graphql-yoga": "^5.3.1",
+    "ai": "^5.0.92",
     "hono": "^4.11.4",
     "openai": "^4.85.1",
     "partial-json": "^0.1.7",
@@ -87,9 +90,6 @@
   },
   "peerDependencies": {
     "@anthropic-ai/sdk": "^0.57.0",
-    "@copilotkit/shared": "workspace:*",
-    "@copilotkitnext/agent": "workspace:*",
-    "@copilotkitnext/runtime": "workspace:*",
     "@langchain/aws": ">=0.1.9",
     "@langchain/core": ">=0.3.66",
     "@langchain/community": ">=0.3.58",

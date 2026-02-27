@@ -112,7 +112,7 @@ export function CopilotChatReasoningMessage({
 
   if (children) {
     return (
-      <>
+      <div data-copilotkit style={{ display: "contents" }}>
         {children({
           header: boundHeader,
           contentView: boundContent,
@@ -121,13 +121,13 @@ export function CopilotChatReasoningMessage({
           messages,
           isRunning,
         })}
-      </>
+      </div>
     );
   }
 
   return (
     <div
-      className={twMerge("my-1", className)}
+      className={twMerge("cpk:my-1", className)}
       data-message-id={message.id}
       {...props}
     >
@@ -160,27 +160,27 @@ export namespace CopilotChatReasoningMessage {
       <button
         type="button"
         className={twMerge(
-          "inline-flex items-center gap-1 py-1 text-sm text-muted-foreground transition-colors select-none",
+          "cpk:inline-flex cpk:items-center cpk:gap-1 cpk:py-1 cpk:text-sm cpk:text-muted-foreground cpk:transition-colors cpk:select-none",
           isExpandable
-            ? "hover:text-foreground cursor-pointer"
-            : "cursor-default",
+            ? "cpk:hover:text-foreground cpk:cursor-pointer"
+            : "cpk:cursor-default",
           className,
         )}
         aria-expanded={isExpandable ? isOpen : undefined}
         {...headerProps}
       >
-        <span className="font-medium">{label}</span>
+        <span className="cpk:font-medium">{label}</span>
         {isStreaming && !hasContent && (
-          <span className="inline-flex items-center ml-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground animate-pulse" />
+          <span className="cpk:inline-flex cpk:items-center cpk:ml-1">
+            <span className="cpk:w-1.5 cpk:h-1.5 cpk:rounded-full cpk:bg-muted-foreground cpk:animate-pulse" />
           </span>
         )}
         {headerChildren}
         {isExpandable && (
           <ChevronRight
             className={twMerge(
-              "size-3.5 shrink-0 transition-transform duration-200",
-              isOpen && "rotate-90",
+              "cpk:size-3.5 cpk:shrink-0 cpk:transition-transform cpk:duration-200",
+              isOpen && "cpk:rotate-90",
             )}
           />
         )}
@@ -204,14 +204,17 @@ export namespace CopilotChatReasoningMessage {
     if (!hasContent && !isStreaming) return null;
 
     return (
-      <div className={twMerge("pb-2 pt-1", className)} {...contentProps}>
-        <div className="text-sm text-muted-foreground">
+      <div
+        className={twMerge("cpk:pb-2 cpk:pt-1", className)}
+        {...contentProps}
+      >
+        <div className="cpk:text-sm cpk:text-muted-foreground">
           <Streamdown>
             {typeof contentChildren === "string" ? contentChildren : ""}
           </Streamdown>
           {isStreaming && hasContent && (
-            <span className="inline-flex items-center ml-1 align-middle">
-              <span className="w-2 h-2 rounded-full bg-muted-foreground animate-pulse-cursor" />
+            <span className="cpk:inline-flex cpk:items-center cpk:ml-1 cpk:align-middle">
+              <span className="cpk:w-2 cpk:h-2 cpk:rounded-full cpk:bg-muted-foreground cpk:animate-pulse-cursor" />
             </span>
           )}
         </div>
@@ -227,13 +230,13 @@ export namespace CopilotChatReasoningMessage {
     return (
       <div
         className={twMerge(
-          "grid transition-[grid-template-rows] duration-200 ease-in-out",
+          "cpk:grid cpk:transition-[grid-template-rows] cpk:duration-200 cpk:ease-in-out",
           className,
         )}
         style={{ gridTemplateRows: isOpen ? "1fr" : "0fr" }}
         {...toggleProps}
       >
-        <div className="overflow-hidden">{toggleChildren}</div>
+        <div className="cpk:overflow-hidden">{toggleChildren}</div>
       </div>
     );
   };

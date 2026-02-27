@@ -1,5 +1,105 @@
 # ui
 
+## 1.52.1-next.1
+
+### Patch Changes
+
+- Updated dependencies [b555ac4]
+  - @copilotkit/react-core@1.52.1-next.1
+  - @copilotkit/runtime-client-gql@1.52.1-next.1
+  - @copilotkit/shared@1.52.1-next.1
+
+## 1.52.1-next.0
+
+### Patch Changes
+
+- bbdf67d: fix(css): address imcompat with CJS
+  - @copilotkit/react-core@1.52.1-next.0
+  - @copilotkit/runtime-client-gql@1.52.1-next.0
+  - @copilotkit/shared@1.52.1-next.0
+
+## 1.52.0
+
+### Minor Changes
+
+- 6dd6c84: Adding new v2 features:
+  - useComponent
+  - useRenderTool
+  - useDefaultRenderTool
+
+  Also, fixing issues with styles not being
+  properly scoped for tailwind.
+
+### Patch Changes
+
+- 7e32e69: chore: fix up style generation
+- 5f941db: Prevent CPK styles from leaking into user app
+- Updated dependencies [6dd6c84]
+- Updated dependencies [d77f347]
+- Updated dependencies [2007f8b]
+- Updated dependencies [ef0f539]
+- Updated dependencies [412965a]
+- Updated dependencies [5f941db]
+  - @copilotkit/react-core@1.52.0
+  - @copilotkit/shared@1.52.0
+  - @copilotkit/runtime-client-gql@1.52.0
+
+## 1.52.0-next.8
+
+### Patch Changes
+
+- @copilotkit/react-core@1.52.0-next.8
+- @copilotkit/runtime-client-gql@1.52.0-next.8
+- @copilotkit/shared@1.52.0-next.8
+
+## 1.52.0-next.7
+
+### Patch Changes
+
+- Updated dependencies [d77f347]
+  - @copilotkit/react-core@1.52.0-next.7
+  - @copilotkit/runtime-client-gql@1.52.0-next.7
+  - @copilotkit/shared@1.52.0-next.7
+
+## 1.52.0-next.6
+
+### Patch Changes
+
+- 5f941db: Prevent CPK styles from leaking into user app
+- Updated dependencies [2007f8b]
+- Updated dependencies [5f941db]
+  - @copilotkit/react-core@1.52.0-next.6
+  - @copilotkit/runtime-client-gql@1.52.0-next.6
+  - @copilotkit/shared@1.52.0-next.6
+
+## 1.52.0-next.5
+
+### Minor Changes
+
+- 6dd6c84: Adding new v2 features:
+  - useComponent
+  - useRenderTool
+  - useDefaultRenderTool
+
+  Also, fixing issues with styles not being
+  properly scoped for tailwind.
+
+### Patch Changes
+
+- Updated dependencies [6dd6c84]
+  - @copilotkit/react-core@1.52.0-next.5
+  - @copilotkit/runtime-client-gql@1.52.0-next.5
+  - @copilotkit/shared@1.52.0-next.5
+
+## 1.51.5-next.4
+
+### Patch Changes
+
+- 7e32e69: chore: fix up style generation
+  - @copilotkit/react-core@1.51.5-next.4
+  - @copilotkit/runtime-client-gql@1.51.5-next.4
+  - @copilotkit/shared@1.51.5-next.4
+
 ## 1.51.5-next.3
 
 ### Patch Changes

@@ -14,22 +14,22 @@ export const WildcardToolCallRender = defineToolCallRenderer({
       statusString === "inProgress" || statusString === "executing";
     const isComplete = statusString === "complete";
     const statusStyles = isActive
-      ? "bg-amber-100 text-amber-800 dark:bg-amber-500/15 dark:text-amber-400"
+      ? "cpk:bg-amber-100 cpk:text-amber-800 cpk:dark:bg-amber-500/15 cpk:dark:text-amber-400"
       : isComplete
-        ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-400"
-        : "bg-zinc-100 text-zinc-800 dark:bg-zinc-700/40 dark:text-zinc-300";
+        ? "cpk:bg-emerald-100 cpk:text-emerald-800 cpk:dark:bg-emerald-500/15 cpk:dark:text-emerald-400"
+        : "cpk:bg-zinc-100 cpk:text-zinc-800 cpk:dark:bg-zinc-700/40 cpk:dark:text-zinc-300";
 
     return (
-      <div className="mt-2 pb-2">
-        <div className="rounded-xl border border-zinc-200/60 dark:border-zinc-800/60 bg-white/70 dark:bg-zinc-900/50 shadow-sm backdrop-blur p-4">
+      <div className="cpk:mt-2 cpk:pb-2">
+        <div className="cpk:rounded-xl cpk:border cpk:border-zinc-200/60 cpk:dark:border-zinc-800/60 cpk:bg-white/70 cpk:dark:bg-zinc-900/50 cpk:shadow-sm cpk:backdrop-blur cpk:p-4">
           <div
-            className="flex items-center justify-between gap-3 cursor-pointer"
+            className="cpk:flex cpk:items-center cpk:justify-between cpk:gap-3 cpk:cursor-pointer"
             onClick={() => setIsExpanded(!isExpanded)}
           >
-            <div className="flex items-center gap-2 min-w-0">
+            <div className="cpk:flex cpk:items-center cpk:gap-2 cpk:min-w-0">
               <svg
-                className={`h-4 w-4 text-zinc-500 dark:text-zinc-400 transition-transform ${
-                  isExpanded ? "rotate-90" : ""
+                className={`cpk:h-4 cpk:w-4 cpk:text-zinc-500 cpk:dark:text-zinc-400 cpk:transition-transform ${
+                  isExpanded ? "cpk:rotate-90" : ""
                 }`}
                 fill="none"
                 viewBox="0 0 24 24"
@@ -42,35 +42,35 @@ export const WildcardToolCallRender = defineToolCallRenderer({
                   d="M8.25 4.5l7.5 7.5-7.5 7.5"
                 />
               </svg>
-              <span className="inline-block h-2 w-2 rounded-full bg-blue-500" />
-              <span className="truncate text-sm font-medium text-zinc-900 dark:text-zinc-100">
+              <span className="cpk:inline-block cpk:h-2 cpk:w-2 cpk:rounded-full cpk:bg-blue-500" />
+              <span className="cpk:truncate cpk:text-sm cpk:font-medium cpk:text-zinc-900 cpk:dark:text-zinc-100">
                 {name}
               </span>
             </div>
             <span
-              className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${statusStyles}`}
+              className={`cpk:inline-flex cpk:items-center cpk:rounded-full cpk:px-2 cpk:py-1 cpk:text-xs cpk:font-medium ${statusStyles}`}
             >
               {String(status)}
             </span>
           </div>
 
           {isExpanded && (
-            <div className="mt-3 grid gap-4">
+            <div className="cpk:mt-3 cpk:grid cpk:gap-4">
               <div>
-                <div className="text-xs uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+                <div className="cpk:text-xs cpk:uppercase cpk:tracking-wide cpk:text-zinc-500 cpk:dark:text-zinc-400">
                   Arguments
                 </div>
-                <pre className="mt-2 max-h-64 overflow-auto rounded-md bg-zinc-50 dark:bg-zinc-800/60 p-3 text-xs leading-relaxed text-zinc-800 dark:text-zinc-200 whitespace-pre-wrap break-words">
+                <pre className="cpk:mt-2 cpk:max-h-64 cpk:overflow-auto cpk:rounded-md cpk:bg-zinc-50 cpk:dark:bg-zinc-800/60 cpk:p-3 cpk:text-xs cpk:leading-relaxed cpk:text-zinc-800 cpk:dark:text-zinc-200 cpk:whitespace-pre-wrap cpk:break-words">
                   {JSON.stringify(args ?? {}, null, 2)}
                 </pre>
               </div>
 
               {result !== undefined && (
                 <div>
-                  <div className="text-xs uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+                  <div className="cpk:text-xs cpk:uppercase cpk:tracking-wide cpk:text-zinc-500 cpk:dark:text-zinc-400">
                     Result
                   </div>
-                  <pre className="mt-2 max-h-64 overflow-auto rounded-md bg-zinc-50 dark:bg-zinc-800/60 p-3 text-xs leading-relaxed text-zinc-800 dark:text-zinc-200 whitespace-pre-wrap break-words">
+                  <pre className="cpk:mt-2 cpk:max-h-64 cpk:overflow-auto cpk:rounded-md cpk:bg-zinc-50 cpk:dark:bg-zinc-800/60 cpk:p-3 cpk:text-xs cpk:leading-relaxed cpk:text-zinc-800 cpk:dark:text-zinc-200 cpk:whitespace-pre-wrap cpk:break-words">
                     {typeof result === "string"
                       ? result
                       : JSON.stringify(result, null, 2)}

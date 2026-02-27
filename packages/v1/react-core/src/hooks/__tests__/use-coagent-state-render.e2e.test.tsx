@@ -49,6 +49,8 @@ vi.mock("@copilotkitnext/react", () => ({
       clearSuggestions: vi.fn(),
       addSuggestionsConfig: vi.fn(),
       reloadSuggestions: vi.fn(),
+      interruptElement: null,
+      subscribe: vi.fn(() => ({ unsubscribe: vi.fn() })),
     },
   })),
   useCopilotChatConfiguration: vi.fn(() => ({ agentId: "test-agent" })),
@@ -65,10 +67,6 @@ vi.mock("../../components/toast/toast-provider", () => ({
 
 vi.mock("../../components/error-boundary/error-utils", () => ({
   useAsyncCallback: <T extends (...args: unknown[]) => unknown>(fn: T) => fn,
-}));
-
-vi.mock("../use-langgraph-interrupt-render", () => ({
-  useLangGraphInterruptRender: vi.fn(() => null),
 }));
 
 vi.mock("../use-lazy-tool-renderer", () => ({

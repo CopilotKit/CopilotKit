@@ -1,5 +1,117 @@
 # ui
 
+## 1.52.1-next.1
+
+### Patch Changes
+
+- b555ac4: fix(react-core): allow overriding useSingleEndpoint in CopilotKit provider
+
+  The V1 `<CopilotKit>` provider previously hardcoded `useSingleEndpoint={true}` when wrapping the V2 provider, preventing users from opting into REST transport mode. The prop is now passed through from user config, defaulting to `true` to preserve backward compatibility.
+  - @copilotkit/runtime-client-gql@1.52.1-next.1
+  - @copilotkit/shared@1.52.1-next.1
+  - @copilotkitnext/core@1.52.1-next.1
+  - @copilotkitnext/react@1.52.1-next.1
+
+## 1.52.1-next.0
+
+### Patch Changes
+
+- Updated dependencies [bbdf67d]
+  - @copilotkitnext/react@1.52.1-next.0
+  - @copilotkit/runtime-client-gql@1.52.1-next.0
+  - @copilotkit/shared@1.52.1-next.0
+  - @copilotkitnext/core@1.52.1-next.0
+
+## 1.52.0
+
+### Minor Changes
+
+- 6dd6c84: Adding new v2 features:
+  - useComponent
+  - useRenderTool
+  - useDefaultRenderTool
+
+  Also, fixing issues with styles not being
+  properly scoped for tailwind.
+
+### Patch Changes
+
+- d77f347: Added in the useInterrupt hook
+- 2007f8b: feat: useComponent improvements
+- ef0f539: Add reasoning support and default components for reasoning messages
+- 412965a: Introducing available prop to useFrontendTool()
+- 5f941db: Prevent CPK styles from polluting user app
+- Updated dependencies [593859f]
+- Updated dependencies [d77f347]
+- Updated dependencies [2007f8b]
+- Updated dependencies [ef0f539]
+- Updated dependencies [942d397]
+  - @copilotkitnext/react@1.52.0
+  - @copilotkitnext/core@1.52.0
+  - @copilotkit/shared@1.52.0
+  - @copilotkit/runtime-client-gql@1.52.0
+
+## 1.52.0-next.8
+
+### Patch Changes
+
+- Updated dependencies [942d397]
+  - @copilotkitnext/react@1.52.0-next.8
+  - @copilotkit/runtime-client-gql@1.52.0-next.8
+  - @copilotkit/shared@1.52.0-next.8
+  - @copilotkitnext/core@1.52.0-next.8
+
+## 1.52.0-next.7
+
+### Patch Changes
+
+- d77f347: Added in the useInterrupt hook
+- Updated dependencies [d77f347]
+  - @copilotkitnext/react@1.52.0-next.7
+  - @copilotkitnext/core@1.52.0-next.7
+  - @copilotkit/runtime-client-gql@1.52.0-next.7
+  - @copilotkit/shared@1.52.0-next.7
+
+## 1.52.0-next.6
+
+### Patch Changes
+
+- 2007f8b: feat: useComponent improvements
+- 5f941db: Prevent CPK styles from polluting user app
+- Updated dependencies [2007f8b]
+  - @copilotkitnext/react@1.52.0-next.6
+  - @copilotkit/runtime-client-gql@1.52.0-next.6
+  - @copilotkit/shared@1.52.0-next.6
+  - @copilotkitnext/core@1.52.0-next.6
+
+## 1.52.0-next.5
+
+### Minor Changes
+
+- 6dd6c84: Adding new v2 features:
+  - useComponent
+  - useRenderTool
+  - useDefaultRenderTool
+
+  Also, fixing issues with styles not being
+  properly scoped for tailwind.
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.52.0-next.5
+- @copilotkit/shared@1.52.0-next.5
+- @copilotkitnext/core@1.52.0-next.5
+- @copilotkitnext/react@1.52.0-next.5
+
+## 1.51.5-next.4
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.51.5-next.4
+- @copilotkit/shared@1.51.5-next.4
+- @copilotkitnext/core@1.51.5-next.4
+- @copilotkitnext/react@1.51.5-next.4
+
 ## 1.51.5-next.3
 
 ### Patch Changes

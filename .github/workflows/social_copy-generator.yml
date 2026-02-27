@@ -1,0 +1,250 @@
+name: social / copy-generator
+
+on:
+  pull_request:
+    types: [opened]
+  issue_comment:
+    types: [edited]
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: "PR number to generate social copies for"
+        required: true
+        type: number
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+  id-token: write
+
+jobs:
+  post-comment:
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Post initial comment
+        uses: actions/github-script@v7
+        env:
+          PR_NUMBER: ${{ github.event.inputs.pr_number || github.event.pull_request.number }}
+        with:
+          script: |
+            const prNumber = Number(process.env.PR_NUMBER);
+
+            // Check if there's already a social-copy-generator comment on this PR
+            const comments = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+              per_page: 100,
+            });
+            const existing = comments.data.find(c => c.body.includes('<!-- social-copy-generator -->'));
+            if (existing) {
+              console.log(`Comment already exists (id: ${existing.id}), skipping`);
+              return;
+            }
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+              body: [
+                '<!-- social-copy-generator -->',
+                '### 📣 Social Copy Generator',
+                '',
+                'Generate social media copies (Twitter/X, LinkedIn, Blog Post) for this PR using Claude.',
+                '',
+                '- [ ] **Generate social media copies**',
+              ].join('\n'),
+            });
+
+  generate:
+    if: >-
+      github.event_name == 'issue_comment' &&
+      github.event.issue.pull_request &&
+      contains(github.event.comment.body, '<!-- social-copy-generator -->') &&
+      contains(github.event.comment.body, '- [x]')
+    runs-on: ubuntu-latest
+    concurrency:
+      group: social-copy-${{ github.event.issue.number }}
+      cancel-in-progress: true
+    steps:
+      - name: Verify checkbox transition
+        id: verify
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const oldBody = context.payload.changes?.body?.from || '';
+            const newBody = context.payload.comment.body;
+
+            const wasUnchecked = oldBody.includes('- [ ]');
+            const isNowChecked = newBody.includes('- [x]');
+
+            if (!wasUnchecked || !isNowChecked) {
+              core.setOutput('should_run', 'false');
+              console.log('Not a checkbox transition, skipping');
+              return;
+            }
+
+            core.setOutput('should_run', 'true');
+            core.setOutput('comment_id', context.payload.comment.id);
+
+      - name: Update comment to generating state
+        if: steps.verify.outputs.should_run == 'true'
+        uses: actions/github-script@v7
+        env:
+          COMMENT_ID: ${{ steps.verify.outputs.comment_id }}
+        with:
+          script: |
+            await github.rest.issues.updateComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              comment_id: Number(process.env.COMMENT_ID),
+              body: [
+                '<!-- social-copy-generator -->',
+                '### 📣 Social Copy Generator',
+                '',
+                '⏳ **Analyzing PR changes with Claude...** This may take a minute.',
+              ].join('\n'),
+            });
+
+      - name: Get PR details
+        if: steps.verify.outputs.should_run == 'true'
+        id: pr
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number,
+            });
+            core.setOutput('head_ref', pr.data.head.ref);
+            core.setOutput('head_sha', pr.data.head.sha);
+            core.setOutput('base_ref', pr.data.base.ref);
+            core.setOutput('title', pr.data.title);
+            core.setOutput('body', pr.data.body || '(no description)');
+            core.setOutput('number', String(context.issue.number));
+
+      - name: Checkout repo
+        if: steps.verify.outputs.should_run == 'true'
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.pr.outputs.head_sha }}
+          fetch-depth: 0
+
+      - name: Get PR diff
+        if: steps.verify.outputs.should_run == 'true'
+        id: diff
+        env:
+          BASE_REF: ${{ steps.pr.outputs.base_ref }}
+          PR_NUMBER: ${{ steps.pr.outputs.number }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # Try git merge-base first (works for open PRs and merged PRs whose base is fetchable)
+          MERGE_BASE=$(git merge-base "origin/$BASE_REF" HEAD 2>/dev/null) || true
+
+          if [ -n "$MERGE_BASE" ]; then
+            git diff --stat "$MERGE_BASE"..HEAD > /tmp/diff-stat.txt
+            git diff "$MERGE_BASE"..HEAD > /tmp/diff-full.txt
+          else
+            # Fallback: use GitHub API diff (works for merged PRs where branch was deleted)
+            echo "Using GitHub API for diff (merge-base not found)"
+            gh pr diff "$PR_NUMBER" --patch > /tmp/diff-full.txt
+            gh pr diff "$PR_NUMBER" | head -200 > /tmp/diff-stat.txt
+          fi
+
+      - name: Run Claude Code
+        if: steps.verify.outputs.should_run == 'true'
+        id: claude
+        uses: anthropics/claude-code-base-action@beta
+        with:
+          prompt: |
+            You are a developer advocate and social media copywriter for CopilotKit — an open-source AI agent framework that lets developers add AI copilots to their products with React hooks, UI components, and agent infrastructure. CopilotKit connects frontend (React/Angular), runtime (Express/Hono), and AI agents (LangGraph, CrewAI, custom) via the AG-UI protocol.
+
+            A new PR has been opened. Your job is to analyze the changes and generate social media copy that the team can use to announce this work.
+
+            ## PR Information
+            - **Title:** ${{ steps.pr.outputs.title }}
+            - **Branch:** ${{ steps.pr.outputs.head_ref }}
+            - **Description:**
+            ${{ steps.pr.outputs.body }}
+
+            ## Instructions
+            1. Read the diff stat file at `/tmp/diff-stat.txt` to understand the scope of changes.
+            2. Read the full diff at `/tmp/diff-full.txt` to understand the details.
+            3. If needed, read relevant source files to understand context.
+            4. Generate the following three pieces of content:
+
+            ### Output Format
+            Produce your output in EXACTLY this format (including the markdown headers):
+
+            ### 🐦 Twitter/X Post
+            (A concise, engaging tweet under 280 characters. Use relevant hashtags. Focus on the user benefit.)
+
+            ### 💼 LinkedIn Post
+            (A professional post of 3-5 short paragraphs. Lead with the value proposition. Include a call to action.)
+
+            ### 📝 Blog Post Draft
+            (A short blog-style announcement of 2-4 paragraphs. Include a title, explain what changed, why it matters, and how to get started.)
+
+            ## Guidelines
+            - Focus on user-facing impact, not implementation details
+            - Be enthusiastic but authentic — avoid hype
+            - Mention CopilotKit by name and link to https://github.com/CopilotKit/CopilotKit
+            - If the changes are internal/minor, still generate copy but note it's a maintenance/improvement update
+          allowed_tools: "Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(cat:*),View,GlobTool,GrepTool"
+          max_turns: "10"
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+
+      - name: Update comment with results
+        if: steps.verify.outputs.should_run == 'true' && success()
+        uses: actions/github-script@v7
+        env:
+          CLAUDE_RESULT: ${{ steps.claude.outputs.result }}
+          HEAD_SHA: ${{ steps.pr.outputs.head_sha }}
+          COMMENT_ID: ${{ steps.verify.outputs.comment_id }}
+        with:
+          script: |
+            const output = (process.env.CLAUDE_RESULT || '').trim() || '_Claude did not produce output. Please try again._';
+            const timestamp = new Date().toISOString().replace('T', ' ').slice(0, 19) + ' UTC';
+
+            await github.rest.issues.updateComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              comment_id: Number(process.env.COMMENT_ID),
+              body: [
+                '<!-- social-copy-generator -->',
+                '### 📣 Social Copy Generator',
+                '',
+                output,
+                '',
+                '---',
+                `_Generated at ${timestamp} from commit \`${process.env.HEAD_SHA}\`_`,
+                '',
+                '- [ ] **Regenerate social media copies**',
+              ].join('\n'),
+            });
+
+      - name: Update comment on failure
+        if: steps.verify.outputs.should_run == 'true' && failure()
+        uses: actions/github-script@v7
+        env:
+          COMMENT_ID: ${{ steps.verify.outputs.comment_id }}
+        with:
+          script: |
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+
+            await github.rest.issues.updateComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              comment_id: Number(process.env.COMMENT_ID),
+              body: [
+                '<!-- social-copy-generator -->',
+                '### 📣 Social Copy Generator',
+                '',
+                `❌ **Generation failed.** [View workflow logs](${runUrl}) for details.`,
+                '',
+                '- [ ] **Regenerate social media copies**',
+              ].join('\n'),
+            });

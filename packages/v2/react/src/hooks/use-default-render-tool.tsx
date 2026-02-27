@@ -2,9 +2,13 @@ import React, { useState } from "react";
 import { useRenderTool } from "./use-render-tool";
 
 type DefaultRenderProps = {
+  /** The name of the tool being called. */
   name: string;
-  args: any;
-  status: string;
+  /** The parsed parameters passed to the tool call. */
+  parameters: unknown;
+  /** Current execution status of the tool call. */
+  status: "inProgress" | "executing" | "complete";
+  /** The tool call result string, available only when `status` is `"complete"`. */
   result: string | undefined;
 };
 
@@ -61,7 +65,7 @@ export function useDefaultRenderTool(
 
 function DefaultToolCallRenderer({
   name,
-  args,
+  parameters,
   status,
   result,
 }: DefaultRenderProps): React.ReactElement {
@@ -205,7 +209,7 @@ function DefaultToolCallRenderer({
                   wordBreak: "break-word",
                 }}
               >
-                {JSON.stringify(args ?? {}, null, 2)}
+                {JSON.stringify(parameters ?? {}, null, 2)}
               </pre>
             </div>
 

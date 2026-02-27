@@ -10,25 +10,41 @@ const mockSubscribe = vi.fn();
 const mockAddTool = vi.fn();
 const mockRemoveTool = vi.fn();
 const mockSetRuntimeUrl = vi.fn();
+const mockSetRuntimeTransport = vi.fn();
 const mockSetHeaders = vi.fn();
 const mockSetProperties = vi.fn();
 const mockSetAgents = vi.fn();
 const mockGetAgent = vi.fn();
 
+const licenseKey = "ck_pub_" + "a".repeat(32);
+
 let lastCoreInstance: any;
 let lastCoreConfig: any;
 
 vi.mock("@copilotkitnext/core", () => {
+  const CopilotKitCoreRuntimeConnectionStatus = {
+    Disconnected: "disconnected",
+    Connected: "connected",
+    Connecting: "connecting",
+    Error: "error",
+  } as const;
+
   class MockCopilotKitCore {
     readonly subscribe = mockSubscribe;
     readonly addTool = mockAddTool;
     readonly removeTool = mockRemoveTool;
     readonly setRuntimeUrl = mockSetRuntimeUrl;
+    readonly setRuntimeTransport = mockSetRuntimeTransport;
     readonly setHeaders = mockSetHeaders;
     readonly setProperties = mockSetProperties;
     readonly setAgents__unsafe_dev_only = mockSetAgents;
     readonly getAgent = mockGetAgent;
     agents: Record<string, any> = {};
+    runtimeUrl = undefined;
+    runtimeTransport = "rest";
+    headers: Record<string, string> = {};
+    runtimeConnectionStatus =
+      CopilotKitCoreRuntimeConnectionStatus.Disconnected;
     listener?: Parameters<typeof mockSubscribe>[0];
 
     constructor(config: any) {
@@ -41,13 +57,18 @@ vi.mock("@copilotkitnext/core", () => {
     }
   }
 
-  return { CopilotKitCore: MockCopilotKitCore } as any;
+  return {
+    CopilotKitCore: MockCopilotKitCore,
+    CopilotKitCoreRuntimeConnectionStatus,
+  } as any;
 });
 
 describe("CopilotKit", () => {
   beforeEach(() => {
     TestBed.resetTestingModule();
     vi.clearAllMocks();
+    document.getElementById("copilotkit-license-watermark")?.remove();
+    (globalThis as any).__copilotkitAngularLicenseWatermarkLogged = undefined;
   });
 
   it("initialises core with transformed tool and renderer config", () => {
@@ -66,6 +87,7 @@ describe("CopilotKit", () => {
           runtimeUrl: "https://runtime.local",
           headers: { Authorization: "token" },
           properties: { region: "eu" },
+          licenseKey,
           tools: [
             {
               name: "search",
@@ -92,6 +114,7 @@ describe("CopilotKit", () => {
     expect(lastCoreConfig.runtimeUrl).toBe("https://runtime.local");
     expect(lastCoreConfig.headers).toEqual({
       Authorization: "token",
+      "X-CopilotCloud-Public-Api-Key": licenseKey,
     });
     expect(lastCoreConfig.tools).toEqual([
       expect.objectContaining({
@@ -122,7 +145,7 @@ describe("CopilotKit", () => {
   it("tracks client tools and executes handlers within injection context", async () => {
     const handlerSpy = vi.fn().mockResolvedValue("handled");
     TestBed.configureTestingModule({
-      providers: [provideCopilotKit({})],
+      providers: [provideCopilotKit({ licenseKey })],
     });
 
     const copilotKit = TestBed.inject(CopilotKit);
@@ -160,7 +183,7 @@ describe("CopilotKit", () => {
       .mockResolvedValue("result");
 
     TestBed.configureTestingModule({
-      providers: [provideCopilotKit({})],
+      providers: [provideCopilotKit({ licenseKey })],
     });
 
     const copilotKit = TestBed.inject(CopilotKit);
@@ -198,7 +221,7 @@ describe("CopilotKit", () => {
 
   it("removes tools and renderer configs", () => {
     TestBed.configureTestingModule({
-      providers: [provideCopilotKit({})],
+      providers: [provideCopilotKit({ licenseKey })],
     });
 
     const copilotKit = TestBed.inject(CopilotKit);
@@ -220,19 +243,21 @@ describe("CopilotKit", () => {
 
   it("updates runtime configuration via core methods", () => {
     TestBed.configureTestingModule({
-      providers: [provideCopilotKit({})],
+      providers: [provideCopilotKit({ licenseKey })],
     });
 
     const copilotKit = TestBed.inject(CopilotKit);
 
     copilotKit.updateRuntime({
       runtimeUrl: "https://other",
+      runtimeTransport: "single",
       headers: { Authorization: "different" },
       properties: { locale: "en" },
       agents: { a: {} as any },
     });
 
     expect(mockSetRuntimeUrl).toHaveBeenCalledWith("https://other");
+    expect(mockSetRuntimeTransport).toHaveBeenCalledWith("single");
     expect(mockSetHeaders).toHaveBeenCalledWith({ Authorization: "different" });
     expect(mockSetProperties).toHaveBeenCalledWith({ locale: "en" });
     expect(mockSetAgents).toHaveBeenCalledWith({ a: {} });
@@ -240,7 +265,7 @@ describe("CopilotKit", () => {
 
   it("reflects agent updates from core subscriptions", () => {
     TestBed.configureTestingModule({
-      providers: [provideCopilotKit({})],
+      providers: [provideCopilotKit({ licenseKey })],
     });
 
     const copilotKit = TestBed.inject(CopilotKit);
@@ -252,5 +277,17 @@ describe("CopilotKit", () => {
 
     core.listener!.onAgentsChanged();
     expect(copilotKit.agents()).toEqual(core.agents);
+  });
+
+  it("adds app watermark when license key is missing", () => {
+    TestBed.configureTestingModule({
+      providers: [provideCopilotKit({ runtimeUrl: "https://runtime.local" })],
+    });
+
+    TestBed.inject(CopilotKit);
+
+    expect(
+      document.getElementById("copilotkit-license-watermark"),
+    ).toBeTruthy();
   });
 });

@@ -29,7 +29,7 @@ describe("useDefaultRenderTool", () => {
         name: string;
         render: (props: {
           name: string;
-          args: unknown;
+          parameters: unknown;
           status: string;
           result: string | undefined;
         }) => React.ReactElement;
@@ -67,7 +67,7 @@ describe("useDefaultRenderTool", () => {
     expect(forwardedDeps).toBe(deps);
   });
 
-  it("default renderer shows status and expands to show args/result", () => {
+  it("default renderer shows status and expands to show parameters/result", () => {
     const Harness: React.FC = () => {
       useDefaultRenderTool();
       return null;
@@ -79,7 +79,7 @@ describe("useDefaultRenderTool", () => {
       {
         render: (props: {
           name: string;
-          args: unknown;
+          parameters: unknown;
           status: string;
           result: string | undefined;
         }) => React.ReactElement;
@@ -88,7 +88,7 @@ describe("useDefaultRenderTool", () => {
 
     const DefaultRenderer = config.render as React.ComponentType<{
       name: string;
-      args: unknown;
+      parameters: unknown;
       status: string;
       result: string | undefined;
     }>;
@@ -96,7 +96,7 @@ describe("useDefaultRenderTool", () => {
     render(
       <DefaultRenderer
         name="searchDocs"
-        args={{ query: "copilot" }}
+        parameters={{ query: "copilot" }}
         status="executing"
         result={undefined}
       />,
@@ -122,7 +122,7 @@ describe("useDefaultRenderTool", () => {
       {
         render: (props: {
           name: string;
-          args: unknown;
+          parameters: unknown;
           status: string;
           result: string | undefined;
         }) => React.ReactElement;
@@ -131,7 +131,7 @@ describe("useDefaultRenderTool", () => {
 
     const DefaultRenderer = config.render as React.ComponentType<{
       name: string;
-      args: unknown;
+      parameters: unknown;
       status: string;
       result: string | undefined;
     }>;
@@ -139,7 +139,7 @@ describe("useDefaultRenderTool", () => {
     render(
       <DefaultRenderer
         name="searchDocs"
-        args={{ query: "copilot" }}
+        parameters={{ query: "copilot" }}
         status="complete"
         result="done"
       />,

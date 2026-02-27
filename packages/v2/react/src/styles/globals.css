@@ -1,7 +1,5 @@
-@import "tailwindcss";
+@import "tailwindcss" prefix(cpk);
 @plugin "@tailwindcss/typography";
-@source "../../../apps/**/*.{ts,tsx}";
-@source "../../../components/**/*.{ts,tsx}";
 @source "../**/*.{ts,tsx}";
 @source "../../node_modules/streamdown/dist/index.js";
 
@@ -9,7 +7,7 @@
 
 @custom-variant dark (&:is(.dark *));
 
-:root {
+[data-copilotkit] {
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
@@ -45,7 +43,8 @@
   --sidebar-ring: oklch(0.708 0 0);
 }
 
-.dark {
+.dark [data-copilotkit],
+[data-copilotkit].dark {
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);
   --card: oklch(0.145 0 0);
@@ -136,10 +135,12 @@
 
 @layer base {
   * {
-    @apply border-border outline-ring/50;
+    @apply cpk:border-border cpk:outline-ring/50;
   }
-  body {
-    @apply bg-background text-foreground;
+  /* Apply foreground/background on CopilotKit roots (replaces body rule) */
+  [data-copilotkit] {
+    color: var(--foreground);
+    background-color: var(--background);
   }
 
   /* Mobile viewport support */
@@ -174,11 +175,11 @@
   }
 }
 
-div[data-streamdown="code-block"] > pre {
-  @apply mt-0 mb-0;
+[data-copilotkit] div[data-streamdown="code-block"] > pre {
+  @apply cpk:mt-0 cpk:mb-0;
 }
 
-.prose input[type="checkbox"] {
+[data-copilotkit] .prose input[type="checkbox"] {
   appearance: none;
   background-color: #fff;
   background-origin: border-box;
@@ -198,7 +199,7 @@ div[data-streamdown="code-block"] > pre {
   border-radius: 2px;
 }
 
-.prose input[type="checkbox"]:checked {
+[data-copilotkit] .prose input[type="checkbox"]:checked {
   background-color: #004f99;
   border-color: #004f99;
   background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg viewBox='0 0 16 16' fill='%23fff' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M12.207 4.793a1 1 0 0 1 0 1.414l-5 5a1 1 0 0 1-1.414 0l-2-2a1 1 0 0 1 1.414-1.414L6.5 9.086l4.293-4.293a1 1 0 0 1 1.414 0z'/%3E%3C/svg%3E");

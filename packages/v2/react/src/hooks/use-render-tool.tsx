@@ -8,21 +8,21 @@ const EMPTY_DEPS: ReadonlyArray<unknown> = [];
 
 export interface RenderToolInProgressProps<S extends z.ZodTypeAny> {
   name: string;
-  args: Partial<z.infer<S>>;
+  parameters: Partial<z.infer<S>>;
   status: "inProgress";
   result: undefined;
 }
 
 export interface RenderToolExecutingProps<S extends z.ZodTypeAny> {
   name: string;
-  args: z.infer<S>;
+  parameters: z.infer<S>;
   status: "executing";
   result: undefined;
 }
 
 export interface RenderToolCompleteProps<S extends z.ZodTypeAny> {
   name: string;
-  args: z.infer<S>;
+  parameters: z.infer<S>;
   status: "complete";
   result: string;
 }
@@ -34,7 +34,7 @@ export type RenderToolProps<S extends z.ZodTypeAny> =
 
 type RenderToolConfig<S extends z.ZodTypeAny> = {
   name: string;
-  args?: S;
+  parameters?: S;
   render: (props: RenderToolProps<S>) => React.ReactElement;
   agentId?: string;
 };
@@ -75,10 +75,10 @@ export function useRenderTool(
 /**
  * Registers a name-scoped renderer for tool calls.
  *
- * The provided `args` Zod schema defines the typed shape of `props.args`
+ * The provided `parameters` Zod schema defines the typed shape of `props.parameters`
  * in `render` for `executing` and `complete` states.
  *
- * @typeParam S - Zod schema type describing tool call args.
+ * @typeParam S - Zod schema type describing tool call parameters.
  * @param config - Named renderer configuration.
  * @param deps - Optional dependencies to refresh registration.
  *
@@ -87,10 +87,10 @@ export function useRenderTool(
  * useRenderTool(
  *   {
  *     name: "searchDocs",
- *     args: z.object({ query: z.string() }),
- *     render: ({ status, args, result }) => {
+ *     parameters: z.object({ query: z.string() }),
+ *     render: ({ status, parameters, result }) => {
  *       if (status === "inProgress") return <div>Preparing...</div>;
- *       if (status === "executing") return <div>Searching {args.query}</div>;
+ *       if (status === "executing") return <div>Searching {parameters.query}</div>;
  *       return <div>{result}</div>;
  *     },
  *   },
@@ -101,7 +101,7 @@ export function useRenderTool(
 export function useRenderTool<S extends z.ZodTypeAny>(
   config: {
     name: string;
-    args: S;
+    parameters: S;
     render: (props: RenderToolProps<S>) => React.ReactElement;
     agentId?: string;
   },
@@ -116,7 +116,7 @@ export function useRenderTool<S extends z.ZodTypeAny>(
  * - keeps renderer entries on cleanup so historical chat tool calls can still render,
  * - refreshes registration when `deps` change.
  *
- * @typeParam S - Zod schema type describing tool call args.
+ * @typeParam S - Zod schema type describing tool call parameters.
  * @param config - Renderer config for wildcard or named tools.
  * @param deps - Optional dependencies to refresh registration.
  *
@@ -125,9 +125,9 @@ export function useRenderTool<S extends z.ZodTypeAny>(
  * useRenderTool(
  *   {
  *     name: "searchDocs",
- *     args: z.object({ query: z.string() }),
- *     render: ({ status, args, result }) => {
- *       if (status === "executing") return <div>Searching {args.query}</div>;
+ *     parameters: z.object({ query: z.string() }),
+ *     render: ({ status, parameters, result }) => {
+ *       if (status === "executing") return <div>Searching {parameters.query}</div>;
  *       if (status === "complete") return <div>{result}</div>;
  *       return <div>Preparing...</div>;
  *     },
@@ -141,7 +141,7 @@ export function useRenderTool<S extends z.ZodTypeAny>(
  * useRenderTool(
  *   {
  *     name: "summarize",
- *     args: z.object({ text: z.string() }),
+ *     parameters: z.object({ text: z.string() }),
  *     agentId: "research-agent",
  *     render: ({ name, status }) => <div>{name}: {status}</div>,
  *   },
@@ -159,16 +159,18 @@ export function useRenderTool<S extends z.ZodTypeAny>(
   useEffect(() => {
     // Build the ReactToolCallRenderer via defineToolCallRenderer
     const renderer =
-      config.name === "*" && !config.args
+      config.name === "*" && !config.parameters
         ? defineToolCallRenderer({
             name: "*",
-            render: config.render,
+            render: (props) =>
+              config.render({ ...props, parameters: props.args }),
             ...(config.agentId ? { agentId: config.agentId } : {}),
           })
         : defineToolCallRenderer({
             name: config.name,
-            args: config.args!,
-            render: config.render,
+            args: config.parameters!,
+            render: (props) =>
+              config.render({ ...props, parameters: props.args }),
             ...(config.agentId ? { agentId: config.agentId } : {}),
           });
 

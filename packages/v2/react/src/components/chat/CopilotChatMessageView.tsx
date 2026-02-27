@@ -1,4 +1,4 @@
-import React, { useEffect, useReducer } from "react";
+import React, { useEffect, useReducer, useState } from "react";
 import { WithSlots, renderSlot, isReactComponentType } from "@/lib/slots";
 import CopilotChatAssistantMessage from "./CopilotChatAssistantMessage";
 import CopilotChatUserMessage from "./CopilotChatUserMessage";
@@ -289,6 +289,7 @@ export type CopilotChatMessageViewProps = Omit<
     isRunning: boolean;
     messages: Message[];
     messageElements: React.ReactElement[];
+    interruptElement: React.ReactElement | null;
   }) => React.ReactElement;
 };
 
@@ -320,6 +321,19 @@ export function CopilotChatMessageView({
     });
     return () => subscription.unsubscribe();
   }, [config?.agentId, copilotkit, forceUpdate]);
+
+  // Subscribe to interrupt element changes for in-chat rendering.
+  const [interruptElement, setInterruptElement] =
+    useState<React.ReactElement | null>(null);
+  useEffect(() => {
+    setInterruptElement(copilotkit.interruptElement);
+    const subscription = copilotkit.subscribe({
+      onInterruptElementChanged: ({ interruptElement }) => {
+        setInterruptElement(interruptElement);
+      },
+    });
+    return () => subscription.unsubscribe();
+  }, [copilotkit]);
 
   // Helper to get state snapshot for a message (used for memoization)
   const getStateSnapshotForMessage = (messageId: string): unknown => {
@@ -477,7 +491,11 @@ export function CopilotChatMessageView({
     .filter(Boolean) as React.ReactElement[];
 
   if (children) {
-    return children({ messageElements, messages, isRunning });
+    return (
+      <div data-copilotkit style={{ display: "contents" }}>
+        {children({ messageElements, messages, isRunning, interruptElement })}
+      </div>
+    );
   }
 
   // Hide the chat-level loading cursor when the last message is a reasoning
@@ -486,10 +504,16 @@ export function CopilotChatMessageView({
   const showCursor = isRunning && lastMessage?.role !== "reasoning";
 
   return (
-    <div className={twMerge("flex flex-col", className)} {...props}>
+    <div
+      data-copilotkit
+      data-testid="copilot-message-list"
+      className={twMerge("cpk:flex cpk:flex-col", className)}
+      {...props}
+    >
       {messageElements}
+      {interruptElement}
       {showCursor && (
-        <div className="mt-2">
+        <div className="cpk:mt-2">
           {renderSlot(cursor, CopilotChatMessageView.Cursor, {})}
         </div>
       )}
@@ -503,8 +527,9 @@ CopilotChatMessageView.Cursor = function Cursor({
 }: React.HTMLAttributes<HTMLDivElement>) {
   return (
     <div
+      data-testid="copilot-loading-cursor"
       className={twMerge(
-        "w-[11px] h-[11px] rounded-full bg-foreground animate-pulse-cursor ml-1",
+        "cpk:w-[11px] cpk:h-[11px] cpk:rounded-full cpk:bg-foreground cpk:animate-pulse-cursor cpk:ml-1",
         className,
       )}
       {...props}

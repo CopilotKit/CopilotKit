@@ -34,6 +34,11 @@ export interface LangGraphInterruptRender<TEventValue = any> {
     eventValue: TEventValue;
     agentMetadata: AgentSession;
   }) => boolean;
+  /**
+   * Optional agent ID to scope this interrupt to a specific agent.
+   * Defaults to the agent configured in the CopilotKit chat configuration.
+   */
+  agentId?: string;
 }
 
 export type LangGraphInterruptAction = LangGraphInterruptRender & {

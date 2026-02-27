@@ -35,7 +35,7 @@ describe("useRenderTool", () => {
     vi.clearAllMocks();
   });
 
-  it("registers a named renderer with args schema", () => {
+  it("registers a named renderer with parameters schema", () => {
     const core = createMockCore();
     mockUseCopilotKit.mockReturnValue({ copilotkit: core });
 
@@ -48,7 +48,7 @@ describe("useRenderTool", () => {
       useRenderTool(
         {
           name: "searchDocs",
-          args: schema,
+          parameters: schema,
           render: renderFn,
         },
         [],
@@ -64,10 +64,10 @@ describe("useRenderTool", () => {
     );
     expect(renderer).toBeDefined();
     expect(renderer?.args).toBe(schema);
-    expect(renderer?.render).toBe(renderFn);
+    expect(typeof renderer?.render).toBe("function");
   });
 
-  it("registers wildcard renderer and defaults args schema to z.any", () => {
+  it("registers wildcard renderer and defaults parameters schema to z.any", () => {
     const core = createMockCore();
     mockUseCopilotKit.mockReturnValue({ copilotkit: core });
 
@@ -88,7 +88,7 @@ describe("useRenderTool", () => {
 
     const renderer = core.renderToolCalls.find((item) => item.name === "*");
     expect(renderer).toBeDefined();
-    expect(renderer?.render).toBe(wildcardRender);
+    expect(typeof renderer?.render).toBe("function");
     expect(renderer?.args.safeParse({ arbitrary: true }).success).toBe(true);
   });
 
@@ -115,7 +115,7 @@ describe("useRenderTool", () => {
         {
           name: "searchDocs",
           agentId: "agent-1",
-          args: z.object({ query: z.string() }),
+          parameters: z.object({ query: z.string() }),
           render: newRender,
         },
         [],
@@ -133,7 +133,7 @@ describe("useRenderTool", () => {
     );
 
     expect(core.renderToolCalls).toHaveLength(2);
-    expect(updated?.render).toBe(newRender);
+    expect(typeof updated?.render).toBe("function");
     expect(untouched).toBe(untouchedRenderer);
   });
 
@@ -146,7 +146,7 @@ describe("useRenderTool", () => {
         {
           name: "summarize",
           agentId: "agent-a",
-          args: z.object({ text: z.string() }),
+          parameters: z.object({ text: z.string() }),
           render: () => <div>A</div>,
         },
         [],
@@ -159,7 +159,7 @@ describe("useRenderTool", () => {
         {
           name: "summarize",
           agentId: "agent-b",
-          args: z.object({ text: z.string() }),
+          parameters: z.object({ text: z.string() }),
           render: () => <div>B</div>,
         },
         [],
@@ -192,7 +192,7 @@ describe("useRenderTool", () => {
       useRenderTool(
         {
           name: "searchDocs",
-          args: z.object({ query: z.string() }),
+          parameters: z.object({ query: z.string() }),
           render: () => <div>{version}</div>,
         },
         [version],
@@ -215,7 +215,7 @@ describe("useRenderTool", () => {
       useRenderTool(
         {
           name: "searchDocs",
-          args: z.object({ query: z.string() }),
+          parameters: z.object({ query: z.string() }),
           render: () => <div>render</div>,
         },
         [],

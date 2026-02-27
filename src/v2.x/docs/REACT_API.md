@@ -23,8 +23,8 @@ Creates and owns a `CopilotKitCore` instance that manages agents, frontend tools
   handler and a tool call renderer.
 
 The provider merges the above into a `CopilotKitCore` instance, keeps render definitions in sync with React state, and
-exposes them through context. Frontend tools added through hooks (`useFrontendTool`, `useHumanInTheLoop`) are
-automatically registered and cleaned up.
+exposes them through context. Frontend tools added through hooks (`useFrontendTool`, `useHumanInTheLoop`,
+`useInterrupt`) are automatically registered and cleaned up.
 
 Render your entire Copilot-enabled tree inside this provider:
 
@@ -99,6 +99,23 @@ Wraps `useFrontendTool` for interactive tools that pause agent execution. Expect
 
 The render component receives consistent shape based on the tool call status so you can drive bespoke UI/UX for human
 confirmations.
+
+### `useInterrupt(config)`
+
+Subscribes to agent custom events named `on_interrupt` and surfaces interrupt UI once a run finalizes. The hook accepts
+`UseInterruptConfig` and exposes two generics -- `TResult` (inferred from `handler` return type) and `TRenderInChat`
+(inferred from `renderInChat`). `event.value` is typed as `any` since the interrupt payload shape depends on the agent;
+type-narrow it in your callbacks as needed.
+
+- `render(props)` (required) renders interrupt UI with `{ event, result, resolve }`.
+- `handler(props)?` optionally preprocesses the interrupt and can return sync or async data passed to `result`. The
+  return type is automatically inferred and exposed as `result` in `render`.
+- `enabled(event)?` optionally filters interrupts handled by this instance.
+- `renderInChat?: boolean` controls rendering mode:
+  - `true` (default): publishes interrupt UI inside `CopilotChat`
+  - `false`: returns the interrupt element for manual placement
+
+Call `resolve(response)` from the rendered UI to resume the agent with `command.resume = response`.
 
 ### `useRenderToolCall()`
 
@@ -252,5 +269,5 @@ at the app boundary (after your Tailwind base) to ensure animations, prose styli
    inputs.
 3. Render `CopilotChat` for an out-of-the-box experience, or compose `CopilotChatView`, `CopilotChatMessageView`, and
    `CopilotChatInput` manually for deeper customization.
-4. Register custom tools with `useFrontendTool` or `useHumanInTheLoop`, and render tool call output with
-   `useRenderToolCall` or `CopilotChatToolCallsView`.
+4. Register custom tools with `useFrontendTool` or `useHumanInTheLoop`, handle interrupts with `useInterrupt`, and
+   render tool call output with `useRenderToolCall` or `CopilotChatToolCallsView`.

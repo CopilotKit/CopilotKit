@@ -1,5 +1,57 @@
 # @copilotkitnext/web-inspector
 
+## 1.52.1-next.1
+
+### Patch Changes
+
+- @copilotkitnext/core@1.52.1-next.1
+
+## 1.52.1-next.0
+
+### Patch Changes
+
+- @copilotkitnext/core@1.52.1-next.0
+
+## 1.52.0
+
+### Patch Changes
+
+- ef0f539: Add reasoning support and default components for reasoning messages
+- Updated dependencies [d77f347]
+- Updated dependencies [ef0f539]
+  - @copilotkitnext/core@1.52.0
+
+## 1.52.0-next.8
+
+### Patch Changes
+
+- @copilotkitnext/core@1.52.0-next.8
+
+## 1.52.0-next.7
+
+### Patch Changes
+
+- Updated dependencies [d77f347]
+  - @copilotkitnext/core@1.52.0-next.7
+
+## 1.52.0-next.6
+
+### Patch Changes
+
+- @copilotkitnext/core@1.52.0-next.6
+
+## 1.52.0-next.5
+
+### Patch Changes
+
+- @copilotkitnext/core@1.52.0-next.5
+
+## 1.51.5-next.4
+
+### Patch Changes
+
+- @copilotkitnext/core@1.51.5-next.4
+
 ## 1.51.5-next.3
 
 ### Patch Changes

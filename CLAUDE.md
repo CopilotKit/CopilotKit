@@ -13,11 +13,20 @@
 
 <!-- nx configuration end-->
 
-# Hook Development Requirements
+# CopilotKit
 
-When creating a new hook, always complete all of the following:
+AI agent framework with three layers: **Frontend** (React/Angular/Vanilla) → **Runtime** (Express/Hono) → **Agent** (LangGraph/CrewAI/BuiltIn/Custom), communicating via the AG-UI protocol (event-based SSE).
 
-- Add dedicated documentation for the hook under `/docs`.
-- Update the relevant docs metadata file(s) so the page appears in docs navigation.
-- Add JSDoc on top of the hook implementation, including usage examples.
-- Write extensive tests for the hook (covering behavior, edge cases, and lifecycle where applicable).
+## Essentials
+
+- **Nx monorepo** — always run tasks through `nx` (`nx run`, `nx run-many`, `nx affected`), never the underlying tooling directly.
+- **V1 wraps V2** — V2 (`@copilotkitnext/`) is the real implementation. V1 (`@copilotkit/`) is the public compatibility layer that delegates to V2. Build new features in V2 first. Add V1 wrappers only if backward compatibility is needed.
+- **Simplicity** — prefer the simplest correct solution. For non-trivial changes, consider if there's a cleaner approach before committing.
+- **Worktrees** — always work in a git worktree for isolation. See [Git & PRs](.claude/docs/git.md) for the full workflow.
+
+## Reference (read when relevant to your task)
+
+- [Architecture & Packages](.claude/docs/architecture.md) — V2/V1 package roles, request lifecycle, core concepts (AG-UI, ProxiedAgent, AgentRunner, tools, context, multi-agent)
+- [Hook Development](.claude/docs/hooks.md) — checklist for creating new hooks (docs, tests, JSDoc)
+- [Workflow & Process](.claude/docs/workflow.md) — when to plan, when to fix autonomously, verification, self-improvement loop, this should be your default mindset when working on any task
+- [Git & PRs](.claude/docs/git.md) — worktree workflow, branching, creating PRs

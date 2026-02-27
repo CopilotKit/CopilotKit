@@ -338,8 +338,11 @@ export const CopilotChatAudioRecorder = forwardRef<
   );
 
   return (
-    <div className={twMerge("w-full py-3 px-5", className)} {...divProps}>
-      <canvas ref={canvasRef} className="block w-full h-[26px]" />
+    <div
+      className={twMerge("cpk:w-full cpk:py-3 cpk:px-5", className)}
+      {...divProps}
+    >
+      <canvas ref={canvasRef} className="cpk:block cpk:w-full cpk:h-[26px]" />
     </div>
   );
 });
