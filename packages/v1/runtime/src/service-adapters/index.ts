@@ -12,6 +12,7 @@ export * from "./google/google-genai-adapter";
 export * from "./openai/openai-assistant-adapter";
 export * from "./unify/unify-adapter";
 export * from "./groq/groq-adapter";
+export * from "./avian/avian-adapter";
 export * from "./anthropic/anthropic-adapter";
 export * from "./experimental/ollama/ollama-adapter";
 export * from "./bedrock/bedrock-adapter";
