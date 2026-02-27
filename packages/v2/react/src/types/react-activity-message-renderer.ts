@@ -1,6 +1,7 @@
 import { ActivityMessage } from "@ag-ui/core";
 import type { AbstractAgent } from "@ag-ui/client";
 import { z } from "zod";
+import type { AgentId } from "./copilotkit-types";
 
 export interface ReactActivityMessageRenderer<TActivityContent> {
   /**
@@ -10,7 +11,7 @@ export interface ReactActivityMessageRenderer<TActivityContent> {
   /**
    * Optional agent ID to scope the renderer to a particular agent.
    */
-  agentId?: string;
+  agentId?: AgentId;
   /**
    * Schema describing the activity content payload.
    */

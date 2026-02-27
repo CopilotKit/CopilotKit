@@ -40,9 +40,9 @@ describe("useRenderTool", () => {
     mockUseCopilotKit.mockReturnValue({ copilotkit: core });
 
     const schema = z.object({ query: z.string() });
-    const renderFn = vi.fn((_props: RenderToolProps<typeof schema>) => (
-      <div>render</div>
-    ));
+    const renderFn = vi.fn(
+      (_props: RenderToolProps<z.infer<typeof schema>>) => <div>render</div>,
+    );
 
     const Harness: React.FC = () => {
       useRenderTool(

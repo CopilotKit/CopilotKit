@@ -53,13 +53,14 @@ export default function SingleEndpointDemo() {
 
 function Chat() {
   useFrontendTool({
-    name: "sayHello",
-    parameters: z.object({
-      name: z.string(),
-    }),
-    handler: async ({ name }) => {
-      alert(`Hello ${name}`);
-      return `Hello ${name}`;
+    name: "getWeather",
+    agentId: "default",
+    handler: async (args) => {
+      alert(`Hello ${args.city}`);
+      return `Hello ${args.city}`;
+    },
+    render: ({ args }) => {
+      return <div>Weather for {args.city}</div>;
     },
   });
 

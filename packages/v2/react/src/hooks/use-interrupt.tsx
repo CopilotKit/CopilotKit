@@ -46,6 +46,8 @@ export function isPromiseLike<TValue>(
   );
 }
 
+import type { AgentId } from "@/types/copilotkit-types";
+
 /**
  * Configuration options for `useInterrupt`.
  */
@@ -72,7 +74,7 @@ interface UseInterruptConfigBase<TValue = unknown, TResult = never> {
    */
   enabled?: (event: InterruptEvent<TValue>) => boolean;
   /** Optional agent id. Defaults to the current configured chat agent. */
-  agentId?: string;
+  agentId?: AgentId;
 }
 
 export interface UseInterruptInChatConfig<

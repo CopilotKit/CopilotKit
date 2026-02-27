@@ -4,9 +4,15 @@ import {
   CopilotChat,
   CopilotKitProvider,
   defineToolCallRenderer,
+  useAgent,
   useAgentContext,
+  useComponent,
   useConfigureSuggestions,
   useFrontendTool,
+  useHumanInTheLoop,
+  useInterrupt,
+  useRenderTool,
+  useSuggestions,
 } from "@copilotkitnext/react";
 import type { ToolsMenuItem } from "@copilotkitnext/react";
 import { useMemo, useState } from "react";
@@ -92,15 +98,24 @@ function Chat() {
   // });
 
   useFrontendTool({
-    name: "sayHello",
-    parameters: z.object({
-      name: z.string(),
-    }),
-    handler: async ({ name }) => {
+    name: "getWeather",
+    render: ({ args, result }) => {
+      return <div />;
+    },
+    handler: async (args) => {
       alert(`Hello ${name}`);
       return `Hello ${name}`;
     },
   });
+
+  useRenderTool({
+    name: "createEvent",
+    agentId: "planner",
+    render: ({ name, status, parameters }) => {
+      return <div />;
+    },
+  });
+
   const toolsMenu = useMemo<(ToolsMenuItem | "-")[]>(
     () => [
       {

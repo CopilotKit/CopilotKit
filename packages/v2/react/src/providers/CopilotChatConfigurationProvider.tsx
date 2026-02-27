@@ -6,6 +6,7 @@ import React, {
   useState,
 } from "react";
 import { DEFAULT_AGENT_ID, randomUUID } from "@copilotkitnext/shared";
+import type { AgentId } from "@/types/copilotkit-types";
 
 // Default labels
 export const CopilotChatDefaultLabels = {
@@ -51,7 +52,7 @@ const CopilotChatConfiguration =
 export interface CopilotChatConfigurationProviderProps {
   children: ReactNode;
   labels?: Partial<CopilotChatLabels>;
-  agentId?: string;
+  agentId?: AgentId;
   threadId?: string;
   isModalDefaultOpen?: boolean;
 }

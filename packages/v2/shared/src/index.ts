@@ -2,6 +2,7 @@ export {
   type MaybePromise,
   type NonEmptyRecord,
   type AgentDescription,
+  type AgentToolDescription,
   type RuntimeInfo,
 } from "./types";
 

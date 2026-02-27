@@ -43,6 +43,8 @@ import { createAnthropic } from "@ai-sdk/anthropic";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { randomUUID } from "crypto";
 import { z } from "zod";
+import { zodToJsonSchema } from "zod-to-json-schema";
+import type { AgentToolDescription } from "@copilotkitnext/shared";
 import {
   StreamableHTTPClientTransport,
   StreamableHTTPClientTransportOptions,
@@ -413,23 +415,23 @@ export function convertJsonSchemaToZodSchema(
         jsonSchema.required ? jsonSchema.required.includes(key) : false,
       );
     }
-    let schema = z.object(spec).describe(jsonSchema.description ?? "");
+    const schema = z.object(spec).describe(jsonSchema.description ?? "");
     return required ? schema : schema.optional();
   } else if (jsonSchema.type === "string") {
-    let schema = z.string().describe(jsonSchema.description ?? "");
+    const schema = z.string().describe(jsonSchema.description ?? "");
     return required ? schema : schema.optional();
   } else if (jsonSchema.type === "number" || jsonSchema.type === "integer") {
-    let schema = z.number().describe(jsonSchema.description ?? "");
+    const schema = z.number().describe(jsonSchema.description ?? "");
     return required ? schema : schema.optional();
   } else if (jsonSchema.type === "boolean") {
-    let schema = z.boolean().describe(jsonSchema.description ?? "");
+    const schema = z.boolean().describe(jsonSchema.description ?? "");
     return required ? schema : schema.optional();
   } else if (jsonSchema.type === "array") {
     if (!jsonSchema.items) {
       throw new Error("Array type must have items property");
     }
-    let itemSchema = convertJsonSchemaToZodSchema(jsonSchema.items, true);
-    let schema = z.array(itemSchema).describe(jsonSchema.description ?? "");
+    const itemSchema = convertJsonSchemaToZodSchema(jsonSchema.items, true);
+    const schema = z.array(itemSchema).describe(jsonSchema.description ?? "");
     return required ? schema : schema.optional();
   }
   console.error("Invalid JSON schema:", JSON.stringify(jsonSchema, null, 2));
@@ -590,6 +592,28 @@ export class BuiltInAgent extends AbstractAgent {
 
   constructor(private config: BuiltInAgentConfiguration) {
     super();
+  }
+
+  /**
+   * Returns serializable tool definitions for the info endpoint.
+   */
+  getToolDefinitions(): AgentToolDescription[] {
+    if (!this.config.tools || this.config.tools.length === 0) {
+      return [];
+    }
+
+    return this.config.tools.map((tool) => {
+      const rawSchema = zodToJsonSchema(tool.parameters, {
+        $refStrategy: "none",
+      });
+      const { $schema, ...parameters } = rawSchema as Record<string, unknown>;
+
+      return {
+        name: tool.name,
+        description: tool.description,
+        parameters,
+      };
+    });
   }
 
   /**

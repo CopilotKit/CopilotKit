@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { ToolCallStatus } from "@copilotkitnext/core";
+import type { AgentId } from "./copilotkit-types";
 
 export interface ReactToolCallRenderer<T = unknown> {
   name: string;
@@ -8,7 +9,7 @@ export interface ReactToolCallRenderer<T = unknown> {
    * Optional agent ID to constrain this tool renderer to a specific agent.
    * If specified, this renderer will only be used for the specified agent.
    */
-  agentId?: string;
+  agentId?: AgentId;
   render: React.ComponentType<
     | {
         name: string;

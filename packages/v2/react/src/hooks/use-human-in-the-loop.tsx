@@ -2,13 +2,26 @@ import { useCopilotKit } from "@/providers/CopilotKitProvider";
 import type { ReactFrontendTool } from "@/types/frontend-tool";
 import type { ReactHumanInTheLoop } from "@/types/human-in-the-loop";
 import type { ReactToolCallRenderer } from "@/types/react-tool-call-renderer";
+import type {
+  AgentId,
+  ToolName,
+  ToolParameters,
+} from "@/types/copilotkit-types";
 import { useCallback, useEffect, useRef } from "react";
 import React from "react";
 import { useFrontendTool } from "./use-frontend-tool";
 
 export function useHumanInTheLoop<
-  T extends Record<string, unknown> = Record<string, unknown>,
->(tool: ReactHumanInTheLoop<T>, deps?: ReadonlyArray<unknown>) {
+  TName extends ToolName<A extends string ? A : undefined> | (string & {}) =
+    ToolName,
+  A extends AgentId | undefined = AgentId | undefined,
+  T extends Record<string, unknown> = ToolParameters<
+    TName,
+    A extends string ? A : undefined
+  > extends infer P extends Record<string, unknown>
+    ? P
+    : Record<string, unknown>,
+>(tool: ReactHumanInTheLoop<T, A, TName>, deps?: ReadonlyArray<unknown>) {
   const { copilotkit } = useCopilotKit();
   const resolvePromiseRef = useRef<((result: unknown) => void) | null>(null);
 
@@ -63,7 +76,7 @@ export function useHumanInTheLoop<
     [tool.render, tool.name, tool.description, respond],
   );
 
-  const frontendTool: ReactFrontendTool<T> = {
+  const frontendTool: ReactFrontendTool<T, A, TName> = {
     ...tool,
     handler,
     render: RenderComponent,

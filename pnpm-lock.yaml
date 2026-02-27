@@ -1326,6 +1326,9 @@ importers:
         specifier: ^3.25.75
         version: 3.25.76
     devDependencies:
+      '@copilotkit/cli':
+        specifier: workspace:*
+        version: link:../../../../packages/v2/cli
       '@eslint/eslintrc':
         specifier: ^3
         version: 3.3.3
@@ -2090,6 +2093,9 @@ importers:
       '@ai-sdk/openai':
         specifier: ^2.0.42
         version: 2.0.89(zod@3.25.76)
+      '@copilotkitnext/shared':
+        specifier: workspace:*
+        version: link:../shared
       '@modelcontextprotocol/sdk':
         specifier: ^1.18.2
         version: 1.25.2(@cfworker/json-schema@4.1.1)(hono@4.11.4)(zod@3.25.76)
@@ -2102,6 +2108,9 @@ importers:
       zod:
         specifier: ^3.25.75
         version: 3.25.76
+      zod-to-json-schema:
+        specifier: ^3.24.6
+        version: 3.25.1(zod@3.25.76)
     devDependencies:
       '@copilotkitnext/eslint-config':
         specifier: workspace:*
@@ -2272,6 +2281,34 @@ importers:
       zone.js:
         specifier: ^0.14.0
         version: 0.14.10
+
+  packages/v2/cli:
+    dependencies:
+      '@copilotkitnext/shared':
+        specifier: workspace:*
+        version: link:../shared
+      chalk:
+        specifier: ^5.4.1
+        version: 5.6.2
+    devDependencies:
+      '@copilotkitnext/eslint-config':
+        specifier: workspace:*
+        version: link:../eslint-config
+      '@copilotkitnext/typescript-config':
+        specifier: workspace:*
+        version: link:../typescript-config
+      '@types/node':
+        specifier: ^22.15.3
+        version: 22.19.11
+      eslint:
+        specifier: ^9.30.0
+        version: 9.39.2(jiti@2.6.1)
+      tsdown:
+        specifier: ^0.20.3
+        version: 0.20.3(@arethetypeswrong/core@0.18.2)(publint@0.3.17)(typescript@5.8.2)
+      typescript:
+        specifier: 5.8.2
+        version: 5.8.2
 
   packages/v2/core:
     dependencies:

@@ -2,12 +2,25 @@ import { useEffect } from "react";
 import { useCopilotKit } from "../providers/CopilotKitProvider";
 import type { ReactFrontendTool } from "../types/frontend-tool";
 import type { ReactToolCallRenderer } from "../types/react-tool-call-renderer";
+import type {
+  AgentId,
+  ToolName,
+  ToolParameters,
+} from "../types/copilotkit-types";
 
 const EMPTY_DEPS: ReadonlyArray<unknown> = [];
 
 export function useFrontendTool<
-  T extends Record<string, unknown> = Record<string, unknown>,
->(tool: ReactFrontendTool<T>, deps?: ReadonlyArray<unknown>) {
+  TName extends ToolName<A extends string ? A : undefined> | (string & {}) =
+    ToolName,
+  A extends AgentId | undefined = AgentId | undefined,
+  T extends Record<string, unknown> = ToolParameters<
+    TName,
+    A extends string ? A : undefined
+  > extends infer P extends Record<string, unknown>
+    ? P
+    : Record<string, unknown>,
+>(tool: ReactFrontendTool<T, A, TName>, deps?: ReadonlyArray<unknown>) {
   const { copilotkit } = useCopilotKit();
   const extraDeps = deps ?? EMPTY_DEPS;
 

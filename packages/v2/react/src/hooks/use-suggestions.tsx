@@ -3,9 +3,10 @@ import { Suggestion } from "@copilotkitnext/core";
 import { useCopilotKit } from "@/providers/CopilotKitProvider";
 import { useCopilotChatConfiguration } from "@/providers/CopilotChatConfigurationProvider";
 import { DEFAULT_AGENT_ID } from "@copilotkitnext/shared";
+import type { AgentId } from "@/types/copilotkit-types";
 
 export interface UseSuggestionsOptions {
-  agentId?: string;
+  agentId?: AgentId;
 }
 
 export interface UseSuggestionsResult {
