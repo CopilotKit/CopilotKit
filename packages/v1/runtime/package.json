@@ -61,8 +61,8 @@
     "vitest": "^3.2.4"
   },
   "dependencies": {
-    "@ag-ui/client": "^0.0.45",
-    "@ag-ui/core": "^0.0.45",
+    "@ag-ui/client": "^0.0.46",
+    "@ag-ui/core": "^0.0.46",
     "@ag-ui/langgraph": "^0.0.24",
     "@ai-sdk/anthropic": "^2.0.22",
     "@ai-sdk/openai": "^2.0.42",

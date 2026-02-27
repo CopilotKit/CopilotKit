@@ -38,7 +38,7 @@
     "vitest": "^3.0.5"
   },
   "dependencies": {
-    "@ag-ui/client": "0.0.45",
+    "@ag-ui/client": "0.0.46",
     "@copilotkitnext/runtime": "workspace:*",
     "rxjs": "7.8.1"
   },

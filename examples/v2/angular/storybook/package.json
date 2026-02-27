@@ -9,7 +9,7 @@
     "storybook:build": "ng run storybook-angular:build-storybook"
   },
   "dependencies": {
-    "@ag-ui/client": "0.0.45",
+    "@ag-ui/client": "0.0.46",
     "@angular/animations": "^19.0.0",
     "@angular/common": "^19.0.0",
     "@angular/compiler": "^19.0.0",

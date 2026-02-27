@@ -37,7 +37,7 @@
     "vitest": "^3.0.5"
   },
   "dependencies": {
-    "@ag-ui/client": "0.0.45",
+    "@ag-ui/client": "0.0.46",
     "@ai-sdk/anthropic": "^2.0.22",
     "@ai-sdk/google": "^2.0.17",
     "@ai-sdk/mcp": "^0.0.8",

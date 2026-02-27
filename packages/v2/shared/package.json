@@ -34,7 +34,7 @@
     "typescript": "5.8.2"
   },
   "dependencies": {
-    "@ag-ui/client": "0.0.45",
+    "@ag-ui/client": "0.0.46",
     "uuid": "^11.1.0",
     "partial-json": "^0.1.7"
   },

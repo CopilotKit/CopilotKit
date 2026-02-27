@@ -57,8 +57,8 @@
     "vitest": "^3.2.4"
   },
   "dependencies": {
-    "@ag-ui/client": "0.0.45",
-    "@ag-ui/core": "0.0.45",
+    "@ag-ui/client": "0.0.46",
+    "@ag-ui/core": "0.0.46",
     "@copilotkitnext/core": "workspace:*",
     "@copilotkitnext/shared": "workspace:*",
     "@copilotkitnext/web-inspector": "workspace:*",

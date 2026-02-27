@@ -29,7 +29,7 @@
     "attw": "attw --pack . --profile node16"
   },
   "dependencies": {
-    "@ag-ui/client": "0.0.45",
+    "@ag-ui/client": "0.0.46",
     "@copilotkitnext/core": "workspace:*",
     "lit": "^3.2.0",
     "lucide": "^0.525.0",
