@@ -546,12 +546,27 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> =
                         .map((c) => c.text)
                         .join("\n") || "";
 
+                    const role =
+                      (params.role as "user" | "assistant") || "user";
+
                     if (textContent) {
                       currentAgent.addMessage({
                         id: crypto.randomUUID(),
-                        role: (params.role as "user" | "assistant") || "user",
+                        role,
                         content: textContent,
                       });
+
+                      // Invoke the agent for user messages so the LLM
+                      // processes the message, matching CopilotChat behavior.
+                      // Assistant messages are display-only and don't need a run.
+                      if (role === "user") {
+                        currentAgent.runAgent().catch((err) => {
+                          console.error(
+                            "[MCPAppsRenderer] ui/message runAgent error:",
+                            err,
+                          );
+                        });
+                      }
                     }
                     sendResponse(msg.id, { isError: false });
                   } catch (err) {
