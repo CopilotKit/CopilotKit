@@ -905,6 +905,8 @@ export function CopilotChatInput({
     <div
       data-testid="copilot-chat-input"
       className={twMerge(
+        // V1 compatibility class for custom styling
+        "copilotKitInput",
         // Layout
         "cpk:flex cpk:w-full cpk:flex-col cpk:items-center cpk:justify-center",
         // Interaction

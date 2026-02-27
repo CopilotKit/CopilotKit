@@ -242,7 +242,7 @@ export function CopilotChatView({
         data-testid="copilot-chat"
         data-copilot-running={isRunning ? "true" : "false"}
         className={twMerge(
-          "cpk:relative cpk:h-full cpk:flex cpk:flex-col",
+          "copilotKitChat cpk:relative cpk:h-full cpk:flex cpk:flex-col",
           className,
         )}
         {...props}
@@ -270,7 +270,7 @@ export function CopilotChatView({
       data-copilotkit
       data-testid="copilot-chat"
       data-copilot-running={isRunning ? "true" : "false"}
-      className={twMerge("cpk:relative cpk:h-full", className)}
+      className={twMerge("copilotKitChat cpk:relative cpk:h-full", className)}
       {...props}
     >
       {BoundScrollView}
