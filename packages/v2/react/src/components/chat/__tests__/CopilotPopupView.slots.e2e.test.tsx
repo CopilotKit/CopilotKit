@@ -505,18 +505,18 @@ describe("CopilotPopupView Slot System E2E Tests", () => {
     });
 
     it("should not render popup content when closed", () => {
+      // Render without the outer CopilotChatConfigurationProvider so the
+      // PopupView's own provider (with defaultOpen=false) isn't overridden
+      // by a parent whose isModalOpen defaults to true.
       const { container } = render(
-        <TestWrapper>
+        <CopilotKitProvider>
           <CopilotPopupView messages={sampleMessages} defaultOpen={false} />
-        </TestWrapper>,
+        </CopilotKitProvider>,
       );
 
       // Popup should not be rendered when closed
       const popup = container.querySelector("[data-copilot-popup]");
-      // Initially not rendered or hidden
-      expect(
-        popup === null || popup?.classList.contains("pointer-events-none"),
-      ).toBe(true);
+      expect(popup).toBeNull();
     });
   });
 
