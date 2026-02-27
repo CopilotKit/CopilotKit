@@ -543,6 +543,7 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> =
                     const params = msg.params as {
                       role?: string;
                       content?: Array<{ type: string; text?: string }>;
+                      followUp?: boolean;
                     };
 
                     // Extract text content from the message
@@ -555,6 +556,11 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> =
                     const role =
                       (params.role as "user" | "assistant") || "user";
 
+                    // followUp controls whether the agent is invoked after
+                    // adding the message. When not specified, defaults to
+                    // true for user messages and false for assistant messages.
+                    const shouldFollowUp = params.followUp ?? role === "user";
+
                     if (textContent) {
                       currentAgent.addMessage({
                         id: crypto.randomUUID(),
@@ -562,10 +568,7 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> =
                         content: textContent,
                       });
 
-                      // Invoke the agent for user messages so the LLM
-                      // processes the message, matching CopilotChat behavior.
-                      // Assistant messages are display-only and don't need a run.
-                      if (role === "user") {
+                      if (shouldFollowUp) {
                         copilotkitRef.current
                           .runAgent({ agent: currentAgent })
                           .catch((err) => {

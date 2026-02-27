@@ -1123,6 +1123,7 @@ describe("MCP Apps Activity Renderer E2E", () => {
       params: {
         role?: string;
         content?: Array<{ type: string; text?: string }>;
+        followUp?: boolean;
       },
     ) {
       window.dispatchEvent(
@@ -1229,6 +1230,70 @@ describe("MCP Apps Activity Renderer E2E", () => {
       });
 
       // Verify runAgent was called since it defaults to user role
+      await waitFor(() => {
+        expect(agent.nonProxiedRunAgentCalls.length).toBe(1);
+      });
+    });
+
+    it("skips runAgent when followUp is explicitly false for user messages", async () => {
+      const { agent, iframe, addMessageSpy } = await setupIframeReady();
+
+      addMessageSpy.mockClear();
+      agent.nonProxiedRunAgentCalls.length = 0;
+
+      // Dispatch a user message with followUp: false
+      await act(async () => {
+        dispatchUIMessage(iframe, {
+          role: "user",
+          content: [{ type: "text", text: "No follow-up please" }],
+          followUp: false,
+        });
+        await new Promise((r) => setTimeout(r, 100));
+      });
+
+      // Message should still be added
+      await waitFor(() => {
+        expect(addMessageSpy).toHaveBeenCalledTimes(1);
+        expect(addMessageSpy).toHaveBeenCalledWith(
+          expect.objectContaining({
+            role: "user",
+            content: "No follow-up please",
+          }),
+        );
+      });
+
+      // runAgent should NOT be called because followUp: false overrides role default
+      expect(agent.nonProxiedRunAgentCalls.length).toBe(0);
+    });
+
+    it("calls runAgent when followUp is explicitly true for assistant messages", async () => {
+      const { agent, iframe, addMessageSpy } = await setupIframeReady();
+
+      addMessageSpy.mockClear();
+      agent.nonProxiedRunAgentCalls.length = 0;
+
+      // Dispatch an assistant message with followUp: true
+      await act(async () => {
+        dispatchUIMessage(iframe, {
+          role: "assistant",
+          content: [{ type: "text", text: "Process this" }],
+          followUp: true,
+        });
+        await new Promise((r) => setTimeout(r, 100));
+      });
+
+      // Message should be added as assistant
+      await waitFor(() => {
+        expect(addMessageSpy).toHaveBeenCalledTimes(1);
+        expect(addMessageSpy).toHaveBeenCalledWith(
+          expect.objectContaining({
+            role: "assistant",
+            content: "Process this",
+          }),
+        );
+      });
+
+      // runAgent SHOULD be called because followUp: true overrides role default
       await waitFor(() => {
         expect(agent.nonProxiedRunAgentCalls.length).toBe(1);
       });
