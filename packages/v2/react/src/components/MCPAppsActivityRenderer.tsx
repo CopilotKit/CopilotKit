@@ -3,6 +3,7 @@
 import React, { useEffect, useRef, useState, useCallback } from "react";
 import { z } from "zod";
 import type { AbstractAgent, RunAgentResult } from "@ag-ui/client";
+import { useCopilotKit } from "@/providers/CopilotKitProvider";
 
 // Protocol version supported
 const PROTOCOL_VERSION = "2025-06-18";
@@ -271,6 +272,11 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> =
     // Store agent in a ref for use in async handlers
     const agentRef = useRef(agent);
     agentRef.current = agent;
+
+    // Get copilotkit core instance for proper RunHandler pipeline
+    const { copilotkit } = useCopilotKit();
+    const copilotkitRef = useRef(copilotkit);
+    copilotkitRef.current = copilotkit;
 
     // Ref to track fetch state - survives StrictMode remounts
     const fetchStateRef = useRef<{
@@ -560,12 +566,14 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> =
                       // processes the message, matching CopilotChat behavior.
                       // Assistant messages are display-only and don't need a run.
                       if (role === "user") {
-                        currentAgent.runAgent().catch((err) => {
-                          console.error(
-                            "[MCPAppsRenderer] ui/message runAgent error:",
-                            err,
-                          );
-                        });
+                        copilotkitRef.current
+                          .runAgent({ agent: currentAgent })
+                          .catch((err) => {
+                            console.error(
+                              "[MCPAppsRenderer] ui/message runAgent error:",
+                              err,
+                            );
+                          });
                       }
                     }
                     sendResponse(msg.id, { isError: false });
