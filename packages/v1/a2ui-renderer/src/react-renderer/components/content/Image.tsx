@@ -30,7 +30,9 @@ export const Image = memo(function Image({
   const { theme, resolveString } = useA2UIComponent(node, surfaceId);
   const props = node.properties;
 
-  const url = resolveString(props.url);
+  const rawUrl = resolveString(props.url);
+  // Rewrite known-dead placeholder services to working alternatives
+  const url = rawUrl?.replace("//via.placeholder.com/", "//placehold.co/");
   const usageHint = props.usageHint as UsageHint | undefined;
   const fit = (props.fit as FitMode) ?? "fill";
 
