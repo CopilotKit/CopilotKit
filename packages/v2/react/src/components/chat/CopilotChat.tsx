@@ -35,12 +35,18 @@ export type CopilotChatProps = Omit<
   threadId?: string;
   labels?: Partial<CopilotChatLabels>;
   chatView?: SlotValue<typeof CopilotChatView>;
+  /**
+   * Custom instructions to provide to the agent as additional context.
+   * These are injected into the agent's system prompt via the context pipeline.
+   */
+  instructions?: string;
 };
 export function CopilotChat({
   agentId,
   threadId,
   labels,
   chatView,
+  instructions,
   ...props
 }: CopilotChatProps) {
   // Check for existing configuration provider
@@ -59,6 +65,18 @@ export function CopilotChat({
   const { suggestions: autoSuggestions } = useSuggestions({
     agentId: resolvedAgentId,
   });
+
+  // Register instructions as context so they reach the agent's system prompt
+  useEffect(() => {
+    if (!instructions) return;
+    const contextId = copilotkit.addContext({
+      description: "Custom Instructions",
+      value: instructions,
+    });
+    return () => {
+      copilotkit.removeContext(contextId);
+    };
+  }, [instructions, copilotkit]);
 
   // Transcription state
   const [transcribeMode, setTranscribeMode] =

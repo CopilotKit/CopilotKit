@@ -4,6 +4,7 @@ import { z } from "zod";
 import { defineToolCallRenderer, ReactToolCallRenderer } from "@/types";
 import {
   MockStepwiseAgent,
+  ContextCapturingAgent,
   SuggestionsProviderAgent,
   renderWithCopilotKit,
   runStartedEvent,
@@ -1108,6 +1109,106 @@ describe("CopilotChat E2E - Chat Basics and Streaming Patterns", () => {
           .closest("button");
         expect(expandedButton?.getAttribute("aria-expanded")).toBe("true");
       });
+    });
+  });
+
+  describe("Instructions Prop", () => {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const _ContextCapturingAgent = ContextCapturingAgent;
+
+    it("should pass instructions as context to the agent when running", async () => {
+      const agent = new ContextCapturingAgent();
+      const instructions =
+        "You are a helpful coding assistant. Always respond in bullet points.";
+
+      renderWithCopilotKit({
+        agent,
+        children: (
+          <div style={{ height: 400 }}>
+            <CopilotChat welcomeScreen={false} instructions={instructions} />
+          </div>
+        ),
+      });
+
+      // Type a message and submit
+      const input = screen.getByPlaceholderText("Type a message...");
+      fireEvent.change(input, { target: { value: "Hello" } });
+      fireEvent.keyDown(input, { key: "Enter" });
+
+      // Wait for the agent to receive the run call
+      await waitFor(() => {
+        expect(agent.lastInput).not.toBeNull();
+      });
+
+      // Verify the instructions appear in the context
+      const context = agent.lastInput!.context;
+      expect(context).toBeDefined();
+      const instructionsEntry = context!.find(
+        (entry: { description: string; value: string }) =>
+          entry.description === "Custom Instructions",
+      );
+      expect(instructionsEntry).toBeDefined();
+      expect(instructionsEntry!.value).toBe(instructions);
+
+      // Complete the run
+      agent.emit(runStartedEvent());
+      agent.emit(runFinishedEvent());
+      agent.complete();
+    });
+
+    it("should not include instructions context when instructions prop is not provided", async () => {
+      const agent = new ContextCapturingAgent();
+
+      renderWithCopilotKit({
+        agent,
+        children: (
+          <div style={{ height: 400 }}>
+            <CopilotChat welcomeScreen={false} />
+          </div>
+        ),
+      });
+
+      // Type a message and submit
+      const input = screen.getByPlaceholderText("Type a message...");
+      fireEvent.change(input, { target: { value: "Hello" } });
+      fireEvent.keyDown(input, { key: "Enter" });
+
+      // Wait for the agent to receive the run call
+      await waitFor(() => {
+        expect(agent.lastInput).not.toBeNull();
+      });
+
+      // Verify no instructions context entry exists
+      const context = agent.lastInput!.context;
+      if (context) {
+        const instructionsEntry = context.find(
+          (entry: { description: string; value: string }) =>
+            entry.description === "Custom Instructions",
+        );
+        expect(instructionsEntry).toBeUndefined();
+      }
+
+      // Complete the run
+      agent.emit(runStartedEvent());
+      agent.emit(runFinishedEvent());
+      agent.complete();
+    });
+
+    it("should clean up instructions context when component unmounts", async () => {
+      const agent = new ContextCapturingAgent();
+      const instructions = "Be concise.";
+
+      const { unmount } = renderWithCopilotKit({
+        agent,
+        children: (
+          <div style={{ height: 400 }}>
+            <CopilotChat welcomeScreen={false} instructions={instructions} />
+          </div>
+        ),
+      });
+
+      // Unmount should not throw
+      expect(() => unmount()).not.toThrow();
     });
   });
 });

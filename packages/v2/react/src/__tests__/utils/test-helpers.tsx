@@ -59,6 +59,19 @@ export class MockStepwiseAgent extends AbstractAgent {
 }
 
 /**
+ * A MockStepwiseAgent that captures the RunAgentInput for inspection.
+ * Useful for testing that context, tools, and other input data are correctly passed.
+ */
+export class ContextCapturingAgent extends MockStepwiseAgent {
+  lastInput: RunAgentInput | null = null;
+
+  run(input: RunAgentInput): Observable<BaseEvent> {
+    this.lastInput = input;
+    return super.run(input);
+  }
+}
+
+/**
  * A mock agent that supports both run() and connect() for testing reconnection scenarios.
  * On run(), emits events and stores them.
  * On connect(), replays stored events (simulating thread history replay).
