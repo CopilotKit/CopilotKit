@@ -459,6 +459,9 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
           if (action.handler) {
             return action.handler(args);
           }
+          console.warn(
+            `Backend action "${action.name}" executed without a handler`,
+          );
           return "";
         },
       };

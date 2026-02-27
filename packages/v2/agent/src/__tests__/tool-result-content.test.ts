@@ -102,6 +102,54 @@ describe("Tool result content field (#3198)", () => {
     expect(resultEvent.content).toBe("null");
   });
 
+  it("should warn when tool result output is undefined", async () => {
+    const agent = new BuiltInAgent({
+      model: "openai/gpt-4o",
+    });
+
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    vi.mocked(streamText).mockReturnValue(
+      mockStreamTextResponse([
+        toolCallStreamingStart("call1", "backendAction"),
+        toolCall("call1", "backendAction", { userId: "abcd" }),
+        toolResult("call1", "backendAction", undefined),
+        finish(),
+      ]) as any,
+    );
+
+    await collectEvents(agent["run"](baseInput));
+
+    expect(warnSpy).toHaveBeenCalledWith(
+      "Tool backendAction (call call1) returned undefined result",
+    );
+
+    warnSpy.mockRestore();
+  });
+
+  it("should not warn when tool result output is a valid value", async () => {
+    const agent = new BuiltInAgent({
+      model: "openai/gpt-4o",
+    });
+
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    vi.mocked(streamText).mockReturnValue(
+      mockStreamTextResponse([
+        toolCallStreamingStart("call1", "fetchUser"),
+        toolCall("call1", "fetchUser", { userId: "abcd" }),
+        toolResult("call1", "fetchUser", { name: "Darth Doe" }),
+        finish(),
+      ]) as any,
+    );
+
+    await collectEvents(agent["run"](baseInput));
+
+    expect(warnSpy).not.toHaveBeenCalled();
+
+    warnSpy.mockRestore();
+  });
+
   it("should correctly serialize object tool results", async () => {
     const agent = new BuiltInAgent({
       model: "openai/gpt-4o",
