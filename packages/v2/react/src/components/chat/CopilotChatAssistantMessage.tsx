@@ -19,7 +19,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import "katex/dist/katex.min.css";
+import { useKatexStyles } from "@/hooks/useKatexStyles";
 import { WithSlots, renderSlot } from "@/lib/slots";
 import { Streamdown } from "streamdown";
 import CopilotChatToolCallsView from "./CopilotChatToolCallsView";
@@ -70,6 +70,8 @@ export function CopilotChatAssistantMessage({
   className,
   ...props
 }: CopilotChatAssistantMessageProps) {
+  useKatexStyles();
+
   const boundMarkdownRenderer = renderSlot(
     markdownRenderer,
     CopilotChatAssistantMessage.MarkdownRenderer,
