@@ -307,9 +307,14 @@ export class RunHandler {
       let parsedArgs: unknown;
       try {
         parsedArgs = JSON.parse(toolCall.function.arguments);
+        if (
+          typeof parsedArgs !== "object" ||
+          parsedArgs === null ||
+          Array.isArray(parsedArgs)
+        ) {
+          parsedArgs = {};
+        }
       } catch (error) {
-        const parseError =
-          error instanceof Error ? error : new Error(String(error));
         errorMessage = parseError.message;
         isArgumentError = true;
         await (this.core as unknown as CopilotKitCoreFriendsAccess).emitError({
@@ -442,6 +447,13 @@ export class RunHandler {
       let parsedArgs: unknown;
       try {
         parsedArgs = JSON.parse(toolCall.function.arguments);
+        if (
+          typeof parsedArgs !== "object" ||
+          parsedArgs === null ||
+          Array.isArray(parsedArgs)
+        ) {
+          parsedArgs = {};
+        }
       } catch (error) {
         const parseError =
           error instanceof Error ? error : new Error(String(error));

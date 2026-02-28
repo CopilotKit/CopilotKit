@@ -327,7 +327,7 @@ export function convertMessagesToVercelAISDKMessages(
           type: "tool-call",
           toolCallId: toolCall.id,
           toolName: toolCall.function.name,
-          input: JSON.parse(toolCall.function.arguments),
+          input: ensureObjectArgs(JSON.parse(toolCall.function.arguments)),
         };
         parts.push(toolCallPart);
       }
@@ -1235,3 +1235,20 @@ export class BasicAgent extends BuiltInAgent {
 }
 
 export type BasicAgentConfiguration = BuiltInAgentConfiguration;
+
+/**
+ * Ensures parsed tool arguments are a plain object.
+ * LLMs may occasionally return non-object values (e.g. empty string "")
+ * as tool arguments. Providers like Anthropic require tool_use.input to
+ * be a dictionary, so we fall back to an empty object for safety.
+ */
+function ensureObjectArgs(parsed: unknown): Record<string, unknown> {
+  if (
+    typeof parsed === "object" &&
+    parsed !== null &&
+    !Array.isArray(parsed)
+  ) {
+    return parsed as Record<string, unknown>;
+  }
+  return {};
+}

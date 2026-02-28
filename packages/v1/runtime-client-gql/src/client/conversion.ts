@@ -243,7 +243,11 @@ function getPartialArguments(args: string[]) {
   try {
     if (!args.length) return {};
 
-    return JSON.parse(untruncateJson(args.join("")));
+    const parsed = JSON.parse(untruncateJson(args.join("")));
+    if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+      return {};
+    }
+    return parsed;
   } catch (e) {
     return {};
   }

@@ -36,7 +36,7 @@ export function convertGqlInputToMessages(
         id: message.id,
         createdAt: message.createdAt,
         name: message.actionExecutionMessage.name,
-        arguments: JSON.parse(message.actionExecutionMessage.arguments),
+        arguments: ensureObjectArgs(JSON.parse(message.actionExecutionMessage.arguments)),
         parentMessageId: message.actionExecutionMessage.parentMessageId,
       });
     } else if (message.resultMessage) {
@@ -66,4 +66,21 @@ export function convertGqlInputToMessages(
   });
 
   return messages.filter((m) => m);
+}
+
+/**
+ * Ensures parsed tool arguments are a plain object.
+ * LLMs may occasionally return non-object values (e.g. empty string "")
+ * as tool arguments. Providers like Anthropic require tool_use.input to
+ * be a dictionary, so we fall back to an empty object for safety.
+ */
+function ensureObjectArgs(parsed: unknown): Record<string, unknown> {
+  if (
+    typeof parsed === "object" &&
+    parsed !== null &&
+    !Array.isArray(parsed)
+  ) {
+    return parsed as Record<string, unknown>;
+  }
+  return {};
 }
