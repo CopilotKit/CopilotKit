@@ -134,13 +134,22 @@ export function convertMessageToAnthropicMessage(
       ],
     };
   } else if (message.isActionExecutionMessage()) {
+    // Anthropic requires tool_use input to be a valid object (dict).
+    // If the LLM returned non-object arguments (e.g. empty string, array, null),
+    // fall back to an empty object to avoid 400 errors.
+    const input =
+      message.arguments &&
+      typeof message.arguments === "object" &&
+      !Array.isArray(message.arguments)
+        ? message.arguments
+        : {};
     return {
       role: "assistant",
       content: [
         {
           id: message.id,
           type: "tool_use",
-          input: message.arguments,
+          input,
           name: message.name,
         },
       ],
