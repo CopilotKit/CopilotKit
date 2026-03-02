@@ -19,7 +19,6 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import "katex/dist/katex.min.css";
 import { WithSlots, renderSlot } from "@/lib/slots";
 import { Streamdown } from "streamdown";
 import CopilotChatToolCallsView from "./CopilotChatToolCallsView";

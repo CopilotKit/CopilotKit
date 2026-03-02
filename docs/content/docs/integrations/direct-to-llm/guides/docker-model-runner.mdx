@@ -1,0 +1,151 @@
+---
+title: "Docker Model Runner"
+description: "Connect CopilotKit to a self-hosted LLM using Docker Model Runner."
+icon: "lucide/Container"
+---
+
+# Using Docker Model Runner with CopilotKit
+
+[Docker Model Runner](https://docs.docker.com/ai/model-runner/get-started/) allows you to run local LLMs directly inside Docker Desktop. Since Docker Model Runner exposes an **OpenAI-compatible API**, you can easily connect it to CopilotKit using the `OpenAIAdapter`.
+
+## Prerequisites
+
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) with Model Runner enabled
+- A CopilotKit project with self-hosted runtime
+
+## Step 1: Enable Docker Model Runner
+
+Enable the Model Runner feature in Docker Desktop:
+
+```bash
+docker desktop enable model-runner --tcp 12434
+```
+
+Pull a model to use:
+
+```bash
+docker model pull ai/llama3.2:1B-Q8_0
+```
+
+Verify the model is available:
+
+```bash
+curl http://localhost:12434/engines/llama.cpp/v1/models
+```
+
+## Step 2: Configure CopilotKit Runtime
+
+Since Docker Model Runner exposes an OpenAI-compatible endpoint, you can use the `OpenAIAdapter` with a custom `baseURL` pointing to your local Docker Model Runner instance.
+
+```ts title="app/api/copilotkit/route.ts"
+import {
+  CopilotRuntime,
+  OpenAIAdapter,
+  copilotRuntimeNextJSAppRouterEndpoint,
+} from "@copilotkit/runtime";
+import OpenAI from "openai";
+import { NextRequest } from "next/server";
+
+// Point to Docker Model Runner's OpenAI-compatible endpoint
+const openai = new OpenAI({
+  baseURL: "http://localhost:12434/engines/llama.cpp/v1",
+  apiKey: "docker-model-runner", // any non-empty string works
+});
+
+const serviceAdapter = new OpenAIAdapter({ openai });
+const runtime = new CopilotRuntime();
+
+export const POST = async (req: NextRequest) => {
+  const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
+    runtime,
+    serviceAdapter,
+    endpoint: "/api/copilotkit",
+  });
+
+  return handleRequest(req);
+};
+```
+
+## Step 3: Using with Docker Compose
+
+You can also configure Docker Model Runner as a service in your `docker-compose.yml`:
+
+```yaml title="docker-compose.yml"
+services:
+  app:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - OPENAI_BASE_URL=http://model-runner.docker.internal/engines/llama.cpp/v1
+      - OPENAI_API_KEY=docker-model-runner
+    depends_on:
+      - model-runner
+
+  model-runner:
+    provider:
+      type: model
+      options:
+        model: ai/llama3.2:1B-Q8_0
+```
+
+<Callout type="info">
+  When using Docker Compose, the model runner is available at `http://model-runner.docker.internal/engines/llama.cpp/v1` from within your application container.
+</Callout>
+
+## Step 4: Configure the Frontend
+
+No special frontend configuration is needed. Set up your `<CopilotKit>` provider as usual:
+
+```tsx title="layout.tsx"
+import { CopilotKit } from "@copilotkit/react-core";
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="en">
+      <body>
+        <CopilotKit runtimeUrl="/api/copilotkit">
+          {children}
+        </CopilotKit>
+      </body>
+    </html>
+  );
+}
+```
+
+## Supported Models
+
+Docker Model Runner supports various models from the [Docker Hub AI catalog](https://hub.docker.com/catalogs/ai). Some popular options:
+
+| Model | Pull Command |
+|-------|-------------|
+| Llama 3.2 1B | `docker model pull ai/llama3.2:1B-Q8_0` |
+| Llama 3.2 3B | `docker model pull ai/llama3.2:3B-Q8_0` |
+| Mistral 7B | `docker model pull ai/mistral:7B-Q4_K_M` |
+| Phi-3 Mini | `docker model pull ai/phi-3:3.8B-Q4_K_M` |
+| Gemma 2B | `docker model pull ai/gemma:2B-Q8_0` |
+
+## Troubleshooting
+
+### Connection Refused
+Ensure Docker Model Runner is running with TCP enabled:
+```bash
+docker desktop enable model-runner --tcp 12434
+```
+
+### Model Not Found
+Verify the model is pulled and available:
+```bash
+docker model list
+```
+
+### Slow Responses
+Local LLM performance depends on your hardware. Consider using smaller quantized models (Q4) for faster inference on consumer hardware.
+
+## References
+
+- [Docker Model Runner Documentation](https://docs.docker.com/ai/model-runner/get-started/)
+- [Docker Compose with Models](https://docs.docker.com/ai/compose/models-and-compose/)
+- [Example Repository](https://github.com/docker/hello-genai)
+- [CopilotKit Self-Hosting Guide](/guides/self-hosting)
+- [OpenAI Adapter Reference](/reference/v1/classes/llm-adapters/OpenAIAdapter)

@@ -1,0 +1,88 @@
+---
+title: Using the Dev Console
+description: Learn how to use CopilotKit's Dev Console to debug and troubleshoot your copilot application.
+icon: "lucide/Terminal"
+---
+
+# Using the Dev Console to Troubleshoot
+
+CopilotKit includes a built-in **Dev Console** that helps you inspect and debug the runtime behavior of your copilot. It is one of the most useful tools for troubleshooting issues with actions, readable state, messages, and more.
+
+## Enabling the Dev Console
+
+The Dev Console is available through the `<CopilotKit>` provider. To enable it, set the `showDevConsole` prop to `true` (or `"auto"` for development-only):
+
+```tsx title="YourApp.tsx"
+import { CopilotKit } from "@copilotkit/react-core";
+
+export function App() {
+  return (
+    <CopilotKit
+      runtimeUrl="/api/copilotkit"
+      showDevConsole={true} // or "auto" to show only in development
+    >
+      {/* Your app components */}
+    </CopilotKit>
+  );
+}
+```
+
+<Callout type="info">
+  When set to `"auto"`, the Dev Console is only shown in development mode (`process.env.NODE_ENV === "development"`).
+</Callout>
+
+## What You Can Debug
+
+The Dev Console provides visibility into the following:
+
+### 1. Registered Actions
+See all the actions that have been registered via `useCopilotAction`. This helps you verify:
+- Whether your actions are being registered correctly
+- The parameters and descriptions of each action
+- If any actions are missing or misconfigured
+
+### 2. Readable State
+Inspect all readable state provided via `useCopilotReadable`. This allows you to:
+- Confirm that the correct data is being sent to the LLM
+- Debug missing or stale context
+- Verify the structure of your readable state
+
+### 3. Messages
+View the full message history exchanged between your app and the LLM, including:
+- User messages
+- Assistant responses
+- Action calls and results
+- System messages
+
+### 4. Debug Information
+Access debug logs and runtime information to understand:
+- Request/response cycles
+- Error details
+- Configuration issues
+
+## Troubleshooting Tips
+
+### Actions Not Appearing
+If your actions are not showing up in the Dev Console:
+1. Ensure the component calling `useCopilotAction` is rendered inside the `<CopilotKit>` provider
+2. Check that the action hook is not conditionally rendered in a way that unmounts it
+3. Verify the action name is unique
+
+### Readable State Missing
+If your readable state is not visible:
+1. Confirm that `useCopilotReadable` is called inside the `<CopilotKit>` provider
+2. Check that the `description` is provided
+3. Ensure the `value` is serializable
+
+### Messages Not Sending
+If messages are not being sent:
+1. Verify the `runtimeUrl` is correct and accessible
+2. Check the browser's Network tab for failed requests
+3. Ensure your runtime endpoint is properly configured
+
+## Best Practices
+
+- **Always enable the Dev Console during development** by setting `showDevConsole="auto"`
+- **Check the Dev Console first** when debugging any CopilotKit-related issue
+- **Use the Network tab alongside the Dev Console** for a complete picture of what's happening
+- **Verify your actions and readable state** in the Dev Console before testing the chat interface
