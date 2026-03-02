@@ -29,7 +29,8 @@
         "{projectRoot}/.env*"
       ],
       "outputs": [
-        "{projectRoot}/dist/**"
+        "{projectRoot}/dist/**",
+        "{projectRoot}/.next/**"
       ],
       "cache": true
     },
