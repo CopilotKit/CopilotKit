@@ -135,5 +135,6 @@
     }
   },
   "parallel": 14,
-  "defaultBase": "main"
+  "defaultBase": "main",
+  "nxCloudId": "69a1ceae0efc94d36e7f9044"
 }
