@@ -1,20 +1,92 @@
 /**
- * Integration tests for Deno server runtime.
+ * Integration tests for the Deno server runtime.
  *
- * Run with:
- *   deno test --allow-net --allow-read --allow-env \
- *     src/__tests__/integration/deno/deno-servers.integration.test.ts
- *
- * These tests import the runtime from the built dist (not source) to avoid
- * Deno's strict JSON import attribute requirement on package.json imports.
+ * Strategy: Deno runs the HTTP server as a subprocess, vitest runs the tests.
+ * This avoids all Deno module-resolution issues (JSON imports, sloppy imports)
+ * while still verifying the runtime works under Deno's HTTP server.
  */
 
-import { createDenoMultiServer } from "./deno-multi.ts";
-import { createDenoSingleServer } from "./deno-single.ts";
-import { readSSEStream, extractEventTypes } from "../helpers/sse-reader.ts";
-import { assertEquals, assert } from "https://deno.land/std/assert/mod.ts";
+import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { spawn, ChildProcess } from "node:child_process";
+import { resolve } from "node:path";
+import { readSSEStream, extractEventTypes } from "../helpers/sse-reader";
 
-// ─── Helpers ────────────────────────────────────────────────────────
+// ─── Deno Process Helpers ─────────────────────────────────────────────
+
+const DENO_SERVER_SCRIPT = resolve(
+  __dirname,
+  "deno-server.ts",
+);
+
+interface DenoServer {
+  baseUrl: string;
+  basePath: string;
+  process: ChildProcess;
+  close: () => Promise<void>;
+}
+
+/**
+ * Spawn a Deno subprocess that runs the server and return once it's ready.
+ */
+function startDenoServer(mode: "multi" | "single"): Promise<DenoServer> {
+  return new Promise((resolve, reject) => {
+    const proc = spawn("deno", [
+      "run",
+      "--allow-net",
+      "--allow-read",
+      "--allow-env",
+      "--sloppy-imports",
+      DENO_SERVER_SCRIPT,
+      mode,
+    ], {
+      stdio: ["pipe", "pipe", "pipe"],
+    });
+
+    let stderr = "";
+    proc.stderr?.on("data", (chunk: Buffer) => {
+      stderr += chunk.toString();
+    });
+
+    const timeout = setTimeout(() => {
+      proc.kill();
+      reject(new Error(`Deno server (${mode}) failed to start within 30s.\nstderr: ${stderr}`));
+    }, 30_000);
+
+    proc.stdout?.once("data", (chunk: Buffer) => {
+      clearTimeout(timeout);
+      try {
+        const { port } = JSON.parse(chunk.toString().trim());
+        resolve({
+          baseUrl: `http://localhost:${port}`,
+          basePath: "/api/copilotkit",
+          process: proc,
+          close: async () => {
+            proc.kill();
+            // Wait for process exit
+            await new Promise<void>((r) => proc.on("close", r));
+          },
+        });
+      } catch (err) {
+        proc.kill();
+        reject(new Error(`Failed to parse Deno server output: ${chunk.toString()}\nstderr: ${stderr}`));
+      }
+    });
+
+    proc.on("error", (err) => {
+      clearTimeout(timeout);
+      reject(new Error(`Failed to spawn Deno: ${err.message}`));
+    });
+
+    proc.on("close", (code) => {
+      clearTimeout(timeout);
+      if (code !== null && code !== 0) {
+        reject(new Error(`Deno server exited with code ${code}.\nstderr: ${stderr}`));
+      }
+    });
+  });
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────
 
 function runBody() {
   return JSON.stringify({
@@ -40,107 +112,108 @@ function connectBody() {
   });
 }
 
-// ─── Multi-Endpoint Tests ───────────────────────────────────────────
+// ─── Multi-Endpoint Tests ─────────────────────────────────────────────
 
-Deno.test("[Deno] Multi-Endpoint - GET /info returns 200 with runtime info", async () => {
-  const h = await createDenoMultiServer();
-  try {
+describe("[Deno] Multi-Endpoint", () => {
+  let h: DenoServer;
+
+  beforeAll(async () => {
+    h = await startDenoServer("multi");
+  }, 35_000);
+
+  afterAll(async () => {
+    await h?.close();
+  });
+
+  // Info
+  it("GET /info returns 200 with runtime info", async () => {
     const res = await fetch(`${h.baseUrl}${h.basePath}/info`);
-    assertEquals(res.status, 200);
+    expect(res.status).toBe(200);
     const body = await res.json();
-    assert(body.version);
-    assert(body.agents.default);
-    assertEquals(body.audioFileTranscriptionEnabled, false);
-  } finally {
-    await h.close();
-  }
-});
+    expect(body).toHaveProperty("version");
+    expect(body).toHaveProperty("agents");
+    expect(body.agents).toHaveProperty("default");
+    expect(body).toHaveProperty("audioFileTranscriptionEnabled", false);
+  });
 
-Deno.test("[Deno] Multi-Endpoint - POST /agent/default/run returns SSE stream", async () => {
-  const h = await createDenoMultiServer();
-  try {
+  // Agent Run
+  it("POST /agent/default/run returns SSE stream", async () => {
     const res = await fetch(`${h.baseUrl}${h.basePath}/agent/default/run`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: runBody(),
     });
-    assertEquals(res.status, 200);
-    assert(res.headers.get("content-type")?.includes("text/event-stream"));
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toContain("text/event-stream");
+  });
+
+  it("SSE stream contains correct event sequence", async () => {
+    const res = await fetch(`${h.baseUrl}${h.basePath}/agent/default/run`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: runBody(),
+    });
     const payload = await readSSEStream(res.body!);
     const types = extractEventTypes(payload);
-    assert(types.includes("RUN_STARTED"));
-    assert(types.includes("TEXT_MESSAGE_CONTENT"));
-    assert(types.includes("RUN_FINISHED"));
-    assert(payload.includes("Hello from test"));
-  } finally {
-    await h.close();
-  }
-});
+    expect(types).toContain("RUN_STARTED");
+    expect(types).toContain("TEXT_MESSAGE_CONTENT");
+    expect(types).toContain("RUN_FINISHED");
+  });
 
-Deno.test("[Deno] Multi-Endpoint - returns 404 for unknown agent", async () => {
-  const h = await createDenoMultiServer();
-  try {
+  it("SSE stream contains expected delta text", async () => {
+    const res = await fetch(`${h.baseUrl}${h.basePath}/agent/default/run`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: runBody(),
+    });
+    const payload = await readSSEStream(res.body!);
+    expect(payload).toContain("Hello from test");
+  });
+
+  it("returns 404 for unknown agent", async () => {
     const res = await fetch(`${h.baseUrl}${h.basePath}/agent/nonexistent/run`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: runBody(),
     });
-    assertEquals(res.status, 404);
-    await res.body?.cancel();
-  } finally {
-    await h.close();
-  }
-});
+    expect(res.status).toBe(404);
+  });
 
-Deno.test("[Deno] Multi-Endpoint - POST /agent/default/connect returns SSE stream", async () => {
-  const h = await createDenoMultiServer();
-  try {
+  // Agent Connect
+  it("POST /agent/default/connect returns SSE stream", async () => {
     const res = await fetch(`${h.baseUrl}${h.basePath}/agent/default/connect`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: connectBody(),
     });
-    assertEquals(res.status, 200);
-    assert(res.headers.get("content-type")?.includes("text/event-stream"));
-    if (res.body) await readSSEStream(res.body);
-  } finally {
-    await h.close();
-  }
-});
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toContain("text/event-stream");
+  });
 
-Deno.test("[Deno] Multi-Endpoint - POST /agent/default/stop returns JSON", async () => {
-  const h = await createDenoMultiServer();
-  try {
+  // Agent Stop
+  it("POST /agent/default/stop returns stop result", async () => {
     const res = await fetch(`${h.baseUrl}${h.basePath}/agent/default/stop/thread-1`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
     });
-    assertEquals(res.status, 200);
+    expect(res.status).toBe(200);
     const body = await res.json();
-    assertEquals(typeof body.stopped, "boolean");
-  } finally {
-    await h.close();
-  }
-});
+    expect(body).toHaveProperty("stopped");
+    expect(typeof body.stopped).toBe("boolean");
+  });
 
-Deno.test("[Deno] Multi-Endpoint - POST /transcribe returns 503", async () => {
-  const h = await createDenoMultiServer();
-  try {
+  // Transcribe
+  it("POST /transcribe returns 503 without transcription service", async () => {
     const res = await fetch(`${h.baseUrl}${h.basePath}/transcribe`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({}),
     });
-    assertEquals(res.status, 503);
-    await res.body?.cancel();
-  } finally {
-    await h.close();
-  }
-});
+    expect(res.status).toBe(503);
+  });
 
-Deno.test("[Deno] Multi-Endpoint - OPTIONS preflight returns CORS headers", async () => {
-  const h = await createDenoMultiServer();
-  try {
+  // CORS
+  it("OPTIONS preflight returns CORS headers", async () => {
     const res = await fetch(`${h.baseUrl}${h.basePath}/info`, {
       method: "OPTIONS",
       headers: {
@@ -148,154 +221,135 @@ Deno.test("[Deno] Multi-Endpoint - OPTIONS preflight returns CORS headers", asyn
         "Access-Control-Request-Method": "GET",
       },
     });
-    assertEquals(res.headers.get("access-control-allow-origin"), "*");
-    await res.body?.cancel();
-  } finally {
-    await h.close();
-  }
-});
+    expect(res.headers.get("access-control-allow-origin")).toBe("*");
+  });
 
-Deno.test("[Deno] Multi-Endpoint - POST /info returns 405", async () => {
-  const h = await createDenoMultiServer();
-  try {
+  it("POST response includes CORS headers", async () => {
+    const res = await fetch(`${h.baseUrl}${h.basePath}/info`);
+    expect(res.headers.get("access-control-allow-origin")).toBe("*");
+  });
+
+  // Error Handling
+  it("POST /info returns 405", async () => {
     const res = await fetch(`${h.baseUrl}${h.basePath}/info`, { method: "POST" });
-    assertEquals(res.status, 405);
-    await res.body?.cancel();
-  } finally {
-    await h.close();
-  }
-});
+    expect(res.status).toBe(405);
+  });
 
-Deno.test("[Deno] Multi-Endpoint - GET /nonexistent returns 404", async () => {
-  const h = await createDenoMultiServer();
-  try {
+  it("GET /nonexistent returns 404", async () => {
     const res = await fetch(`${h.baseUrl}${h.basePath}/nonexistent`);
-    assertEquals(res.status, 404);
-    await res.body?.cancel();
-  } finally {
-    await h.close();
-  }
+    expect(res.status).toBe(404);
+  });
 });
 
-// ─── Single-Endpoint Tests ──────────────────────────────────────────
+// ─── Single-Endpoint Tests ────────────────────────────────────────────
 
-Deno.test("[Deno] Single-Endpoint - method: info returns runtime info", async () => {
-  const h = await createDenoSingleServer();
-  try {
-    const res = await fetch(`${h.baseUrl}${h.basePath}`, {
+describe("[Deno] Single-Endpoint", () => {
+  let h: DenoServer;
+
+  beforeAll(async () => {
+    h = await startDenoServer("single");
+  }, 35_000);
+
+  afterAll(async () => {
+    await h?.close();
+  });
+
+  function postEnvelope(envelope: Record<string, unknown>) {
+    return fetch(`${h.baseUrl}${h.basePath}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ method: "info" }),
+      body: JSON.stringify(envelope),
     });
-    assertEquals(res.status, 200);
+  }
+
+  // Info
+  it("method: info returns 200 with runtime info", async () => {
+    const res = await postEnvelope({ method: "info" });
+    expect(res.status).toBe(200);
     const body = await res.json();
-    assert(body.version);
-    assert(body.agents.default);
-    assertEquals(body.audioFileTranscriptionEnabled, false);
-  } finally {
-    await h.close();
-  }
-});
+    expect(body).toHaveProperty("version");
+    expect(body).toHaveProperty("agents");
+    expect(body.agents).toHaveProperty("default");
+    expect(body).toHaveProperty("audioFileTranscriptionEnabled", false);
+  });
 
-Deno.test("[Deno] Single-Endpoint - method: agent/run returns SSE stream", async () => {
-  const h = await createDenoSingleServer();
-  try {
-    const res = await fetch(`${h.baseUrl}${h.basePath}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        method: "agent/run",
-        params: { agentId: "default" },
-        body: JSON.parse(runBody()),
-      }),
+  // Agent Run
+  it("method: agent/run returns SSE stream", async () => {
+    const res = await postEnvelope({
+      method: "agent/run",
+      params: { agentId: "default" },
+      body: JSON.parse(runBody()),
     });
-    assertEquals(res.status, 200);
-    assert(res.headers.get("content-type")?.includes("text/event-stream"));
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toContain("text/event-stream");
+  });
+
+  it("SSE stream contains correct event sequence", async () => {
+    const res = await postEnvelope({
+      method: "agent/run",
+      params: { agentId: "default" },
+      body: JSON.parse(runBody()),
+    });
     const payload = await readSSEStream(res.body!);
-    assert(payload.includes("RUN_STARTED"));
-    assert(payload.includes("Hello from test"));
-    assert(payload.includes("RUN_FINISHED"));
-  } finally {
-    await h.close();
-  }
-});
+    const types = extractEventTypes(payload);
+    expect(types).toContain("RUN_STARTED");
+    expect(types).toContain("TEXT_MESSAGE_CONTENT");
+    expect(types).toContain("RUN_FINISHED");
+  });
 
-Deno.test("[Deno] Single-Endpoint - returns 404 for unknown agent", async () => {
-  const h = await createDenoSingleServer();
-  try {
-    const res = await fetch(`${h.baseUrl}${h.basePath}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        method: "agent/run",
-        params: { agentId: "nonexistent" },
-        body: JSON.parse(runBody()),
-      }),
+  it("SSE stream contains expected delta text", async () => {
+    const res = await postEnvelope({
+      method: "agent/run",
+      params: { agentId: "default" },
+      body: JSON.parse(runBody()),
     });
-    assertEquals(res.status, 404);
-    await res.body?.cancel();
-  } finally {
-    await h.close();
-  }
-});
+    const payload = await readSSEStream(res.body!);
+    expect(payload).toContain("Hello from test");
+  });
 
-Deno.test("[Deno] Single-Endpoint - method: agent/connect returns SSE stream", async () => {
-  const h = await createDenoSingleServer();
-  try {
-    const res = await fetch(`${h.baseUrl}${h.basePath}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        method: "agent/connect",
-        params: { agentId: "default" },
-        body: JSON.parse(connectBody()),
-      }),
+  it("returns 404 for unknown agent", async () => {
+    const res = await postEnvelope({
+      method: "agent/run",
+      params: { agentId: "nonexistent" },
+      body: JSON.parse(runBody()),
     });
-    assertEquals(res.status, 200);
-    assert(res.headers.get("content-type")?.includes("text/event-stream"));
-    if (res.body) await readSSEStream(res.body);
-  } finally {
-    await h.close();
-  }
-});
+    expect(res.status).toBe(404);
+  });
 
-Deno.test("[Deno] Single-Endpoint - method: agent/stop returns stop result", async () => {
-  const h = await createDenoSingleServer();
-  try {
-    const res = await fetch(`${h.baseUrl}${h.basePath}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        method: "agent/stop",
-        params: { agentId: "default", threadId: "t-1" },
-      }),
+  // Agent Connect
+  it("method: agent/connect returns SSE stream", async () => {
+    const res = await postEnvelope({
+      method: "agent/connect",
+      params: { agentId: "default" },
+      body: JSON.parse(connectBody()),
     });
-    assertEquals(res.status, 200);
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toContain("text/event-stream");
+  });
+
+  // Agent Stop
+  it("method: agent/stop returns stop result", async () => {
+    const res = await postEnvelope({
+      method: "agent/stop",
+      params: { agentId: "default", threadId: "t-1" },
+    });
+    expect(res.status).toBe(200);
     const body = await res.json();
-    assertEquals(typeof body.stopped, "boolean");
-  } finally {
-    await h.close();
-  }
-});
+    expect(body).toHaveProperty("stopped");
+    expect(typeof body.stopped).toBe("boolean");
+  });
 
-Deno.test("[Deno] Single-Endpoint - method: transcribe returns 503", async () => {
-  const h = await createDenoSingleServer();
-  try {
-    const res = await fetch(`${h.baseUrl}${h.basePath}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ method: "transcribe", body: {} }),
+  // Transcribe
+  it("method: transcribe returns 503 without transcription service", async () => {
+    const res = await postEnvelope({
+      method: "transcribe",
+      body: {},
     });
-    assertEquals(res.status, 503);
-    await res.body?.cancel();
-  } finally {
-    await h.close();
-  }
-});
+    expect(res.status).toBe(503);
+  });
 
-Deno.test("[Deno] Single-Endpoint - OPTIONS preflight returns CORS headers", async () => {
-  const h = await createDenoSingleServer();
-  try {
+  // CORS
+  it("OPTIONS preflight returns CORS headers", async () => {
     const res = await fetch(`${h.baseUrl}${h.basePath}`, {
       method: "OPTIONS",
       headers: {
@@ -303,35 +357,35 @@ Deno.test("[Deno] Single-Endpoint - OPTIONS preflight returns CORS headers", asy
         "Access-Control-Request-Method": "POST",
       },
     });
-    assertEquals(res.headers.get("access-control-allow-origin"), "*");
-    await res.body?.cancel();
-  } finally {
-    await h.close();
-  }
-});
+    expect(res.headers.get("access-control-allow-origin")).toBe("*");
+  });
 
-Deno.test("[Deno] Single-Endpoint - GET returns 405", async () => {
-  const h = await createDenoSingleServer();
-  try {
+  it("POST response includes CORS headers", async () => {
+    const res = await postEnvelope({ method: "info" });
+    expect(res.headers.get("access-control-allow-origin")).toBe("*");
+  });
+
+  // Error Handling
+  it("GET returns 405", async () => {
     const res = await fetch(`${h.baseUrl}${h.basePath}`);
-    assertEquals(res.status, 405);
-    await res.body?.cancel();
-  } finally {
-    await h.close();
-  }
-});
+    expect(res.status).toBe(405);
+  });
 
-Deno.test("[Deno] Single-Endpoint - unknown method returns 400", async () => {
-  const h = await createDenoSingleServer();
-  try {
-    const res = await fetch(`${h.baseUrl}${h.basePath}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ method: "unknown/method" }),
+  it("unknown method returns 400", async () => {
+    const res = await postEnvelope({ method: "unknown/method" });
+    expect(res.status).toBe(400);
+  });
+
+  it("missing agentId for agent/run returns 400", async () => {
+    const res = await postEnvelope({
+      method: "agent/run",
+      body: {
+        threadId: "t-err-1",
+        runId: "r-err-1",
+        messages: [],
+        state: {},
+      },
     });
-    assertEquals(res.status, 400);
-    await res.body?.cancel();
-  } finally {
-    await h.close();
-  }
+    expect(res.status).toBe(400);
+  });
 });

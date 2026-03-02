@@ -1,8 +1,13 @@
-import {
-  CopilotRuntime,
-  createCopilotRuntimeHandler,
-  InMemoryAgentRunner,
-} from "../../../../dist/index.mjs";
+/**
+ * Deno multi-endpoint server factory.
+ *
+ * Imports from specific dist files (not the barrel index.mjs) to avoid
+ * pulling in hono/express/node endpoints. The dist pre-resolves
+ * package.json to a .mjs file, avoiding Deno's JSON import restriction.
+ */
+import { createCopilotRuntimeHandler } from "../../../../dist/core/fetch-handler.mjs";
+import { CopilotRuntime } from "../../../../dist/core/runtime.mjs";
+import { InMemoryAgentRunner } from "../../../../dist/runner/in-memory.mjs";
 import type { ServerHandle } from "../servers/types.ts";
 
 const BASE_PATH = "/api/copilotkit";
