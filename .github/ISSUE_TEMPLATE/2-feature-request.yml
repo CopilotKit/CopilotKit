@@ -7,7 +7,26 @@ body:
   - type: markdown
     attributes:
       value: |
-        Thank you for taking the time to fill out this feature request ticket. Please choose a short and descriptive title.
+        Thanks for taking the time to suggest a feature!
+
+        > **Before you file:** Search existing issues to avoid duplicates.
+
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: Pre-flight Checklist
+      options:
+        - label: I have searched existing issues, and this hasn't been requested yet.
+          required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or Motivation
+      description: What problem does this feature solve? Why is it needed?
+      placeholder: "I'm always frustrated when..."
+    validations:
+      required: true
 
   - type: textarea
     id: description
@@ -22,3 +41,15 @@ body:
         Type your idea here...
     validations:
       required: true
+
+  - type: checkboxes
+    id: contribution
+    attributes:
+      label: Would you like to work on this?
+      description: We welcome contributions! Let us know if you’d like to help implement this feature.
+      options:
+        - label: Yes, I’d love to work on it!
+        - label: I’m open to collaborating but need guidance.
+        - label: No, I’m just sharing the idea.
+    validations:
+      required: false

@@ -42,3 +42,4 @@ debug-storybook.log
 storybook-static
 coverage
 .turbo
+.langgraph_api

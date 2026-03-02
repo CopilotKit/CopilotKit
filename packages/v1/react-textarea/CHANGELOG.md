@@ -1,5 +1,64 @@
 # ui
 
+## 1.52.1
+
+### Patch Changes
+
+- bbdf67d: fix(css): address imcompat with CJS
+- Updated dependencies [b555ac4]
+  - @copilotkit/react-core@1.52.1
+  - @copilotkit/runtime-client-gql@1.52.1
+  - @copilotkit/shared@1.52.1
+
+## 1.52.1-next.1
+
+### Patch Changes
+
+- Updated dependencies [b555ac4]
+  - @copilotkit/react-core@1.52.1-next.1
+  - @copilotkit/runtime-client-gql@1.52.1-next.1
+  - @copilotkit/shared@1.52.1-next.1
+
+## 1.52.1-next.0
+
+### Patch Changes
+
+- bbdf67d: fix(css): address imcompat with CJS
+  - @copilotkit/react-core@1.52.1-next.0
+  - @copilotkit/runtime-client-gql@1.52.1-next.0
+  - @copilotkit/shared@1.52.1-next.0
+
+## 1.52.0
+
+### Patch Changes
+
+- Updated dependencies [6dd6c84]
+- Updated dependencies [d77f347]
+- Updated dependencies [2007f8b]
+- Updated dependencies [ef0f539]
+- Updated dependencies [412965a]
+- Updated dependencies [5f941db]
+  - @copilotkit/react-core@1.52.0
+  - @copilotkit/shared@1.52.0
+  - @copilotkit/runtime-client-gql@1.52.0
+
+## 1.52.0-next.8
+
+### Patch Changes
+
+- @copilotkit/react-core@1.52.0-next.8
+- @copilotkit/runtime-client-gql@1.52.0-next.8
+- @copilotkit/shared@1.52.0-next.8
+
+## 1.52.0-next.7
+
+### Patch Changes
+
+- Updated dependencies [d77f347]
+  - @copilotkit/react-core@1.52.0-next.7
+  - @copilotkit/runtime-client-gql@1.52.0-next.7
+  - @copilotkit/shared@1.52.0-next.7
+
 ## 1.52.0-next.6
 
 ### Patch Changes

@@ -14,6 +14,8 @@
  * return new GroqAdapter({ groq, model: "<model-name>" });
  * ```
  */
+import type { LanguageModel } from "ai";
+import { createOpenAI } from "@ai-sdk/openai";
 import type { Groq } from "groq-sdk";
 import type { ChatCompletionMessageParam } from "groq-sdk/resources/chat";
 import {
@@ -27,7 +29,7 @@ import {
   limitMessagesToTokenCount,
 } from "../openai/utils";
 import { randomUUID } from "@copilotkit/shared";
-import { convertServiceAdapterError } from "../shared";
+import { convertServiceAdapterError, getSdkClientOptions } from "../shared";
 
 const DEFAULT_MODEL = "llama-3.3-70b-versatile";
 
@@ -75,6 +77,19 @@ export class GroqAdapter implements CopilotServiceAdapter {
       this.model = params.model;
     }
     this.disableParallelToolCalls = params?.disableParallelToolCalls || false;
+  }
+
+  getLanguageModel(): LanguageModel {
+    const groq = this.ensureGroq();
+    const options = getSdkClientOptions(groq);
+    const provider = createOpenAI({
+      baseURL: groq.baseURL,
+      apiKey: groq.apiKey,
+      headers: options.defaultHeaders,
+      fetch: options.fetch,
+      name: "groq",
+    });
+    return provider(this.model);
   }
 
   private ensureGroq(): Groq {

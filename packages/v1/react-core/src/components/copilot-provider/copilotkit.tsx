@@ -94,7 +94,7 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
             {...props}
             showDevConsole={showInspector}
             renderCustomMessages={renderArr}
-            useSingleEndpoint={true}
+            useSingleEndpoint={props.useSingleEndpoint ?? true}
           >
             <CopilotKitInternal {...props}>{children}</CopilotKitInternal>
           </CopilotKitNextProvider>

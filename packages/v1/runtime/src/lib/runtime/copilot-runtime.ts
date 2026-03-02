@@ -416,9 +416,10 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
       }
 
       if (isAgentsListEmpty) {
-        agentsList.default = new BuiltInAgent({
-          model: `${serviceAdapter.provider}/${serviceAdapter.model}`,
-        });
+        const model =
+          serviceAdapter.getLanguageModel?.() ??
+          `${serviceAdapter.provider}/${serviceAdapter.model}`;
+        agentsList.default = new BuiltInAgent({ model });
       }
 
       const actions = this.params?.actions;

@@ -1,3 +1,4 @@
+import type { LanguageModel } from "ai";
 import { Message } from "../graphql/types/converted";
 import { RuntimeEventSource } from "./events";
 import { ActionInput } from "../graphql/inputs/action.input";
@@ -38,4 +39,12 @@ export interface CopilotServiceAdapter {
     request: CopilotRuntimeChatCompletionRequest,
   ): Promise<CopilotRuntimeChatCompletionResponse>;
   name?: string;
+
+  /**
+   * Returns a pre-configured LanguageModel for use with BuiltInAgent.
+   * Adapters that support custom provider configurations (e.g., Azure OpenAI
+   * with custom baseURL/apiKey) should implement this to ensure the
+   * configuration is propagated to the agent layer.
+   */
+  getLanguageModel?(): LanguageModel;
 }

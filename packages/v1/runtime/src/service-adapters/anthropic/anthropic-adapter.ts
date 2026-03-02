@@ -22,6 +22,8 @@
  * });
  * ```
  */
+import type { LanguageModel } from "ai";
+import { createAnthropic } from "@ai-sdk/anthropic";
 import type Anthropic from "@anthropic-ai/sdk";
 import {
   CopilotServiceAdapter,
@@ -35,7 +37,7 @@ import {
 } from "./utils";
 
 import { randomId, randomUUID } from "@copilotkit/shared";
-import { convertServiceAdapterError } from "../shared";
+import { convertServiceAdapterError, getSdkClientOptions } from "../shared";
 
 const DEFAULT_MODEL = "claude-3-5-sonnet-latest";
 
@@ -92,6 +94,18 @@ export class AnthropicAdapter implements CopilotServiceAdapter {
       this.model = params.model;
     }
     this.promptCaching = params?.promptCaching || { enabled: false };
+  }
+
+  getLanguageModel(): LanguageModel {
+    const anthropic = this.ensureAnthropic();
+    const options = getSdkClientOptions(anthropic);
+    const provider = createAnthropic({
+      baseURL: anthropic.baseURL,
+      apiKey: anthropic.apiKey,
+      headers: options.defaultHeaders,
+      fetch: options.fetch,
+    });
+    return provider(this.model);
   }
 
   private ensureAnthropic(): Anthropic {

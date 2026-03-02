@@ -149,6 +149,7 @@ function CopilotSidebarViewInternal({
       <aside
         ref={sidebarRef}
         data-copilotkit
+        data-testid="copilot-sidebar"
         data-copilot-sidebar
         className={cn(
           "cpk:fixed cpk:right-0 cpk:top-0 cpk:z-[1200] cpk:flex",

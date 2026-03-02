@@ -239,6 +239,8 @@ export function CopilotChatView({
     return (
       <div
         data-copilotkit
+        data-testid="copilot-chat"
+        data-copilot-running={isRunning ? "true" : "false"}
         className={twMerge(
           "cpk:relative cpk:h-full cpk:flex cpk:flex-col",
           className,
@@ -266,6 +268,8 @@ export function CopilotChatView({
   return (
     <div
       data-copilotkit
+      data-testid="copilot-chat"
+      data-copilot-running={isRunning ? "true" : "false"}
       className={twMerge("cpk:relative cpk:h-full", className)}
       {...props}
     >
@@ -469,6 +473,7 @@ export namespace CopilotChatView {
     React.ButtonHTMLAttributes<HTMLButtonElement>
   > = ({ className, ...props }) => (
     <Button
+      data-testid="copilot-scroll-to-bottom"
       variant="outline"
       size="sm"
       className={twMerge(
@@ -552,6 +557,7 @@ export namespace CopilotChatView {
 
     return (
       <div
+        data-testid="copilot-welcome-screen"
         className={cn(
           "cpk:flex-1 cpk:flex cpk:flex-col cpk:items-center cpk:justify-center cpk:px-4",
           className,
