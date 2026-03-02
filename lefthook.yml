@@ -9,21 +9,18 @@ output:
   - skips
 
 pre-commit:
-  piped: true
+  parallel: true
   commands:
     sync-lockfile:
       tags: lockfile
-      priority: 1
       run: pnpm i --lockfile-only
       stage_fixed: true
     lint-fix:
       tags: lint
-      priority: 2
       run: pnpm run lint --fix && pnpm run format
       stage_fixed: true
     test-and-check-packages:
       tags: test-packages
-      priority: 3
       env:
         NX_TUI: "false"
       run: pnpm run test && pnpm run check:packages
