@@ -78,6 +78,9 @@
       "dependsOn": [
         "^build"
       ],
+      "outputs": [
+        "{projectRoot}/__snapshots__/**"
+      ],
       "cache": true
     },
     "graphql-codegen": {
