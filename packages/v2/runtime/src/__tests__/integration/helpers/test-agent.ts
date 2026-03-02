@@ -13,7 +13,7 @@ export function createFakeAgent(
         setMessages: () => undefined,
         setState: () => undefined,
         threadId: "thread",
-        headers: {}  ,
+        headers: {},
         runAgent: async (
           input: { runId: string },
           { onEvent }: { onEvent: (payload: { event: unknown }) => void },

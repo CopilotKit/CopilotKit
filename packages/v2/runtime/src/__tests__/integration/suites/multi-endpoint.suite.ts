@@ -14,11 +14,17 @@ export function multiEndpointSuite(
   factory: (opts?: {
     capturedHeaders?: Record<string, string>[];
   }) => Promise<ServerHandle & { handler?: (r: Request) => Promise<Response> }>,
-  requestFn?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>,
+  requestFn?: (
+    input: RequestInfo | URL,
+    init?: RequestInit,
+  ) => Promise<Response>,
 ) {
   describe(`[${name}] Multi-Endpoint`, () => {
     let handle: ServerHandle & { handler?: (r: Request) => Promise<Response> };
-    let doFetch: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+    let doFetch: (
+      input: RequestInfo | URL,
+      init?: RequestInit,
+    ) => Promise<Response>;
 
     beforeAll(async () => {
       handle = await factory();

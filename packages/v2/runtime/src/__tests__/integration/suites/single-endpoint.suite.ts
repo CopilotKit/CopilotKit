@@ -13,11 +13,17 @@ export function singleEndpointSuite(
   factory: (opts?: {
     capturedHeaders?: Record<string, string>[];
   }) => Promise<ServerHandle & { handler?: (r: Request) => Promise<Response> }>,
-  requestFn?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>,
+  requestFn?: (
+    input: RequestInfo | URL,
+    init?: RequestInit,
+  ) => Promise<Response>,
 ) {
   describe(`[${name}] Single-Endpoint`, () => {
     let handle: ServerHandle & { handler?: (r: Request) => Promise<Response> };
-    let doFetch: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+    let doFetch: (
+      input: RequestInfo | URL,
+      init?: RequestInit,
+    ) => Promise<Response>;
 
     beforeAll(async () => {
       handle = await factory();
@@ -42,7 +48,10 @@ export function singleEndpointSuite(
 
     const endpoint = () => `${handle.baseUrl}${handle.basePath}`;
 
-    function postEnvelope(envelope: Record<string, unknown>, extraHeaders?: Record<string, string>) {
+    function postEnvelope(
+      envelope: Record<string, unknown>,
+      extraHeaders?: Record<string, string>,
+    ) {
       return doFetch(endpoint(), {
         method: "POST",
         headers: {

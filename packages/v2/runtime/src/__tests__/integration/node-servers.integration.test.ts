@@ -25,9 +25,8 @@ import { createFetchDirectHandler } from "./servers/fetch-direct";
 multiEndpointSuite("Express", createExpressMultiServer);
 multiEndpointSuite("Hono", createHonoMultiServer);
 multiEndpointSuite("Node", createNodeMultiServer);
-multiEndpointSuite(
-  "Fetch",
-  (opts) => Promise.resolve(createFetchDirectHandler("multi-route", opts)),
+multiEndpointSuite("Fetch", (opts) =>
+  Promise.resolve(createFetchDirectHandler("multi-route", opts)),
 );
 
 // ─── Single-Endpoint ─────────────────────────────────────────────────
@@ -35,7 +34,6 @@ multiEndpointSuite(
 singleEndpointSuite("Express", createExpressSingleServer);
 singleEndpointSuite("Hono", createHonoSingleServer);
 singleEndpointSuite("Node", createNodeSingleServer);
-singleEndpointSuite(
-  "Fetch",
-  (opts) => Promise.resolve(createFetchDirectHandler("single-route", opts)),
+singleEndpointSuite("Fetch", (opts) =>
+  Promise.resolve(createFetchDirectHandler("single-route", opts)),
 );
