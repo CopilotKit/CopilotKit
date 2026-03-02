@@ -117,4 +117,4 @@ jobs:
 
       - name: Run Deno server integration tests
         working-directory: packages/v2/runtime
-        run: deno test --allow-net --allow-read --allow-env src/__tests__/integration/deno/deno-servers.integration.test.ts
+        run: deno test --allow-net --allow-read --allow-env --sloppy-imports src/__tests__/integration/deno/deno-servers.integration.test.ts
