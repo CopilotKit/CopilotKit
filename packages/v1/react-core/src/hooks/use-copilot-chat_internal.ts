@@ -1,4 +1,4 @@
-import {
+import React, {
   useRef,
   useEffect,
   useCallback,
@@ -14,7 +14,6 @@ import {
   gqlToAGUI,
   Message as DeprecatedGqlMessage,
 } from "@copilotkit/runtime-client-gql";
-import { useLangGraphInterruptRender } from "./use-langgraph-interrupt-render";
 import {
   useAgent,
   useCopilotChatConfiguration,
@@ -363,7 +362,19 @@ export function useCopilotChatInternal({
     onInProgress?.(Boolean(agent?.isRunning));
   }, [agent?.isRunning, onInProgress]);
 
-  const interrupt = useLangGraphInterruptRender(agent);
+  // Subscribe to copilotkit.interruptElement so the v1 return type stays
+  // reactive. The element is published by useInterrupt (v2) when user code
+  // calls useLangGraphInterrupt({ render, ... }).
+  const [interrupt, setInterrupt] = useState<React.ReactElement | null>(null);
+  useEffect(() => {
+    setInterrupt(copilotkit.interruptElement);
+    const subscription = copilotkit.subscribe({
+      onInterruptElementChanged: ({ interruptElement }) => {
+        setInterrupt(interruptElement);
+      },
+    });
+    return () => subscription.unsubscribe();
+  }, [copilotkit]);
 
   const reset = () => {
     agent?.setMessages([]);

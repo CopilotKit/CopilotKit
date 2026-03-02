@@ -12,7 +12,7 @@
     "test:coverage": "vitest --coverage"
   },
   "dependencies": {
-    "@ag-ui/client": "0.0.45",
+    "@ag-ui/client": "0.0.46",
     "@ag-ui/mcp-apps-middleware": "0.0.2",
     "cors": "^2.8.5",
     "express": "^4.21.0",

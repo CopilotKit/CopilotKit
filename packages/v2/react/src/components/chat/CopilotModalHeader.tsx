@@ -61,6 +61,7 @@ export function CopilotModalHeader({
 
   return (
     <header
+      data-testid="copilot-modal-header"
       data-slot="copilot-modal-header"
       className={cn(
         "cpk:flex cpk:items-center cpk:justify-between cpk:border-b cpk:border-border cpk:px-4 cpk:py-4",
@@ -91,6 +92,7 @@ export namespace CopilotModalHeader {
     ...props
   }) => (
     <div
+      data-testid="copilot-header-title"
       className={cn(
         "cpk:w-full cpk:text-base cpk:font-medium cpk:leading-none cpk:tracking-tight cpk:text-foreground",
         className,
@@ -106,6 +108,7 @@ export namespace CopilotModalHeader {
   > = ({ className, ...props }) => (
     <button
       type="button"
+      data-testid="copilot-close-button"
       className={cn(
         "cpk:inline-flex cpk:size-8 cpk:items-center cpk:justify-center cpk:rounded-full cpk:text-muted-foreground cpk:transition cpk:cursor-pointer",
         "cpk:hover:bg-muted cpk:hover:text-foreground cpk:focus-visible:outline-none cpk:focus-visible:ring-2 cpk:focus-visible:ring-ring",

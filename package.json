@@ -106,9 +106,6 @@
       "prismjs@<=1.30.0": "1.30.0",
       "pino@<=10.1.1": "10.1.1"
     },
-    "publicHoistPattern": [
-      "@ag-ui/*"
-    ],
     "patchedDependencies": {
       "@changesets/assemble-release-plan@6.0.9": "patches/@changesets__assemble-release-plan@6.0.9.patch"
     }

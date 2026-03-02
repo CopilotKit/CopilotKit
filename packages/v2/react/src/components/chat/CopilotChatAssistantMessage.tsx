@@ -189,6 +189,7 @@ export function CopilotChatAssistantMessage({
   return (
     <div
       data-copilotkit
+      data-testid="copilot-assistant-message"
       className={twMerge(className)}
       {...props}
       data-message-id={message.id}
@@ -219,6 +220,7 @@ export namespace CopilotChatAssistantMessage {
     ...props
   }) => (
     <div
+      data-testid="copilot-assistant-toolbar"
       className={twMerge(
         "cpk:w-full cpk:bg-transparent cpk:flex cpk:items-center cpk:-ml-[5px] cpk:-mt-[0px]",
         className,
@@ -270,6 +272,7 @@ export namespace CopilotChatAssistantMessage {
 
     return (
       <ToolbarButton
+        data-testid="copilot-copy-button"
         title={title || labels.assistantMessageToolbarCopyMessageLabel}
         onClick={handleClick}
         className={className}
@@ -291,6 +294,7 @@ export namespace CopilotChatAssistantMessage {
     const labels = config?.labels ?? CopilotChatDefaultLabels;
     return (
       <ToolbarButton
+        data-testid="copilot-thumbs-up-button"
         title={title || labels.assistantMessageToolbarThumbsUpLabel}
         {...props}
       >
@@ -306,6 +310,7 @@ export namespace CopilotChatAssistantMessage {
     const labels = config?.labels ?? CopilotChatDefaultLabels;
     return (
       <ToolbarButton
+        data-testid="copilot-thumbs-down-button"
         title={title || labels.assistantMessageToolbarThumbsDownLabel}
         {...props}
       >
@@ -321,6 +326,7 @@ export namespace CopilotChatAssistantMessage {
     const labels = config?.labels ?? CopilotChatDefaultLabels;
     return (
       <ToolbarButton
+        data-testid="copilot-read-aloud-button"
         title={title || labels.assistantMessageToolbarReadAloudLabel}
         {...props}
       >
@@ -336,6 +342,7 @@ export namespace CopilotChatAssistantMessage {
     const labels = config?.labels ?? CopilotChatDefaultLabels;
     return (
       <ToolbarButton
+        data-testid="copilot-regenerate-button"
         title={title || labels.assistantMessageToolbarRegenerateLabel}
         {...props}
       >
