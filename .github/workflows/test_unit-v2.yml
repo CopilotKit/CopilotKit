@@ -21,6 +21,9 @@ on:
         required: true
         default: "main"
         type: string
+env:
+  NODE_OPTIONS: "--max-old-space-size=4096"
+
 jobs:
   v2:
     name: "unit / v2.x"
