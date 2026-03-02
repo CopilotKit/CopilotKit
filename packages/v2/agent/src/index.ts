@@ -418,7 +418,9 @@ export function convertJsonSchemaToZodSchema(
     return required ? schema : schema.optional();
   } else if (jsonSchema.type === "string") {
     if (jsonSchema.enum && jsonSchema.enum.length > 0) {
-      let schema = z.enum(jsonSchema.enum as [string, ...string[]]).describe(jsonSchema.description ?? "");
+      let schema = z
+        .enum(jsonSchema.enum as [string, ...string[]])
+        .describe(jsonSchema.description ?? "");
       return required ? schema : schema.optional();
     }
     let schema = z.string().describe(jsonSchema.description ?? "");
