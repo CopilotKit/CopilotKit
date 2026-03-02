@@ -17,11 +17,11 @@ Programmatic control lets you run agents outside of a chat UI — trigger agent 
   import { useAgent, useCopilotKit } from "@copilotkit/react-core/v2";
 
   export function AgentButton() {
-    const agent = useAgent();
-    const kit = useCopilotKit();
+    const { agent } = useAgent();
+    const { copilotkit } = useCopilotKit();
 
     const handleClick = async () => {
-      await kit.runAgent("Analyze the current data");
+      await copilotkit.runAgent("Analyze the current data");
     };
 
     return (
