@@ -28,6 +28,16 @@ function ConfigurationDisplay() {
   );
 }
 
+// Test component to expose isModalOpen from context
+function ModalStateDisplay({ testId = "isModalOpen" }: { testId?: string }) {
+  const config = useCopilotChatConfiguration();
+  return (
+    <div data-testid={testId}>
+      {config?.isModalOpen === undefined ? "undefined" : String(config.isModalOpen)}
+    </div>
+  );
+}
+
 describe("CopilotChatConfigurationProvider", () => {
   describe("Basic functionality", () => {
     it("should provide default configuration", () => {
@@ -360,6 +370,30 @@ describe("CopilotChatConfigurationProvider", () => {
       expect(screen.getByTestId("agentId").textContent).toBe("inner-agent");
       expect(screen.getByTestId("threadId").textContent).toBe("inner-thread");
       expect(screen.getByTestId("placeholder").textContent).toBe("Inner");
+    });
+
+    it("inner provider with isModalDefaultOpen=false overrides parent isModalOpen=true", () => {
+      render(
+        <CopilotChatConfigurationProvider isModalDefaultOpen={true}>
+          <CopilotChatConfigurationProvider isModalDefaultOpen={false}>
+            <ModalStateDisplay />
+          </CopilotChatConfigurationProvider>
+        </CopilotChatConfigurationProvider>,
+      );
+
+      expect(screen.getByTestId("isModalOpen").textContent).toBe("false");
+    });
+
+    it("inner provider with isModalDefaultOpen=true overrides parent isModalOpen=false", () => {
+      render(
+        <CopilotChatConfigurationProvider isModalDefaultOpen={false}>
+          <CopilotChatConfigurationProvider isModalDefaultOpen={true}>
+            <ModalStateDisplay />
+          </CopilotChatConfigurationProvider>
+        </CopilotChatConfigurationProvider>,
+      );
+
+      expect(screen.getByTestId("isModalOpen").textContent).toBe("true");
     });
   });
 });
