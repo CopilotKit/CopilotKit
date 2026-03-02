@@ -2,8 +2,6 @@ pre-commit:
   parallel: true
   commands:
     lint-fix:
-      env:
-        NX_TUI: "false"
       run: pnpm run lint --fix && pnpm run format
       stage_fixed: true
     test:
@@ -14,6 +12,9 @@ pre-commit:
       env:
         NX_TUI: "false"
       run: pnpm run check:packages
+    sync-lockfile:
+      run: pnpm i --lockfile-only
+      stage_fixed: true
 
 commit-msg:
   commands:
