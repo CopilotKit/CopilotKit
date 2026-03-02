@@ -1,4 +1,4 @@
-name: test / runtime-servers
+name: test / integration
 
 on:
   push:
@@ -23,7 +23,7 @@ on:
 
 jobs:
   node:
-    name: "servers / node"
+    name: "runtime / node"
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -52,7 +52,7 @@ jobs:
         run: npx vitest run src/__tests__/integration/node-servers.integration.test.ts
 
   bun:
-    name: "servers / bun"
+    name: "runtime / bun"
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -84,53 +84,3 @@ jobs:
       - name: Run Bun server integration tests
         working-directory: packages/v2/runtime
         run: bun test src/__tests__/integration/bun/bun-servers.integration.test.ts
-
-  deno:
-    name: "servers / deno"
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.inputs.branch || github.ref }}
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: "10.13.1"
-
-      - name: Use Node.js 22.x
-        uses: actions/setup-node@v4
-        with:
-          node-version: "22.x"
-
-      - name: Setup Deno
-        uses: denoland/setup-deno@v2
-        with:
-          deno-version: v2.x
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Build runtime
-        run: pnpm nx run @copilotkitnext/runtime:build
-
-      - name: Start Deno servers
-        working-directory: packages/v2/runtime
-        run: |
-          deno run --allow-net --allow-read --allow-env --node-modules-dir=auto \
-            src/__tests__/integration/deno/deno-server.ts &
-          # Wait for both servers to be ready
-          for port in 3000 4000; do
-            for i in $(seq 1 30); do
-              if curl -s http://localhost:$port/api/copilotkit/info > /dev/null 2>&1; then
-                echo "Port $port ready"
-                break
-              fi
-              sleep 1
-            done
-          done
-
-      - name: Run Deno server integration tests
-        working-directory: packages/v2/runtime
-        run: npx vitest run --config vitest.deno.config.mjs

@@ -8,7 +8,6 @@ export default defineConfig({
     exclude: [
       "**/node_modules/**",
       "**/integration/bun/**",
-      "**/integration/deno/**",
     ],
     reporters: [["default", { summary: false }]],
     silent: true,
