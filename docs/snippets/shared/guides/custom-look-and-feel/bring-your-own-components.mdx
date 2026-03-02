@@ -26,7 +26,7 @@ The main thing to be aware of here is the `message` prop, which is the message t
 import { type UserMessageProps } from "@copilotkit/react-ui";
 import { CopilotKit } from "@copilotkit/react-core";
 import { CopilotSidebar } from "@copilotkit/react-ui";
-import "@copilotkit/react-ui/styles.css";
+import "@copilotkit/react-ui/v2/styles.css";
 
 const CustomUserMessage = (props: UserMessageProps) => {
   const wrapperStyles = "flex items-center gap-2 justify-end mb-4";
@@ -59,7 +59,7 @@ import { SparklesIcon } from "@heroicons/react/24/outline";
 
 import { CopilotKit } from "@copilotkit/react-core";
 import { CopilotSidebar } from "@copilotkit/react-ui";
-import "@copilotkit/react-ui/styles.css";
+import "@copilotkit/react-ui/v2/styles.css";
 
 const CustomAssistantMessage = (props: AssistantMessageProps) => {
   const { icons } = useChatContext();
@@ -105,7 +105,7 @@ The window is the main container for the chat. In this example, we turn it into 
 ```tsx
 import { type WindowProps, useChatContext, CopilotSidebar } from "@copilotkit/react-ui";
 import { CopilotKit } from "@copilotkit/react-core";
-import "@copilotkit/react-ui/styles.css";
+import "@copilotkit/react-ui/v2/styles.css";
 function Window({ children }: WindowProps) {
   const { open, setOpen } = useChatContext();
 
@@ -143,7 +143,7 @@ The `CopilotSidebar` and `CopilotPopup` components allow you to customize their 
 ```tsx
 import { type ButtonProps, useChatContext, CopilotSidebar } from "@copilotkit/react-ui";
 import { CopilotKit } from "@copilotkit/react-core";
-import "@copilotkit/react-ui/styles.css";
+import "@copilotkit/react-ui/v2/styles.css";
 function Button({}: ButtonProps) {
   const { open, setOpen } = useChatContext();
 
@@ -178,7 +178,7 @@ with a custom icon.
 import { type HeaderProps, useChatContext, CopilotSidebar } from "@copilotkit/react-ui";
 import { BookOpenIcon } from "@heroicons/react/24/outline";
 import { CopilotKit } from "@copilotkit/react-core";
-import "@copilotkit/react-ui/styles.css";
+import "@copilotkit/react-ui/v2/styles.css";
 function Header({}: HeaderProps) {
   const { setOpen, icons, labels } = useChatContext();
 
@@ -190,7 +190,7 @@ function Header({}: HeaderProps) {
           <BookOpenIcon className="w-6 h-6" />
         </a>
       </div>
-      <div className="text-lg">{labels.title}</div>
+      <div className="text-lg">{labels.modalHeaderTitle}</div>
       <div className="w-24 flex justify-end">
         <button onClick={() => setOpen(false)} aria-label="Close">
           {icons.headerCloseIcon}
@@ -214,7 +214,7 @@ The Messages component handles the display and organization of different message
 ```tsx
 import { type MessagesProps, CopilotSidebar } from "@copilotkit/react-ui";
 import { CopilotKit } from "@copilotkit/react-core";
-import "@copilotkit/react-ui/styles.css";
+import "@copilotkit/react-ui/v2/styles.css";
 
 export default function CustomMessages({
   messages,
@@ -261,7 +261,7 @@ The suggestions component allows you to customize how suggestions are displayed.
             RenderSuggestion,
             type RenderSuggestionsListProps
         } from "@copilotkit/react-ui";
-        import "@copilotkit/react-ui/styles.css";
+        import "@copilotkit/react-ui/v2/styles.css";
 
         const CustomSuggestionsList = ({ suggestions, onSuggestionClick }: RenderSuggestionsListProps) => {
             return (
@@ -299,7 +299,7 @@ to have a custom "Ask" button and placeholder text.
 ```tsx
 import { type InputProps, CopilotSidebar } from "@copilotkit/react-ui";
 import { CopilotKit } from "@copilotkit/react-core";
-import "@copilotkit/react-ui/styles.css";
+import "@copilotkit/react-ui/v2/styles.css";
 function CustomInput({ inProgress, onSend, isVisible }: InputProps) {
   const handleSubmit = (value: string) => {
     if (value.trim()) onSend(value);
@@ -352,14 +352,14 @@ Actions allow the LLM to interact with your application's functionality. When an
 
 ```tsx
 "use client" // only necessary if you are using Next.js with the App Router.
-import { useCopilotAction } from "@copilotkit/react-core"; 
+import { useFrontendTool } from "@copilotkit/react-core/v2";
 
 // Your custom components (examples - implement these in your app)
 import { LoadingView } from "./loading-view"; // Your loading component
 import { CalendarMeetingCardComponent, type CalendarMeetingCardProps } from "./calendar-meeting-card"; // Your meeting card component
  
 export function YourComponent() {
-  useCopilotAction({ 
+  useFrontendTool({
     name: "showCalendarMeeting",
     description: "Displays calendar meeting information",
     parameters: [
@@ -417,7 +417,7 @@ If you haven't gotten started with CoAgents yet, you can get started in 10 minut
 ```tsx
 "use client"; // only necessary if you are using Next.js with the App Router.
  
-import { useCoAgentStateRender } from "@copilotkit/react-core";
+import { useCoAgentStateRender } from "@copilotkit/react-core/v2";
 import { Progress } from "./progress";
 
 type AgentState = {
@@ -451,7 +451,7 @@ import {
 } from "@copilotkit/react-ui";
 import { CopilotKit } from "@copilotkit/react-core";
 import { CopilotSidebar } from "@copilotkit/react-ui";
-import "@copilotkit/react-ui/styles.css";
+import "@copilotkit/react-ui/v2/styles.css";
 
 function CustomReasoningMessage({
   message,

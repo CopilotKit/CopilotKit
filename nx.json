@@ -32,7 +32,8 @@
         "{projectRoot}/.env*"
       ],
       "outputs": [
-        "{projectRoot}/dist/**"
+        "{projectRoot}/dist/**",
+        "{projectRoot}/.next/**"
       ],
       "cache": true
     },
@@ -82,6 +83,9 @@
     "generate-graphql-schema": {
       "dependsOn": [
         "^build"
+      ],
+      "outputs": [
+        "{projectRoot}/__snapshots__/**"
       ],
       "cache": true
     },

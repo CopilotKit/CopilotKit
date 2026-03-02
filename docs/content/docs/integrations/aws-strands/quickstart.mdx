@@ -165,7 +165,7 @@ Before you begin, you'll need the following:
                 api_key = os.getenv("OPENAI_API_KEY", "")
                 model = OpenAIModel(
                     client_args={"api_key": api_key},
-                    model_id="gpt-4o",
+                    model_id="gpt-5.2",
                 )
 
                 agent = Agent(
@@ -249,8 +249,8 @@ Before you begin, you'll need the following:
                 Wrap your application with the CopilotKit provider:
 
                 ```tsx title="app/layout.tsx"
-                import { CopilotKit } from "@copilotkit/react-core"; // [!code highlight]
-                import "@copilotkit/react-ui/styles.css";
+                import { CopilotKit } from "@copilotkit/react-core/v2"; // [!code highlight]
+                import "@copilotkit/react-ui/v2/styles.css";
 
                 // ...
 
@@ -274,7 +274,7 @@ Before you begin, you'll need the following:
               Add the CopilotSidebar component to your page:
 
               ```tsx title="app/page.tsx"
-              import { CopilotSidebar } from "@copilotkit/react-ui"; // [!code highlight:1]
+              import { CopilotSidebar } from "@copilotkit/react-core/v2"; // [!code highlight:1]
 
               export default function Page() {
                 return (
@@ -370,13 +370,13 @@ Now that you have your basic agent setup, explore these advanced features:
   <Card
     title="Add some generative UI"
     description="Render your agent's progress and output in the UI."
-    href="/aws-strands/generative-ui/backend-tools"
+    href="/aws-strands/generative-ui/tool-rendering"
     icon={<PaintbrushIcon />}
   />
   <Card
     title="Setup frontend tools"
     description="Give your agent the ability to call frontend tools, directly updating your application."
-    href="/aws-strands/frontend-actions"
+    href="/aws-strands/frontend-tools"
     icon={<WrenchIcon />}
   />
 </Cards>

@@ -18,12 +18,12 @@ import {
   CrewsStateItem,
   CrewsTaskStateItem,
   CrewsToolStateItem,
-  useCoAgent,
+  useAgent,
   useCoAgentStateRender,
-  useCopilotAction,
+  useFrontendTool,
   useCopilotChat,
   useCopilotAdditionalInstructions,
-} from "@copilotkit/react-core";
+} from "@copilotkit/react-core/v2";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { MessageRole, TextMessage } from "@copilotkit/runtime-client-gql";
@@ -263,7 +263,7 @@ export const useCrewQuickstart = ({
 } => {
   const [initialMessageSent, setInitialMessageSent] = useState(false);
 
-  const { state, setState, run } = useCoAgent<
+  const { state, setState, run } = useAgent<
     CrewsAgentState & {
       result: string;
       inputs: Record<string, string>;
@@ -315,7 +315,7 @@ export const useCrewQuickstart = ({
       Object.values(state?.inputs || {}).length > 0 ? "enabled" : "disabled",
   });
 
-  useCopilotAction({
+  useFrontendTool({
     name: "getInputs",
     followUp: false,
     description:
@@ -393,7 +393,7 @@ export const useCrewQuickstart = ({
     ),
   });
 
-  useCopilotAction({
+  useFrontendTool({
     name: "crew_requesting_feedback",
     description: "Request feedback from the user",
     renderAndWaitForResponse(props) {

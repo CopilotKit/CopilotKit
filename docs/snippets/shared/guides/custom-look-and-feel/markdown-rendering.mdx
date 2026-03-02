@@ -19,8 +19,8 @@ We will be adding a chip component. Similar to the one available with ChatGPT wh
 First, let's create a chip component
 ```tsx
 import { CopilotKit } from "@copilotkit/react-core";
-import { CopilotSidebar, ComponentsMap } from "@copilotkit/react-ui";
-import "@copilotkit/react-ui/styles.css";
+import { CopilotSidebar, ComponentsMap } from "@copilotkit/react-core/v2";
+import "@copilotkit/react-ui/v2/styles.css";
 // We will include the styles in a separate css file, for convenience
 import "./styles.css";
 
@@ -45,12 +45,6 @@ function YourComponent() {
     return (
         <CopilotKit>
           <CopilotSidebar
-            // For demonstration, we'll force the LLM to return our reference chip in every message
-            instructions={`
-                You are a helpful assistant.
-                End each message with a reference chip,
-                like so: <reference-chip href={href}>{title}</reference-chip>
-            `}
             markdownTagRenderers={customMarkdownTagRenderers}
           />
         </CopilotKit>
