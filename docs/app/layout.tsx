@@ -66,7 +66,7 @@ export default async function Layout({ children }: { children: ReactNode }) {
         <ProvidersWrapper>
           <Banners />
           <RootProvider
-            theme={{ enabled: true, defaultTheme: "dark" }}
+            theme={{ enabled: true, defaultTheme: "system" }}
             search={{ SearchDialog: SearchDialog }}
           >
             {children}

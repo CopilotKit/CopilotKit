@@ -192,7 +192,7 @@ Before you begin, you'll need the following:
                 from llama_index.protocols.ag_ui.router import get_ag_ui_workflow_router
 
                 # Initialize the LLM
-                llm = OpenAI(model="gpt-4o")
+                llm = OpenAI(model="gpt-5.2")
 
                 # Create the AG-UI workflow router
                 agentic_chat_router = get_ag_ui_workflow_router(
@@ -276,8 +276,8 @@ Before you begin, you'll need the following:
                 Wrap your application with the CopilotKit provider:
 
                 ```tsx title="app/layout.tsx"
-                import { CopilotKit } from "@copilotkit/react-core"; // [!code highlight]
-                import "@copilotkit/react-ui/styles.css";
+                import { CopilotKit } from "@copilotkit/react-core/v2"; // [!code highlight]
+                import "@copilotkit/react-ui/v2/styles.css";
 
                 // ...
 
@@ -301,7 +301,7 @@ Before you begin, you'll need the following:
               Add the CopilotSidebar component to your page:
 
               ```tsx title="app/page.tsx"
-              import { CopilotSidebar } from "@copilotkit/react-ui"; // [!code highlight:1]
+              import { CopilotSidebar } from "@copilotkit/react-core/v2"; // [!code highlight:1]
 
               export default function Page() {
                 return (
@@ -408,13 +408,13 @@ Now that you have your basic agent setup, explore these advanced features:
   <Card
     title="Add some generative UI"
     description="Render your agent's progress and output in the UI."
-    href="/llamaindex/generative-ui"
+    href="/llamaindex/generative-ui/tool-rendering"
     icon={<PaintbrushIcon />}
   />
   <Card
     title="Setup frontend actions"
     description="Give your agent the ability to call frontend tools, directly updating your application."
-    href="/llamaindex/frontend-actions"
+    href="/llamaindex/frontend-tools"
     icon={<WrenchIcon />}
   />
 </Cards>

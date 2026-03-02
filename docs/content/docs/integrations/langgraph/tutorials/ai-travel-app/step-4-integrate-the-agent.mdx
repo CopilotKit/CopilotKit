@@ -134,7 +134,7 @@ Our current goal is to create a bidirectional connection between these two state
 // ...
 // [!code word:AgentState:1]
 import { Trip, Place, AgentState, defaultTrips} from "@/lib/trips";
-import { useCoAgent } from "@copilotkit/react-core"; // [!code ++]
+import { useAgent } from "@copilotkit/react-core/v2"; // [!code ++]
 
 export const TripsProvider = ({ children }: { children: ReactNode }) => {
   // [!code --:5]
@@ -143,7 +143,7 @@ export const TripsProvider = ({ children }: { children: ReactNode }) => {
     selected_trip_id: defaultTrips && defaultTrips[0] ? defaultTrips[0].id : null
   });
   // [!code ++:9]
-  const { state, setState } = useCoAgent<AgentState>({
+  const { state, setState } = useAgent<AgentState>({
     name: "travel",
     initialState: {
       trips: defaultTrips,

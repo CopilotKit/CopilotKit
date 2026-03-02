@@ -64,8 +64,8 @@ Wrap your application with the CopilotKit provider:
 "use client";
 
 // ...
-import { CopilotKit } from "@copilotkit/react-core"; // [!code ++]
-import "@copilotkit/react-ui/styles.css"; // [!code ++]
+import { CopilotKit } from "@copilotkit/react-core/v2"; // [!code ++]
+import "@copilotkit/react-ui/v2/styles.css"; // [!code ++]
 // ...
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
@@ -105,17 +105,16 @@ In this tutorial, we'll use the `<CopilotChat/>` component as we want to aim for
 ```tsx title="frontend/src/components/Chat.tsx"
 "use client"
 
-import { CopilotChat } from "@copilotkit/react-ui";
+import { CopilotChat } from "@copilotkit/react-core/v2";
 import { INITIAL_MESSAGE, MAIN_CHAT_INSTRUCTIONS, MAIN_CHAT_TITLE } from "@/lib/consts";
 
 export default function Chat({ onSubmitMessage }: { onSubmitMessage: () => void }) {
   return (
       // [!code ++:10]
       <CopilotChat
-          instructions={MAIN_CHAT_INSTRUCTIONS}
           labels={{
-              title: MAIN_CHAT_TITLE,
-              initial: INITIAL_MESSAGE,
+              modalHeaderTitle: MAIN_CHAT_TITLE,
+              welcomeMessageText: INITIAL_MESSAGE,
           }}
           className="h-full w-full font-noto"
           onSubmitMessage={onSubmitMessage}

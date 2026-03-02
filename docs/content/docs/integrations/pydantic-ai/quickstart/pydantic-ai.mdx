@@ -205,7 +205,7 @@ Before you begin, you'll need the following:
                 ```tsx title="app/layout.tsx"
                 import "./globals.css";
                 import { ReactNode } from "react";
-                import { CopilotKit } from "@copilotkit/react-core";
+                import { CopilotKit } from "@copilotkit/react-core/v2";
 
                 export default function RootLayout({ children }: { children: ReactNode }) {
                   return (
@@ -229,8 +229,8 @@ Before you begin, you'll need the following:
 
                 ```tsx title="page.tsx"
                 // [!code highlight:2]
-                import "@copilotkit/react-ui/styles.css";
-                import { CopilotSidebar } from "@copilotkit/react-ui";
+                import "@copilotkit/react-ui/v2/styles.css";
+                import { CopilotSidebar } from "@copilotkit/react-core/v2";
 
                 export function YourApp() {
                 return (
@@ -239,8 +239,8 @@ Before you begin, you'll need the following:
                     {/* [!code highlight:6] */}
                     <CopilotSidebar
                         labels={{
-                            title: "Popup Assistant",
-                            initial: "Hi! I'm connected to an agent. How can I help?",
+                            modalHeaderTitle: "Popup Assistant",
+                            welcomeMessageText: "Hi! I'm connected to an agent. How can I help?",
                         }}
                     />
                     </main>
@@ -249,7 +249,7 @@ Before you begin, you'll need the following:
                 ```
 
                 <Callout type="info">
-                    Looking for other chat component options? Check out our [Agentic Chat UI](/pydantic-ai/agentic-chat-ui) guide.
+                    Looking for other chat component options? Check out our [Agentic Chat UI](/pydantic-ai/prebuilt-components) guide.
                 </Callout>
             </Step>
         </TailoredContentOption>
@@ -305,13 +305,13 @@ can help you build power agent native applications.
   <Card
     title="Add some generative UI"
     description="Render your agent's progress and output in the UI."
-    href="/pydantic-ai/generative-ui"
+    href="/pydantic-ai/generative-ui/tool-rendering"
     icon={<PaintbrushIcon />}
   />
   <Card
     title="Setup frontend actions"
     description="Give your agent the ability to call frontend tools, directly updating your application."
-    href="/pydantic-ai/frontend-actions"
+    href="/pydantic-ai/frontend-tools"
     icon={<WrenchIcon />}
   />
 </Cards>

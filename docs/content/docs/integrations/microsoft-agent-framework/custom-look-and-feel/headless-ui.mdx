@@ -12,7 +12,7 @@ import HeadlessUI from "@/snippets/shared/guides/custom-look-and-feel/headless-u
 For human-in-the-loop interactions with custom UI, use `useHumanInTheLoop` to create approval workflows:
 
 ```tsx title="src/app/components/chat.tsx"
-import { useHumanInTheLoop, useCopilotChatHeadless_c } from "@copilotkit/react-core";
+import { useHumanInTheLoop, useCopilotChatHeadless_c } from "@copilotkit/react-core/v2";
 
 export const Chat = () => {
   const { messages, sendMessage } = useCopilotChatHeadless_c();

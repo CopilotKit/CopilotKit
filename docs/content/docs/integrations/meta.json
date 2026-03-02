@@ -1,19 +1,18 @@
 {
   "title": "Integrations",
   "pages": [
+    "built-in-agent",
+    "langgraph",
     "adk",
-    "a2a",
     "microsoft-agent-framework",
     "aws-strands",
-    "direct-to-llm",
-    "langgraph",
-    "ag2",
-    "agno",
-    "crewai-crews",
-    "crewai-flows",
-    "llamaindex",
     "mastra",
+    "pydantic-ai",
+    "crewai-flows",
+    "agno",
+    "ag2",
     "agent-spec",
-    "pydantic-ai"
+    "llamaindex",
+    "a2a"
   ]
 }
