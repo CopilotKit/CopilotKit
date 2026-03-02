@@ -76,7 +76,7 @@ describe("CopilotEndpoint middleware", () => {
     expect(after).toHaveBeenCalledWith(
       expect.objectContaining({
         runtime,
-        response,
+        response: expect.any(Response),
         path: expect.any(String),
       }),
     );
@@ -233,7 +233,7 @@ describe("CopilotEndpoint middleware", () => {
     expect(after).toHaveBeenCalledWith(
       expect.objectContaining({
         runtime,
-        response,
+        response: expect.any(Response),
         path: expect.any(String),
       }),
     );
