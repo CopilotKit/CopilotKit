@@ -1,13 +1,8 @@
-/**
- * Deno single-endpoint server factory.
- *
- * Imports from specific dist files (not the barrel index.mjs) to avoid
- * pulling in hono/express/node endpoints. The dist pre-resolves
- * package.json to a .mjs file, avoiding Deno's JSON import restriction.
- */
-import { createCopilotRuntimeHandler } from "../../../../dist/core/fetch-handler.mjs";
-import { CopilotRuntime } from "../../../../dist/core/runtime.mjs";
-import { InMemoryAgentRunner } from "../../../../dist/runner/in-memory.mjs";
+import {
+  CopilotRuntime,
+  createCopilotRuntimeHandler,
+  InMemoryAgentRunner,
+} from "@copilotkitnext/runtime";
 import type { ServerHandle } from "../servers/types.ts";
 
 const BASE_PATH = "/api/copilotkit";
@@ -42,7 +37,7 @@ function createFakeAgent(
 }
 
 export async function createDenoSingleServer(
-  opts: { capturedHeaders?: Record<string, string>[] } = {},
+  opts: { capturedHeaders?: Record<string, string>[]; port?: number } = {},
 ): Promise<ServerHandle> {
   const runtime = new CopilotRuntime({
     agents: { default: createFakeAgent(opts) as any },
@@ -56,11 +51,12 @@ export async function createDenoSingleServer(
     cors: true,
   });
 
-  const server = Deno.serve({ port: 0, onListen: () => {} }, handler);
-  const port = server.addr.port;
+  const port = opts.port ?? 0;
+  const server = Deno.serve({ port, onListen: () => {} }, handler);
+  const actualPort = server.addr.port;
 
   return {
-    baseUrl: `http://localhost:${port}`,
+    baseUrl: `http://localhost:${actualPort}`,
     basePath: BASE_PATH,
     close: async () => {
       await server.shutdown();

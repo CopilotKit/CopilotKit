@@ -1,90 +1,23 @@
 /**
  * Integration tests for the Deno server runtime.
  *
- * Strategy: Deno runs the HTTP server as a subprocess, vitest runs the tests.
- * This avoids all Deno module-resolution issues (JSON imports, sloppy imports)
- * while still verifying the runtime works under Deno's HTTP server.
+ * These tests expect the Deno servers to already be running:
+ *   - Multi-endpoint on http://localhost:3000
+ *   - Single-endpoint on http://localhost:4000
+ *
+ * Start them with:
+ *   deno run --allow-net --allow-read --allow-env --node-modules-dir=auto \
+ *     src/__tests__/integration/deno/deno-server.ts
+ *
+ * Then run these tests:
+ *   npx vitest run --config vitest.deno.config.mjs
  */
 
-import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { spawn, ChildProcess } from "node:child_process";
-import { resolve } from "node:path";
+import { describe, it, expect } from "vitest";
 import { readSSEStream, extractEventTypes } from "../helpers/sse-reader";
 
-// ─── Deno Process Helpers ─────────────────────────────────────────────
-
-const DENO_SERVER_SCRIPT = resolve(
-  __dirname,
-  "deno-server.ts",
-);
-
-interface DenoServer {
-  baseUrl: string;
-  basePath: string;
-  process: ChildProcess;
-  close: () => Promise<void>;
-}
-
-/**
- * Spawn a Deno subprocess that runs the server and return once it's ready.
- */
-function startDenoServer(mode: "multi" | "single"): Promise<DenoServer> {
-  return new Promise((resolve, reject) => {
-    const proc = spawn("deno", [
-      "run",
-      "--allow-net",
-      "--allow-read",
-      "--allow-env",
-      "--sloppy-imports",
-      DENO_SERVER_SCRIPT,
-      mode,
-    ], {
-      stdio: ["pipe", "pipe", "pipe"],
-    });
-
-    let stderr = "";
-    proc.stderr?.on("data", (chunk: Buffer) => {
-      stderr += chunk.toString();
-    });
-
-    const timeout = setTimeout(() => {
-      proc.kill();
-      reject(new Error(`Deno server (${mode}) failed to start within 30s.\nstderr: ${stderr}`));
-    }, 30_000);
-
-    proc.stdout?.once("data", (chunk: Buffer) => {
-      clearTimeout(timeout);
-      try {
-        const { port } = JSON.parse(chunk.toString().trim());
-        resolve({
-          baseUrl: `http://localhost:${port}`,
-          basePath: "/api/copilotkit",
-          process: proc,
-          close: async () => {
-            proc.kill();
-            // Wait for process exit
-            await new Promise<void>((r) => proc.on("close", r));
-          },
-        });
-      } catch (err) {
-        proc.kill();
-        reject(new Error(`Failed to parse Deno server output: ${chunk.toString()}\nstderr: ${stderr}`));
-      }
-    });
-
-    proc.on("error", (err) => {
-      clearTimeout(timeout);
-      reject(new Error(`Failed to spawn Deno: ${err.message}`));
-    });
-
-    proc.on("close", (code) => {
-      clearTimeout(timeout);
-      if (code !== null && code !== 0) {
-        reject(new Error(`Deno server exited with code ${code}.\nstderr: ${stderr}`));
-      }
-    });
-  });
-}
+const MULTI_BASE = "http://localhost:3000/api/copilotkit";
+const SINGLE_BASE = "http://localhost:4000/api/copilotkit";
 
 // ─── Helpers ──────────────────────────────────────────────────────────
 
@@ -115,19 +48,9 @@ function connectBody() {
 // ─── Multi-Endpoint Tests ─────────────────────────────────────────────
 
 describe("[Deno] Multi-Endpoint", () => {
-  let h: DenoServer;
-
-  beforeAll(async () => {
-    h = await startDenoServer("multi");
-  }, 35_000);
-
-  afterAll(async () => {
-    await h?.close();
-  });
-
   // Info
   it("GET /info returns 200 with runtime info", async () => {
-    const res = await fetch(`${h.baseUrl}${h.basePath}/info`);
+    const res = await fetch(`${MULTI_BASE}/info`);
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body).toHaveProperty("version");
@@ -138,7 +61,7 @@ describe("[Deno] Multi-Endpoint", () => {
 
   // Agent Run
   it("POST /agent/default/run returns SSE stream", async () => {
-    const res = await fetch(`${h.baseUrl}${h.basePath}/agent/default/run`, {
+    const res = await fetch(`${MULTI_BASE}/agent/default/run`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: runBody(),
@@ -148,7 +71,7 @@ describe("[Deno] Multi-Endpoint", () => {
   });
 
   it("SSE stream contains correct event sequence", async () => {
-    const res = await fetch(`${h.baseUrl}${h.basePath}/agent/default/run`, {
+    const res = await fetch(`${MULTI_BASE}/agent/default/run`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: runBody(),
@@ -161,7 +84,7 @@ describe("[Deno] Multi-Endpoint", () => {
   });
 
   it("SSE stream contains expected delta text", async () => {
-    const res = await fetch(`${h.baseUrl}${h.basePath}/agent/default/run`, {
+    const res = await fetch(`${MULTI_BASE}/agent/default/run`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: runBody(),
@@ -171,7 +94,7 @@ describe("[Deno] Multi-Endpoint", () => {
   });
 
   it("returns 404 for unknown agent", async () => {
-    const res = await fetch(`${h.baseUrl}${h.basePath}/agent/nonexistent/run`, {
+    const res = await fetch(`${MULTI_BASE}/agent/nonexistent/run`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: runBody(),
@@ -181,7 +104,7 @@ describe("[Deno] Multi-Endpoint", () => {
 
   // Agent Connect
   it("POST /agent/default/connect returns SSE stream", async () => {
-    const res = await fetch(`${h.baseUrl}${h.basePath}/agent/default/connect`, {
+    const res = await fetch(`${MULTI_BASE}/agent/default/connect`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: connectBody(),
@@ -192,7 +115,7 @@ describe("[Deno] Multi-Endpoint", () => {
 
   // Agent Stop
   it("POST /agent/default/stop returns stop result", async () => {
-    const res = await fetch(`${h.baseUrl}${h.basePath}/agent/default/stop/thread-1`, {
+    const res = await fetch(`${MULTI_BASE}/agent/default/stop/thread-1`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
     });
@@ -204,7 +127,7 @@ describe("[Deno] Multi-Endpoint", () => {
 
   // Transcribe
   it("POST /transcribe returns 503 without transcription service", async () => {
-    const res = await fetch(`${h.baseUrl}${h.basePath}/transcribe`, {
+    const res = await fetch(`${MULTI_BASE}/transcribe`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({}),
@@ -214,7 +137,7 @@ describe("[Deno] Multi-Endpoint", () => {
 
   // CORS
   it("OPTIONS preflight returns CORS headers", async () => {
-    const res = await fetch(`${h.baseUrl}${h.basePath}/info`, {
+    const res = await fetch(`${MULTI_BASE}/info`, {
       method: "OPTIONS",
       headers: {
         Origin: "https://example.com",
@@ -225,18 +148,18 @@ describe("[Deno] Multi-Endpoint", () => {
   });
 
   it("POST response includes CORS headers", async () => {
-    const res = await fetch(`${h.baseUrl}${h.basePath}/info`);
+    const res = await fetch(`${MULTI_BASE}/info`);
     expect(res.headers.get("access-control-allow-origin")).toBe("*");
   });
 
   // Error Handling
   it("POST /info returns 405", async () => {
-    const res = await fetch(`${h.baseUrl}${h.basePath}/info`, { method: "POST" });
+    const res = await fetch(`${MULTI_BASE}/info`, { method: "POST" });
     expect(res.status).toBe(405);
   });
 
   it("GET /nonexistent returns 404", async () => {
-    const res = await fetch(`${h.baseUrl}${h.basePath}/nonexistent`);
+    const res = await fetch(`${MULTI_BASE}/nonexistent`);
     expect(res.status).toBe(404);
   });
 });
@@ -244,18 +167,8 @@ describe("[Deno] Multi-Endpoint", () => {
 // ─── Single-Endpoint Tests ────────────────────────────────────────────
 
 describe("[Deno] Single-Endpoint", () => {
-  let h: DenoServer;
-
-  beforeAll(async () => {
-    h = await startDenoServer("single");
-  }, 35_000);
-
-  afterAll(async () => {
-    await h?.close();
-  });
-
   function postEnvelope(envelope: Record<string, unknown>) {
-    return fetch(`${h.baseUrl}${h.basePath}`, {
+    return fetch(SINGLE_BASE, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(envelope),
@@ -350,7 +263,7 @@ describe("[Deno] Single-Endpoint", () => {
 
   // CORS
   it("OPTIONS preflight returns CORS headers", async () => {
-    const res = await fetch(`${h.baseUrl}${h.basePath}`, {
+    const res = await fetch(SINGLE_BASE, {
       method: "OPTIONS",
       headers: {
         Origin: "https://example.com",
@@ -367,7 +280,7 @@ describe("[Deno] Single-Endpoint", () => {
 
   // Error Handling
   it("GET returns 405", async () => {
-    const res = await fetch(`${h.baseUrl}${h.basePath}`);
+    const res = await fetch(SINGLE_BASE);
     expect(res.status).toBe(405);
   });
 

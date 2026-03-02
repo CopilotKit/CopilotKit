@@ -115,6 +115,22 @@ jobs:
       - name: Build runtime
         run: pnpm nx run @copilotkitnext/runtime:build
 
+      - name: Start Deno servers
+        working-directory: packages/v2/runtime
+        run: |
+          deno run --allow-net --allow-read --allow-env --node-modules-dir=auto \
+            src/__tests__/integration/deno/deno-server.ts &
+          # Wait for both servers to be ready
+          for port in 3000 4000; do
+            for i in $(seq 1 30); do
+              if curl -s http://localhost:$port/api/copilotkit/info > /dev/null 2>&1; then
+                echo "Port $port ready"
+                break
+              fi
+              sleep 1
+            done
+          done
+
       - name: Run Deno server integration tests
         working-directory: packages/v2/runtime
         run: npx vitest run --config vitest.deno.config.mjs

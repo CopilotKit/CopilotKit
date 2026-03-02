@@ -1,24 +1,20 @@
 /**
- * Deno server entry point — spawned as a subprocess by vitest.
+ * Deno server entry point — run separately, then vitest tests against it.
  *
  * Usage:
- *   deno run --allow-net --allow-read --allow-env --sloppy-imports deno-server.ts <multi|single>
+ *   deno run --allow-net --allow-read --allow-env --node-modules-dir=auto \
+ *     deno-server.ts
  *
- * Prints a JSON line to stdout when ready: { "port": 12345 }
+ * Starts two servers:
+ *   - Multi-endpoint on port 3000
+ *   - Single-endpoint on port 4000
  */
 
 import { createDenoMultiServer } from "./deno-multi.ts";
 import { createDenoSingleServer } from "./deno-single.ts";
 
-const mode = Deno.args[0];
-if (mode !== "multi" && mode !== "single") {
-  console.error("Usage: deno-server.ts <multi|single>");
-  Deno.exit(1);
-}
+await createDenoMultiServer({ port: 3000 });
+console.log("Multi-endpoint server running on http://localhost:3000");
 
-const h = mode === "multi"
-  ? await createDenoMultiServer()
-  : await createDenoSingleServer();
-
-// Signal readiness to the parent process
-console.log(JSON.stringify({ port: parseInt(new URL(h.baseUrl).port) }));
+await createDenoSingleServer({ port: 4000 });
+console.log("Single-endpoint server running on http://localhost:4000");
