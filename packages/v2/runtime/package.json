@@ -41,9 +41,11 @@
   "devDependencies": {
     "@copilotkitnext/eslint-config": "workspace:*",
     "@copilotkitnext/typescript-config": "workspace:*",
+    "@hono/node-server": "^1.13.6",
     "@types/cors": "^2.8.17",
     "@types/express": "^4.17.21",
     "@types/node": "^22.15.3",
+    "elysia": "^1.2.25",
     "eslint": "^9.30.0",
     "supertest": "^7.1.1",
     "tsdown": "^0.20.3",
