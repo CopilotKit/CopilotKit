@@ -36,10 +36,14 @@ type _exhaustive =
       };
 const _check: _exhaustive = true;
 
-const { mockProviderFn, mockCreateOpenAI } = vi.hoisted(() => {
-  const mockProviderFn = vi.fn().mockReturnValue({ modelId: "test-model" });
+const { mockProviderFn, mockChatFn, mockCreateOpenAI } = vi.hoisted(() => {
+  const mockChatFn = vi.fn().mockReturnValue({ modelId: "test-model" });
+  const mockProviderFn = Object.assign(
+    vi.fn().mockReturnValue({ modelId: "test-model" }),
+    { chat: mockChatFn },
+  );
   const mockCreateOpenAI = vi.fn().mockReturnValue(mockProviderFn);
-  return { mockProviderFn, mockCreateOpenAI };
+  return { mockProviderFn, mockChatFn, mockCreateOpenAI };
 });
 
 vi.mock("@ai-sdk/openai", async (importOriginal) => {
@@ -105,7 +109,9 @@ describe("OpenAIAdapter.getLanguageModel()", () => {
     expect(settings.headers).toEqual({ "api-key": "azure-key" });
     expect(settings.fetch).toBe(customFetch);
 
-    expect(mockProviderFn).toHaveBeenCalledWith("gpt-4o");
+    // Must use .chat() to force Chat Completions API (#3317)
+    expect(mockChatFn).toHaveBeenCalledWith("gpt-4o");
+    expect(mockProviderFn).not.toHaveBeenCalled();
   });
 
   it("works with default OpenAI config (no custom options)", () => {
@@ -118,5 +124,20 @@ describe("OpenAIAdapter.getLanguageModel()", () => {
     expect(settings.apiKey).toBe("sk-test");
     expect(settings.organization).toBeUndefined();
     expect(settings.project).toBeUndefined();
+  });
+
+  it("uses .chat() to avoid Responses API for OpenAI-compatible providers (#3317)", () => {
+    const openai = new OpenAI({
+      apiKey: "or-key",
+      baseURL: "https://openrouter.ai/api/v1",
+    });
+    const adapter = new OpenAIAdapter({ openai, model: "google/gemini-2.5-flash-lite" });
+    adapter.getLanguageModel();
+
+    // provider.chat() must be called instead of provider() to prevent
+    // the AI SDK from auto-selecting the Responses API, which breaks
+    // OpenAI-compatible providers like OpenRouter.
+    expect(mockChatFn).toHaveBeenCalledWith("google/gemini-2.5-flash-lite");
+    expect(mockProviderFn).not.toHaveBeenCalled();
   });
 });
