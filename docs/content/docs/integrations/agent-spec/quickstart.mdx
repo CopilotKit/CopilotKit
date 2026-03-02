@@ -55,7 +55,7 @@ Environment:
 
 ```bash
 export OPENAI_API_KEY=...
-export OPENAI_MODEL=gpt-4o
+export OPENAI_MODEL=gpt-5.2
 ```
 
 Note that these environment variables can point to any OpenAI-compatible LLM provider (e.g., local vLLM server, Together AI), but the variable names need to be `OPENAI_API_KEY` and `OPENAI_MODEL`.
@@ -87,7 +87,7 @@ agentspec_agent = Agent(
     system_prompt="You are a helpful assistant, named Specky, that speaks a lot.",
     llm_config=OpenAiCompatibleConfig(
         name="my-llm",
-        model_id="gpt-4o",
+        model_id="gpt-5.2",
         url="https://api.openai.com/v1",
     ),
 )
@@ -162,7 +162,7 @@ agent = AgentSpecAgent(
 add_agentspec_fastapi_endpoint(app, agentspec_agent=agent, path="/")
 ```
 
-Frontend tools (corresponding to Agent Spec `ClientTool`) run in the browser and don't need to be added to the tool registry — see [Generative UI Frontend Tools](/agent-spec/generative-ui/frontend-tools) for details.
+Frontend tools (corresponding to Agent Spec `ClientTool`) run in the browser and don't need to be added to the tool registry — see [Generative UI Frontend Tools](/agent-spec/frontend-tools) for details.
 
 ## What is happening under the hood
 

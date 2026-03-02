@@ -1,0 +1,47 @@
+---
+title: Headless UI
+icon: "lucide/Code"
+description: Build fully custom chat interfaces with complete rendering control via hooks.
+hideTOC: true
+---
+import { IntegrationGrid } from "@/components/content/integration-grid";
+import { Tabs, Tab } from "fumadocs-ui/components/tabs";
+
+## Full rendering control via hooks
+
+CopilotKit's headless hooks give you complete control over the chat experience — manage messages, streaming, and tool calls with zero UI opinions.
+Bring your own design system and render everything your way.
+
+<Tabs items={['chat.tsx']}>
+  <Tab value="chat.tsx">
+  ```tsx
+  import { useAgent } from "@copilotkit/react-core/v2";
+
+  export default function Chat() {
+    const { run, messages, isRunning } = useAgent();
+
+    return (
+      <div>
+        {messages.map((m) => (
+          <p key={m.id}>{m.content}</p>
+        ))}
+        <button onClick={() => run("Hello!")}>
+          {isRunning ? "Thinking..." : "Send"}
+        </button>
+      </div>
+    );
+  }
+  ```
+  </Tab>
+</Tabs>
+
+## When should I use this?
+
+Use headless UI when you want to:
+- Build a completely custom chat interface with your own design system
+- Integrate agent chat into existing UI patterns
+- Have full control over message rendering and interaction
+
+## Get started by choosing your AI backend
+
+<IntegrationGrid path="headless"/>

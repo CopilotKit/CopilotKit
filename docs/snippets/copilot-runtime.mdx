@@ -41,6 +41,21 @@ Then point your frontend at the endpoint:
 
 For setup with other backend frameworks (Express, NestJS, Node.js HTTP), see the [quickstart](/quickstart).
 
+## The Default Agent
+
+If you register an agent with the name `"default"`, CopilotKit's prebuilt UI components will use it automatically without any additional configuration on the frontend. This is useful when you have one primary agent and don't want to specify an `agentId` everywhere.
+
+```ts title="app/api/copilotkit/route.ts"
+const runtime = new CopilotRuntime({
+  agents: {
+    // This agent will be used automatically by CopilotPopup, CopilotSidebar, etc.
+    "default": new HttpAgent({ url: "https://my-agent.example.com" }),
+  },
+});
+```
+
+When you register multiple agents, the `"default"` agent is what powers the chat unless a specific agent is selected. Other agents can still be used by passing their `agentId` to `useAgent` or the prebuilt components.
+
 ## What the Runtime Provides
 
 ### Authentication and Security

@@ -86,7 +86,7 @@ const openai = new OpenAI({
             import { ChatOpenAI } from "@langchain/openai";
         `,
     clientSetup:
-      'const model = new ChatOpenAI({ model: "gpt-4o", apiKey: process.env.OPENAI_API_KEY });',
+      'const model = new ChatOpenAI({ model: "gpt-5.2", apiKey: process.env.OPENAI_API_KEY });',
     adapterSetup: `
         const serviceAdapter = new LangChainAdapter({
     chainFn: async ({ messages, tools }) => {
