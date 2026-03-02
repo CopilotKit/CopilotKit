@@ -67,39 +67,40 @@ export const HoveringToolbar = (props: HoveringToolbarProps) => {
       return;
     }
 
-    const verticalOffsetFromCorner = 0;
-    const horizontalOffsetFromCorner = 0;
+    const padding = 6;
 
     // position the toolbar below the selection
-    let top = rect.bottom + window.scrollY + verticalOffsetFromCorner;
+    let top = rect.bottom + window.scrollY + padding;
 
     // no space left at bottom, move up
-    if (
-      rect.bottom + el.offsetHeight >
-      window.innerHeight - verticalOffsetFromCorner
-    ) {
-      top =
-        rect.top + window.scrollY - el.offsetHeight - verticalOffsetFromCorner;
+    if (rect.bottom + el.offsetHeight + padding > window.innerHeight) {
+      top = rect.top + window.scrollY - el.offsetHeight - padding;
+    }
+
+    // ensure top doesn't go above viewport
+    if (top < window.scrollY + padding) {
+      top = window.scrollY + padding;
+    }
+
+    // ensure bottom doesn't go below viewport
+    if (top + el.offsetHeight > window.scrollY + window.innerHeight - padding) {
+      top = window.scrollY + window.innerHeight - el.offsetHeight - padding;
     }
 
     // position the toolbar in the center of the selection
     let left =
-      rect.left +
-      window.scrollX -
-      el.offsetWidth / 2 +
-      rect.width / 2 +
-      horizontalOffsetFromCorner;
+      rect.left + window.scrollX - el.offsetWidth / 2 + rect.width / 2;
 
     // no space left at left, move right
-    if (left < horizontalOffsetFromCorner) {
-      left = horizontalOffsetFromCorner;
+    if (left < window.scrollX + padding) {
+      left = window.scrollX + padding;
     }
     // no space left at right, move left
     else if (
       left + el.offsetWidth >
-      window.innerWidth - horizontalOffsetFromCorner
+      window.scrollX + window.innerWidth - padding
     ) {
-      left = window.innerWidth - el.offsetWidth - horizontalOffsetFromCorner;
+      left = window.scrollX + window.innerWidth - el.offsetWidth - padding;
     }
 
     el.style.opacity = "1";
