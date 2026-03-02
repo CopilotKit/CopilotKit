@@ -1,0 +1,6 @@
+{
+  "nodeModulesDir": "auto",
+  "imports": {
+    "@copilotkitnext/shared": "../../../../../shared/dist/index.mjs"
+  }
+}
