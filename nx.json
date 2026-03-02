@@ -3,7 +3,10 @@
   "namedInputs": {
     "default": [
       "{projectRoot}/**/*",
-      "!{projectRoot}/node_modules/**/*"
+      "!{projectRoot}/node_modules/**/*",
+      "!{projectRoot}/**/*.md",
+      "!{projectRoot}/**/*.yml",
+      "!{projectRoot}/**/*.yaml"
     ],
     "production": [
       "default",
