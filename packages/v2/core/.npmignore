@@ -30,6 +30,7 @@ Thumbs.db
 # Documentation
 *.md
 !README.md
+!dist/skills/**
 
 # Git
 .git/
