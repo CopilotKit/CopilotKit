@@ -2,10 +2,6 @@
 > CopilotKit@ changeset /home/runner/work/CopilotKit/CopilotKit
 > changeset publish --no-git-tag
 
-🦋  [33mwarn[39m [31m===============================IMPORTANT!===============================[39m
-🦋  [33mwarn[39m You are in prerelease mode so packages will be published to the [36mnext[39m
-🦋  [33mwarn[39m         dist tag except for packages that have not had normal releases which will be published to [36mlatest[39m
-🦋  [33mwarn[39m [31m----------------------------------------------------------------------[39m
 🦋  [36minfo[39m npm info agent-langraph-interrupt
 🦋  [36minfo[39m npm info @copilotkit/a2ui-renderer
 🦋  [36minfo[39m npm info @copilotkit/react-core
@@ -25,55 +21,55 @@
 🦋  [36minfo[39m npm info @copilotkit/voice
 🦋  [36minfo[39m npm info @copilotkitnext/web-inspector
 🦋  [33mwarn[39m agent-langraph-interrupt is not being published because version 0.0.1 is already published on npm
-🦋  [36minfo[39m @copilotkit/a2ui-renderer is being published because our local version (1.52.1-next.1) has not been published on npm
-🦋  [36minfo[39m @copilotkit/react-core is being published because our local version (1.52.1-next.1) has not been published on npm
-🦋  [36minfo[39m @copilotkit/react-textarea is being published because our local version (1.52.1-next.1) has not been published on npm
-🦋  [36minfo[39m @copilotkit/react-ui is being published because our local version (1.52.1-next.1) has not been published on npm
-🦋  [36minfo[39m @copilotkit/runtime is being published because our local version (1.52.1-next.1) has not been published on npm
-🦋  [36minfo[39m @copilotkit/runtime-client-gql is being published because our local version (1.52.1-next.1) has not been published on npm
-🦋  [36minfo[39m @copilotkit/sdk-js is being published because our local version (1.52.1-next.1) has not been published on npm
-🦋  [36minfo[39m @copilotkit/shared is being published because our local version (1.52.1-next.1) has not been published on npm
-🦋  [36minfo[39m @copilotkitnext/agent is being published because our local version (1.52.1-next.1) has not been published on npm
-🦋  [36minfo[39m @copilotkitnext/angular is being published because our local version (1.52.1-next.1) has not been published on npm
-🦋  [36minfo[39m @copilotkitnext/core is being published because our local version (1.52.1-next.1) has not been published on npm
-🦋  [36minfo[39m @copilotkitnext/react is being published because our local version (1.52.1-next.1) has not been published on npm
-🦋  [36minfo[39m @copilotkitnext/runtime is being published because our local version (1.52.1-next.1) has not been published on npm
-🦋  [36minfo[39m @copilotkitnext/shared is being published because our local version (1.52.1-next.1) has not been published on npm
-🦋  [36minfo[39m @copilotkitnext/sqlite-runner is being published because our local version (1.52.1-next.1) has not been published on npm
-🦋  [36minfo[39m @copilotkit/voice is being published because our local version (1.52.1-next.1) has not been published on npm
-🦋  [36minfo[39m @copilotkitnext/web-inspector is being published because our local version (1.52.1-next.1) has not been published on npm
-🦋  [36minfo[39m Publishing [36m"@copilotkit/a2ui-renderer"[39m at [32m"1.52.1-next.1"[39m
-🦋  [36minfo[39m Publishing [36m"@copilotkit/react-core"[39m at [32m"1.52.1-next.1"[39m
-🦋  [36minfo[39m Publishing [36m"@copilotkit/react-textarea"[39m at [32m"1.52.1-next.1"[39m
-🦋  [36minfo[39m Publishing [36m"@copilotkit/react-ui"[39m at [32m"1.52.1-next.1"[39m
-🦋  [36minfo[39m Publishing [36m"@copilotkit/runtime"[39m at [32m"1.52.1-next.1"[39m
-🦋  [36minfo[39m Publishing [36m"@copilotkit/runtime-client-gql"[39m at [32m"1.52.1-next.1"[39m
-🦋  [36minfo[39m Publishing [36m"@copilotkit/sdk-js"[39m at [32m"1.52.1-next.1"[39m
-🦋  [36minfo[39m Publishing [36m"@copilotkit/shared"[39m at [32m"1.52.1-next.1"[39m
-🦋  [36minfo[39m Publishing [36m"@copilotkitnext/agent"[39m at [32m"1.52.1-next.1"[39m
-🦋  [36minfo[39m Publishing [36m"@copilotkitnext/angular"[39m at [32m"1.52.1-next.1"[39m
-🦋  [36minfo[39m Publishing [36m"@copilotkitnext/core"[39m at [32m"1.52.1-next.1"[39m
-🦋  [36minfo[39m Publishing [36m"@copilotkitnext/react"[39m at [32m"1.52.1-next.1"[39m
-🦋  [36minfo[39m Publishing [36m"@copilotkitnext/runtime"[39m at [32m"1.52.1-next.1"[39m
-🦋  [36minfo[39m Publishing [36m"@copilotkitnext/shared"[39m at [32m"1.52.1-next.1"[39m
-🦋  [36minfo[39m Publishing [36m"@copilotkitnext/sqlite-runner"[39m at [32m"1.52.1-next.1"[39m
-🦋  [36minfo[39m Publishing [36m"@copilotkit/voice"[39m at [32m"1.52.1-next.1"[39m
-🦋  [36minfo[39m Publishing [36m"@copilotkitnext/web-inspector"[39m at [32m"1.52.1-next.1"[39m
+🦋  [36minfo[39m @copilotkit/a2ui-renderer is being published because our local version (1.52.1) has not been published on npm
+🦋  [36minfo[39m @copilotkit/react-core is being published because our local version (1.52.1) has not been published on npm
+🦋  [36minfo[39m @copilotkit/react-textarea is being published because our local version (1.52.1) has not been published on npm
+🦋  [36minfo[39m @copilotkit/react-ui is being published because our local version (1.52.1) has not been published on npm
+🦋  [36minfo[39m @copilotkit/runtime is being published because our local version (1.52.1) has not been published on npm
+🦋  [36minfo[39m @copilotkit/runtime-client-gql is being published because our local version (1.52.1) has not been published on npm
+🦋  [36minfo[39m @copilotkit/sdk-js is being published because our local version (1.52.1) has not been published on npm
+🦋  [36minfo[39m @copilotkit/shared is being published because our local version (1.52.1) has not been published on npm
+🦋  [36minfo[39m @copilotkitnext/agent is being published because our local version (1.52.1) has not been published on npm
+🦋  [36minfo[39m @copilotkitnext/angular is being published because our local version (1.52.1) has not been published on npm
+🦋  [36minfo[39m @copilotkitnext/core is being published because our local version (1.52.1) has not been published on npm
+🦋  [36minfo[39m @copilotkitnext/react is being published because our local version (1.52.1) has not been published on npm
+🦋  [36minfo[39m @copilotkitnext/runtime is being published because our local version (1.52.1) has not been published on npm
+🦋  [36minfo[39m @copilotkitnext/shared is being published because our local version (1.52.1) has not been published on npm
+🦋  [36minfo[39m @copilotkitnext/sqlite-runner is being published because our local version (1.52.1) has not been published on npm
+🦋  [36minfo[39m @copilotkit/voice is being published because our local version (1.52.1) has not been published on npm
+🦋  [36minfo[39m @copilotkitnext/web-inspector is being published because our local version (1.52.1) has not been published on npm
+🦋  [36minfo[39m Publishing [36m"@copilotkit/a2ui-renderer"[39m at [32m"1.52.1"[39m
+🦋  [36minfo[39m Publishing [36m"@copilotkit/react-core"[39m at [32m"1.52.1"[39m
+🦋  [36minfo[39m Publishing [36m"@copilotkit/react-textarea"[39m at [32m"1.52.1"[39m
+🦋  [36minfo[39m Publishing [36m"@copilotkit/react-ui"[39m at [32m"1.52.1"[39m
+🦋  [36minfo[39m Publishing [36m"@copilotkit/runtime"[39m at [32m"1.52.1"[39m
+🦋  [36minfo[39m Publishing [36m"@copilotkit/runtime-client-gql"[39m at [32m"1.52.1"[39m
+🦋  [36minfo[39m Publishing [36m"@copilotkit/sdk-js"[39m at [32m"1.52.1"[39m
+🦋  [36minfo[39m Publishing [36m"@copilotkit/shared"[39m at [32m"1.52.1"[39m
+🦋  [36minfo[39m Publishing [36m"@copilotkitnext/agent"[39m at [32m"1.52.1"[39m
+🦋  [36minfo[39m Publishing [36m"@copilotkitnext/angular"[39m at [32m"1.52.1"[39m
+🦋  [36minfo[39m Publishing [36m"@copilotkitnext/core"[39m at [32m"1.52.1"[39m
+🦋  [36minfo[39m Publishing [36m"@copilotkitnext/react"[39m at [32m"1.52.1"[39m
+🦋  [36minfo[39m Publishing [36m"@copilotkitnext/runtime"[39m at [32m"1.52.1"[39m
+🦋  [36minfo[39m Publishing [36m"@copilotkitnext/shared"[39m at [32m"1.52.1"[39m
+🦋  [36minfo[39m Publishing [36m"@copilotkitnext/sqlite-runner"[39m at [32m"1.52.1"[39m
+🦋  [36minfo[39m Publishing [36m"@copilotkit/voice"[39m at [32m"1.52.1"[39m
+🦋  [36minfo[39m Publishing [36m"@copilotkitnext/web-inspector"[39m at [32m"1.52.1"[39m
 🦋  [32msuccess[39m packages published successfully:
-🦋  @copilotkit/a2ui-renderer@1.52.1-next.1
-🦋  @copilotkit/react-core@1.52.1-next.1
-🦋  @copilotkit/react-textarea@1.52.1-next.1
-🦋  @copilotkit/react-ui@1.52.1-next.1
-🦋  @copilotkit/runtime@1.52.1-next.1
-🦋  @copilotkit/runtime-client-gql@1.52.1-next.1
-🦋  @copilotkit/sdk-js@1.52.1-next.1
-🦋  @copilotkit/shared@1.52.1-next.1
-🦋  @copilotkitnext/agent@1.52.1-next.1
-🦋  @copilotkitnext/angular@1.52.1-next.1
-🦋  @copilotkitnext/core@1.52.1-next.1
-🦋  @copilotkitnext/react@1.52.1-next.1
-🦋  @copilotkitnext/runtime@1.52.1-next.1
-🦋  @copilotkitnext/shared@1.52.1-next.1
-🦋  @copilotkitnext/sqlite-runner@1.52.1-next.1
-🦋  @copilotkit/voice@1.52.1-next.1
-🦋  @copilotkitnext/web-inspector@1.52.1-next.1
+🦋  @copilotkit/a2ui-renderer@1.52.1
+🦋  @copilotkit/react-core@1.52.1
+🦋  @copilotkit/react-textarea@1.52.1
+🦋  @copilotkit/react-ui@1.52.1
+🦋  @copilotkit/runtime@1.52.1
+🦋  @copilotkit/runtime-client-gql@1.52.1
+🦋  @copilotkit/sdk-js@1.52.1
+🦋  @copilotkit/shared@1.52.1
+🦋  @copilotkitnext/agent@1.52.1
+🦋  @copilotkitnext/angular@1.52.1
+🦋  @copilotkitnext/core@1.52.1
+🦋  @copilotkitnext/react@1.52.1
+🦋  @copilotkitnext/runtime@1.52.1
+🦋  @copilotkitnext/shared@1.52.1
+🦋  @copilotkitnext/sqlite-runner@1.52.1
+🦋  @copilotkit/voice@1.52.1
+🦋  @copilotkitnext/web-inspector@1.52.1

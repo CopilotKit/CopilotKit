@@ -1,0 +1,22 @@
+{
+  "title": "Learn",
+  "root": true,
+  "pages": [
+    "---What's New---",
+    "...whats-new",
+    "---Agentic Protocols---",
+    "agentic-protocols",
+    "ag-ui-protocol",
+    "connect-mcp-servers",
+    "a2a-protocol",
+    "---Generative UI---",
+    "...generative-ui",
+    "---Architecture---",
+    "architecture",
+    "---Tutorials---",
+    "[Tutorial: AI Todo App](../direct-to-llm/tutorials/ai-todo-app/overview)",
+    "[Tutorial: AI Travel App](../langgraph/tutorials/ai-travel-app)",
+    "[Video: Research Canvas](../langgraph/videos/research-canvas)",
+    "[Cookbook: State Machine](../direct-to-llm/cookbook/state-machine)"
+  ]
+}

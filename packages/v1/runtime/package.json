@@ -9,7 +9,7 @@
   "publishConfig": {
     "access": "public"
   },
-  "version": "1.52.1-next.1",
+  "version": "1.52.1",
   "sideEffects": [
     "./dist/index.mjs",
     "./dist/index.cjs",
@@ -36,7 +36,7 @@
   "types": "./dist/index.d.cts",
   "license": "MIT",
   "scripts": {
-    "build": "pnpm run generate-graphql-schema && tsdown",
+    "build": "tsdown",
     "dev": "tsdown --watch",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -127,6 +127,16 @@
     },
     "openai": {
       "optional": true
+    }
+  },
+  "nx": {
+    "targets": {
+      "build": {
+        "dependsOn": [
+          "generate-graphql-schema",
+          "^build"
+        ]
+      }
     }
   },
   "keywords": [
