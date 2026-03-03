@@ -114,6 +114,47 @@ function parseFrontmatter(rawContent) {
   return { data, body };
 }
 
+/**
+ * Detects whether an integration MDX file is a "thin snippet wrapper" —
+ * one that simply re-exports shared content with no framework-specific value.
+ *
+ * A file is thin if it has:
+ *   1. NO imports from `@/snippets/integrations/` (framework-specific snippets)
+ *   2. No substantive markdown content (≤5 non-blank lines after stripping
+ *      imports, JSX tags, exports, and prop-like lines)
+ */
+function isThinSnippetWrapper(relativeDocPath) {
+  const absolutePath = path.join(docsContentDir, relativeDocPath);
+  if (!fs.existsSync(absolutePath)) {
+    return false;
+  }
+
+  const raw = fs.readFileSync(absolutePath, "utf8");
+  const { body } = parseFrontmatter(raw);
+
+  // Check for framework-specific snippet imports
+  if (/@\/snippets\/integrations\//.test(body)) {
+    return false;
+  }
+
+  // Strip imports, JSX tags, exports, props, and blanks — count what's left
+  const substantiveLines = body
+    .replace(/\r\n/g, "\n")
+    .split("\n")
+    .filter((line) => {
+      const t = line.trim();
+      if (t === "") return false;
+      if (t.startsWith("import ")) return false;
+      if (t.startsWith("export ")) return false;
+      if (/^<[A-Z]/.test(t) || /^<\/[A-Z]/.test(t)) return false;
+      if (t === "/>" || t === ">") return false;
+      if (/^[A-Za-z0-9_.:-]+\s*=\s*/.test(t)) return false;
+      return true;
+    });
+
+  return substantiveLines.length <= 5;
+}
+
 function resolveSnippetImport(snippetRelativePath) {
   return path.join(snippetsDir, snippetRelativePath);
 }
@@ -518,9 +559,9 @@ function pickIntegrationDocs(allDocPaths, integrationId) {
     .filter((integrationDocPath) => !/state[- ]?machine/i.test(integrationDocPath))
     .sort();
 
-  return integrationDocPaths.map(
-    (integrationDocPath) => `${integrationPrefix}${integrationDocPath}`,
-  );
+  return integrationDocPaths
+    .map((integrationDocPath) => `${integrationPrefix}${integrationDocPath}`)
+    .filter((fullPath) => !isThinSnippetWrapper(fullPath));
 }
 
 function resolveDocs(allDocPaths, candidatePaths) {
@@ -564,12 +605,16 @@ function renderSourceLinks(docs) {
     .join("\n");
 }
 
-function renderGuideDoc({ title, summary, docs }) {
+function renderGuideDoc({ title, summary, docs, crossRefNote }) {
+  const crossRef = crossRefNote
+    ? `> For shared CopilotKit concepts (runtime setup, prebuilt components, troubleshooting, etc.), see the topic guides. This file focuses on framework-specific implementation details.\n\n`
+    : "";
+
   return `# ${title}
 
 ${summary}
 
-## Guidance
+${crossRef}## Guidance
 ${renderDocSections(docs)}
 `;
 }
@@ -779,6 +824,7 @@ function buildTopicSpecs() {
         "(root)/prebuilt-components.mdx",
         "(root)/programmatic-control.mdx",
         "(root)/custom-look-and-feel/headless-ui.mdx",
+        "(root)/custom-look-and-feel/slots.mdx",
       ],
     },
     {
@@ -852,6 +898,8 @@ function buildTopicSpecs() {
         "(root)/troubleshooting/error-debugging.mdx",
         "(root)/troubleshooting/migrate-to-v2.mdx",
         "(root)/troubleshooting/migrate-to-1.10.X.mdx",
+        "(root)/premium/observability.mdx",
+        "(root)/inspector.mdx",
       ],
     },
   ];
@@ -911,6 +959,7 @@ function main() {
         title: `${frameworkEntry.label} Integration`,
         summary: `CopilotKit implementation guide for ${frameworkEntry.label}.`,
         docs: frameworkEntry.docs,
+        crossRefNote: true,
       }),
     );
   }

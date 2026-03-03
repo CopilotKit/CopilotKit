@@ -81,3 +81,21 @@ A headless UI gives you full control over the chat experience — you bring your
 Use headless UI when the [slot system](/custom-look-and-feel/slots) isn't enough — for example, when you need a completely different layout, want to embed the chat into an existing UI, or are building a non-chat interface that still communicates with an agent.
 
 ## Get started by choosing your AI backend
+
+### Slots
+- Route: `/custom-look-and-feel/slots`
+- Source: `docs/content/docs/(root)/custom-look-and-feel/slots.mdx`
+- Description: Customize CopilotKit's built-in UI components using the slot system.
+
+## What is this?
+
+Slots let you customize CopilotKit's pre-built chat components without building everything from scratch. Override specific parts of the UI — message bubbles, input areas, headers — while keeping the rest of the default behavior.
+
+## When should I use this?
+
+Use slots when you want to:
+- Customize specific parts of the chat UI (e.g. message rendering, input area)
+- Match your app's design system without building a fully custom chat
+- Add custom elements like typing indicators, avatars, or action buttons
+
+## Get started by choosing your AI backend
