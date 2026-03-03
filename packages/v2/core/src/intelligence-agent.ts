@@ -6,18 +6,26 @@ import {
 } from "@ag-ui/client";
 import { Observable } from "rxjs";
 import { Socket, Channel } from "phoenix";
+import { AG_UI_CHANNEL_EVENT } from "@copilotkitnext/shared";
 
 export interface IntelligenceAgentConfig {
   /** Phoenix websocket URL, e.g. "ws://localhost:4000/socket" */
   url: string;
+  /** Runtime REST URL, e.g. "http://localhost:4000" */
+  runtimeUrl: string;
+  /** Agent identifier for REST endpoints */
+  agentId: string;
   /** Optional params sent on socket connect (e.g. auth token) */
   socketParams?: Record<string, string>;
+  /** Optional headers sent with REST requests */
+  headers?: Record<string, string>;
 }
 
 export class IntelligenceAgent extends AbstractAgent {
   private config: IntelligenceAgentConfig;
   private socket: Socket | null = null;
   private activeChannel: Channel | null = null;
+  private threadId: string | null = null;
 
   constructor(config: IntelligenceAgentConfig) {
     super();
@@ -29,20 +37,29 @@ export class IntelligenceAgent extends AbstractAgent {
   }
 
   abortRun(): void {
-    if (this.activeChannel) {
-      this.activeChannel.push(EventType.CUSTOM, {
-        type: EventType.CUSTOM,
-        name: "stop",
-        value: {},
-      });
-      this.activeChannel.leave();
-      this.activeChannel = null;
+    if (!this.threadId) {
+      return;
     }
+
+    const { runtimeUrl, agentId, headers } = this.config;
+    const stopPath = `${runtimeUrl}/agent/${encodeURIComponent(agentId)}/stop/${encodeURIComponent(this.threadId)}`;
+
+    void fetch(stopPath, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...headers,
+      },
+    }).catch((error) => {
+      console.error("IntelligenceAgent: stop request failed", error);
+    });
+
+    this.cleanup();
   }
 
   /**
-   * Connect to a Phoenix channel scoped to the thread, send the run input,
-   * and relay server-pushed AG-UI events to the Observable subscriber.
+   * Connect to a Phoenix channel scoped to the thread, trigger the run via
+   * REST, and relay server-pushed AG-UI events to the Observable subscriber.
    *
    * The server pushes each AG-UI event using its EventType string as the
    * Phoenix event name (e.g. "TEXT_MESSAGE_CHUNK", "TOOL_CALL_START"), with
@@ -51,6 +68,8 @@ export class IntelligenceAgent extends AbstractAgent {
    */
   run(input: RunAgentInput): Observable<BaseEvent> {
     return new Observable<BaseEvent>((observer) => {
+      this.threadId = input.threadId;
+
       // ---------------------------------------------------------------
       // 1. Establish socket connection
       // ---------------------------------------------------------------
@@ -69,41 +88,43 @@ export class IntelligenceAgent extends AbstractAgent {
       this.activeChannel = channel;
 
       // ---------------------------------------------------------------
-      // 3. Register a listener for every AG-UI event type. The server
-      //    pushes each event using its EventType string as the Phoenix
-      //    event name, with the full BaseEvent object as the payload.
+      // 3. Listen for AG-UI events on a single channel event name.
+      //    The server pushes every AG-UI event under AG_UI_CHANNEL_EVENT with the
+      //    full BaseEvent as payload; we dispatch based on payload.type.
       // ---------------------------------------------------------------
-      for (const eventType of Object.values(EventType)) {
-        channel.on(eventType, (payload: BaseEvent) => {
-          observer.next(payload);
+      channel.on(AG_UI_CHANNEL_EVENT, (payload: BaseEvent) => {
+        observer.next(payload);
 
-          // Terminal AG-UI events signal the end of a run.
-          if (payload.type === EventType.RUN_FINISHED) {
-            observer.complete();
-            this.cleanup();
-          } else if (payload.type === EventType.RUN_ERROR) {
-            observer.error(
-              new Error(
-                (payload as BaseEvent & { message?: string }).message ??
-                  "Run error",
-              ),
-            );
-            this.cleanup();
-          }
-        });
-      }
+        if (payload.type === EventType.RUN_FINISHED) {
+          observer.complete();
+          this.cleanup();
+        } else if (payload.type === EventType.RUN_ERROR) {
+          observer.error(
+            new Error(
+              (payload as BaseEvent & { message?: string }).message ??
+                "Run error",
+            ),
+          );
+          this.cleanup();
+        }
+      });
 
       // ---------------------------------------------------------------
-      // 4. Join the channel and kick off the run
+      // 4. Join the channel, then trigger the run via REST
       // ---------------------------------------------------------------
       channel
         .join()
         .receive("ok", () => {
-          // Kick off the run by sending a CUSTOM event with the full input.
-          channel.push(EventType.CUSTOM, {
-            type: EventType.CUSTOM,
-            name: "run",
-            value: {
+          const { runtimeUrl, agentId, headers } = this.config;
+          const runPath = `${runtimeUrl}/agent/${encodeURIComponent(agentId)}/run`;
+
+          fetch(runPath, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              ...headers,
+            },
+            body: JSON.stringify({
               threadId: input.threadId,
               runId: input.runId,
               messages: input.messages,
@@ -111,7 +132,18 @@ export class IntelligenceAgent extends AbstractAgent {
               context: input.context,
               state: input.state,
               forwardedProps: input.forwardedProps,
-            },
+            }),
+          }).catch((error) => {
+            const errorEvent = {
+              type: EventType.RUN_ERROR,
+              message: `REST run request failed: ${error.message ?? error}`,
+              code: "REST_RUN_ERROR",
+            } as BaseEvent;
+            observer.next(errorEvent);
+            observer.error(
+              new Error(`REST run request failed: ${error.message ?? error}`),
+            );
+            this.cleanup();
           });
         })
         .receive("error", (resp) => {

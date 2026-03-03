@@ -7,7 +7,7 @@ import {
 } from "./agent-runner";
 import { Observable, ReplaySubject } from "rxjs";
 import { AbstractAgent, BaseEvent, EventType } from "@ag-ui/client";
-import { finalizeRunEvents } from "@copilotkitnext/shared";
+import { finalizeRunEvents, AG_UI_CHANNEL_EVENT } from "@copilotkitnext/shared";
 import { Socket, Channel } from "phoenix";
 
 export interface IntelligenceAgentRunnerOptions {
@@ -63,41 +63,10 @@ export class IntelligenceAgentRunner extends AgentRunner {
     };
     this.threads.set(threadId, state);
 
-    // Register a listener for every AG-UI event type. The server pushes each
-    // event using its EventType string as the Phoenix event name, with the
-    // full BaseEvent object as the payload.
-    for (const eventType of Object.values(EventType)) {
-      channel.on(eventType, (payload: BaseEvent) => {
-        runSubject.next(payload);
-        currentEvents.push(payload);
-
-        // Terminal AG-UI events signal the end of a run.
-        if (
-          payload.type === EventType.RUN_FINISHED ||
-          payload.type === EventType.RUN_ERROR
-        ) {
-          this.finalizeAndComplete(state, threadId);
-        }
-      });
-    }
-
     channel
       .join()
       .receive("ok", () => {
-        // Kick off the run by sending a CUSTOM event with the full input.
-        channel.push(EventType.CUSTOM, {
-          type: EventType.CUSTOM,
-          name: "run",
-          value: {
-            threadId: input.threadId,
-            runId: input.runId,
-            messages: input.messages,
-            tools: input.tools,
-            context: input.context,
-            state: input.state,
-            forwardedProps: input.forwardedProps,
-          },
-        });
+        this.executeAgentRun(request, state, threadId);
       })
       .receive("error", (resp) => {
         const errorEvent = {
@@ -122,20 +91,17 @@ export class IntelligenceAgentRunner extends AgentRunner {
       mode: "connect",
     });
 
-    // Listen for all AG-UI event types the server may push (historic replay
-    // and any in-progress run events).
-    for (const eventType of Object.values(EventType)) {
-      channel.on(eventType, (payload: BaseEvent) => {
-        connectionSubject.next(payload);
+    // Listen for AG-UI events on a single channel event name.
+    channel.on(AG_UI_CHANNEL_EVENT, (payload: BaseEvent) => {
+      connectionSubject.next(payload);
 
-        if (
-          payload.type === EventType.RUN_FINISHED ||
-          payload.type === EventType.RUN_ERROR
-        ) {
-          connectionSubject.complete();
-        }
-      });
-    }
+      if (
+        payload.type === EventType.RUN_FINISHED ||
+        payload.type === EventType.RUN_ERROR
+      ) {
+        connectionSubject.complete();
+      }
+    });
 
     channel
       .join()
@@ -167,19 +133,12 @@ export class IntelligenceAgentRunner extends AgentRunner {
 
     state.stopRequested = true;
 
-    // Ask the server to stop the run via a CUSTOM event.
-    state.channel.push(EventType.CUSTOM, {
-      type: EventType.CUSTOM,
-      name: "stop",
-      value: { threadId: request.threadId },
-    });
-
-    // Best-effort local abort.
+    // Direct local abort — the runtime is the authority.
     if (state.agent) {
       try {
         state.agent.abortRun();
       } catch {
-        // Ignore — the server-side stop is the authority.
+        // Ignore abort errors.
       }
     }
 
@@ -190,15 +149,40 @@ export class IntelligenceAgentRunner extends AgentRunner {
   // Internal helpers
   // -------------------------------------------------------------------
 
-  private finalizeAndComplete(state: ThreadState, threadId: string): void {
-    const { runSubject, currentEvents, stopRequested } = state;
+  private async executeAgentRun(
+    request: AgentRunnerRunRequest,
+    state: ThreadState,
+    threadId: string,
+  ): Promise<void> {
+    const { runSubject, currentEvents, channel } = state;
     if (!runSubject) return;
 
+    try {
+      await request.agent.runAgent(request.input, {
+        onEvent: ({ event }: { event: BaseEvent }) => {
+          currentEvents.push(event);
+
+          // Push to Phoenix channel so frontend WS listeners receive it.
+          channel.push(AG_UI_CHANNEL_EVENT, event);
+        },
+      });
+    } catch (error) {
+      const errorEvent = {
+        type: EventType.RUN_ERROR,
+        message: error instanceof Error ? error.message : String(error),
+      } as BaseEvent;
+      runSubject.next(errorEvent);
+      currentEvents.push(errorEvent);
+      channel.push(AG_UI_CHANNEL_EVENT, errorEvent);
+    }
+
+    // Finalize in both success and error paths.
     const appended = finalizeRunEvents(currentEvents, {
-      stopRequested,
+      stopRequested: state.stopRequested,
     });
     for (const event of appended) {
       runSubject.next(event);
+      channel.push(AG_UI_CHANNEL_EVENT, event);
     }
 
     this.cleanupThread(state);

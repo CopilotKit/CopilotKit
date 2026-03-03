@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { EventType, BaseEvent } from "@ag-ui/client";
 import { MockSocket, MockChannel } from "./test-utils";
 
@@ -14,13 +14,31 @@ vi.mock("phoenix", () => ({
 const { IntelligenceAgent } = await import("../intelligence-agent");
 
 // ---------------------------------------------------------------------------
+// Fetch mock
+// ---------------------------------------------------------------------------
+
+let mockFetch: ReturnType<typeof vi.fn>;
+
+beforeEach(() => {
+  mockFetch = vi.fn().mockResolvedValue({ ok: true });
+  vi.stubGlobal("fetch", mockFetch);
+});
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
+
+// ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
 function createAgent() {
   return new IntelligenceAgent({
     url: "ws://localhost:4000/socket",
+    runtimeUrl: "http://localhost:4000",
+    agentId: "my-agent",
     socketParams: { token: "test-token" },
+    headers: { Authorization: "Bearer abc" },
   });
 }
 
@@ -106,30 +124,67 @@ describe("IntelligenceAgent", () => {
       expect(channel.params).toEqual({ runId: "run-1" });
     });
 
-    it("pushes a CUSTOM 'run' event with the full input after join ok", () => {
+    it("fires a REST POST to /agent/{agentId}/run after join ok", async () => {
       const agent = createAgent();
       agent.run(defaultInput).subscribe({ next: () => {}, error: () => {} });
 
       const channel = getChannel(agent);
       channel.triggerJoin("ok");
 
-      const runPush = channel.pushLog.find(
-        (c) => c.event === EventType.CUSTOM && c.payload.name === "run",
-      );
-      expect(runPush).toBeDefined();
-      expect(runPush!.payload).toEqual({
-        type: EventType.CUSTOM,
-        name: "run",
-        value: {
-          threadId: "thread-1",
-          runId: "run-1",
-          messages: [],
-          tools: [],
-          context: [],
-          state: {},
-          forwardedProps: {},
-        },
+      // Wait a tick for the fetch to be called
+      await Promise.resolve();
+
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+      const [url, options] = mockFetch.mock.calls[0];
+      expect(url).toBe("http://localhost:4000/agent/my-agent/run");
+      expect(options.method).toBe("POST");
+      expect(options.headers).toMatchObject({
+        "Content-Type": "application/json",
+        Authorization: "Bearer abc",
       });
+      expect(JSON.parse(options.body)).toEqual({
+        threadId: "thread-1",
+        runId: "run-1",
+        messages: [],
+        tools: [],
+        context: [],
+        state: {},
+        forwardedProps: {},
+      });
+    });
+
+    it("does not push any CUSTOM events to the channel", () => {
+      const agent = createAgent();
+      agent.run(defaultInput).subscribe({ next: () => {}, error: () => {} });
+
+      const channel = getChannel(agent);
+      channel.triggerJoin("ok");
+
+      // No pushes to channel — run is triggered via REST
+      expect(channel.pushLog).toHaveLength(0);
+    });
+  });
+
+  describe("REST run failure", () => {
+    it("emits RUN_ERROR with code REST_RUN_ERROR on fetch failure", async () => {
+      mockFetch.mockRejectedValueOnce(new Error("Network error"));
+
+      const agent = createAgent();
+      const promise = collectEvents(agent);
+
+      const channel = getChannel(agent);
+      channel.triggerJoin("ok");
+
+      const result = await promise;
+      expect(result.completed).toBe(false);
+      expect(result.error).toBeInstanceOf(Error);
+      expect(result.error!.message).toContain("REST run request failed");
+
+      const errorEvent = result.events.find(
+        (e) => e.type === EventType.RUN_ERROR,
+      ) as BaseEvent & { code?: string };
+      expect(errorEvent).toBeDefined();
+      expect(errorEvent.code).toBe("REST_RUN_ERROR");
     });
   });
 
@@ -149,7 +204,7 @@ describe("IntelligenceAgent", () => {
         messageId: "msg-1",
         delta: "hello",
       } as BaseEvent;
-      channel.serverPush(EventType.TEXT_MESSAGE_CONTENT, textEvent);
+      channel.serverPush("ag-ui", textEvent);
 
       const toolEvent = {
         type: EventType.TOOL_CALL_START,
@@ -157,7 +212,7 @@ describe("IntelligenceAgent", () => {
         toolCallName: "search",
         parentMessageId: "msg-1",
       } as BaseEvent;
-      channel.serverPush(EventType.TOOL_CALL_START, toolEvent);
+      channel.serverPush("ag-ui", toolEvent);
 
       expect(events).toContainEqual(textEvent);
       expect(events).toContainEqual(toolEvent);
@@ -177,7 +232,7 @@ describe("IntelligenceAgent", () => {
         threadId: "thread-1",
         runId: "run-1",
       } as BaseEvent;
-      channel.serverPush(EventType.RUN_FINISHED, finishedEvent);
+      channel.serverPush("ag-ui", finishedEvent);
 
       const result = await promise;
       expect(result.completed).toBe(true);
@@ -196,7 +251,7 @@ describe("IntelligenceAgent", () => {
         type: EventType.RUN_ERROR,
         message: "something went wrong",
       } as BaseEvent;
-      channel.serverPush(EventType.RUN_ERROR, errorEvent);
+      channel.serverPush("ag-ui", errorEvent);
 
       const result = await promise;
       expect(result.completed).toBe(false);
@@ -212,7 +267,7 @@ describe("IntelligenceAgent", () => {
       const socket = getSocket(agent);
       const channel = getChannel(agent);
       channel.triggerJoin("ok");
-      channel.serverPush(EventType.RUN_FINISHED, {
+      channel.serverPush("ag-ui", {
         type: EventType.RUN_FINISHED,
         threadId: "thread-1",
         runId: "run-1",
@@ -265,31 +320,56 @@ describe("IntelligenceAgent", () => {
   });
 
   describe("abortRun", () => {
-    it("pushes a CUSTOM 'stop' event and leaves the channel", () => {
+    it("fires a REST POST to /agent/{agentId}/stop/{threadId} and cleans up", async () => {
       const agent = createAgent();
       agent.run(defaultInput).subscribe({ next: () => {}, error: () => {} });
 
       const channel = getChannel(agent);
       channel.triggerJoin("ok");
 
+      // Reset fetch mock to only track abort calls
+      mockFetch.mockClear();
+      mockFetch.mockResolvedValue({ ok: true });
+
       agent.abortRun();
 
-      const stopPush = channel.pushLog.find(
-        (c) => c.event === EventType.CUSTOM && c.payload.name === "stop",
-      );
-      expect(stopPush).toBeDefined();
-      expect(stopPush!.payload).toEqual({
-        type: EventType.CUSTOM,
-        name: "stop",
-        value: {},
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+      const [url, options] = mockFetch.mock.calls[0];
+      expect(url).toBe("http://localhost:4000/agent/my-agent/stop/thread-1");
+      expect(options.method).toBe("POST");
+      expect(options.headers).toMatchObject({
+        "Content-Type": "application/json",
+        Authorization: "Bearer abc",
       });
+
+      // Channel should be cleaned up
       expect(channel.left).toBe(true);
+    });
+
+    it("does not push any CUSTOM events to the channel", () => {
+      const agent = createAgent();
+      agent.run(defaultInput).subscribe({ next: () => {}, error: () => {} });
+
+      const channel = getChannel(agent);
+      channel.triggerJoin("ok");
+
+      // Clear the push log (run may have pushed something)
+      channel.pushLog.length = 0;
+
+      agent.abortRun();
+
+      // No CUSTOM stop pushes
+      const stopPush = channel.pushLog.find(
+        (c) => c.event === EventType.CUSTOM && c.payload?.name === "stop",
+      );
+      expect(stopPush).toBeUndefined();
     });
 
     it("is a no-op when no run is active", () => {
       const agent = createAgent();
       // Should not throw.
       expect(() => agent.abortRun()).not.toThrow();
+      expect(mockFetch).not.toHaveBeenCalled();
     });
   });
 

@@ -38,15 +38,25 @@ vi.mock("phoenix", () => ({
 vi.mock("ws", () => ({ default: class MockWebSocket {} }));
 
 // ---------------------------------------------------------------------------
-// Mock agent — IntelligenceAgentRunner never calls runAgent(); it only needs
-// the agent reference for abortRun().
+// Mock agent — emits events via runAgent({ onEvent }) callbacks.
 // ---------------------------------------------------------------------------
 
 class MockAgent extends AbstractAgent {
   aborted = false;
+  private events: BaseEvent[];
 
-  async runAgent(): Promise<void> {
-    // Not invoked by IntelligenceAgentRunner.
+  constructor(events: BaseEvent[] = []) {
+    super();
+    this.events = events;
+  }
+
+  async runAgent(
+    _input: RunAgentInput,
+    subscriber?: { onEvent?: (arg: { event: BaseEvent }) => void },
+  ): Promise<void> {
+    for (const event of this.events) {
+      subscriber?.onEvent?.({ event });
+    }
   }
 
   abortRun(): void {
@@ -54,7 +64,41 @@ class MockAgent extends AbstractAgent {
   }
 
   clone(): AbstractAgent {
-    return new MockAgent();
+    return new MockAgent(this.events);
+  }
+
+  protected run(): ReturnType<AbstractAgent["run"]> {
+    return EMPTY;
+  }
+
+  protected connect(): ReturnType<AbstractAgent["connect"]> {
+    return EMPTY;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// ThrowingMockAgent — throws during runAgent for error path tests.
+// ---------------------------------------------------------------------------
+
+class ThrowingMockAgent extends AbstractAgent {
+  aborted = false;
+  private errorMessage: string;
+
+  constructor(errorMessage = "Agent exploded") {
+    super();
+    this.errorMessage = errorMessage;
+  }
+
+  async runAgent(): Promise<void> {
+    throw new Error(this.errorMessage);
+  }
+
+  abortRun(): void {
+    this.aborted = true;
+  }
+
+  clone(): AbstractAgent {
+    return new ThrowingMockAgent(this.errorMessage);
   }
 
   protected run(): ReturnType<AbstractAgent["run"]> {
@@ -103,11 +147,9 @@ const { IntelligenceAgentRunner } = await import("../intelligence");
 
 describe("IntelligenceAgentRunner", () => {
   let runner: InstanceType<typeof IntelligenceAgentRunner>;
-  let agent: MockAgent;
 
   beforeEach(() => {
     mockChannels = [];
-    agent = new MockAgent();
     runner = new IntelligenceAgentRunner({ url: "ws://localhost:4000/socket" });
   });
 
@@ -116,62 +158,73 @@ describe("IntelligenceAgentRunner", () => {
   // -----------------------------------------------------------------------
 
   describe("run", () => {
-    it("forwards AG-UI events from the channel and completes on RUN_FINISHED", async () => {
+    it("calls runAgent() and completes the Observable (events go to channel only)", async () => {
       const threadId = "t-1";
       const input = createRunInput({ threadId, runId: "r-1" });
 
+      const agentEvents: BaseEvent[] = [
+        {
+          type: EventType.RUN_STARTED,
+          threadId,
+          runId: "r-1",
+        } as RunStartedEvent,
+        {
+          type: EventType.TEXT_MESSAGE_START,
+          messageId: "msg-1",
+          role: "assistant",
+        } as TextMessageStartEvent,
+        {
+          type: EventType.TEXT_MESSAGE_CONTENT,
+          messageId: "msg-1",
+          delta: "Hello",
+        } as TextMessageContentEvent,
+        {
+          type: EventType.TEXT_MESSAGE_END,
+          messageId: "msg-1",
+        } as TextMessageEndEvent,
+        {
+          type: EventType.RUN_FINISHED,
+          threadId,
+          runId: "r-1",
+        } as RunFinishedEvent,
+      ];
+      const agent = new MockAgent(agentEvents);
+
       const eventsPromise = collectEvents(
         runner.run({ threadId, agent, input }),
       );
       const ch = mockChannels[0];
       ch.triggerJoin("ok");
-
-      const runStarted: RunStartedEvent = {
-        type: EventType.RUN_STARTED,
-        threadId,
-        runId: "r-1",
-      };
-      const msgStart: TextMessageStartEvent = {
-        type: EventType.TEXT_MESSAGE_START,
-        messageId: "msg-1",
-        role: "assistant",
-      };
-      const msgContent: TextMessageContentEvent = {
-        type: EventType.TEXT_MESSAGE_CONTENT,
-        messageId: "msg-1",
-        delta: "Hello",
-      };
-      const msgEnd: TextMessageEndEvent = {
-        type: EventType.TEXT_MESSAGE_END,
-        messageId: "msg-1",
-      };
-      const runFinished: RunFinishedEvent = {
-        type: EventType.RUN_FINISHED,
-        threadId,
-        runId: "r-1",
-      };
-
-      ch.serverPush(EventType.RUN_STARTED, runStarted);
-      ch.serverPush(EventType.TEXT_MESSAGE_START, msgStart);
-      ch.serverPush(EventType.TEXT_MESSAGE_CONTENT, msgContent);
-      ch.serverPush(EventType.TEXT_MESSAGE_END, msgEnd);
-      ch.serverPush(EventType.RUN_FINISHED, runFinished);
 
       const events = await eventsPromise;
 
-      expect(events.map((e) => e.type)).toEqual([
-        EventType.RUN_STARTED,
-        EventType.TEXT_MESSAGE_START,
-        EventType.TEXT_MESSAGE_CONTENT,
-        EventType.TEXT_MESSAGE_END,
-        EventType.RUN_FINISHED,
-      ]);
-      expect((events[2] as TextMessageContentEvent).delta).toBe("Hello");
+      // Agent events are NOT emitted to the Observable — only to the channel.
+      // The Observable only receives finalization events (none needed here).
+      expect(events).toHaveLength(0);
     });
 
-    it("completes on RUN_ERROR", async () => {
-      const threadId = "t-err";
-      const input = createRunInput({ threadId, runId: "r-err" });
+    it("pushes agent events to the Phoenix channel", async () => {
+      const threadId = "t-push";
+      const input = createRunInput({ threadId, runId: "r-push" });
+
+      const agentEvents: BaseEvent[] = [
+        {
+          type: EventType.RUN_STARTED,
+          threadId,
+          runId: "r-push",
+        } as RunStartedEvent,
+        {
+          type: EventType.TEXT_MESSAGE_CONTENT,
+          messageId: "msg-1",
+          delta: "hi",
+        } as TextMessageContentEvent,
+        {
+          type: EventType.RUN_FINISHED,
+          threadId,
+          runId: "r-push",
+        } as RunFinishedEvent,
+      ];
+      const agent = new MockAgent(agentEvents);
 
       const eventsPromise = collectEvents(
         runner.run({ threadId, agent, input }),
@@ -179,11 +232,58 @@ describe("IntelligenceAgentRunner", () => {
       const ch = mockChannels[0];
       ch.triggerJoin("ok");
 
-      const runError: RunErrorEvent = {
-        type: EventType.RUN_ERROR,
-        message: "Something went wrong",
-      };
-      ch.serverPush(EventType.RUN_ERROR, runError);
+      await eventsPromise;
+
+      // Agent events should be pushed to the channel under "ag-ui"
+      expect(ch.pushLog.every((p) => p.event === "ag-ui")).toBe(true);
+      const payloadTypes = ch.pushLog.map((p) => p.payload.type);
+      expect(payloadTypes).toContain(EventType.RUN_STARTED);
+      expect(payloadTypes).toContain(EventType.TEXT_MESSAGE_CONTENT);
+      expect(payloadTypes).toContain(EventType.RUN_FINISHED);
+    });
+
+    it("does not push any CUSTOM run event to the channel", async () => {
+      const threadId = "t-no-custom";
+      const input = createRunInput({ threadId, runId: "r-no-custom" });
+
+      const agentEvents: BaseEvent[] = [
+        {
+          type: EventType.RUN_STARTED,
+          threadId,
+          runId: "r-no-custom",
+        } as RunStartedEvent,
+        {
+          type: EventType.RUN_FINISHED,
+          threadId,
+          runId: "r-no-custom",
+        } as RunFinishedEvent,
+      ];
+      const agent = new MockAgent(agentEvents);
+
+      const eventsPromise = collectEvents(
+        runner.run({ threadId, agent, input }),
+      );
+      const ch = mockChannels[0];
+      ch.triggerJoin("ok");
+
+      await eventsPromise;
+
+      const customRunPush = ch.pushLog.find(
+        (p) => p.event === EventType.CUSTOM && p.payload?.name === "run",
+      );
+      expect(customRunPush).toBeUndefined();
+    });
+
+    it("emits RUN_ERROR when agent throws", async () => {
+      const threadId = "t-err";
+      const input = createRunInput({ threadId, runId: "r-err" });
+      const agent = new ThrowingMockAgent("Something went wrong");
+
+      const eventsPromise = collectEvents(
+        runner.run({ threadId, agent, input }),
+      );
+      const ch = mockChannels[0];
+      ch.triggerJoin("ok");
 
       const events = await eventsPromise;
 
@@ -194,9 +294,10 @@ describe("IntelligenceAgentRunner", () => {
       expect(err!.message).toBe("Something went wrong");
     });
 
-    it("finalizes open message streams before completing", async () => {
-      const threadId = "t-finalize";
-      const input = createRunInput({ threadId, runId: "r-fin" });
+    it("pushes error events to the Phoenix channel when agent throws", async () => {
+      const threadId = "t-err-push";
+      const input = createRunInput({ threadId, runId: "r-err-push" });
+      const agent = new ThrowingMockAgent("boom");
 
       const eventsPromise = collectEvents(
         runner.run({ threadId, agent, input }),
@@ -204,30 +305,54 @@ describe("IntelligenceAgentRunner", () => {
       const ch = mockChannels[0];
       ch.triggerJoin("ok");
 
+      await eventsPromise;
+
+      const errorPush = ch.pushLog.find(
+        (p) => p.payload?.type === EventType.RUN_ERROR,
+      );
+      expect(errorPush).toBeDefined();
+      expect(errorPush!.event).toBe("ag-ui");
+      expect(errorPush!.payload.message).toBe("boom");
+    });
+
+    it("finalizes open message streams before completing", async () => {
+      const threadId = "t-finalize";
+      const input = createRunInput({ threadId, runId: "r-fin" });
+
       // Emit an unclosed text message, then RUN_FINISHED.
-      ch.serverPush(EventType.TEXT_MESSAGE_START, {
-        type: EventType.TEXT_MESSAGE_START,
-        messageId: "open-msg",
-        role: "assistant",
-      } as BaseEvent);
-      ch.serverPush(EventType.RUN_FINISHED, {
-        type: EventType.RUN_FINISHED,
-        threadId,
-        runId: "r-fin",
-      } as BaseEvent);
+      const agentEvents: BaseEvent[] = [
+        {
+          type: EventType.TEXT_MESSAGE_START,
+          messageId: "open-msg",
+          role: "assistant",
+        } as BaseEvent,
+        { type: EventType.RUN_FINISHED, threadId, runId: "r-fin" } as BaseEvent,
+      ];
+      const agent = new MockAgent(agentEvents);
+
+      const eventsPromise = collectEvents(
+        runner.run({ threadId, agent, input }),
+      );
+      const ch = mockChannels[0];
+      ch.triggerJoin("ok");
 
       const events = await eventsPromise;
       const types = events.map((e) => e.type);
 
-      // finalizeRunEvents should have appended TEXT_MESSAGE_END for the
-      // unclosed message. Since the terminal event already exists it won't
-      // add another one.
+      // finalizeRunEvents appends TEXT_MESSAGE_END for the unclosed message.
+      // Only finalization events appear in the Observable.
       expect(types).toContain(EventType.TEXT_MESSAGE_END);
+
+      // Also verify the channel received both agent and finalization events.
+      const chPayloadTypes = ch.pushLog.map((p) => p.payload.type);
+      expect(chPayloadTypes).toContain(EventType.TEXT_MESSAGE_START);
+      expect(chPayloadTypes).toContain(EventType.TEXT_MESSAGE_END);
     });
 
     it("throws when the thread is already running", () => {
       const threadId = "t-dup";
       const input = createRunInput({ threadId, runId: "r-dup" });
+      const agent = new MockAgent();
 
       // Start a run but don't complete it.
       runner.run({ threadId, agent, input });
@@ -240,6 +365,7 @@ describe("IntelligenceAgentRunner", () => {
     it("emits RUN_ERROR and completes when channel join fails", async () => {
       const threadId = "t-join-err";
       const input = createRunInput({ threadId, runId: "r-join-err" });
+      const agent = new MockAgent();
 
       const eventsPromise = collectEvents(
         runner.run({ threadId, agent, input }),
@@ -253,31 +379,6 @@ describe("IntelligenceAgentRunner", () => {
       expect(events).toHaveLength(1);
       expect(events[0].type).toBe(EventType.RUN_ERROR);
       expect((events[0] as RunErrorEvent).message).toContain("unauthorized");
-    });
-
-    it("pushes a CUSTOM run event to the channel after joining", () => {
-      const threadId = "t-push";
-      const input = createRunInput({
-        threadId,
-        runId: "r-push",
-        messages: [{ id: "m1", role: "user", content: "hi" }],
-      });
-
-      runner.run({ threadId, agent, input });
-      const ch = mockChannels[0];
-      ch.triggerJoin("ok");
-
-      expect(ch.pushLog).toHaveLength(1);
-      expect(ch.pushLog[0].event).toBe(EventType.CUSTOM);
-      expect(ch.pushLog[0].payload).toMatchObject({
-        type: EventType.CUSTOM,
-        name: "run",
-        value: {
-          threadId,
-          runId: "r-push",
-          messages: [{ id: "m1", role: "user", content: "hi" }],
-        },
-      });
     });
   });
 
@@ -293,12 +394,12 @@ describe("IntelligenceAgentRunner", () => {
       const ch = mockChannels[0];
       ch.triggerJoin("ok");
 
-      ch.serverPush(EventType.RUN_STARTED, {
+      ch.serverPush("ag-ui", {
         type: EventType.RUN_STARTED,
         threadId,
         runId: "r-hist",
       } as BaseEvent);
-      ch.serverPush(EventType.RUN_FINISHED, {
+      ch.serverPush("ag-ui", {
         type: EventType.RUN_FINISHED,
         threadId,
         runId: "r-hist",
@@ -350,6 +451,7 @@ describe("IntelligenceAgentRunner", () => {
     it("returns true while a run is active", async () => {
       const threadId = "t-running";
       const input = createRunInput({ threadId, runId: "r-running" });
+      const agent = new MockAgent();
       runner.run({ threadId, agent, input });
 
       expect(await runner.isRunning({ threadId })).toBe(true);
@@ -359,16 +461,20 @@ describe("IntelligenceAgentRunner", () => {
       const threadId = "t-done";
       const input = createRunInput({ threadId, runId: "r-done" });
 
+      const agentEvents: BaseEvent[] = [
+        {
+          type: EventType.RUN_FINISHED,
+          threadId,
+          runId: "r-done",
+        } as RunFinishedEvent,
+      ];
+      const agent = new MockAgent(agentEvents);
+
       const eventsPromise = collectEvents(
         runner.run({ threadId, agent, input }),
       );
       const ch = mockChannels[0];
       ch.triggerJoin("ok");
-      ch.serverPush(EventType.RUN_FINISHED, {
-        type: EventType.RUN_FINISHED,
-        threadId,
-        runId: "r-done",
-      } as BaseEvent);
       await eventsPromise;
 
       expect(await runner.isRunning({ threadId })).toBe(false);
@@ -380,9 +486,10 @@ describe("IntelligenceAgentRunner", () => {
   // -----------------------------------------------------------------------
 
   describe("stop", () => {
-    it("pushes a CUSTOM stop event and calls abortRun on the agent", async () => {
+    it("calls abortRun on the agent directly, no CUSTOM stop push", async () => {
       const threadId = "t-stop";
       const input = createRunInput({ threadId, runId: "r-stop" });
+      const agent = new MockAgent();
       runner.run({ threadId, agent, input });
 
       const result = await runner.stop({ threadId });
@@ -392,13 +499,7 @@ describe("IntelligenceAgentRunner", () => {
 
       const ch = mockChannels[0];
       const stopPush = ch.pushLog.find((p) => p.payload?.name === "stop");
-      expect(stopPush).toBeDefined();
-      expect(stopPush!.event).toBe(EventType.CUSTOM);
-      expect(stopPush!.payload).toMatchObject({
-        type: EventType.CUSTOM,
-        name: "stop",
-        value: { threadId },
-      });
+      expect(stopPush).toBeUndefined();
     });
 
     it("returns false when the thread is not running", async () => {
@@ -408,6 +509,7 @@ describe("IntelligenceAgentRunner", () => {
     it("returns false when stop has already been requested", async () => {
       const threadId = "t-stop-twice";
       const input = createRunInput({ threadId, runId: "r-stop2" });
+      const agent = new MockAgent();
       runner.run({ threadId, agent, input });
 
       expect(await runner.stop({ threadId })).toBe(true);
@@ -424,16 +526,20 @@ describe("IntelligenceAgentRunner", () => {
       const threadId = "t-cleanup";
       const input = createRunInput({ threadId, runId: "r-cleanup" });
 
+      const agentEvents: BaseEvent[] = [
+        {
+          type: EventType.RUN_FINISHED,
+          threadId,
+          runId: "r-cleanup",
+        } as RunFinishedEvent,
+      ];
+      const agent = new MockAgent(agentEvents);
+
       const eventsPromise = collectEvents(
         runner.run({ threadId, agent, input }),
       );
       const ch = mockChannels[0];
       ch.triggerJoin("ok");
-      ch.serverPush(EventType.RUN_FINISHED, {
-        type: EventType.RUN_FINISHED,
-        threadId,
-        runId: "r-cleanup",
-      } as BaseEvent);
       await eventsPromise;
 
       expect(ch.left).toBe(true);
@@ -442,6 +548,7 @@ describe("IntelligenceAgentRunner", () => {
     it("leaves the channel after a join failure", async () => {
       const threadId = "t-cleanup-err";
       const input = createRunInput({ threadId, runId: "r-cleanup-err" });
+      const agent = new MockAgent();
 
       const eventsPromise = collectEvents(
         runner.run({ threadId, agent, input }),
