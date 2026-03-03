@@ -263,12 +263,7 @@ export const useCrewQuickstart = ({
 } => {
   const [initialMessageSent, setInitialMessageSent] = useState(false);
 
-  const { state, setState, run } = useAgent<
-    CrewsAgentState & {
-      result: string;
-      inputs: Record<string, string>;
-    }
-  >({
+  const { state, setState, run } = useAgent({
     name: crewName,
     initialState: {
       inputs: {},

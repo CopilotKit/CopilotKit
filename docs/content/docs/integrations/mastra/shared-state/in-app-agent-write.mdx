@@ -91,7 +91,7 @@ You can use this when you want to provide user input or control to your agent's 
   <Step>
     ### Use the `useAgent` Hook
     With your agent connected and running all that is left is to call the `useAgent` hook, pass the agent's name, and
-    use the `setAgentState` function to update the agent state.
+    use `agent.setState` to update the agent state.
 
     ```tsx title="ui/app/page.tsx"
     import { useAgent } from "@copilotkit/react-core/v2"; // [!code highlight]
@@ -99,14 +99,14 @@ You can use this when you want to provide user input or control to your agent's 
 
     function YourMainContent() {
       // [!code highlight:5]
-      const { agentState, setAgentState } = useAgent<AgentState>({
+      const { agent } = useAgent({
         name: "your-mastra-agent-name",
         // optionally provide a type-safe initial state
         initialState: { language: "english" }
       });
 
       const toggleLanguage = () => {
-        setAgentState({ language: agentState.language === "english" ? "spanish" : "english" }); // [!code highlight]
+        agent.setState({ language: agent.state?.language === "english" ? "spanish" : "english" }); // [!code highlight]
       };
 
       return (
@@ -114,14 +114,14 @@ You can use this when you want to provide user input or control to your agent's 
         <div>
           <h1>Your main content</h1>
           {/* [!code highlight:2] */}
-          <p>Language: {agentState.language}</p>
+          <p>Language: {agent.state?.language}</p>
           <button onClick={toggleLanguage}>Toggle Language</button>
         </div>
       );
     }
     ```
     <Callout type="info">
-      The `setAgentState` function in `useAgent` will update the working memory and trigger a rerender when the state changes.
+      The `agent.setState` function in `useAgent` will update the working memory and trigger a rerender when the state changes.
     </Callout>
   </Step>
   <Step>

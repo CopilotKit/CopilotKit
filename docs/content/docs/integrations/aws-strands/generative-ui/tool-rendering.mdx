@@ -94,21 +94,21 @@ app = create_strands_app(agui_agent, "/")
 <Step>
 ### Render the tool call in your frontend
 
-Now we'll use the `useRenderToolCall` hook to render the tool call in the UI with a custom component.
+Now we'll use the `useRenderTool` hook to render the tool call in the UI with a custom component.
 
 <Callout type="info" title="Important">
-  The tool name in `useRenderToolCall` must match the name of the tool defined in your agent.
+  The tool name in `useRenderTool` must match the name of the tool defined in your agent.
 </Callout>
 
 ```tsx title="app/page.tsx"
 "use client";
 
-import { useRenderToolCall } from "@copilotkit/react-core/v2"; // [!code highlight]
+import { useRenderTool } from "@copilotkit/react-core/v2"; // [!code highlight]
 import { CopilotSidebar } from "@copilotkit/react-core/v2";
 
 export default function Page() {
   // [!code highlight:41]
-  useRenderToolCall({
+  useRenderTool({
     name: "get_weather",
     parameters: [
       {
@@ -178,7 +178,7 @@ You should see the custom UI component render with the weather information beaut
 You can access the tool arguments even while the tool is still executing:
 
 ```tsx
-useRenderToolCall({
+useRenderTool({
   name: "get_weather",
   parameters: [
     {
