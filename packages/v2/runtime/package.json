@@ -49,6 +49,7 @@
     "@ag-ui/core": "0.0.47",
     "@ag-ui/encoder": "0.0.47",
     "@ag-ui/mcp-apps-middleware": "0.0.2",
+    "@ag-ui/mcp-apps-middleware": "0.0.2",
     "@copilotkitnext/shared": "workspace:*",
     "cors": "^2.8.5",
     "phoenix": "^1.8.4",
