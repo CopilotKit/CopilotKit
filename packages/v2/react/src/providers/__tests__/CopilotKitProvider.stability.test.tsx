@@ -363,7 +363,11 @@ describe("CopilotKitProvider stability", () => {
 
       // Provider has its own tool via props
       const providerTools: ReactFrontendTool[] = [
-        { name: "providerTool", description: "From provider props", handler: vi.fn() },
+        {
+          name: "providerTool",
+          description: "From provider props",
+          handler: vi.fn(),
+        },
       ];
 
       render(
@@ -377,8 +381,12 @@ describe("CopilotKitProvider stability", () => {
       // If the provider's setter effects ran on mount and called setTools(),
       // the dynamic tool would be wiped out.
       expect(capturedInstance).not.toBeNull();
-      const dynamicTool = capturedInstance!.getTool({ toolName: "dynamicTool" });
-      const providerTool = capturedInstance!.getTool({ toolName: "providerTool" });
+      const dynamicTool = capturedInstance!.getTool({
+        toolName: "dynamicTool",
+      });
+      const providerTool = capturedInstance!.getTool({
+        toolName: "providerTool",
+      });
       expect(dynamicTool).toBeDefined();
       expect(providerTool).toBeDefined();
     });

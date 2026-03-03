@@ -47,6 +47,8 @@ vi.mock("@copilotkitnext/react", () => ({
       clearSuggestions: vi.fn(),
       addSuggestionsConfig: vi.fn(),
       reloadSuggestions: vi.fn(),
+      subscribe: vi.fn(() => ({ unsubscribe: vi.fn() })),
+      interruptElement: null,
     },
   })),
   useCopilotChatConfiguration: vi.fn(() => ({
@@ -95,6 +97,8 @@ function applyMocks() {
       clearSuggestions: vi.fn(),
       addSuggestionsConfig: vi.fn(),
       reloadSuggestions: vi.fn(),
+      subscribe: vi.fn(() => ({ unsubscribe: vi.fn() })),
+      interruptElement: null,
     },
   } as any);
 
