@@ -102,7 +102,7 @@ export class CopilotkitAgentFactory {
             transport: runtimeTransport,
           });
           // Apply current headers so runs/connects inherit them
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
           (provisional as any).headers = { ...headers };
           lastAgentStore = new AgentStore(provisional, destroyRef);
           return lastAgentStore;
