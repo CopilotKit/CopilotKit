@@ -250,6 +250,88 @@ describe("CopilotChatConfigurationProvider", () => {
     });
   });
 
+  describe("Modal state", () => {
+    it("should always provide setModalOpen and isModalOpen even without isModalDefaultOpen", () => {
+      function ModalStateDisplay() {
+        const config = useCopilotChatConfiguration();
+        return (
+          <div>
+            <div data-testid="hasSetModalOpen">
+              {config?.setModalOpen ? "yes" : "no"}
+            </div>
+            <div data-testid="hasIsModalOpen">
+              {config?.isModalOpen !== undefined ? "yes" : "no"}
+            </div>
+          </div>
+        );
+      }
+
+      render(
+        <CopilotChatConfigurationProvider threadId="test-thread">
+          <ModalStateDisplay />
+        </CopilotChatConfigurationProvider>,
+      );
+
+      expect(screen.getByTestId("hasSetModalOpen").textContent).toBe("yes");
+      expect(screen.getByTestId("hasIsModalOpen").textContent).toBe("yes");
+    });
+
+    it("should respect isModalDefaultOpen when provided", () => {
+      function ModalStateDisplay() {
+        const config = useCopilotChatConfiguration();
+        return (
+          <div>
+            <div data-testid="isModalOpen">
+              {config?.isModalOpen ? "open" : "closed"}
+            </div>
+          </div>
+        );
+      }
+
+      render(
+        <CopilotChatConfigurationProvider
+          threadId="test-thread"
+          isModalDefaultOpen={false}
+        >
+          <ModalStateDisplay />
+        </CopilotChatConfigurationProvider>,
+      );
+
+      expect(screen.getByTestId("isModalOpen").textContent).toBe("closed");
+    });
+
+    it("should inherit parent modal state when child has no isModalDefaultOpen", () => {
+      function ModalStateDisplay() {
+        const config = useCopilotChatConfiguration();
+        return (
+          <div>
+            <div data-testid="isModalOpen">
+              {config?.isModalOpen ? "open" : "closed"}
+            </div>
+            <div data-testid="hasSetModalOpen">
+              {config?.setModalOpen ? "yes" : "no"}
+            </div>
+          </div>
+        );
+      }
+
+      render(
+        <CopilotChatConfigurationProvider
+          threadId="outer-thread"
+          isModalDefaultOpen={false}
+        >
+          <CopilotChatConfigurationProvider threadId="inner-thread">
+            <ModalStateDisplay />
+          </CopilotChatConfigurationProvider>
+        </CopilotChatConfigurationProvider>,
+      );
+
+      // Child should inherit parent's modal state (closed)
+      expect(screen.getByTestId("isModalOpen").textContent).toBe("closed");
+      expect(screen.getByTestId("hasSetModalOpen").textContent).toBe("yes");
+    });
+  });
+
   describe("Nested providers", () => {
     it("should handle multiple nested providers correctly", () => {
       render(
