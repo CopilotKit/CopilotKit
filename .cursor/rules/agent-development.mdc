@@ -47,9 +47,7 @@ Complex systems with multiple cooperating agents:
 
 ### CrewAI Integration Pattern
 Using CrewAI for agent orchestration:
-- **Crews**: [coagents-starter-crewai-crews/](mdc:examples/coagents-starter-crewai-crews/)
 - **Flows**: [coagents-starter-crewai-flows/](mdc:examples/coagents-starter-crewai-flows/)
-- **Enterprise**: [coagents-enterprise-crewai-crews/](mdc:examples/coagents-enterprise-crewai-crews/)
 
 ### LangGraph Integration Pattern
 Using LangGraph for agent state management:

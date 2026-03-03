@@ -1,6 +1,6 @@
 {
   "name": "@copilotkitnext/shared",
-  "version": "1.52.1-next.1",
+  "version": "1.52.1",
   "description": "Shared utilities and types for CopilotKit2",
   "main": "./dist/index.cjs",
   "types": "./dist/index.d.cts",

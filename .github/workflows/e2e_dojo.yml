@@ -187,16 +187,16 @@ jobs:
         working-directory: ag-ui
         run: pnpm install --frozen-lockfile
 
-      - name: Link cpk into ag-ui
-        working-directory: CopilotKit
-        run: node ../ag-ui/apps/dojo/scripts/link-cpk.js ${{ github.workspace }}/CopilotKit/packages/v1
-
       - name: Prepare dojo for e2e
         working-directory: ag-ui/apps/dojo
         env:
           NODE_OPTIONS: --max-old-space-size=8192
         if: ${{ join(matrix.services, ',') != '' }}
         run: node ./scripts/prep-dojo-everything.js --only ${{ join(matrix.services, ',') }}
+
+      - name: Link cpk into ag-ui
+        working-directory: CopilotKit
+        run: node ../ag-ui/apps/dojo/scripts/link-cpk.js ${{ github.workspace }}/CopilotKit/packages
 
       - name: Install e2e dependencies
         working-directory: ag-ui/apps/dojo/e2e

@@ -1,5 +1,6 @@
 {
   "pages": [
+    "migrate-to-v2",
     "error-debugging",
     "observability-connectors",
     "common-issues",

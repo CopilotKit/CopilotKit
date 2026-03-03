@@ -25,7 +25,7 @@ Some examples might be: the current user, the current page, etc. This be shared 
 
         ```tsx title="YourComponent.tsx" showLineNumbers {1, 7-10}
         "use client" // only necessary if you are using Next.js with the App Router. // [!code highlight]
-        import { useCopilotReadable } from "@copilotkit/react-core"; // [!code highlight]
+        import { useCopilotReadable } from "@copilotkit/react-core/v2"; // [!code highlight]
         import { useState } from 'react';
 
         export function YourComponent() {
@@ -60,7 +60,7 @@ Some examples might be: the current user, the current page, etc. This be shared 
         ```tsx title="agent.ts"
         export const colleaguesContactorAgent = new Agent({
             name: "Colleagues contact Agent",
-            model: openai("gpt-4o"),
+            model: openai("gpt-5.2"),
             // Use the injected runtime context
             // [!code highlight:9]
             instructions: ({ runtimeContext }) => {

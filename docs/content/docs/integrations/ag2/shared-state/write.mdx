@@ -62,7 +62,7 @@ You can use this when you want to keep your interface and backend agent state sy
             "You are a helpful assistant for tracking language. "
             "Always respond in the current language."
         ),
-        llm_config=LLMConfig({"model": "gpt-4o-mini"}),
+        llm_config=LLMConfig({"model": "gpt-5.2-mini"}),
     )
 
     @agent.register_for_llm(description="Update the language in shared state.")

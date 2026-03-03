@@ -1,7 +1,7 @@
 {
   "name": "@copilotkit-storybook/angular",
   "private": true,
-  "version": "0.0.3-next.0",
+  "version": "0.0.3",
   "scripts": {
     "dev": "pnpm --filter @copilotkitnext/angular run build:css && sleep 1 && ng run storybook-angular:storybook",
     "build": "ng run storybook-angular:build-storybook",

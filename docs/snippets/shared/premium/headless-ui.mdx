@@ -7,17 +7,6 @@ import {
   BookOpen,
 } from "lucide-react"
 
-<Callout
-  title="Early Access feature"
-  className="drop-shadow-2xl dark:border dark:border-white"
->
-  The Fully Headless UI extension is in Early Access to CopilotKit Premium users. As it matures, it will become available as part of the core framework.
-
-  - Get started with your public license key from [Copilot Cloud](https://cloud.copilotkit.ai)
-  - Or read more about <a href="/premium/overview">Premium Features</a>.
-
-</Callout>
-
 ## Overview
 
 CopilotKit offers *fully headless UI* through the `useCopilotChatHeadless_c` hook. By using this hook, you can build your own chat interfaces
@@ -116,7 +105,7 @@ To get there, let's start by building a simple chat interface.
     ```tsx title="src/app/page.tsx"
     "use client";
     import { useState } from "react";
-    import { useCopilotChatHeadless_c } from "@copilotkit/react-core"; // [!code highlight]
+    import { useCopilotChatHeadless_c } from "@copilotkit/react-core/v2"; // [!code highlight]
 
     export default function Home() {
       const { messages, sendMessage, isLoading } = useCopilotChatHeadless_c(); // [!code highlight]
@@ -192,13 +181,13 @@ CopilotKit's standard components utilize `useCopilotAction` to allow tools to be
 the frontend. These same interfaces are available to you while using the `useCopilotChatHeadless_c` hook.
 
 ```tsx title="src/app/components/chat.tsx"
-import { useCopilotAction } from "@copilotkit/react-core";
+import { useFrontendTool } from "@copilotkit/react-core/v2";
 
 export const Chat = () => {
   // ...
 
   // Define an action that will show a custom component
-  useCopilotAction({
+  useFrontendTool({
     name: "showCustomComponent",
     // Handle the tool on the frontend
     // [!code highlight:3]
@@ -278,7 +267,7 @@ Headless UI, you have full control over the lifecycle of these suggestions.
 
 You can generate suggestions by calling the `generateSuggestions` function.
 ```tsx title="src/app/components/chat.tsx"
-import { useCopilotChatHeadless_c, useCopilotChatSuggestions } from "@copilotkit/react-core"; // [!code highlight]
+import { useCopilotChatHeadless_c, useCopilotChatSuggestions } from "@copilotkit/react-core/v2"; // [!code highlight]
 
 export const Chat = () => {
   // Specify what suggestions should be generated
@@ -321,7 +310,7 @@ export const Chat = () => {
 If you want more deterministic control over the suggestions, you can set them manually.
 
 ```tsx title="src/app/components/chat.tsx"
-import { useCopilotChatHeadless_c } from "@copilotkit/react-core";
+import { useCopilotChatHeadless_c } from "@copilotkit/react-core/v2";
 
 export const Chat = () => {
   // Grab relevant state from the headless hook
@@ -390,13 +379,13 @@ becomes the result of the tool call.
 
 
 ```tsx title="src/app/components/chat.tsx"
-import { useCopilotAction, useCopilotChatHeadless_c } from "@copilotkit/react-core";
+import { useFrontendTool, useCopilotChatHeadless_c } from "@copilotkit/react-core/v2";
 
 export const Chat = () => {
   const { messages, sendMessage } = useCopilotChatHeadless_c();
 
   // Define an action that will wait for the user to enter their name
-  useCopilotAction({
+  useFrontendTool({
     name: "getName",
     renderAndWaitForResponse: ({ respond, args, status}) => {
       if (status === "complete") {

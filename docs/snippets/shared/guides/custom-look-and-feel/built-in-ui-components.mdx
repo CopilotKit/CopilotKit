@@ -6,7 +6,7 @@
     Import the default styles in your root component (typically `layout.tsx`) :
 
     ```tsx filename="layout.tsx"
-    import "@copilotkit/react-ui/styles.css";
+    import "@copilotkit/react-ui/v2/styles.css";
     ```
   </Step>
   <Step>
@@ -32,8 +32,7 @@
     Now that you've chosen your component, just import it and use it in your page!
 
     ```tsx filename="page.tsx"
-    import { CopilotChat, CopilotSidebar, CopilotPopup } from "@copilotkit/react-ui";
-    import { useCopilotChatHeadless_components } from "@copilotkit/react-core";
+    import { CopilotChat, CopilotSidebar, CopilotPopup } from "@copilotkit/react-core/v2";
 
     return <div>
       <CopilotChat />

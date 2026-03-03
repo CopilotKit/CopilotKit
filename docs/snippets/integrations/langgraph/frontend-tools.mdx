@@ -21,7 +21,7 @@ import {
                 # Access the tools from the copilotkit property
 
                 tools = state.get("copilotkit", {}).get("actions", []) # [!code highlight]
-                model = ChatOpenAI(model="gpt-4o").bind_tools(tools)
+                model = ChatOpenAI(model="gpt-5.2").bind_tools(tools)
 
                 # ...
                 ```
@@ -32,7 +32,7 @@ import {
                 // Access the tools from the copilotkit property
 
                 const tools = state.copilotkit?.actions; // [!code highlight]
-                const model = ChatOpenAI({ model: 'gpt-4o' }).bindTools(tools);
+                const model = ChatOpenAI({ model: 'gpt-5.2' }).bindTools(tools);
 
                 // ...
                 }
@@ -52,7 +52,7 @@ import {
                 from copilotkit import CopilotKitMiddleware, CopilotKitState # [!code highlight]
 
                 graph = create_agent( # Works the same for "create_react_agent" or similar options
-                    model="openai:gpt-4o",
+                    model="openai:gpt-5.2",
                     tools=[],  # Backend tools go here
                     middleware=[CopilotKitMiddleware()], # [!code highlight]
                     system_prompt="You are a helpful assistant.",
@@ -66,7 +66,7 @@ import {
                 import { copilotkitMiddleware } from "@copilotkit/sdk-js/langgraph"; // [!code highlight]
 
                 export const agenticChatGraph = createAgent({ // Works the same for "create_react_agent" or similar options
-                    model: "openai:gpt-4o",
+                    model: "openai:gpt-5.2",
                     tools: [],  // Backend tools go here
                     middleware: [copilotkitMiddleware], // [!code highlight]
                     systemPrompt: "You are a helpful assistant.",
