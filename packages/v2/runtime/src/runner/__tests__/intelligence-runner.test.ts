@@ -13,64 +13,11 @@ import {
 } from "@ag-ui/client";
 import { EMPTY, firstValueFrom } from "rxjs";
 import { toArray } from "rxjs/operators";
+import { MockChannel } from "../../../../core/src/__tests__/test-utils";
 
 // ---------------------------------------------------------------------------
 // Phoenix & ws mocks
 // ---------------------------------------------------------------------------
-
-class MockPush {
-  private callbacks = new Map<string, Function>();
-
-  receive(status: string, callback: Function): MockPush {
-    this.callbacks.set(status, callback);
-    return this;
-  }
-
-  /** Test helper — fire a registered receive callback. */
-  trigger(status: string, response?: unknown): void {
-    this.callbacks.get(status)?.(response);
-  }
-}
-
-class MockChannel {
-  private handlers = new Map<string, Array<(payload: any) => void>>();
-  pushLog: Array<{ event: string; payload: any }> = [];
-  left = false;
-  private joinPush = new MockPush();
-
-  on(event: string, callback: (payload: any) => void): number {
-    if (!this.handlers.has(event)) {
-      this.handlers.set(event, []);
-    }
-    this.handlers.get(event)!.push(callback);
-    return 0;
-  }
-
-  join(): MockPush {
-    return this.joinPush;
-  }
-
-  push(event: string, payload: any): MockPush {
-    this.pushLog.push({ event, payload });
-    return new MockPush();
-  }
-
-  leave(): void {
-    this.left = true;
-  }
-
-  /** Test helper — simulate the server acknowledging (or rejecting) the join. */
-  triggerJoin(status: "ok" | "error", response?: unknown): void {
-    this.joinPush.trigger(status, response);
-  }
-
-  /** Test helper — simulate the server pushing an AG-UI event. */
-  serverPush(eventType: string, payload: BaseEvent): void {
-    for (const handler of this.handlers.get(eventType) ?? []) {
-      handler(payload);
-    }
-  }
-}
 
 /** All mock channels created during a test, in order. */
 let mockChannels: MockChannel[] = [];

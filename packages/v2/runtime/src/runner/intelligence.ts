@@ -9,7 +9,6 @@ import { Observable, ReplaySubject } from "rxjs";
 import { AbstractAgent, BaseEvent, EventType } from "@ag-ui/client";
 import { finalizeRunEvents } from "@copilotkitnext/shared";
 import { Socket, Channel } from "phoenix";
-import WebSocket from "ws";
 
 export interface IntelligenceAgentRunnerOptions {
   /** Phoenix websocket URL, e.g. "ws://localhost:4000/socket" */
@@ -34,7 +33,6 @@ export class IntelligenceAgentRunner extends AgentRunner {
   constructor(options: IntelligenceAgentRunnerOptions) {
     super();
     this.socket = new Socket(options.url, {
-      transport: WebSocket as any,
       params: options.socketParams ?? {},
     });
     this.socket.connect();

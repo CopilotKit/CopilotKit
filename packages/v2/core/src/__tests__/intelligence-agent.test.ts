@@ -1,115 +1,17 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { EventType, BaseEvent } from "@ag-ui/client";
-import { IntelligenceAgent } from "../intelligence-agent";
+import { MockSocket, MockChannel } from "./test-utils";
 
 // ---------------------------------------------------------------------------
-// Phoenix mock — must be inside vi.hoisted() so it's available when the
-// hoisted vi.mock() factory runs.
+// Phoenix mock
 // ---------------------------------------------------------------------------
-
-const { MockSocket, MockChannel } = vi.hoisted(() => {
-  type ChannelHandler = (payload: any) => void;
-  type ReceiveCallback = (resp?: any) => void;
-
-  class MockChannel {
-    public topic: string;
-    public params: Record<string, any>;
-    public pushCalls: Array<{ event: string; payload: any }> = [];
-    public leftChannel = false;
-
-    private handlers = new Map<string, ChannelHandler[]>();
-    private joinReceiveCallbacks = new Map<string, ReceiveCallback>();
-
-    constructor(topic: string, params: Record<string, any>) {
-      this.topic = topic;
-      this.params = params;
-    }
-
-    on(event: string, handler: ChannelHandler): number {
-      const list = this.handlers.get(event) ?? [];
-      list.push(handler);
-      this.handlers.set(event, list);
-      return list.length;
-    }
-
-    join() {
-      return {
-        receive: (status: string, cb: ReceiveCallback) => {
-          this.joinReceiveCallbacks.set(status, cb);
-          return {
-            receive: (s: string, c: ReceiveCallback) => {
-              this.joinReceiveCallbacks.set(s, c);
-              return {
-                receive: (s2: string, c2: ReceiveCallback) => {
-                  this.joinReceiveCallbacks.set(s2, c2);
-                },
-              };
-            },
-          };
-        },
-      };
-    }
-
-    push(event: string, payload: any) {
-      this.pushCalls.push({ event, payload });
-    }
-
-    leave() {
-      this.leftChannel = true;
-    }
-
-    simulateJoinOk(resp?: any) {
-      this.joinReceiveCallbacks.get("ok")?.(resp);
-    }
-
-    simulateJoinError(resp?: any) {
-      this.joinReceiveCallbacks.get("error")?.(resp);
-    }
-
-    simulateJoinTimeout() {
-      this.joinReceiveCallbacks.get("timeout")?.();
-    }
-
-    simulateServerPush(event: string, payload: any) {
-      for (const handler of this.handlers.get(event) ?? []) {
-        handler(payload);
-      }
-    }
-  }
-
-  class MockSocket {
-    public url: string;
-    public opts: Record<string, any>;
-    public connected = false;
-    public disconnected = false;
-    public channels: MockChannel[] = [];
-
-    constructor(url: string, opts: Record<string, any>) {
-      this.url = url;
-      this.opts = opts;
-    }
-
-    connect() {
-      this.connected = true;
-    }
-
-    disconnect() {
-      this.disconnected = true;
-    }
-
-    channel(topic: string, params: Record<string, any>) {
-      const ch = new MockChannel(topic, params);
-      this.channels.push(ch);
-      return ch;
-    }
-  }
-
-  return { MockSocket, MockChannel };
-});
 
 vi.mock("phoenix", () => ({
   Socket: MockSocket,
 }));
+
+// Must come after vi.mock so phoenix is mocked when the module is loaded.
+const { IntelligenceAgent } = await import("../intelligence-agent");
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -133,7 +35,10 @@ const defaultInput = {
 } as any;
 
 /** Collect events from the observable until it completes or errors. */
-function collectEvents(agent: IntelligenceAgent, input = defaultInput) {
+function collectEvents(
+  agent: InstanceType<typeof IntelligenceAgent>,
+  input = defaultInput,
+) {
   const events: BaseEvent[] = [];
   let completed = false;
   let error: Error | null = null;
@@ -171,11 +76,13 @@ function collectEvents(agent: IntelligenceAgent, input = defaultInput) {
   });
 }
 
-function getSocket(agent: IntelligenceAgent): MockSocket {
+function getSocket(agent: InstanceType<typeof IntelligenceAgent>): MockSocket {
   return (agent as any).socket as MockSocket;
 }
 
-function getChannel(agent: IntelligenceAgent): MockChannel {
+function getChannel(
+  agent: InstanceType<typeof IntelligenceAgent>,
+): MockChannel {
   return (agent as any).activeChannel as MockChannel;
 }
 
@@ -204,9 +111,9 @@ describe("IntelligenceAgent", () => {
       agent.run(defaultInput).subscribe({ next: () => {}, error: () => {} });
 
       const channel = getChannel(agent);
-      channel.simulateJoinOk();
+      channel.triggerJoin("ok");
 
-      const runPush = channel.pushCalls.find(
+      const runPush = channel.pushLog.find(
         (c) => c.event === EventType.CUSTOM && c.payload.name === "run",
       );
       expect(runPush).toBeDefined();
@@ -235,14 +142,14 @@ describe("IntelligenceAgent", () => {
         .subscribe({ next: (e) => events.push(e), error: () => {} });
 
       const channel = getChannel(agent);
-      channel.simulateJoinOk();
+      channel.triggerJoin("ok");
 
       const textEvent = {
         type: EventType.TEXT_MESSAGE_CONTENT,
         messageId: "msg-1",
         delta: "hello",
       } as BaseEvent;
-      channel.simulateServerPush(EventType.TEXT_MESSAGE_CONTENT, textEvent);
+      channel.serverPush(EventType.TEXT_MESSAGE_CONTENT, textEvent);
 
       const toolEvent = {
         type: EventType.TOOL_CALL_START,
@@ -250,7 +157,7 @@ describe("IntelligenceAgent", () => {
         toolCallName: "search",
         parentMessageId: "msg-1",
       } as BaseEvent;
-      channel.simulateServerPush(EventType.TOOL_CALL_START, toolEvent);
+      channel.serverPush(EventType.TOOL_CALL_START, toolEvent);
 
       expect(events).toContainEqual(textEvent);
       expect(events).toContainEqual(toolEvent);
@@ -263,14 +170,14 @@ describe("IntelligenceAgent", () => {
       const promise = collectEvents(agent);
 
       const channel = getChannel(agent);
-      channel.simulateJoinOk();
+      channel.triggerJoin("ok");
 
       const finishedEvent = {
         type: EventType.RUN_FINISHED,
         threadId: "thread-1",
         runId: "run-1",
       } as BaseEvent;
-      channel.simulateServerPush(EventType.RUN_FINISHED, finishedEvent);
+      channel.serverPush(EventType.RUN_FINISHED, finishedEvent);
 
       const result = await promise;
       expect(result.completed).toBe(true);
@@ -283,13 +190,13 @@ describe("IntelligenceAgent", () => {
       const promise = collectEvents(agent);
 
       const channel = getChannel(agent);
-      channel.simulateJoinOk();
+      channel.triggerJoin("ok");
 
       const errorEvent = {
         type: EventType.RUN_ERROR,
         message: "something went wrong",
       } as BaseEvent;
-      channel.simulateServerPush(EventType.RUN_ERROR, errorEvent);
+      channel.serverPush(EventType.RUN_ERROR, errorEvent);
 
       const result = await promise;
       expect(result.completed).toBe(false);
@@ -304,15 +211,15 @@ describe("IntelligenceAgent", () => {
 
       const socket = getSocket(agent);
       const channel = getChannel(agent);
-      channel.simulateJoinOk();
-      channel.simulateServerPush(EventType.RUN_FINISHED, {
+      channel.triggerJoin("ok");
+      channel.serverPush(EventType.RUN_FINISHED, {
         type: EventType.RUN_FINISHED,
         threadId: "thread-1",
         runId: "run-1",
       } as BaseEvent);
 
       await promise;
-      expect(channel.leftChannel).toBe(true);
+      expect(channel.left).toBe(true);
       expect(socket.disconnected).toBe(true);
     });
   });
@@ -323,7 +230,7 @@ describe("IntelligenceAgent", () => {
       const promise = collectEvents(agent);
 
       const channel = getChannel(agent);
-      channel.simulateJoinError({ reason: "unauthorized" });
+      channel.triggerJoin("error", { reason: "unauthorized" });
 
       const result = await promise;
       expect(result.completed).toBe(false);
@@ -342,7 +249,7 @@ describe("IntelligenceAgent", () => {
       const promise = collectEvents(agent);
 
       const channel = getChannel(agent);
-      channel.simulateJoinTimeout();
+      channel.triggerJoin("timeout");
 
       const result = await promise;
       expect(result.completed).toBe(false);
@@ -363,11 +270,11 @@ describe("IntelligenceAgent", () => {
       agent.run(defaultInput).subscribe({ next: () => {}, error: () => {} });
 
       const channel = getChannel(agent);
-      channel.simulateJoinOk();
+      channel.triggerJoin("ok");
 
       agent.abortRun();
 
-      const stopPush = channel.pushCalls.find(
+      const stopPush = channel.pushLog.find(
         (c) => c.event === EventType.CUSTOM && c.payload.name === "stop",
       );
       expect(stopPush).toBeDefined();
@@ -376,7 +283,7 @@ describe("IntelligenceAgent", () => {
         name: "stop",
         value: {},
       });
-      expect(channel.leftChannel).toBe(true);
+      expect(channel.left).toBe(true);
     });
 
     it("is a no-op when no run is active", () => {
@@ -395,11 +302,11 @@ describe("IntelligenceAgent", () => {
 
       const socket = getSocket(agent);
       const channel = getChannel(agent);
-      channel.simulateJoinOk();
+      channel.triggerJoin("ok");
 
       subscription.unsubscribe();
 
-      expect(channel.leftChannel).toBe(true);
+      expect(channel.left).toBe(true);
       expect(socket.disconnected).toBe(true);
     });
   });
