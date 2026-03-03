@@ -1,0 +1,81 @@
+# Backend Actions
+
+Server-side action patterns and backend integration guidance.
+
+## Guidance
+### Backend Actions
+- Route: `/backend-actions`
+- Source: `docs/content/docs/(root)/backend-actions.mdx`
+- Description: Enable AI agents to execute server-side operations, access databases, and integrate with external services.
+
+## What are Backend Actions?
+
+Backend Actions are server-side functions that AI agents can call to perform operations that require backend resources, such as database queries, API calls, file operations, or complex computations. They extend agent capabilities beyond the frontend to access the full power of your server infrastructure.
+
+Unlike frontend actions that modify UI state, backend actions handle data processing, external integrations, and operations that require server-side security or resources.
+
+**Ready to get started with Backend Actions?**
+
+          Direct to LLM
+        Backend Actions are primarily designed for Direct to LLM applications, where you need explicit server-side functions that the LLM can call. CopilotKit provides multiple implementation approaches.
+
+## Common Backend Action Patterns
+
+### **Database Operations**
+Actions that create, read, update, or delete data from databases, often with complex queries and relationships.
+
+### **API Integrations**
+Actions that call external APIs, process responses, and integrate data from third-party services.
+
+### **File Operations**
+Actions that handle file uploads, downloads, processing, or storage operations on the server.
+
+### **Authentication and Authorization**
+Actions that manage user authentication, permissions, and access control for sensitive operations.
+
+### **Data Processing**
+Actions that perform data transformation, analysis, aggregation, or complex computations.
+
+### **Workflow Orchestration**
+Actions that coordinate multiple backend services or trigger complex business processes.
+
+## Types of Backend Actions
+
+### **Synchronous Actions**
+Actions that execute and return results immediately, suitable for quick database queries or simple API calls.
+
+### **Asynchronous Actions**
+Actions that handle long-running operations, often with progress tracking and completion notifications.
+
+### **Streaming Actions**
+Actions that return data progressively, useful for real-time updates or large data sets.
+
+### **Batch Actions**
+Actions that process multiple items or operations together for efficiency.
+
+### **Transactional Actions**
+Actions that ensure data consistency across multiple operations, with rollback capabilities on failure.
+
+## When to Use Backend Actions
+
+Consider Backend Actions when agents need to:
+
+- **Access sensitive data** that shouldn't be exposed to the frontend
+- **Perform complex queries** across multiple data sources
+- **Integrate with external services** requiring server-side authentication
+- **Execute business logic** that involves multiple systems
+- **Process large amounts of data** efficiently
+- **Maintain data consistency** across operations
+- **Handle file operations** or media processing
+- **Implement security controls** and access management
+
+### **Agent Framework Applications**
+
+Agent frameworks (LangGraph, CrewAI, LlamaIndex, etc.) typically handle backend operations through their native agent architectures rather than explicit backend actions. These frameworks provide their own mechanisms for:
+
+- Tool calling and external service integration
+- Database access and data manipulation
+- Complex workflow orchestration
+- Multi-step reasoning and planning
+
+For agent-based applications, backend functionality is usually implemented as **agent tools** or **framework-specific integrations** rather than CopilotKit backend actions.
