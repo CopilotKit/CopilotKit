@@ -134,6 +134,7 @@ we'll be adding `useCopilotAction` hooks for each tool call with the `renderAndW
 import { AddTrips, EditTrips, DeleteTrips } from "@/components/humanInTheLoop"; // [!code ++]
 import { useAgent, useCoAgentStateRender } from "@copilotkit/react-core/v2"; // [!code --]
 import { useAgent, useCoAgentStateRender, useFrontendTool } from "@copilotkit/react-core/v2"; // [!code ++]
+import { z } from "zod"; // [!code ++]
 // ...
 
 export const TripsProvider = ({ children }: { children: ReactNode }) => {
@@ -146,46 +147,31 @@ export const TripsProvider = ({ children }: { children: ReactNode }) => {
     },
   });
 
-  // [!code ++:42]
+  // [!code ++:30]
   useFrontendTool({
     name: "add_trips",
     description: "Add some trips",
-    parameters: [
-      {
-        name: "trips",
-        type: "object[]",
-        description: "The trips to add",
-        required: true,
-      },
-    ],
+    parameters: z.object({
+      trips: z.array(z.object({}).passthrough()).describe("The trips to add"),
+    }),
     renderAndWait: AddTrips,
   });
 
   useFrontendTool({
     name: "update_trips",
     description: "Update some trips",
-    parameters: [
-      {
-        name: "trips",
-        type: "object[]",
-        description: "The trips to update",
-        required: true,
-      },
-    ],
+    parameters: z.object({
+      trips: z.array(z.object({}).passthrough()).describe("The trips to update"),
+    }),
     renderAndWait: EditTrips,
   });
 
   useFrontendTool({
     name: "delete_trips",
     description: "Delete some trips",
-    parameters: [
-      {
-        name: "trip_ids",
-        type: "string[]",
-        description: "The ids of the trips to delete",
-        required: true,
-      },
-    ],
+    parameters: z.object({
+      trip_ids: z.array(z.string()).describe("The ids of the trips to delete"),
+    }),
     renderAndWait: (props) => DeleteTrips({ ...props, trips: state.trips }),
   });
 

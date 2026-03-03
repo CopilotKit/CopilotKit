@@ -106,8 +106,8 @@ You can use this when you need to update agent state from your application — f
     ```
   </Step>
   <Step>
-    ### Call `setAgentState` function from the `useAgent` hook
-    `useAgent` returns a `setAgentState` function that you can use to update the agent state. Calling this
+    ### Call `agent.setState` from the `useAgent` hook
+    `useAgent` returns an `agent` object with a `setState` method that you can use to update the agent state. Calling this
     will update the agent state and trigger a rerender of anything that depends on the agent state.
 
     ```tsx title="ui/app/page.tsx"
@@ -120,7 +120,7 @@ You can use this when you need to update agent state from your application — f
 
     // Example usage in a pseudo React component
     function YourMainContent() {
-      const { agentState, setAgentState } = useAgent<AgentState>({ // [!code highlight]
+      const { agent } = useAgent({ // [!code highlight]
         name: "sample_agent",
         initialState: { language: "english" }  // optionally provide an initial state
       });
@@ -128,7 +128,7 @@ You can use this when you need to update agent state from your application — f
       // ...
 
       const toggleLanguage = () => {
-        setAgentState({ language: agentState.language === "english" ? "spanish" : "english" }); // [!code highlight]
+        agent.setState({ language: agent.state?.language === "english" ? "spanish" : "english" }); // [!code highlight]
       };
 
       // ...
@@ -138,7 +138,7 @@ You can use this when you need to update agent state from your application — f
         <div>
           <h1>Your main content</h1>
           {/* [!code highlight:1] */}
-          <p>Language: {agentState.language}</p>
+          <p>Language: {agent.state?.language}</p>
           <button onClick={toggleLanguage}>Toggle Language</button>
         </div>
       );
@@ -147,7 +147,7 @@ You can use this when you need to update agent state from your application — f
   </Step>
   <Step>
     ### Give it a try!
-    You can now use the `setAgentState` function to update the agent state and `agentState` to read it. Try toggling the language button
+    You can now use `agent.setState` to update the agent state and `agent.state` to read it. Try toggling the language button
     and talking to your agent. You'll see the language change to match the agent's state.
 
 <video src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/write-agent-state.mp4" className="rounded-lg shadow-xl" loop playsInline controls autoPlay muted />
@@ -174,15 +174,15 @@ import { TextMessage, MessageRole } from "@copilotkit/runtime-client-gql";  // [
 
 function YourMainContent() {
   // [!code word:run:1]
-  const { agentState, setAgentState, run } = useAgent<AgentState>({
+  const { agent, run } = useAgent({
     name: "sample_agent",
     initialState: { language: "english" }  // optionally provide an initial state
   });
 
   // setup to be called when some event in the app occurs
   const toggleLanguage = () => {
-    const newLanguage = agentState.language === "english" ? "spanish" : "english";
-    setAgentState({ language: newLanguage });
+    const newLanguage = agent.state?.language === "english" ? "spanish" : "english";
+    agent.setState({ language: newLanguage });
 
     // [!code highlight:7]
     // re-run the agent and provide a hint about what's changed

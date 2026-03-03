@@ -86,7 +86,7 @@ You can use this when you want to provide user input or control to your agent's 
   <Step>
     ### Use the `useAgent` Hook
     With your agent connected and running all that is left is to call the `useAgent` hook, pass the agent's name, and
-    use the `setAgentState` function to update the agent state.
+    use `agent.setState` to update the agent state.
 
     ```tsx title="ui/app/page.tsx"
     "use client";
@@ -100,7 +100,7 @@ You can use this when you want to provide user input or control to your agent's 
 
     // Example usage in a pseudo React component
     function YourMainContent() {
-      const { agentState, setAgentState } = useAgent<AgentState>({ // [!code highlight]
+      const { agent } = useAgent({ // [!code highlight]
         name: "my_agent", // MUST match the agent name in CopilotRuntime
         initialState: { language: "english" }  // optionally provide an initial state
       });
@@ -108,7 +108,7 @@ You can use this when you want to provide user input or control to your agent's 
       // ...
 
       const toggleLanguage = () => {
-        setAgentState({ language: agentState.language === "english" ? "spanish" : "english" }); // [!code highlight]
+        agent.setState({ language: agent.state?.language === "english" ? "spanish" : "english" }); // [!code highlight]
       };
 
       // ...
@@ -118,7 +118,7 @@ You can use this when you want to provide user input or control to your agent's 
         <div>
           <h1>Your main content</h1>
           {/* [!code highlight:2] */}
-          <p>Language: {agentState.language}</p>
+          <p>Language: {agent.state?.language}</p>
           <button onClick={toggleLanguage}>Toggle Language</button>
         </div>
       );
@@ -130,13 +130,13 @@ You can use this when you want to provide user input or control to your agent's 
     </Callout>
 
     <Callout type="info">
-      The `setAgentState` function in `useAgent` will update the state and trigger a rerender when the state changes.
+      The `agent.setState` function in `useAgent` will update the state and trigger a rerender when the state changes.
     </Callout>
 
   </Step>
   <Step>
     ### Give it a try!
-    You can now use the `setAgentState` function to update the agent state and `agentState` to read it. Try toggling the language button
+    You can now use `agent.setState` to update the agent state and `agent.state` to read it. Try toggling the language button
     and talking to your agent. You'll see the language change to match the agent's state.
   </Step>
 </Steps>
@@ -158,15 +158,15 @@ import { TextMessage, MessageRole } from "@copilotkit/runtime-client-gql";  // [
 
 function YourMainContent() {
   // [!code word:run:1]
-  const { agentState, setAgentState, run } = useAgent<AgentState>({
+  const { agent, run } = useAgent({
     name: "my_agent", // MUST match the agent name in CopilotRuntime
     initialState: { language: "english" }  // optionally provide an initial state
   });
 
   // setup to be called when some event in the app occurs
   const toggleLanguage = () => {
-    const newLanguage = agentState.language === "english" ? "spanish" : "english";
-    setAgentState({ language: newLanguage });
+    const newLanguage = agent.state?.language === "english" ? "spanish" : "english";
+    agent.setState({ language: newLanguage });
 
     // re-run the agent and provide a hint about what's changed
     // [!code highlight:6]

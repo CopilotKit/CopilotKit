@@ -260,18 +260,18 @@ When the tool completes, the agent emits a final state snapshot. Any predictive 
 
     export default function Page() {
       // Access both predicted and final states
-      const { agentState } = useAgent<AgentState>({ name: "sample_agent" });
+      const { agent } = useAgent({ name: "sample_agent" });
 
       // Observe predictions (render inside the chat)
-      useAgent<AgentState>({
+      useAgent({
         name: "sample_agent",
-        render: ({ agentState }) => {
-          if (!agentState.observed_steps?.length) return null;
+        render: ({ state }) => {
+          if (!state.observed_steps?.length) return null;
           return (
             <div>
               <h3>Current Progress:</h3>
               <ul>
-                {agentState.observed_steps.map((step, i) => (
+                {state.observed_steps.map((step, i) => (
                   <li key={i}>{step}</li>
                 ))}
               </ul>
