@@ -1,13 +1,13 @@
-import React from "react"
-import { cn } from "@/lib/utils"
+import React from "react";
+import { cn } from "@/lib/utils";
 
 interface LanggraphIconProps {
-  className?: string
-  width?: number
-  height?: number
+  className?: string;
+  width?: number;
+  height?: number;
 }
 
-const DEFAULT_CLASSNAME = "text-icon"
+const DEFAULT_CLASSNAME = "text-icon";
 
 const LanggraphIcon = ({
   className,
@@ -30,8 +30,7 @@ const LanggraphIcon = ({
         fill="currentColor"
       />
     </svg>
-  )
-}
+  );
+};
 
-export default LanggraphIcon
-
+export default LanggraphIcon;

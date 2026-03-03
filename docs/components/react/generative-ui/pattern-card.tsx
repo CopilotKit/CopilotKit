@@ -1,8 +1,8 @@
-'use client';
+"use client";
 
-import Image from 'next/image';
-import { Check, AlertCircle } from 'lucide-react';
-import { ReactNode } from 'react';
+import Image from "next/image";
+import { Check, AlertCircle } from "lucide-react";
+import { ReactNode } from "react";
 
 interface PatternExample {
   src: string;
@@ -49,9 +49,7 @@ export function PatternCard({
           <p className="text-sm md:text-base text-muted-foreground italic mb-4">
             {subtitle}
           </p>
-          <p className="text-sm md:text-base mb-4">
-            {description}
-          </p>
+          <p className="text-sm md:text-base mb-4">{description}</p>
           <div className="text-sm md:text-base text-muted-foreground">
             {fullDescription}
           </div>

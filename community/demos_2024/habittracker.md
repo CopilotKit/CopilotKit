@@ -1,22 +1,24 @@
-## 🚀 **Habit Tracker**  
+## 🚀 **Habit Tracker**
 
 ### 📝 **Issue: 19 - Habit Tracker (Hacktoberfest Demo) #631**
-Develop a simple habit tracker that allows users to log their daily habits.
 
+Develop a simple habit tracker that allows users to log their daily habits.
 
 ---
 
 ### 🛠️ **Technologies Being Used**
 
 - **React.js**: A JavaScript library for building user interfaces.
-- **Next.js**:  A React framework that enables server-side rendering and static site generation.
+- **Next.js**: A React framework that enables server-side rendering and static site generation.
 - **Developer Tools**: CopilotKit powered with Gemini
 - **Shadcn-UI**: A component library for building user interfaces with React.
 - **Tailwind CSS**: A utility-first CSS framework for styling applications.
 - **TypeScript**: A typed superset of JavaScript (if you are using it).
+
 ---
 
 ### 🌐 **App Link**
+
 https://habittracker-umber.vercel.app/
 
 ---

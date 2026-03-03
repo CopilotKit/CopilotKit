@@ -1,8 +1,0 @@
-{
-  "extends": "../../utilities/tsconfig/react-library.json",
-  "compilerOptions": {
-    "types": ["jest", "@types/jest"]
-  },
-  "include": ["src/**/*"],
-  "exclude": ["dist", "build", "node_modules"]
-}

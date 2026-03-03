@@ -1,12 +1,12 @@
-import { DocsLayout } from "fumadocs-ui/layouts/docs"
-import { HomeLayout } from "fumadocs-ui/layouts/home"
-import type { ReactNode } from "react"
-import { baseOptions } from "../layout.config"
-import { source } from "@/app/source"
-import IntegrationsSidebar from "@/components/layout/integrations-sidebar"
-import Navbar from "@/components/layout/navbar"
-import { ScrollReset } from "@/components/layout/scroll-reset"
-import { patchPageTree } from "@/lib/patch-pagetree"
+import { DocsLayout } from "fumadocs-ui/layouts/docs";
+import { HomeLayout } from "fumadocs-ui/layouts/home";
+import type { ReactNode } from "react";
+import { baseOptions } from "../layout.config";
+import { source } from "@/app/source";
+import IntegrationsSidebar from "@/components/layout/integrations-sidebar";
+import Navbar from "@/components/layout/navbar";
+import { ScrollReset } from "@/components/layout/scroll-reset";
+import { patchPageTree } from "@/lib/patch-pagetree";
 
 export default function Layout({ children }: { children: ReactNode }) {
   const patchedPageTree = patchPageTree(source.pageTree);
@@ -29,5 +29,5 @@ export default function Layout({ children }: { children: ReactNode }) {
         </div>
       </HomeLayout>
     </>
-  )
+  );
 }

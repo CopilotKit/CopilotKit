@@ -1,11 +1,11 @@
-import React from "react"
-import { cn } from "@/lib/utils"
+import React from "react";
+import { cn } from "@/lib/utils";
 
 interface ExternalLinkIconProps {
-  className?: string
+  className?: string;
 }
 
-const DEFAULT_CLASSNAME = "text-icon"
+const DEFAULT_CLASSNAME = "text-icon";
 
 const ExternalLinkIcon = ({ className }: ExternalLinkIconProps) => {
   return (
@@ -22,7 +22,7 @@ const ExternalLinkIcon = ({ className }: ExternalLinkIconProps) => {
         fill="currentColor"
       />
     </svg>
-  )
-}
+  );
+};
 
-export default ExternalLinkIcon
+export default ExternalLinkIcon;

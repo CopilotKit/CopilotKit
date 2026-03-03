@@ -18,7 +18,6 @@ export function QuickstartDropdown() {
     { label: "LlamaIndex", url: "/llamaindex/quickstart" },
     { label: "Agno", url: "/agno/quickstart" },
     { label: "CrewAI Flows", url: "/crewai-flows/quickstart/crewai" },
-    { label: "CrewAI Crews", url: "/crewai-crews/quickstart/crewai" },
     { label: "AG2", url: "/ag2/quickstart" },
     { label: "Pydantic AI", url: "/pydantic-ai/quickstart" },
     { label: "ADK", url: "/adk/quickstart" },
@@ -49,9 +48,7 @@ export function QuickstartDropdown() {
           </option>
         ))}
       </select>
-      <ChevronDownIcon
-        className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#010507] dark:text-white"
-      />
+      <ChevronDownIcon className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#010507] dark:text-white" />
     </div>
   );
 }

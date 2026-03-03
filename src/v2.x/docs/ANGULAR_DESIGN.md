@@ -1,13 +1,13 @@
 # CopilotKit Angular Design
 
-Status: **DRAFT**
-Version: **v0.01**
-Author: **Mike Ryan**
-Reviewer: **Markus Ecker**
+Status: **DRAFT** Version: **v0.01** Author: **Mike Ryan** Reviewer: **Markus Ecker**
 
 # Goals
 
-CopilotKit has a well-defined React library for building on top of the AG-UI protocol. It provides helpers for tool calls and building chat interfaces. The goal of this document is to design an Angular library with feature parity with the React implementation. It should adhere to CopilotKit’s existing architectural philosophy and design patterns, while being idiomatic Angular.
+CopilotKit has a well-defined React library for building on top of the AG-UI protocol. It provides helpers for tool
+calls and building chat interfaces. The goal of this document is to design an Angular library with feature parity with
+the React implementation. It should adhere to CopilotKit’s existing architectural philosophy and design patterns, while
+being idiomatic Angular.
 
 # Providing CopilotKit
 
@@ -25,9 +25,7 @@ export interface CopilotKitConfig {
   renderToolCalls?: ToolCallRendererConfig[];
 }
 
-const COPILOT_KIT_CONFIG = new InjectionToken<CopilotKitConfig>(
-  "COPILOT_KIT_CONFIG"
-);
+const COPILOT_KIT_CONFIG = new InjectionToken<CopilotKitConfig>("COPILOT_KIT_CONFIG");
 
 export function injectCopilotKitConfig(): CopilotKitConfig {
   return inject(COPILOT_KIT_CONFIG);
@@ -67,18 +65,8 @@ Service that wraps CopilotKitCore. We **do not** want to extend CopilotKitCore b
 ```ts
 import { AbstractAgent } from "@ag-ui/client";
 import { FrontendTool } from "@copilotkitnext/core";
-import {
-  Injector,
-  Signal,
-  WritableSignal,
-  runInInjectionContext,
-  signal,
-} from "@angular/core";
-import {
-  ClientTool,
-  ToolCallRendererConfig,
-  injectCopilotKitConfig,
-} from "@copilotkitnext/angular";
+import { Injector, Signal, WritableSignal, runInInjectionContext, signal } from "@angular/core";
+import { ClientTool, ToolCallRendererConfig, injectCopilotKitConfig } from "@copilotkitnext/angular";
 
 @Injectable({ providedIn: "root" })
 export class CopilotKit {
@@ -93,20 +81,15 @@ export class CopilotKit {
     properties: this.#config.properties,
     agents: this.#config.agents,
     tools: Object.fromEntries(
-      (this.#config.tools ?? []).map<readonly [string, FrontendTool<any>]>(
-        (tool) => {
-          const { renderer, ...frontendCandidate } = tool;
-          return [tool.name, frontendCandidate];
-        }
-      )
+      (this.#config.tools ?? []).map<readonly [string, FrontendTool<any>]>((tool) => {
+        const { renderer, ...frontendCandidate } = tool;
+        return [tool.name, frontendCandidate];
+      }),
     ),
   });
 
-  readonly #renderToolCalls: WritableSignal<ToolCallRendererConfig[]> = signal(
-    []
-  );
-  readonly renderToolCalls: Signal<ToolCallRendererConfig[]> =
-    this.#renderToolCalls.asReadonly();
+  readonly #renderToolCalls: WritableSignal<ToolCallRendererConfig[]> = signal([]);
+  readonly renderToolCalls: Signal<ToolCallRendererConfig[]> = this.#renderToolCalls.asReadonly();
 
   constructor() {
     this.#config.renderToolCalls?.forEach((renderConfig) => {
@@ -129,7 +112,7 @@ export class CopilotKit {
    * Adds a client tool in Angular's injection context
    */
   addTool<Args extends Record<string, unknown>>(
-    clientToolWithInjector: ClientTool<Args> & { injector: Injector }
+    clientToolWithInjector: ClientTool<Args> & { injector: Injector },
   ): void {
     const { injector, ...clientTool } = clientToolWithInjector;
 
@@ -138,8 +121,7 @@ export class CopilotKit {
     const tool: FrontendTool<Args> = {
       ...frontendCandidate,
       handler: clientTool.handler
-        ? (args) =>
-            runInInjectionContext(injector, () => clientTool.handler?.(args))
+        ? (args) => runInInjectionContext(injector, () => clientTool.handler?.(args))
         : undefined,
     };
 
@@ -157,21 +139,14 @@ export class CopilotKit {
 
   addRenderToolCall(renderConfig: ToolCallRendererConfig): void {
     this.#renderToolCalls.update((current) => [
-      ...current.filter(
-        (existing) =>
-          existing.name !== renderConfig.name ||
-          existing.agentId !== renderConfig.agentId
-      ),
+      ...current.filter((existing) => existing.name !== renderConfig.name || existing.agentId !== renderConfig.agentId),
       renderConfig,
     ]);
   }
 
   removeRenderToolCall(name: string, agentId?: string): void {
     this.#renderToolCalls.update((current) =>
-      current.filter(
-        (renderConfig) =>
-          renderConfig.name !== name || renderConfig.agentId !== agentId
-      )
+      current.filter((renderConfig) => renderConfig.name !== name || renderConfig.agentId !== agentId),
     );
   }
 
@@ -234,13 +209,8 @@ export class CopilotkitAgentFactory {
   /**
    * Wraps an AbstractAgent in an Angular signal
    */
-  createAgentSignal(
-    agentId: string,
-    destroyRef: DestroyRef
-  ): Signal<AbstractAgent | undefined> {
-    const agent = signal<AbstractAgent | undefined>(
-      this.#copilotkit.getAgent(agentId)
-    );
+  createAgentSignal(agentId: string, destroyRef: DestroyRef): Signal<AbstractAgent | undefined> {
+    const agent = signal<AbstractAgent | undefined>(this.#copilotkit.getAgent(agentId));
 
     const attachAgentSubscription = (targetAgent: AbstractAgent) => {
       const subscription = targetAgent.subscribe({
@@ -324,9 +294,7 @@ export type ClientToolCall<Args extends object = Record<string, unknown>> =
       result: string;
     };
 
-interface ClientToolRenderer<
-  Args extends Record<string, unknown> = Record<string, unknown>,
-> {
+interface ClientToolRenderer<Args extends Record<string, unknown> = Record<string, unknown>> {
   toolCall: Signal<ClientToolCall<Args>>;
 }
 ```
@@ -343,9 +311,7 @@ type ClientTool<Args extends Record<string, unknown>> = FrontendTool<Args> & {
   renderer?: Type<ClientToolRenderer>;
 };
 
-interface ToolCallRendererConfig<
-  Args extends Record<string, unknown> = Record<string, unknown>,
-> {
+interface ToolCallRendererConfig<Args extends Record<string, unknown> = Record<string, unknown>> {
   name: string;
   args: z.ZodType<Args>;
   component: Type<ClientToolRenderer<Args>>;
@@ -353,12 +319,12 @@ interface ToolCallRendererConfig<
 }
 ```
 
-`CopilotKit#addTool` (defined above) binds the handler inside the supplied `Injector` with `runInInjectionContext` so that `inject()` works when the tool executes. Helper that adds a client tool in an injection context. This is the primary API developers will consume:
+`CopilotKit#addTool` (defined above) binds the handler inside the supplied `Injector` with `runInInjectionContext` so
+that `inject()` works when the tool executes. Helper that adds a client tool in an injection context. This is the
+primary API developers will consume:
 
 ```ts
-function registerClientTool<Args extends Record<string, unknown>>(
-  clientTool: ClientTool<Args>
-) {
+function registerClientTool<Args extends Record<string, unknown>>(clientTool: ClientTool<Args>) {
   const injector = inject(Injector);
   const destroyRef = inject(DestroyRef);
   const copilotKit = inject(CopilotKit);
@@ -405,7 +371,8 @@ export class WeatherToolRenderer implements ToolCallRenderer {
 }
 ```
 
-And then they register it in another component. When registered, the tool’s lifecycle is bound to the lifecycle of the component. Tools will need to be run in component constructors, or some other valid injection context.
+And then they register it in another component. When registered, the tool’s lifecycle is bound to the lifecycle of the
+component. Tools will need to be run in component constructors, or some other valid injection context.
 
 ```ts
 import { Component, inject } from "@angular/core";
@@ -436,17 +403,14 @@ export class Page {
 
 ## API
 
-Angular developers will need an outlet to render tool calls. The outlet accepts an assistant message and renders the associated tool calls:
+Angular developers will need an outlet to render tool calls. The outlet accepts an assistant message and renders the
+associated tool calls:
 
 ```ts
 import { NgComponentOutlet } from "@angular/common";
 import { Component, inject, input } from "@angular/core";
 import { AssistantMessage, ToolCall } from "@ag-ui/client";
-import {
-  ClientToolCall,
-  CopilotKit,
-  ToolCallRendererConfig,
-} from "@copilotkitnext/angular";
+import { ClientToolCall, CopilotKit, ToolCallRendererConfig } from "@copilotkitnext/angular";
 import { ToolCallStatus } from "@copilotkitnext/core";
 
 @Component({
@@ -458,10 +422,7 @@ import { ToolCallStatus } from "@copilotkitnext/core";
       @let renderConfig = pickRenderer(toolCall.function.name);
       @if (renderConfig) {
         <ng-container
-          *ngComponentOutlet="
-            renderConfig.component;
-            inputs: { toolCall: buildToolCall(toolCall, renderConfig) }
-          "
+          *ngComponentOutlet="renderConfig.component; inputs: { toolCall: buildToolCall(toolCall, renderConfig) }"
         />
       }
     }
@@ -478,17 +439,12 @@ export class RenderToolCalls {
     return (
       renderers.find(
         (candidate) =>
-          candidate.name === name &&
-          (candidate.agentId === undefined ||
-            candidate.agentId === messageAgentId)
+          candidate.name === name && (candidate.agentId === undefined || candidate.agentId === messageAgentId),
       ) ?? renderers.find((candidate) => candidate.name === "*")
     );
   }
 
-  buildToolCall(
-    toolCall: ToolCall,
-    renderConfig: ToolCallRendererConfig
-  ): ClientToolCall {
+  buildToolCall(toolCall: ToolCall, renderConfig: ToolCallRendererConfig): ClientToolCall {
     const args = JSON.parse(toolCall.function.arguments ?? "{}");
 
     // TODO: look up the matching tool message to emit Executing/Complete states.

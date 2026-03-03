@@ -1,23 +1,23 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect } from "react";
 
 const IntegrationSelectorSkeleton = () => {
-  const [isDark, setIsDark] = useState(false)
+  const [isDark, setIsDark] = useState(false);
 
   useEffect(() => {
     const checkTheme = () => {
-      setIsDark(document.documentElement.classList.contains("dark"))
-    }
+      setIsDark(document.documentElement.classList.contains("dark"));
+    };
 
-    checkTheme()
+    checkTheme();
 
-    const observer = new MutationObserver(checkTheme)
+    const observer = new MutationObserver(checkTheme);
     observer.observe(document.documentElement, {
       attributes: true,
       attributeFilter: ["class"],
-    })
+    });
 
-    return () => observer.disconnect()
-  }, [])
+    return () => observer.disconnect();
+  }, []);
 
   return (
     <div className="relative mt-3 w-full">
@@ -479,7 +479,7 @@ const IntegrationSelectorSkeleton = () => {
         )}
       </div>
     </div>
-  )
-}
+  );
+};
 
-export default IntegrationSelectorSkeleton
+export default IntegrationSelectorSkeleton;

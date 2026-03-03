@@ -1,10 +1,8 @@
-
 ## 1. Project Title:- Language-translator
 
 ## 2. Name of Issue/Topic:-08 - Language Translator (Hacktoberfest Demo)
 
 https://github.com/CopilotKit/CopilotKit/issues/609
-
 
 ## 3. Technologies Being Used
 
@@ -14,14 +12,13 @@ https://github.com/CopilotKit/CopilotKit/issues/609
 
 ## 4. GitHub Project Link
 
-### GitHub Repo Link: 
+### GitHub Repo Link:
 
 https://github.com/kushal34712/language-translator
 
 ### 5 bonus points
 
 [Live Demo](https://language-translator-rust-pi.vercel.app/)
-
 
 ## 6. Screenshot
 

@@ -1,13 +1,13 @@
-import React from "react"
-import { cn } from "@/lib/utils"
+import React from "react";
+import { cn } from "@/lib/utils";
 
 interface MastraIconProps {
-  className?: string
-  width?: number
-  height?: number
+  className?: string;
+  width?: number;
+  height?: number;
 }
 
-const DEFAULT_CLASSNAME = "text-icon"
+const DEFAULT_CLASSNAME = "text-icon";
 
 const MastraIcon = ({
   className,
@@ -50,8 +50,7 @@ const MastraIcon = ({
         fill="currentColor"
       />
     </svg>
-  )
-}
+  );
+};
 
-export default MastraIcon
-
+export default MastraIcon;

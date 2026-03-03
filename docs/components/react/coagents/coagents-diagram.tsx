@@ -18,17 +18,23 @@ export const CoAgentsDiagram: React.FC = () => {
 
 interface DiagramNodeProps {
   title: string;
-  variant?: 'default' | 'colored';
+  variant?: "default" | "colored";
 }
 
-const DiagramNode: React.FC<DiagramNodeProps> = ({ title, variant = 'default' }) => {
-  const bgColor = variant === 'colored' 
-    ? "bg-blue-100 dark:bg-blue-900" 
-    : "bg-gray-50 dark:bg-neutral-900";
-    
+const DiagramNode: React.FC<DiagramNodeProps> = ({
+  title,
+  variant = "default",
+}) => {
+  const bgColor =
+    variant === "colored"
+      ? "bg-blue-100 dark:bg-blue-900"
+      : "bg-gray-50 dark:bg-neutral-900";
+
   return (
     <div className={`${bgColor} shadow-lg rounded-lg p-4 m-2 text-center`}>
-      <span className="text-gray-800 dark:text-gray-200 font-medium">{title}</span>
+      <span className="text-gray-800 dark:text-gray-200 font-medium">
+        {title}
+      </span>
     </div>
   );
 };
@@ -42,7 +48,12 @@ const DiagramArrow: React.FC = () => {
         stroke="currentColor"
         viewBox="0 0 24 24"
       >
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2}
+          d="M9 5l7 7-7 7"
+        />
       </svg>
     </div>
   );

@@ -1,4 +1,4 @@
-'use client';
+"use client";
 import React from "react";
 import Link from "next/link";
 
@@ -12,7 +12,8 @@ export function CoAgentsEnterpriseCTA() {
         <Link
           href="https://www.youtube.com/watch?v=0b6BVqPwqA0"
           target="_blank"
-          className="block mt-3 no-underline">
+          className="block mt-3 no-underline"
+        >
           <button className="bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 mt-2 font-medium">
             <span>Watch the demo</span>
           </button>

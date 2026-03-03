@@ -8,7 +8,7 @@ export type ChangesetState = {
 };
 
 export default async function readChangesetState(
-  cwd: string = process.cwd()
+  cwd: string = process.cwd(),
 ): Promise<ChangesetState> {
   let preState = await readPreState(cwd);
   let changesets = await readChangesets(cwd);

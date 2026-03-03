@@ -1,11 +1,11 @@
-import React from "react"
-import { cn } from "@/lib/utils"
+import React from "react";
+import { cn } from "@/lib/utils";
 
 interface PuzzleIconProps {
-  className?: string
+  className?: string;
 }
 
-const DEFAULT_CLASSNAME = "text-icon"
+const DEFAULT_CLASSNAME = "text-icon";
 
 const PuzzleIcon = ({ className }: PuzzleIconProps) => {
   return (
@@ -22,7 +22,7 @@ const PuzzleIcon = ({ className }: PuzzleIconProps) => {
         fill="currentColor"
       />
     </svg>
-  )
-}
+  );
+};
 
-export default PuzzleIcon
+export default PuzzleIcon;

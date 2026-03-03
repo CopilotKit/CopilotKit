@@ -1,0 +1,34 @@
+{
+  "extends": "../../packages/v1/tsconfig/nextjs.json",
+  "compilerOptions": {
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ],
+    "strictNullChecks": true
+  },
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules"
+  ],
+  "paths": {
+    "@/*": [
+      "./src/*"
+    ],
+    "@copilotkit/react-core/*": [
+      "../../packages/v1/react-core/*"
+    ],
+    "@copilotkit/react-ui/*": [
+      "../../packages/v1/react-ui/*"
+    ],
+    "@copilotkit/react-textarea/*": [
+      "../../packages/v1/react-textarea/*"
+    ]
+  }
+}

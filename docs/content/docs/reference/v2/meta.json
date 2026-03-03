@@ -1,0 +1,10 @@
+{
+  "title": "v2",
+  "pages": [
+    "index",
+    "---UI Components---",
+    "...components",
+    "---Hooks---",
+    "...hooks"
+  ]
+}

@@ -7,7 +7,7 @@ interface CustomCodeBlockProps {
   code: string;
 }
 
-const CustomCodeBlock = ({ code,  }: CustomCodeBlockProps) => {
+const CustomCodeBlock = ({ code }: CustomCodeBlockProps) => {
   const [copied, setCopied] = useState(false);
 
   const handleCopy = async () => {
@@ -19,7 +19,7 @@ const CustomCodeBlock = ({ code,  }: CustomCodeBlockProps) => {
   const highlightCode = (text: string) => {
     return text.replace(
       /(\S+@\S+)/g,
-      '<span class="text-emerald-600 dark:text-emerald-400">$1</span>'
+      '<span class="text-emerald-600 dark:text-emerald-400">$1</span>',
     );
   };
 

@@ -4,7 +4,6 @@
 
 https://github.com/CopilotKit/CopilotKit/issues/609
 
-
 ## 3. Technologies Being Used
 
 - v0 Styling
@@ -13,14 +12,13 @@ https://github.com/CopilotKit/CopilotKit/issues/609
 
 ## 4. GitHub Project Link
 
-### GitHub Repo Link: 
+### GitHub Repo Link:
 
 https://github.com/PriyanshuDas01/Language_Copilot
 
 ### 5 bonus points
 
 [Live Demo](https://language-copilot.vercel.app/)
-
 
 ## 6. Screenshot
 

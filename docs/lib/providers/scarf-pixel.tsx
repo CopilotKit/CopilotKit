@@ -1,6 +1,6 @@
-"use client"
+"use client";
 
-import React from 'react';
+import React from "react";
 
 export function ScarfPixel() {
   const SCARF_PIXEL_ID = process.env.NEXT_PUBLIC_SCARF_PIXEL_ID;
@@ -11,12 +11,12 @@ export function ScarfPixel() {
       src={`https://static.scarf.sh/a.png?x-pxid=${SCARF_PIXEL_ID}`}
       alt=""
       style={{
-        position: 'absolute',
-        width: '1px',
-        height: '1px',
+        position: "absolute",
+        width: "1px",
+        height: "1px",
         opacity: 0,
-        pointerEvents: 'none',
-        left: '-9999px'
+        pointerEvents: "none",
+        left: "-9999px",
       }}
     />
   );

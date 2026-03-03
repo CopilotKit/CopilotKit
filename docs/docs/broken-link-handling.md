@@ -16,6 +16,7 @@ The documentation now includes several mechanisms to provide a better user exper
 ### Enhanced 404 Page (`app/not-found.tsx`)
 
 The 404 page now provides:
+
 - Clear error messaging
 - Navigation options (Go Home, Go Back)
 - Suggestions for main documentation sections
@@ -24,12 +25,14 @@ The 404 page now provides:
 ### Broken Link Handler (`components/react/broken-link-handler.tsx`)
 
 Components for handling broken links:
+
 - `BrokenLinkHandler` - Wraps links with validation
 - `EnhancedNavigationLink` - Enhanced navigation link with validation
 
 ### Link Validation (`lib/link-validation.ts`)
 
 Utilities for validating links and providing suggestions:
+
 - `validateLink()` - Validates if a link is broken
 - `generateSuggestions()` - Creates suggestions for broken links
 - `createLinkSuggestion()` - Creates suggestion objects
@@ -37,6 +40,7 @@ Utilities for validating links and providing suggestions:
 ### Middleware (`middleware.ts`)
 
 Handles automatic redirects for common broken link patterns:
+
 - Old coagents paths → LangGraph paths
 - Common typos (guide → guides)
 - API reference variations
@@ -50,6 +54,7 @@ npm run check-links
 ```
 
 This will:
+
 - Scan all documentation files
 - Extract internal links
 - Validate each link
@@ -61,7 +66,7 @@ To add new redirects, update the `redirects` object in `middleware.ts`:
 
 ```typescript
 const redirects: Record<string, string> = {
-  '/old-path': '/new-path',
+  "/old-path": "/new-path",
   // Add more redirects here
 };
 ```

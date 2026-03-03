@@ -1,0 +1,142 @@
+---
+title: "CopilotChat"
+description: "High-level chat component that connects an agent to a chat view"
+---
+
+## Overview
+
+`CopilotChat` is a high-level chat container that wires an agent into `CopilotChatView` while providing configuration context. It obtains the agent via `useAgent`, triggers an initial `runAgent` when mounting CopilotKit agents, manages pending state, and auto-clears the input after submission. Override any of the internal slots by passing `CopilotChatView` props directly.
+
+`CopilotChat` manages messages, running state, and suggestions automatically -- you only need to specify which agent to connect and, optionally, customise labels or slot overrides.
+
+## Import
+
+```tsx
+import { CopilotChat } from "@copilotkit/react-core/v2";
+import "@copilotkit/react-core/v2/styles.css";
+```
+
+## Props
+
+### Own Props
+
+<PropertyReference name="agentId" type="string">
+  ID of the agent to use. Must match an agent configured in `CopilotKitProvider`. Defaults to the provider-level default agent when omitted.
+</PropertyReference>
+
+<PropertyReference name="threadId" type="string">
+  ID of the conversation thread. Pass a specific thread ID to resume an existing conversation or let the agent create a new one.
+</PropertyReference>
+
+<PropertyReference name="labels" type="Partial<CopilotChatLabels>">
+  Partial label overrides for all text strings rendered inside the chat (input placeholder, toolbar buttons, disclaimer text, etc.). Any label you omit falls back to the built-in default.
+</PropertyReference>
+
+<PropertyReference name="chatView" type="SlotValue<typeof CopilotChatView>">
+  Slot override for the inner `CopilotChatView` component. Accepts a replacement component, a `className` string merged into the default, or a partial props object to extend the default.
+</PropertyReference>
+
+<PropertyReference name="isModalDefaultOpen" type="boolean">
+  When used inside `CopilotPopup` or `CopilotSidebar`, controls whether the modal starts in the open state. Stored in the chat configuration context so child components can read it.
+</PropertyReference>
+
+### Inherited CopilotChatView Props
+
+`CopilotChat` accepts all props from [`CopilotChatViewProps`](/reference/v2/components/CopilotChatView) **except** `messages`, `isRunning`, `suggestions`, `suggestionLoadingIndexes`, and `onSelectSuggestion`, which are managed internally by the agent connection.
+
+This means you can pass slot overrides such as `messageView`, `input`, `scrollView`, `inputContainer`, `feather`, `disclaimer`, `suggestionView`, and `welcomeScreen` directly to `CopilotChat`.
+
+<PropertyReference name="autoScroll" type="boolean" default="true">
+  Whether the chat scrolls to the bottom automatically when new messages arrive.
+</PropertyReference>
+
+<PropertyReference name="inputProps" type="Partial<Omit<CopilotChatInputProps, 'children'>>">
+  Additional props forwarded to the inner `CopilotChatInput` component. Use this to configure auto-focus, custom submission handlers, transcription callbacks, or tools menus.
+</PropertyReference>
+
+<PropertyReference name="welcomeScreen" type='SlotValue<React.FC<WelcomeScreenProps>> | boolean'>
+  Controls the welcome screen shown when no messages exist. Pass `true` for the default, `false` to disable, a `className` to style the default, or a replacement component.
+</PropertyReference>
+
+## Slot System
+
+All slot props inherited from `CopilotChatView` follow the same override pattern. Each slot accepts one of three value types:
+
+| Value | Behavior |
+|-------|----------|
+| **Component** | Replaces the default component entirely. Receives the same props the default would. |
+| **`className` string** | Merged into the default component's class list via `twMerge`. |
+| **Partial props object** | Spread into the default component as additional or overriding props. |
+
+Additionally, a `children` render-prop can be used to receive all composed slot elements and arrange them in a custom layout.
+
+## Usage
+
+### Basic Usage
+
+```tsx
+import { CopilotChat } from "@copilotkit/react-core/v2";
+import "@copilotkit/react-core/v2/styles.css";
+
+function App() {
+  return (
+    <CopilotChat
+      agentId="my-agent"
+      labels={{ chatInputPlaceholder: "Ask me anything..." }}
+    />
+  );
+}
+```
+
+### Custom Welcome Screen
+
+```tsx
+import { CopilotChat } from "@copilotkit/react-core/v2";
+import "@copilotkit/react-core/v2/styles.css";
+
+function App() {
+  return (
+    <CopilotChat
+      agentId="my-agent"
+      welcomeScreen={({ input, suggestionView }) => (
+        <div className="flex flex-col items-center justify-center h-full gap-4">
+          <h2>Welcome to the assistant</h2>
+          {suggestionView}
+          {input}
+        </div>
+      )}
+    />
+  );
+}
+```
+
+### Overriding the Chat View Slot
+
+```tsx
+import { CopilotChat } from "@copilotkit/react-core/v2";
+import "@copilotkit/react-core/v2/styles.css";
+
+function App() {
+  return (
+    <CopilotChat
+      agentId="my-agent"
+      chatView="bg-gray-50 rounded-xl shadow-lg"
+    />
+  );
+}
+```
+
+## Behavior
+
+- **Agent wiring**: On mount, `CopilotChat` calls `useAgent` with the provided `agentId` and binds the agent's `messages`, `isRunning`, and suggestion state to `CopilotChatView`.
+- **Initial run**: If the agent has not been run yet, `CopilotChat` triggers `runAgent` automatically so the agent can send an initial greeting or set up state.
+- **Auto-clear input**: After a message is submitted, the input field is cleared automatically.
+- **Configuration context**: Wraps children in `CopilotChatConfigurationProvider`, making `labels`, `agentId`, `threadId`, and modal state available to all descendant components via `useCopilotChatConfiguration`.
+- **Suggestion management**: Subscribes to the agent's suggestion system and passes suggestions, loading states, and selection callbacks down to `CopilotChatView`.
+
+## Related
+
+- [`CopilotChatView`](/reference/v2/components/CopilotChatView) -- the layout component used internally
+- [`CopilotPopup`](/reference/v2/components/CopilotPopup) -- popup variant of `CopilotChat`
+- [`CopilotSidebar`](/reference/v2/components/CopilotSidebar) -- sidebar variant of `CopilotChat`
+- [`useAgent`](/reference/v2/hooks/useAgent) -- hook used internally to access the agent

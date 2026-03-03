@@ -19,7 +19,7 @@ export async function getVersionsByDirectory(cwd: string) {
 
 export async function getChangedPackages(
   cwd: string,
-  previousVersions: Map<string, string>
+  previousVersions: Map<string, string>,
 ) {
   let { packages } = await getPackages(cwd);
   let changedPackages = new Set<Package>();
@@ -77,7 +77,7 @@ export function getChangelogEntry(changelog: string, version: string) {
   if (headingStartInfo) {
     ast.children = (ast.children as any).slice(
       headingStartInfo.index + 1,
-      endIndex
+      endIndex,
     );
   }
   return {
@@ -88,7 +88,7 @@ export function getChangelogEntry(changelog: string, version: string) {
 
 export function sortTheThings(
   a: { private: boolean; highestLevel: number },
-  b: { private: boolean; highestLevel: number }
+  b: { private: boolean; highestLevel: number },
 ) {
   if (a.private === b.private) {
     return b.highestLevel - a.highestLevel;

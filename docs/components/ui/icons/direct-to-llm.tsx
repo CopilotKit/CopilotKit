@@ -1,13 +1,13 @@
-import React from "react"
-import { cn } from "@/lib/utils"
+import React from "react";
+import { cn } from "@/lib/utils";
 
 interface DirectToLlmIconProps {
-  className?: string
-  width?: number
-  height?: number
+  className?: string;
+  width?: number;
+  height?: number;
 }
 
-const DEFAULT_CLASSNAME = "text-icon"
+const DEFAULT_CLASSNAME = "text-icon";
 
 const DirectToLlmIcon = ({
   className,
@@ -28,7 +28,7 @@ const DirectToLlmIcon = ({
         fill="currentColor"
       />
     </svg>
-  )
-}
+  );
+};
 
-export default DirectToLlmIcon
+export default DirectToLlmIcon;

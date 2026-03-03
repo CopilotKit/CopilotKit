@@ -47,16 +47,18 @@ Before you begin, you'll need the following:
                 ```python title="main.py"
                 from deepagents import create_deep_agent
                 from copilotkit import CopilotKitMiddleware
+                from langgraph.checkpoint.memory import MemorySaver
 
                 def get_weather(location: str):
                     """Get weather for a location"""
                     return f"The weather in {location} is sunny."
 
                 agent = create_deep_agent(
-                    model="openai:gpt-4o",
+                    model="openai:gpt-5.2",
                     tools=[get_weather],
                     middleware=[CopilotKitMiddleware()], # for frontend tools and context
-                    system_prompt="You are a helpful research assistant."
+                    system_prompt="You are a helpful research assistant.",
+                    checkpointer=MemorySaver()
                 )
                 ```
 
@@ -95,16 +97,18 @@ Before you begin, you'll need the following:
                 from ag_ui_langgraph import add_langgraph_fastapi_endpoint
                 from copilotkit import CopilotKitMiddleware, CopilotKitState, LangGraphAGUIAgent
                 from deepagents import create_deep_agent
+                from langgraph.checkpoint.memory import MemorySaver
 
                 def get_weather(location: str):
                     """Get weather for a location"""
                     return f"The weather in {location} is sunny."
 
                 agent = create_deep_agent(
-                    model="openai:gpt-4o",
+                    model="openai:gpt-5.2",
                     tools=[get_weather],
                     middleware=[CopilotKitMiddleware()], # for frontend tools and context
-                    system_prompt="You are a helpful research assistant."
+                    system_prompt="You are a helpful research assistant.",
+                    checkpointer=MemorySaver()
                 )
 
                 # [!code highlight:9]
@@ -254,8 +258,8 @@ Before you begin, you'll need the following:
 
         ```tsx title="app/layout.tsx"
         // [!code highlight:2]
-        import { CopilotKit } from "@copilotkit/react-core";
-        import "@copilotkit/react-ui/styles.css";
+        import { CopilotKit } from "@copilotkit/react-core/v2";
+        import "@copilotkit/react-ui/v2/styles.css";
 
         // ...
 
@@ -281,8 +285,8 @@ Before you begin, you'll need the following:
     ```tsx title="app/page.tsx"
     "use client";
 
-    import { CopilotSidebar } from "@copilotkit/react-ui"; 
-    import { useDefaultTool } from "@copilotkit/react-core";
+    import { CopilotSidebar } from "@copilotkit/react-core/v2";
+    import { useDefaultTool } from "@copilotkit/react-core/v2";
 
     export default function Page() {
         useDefaultTool({

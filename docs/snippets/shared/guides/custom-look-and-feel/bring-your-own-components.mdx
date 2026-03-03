@@ -14,6 +14,7 @@ You can swap out any of the sub-components of any Copilot UI to build up a compl
 | [Input](#input) | The chat input |
 | [Actions](#actions) | Customize how actions (tools) are displayed |
 | [Agent State](#agent-state) | Customize how agent state messages are displayed |
+| [Reasoning Message](#reasoning-message) | Customize how model reasoning/thinking is displayed |
 
 ## UserMessage
 The user message is what displays when the user sends a message to the chat. In this example, we change the color and add an avatar. 
@@ -25,7 +26,7 @@ The main thing to be aware of here is the `message` prop, which is the message t
 import { type UserMessageProps } from "@copilotkit/react-ui";
 import { CopilotKit } from "@copilotkit/react-core";
 import { CopilotSidebar } from "@copilotkit/react-ui";
-import "@copilotkit/react-ui/styles.css";
+import "@copilotkit/react-ui/v2/styles.css";
 
 const CustomUserMessage = (props: UserMessageProps) => {
   const wrapperStyles = "flex items-center gap-2 justify-end mb-4";
@@ -58,7 +59,7 @@ import { SparklesIcon } from "@heroicons/react/24/outline";
 
 import { CopilotKit } from "@copilotkit/react-core";
 import { CopilotSidebar } from "@copilotkit/react-ui";
-import "@copilotkit/react-ui/styles.css";
+import "@copilotkit/react-ui/v2/styles.css";
 
 const CustomAssistantMessage = (props: AssistantMessageProps) => {
   const { icons } = useChatContext();
@@ -104,7 +105,7 @@ The window is the main container for the chat. In this example, we turn it into 
 ```tsx
 import { type WindowProps, useChatContext, CopilotSidebar } from "@copilotkit/react-ui";
 import { CopilotKit } from "@copilotkit/react-core";
-import "@copilotkit/react-ui/styles.css";
+import "@copilotkit/react-ui/v2/styles.css";
 function Window({ children }: WindowProps) {
   const { open, setOpen } = useChatContext();
 
@@ -142,7 +143,7 @@ The `CopilotSidebar` and `CopilotPopup` components allow you to customize their 
 ```tsx
 import { type ButtonProps, useChatContext, CopilotSidebar } from "@copilotkit/react-ui";
 import { CopilotKit } from "@copilotkit/react-core";
-import "@copilotkit/react-ui/styles.css";
+import "@copilotkit/react-ui/v2/styles.css";
 function Button({}: ButtonProps) {
   const { open, setOpen } = useChatContext();
 
@@ -177,7 +178,7 @@ with a custom icon.
 import { type HeaderProps, useChatContext, CopilotSidebar } from "@copilotkit/react-ui";
 import { BookOpenIcon } from "@heroicons/react/24/outline";
 import { CopilotKit } from "@copilotkit/react-core";
-import "@copilotkit/react-ui/styles.css";
+import "@copilotkit/react-ui/v2/styles.css";
 function Header({}: HeaderProps) {
   const { setOpen, icons, labels } = useChatContext();
 
@@ -189,7 +190,7 @@ function Header({}: HeaderProps) {
           <BookOpenIcon className="w-6 h-6" />
         </a>
       </div>
-      <div className="text-lg">{labels.title}</div>
+      <div className="text-lg">{labels.modalHeaderTitle}</div>
       <div className="w-24 flex justify-end">
         <button onClick={() => setOpen(false)} aria-label="Close">
           {icons.headerCloseIcon}
@@ -213,7 +214,7 @@ The Messages component handles the display and organization of different message
 ```tsx
 import { type MessagesProps, CopilotSidebar } from "@copilotkit/react-ui";
 import { CopilotKit } from "@copilotkit/react-core";
-import "@copilotkit/react-ui/styles.css";
+import "@copilotkit/react-ui/v2/styles.css";
 
 export default function CustomMessages({
   messages,
@@ -260,7 +261,7 @@ The suggestions component allows you to customize how suggestions are displayed.
             RenderSuggestion,
             type RenderSuggestionsListProps
         } from "@copilotkit/react-ui";
-        import "@copilotkit/react-ui/styles.css";
+        import "@copilotkit/react-ui/v2/styles.css";
 
         const CustomSuggestionsList = ({ suggestions, onSuggestionClick }: RenderSuggestionsListProps) => {
             return (
@@ -298,7 +299,7 @@ to have a custom "Ask" button and placeholder text.
 ```tsx
 import { type InputProps, CopilotSidebar } from "@copilotkit/react-ui";
 import { CopilotKit } from "@copilotkit/react-core";
-import "@copilotkit/react-ui/styles.css";
+import "@copilotkit/react-ui/v2/styles.css";
 function CustomInput({ inProgress, onSend, isVisible }: InputProps) {
   const handleSubmit = (value: string) => {
     if (value.trim()) onSend(value);
@@ -351,14 +352,14 @@ Actions allow the LLM to interact with your application's functionality. When an
 
 ```tsx
 "use client" // only necessary if you are using Next.js with the App Router.
-import { useCopilotAction } from "@copilotkit/react-core"; 
+import { useFrontendTool } from "@copilotkit/react-core/v2";
 
 // Your custom components (examples - implement these in your app)
 import { LoadingView } from "./loading-view"; // Your loading component
 import { CalendarMeetingCardComponent, type CalendarMeetingCardProps } from "./calendar-meeting-card"; // Your meeting card component
  
 export function YourComponent() {
-  useCopilotAction({ 
+  useFrontendTool({
     name: "showCalendarMeeting",
     description: "Displays calendar meeting information",
     parameters: [
@@ -416,7 +417,7 @@ If you haven't gotten started with CoAgents yet, you can get started in 10 minut
 ```tsx
 "use client"; // only necessary if you are using Next.js with the App Router.
  
-import { useCoAgentStateRender } from "@copilotkit/react-core";
+import { useCoAgentStateRender } from "@copilotkit/react-core/v2";
 import { Progress } from "./progress";
 
 type AgentState = {
@@ -435,4 +436,59 @@ useCoAgentStateRender<AgentState>({
   },
 });
 ```
+</ImageAndCode>
+
+## Reasoning Message
+Models like OpenAI o1, o3, and o4-mini emit **reasoning tokens** (chain-of-thought traces). CopilotKit renders them automatically in a collapsible card. You can fully replace it or swap individual sub-components (header, content, toggle) via slot props.
+
+For a complete guide, see [Reasoning Messages](/custom-look-and-feel/reasoning-messages).
+
+<ImageAndCode>
+
+```tsx
+import {
+  type CopilotChatReasoningMessageProps,
+} from "@copilotkit/react-ui";
+import { CopilotKit } from "@copilotkit/react-core";
+import { CopilotSidebar } from "@copilotkit/react-ui";
+import "@copilotkit/react-ui/v2/styles.css";
+
+function CustomReasoningMessage({
+  message,
+  messages,
+  isRunning,
+}: CopilotChatReasoningMessageProps) {
+  const isLatest = messages?.[messages.length - 1]?.id === message.id;
+  const isStreaming = !!(isRunning && isLatest);
+
+  if (!message.content && !isStreaming) return null;
+
+  // [!code highlight:8]
+  return (
+    <details open={isStreaming} className="my-2 rounded border p-3">
+      <summary className="cursor-pointer font-medium text-sm">
+        {isStreaming ? "🧠 Thinking…" : "💡 View reasoning"}
+      </summary>
+      <p className="mt-2 text-sm text-gray-600 whitespace-pre-wrap">
+        {message.content}
+      </p>
+    </details>
+  );
+}
+
+<CopilotKit>
+  <CopilotSidebar
+    messageView={{
+      reasoningMessage: CustomReasoningMessage,
+    }}
+  />
+</CopilotKit>
+```
+
+**Key concepts**
+- `message` — The reasoning message object. `message.content` holds the thinking text.
+- `messages` — All messages in the conversation, used to determine if this is the latest message.
+- `isRunning` — Whether the agent is currently running.
+- **Slot props** — Instead of replacing the whole component, you can override just the `header`, `contentView`, or `toggle` sub-components. See the [full guide](/custom-look-and-feel/reasoning-messages).
+
 </ImageAndCode>

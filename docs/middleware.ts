@@ -1,5 +1,22 @@
-import { NextResponse } from 'next/server';
-import type { NextRequest } from 'next/server';
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+
+// All framework slugs for pattern-based redirects
+const FRAMEWORKS = [
+  "langgraph",
+  "adk",
+  "agno",
+  "crewai-flows",
+  "pydantic-ai",
+  "llamaindex",
+  "mastra",
+  "agent-spec",
+  "ag2",
+  "microsoft-agent-framework",
+  "aws-strands",
+  "a2a",
+  "built-in-agent",
+];
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -7,48 +24,59 @@ export function middleware(request: NextRequest) {
   // Common redirects for broken links
   const redirects: Record<string, string> = {
     // Old coagents paths
-    '/coagents': '/langgraph',
-    '/coagents/quickstart': '/langgraph/quickstart',
-    '/coagents/guides': '/langgraph/guides',
-    '/coagents/shared-state': '/langgraph/shared-state',
-    '/coagents/human-in-the-loop': '/langgraph/human-in-the-loop',
-    '/coagents/multi-agent-flows': '/langgraph/multi-agent-flows',
-    '/coagents/persistence': '/langgraph/persistence',
-    '/coagents/advanced': '/langgraph/advanced',
-    '/coagents/videos': '/langgraph/videos',
-    '/coagents/tutorials': '/langgraph/tutorials',
-    '/coagents/concepts': '/langgraph/concepts',
-    '/coagents/frontend-actions': '/langgraph/frontend-actions',
-    '/coagents/generative-ui': '/langgraph/generative-ui',
-    
+    "/coagents": "/langgraph",
+    "/coagents/quickstart": "/langgraph/quickstart",
+    "/coagents/guides": "/langgraph/guides",
+    "/coagents/shared-state": "/langgraph/shared-state",
+    "/coagents/human-in-the-loop": "/langgraph/human-in-the-loop",
+    "/coagents/multi-agent-flows": "/langgraph/multi-agent-flows",
+    "/coagents/persistence": "/langgraph/persistence",
+    "/coagents/advanced": "/langgraph/advanced",
+    "/coagents/videos": "/langgraph/videos",
+    "/coagents/tutorials": "/langgraph/tutorials",
+    "/coagents/concepts": "/langgraph/concepts",
+    "/coagents/frontend-actions": "/langgraph/frontend-tools",
+    "/coagents/generative-ui": "/langgraph/generative-ui",
+
     // Common typos and variations
-    '/direct-to-llm/guide': '/direct-to-llm/guides',
-    '/langgraph/guide': '/langgraph/guides',
-    '/mastra/guide': '/mastra/guides',
-    '/agno/guide': '/agno/guides',
-    '/llamaindex/guide': '/llamaindex/guides',
-    '/crewai-crews/guide': '/crewai-crews/guides',
-    '/crewai-flows/guide': '/crewai-flows/guides',
-    '/ag2/guide': '/ag2/guides',
-    '/pydantic-ai/guide': '/pydantic-ai/guides',
-    '/adk/guide': '/adk/guides',
-    
+    "/direct-to-llm/guide": "/built-in-agent/guides",
+    "/langgraph/guide": "/langgraph/guides",
+    "/mastra/guide": "/mastra/guides",
+    "/agno/guide": "/agno/guides",
+    "/llamaindex/guide": "/llamaindex/guides",
+    "/crewai-flows/guide": "/crewai-flows/guides",
+    "/ag2/guide": "/ag2/guides",
+    "/pydantic-ai/guide": "/pydantic-ai/guides",
+    "/adk/guide": "/adk/guides",
+
     // API reference variations
-    '/api': '/reference',
-    '/docs/api': '/reference',
-    '/api-reference': '/reference',
-    
+    "/api": "/reference",
+    "/docs/api": "/reference",
+    "/api-reference": "/reference",
+
     // Quickstart variations
-    '/quickstart': '/direct-to-llm/guides/quickstart',
-    '/getting-started': '/direct-to-llm/guides/quickstart',
-    '/start': '/direct-to-llm/guides/quickstart',
-    
-    // Frontend tools variations
-    '/frontend-tools': '/direct-to-llm/guides/frontend-actions',
-    '/frontend-actions': '/direct-to-llm/guides/frontend-actions',
-    
+    "/getting-started": "/quickstart",
+    "/start": "/quickstart",
+
+    // Frontend actions → frontend tools (renamed in restructure)
+    "/frontend-actions": "/frontend-tools",
+
+    // Generative UI directory → first page
+    "/generative-ui": "/generative-ui/your-components/display-only",
+    "/generative-ui/display": "/generative-ui/your-components/display-only",
+    "/generative-ui/interactive": "/generative-ui/your-components/interactive",
+
+    // Old root page names → new names
+    "/agentic-chat-ui": "/prebuilt-components",
+    "/headless": "/custom-look-and-feel/headless-ui",
+    "/coding-agent-setup": "/coding-agents",
+    "/copilot-suggestions": "/prebuilt-components",
+    "/direct-to-llm": "/built-in-agent",
+    "/builtin-agent": "/built-in-agent",
+
     // Contributing paths
-    '/contributing/code-contributions/package-linking': '/shared/contributing/code-contributions/package-linking',
+    "/contributing/code-contributions/package-linking":
+      "/shared/contributing/code-contributions/package-linking",
   };
 
   // Check for exact matches
@@ -57,50 +85,58 @@ export function middleware(request: NextRequest) {
   }
 
   // Check for pattern-based redirects
-  if (pathname.startsWith('/coagents/')) {
-    const newPath = pathname.replace('/coagents/', '/langgraph/');
+  if (pathname.startsWith("/coagents/")) {
+    const newPath = pathname.replace("/coagents/", "/langgraph/");
     return NextResponse.redirect(new URL(newPath, request.url));
+  }
+
+  // Per-framework pattern redirects (docs restructure 2026-02)
+  for (const fw of FRAMEWORKS) {
+    const prefix = `/${fw}/`;
+    if (!pathname.startsWith(prefix)) continue;
+    const rest = pathname.slice(prefix.length);
+
+    // Renamed pages
+    const renames: Record<string, string> = {
+      "agentic-chat-ui": "prebuilt-components",
+      "use-agent-hook": "programmatic-control",
+      "frontend-actions": "frontend-tools",
+      "vibe-coding-mcp": "coding-agents",
+      // Old generative-ui pages → new locations
+      "generative-ui/agentic": "generative-ui/your-components/display-only",
+      "generative-ui/backend-tools": "generative-ui/tool-rendering",
+      "generative-ui/frontend-tools": "frontend-tools",
+      "generative-ui/render-only": "generative-ui/your-components/display-only",
+      "generative-ui/tool-based": "generative-ui/tool-rendering",
+      // Old custom-look-and-feel pages
+      "custom-look-and-feel/bring-your-own-components":
+        "custom-look-and-feel/slots",
+      "custom-look-and-feel/customize-built-in-ui-components":
+        "custom-look-and-feel/slots",
+      "custom-look-and-feel/markdown-rendering": "custom-look-and-feel/slots",
+    };
+
+    if (renames[rest]) {
+      return NextResponse.redirect(
+        new URL(`/${fw}/${renames[rest]}`, request.url),
+      );
+    }
+
+    // Concepts directory → framework root
+    if (rest.startsWith("concepts/") || rest === "concepts") {
+      return NextResponse.redirect(new URL(`/${fw}`, request.url));
+    }
+
+    break; // Only match one framework
   }
 
   // Handle guide -> guides redirects
-  if (pathname.includes('/guide') && !pathname.includes('/guides')) {
-    const newPath = pathname.replace('/guide', '/guides');
+  if (pathname.includes("/guide") && !pathname.includes("/guides")) {
+    const newPath = pathname.replace("/guide", "/guides");
     return NextResponse.redirect(new URL(newPath, request.url));
   }
 
-  // Handle quickstart redirects for specific frameworks
-  if (pathname === '/quickstart') {
-    return NextResponse.redirect(new URL('/direct-to-llm/guides/quickstart', request.url));
-  }
-
-  // Check for partial matches and suggest alternatives
-  const suggestions = generateSuggestions(pathname);
-  
-  if (suggestions.length > 0) {
-    // For now, we'll let the 404 page handle suggestions
-    // In the future, we could redirect to a special 404 page with suggestions
-  }
-
   return NextResponse.next();
-}
-
-function generateSuggestions(pathname: string): string[] {
-  const suggestions: string[] = [];
-  
-  // Common patterns that might be typos
-  if (pathname.includes('guide') && !pathname.includes('guides')) {
-    suggestions.push(pathname.replace('guide', 'guides'));
-  }
-  
-  if (pathname.includes('coagents')) {
-    suggestions.push(pathname.replace('coagents', 'langgraph'));
-  }
-  
-  if (pathname.includes('/api') && !pathname.includes('/reference')) {
-    suggestions.push('/reference');
-  }
-  
-  return suggestions;
 }
 
 export const config = {
@@ -112,6 +148,6 @@ export const config = {
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
      */
-    '/((?!api|_next/static|_next/image|favicon.ico).*)',
+    "/((?!api|_next/static|_next/image|favicon.ico).*)",
   ],
 };

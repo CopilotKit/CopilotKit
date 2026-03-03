@@ -1,13 +1,13 @@
-"use client"
+"use client";
 
-import Image from "next/image"
-import { useSearchContext } from "fumadocs-ui/contexts/search"
+import Image from "next/image";
+import { useSearchContext } from "fumadocs-ui/contexts/search";
 // Icons
-import LoupeIcon from "@/components/ui/icons/loupe"
-import SearchShortcutIcon from "@/components/ui/icons/search-shortcut"
+import LoupeIcon from "@/components/ui/icons/loupe";
+import SearchShortcutIcon from "@/components/ui/icons/search-shortcut";
 
 const SearchDialogButton = () => {
-  const { setOpenSearch } = useSearchContext()
+  const { setOpenSearch } = useSearchContext();
 
   return (
     <button
@@ -22,7 +22,7 @@ const SearchDialogButton = () => {
 
       <SearchShortcutIcon className="hidden xl:inline-block" />
     </button>
-  )
-}
+  );
+};
 
-export default SearchDialogButton
+export default SearchDialogButton;

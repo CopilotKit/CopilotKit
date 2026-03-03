@@ -7,17 +7,20 @@ This document describes how to set up dashboards and alerts in PostHog to monito
 The 404 page (`app/not-found.tsx`) tracks the `broken_link_accessed` event with the following properties:
 
 ### Core Properties
+
 - `broken_url` (string): The pathname that resulted in a 404 (e.g., `/langgraph/quickstart`)
 - `broken_url_full` (string): Full URL including query params (e.g., `https://docs.copilotkit.ai/langgraph/quickstart?theme=dark`)
 - `query_params` (string|null): Query string if present
 
 ### Referrer Properties
+
 - `referrer_url` (string): Full URL where the user came from (or "(direct)" if none)
 - `referrer_domain` (string|null): Domain/hostname of the referrer (e.g., `www.copilotkit.ai`, `partner.com`)
 - `referrer_path` (string|null): Path of the referrer page (e.g., `/features/generative-ui`)
 - `is_internal_referrer` (boolean): Whether the referrer is from copilotkit.ai or localhost
 
 ### Context Properties
+
 - `user_agent` (string): Browser user agent string
 - `is_likely_bot` (boolean): Whether the request appears to be from a bot/crawler
 - `timestamp` (string): ISO timestamp of the event
@@ -131,6 +134,7 @@ The 404 page (`app/not-found.tsx`) tracks the `broken_link_accessed` event with 
 **Purpose**: Get notified when there's an unusual increase in 404 errors
 
 **Configuration**:
+
 - Insight: "Total 404s Over Time" from Dashboard 1
 - Threshold: Increase of 50% compared to previous period
 - Time period: Last 24 hours
@@ -138,6 +142,7 @@ The 404 page (`app/not-found.tsx`) tracks the `broken_link_accessed` event with 
 - Filter: `is_likely_bot = false` (exclude bot traffic)
 
 **When it fires**: A sudden spike often indicates:
+
 - A popular page was moved/deleted
 - External site linked to wrong URL
 - Recent deployment broke links
@@ -147,6 +152,7 @@ The 404 page (`app/not-found.tsx`) tracks the `broken_link_accessed` event with 
 **Purpose**: Detect when a specific URL starts getting many 404s
 
 **Configuration**:
+
 - Insight: "Top Broken URLs" from Dashboard 1
 - Threshold: Any URL with > 10 hits in last hour
 - Filter: `is_likely_bot = false`
@@ -159,11 +165,12 @@ The 404 page (`app/not-found.tsx`) tracks the `broken_link_accessed` event with 
 **Purpose**: Catch broken links on our own documentation pages
 
 **Configuration**:
+
 - Insight: "Pages with Broken Links" from Dashboard 2
 - Threshold: Any page with > 5 broken link clicks in 24 hours
 - Filters:
-   - `is_internal_referrer = true`
-   - `is_likely_bot = false`
+  - `is_internal_referrer = true`
+  - `is_likely_bot = false`
 - Notification channel: Email or Slack (dev team)
 
 **When it fires**: One of our docs pages has a broken link that needs fixing
@@ -286,6 +293,7 @@ ORDER BY hits DESC
 ## Bot Filtering
 
 The tracking automatically filters out common bots using user agent patterns:
+
 - `/bot/i`
 - `/crawl/i`
 - `/spider/i`
@@ -301,6 +309,7 @@ Use the `is_likely_bot = false` filter in dashboards to focus on human traffic.
 ## Privacy Considerations
 
 The tracking does NOT collect:
+
 - Personal identifiable information
 - IP addresses
 - User IDs or session tokens

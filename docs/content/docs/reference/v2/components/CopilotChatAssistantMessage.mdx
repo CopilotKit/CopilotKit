@@ -1,0 +1,230 @@
+---
+title: "CopilotChatAssistantMessage"
+description: "Component for displaying assistant messages with Markdown, tool calls, and an action toolbar"
+---
+
+## Overview
+
+`CopilotChatAssistantMessage` displays assistant messages with Markdown support, tool call rendering, and an action toolbar. The Markdown renderer uses `remark-gfm`, `remark-math`, syntax highlighting via `rehype-pretty-code`, and KaTeX support for mathematical expressions. The toolbar provides copy, rating (thumbs up/down), read aloud, and regenerate buttons with localized tooltips sourced from `CopilotChatConfigurationProvider`.
+
+## Import
+
+```tsx
+import { CopilotChatAssistantMessage } from "@copilotkit/react-core/v2";
+import "@copilotkit/react-core/v2/styles.css";
+```
+
+## Props
+
+<PropertyReference name="message" type="AssistantMessage" required>
+  The assistant message object to render. Contains the message `content`, `id`, `role`, and any associated tool calls.
+</PropertyReference>
+
+<PropertyReference name="messages" type="Message[]">
+  The full array of conversation messages. Passed through to the `toolCallsView` slot for context-aware tool call rendering.
+</PropertyReference>
+
+<PropertyReference name="isRunning" type="boolean" default="false">
+  Whether the agent is currently executing. Can be used by slot components to adjust their behavior during streaming.
+</PropertyReference>
+
+<PropertyReference name="onThumbsUp" type="(message: AssistantMessage) => void">
+  Callback invoked when the user clicks the thumbs-up button. When not provided, the thumbs-up button is hidden from the toolbar.
+</PropertyReference>
+
+<PropertyReference name="onThumbsDown" type="(message: AssistantMessage) => void">
+  Callback invoked when the user clicks the thumbs-down button. When not provided, the thumbs-down button is hidden from the toolbar.
+</PropertyReference>
+
+<PropertyReference name="onReadAloud" type="(message: AssistantMessage) => void">
+  Callback invoked when the user clicks the read-aloud button. When not provided, the read-aloud button is hidden from the toolbar.
+</PropertyReference>
+
+<PropertyReference name="onRegenerate" type="(message: AssistantMessage) => void">
+  Callback invoked when the user clicks the regenerate button. When not provided, the regenerate button is hidden from the toolbar.
+</PropertyReference>
+
+<PropertyReference name="additionalToolbarItems" type="React.ReactNode">
+  Additional React elements appended to the toolbar alongside the default action buttons.
+</PropertyReference>
+
+<PropertyReference name="toolbarVisible" type="boolean">
+  Controls whether the action toolbar is visible. When set to `false`, the toolbar is hidden entirely regardless of which callback props are provided.
+</PropertyReference>
+
+## Slots
+
+All slot props follow the CopilotKit slot system: each accepts a replacement React component, a `className` string that is merged into the default component's classes, or a partial props object that extends the default component.
+
+<PropertyReference name="markdownRenderer" type="SlotProp<typeof CopilotChatAssistantMessage.MarkdownRenderer>">
+  Slot for the Markdown rendering engine. Defaults to `CopilotChatAssistantMessage.MarkdownRenderer`, which supports GFM tables, math expressions via KaTeX, and syntax-highlighted code blocks via `rehype-pretty-code`.
+
+  **As a replacement component:**
+  ```tsx
+  <CopilotChatAssistantMessage
+    message={msg}
+    markdownRenderer={({ content }) => (
+      <div dangerouslySetInnerHTML={{ __html: content }} />
+    )}
+  />
+  ```
+</PropertyReference>
+
+<PropertyReference name="toolbar" type="SlotProp<typeof CopilotChatAssistantMessage.Toolbar>">
+  Slot for the action toolbar container. Defaults to `CopilotChatAssistantMessage.Toolbar`, which renders a horizontal row of action buttons below the message content.
+
+  **As a className:**
+  ```tsx
+  <CopilotChatAssistantMessage
+    message={msg}
+    toolbar="border-t pt-2 mt-2"
+  />
+  ```
+</PropertyReference>
+
+<PropertyReference name="copyButton" type="SlotProp<typeof CopilotChatAssistantMessage.CopyButton>">
+  Slot for the copy-to-clipboard button in the toolbar. Defaults to `CopilotChatAssistantMessage.CopyButton`. The tooltip label is sourced from `CopilotChatLabels.assistantMessageToolbarCopyMessageLabel`.
+</PropertyReference>
+
+<PropertyReference name="thumbsUpButton" type="SlotProp<typeof CopilotChatAssistantMessage.ThumbsUpButton>">
+  Slot for the thumbs-up rating button. Defaults to `CopilotChatAssistantMessage.ThumbsUpButton`. Only rendered when `onThumbsUp` is provided. The tooltip label is sourced from `CopilotChatLabels.assistantMessageToolbarThumbsUpLabel`.
+</PropertyReference>
+
+<PropertyReference name="thumbsDownButton" type="SlotProp<typeof CopilotChatAssistantMessage.ThumbsDownButton>">
+  Slot for the thumbs-down rating button. Defaults to `CopilotChatAssistantMessage.ThumbsDownButton`. Only rendered when `onThumbsDown` is provided. The tooltip label is sourced from `CopilotChatLabels.assistantMessageToolbarThumbsDownLabel`.
+</PropertyReference>
+
+<PropertyReference name="readAloudButton" type="SlotProp<typeof CopilotChatAssistantMessage.ReadAloudButton>">
+  Slot for the read-aloud button. Defaults to `CopilotChatAssistantMessage.ReadAloudButton`. Only rendered when `onReadAloud` is provided. The tooltip label is sourced from `CopilotChatLabels.assistantMessageToolbarReadAloudLabel`.
+</PropertyReference>
+
+<PropertyReference name="regenerateButton" type="SlotProp<typeof CopilotChatAssistantMessage.RegenerateButton>">
+  Slot for the regenerate button. Defaults to `CopilotChatAssistantMessage.RegenerateButton`. Only rendered when `onRegenerate` is provided. The tooltip label is sourced from `CopilotChatLabels.assistantMessageToolbarRegenerateLabel`.
+</PropertyReference>
+
+<PropertyReference name="toolCallsView" type="SlotProp<typeof CopilotChatToolCallsView>">
+  Slot for rendering tool calls embedded in the assistant message. Defaults to [`CopilotChatToolCallsView`](#copilotchattoolcallsview), which iterates over the message's tool calls and renders each using the closest registered tool renderer.
+</PropertyReference>
+
+## CopilotChatToolCallsView
+
+A companion component that renders the tool calls contained in an assistant message. Given an assistant message, it iterates over each tool call and renders it using the closest registered tool renderer (registered via `useFrontendTool`, `useHumanInTheLoop`, or `renderToolCalls` on the provider).
+
+### Import
+
+```tsx
+import { CopilotChatToolCallsView } from "@copilotkit/react-core/v2";
+```
+
+### Props
+
+<PropertyReference name="message" type="AssistantMessage" required>
+  The assistant message whose tool calls should be rendered.
+</PropertyReference>
+
+<PropertyReference name="messages" type="Message[]">
+  The full conversation message array. Provides context for tool call renderers that need to reference other messages (e.g., to find the corresponding tool result message).
+</PropertyReference>
+
+## Usage
+
+### Basic Assistant Message
+
+```tsx
+import { CopilotChatAssistantMessage } from "@copilotkit/react-core/v2";
+
+function AssistantBubble({ message }) {
+  return (
+    <CopilotChatAssistantMessage
+      message={message}
+      onThumbsUp={(msg) => console.log("Thumbs up:", msg.id)}
+      onThumbsDown={(msg) => console.log("Thumbs down:", msg.id)}
+    />
+  );
+}
+```
+
+### Customizing the Toolbar
+
+```tsx
+import { CopilotChatAssistantMessage } from "@copilotkit/react-core/v2";
+
+function CustomToolbarMessage({ message }) {
+  return (
+    <CopilotChatAssistantMessage
+      message={message}
+      onRegenerate={(msg) => handleRegenerate(msg)}
+      onReadAloud={(msg) => speak(msg.content)}
+      additionalToolbarItems={
+        <button onClick={() => shareMessage(message)}>Share</button>
+      }
+      toolbar="border-t border-gray-200 pt-2"
+    />
+  );
+}
+```
+
+### Hiding the Toolbar
+
+```tsx
+import { CopilotChatAssistantMessage } from "@copilotkit/react-core/v2";
+
+function MinimalMessage({ message }) {
+  return (
+    <CopilotChatAssistantMessage
+      message={message}
+      toolbarVisible={false}
+    />
+  );
+}
+```
+
+### Custom Markdown Renderer
+
+```tsx
+import { CopilotChatAssistantMessage } from "@copilotkit/react-core/v2";
+import ReactMarkdown from "react-markdown";
+
+function CustomRendererMessage({ message }) {
+  return (
+    <CopilotChatAssistantMessage
+      message={message}
+      markdownRenderer={({ content }) => (
+        <ReactMarkdown>{content}</ReactMarkdown>
+      )}
+    />
+  );
+}
+```
+
+### Standalone Tool Calls View
+
+```tsx
+import { CopilotChatToolCallsView } from "@copilotkit/react-core/v2";
+
+function ToolCallsList({ message, allMessages }) {
+  return (
+    <div className="tool-calls">
+      <CopilotChatToolCallsView
+        message={message}
+        messages={allMessages}
+      />
+    </div>
+  );
+}
+```
+
+## Behavior
+
+- **Markdown Support**: The default Markdown renderer supports GitHub Flavored Markdown (tables, strikethrough, task lists), math expressions rendered with KaTeX, and syntax-highlighted code blocks via `rehype-pretty-code`.
+- **Toolbar Visibility**: The toolbar appears on hover or focus by default. Individual buttons are only rendered when their corresponding callback prop (`onThumbsUp`, `onThumbsDown`, `onReadAloud`, `onRegenerate`) is provided. The copy button is always visible when the toolbar is shown.
+- **Localized Labels**: All toolbar button tooltips are sourced from the nearest `CopilotChatConfigurationProvider`. See [`useCopilotChatConfiguration`](/reference/v2/hooks/useCopilotChatConfiguration) for the full list of label keys.
+- **Tool Call Rendering**: Tool calls embedded in the assistant message are rendered by the `toolCallsView` slot. Each tool call is resolved using the `useRenderToolCall` hook, which looks up registered renderers by tool name.
+- **Slot System**: Each slot prop accepts three forms -- a replacement component, a className string merged into the default, or a partial props object that extends the default component's props.
+
+## Related
+
+- [`CopilotChatMessageView`](/reference/v2/components/CopilotChatMessageView) -- Parent component that uses this as the default assistant message slot
+- [`CopilotChatUserMessage`](/reference/v2/components/CopilotChatUserMessage) -- Companion component for user messages
+- [`useRenderToolCall`](/reference/v2/hooks/useRenderToolCall) -- Hook used internally for resolving tool call renderers
+- [`useCopilotChatConfiguration`](/reference/v2/hooks/useCopilotChatConfiguration) -- Provider for localized toolbar labels

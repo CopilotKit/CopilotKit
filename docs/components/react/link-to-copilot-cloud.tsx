@@ -9,7 +9,7 @@ export function LinkToCopilotCloud({
   className,
   subPath,
   asButton = true,
-  children
+  children,
 }: {
   className?: string;
   subPath?: string;
@@ -47,26 +47,22 @@ export function LinkToCopilotCloud({
   let cn = "";
 
   if (asButton) {
-    cn = "text-indigo-800 dark:text-indigo-300 ring-1 ring-indigo-200 dark:ring-indigo-900 text-sm items-center bg-gradient-to-r from-indigo-200/50 to-purple-200/80 dark:from-indigo-900/40 dark:to-purple-900/50 flex p-3 px-4 no-underline whitespace-nowrap";
-    cn += " transition-all duration-100 hover:ring-2 hover:ring-indigo-400 hover:dark:text-indigo-200 rounded-lg";
+    cn =
+      "text-indigo-800 dark:text-indigo-300 ring-1 ring-indigo-200 dark:ring-indigo-900 text-sm items-center bg-gradient-to-r from-indigo-200/50 to-purple-200/80 dark:from-indigo-900/40 dark:to-purple-900/50 flex p-3 px-4 no-underline whitespace-nowrap";
+    cn +=
+      " transition-all duration-100 hover:ring-2 hover:ring-indigo-400 hover:dark:text-indigo-200 rounded-lg";
   } else {
-    cn = "_text-primary-600 decoration-from-font underline [text-underline-position:from-font]";
+    cn =
+      "_text-primary-600 decoration-from-font underline [text-underline-position:from-font]";
   }
 
   if (className) {
     cn += ` ${className}`;
   }
   return (
-    <Link
-      href={href}
-      target="_blank"
-      className={cn}
-      suppressHydrationWarning
-    >
+    <Link href={href} target="_blank" className={cn} suppressHydrationWarning>
       {asButton ? <CloudIcon className="w-5 h-5 mr-2" /> : null}
-      {
-        children ? children : "Copilot Cloud"
-      }
+      {children ? children : "Copilot Cloud"}
     </Link>
   );
 }

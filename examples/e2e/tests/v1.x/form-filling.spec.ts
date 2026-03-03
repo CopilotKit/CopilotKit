@@ -8,13 +8,13 @@ test.describe("form-filling", () => {
   test("loads", async ({ page }) => {
     await page.goto("/");
     await expect(
-      page.getByRole("heading", { name: "Security Incident Report" })
+      page.getByRole("heading", { name: "Security Incident Report" }),
     ).toBeVisible();
     await expect(
       page
         .getByRole("contentinfo")
         .filter({ hasText: /Powered by CopilotKit/i })
-        .first()
+        .first(),
     ).toBeVisible();
   });
 });

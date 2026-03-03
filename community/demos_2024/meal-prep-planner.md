@@ -20,7 +20,7 @@ Meal Prep Planner ( Hacktoberfest Demo )
 ---
 
 ### 🌐 **App Link**
-  
+
 - [MINI-FAQ-BOT Live Demo](https://meal-prep-planner.vercel.app/)
 - [Github Repo](https://github.com/AJBrownson/meal-prep-planner)
 

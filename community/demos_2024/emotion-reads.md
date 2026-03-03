@@ -22,7 +22,6 @@ List all technologies, tools, and frameworks you are utilizing for the project:
 
 ### 🌐 **App Link**
 
-
 [Live Demo](https://emotion-reads.vercel.app/)
 [Repo Link](https://github.com/Edantuti/Emotion-Reads)
 

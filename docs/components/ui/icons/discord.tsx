@@ -1,11 +1,11 @@
-import React from "react"
-import { cn } from "@/lib/utils"
+import React from "react";
+import { cn } from "@/lib/utils";
 
 interface DiscordIconProps {
-  className?: string
+  className?: string;
 }
 
-const DEFAULT_CLASSNAME = "text-icon"
+const DEFAULT_CLASSNAME = "text-icon";
 
 const DiscordIcon = ({ className }: DiscordIconProps) => {
   return (
@@ -22,7 +22,7 @@ const DiscordIcon = ({ className }: DiscordIconProps) => {
         fill="currentColor"
       />
     </svg>
-  )
-}
+  );
+};
 
-export default DiscordIcon
+export default DiscordIcon;

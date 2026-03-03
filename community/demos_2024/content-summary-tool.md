@@ -10,7 +10,8 @@ Develop a tool where users can input long-form content, and the app generates co
 - Shadcn-UI Component Styling
 - CopilotKit
 
-### GitHub Repo Link: 
+### GitHub Repo Link:
+
 https://github.com/kom-senapati/study-buddy
 
 - [Live Demo](https://content-summary-tool.vercel.app/)
@@ -23,6 +24,5 @@ https://github.com/kom-senapati/study-buddy
 
 - [Github](https://github.com/kom-senapati)
 - [Twitter](https://x.com/kom_senapati)
-
 
 - [Tweet Link](https://x.com/kom_senapati/status/1848999182230802776)

@@ -91,7 +91,7 @@ export function IframeSwitcherGroup({
   if (variants.length === 1) {
     const variant = variants[0];
     if (!variant) return null;
-    
+
     return (
       <IframeSwitcher
         id={id}
@@ -106,11 +106,19 @@ export function IframeSwitcherGroup({
 
   // Multiple variants - wrap with outer tabs
   return (
-    <Tabs groupId={`iframe-switcher-group-${id ?? "default"}`} items={items} defaultIndex={0}>
+    <Tabs
+      groupId={`iframe-switcher-group-${id ?? "default"}`}
+      items={items}
+      defaultIndex={0}
+    >
       {variants.map((variant) => (
         <Tab key={variant.label} value={variant.label} className="p-0">
           <IframeSwitcher
-            id={id ? `${id}-${variant.label.toLowerCase().replace(/\s+/g, "-")}` : undefined}
+            id={
+              id
+                ? `${id}-${variant.label.toLowerCase().replace(/\s+/g, "-")}`
+                : undefined
+            }
             exampleUrl={variant.exampleUrl}
             codeUrl={variant.codeUrl}
             height={height}

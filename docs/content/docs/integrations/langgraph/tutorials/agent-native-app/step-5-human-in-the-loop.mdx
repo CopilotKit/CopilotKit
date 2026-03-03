@@ -10,8 +10,8 @@ implementing this in our application by allowing the user to review and approve 
 <Step>
 ## Understanding Human-in-the-Loop
 
-In LangGraph, the current suggested way to implement human-in-the-loop is to use the [interrupt](https://langchain-ai.github.io/langgraph/concepts/human_in_the_loop/) method. Calling this
-function will pause the node at the call site and rerun the node with the user's decision. You can learn more about interrupt [here](https://langchain-ai.github.io/langgraph/cloud/how-tos/interrupt_concurrent/?h=interrupt).
+In LangGraph, the current suggested way to implement human-in-the-loop is to use the [interrupt](https://docs.langchain.com/oss/python/langgraph/interrupts) method. Calling this
+function will pause the node at the call site and rerun the node with the user's decision. You can learn more about interrupt [here](https://docs.langchain.com/langsmith/interrupt-concurrent).
 
 All together, this process will look like this:
 
@@ -31,7 +31,7 @@ CopilotKit allows us to render a UI to get the user's decision for this interrup
 In our `page.tsx` file, add the following code.
 ```tsx title="frontend/src/app/page.tsx"
 // ...
-import { useLangGraphInterrupt } from "@copilotkit/react-core"; // [!code ++]
+import { useLangGraphInterrupt } from "@copilotkit/react-core/v2"; // [!code ++]
 // ...
 
 export default function HomePage() {

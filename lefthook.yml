@@ -1,0 +1,32 @@
+output:
+  - meta
+  - summary
+  - success
+  - failure
+  - execution
+  - execution_out
+  - execution_info
+  - skips
+
+pre-commit:
+  parallel: true
+  commands:
+    sync-lockfile:
+      tags: lockfile
+      run: pnpm i --lockfile-only
+      stage_fixed: true
+    lint-fix:
+      tags: lint
+      run: pnpm run lint --fix && pnpm run format
+      stage_fixed: true
+    test-and-check-packages:
+      tags: test-packages
+      env:
+        NX_TUI: "false"
+      run: pnpm run test && pnpm run check:packages
+
+commit-msg:
+  commands:
+    commitlint:
+      tags: commitlint
+      run: pnpm commitlint --edit {1}

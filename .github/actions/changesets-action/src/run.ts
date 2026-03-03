@@ -30,7 +30,7 @@ const setupOctokit = (githubToken: string) => {
       throttle: {
         onRateLimit: (retryAfter, options: any, octokit, retryCount) => {
           core.warning(
-            `Request quota exhausted for request ${options.method} ${options.url}`
+            `Request quota exhausted for request ${options.method} ${options.url}`,
           );
 
           if (retryCount <= 2) {
@@ -42,10 +42,10 @@ const setupOctokit = (githubToken: string) => {
           retryAfter,
           options: any,
           octokit,
-          retryCount
+          retryCount,
         ) => {
           core.warning(
-            `SecondaryRateLimit detected for request ${options.method} ${options.url}`
+            `SecondaryRateLimit detected for request ${options.method} ${options.url}`,
           );
 
           if (retryCount <= 2) {
@@ -54,13 +54,13 @@ const setupOctokit = (githubToken: string) => {
           }
         },
       },
-    })
+    }),
   );
 };
 
 const createRelease = async (
   octokit: ReturnType<typeof setupOctokit>,
-  { pkg, tagName }: { pkg: Package; tagName: string }
+  { pkg, tagName }: { pkg: Package; tagName: string },
 ) => {
   try {
     let changelogFileName = path.join(pkg.dir, "CHANGELOG.md");
@@ -72,7 +72,7 @@ const createRelease = async (
       // we can find a changelog but not the entry for this version
       // if this is true, something has probably gone wrong
       throw new Error(
-        `Could not find changelog entry for ${pkg.packageJson.name}@${pkg.packageJson.version}`
+        `Could not find changelog entry for ${pkg.packageJson.name}@${pkg.packageJson.version}`,
       );
     }
 
@@ -127,7 +127,7 @@ export async function runPublish({
   let changesetPublishOutput = await getExecOutput(
     publishCommand,
     publishArgs,
-    { cwd }
+    { cwd },
   );
 
   await gitUtils.pushTags();
@@ -149,7 +149,7 @@ export async function runPublish({
       if (pkg === undefined) {
         throw new Error(
           `Package "${pkgName}" not found.` +
-            "This is probably a bug in the action, please open an issue"
+            "This is probably a bug in the action, please open an issue",
         );
       }
       releasedPackages.push(pkg);
@@ -161,15 +161,15 @@ export async function runPublish({
           createRelease(octokit, {
             pkg,
             tagName: `${pkg.packageJson.name}@${pkg.packageJson.version}`,
-          })
-        )
+          }),
+        ),
       );
     }
   } else {
     if (packages.length === 0) {
       throw new Error(
         `No package found.` +
-          "This is probably a bug in the action, please open an issue"
+          "This is probably a bug in the action, please open an issue",
       );
     }
     let pkg = packages[0];
@@ -215,7 +215,7 @@ const requireChangesetsCliPkgJson = (cwd: string) => {
       err.code === "MODULE_NOT_FOUND"
     ) {
       throw new Error(
-        `Have you forgotten to install \`@changesets/cli\` in "${cwd}"?`
+        `Have you forgotten to install \`@changesets/cli\` in "${cwd}"?`,
       );
     }
     throw err;
@@ -353,7 +353,7 @@ export async function runVersion({
     changedPackages.map(async (pkg) => {
       let changelogContents = await fs.readFile(
         path.join(pkg.dir, "CHANGELOG.md"),
-        "utf8"
+        "utf8",
       );
 
       let entry = getChangelogEntry(changelogContents, pkg.packageJson.version);
@@ -363,7 +363,7 @@ export async function runVersion({
         content: entry.content,
         header: `## ${pkg.packageJson.name}@${pkg.packageJson.version}`,
       };
-    })
+    }),
   );
 
   const finalPrTitle = `${prTitle}${!!preState ? ` (${preState.tag})` : ""}`;
@@ -408,26 +408,26 @@ export async function runVersion({
     await octokit.rest.issues.addLabels({
       ...github.context.repo,
       issue_number: newPullRequest.number,
-      labels: ['automated-version-pr']
+      labels: ["automated-version-pr"],
     });
 
     // Run Release workflow
     await octokit.rest.actions.createWorkflowDispatch({
       ...github.context.repo,
       workflow_id: "release.yml",
-      ref: versionBranch
+      ref: versionBranch,
     });
 
     // Immediately merge it
     await octokit.rest.pulls.merge({
       ...github.context.repo,
       pull_number: newPullRequest.number,
-      merge_method: 'squash',
-      commit_title: finalPrTitle
+      merge_method: "squash",
+      commit_title: finalPrTitle,
     });
 
     return {
-      pullRequestNumber: newPullRequest.number
+      pullRequestNumber: newPullRequest.number,
     };
   } else {
     if (existingPullRequests.data.length === 0) {

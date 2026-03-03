@@ -1,0 +1,14 @@
+{
+  "title": "UI Components",
+  "pages": [
+    "CopilotKit",
+    "CopilotChat",
+    "CopilotPopup",
+    "CopilotSidebar",
+    "CopilotChatView",
+    "CopilotChatMessageView",
+    "CopilotChatAssistantMessage",
+    "CopilotChatUserMessage",
+    "CopilotChatInput"
+  ]
+}

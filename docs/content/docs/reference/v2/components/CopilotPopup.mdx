@@ -1,0 +1,148 @@
+---
+title: "CopilotPopup"
+description: "Popup variant of CopilotChat that renders in a floating panel with a toggle button"
+---
+
+## Overview
+
+`CopilotPopup` renders a floating chat popup with a toggle button. It wraps [`CopilotChat`](/reference/v2/components/CopilotChat) and provides popup-specific layout, sizing, and open/close behavior. The popup includes a header with a title and close button, and can be dismissed by clicking outside.
+
+See [`CopilotSidebar`](/reference/v2/components/CopilotSidebar) for a sidebar variant of this component.
+
+## Import
+
+```tsx
+import { CopilotPopup } from "@copilotkit/react-core/v2";
+import "@copilotkit/react-core/v2/styles.css";
+```
+
+## Props
+
+### Own Props
+
+<PropertyReference name="header" type="SlotValue<typeof CopilotModalHeader>">
+  Slot override for the popup header. Accepts a replacement component, a `className` string merged into the default, or a partial props object. The default header displays a title and a close button.
+</PropertyReference>
+
+<PropertyReference name="defaultOpen" type="boolean" default="false">
+  Whether the popup should be open when the component first mounts.
+</PropertyReference>
+
+<PropertyReference name="width" type="number | string">
+  Width of the popup panel. Accepts a number (pixels) or a CSS string (e.g. `"400px"`, `"30vw"`).
+</PropertyReference>
+
+<PropertyReference name="height" type="number | string">
+  Height of the popup panel. Accepts a number (pixels) or a CSS string (e.g. `"600px"`, `"80vh"`).
+</PropertyReference>
+
+<PropertyReference name="clickOutsideToClose" type="boolean" default="true">
+  Whether clicking outside the popup panel closes it.
+</PropertyReference>
+
+### Inherited CopilotChat Props
+
+`CopilotPopup` accepts all props from [`CopilotChatProps`](/reference/v2/components/CopilotChat) **except** `chatView`, which is set internally to `CopilotPopupView`. This includes:
+
+<PropertyReference name="agentId" type="string">
+  ID of the agent to use. Must match an agent configured in `CopilotKitProvider`.
+</PropertyReference>
+
+<PropertyReference name="threadId" type="string">
+  ID of the conversation thread.
+</PropertyReference>
+
+<PropertyReference name="labels" type="Partial<CopilotChatLabels>">
+  Partial label overrides for all text strings rendered inside the chat.
+</PropertyReference>
+
+<PropertyReference name="autoScroll" type="boolean" default="true">
+  Whether the chat scrolls to the bottom automatically when new messages arrive.
+</PropertyReference>
+
+<PropertyReference name="inputProps" type="Partial<Omit<CopilotChatInputProps, 'children'>>">
+  Additional props forwarded to the inner `CopilotChatInput` component.
+</PropertyReference>
+
+<PropertyReference name="welcomeScreen" type='SlotValue<React.FC<WelcomeScreenProps>> | boolean'>
+  Controls the welcome screen shown when no messages exist.
+</PropertyReference>
+
+All `CopilotChatView` slot props (`messageView`, `input`, `scrollView`, `inputContainer`, `feather`, `disclaimer`, `suggestionView`) are also accepted and forwarded through.
+
+## Slot System
+
+All slot props follow the same override pattern used across CopilotKit v2 components. Each slot accepts one of three value types:
+
+| Value | Behavior |
+|-------|----------|
+| **Component** | Replaces the default component entirely. Receives the same props the default would. |
+| **`className` string** | Merged into the default component's class list via `twMerge`. |
+| **Partial props object** | Spread into the default component as additional or overriding props. |
+
+## Usage
+
+### Basic Usage
+
+```tsx
+import { CopilotPopup } from "@copilotkit/react-core/v2";
+import "@copilotkit/react-core/v2/styles.css";
+
+function App() {
+  return (
+    <CopilotPopup
+      agentId="my-agent"
+      labels={{ modalHeaderTitle: "Assistant" }}
+    />
+  );
+}
+```
+
+### Custom Size and Default Open
+
+```tsx
+import { CopilotPopup } from "@copilotkit/react-core/v2";
+import "@copilotkit/react-core/v2/styles.css";
+
+function App() {
+  return (
+    <CopilotPopup
+      agentId="my-agent"
+      defaultOpen={true}
+      width={450}
+      height="80vh"
+      clickOutsideToClose={false}
+    />
+  );
+}
+```
+
+### Custom Header
+
+```tsx
+import { CopilotPopup } from "@copilotkit/react-core/v2";
+import "@copilotkit/react-core/v2/styles.css";
+
+function App() {
+  return (
+    <CopilotPopup
+      agentId="my-agent"
+      header="bg-blue-600 text-white"
+    />
+  );
+}
+```
+
+## Behavior
+
+- **Toggle button**: Renders a floating toggle button (typically in the bottom-right corner) that opens and closes the popup. The button uses `CopilotChatToggleButton` internally.
+- **Modal state**: Open/close state is managed via the chat configuration context. The `defaultOpen` prop sets the initial state; after that, state changes come from user interaction (toggle button, close button, clicking outside).
+- **Click outside**: When `clickOutsideToClose` is `true` (the default), clicking anywhere outside the popup panel closes it.
+- **Layout**: The popup uses `CopilotPopupView` internally, which provides a popup-specific welcome screen layout with the welcome message centered vertically and suggestions just above the input.
+- **Agent connection**: All agent wiring (messages, running state, suggestions) is handled by the parent `CopilotChat` logic.
+
+## Related
+
+- [`CopilotChat`](/reference/v2/components/CopilotChat) -- the base chat component used internally
+- [`CopilotSidebar`](/reference/v2/components/CopilotSidebar) -- sidebar variant
+- [`CopilotChatView`](/reference/v2/components/CopilotChatView) -- the layout component used internally

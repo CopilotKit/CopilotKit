@@ -4,7 +4,7 @@ interface InspectorIconProps {
   className?: string;
 }
 
-const DEFAULT_CLASSNAME = "text-icon"
+const DEFAULT_CLASSNAME = "text-icon";
 
 const InspectorIcon = ({ className }: InspectorIconProps) => (
   <svg
@@ -19,5 +19,5 @@ const InspectorIcon = ({ className }: InspectorIconProps) => (
       <path d="M12.11 6.432a.626.626 0 0 1 0 .884l-3.75 3.75a.624.624 0 0 1-.885 0L5.6 9.191a.625.625 0 1 1 .884-.884l1.433 1.434 3.308-3.309a.625.625 0 0 1 .884 0Z" />
     </g>
   </svg>
-)
-export default InspectorIcon
+);
+export default InspectorIcon;

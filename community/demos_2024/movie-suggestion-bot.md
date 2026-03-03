@@ -10,7 +10,8 @@ Build a bot that recommends movies based on genre, mood, or a user’s previous 
 - Shadcn-UI Component Styling
 - CopilotKit
 
-### GitHub Repo Link: 
+### GitHub Repo Link:
+
 https://github.com/kom-senapati/movie-suggestion-bot
 
 - [Live Demo](https://movie-suggestion-bot.vercel.app/)
@@ -23,7 +24,6 @@ https://github.com/kom-senapati/movie-suggestion-bot
 
 - [Github](https://github.com/kom-senapati)
 - [Twitter](https://x.com/kom_senapati)
-
 
 - [Tweet Link](https://x.com/kom_senapati/status/1845357229635141645)
 - [Dev.to Link](https://dev.to/komsenapati/create-a-movie-suggestion-bot-f8b)
