@@ -39,9 +39,7 @@ const integrationLabelOverrides = {
   agno: "Agno",
   "agent-spec": "Open Agent Spec",
   "aws-strands": "AWS Strands",
-  "crewai-crews": "CrewAI Crews",
   "crewai-flows": "CrewAI Flows",
-  "direct-to-llm": "Direct to LLM",
   langgraph: "LangGraph",
   llamaindex: "LlamaIndex",
   mastra: "Mastra",
@@ -753,46 +751,44 @@ function buildTopicSpecs() {
       summary:
         "Minimal end-to-end setup path using Copilot Runtime + BuiltInAgent.",
       docPaths: [
-        "(root)/copilot-runtime.mdx",
-        "(root)/generative-ui/specs/mcp-apps.mdx",
-        "integrations/direct-to-llm/guides/quickstart.mdx",
+        "(root)/backend/copilot-runtime.mdx",
+        "(root)/generative-ui/mcp-apps.mdx",
+        "integrations/built-in-agent/quickstart.mdx",
       ],
       kind: "builtin",
     },
     {
-      fileName: "topic-copilot-runtime.md",
-      label: "Copilot Runtime",
-      summary: "Runtime architecture, endpoint setup, and backend responsibilities.",
+      fileName: "topic-backend.md",
+      label: "Backend",
+      summary:
+        "Runtime architecture, endpoint setup, AG-UI protocol, and backend integration.",
       docPaths: [
-        "(root)/copilot-runtime.mdx",
-        "(root)/connect-mcp-servers.mdx",
+        "(root)/backend/copilot-runtime.mdx",
+        "(root)/backend/ag-ui.mdx",
+        "(root)/ag-ui-middleware.mdx",
+        "learn/connect-mcp-servers.mdx",
       ],
     },
     {
       fileName: "topic-agentic-chat-ui.md",
       label: "Agentic Chat UI",
-      summary: "Chat UI integration patterns and customization entry points.",
+      summary:
+        "Chat UI integration patterns, prebuilt components, and customization entry points.",
       docPaths: [
         "(root)/agentic-chat-ui.mdx",
+        "(root)/prebuilt-components.mdx",
+        "(root)/programmatic-control.mdx",
         "(root)/custom-look-and-feel/headless-ui.mdx",
       ],
     },
     {
-      fileName: "topic-frontend-actions.md",
-      label: "Frontend Actions",
-      summary: "Client-side action/tool patterns and UI-side execution guidance.",
+      fileName: "topic-frontend-tools.md",
+      label: "Frontend Tools",
+      summary: "Client-side tool patterns and UI-side execution guidance.",
       docPaths: [
+        "(root)/frontend-tools.mdx",
         "(root)/frontend-actions.mdx",
         "(root)/copilot-suggestions.mdx",
-      ],
-    },
-    {
-      fileName: "topic-backend-actions.md",
-      label: "Backend Actions",
-      summary: "Server-side action patterns and backend integration guidance.",
-      docPaths: [
-        "(root)/backend-actions.mdx",
-        "integrations/direct-to-llm/guides/backend-actions/index.mdx",
       ],
     },
     {
@@ -816,8 +812,11 @@ function buildTopicSpecs() {
       label: "Generative UI",
       summary: "Streaming UI patterns, rendering tools, and generative UI specs.",
       docPaths: [
-        "(root)/generative-ui/index.mdx",
-        "(root)/generative-ui/specs/index.mdx",
+        "learn/generative-ui/index.mdx",
+        "learn/generative-ui/specs/index.mdx",
+        "(root)/generative-ui/tool-rendering.mdx",
+        "(root)/generative-ui/your-components/display-only.mdx",
+        "(root)/generative-ui/your-components/interactive.mdx",
       ],
     },
     {
@@ -825,10 +824,10 @@ function buildTopicSpecs() {
       label: "Agentic Protocols",
       summary: "AG-UI, MCP, and A2A protocol-level integration guidance.",
       docPaths: [
-        "(root)/agentic-protocols.mdx",
-        "(root)/ag-ui-protocol.mdx",
-        "(root)/connect-mcp-servers.mdx",
-        "(root)/a2a-protocol.mdx",
+        "learn/agentic-protocols.mdx",
+        "learn/ag-ui-protocol.mdx",
+        "learn/connect-mcp-servers.mdx",
+        "learn/a2a-protocol.mdx",
       ],
     },
     {
@@ -851,6 +850,7 @@ function buildTopicSpecs() {
       docPaths: [
         "(root)/troubleshooting/common-issues.mdx",
         "(root)/troubleshooting/error-debugging.mdx",
+        "(root)/troubleshooting/migrate-to-v2.mdx",
         "(root)/troubleshooting/migrate-to-1.10.X.mdx",
       ],
     },

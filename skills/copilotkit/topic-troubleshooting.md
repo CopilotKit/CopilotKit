@@ -161,6 +161,121 @@ export default function App() {
   - Check for JavaScript errors in the browser console
   - Ensure no CSS is hiding the error banner
 
+### Migrate to V2
+- Route: `/troubleshooting/migrate-to-v2`
+- Source: `docs/content/docs/(root)/troubleshooting/migrate-to-v2.mdx`
+- Description: Migration guide for upgrading to CopilotKit V2 frontend packages
+
+## Overview
+
+CopilotKit V2 consolidates the frontend into a single package. Both hooks and UI components are now exported from `@copilotkit/react-core/v2`. Your backend does not need any changes.
+
+**What's changing:**
+
+| Before | After |
+|--------|-------|
+| `@copilotkit/react-core` | `@copilotkit/react-core/v2` |
+| `@copilotkit/react-ui` | `@copilotkit/react-core/v2` |
+| `@copilotkit/react-ui/styles.css` | `@copilotkit/react-core/v2/styles.css` |
+
+**What's NOT changing:**
+- Backend packages (`@copilotkit/runtime`, etc.) — no changes needed
+- Your `CopilotRuntime` configuration — stays the same
+- Agent definitions and backend setup — stays the same
+
+## Migration Steps
+
+### Update `@copilotkit/react-core` imports
+
+Replace imports from `@copilotkit/react-core` with `@copilotkit/react-core/v2`.
+
+#### Before
+```tsx
+import { CopilotKit } from "@copilotkit/react-core";
+import { useCopilotReadable, useCopilotAction } from "@copilotkit/react-core";
+```
+
+#### After
+```tsx
+import { CopilotKitProvider } from "@copilotkit/react-core/v2";
+import { useAgent } from "@copilotkit/react-core/v2";
+```
+
+### Replace `@copilotkit/react-ui` imports
+
+UI components like `CopilotChat`, `CopilotSidebar`, and `CopilotPopup` are now exported from `@copilotkit/react-core/v2`.
+
+#### Before
+```tsx
+import { CopilotPopup } from "@copilotkit/react-ui";
+import { CopilotSidebar } from "@copilotkit/react-ui";
+import { CopilotChat } from "@copilotkit/react-ui";
+```
+
+#### After
+```tsx
+import { CopilotPopup } from "@copilotkit/react-core/v2";
+import { CopilotSidebar } from "@copilotkit/react-core/v2";
+import { CopilotChat } from "@copilotkit/react-core/v2";
+```
+
+### Update your styles import
+
+#### Before
+```tsx
+import "@copilotkit/react-ui/styles.css";
+```
+
+#### After
+```tsx
+import "@copilotkit/react-core/v2/styles.css";
+```
+
+### Upgrade `@ag-ui/client` (if using directly)
+
+If you import from `@ag-ui/client` directly, upgrade to the latest version:
+
+```bash
+npm install @ag-ui/client@latest
+```
+
+Note: If you only use CopilotKit's React packages, `@ag-ui/client` types are already re-exported from `@copilotkit/react-core/v2` and you don't need a separate install.
+
+## Full Example
+
+### Before
+
+```tsx
+import { CopilotKit } from "@copilotkit/react-core";
+import { CopilotPopup } from "@copilotkit/react-ui";
+import "@copilotkit/react-ui/styles.css";
+
+export function App() {
+  return (
+    <CopilotKit runtimeUrl="/api/copilotkit">
+      <YourApp />
+      <CopilotPopup />
+    </CopilotKit>
+  );
+}
+```
+
+### After
+
+```tsx
+import { CopilotKitProvider, CopilotPopup } from "@copilotkit/react-core/v2";
+import "@copilotkit/react-core/v2/styles.css";
+
+export function App() {
+  return (
+    <CopilotKitProvider runtimeUrl="/api/copilotkit">
+      <YourApp />
+      <CopilotPopup />
+    </CopilotKitProvider>
+  );
+}
+```
+
 ### Migrate to 1.10.X
 - Route: `/troubleshooting/migrate-to-1.10.X`
 - Source: `docs/content/docs/(root)/troubleshooting/migrate-to-1.10.X.mdx`
@@ -250,7 +365,7 @@ Previously, you had to use the `subComponent` property to render custom assistan
 #### Before
 
 ```tsx
-import { AssistantMessageProps } from "@copilotkit/react-ui";
+import { AssistantMessageProps } from "@copilotkit/react-core/v2";
 
 export const AssistantMessage = (props: AssistantMessageProps) => {
   const { message, subComponent } = props;
@@ -264,7 +379,7 @@ export const AssistantMessage = (props: AssistantMessageProps) => {
 #### After
 
 ```tsx
-import { AssistantMessageProps } from "@copilotkit/react-ui";
+import { AssistantMessageProps } from "@copilotkit/react-core/v2";
 
 export const AssistantMessage = (props: AssistantMessageProps) => {
   const { message } = props;

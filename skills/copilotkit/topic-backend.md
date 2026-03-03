@@ -1,11 +1,11 @@
-# Copilot Runtime
+# Backend
 
-Runtime architecture, endpoint setup, and backend responsibilities.
+Runtime architecture, endpoint setup, AG-UI protocol, and backend integration.
 
 ## Guidance
 ### Copilot Runtime
-- Route: `/copilot-runtime`
-- Source: `docs/content/docs/(root)/copilot-runtime.mdx`
+- Route: `/backend/copilot-runtime`
+- Source: `docs/content/docs/(root)/backend/copilot-runtime.mdx`
 - Description: The Copilot Runtime is the backend that connects your frontend to your AI agents, providing authentication, middleware, routing, and more.
 
 The Copilot Runtime is the backend layer that connects your frontend application to your AI agents. It's set up during the [quickstart](/quickstart) and is the recommended way to use CopilotKit.
@@ -50,6 +50,21 @@ Then point your frontend at the endpoint:
 ```
 
 For setup with other backend frameworks (Express, NestJS, Node.js HTTP), see the [quickstart](/quickstart).
+
+## The Default Agent
+
+If you register an agent with the name `"default"`, CopilotKit's prebuilt UI components will use it automatically without any additional configuration on the frontend. This is useful when you have one primary agent and don't want to specify an `agentId` everywhere.
+
+```ts title="app/api/copilotkit/route.ts"
+const runtime = new CopilotRuntime({
+  agents: {
+    // This agent will be used automatically by CopilotPopup, CopilotSidebar, etc.
+    "default": new HttpAgent({ url: "https://my-agent.example.com" }),
+  },
+});
+```
+
+When you register multiple agents, the `"default"` agent is what powers the chat unless a specific agent is selected. Other agents can still be used by passing their `agentId` to `useAgent` or the prebuilt components.
 
 ## What the Runtime Provides
 
@@ -104,9 +119,163 @@ There are important things to understand before going this route:
 | **CopilotKit Support** | Supported | Not supported |
 | **Setup** | Requires a backend endpoint | Frontend-only |
 
+### AG-UI
+- Route: `/backend/ag-ui`
+- Source: `docs/content/docs/(root)/backend/ag-ui.mdx`
+- Description: How CopilotKit uses the AG-UI protocol to connect your frontend to your AI agents.
+
+CopilotKit is built on the [AG-UI protocol](https://ag-ui.com) — a lightweight, event-based standard that defines how AI agents communicate with user-facing applications over Server-Sent Events (SSE).
+
+Everything in CopilotKit — messages, state updates, tool calls, and more — flows through AG-UI events. Understanding this layer helps you debug, extend, and build on top of CopilotKit more effectively.
+
+## Accessing Your Agent with `useAgent`
+
+The `useAgent` hook is your primary interface to the AG-UI agent powering your copilot. It returns an [`AbstractAgent`](https://github.com/ag-ui-protocol/ag-ui/blob/main/typescript/packages/client/src/agents/abstract-agent.ts) from the AG-UI client library — the same base type that all AG-UI agents implement.
+
+```tsx
+import { useAgent } from "@copilotkit/react-core";
+
+function MyComponent() {
+  const { agent } = useAgent();
+
+  // agent.messages - conversation history
+  // agent.state - current agent state
+  // agent.isRunning - whether the agent is currently running
+}
+```
+
+If you have multiple agents, pass the `agentId` to select one:
+
+```tsx
+const { agent } = useAgent({ agentId: "research-agent" });
+```
+
+The returned `agent` is a standard AG-UI `AbstractAgent`. You can subscribe to its events, read its state, and interact with it using the same interface defined by the [AG-UI specification](https://docs.ag-ui.com).
+
+### Subscribing to AG-UI Events
+
+Every agent exposes a `subscribe` method that lets you listen for specific AG-UI events as they stream in. Each callback receives the event and the current agent state:
+
+```tsx
+import { useAgent } from "@copilotkit/react-core";
+import { useEffect } from "react";
+
+function MyComponent() {
+  const { agent } = useAgent();
+
+  useEffect(() => {
+    const subscription = agent.subscribe({
+      // Called on every event
+      onEvent({ event, agent }) {
+        console.log("Event:", event.type, event);
+      },
+
+      // Text message streaming
+      onTextMessageContentEvent({ event, textMessageBuffer, agent }) {
+        console.log("Streaming text:", textMessageBuffer);
+      },
+
+      // Tool calls
+      onToolCallEndEvent({ event, toolCallName, toolCallArgs, agent }) {
+        console.log("Tool called:", toolCallName, toolCallArgs);
+      },
+
+      // State updates
+      onStateSnapshotEvent({ event, agent }) {
+        console.log("State snapshot:", agent.state);
+      },
+
+      // High-level lifecycle
+      onMessagesChanged({ agent }) {
+        console.log("Messages updated:", agent.messages);
+      },
+      onStateChanged({ agent }) {
+        console.log("State changed:", agent.state);
+      },
+    });
+
+    return () => subscription.unsubscribe();
+  }, [agent]);
+}
+```
+
+The full list of subscribable events maps directly to the [AG-UI event types](https://docs.ag-ui.com/concepts/events):
+
+| Event | Callback | Description |
+| --- | --- | --- |
+| Run lifecycle | `onRunStartedEvent`, `onRunFinishedEvent`, `onRunErrorEvent` | Agent run start, completion, and errors |
+| Steps | `onStepStartedEvent`, `onStepFinishedEvent` | Individual step boundaries within a run |
+| Text messages | `onTextMessageStartEvent`, `onTextMessageContentEvent`, `onTextMessageEndEvent` | Streaming text content from the agent |
+| Tool calls | `onToolCallStartEvent`, `onToolCallArgsEvent`, `onToolCallEndEvent`, `onToolCallResultEvent` | Tool invocation lifecycle |
+| State | `onStateSnapshotEvent`, `onStateDeltaEvent` | Full state snapshots and incremental deltas |
+| Messages | `onMessagesSnapshotEvent` | Full message list snapshots |
+| Custom | `onCustomEvent`, `onRawEvent` | Custom and raw events for extensibility |
+| High-level | `onMessagesChanged`, `onStateChanged` | Aggregate notifications after any message or state mutation |
+
+## The Proxy Pattern
+
+When you use CopilotKit with a runtime, your frontend never talks directly to your agent. Instead, CopilotKit creates a **proxy agent** on the frontend that forwards requests through the Copilot Runtime.
+
+On startup, CopilotKit calls the runtime's `/info` endpoint to discover which agents are available. Each agent is wrapped in a `ProxiedCopilotRuntimeAgent` — a thin client that extends AG-UI's [`HttpAgent`](https://github.com/ag-ui-protocol/ag-ui/blob/main/typescript/packages/client/src/agents/http-agent.ts). From your component's perspective, this proxy behaves identically to a local AG-UI agent: same `AbstractAgent` interface, same subscribe API, same properties. But under the hood, every `run` call is an HTTP request to your server, and every response is an SSE stream of AG-UI events flowing back.
+
+```tsx title="What your component sees"
+const { agent } = useAgent(); // Returns an AbstractAgent
+agent.messages;               // Read messages
+agent.state;                  // Read state
+agent.subscribe({ ... });     // Subscribe to events
+```
+
+```tsx title="What actually happens"
+// useAgent() → AgentRegistry checks /info → wraps each agent in ProxiedCopilotRuntimeAgent
+// agent.runAgent() → HTTP POST to runtime → runtime routes to your agent → SSE stream back
+```
+
+This indirection is what enables the runtime to provide authentication, middleware, agent routing, and ecosystem features like [threads](/premium/threads) and [observability](/premium/observability) — without changing how you interact with agents on the frontend.
+
+## How Agents Slot into the Runtime
+
+On the server side, the `CopilotRuntime` accepts a map of AG-UI `AbstractAgent` instances. Each agent framework provides its own implementation, but they all extend the same base type:
+
+```ts title="app/api/copilotkit/route.ts"
+import { CopilotRuntime, copilotRuntimeNextJSAppRouterEndpoint } from "@copilotkit/runtime";
+import { HttpAgent } from "@ag-ui/client";
+
+const runtime = new CopilotRuntime({
+  agents: {
+    "my-agent": new HttpAgent({
+      url: "https://my-agent-server.example.com",
+    }),
+  },
+});
+
+export const POST = async (req: NextRequest) => {
+  const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
+    runtime,
+    endpoint: "/api/copilotkit",
+  });
+  return handleRequest(req);
+};
+```
+
+When a request comes in:
+
+1. The runtime resolves the target agent by ID
+2. It clones the agent (for thread safety) and sets messages, state, and thread context from the request
+3. The `AgentRunner` executes the agent, which produces a stream of AG-UI `BaseEvent`s
+4. Events are encoded as SSE and streamed back to the frontend proxy
+
+Because every agent is an `AbstractAgent`, you can register any AG-UI-compatible agent — whether it's an `HttpAgent` pointing at a remote server, a framework-specific adapter, or a custom implementation — and the runtime handles routing, middleware, and delivery uniformly.
+
+### AG-UI Middleware
+- Route: `/ag-ui-middleware`
+- Source: `docs/content/docs/(root)/ag-ui-middleware.mdx`
+- Description: Configure AG-UI middleware for your CopilotKit application.
+
+Coming soon.
+
 ### MCP (Agents<->Tools)
-- Route: `/connect-mcp-servers`
-- Source: `docs/content/docs/(root)/connect-mcp-servers.mdx`
+- Route: `/learn/connect-mcp-servers`
+- Source: `docs/content/docs/learn/connect-mcp-servers.mdx`
 - Description: Integrate Model Context Protocol (MCP) servers into your React applications
 
 ## Introduction
@@ -119,7 +288,7 @@ The Model Context Protocol is an open standard that enables developers to build 
 
 For further reading, check out the [Model Context Protocol](https://modelcontextprotocol.io/introduction) website.
 
-  If you want MCP servers to return **interactive UI components** that render directly in the chat, check out [MCP Apps](/generative-ui/specs/mcp-apps).
+  If you want MCP servers to return **interactive UI components** that render directly in the chat, check out [MCP Apps](/learn/generative-ui/specs/mcp-apps).
 
   MCP is one of three prominent [agentic protocols](/agentic-protocols) CopilotKit supports to connect agents to user-facing frontends
 
@@ -150,7 +319,7 @@ For further reading, check out the [Model Context Protocol](https://modelcontext
 ```tsx
         "use client";
 
-        import { CopilotKit } from "@copilotkit/react-core";
+        import { CopilotKit } from "@copilotkit/react-core/v2";
 
         export default function App() {
           return (
@@ -167,11 +336,11 @@ For further reading, check out the [Model Context Protocol](https://modelcontext
 ```tsx
         "use client";
 
-        import { useCopilotChat } from "@copilotkit/react-core";
+        import { useCopilotKit } from "@copilotkit/react-core/v2";
         import { useEffect } from "react";
 
         function McpServerManager() {
-          const { setMcpServers } = useCopilotChat();
+          const { setMcpServers } = useCopilotKit();
 
           useEffect(() => {
             setMcpServers([
@@ -186,6 +355,7 @@ For further reading, check out the [Model Context Protocol](https://modelcontext
         }
 
         export default McpServerManager;
+
 ```
         #### Add the Chat Interface
 
@@ -194,7 +364,7 @@ For further reading, check out the [Model Context Protocol](https://modelcontext
 ```tsx
         "use client";
 
-        import { CopilotChat } from "@copilotkit/react-ui";
+        import { CopilotChat } from "@copilotkit/react-core/v2";
         import McpServerManager from "./McpServerManager";
 
         export default function ChatInterface() {
@@ -202,7 +372,6 @@ For further reading, check out the [Model Context Protocol](https://modelcontext
             <div className="flex h-screen p-4">
               <McpServerManager />
               <CopilotChat
-                instructions="You are a helpful assistant with access to MCP servers."
                 className="flex-grow rounded-lg w-full"
               />
             </div>
@@ -217,13 +386,13 @@ For further reading, check out the [Model Context Protocol](https://modelcontext
         "use client";
 
         import {
-          useCopilotAction,
+          useFrontendTool,
           CatchAllActionRenderProps,
-        } from "@copilotkit/react-core";
+        } from "@copilotkit/react-core/v2";
         import McpToolCall from "./McpToolCall";
 
         export function ToolRenderer() {
-          useCopilotAction({
+          useFrontendTool({
             /**
              * The asterisk (*) matches all tool calls
              */
@@ -242,8 +411,8 @@ For further reading, check out the [Model Context Protocol](https://modelcontext
 ```tsx
         "use client";
 
-        import { CopilotKit } from "@copilotkit/react-core";
-        import { CopilotChat } from "@copilotkit/react-ui";
+        import { CopilotKit } from "@copilotkit/react-core/v2";
+        import { CopilotChat } from "@copilotkit/react-core/v2";
         import McpServerManager from "./McpServerManager";
         import { ToolRenderer } from "./ToolRenderer";
 
@@ -253,7 +422,6 @@ For further reading, check out the [Model Context Protocol](https://modelcontext
               <div className="flex h-screen p-4">
                 <McpServerManager />
                 <CopilotChat
-                  instructions="You are a helpful assistant with access to MCP servers."
                   className="flex-grow rounded-lg w-full"
                 />
                 <ToolRenderer />
@@ -353,7 +521,7 @@ export default function MCPToolCall({
 
   The Copilot Runtime handles communication with LLMs, message history, and
   state. You can self-host it or use{" "}
-  (recommended). Learn more in our [Self-Hosting Guide](/direct-to-llm/guides/self-hosting).
+  (recommended). Learn more in our [Self-Hosting Guide](/built-in-agent/copilot-runtime).
 
 To configure your self-hosted runtime with MCP servers, you'll need to implement the `createMCPClient` function that matches this interface:
 

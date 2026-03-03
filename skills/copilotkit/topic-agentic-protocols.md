@@ -4,8 +4,8 @@ AG-UI, MCP, and A2A protocol-level integration guidance.
 
 ## Guidance
 ### MCP (Agents<->Tools)
-- Route: `/connect-mcp-servers`
-- Source: `docs/content/docs/(root)/connect-mcp-servers.mdx`
+- Route: `/learn/connect-mcp-servers`
+- Source: `docs/content/docs/learn/connect-mcp-servers.mdx`
 - Description: Integrate Model Context Protocol (MCP) servers into your React applications
 
 ## Introduction
@@ -18,7 +18,7 @@ The Model Context Protocol is an open standard that enables developers to build 
 
 For further reading, check out the [Model Context Protocol](https://modelcontextprotocol.io/introduction) website.
 
-  If you want MCP servers to return **interactive UI components** that render directly in the chat, check out [MCP Apps](/generative-ui/specs/mcp-apps).
+  If you want MCP servers to return **interactive UI components** that render directly in the chat, check out [MCP Apps](/learn/generative-ui/specs/mcp-apps).
 
   MCP is one of three prominent [agentic protocols](/agentic-protocols) CopilotKit supports to connect agents to user-facing frontends
 
@@ -49,7 +49,7 @@ For further reading, check out the [Model Context Protocol](https://modelcontext
 ```tsx
         "use client";
 
-        import { CopilotKit } from "@copilotkit/react-core";
+        import { CopilotKit } from "@copilotkit/react-core/v2";
 
         export default function App() {
           return (
@@ -66,11 +66,11 @@ For further reading, check out the [Model Context Protocol](https://modelcontext
 ```tsx
         "use client";
 
-        import { useCopilotChat } from "@copilotkit/react-core";
+        import { useCopilotKit } from "@copilotkit/react-core/v2";
         import { useEffect } from "react";
 
         function McpServerManager() {
-          const { setMcpServers } = useCopilotChat();
+          const { setMcpServers } = useCopilotKit();
 
           useEffect(() => {
             setMcpServers([
@@ -85,6 +85,7 @@ For further reading, check out the [Model Context Protocol](https://modelcontext
         }
 
         export default McpServerManager;
+
 ```
         #### Add the Chat Interface
 
@@ -93,7 +94,7 @@ For further reading, check out the [Model Context Protocol](https://modelcontext
 ```tsx
         "use client";
 
-        import { CopilotChat } from "@copilotkit/react-ui";
+        import { CopilotChat } from "@copilotkit/react-core/v2";
         import McpServerManager from "./McpServerManager";
 
         export default function ChatInterface() {
@@ -101,7 +102,6 @@ For further reading, check out the [Model Context Protocol](https://modelcontext
             <div className="flex h-screen p-4">
               <McpServerManager />
               <CopilotChat
-                instructions="You are a helpful assistant with access to MCP servers."
                 className="flex-grow rounded-lg w-full"
               />
             </div>
@@ -116,13 +116,13 @@ For further reading, check out the [Model Context Protocol](https://modelcontext
         "use client";
 
         import {
-          useCopilotAction,
+          useFrontendTool,
           CatchAllActionRenderProps,
-        } from "@copilotkit/react-core";
+        } from "@copilotkit/react-core/v2";
         import McpToolCall from "./McpToolCall";
 
         export function ToolRenderer() {
-          useCopilotAction({
+          useFrontendTool({
             /**
              * The asterisk (*) matches all tool calls
              */
@@ -141,8 +141,8 @@ For further reading, check out the [Model Context Protocol](https://modelcontext
 ```tsx
         "use client";
 
-        import { CopilotKit } from "@copilotkit/react-core";
-        import { CopilotChat } from "@copilotkit/react-ui";
+        import { CopilotKit } from "@copilotkit/react-core/v2";
+        import { CopilotChat } from "@copilotkit/react-core/v2";
         import McpServerManager from "./McpServerManager";
         import { ToolRenderer } from "./ToolRenderer";
 
@@ -152,7 +152,6 @@ For further reading, check out the [Model Context Protocol](https://modelcontext
               <div className="flex h-screen p-4">
                 <McpServerManager />
                 <CopilotChat
-                  instructions="You are a helpful assistant with access to MCP servers."
                   className="flex-grow rounded-lg w-full"
                 />
                 <ToolRenderer />
@@ -252,7 +251,7 @@ export default function MCPToolCall({
 
   The Copilot Runtime handles communication with LLMs, message history, and
   state. You can self-host it or use{" "}
-  (recommended). Learn more in our [Self-Hosting Guide](/direct-to-llm/guides/self-hosting).
+  (recommended). Learn more in our [Self-Hosting Guide](/built-in-agent/copilot-runtime).
 
 To configure your self-hosted runtime with MCP servers, you'll need to implement the `createMCPClient` function that matches this interface:
 
@@ -295,8 +294,8 @@ export const POST = async (req: NextRequest) => {
 ```
 
 ### A2A (Agents<->Agents)
-- Route: `/a2a-protocol`
-- Source: `docs/content/docs/(root)/a2a-protocol.mdx`
+- Route: `/learn/a2a-protocol`
+- Source: `docs/content/docs/learn/a2a-protocol.mdx`
 - Description: Bring your A2A agents to your users through AG-UI and CopilotKit.
 
 ```bash
@@ -375,13 +374,13 @@ export const POST = async (req: NextRequest) => {
 
 ```
 ```tsx title="components/chat.tsx"
-    import { useCopilotAction } from "@copilotkit/react-core"
-    import { Markdown } from "@copilotkit/react-ui"
+    import { useFrontendTool } from "@copilotkit/react-core/v2"
+    import { Markdown } from "@copilotkit/react-core/v2"
 
     function YourMainContent() {
       // ...
 
-      useCopilotAction({
+      useFrontendTool({
         name: "send_message_to_a2a_agent",
         description: "Sends a message to an A2A agent",
         available: "frontend",

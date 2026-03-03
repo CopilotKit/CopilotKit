@@ -1,12 +1,155 @@
-# AWS Strands Integration
+# Built In Agent Integration
 
-CopilotKit implementation guide for AWS Strands.
+CopilotKit implementation guide for Built In Agent.
 
 ## Guidance
+### Advanced Configuration
+- Route: `/built-in-agent/advanced-configuration`
+- Source: `docs/content/docs/integrations/built-in-agent/advanced-configuration.mdx`
+- Description: Fine-tune your Built-in Agent's behavior with advanced options.
+
+The `BuiltInAgent` accepts a full set of configuration options to control model behavior, tool calling, and more.
+
+## Multi-step tool calling
+
+By default, the agent performs a single generation step. Set `maxSteps` to allow the agent to call tools and then continue reasoning:
+
+```typescript title="src/copilotkit.ts"
+const agent = new BuiltInAgent({
+  model: "openai:gpt-5.2",
+  maxSteps: 5, // [!code highlight]
+  tools: [searchDocs, createTicket],
+});
+```
+
+With `maxSteps: 5`, the agent can call a tool, process the result, call another tool, and so on — up to 5 iterations. This is essential for workflows where the agent needs to chain multiple tool calls.
+
+## Tool choice
+
+Control how the agent selects tools:
+
+```typescript
+const agent = new BuiltInAgent({
+  model: "openai:gpt-5.2",
+  toolChoice: "auto",       // Let the model decide (default)
+  // toolChoice: "required", // Force the model to call a tool
+  // toolChoice: "none",     // Disable tool calling
+  // toolChoice: { type: "tool", toolName: "searchDocs" }, // Force a specific tool
+});
+```
+
+## System prompt
+
+Customize the agent's system prompt:
+
+```typescript
+const agent = new BuiltInAgent({
+  model: "openai:gpt-5.2",
+  prompt: "You are a customer support agent for Acme Corp. Be concise and helpful. Always check the knowledge base before answering.", // [!code highlight]
+});
+```
+
+## Generation parameters
+
+Fine-tune the model's output:
+
+```typescript
+const agent = new BuiltInAgent({
+  model: "openai:gpt-5.2",
+  temperature: 0.7,        // Creativity (0 = deterministic, 1+ = creative)
+  topP: 0.9,               // Nucleus sampling
+  topK: 40,                // Top-K sampling (provider-dependent)
+  maxOutputTokens: 4096,   // Maximum tokens in the response
+  presencePenalty: 0.1,    // Penalize repeated topics
+  frequencyPenalty: 0.1,   // Penalize repeated tokens
+  stopSequences: ["END"],  // Stop generation at these sequences
+  seed: 42,                // Deterministic output (provider-dependent)
+  maxRetries: 3,           // Retry on transient failures
+});
+```
+
+Not all parameters are supported by every provider. For example, `topK` is supported by Google but not OpenAI. Unsupported parameters are ignored.
+
+## Provider-specific options
+
+Pass options specific to a model provider using `providerOptions`:
+
+```typescript
+// OpenAI reasoning models (o3, o4-mini) with reasoning effort
+const agent = new BuiltInAgent({
+  model: "openai:o3",
+  providerOptions: { // [!code highlight:3]
+    openai: { reasoningEffort: "high" },
+  },
+});
+```
+
+```typescript
+// Anthropic with extended thinking
+const agent = new BuiltInAgent({
+  model: "anthropic:claude-sonnet-4.5",
+  providerOptions: { // [!code highlight:3]
+    anthropic: { thinking: { type: "enabled", budgetTokens: 10000 } },
+  },
+});
+```
+
+## Overridable properties
+
+Allow the frontend to override specific configuration at runtime. This is useful when you want users to switch models or adjust behavior without redeploying:
+
+```typescript
+const agent = new BuiltInAgent({
+  model: "openai:gpt-5.2",
+  temperature: 0.5,
+  overridableProperties: ["model", "temperature", "prompt"], // [!code highlight]
+});
+```
+
+The full list of overridable properties:
+`model`, `toolChoice`, `maxOutputTokens`, `temperature`, `topP`, `topK`, `presencePenalty`, `frequencyPenalty`, `stopSequences`, `seed`, `maxRetries`, `prompt`, `providerOptions`
+
+## Message forwarding
+
+Control whether system and developer messages from the conversation are forwarded to the LLM:
+
+```typescript
+const agent = new BuiltInAgent({
+  model: "openai:gpt-5.2",
+  forwardSystemMessages: true,    // Forward system-role messages
+  forwardDeveloperMessages: true, // Forward developer-role messages (as system messages)
+});
+```
+
+## Full configuration reference
+
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `model` | `string \| LanguageModel` | — | Model specifier or AI SDK instance |
+| `apiKey` | `string` | env var | API key for the provider |
+| `maxSteps` | `number` | `1` | Max tool-calling iterations |
+| `toolChoice` | `"auto" \| "required" \| "none" \| { type: "tool", toolName: string }` | `"auto"` | How tools are selected |
+| `maxOutputTokens` | `number` | — | Max tokens in response |
+| `temperature` | `number` | — | Sampling temperature |
+| `topP` | `number` | — | Nucleus sampling |
+| `topK` | `number` | — | Top-K sampling |
+| `presencePenalty` | `number` | — | Presence penalty |
+| `frequencyPenalty` | `number` | — | Frequency penalty |
+| `stopSequences` | `string[]` | — | Stop sequences |
+| `seed` | `number` | — | Random seed |
+| `maxRetries` | `number` | — | Retry count |
+| `prompt` | `string` | — | System prompt |
+| `tools` | `ToolDefinition[]` | `[]` | Server-side tools |
+| `mcpServers` | `MCPClientConfig[]` | `[]` | MCP server connections |
+| `overridableProperties` | `string[]` | `[]` | Properties the frontend can override |
+| `providerOptions` | `Record` | — | Provider-specific options |
+| `forwardSystemMessages` | `boolean` | `false` | Forward system messages |
+| `forwardDeveloperMessages` | `boolean` | `false` | Forward developer messages |
+
 ### AG-UI
-- Route: `/aws-strands/ag-ui`
-- Source: `docs/content/docs/integrations/aws-strands/ag-ui.mdx`
-- Description: The AG-UI protocol connects your frontend to your AI agents via event-based Server-Sent Events (SSE).
+- Route: `/built-in-agent/ag-ui`
+- Source: `docs/content/docs/integrations/built-in-agent/ag-ui.mdx`
+- Description: The AG-UI protocol connects your frontend to your Built-in Agent via event-based Server-Sent Events (SSE).
 
 CopilotKit is built on the [AG-UI protocol](https://ag-ui.com) — a lightweight, event-based standard that defines how AI agents communicate with user-facing applications over Server-Sent Events (SSE).
 
@@ -150,10 +293,122 @@ When a request comes in:
 
 Because every agent is an `AbstractAgent`, you can register any AG-UI-compatible agent — whether it's an `HttpAgent` pointing at a remote server, a framework-specific adapter, or a custom implementation — and the runtime handles routing, middleware, and delivery uniformly.
 
+### Agent Context
+- Route: `/built-in-agent/agent-app-context`
+- Source: `docs/content/docs/integrations/built-in-agent/agent-app-context.mdx`
+- Description: Share app-specific context with your Built-in Agent.
+
+Share your application's state and context with the Built-in Agent using the `useAgentContext` hook. The agent automatically receives this context — no backend configuration needed.
+
+## What is this?
+
+The `useAgentContext` hook lets you register app-specific data that gets included in the agent's context. This could be the current user, page content, shopping cart items, or any data that helps the agent provide relevant responses.
+
+## When should I use this?
+
+- You want the agent to know about the current state of your app
+- You need the agent to reference user-specific data (name, preferences, role)
+- The agent should be aware of what page or view the user is on
+- You want to provide domain-specific data without hardcoding it into the system prompt
+
+## Implementation
+
+### Register context in your component
+
+Use `useAgentContext` to share any data with the agent:
+
+```tsx title="components/Dashboard.tsx"
+"use client"; // only necessary for Next.js App Router // [!code highlight]
+import { useAgentContext } from "@copilotkit/react-core/v2"; // [!code highlight]
+import { useState } from "react";
+
+export function Dashboard() {
+  const [user] = useState({
+    name: "Jane Smith",
+    role: "Engineering Manager",
+    team: "Platform",
+  });
+
+  const [projects] = useState([
+    { id: 1, name: "Auth Redesign", status: "in-progress" },
+    { id: 2, name: "API v2", status: "planning" },
+  ]);
+
+  // Share user info with the agent
+  // [!code highlight:4]
+  useAgentContext({
+    description: "The currently logged-in user",
+    value: user,
+  });
+
+  // Share project data with the agent
+  // [!code highlight:4]
+  useAgentContext({
+    description: "The user's active projects",
+    value: projects,
+  });
+
+  return <div>{/* Your dashboard UI */}</div>;
+}
+```
+
+### That's it — no backend setup needed
+
+Unlike LangGraph where you need to configure agent state to receive context, the Built-in Agent handles this automatically. The context you register is included in the agent's system prompt, so it can reference your app data immediately.
+
+```
+User: "What projects am I working on?"
+Agent: "You're working on two projects:
+  1. Auth Redesign (in progress)
+  2. API v2 (planning)"
+```
+
+## Multiple contexts
+
+You can call `useAgentContext` multiple times across different components. All registered contexts are combined and sent to the agent:
+
+```tsx title="components/UserInfo.tsx"
+useAgentContext({
+  description: "Current user profile",
+  value: { name: "Jane", role: "Manager" },
+});
+```
+
+```tsx title="components/PageContext.tsx"
+useAgentContext({
+  description: "The page the user is currently viewing",
+  value: { page: "settings", section: "notifications" },
+});
+```
+
+The agent sees both contexts and can reference either when responding.
+
+## Dynamic context
+
+Context updates automatically when the underlying data changes:
+
+```tsx
+export function TaskList() {
+  const [tasks, setTasks] = useState([]);
+
+  // Context updates whenever tasks change // [!code highlight]
+  useAgentContext({
+    description: "The user's current task list",
+    value: tasks,
+  });
+
+  return (
+    <div>
+      {/* When tasks are added/removed, the agent sees the updated list */}
+    </div>
+  );
+}
+```
+
 ### Coding Agents
-- Route: `/aws-strands/coding-agents`
-- Source: `docs/content/docs/integrations/aws-strands/coding-agents.mdx`
-- Description: Use our MCP server to connect your AWS Strands agents to CopilotKit.
+- Route: `/built-in-agent/coding-agents`
+- Source: `docs/content/docs/integrations/built-in-agent/coding-agents.mdx`
+- Description: Use our MCP server to connect your Built-in Agent to CopilotKit.
 
 ## Overview
 The CopilotKit MCP server equips AI coding agents with deep knowledge about CopilotKit's APIs, patterns, and best practices. When connected to your
@@ -270,8 +525,8 @@ Most MCP-compatible applications support one or both of these connection methods
 ```
 
 ### Copilot Runtime
-- Route: `/aws-strands/copilot-runtime`
-- Source: `docs/content/docs/integrations/aws-strands/copilot-runtime.mdx`
+- Route: `/built-in-agent/copilot-runtime`
+- Source: `docs/content/docs/integrations/built-in-agent/copilot-runtime.mdx`
 - Description: The Copilot Runtime is the backend that connects your frontend to your AI agents, providing authentication, middleware, routing, and more.
 
 The Copilot Runtime is the backend layer that connects your frontend application to your AI agents. It's set up during the [quickstart](/quickstart) and is the recommended way to use CopilotKit.
@@ -386,281 +641,145 @@ There are important things to understand before going this route:
 | **Setup** | Requires a backend endpoint | Frontend-only |
 
 ### Fully Headless UI
-- Route: `/aws-strands/custom-look-and-feel/headless-ui`
-- Source: `docs/content/docs/integrations/aws-strands/custom-look-and-feel/headless-ui.mdx`
+- Route: `/built-in-agent/custom-look-and-feel/headless-ui`
+- Source: `docs/content/docs/integrations/built-in-agent/custom-look-and-feel/headless-ui.mdx`
 - Description: Fully customize your Copilot's UI from the ground up using headless UI
 
-```bash
-    npx copilotkit@latest create
+## What is this?
+
+A headless UI gives you full control over the chat experience — you bring your own components, layout, and styling while CopilotKit handles agent communication, message management, and streaming. This is built on top of the same primitives (`useAgent` and `useCopilotKit`) covered in Programmatic Control.
+
+## When should I use this?
+
+Use headless UI when the slot system isn't enough — for example, when you need a completely different layout, want to embed the chat into an existing UI, or are building a non-chat interface that still communicates with an agent.
+
+## Implementation
+
+### Access the agent and CopilotKit
+
+Use `useAgent` to get the agent instance (messages, state, execution status) and `useCopilotKit` to run the agent.
+
+```tsx title="components/custom-chat.tsx"
+import { useAgent } from "@copilotkit/react-core/v2";
+import { useCopilotKit } from "@copilotkit/react-core/v2";
+import { randomUUID } from "@copilotkit/shared/v2";
+
+export function CustomChat() {
+  // [!code highlight:2]
+  const { agent } = useAgent();
+  const { copilotkit } = useCopilotKit();
+
+  return <div>{/* Your custom UI */}</div>;
+}
 ```
-```bash
-    open README.md
-```
-```tsx title="src/app/layout.tsx"
-    <CopilotKit
-      publicLicenseKey="your-free-public-license-key"
-    >
-      {children}
-    </CopilotKit>
-```
-```tsx title="src/app/page.tsx"
-    "use client";
-    import { useState } from "react";
-    import { useCopilotChatHeadless_c } from "@copilotkit/react-core/v2"; // [!code highlight]
 
-    export default function Home() {
-      const { messages, sendMessage, isLoading } = useCopilotChatHeadless_c(); // [!code highlight]
-      const [input, setInput] = useState("");
+### Display messages
 
-      const handleSend = () => {
-        if (input.trim()) {
-          // [!code highlight:5]
-          sendMessage({
-            id: Date.now().toString(),
-            role: "user",
-            content: input,
-          });
-          setInput("");
-        }
-      };
+The agent's messages are available via `agent.messages`. Each message has an `id`, `role` (`"user"` or `"assistant"`), and `content`.
 
-      return (
-        <div>
-          <h1>My Headless Chat</h1>
+```tsx title="components/custom-chat.tsx"
+export function CustomChat() {
+  const { agent } = useAgent();
+  const { copilotkit } = useCopilotKit();
 
-          {/* Messages */}
-          <div>
-            {/* [!code highlight:6] */}
-            {messages.map((message) => (
-              <div key={message.id}>
-                <strong>{message.role === "user" ? "You" : "Assistant"}:</strong>
-                <p>{message.content}</p>
-              </div>
-            ))}
-
-            {/* [!code highlight:1] */}
-            {isLoading && <p>Assistant is typing...</p>}
-          </div>
-
-          {/* Input */}
-          <div>
-            <input
-              type="text"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              // [!code highlight:1]
-              onKeyDown={(e) => e.key === "Enter" && handleSend()}
-              placeholder="Type your message here..."
-            />
-            {/* [!code highlight:1] */}
-            <button onClick={handleSend} disabled={isLoading}>
-              Send
-            </button>
-          </div>
-        </div>
-      );
-    }
-```
-```tsx title="src/app/components/chat.tsx"
-import { useFrontendTool } from "@copilotkit/react-core/v2";
-
-export const Chat = () => {
-  // ...
-
-  // Define an action that will show a custom component
-  useFrontendTool({
-    name: "showCustomComponent",
-    // Handle the tool on the frontend
-    // [!code highlight:3]
-    handler: () => {
-      return "Foo, Bar, Baz";
-    },
-    // Render a custom component for the underlying data
-    // [!code highlight:13]
-    render: ({ result, args, status}) => {
-      return <div style={{
-        backgroundColor: "red",
-        padding: "10px",
-        borderRadius: "5px",
-      }}>
-        <p>Custom component</p>
-        <p>Result: {result}</p>
-        <p>Args: {JSON.stringify(args)}</p>
-        <p>Status: {status}</p>
-      </div>;
-    }
-  });
-
-  // ...
-
-  return <div>
-    {messages.map((message) => (
-      <p key={message.id}>
-        {message.role === "user" ? "User: " : "Assistant: "}
-        {message.content}
-        {/* Render the generative UI if it exists */}
-        {/* [!code highlight:1] */}
-        {message.role === "assistant" && message.generativeUI?.()}
-      </p>
-    ))}
-  </div>
-};
-```
-```tsx title="src/app/components/chat.tsx"
-export const Chat = () => {
-  // ...
-
-  return <div>
-    {messages.map((message) => (
-      <p key={message.id}>
-        {/* Render the tool calls if they exist */}
-        {/* [!code highlight:5] */}
-        {message.role === "assistant" && message.toolCalls?.map((toolCall) => (
-          <p key={toolCall.id}>
-            {toolCall.function.name}: {toolCall.function.arguments}
-          </p>
-        ))}
-      </p>
-    ))}
-  </div>
-};
-```
-```tsx title="src/app/components/chat.tsx"
-import { useCopilotChatHeadless_c, useCopilotChatSuggestions } from "@copilotkit/react-core/v2"; // [!code highlight]
-
-export const Chat = () => {
-  // Specify what suggestions should be generated
-  // [!code highlight:5]
-  useCopilotChatSuggestions({
-    instructions:
-      "Suggest 5 interesting activities for programmers to do on their next vacation",
-    maxSuggestions: 5,
-  });
-
-  // Grab relevant state from the headless hook
-  const { suggestions, generateSuggestions, sendMessage } = useCopilotChatHeadless_c(); // [!code highlight]
-
-  // Generate suggestions when the component mounts
-  useEffect(() => {
-    generateSuggestions(); // [!code highlight]
-  }, []);
-
-  // ...
-
-  // [!code word:suggestion]
-  return <div>
-    {suggestions.map((suggestion, index) => (
-      <button
-        key={index}
-        onClick={() => sendMessage({
-          id: "123",
-          role: "user",
-          content: suggestion.message
-        })}
-      >
-        {suggestion.title}
-      </button>
-    ))}
-  </div>
-};
-```
-```tsx title="src/app/components/chat.tsx"
-import { useCopilotChatHeadless_c } from "@copilotkit/react-core/v2";
-
-export const Chat = () => {
-  // Grab relevant state from the headless hook
-  // [!code highlight:1]
-  const { suggestions, setSuggestions } = useCopilotChatHeadless_c();
-
-  // Set the suggestions when the component mounts
-  // [!code highlight:6]
-  useEffect(() => {
-    setSuggestions([
-      { title: "Suggestion 1", message: "The actual message for suggestion 1" },
-      { title: "Suggestion 2", message: "The actual message for suggestion 2" },
-    ]);
-  }, []);
-
-  // Change the suggestions on function call
-  const changeSuggestions = () => {
-    // [!code highlight:4]
-    setSuggestions([
-      { title: "Foo", message: "Bar" },
-      { title: "Baz", message: "Bat" },
-    ]);
-  };
-
-  // [!code word:suggestion]
   return (
-    <div>
-      {/* Change on button click */}
-      <button onClick={changeSuggestions}>Change suggestions</button>
-
-      {/* Render */}
-      {suggestions.map((suggestion, index) => (
-        <button
-          key={index}
-          onClick={() => sendMessage({
-            id: "123",
-            role: "user",
-            content: suggestion.message
-          })}
-        >
-          {suggestion.title}
-        </button>
-      ))}
+    <div className="flex flex-col h-full">
+      {/* [!code highlight:12] */}
+      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        {agent.messages.map((msg) => (
+          <div
+            key={msg.id}
+            className={msg.role === "user" ? "ml-auto bg-blue-100 rounded-lg p-3 max-w-md" : "bg-gray-100 rounded-lg p-3 max-w-md"}
+          >
+            <p className="text-sm font-medium">{msg.role}</p>
+            <p>{msg.content}</p>
+          </div>
+        ))}
+        {agent.isRunning && <div className="text-gray-400">Thinking...</div>}
+      </div>
     </div>
   );
-};
+}
 ```
-```tsx title="src/app/components/chat.tsx"
-import { useFrontendTool, useCopilotChatHeadless_c } from "@copilotkit/react-core/v2";
 
-export const Chat = () => {
-  const { messages, sendMessage } = useCopilotChatHeadless_c();
+### Send messages and run the agent
 
-  // Define an action that will wait for the user to enter their name
-  useFrontendTool({
-    name: "getName",
-    renderAndWaitForResponse: ({ respond, args, status}) => {
-      if (status === "complete") {
-        return <div>
-          <p>Name retrieved...</p>
-        </div>;
-      }
+Add a message to the agent's conversation, then call `copilotkit.runAgent()` to trigger execution. This is the same method CopilotKit's built-in `` uses internally.
 
-      return <div>
-        <input
-          type="text"
-          value={args.name || ""}
-          onChange={(e) => respond?.(e.target.value)}
-          placeholder="Enter your name"
-        />
-        {/* Respond with the name */}
-        {/* [!code highlight:1] */}
-        <button onClick={() => respond?.(args.name)}>Submit</button>
-      </div>;
-    }
-  });
+```tsx title="components/custom-chat.tsx"
+import { useState, useCallback } from "react";
+
+export function CustomChat() {
+  const { agent } = useAgent();
+  const { copilotkit } = useCopilotKit();
+  const [input, setInput] = useState("");
+
+  // [!code highlight:14]
+  const sendMessage = useCallback(async () => {
+    if (!input.trim()) return;
+
+    agent.addMessage({
+      id: randomUUID(),
+      role: "user",
+      content: input,
+    });
+
+    setInput("");
+
+    await copilotkit.runAgent({ agent });
+  }, [input, agent, copilotkit]);
 
   return (
-    {messages.map((message) => (
-      <p key={message.id}>
-        {message.role === "user" ? "User: " : "Assistant: "}
-        {message.content}
-        {/* [!code highlight:2] */}
-        {/* This will render the tool-based HITL if it exists */}
-        {message.role === "assistant" && message.generativeUI?.()}
-      </p>
-    ))}
-  )
-};
+    <div className="flex flex-col h-full">
+      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        {agent.messages.map((msg) => (
+          <div key={msg.id} className={msg.role === "user" ? "ml-auto bg-blue-100 rounded-lg p-3 max-w-md" : "bg-gray-100 rounded-lg p-3 max-w-md"}>
+            <p>{msg.content}</p>
+          </div>
+        ))}
+        {agent.isRunning && <div className="text-gray-400">Thinking...</div>}
+      </div>
+
+      {/* [!code highlight:12] */}
+      <form
+        className="border-t p-4 flex gap-2"
+        onSubmit={(e) => { e.preventDefault(); sendMessage(); }}
+      >
+        <input
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          placeholder="Type a message..."
+          className="flex-1 border rounded-lg px-3 py-2"
+        />
+        <button type="submit" disabled={agent.isRunning}>Send</button>
+      </form>
+    </div>
+  );
+}
+```
+
+### Stop the agent
+
+Use `copilotkit.stopAgent()` to cancel a running agent:
+
+```tsx title="components/custom-chat.tsx"
+const stopAgent = useCallback(() => {
+  // [!code highlight:1]
+  copilotkit.stopAgent({ agent });
+}, [agent, copilotkit]);
+
+// In your JSX:
+{agent.isRunning && (
+  <button onClick={stopAgent} className="text-red-500">
+    Stop
+  </button>
+)}
 ```
 
 ### Slots
-- Route: `/aws-strands/custom-look-and-feel/slots`
-- Source: `docs/content/docs/integrations/aws-strands/custom-look-and-feel/slots.mdx`
-- Description: Customize any part of the chat UI by overriding individual sub-components via slots.
+- Route: `/built-in-agent/custom-look-and-feel/slots`
+- Source: `docs/content/docs/integrations/built-in-agent/custom-look-and-feel/slots.mdx`
+- Description: Customize any part of the chat UI by overriding individual sub-components via slots for Built-in Agent.
 
 ## What is this?
 
@@ -973,402 +1092,71 @@ Available via `toggleButton={{ ... }}`:
 | `closeIcon` | Icon shown when the chat is open. |
 
 ### Frontend Tools
-- Route: `/aws-strands/frontend-tools`
-- Source: `docs/content/docs/integrations/aws-strands/frontend-tools.mdx`
-- Description: Create frontend tools and use them within your Strands agent.
+- Route: `/built-in-agent/frontend-tools`
+- Source: `docs/content/docs/integrations/built-in-agent/frontend-tools.mdx`
+- Description: Define frontend tools for your Built-in Agent.
 
-```python title="main.py"
-        import os
-        from strands import Agent, tool
-        from strands.models.openai import OpenAIModel
-        from ag_ui_strands import StrandsAgent, create_strands_app
+```tsx title="page.tsx"
+import { z } from "zod";
+import { useFrontendTool } from "@copilotkit/react-core/v2" // [!code highlight]
 
-        @tool
-        def change_background(background: str):
-            """
-            Change the background color of the chat. Can be anything that CSS accepts.
+export function Page() {
+  // ...
 
-            Args:
-                background: The background color or gradient. Prefer gradients.
-
-            Returns:
-                None - execution happens on the frontend
-            """
-            # Return None - frontend will handle execution
-            return None  # [!code highlight]
-
-        api_key = os.getenv("OPENAI_API_KEY", "")
-        model = OpenAIModel(
-            client_args={"api_key": api_key},
-            model_id="gpt-5.2",
-        )
-
-        agent = Agent(
-            model=model,
-            tools=[change_background],  # [!code highlight]
-            system_prompt="You are a helpful assistant.",
-        )
-
-        agui_agent = StrandsAgent(
-            agent=agent,
-            name="my_agent",
-            description="A helpful assistant",
-        )
-
-        app = create_strands_app(agui_agent, "/")
-```
-```tsx title="app/page.tsx"
-        "use client";
-
-        import { useFrontendTool } from "@copilotkit/react-core/v2"; // [!code highlight]
-        import { CopilotSidebar, CopilotKitCSSProperties } from "@copilotkit/react-core/v2";
-        import { useState } from "react";
-
-        export default function Page() {
-          const [background, setBackground] = useState("#6366f1");
-
-          // [!code highlight:15]
-          useFrontendTool({
-            name: "change_background",
-            description: "Change the background color of the chat.",
-            parameters: [
-              {
-                name: "background",
-                type: "string",
-                description: "The background color or gradient. Prefer gradients.",
-                required: true,
-              },
-            ],
-            handler: async ({ background }) => {
-              setBackground(background);
-              return `Background changed to ${background}`;
-            },
-          });
-
-          return (
-            <main
-              style={{
-                background,
-                transition: "background 0.3s ease",
-              }}
-              className="h-screen"
-            >
-              <CopilotSidebar />
-            </main>
-          );
-        }
-```
-```
-        Change the background to a sunset gradient
-```
-```
-        Make the background dark purple
-```
-```tsx
-"use client";
-
-import { useFrontendTool } from "@copilotkit/react-core/v2";
-import { useState } from "react";
-
-export default function Page() {
-  const [tasks, setTasks] = useState<string[]>([]);
-
+  // [!code highlight:12]
   useFrontendTool({
-    name: "add_task",
-    description: "Add a task to the todo list",
-    parameters: [
-      {
-        name: "task",
-        type: "string",
-        description: "The task to add",
-        required: true,
-      },
-    ],
-    handler: async ({ task }) => {
-      setTasks((prev) => [...prev, task]);
-      return `Added task: ${task}`;
+    name: "sayHello",
+    description: "Say hello to the user",
+    parameters: z.object({
+      name: z.string().describe("The name of the user to say hello to"),
+    }),
+    handler: async ({ name }) => {
+      alert(`Hello, ${name}!`);
+      return `Said hello to ${name}!`;
     },
   });
 
-  return (
-    <div>
-      <h1>Todo List</h1>
-      <ul>
-        {tasks.map((task, i) => (
-          <li key={i}>{task}</li>
-        ))}
-      </ul>
-    </div>
-  );
+  // ...
 }
-```
-
-### State Rendering
-- Route: `/aws-strands/generative-ui/state-rendering`
-- Source: `docs/content/docs/integrations/aws-strands/generative-ui/state-rendering.mdx`
-- Description: Render the state of your agent with custom UI components.
-
-```python title="agent/my_agent.py"
-    from strands import Agent, Tool
-    from typing import TypedDict, List
-
-    # Define the agent state schema
-    class SearchItem(TypedDict):
-        query: str
-        done: bool
-
-    class AgentState(TypedDict):
-        searches: List[SearchItem]
-
-    # Create tool that updates state
-    @Tool
-    def add_search(query: str) -> dict:
-        """
-        Add a search to the agent's list of searches.
-
-        Args:
-            query: The search query to add
-
-        Returns:
-            Success status and query
-        """
-        # Tool implementation - state is automatically updated
-        return {"success": True, "query": query}
-
-    # Create agent with state management
-    agent = Agent(
-        name="searchAgent",
-        description="A helpful assistant for storing searches",
-        tools=[add_search],
-        state_schema=AgentState,
-        initial_state={"searches": []},
-        instructions="""
-        You are a helpful assistant for storing searches.
-
-        IMPORTANT:
-        - Use the add_search tool to add a search to the agent's state
-        - ONLY USE THE add_search TOOL ONCE FOR A GIVEN QUERY
-        """
-    )
-```
-```tsx title="app/page.tsx"
-    // ...
-    import { useAgent } from "@copilotkit/react-core/v2";
-    // ...
-
-    // Define the state of the agent, should match the state schema of your Strands Agent.
-    type AgentState = {
-      searches: {
-        query: string;
-        done: boolean;
-      }[];
-    };
-
-    function YourMainContent() {
-      // ...
-
-      // [!code highlight:13]
-      // styles omitted for brevity
-      useAgent<AgentState>({
-        name: "searchAgent", // MUST match the agent name in your Strands configuration
-        render: ({ agentState }) => (
-          <div>
-            {agentState.searches?.map((search, index) => (
-              <div key={index}>
-                {search.done ? "✅" : "❌"} {search.query}{search.done ? "" : "..."}
-              </div>
-            ))}
-          </div>
-        ),
-      });
-
-      // ...
-
-      return <div>...</div>;
-    }
-```
-```tsx title="app/page.tsx"
-    import { useAgent } from "@copilotkit/react-core/v2"; // [!code highlight]
-    // ...
-
-    // Define the state of the agent, should match the state schema of your Strands Agent.
-    type AgentState = {
-      searches: {
-        query: string;
-        done: boolean;
-      }[];
-    };
-
-    function YourMainContent() {
-      // ...
-
-      // [!code highlight:3]
-      const { agentState } = useAgent<AgentState>({
-        name: "searchAgent", // MUST match the agent name in your Strands configuration
-      })
-
-      // ...
-
-      return (
-        <div>
-          {/* ... */}
-          <div className="flex flex-col gap-2 mt-4">
-            {/* [!code highlight:5] */}
-            {agentState.searches?.map((search, index) => (
-              <div key={index} className="flex flex-row">
-                {search.done ? "✅" : "❌"} {search.query}
-              </div>
-            ))}
-          </div>
-        </div>
-      )
-    }
 ```
 
 ### Tool Rendering
-- Route: `/aws-strands/generative-ui/tool-rendering`
-- Source: `docs/content/docs/integrations/aws-strands/generative-ui/tool-rendering.mdx`
+- Route: `/built-in-agent/generative-ui/tool-rendering`
+- Source: `docs/content/docs/integrations/built-in-agent/generative-ui/tool-rendering.mdx`
 - Description: Render your agent's tool calls with custom UI components.
 
-```python title="main.py"
-import os
-from strands import Agent, tool
-from strands.models.openai import OpenAIModel
-from ag_ui_strands import StrandsAgent, create_strands_app
-
-@tool
-def get_weather(location: str) -> dict:
-    """
-    Get weather information for a location.
-
-    Args:
-        location: The location to get weather for
-
-    Returns:
-        Weather data with temperature and conditions
-    """
-    # Simulate weather data (in production, call a real weather API)
-    return {
-        "temperature": 72,
-        "conditions": "sunny",
-        "humidity": 45,
-        "wind_speed": 8
-    }
-
-# Setup your Strands agent
-api_key = os.getenv("OPENAI_API_KEY", "")
-model = OpenAIModel(
-    client_args={"api_key": api_key},
-    model_id="gpt-5.2",
-)
-
-agent = Agent(
-    model=model,
-    system_prompt="You are a helpful assistant that can get weather information.",
-    tools=[get_weather],  # [!code highlight]
-)
-
-# Wrap with AG-UI integration
-agui_agent = StrandsAgent(
-    agent=agent,
-    name="weather_agent",
-    description="A helpful weather assistant",
-)
-
-# Create the FastAPI app
-app = create_strands_app(agui_agent, "/")
-```
 ```tsx title="app/page.tsx"
-"use client";
+import { useRenderTool } from "@copilotkit/react-core/v2"; // [!code highlight]
+import { z } from "zod";
+// ...
 
-import { useRenderToolCall } from "@copilotkit/react-core/v2"; // [!code highlight]
-import { CopilotSidebar } from "@copilotkit/react-core/v2";
+const weatherParams = z.object({
+  location: z.string().describe("The location to get weather for"),
+});
 
-export default function Page() {
-  // [!code highlight:41]
-  useRenderToolCall({
+const YourMainContent = () => {
+  // ...
+  // [!code highlight:14]
+  useRenderTool({
     name: "get_weather",
-    parameters: [
-      {
-        name: "location",
-        description: "The location to get weather for",
-        required: true,
-      },
-    ],
-    render: ({ status, args, result }) => {
-      if (status === "executing") {
-        return (
-          <div className="p-4 bg-blue-50 rounded-lg">
-            <p className="text-sm text-blue-600">
-              Getting weather for {args.location}...
-            </p>
-          </div>
-        );
-      }
-
-      if (status === "complete" && result) {
-        const weather = result;
-        return (
-          <div className="p-4 bg-white border rounded-lg shadow-sm">
-            <h3 className="font-semibold text-lg mb-2">
-              Weather in {args.location}
-            </h3>
-            <div className="space-y-1 text-sm">
-              <p>🌡️ Temperature: {weather.temperature}°F</p>
-              <p>☁️ Conditions: {weather.conditions}</p>
-              <p>💧 Humidity: {weather.humidity}%</p>
-              <p>💨 Wind Speed: {weather.wind_speed} mph</p>
-            </div>
-          </div>
-        );
-      }
-
-      return null;
+    parameters: weatherParams,
+    render: ({ status, parameters }) => {
+      return (
+        <p className="text-gray-500 mt-2">
+          {status !== "complete" && "Calling weather API..."}
+          {status === "complete" && `Called the weather API for ${parameters.location}.`}
+        </p>
+      );
     },
   });
-
-  return (
-    <main>
-      <CopilotSidebar />
-    </main>
-  );
+  // ...
 }
-```
-```
-What's the weather in San Francisco?
-```
-```tsx
-useRenderToolCall({
-  name: "get_weather",
-  parameters: [
-    {
-      name: "location",
-      description: "The location to get weather for",
-      required: true,
-    },
-  ],
-  render: ({ status, args, result }) => {
-    // args is available immediately, even when status is "executing"
-    const location = args.location;
-
-    return (
-      <div className="p-4 bg-blue-50 rounded-lg">
-        {status === "executing" && (
-          <p>Fetching weather for {location}...</p>
-        )}
-        {status === "complete" && result && (
-          <p>Weather in {location}: {result.temperature}°F</p>
-        )}
-      </div>
-    );
-  },
-});
 ```
 
 ### Display-only
-- Route: `/aws-strands/generative-ui/your-components/display-only`
-- Source: `docs/content/docs/integrations/aws-strands/generative-ui/your-components/display-only.mdx`
-- Description: Register React components that your agent can render in the chat.
+- Route: `/built-in-agent/generative-ui/your-components/display-only`
+- Source: `docs/content/docs/integrations/built-in-agent/generative-ui/your-components/display-only.mdx`
+- Description: Register React components that your agent can render in the chat for Built-in Agent.
 
 ## What is this?
 
@@ -1452,9 +1240,9 @@ useComponent({
 ```
 
 ### Interactive
-- Route: `/aws-strands/generative-ui/your-components/interactive`
-- Source: `docs/content/docs/integrations/aws-strands/generative-ui/your-components/interactive.mdx`
-- Description: Create components that your agent can use to interact with the user.
+- Route: `/built-in-agent/generative-ui/your-components/interactive`
+- Source: `docs/content/docs/integrations/built-in-agent/generative-ui/your-components/interactive.mdx`
+- Description: Create components that your agent can use to interact with the user for Built-in Agent.
 
 ```tsx title="page.tsx"
 import { useHumanInTheLoop } from "@copilotkit/react-core/v2" // [!code highlight]
@@ -1487,9 +1275,32 @@ export function Page() {
 }
 ```
 
+### Overview
+- Route: `/built-in-agent`
+- Source: `docs/content/docs/integrations/built-in-agent/index.mdx`
+- Description: Use CopilotKit's built-in agent with any model.
+
+The **Built-in Agent** is CopilotKit's simplest agent option, i.e what you get "built-in". It connects directly to an LLM with full support for tools, generative UI, shared state, and all CopilotKit features — without requiring an external agent framework.
+
+It supports most popular models from OpenAI, Anthropic, Google, and AI-SDK defined models out of the box
+
+## When to use Built-in Agent
+
+- **Quick setup** — no external agent framework to configure or deploy
+- **Chat + tools** — your use case is primarily conversational with frontend and server tools
+- **Direct model access** — you want to use OpenAI, Anthropic, Google, or AI-SDK models directly
+
+If you need more control over your agent loop, consider using an [agent framework](/#explore-by-ai-backend) instead.
+
+## Features
+
+## Getting Started
+
+Head to the [Quickstart](/built-in-agent/quickstart) to set up a working Built-in Agent in minutes.
+
 ### Inspector
-- Route: `/aws-strands/inspector`
-- Source: `docs/content/docs/integrations/aws-strands/inspector.mdx`
+- Route: `/built-in-agent/inspector`
+- Source: `docs/content/docs/integrations/built-in-agent/inspector.mdx`
 - Description: Inspector for debugging actions, readables, agent status, messages, and context.
 
 ## What it shows
@@ -1519,10 +1330,140 @@ The Inspector is enabled by default. To disable it, set `enableInspector` to `fa
 
 No matter what, **the inspector automatically disables when you create a production build.**
 
+### Model Selection
+- Route: `/built-in-agent/model-selection`
+- Source: `docs/content/docs/integrations/built-in-agent/model-selection.mdx`
+- Description: Choose and configure models for your Built-in Agent.
+
+The Built-in Agent uses the [Vercel AI SDK](https://sdk.vercel.ai) under the hood, giving you access to models from OpenAI, Anthropic, and Google — plus the ability to use any custom AI SDK model.
+
+## Supported Models
+
+Specify a model using the `"provider:model"` format (or `"provider/model"` — both work).
+
+### OpenAI
+
+| Model | Specifier |
+|-------|-----------|
+| GPT-5 | `openai:gpt-5` |
+| GPT-5 Mini | `openai:gpt-5-mini` |
+| GPT-4.1 | `openai:gpt-4.1` |
+| GPT-4.1 Mini | `openai:gpt-4.1-mini` |
+| GPT-4.1 Nano | `openai:gpt-4.1-nano` |
+| GPT-4o | `openai:gpt-5.2` |
+| GPT-4o Mini | `openai:gpt-5.2-mini` |
+| o3 | `openai:o3` |
+| o3-mini | `openai:o3-mini` |
+| o4-mini | `openai:o4-mini` |
+
+```typescript
+const agent = new BuiltInAgent({
+  model: "openai:gpt-4.1",
+});
+```
+
+### Anthropic
+
+| Model | Specifier |
+|-------|-----------|
+| Claude Sonnet 4.5 | `anthropic:claude-sonnet-4.5` |
+| Claude Sonnet 4 | `anthropic:claude-sonnet-4` |
+| Claude 3.7 Sonnet | `anthropic:claude-3.7-sonnet` |
+| Claude Opus 4.1 | `anthropic:claude-opus-4.1` |
+| Claude Opus 4 | `anthropic:claude-opus-4` |
+| Claude 3.5 Haiku | `anthropic:claude-3.5-haiku` |
+
+```typescript
+const agent = new BuiltInAgent({
+  model: "anthropic:claude-sonnet-4.5",
+});
+```
+
+### Google
+
+| Model | Specifier |
+|-------|-----------|
+| Gemini 2.5 Pro | `google:gemini-2.5-pro` |
+| Gemini 2.5 Flash | `google:gemini-2.5-flash` |
+| Gemini 2.5 Flash Lite | `google:gemini-2.5-flash-lite` |
+
+```typescript
+const agent = new BuiltInAgent({
+  model: "google:gemini-2.5-pro",
+});
+```
+
+## Environment Variables
+
+Set the API key for your chosen provider:
+
+```bash
+# OpenAI
+OPENAI_API_KEY=sk-...
+
+# Anthropic
+ANTHROPIC_API_KEY=sk-ant-...
+
+# Google
+GOOGLE_API_KEY=...
+```
+
+Alternatively, pass the API key directly in your configuration:
+
+```typescript
+const agent = new BuiltInAgent({
+  model: "openai:gpt-4.1",
+  apiKey: process.env.MY_OPENAI_KEY, // [!code highlight]
+});
+```
+
+## Custom Models (AI SDK)
+
+For models not in the built-in list, you can pass any Vercel AI SDK `LanguageModel` instance directly:
+
+```typescript
+import { BuiltInAgent } from "@copilotkit/runtime/v2";
+import { createOpenAI } from "@ai-sdk/openai"; // [!code highlight]
+
+const customProvider = createOpenAI({ // [!code highlight]
+  apiKey: process.env.MY_API_KEY, // [!code highlight]
+  baseURL: "https://my-proxy.example.com/v1", // [!code highlight]
+}); // [!code highlight]
+
+const agent = new BuiltInAgent({
+  model: customProvider("my-fine-tuned-model"), // [!code highlight]
+});
+```
+
+This works with any AI SDK provider — Azure OpenAI, AWS Bedrock, Ollama, or any OpenAI-compatible endpoint:
+
+```typescript
+import { createAzure } from "@ai-sdk/azure";
+
+const azure = createAzure({
+  resourceName: "my-resource",
+  apiKey: process.env.AZURE_API_KEY,
+});
+
+const agent = new BuiltInAgent({
+  model: azure("my-deployment"),
+});
+```
+
+## How It Works
+
+Under the hood, the Built-in Agent resolves model strings to AI SDK provider instances:
+
+- `"openai:gpt-4.1"` → `@ai-sdk/openai` → `openai("gpt-4.1")`
+- `"anthropic:claude-sonnet-4.5"` → `@ai-sdk/anthropic` → `anthropic("claude-sonnet-4.5")`
+- `"google:gemini-2.5-pro"` → `@ai-sdk/google` → `google("gemini-2.5-pro")`
+
+Both `"provider:model"` and `"provider/model"` separators are supported and work identically.
+
 ### Prebuilt Components
-- Route: `/aws-strands/prebuilt-components`
-- Source: `docs/content/docs/integrations/aws-strands/prebuilt-components.mdx`
-- Description: Drop-in chat components for your AWS Strands agent.
+- Route: `/built-in-agent/prebuilt-components`
+- Source: `docs/content/docs/integrations/built-in-agent/prebuilt-components.mdx`
+- Description: Drop-in chat components for your Built-in Agent.
 
 ```tsx title="layout.tsx"
 import "@copilotkit/react-ui/v2/styles.css";
@@ -1601,8 +1542,8 @@ export function YourApp() {
 ```
 
 ### Fully Headless UI
-- Route: `/aws-strands/premium/headless-ui`
-- Source: `docs/content/docs/integrations/aws-strands/premium/headless-ui.mdx`
+- Route: `/built-in-agent/premium/headless-ui`
+- Source: `docs/content/docs/integrations/built-in-agent/premium/headless-ui.mdx`
 - Description: Fully customize your Copilot's UI from the ground up using headless UI
 
 ```bash
@@ -1873,8 +1814,8 @@ export const Chat = () => {
 ```
 
 ### Observability
-- Route: `/aws-strands/premium/observability`
-- Source: `docs/content/docs/integrations/aws-strands/premium/observability.mdx`
+- Route: `/built-in-agent/premium/observability`
+- Source: `docs/content/docs/integrations/built-in-agent/premium/observability.mdx`
 - Description: Monitor your CopilotKit application with comprehensive observability hooks. Understand user interactions, chat events, and system errors.
 
 Monitor CopilotKit with first‑class observability hooks that emit structured signals for chat events, user interactions, and runtime errors. Send these signals straight to your existing stack, including Sentry, Datadog, New Relic, and OpenTelemetry, or route them to your analytics pipeline. The hooks expose stable schemas and IDs so you can join agent events with app telemetry, trace sessions end to end, and alert on failures in real time. Works with Copilot Cloud via `publicApiKey`, or self‑hosted via `publicLicenseKey`.
@@ -2335,8 +2276,8 @@ To use observability hooks (event hooks and error observability), you'll need a 
   capabilities for tracking user behavior and monitoring system health.
 
 ### CopilotKit Premium
-- Route: `/aws-strands/premium/overview`
-- Source: `docs/content/docs/integrations/aws-strands/premium/overview.mdx`
+- Route: `/built-in-agent/premium/overview`
+- Source: `docs/content/docs/integrations/built-in-agent/premium/overview.mdx`
 - Description: Premium features for CopilotKit.
 
 ## What is CopilotKit Premium?
@@ -2399,9 +2340,9 @@ A public API key is a key that you use to connect your app to Copilot Cloud. Pub
 and do not require a connection to Copilot Cloud.
 
 ### Programmatic Control
-- Route: `/aws-strands/programmatic-control`
-- Source: `docs/content/docs/integrations/aws-strands/programmatic-control.mdx`
-- Description: Chat with an agent using CopilotKit's UI components.
+- Route: `/built-in-agent/programmatic-control`
+- Source: `docs/content/docs/integrations/built-in-agent/programmatic-control.mdx`
+- Description: Control your Built-in Agent programmatically with useAgent and copilotkit.runAgent().
 
 ### Import the hook
 
@@ -2813,26 +2754,25 @@ const handleStop = () => {
 ```
 
 ### Quickstart
-- Route: `/aws-strands/quickstart`
-- Source: `docs/content/docs/integrations/aws-strands/quickstart.mdx`
-- Description: Turn your Strands agent into an agent-native application in 10 minutes.
+- Route: `/built-in-agent/quickstart`
+- Source: `docs/content/docs/integrations/built-in-agent/quickstart.mdx`
+- Description: Get started with CopilotKit's Built-in Agent in minutes.
 
 ## Prerequisites
 
 Before you begin, you'll need the following:
 
-- An OpenAI API key
+- An OpenAI API key (or Anthropic/Google — see [Model Selection](/built-in-agent/model-selection))
 - Node.js 20+
-- Python 3.12+
 - Your favorite package manager
 
 ## Getting started
 
-                    You can either start fresh with our starter template or integrate CopilotKit into your existing Strands agent.
+                    You can either start fresh with our starter template or set up manually.
                 ### Run our CLI
 
 ```bash
-                npx copilotkit@latest create -f aws-strands-py
+                npx copilotkit@latest create -f built-in-agent
 ```
                 ### Install dependencies
 
@@ -2841,13 +2781,13 @@ Before you begin, you'll need the following:
 ```
                 ### Configure your environment
 
-                Create a `.env` file in your agent directory and add your OpenAI API key:
+                Create a `.env` file and add your OpenAI API key:
 
-```plaintext title="agent/.env"
+```plaintext title=".env"
                 OPENAI_API_KEY=your_openai_api_key
 ```
 
-                  The starter template is configured to use OpenAI's GPT-4o by default, but you can modify it to use any language model supported by Strands.
+                  The starter template uses OpenAI's GPT-4o by default. See [Model Selection](/built-in-agent/model-selection) for Anthropic, Google, or custom model setup.
                 ### Start the development server
 
 ```bash
@@ -2862,110 +2802,51 @@ Before you begin, you'll need the following:
 ```bash
                         bun dev
 ```
-
-                This will start both the UI and agent servers concurrently.
-                ### Initialize your agent project
-
-                If you don't already have a Python project set up, create one using `uv`:
-
-```bash
-                uv init my-agent
-                cd my-agent
-```
-                ### Install Strands with AG-UI
-
-                Add Strands and the required packages to your project:
-
-```bash
-                uv add ag-ui-strands "strands-agents[OpenAI]" fastapi uvicorn
-```
-                ### Configure your environment
-
-                Set your OpenAI API key as an environment variable:
-
-```bash
-                export OPENAI_API_KEY=your_openai_api_key
-```
-
-                  This example uses OpenAI's GPT-4o, but you can modify it to use any language model supported by Strands.
-                ### Expose your agent via AG-UI
-
-                Update your agent file to expose it as an AG-UI ASGI application:
-
-```python title="main.py"
-                import os
-
-                from ag_ui_strands import StrandsAgent, create_strands_app
-                from strands import Agent
-                from strands.models.openai import OpenAIModel
-
-                # Setup your Strands agent
-                api_key = os.getenv("OPENAI_API_KEY", "")
-                model = OpenAIModel(
-                    client_args={"api_key": api_key},
-                    model_id="gpt-5.2",
-                )
-
-                agent = Agent(
-                    model=model,
-                    system_prompt="You are a helpful AI assistant.",
-                )
-
-                # Wrap with AG-UI integration
-                agui_agent = StrandsAgent(
-                    agent=agent,
-                    name="strands_agent",
-                )
-
-                # Create the FastAPI app
-                app = create_strands_app(agui_agent, "/")
-
-                if __name__ == "__main__":
-                    import uvicorn
-
-                    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
-
-```
-
-                  AG-UI is an open protocol for frontend-agent communication. The `create_strands_app` function creates an ASGI app that CopilotKit can connect to.
                 ### Create your frontend
 
                 CopilotKit works with any React-based frontend. We'll use Next.js for this example.
 
 ```bash
-                npx create-next-app@latest frontend
-                cd frontend
+                npx create-next-app@latest my-copilot-app
+                cd my-copilot-app
 ```
                 ### Install CopilotKit packages
 
 ```npm
-                npm install @copilotkit/react-ui @copilotkit/react-core @copilotkit/runtime @ag-ui/client
+                npm install @copilotkit/react-core @copilotkit/react-ui @copilotkit/runtime
 ```
+                ### Configure your environment
+
+                Create a `.env` file and add your OpenAI API key:
+
+```plaintext title=".env"
+                OPENAI_API_KEY=your_openai_api_key
+```
+
+                  This example uses OpenAI's GPT-4o. See [Model Selection](/built-in-agent/model-selection) for Anthropic, Google, or custom model setup.
                 ### Setup Copilot Runtime
 
-                Create an API route to connect CopilotKit to your Strands agent:
+                Create an API route with the `BuiltInAgent` and `CopilotRuntime`:
 
-```tsx title="app/api/copilotkit/route.ts"
+```ts title="app/api/copilotkit/route.ts"
                 import {
                   CopilotRuntime,
-                  ExperimentalEmptyAdapter,
                   copilotRuntimeNextJSAppRouterEndpoint,
                 } from "@copilotkit/runtime";
-                import { HttpAgent } from "@ag-ui/client";
+                import { BuiltInAgent } from "@copilotkit/runtime/v2"; // [!code highlight]
                 import { NextRequest } from "next/server";
 
-                const serviceAdapter = new ExperimentalEmptyAdapter();
+                const builtInAgent = new BuiltInAgent({ // [!code highlight:3]
+                  model: "openai:gpt-5.2",
+                });
 
                 const runtime = new CopilotRuntime({
-                  agents: {
-                    strands_agent: new HttpAgent({ url: "http://localhost:8000" }),
-                  }
+                  agents: { default: builtInAgent }, // [!code highlight]
                 });
 
                 export const POST = async (req: NextRequest) => {
                   const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
                     runtime,
-                    serviceAdapter,
                     endpoint: "/api/copilotkit",
                   });
 
@@ -2978,7 +2859,7 @@ Before you begin, you'll need the following:
 
 ```tsx title="app/layout.tsx"
                 import { CopilotKit } from "@copilotkit/react-core/v2"; // [!code highlight]
-                import "@copilotkit/react-ui/v2/styles.css";
+                import "@copilotkit/react-ui/v2/styles.css"; // [!code highlight]
 
                 // ...
 
@@ -2987,7 +2868,7 @@ Before you begin, you'll need the following:
                     <html lang="en">
                       <body>
                         {/* [!code highlight:3] */}
-                        <CopilotKit runtimeUrl="/api/copilotkit" agent="strands_agent">
+                        <CopilotKit runtimeUrl="/api/copilotkit">
                           {children}
                         </CopilotKit>
                       </body>
@@ -3000,7 +2881,7 @@ Before you begin, you'll need the following:
               Add the CopilotSidebar component to your page:
 
 ```tsx title="app/page.tsx"
-              import { CopilotSidebar } from "@copilotkit/react-core/v2"; // [!code highlight:1]
+              import { CopilotSidebar } from "@copilotkit/react-core/v2"; // [!code highlight]
 
               export default function Page() {
                 return (
@@ -3012,46 +2893,30 @@ Before you begin, you'll need the following:
                 );
               }
 ```
-                ### Start your agent
-
-                From your agent directory, start the agent server:
+                ### Start the development server
 
 ```bash
-                cd ..
-                uv run main.py
-```
-
-                Your agent will be available at `http://localhost:8000`.
-                ### Start your UI
-
-                In a separate terminal, navigate to your frontend directory and start the development server:
-
-```bash
-                        cd frontend
                         npm run dev
 ```
 ```bash
-                        cd frontend
                         pnpm dev
 ```
 ```bash
-                        cd frontend
                         yarn dev
 ```
 ```bash
-                        cd frontend
                         bun dev
 ```
         ### 🎉 Start chatting!
 
-        Your AI agent is now ready to use! Navigate to `localhost:3000` and try asking it some questions:
+        Your AI agent is now ready to use! Try asking it some questions:
 
 ```
-        What can you do?
+        Can you tell me a joke?
 ```
 
 ```
-        Please tell me a joke.
+        Can you help me understand AI?
 ```
 
 ```
@@ -3059,143 +2924,293 @@ Before you begin, you'll need the following:
 ```
 
                 - If you're having connection issues, try using `0.0.0.0` or `127.0.0.1` instead of `localhost`
-                - Make sure your agent is running on port 8000
-                - Check that your OpenAI API key is correctly set
-                - Verify that the `@ag-ui/client` package is installed in your frontend
+                - Check that your API key is correctly set in the `.env` file
+                - Make sure the runtime endpoint path matches the `runtimeUrl` in your CopilotKit provider
 
 ## What's next?
 
 Now that you have your basic agent setup, explore these advanced features:
 
-### Reading agent state
-- Route: `/aws-strands/shared-state/in-app-agent-read`
-- Source: `docs/content/docs/integrations/aws-strands/shared-state/in-app-agent-read.mdx`
-- Description: Read the realtime agent state in your native application.
+### Server Tools
+- Route: `/built-in-agent/server-tools`
+- Source: `docs/content/docs/integrations/built-in-agent/server-tools.mdx`
+- Description: Define backend tools for your Built-in Agent.
 
-```python title="agent/my_agent.py"
-    from strands import Agent
-    from typing import TypedDict
+## What are Server Tools?
 
-    # 1. Define the agent state schema
-    class AgentState(TypedDict):
-        language: str  # "english" or "spanish"
+Server tools are functions that run on your backend that the Built-in Agent can invoke. They're defined using `defineTool()` with Zod schemas for type-safe parameters.
 
-    # 2. Create the agent with state
-    agent = Agent(
-        name="languageAgent",
-        description="Always communicate in the preferred language of the user as defined in the state",
-        state_schema=AgentState,
-        initial_state={"language": "english"},
-        instructions="Always communicate in the preferred language of the user as defined in your state. Do not communicate in any other language."
-    )
+## When should I use this?
+
+- Your agent needs to access databases, APIs, or other backend services
+- You want type-safe tool parameters with validation
+- The tool logic requires server-side secrets or resources
+
+## Defining a tool
+
+```typescript title="src/copilotkit.ts"
+import { BuiltInAgent, defineTool } from "@copilotkit/runtime/v2";
+import { z } from "zod";
+
+const getWeather = defineTool({
+  name: "getWeather",
+  description: "Get the current weather for a city",
+  parameters: z.object({
+    city: z.string().describe("The city name"),
+  }),
+  execute: async ({ city }) => {
+    // Your implementation here
+    return { temperature: 72, condition: "sunny", city };
+  },
+});
+
+const builtInAgent = new BuiltInAgent({
+  model: "openai:gpt-5.2",
+  tools: [getWeather],
+});
 ```
-```tsx title="ui/app/page.tsx"
-    import { useAgent } from "@copilotkit/react-core/v2"; // [!code highlight]
 
-    // Define the agent state type to match your Strands agent
-    type AgentState = {
-      language: "english" | "spanish";
-    };
+## Tool response
 
-    function YourMainContent() {
-      // [!code highlight:5]
-      const { agentState } = useAgent<AgentState>({
-        name: "languageAgent",
-        // optionally provide a type-safe initial state
-        initialState: { language: "spanish" }
-      });
+Tools can return any JSON-serializable value. The agent uses the response to continue the conversation.
 
-      // ...
+## Multiple tools
 
-      return (
-        // style excluded for brevity
-        <div>
-          <h1>Your main content</h1>
-          {/* [!code highlight:1] */}
-          <p>Language: {agentState.language}</p>
-        </div>
-      );
+Pass an array of tools — the agent chooses which to call based on the user's request:
+
+```typescript title="src/copilotkit.ts"
+const searchDocs = defineTool({
+  name: "searchDocs",
+  description: "Search the documentation for relevant articles",
+  parameters: z.object({
+    query: z.string().describe("The search query"),
+  }),
+  execute: async ({ query }) => {
+    const results = await search(query);
+    return { results, count: results.length };
+  },
+});
+
+const createTicket = defineTool({
+  name: "createTicket",
+  description: "Create a support ticket",
+  parameters: z.object({
+    title: z.string().describe("Ticket title"),
+    priority: z.enum(["low", "medium", "high"]).describe("Ticket priority"),
+    description: z.string().describe("Detailed description of the issue"),
+  }),
+  execute: async ({ title, priority, description }) => {
+    const ticket = await db.tickets.create({ title, priority, description });
+    return { ticketId: ticket.id, status: "created" };
+  },
+});
+
+const builtInAgent = new BuiltInAgent({
+  model: "openai:gpt-5.2",
+  tools: [searchDocs, createTicket], // [!code highlight]
+});
+```
+
+## Complex Zod schemas
+
+Use nested objects, arrays, enums, and optional fields for sophisticated tool parameters:
+
+```typescript
+const bookFlight = defineTool({
+  name: "bookFlight",
+  description: "Search for and book flights",
+  parameters: z.object({
+    trip: z.object({
+      origin: z.string().describe("Origin airport code (e.g., SFO)"),
+      destination: z.string().describe("Destination airport code (e.g., JFK)"),
+      date: z.string().describe("Departure date in YYYY-MM-DD format"),
+    }),
+    passengers: z.array(
+      z.object({
+        name: z.string(),
+        seatPreference: z.enum(["window", "middle", "aisle"]).optional(),
+      })
+    ).describe("List of passengers"),
+    class: z.enum(["economy", "business", "first"]).default("economy"),
+  }),
+  execute: async ({ trip, passengers, class: seatClass }) => {
+    const flights = await searchFlights(trip, seatClass);
+    return { flights, passengerCount: passengers.length };
+  },
+});
+```
+
+## Error handling
+
+Throw errors or return error objects from your tool — the agent will see the error and can inform the user or try a different approach:
+
+```typescript
+const getUser = defineTool({
+  name: "getUser",
+  description: "Look up a user by email",
+  parameters: z.object({
+    email: z.string().email().describe("The user's email address"),
+  }),
+  execute: async ({ email }) => {
+    const user = await db.users.findByEmail(email);
+    if (!user) {
+      throw new Error(`No user found with email: ${email}`); // [!code highlight]
     }
+    return { id: user.id, name: user.name, role: user.role };
+  },
+});
 ```
-```tsx title="ui/app/page.tsx"
+
+## Multi-step tool calling
+
+By default, the agent performs a single step. If your agent needs to chain tool calls (e.g., search first, then create a ticket), set `maxSteps`:
+
+```typescript
+const builtInAgent = new BuiltInAgent({
+  model: "openai:gpt-5.2",
+  maxSteps: 5, // [!code highlight]
+  tools: [searchDocs, createTicket, getUser],
+});
+```
+
+With `maxSteps: 5`, the agent can:
+1. Call `searchDocs` to find relevant info
+2. Process the result
+3. Call `createTicket` with details from the search
+4. Continue until done (up to 5 iterations)
+
+See [Advanced Configuration](/built-in-agent/advanced-configuration) for more options like `toolChoice`, `temperature`, and `providerOptions`.
+
+### Shared State
+- Route: `/built-in-agent/shared-state`
+- Source: `docs/content/docs/integrations/built-in-agent/shared-state.mdx`
+- Description: Bidirectional state sharing between your app and the Built-in Agent.
+
+Share state bidirectionally between your React app and the Built-in Agent. Your app can read and write agent state, and the agent can update state that your UI reacts to in real time.
+
+## What is this?
+
+Shared state lets your frontend and agent stay in sync. The agent can update state (like adding items to a list or changing a setting), and your React components re-render automatically. Your app can also write state that the agent can read.
+
+## When should I use this?
+
+- The agent should be able to modify your app's UI (add items, update fields, toggle settings)
+- You want real-time UI updates as the agent works
+- Your app needs to read what the agent is doing (progress indicators, intermediate results)
+
+## Reading agent state
+
+Use the `useAgent` hook to access the agent's current state:
+
+```tsx title="app/page.tsx"
 import { useAgent } from "@copilotkit/react-core/v2"; // [!code highlight]
 
-// Define the agent state type, should match the actual state of your agent
-type AgentState = {
-  language: "english" | "spanish";
-}
-
-function YourMainContent() {
-  // ...
-  // [!code highlight:7]
-  useAgent<AgentState>({
-    name: "languageAgent",
-    render: ({ agentState }) => {
-      if (!agentState.language) return null;
-      return <div>Language: {agentState.language}</div>;
-    },
+function TaskBoard() {
+  // [!code highlight:3]
+  const { agent } = useAgent({
+    agentId: "assistant",
   });
-  // ...
+
+  // Read state set by the agent // [!code highlight]
+  const tasks = (agent.state.tasks as any[]) ?? [];
+
+  return (
+    <div>
+      <h2>Tasks</h2>
+      <ul>
+        {tasks.map((task, i) => (
+          <li key={i}>
+            {task.title} — {task.status}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
 }
 ```
 
-### Writing agent state
-- Route: `/aws-strands/shared-state/in-app-agent-write`
-- Source: `docs/content/docs/integrations/aws-strands/shared-state/in-app-agent-write.mdx`
-- Description: Write to agent's state from your application.
+  `agent.state` is reactive — your component re-renders automatically when the agent updates state.
 
-```python title="agent/my_agent.py"
-    from strands import Agent
-    from typing import TypedDict
+## Writing state from the frontend
 
-    # 1. Define the agent state schema
-    class AgentState(TypedDict):
-        language: str  # "english" or "spanish"
+You can also push state from the frontend to the agent:
 
-    # 2. Create the agent with state
-    agent = Agent(
-        name="languageAgent",
-        description="Always communicate in the preferred language of the user as defined in the state",
-        state_schema=AgentState,
-        initial_state={"language": "english"},
-        instructions="Always communicate in the preferred language of the user as defined in your state. Do not communicate in any other language."
-    )
+```tsx title="app/page.tsx"
+import { useAgent } from "@copilotkit/react-core/v2";
+
+function SettingsPanel() {
+  const { agent } = useAgent({
+    agentId: "assistant",
+  });
+
+  const handleThemeChange = (theme: string) => {
+    agent.setState({ // [!code highlight]
+      ...agent.state, // [!code highlight]
+      userPreferences: { theme }, // [!code highlight]
+    }); // [!code highlight]
+  };
+
+  return (
+    <div>
+      <button onClick={() => handleThemeChange("dark")}>Dark Mode</button>
+      <button onClick={() => handleThemeChange("light")}>Light Mode</button>
+    </div>
+  );
+}
 ```
-```tsx title="ui/app/page.tsx"
-    import { useAgent } from "@copilotkit/react-core/v2"; // [!code highlight]
 
-    // Define the agent state type to match your Strands agent
-    type AgentState = {
-      language: "english" | "spanish";
-    };
+## How it works
 
-    function YourMainContent() {
-      // [!code highlight:5]
-      const { agentState, setAgentState } = useAgent<AgentState>({
-        name: "languageAgent",
-        // optionally provide a type-safe initial state
-        initialState: { language: "spanish" }
-      });
+The Built-in Agent automatically has access to state tools (`AGUISendStateSnapshot` and `AGUISendStateDelta`) through the AG-UI protocol. When the agent calls these tools:
 
-      const toggleLanguage = () => {
-        setAgentState({ language: agentState.language === "english" ? "spanish" : "english" }); // [!code highlight]
-      };
+1. The agent sends a state update (full snapshot or delta)
+2. The CopilotKit runtime delivers the update to the frontend via SSE
+3. Your `useAgent` hook receives the update and triggers a re-render
 
-      return (
-        // style excluded for brevity
-        <div>
-          <h1>Your main content</h1>
-          {/* [!code highlight:2] */}
-          <p>Language: {agentState.language}</p>
-          <button onClick={toggleLanguage}>Toggle Language</button>
-        </div>
-      );
-    }
+No additional backend configuration is required — state tools are available to the Built-in Agent by default.
+
+## Example: collaborative todo list
+
+Here's a complete example where the agent can add and manage tasks:
+
+```tsx title="app/page.tsx"
+import { CopilotChat } from "@copilotkit/react-core/v2";
+import { useAgent } from "@copilotkit/react-core/v2";
+
+function TodoApp() {
+  const { agent } = useAgent({
+    agentId: "assistant",
+  });
+
+  const todos = (agent.state.todos as any[]) ?? [];
+
+  return (
+    <div style={{ display: "flex", gap: "1rem" }}>
+      <div>
+        <h2>My Todos</h2>
+        <ul>
+          {todos.map((todo, i) => (
+            <li key={i} style={{ textDecoration: todo.done ? "line-through" : "none" }}>
+              {todo.text}
+            </li>
+          ))}
+        </ul>
+      </div>
+      <CopilotChat
+        labels={{
+          welcomeMessageText: "I can help manage your todos. Try 'Add a task to buy groceries'.",
+        }}
+      />
+    </div>
+  );
+}
 ```
+
+When you tell the agent "Add a task to buy groceries", it updates the shared state and your todo list renders the new item immediately.
 
 ### Common Copilot Issues
-- Route: `/aws-strands/troubleshooting/common-issues`
-- Source: `docs/content/docs/integrations/aws-strands/troubleshooting/common-issues.mdx`
+- Route: `/built-in-agent/troubleshooting/common-issues`
+- Source: `docs/content/docs/integrations/built-in-agent/troubleshooting/common-issues.mdx`
 - Description: Common issues you may encounter when using Copilots.
 
 Welcome to the CopilotKit Troubleshooting Guide! Here, you can find answers to common issues
@@ -3309,8 +3324,8 @@ If you notice the tunnel creation process spinning indefinitely, your router or 
         - Try a different network to confirm the issue
 
 ### Error Debugging & Observability
-- Route: `/aws-strands/troubleshooting/error-debugging`
-- Source: `docs/content/docs/integrations/aws-strands/troubleshooting/error-debugging.mdx`
+- Route: `/built-in-agent/troubleshooting/error-debugging`
+- Source: `docs/content/docs/integrations/built-in-agent/troubleshooting/error-debugging.mdx`
 - Description: Learn how to debug errors in CopilotKit with dev console and set up error observability for monitoring services.
 
 # How to Debug Errors
@@ -3352,8 +3367,8 @@ export default function App() {
   - Ensure no CSS is hiding the error banner
 
 ### Migrate to 1.10.X
-- Route: `/aws-strands/troubleshooting/migrate-to-1.10.X`
-- Source: `docs/content/docs/integrations/aws-strands/troubleshooting/migrate-to-1.10.X.mdx`
+- Route: `/built-in-agent/troubleshooting/migrate-to-1.10.X`
+- Source: `docs/content/docs/integrations/built-in-agent/troubleshooting/migrate-to-1.10.X.mdx`
 - Description: Migration guide for CopilotKit 1.10.X
 
 ## Overview
@@ -3532,8 +3547,8 @@ We recommend migrating to the new hook for new projects. However, please feel fr
 - Building fully custom chat experiences
 
 ### Migrate to 1.8.2
-- Route: `/aws-strands/troubleshooting/migrate-to-1.8.2`
-- Source: `docs/content/docs/integrations/aws-strands/troubleshooting/migrate-to-1.8.2.mdx`
+- Route: `/built-in-agent/troubleshooting/migrate-to-1.8.2`
+- Source: `docs/content/docs/integrations/built-in-agent/troubleshooting/migrate-to-1.8.2.mdx`
 - Description: Migration guide for CopilotKit 1.8.2
 
 ## What's changed?
@@ -3580,8 +3595,8 @@ CopilotKit now has out-of-the-box dark mode support. This is controlled by the `
 If you would like to make a custom theme, you can do so by checking out the [custom look and feel](/custom-look-and-feel) guides.
 
 ### Migrate to V2
-- Route: `/aws-strands/troubleshooting/migrate-to-v2`
-- Source: `docs/content/docs/integrations/aws-strands/troubleshooting/migrate-to-v2.mdx`
+- Route: `/built-in-agent/troubleshooting/migrate-to-v2`
+- Source: `docs/content/docs/integrations/built-in-agent/troubleshooting/migrate-to-v2.mdx`
 - Description: Migration guide for upgrading to CopilotKit V2 frontend packages
 
 ## Overview
@@ -3693,3 +3708,1048 @@ export function App() {
   );
 }
 ```
+
+### Next Steps
+- Route: `/built-in-agent/tutorials/ai-powered-textarea/next-steps`
+- Source: `docs/content/docs/integrations/built-in-agent/tutorials/ai-powered-textarea/next-steps.mdx`
+
+This is the end of the tutorial. You can now start building your own copilot-powered apps!
+
+## Source code
+
+You can find the source code and interactive sandboxes here:
+
+- **Start app:** [GitHub](https://github.com/CopilotKit/example-textarea/tree/base-start-here) | [Stackblitz Sandbox](https://stackblitz.com/github/copilotkit/example-textarea/tree/base-start-here?file=lib%2Fhooks%2Fuse-tasks.tsx)
+- **Final app:** [GitHub](https://github.com/CopilotKit/example-textarea/tree/final) | [Stackblitz Sandbox](https://stackblitz.com/github/copilotkit/example-textarea/tree/final?file=lib%2Fhooks%2Fuse-tasks.tsxd)
+
+## What's next?
+
+For next steps, here are some ideas:
+
+- Add a chat element to your copilot using the [``](/reference/v1/components/chat/CopilotPopup) component.
+- Add actions to your copilot using the [`useCopilotAction`](/reference/v1/hooks/useCopilotAction) hook.
+- Follow the [Todos App Copilot tutorial](/built-in-agent/tutorials/ai-todo-app) to learn more about CopilotKit.
+
+We have more tutorials coming soon.
+
+## Need help?
+
+If you have any questions, feel free to reach out to us on [Discord](https://discord.gg/6dffbvGU3D).
+
+### Overview
+- Route: `/built-in-agent/tutorials/ai-powered-textarea/overview`
+- Source: `docs/content/docs/integrations/built-in-agent/tutorials/ai-powered-textarea/overview.mdx`
+
+## What you'll learn
+
+In this tutorial, you will take a simple email application and add AI-powered autocompletion to it. The app is a simple email client, with a regular textarea used to compose an email. You're going to add CopilotKit to the app, so that the textarea provides relevant autocompletions as you type. The textarea will be aware of the full email history.
+
+You will learn:
+
+- 💡 How to use `useCopilotReadable` to allow your copilot to read the state of your app
+- 💡 How to use the `` component to get instant context-aware autocompletions in your app
+- 💡 How to use the Copilot Textarea Action Popup to generate text or adjust existing text in the textarea
+
+## Try it out!
+
+You can try out an interactive example of the end result below:
+
+    >
+
+In the next step, we'll start building our copilot.
+
+### Step 1: Checkout the repo
+- Route: `/built-in-agent/tutorials/ai-powered-textarea/step-1-checkout-repo`
+- Source: `docs/content/docs/integrations/built-in-agent/tutorials/ai-powered-textarea/step-1-checkout-repo.mdx`
+
+### Checkout the repository
+We'll begin by checking out the base code of the todo list app. We'll start from the `base-start-here` branch.
+
+```shell
+git clone -b base-start-here https://github.com/CopilotKit/example-textarea.git
+cd example-textarea
+```
+### Install dependencies
+
+To install the dependencies, run the following:
+
+```shell
+npm install
+```
+### Start the project
+
+Now, you are ready to start the project by running:
+
+```shell
+npm run dev
+```
+
+You should be able to go to [http://localhost:3000](http://localhost:3000) and see the todo list app. Feel free to play around with the app to get a feel for it.
+
+Next, let's start adding some AI copilot superpowers to this app.
+
+### Step 2: Setup CopilotKit
+- Route: `/built-in-agent/tutorials/ai-powered-textarea/step-2-setup-copilotkit`
+- Source: `docs/content/docs/integrations/built-in-agent/tutorials/ai-powered-textarea/step-2-setup-copilotkit.mdx`
+
+Now that we have our todo list app running, we're ready to integrate CopilotKit. For this tutorial, we will install the following dependencies:
+
+- `@copilotkit/react-core`: The core library for CopilotKit, which contains the CopilotKit provider and useful hooks.
+- `@copilotkit/react-textarea`: The textarea component for CopilotKit, which enables you to get instant context-aware autocompletions in your app.
+
+## Install Dependencies
+
+To install the CopilotKit dependencies, run the following:
+
+```npm
+npm install @copilotkit/react-core @copilotkit/react-textarea
+```
+
+## Setup CopilotKit
+
+In order to use CopilotKit, we'll need to configure the CopilotKit provider.
+
+The [``](/reference/v1/components/CopilotKit) provider must wrap the Copilot-aware parts of your application.
+For most use-cases, it's appropriate to wrap the `CopilotKit` provider around the entire app, e.g. in your `layout.tsx`
+
+  Note that you can add the `` provider anywhere in your application. In fact, you can have multiple `` providers per app if you want independent copilots.
+
+```tsx title="layout.tsx" showLineNumbers
+import "./globals.css";
+
+import { ReactNode } from "react";
+import { CopilotKit } from "@copilotkit/react-core"; // [!code highlight]
+
+export default function RootLayout({ children }: { children: ReactNode }) {
+    return (
+      <html lang="en">
+        <body>
+          {/* Use the public api key you got from Copilot Cloud  */}
+          {/* [!code highlight:3] */}
+          <CopilotKit publicApiKey="<your-copilot-cloud-public-api-key>">
+            {children}
+          </CopilotKit>
+        </body>
+      </html>
+    );
+}
+```
+
+### Set up Copilot Runtime Endpoint
+
+  If you are planning to use a single LangGraph agent in agent-lock mode as your agentic backend, your LLM adapter will only be used for peripherals such as suggestions, etc.
+
+If you are not sure yet, simply ignore this note.
+
+            The LangChain adapter shown here is using OpenAI, but can be used with any LLM!
+
+            Be aware that the empty adapter only works in combination with CoAgents in agent lock mode!
+
+            In addition, bare in mind that `useCopilotChatSuggestions`, `CopilotTextarea` and `CopilotTask` will not work, as these require an LLM.
+
+        ### Install provider package
+
+```npm
+        npm install {{packageName}}
+```
+
+        ### Add your API key
+
+        Next, add your API key to your `.env` file in the root of your project (unless you prefer to provide it directly to the client):
+
+```plaintext title=".env"
+        {{envVarName}}=your_api_key_here
+```
+
+        ### Add your API key
+
+        Next, add your API key to your `.env` file in the root of your project (unless you prefer to provide it directly to the client):
+
+```plaintext title=".env"
+        {{envVarSecret}}=your_secret_key_here
+        {{envVarAccess}}=your_access_key_here
+        {{envVarToken}}=your_session_token_here
+```
+
+            Please note that the code below uses GPT-4o, which requires a paid OpenAI API key. **If you are using a free OpenAI API key**, change the model to a different option such as `gpt-3.5-turbo`.
+
+    ### Setup the Runtime Endpoint
+
+        ### Serverless Function Timeouts
+
+        When deploying to serverless platforms (Vercel, AWS Lambda, etc.), be aware that default function timeouts may be too short for CopilotKit's streaming responses:
+
+        - Vercel defaults: 10s (Hobby), 15s (Pro)
+        - AWS Lambda default: 3s
+
+        **Solution options:**
+        1. Increase function timeout:
+```json
+            // vercel.json
+            {
+              "functions": {
+                "api/copilotkit/**/*": {
+                  "maxDuration": 60
+                }
+              }
+            }
+```
+        2. Use [Copilot Cloud](https://cloud.copilotkit.ai/) to avoid timeout issues entirely
+
+        { value: 'Next.js App Router', icon:  },
+        { value: 'Next.js Pages Router', icon:  },
+        { value: 'Node.js Express', icon:  },
+        { value: 'Node.js HTTP', icon:  },
+        { value: 'NestJS', icon:  }
+    ]}>
+
+            Create a new route to handle the `/api/copilotkit` endpoint.
+
+```ts title="app/api/copilotkit/route.ts"
+            import {
+              CopilotRuntime,
+              {{adapterImport}},
+              copilotRuntimeNextJSAppRouterEndpoint,
+            } from '@copilotkit/runtime';
+            {{extraImports}}
+            import { NextRequest } from 'next/server';
+
+            {{clientSetup}}
+            {{adapterSetup}}
+            const runtime = new CopilotRuntime();
+
+            export const POST = async (req: NextRequest) => {
+              const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
+                runtime,
+                serviceAdapter,
+                endpoint: '/api/copilotkit',
+              });
+
+              return handleRequest(req);
+            };
+```
+
+            Your Copilot Runtime endpoint should be available at `http://localhost:3000/api/copilotkit`.
+
+            Create a new route to handle the `/api/copilotkit` endpoint:
+
+```ts title="pages/api/copilotkit.ts"
+            import { NextApiRequest, NextApiResponse } from 'next';
+            import {
+              CopilotRuntime,
+              {{adapterImport}},
+              copilotRuntimeNextJSPagesRouterEndpoint,
+            } from '@copilotkit/runtime';
+            {{extraImports}}
+
+            {{clientSetup}}
+            {{adapterSetup}}
+
+            const handler = async (req: NextApiRequest, res: NextApiResponse) => {
+              const runtime = new CopilotRuntime();
+
+              const handleRequest = copilotRuntimeNextJSPagesRouterEndpoint({
+                endpoint: '/api/copilotkit',
+                runtime,
+                serviceAdapter,
+              });
+
+              return await handleRequest(req, res);
+            };
+
+            export default handler;
+```
+
+            Your Copilot Runtime endpoint should be available at `http://localhost:3000/api/copilotkit`.
+
+            Create a new Express.js app and set up the Copilot Runtime handler:
+
+```ts title="server.ts"
+            import express from 'express';
+            import {
+              CopilotRuntime,
+              {{adapterImport}},
+              copilotRuntimeNodeHttpEndpoint,
+            } from '@copilotkit/runtime';
+            {{extraImports}}
+
+            const app = express();
+            {{clientSetup}}
+            {{adapterSetup}}
+
+            app.use('/copilotkit', (req, res, next) => {
+              (async () => {
+                const runtime = new CopilotRuntime();
+                const handler = copilotRuntimeNodeHttpEndpoint({
+                  endpoint: '/copilotkit',
+                  runtime,
+                  serviceAdapter,
+                });
+
+                return handler(req, res);
+              })().catch(next);
+            });
+
+            app.listen(4000, () => {
+              console.log('Listening at http://localhost:4000/copilotkit');
+            });
+```
+
+            Your Copilot Runtime endpoint should be available at `http://localhost:4000/copilotkit`.
+
+                Remember to point your `runtimeUrl` to the correct endpoint in your client-side code, e.g. `http://localhost:PORT/copilotkit`.
+
+            Set up a simple Node.js HTTP server and use the Copilot Runtime to handle requests:
+
+```ts title="server.ts"
+            import { createServer } from 'node:http';
+            import {
+              CopilotRuntime,
+              {{adapterImport}},
+              copilotRuntimeNodeHttpEndpoint,
+            } from '@copilotkit/runtime';
+            {{extraImports}}
+
+            {{clientSetup}}
+            {{adapterSetup}}
+
+            const server = createServer((req, res) => {
+              const runtime = new CopilotRuntime();
+              const handler = copilotRuntimeNodeHttpEndpoint({
+                endpoint: '/copilotkit',
+                runtime,
+                serviceAdapter,
+              });
+
+              return handler(req, res);
+            });
+
+            server.listen(4000, () => {
+              console.log('Listening at http://localhost:4000/copilotkit');
+            });
+```
+
+            Your Copilot Runtime endpoint should be available at `http://localhost:4000/copilotkit`.
+
+                Remember to point your `runtimeUrl` to the correct endpoint in your client-side code, e.g. `http://localhost:PORT/copilotkit`.
+
+            Set up a controller in NestJS to handle the Copilot Runtime endpoint:
+
+```ts title="copilotkit.controller.ts"
+            import { All, Controller, Req, Res } from '@nestjs/common';
+            import { CopilotRuntime, copilotRuntimeNestEndpoint, {{adapterImport}} } from '@copilotkit/runtime';
+            import { Request, Response } from 'express';
+
+            @Controller()
+            export class CopilotKitController {
+              @All('/copilotkit')
+              copilotkit(@Req() req: Request, @Res() res: Response) {
+                {{adapterSetup}}
+                const runtime = new CopilotRuntime();
+
+                const handler = copilotRuntimeNestEndpoint({
+                  runtime,
+                  serviceAdapter,
+                  endpoint: '/copilotkit',
+                });
+                return handler(req, res);
+              }
+            }
+```
+
+            Your Copilot Runtime endpoint should be available at `http://localhost:3000/copilotkit`.
+
+                Remember to point your `runtimeUrl` to the correct endpoint in your client-side code, e.g. `http://localhost:PORT/copilotkit`.
+
+### Configure the CopilotKit Provider
+
+```tsx title="app/page.tsx" showLineNumbers {5,10,14}
+"use client";
+
+import { EmailThread } from "@/components/EmailThread";
+import { EmailsProvider } from "@/lib/hooks/use-emails";
+import { CopilotKit } from "@copilotkit/react-core/v2"; // [!code highlight]
+import "@copilotkit/react-textarea/styles.css"; // [!code highlight]
+
+export default function Home() {
+  return (
+    <CopilotKit runtimeUrl="/api/copilotkit">
+      {" "}
+      // [!code highlight]
+      <EmailsProvider>
+        <EmailThread />
+      </EmailsProvider>
+    {/* [!code highlight:1] */}
+    </CopilotKit>
+  );
+}
+```
+
+Let's break this down:
+
+- First, we imported the `CopilotKit` provider from `@copilotkit/react-core`.
+- Then, we wrapped the page with the `` provider.
+- We imported the built-in styles from `@copilotkit/react-textarea`.
+
+In the next step, we'll implement the AI-powered textarea as a replacement for our existing input component.
+
+### Step 4: Copilot Textarea
+- Route: `/built-in-agent/tutorials/ai-powered-textarea/step-3-copilot-textarea`
+- Source: `docs/content/docs/integrations/built-in-agent/tutorials/ai-powered-textarea/step-3-copilot-textarea.mdx`
+
+Currently, our app has a simple textarea for replying to emails. Let's replace this with an AI-powered textarea so that we can benefit from our helpful AI assistant.
+
+## The `` Component
+
+Head over to the [`/components/Reply.tsx`](https://github.com/CopilotKit/example-textarea/blob/base-start-here/components/Reply.tsx) file.
+
+At a glance, you can see that this component uses `useState` to hold the current input value and provide it to the textarea. We also use the `onChange` prop of the textarea to update the state.
+
+## Implementing ``
+
+The `` component was designed to be a drop-in replacement for the `` component. Let's implement it!
+
+```tsx title="components/Reply.tsx"
+// ... the rest of the file
+
+import { CopilotTextarea } from "@copilotkit/react-textarea"; // [!code highlight]
+
+export function Reply() {
+  // ...
+  return (
+    <div className="mt-4 pt-4 space-y-2 bg-background p-4 rounded-md border">
+      <CopilotTextarea // [!code highlight]
+        className="min-h-40 border h-40 p-2 overflow-hidden"
+        value={input}
+        onChange={(e) => setInput(e.target.value)}
+        placeholder="Write your reply..."
+        // [!code highlight:4]
+        autosuggestionsConfig={{
+          textareaPurpose: `Assist me in replying to this email thread. Remember all important details.`,
+          chatApiConfigs: {}
+        }}
+      />
+      <Button disabled={!input} onClick={handleReply}>
+        Reply
+      </Button>
+    </div>
+  );
+}
+```
+
+We import the `` component and use it in place of the `` component. There are also some optional style changes made here.
+
+We can provide more specific instructions for this particular textarea via the `autoSuggestionsConfig.textareaPurpose` property.
+
+## Try it out!
+
+Now, go back to the app and type anything in the textarea. You will see that the AI assistant provides suggestions as you type. How cool is that?
+
+## The `CMD + K`/`CTRL + K` Shortcut
+
+While focused on the textarea, you can use the `CMD + K` (macOS) or `CTRL + K` (Windows) shortcut to open the action popup. Here, you can give the copilot specific instructions, such as:
+
+- `Rephrase the text to be more formal`
+- `Make the reply shorter`
+- `Tell John that I'm happy to help`
+
+We have implemented the `` component, but there is an issue - the copilot assistant is not aware of the email thread. In the next step, we'll make CopilotKit aware of our email history.
+
+### Step 3: Copilot Readable State
+- Route: `/built-in-agent/tutorials/ai-powered-textarea/step-4-copilot-readable-state`
+- Source: `docs/content/docs/integrations/built-in-agent/tutorials/ai-powered-textarea/step-4-copilot-readable-state.mdx`
+
+At this point, we have set up our CopilotKit provider and ``, and we already benefit from a great AI assistant. However, there is one last problem - the copilot assistant is not aware of the email thread. Let's fix that.
+
+## Our App's State
+
+Let's quickly review how our app's state works. Open up the [`lib/hooks/use-emails.tsx`](https://github.com/CopilotKit/example-textarea/blob/base-start-here/lib/hooks/use-emails.tsx) file.
+
+At a glance, we can see that the file exposes a provider (`EmailsProvider`) which holds our `emails`. This is the context we need to provide to our copilot to get AI autocompletions.
+
+## The `useCopilotReadable` hook
+
+Our goal is to make our copilot aware of this state, so that it can provide more accurate and helpful responses. We can easily achieve this by using the [`useCopilotReadable`](/reference/v1/hooks/useCopilotReadable) hook.
+
+```tsx title="libs/hooks/use-emails.tsx"
+// ... the rest of the file
+
+import { useCopilotReadable } from "@copilotkit/react-core/v2"; // [!code highlight]
+
+export const EmailsProvider = ({ children }: { children: ReactNode }) => {
+  const [emails, setEmails] = useState<Email[]>(emailHistory);
+
+  // [!code highlight:4]
+  useCopilotReadable({
+    description: "The history of this email thread",
+    value: emails
+  });
+
+  // ... the rest of the file
+}
+```
+
+In this example, we use the `useCopilotReadable` hook to provide the copilot with the state of our email thread.
+
+- For the `description` property, we provide a concise description that tells the copilot what this piece of readable data means.
+- For the `value` property, we pass the entire state as a JSON string.
+
+In the next step, we'll set up our AI-powered textarea, which will use this readable state to provide accurate and helpful responses.
+
+## Try it out!
+
+Now, go back to the app and start typing things related to the email thread. Some ideas:
+
+- `"Thanks Jo..."` (the assistant will complete John's name)
+- `"I'm glad Spac..."` (the assistant will complete the company's name to SpaceY)
+- `"I'm glad they liked my..."` (the assistant will add context)
+
+Your textarea is now fully aware of the email thread, and therefore it provides helpful, relevant autocompletions. 🚀
+
+### Next Steps
+- Route: `/built-in-agent/tutorials/ai-todo-app/next-steps`
+- Source: `docs/content/docs/integrations/built-in-agent/tutorials/ai-todo-app/next-steps.mdx`
+
+This is the end of the tutorial. You can now start building your own copilot-powered apps!
+
+## Source code
+
+You can find the source code and interactive sandboxes here:
+
+- **Start app:** [GitHub](https://github.com/CopilotKit/example-todos-app/tree/base-start-here) | [Stackblitz Sandbox](https://stackblitz.com/github/copilotkit/example-todos-app/tree/base-start-here?file=lib%2Fhooks%2Fuse-tasks.tsx)
+- **Final app:** [GitHub](https://github.com/CopilotKit/example-todos-app/tree/final) | [Stackblitz Sandbox](https://stackblitz.com/github/copilotkit/example-todos-app/tree/final?file=lib%2Fhooks%2Fuse-tasks.tsxd)
+
+## What's next?
+
+For next steps, here are some ideas:
+
+- Add suggestions to your copilot, using the [`useCopilotChatSuggestions`](/reference/v1/hooks/useCopilotChatSuggestions) hook.
+- Add an initial assistant message to your chat window (for more info, check the documentation for [``](/reference/v1/components/chat/CopilotPopup)).
+- Dive deeper into the useful [`useCopilotChat`](/reference/v1/hooks/useCopilotChat) hook, which enables you to set the system message, append messages, and more.
+- Implement autocompletion using the [``](/reference/v1/components/CopilotTextarea) component.
+- Follow the [Textarea Autocomplete tutorial](/built-in-agent/tutorials/ai-powered-textarea) to learn more about CopilotKit.
+
+We have more tutorials coming soon.
+
+## Need help?
+
+If you have any questions, feel free to reach out to us on [Discord](https://discord.gg/6dffbvGU3D).
+
+### Overview
+- Route: `/built-in-agent/tutorials/ai-todo-app/overview`
+- Source: `docs/content/docs/integrations/built-in-agent/tutorials/ai-todo-app/overview.mdx`
+
+# AI Todo List Copilot Tutorial
+
+## What you'll learn
+
+In this tutorial, you will take a simple todo list app and supercharge it with a copilot. You will learn:
+
+- 💡 How to embed an in-app copilot with a chat UI
+- 💡 How to use `useCopilotReadable` to allow your copilot to read the state of your app
+- 💡 How to use `useFrontendTool` to allow your copilot to execute tools
+
+## Try it out!
+
+You can try out an interactive example of the end result below:
+
+    >
+
+In the next step, we'll start building our copilot.
+
+### Step 1: Checkout the repo
+- Route: `/built-in-agent/tutorials/ai-todo-app/step-1-checkout-repo`
+- Source: `docs/content/docs/integrations/built-in-agent/tutorials/ai-todo-app/step-1-checkout-repo.mdx`
+
+### Checkout the repository
+We'll begin by checking out the base code of the todo list app. We'll start from the `base-start-here` branch.
+
+```shell
+git clone -b base-start-here https://github.com/CopilotKit/example-todos-app.git
+cd example-todos-app
+```
+### Install dependencies
+
+To install the dependencies, run the following:
+
+```shell
+npm install
+```
+### Start the project
+
+Now, you are ready to start the project by running:
+
+```shell
+npm run dev
+```
+
+You should be able to go to [http://localhost:3000](http://localhost:3000) and see the todo list app. Feel free to play around with the app to get a feel for it.
+
+Next, let's start adding some AI copilot superpowers to this app.
+
+### Step 2: Setup CopilotKit
+- Route: `/built-in-agent/tutorials/ai-todo-app/step-2-setup-copilotkit`
+- Source: `docs/content/docs/integrations/built-in-agent/tutorials/ai-todo-app/step-2-setup-copilotkit.mdx`
+
+Now that we have our todo list app running, we're ready to integrate CopilotKit. For this tutorial, we will install the following dependencies:
+
+- `@copilotkit/react-core`: The core library for CopilotKit, which contains the CopilotKit provider and useful hooks.
+- `@copilotkit/react-ui`: The UI library for CopilotKit, which contains the CopilotKit UI components such as the sidebar, chat popup, textarea and more.
+
+## Install Dependencies
+
+To install the CopilotKit dependencies, run the following:
+
+```npm
+npm install @copilotkit/react-core @copilotkit/react-ui
+```
+
+## Setup CopilotKit
+
+In order to use CopilotKit, we'll need to configure the `CopilotKit` provider.
+
+The [``](/reference/v1/components/CopilotKit) provider must wrap the Copilot-aware parts of your application.
+For most use-cases, it's appropriate to wrap the `CopilotKit` provider around the entire app, e.g. in your `layout.tsx`
+
+  Note that you can add the `` provider anywhere in your application. In fact, you can have multiple `` providers per app if you want independent copilots.
+
+```tsx title="layout.tsx" showLineNumbers
+import "./globals.css";
+
+import { ReactNode } from "react";
+import { CopilotKit } from "@copilotkit/react-core"; // [!code highlight]
+
+export default function RootLayout({ children }: { children: ReactNode }) {
+    return (
+      <html lang="en">
+        <body>
+          {/* Use the public api key you got from Copilot Cloud  */}
+          {/* [!code highlight:3] */}
+          <CopilotKit publicApiKey="<your-copilot-cloud-public-api-key>">
+            {children}
+          </CopilotKit>
+        </body>
+      </html>
+    );
+}
+```
+
+### Set up Copilot Runtime Endpoint
+
+  If you are planning to use a single LangGraph agent in agent-lock mode as your agentic backend, your LLM adapter will only be used for peripherals such as suggestions, etc.
+
+If you are not sure yet, simply ignore this note.
+
+            The LangChain adapter shown here is using OpenAI, but can be used with any LLM!
+
+            Be aware that the empty adapter only works in combination with CoAgents in agent lock mode!
+
+            In addition, bare in mind that `useCopilotChatSuggestions`, `CopilotTextarea` and `CopilotTask` will not work, as these require an LLM.
+
+        ### Install provider package
+
+```npm
+        npm install {{packageName}}
+```
+
+        ### Add your API key
+
+        Next, add your API key to your `.env` file in the root of your project (unless you prefer to provide it directly to the client):
+
+```plaintext title=".env"
+        {{envVarName}}=your_api_key_here
+```
+
+        ### Add your API key
+
+        Next, add your API key to your `.env` file in the root of your project (unless you prefer to provide it directly to the client):
+
+```plaintext title=".env"
+        {{envVarSecret}}=your_secret_key_here
+        {{envVarAccess}}=your_access_key_here
+        {{envVarToken}}=your_session_token_here
+```
+
+            Please note that the code below uses GPT-4o, which requires a paid OpenAI API key. **If you are using a free OpenAI API key**, change the model to a different option such as `gpt-3.5-turbo`.
+
+    ### Setup the Runtime Endpoint
+
+        ### Serverless Function Timeouts
+
+        When deploying to serverless platforms (Vercel, AWS Lambda, etc.), be aware that default function timeouts may be too short for CopilotKit's streaming responses:
+
+        - Vercel defaults: 10s (Hobby), 15s (Pro)
+        - AWS Lambda default: 3s
+
+        **Solution options:**
+        1. Increase function timeout:
+```json
+            // vercel.json
+            {
+              "functions": {
+                "api/copilotkit/**/*": {
+                  "maxDuration": 60
+                }
+              }
+            }
+```
+        2. Use [Copilot Cloud](https://cloud.copilotkit.ai/) to avoid timeout issues entirely
+
+        { value: 'Next.js App Router', icon:  },
+        { value: 'Next.js Pages Router', icon:  },
+        { value: 'Node.js Express', icon:  },
+        { value: 'Node.js HTTP', icon:  },
+        { value: 'NestJS', icon:  }
+    ]}>
+
+            Create a new route to handle the `/api/copilotkit` endpoint.
+
+```ts title="app/api/copilotkit/route.ts"
+            import {
+              CopilotRuntime,
+              {{adapterImport}},
+              copilotRuntimeNextJSAppRouterEndpoint,
+            } from '@copilotkit/runtime';
+            {{extraImports}}
+            import { NextRequest } from 'next/server';
+
+            {{clientSetup}}
+            {{adapterSetup}}
+            const runtime = new CopilotRuntime();
+
+            export const POST = async (req: NextRequest) => {
+              const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
+                runtime,
+                serviceAdapter,
+                endpoint: '/api/copilotkit',
+              });
+
+              return handleRequest(req);
+            };
+```
+
+            Your Copilot Runtime endpoint should be available at `http://localhost:3000/api/copilotkit`.
+
+            Create a new route to handle the `/api/copilotkit` endpoint:
+
+```ts title="pages/api/copilotkit.ts"
+            import { NextApiRequest, NextApiResponse } from 'next';
+            import {
+              CopilotRuntime,
+              {{adapterImport}},
+              copilotRuntimeNextJSPagesRouterEndpoint,
+            } from '@copilotkit/runtime';
+            {{extraImports}}
+
+            {{clientSetup}}
+            {{adapterSetup}}
+
+            const handler = async (req: NextApiRequest, res: NextApiResponse) => {
+              const runtime = new CopilotRuntime();
+
+              const handleRequest = copilotRuntimeNextJSPagesRouterEndpoint({
+                endpoint: '/api/copilotkit',
+                runtime,
+                serviceAdapter,
+              });
+
+              return await handleRequest(req, res);
+            };
+
+            export default handler;
+```
+
+            Your Copilot Runtime endpoint should be available at `http://localhost:3000/api/copilotkit`.
+
+            Create a new Express.js app and set up the Copilot Runtime handler:
+
+```ts title="server.ts"
+            import express from 'express';
+            import {
+              CopilotRuntime,
+              {{adapterImport}},
+              copilotRuntimeNodeHttpEndpoint,
+            } from '@copilotkit/runtime';
+            {{extraImports}}
+
+            const app = express();
+            {{clientSetup}}
+            {{adapterSetup}}
+
+            app.use('/copilotkit', (req, res, next) => {
+              (async () => {
+                const runtime = new CopilotRuntime();
+                const handler = copilotRuntimeNodeHttpEndpoint({
+                  endpoint: '/copilotkit',
+                  runtime,
+                  serviceAdapter,
+                });
+
+                return handler(req, res);
+              })().catch(next);
+            });
+
+            app.listen(4000, () => {
+              console.log('Listening at http://localhost:4000/copilotkit');
+            });
+```
+
+            Your Copilot Runtime endpoint should be available at `http://localhost:4000/copilotkit`.
+
+                Remember to point your `runtimeUrl` to the correct endpoint in your client-side code, e.g. `http://localhost:PORT/copilotkit`.
+
+            Set up a simple Node.js HTTP server and use the Copilot Runtime to handle requests:
+
+```ts title="server.ts"
+            import { createServer } from 'node:http';
+            import {
+              CopilotRuntime,
+              {{adapterImport}},
+              copilotRuntimeNodeHttpEndpoint,
+            } from '@copilotkit/runtime';
+            {{extraImports}}
+
+            {{clientSetup}}
+            {{adapterSetup}}
+
+            const server = createServer((req, res) => {
+              const runtime = new CopilotRuntime();
+              const handler = copilotRuntimeNodeHttpEndpoint({
+                endpoint: '/copilotkit',
+                runtime,
+                serviceAdapter,
+              });
+
+              return handler(req, res);
+            });
+
+            server.listen(4000, () => {
+              console.log('Listening at http://localhost:4000/copilotkit');
+            });
+```
+
+            Your Copilot Runtime endpoint should be available at `http://localhost:4000/copilotkit`.
+
+                Remember to point your `runtimeUrl` to the correct endpoint in your client-side code, e.g. `http://localhost:PORT/copilotkit`.
+
+            Set up a controller in NestJS to handle the Copilot Runtime endpoint:
+
+```ts title="copilotkit.controller.ts"
+            import { All, Controller, Req, Res } from '@nestjs/common';
+            import { CopilotRuntime, copilotRuntimeNestEndpoint, {{adapterImport}} } from '@copilotkit/runtime';
+            import { Request, Response } from 'express';
+
+            @Controller()
+            export class CopilotKitController {
+              @All('/copilotkit')
+              copilotkit(@Req() req: Request, @Res() res: Response) {
+                {{adapterSetup}}
+                const runtime = new CopilotRuntime();
+
+                const handler = copilotRuntimeNestEndpoint({
+                  runtime,
+                  serviceAdapter,
+                  endpoint: '/copilotkit',
+                });
+                return handler(req, res);
+              }
+            }
+```
+
+            Your Copilot Runtime endpoint should be available at `http://localhost:3000/copilotkit`.
+
+                Remember to point your `runtimeUrl` to the correct endpoint in your client-side code, e.g. `http://localhost:PORT/copilotkit`.
+
+### Configure the CopilotKit Provider
+
+```tsx title="layout.tsx"
+import "./globals.css";
+import { ReactNode } from "react";
+import { CopilotKit } from "@copilotkit/react-core"; // [!code highlight]
+
+export default function RootLayout({ children }: { children: ReactNode }) {
+  return (
+    <html lang="en">
+      <body> 
+        {/* Make sure to use the URL you configured in the previous step  */}
+        {/* [!code highlight:3] */}
+        <CopilotKit runtimeUrl="/api/copilotkit"> 
+          {children}
+        </CopilotKit>
+      </body>
+    </html>
+  );
+}
+
+</Step>
+</Steps>
+</TailoredContentOption>
+</TailoredContent>
+
+### CopilotKit Chat Popup
+
+We provide several plug-and-play components for you to interact with your copilot. Some of these are `<CopilotPopup/>`, `<CopilotSidebar/>`, and `<CopilotChat/>`. You can of course use CopilotKit in headless mode and provide your own fully custom UI via [`useCopilotChat`](/reference/v1/hooks/useCopilotChat).
+
+In this tutorial, we'll use the `<CopilotPopup/>` component to display the chat popup.
+
+```tsx title="app/page.tsx" showLineNumbers {6-7,15}
+"use client";
+
+```
+
+Here's what we did:
+
+- We imported the `<CopilotPopup />` component from `@copilotkit/react-ui`.
+- We wrapped the page with the `<CopilotKit>` provider.
+- We imported the built-in styles from `@copilotkit/react-ui`.
+
+Now, head back to your app and you'll find a chat popup in the bottom right corner of the page. At this point, you can start interacting with your copilot! 🎉
+
+In the next step, we'll make our assistant smarter by providing it with readable state about our todo list.
+
+### Step 3: Copilot Readable State
+- Route: `/built-in-agent/tutorials/ai-todo-app/step-3-copilot-readable-state`
+- Source: `docs/content/docs/integrations/built-in-agent/tutorials/ai-todo-app/step-3-copilot-readable-state.mdx`
+
+At this point, we have a chat popup in our app and we're able to chat directly with our copilot. This is great, but our copilot doesn't know anything about our app. In this step, we'll provide our copilot with the state of our todos.
+
+In this step, you'll learn how to provide knowledge to the copilot. In our case, we want the copilot to know about the tasks in our app.
+
+## Our App's State
+
+Let's quickly review how our app's state works. Open up the [`lib/hooks/use-tasks.tsx`](https://github.com/CopilotKit/example-todos-app/blob/base-start-here/lib/hooks/use-tasks.tsx) file.
+
+At a glance, we can see that the file exposes a provider (`TasksProvider`), which defines a useful things:
+
+- The state of our tasks (`tasks`)
+- A function to add a task (`addTask`)
+- A function to update a task (`updateTask`)
+- A function to delete a task (`deleteTask`)
+
+All of this is consumable by a `useTasks` hook, which we use in the rest of our application (feel free to check out the `TasksList`, `AddTask` and `Task` components).
+
+This resembles the majority of React apps, where frontend state, either for a feature or the entire app, is managed by a context or state management library.
+
+## The `useCopilotReadable` hook
+
+Our goal is to make our copilot aware of this state, so that it can provide more accurate and helpful responses. We can easily achieve this by using the [`useCopilotReadable`](/reference/v1/hooks/useCopilotReadable) hook.
+
+```tsx title="lib/hooks/use-tasks.tsx" {3,8-11}
+// ... the rest of the file
+
+import { useCopilotReadable } from "@copilotkit/react-core/v2"; // [!code highlight]
+
+export const TasksProvider = ({ children }: { children: ReactNode }) => {
+  const [tasks, setTasks] = useState<Task[]>(defaultTasks);
+
+  // [!code highlight:4]
+  useCopilotReadable({
+    description: "The state of the todo list",
+    value: JSON.stringify(tasks)
+  });
+
+  // ... the rest of the file
+}
+```
+
+In this example, we use the `useCopilotReadable` hook to provide the copilot with the state of our tasks.
+
+- For the `description` property, we provide a concise description that tells the copilot what this piece of readable data means.
+- For the `value` property, we pass the entire state as a JSON string.
+
+## Try it out!
+
+Now, try it out! Ask your Copilot a question about the state of the todo list. For example:
+
+> How many tasks do I still need to get done?
+
+Magical, isn't it? ✨ In the next step, you'll learn how to make the copilot take actions based on the state of your app.
+
+### Step 4: Frontend Tools
+- Route: `/built-in-agent/tutorials/ai-todo-app/step-4-frontend-tools`
+- Source: `docs/content/docs/integrations/built-in-agent/tutorials/ai-todo-app/step-4-frontend-tools.mdx`
+
+Now it's time to make our copilot even more useful by enabling it to execute tools.
+
+## Available Tools
+
+Once again, let's take a look at our app's state in the [`lib/hooks/use-tasks.tsx`](https://github.com/CopilotKit/example-todos-app/blob/base-start-here/lib/hooks/use-tasks.tsx#L19-L33) file.
+
+Essentially, we want our copilot to be able to call the `addTask`, `setTaskStatus` and `deleteTask` functions.
+
+## The `useFrontendTool` hook
+
+The [`useFrontendTool`](/reference/v1/hooks/useFrontendTool) hook makes tools available to our copilot. Let's implement it in the [`lib/hooks/use-tasks.tsx`](https://github.com/CopilotKit/example-todos-app/blob/base-start-here/lib/hooks/use-tasks.tsx) file.
+
+```tsx filename="lib/hooks/use-tasks.tsx" showLineNumbers {3-3,8-22,24-38,40-61}
+// ... the rest of the file
+
+import { useCopilotReadable, useFrontendTool } from "@copilotkit/react-core/v2"; // [!code highlight]
+import { z } from "zod"; // [!code highlight]
+
+export const TasksProvider = ({ children }: { children: ReactNode }) => {
+  const [tasks, setTasks] = useState<Task[]>(defaultTasks);
+
+  // [!code highlight:10]
+  useFrontendTool({
+    name: "addTask",
+    description: "Adds a task to the todo list",
+    parameters: z.object({
+      title: z.string().describe("The title of the task"),
+    }),
+    handler: ({ title }) => {
+      addTask(title);
+      return `Added task: ${title}`;
+    },
+  });
+
+  // [!code highlight:10]
+  useFrontendTool({
+    name: "deleteTask",
+    description: "Deletes a task from the todo list",
+    parameters: z.object({
+      id: z.number().describe("The id of the task"),
+    }),
+    handler: ({ id }) => {
+      deleteTask(id);
+      return `Deleted task ${id}`;
+    },
+  });
+
+  // [!code highlight:11]
+  useFrontendTool({
+    name: "setTaskStatus",
+    description: "Sets the status of a task",
+    parameters: z.object({
+      id: z.number().describe("The id of the task"),
+      status: z.enum(Object.values(TaskStatus) as [string, ...string[]]).describe("The status of the task"),
+    }),
+    handler: ({ id, status }) => {
+      setTaskStatus(id, status);
+      return `Set task ${id} status to ${status}`;
+    },
+  });
+
+  // ... the rest of the file
+};
+```
+
+The `useFrontendTool` hook is a powerful hook that allows us to register tools with our copilot. It takes an object with the following properties:
+
+- `name` is the name of the tool.
+- `description` is a description of the tool. It's important to choose a good description so that our copilot can choose the right tool.
+- `parameters` is a Zod schema that defines the parameters the tool accepts. This provides runtime validation and TypeScript type inference.
+- `handler` is a function that will be called when the tool is triggered. It's type safe thanks to Zod!
+
+You can check out the full reference for the `useFrontendTool` hook [here](https://docs.copilotkit.ai/reference/v1/hooks/useFrontendTool).
+
+## Try it out!
+
+Now, head back to the app and ask your pilot to do any of the following:
+
+- "Create a task about inviting Daniel to my birthday"
+- "Delete all outstanding tasks"
+- "Mark task with ID 2 as done"
+- etc.
+
+Your copilot is now more helpful than ever 💪

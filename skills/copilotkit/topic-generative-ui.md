@@ -4,8 +4,8 @@ Streaming UI patterns, rendering tools, and generative UI specs.
 
 ## Guidance
 ### Generative UI Overview
-- Route: `/generative-ui`
-- Source: `docs/content/docs/(root)/generative-ui/index.mdx`
+- Route: `/learn/generative-ui`
+- Source: `docs/content/docs/learn/generative-ui/index.mdx`
 - Description: The different types of Generative UI, and how AG-UI and CopilotKit work with them all.
 
 ---
@@ -131,7 +131,7 @@ Types of Generative UI, and even individual uses vary greatly in terms of two at
 
 ## Ecosystem Mapping
 
-      Several recently announced [Generative UI Specifications](/generative-ui/specs), have added richness (and some confusion) to generative UIs. These include [MCP-Apps](https://mcpui.dev/), [Open JSON UI](https://json-schema.org/), and the newly released [A2UI](/generative-ui/specs/a2ui).
+      Several recently announced [Generative UI Specifications](/learn/generative-ui/specs), have added richness (and some confusion) to generative UIs. These include [MCP-Apps](https://mcpui.dev/), [Open JSON UI](https://json-schema.org/), and the newly released [A2UI](/learn/generative-ui/specs/a2ui).
       The generative UI styles map cleanly to the ecosystem of tools and these standards.
       This mapping highlights that no single approach is superior — the best choice depends on your application's priorities, surfaces, and UX philosophy.
 
@@ -147,4 +147,97 @@ Types of Generative UI, and even individual uses vary greatly in terms of two at
 
       AG-UI acts as a universal runtime that works with A2UI, MCP-UI, Open-JSON-UI, and custom specs of any type.
 
-  Learn more about implementing Generative UI with the [AG-UI Protocol](/ag-ui-protocol) and explore [Generative UI Specifications](/generative-ui/specs).
+  Learn more about implementing Generative UI with the [AG-UI Protocol](/ag-ui-protocol) and explore [Generative UI Specifications](/learn/generative-ui/specs).
+
+### Tool Rendering
+- Route: `/generative-ui/tool-rendering`
+- Source: `docs/content/docs/(root)/generative-ui/tool-rendering.mdx`
+- Description: Render your agent's tool calls with custom UI components.
+
+## What is this?
+
+Tool rendering lets you customize how your agent's backend tool calls appear in the chat. Instead of showing raw tool execution, you can render custom React components that display tool arguments, progress, and results.
+
+## When should I use this?
+
+Use tool rendering when you want to:
+- Show users what tools your agent is calling and with what arguments
+- Display progress indicators while tools execute
+- Render custom results when tools complete
+- Create a polished, transparent agent experience
+
+## Choose your AI backend
+
+### Display Components
+- Route: `/generative-ui/your-components/display-only`
+- Source: `docs/content/docs/(root)/generative-ui/your-components/display-only.mdx`
+- Description: Register React components that your agent can render in the chat.
+
+## What is this?
+
+Display-only generative UI lets you register React components as tools your agent can invoke. When the agent calls the tool, CopilotKit renders your component directly in the chat with the tool's arguments as props — no handler logic or user interaction required.
+
+```tsx
+  import { z } from "zod";
+  import { useComponent } from "@copilotkit/react-core/v2";
+  import { ChartProps, Chart } from "@/chart.tsx"
+
+  useComponent({
+    name: "showChart",
+    description: "Populate data and show the user a chart",
+    parameters: ChartProps,
+    render: Chart
+  });
+```
+```tsx
+  import { z } from "zod";
+  import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
+
+  export const ChartProps = z.object({
+    title: z.string(),
+    data: z.array(z.object({ label: z.string(), value: z.number() })),
+  });
+
+  export function Chart({ title, data }: z.infer<typeof ChartProps>) {
+    return (
+      <div>
+        <h3>{title}</h3>
+        <ResponsiveContainer width="100%" height={300}>
+          <BarChart data={data}>
+            <XAxis dataKey="label" /><YAxis /><Tooltip />
+            <Bar dataKey="value" fill="#6366f1" />
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+    );
+  }
+```
+
+## When should I use this?
+
+Use display-only generative UI when you want to:
+- Display rich UI (cards, charts, tables) inline in the chat
+- Show structured data from agent responses
+- Render previews, status indicators, or visual feedback
+- Let the agent present information beyond plain text
+
+## Choose your AI backend
+
+### Interactive Components
+- Route: `/generative-ui/your-components/interactive`
+- Source: `docs/content/docs/(root)/generative-ui/your-components/interactive.mdx`
+- Description: Register interactive React components that users can interact with in the chat.
+
+## What is this?
+
+Interactive generative UI extends display components with user interaction. Your agent renders components that users can click, type into, or manipulate — and the results flow back to the agent.
+
+## When should I use this?
+
+Use interactive generative UI when you want to:
+- Let users confirm or modify agent suggestions inline
+- Build form-like interactions within the chat
+- Create approval workflows where users can accept/reject agent actions
+- Add interactive controls (sliders, toggles, selectors) to agent outputs
+
+## Choose your AI backend

@@ -3,98 +3,6 @@
 CopilotKit implementation guide for LangGraph.
 
 ## Guidance
-### Using Agent Execution Parameters
-- Route: `/langgraph/advanced/adding-runtime-configuration`
-- Source: `docs/content/docs/integrations/langgraph/advanced/adding-runtime-configuration.mdx`
-- Description: Using agent execution parameters when communicating with an agent.
-
-## What is this?
-LangGraph agents are able to take execution parameters, such as auth tokens and similar properties.
-You can add these using this feature.
-
-If you wish to read further, you can refer to [the configuration guide by LangGraph](https://docs.langchain.com/oss/python/langgraph/graph-api#add-runtime-configuration)
-
-## When should I use this?
-
-This is useful when you want to send execution-time configuration information (such as different tokens or metadata for a given session) that should not be part of the agent state.
-
-## Implementation
-
-By default, LangGraph agents are invoked with a `config` argument. This config has a `configurable` property which can be accessed and filled with your data.
-
-### Pass configuration from the frontend
-First, pass the configuration properties as you would like to receive them in the agent
-
-```tsx title="app/page.tsx"
-import { useCoAgent } from "@copilotkit/react-core"; // [!code highlight]
-
-function YourMainContent() {
-  // ...
-
-  useCoAgent<AgentState>({
-    name: "sample_agent",
-    // [!code highlight:6]
-    config: {
-      configurable: {
-        authToken: 'example-token'
-      },
-      recursion_limit: 50,
-    }
-  })
-
-  // ...
-
-  return (... your component UI markdown)
-}
-```
-### Use configurables in agent
-Now you can simply pull the values from the provided config argument in any agent node
-
-```python
-        async def agent_node(state: AgentState, config: RunnableConfig):
-
-            auth_token = config['configurable'].get('authToken', None)
-
-            return state
-```
-```typescript
-        async function agentNode(state: AgentState, config: RunnableConfig): Promise<AgentState> {
-            const authToken = config.configurable?.authToken ?? null;
-
-            return state;
-        }
-```
-    ### Optional: Define configurables schema
-    If you'd like, you can define a schema to indicate which configurables you wish to receive.
-    Any item passed to "configurables" which is not included in the schema, will be filtered out.
-
-    You can read more about this (here)[https://docs.langchain.com/oss/python/langgraph/graph-api#add-runtime-configuration%23define-graph]
-```python
-            from typing import TypedDict
-
-            # define which properties will be allowed in the configuration
-            class ConfigSchema(TypedDict):
-              authToken: str
-
-            # ...add all necessary graph nodes
-
-            # when defining the state graph, apply the config schema
-            workflow = StateGraph(AgentState, config_schema=ConfigSchema)
-```
-```typescript
-            import { Annotation } from "@langchain/langgraph";
-
-            // define which properties will be allowed in the configuration
-            export const ConfigSchemaAnnotation = Annotation.Root({
-              authToken: Annotation<string>
-            })
-
-            // ...add all necessary graph nodes
-
-            // when defining the state graph, apply the config schema
-            const workflow = new StateGraph(AgentStateAnnotation, ConfigSchemaAnnotation)
-```
-
 ### Disabling state streaming
 - Route: `/langgraph/advanced/disabling-state-streaming`
 - Source: `docs/content/docs/integrations/langgraph/advanced/disabling-state-streaming.mdx`
@@ -128,7 +36,7 @@ You can disable all message streaming and tool call streaming by passing `emit_m
             )
 
             # 2) Provide the actions to the LLM
-            model = ChatOpenAI(model="gpt-4o").bind_tools([
+            model = ChatOpenAI(model="gpt-5.2").bind_tools([
               *state["copilotkit"]["actions"],
               # ... any tools you want to make available to the model
             ])
@@ -162,7 +70,7 @@ You can disable all message streaming and tool call streaming by passing `emit_m
             });
 
             // 2) Provide the actions to the LLM
-            const model = new ChatOpenAI({ temperature: 0, model: "gpt-4o" });
+            const model = new ChatOpenAI({ temperature: 0, model: "gpt-5.2" });
             const modelWithTools = model.bindTools!([
                 ...convertActionsToDynamicStructuredTools(state.copilotkit?.actions || []),
                 ...tools,
@@ -188,7 +96,7 @@ You can disable all message streaming and tool call streaming by passing `emit_m
                 # ...
 
                 async def chat_node(state: AgentState, config: RunnableConfig):
-                    model = ChatOpenAI(model="gpt-4o")
+                    model = ChatOpenAI(model="gpt-5.2")
 
                     # [!code highlight:2]
                     intermediate_message = "Thinking really hard..."
@@ -218,7 +126,7 @@ You can disable all message streaming and tool call streaming by passing `emit_m
                 // ...
 
                 async function chat_node(state: AgentState, config: RunnableConfig) {
-                    const model = new ChatOpenAI({ model: "gpt-4o" });
+                    const model = new ChatOpenAI({ model: "gpt-5.2" });
 
                     // [!code highlight:2]
                     const intermediateMessage = "Thinking really hard...";
@@ -287,13 +195,314 @@ You can disable all message streaming and tool call streaming by passing `emit_m
                 }
 ```
 
+### Loading Agent State
+- Route: `/langgraph/advanced/persistence/loading-agent-state`
+- Source: `docs/content/docs/integrations/langgraph/advanced/persistence/loading-agent-state.mdx`
+- Description: Learn how threadId is used to load previous agent states.
+
+### Setting the threadId
+
+When setting the `threadId` property in CopilotKit, i.e:
+
+  When using LangGraph platform, the `threadId` must be a UUID.
+
+```tsx
+<CopilotKit threadId="2140b272-7180-410d-9526-f66210918b13">
+  <YourApp />
+</CopilotKit>
+```
+
+CopilotKit will restore the complete state of the thread, including the messages, from the database. (See [Message Persistence](/langgraph/advanced/persistence/message-persistence) for more details.)
+
+### Loading Agent State
+
+This means that the state of any agent will also be restored. For example:
+
+```tsx
+import { useAgent } from "@copilotkit/react-core/v2";
+
+const { agent } = useAgent({ agentId: "research_agent" });
+
+// agent.state will now be the state of research_agent in the thread id given above
+```
+
+### Learn More
+
+To learn more about persistence and state in CopilotKit, see:
+
+- [Reading agent state](/langgraph/shared-state/in-app-agent-read)
+- [Writing agent state](/langgraph/shared-state/in-app-agent-write)
+- [Loading Message History](/langgraph/advanced/persistence/loading-message-history)
+
+### Threads
+- Route: `/langgraph/advanced/persistence/loading-message-history`
+- Source: `docs/content/docs/integrations/langgraph/advanced/persistence/loading-message-history.mdx`
+- Description: Learn how to load chat messages and threads within the CopilotKit framework.
+
+LangGraph supports threads, a way to group messages together and ultimately maintain a continuous chat history. CopilotKit
+provides a few different ways to interact with this concept.
+
+This guide assumes you have already gone through the [quickstart](/langgraph/quickstart) guide.
+
+## Loading an Existing Thread
+
+To load an existing thread in CopilotKit, you can simply set the `threadId` property on `` like so.
+
+  When using LangGraph platform, the `threadId` must be a UUID.
+
+```tsx
+import { CopilotKit } from "@copilotkit/react-core";
+
+{/* [!code highlight:1] */}
+<CopilotKit threadId="37aa68d0-d15b-45ae-afc1-0ba6c3e11353">
+  <YourApp />
+</CopilotKit>
+```
+
+## Dynamically Switching Threads
+
+You can also make the `threadId` dynamic. Once it is set, CopilotKit will load the previous messages for that thread.
+
+```tsx
+import { useState } from "react";
+import { CopilotKit } from "@copilotkit/react-core";
+
+const Page = () => {
+  const [threadId, setThreadId] = useState("af2fa5a4-36bd-4e02-9b55-2580ab584f89"); // [!code highlight]
+  return (
+    {/* [!code highlight:3] */}
+    <CopilotKit threadId={threadId}>
+      <YourApp setThreadId={setThreadId} />
+    </CopilotKit>
+  )
+}
+
+const YourApp = ({ setThreadId }) => {
+  return (
+    {/* [!code highlight:1] */}
+    <Button onClick={() => setThreadId("679e8da5-ee9b-41b1-941b-80e0cc73a008")}>
+      Change Thread
+    </Button>
+  )
+}
+```
+
+## Using setThreadId
+
+CopilotKit will also return the current `threadId` and a `setThreadId` function from the `useCopilotContext` hook. You can use `setThreadId` to change the `threadId`.
+
+```tsx
+import { useCopilotContext } from "@copilotkit/react-core/v2";
+
+const ChangeThreadButton = () => {
+  const { threadId, setThreadId } = useCopilotContext(); // [!code highlight]
+  return (
+    {/* [!code highlight:1] */}
+    <Button onClick={() => setThreadId("d73c22f3-1f8e-4a93-99db-5c986068d64f")}>
+      Change Thread
+    </Button>
+  )
+}
+```
+
+### Message Persistence
+- Route: `/langgraph/advanced/persistence/message-persistence`
+- Source: `docs/content/docs/integrations/langgraph/advanced/persistence/message-persistence.mdx`
+
+To learn about how to load previous messages and agent states, check out the [Loading Message History](/langgraph/advanced/persistence/loading-message-history) and [Loading Agent State](/langgraph/advanced/persistence/loading-agent-state) pages.
+
+To persist LangGraph messages to a database, you can use either `AsyncPostgresSaver` or `AsyncSqliteSaver`. Set up the asynchronous memory by configuring the graph within a lifespan function, as follows:
+
+```python
+from fastapi import FastAPI
+from contextlib import asynccontextmanager
+from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
+from copilotkit import LangGraphAGUIAgent
+from ag_ui_langgraph import add_langgraph_fastapi_endpoint
+
+graph = None
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    async with AsyncPostgresSaver.from_conn_string(
+        "postgresql://postgres:postgres@127.0.0.1:5432/postgres"
+    ) as checkpointer:
+        # NOTE: you need to call .setup() the first time you're using your checkpointer
+        await checkpointer.setup()
+        # Create an async graph
+        graph = workflow.compile(checkpointer=checkpointer)
+        yield
+        # Create SDK with the graph
+
+app = FastAPI(lifespan=lifespan)
+
+add_langgraph_fastapi_endpoint(
+    app=app,
+    agent=LangGraphAGUIAgent(
+        name="research_agent",
+        description="Research agent.",
+        graph=graph,
+    ),
+    path="/agents/research_agent"
+)
+
+```
+
+To learn more about persistence in LangGraph, check out the [LangGraph documentation](https://docs.langchain.com/oss/python/langgraph/persistence).
+
+### AG-UI
+- Route: `/langgraph/ag-ui`
+- Source: `docs/content/docs/integrations/langgraph/ag-ui.mdx`
+- Description: The AG-UI protocol connects your frontend to your AI agents via event-based Server-Sent Events (SSE).
+
+CopilotKit is built on the [AG-UI protocol](https://ag-ui.com) — a lightweight, event-based standard that defines how AI agents communicate with user-facing applications over Server-Sent Events (SSE).
+
+Everything in CopilotKit — messages, state updates, tool calls, and more — flows through AG-UI events. Understanding this layer helps you debug, extend, and build on top of CopilotKit more effectively.
+
+## Accessing Your Agent with `useAgent`
+
+The `useAgent` hook is your primary interface to the AG-UI agent powering your copilot. It returns an [`AbstractAgent`](https://github.com/ag-ui-protocol/ag-ui/blob/main/typescript/packages/client/src/agents/abstract-agent.ts) from the AG-UI client library — the same base type that all AG-UI agents implement.
+
+```tsx
+import { useAgent } from "@copilotkit/react-core";
+
+function MyComponent() {
+  const { agent } = useAgent();
+
+  // agent.messages - conversation history
+  // agent.state - current agent state
+  // agent.isRunning - whether the agent is currently running
+}
+```
+
+If you have multiple agents, pass the `agentId` to select one:
+
+```tsx
+const { agent } = useAgent({ agentId: "research-agent" });
+```
+
+The returned `agent` is a standard AG-UI `AbstractAgent`. You can subscribe to its events, read its state, and interact with it using the same interface defined by the [AG-UI specification](https://docs.ag-ui.com).
+
+### Subscribing to AG-UI Events
+
+Every agent exposes a `subscribe` method that lets you listen for specific AG-UI events as they stream in. Each callback receives the event and the current agent state:
+
+```tsx
+import { useAgent } from "@copilotkit/react-core";
+import { useEffect } from "react";
+
+function MyComponent() {
+  const { agent } = useAgent();
+
+  useEffect(() => {
+    const subscription = agent.subscribe({
+      // Called on every event
+      onEvent({ event, agent }) {
+        console.log("Event:", event.type, event);
+      },
+
+      // Text message streaming
+      onTextMessageContentEvent({ event, textMessageBuffer, agent }) {
+        console.log("Streaming text:", textMessageBuffer);
+      },
+
+      // Tool calls
+      onToolCallEndEvent({ event, toolCallName, toolCallArgs, agent }) {
+        console.log("Tool called:", toolCallName, toolCallArgs);
+      },
+
+      // State updates
+      onStateSnapshotEvent({ event, agent }) {
+        console.log("State snapshot:", agent.state);
+      },
+
+      // High-level lifecycle
+      onMessagesChanged({ agent }) {
+        console.log("Messages updated:", agent.messages);
+      },
+      onStateChanged({ agent }) {
+        console.log("State changed:", agent.state);
+      },
+    });
+
+    return () => subscription.unsubscribe();
+  }, [agent]);
+}
+```
+
+The full list of subscribable events maps directly to the [AG-UI event types](https://docs.ag-ui.com/concepts/events):
+
+| Event | Callback | Description |
+| --- | --- | --- |
+| Run lifecycle | `onRunStartedEvent`, `onRunFinishedEvent`, `onRunErrorEvent` | Agent run start, completion, and errors |
+| Steps | `onStepStartedEvent`, `onStepFinishedEvent` | Individual step boundaries within a run |
+| Text messages | `onTextMessageStartEvent`, `onTextMessageContentEvent`, `onTextMessageEndEvent` | Streaming text content from the agent |
+| Tool calls | `onToolCallStartEvent`, `onToolCallArgsEvent`, `onToolCallEndEvent`, `onToolCallResultEvent` | Tool invocation lifecycle |
+| State | `onStateSnapshotEvent`, `onStateDeltaEvent` | Full state snapshots and incremental deltas |
+| Messages | `onMessagesSnapshotEvent` | Full message list snapshots |
+| Custom | `onCustomEvent`, `onRawEvent` | Custom and raw events for extensibility |
+| High-level | `onMessagesChanged`, `onStateChanged` | Aggregate notifications after any message or state mutation |
+
+## The Proxy Pattern
+
+When you use CopilotKit with a runtime, your frontend never talks directly to your agent. Instead, CopilotKit creates a **proxy agent** on the frontend that forwards requests through the Copilot Runtime.
+
+On startup, CopilotKit calls the runtime's `/info` endpoint to discover which agents are available. Each agent is wrapped in a `ProxiedCopilotRuntimeAgent` — a thin client that extends AG-UI's [`HttpAgent`](https://github.com/ag-ui-protocol/ag-ui/blob/main/typescript/packages/client/src/agents/http-agent.ts). From your component's perspective, this proxy behaves identically to a local AG-UI agent: same `AbstractAgent` interface, same subscribe API, same properties. But under the hood, every `run` call is an HTTP request to your server, and every response is an SSE stream of AG-UI events flowing back.
+
+```tsx title="What your component sees"
+const { agent } = useAgent(); // Returns an AbstractAgent
+agent.messages;               // Read messages
+agent.state;                  // Read state
+agent.subscribe({ ... });     // Subscribe to events
+```
+
+```tsx title="What actually happens"
+// useAgent() → AgentRegistry checks /info → wraps each agent in ProxiedCopilotRuntimeAgent
+// agent.runAgent() → HTTP POST to runtime → runtime routes to your agent → SSE stream back
+```
+
+This indirection is what enables the runtime to provide authentication, middleware, agent routing, and ecosystem features like [threads](/premium/threads) and [observability](/premium/observability) — without changing how you interact with agents on the frontend.
+
+## How Agents Slot into the Runtime
+
+On the server side, the `CopilotRuntime` accepts a map of AG-UI `AbstractAgent` instances. Each agent framework provides its own implementation, but they all extend the same base type:
+
+```ts title="app/api/copilotkit/route.ts"
+import { CopilotRuntime, copilotRuntimeNextJSAppRouterEndpoint } from "@copilotkit/runtime";
+import { HttpAgent } from "@ag-ui/client";
+
+const runtime = new CopilotRuntime({
+  agents: {
+    "my-agent": new HttpAgent({
+      url: "https://my-agent-server.example.com",
+    }),
+  },
+});
+
+export const POST = async (req: NextRequest) => {
+  const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
+    runtime,
+    endpoint: "/api/copilotkit",
+  });
+  return handleRequest(req);
+};
+```
+
+When a request comes in:
+
+1. The runtime resolves the target agent by ID
+2. It clones the agent (for thread safety) and sets messages, state, and thread context from the request
+3. The `AgentRunner` executes the agent, which produces a stream of AG-UI `BaseEvent`s
+4. Events are encoded as SSE and streamed back to the frontend proxy
+
+Because every agent is an `AbstractAgent`, you can register any AG-UI-compatible agent — whether it's an `HttpAgent` pointing at a remote server, a framework-specific adapter, or a custom implementation — and the runtime handles routing, middleware, and delivery uniformly.
+
 ### Readables
 - Route: `/langgraph/agent-app-context`
 - Source: `docs/content/docs/integrations/langgraph/agent-app-context.mdx`
 - Description: Share app specific context with your agent.
 
-One of the most common use cases for CopilotKit is to register app state and context using `useCopilotReadable`.
-This way, you can notify CopilotKit of what is going in your app in real time.
+One of the most common use cases for CopilotKit is to register app state and context using `useAgentContext`.
+This way, you can notify CopilotKit of what is going on in your app in real time.
 Some examples might be: the current user, the current page, etc.
 
 This context can then be shared with your LangGraph agent.
@@ -303,11 +512,11 @@ This context can then be shared with your LangGraph agent.
 
                 ### Add the data to the Copilot
 
-                The [`useCopilotReadable` hook](/reference/v1/hooks/useCopilotReadable) is used to add data as context to the Copilot.
+                The `useAgentContext` hook is used to add data as context to the agent.
 
-```tsx title="YourComponent.tsx" showLineNumbers {1, 7-10}
+```tsx title="YourComponent.tsx"
                 "use client" // only necessary if you are using Next.js with the App Router. // [!code highlight]
-                import { useCopilotReadable } from "@copilotkit/react-core"; // [!code highlight]
+                import { useAgentContext } from "@copilotkit/react-core/v2"; // [!code highlight]
                 import { useState } from 'react';
 
                 export function YourComponent() {
@@ -318,9 +527,9 @@ This context can then be shared with your LangGraph agent.
                     { id: 3, name: "Bob Wilson", role: "Product Manager" }
                   ]);
 
-                  // Define Copilot readable state
+                  // Share context with the agent
                   // [!code highlight:4]
-                  useCopilotReadable({
+                  useAgentContext({
                     description: "The current user's colleagues",
                     value: colleagues,
                   });
@@ -386,7 +595,7 @@ This context can then be shared with your LangGraph agent.
                                 The user's colleagues are: {colleagues}"""
                             )
 
-                            response = ChatOpenAI(model="gpt-4o").invoke(
+                            response = ChatOpenAI(model="gpt-5.2").invoke(
                                 [system_message, *state["messages"]],
                                 config
                             )
@@ -420,7 +629,7 @@ This context can then be shared with your LangGraph agent.
                             `,
                           });
 
-                          const response = await new ChatOpenAI({ model: "gpt-4o" }).invoke(
+                          const response = await new ChatOpenAI({ model: "gpt-5.2" }).invoke(
                             [systemMessage, ...state.messages],
                             config
                           );
@@ -436,11 +645,11 @@ This context can then be shared with your LangGraph agent.
                 Ask your agent a question about the context. It should be able to answer!
                 ### Add the data to the Copilot
 
-                The [`useCopilotReadable` hook](/reference/v1/hooks/useCopilotReadable) is used to add data as context to the Copilot.
+                The `useAgentContext` hook is used to add data as context to the agent.
 
-```tsx title="YourComponent.tsx" showLineNumbers {1, 7-10}
+```tsx title="YourComponent.tsx"
                 "use client" // only necessary if you are using Next.js with the App Router. // [!code highlight]
-                import { useCopilotReadable } from "@copilotkit/react-core"; // [!code highlight]
+                import { useAgentContext } from "@copilotkit/react-core/v2"; // [!code highlight]
                 import { useState } from 'react';
 
                 export function YourComponent() {
@@ -451,9 +660,9 @@ This context can then be shared with your LangGraph agent.
                     { id: 3, name: "Bob Wilson", role: "Product Manager" }
                   ]);
 
-                  // Define Copilot readable state
+                  // Share context with the agent
                   // [!code highlight:4]
-                  useCopilotReadable({
+                  useAgentContext({
                     description: "The current user's colleagues",
                     value: colleagues,
                   });
@@ -474,7 +683,7 @@ This context can then be shared with your LangGraph agent.
                         from copilotkit import CopilotKitMiddleware, CopilotKitState # [!code highlight]
 
                         graph = create_agent( # Works the same for "create_react_agent" or similar options
-                            model="openai:gpt-4o",
+                            model="openai:gpt-5.2",
                             tools=[],  # Backend tools go here
                             middleware=[CopilotKitMiddleware()], # [!code highlight]
                             system_prompt="You are a helpful assistant.",
@@ -486,7 +695,7 @@ This context can then be shared with your LangGraph agent.
                         import { copilotkitMiddleware } from "@copilotkit/sdk-js/langgraph"; // [!code highlight]
 
                         export const agenticChatGraph = createAgent({ // Works the same for "create_react_agent" or similar options
-                          model: "openai:gpt-4o",
+                          model: "openai:gpt-5.2",
                           tools: [],  // Backend tools go here
                           middleware: [copilotkitMiddleware], // [!code highlight]
                           systemPrompt: "You are a helpful assistant.",
@@ -824,11 +1033,11 @@ If you're seeing this error, it means CopilotKit couldn't find the LangGraph age
 
 ```tsx title="MyComponent.tsx"
         // Your React component
-        useCoAgent({
+        useAgent({
             name: "my_agent", // [!code focus] This must match exactly
         });
 ```
-        Make sure the that the agent defined in `langgraph.json` matches what you use n `useCoAgent` hook:
+        Make sure the that the agent defined in `langgraph.json` matches what you use in the `useAgent` hook:
 
 ```json title="langgraph.json"
         {
@@ -933,7 +1142,7 @@ persisted at the end of a node.
 
                 async def chat_node(state: AgentState, config: RunnableConfig):
                     # 1) Call the model with CopilotKit's modified config
-                    model = ChatOpenAI(model="gpt-4o")
+                    model = ChatOpenAI(model="gpt-5.2")
                     response = await model.ainvoke(state["messages"], modifiedConfig)
 
                     # 2) Make sure to return the new messages
@@ -946,7 +1155,7 @@ persisted at the end of a node.
 
                 async function chatNode(state: AgentState, config: RunnableConfig): Promise<AgentState> {
                     // 1) Call the model with CopilotKit's modified config
-                    const model = new ChatOpenAI({ temperature: 0, model: "gpt-4o" });
+                    const model = new ChatOpenAI({ temperature: 0, model: "gpt-5.2" });
                     const response = await model.invoke(state.messages, modifiedConfig);
 
                     // 2) Make sure to return the new messages
@@ -969,7 +1178,7 @@ persisted at the end of a node.
                     )
 
                     # 2) Call the model with CopilotKit's modified config
-                    model = ChatOpenAI(model="gpt-4o")
+                    model = ChatOpenAI(model="gpt-5.2")
                     response = await model.ainvoke(state["messages"], modifiedConfig)
 
                     # 3) Don't return the new response to hide it from the user
@@ -985,7 +1194,7 @@ persisted at the end of a node.
                     });
 
                     // 2) Call the model with CopilotKit's modified config
-                    const model = new ChatOpenAI({ temperature: 0, model: "gpt-4o" });
+                    const model = new ChatOpenAI({ temperature: 0, model: "gpt-5.2" });
                     const response = await model.invoke(state.messages, modifiedConfig);
 
                     // 3) Don't return the new response to hide it from the user
@@ -1386,297 +1595,223 @@ All tool messages are now emitted by default, so you don't need to manually call
 
 3. If you want to hide tool calls or messages from the chat, use `copilotkit_customize_config` and set `emit_tool_calls` or `emit_messages` to `False`. Make sure to not return these messages in your nodes so they don't become part of the message history.
 
-### Agentic Copilots
-- Route: `/langgraph/concepts/agentic-copilots`
-- Source: `docs/content/docs/integrations/langgraph/concepts/agentic-copilots.mdx`
-- Description: Agentic copilots provide you with advanced control and orchestration over your agents.
+### Coding Agents
+- Route: `/langgraph/coding-agents`
+- Source: `docs/content/docs/integrations/langgraph/coding-agents.mdx`
+- Description: Use our MCP server to connect your LangGraph agents to CopilotKit.
 
-Before we dive into what agentic copilots are, help us help you by telling us your level of experience with LangGraph. We'll explain things in a way that best suits your experience level.
+## Overview
+The CopilotKit MCP server equips AI coding agents with deep knowledge about CopilotKit's APIs, patterns, and best practices. When connected to your
+development environment, it enables AI assistants to:
+- Provide expert guidance
+- Generate accurate code
+- Give your AI agents a user interface
+- Help you implement CopilotKit features correctly
 
-        ### What are Agents?
-        AI agents are intelligent systems that interact with their environment to achieve specific goals. Think of them as 'virtual colleagues' that can handle tasks ranging from
-        simple queries like "find the cheapest flight to Paris" to complex challenges like "design a new product layout."
+Powered by 🪄 [Tadata](https://tadata.com) - The platform for instantly building and hosting MCP servers.
 
-        As these AI-driven experiences (or 'Agentic Experiences') become more sophisticated, developers need finer control over how agents make decisions. This is where specialized
-        frameworks like LangGraph become essential.
+## GitHub Copilot
 
-        ### What is LangGraph?
-        LangGraph is a framework that gives you precise control over AI agents. It uses a graph-based approach where each step in an agent's decision-making process is represented
-        by a `node`. These nodes are connected by `edges` to form a directed acyclic graph (DAG), creating a clear map of possible actions and decisions.
+[GitHub Copilot](https://github.com/features/copilot) is Microsoft's AI pair programmer integrated into VS Code and other editors. It supports MCP to extend its capabilities with external tools and services.
 
-        The key advantage of LangGraph is its tight control over the agent's decision making process. Since all of this is defined in code by you, the behavior is much more
-        deterministic and predictable.
+    ### Enable MCP Support in VS Code
+    1. Open VS Code Settings (`Cmd+,` on Mac or `Ctrl+,` on Windows/Linux)
+    2. Search for "MCP" in the settings search bar
+    3. Enable the `chat.mcp.enabled` setting
+    ### Add MCP Server to GitHub Copilot
+    You can configure MCP servers for GitHub Copilot in several ways:
 
-        ### What are Agentic Copilots?
-        Agentic copilots are how CopilotKit brings LangGraph agents into your application. If you're familiar with CopilotKit, you know that copilots are AI assistants that
-        understand your app's context and can take actions within it. While CopilotKit's standard copilots use a simplified [ReAct pattern](https://www.perplexity.ai/search/what-s-a-react-agent-5hu7ZOaKSAuY7YdFjQLCNQ)
-        for quick implementation, Agentic copilots give you LangGraph's full orchestration capabilities when you need more control over your agent's behavior.
-
-        ### What are CoAgents?
-        CoAgents are what we call CopilotKit's approach to building agentic experiences! They're interchangeable with agentic copilots being a more descriptive term for the overall concept.
-
-        ### When should I use CopilotKit's CoAgents?
-        You should use CoAgents when you require tight control over the Agentic runloop, as facilitated by an Agentic Orchestration framework like [LangGraph](https://docs.langchain.com/oss/python/langgraph/overview).
-        With CoAgents, you can carry all of your existing CopilotKit-enabled Copilot capabilities into a customized agentic runloop.
-
-        We suggest beginning with a basic Copilot and gradually transitioning specific components to CoAgents.
-
-        The need for CoAgents spans a broad spectrum across different applications. At one end, their advanced capabilities might not be required at all, or only for a minimal 10% of the application's
-        functionality. Progressing further, there are scenarios where they become increasingly vital, managing 60-70% of operations. Ultimately, in some cases, CoAgents are indispensable, orchestrating
-        up to 100% of the Copilot's tasks.
-
-        ### Examples
-        An excellent example of the type of experiences you can accomplish with CoAgents applications can be found in our [Research Canvas](/langgraph/videos/research-canvas).
-
-        More specifically, it demonstrates how CoAgents allow for AI driven experiences with:
-        - Precise state management across agent interactions
-        - Sophisticated multi-step reasoning capabilities
-        - Seamless orchestration of multiple AI tools
-        - Interactive human-AI collaboration features
-        - Real-time state updates and progress streaming
-
-        ## Next Steps
-
-        Want to get started? You have some options!
-
-        LangChain's LangGraph is a framework for building deeply customizable AI agents.
-
-        CopilotKit's Agentic Copilots is infrastruture for in-app agent-user interaction, i.e. for transforming agents from autonomous processes to user-interactive 'virtual colleagues' that live inside applications.
-
-        Any LangGraph-based agent can be transformed into an Agentic Copilot with a minimal amount
-        of effort to get industry leading agnetic UX such as:
-        - Shared state between the agent and the application.
-        - Intermediate result and state progress streaming
-        - Human-in-the-loop collaboration
-        - Agentic generative UI
-        - And more!
-
-        All of these features are essential to delight instead of frustrate your users with AI features.
-
-        ### What are CoAgents?
-        CoAgents are what we call CopilotKit's approach to building agentic experiences! They're interchangeable with agentic copilots being a more descriptive term for the overall concept.
-
-        ## Next Steps
-        Want to get started? You have some options!
-
-### Shared State
-- Route: `/langgraph/concepts/coagent-state`
-- Source: `docs/content/docs/integrations/langgraph/concepts/coagent-state.mdx`
-- Description: CoAgents maintain a shared state across your UI and agent execution.
-
-CoAgents maintain a shared state that seamlessly connects your UI with the agent's execution. This shared state system allows you to:
-- Display the agent's current progress and intermediate results
-- Update the agent's state through UI interactions
-- React to state changes in real-time across your application
-
-The foundation of this system is built on LangGraph's stateful architecture. Unlike traditional LangChains, LangGraphs maintain their
-internal state throughout execution, which you can access via the `useCoAgentState` hook.
-
-### Understanding Predicted State
-
-While your agent runs, you can emit state updates using CopilotKit's `emit_intermediate_state` function, ensuring your UI stays synchronized
-with the agent's progress. The emitted state is called the **predicted state** and is used to provide immediate feedback about ongoing
-operations.
-
-While the core shared state reflects the agent's current node in the execution graph, the predicted state provides immediate
-feedback about ongoing operations. Accordingly, this creates a more fluid user experience by showing real-time progress before the agent
-completes its current task.
-
-When the state is updated (when a node finishes executing),
-
-For example, when your agent is processing a request, the predicted state might show a loading indicator or partial results, while the actual
-shared state updates once the operation is complete.
-
-Want help implementing this into your CoAgent application? Check out our [intermediate state streaming](/langgraph/shared-state/predictive-state-updates)
-documentation.
-
-### Streaming and Tool Calls
-- Route: `/langgraph/concepts/copilotkit-config`
-- Source: `docs/content/docs/integrations/langgraph/concepts/copilotkit-config.mdx`
-- Description: CoAgents support streaming your messages and tool calls to the frontend.
-
-If you'd like to change how LangGraph agents behave as CoAgents you can utilize our CopilotKit SDK which provides a collection
-of functions and utilities for interacting with the agent's state or behavior. One example of this is the CopilotKit config
-which is a wrapper of the LangGraph `config` object. This allows you to extend the configuration of your LangGraph nodes to
-change how LangGraph and CopilotKit interact with each other. This allows you to change how messages and tool calls are emitted and
-streamed to the frontend.
-
-## Message Streaming
-If you did not change anything in your LangGraph node, message streaming will be on by default. This allows for a message to be
-streamed to CopilotKit as it is being generated, allowing for a more responsive experience. However, you can disable this if you
-want to have the message only be sent after the agent has finished generating it.
-
-```python
-config = copilotkit_customize_config(
-    config,
-    # True or False
-    emit_messages=False,
-)
+        Create a `.vscode/mcp.json` file in your project root:
+```json
+        {
+          "servers": {
+            "CopilotKit MCP": {
+              "url": "https://mcp.copilotkit.ai/sse"
+            }
+          }
+        }
 ```
-
-## Emitting Tool Calls
-Emission of tool calls are off by default. This means that tool calls will not be sent to CopilotKit for processing and rendering.
-However, within a node you can extend the LangGraph `config` object to emit tool calls to CopilotKit. This is useful in situations
-where you may to emit what a potential tool call will look like prior to being executed.
-
-```python
-config = copilotkit_customize_config(
-    config,
-    # Can set to True, False, or a list of tool call names to emit.
-    emit_tool_calls=["tool_name"],
-)
+        Add to your VS Code `settings.json`:
+```json
+        {
+          "mcp": {
+            "servers": {
+              "CopilotKit MCP": {
+                "url": "https://mcp.copilotkit.ai/sse"
+              }
+            }
+          }
+        }
 ```
+        1. Open the Command Palette (`Cmd+Shift+P` or `Ctrl+Shift+P`)
+        2. Type "MCP: Add Server" and select the command
+        3. Choose "HTTP (sse)" as the server type
+        4. Enter the server URL: `https://mcp.copilotkit.ai/sse`
+        5. Provide a name for the server: `CopilotKit MCP`
+    ### Using MCP Tools with GitHub Copilot
+    1. Open Copilot Chat in VS Code (click the Copilot icon in the activity bar)
+    2. Switch to Agent mode from the chat dropdown menu
+    3. Click the Tools (🔧) button to view available MCP tools
+    4. Your CopilotKit MCP tools will be listed and can be used automatically
 
-For more information on how tool calls are utilized check out our [frontend actions](/langgraph/frontend-actions)
-documentation.
+    GitHub Copilot will intelligently use the MCP tools when relevant to your queries. You can also reference tools directly using `#` followed by the tool name.
+    ### Managing MCP Servers
+    Use the "MCP: List Servers" command to view and manage your configured servers:
 
-### LangGraph
-- Route: `/langgraph/concepts/langgraph`
-- Source: `docs/content/docs/integrations/langgraph/concepts/langgraph.mdx`
-- Description: An agentic framework for building LLM applications that can be used with CopilotKit.
+    - Start/Stop/Restart servers
+    - View server logs for debugging
+    - Browse available tools and resources
 
-LangGraph is an agentic framework for building LLM applications that can be used with CopilotKit. It is built on top of LangChain's
-[LangGraph](https://docs.langchain.com/oss/python/langgraph/overview) library and extends it with additional functionality for building agentic
-applications.
+## Other
 
-## CoAgents and LangGraph
+For MCP-compatible applications not listed above, use these universal integration patterns. MCP (Model Context Protocol) is an open standard that allows AI applications to connect with external tools and data sources.
 
-How do CoAgents extend LangGraph? Let's read the first sentence of their [project page](https://docs.langchain.com/oss/python/langgraph/overview) to understand.
+### Connection Methods
 
-> LangGraph is a library for building stateful, multi-actor applications with LLMs, used to create agent and multi-agent workflows.
+Most MCP-compatible applications support one or both of these connection methods:
 
-There are some key terms here so let's break them down and understand how they relate to and are implemented by CoAgents.
-
-- **Stateful**: CoAgents have bi-directional state sharing with the agent and UI. This allows for the agent to remember
-  information from previous messages and the UI to update the agent with new information. Read more about how state sharing works
-  [here](/langgraph/shared-state).
-- **Multi-actor**: CoAgents allow for multiple agents to interact with each other. CopilotKit acts as the "ground-truth"
-  when transitioning between agents. Read more about how messages are managed [here](/langgraph/concepts/message-management).
-- **LLMs**: CoAgents use large language models to generate responses. This is useful for building applications that need to
-  generate natural language responses.
-
-Some additional functionality not mentioned here is:
-- **Human in the loop**: CoAgents enabled human review and approval of generated responses. Read more about how this works
-  [here](/langgraph/human-in-the-loop).
-- **Tool calling**: Tool calling is a fundamental building block for agentic workflows. They allow for greater control over what
-  the agent can do and can be used to interact with external systems. CoAgents allow you to easily render in-progress
-  tool calls in the UI so your users know what's happening. Read more about streaming tool calls [here](/langgraph/shared-state/predictive-state-updates).
-
-## Building with Python or JavaScript
-
-You can natively build LangGraph applications using Python or JavaScript. Throughout our documentation of integrating with LangGraph
-you will see options for building in Python or JavaScript.
-
-For a quick refresher on each, check out the [Python](https://docs.langchain.com/oss/python/langgraph/overview) and
-[JavaScript](https://docs.langchain.com/oss/javascript/langgraph/overview) guides from LangGraph:
-
-## LangGraph Platform
-
-LangGraph Platform is a platform for building and deploying LangGraph applications. It is built on top of the LangGraph library and
-allows you to build, manage, and deploy graphs that CopilotKit can interface with. For more information checkout the official
-[LangGraph Platform](https://docs.langchain.com/oss/python/langgraph/overview) documentation.
-
-If you want to take the next step to deploy your LangGraph application as an CoAgent, check out our [quickstart guide](/langgraph/quickstart).
-
-### Message flow
-- Route: `/langgraph/concepts/message-management`
-- Source: `docs/content/docs/integrations/langgraph/concepts/message-management.mdx`
-
-Message management in CoAgents operates with CopilotKit as the "ground truth" for the full chat session.
-When an CoAgent session begins, it receives the existing CopilotKit chat history to maintain conversational
-continuity across different agents.
-
-While all of this information is great to know, in most cases you won't need to worry about these details to
-build rich agentic applications. Use the information here as a reference when getting really deep into
-the CoAgent internals.
-
-### Can I modify the message history?
-
-You can modify the message history from LangGraph by using the `RemoveMessage` class. For example to remove all messages from the chat history:
-
-```python
-from langchain_core.messages import RemoveMessage
-
-def a_node(state: AgentState, config):
-    # ...
-    return {"messages":  [RemoveMessage(id=m.id) for m in state['messages']]}
+    For web-based or remote integrations:
 ```
-
-See the [LangGraph documentation](https://docs.langchain.com/oss/python/langgraph/add-memory#delete-messages) for more information.
-
-Editing the message history is not currently supported on the front-end, but will be soon.
-
-### Can I persist chat history?
-
-Yes! There are a few ways to persist various portions of a chat's history:
-- [Threads](/langgraph/persistence/loading-message-history)
-- [Message Persistence](/langgraph/persistence/message-persistence)
-- [Agent State](/langgraph/persistence/loading-agent-state)
-
-## Types of LLM Messages
-
-Modern LLM interactions produce two distinct types of messages:
-
-1. **Communication Messages**: Direct responses and interactions with users
-2. **Internal Messages**: Agent "thoughts" and reasoning processes
-
-A well known example of this pattern is OpenAI's o1 model, which has sophisticated reasoning capabilities and thoughts. Its internal
-thought processes are presented distinctly from 'communication messages' which are clearly visible to the end-user.
-
-LangGraph agents can operate similarly. An LLM call's output can be considered either a communication message, or an internal message.
-
-### Emitting Messages for long running tasks
-
-Sometimes you'll have a task that is running for a long time, and you want the user to be aware of what's happening. By default, LangGraph does not support this, because messages are only emitted on node transitions. However, CopilotKit allows you to accomplish this by using the `copilotkit_emit_message` function.
-
-```python
-async def ask_name_node(state: GreetAgentState, config: RunnableConfig):
-    """
-    Ask the user for their name.
-    """
-
-    content = "Hey, what is your name? 🙂"
-
-    await copilotkit_emit_message(config, content)
-
-    # something long running here...
-
-    return {
-        "messages": AIMessage(content=content),
+    https://mcp.copilotkit.ai/sse
+```
+    For local command-line integrations:
+```json
+    {
+      "command": "npx",
+      "args": ["mcp-remote", "https://mcp.copilotkit.ai"]
     }
 ```
 
-Want some more help managing messages in your CoAgent application? Check out our guide on [emitting messages](/langgraph/advanced/emit-messages).
+### Integration Steps
 
-## Message Flow
-Messages flow between CopilotKit and LangGraph in a specific way:
+1. **Find MCP Settings** - Look for "MCP," "Model Context Protocol," or "Tools" in your application settings
+2. **Add Server** - Use the SSE URL: `https://mcp.copilotkit.ai/sse`
+3. **Test Connection** - Restart your application and verify the server appears in available tools
 
-- All messages from LangGraph are forwarded to CopilotKit
-- On a fresh agent invocation, the full CopilotKit chat history is provided to the LangGraph agent as its pre-existing chat history.
+### Common Configuration Patterns
 
-When a CoAgent completes its execution, its relevant messages become part of CopilotKit's persistent chat history. This allows for all future agent invocations to get context from the full chat history.
+    Many applications use a configuration file (locations vary by app):
+```json
+    {
+      "servers": {
+        "CopilotKit MCP": {
+          "url": "https://mcp.copilotkit.ai/sse"
+        }
+      }
+    }
+```
+    Some apps integrate MCP into their main settings:
+```json
+    {
+      "mcp": {
+        "enabled": true,
+        "servers": {
+          "CopilotKit MCP": {
+            "url": "https://mcp.copilotkit.ai/sse"
+          }
+        }
+      }
+    }
+```
 
-### Terminology
-- Route: `/langgraph/concepts/terminology`
-- Source: `docs/content/docs/integrations/langgraph/concepts/terminology.mdx`
+### Configurable
+- Route: `/langgraph/configurable`
+- Source: `docs/content/docs/integrations/langgraph/configurable.mdx`
+- Description: Using agent execution parameters when communicating with an agent.
 
-Here are the key terms and concepts used throughout CoAgents:
+## What is this?
+LangGraph agents are able to take execution parameters, such as auth tokens and similar properties.
+You can add these using this feature.
 
-| Term | Definition |
-|------|------------|
-| Agentic Copilot | An AI agent designed to collaborate with users in Agent-Native applications, rather than operate autonomously. |
-| CoAgent | Terminology referring to CopilotKit's suite of tools for building agentic applications. Typically interchangeable with agentic copilot. |
-| Agent State | The current data and context maintained by a LangGraph agent during its execution, including both internal state and data that can be synchronized with the frontend UI. |
-| Agentic Generative UI | UI components that are dynamically generated and updated based on the agent's current state, providing users with visibility into what the agent is doing and building trust through transparency. |
-| Ground Truth | In CoAgents, CopilotKit serves as the "ground truth" for the full chat session, maintaining the persistent chat history and ensuring conversational continuity across different agents. |
-| Human-in-the-Loop (HITL) | A workflow pattern where human input or validation is required during agent execution, enabling quality control and oversight at critical decision points. |
-| Intermediate State | The updates to agent state that occur during node execution, rather than only at node transitions, enabling real-time feedback about the agent's progress. |
-| [LangGraph](https://docs.langchain.com/oss/python/langgraph/overview) | The agent framework integrated with CopilotKit that provides the orchestration layer for CoAgents, enabling sophisticated multi-step reasoning and state management. |
-| Agent Lock Mode | A mode where CopilotKit is configured to work exclusively with a specific agent, ensuring all requests stay within a single workflow graph for precise control. |
-| Router Mode | A mode where CopilotKit dynamically routes requests between different agents and tools based on context and user input, enabling flexible multi-agent workflows. |
-| State Streaming | The real-time synchronization of agent state between the backend and frontend, enabling immediate updates to the UI as the agent performs tasks. |
+If you wish to read further, you can refer to [the configuration guide by LangGraph](https://docs.langchain.com/oss/python/langgraph/graph-api#add-runtime-configuration)
 
-These terms are referenced throughout the documentation and are essential for understanding how CoAgents work and how to implement them effectively in your applications.
+## When should I use this?
+
+This is useful when you want to send execution-time configuration information (such as different tokens or metadata for a given session) that should not be part of the agent state.
+
+## Implementation
+
+By default, LangGraph agents are invoked with a `config` argument. This config has a `configurable` property which can be accessed and filled with your data.
+
+### Pass configuration from the frontend
+First, pass the configuration properties as you would like to receive them in the agent
+
+```tsx title="app/page.tsx"
+import { useAgent } from "@copilotkit/react-core/v2"; // [!code highlight]
+
+function YourMainContent() {
+  // ...
+
+  // [!code highlight:3]
+  const { agent } = useAgent({
+    agentId: "sample_agent",
+  });
+
+  // Pass configuration when running the agent
+  // [!code highlight:8]
+  agent.runAgent({
+    forwardedProps: {
+      config: {
+        configurable: {
+          authToken: 'example-token'
+        },
+        recursion_limit: 50,
+      }
+    }
+  });
+
+  // ...
+
+  return (... your component UI markdown)
+}
+```
+### Use configurables in agent
+Now you can simply pull the values from the provided config argument in any agent node
+
+```python
+        async def agent_node(state: AgentState, config: RunnableConfig):
+
+            auth_token = config['configurable'].get('authToken', None)
+
+            return state
+```
+```typescript
+        async function agentNode(state: AgentState, config: RunnableConfig): Promise<AgentState> {
+            const authToken = config.configurable?.authToken ?? null;
+
+            return state;
+        }
+```
+    ### Optional: Define configurables schema
+    If you'd like, you can define a schema to indicate which configurables you wish to receive.
+    Any item passed to "configurables" which is not included in the schema, will be filtered out.
+
+    You can read more about this [here](https://docs.langchain.com/oss/python/langgraph/graph-api#add-runtime-configuration%23define-graph).
+```python
+            from typing import TypedDict
+
+            # define which properties will be allowed in the configuration
+            class ConfigSchema(TypedDict):
+              authToken: str
+
+            # ...add all necessary graph nodes
+
+            # when defining the state graph, apply the config schema
+            workflow = StateGraph(AgentState, config_schema=ConfigSchema)
+```
+```typescript
+            import { Annotation } from "@langchain/langgraph";
+
+            // define which properties will be allowed in the configuration
+            export const ConfigSchemaAnnotation = Annotation.Root({
+              authToken: Annotation<string>
+            })
+
+            // ...add all necessary graph nodes
+
+            // when defining the state graph, apply the config schema
+            const workflow = new StateGraph(AgentStateAnnotation, ConfigSchemaAnnotation)
+```
 
 ### Copilot Runtime
 - Route: `/langgraph/copilot-runtime`
@@ -1725,6 +1860,21 @@ Then point your frontend at the endpoint:
 ```
 
 For setup with other backend frameworks (Express, NestJS, Node.js HTTP), see the [quickstart](/quickstart).
+
+## The Default Agent
+
+If you register an agent with the name `"default"`, CopilotKit's prebuilt UI components will use it automatically without any additional configuration on the frontend. This is useful when you have one primary agent and don't want to specify an `agentId` everywhere.
+
+```ts title="app/api/copilotkit/route.ts"
+const runtime = new CopilotRuntime({
+  agents: {
+    // This agent will be used automatically by CopilotPopup, CopilotSidebar, etc.
+    "default": new HttpAgent({ url: "https://my-agent.example.com" }),
+  },
+});
+```
+
+When you register multiple agents, the `"default"` agent is what powers the chat unless a specific agent is selected. Other agents can still be used by passing their `agentId` to `useAgent` or the prebuilt components.
 
 ## What the Runtime Provides
 
@@ -1779,994 +1929,545 @@ There are important things to understand before going this route:
 | **CopilotKit Support** | Supported | Not supported |
 | **Setup** | Requires a backend endpoint | Frontend-only |
 
-### Custom Sub-Components
-- Route: `/langgraph/custom-look-and-feel/bring-your-own-components`
-- Source: `docs/content/docs/integrations/langgraph/custom-look-and-feel/bring-your-own-components.mdx`
+### Headless UI
+- Route: `/langgraph/custom-look-and-feel/headless-ui`
+- Source: `docs/content/docs/integrations/langgraph/custom-look-and-feel/headless-ui.mdx`
+- Description: Build a completely custom chat interface from scratch using useAgent and useCopilotKit
 
-```tsx
-import { type UserMessageProps } from "@copilotkit/react-ui";
-import { CopilotKit } from "@copilotkit/react-core";
-import { CopilotSidebar } from "@copilotkit/react-ui";
-import "@copilotkit/react-ui/styles.css";
+## What is this?
 
-const CustomUserMessage = (props: UserMessageProps) => {
-  const wrapperStyles = "flex items-center gap-2 justify-end mb-4";
-  const messageStyles = "bg-blue-500 text-white py-2 px-4 rounded-xl break-words flex-shrink-0 max-w-[80%]";
-  const avatarStyles = "bg-blue-500 shadow-sm min-h-10 min-w-10 rounded-full text-white flex items-center justify-center";
+A headless UI gives you full control over the chat experience — you bring your own components, layout, and styling while CopilotKit handles agent communication, message management, and streaming. This is built on top of the same primitives (`useAgent` and `useCopilotKit`) covered in [Programmatic Control](/langgraph/programmatic-control).
 
-  return (
-    <div className={wrapperStyles}>
-      <div className={messageStyles}>{props.message?.content}</div>
-      <div className={avatarStyles}>TS</div>
-    </div>
-  );
-};
+## When should I use this?
 
-<CopilotKit>
-  <CopilotSidebar UserMessage={CustomUserMessage} />
-</CopilotKit>
+Use headless UI when the [slot system](/langgraph/custom-look-and-feel/slots) isn't enough — for example, when you need a completely different layout, want to embed the chat into an existing UI, or are building a non-chat interface that still communicates with an agent.
+
+## Implementation
+
+### Access the agent and CopilotKit
+
+Use `useAgent` to get the agent instance (messages, state, execution status) and `useCopilotKit` to run the agent.
+
+```tsx title="components/custom-chat.tsx"
+import { useAgent } from "@copilotkit/react-core/v2";
+import { useCopilotKit } from "@copilotkit/react-core/v2";
+import { randomUUID } from "@copilotkit/shared/v2";
+
+export function CustomChat() {
+  // [!code highlight:2]
+  const { agent } = useAgent();
+  const { copilotkit } = useCopilotKit();
+
+  return <div>{/* Your custom UI */}</div>;
+}
 ```
-```tsx
-import { type AssistantMessageProps } from "@copilotkit/react-ui";
-import { useChatContext } from "@copilotkit/react-ui";
-import { Markdown } from "@copilotkit/react-ui";
-import { SparklesIcon } from "@heroicons/react/24/outline";
 
-import { CopilotKit } from "@copilotkit/react-core";
-import { CopilotSidebar } from "@copilotkit/react-ui";
-import "@copilotkit/react-ui/styles.css";
+### Display messages
 
-const CustomAssistantMessage = (props: AssistantMessageProps) => {
-  const { icons } = useChatContext();
-  const { message, isLoading, subComponent } = props;
+The agent's messages are available via `agent.messages`. Each message has an `id`, `role` (`"user"` or `"assistant"`), and `content`.
 
-  const avatarStyles = "bg-zinc-400 border-zinc-500 shadow-lg min-h-10 min-w-10 rounded-full text-white flex items-center justify-center";
-  const messageStyles = "px-4 rounded-xl pt-2";
+```tsx title="components/custom-chat.tsx"
+export function CustomChat() {
+  const { agent } = useAgent();
+  const { copilotkit } = useCopilotKit();
 
-  const avatar = <div className={avatarStyles}><SparklesIcon className="h-6 w-6" /></div>
-
-  // [!code highlight:12]
   return (
-    <div className="py-2">
-      <div className="flex items-start">
-        {!subComponent && avatar}
-        <div className={messageStyles}>
-          {message && <Markdown content={message.content || ""} /> }
-          {isLoading && icons.spinnerIcon}
-        </div>
-      </div>
-      <div className="my-2">{subComponent}</div>
-    </div>
-  );
-};
-
-<CopilotKit>
-  <CopilotSidebar AssistantMessage={CustomAssistantMessage} />
-</CopilotKit>
-```
-```tsx
-import { type WindowProps, useChatContext, CopilotSidebar } from "@copilotkit/react-ui";
-import { CopilotKit } from "@copilotkit/react-core";
-import "@copilotkit/react-ui/styles.css";
-function Window({ children }: WindowProps) {
-  const { open, setOpen } = useChatContext();
-
-  if (!open) return null;
-
-  // [!code highlight:15]
-  return (
-    <div 
-      className="fixed inset-0 bg-black/50 flex items-center justify-center p-4"
-      onClick={() => setOpen(false)}
-    >
-      <div 
-        className="bg-white rounded-lg shadow-xl max-w-2xl w-full h-[80vh] overflow-auto"
-        onClick={e => e.stopPropagation()}
-      >
-        <div className="flex flex-col h-full">
-          {children}
-        </div>
+    <div className="flex flex-col h-full">
+      {/* [!code highlight:12] */}
+      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        {agent.messages.map((msg) => (
+          <div
+            key={msg.id}
+            className={msg.role === "user" ? "ml-auto bg-blue-100 rounded-lg p-3 max-w-md" : "bg-gray-100 rounded-lg p-3 max-w-md"}
+          >
+            <p className="text-sm font-medium">{msg.role}</p>
+            <p>{msg.content}</p>
+          </div>
+        ))}
+        {agent.isRunning && <div className="text-gray-400">Thinking...</div>}
       </div>
     </div>
   );
-};
-
-<CopilotKit>
-  <CopilotSidebar Window={Window} />
-</CopilotKit>
+}
 ```
-```tsx
-import { type ButtonProps, useChatContext, CopilotSidebar } from "@copilotkit/react-ui";
-import { CopilotKit } from "@copilotkit/react-core";
-import "@copilotkit/react-ui/styles.css";
-function Button({}: ButtonProps) {
-  const { open, setOpen } = useChatContext();
 
-  const wrapperStyles = "w-24 bg-blue-500 text-white p-4 rounded-lg text-center cursor-pointer";
+### Send messages and run the agent
 
-  // [!code highlight:10]
-  return (
-    <div onClick={() => setOpen(!open)} className={wrapperStyles}>
-      <button
-        className={`${open ? "open" : ""}`}
-        aria-label={open ? "Close Chat" : "Open Chat"}
-      >
-        Ask AI
-      </button>
-    </div>
-  );
-};
+Add a message to the agent's conversation, then call `copilotkit.runAgent()` to trigger execution. This is the same method CopilotKit's built-in `` uses internally.
 
-<CopilotKit>
-  <CopilotSidebar Button={Button} />
-</CopilotKit>
-```
-```tsx
-import { type HeaderProps, useChatContext, CopilotSidebar } from "@copilotkit/react-ui";
-import { BookOpenIcon } from "@heroicons/react/24/outline";
-import { CopilotKit } from "@copilotkit/react-core";
-import "@copilotkit/react-ui/styles.css";
-function Header({}: HeaderProps) {
-  const { setOpen, icons, labels } = useChatContext();
+```tsx title="components/custom-chat.tsx"
+import { useState, useCallback } from "react";
 
-  // [!code highlight:15]
-  return (
-    <div className="flex justify-between items-center p-4 bg-blue-500 text-white">
-      <div className="w-24">
-        <a href="/">
-          <BookOpenIcon className="w-6 h-6" />
-        </a>
-      </div>
-      <div className="text-lg">{labels.title}</div>
-      <div className="w-24 flex justify-end">
-        <button onClick={() => setOpen(false)} aria-label="Close">
-          {icons.headerCloseIcon}
-        </button>
-      </div>
-    </div>
-  );
-};
-
-<CopilotKit>
-  <CopilotSidebar Header={Header} />
-</CopilotKit>
-```
-```tsx
-import { type MessagesProps, CopilotSidebar } from "@copilotkit/react-ui";
-import { CopilotKit } from "@copilotkit/react-core";
-import "@copilotkit/react-ui/styles.css";
-
-export default function CustomMessages({
-  messages,
-  inProgress,
-  RenderMessage,
-}: MessagesProps) {
-  const wrapperStyles = "p-4 flex flex-col gap-2 h-full overflow-y-auto bg-indigo-300";
+export function CustomChat() {
+  const { agent } = useAgent();
+  const { copilotkit } = useCopilotKit();
+  const [input, setInput] = useState("");
 
   // [!code highlight:14]
+  const sendMessage = useCallback(async () => {
+    if (!input.trim()) return;
+
+    agent.addMessage({
+      id: randomUUID(),
+      role: "user",
+      content: input,
+    });
+
+    setInput("");
+
+    await copilotkit.runAgent({ agent });
+  }, [input, agent, copilotkit]);
+
   return (
-    <div className={wrapperStyles}>
-      {messages.map((message, index) => {
-        const isCurrentMessage = index === messages.length - 1;
-        return <RenderMessage
-          key={index}
-          message={message}
-          inProgress={inProgress}
-          index={index}
-          isCurrentMessage={isCurrentMessage}
+    <div className="flex flex-col h-full">
+      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        {agent.messages.map((msg) => (
+          <div key={msg.id} className={msg.role === "user" ? "ml-auto bg-blue-100 rounded-lg p-3 max-w-md" : "bg-gray-100 rounded-lg p-3 max-w-md"}>
+            <p>{msg.content}</p>
+          </div>
+        ))}
+        {agent.isRunning && <div className="text-gray-400">Thinking...</div>}
+      </div>
+
+      {/* [!code highlight:12] */}
+      <form
+        className="border-t p-4 flex gap-2"
+        onSubmit={(e) => { e.preventDefault(); sendMessage(); }}
+      >
+        <input
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          placeholder="Type a message..."
+          className="flex-1 border rounded-lg px-3 py-2"
         />
-      })}
+        <button type="submit" disabled={agent.isRunning}>Send</button>
+      </form>
     </div>
   );
 }
-
-<CopilotKit>
-  <CopilotSidebar Messages={CustomMessages} />
-</CopilotKit>
 ```
-```tsx
-        import { CopilotKit } from "@copilotkit/react-core";
-        import {
-            CopilotSidebar,
-            type CopilotChatSuggestion,
-            RenderSuggestion,
-            type RenderSuggestionsListProps
-        } from "@copilotkit/react-ui";
-        import "@copilotkit/react-ui/styles.css";
 
-        const CustomSuggestionsList = ({ suggestions, onSuggestionClick }: RenderSuggestionsListProps) => {
-            return (
-                <div className="suggestions flex flex-col gap-2 p-4">
-                    <h1>Try asking:</h1>
-                    <div className="flex gap-2">
-                        {suggestions.map((suggestion: CopilotChatSuggestion, index) => (
-                            <RenderSuggestion
-                            key={index}
-                                      title={suggestion.title}
-                                      message={suggestion.message}
-                                      partial={suggestion.partial}
-                                      className="rounded-md border border-gray-500 bg-white px-2 py-1 shadow-md"
-                                      onClick={() => onSuggestionClick(suggestion.message)}
-                            />
-                        ))}
-                    </div>
-                </div>
-            );
-        };
+### Stop the agent
 
-        <CopilotKit>
-            <CopilotSidebar RenderSuggestionsList={CustomSuggestionsList} />
-        </CopilotKit>
+Use `copilotkit.stopAgent()` to cancel a running agent:
+
+```tsx title="components/custom-chat.tsx"
+const stopAgent = useCallback(() => {
+  // [!code highlight:1]
+  copilotkit.stopAgent({ agent });
+}, [agent, copilotkit]);
+
+// In your JSX:
+{agent.isRunning && (
+  <button onClick={stopAgent} className="text-red-500">
+    Stop
+  </button>
+)}
 ```
-```tsx
-import { type InputProps, CopilotSidebar } from "@copilotkit/react-ui";
-import { CopilotKit } from "@copilotkit/react-core";
-import "@copilotkit/react-ui/styles.css";
-function CustomInput({ inProgress, onSend, isVisible }: InputProps) {
-  const handleSubmit = (value: string) => {
-    if (value.trim()) onSend(value);
+
+### Subscribe to agent events
+
+Use `agent.subscribe()` to listen for lifecycle events — useful for showing progress indicators, handling errors, or responding to custom events like LangGraph interrupts.
+
+```tsx title="components/custom-chat.tsx"
+import { useEffect, useState } from "react";
+import type { AgentSubscriber } from "@ag-ui/client";
+
+export function CustomChat() {
+  const { agent } = useAgent();
+  const { copilotkit } = useCopilotKit();
+  const [interrupt, setInterrupt] = useState<string | null>(null);
+
+  // [!code highlight:16]
+  useEffect(() => {
+    const subscriber: AgentSubscriber = {
+      onCustomEvent: ({ event }) => {
+        if (event.name === "on_interrupt") {
+          setInterrupt(event.value);
+        }
+      },
+    };
+
+    const { unsubscribe } = agent.subscribe(subscriber);
+    return () => unsubscribe();
+  }, [agent]);
+
+  const resolveInterrupt = (response: string) => {
+    agent.runAgent({
+      forwardedProps: { command: { resume: response } },
+    });
+    setInterrupt(null);
   };
 
-  const wrapperStyle = "flex gap-2 p-4 border-t";
-  const inputStyle = "flex-1 p-2 rounded-md border border-gray-300 focus:outline-none focus:border-blue-500 disabled:bg-gray-100";
-  const buttonStyle = "px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed";
-
-  // [!code highlight:27]
   return (
-    <div className={wrapperStyle}>
-      <input 
-        disabled={inProgress}
-        type="text" 
-        placeholder="Ask your question here..." 
-        className={inputStyle}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter') {
-            handleSubmit(e.currentTarget.value);
-            e.currentTarget.value = '';
-          }
-        }}
-      />
-      <button 
-        disabled={inProgress}
-        className={buttonStyle}
-        onClick={(e) => {
-          const input = e.currentTarget.previousElementSibling as HTMLInputElement;
-          handleSubmit(input.value);
-          input.value = '';
-        }}
-      >
-        Ask
-      </button>
+    <div>
+      {/* Messages and input... */}
+
+      {interrupt && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center">
+          <div className="bg-white rounded-xl p-6 max-w-md">
+            <p className="font-medium mb-4">{interrupt}</p>
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              const formData = new FormData(e.currentTarget);
+              resolveInterrupt(formData.get("response") as string);
+            }}>
+              <input name="response" className="border rounded px-3 py-2 w-full mb-3" />
+              <button type="submit" className="bg-blue-500 text-white px-4 py-2 rounded">
+                Submit
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
-
-<CopilotKit>
-  <CopilotSidebar Input={CustomInput} />
-</CopilotKit>
 ```
-```tsx
-"use client" // only necessary if you are using Next.js with the App Router.
-import { useCopilotAction } from "@copilotkit/react-core"; 
 
-// Your custom components (examples - implement these in your app)
-import { LoadingView } from "./loading-view"; // Your loading component
-import { CalendarMeetingCardComponent, type CalendarMeetingCardProps } from "./calendar-meeting-card"; // Your meeting card component
+### Access shared state
 
-export function YourComponent() {
-  useCopilotAction({ 
-    name: "showCalendarMeeting",
-    description: "Displays calendar meeting information",
-    parameters: [
-      {
-        name: "date",
-        type: "string",
-        description: "Meeting date (YYYY-MM-DD)",
-        required: true
-      },
-      {
-        name: "time",
-        type: "string",
-        description: "Meeting time (HH:mm)",
-        required: true
-      },
-      {
-        name: "meetingName",
-        type: "string",
-        description: "Name of the meeting",
-        required: false
-      }
-    ],
-    render: ({ status, args }) => {
-      const { date, time, meetingName } = args;
+If your LangGraph agent shares state with the frontend, access it via `agent.state`:
 
-      if (status === 'inProgress') {
-        return <LoadingView />; // Your own component for loading state
-      } else {
-        const meetingProps: CalendarMeetingCardProps = {
-          date: date,
-          time,
-          meetingName
-        };
-        return <CalendarMeetingCardComponent {...meetingProps} />;
-      }
-    },
-  });
+```tsx title="components/custom-chat.tsx"
+export function AgentDashboard() {
+  const { agent } = useAgent();
+
+  // [!code highlight:3]
+  const currentNode = agent.state.currentNode;
+  const progress = agent.state.progress;
+  const results = agent.state.results;
 
   return (
-    <>...</>
+    <div>
+      {currentNode && <div className="text-sm text-gray-500">Current step: {currentNode}</div>}
+      {progress && <div className="w-full bg-gray-200 rounded"><div className="bg-blue-500 h-2 rounded" style={{ width: `${progress}%` }} /></div>}
+      {results && <pre className="bg-gray-50 p-4 rounded">{JSON.stringify(results, null, 2)}</pre>}
+    </div>
   );
 }
 ```
-```tsx
-"use client"; // only necessary if you are using Next.js with the App Router.
 
-import { useCoAgentStateRender } from "@copilotkit/react-core";
-import { Progress } from "./progress";
+## See Also
 
-type AgentState = {
-  logs: string[];
-}
+- [Programmatic Control](/langgraph/programmatic-control) — Full `useAgent` reference and advanced patterns
+- [Component Slots](/langgraph/custom-look-and-feel/slots) — Customize the built-in UI without going fully headless
+- [useAgent API Reference](/reference/v2/hooks/useAgent) — Complete API documentation
 
-useCoAgentStateRender<AgentState>({
-  name: "basic_agent",
-  render: ({ state, nodeName, status }) => {
-    if (!state.logs || state.logs.length === 0) {
-      return null;
-    }
+### Slots
+- Route: `/langgraph/custom-look-and-feel/slots`
+- Source: `docs/content/docs/integrations/langgraph/custom-look-and-feel/slots.mdx`
+- Description: Customize any part of the chat UI by overriding individual sub-components via slots.
 
-    // Progress is a component we are omitting from this example for brevity.
-    return <Progress logs={state.logs} />; 
-  },
-});
-```
-```tsx
-import {
-  type CopilotChatReasoningMessageProps,
-} from "@copilotkit/react-ui";
-import { CopilotKit } from "@copilotkit/react-core";
-import { CopilotSidebar } from "@copilotkit/react-ui";
-import "@copilotkit/react-ui/styles.css";
+## What is this?
 
-function CustomReasoningMessage({
-  message,
-  messages,
-  isRunning,
-}: CopilotChatReasoningMessageProps) {
-  const isLatest = messages?.[messages.length - 1]?.id === message.id;
-  const isStreaming = !!(isRunning && isLatest);
+Every CopilotKit chat component is built from composable **slots** — named sub-components that you can override individually. The slot system gives you three levels of customization without needing to rebuild the entire UI:
 
-  if (!message.content && !isStreaming) return null;
+1. **Tailwind classes** — pass a string to add/override CSS classes
+2. **Props override** — pass an object to override specific props on the default component
+3. **Custom component** — pass your own React component to fully replace a slot
 
-  // [!code highlight:8]
+Slots are recursive — you can drill into nested sub-components at any depth.
+
+## Tailwind Classes
+
+The simplest way to customize a slot. Pass a Tailwind class string and it will be merged with the default component's classes.
+
+```tsx title="page.tsx"
+import { CopilotChat } from "@copilotkit/react-core/v2";
+
+export function Chat() {
   return (
-    <details open={isStreaming} className="my-2 rounded border p-3">
-      <summary className="cursor-pointer font-medium text-sm">
-        {isStreaming ? "🧠 Thinking…" : "💡 View reasoning"}
-      </summary>
-      <p className="mt-2 text-sm text-gray-600 whitespace-pre-wrap">
-        {message.content}
-      </p>
-    </details>
+    <CopilotChat
+      // [!code highlight:2]
+      messageView="bg-gray-50 dark:bg-gray-900 p-4"
+      input="border-2 border-blue-400 rounded-xl"
+    />
   );
 }
-
-<CopilotKit>
-  <CopilotSidebar
-    messageView={{
-      reasoningMessage: CustomReasoningMessage,
-    }}
-  />
-</CopilotKit>
 ```
 
-### Styling Copilot UI
-- Route: `/langgraph/custom-look-and-feel/customize-built-in-ui-components`
-- Source: `docs/content/docs/integrations/langgraph/custom-look-and-feel/customize-built-in-ui-components.mdx`
+## Props Override
 
-CopilotKit has a variety of ways to customize colors and structures of the Copilot UI components.
-- [CSS Variables](#css-variables-easiest)
-- [Custom CSS](#custom-css)
-- [Custom Icons](#custom-icons)
-- [Custom Labels](#custom-labels)
+Pass an object to override specific props on the default component. This is useful for adding `className`, event handlers, data attributes, or any other prop the default component accepts.
 
-If you want to customize the style as well as the functionality of the Copilot UI, you can also try the following:
-- [Custom Sub-Components](/custom-look-and-feel/bring-your-own-components)
-- [Fully Headless UI](/custom-look-and-feel/headless-ui)
-
-## CSS Variables (Easiest)
-The easiest way to change the colors using in the Copilot UI components is to override CopilotKit CSS variables.
-
-  Hover over the interactive UI elements below to see the available CSS variables.
-
-Once you've found the right variable, you can import `CopilotKitCSSProperties` and simply wrap CopilotKit in a div and override the CSS variables.
-
-```tsx
-import { CopilotKitCSSProperties } from "@copilotkit/react-ui";
-
-<div
-  // [!code highlight:5]
-  style={
-    {
-      "--copilot-kit-primary-color": "#222222",
-    } as CopilotKitCSSProperties
-  }
->
-  <CopilotSidebar .../>
-</div>
-```
-
-### Reference
-
-| CSS Variable | Description |
-|-------------|-------------|
-| `--copilot-kit-primary-color` | Main brand/action color - used for buttons, interactive elements |
-| `--copilot-kit-contrast-color` | Color that contrasts with primary - used for text on primary elements |
-| `--copilot-kit-background-color` | Main page/container background color |
-| `--copilot-kit-secondary-color` | Secondary background - used for cards, panels, elevated surfaces |
-| `--copilot-kit-secondary-contrast-color` | Primary text color for main content |
-| `--copilot-kit-separator-color` | Border color for dividers and containers |
-| `--copilot-kit-muted-color` | Muted color for disabled/inactive states |
-
-## Custom CSS
-
-In addition to customizing the colors, the CopilotKit CSS is structured to easily allow customization via CSS classes.
-
-```css title="globals.css"
-.copilotKitButton {
-  border-radius: 0;
-}
-
-.copilotKitMessages {
-  padding: 2rem;
-}
-
-.copilotKitUserMessage {
-  background: #007AFF;
-}
-```
-
-### Reference
-
-For a full list of styles and classes used in CopilotKit, click [here](https://github.com/CopilotKit/CopilotKit/blob/main/src/v1.x/packages/react-ui/src/css/).
-
-| CSS Class | Description |
-|-----------|-------------|
-| `.copilotKitMessages` | Main container for all chat messages with scroll behavior and spacing |
-| `.copilotKitInput` | Text input container with typing area and send button |
-| `.copilotKitUserMessage` | Styling for user messages including background, text color and bubble shape |
-| `.copilotKitAssistantMessage` | Styling for AI responses including background, text color and bubble shape |
-| `.copilotKitHeader` | Top bar of chat window containing title and controls |
-| `.copilotKitButton` | Primary chat toggle button with hover and active states |
-| `.copilotKitWindow` | Root container defining overall chat window dimensions and position |
-| `.copilotKitMarkdown` | Styles for rendered markdown content including lists, links and quotes |
-| `.copilotKitCodeBlock` | Code snippet container with syntax highlighting and copy button |
-| `.copilotKitChat` | Base chat layout container handling positioning and dimensions |
-| `.copilotKitSidebar` | Styles for sidebar chat mode including width and animations |
-| `.copilotKitPopup` | Styles for popup chat mode including position and animations |
-| `.copilotKitButtonIcon` | Icon styling within the main chat toggle button |
-| `.copilotKitButtonIconOpen` `.copilotKitButtonIconClose` | Icon states for when chat is open/closed |
-| `.copilotKitCodeBlockToolbar` | Top bar of code blocks with language and copy controls |
-| `.copilotKitCodeBlockToolbarLanguage` | Language label styling in code block toolbar |
-| `.copilotKitCodeBlockToolbarButtons` | Container for code block action buttons |
-| `.copilotKitCodeBlockToolbarButton` | Individual button styling in code block toolbar |
-| `.copilotKitSidebarContentWrapper` | Inner container for sidebar mode content |
-| `.copilotKitInputControls` | Container for input area buttons and controls |
-| `.copilotKitActivityDot1` `.copilotKitActivityDot2` `.copilotKitActivityDot3` | Animated typing indicator dots |
-| `.copilotKitDevConsole` | Development debugging console container |
-| `.copilotKitDevConsoleWarnOutdated` | Warning styles for outdated dev console |
-| `.copilotKitVersionInfo` | Version information display styles |
-| `.copilotKitDebugMenuButton` | Debug menu toggle button styling |
-| `.copilotKitDebugMenu` | Debug options menu container |
-| `.copilotKitDebugMenuItem` | Individual debug menu option styling |
-
-## Custom Fonts
-You can customize the fonts by updating the `fontFamily` property in the various CSS classes that are used in the CopilotKit.
-
-```css title="globals.css"
-.copilotKitMessages {
-  font-family: "Arial, sans-serif";
-}
-
-.copilotKitInput {
-  font-family: "Arial, sans-serif";
-}
-```
-
-### Reference
-You can update the main content classes to change the font family for the various components.
-
-| CSS Class | Description |
-|-----------|-------------|
-| `.copilotKitMessages` | Main container for all messages |
-| `.copilotKitInput` | The input field |
-| `.copilotKitMessage` | Base styling for all chat messages |
-| `.copilotKitUserMessage` | User messages |
-| `.copilotKitAssistantMessage` | AI responses |
-
-## Custom Icons
-
-You can customize the icons by passing the `icons` property to the `CopilotSidebar`, `CopilotPopup` or `CopilotChat` component.
-
-```tsx
+```tsx title="page.tsx"
 <CopilotChat
-  icons={{
-    // Use your own icons here – any React nodes
-    openIcon: <YourOpenIconComponent />,
-    closeIcon: <YourCloseIconComponent />,
+  // [!code highlight:4]
+  messageView={{
+    className: "my-custom-messages",
+    "data-testid": "message-view",
+  }}
+  input={{ autoFocus: true }}
+/>
+```
+
+## Custom Components
+
+For full control, pass your own React component. It receives all the same props as the default component.
+
+```tsx title="page.tsx"
+import { CopilotChat } from "@copilotkit/react-core/v2";
+
+// [!code highlight:8]
+const CustomMessageView = ({ messages, isRunning }) => (
+  <div className="space-y-4 p-6">
+    {messages?.map((msg) => (
+      <div key={msg.id} className={msg.role === "user" ? "text-right" : "text-left"}>
+        {msg.content}
+      </div>
+    ))}
+    {isRunning && <div className="animate-pulse">Thinking...</div>}
+  </div>
+);
+
+export function Chat() {
+  return (
+    // [!code highlight:1]
+    <CopilotChat messageView={CustomMessageView} />
+  );
+}
+```
+
+## Nested Slots (Drill-Down)
+
+Slots are recursive. You can customize sub-components at any depth by nesting objects.
+
+### Two levels deep
+
+Override the assistant message's toolbar within the message view:
+
+```tsx title="page.tsx"
+<CopilotChat
+  // [!code highlight:7]
+  messageView={{
+    assistantMessage: {
+      toolbar: CustomToolbar,
+      copyButton: CustomCopyButton,
+    },
+    userMessage: CustomUserMessage,
   }}
 />
 ```
 
-### Reference
+### Three levels deep
 
-| Icon | Description |
-|--------------|-------------|
-| `openIcon` | The icon to use for the open chat button |
-| `closeIcon` | The icon to use for the close chat button |
-| `headerCloseIcon` | The icon to use for the close chat button in the header |
-| `sendIcon` | The icon to use for the send button |
-| `activityIcon` | The icon to use for the activity indicator |
-| `spinnerIcon` | The icon to use for the spinner |
-| `stopIcon` | The icon to use for the stop button |
-| `regenerateIcon` | The icon to use for the regenerate button |
-| `pushToTalkIcon` | The icon to use for push to talk |
+Override a specific button inside the assistant message toolbar:
 
-## Custom Labels
-
-To customize labels, pass the `labels` property to the `CopilotSidebar`, `CopilotPopup` or `CopilotChat` component.
-
-```tsx
+```tsx title="page.tsx"
 <CopilotChat
-  labels={{
-    initial: "Hello! How can I help you today?",
-    title: "My Copilot",
-    placeholder: "Ask me anything!",
-    stopGenerating: "Stop",
-    regenerateResponse: "Regenerate",
-  }} 
+  messageView={{
+    // [!code highlight:5]
+    assistantMessage: {
+      copyButton: ({ onClick }) => (
+        <button onClick={onClick}>Copy</button>
+      ),
+    },
+  }}
 />
 ```
 
-### Reference
+### Input sub-slots
 
-| Label | Description |
-|---------------|-------------|
-| `initial` | The initial message(s) to display in the chat window |
-| `title` | The title to display in the header |
-| `placeholder` | The placeholder to display in the input |
-| `stopGenerating` | The label to display on the stop button |
-| `regenerateResponse` | The label to display on the regenerate button |
-
-### Fully Headless UI
-- Route: `/langgraph/custom-look-and-feel/headless-ui`
-- Source: `docs/content/docs/integrations/langgraph/custom-look-and-feel/headless-ui.mdx`
-- Description: Fully customize your Copilot's UI from the ground up using headless UI
-
-```bash
-    npx copilotkit@latest create
+```tsx title="page.tsx"
+<CopilotChat
+  input={{
+    // [!code highlight:2]
+    textArea: CustomTextArea,
+    sendButton: CustomSendButton,
+  }}
+/>
 ```
-```bash
-    open README.md
+
+### Scroll view sub-slots
+
+```tsx title="page.tsx"
+<CopilotChat
+  scrollView={{
+    // [!code highlight:2]
+    feather: CustomFeather,
+    scrollToBottomButton: CustomScrollButton,
+  }}
+/>
 ```
-```tsx title="src/app/layout.tsx"
-    <CopilotKit
-      publicLicenseKey="your-free-public-license-key"
-    >
-      {children}
-    </CopilotKit>
+
+### Suggestion view sub-slots
+
+```tsx title="page.tsx"
+<CopilotChat
+  suggestionView={{
+    // [!code highlight:2]
+    suggestion: CustomSuggestionPill,
+    container: CustomSuggestionContainer,
+  }}
+/>
 ```
-```tsx title="src/app/page.tsx"
-    "use client";
-    import { useState } from "react";
-    import { useCopilotChatHeadless_c } from "@copilotkit/react-core"; // [!code highlight]
 
-    export default function Home() {
-      const { messages, sendMessage, isLoading } = useCopilotChatHeadless_c(); // [!code highlight]
-      const [input, setInput] = useState("");
+## Children Render Function
 
-      const handleSend = () => {
-        if (input.trim()) {
-          // [!code highlight:5]
-          sendMessage({
-            id: Date.now().toString(),
-            role: "user",
-            content: input,
-          });
-          setInput("");
-        }
-      };
+For complete layout control, use the `children` render function pattern. This gives you pre-built slot elements that you can arrange however you want.
 
-      return (
-        <div>
-          <h1>My Headless Chat</h1>
+```tsx title="page.tsx"
+import { CopilotChat } from "@copilotkit/react-core/v2";
 
-          {/* Messages */}
-          <div>
-            {/* [!code highlight:6] */}
-            {messages.map((message) => (
-              <div key={message.id}>
-                <strong>{message.role === "user" ? "You" : "Assistant"}:</strong>
-                <p>{message.content}</p>
-              </div>
-            ))}
-
-            {/* [!code highlight:1] */}
-            {isLoading && <p>Assistant is typing...</p>}
-          </div>
-
-          {/* Input */}
-          <div>
-            <input
-              type="text"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              // [!code highlight:1]
-              onKeyDown={(e) => e.key === "Enter" && handleSend()}
-              placeholder="Type your message here..."
-            />
-            {/* [!code highlight:1] */}
-            <button onClick={handleSend} disabled={isLoading}>
-              Send
-            </button>
-          </div>
-        </div>
-      );
-    }
-```
-```tsx title="src/app/components/chat.tsx"
-import { useCopilotAction } from "@copilotkit/react-core";
-
-export const Chat = () => {
-  // ...
-
-  // Define an action that will show a custom component
-  useCopilotAction({
-    name: "showCustomComponent",
-    // Handle the tool on the frontend
-    // [!code highlight:3]
-    handler: () => {
-      return "Foo, Bar, Baz";
-    },
-    // Render a custom component for the underlying data
-    // [!code highlight:13]
-    render: ({ result, args, status}) => {
-      return <div style={{
-        backgroundColor: "red",
-        padding: "10px",
-        borderRadius: "5px",
-      }}>
-        <p>Custom component</p>
-        <p>Result: {result}</p>
-        <p>Args: {JSON.stringify(args)}</p>
-        <p>Status: {status}</p>
-      </div>;
-    }
-  });
-
-  // ...
-
-  return <div>
-    {messages.map((message) => (
-      <p key={message.id}>
-        {message.role === "user" ? "User: " : "Assistant: "}
-        {message.content}
-        {/* Render the generative UI if it exists */}
-        {/* [!code highlight:1] */}
-        {message.role === "assistant" && message.generativeUI?.()}
-      </p>
-    ))}
-  </div>
-};
-```
-```tsx title="src/app/components/chat.tsx"
-export const Chat = () => {
-  // ...
-
-  return <div>
-    {messages.map((message) => (
-      <p key={message.id}>
-        {/* Render the tool calls if they exist */}
-        {/* [!code highlight:5] */}
-        {message.role === "assistant" && message.toolCalls?.map((toolCall) => (
-          <p key={toolCall.id}>
-            {toolCall.function.name}: {toolCall.function.arguments}
-          </p>
-        ))}
-      </p>
-    ))}
-  </div>
-};
-```
-```tsx title="src/app/components/chat.tsx"
-import { useCopilotChatHeadless_c, useCopilotChatSuggestions } from "@copilotkit/react-core"; // [!code highlight]
-
-export const Chat = () => {
-  // Specify what suggestions should be generated
-  // [!code highlight:5]
-  useCopilotChatSuggestions({
-    instructions:
-      "Suggest 5 interesting activities for programmers to do on their next vacation",
-    maxSuggestions: 5,
-  });
-
-  // Grab relevant state from the headless hook
-  const { suggestions, generateSuggestions, sendMessage } = useCopilotChatHeadless_c(); // [!code highlight]
-
-  // Generate suggestions when the component mounts
-  useEffect(() => {
-    generateSuggestions(); // [!code highlight]
-  }, []);
-
-  // ...
-
-  // [!code word:suggestion]
-  return <div>
-    {suggestions.map((suggestion, index) => (
-      <button
-        key={index}
-        onClick={() => sendMessage({
-          id: "123",
-          role: "user",
-          content: suggestion.message
-        })}
-      >
-        {suggestion.title}
-      </button>
-    ))}
-  </div>
-};
-```
-```tsx title="src/app/components/chat.tsx"
-import { useCopilotChatHeadless_c } from "@copilotkit/react-core";
-
-export const Chat = () => {
-  // Grab relevant state from the headless hook
-  // [!code highlight:1]
-  const { suggestions, setSuggestions } = useCopilotChatHeadless_c();
-
-  // Set the suggestions when the component mounts
-  // [!code highlight:6]
-  useEffect(() => {
-    setSuggestions([
-      { title: "Suggestion 1", message: "The actual message for suggestion 1" },
-      { title: "Suggestion 2", message: "The actual message for suggestion 2" },
-    ]);
-  }, []);
-
-  // Change the suggestions on function call
-  const changeSuggestions = () => {
-    // [!code highlight:4]
-    setSuggestions([
-      { title: "Foo", message: "Bar" },
-      { title: "Baz", message: "Bat" },
-    ]);
-  };
-
-  // [!code word:suggestion]
+export function Chat() {
   return (
-    <div>
-      {/* Change on button click */}
-      <button onClick={changeSuggestions}>Change suggestions</button>
-
-      {/* Render */}
-      {suggestions.map((suggestion, index) => (
-        <button
-          key={index}
-          onClick={() => sendMessage({
-            id: "123",
-            role: "user",
-            content: suggestion.message
-          })}
-        >
-          {suggestion.title}
-        </button>
-      ))}
-    </div>
+    <CopilotChat>
+      {/* [!code highlight:8] */}
+      {({ messageView, input, scrollView, suggestionView }) => (
+        <div className="flex flex-col h-full">
+          <header className="p-4 border-b font-semibold">My Agent</header>
+          {scrollView}
+          <div className="border-t p-4">{input}</div>
+        </div>
+      )}
+    </CopilotChat>
   );
-};
-```
-```tsx title="src/app/components/chat.tsx"
-import { useCopilotAction, useCopilotChatHeadless_c } from "@copilotkit/react-core";
-
-export const Chat = () => {
-  const { messages, sendMessage } = useCopilotChatHeadless_c();
-
-  // Define an action that will wait for the user to enter their name
-  useCopilotAction({
-    name: "getName",
-    renderAndWaitForResponse: ({ respond, args, status}) => {
-      if (status === "complete") {
-        return <div>
-          <p>Name retrieved...</p>
-        </div>;
-      }
-
-      return <div>
-        <input
-          type="text"
-          value={args.name || ""}
-          onChange={(e) => respond?.(e.target.value)}
-          placeholder="Enter your name"
-        />
-        {/* Respond with the name */}
-        {/* [!code highlight:1] */}
-        <button onClick={() => respond?.(args.name)}>Submit</button>
-      </div>;
-    }
-  });
-
-  return (
-    {messages.map((message) => (
-      <p key={message.id}>
-        {message.role === "user" ? "User: " : "Assistant: "}
-        {message.content}
-        {/* [!code highlight:2] */}
-        {/* This will render the tool-based HITL if it exists */}
-        {message.role === "assistant" && message.generativeUI?.()}
-      </p>
-    ))}
-  )
-};
-```
-
-### Interrupt-based
-LangGraph allows for you to interrupt the chat and wait for a human's response via an event. This is useful for
-when you want to pause your LangGraph agent at specific points to solicit feedback or information from the user.
-
-When using the `useCopilotChatHeadless_c` hook, you can use the `interrupt` function to interrupt the chat.
-
-```tsx title="src/app/components/chat.tsx"
-import { useLangGraphInterrupt, useCopilotChatHeadless_c } from "@copilotkit/react-core";
-
-export const Chat = () => {
-  const { messages, sendMessage, interrupt } = useCopilotChatHeadless_c();
-
-  useLangGraphInterrupt({
-    render: ({ event, resolve, result }) => {
-      return (
-        <div>
-          <p>LangGraph Interrupt</p>
-          <p>Event: {event.value}</p>
-          <button onClick={() => resolve("the secret is 1234")}>Resolve</button>
-        </div>
-      );
-    },
-  });
-
-  return (
-    <div>
-      {interrupt}
-    </div>
-  )
-};
-```
-
-### Markdown rendering
-- Route: `/langgraph/custom-look-and-feel/markdown-rendering-coagents_custom-look-and-feel`
-- Source: `docs/content/docs/integrations/langgraph/custom-look-and-feel/markdown-rendering-coagents_custom-look-and-feel.mdx`
-
-```tsx
-import { CopilotKit } from "@copilotkit/react-core";
-import { CopilotSidebar, ComponentsMap } from "@copilotkit/react-ui";
-import "@copilotkit/react-ui/styles.css";
-// We will include the styles in a separate css file, for convenience
-import "./styles.css";
-
-function YourComponent() {
-    const customMarkdownTagRenderers: ComponentsMap<{ "reference-chip": { href: string } }> = {
-        // You can make up your own tags, or use existing, valid HTML ones!
-        "reference-chip": ({ children, href }) => {
-            return (
-                <a
-                href={href}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="w-fit border rounded-xl py-1 px-2 text-xs" // Classes list trimmed for brevity
-                >
-                    {children}
-                    <LinkIcon className="w-3.5 h-3.5" />
-                </a>
-            );
-        },
-    };
-
-    return (
-        <CopilotKit>
-          <CopilotSidebar
-            // For demonstration, we'll force the LLM to return our reference chip in every message
-            instructions={`
-                You are a helpful assistant.
-                End each message with a reference chip,
-                like so: <reference-chip href={href}>{title}</reference-chip>
-            `}
-            markdownTagRenderers={customMarkdownTagRenderers}
-          />
-        </CopilotKit>
-    )
-}
-```
-```css
-.reference-chip {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    background-color: #f0f1f2;
-    color: #444;
-    border-radius: 12px;
-    padding: 2px 8px;
-    font-size: 0.8rem;
-    font-weight: 500;
-    text-decoration: none;
-    margin: 0 2px;
-    border: 1px solid #e0e0e0;
-    cursor: pointer;
-    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
 }
 ```
 
-### Markdown rendering
-- Route: `/langgraph/custom-look-and-feel/markdown-rendering`
-- Source: `docs/content/docs/integrations/langgraph/custom-look-and-feel/markdown-rendering.mdx`
+## Labels
 
-```tsx
-import { CopilotKit } from "@copilotkit/react-core";
-import { CopilotSidebar, ComponentsMap } from "@copilotkit/react-ui";
-import "@copilotkit/react-ui/styles.css";
-// We will include the styles in a separate css file, for convenience
-import "./styles.css";
+Customize any text string in the UI via the `labels` prop. This does not use the slot system — it's a separate convenience prop on `CopilotChat`, `CopilotSidebar`, and `CopilotPopup`.
 
-function YourComponent() {
-    const customMarkdownTagRenderers: ComponentsMap<{ "reference-chip": { href: string } }> = {
-        // You can make up your own tags, or use existing, valid HTML ones!
-        "reference-chip": ({ children, href }) => {
-            return (
-                <a
-                href={href}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="w-fit border rounded-xl py-1 px-2 text-xs" // Classes list trimmed for brevity
-                >
-                    {children}
-                    <LinkIcon className="w-3.5 h-3.5" />
-                </a>
-            );
-        },
-    };
-
-    return (
-        <CopilotKit>
-          <CopilotSidebar
-            // For demonstration, we'll force the LLM to return our reference chip in every message
-            instructions={`
-                You are a helpful assistant.
-                End each message with a reference chip,
-                like so: <reference-chip href={href}>{title}</reference-chip>
-            `}
-            markdownTagRenderers={customMarkdownTagRenderers}
-          />
-        </CopilotKit>
-    )
-}
+```tsx title="page.tsx"
+<CopilotChat
+  // [!code highlight:5]
+  labels={{
+    chatInputPlaceholder: "Ask your agent anything...",
+    welcomeMessageText: "How can I help you today?",
+    chatDisclaimerText: "AI responses may be inaccurate.",
+  }}
+/>
 ```
-```css
-.reference-chip {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    background-color: #f0f1f2;
-    color: #444;
-    border-radius: 12px;
-    padding: 2px 8px;
-    font-size: 0.8rem;
-    font-weight: 500;
-    text-decoration: none;
-    margin: 0 2px;
-    border: 1px solid #e0e0e0;
-    cursor: pointer;
-    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
-}
-```
+
+## Available Slots
+
+### `CopilotChat` / `CopilotSidebar` / `CopilotPopup`
+
+These are the root-level slot props available on all chat components:
+
+| Slot | Description |
+|------|-------------|
+| `messageView` | The message list container. |
+| `scrollView` | The scroll container with auto-scroll behavior. |
+| `input` | The text input area with send/transcribe controls. |
+| `suggestionView` | The suggestion pills shown below messages. |
+| `welcomeScreen` | The initial empty-state screen (pass `false` to disable). |
+
+`CopilotSidebar` and `CopilotPopup` also have:
+
+| Slot | Description |
+|------|-------------|
+| `header` | The modal header bar. |
+| `toggleButton` | The open/close toggle button. |
+
+### `messageView` sub-slots
+
+Available via `messageView={{ ... }}`:
+
+| Slot | Description |
+|------|-------------|
+| `assistantMessage` | Renders assistant responses. Has its own sub-slots (see below). |
+| `userMessage` | Renders user messages. Has its own sub-slots (see below). |
+| `reasoningMessage` | Renders model reasoning/thinking steps. Has its own sub-slots (see below). |
+| `cursor` | The streaming cursor indicator shown while the agent is responding. |
+
+### `assistantMessage` sub-slots
+
+Available via `messageView={{ assistantMessage: { ... } }}`:
+
+| Slot | Description |
+|------|-------------|
+| `markdownRenderer` | The markdown rendering component. |
+| `toolbar` | The action toolbar below messages. |
+| `copyButton` | Copy message button. |
+| `thumbsUpButton` | Thumbs up feedback button. |
+| `thumbsDownButton` | Thumbs down feedback button. |
+| `readAloudButton` | Read aloud button. |
+| `regenerateButton` | Regenerate response button. |
+| `toolCallsView` | Tool call visualization. |
+
+### `userMessage` sub-slots
+
+Available via `messageView={{ userMessage: { ... } }}`:
+
+| Slot | Description |
+|------|-------------|
+| `messageRenderer` | The text rendering component for user messages. |
+| `toolbar` | The action toolbar on hover. |
+| `copyButton` | Copy message button. |
+| `editButton` | Edit message button. |
+| `branchNavigation` | Navigation between message branches (after editing). |
+
+### `reasoningMessage` sub-slots
+
+Available via `messageView={{ reasoningMessage: { ... } }}`:
+
+| Slot | Description |
+|------|-------------|
+| `header` | The collapsible header (click to expand/collapse). |
+| `contentView` | The reasoning content area. |
+| `toggle` | The expand/collapse toggle wrapper. |
+
+### `input` sub-slots
+
+Available via `input={{ ... }}`:
+
+| Slot | Description |
+|------|-------------|
+| `textArea` | The text input element. |
+| `sendButton` | The send/submit button. |
+| `addMenuButton` | The attachment/tools menu button. |
+| `startTranscribeButton` | Button to start voice transcription. |
+| `cancelTranscribeButton` | Button to cancel transcription. |
+| `finishTranscribeButton` | Button to finish transcription. |
+| `audioRecorder` | The audio recorder component. |
+| `disclaimer` | The disclaimer text below the input. |
+
+### `scrollView` sub-slots
+
+Available via `scrollView={{ ... }}`:
+
+| Slot | Description |
+|------|-------------|
+| `feather` | The gradient overlay at the bottom of the scroll area. |
+| `scrollToBottomButton` | The button that appears when scrolled up. |
+
+### `suggestionView` sub-slots
+
+Available via `suggestionView={{ ... }}`:
+
+| Slot | Description |
+|------|-------------|
+| `suggestion` | Individual suggestion pill/button. |
+| `container` | The container wrapping all suggestion pills. |
+
+### `welcomeScreen` sub-slots
+
+Available via `welcomeScreen={{ ... }}`:
+
+| Slot | Description |
+|------|-------------|
+| `welcomeMessage` | The welcome text shown on the empty state. |
+
+### `header` sub-slots (Sidebar/Popup only)
+
+Available via `header={{ ... }}`:
+
+| Slot | Description |
+|------|-------------|
+| `titleContent` | The title text in the header. |
+| `closeButton` | The close/minimize button. |
+
+### `toggleButton` sub-slots (Sidebar/Popup only)
+
+Available via `toggleButton={{ ... }}`:
+
+| Slot | Description |
+|------|-------------|
+| `openIcon` | Icon shown when the chat is closed. |
+| `closeIcon` | Icon shown when the chat is open. |
 
 ### Deep Agents
 - Route: `/langgraph/deep-agents`
@@ -2813,7 +2514,7 @@ Before you begin, you'll need the following:
                     return f"The weather in {location} is sunny."
 
                 agent = create_deep_agent(
-                    model="openai:gpt-4o",
+                    model="openai:gpt-5.2",
                     tools=[get_weather],
                     middleware=[CopilotKitMiddleware()], # for frontend tools and context
                     system_prompt="You are a helpful research assistant.",
@@ -2861,7 +2562,7 @@ Before you begin, you'll need the following:
                     return f"The weather in {location} is sunny."
 
                 agent = create_deep_agent(
-                    model="openai:gpt-4o",
+                    model="openai:gpt-5.2",
                     tools=[get_weather],
                     middleware=[CopilotKitMiddleware()], # for frontend tools and context
                     system_prompt="You are a helpful research assistant.",
@@ -2993,8 +2694,8 @@ Before you begin, you'll need the following:
 
 ```tsx title="app/layout.tsx"
         // [!code highlight:2]
-        import { CopilotKit } from "@copilotkit/react-core";
-        import "@copilotkit/react-ui/styles.css";
+        import { CopilotKit } from "@copilotkit/react-core/v2";
+        import "@copilotkit/react-ui/v2/styles.css";
 
         // ...
 
@@ -3018,8 +2719,8 @@ Before you begin, you'll need the following:
 ```tsx title="app/page.tsx"
     "use client";
 
-    import { CopilotSidebar } from "@copilotkit/react-ui"; 
-    import { useDefaultTool } from "@copilotkit/react-core";
+    import { CopilotSidebar } from "@copilotkit/react-core/v2";
+    import { useDefaultTool } from "@copilotkit/react-core/v2";
 
     export default function Page() {
         useDefaultTool({
@@ -3078,30 +2779,27 @@ Before you begin, you'll need the following:
 ```
 
 ### Frontend Tools
-- Route: `/langgraph/frontend-actions`
-- Source: `docs/content/docs/integrations/langgraph/frontend-actions.mdx`
+- Route: `/langgraph/frontend-tools`
+- Source: `docs/content/docs/integrations/langgraph/frontend-tools.mdx`
 - Description: Create frontend tools and use them within your LangGraph agent.
 
 ```tsx title="page.tsx"
-        import { useFrontendTool } from "@copilotkit/react-core" // [!code highlight]
+        import { z } from "zod";
+        import { useFrontendTool } from "@copilotkit/react-core/v2" // [!code highlight]
 
         export function Page() {
           // ...
 
-          // [!code highlight:15]
+          // [!code highlight:12]
           useFrontendTool({
             name: "sayHello",
             description: "Say hello to the user",
-            parameters: [
-              {
-                name: "name",
-                type: "string",
-                description: "The name of the user to say hello to",
-                required: true,
-              },
-            ],
+            parameters: z.object({
+              name: z.string().describe("The name of the user to say hello to"),
+            }),
             handler: async ({ name }) => {
               alert(`Hello, ${name}!`);
+              return `Said hello to ${name}!`;
             },
           });
 
@@ -3125,16 +2823,14 @@ Before you begin, you'll need the following:
                 export type YourAgentState = typeof YourAgentStateAnnotation.State;
 ```
 
-### Agent State
-- Route: `/langgraph/generative-ui/agentic`
-- Source: `docs/content/docs/integrations/langgraph/generative-ui/agentic.mdx`
-- Description: Render the state of your agent with custom UI components.
+### State Rendering
+- Route: `/langgraph/generative-ui/state-rendering`
+- Source: `docs/content/docs/integrations/langgraph/generative-ui/state-rendering.mdx`
+- Description: Render your agent's state with custom UI components in real-time.
 
 ```python title="agent.py"
-          from copilotkit import CopilotKitState # extends MessagesState
+          from copilotkit import CopilotKitState
 
-          # This is the state of the agent, we inherit from CopilotKitState to bind in
-          # useful helpers when interacting with the agent via CopilotKit.
           class AgentState(CopilotKitState):
               searches: list[dict]
 ```
@@ -3142,29 +2838,15 @@ Before you begin, you'll need the following:
           import { Annotation } from "@langchain/langgraph";
           import { CopilotKitStateAnnotation } from "@copilotkit/sdk-js/langgraph";
 
-          // This is the state of the agent, we inherit from CopilotKitState to bind in
-          // useful helpers when interacting with the agent via CopilotKit.
           export const AgentStateAnnotation = Annotation.Root({
-            searches: Annotation<object[]>,
+            searches: Annotation<{ query: string; done: boolean }[]>,
             ...CopilotKitStateAnnotation.spec,
           });
           export type AgentState = typeof AgentStateAnnotation.State;
 ```
 ```python title="agent.py"
         import asyncio
-        from typing import TypedDict
-        from langchain_core.runnables import RunnableConfig
-        from langchain_openai import ChatOpenAI
-        from langchain_core.messages import SystemMessage
-        from copilotkit import CopilotKitState
         from copilotkit.langgraph import copilotkit_emit_state # [!code highlight]
-
-        class Searches(TypedDict):
-            query: str
-            done: bool
-
-        class AgentState(CopilotKitState):
-            searches: list[Searches] = []
 
         async def chat_node(state: AgentState, config: RunnableConfig):
             state["searches"] = [
@@ -3172,43 +2854,21 @@ Before you begin, you'll need the following:
                 {"query": "Retrieving sources", "done": False},
                 {"query": "Forming an answer", "done": False},
             ]
+            await copilotkit_emit_state(config, state) # [!code highlight]
 
-            # [!code highlight:3]
-            # We can call copilotkit_emit_state to emit updated state
-            # before a node finishes
-            await copilotkit_emit_state(config, state)
-
-            # Simulate state updates
             for search in state["searches"]:
                 await asyncio.sleep(1)
                 search["done"] = True
+                await copilotkit_emit_state(config, state) # [!code highlight]
 
-                # [!code highlight:2]
-                # We can also emit updates in a loop to simulate progress
-                await copilotkit_emit_state(config, state)
-
-            # Run the model to generate a response
-            response = await ChatOpenAI(model="gpt-4o").ainvoke([
-                SystemMessage(content="You are a helpful assistant."),
-                *state["messages"],
-            ], config)
+            response = await ChatOpenAI(model="gpt-5.2").ainvoke(
+                [SystemMessage(content="You are a helpful assistant."), *state["messages"]],
+                config,
+            )
+            return {**state, "messages": response}
 ```
 ```typescript title="agent-js/src/agent.ts"
-        import { RunnableConfig } from "@langchain/core/runnables";
-        import { ChatOpenAI } from "@langchain/openai";
-        import { Annotation } from "@langchain/langgraph";
-        import { SystemMessage } from "@langchain/core/messages";
-        import { copilotkitEmitState, CopilotKitStateAnnotation } from "@copilotkit/sdk-js/langgraph";
-
-        type Search = {
-          query: string;
-          done: boolean;
-        }
-
-        export const AgentStateAnnotation = Annotation.Root({
-          searches: Annotation<Search[]>,
-          ...CopilotKitStateAnnotation.spec,
-        });
+        import { copilotkitEmitState } from "@copilotkit/sdk-js/langgraph"; // [!code highlight]
 
         async function chat_node(state: AgentState, config: RunnableConfig) {
           state.searches = [
@@ -3216,103 +2876,47 @@ Before you begin, you'll need the following:
             { query: "Retrieving sources", done: false },
             { query: "Forming an answer", done: false },
           ];
+          await copilotkitEmitState(config, state); // [!code highlight]
 
-          // [!code highlight:3]
-          // We can call copilotkit_emit_state to emit updated state
-          // before a node finishes
-          await copilotkitEmitState(config, state);
-
-          // Simulate state updates
           for (const search of state.searches) {
             await new Promise(resolve => setTimeout(resolve, 1000));
             search.done = true;
-
-            // [!code highlight:2]
-            // We can also emit updates in a loop to simulate progress
-            await copilotkitEmitState(config, state);
+            await copilotkitEmitState(config, state); // [!code highlight]
           }
 
-          const response = await new ChatOpenAI({ model: "gpt-4o" }).invoke([
-            new SystemMessage({ content: "You are a helpful assistant."}),
-            ...state.messages,
-          ], config);
+          const response = await new ChatOpenAI({ model: "gpt-5.2" }).invoke(
+            [new SystemMessage("You are a helpful assistant."), ...state.messages],
+            config,
+          );
+          return { ...state, messages: response };
+        }
 ```
 ```tsx title="app/page.tsx"
-    import { useCoAgentStateRender } from "@copilotkit/react-core";
-
-    // For type safety, redefine the state of the agent. If you're using
-    // using LangGraph JS you can import the type here and share it.
-    type AgentState = {
-      searches: {
-        query: string;
-        done: boolean;
-      }[];
-    };
+    import { useAgent } from "@copilotkit/react-core/v2"; // [!code highlight]
 
     function YourMainContent() {
-      // ...
-
-      // [!code highlight:13]
-      // styles omitted for brevity
-      useCoAgentStateRender<AgentState>({
-        name: "sample_agent", // the name the agent is served as
-        render: ({ state }) => (
-          <div>
-            {state.searches?.map((search, index) => (
-              <div key={index}>
-                {search.done ? "✅" : "❌"} {search.query}{search.done ? "" : "..."}
-              </div>
-            ))}
-          </div>
-        ),
+      // [!code highlight:3]
+      const { agent } = useAgent({
+        agentId: "sample_agent",
       });
 
-      // ...
-
-      return <div>...</div>;
-    }
-```
-```tsx title="app/page.tsx"
-    import { useCoAgent } from "@copilotkit/react-core"; // [!code highlight]
-    // ...
-
-    // Define the state of the agent, should match the state of the agent in your LangGraph.
-    type AgentState = {
-      searches: {
-        query: string;
-        done: boolean;
-      }[];
-    };
-
-    function YourMainContent() {
-      // ...
-
-      // [!code highlight:3]
-      const { state } = useCoAgent<AgentState>({
-        name: "sample_agent", // the name the agent is served as
-      })
-
-      // ...
+      const searches = agent.state.searches as { query: string; done: boolean }[] ?? [];
 
       return (
         <div>
-          {/* ... */}
-          <div className="flex flex-col gap-2 mt-4">
-            {/* [!code highlight:5] */}
-            {state.searches?.map((search, index) => (
-              <div key={index} className="flex flex-row">
-                {search.done ? "✅" : "❌"} {search.query}
-              </div>
-            ))}
-          </div>
+          {searches.map((search, index) => (
+            <div key={index}>
+              {search.done ? "✅" : "⏳"} {search.query}
+            </div>
+          ))}
         </div>
-      )
+      );
     }
 ```
 
-### Backend Tools
-- Route: `/langgraph/generative-ui/backend-tools`
-- Source: `docs/content/docs/integrations/langgraph/generative-ui/backend-tools.mdx`
+### Tool Rendering
+- Route: `/langgraph/generative-ui/tool-rendering`
+- Source: `docs/content/docs/integrations/langgraph/generative-ui/tool-rendering.mdx`
 - Description: Render your agent's tool calls with custom UI components.
 
 ```python title="agent.py"
@@ -3331,7 +2935,7 @@ Before you begin, you'll need the following:
         # ...
 
         async def chat_node(state: AgentState, config: RunnableConfig):
-            model = ChatOpenAI(model="gpt-4o")
+            model = ChatOpenAI(model="gpt-5.2")
             model_with_tools = model.bind_tools([get_weather]) # [!code highlight]
 
             response = await model_with_tools.ainvoke([
@@ -3361,7 +2965,7 @@ Before you begin, you'll need the following:
         );
 
         async function chat_node(state: AgentState, config: RunnableConfig) {
-          const model = new ChatOpenAI({ temperature: 0, model: "gpt-4o" });
+          const model = new ChatOpenAI({ temperature: 0, model: "gpt-5.2" });
           const modelWithTools = model.bindTools([get_weather]); // [!code highlight]
 
           const response = await modelWithTools.invoke([
@@ -3373,19 +2977,25 @@ Before you begin, you'll need the following:
         }
 ```
 ```tsx title="app/page.tsx"
-import { useRenderToolCall } from "@copilotkit/react-core"; // [!code highlight]
+import { useRenderTool } from "@copilotkit/react-core/v2"; // [!code highlight]
+import { z } from "zod";
 // ...
+
+const weatherParams = z.object({
+  location: z.string().describe("The location to get weather for"),
+});
 
 const YourMainContent = () => {
   // ...
-  // [!code highlight:12]
-  useRenderToolCall({
+  // [!code highlight:14]
+  useRenderTool({
     name: "get_weather",
-    render: ({status, args}) => {
+    parameters: weatherParams,
+    render: ({ status, parameters }) => {
       return (
         <p className="text-gray-500 mt-2">
           {status !== "complete" && "Calling weather API..."}
-          {status === "complete" && `Called the weather API for ${args.location}.`}
+          {status === "complete" && `Called the weather API for ${parameters.location}.`}
         </p>
       );
     },
@@ -3394,199 +3004,104 @@ const YourMainContent = () => {
 }
 ```
 
-### Frontend Tools
-- Route: `/langgraph/generative-ui/frontend-tools`
-- Source: `docs/content/docs/integrations/langgraph/generative-ui/frontend-tools.mdx`
-- Description: Create frontend tools and use them within your LangGraph agent.
+### Display-only
+- Route: `/langgraph/generative-ui/your-components/display-only`
+- Source: `docs/content/docs/integrations/langgraph/generative-ui/your-components/display-only.mdx`
+- Description: Register React components that your agent can render in the chat.
 
-```tsx title="page.tsx"
-        import { useFrontendTool } from "@copilotkit/react-core" // [!code highlight]
-
-        export function Page() {
-          // ...
-
-          // [!code highlight:25]
-          useFrontendTool({
-            name: "sayHello",
-            description: "Say hello to the user",
-            parameters: [
-              {
-                name: "name",
-                type: "string",
-                description: "The name of the user to say hello to",
-                required: true,
-              },
-            ],
-            handler({ name }) {
-              // Handler returns the result of the tool call
-              return { currentURLPath: window.location.href, userName: name };
-            },
-            render: ({ args }) => {
-              // Renders UI based on the data of the tool call
-              return (
-                <div>
-                  <h1>Hello, {args.name}!</h1>
-                  <h1>You're currently on {window.location.href}</h1>
-                </div>
-              );
-            },
-          });
-
-          // ...
-        }
-```
-```python title="agent.py"
-                from copilotkit import CopilotKitState # [!code highlight]
-
-                class YourAgentState(CopilotKitState): # [!code highlight]
-                    your_additional_properties: str
-```
-```typescript title="agent-js/src/agent.ts"
-                import { Annotation } from "@langchain/langgraph";
-                import { CopilotKitStateAnnotation } from "@copilotkit/sdk-js/langgraph"; // [!code highlight]
-
-                export const YourAgentStateAnnotation = Annotation.Root({
-                    yourAdditionalProperty: Annotation<string>,
-                    ...CopilotKitStateAnnotation.spec, // [!code highlight]
-                });
-                export type YourAgentState = typeof YourAgentStateAnnotation.State;
-```
-
-### Generative UI
-- Route: `/langgraph/generative-ui`
-- Source: `docs/content/docs/integrations/langgraph/generative-ui/index.mdx`
-- Description: Render your agent's behavior with custom UI components.
-
-This example shows our [Research Canvas](/langgraph/videos/research-canvas) making use of Generative UI!
-
-## What is Generative UI?
-
-Generative UI lets you render your agent's state, progress, outputs, and tool calls with custom UI components in real-time. It bridges the gap between AI
-agents and user interfaces. As your agent processes information and makes decisions, you can render custom UI components that:
-
-- Show loading states and progress indicators
-- Display structured data in tables, cards, or charts
-- Create interactive elements for user input
-- Animate transitions between different states
-
-## How can I use this?
-
-To get started, you first need to decide what is going to be backing your generative UI. There are three main variants of Generative UI with CopilotKit for LangGraph.
-
-### Tool-based Generative UI
-- Route: `/langgraph/generative-ui/tool-based`
-- Source: `docs/content/docs/integrations/langgraph/generative-ui/tool-based.mdx`
-- Description: Render your agent's tool calls with custom UI components.
-
-```python title="agent.py"
-        from langchain_openai import ChatOpenAI
-        from langchain.tools import tool
-        # ...
-
-        # [!code highlight:6]
-        @tool
-        def get_weather(location: str):
-            """
-            Get the weather for a given location.
-            """
-            return f"The weather for {location} is 70 degrees."
-
-        # ...
-
-        async def chat_node(state: AgentState, config: RunnableConfig):
-            model = ChatOpenAI(model="gpt-4o")
-            model_with_tools = model.bind_tools([get_weather]) # [!code highlight]
-
-            response = await model_with_tools.ainvoke([
-                SystemMessage(content=f"You are a helpful assistant.")
-                *state["messages"],
-            ], config)
-
-            # ...
-```
-```typescript title="agent-js/src/agent.ts"
-        import { ChatOpenAI } from "@langchain/openai";
-        import { tool } from "@langchain/core/tools";
-
-        // [!code highlight:12]
-        const get_weather = tool(
-          (args) => {
-            return `The weather for ${args.location} is 70 degrees.`;
-          },
-          {
-            name: "get_weather",
-            description: "Get the weather for a given location.",
-            schema: z.object({
-              location: z.string().describe("The location to get weather for"),
-            }),
-          }
-        );
-
-        async function chat_node(state: AgentState, config: RunnableConfig) {
-          const model = new ChatOpenAI({ temperature: 0, model: "gpt-4o" });
-          const modelWithTools = model.bindTools([get_weather]); // [!code highlight]
-
-          const response = await modelWithTools.invoke([
-            new SystemMessage("You are a helpful assistant."),
-            ...state.messages,
-          ], config);
-
-          // ...
-        }
-```
 ```tsx title="app/page.tsx"
-import { useCopilotAction } from "@copilotkit/react-core"; // [!code highlight]
-// ...
+    import { useComponent } from "@copilotkit/react-core/v2"; // [!code highlight]
+    import { z } from "zod";
 
-const YourMainContent = () => {
-  // ...
-  // [!code highlight:12]
-  useCopilotAction({
-    name: "get_weather",
-    available: "disabled", // Don't allow the agent or UI to call this tool as its only for rendering
-    render: ({status, args}) => {
+    const weatherSchema = z.object({
+      city: z.string().describe("City name"),
+      temperature: z.number().describe("Temperature in Fahrenheit"),
+      condition: z.string().describe("Weather condition"),
+    });
+
+    function WeatherCard({ city, temperature, condition }: z.infer<typeof weatherSchema>) {
       return (
-        <p className="text-gray-500 mt-2">
-          {status !== "complete" && "Calling weather API..."}
-          {status === "complete" && `Called the weather API for ${args.location}.`}
-        </p>
+        <div className="rounded-lg border p-4">
+          <h3 className="font-semibold">{city}</h3>
+          <p className="text-2xl">{temperature}°F</p>
+          <p className="text-sm text-gray-500">{condition}</p>
+        </div>
       );
-    },
-  });
-  // ...
-}
+    }
+
+    function YourMainContent() {
+      // [!code highlight:9]
+      useComponent({
+        name: "showWeather",
+        description: "Display a weather card for a city.",
+        parameters: weatherSchema,
+        render: WeatherCard,
+      });
+
+      return <div>{/* ... */}</div>;
+    }
+```
+```python title="agent.py"
+        from copilotkit import CopilotKitState # [!code highlight]
+
+        class AgentState(CopilotKitState): # [!code highlight]
+            pass
+```
+```typescript title="agent-js/src/agent.ts"
+        import { Annotation } from "@langchain/langgraph";
+        import { CopilotKitStateAnnotation } from "@copilotkit/sdk-js/langgraph"; // [!code highlight]
+
+        export const AgentStateAnnotation = Annotation.Root({
+          ...CopilotKitStateAnnotation.spec, // [!code highlight]
+        });
+        export type AgentState = typeof AgentStateAnnotation.State;
+```
+```tsx
+useComponent({
+  name: "showGreeting",
+  render: ({ message }: { message: string }) => (
+    <div className="rounded border p-3 bg-blue-50">
+      <p>{message}</p>
+    </div>
+  ),
+});
+```
+```tsx
+useComponent({
+  name: "renderProfile",
+  parameters: z.object({ userId: z.string() }),
+  render: ProfileCard,
+  agentId: "support-agent",
+});
 ```
 
-### Frontend Tool Based
-- Route: `/langgraph/human-in-the-loop/frontend-tool-based`
-- Source: `docs/content/docs/integrations/langgraph/human-in-the-loop/frontend-tool-based.mdx`
-- Description: Create frontend tools and use them within your LangGraph agent.
+### Interactive
+- Route: `/langgraph/generative-ui/your-components/interactive`
+- Source: `docs/content/docs/integrations/langgraph/generative-ui/your-components/interactive.mdx`
+- Description: Create components that your agent can use to interact with the user.
 
 ```tsx title="page.tsx"
-        import { useHumanInTheLoop } from "@copilotkit/react-core" // [!code highlight]
+        import { useHumanInTheLoop } from "@copilotkit/react-core/v2" // [!code highlight]
+        import { z } from "zod";
 
         export function Page() {
           // ...
 
+          // [!code highlight:20]
           useHumanInTheLoop({
             name: "humanApprovedCommand",
             description: "Ask human for approval to run a command.",
-            parameters: [
-              {
-                name: "command",
-                type: "string",
-                description: "The command to run",
-                required: true,
-              },
-            ],
-            render: ({ args, respond }) => {
-              if (!respond) return <></>;
+            parameters: z.object({
+              command: z.string().describe("The command to run"),
+            }),
+            render: ({ args, respond, status }) => {
+              if (status !== "executing") return <></>;
               return (
                 <div>
                   <pre>{args.command}</pre>
                   {/* [!code highlight:2] */}
-                  <button onClick={() => respond(`Command is APPROVED`)}>Approve</button>
-                  <button onClick={() => respond(`Command is DENIED`)}>Deny</button>
+                  <button onClick={() => respond?.(`Command is APPROVED`)}>Approve</button>
+                  <button onClick={() => respond?.(`Command is DENIED`)}>Deny</button>
                 </div>
               );
             },
@@ -3612,7 +3127,387 @@ const YourMainContent = () => {
                 export type YourAgentState = typeof YourAgentStateAnnotation.State;
 ```
 
-### Interrupt Based
+### Interrupt-based
+- Route: `/langgraph/generative-ui/your-components/interrupt-based`
+- Source: `docs/content/docs/integrations/langgraph/generative-ui/your-components/interrupt-based.mdx`
+- Description: Learn how to implement Human-in-the-Loop (HITL) using a interrupt-based flow.
+
+This example demonstrates interrupt-based human-in-the-loop (HITL) in the [CopilotKit Feature Viewer](https://feature-viewer.copilotkit.ai/langgraph/feature/human_in_the_loop).
+
+## What is this?
+
+[LangGraph's interrupt flow](https://docs.langchain.com/oss/python/langgraph/interrupts) provides an intuitive way to implement Human-in-the-loop workflows.
+
+This guide will show you how to both use `interrupt` and how to integrate it with CopilotKit.
+
+## When should I use this?
+
+Human-in-the-loop is a powerful way to implement complex workflows that are production ready. By having a human in the loop,
+you can ensure that the agent is always making the right decisions and ultimately is being steered in the right direction.
+
+Interrupt-based flows are a very intuitive way to implement HITL. Instead of having a node await user input before or after its execution,
+nodes can be interrupted in the middle of their execution to allow for user input. The trade-off is that the agent is not aware of the
+interaction, however [CopilotKit's SDKs provide helpers to alleviate this](#make-your-agent-aware-of-interruptions).
+
+## Implementation
+
+  ### Run and connect your agent
+
+You'll need to run your agent and connect it to CopilotKit before proceeding.
+
+If you don't already have CopilotKit and your agent connected, choose one of the following options:
+
+    You can follow the instructions in the [quickstart](/langgraph/quickstart) guide.
+    Run the following command to create a brand new project with a pre-configured agent:
+
+```bash
+        npx copilotkit@latest create -f langgraph-py
+```
+```bash
+       npx copilotkit@latest create -f langgraph-js
+```
+
+  ### Install the CopilotKit SDK
+
+Any LangGraph agent can be used with CopilotKit. However, creating deep agentic
+experiences with CopilotKit requires our LangGraph SDK.
+
+```bash
+    uv add copilotkit
+```
+```bash
+    poetry add copilotkit
+```
+
+```bash
+    pip install copilotkit --extra-index-url https://copilotkit.gateway.scarf.sh/simple/
+```
+
+```bash
+    conda install copilotkit -c copilotkit-channel
+```
+
+```npm
+    npm install @copilotkit/sdk-js
+```
+
+### Set up your agent state
+We're going to have the agent ask us to name it, so we'll need a state property to store the name.
+
+```python title="agent.py"
+        # ...
+        from copilotkit import CopilotKitState # extends MessagesState
+        # ...
+
+        # This is the state of the agent.
+        # It inherits from the CopilotKitState properties from CopilotKit.
+        class AgentState(CopilotKitState):
+            agent_name: str
+```
+```typescript title="agent-js/src/agent.ts"
+        // ...
+        import { Annotation } from "@langchain/langgraph";
+        import { CopilotKitStateAnnotation } from "@copilotkit/sdk-js/langgraph";
+        // ...
+
+        // This is the state of the agent.
+        // It inherits from the CopilotKitState properties from CopilotKit.
+        export const AgentStateAnnotation = Annotation.Root({
+          agentName: Annotation<string>,
+          ...CopilotKitStateAnnotation.spec,
+        });
+        export type AgentState = typeof AgentStateAnnotation.State;
+```
+
+    ### Call `interrupt` in your LangGraph agent
+    Now we can call `interrupt` in our LangGraph agent.
+
+        Your agent will not be aware of the `interrupt` interaction by default in LangGraph.
+
+        If you want this behavior, see the [section on it below](#make-your-agent-aware-of-interruptions).
+
+```python title="agent.py"
+            from langgraph.types import interrupt # [!code highlight]
+            from langchain_core.messages import SystemMessage
+            from langchain_openai import ChatOpenAI
+            from copilotkit import CopilotKitState
+
+            # add the agent state definition from the previous step
+            class AgentState(CopilotKitState):
+                agent_name: str
+
+            def chat_node(state: AgentState, config: RunnableConfig):
+                if not state.get("agent_name"):
+                    # Interrupt and wait for the user to respond with a name
+                    state["agent_name"] = interrupt("Before we start, what would you like to call me?") # [!code highlight]
+
+                # Tell the agent its name
+                system_message = SystemMessage(
+                    content=f"You are a helpful assistant named {state.get('agent_name')}..."
+                )
+
+                response = ChatOpenAI(model="gpt-5.2").invoke(
+                    [system_message, *state["messages"]],
+                    config
+                )
+
+                return {
+                    **state,
+                    "messages": response,
+                }
+```
+```typescript title="agent-js/src/agent.ts"
+            import { interrupt } from "@langchain/langgraph"; // [!code highlight]
+            import { SystemMessage } from "@langchain/core/messages";
+            import { ChatOpenAI } from "@langchain/openai";
+
+            // add the agent state definition from the previous step
+            export const AgentStateAnnotation = Annotation.Root({
+                agentName: Annotation<string>,
+                ...CopilotKitStateAnnotation.spec,
+            });
+            export type AgentState = typeof AgentStateAnnotation.State;
+
+            async function chat_node(state: AgentState, config: RunnableConfig) {
+                const agentName = state.agentName
+                ?? interrupt("Before we start, what would you like to call me?"); // [!code highlight]
+
+                // Tell the agent its name
+                const systemMessage = new SystemMessage({
+                    content: `You are a helpful assistant named ${agentName}...`,
+                });
+
+                const response = await new ChatOpenAI({ model: "gpt-5.2" }).invoke(
+                    [systemMessage, ...state.messages],
+                    config
+                );
+
+                return {
+                    ...state,
+                    agentName,
+                    messages: response,
+                };
+            }
+```
+    ### Handle the interrupt in your frontend
+    At this point, your LangGraph agent's `interrupt` will be called. However, we currently have no handling for rendering or
+    responding to the interrupt in the frontend.
+
+    To do this, we'll use the `useInterrupt` hook, give it a component to render, and then call `resolve` with the user's response.
+
+```tsx title="app/page.tsx"
+    import { useInterrupt } from "@copilotkit/react-core/v2"; // [!code highlight]
+    // ...
+
+    const YourMainContent = () => {
+    // ...
+    // [!code highlight:15]
+    // styles omitted for brevity
+    useInterrupt({
+        render: ({ event, resolve }) => (
+            <div>
+                <p>{event.value}</p>
+                <form onSubmit={(e) => {
+                    e.preventDefault();
+                    resolve((e.target as HTMLFormElement).response.value);
+                }}>
+                    <input type="text" name="response" placeholder="Enter your response" />
+                    <button type="submit">Submit</button>
+                </form>
+            </div>
+        )
+    });
+    // ...
+
+    return <div>{/* ... */}</div>
+    }
+```
+
+### Give it a try!
+Try talking to your agent, you'll see that it now pauses execution and waits for you to respond!
+
+## Advanced usage
+
+### Condition UI executions
+
+When rendering multiple `interrupt` events in the agent, there could be conflicts between multiple `useInterrupt` hooks calls in the UI.
+For this reason, the hook can take an `enabled` argument which will apply it conditionally:
+
+        ### Define multiple interrupts
+        First, let's define two different interrupts. We will include a "type" property to differentiate them.
+```python title="agent.py"
+                from langgraph.types import interrupt # [!code highlight]
+                from langchain_core.messages import SystemMessage
+                from langchain_openai import ChatOpenAI
+
+                # ... your full state definition
+
+                def chat_node(state: AgentState, config: RunnableConfig):
+
+                  state["approval"] = interrupt({ "type": "approval", "content": "please approve" }) # [!code highlight]
+
+                  if not state.get("agent_name"):
+                    # Interrupt and wait for the user to respond with a name
+                    state["agent_name"] = interrupt({ "type": "ask", "content": "Before we start, what would you like to call me?" }) # [!code highlight]
+
+                  # Tell the agent its name
+                  system_message = SystemMessage(
+                    content=f"You are a helpful assistant..."
+                  )
+
+                  response = ChatOpenAI(model="gpt-5.2").invoke(
+                    [system_message, *state["messages"]],
+                    config
+                  )
+
+                  return {
+                    **state,
+                    "messages": response,
+                  }
+```
+```typescript title="agent-js/src/agent.ts"
+                import { interrupt } from "@langchain/langgraph"; // [!code highlight]
+                import { SystemMessage } from "@langchain/core/messages";
+                import { ChatOpenAI } from "@langchain/openai";
+
+                // ... your full state definition
+
+                async function chat_node(state: AgentState, config: RunnableConfig) {
+                  state.approval = await interrupt({ type: "approval", content: "please approve" }); // [!code highlight]
+
+                  if (!state.agentName) {
+                    state.agentName = await interrupt({ type: "ask", content: "Before we start, what would you like to call me?" }); // [!code highlight]
+                  }
+
+                  // Tell the agent its name
+                  const systemMessage = new SystemMessage({
+                    content: `You are a helpful assistant...`,
+                  });
+
+                  const response = await new ChatOpenAI({ model: "gpt-5.2" }).invoke(
+                    [systemMessage, ...state.messages],
+                    config
+                  );
+
+                  return {
+                    ...state,
+                    messages: response,
+                  };
+                }
+```
+        ### Add multiple frontend handlers
+        With the differentiator in mind, we will add a handler that takes care of any "ask" and any "approve" types.
+        With two `useInterrupt` hooks in our page, we can leverage the `enabled` property to enable each in the right time:
+
+```tsx title="app/page.tsx"
+        import { useInterrupt } from "@copilotkit/react-core/v2"; // [!code highlight]
+        // ...
+
+        const ApproveComponent = ({ content, onAnswer }: { content: string; onAnswer: (approved: boolean) => void }) => (
+            // styles omitted for brevity
+            <div>
+                <h1>Do you approve?</h1>
+                <button onClick={() => onAnswer(true)}>Approve</button>
+                <button onClick={() => onAnswer(false)}>Reject</button>
+            </div>
+        )
+
+        const AskComponent = ({ question, onAnswer }: { question: string; onAnswer: (answer: string) => void }) => (
+        // styles omitted for brevity
+            <div>
+                <p>{question}</p>
+                <form onSubmit={(e) => {
+                    e.preventDefault();
+                    onAnswer((e.target as HTMLFormElement).response.value);
+                }}>
+                    <input type="text" name="response" placeholder="Enter your response" />
+                    <button type="submit">Submit</button>
+                </form>
+            </div>
+        )
+
+        const YourMainContent = () => {
+            // ...
+            // [!code highlight:13]
+            useInterrupt({
+                enabled: ({ eventValue }) => eventValue.type === 'ask',
+                render: ({ event, resolve }) => (
+                    <AskComponent question={event.value.content} onAnswer={answer => resolve(answer)} />
+                )
+            });
+
+            useInterrupt({
+                enabled: ({ eventValue }) => eventValue.type === 'approval',
+                render: ({ event, resolve }) => (
+                    <ApproveComponent content={event.value.content} onAnswer={answer => resolve(answer)} />
+                )
+            });
+
+            // ...
+        }
+```
+
+### Preprocessing of an interrupt and programmatically handling an interrupt value
+
+When opting for custom chat UI, some cases may require pre-processing of the incoming values of interrupt event or even resolving it entirely without showing a UI for it.
+This can be achieved using the `handler` property, which is not required to return a React component.
+
+The return value of the handler will be passed to the `render` method as the `result` argument.
+```tsx title="app/page.tsx"
+// We will assume an interrupt event in the following shape
+type Department = 'finance' | 'engineering' | 'admin'
+interface AuthorizationInterruptEvent {
+    type: 'auth',
+    accessDepartment: Department,
+}
+
+import { useInterrupt } from "@copilotkit/react-core/v2";
+
+const YourMainContent = () => {
+    const [userEmail, setUserEmail] = useState({ email: 'example@user.com' })
+    function getUserByEmail(email: string): { id: string; department: Department } {
+        // ... an implementation of user fetching
+    }
+
+    // ...
+    // styles omitted for brevity
+    // [!code highlight:28]
+    useInterrupt({
+        handler: async ({ result, event, resolve }) => {
+            const { department } = await getUserByEmail(userEmail)
+            if (event.value.accessDepartment === department || department === 'admin') {
+                // Following the resolution of the event, we will not proceed to the render method
+                resolve({ code: 'AUTH_BY_DEPARTMENT' })
+                return;
+            }
+
+            return { department, userId }
+        },
+        render: ({ result, event, resolve }) => (
+            <div>
+                <h1>Request for {event.value.type}</h1>
+                <p>Members from {result.department} department cannot access this information</p>
+                <p>You can request access from an administrator to continue.</p>
+                <button
+                    onClick={() => resolve({ code: 'REQUEST_AUTH', data: { department: result.department, userId: result.userId } })}
+                >
+                    Request Access
+                </button>
+                <button
+                    onClick={() => resolve({ code: 'CANCEL' })}
+                >
+                    Cancel
+                </button>
+            </div>
+        )
+    });
+    // ...
+
+    return <div>{/* ... */}</div>
+}
+```
+
+### Interrupts
 - Route: `/langgraph/human-in-the-loop/interrupt-flow`
 - Source: `docs/content/docs/integrations/langgraph/human-in-the-loop/interrupt-flow.mdx`
 - Description: Learn how to implement Human-in-the-Loop (HITL) using a interrupt-based flow.
@@ -3731,7 +3626,7 @@ We're going to have the agent ask us to name it, so we'll need a state property 
                     content=f"You are a helpful assistant named {state.get('agent_name')}..."
                 )
 
-                response = ChatOpenAI(model="gpt-4o").invoke(
+                response = ChatOpenAI(model="gpt-5.2").invoke(
                     [system_message, *state["messages"]],
                     config
                 )
@@ -3762,7 +3657,7 @@ We're going to have the agent ask us to name it, so we'll need a state property 
                     content: `You are a helpful assistant named ${agentName}...`,
                 });
 
-                const response = await new ChatOpenAI({ model: "gpt-4o" }).invoke(
+                const response = await new ChatOpenAI({ model: "gpt-5.2" }).invoke(
                     [systemMessage, ...state.messages],
                     config
                 );
@@ -3781,7 +3676,7 @@ We're going to have the agent ask us to name it, so we'll need a state property 
     To do this, we'll use the `useLangGraphInterrupt` hook, give it a component to render, and then call `resolve` with the user's response.
 
 ```tsx title="app/page.tsx"
-    import { useLangGraphInterrupt } from "@copilotkit/react-core"; // [!code highlight]
+    import { useLangGraphInterrupt } from "@copilotkit/react-core/v2"; // [!code highlight]
     // ...
 
     const YourMainContent = () => {
@@ -3840,7 +3735,7 @@ For this reason, the hook can take an `enabled` argument which will apply it con
                     content=f"You are a helpful assistant..."
                   )
 
-                  response = ChatOpenAI(model="gpt-4o").invoke(
+                  response = ChatOpenAI(model="gpt-5.2").invoke(
                     [system_message, *state["messages"]],
                     config
                   )
@@ -3869,7 +3764,7 @@ For this reason, the hook can take an `enabled` argument which will apply it con
                     content: `You are a helpful assistant...`,
                   });
 
-                  const response = await new ChatOpenAI({ model: "gpt-4o" }).invoke(
+                  const response = await new ChatOpenAI({ model: "gpt-5.2" }).invoke(
                     [systemMessage, ...state.messages],
                     config
                   );
@@ -3885,7 +3780,7 @@ For this reason, the hook can take an `enabled` argument which will apply it con
         With two `useLangGraphInterrupt` hooks in our page, we can leverage the `enabled` property to enable each in the right time:
 
 ```tsx title="app/page.tsx"
-        import { useLangGraphInterrupt } from "@copilotkit/react-core"; // [!code highlight]
+        import { useLangGraphInterrupt } from "@copilotkit/react-core/v2"; // [!code highlight]
         // ...
 
         const ApproveComponent = ({ content, onAnswer }: { content: string; onAnswer: (approved: boolean) => void }) => (
@@ -3946,7 +3841,7 @@ interface AuthorizationInterruptEvent {
     accessDepartment: Department,
 }
 
-import { useLangGraphInterrupt } from "@copilotkit/react-core";
+import { useLangGraphInterrupt } from "@copilotkit/react-core/v2";
 
 const YourMainContent = () => {
     const [userEmail, setUserEmail] = useState({ email: 'example@user.com' })
@@ -3992,453 +3887,37 @@ const YourMainContent = () => {
 }
 ```
 
-### Node-based
-- Route: `/langgraph/human-in-the-loop/node-flow`
-- Source: `docs/content/docs/integrations/langgraph/human-in-the-loop/node-flow.mdx`
-- Description: Learn how to implement Human-in-the-Loop (HITL) using a node-based flow.
+### Inspector
+- Route: `/langgraph/inspector`
+- Source: `docs/content/docs/integrations/langgraph/inspector.mdx`
+- Description: Inspector for debugging actions, readables, agent status, messages, and context.
 
-```tsx title="ui/app/page.tsx"
-        import { useHumanInTheLoop } from "@copilotkit/react-core"
-        import { Markdown } from "@copilotkit/react-ui"
+## What it shows
 
-        function YourMainContent() {
-          // ...
+The CopilotKit Inspector is a built-in debugging tool that overlays on your app, giving you full visibility into what's happening between your frontend and your agents in real time.
 
-          useHumanInTheLoop({ 
-            name: "writeEssay",
-            description: "Writes an essay and takes the draft as an argument.",
-            parameters: [
-              { name: "draft", type: "string", description: "The draft of the essay", required: true },
-            ],
-            // [!code highlight:25]
-            render: ({ args, respond, status }) => {
-              return (
-                <div>
-                  <Markdown content={args.draft || 'Preparing your draft...'} />
+| Feature | Description |
+| --- | --- |
+| **AG-UI Events** | View the raw AG-UI event stream between your frontend and agent in real time. |
+| **Available Agents** | See which agents are connected and available to your app. |
+| **Agent State** | Inspect your agent's current state as it updates. |
+| **Frontend Tools** | See what tools you've defined on the frontend and their parameter schemas. |
+| **Context** | View the context you've provided to the agent, including readables and document context. |
 
-                  <div className={`flex gap-4 pt-4 ${status !== "executing" ? "hidden" : ""}`}>
-                    <button 
-                      onClick={() => respond?.("CANCEL")}
-                      disabled={status !== "executing"}
-                      className="border p-2 rounded-xl w-full"
-                    >
-                      Try Again
-                    </button>
-                    <button
-                      onClick={() => respond?.("SEND")}
-                      disabled={status !== "executing"} 
-                      className="bg-blue-500 text-white p-2 rounded-xl w-full"
-                    >
-                      Approve Draft
-                    </button>
-                  </div>
-                </div>
-              );
-            },
-          });
+## Disabling the Inspector
 
-          // ...
-        }
-```
-```python title="agent.py"
-        from typing_extensions import Literal
-        from langchain_openai import ChatOpenAI
-        from langchain_core.messages import SystemMessage, AIMessage
-        from langchain_core.runnables import RunnableConfig
-        from langgraph.graph import StateGraph, END
-        from langgraph.checkpoint.memory import MemorySaver
-        from langgraph.types import Command
-        from copilotkit import CopilotKitState
+The Inspector is enabled by default. To disable it, set `enableInspector` to `false`:
 
-        # 1. Define our agent's state and inherit from CopilotKitState, this brings in the CopilotKit tools
-        class AgentState(CopilotKitState): # [!code highlight]
-            # 1.1 Define any other state variables
-            pass
-
-        # 2. Define the chat node, this will be where the agent will talk to user and
-        #    decide if it needs to call the writeEssay tool
-        async def chat_node(state: AgentState, config: RunnableConfig) -> Command[Literal["user_feedback_node", "__end__"]]:
-            # 2.1 Define the model and bind CopilotKit's tools as tools
-            model = ChatOpenAI(model="gpt-4o")
-            model_with_tools = model.bind_tools([*state.get("copilotkit", {}).get("actions", [])]) # [!code highlight]
-
-            # 2.2 Define the system message
-            system_message = SystemMessage(
-                content="You write essays. Use your tools to write an essay, don't just write it in plain text."
-            )
-
-            # 2.3 Run the model to generate a response
-            response = await model_with_tools.ainvoke([
-                system_message,
-                *state["messages"],
-            ], config)
-
-            # [!code highlight:5]
-            # 2.4 Check for the writeEssay tool call and, if found, go  to the
-            #     user_feedback_node to handle the user's response
-            if isinstance(response, AIMessage) and response.tool_calls:
-                if response.tool_calls[0].get("name") == "writeEssay":
-                    return Command(goto="interrupt_node", update={"messages": response})
-
-            # 2.5 If no tool call is found, end the agent
-            return Command(goto=END, update={"messages": response})
-
-        # 3. Define an empty interrupt node to act as buffer as we use the interrupt_after property
-        def interrupt_node(state: AgentState, config: RunnableConfig):
-          pass
-
-        # 4. Define the user_feedback_node, this node will be interrupted before execution
-        #    where CopilotKit's renderAndWaitForResponse provide the user's response.
-        def user_feedback_node(state: AgentState, config: RunnableConfig) -> Command[Literal["chat_node"]]:
-            # [!code highlight:3]
-            # 3.1 Get the last message from the state, this will be 
-            #     what is returned by respond() in the frontend
-            last_message = state["messages"][-1]
-
-            # 3.2 If the user declined the essay, ask them how they'd like to improve it
-            if last_message.content != "SEND":
-                return Command(goto="chat_node", update={
-                    "messages": [SystemMessage(content="The user declined they essay, please ask them how they'd like to improve it")]
-                })
-
-            # 3.3 If the user approved the essay, ask them if they'd like anything else
-            return Command(goto="chat_node", update={
-                "messages": [SystemMessage(content="The user approved the essay, ask them if they'd like anything else")]
-            })
-
-        # 5. Configure the workflow
-        workflow = StateGraph(AgentState)
-        workflow.add_node("chat_node", chat_node)
-        workflow.add_node("interrupt_node", interrupt_node)
-        workflow.add_node("user_feedback_node", user_feedback_node)
-        workflow.add_edge("interrupt_node", "user_feedback_node")
-        workflow.set_entry_point("chat_node")
-
-        # [!code highlight:2]
-        # 6. Compile the workflow and set the interrupt_after property
-        graph = workflow.compile(MemorySaver(), interrupt_after=["interrupt_node"])
-```
-```tsx title="agent/sample_agent/agent.ts"
-        import { z } from "zod";
-        import { RunnableConfig } from "@langchain/core/runnables";
-        import { tool } from "@langchain/core/tools";
-        import { ToolNode } from "@langchain/langgraph/prebuilt";
-        import { AIMessage, HumanMessage, SystemMessage, ToolMessage } from "@langchain/core/messages";
-        import { Command, END, MemorySaver, START, StateGraph } from "@langchain/langgraph";
-        import { Annotation } from "@langchain/langgraph";
-        import { ChatOpenAI } from "@langchain/openai";
-
-        // // 1. Import necessary helpers for CopilotKit tools
-        import { convertActionsToDynamicStructuredTools } from "@copilotkit/sdk-js/langgraph";
-        import { CopilotKitStateAnnotation } from "@copilotkit/sdk-js/langgraph";
-
-        // 2. Define graph state, inherit from CopilotKitState to bring in CopilotKit tools
-        //    and messages.
-        export const AgentStateAnnotation = Annotation.Root({
-            ...CopilotKitStateAnnotation.spec,
-        });
-        export type AgentState = typeof AgentStateAnnotation.State;
-
-        // 3. Define the chat node, this will be the main entry point that a user interacts with
-        async function chatNode(state: AgentState, config: RunnableConfig) {
-          // 3.1 Define the model, lower temperature for deterministic responses
-          const model = new ChatOpenAI({ temperature: 0, model: "gpt-4o" });
-
-          // 3.2 Bind the tools to the model, include CopilotKit tools. This allows
-          //     the model to call tools that are defined in CopilotKit by the frontend.
-          const modelWithTools = model.bindTools!(
-            [ ...convertActionsToDynamicStructuredTools(state.copilotkit?.actions || [])],
-          );
-
-          // 3.3 Define the system message, which will be used to guide the model.
-          const systemMessage = new SystemMessage({
-            content: `You are a helpful assistant.`,
-          });
-
-          // 3.4 Invoke the model with the system message and the messages in the state
-          const response = await modelWithTools.invoke(
-            [systemMessage, ...state.messages],
-            config
-          );
-
-          // 3.5 Check if the response contains a tool call
-          if (response.tool_calls?.length) {
-            const toolCall = response.tool_calls[0];
-
-            // 3.5.1 If the tool call is "writeEssay", we need to get feedback from the user
-            //       by going to the getFeedback node which will be interrupted after
-            //       execution, giving CopilotKit a chance to get feedback from the user.
-            //       
-            //       The "writeEssay" tool is a CopilotKit tool and is binded in step 3.2.
-            if (toolCall.name === "writeEssay") {
-              return new Command({
-                goto: "getFeedback",
-                update: {
-                  messages: [response],
-                }
-              });
-            }
-          }
-
-          // 3.6 If there was no tool call, we can just update message state and end the graph
-          return new Command({
-            goto: END,
-            update: {
-              messages: [response],
-            }
-          });
-        }
-
-        // 4. Target node for interruption, this node will be executed and after
-        //    execution the graph be interrupted, waiting for CopilotKit to get feedback
-        //    from the user.
-        const getFeedback = async (state: AgentState) => {
-          return state;
-        }
-
-        // 5. Node for handling the feedback awaited in the getFeedback node.
-        const handleFeedback = async (state: AgentState) => {
-          // 5.1 Get the last message from the state
-          const userResponse = state.messages[state.messages.length - 1].content
-
-          // 5.2 Process a informative message for the AI based on the user response
-          const informativeMessage = userResponse === "SEND" ? 
-            "The user accepted the essay, please ask them how you can help now." : 
-            "The user declined the essay, please ask them how to improve it.";
-
-          // 5.3 Return the new state with the informative message as a system message
-          //     so it doesn't appear in the chat history.
-          return {
-            messages: [new SystemMessage(informativeMessage)],
-          }
-        }
-
-        // 6. Define the graph and compile the graph
-        export const graph = new StateGraph(AgentStateAnnotation)
-          .addNode("chatNode", chatNode, { ends: ["getFeedback"] })
-          .addNode("getFeedback", getFeedback)
-          .addNode("handleFeedback", handleFeedback)
-          .addEdge("__start__", "chatNode")
-          .addEdge("getFeedback", "handleFeedback")
-          .addEdge("handleFeedback", "chatNode")
-          .compile({
-            checkpointer: new MemorySaver(),
-            interruptAfter: ["getFeedback"],
-          });
-
+```tsx
+<CopilotKit
+  publicLicenseKey={process.env.NEXT_PUBLIC_COPILOTKIT_LICENSE_KEY}
+  enableInspector={false}
+>
+  {children}
+</CopilotKit>
 ```
 
-### Prebuilt Agents
-- Route: `/langgraph/human-in-the-loop/prebuilt-agents`
-- Source: `docs/content/docs/integrations/langgraph/human-in-the-loop/prebuilt-agents.mdx`
-- Description: Learn how to implement Human-in-the-Loop (HITL) with LangGraph prebuilt agents.
-
-## What is this?
-
-LangGraph's prebuilt agents (like `create_agent`) support Human-in-the-Loop (HITL) through a middleware-based approach.
-This allows you to require human approval before certain tools are executed.
-
-  This guide covers HITL with **prebuilt agents**. If you're building a custom graph with manual `interrupt()` calls,
-  see [Interrupt based](/langgraph/human-in-the-loop/interrupt-flow) instead.
-
-  **Important**: This integration passes data in LangGraph's native format. You should be familiar with
-  [LangChain's HITL documentation](https://docs.langchain.com/oss/python/langchain/human-in-the-loop) before proceeding.
-
-## When should I use this?
-
-Use this approach when:
-- You're using LangGraph's prebuilt agents (`create_react_agent`, `create_agent`, etc.)
-- You want to require human approval before specific tools are executed
-- You want to allow humans to edit or reject tool calls before execution
-
-## Understanding the Data Format
-
-### What you receive (`event.value`)
-
-When a tool requires approval, CopilotKit's `useLangGraphInterrupt` hook receives the interrupt payload directly from LangGraph.
-The `event.value` contains LangGraph's native structure, which can be found in LangChain's [HITL documentation](https://docs.langchain.com/oss/python/langchain/human-in-the-loop):
-
-```typescript
-// event.value structure from LangGraph
-{
-  action_requests: [
-    {
-      name: string,        // Tool name (e.g., "send_email")
-      arguments: object,   // Tool arguments (e.g., { to: "user@example.com", body: "..." })
-      description: string, // Human-readable description of the action
-    },
-    // ... more action requests if multiple tools need approval
-  ],
-  review_configs: [
-    {
-      action_name: string,           // Tool name
-      allowed_decisions: string[],   // e.g., ["approve", "edit", "reject"]
-    },
-  ]
-}
-```
-
-### What you must return (`resolve()`)
-
-When calling `resolve()`, you must provide a response in LangGraph's expected decisions format.
-Each decision corresponds to an action request (in the same order):
-
-```typescript
-// Decision types
-type Decision =
-  | { type: "approve" }                                             // Approve the tool call as-is
-  | { type: "edit", edited_action: { name: string, args: object } } // Approve with modified arguments
-  | { type: "reject", message: string }                             // Reject the tool call
-
-// resolve() expects { decisions: [...] }, one decision per action_request
-resolve({
-  decisions: [
-    { type: "approve" },
-    { type: "edit", edited_action: { name: "send_email", args: { to: "other@example.com" } } },
-    { type: "reject", message: "Not authorized to delete files" },
-  ]
-})
-```
-
-## Implementation
-
-  ### Run and connect your agent
-
-  This guide assumes you already have a LangGraph prebuilt agent set up, similar to this:
-
-```python title="agent.py"
-      from langgraph.prebuilt import create_agent
-      from langchain_openai import ChatOpenAI
-
-      graph = create_agent(
-          model=ChatOpenAI(model="gpt-4o"),
-          tools=[send_email, search_web],
-      )
-```
-```typescript title="agent-js/src/agent.ts"
-      import { createAgent } from "@langchain/langgraph/prebuilt";
-      import { ChatOpenAI } from "@langchain/openai";
-
-      const graph = createAgent({
-        llm: new ChatOpenAI({ model: "gpt-4o" }),
-        tools: [sendEmail, searchWeb],
-      });
-```
-  ### Configure HITL in your prebuilt agent
-
-  Add the `HumanInTheLoopMiddleware` to require approval for specific tools.
-  Configure `interrupt_on` with a mapping of tool names to approval settings.
-
-```python title="agent.py"
-      from langchain.agents import create_agent
-      from langchain.agents.middleware import HumanInTheLoopMiddleware # [!code highlight]
-      from langgraph.checkpoint.memory import InMemorySaver # [!code highlight]
-
-      agent = create_agent(
-          model="gpt-4o",
-          tools=[send_email, search_web],
-          middleware=[ # [!code highlight]
-              HumanInTheLoopMiddleware( # [!code highlight]
-                  interrupt_on={ # [!code highlight]
-                      "send_email": True,  # All decisions (approve, edit, reject) allowed [!code highlight]
-                      "search_web": False, # Auto-approve, no interruption [!code highlight]
-                  }, # [!code highlight]
-              ), # [!code highlight]
-          ], # [!code highlight]
-          checkpointer=InMemorySaver(),
-      )
-```
-```typescript title="agent.ts"
-      import { createAgent, humanInTheLoopMiddleware } from "langchain"; // [!code highlight]
-      import { MemorySaver } from "@langchain/langgraph"; // [!code highlight]
-
-      const agent = createAgent({
-        model: "gpt-4o",
-        tools: [sendEmail, searchWeb],
-        middleware: [ // [!code highlight]
-          humanInTheLoopMiddleware({ // [!code highlight]
-            interruptOn: { // [!code highlight]
-              send_email: true,  // All decisions (approve, edit, reject) allowed // [!code highlight]
-              search_web: false, // Auto-approve, no interruption // [!code highlight]
-            }, // [!code highlight]
-          }), // [!code highlight]
-        ], // [!code highlight]
-        checkpointer: new MemorySaver(),
-      });
-```
-
-    A checkpointer is required to persist state across interrupts. Use `InMemorySaver`/`MemorySaver` for testing
-    or a persistent checkpointer like `AsyncPostgresSaver` for production.
-  ### Handle the interrupt in your frontend
-
-  Use the `useLangGraphInterrupt` hook to render approval UI and respond with decisions.
-
-```tsx title="app/page.tsx"
-  import { useLangGraphInterrupt } from "@copilotkit/react-core";
-
-  const YourMainContent = () => {
-    useLangGraphInterrupt({
-      render: ({ event, resolve }) => {
-        // event.value contains LangGraph's native structure
-        const actionRequests = event.value.action_requests;
-
-        return (
-          <div className="p-4 border rounded-lg">
-            <h3 className="font-bold mb-4">Tool Approval Required</h3>
-
-            {actionRequests.map((request, index) => (
-              <div key={index} className="mb-4 p-3 bg-gray-100 rounded">
-                <p className="font-medium">Tool: {request.name}</p>
-                <pre className="text-sm mt-2">
-                  {JSON.stringify(request.arguments, null, 2)}
-                </pre>
-              </div>
-            ))}
-
-            <div className="flex gap-2 mt-4">
-              <button
-                className="px-4 py-2 bg-green-500 text-white rounded"
-                onClick={() => {
-                  // Approve all actions - one decision per action_request
-                  resolve({
-                    decisions: actionRequests.map(() => ({ type: "approve" }))
-                  });
-                }}
-              >
-                Approve All
-              </button>
-              <button
-                className="px-4 py-2 bg-red-500 text-white rounded"
-                onClick={() => {
-                  // Reject all actions
-                  resolve({
-                    decisions: actionRequests.map(() => ({
-                      type: "reject",
-                      message: "User declined"
-                    }))
-                  });
-                }}
-              >
-                Reject All
-              </button>
-            </div>
-          </div>
-        );
-      }
-    });
-
-    return <div>{/* Your app content */}</div>;
-  };
-```
-  ### Give it a try!
-  When the agent attempts to call a tool that requires approval, the UI will pause and show your approval component.
-  The agent will resume once you approve, edit, or reject the action.
-
-## Reference
-
-For complete details on LangGraph's HITL format and options, see:
-- [LangChain Human-in-the-Loop (Python)](https://docs.langchain.com/oss/python/langchain/human-in-the-loop)
-- [LangChain Human-in-the-Loop (TypeScript)](https://docs.langchain.com/oss/javascript/langchain/human-in-the-loop)
+No matter what, **the inspector automatically disables when you create a production build.**
 
 ### Multi-Agent Flows
 - Route: `/langgraph/multi-agent-flows`
@@ -4476,7 +3955,7 @@ In router mode, CopilotKit acts as a central hub, dynamically selecting and _rou
 In this mode, CopilotKit will intelligently route requests to the most appropriate agent or action based on the context and user input.
 
 Be advised that when using this mode, you'll have to "exit the workflow" explicitly in your agent code.
-You can find more information about it in the ["Exiting the agent loop" section](https://docs.copilotkit.ai/coagents/advanced/exit-agent).
+You can find more information about it in the ["Exiting the agent loop" section](https://docs.copilotkit.ai/langgraph/advanced/exit-agent).
 
     Router mode requires that you set up an LLM adapter. See how in ["Set up a copilot runtime"](https://docs.copilotkit.ai/direct-to-llm/guides/quickstart?copilot-hosting=self-hosted#set-up-a-copilot-runtime-endpoint) section of the docs.
 
@@ -4493,462 +3972,311 @@ In this mode, CopilotKit is configured to work exclusively with a specific agent
 
 Use whichever mode works best for your app experience! Also, note that while you cannot nest `CopilotKit` providers, you can use different agents or modes in different areas of your app — for example, you may want a chatbot in router mode that can call on any agent or tool, but may also want to integrate one specific agent elsewhere for a more focused workflow.
 
-### Loading Agent State
-- Route: `/langgraph/persistence/loading-agent-state`
-- Source: `docs/content/docs/integrations/langgraph/persistence/loading-agent-state.mdx`
-- Description: Learn how threadId is used to load previous agent states.
+### Prebuilt Components
+- Route: `/langgraph/prebuilt-components`
+- Source: `docs/content/docs/integrations/langgraph/prebuilt-components.mdx`
+- Description: Drop-in chat components for your LangGraph agent.
 
-### Setting the threadId
-
-When setting the `threadId` property in CopilotKit, i.e:
-
-  When using LangGraph platform, the `threadId` must be a UUID.
-
-```tsx
-<CopilotKit threadId="2140b272-7180-410d-9526-f66210918b13">
-  <YourApp />
-</CopilotKit>
+```tsx title="layout.tsx"
+import "@copilotkit/react-ui/v2/styles.css";
 ```
+```tsx title="page.tsx"
+// [!code word:CopilotChat]
+import { CopilotChat } from "@copilotkit/react-core/v2";
 
-CopilotKit will restore the complete state of the thread, including the messages, from the database. (See [Message Persistence](/langgraph/persistence/message-persistence) for more details.)
-
-### Loading Agent State
-
-This means that the state of any agent will also be restored. For example:
-
-```tsx
-const { state } = useCoAgent({name: "research_agent"});
-
-// state will now be the state of research_agent in the thread id given above
-```
-
-### Learn More
-
-To learn more about persistence and state in CopilotKit, see:
-
-- [Reading agent state](/langgraph/shared-state/in-app-agent-read)
-- [Writing agent state](/langgraph/shared-state/in-app-agent-write)
-- [Loading Message History](/langgraph/persistence/loading-message-history)
-
-### Threads
-- Route: `/langgraph/persistence/loading-message-history`
-- Source: `docs/content/docs/integrations/langgraph/persistence/loading-message-history.mdx`
-- Description: Learn how to load chat messages and threads within the CopilotKit framework.
-
-LangGraph supports threads, a way to group messages together and ultimately maintain a continuous chat history. CopilotKit
-provides a few different ways to interact with this concept.
-
-This guide assumes you have already gone through the [quickstart](/langgraph/quickstart) guide.
-
-## Loading an Existing Thread
-
-To load an existing thread in CopilotKit, you can simply set the `threadId` property on `` like so.
-
-  When using LangGraph platform, the `threadId` must be a UUID.
-
-```tsx
-import { CopilotKit } from "@copilotkit/react-core";
-
-{/* [!code highlight:1] */}
-<CopilotKit threadId="37aa68d0-d15b-45ae-afc1-0ba6c3e11353">
-  <YourApp />
-</CopilotKit>
-```
-
-## Dynamically Switching Threads
-
-You can also make the `threadId` dynamic. Once it is set, CopilotKit will load the previous messages for that thread.
-
-```tsx
-import { useState } from "react";
-import { CopilotKit } from "@copilotkit/react-core";
-
-const Page = () => {
-  const [threadId, setThreadId] = useState("af2fa5a4-36bd-4e02-9b55-2580ab584f89"); // [!code highlight]
+export function YourComponent() {
   return (
-    {/* [!code highlight:3] */}
-    <CopilotKit threadId={threadId}>
-      <YourApp setThreadId={setThreadId} />
-    </CopilotKit>
-  )
-}
-
-const YourApp = ({ setThreadId }) => {
-  return (
-    {/* [!code highlight:1] */}
-    <Button onClick={() => setThreadId("679e8da5-ee9b-41b1-941b-80e0cc73a008")}>
-      Change Thread
-    </Button>
-  )
+    <CopilotChat
+      labels={{
+        modalHeaderTitle: "Your Assistant",
+        welcomeMessageText: "Hi! How can I assist you today?",
+      }}
+    />
+  );
 }
 ```
+```tsx title="page.tsx"
+// [!code word:CopilotSidebar]
+import { CopilotSidebar } from "@copilotkit/react-core/v2";
 
-## Using setThreadId
-
-CopilotKit will also return the current `threadId` and a `setThreadId` function from the `useCopilotContext` hook. You can use `setThreadId` to change the `threadId`.
-
-```tsx
-import { useCopilotContext } from "@copilotkit/react-core";
-
-const ChangeThreadButton = () => {
-  const { threadId, setThreadId } = useCopilotContext(); // [!code highlight]
+export function YourApp() {
   return (
-    {/* [!code highlight:1] */}
-    <Button onClick={() => setThreadId("d73c22f3-1f8e-4a93-99db-5c986068d64f")}>
-      Change Thread
-    </Button>
-  )
+    <CopilotSidebar
+      defaultOpen={true}
+      labels={{
+        modalHeaderTitle: "Sidebar Assistant",
+        welcomeMessageText: "How can I help you today?",
+      }}
+    >
+      <YourMainContent />
+    </CopilotSidebar>
+  );
 }
 ```
+```tsx title="page.tsx"
+// [!code word:CopilotPopup]
+import { CopilotPopup } from "@copilotkit/react-core/v2";
 
-### Message Persistence
-- Route: `/langgraph/persistence/message-persistence`
-- Source: `docs/content/docs/integrations/langgraph/persistence/message-persistence.mdx`
-
-To learn about how to load previous messages and agent states, check out the [Loading Message History](/langgraph/persistence/loading-message-history) and [Loading Agent State](/langgraph/persistence/loading-agent-state) pages.
-
-To persist LangGraph messages to a database, you can use either `AsyncPostgresSaver` or `AsyncSqliteSaver`. Set up the asynchronous memory by configuring the graph within a lifespan function, as follows:
-
-```python
-from fastapi import FastAPI
-from contextlib import asynccontextmanager
-from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
-from copilotkit import LangGraphAGUIAgent
-from ag_ui_langgraph import add_langgraph_fastapi_endpoint
-
-graph = None
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    async with AsyncPostgresSaver.from_conn_string(
-        "postgresql://postgres:postgres@127.0.0.1:5432/postgres"
-    ) as checkpointer:
-        # NOTE: you need to call .setup() the first time you're using your checkpointer
-        await checkpointer.setup()
-        # Create an async graph
-        graph = workflow.compile(checkpointer=checkpointer)
-        yield
-        # Create SDK with the graph
-
-app = FastAPI(lifespan=lifespan)
-
-add_langgraph_fastapi_endpoint(
-    app=app,
-    agent=LangGraphAGUIAgent(
-        name="research_agent",
-        description="Research agent.",
-        graph=graph,
-    ),
-    path="/agents/research_agent"
-)
-
+export function YourApp() {
+  return (
+    <>
+      <YourMainContent />
+      <CopilotPopup
+        labels={{
+          modalHeaderTitle: "Popup Assistant",
+          welcomeMessageText: "Need any help?",
+        }}
+      />
+    </>
+  );
+}
 ```
-
-To learn more about persistence in LangGraph, check out the [LangGraph documentation](https://docs.langchain.com/oss/python/langgraph/persistence).
+```tsx title="page.tsx"
+<CopilotChat
+  // Style slots with Tailwind classes
+  input={{
+    textArea: "text-lg",
+    sendButton: "bg-blue-600 hover:bg-blue-700",
+  }}
+  // Customize nested message slots
+  messageView={{
+    assistantMessage: {
+      className: "bg-gray-50 rounded-xl p-4",
+      toolbar: "border-t mt-2",
+    },
+    userMessage: "bg-blue-100 rounded-xl",
+  }}
+  // Hide elements by returning null
+  scrollView={{
+    feather: () => null,
+  }}
+/>
+```
 
 ### Fully Headless UI
 - Route: `/langgraph/premium/headless-ui`
 - Source: `docs/content/docs/integrations/langgraph/premium/headless-ui.mdx`
-- Description: Fully customize your Copilot's UI from the ground up using headless UI
+- Description: Build a completely custom chat interface from scratch using useAgent and useCopilotKit
 
-```bash
-    npx copilotkit@latest create
+## What is this?
+
+A headless UI gives you full control over the chat experience — you bring your own components, layout, and styling while CopilotKit handles agent communication, message management, and streaming. This is built on top of the same primitives (`useAgent` and `useCopilotKit`) covered in [Programmatic Control](/langgraph/programmatic-control).
+
+## When should I use this?
+
+Use headless UI when the [slot system](/langgraph/custom-look-and-feel/slots) isn't enough — for example, when you need a completely different layout, want to embed the chat into an existing UI, or are building a non-chat interface that still communicates with an agent.
+
+## Implementation
+
+### Access the agent and CopilotKit
+
+Use `useAgent` to get the agent instance (messages, state, execution status) and `useCopilotKit` to run the agent.
+
+```tsx title="components/custom-chat.tsx"
+import { useAgent } from "@copilotkit/react-core/v2";
+import { useCopilotKit } from "@copilotkit/react-core/v2";
+import { randomUUID } from "@copilotkit/shared/v2";
+
+export function CustomChat() {
+  // [!code highlight:2]
+  const { agent } = useAgent();
+  const { copilotkit } = useCopilotKit();
+
+  return <div>{/* Your custom UI */}</div>;
+}
 ```
-```bash
-    open README.md
-```
-```tsx title="src/app/layout.tsx"
-    <CopilotKit
-      publicLicenseKey="your-free-public-license-key"
-    >
-      {children}
-    </CopilotKit>
-```
-```tsx title="src/app/page.tsx"
-    "use client";
-    import { useState } from "react";
-    import { useCopilotChatHeadless_c } from "@copilotkit/react-core"; // [!code highlight]
 
-    export default function Home() {
-      const { messages, sendMessage, isLoading } = useCopilotChatHeadless_c(); // [!code highlight]
-      const [input, setInput] = useState("");
+### Display messages
 
-      const handleSend = () => {
-        if (input.trim()) {
-          // [!code highlight:5]
-          sendMessage({
-            id: Date.now().toString(),
-            role: "user",
-            content: input,
-          });
-          setInput("");
-        }
-      };
+The agent's messages are available via `agent.messages`. Each message has an `id`, `role` (`"user"` or `"assistant"`), and `content`.
 
-      return (
-        <div>
-          <h1>My Headless Chat</h1>
+```tsx title="components/custom-chat.tsx"
+export function CustomChat() {
+  const { agent } = useAgent();
+  const { copilotkit } = useCopilotKit();
 
-          {/* Messages */}
-          <div>
-            {/* [!code highlight:6] */}
-            {messages.map((message) => (
-              <div key={message.id}>
-                <strong>{message.role === "user" ? "You" : "Assistant"}:</strong>
-                <p>{message.content}</p>
-              </div>
-            ))}
-
-            {/* [!code highlight:1] */}
-            {isLoading && <p>Assistant is typing...</p>}
-          </div>
-
-          {/* Input */}
-          <div>
-            <input
-              type="text"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              // [!code highlight:1]
-              onKeyDown={(e) => e.key === "Enter" && handleSend()}
-              placeholder="Type your message here..."
-            />
-            {/* [!code highlight:1] */}
-            <button onClick={handleSend} disabled={isLoading}>
-              Send
-            </button>
-          </div>
-        </div>
-      );
-    }
-```
-```tsx title="src/app/components/chat.tsx"
-import { useCopilotAction } from "@copilotkit/react-core";
-
-export const Chat = () => {
-  // ...
-
-  // Define an action that will show a custom component
-  useCopilotAction({
-    name: "showCustomComponent",
-    // Handle the tool on the frontend
-    // [!code highlight:3]
-    handler: () => {
-      return "Foo, Bar, Baz";
-    },
-    // Render a custom component for the underlying data
-    // [!code highlight:13]
-    render: ({ result, args, status}) => {
-      return <div style={{
-        backgroundColor: "red",
-        padding: "10px",
-        borderRadius: "5px",
-      }}>
-        <p>Custom component</p>
-        <p>Result: {result}</p>
-        <p>Args: {JSON.stringify(args)}</p>
-        <p>Status: {status}</p>
-      </div>;
-    }
-  });
-
-  // ...
-
-  return <div>
-    {messages.map((message) => (
-      <p key={message.id}>
-        {message.role === "user" ? "User: " : "Assistant: "}
-        {message.content}
-        {/* Render the generative UI if it exists */}
-        {/* [!code highlight:1] */}
-        {message.role === "assistant" && message.generativeUI?.()}
-      </p>
-    ))}
-  </div>
-};
-```
-```tsx title="src/app/components/chat.tsx"
-export const Chat = () => {
-  // ...
-
-  return <div>
-    {messages.map((message) => (
-      <p key={message.id}>
-        {/* Render the tool calls if they exist */}
-        {/* [!code highlight:5] */}
-        {message.role === "assistant" && message.toolCalls?.map((toolCall) => (
-          <p key={toolCall.id}>
-            {toolCall.function.name}: {toolCall.function.arguments}
-          </p>
-        ))}
-      </p>
-    ))}
-  </div>
-};
-```
-```tsx title="src/app/components/chat.tsx"
-import { useCopilotChatHeadless_c, useCopilotChatSuggestions } from "@copilotkit/react-core"; // [!code highlight]
-
-export const Chat = () => {
-  // Specify what suggestions should be generated
-  // [!code highlight:5]
-  useCopilotChatSuggestions({
-    instructions:
-      "Suggest 5 interesting activities for programmers to do on their next vacation",
-    maxSuggestions: 5,
-  });
-
-  // Grab relevant state from the headless hook
-  const { suggestions, generateSuggestions, sendMessage } = useCopilotChatHeadless_c(); // [!code highlight]
-
-  // Generate suggestions when the component mounts
-  useEffect(() => {
-    generateSuggestions(); // [!code highlight]
-  }, []);
-
-  // ...
-
-  // [!code word:suggestion]
-  return <div>
-    {suggestions.map((suggestion, index) => (
-      <button
-        key={index}
-        onClick={() => sendMessage({
-          id: "123",
-          role: "user",
-          content: suggestion.message
-        })}
-      >
-        {suggestion.title}
-      </button>
-    ))}
-  </div>
-};
-```
-```tsx title="src/app/components/chat.tsx"
-import { useCopilotChatHeadless_c } from "@copilotkit/react-core";
-
-export const Chat = () => {
-  // Grab relevant state from the headless hook
-  // [!code highlight:1]
-  const { suggestions, setSuggestions } = useCopilotChatHeadless_c();
-
-  // Set the suggestions when the component mounts
-  // [!code highlight:6]
-  useEffect(() => {
-    setSuggestions([
-      { title: "Suggestion 1", message: "The actual message for suggestion 1" },
-      { title: "Suggestion 2", message: "The actual message for suggestion 2" },
-    ]);
-  }, []);
-
-  // Change the suggestions on function call
-  const changeSuggestions = () => {
-    // [!code highlight:4]
-    setSuggestions([
-      { title: "Foo", message: "Bar" },
-      { title: "Baz", message: "Bat" },
-    ]);
-  };
-
-  // [!code word:suggestion]
   return (
-    <div>
-      {/* Change on button click */}
-      <button onClick={changeSuggestions}>Change suggestions</button>
-
-      {/* Render */}
-      {suggestions.map((suggestion, index) => (
-        <button
-          key={index}
-          onClick={() => sendMessage({
-            id: "123",
-            role: "user",
-            content: suggestion.message
-          })}
-        >
-          {suggestion.title}
-        </button>
-      ))}
+    <div className="flex flex-col h-full">
+      {/* [!code highlight:12] */}
+      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        {agent.messages.map((msg) => (
+          <div
+            key={msg.id}
+            className={msg.role === "user" ? "ml-auto bg-blue-100 rounded-lg p-3 max-w-md" : "bg-gray-100 rounded-lg p-3 max-w-md"}
+          >
+            <p className="text-sm font-medium">{msg.role}</p>
+            <p>{msg.content}</p>
+          </div>
+        ))}
+        {agent.isRunning && <div className="text-gray-400">Thinking...</div>}
+      </div>
     </div>
   );
-};
+}
 ```
-```tsx title="src/app/components/chat.tsx"
-import { useCopilotAction, useCopilotChatHeadless_c } from "@copilotkit/react-core";
 
-export const Chat = () => {
-  const { messages, sendMessage } = useCopilotChatHeadless_c();
+### Send messages and run the agent
 
-  // Define an action that will wait for the user to enter their name
-  useCopilotAction({
-    name: "getName",
-    renderAndWaitForResponse: ({ respond, args, status}) => {
-      if (status === "complete") {
-        return <div>
-          <p>Name retrieved...</p>
-        </div>;
-      }
+Add a message to the agent's conversation, then call `copilotkit.runAgent()` to trigger execution. This is the same method CopilotKit's built-in `` uses internally.
 
-      return <div>
-        <input
-          type="text"
-          value={args.name || ""}
-          onChange={(e) => respond?.(e.target.value)}
-          placeholder="Enter your name"
-        />
-        {/* Respond with the name */}
-        {/* [!code highlight:1] */}
-        <button onClick={() => respond?.(args.name)}>Submit</button>
-      </div>;
-    }
-  });
+```tsx title="components/custom-chat.tsx"
+import { useState, useCallback } from "react";
+
+export function CustomChat() {
+  const { agent } = useAgent();
+  const { copilotkit } = useCopilotKit();
+  const [input, setInput] = useState("");
+
+  // [!code highlight:14]
+  const sendMessage = useCallback(async () => {
+    if (!input.trim()) return;
+
+    agent.addMessage({
+      id: randomUUID(),
+      role: "user",
+      content: input,
+    });
+
+    setInput("");
+
+    await copilotkit.runAgent({ agent });
+  }, [input, agent, copilotkit]);
 
   return (
-    {messages.map((message) => (
-      <p key={message.id}>
-        {message.role === "user" ? "User: " : "Assistant: "}
-        {message.content}
-        {/* [!code highlight:2] */}
-        {/* This will render the tool-based HITL if it exists */}
-        {message.role === "assistant" && message.generativeUI?.()}
-      </p>
-    ))}
-  )
-};
+    <div className="flex flex-col h-full">
+      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        {agent.messages.map((msg) => (
+          <div key={msg.id} className={msg.role === "user" ? "ml-auto bg-blue-100 rounded-lg p-3 max-w-md" : "bg-gray-100 rounded-lg p-3 max-w-md"}>
+            <p>{msg.content}</p>
+          </div>
+        ))}
+        {agent.isRunning && <div className="text-gray-400">Thinking...</div>}
+      </div>
+
+      {/* [!code highlight:12] */}
+      <form
+        className="border-t p-4 flex gap-2"
+        onSubmit={(e) => { e.preventDefault(); sendMessage(); }}
+      >
+        <input
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          placeholder="Type a message..."
+          className="flex-1 border rounded-lg px-3 py-2"
+        />
+        <button type="submit" disabled={agent.isRunning}>Send</button>
+      </form>
+    </div>
+  );
+}
 ```
 
-### Inspector
-- Route: `/langgraph/premium/inspector`
-- Source: `docs/content/docs/integrations/langgraph/premium/inspector.mdx`
-- Description: Inspector for debugging actions, readables, agent status, messages, and context.
+### Stop the agent
 
-The Copilot Inspector is a debugging aid, accessible from a copilotkit button overlaid on your app, which allows you to see the information, state and conversation between them and you (the user).
+Use `copilotkit.stopAgent()` to cancel a running agent:
 
-  The Inspector is available to CopilotKit Premium users. Get a free public
-  license key on [Copilot Cloud](https://cloud.copilotkit.ai) or read more about{" "}
+```tsx title="components/custom-chat.tsx"
+const stopAgent = useCallback(() => {
+  // [!code highlight:1]
+  copilotkit.stopAgent({ agent });
+}, [agent, copilotkit]);
 
-## What it shows
-
-- Actions: Registered actions and parameter schemas
-- Readables: Context/readables available to the agent
-- Agent Status: Coagent states and running/completion info
-- Messages: Conversation history
-- Context: Document context fed into the model
-
-## Requirements
-
-- Provide `publicLicenseKey` to `` to enable premium features:
-
-```tsx
-<CopilotKit publicLicenseKey={process.env.NEXT_PUBLIC_COPILOTKIT_LICENSE_KEY}>
-  {children}
-</CopilotKit>
+// In your JSX:
+{agent.isRunning && (
+  <button onClick={stopAgent} className="text-red-500">
+    Stop
+  </button>
+)}
 ```
 
-## How to open
+### Subscribe to agent events
 
-A draggable circular trigger is rendered in-app. Click to open the Inspector.
-If no license key is configured, you’ll see a "Get License Key" prompt.
+Use `agent.subscribe()` to listen for lifecycle events — useful for showing progress indicators, handling errors, or responding to custom events like LangGraph interrupts.
+
+```tsx title="components/custom-chat.tsx"
+import { useEffect, useState } from "react";
+import type { AgentSubscriber } from "@ag-ui/client";
+
+export function CustomChat() {
+  const { agent } = useAgent();
+  const { copilotkit } = useCopilotKit();
+  const [interrupt, setInterrupt] = useState<string | null>(null);
+
+  // [!code highlight:16]
+  useEffect(() => {
+    const subscriber: AgentSubscriber = {
+      onCustomEvent: ({ event }) => {
+        if (event.name === "on_interrupt") {
+          setInterrupt(event.value);
+        }
+      },
+    };
+
+    const { unsubscribe } = agent.subscribe(subscriber);
+    return () => unsubscribe();
+  }, [agent]);
+
+  const resolveInterrupt = (response: string) => {
+    agent.runAgent({
+      forwardedProps: { command: { resume: response } },
+    });
+    setInterrupt(null);
+  };
+
+  return (
+    <div>
+      {/* Messages and input... */}
+
+      {interrupt && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center">
+          <div className="bg-white rounded-xl p-6 max-w-md">
+            <p className="font-medium mb-4">{interrupt}</p>
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              const formData = new FormData(e.currentTarget);
+              resolveInterrupt(formData.get("response") as string);
+            }}>
+              <input name="response" className="border rounded px-3 py-2 w-full mb-3" />
+              <button type="submit" className="bg-blue-500 text-white px-4 py-2 rounded">
+                Submit
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+```
+
+### Access shared state
+
+If your LangGraph agent shares state with the frontend, access it via `agent.state`:
+
+```tsx title="components/custom-chat.tsx"
+export function AgentDashboard() {
+  const { agent } = useAgent();
+
+  // [!code highlight:3]
+  const currentNode = agent.state.currentNode;
+  const progress = agent.state.progress;
+  const results = agent.state.results;
+
+  return (
+    <div>
+      {currentNode && <div className="text-sm text-gray-500">Current step: {currentNode}</div>}
+      {progress && <div className="w-full bg-gray-200 rounded"><div className="bg-blue-500 h-2 rounded" style={{ width: `${progress}%` }} /></div>}
+      {results && <pre className="bg-gray-50 p-4 rounded">{JSON.stringify(results, null, 2)}</pre>}
+    </div>
+  );
+}
+```
+
+## See Also
+
+- [Programmatic Control](/langgraph/programmatic-control) — Full `useAgent` reference and advanced patterns
+- [Component Slots](/langgraph/custom-look-and-feel/slots) — Customize the built-in UI without going fully headless
+- [useAgent API Reference](/reference/v2/hooks/useAgent) — Complete API documentation
 
 ### Observability
 - Route: `/langgraph/premium/observability`
@@ -4966,8 +4294,8 @@ Monitor CopilotKit with first‑class observability hooks that emit structured s
 Track user interactions and chat events with comprehensive observability hooks:
 
 ```tsx
-import { CopilotChat } from "@copilotkit/react-ui";
-import { CopilotKit } from "@copilotkit/react-core";
+import { CopilotChat } from "@copilotkit/react-core/v2";
+import { CopilotKit } from "@copilotkit/react-core/v2";
 
 export default function App() {
   return (
@@ -5011,7 +4339,7 @@ export default function App() {
 Monitor system errors and performance with error observability hooks:
 
 ```tsx
-import { CopilotKit } from "@copilotkit/react-core";
+import { CopilotKit } from "@copilotkit/react-core/v2";
 
 export default function App() {
   return (
@@ -5046,7 +4374,7 @@ export default function App() {
 Track user interactions, chat behavior and errors with comprehensive observability hooks (requires a `publicLicenseKey` if self-hosted or `publicAPIkey` if using CopilotCloud):
 
 ```tsx
-import { CopilotChat } from "@copilotkit/react-ui";
+import { CopilotChat } from "@copilotkit/react-core/v2";
 
 <CopilotChat
   observabilityHooks={{
@@ -5476,6 +4804,552 @@ for access to Copilot Cloud a public API key is utilized.
 A public API key is a key that you use to connect your app to Copilot Cloud. Public license keys are used to access premium features
 and do not require a connection to Copilot Cloud.
 
+### Programmatic Control
+- Route: `/langgraph/programmatic-control`
+- Source: `docs/content/docs/integrations/langgraph/programmatic-control.mdx`
+- Description: Chat with an agent using CopilotKit's UI components.
+
+### Import the hook
+
+    First, import `useAgent` from the v2 package:
+
+```tsx title="page.tsx"
+    import { useAgent } from "@copilotkit/react-core/v2"; // [!code highlight]
+```
+
+    ### Access your agent
+
+    Call the hook to get a reference to your agent:
+
+```tsx title="page.tsx"
+    export function AgentInfo() {
+      const { agent } = useAgent(); // [!code highlight]
+
+      return (
+        <div>
+          {/* [!code highlight:4] */}
+          <p>Agent ID: {agent.id}</p>
+          <p>Thread ID: {agent.threadId}</p>
+          <p>Status: {agent.isRunning ? "Running" : "Idle"}</p>
+          <p>Messages: {agent.messages.length}</p>
+        </div>
+      );
+    }
+```
+
+    The hook will throw an error if no agent is configured, so you can safely use `agent` without null checks.
+
+    ### Display messages
+
+    Access the agent's conversation history:
+
+```tsx title="page.tsx"
+    export function MessageList() {
+      const { agent } = useAgent();
+
+      return (
+        <div>
+          {/* [!code highlight:6] */}
+          {agent.messages.map((msg) => (
+            <div key={msg.id}>
+              <strong>{msg.role}:</strong>
+              <span>{msg.content}</span>
+            </div>
+          ))}
+        </div>
+      );
+    }
+```
+
+    ### Show running status
+
+    Add a loading indicator when the agent is processing:
+
+```tsx title="page.tsx"
+    export function AgentStatus() {
+      const { agent } = useAgent();
+
+      return (
+        <div>
+          {/* [!code highlight:8] */}
+          {agent.isRunning ? (
+            <div>
+              <div className="spinner" />
+              <span>Agent is processing...</span>
+            </div>
+          ) : (
+            <span>Ready</span>
+          )}
+        </div>
+      );
+    }
+```
+
+    ### Run the agent
+
+    Use `copilotkit.runAgent()` to trigger your agent programmatically:
+
+```tsx title="page.tsx"
+    import { useAgent } from "@copilotkit/react-core/v2";
+    import { useCopilotKit } from "@copilotkit/react-core/v2";
+    import { randomUUID } from "@copilotkit/shared/v2";
+
+    export function RunAgent() {
+      const { agent } = useAgent();
+      // [!code highlight:1]
+      const { copilotkit } = useCopilotKit();
+
+      const handleRun = async () => {
+        agent.addMessage({
+          id: randomUUID(),
+          role: "user",
+          content: "Hello, agent!",
+        });
+
+        // [!code highlight:1]
+        await copilotkit.runAgent({ agent });
+      };
+
+      return <button onClick={handleRun}>Send</button>;
+    }
+```
+
+    `copilotkit.runAgent()` orchestrates the full agent lifecycle — executing frontend tools, handling follow-up runs, and streaming results. This is the same method `` uses internally.
+
+## Working with State
+
+Agents expose their state through the `agent.state` property. This state is shared between your application and the agent - both can read and modify it.
+
+### Reading State
+
+Access your agent's current state:
+
+```tsx title="page.tsx"
+export function StateDisplay() {
+  const { agent } = useAgent();
+
+  return (
+    <div>
+      <h3>Agent State</h3>
+      {/* [!code highlight:1] */}
+      <pre>{JSON.stringify(agent.state, null, 2)}</pre>
+
+      {/* Access specific properties */}
+      {/* [!code highlight:2] */}
+      {agent.state.user_name && <p>User: {agent.state.user_name}</p>}
+      {agent.state.preferences && <p>Preferences: {JSON.stringify(agent.state.preferences)}</p>}
+    </div>
+  );
+}
+```
+
+Your component automatically re-renders when the agent's state changes.
+
+### Updating State
+
+Update state that your agent can access:
+
+```tsx title="page.tsx"
+export function ThemeSelector() {
+  const { agent } = useAgent();
+
+  const updateTheme = (theme: string) => {
+    // [!code highlight:4]
+    agent.setState({
+      ...agent.state,
+      user_theme: theme,
+    });
+  };
+
+  return (
+    <div>
+      {/* [!code highlight:2] */}
+      <button onClick={() => updateTheme("dark")}>Dark Mode</button>
+      <button onClick={() => updateTheme("light")}>Light Mode</button>
+      <p>Current: {agent.state.user_theme || "default"}</p>
+    </div>
+  );
+}
+```
+
+State updates are immediately available to your agent in its next execution.
+
+## Subscribing to Agent Events
+
+You can subscribe to agent events using the `subscribe()` method. This is useful for logging, monitoring, or responding to specific agent behaviors.
+
+### Basic Event Subscription
+
+```tsx title="page.tsx"
+import { useEffect } from "react";
+import { useAgent } from "@copilotkit/react-core/v2";
+import type { AgentSubscriber } from "@ag-ui/client";
+
+export function EventLogger() {
+  const { agent } = useAgent();
+
+  useEffect(() => {
+    // [!code highlight:15]
+    const subscriber: AgentSubscriber = {
+      onCustomEvent: ({ event }) => {
+        console.log("Custom event:", event.name, event.value);
+      },
+      onRunStartedEvent: () => {
+        console.log("Agent started running");
+      },
+      onRunFinalized: () => {
+        console.log("Agent finished running");
+      },
+      onStateChanged: (state) => {
+        console.log("State changed:", state);
+      },
+    };
+
+    // [!code highlight:2]
+    const { unsubscribe } = agent.subscribe(subscriber);
+    return () => unsubscribe();
+  }, []);
+
+  return null;
+}
+```
+
+### Available Events
+
+The `AgentSubscriber` interface provides:
+
+- **`onCustomEvent`** - Custom events emitted by the agent
+- **`onRunStartedEvent`** - Agent starts executing
+- **`onRunFinalized`** - Agent completes execution
+- **`onStateChanged`** - Agent's state changes
+- **`onMessagesChanged`** - Messages are added or modified
+
+## Rendering Tool Calls
+
+You can customize how agent tool calls are displayed in your UI. First, define your tool renderers:
+
+```tsx title="components/weather-tool.tsx"
+import { defineToolCallRenderer } from "@copilotkit/react-core/v2";
+
+// [!code highlight:6]
+export const weatherToolRender = defineToolCallRenderer({
+  name: "get_weather",
+  render: ({ args, status }) => {
+    return <WeatherCard location={args.location} status={status} />;
+  },
+});
+
+function WeatherCard({ location, status }: { location?: string; status: string }) {
+  return (
+    <div className="rounded-lg border p-6 shadow-sm">
+      <h3 className="text-xl font-semibold">Weather in {location}</h3>
+      <div className="mt-4">
+        <span className="text-5xl font-light">70°F</span>
+      </div>
+      {status === "executing" && <div className="spinner">Loading...</div>}
+    </div>
+  );
+}
+```
+
+Register your tool renderers with CopilotKit:
+
+```tsx title="layout.tsx"
+import { CopilotKit } from "@copilotkit/react-core";
+import { weatherToolRender } from "./components/weather-tool";
+
+export default function RootLayout({ children }) {
+  return (
+    <CopilotKit
+      runtimeUrl="/api/copilotkit"
+      {/* [!code highlight:1] */}
+      renderToolCalls={[weatherToolRender]}
+    >
+      {children}
+    </CopilotKit>
+  );
+}
+```
+
+Then use `useRenderToolCall` to render tool calls from agent messages:
+
+```tsx title="components/message-list.tsx"
+import { useAgent, useRenderToolCall } from "@copilotkit/react-core/v2";
+
+export function MessageList() {
+  const { agent } = useAgent();
+  const renderToolCall = useRenderToolCall();
+
+  return (
+    <div className="messages">
+      {agent.messages.map((message) => (
+        <div key={message.id}>
+          {/* Display message content */}
+          {message.content && <p>{message.content}</p>}
+
+          {/* Render tool calls if present */}
+          {/* [!code highlight:9] */}
+          {message.role === "assistant" && message.toolCalls?.map((toolCall) => {
+            const toolMessage = agent.messages.find(
+              (m) => m.role === "tool" && m.toolCallId === toolCall.id
+            );
+            return (
+              <div key={toolCall.id}>
+                {renderToolCall({ toolCall, toolMessage })}
+              </div>
+            );
+          })}
+        </div>
+      ))}
+    </div>
+  );
+}
+```
+
+## Building a Complete Dashboard
+
+Here's a full example combining all concepts into an interactive agent dashboard:
+
+```tsx title="page.tsx"
+"use client";
+
+import { useAgent } from "@copilotkit/react-core/v2";
+
+export default function AgentDashboard() {
+  const { agent } = useAgent();
+
+  return (
+    <div className="p-8 max-w-4xl mx-auto space-y-6">
+      {/* Status */}
+      <div className="p-6 bg-white rounded-lg shadow">
+        <h2 className="text-xl font-bold mb-4">Agent Status</h2>
+        <div className="space-y-2">
+          {/* [!code highlight:6] */}
+          <div className="flex items-center gap-2">
+            <div className={`w-3 h-3 rounded-full ${
+              agent.isRunning ? "bg-yellow-500 animate-pulse" : "bg-green-500"
+            }`} />
+            <span>{agent.isRunning ? "Running" : "Idle"}</span>
+          </div>
+          <div>Thread: {agent.threadId}</div>
+          <div>Messages: {agent.messages.length}</div>
+        </div>
+      </div>
+
+      {/* State */}
+      <div className="p-6 bg-white rounded-lg shadow">
+        <h2 className="text-xl font-bold mb-4">Agent State</h2>
+        {/* [!code highlight:3] */}
+        <pre className="bg-gray-50 p-4 rounded text-sm overflow-auto">
+          {JSON.stringify(agent.state, null, 2)}
+        </pre>
+      </div>
+
+      {/* Messages */}
+      <div className="p-6 bg-white rounded-lg shadow">
+        <h2 className="text-xl font-bold mb-4">Conversation</h2>
+        <div className="space-y-3">
+          {/* [!code highlight:11] */}
+          {agent.messages.map((msg) => (
+            <div
+              key={msg.id}
+              className={`p-3 rounded-lg ${
+                msg.role === "user" ? "bg-blue-50 ml-8" : "bg-gray-50 mr-8"
+              }`}
+            >
+              <div className="font-semibold text-sm mb-1">
+                {msg.role === "user" ? "You" : "Agent"}
+              </div>
+              <div>{msg.content}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+```
+
+### Node-Specific State
+
+If your LangGraph agent tracks which node it's in, you can show contextual UI:
+
+```tsx title="page.tsx"
+export function NodeStatus() {
+  const { agent } = useAgent();
+
+  // [!code highlight:1]
+  const currentNode = agent.state.currentNode;
+
+  return (
+    <div>
+      {/* [!code highlight:6] */}
+      {currentNode === "research_node" && (
+        <div className="alert">Agent is researching your query...</div>
+      )}
+      {currentNode === "summarize_node" && (
+        <div className="alert">Agent is summarizing findings...</div>
+      )}
+    </div>
+  );
+}
+```
+
+## Running the Agent Programmatically
+
+Use `copilotkit.runAgent()` to trigger your agent from any component — no chat UI required. This is the same method CopilotKit's built-in `` uses internally.
+
+```tsx title="page.tsx"
+import { useAgent } from "@copilotkit/react-core/v2";
+import { useCopilotKit } from "@copilotkit/react-core/v2";
+import { randomUUID } from "@copilotkit/shared/v2";
+
+export function AgentTrigger() {
+  const { agent } = useAgent();
+  // [!code highlight:1]
+  const { copilotkit } = useCopilotKit();
+
+  const handleRun = async () => {
+    // Add a user message to the agent's conversation
+    agent.addMessage({
+      id: randomUUID(),
+      role: "user",
+      content: "Summarize the latest sales data",
+    });
+
+    // [!code highlight:2]
+    // Run the agent — handles tool execution, follow-ups, and streaming
+    await copilotkit.runAgent({ agent });
+  };
+
+  return <button onClick={handleRun}>Run Agent</button>;
+}
+```
+
+### `copilotkit.runAgent()` vs `agent.runAgent()`
+
+Both methods trigger the agent, but they operate at different levels:
+
+- **`copilotkit.runAgent({ agent })`** — The recommended approach. Orchestrates the full agent lifecycle: executes frontend tools, handles follow-up runs when tools request them, and manages errors through the subscriber system.
+- **`agent.runAgent()`** — Low-level method on the agent instance. Sends the request to the runtime but does **not** execute frontend tools or handle follow-ups. Use this only when you need direct control over the agent execution (e.g., resuming from an interrupt with `forwardedProps`).
+
+### Stopping a Run
+
+You can stop a running agent using `copilotkit.stopAgent()`:
+
+```tsx title="page.tsx"
+const handleStop = () => {
+  copilotkit.stopAgent({ agent });
+};
+```
+
+## Handling LangGraph Interrupts
+
+LangGraph's `interrupt()` function emits custom events that you can capture and respond to.
+
+### Simple Interrupt Handler
+
+```tsx title="page.tsx"
+import { useEffect } from "react";
+import { useAgent } from "@copilotkit/react-core/v2";
+import type { AgentSubscriber } from "@ag-ui/client";
+
+export function InterruptHandler() {
+  const { agent } = useAgent();
+
+  useEffect(() => {
+    const subscriber: AgentSubscriber = {
+      // [!code highlight:12]
+      onCustomEvent: ({ event }) => {
+        if (event.name === "on_interrupt") {
+          // LangGraph interrupt() was called
+          const response = prompt(event.value);
+
+          if (response) {
+            // Resume the agent with the user's response
+            agent.runAgent({
+              forwardedProps: {
+                command: { resume: response },
+              },
+            });
+          }
+        }
+      },
+    };
+
+    const { unsubscribe } = agent.subscribe(subscriber);
+    return () => unsubscribe();
+  }, []);
+
+  return null;
+}
+```
+
+### Custom Interrupt UI
+
+For a more sophisticated UI, you can render a custom component:
+
+```tsx title="page.tsx"
+import { useEffect, useState } from "react";
+import { useAgent } from "@copilotkit/react-core/v2";
+import type { AgentSubscriber } from "@ag-ui/client";
+
+export function CustomInterruptHandler() {
+  const { agent } = useAgent();
+  const [interrupt, setInterrupt] = useState<{ message: string } | null>(null);
+
+  useEffect(() => {
+    const subscriber: AgentSubscriber = {
+      onCustomEvent: ({ event }) => {
+        // [!code highlight:3]
+        if (event.name === "on_interrupt") {
+          setInterrupt({ message: event.value });
+        }
+      },
+    };
+
+    const { unsubscribe } = agent.subscribe(subscriber);
+    return () => unsubscribe();
+  }, []);
+
+  const handleResponse = (response: string) => {
+    // [!code highlight:5]
+    agent.runAgent({
+      forwardedProps: {
+        command: { resume: response },
+      },
+    });
+    setInterrupt(null);
+  };
+
+  if (!interrupt) return null;
+
+  return (
+    <div className="interrupt-modal">
+      <h3>Agent Needs Your Input</h3>
+      <p>{interrupt.message}</p>
+      <form onSubmit={(e) => {
+        e.preventDefault();
+        const formData = new FormData(e.currentTarget);
+        handleResponse(formData.get("response") as string);
+      }}>
+        <input type="text" name="response" placeholder="Your response" />
+        <button type="submit">Submit</button>
+      </form>
+    </div>
+  );
+}
+```
+
+For a more declarative approach, see [useLangGraphInterrupt](/reference/v1/hooks/useLangGraphInterrupt).
+
+## See Also
+
+- [Shared State](/langgraph/shared-state) - Deep dive into state management
+- [Human-in-the-Loop](/langgraph/human-in-the-loop) - Approval workflows
+- [Agent App Context](/langgraph/agent-app-context) - Pass context to your agent
+- [useAgent API Reference](/reference/v2/hooks/useAgent) - Complete API documentation
+
 ### Quickstart
 - Route: `/langgraph/quickstart`
 - Source: `docs/content/docs/integrations/langgraph/quickstart.mdx`
@@ -5758,8 +5632,8 @@ Before you begin, you'll need the following:
 
 ```tsx title="app/layout.tsx"
               // [!code highlight:2]
-              import { CopilotKit } from "@copilotkit/react-core";
-              import "@copilotkit/react-ui/styles.css";
+              import { CopilotKit } from "@copilotkit/react-core/v2";
+              import "@copilotkit/react-ui/v2/styles.css";
 
               // ...
 
@@ -5781,7 +5655,7 @@ Before you begin, you'll need the following:
             Add the CopilotSidebar component to your page:
 
 ```tsx title="app/page.tsx"
-            import { CopilotSidebar } from "@copilotkit/react-ui"; // [!code highlight:1]
+            import { CopilotSidebar } from "@copilotkit/react-core/v2"; // [!code highlight:1]
 
             export default function Page() {
               return (
@@ -5902,19 +5776,15 @@ Now that you have your basic agent setup, explore these advanced features:
         }
 ```
 ```tsx title="ui/app/page.tsx"
-    import { useCoAgent } from "@copilotkit/react-core"; // [!code highlight]
-
-    // Define the agent state type, should match the actual state of your agent
-    type AgentState = {
-      language: "english" | "spanish";
-    }
+    import { useAgent } from "@copilotkit/react-core/v2"; // [!code highlight]
 
     function YourMainContent() {
-      // [!code highlight:4]
-      const { state } = useCoAgent<AgentState>({
-        name: "sample_agent",
-        initialState: { language: "english" }  // optionally provide an initial state
+      // [!code highlight:3]
+      const { agent } = useAgent({
+        agentId: "sample_agent",
       });
+
+      const language = (agent.state.language as string) ?? "english";
 
       // ...
 
@@ -5923,30 +5793,27 @@ Now that you have your basic agent setup, explore these advanced features:
         <div>
           <h1>Your main content</h1>
           {/* [!code highlight:1] */}
-          <p>Language: {state.language}</p>
+          <p>Language: {language}</p>
         </div>
       );
     }
 ```
 ```tsx title="ui/app/page.tsx"
-import { useCoAgentStateRender } from "@copilotkit/react-core"; // [!code highlight]
-
-// Define the agent state type, should match the actual state of your agent
-type AgentState = {
-  language: "english" | "spanish";
-}
+import { useAgent } from "@copilotkit/react-core/v2"; // [!code highlight]
 
 function YourMainContent() {
-  // ...
-  // [!code highlight:7]
-  useCoAgentStateRender({
-    name: "sample_agent",
-    render: ({ state }) => {
-      if (!state.language) return null;
-      return <div>Language: {state.language}</div>;
-    },
+  // [!code highlight:3]
+  const { agent } = useAgent({
+    agentId: "sample_agent",
   });
-  // ...
+
+  const language = (agent.state.language as string) ?? "english";
+
+  return (
+    <div>
+      <p>Language: {language}</p>
+    </div>
+  );
 }
 ```
 
@@ -5973,24 +5840,21 @@ function YourMainContent() {
         export type AgentState = typeof AgentStateAnnotation.State;
 ```
 ```tsx title="ui/app/page.tsx"
-    import { useCoAgent } from "@copilotkit/react-core"; // [!code highlight]
-
-    // Define the agent state type, should match the actual state of your agent
-    type AgentState = {
-      language: "english" | "spanish";
-    }
+    import { useAgent } from "@copilotkit/react-core/v2"; // [!code highlight]
 
     // Example usage in a pseudo React component
     function YourMainContent() {
-      const { state, setState } = useCoAgent<AgentState>({ // [!code highlight]
-        name: "sample_agent",
-        initialState: { language: "english" }  // optionally provide an initial state
+      // [!code highlight:3]
+      const { agent } = useAgent({
+        agentId: "sample_agent",
       });
+
+      const language = (agent.state.language as string) ?? "english";
 
       // ...
 
       const toggleLanguage = () => {
-        setState({ language: state.language === "english" ? "spanish" : "english" }); // [!code highlight]
+        agent.setState({ language: language === "english" ? "spanish" : "english" }); // [!code highlight]
       };
 
       // ...
@@ -6000,38 +5864,32 @@ function YourMainContent() {
         <div>
           <h1>Your main content</h1>
           {/* [!code highlight:1] */}
-          <p>Language: {state.language}</p>
+          <p>Language: {language}</p>
           <button onClick={toggleLanguage}>Toggle Language</button>
         </div>
       );
     }
 ```
 ```tsx title="ui/app/page.tsx"
-import { useCoAgent } from "@copilotkit/react-core";
-import { TextMessage, MessageRole } from "@copilotkit/runtime-client-gql";  // [!code highlight]
+import { useAgent } from "@copilotkit/react-core/v2"; // [!code highlight]
 
 // ...
 
 function YourMainContent() {
-  // [!code word:run:1]
-  const { state, setState, run } = useCoAgent<AgentState>({
-    name: "sample_agent",
-    initialState: { language: "english" }  // optionally provide an initial state
+  const { agent } = useAgent({
+    agentId: "sample_agent",
   });
+
+  const language = (agent.state.language as string) ?? "english";
 
   // setup to be called when some event in the app occurs
   const toggleLanguage = () => {
-    const newLanguage = state.language === "english" ? "spanish" : "english";
-    setState({ language: newLanguage });
+    const newLanguage = language === "english" ? "spanish" : "english";
+    agent.setState({ language: newLanguage });
 
-    // [!code highlight:7]
-    // re-run the agent and provide a hint about what's changed
-    run(({ previousState, currentState }) => {
-      return new TextMessage({
-        role: MessageRole.User,
-        content: `the language has been updated to ${currentState.language}`,
-      });
-    });
+    // [!code highlight:2]
+    // re-run the agent with updated state
+    agent.runAgent();
   };
 
   return (
@@ -6040,30 +5898,7 @@ function YourMainContent() {
 }
 ```
 
-### Shared State
-- Route: `/langgraph/shared-state`
-- Source: `docs/content/docs/integrations/langgraph/shared-state/index.mdx`
-- Description: Create a two-way connection between your UI and LangGraph agent state.
-
-## What is shared state?
-
-CoAgents maintain a shared state that seamlessly connects your UI with the agent's execution. This shared state system allows you to:
-
-- Display the agent's current progress and intermediate results
-- Update the agent's state through UI interactions
-- React to state changes in real-time across your application
-
-The foundation of this system is built on LangGraph's stateful architecture. Unlike traditional LangChains, LangGraphs maintain their
-internal state throughout execution, which you can access via the `useCoAgentState` hook.
-
-## When should I use this?
-
-State streaming is perfect when you want to facilitate collaboration between your agent and the user. Any state that your LangGraph agent
-persists will be automatically shared by the UI. Similarly, any state that the user updates in the UI will be automatically reflected
-
-This allows for a consistent experience where both the agent and the user are on the same page.
-
-### Predictive state updates
+### State streaming
 - Route: `/langgraph/shared-state/predictive-state-updates`
 - Source: `docs/content/docs/integrations/langgraph/shared-state/predictive-state-updates.mdx`
 - Description: Stream in-progress agent state updates to the frontend.
@@ -6212,7 +6047,7 @@ This allows for a consistent experience where both the agent and the user are on
                             );
 
                             const model = new ChatOpenAI({
-                                model: "gpt-4o",
+                                model: "gpt-5.2",
                             }).bindTools([stepProgress]);
 
                             const system_message = new SystemMessage("You are a task performer. Pretend doing tasks you are given, report the steps using StepProgressTool.")
@@ -6228,43 +6063,24 @@ This allows for a consistent experience where both the agent and the user are on
                         }
 ```
 ```tsx title="ui/app/page.tsx"
-        import { useCoAgent, useCoAgentStateRender } from '@copilotkit/react-core';
-
-        // ...
-        type AgentState = {
-            observed_steps: string[];
-        };
+        import { useAgent } from '@copilotkit/react-core/v2'; // [!code highlight]
 
         const YourMainContent = () => {
-            // Get access to both predicted and final states
-            const { state } = useCoAgent<AgentState>({ name: "sample_agent" });
-
-            // Add a state renderer to observe predictions
-            useCoAgentStateRender({
-                name: "sample_agent",
-                render: ({ state }) => {
-                    if (!state.observed_steps?.length) return null;
-                    return (
-                        <div>
-                            <h3>Current Progress:</h3>
-                            <ul>
-                                {state.observed_steps.map((step, i) => (
-                                    <li key={i}>{step}</li>
-                                ))}
-                            </ul>
-                        </div>
-                    );
-                },
+            // [!code highlight:3]
+            const { agent } = useAgent({
+                agentId: "sample_agent",
             });
+
+            const observedSteps = (agent.state.observed_steps as string[]) ?? [];
 
             return (
                 <div>
                     <h1>Agent Progress</h1>
-                    {state.observed_steps?.length > 0 && (
+                    {observedSteps.length > 0 && (
                         <div>
-                            <h3>Final Steps:</h3>
+                            <h3>Steps:</h3>
                             <ul>
-                                {state.observed_steps.map((step, i) => (
+                                {observedSteps.map((step, i) => (
                                     <li key={i}>{step}</li>
                                 ))}
                             </ul>
@@ -6275,7 +6091,7 @@ This allows for a consistent experience where both the agent and the user are on
         }
 ```
 
-### Workflow Execution
+### Input/Output Schemas
 - Route: `/langgraph/shared-state/state-inputs-outputs`
 - Source: `docs/content/docs/integrations/langgraph/shared-state/state-inputs-outputs.mdx`
 - Description: Decide which state properties are received and returned to the frontend
@@ -6452,21 +6268,15 @@ In addition, some state properties contain a lot of information. Syncing them ba
     - The UI has no access to resources.
 
 ```tsx
-    import { useCoAgent } from "@copilotkit/react-core";
+    import { useAgent } from "@copilotkit/react-core/v2"; // [!code highlight]
 
-    type AgentState = {
-      question: string;
-      answer: string;
-    }
-
-    const { state } = useCoAgent<AgentState>({
-      name: "sample_agent",
-      initialState: {
-        question: "How's the weather in SF?",
-      }
+    const { agent } = useAgent({
+      agentId: "sample_agent",
     });
 
-    console.log(state) // You can expect seeing "answer" change, while the others are not returned from the agent
+    const answer = agent.state.answer as string;
+
+    console.log(answer) // You can expect seeing "answer" change, while the others are not returned from the agent
 ```
 
 ### Workflow Execution
@@ -6646,21 +6456,15 @@ In addition, some state properties contain a lot of information. Syncing them ba
     - The UI has no access to resources.
 
 ```tsx
-    import { useCoAgent } from "@copilotkit/react-core";
+    import { useAgent } from "@copilotkit/react-core/v2"; // [!code highlight]
 
-    type AgentState = {
-      question: string;
-      answer: string;
-    }
-
-    const { state } = useCoAgent<AgentState>({
-      name: "sample_agent",
-      initialState: {
-        question: "How's the weather in SF?",
-      }
+    const { agent } = useAgent({
+      agentId: "sample_agent",
     });
 
-    console.log(state) // You can expect seeing "answer" change, while the others are not returned from the agent
+    const answer = agent.state.answer as string;
+
+    console.log(answer) // You can expect seeing "answer" change, while the others are not returned from the agent
 ```
 
 ### Subgraphs
@@ -6669,13 +6473,14 @@ In addition, some state properties contain a lot of information. Syncing them ba
 - Description: Use multiple agents as subgraphs in your application.
 
 ```tsx
-  const { state, nodeName } = useCoAgent<AgentState>({
-    name: "sample_agent",
-    initialState: INITIAL_STATE,
-    config: {
-      streamSubgraphs: true, // [!code highlight]
-    }
-  });
+import { useAgent } from "@copilotkit/react-core/v2"; // [!code highlight]
+
+const { agent } = useAgent({
+  agentId: "sample_agent",
+});
+
+// Access agent state as usual - subgraph streaming is handled automatically
+const state = agent.state;
 ```
 
 ### Common Copilot Issues
@@ -6882,7 +6687,7 @@ Previously, you had to use the `subComponent` property to render custom assistan
 #### Before
 
 ```tsx
-import { AssistantMessageProps } from "@copilotkit/react-ui";
+import { AssistantMessageProps } from "@copilotkit/react-core/v2";
 
 export const AssistantMessage = (props: AssistantMessageProps) => {
   const { message, subComponent } = props;
@@ -6896,7 +6701,7 @@ export const AssistantMessage = (props: AssistantMessageProps) => {
 #### After
 
 ```tsx
-import { AssistantMessageProps } from "@copilotkit/react-ui";
+import { AssistantMessageProps } from "@copilotkit/react-core/v2";
 
 export const AssistantMessage = (props: AssistantMessageProps) => {
   const { message } = props;
@@ -7116,6 +6921,121 @@ Everything else (mainly your graph) stays the same.
                 The `langgraph_config` option doesn’t exist on the new agent.
                 Configure the agent via the `useCoAgent` hook or with the new `config` parameter on the agent class.
 
+### Migrate to V2
+- Route: `/langgraph/troubleshooting/migrate-to-v2`
+- Source: `docs/content/docs/integrations/langgraph/troubleshooting/migrate-to-v2.mdx`
+- Description: Migration guide for upgrading to CopilotKit V2 frontend packages
+
+## Overview
+
+CopilotKit V2 consolidates the frontend into a single package. Both hooks and UI components are now exported from `@copilotkit/react-core/v2`. Your backend does not need any changes.
+
+**What's changing:**
+
+| Before | After |
+|--------|-------|
+| `@copilotkit/react-core` | `@copilotkit/react-core/v2` |
+| `@copilotkit/react-ui` | `@copilotkit/react-core/v2` |
+| `@copilotkit/react-ui/styles.css` | `@copilotkit/react-core/v2/styles.css` |
+
+**What's NOT changing:**
+- Backend packages (`@copilotkit/runtime`, etc.) — no changes needed
+- Your `CopilotRuntime` configuration — stays the same
+- Agent definitions and backend setup — stays the same
+
+## Migration Steps
+
+### Update `@copilotkit/react-core` imports
+
+Replace imports from `@copilotkit/react-core` with `@copilotkit/react-core/v2`.
+
+#### Before
+```tsx
+import { CopilotKit } from "@copilotkit/react-core";
+import { useCopilotReadable, useCopilotAction } from "@copilotkit/react-core";
+```
+
+#### After
+```tsx
+import { CopilotKitProvider } from "@copilotkit/react-core/v2";
+import { useAgent } from "@copilotkit/react-core/v2";
+```
+
+### Replace `@copilotkit/react-ui` imports
+
+UI components like `CopilotChat`, `CopilotSidebar`, and `CopilotPopup` are now exported from `@copilotkit/react-core/v2`.
+
+#### Before
+```tsx
+import { CopilotPopup } from "@copilotkit/react-ui";
+import { CopilotSidebar } from "@copilotkit/react-ui";
+import { CopilotChat } from "@copilotkit/react-ui";
+```
+
+#### After
+```tsx
+import { CopilotPopup } from "@copilotkit/react-core/v2";
+import { CopilotSidebar } from "@copilotkit/react-core/v2";
+import { CopilotChat } from "@copilotkit/react-core/v2";
+```
+
+### Update your styles import
+
+#### Before
+```tsx
+import "@copilotkit/react-ui/styles.css";
+```
+
+#### After
+```tsx
+import "@copilotkit/react-core/v2/styles.css";
+```
+
+### Upgrade `@ag-ui/client` (if using directly)
+
+If you import from `@ag-ui/client` directly, upgrade to the latest version:
+
+```bash
+npm install @ag-ui/client@latest
+```
+
+Note: If you only use CopilotKit's React packages, `@ag-ui/client` types are already re-exported from `@copilotkit/react-core/v2` and you don't need a separate install.
+
+## Full Example
+
+### Before
+
+```tsx
+import { CopilotKit } from "@copilotkit/react-core";
+import { CopilotPopup } from "@copilotkit/react-ui";
+import "@copilotkit/react-ui/styles.css";
+
+export function App() {
+  return (
+    <CopilotKit runtimeUrl="/api/copilotkit">
+      <YourApp />
+      <CopilotPopup />
+    </CopilotKit>
+  );
+}
+```
+
+### After
+
+```tsx
+import { CopilotKitProvider, CopilotPopup } from "@copilotkit/react-core/v2";
+import "@copilotkit/react-core/v2/styles.css";
+
+export function App() {
+  return (
+    <CopilotKitProvider runtimeUrl="/api/copilotkit">
+      <YourApp />
+      <CopilotPopup />
+    </CopilotKitProvider>
+  );
+}
+```
+
 ### Overview
 - Route: `/langgraph/tutorials/agent-native-app`
 - Source: `docs/content/docs/integrations/langgraph/tutorials/agent-native-app/index.mdx`
@@ -7151,7 +7071,7 @@ You can find the source code and interactive sandboxes here:
 
 For next steps, here are some ideas:
 
-- Add persistence for [messages](/langgraph/persistence/loading-message-history) and [agent state](/langgraph/persistence/loading-agent-state).
+- Add persistence for [messages](/langgraph/advanced/persistence/loading-message-history) and [agent state](/langgraph/advanced/persistence/loading-agent-state).
 - Enhance the back-and-fourth with the agent by adding more tools that can update the agent's state.
 - Allow the human to ask for inline editing of the research report.
 
@@ -7258,8 +7178,8 @@ Wrap your application with the CopilotKit provider:
 "use client";
 
 // ...
-import { CopilotKit } from "@copilotkit/react-core"; // [!code ++]
-import "@copilotkit/react-ui/styles.css"; // [!code ++]
+import { CopilotKit } from "@copilotkit/react-core/v2"; // [!code ++]
+import "@copilotkit/react-ui/v2/styles.css"; // [!code ++]
 // ...
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
@@ -7294,17 +7214,16 @@ In this tutorial, we'll use the `` component as we want to aim for a non-modal c
 ```tsx title="frontend/src/components/Chat.tsx"
 "use client"
 
-import { CopilotChat } from "@copilotkit/react-ui";
+import { CopilotChat } from "@copilotkit/react-core/v2";
 import { INITIAL_MESSAGE, MAIN_CHAT_INSTRUCTIONS, MAIN_CHAT_TITLE } from "@/lib/consts";
 
 export default function Chat({ onSubmitMessage }: { onSubmitMessage: () => void }) {
   return (
       // [!code ++:10]
       <CopilotChat
-          instructions={MAIN_CHAT_INSTRUCTIONS}
           labels={{
-              title: MAIN_CHAT_TITLE,
-              initial: INITIAL_MESSAGE,
+              modalHeaderTitle: MAIN_CHAT_TITLE,
+              welcomeMessageText: INITIAL_MESSAGE,
           }}
           className="h-full w-full font-noto"
           onSubmitMessage={onSubmitMessage}
@@ -7418,7 +7337,7 @@ CopilotKit allows us to render a UI to get the user's decision for this interrup
 In our `page.tsx` file, add the following code.
 ```tsx title="frontend/src/app/page.tsx"
 // ...
-import { useLangGraphInterrupt } from "@copilotkit/react-core"; // [!code ++]
+import { useLangGraphInterrupt } from "@copilotkit/react-core/v2"; // [!code ++]
 // ...
 
 export default function HomePage() {
@@ -7517,7 +7436,7 @@ In the `useResearch` hook, we'll just replace our React state objects with the `
 
 ```tsx title="frontend/src/components/research-context.tsx" {3,8-11}
 // ...
-import { useCoAgent } from "@copilotkit/react-core"; // [!code ++]
+import { useAgent } from "@copilotkit/react-core/v2"; // [!code ++]
 // ...
 
 interface ResearchContextType {
@@ -7533,7 +7452,7 @@ const ResearchContext = createContext<ResearchContextType | undefined>(undefined
 export function ResearchProvider({ children }: { children: ReactNode }) {
     const [sourcesModalOpen, setSourcesModalOpen] = useState<boolean>(false)
     // [!code ++:5]
-    const { state, setState, run } = useCoAgent<ResearchState>({
+    const { state, setState, run } = useAgent<ResearchState>({
         name: 'agent',
         initialState: {},
     });
@@ -7674,7 +7593,7 @@ you want to emit state to the frontend, you can do so by calling `copilotkit_emi
 Now, our state is being emitted to the frontend. However, we need to render it in the chat. To do this, we'll be using the `useCoAgentStateRender` hook.
 
 ```tsx title="frontend/src/app/layout.tsx"
-import { useCoAgentStateRender, useLangGraphInterrupt } from "@copilotkit/react-core"; // [!code ++]
+import { useCoAgentStateRender, useLangGraphInterrupt } from "@copilotkit/react-core/v2"; // [!code ++]
 
 export default function HomePage() {
     //...
@@ -8036,7 +7955,7 @@ Now we're ready to configure the CopilotKit provider in our application.
 ```tsx title="ui/app/page.tsx" showLineNumbers
 "use client";
 
-import { CopilotKit } from "@copilotkit/react-core"; // [!code ++]
+import { CopilotKit } from "@copilotkit/react-core/v2"; // [!code ++]
 
 export default function Home() {
   // [!code ++:5]
@@ -8067,9 +7986,9 @@ In this tutorial, we'll use the `` component to display the chat sidebar.
 
 import { TasksList } from "@/components/TasksList";
 import { TasksProvider } from "@/lib/hooks/use-tasks";
-import { CopilotKit } from "@copilotkit/react-core";
-import { CopilotSidebar } from "@copilotkit/react-ui"; // [!code ++]
-import "@copilotkit/react-ui/styles.css"; // [!code ++]
+import { CopilotKit } from "@copilotkit/react-core/v2";
+import { CopilotSidebar } from "@copilotkit/react-core/v2"; // [!code ++]
+import "@copilotkit/react-ui/v2/styles.css"; // [!code ++]
 
 export default function Home() {
   return (
@@ -8081,8 +8000,8 @@ export default function Home() {
         defaultOpen={true}
         clickOutsideToClose={false}
         labels={{
-          title: "Travel Planner",
-          initial: "Hi! 👋 I'm here to plan your trips. I can help you manage your trips, add places to them, or just generally work with you to plan a new one.",
+          modalHeaderTitle: "Travel Planner",
+          welcomeMessageText: "Hi! 👋 I'm here to plan your trips. I can help you manage your trips, add places to them, or just generally work with you to plan a new one.",
         }}
       />
       <TooltipProvider>
@@ -8335,7 +8254,7 @@ If you are not sure yet, simply ignore this note.
 
 import { TasksList } from "@/components/TasksList";
 import { TasksProvider } from "@/lib/hooks/use-tasks";
-import { CopilotKit } from "@copilotkit/react-core"; // [!code ++]
+import { CopilotKit } from "@copilotkit/react-core/v2"; // [!code ++]
 
 export default function Home() {
   return (
@@ -8359,9 +8278,9 @@ In this tutorial, we'll use the `` component to display the chat sidebar.
 
 import { TasksList } from "@/components/TasksList";
 import { TasksProvider } from "@/lib/hooks/use-tasks";
-import { CopilotKit } from "@copilotkit/react-core";
-import { CopilotSidebar } from "@copilotkit/react-ui"; // [!code ++]
-import "@copilotkit/react-ui/styles.css"; // [!code ++]
+import { CopilotKit } from "@copilotkit/react-core/v2";
+import { CopilotSidebar } from "@copilotkit/react-core/v2"; // [!code ++]
+import "@copilotkit/react-ui/v2/styles.css"; // [!code ++]
 
 export default function Home() {
   return (
@@ -8373,8 +8292,8 @@ export default function Home() {
         defaultOpen={true}
         clickOutsideToClose={false}
         labels={{
-          title: "Travel Planner",
-          initial: "Hi! 👋 I'm here to plan your trips. I can help you manage your trips, add places to them, or just generally work with you to plan a new one.",
+          modalHeaderTitle: "Travel Planner",
+          welcomeMessageText: "Hi! 👋 I'm here to plan your trips. I can help you manage your trips, add places to them, or just generally work with you to plan a new one.",
         }}
       />
       <TooltipProvider>
@@ -8514,7 +8433,7 @@ Our current goal is to create a bidirectional connection between these two state
 // ...
 // [!code word:AgentState:1]
 import { Trip, Place, AgentState, defaultTrips} from "@/lib/trips";
-import { useCoAgent } from "@copilotkit/react-core"; // [!code ++]
+import { useAgent } from "@copilotkit/react-core/v2"; // [!code ++]
 
 export const TripsProvider = ({ children }: { children: ReactNode }) => {
   // [!code --:5]
@@ -8523,7 +8442,7 @@ export const TripsProvider = ({ children }: { children: ReactNode }) => {
     selected_trip_id: defaultTrips && defaultTrips[0] ? defaultTrips[0].id : null
   });
   // [!code ++:9]
-  const { state, setState } = useCoAgent<AgentState>({
+  const { state, setState } = useAgent<AgentState>({
     name: "travel",
     initialState: {
       trips: defaultTrips,
@@ -8734,14 +8653,14 @@ All we need to do is tell CopilotKit to conditionally render the `search_progres
 
 ```tsx title="ui/lib/hooks/use-trips.tsx"
 // ...
-import { useCoAgent } from "@copilotkit/react-core"; // [!code --]
-import { useCoAgent, useCoAgentStateRender } from "@copilotkit/react-core"; // [!code ++]
+import { useAgent } from "@copilotkit/react-core/v2"; // [!code --]
+import { useAgent, useCoAgentStateRender } from "@copilotkit/react-core/v2"; // [!code ++]
 import { SearchProgress } from "@/components/SearchProgress"; // [!code ++]
 
 export const TripsProvider = ({ children }: { children: ReactNode }) => {
   // ...
 
-  const { state, setState } = useCoAgent<AgentState>({
+  const { state, setState } = useAgent<AgentState>({
     name: "travel",
     initialState: {
       trips: defaultTrips,
@@ -8893,8 +8812,8 @@ we'll be adding `useCopilotAction` hooks for each tool call with the `renderAndW
 ```typescript title="ui/lib/hooks/use-trips.tsx"
 // ...
 import { AddTrips, EditTrips, DeleteTrips } from "@/components/humanInTheLoop"; // [!code ++]
-import { useCoAgent, useCoAgentStateRender } from "@copilotkit/react-core"; // [!code --]
-import { useCoAgent, useCoAgentStateRender, useCopilotAction } from "@copilotkit/react-core"; // [!code ++]
+import { useAgent, useCoAgentStateRender } from "@copilotkit/react-core/v2"; // [!code --]
+import { useAgent, useCoAgentStateRender, useFrontendTool } from "@copilotkit/react-core/v2"; // [!code ++]
 // ...
 
 export const TripsProvider = ({ children }: { children: ReactNode }) => {
@@ -8908,7 +8827,7 @@ export const TripsProvider = ({ children }: { children: ReactNode }) => {
   });
 
   // [!code ++:42]
-  useCopilotAction({ 
+  useFrontendTool({
     name: "add_trips",
     description: "Add some trips",
     parameters: [
@@ -8922,7 +8841,7 @@ export const TripsProvider = ({ children }: { children: ReactNode }) => {
     renderAndWait: AddTrips,
   });
 
-  useCopilotAction({
+  useFrontendTool({
     name: "update_trips",
     description: "Update some trips",
     parameters: [
@@ -8936,7 +8855,7 @@ export const TripsProvider = ({ children }: { children: ReactNode }) => {
     renderAndWait: EditTrips,
   });
 
-  useCopilotAction({
+  useFrontendTool({
     name: "delete_trips",
     description: "Delete some trips",
     parameters: [
@@ -8966,7 +8885,7 @@ import { Trip } from "@/lib/types";
 import { PlaceCard } from "@/components/PlaceCard";
 import { X, Trash } from "lucide-react";
 import { ActionButtons } from "./ActionButtons"; // [!code highlight]
-import { RenderFunctionStatus } from "@copilotkit/react-core";
+import { RenderFunctionStatus } from "@copilotkit/react-core/v2";
 
 export type DeleteTripsProps = {
   args: any;
@@ -9012,7 +8931,7 @@ As you can see, this is a fairly standard component that renders the trips that 
 component. Let's take a look at it.
 
 ```tsx title="ui/lib/components/humanInTheLoop/ActionButtons.tsx"
-import { RenderFunctionStatus } from "@copilotkit/react-core";
+import { RenderFunctionStatus } from "@copilotkit/react-core/v2";
 import { Button } from "../ui/button";
 
 export type ActionButtonsProps = {
@@ -9052,473 +8971,6 @@ you could do so by adding additional logic to the `onClick` handlers and the age
 
 With that, we've now completed the human in the loop implementation! Try asking the agent to add, edit, or delete some trips and see it in
 action.
-
-### useAgent Hook
-- Route: `/langgraph/use-agent-hook`
-- Source: `docs/content/docs/integrations/langgraph/use-agent-hook.mdx`
-- Description: Access and interact with your LangGraph agent directly from React components
-
-### Import the hook
-
-    First, import `useAgent` from the v2 package:
-
-```tsx title="page.tsx"
-    import { useAgent } from "@copilotkit/react-core/v2"; // [!code highlight]
-```
-
-    ### Access your agent
-
-    Call the hook to get a reference to your agent:
-
-```tsx title="page.tsx"
-    export function AgentInfo() {
-      const { agent } = useAgent(); // [!code highlight]
-
-      return (
-        <div>
-          {/* [!code highlight:4] */}
-          <p>Agent ID: {agent.id}</p>
-          <p>Thread ID: {agent.threadId}</p>
-          <p>Status: {agent.isRunning ? "Running" : "Idle"}</p>
-          <p>Messages: {agent.messages.length}</p>
-        </div>
-      );
-    }
-```
-
-    The hook will throw an error if no agent is configured, so you can safely use `agent` without null checks.
-
-    ### Display messages
-
-    Access the agent's conversation history:
-
-```tsx title="page.tsx"
-    export function MessageList() {
-      const { agent } = useAgent();
-
-      return (
-        <div>
-          {/* [!code highlight:6] */}
-          {agent.messages.map((msg) => (
-            <div key={msg.id}>
-              <strong>{msg.role}:</strong>
-              <span>{msg.content}</span>
-            </div>
-          ))}
-        </div>
-      );
-    }
-```
-
-    ### Show running status
-
-    Add a loading indicator when the agent is processing:
-
-```tsx title="page.tsx"
-    export function AgentStatus() {
-      const { agent } = useAgent();
-
-      return (
-        <div>
-          {/* [!code highlight:8] */}
-          {agent.isRunning ? (
-            <div>
-              <div className="spinner" />
-              <span>Agent is processing...</span>
-            </div>
-          ) : (
-            <span>Ready</span>
-          )}
-        </div>
-      );
-    }
-```
-
-## Working with State
-
-Agents expose their state through the `agent.state` property. This state is shared between your application and the agent - both can read and modify it.
-
-### Reading State
-
-Access your agent's current state:
-
-```tsx title="page.tsx"
-export function StateDisplay() {
-  const { agent } = useAgent();
-
-  return (
-    <div>
-      <h3>Agent State</h3>
-      {/* [!code highlight:1] */}
-      <pre>{JSON.stringify(agent.state, null, 2)}</pre>
-
-      {/* Access specific properties */}
-      {/* [!code highlight:2] */}
-      {agent.state.user_name && <p>User: {agent.state.user_name}</p>}
-      {agent.state.preferences && <p>Preferences: {JSON.stringify(agent.state.preferences)}</p>}
-    </div>
-  );
-}
-```
-
-Your component automatically re-renders when the agent's state changes.
-
-### Updating State
-
-Update state that your agent can access:
-
-```tsx title="page.tsx"
-export function ThemeSelector() {
-  const { agent } = useAgent();
-
-  const updateTheme = (theme: string) => {
-    // [!code highlight:4]
-    agent.setState({
-      ...agent.state,
-      user_theme: theme,
-    });
-  };
-
-  return (
-    <div>
-      {/* [!code highlight:2] */}
-      <button onClick={() => updateTheme("dark")}>Dark Mode</button>
-      <button onClick={() => updateTheme("light")}>Light Mode</button>
-      <p>Current: {agent.state.user_theme || "default"}</p>
-    </div>
-  );
-}
-```
-
-State updates are immediately available to your agent in its next execution.
-
-## Subscribing to Agent Events
-
-You can subscribe to agent events using the `subscribe()` method. This is useful for logging, monitoring, or responding to specific agent behaviors.
-
-### Basic Event Subscription
-
-```tsx title="page.tsx"
-import { useEffect } from "react";
-import { useAgent } from "@copilotkit/react-core/v2";
-import type { AgentSubscriber } from "@ag-ui/client";
-
-export function EventLogger() {
-  const { agent } = useAgent();
-
-  useEffect(() => {
-    // [!code highlight:15]
-    const subscriber: AgentSubscriber = {
-      onCustomEvent: ({ event }) => {
-        console.log("Custom event:", event.name, event.value);
-      },
-      onRunStartedEvent: () => {
-        console.log("Agent started running");
-      },
-      onRunFinalized: () => {
-        console.log("Agent finished running");
-      },
-      onStateChanged: (state) => {
-        console.log("State changed:", state);
-      },
-    };
-
-    // [!code highlight:2]
-    const { unsubscribe } = agent.subscribe(subscriber);
-    return () => unsubscribe();
-  }, []);
-
-  return null;
-}
-```
-
-### Available Events
-
-The `AgentSubscriber` interface provides:
-
-- **`onCustomEvent`** - Custom events emitted by the agent
-- **`onRunStartedEvent`** - Agent starts executing
-- **`onRunFinalized`** - Agent completes execution
-- **`onStateChanged`** - Agent's state changes
-- **`onMessagesChanged`** - Messages are added or modified
-
-## Rendering Tool Calls
-
-You can customize how agent tool calls are displayed in your UI. First, define your tool renderers:
-
-```tsx title="components/weather-tool.tsx"
-import { defineToolCallRenderer } from "@copilotkit/react-core/v2";
-
-// [!code highlight:6]
-export const weatherToolRender = defineToolCallRenderer({
-  name: "get_weather",
-  render: ({ args, status }) => {
-    return <WeatherCard location={args.location} status={status} />;
-  },
-});
-
-function WeatherCard({ location, status }: { location?: string; status: string }) {
-  return (
-    <div className="rounded-lg border p-6 shadow-sm">
-      <h3 className="text-xl font-semibold">Weather in {location}</h3>
-      <div className="mt-4">
-        <span className="text-5xl font-light">70°F</span>
-      </div>
-      {status === "executing" && <div className="spinner">Loading...</div>}
-    </div>
-  );
-}
-```
-
-Register your tool renderers with CopilotKit:
-
-```tsx title="layout.tsx"
-import { CopilotKit } from "@copilotkit/react-core";
-import { weatherToolRender } from "./components/weather-tool";
-
-export default function RootLayout({ children }) {
-  return (
-    <CopilotKit
-      runtimeUrl="/api/copilotkit"
-      {/* [!code highlight:1] */}
-      renderToolCalls={[weatherToolRender]}
-    >
-      {children}
-    </CopilotKit>
-  );
-}
-```
-
-Then use `useRenderToolCall` to render tool calls from agent messages:
-
-```tsx title="components/message-list.tsx"
-import { useAgent, useRenderToolCall } from "@copilotkit/react-core/v2";
-
-export function MessageList() {
-  const { agent } = useAgent();
-  const renderToolCall = useRenderToolCall();
-
-  return (
-    <div className="messages">
-      {agent.messages.map((message) => (
-        <div key={message.id}>
-          {/* Display message content */}
-          {message.content && <p>{message.content}</p>}
-
-          {/* Render tool calls if present */}
-          {/* [!code highlight:9] */}
-          {message.role === "assistant" && message.toolCalls?.map((toolCall) => {
-            const toolMessage = agent.messages.find(
-              (m) => m.role === "tool" && m.toolCallId === toolCall.id
-            );
-            return (
-              <div key={toolCall.id}>
-                {renderToolCall({ toolCall, toolMessage })}
-              </div>
-            );
-          })}
-        </div>
-      ))}
-    </div>
-  );
-}
-```
-
-## Building a Complete Dashboard
-
-Here's a full example combining all concepts into an interactive agent dashboard:
-
-```tsx title="page.tsx"
-"use client";
-
-import { useAgent } from "@copilotkit/react-core/v2";
-
-export default function AgentDashboard() {
-  const { agent } = useAgent();
-
-  return (
-    <div className="p-8 max-w-4xl mx-auto space-y-6">
-      {/* Status */}
-      <div className="p-6 bg-white rounded-lg shadow">
-        <h2 className="text-xl font-bold mb-4">Agent Status</h2>
-        <div className="space-y-2">
-          {/* [!code highlight:6] */}
-          <div className="flex items-center gap-2">
-            <div className={`w-3 h-3 rounded-full ${
-              agent.isRunning ? "bg-yellow-500 animate-pulse" : "bg-green-500"
-            }`} />
-            <span>{agent.isRunning ? "Running" : "Idle"}</span>
-          </div>
-          <div>Thread: {agent.threadId}</div>
-          <div>Messages: {agent.messages.length}</div>
-        </div>
-      </div>
-
-      {/* State */}
-      <div className="p-6 bg-white rounded-lg shadow">
-        <h2 className="text-xl font-bold mb-4">Agent State</h2>
-        {/* [!code highlight:3] */}
-        <pre className="bg-gray-50 p-4 rounded text-sm overflow-auto">
-          {JSON.stringify(agent.state, null, 2)}
-        </pre>
-      </div>
-
-      {/* Messages */}
-      <div className="p-6 bg-white rounded-lg shadow">
-        <h2 className="text-xl font-bold mb-4">Conversation</h2>
-        <div className="space-y-3">
-          {/* [!code highlight:11] */}
-          {agent.messages.map((msg) => (
-            <div
-              key={msg.id}
-              className={`p-3 rounded-lg ${
-                msg.role === "user" ? "bg-blue-50 ml-8" : "bg-gray-50 mr-8"
-              }`}
-            >
-              <div className="font-semibold text-sm mb-1">
-                {msg.role === "user" ? "You" : "Agent"}
-              </div>
-              <div>{msg.content}</div>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-```
-
-### Node-Specific State
-
-If your LangGraph agent tracks which node it's in, you can show contextual UI:
-
-```tsx title="page.tsx"
-export function NodeStatus() {
-  const { agent } = useAgent();
-
-  // [!code highlight:1]
-  const currentNode = agent.state.currentNode;
-
-  return (
-    <div>
-      {/* [!code highlight:6] */}
-      {currentNode === "research_node" && (
-        <div className="alert">Agent is researching your query...</div>
-      )}
-      {currentNode === "summarize_node" && (
-        <div className="alert">Agent is summarizing findings...</div>
-      )}
-    </div>
-  );
-}
-```
-
-## Handling LangGraph Interrupts
-
-LangGraph's `interrupt()` function emits custom events that you can capture and respond to.
-
-### Simple Interrupt Handler
-
-```tsx title="page.tsx"
-import { useEffect } from "react";
-import { useAgent } from "@copilotkit/react-core/v2";
-import type { AgentSubscriber } from "@ag-ui/client";
-
-export function InterruptHandler() {
-  const { agent } = useAgent();
-
-  useEffect(() => {
-    const subscriber: AgentSubscriber = {
-      // [!code highlight:12]
-      onCustomEvent: ({ event }) => {
-        if (event.name === "on_interrupt") {
-          // LangGraph interrupt() was called
-          const response = prompt(event.value);
-
-          if (response) {
-            // Resume the agent with the user's response
-            agent.runAgent({
-              forwardedProps: {
-                command: { resume: response },
-              },
-            });
-          }
-        }
-      },
-    };
-
-    const { unsubscribe } = agent.subscribe(subscriber);
-    return () => unsubscribe();
-  }, []);
-
-  return null;
-}
-```
-
-### Custom Interrupt UI
-
-For a more sophisticated UI, you can render a custom component:
-
-```tsx title="page.tsx"
-import { useEffect, useState } from "react";
-import { useAgent } from "@copilotkit/react-core/v2";
-import type { AgentSubscriber } from "@ag-ui/client";
-
-export function CustomInterruptHandler() {
-  const { agent } = useAgent();
-  const [interrupt, setInterrupt] = useState<{ message: string } | null>(null);
-
-  useEffect(() => {
-    const subscriber: AgentSubscriber = {
-      onCustomEvent: ({ event }) => {
-        // [!code highlight:3]
-        if (event.name === "on_interrupt") {
-          setInterrupt({ message: event.value });
-        }
-      },
-    };
-
-    const { unsubscribe } = agent.subscribe(subscriber);
-    return () => unsubscribe();
-  }, []);
-
-  const handleResponse = (response: string) => {
-    // [!code highlight:5]
-    agent.runAgent({
-      forwardedProps: {
-        command: { resume: response },
-      },
-    });
-    setInterrupt(null);
-  };
-
-  if (!interrupt) return null;
-
-  return (
-    <div className="interrupt-modal">
-      <h3>Agent Needs Your Input</h3>
-      <p>{interrupt.message}</p>
-      <form onSubmit={(e) => {
-        e.preventDefault();
-        const formData = new FormData(e.currentTarget);
-        handleResponse(formData.get("response") as string);
-      }}>
-        <input type="text" name="response" placeholder="Your response" />
-        <button type="submit">Submit</button>
-      </form>
-    </div>
-  );
-}
-```
-
-For a more declarative approach, see [useLangGraphInterrupt](/reference/v1/hooks/useLangGraphInterrupt).
-
-## See Also
-
-- [Shared State](/langgraph/shared-state) - Deep dive into state management
-- [Human-in-the-Loop](/langgraph/human-in-the-loop) - Approval workflows
-- [Agent App Context](/langgraph/agent-app-context) - Pass context to your agent
-- [useAgent API Reference](/reference/v1/hooks/useAgent) - Complete API documentation
 
 ### Video: Research Canvas
 - Route: `/langgraph/videos/research-canvas`

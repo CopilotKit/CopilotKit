@@ -20,10 +20,9 @@ Use [BuiltInAgent Quickstart](built-in-agent-quickstart.md) for the full code sc
 
 ## Major Topics
 - [BuiltInAgent Quickstart](built-in-agent-quickstart.md)
-- [Copilot Runtime](topic-copilot-runtime.md)
+- [Backend](topic-backend.md)
 - [Agentic Chat UI](topic-agentic-chat-ui.md)
-- [Frontend Actions](topic-frontend-actions.md)
-- [Backend Actions](topic-backend-actions.md)
+- [Frontend Tools](topic-frontend-tools.md)
 - [Shared State](topic-shared-state.md)
 - [Human In The Loop](topic-human-in-the-loop.md)
 - [Generative UI](topic-generative-ui.md)
@@ -34,20 +33,19 @@ Use [BuiltInAgent Quickstart](built-in-agent-quickstart.md) for the full code sc
 ## Partner Frameworks
 Framework index: [Partner Frameworks Overview](partner-frameworks.md)
 
+- [Built In Agent](framework-built-in-agent.md)
+- [LangGraph](framework-langgraph.md)
 - [ADK](framework-adk.md)
-- [A2A](framework-a2a.md)
 - [Microsoft Agent Framework](framework-microsoft-agent-framework.md)
 - [AWS Strands](framework-aws-strands.md)
-- [Direct to LLM](framework-direct-to-llm.md)
-- [LangGraph](framework-langgraph.md)
-- [AG2](framework-ag2.md)
-- [Agno](framework-agno.md)
-- [CrewAI Crews](framework-crewai-crews.md)
-- [CrewAI Flows](framework-crewai-flows.md)
-- [LlamaIndex](framework-llamaindex.md)
 - [Mastra](framework-mastra.md)
-- [Open Agent Spec](framework-agent-spec.md)
 - [Pydantic AI](framework-pydantic-ai.md)
+- [CrewAI Flows](framework-crewai-flows.md)
+- [Agno](framework-agno.md)
+- [AG2](framework-ag2.md)
+- [Open Agent Spec](framework-agent-spec.md)
+- [LlamaIndex](framework-llamaindex.md)
+- [A2A](framework-a2a.md)
 
 ## Navigation Hints
 - Start with BuiltInAgent quickstart for generic requests.
