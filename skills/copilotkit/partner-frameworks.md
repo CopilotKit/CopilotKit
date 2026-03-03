@@ -2,10 +2,10 @@
 
 Use this index to jump to partner-framework-specific implementation guides.
 
-- [Built In Agent](framework-built-in-agent.md)
-- [LangGraph](framework-langgraph.md)
+- **Built In Agent**: [Core Setup](framework-built-in-agent-core.md) · [Features & Capabilities](framework-built-in-agent-features.md) · [Tutorials](framework-built-in-agent-tutorials.md)
+- **LangGraph**: [Core Setup](framework-langgraph-core.md) · [Features & Capabilities](framework-langgraph-features.md) · [Tutorials](framework-langgraph-tutorials.md) · [Troubleshooting & Ops](framework-langgraph-troubleshooting.md)
 - [ADK](framework-adk.md)
-- [Microsoft Agent Framework](framework-microsoft-agent-framework.md)
+- **Microsoft Agent Framework**: [Core Setup](framework-microsoft-agent-framework-core.md) · [Features & Capabilities](framework-microsoft-agent-framework-features.md)
 - [AWS Strands](framework-aws-strands.md)
 - [Mastra](framework-mastra.md)
 - [Pydantic AI](framework-pydantic-ai.md)

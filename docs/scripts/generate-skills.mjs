@@ -50,6 +50,29 @@ const integrationLabelOverrides = {
 const mdxBodyCache = new Map();
 const docCache = new Map();
 
+const FRAMEWORK_SPLIT_THRESHOLD = 60_000; // 60KB
+
+const SECTION_CHUNK_MAP = {
+  "Getting Started": "core",
+  "Basics": "core",
+  "Backend": "core",
+  "App Control": "features",
+  "Generative UI": "features",
+  "Premium Features": "troubleshooting",
+  "Troubleshooting": "troubleshooting",
+  "Tutorials": "tutorials",
+  "Tutorials & Videos": "tutorials",
+  "Videos": "tutorials",
+  "Other": null, // excluded
+};
+
+const CHUNK_LABELS = {
+  core: "Core Setup",
+  features: "Features & Capabilities",
+  tutorials: "Tutorials",
+  troubleshooting: "Troubleshooting & Ops",
+};
+
 function ensureDir(dirPath) {
   fs.mkdirSync(dirPath, { recursive: true });
 }
@@ -700,7 +723,18 @@ ${renderDocSections(docs)}
 
 function renderPartnerFrameworksOverview(frameworkEntries) {
   const links = frameworkEntries
-    .map((entry) => `- [${entry.label}](framework-${entry.id}.md)`)
+    .map((entry) => {
+      if (entry.chunks) {
+        const subLinks = entry.chunks
+          .map(
+            (chunk) =>
+              `[${chunk.label}](framework-${entry.id}-${chunk.slug}.md)`,
+          )
+          .join(" · ");
+        return `- **${entry.label}**: ${subLinks}`;
+      }
+      return `- [${entry.label}](framework-${entry.id}.md)`;
+    })
     .join("\n");
 
   return `# Partner Frameworks
@@ -717,7 +751,18 @@ function renderSkillMd({ topicFiles, frameworkEntries }) {
     .join("\n");
 
   const frameworkLinks = frameworkEntries
-    .map((entry) => `- [${entry.label}](framework-${entry.id}.md)`)
+    .map((entry) => {
+      if (entry.chunks) {
+        const subLinks = entry.chunks
+          .map(
+            (chunk) =>
+              `[${chunk.label}](framework-${entry.id}-${chunk.slug}.md)`,
+          )
+          .join(" · ");
+        return `- **${entry.label}**: ${subLinks}`;
+      }
+      return `- [${entry.label}](framework-${entry.id}.md)`;
+    })
     .join("\n");
 
   return `---
@@ -905,18 +950,148 @@ function buildTopicSpecs() {
   ];
 }
 
+function parseMetaSections(integrationId) {
+  const metaPath = path.join(
+    docsContentDir,
+    "integrations",
+    integrationId,
+    "meta.json",
+  );
+  if (!fs.existsSync(metaPath)) return [];
+
+  const raw = fs.readFileSync(metaPath, "utf8");
+  const parsed = JSON.parse(raw);
+  if (!Array.isArray(parsed.pages)) return [];
+
+  const sections = [];
+  let current = null;
+
+  for (const entry of parsed.pages) {
+    if (typeof entry !== "string") continue;
+    const sectionMatch = entry.match(/^---(.+)---$/);
+    if (sectionMatch) {
+      current = { label: sectionMatch[1], patterns: [] };
+      sections.push(current);
+    } else if (current) {
+      current.patterns.push(entry);
+    }
+  }
+
+  return sections;
+}
+
+function docMatchesMetaPattern(docPath, pattern, integrationPrefix) {
+  const relPath = docPath.startsWith(integrationPrefix)
+    ? docPath.slice(integrationPrefix.length)
+    : docPath;
+  const withoutExt = relPath.replace(/\.mdx$/, "");
+  const withoutIndex = withoutExt.replace(/\/index$/, "");
+
+  if (pattern.startsWith("...")) {
+    const dir = pattern.slice(3);
+    return (
+      withoutExt.startsWith(dir + "/") ||
+      withoutExt === dir ||
+      withoutIndex === dir
+    );
+  }
+
+  return withoutExt === pattern || withoutIndex === pattern;
+}
+
+function splitFrameworkIntoChunks(integrationId, pickedDocPaths, allDocPaths) {
+  const docs = resolveDocs(allDocPaths, pickedDocPaths);
+  const totalSize = docs.reduce((sum, doc) => sum + doc.content.length, 0);
+
+  if (totalSize <= FRAMEWORK_SPLIT_THRESHOLD) return null;
+
+  const sections = parseMetaSections(integrationId);
+  if (sections.length === 0) return null;
+
+  const integrationPrefix = `integrations/${integrationId}/`;
+
+  const docChunkMap = new Map();
+  for (const docPath of pickedDocPaths) {
+    let assigned = false;
+    for (const section of sections) {
+      const chunkSlug = Object.hasOwn(SECTION_CHUNK_MAP, section.label)
+        ? SECTION_CHUNK_MAP[section.label]
+        : "features";
+      if (chunkSlug === null) continue;
+
+      for (const pattern of section.patterns) {
+        if (docMatchesMetaPattern(docPath, pattern, integrationPrefix)) {
+          docChunkMap.set(docPath, chunkSlug);
+          assigned = true;
+          break;
+        }
+      }
+      if (assigned) break;
+    }
+    if (!assigned) {
+      docChunkMap.set(docPath, "features");
+    }
+  }
+
+  const chunkDocPaths = new Map();
+  for (const [docPath, slug] of docChunkMap) {
+    if (!chunkDocPaths.has(slug)) chunkDocPaths.set(slug, []);
+    chunkDocPaths.get(slug).push(docPath);
+  }
+
+  const chunks = [];
+  for (const [slug, label] of Object.entries(CHUNK_LABELS)) {
+    const paths = chunkDocPaths.get(slug);
+    if (!paths || paths.length === 0) continue;
+    chunks.push({ slug, label, docPaths: paths });
+  }
+
+  if (chunks.length <= 1) return null;
+
+  return chunks;
+}
+
+function renderFrameworkIndex({ label, id, chunks }) {
+  const subGuideLinks = chunks
+    .map(
+      (chunk) =>
+        `- [${chunk.label}](framework-${id}-${chunk.slug}.md) — ${chunk.docPaths.length} docs`,
+    )
+    .join("\n");
+
+  return `# ${label} Integration
+
+CopilotKit implementation guide for ${label}. Content is split into focused sub-guides.
+
+> For shared CopilotKit concepts (runtime setup, prebuilt components, troubleshooting, etc.), see the topic guides. This file focuses on framework-specific implementation details.
+
+## Sub-guides
+${subGuideLinks}
+`;
+}
+
 function main() {
   const allDocPaths = getAllDocRelativePaths();
   const integrationIds = getIntegrationOrder();
 
   const frameworkEntries = integrationIds.map((id) => {
-    const docs = resolveDocs(allDocPaths, pickIntegrationDocs(allDocPaths, id));
+    const pickedDocPaths = pickIntegrationDocs(allDocPaths, id);
+    const docs = resolveDocs(allDocPaths, pickedDocPaths);
     return {
       id,
       label: integrationLabelOverrides[id] || humanizeSlug(id),
       docs,
+      pickedDocPaths,
     };
   });
+
+  for (const entry of frameworkEntries) {
+    entry.chunks = splitFrameworkIntoChunks(
+      entry.id,
+      entry.pickedDocPaths,
+      allDocPaths,
+    );
+  }
 
   const topicSpecs = buildTopicSpecs();
   const topicFiles = topicSpecs.map((topicSpec) => ({
@@ -953,15 +1128,38 @@ function main() {
   );
 
   for (const frameworkEntry of frameworkEntries) {
-    filesToWrite.set(
-      `framework-${frameworkEntry.id}.md`,
-      renderGuideDoc({
-        title: `${frameworkEntry.label} Integration`,
-        summary: `CopilotKit implementation guide for ${frameworkEntry.label}.`,
-        docs: frameworkEntry.docs,
-        crossRefNote: true,
-      }),
-    );
+    if (frameworkEntry.chunks) {
+      filesToWrite.set(
+        `framework-${frameworkEntry.id}.md`,
+        renderFrameworkIndex({
+          label: frameworkEntry.label,
+          id: frameworkEntry.id,
+          chunks: frameworkEntry.chunks,
+        }),
+      );
+      for (const chunk of frameworkEntry.chunks) {
+        const chunkDocs = resolveDocs(allDocPaths, chunk.docPaths);
+        filesToWrite.set(
+          `framework-${frameworkEntry.id}-${chunk.slug}.md`,
+          renderGuideDoc({
+            title: `${frameworkEntry.label} — ${chunk.label}`,
+            summary: `${chunk.label} guide for the ${frameworkEntry.label} integration.`,
+            docs: chunkDocs,
+            crossRefNote: true,
+          }),
+        );
+      }
+    } else {
+      filesToWrite.set(
+        `framework-${frameworkEntry.id}.md`,
+        renderGuideDoc({
+          title: `${frameworkEntry.label} Integration`,
+          summary: `CopilotKit implementation guide for ${frameworkEntry.label}.`,
+          docs: frameworkEntry.docs,
+          crossRefNote: true,
+        }),
+      );
+    }
   }
 
   const allResolvedDocs = [
