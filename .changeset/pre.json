@@ -47,5 +47,8 @@
     "@copilotkit/voice": "1.52.1",
     "@copilotkitnext/web-inspector": "1.52.1"
   },
-  "changesets": []
+  "changesets": [
+    "olive-birds-repair",
+    "wild-paws-jam"
+  ]
 }

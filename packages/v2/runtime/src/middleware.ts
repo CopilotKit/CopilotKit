@@ -15,6 +15,8 @@
 import type { CopilotRuntime } from "./runtime";
 import type { MaybePromise } from "@copilotkitnext/shared";
 import { logger } from "@copilotkitnext/shared";
+import { parseSSEResponse } from "./middleware-sse-parser";
+import type { Message } from "./middleware-sse-parser";
 
 /* ------------------------------------------------------------------------------------------------
  * Public types
@@ -29,6 +31,12 @@ export interface AfterRequestMiddlewareParameters {
   runtime: CopilotRuntime;
   response: Response;
   path: string;
+  /** Reconstructed messages from the SSE stream (empty for non-SSE responses). */
+  messages?: Message[];
+  /** Thread ID extracted from the RUN_STARTED event. */
+  threadId?: string;
+  /** Run ID extracted from the RUN_STARTED event. */
+  runId?: string;
 }
 
 export type BeforeRequestMiddlewareFn = (
@@ -82,12 +90,25 @@ export async function callAfterRequestMiddleware({
   runtime,
   response,
   path,
-}: AfterRequestMiddlewareParameters): Promise<void> {
+}: {
+  runtime: CopilotRuntime;
+  response: Response;
+  path: string;
+}): Promise<void> {
   const mw = runtime.afterRequestMiddleware;
   if (!mw) return;
 
+  const { messages, threadId, runId } = await parseSSEResponse(response);
+
   if (typeof mw === "function") {
-    return (mw as AfterRequestMiddlewareFn)({ runtime, response, path });
+    return (mw as AfterRequestMiddlewareFn)({
+      runtime,
+      response,
+      path,
+      messages,
+      threadId,
+      runId,
+    });
   }
 
   logger.warn({ mw }, "Unsupported afterRequestMiddleware value – skipped");

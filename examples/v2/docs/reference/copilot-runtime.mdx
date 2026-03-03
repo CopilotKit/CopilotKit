@@ -38,7 +38,7 @@ new CopilotRuntime(options: CopilotRuntimeOptions)
 | `runner` | `AgentRunner` | Optional. Defaults to `new InMemoryAgentRunner()`. Controls how agent runs are scheduled and streamed. |
 | `transcriptionService` | `TranscriptionService` | Optional. Enables `/transcribe` and reports `audioFileTranscriptionEnabled: true` from `/info`. |
 | `beforeRequestMiddleware` | `BeforeRequestMiddleware` | Optional. Runs before every request. Can mutate the incoming `Request` or return `void`. |
-| `afterRequestMiddleware` | `AfterRequestMiddleware` | Optional. Runs after every handler resolves. Use this for logging, metrics, etc. |
+| `afterRequestMiddleware` | `AfterRequestMiddleware` | Optional. Runs after every handler resolves. Receives the response along with parsed messages, thread ID, and run ID extracted from the SSE stream. Use this for logging, metrics, telemetry, etc. |
 
 ### Passing Agents
 
@@ -80,13 +80,28 @@ const runtime = new CopilotRuntime({
       throw new Response("Unauthorized", { status: 401 });
     }
   },
-  afterRequestMiddleware: async ({ response, path }) => {
+  afterRequestMiddleware: async ({ response, path, messages, threadId, runId }) => {
     console.info("Handled", path, response.status);
+    console.info("Thread:", threadId, "Run:", runId);
+    console.info("Messages:", messages);
   },
 });
 ```
 
 Throwing a `Response` from `beforeRequestMiddleware` short-circuits the request. `afterRequestMiddleware` runs in the background and should swallow its own errors.
+
+#### `AfterRequestMiddlewareParameters`
+
+| Parameter | Type | Description |
+| --- | --- | --- |
+| `runtime` | `CopilotRuntime` | The runtime instance. |
+| `response` | `Response` | A clone of the response sent to the client. The body is still readable. |
+| `path` | `string` | The matched route path (e.g. `/agent/default/run`). |
+| `messages` | `Message[]` | Reconstructed messages from the SSE stream. Empty for non-SSE responses. Each message has `id`, `role`, and optionally `content`, `toolCalls`, or `toolCallId`. |
+| `threadId` | `string \| undefined` | Thread ID from the `RUN_STARTED` event. |
+| `runId` | `string \| undefined` | Run ID from the `RUN_STARTED` event. |
+
+This makes `afterRequestMiddleware` suitable for telemetry, audit logging, and post-run analytics without needing to manually parse the streamed response.
 
 ### Audio Transcription
 
