@@ -5,7 +5,6 @@ import type {
 import type { ComponentType } from "react";
 import { useFrontendTool } from "./use-frontend-tool";
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 type InferRenderProps<T> = T extends StandardSchemaV1
   ? InferSchemaOutput<T>
   : any;
