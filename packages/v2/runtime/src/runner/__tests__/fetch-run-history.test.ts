@@ -113,6 +113,10 @@ class MockAgentWithoutFetchRunHistory extends AbstractAgent {
   }
 }
 
+const VALID_CLOUD_HEADERS = {
+  "x-copilotcloud-public-api-key": "ck_pub_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+};
+
 describe("InMemoryAgentRunner fetchRunHistory", () => {
   let runner: InMemoryAgentRunner;
 
@@ -145,6 +149,7 @@ describe("InMemoryAgentRunner fetchRunHistory", () => {
               tools: [],
               context: [],
             },
+            headers: VALID_CLOUD_HEADERS,
           })
           .pipe(toArray()),
       );
@@ -152,7 +157,7 @@ describe("InMemoryAgentRunner fetchRunHistory", () => {
       // Connect to get all historic events
       const connectAgent = new MockAgent([]);
       const events = await firstValueFrom(
-        runner.connect({ threadId, agent: connectAgent }).pipe(toArray()),
+        runner.connect({ threadId, agent: connectAgent, headers: VALID_CLOUD_HEADERS }).pipe(toArray()),
       );
 
       // Should have events from external run + local run
@@ -190,13 +195,14 @@ describe("InMemoryAgentRunner fetchRunHistory", () => {
               tools: [],
               context: [],
             },
+            headers: VALID_CLOUD_HEADERS,
           })
           .pipe(toArray()),
       );
 
       const connectAgent = new MockAgent([]);
       const events = await firstValueFrom(
-        runner.connect({ threadId, agent: connectAgent }).pipe(toArray()),
+        runner.connect({ threadId, agent: connectAgent, headers: VALID_CLOUD_HEADERS }).pipe(toArray()),
       );
 
       const textStarts = events.filter(
@@ -242,13 +248,14 @@ describe("InMemoryAgentRunner fetchRunHistory", () => {
               tools: [],
               context: [],
             },
+            headers: VALID_CLOUD_HEADERS,
           })
           .pipe(toArray()),
       );
 
       const connectAgent = new MockAgent([]);
       const events = await firstValueFrom(
-        runner.connect({ threadId, agent: connectAgent }).pipe(toArray()),
+        runner.connect({ threadId, agent: connectAgent, headers: VALID_CLOUD_HEADERS }).pipe(toArray()),
       );
 
       const toolStarts = events.filter(
@@ -290,13 +297,14 @@ describe("InMemoryAgentRunner fetchRunHistory", () => {
               tools: [],
               context: [],
             },
+            headers: VALID_CLOUD_HEADERS,
           })
           .pipe(toArray()),
       );
 
       const connectAgent = new MockAgent([]);
       const events = await firstValueFrom(
-        runner.connect({ threadId, agent: connectAgent }).pipe(toArray()),
+        runner.connect({ threadId, agent: connectAgent, headers: VALID_CLOUD_HEADERS }).pipe(toArray()),
       );
 
       const toolResults = events.filter(
@@ -324,6 +332,7 @@ describe("InMemoryAgentRunner fetchRunHistory", () => {
               tools: [],
               context: [],
             },
+            headers: VALID_CLOUD_HEADERS,
           })
           .pipe(toArray()),
       );
@@ -355,13 +364,14 @@ describe("InMemoryAgentRunner fetchRunHistory", () => {
               tools: [],
               context: [],
             },
+            headers: VALID_CLOUD_HEADERS,
           })
           .pipe(toArray()),
       );
 
       const connectAgent = new MockAgent([]);
       const events = await firstValueFrom(
-        runner.connect({ threadId, agent: connectAgent }).pipe(toArray()),
+        runner.connect({ threadId, agent: connectAgent, headers: VALID_CLOUD_HEADERS }).pipe(toArray()),
       );
 
       // Should have events from new-run but not the duplicate
@@ -405,6 +415,7 @@ describe("InMemoryAgentRunner fetchRunHistory", () => {
               tools: [],
               context: [],
             },
+            headers: VALID_CLOUD_HEADERS,
           })
           .pipe(toArray()),
       );
@@ -435,13 +446,14 @@ describe("InMemoryAgentRunner fetchRunHistory", () => {
               tools: [],
               context: [],
             },
+            headers: VALID_CLOUD_HEADERS,
           })
           .pipe(toArray()),
       );
 
       const connectAgent = new MockAgent([]);
       const events = await firstValueFrom(
-        runner.connect({ threadId, agent: connectAgent }).pipe(toArray()),
+        runner.connect({ threadId, agent: connectAgent, headers: VALID_CLOUD_HEADERS }).pipe(toArray()),
       );
 
       // Should have msg-1 from first import and msg-2 from second
@@ -479,6 +491,7 @@ describe("InMemoryAgentRunner fetchRunHistory", () => {
               tools: [],
               context: [],
             },
+            headers: VALID_CLOUD_HEADERS,
           })
           .pipe(toArray()),
       );
@@ -508,13 +521,14 @@ describe("InMemoryAgentRunner fetchRunHistory", () => {
               tools: [],
               context: [],
             },
+            headers: VALID_CLOUD_HEADERS,
           })
           .pipe(toArray()),
       );
 
       const connectAgent = new MockAgent([]);
       const events = await firstValueFrom(
-        runner.connect({ threadId, agent: connectAgent }).pipe(toArray()),
+        runner.connect({ threadId, agent: connectAgent, headers: VALID_CLOUD_HEADERS }).pipe(toArray()),
       );
 
       // external-run-2 should not be stored (empty after filtering)
@@ -541,7 +555,7 @@ describe("InMemoryAgentRunner fetchRunHistory", () => {
 
       // Connect should trigger import
       const events = await firstValueFrom(
-        runner.connect({ threadId, agent }).pipe(toArray()),
+        runner.connect({ threadId, agent, headers: VALID_CLOUD_HEADERS }).pipe(toArray()),
       );
 
       // Should have events from the imported run
@@ -569,11 +583,11 @@ describe("InMemoryAgentRunner fetchRunHistory", () => {
       ]);
 
       // Step 2: Connect to import external messages
-      await firstValueFrom(runner.connect({ threadId, agent: agent1 }).pipe(toArray()));
+      await firstValueFrom(runner.connect({ threadId, agent: agent1, headers: VALID_CLOUD_HEADERS }).pipe(toArray()));
 
       // Verify external messages were imported
       const afterImport = await firstValueFrom(
-        runner.connect({ threadId, agent: new MockAgent([]) }).pipe(toArray()),
+        runner.connect({ threadId, agent: new MockAgent([]), headers: VALID_CLOUD_HEADERS }).pipe(toArray()),
       );
       const importedTextStarts = afterImport.filter(
         (e) => e.type === EventType.TEXT_MESSAGE_START,
@@ -605,6 +619,7 @@ describe("InMemoryAgentRunner fetchRunHistory", () => {
             threadId,
             agent: agent2,
             input: { threadId, runId: "agent-run-1", messages: [], tools: [], context: [] },
+            headers: VALID_CLOUD_HEADERS,
           })
           .pipe(toArray()),
       );
@@ -614,7 +629,7 @@ describe("InMemoryAgentRunner fetchRunHistory", () => {
       const agent3 = new MockAgent([]);
 
       const reconnectEvents = await firstValueFrom(
-        runner.connect({ threadId, agent: agent3 }).pipe(toArray()),
+        runner.connect({ threadId, agent: agent3, headers: VALID_CLOUD_HEADERS }).pipe(toArray()),
       );
 
       // Find all TEXT_MESSAGE_START events to verify message IDs
@@ -648,6 +663,7 @@ describe("InMemoryAgentRunner fetchRunHistory", () => {
               tools: [],
               context: [],
             },
+            headers: VALID_CLOUD_HEADERS,
           })
           .pipe(toArray()),
       );

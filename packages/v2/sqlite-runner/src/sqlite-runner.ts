@@ -6,7 +6,7 @@ import {
   type AgentRunnerRunRequest,
   type AgentRunnerStopRequest,
 } from "@copilotkitnext/runtime";
-import { convertMessagesToEvents } from "@copilotkitnext/shared";
+import { convertMessagesToEvents, isValidCopilotCloudKey } from "@copilotkitnext/shared";
 import { Observable, ReplaySubject } from "rxjs";
 import {
   AbstractAgent,
@@ -275,7 +275,14 @@ export class SqliteAgentRunner extends AgentRunner {
   private async importExternalRuns(
     threadId: string,
     agent: AbstractAgent,
+    headers?: Record<string, string>,
   ): Promise<void> {
+    // Only fetch external runs when a valid CopilotCloud key is present
+    const cloudKey = headers?.["x-copilotcloud-public-api-key"] ?? headers?.["X-CopilotCloud-Public-Api-Key"];
+    if (!cloudKey || !isValidCopilotCloudKey(cloudKey)) {
+      return;
+    }
+
     // Use agent's fetchRunHistory method - returns undefined if not implemented
     const result = await (
       agent as unknown as {
@@ -375,7 +382,7 @@ export class SqliteAgentRunner extends AgentRunner {
     // Helper function to run the agent and handle errors
     const runAgent = async () => {
       // Import external runs before agent execution
-      await this.importExternalRuns(request.threadId, request.agent);
+      await this.importExternalRuns(request.threadId, request.agent, request.headers);
 
       // Get parent run ID for chaining (after import so we include imported runs)
       const parentRunId = this.getLatestRunId(request.threadId);
@@ -528,7 +535,7 @@ export class SqliteAgentRunner extends AgentRunner {
       const activeConnection = ACTIVE_CONNECTIONS.get(request.threadId);
 
       if (!runState.isRunning && !activeConnection?.stopRequested && request.agent) {
-        await this.importExternalRuns(request.threadId, request.agent);
+        await this.importExternalRuns(request.threadId, request.agent, request.headers);
       }
 
       // Load historic runs from database (after import)

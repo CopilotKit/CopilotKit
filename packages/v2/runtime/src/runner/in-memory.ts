@@ -14,7 +14,7 @@ import {
   RunStartedEvent,
   compactEvents,
 } from "@ag-ui/client";
-import { finalizeRunEvents, convertMessagesToEvents } from "@copilotkitnext/shared";
+import { finalizeRunEvents, convertMessagesToEvents, isValidCopilotCloudKey } from "@copilotkitnext/shared";
 
 interface HistoricRun {
   threadId: string;
@@ -147,7 +147,14 @@ export class InMemoryAgentRunner extends AgentRunner {
   private async importExternalRuns(
     store: InMemoryEventStore,
     agent: AbstractAgent,
+    headers?: Record<string, string>,
   ): Promise<void> {
+    // Only fetch external runs when a valid CopilotCloud key is present
+    const cloudKey = headers?.["x-copilotcloud-public-api-key"] ?? headers?.["X-CopilotCloud-Public-Api-Key"];
+    if (!cloudKey || !isValidCopilotCloudKey(cloudKey)) {
+      return;
+    }
+
     // Use agent's fetchRunHistory method - returns undefined if not implemented
     const result = await (
       agent as unknown as {
@@ -250,7 +257,7 @@ export class InMemoryAgentRunner extends AgentRunner {
     // Helper function to run the agent and handle errors
     const runAgent = async () => {
       // Import external runs before agent execution
-      await this.importExternalRuns(store, request.agent);
+      await this.importExternalRuns(store, request.agent, request.headers);
 
       // Get parent run ID for chaining (after import so we include imported runs)
       const lastRun = store.historicRuns[store.historicRuns.length - 1];
@@ -409,7 +416,7 @@ export class InMemoryAgentRunner extends AgentRunner {
 
       // Import external runs when nothing is running
       if (!store.isRunning && !store.stopRequested && request.agent) {
-        await this.importExternalRuns(store, request.agent);
+        await this.importExternalRuns(store, request.agent, request.headers);
       }
 
       // Collect all historic events from memory

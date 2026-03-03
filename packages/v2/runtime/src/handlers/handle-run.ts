@@ -77,11 +77,14 @@ export async function handleRunAgent({
 
     // Process the agent run in the background
     (async () => {
+      const forwardableHeaders = extractForwardableHeaders(request);
+
       runtime.runner
         .run({
           threadId: input.threadId,
           agent,
           input,
+          headers: forwardableHeaders,
         })
         .subscribe({
           next: async (event) => {
