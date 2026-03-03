@@ -33,7 +33,9 @@ function ModalStateDisplay({ testId = "isModalOpen" }: { testId?: string }) {
   const config = useCopilotChatConfiguration();
   return (
     <div data-testid={testId}>
-      {config?.isModalOpen === undefined ? "undefined" : String(config.isModalOpen)}
+      {config?.isModalOpen === undefined
+        ? "undefined"
+        : String(config.isModalOpen)}
     </div>
   );
 }
