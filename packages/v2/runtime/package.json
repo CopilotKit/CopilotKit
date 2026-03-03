@@ -36,6 +36,7 @@
     "@types/cors": "^2.8.17",
     "@types/express": "^4.17.21",
     "@types/node": "^22.15.3",
+    "@types/phoenix": "^1.6.6",
     "eslint": "^9.30.0",
     "supertest": "^7.1.1",
     "tsdown": "^0.20.3",
@@ -48,6 +49,8 @@
     "@ag-ui/encoder": "0.0.46",
     "@copilotkitnext/shared": "workspace:*",
     "cors": "^2.8.5",
+    "phoenix": "^1.8.4",
+    "ws": "^8.18.0",
     "express": "^4.21.2",
     "hono": "^4.11.4",
     "rxjs": "7.8.1"
