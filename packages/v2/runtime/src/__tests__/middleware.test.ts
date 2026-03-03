@@ -72,11 +72,14 @@ describe("CopilotEndpoint middleware", () => {
       request: originalRequest,
       path: expect.any(String),
     });
-    expect(after).toHaveBeenCalledWith({
-      runtime,
-      response,
-      path: expect.any(String),
-    });
+    await new Promise((r) => setImmediate(r));
+    expect(after).toHaveBeenCalledWith(
+      expect.objectContaining({
+        runtime,
+        response: expect.any(Response),
+        path: expect.any(String),
+      }),
+    );
     // The response should contain version info from the /info endpoint
     const body = await response.json();
     expect(body).toHaveProperty("version");
@@ -183,6 +186,29 @@ describe("CopilotEndpoint middleware", () => {
     expect(after).toHaveBeenCalled();
   });
 
+  it("passes parsed messages to afterRequestMiddleware", async () => {
+    let receivedParams: Record<string, unknown> = {};
+    const after = vi.fn().mockImplementation((params) => {
+      receivedParams = params;
+    });
+
+    const runtime = dummyRuntime({
+      afterRequestMiddleware: after,
+    });
+
+    const endpoint = createCopilotEndpoint({ runtime, basePath: "/" });
+    const response = await endpoint.fetch(
+      new Request("https://example.com/info"),
+    );
+
+    await new Promise((r) => setImmediate(r));
+
+    expect(response).toBeInstanceOf(Response);
+    expect(after).toHaveBeenCalled();
+    expect(receivedParams).toHaveProperty("messages");
+    expect(receivedParams.messages).toEqual([]);
+  });
+
   it("logs but does not rethrow error from afterRequestMiddleware", async () => {
     const error = new Error("after");
     const before = vi.fn();
@@ -204,11 +230,13 @@ describe("CopilotEndpoint middleware", () => {
     await new Promise((r) => setImmediate(r));
 
     expect(response).toBeInstanceOf(Response);
-    expect(after).toHaveBeenCalledWith({
-      runtime,
-      response,
-      path: expect.any(String),
-    });
+    expect(after).toHaveBeenCalledWith(
+      expect.objectContaining({
+        runtime,
+        response: expect.any(Response),
+        path: expect.any(String),
+      }),
+    );
 
     await new Promise((r) => setImmediate(r));
 
