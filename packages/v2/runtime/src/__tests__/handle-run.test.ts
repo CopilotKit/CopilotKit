@@ -209,14 +209,19 @@ describe("handleRunAgent", () => {
       a2ui: { enabled: true, injectA2UITool: true },
     } as unknown as CopilotRuntime;
 
-    await handleRunAgent({ runtime, request: createRunRequest(), agentId: "my-agent" });
+    await handleRunAgent({
+      runtime,
+      request: createRunRequest(),
+      agentId: "my-agent",
+    });
 
     expect(useSpy).toHaveBeenCalledOnce();
     expect(useSpy.mock.calls[0][0]).toBeInstanceOf(A2UIMiddleware);
   });
 
   it("applies A2UIMiddleware only to matching agent when agents filter is set", async () => {
-    const { agent: matchingAgent, useSpy: matchingSpy } = createMockAgentWithUse();
+    const { agent: matchingAgent, useSpy: matchingSpy } =
+      createMockAgentWithUse();
     const { agent: otherAgent, useSpy: otherSpy } = createMockAgentWithUse();
 
     const makeRuntime = (agentId: string, targetAgent: AbstractAgent) =>
@@ -270,7 +275,11 @@ describe("handleRunAgent", () => {
       runner: createMockRunner(),
     } as unknown as CopilotRuntime;
 
-    await handleRunAgent({ runtime, request: createRunRequest(), agentId: "my-agent" });
+    await handleRunAgent({
+      runtime,
+      request: createRunRequest(),
+      agentId: "my-agent",
+    });
 
     expect(useSpy).not.toHaveBeenCalled();
   });
