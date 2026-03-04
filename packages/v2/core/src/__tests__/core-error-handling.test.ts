@@ -182,7 +182,7 @@ describe("CopilotKitCore error handling", () => {
         transport: "rest",
       });
 
-      await expect(core.runAgent({ agent })).rejects.toBeDefined();
+      await core.runAgent({ agent });
 
       expect(
         errors.some((e) => e.code === CopilotKitCoreErrorCode.AGENT_RUN_FAILED),
