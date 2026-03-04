@@ -131,6 +131,104 @@ async def my_agent_node(state: AgentState, config: RunnableConfig):
     return state
 ```
 
+## FastAPI Pattern for `add_langgraph_fastapi_endpoint`
+
+When using `add_langgraph_fastapi_endpoint` in self-hosted mode:
+
+- The helper registers FastAPI routes directly on the app you pass in.
+- It does **not** expose a `Depends(...)` hook directly in the helper API.
+- Authentication/authorization should be enforced at the FastAPI app (or sub-app) boundary.
+
+### 1. Protect the mounted endpoint with FastAPI dependencies
+
+```python
+from fastapi import Depends, FastAPI, HTTPException, Request
+from ag_ui_langgraph import add_langgraph_fastapi_endpoint
+from copilotkit import LangGraphAGUIAgent
+
+def get_current_user(request: Request):
+    auth = request.headers.get("authorization")
+    if not auth:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    # Replace with your real token/session validation
+    return {"id": "user_123"}
+
+protected_langgraph_app = FastAPI(dependencies=[Depends(get_current_user)])
+
+add_langgraph_fastapi_endpoint(
+    app=protected_langgraph_app,
+    agent=LangGraphAGUIAgent(
+        name="sample_agent",
+        description="Authenticated agent endpoint",
+        graph=graph,
+    ),
+    path="/run",
+)
+
+app = FastAPI()
+app.mount("/agents/private", protected_langgraph_app)
+```
+
+### 2. If you must inject authenticated user data into graph input, define a custom endpoint
+
+This is useful when you need request-scoped identity inside agent state.
+
+```python
+from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi.responses import StreamingResponse
+
+from ag_ui.core.types import RunAgentInput
+from ag_ui.encoder import EventEncoder
+
+app = FastAPI()
+
+def get_current_user(request: Request):
+    auth = request.headers.get("authorization")
+    if not auth:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    return {"id": "user_123"}
+
+@app.post("/agents/private/run")
+async def protected_langgraph_endpoint(
+    input_data: RunAgentInput,
+    request: Request,
+    user=Depends(get_current_user),
+):
+    input_data = input_data.copy(
+        update={
+            "state": {
+                **(input_data.state or {}),
+                "auth_user_id": user["id"],
+            }
+        }
+    )
+
+    encoder = EventEncoder(accept=request.headers.get("accept"))
+
+    async def event_generator():
+        async for event in agent.run(input_data):
+            yield encoder.encode(event)
+
+    return StreamingResponse(event_generator(), media_type=encoder.get_content_type())
+```
+
+### 3. Frontend requirements for authenticated FastAPI routes
+
+- Header-token flow: pass token via `properties.authorization`
+- Cookie/session flow: set `credentials="include"` on `<CopilotKit />` and enable CORS credentials on your backend
+
+```tsx
+<CopilotKit
+  runtimeUrl="https://api.myapp.com/copilotkit"
+  credentials="include"
+  properties={{
+    authorization: userToken,
+  }}
+>
+  <App />
+</CopilotKit>
+```
+
 ## Universal Authentication Pattern
 
 For agents that work in both environments, use this pattern:
