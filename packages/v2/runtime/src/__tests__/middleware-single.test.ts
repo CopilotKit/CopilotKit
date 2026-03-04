@@ -48,11 +48,14 @@ describe("CopilotEndpointSingleRoute middleware", () => {
       request: originalRequest,
       path: expect.any(String),
     });
-    expect(after).toHaveBeenCalledWith({
-      runtime,
-      response,
-      path: expect.any(String),
-    });
+    await new Promise((r) => setImmediate(r));
+    expect(after).toHaveBeenCalledWith(
+      expect.objectContaining({
+        runtime,
+        response: expect.any(Response),
+        path: expect.any(String),
+      }),
+    );
     const body = await response.json();
     expect(body).toHaveProperty("version");
   });
@@ -154,6 +157,32 @@ describe("CopilotEndpointSingleRoute middleware", () => {
     expect(after).toHaveBeenCalled();
   });
 
+  it("passes parsed messages to afterRequestMiddleware for info endpoint", async () => {
+    let receivedParams: Record<string, unknown> = {};
+    const after = vi.fn().mockImplementation((params) => {
+      receivedParams = params;
+    });
+
+    const runtime = dummyRuntime({
+      afterRequestMiddleware: after,
+    });
+
+    const endpoint = createCopilotEndpointSingleRoute({
+      runtime,
+      basePath: "/rpc",
+    });
+    await endpoint.fetch(buildRequest({ method: "info" }));
+
+    // Wait for async middleware (parseSSEResponse introduces a microtask)
+    await new Promise((r) => setImmediate(r));
+
+    expect(after).toHaveBeenCalled();
+    // For non-SSE (info) responses, messages should be empty array
+    expect(receivedParams).toHaveProperty("messages");
+    expect(receivedParams.messages).toEqual([]);
+    expect(receivedParams).toHaveProperty("path");
+  });
+
   it("logs but does not rethrow error from afterRequestMiddleware", async () => {
     const error = new Error("after");
     const before = vi.fn();
@@ -175,11 +204,13 @@ describe("CopilotEndpointSingleRoute middleware", () => {
     await new Promise((r) => setImmediate(r));
 
     expect(response).toBeInstanceOf(Response);
-    expect(after).toHaveBeenCalledWith({
-      runtime,
-      response,
-      path: expect.any(String),
-    });
+    expect(after).toHaveBeenCalledWith(
+      expect.objectContaining({
+        runtime,
+        response: expect.any(Response),
+        path: expect.any(String),
+      }),
+    );
 
     await new Promise((r) => setImmediate(r));
 

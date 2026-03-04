@@ -111,11 +111,11 @@ is a situation where a user and an agent are working together to solve a problem
 
       // [!code highlight:13]
       // styles omitted for brevity
-      useAgent<AgentState>({
+      useAgent({
         name: "my_agent", // MUST match the agent name in CopilotRuntime
-        render: ({ agentState }) => (
+        render: ({ state }) => (
           <div>
-            Current language: {agentState.language || 'not set'}
+            Current language: {state.language || 'not set'}
           </div>
         ),
       });
@@ -149,7 +149,7 @@ is a situation where a user and an agent are working together to solve a problem
       // ...
 
       // [!code highlight:3]
-      const { agentState } = useAgent<AgentState>({
+      const { agent } = useAgent({
         name: "my_agent", // MUST match the agent name in CopilotRuntime
       })
 
@@ -160,7 +160,7 @@ is a situation where a user and an agent are working together to solve a problem
           {/* ... */}
           <div className="flex flex-col gap-2 mt-4">
             {/* [!code highlight:1] */}
-            Current language: {agentState.language || 'not set'}
+            Current language: {agent.state?.language || 'not set'}
           </div>
         </div>
       )

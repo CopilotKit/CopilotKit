@@ -1,5 +1,23 @@
 # @copilotkit/runtime
 
+## 1.52.2-next.1
+
+### Patch Changes
+
+- d1f7aba: feat(runtime): expose messages in afterRequestMiddleware
+- Updated dependencies [bf1fc6f]
+  - @copilotkit/shared@1.52.2-next.1
+  - @copilotkitnext/agent@1.52.2-next.1
+  - @copilotkitnext/runtime@1.52.2-next.1
+
+## 1.52.2-next.0
+
+### Patch Changes
+
+- @copilotkit/shared@1.52.2-next.0
+- @copilotkitnext/agent@1.52.2-next.0
+- @copilotkitnext/runtime@1.52.2-next.0
+
 ## 1.52.1
 
 ### Patch Changes

@@ -201,18 +201,18 @@ included in the function's final returned state. Otherwise, they will be overwri
 
         const YourMainContent = () => {
             // Get access to both predicted and final states
-            const { agentState } = useAgent({ name: "sample_agent" });
+            const { agent } = useAgent({ name: "sample_agent" });
 
             // Add a state renderer to observe predictions
             useAgent({
                 name: "sample_agent",
-                render: ({ agentState }) => {
-                    if (!agentState.observed_steps?.length) return null;
+                render: ({ state }) => {
+                    if (!state.observed_steps?.length) return null;
                     return (
                         <div>
                             <h3>Current Progress:</h3>
                             <ul>
-                                {agentState.observed_steps.map((step, i) => (
+                                {state.observed_steps.map((step, i) => (
                                     <li key={i}>{step}</li>
                                 ))}
                             </ul>
@@ -224,11 +224,11 @@ included in the function's final returned state. Otherwise, they will be overwri
             return (
                 <div>
                     <h1>Agent Progress</h1>
-                    {agentState.observed_steps?.length > 0 && (
+                    {agent.state?.observed_steps?.length > 0 && (
                         <div>
                             <h3>Final Steps:</h3>
                             <ul>
-                                {agentState.observed_steps.map((step, i) => (
+                                {agent.state.observed_steps.map((step, i) => (
                                     <li key={i}>{step}</li>
                                 ))}
                             </ul>

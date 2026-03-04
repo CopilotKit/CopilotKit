@@ -44,3 +44,4 @@ coverage
 .turbo
 .langgraph_api
 lefthook-local.yml
+.langgraph_api

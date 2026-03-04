@@ -135,8 +135,13 @@ function createRouteHandler(
 
     try {
       const response = await factory({ request, req });
+      const responseForMiddleware = response.clone();
       await sendFetchResponse(res, response);
-      callAfterRequestMiddleware({ runtime, response, path }).catch((error) => {
+      callAfterRequestMiddleware({
+        runtime,
+        response: responseForMiddleware,
+        path,
+      }).catch((error) => {
         logger.error(
           { err: error, url: req.originalUrl ?? req.url, path },
           "Error running after request middleware",
@@ -144,20 +149,23 @@ function createRouteHandler(
       });
     } catch (error) {
       if (error instanceof Response) {
+        const errorResponseForMiddleware = error.clone();
         try {
           await sendFetchResponse(res, error);
         } catch (streamError) {
           next(streamError);
           return;
         }
-        callAfterRequestMiddleware({ runtime, response: error, path }).catch(
-          (mwError) => {
-            logger.error(
-              { err: mwError, url: req.originalUrl ?? req.url, path },
-              "Error running after request middleware",
-            );
-          },
-        );
+        callAfterRequestMiddleware({
+          runtime,
+          response: errorResponseForMiddleware,
+          path,
+        }).catch((mwError) => {
+          logger.error(
+            { err: mwError, url: req.originalUrl ?? req.url, path },
+            "Error running after request middleware",
+          );
+        });
         return;
       }
       logger.error(

@@ -21,11 +21,11 @@ Some examples might be: the current user, the current page, etc. This be shared 
     <Step>
         ### Wrap your data in a readable
 
-        The [`useCopilotReadable` hook](/reference/v1/hooks/useCopilotReadable) is used to add data as context to the Copilot.
+        The [`useAgentContext` hook](/reference/v1/hooks/useAgentContext) is used to add data as context to the Copilot.
 
         ```tsx title="YourComponent.tsx" showLineNumbers {1, 7-10}
         "use client" // only necessary if you are using Next.js with the App Router. // [!code highlight]
-        import { useCopilotReadable } from "@copilotkit/react-core/v2"; // [!code highlight]
+        import { useAgentContext } from "@copilotkit/react-core/v2"; // [!code highlight]
         import { useState } from 'react';
 
         export function YourComponent() {
@@ -38,7 +38,7 @@ Some examples might be: the current user, the current page, etc. This be shared 
 
             // Define Copilot readable state
             // [!code highlight:4]
-            useCopilotReadable({
+            useAgentContext({
                 description: "The current user's colleagues",
                 value: colleagues,
             });

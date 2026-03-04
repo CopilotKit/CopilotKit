@@ -145,7 +145,9 @@ Before you begin, you must have a [CrewAI Flow](https://docs.crewai.com/guides/f
             ```tsx title="page.tsx"
             "use client";
             import "@copilotkit/react-ui/v2/styles.css";
-            import { CopilotKit, useFrontendTool } from "@copilotkit/react-core/v2";
+            import { CopilotKit } from "@copilotkit/react-core";
+            import { z } from "zod";
+            import { useFrontendTool } from "@copilotkit/react-core/v2";
             import { CopilotChat } from "@copilotkit/react-core/v2";
             import React, { useState } from "react";
 
@@ -168,14 +170,13 @@ Before you begin, you must have a [CrewAI Flow](https://docs.crewai.com/guides/f
                 name: "change_background",
                 description:
                   "Change the background color of the chat. Can be anything that the CSS background attribute accepts. Regular colors, linear of radial gradients etc.",
-                parameters: [
-                  {
-                    name: "background",
-                    type: "string",
-                    description: "The background. Prefer gradients.",
-                  },
-                ],
-                handler: ({ background }) => setBackground(background),
+                parameters: z.object({
+                  background: z.string().describe("The background. Prefer gradients."),
+                }),
+                handler: async ({ background }) => {
+                  setBackground(background);
+                  return `Background changed to ${background}`;
+                },
                 followUp: false,
               });
 

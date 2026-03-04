@@ -61,6 +61,7 @@ of everything that has happened during a HITL interaction.
         First, we'll create a component that renders the agent's essay draft and waits for user approval.
 
         ```tsx title="ui/app/page.tsx"
+        import { z } from "zod";
         import { useFrontendTool } from "@copilotkit/react-core/v2"
         import { Markdown } from "@copilotkit/react-core/v2"
 
@@ -71,9 +72,9 @@ of everything that has happened during a HITL interaction.
             name: "writeEssay",
             available: "remote",
             description: "Writes an essay and takes the draft as an argument.",
-            parameters: [
-              { name: "draft", type: "string", description: "The draft of the essay", required: true },
-            ],
+            parameters: z.object({
+              draft: z.string().describe("The draft of the essay"),
+            }),
             // [!code highlight:25]
             renderAndWaitForResponse: ({ args, respond, status }) => {
               return (

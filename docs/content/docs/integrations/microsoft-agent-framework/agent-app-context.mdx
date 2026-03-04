@@ -5,7 +5,7 @@ description: Share app specific context with your agent.
 ---
 import RunAndConnect from "@/snippets/integrations/microsoft-agent-framework/run-and-connect.mdx"
 
-One of the most common use cases for CopilotKit is to register app state and context using `useCopilotReadable`.
+One of the most common use cases for CopilotKit is to register app state and context using `useAgentContext`.
 This way, you can notify CopilotKit of what is going in your app in real time.
 Some examples might be: the current user, the current page, etc.
 
@@ -23,11 +23,11 @@ This context can then be shared with your AG-UI server and agent logic.
     <Step>
         ### Add the data to the Copilot
 
-        The [`useCopilotReadable` hook](/reference/v1/hooks/useCopilotReadable) is used to add data as context to the Copilot.
+        The [`useAgentContext` hook](/reference/v1/hooks/useAgentContext) is used to add data as context to the Copilot.
 
         ```tsx title="YourComponent.tsx" showLineNumbers {1, 7-10}
         "use client" // only necessary if you are using Next.js with the App Router. // [!code highlight]
-        import { useCopilotReadable } from "@copilotkit/react-core/v2"; // [!code highlight]
+        import { useAgentContext } from "@copilotkit/react-core/v2"; // [!code highlight]
         import { useState } from 'react';
 
         export function YourComponent() {
@@ -40,7 +40,7 @@ This context can then be shared with your AG-UI server and agent logic.
 
             // Define Copilot readable state
             // [!code highlight:4]
-            useCopilotReadable({
+            useAgentContext({
                 description: "The current user's colleagues",
                 value: colleagues,
             });
@@ -92,7 +92,7 @@ This context can then be shared with your AG-UI server and agent logic.
             app.MapAGUI("/", agent);
             await app.RunAsync();
 
-            // Middleware to inject useCopilotReadable context as a system message
+            // Middleware to inject useAgentContext context as a system message
             async IAsyncEnumerable<AgentRunResponseUpdate> InjectContextMiddleware(
                 IEnumerable<ChatMessage> messages,
                 AgentThread? thread,
@@ -154,7 +154,7 @@ This context can then be shared with your AG-UI server and agent logic.
         </Tabs>
 
         <Callout type="info">
-          Context registered with `useCopilotReadable` is automatically forwarded by the AG-UI protocol in `ChatOptions.AdditionalProperties["ag_ui_context"]` as an array of key-value pairs (description → value). The middleware extracts and injects this context into the conversation.
+          Context registered with `useAgentContext` is automatically forwarded by the AG-UI protocol in `ChatOptions.AdditionalProperties["ag_ui_context"]` as an array of key-value pairs (description → value). The middleware extracts and injects this context into the conversation.
         </Callout>
 
         <Callout type="tip">
