@@ -140,7 +140,7 @@ const CopilotModalInner = ({
 
   return (
     <>
-      {memoizedChildren}
+      <div className="copilotKitModalChildrenWrapper">{memoizedChildren}</div>
       <div className={className}>
         <Button></Button>
         <Window
