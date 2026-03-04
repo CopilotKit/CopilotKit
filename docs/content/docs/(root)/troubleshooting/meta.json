@@ -1,6 +1,7 @@
 {
   "pages": [
     "migrate-to-v2",
+    "dev-console",
     "error-debugging",
     "observability-connectors",
     "common-issues",
