@@ -12,7 +12,7 @@ Plan your next trip with an AI-powered travel planner. This demo showcases a tra
   <a href="https://nextjs.org" target="_blank">
     <img src="https://img.shields.io/badge/Built%20with-Next.js%2014-black" alt="Built with Next.js"/>
   </a>
-  <a href="https://www.langchain.com/langgraph" target="_blank">
+  <a href="https://langchain-ai.github.io/langgraph/" target="_blank">
     <img src="https://img.shields.io/badge/Powered%20by-LangGraph-blue" alt="Powered by LangGraph"/>
   </a>
   <a href="https://leafletjs.com/" target="_blank">
