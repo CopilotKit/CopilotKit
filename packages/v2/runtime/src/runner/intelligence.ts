@@ -145,10 +145,6 @@ export class IntelligenceAgentRunner extends AgentRunner {
     return Promise.resolve(true);
   }
 
-  // -------------------------------------------------------------------
-  // Internal helpers
-  // -------------------------------------------------------------------
-
   private async executeAgentRun(
     request: AgentRunnerRunRequest,
     state: ThreadState,

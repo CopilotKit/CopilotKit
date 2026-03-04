@@ -269,10 +269,6 @@ export function createStreamingSuggestionChunks(): string[] {
   ];
 }
 
-// ---------------------------------------------------------------------------
-// Phoenix channel mocks – shared between intelligence-agent and runner tests
-// ---------------------------------------------------------------------------
-
 export class MockPush {
   private callbacks = new Map<string, Function>();
 

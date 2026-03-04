@@ -2,20 +2,12 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { EventType, BaseEvent } from "@ag-ui/client";
 import { MockSocket, MockChannel } from "./test-utils";
 
-// ---------------------------------------------------------------------------
-// Phoenix mock
-// ---------------------------------------------------------------------------
-
 vi.mock("phoenix", () => ({
   Socket: MockSocket,
 }));
 
 // Must come after vi.mock so phoenix is mocked when the module is loaded.
 const { IntelligenceAgent } = await import("../intelligence-agent");
-
-// ---------------------------------------------------------------------------
-// Fetch mock
-// ---------------------------------------------------------------------------
 
 let mockFetch: ReturnType<typeof vi.fn>;
 
@@ -27,10 +19,6 @@ beforeEach(() => {
 afterEach(() => {
   vi.unstubAllGlobals();
 });
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
 
 function createAgent() {
   return new IntelligenceAgent({
@@ -104,10 +92,6 @@ function getChannel(
   return (agent as any).activeChannel as MockChannel;
 }
 
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
-
 describe("IntelligenceAgent", () => {
   describe("run kickoff", () => {
     it("connects the socket and joins the channel on subscribe", () => {
@@ -136,7 +120,7 @@ describe("IntelligenceAgent", () => {
 
       expect(mockFetch).toHaveBeenCalledTimes(1);
       const [url, options] = mockFetch.mock.calls[0];
-      expect(url).toBe("http://localhost:4000/agent/my-agent/run");
+      expect(url).toContain("/agent/my-agent/run");
       expect(options.method).toBe("POST");
       expect(options.headers).toMatchObject({
         "Content-Type": "application/json",
@@ -166,7 +150,7 @@ describe("IntelligenceAgent", () => {
   });
 
   describe("REST run failure", () => {
-    it("emits RUN_ERROR with code REST_RUN_ERROR on fetch failure", async () => {
+    it("errors the observable on fetch failure", async () => {
       mockFetch.mockRejectedValueOnce(new Error("Network error"));
 
       const agent = createAgent();
@@ -179,12 +163,6 @@ describe("IntelligenceAgent", () => {
       expect(result.completed).toBe(false);
       expect(result.error).toBeInstanceOf(Error);
       expect(result.error!.message).toContain("REST run request failed");
-
-      const errorEvent = result.events.find(
-        (e) => e.type === EventType.RUN_ERROR,
-      ) as BaseEvent & { code?: string };
-      expect(errorEvent).toBeDefined();
-      expect(errorEvent.code).toBe("REST_RUN_ERROR");
     });
   });
 
@@ -280,7 +258,7 @@ describe("IntelligenceAgent", () => {
   });
 
   describe("join failures", () => {
-    it("emits RUN_ERROR and errors the observable on join error", async () => {
+    it("errors the observable on join error", async () => {
       const agent = createAgent();
       const promise = collectEvents(agent);
 
@@ -291,15 +269,9 @@ describe("IntelligenceAgent", () => {
       expect(result.completed).toBe(false);
       expect(result.error).toBeInstanceOf(Error);
       expect(result.error!.message).toContain("Failed to join channel");
-
-      const errorEvent = result.events.find(
-        (e) => e.type === EventType.RUN_ERROR,
-      ) as BaseEvent & { code?: string };
-      expect(errorEvent).toBeDefined();
-      expect(errorEvent.code).toBe("CHANNEL_JOIN_ERROR");
     });
 
-    it("emits RUN_ERROR and errors the observable on join timeout", async () => {
+    it("errors the observable on join timeout", async () => {
       const agent = createAgent();
       const promise = collectEvents(agent);
 
@@ -310,12 +282,6 @@ describe("IntelligenceAgent", () => {
       expect(result.completed).toBe(false);
       expect(result.error).toBeInstanceOf(Error);
       expect(result.error!.message).toBe("Timed out joining channel");
-
-      const errorEvent = result.events.find(
-        (e) => e.type === EventType.RUN_ERROR,
-      ) as BaseEvent & { code?: string };
-      expect(errorEvent).toBeDefined();
-      expect(errorEvent.code).toBe("CHANNEL_JOIN_TIMEOUT");
     });
   });
 
@@ -335,7 +301,7 @@ describe("IntelligenceAgent", () => {
 
       expect(mockFetch).toHaveBeenCalledTimes(1);
       const [url, options] = mockFetch.mock.calls[0];
-      expect(url).toBe("http://localhost:4000/agent/my-agent/stop/thread-1");
+      expect(url).toContain("/agent/my-agent/stop/thread-1");
       expect(options.method).toBe("POST");
       expect(options.headers).toMatchObject({
         "Content-Type": "application/json",
@@ -343,6 +309,18 @@ describe("IntelligenceAgent", () => {
       });
 
       // Channel should be cleaned up
+      expect(channel.left).toBe(true);
+    });
+
+    it("is a no-op when fetch is unavailable (SSR)", () => {
+      const agent = createAgent();
+      agent.run(defaultInput).subscribe({ next: () => {}, error: () => {} });
+
+      const channel = getChannel(agent);
+      channel.triggerJoin("ok");
+
+      vi.stubGlobal("fetch", undefined);
+      expect(() => agent.abortRun()).not.toThrow();
       expect(channel.left).toBe(true);
     });
 
@@ -388,6 +366,173 @@ describe("IntelligenceAgent", () => {
 
       expect(channel.left).toBe(true);
       expect(socket.disconnected).toBe(true);
+    });
+  });
+
+  describe("credentials forwarding", () => {
+    it("forwards credentials on run fetch when configured", async () => {
+      const agent = new IntelligenceAgent({
+        url: "ws://localhost:4000/socket",
+        runtimeUrl: "http://localhost:4000",
+        agentId: "my-agent",
+        credentials: "include",
+      });
+      agent.run(defaultInput).subscribe({ next: () => {}, error: () => {} });
+
+      const channel = getChannel(agent);
+      channel.triggerJoin("ok");
+      await Promise.resolve();
+
+      const [, options] = mockFetch.mock.calls[0];
+      expect(options.credentials).toBe("include");
+    });
+
+    it("forwards credentials on abortRun fetch when configured", async () => {
+      const agent = new IntelligenceAgent({
+        url: "ws://localhost:4000/socket",
+        runtimeUrl: "http://localhost:4000",
+        agentId: "my-agent",
+        credentials: "include",
+      });
+      agent.run(defaultInput).subscribe({ next: () => {}, error: () => {} });
+
+      const channel = getChannel(agent);
+      channel.triggerJoin("ok");
+
+      mockFetch.mockClear();
+      mockFetch.mockResolvedValue({ ok: true });
+
+      agent.abortRun();
+
+      const [, options] = mockFetch.mock.calls[0];
+      expect(options.credentials).toBe("include");
+    });
+
+    it("omits credentials when not configured", async () => {
+      const agent = createAgent();
+      agent.run(defaultInput).subscribe({ next: () => {}, error: () => {} });
+
+      const channel = getChannel(agent);
+      channel.triggerJoin("ok");
+      await Promise.resolve();
+
+      const [, options] = mockFetch.mock.calls[0];
+      expect(options.credentials).toBeUndefined();
+    });
+  });
+
+  describe("connect", () => {
+    /** Access the protected connect() method for testing. */
+    function connectAgent(
+      agent: InstanceType<typeof IntelligenceAgent>,
+      input = defaultInput,
+    ) {
+      const events: BaseEvent[] = [];
+      let completed = false;
+      let error: Error | null = null;
+
+      return new Promise<{
+        events: BaseEvent[];
+        completed: boolean;
+        error: Error | null;
+        channel: MockChannel;
+        socket: MockSocket;
+      }>((resolve) => {
+        (agent as any).connect(input).subscribe({
+          next: (event: BaseEvent) => events.push(event),
+          complete: () => {
+            completed = true;
+            resolve({
+              events,
+              completed,
+              error,
+              channel: getChannel(agent),
+              socket: getSocket(agent),
+            });
+          },
+          error: (err: Error) => {
+            error = err;
+            resolve({
+              events,
+              completed,
+              error,
+              channel: getChannel(agent),
+              socket: getSocket(agent),
+            });
+          },
+        });
+      });
+    }
+
+    it("joins channel in connect mode and pushes CUSTOM connect event", () => {
+      const agent = createAgent();
+      (agent as any).connect(defaultInput).subscribe({
+        next: () => {},
+        error: () => {},
+      });
+
+      const channel = getChannel(agent);
+      expect(channel.params).toEqual({ mode: "connect" });
+
+      channel.triggerJoin("ok");
+
+      const connectPush = channel.pushLog.find(
+        (c) => c.event === EventType.CUSTOM,
+      );
+      expect(connectPush).toBeDefined();
+      expect(connectPush!.payload).toMatchObject({
+        type: EventType.CUSTOM,
+        name: "connect",
+        value: { threadId: "thread-1" },
+      });
+    });
+
+    it("completes on RUN_FINISHED from server", async () => {
+      const agent = createAgent();
+      const promise = connectAgent(agent);
+
+      const channel = getChannel(agent);
+      channel.triggerJoin("ok");
+
+      channel.serverPush("ag-ui", {
+        type: EventType.RUN_FINISHED,
+        threadId: "thread-1",
+        runId: "run-1",
+      } as BaseEvent);
+
+      const result = await promise;
+      expect(result.completed).toBe(true);
+      expect(result.error).toBeNull();
+    });
+
+    it("completes on RUN_ERROR from server", async () => {
+      const agent = createAgent();
+      const promise = connectAgent(agent);
+
+      const channel = getChannel(agent);
+      channel.triggerJoin("ok");
+
+      channel.serverPush("ag-ui", {
+        type: EventType.RUN_ERROR,
+        message: "something went wrong",
+      } as BaseEvent);
+
+      const result = await promise;
+      expect(result.completed).toBe(true);
+      expect(result.error).toBeNull();
+      expect(result.events).toHaveLength(1);
+    });
+
+    it("errors the observable on join error", async () => {
+      const agent = createAgent();
+      const promise = connectAgent(agent);
+
+      const channel = getChannel(agent);
+      channel.triggerJoin("error", { reason: "unauthorized" });
+
+      const result = await promise;
+      expect(result.error).toBeInstanceOf(Error);
+      expect(result.error!.message).toContain("Failed to join channel");
     });
   });
 

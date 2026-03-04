@@ -15,11 +15,6 @@ import { EMPTY, firstValueFrom } from "rxjs";
 import { toArray } from "rxjs/operators";
 import { MockChannel } from "../../../../core/src/__tests__/test-utils";
 
-// ---------------------------------------------------------------------------
-// Phoenix & ws mocks
-// ---------------------------------------------------------------------------
-
-/** All mock channels created during a test, in order. */
 let mockChannels: MockChannel[] = [];
 
 vi.mock("phoenix", () => ({
@@ -36,10 +31,6 @@ vi.mock("phoenix", () => ({
 }));
 
 vi.mock("ws", () => ({ default: class MockWebSocket {} }));
-
-// ---------------------------------------------------------------------------
-// Mock agent — emits events via runAgent({ onEvent }) callbacks.
-// ---------------------------------------------------------------------------
 
 class MockAgent extends AbstractAgent {
   aborted = false;
@@ -76,10 +67,6 @@ class MockAgent extends AbstractAgent {
   }
 }
 
-// ---------------------------------------------------------------------------
-// ThrowingMockAgent — throws during runAgent for error path tests.
-// ---------------------------------------------------------------------------
-
 class ThrowingMockAgent extends AbstractAgent {
   aborted = false;
   private errorMessage: string;
@@ -110,10 +97,6 @@ class ThrowingMockAgent extends AbstractAgent {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
 function createRunInput(
   overrides: Partial<RunAgentInput> & { threadId: string; runId: string },
 ): RunAgentInput {
@@ -135,15 +118,8 @@ async function collectEvents(
   return firstValueFrom(observable.pipe(toArray()));
 }
 
-// ---------------------------------------------------------------------------
-// Import under test — must come AFTER vi.mock calls so phoenix/ws are mocked.
-// ---------------------------------------------------------------------------
-
+// Must come after vi.mock so phoenix/ws are mocked when the module is loaded.
 const { IntelligenceAgentRunner } = await import("../intelligence");
-
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
 
 describe("IntelligenceAgentRunner", () => {
   let runner: InstanceType<typeof IntelligenceAgentRunner>;
@@ -152,10 +128,6 @@ describe("IntelligenceAgentRunner", () => {
     mockChannels = [];
     runner = new IntelligenceAgentRunner({ url: "ws://localhost:4000/socket" });
   });
-
-  // -----------------------------------------------------------------------
-  // run()
-  // -----------------------------------------------------------------------
 
   describe("run", () => {
     it("calls runAgent() and completes the Observable (events go to channel only)", async () => {
@@ -357,10 +329,6 @@ describe("IntelligenceAgentRunner", () => {
     });
   });
 
-  // -----------------------------------------------------------------------
-  // connect()
-  // -----------------------------------------------------------------------
-
   describe("connect", () => {
     it("forwards events and completes on RUN_FINISHED", async () => {
       const threadId = "t-connect";
@@ -414,10 +382,6 @@ describe("IntelligenceAgentRunner", () => {
     });
   });
 
-  // -----------------------------------------------------------------------
-  // isRunning()
-  // -----------------------------------------------------------------------
-
   describe("isRunning", () => {
     it("returns false for unknown threads", async () => {
       expect(await runner.isRunning({ threadId: "nope" })).toBe(false);
@@ -456,10 +420,6 @@ describe("IntelligenceAgentRunner", () => {
     });
   });
 
-  // -----------------------------------------------------------------------
-  // stop()
-  // -----------------------------------------------------------------------
-
   describe("stop", () => {
     it("calls abortRun on the agent directly, no CUSTOM stop push", async () => {
       const threadId = "t-stop";
@@ -491,10 +451,6 @@ describe("IntelligenceAgentRunner", () => {
       expect(await runner.stop({ threadId })).toBe(false);
     });
   });
-
-  // -----------------------------------------------------------------------
-  // Cleanup
-  // -----------------------------------------------------------------------
 
   describe("cleanup", () => {
     it("leaves the channel after the run completes", async () => {
