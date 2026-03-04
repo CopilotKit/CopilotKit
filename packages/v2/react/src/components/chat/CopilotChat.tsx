@@ -83,7 +83,10 @@ export function CopilotChat({
     const subscription = copilotkit.subscribe({
       onError: (event) => {
         // Only forward errors that match this chat's agent
-        if (event.context?.agentId === resolvedAgentId || !event.context?.agentId) {
+        if (
+          event.context?.agentId === resolvedAgentId ||
+          !event.context?.agentId
+        ) {
           onErrorRef.current?.({
             error: event.error,
             code: event.code,

@@ -44,12 +44,7 @@ describe("CopilotChat onError", () => {
 
     renderWithCopilotKit({
       agent,
-      children: (
-        <CopilotChat
-          welcomeScreen={false}
-          onError={chatOnError}
-        />
-      ),
+      children: <CopilotChat welcomeScreen={false} onError={chatOnError} />,
     });
 
     // Wait for the connectAgent error to propagate
@@ -68,12 +63,7 @@ describe("CopilotChat onError", () => {
 
     renderWithCopilotKit({
       agent,
-      children: (
-        <CopilotChat
-          welcomeScreen={false}
-          onError={chatOnError}
-        />
-      ),
+      children: <CopilotChat welcomeScreen={false} onError={chatOnError} />,
     });
 
     // No errors should fire for a healthy agent
