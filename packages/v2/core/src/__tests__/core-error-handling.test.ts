@@ -230,7 +230,7 @@ describe("CopilotKitCore error handling", () => {
   });
 
   describe("internal processing errors (tools)", () => {
-    it("emits TOOL_ARGUMENT_PARSE_FAILED then AGENT_RUN_FAILED when tool args JSON is invalid", async () => {
+    it("emits TOOL_ARGUMENT_PARSE_FAILED and resolves when tool args JSON is invalid", async () => {
       const core = new CopilotKitCore({});
       const errors: Array<{
         code: CopilotKitCoreErrorCode;
@@ -277,7 +277,7 @@ describe("CopilotKitCore error handling", () => {
         id: agent.agentId,
         agent: agent as any,
       });
-      await expect(core.runAgent({ agent })).rejects.toBeDefined();
+      await core.runAgent({ agent });
 
       // Argument parse error captured
       expect(

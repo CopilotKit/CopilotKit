@@ -393,12 +393,9 @@ export class RunHandler {
         "Subscriber onToolExecutionEnd error:",
       );
 
-      if (isArgumentError) {
-        throw new Error(errorMessage ?? "Tool execution failed");
-      }
     }
 
-    if (!errorMessage || !isArgumentError) {
+    {
       const messageIndex = agent.messages.findIndex((m) => m.id === message.id);
       if (messageIndex === -1) {
         // Parent message no longer in agent's messages (e.g. thread was switched
@@ -537,12 +534,9 @@ export class RunHandler {
         "Subscriber onToolExecutionEnd error:",
       );
 
-      if (isArgumentError) {
-        throw new Error(errorMessage ?? "Tool execution failed");
-      }
     }
 
-    if (!errorMessage || !isArgumentError) {
+    {
       const messageIndex = agent.messages.findIndex((m) => m.id === message.id);
       if (messageIndex === -1) {
         // Parent message no longer in agent's messages (e.g. thread was switched
