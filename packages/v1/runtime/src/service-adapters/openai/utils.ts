@@ -1,6 +1,6 @@
 import { Message } from "../../graphql/types/converted";
 import { ActionInput } from "../../graphql/inputs/action.input";
-import {
+import type {
   ChatCompletionAssistantMessageParam,
   ChatCompletionMessageParam,
   ChatCompletionSystemMessageParam,
