@@ -279,6 +279,24 @@ describe("convertJsonSchemaToZodSchema", () => {
     expect(zodSchema.parse("test")).toBe("test");
   });
 
+  it("should preserve string enum constraints", () => {
+    const jsonSchema = {
+      type: "object" as const,
+      properties: {
+        status: {
+          type: "string" as const,
+          description: "The status",
+          enum: ["todo", "done"],
+        },
+      },
+      required: ["status"],
+    };
+    const result = convertJsonSchemaToZodSchema(jsonSchema, true);
+    const statusSchema = (result as z.ZodObject<any>).shape.status;
+    expect(statusSchema._def.typeName).toBe("ZodEnum");
+    expect(statusSchema._def.values).toEqual(["todo", "done"]);
+  });
+
   it("should handle nested object schemas", () => {
     const jsonSchema = {
       type: "object" as const,

@@ -387,6 +387,7 @@ interface JsonSchema {
   properties?: Record<string, JsonSchema>;
   required?: string[];
   items?: JsonSchema;
+  enum?: string[];
 }
 
 /**
@@ -416,6 +417,12 @@ export function convertJsonSchemaToZodSchema(
     const schema = z.object(spec).describe(jsonSchema.description ?? "");
     return required ? schema : schema.optional();
   } else if (jsonSchema.type === "string") {
+    if (jsonSchema.enum && jsonSchema.enum.length > 0) {
+      const schema = z
+        .enum(jsonSchema.enum as [string, ...string[]])
+        .describe(jsonSchema.description ?? "");
+      return required ? schema : schema.optional();
+    }
     const schema = z.string().describe(jsonSchema.description ?? "");
     return required ? schema : schema.optional();
   } else if (jsonSchema.type === "number" || jsonSchema.type === "integer") {

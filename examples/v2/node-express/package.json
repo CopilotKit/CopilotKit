@@ -1,6 +1,6 @@
 {
   "name": "@copilotkitnext/node-express",
-  "version": "1.52.1",
+  "version": "1.52.2-next.1",
   "private": true,
   "scripts": {
     "example-dev": "tsx watch src/index.ts",

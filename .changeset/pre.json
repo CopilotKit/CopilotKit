@@ -47,5 +47,10 @@
     "@copilotkit/voice": "1.52.1",
     "@copilotkitnext/web-inspector": "1.52.1"
   },
-  "changesets": []
+  "changesets": [
+    "big-hornets-shake",
+    "olive-birds-repair",
+    "tender-jars-check",
+    "wild-paws-jam"
+  ]
 }

@@ -1,5 +1,11 @@
 # @copilotkit-storybook/angular
 
+## 0.0.4-next.0
+
+### Patch Changes
+
+- @copilotkitnext/core@1.52.2-next.0
+
 ## 0.0.3
 
 ### Patch Changes

@@ -1,12 +1,13 @@
+import { describe, it, expect } from "vitest";
 import { z } from "zod";
 import {
   convertJsonSchemaToZodSchema,
   actionParametersToJsonSchema,
   jsonSchemaToActionParameters,
   JSONSchema,
-} from "../utils/json-schema";
+} from "../json-schema";
 import { zodToJsonSchema } from "zod-to-json-schema";
-import { Parameter } from "../types";
+import { Parameter } from "../../types";
 
 describe("convertJsonSchemaToZodSchema", () => {
   it("should convert a simple JSON schema to a Zod schema", () => {
@@ -148,6 +149,24 @@ describe("convertJsonSchemaToZodSchema", () => {
     const expectedSchemaJson = zodToJsonSchema(expectedSchema);
 
     expect(resultSchemaJson).toStrictEqual(expectedSchemaJson);
+  });
+
+  it("should preserve string enum constraints", () => {
+    const jsonSchema = {
+      type: "object",
+      properties: {
+        status: {
+          type: "string",
+          description: "The status",
+          enum: ["todo", "done"],
+        },
+      },
+      required: ["status"],
+    };
+    const result = convertJsonSchemaToZodSchema(jsonSchema, true);
+    const statusSchema = (result as z.ZodObject<any>).shape.status;
+    expect(statusSchema._def.typeName).toBe("ZodEnum");
+    expect(statusSchema._def.values).toEqual(["todo", "done"]);
   });
 
   it("should handle edge case where JSON schema has no required properties", () => {

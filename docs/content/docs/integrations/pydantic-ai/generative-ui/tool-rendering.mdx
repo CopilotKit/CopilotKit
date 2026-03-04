@@ -70,7 +70,7 @@ when your agent is calling tools. CopilotKit allows you to fully customize how t
 <Step>
 ### Render the tool call in your frontend
 At this point, your agent will be able to call the `get_weather` tool. Now
-we just need to add a `useRenderToolCall` hook to render the tool call in
+we just need to add a `useRenderTool` hook to render the tool call in
 the UI.
 
 <Callout type="info" title="Important">
@@ -78,13 +78,13 @@ the UI.
 </Callout>
 
 ```tsx title="app/page.tsx"
-import { useRenderToolCall } from "@copilotkit/react-core/v2"; // [!code highlight]
+import { useRenderTool } from "@copilotkit/react-core/v2"; // [!code highlight]
 // ...
 
 const YourMainContent = () => {
   // ...
   // [!code highlight:12]
-  useRenderToolCall({
+  useRenderTool({
     name: "get_weather",
     render: ({status, args}) => {
       return (

@@ -101,7 +101,7 @@ state updates, you can reflect these updates natively in your application.
 
     function YourMainContent() {
       // [!code highlight:4]
-      const { agentState } = useAgent<AgentState>({
+      const { agent } = useAgent({
         name: "my_agent", // MUST match the agent name in CopilotRuntime
         initialState: { language: "english" }  // optionally provide an initial state
       });
@@ -113,7 +113,7 @@ state updates, you can reflect these updates natively in your application.
         <div>
           <h1>Your main content</h1>
           {/* [!code highlight:1] */}
-          <p>Language: {agentState.language}</p>
+          <p>Language: {agent.state?.language}</p>
         </div>
       );
     }
@@ -124,7 +124,7 @@ state updates, you can reflect these updates natively in your application.
     </Callout>
 
     <Callout type="info">
-      The `agentState` in `useAgent` is reactive and will automatically update when the agent's state changes.
+      The `agent.state` in `useAgent` is reactive and will automatically update when the agent's state changes.
     </Callout>
 
   </Step>
@@ -151,11 +151,11 @@ type AgentState = {
 function YourMainContent() {
   // ...
   // [!code highlight:7]
-  useAgent<AgentState>({
+  useAgent({
     name: "my_agent", // MUST match the agent name in CopilotRuntime
-    render: ({ agentState }) => {
-      if (!agentState.language) return null;
-      return <div>Language: {agentState.language}</div>;
+    render: ({ state }) => {
+      if (!state.language) return null;
+      return <div>Language: {state.language}</div>;
     },
   });
   // ...
@@ -167,7 +167,7 @@ function YourMainContent() {
 </Callout>
 
 <Callout type="info">
-  The `agentState` in `useAgent` is reactive and will automatically
+  The `agent.state` in `useAgent` is reactive and will automatically
   update when the agent's state changes.
 </Callout>
 
