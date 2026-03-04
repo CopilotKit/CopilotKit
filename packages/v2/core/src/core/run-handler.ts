@@ -392,7 +392,6 @@ export class RunHandler {
           }),
         "Subscriber onToolExecutionEnd error:",
       );
-
     }
 
     {
@@ -533,7 +532,6 @@ export class RunHandler {
           }),
         "Subscriber onToolExecutionEnd error:",
       );
-
     }
 
     {

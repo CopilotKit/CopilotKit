@@ -83,7 +83,10 @@ export function useAgent({ agentId, updates }: UseAgentProps = {}) {
     // (RUNTIME_INFO_FETCH_FAILED). Throwing here would crash the React tree;
     // returning a provisional agent lets onError handlers fire while keeping
     // the app alive.
-    if (isRuntimeConfigured && status === CopilotKitCoreRuntimeConnectionStatus.Error) {
+    if (
+      isRuntimeConfigured &&
+      status === CopilotKitCoreRuntimeConnectionStatus.Error
+    ) {
       const provisional = new ProxiedCopilotRuntimeAgent({
         runtimeUrl: copilotkit.runtimeUrl,
         agentId,
