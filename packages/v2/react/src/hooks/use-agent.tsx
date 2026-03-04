@@ -78,7 +78,22 @@ export function useAgent({ agentId, updates }: UseAgentProps = {}) {
       return provisional;
     }
 
-    // After runtime has synced (Connected or Error) or no runtime configured and the agent doesn't exist, throw a descriptive error
+    // Runtime is in Error state — return a provisional agent instead of throwing.
+    // The error has already been emitted through the subscriber system
+    // (RUNTIME_INFO_FETCH_FAILED). Throwing here would crash the React tree;
+    // returning a provisional agent lets onError handlers fire while keeping
+    // the app alive.
+    if (isRuntimeConfigured && status === CopilotKitCoreRuntimeConnectionStatus.Error) {
+      const provisional = new ProxiedCopilotRuntimeAgent({
+        runtimeUrl: copilotkit.runtimeUrl,
+        agentId,
+        transport: copilotkit.runtimeTransport,
+      });
+      provisional.headers = { ...copilotkit.headers };
+      return provisional;
+    }
+
+    // No runtime configured and agent doesn't exist — this is a configuration error.
     const knownAgents = Object.keys(copilotkit.agents ?? {});
     const runtimePart = isRuntimeConfigured
       ? `runtimeUrl=${copilotkit.runtimeUrl}`
