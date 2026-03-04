@@ -53,5 +53,8 @@ export default defineConfig({
     "type-graphql",
     "zod",
   ],
+  // Acknowledge that we intentionally bundle dependencies into the output.
+  // Without this, tsdown errors when it detects deps in the bundle.
+  inlineOnly: false,
   exports: true,
 });
