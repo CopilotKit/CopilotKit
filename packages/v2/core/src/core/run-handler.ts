@@ -154,7 +154,7 @@ export class RunHandler {
         code: CopilotKitCoreErrorCode.AGENT_CONNECT_FAILED,
         context,
       });
-      throw error;
+      return { newMessages: [] };
     }
   }
 
