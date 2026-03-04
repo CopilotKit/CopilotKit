@@ -13,14 +13,10 @@ import {
   TranscriptionErrorCode,
 } from "@copilotkitnext/shared";
 import { Suggestion, CopilotKitCoreErrorCode } from "@copilotkitnext/core";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { merge } from "ts-deepmerge";
 import { useCopilotKit } from "@/providers/CopilotKitProvider";
-import {
-  AbstractAgent,
-  AGUIConnectNotImplementedError,
-  HttpAgent,
-} from "@ag-ui/client";
+import { AbstractAgent, HttpAgent } from "@ag-ui/client";
 import { renderSlot, SlotValue } from "@/lib/slots";
 import {
   transcribeAudio,
@@ -39,12 +35,23 @@ export type CopilotChatProps = Omit<
   threadId?: string;
   labels?: Partial<CopilotChatLabels>;
   chatView?: SlotValue<typeof CopilotChatView>;
+  /**
+   * Error handler scoped to this chat's agent. Fires in addition to the
+   * provider-level onError (does not suppress it). Receives only errors
+   * whose context.agentId matches this chat's agent.
+   */
+  onError?: (event: {
+    error: Error;
+    code: CopilotKitCoreErrorCode;
+    context: Record<string, any>;
+  }) => void | Promise<void>;
 };
 export function CopilotChat({
   agentId,
   threadId,
   labels,
   chatView,
+  onError,
   ...props
 }: CopilotChatProps) {
   // Check for existing configuration provider
@@ -63,6 +70,33 @@ export function CopilotChat({
   const { suggestions: autoSuggestions } = useSuggestions({
     agentId: resolvedAgentId,
   });
+
+  // onError subscription — forward core errors scoped to this chat's agent
+  const onErrorRef = useRef(onError);
+  useEffect(() => {
+    onErrorRef.current = onError;
+  }, [onError]);
+
+  useEffect(() => {
+    if (!onErrorRef.current) return;
+
+    const subscription = copilotkit.subscribe({
+      onError: (event) => {
+        // Only forward errors that match this chat's agent
+        if (event.context?.agentId === resolvedAgentId || !event.context?.agentId) {
+          onErrorRef.current?.({
+            error: event.error,
+            code: event.code,
+            context: event.context,
+          });
+        }
+      },
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [copilotkit, resolvedAgentId]);
 
   // Transcription state
   const [transcribeMode, setTranscribeMode] =
@@ -105,11 +139,9 @@ export function CopilotChat({
       } catch (error) {
         // Ignore errors from aborted connections (e.g., React StrictMode cleanup)
         if (detached) return;
-        if (error instanceof AGUIConnectNotImplementedError) {
-          // connect not implemented, ignore
-        } else {
-          throw error;
-        }
+        // connectAgent already emits via the subscriber system, but catch
+        // here to prevent unhandled rejections from unexpected errors.
+        console.error("CopilotChat: connectAgent failed", error);
       }
     };
     agent.threadId = resolvedThreadId;
