@@ -51,6 +51,7 @@
 import type { LanguageModel } from "ai";
 import { createOpenAI } from "@ai-sdk/openai";
 import type OpenAI from "openai";
+import Openai from "openai";
 import {
   CopilotServiceAdapter,
   CopilotRuntimeChatCompletionRequest,
@@ -140,10 +141,8 @@ export class OpenAIAdapter implements CopilotServiceAdapter {
   }
 
   private ensureOpenAI(): OpenAI {
-    if (!this._openai) {
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
-      const OpenAI = require("openai").default;
-      this._openai = new OpenAI();
+    if (!this._openai) { 
+      this._openai = new Openai();
     }
     return this._openai;
   }
