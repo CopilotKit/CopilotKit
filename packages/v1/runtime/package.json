@@ -97,8 +97,7 @@
     "@langchain/langgraph-sdk": ">=0.1.2",
     "@langchain/openai": ">=0.4.2",
     "groq-sdk": ">=0.3.0 <1.0.0",
-    "langchain": ">=0.3.3",
-    "openai": "^4.85.1"
+    "langchain": ">=0.3.3"
   },
   "peerDependenciesMeta": {
     "@anthropic-ai/sdk": {
