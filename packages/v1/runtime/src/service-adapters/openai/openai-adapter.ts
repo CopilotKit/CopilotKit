@@ -141,7 +141,7 @@ export class OpenAIAdapter implements CopilotServiceAdapter {
   }
 
   private ensureOpenAI(): OpenAI {
-    if (!this._openai) { 
+    if (!this._openai) {
       this._openai = new Openai();
     }
     return this._openai;
