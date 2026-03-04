@@ -5,7 +5,7 @@ import {
   AgentRunnerRunRequest,
   type AgentRunnerStopRequest,
 } from "./agent-runner";
-import { Observable, ReplaySubject } from "rxjs";
+import { Observable, Subscriber } from "rxjs";
 import { AbstractAgent, BaseEvent, EventType } from "@ag-ui/client";
 import { finalizeRunEvents, AG_UI_CHANNEL_EVENT } from "@copilotkitnext/shared";
 import { Socket, Channel } from "phoenix";
@@ -23,7 +23,6 @@ interface ThreadState {
   stopRequested: boolean;
   agent: AbstractAgent | null;
   currentEvents: BaseEvent[];
-  runSubject: ReplaySubject<BaseEvent> | null;
 }
 
 export class IntelligenceAgentRunner extends AgentRunner {
@@ -46,78 +45,83 @@ export class IntelligenceAgentRunner extends AgentRunner {
       throw new Error("Thread already running");
     }
 
-    const runSubject = new ReplaySubject<BaseEvent>(Infinity);
-    const currentEvents: BaseEvent[] = [];
+    return new Observable((observer) => {
+      const currentEvents: BaseEvent[] = [];
 
-    const channel = this.socket.channel(`agent:${threadId}`, {
-      runId: input.runId,
-    });
-
-    const state: ThreadState = {
-      channel,
-      isRunning: true,
-      stopRequested: false,
-      agent,
-      currentEvents,
-      runSubject,
-    };
-    this.threads.set(threadId, state);
-
-    channel
-      .join()
-      .receive("ok", () => {
-        this.executeAgentRun(request, state, threadId);
-      })
-      .receive("error", (resp) => {
-        const errorEvent = {
-          type: EventType.RUN_ERROR,
-          message: `Failed to join channel: ${JSON.stringify(resp)}`,
-          code: "CHANNEL_JOIN_ERROR",
-        } as BaseEvent;
-        runSubject.next(errorEvent);
-        currentEvents.push(errorEvent);
-        this.removeThread(threadId);
-        runSubject.complete();
+      const channel = this.socket.channel(`agent:${threadId}`, {
+        runId: input.runId,
       });
 
-    return runSubject.asObservable();
+      const state: ThreadState = {
+        channel,
+        isRunning: true,
+        stopRequested: false,
+        agent,
+        currentEvents,
+      };
+      this.threads.set(threadId, state);
+
+      channel
+        .join()
+        .receive("ok", () => {
+          this.executeAgentRun(request, state, observer, threadId);
+        })
+        .receive("error", (resp) => {
+          const errorEvent = {
+            type: EventType.RUN_ERROR,
+            message: `Failed to join channel: ${JSON.stringify(resp)}`,
+            code: "CHANNEL_JOIN_ERROR",
+          } as BaseEvent;
+          observer.next(errorEvent);
+          currentEvents.push(errorEvent);
+          this.removeThread(threadId);
+          observer.complete();
+        });
+
+      return () => {
+        this.removeThread(threadId);
+      };
+    });
   }
 
   connect(request: AgentRunnerConnectRequest): Observable<BaseEvent> {
     const { threadId } = request;
-    const connectionSubject = new ReplaySubject<BaseEvent>(Infinity);
 
-    const channel = this.socket.channel(`agent:${threadId}`, {
-      mode: "connect",
-    });
-
-    // Listen for AG-UI events on a single channel event name.
-    channel.on(AG_UI_CHANNEL_EVENT, (payload: BaseEvent) => {
-      connectionSubject.next(payload);
-
-      if (
-        payload.type === EventType.RUN_FINISHED ||
-        payload.type === EventType.RUN_ERROR
-      ) {
-        connectionSubject.complete();
-      }
-    });
-
-    channel
-      .join()
-      .receive("ok", () => {
-        // Ask the server to replay history via a CUSTOM event.
-        channel.push(EventType.CUSTOM, {
-          type: EventType.CUSTOM,
-          name: "connect",
-          value: { threadId },
-        });
-      })
-      .receive("error", () => {
-        connectionSubject.complete();
+    return new Observable((observer) => {
+      const channel = this.socket.channel(`agent:${threadId}`, {
+        mode: "connect",
       });
 
-    return connectionSubject.asObservable();
+      // Listen for AG-UI events on a single channel event name.
+      channel.on(AG_UI_CHANNEL_EVENT, (payload: BaseEvent) => {
+        observer.next(payload);
+
+        if (
+          payload.type === EventType.RUN_FINISHED ||
+          payload.type === EventType.RUN_ERROR
+        ) {
+          observer.complete();
+        }
+      });
+
+      channel
+        .join()
+        .receive("ok", () => {
+          // Ask the server to replay history via a CUSTOM event.
+          channel.push(EventType.CUSTOM, {
+            type: EventType.CUSTOM,
+            name: "connect",
+            value: { threadId },
+          });
+        })
+        .receive("error", () => {
+          observer.complete();
+        });
+
+      return () => {
+        channel.leave();
+      };
+    });
   }
 
   isRunning(request: AgentRunnerIsRunningRequest): Promise<boolean> {
@@ -148,10 +152,10 @@ export class IntelligenceAgentRunner extends AgentRunner {
   private async executeAgentRun(
     request: AgentRunnerRunRequest,
     state: ThreadState,
+    observer: Subscriber<BaseEvent>,
     threadId: string,
   ): Promise<void> {
-    const { runSubject, currentEvents, channel } = state;
-    if (!runSubject) return;
+    const { currentEvents, channel } = state;
 
     try {
       await request.agent.runAgent(request.input, {
@@ -180,7 +184,7 @@ export class IntelligenceAgentRunner extends AgentRunner {
     }
 
     this.removeThread(threadId);
-    runSubject.complete();
+    observer.complete();
   }
 
   private removeThread(threadId: string): void {

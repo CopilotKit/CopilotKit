@@ -301,12 +301,13 @@ describe("IntelligenceAgentRunner", () => {
       const input = createRunInput({ threadId, runId: "r-dup" });
       const agent = new MockAgent();
 
-      // Start a run but don't complete it.
-      runner.run({ threadId, agent, input });
+      // Start a run and subscribe so the Observable body executes.
+      const sub = runner.run({ threadId, agent, input }).subscribe();
 
       expect(() => runner.run({ threadId, agent, input })).toThrow(
         "Thread already running",
       );
+      sub.unsubscribe();
     });
 
     it("emits RUN_ERROR and completes when channel join fails", async () => {
@@ -358,7 +359,7 @@ describe("IntelligenceAgentRunner", () => {
 
     it("pushes a CUSTOM connect event after joining", () => {
       const threadId = "t-connect-push";
-      runner.connect({ threadId });
+      const sub = runner.connect({ threadId }).subscribe();
       const ch = mockChannels[0];
       ch.triggerJoin("ok");
 
@@ -368,6 +369,7 @@ describe("IntelligenceAgentRunner", () => {
         name: "connect",
         value: { threadId },
       });
+      sub.unsubscribe();
     });
 
     it("completes immediately on channel join failure", async () => {
@@ -391,9 +393,10 @@ describe("IntelligenceAgentRunner", () => {
       const threadId = "t-running";
       const input = createRunInput({ threadId, runId: "r-running" });
       const agent = new MockAgent();
-      runner.run({ threadId, agent, input });
+      const sub = runner.run({ threadId, agent, input }).subscribe();
 
       expect(await runner.isRunning({ threadId })).toBe(true);
+      sub.unsubscribe();
     });
 
     it("returns false after a run completes", async () => {
@@ -425,7 +428,7 @@ describe("IntelligenceAgentRunner", () => {
       const threadId = "t-stop";
       const input = createRunInput({ threadId, runId: "r-stop" });
       const agent = new MockAgent();
-      runner.run({ threadId, agent, input });
+      const sub = runner.run({ threadId, agent, input }).subscribe();
 
       const result = await runner.stop({ threadId });
 
@@ -435,6 +438,7 @@ describe("IntelligenceAgentRunner", () => {
       const ch = mockChannels[0];
       const stopPush = ch.pushLog.find((p) => p.payload?.name === "stop");
       expect(stopPush).toBeUndefined();
+      sub.unsubscribe();
     });
 
     it("returns false when the thread is not running", async () => {
@@ -445,10 +449,11 @@ describe("IntelligenceAgentRunner", () => {
       const threadId = "t-stop-twice";
       const input = createRunInput({ threadId, runId: "r-stop2" });
       const agent = new MockAgent();
-      runner.run({ threadId, agent, input });
+      const sub = runner.run({ threadId, agent, input }).subscribe();
 
       expect(await runner.stop({ threadId })).toBe(true);
       expect(await runner.stop({ threadId })).toBe(false);
+      sub.unsubscribe();
     });
   });
 
