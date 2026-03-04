@@ -5,7 +5,8 @@ import {
   AgentRunnerRunRequest,
   type AgentRunnerStopRequest,
 } from "./agent-runner";
-import { Observable, Subscriber } from "rxjs";
+import { EMPTY, Observable, from } from "rxjs";
+import { catchError, finalize } from "rxjs/operators";
 import { AbstractAgent, BaseEvent, EventType } from "@ag-ui/client";
 import { finalizeRunEvents, AG_UI_CHANNEL_EVENT } from "@copilotkitnext/shared";
 import { Socket, Channel } from "phoenix";
@@ -64,7 +65,9 @@ export class IntelligenceAgentRunner extends AgentRunner {
       channel
         .join()
         .receive("ok", () => {
-          this.executeAgentRun(request, state, observer, threadId);
+          this.executeAgentRun(request, state, threadId).subscribe({
+            complete: () => observer.complete(),
+          });
         })
         .receive("error", (resp) => {
           const errorEvent = {
@@ -149,42 +152,42 @@ export class IntelligenceAgentRunner extends AgentRunner {
     return Promise.resolve(true);
   }
 
-  private async executeAgentRun(
+  private executeAgentRun(
     request: AgentRunnerRunRequest,
     state: ThreadState,
-    observer: Subscriber<BaseEvent>,
     threadId: string,
-  ): Promise<void> {
+  ): Observable<void> {
     const { currentEvents, channel } = state;
 
-    try {
-      await request.agent.runAgent(request.input, {
+    return from(
+      request.agent.runAgent(request.input, {
         onEvent: ({ event }: { event: BaseEvent }) => {
           currentEvents.push(event);
 
           // Push to Phoenix channel so frontend WS listeners receive it.
           channel.push(AG_UI_CHANNEL_EVENT, event);
         },
-      });
-    } catch (error) {
-      const errorEvent = {
-        type: EventType.RUN_ERROR,
-        message: error instanceof Error ? error.message : String(error),
-      } as BaseEvent;
-      currentEvents.push(errorEvent);
-      channel.push(AG_UI_CHANNEL_EVENT, errorEvent);
-    }
-
-    // Finalize in both success and error paths.
-    const appended = finalizeRunEvents(currentEvents, {
-      stopRequested: state.stopRequested,
-    });
-    for (const event of appended) {
-      channel.push(AG_UI_CHANNEL_EVENT, event);
-    }
-
-    this.removeThread(threadId);
-    observer.complete();
+      }),
+    ).pipe(
+      catchError((error) => {
+        const errorEvent = {
+          type: EventType.RUN_ERROR,
+          message: error instanceof Error ? error.message : String(error),
+        } as BaseEvent;
+        currentEvents.push(errorEvent);
+        channel.push(AG_UI_CHANNEL_EVENT, errorEvent);
+        return EMPTY;
+      }),
+      finalize(() => {
+        const appended = finalizeRunEvents(currentEvents, {
+          stopRequested: state.stopRequested,
+        });
+        for (const event of appended) {
+          channel.push(AG_UI_CHANNEL_EVENT, event);
+        }
+        this.removeThread(threadId);
+      }),
+    );
   }
 
   private removeThread(threadId: string): void {
