@@ -1,1 +1,1 @@
-export * from "./telemetry-client";
+export { isTelemetryDisabled, TelemetryClient } from "./telemetry-client";

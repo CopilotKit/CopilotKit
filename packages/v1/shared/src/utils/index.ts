@@ -1,10 +1,68 @@
-export * from "./conditions";
-export * from "./console-styling";
-export * from "./errors";
-export * from "./json-schema";
-export * from "./types";
-export * from "./random-id";
-export * from "./requests";
+export type {
+  ComparisonRule,
+  LogicalRule,
+  ExistenceRule,
+  Rule,
+  BaseCondition,
+  ComparisonCondition,
+  LogicalCondition,
+  ExistenceCondition,
+  Condition,
+} from "./conditions";
+export { executeConditions } from "./conditions";
+export {
+  ConsoleColors,
+  ConsoleStyles,
+  logCopilotKitPlatformMessage,
+  publicApiKeyRequired,
+  logStyled,
+  styledConsole,
+} from "./console-styling";
+export {
+  Severity,
+  ErrorVisibility,
+  ERROR_NAMES,
+  BANNER_ERROR_NAMES,
+  COPILOT_CLOUD_ERROR_NAMES,
+  CopilotKitErrorCode,
+  ERROR_CONFIG,
+  CopilotKitError,
+  CopilotKitMisuseError,
+  CopilotKitVersionMismatchError,
+  CopilotKitApiDiscoveryError,
+  CopilotKitRemoteEndpointDiscoveryError,
+  CopilotKitAgentDiscoveryError,
+  CopilotKitLowLevelError,
+  ResolvedCopilotKitError,
+  ConfigurationError,
+  MissingPublicApiKeyError,
+  UpgradeRequiredError,
+  isStructuredCopilotKitError,
+  ensureStructuredError,
+  getPossibleVersionMismatch,
+} from "./errors";
+export type {
+  JSONSchemaString,
+  JSONSchemaNumber,
+  JSONSchemaBoolean,
+  JSONSchemaObject,
+  JSONSchemaArray,
+  JSONSchema,
+} from "./json-schema";
+export {
+  actionParametersToJsonSchema,
+  jsonSchemaToActionParameters,
+  convertJsonSchemaToZodSchema,
+  getZodParameters,
+} from "./json-schema";
+export type {
+  MaybePromise,
+  NonEmptyRecord,
+  AgentDescription,
+  RuntimeInfo,
+} from "./types";
+export { randomId, randomUUID, dataToUUID, isValidUUID } from "./random-id";
+export { readBody } from "./requests";
 
 /**
  * Safely parses a JSON string into an object

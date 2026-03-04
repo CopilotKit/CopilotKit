@@ -1,4 +1,21 @@
-export * from "./props";
+export type {
+  CopilotObservabilityHooks,
+  ButtonProps,
+  WindowProps,
+  HeaderProps,
+  SuggestionsProps,
+  ComponentsMap,
+  MessagesProps,
+  Renderer,
+  UserMessageProps,
+  AssistantMessageProps,
+  ErrorMessageProps,
+  RenderMessageProps,
+  InputProps,
+  RenderSuggestionsListProps,
+  ImageRendererProps,
+  ChatError,
+} from "./props";
 export { CopilotPopup } from "./Popup";
 export { CopilotSidebar } from "./Sidebar";
 export { CopilotChat } from "./Chat";

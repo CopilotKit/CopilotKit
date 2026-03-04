@@ -1,2 +1,2 @@
-export * from "./error-utils";
-export * from "./sdk-client-utils";
+export { convertServiceAdapterError } from "./error-utils";
+export { getSdkClientOptions } from "./sdk-client-utils";

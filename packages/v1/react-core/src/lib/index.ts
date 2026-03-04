@@ -1,1 +1,1 @@
-export * from "./copilot-task";
+export { type CopilotTaskConfig, CopilotTask } from "./copilot-task";

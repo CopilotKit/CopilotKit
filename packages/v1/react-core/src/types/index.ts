@@ -13,5 +13,20 @@ export type {
 } from "./frontend-action";
 
 export type { CopilotChatSuggestionConfiguration } from "./chat-suggestion-configuration";
-export * from "./crew";
-export * from "./interrupt-action";
+export type {
+  CrewsResponseStatus,
+  CrewsResponse,
+  CrewsStateItem,
+  CrewsToolStateItem,
+  CrewsTaskStateItem,
+  CrewsAgentState,
+} from "./crew";
+export type {
+  LangGraphInterruptRenderHandlerProps,
+  LangGraphInterruptRenderProps,
+  LangGraphInterruptRender,
+  LangGraphInterruptAction,
+  LangGraphInterruptActionSetterArgs,
+  LangGraphInterruptActionSetter,
+  QueuedInterruptEvent,
+} from "./interrupt-action";

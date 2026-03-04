@@ -1,6 +1,14 @@
-export * from "./shared";
-export * from "./nextjs/app-router";
-export * from "./nextjs/pages-router";
-export * from "./node-http";
-export * from "./node-express";
-export * from "./nest";
+export {
+  type CopilotEndpointCorsConfig,
+  type CopilotRequestContextProperties,
+  type GraphQLContext,
+  type CreateCopilotRuntimeServerOptions,
+  buildSchema,
+  type CommonConfig,
+  getCommonConfig,
+} from "./shared";
+export { copilotRuntimeNextJSAppRouterEndpoint } from "./nextjs/app-router";
+export { config, copilotRuntimeNextJSPagesRouterEndpoint } from "./nextjs/pages-router";
+export { copilotRuntimeNodeHttpEndpoint } from "./node-http";
+export { copilotRuntimeNodeExpressEndpoint } from "./node-express";
+export { copilotRuntimeNestEndpoint } from "./nest";
