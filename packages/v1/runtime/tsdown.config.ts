@@ -7,17 +7,11 @@ export default defineConfig({
   sourcemap: true,
   target: "es2022",
   outDir: "dist",
-  unbundle: true,
-  banner: ({ format, fileName }) => {
-    // tsdown/rolldown reorders bare side-effect imports to the end of the entry chunk,
-    // breaking type-graphql which needs reflect-metadata at load time.
-    // The _virtual/_rolldown/runtime banner propagates to all output files per format,
-    // ensuring reflect-metadata is always the first thing that runs.
-    if (fileName.includes("_virtual/_rolldown/runtime")) {
-      return format === "cjs"
-        ? 'require("reflect-metadata");'
-        : 'import "reflect-metadata";';
-    }
+  banner: ({ format }) => {
+    // type-graphql needs reflect-metadata at load time.
+    return format === "cjs"
+      ? 'require("reflect-metadata");'
+      : 'import "reflect-metadata";';
   },
   external: [
     "@ag-ui/langgraph",
