@@ -12,6 +12,7 @@ import {
 import { useHoveringEditorContext } from "./hovering-editor-provider";
 import { Menu, Portal } from "./hovering-toolbar-components";
 import { HoveringInsertionPromptBox } from "./text-insertion-prompt-box";
+import { calculateToolbarViewportPosition } from "./positioning";
 
 export interface HoveringToolbarProps {
   apiConfig: InsertionEditorApiConfig;
@@ -20,6 +21,7 @@ export interface HoveringToolbarProps {
 }
 
 export const HoveringToolbar = (props: HoveringToolbarProps) => {
+  const VIEWPORT_PADDING_PX = 6;
   const ref = useRef<HTMLDivElement>(null);
   const editor = useSlate();
   const selection = useSlateSelection();
@@ -67,47 +69,23 @@ export const HoveringToolbar = (props: HoveringToolbarProps) => {
       return;
     }
 
-    const verticalOffsetFromCorner = 0;
-    const horizontalOffsetFromCorner = 0;
-
-    // position the toolbar below the selection
-    let top = rect.bottom + window.scrollY + verticalOffsetFromCorner;
-
-    // no space left at bottom, move up
-    if (
-      rect.bottom + el.offsetHeight >
-      window.innerHeight - verticalOffsetFromCorner
-    ) {
-      top =
-        rect.top + window.scrollY - el.offsetHeight - verticalOffsetFromCorner;
-    }
-
-    // position the toolbar in the center of the selection
-    let left =
-      rect.left +
-      window.scrollX -
-      el.offsetWidth / 2 +
-      rect.width / 2 +
-      horizontalOffsetFromCorner;
-
-    // no space left at left, move right
-    if (left < horizontalOffsetFromCorner) {
-      left = horizontalOffsetFromCorner;
-    }
-    // no space left at right, move left
-    else if (
-      left + el.offsetWidth >
-      window.innerWidth - horizontalOffsetFromCorner
-    ) {
-      left = window.innerWidth - el.offsetWidth - horizontalOffsetFromCorner;
-    }
+    const { top, left } = calculateToolbarViewportPosition({
+      rect,
+      toolbarWidth: el.offsetWidth,
+      toolbarHeight: el.offsetHeight,
+      scrollX: window.scrollX,
+      scrollY: window.scrollY,
+      viewportWidth: window.innerWidth,
+      viewportHeight: window.innerHeight,
+      viewportPadding: VIEWPORT_PADDING_PX,
+    });
 
     el.style.opacity = "1";
     el.style.position = "absolute";
 
     el.style.top = `${top}px`;
     el.style.left = `${left}px`;
-  }, [isShown]);
+  }, [editor, isShown, selection]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
