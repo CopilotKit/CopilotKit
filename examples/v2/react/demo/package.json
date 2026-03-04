@@ -31,6 +31,13 @@
     "rxjs": "^7.8.1",
     "zod": "^3.25.75"
   },
+  "nx": {
+    "targets": {
+      "build": {
+        "cache": false
+      }
+    }
+  },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
     "@tailwindcss/postcss": "^4",
