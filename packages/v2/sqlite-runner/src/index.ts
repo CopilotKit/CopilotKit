@@ -1,1 +1,4 @@
-export * from "./sqlite-runner";
+export {
+  type SqliteAgentRunnerOptions,
+  SqliteAgentRunner,
+} from "./sqlite-runner";

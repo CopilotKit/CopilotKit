@@ -5,7 +5,7 @@ export {
   type RuntimeInfo,
 } from "./types";
 
-export * from "./utils";
+export { randomUUID, partialJSONParse } from "./utils";
 
 export { logger } from "./logger";
 export { DEFAULT_AGENT_ID } from "./constants";

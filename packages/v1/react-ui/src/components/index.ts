@@ -1,2 +1,31 @@
-export * from "./chat";
-export * from "./dev-console";
+export type {
+  CopilotObservabilityHooks,
+  ButtonProps,
+  WindowProps,
+  HeaderProps,
+  SuggestionsProps,
+  ComponentsMap,
+  MessagesProps,
+  Renderer,
+  UserMessageProps,
+  AssistantMessageProps,
+  ErrorMessageProps,
+  RenderMessageProps,
+  InputProps,
+  RenderSuggestionsListProps,
+  ImageRendererProps,
+  ChatError,
+} from "./chat";
+export {
+  CopilotPopup,
+  CopilotSidebar,
+  CopilotChat,
+  Markdown,
+  AssistantMessage,
+  UserMessage,
+  ImageRenderer,
+  useChatContext,
+  RenderSuggestionsList,
+  RenderSuggestion,
+} from "./chat";
+export { shouldShowDevConsole, CopilotDevConsole } from "./dev-console";

@@ -45,3 +45,4 @@ coverage
 .langgraph_api
 lefthook-local.yml
 .langgraph_api
+docs/plans/

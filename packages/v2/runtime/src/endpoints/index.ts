@@ -1,2 +1,2 @@
-export * from "./hono";
-export * from "./hono-single";
+export { type CopilotEndpointCorsConfig, createCopilotEndpoint } from "./hono";
+export { createCopilotEndpointSingleRoute } from "./hono-single";

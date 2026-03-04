@@ -1,14 +1,52 @@
-export * from "../service-adapters/openai/openai-adapter";
-export * from "../service-adapters/langchain/langchain-adapter";
-export * from "../service-adapters/google/google-genai-adapter";
-export * from "../service-adapters/openai/openai-assistant-adapter";
-export * from "../service-adapters/unify/unify-adapter";
-export * from "../service-adapters/groq/groq-adapter";
-export * from "./integrations";
-export * from "./logger";
-export * from "./runtime/copilot-runtime";
-export * from "./runtime/mcp-tools-utils";
-export * from "./runtime/telemetry-agent-runner";
+export { type OpenAIAdapterParams, OpenAIAdapter } from "../service-adapters/openai/openai-adapter";
+export { LangChainAdapter } from "../service-adapters/langchain/langchain-adapter";
+export { GoogleGenerativeAIAdapter } from "../service-adapters/google/google-genai-adapter";
+export {
+  type OpenAIAssistantAdapterParams,
+  OpenAIAssistantAdapter,
+} from "../service-adapters/openai/openai-assistant-adapter";
+export { type UnifyAdapterParams, UnifyAdapter } from "../service-adapters/unify/unify-adapter";
+export { type GroqAdapterParams, GroqAdapter } from "../service-adapters/groq/groq-adapter";
+
+export {
+  type CopilotEndpointCorsConfig,
+  type CopilotRequestContextProperties,
+  type GraphQLContext,
+  type CreateCopilotRuntimeServerOptions,
+  buildSchema,
+  type CommonConfig,
+  getCommonConfig,
+  copilotRuntimeNextJSAppRouterEndpoint,
+  config,
+  copilotRuntimeNextJSPagesRouterEndpoint,
+  copilotRuntimeNodeHttpEndpoint,
+  copilotRuntimeNodeExpressEndpoint,
+  copilotRuntimeNestEndpoint,
+} from "./integrations";
+
+export { type LogLevel, type CopilotRuntimeLogger, createLogger } from "./logger";
+
+export {
+  type CopilotRuntimeConstructorParams_BASE,
+  CopilotRuntime,
+  copilotKitEndpoint,
+  langGraphPlatformEndpoint,
+  resolveEndpointType,
+} from "./runtime/copilot-runtime";
+
+export {
+  type MCPTool,
+  type MCPClient,
+  type MCPEndpointConfig,
+  extractParametersFromSchema,
+  convertMCPToolsToActions,
+  generateMcpToolInstructions,
+} from "./runtime/mcp-tools-utils";
+
+export {
+  type TelemetryAgentRunnerConfig,
+  TelemetryAgentRunner,
+} from "./runtime/telemetry-agent-runner";
 
 // The below re-exports "dummy" classes and types, to get a deprecation warning redirecting the users to import these from the correct, new route
 

@@ -1,2 +1,5 @@
 // Transcription services
-export * from "./transcription/transcription-service-openai";
+export {
+  type TranscriptionServiceOpenAIConfig,
+  TranscriptionServiceOpenAI,
+} from "./transcription/transcription-service-openai";

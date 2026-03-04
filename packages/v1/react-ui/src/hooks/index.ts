@@ -1,1 +1,1 @@
-export * from "./use-copilot-chat-suggestions";
+export { useCopilotChatSuggestions } from "./use-copilot-chat-suggestions";

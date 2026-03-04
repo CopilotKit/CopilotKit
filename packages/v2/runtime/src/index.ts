@@ -1,8 +1,24 @@
-export * from "./runtime";
-export * from "./endpoints";
+export { VERSION, CopilotRuntime, type CopilotRuntimeOptions } from "./runtime";
 
-// Export agent runners and base types
-export * from "./runner";
+export {
+  type CopilotEndpointCorsConfig,
+  createCopilotEndpoint,
+  createCopilotEndpointSingleRoute,
+} from "./endpoints";
 
-// Export transcription services
-export * from "./transcription-service/transcription-service";
+// Agent runners and base types
+export {
+  AgentRunner,
+  type AgentRunnerRunRequest,
+  type AgentRunnerConnectRequest,
+  type AgentRunnerIsRunningRequest,
+  type AgentRunnerStopRequest,
+  InMemoryAgentRunner,
+  finalizeRunEvents,
+} from "./runner";
+
+// Transcription services
+export {
+  type TranscribeFileOptions,
+  TranscriptionService,
+} from "./transcription-service/transcription-service";
