@@ -76,7 +76,7 @@ export class IntelligenceAgentRunner extends AgentRunner {
         } as BaseEvent;
         runSubject.next(errorEvent);
         currentEvents.push(errorEvent);
-        this.cleanupThread(state);
+        this.removeThread(threadId);
         runSubject.complete();
       });
 
@@ -171,7 +171,6 @@ export class IntelligenceAgentRunner extends AgentRunner {
         type: EventType.RUN_ERROR,
         message: error instanceof Error ? error.message : String(error),
       } as BaseEvent;
-      runSubject.next(errorEvent);
       currentEvents.push(errorEvent);
       channel.push(AG_UI_CHANNEL_EVENT, errorEvent);
     }
@@ -181,19 +180,18 @@ export class IntelligenceAgentRunner extends AgentRunner {
       stopRequested: state.stopRequested,
     });
     for (const event of appended) {
-      runSubject.next(event);
       channel.push(AG_UI_CHANNEL_EVENT, event);
     }
 
-    this.cleanupThread(state);
+    this.removeThread(threadId);
     runSubject.complete();
   }
 
-  private cleanupThread(state: ThreadState): void {
-    state.isRunning = false;
-    state.agent = null;
-    state.runSubject = null;
-    state.stopRequested = false;
-    state.channel.leave();
+  private removeThread(threadId: string): void {
+    const state = this.threads.get(threadId);
+    if (state) {
+      state.channel.leave();
+      this.threads.delete(threadId);
+    }
   }
 }

@@ -274,30 +274,10 @@ describe("IntelligenceAgentRunner", () => {
       expect(customRunPush).toBeUndefined();
     });
 
-    it("emits RUN_ERROR when agent throws", async () => {
+    it("pushes RUN_ERROR to the channel when agent throws", async () => {
       const threadId = "t-err";
       const input = createRunInput({ threadId, runId: "r-err" });
       const agent = new ThrowingMockAgent("Something went wrong");
-
-      const eventsPromise = collectEvents(
-        runner.run({ threadId, agent, input }),
-      );
-      const ch = mockChannels[0];
-      ch.triggerJoin("ok");
-
-      const events = await eventsPromise;
-
-      expect(events.some((e) => e.type === EventType.RUN_ERROR)).toBe(true);
-      const err = events.find(
-        (e): e is RunErrorEvent => e.type === EventType.RUN_ERROR,
-      );
-      expect(err!.message).toBe("Something went wrong");
-    });
-
-    it("pushes error events to the Phoenix channel when agent throws", async () => {
-      const threadId = "t-err-push";
-      const input = createRunInput({ threadId, runId: "r-err-push" });
-      const agent = new ThrowingMockAgent("boom");
 
       const eventsPromise = collectEvents(
         runner.run({ threadId, agent, input }),
@@ -311,8 +291,7 @@ describe("IntelligenceAgentRunner", () => {
         (p) => p.payload?.type === EventType.RUN_ERROR,
       );
       expect(errorPush).toBeDefined();
-      expect(errorPush!.event).toBe("ag-ui");
-      expect(errorPush!.payload.message).toBe("boom");
+      expect(errorPush!.payload.message).toBe("Something went wrong");
     });
 
     it("finalizes open message streams before completing", async () => {
@@ -336,14 +315,10 @@ describe("IntelligenceAgentRunner", () => {
       const ch = mockChannels[0];
       ch.triggerJoin("ok");
 
-      const events = await eventsPromise;
-      const types = events.map((e) => e.type);
+      await eventsPromise;
 
       // finalizeRunEvents appends TEXT_MESSAGE_END for the unclosed message.
-      // Only finalization events appear in the Observable.
-      expect(types).toContain(EventType.TEXT_MESSAGE_END);
-
-      // Also verify the channel received both agent and finalization events.
+      // Verify the channel received both agent and finalization events.
       const chPayloadTypes = ch.pushLog.map((p) => p.payload.type);
       expect(chPayloadTypes).toContain(EventType.TEXT_MESSAGE_START);
       expect(chPayloadTypes).toContain(EventType.TEXT_MESSAGE_END);
