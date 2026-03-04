@@ -67,7 +67,7 @@
     "zod": ">=3.0.0"
   },
   "dependencies": {
-    "@ag-ui/client": "^0.0.46",
+    "@ag-ui/client": "^0.0.48-alpha.0",
     "@copilotkit/runtime-client-gql": "workspace:*",
     "@copilotkit/shared": "workspace:*",
     "@copilotkitnext/core": "workspace:*",

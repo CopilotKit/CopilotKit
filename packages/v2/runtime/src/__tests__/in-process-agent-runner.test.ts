@@ -241,6 +241,9 @@ class MultiEventAgent extends AbstractAgent {
   }
 }
 
+// Dummy agent for connect() calls - the in-memory runner doesn't use the agent for connecting
+const dummyAgent = new MockAgent();
+
 describe("InMemoryAgentRunner", () => {
   let runner: InMemoryAgentRunner;
 
@@ -319,7 +322,7 @@ describe("InMemoryAgentRunner", () => {
       await firstValueFrom(runObservable.pipe(toArray()));
 
       // Connect after completion
-      const connectObservable = runner.connect({ threadId });
+      const connectObservable = runner.connect({ threadId, agent: dummyAgent });
       const collectedEvents = await firstValueFrom(
         connectObservable.pipe(toArray()),
       );
@@ -370,7 +373,7 @@ describe("InMemoryAgentRunner", () => {
       await firstValueFrom(run3.pipe(toArray()));
 
       // Connect and verify all events
-      const connectObservable = runner.connect({ threadId });
+      const connectObservable = runner.connect({ threadId, agent: dummyAgent });
       const allEvents = await firstValueFrom(connectObservable.pipe(toArray()));
 
       const agentEvents = stripTerminalEvents(allEvents);
@@ -422,7 +425,7 @@ describe("InMemoryAgentRunner", () => {
       await new Promise((resolve) => setTimeout(resolve, 50));
 
       // Connect during first run
-      const connectObservable = runner.connect({ threadId });
+      const connectObservable = runner.connect({ threadId, agent: dummyAgent });
       const eventCollector = firstValueFrom(connectObservable.pipe(toArray()));
 
       // Wait for first run to complete
@@ -458,7 +461,7 @@ describe("InMemoryAgentRunner", () => {
 
       // Connect after both runs to verify all events are accumulated
       const allEventsAfter = await firstValueFrom(
-        runner.connect({ threadId }).pipe(toArray()),
+        runner.connect({ threadId, agent: dummyAgent }).pipe(toArray()),
       );
       expect(stripTerminalEvents(allEventsAfter)).toHaveLength(8); // 5 from first + 3 from second
     });
@@ -499,7 +502,7 @@ describe("InMemoryAgentRunner", () => {
       }
 
       // Verify all events are preserved
-      const connectObservable = runner.connect({ threadId });
+      const connectObservable = runner.connect({ threadId, agent: dummyAgent });
       const allEvents = await firstValueFrom(connectObservable.pipe(toArray()));
 
       const agentEvents = stripTerminalEvents(allEvents);
@@ -529,9 +532,9 @@ describe("InMemoryAgentRunner", () => {
       await firstValueFrom(runObservable.pipe(toArray()));
 
       // Multiple concurrent connects
-      const connect1 = runner.connect({ threadId });
-      const connect2 = runner.connect({ threadId });
-      const connect3 = runner.connect({ threadId });
+      const connect1 = runner.connect({ threadId, agent: dummyAgent });
+      const connect2 = runner.connect({ threadId, agent: dummyAgent });
+      const connect3 = runner.connect({ threadId, agent: dummyAgent });
 
       const [events1, events2, events3] = await Promise.all([
         firstValueFrom(connect1.pipe(toArray())),
@@ -565,13 +568,13 @@ describe("InMemoryAgentRunner", () => {
 
       // Connect at different times during the run
       await new Promise((resolve) => setTimeout(resolve, 50)); // After ~2 events
-      const connect1 = runner.connect({ threadId });
+      const connect1 = runner.connect({ threadId, agent: dummyAgent });
 
       await new Promise((resolve) => setTimeout(resolve, 60)); // After ~5 events
-      const connect2 = runner.connect({ threadId });
+      const connect2 = runner.connect({ threadId, agent: dummyAgent });
 
       await new Promise((resolve) => setTimeout(resolve, 80)); // After ~9 events
-      const connect3 = runner.connect({ threadId });
+      const connect3 = runner.connect({ threadId, agent: dummyAgent });
 
       const [events1, events2, events3] = await Promise.all([
         firstValueFrom(connect1.pipe(toArray())),
@@ -660,7 +663,7 @@ describe("InMemoryAgentRunner", () => {
 
       // Connect should have all events including from errored run
       const allEvents = await firstValueFrom(
-        runner.connect({ threadId }).pipe(toArray()),
+        runner.connect({ threadId, agent: dummyAgent }).pipe(toArray()),
       );
       expect(
         allEvents.filter((event) => event.type === EventType.RUN_ERROR).length,
@@ -714,7 +717,9 @@ describe("InMemoryAgentRunner", () => {
     it("should return EMPTY observable when connecting to non-existent thread", async () => {
       const connectObservable = runner.connect({
         threadId: "non-existent-thread",
+        agent: dummyAgent,
       });
+
 
       // EMPTY completes immediately with no values
       let completed = false;
@@ -761,7 +766,7 @@ describe("InMemoryAgentRunner", () => {
       await firstValueFrom(runObservable.pipe(toArray()));
 
       // Connect and verify all events are preserved
-      const connectObservable = runner.connect({ threadId });
+      const connectObservable = runner.connect({ threadId, agent: dummyAgent });
       const collectedEvents = await firstValueFrom(
         connectObservable.pipe(toArray()),
       );
@@ -901,10 +906,10 @@ describe("InMemoryAgentRunner", () => {
 
       // Connect to each thread
       const events1 = await firstValueFrom(
-        runner.connect({ threadId: thread1 }).pipe(toArray()),
+        runner.connect({ threadId: thread1, agent: dummyAgent }).pipe(toArray()),
       );
       const events2 = await firstValueFrom(
-        runner.connect({ threadId: thread2 }).pipe(toArray()),
+        runner.connect({ threadId: thread2, agent: dummyAgent }).pipe(toArray()),
       );
 
       // Verify isolation
@@ -962,7 +967,7 @@ describe("InMemoryAgentRunner", () => {
       }
 
       const allEvents = await firstValueFrom(
-        runner.connect({ threadId }).pipe(toArray()),
+        runner.connect({ threadId, agent: dummyAgent }).pipe(toArray()),
       );
 
       const agentEvents = stripTerminalEvents(allEvents);
@@ -989,7 +994,7 @@ describe("InMemoryAgentRunner", () => {
       await firstValueFrom(run1.pipe(toArray()));
 
       // Connect after first run - should only get first run events
-      const midConnectObservable = runner.connect({ threadId });
+      const midConnectObservable = runner.connect({ threadId, agent: dummyAgent });
       const midEvents = await firstValueFrom(
         midConnectObservable.pipe(toArray()),
       );
@@ -1012,7 +1017,7 @@ describe("InMemoryAgentRunner", () => {
 
       // Connect after both runs to verify all events
       const allEvents = await firstValueFrom(
-        runner.connect({ threadId }).pipe(toArray()),
+        runner.connect({ threadId, agent: dummyAgent }).pipe(toArray()),
       );
       const allAgentEvents = stripTerminalEvents(allEvents);
       expect(allAgentEvents).toHaveLength(10); // Events from both runs

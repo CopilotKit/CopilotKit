@@ -10,6 +10,8 @@ export * from "./utils";
 export { logger } from "./logger";
 export { DEFAULT_AGENT_ID } from "./constants";
 export { finalizeRunEvents } from "./finalize-events";
+export { convertMessagesToEvents } from "./convert-messages-to-events";
+export { isValidCopilotCloudKey } from "./cloud-key";
 
 export {
   TranscriptionErrorCode,
