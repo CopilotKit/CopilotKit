@@ -56,7 +56,7 @@ export class IntelligenceAgent extends AbstractAgent {
         : "http://localhost";
     const stopUrl = new URL(stopPath, new URL(runtimeUrl, origin));
 
-    void fetch(stopUrl.toString(), {
+    fetch(stopUrl.toString(), {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
