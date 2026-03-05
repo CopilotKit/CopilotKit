@@ -325,7 +325,7 @@ is a situation where a user and an agent are working together to solve a problem
       // [!code highlight:13]
       // styles omitted for brevity
       useAgent({
-        name: "sample_agent", // the name the agent is served as
+        agentId: "sample_agent",
         render: ({ state }) => (
           <div>
             {state.searches?.map((search, index) => (
@@ -365,7 +365,7 @@ is a situation where a user and an agent are working together to solve a problem
 
       // [!code highlight:3]
       const { agent } = useAgent({
-        name: "sample_agent", // the name the agent is served as
+        agentId: "sample_agent",
       })
 
       // ...

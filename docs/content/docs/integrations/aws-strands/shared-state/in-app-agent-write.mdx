@@ -76,7 +76,7 @@ You can use this when you want to provide user input or control to your agent's 
     function YourMainContent() {
       // [!code highlight:5]
       const { agent } = useAgent({
-        name: "languageAgent",
+        agentId: "languageAgent",
         // optionally provide a type-safe initial state
         initialState: { language: "spanish" }
       });

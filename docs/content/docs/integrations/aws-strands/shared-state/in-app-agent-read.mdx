@@ -77,7 +77,7 @@ state updates, you can reflect these updates natively in your application.
     function YourMainContent() {
       // [!code highlight:5]
       const { agent } = useAgent({
-        name: "languageAgent",
+        agentId: "languageAgent",
         // optionally provide a type-safe initial state
         initialState: { language: "spanish" }
       });
@@ -124,7 +124,7 @@ function YourMainContent() {
   // ...
   // [!code highlight:7]
   useAgent({
-    name: "languageAgent",
+    agentId: "languageAgent",
     render: ({ state }) => {
       if (!state.language) return null;
       return <div>Language: {state.language}</div>;

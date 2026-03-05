@@ -101,7 +101,7 @@ when your agent is calling tools. CopilotKit allows you to fully customize how t
     // Example usage in a pseudo React component
     function YourMainContent() {
       const { agent } = useAgent({ // [!code highlight]
-        name: "my_agent", // MUST match the agent name in CopilotRuntime
+        agentId: "my_agent",
         initialState: { language: "english" }  // optionally provide an initial state
       });
 
@@ -155,7 +155,7 @@ import { TextMessage, MessageRole } from "@copilotkit/runtime-client-gql";  // [
 function YourMainContent() {
   // [!code word:run:1]
   const { agent, run } = useAgent({
-    name: "my_agent", // MUST match the agent name in CopilotRuntime
+    agentId: "my_agent",
     initialState: { language: "english" }  // optionally provide an initial state
   });
 

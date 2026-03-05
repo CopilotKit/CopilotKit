@@ -156,7 +156,7 @@ function YourMainContent() {
   // ...
   // [!code highlight:7]
   useAgent({
-    name: "my_agent", // MUST match the agent name in CopilotRuntime
+    agentId: "my_agent",
     render: ({ state }) => {
       if (!state.language) return null;
       return <div>Language: {state.language}</div>;
