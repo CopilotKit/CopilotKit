@@ -317,8 +317,11 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     return combined;
   }, [renderToolCallsList, frontendToolsList, processedHumanInTheLoopTools]);
 
-  const copilotkit = useMemo(() => {
-    const copilotkit = new CopilotKitCoreReact({
+  // Stable instance: created once for the provider lifetime.
+  // Updates are applied via setter effects below rather than recreating the instance.
+  const copilotkitRef = useRef<CopilotKitCoreReact | null>(null);
+  if (copilotkitRef.current === null) {
+    copilotkitRef.current = new CopilotKitCoreReact({
       runtimeUrl: chatApiEndpoint,
       runtimeTransport: useSingleEndpoint ? "single" : "rest",
       headers: mergedHeaders,
@@ -330,16 +333,8 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
       renderActivityMessages: allActivityRenderers,
       renderCustomMessages: renderCustomMessagesList,
     });
-
-    return copilotkit;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    allTools,
-    allRenderToolCalls,
-    allActivityRenderers,
-    renderCustomMessagesList,
-    useSingleEndpoint,
-  ]);
+  }
+  const copilotkit = copilotkitRef.current;
 
   // Subscribe to render tool calls changes to force re-renders
   const [, forceUpdate] = useReducer((x) => x + 1, 0);
@@ -398,6 +393,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     copilotkit.setProperties(properties);
     copilotkit.setAgents__unsafe_dev_only(mergedAgents);
   }, [
+    copilotkit,
     chatApiEndpoint,
     mergedHeaders,
     credentials,
@@ -406,13 +402,48 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     useSingleEndpoint,
   ]);
 
+  // Sync render/tool arrays to the stable instance via setters.
+  // On mount, the constructor already receives the correct initial values,
+  // so we skip the first invocation. This is critical because child hooks
+  // (e.g., useFrontendTool, useHumanInTheLoop) register tools dynamically
+  // via addTool()/setRenderToolCalls() in their own effects, which fire
+  // BEFORE parent effects (React fires effects bottom-up). If the parent
+  // setter effects ran on mount, they would overwrite the children's tools.
+  const didMountRef = useRef(false);
+
+  useEffect(() => {
+    if (!didMountRef.current) return;
+    copilotkit.setTools(allTools);
+  }, [copilotkit, allTools]);
+
+  useEffect(() => {
+    if (!didMountRef.current) return;
+    copilotkit.setRenderToolCalls(allRenderToolCalls);
+  }, [copilotkit, allRenderToolCalls]);
+
+  useEffect(() => {
+    if (!didMountRef.current) return;
+    copilotkit.setRenderActivityMessages(allActivityRenderers);
+  }, [copilotkit, allActivityRenderers]);
+
+  useEffect(() => {
+    if (!didMountRef.current) return;
+    copilotkit.setRenderCustomMessages(renderCustomMessagesList);
+  }, [copilotkit, renderCustomMessagesList]);
+
+  // Mark mount complete — must be declared AFTER the setter effects
+  // so it runs last in the effect queue on the initial mount cycle.
+  useEffect(() => {
+    didMountRef.current = true;
+  }, []);
+
+  const contextValue = useMemo<CopilotKitContextValue>(
+    () => ({ copilotkit, executingToolCallIds }),
+    [copilotkit, executingToolCallIds],
+  );
+
   return (
-    <CopilotKitContext.Provider
-      value={{
-        copilotkit,
-        executingToolCallIds,
-      }}
-    >
+    <CopilotKitContext.Provider value={contextValue}>
       {children}
       {shouldRenderInspector ? <CopilotKitInspector core={copilotkit} /> : null}
     </CopilotKitContext.Provider>
