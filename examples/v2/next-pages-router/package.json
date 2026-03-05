@@ -1,6 +1,6 @@
 {
   "name": "@copilotkitnext/next-pages-router",
-  "version": "1.52.2-next.3",
+  "version": "1.52.2-next.4",
   "private": true,
   "scripts": {
     "example-dev": "next dev",

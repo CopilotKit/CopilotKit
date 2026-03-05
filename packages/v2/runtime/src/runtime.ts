@@ -1,6 +1,6 @@
 import { MaybePromise, NonEmptyRecord } from "@copilotkitnext/shared";
 import { AbstractAgent } from "@ag-ui/client";
-import { MCPAppsMiddlewareConfig } from "@ag-ui/mcp-apps-middleware";
+import type { MCPClientConfig } from "@ag-ui/mcp-apps-middleware";
 import { A2UIMiddlewareConfig } from "@ag-ui/a2ui-middleware";
 import pkg from "../package.json";
 import type {
@@ -18,11 +18,21 @@ interface BaseCopilotRuntimeMiddlewareOptions {
   agents?: string[];
 }
 
+export type McpAppsServerConfig = MCPClientConfig & {
+  /** Agent to bind this server to. If omitted, the server is available to all agents. */
+  agentId?: string;
+};
+
+export interface McpAppsConfig {
+  /** List of MCP server configurations. */
+  servers: McpAppsServerConfig[];
+}
+
 interface CopilotRuntimeMiddlewares {
   /** Auto-apply A2UIMiddleware to agents at run time. */
   a2ui?: BaseCopilotRuntimeMiddlewareOptions & A2UIMiddlewareConfig;
   /** Auto-apply MCPAppsMiddleware to agents at run time. */
-  mcp?: BaseCopilotRuntimeMiddlewareOptions & MCPAppsMiddlewareConfig;
+  mcpApps?: McpAppsConfig;
 }
 
 /**
@@ -51,7 +61,7 @@ export class CopilotRuntime {
   public afterRequestMiddleware: CopilotRuntimeOptions["afterRequestMiddleware"];
   public runner: AgentRunner;
   public a2ui: CopilotRuntimeOptions["a2ui"];
-  public mcp: CopilotRuntimeOptions["mcp"];
+  public mcpApps: CopilotRuntimeOptions["mcpApps"];
 
   constructor({
     agents,
@@ -60,7 +70,7 @@ export class CopilotRuntime {
     afterRequestMiddleware,
     runner,
     a2ui,
-    mcp,
+    mcpApps,
   }: CopilotRuntimeOptions) {
     this.agents = agents;
     this.transcriptionService = transcriptionService;
@@ -68,6 +78,6 @@ export class CopilotRuntime {
     this.afterRequestMiddleware = afterRequestMiddleware;
     this.runner = runner ?? new InMemoryAgentRunner();
     this.a2ui = a2ui;
-    this.mcp = mcp;
+    this.mcpApps = mcpApps;
   }
 }

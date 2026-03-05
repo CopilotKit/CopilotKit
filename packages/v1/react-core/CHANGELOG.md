@@ -1,5 +1,16 @@
 # ui
 
+## 1.52.2-next.4
+
+### Patch Changes
+
+- ac31331: - Prevents error propagating out of CPK when an agent runtime is defined but not reachable
+  - Adds an onError callback to CopilotChat and CopilotKitProvider
+  - @copilotkit/runtime-client-gql@1.52.2-next.4
+  - @copilotkit/shared@1.52.2-next.4
+  - @copilotkitnext/core@1.52.2-next.4
+  - @copilotkitnext/react@1.52.2-next.4
+
 ## 1.52.2-next.3
 
 ### Patch Changes
