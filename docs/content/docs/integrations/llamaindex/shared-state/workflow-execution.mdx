@@ -156,7 +156,7 @@ In addition, some state properties contain a lot of information. Syncing them ba
     "use client";
 
     import { useState } from "react";
-    import { useAgent } from "@copilotkit/react-core/v2";
+    import { useAgent, useCopilotKit } from "@copilotkit/react-core/v2";
 
     // Define the agent state type, should match the actual state of your agent
     type AgentState = {
@@ -169,27 +169,25 @@ In addition, some state properties contain a lot of information. Syncing them ba
       const [inputQuestion, setInputQuestion] = useState("What's the capital of France?");
       const [isLoading, setIsLoading] = useState(false);
 
-      const { agent, run } = useAgent({
+      const { agent } = useAgent({
         agentId: "my_agent",
-        initialState: {
-          question: "",
-          answer: "",
-        }
       });
+      const { copilotkit } = useCopilotKit();
 
       const askQuestion = async (newQuestion: string) => {
         setIsLoading(true);
 
         // Update the state with the new question
         agent.setState({ ...agent.state, question: newQuestion, answer: "" });
-        
+
         try {
-          // Trigger the agent to run with a hint message that includes the question
-          await run(() => ({
+          // Add a message and trigger the agent to run
+          agent.addMessage({
             id: crypto.randomUUID(),
-            role: "user" as const,
+            role: "user",
             content: newQuestion,
-          }));
+          });
+          await copilotkit.runAgent({ agent });
         } catch (error) {
           console.error("Error running agent:", error);
         } finally {
