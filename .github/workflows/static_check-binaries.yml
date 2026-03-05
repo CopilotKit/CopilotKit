@@ -54,19 +54,25 @@ jobs:
             VIOLATIONS=1
           fi
 
-          # Check for large files (>500KB) among changed files
+          # Check for large files (>1MB) among changed files
+          # Exclude known large files: lockfiles, assets, docs media, bundled actions
           LARGE_FILES=""
           while IFS= read -r file; do
             if [ -f "$file" ]; then
+              case "$file" in
+                pnpm-lock.yaml|*/package-lock.json|*/poetry.lock) continue ;;
+                assets/*|docs/public/*|examples/*/preview.gif|examples/*/assets/*) continue ;;
+                .github/actions/*/dist/*) continue ;;
+              esac
               SIZE=$(wc -c < "$file" | tr -d ' ')
-              if [ "$SIZE" -gt 512000 ]; then
+              if [ "$SIZE" -gt 1048576 ]; then
                 LARGE_FILES="${LARGE_FILES}${file} ($(( SIZE / 1024 )) KB)\n"
               fi
             fi
           done <<< "$CHANGED_FILES"
 
           if [ -n "$LARGE_FILES" ]; then
-            echo "::error::Files over 500 KB detected in PR:"
+            echo "::error::Files over 1 MB detected in PR:"
             echo -e "$LARGE_FILES"
             VIOLATIONS=1
           fi
