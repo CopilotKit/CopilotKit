@@ -268,3 +268,91 @@ export function createStreamingSuggestionChunks(): string[] {
     "]}",
   ];
 }
+
+export class MockPush {
+  private callbacks = new Map<string, Function>();
+
+  receive(status: string, callback: Function): MockPush {
+    this.callbacks.set(status, callback);
+    return this;
+  }
+
+  trigger(status: string, response?: unknown): void {
+    this.callbacks.get(status)?.(response);
+  }
+}
+
+export class MockChannel {
+  public topic: string;
+  public params: Record<string, any>;
+  public pushLog: Array<{ event: string; payload: any }> = [];
+  public left = false;
+
+  private handlers = new Map<string, Array<(payload: any) => void>>();
+  private joinPush = new MockPush();
+
+  constructor(topic: string = "", params: Record<string, any> = {}) {
+    this.topic = topic;
+    this.params = params;
+  }
+
+  on(event: string, callback: (payload: any) => void): number {
+    if (!this.handlers.has(event)) {
+      this.handlers.set(event, []);
+    }
+    this.handlers.get(event)!.push(callback);
+    return this.handlers.get(event)!.length;
+  }
+
+  join(): MockPush {
+    return this.joinPush;
+  }
+
+  push(event: string, payload: any): MockPush {
+    this.pushLog.push({ event, payload });
+    return new MockPush();
+  }
+
+  leave(): void {
+    this.left = true;
+  }
+
+  /** Test helper — simulate the server acknowledging, rejecting, or timing out the join. */
+  triggerJoin(status: "ok" | "error" | "timeout", response?: unknown): void {
+    this.joinPush.trigger(status, response);
+  }
+
+  /** Test helper — simulate the server pushing an event. */
+  serverPush(eventType: string, payload: any): void {
+    for (const handler of this.handlers.get(eventType) ?? []) {
+      handler(payload);
+    }
+  }
+}
+
+export class MockSocket {
+  public url: string;
+  public opts: Record<string, any>;
+  public connected = false;
+  public disconnected = false;
+  public channels: MockChannel[] = [];
+
+  constructor(url: string = "", opts: Record<string, any> = {}) {
+    this.url = url;
+    this.opts = opts;
+  }
+
+  connect(): void {
+    this.connected = true;
+  }
+
+  disconnect(): void {
+    this.disconnected = true;
+  }
+
+  channel(topic: string, params: Record<string, any> = {}): MockChannel {
+    const ch = new MockChannel(topic, params);
+    this.channels.push(ch);
+    return ch;
+  }
+}

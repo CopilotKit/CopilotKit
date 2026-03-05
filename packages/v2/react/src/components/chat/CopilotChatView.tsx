@@ -64,6 +64,13 @@ export type CopilotChatViewProps = WithSlots<
     onCancelTranscribe?: () => void;
     onFinishTranscribe?: () => void;
     onFinishTranscribeWithAudio?: (audioBlob: Blob) => Promise<void>;
+    /**
+     * @deprecated Use the `input` slot's `disclaimer` prop instead:
+     * ```tsx
+     * <CopilotChat input={{ disclaimer: MyDisclaimer }} />
+     * ```
+     */
+    disclaimer?: SlotValue<React.FC<React.HTMLAttributes<HTMLDivElement>>>;
   } & React.HTMLAttributes<HTMLDivElement>
 >;
 
@@ -89,6 +96,8 @@ export function CopilotChatView({
   onCancelTranscribe,
   onFinishTranscribe,
   onFinishTranscribeWithAudio,
+  // Deprecated — forwarded to input slot
+  disclaimer,
   children,
   className,
   ...props
@@ -166,6 +175,7 @@ export function CopilotChatView({
     keyboardHeight: isKeyboardOpen ? keyboardHeight : 0,
     containerRef: inputContainerRef,
     showDisclaimer: true,
+    ...(disclaimer !== undefined ? { disclaimer } : {}),
   } as CopilotChatInputProps);
 
   const hasSuggestions = Array.isArray(suggestions) && suggestions.length > 0;
@@ -221,6 +231,7 @@ export function CopilotChatView({
       onFinishTranscribeWithAudio,
       positioning: "static",
       showDisclaimer: true,
+      ...(disclaimer !== undefined ? { disclaimer } : {}),
     } as CopilotChatInputProps);
 
     // Convert boolean `true` to undefined (use default), and exclude `false` since we've checked for it

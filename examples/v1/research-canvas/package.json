@@ -31,6 +31,13 @@
     "tailwind-merge": "^2.5.3",
     "tailwindcss-animate": "^1.0.7"
   },
+  "nx": {
+    "targets": {
+      "build": {
+        "cache": false
+      }
+    }
+  },
   "devDependencies": {
     "@types/node": "^22.0.0",
     "@types/react": "19.0.1",

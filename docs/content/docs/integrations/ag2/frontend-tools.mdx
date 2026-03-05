@@ -55,24 +55,20 @@ Without frontend actions, agents are limited to just processing and returning da
         that says hello to the user.
 
         ```tsx title="page.tsx"
+        import { z } from "zod";
         import { useFrontendTool } from "@copilotkit/react-core/v2" // [!code highlight]
 
         export function Page() {
           // ...
 
-          // [!code highlight:16]
+          // [!code highlight:13]
           useFrontendTool({
             name: "sayHello",
             description: "Say hello to the user",
             available: "remote", // optional, makes it so the action is *only* available to the AG2 backend over AG-UI
-            parameters: [
-              {
-                name: "name",
-                type: "string",
-                description: "The name of the user to say hello to",
-                required: true,
-              },
-            ],
+            parameters: z.object({
+              name: z.string().describe("The name of the user to say hello to"),
+            }),
             handler: async ({ name }) => {
               alert(`Hello, ${name}!`);
               return `Said hello to ${name}!`;

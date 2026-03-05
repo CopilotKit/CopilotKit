@@ -30,7 +30,6 @@ import {
 describe("useFrontendTool E2E - Dynamic Registration", () => {
   describe("Minimal dynamic registration without chat run", () => {
     it("registers tool and renders tool call via ToolCallsView", async () => {
-      // eslint-disable-next-line no-console
       // No agent run; we render ToolCallsView directly
       const DynamicToolComponent: React.FC = () => {
         const tool: ReactFrontendTool<{ message: string }> = {
@@ -1905,7 +1904,7 @@ describe("useFrontendTool E2E - Dynamic Registration", () => {
   describe("Wildcard Handler", () => {
     it("should handle unknown tools with wildcard", async () => {
       const agent = new MockStepwiseAgent();
-      let wildcardHandlerCalls: { name: string; args: any }[] = [];
+      const wildcardHandlerCalls: { name: string; args: any }[] = [];
 
       // Note: Wildcard tools work as fallback renderers when no specific tool is found
       // The wildcard renderer receives the original tool name and arguments

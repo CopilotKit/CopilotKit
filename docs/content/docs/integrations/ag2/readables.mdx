@@ -11,7 +11,7 @@ import {
     TailoredContentOption,
 } from "@/components/react/tailored-content.tsx";
 
-One of the most common use cases for CopilotKit is to register app state and context using `useCopilotReadable`.
+One of the most common use cases for CopilotKit is to register app state and context using `useAgentContext`.
 This way, you can notify CopilotKit of what is going in your app in real time.
 Some examples might be: the current user, the current page, etc.
 
@@ -39,11 +39,11 @@ This context can then be shared with your AG2 backend.
             <Step>
                 ### Add the data to the Copilot
 
-                The [`useCopilotReadable` hook](/reference/v1/hooks/useCopilotReadable) is used to add data as context to the Copilot.
+                The [`useAgentContext` hook](/reference/v1/hooks/useAgentContext) is used to add data as context to the Copilot.
 
                 ```tsx title="YourComponent.tsx" showLineNumbers {1, 7-10}
                 "use client" // only necessary if you are using Next.js with the App Router. // [!code highlight]
-                import { useCopilotReadable } from "@copilotkit/react-core/v2"; // [!code highlight]
+                import { useAgentContext } from "@copilotkit/react-core/v2"; // [!code highlight]
                 import { useState } from 'react';
 
                 export function YourComponent() {
@@ -56,7 +56,7 @@ This context can then be shared with your AG2 backend.
 
                   // Define Copilot readable state
                   // [!code highlight:4]
-                  useCopilotReadable({
+                  useAgentContext({
                     description: "The current user's colleagues",
                     value: colleagues,
                   });
@@ -157,11 +157,11 @@ This context can then be shared with your AG2 backend.
             <Step>
                 ### Add the data to the Copilot
 
-                The [`useCopilotReadable` hook](/reference/v1/hooks/useCopilotReadable) is used to add data as context to the Copilot.
+                The [`useAgentContext` hook](/reference/v1/hooks/useAgentContext) is used to add data as context to the Copilot.
 
                 ```tsx title="YourComponent.tsx" showLineNumbers {1, 7-10}
                 "use client" // only necessary if you are using Next.js with the App Router. // [!code highlight]
-                import { useCopilotReadable } from "@copilotkit/react-core/v2"; // [!code highlight]
+                import { useAgentContext } from "@copilotkit/react-core/v2"; // [!code highlight]
                 import { useState } from 'react';
 
                 export function YourComponent() {
@@ -174,7 +174,7 @@ This context can then be shared with your AG2 backend.
 
                   // Define Copilot readable state
                   // [!code highlight:4]
-                  useCopilotReadable({
+                  useAgentContext({
                     description: "The current user's colleagues",
                     value: colleagues,
                   });

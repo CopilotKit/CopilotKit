@@ -169,7 +169,7 @@ In addition, some state properties contain a lot of information. Syncing them ba
       const [inputQuestion, setInputQuestion] = useState("What's the capital of France?");
       const [isLoading, setIsLoading] = useState(false);
 
-      const { agentState, setAgentState, run } = useAgent<AgentState>({
+      const { agent, run } = useAgent({
         name: "my_agent",
         initialState: {
           question: "",
@@ -181,7 +181,7 @@ In addition, some state properties contain a lot of information. Syncing them ba
         setIsLoading(true);
 
         // Update the state with the new question
-        setAgentState({ ...agentState, question: newQuestion, answer: "" });
+        agent.setState({ ...agent.state, question: newQuestion, answer: "" });
         
         try {
           // Trigger the agent to run with a hint message that includes the question
@@ -232,8 +232,8 @@ In addition, some state properties contain a lot of information. Syncing them ba
           </div>
 
           <div style={{ marginTop: "1.5rem" }}>
-            <p><strong>Question:</strong> {agentState.question || "(none yet)"}</p>
-            <p><strong>Answer:</strong> {agentState.answer || (isLoading ? "Thinking..." : "Waiting for question...")}</p>
+            <p><strong>Question:</strong> {agent.state?.question || "(none yet)"}</p>
+            <p><strong>Answer:</strong> {agent.state?.answer || (isLoading ? "Thinking..." : "Waiting for question...")}</p>
           </div>
         </div>
       );

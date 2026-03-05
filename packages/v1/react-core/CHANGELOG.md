@@ -1,5 +1,34 @@
 # ui
 
+## 1.52.2-next.2
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.52.2-next.2
+- @copilotkit/shared@1.52.2-next.2
+- @copilotkitnext/core@1.52.2-next.2
+- @copilotkitnext/react@1.52.2-next.2
+
+## 1.52.2-next.1
+
+### Patch Changes
+
+- Updated dependencies [bf1fc6f]
+  - @copilotkit/shared@1.52.2-next.1
+  - @copilotkit/runtime-client-gql@1.52.2-next.1
+  - @copilotkitnext/core@1.52.2-next.1
+  - @copilotkitnext/react@1.52.2-next.1
+
+## 1.52.2-next.0
+
+### Patch Changes
+
+- f1eaa4c: Fixing a regression with setModalOpen
+  - @copilotkit/runtime-client-gql@1.52.2-next.0
+  - @copilotkit/shared@1.52.2-next.0
+  - @copilotkitnext/core@1.52.2-next.0
+  - @copilotkitnext/react@1.52.2-next.0
+
 ## 1.52.1
 
 ### Patch Changes

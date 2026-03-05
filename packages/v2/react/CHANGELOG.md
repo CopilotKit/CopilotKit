@@ -1,5 +1,29 @@
 # @copilotkitnext/react
 
+## 1.52.2-next.2
+
+### Patch Changes
+
+- @copilotkitnext/core@1.52.2-next.2
+- @copilotkitnext/shared@1.52.2-next.2
+- @copilotkitnext/web-inspector@1.52.2-next.2
+
+## 1.52.2-next.1
+
+### Patch Changes
+
+- @copilotkitnext/core@1.52.2-next.1
+- @copilotkitnext/shared@1.52.2-next.1
+- @copilotkitnext/web-inspector@1.52.2-next.1
+
+## 1.52.2-next.0
+
+### Patch Changes
+
+- @copilotkitnext/core@1.52.2-next.0
+- @copilotkitnext/shared@1.52.2-next.0
+- @copilotkitnext/web-inspector@1.52.2-next.0
+
 ## 1.52.1
 
 ### Patch Changes
