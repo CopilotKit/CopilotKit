@@ -20,19 +20,40 @@ on:
       - "examples/**"
       - ".changeset/**"
 
+env:
+  NODE_OPTIONS: "--max-old-space-size=4096"
+
 jobs:
   prettier:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v3
 
-      - name: Setup Nx
-        uses: ./.github/actions/setup-nx
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
         with:
-          workflow-name: "quality-prettier"
-          install-uv: "true"
+          version: "10.13.1"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+
+      - name: Use Node.js 20
+        uses: actions/setup-node@v3
+        with:
+          node-version: 20.x
+          cache: "pnpm"
+          cache-dependency-path: "**/pnpm-lock.yaml"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Configure Nx Cloud environment
+        run: |
+          echo "NX_CI_EXECUTION_ID=${{ github.run_id }}-${{ github.run_attempt }}-quality-prettier" >> $GITHUB_ENV
+          echo "NX_CLOUD_NO_TIMEOUTS=true" >> $GITHUB_ENV
 
       - name: Run Prettier check
         run: pnpm run check-prettier
@@ -42,13 +63,30 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v3
 
-      - name: Setup Nx
-        uses: ./.github/actions/setup-nx
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
         with:
-          workflow-name: "quality-eslint"
-          install-uv: "true"
+          version: "10.13.1"
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v6
+
+      - name: Use Node.js 20
+        uses: actions/setup-node@v3
+        with:
+          node-version: 20.x
+          cache: "pnpm"
+          cache-dependency-path: "**/pnpm-lock.yaml"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Configure Nx Cloud environment
+        run: |
+          echo "NX_CI_EXECUTION_ID=${{ github.run_id }}-${{ github.run_attempt }}-quality-eslint" >> $GITHUB_ENV
+          echo "NX_CLOUD_NO_TIMEOUTS=true" >> $GITHUB_ENV
 
       - name: Run ESLint check
         run: pnpm run lint
@@ -58,13 +96,30 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v3
 
-      - name: Setup Nx
-        uses: ./.github/actions/setup-nx
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
         with:
-          workflow-name: "quality-packages"
-          install-uv: "true"
+          version: "10.13.1"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+
+      - name: Use Node.js 20
+        uses: actions/setup-node@v3
+        with:
+          node-version: 20.x
+          cache: "pnpm"
+          cache-dependency-path: "**/pnpm-lock.yaml"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Configure Nx Cloud environment
+        run: |
+          echo "NX_CI_EXECUTION_ID=${{ github.run_id }}-${{ github.run_attempt }}-quality-packages" >> $GITHUB_ENV
+          echo "NX_CLOUD_NO_TIMEOUTS=true" >> $GITHUB_ENV
 
       - name: Run publint and attw
         run: pnpm run check:packages

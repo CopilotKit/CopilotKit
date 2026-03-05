@@ -11,13 +11,23 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v2
 
-      - name: Setup Nx
-        uses: ./.github/actions/setup-nx
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - run: corepack enable
+      - uses: actions/setup-node@v4
         with:
-          workflow-name: "pkg-pr-new"
-          frozen-lockfile: "false"
+          node-version-file: "package.json"
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Configure Nx Cloud environment
+        run: |
+          echo "NX_CI_EXECUTION_ID=${{ github.run_id }}-${{ github.run_attempt }}-pkg-pr-new" >> $GITHUB_ENV
+          echo "NX_CLOUD_NO_TIMEOUTS=true" >> $GITHUB_ENV
 
       - name: Build
         run: pnpm run build

@@ -21,6 +21,8 @@ on:
         required: true
         default: "main"
         type: string
+env:
+  NODE_OPTIONS: "--max-old-space-size=4096"
 
 jobs:
   v2:
@@ -36,12 +38,26 @@ jobs:
         with:
           ref: ${{ github.event.inputs.branch || github.ref }}
 
-      - name: Setup Nx
-        uses: ./.github/actions/setup-nx
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
         with:
-          workflow-name: "unit-v2-${{ matrix.node-version }}"
+          version: "10.13.1"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
           node-version: ${{ matrix.node-version }}
-          install-uv: "true"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Configure Nx Cloud environment
+        run: |
+          echo "NX_CI_EXECUTION_ID=${{ github.run_id }}-${{ github.run_attempt }}-unit-v2-${{ matrix.node-version }}" >> $GITHUB_ENV
+          echo "NX_CLOUD_NO_TIMEOUTS=true" >> $GITHUB_ENV
 
       - name: Build
         run: pnpm run build
