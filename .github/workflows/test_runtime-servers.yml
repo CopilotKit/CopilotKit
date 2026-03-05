@@ -25,24 +25,17 @@ jobs:
   node:
     name: "runtime / node"
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           ref: ${{ github.event.inputs.branch || github.ref }}
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+      - name: Setup Nx
+        uses: ./.github/actions/setup-nx
         with:
-          version: "10.13.1"
-
-      - name: Use Node.js 22.x
-        uses: actions/setup-node@v4
-        with:
-          node-version: "22.x"
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+          workflow-name: "integration-node"
 
       - name: Build runtime
         run: pnpm nx run @copilotkitnext/runtime:build
@@ -54,29 +47,22 @@ jobs:
   bun:
     name: "runtime / bun"
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           ref: ${{ github.event.inputs.branch || github.ref }}
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+      - name: Setup Nx
+        uses: ./.github/actions/setup-nx
         with:
-          version: "10.13.1"
-
-      - name: Use Node.js 22.x
-        uses: actions/setup-node@v4
-        with:
-          node-version: "22.x"
+          workflow-name: "integration-bun"
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
 
       - name: Build runtime
         run: pnpm nx run @copilotkitnext/runtime:build

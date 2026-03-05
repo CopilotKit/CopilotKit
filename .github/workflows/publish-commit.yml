@@ -7,21 +7,17 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
-      - name: Install pnpm
-        uses: pnpm/action-setup@v4
-
-      - run: corepack enable
-      - uses: actions/setup-node@v4
+      - name: Setup Nx
+        uses: ./.github/actions/setup-nx
         with:
-          node-version-file: "package.json"
-
-      - name: Install dependencies
-        run: pnpm install
+          workflow-name: "pkg-pr-new"
+          frozen-lockfile: "false"
 
       - name: Build
         run: pnpm run build

@@ -11,26 +11,22 @@ jobs:
     timeout-minutes: 20
     steps:
       - name: Checkout Repo
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+      - name: Setup Nx
+        uses: ./.github/actions/setup-nx
         with:
-          version: "10.13.1"
+          workflow-name: "publish-custom"
+          frozen-lockfile: "false"
+          install-uv: "true"
 
-      - name: Install uv
-        uses: astral-sh/setup-uv@v6
-
-      - name: Setup Node
+      - name: Setup Node for npm registry
         uses: actions/setup-node@v4
         with:
-          node-version: 20.x
+          node-version: 22.x
           registry-url: https://registry.npmjs.org
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-
-      - name: Install Dependencies
-        run: pnpm i
 
       - name: Build
         run: pnpm run build

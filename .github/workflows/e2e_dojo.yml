@@ -176,6 +176,11 @@ jobs:
         working-directory: CopilotKit
         run: pnpm install --frozen-lockfile
 
+      - name: Configure Nx Cloud environment
+        run: |
+          echo "NX_CI_EXECUTION_ID=${{ github.run_id }}-${{ github.run_attempt }}-e2e-dojo-${{ matrix.suite }}" >> $GITHUB_ENV
+          echo "NX_CLOUD_NO_TIMEOUTS=true" >> $GITHUB_ENV
+
       - name: Build cpk packages
         working-directory: CopilotKit
         env:
