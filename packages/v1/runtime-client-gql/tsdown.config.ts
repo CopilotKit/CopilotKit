@@ -22,7 +22,6 @@ export default defineConfig([
     outDir: "dist",
     external: [
       "react",
-      "@copilotkit/runtime",
       "@copilotkit/shared",
       "urql",
       "@urql/core",
@@ -35,7 +34,6 @@ export default defineConfig([
       options.entryFileNames = "[name].umd.js";
       options.globals = {
         react: "React",
-        "@copilotkit/runtime": "CopilotKitRuntime",
         "@copilotkit/shared": "CopilotKitShared",
         urql: "Urql",
         "@urql/core": "UrqlCore",
