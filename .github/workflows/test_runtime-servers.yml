@@ -49,6 +49,7 @@ jobs:
         run: |
           echo "NX_CI_EXECUTION_ID=${{ github.run_id }}-${{ github.run_attempt }}-integration-node" >> $GITHUB_ENV
           echo "NX_CLOUD_NO_TIMEOUTS=true" >> $GITHUB_ENV
+          echo "NX_CLOUD_DISTRIBUTED_EXECUTION=false" >> $GITHUB_ENV
 
       - name: Build runtime
         run: pnpm nx run @copilotkitnext/runtime:build
@@ -89,6 +90,7 @@ jobs:
         run: |
           echo "NX_CI_EXECUTION_ID=${{ github.run_id }}-${{ github.run_attempt }}-integration-bun" >> $GITHUB_ENV
           echo "NX_CLOUD_NO_TIMEOUTS=true" >> $GITHUB_ENV
+          echo "NX_CLOUD_DISTRIBUTED_EXECUTION=false" >> $GITHUB_ENV
 
       - name: Build runtime
         run: pnpm nx run @copilotkitnext/runtime:build
