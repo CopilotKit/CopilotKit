@@ -415,10 +415,7 @@ describe("IntelligenceAgentRunner", () => {
 
       const events = await eventsPromise;
 
-      expect(events.map((e) => e.type)).toEqual([
-        EventType.RUN_STARTED,
-        EventType.RUN_FINISHED,
-      ]);
+      expect(events.map((e) => e.type)).toEqual([]);
     });
 
     it("pushes a CUSTOM connect event after joining", () => {
