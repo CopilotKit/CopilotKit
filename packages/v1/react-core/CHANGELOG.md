@@ -1,5 +1,20 @@
 # ui
 
+## 1.53.0
+
+### Patch Changes
+
+- 1510f64: feat: enable mcp and a2ui middleware directly from copilotkit runtime
+- f1eaa4c: Fixing a regression with setModalOpen
+- ac31331: - Prevents error propagating out of CPK when an agent runtime is defined but not reachable
+  - Adds an onError callback to CopilotChat and CopilotKitProvider
+- Updated dependencies [1510f64]
+- Updated dependencies [bf1fc6f]
+  - @copilotkit/shared@1.53.0
+  - @copilotkitnext/core@1.53.0
+  - @copilotkitnext/react@1.53.0
+  - @copilotkit/runtime-client-gql@1.53.0
+
 ## 1.53.0-next.6
 
 ### Patch Changes

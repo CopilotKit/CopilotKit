@@ -1,5 +1,23 @@
 # @copilotkit/runtime
 
+## 1.53.0
+
+### Minor Changes
+
+- f822c05: Updating the path and devex for mcp apps
+
+### Patch Changes
+
+- d1f7aba: feat(runtime): expose messages in afterRequestMiddleware
+- 1510f64: feat: enable mcp and a2ui middleware directly from copilotkit runtime
+- 8e0f94f: Bump AI SDK from v5 to v6
+- 501e8d7: surpress sse warning in middleware callback
+- Updated dependencies [1510f64]
+- Updated dependencies [bf1fc6f]
+  - @copilotkit/shared@1.53.0
+  - @copilotkitnext/agent@1.53.0
+  - @copilotkitnext/runtime@1.53.0
+
 ## 1.53.0-next.6
 
 ### Patch Changes

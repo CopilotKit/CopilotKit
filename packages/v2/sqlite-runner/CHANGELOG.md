@@ -1,5 +1,13 @@
 # @copilotkitnext/sqlite-runner
 
+## 1.53.0
+
+### Patch Changes
+
+- 1510f64: feat: enable mcp and a2ui middleware directly from copilotkit runtime
+- Updated dependencies [1510f64]
+  - @copilotkitnext/runtime@1.53.0
+
 ## 1.53.0-next.6
 
 ### Patch Changes

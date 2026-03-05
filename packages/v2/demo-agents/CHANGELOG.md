@@ -1,5 +1,11 @@
 # @copilotkitnext/demo-agents
 
+## 1.53.0
+
+### Patch Changes
+
+- 1510f64: feat: enable mcp and a2ui middleware directly from copilotkit runtime
+
 ## 1.53.0-next.6
 
 ## 1.53.0-next.5

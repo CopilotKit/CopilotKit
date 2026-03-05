@@ -1,5 +1,12 @@
 # @copilotkitnext/next-pages-router
 
+## 1.53.0
+
+### Patch Changes
+
+- Updated dependencies [1510f64]
+  - @copilotkitnext/react@1.53.0
+
 ## 1.53.0-next.6
 
 ### Patch Changes
