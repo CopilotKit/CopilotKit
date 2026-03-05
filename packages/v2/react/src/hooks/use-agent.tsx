@@ -1,5 +1,5 @@
 import { useCopilotKit } from "@/providers/CopilotKitProvider";
-import { useMemo, useEffect, useReducer } from "react";
+import { useMemo, useEffect, useReducer, useRef } from "react";
 import { DEFAULT_AGENT_ID } from "@copilotkitnext/shared";
 import { AbstractAgent } from "@ag-ui/client";
 import {
@@ -35,9 +35,18 @@ export function useAgent({ agentId, updates }: UseAgentProps = {}) {
     [JSON.stringify(updates)],
   );
 
+  // Cache provisional agents to avoid creating new references on every render
+  // while the runtime is still connecting. A new reference would cascade into
+  // CopilotChat's connectAgent effect, causing unnecessary HTTP calls.
+  const provisionalAgentCache = useRef<Map<string, ProxiedCopilotRuntimeAgent>>(
+    new Map(),
+  );
+
   const agent: AbstractAgent = useMemo(() => {
     const existing = copilotkit.getAgent(agentId);
     if (existing) {
+      // Real agent found — clear any cached provisional for this ID
+      provisionalAgentCache.current.delete(agentId);
       return existing;
     }
 
@@ -50,19 +59,25 @@ export function useAgent({ agentId, updates }: UseAgentProps = {}) {
       (status === CopilotKitCoreRuntimeConnectionStatus.Disconnected ||
         status === CopilotKitCoreRuntimeConnectionStatus.Connecting)
     ) {
+      // Return cached provisional if available (keeps reference stable)
+      const cached = provisionalAgentCache.current.get(agentId);
+      if (cached) {
+        // Update headers on the cached agent in case they changed
+        cached.headers = { ...copilotkit.headers };
+        return cached;
+      }
+
       const provisional = new ProxiedCopilotRuntimeAgent({
         runtimeUrl: copilotkit.runtimeUrl,
         agentId,
         transport: copilotkit.runtimeTransport,
       });
       // Apply current headers so runs/connects inherit them
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (provisional as any).headers = { ...copilotkit.headers };
+      provisional.headers = { ...copilotkit.headers };
+      provisionalAgentCache.current.set(agentId, provisional);
       return provisional;
     }
 
-    // If no runtime is configured (dev/local), return a no-op agent to satisfy the
-    // non-undefined contract without forcing network behavior.
     // After runtime has synced (Connected or Error) or no runtime configured and the agent doesn't exist, throw a descriptive error
     const knownAgents = Object.keys(copilotkit.agents ?? {});
     const runtimePart = isRuntimeConfigured
@@ -83,7 +98,6 @@ export function useAgent({ agentId, updates }: UseAgentProps = {}) {
     copilotkit.runtimeUrl,
     copilotkit.runtimeTransport,
     JSON.stringify(copilotkit.headers),
-    copilotkit,
   ]);
 
   useEffect(() => {
