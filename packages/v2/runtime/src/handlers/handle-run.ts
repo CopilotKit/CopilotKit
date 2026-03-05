@@ -3,6 +3,8 @@ import {
   RunAgentInput,
   RunAgentInputSchema,
 } from "@ag-ui/client";
+import { A2UIMiddleware } from "@ag-ui/a2ui-middleware";
+import { MCPAppsMiddleware } from "@ag-ui/mcp-apps-middleware";
 import { EventEncoder } from "@ag-ui/encoder";
 import { CopilotRuntime } from "../runtime";
 import { extractForwardableHeaders } from "./header-utils";
@@ -37,6 +39,31 @@ export async function handleRunAgent({
 
     const registeredAgent = agents[agentId] as AbstractAgent;
     const agent = registeredAgent.clone() as AbstractAgent;
+
+    // Apply runtime-level A2UI middleware if configured
+    if (runtime.a2ui) {
+      const { agents: targetAgents, ...a2uiOptions } = runtime.a2ui;
+      const shouldApply = !targetAgents || targetAgents.includes(agentId);
+      if (
+        shouldApply &&
+        "use" in agent &&
+        typeof (agent as any).use === "function"
+      ) {
+        (agent as any).use(new A2UIMiddleware(a2uiOptions));
+      }
+    }
+
+    if (runtime.mcp) {
+      const { agents: targetAgents, ...mcpOptions } = runtime.mcp;
+      const shouldApply = !targetAgents || targetAgents.includes(agentId);
+      if (
+        shouldApply &&
+        "use" in agent &&
+        typeof (agent as any).use === "function"
+      ) {
+        (agent as any).use(new MCPAppsMiddleware(mcpOptions));
+      }
+    }
 
     if (agent && "headers" in agent) {
       const forwardableHeaders = extractForwardableHeaders(request);

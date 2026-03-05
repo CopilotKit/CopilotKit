@@ -1,5 +1,7 @@
 import { MaybePromise, NonEmptyRecord } from "@copilotkitnext/shared";
 import { AbstractAgent } from "@ag-ui/client";
+import { MCPAppsMiddlewareConfig } from "@ag-ui/mcp-apps-middleware";
+import { A2UIMiddlewareConfig } from "@ag-ui/a2ui-middleware";
 import pkg from "../package.json";
 import type {
   BeforeRequestMiddleware,
@@ -11,10 +13,22 @@ import { InMemoryAgentRunner } from "./runner/in-memory";
 
 export const VERSION = pkg.version;
 
+interface BaseCopilotRuntimeMiddlewareOptions {
+  /** If set, middleware only applies to these named agents. Applies to all agents if omitted. */
+  agents?: string[];
+}
+
+interface CopilotRuntimeMiddlewares {
+  /** Auto-apply A2UIMiddleware to agents at run time. */
+  a2ui?: BaseCopilotRuntimeMiddlewareOptions & A2UIMiddlewareConfig;
+  /** Auto-apply MCPAppsMiddleware to agents at run time. */
+  mcp?: BaseCopilotRuntimeMiddlewareOptions & MCPAppsMiddlewareConfig;
+}
+
 /**
  * Options used to construct a `CopilotRuntime` instance.
  */
-export interface CopilotRuntimeOptions {
+export interface CopilotRuntimeOptions extends CopilotRuntimeMiddlewares {
   /** Map of available agents (loaded lazily is fine). */
   agents: MaybePromise<NonEmptyRecord<Record<string, AbstractAgent>>>;
   /** The runner to use for running agents. */
@@ -36,6 +50,8 @@ export class CopilotRuntime {
   public beforeRequestMiddleware: CopilotRuntimeOptions["beforeRequestMiddleware"];
   public afterRequestMiddleware: CopilotRuntimeOptions["afterRequestMiddleware"];
   public runner: AgentRunner;
+  public a2ui: CopilotRuntimeOptions["a2ui"];
+  public mcp: CopilotRuntimeOptions["mcp"];
 
   constructor({
     agents,
@@ -43,11 +59,15 @@ export class CopilotRuntime {
     beforeRequestMiddleware,
     afterRequestMiddleware,
     runner,
+    a2ui,
+    mcp,
   }: CopilotRuntimeOptions) {
     this.agents = agents;
     this.transcriptionService = transcriptionService;
     this.beforeRequestMiddleware = beforeRequestMiddleware;
     this.afterRequestMiddleware = afterRequestMiddleware;
     this.runner = runner ?? new InMemoryAgentRunner();
+    this.a2ui = a2ui;
+    this.mcp = mcp;
   }
 }
