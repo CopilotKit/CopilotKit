@@ -1,5 +1,14 @@
 # @copilotkit/runtime
 
+## 1.52.2-next.2
+
+### Patch Changes
+
+- 8e0f94f: Bump AI SDK from v5 to v6
+  - @copilotkit/shared@1.52.2-next.2
+  - @copilotkitnext/agent@1.52.2-next.2
+  - @copilotkitnext/runtime@1.52.2-next.2
+
 ## 1.52.2-next.1
 
 ### Patch Changes
