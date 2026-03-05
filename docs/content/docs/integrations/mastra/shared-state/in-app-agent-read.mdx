@@ -77,7 +77,7 @@ state updates, you can reflect these updates natively in your application.
       model: openai("gpt-5.2"),
       instructions: "Always communicate in the preferred language of the user as defined in your working memory. Do not communicate in any other language.",
       memory: new Memory({
-        storage: new LibSQLStore({ url: "file::memory:" }),
+        storage: new LibSQLStore({ id: "mastra-storage", url: ":memory:" }),
         options: {
           // [!code highlight:4]
           workingMemory: {
