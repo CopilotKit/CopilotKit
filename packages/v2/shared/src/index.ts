@@ -8,7 +8,11 @@ export {
 export * from "./utils";
 
 export { logger } from "./logger";
-export { DEFAULT_AGENT_ID, AG_UI_CHANNEL_EVENT } from "./constants";
+export {
+  DEFAULT_AGENT_ID,
+  AG_UI_CHANNEL_EVENT,
+  phoenixExponentialBackoff,
+} from "./constants";
 export { finalizeRunEvents } from "./finalize-events";
 
 export {
