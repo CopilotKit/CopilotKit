@@ -191,8 +191,6 @@ export class IntelligenceAgentRunner extends AgentRunner {
 
       // Listen for AG-UI events on a single channel event name.
       channel.on(AG_UI_CHANNEL_EVENT, (payload: BaseEvent) => {
-        observer.next(payload);
-
         if (
           payload.type === EventType.RUN_FINISHED ||
           payload.type === EventType.RUN_ERROR
