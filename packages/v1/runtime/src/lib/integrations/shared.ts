@@ -102,7 +102,7 @@ export function getCommonConfig(
 
   telemetry.setGlobalProperties({
     runtime: {
-      serviceAdapter: options.serviceAdapter.constructor.name,
+      serviceAdapter: options.serviceAdapter?.constructor?.name ?? "none",
     },
   });
 
