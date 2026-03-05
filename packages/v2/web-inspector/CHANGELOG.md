@@ -1,5 +1,13 @@
 # @copilotkitnext/web-inspector
 
+## 1.52.2-next.3
+
+### Patch Changes
+
+- 1510f64: feat: enable mcp and a2ui middleware directly from copilotkit runtime
+- Updated dependencies [1510f64]
+  - @copilotkitnext/core@1.52.2-next.3
+
 ## 1.52.2-next.2
 
 ### Patch Changes

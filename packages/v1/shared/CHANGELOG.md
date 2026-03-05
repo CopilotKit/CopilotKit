@@ -1,5 +1,11 @@
 # @copilotkit/shared
 
+## 1.52.2-next.3
+
+### Patch Changes
+
+- 1510f64: feat: enable mcp and a2ui middleware directly from copilotkit runtime
+
 ## 1.52.2-next.2
 
 ## 1.52.2-next.1

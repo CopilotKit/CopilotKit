@@ -1,5 +1,16 @@
 # ui
 
+## 1.52.2-next.3
+
+### Patch Changes
+
+- 1510f64: feat: enable mcp and a2ui middleware directly from copilotkit runtime
+- Updated dependencies [1510f64]
+  - @copilotkit/shared@1.52.2-next.3
+  - @copilotkitnext/core@1.52.2-next.3
+  - @copilotkitnext/react@1.52.2-next.3
+  - @copilotkit/runtime-client-gql@1.52.2-next.3
+
 ## 1.52.2-next.2
 
 ### Patch Changes
