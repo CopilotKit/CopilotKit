@@ -38,23 +38,16 @@ is a situation where a user and an agent are working together to solve a problem
 
     Configure your Strands agent to maintain state. Here's an example that tracks searches:
 
-    ```python title="agent/my_agent.py"
-    from strands import Agent, Tool
-    from typing import TypedDict, List
-
-    # Define the agent state schema
-    class SearchItem(TypedDict):
-        query: str
-        done: bool
-
-    class AgentState(TypedDict):
-        searches: List[SearchItem]
+    ```python title="agent/main.py"
+    import json
+    from ag_ui_strands import StrandsAgent, StrandsAgentConfig, ToolBehavior, create_strands_app
+    from strands import Agent, tool
+    from strands.models.openai import OpenAIModel
 
     # Create tool that updates state
-    @Tool
-    def add_search(query: str) -> dict:
-        """
-        Add a search to the agent's list of searches.
+    @tool
+    def add_search(query: str):
+        """Add a search to the agent's list of searches.
 
         Args:
             query: The search query to add
@@ -62,24 +55,46 @@ is a situation where a user and an agent are working together to solve a problem
         Returns:
             Success status and query
         """
-        # Tool implementation - state is automatically updated
-        return {"success": True, "query": query}
+        return json.dumps({"success": True, "query": query})
 
-    # Create agent with state management
-    agent = Agent(
+    # Extract state from tool arguments
+    async def searches_state_from_args(context):
+        try:
+            tool_input = context.tool_input
+            if isinstance(tool_input, str):
+                tool_input = json.loads(tool_input)
+            query = tool_input.get("query", "")
+            return {"searches": [{"query": query, "done": True}]}
+        except Exception:
+            return None
+
+    config = StrandsAgentConfig(
+        tool_behaviors={
+            "add_search": ToolBehavior(
+                state_from_args=searches_state_from_args,
+            ),
+        },
+    )
+
+    model = OpenAIModel(
+        client_args={"api_key": os.getenv("OPENAI_API_KEY", "")},
+        model_id="gpt-4o",
+    )
+
+    strands_agent = Agent(
+        model=model,
+        system_prompt="You are a helpful assistant for storing searches. Use the add_search tool to add searches.",
+        tools=[add_search],
+    )
+
+    agui_agent = StrandsAgent(
+        agent=strands_agent,
         name="searchAgent",
         description="A helpful assistant for storing searches",
-        tools=[add_search],
-        state_schema=AgentState,
-        initial_state={"searches": []},
-        instructions="""
-        You are a helpful assistant for storing searches.
-
-        IMPORTANT:
-        - Use the add_search tool to add a search to the agent's state
-        - ONLY USE THE add_search TOOL ONCE FOR A GIVEN QUERY
-        """
+        config=config,
     )
+
+    app = create_strands_app(agui_agent)
     ```
 
   </Step>
