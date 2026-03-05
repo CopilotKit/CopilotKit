@@ -1,5 +1,17 @@
 # @copilotkitnext/next-pages-router
 
+## 1.52.2-next.1
+
+### Patch Changes
+
+- @copilotkitnext/react@1.52.2-next.1
+
+## 1.52.2-next.0
+
+### Patch Changes
+
+- @copilotkitnext/react@1.52.2-next.0
+
 ## 1.52.1
 
 ### Patch Changes

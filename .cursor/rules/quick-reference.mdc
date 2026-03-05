@@ -18,7 +18,6 @@ alwaysApply: false
 - See [coagents-shared-state/](mdc:examples/coagents-shared-state) for state management
 
 ### Integrate with CrewAI
-- **Crews**: [coagents-starter-crewai-crews/](mdc:examples/coagents-starter-crewai-crews)
 - **Flows**: [coagents-starter-crewai-flows/](mdc:examples/coagents-starter-crewai-flows)
 
 ### Develop Python Agents

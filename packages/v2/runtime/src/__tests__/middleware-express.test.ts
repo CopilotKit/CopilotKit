@@ -50,11 +50,13 @@ describe("CopilotEndpointExpress middleware", () => {
 
     await new Promise((resolve) => setTimeout(resolve, 20));
 
-    expect(after).toHaveBeenCalledWith({
-      runtime,
-      response: expect.any(Response),
-      path: "/info",
-    });
+    expect(after).toHaveBeenCalledWith(
+      expect.objectContaining({
+        runtime,
+        response: expect.any(Response),
+        path: "/info",
+      }),
+    );
 
     expect(response.status).toBe(200);
     expect(response.body).toHaveProperty("version");
@@ -144,6 +146,27 @@ describe("CopilotEndpointExpress middleware", () => {
     expect(after).toHaveBeenCalled();
   });
 
+  it("passes parsed messages to afterRequestMiddleware", async () => {
+    let receivedParams: Record<string, unknown> = {};
+    const after = vi.fn().mockImplementation((params) => {
+      receivedParams = params;
+    });
+
+    const runtime = dummyRuntime({
+      afterRequestMiddleware: after,
+    });
+
+    const app = buildApp(runtime);
+    const response = await request(app).get("/info");
+
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    expect(response.status).toBe(200);
+    expect(after).toHaveBeenCalled();
+    expect(receivedParams).toHaveProperty("messages");
+    expect(receivedParams.messages).toEqual([]);
+  });
+
   it("logs error from after middleware", async () => {
     const error = new Error("after");
     const before = vi.fn();
@@ -163,11 +186,13 @@ describe("CopilotEndpointExpress middleware", () => {
 
     await new Promise((resolve) => setTimeout(resolve, 20));
 
-    expect(after).toHaveBeenCalledWith({
-      runtime,
-      response: expect.any(Response),
-      path: "/info",
-    });
+    expect(after).toHaveBeenCalledWith(
+      expect.objectContaining({
+        runtime,
+        response: expect.any(Response),
+        path: "/info",
+      }),
+    );
 
     expect(logSpy).toHaveBeenCalledWith(
       expect.objectContaining({

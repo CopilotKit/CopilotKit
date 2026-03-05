@@ -252,7 +252,7 @@ When the tool completes, the agent emits a final state snapshot. Any predictive 
     Add a state renderer to observe the predicted `observed_steps` updates as they stream in.
 
     ```tsx title="ui/app/page.tsx"
-    import { useCoAgent, useCoAgentStateRender } from "@copilotkit/react-core";
+    import { useAgent } from "@copilotkit/react-core/v2";
 
     type AgentState = {
       observed_steps: string[];
@@ -260,10 +260,10 @@ When the tool completes, the agent emits a final state snapshot. Any predictive 
 
     export default function Page() {
       // Access both predicted and final states
-      const { state } = useCoAgent<AgentState>({ name: "sample_agent" });
+      const { agent } = useAgent({ name: "sample_agent" });
 
       // Observe predictions (render inside the chat)
-      useCoAgentStateRender<AgentState>({
+      useAgent({
         name: "sample_agent",
         render: ({ state }) => {
           if (!state.observed_steps?.length) return null;

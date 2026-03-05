@@ -21,7 +21,7 @@ import { IframeSwitcher } from "@/components/content"
 Frontend tools enable you to define client-side functions that your LlamaIndex agent can invoke, with execution happening entirely in the user's browser. When your agent calls a frontend tool,
 the logic runs on the client side, giving you direct access to the frontend environment.
 
-This can be utilized to let [your agent control the UI](/llamaindex/frontend-actions), [generative UI](/llamaindex/generative-ui/frontend-tools), or for Human-in-the-loop interactions.
+This can be utilized to let [your agent control the UI](/llamaindex/frontend-tools), [generative UI](/llamaindex/frontend-tools), or for Human-in-the-loop interactions.
 
 In this guide, we cover the use of frontend tools for Human-in-the-loop.
 
@@ -57,7 +57,7 @@ Use frontend tools when you need your agent to interact with client-side primiti
             return f"Presenting options: {option_1} or {option_2}"
 
         # Initialize the LLM
-        llm = OpenAI(model="gpt-4o")
+        llm = OpenAI(model="gpt-5.2")
 
         # Create the AG-UI workflow router
         agentic_chat_router = get_ag_ui_workflow_router(
@@ -97,7 +97,7 @@ Use frontend tools when you need your agent to interact with client-side primiti
         prompts the user for approval.
 
         ```tsx title="page.tsx"
-        import { useHumanInTheLoop } from "@copilotkit/react-core" // [!code highlight]
+        import { useHumanInTheLoop } from "@copilotkit/react-core/v2" // [!code highlight]
 
         export function Page() {
           // ...

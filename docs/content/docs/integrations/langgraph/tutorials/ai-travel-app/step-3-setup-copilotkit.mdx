@@ -114,8 +114,8 @@ In this tutorial, we'll use the `<CopilotSidebar/>` component to display the cha
 import { TasksList } from "@/components/TasksList";
 import { TasksProvider } from "@/lib/hooks/use-tasks";
 import { CopilotKit } from "@copilotkit/react-core";
-import { CopilotSidebar } from "@copilotkit/react-ui"; // [!code ++]
-import "@copilotkit/react-ui/styles.css"; // [!code ++]
+import { CopilotSidebar } from "@copilotkit/react-core/v2"; // [!code ++]
+import "@copilotkit/react-ui/v2/styles.css"; // [!code ++]
 
 export default function Home() {
   return (
@@ -127,8 +127,8 @@ export default function Home() {
         defaultOpen={true}
         clickOutsideToClose={false}
         labels={{
-          title: "Travel Planner",
-          initial: "Hi! 👋 I'm here to plan your trips. I can help you manage your trips, add places to them, or just generally work with you to plan a new one.",
+          modalHeaderTitle: "Travel Planner",
+          welcomeMessageText: "Hi! 👋 I'm here to plan your trips. I can help you manage your trips, add places to them, or just generally work with you to plan a new one.",
         }}
       />
       <TooltipProvider>
@@ -199,8 +199,8 @@ In this tutorial, we'll use the `<CopilotSidebar/>` component to display the cha
 import { TasksList } from "@/components/TasksList";
 import { TasksProvider } from "@/lib/hooks/use-tasks";
 import { CopilotKit } from "@copilotkit/react-core";
-import { CopilotSidebar } from "@copilotkit/react-ui"; // [!code ++]
-import "@copilotkit/react-ui/styles.css"; // [!code ++]
+import { CopilotSidebar } from "@copilotkit/react-core/v2"; // [!code ++]
+import "@copilotkit/react-ui/v2/styles.css"; // [!code ++]
 
 export default function Home() {
   return (
@@ -212,8 +212,8 @@ export default function Home() {
         defaultOpen={true}
         clickOutsideToClose={false}
         labels={{
-          title: "Travel Planner",
-          initial: "Hi! 👋 I'm here to plan your trips. I can help you manage your trips, add places to them, or just generally work with you to plan a new one.",
+          modalHeaderTitle: "Travel Planner",
+          welcomeMessageText: "Hi! 👋 I'm here to plan your trips. I can help you manage your trips, add places to them, or just generally work with you to plan a new one.",
         }}
       />
       <TooltipProvider>

@@ -388,6 +388,7 @@ interface JsonSchema {
   properties?: Record<string, JsonSchema>;
   required?: string[];
   items?: JsonSchema;
+  enum?: string[];
 }
 
 /**
@@ -414,23 +415,29 @@ export function convertJsonSchemaToZodSchema(
         jsonSchema.required ? jsonSchema.required.includes(key) : false,
       );
     }
-    let schema = z.object(spec).describe(jsonSchema.description ?? "");
+    const schema = z.object(spec).describe(jsonSchema.description ?? "");
     return required ? schema : schema.optional();
   } else if (jsonSchema.type === "string") {
-    let schema = z.string().describe(jsonSchema.description ?? "");
+    if (jsonSchema.enum && jsonSchema.enum.length > 0) {
+      const schema = z
+        .enum(jsonSchema.enum as [string, ...string[]])
+        .describe(jsonSchema.description ?? "");
+      return required ? schema : schema.optional();
+    }
+    const schema = z.string().describe(jsonSchema.description ?? "");
     return required ? schema : schema.optional();
   } else if (jsonSchema.type === "number" || jsonSchema.type === "integer") {
-    let schema = z.number().describe(jsonSchema.description ?? "");
+    const schema = z.number().describe(jsonSchema.description ?? "");
     return required ? schema : schema.optional();
   } else if (jsonSchema.type === "boolean") {
-    let schema = z.boolean().describe(jsonSchema.description ?? "");
+    const schema = z.boolean().describe(jsonSchema.description ?? "");
     return required ? schema : schema.optional();
   } else if (jsonSchema.type === "array") {
     if (!jsonSchema.items) {
       throw new Error("Array type must have items property");
     }
-    let itemSchema = convertJsonSchemaToZodSchema(jsonSchema.items, true);
-    let schema = z.array(itemSchema).describe(jsonSchema.description ?? "");
+    const itemSchema = convertJsonSchemaToZodSchema(jsonSchema.items, true);
+    const schema = z.array(itemSchema).describe(jsonSchema.description ?? "");
     return required ? schema : schema.optional();
   }
   console.error("Invalid JSON schema:", JSON.stringify(jsonSchema, null, 2));

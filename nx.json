@@ -3,7 +3,10 @@
   "namedInputs": {
     "default": [
       "{projectRoot}/**/*",
-      "!{projectRoot}/node_modules/**/*"
+      "!{projectRoot}/node_modules/**/*",
+      "!{projectRoot}/**/*.md",
+      "!{projectRoot}/**/*.yml",
+      "!{projectRoot}/**/*.yaml"
     ],
     "production": [
       "default",
@@ -29,7 +32,8 @@
         "{projectRoot}/.env*"
       ],
       "outputs": [
-        "{projectRoot}/dist/**"
+        "{projectRoot}/dist/**",
+        "{projectRoot}/.next/**"
       ],
       "cache": true
     },
@@ -40,6 +44,9 @@
       "cache": false
     },
     "test": {
+      "dependsOn": [
+        "^build"
+      ],
       "inputs": [
         "test"
       ],
@@ -76,6 +83,9 @@
     "generate-graphql-schema": {
       "dependsOn": [
         "^build"
+      ],
+      "outputs": [
+        "{projectRoot}/__snapshots__/**"
       ],
       "cache": true
     },
@@ -129,5 +139,6 @@
     }
   },
   "parallel": 14,
-  "defaultBase": "main"
+  "defaultBase": "main",
+  "nxCloudId": "69a1ceae0efc94d36e7f9044"
 }

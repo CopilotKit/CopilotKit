@@ -33,7 +33,32 @@ export default function ConditionalSidebar({
 
   // Check if this is a reference route (e.g., /reference)
   const isReferenceRoute = firstSegment === "reference";
+  // Check if this is a learn route (e.g., /learn)
+  const isLearnRoute = firstSegment === "learn";
   const currentVersion = getVersionFromPathname(pathname);
+
+  // Find the learn folder and use its children
+  const learnPageTree = useMemo(() => {
+    if (!isLearnRoute) return null;
+
+    const learnFolder = pageTree.children.find((node) => {
+      if (node.type !== "folder") return false;
+      const folderNode = node as any;
+      const url = folderNode.index?.url || folderNode.url;
+      const name =
+        typeof folderNode.name === "string" ? folderNode.name : undefined;
+      return url === "/learn" || name?.toLowerCase() === "learn";
+    }) as Node | undefined;
+
+    if (learnFolder && "children" in learnFolder) {
+      return {
+        ...pageTree,
+        children: (learnFolder as any).children || [],
+      };
+    }
+
+    return null;
+  }, [isLearnRoute, pageTree]);
 
   // Find the reference folder and drill into the active version
   const referencePageTree = useMemo(() => {
@@ -83,6 +108,10 @@ export default function ConditionalSidebar({
 
   if (isIntegrationRoute) {
     return <IntegrationsSidebar pageTree={pageTree} />;
+  }
+
+  if (isLearnRoute && learnPageTree) {
+    return <Sidebar pageTree={learnPageTree} showIntegrationSelector={false} />;
   }
 
   if (isReferenceRoute && referencePageTree) {

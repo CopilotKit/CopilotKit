@@ -62,8 +62,8 @@ receives these props:
 | `onClick` | `() => void` | Toggle handler (only present when `hasContent` is `true`) |
 
 ```tsx
-import { CopilotChat } from "@copilotkit/react-ui";
-import "@copilotkit/react-ui/styles.css";
+import { CopilotChat } from "@copilotkit/react-core/v2";
+import "@copilotkit/react-ui/v2/styles.css";
 
 function CustomHeader({
   isOpen,
@@ -152,8 +152,8 @@ slot props. Your component receives the same top-level props as the built-in one
 import {
   type CopilotChatReasoningMessageProps,
 } from "@copilotkit/react-ui";
-import { CopilotChat } from "@copilotkit/react-ui";
-import "@copilotkit/react-ui/styles.css";
+import { CopilotChat } from "@copilotkit/react-core/v2";
+import "@copilotkit/react-ui/v2/styles.css";
 
 function MyReasoningMessage({
   message,
@@ -195,8 +195,8 @@ without reimplementing them:
 import {
   CopilotChatReasoningMessage,
 } from "@copilotkit/react-ui";
-import { CopilotChat } from "@copilotkit/react-ui";
-import "@copilotkit/react-ui/styles.css";
+import { CopilotChat } from "@copilotkit/react-core/v2";
+import "@copilotkit/react-ui/v2/styles.css";
 
 function MyReasoningLayout(props: React.ComponentProps<typeof CopilotChatReasoningMessage>) {
   return (

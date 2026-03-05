@@ -18,7 +18,6 @@ export function QuickstartDropdown() {
     { label: "LlamaIndex", url: "/llamaindex/quickstart" },
     { label: "Agno", url: "/agno/quickstart" },
     { label: "CrewAI Flows", url: "/crewai-flows/quickstart/crewai" },
-    { label: "CrewAI Crews", url: "/crewai-crews/quickstart/crewai" },
     { label: "AG2", url: "/ag2/quickstart" },
     { label: "Pydantic AI", url: "/pydantic-ai/quickstart" },
     { label: "ADK", url: "/adk/quickstart" },
