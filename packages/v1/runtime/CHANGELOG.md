@@ -1,5 +1,14 @@
 # @copilotkit/runtime
 
+## 1.53.0-next.6
+
+### Patch Changes
+
+- 501e8d7: surpress sse warning in middleware callback
+  - @copilotkit/shared@1.53.0-next.6
+  - @copilotkitnext/agent@1.53.0-next.6
+  - @copilotkitnext/runtime@1.53.0-next.6
+
 ## 1.53.0-next.5
 
 ### Minor Changes
