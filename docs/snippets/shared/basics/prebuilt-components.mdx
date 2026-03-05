@@ -8,8 +8,8 @@ CopilotKit ships three prebuilt chat components that connect directly to your ag
 
 <IframeSwitcher
   id="agentic-chat-example"
-  exampleUrl="https://feature-viewer.copilotkit.ai/langgraph/feature/agentic_chat?sidebar=false&chatDefaultOpen=false"
-  codeUrl="https://feature-viewer.copilotkit.ai/langgraph/feature/agentic_chat?view=code&sidebar=false&codeLayout=tabs"
+  exampleUrl={`https://feature-viewer.copilotkit.ai/${props.framework || "langgraph"}/feature/agentic_chat?sidebar=false&chatDefaultOpen=false`}
+  codeUrl={`https://feature-viewer.copilotkit.ai/${props.framework || "langgraph"}/feature/agentic_chat?view=code&sidebar=false&codeLayout=tabs`}
   exampleLabel="Demo"
   codeLabel="Code"
   height="700px"
@@ -35,7 +35,6 @@ export function YourComponent() {
   return (
     <CopilotChat
       labels={{
-        modalHeaderTitle: "Your Assistant",
         welcomeMessageText: "Hi! How can I assist you today?",
       }}
     />
@@ -53,17 +52,18 @@ Wraps your main content and provides a collapsible sidebar chat.
 // [!code word:CopilotSidebar]
 import { CopilotSidebar } from "@copilotkit/react-core/v2";
 
-export function YourApp() {
+export default function YourApp() {
   return (
-    <CopilotSidebar
-      defaultOpen={true}
-      labels={{
-        modalHeaderTitle: "Sidebar Assistant",
-        welcomeMessageText: "How can I help you today?",
-      }}
-    >
-      <YourMainContent />
-    </CopilotSidebar>
+    <main>
+      <CopilotSidebar
+        defaultOpen={true}
+        labels={{
+          modalHeaderTitle: "Sidebar Assistant",
+          welcomeMessageText: "How can I help you today?",
+        }}
+      />
+      <h1>Your App</h1>
+    </main>
   );
 }
 ```
@@ -79,17 +79,17 @@ A floating chat bubble that sits alongside your content and toggles open/closed.
 // [!code word:CopilotPopup]
 import { CopilotPopup } from "@copilotkit/react-core/v2";
 
-export function YourApp() {
+export default function YourApp() {
   return (
-    <>
-      <YourMainContent />
+    <main>
+      <h1>Your App</h1>
       <CopilotPopup
         labels={{
           modalHeaderTitle: "Popup Assistant",
           welcomeMessageText: "Need any help?",
         }}
       />
-    </>
+    </main>
   );
 }
 ```
@@ -104,20 +104,13 @@ All three components support the slot system for deep customization — from Tai
 <CopilotChat
   // Style slots with Tailwind classes
   input={{
-    textArea: "text-lg",
+    textArea: "text-blue-500",
     sendButton: "bg-blue-600 hover:bg-blue-700",
   }}
   // Customize nested message slots
   messageView={{
-    assistantMessage: {
-      className: "bg-gray-50 rounded-xl p-4",
-      toolbar: "border-t mt-2",
-    },
+    assistantMessage: "bg-blue-50 rounded-xl p-2",
     userMessage: "bg-blue-100 rounded-xl",
-  }}
-  // Hide elements by returning null
-  scrollView={{
-    feather: () => null,
   }}
 />
 ```
