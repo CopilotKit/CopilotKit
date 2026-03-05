@@ -101,7 +101,7 @@ state updates, you can reflect these updates natively in your application.
     function YourMainContent() {
       // [!code highlight:5]
       const { agent } = useAgent({
-        name: "your-mastra-agent-name",
+        agentId: "your-mastra-agent-name",
         // optionally provide a type-safe initial state
         initialState: { language: "english" }
       });
@@ -146,7 +146,7 @@ function YourMainContent() {
   // ...
   // [!code highlight:7]
   useAgent({
-    name: "your-mastra-agent-name",
+    agentId: "your-mastra-agent-name",
     render: ({ state }) => {
       if (!state.language) return null;
       return <div>Language: {state.language}</div>;

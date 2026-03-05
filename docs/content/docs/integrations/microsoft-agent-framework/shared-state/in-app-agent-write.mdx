@@ -121,7 +121,7 @@ You can use this when you need to update agent state from your application — f
     // Example usage in a pseudo React component
     function YourMainContent() {
       const { agent } = useAgent({ // [!code highlight]
-        name: "sample_agent",
+        agentId: "sample_agent",
         initialState: { language: "english" }  // optionally provide an initial state
       });
 
@@ -175,7 +175,7 @@ import { TextMessage, MessageRole } from "@copilotkit/runtime-client-gql";  // [
 function YourMainContent() {
   // [!code word:run:1]
   const { agent, run } = useAgent({
-    name: "sample_agent",
+    agentId: "sample_agent",
     initialState: { language: "english" }  // optionally provide an initial state
   });
 
