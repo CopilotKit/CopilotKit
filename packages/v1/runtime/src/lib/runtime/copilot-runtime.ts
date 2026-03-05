@@ -360,7 +360,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
       afterRequestMiddleware:
         this.createOnAfterRequestHandler(params).bind(this),
       a2ui: params?.a2ui,
-      mcp: params?.mcp,
+      mcpApps: params?.mcpApps,
     };
     this.params = params;
     this.observability = params?.observability_c;
