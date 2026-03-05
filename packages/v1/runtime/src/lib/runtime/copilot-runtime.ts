@@ -357,8 +357,12 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
 
       beforeRequestMiddleware:
         this.createOnBeforeRequestHandler(params).bind(this),
-      afterRequestMiddleware:
-        this.createOnAfterRequestHandler(params).bind(this),
+      ...(params?.afterRequestMiddleware || params?.middleware?.onAfterRequest
+        ? {
+            afterRequestMiddleware:
+              this.createOnAfterRequestHandler(params).bind(this),
+          }
+        : {}),
       a2ui: params?.a2ui,
       mcpApps: params?.mcpApps,
     };
