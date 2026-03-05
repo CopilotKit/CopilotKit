@@ -1429,9 +1429,9 @@ importers:
       '@a2ui/lit':
         specifier: ^0.8.1
         version: 0.8.1(signal-polyfill@0.2.2)
-      '@copilotkit/react-core':
+      '@copilotkitnext/react':
         specifier: workspace:*
-        version: link:../react-core
+        version: link:../../v2/react
       clsx:
         specifier: ^2.1.1
         version: 2.1.1

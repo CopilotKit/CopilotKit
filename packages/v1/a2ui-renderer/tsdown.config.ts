@@ -13,7 +13,6 @@ export default defineConfig([
       const externalPkgs = [
         "react",
         "react-dom",
-        "@copilotkit/react-core",
         "@copilotkitnext/react",
         "@a2ui/lit",
         "zod",
@@ -33,7 +32,6 @@ export default defineConfig([
       const externalPkgs = [
         "react",
         "react-dom",
-        "@copilotkit/react-core",
         "@copilotkitnext/react",
         "@a2ui/lit",
         "zod",
@@ -47,8 +45,6 @@ export default defineConfig([
         react: "React",
         "react/jsx-runtime": "React",
         "react-dom": "ReactDOM",
-        "@copilotkit/react-core": "CopilotKitReactCore",
-        "@copilotkit/react-core/v2": "CopilotKitReactCore",
         "@copilotkitnext/react": "CopilotKitNextReact",
         "@a2ui/lit": "A2UILit",
         "@a2ui/lit/0.8": "A2UILit",

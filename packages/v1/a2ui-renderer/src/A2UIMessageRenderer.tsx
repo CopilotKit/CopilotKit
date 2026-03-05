@@ -1,7 +1,7 @@
 import {
   useCopilotKit,
   type ReactActivityMessageRenderer,
-} from "@copilotkit/react-core/v2";
+} from "@copilotkitnext/react";
 import { v0_8 } from "@a2ui/lit";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { z } from "zod";
