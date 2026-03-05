@@ -54,8 +54,6 @@ jobs:
         run: |
           echo "NX_CI_EXECUTION_ID=${{ github.run_id }}-${{ github.run_attempt }}-quality-prettier" >> $GITHUB_ENV
           echo "NX_CLOUD_NO_TIMEOUTS=true" >> $GITHUB_ENV
-          echo "NX_CLOUD_DISTRIBUTED_EXECUTION=false" >> $GITHUB_ENV
-          echo "NX_NO_CLOUD=true" >> $GITHUB_ENV
 
       - name: Run Prettier check
         run: pnpm run check-prettier
@@ -89,8 +87,6 @@ jobs:
         run: |
           echo "NX_CI_EXECUTION_ID=${{ github.run_id }}-${{ github.run_attempt }}-quality-eslint" >> $GITHUB_ENV
           echo "NX_CLOUD_NO_TIMEOUTS=true" >> $GITHUB_ENV
-          echo "NX_CLOUD_DISTRIBUTED_EXECUTION=false" >> $GITHUB_ENV
-          echo "NX_NO_CLOUD=true" >> $GITHUB_ENV
 
       - name: Run ESLint check
         run: pnpm run lint
@@ -124,8 +120,6 @@ jobs:
         run: |
           echo "NX_CI_EXECUTION_ID=${{ github.run_id }}-${{ github.run_attempt }}-quality-packages" >> $GITHUB_ENV
           echo "NX_CLOUD_NO_TIMEOUTS=true" >> $GITHUB_ENV
-          echo "NX_CLOUD_DISTRIBUTED_EXECUTION=false" >> $GITHUB_ENV
-          echo "NX_NO_CLOUD=true" >> $GITHUB_ENV
 
       - name: Run publint and attw
         run: pnpm run check:packages
