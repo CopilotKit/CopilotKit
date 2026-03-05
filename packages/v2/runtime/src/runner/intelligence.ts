@@ -249,7 +249,8 @@ export class IntelligenceAgentRunner extends AgentRunner {
 
       const channel = socket.channel(`thread:${threadId}`);
 
-      channel.on("ag_ui_event", (payload: BaseEvent) => {
+      // Listen for AG-UI events on a single channel event name.
+      channel.on(AG_UI_CHANNEL_EVENT, (payload: BaseEvent) => {
         observer.next(payload);
 
         if (
