@@ -25,10 +25,15 @@ export async function handleGetRuntimeInfo({
       {} as Record<string, AgentDescription>,
     );
 
+    const enabledMiddleware: string[] = [];
+    if (runtime.a2ui) enabledMiddleware.push("a2ui");
+    if (runtime.mcp) enabledMiddleware.push("mcp");
+
     const runtimeInfo: RuntimeInfo = {
       version: VERSION,
       agents: agentsDict,
       audioFileTranscriptionEnabled: !!runtime.transcriptionService,
+      middleware: enabledMiddleware,
     };
 
     return new Response(JSON.stringify(runtimeInfo), {

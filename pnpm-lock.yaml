@@ -1493,6 +1493,9 @@ importers:
       '@ag-ui/client':
         specifier: ^0.0.47
         version: 0.0.47
+      '@copilotkit/a2ui-renderer':
+        specifier: workspace:*
+        version: link:../a2ui-renderer
       '@copilotkit/runtime-client-gql':
         specifier: workspace:*
         version: link:../runtime-client-gql

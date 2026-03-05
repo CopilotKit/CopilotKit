@@ -329,6 +329,10 @@ export class CopilotKitCore {
     return this.agentRegistry.audioFileTranscriptionEnabled;
   }
 
+  get enabledMiddleware(): string[] {
+    return this.agentRegistry.enabledMiddleware;
+  }
+
   /**
    * Configuration updates
    */

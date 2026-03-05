@@ -23,4 +23,6 @@ export interface RuntimeInfo {
   version: string;
   agents: Record<string, AgentDescription>;
   audioFileTranscriptionEnabled: boolean;
+  /** List of middleware names enabled in the runtime (e.g. "a2ui", "mcp") */
+  middleware?: string[];
 }

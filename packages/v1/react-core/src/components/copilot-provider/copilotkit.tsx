@@ -29,6 +29,10 @@ import {
   useCopilotKit,
 } from "@copilotkitnext/react";
 import {
+  createA2UIMessageRenderer,
+  viewerTheme,
+} from "@copilotkit/a2ui-renderer";
+import {
   CopilotContext,
   CopilotApiConfig,
   ChatComponentsCache,
@@ -83,6 +87,14 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
 
   const renderArr = useMemo(() => [{ render: CoAgentStateRenderBridge }], []);
 
+  // Default A2UI renderer factory — used when the runtime reports that the
+  // "a2ui" middleware is enabled and the caller has not supplied their own
+  // "a2ui-surface" activity renderer.
+  const defaultA2UIRendererFactory = useCallback(
+    () => createA2UIMessageRenderer({ theme: viewerTheme }),
+    [],
+  );
+
   return (
     <ToastProvider enabled={enabled}>
       <CopilotErrorBoundary
@@ -91,6 +103,7 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
       >
         <ThreadsProvider threadId={props.threadId}>
           <CopilotKitNextProvider
+            renderActivityMessages={[defaultA2UIRendererFactory()]}
             {...props}
             showDevConsole={showInspector}
             renderCustomMessages={renderArr}

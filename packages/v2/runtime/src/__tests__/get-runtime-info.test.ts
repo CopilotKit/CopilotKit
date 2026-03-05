@@ -32,6 +32,7 @@ describe("handleGetRuntimeInfo", () => {
       version: expect.any(String),
       agents: {},
       audioFileTranscriptionEnabled: false,
+      middleware: [],
     });
   });
 
@@ -54,6 +55,7 @@ describe("handleGetRuntimeInfo", () => {
       version: expect.any(String),
       agents: {},
       audioFileTranscriptionEnabled: true,
+      middleware: [],
     });
   });
 
@@ -88,7 +90,26 @@ describe("handleGetRuntimeInfo", () => {
         },
       },
       audioFileTranscriptionEnabled: true,
+      middleware: [],
     });
+  });
+
+  it("should include enabled middleware in the response", async () => {
+    const runtime = new CopilotRuntime({
+      agents: {},
+      a2ui: {},
+    });
+
+    const response = await handleGetRuntimeInfo({
+      runtime,
+      request: mockRequest,
+    });
+
+    expect(response.status).toBe(200);
+
+    const data = await response.json();
+    expect(data.middleware).toContain("a2ui");
+    expect(data.middleware).not.toContain("mcp");
   });
 
   it("should return 500 error when runtime.agents throws an error", async () => {

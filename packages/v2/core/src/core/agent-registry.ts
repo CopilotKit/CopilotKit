@@ -29,6 +29,7 @@ export class AgentRegistry {
     CopilotKitCoreRuntimeConnectionStatus.Disconnected;
   private _runtimeTransport: CopilotRuntimeTransport = "rest";
   private _audioFileTranscriptionEnabled: boolean = false;
+  private _enabledMiddleware: string[] = [];
 
   constructor(private core: CopilotKitCore) {}
 
@@ -57,6 +58,10 @@ export class AgentRegistry {
 
   get audioFileTranscriptionEnabled(): boolean {
     return this._audioFileTranscriptionEnabled;
+  }
+
+  get enabledMiddleware(): string[] {
+    return this._enabledMiddleware;
   }
 
   /**
@@ -206,6 +211,7 @@ export class AgentRegistry {
         CopilotKitCoreRuntimeConnectionStatus.Disconnected;
       this._runtimeVersion = undefined;
       this._audioFileTranscriptionEnabled = false;
+      this._enabledMiddleware = [];
       this.remoteAgents = {};
       this._agents = this.localAgents;
 
@@ -255,6 +261,7 @@ export class AgentRegistry {
       this._runtimeVersion = version;
       this._audioFileTranscriptionEnabled =
         runtimeInfoResponse.audioFileTranscriptionEnabled ?? false;
+      this._enabledMiddleware = runtimeInfoResponse.middleware ?? [];
 
       await this.notifyRuntimeStatusChanged(
         CopilotKitCoreRuntimeConnectionStatus.Connected,
@@ -265,6 +272,7 @@ export class AgentRegistry {
         CopilotKitCoreRuntimeConnectionStatus.Error;
       this._runtimeVersion = undefined;
       this._audioFileTranscriptionEnabled = false;
+      this._enabledMiddleware = [];
       this.remoteAgents = {};
       this._agents = this.localAgents;
 
