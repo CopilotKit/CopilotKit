@@ -90,9 +90,10 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
   // Default A2UI renderer factory — used when the runtime reports that the
   // "a2ui" middleware is enabled and the caller has not supplied their own
   // "a2ui-surface" activity renderer.
+  const a2uiTheme = props.a2ui?.theme ?? viewerTheme;
   const defaultA2UIRendererFactory = useCallback(
-    () => createA2UIMessageRenderer({ theme: viewerTheme }),
-    [],
+    () => createA2UIMessageRenderer({ theme: a2uiTheme }),
+    [a2uiTheme],
   );
 
   return (

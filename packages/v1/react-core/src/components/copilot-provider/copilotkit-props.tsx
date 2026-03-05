@@ -3,6 +3,7 @@ import { ReactNode } from "react";
 import { AuthState } from "../../context/copilot-context";
 import { CopilotErrorHandler } from "@copilotkit/shared";
 import { CopilotKitProviderProps } from "@copilotkitnext/react";
+import type { A2UIMessageRendererOptions } from "@copilotkit/a2ui-renderer";
 /**
  * Props for CopilotKit.
  */
@@ -189,4 +190,24 @@ export interface CopilotKitProps extends Omit<
    * to enabled.
    */
   enableInspector?: boolean;
+
+  /**
+   * Configuration for the A2UI (Agent-to-UI) renderer.
+   *
+   * @example
+   * ```tsx
+   * import { myTheme } from "./my-theme";
+   *
+   * <CopilotKit runtimeUrl="/api/copilotkit" a2ui={{ theme: myTheme }}>
+   *   {children}
+   * </CopilotKit>
+   * ```
+   */
+  a2ui?: {
+    /**
+     * Override the default A2UI viewer theme.
+     * When omitted, the built-in `viewerTheme` from `@copilotkit/a2ui-renderer` is used.
+     */
+    theme?: A2UIMessageRendererOptions["theme"];
+  };
 }
