@@ -1,5 +1,17 @@
 # @copilotkit/runtime
 
+## 1.53.0-next.5
+
+### Minor Changes
+
+- f822c05: Updating the path and devex for mcp apps
+
+### Patch Changes
+
+- @copilotkit/shared@1.53.0-next.5
+- @copilotkitnext/agent@1.53.0-next.5
+- @copilotkitnext/runtime@1.53.0-next.5
+
 ## 1.52.2-next.4
 
 ### Patch Changes
