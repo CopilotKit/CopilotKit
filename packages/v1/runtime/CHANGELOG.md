@@ -1,5 +1,13 @@
 # @copilotkit/runtime
 
+## 1.52.2-next.4
+
+### Patch Changes
+
+- @copilotkit/shared@1.52.2-next.4
+- @copilotkitnext/agent@1.52.2-next.4
+- @copilotkitnext/runtime@1.52.2-next.4
+
 ## 1.52.2-next.3
 
 ### Patch Changes
