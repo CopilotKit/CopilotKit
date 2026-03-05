@@ -13,44 +13,24 @@ import {
 } from "@ag-ui/client";
 import { EMPTY, firstValueFrom } from "rxjs";
 import { toArray } from "rxjs/operators";
-import { MockChannel } from "../../../../core/src/__tests__/test-utils";
+import {
+  MockChannel,
+  MockSocket,
+} from "../../../../core/src/__tests__/test-utils";
 
 let mockChannels: MockChannel[] = [];
-let mockSockets: MockSocketImpl[] = [];
+let mockSockets: MockSocket[] = [];
 
-class MockSocketImpl {
-  disconnected = false;
-  channels: MockChannel[] = [];
-  private errorHandlers: Array<(error?: any) => void> = [];
-  private openHandlers: Array<() => void> = [];
-
-  constructor(_url: string, _opts?: any) {
+class MockSocketImpl extends MockSocket {
+  constructor(url: string, opts?: any) {
+    super(url, opts);
     mockSockets.push(this);
   }
-  connect(): void {}
-  disconnect(): void {
-    this.disconnected = true;
-  }
-  onError(callback: (error?: any) => void): void {
-    this.errorHandlers.push(callback);
-  }
-  onOpen(callback: () => void): void {
-    this.openHandlers.push(callback);
-  }
-  channel(_topic: string, _params?: any): MockChannel {
-    const ch = new MockChannel();
-    this.channels.push(ch);
+
+  channel(topic: string, params: Record<string, any> = {}): MockChannel {
+    const ch = super.channel(topic, params);
     mockChannels.push(ch);
     return ch;
-  }
-
-  /** Test helper — simulate the WebSocket transport erroring. */
-  triggerError(error?: any): void {
-    for (const handler of this.errorHandlers) handler(error);
-  }
-  /** Test helper — simulate a successful (re)connection. */
-  triggerOpen(): void {
-    for (const handler of this.openHandlers) handler();
   }
 }
 
