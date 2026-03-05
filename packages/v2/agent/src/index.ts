@@ -41,6 +41,7 @@ import { Observable } from "rxjs";
 import { createOpenAI } from "@ai-sdk/openai";
 import { createAnthropic } from "@ai-sdk/anthropic";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
+import { createVertex } from "@ai-sdk/google-vertex";
 import { randomUUID } from "crypto";
 import { z } from "zod";
 import {
@@ -211,6 +212,11 @@ export function resolveModel(
       });
       // Accepts any Gemini id, e.g. "gemini-2.5-pro", "gemini-2.5-flash"
       return google(model);
+    }
+
+    case "vertex": {
+      const vertex = createVertex();
+      return vertex(model);
     }
 
     default:
