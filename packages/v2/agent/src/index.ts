@@ -48,7 +48,7 @@ import {
   StreamableHTTPClientTransportOptions,
 } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
-import { randomUUID } from "./uuid.js";
+import { randomUUID } from "@copilotkitnext/shared";
 
 /**
  * Properties that can be overridden by forwardedProps
