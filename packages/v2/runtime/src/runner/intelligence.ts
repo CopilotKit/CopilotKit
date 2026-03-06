@@ -73,7 +73,7 @@ export class IntelligenceAgentRunner extends AgentRunner {
   }
 
   run(request: AgentRunnerRunRequest): Observable<BaseEvent> {
-    const { threadId, agent, input } = request;
+    const { threadId, agent, input, joinCode } = request;
 
     const existing = this.threads.get(threadId);
     if (existing?.isRunning) {
@@ -83,7 +83,8 @@ export class IntelligenceAgentRunner extends AgentRunner {
     return new Observable((observer) => {
       const socket = this.createSocket();
 
-      const channel = socket.channel(`agent:${threadId}`, {
+      const channelTopic = joinCode ?? threadId;
+      const channel = socket.channel(`agent:${channelTopic}`, {
         runId: input.runId,
       });
 
@@ -180,12 +181,13 @@ export class IntelligenceAgentRunner extends AgentRunner {
   }
 
   connect(request: AgentRunnerConnectRequest): Observable<BaseEvent> {
-    const { threadId } = request;
+    const { threadId, joinCode } = request;
 
     return new Observable((observer) => {
       const socket = this.createSocket();
 
-      const channel = socket.channel(`agent:${threadId}`, {
+      const channelTopic = joinCode ?? threadId;
+      const channel = socket.channel(`agent:${channelTopic}`, {
         mode: "connect",
       });
 

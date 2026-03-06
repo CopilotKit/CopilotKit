@@ -2,6 +2,7 @@ import { RunAgentInput, RunAgentInputSchema } from "@ag-ui/client";
 import { EventEncoder } from "@ag-ui/encoder";
 import { CopilotRuntime } from "../runtime";
 import { extractForwardableHeaders } from "./header-utils";
+import { IntelligenceAgentRunner } from "../runner/intelligence";
 
 interface ConnectAgentParameters {
   request: Request;
@@ -51,6 +52,53 @@ export async function handleConnectAgent({
       );
     }
 
+    // For IntelligenceAgentRunner, fetch the active join code and return it
+    // so the client can connect to the Phoenix channel directly.
+    if (runtime.runner instanceof IntelligenceAgentRunner) {
+      if (!runtime.intelligencePlatform) {
+        return new Response(
+          JSON.stringify({
+            error: "Intelligence platform not configured",
+            message:
+              "IntelligenceAgentRunner requires an intelligencePlatform client",
+          }),
+          {
+            status: 500,
+            headers: { "Content-Type": "application/json" },
+          },
+        );
+      }
+
+      let joinCode: string;
+      try {
+        const result = await runtime.intelligencePlatform.getActiveJoinCode({
+          threadId: input.threadId,
+        });
+        joinCode = result.joinCode;
+      } catch (error) {
+        return new Response(
+          JSON.stringify({
+            error: "Join code not available",
+            message: error instanceof Error ? error.message : String(error),
+          }),
+          {
+            status: 404,
+            headers: { "Content-Type": "application/json" },
+          },
+        );
+      }
+
+      return new Response(JSON.stringify({ joinCode }), {
+        status: 200,
+        headers: {
+          "Content-Type": "application/json",
+          "Cache-Control": "no-cache",
+          Connection: "keep-alive",
+        },
+      });
+    }
+
+    // Non-intelligence runner: stream SSE events directly.
     const stream = new TransformStream();
     const writer = stream.writable.getWriter();
     const encoder = new EventEncoder();

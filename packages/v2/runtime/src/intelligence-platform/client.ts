@@ -138,4 +138,22 @@ export class IntelligencePlatformClient {
       { userId: params.userId, agentId: params.agentId },
     );
   }
+
+  async acquireThreadLock(params: {
+    threadId: string;
+  }): Promise<{ joinCode: string }> {
+    return this.request<{ joinCode: string }>(
+      "POST",
+      `/v1/threads/${encodeURIComponent(params.threadId)}/lock`,
+    );
+  }
+
+  async getActiveJoinCode(params: {
+    threadId: string;
+  }): Promise<{ joinCode: string }> {
+    return this.request<{ joinCode: string }>(
+      "GET",
+      `/v1/threads/${encodeURIComponent(params.threadId)}/join-code`,
+    );
+  }
 }
