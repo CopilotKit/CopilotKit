@@ -14,9 +14,10 @@
  limitations under the License.
  */
 
-export { createA2UIMessageRenderer } from "./A2UIMessageRenderer.js";
-export type { A2UIMessageRendererOptions } from "./A2UIMessageRenderer.js";
+export * from "./react-renderer/index.js";
 export { A2UIViewer } from "./A2UIViewer.js";
+export { DEFAULT_SURFACE_ID } from "./a2ui-types.js";
+export type { Theme, A2UIClientEventMessage } from "./a2ui-types.js";
 export type { A2UIViewerProps } from "./A2UIViewer.js";
 export { theme as viewerTheme } from "./theme/viewer-theme.js";
 

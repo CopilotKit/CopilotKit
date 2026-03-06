@@ -42,6 +42,9 @@ export { litTheme, defaultTheme } from "./theme/litTheme";
 // Utilities
 export { cn, classMapToString, stylesToObject } from "./lib/utils";
 
+// Styles
+export { injectStyles, removeStyles } from "./styles";
+
 // Types - re-export from types
 export type {
   Types,
