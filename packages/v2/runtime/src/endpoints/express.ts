@@ -13,6 +13,12 @@ import { handleConnectAgent } from "../handlers/handle-connect";
 import { handleStopAgent } from "../handlers/handle-stop";
 import { handleGetRuntimeInfo } from "../handlers/get-runtime-info";
 import { handleTranscribe } from "../handlers/handle-transcribe";
+import {
+  handleListThreads,
+  handleUpdateThread,
+  handleArchiveThread,
+  handleDeleteThread,
+} from "../handlers/handle-threads";
 import { logger } from "@copilotkitnext/shared";
 import {
   callBeforeRequestMiddleware,
@@ -79,6 +85,37 @@ export function createCopilotEndpointExpress({
     joinPath(normalizedBase, "/transcribe"),
     createRouteHandler(runtime, async ({ request }) => {
       return handleTranscribe({ runtime, request });
+    }),
+  );
+
+  router.get(
+    joinPath(normalizedBase, "/threads"),
+    createRouteHandler(runtime, async ({ request }) => {
+      return handleListThreads({ runtime, request });
+    }),
+  );
+
+  router.patch(
+    joinPath(normalizedBase, "/threads/:threadId"),
+    createRouteHandler(runtime, async ({ request, req }) => {
+      const threadId = req.params.threadId as string;
+      return handleUpdateThread({ runtime, request, threadId });
+    }),
+  );
+
+  router.post(
+    joinPath(normalizedBase, "/threads/:threadId/archive"),
+    createRouteHandler(runtime, async ({ request, req }) => {
+      const threadId = req.params.threadId as string;
+      return handleArchiveThread({ runtime, request, threadId });
+    }),
+  );
+
+  router.delete(
+    joinPath(normalizedBase, "/threads/:threadId"),
+    createRouteHandler(runtime, async ({ request, req }) => {
+      const threadId = req.params.threadId as string;
+      return handleDeleteThread({ runtime, request, threadId });
     }),
   );
 
