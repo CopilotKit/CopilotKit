@@ -8,6 +8,7 @@ import { MCPAppsMiddleware } from "@ag-ui/mcp-apps-middleware";
 import { EventEncoder } from "@ag-ui/encoder";
 import { CopilotRuntime } from "../runtime";
 import { extractForwardableHeaders } from "./header-utils";
+import { IntelligenceAgentRunner } from "../runner/intelligence";
 
 interface RunAgentParameters {
   request: Request;
@@ -96,14 +97,77 @@ export async function handleRunAgent({
       );
     }
 
+    agent.setMessages(input.messages);
+    agent.setState(input.state);
+    agent.threadId = input.threadId;
+
+    // For IntelligenceAgentRunner, acquire a thread lock and return the
+    // join code so the client can connect to the Phoenix channel directly.
+    if (runtime.runner instanceof IntelligenceAgentRunner) {
+      if (!runtime.intelligencePlatform) {
+        return new Response(
+          JSON.stringify({
+            error: "Intelligence platform not configured",
+            message:
+              "IntelligenceAgentRunner requires an intelligencePlatform client",
+          }),
+          {
+            status: 500,
+            headers: { "Content-Type": "application/json" },
+          },
+        );
+      }
+
+      let joinCode: string;
+      try {
+        const lockResult = await runtime.intelligencePlatform.acquireThreadLock(
+          {
+            threadId: input.threadId,
+          },
+        );
+        joinCode = lockResult.joinCode;
+      } catch (error) {
+        return new Response(
+          JSON.stringify({
+            error: "Thread lock denied",
+            message: error instanceof Error ? error.message : String(error),
+          }),
+          {
+            status: 409,
+            headers: { "Content-Type": "application/json" },
+          },
+        );
+      }
+
+      // Kick off the agent run in the background with the join code.
+      runtime.runner
+        .run({
+          threadId: input.threadId,
+          agent,
+          input,
+          joinCode,
+        })
+        .subscribe({
+          error: (error) => {
+            console.error("Error running agent:", error);
+          },
+        });
+
+      return new Response(JSON.stringify({ joinCode }), {
+        status: 200,
+        headers: {
+          "Content-Type": "application/json",
+          "Cache-Control": "no-cache",
+          Connection: "keep-alive",
+        },
+      });
+    }
+
+    // Non-intelligence runner: stream SSE events directly.
     const stream = new TransformStream();
     const writer = stream.writable.getWriter();
     const encoder = new EventEncoder();
     let streamClosed = false;
-
-    agent.setMessages(input.messages);
-    agent.setState(input.state);
-    agent.threadId = input.threadId;
 
     // Process the agent run in the background
     (async () => {
