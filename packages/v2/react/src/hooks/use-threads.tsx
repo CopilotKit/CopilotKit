@@ -46,6 +46,7 @@ export interface UseThreadsResult {
 }
 
 const THREADS_CHANNEL_EVENT = "threads:update";
+const MAX_SOCKET_RETRIES = 5;
 
 // ---------------------------------------------------------------------------
 // Actions
@@ -176,10 +177,23 @@ export function useThreads({
         .replace(/\/$/, "")
         .concat("/socket");
 
+      let errorCount = 0;
       const socket = new Socket(wsUrl, {
         params: { joinCode },
         reconnectAfterMs: phoenixExponentialBackoff(100, 10_000),
         rejoinAfterMs: phoenixExponentialBackoff(1_000, 30_000),
+      });
+      socket.onError(() => {
+        errorCount++;
+        if (errorCount >= MAX_SOCKET_RETRIES) {
+          console.warn(
+            `[useThreads] WebSocket failed after ${MAX_SOCKET_RETRIES} attempts, giving up`,
+          );
+          teardownChannel();
+        }
+      });
+      socket.onOpen(() => {
+        errorCount = 0;
       });
       socket.connect();
       socketRef.current = socket;

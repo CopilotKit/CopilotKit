@@ -67,6 +67,8 @@ vi.mock("phoenix", () => {
     connected = false;
     disconnected = false;
     channels: MockChannel[] = [];
+    private errorCallbacks: Array<() => void> = [];
+    private openCallbacks: Array<() => void> = [];
 
     constructor() {
       (globalThis as any).__mockSockets.push(this);
@@ -81,6 +83,18 @@ vi.mock("phoenix", () => {
       const ch = new MockChannel(topic, params);
       this.channels.push(ch);
       return ch;
+    }
+    onError(cb: () => void) {
+      this.errorCallbacks.push(cb);
+    }
+    onOpen(cb: () => void) {
+      this.openCallbacks.push(cb);
+    }
+    simulateError() {
+      for (const cb of this.errorCallbacks) cb();
+    }
+    simulateOpen() {
+      for (const cb of this.openCallbacks) cb();
     }
   }
 
@@ -243,6 +257,66 @@ describe("useThreads", () => {
 
       expect(ch.left).toBe(true);
       expect(socket.disconnected).toBe(true);
+    });
+
+    it("tears down socket after MAX_SOCKET_RETRIES consecutive errors", async () => {
+      fetchMock.mockReturnValue(
+        jsonResponse({ threads: sampleThreads, joinCode: "jc-retry" }),
+      );
+
+      renderHook(() => useThreads(defaultInput));
+
+      await waitFor(() => {
+        expect(getMockSockets().length).toBeGreaterThan(0);
+      });
+
+      const socket = getMockSockets()[0];
+      const ch = socket.channels[0];
+
+      // 4 errors should not tear down (MAX_SOCKET_RETRIES = 5)
+      act(() => {
+        for (let i = 0; i < 4; i++) socket.simulateError();
+      });
+
+      expect(ch.left).toBe(false);
+      expect(socket.disconnected).toBe(false);
+
+      // 5th error should trigger teardown
+      act(() => {
+        socket.simulateError();
+      });
+
+      expect(ch.left).toBe(true);
+      expect(socket.disconnected).toBe(true);
+    });
+
+    it("resets error count on successful connection", async () => {
+      fetchMock.mockReturnValue(
+        jsonResponse({ threads: sampleThreads, joinCode: "jc-reset" }),
+      );
+
+      renderHook(() => useThreads(defaultInput));
+
+      await waitFor(() => {
+        expect(getMockSockets().length).toBeGreaterThan(0);
+      });
+
+      const socket = getMockSockets()[0];
+      const ch = socket.channels[0];
+
+      // 4 errors, then a successful open resets the counter
+      act(() => {
+        for (let i = 0; i < 4; i++) socket.simulateError();
+        socket.simulateOpen();
+      });
+
+      // Another 4 errors should not tear down since counter was reset
+      act(() => {
+        for (let i = 0; i < 4; i++) socket.simulateError();
+      });
+
+      expect(ch.left).toBe(false);
+      expect(socket.disconnected).toBe(false);
     });
 
     it("tears down socket on channel join timeout", async () => {
