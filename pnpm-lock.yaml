@@ -2430,6 +2430,9 @@ importers:
       lucide-react:
         specifier: ^0.525.0
         version: 0.525.0(react@19.1.0)
+      phoenix:
+        specifier: ^1.8.4
+        version: 1.8.4
       react:
         specifier: 19.1.0
         version: 19.1.0

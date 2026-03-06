@@ -1,5 +1,7 @@
 import { useCopilotKit } from "@/providers/CopilotKitProvider";
 import { useState, useEffect, useCallback, useRef } from "react";
+import { phoenixExponentialBackoff } from "@copilotkitnext/shared";
+import { Socket, Channel } from "phoenix";
 
 export interface Thread {
   id: string;
@@ -20,6 +22,8 @@ export interface UseThreadsResult {
   refetch: () => void;
 }
 
+const THREADS_CHANNEL_EVENT = "threads:update";
+
 export function useThreads({
   userId,
   agentId,
@@ -31,6 +35,55 @@ export function useThreads({
   const [error, setError] = useState<Error | null>(null);
 
   const abortControllerRef = useRef<AbortController | null>(null);
+  const socketRef = useRef<Socket | null>(null);
+  const channelRef = useRef<Channel | null>(null);
+
+  const teardownChannel = useCallback(() => {
+    channelRef.current?.leave();
+    channelRef.current = null;
+    socketRef.current?.disconnect();
+    socketRef.current = null;
+  }, []);
+
+  const subscribeToUpdates = useCallback(
+    (joinCode: string) => {
+      teardownChannel();
+
+      const runtimeUrl = copilotkit.runtimeUrl;
+      if (!runtimeUrl) return;
+
+      // Derive the websocket URL from the runtime HTTP URL.
+      const wsUrl = runtimeUrl
+        .replace(/^http/, "ws")
+        .replace(/\/$/, "")
+        .concat("/socket");
+
+      const socket = new Socket(wsUrl, {
+        params: { joinCode },
+        reconnectAfterMs: phoenixExponentialBackoff(100, 10_000),
+        rejoinAfterMs: phoenixExponentialBackoff(1_000, 30_000),
+      });
+      socket.connect();
+      socketRef.current = socket;
+
+      const channel = socket.channel(`threads:${agentId}`, { joinCode });
+      channelRef.current = channel;
+
+      channel.on(THREADS_CHANNEL_EVENT, (_payload: unknown) => {
+        // TODO: reduce the CRUD update into the threads list via NgRx-style reducer
+      });
+
+      channel
+        .join()
+        .receive("error", () => {
+          teardownChannel();
+        })
+        .receive("timeout", () => {
+          teardownChannel();
+        });
+    },
+    [agentId, copilotkit.runtimeUrl, teardownChannel],
+  );
 
   const fetchThreads = useCallback(async () => {
     const runtimeUrl = copilotkit.runtimeUrl;
@@ -64,6 +117,7 @@ export function useThreads({
 
       const data = await response.json();
       setThreads(data.threads);
+      subscribeToUpdates(data.joinCode);
     } catch (err) {
       if (err instanceof DOMException && err.name === "AbortError") {
         if (controller.signal.reason === "timeout") {
@@ -78,14 +132,15 @@ export function useThreads({
       clearTimeout(timeoutId);
       setIsLoading(false);
     }
-  }, [copilotkit.runtimeUrl, copilotkit.headers, userId, agentId]);
+  }, [copilotkit.runtimeUrl, copilotkit.headers, userId, agentId, subscribeToUpdates]);
 
   useEffect(() => {
     fetchThreads();
     return () => {
       abortControllerRef.current?.abort();
+      teardownChannel();
     };
-  }, [fetchThreads]);
+  }, [fetchThreads, teardownChannel]);
 
   return { threads, isLoading, error, refetch: fetchThreads };
 }
