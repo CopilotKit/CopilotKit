@@ -1,5 +1,11 @@
 # @copilotkit/a2ui-renderer
 
+## 1.53.1-next.0
+
+### Patch Changes
+
+- 6e0cddf: feat: move a2ui message renderer to v2s react package
+
 ## 1.53.0
 
 ### Patch Changes

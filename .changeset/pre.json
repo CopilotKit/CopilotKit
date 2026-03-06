@@ -47,5 +47,7 @@
     "@copilotkit/voice": "1.53.0",
     "@copilotkitnext/web-inspector": "1.53.0"
   },
-  "changesets": []
+  "changesets": [
+    "fifty-cobras-pull"
+  ]
 }
