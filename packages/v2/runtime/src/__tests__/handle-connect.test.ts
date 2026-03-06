@@ -5,7 +5,7 @@ import { handleConnectAgent } from "../handlers/handle-connect";
 import { CopilotRuntime } from "../runtime";
 import { AgentRunnerConnectRequest } from "../runner/agent-runner";
 import { IntelligenceAgentRunner } from "../runner/intelligence";
-import { CopilotKitIntelligence } from "../intelligence-platform/client";
+import { IntelligencePlatformClient } from "../intelligence-platform/client";
 
 describe("handleConnectAgent", () => {
   const createMockRuntime = (
@@ -187,14 +187,11 @@ describe("handleConnectAgent", () => {
     expect(recordedRequests[0].headers).toEqual({});
   });
 
-  describe("IntelligenceAgentRunner connect planning path", () => {
-    const createConnectRequest = (
-      headers?: Record<string, string>,
-      lastSeenEventId?: string | null,
-    ) =>
+  describe("IntelligenceAgentRunner join code path", () => {
+    const createConnectRequest = () =>
       new Request("https://example.com/agent/my-agent/connect", {
         method: "POST",
-        headers: { "Content-Type": "application/json", ...headers },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           threadId: "thread-1",
           runId: "run-1",
@@ -203,12 +200,11 @@ describe("handleConnectAgent", () => {
           tools: [],
           context: [],
           forwardedProps: {},
-          ...(lastSeenEventId !== undefined ? { lastSeenEventId } : {}),
         }),
       });
 
     const createIntelligenceRuntime = (
-      platform?: Partial<CopilotKitIntelligence>,
+      platform?: Partial<IntelligencePlatformClient>,
     ) => {
       const runner = Object.create(IntelligenceAgentRunner.prototype);
       runner.connect = vi.fn(
@@ -225,19 +221,15 @@ describe("handleConnectAgent", () => {
         beforeRequestMiddleware: undefined,
         afterRequestMiddleware: undefined,
         runner,
-        mode: "intelligence",
-        intelligence: platform,
+        intelligencePlatform: platform,
       } as unknown as CopilotRuntime;
     };
 
-    it("returns a live connect plan when join credentials are available", async () => {
+    it("returns joinCode JSON when join code is available", async () => {
       const platform = {
-        connectThread: vi.fn().mockResolvedValue({
-          mode: "live",
-          joinToken: "jt-connect-1",
-          joinFromEventId: "event-1",
-          events: [],
-        }),
+        getActiveJoinCode: vi
+          .fn()
+          .mockResolvedValue({ joinCode: "jc-connect-1" }),
       };
       const runtime = createIntelligenceRuntime(platform as any);
 
@@ -250,66 +242,17 @@ describe("handleConnectAgent", () => {
       expect(response.status).toBe(200);
       expect(response.headers.get("Content-Type")).toBe("application/json");
       const body = await response.json();
-      expect(body).toEqual({
-        mode: "live",
-        joinToken: "jt-connect-1",
-        joinFromEventId: "event-1",
-        events: [],
-      });
-      expect(platform.connectThread).toHaveBeenCalledWith({
+      expect(body).toEqual({ joinCode: "jc-connect-1" });
+      expect(platform.getActiveJoinCode).toHaveBeenCalledWith({
         threadId: "thread-1",
-        lastSeenEventId: null,
       });
     });
 
-    it("returns a bootstrap connect plan when no socket is needed", async () => {
+    it("returns 404 when join code is not available", async () => {
       const platform = {
-        connectThread: vi.fn().mockResolvedValue({
-          mode: "bootstrap",
-          latestEventId: "event-2",
-          events: [{ type: "MESSAGES_SNAPSHOT", messages: [] }],
-        }),
-      };
-      const runtime = createIntelligenceRuntime(platform as any);
-
-      const response = await handleConnectAgent({
-        runtime,
-        request: createConnectRequest(),
-        agentId: "my-agent",
-      });
-
-      expect(response.status).toBe(200);
-      const body = await response.json();
-      expect(body).toEqual({
-        mode: "bootstrap",
-        latestEventId: "event-2",
-        events: [{ type: "MESSAGES_SNAPSHOT", messages: [] }],
-      });
-    });
-
-    it("returns 204 when connect targets a fresh thread", async () => {
-      const platform = {
-        connectThread: vi.fn().mockResolvedValue(null),
-        createThread: vi.fn(),
-      };
-      const runtime = createIntelligenceRuntime(platform as any);
-
-      const response = await handleConnectAgent({
-        runtime,
-        request: createConnectRequest(),
-        agentId: "my-agent",
-      });
-
-      expect(response.status).toBe(204);
-      expect(platform.createThread).not.toHaveBeenCalled();
-      expect(platform.connectThread).toHaveBeenCalledTimes(1);
-    });
-
-    it("returns 404 when connect planning is not available", async () => {
-      const platform = {
-        connectThread: vi
+        getActiveJoinCode: vi
           .fn()
-          .mockRejectedValue(new Error("No active connect plan")),
+          .mockRejectedValue(new Error("No active join code")),
       };
       const runtime = createIntelligenceRuntime(platform as any);
 
@@ -321,26 +264,22 @@ describe("handleConnectAgent", () => {
 
       expect(response.status).toBe(404);
       const body = await response.json();
-      expect(body.error).toBe("Connect plan not available");
+      expect(body.error).toBe("Join code not available");
+      expect(body.message).toContain("No active join code");
     });
 
-    it("forwards lastSeenEventId to the intelligence platform", async () => {
-      const platform = {
-        connectThread: vi.fn().mockResolvedValue(null),
-      };
-      const runtime = createIntelligenceRuntime(platform as any);
+    it("returns 500 when intelligencePlatform is not configured", async () => {
+      const runtime = createIntelligenceRuntime(undefined);
 
       const response = await handleConnectAgent({
         runtime,
-        request: createConnectRequest(undefined, "event-9"),
+        request: createConnectRequest(),
         agentId: "my-agent",
       });
 
-      expect(response.status).toBe(204);
-      expect(platform.connectThread).toHaveBeenCalledWith({
-        threadId: "thread-1",
-        lastSeenEventId: "event-9",
-      });
+      expect(response.status).toBe(500);
+      const body = await response.json();
+      expect(body.error).toBe("Intelligence platform not configured");
     });
   });
 });
