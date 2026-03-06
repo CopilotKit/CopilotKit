@@ -421,6 +421,84 @@ describe("convertToolDefinitionsToVercelAITools", () => {
   });
 });
 
+describe("ensureObjectArgs via convertMessagesToVercelAISDKMessages", () => {
+  function makeAssistantWithToolArgs(argsJson: string): Message[] {
+    return [
+      {
+        id: "1",
+        role: "assistant",
+        content: "calling tool",
+        toolCalls: [
+          {
+            id: "call1",
+            type: "function",
+            function: {
+              name: "myTool",
+              arguments: argsJson,
+            },
+          },
+        ],
+      },
+    ];
+  }
+
+  it("should pass through valid object arguments", () => {
+    const result = convertMessagesToVercelAISDKMessages(
+      makeAssistantWithToolArgs('{"key":"value"}'),
+    );
+    const toolCall = (result[0] as any).content[1];
+    expect(toolCall.input).toEqual({ key: "value" });
+  });
+
+  it("should replace a string argument with an empty object", () => {
+    const result = convertMessagesToVercelAISDKMessages(
+      makeAssistantWithToolArgs('""'),
+    );
+    const toolCall = (result[0] as any).content[1];
+    expect(toolCall.input).toEqual({});
+  });
+
+  it("should replace an array argument with an empty object", () => {
+    const result = convertMessagesToVercelAISDKMessages(
+      makeAssistantWithToolArgs("[1,2,3]"),
+    );
+    const toolCall = (result[0] as any).content[1];
+    expect(toolCall.input).toEqual({});
+  });
+
+  it("should replace a null argument with an empty object", () => {
+    const result = convertMessagesToVercelAISDKMessages(
+      makeAssistantWithToolArgs("null"),
+    );
+    const toolCall = (result[0] as any).content[1];
+    expect(toolCall.input).toEqual({});
+  });
+
+  it("should replace a numeric argument with an empty object", () => {
+    const result = convertMessagesToVercelAISDKMessages(
+      makeAssistantWithToolArgs("42"),
+    );
+    const toolCall = (result[0] as any).content[1];
+    expect(toolCall.input).toEqual({});
+  });
+
+  it("should replace a boolean argument with an empty object", () => {
+    const result = convertMessagesToVercelAISDKMessages(
+      makeAssistantWithToolArgs("true"),
+    );
+    const toolCall = (result[0] as any).content[1];
+    expect(toolCall.input).toEqual({});
+  });
+
+  it("should throw on unparseable JSON (pre-existing gap: JSON.parse is unguarded)", () => {
+    expect(() =>
+      convertMessagesToVercelAISDKMessages(
+        makeAssistantWithToolArgs("{broken"),
+      ),
+    ).toThrow();
+  });
+});
+
 describe("defineTool", () => {
   it("should create a ToolDefinition", () => {
     const tool = defineTool({
