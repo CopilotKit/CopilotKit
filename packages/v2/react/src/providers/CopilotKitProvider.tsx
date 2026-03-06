@@ -21,6 +21,9 @@ import {
   MCPAppsActivityRenderer,
   MCPAppsActivityType,
 } from "../components/MCPAppsActivityRenderer";
+import { createA2UIMessageRenderer } from "../a2ui/A2UIMessageRenderer";
+import { viewerTheme } from "@copilotkit/a2ui-renderer";
+import type { Theme as A2UITheme } from "@copilotkit/a2ui-renderer";
 import { CopilotKitCoreReact } from "../lib/react-core";
 import type {
   ReactActivityMessageRenderer,
@@ -89,6 +92,25 @@ export interface CopilotKitProviderProps {
     code: CopilotKitCoreErrorCode;
     context: Record<string, any>;
   }) => void | Promise<void>;
+  /**
+   * Configuration for the A2UI (Agent-to-UI) renderer.
+   * When provided, the built-in A2UI activity renderer is registered automatically.
+   * Mirrors the server-side `a2ui` option on `CopilotRuntime`.
+   *
+   * @example
+   * ```tsx
+   * <CopilotKit runtimeUrl="/api/copilotkit" a2ui={{ theme: myCustomTheme }}>
+   *   {children}
+   * </CopilotKit>
+   * ```
+   */
+  a2ui?: {
+    /**
+     * Override the default A2UI viewer theme.
+     * When omitted, the built-in `viewerTheme` from `@copilotkit/a2ui-renderer` is used.
+     */
+    theme?: A2UITheme;
+  };
 }
 
 // Small helper to normalize array props to a stable reference and warn
@@ -133,6 +155,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   showDevConsole = false,
   useSingleEndpoint = false,
   onError,
+  a2ui,
 }) => {
   const [shouldRenderInspector, setShouldRenderInspector] = useState(false);
 
@@ -188,16 +211,25 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   >(renderActivityMessages, "renderActivityMessages must be a stable array.");
 
   // Built-in activity renderers that are always included
-  const builtInActivityRenderers = useMemo<ReactActivityMessageRenderer<any>[]>(
-    () => [
+  const builtInActivityRenderers = useMemo<
+    ReactActivityMessageRenderer<any>[]
+  >(() => {
+    const renderers: ReactActivityMessageRenderer<any>[] = [
       {
         activityType: MCPAppsActivityType,
         content: MCPAppsActivityContentSchema,
         render: MCPAppsActivityRenderer,
       },
-    ],
-    [],
-  );
+    ];
+
+    if (a2ui !== undefined) {
+      renderers.unshift(
+        createA2UIMessageRenderer({ theme: a2ui.theme ?? viewerTheme }),
+      );
+    }
+
+    return renderers;
+  }, [a2ui]);
 
   // Combine user-provided activity renderers with built-in ones
   // User-provided renderers take precedence (come first) so they can override built-ins
