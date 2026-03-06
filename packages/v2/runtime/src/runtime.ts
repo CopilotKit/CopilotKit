@@ -10,6 +10,7 @@ import type {
 import { TranscriptionService } from "./transcription-service/transcription-service";
 import { AgentRunner } from "./runner/agent-runner";
 import { InMemoryAgentRunner } from "./runner/in-memory";
+import { IntelligencePlatformClient } from "./intelligence-platform";
 
 export const VERSION = pkg.version;
 
@@ -49,6 +50,8 @@ export interface CopilotRuntimeOptions extends CopilotRuntimeMiddlewares {
   beforeRequestMiddleware?: BeforeRequestMiddleware;
   /** Optional *after* middleware – callback function or webhook URL. */
   afterRequestMiddleware?: AfterRequestMiddleware;
+  /** Optional intelligence platform client for thread management and cloud features. */
+  intelligencePlatform?: IntelligencePlatformClient;
 }
 
 /**
@@ -62,6 +65,7 @@ export class CopilotRuntime {
   public runner: AgentRunner;
   public a2ui: CopilotRuntimeOptions["a2ui"];
   public mcpApps: CopilotRuntimeOptions["mcpApps"];
+  public intelligencePlatform?: IntelligencePlatformClient;
 
   constructor({
     agents,
@@ -71,6 +75,7 @@ export class CopilotRuntime {
     runner,
     a2ui,
     mcpApps,
+    intelligencePlatform,
   }: CopilotRuntimeOptions) {
     this.agents = agents;
     this.transcriptionService = transcriptionService;
@@ -79,5 +84,6 @@ export class CopilotRuntime {
     this.runner = runner ?? new InMemoryAgentRunner();
     this.a2ui = a2ui;
     this.mcpApps = mcpApps;
+    this.intelligencePlatform = intelligencePlatform;
   }
 }
