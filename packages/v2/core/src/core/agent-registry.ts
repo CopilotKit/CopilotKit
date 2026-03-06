@@ -258,6 +258,7 @@ export class AgentRegistry {
       );
 
       this.remoteAgents = agents;
+      // TODO: restore this after testing — remote agents are intentionally excluded for now
       // this._agents = { ...this.localAgents, ...this.remoteAgents };
       this._agents = { ...this.localAgents };
       this._runtimeConnectionStatus =
