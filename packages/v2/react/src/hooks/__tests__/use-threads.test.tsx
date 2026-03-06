@@ -220,7 +220,7 @@ describe("useThreads", () => {
       expect(socket.channels).toHaveLength(1);
 
       const ch = socket.channels[0];
-      expect(ch.topic).toBe("threads:agent-1");
+      expect(ch.topic).toBe("threads:user-1");
       expect(ch.params).toMatchObject({ joinCode: "jc-sub" });
     });
 
@@ -292,8 +292,8 @@ describe("useThreads", () => {
       expect(body).toMatchObject({
         name: "Renamed",
         userId: "user-1",
-        agentId: "agent-1",
       });
+      expect(body).not.toHaveProperty("agentId");
     });
 
     it("archiveThread calls POST to archive endpoint", async () => {
@@ -317,7 +317,8 @@ describe("useThreads", () => {
       expect(url).toContain("/threads/t-2/archive");
       expect(opts.method).toBe("POST");
       const body = JSON.parse(opts.body);
-      expect(body).toMatchObject({ userId: "user-1", agentId: "agent-1" });
+      expect(body).toMatchObject({ userId: "user-1" });
+      expect(body).not.toHaveProperty("agentId");
     });
 
     it("deleteThread calls DELETE with correct body", async () => {
@@ -341,7 +342,8 @@ describe("useThreads", () => {
       expect(url).toContain("/threads/t-1");
       expect(opts.method).toBe("DELETE");
       const body = JSON.parse(opts.body);
-      expect(body).toMatchObject({ userId: "user-1", agentId: "agent-1" });
+      expect(body).toMatchObject({ userId: "user-1" });
+      expect(body).not.toHaveProperty("agentId");
     });
   });
 
