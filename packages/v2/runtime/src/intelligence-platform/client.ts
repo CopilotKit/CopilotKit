@@ -34,7 +34,7 @@ export interface IntelligencePlatformConfig {
 
 export interface ThreadSummary {
   id: string;
-  name: string;
+  name: string | null;
   lastRunAt: string;
   lastUpdatedAt: string;
 }
@@ -47,6 +47,18 @@ export interface ListThreadsResponse {
 export interface UpdateThreadRequest {
   name?: string;
   [key: string]: unknown;
+}
+
+export interface CreateThreadRequest {
+  threadId: string;
+  userId: string;
+  agentId: string;
+  name?: string;
+}
+
+export interface ThreadConnectionResponse {
+  joinToken: string;
+  joinCode?: string;
 }
 
 export class IntelligencePlatformClient {
@@ -95,7 +107,7 @@ export class IntelligencePlatformClient {
     agentId: string;
   }): Promise<ListThreadsResponse> {
     const query = new URLSearchParams(params).toString();
-    return this.request<ListThreadsResponse>("GET", `/v1/threads?${query}`);
+    return this.request<ListThreadsResponse>("GET", `/api/threads?${query}`);
   }
 
   async updateThread(params: {
@@ -106,13 +118,22 @@ export class IntelligencePlatformClient {
   }): Promise<ThreadSummary> {
     return this.request<ThreadSummary>(
       "PATCH",
-      `/v1/threads/${encodeURIComponent(params.threadId)}`,
+      `/api/threads/${encodeURIComponent(params.threadId)}`,
       {
         userId: params.userId,
         agentId: params.agentId,
         ...params.updates,
       },
     );
+  }
+
+  async createThread(params: CreateThreadRequest): Promise<ThreadSummary> {
+    return this.request<ThreadSummary>("POST", `/api/threads`, {
+      threadId: params.threadId,
+      userId: params.userId,
+      agentId: params.agentId,
+      ...(params.name !== undefined ? { name: params.name } : {}),
+    });
   }
 
   async archiveThread(params: {
@@ -122,7 +143,7 @@ export class IntelligencePlatformClient {
   }): Promise<void> {
     await this.request<void>(
       "POST",
-      `/v1/threads/${encodeURIComponent(params.threadId)}/archive`,
+      `/api/threads/${encodeURIComponent(params.threadId)}/archive`,
       { userId: params.userId, agentId: params.agentId },
     );
   }
@@ -134,26 +155,26 @@ export class IntelligencePlatformClient {
   }): Promise<void> {
     await this.request<void>(
       "DELETE",
-      `/v1/threads/${encodeURIComponent(params.threadId)}`,
+      `/api/threads/${encodeURIComponent(params.threadId)}`,
       { userId: params.userId, agentId: params.agentId },
     );
   }
 
   async acquireThreadLock(params: {
     threadId: string;
-  }): Promise<{ joinCode: string }> {
-    return this.request<{ joinCode: string }>(
+  }): Promise<ThreadConnectionResponse> {
+    return this.request<ThreadConnectionResponse>(
       "POST",
-      `/v1/threads/${encodeURIComponent(params.threadId)}/lock`,
+      `/api/threads/${encodeURIComponent(params.threadId)}/lock`,
     );
   }
 
   async getActiveJoinCode(params: {
     threadId: string;
-  }): Promise<{ joinCode: string }> {
-    return this.request<{ joinCode: string }>(
+  }): Promise<ThreadConnectionResponse> {
+    return this.request<ThreadConnectionResponse>(
       "GET",
-      `/v1/threads/${encodeURIComponent(params.threadId)}/join-code`,
+      `/api/threads/${encodeURIComponent(params.threadId)}/join-code`,
     );
   }
 }

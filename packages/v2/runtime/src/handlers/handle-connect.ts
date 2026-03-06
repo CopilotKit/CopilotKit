@@ -10,6 +10,10 @@ interface ConnectAgentParameters {
   agentId: string;
 }
 
+function isPlatformNotFoundError(error: unknown): boolean {
+  return error instanceof Error && error.message.includes(" 404:");
+}
+
 export async function handleConnectAgent({
   runtime,
   request,
@@ -52,8 +56,8 @@ export async function handleConnectAgent({
       );
     }
 
-    // For IntelligenceAgentRunner, fetch the active join code and return it
-    // so the client can connect to the Phoenix channel directly.
+    // For IntelligenceAgentRunner, fetch the active thread connection
+    // credentials and return the join token for the client socket.
     if (runtime.runner instanceof IntelligenceAgentRunner) {
       if (!runtime.intelligencePlatform) {
         return new Response(
@@ -69,26 +73,83 @@ export async function handleConnectAgent({
         );
       }
 
-      let joinCode: string;
+      let joinToken: string | undefined;
       try {
         const result = await runtime.intelligencePlatform.getActiveJoinCode({
           threadId: input.threadId,
         });
-        joinCode = result.joinCode;
+        joinToken = result.joinToken;
       } catch (error) {
+        if (!isPlatformNotFoundError(error)) {
+          return new Response(
+            JSON.stringify({
+              error: "Join code not available",
+              message: error instanceof Error ? error.message : String(error),
+            }),
+            {
+              status: 404,
+              headers: { "Content-Type": "application/json" },
+            },
+          );
+        }
+
+        const userId = request.headers.get("X-User-Id");
+        if (!userId) {
+          return new Response(
+            JSON.stringify({
+              error: "Thread not found",
+              message:
+                "Thread does not exist and X-User-Id header is required to create it",
+            }),
+            {
+              status: 400,
+              headers: { "Content-Type": "application/json" },
+            },
+          );
+        }
+
+        try {
+          await runtime.intelligencePlatform.createThread({
+            threadId: input.threadId,
+            userId,
+            agentId,
+          });
+
+          const result = await runtime.intelligencePlatform.getActiveJoinCode({
+            threadId: input.threadId,
+          });
+          joinToken = result.joinToken;
+        } catch (createError) {
+          return new Response(
+            JSON.stringify({
+              error: "Failed to initialize thread",
+              message:
+                createError instanceof Error
+                  ? createError.message
+                  : String(createError),
+            }),
+            {
+              status: 500,
+              headers: { "Content-Type": "application/json" },
+            },
+          );
+        }
+      }
+
+      if (!joinToken) {
         return new Response(
           JSON.stringify({
-            error: "Join code not available",
-            message: error instanceof Error ? error.message : String(error),
+            error: "Join token not available",
+            message: "Intelligence platform did not return a join token",
           }),
           {
-            status: 404,
+            status: 502,
             headers: { "Content-Type": "application/json" },
           },
         );
       }
 
-      return new Response(JSON.stringify({ joinCode }), {
+      return new Response(JSON.stringify({ joinToken }), {
         status: 200,
         headers: {
           "Content-Type": "application/json",

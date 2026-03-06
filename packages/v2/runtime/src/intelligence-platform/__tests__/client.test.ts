@@ -33,7 +33,7 @@ describe("IntelligencePlatformClient", () => {
     fetchMock.mockReturnValue(jsonResponse({ threads: [], joinCode: "" }));
     await c.listThreads({ userId: "u", agentId: "a" });
     expect(fetchMock.mock.calls[0][0]).toMatch(
-      /^https:\/\/api\.example\.com\/v1/,
+      /^https:\/\/api\.example\.com\/api/,
     );
   });
 
@@ -77,7 +77,7 @@ describe("IntelligencePlatformClient", () => {
       expect(result).toEqual(payload);
       const [url, opts] = fetchMock.mock.calls[0];
       expect(url).toBe(
-        "https://api.example.com/v1/threads?userId=user-1&agentId=agent-1",
+        "https://api.example.com/api/threads?userId=user-1&agentId=agent-1",
       );
       expect(opts.method).toBe("GET");
     });
@@ -102,7 +102,7 @@ describe("IntelligencePlatformClient", () => {
 
       expect(result).toEqual(thread);
       const [url, opts] = fetchMock.mock.calls[0];
-      expect(url).toBe("https://api.example.com/v1/threads/t-1");
+      expect(url).toBe("https://api.example.com/api/threads/t-1");
       expect(opts.method).toBe("PATCH");
       expect(JSON.parse(opts.body)).toEqual({
         userId: "user-1",
@@ -125,6 +125,34 @@ describe("IntelligencePlatformClient", () => {
     });
   });
 
+  describe("createThread", () => {
+    it("sends POST to create endpoint with thread bootstrap payload", async () => {
+      const thread = {
+        id: "t-1",
+        name: null,
+        lastRunAt: "2026-01-01",
+        lastUpdatedAt: "2026-01-02",
+      };
+      fetchMock.mockReturnValue(jsonResponse(thread));
+
+      const result = await client.createThread({
+        threadId: "t-1",
+        userId: "user-1",
+        agentId: "agent-1",
+      });
+
+      expect(result).toEqual(thread);
+      const [url, opts] = fetchMock.mock.calls[0];
+      expect(url).toBe("https://api.example.com/api/threads");
+      expect(opts.method).toBe("POST");
+      expect(JSON.parse(opts.body)).toEqual({
+        threadId: "t-1",
+        userId: "user-1",
+        agentId: "agent-1",
+      });
+    });
+  });
+
   describe("archiveThread", () => {
     it("sends POST to archive endpoint with userId and agentId", async () => {
       fetchMock.mockReturnValue(jsonResponse(undefined));
@@ -136,7 +164,7 @@ describe("IntelligencePlatformClient", () => {
       });
 
       const [url, opts] = fetchMock.mock.calls[0];
-      expect(url).toBe("https://api.example.com/v1/threads/t-1/archive");
+      expect(url).toBe("https://api.example.com/api/threads/t-1/archive");
       expect(opts.method).toBe("POST");
       expect(JSON.parse(opts.body)).toEqual({
         userId: "user-1",
@@ -156,7 +184,7 @@ describe("IntelligencePlatformClient", () => {
       });
 
       const [url, opts] = fetchMock.mock.calls[0];
-      expect(url).toBe("https://api.example.com/v1/threads/t-1");
+      expect(url).toBe("https://api.example.com/api/threads/t-1");
       expect(opts.method).toBe("DELETE");
       expect(JSON.parse(opts.body)).toEqual({
         userId: "user-1",
@@ -166,14 +194,16 @@ describe("IntelligencePlatformClient", () => {
   });
 
   describe("acquireThreadLock", () => {
-    it("sends POST to lock endpoint and returns joinCode", async () => {
-      fetchMock.mockReturnValue(jsonResponse({ joinCode: "jc-lock" }));
+    it("sends POST to lock endpoint and returns thread connection credentials", async () => {
+      fetchMock.mockReturnValue(
+        jsonResponse({ joinToken: "jt-lock", joinCode: "jc-lock" }),
+      );
 
       const result = await client.acquireThreadLock({ threadId: "t-1" });
 
-      expect(result).toEqual({ joinCode: "jc-lock" });
+      expect(result).toEqual({ joinToken: "jt-lock", joinCode: "jc-lock" });
       const [url, opts] = fetchMock.mock.calls[0];
-      expect(url).toBe("https://api.example.com/v1/threads/t-1/lock");
+      expect(url).toBe("https://api.example.com/api/threads/t-1/lock");
       expect(opts.method).toBe("POST");
     });
 
@@ -190,14 +220,16 @@ describe("IntelligencePlatformClient", () => {
   });
 
   describe("getActiveJoinCode", () => {
-    it("sends GET to join-code endpoint and returns joinCode", async () => {
-      fetchMock.mockReturnValue(jsonResponse({ joinCode: "jc-active" }));
+    it("sends GET to join-code endpoint and returns thread connection credentials", async () => {
+      fetchMock.mockReturnValue(
+        jsonResponse({ joinToken: "jt-active", joinCode: "jc-active" }),
+      );
 
       const result = await client.getActiveJoinCode({ threadId: "t-1" });
 
-      expect(result).toEqual({ joinCode: "jc-active" });
+      expect(result).toEqual({ joinToken: "jt-active", joinCode: "jc-active" });
       const [url, opts] = fetchMock.mock.calls[0];
-      expect(url).toBe("https://api.example.com/v1/threads/t-1/join-code");
+      expect(url).toBe("https://api.example.com/api/threads/t-1/join-code");
       expect(opts.method).toBe("GET");
     });
 
