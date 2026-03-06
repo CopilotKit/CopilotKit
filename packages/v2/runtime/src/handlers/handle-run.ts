@@ -1,13 +1,20 @@
-import { jsonResponse } from "./shared/json-response";
-import { isIntelligenceRuntime } from "../runtime";
 import {
-  cloneAgentForRequest,
-  configureAgentForRequest,
-  parseRunRequest,
-  RunAgentParameters,
-} from "./shared/agent-utils";
-import { handleIntelligenceRun } from "./intelligence/run";
-import { handleSseRun } from "./sse/run";
+  AbstractAgent,
+  RunAgentInput,
+  RunAgentInputSchema,
+} from "@ag-ui/client";
+import { A2UIMiddleware } from "@ag-ui/a2ui-middleware";
+import { MCPAppsMiddleware } from "@ag-ui/mcp-apps-middleware";
+import { EventEncoder } from "@ag-ui/encoder";
+import { CopilotRuntime } from "../runtime";
+import { extractForwardableHeaders } from "./header-utils";
+import { IntelligenceAgentRunner } from "../runner/intelligence";
+
+interface RunAgentParameters {
+  request: Request;
+  runtime: CopilotRuntime;
+  agentId: string;
+}
 
 export async function handleRunAgent({
   runtime,
@@ -15,33 +22,225 @@ export async function handleRunAgent({
   agentId,
 }: RunAgentParameters) {
   try {
-    const agent = await cloneAgentForRequest(runtime, agentId);
-    if (agent instanceof Response) {
-      return agent;
+    const agents = await runtime.agents;
+
+    // Check if the requested agent exists
+    if (!agents[agentId]) {
+      return new Response(
+        JSON.stringify({
+          error: "Agent not found",
+          message: `Agent '${agentId}' does not exist`,
+        }),
+        {
+          status: 404,
+          headers: { "Content-Type": "application/json" },
+        },
+      );
     }
 
-    configureAgentForRequest({ runtime, request, agentId, agent });
+    const registeredAgent = agents[agentId] as AbstractAgent;
+    const agent = registeredAgent.clone() as AbstractAgent;
 
-    const input = await parseRunRequest(request);
-    if (input instanceof Response) {
-      return input;
+    // Apply runtime-level A2UI middleware if configured
+    if (runtime.a2ui) {
+      const { agents: targetAgents, ...a2uiOptions } = runtime.a2ui;
+      const shouldApply = !targetAgents || targetAgents.includes(agentId);
+      if (
+        shouldApply &&
+        "use" in agent &&
+        typeof (agent as any).use === "function"
+      ) {
+        (agent as any).use(new A2UIMiddleware(a2uiOptions));
+      }
+    }
+
+    if (runtime.mcpApps?.servers?.length) {
+      // Filter to servers that target this agent or have no agentId restriction
+      const mcpServers = runtime.mcpApps.servers
+        .filter((s) => !s.agentId || s.agentId === agentId)
+        .map(({ agentId: _, ...server }) => server);
+
+      if (
+        mcpServers.length > 0 &&
+        "use" in agent &&
+        typeof (agent as any).use === "function"
+      ) {
+        (agent as any).use(new MCPAppsMiddleware({ mcpServers }));
+      }
+    }
+
+    if (agent && "headers" in agent) {
+      const forwardableHeaders = extractForwardableHeaders(request);
+      agent.headers = {
+        ...(agent.headers as Record<string, string>),
+        ...forwardableHeaders,
+      };
+    }
+
+    // Parse and validate input BEFORE creating the stream
+    // so we can return a proper error response
+    let input: RunAgentInput;
+    try {
+      const requestBody = await request.json();
+      input = RunAgentInputSchema.parse(requestBody);
+    } catch (error) {
+      console.error("Invalid run request body:", error);
+      return new Response(
+        JSON.stringify({
+          error: "Invalid request body",
+          details: error instanceof Error ? error.message : String(error),
+        }),
+        {
+          status: 400,
+          headers: { "Content-Type": "application/json" },
+        },
+      );
     }
 
     agent.setMessages(input.messages);
     agent.setState(input.state);
     agent.threadId = input.threadId;
 
-    if (isIntelligenceRuntime(runtime)) {
-      return handleIntelligenceRun({
-        runtime,
-        request,
-        agentId,
-        agent,
-        input,
+    // For IntelligenceAgentRunner, acquire a thread lock and return the
+    // join code so the client can connect to the Phoenix channel directly.
+    if (runtime.runner instanceof IntelligenceAgentRunner) {
+      if (!runtime.intelligencePlatform) {
+        return new Response(
+          JSON.stringify({
+            error: "Intelligence platform not configured",
+            message:
+              "IntelligenceAgentRunner requires an intelligencePlatform client",
+          }),
+          {
+            status: 500,
+            headers: { "Content-Type": "application/json" },
+          },
+        );
+      }
+
+      let joinCode: string;
+      try {
+        const lockResult = await runtime.intelligencePlatform.acquireThreadLock(
+          {
+            threadId: input.threadId,
+          },
+        );
+        joinCode = lockResult.joinCode;
+      } catch (error) {
+        return new Response(
+          JSON.stringify({
+            error: "Thread lock denied",
+            message: error instanceof Error ? error.message : String(error),
+          }),
+          {
+            status: 409,
+            headers: { "Content-Type": "application/json" },
+          },
+        );
+      }
+
+      // Kick off the agent run in the background with the join code.
+      runtime.runner
+        .run({
+          threadId: input.threadId,
+          agent,
+          input,
+          joinCode,
+        })
+        .subscribe({
+          error: (error) => {
+            console.error("Error running agent:", error);
+          },
+        });
+
+      return new Response(JSON.stringify({ joinCode }), {
+        status: 200,
+        headers: {
+          "Content-Type": "application/json",
+          "Cache-Control": "no-cache",
+          Connection: "keep-alive",
+        },
       });
     }
 
-    return handleSseRun({ runtime, request, agent, input });
+    // Non-intelligence runner: stream SSE events directly.
+    const stream = new TransformStream();
+    const writer = stream.writable.getWriter();
+    const encoder = new EventEncoder();
+    let streamClosed = false;
+
+    // Process the agent run in the background
+    (async () => {
+      runtime.runner
+        .run({
+          threadId: input.threadId,
+          agent,
+          input,
+        })
+        .subscribe({
+          next: async (event) => {
+            if (!request.signal.aborted && !streamClosed) {
+              try {
+                await writer.write(encoder.encode(event));
+              } catch (error) {
+                if (error instanceof Error && error.name === "AbortError") {
+                  streamClosed = true;
+                }
+              }
+            }
+          },
+          error: async (error) => {
+            console.error("Error running agent:", error);
+            if (!streamClosed) {
+              try {
+                await writer.close();
+                streamClosed = true;
+              } catch {
+                // Stream already closed
+              }
+            }
+          },
+          complete: async () => {
+            if (!streamClosed) {
+              try {
+                await writer.close();
+                streamClosed = true;
+              } catch {
+                // Stream already closed
+              }
+            }
+          },
+        });
+    })().catch((error) => {
+      console.error("Error running agent:", error);
+      console.error(
+        "Error stack:",
+        error instanceof Error ? error.stack : "No stack trace",
+      );
+      console.error("Error details:", {
+        name: error instanceof Error ? error.name : "Unknown",
+        message: error instanceof Error ? error.message : String(error),
+        cause: error instanceof Error ? error.cause : undefined,
+      });
+      if (!streamClosed) {
+        try {
+          writer.close();
+          streamClosed = true;
+        } catch {
+          // Stream already closed
+        }
+      }
+    });
+
+    // Return the SSE response
+    return new Response(stream.readable, {
+      status: 200,
+      headers: {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+        Connection: "keep-alive",
+      },
+    });
   } catch (error) {
     console.error("Error running agent:", error);
     console.error(
@@ -54,12 +253,15 @@ export async function handleRunAgent({
       cause: error instanceof Error ? error.cause : undefined,
     });
 
-    return jsonResponse(
-      {
+    return new Response(
+      JSON.stringify({
         error: "Failed to run agent",
         message: error instanceof Error ? error.message : "Unknown error",
+      }),
+      {
+        status: 500,
+        headers: { "Content-Type": "application/json" },
       },
-      500,
     );
   }
 }
