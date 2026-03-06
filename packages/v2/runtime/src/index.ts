@@ -6,3 +6,6 @@ export * from "./runner";
 
 // Export transcription services
 export * from "./transcription-service/transcription-service";
+
+// Export intelligence platform client and types
+export * from "./intelligence-platform";

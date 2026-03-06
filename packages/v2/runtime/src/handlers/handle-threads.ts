@@ -1,24 +1,6 @@
 import { CopilotRuntime } from "../runtime";
 import { logger } from "@copilotkitnext/shared";
 
-// -- Shared types -----------------------------------------------------------
-
-export interface ThreadSummary {
-  id: string;
-  name: string;
-  lastRunAt: string;
-  lastUpdatedAt: string;
-}
-
-interface ThreadsHandlerParams {
-  runtime: CopilotRuntime;
-  request: Request;
-}
-
-interface ThreadMutationParams extends ThreadsHandlerParams {
-  threadId: string;
-}
-
 // -- JSON helpers -----------------------------------------------------------
 
 const JSON_HEADERS = { "Content-Type": "application/json" } as const;
@@ -31,12 +13,36 @@ function errorResponse(message: string, status: number): Response {
   return jsonResponse({ error: message }, status);
 }
 
+function requirePlatform(runtime: CopilotRuntime): Response | null {
+  if (!runtime.intelligencePlatform) {
+    return errorResponse(
+      "Intelligence platform is not configured. Provide intelligencePlatform in CopilotRuntime options.",
+      501,
+    );
+  }
+  return null;
+}
+
+// -- Shared param types -----------------------------------------------------
+
+interface ThreadsHandlerParams {
+  runtime: CopilotRuntime;
+  request: Request;
+}
+
+interface ThreadMutationParams extends ThreadsHandlerParams {
+  threadId: string;
+}
+
 // -- GET /threads -----------------------------------------------------------
 
 export async function handleListThreads({
   runtime,
   request,
 }: ThreadsHandlerParams): Promise<Response> {
+  const notConfigured = requirePlatform(runtime);
+  if (notConfigured) return notConfigured;
+
   try {
     const url = new URL(request.url);
     const userId = url.searchParams.get("userId");
@@ -46,12 +52,12 @@ export async function handleListThreads({
       return errorResponse("userId and agentId query params are required", 400);
     }
 
-    // TODO: call into intelligence platform to list threads
-    // const { threads, joinCode } = await runtime.intelligence.listThreads({ userId, agentId });
-    const threads: ThreadSummary[] = [];
-    const joinCode: string = "";
+    const data = await runtime.intelligencePlatform!.listThreads({
+      userId,
+      agentId,
+    });
 
-    return jsonResponse({ threads, joinCode });
+    return jsonResponse(data);
   } catch (error) {
     logger.error({ err: error }, "Error listing threads");
     return errorResponse(
@@ -68,6 +74,9 @@ export async function handleUpdateThread({
   request,
   threadId,
 }: ThreadMutationParams): Promise<Response> {
+  const notConfigured = requirePlatform(runtime);
+  if (notConfigured) return notConfigured;
+
   try {
     const body = await request.json();
     const { userId, agentId, ...updates } = body as Record<string, unknown>;
@@ -76,10 +85,14 @@ export async function handleUpdateThread({
       return errorResponse("userId and agentId are required", 400);
     }
 
-    // TODO: call into intelligence platform to update thread
-    // const thread = await runtime.intelligence.updateThread({ threadId, userId, agentId, ...updates });
+    const thread = await runtime.intelligencePlatform!.updateThread({
+      threadId,
+      userId: userId as string,
+      agentId: agentId as string,
+      updates,
+    });
 
-    return jsonResponse({ threadId, updated: true });
+    return jsonResponse(thread);
   } catch (error) {
     logger.error({ err: error, threadId }, "Error updating thread");
     return errorResponse(
@@ -96,6 +109,9 @@ export async function handleArchiveThread({
   request,
   threadId,
 }: ThreadMutationParams): Promise<Response> {
+  const notConfigured = requirePlatform(runtime);
+  if (notConfigured) return notConfigured;
+
   try {
     const body = await request.json();
     const { userId, agentId } = body as Record<string, unknown>;
@@ -104,8 +120,11 @@ export async function handleArchiveThread({
       return errorResponse("userId and agentId are required", 400);
     }
 
-    // TODO: call into intelligence platform to archive thread
-    // await runtime.intelligence.archiveThread({ threadId, userId, agentId });
+    await runtime.intelligencePlatform!.archiveThread({
+      threadId,
+      userId: userId as string,
+      agentId: agentId as string,
+    });
 
     return jsonResponse({ threadId, archived: true });
   } catch (error) {
@@ -124,6 +143,9 @@ export async function handleDeleteThread({
   request,
   threadId,
 }: ThreadMutationParams): Promise<Response> {
+  const notConfigured = requirePlatform(runtime);
+  if (notConfigured) return notConfigured;
+
   try {
     const body = await request.json();
     const { userId, agentId } = body as Record<string, unknown>;
@@ -132,8 +154,11 @@ export async function handleDeleteThread({
       return errorResponse("userId and agentId are required", 400);
     }
 
-    // TODO: call into intelligence platform to soft-delete thread
-    // await runtime.intelligence.deleteThread({ threadId, userId, agentId });
+    await runtime.intelligencePlatform!.deleteThread({
+      threadId,
+      userId: userId as string,
+      agentId: agentId as string,
+    });
 
     return jsonResponse({ threadId, deleted: true });
   } catch (error) {
