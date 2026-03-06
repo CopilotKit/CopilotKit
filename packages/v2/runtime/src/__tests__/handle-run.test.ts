@@ -4,6 +4,8 @@ import { AbstractAgent, BaseEvent, HttpAgent } from "@ag-ui/client";
 import { A2UIMiddleware } from "@ag-ui/a2ui-middleware";
 import { handleRunAgent } from "../handlers/handle-run";
 import { CopilotRuntime } from "../runtime";
+import { IntelligenceAgentRunner } from "../runner/intelligence";
+import { IntelligencePlatformClient } from "../intelligence-platform/client";
 
 describe("handleRunAgent", () => {
   const createMockRuntime = (
@@ -282,5 +284,121 @@ describe("handleRunAgent", () => {
     });
 
     expect(useSpy).not.toHaveBeenCalled();
+  });
+
+  describe("IntelligenceAgentRunner join code path", () => {
+    const createIntelligenceRuntime = (
+      agent: AbstractAgent,
+      platform?: Partial<IntelligencePlatformClient>,
+    ) => {
+      const runner = Object.create(IntelligenceAgentRunner.prototype);
+      runner.run = vi.fn(
+        () =>
+          new Observable<BaseEvent>((subscriber) => {
+            subscriber.complete();
+          }),
+      );
+      return {
+        agents: Promise.resolve({ "my-agent": agent }),
+        transcriptionService: undefined,
+        beforeRequestMiddleware: undefined,
+        afterRequestMiddleware: undefined,
+        runner,
+        intelligencePlatform: platform,
+      } as unknown as CopilotRuntime;
+    };
+
+    const createAgentForIntelligence = () => {
+      const agent = {
+        clone: () => ({
+          ...agent,
+          setMessages: vi.fn(),
+          setState: vi.fn(),
+          threadId: undefined,
+          headers: {},
+        }),
+        setMessages: vi.fn(),
+        setState: vi.fn(),
+        threadId: undefined,
+        headers: {},
+      } as unknown as AbstractAgent;
+      return agent;
+    };
+
+    it("returns joinCode JSON when lock is acquired", async () => {
+      const agent = createAgentForIntelligence();
+      const platform = {
+        acquireThreadLock: vi.fn().mockResolvedValue({ joinCode: "jc-123" }),
+      };
+      const runtime = createIntelligenceRuntime(agent, platform as any);
+
+      const response = await handleRunAgent({
+        runtime,
+        request: createRunRequest(),
+        agentId: "my-agent",
+      });
+
+      expect(response.status).toBe(200);
+      expect(response.headers.get("Content-Type")).toBe("application/json");
+      const body = await response.json();
+      expect(body).toEqual({ joinCode: "jc-123" });
+      expect(platform.acquireThreadLock).toHaveBeenCalledWith({
+        threadId: "thread-1",
+      });
+    });
+
+    it("passes joinCode to runner.run()", async () => {
+      const agent = createAgentForIntelligence();
+      const platform = {
+        acquireThreadLock: vi.fn().mockResolvedValue({ joinCode: "jc-456" }),
+      };
+      const runtime = createIntelligenceRuntime(agent, platform as any);
+
+      await handleRunAgent({
+        runtime,
+        request: createRunRequest(),
+        agentId: "my-agent",
+      });
+
+      expect(runtime.runner.run).toHaveBeenCalledWith(
+        expect.objectContaining({ joinCode: "jc-456" }),
+      );
+    });
+
+    it("returns 409 when thread lock is denied", async () => {
+      const agent = createAgentForIntelligence();
+      const platform = {
+        acquireThreadLock: vi
+          .fn()
+          .mockRejectedValue(new Error("Thread is locked by another runner")),
+      };
+      const runtime = createIntelligenceRuntime(agent, platform as any);
+
+      const response = await handleRunAgent({
+        runtime,
+        request: createRunRequest(),
+        agentId: "my-agent",
+      });
+
+      expect(response.status).toBe(409);
+      const body = await response.json();
+      expect(body.error).toBe("Thread lock denied");
+      expect(body.message).toContain("Thread is locked by another runner");
+    });
+
+    it("returns 500 when intelligencePlatform is not configured", async () => {
+      const agent = createAgentForIntelligence();
+      const runtime = createIntelligenceRuntime(agent, undefined);
+
+      const response = await handleRunAgent({
+        runtime,
+        request: createRunRequest(),
+        agentId: "my-agent",
+      });
+
+      expect(response.status).toBe(500);
+      const body = await response.json();
+      expect(body.error).toBe("Intelligence platform not configured");
+    });
   });
 });

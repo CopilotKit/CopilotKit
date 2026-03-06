@@ -1,9 +1,11 @@
 import { Observable } from "rxjs";
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { BaseEvent } from "@ag-ui/client";
 import { handleConnectAgent } from "../handlers/handle-connect";
 import { CopilotRuntime } from "../runtime";
 import { AgentRunnerConnectRequest } from "../runner/agent-runner";
+import { IntelligenceAgentRunner } from "../runner/intelligence";
+import { IntelligencePlatformClient } from "../intelligence-platform/client";
 
 describe("handleConnectAgent", () => {
   const createMockRuntime = (
@@ -183,5 +185,101 @@ describe("handleConnectAgent", () => {
 
     expect(recordedRequests).toHaveLength(1);
     expect(recordedRequests[0].headers).toEqual({});
+  });
+
+  describe("IntelligenceAgentRunner join code path", () => {
+    const createConnectRequest = () =>
+      new Request("https://example.com/agent/my-agent/connect", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          threadId: "thread-1",
+          runId: "run-1",
+          state: {},
+          messages: [],
+          tools: [],
+          context: [],
+          forwardedProps: {},
+        }),
+      });
+
+    const createIntelligenceRuntime = (
+      platform?: Partial<IntelligencePlatformClient>,
+    ) => {
+      const runner = Object.create(IntelligenceAgentRunner.prototype);
+      runner.connect = vi.fn(
+        () =>
+          new Observable<BaseEvent>((subscriber) => {
+            subscriber.complete();
+          }),
+      );
+      return {
+        agents: Promise.resolve({
+          "my-agent": { clone: () => ({}) },
+        }),
+        transcriptionService: undefined,
+        beforeRequestMiddleware: undefined,
+        afterRequestMiddleware: undefined,
+        runner,
+        intelligencePlatform: platform,
+      } as unknown as CopilotRuntime;
+    };
+
+    it("returns joinCode JSON when join code is available", async () => {
+      const platform = {
+        getActiveJoinCode: vi
+          .fn()
+          .mockResolvedValue({ joinCode: "jc-connect-1" }),
+      };
+      const runtime = createIntelligenceRuntime(platform as any);
+
+      const response = await handleConnectAgent({
+        runtime,
+        request: createConnectRequest(),
+        agentId: "my-agent",
+      });
+
+      expect(response.status).toBe(200);
+      expect(response.headers.get("Content-Type")).toBe("application/json");
+      const body = await response.json();
+      expect(body).toEqual({ joinCode: "jc-connect-1" });
+      expect(platform.getActiveJoinCode).toHaveBeenCalledWith({
+        threadId: "thread-1",
+      });
+    });
+
+    it("returns 404 when join code is not available", async () => {
+      const platform = {
+        getActiveJoinCode: vi
+          .fn()
+          .mockRejectedValue(new Error("No active join code")),
+      };
+      const runtime = createIntelligenceRuntime(platform as any);
+
+      const response = await handleConnectAgent({
+        runtime,
+        request: createConnectRequest(),
+        agentId: "my-agent",
+      });
+
+      expect(response.status).toBe(404);
+      const body = await response.json();
+      expect(body.error).toBe("Join code not available");
+      expect(body.message).toContain("No active join code");
+    });
+
+    it("returns 500 when intelligencePlatform is not configured", async () => {
+      const runtime = createIntelligenceRuntime(undefined);
+
+      const response = await handleConnectAgent({
+        runtime,
+        request: createConnectRequest(),
+        agentId: "my-agent",
+      });
+
+      expect(response.status).toBe(500);
+      const body = await response.json();
+      expect(body.error).toBe("Intelligence platform not configured");
+    });
   });
 });

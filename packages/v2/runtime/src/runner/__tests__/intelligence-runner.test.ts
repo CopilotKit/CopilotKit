@@ -394,6 +394,49 @@ describe("IntelligenceAgentRunner", () => {
     });
   });
 
+  describe("run with joinCode", () => {
+    it("uses joinCode for the channel topic when provided", async () => {
+      const threadId = "t-jc";
+      const joinCode = "join-abc-123";
+      const input = createRunInput({ threadId, runId: "r-jc" });
+      const agent = new MockAgent([
+        {
+          type: EventType.RUN_FINISHED,
+          threadId,
+          runId: "r-jc",
+        } as RunFinishedEvent,
+      ]);
+
+      const eventsPromise = collectEvents(
+        runner.run({ threadId, agent, input, joinCode }),
+      );
+      const ch = mockChannels[0];
+      expect(ch.topic).toBe(`agent:${joinCode}`);
+      ch.triggerJoin("ok");
+      await eventsPromise;
+    });
+
+    it("falls back to threadId when joinCode is not provided", async () => {
+      const threadId = "t-no-jc";
+      const input = createRunInput({ threadId, runId: "r-no-jc" });
+      const agent = new MockAgent([
+        {
+          type: EventType.RUN_FINISHED,
+          threadId,
+          runId: "r-no-jc",
+        } as RunFinishedEvent,
+      ]);
+
+      const eventsPromise = collectEvents(
+        runner.run({ threadId, agent, input }),
+      );
+      const ch = mockChannels[0];
+      expect(ch.topic).toBe(`agent:${threadId}`);
+      ch.triggerJoin("ok");
+      await eventsPromise;
+    });
+  });
+
   describe("connect", () => {
     it("forwards events and completes on RUN_FINISHED", async () => {
       const threadId = "t-connect";
@@ -430,6 +473,25 @@ describe("IntelligenceAgentRunner", () => {
         name: "connect",
         value: { threadId },
       });
+      sub.unsubscribe();
+    });
+
+    it("uses joinCode for the channel topic when provided", () => {
+      const threadId = "t-connect-jc";
+      const joinCode = "join-connect-456";
+      const sub = runner.connect({ threadId, joinCode }).subscribe();
+      const ch = mockChannels[0];
+
+      expect(ch.topic).toBe(`agent:${joinCode}`);
+      sub.unsubscribe();
+    });
+
+    it("falls back to threadId when joinCode is not provided", () => {
+      const threadId = "t-connect-no-jc";
+      const sub = runner.connect({ threadId }).subscribe();
+      const ch = mockChannels[0];
+
+      expect(ch.topic).toBe(`agent:${threadId}`);
       sub.unsubscribe();
     });
 
