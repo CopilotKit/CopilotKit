@@ -345,6 +345,120 @@ describe("useThreads", () => {
     });
   });
 
+  describe("real-time updates via channel", () => {
+    it("adds a new thread when receiving a 'created' event", async () => {
+      fetchMock.mockReturnValue(
+        jsonResponse({ threads: sampleThreads, joinCode: "jc-rt" }),
+      );
+
+      const { result } = renderHook(() => useThreads(defaultInput));
+
+      await waitFor(() => {
+        expect(result.current.isLoading).toBe(false);
+      });
+
+      const socket = getMockSockets()[0];
+      const ch = socket.channels[0];
+
+      const newThread = {
+        id: "t-3",
+        name: "Thread Three",
+        lastRunAt: "2026-01-03T00:00:00Z",
+        lastUpdatedAt: "2026-01-03T00:00:00Z",
+      };
+
+      act(() => {
+        ch.serverPush("threads:update", {
+          action: "created",
+          thread: newThread,
+        });
+      });
+
+      expect(result.current.threads).toHaveLength(3);
+      expect(result.current.threads[0]).toEqual(newThread);
+    });
+
+    it("updates a thread in-place when receiving an 'updated' event", async () => {
+      fetchMock.mockReturnValue(
+        jsonResponse({ threads: sampleThreads, joinCode: "jc-rt2" }),
+      );
+
+      const { result } = renderHook(() => useThreads(defaultInput));
+
+      await waitFor(() => {
+        expect(result.current.isLoading).toBe(false);
+      });
+
+      const socket = getMockSockets()[0];
+      const ch = socket.channels[0];
+
+      const updatedThread = {
+        ...sampleThreads[0],
+        name: "Renamed Thread",
+      };
+
+      act(() => {
+        ch.serverPush("threads:update", {
+          action: "updated",
+          thread: updatedThread,
+        });
+      });
+
+      expect(result.current.threads).toHaveLength(2);
+      expect(result.current.threads[0].name).toBe("Renamed Thread");
+    });
+
+    it("removes a thread when receiving a 'deleted' event", async () => {
+      fetchMock.mockReturnValue(
+        jsonResponse({ threads: sampleThreads, joinCode: "jc-rt3" }),
+      );
+
+      const { result } = renderHook(() => useThreads(defaultInput));
+
+      await waitFor(() => {
+        expect(result.current.isLoading).toBe(false);
+      });
+
+      const socket = getMockSockets()[0];
+      const ch = socket.channels[0];
+
+      act(() => {
+        ch.serverPush("threads:update", {
+          action: "deleted",
+          threadId: "t-1",
+        });
+      });
+
+      expect(result.current.threads).toHaveLength(1);
+      expect(result.current.threads[0].id).toBe("t-2");
+    });
+
+    it("removes a thread when receiving an 'archived' event", async () => {
+      fetchMock.mockReturnValue(
+        jsonResponse({ threads: sampleThreads, joinCode: "jc-rt4" }),
+      );
+
+      const { result } = renderHook(() => useThreads(defaultInput));
+
+      await waitFor(() => {
+        expect(result.current.isLoading).toBe(false);
+      });
+
+      const socket = getMockSockets()[0];
+      const ch = socket.channels[0];
+
+      act(() => {
+        ch.serverPush("threads:update", {
+          action: "archived",
+          threadId: "t-2",
+        });
+      });
+
+      expect(result.current.threads).toHaveLength(1);
+      expect(result.current.threads[0].id).toBe("t-1");
+    });
+  });
+
   describe("cleanup", () => {
     it("tears down channel and socket on unmount", async () => {
       fetchMock.mockReturnValue(
