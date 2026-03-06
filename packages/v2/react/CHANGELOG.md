@@ -1,5 +1,14 @@
 # @copilotkitnext/react
 
+## 1.53.1-next.1
+
+### Patch Changes
+
+- @copilotkit/a2ui-renderer@1.53.1-next.1
+- @copilotkitnext/core@1.53.1-next.1
+- @copilotkitnext/shared@1.53.1-next.1
+- @copilotkitnext/web-inspector@1.53.1-next.1
+
 ## 1.53.1-next.0
 
 ### Patch Changes
