@@ -523,7 +523,7 @@ export function CopilotChatMessageView({
     <div
       data-copilotkit
       data-testid="copilot-message-list"
-      className={twMerge("cpk:flex cpk:flex-col", className)}
+      className={twMerge("copilotKitMessages cpk:flex cpk:flex-col", className)}
       {...props}
     >
       {messageElements}

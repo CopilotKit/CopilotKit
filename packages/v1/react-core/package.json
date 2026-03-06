@@ -10,7 +10,7 @@
   "publishConfig": {
     "access": "public"
   },
-  "version": "1.52.2-next.2",
+  "version": "1.53.0",
   "sideEffects": [
     "**/*.css"
   ],
@@ -67,7 +67,7 @@
     "zod": ">=3.0.0"
   },
   "dependencies": {
-    "@ag-ui/client": "^0.0.46",
+    "@ag-ui/client": "^0.0.47",
     "@copilotkit/runtime-client-gql": "workspace:*",
     "@copilotkit/shared": "workspace:*",
     "@copilotkitnext/core": "workspace:*",

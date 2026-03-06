@@ -53,6 +53,16 @@ export class CopilotKitCoreReact extends CopilotKitCore {
     return this._renderToolCalls;
   }
 
+  setRenderActivityMessages(
+    renderers: ReactActivityMessageRenderer<any>[],
+  ): void {
+    this._renderActivityMessages = renderers;
+  }
+
+  setRenderCustomMessages(renderers: ReactCustomMessageRenderer[]): void {
+    this._renderCustomMessages = renderers;
+  }
+
   setRenderToolCalls(renderToolCalls: ReactToolCallRenderer<any>[]): void {
     this._renderToolCalls = renderToolCalls;
 

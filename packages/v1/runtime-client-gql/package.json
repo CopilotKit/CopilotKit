@@ -9,7 +9,7 @@
   "publishConfig": {
     "access": "public"
   },
-  "version": "1.52.2-next.2",
+  "version": "1.53.0",
   "sideEffects": false,
   "main": "./dist/index.cjs",
   "module": "./dist/index.mjs",
@@ -60,7 +60,6 @@
     "vitest": "^3.2.4"
   },
   "dependencies": {
-    "@copilotkit/runtime": "workspace:*",
     "@copilotkit/shared": "workspace:*",
     "@urql/core": "^5.0.3",
     "untruncate-json": "^0.0.1",

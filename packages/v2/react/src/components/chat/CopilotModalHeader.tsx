@@ -64,6 +64,7 @@ export function CopilotModalHeader({
       data-testid="copilot-modal-header"
       data-slot="copilot-modal-header"
       className={cn(
+        "copilotKitHeader",
         "cpk:flex cpk:items-center cpk:justify-between cpk:border-b cpk:border-border cpk:px-4 cpk:py-4",
         "cpk:bg-background/95 cpk:backdrop-blur cpk:supports-[backdrop-filter]:bg-background/80",
         className,

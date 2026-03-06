@@ -1,6 +1,7 @@
 import { Observable } from "rxjs";
 import { describe, it, expect, vi } from "vitest";
 import { AbstractAgent, BaseEvent, HttpAgent } from "@ag-ui/client";
+import { A2UIMiddleware } from "@ag-ui/a2ui-middleware";
 import { handleRunAgent } from "../handlers/handle-run";
 import { CopilotRuntime } from "../runtime";
 
@@ -157,5 +158,129 @@ describe("handleRunAgent", () => {
     });
     expect(recordedHeaders[0]).not.toHaveProperty("origin");
     expect(recordedHeaders[0]).not.toHaveProperty("content-type");
+  });
+
+  const createMockAgentWithUse = () => {
+    const useSpy = vi.fn();
+    const agent = {
+      clone: () => ({ ...agent, use: useSpy }),
+      use: useSpy,
+    } as unknown as AbstractAgent;
+    return { agent, useSpy };
+  };
+
+  const createMockRunner = () => ({
+    run: () =>
+      new Observable<BaseEvent>((subscriber) => {
+        subscriber.complete();
+      }),
+    connect: () =>
+      new Observable<BaseEvent>((subscriber) => {
+        subscriber.complete();
+      }),
+    isRunning: async () => false,
+    stop: async () => false,
+  });
+
+  const createRunRequest = () =>
+    new Request("https://example.com/agent/my-agent/run", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        threadId: "thread-1",
+        runId: "run-1",
+        state: {},
+        messages: [],
+        tools: [],
+        context: [],
+        forwardedProps: {},
+      }),
+    });
+
+  it("applies A2UIMiddleware to all agents when a2ui.enabled is true and no agents filter", async () => {
+    const { agent, useSpy } = createMockAgentWithUse();
+
+    const runtime = {
+      agents: Promise.resolve({ "my-agent": agent }),
+      transcriptionService: undefined,
+      beforeRequestMiddleware: undefined,
+      afterRequestMiddleware: undefined,
+      runner: createMockRunner(),
+      a2ui: { enabled: true, injectA2UITool: true },
+    } as unknown as CopilotRuntime;
+
+    await handleRunAgent({
+      runtime,
+      request: createRunRequest(),
+      agentId: "my-agent",
+    });
+
+    expect(useSpy).toHaveBeenCalledOnce();
+    expect(useSpy.mock.calls[0][0]).toBeInstanceOf(A2UIMiddleware);
+  });
+
+  it("applies A2UIMiddleware only to matching agent when agents filter is set", async () => {
+    const { agent: matchingAgent, useSpy: matchingSpy } =
+      createMockAgentWithUse();
+    const { agent: otherAgent, useSpy: otherSpy } = createMockAgentWithUse();
+
+    const makeRuntime = (agentId: string, targetAgent: AbstractAgent) =>
+      ({
+        agents: Promise.resolve({ [agentId]: targetAgent }),
+        transcriptionService: undefined,
+        beforeRequestMiddleware: undefined,
+        afterRequestMiddleware: undefined,
+        runner: createMockRunner(),
+        a2ui: { enabled: true, agents: ["my-agent"] },
+      }) as unknown as CopilotRuntime;
+
+    // Should apply for "my-agent"
+    await handleRunAgent({
+      runtime: makeRuntime("my-agent", matchingAgent),
+      request: createRunRequest(),
+      agentId: "my-agent",
+    });
+    expect(matchingSpy).toHaveBeenCalledOnce();
+
+    // Should NOT apply for "other-agent"
+    const otherRequest = new Request("https://example.com/agent/other/run", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        threadId: "thread-1",
+        runId: "run-1",
+        state: {},
+        messages: [],
+        tools: [],
+        context: [],
+        forwardedProps: {},
+      }),
+    });
+    await handleRunAgent({
+      runtime: makeRuntime("other", otherAgent),
+      request: otherRequest,
+      agentId: "other",
+    });
+    expect(otherSpy).not.toHaveBeenCalled();
+  });
+
+  it("does not apply A2UIMiddleware when a2ui is omitted", async () => {
+    const { agent, useSpy } = createMockAgentWithUse();
+
+    const runtime = {
+      agents: Promise.resolve({ "my-agent": agent }),
+      transcriptionService: undefined,
+      beforeRequestMiddleware: undefined,
+      afterRequestMiddleware: undefined,
+      runner: createMockRunner(),
+    } as unknown as CopilotRuntime;
+
+    await handleRunAgent({
+      runtime,
+      request: createRunRequest(),
+      agentId: "my-agent",
+    });
+
+    expect(useSpy).not.toHaveBeenCalled();
   });
 });

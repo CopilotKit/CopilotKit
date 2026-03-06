@@ -161,11 +161,11 @@ When your agent finishes executing, **its final state becomes the single source 
 
     const YourMainContent = () => {
         // Get access to both predicted and final states
-        const { agent } = useAgent({ name: "my_agent" });
+        const { agent } = useAgent({ agentId: "my_agent" });
 
         // Add a state renderer to observe predictions
         useAgent({
-            name: "my_agent",
+            agentId: "my_agent",
             render: ({ state }) => {
                 if (!state.observed_steps?.length) return null;
                 return (

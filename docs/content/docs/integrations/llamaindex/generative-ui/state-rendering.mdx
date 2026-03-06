@@ -170,7 +170,7 @@ is a situation where a user and an agent are working together to solve a problem
       // [!code highlight:13]
       // styles omitted for brevity
       useAgent({
-        name: "my_agent", // MUST match the agent name in CopilotRuntime
+        agentId: "my_agent",
         render: ({ state }) => (
           <div>
             {state.searches?.map((search, index) => (
@@ -215,7 +215,7 @@ is a situation where a user and an agent are working together to solve a problem
 
       // [!code highlight:3]
       const { agent } = useAgent({
-        name: "my_agent", // MUST match the agent name in CopilotRuntime
+        agentId: "my_agent",
       })
 
       // ...
