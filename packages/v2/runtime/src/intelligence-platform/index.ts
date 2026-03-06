@@ -1,10 +1,7 @@
 export {
-  CopilotKitIntelligence,
-  type CopilotKitIntelligenceConfig,
-  type CreateThreadRequest,
+  IntelligencePlatformClient,
+  type IntelligencePlatformConfig,
   type ThreadSummary,
   type ListThreadsResponse,
-  type SubscribeToThreadsRequest,
-  type SubscribeToThreadsResponse,
   type UpdateThreadRequest,
 } from "./client";
