@@ -285,11 +285,12 @@ export class MockPush {
 export class MockChannel {
   public topic: string;
   public params: Record<string, any>;
-  public pushLog: Array<{ event: string; payload: any }> = [];
+  public pushLog: Array<{ event: string; payload: any; push: MockPush }> = [];
   public left = false;
 
   private handlers = new Map<string, Array<(payload: any) => void>>();
   private joinPush = new MockPush();
+  private errorHandlers: Array<(reason?: any) => void> = [];
 
   constructor(topic: string = "", params: Record<string, any> = {}) {
     this.topic = topic;
@@ -304,13 +305,18 @@ export class MockChannel {
     return this.handlers.get(event)!.length;
   }
 
+  onError(callback: (reason?: any) => void): void {
+    this.errorHandlers.push(callback);
+  }
+
   join(): MockPush {
     return this.joinPush;
   }
 
   push(event: string, payload: any): MockPush {
-    this.pushLog.push({ event, payload });
-    return new MockPush();
+    const mockPush = new MockPush();
+    this.pushLog.push({ event, payload, push: mockPush });
+    return mockPush;
   }
 
   leave(): void {
@@ -328,6 +334,11 @@ export class MockChannel {
       handler(payload);
     }
   }
+
+  /** Test helper — simulate the channel crashing server-side. */
+  triggerError(reason?: string): void {
+    for (const handler of this.errorHandlers) handler(reason);
+  }
 }
 
 export class MockSocket {
@@ -336,6 +347,9 @@ export class MockSocket {
   public connected = false;
   public disconnected = false;
   public channels: MockChannel[] = [];
+
+  private errorHandlers: Array<(error?: any) => void> = [];
+  private openHandlers: Array<() => void> = [];
 
   constructor(url: string = "", opts: Record<string, any> = {}) {
     this.url = url;
@@ -350,9 +364,27 @@ export class MockSocket {
     this.disconnected = true;
   }
 
+  onError(callback: (error?: any) => void): void {
+    this.errorHandlers.push(callback);
+  }
+
+  onOpen(callback: () => void): void {
+    this.openHandlers.push(callback);
+  }
+
   channel(topic: string, params: Record<string, any> = {}): MockChannel {
     const ch = new MockChannel(topic, params);
     this.channels.push(ch);
     return ch;
+  }
+
+  /** Test helper — simulate the WebSocket transport erroring. */
+  triggerError(error?: any): void {
+    for (const handler of this.errorHandlers) handler(error);
+  }
+
+  /** Test helper — simulate a successful (re)connection. */
+  triggerOpen(): void {
+    for (const handler of this.openHandlers) handler();
   }
 }

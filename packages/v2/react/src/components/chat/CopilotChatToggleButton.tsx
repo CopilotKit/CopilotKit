@@ -53,6 +53,7 @@ const ICON_WRAPPER_BASE =
   "cpk:pointer-events-none cpk:absolute cpk:inset-0 cpk:flex cpk:items-center cpk:justify-center cpk:will-change-transform";
 
 const BUTTON_BASE_CLASSES = cn(
+  "copilotKitButton",
   "cpk:fixed cpk:bottom-6 cpk:right-6 cpk:z-[1100] cpk:flex cpk:h-14 cpk:w-14 cpk:items-center cpk:justify-center",
   "cpk:rounded-full cpk:border cpk:border-primary cpk:bg-primary cpk:text-primary-foreground",
   "cpk:shadow-sm cpk:transition-all cpk:duration-200 cpk:ease-out",

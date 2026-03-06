@@ -190,7 +190,10 @@ export function CopilotChatAssistantMessage({
     <div
       data-copilotkit
       data-testid="copilot-assistant-message"
-      className={twMerge(className)}
+      className={twMerge(
+        "copilotKitMessage copilotKitAssistantMessage",
+        className,
+      )}
       {...props}
       data-message-id={message.id}
     >

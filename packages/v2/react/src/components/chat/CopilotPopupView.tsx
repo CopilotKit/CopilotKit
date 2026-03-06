@@ -221,6 +221,7 @@ function CopilotPopupViewInternal({
         data-testid="copilot-popup"
         data-copilot-popup
         className={cn(
+          "copilotKitPopup copilotKitWindow",
           "cpk:relative cpk:flex cpk:h-full cpk:w-full cpk:flex-col cpk:overflow-hidden cpk:bg-background cpk:text-foreground",
           "cpk:origin-bottom cpk:focus:outline-none cpk:transform-gpu cpk:transition-transform cpk:transition-opacity cpk:duration-200 cpk:ease-out",
           "cpk:md:transition-transform cpk:md:transition-opacity",
