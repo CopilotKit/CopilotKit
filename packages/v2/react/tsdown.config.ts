@@ -12,7 +12,7 @@ export default defineConfig([
     target: "es2022",
     outDir: "dist",
     unbundle: true,
-    external: ["react", "react-dom"],
+    external: ["react", "react-dom", "@copilotkit/a2ui-renderer"],
     alias: {
       "@": "./src",
     },
@@ -33,6 +33,7 @@ export default defineConfig([
     external: [
       "react",
       "react-dom",
+      "@copilotkit/a2ui-renderer",
       "@copilotkitnext/core",
       "@copilotkitnext/shared",
       "@copilotkitnext/web-inspector",
@@ -46,6 +47,7 @@ export default defineConfig([
       options.globals = {
         react: "React",
         "react-dom": "ReactDOM",
+        "@copilotkit/a2ui-renderer": "CopilotKitA2UIRenderer",
         "react/jsx-runtime": "ReactJsxRuntime",
         "@copilotkitnext/core": "CopilotKitNextCore",
         "@copilotkitnext/shared": "CopilotKitNextShared",

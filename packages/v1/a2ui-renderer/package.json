@@ -52,7 +52,6 @@
     "zod": "^3.25.75"
   },
   "peerDependencies": {
-    "@copilotkit/react-core": "workspace:*",
     "react": "^18 || ^19 || ^19.0.0-rc",
     "react-dom": "^18 || ^19 || ^19.0.0-rc"
   },
