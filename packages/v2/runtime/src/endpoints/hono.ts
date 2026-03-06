@@ -11,6 +11,12 @@ import {
 } from "../middleware";
 import { handleConnectAgent } from "../handlers/handle-connect";
 import { handleStopAgent } from "../handlers/handle-stop";
+import {
+  handleListThreads,
+  handleUpdateThread,
+  handleArchiveThread,
+  handleDeleteThread,
+} from "../handlers/handle-threads";
 
 /**
  * CORS configuration for CopilotKit endpoints.
@@ -204,6 +210,61 @@ export function createCopilotEndpoint({
           runtime,
           request,
         });
+      } catch (error) {
+        logger.error(
+          { err: error, url: request.url, path: c.req.path },
+          "Error running request handler",
+        );
+        throw error;
+      }
+    })
+    .get("/threads", async (c) => {
+      const request = c.get("modifiedRequest") || c.req.raw;
+
+      try {
+        return await handleListThreads({ runtime, request });
+      } catch (error) {
+        logger.error(
+          { err: error, url: request.url, path: c.req.path },
+          "Error running request handler",
+        );
+        throw error;
+      }
+    })
+    .patch("/threads/:threadId", async (c) => {
+      const threadId = c.req.param("threadId");
+      const request = c.get("modifiedRequest") || c.req.raw;
+
+      try {
+        return await handleUpdateThread({ runtime, request, threadId });
+      } catch (error) {
+        logger.error(
+          { err: error, url: request.url, path: c.req.path },
+          "Error running request handler",
+        );
+        throw error;
+      }
+    })
+    .post("/threads/:threadId/archive", async (c) => {
+      const threadId = c.req.param("threadId");
+      const request = c.get("modifiedRequest") || c.req.raw;
+
+      try {
+        return await handleArchiveThread({ runtime, request, threadId });
+      } catch (error) {
+        logger.error(
+          { err: error, url: request.url, path: c.req.path },
+          "Error running request handler",
+        );
+        throw error;
+      }
+    })
+    .delete("/threads/:threadId", async (c) => {
+      const threadId = c.req.param("threadId");
+      const request = c.get("modifiedRequest") || c.req.raw;
+
+      try {
+        return await handleDeleteThread({ runtime, request, threadId });
       } catch (error) {
         logger.error(
           { err: error, url: request.url, path: c.req.path },

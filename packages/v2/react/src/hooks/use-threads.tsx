@@ -10,6 +10,10 @@ export interface Thread {
   lastUpdatedAt: string;
 }
 
+export interface UpdateThreadInput {
+  name?: string;
+}
+
 export interface UseThreadsInput {
   userId: string;
   agentId: string;
@@ -20,6 +24,9 @@ export interface UseThreadsResult {
   isLoading: boolean;
   error: Error | null;
   refetch: () => void;
+  updateThread: (threadId: string, input: UpdateThreadInput) => Promise<void>;
+  archiveThread: (threadId: string) => Promise<void>;
+  deleteThread: (threadId: string) => Promise<void>;
 }
 
 const THREADS_CHANNEL_EVENT = "threads:update";
@@ -85,6 +92,70 @@ export function useThreads({
     [agentId, copilotkit.runtimeUrl, teardownChannel],
   );
 
+  const runtimeRequest = useCallback(
+    async (path: string, method: string, body?: Record<string, unknown>) => {
+      const runtimeUrl = copilotkit.runtimeUrl;
+      if (!runtimeUrl) {
+        throw new Error("Runtime URL is not configured");
+      }
+
+      const headers: Record<string, string> = {
+        ...copilotkit.headers,
+        "Content-Type": "application/json",
+      };
+
+      const response = await fetch(`${runtimeUrl}${path}`, {
+        method,
+        headers,
+        body: body ? JSON.stringify(body) : undefined,
+      });
+
+      if (!response.ok) {
+        throw new Error(`Request failed: ${response.status}`);
+      }
+
+      return response;
+    },
+    [copilotkit.runtimeUrl, copilotkit.headers],
+  );
+
+  const updateThread = useCallback(
+    async (threadId: string, input: UpdateThreadInput) => {
+      await runtimeRequest(
+        `/threads/${encodeURIComponent(threadId)}`,
+        "PATCH",
+        {
+          ...input,
+          userId,
+          agentId,
+        },
+      );
+    },
+    [runtimeRequest, userId, agentId],
+  );
+
+  const archiveThread = useCallback(
+    async (threadId: string) => {
+      await runtimeRequest(
+        `/threads/${encodeURIComponent(threadId)}/archive`,
+        "POST",
+        { userId, agentId },
+      );
+    },
+    [runtimeRequest, userId, agentId],
+  );
+
+  const deleteThread = useCallback(
+    async (threadId: string) => {
+      await runtimeRequest(
+        `/threads/${encodeURIComponent(threadId)}`,
+        "DELETE",
+        { userId, agentId },
+      );
+    },
+    [runtimeRequest, userId, agentId],
+  );
+
   const fetchThreads = useCallback(async () => {
     const runtimeUrl = copilotkit.runtimeUrl;
     if (!runtimeUrl) {
@@ -132,7 +203,13 @@ export function useThreads({
       clearTimeout(timeoutId);
       setIsLoading(false);
     }
-  }, [copilotkit.runtimeUrl, copilotkit.headers, userId, agentId, subscribeToUpdates]);
+  }, [
+    copilotkit.runtimeUrl,
+    copilotkit.headers,
+    userId,
+    agentId,
+    subscribeToUpdates,
+  ]);
 
   useEffect(() => {
     fetchThreads();
@@ -142,5 +219,13 @@ export function useThreads({
     };
   }, [fetchThreads, teardownChannel]);
 
-  return { threads, isLoading, error, refetch: fetchThreads };
+  return {
+    threads,
+    isLoading,
+    error,
+    refetch: fetchThreads,
+    updateThread,
+    archiveThread,
+    deleteThread,
+  };
 }
