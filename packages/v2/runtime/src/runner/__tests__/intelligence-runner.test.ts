@@ -13,20 +13,29 @@ import {
 } from "@ag-ui/client";
 import { EMPTY, firstValueFrom } from "rxjs";
 import { toArray } from "rxjs/operators";
-import { MockChannel } from "../../../../core/src/__tests__/test-utils";
+import {
+  MockChannel,
+  MockSocket,
+} from "../../../../core/src/__tests__/test-utils";
 
 let mockChannels: MockChannel[] = [];
+let mockSockets: MockSocket[] = [];
+
+class MockSocketImpl extends MockSocket {
+  constructor(url: string, opts?: any) {
+    super(url, opts);
+    mockSockets.push(this);
+  }
+
+  channel(topic: string, params: Record<string, any> = {}): MockChannel {
+    const ch = super.channel(topic, params);
+    mockChannels.push(ch);
+    return ch;
+  }
+}
 
 vi.mock("phoenix", () => ({
-  Socket: class MockSocket {
-    constructor(_url: string, _opts?: any) {}
-    connect(): void {}
-    channel(_topic: string, _params?: any): MockChannel {
-      const ch = new MockChannel();
-      mockChannels.push(ch);
-      return ch;
-    }
-  },
+  Socket: MockSocketImpl,
   Channel: MockChannel,
 }));
 
@@ -97,6 +106,39 @@ class ThrowingMockAgent extends AbstractAgent {
   }
 }
 
+/**
+ * An agent whose runAgent() blocks until abortRun() is called,
+ * then rejects — simulating how a real agent's AbortController
+ * would cause in-flight work to fail on abort.
+ */
+class BlockingMockAgent extends AbstractAgent {
+  aborted = false;
+  private rejectFn: ((reason: Error) => void) | null = null;
+
+  async runAgent(): Promise<void> {
+    return new Promise<void>((_resolve, reject) => {
+      this.rejectFn = reject;
+    });
+  }
+
+  abortRun(): void {
+    this.aborted = true;
+    this.rejectFn?.(new Error("Aborted"));
+  }
+
+  clone(): AbstractAgent {
+    return new BlockingMockAgent();
+  }
+
+  protected run(): ReturnType<AbstractAgent["run"]> {
+    return EMPTY;
+  }
+
+  protected connect(): ReturnType<AbstractAgent["connect"]> {
+    return EMPTY;
+  }
+}
+
 function createRunInput(
   overrides: Partial<RunAgentInput> & { threadId: string; runId: string },
 ): RunAgentInput {
@@ -126,6 +168,7 @@ describe("IntelligenceAgentRunner", () => {
 
   beforeEach(() => {
     mockChannels = [];
+    mockSockets = [];
     runner = new IntelligenceAgentRunner({ url: "ws://localhost:4000/socket" });
   });
 
@@ -328,6 +371,27 @@ describe("IntelligenceAgentRunner", () => {
       expect(events[0].type).toBe(EventType.RUN_ERROR);
       expect((events[0] as RunErrorEvent).message).toContain("unauthorized");
     });
+
+    it("emits RUN_ERROR and completes when channel join times out", async () => {
+      const threadId = "t-join-timeout";
+      const input = createRunInput({ threadId, runId: "r-join-timeout" });
+      const agent = new MockAgent();
+
+      const eventsPromise = collectEvents(
+        runner.run({ threadId, agent, input }),
+      );
+      const ch = mockChannels[0];
+
+      ch.triggerJoin("timeout");
+
+      const events = await eventsPromise;
+
+      expect(events).toHaveLength(1);
+      expect(events[0].type).toBe(EventType.RUN_ERROR);
+      expect((events[0] as RunErrorEvent).message).toBe(
+        "Timed out joining channel",
+      );
+    });
   });
 
   describe("connect", () => {
@@ -372,15 +436,42 @@ describe("IntelligenceAgentRunner", () => {
       sub.unsubscribe();
     });
 
-    it("completes immediately on channel join failure", async () => {
-      const eventsPromise = collectEvents(
-        runner.connect({ threadId: "t-connect-err" }),
-      );
+    it("errors the observable on channel join failure", async () => {
+      let error: Error | null = null;
+      const promise = new Promise<void>((resolve) => {
+        runner.connect({ threadId: "t-connect-err" }).subscribe({
+          error: (err) => {
+            error = err;
+            resolve();
+          },
+          complete: () => resolve(),
+        });
+      });
       const ch = mockChannels[0];
-      ch.triggerJoin("error");
+      ch.triggerJoin("error", { reason: "unauthorized" });
 
-      const events = await eventsPromise;
-      expect(events).toHaveLength(0);
+      await promise;
+      expect(error).toBeInstanceOf(Error);
+      expect(error!.message).toContain("Failed to join channel");
+    });
+
+    it("errors the observable on channel join timeout", async () => {
+      let error: Error | null = null;
+      const promise = new Promise<void>((resolve) => {
+        runner.connect({ threadId: "t-connect-timeout" }).subscribe({
+          error: (err) => {
+            error = err;
+            resolve();
+          },
+          complete: () => resolve(),
+        });
+      });
+      const ch = mockChannels[0];
+      ch.triggerJoin("timeout");
+
+      await promise;
+      expect(error).toBeInstanceOf(Error);
+      expect(error!.message).toBe("Timed out joining channel");
     });
   });
 
@@ -458,7 +549,7 @@ describe("IntelligenceAgentRunner", () => {
   });
 
   describe("cleanup", () => {
-    it("leaves the channel after the run completes", async () => {
+    it("leaves the channel and disconnects the socket after the run completes", async () => {
       const threadId = "t-cleanup";
       const input = createRunInput({ threadId, runId: "r-cleanup" });
 
@@ -479,9 +570,12 @@ describe("IntelligenceAgentRunner", () => {
       await eventsPromise;
 
       expect(ch.left).toBe(true);
+      // Per-run socket should also be disconnected.
+      // mockSockets[0] is the socket created for this run.
+      expect(mockSockets[0].disconnected).toBe(true);
     });
 
-    it("leaves the channel after a join failure", async () => {
+    it("leaves the channel and disconnects the socket after a join failure", async () => {
       const threadId = "t-cleanup-err";
       const input = createRunInput({ threadId, runId: "r-cleanup-err" });
       const agent = new MockAgent();
@@ -494,6 +588,161 @@ describe("IntelligenceAgentRunner", () => {
       await eventsPromise;
 
       expect(ch.left).toBe(true);
+      expect(mockSockets[0].disconnected).toBe(true);
+    });
+  });
+
+  describe("per-run socket isolation", () => {
+    it("creates a separate socket for each run", () => {
+      const agent = new MockAgent();
+      const sub1 = runner
+        .run({
+          threadId: "t-iso-1",
+          agent,
+          input: createRunInput({ threadId: "t-iso-1", runId: "r-1" }),
+        })
+        .subscribe();
+      const sub2 = runner
+        .run({
+          threadId: "t-iso-2",
+          agent,
+          input: createRunInput({ threadId: "t-iso-2", runId: "r-2" }),
+        })
+        .subscribe();
+
+      // Each run should create its own socket (no shared socket).
+      expect(mockSockets.length).toBe(2);
+      expect(mockSockets[0]).not.toBe(mockSockets[1]);
+
+      sub1.unsubscribe();
+      sub2.unsubscribe();
+    });
+
+    it("disconnecting one run's socket does not affect another", async () => {
+      const agent1 = new MockAgent([
+        {
+          type: EventType.RUN_FINISHED,
+          threadId: "t-a",
+          runId: "r-a",
+        } as RunFinishedEvent,
+      ]);
+      const agent2 = new MockAgent();
+
+      // Start two runs
+      const promise1 = collectEvents(
+        runner.run({
+          threadId: "t-a",
+          agent: agent1,
+          input: createRunInput({ threadId: "t-a", runId: "r-a" }),
+        }),
+      );
+      const sub2 = runner
+        .run({
+          threadId: "t-b",
+          agent: agent2,
+          input: createRunInput({ threadId: "t-b", runId: "r-b" }),
+        })
+        .subscribe();
+
+      // Complete run 1
+      mockChannels[0].triggerJoin("ok");
+      await promise1;
+
+      // Run 1's socket is disconnected, run 2's socket is untouched.
+      expect(mockSockets[0].disconnected).toBe(true);
+      expect(mockSockets[1].disconnected).toBe(false);
+
+      sub2.unsubscribe();
+    });
+  });
+
+  describe("socket error exhaustion", () => {
+    it("does not abort the agent on a single socket error", () => {
+      const threadId = "t-single-err";
+      const input = createRunInput({ threadId, runId: "r-single-err" });
+      const agent = new BlockingMockAgent();
+
+      const sub = runner.run({ threadId, agent, input }).subscribe();
+      const socket = mockSockets[0];
+      mockChannels[0].triggerJoin("ok");
+
+      socket.triggerError(new Error("network blip"));
+
+      expect(agent.aborted).toBe(false);
+      sub.unsubscribe();
+    });
+
+    it("aborts the agent after 5 consecutive socket errors", async () => {
+      const threadId = "t-exhaust";
+      const input = createRunInput({ threadId, runId: "r-exhaust" });
+      const agent = new BlockingMockAgent();
+
+      const eventsPromise = collectEvents(
+        runner.run({ threadId, agent, input }),
+      );
+      const socket = mockSockets[0];
+      mockChannels[0].triggerJoin("ok");
+
+      // Fire 5 consecutive errors — should trigger abortRun()
+      for (let i = 0; i < 5; i++) {
+        socket.triggerError(new Error("connection lost"));
+      }
+
+      // The abort causes runAgent() to reject, which cascades through
+      // catchError → finalize → removeThread → Observable completes.
+      await eventsPromise;
+
+      expect(agent.aborted).toBe(true);
+    });
+
+    it("resets the error counter on successful reconnection", () => {
+      const threadId = "t-reset";
+      const input = createRunInput({ threadId, runId: "r-reset" });
+      const agent = new BlockingMockAgent();
+
+      const sub = runner.run({ threadId, agent, input }).subscribe();
+      const socket = mockSockets[0];
+      mockChannels[0].triggerJoin("ok");
+
+      // 4 errors (just below threshold)
+      for (let i = 0; i < 4; i++) {
+        socket.triggerError();
+      }
+      expect(agent.aborted).toBe(false);
+
+      // Successful reconnect resets the counter
+      socket.triggerOpen();
+
+      // 4 more errors — still below threshold because counter was reset
+      for (let i = 0; i < 4; i++) {
+        socket.triggerError();
+      }
+      expect(agent.aborted).toBe(false);
+
+      sub.unsubscribe();
+    });
+
+    it("fully cleans up after socket error exhaustion", async () => {
+      const threadId = "t-exhaust-cleanup";
+      const input = createRunInput({ threadId, runId: "r-exhaust-cleanup" });
+      const agent = new BlockingMockAgent();
+
+      const eventsPromise = collectEvents(
+        runner.run({ threadId, agent, input }),
+      );
+      const socket = mockSockets[0];
+      const ch = mockChannels[0];
+      ch.triggerJoin("ok");
+
+      for (let i = 0; i < 5; i++) {
+        socket.triggerError();
+      }
+
+      await eventsPromise;
+
+      expect(ch.left).toBe(true);
+      expect(socket.disconnected).toBe(true);
+      expect(await runner.isRunning({ threadId })).toBe(false);
     });
   });
 });
