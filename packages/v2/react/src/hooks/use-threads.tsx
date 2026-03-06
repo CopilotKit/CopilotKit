@@ -184,7 +184,7 @@ export function useThreads({
       socket.connect();
       socketRef.current = socket;
 
-      const channel = socket.channel(`threads:${agentId}`, { joinCode });
+      const channel = socket.channel(`threads:${userId}`, { joinCode });
       channelRef.current = channel;
 
       channel.on(THREADS_CHANNEL_EVENT, (payload: unknown) => {
@@ -200,7 +200,7 @@ export function useThreads({
           teardownChannel();
         });
     },
-    [agentId, copilotkit.runtimeUrl, teardownChannel, storeRef],
+    [userId, copilotkit.runtimeUrl, teardownChannel, storeRef],
   );
 
   const runtimeRequest = useCallback(
@@ -238,11 +238,10 @@ export function useThreads({
         {
           ...input,
           userId,
-          agentId,
         },
       );
     },
-    [runtimeRequest, userId, agentId],
+    [runtimeRequest, userId],
   );
 
   const archiveThread = useCallback(
@@ -250,10 +249,10 @@ export function useThreads({
       await runtimeRequest(
         `/threads/${encodeURIComponent(threadId)}/archive`,
         "POST",
-        { userId, agentId },
+        { userId },
       );
     },
-    [runtimeRequest, userId, agentId],
+    [runtimeRequest, userId],
   );
 
   const deleteThread = useCallback(
@@ -261,10 +260,10 @@ export function useThreads({
       await runtimeRequest(
         `/threads/${encodeURIComponent(threadId)}`,
         "DELETE",
-        { userId, agentId },
+        { userId },
       );
     },
-    [runtimeRequest, userId, agentId],
+    [runtimeRequest, userId],
   );
 
   const fetchThreads = useCallback(async () => {
