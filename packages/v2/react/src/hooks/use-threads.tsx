@@ -1,7 +1,23 @@
 import { useCopilotKit } from "@/providers/CopilotKitProvider";
-import { useState, useEffect, useCallback, useRef } from "react";
+import {
+  useState,
+  useEffect,
+  useCallback,
+  useRef,
+  useSyncExternalStore,
+} from "react";
 import { phoenixExponentialBackoff } from "@copilotkitnext/shared";
 import { Socket, Channel } from "phoenix";
+import {
+  createActionGroup,
+  createReducer,
+  createStore,
+  createSelector,
+  props,
+  on,
+  type Store,
+  type AnyAction,
+} from "@copilotkitnext/core";
 
 export interface Thread {
   id: string;
@@ -31,13 +47,108 @@ export interface UseThreadsResult {
 
 const THREADS_CHANNEL_EVENT = "threads:update";
 
+// ---------------------------------------------------------------------------
+// Actions
+// ---------------------------------------------------------------------------
+
+const ThreadActions = createActionGroup("Threads", {
+  loaded: props<{ threads: Thread[] }>(),
+  created: props<{ thread: Thread }>(),
+  updated: props<{ thread: Thread }>(),
+  deleted: props<{ threadId: string }>(),
+  archived: props<{ threadId: string }>(),
+});
+
+// ---------------------------------------------------------------------------
+// State & Reducer
+// ---------------------------------------------------------------------------
+
+interface ThreadsState {
+  threads: Thread[];
+}
+
+const initialState: ThreadsState = { threads: [] };
+
+const threadsReducer = createReducer<ThreadsState>(
+  initialState,
+  on(ThreadActions.loaded, (_state, { threads }) => ({ threads })),
+  on(ThreadActions.created, (state, { thread }) => ({
+    threads: [thread, ...state.threads],
+  })),
+  on(ThreadActions.updated, (state, { thread }) => ({
+    threads: state.threads.map((t) => (t.id === thread.id ? thread : t)),
+  })),
+  on(ThreadActions.deleted, (state, { threadId }) => ({
+    threads: state.threads.filter((t) => t.id !== threadId),
+  })),
+  on(ThreadActions.archived, (state, { threadId }) => ({
+    threads: state.threads.filter((t) => t.id !== threadId),
+  })),
+);
+
+const selectThreads = createSelector((s: ThreadsState) => s.threads);
+
+// ---------------------------------------------------------------------------
+// Channel payload → store dispatch
+// ---------------------------------------------------------------------------
+
+interface ChannelPayload {
+  action: "created" | "updated" | "deleted" | "archived";
+  thread?: Thread;
+  threadId?: string;
+}
+
+function dispatchChannelEvent(
+  store: Store<ThreadsState, AnyAction>,
+  payload: ChannelPayload,
+) {
+  switch (payload.action) {
+    case "created":
+      if (payload.thread)
+        store.dispatch(ThreadActions.created({ thread: payload.thread }));
+      break;
+    case "updated":
+      if (payload.thread)
+        store.dispatch(ThreadActions.updated({ thread: payload.thread }));
+      break;
+    case "deleted":
+      if (payload.threadId)
+        store.dispatch(ThreadActions.deleted({ threadId: payload.threadId }));
+      break;
+    case "archived":
+      if (payload.threadId)
+        store.dispatch(ThreadActions.archived({ threadId: payload.threadId }));
+      break;
+  }
+}
+
 export function useThreads({
   userId,
   agentId,
 }: UseThreadsInput): UseThreadsResult {
   const { copilotkit } = useCopilotKit();
 
-  const [threads, setThreads] = useState<Thread[]>([]);
+  const [storeRef] = useState(() => {
+    const store = createStore<ThreadsState, AnyAction>({
+      reducer: threadsReducer as any,
+    });
+    store.init();
+    return { current: store };
+  });
+
+  const threads = useSyncExternalStore(
+    useCallback(
+      (onStoreChange) => {
+        const sub = storeRef.current
+          .select(selectThreads)
+          .subscribe(onStoreChange);
+        return () => sub.unsubscribe();
+      },
+      [storeRef],
+    ),
+    () => selectThreads(storeRef.current.getState()),
+  );
+
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
@@ -76,8 +187,8 @@ export function useThreads({
       const channel = socket.channel(`threads:${agentId}`, { joinCode });
       channelRef.current = channel;
 
-      channel.on(THREADS_CHANNEL_EVENT, (_payload: unknown) => {
-        // TODO: reduce the CRUD update into the threads list via NgRx-style reducer
+      channel.on(THREADS_CHANNEL_EVENT, (payload: unknown) => {
+        dispatchChannelEvent(storeRef.current, payload as ChannelPayload);
       });
 
       channel
@@ -89,7 +200,7 @@ export function useThreads({
           teardownChannel();
         });
     },
-    [agentId, copilotkit.runtimeUrl, teardownChannel],
+    [agentId, copilotkit.runtimeUrl, teardownChannel, storeRef],
   );
 
   const runtimeRequest = useCallback(
@@ -187,7 +298,9 @@ export function useThreads({
       }
 
       const data = await response.json();
-      setThreads(data.threads);
+      storeRef.current.dispatch(
+        ThreadActions.loaded({ threads: data.threads }),
+      );
       subscribeToUpdates(data.joinCode);
     } catch (err) {
       if (err instanceof DOMException && err.name === "AbortError") {
@@ -209,6 +322,7 @@ export function useThreads({
     userId,
     agentId,
     subscribeToUpdates,
+    storeRef,
   ]);
 
   useEffect(() => {
@@ -216,8 +330,9 @@ export function useThreads({
     return () => {
       abortControllerRef.current?.abort();
       teardownChannel();
+      storeRef.current.stop();
     };
-  }, [fetchThreads, teardownChannel]);
+  }, [fetchThreads, teardownChannel, storeRef]);
 
   return {
     threads,
