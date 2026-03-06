@@ -1,14 +1,24 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { render, act } from "@testing-library/react";
 import React, { useState } from "react";
-import { v0_8 } from "@a2ui/lit";
+import type { Theme } from "@copilotkit/a2ui-renderer";
+
+vi.mock("../providers", () => ({
+  useCopilotKit: vi.fn(() => ({
+    copilotkit: {
+      properties: {},
+      setProperties: vi.fn(),
+      runAgent: vi.fn().mockResolvedValue(undefined),
+    },
+  })),
+}));
 
 describe("A2UIMessageRenderer rendering integration", () => {
   it("should render A2UI surface content via React renderer", async () => {
     const { createA2UIMessageRenderer } =
-      await import("../A2UIMessageRenderer.js");
+      await import("../a2ui/A2UIMessageRenderer.js");
     const renderer = createA2UIMessageRenderer({
-      theme: {} as v0_8.Types.Theme,
+      theme: {} as Theme,
     });
 
     const content = {
@@ -42,7 +52,6 @@ describe("A2UIMessageRenderer rendering integration", () => {
       container = result.container;
     });
 
-    // The React renderer should render a .a2ui-surface element
     const surfaceElement = container!.querySelector(
       "[data-surface-id='test-surface']",
     );
@@ -51,9 +60,9 @@ describe("A2UIMessageRenderer rendering integration", () => {
 
   it("should update surface when operations change", async () => {
     const { createA2UIMessageRenderer } =
-      await import("../A2UIMessageRenderer.js");
+      await import("../a2ui/A2UIMessageRenderer.js");
     const renderer = createA2UIMessageRenderer({
-      theme: {} as v0_8.Types.Theme,
+      theme: {} as Theme,
     });
     const RenderComponent = renderer.render as React.FC<any>;
 
@@ -80,11 +89,9 @@ describe("A2UIMessageRenderer rendering integration", () => {
       container = result.container;
     });
 
-    // Initial render should have the surface
     const surfaceElement = container!.querySelector("[data-surface-id='test']");
     expect(surfaceElement).not.toBeNull();
 
-    // Update with new data
     await act(async () => {
       setContent({
         operations: [
@@ -99,16 +106,15 @@ describe("A2UIMessageRenderer rendering integration", () => {
       });
     });
 
-    // Surface should still be present after update
     const updatedSurface = container!.querySelector("[data-surface-id='test']");
     expect(updatedSurface).not.toBeNull();
   });
 
   it("should return null when no operations are provided", async () => {
     const { createA2UIMessageRenderer } =
-      await import("../A2UIMessageRenderer.js");
+      await import("../a2ui/A2UIMessageRenderer.js");
     const renderer = createA2UIMessageRenderer({
-      theme: {} as v0_8.Types.Theme,
+      theme: {} as Theme,
     });
     const RenderComponent = renderer.render as React.FC<any>;
 
@@ -122,115 +128,14 @@ describe("A2UIMessageRenderer rendering integration", () => {
       container = result.container;
     });
 
-    // No surface elements should be rendered
     expect(container!.querySelector("[data-surface-id]")).toBeNull();
-  });
-});
-
-describe("A2UIMessageRenderer React behavior", () => {
-  it("should process operations and create surfaces via message processor", () => {
-    const processor = v0_8.Data.createSignalA2uiMessageProcessor();
-    const surfaceId = "test-surface";
-
-    const messages: v0_8.Types.ServerToClientMessage[] = [
-      { beginRendering: { surfaceId, root: "root", styles: {} } },
-      {
-        surfaceUpdate: {
-          surfaceId,
-          components: [
-            {
-              id: "root",
-              direction: "column",
-              children: ["text1"],
-            } as v0_8.Types.ComponentInstance,
-            {
-              id: "text1",
-              text: { literalString: "Test content" },
-            } as v0_8.Types.ComponentInstance,
-          ],
-        },
-      },
-    ];
-
-    processor.processMessages(messages);
-
-    const surfaces = processor.getSurfaces();
-    expect(surfaces.size).toBe(1);
-    expect(surfaces.has(surfaceId)).toBe(true);
-
-    const surface = surfaces.get(surfaceId);
-    expect(surface?.componentTree).toBeDefined();
-  });
-
-  it("should handle multiple surfaces", () => {
-    const processor = v0_8.Data.createSignalA2uiMessageProcessor();
-
-    const messages: v0_8.Types.ServerToClientMessage[] = [
-      { beginRendering: { surfaceId: "surface-1", root: "root1", styles: {} } },
-      { beginRendering: { surfaceId: "surface-2", root: "root2", styles: {} } },
-      {
-        surfaceUpdate: {
-          surfaceId: "surface-1",
-          components: [
-            {
-              id: "root1",
-              text: { literalString: "Surface 1" },
-            } as v0_8.Types.ComponentInstance,
-          ],
-        },
-      },
-      {
-        surfaceUpdate: {
-          surfaceId: "surface-2",
-          components: [
-            {
-              id: "root2",
-              text: { literalString: "Surface 2" },
-            } as v0_8.Types.ComponentInstance,
-          ],
-        },
-      },
-    ];
-
-    processor.processMessages(messages);
-
-    const surfaces = processor.getSurfaces();
-    expect(surfaces.size).toBe(2);
-    expect(surfaces.has("surface-1")).toBe(true);
-    expect(surfaces.has("surface-2")).toBe(true);
-  });
-
-  it("should clear surfaces when clearSurfaces is called", () => {
-    const processor = v0_8.Data.createSignalA2uiMessageProcessor();
-    const surfaceId = "test-surface";
-
-    const messages: v0_8.Types.ServerToClientMessage[] = [
-      { beginRendering: { surfaceId, root: "root", styles: {} } },
-      {
-        surfaceUpdate: {
-          surfaceId,
-          components: [
-            {
-              id: "root",
-              text: { literalString: "Test" },
-            } as v0_8.Types.ComponentInstance,
-          ],
-        },
-      },
-    ];
-
-    processor.processMessages(messages);
-    expect(processor.getSurfaces().size).toBe(1);
-
-    processor.clearSurfaces();
-    expect(processor.getSurfaces().size).toBe(0);
   });
 
   it("should render multiple surfaces independently", async () => {
     const { createA2UIMessageRenderer } =
-      await import("../A2UIMessageRenderer.js");
+      await import("../a2ui/A2UIMessageRenderer.js");
     const renderer = createA2UIMessageRenderer({
-      theme: {} as v0_8.Types.Theme,
+      theme: {} as Theme,
     });
     const RenderComponent = renderer.render as React.FC<any>;
 
@@ -263,7 +168,6 @@ describe("A2UIMessageRenderer React behavior", () => {
       container = result.container;
     });
 
-    // Both surfaces should be rendered independently
     const surface1 = container!.querySelector("[data-surface-id='s1']");
     const surface2 = container!.querySelector("[data-surface-id='s2']");
     expect(surface1).not.toBeNull();
