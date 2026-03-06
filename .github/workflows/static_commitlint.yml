@@ -6,6 +6,10 @@ on:
   pull_request:
     branches: [main]
 
+env:
+  NX_CI_EXECUTION_ID: ${{ github.head_ref }}-${{ github.sha }}-${{ github.run_attempt }}
+  NX_CI_EXECUTION_ENV: "Commitlint"
+
 jobs:
   commitlint:
     runs-on: ubuntu-latest

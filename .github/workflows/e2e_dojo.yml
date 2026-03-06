@@ -22,6 +22,10 @@ on:
         default: "main"
         type: string
 
+env:
+  NX_CI_EXECUTION_ID: ${{ github.head_ref }}-${{ github.sha }}-${{ github.run_attempt }}
+  NX_CI_EXECUTION_ENV: "E2E Dojo"
+
 jobs:
   dojo:
     name: ${{ matrix.suite }}

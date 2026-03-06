@@ -6,6 +6,10 @@ on:
       - "sdk-python/copilotkit/langgraph_agent.py"
       - "packages/v1/sdk-js/src/langgraph.ts"
 
+env:
+  NX_CI_EXECUTION_ID: ${{ github.head_ref }}-${{ github.sha }}-${{ github.run_attempt }}
+  NX_CI_EXECUTION_ENV: "Danger"
+
 jobs:
   danger:
     runs-on: ubuntu-latest
