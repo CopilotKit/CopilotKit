@@ -101,8 +101,8 @@ export async function handleRunAgent({
     agent.setState(input.state);
     agent.threadId = input.threadId;
 
-    // For IntelligenceAgentRunner, acquire a thread lock and return the
-    // join code so the client can connect to the Phoenix channel directly.
+    // For IntelligenceAgentRunner, acquire thread connection credentials and
+    // return the join token so the client can connect to the Phoenix channel.
     if (runtime.runner instanceof IntelligenceAgentRunner) {
       if (!runtime.intelligencePlatform) {
         return new Response(
@@ -118,13 +118,15 @@ export async function handleRunAgent({
         );
       }
 
-      let joinCode: string;
+      let joinCode: string | undefined;
+      let joinToken: string | undefined;
       try {
         const lockResult = await runtime.intelligencePlatform.acquireThreadLock(
           {
             threadId: input.threadId,
           },
         );
+        joinToken = lockResult.joinToken;
         joinCode = lockResult.joinCode;
       } catch (error) {
         return new Response(
@@ -139,13 +141,26 @@ export async function handleRunAgent({
         );
       }
 
+      if (!joinToken) {
+        return new Response(
+          JSON.stringify({
+            error: "Join token not available",
+            message: "Intelligence platform did not return a join token",
+          }),
+          {
+            status: 502,
+            headers: { "Content-Type": "application/json" },
+          },
+        );
+      }
+
       // Kick off the agent run in the background with the join code.
       runtime.runner
         .run({
           threadId: input.threadId,
           agent,
           input,
-          joinCode,
+          ...(joinCode ? { joinCode } : {}),
         })
         .subscribe({
           error: (error) => {
@@ -153,7 +168,7 @@ export async function handleRunAgent({
           },
         });
 
-      return new Response(JSON.stringify({ joinCode }), {
+      return new Response(JSON.stringify({ joinToken }), {
         status: 200,
         headers: {
           "Content-Type": "application/json",

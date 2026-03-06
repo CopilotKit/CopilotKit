@@ -104,7 +104,8 @@ export class AgentRegistry {
       }
     });
     this.localAgents = agents;
-    this._agents = { ...this.localAgents, ...this.remoteAgents };
+    // this._agents = { ...this.localAgents, ...this.remoteAgents };
+    this._agents = { ...this.localAgents };
     this.applyHeadersToAgents(this._agents);
     void this.notifyAgentsChanged();
   }
@@ -116,7 +117,8 @@ export class AgentRegistry {
     this.validateAndAssignAgentId(id, agent);
     this.localAgents[id] = agent;
     this.applyHeadersToAgent(agent);
-    this._agents = { ...this.localAgents, ...this.remoteAgents };
+    // this._agents = { ...this.localAgents, ...this.remoteAgents };
+    this._agents = { ...this.localAgents };
     void this.notifyAgentsChanged();
   }
 
@@ -125,7 +127,8 @@ export class AgentRegistry {
    */
   removeAgent__unsafe_dev_only(id: string): void {
     delete this.localAgents[id];
-    this._agents = { ...this.localAgents, ...this.remoteAgents };
+    // this._agents = { ...this.localAgents, ...this.remoteAgents };
+    this._agents = { ...this.localAgents };
     void this.notifyAgentsChanged();
   }
 
@@ -249,7 +252,8 @@ export class AgentRegistry {
       );
 
       this.remoteAgents = agents;
-      this._agents = { ...this.localAgents, ...this.remoteAgents };
+      // this._agents = { ...this.localAgents, ...this.remoteAgents };
+      this._agents = { ...this.localAgents };
       this._runtimeConnectionStatus =
         CopilotKitCoreRuntimeConnectionStatus.Connected;
       this._runtimeVersion = version;

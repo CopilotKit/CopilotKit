@@ -325,10 +325,12 @@ describe("handleRunAgent", () => {
       return agent;
     };
 
-    it("returns joinCode JSON when lock is acquired", async () => {
+    it("returns joinToken JSON when lock is acquired", async () => {
       const agent = createAgentForIntelligence();
       const platform = {
-        acquireThreadLock: vi.fn().mockResolvedValue({ joinCode: "jc-123" }),
+        acquireThreadLock: vi
+          .fn()
+          .mockResolvedValue({ joinToken: "jt-123", joinCode: "jc-123" }),
       };
       const runtime = createIntelligenceRuntime(agent, platform as any);
 
@@ -341,16 +343,18 @@ describe("handleRunAgent", () => {
       expect(response.status).toBe(200);
       expect(response.headers.get("Content-Type")).toBe("application/json");
       const body = await response.json();
-      expect(body).toEqual({ joinCode: "jc-123" });
+      expect(body).toEqual({ joinToken: "jt-123" });
       expect(platform.acquireThreadLock).toHaveBeenCalledWith({
         threadId: "thread-1",
       });
     });
 
-    it("passes joinCode to runner.run()", async () => {
+    it("passes joinCode to runner.run() when provided", async () => {
       const agent = createAgentForIntelligence();
       const platform = {
-        acquireThreadLock: vi.fn().mockResolvedValue({ joinCode: "jc-456" }),
+        acquireThreadLock: vi
+          .fn()
+          .mockResolvedValue({ joinToken: "jt-456", joinCode: "jc-456" }),
       };
       const runtime = createIntelligenceRuntime(agent, platform as any);
 
@@ -363,6 +367,25 @@ describe("handleRunAgent", () => {
       expect(runtime.runner.run).toHaveBeenCalledWith(
         expect.objectContaining({ joinCode: "jc-456" }),
       );
+    });
+
+    it("returns 502 when joinToken is missing", async () => {
+      const agent = createAgentForIntelligence();
+      const platform = {
+        acquireThreadLock: vi.fn().mockResolvedValue({ joinCode: "jc-789" }),
+      };
+      const runtime = createIntelligenceRuntime(agent, platform as any);
+
+      const response = await handleRunAgent({
+        runtime,
+        request: createRunRequest(),
+        agentId: "my-agent",
+      });
+
+      expect(response.status).toBe(502);
+      const body = await response.json();
+      expect(body.error).toBe("Join token not available");
+      expect(runtime.runner.run).not.toHaveBeenCalled();
     });
 
     it("returns 409 when thread lock is denied", async () => {
