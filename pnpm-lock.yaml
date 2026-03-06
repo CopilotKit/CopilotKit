@@ -1890,9 +1890,6 @@ importers:
 
   packages/v1/runtime-client-gql:
     dependencies:
-      '@copilotkit/runtime':
-        specifier: workspace:*
-        version: link:../runtime
       '@copilotkit/shared':
         specifier: workspace:*
         version: link:../shared

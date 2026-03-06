@@ -182,7 +182,7 @@ describe("CopilotKitCore error handling", () => {
         transport: "rest",
       });
 
-      await expect(core.runAgent({ agent })).rejects.toBeDefined();
+      await core.runAgent({ agent });
 
       expect(
         errors.some((e) => e.code === CopilotKitCoreErrorCode.AGENT_RUN_FAILED),
@@ -194,10 +194,45 @@ describe("CopilotKitCore error handling", () => {
 
       sub.unsubscribe();
     });
+
+    it("connectAgent emits AGENT_CONNECT_FAILED and resolves (does not throw)", async () => {
+      const runtimeUrl = "https://runtime.example/rest";
+      const fetchMock = vi.fn().mockRejectedValue(new Error("connect failure"));
+      global.fetch = fetchMock;
+
+      const core = new CopilotKitCore({});
+      const errors: Array<{
+        code: CopilotKitCoreErrorCode;
+        error: Error;
+        context: any;
+      }> = [];
+      const sub = core.subscribe({ onError: (e) => void errors.push(e) });
+
+      const agent = new ProxiedCopilotRuntimeAgent({
+        runtimeUrl,
+        agentId: "agent-connect",
+        transport: "rest",
+      });
+
+      // Should resolve, not reject
+      await core.connectAgent({ agent });
+
+      expect(
+        errors.some(
+          (e) => e.code === CopilotKitCoreErrorCode.AGENT_CONNECT_FAILED,
+        ),
+      ).toBe(true);
+      const evt = errors.find(
+        (e) => e.code === CopilotKitCoreErrorCode.AGENT_CONNECT_FAILED,
+      )!;
+      expect(evt.context.agentId).toBe("agent-connect");
+
+      sub.unsubscribe();
+    });
   });
 
   describe("internal processing errors (tools)", () => {
-    it("emits TOOL_ARGUMENT_PARSE_FAILED then AGENT_RUN_FAILED when tool args JSON is invalid", async () => {
+    it("emits TOOL_ARGUMENT_PARSE_FAILED and resolves when tool args JSON is invalid", async () => {
       const core = new CopilotKitCore({});
       const errors: Array<{
         code: CopilotKitCoreErrorCode;
@@ -244,7 +279,7 @@ describe("CopilotKitCore error handling", () => {
         id: agent.agentId,
         agent: agent as any,
       });
-      await expect(core.runAgent({ agent })).rejects.toBeDefined();
+      await core.runAgent({ agent });
 
       // Argument parse error captured
       expect(

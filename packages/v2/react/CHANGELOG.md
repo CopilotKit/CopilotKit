@@ -1,5 +1,49 @@
 # @copilotkitnext/react
 
+## 1.53.0
+
+### Patch Changes
+
+- 1510f64: feat: enable mcp and a2ui middleware directly from copilotkit runtime
+- Updated dependencies [1510f64]
+  - @copilotkitnext/core@1.53.0
+  - @copilotkitnext/shared@1.53.0
+  - @copilotkitnext/web-inspector@1.53.0
+
+## 1.53.0-next.6
+
+### Patch Changes
+
+- @copilotkitnext/core@1.53.0-next.6
+- @copilotkitnext/shared@1.53.0-next.6
+- @copilotkitnext/web-inspector@1.53.0-next.6
+
+## 1.53.0-next.5
+
+### Patch Changes
+
+- @copilotkitnext/core@1.53.0-next.5
+- @copilotkitnext/shared@1.53.0-next.5
+- @copilotkitnext/web-inspector@1.53.0-next.5
+
+## 1.52.2-next.4
+
+### Patch Changes
+
+- @copilotkitnext/core@1.52.2-next.4
+- @copilotkitnext/shared@1.52.2-next.4
+- @copilotkitnext/web-inspector@1.52.2-next.4
+
+## 1.52.2-next.3
+
+### Patch Changes
+
+- 1510f64: feat: enable mcp and a2ui middleware directly from copilotkit runtime
+- Updated dependencies [1510f64]
+  - @copilotkitnext/core@1.52.2-next.3
+  - @copilotkitnext/shared@1.52.2-next.3
+  - @copilotkitnext/web-inspector@1.52.2-next.3
+
 ## 1.52.2-next.2
 
 ### Patch Changes

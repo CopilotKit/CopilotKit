@@ -6,7 +6,10 @@ import {
 } from "@ag-ui/client";
 import { Observable } from "rxjs";
 import { Socket, Channel } from "phoenix";
-import { AG_UI_CHANNEL_EVENT } from "@copilotkitnext/shared";
+import {
+  AG_UI_CHANNEL_EVENT,
+  phoenixExponentialBackoff,
+} from "@copilotkitnext/shared";
 
 export interface IntelligenceAgentConfig {
   /** Phoenix websocket URL, e.g. "ws://localhost:4000/socket" */
@@ -39,35 +42,30 @@ export class IntelligenceAgent extends AbstractAgent {
   }
 
   abortRun(): void {
-    if (!this.threadId) {
-      return;
-    }
+    if (this.activeChannel && this.threadId) {
+      // Defer cleanup until the push is acknowledged so socket.disconnect()
+      // doesn't clear the push buffer before the stop signal is sent.
+      // The 5-second fallback handles the case where the socket is down and
+      // Phoenix never flushes the buffered push (its .receive("timeout") only
+      // fires for pushes that were actually sent but not replied to).
+      const fallback = setTimeout(() => this.cleanup(), 5_000);
+      const clear = () => {
+        clearTimeout(fallback);
+        this.cleanup();
+      };
 
-    if (typeof fetch === "undefined") {
+      this.activeChannel
+        .push(AG_UI_CHANNEL_EVENT, {
+          type: EventType.CUSTOM,
+          name: "stop",
+          value: { threadId: this.threadId },
+        })
+        .receive("ok", clear)
+        .receive("error", clear)
+        .receive("timeout", clear);
+    } else {
       this.cleanup();
-      return;
     }
-
-    const { runtimeUrl, agentId, headers, credentials } = this.config;
-    const stopPath = `${runtimeUrl}/agent/${encodeURIComponent(agentId)}/stop/${encodeURIComponent(this.threadId)}`;
-    const origin =
-      typeof window !== "undefined" && window.location
-        ? window.location.origin
-        : "http://localhost";
-    const stopUrl = new URL(stopPath, new URL(runtimeUrl, origin));
-
-    fetch(stopUrl.toString(), {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...headers,
-      },
-      ...(credentials ? { credentials } : {}),
-    }).catch((error) => {
-      console.error("IntelligenceAgent: stop request failed", error);
-    });
-
-    this.cleanup();
   }
 
   /**
@@ -83,9 +81,26 @@ export class IntelligenceAgent extends AbstractAgent {
     return new Observable<BaseEvent>((observer) => {
       this.threadId = input.threadId;
 
-      // 1. Establish socket connection
+      // 1. Establish socket connection with explicit exponential backoff.
+      //
+      //    reconnectAfterMs — controls how long Phoenix waits before
+      //    reconnecting the underlying WebSocket after an unclean close.
+      //    100ms base, doubling up to a 10s cap.
+      //
+      //    rejoinAfterMs — controls how long Phoenix waits before
+      //    re-joining a channel that entered the "errored" state (e.g.
+      //    after a socket reconnect). 1s base, doubling up to 30s cap.
+      //
+      //    These must be set explicitly because the default Phoenix
+      //    behaviour uses a stepped (non-exponential) schedule, and —
+      //    more importantly — any socket.onError / channel.onError
+      //    callback that calls cleanup() / disconnect() will set
+      //    `closeWasClean = true` and reset the reconnect timer,
+      //    silently disabling all automatic retries.
       const socket = new Socket(this.config.url, {
         params: this.config.socketParams ?? {},
+        reconnectAfterMs: phoenixExponentialBackoff(100, 10_000),
+        rejoinAfterMs: phoenixExponentialBackoff(1_000, 30_000),
       });
       this.socket = socket;
       socket.connect();
@@ -114,7 +129,49 @@ export class IntelligenceAgent extends AbstractAgent {
         }
       });
 
-      // 4. Join the channel, then trigger the run via REST
+      // 4. Connection error handling — let Phoenix retry automatically.
+      //
+      //    IMPORTANT: We intentionally do NOT call this.cleanup() in
+      //    these handlers. Calling cleanup() triggers socket.disconnect()
+      //    which sets closeWasClean = true and resets the reconnect timer,
+      //    permanently killing Phoenix's built-in retry loop. Instead we
+      //    count consecutive failures and only give up after the threshold.
+      //
+      //    socket.onOpen resets the counter so transient blips don't
+      //    accumulate across successful reconnections.
+      const MAX_CONSECUTIVE_ERRORS = 5;
+      let consecutiveErrors = 0;
+
+      socket.onError(() => {
+        consecutiveErrors++;
+        if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
+          observer.error(
+            new Error(
+              `WebSocket connection failed after ${MAX_CONSECUTIVE_ERRORS} consecutive errors`,
+            ),
+          );
+          this.cleanup();
+        }
+        // Otherwise: Phoenix will automatically attempt to reconnect
+        // using the exponential backoff schedule configured above.
+      });
+
+      socket.onOpen(() => {
+        // A successful (re)connection resets the error counter so that
+        // a brief network interruption followed by recovery doesn't
+        // count toward the fatal threshold.
+        consecutiveErrors = 0;
+      });
+
+      // Channel errors (e.g. socket dropped mid-join) trigger an
+      // automatic rejoin via Phoenix's rejoinAfterMs timer. We do NOT
+      // call cleanup() here — that would leave the channel and cancel
+      // the rejoin timer, defeating the retry mechanism.
+      channel.onError(() => {
+        // No-op: Phoenix handles channel rejoin automatically.
+      });
+
+      // 5. Join the channel, then trigger the run via REST
       channel
         .join()
         .receive("ok", () => {
@@ -160,7 +217,7 @@ export class IntelligenceAgent extends AbstractAgent {
           this.cleanup();
         });
 
-      // 5. Teardown on unsubscribe
+      // 6. Teardown on unsubscribe
       return () => {
         this.cleanup();
       };
@@ -175,8 +232,11 @@ export class IntelligenceAgent extends AbstractAgent {
     return new Observable<BaseEvent>((observer) => {
       this.threadId = input.threadId;
 
+      // Same backoff configuration as run() — see comments there for details.
       const socket = new Socket(this.config.url, {
         params: this.config.socketParams ?? {},
+        reconnectAfterMs: phoenixExponentialBackoff(100, 10_000),
+        rejoinAfterMs: phoenixExponentialBackoff(1_000, 30_000),
       });
       this.socket = socket;
       socket.connect();
@@ -197,6 +257,30 @@ export class IntelligenceAgent extends AbstractAgent {
           this.cleanup();
         }
       });
+
+      // Let Phoenix handle transient errors via automatic retry.
+      // See run() for detailed explanation of why we don't call cleanup() here.
+      const MAX_CONSECUTIVE_ERRORS = 5;
+      let consecutiveErrors = 0;
+
+      socket.onError(() => {
+        consecutiveErrors++;
+        if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
+          observer.error(
+            new Error(
+              `WebSocket connection failed after ${MAX_CONSECUTIVE_ERRORS} consecutive errors`,
+            ),
+          );
+          this.cleanup();
+        }
+      });
+
+      socket.onOpen(() => {
+        consecutiveErrors = 0;
+      });
+
+      // No-op: Phoenix handles channel rejoin automatically.
+      channel.onError(() => {});
 
       channel
         .join()

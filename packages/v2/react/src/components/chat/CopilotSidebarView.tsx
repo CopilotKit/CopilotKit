@@ -152,6 +152,7 @@ function CopilotSidebarViewInternal({
         data-testid="copilot-sidebar"
         data-copilot-sidebar
         className={cn(
+          "copilotKitSidebar copilotKitWindow",
           "cpk:fixed cpk:right-0 cpk:top-0 cpk:z-[1200] cpk:flex",
           // Height with dvh fallback and safe area support
           "cpk:h-[100vh] cpk:h-[100dvh] cpk:max-h-screen",

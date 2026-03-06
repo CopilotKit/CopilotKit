@@ -257,6 +257,113 @@ describe("IntelligenceAgent", () => {
     });
   });
 
+  describe("mid-run disconnect", () => {
+    it("does not error the observable on a single channel crash (Phoenix retries)", () => {
+      const agent = createAgent();
+      let error: Error | null = null;
+      agent.run(defaultInput).subscribe({
+        next: () => {},
+        error: (err) => {
+          error = err;
+        },
+      });
+
+      const channel = getChannel(agent);
+      channel.triggerJoin("ok");
+
+      // A single channel error should be a no-op — Phoenix handles rejoin.
+      channel.triggerError("server crash");
+
+      expect(error).toBeNull();
+    });
+
+    it("does not error the observable on a single socket error (Phoenix retries)", () => {
+      const agent = createAgent();
+      let error: Error | null = null;
+      agent.run(defaultInput).subscribe({
+        next: () => {},
+        error: (err) => {
+          error = err;
+        },
+      });
+
+      const channel = getChannel(agent);
+      channel.triggerJoin("ok");
+
+      const socket = getSocket(agent);
+      socket.triggerError(new Error("network failure"));
+
+      // A single socket error should not kill the connection — Phoenix retries.
+      expect(error).toBeNull();
+    });
+
+    it("errors the observable after MAX_CONSECUTIVE_ERRORS socket errors", async () => {
+      const agent = createAgent();
+      const promise = collectEvents(agent);
+
+      const socket = getSocket(agent);
+      const channel = getChannel(agent);
+      channel.triggerJoin("ok");
+
+      // Fire 5 consecutive errors (the threshold)
+      for (let i = 0; i < 5; i++) {
+        socket.triggerError(new Error("network failure"));
+      }
+
+      const result = await promise;
+      expect(result.completed).toBe(false);
+      expect(result.error).toBeInstanceOf(Error);
+      expect(result.error!.message).toContain("5 consecutive errors");
+    });
+
+    it("cleans up socket and channel after reaching the error threshold", async () => {
+      const agent = createAgent();
+      const promise = collectEvents(agent);
+
+      const socket = getSocket(agent);
+      const channel = getChannel(agent);
+      channel.triggerJoin("ok");
+
+      for (let i = 0; i < 5; i++) {
+        socket.triggerError();
+      }
+
+      await promise;
+      expect(channel.left).toBe(true);
+      expect(socket.disconnected).toBe(true);
+    });
+
+    it("resets the error counter on successful reconnection", () => {
+      const agent = createAgent();
+      let error: Error | null = null;
+      agent.run(defaultInput).subscribe({
+        next: () => {},
+        error: (err) => {
+          error = err;
+        },
+      });
+
+      const socket = getSocket(agent);
+      const channel = getChannel(agent);
+      channel.triggerJoin("ok");
+
+      // 4 errors (just below threshold)
+      for (let i = 0; i < 4; i++) {
+        socket.triggerError();
+      }
+      expect(error).toBeNull();
+
+      // Successful reconnect resets counter
+      socket.triggerOpen();
+
+      // 4 more errors — still below threshold because counter was reset
+      for (let i = 0; i < 4; i++) {
+        socket.triggerError();
+      }
+      expect(error).toBeNull();
+    });
+  });
+
   describe("join failures", () => {
     it("errors the observable on join error", async () => {
       const agent = createAgent();
@@ -286,66 +393,102 @@ describe("IntelligenceAgent", () => {
   });
 
   describe("abortRun", () => {
-    it("fires a REST POST to /agent/{agentId}/stop/{threadId} and cleans up", async () => {
+    it("pushes a CUSTOM stop event to the channel", () => {
       const agent = createAgent();
       agent.run(defaultInput).subscribe({ next: () => {}, error: () => {} });
 
       const channel = getChannel(agent);
       channel.triggerJoin("ok");
-
-      // Reset fetch mock to only track abort calls
-      mockFetch.mockClear();
-      mockFetch.mockResolvedValue({ ok: true });
 
       agent.abortRun();
 
-      expect(mockFetch).toHaveBeenCalledTimes(1);
-      const [url, options] = mockFetch.mock.calls[0];
-      expect(url).toContain("/agent/my-agent/stop/thread-1");
-      expect(options.method).toBe("POST");
-      expect(options.headers).toMatchObject({
-        "Content-Type": "application/json",
-        Authorization: "Bearer abc",
-      });
-
-      // Channel should be cleaned up
-      expect(channel.left).toBe(true);
-    });
-
-    it("is a no-op when fetch is unavailable (SSR)", () => {
-      const agent = createAgent();
-      agent.run(defaultInput).subscribe({ next: () => {}, error: () => {} });
-
-      const channel = getChannel(agent);
-      channel.triggerJoin("ok");
-
-      vi.stubGlobal("fetch", undefined);
-      expect(() => agent.abortRun()).not.toThrow();
-      expect(channel.left).toBe(true);
-    });
-
-    it("does not push any CUSTOM events to the channel", () => {
-      const agent = createAgent();
-      agent.run(defaultInput).subscribe({ next: () => {}, error: () => {} });
-
-      const channel = getChannel(agent);
-      channel.triggerJoin("ok");
-
-      // Clear the push log (run may have pushed something)
-      channel.pushLog.length = 0;
-
-      agent.abortRun();
-
-      // No CUSTOM stop pushes
       const stopPush = channel.pushLog.find(
-        (c) => c.event === EventType.CUSTOM && c.payload?.name === "stop",
+        (c) =>
+          c.payload?.type === EventType.CUSTOM && c.payload?.name === "stop",
       );
-      expect(stopPush).toBeUndefined();
+      expect(stopPush).toBeDefined();
+      expect(stopPush!.payload).toMatchObject({
+        type: EventType.CUSTOM,
+        name: "stop",
+        value: { threadId: "thread-1" },
+      });
     });
 
-    it("is a no-op when no run is active", () => {
+    it("defers cleanup until the push is acknowledged (ok)", () => {
       const agent = createAgent();
-      // Should not throw.
+      agent.run(defaultInput).subscribe({ next: () => {}, error: () => {} });
+
+      const channel = getChannel(agent);
+      channel.triggerJoin("ok");
+
+      agent.abortRun();
+
+      // Cleanup has NOT happened yet — waiting for push ACK
+      expect(channel.left).toBe(false);
+
+      // Server acknowledges the stop push
+      const stopEntry = channel.pushLog.find(
+        (c) => c.payload?.name === "stop",
+      )!;
+      stopEntry.push.trigger("ok");
+
+      expect(channel.left).toBe(true);
+    });
+
+    it("cleans up on push error reply", () => {
+      const agent = createAgent();
+      agent.run(defaultInput).subscribe({ next: () => {}, error: () => {} });
+
+      const channel = getChannel(agent);
+      channel.triggerJoin("ok");
+      agent.abortRun();
+
+      const stopEntry = channel.pushLog.find(
+        (c) => c.payload?.name === "stop",
+      )!;
+      stopEntry.push.trigger("error");
+
+      expect(channel.left).toBe(true);
+    });
+
+    it("cleans up on push timeout reply", () => {
+      const agent = createAgent();
+      agent.run(defaultInput).subscribe({ next: () => {}, error: () => {} });
+
+      const channel = getChannel(agent);
+      channel.triggerJoin("ok");
+      agent.abortRun();
+
+      const stopEntry = channel.pushLog.find(
+        (c) => c.payload?.name === "stop",
+      )!;
+      stopEntry.push.trigger("timeout");
+
+      expect(channel.left).toBe(true);
+    });
+
+    it("cleans up immediately via fallback timer when socket is down", () => {
+      vi.useFakeTimers();
+      const agent = createAgent();
+      agent.run(defaultInput).subscribe({ next: () => {}, error: () => {} });
+
+      const channel = getChannel(agent);
+      channel.triggerJoin("ok");
+      agent.abortRun();
+
+      // No ACK will arrive (socket is down) — channel still open
+      expect(channel.left).toBe(false);
+
+      // Fallback fires after 5 seconds
+      vi.advanceTimersByTime(5_000);
+      expect(channel.left).toBe(true);
+
+      vi.useRealTimers();
+    });
+
+    it("cleans up immediately when no run is active", () => {
+      const agent = createAgent();
+      // Should not throw and should not push anything
       expect(() => agent.abortRun()).not.toThrow();
       expect(mockFetch).not.toHaveBeenCalled();
     });
@@ -382,27 +525,6 @@ describe("IntelligenceAgent", () => {
       const channel = getChannel(agent);
       channel.triggerJoin("ok");
       await Promise.resolve();
-
-      const [, options] = mockFetch.mock.calls[0];
-      expect(options.credentials).toBe("include");
-    });
-
-    it("forwards credentials on abortRun fetch when configured", async () => {
-      const agent = new IntelligenceAgent({
-        url: "ws://localhost:4000/socket",
-        runtimeUrl: "http://localhost:4000",
-        agentId: "my-agent",
-        credentials: "include",
-      });
-      agent.run(defaultInput).subscribe({ next: () => {}, error: () => {} });
-
-      const channel = getChannel(agent);
-      channel.triggerJoin("ok");
-
-      mockFetch.mockClear();
-      mockFetch.mockResolvedValue({ ok: true });
-
-      agent.abortRun();
 
       const [, options] = mockFetch.mock.calls[0];
       expect(options.credentials).toBe("include");
@@ -533,6 +655,42 @@ describe("IntelligenceAgent", () => {
       const result = await promise;
       expect(result.error).toBeInstanceOf(Error);
       expect(result.error!.message).toContain("Failed to join channel");
+    });
+
+    it("does not error the observable on a single channel crash (Phoenix retries)", () => {
+      const agent = createAgent();
+      let error: Error | null = null;
+      (agent as any).connect(defaultInput).subscribe({
+        next: () => {},
+        error: (err: Error) => {
+          error = err;
+        },
+      });
+
+      const channel = getChannel(agent);
+      channel.triggerJoin("ok");
+      channel.triggerError("server crash");
+
+      // Channel errors are handled by Phoenix auto-rejoin — no observer error.
+      expect(error).toBeNull();
+    });
+
+    it("errors the observable after MAX_CONSECUTIVE_ERRORS socket errors", async () => {
+      const agent = createAgent();
+      const promise = connectAgent(agent);
+
+      const socket = getSocket(agent);
+      const channel = getChannel(agent);
+      channel.triggerJoin("ok");
+
+      for (let i = 0; i < 5; i++) {
+        socket.triggerError(new Error("network failure"));
+      }
+
+      const result = await promise;
+      expect(result.completed).toBe(false);
+      expect(result.error).toBeInstanceOf(Error);
+      expect(result.error!.message).toContain("5 consecutive errors");
     });
   });
 

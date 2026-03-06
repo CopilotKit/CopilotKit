@@ -15,6 +15,7 @@ import {
 } from "react";
 import { z } from "zod";
 import { CopilotKitInspector } from "../components/CopilotKitInspector";
+import type { CopilotKitCoreErrorCode } from "@copilotkitnext/core";
 import {
   MCPAppsActivityContentSchema,
   MCPAppsActivityRenderer,
@@ -79,6 +80,15 @@ export interface CopilotKitProviderProps {
   frontendTools?: ReactFrontendTool[];
   humanInTheLoop?: ReactHumanInTheLoop[];
   showDevConsole?: boolean | "auto";
+  /**
+   * Error handler called when CopilotKit encounters an error.
+   * Fires for all error types (runtime connection failures, agent errors, tool errors).
+   */
+  onError?: (event: {
+    error: Error;
+    code: CopilotKitCoreErrorCode;
+    context: Record<string, any>;
+  }) => void | Promise<void>;
 }
 
 // Small helper to normalize array props to a stable reference and warn
@@ -122,6 +132,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   humanInTheLoop,
   showDevConsole = false,
   useSingleEndpoint = false,
+  onError,
 }) => {
   const [shouldRenderInspector, setShouldRenderInspector] = useState(false);
 
@@ -376,6 +387,30 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
           const next = new Set(prev);
           next.delete(toolCallId);
           return next;
+        });
+      },
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [copilotkit]);
+
+  // onError subscription — forward core errors to user callback
+  const onErrorRef = useRef(onError);
+  useEffect(() => {
+    onErrorRef.current = onError;
+  }, [onError]);
+
+  useEffect(() => {
+    if (!onErrorRef.current) return;
+
+    const subscription = copilotkit.subscribe({
+      onError: (event) => {
+        onErrorRef.current?.({
+          error: event.error,
+          code: event.code,
+          context: event.context,
         });
       },
     });
