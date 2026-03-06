@@ -94,8 +94,9 @@ export interface CopilotKitProviderProps {
   }) => void | Promise<void>;
   /**
    * Configuration for the A2UI (Agent-to-UI) renderer.
-   * When provided, the built-in A2UI activity renderer is registered automatically.
-   * Mirrors the server-side `a2ui` option on `CopilotRuntime`.
+   * The built-in A2UI renderer is activated automatically when the runtime reports
+   * that `a2ui` is configured in `CopilotRuntime`. This prop is optional and only
+   * needed if you want to override the default theme.
    *
    * @example
    * ```tsx
@@ -158,6 +159,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   a2ui,
 }) => {
   const [shouldRenderInspector, setShouldRenderInspector] = useState(false);
+  const [runtimeA2UIEnabled, setRuntimeA2UIEnabled] = useState(false);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -222,14 +224,14 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
       },
     ];
 
-    if (a2ui !== undefined) {
+    if (runtimeA2UIEnabled) {
       renderers.unshift(
-        createA2UIMessageRenderer({ theme: a2ui.theme ?? viewerTheme }),
+        createA2UIMessageRenderer({ theme: a2ui?.theme ?? viewerTheme }),
       );
     }
 
     return renderers;
-  }, [a2ui]);
+  }, [runtimeA2UIEnabled, a2ui]);
 
   // Combine user-provided activity renderers with built-in ones
   // User-provided renderers take precedence (come first) so they can override built-ins
@@ -378,6 +380,18 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     });
   }
   const copilotkit = copilotkitRef.current;
+
+  // Sync runtimeA2UIEnabled from the core once runtime info is fetched
+  useEffect(() => {
+    const subscription = copilotkit.subscribe({
+      onRuntimeConnectionStatusChanged: () => {
+        setRuntimeA2UIEnabled(copilotkit.a2uiEnabled);
+      },
+    });
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [copilotkit]);
 
   // Subscribe to render tool calls changes to force re-renders
   const [, forceUpdate] = useReducer((x) => x + 1, 0);

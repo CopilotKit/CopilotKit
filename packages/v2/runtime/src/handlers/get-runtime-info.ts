@@ -29,6 +29,7 @@ export async function handleGetRuntimeInfo({
       version: VERSION,
       agents: agentsDict,
       audioFileTranscriptionEnabled: !!runtime.transcriptionService,
+      a2uiEnabled: !!runtime.a2ui,
     };
 
     return new Response(JSON.stringify(runtimeInfo), {
