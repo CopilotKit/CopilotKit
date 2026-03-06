@@ -327,7 +327,7 @@ export function convertMessagesToVercelAISDKMessages(
           type: "tool-call",
           toolCallId: toolCall.id,
           toolName: toolCall.function.name,
-          input: ensureObjectArgs(JSON.parse(toolCall.function.arguments)),
+          input: safeParseToolArgs(toolCall.function.arguments),
         };
         parts.push(toolCallPart);
       }
@@ -1237,18 +1237,26 @@ export class BasicAgent extends BuiltInAgent {
 export type BasicAgentConfiguration = BuiltInAgentConfiguration;
 
 /**
- * Ensures parsed tool arguments are a plain object.
- * LLMs may occasionally return non-object values (e.g. empty string "")
- * as tool arguments. Providers like Anthropic require tool_use.input to
- * be a dictionary, so we fall back to an empty object for safety.
+ * Safely parses a JSON string into a plain object for tool arguments.
+ * Handles two failure modes:
+ *  1. Malformed JSON (SyntaxError from JSON.parse)
+ *  2. Valid JSON that isn't a plain object (e.g. "", [], null, 42, true)
+ * Providers like Anthropic require tool_use.input to be a dictionary,
+ * so we fall back to an empty object for safety in both cases.
  */
-function ensureObjectArgs(parsed: unknown): Record<string, unknown> {
-  if (
-    typeof parsed === "object" &&
-    parsed !== null &&
-    !Array.isArray(parsed)
-  ) {
-    return parsed as Record<string, unknown>;
+function safeParseToolArgs(raw: string): Record<string, unknown> {
+  try {
+    const parsed = JSON.parse(raw);
+    if (
+      typeof parsed === "object" &&
+      parsed !== null &&
+      !Array.isArray(parsed)
+    ) {
+      return parsed as Record<string, unknown>;
+    }
+    return {};
+  } catch {
+    console.warn("Failed to parse tool arguments, falling back to {}:", raw);
+    return {};
   }
-  return {};
 }

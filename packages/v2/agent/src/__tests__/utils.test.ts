@@ -490,12 +490,12 @@ describe("ensureObjectArgs via convertMessagesToVercelAISDKMessages", () => {
     expect(toolCall.input).toEqual({});
   });
 
-  it("should throw on unparseable JSON (pre-existing gap: JSON.parse is unguarded)", () => {
-    expect(() =>
-      convertMessagesToVercelAISDKMessages(
-        makeAssistantWithToolArgs("{broken"),
-      ),
-    ).toThrow();
+  it("should replace unparseable JSON with an empty object", () => {
+    const result = convertMessagesToVercelAISDKMessages(
+      makeAssistantWithToolArgs("{broken"),
+    );
+    const toolCall = (result[0] as any).content[1];
+    expect(toolCall.input).toEqual({});
   });
 });
 

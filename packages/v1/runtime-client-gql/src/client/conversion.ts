@@ -244,11 +244,16 @@ function getPartialArguments(args: string[]) {
     if (!args.length) return {};
 
     const parsed = JSON.parse(untruncateJson(args.join("")));
-    if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+    if (
+      typeof parsed !== "object" ||
+      parsed === null ||
+      Array.isArray(parsed)
+    ) {
       return {};
     }
     return parsed;
   } catch (e) {
+    console.warn("Failed to parse tool arguments, falling back to {}:", e);
     return {};
   }
 }
