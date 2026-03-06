@@ -6,12 +6,14 @@ on:
     paths:
       - "packages/v1/**"
       - "packages/v2/**"
+      - "sdk-python/**"
       - ".github/workflows/e2e_dojo.yml"
   pull_request:
     branches: [main]
     paths:
       - "packages/v1/**"
       - "packages/v2/**"
+      - "sdk-python/**"
       - ".github/workflows/e2e_dojo.yml"
       - ".changeset"
   workflow_dispatch:
