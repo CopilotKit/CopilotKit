@@ -5,11 +5,13 @@ export interface AgentRunnerRunRequest {
   threadId: string;
   agent: AbstractAgent;
   input: RunAgentInput;
+  joinCode?: string;
 }
 
 export interface AgentRunnerConnectRequest {
   threadId: string;
   headers?: Record<string, string>;
+  joinCode?: string;
 }
 
 export interface AgentRunnerIsRunningRequest {
