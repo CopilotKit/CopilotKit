@@ -29,7 +29,27 @@ env:
   NX_CI_EXECUTION_ENV: "E2E Dojo"
 
 jobs:
+  detect-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      ts-changed: ${{ steps.changes.outputs.ts }}
+      python-changed: ${{ steps.changes.outputs.python }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: changes
+        with:
+          filters: |
+            ts:
+              - 'packages/v1/**'
+              - 'packages/v2/**'
+              - '.github/workflows/e2e_dojo.yml'
+              - '.changeset'
+            python:
+              - 'sdk-python/**'
+
   dojo:
+    needs: detect-changes
     name: ${{ matrix.suite }}
     runs-on: depot-ubuntu-24.04
     timeout-minutes: 30
@@ -114,7 +134,22 @@ jobs:
             needs_python: true
 
     steps:
+      - name: Check relevance
+        id: should-run
+        run: |
+          if [[ "${{ needs.detect-changes.outputs.ts-changed }}" == "true" ]] || \
+             [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "skip=false" >> $GITHUB_OUTPUT
+          elif [[ "${{ needs.detect-changes.outputs.python-changed }}" == "true" ]] && \
+               [[ "${{ matrix.needs_python }}" == "true" ]]; then
+            echo "skip=false" >> $GITHUB_OUTPUT
+          else
+            echo "skip=true" >> $GITHUB_OUTPUT
+            echo "⏭️ Skipping ${{ matrix.suite }} — no relevant changes"
+          fi
+
       - name: Checkout CPK
+        if: steps.should-run.outputs.skip != 'true'
         uses: actions/checkout@v4
         with:
           lfs: true
@@ -122,6 +157,7 @@ jobs:
           ref: ${{ github.event.inputs.branch || github.ref }}
 
       - name: Checkout AGUI
+        if: steps.should-run.outputs.skip != 'true'
         uses: actions/checkout@v4
         with:
           repository: ag-ui-protocol/ag-ui
@@ -129,21 +165,25 @@ jobs:
           ref: main
 
       - name: Set up Node.js
+        if: steps.should-run.outputs.skip != 'true'
         uses: actions/setup-node@v4
         with:
           node-version: "22"
 
       - name: Install pnpm
+        if: steps.should-run.outputs.skip != 'true'
         uses: pnpm/action-setup@v4
         with:
           version: 10.13.1
 
       # Now that pnpm is available, cache its store to speed installs
       - name: Resolve pnpm store path
+        if: steps.should-run.outputs.skip != 'true'
         id: pnpm-store
         run: echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_OUTPUT
 
       - name: Cache pnpm store
+        if: steps.should-run.outputs.skip != 'true'
         uses: actions/cache@v4
         with:
           path: ${{ steps.pnpm-store.outputs.STORE_PATH }}
@@ -153,7 +193,7 @@ jobs:
 
       # Cache Python tool caches and virtualenvs; restore only to avoid long saves
       - name: Cache Python dependencies (restore-only)
-        if: ${{ matrix.needs_python }}
+        if: steps.should-run.outputs.skip != 'true' && matrix.needs_python
         id: cache-python
         uses: actions/cache/restore@v4
         with:
@@ -167,7 +207,7 @@ jobs:
             ${{ runner.os }}-pydeps-
 
       - name: Install Poetry
-        if: ${{ matrix.needs_python }}
+        if: steps.should-run.outputs.skip != 'true' && matrix.needs_python
         uses: snok/install-poetry@v1
         with:
           version: latest
@@ -175,14 +215,16 @@ jobs:
           virtualenvs-in-project: true
 
       - name: Install uv
-        if: ${{ matrix.needs_python }}
+        if: steps.should-run.outputs.skip != 'true' && matrix.needs_python
         uses: astral-sh/setup-uv@v6
 
       - name: Install cpk dependencies
+        if: steps.should-run.outputs.skip != 'true'
         working-directory: CopilotKit
         run: pnpm install --frozen-lockfile
 
       - name: Build cpk packages
+        if: steps.should-run.outputs.skip != 'true'
         working-directory: CopilotKit
         env:
           NODE_OPTIONS: --max-old-space-size=8192
@@ -190,6 +232,7 @@ jobs:
         run: pnpm build
 
       - name: Install ag-ui dependencies
+        if: steps.should-run.outputs.skip != 'true'
         working-directory: ag-ui
         run: pnpm install --frozen-lockfile
 
@@ -197,14 +240,16 @@ jobs:
         working-directory: ag-ui/apps/dojo
         env:
           NODE_OPTIONS: --max-old-space-size=8192
-        if: ${{ join(matrix.services, ',') != '' }}
+        if: steps.should-run.outputs.skip != 'true' && join(matrix.services, ',') != ''
         run: node ./scripts/prep-dojo-everything.js --only ${{ join(matrix.services, ',') }}
 
       - name: Link cpk into ag-ui
+        if: steps.should-run.outputs.skip != 'true'
         working-directory: CopilotKit
         run: node ../ag-ui/apps/dojo/scripts/link-cpk.js ${{ github.workspace }}/CopilotKit/packages
 
       - name: Install e2e dependencies
+        if: steps.should-run.outputs.skip != 'true'
         working-directory: ag-ui/apps/dojo/e2e
         run: |
           pnpm install
@@ -214,7 +259,7 @@ jobs:
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           LANGSMITH_API_KEY: ${{ secrets.LANGSMITH_API_KEY }}
-        if: ${{ contains(join(matrix.services, ','), 'langgraph-fastapi') || contains(join(matrix.services, ','), 'langgraph-platform-python') || contains(join(matrix.services, ','), 'langgraph-platform-typescript') }}
+        if: steps.should-run.outputs.skip != 'true' && (contains(join(matrix.services, ','), 'langgraph-fastapi') || contains(join(matrix.services, ','), 'langgraph-platform-python') || contains(join(matrix.services, ','), 'langgraph-platform-typescript'))
         run: |
           echo "OPENAI_API_KEY=${OPENAI_API_KEY}" > python/examples/.env
           echo "LANGSMITH_API_KEY=${LANGSMITH_API_KEY}" >> python/examples/.env
@@ -228,7 +273,7 @@ jobs:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           LANGSMITH_API_KEY: ${{ secrets.LANGSMITH_API_KEY }}
           GOOGLE_API_KEY: ${{ secrets.GOOGLE_GEMINI_API_KEY }}
-        if: ${{ join(matrix.services, ',') != '' && contains(join(matrix.services, ','), 'dojo') }}
+        if: steps.should-run.outputs.skip != 'true' && join(matrix.services, ',') != '' && contains(join(matrix.services, ','), 'dojo')
         with:
           run: |
             node ../scripts/run-dojo-everything.js --only ${{ join(matrix.services, ',') }}
@@ -237,6 +282,7 @@ jobs:
           wait-for: 300000
 
       - name: Run tests – ${{ matrix.suite }}
+        if: steps.should-run.outputs.skip != 'true'
         working-directory: ag-ui/apps/dojo/e2e
         env:
           NODE_OPTIONS: --max-old-space-size=8192
@@ -246,7 +292,7 @@ jobs:
           pnpm test -- ${{ matrix.test_path }}
 
       - name: Upload traces – ${{ matrix.suite }}
-        if: always() # Uploads artifacts even if tests fail
+        if: always() && steps.should-run.outputs.skip != 'true'
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.suite }}-playwright-traces
