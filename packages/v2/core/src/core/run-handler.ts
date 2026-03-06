@@ -315,6 +315,8 @@ export class RunHandler {
           parsedArgs = {};
         }
       } catch (error) {
+        const parseError =
+          error instanceof Error ? error : new Error(String(error));
         errorMessage = parseError.message;
         isArgumentError = true;
         await (this.core as unknown as CopilotKitCoreFriendsAccess).emitError({
