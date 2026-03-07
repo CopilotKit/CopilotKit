@@ -353,6 +353,7 @@ describe("handleRunAgent", () => {
       });
       expect(platform.acquireThreadLock).toHaveBeenCalledWith({
         threadId: "thread-1",
+        runId: "run-1",
       });
     });
 
@@ -458,6 +459,7 @@ describe("handleRunAgent", () => {
       });
       expect(platform.acquireThreadLock).toHaveBeenCalledWith({
         threadId: "thread-1",
+        runId: "run-1",
       });
     });
 
