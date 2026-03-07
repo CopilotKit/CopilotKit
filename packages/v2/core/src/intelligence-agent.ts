@@ -282,10 +282,7 @@ export class IntelligenceAgent extends AbstractAgent {
       return;
     }
 
-    const existing = this.sharedState.lastSeenEventIds.get(threadId);
-    if (!existing || existing < eventId) {
-      this.sharedState.lastSeenEventIds.set(threadId, eventId);
-    }
+    this.sharedState.lastSeenEventIds.set(threadId, eventId);
   }
 
   private readEventId(payload: BaseEvent): string | null {
@@ -294,7 +291,7 @@ export class IntelligenceAgent extends AbstractAgent {
       return null;
     }
 
-    const eventId = (metadata as { cpki_ingested?: unknown }).cpki_ingested;
-    return typeof eventId === "string" ? eventId : null;
+    const runnerEventId = (metadata as { cpki_event_id?: unknown }).cpki_event_id;
+    return typeof runnerEventId === "string" ? runnerEventId : null;
   }
 }
