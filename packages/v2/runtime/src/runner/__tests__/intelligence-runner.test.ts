@@ -169,7 +169,7 @@ describe("IntelligenceAgentRunner", () => {
   beforeEach(() => {
     mockChannels = [];
     mockSockets = [];
-    runner = new IntelligenceAgentRunner({ url: "ws://localhost:4000/socket" });
+    runner = new IntelligenceAgentRunner({ url: "ws://localhost:4000/runner" });
   });
 
   describe("run", () => {
@@ -249,12 +249,16 @@ describe("IntelligenceAgentRunner", () => {
 
       await eventsPromise;
 
-      // Agent events should be pushed to the channel under "ag-ui"
-      expect(ch.pushLog.every((p) => p.event === "ag-ui")).toBe(true);
+      // Agent events should be pushed to the ingestion channel under "event".
+      expect(ch.pushLog.every((p) => p.event === "event")).toBe(true);
       const payloadTypes = ch.pushLog.map((p) => p.payload.type);
       expect(payloadTypes).toContain(EventType.RUN_STARTED);
       expect(payloadTypes).toContain(EventType.TEXT_MESSAGE_CONTENT);
       expect(payloadTypes).toContain(EventType.RUN_FINISHED);
+      expect(ch.pushLog[0].payload).toMatchObject({
+        thread_id: threadId,
+        run_id: "r-push",
+      });
     });
 
     it("does not push any CUSTOM run event to the channel", async () => {
@@ -411,7 +415,7 @@ describe("IntelligenceAgentRunner", () => {
         runner.run({ threadId, agent, input, joinCode }),
       );
       const ch = mockChannels[0];
-      expect(ch.topic).toBe(`agent:${joinCode}`);
+      expect(ch.topic).toBe(`ingestion:${joinCode}`);
       ch.triggerJoin("ok");
       await eventsPromise;
     });
@@ -431,7 +435,7 @@ describe("IntelligenceAgentRunner", () => {
         runner.run({ threadId, agent, input }),
       );
       const ch = mockChannels[0];
-      expect(ch.topic).toBe(`agent:${threadId}`);
+      expect(ch.topic).toBe(`ingestion:${threadId}`);
       ch.triggerJoin("ok");
       await eventsPromise;
     });
