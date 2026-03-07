@@ -899,6 +899,27 @@ export class BuiltInAgent extends AbstractAgent {
 
           let messageId = randomUUID();
           let reasoningMessageId = randomUUID();
+          let isInReasoning = false;
+
+          // Auto-close an open reasoning lifecycle.
+          // Some AI SDK providers (notably Anthropic) never emit "reasoning-end",
+          // which leaves downstream state machines stuck. This helper emits the
+          // missing REASONING_MESSAGE_END + REASONING_END events so the stream
+          // can transition to text, tool-call, or finish phases.
+          const closeReasoningIfOpen = () => {
+            if (!isInReasoning) return;
+            isInReasoning = false;
+            const reasoningMessageEnd: ReasoningMessageEndEvent = {
+              type: EventType.REASONING_MESSAGE_END,
+              messageId: reasoningMessageId,
+            };
+            subscriber.next(reasoningMessageEnd);
+            const reasoningEnd: ReasoningEndEvent = {
+              type: EventType.REASONING_END,
+              messageId: reasoningMessageId,
+            };
+            subscriber.next(reasoningEnd);
+          };
 
           const toolCallStates = new Map<
             string,
@@ -923,6 +944,7 @@ export class BuiltInAgent extends AbstractAgent {
           for await (const part of response.fullStream) {
             switch (part.type) {
               case "abort": {
+                closeReasoningIfOpen();
                 const abortEndEvent: RunFinishedEvent = {
                   type: EventType.RUN_FINISHED,
                   threadId: input.threadId,
@@ -942,6 +964,7 @@ export class BuiltInAgent extends AbstractAgent {
                 if (providedId && providedId !== "0") {
                   reasoningMessageId = providedId as typeof reasoningMessageId;
                 }
+                isInReasoning = true;
                 const reasoningStartEvent: ReasoningStartEvent = {
                   type: EventType.REASONING_START,
                   messageId: reasoningMessageId,
@@ -966,6 +989,7 @@ export class BuiltInAgent extends AbstractAgent {
                 break;
               }
               case "reasoning-end": {
+                isInReasoning = false;
                 const reasoningMessageEnd: ReasoningMessageEndEvent = {
                   type: EventType.REASONING_MESSAGE_END,
                   messageId: reasoningMessageId,
@@ -979,6 +1003,7 @@ export class BuiltInAgent extends AbstractAgent {
                 break;
               }
               case "tool-input-start": {
+                closeReasoningIfOpen();
                 const toolCallId = part.id;
                 const state = ensureToolCallState(toolCallId);
                 state.toolName = part.toolName;
@@ -1014,6 +1039,7 @@ export class BuiltInAgent extends AbstractAgent {
               }
 
               case "text-start": {
+                closeReasoningIfOpen();
                 // New text message starting - use the SDK-provided id
                 // Use randomUUID() if part.id is falsy or "0" to prevent message merging issues
                 const providedId = "id" in part ? part.id : undefined;
@@ -1039,6 +1065,7 @@ export class BuiltInAgent extends AbstractAgent {
               }
 
               case "tool-call": {
+                closeReasoningIfOpen();
                 const toolCallId = part.toolCallId;
                 const state = ensureToolCallState(toolCallId);
                 state.toolName = part.toolName ?? state.toolName;
@@ -1135,6 +1162,7 @@ export class BuiltInAgent extends AbstractAgent {
               }
 
               case "finish": {
+                closeReasoningIfOpen();
                 // Emit run finished event
                 const finishedEvent: RunFinishedEvent = {
                   type: EventType.RUN_FINISHED,
@@ -1150,6 +1178,7 @@ export class BuiltInAgent extends AbstractAgent {
               }
 
               case "error": {
+                closeReasoningIfOpen();
                 if (abortController.signal.aborted) {
                   break;
                 }
