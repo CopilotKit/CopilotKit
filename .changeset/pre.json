@@ -48,6 +48,7 @@
     "@copilotkitnext/web-inspector": "1.53.0"
   },
   "changesets": [
-    "fifty-cobras-pull"
+    "fifty-cobras-pull",
+    "fix-escape-key-focus-loss-399"
   ]
 }

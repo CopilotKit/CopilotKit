@@ -1,5 +1,14 @@
 # ui
 
+## 1.53.1-next.1
+
+### Patch Changes
+
+- 40c22a0: fix: restore focus to textarea when hitting Escape in CMD+K popup
+  - @copilotkit/react-core@1.53.1-next.1
+  - @copilotkit/runtime-client-gql@1.53.1-next.1
+  - @copilotkit/shared@1.53.1-next.1
+
 ## 1.53.1-next.0
 
 ### Patch Changes
