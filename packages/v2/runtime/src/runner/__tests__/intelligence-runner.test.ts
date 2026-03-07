@@ -259,6 +259,12 @@ describe("IntelligenceAgentRunner", () => {
         thread_id: threadId,
         run_id: "r-push",
       });
+      expect(ch.pushLog[0].payload.metadata.cpki_event_id).toEqual(
+        expect.any(String),
+      );
+      expect(ch.pushLog[0].payload.metadata.cpki_event_seq).toBe(1);
+      expect(ch.pushLog[1].payload.metadata.cpki_event_seq).toBe(2);
+      expect(ch.pushLog[2].payload.metadata.cpki_event_seq).toBe(3);
     });
 
     it("does not push any CUSTOM run event to the channel", async () => {
@@ -341,6 +347,44 @@ describe("IntelligenceAgentRunner", () => {
       const chPayloadTypes = ch.pushLog.map((p) => p.payload.type);
       expect(chPayloadTypes).toContain(EventType.TEXT_MESSAGE_START);
       expect(chPayloadTypes).toContain(EventType.TEXT_MESSAGE_END);
+      expect(ch.pushLog.map((p) => p.payload.metadata.cpki_event_seq)).toEqual(
+        [1, 2, 3],
+      );
+    });
+
+    it("preserves runner event order with increasing cpki_event_seq", async () => {
+      const threadId = "t-seq";
+      const input = createRunInput({ threadId, runId: "r-seq" });
+
+      const agent = new MockAgent([
+        {
+          type: EventType.TEXT_MESSAGE_CONTENT,
+          messageId: "msg-1",
+          delta: "first",
+        } as TextMessageContentEvent,
+        {
+          type: EventType.TEXT_MESSAGE_CONTENT,
+          messageId: "msg-1",
+          delta: "second",
+        } as TextMessageContentEvent,
+        {
+          type: EventType.TEXT_MESSAGE_CONTENT,
+          messageId: "msg-1",
+          delta: "third",
+        } as TextMessageContentEvent,
+      ]);
+
+      const eventsPromise = collectEvents(
+        runner.run({ threadId, agent, input }),
+      );
+      const ch = mockChannels[0];
+      ch.triggerJoin("ok");
+
+      await eventsPromise;
+
+      expect(
+        ch.pushLog.map((entry) => entry.payload.metadata.cpki_event_seq),
+      ).toEqual([1, 2, 3, 4]);
     });
 
     it("throws when the thread is already running", () => {

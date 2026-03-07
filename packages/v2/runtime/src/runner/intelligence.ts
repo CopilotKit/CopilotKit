@@ -14,6 +14,7 @@ import {
   phoenixExponentialBackoff,
 } from "@copilotkitnext/shared";
 import { Socket, Channel } from "phoenix";
+import { randomUUID } from "node:crypto";
 
 export interface IntelligenceAgentRunnerOptions {
   /** Phoenix runner websocket URL, e.g. "ws://localhost:4000/runner" */
@@ -29,6 +30,7 @@ interface ThreadState {
   stopRequested: boolean;
   agent: AbstractAgent | null;
   currentEvents: BaseEvent[];
+  nextEventSeq: number;
 }
 
 export class IntelligenceAgentRunner extends AgentRunner {
@@ -75,9 +77,11 @@ export class IntelligenceAgentRunner extends AgentRunner {
   private createRunnerEventPayload(
     event: BaseEvent,
     request: AgentRunnerRunRequest,
+    state: ThreadState,
   ): Record<string, unknown> {
+    const canonicalEvent = this.stampRunnerMetadata(event, state);
     const payload = {
-      ...(event as Record<string, unknown>),
+      ...(canonicalEvent as Record<string, unknown>),
     };
 
     payload.thread_id ??= request.threadId;
@@ -92,6 +96,36 @@ export class IntelligenceAgentRunner extends AgentRunner {
     }
 
     return payload;
+  }
+
+  private stampRunnerMetadata(event: BaseEvent, state: ThreadState): BaseEvent {
+    const eventRecord = event as BaseEvent & {
+      metadata?: Record<string, unknown>;
+    };
+
+    const existingMetadata = eventRecord.metadata ?? {};
+    const hasEventId = typeof existingMetadata.cpki_event_id === "string";
+    const hasEventSeq = typeof existingMetadata.cpki_event_seq === "number";
+
+    if (hasEventId && hasEventSeq) {
+      const eventSeq = existingMetadata.cpki_event_seq as number;
+      state.nextEventSeq = Math.max(state.nextEventSeq, eventSeq + 1);
+      return eventRecord;
+    }
+
+    const eventSeq = state.nextEventSeq++;
+
+    return {
+      ...eventRecord,
+      metadata: {
+        ...existingMetadata,
+        cpki_event_id:
+          typeof existingMetadata.cpki_event_id === "string"
+            ? existingMetadata.cpki_event_id
+            : randomUUID(),
+        cpki_event_seq: eventSeq,
+      },
+    };
   }
 
   run(request: AgentRunnerRunRequest): Observable<BaseEvent> {
@@ -117,6 +151,7 @@ export class IntelligenceAgentRunner extends AgentRunner {
         stopRequested: false,
         agent,
         currentEvents: [],
+        nextEventSeq: 1,
       };
       this.threads.set(threadId, state);
 
@@ -290,12 +325,13 @@ export class IntelligenceAgentRunner extends AgentRunner {
     return from(
       request.agent.runAgent(request.input, {
         onEvent: ({ event }: { event: BaseEvent }) => {
-          currentEvents.push(event);
+          const canonicalEvent = this.stampRunnerMetadata(event, state);
+          currentEvents.push(canonicalEvent);
 
           // Push to Phoenix channel so frontend WS listeners receive it.
           channel.push(
             "event",
-            this.createRunnerEventPayload(event, request),
+            this.createRunnerEventPayload(canonicalEvent, request, state),
           );
         },
       }),
@@ -305,8 +341,12 @@ export class IntelligenceAgentRunner extends AgentRunner {
           type: EventType.RUN_ERROR,
           message: error instanceof Error ? error.message : String(error),
         } as BaseEvent;
-        currentEvents.push(errorEvent);
-        channel.push("event", this.createRunnerEventPayload(errorEvent, request));
+        const canonicalErrorEvent = this.stampRunnerMetadata(errorEvent, state);
+        currentEvents.push(canonicalErrorEvent);
+        channel.push(
+          "event",
+          this.createRunnerEventPayload(canonicalErrorEvent, request, state),
+        );
         return EMPTY;
       }),
       finalize(() => {
@@ -314,7 +354,7 @@ export class IntelligenceAgentRunner extends AgentRunner {
           stopRequested: state.stopRequested,
         });
         for (const event of appended) {
-          channel.push("event", this.createRunnerEventPayload(event, request));
+          channel.push("event", this.createRunnerEventPayload(event, request, state));
         }
         this.removeThread(threadId);
       }),
