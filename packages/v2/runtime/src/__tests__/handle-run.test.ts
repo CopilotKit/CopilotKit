@@ -184,10 +184,10 @@ describe("handleRunAgent", () => {
     stop: async () => false,
   });
 
-  const createRunRequest = () =>
+  const createRunRequest = (headers?: Record<string, string>) =>
     new Request("https://example.com/agent/my-agent/run", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...headers },
       body: JSON.stringify({
         threadId: "thread-1",
         runId: "run-1",
@@ -328,6 +328,10 @@ describe("handleRunAgent", () => {
     it("returns joinToken JSON when lock is acquired", async () => {
       const agent = createAgentForIntelligence();
       const platform = {
+        getThread: vi.fn().mockResolvedValue({
+          id: "thread-1",
+          name: null,
+        }),
         acquireThreadLock: vi
           .fn()
           .mockResolvedValue({ joinToken: "jt-123", joinCode: "jc-123" }),
@@ -344,6 +348,9 @@ describe("handleRunAgent", () => {
       expect(response.headers.get("Content-Type")).toBe("application/json");
       const body = await response.json();
       expect(body).toEqual({ joinToken: "jt-123" });
+      expect(platform.getThread).toHaveBeenCalledWith({
+        threadId: "thread-1",
+      });
       expect(platform.acquireThreadLock).toHaveBeenCalledWith({
         threadId: "thread-1",
       });
@@ -352,6 +359,10 @@ describe("handleRunAgent", () => {
     it("passes joinCode to runner.run() when provided", async () => {
       const agent = createAgentForIntelligence();
       const platform = {
+        getThread: vi.fn().mockResolvedValue({
+          id: "thread-1",
+          name: null,
+        }),
         acquireThreadLock: vi
           .fn()
           .mockResolvedValue({ joinToken: "jt-456", joinCode: "jc-456" }),
@@ -372,6 +383,10 @@ describe("handleRunAgent", () => {
     it("returns 502 when joinToken is missing", async () => {
       const agent = createAgentForIntelligence();
       const platform = {
+        getThread: vi.fn().mockResolvedValue({
+          id: "thread-1",
+          name: null,
+        }),
         acquireThreadLock: vi.fn().mockResolvedValue({ joinCode: "jc-789" }),
       };
       const runtime = createIntelligenceRuntime(agent, platform as any);
@@ -391,6 +406,10 @@ describe("handleRunAgent", () => {
     it("returns 409 when thread lock is denied", async () => {
       const agent = createAgentForIntelligence();
       const platform = {
+        getThread: vi.fn().mockResolvedValue({
+          id: "thread-1",
+          name: null,
+        }),
         acquireThreadLock: vi
           .fn()
           .mockRejectedValue(new Error("Thread is locked by another runner")),
@@ -407,6 +426,61 @@ describe("handleRunAgent", () => {
       const body = await response.json();
       expect(body.error).toBe("Thread lock denied");
       expect(body.message).toContain("Thread is locked by another runner");
+    });
+
+    it("creates the thread before locking when run targets a fresh thread", async () => {
+      const agent = createAgentForIntelligence();
+      const platform = {
+        getThread: vi
+          .fn()
+          .mockRejectedValue(new Error("Intelligence platform error 404: Not found")),
+        createThread: vi.fn().mockResolvedValue({
+          id: "thread-1",
+          name: null,
+        }),
+        acquireThreadLock: vi
+          .fn()
+          .mockResolvedValue({ joinToken: "jt-created", joinCode: "jc-created" }),
+      };
+      const runtime = createIntelligenceRuntime(agent, platform as any);
+
+      const response = await handleRunAgent({
+        runtime,
+        request: createRunRequest({ "X-User-Id": "user-1" }),
+        agentId: "my-agent",
+      });
+
+      expect(response.status).toBe(200);
+      expect(platform.createThread).toHaveBeenCalledWith({
+        threadId: "thread-1",
+        userId: "user-1",
+        agentId: "my-agent",
+      });
+      expect(platform.acquireThreadLock).toHaveBeenCalledWith({
+        threadId: "thread-1",
+      });
+    });
+
+    it("returns 400 when a fresh thread run is missing X-User-Id", async () => {
+      const agent = createAgentForIntelligence();
+      const platform = {
+        getThread: vi
+          .fn()
+          .mockRejectedValue(new Error("Intelligence platform error 404: Not found")),
+        createThread: vi.fn(),
+        acquireThreadLock: vi.fn(),
+      };
+      const runtime = createIntelligenceRuntime(agent, platform as any);
+
+      const response = await handleRunAgent({
+        runtime,
+        request: createRunRequest(),
+        agentId: "my-agent",
+      });
+
+      expect(response.status).toBe(400);
+      expect(platform.createThread).not.toHaveBeenCalled();
+      expect(platform.acquireThreadLock).not.toHaveBeenCalled();
     });
 
     it("returns 500 when intelligencePlatform is not configured", async () => {

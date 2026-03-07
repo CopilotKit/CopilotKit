@@ -16,6 +16,10 @@ interface RunAgentParameters {
   agentId: string;
 }
 
+function isPlatformNotFoundError(error: unknown): boolean {
+  return error instanceof Error && error.message.includes(" 404:");
+}
+
 export async function handleRunAgent({
   runtime,
   request,
@@ -116,6 +120,62 @@ export async function handleRunAgent({
             headers: { "Content-Type": "application/json" },
           },
         );
+      }
+
+      try {
+        await runtime.intelligencePlatform.getThread({
+          threadId: input.threadId,
+        });
+      } catch (error) {
+        if (!isPlatformNotFoundError(error)) {
+          return new Response(
+            JSON.stringify({
+              error: "Thread lookup failed",
+              message: error instanceof Error ? error.message : String(error),
+            }),
+            {
+              status: 502,
+              headers: { "Content-Type": "application/json" },
+            },
+          );
+        }
+
+        const userId = request.headers.get("X-User-Id");
+        if (!userId) {
+          return new Response(
+            JSON.stringify({
+              error: "Thread not found",
+              message:
+                "Thread does not exist and X-User-Id header is required to create it",
+            }),
+            {
+              status: 400,
+              headers: { "Content-Type": "application/json" },
+            },
+          );
+        }
+
+        try {
+          await runtime.intelligencePlatform.createThread({
+            threadId: input.threadId,
+            userId,
+            agentId,
+          });
+        } catch (createError) {
+          return new Response(
+            JSON.stringify({
+              error: "Failed to initialize thread",
+              message:
+                createError instanceof Error
+                  ? createError.message
+                  : String(createError),
+            }),
+            {
+              status: 500,
+              headers: { "Content-Type": "application/json" },
+            },
+          );
+        }
       }
 
       let joinCode: string | undefined;

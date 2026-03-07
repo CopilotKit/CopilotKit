@@ -4,7 +4,7 @@ import {
   EventType,
   BaseEvent,
 } from "@ag-ui/client";
-import { Observable, defer, switchMap } from "rxjs";
+import { EMPTY, Observable, defer, switchMap } from "rxjs";
 import { Socket, Channel } from "phoenix";
 import { phoenixExponentialBackoff } from "@copilotkitnext/shared";
 
@@ -93,7 +93,11 @@ export class IntelligenceAgent extends AbstractAgent {
 
     return defer(() => this.requestJoinCredentials$("connect", input)).pipe(
       switchMap((credentials) =>
-        this.observeThread$(input, credentials, { completeOnRunError: true }),
+        credentials === null
+          ? EMPTY
+          : this.observeThread$(input, credentials, {
+              completeOnRunError: true,
+            }),
       ),
     );
   }
@@ -113,7 +117,7 @@ export class IntelligenceAgent extends AbstractAgent {
   private requestJoinCredentials$(
     mode: "run" | "connect",
     input: RunAgentInput,
-  ): Observable<ThreadJoinCredentials> {
+  ): Observable<ThreadJoinCredentials | null> {
     return defer(async () => {
       try {
         const response = await fetch(this.buildRuntimeUrl(mode), {
@@ -135,6 +139,10 @@ export class IntelligenceAgent extends AbstractAgent {
             ? { credentials: this.config.credentials }
             : {}),
         });
+
+        if (response.status === 204 && mode === "connect") {
+          return null;
+        }
 
         if (!response.ok) {
           const text = await response.text().catch(() => "");
