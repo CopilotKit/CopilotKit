@@ -32,6 +32,7 @@ describe("handleGetRuntimeInfo", () => {
       version: expect.any(String),
       agents: {},
       audioFileTranscriptionEnabled: false,
+      a2uiEnabled: false,
     });
   });
 
@@ -54,6 +55,7 @@ describe("handleGetRuntimeInfo", () => {
       version: expect.any(String),
       agents: {},
       audioFileTranscriptionEnabled: true,
+      a2uiEnabled: false,
     });
   });
 
@@ -88,7 +90,25 @@ describe("handleGetRuntimeInfo", () => {
         },
       },
       audioFileTranscriptionEnabled: true,
+      a2uiEnabled: false,
     });
+  });
+
+  it("should return a2uiEnabled: true when runtime has a2ui configured", async () => {
+    const runtime = new CopilotRuntime({
+      agents: {},
+      a2ui: {},
+    });
+
+    const response = await handleGetRuntimeInfo({
+      runtime,
+      request: mockRequest,
+    });
+
+    expect(response.status).toBe(200);
+
+    const data = await response.json();
+    expect(data.a2uiEnabled).toBe(true);
   });
 
   it("should return 500 error when runtime.agents throws an error", async () => {

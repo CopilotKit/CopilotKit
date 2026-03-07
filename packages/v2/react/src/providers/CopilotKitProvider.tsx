@@ -21,6 +21,9 @@ import {
   MCPAppsActivityRenderer,
   MCPAppsActivityType,
 } from "../components/MCPAppsActivityRenderer";
+import { createA2UIMessageRenderer } from "../a2ui/A2UIMessageRenderer";
+import { viewerTheme } from "@copilotkit/a2ui-renderer";
+import type { Theme as A2UITheme } from "@copilotkit/a2ui-renderer";
 import { CopilotKitCoreReact } from "../lib/react-core";
 import type {
   ReactActivityMessageRenderer,
@@ -89,6 +92,26 @@ export interface CopilotKitProviderProps {
     code: CopilotKitCoreErrorCode;
     context: Record<string, any>;
   }) => void | Promise<void>;
+  /**
+   * Configuration for the A2UI (Agent-to-UI) renderer.
+   * The built-in A2UI renderer is activated automatically when the runtime reports
+   * that `a2ui` is configured in `CopilotRuntime`. This prop is optional and only
+   * needed if you want to override the default theme.
+   *
+   * @example
+   * ```tsx
+   * <CopilotKit runtimeUrl="/api/copilotkit" a2ui={{ theme: myCustomTheme }}>
+   *   {children}
+   * </CopilotKit>
+   * ```
+   */
+  a2ui?: {
+    /**
+     * Override the default A2UI viewer theme.
+     * When omitted, the built-in `viewerTheme` from `@copilotkit/a2ui-renderer` is used.
+     */
+    theme?: A2UITheme;
+  };
 }
 
 // Small helper to normalize array props to a stable reference and warn
@@ -133,8 +156,10 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   showDevConsole = false,
   useSingleEndpoint = false,
   onError,
+  a2ui,
 }) => {
   const [shouldRenderInspector, setShouldRenderInspector] = useState(false);
+  const [runtimeA2UIEnabled, setRuntimeA2UIEnabled] = useState(false);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -188,16 +213,25 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   >(renderActivityMessages, "renderActivityMessages must be a stable array.");
 
   // Built-in activity renderers that are always included
-  const builtInActivityRenderers = useMemo<ReactActivityMessageRenderer<any>[]>(
-    () => [
+  const builtInActivityRenderers = useMemo<
+    ReactActivityMessageRenderer<any>[]
+  >(() => {
+    const renderers: ReactActivityMessageRenderer<any>[] = [
       {
         activityType: MCPAppsActivityType,
         content: MCPAppsActivityContentSchema,
         render: MCPAppsActivityRenderer,
       },
-    ],
-    [],
-  );
+    ];
+
+    if (runtimeA2UIEnabled) {
+      renderers.unshift(
+        createA2UIMessageRenderer({ theme: a2ui?.theme ?? viewerTheme }),
+      );
+    }
+
+    return renderers;
+  }, [runtimeA2UIEnabled, a2ui]);
 
   // Combine user-provided activity renderers with built-in ones
   // User-provided renderers take precedence (come first) so they can override built-ins
@@ -346,6 +380,18 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     });
   }
   const copilotkit = copilotkitRef.current;
+
+  // Sync runtimeA2UIEnabled from the core once runtime info is fetched
+  useEffect(() => {
+    const subscription = copilotkit.subscribe({
+      onRuntimeConnectionStatusChanged: () => {
+        setRuntimeA2UIEnabled(copilotkit.a2uiEnabled);
+      },
+    });
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [copilotkit]);
 
   // Subscribe to render tool calls changes to force re-renders
   const [, forceUpdate] = useReducer((x) => x + 1, 0);

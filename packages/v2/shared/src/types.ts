@@ -23,4 +23,5 @@ export interface RuntimeInfo {
   version: string;
   agents: Record<string, AgentDescription>;
   audioFileTranscriptionEnabled: boolean;
+  a2uiEnabled?: boolean;
 }

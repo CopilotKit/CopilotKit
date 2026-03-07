@@ -425,6 +425,154 @@ describe("CopilotKitProvider", () => {
     });
   });
 
+  describe("a2ui prop", () => {
+    const originalFetch = global.fetch;
+    const originalWindow = (globalThis as { window?: unknown }).window;
+
+    beforeEach(() => {
+      (globalThis as { window?: unknown }).window = {};
+    });
+
+    afterEach(() => {
+      global.fetch = originalFetch;
+      if (originalWindow === undefined) {
+        delete (globalThis as { window?: unknown }).window;
+      } else {
+        (globalThis as { window?: unknown }).window = originalWindow;
+      }
+    });
+
+    it("does not register an a2ui-surface renderer by default", () => {
+      const { result } = renderHook(() => useCopilotKit(), {
+        wrapper: ({ children }) => (
+          <CopilotKitProvider>{children}</CopilotKitProvider>
+        ),
+      });
+
+      const a2uiRenderer =
+        result.current.copilotkit.renderActivityMessages.find(
+          (r) => r.activityType === "a2ui-surface",
+        );
+      expect(a2uiRenderer).toBeUndefined();
+    });
+
+    it("does not register an a2ui-surface renderer when a2ui.theme is provided but runtime has not signaled a2uiEnabled", () => {
+      const customTheme = { components: {}, elements: {}, markdown: {} } as any;
+
+      const { result } = renderHook(() => useCopilotKit(), {
+        wrapper: ({ children }) => (
+          <CopilotKitProvider a2ui={{ theme: customTheme }}>
+            {children}
+          </CopilotKitProvider>
+        ),
+      });
+
+      const a2uiRenderer =
+        result.current.copilotkit.renderActivityMessages.find(
+          (r) => r.activityType === "a2ui-surface",
+        );
+      expect(a2uiRenderer).toBeUndefined();
+    });
+
+    it("registers an a2ui-surface renderer when runtime reports a2uiEnabled: true", async () => {
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          version: "1.0.0",
+          agents: {},
+          audioFileTranscriptionEnabled: false,
+          a2uiEnabled: true,
+        }),
+      });
+
+      const { result } = renderHook(() => useCopilotKit(), {
+        wrapper: ({ children }) => (
+          <CopilotKitProvider runtimeUrl="http://localhost:3000/api">
+            {children}
+          </CopilotKitProvider>
+        ),
+      });
+
+      await vi.waitFor(() => {
+        const a2uiRenderer =
+          result.current.copilotkit.renderActivityMessages.find(
+            (r) => r.activityType === "a2ui-surface",
+          );
+        expect(a2uiRenderer).toBeDefined();
+      });
+    });
+
+    it("does not register an a2ui-surface renderer when runtime reports a2uiEnabled: false", async () => {
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          version: "1.0.0",
+          agents: {},
+          audioFileTranscriptionEnabled: false,
+          a2uiEnabled: false,
+        }),
+      });
+
+      const { result } = renderHook(() => useCopilotKit(), {
+        wrapper: ({ children }) => (
+          <CopilotKitProvider runtimeUrl="http://localhost:3000/api">
+            {children}
+          </CopilotKitProvider>
+        ),
+      });
+
+      // Let the connection settle
+      await vi.waitFor(() => {
+        expect(global.fetch).toHaveBeenCalled();
+      });
+
+      const a2uiRenderer =
+        result.current.copilotkit.renderActivityMessages.find(
+          (r) => r.activityType === "a2ui-surface",
+        );
+      expect(a2uiRenderer).toBeUndefined();
+    });
+
+    it("user-provided renderActivityMessages with activityType a2ui-surface takes precedence over built-in", async () => {
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          version: "1.0.0",
+          agents: {},
+          audioFileTranscriptionEnabled: false,
+          a2uiEnabled: true,
+        }),
+      });
+
+      const userRenderer = {
+        activityType: "a2ui-surface",
+        content: {} as any,
+        render: () => null,
+      };
+
+      const { result } = renderHook(() => useCopilotKit(), {
+        wrapper: ({ children }) => (
+          <CopilotKitProvider
+            runtimeUrl="http://localhost:3000/api"
+            renderActivityMessages={[userRenderer]}
+          >
+            {children}
+          </CopilotKitProvider>
+        ),
+      });
+
+      await vi.waitFor(() => {
+        const renderers =
+          result.current.copilotkit.renderActivityMessages.filter(
+            (r) => r.activityType === "a2ui-surface",
+          );
+        // Both present; user-provided comes first (index 0)
+        expect(renderers.length).toBeGreaterThanOrEqual(1);
+        expect(renderers[0].render).toBe(userRenderer.render);
+      });
+    });
+  });
+
   describe("Edge cases", () => {
     it("handles empty arrays for tools", () => {
       const { result } = renderHook(() => useCopilotKit(), {
