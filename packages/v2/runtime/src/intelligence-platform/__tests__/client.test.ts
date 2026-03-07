@@ -218,12 +218,16 @@ describe("IntelligencePlatformClient", () => {
         jsonResponse({ joinToken: "jt-lock", joinCode: "jc-lock" }),
       );
 
-      const result = await client.acquireThreadLock({ threadId: "t-1" });
+      const result = await client.acquireThreadLock({
+        threadId: "t-1",
+        runId: "r-1",
+      });
 
       expect(result).toEqual({ joinToken: "jt-lock", joinCode: "jc-lock" });
       const [url, opts] = fetchMock.mock.calls[0];
       expect(url).toBe("https://api.example.com/api/threads/t-1/lock");
       expect(opts.method).toBe("POST");
+      expect(JSON.parse(opts.body)).toEqual({ runId: "r-1" });
     });
 
     it("throws when lock is denied", async () => {
@@ -232,7 +236,7 @@ describe("IntelligencePlatformClient", () => {
         .mockImplementation(() => {});
       fetchMock.mockReturnValue(jsonResponse("Thread is locked", 409));
       await expect(
-        client.acquireThreadLock({ threadId: "t-1" }),
+        client.acquireThreadLock({ threadId: "t-1", runId: "r-1" }),
       ).rejects.toThrow(/409/);
       consoleSpy.mockRestore();
     });
