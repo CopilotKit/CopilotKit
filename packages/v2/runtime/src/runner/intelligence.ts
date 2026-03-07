@@ -16,7 +16,7 @@ import {
 import { Socket, Channel } from "phoenix";
 
 export interface IntelligenceAgentRunnerOptions {
-  /** Phoenix websocket URL, e.g. "ws://localhost:4000/socket" */
+  /** Phoenix runner websocket URL, e.g. "ws://localhost:4000/runner" */
   url: string;
   /** Optional params sent on socket connect (e.g. auth token) */
   socketParams?: Record<string, string>;
@@ -72,6 +72,28 @@ export class IntelligenceAgentRunner extends AgentRunner {
     return socket;
   }
 
+  private createRunnerEventPayload(
+    event: BaseEvent,
+    request: AgentRunnerRunRequest,
+  ): Record<string, unknown> {
+    const payload = {
+      ...(event as Record<string, unknown>),
+    };
+
+    payload.thread_id ??= request.threadId;
+
+    const runId =
+      payload.runId ??
+      payload.run_id ??
+      request.input.runId;
+
+    if (runId) {
+      payload.run_id = runId;
+    }
+
+    return payload;
+  }
+
   run(request: AgentRunnerRunRequest): Observable<BaseEvent> {
     const { threadId, agent, input, joinCode } = request;
 
@@ -84,7 +106,7 @@ export class IntelligenceAgentRunner extends AgentRunner {
       const socket = this.createSocket();
 
       const channelTopic = joinCode ?? threadId;
-      const channel = socket.channel(`agent:${channelTopic}`, {
+      const channel = socket.channel(`ingestion:${channelTopic}`, {
         runId: input.runId,
       });
 
@@ -271,7 +293,10 @@ export class IntelligenceAgentRunner extends AgentRunner {
           currentEvents.push(event);
 
           // Push to Phoenix channel so frontend WS listeners receive it.
-          channel.push(AG_UI_CHANNEL_EVENT, event);
+          channel.push(
+            "event",
+            this.createRunnerEventPayload(event, request),
+          );
         },
       }),
     ).pipe(
@@ -281,7 +306,7 @@ export class IntelligenceAgentRunner extends AgentRunner {
           message: error instanceof Error ? error.message : String(error),
         } as BaseEvent;
         currentEvents.push(errorEvent);
-        channel.push(AG_UI_CHANNEL_EVENT, errorEvent);
+        channel.push("event", this.createRunnerEventPayload(errorEvent, request));
         return EMPTY;
       }),
       finalize(() => {
@@ -289,7 +314,7 @@ export class IntelligenceAgentRunner extends AgentRunner {
           stopRequested: state.stopRequested,
         });
         for (const event of appended) {
-          channel.push(AG_UI_CHANNEL_EVENT, event);
+          channel.push("event", this.createRunnerEventPayload(event, request));
         }
         this.removeThread(threadId);
       }),
