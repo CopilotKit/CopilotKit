@@ -149,7 +149,9 @@ describe("IntelligenceAgent", () => {
 
       const channel = getChannel(agent)!;
       expect(channel.topic).toBe("thread:thread-1");
-      expect(channel.params).toEqual({});
+      expect(channel.params).toEqual({
+        last_seen_event_id: null,
+      });
     });
 
     it("fires a REST POST to /agent/{agentId}/run on subscribe", async () => {
@@ -186,6 +188,18 @@ describe("IntelligenceAgent", () => {
 
       expect(channel.pushLog).toHaveLength(0);
       expect(mockFetch).toHaveBeenCalledTimes(1);
+    });
+
+    it("joins with a null replay cursor when the thread has no prior events", async () => {
+      const agent = createAgent();
+      agent.run(defaultInput).subscribe({ next: () => {}, error: () => {} });
+      await flushAsyncWork();
+
+      const channel = getChannel(agent)!;
+
+      expect(channel.params).toEqual({
+        last_seen_event_id: null,
+      });
     });
   });
 
@@ -623,10 +637,38 @@ describe("IntelligenceAgent", () => {
 
       const channel = getChannel(agent)!;
       expect(channel.topic).toBe("thread:thread-1");
-      expect(channel.params).toEqual({});
+      expect(channel.params).toEqual({
+        last_seen_event_id: null,
+      });
 
       channel.triggerJoin("ok");
       expect(channel.pushLog).toHaveLength(0);
+    });
+
+    it("reuses the latest cpki_ingested value as the replay cursor", async () => {
+      const agent = createAgent();
+      agent.run(defaultInput).subscribe({ next: () => {}, error: () => {} });
+      await flushAsyncWork();
+
+      const runChannel = getChannel(agent)!;
+      runChannel.triggerJoin("ok");
+      runChannel.serverPush("ag_ui_event", {
+        type: EventType.TEXT_MESSAGE_CONTENT,
+        metadata: {
+          cpki_ingested: "01958258-39fc-7440-9f90-6f8ab0000001",
+        },
+      } as BaseEvent);
+
+      (agent as any).connect(defaultInput).subscribe({
+        next: () => {},
+        error: () => {},
+      });
+      await flushAsyncWork();
+
+      const connectChannel = getChannel(agent)!;
+      expect(connectChannel.params).toEqual({
+        last_seen_event_id: "01958258-39fc-7440-9f90-6f8ab0000001",
+      });
     });
 
     it("completes on RUN_FINISHED from server", async () => {
@@ -754,6 +796,33 @@ describe("IntelligenceAgent", () => {
       expect(cloned).toBeInstanceOf(IntelligenceAgent);
       expect(cloned).not.toBe(agent);
       expect((cloned as any).config).toEqual((agent as any).config);
+    });
+
+    it("shares replay cursor state across clones", async () => {
+      const agent = createAgent();
+      agent.run(defaultInput).subscribe({ next: () => {}, error: () => {} });
+      await flushAsyncWork();
+
+      const runChannel = getChannel(agent)!;
+      runChannel.triggerJoin("ok");
+      runChannel.serverPush("ag_ui_event", {
+        type: EventType.TEXT_MESSAGE_CONTENT,
+        metadata: {
+          cpki_ingested: "01958258-39fc-7440-9f90-6f8ab0000002",
+        },
+      } as BaseEvent);
+
+      const cloned = agent.clone();
+      (cloned as any).connect(defaultInput).subscribe({
+        next: () => {},
+        error: () => {},
+      });
+      await flushAsyncWork();
+
+      const connectChannel = getChannel(cloned)!;
+      expect(connectChannel.params).toEqual({
+        last_seen_event_id: "01958258-39fc-7440-9f90-6f8ab0000002",
+      });
     });
   });
 });

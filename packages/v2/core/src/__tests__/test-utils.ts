@@ -285,6 +285,7 @@ export class MockPush {
 export class MockChannel {
   public topic: string;
   public params: Record<string, any>;
+  public joinPayload: Record<string, any> | null = null;
   public pushLog: Array<{ event: string; payload: any; push: MockPush }> = [];
   public left = false;
 
@@ -309,7 +310,8 @@ export class MockChannel {
     this.errorHandlers.push(callback);
   }
 
-  join(): MockPush {
+  join(payload?: Record<string, any>): MockPush {
+    this.joinPayload = payload ?? null;
     return this.joinPush;
   }
 
