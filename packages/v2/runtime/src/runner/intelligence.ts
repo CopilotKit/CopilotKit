@@ -238,18 +238,16 @@ export class IntelligenceAgentRunner extends AgentRunner {
   }
 
   connect(request: AgentRunnerConnectRequest): Observable<BaseEvent> {
-    const { threadId, joinCode } = request;
+    const { threadId } = request;
 
     return new Observable((observer) => {
       const socket = this.createSocket();
 
-      const channelTopic = joinCode ?? threadId;
-      const channel = socket.channel(`agent:${channelTopic}`, {
-        mode: "connect",
-      });
+      const channel = socket.channel(`thread:${threadId}`);
 
-      // Listen for AG-UI events on a single channel event name.
-      channel.on(AG_UI_CHANNEL_EVENT, (payload: BaseEvent) => {
+      channel.on("ag_ui_event", (payload: BaseEvent) => {
+        observer.next(payload);
+
         if (
           payload.type === EventType.RUN_FINISHED ||
           payload.type === EventType.RUN_ERROR
@@ -265,14 +263,7 @@ export class IntelligenceAgentRunner extends AgentRunner {
 
       channel
         .join()
-        .receive("ok", () => {
-          // Ask the server to replay history via a CUSTOM event.
-          channel.push(EventType.CUSTOM, {
-            type: EventType.CUSTOM,
-            name: "connect",
-            value: { threadId },
-          });
-        })
+        .receive("ok", () => undefined)
         .receive("error", (resp) => {
           observer.error(
             new Error(`Failed to join channel: ${JSON.stringify(resp)}`),

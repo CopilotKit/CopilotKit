@@ -486,19 +486,19 @@ describe("IntelligenceAgentRunner", () => {
   });
 
   describe("connect", () => {
-    it("forwards events and completes on RUN_FINISHED", async () => {
+    it("forwards thread channel events and completes on RUN_FINISHED", async () => {
       const threadId = "t-connect";
 
       const eventsPromise = collectEvents(runner.connect({ threadId }));
       const ch = mockChannels[0];
       ch.triggerJoin("ok");
 
-      ch.serverPush("ag-ui", {
+      ch.serverPush("ag_ui_event", {
         type: EventType.RUN_STARTED,
         threadId,
         runId: "r-hist",
       } as BaseEvent);
-      ch.serverPush("ag-ui", {
+      ch.serverPush("ag_ui_event", {
         type: EventType.RUN_FINISHED,
         threadId,
         runId: "r-hist",
@@ -506,40 +506,37 @@ describe("IntelligenceAgentRunner", () => {
 
       const events = await eventsPromise;
 
-      expect(events.map((e) => e.type)).toEqual([]);
+      expect(events.map((e) => e.type)).toEqual([
+        EventType.RUN_STARTED,
+        EventType.RUN_FINISHED,
+      ]);
     });
 
-    it("pushes a CUSTOM connect event after joining", () => {
-      const threadId = "t-connect-push";
+    it("does not push a CUSTOM connect event after joining", () => {
+      const threadId = "t-connect-no-push";
       const sub = runner.connect({ threadId }).subscribe();
       const ch = mockChannels[0];
       ch.triggerJoin("ok");
 
-      expect(ch.pushLog).toHaveLength(1);
-      expect(ch.pushLog[0].payload).toMatchObject({
-        type: EventType.CUSTOM,
-        name: "connect",
-        value: { threadId },
-      });
+      expect(ch.pushLog).toHaveLength(0);
       sub.unsubscribe();
     });
 
-    it("uses joinCode for the channel topic when provided", () => {
+    it("joins the thread topic when joinCode is provided", () => {
       const threadId = "t-connect-jc";
-      const joinCode = "join-connect-456";
-      const sub = runner.connect({ threadId, joinCode }).subscribe();
+      const sub = runner.connect({ threadId, joinCode: "join-connect-456" }).subscribe();
       const ch = mockChannels[0];
 
-      expect(ch.topic).toBe(`agent:${joinCode}`);
+      expect(ch.topic).toBe(`thread:${threadId}`);
       sub.unsubscribe();
     });
 
-    it("falls back to threadId when joinCode is not provided", () => {
+    it("joins the thread topic when joinCode is not provided", () => {
       const threadId = "t-connect-no-jc";
       const sub = runner.connect({ threadId }).subscribe();
       const ch = mockChannels[0];
 
-      expect(ch.topic).toBe(`agent:${threadId}`);
+      expect(ch.topic).toBe(`thread:${threadId}`);
       sub.unsubscribe();
     });
 
