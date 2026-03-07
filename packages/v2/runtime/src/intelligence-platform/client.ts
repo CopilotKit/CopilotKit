@@ -67,6 +67,11 @@ export interface ThreadConnectionResponse {
   joinCode?: string;
 }
 
+export interface AcquireThreadLockRequest {
+  threadId: string;
+  runId: string;
+}
+
 interface ThreadEnvelope {
   thread: ThreadSummary;
 }
@@ -180,12 +185,13 @@ export class IntelligencePlatformClient {
     );
   }
 
-  async acquireThreadLock(params: {
-    threadId: string;
-  }): Promise<ThreadConnectionResponse> {
+  async acquireThreadLock(
+    params: AcquireThreadLockRequest,
+  ): Promise<ThreadConnectionResponse> {
     return this.request<ThreadConnectionResponse>(
       "POST",
       `/api/threads/${encodeURIComponent(params.threadId)}/lock`,
+      { runId: params.runId },
     );
   }
 

@@ -184,6 +184,7 @@ export async function handleRunAgent({
         const lockResult = await runtime.intelligencePlatform.acquireThreadLock(
           {
             threadId: input.threadId,
+            runId: input.runId,
           },
         );
         joinToken = lockResult.joinToken;
