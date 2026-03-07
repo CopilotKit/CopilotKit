@@ -91,7 +91,7 @@ describe("IntelligencePlatformClient", () => {
         lastRunAt: "2026-01-01",
         lastUpdatedAt: "2026-01-02",
       };
-      fetchMock.mockReturnValue(jsonResponse(thread));
+      fetchMock.mockReturnValue(jsonResponse({ thread }));
 
       const result = await client.updateThread({
         threadId: "t-1",
@@ -133,7 +133,7 @@ describe("IntelligencePlatformClient", () => {
         lastRunAt: "2026-01-01",
         lastUpdatedAt: "2026-01-02",
       };
-      fetchMock.mockReturnValue(jsonResponse(thread));
+      fetchMock.mockReturnValue(jsonResponse({ thread }));
 
       const result = await client.createThread({
         threadId: "t-1",
@@ -150,6 +150,25 @@ describe("IntelligencePlatformClient", () => {
         userId: "user-1",
         agentId: "agent-1",
       });
+    });
+  });
+
+  describe("getThread", () => {
+    it("sends GET to thread endpoint and unwraps the thread payload", async () => {
+      const thread = {
+        id: "t-1",
+        name: "Thread",
+        createdAt: "2026-01-01",
+        updatedAt: "2026-01-02",
+      };
+      fetchMock.mockReturnValue(jsonResponse({ thread }));
+
+      const result = await client.getThread({ threadId: "t-1" });
+
+      expect(result).toEqual(thread);
+      const [url, opts] = fetchMock.mock.calls[0];
+      expect(url).toBe("https://api.example.com/api/threads/t-1");
+      expect(opts.method).toBe("GET");
     });
   });
 
