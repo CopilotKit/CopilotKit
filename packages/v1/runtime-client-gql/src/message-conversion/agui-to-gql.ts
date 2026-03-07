@@ -219,6 +219,18 @@ export function aguiToolCallToGQLActionExecution(
     argumentsObj = {};
   }
 
+  // Guard against successfully parsed non-object values (e.g. JSON.parse('""') → "")
+  if (
+    typeof argumentsObj !== "object" ||
+    argumentsObj === null ||
+    Array.isArray(argumentsObj)
+  ) {
+    console.warn(
+      `Tool call arguments for ${toolCall.function.name} parsed to non-object, falling back to {}`,
+    );
+    argumentsObj = {};
+  }
+
   // Always include name and arguments
   return new gql.ActionExecutionMessage({
     id: toolCall.id,

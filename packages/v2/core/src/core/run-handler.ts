@@ -306,14 +306,10 @@ export class RunHandler {
     if (tool?.handler) {
       let parsedArgs: unknown;
       try {
-        parsedArgs = JSON.parse(toolCall.function.arguments);
-        if (
-          typeof parsedArgs !== "object" ||
-          parsedArgs === null ||
-          Array.isArray(parsedArgs)
-        ) {
-          parsedArgs = {};
-        }
+        parsedArgs = safeParseToolArgs(
+          JSON.parse(toolCall.function.arguments),
+          toolCall.function.name,
+        );
       } catch (error) {
         const parseError =
           error instanceof Error ? error : new Error(String(error));
@@ -448,14 +444,10 @@ export class RunHandler {
     if (wildcardTool?.handler) {
       let parsedArgs: unknown;
       try {
-        parsedArgs = JSON.parse(toolCall.function.arguments);
-        if (
-          typeof parsedArgs !== "object" ||
-          parsedArgs === null ||
-          Array.isArray(parsedArgs)
-        ) {
-          parsedArgs = {};
-        }
+        parsedArgs = safeParseToolArgs(
+          JSON.parse(toolCall.function.arguments),
+          toolCall.function.name,
+        );
       } catch (error) {
         const parseError =
           error instanceof Error ? error : new Error(String(error));
@@ -708,4 +700,24 @@ function stripAdditionalProperties(schema: unknown): void {
   for (const value of Object.values(record)) {
     stripAdditionalProperties(value);
   }
+}
+
+/**
+ * Ensures parsed tool arguments are a plain object.
+ * Returns {} with a warning for non-object values (strings, arrays, null, etc.).
+ * Does NOT catch JSON.parse errors — callers that need structured error
+ * reporting (e.g. TOOL_ARGUMENT_PARSE_FAILED) should catch SyntaxError
+ * themselves before calling this.
+ */
+function safeParseToolArgs(
+  parsed: unknown,
+  toolName: string,
+): Record<string, unknown> {
+  if (typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)) {
+    return parsed as Record<string, unknown>;
+  }
+  logger.warn(
+    `Tool arguments for ${toolName} parsed to non-object, falling back to {}`,
+  );
+  return {};
 }

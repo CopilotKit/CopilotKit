@@ -5,9 +5,17 @@ export function randomUUID() {
   return uuidv4();
 }
 
-export function partialJSONParse(json: string) {
+export function partialJSONParse(json: string): Record<string, unknown> {
   try {
-    return PartialJSON.parse(json);
+    const parsed = PartialJSON.parse(json);
+    if (
+      typeof parsed === "object" &&
+      parsed !== null &&
+      !Array.isArray(parsed)
+    ) {
+      return parsed as Record<string, unknown>;
+    }
+    return {};
   } catch (error) {
     return {};
   }
