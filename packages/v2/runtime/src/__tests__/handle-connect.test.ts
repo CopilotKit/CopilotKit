@@ -267,41 +267,7 @@ describe("handleConnectAgent", () => {
       expect(body.error).toBe("Join token not available");
     });
 
-    it("creates the thread and retries when connect targets a fresh thread", async () => {
-      const platform = {
-        getActiveJoinCode: vi
-          .fn()
-          .mockRejectedValueOnce(
-            new Error("Intelligence platform error 404: Not found"),
-          )
-          .mockResolvedValueOnce({ joinToken: "jt-created" }),
-        createThread: vi.fn().mockResolvedValue({
-          id: "thread-1",
-          name: null,
-          lastRunAt: "2026-03-06T00:00:00.000Z",
-          lastUpdatedAt: "2026-03-06T00:00:00.000Z",
-        }),
-      };
-      const runtime = createIntelligenceRuntime(platform as any);
-
-      const response = await handleConnectAgent({
-        runtime,
-        request: createConnectRequest({ "X-User-Id": "user-1" }),
-        agentId: "my-agent",
-      });
-
-      expect(response.status).toBe(200);
-      const body = await response.json();
-      expect(body).toEqual({ joinToken: "jt-created" });
-      expect(platform.createThread).toHaveBeenCalledWith({
-        threadId: "thread-1",
-        userId: "user-1",
-        agentId: "my-agent",
-      });
-      expect(platform.getActiveJoinCode).toHaveBeenCalledTimes(2);
-    });
-
-    it("returns 400 when a missing thread cannot be auto-created without X-User-Id", async () => {
+    it("returns 204 when connect targets a fresh thread", async () => {
       const platform = {
         getActiveJoinCode: vi
           .fn()
@@ -318,33 +284,9 @@ describe("handleConnectAgent", () => {
         agentId: "my-agent",
       });
 
-      expect(response.status).toBe(400);
-      const body = await response.json();
-      expect(body.error).toBe("Thread not found");
+      expect(response.status).toBe(204);
       expect(platform.createThread).not.toHaveBeenCalled();
-    });
-
-    it("returns 500 when thread auto-creation fails", async () => {
-      const platform = {
-        getActiveJoinCode: vi
-          .fn()
-          .mockRejectedValue(
-            new Error("Intelligence platform error 404: Not found"),
-          ),
-        createThread: vi.fn().mockRejectedValue(new Error("Create failed")),
-      };
-      const runtime = createIntelligenceRuntime(platform as any);
-
-      const response = await handleConnectAgent({
-        runtime,
-        request: createConnectRequest({ "X-User-Id": "user-1" }),
-        agentId: "my-agent",
-      });
-
-      expect(response.status).toBe(500);
-      const body = await response.json();
-      expect(body.error).toBe("Failed to initialize thread");
-      expect(body.message).toContain("Create failed");
+      expect(platform.getActiveJoinCode).toHaveBeenCalledTimes(1);
     });
 
     it("returns 404 when join code is not available", async () => {
