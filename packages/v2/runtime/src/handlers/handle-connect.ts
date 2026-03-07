@@ -80,60 +80,22 @@ export async function handleConnectAgent({
         });
         joinToken = result.joinToken;
       } catch (error) {
-        if (!isPlatformNotFoundError(error)) {
-          return new Response(
-            JSON.stringify({
-              error: "Join code not available",
-              message: error instanceof Error ? error.message : String(error),
-            }),
-            {
-              status: 404,
-              headers: { "Content-Type": "application/json" },
-            },
-          );
-        }
-
-        const userId = request.headers.get("X-User-Id");
-        if (!userId) {
-          return new Response(
-            JSON.stringify({
-              error: "Thread not found",
-              message:
-                "Thread does not exist and X-User-Id header is required to create it",
-            }),
-            {
-              status: 400,
-              headers: { "Content-Type": "application/json" },
-            },
-          );
-        }
-
-        try {
-          await runtime.intelligencePlatform.createThread({
-            threadId: input.threadId,
-            userId,
-            agentId,
+        if (isPlatformNotFoundError(error)) {
+          return new Response(null, {
+            status: 204,
           });
-
-          const result = await runtime.intelligencePlatform.getActiveJoinCode({
-            threadId: input.threadId,
-          });
-          joinToken = result.joinToken;
-        } catch (createError) {
-          return new Response(
-            JSON.stringify({
-              error: "Failed to initialize thread",
-              message:
-                createError instanceof Error
-                  ? createError.message
-                  : String(createError),
-            }),
-            {
-              status: 500,
-              headers: { "Content-Type": "application/json" },
-            },
-          );
         }
+
+        return new Response(
+          JSON.stringify({
+            error: "Join code not available",
+            message: error instanceof Error ? error.message : String(error),
+          }),
+          {
+            status: 404,
+            headers: { "Content-Type": "application/json" },
+          },
+        );
       }
 
       if (!joinToken) {

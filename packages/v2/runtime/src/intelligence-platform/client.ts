@@ -35,8 +35,14 @@ export interface IntelligencePlatformConfig {
 export interface ThreadSummary {
   id: string;
   name: string | null;
-  lastRunAt: string;
-  lastUpdatedAt: string;
+  lastRunAt?: string;
+  lastUpdatedAt?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  archived?: boolean;
+  agentId?: string;
+  createdById?: string;
+  tenantId?: string;
 }
 
 export interface ListThreadsResponse {
@@ -59,6 +65,10 @@ export interface CreateThreadRequest {
 export interface ThreadConnectionResponse {
   joinToken: string;
   joinCode?: string;
+}
+
+interface ThreadEnvelope {
+  thread: ThreadSummary;
 }
 
 export class IntelligencePlatformClient {
@@ -116,7 +126,7 @@ export class IntelligencePlatformClient {
     agentId: string;
     updates: UpdateThreadRequest;
   }): Promise<ThreadSummary> {
-    return this.request<ThreadSummary>(
+    const response = await this.request<ThreadEnvelope>(
       "PATCH",
       `/api/threads/${encodeURIComponent(params.threadId)}`,
       {
@@ -125,15 +135,25 @@ export class IntelligencePlatformClient {
         ...params.updates,
       },
     );
+    return response.thread;
   }
 
   async createThread(params: CreateThreadRequest): Promise<ThreadSummary> {
-    return this.request<ThreadSummary>("POST", `/api/threads`, {
+    const response = await this.request<ThreadEnvelope>("POST", `/api/threads`, {
       threadId: params.threadId,
       userId: params.userId,
       agentId: params.agentId,
       ...(params.name !== undefined ? { name: params.name } : {}),
     });
+    return response.thread;
+  }
+
+  async getThread(params: { threadId: string }): Promise<ThreadSummary> {
+    const response = await this.request<ThreadEnvelope>(
+      "GET",
+      `/api/threads/${encodeURIComponent(params.threadId)}`,
+    );
+    return response.thread;
   }
 
   async archiveThread(params: {

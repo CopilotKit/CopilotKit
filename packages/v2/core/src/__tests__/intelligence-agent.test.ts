@@ -21,6 +21,16 @@ function jsonResponse(body: unknown, status = 200) {
   } as Response);
 }
 
+function emptyResponse(status = 204) {
+  return Promise.resolve({
+    ok: status >= 200 && status < 300,
+    status,
+    statusText: "No Content",
+    json: () => Promise.resolve(null),
+    text: () => Promise.resolve(""),
+  } as Response);
+}
+
 async function flushAsyncWork() {
   await Promise.resolve();
   await Promise.resolve();
@@ -636,6 +646,19 @@ describe("IntelligenceAgent", () => {
       const result = await promise;
       expect(result.completed).toBe(true);
       expect(result.error).toBeNull();
+    });
+
+    it("completes immediately without creating a socket on 204 connect", async () => {
+      mockFetch.mockResolvedValueOnce(await emptyResponse());
+
+      const agent = createAgent();
+      const result = await connectAgent(agent);
+
+      expect(result.completed).toBe(true);
+      expect(result.error).toBeNull();
+      expect(result.events).toHaveLength(0);
+      expect(result.socket).toBeNull();
+      expect(result.channel).toBeNull();
     });
 
     it("completes on RUN_ERROR from server", async () => {
