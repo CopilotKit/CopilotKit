@@ -1,5 +1,15 @@
 # @copilotkitnext/react
 
+## 1.53.1-next.2
+
+### Patch Changes
+
+- d746e4f: feat: eagerly create default A2UI renderer when middleware is enabled
+  - @copilotkit/a2ui-renderer@1.53.1-next.2
+  - @copilotkitnext/core@1.53.1-next.2
+  - @copilotkitnext/shared@1.53.1-next.2
+  - @copilotkitnext/web-inspector@1.53.1-next.2
+
 ## 1.53.1-next.1
 
 ### Patch Changes
