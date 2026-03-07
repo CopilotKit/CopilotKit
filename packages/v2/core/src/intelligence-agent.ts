@@ -15,6 +15,10 @@ interface ThreadJoinCredentials {
   joinToken: string;
 }
 
+interface IntelligenceAgentSharedState {
+  lastSeenEventIds: Map<string, string>;
+}
+
 export interface IntelligenceAgentConfig {
   /** Phoenix websocket URL, e.g. "ws://localhost:4000/socket" */
   url: string;
@@ -35,14 +39,21 @@ export class IntelligenceAgent extends AbstractAgent {
   private socket: Socket | null = null;
   private activeChannel: Channel | null = null;
   private runId: string | null = null;
+  private sharedState: IntelligenceAgentSharedState;
 
-  constructor(config: IntelligenceAgentConfig) {
+  constructor(
+    config: IntelligenceAgentConfig,
+    sharedState: IntelligenceAgentSharedState = {
+      lastSeenEventIds: new Map<string, string>(),
+    },
+  ) {
     super();
     this.config = config;
+    this.sharedState = sharedState;
   }
 
   clone(): IntelligenceAgent {
-    return new IntelligenceAgent(this.config);
+    return new IntelligenceAgent(this.config, this.sharedState);
   }
 
   abortRun(): void {
@@ -183,10 +194,13 @@ export class IntelligenceAgent extends AbstractAgent {
       this.socket = socket;
       socket.connect();
 
-      const channel = socket.channel(`thread:${input.threadId}`, {});
+      const channel = socket.channel(`thread:${input.threadId}`, {
+        last_seen_event_id: this.getLastSeenEventId(input.threadId),
+      });
       this.activeChannel = channel;
 
       channel.on(CLIENT_AG_UI_EVENT, (payload: BaseEvent) => {
+        this.updateLastSeenEventId(input.threadId, payload);
         observer.next(payload);
 
         if (payload.type === EventType.RUN_FINISHED) {
@@ -256,5 +270,31 @@ export class IntelligenceAgent extends AbstractAgent {
         : "http://localhost";
 
     return new URL(path, new URL(this.config.runtimeUrl, origin)).toString();
+  }
+
+  private getLastSeenEventId(threadId: string): string | null {
+    return this.sharedState.lastSeenEventIds.get(threadId) ?? null;
+  }
+
+  private updateLastSeenEventId(threadId: string, payload: BaseEvent): void {
+    const eventId = this.readEventId(payload);
+    if (!eventId) {
+      return;
+    }
+
+    const existing = this.sharedState.lastSeenEventIds.get(threadId);
+    if (!existing || existing < eventId) {
+      this.sharedState.lastSeenEventIds.set(threadId, eventId);
+    }
+  }
+
+  private readEventId(payload: BaseEvent): string | null {
+    const metadata = (payload as BaseEvent & { metadata?: unknown }).metadata;
+    if (!metadata || typeof metadata !== "object") {
+      return null;
+    }
+
+    const eventId = (metadata as { cpki_ingested?: unknown }).cpki_ingested;
+    return typeof eventId === "string" ? eventId : null;
   }
 }
