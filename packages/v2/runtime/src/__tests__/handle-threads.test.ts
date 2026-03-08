@@ -4,6 +4,7 @@ import {
   handleArchiveThread,
   handleDeleteThread,
   handleListThreads,
+  handleSubscribeToThreads,
   handleUpdateThread,
 } from "../handlers/handle-threads";
 import { CopilotRuntime } from "../runtime";
@@ -54,5 +55,20 @@ describe("thread handlers", () => {
       threadId: "thread-1",
     });
     expect(deleteResponse.status).toBe(501);
+  });
+
+  it("returns 501 in SSE mode for thread subscription", async () => {
+    const runtime = new CopilotRuntime({ agents: {} });
+
+    const response = await handleSubscribeToThreads({
+      runtime,
+      request: new Request("https://example.com/threads/subscribe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: "user-1" }),
+      }),
+    });
+
+    expect(response.status).toBe(501);
   });
 });

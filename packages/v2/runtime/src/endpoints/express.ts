@@ -15,6 +15,7 @@ import { handleGetRuntimeInfo } from "../handlers/get-runtime-info";
 import { handleTranscribe } from "../handlers/handle-transcribe";
 import {
   handleListThreads,
+  handleSubscribeToThreads,
   handleUpdateThread,
   handleArchiveThread,
   handleDeleteThread,
@@ -92,6 +93,13 @@ export function createCopilotEndpointExpress({
     joinPath(normalizedBase, "/threads"),
     createRouteHandler(runtime, async ({ request }) => {
       return handleListThreads({ runtime, request });
+    }),
+  );
+
+  router.post(
+    joinPath(normalizedBase, "/threads/subscribe"),
+    createRouteHandler(runtime, async ({ request }) => {
+      return handleSubscribeToThreads({ runtime, request });
     }),
   );
 
