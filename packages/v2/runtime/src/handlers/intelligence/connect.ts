@@ -13,18 +13,18 @@ export async function handleIntelligenceConnect({
   threadId,
   lastSeenEventId,
 }: HandleIntelligenceConnectParams): Promise<Response> {
-  if (!runtime.intelligence) {
+  if (!runtime.intelligenceSdk) {
     return jsonResponse(
       {
         error: "Intelligence SDK not configured",
-        message: "Intelligence mode requires a CopilotKitIntelligence",
+        message: "Intelligence mode requires a CopilotIntelligenceSdk",
       },
       500,
     );
   }
 
   try {
-    const result = await runtime.intelligence.connectThread({
+    const result = await runtime.intelligenceSdk.connectThread({
       threadId,
       lastSeenEventId,
     });
@@ -50,10 +50,10 @@ export async function handleIntelligenceConnect({
       });
     }
 
-    console.error("Connect plan not available:", error);
     return jsonResponse(
       {
         error: "Connect plan not available",
+        message: error instanceof Error ? error.message : String(error),
       },
       404,
     );
