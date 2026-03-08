@@ -187,8 +187,11 @@ describe("handleConnectAgent", () => {
     expect(recordedRequests[0].headers).toEqual({});
   });
 
-  describe("IntelligenceAgentRunner join code path", () => {
-    const createConnectRequest = (headers?: Record<string, string>) =>
+  describe("IntelligenceAgentRunner connect planning path", () => {
+    const createConnectRequest = (
+      headers?: Record<string, string>,
+      lastSeenEventId?: string | null,
+    ) =>
       new Request("https://example.com/agent/my-agent/connect", {
         method: "POST",
         headers: { "Content-Type": "application/json", ...headers },
@@ -200,6 +203,7 @@ describe("handleConnectAgent", () => {
           tools: [],
           context: [],
           forwardedProps: {},
+          ...(lastSeenEventId !== undefined ? { lastSeenEventId } : {}),
         }),
       });
 
@@ -225,11 +229,14 @@ describe("handleConnectAgent", () => {
       } as unknown as CopilotRuntime;
     };
 
-    it("returns joinToken JSON when join credentials are available", async () => {
+    it("returns a live connect plan when join credentials are available", async () => {
       const platform = {
-        getActiveJoinCode: vi
-          .fn()
-          .mockResolvedValue({ joinToken: "jt-connect-1" }),
+        connectThread: vi.fn().mockResolvedValue({
+          mode: "live",
+          joinToken: "jt-connect-1",
+          joinFromEventId: "event-1",
+          events: [],
+        }),
       };
       const runtime = createIntelligenceRuntime(platform as any);
 
@@ -242,17 +249,25 @@ describe("handleConnectAgent", () => {
       expect(response.status).toBe(200);
       expect(response.headers.get("Content-Type")).toBe("application/json");
       const body = await response.json();
-      expect(body).toEqual({ joinToken: "jt-connect-1" });
-      expect(platform.getActiveJoinCode).toHaveBeenCalledWith({
+      expect(body).toEqual({
+        mode: "live",
+        joinToken: "jt-connect-1",
+        joinFromEventId: "event-1",
+        events: [],
+      });
+      expect(platform.connectThread).toHaveBeenCalledWith({
         threadId: "thread-1",
+        lastSeenEventId: null,
       });
     });
 
-    it("returns 502 when joinToken is missing", async () => {
+    it("returns a bootstrap connect plan when no socket is needed", async () => {
       const platform = {
-        getActiveJoinCode: vi
-          .fn()
-          .mockResolvedValue({ joinCode: "jc-missing" }),
+        connectThread: vi.fn().mockResolvedValue({
+          mode: "bootstrap",
+          latestEventId: "event-2",
+          events: [{ type: "MESSAGES_SNAPSHOT", messages: [] }],
+        }),
       };
       const runtime = createIntelligenceRuntime(platform as any);
 
@@ -262,18 +277,18 @@ describe("handleConnectAgent", () => {
         agentId: "my-agent",
       });
 
-      expect(response.status).toBe(502);
+      expect(response.status).toBe(200);
       const body = await response.json();
-      expect(body.error).toBe("Join token not available");
+      expect(body).toEqual({
+        mode: "bootstrap",
+        latestEventId: "event-2",
+        events: [{ type: "MESSAGES_SNAPSHOT", messages: [] }],
+      });
     });
 
     it("returns 204 when connect targets a fresh thread", async () => {
       const platform = {
-        getActiveJoinCode: vi
-          .fn()
-          .mockRejectedValue(
-            new Error("Intelligence platform error 404: Not found"),
-          ),
+        connectThread: vi.fn().mockResolvedValue(null),
         createThread: vi.fn(),
       };
       const runtime = createIntelligenceRuntime(platform as any);
@@ -286,14 +301,12 @@ describe("handleConnectAgent", () => {
 
       expect(response.status).toBe(204);
       expect(platform.createThread).not.toHaveBeenCalled();
-      expect(platform.getActiveJoinCode).toHaveBeenCalledTimes(1);
+      expect(platform.connectThread).toHaveBeenCalledTimes(1);
     });
 
-    it("returns 404 when join code is not available", async () => {
+    it("returns 404 when connect planning is not available", async () => {
       const platform = {
-        getActiveJoinCode: vi
-          .fn()
-          .mockRejectedValue(new Error("No active join code")),
+        connectThread: vi.fn().mockRejectedValue(new Error("No active connect plan")),
       };
       const runtime = createIntelligenceRuntime(platform as any);
 
@@ -305,8 +318,27 @@ describe("handleConnectAgent", () => {
 
       expect(response.status).toBe(404);
       const body = await response.json();
-      expect(body.error).toBe("Join code not available");
-      expect(body.message).toContain("No active join code");
+      expect(body.error).toBe("Connect plan not available");
+      expect(body.message).toContain("No active connect plan");
+    });
+
+    it("forwards lastSeenEventId to the intelligence platform", async () => {
+      const platform = {
+        connectThread: vi.fn().mockResolvedValue(null),
+      };
+      const runtime = createIntelligenceRuntime(platform as any);
+
+      const response = await handleConnectAgent({
+        runtime,
+        request: createConnectRequest(undefined, "event-9"),
+        agentId: "my-agent",
+      });
+
+      expect(response.status).toBe(204);
+      expect(platform.connectThread).toHaveBeenCalledWith({
+        threadId: "thread-1",
+        lastSeenEventId: "event-9",
+      });
     });
 
     it("returns 500 when intelligencePlatform is not configured", async () => {

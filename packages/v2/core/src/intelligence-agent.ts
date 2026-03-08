@@ -3,12 +3,12 @@ import {
   RunAgentInput,
   EventType,
   BaseEvent,
-  MetaEvent,
 } from "@ag-ui/client";
 import {
   EMPTY,
   Notification,
   Observable,
+  concat,
   defer,
   dematerialize,
   from,
@@ -16,9 +16,9 @@ import {
   switchMap,
 } from "rxjs";
 import {
-  filter,
   endWith,
   finalize,
+  filter,
   ignoreElements,
   map,
   mergeMap,
@@ -33,8 +33,6 @@ import { phoenixExponentialBackoff } from "@copilotkitnext/shared";
 
 const CLIENT_AG_UI_EVENT = "ag_ui_event";
 const STOP_RUN_EVENT = "stop_run";
-const REPLAY_COMPLETE_META_TYPE = "replay_complete";
-
 interface ThreadJoinCredentials {
   joinToken: string;
 }
@@ -43,10 +41,20 @@ interface IntelligenceAgentSharedState {
   lastSeenEventIds: Map<string, string>;
 }
 
-interface ThreadStreamState {
-  isReplaying: boolean;
-  notifications: Array<Notification<BaseEvent>>;
+interface ConnectBootstrapPlan {
+  mode: "bootstrap";
+  latestEventId: string | null;
+  events: BaseEvent[];
 }
+
+interface ConnectLivePlan {
+  mode: "live";
+  joinToken: string;
+  joinFromEventId: string | null;
+  events: BaseEvent[];
+}
+
+type NormalizedConnectPlan = ConnectBootstrapPlan | ConnectLivePlan;
 
 export interface IntelligenceAgentConfig {
   /** Phoenix websocket URL, e.g. "ws://localhost:4000/socket" */
@@ -134,15 +142,28 @@ export class IntelligenceAgent extends AbstractAgent {
     this.threadId = input.threadId;
     this.runId = input.runId;
 
-    return defer(() => this.requestJoinCredentials$("connect", input)).pipe(
-      switchMap((credentials) =>
-        credentials === null
-          ? EMPTY
-          : this.observeThread$(input, credentials, {
-              completeOnRunError: true,
-              streamMode: "connect",
-            }),
-      ),
+    return defer(() => this.requestConnectPlan$(input)).pipe(
+      switchMap((plan) => {
+        if (plan === null) {
+          return EMPTY;
+        }
+
+        if (plan.mode === "bootstrap") {
+          this.setLastSeenEventId(input.threadId, plan.latestEventId);
+          return from(plan.events);
+        }
+
+        this.setLastSeenEventId(input.threadId, plan.joinFromEventId);
+
+        return concat(
+          from(plan.events),
+          this.observeThread$(input, { joinToken: plan.joinToken }, {
+            completeOnRunError: true,
+            streamMode: "connect",
+            replayCursor: plan.joinFromEventId,
+          }),
+        );
+      }),
     );
   }
 
@@ -159,9 +180,9 @@ export class IntelligenceAgent extends AbstractAgent {
   }
 
   private requestJoinCredentials$(
-    mode: "run" | "connect",
+    mode: "run",
     input: RunAgentInput,
-  ): Observable<ThreadJoinCredentials | null> {
+  ): Observable<ThreadJoinCredentials> {
     return defer(async () => {
       try {
         const response = await fetch(this.buildRuntimeUrl(mode), {
@@ -183,10 +204,6 @@ export class IntelligenceAgent extends AbstractAgent {
             ? { credentials: this.config.credentials }
             : {}),
         });
-
-        if (response.status === 204 && mode === "connect") {
-          return null;
-        }
 
         if (!response.ok) {
           const text = await response.text().catch(() => "");
@@ -210,10 +227,100 @@ export class IntelligenceAgent extends AbstractAgent {
     });
   }
 
+  private requestConnectPlan$(
+    input: RunAgentInput,
+  ): Observable<NormalizedConnectPlan | null> {
+    return defer(async () => {
+      try {
+        const response = await fetch(this.buildRuntimeUrl("connect"), {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...this.config.headers,
+          },
+          body: JSON.stringify({
+            threadId: input.threadId,
+            runId: input.runId,
+            messages: input.messages,
+            tools: input.tools,
+            context: input.context,
+            state: input.state,
+            forwardedProps: input.forwardedProps,
+            lastSeenEventId: this.getLastSeenEventId(input.threadId),
+          }),
+          ...(this.config.credentials
+            ? { credentials: this.config.credentials }
+            : {}),
+        });
+
+        if (response.status === 204) {
+          return null;
+        }
+
+        if (!response.ok) {
+          const text = await response.text().catch(() => "");
+          throw new Error(
+            text || response.statusText || String(response.status),
+          );
+        }
+
+        return this.normalizeConnectPlan(await response.json());
+      } catch (error) {
+        throw new Error(
+          `REST connect request failed: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
+    });
+  }
+
+  private normalizeConnectPlan(
+    payload: unknown,
+  ): NormalizedConnectPlan {
+    const envelope =
+      payload && typeof payload === "object"
+        ? (payload as Record<string, unknown>)
+        : null;
+
+    if (envelope?.mode === "bootstrap") {
+      return {
+        mode: "bootstrap",
+        latestEventId:
+          typeof envelope.latestEventId === "string" ? envelope.latestEventId : null,
+        events: Array.isArray(envelope.events)
+          ? (envelope.events as BaseEvent[])
+          : [],
+      };
+    }
+
+    if (envelope?.mode === "live") {
+      if (typeof envelope.joinToken !== "string" || envelope.joinToken.length === 0) {
+        throw new Error("missing joinToken");
+      }
+
+      return {
+        mode: "live",
+        joinToken: envelope.joinToken,
+        joinFromEventId:
+          typeof envelope.joinFromEventId === "string"
+            ? envelope.joinFromEventId
+            : null,
+        events: Array.isArray(envelope.events)
+          ? (envelope.events as BaseEvent[])
+          : [],
+      };
+    }
+
+    throw new Error("invalid connect plan");
+  }
+
   private observeThread$(
     input: RunAgentInput,
     credentials: ThreadJoinCredentials,
-    options: { completeOnRunError: boolean; streamMode: "run" | "connect" },
+    options: {
+      completeOnRunError: boolean;
+      streamMode: "run" | "connect";
+      replayCursor?: string | null;
+    },
   ): Observable<BaseEvent> {
     return defer(() => {
       const socket = this.createSocket(credentials);
@@ -221,6 +328,7 @@ export class IntelligenceAgent extends AbstractAgent {
         socket,
         input,
         options.streamMode,
+        options.replayCursor,
       );
       const threadEvents$ = this.observeThreadEvents$(
         input.threadId,
@@ -311,28 +419,17 @@ export class IntelligenceAgent extends AbstractAgent {
     channel: Channel,
     options: { completeOnRunError: boolean },
   ): Observable<BaseEvent> {
-    const initialState: ThreadStreamState = {
-      isReplaying: options.completeOnRunError,
-      notifications: [],
-    };
-
     return this.observeChannelEvent$<BaseEvent>(
       channel,
       CLIENT_AG_UI_EVENT,
     ).pipe(
       tap((payload) => {
-        if (!this.isMetaEvent(payload)) {
-          this.updateLastSeenEventId(threadId, payload);
-        }
+        this.updateLastSeenEventId(threadId, payload);
       }),
-      scan(
-        (state, payload) =>
-          this.reduceThreadEvent(state, payload, options.completeOnRunError),
-        initialState,
+      mergeMap((payload) =>
+        from(this.createThreadNotifications(payload, options.completeOnRunError)),
       ),
-      mergeMap((state) => from(state.notifications)),
       dematerialize(),
-      filter((payload) => !this.isMetaEvent(payload)),
     );
   }
 
@@ -346,58 +443,30 @@ export class IntelligenceAgent extends AbstractAgent {
     });
   }
 
-  private reduceThreadEvent(
-    state: ThreadStreamState,
+  private createThreadNotifications(
     payload: BaseEvent,
     completeOnRunError: boolean,
-  ): ThreadStreamState {
-    if (this.isReplayCompleteMetaEvent(payload)) {
-      if (this.readReplayCompleteActiveRun(payload)) {
-        return { isReplaying: false, notifications: [] };
-      }
-
-      return {
-        isReplaying: false,
-        notifications: [Notification.createComplete()],
-      };
+  ): Array<Notification<BaseEvent>> {
+    if (payload.type === EventType.RUN_FINISHED) {
+      return [
+        Notification.createNext(payload),
+        Notification.createComplete(),
+      ];
     }
 
-    if (this.isMetaEvent(payload)) {
-      return {
-        isReplaying: state.isReplaying,
-        notifications: [],
-      };
-    }
-
-    if (payload.type === EventType.RUN_FINISHED && !state.isReplaying) {
-      return {
-        isReplaying: false,
-        notifications: [
-          Notification.createNext(payload),
-          Notification.createComplete(),
-        ],
-      };
-    }
-
-    if (payload.type === EventType.RUN_ERROR && !state.isReplaying) {
+    if (payload.type === EventType.RUN_ERROR) {
       const errorMessage =
         (payload as BaseEvent & { message?: string }).message ?? "Run error";
 
-      return {
-        isReplaying: false,
-        notifications: completeOnRunError
-          ? [Notification.createNext(payload), Notification.createComplete()]
-          : [
-              Notification.createNext(payload),
-              Notification.createError(new Error(errorMessage)),
-            ],
-      };
+      return completeOnRunError
+        ? [Notification.createNext(payload), Notification.createComplete()]
+        : [
+            Notification.createNext(payload),
+            Notification.createError(new Error(errorMessage)),
+          ];
     }
 
-    return {
-      isReplaying: state.isReplaying,
-      notifications: [Notification.createNext(payload)],
-    };
+    return [Notification.createNext(payload)];
   }
 
   private buildRuntimeUrl(mode: "run" | "connect"): string {
@@ -414,6 +483,7 @@ export class IntelligenceAgent extends AbstractAgent {
     socket: Socket,
     input: RunAgentInput,
     streamMode: "run" | "connect",
+    replayCursor?: string | null,
   ): Channel {
     const payload =
       streamMode === "run"
@@ -423,7 +493,8 @@ export class IntelligenceAgent extends AbstractAgent {
           }
         : {
             stream_mode: "connect",
-            last_seen_event_id: this.getLastSeenEventId(input.threadId),
+            last_seen_event_id:
+              replayCursor ?? this.getLastSeenEventId(input.threadId),
           };
 
     return socket.channel(`thread:${input.threadId}`, payload);
@@ -442,6 +513,14 @@ export class IntelligenceAgent extends AbstractAgent {
     this.sharedState.lastSeenEventIds.set(threadId, eventId);
   }
 
+  private setLastSeenEventId(threadId: string, eventId: string | null): void {
+    if (!eventId) {
+      return;
+    }
+
+    this.sharedState.lastSeenEventIds.set(threadId, eventId);
+  }
+
   private readEventId(payload: BaseEvent): string | null {
     const metadata = (payload as BaseEvent & { metadata?: unknown }).metadata;
     if (!metadata || typeof metadata !== "object") {
@@ -453,25 +532,4 @@ export class IntelligenceAgent extends AbstractAgent {
     return typeof runnerEventId === "string" ? runnerEventId : null;
   }
 
-  private isMetaEvent(payload: BaseEvent): payload is MetaEvent {
-    return payload.type === EventType.META;
-  }
-
-  private isReplayCompleteMetaEvent(payload: BaseEvent): payload is MetaEvent {
-    return (
-      this.isMetaEvent(payload) &&
-      payload.metaType === REPLAY_COMPLETE_META_TYPE
-    );
-  }
-
-  private readReplayCompleteActiveRun(payload: MetaEvent): boolean {
-    const envelope = payload.payload;
-
-    if (!envelope || typeof envelope !== "object") {
-      return false;
-    }
-
-    const activeRun = (envelope as { active_run?: unknown }).active_run;
-    return activeRun === true;
-  }
 }
