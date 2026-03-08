@@ -599,7 +599,7 @@ export function CopilotChat({
   }, [isLoading, triggerObservabilityHook]);
 
   // Wrapper for sendMessage to clear selected images
-  const handleSendMessage = (text: string) => {
+  const handleSendMessage = (text: string): Promise<Message> => {
     const images = selectedImages;
     setSelectedImages([]);
     if (fileInputRef.current) {
@@ -610,11 +610,13 @@ export function CopilotChat({
     triggerObservabilityHook("onMessageSent", text);
 
     // TODO: send images?
-    return sendMessage({
+    const message: Message = {
       id: randomUUID(),
       content: text,
       role: "user",
-    });
+    };
+    void sendMessage(message);
+    return Promise.resolve(message);
   };
 
   const chatContext = React.useContext(ChatContext);
@@ -781,7 +783,6 @@ export function CopilotChat({
       <Input
         inProgress={isLoading}
         chatReady={Boolean(agent)}
-        // @ts-ignore
         onSend={handleSendMessage}
         isVisible={isVisible}
         onStop={stopGeneration}
