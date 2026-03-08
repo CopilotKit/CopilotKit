@@ -267,6 +267,113 @@ describe("IntelligenceAgentRunner", () => {
       expect(ch.pushLog[2].payload.metadata.cpki_event_seq).toBe(3);
     });
 
+    it("rewrites RUN_STARTED input.messages to the unseen persisted subset", async () => {
+      const threadId = "t-persisted-input";
+      const input = createRunInput({
+        threadId,
+        runId: "r-persisted-input",
+        messages: [
+          {
+            id: "msg-existing",
+            role: "user",
+            content: "Existing",
+          },
+          {
+            id: "msg-new",
+            role: "user",
+            content: "New",
+          },
+        ],
+      });
+
+      const agent = new MockAgent([
+        {
+          type: EventType.RUN_STARTED,
+          threadId,
+          runId: "r-persisted-input",
+          input,
+        } as RunStartedEvent,
+        {
+          type: EventType.RUN_FINISHED,
+          threadId,
+          runId: "r-persisted-input",
+        } as RunFinishedEvent,
+      ]);
+
+      const eventsPromise = collectEvents(
+        runner.run({
+          threadId,
+          agent,
+          input,
+          persistedInputMessages: [
+            {
+              id: "msg-new",
+              role: "user",
+              content: "New",
+            },
+          ],
+        }),
+      );
+      const ch = mockChannels[0];
+      ch.triggerJoin("ok");
+
+      await eventsPromise;
+
+      expect(ch.pushLog[0].payload.type).toBe(EventType.RUN_STARTED);
+      expect(ch.pushLog[0].payload.input.messages).toEqual([
+        {
+          id: "msg-new",
+          role: "user",
+          content: "New",
+        },
+      ]);
+    });
+
+    it("synthesizes RUN_STARTED before other events when the agent omits it", async () => {
+      const threadId = "t-synth-run-started";
+      const input = createRunInput({
+        threadId,
+        runId: "r-synth-run-started",
+        messages: [
+          {
+            id: "msg-new",
+            role: "user",
+            content: "Persist me",
+          },
+        ],
+      });
+
+      const agent = new MockAgent([
+        {
+          type: EventType.TEXT_MESSAGE_CONTENT,
+          messageId: "msg-1",
+          delta: "hello",
+        } as TextMessageContentEvent,
+        {
+          type: EventType.RUN_FINISHED,
+          threadId,
+          runId: "r-synth-run-started",
+        } as RunFinishedEvent,
+      ]);
+
+      const eventsPromise = collectEvents(
+        runner.run({
+          threadId,
+          agent,
+          input,
+          persistedInputMessages: input.messages,
+        }),
+      );
+      const ch = mockChannels[0];
+      ch.triggerJoin("ok");
+
+      await eventsPromise;
+
+      expect(ch.pushLog[0].payload.type).toBe(EventType.RUN_STARTED);
+      expect(ch.pushLog[0].payload.input.messages).toEqual(input.messages);
+      expect(ch.pushLog[1].payload.type).toBe(EventType.TEXT_MESSAGE_CONTENT);
+    });
+
     it("does not push any CUSTOM run event to the channel", async () => {
       const threadId = "t-no-custom";
       const input = createRunInput({ threadId, runId: "r-no-custom" });
@@ -345,11 +452,12 @@ describe("IntelligenceAgentRunner", () => {
       // finalizeRunEvents appends TEXT_MESSAGE_END for the unclosed message.
       // Verify the channel received both agent and finalization events.
       const chPayloadTypes = ch.pushLog.map((p) => p.payload.type);
+      expect(chPayloadTypes).toContain(EventType.RUN_STARTED);
       expect(chPayloadTypes).toContain(EventType.TEXT_MESSAGE_START);
       expect(chPayloadTypes).toContain(EventType.TEXT_MESSAGE_END);
-      expect(ch.pushLog.map((p) => p.payload.metadata.cpki_event_seq)).toEqual(
-        [1, 2, 3],
-      );
+      expect(ch.pushLog.map((p) => p.payload.metadata.cpki_event_seq)).toEqual([
+        1, 2, 3, 4,
+      ]);
     });
 
     it("preserves runner event order with increasing cpki_event_seq", async () => {
@@ -384,7 +492,7 @@ describe("IntelligenceAgentRunner", () => {
 
       expect(
         ch.pushLog.map((entry) => entry.payload.metadata.cpki_event_seq),
-      ).toEqual([1, 2, 3, 4]);
+      ).toEqual([1, 2, 3, 4, 5]);
     });
 
     it("throws when the thread is already running", () => {
@@ -524,7 +632,9 @@ describe("IntelligenceAgentRunner", () => {
 
     it("joins the thread topic when joinCode is provided", () => {
       const threadId = "t-connect-jc";
-      const sub = runner.connect({ threadId, joinCode: "join-connect-456" }).subscribe();
+      const sub = runner
+        .connect({ threadId, joinCode: "join-connect-456" })
+        .subscribe();
       const ch = mockChannels[0];
 
       expect(ch.topic).toBe(`thread:${threadId}`);

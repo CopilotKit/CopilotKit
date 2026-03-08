@@ -94,6 +94,10 @@
       }
     },
     "overrides": {
+      "@ag-ui/client": "link:../ag-ui/sdks/typescript/packages/client",
+      "@ag-ui/core": "link:../ag-ui/sdks/typescript/packages/core",
+      "@ag-ui/encoder": "link:../ag-ui/sdks/typescript/packages/encoder",
+      "@ag-ui/proto": "link:../ag-ui/sdks/typescript/packages/proto",
       "streamdown>react": "^19.0.0",
       "@types/react": "^19.1.0",
       "@types/react-dom": "^19.0.2",

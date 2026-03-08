@@ -1,4 +1,9 @@
-import { AbstractAgent, BaseEvent, RunAgentInput } from "@ag-ui/client";
+import {
+  AbstractAgent,
+  BaseEvent,
+  Message,
+  RunAgentInput,
+} from "@ag-ui/client";
 import { Observable } from "rxjs";
 
 export interface AgentRunnerRunRequest {
@@ -6,6 +11,7 @@ export interface AgentRunnerRunRequest {
   agent: AbstractAgent;
   input: RunAgentInput;
   joinCode?: string;
+  persistedInputMessages?: Message[];
 }
 
 export interface AgentRunnerConnectRequest {
