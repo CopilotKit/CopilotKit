@@ -595,19 +595,5 @@ describe("handleRunAgent", () => {
       expect(platform.acquireThreadLock).not.toHaveBeenCalled();
     });
 
-    it("returns 500 when intelligenceSdk is not configured", async () => {
-      const agent = createAgentForIntelligence();
-      const runtime = createIntelligenceRuntime(agent, undefined);
-
-      const response = await handleRunAgent({
-        runtime,
-        request: createRunRequest(),
-        agentId: "my-agent",
-      });
-
-      expect(response.status).toBe(500);
-      const body = await response.json();
-      expect(body.error).toBe("Intelligence SDK not configured");
-    });
   });
 });

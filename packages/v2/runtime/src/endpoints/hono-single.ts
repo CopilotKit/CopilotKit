@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 
-import { CopilotRuntime } from "../runtime";
+import { CopilotRuntimeLike } from "../runtime";
 import { handleRunAgent } from "../handlers/handle-run";
 import { handleConnectAgent } from "../handlers/handle-connect";
 import { handleStopAgent } from "../handlers/handle-stop";
@@ -22,7 +22,7 @@ import {
 import { CopilotEndpointCorsConfig } from "./hono";
 
 interface CopilotSingleEndpointParams {
-  runtime: CopilotRuntime;
+  runtime: CopilotRuntimeLike;
   /**
    * Absolute path at which to mount the single-route endpoint (e.g. "/api/copilotkit").
    */
