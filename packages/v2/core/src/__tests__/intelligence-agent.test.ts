@@ -619,7 +619,16 @@ describe("IntelligenceAgent", () => {
       });
     }
 
-    it("fetches joinToken and joins the thread topic without pushing connect", async () => {
+    it("fetches a live connect plan and joins the thread topic without pushing connect", async () => {
+      mockFetch.mockResolvedValueOnce(
+        await jsonResponse({
+          mode: "live",
+          joinToken: "jt-123",
+          joinFromEventId: null,
+          events: [],
+        }),
+      );
+
       const agent = createAgent();
       (agent as any).connect(defaultInput).subscribe({
         next: () => {},
@@ -663,6 +672,15 @@ describe("IntelligenceAgent", () => {
         },
       } as BaseEvent);
 
+      mockFetch.mockResolvedValueOnce(
+        await jsonResponse({
+          mode: "live",
+          joinToken: "jt-123",
+          joinFromEventId: "event-1",
+          events: [],
+        }),
+      );
+
       (agent as any).connect(defaultInput).subscribe({
         next: () => {},
         error: () => {},
@@ -677,17 +695,21 @@ describe("IntelligenceAgent", () => {
     });
 
     it("completes on RUN_FINISHED from server", async () => {
+      mockFetch.mockResolvedValueOnce(
+        await jsonResponse({
+          mode: "live",
+          joinToken: "jt-123",
+          joinFromEventId: null,
+          events: [],
+        }),
+      );
+
       const agent = createAgent();
       const promise = connectAgent(agent);
       await flushAsyncWork();
 
       const channel = getChannel(agent)!;
       channel.triggerJoin("ok");
-      channel.serverPush("ag_ui_event", {
-        type: EventType.META,
-        metaType: "replay_complete",
-        payload: { active_run: true },
-      } as BaseEvent);
 
       channel.serverPush("ag_ui_event", {
         type: EventType.RUN_FINISHED,
@@ -698,46 +720,6 @@ describe("IntelligenceAgent", () => {
       const result = await promise;
       expect(result.completed).toBe(true);
       expect(result.error).toBeNull();
-    });
-
-    it("does not complete on historical RUN_FINISHED during replay", async () => {
-      const agent = createAgent();
-      const promise = connectAgent(agent);
-      await flushAsyncWork();
-
-      const channel = getChannel(agent)!;
-      channel.triggerJoin("ok");
-
-      channel.serverPush("ag_ui_event", {
-        type: EventType.RUN_FINISHED,
-        threadId: "thread-1",
-        runId: "historical-run",
-      } as BaseEvent);
-
-      let settled = false;
-      void promise.then(() => {
-        settled = true;
-      });
-      await flushAsyncWork();
-
-      expect(settled).toBe(false);
-
-      channel.serverPush("ag_ui_event", {
-        type: EventType.META,
-        metaType: "replay_complete",
-        payload: { active_run: false },
-      } as BaseEvent);
-
-      const result = await promise;
-      expect(result.completed).toBe(true);
-      expect(result.error).toBeNull();
-      expect(result.events).toEqual([
-        {
-          type: EventType.RUN_FINISHED,
-          threadId: "thread-1",
-          runId: "historical-run",
-        },
-      ]);
     });
 
     it("completes immediately without creating a socket on 204 connect", async () => {
@@ -754,17 +736,21 @@ describe("IntelligenceAgent", () => {
     });
 
     it("completes on RUN_ERROR from server", async () => {
+      mockFetch.mockResolvedValueOnce(
+        await jsonResponse({
+          mode: "live",
+          joinToken: "jt-123",
+          joinFromEventId: null,
+          events: [],
+        }),
+      );
+
       const agent = createAgent();
       const promise = connectAgent(agent);
       await flushAsyncWork();
 
       const channel = getChannel(agent)!;
       channel.triggerJoin("ok");
-      channel.serverPush("ag_ui_event", {
-        type: EventType.META,
-        metaType: "replay_complete",
-        payload: { active_run: true },
-      } as BaseEvent);
 
       channel.serverPush("ag_ui_event", {
         type: EventType.RUN_ERROR,
@@ -782,33 +768,35 @@ describe("IntelligenceAgent", () => {
       ]);
     });
 
-    it("completes after replay_complete when no active run is attached", async () => {
+    it("applies bootstrap events and completes without creating a socket", async () => {
+      mockFetch.mockResolvedValueOnce(
+        await jsonResponse({
+          mode: "bootstrap",
+          latestEventId: "event-2",
+          events: [
+            {
+              type: EventType.MESSAGES_SNAPSHOT,
+              messages: [
+                {
+                  id: "msg-1",
+                  role: "user",
+                  content: "hello",
+                },
+              ],
+            },
+          ],
+        }),
+      );
+
       const agent = createAgent();
       const promise = connectAgent(agent);
       await flushAsyncWork();
 
-      const channel = getChannel(agent)!;
-      channel.triggerJoin("ok");
-
-      channel.serverPush("ag_ui_event", {
-        type: EventType.MESSAGES_SNAPSHOT,
-        messages: [
-          {
-            id: "msg-1",
-            role: "user",
-            content: "hello",
-          },
-        ],
-      } as BaseEvent);
-      channel.serverPush("ag_ui_event", {
-        type: EventType.META,
-        metaType: "replay_complete",
-        payload: { active_run: false },
-      } as BaseEvent);
-
       const result = await promise;
       expect(result.completed).toBe(true);
       expect(result.error).toBeNull();
+      expect(result.socket).toBeNull();
+      expect(result.channel).toBeNull();
       expect(result.events).toEqual([
         {
           type: EventType.MESSAGES_SNAPSHOT,
@@ -823,39 +811,42 @@ describe("IntelligenceAgent", () => {
       ]);
     });
 
-    it("does not emit META events to subscribers during connect", async () => {
+    it("does not create a socket for bootstrap-only connect plans", async () => {
+      mockFetch.mockResolvedValueOnce(
+        await jsonResponse({
+          mode: "bootstrap",
+          latestEventId: "event-2",
+          events: [{ type: EventType.MESSAGES_SNAPSHOT, messages: [] }],
+        }),
+      );
+
       const agent = createAgent();
       const promise = connectAgent(agent);
       await flushAsyncWork();
 
-      const channel = getChannel(agent)!;
-      channel.triggerJoin("ok");
-
-      channel.serverPush("ag_ui_event", {
-        type: EventType.MESSAGES_SNAPSHOT,
-        messages: [],
-      } as BaseEvent);
-      channel.serverPush("ag_ui_event", {
-        type: EventType.META,
-        metaType: "replay_complete",
-        payload: { active_run: false },
-      } as BaseEvent);
-
       const result = await promise;
       expect(result.completed).toBe(true);
       expect(result.error).toBeNull();
+      expect(result.socket).toBeNull();
+      expect(result.channel).toBeNull();
       expect(result.events).toEqual([
         {
           type: EventType.MESSAGES_SNAPSHOT,
-          messages: [],
+            messages: [],
         },
       ]);
-      expect(result.events.some((event) => event.type === EventType.META)).toBe(
-        false,
-      );
     });
 
-    it("emits replay events without a synthetic RUN_STARTED during connect", async () => {
+    it("emits bootstrap events before opening a live socket", async () => {
+      mockFetch.mockResolvedValueOnce(
+        await jsonResponse({
+          mode: "live",
+          joinToken: "jt-123",
+          joinFromEventId: "event-2",
+          events: [{ type: EventType.MESSAGES_SNAPSHOT, messages: [] }],
+        }),
+      );
+
       const agent = createAgent();
       const events: BaseEvent[] = [];
 
@@ -867,15 +858,6 @@ describe("IntelligenceAgent", () => {
 
       const channel = getChannel(agent)!;
       channel.triggerJoin("ok");
-      channel.serverPush("ag_ui_event", {
-        type: EventType.MESSAGES_SNAPSHOT,
-        messages: [],
-      } as BaseEvent);
-      channel.serverPush("ag_ui_event", {
-        type: EventType.META,
-        metaType: "replay_complete",
-        payload: { active_run: false },
-      } as BaseEvent);
 
       await flushAsyncWork();
 
@@ -904,6 +886,15 @@ describe("IntelligenceAgent", () => {
     });
 
     it("errors the observable on join error", async () => {
+      mockFetch.mockResolvedValueOnce(
+        await jsonResponse({
+          mode: "live",
+          joinToken: "jt-123",
+          joinFromEventId: null,
+          events: [],
+        }),
+      );
+
       const agent = createAgent();
       const promise = connectAgent(agent);
       await flushAsyncWork();
@@ -916,6 +907,15 @@ describe("IntelligenceAgent", () => {
     });
 
     it("does not error the observable on a single channel crash (Phoenix retries)", async () => {
+      mockFetch.mockResolvedValueOnce(
+        await jsonResponse({
+          mode: "live",
+          joinToken: "jt-123",
+          joinFromEventId: null,
+          events: [],
+        }),
+      );
+
       const agent = createAgent();
       let error: Error | null = null;
       (agent as any).connect(defaultInput).subscribe({
@@ -934,6 +934,15 @@ describe("IntelligenceAgent", () => {
     });
 
     it("errors the observable after MAX_CONSECUTIVE_ERRORS socket errors", async () => {
+      mockFetch.mockResolvedValueOnce(
+        await jsonResponse({
+          mode: "live",
+          joinToken: "jt-123",
+          joinFromEventId: null,
+          events: [],
+        }),
+      );
+
       const agent = createAgent();
       const promise = connectAgent(agent);
       await flushAsyncWork();
@@ -977,6 +986,14 @@ describe("IntelligenceAgent", () => {
       } as BaseEvent);
 
       const cloned = agent.clone();
+      mockFetch.mockResolvedValueOnce(
+        await jsonResponse({
+          mode: "live",
+          joinToken: "jt-123",
+          joinFromEventId: "event-2",
+          events: [],
+        }),
+      );
       (cloned as any).connect(defaultInput).subscribe({
         next: () => {},
         error: () => {},

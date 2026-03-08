@@ -10,6 +10,10 @@ interface ConnectAgentParameters {
   agentId: string;
 }
 
+interface ConnectRequestBody extends RunAgentInput {
+  lastSeenEventId?: string | null;
+}
+
 function isPlatformNotFoundError(error: unknown): boolean {
   return error instanceof Error && error.message.includes(" 404:");
 }
@@ -39,9 +43,18 @@ export async function handleConnectAgent({
     // Parse and validate input BEFORE creating the stream
     // so we can return a proper error response
     let input: RunAgentInput;
+    let lastSeenEventId: string | null = null;
     try {
       const requestBody = await request.json();
       input = RunAgentInputSchema.parse(requestBody);
+      if (
+        "lastSeenEventId" in (requestBody as Record<string, unknown>) &&
+        (typeof (requestBody as Record<string, unknown>).lastSeenEventId ===
+          "string" ||
+          (requestBody as Record<string, unknown>).lastSeenEventId === null)
+      ) {
+        lastSeenEventId = (requestBody as ConnectRequestBody).lastSeenEventId ?? null;
+      }
     } catch (error) {
       console.error("Invalid connect request body:", error);
       return new Response(
@@ -73,12 +86,26 @@ export async function handleConnectAgent({
         );
       }
 
-      let joinToken: string | undefined;
       try {
-        const result = await runtime.intelligencePlatform.getActiveJoinCode({
+        const result = await runtime.intelligencePlatform.connectThread({
           threadId: input.threadId,
+          lastSeenEventId,
         });
-        joinToken = result.joinToken;
+
+        if (result === null) {
+          return new Response(null, {
+            status: 204,
+          });
+        }
+
+        return new Response(JSON.stringify(result), {
+          status: 200,
+          headers: {
+            "Content-Type": "application/json",
+            "Cache-Control": "no-cache",
+            Connection: "keep-alive",
+          },
+        });
       } catch (error) {
         if (isPlatformNotFoundError(error)) {
           return new Response(null, {
@@ -88,7 +115,7 @@ export async function handleConnectAgent({
 
         return new Response(
           JSON.stringify({
-            error: "Join code not available",
+            error: "Connect plan not available",
             message: error instanceof Error ? error.message : String(error),
           }),
           {
@@ -98,27 +125,16 @@ export async function handleConnectAgent({
         );
       }
 
-      if (!joinToken) {
-        return new Response(
-          JSON.stringify({
-            error: "Join token not available",
-            message: "Intelligence platform did not return a join token",
-          }),
-          {
-            status: 502,
-            headers: { "Content-Type": "application/json" },
-          },
-        );
-      }
-
-      return new Response(JSON.stringify({ joinToken }), {
-        status: 200,
-        headers: {
-          "Content-Type": "application/json",
-          "Cache-Control": "no-cache",
-          Connection: "keep-alive",
+      return new Response(
+        JSON.stringify({
+          error: "Connect plan not available",
+          message: "Intelligence platform did not return a connect plan",
+        }),
+        {
+          status: 502,
+          headers: { "Content-Type": "application/json" },
         },
-      });
+      );
     }
 
     // Non-intelligence runner: stream SSE events directly.
