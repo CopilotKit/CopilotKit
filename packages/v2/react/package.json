@@ -6,6 +6,7 @@
   "types": "./dist/index.d.cts",
   "exports": {
     ".": {
+      "types": "./dist/index.d.cts",
       "import": "./dist/index.mjs",
       "require": "./dist/index.cjs"
     },
