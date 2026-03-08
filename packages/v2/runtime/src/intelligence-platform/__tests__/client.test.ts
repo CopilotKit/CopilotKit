@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { IntelligencePlatformClient } from "../client";
+import { CopilotIntelligenceSdk } from "../client";
 
 const fetchMock = vi.fn();
 globalThis.fetch = fetchMock;
@@ -24,21 +24,25 @@ function emptyResponse(status = 204) {
   } as Response);
 }
 
-describe("IntelligencePlatformClient", () => {
-  let client: IntelligencePlatformClient;
+describe("CopilotIntelligenceSdk", () => {
+  let client: CopilotIntelligenceSdk;
 
   beforeEach(() => {
     fetchMock.mockReset();
-    client = new IntelligencePlatformClient({
+    client = new CopilotIntelligenceSdk({
       apiUrl: "https://api.example.com",
+      wsUrl: "wss://ws.example.com/socket",
       apiKey: "test-key",
+      tenantId: "tenant-1",
     });
   });
 
   it("strips trailing slash from apiUrl", async () => {
-    const c = new IntelligencePlatformClient({
+    const c = new CopilotIntelligenceSdk({
       apiUrl: "https://api.example.com/",
+      wsUrl: "wss://ws.example.com/socket",
       apiKey: "k",
+      tenantId: "tenant-1",
     });
     fetchMock.mockReturnValue(jsonResponse({ threads: [], joinCode: "" }));
     await c.listThreads({ userId: "u", agentId: "a" });
@@ -47,12 +51,25 @@ describe("IntelligencePlatformClient", () => {
     );
   });
 
+  it("derives runner and client websocket URLs from a single intelligence websocket URL", () => {
+    const c = new CopilotIntelligenceSdk({
+      apiUrl: "https://api.example.com",
+      wsUrl: "wss://ws.example.com",
+      apiKey: "k",
+      tenantId: "tenant-1",
+    });
+
+    expect(c.getRunnerWsUrl()).toBe("wss://ws.example.com/runner");
+    expect(c.getClientWsUrl()).toBe("wss://ws.example.com/client");
+  });
+
   it("sends Bearer authorization header", async () => {
     fetchMock.mockReturnValue(jsonResponse({ threads: [], joinCode: "" }));
     await client.listThreads({ userId: "u", agentId: "a" });
     const headers = fetchMock.mock.calls[0][1].headers;
     expect(headers.Authorization).toBe("Bearer test-key");
     expect(headers["Content-Type"]).toBe("application/json");
+    expect(headers["X-Tenant-Id"]).toBe("tenant-1");
   });
 
   it("throws on non-ok response", async () => {

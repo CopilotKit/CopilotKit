@@ -33,6 +33,7 @@ describe("handleGetRuntimeInfo", () => {
       agents: {},
       audioFileTranscriptionEnabled: false,
       a2uiEnabled: false,
+      mode: "sse",
     });
   });
 
@@ -56,6 +57,7 @@ describe("handleGetRuntimeInfo", () => {
       agents: {},
       audioFileTranscriptionEnabled: true,
       a2uiEnabled: false,
+      mode: "sse",
     });
   });
 
@@ -91,6 +93,7 @@ describe("handleGetRuntimeInfo", () => {
       },
       audioFileTranscriptionEnabled: true,
       a2uiEnabled: false,
+      mode: "sse",
     });
   });
 
@@ -119,6 +122,7 @@ describe("handleGetRuntimeInfo", () => {
       transcriptionService: undefined,
       beforeRequestMiddleware: undefined,
       afterRequestMiddleware: undefined,
+      mode: "sse",
     } as CopilotRuntime;
 
     const response = await handleGetRuntimeInfo({

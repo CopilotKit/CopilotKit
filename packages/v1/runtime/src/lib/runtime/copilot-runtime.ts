@@ -32,6 +32,7 @@ import type {
 } from "../../service-adapters";
 import {
   CopilotRuntime as CopilotRuntimeVNext,
+  type AgentRunner,
   type CopilotRuntimeOptions,
   type CopilotRuntimeOptions as CopilotRuntimeOptionsVNext,
   InMemoryAgentRunner,
@@ -316,6 +317,7 @@ interface CopilotRuntimeConstructorParams<T extends Parameter[] | [] = []>
    *  – the `Record<string, AbstractAgent>` constraint in `both
    */
   agents?: MaybePromise<NonEmptyRecord<Record<string, AbstractAgent>>>;
+  runner?: AgentRunner;
 }
 
 /**
@@ -331,8 +333,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
   private _instance: CopilotRuntimeVNext;
 
   constructor(
-    params?: CopilotRuntimeConstructorParams<T> &
-      PartialBy<CopilotRuntimeOptions, "agents">,
+    params?: CopilotRuntimeConstructorParams<T>,
   ) {
     const agents = params?.agents ?? {};
     const endpointAgents = this.assignEndpointsToAgents(
@@ -493,8 +494,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
   }
 
   private createOnBeforeRequestHandler(
-    params?: CopilotRuntimeConstructorParams<T> &
-      PartialBy<CopilotRuntimeOptions, "agents">,
+    params?: CopilotRuntimeConstructorParams<T>,
   ) {
     return async (hookParams: BeforeRequestMiddlewareFnParameters[0]) => {
       const { request } = hookParams;
@@ -563,8 +563,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
   }
 
   private createOnAfterRequestHandler(
-    params?: CopilotRuntimeConstructorParams<T> &
-      PartialBy<CopilotRuntimeOptions, "agents">,
+    params?: CopilotRuntimeConstructorParams<T>,
   ) {
     return async (hookParams: AfterRequestMiddlewareFnParameters[0]) => {
       // TODO: get public api key and run with expected data
