@@ -7,7 +7,7 @@ import type {
 } from "express";
 import cors from "cors";
 
-import { CopilotRuntime } from "../runtime";
+import { CopilotRuntimeLike } from "../runtime";
 import { handleRunAgent } from "../handlers/handle-run";
 import { handleConnectAgent } from "../handlers/handle-connect";
 import { handleStopAgent } from "../handlers/handle-stop";
@@ -30,7 +30,7 @@ import {
 } from "./single-route-helpers";
 
 interface CopilotSingleRouteExpressParams {
-  runtime: CopilotRuntime;
+  runtime: CopilotRuntimeLike;
   basePath: string;
 }
 
@@ -58,7 +58,7 @@ export function createCopilotEndpointSingleRouteExpress({
   return router;
 }
 
-function createSingleRouteHandler(runtime: CopilotRuntime) {
+function createSingleRouteHandler(runtime: CopilotRuntimeLike) {
   return async (
     req: ExpressRequest,
     res: ExpressResponse,

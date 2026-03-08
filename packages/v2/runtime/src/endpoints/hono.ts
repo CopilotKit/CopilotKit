@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
-import { CopilotRuntime } from "../runtime";
+import { CopilotRuntimeLike } from "../runtime";
 import { handleRunAgent } from "../handlers/handle-run";
 import { handleGetRuntimeInfo } from "../handlers/get-runtime-info";
 import { handleTranscribe } from "../handlers/handle-transcribe";
@@ -43,7 +43,7 @@ export interface CopilotEndpointCorsConfig {
 }
 
 interface CopilotEndpointParams {
-  runtime: CopilotRuntime;
+  runtime: CopilotRuntimeLike;
   basePath: string;
   /**
    * Optional CORS configuration. When not provided, defaults to allowing all origins without credentials.

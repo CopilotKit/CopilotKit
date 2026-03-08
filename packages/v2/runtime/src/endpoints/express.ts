@@ -7,7 +7,7 @@ import type {
 } from "express";
 import cors from "cors";
 
-import { CopilotRuntime } from "../runtime";
+import { CopilotRuntimeLike } from "../runtime";
 import { handleRunAgent } from "../handlers/handle-run";
 import { handleConnectAgent } from "../handlers/handle-connect";
 import { handleStopAgent } from "../handlers/handle-stop";
@@ -30,7 +30,7 @@ import {
 } from "./express-utils";
 
 interface CopilotExpressEndpointParams {
-  runtime: CopilotRuntime;
+  runtime: CopilotRuntimeLike;
   basePath: string;
 }
 
@@ -134,7 +134,7 @@ type RouteHandlerContext = {
 type RouteHandlerFactory = (ctx: RouteHandlerContext) => Promise<Response>;
 
 function createRouteHandler(
-  runtime: CopilotRuntime,
+  runtime: CopilotRuntimeLike,
   factory: RouteHandlerFactory,
 ) {
   return async (
