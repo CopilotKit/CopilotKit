@@ -309,9 +309,9 @@ export class CopilotIntelligenceSdk {
     agentId: string;
   }): Promise<void> {
     const response = await this.request<ThreadEnvelope>(
-      "POST",
-      `/api/threads/${encodeURIComponent(params.threadId)}/archive`,
-      { userId: params.userId, agentId: params.agentId },
+      "PATCH",
+      `/api/threads/${encodeURIComponent(params.threadId)}`,
+      { archived: true },
     );
     this.invokeLifecycleCallback("onThreadUpdated", response.thread);
   }
@@ -324,7 +324,9 @@ export class CopilotIntelligenceSdk {
     await this.request<void>(
       "DELETE",
       `/api/threads/${encodeURIComponent(params.threadId)}`,
-      { userId: params.userId, agentId: params.agentId },
+      {
+        reason: `Deleted via CopilotKit runtime (userId=${params.userId}, agentId=${params.agentId})`,
+      },
     );
     this.invokeLifecycleCallback("onThreadDeleted", params);
   }
