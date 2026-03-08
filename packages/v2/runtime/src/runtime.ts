@@ -56,12 +56,15 @@ export interface CopilotSseRuntimeOptions extends BaseCopilotRuntimeOptions {
   /** The runner to use for running agents in SSE mode. */
   runner?: AgentRunner;
   intelligenceSdk?: undefined;
+  generateThreadNames?: undefined;
 }
 
 export interface CopilotIntelligenceRuntimeOptions
   extends BaseCopilotRuntimeOptions {
   /** Configures Intelligence mode for durable threads and realtime events. */
   intelligenceSdk: CopilotIntelligenceSdk;
+  /** Auto-generate short names for newly created threads. */
+  generateThreadNames?: boolean;
 }
 
 export type CopilotRuntimeOptions =
@@ -77,18 +80,21 @@ export interface CopilotRuntimeLike {
   a2ui: CopilotRuntimeOptions["a2ui"];
   mcpApps: CopilotRuntimeOptions["mcpApps"];
   intelligenceSdk?: CopilotIntelligenceSdk;
+  generateThreadNames?: boolean;
   mode: RuntimeMode;
   readonly isIntelligenceMode: boolean;
 }
 
 export interface CopilotSseRuntimeLike extends CopilotRuntimeLike {
   intelligenceSdk?: undefined;
+  generateThreadNames?: undefined;
   isIntelligenceMode: false;
   mode: "sse";
 }
 
 export interface CopilotIntelligenceRuntimeLike extends CopilotRuntimeLike {
   intelligenceSdk: CopilotIntelligenceSdk;
+  generateThreadNames: boolean;
   isIntelligenceMode: true;
   mode: "intelligence";
 }
@@ -103,6 +109,7 @@ abstract class BaseCopilotRuntime implements CopilotRuntimeLike {
   public mcpApps: CopilotRuntimeOptions["mcpApps"];
 
   abstract readonly intelligenceSdk?: CopilotIntelligenceSdk;
+  abstract readonly generateThreadNames?: boolean;
   abstract readonly mode: RuntimeMode;
 
   constructor(options: BaseCopilotRuntimeOptions, runner: AgentRunner) {
@@ -134,10 +141,15 @@ export class CopilotSseRuntime
   implements CopilotSseRuntimeLike
 {
   readonly intelligenceSdk = undefined;
+  readonly generateThreadNames = undefined;
   readonly mode = "sse" as const;
 
   constructor(options: CopilotSseRuntimeOptions) {
     super(options, options.runner ?? new InMemoryAgentRunner());
+  }
+
+  override get isIntelligenceMode(): false {
+    return false;
   }
 }
 
@@ -146,6 +158,7 @@ export class CopilotIntelligenceRuntime
   implements CopilotIntelligenceRuntimeLike
 {
   readonly intelligenceSdk: CopilotIntelligenceSdk;
+  readonly generateThreadNames: boolean;
   readonly mode = "intelligence" as const;
 
   constructor(options: CopilotIntelligenceRuntimeOptions) {
@@ -157,6 +170,11 @@ export class CopilotIntelligenceRuntime
       }),
     );
     this.intelligenceSdk = options.intelligenceSdk;
+    this.generateThreadNames = options.generateThreadNames ?? true;
+  }
+
+  override get isIntelligenceMode(): true {
+    return true;
   }
 }
 
@@ -215,6 +233,10 @@ export class CopilotRuntime implements CopilotRuntimeLike {
 
   get intelligenceSdk(): CopilotIntelligenceSdk | undefined {
     return this.delegate.intelligenceSdk;
+  }
+
+  get generateThreadNames(): boolean | undefined {
+    return this.delegate.generateThreadNames;
   }
 
   get mode(): RuntimeMode {

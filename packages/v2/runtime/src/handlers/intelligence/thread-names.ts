@@ -2,10 +2,7 @@ import { AbstractAgent, Message, RunAgentInput } from "@ag-ui/client";
 import { logger } from "@copilotkitnext/shared";
 import { randomUUID } from "node:crypto";
 import { CopilotIntelligenceRuntimeLike } from "../../runtime";
-import {
-  cloneAgentForRequest,
-  configureAgentForRequest,
-} from "../shared/agent-utils";
+import { cloneAgentForRequest, configureAgentForRequest } from "../shared/agent-utils";
 import { ThreadSummary } from "../../intelligence-platform";
 
 const THREAD_NAME_SYSTEM_PROMPT = [
@@ -82,7 +79,7 @@ export async function generateThreadNameForNewThread({
     }
   }
 
-  await runtime.intelligence.updateThread({
+  await runtime.intelligenceSdk.updateThread({
     threadId: thread.id,
     userId,
     agentId,
@@ -130,13 +127,15 @@ async function runTitleGenerationAttempt(params: {
   agent.setMessages(messages);
   agent.setState({});
   agent.threadId = `thread-name:${threadId}:${randomUUID()}`;
-  const { newMessages } = await agent.runAgent({
-    messages,
-    state: {},
-    tools: [],
-    context: [],
-    forwardedProps: {},
-  });
+  const { newMessages } = await agent.runAgent(
+    {
+      messages,
+      state: {},
+      tools: [],
+      context: [],
+      forwardedProps: {},
+    },
+  );
 
   const lastMessage = newMessages.at(-1);
   const titleContent = lastMessage
@@ -146,13 +145,9 @@ async function runTitleGenerationAttempt(params: {
   return normalizeGeneratedTitle(titleContent);
 }
 
-function buildThreadTitlePrompt(
-  messages: Message[] | undefined,
-): string | null {
+function buildThreadTitlePrompt(messages: Message[] | undefined): string | null {
   const transcript = (messages ?? [])
-    .filter((message) =>
-      ["user", "assistant", "system", "developer"].includes(message.role),
-    )
+    .filter((message) => ["user", "assistant", "system", "developer"].includes(message.role))
     .map((message) => {
       const content = stringifyMessageContent(message.content);
       if (!content) {
