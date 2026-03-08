@@ -1,6 +1,6 @@
 import { Observable } from "rxjs";
 import { describe, it, expect, vi } from "vitest";
-import { AbstractAgent, BaseEvent, HttpAgent } from "@ag-ui/client";
+import { AbstractAgent, HttpAgent } from "@ag-ui/client";
 import { A2UIMiddleware } from "@ag-ui/a2ui-middleware";
 import { handleRunAgent } from "../handlers/handle-run";
 import { CopilotRuntime } from "../runtime";
@@ -290,6 +290,7 @@ describe("handleRunAgent", () => {
     const createIntelligenceRuntime = (
       agent: AbstractAgent,
       platform?: Partial<CopilotIntelligenceSdk>,
+      options?: { generateThreadNames?: boolean },
     ) => {
       const runner = Object.create(IntelligenceAgentRunner.prototype);
       runner.run = vi.fn(
@@ -306,23 +307,29 @@ describe("handleRunAgent", () => {
         runner,
         mode: "intelligence",
         isIntelligenceMode: true,
+        generateThreadNames: options?.generateThreadNames ?? false,
         intelligenceSdk: platform,
       } as unknown as CopilotRuntime;
     };
 
     const createAgentForIntelligence = () => {
-      const agent = {
-        clone: () => ({
-          ...agent,
+      const createClone = () =>
+        ({
+          clone: vi.fn(() => createClone()),
           setMessages: vi.fn(),
           setState: vi.fn(),
           threadId: undefined,
           headers: {},
-        }),
+          runAgent: vi.fn().mockResolvedValue(undefined),
+        }) as unknown as AbstractAgent;
+
+      const agent = {
+        clone: vi.fn(() => createClone()),
         setMessages: vi.fn(),
         setState: vi.fn(),
         threadId: undefined,
         headers: {},
+        runAgent: vi.fn().mockResolvedValue(undefined),
       } as unknown as AbstractAgent;
       return agent;
     };
@@ -568,6 +575,262 @@ describe("handleRunAgent", () => {
         threadId: "thread-1",
         runId: "run-1",
       });
+    });
+
+    it("generates and persists a thread name in the background for new unnamed threads", async () => {
+      const namingAgent = {
+        clone: vi.fn(),
+        setMessages: vi.fn(),
+        setState: vi.fn(),
+        threadId: undefined,
+        headers: {},
+        runAgent: vi.fn().mockResolvedValue({
+          newMessages: [
+            {
+              id: "assistant-1",
+              role: "assistant",
+              content: '{"title":"**Order refund** status"}',
+            },
+          ],
+        }),
+      } as unknown as AbstractAgent;
+      const baseAgent = {
+        clone: vi
+          .fn()
+          .mockReturnValueOnce({
+            clone: vi.fn(),
+            setMessages: vi.fn(),
+            setState: vi.fn(),
+            threadId: undefined,
+            headers: {},
+            runAgent: vi.fn().mockResolvedValue(undefined),
+          })
+          .mockReturnValueOnce(namingAgent),
+        setMessages: vi.fn(),
+        setState: vi.fn(),
+        threadId: undefined,
+        headers: {},
+        runAgent: vi.fn().mockResolvedValue(undefined),
+      } as unknown as AbstractAgent;
+      const platform = {
+        getThread: vi
+          .fn()
+          .mockRejectedValue(
+            new Error("Intelligence platform error 404: Not found"),
+          ),
+        createThread: vi.fn().mockResolvedValue({
+          id: "thread-1",
+          name: null,
+        }),
+        updateThread: vi.fn().mockResolvedValue({
+          id: "thread-1",
+          name: "Order refund status",
+        }),
+        getThreadMessages: vi.fn().mockResolvedValue({ messages: [] }),
+        acquireThreadLock: vi
+          .fn()
+          .mockResolvedValue({ joinToken: "jt-created", joinCode: "jc-created" }),
+      };
+      const runtime = createIntelligenceRuntime(baseAgent, platform as any, {
+        generateThreadNames: true,
+      });
+      const response = await handleRunAgent({
+        runtime,
+        request: new Request("https://example.com/agent/my-agent/run", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-User-Id": "user-1",
+          },
+          body: JSON.stringify({
+            threadId: "thread-1",
+            runId: "run-1",
+            state: {},
+            messages: [
+              {
+                id: "user-1",
+                role: "user",
+                content: "Can you help me with my refund request?",
+              },
+            ],
+            tools: [],
+            context: [],
+            forwardedProps: {},
+          }),
+        }),
+        agentId: "my-agent",
+      });
+
+      expect(response.status).toBe(200);
+      await vi.waitFor(() =>
+        expect(platform.updateThread).toHaveBeenCalledWith({
+          threadId: "thread-1",
+          userId: "user-1",
+          agentId: "my-agent",
+          updates: { name: "Order refund status" },
+        }),
+      );
+      expect(runtime.runner.run).toHaveBeenCalledTimes(1);
+    });
+
+    it("does not generate a thread name when generateThreadNames is false", async () => {
+      const agent = createAgentForIntelligence();
+      const platform = {
+        getThread: vi
+          .fn()
+          .mockRejectedValue(
+            new Error("Intelligence platform error 404: Not found"),
+          ),
+        createThread: vi.fn().mockResolvedValue({
+          id: "thread-1",
+          name: null,
+        }),
+        updateThread: vi.fn(),
+        getThreadMessages: vi.fn().mockResolvedValue({ messages: [] }),
+        acquireThreadLock: vi
+          .fn()
+          .mockResolvedValue({ joinToken: "jt-created", joinCode: "jc-created" }),
+      };
+      const runtime = createIntelligenceRuntime(agent, platform as any, {
+        generateThreadNames: false,
+      });
+
+      const response = await handleRunAgent({
+        runtime,
+        request: createRunRequest({ "X-User-Id": "user-1" }),
+        agentId: "my-agent",
+      });
+
+      expect(response.status).toBe(200);
+      await Promise.resolve();
+      expect(platform.updateThread).not.toHaveBeenCalled();
+    });
+
+    it("does not generate a thread name when the created thread already has a name", async () => {
+      const agent = createAgentForIntelligence();
+      const platform = {
+        getThread: vi
+          .fn()
+          .mockRejectedValue(
+            new Error("Intelligence platform error 404: Not found"),
+          ),
+        createThread: vi.fn().mockResolvedValue({
+          id: "thread-1",
+          name: "Existing name",
+        }),
+        updateThread: vi.fn(),
+        getThreadMessages: vi.fn().mockResolvedValue({ messages: [] }),
+        acquireThreadLock: vi
+          .fn()
+          .mockResolvedValue({ joinToken: "jt-created", joinCode: "jc-created" }),
+      };
+      const runtime = createIntelligenceRuntime(agent, platform as any, {
+        generateThreadNames: true,
+      });
+
+      const response = await handleRunAgent({
+        runtime,
+        request: createRunRequest({ "X-User-Id": "user-1" }),
+        agentId: "my-agent",
+      });
+
+      expect(response.status).toBe(200);
+      await Promise.resolve();
+      expect(platform.updateThread).not.toHaveBeenCalled();
+    });
+
+    it("retries thread naming three times and falls back to Untitled", async () => {
+      const namingAgent = {
+        clone: vi.fn(),
+        setMessages: vi.fn(),
+        setState: vi.fn(),
+        threadId: undefined,
+        headers: {},
+        runAgent: vi.fn().mockRejectedValue(new Error("naming failed")),
+      } as unknown as AbstractAgent;
+      const baseAgent = {
+        clone: vi
+          .fn()
+          .mockReturnValueOnce({
+            clone: vi.fn(),
+            setMessages: vi.fn(),
+            setState: vi.fn(),
+            threadId: undefined,
+            headers: {},
+            runAgent: vi.fn().mockResolvedValue(undefined),
+          })
+          .mockReturnValueOnce(namingAgent)
+          .mockReturnValueOnce(namingAgent)
+          .mockReturnValueOnce(namingAgent),
+        setMessages: vi.fn(),
+        setState: vi.fn(),
+        threadId: undefined,
+        headers: {},
+        runAgent: vi.fn().mockResolvedValue(undefined),
+      } as unknown as AbstractAgent;
+      const platform = {
+        getThread: vi
+          .fn()
+          .mockRejectedValue(
+            new Error("Intelligence platform error 404: Not found"),
+          ),
+        createThread: vi.fn().mockResolvedValue({
+          id: "thread-1",
+          name: null,
+        }),
+        updateThread: vi.fn(),
+        getThreadMessages: vi.fn().mockResolvedValue({ messages: [] }),
+        acquireThreadLock: vi
+          .fn()
+          .mockResolvedValue({ joinToken: "jt-created", joinCode: "jc-created" }),
+      };
+      const runtime = createIntelligenceRuntime(baseAgent, platform as any, {
+        generateThreadNames: true,
+      });
+      const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+      try {
+        const response = await handleRunAgent({
+          runtime,
+          request: new Request("https://example.com/agent/my-agent/run", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "X-User-Id": "user-1",
+            },
+            body: JSON.stringify({
+              threadId: "thread-1",
+              runId: "run-1",
+              state: {},
+              messages: [
+                {
+                  id: "user-1",
+                  role: "user",
+                  content: "Please help me name this failed thread.",
+                },
+              ],
+              tools: [],
+              context: [],
+              forwardedProps: {},
+            }),
+          }),
+          agentId: "my-agent",
+        });
+
+        expect(response.status).toBe(200);
+        await vi.waitFor(() =>
+          expect(platform.updateThread).toHaveBeenCalledWith({
+            threadId: "thread-1",
+            userId: "user-1",
+            agentId: "my-agent",
+            updates: { name: "Untitled" },
+          }),
+        );
+        expect(namingAgent.runAgent).toHaveBeenCalledTimes(3);
+        expect(runtime.runner.run).toHaveBeenCalledTimes(1);
+      } finally {
+        errorSpy.mockRestore();
+      }
     });
 
     it("returns 400 when a fresh thread run is missing X-User-Id", async () => {
