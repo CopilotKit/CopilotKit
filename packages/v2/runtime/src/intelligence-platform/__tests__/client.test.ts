@@ -283,7 +283,7 @@ describe("CopilotIntelligenceSdk", () => {
   });
 
   describe("archiveThread", () => {
-    it("sends POST to archive endpoint with userId and agentId", async () => {
+    it("patches the thread with archived=true", async () => {
       fetchMock.mockReturnValue(
         jsonResponse({ thread: { id: "t-1", name: "Archived", archived: true } }),
       );
@@ -295,11 +295,10 @@ describe("CopilotIntelligenceSdk", () => {
       });
 
       const [url, opts] = fetchMock.mock.calls[0];
-      expect(url).toBe("https://api.example.com/api/threads/t-1/archive");
-      expect(opts.method).toBe("POST");
+      expect(url).toBe("https://api.example.com/api/threads/t-1");
+      expect(opts.method).toBe("PATCH");
       expect(JSON.parse(opts.body)).toEqual({
-        userId: "user-1",
-        agentId: "agent-1",
+        archived: true,
       });
     });
 
@@ -326,7 +325,7 @@ describe("CopilotIntelligenceSdk", () => {
   });
 
   describe("deleteThread", () => {
-    it("sends DELETE with userId and agentId in body", async () => {
+    it("sends DELETE with an audit reason in the body", async () => {
       fetchMock.mockReturnValue(jsonResponse(undefined));
 
       await client.deleteThread({
@@ -339,8 +338,8 @@ describe("CopilotIntelligenceSdk", () => {
       expect(url).toBe("https://api.example.com/api/threads/t-1");
       expect(opts.method).toBe("DELETE");
       expect(JSON.parse(opts.body)).toEqual({
-        userId: "user-1",
-        agentId: "agent-1",
+        reason:
+          "Deleted via CopilotKit runtime (userId=user-1, agentId=agent-1)",
       });
     });
 
