@@ -970,7 +970,54 @@ describe("IntelligenceAgent", () => {
       expect((cloned as any).config).toEqual((agent as any).config);
     });
 
-    it("shares replay cursor state across clones", async () => {
+    it("shares replay cursor state across clones when reconnecting with local messages", async () => {
+      const agent = createAgent();
+      agent.run(defaultInput).subscribe({ next: () => {}, error: () => {} });
+      await flushAsyncWork();
+
+      const runChannel = getChannel(agent)!;
+      runChannel.triggerJoin("ok");
+      runChannel.serverPush("ag_ui_event", {
+        type: EventType.TEXT_MESSAGE_CONTENT,
+        metadata: {
+          cpki_event_id: "event-2",
+          cpki_event_seq: 2,
+        },
+      } as BaseEvent);
+
+      const cloned = agent.clone();
+      const reconnectInput = {
+        ...defaultInput,
+        messages: [
+          {
+            id: "msg-1",
+            role: "user",
+            content: "hello",
+          },
+        ],
+      };
+      mockFetch.mockResolvedValueOnce(
+        await jsonResponse({
+          mode: "live",
+          joinToken: "jt-123",
+          joinFromEventId: "event-2",
+          events: [],
+        }),
+      );
+      (cloned as any).connect(reconnectInput).subscribe({
+        next: () => {},
+        error: () => {},
+      });
+      await flushAsyncWork();
+
+      const connectChannel = getChannel(cloned)!;
+      expect(connectChannel.params).toEqual({
+        stream_mode: "connect",
+        last_seen_event_id: "event-2",
+      });
+    });
+
+    it("does not reuse a cached replay cursor when reconnecting with no local messages", async () => {
       const agent = createAgent();
       agent.run(defaultInput).subscribe({ next: () => {}, error: () => {} });
       await flushAsyncWork();
@@ -990,7 +1037,7 @@ describe("IntelligenceAgent", () => {
         await jsonResponse({
           mode: "live",
           joinToken: "jt-123",
-          joinFromEventId: "event-2",
+          joinFromEventId: null,
           events: [],
         }),
       );
@@ -1000,10 +1047,14 @@ describe("IntelligenceAgent", () => {
       });
       await flushAsyncWork();
 
+      expect(JSON.parse(mockFetch.mock.calls[1][1].body)).toMatchObject({
+        lastSeenEventId: null,
+      });
+
       const connectChannel = getChannel(cloned)!;
       expect(connectChannel.params).toEqual({
         stream_mode: "connect",
-        last_seen_event_id: "event-2",
+        last_seen_event_id: null,
       });
     });
   });

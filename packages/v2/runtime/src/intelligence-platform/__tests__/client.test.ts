@@ -110,6 +110,24 @@ describe("CopilotIntelligenceSdk", () => {
     });
   });
 
+  describe("subscribeToThreads", () => {
+    it("sends POST with userId and returns the join token", async () => {
+      fetchMock.mockReturnValue(jsonResponse({ joinToken: "jt-subscribe" }));
+
+      const result = await client.subscribeToThreads({
+        userId: "user-1",
+      });
+
+      expect(result).toEqual({ joinToken: "jt-subscribe" });
+      const [url, opts] = fetchMock.mock.calls[0];
+      expect(url).toBe("https://api.example.com/api/threads/subscribe");
+      expect(opts.method).toBe("POST");
+      expect(JSON.parse(opts.body)).toEqual({
+        userId: "user-1",
+      });
+    });
+  });
+
   describe("updateThread", () => {
     it("sends PATCH with userId, agentId, and updates in body", async () => {
       const thread = {
