@@ -3,6 +3,7 @@ import { CopilotIntelligenceSdk } from "../client";
 
 const fetchMock = vi.fn();
 globalThis.fetch = fetchMock;
+const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
 function jsonResponse(body: unknown, status = 200) {
   return Promise.resolve({
@@ -29,6 +30,7 @@ describe("CopilotIntelligenceSdk", () => {
 
   beforeEach(() => {
     fetchMock.mockReset();
+    consoleErrorSpy.mockClear();
     client = new CopilotIntelligenceSdk({
       apiUrl: "https://api.example.com",
       wsUrl: "wss://ws.example.com/socket",
@@ -73,12 +75,10 @@ describe("CopilotIntelligenceSdk", () => {
   });
 
   it("throws on non-ok response", async () => {
-    const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     fetchMock.mockReturnValue(jsonResponse({ error: "nope" }, 403));
     await expect(
       client.listThreads({ userId: "u", agentId: "a" }),
     ).rejects.toThrow(/403/);
-    consoleSpy.mockRestore();
   });
 
   describe("listThreads", () => {
@@ -168,6 +168,28 @@ describe("CopilotIntelligenceSdk", () => {
         "/threads/id%2Fwith%20spaces",
       );
     });
+
+    it("fires onThreadUpdated with the returned thread", async () => {
+      const onThreadUpdated = vi.fn();
+      client = new CopilotIntelligenceSdk({
+        apiUrl: "https://api.example.com",
+        wsUrl: "wss://ws.example.com/socket",
+        apiKey: "test-key",
+        tenantId: "tenant-1",
+        onThreadUpdated,
+      });
+      const thread = { id: "t-1", name: "Renamed" };
+      fetchMock.mockReturnValue(jsonResponse({ thread }));
+
+      await client.updateThread({
+        threadId: "t-1",
+        userId: "user-1",
+        agentId: "agent-1",
+        updates: { name: "Renamed" },
+      });
+
+      expect(onThreadUpdated).toHaveBeenCalledWith(thread);
+    });
   });
 
   describe("createThread", () => {
@@ -195,6 +217,27 @@ describe("CopilotIntelligenceSdk", () => {
         userId: "user-1",
         agentId: "agent-1",
       });
+    });
+
+    it("fires onThreadCreated with the returned thread", async () => {
+      const onThreadCreated = vi.fn();
+      client = new CopilotIntelligenceSdk({
+        apiUrl: "https://api.example.com",
+        wsUrl: "wss://ws.example.com/socket",
+        apiKey: "test-key",
+        tenantId: "tenant-1",
+        onThreadCreated,
+      });
+      const thread = { id: "t-1", name: null };
+      fetchMock.mockReturnValue(jsonResponse({ thread }));
+
+      await client.createThread({
+        threadId: "t-1",
+        userId: "user-1",
+        agentId: "agent-1",
+      });
+
+      expect(onThreadCreated).toHaveBeenCalledWith(thread);
     });
   });
 
@@ -241,7 +284,9 @@ describe("CopilotIntelligenceSdk", () => {
 
   describe("archiveThread", () => {
     it("sends POST to archive endpoint with userId and agentId", async () => {
-      fetchMock.mockReturnValue(jsonResponse(undefined));
+      fetchMock.mockReturnValue(
+        jsonResponse({ thread: { id: "t-1", name: "Archived", archived: true } }),
+      );
 
       await client.archiveThread({
         threadId: "t-1",
@@ -256,6 +301,27 @@ describe("CopilotIntelligenceSdk", () => {
         userId: "user-1",
         agentId: "agent-1",
       });
+    });
+
+    it("fires onThreadUpdated after archiving", async () => {
+      const onThreadUpdated = vi.fn();
+      client = new CopilotIntelligenceSdk({
+        apiUrl: "https://api.example.com",
+        wsUrl: "wss://ws.example.com/socket",
+        apiKey: "test-key",
+        tenantId: "tenant-1",
+        onThreadUpdated,
+      });
+      const thread = { id: "t-1", name: "Archived", archived: true };
+      fetchMock.mockReturnValue(jsonResponse({ thread }));
+
+      await client.archiveThread({
+        threadId: "t-1",
+        userId: "user-1",
+        agentId: "agent-1",
+      });
+
+      expect(onThreadUpdated).toHaveBeenCalledWith(thread);
     });
   });
 
@@ -276,6 +342,51 @@ describe("CopilotIntelligenceSdk", () => {
         userId: "user-1",
         agentId: "agent-1",
       });
+    });
+
+    it("fires onThreadDeleted with the successful delete payload", async () => {
+      const onThreadDeleted = vi.fn();
+      client = new CopilotIntelligenceSdk({
+        apiUrl: "https://api.example.com",
+        wsUrl: "wss://ws.example.com/socket",
+        apiKey: "test-key",
+        tenantId: "tenant-1",
+        onThreadDeleted,
+      });
+      fetchMock.mockReturnValue(jsonResponse(undefined));
+
+      await client.deleteThread({
+        threadId: "t-1",
+        userId: "user-1",
+        agentId: "agent-1",
+      });
+
+      expect(onThreadDeleted).toHaveBeenCalledWith({
+        threadId: "t-1",
+        userId: "user-1",
+        agentId: "agent-1",
+      });
+    });
+
+    it("swallows lifecycle callback errors after a successful request", async () => {
+      client = new CopilotIntelligenceSdk({
+        apiUrl: "https://api.example.com",
+        wsUrl: "wss://ws.example.com/socket",
+        apiKey: "test-key",
+        tenantId: "tenant-1",
+        onThreadDeleted: () => {
+          throw new Error("callback exploded");
+        },
+      });
+      fetchMock.mockReturnValue(jsonResponse(undefined));
+
+      await expect(
+        client.deleteThread({
+          threadId: "t-1",
+          userId: "user-1",
+          agentId: "agent-1",
+        }),
+      ).resolves.toBeUndefined();
     });
   });
 
@@ -298,14 +409,10 @@ describe("CopilotIntelligenceSdk", () => {
     });
 
     it("throws when lock is denied", async () => {
-      const consoleSpy = vi
-        .spyOn(console, "error")
-        .mockImplementation(() => {});
       fetchMock.mockReturnValue(jsonResponse("Thread is locked", 409));
       await expect(
         client.acquireThreadLock({ threadId: "t-1", runId: "r-1" }),
       ).rejects.toThrow(/409/);
-      consoleSpy.mockRestore();
     });
   });
 
@@ -324,14 +431,10 @@ describe("CopilotIntelligenceSdk", () => {
     });
 
     it("throws when no active join code exists", async () => {
-      const consoleSpy = vi
-        .spyOn(console, "error")
-        .mockImplementation(() => {});
       fetchMock.mockReturnValue(jsonResponse("Not found", 404));
       await expect(
         client.getActiveJoinCode({ threadId: "t-1" }),
       ).rejects.toThrow(/404/);
-      consoleSpy.mockRestore();
     });
   });
 

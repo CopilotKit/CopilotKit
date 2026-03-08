@@ -33,6 +33,16 @@ export interface CopilotIntelligenceSdkConfig {
   apiKey: string;
   /** Tenant identifier used for self-hosted Intelligence instances */
   tenantId: string;
+  /** Invoked synchronously after a thread is created via this SDK instance. */
+  onThreadCreated?: (thread: ThreadSummary) => void;
+  /** Invoked synchronously after a thread is updated via this SDK instance. */
+  onThreadUpdated?: (thread: ThreadSummary) => void;
+  /** Invoked synchronously after a thread is deleted via this SDK instance. */
+  onThreadDeleted?: (params: {
+    threadId: string;
+    userId: string;
+    agentId: string;
+  }) => void;
 }
 
 export interface ThreadSummary {
@@ -128,6 +138,9 @@ export class CopilotIntelligenceSdk {
   private clientWsUrl: string;
   private apiKey: string;
   private tenantId: string;
+  private onThreadCreated?: CopilotIntelligenceSdkConfig["onThreadCreated"];
+  private onThreadUpdated?: CopilotIntelligenceSdkConfig["onThreadUpdated"];
+  private onThreadDeleted?: CopilotIntelligenceSdkConfig["onThreadDeleted"];
 
   constructor(config: CopilotIntelligenceSdkConfig) {
     const intelligenceWsUrl = normalizeIntelligenceWsUrl(config.wsUrl);
@@ -137,6 +150,9 @@ export class CopilotIntelligenceSdk {
     this.clientWsUrl = deriveClientWsUrl(intelligenceWsUrl);
     this.apiKey = config.apiKey;
     this.tenantId = config.tenantId;
+    this.onThreadCreated = config.onThreadCreated;
+    this.onThreadUpdated = config.onThreadUpdated;
+    this.onThreadDeleted = config.onThreadDeleted;
   }
 
   getApiUrl(): string {
@@ -196,6 +212,26 @@ export class CopilotIntelligenceSdk {
     return response.json() as Promise<T>;
   }
 
+  private invokeLifecycleCallback(
+    callbackName: "onThreadCreated" | "onThreadUpdated" | "onThreadDeleted",
+    payload: ThreadSummary | { threadId: string; userId: string; agentId: string },
+  ): void {
+    const callback = this[callbackName];
+
+    if (typeof callback !== "function") {
+      return;
+    }
+
+    try {
+      void callback(payload as never);
+    } catch (error) {
+      logger.error(
+        { err: error, callbackName, payload },
+        "Intelligence SDK lifecycle callback failed",
+      );
+    }
+  }
+
   async listThreads(params: {
     userId: string;
     agentId: string;
@@ -231,6 +267,7 @@ export class CopilotIntelligenceSdk {
         ...params.updates,
       },
     );
+    this.invokeLifecycleCallback("onThreadUpdated", response.thread);
     return response.thread;
   }
 
@@ -245,6 +282,7 @@ export class CopilotIntelligenceSdk {
         ...(params.name !== undefined ? { name: params.name } : {}),
       },
     );
+    this.invokeLifecycleCallback("onThreadCreated", response.thread);
     return response.thread;
   }
 
@@ -270,11 +308,12 @@ export class CopilotIntelligenceSdk {
     userId: string;
     agentId: string;
   }): Promise<void> {
-    await this.request<void>(
+    const response = await this.request<ThreadEnvelope>(
       "POST",
       `/api/threads/${encodeURIComponent(params.threadId)}/archive`,
       { userId: params.userId, agentId: params.agentId },
     );
+    this.invokeLifecycleCallback("onThreadUpdated", response.thread);
   }
 
   async deleteThread(params: {
@@ -287,6 +326,7 @@ export class CopilotIntelligenceSdk {
       `/api/threads/${encodeURIComponent(params.threadId)}`,
       { userId: params.userId, agentId: params.agentId },
     );
+    this.invokeLifecycleCallback("onThreadDeleted", params);
   }
 
   async acquireThreadLock(

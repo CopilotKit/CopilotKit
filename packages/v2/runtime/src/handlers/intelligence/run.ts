@@ -2,6 +2,7 @@ import { AbstractAgent, Message, RunAgentInput } from "@ag-ui/client";
 import { CopilotIntelligenceRuntimeLike } from "../../runtime";
 import { jsonResponse } from "../shared/json-response";
 import { isPlatformNotFoundError } from "../shared/intelligence-utils";
+import { generateThreadNameForNewThread } from "./thread-names";
 
 interface HandleIntelligenceRunParams {
   runtime: CopilotIntelligenceRuntimeLike;
@@ -56,11 +57,23 @@ export async function handleIntelligenceRun({
     }
 
     try {
-      await runtime.intelligenceSdk.createThread({
+      const created = await runtime.intelligenceSdk.createThread({
         threadId: input.threadId,
         userId,
         agentId,
       });
+      if (runtime.generateThreadNames && !created.name?.trim()) {
+        void generateThreadNameForNewThread({
+          runtime,
+          request,
+          agentId,
+          sourceInput: input,
+          thread: created,
+          userId,
+        }).catch((nameError) => {
+          console.error("Failed to generate thread name:", nameError);
+        });
+      }
     } catch (createError) {
       return jsonResponse(
         {
