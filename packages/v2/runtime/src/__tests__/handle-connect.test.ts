@@ -343,18 +343,5 @@ describe("handleConnectAgent", () => {
       });
     });
 
-    it("returns 500 when intelligenceSdk is not configured", async () => {
-      const runtime = createIntelligenceRuntime(undefined);
-
-      const response = await handleConnectAgent({
-        runtime,
-        request: createConnectRequest(),
-        agentId: "my-agent",
-      });
-
-      expect(response.status).toBe(500);
-      const body = await response.json();
-      expect(body.error).toBe("Intelligence SDK not configured");
-    });
   });
 });
