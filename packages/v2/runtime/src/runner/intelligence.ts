@@ -7,7 +7,12 @@ import {
 } from "./agent-runner";
 import { EMPTY, Observable, from } from "rxjs";
 import { catchError, finalize } from "rxjs/operators";
-import { AbstractAgent, BaseEvent, EventType } from "@ag-ui/client";
+import {
+  AbstractAgent,
+  BaseEvent,
+  EventType,
+  RunStartedEvent,
+} from "@ag-ui/client";
 import {
   finalizeRunEvents,
   AG_UI_CHANNEL_EVENT,
@@ -31,6 +36,7 @@ interface ThreadState {
   agent: AbstractAgent | null;
   currentEvents: BaseEvent[];
   nextEventSeq: number;
+  hasRunStarted: boolean;
 }
 
 export class IntelligenceAgentRunner extends AgentRunner {
@@ -86,10 +92,7 @@ export class IntelligenceAgentRunner extends AgentRunner {
 
     payload.thread_id ??= request.threadId;
 
-    const runId =
-      payload.runId ??
-      payload.run_id ??
-      request.input.runId;
+    const runId = payload.runId ?? payload.run_id ?? request.input.runId;
 
     if (runId) {
       payload.run_id = runId;
@@ -152,6 +155,7 @@ export class IntelligenceAgentRunner extends AgentRunner {
         agent,
         currentEvents: [],
         nextEventSeq: 1,
+        hasRunStarted: false,
       };
       this.threads.set(threadId, state);
 
@@ -312,40 +316,82 @@ export class IntelligenceAgentRunner extends AgentRunner {
     threadId: string,
   ): Observable<void> {
     const { currentEvents, channel } = state;
+    const pushCanonicalEvent = (event: BaseEvent): void => {
+      const canonicalEvent = this.stampRunnerMetadata(event, state);
+      currentEvents.push(canonicalEvent);
+
+      if (canonicalEvent.type === EventType.RUN_STARTED) {
+        state.hasRunStarted = true;
+      }
+
+      channel.push(
+        "event",
+        this.createRunnerEventPayload(canonicalEvent, request, state),
+      );
+    };
+
+    const getPersistedInputMessages = () =>
+      request.persistedInputMessages ?? request.input.messages;
+
+    const buildRunStartedEvent = (
+      source?: RunStartedEvent,
+    ): RunStartedEvent => {
+      const baseInput = source?.input ?? request.input;
+      const persistedInputMessages = getPersistedInputMessages();
+
+      return {
+        ...(source ?? {
+          type: EventType.RUN_STARTED,
+          threadId: request.threadId,
+          runId: request.input.runId,
+        }),
+        input: {
+          ...baseInput,
+          ...(persistedInputMessages !== undefined
+            ? { messages: persistedInputMessages }
+            : {}),
+        },
+      } as RunStartedEvent;
+    };
+
+    const ensureRunStarted = (): void => {
+      if (!state.hasRunStarted) {
+        pushCanonicalEvent(buildRunStartedEvent());
+      }
+    };
 
     return from(
       request.agent.runAgent(request.input, {
         onEvent: ({ event }: { event: BaseEvent }) => {
-          const canonicalEvent = this.stampRunnerMetadata(event, state);
-          currentEvents.push(canonicalEvent);
+          if (event.type === EventType.RUN_STARTED) {
+            pushCanonicalEvent(buildRunStartedEvent(event as RunStartedEvent));
+            return;
+          }
 
-          // Push to Phoenix channel so frontend WS listeners receive it.
-          channel.push(
-            "event",
-            this.createRunnerEventPayload(canonicalEvent, request, state),
-          );
+          ensureRunStarted();
+          pushCanonicalEvent(event);
         },
       }),
     ).pipe(
       catchError((error) => {
+        ensureRunStarted();
         const errorEvent = {
           type: EventType.RUN_ERROR,
           message: error instanceof Error ? error.message : String(error),
         } as BaseEvent;
-        const canonicalErrorEvent = this.stampRunnerMetadata(errorEvent, state);
-        currentEvents.push(canonicalErrorEvent);
-        channel.push(
-          "event",
-          this.createRunnerEventPayload(canonicalErrorEvent, request, state),
-        );
+        pushCanonicalEvent(errorEvent);
         return EMPTY;
       }),
       finalize(() => {
+        ensureRunStarted();
         const appended = finalizeRunEvents(currentEvents, {
           stopRequested: state.stopRequested,
         });
         for (const event of appended) {
-          channel.push("event", this.createRunnerEventPayload(event, request, state));
+          channel.push(
+            "event",
+            this.createRunnerEventPayload(event, request, state),
+          );
         }
         this.removeThread(threadId);
       }),

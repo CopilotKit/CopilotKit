@@ -3,13 +3,37 @@ import {
   RunAgentInput,
   EventType,
   BaseEvent,
+  MetaEvent,
 } from "@ag-ui/client";
-import { EMPTY, Observable, defer, switchMap } from "rxjs";
+import {
+  EMPTY,
+  Notification,
+  Observable,
+  defer,
+  dematerialize,
+  from,
+  merge,
+  switchMap,
+} from "rxjs";
+import {
+  filter,
+  endWith,
+  finalize,
+  ignoreElements,
+  map,
+  mergeMap,
+  scan,
+  share,
+  take,
+  takeUntil,
+  tap,
+} from "rxjs/operators";
 import { Socket, Channel } from "phoenix";
 import { phoenixExponentialBackoff } from "@copilotkitnext/shared";
 
 const CLIENT_AG_UI_EVENT = "ag_ui_event";
 const STOP_RUN_EVENT = "stop_run";
+const REPLAY_COMPLETE_META_TYPE = "replay_complete";
 
 interface ThreadJoinCredentials {
   joinToken: string;
@@ -17,6 +41,11 @@ interface ThreadJoinCredentials {
 
 interface IntelligenceAgentSharedState {
   lastSeenEventIds: Map<string, string>;
+}
+
+interface ThreadStreamState {
+  isReplaying: boolean;
+  notifications: Array<Notification<BaseEvent>>;
 }
 
 export interface IntelligenceAgentConfig {
@@ -89,7 +118,10 @@ export class IntelligenceAgent extends AbstractAgent {
 
     return defer(() => this.requestJoinCredentials$("run", input)).pipe(
       switchMap((credentials) =>
-        this.observeThread$(input, credentials, { completeOnRunError: false }),
+        this.observeThread$(input, credentials, {
+          completeOnRunError: false,
+          streamMode: "run",
+        }),
       ),
     );
   }
@@ -108,6 +140,7 @@ export class IntelligenceAgent extends AbstractAgent {
           ? EMPTY
           : this.observeThread$(input, credentials, {
               completeOnRunError: true,
+              streamMode: "connect",
             }),
       ),
     );
@@ -180,86 +213,191 @@ export class IntelligenceAgent extends AbstractAgent {
   private observeThread$(
     input: RunAgentInput,
     credentials: ThreadJoinCredentials,
-    options: { completeOnRunError: boolean },
+    options: { completeOnRunError: boolean; streamMode: "run" | "connect" },
   ): Observable<BaseEvent> {
-    return new Observable<BaseEvent>((observer) => {
-      const socket = new Socket(this.config.url, {
-        params: {
-          ...(this.config.socketParams ?? {}),
-          join_token: credentials.joinToken,
-        },
-        reconnectAfterMs: phoenixExponentialBackoff(100, 10_000),
-        rejoinAfterMs: phoenixExponentialBackoff(1_000, 30_000),
-      });
+    return defer(() => {
+      const socket = this.createSocket(credentials);
+      const channel = this.createThreadChannel(
+        socket,
+        input,
+        options.streamMode,
+      );
+      const threadEvents$ = this.observeThreadEvents$(
+        input.threadId,
+        channel,
+        options,
+      ).pipe(share());
+      const threadCompleted$ = threadEvents$.pipe(
+        ignoreElements(),
+        endWith(null),
+        take(1),
+      );
+
       this.socket = socket;
+      this.activeChannel = channel;
       socket.connect();
 
-      const channel = socket.channel(`thread:${input.threadId}`, {
-        last_seen_event_id: this.getLastSeenEventId(input.threadId),
-      });
-      this.activeChannel = channel;
+      return merge(
+        this.joinThreadChannel$(channel),
+        this.observeSocketHealth$(socket).pipe(takeUntil(threadCompleted$)),
+        threadEvents$,
+      ).pipe(finalize(() => this.cleanup()));
+    });
+  }
 
-      channel.on(CLIENT_AG_UI_EVENT, (payload: BaseEvent) => {
-        this.updateLastSeenEventId(input.threadId, payload);
-        observer.next(payload);
+  private createSocket(credentials: ThreadJoinCredentials): Socket {
+    return new Socket(this.config.url, {
+      params: {
+        ...(this.config.socketParams ?? {}),
+        join_token: credentials.joinToken,
+      },
+      reconnectAfterMs: phoenixExponentialBackoff(100, 10_000),
+      rejoinAfterMs: phoenixExponentialBackoff(1_000, 30_000),
+    });
+  }
 
-        if (payload.type === EventType.RUN_FINISHED) {
-          observer.complete();
-          this.cleanup();
-        } else if (payload.type === EventType.RUN_ERROR) {
-          if (options.completeOnRunError) {
-            observer.complete();
-          } else {
-            observer.error(
-              new Error(
-                (payload as BaseEvent & { message?: string }).message ??
-                  "Run error",
-              ),
-            );
-          }
-          this.cleanup();
-        }
-      });
-
-      const MAX_CONSECUTIVE_ERRORS = 5;
-      let consecutiveErrors = 0;
-
-      socket.onError(() => {
-        consecutiveErrors++;
-        if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
-          observer.error(
-            new Error(
-              `WebSocket connection failed after ${MAX_CONSECUTIVE_ERRORS} consecutive errors`,
-            ),
-          );
-          this.cleanup();
-        }
-      });
-
-      socket.onOpen(() => {
-        consecutiveErrors = 0;
-      });
-
-      channel.onError(() => {});
-
+  private joinThreadChannel$(channel: Channel): Observable<never> {
+    return new Observable<void>((observer) => {
       channel
         .join()
-        .receive("ok", () => undefined)
-        .receive("error", (resp: unknown) => {
+        .receive("ok", () => observer.complete())
+        .receive("error", (response: unknown) => {
           observer.error(
-            new Error(`Failed to join channel: ${JSON.stringify(resp)}`),
+            new Error(`Failed to join channel: ${JSON.stringify(response)}`),
           );
-          this.cleanup();
         })
         .receive("timeout", () => {
           observer.error(new Error("Timed out joining channel"));
-          this.cleanup();
         });
+    }).pipe(ignoreElements());
+  }
 
-      return () => {
-        this.cleanup();
-      };
+  private observeSocketHealth$(socket: Socket): Observable<never> {
+    const maxConsecutiveErrors = 5;
+
+    return merge(
+      this.observeSocketOpen$(socket).pipe(map(() => "open" as const)),
+      this.observeSocketError$(socket).pipe(map(() => "error" as const)),
+    ).pipe(
+      scan(
+        (consecutiveErrors, eventType) =>
+          eventType === "open" ? 0 : consecutiveErrors + 1,
+        0,
+      ),
+      filter((consecutiveErrors) => consecutiveErrors >= maxConsecutiveErrors),
+      take(1),
+      mergeMap((consecutiveErrors) => {
+        throw new Error(
+          `WebSocket connection failed after ${consecutiveErrors} consecutive errors`,
+        );
+      }),
+    );
+  }
+
+  private observeSocketOpen$(socket: Socket): Observable<void> {
+    return new Observable<void>((observer) => {
+      socket.onOpen(() => observer.next());
     });
+  }
+
+  private observeSocketError$(socket: Socket): Observable<unknown> {
+    return new Observable<unknown>((observer) => {
+      socket.onError((error) => observer.next(error));
+    });
+  }
+
+  private observeThreadEvents$(
+    threadId: string,
+    channel: Channel,
+    options: { completeOnRunError: boolean },
+  ): Observable<BaseEvent> {
+    const initialState: ThreadStreamState = {
+      isReplaying: options.completeOnRunError,
+      notifications: [],
+    };
+
+    return this.observeChannelEvent$<BaseEvent>(
+      channel,
+      CLIENT_AG_UI_EVENT,
+    ).pipe(
+      tap((payload) => {
+        if (!this.isMetaEvent(payload)) {
+          this.updateLastSeenEventId(threadId, payload);
+        }
+      }),
+      scan(
+        (state, payload) =>
+          this.reduceThreadEvent(state, payload, options.completeOnRunError),
+        initialState,
+      ),
+      mergeMap((state) => from(state.notifications)),
+      dematerialize(),
+      filter((payload) => !this.isMetaEvent(payload)),
+    );
+  }
+
+  private observeChannelEvent$<T>(
+    channel: Channel,
+    eventName: string,
+  ): Observable<T> {
+    return new Observable<T>((observer) => {
+      channel.on(eventName, (payload: T) => observer.next(payload));
+      channel.onError(() => {});
+    });
+  }
+
+  private reduceThreadEvent(
+    state: ThreadStreamState,
+    payload: BaseEvent,
+    completeOnRunError: boolean,
+  ): ThreadStreamState {
+    if (this.isReplayCompleteMetaEvent(payload)) {
+      if (this.readReplayCompleteActiveRun(payload)) {
+        return { isReplaying: false, notifications: [] };
+      }
+
+      return {
+        isReplaying: false,
+        notifications: [Notification.createComplete()],
+      };
+    }
+
+    if (this.isMetaEvent(payload)) {
+      return {
+        isReplaying: state.isReplaying,
+        notifications: [],
+      };
+    }
+
+    if (payload.type === EventType.RUN_FINISHED && !state.isReplaying) {
+      return {
+        isReplaying: false,
+        notifications: [
+          Notification.createNext(payload),
+          Notification.createComplete(),
+        ],
+      };
+    }
+
+    if (payload.type === EventType.RUN_ERROR && !state.isReplaying) {
+      const errorMessage =
+        (payload as BaseEvent & { message?: string }).message ?? "Run error";
+
+      return {
+        isReplaying: false,
+        notifications: completeOnRunError
+          ? [Notification.createNext(payload), Notification.createComplete()]
+          : [
+              Notification.createNext(payload),
+              Notification.createError(new Error(errorMessage)),
+            ],
+      };
+    }
+
+    return {
+      isReplaying: state.isReplaying,
+      notifications: [Notification.createNext(payload)],
+    };
   }
 
   private buildRuntimeUrl(mode: "run" | "connect"): string {
@@ -270,6 +408,25 @@ export class IntelligenceAgent extends AbstractAgent {
         : "http://localhost";
 
     return new URL(path, new URL(this.config.runtimeUrl, origin)).toString();
+  }
+
+  private createThreadChannel(
+    socket: Socket,
+    input: RunAgentInput,
+    streamMode: "run" | "connect",
+  ): Channel {
+    const payload =
+      streamMode === "run"
+        ? {
+            stream_mode: "run",
+            run_id: input.runId,
+          }
+        : {
+            stream_mode: "connect",
+            last_seen_event_id: this.getLastSeenEventId(input.threadId),
+          };
+
+    return socket.channel(`thread:${input.threadId}`, payload);
   }
 
   private getLastSeenEventId(threadId: string): string | null {
@@ -291,7 +448,30 @@ export class IntelligenceAgent extends AbstractAgent {
       return null;
     }
 
-    const runnerEventId = (metadata as { cpki_event_id?: unknown }).cpki_event_id;
+    const runnerEventId = (metadata as { cpki_event_id?: unknown })
+      .cpki_event_id;
     return typeof runnerEventId === "string" ? runnerEventId : null;
+  }
+
+  private isMetaEvent(payload: BaseEvent): payload is MetaEvent {
+    return payload.type === EventType.META;
+  }
+
+  private isReplayCompleteMetaEvent(payload: BaseEvent): payload is MetaEvent {
+    return (
+      this.isMetaEvent(payload) &&
+      payload.metaType === REPLAY_COMPLETE_META_TYPE
+    );
+  }
+
+  private readReplayCompleteActiveRun(payload: MetaEvent): boolean {
+    const envelope = payload.payload;
+
+    if (!envelope || typeof envelope !== "object") {
+      return false;
+    }
+
+    const activeRun = (envelope as { active_run?: unknown }).active_run;
+    return activeRun === true;
   }
 }
