@@ -150,7 +150,8 @@ describe("IntelligenceAgent", () => {
       const channel = getChannel(agent)!;
       expect(channel.topic).toBe("thread:thread-1");
       expect(channel.params).toEqual({
-        last_seen_event_id: null,
+        stream_mode: "run",
+        run_id: "run-1",
       });
     });
 
@@ -198,7 +199,8 @@ describe("IntelligenceAgent", () => {
       const channel = getChannel(agent)!;
 
       expect(channel.params).toEqual({
-        last_seen_event_id: null,
+        stream_mode: "run",
+        run_id: "run-1",
       });
     });
   });
@@ -638,6 +640,7 @@ describe("IntelligenceAgent", () => {
       const channel = getChannel(agent)!;
       expect(channel.topic).toBe("thread:thread-1");
       expect(channel.params).toEqual({
+        stream_mode: "connect",
         last_seen_event_id: null,
       });
 
@@ -668,6 +671,7 @@ describe("IntelligenceAgent", () => {
 
       const connectChannel = getChannel(agent)!;
       expect(connectChannel.params).toEqual({
+        stream_mode: "connect",
         last_seen_event_id: "event-1",
       });
     });
@@ -679,6 +683,11 @@ describe("IntelligenceAgent", () => {
 
       const channel = getChannel(agent)!;
       channel.triggerJoin("ok");
+      channel.serverPush("ag_ui_event", {
+        type: EventType.META,
+        metaType: "replay_complete",
+        payload: { active_run: true },
+      } as BaseEvent);
 
       channel.serverPush("ag_ui_event", {
         type: EventType.RUN_FINISHED,
@@ -689,6 +698,46 @@ describe("IntelligenceAgent", () => {
       const result = await promise;
       expect(result.completed).toBe(true);
       expect(result.error).toBeNull();
+    });
+
+    it("does not complete on historical RUN_FINISHED during replay", async () => {
+      const agent = createAgent();
+      const promise = connectAgent(agent);
+      await flushAsyncWork();
+
+      const channel = getChannel(agent)!;
+      channel.triggerJoin("ok");
+
+      channel.serverPush("ag_ui_event", {
+        type: EventType.RUN_FINISHED,
+        threadId: "thread-1",
+        runId: "historical-run",
+      } as BaseEvent);
+
+      let settled = false;
+      void promise.then(() => {
+        settled = true;
+      });
+      await flushAsyncWork();
+
+      expect(settled).toBe(false);
+
+      channel.serverPush("ag_ui_event", {
+        type: EventType.META,
+        metaType: "replay_complete",
+        payload: { active_run: false },
+      } as BaseEvent);
+
+      const result = await promise;
+      expect(result.completed).toBe(true);
+      expect(result.error).toBeNull();
+      expect(result.events).toEqual([
+        {
+          type: EventType.RUN_FINISHED,
+          threadId: "thread-1",
+          runId: "historical-run",
+        },
+      ]);
     });
 
     it("completes immediately without creating a socket on 204 connect", async () => {
@@ -711,6 +760,11 @@ describe("IntelligenceAgent", () => {
 
       const channel = getChannel(agent)!;
       channel.triggerJoin("ok");
+      channel.serverPush("ag_ui_event", {
+        type: EventType.META,
+        metaType: "replay_complete",
+        payload: { active_run: true },
+      } as BaseEvent);
 
       channel.serverPush("ag_ui_event", {
         type: EventType.RUN_ERROR,
@@ -720,7 +774,115 @@ describe("IntelligenceAgent", () => {
       const result = await promise;
       expect(result.completed).toBe(true);
       expect(result.error).toBeNull();
-      expect(result.events).toHaveLength(1);
+      expect(result.events).toEqual([
+        {
+          type: EventType.RUN_ERROR,
+          message: "something went wrong",
+        },
+      ]);
+    });
+
+    it("completes after replay_complete when no active run is attached", async () => {
+      const agent = createAgent();
+      const promise = connectAgent(agent);
+      await flushAsyncWork();
+
+      const channel = getChannel(agent)!;
+      channel.triggerJoin("ok");
+
+      channel.serverPush("ag_ui_event", {
+        type: EventType.MESSAGES_SNAPSHOT,
+        messages: [
+          {
+            id: "msg-1",
+            role: "user",
+            content: "hello",
+          },
+        ],
+      } as BaseEvent);
+      channel.serverPush("ag_ui_event", {
+        type: EventType.META,
+        metaType: "replay_complete",
+        payload: { active_run: false },
+      } as BaseEvent);
+
+      const result = await promise;
+      expect(result.completed).toBe(true);
+      expect(result.error).toBeNull();
+      expect(result.events).toEqual([
+        {
+          type: EventType.MESSAGES_SNAPSHOT,
+          messages: [
+            {
+              id: "msg-1",
+              role: "user",
+              content: "hello",
+            },
+          ],
+        },
+      ]);
+    });
+
+    it("does not emit META events to subscribers during connect", async () => {
+      const agent = createAgent();
+      const promise = connectAgent(agent);
+      await flushAsyncWork();
+
+      const channel = getChannel(agent)!;
+      channel.triggerJoin("ok");
+
+      channel.serverPush("ag_ui_event", {
+        type: EventType.MESSAGES_SNAPSHOT,
+        messages: [],
+      } as BaseEvent);
+      channel.serverPush("ag_ui_event", {
+        type: EventType.META,
+        metaType: "replay_complete",
+        payload: { active_run: false },
+      } as BaseEvent);
+
+      const result = await promise;
+      expect(result.completed).toBe(true);
+      expect(result.error).toBeNull();
+      expect(result.events).toEqual([
+        {
+          type: EventType.MESSAGES_SNAPSHOT,
+          messages: [],
+        },
+      ]);
+      expect(result.events.some((event) => event.type === EventType.META)).toBe(
+        false,
+      );
+    });
+
+    it("emits replay events without a synthetic RUN_STARTED during connect", async () => {
+      const agent = createAgent();
+      const events: BaseEvent[] = [];
+
+      (agent as any).connect(defaultInput).subscribe({
+        next: (event: BaseEvent) => events.push(event),
+        error: () => {},
+      });
+      await flushAsyncWork();
+
+      const channel = getChannel(agent)!;
+      channel.triggerJoin("ok");
+      channel.serverPush("ag_ui_event", {
+        type: EventType.MESSAGES_SNAPSHOT,
+        messages: [],
+      } as BaseEvent);
+      channel.serverPush("ag_ui_event", {
+        type: EventType.META,
+        metaType: "replay_complete",
+        payload: { active_run: false },
+      } as BaseEvent);
+
+      await flushAsyncWork();
+
+      expect(events[0]).toEqual({
+        type: EventType.MESSAGES_SNAPSHOT,
+        messages: [],
+      });
     });
 
     it("errors the observable on connect fetch failure", async () => {
@@ -823,6 +985,7 @@ describe("IntelligenceAgent", () => {
 
       const connectChannel = getChannel(cloned)!;
       expect(connectChannel.params).toEqual({
+        stream_mode: "connect",
         last_seen_event_id: "event-2",
       });
     });

@@ -67,6 +67,22 @@ export interface ThreadConnectionResponse {
   joinCode?: string;
 }
 
+export interface ThreadMessage {
+  id: string;
+  role: string;
+  content?: string;
+  toolCalls?: Array<{
+    id: string;
+    name: string;
+    args: string;
+  }>;
+  toolCallId?: string;
+}
+
+export interface ThreadMessagesResponse {
+  messages: ThreadMessage[];
+}
+
 export interface AcquireThreadLockRequest {
   threadId: string;
   runId: string;
@@ -144,12 +160,16 @@ export class IntelligencePlatformClient {
   }
 
   async createThread(params: CreateThreadRequest): Promise<ThreadSummary> {
-    const response = await this.request<ThreadEnvelope>("POST", `/api/threads`, {
-      threadId: params.threadId,
-      userId: params.userId,
-      agentId: params.agentId,
-      ...(params.name !== undefined ? { name: params.name } : {}),
-    });
+    const response = await this.request<ThreadEnvelope>(
+      "POST",
+      `/api/threads`,
+      {
+        threadId: params.threadId,
+        userId: params.userId,
+        agentId: params.agentId,
+        ...(params.name !== undefined ? { name: params.name } : {}),
+      },
+    );
     return response.thread;
   }
 
@@ -159,6 +179,15 @@ export class IntelligencePlatformClient {
       `/api/threads/${encodeURIComponent(params.threadId)}`,
     );
     return response.thread;
+  }
+
+  async getThreadMessages(params: {
+    threadId: string;
+  }): Promise<ThreadMessagesResponse> {
+    return this.request<ThreadMessagesResponse>(
+      "GET",
+      `/api/threads/${encodeURIComponent(params.threadId)}/messages`,
+    );
   }
 
   async archiveThread(params: {
