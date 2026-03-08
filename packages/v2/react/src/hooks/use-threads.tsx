@@ -45,7 +45,7 @@ export interface UseThreadsResult {
   deleteThread: (threadId: string) => Promise<void>;
 }
 
-const THREADS_CHANNEL_EVENT = "threads:update";
+const THREADS_CHANNEL_EVENT = "thread_metadata";
 const MAX_SOCKET_RETRIES = 5;
 
 // ---------------------------------------------------------------------------
@@ -89,40 +89,6 @@ const threadsReducer = createReducer<ThreadsState>(
 
 const selectThreads = createSelector((s: ThreadsState) => s.threads);
 
-// ---------------------------------------------------------------------------
-// Channel payload → store dispatch
-// ---------------------------------------------------------------------------
-
-interface ChannelPayload {
-  action: "created" | "updated" | "deleted" | "archived";
-  thread?: Thread;
-  threadId?: string;
-}
-
-function dispatchChannelEvent(
-  store: Store<ThreadsState, AnyAction>,
-  payload: ChannelPayload,
-) {
-  switch (payload.action) {
-    case "created":
-      if (payload.thread)
-        store.dispatch(ThreadActions.created({ thread: payload.thread }));
-      break;
-    case "updated":
-      if (payload.thread)
-        store.dispatch(ThreadActions.updated({ thread: payload.thread }));
-      break;
-    case "deleted":
-      if (payload.threadId)
-        store.dispatch(ThreadActions.deleted({ threadId: payload.threadId }));
-      break;
-    case "archived":
-      if (payload.threadId)
-        store.dispatch(ThreadActions.archived({ threadId: payload.threadId }));
-      break;
-  }
-}
-
 export function useThreads({
   userId,
   agentId,
@@ -153,6 +119,7 @@ export function useThreads({
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
+  const fetchThreadsRef = useRef<() => Promise<void>>(async () => {});
   const abortControllerRef = useRef<AbortController | null>(null);
   const socketRef = useRef<Socket | null>(null);
   const channelRef = useRef<Channel | null>(null);
@@ -165,21 +132,15 @@ export function useThreads({
   }, []);
 
   const subscribeToUpdates = useCallback(
-    (joinCode: string) => {
+    (joinToken: string) => {
       teardownChannel();
 
-      const runtimeUrl = copilotkit.runtimeUrl;
-      if (!runtimeUrl) return;
-
-      // Derive the websocket URL from the runtime HTTP URL.
-      const wsUrl = runtimeUrl
-        .replace(/^http/, "ws")
-        .replace(/\/$/, "")
-        .concat("/socket");
+      const wsUrl = copilotkit.intelligence?.wsUrl;
+      if (!wsUrl) return;
 
       let errorCount = 0;
       const socket = new Socket(wsUrl, {
-        params: { joinCode },
+        params: { join_token: joinToken },
         reconnectAfterMs: phoenixExponentialBackoff(100, 10_000),
         rejoinAfterMs: phoenixExponentialBackoff(1_000, 30_000),
       });
@@ -198,11 +159,11 @@ export function useThreads({
       socket.connect();
       socketRef.current = socket;
 
-      const channel = socket.channel(`threads:${userId}`, { joinCode });
+      const channel = socket.channel(`user_meta:${userId}`);
       channelRef.current = channel;
 
-      channel.on(THREADS_CHANNEL_EVENT, (payload: unknown) => {
-        dispatchChannelEvent(storeRef.current, payload as ChannelPayload);
+      channel.on(THREADS_CHANNEL_EVENT, () => {
+        void fetchThreadsRef.current();
       });
 
       channel
@@ -214,7 +175,7 @@ export function useThreads({
           teardownChannel();
         });
     },
-    [userId, copilotkit.runtimeUrl, teardownChannel, storeRef],
+    [userId, copilotkit.intelligence?.wsUrl, teardownChannel, storeRef],
   );
 
   const runtimeRequest = useCallback(
@@ -314,7 +275,9 @@ export function useThreads({
       storeRef.current.dispatch(
         ThreadActions.loaded({ threads: data.threads }),
       );
-      subscribeToUpdates(data.joinCode);
+      if (data.joinToken) {
+        subscribeToUpdates(data.joinToken);
+      }
     } catch (err) {
       if (err instanceof DOMException && err.name === "AbortError") {
         if (controller.signal.reason === "timeout") {
@@ -337,6 +300,8 @@ export function useThreads({
     subscribeToUpdates,
     storeRef,
   ]);
+
+  fetchThreadsRef.current = fetchThreads;
 
   useEffect(() => {
     fetchThreads();

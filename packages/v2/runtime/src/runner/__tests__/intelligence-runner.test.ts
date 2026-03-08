@@ -172,6 +172,25 @@ describe("IntelligenceAgentRunner", () => {
     runner = new IntelligenceAgentRunner({ url: "ws://localhost:4000/runner" });
   });
 
+  it("passes Phoenix authToken to the runner socket when configured", () => {
+    runner = new IntelligenceAgentRunner({
+      url: "ws://localhost:4000/runner",
+      authToken: "cpk_test_key",
+    });
+
+    const threadId = "t-auth";
+    const input = createRunInput({ threadId, runId: "r-auth" });
+    const agent = new MockAgent();
+
+    const sub = runner.run({ threadId, agent, input }).subscribe();
+
+    expect(mockSockets[0]?.opts).toMatchObject({
+      authToken: "cpk_test_key",
+    });
+
+    sub.unsubscribe();
+  });
+
   describe("run", () => {
     it("calls runAgent() and completes the Observable (events go to channel only)", async () => {
       const threadId = "t-1";

@@ -4,6 +4,8 @@ import {
   SuggestionsConfig,
   Suggestion,
   CopilotRuntimeTransport,
+  RuntimeMode,
+  IntelligenceRuntimeInfo,
 } from "../types";
 import { AgentRegistry, CopilotKitCoreAddAgentParams } from "./agent-registry";
 import { ContextStore } from "./context-store";
@@ -343,6 +345,14 @@ export class CopilotKitCore {
 
   get a2uiEnabled(): boolean {
     return this.agentRegistry.a2uiEnabled;
+  }
+
+  get runtimeMode(): RuntimeMode {
+    return this.agentRegistry.runtimeMode;
+  }
+
+  get intelligence(): IntelligenceRuntimeInfo | undefined {
+    return this.agentRegistry.intelligence;
   }
 
   /**

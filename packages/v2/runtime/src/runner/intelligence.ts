@@ -24,8 +24,8 @@ import { randomUUID } from "node:crypto";
 export interface IntelligenceAgentRunnerOptions {
   /** Phoenix runner websocket URL, e.g. "ws://localhost:4000/runner" */
   url: string;
-  /** Optional params sent on socket connect (e.g. auth token) */
-  socketParams?: Record<string, string>;
+  /** Optional Phoenix socket auth token used during websocket connect. */
+  authToken?: string;
 }
 
 interface ThreadState {
@@ -72,7 +72,7 @@ export class IntelligenceAgentRunner extends AgentRunner {
    */
   private createSocket(): Socket {
     const socket = new Socket(this.options.url, {
-      params: this.options.socketParams ?? {},
+      ...(this.options.authToken ? { authToken: this.options.authToken } : {}),
       reconnectAfterMs: phoenixExponentialBackoff(100, 10_000),
       rejoinAfterMs: phoenixExponentialBackoff(1_000, 30_000),
     });
