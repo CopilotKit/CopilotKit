@@ -5,7 +5,7 @@ import { handleConnectAgent } from "../handlers/handle-connect";
 import { CopilotRuntime } from "../runtime";
 import { AgentRunnerConnectRequest } from "../runner/agent-runner";
 import { IntelligenceAgentRunner } from "../runner/intelligence";
-import { IntelligencePlatformClient } from "../intelligence-platform/client";
+import { CopilotIntelligenceSdk } from "../intelligence-platform/client";
 
 describe("handleConnectAgent", () => {
   const createMockRuntime = (
@@ -208,7 +208,7 @@ describe("handleConnectAgent", () => {
       });
 
     const createIntelligenceRuntime = (
-      platform?: Partial<IntelligencePlatformClient>,
+      platform?: Partial<CopilotIntelligenceSdk>,
     ) => {
       const runner = Object.create(IntelligenceAgentRunner.prototype);
       runner.connect = vi.fn(
@@ -225,7 +225,9 @@ describe("handleConnectAgent", () => {
         beforeRequestMiddleware: undefined,
         afterRequestMiddleware: undefined,
         runner,
-        intelligencePlatform: platform,
+        mode: "intelligence",
+        isIntelligenceMode: true,
+        intelligenceSdk: platform,
       } as unknown as CopilotRuntime;
     };
 
@@ -341,7 +343,7 @@ describe("handleConnectAgent", () => {
       });
     });
 
-    it("returns 500 when intelligencePlatform is not configured", async () => {
+    it("returns 500 when intelligenceSdk is not configured", async () => {
       const runtime = createIntelligenceRuntime(undefined);
 
       const response = await handleConnectAgent({
@@ -352,7 +354,7 @@ describe("handleConnectAgent", () => {
 
       expect(response.status).toBe(500);
       const body = await response.json();
-      expect(body.error).toBe("Intelligence platform not configured");
+      expect(body.error).toBe("Intelligence SDK not configured");
     });
   });
 });

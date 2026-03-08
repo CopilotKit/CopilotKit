@@ -2,7 +2,6 @@ import { AbstractAgent, ToolCall } from "@ag-ui/client";
 import type {
   IntelligenceRuntimeInfo,
   RuntimeMode,
-  StandardSchemaV1,
 } from "@copilotkitnext/shared";
 import { z } from "zod";
 
@@ -31,7 +30,7 @@ export type FrontendTool<
 > = {
   name: string;
   description?: string;
-  parameters?: StandardSchemaV1<any, T>;
+  parameters?: z.ZodType<T>;
   handler?: (args: T, context: FrontendToolHandlerContext) => Promise<unknown>;
   followUp?: boolean;
   /**

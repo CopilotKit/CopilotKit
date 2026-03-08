@@ -14,9 +14,9 @@ function errorResponse(message: string, status: number): Response {
 }
 
 function requirePlatform(runtime: CopilotRuntime): Response | null {
-  if (!runtime.intelligencePlatform) {
+  if (!runtime.isIntelligenceMode || !runtime.intelligenceSdk) {
     return errorResponse(
-      "Intelligence platform is not configured. Provide intelligencePlatform in CopilotRuntime options.",
+      "Threads are only available in Intelligence mode. Provide intelligenceSdk in CopilotRuntime options.",
       501,
     );
   }
@@ -52,7 +52,7 @@ export async function handleListThreads({
       return errorResponse("userId and agentId query params are required", 400);
     }
 
-    const data = await runtime.intelligencePlatform!.listThreads({
+    const data = await runtime.intelligenceSdk!.listThreads({
       userId,
       agentId,
     });
@@ -85,7 +85,7 @@ export async function handleUpdateThread({
       return errorResponse("userId and agentId are required", 400);
     }
 
-    const thread = await runtime.intelligencePlatform!.updateThread({
+    const thread = await runtime.intelligenceSdk!.updateThread({
       threadId,
       userId: userId as string,
       agentId: agentId as string,
@@ -120,7 +120,7 @@ export async function handleArchiveThread({
       return errorResponse("userId and agentId are required", 400);
     }
 
-    await runtime.intelligencePlatform!.archiveThread({
+    await runtime.intelligenceSdk!.archiveThread({
       threadId,
       userId: userId as string,
       agentId: agentId as string,
@@ -154,7 +154,7 @@ export async function handleDeleteThread({
       return errorResponse("userId and agentId are required", 400);
     }
 
-    await runtime.intelligencePlatform!.deleteThread({
+    await runtime.intelligenceSdk!.deleteThread({
       threadId,
       userId: userId as string,
       agentId: agentId as string,

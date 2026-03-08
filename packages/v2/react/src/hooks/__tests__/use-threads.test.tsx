@@ -118,6 +118,9 @@ function setupCopilotKit(runtimeUrl = "http://localhost:4000") {
     copilotkit: {
       runtimeUrl,
       headers: { Authorization: "Bearer test-token" },
+      intelligence: {
+        wsUrl: "ws://localhost:4000/client",
+      },
     },
   });
 }
@@ -165,7 +168,7 @@ describe("useThreads", () => {
   describe("fetchThreads", () => {
     it("fetches threads and sets state", async () => {
       fetchMock.mockReturnValue(
-        jsonResponse({ threads: sampleThreads, joinCode: "jc-1" }),
+        jsonResponse({ threads: sampleThreads, joinToken: "jt-1" }),
       );
 
       const { result } = renderHook(() => useThreads(defaultInput));
@@ -218,9 +221,9 @@ describe("useThreads", () => {
   });
 
   describe("subscribeToUpdates", () => {
-    it("creates Phoenix socket and channel with joinCode after fetch", async () => {
+    it("creates Phoenix socket and channel with joinToken after fetch", async () => {
       fetchMock.mockReturnValue(
-        jsonResponse({ threads: sampleThreads, joinCode: "jc-sub" }),
+        jsonResponse({ threads: sampleThreads, joinToken: "jt-sub" }),
       );
 
       renderHook(() => useThreads(defaultInput));
@@ -234,13 +237,14 @@ describe("useThreads", () => {
       expect(socket.channels).toHaveLength(1);
 
       const ch = socket.channels[0];
-      expect(ch.topic).toBe("threads:user-1");
-      expect(ch.params).toMatchObject({ joinCode: "jc-sub" });
+      expect(ch.topic).toBe("user_meta:user-1");
+      expect(ch.params).toEqual({});
+      expect(socket).toMatchObject({ connected: true });
     });
 
     it("tears down socket on channel join error", async () => {
       fetchMock.mockReturnValue(
-        jsonResponse({ threads: sampleThreads, joinCode: "jc-err" }),
+        jsonResponse({ threads: sampleThreads, joinToken: "jt-err" }),
       );
 
       renderHook(() => useThreads(defaultInput));
@@ -261,7 +265,7 @@ describe("useThreads", () => {
 
     it("tears down socket after MAX_SOCKET_RETRIES consecutive errors", async () => {
       fetchMock.mockReturnValue(
-        jsonResponse({ threads: sampleThreads, joinCode: "jc-retry" }),
+        jsonResponse({ threads: sampleThreads, joinToken: "jt-retry" }),
       );
 
       renderHook(() => useThreads(defaultInput));
@@ -292,7 +296,7 @@ describe("useThreads", () => {
 
     it("resets error count on successful connection", async () => {
       fetchMock.mockReturnValue(
-        jsonResponse({ threads: sampleThreads, joinCode: "jc-reset" }),
+        jsonResponse({ threads: sampleThreads, joinToken: "jt-reset" }),
       );
 
       renderHook(() => useThreads(defaultInput));
@@ -321,7 +325,7 @@ describe("useThreads", () => {
 
     it("tears down socket on channel join timeout", async () => {
       fetchMock.mockReturnValue(
-        jsonResponse({ threads: sampleThreads, joinCode: "jc-timeout" }),
+        jsonResponse({ threads: sampleThreads, joinToken: "jt-timeout" }),
       );
 
       renderHook(() => useThreads(defaultInput));
@@ -344,7 +348,7 @@ describe("useThreads", () => {
   describe("CRUD operations", () => {
     it("updateThread calls PATCH with correct body", async () => {
       fetchMock.mockReturnValue(
-        jsonResponse({ threads: sampleThreads, joinCode: "jc-crud" }),
+        jsonResponse({ threads: sampleThreads, joinToken: "jt-crud" }),
       );
 
       const { result } = renderHook(() => useThreads(defaultInput));
@@ -372,7 +376,7 @@ describe("useThreads", () => {
 
     it("archiveThread calls POST to archive endpoint", async () => {
       fetchMock.mockReturnValue(
-        jsonResponse({ threads: sampleThreads, joinCode: "jc-archive" }),
+        jsonResponse({ threads: sampleThreads, joinToken: "jt-archive" }),
       );
 
       const { result } = renderHook(() => useThreads(defaultInput));
@@ -397,7 +401,7 @@ describe("useThreads", () => {
 
     it("deleteThread calls DELETE with correct body", async () => {
       fetchMock.mockReturnValue(
-        jsonResponse({ threads: sampleThreads, joinCode: "jc-delete" }),
+        jsonResponse({ threads: sampleThreads, joinToken: "jt-delete" }),
       );
 
       const { result } = renderHook(() => useThreads(defaultInput));
@@ -422,9 +426,9 @@ describe("useThreads", () => {
   });
 
   describe("real-time updates via channel", () => {
-    it("adds a new thread when receiving a 'created' event", async () => {
+    it("re-fetches threads when receiving thread metadata events", async () => {
       fetchMock.mockReturnValue(
-        jsonResponse({ threads: sampleThreads, joinCode: "jc-rt" }),
+        jsonResponse({ threads: sampleThreads, joinToken: "jt-rt" }),
       );
 
       const { result } = renderHook(() => useThreads(defaultInput));
@@ -436,27 +440,35 @@ describe("useThreads", () => {
       const socket = getMockSockets()[0];
       const ch = socket.channels[0];
 
-      const newThread = {
-        id: "t-3",
-        name: "Thread Three",
-        lastRunAt: "2026-01-03T00:00:00Z",
-        lastUpdatedAt: "2026-01-03T00:00:00Z",
-      };
+      const nextThreads = [
+        ...sampleThreads,
+        {
+          id: "t-3",
+          name: "Thread Three",
+          lastRunAt: "2026-01-03T00:00:00Z",
+          lastUpdatedAt: "2026-01-03T00:00:00Z",
+        },
+      ];
+
+      fetchMock.mockReturnValueOnce(jsonResponse({ threads: nextThreads }));
 
       act(() => {
-        ch.serverPush("threads:update", {
-          action: "created",
-          thread: newThread,
+        ch.serverPush("thread_metadata", {
+          event: "inserted",
+          thread_id: "t-3",
+          user_id: "user-1",
         });
       });
 
-      expect(result.current.threads).toHaveLength(3);
-      expect(result.current.threads[0]).toEqual(newThread);
+      await waitFor(() => {
+        expect(result.current.threads).toHaveLength(3);
+      });
+      expect(result.current.threads[2]).toMatchObject({ id: "t-3" });
     });
 
-    it("updates a thread in-place when receiving an 'updated' event", async () => {
+    it("re-fetches threads on repeated metadata events", async () => {
       fetchMock.mockReturnValue(
-        jsonResponse({ threads: sampleThreads, joinCode: "jc-rt2" }),
+        jsonResponse({ threads: sampleThreads, joinToken: "jt-rt2" }),
       );
 
       const { result } = renderHook(() => useThreads(defaultInput));
@@ -468,77 +480,43 @@ describe("useThreads", () => {
       const socket = getMockSockets()[0];
       const ch = socket.channels[0];
 
-      const updatedThread = {
-        ...sampleThreads[0],
-        name: "Renamed Thread",
-      };
+      fetchMock.mockReturnValueOnce(
+        jsonResponse({
+          threads: [{ ...sampleThreads[0], name: "Renamed Thread" }, sampleThreads[1]],
+        }),
+      );
 
       act(() => {
-        ch.serverPush("threads:update", {
-          action: "updated",
-          thread: updatedThread,
+        ch.serverPush("thread_metadata", {
+          event: "updated",
+          thread_id: "t-1",
+          user_id: "user-1",
         });
       });
 
-      expect(result.current.threads).toHaveLength(2);
-      expect(result.current.threads[0].name).toBe("Renamed Thread");
+      await waitFor(() => {
+        expect(result.current.threads[0].name).toBe("Renamed Thread");
+      });
     });
 
-    it("removes a thread when receiving a 'deleted' event", async () => {
+    it("does not subscribe when no join token is returned", async () => {
       fetchMock.mockReturnValue(
-        jsonResponse({ threads: sampleThreads, joinCode: "jc-rt3" }),
+        jsonResponse({ threads: sampleThreads }),
       );
 
-      const { result } = renderHook(() => useThreads(defaultInput));
+      renderHook(() => useThreads(defaultInput));
 
       await waitFor(() => {
-        expect(result.current.isLoading).toBe(false);
+        expect(fetchMock).toHaveBeenCalledTimes(1);
       });
-
-      const socket = getMockSockets()[0];
-      const ch = socket.channels[0];
-
-      act(() => {
-        ch.serverPush("threads:update", {
-          action: "deleted",
-          threadId: "t-1",
-        });
-      });
-
-      expect(result.current.threads).toHaveLength(1);
-      expect(result.current.threads[0].id).toBe("t-2");
-    });
-
-    it("removes a thread when receiving an 'archived' event", async () => {
-      fetchMock.mockReturnValue(
-        jsonResponse({ threads: sampleThreads, joinCode: "jc-rt4" }),
-      );
-
-      const { result } = renderHook(() => useThreads(defaultInput));
-
-      await waitFor(() => {
-        expect(result.current.isLoading).toBe(false);
-      });
-
-      const socket = getMockSockets()[0];
-      const ch = socket.channels[0];
-
-      act(() => {
-        ch.serverPush("threads:update", {
-          action: "archived",
-          threadId: "t-2",
-        });
-      });
-
-      expect(result.current.threads).toHaveLength(1);
-      expect(result.current.threads[0].id).toBe("t-1");
+      expect(getMockSockets()).toHaveLength(0);
     });
   });
 
   describe("cleanup", () => {
     it("tears down channel and socket on unmount", async () => {
       fetchMock.mockReturnValue(
-        jsonResponse({ threads: sampleThreads, joinCode: "jc-unmount" }),
+        jsonResponse({ threads: sampleThreads, joinToken: "jt-unmount" }),
       );
 
       const { unmount } = renderHook(() => useThreads(defaultInput));
@@ -560,7 +538,7 @@ describe("useThreads", () => {
   describe("refetch", () => {
     it("re-fetches threads and sets up a new subscription", async () => {
       fetchMock.mockReturnValue(
-        jsonResponse({ threads: sampleThreads, joinCode: "jc-first" }),
+        jsonResponse({ threads: sampleThreads, joinToken: "jt-first" }),
       );
 
       const { result } = renderHook(() => useThreads(defaultInput));
@@ -574,7 +552,7 @@ describe("useThreads", () => {
       fetchMock.mockReturnValue(
         jsonResponse({
           threads: [sampleThreads[0]],
-          joinCode: "jc-second",
+          joinToken: "jt-second",
         }),
       );
 
@@ -594,8 +572,9 @@ describe("useThreads", () => {
       // New socket should be created with the new join code
       const newSocket = getMockSockets()[getMockSockets().length - 1];
       expect(newSocket).not.toBe(firstSocket);
-      expect(newSocket.channels[0].params).toMatchObject({
-        joinCode: "jc-second",
+      expect(newSocket.channels[0].params).toMatchObject({});
+      expect(newSocket).toMatchObject({
+        connected: true,
       });
     });
   });

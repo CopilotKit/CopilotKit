@@ -8,29 +8,31 @@ import type { BaseEvent } from "@ag-ui/client";
  * (e.g. `CopilotRuntime`, `IntelligenceAgentRunner`):
  *
  * ```ts
- * import { IntelligencePlatformClient } from "@copilotkitnext/runtime";
- * import { CopilotRuntime, IntelligenceAgentRunner } from "@copilotkitnext/runtime";
+ * import { CopilotIntelligenceSdk, CopilotRuntime } from "@copilotkitnext/runtime";
  *
- * const platform = new IntelligencePlatformClient({
+ * const sdk = new CopilotIntelligenceSdk({
  *   apiUrl: "https://api.copilotkit.ai",
+ *   wsUrl: "wss://api.copilotkit.ai",
  *   apiKey: process.env.COPILOTKIT_API_KEY!,
+ *   tenantId: process.env.COPILOTKIT_TENANT_ID!,
  * });
  *
  * const runtime = new CopilotRuntime({
  *   agents,
- *   intelligencePlatform: platform,
- *   runner: new IntelligenceAgentRunner({
- *     url: "wss://api.copilotkit.ai/socket",
- *   }),
+ *   intelligenceSdk: sdk,
  * });
  * ```
  */
 
-export interface IntelligencePlatformConfig {
+export interface CopilotIntelligenceSdkConfig {
   /** Base URL of the intelligence platform API, e.g. "https://api.copilotkit.ai" */
   apiUrl: string;
+  /** Intelligence websocket base URL. Runner and client socket URLs are derived from this. */
+  wsUrl: string;
   /** API key for authenticating with the intelligence platform */
   apiKey: string;
+  /** Tenant identifier used for self-hosted Intelligence instances */
+  tenantId: string;
 }
 
 export interface ThreadSummary {
@@ -49,6 +51,7 @@ export interface ThreadSummary {
 export interface ListThreadsResponse {
   threads: ThreadSummary[];
   joinCode: string;
+  joinToken?: string;
 }
 
 export interface UpdateThreadRequest {
@@ -111,13 +114,45 @@ interface ThreadEnvelope {
   thread: ThreadSummary;
 }
 
-export class IntelligencePlatformClient {
+export class CopilotIntelligenceSdk {
   private apiUrl: string;
+  private runnerWsUrl: string;
+  private clientWsUrl: string;
   private apiKey: string;
+  private tenantId: string;
 
-  constructor(config: IntelligencePlatformConfig) {
+  constructor(config: CopilotIntelligenceSdkConfig) {
+    const intelligenceWsUrl = normalizeIntelligenceWsUrl(config.wsUrl);
+
     this.apiUrl = config.apiUrl.replace(/\/$/, "");
+    this.runnerWsUrl = deriveRunnerWsUrl(intelligenceWsUrl);
+    this.clientWsUrl = deriveClientWsUrl(intelligenceWsUrl);
     this.apiKey = config.apiKey;
+    this.tenantId = config.tenantId;
+  }
+
+  getApiUrl(): string {
+    return this.apiUrl;
+  }
+
+  getRunnerWsUrl(): string {
+    return this.runnerWsUrl;
+  }
+
+  getClientWsUrl(): string {
+    return this.clientWsUrl;
+  }
+
+  getWsUrl(): string {
+    return this.clientWsUrl;
+  }
+
+  getTenantId(): string {
+    return this.tenantId;
+  }
+
+  getRunnerAuthToken(): string {
+    return this.apiKey;
   }
 
   private async request<T>(
@@ -130,6 +165,7 @@ export class IntelligencePlatformClient {
     const headers: Record<string, string> = {
       Authorization: `Bearer ${this.apiKey}`,
       "Content-Type": "application/json",
+      "X-Tenant-Id": this.tenantId,
     };
 
     const response = await fetch(url, {
@@ -260,6 +296,7 @@ export class IntelligencePlatformClient {
     const headers: Record<string, string> = {
       Authorization: `Bearer ${this.apiKey}`,
       "Content-Type": "application/json",
+      "X-Tenant-Id": this.tenantId,
     };
 
     const response = await fetch(url, {
@@ -289,4 +326,37 @@ export class IntelligencePlatformClient {
 
     return response.json() as Promise<ConnectThreadResponse>;
   }
+}
+
+export {
+  CopilotIntelligenceSdk as IntelligencePlatformClient,
+  type CopilotIntelligenceSdkConfig as IntelligencePlatformConfig,
+};
+
+function normalizeIntelligenceWsUrl(wsUrl: string): string {
+  return wsUrl.replace(/\/$/, "");
+}
+
+function deriveRunnerWsUrl(wsUrl: string): string {
+  if (wsUrl.endsWith("/runner")) {
+    return wsUrl;
+  }
+
+  if (wsUrl.endsWith("/client")) {
+    return `${wsUrl.slice(0, -"/client".length)}/runner`;
+  }
+
+  return `${wsUrl}/runner`;
+}
+
+function deriveClientWsUrl(wsUrl: string): string {
+  if (wsUrl.endsWith("/client")) {
+    return wsUrl;
+  }
+
+  if (wsUrl.endsWith("/runner")) {
+    return `${wsUrl.slice(0, -"/runner".length)}/client`;
+  }
+
+  return `${wsUrl}/client`;
 }

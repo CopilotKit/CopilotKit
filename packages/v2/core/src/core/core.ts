@@ -15,8 +15,6 @@ import {
   CopilotKitCoreRunAgentParams,
   CopilotKitCoreConnectAgentParams,
   CopilotKitCoreGetToolParams,
-  CopilotKitCoreRunToolParams,
-  CopilotKitCoreRunToolResult,
 } from "./run-handler";
 import { StateManager } from "./state-manager";
 
@@ -45,8 +43,6 @@ export type {
   CopilotKitCoreRunAgentParams,
   CopilotKitCoreConnectAgentParams,
   CopilotKitCoreGetToolParams,
-  CopilotKitCoreRunToolParams,
-  CopilotKitCoreRunToolResult,
 };
 
 export interface CopilotKitCoreStopAgentParams {
@@ -66,8 +62,6 @@ export enum CopilotKitCoreErrorCode {
   AGENT_RUN_ERROR_EVENT = "agent_run_error_event",
   TOOL_ARGUMENT_PARSE_FAILED = "tool_argument_parse_failed",
   TOOL_HANDLER_FAILED = "tool_handler_failed",
-  TOOL_NOT_FOUND = "tool_not_found",
-  AGENT_NOT_FOUND = "agent_not_found",
   // Transcription errors
   TRANSCRIPTION_FAILED = "transcription_failed",
   TRANSCRIPTION_SERVICE_NOT_CONFIGURED = "transcription_service_not_configured",
@@ -182,12 +176,6 @@ export interface CopilotKitCoreFriendsAccess {
     clearSuggestions(agentId: string): void;
     reloadSuggestions(agentId: string): void;
   };
-
-  /**
-   * Called before each follow-up agent run (after tool execution).
-   * See CopilotKitCore.waitForPendingFrameworkUpdates for details.
-   */
-  waitForPendingFrameworkUpdates(): Promise<void>;
 }
 
 export class CopilotKitCore {
@@ -351,10 +339,6 @@ export class CopilotKitCore {
     return this.agentRegistry.intelligence;
   }
 
-  get a2uiEnabled(): boolean {
-    return this.agentRegistry.a2uiEnabled;
-  }
-
   /**
    * Configuration updates
    */
@@ -500,17 +484,6 @@ export class CopilotKitCore {
   }
 
   /**
-   * Programmatically execute a registered frontend tool without going through an LLM turn.
-   * The handler runs, render components show up in the UI, and both the tool call and
-   * result messages are added to `agent.messages`.
-   */
-  async runTool(
-    params: CopilotKitCoreRunToolParams,
-  ): Promise<CopilotKitCoreRunToolResult> {
-    return this.runHandler.runTool(params);
-  }
-
-  /**
    * State management (delegated to StateManager)
    */
   getStateByRun(
@@ -539,23 +512,4 @@ export class CopilotKitCore {
   private buildFrontendTools(agentId?: string): import("@ag-ui/client").Tool[] {
     return this.runHandler.buildFrontendTools(agentId);
   }
-
-  /**
-   * Called before each follow-up agent run (after tool execution).
-   *
-   * When a frontend tool handler calls framework state setters (e.g. React's
-   * setState), those updates are batched and deferred — they do not take effect
-   * until the framework's scheduler runs (React uses MessageChannel).
-   * useAgentContext registers context via useLayoutEffect, which runs
-   * synchronously after React commits that deferred batch.
-   *
-   * Without yielding here, the follow-up runAgent reads the context store
-   * synchronously while the deferred updates are still pending, producing stale
-   * context for the next agent turn.
-   *
-   * Override in framework-specific subclasses to yield to the framework
-   * scheduler before the follow-up run. The base implementation is a no-op
-   * because non-React environments have no deferred state to flush.
-   */
-  async waitForPendingFrameworkUpdates(): Promise<void> {}
 }

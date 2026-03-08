@@ -1,9 +1,9 @@
-import { CopilotRuntimeLike, isIntelligenceRuntime } from "../runtime";
+import { CopilotRuntime } from "../runtime";
 import { AgentDescription, RuntimeInfo } from "@copilotkitnext/shared";
 import { VERSION } from "../runtime";
 
 interface HandleGetRuntimeInfoParameters {
-  runtime: CopilotRuntimeLike;
+  runtime: CopilotRuntime;
   request: Request;
 }
 
@@ -29,12 +29,11 @@ export async function handleGetRuntimeInfo({
       version: VERSION,
       agents: agentsDict,
       audioFileTranscriptionEnabled: !!runtime.transcriptionService,
-      a2uiEnabled: !!runtime.a2ui,
       mode: runtime.mode,
-      ...(isIntelligenceRuntime(runtime)
+      ...(runtime.intelligenceSdk
         ? {
             intelligence: {
-              wsUrl: runtime.intelligence.ɵgetClientWsUrl(),
+              wsUrl: runtime.intelligenceSdk.getClientWsUrl(),
             },
           }
         : {}),
