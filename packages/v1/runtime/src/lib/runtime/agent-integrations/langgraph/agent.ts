@@ -1,4 +1,4 @@
-import { map } from "rxjs";
+import { map, type Observable } from "rxjs";
 import { LangGraphEventTypes } from "../../../../agents/langgraph/events";
 import { RawEvent } from "@ag-ui/core";
 import {
@@ -152,8 +152,7 @@ export class LangGraphAgent extends AGUILangGraphAgent {
     return true;
   }
 
-  // @ts-ignore
-  run(input: RunAgentInput) {
+  override run(input: RunAgentInput): Observable<ProcessedEvents> {
     return super.run(input).pipe(
       map((processedEvent) => {
         // Turn raw event into emit state snapshot from tool call event

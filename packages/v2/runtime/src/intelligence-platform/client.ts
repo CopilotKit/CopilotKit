@@ -1,4 +1,5 @@
 import { logger } from "@copilotkitnext/shared";
+import type { BaseEvent } from "@ag-ui/client";
 
 /**
  * Client for the CopilotKit Intelligence Platform REST API.
@@ -66,6 +67,24 @@ export interface ThreadConnectionResponse {
   joinToken: string;
   joinCode?: string;
 }
+
+export interface ConnectThreadBootstrapResponse {
+  mode: "bootstrap";
+  latestEventId: string | null;
+  events: BaseEvent[];
+}
+
+export interface ConnectThreadLiveResponse {
+  mode: "live";
+  joinToken: string;
+  joinFromEventId: string | null;
+  events: BaseEvent[];
+}
+
+export type ConnectThreadResponse =
+  | ConnectThreadBootstrapResponse
+  | ConnectThreadLiveResponse
+  | null;
 
 export interface ThreadMessage {
   id: string;
@@ -231,5 +250,43 @@ export class IntelligencePlatformClient {
       "GET",
       `/api/threads/${encodeURIComponent(params.threadId)}/join-code`,
     );
+  }
+
+  async connectThread(params: {
+    threadId: string;
+    lastSeenEventId?: string | null;
+  }): Promise<ConnectThreadResponse> {
+    const url = `${this.apiUrl}/api/threads/${encodeURIComponent(params.threadId)}/connect`;
+    const headers: Record<string, string> = {
+      Authorization: `Bearer ${this.apiKey}`,
+      "Content-Type": "application/json",
+    };
+
+    const response = await fetch(url, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        ...(params.lastSeenEventId !== undefined
+          ? { lastSeenEventId: params.lastSeenEventId }
+          : {}),
+      }),
+    });
+
+    if (response.status === 204) {
+      return null;
+    }
+
+    if (!response.ok) {
+      const text = await response.text().catch(() => "");
+      logger.error(
+        { status: response.status, body: text, path: `/api/threads/${params.threadId}/connect` },
+        "Intelligence platform request failed",
+      );
+      throw new Error(
+        `Intelligence platform error ${response.status}: ${text || response.statusText}`,
+      );
+    }
+
+    return response.json() as Promise<ConnectThreadResponse>;
   }
 }
