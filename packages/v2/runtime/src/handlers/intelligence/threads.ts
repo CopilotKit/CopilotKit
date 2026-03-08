@@ -15,6 +15,10 @@ interface ThreadMutationParams extends ThreadsHandlerParams {
   threadId: string;
 }
 
+interface ThreadSubscribeRequestBody {
+  userId?: unknown;
+}
+
 function requireIntelligenceRuntime(
   runtime: CopilotRuntimeLike,
 ): CopilotIntelligenceRuntimeLike | Response {
@@ -91,6 +95,37 @@ export async function handleUpdateThread({
     logger.error({ err: error, threadId }, "Error updating thread");
     return errorResponse(
       error instanceof Error ? error.message : "Failed to update thread",
+      500,
+    );
+  }
+}
+
+export async function handleSubscribeToThreads({
+  runtime,
+  request,
+}: ThreadsHandlerParams): Promise<Response> {
+  const intelligenceRuntime = requireIntelligenceRuntime(runtime);
+  if (intelligenceRuntime instanceof Response) {
+    return intelligenceRuntime;
+  }
+
+  try {
+    const body = (await request.json()) as ThreadSubscribeRequestBody;
+    const userId = body.userId;
+
+    if (typeof userId !== "string" || userId.length === 0) {
+      return errorResponse("userId is required", 400);
+    }
+
+    const credentials = await intelligenceRuntime.intelligenceSdk.subscribeToThreads({
+      userId,
+    });
+
+    return jsonResponse({ joinToken: credentials.joinToken });
+  } catch (error) {
+    logger.error({ err: error }, "Error subscribing to threads");
+    return errorResponse(
+      error instanceof Error ? error.message : "Failed to subscribe to threads",
       500,
     );
   }

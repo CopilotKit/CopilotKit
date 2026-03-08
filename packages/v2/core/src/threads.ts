@@ -1,6 +1,11 @@
 import { phoenixExponentialBackoff } from "@copilotkitnext/shared";
 import type { Observable } from "rxjs";
-import { defer, firstValueFrom, merge, of } from "rxjs";
+import {
+  defer,
+  firstValueFrom,
+  merge,
+  of,
+} from "rxjs";
 import { fromFetch } from "rxjs/fetch";
 import {
   catchError,
@@ -151,11 +156,8 @@ const threadAdapterEvents = createActionGroup("Thread Adapter", {
   started: empty(),
   stopped: empty(),
   contextChanged: props<{ context: ThreadRuntimeContext | null }>(),
-  renameRequested: props<{
-    requestId: string;
-    threadId: string;
-    name: string;
-  }>(),
+  refetchRequested: empty(),
+  renameRequested: props<{ requestId: string; threadId: string; name: string }>(),
   archiveRequested: props<{ requestId: string; threadId: string }>(),
   deleteRequested: props<{ requestId: string; threadId: string }>(),
 });
@@ -168,10 +170,7 @@ const threadRestEvents = createActionGroup("Thread REST", {
   }>(),
   listFailed: props<{ sessionId: number; error: Error }>(),
   metadataCredentialsRequested: props<{ sessionId: number }>(),
-  metadataCredentialsSucceeded: props<{
-    sessionId: number;
-    joinToken: string;
-  }>(),
+  metadataCredentialsSucceeded: props<{ sessionId: number; joinToken: string }>(),
   metadataCredentialsFailed: props<{ sessionId: number; error: Error }>(),
   mutationFinished: props<{ outcome: MutationOutcome }>(),
 });
@@ -264,19 +263,16 @@ const threadReducer = createReducer<ThreadState>(
       error,
     };
   }),
-  on(
-    threadRestEvents.metadataCredentialsFailed,
-    (state, { sessionId, error }) => {
-      if (sessionId !== state.sessionId) {
-        return state;
-      }
+  on(threadRestEvents.metadataCredentialsFailed, (state, { sessionId, error }) => {
+    if (sessionId !== state.sessionId) {
+      return state;
+    }
 
-      return {
-        ...state,
-        error,
-      };
-    },
-  ),
+    return {
+      ...state,
+      error,
+    };
+  }),
   on(threadRestEvents.metadataCredentialsRequested, (state, { sessionId }) => {
     if (sessionId !== state.sessionId) {
       return state;
@@ -313,16 +309,21 @@ const threadReducer = createReducer<ThreadState>(
   }),
 );
 
-const selectThreads = createSelector((state: ThreadState) => state.threads);
+const selectThreads = createSelector(
+  (state: ThreadState) => state.threads,
+);
 const selectThreadsIsLoading = createSelector(
   (state: ThreadState) => state.isLoading,
 );
-const selectThreadsError = createSelector((state: ThreadState) => state.error);
+const selectThreadsError = createSelector(
+  (state: ThreadState) => state.error,
+);
 
 interface ThreadStore {
   start(): void;
   stop(): void;
   setContext(context: ThreadRuntimeContext | null): void;
+  refetch(): void;
   renameThread(threadId: string, name: string): Promise<void>;
   archiveThread(threadId: string): Promise<void>;
   deleteThread(threadId: string): Promise<void>;
@@ -396,25 +397,26 @@ function createThreadMetadataCredentialsObservable(
 > {
   return defer(() => {
     return fromFetch(`${context.runtimeUrl}${THREAD_SUBSCRIBE_PATH}`, {
-      selector: async (response) => {
-        if (!response.ok) {
-          throw new Error(
-            `Failed to fetch thread metadata credentials: ${response.status}`,
-          );
-        }
+        selector: async (response) => {
+          if (!response.ok) {
+            throw new Error(
+              `Failed to fetch thread metadata credentials: ${response.status}`,
+            );
+          }
 
-        return response.json() as Promise<ThreadMetadataCredentialsResponse>;
+          return response.json() as Promise<ThreadMetadataCredentialsResponse>;
+        },
+        fetch: environment.fetch,
+        method: "POST",
+        headers: {
+          ...context.headers,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          userId: context.userId,
+        }),
       },
-      fetch: environment.fetch,
-      method: "POST",
-      headers: {
-        ...context.headers,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        userId: context.userId,
-      }),
-    }).pipe(
+    ).pipe(
       timeout({
         first: REQUEST_TIMEOUT_MS,
         with: () => {
@@ -479,7 +481,8 @@ function createThreadMutationObservable(
             outcome: {
               requestId: request.requestId,
               ok: false,
-              error: error instanceof Error ? error : new Error(String(error)),
+              error:
+                error instanceof Error ? error : new Error(String(error)),
             },
           }),
         );
@@ -488,14 +491,19 @@ function createThreadMutationObservable(
   });
 }
 
-function createThreadStore(environment: ThreadEnvironment): ThreadStore {
+function createThreadStore(
+  environment: ThreadEnvironment,
+): ThreadStore {
   const bootstrapEffect = createEffect(
     (
       actions$,
       state$,
     ): Observable<ReturnType<typeof threadRestEvents.listRequested>> =>
       actions$.pipe(
-        ofType(threadAdapterEvents.contextChanged),
+        ofType(
+          threadAdapterEvents.contextChanged,
+          threadAdapterEvents.refetchRequested,
+        ),
         withLatestFrom(state$),
         filter(([, state]) => Boolean(state.context)),
         map(([, state]) =>
@@ -510,9 +518,7 @@ function createThreadStore(environment: ThreadEnvironment): ThreadStore {
       switchMap((action) =>
         state$.pipe(
           map((state) => state.context),
-          filter((context): context is ThreadRuntimeContext =>
-            Boolean(context),
-          ),
+          filter((context): context is ThreadRuntimeContext => Boolean(context)),
           take(1),
           map((context) => ({ action, context })),
           takeUntil(
@@ -524,11 +530,7 @@ function createThreadStore(environment: ThreadEnvironment): ThreadStore {
             ),
           ),
           switchMap(({ action: currentAction, context }) =>
-            createThreadFetchObservable(
-              environment,
-              context,
-              currentAction.sessionId,
-            ),
+            createThreadFetchObservable(environment, context, currentAction.sessionId),
           ),
         ),
       ),
@@ -560,9 +562,7 @@ function createThreadStore(environment: ThreadEnvironment): ThreadStore {
       switchMap((action) =>
         state$.pipe(
           map((state) => state.context),
-          filter((context): context is ThreadRuntimeContext =>
-            Boolean(context),
-          ),
+          filter((context): context is ThreadRuntimeContext => Boolean(context)),
           take(1),
           map((context) => ({ action, context })),
           takeUntil(
@@ -591,7 +591,8 @@ function createThreadStore(environment: ThreadEnvironment): ThreadStore {
       withLatestFrom(state$),
       filter(([action, state]) => {
         return (
-          action.sessionId === state.sessionId && Boolean(state.context?.wsUrl)
+          action.sessionId === state.sessionId &&
+          Boolean(state.context?.wsUrl)
         );
       }),
       switchMap(([action, state]) => {
@@ -611,8 +612,9 @@ function createThreadStore(environment: ThreadEnvironment): ThreadStore {
             rejoinAfterMs: phoenixExponentialBackoff(1_000, 30_000),
           });
           const channel = socket.channel(`user_meta:${context.userId}`);
-          const socketSignals$ =
-            ɵobservePhoenixSocketSignals$(socket).pipe(share());
+          const socketSignals$ = ɵobservePhoenixSocketSignals$(socket).pipe(
+            share(),
+          );
           const fatalSocketShutdown$ = ɵobservePhoenixSocketHealth$(
             socketSignals$,
             MAX_SOCKET_RETRIES,
@@ -658,7 +660,11 @@ function createThreadStore(environment: ThreadEnvironment): ThreadStore {
 
           socket.connect();
 
-          return merge(socketLifecycle$, metadata$, joinOutcome$).pipe(
+          return merge(
+            socketLifecycle$,
+            metadata$,
+            joinOutcome$,
+          ).pipe(
             takeUntil(merge(shutdown$, fatalSocketShutdown$)),
             finalize(() => {
               channel.leave();
@@ -698,7 +704,7 @@ function createThreadStore(environment: ThreadEnvironment): ThreadStore {
 
   const mutationEffect = createEffect((actions$, state$) =>
     actions$.pipe(
-      ofType(
+        ofType(
         threadAdapterEvents.renameRequested,
         threadAdapterEvents.archiveRequested,
         threadAdapterEvents.deleteRequested,
@@ -789,9 +795,7 @@ function createThreadStore(environment: ThreadEnvironment): ThreadStore {
             ({
               requestId: dispatchAction.requestId,
               ok: false,
-              error: new Error(
-                "Thread store stopped before mutation completed",
-              ),
+              error: new Error("Thread store stopped before mutation completed"),
             }) satisfies MutationOutcome,
         ),
       ),
@@ -820,6 +824,9 @@ function createThreadStore(environment: ThreadEnvironment): ThreadStore {
     },
     setContext(context: ThreadRuntimeContext | null): void {
       store.dispatch(threadAdapterEvents.contextChanged({ context }));
+    },
+    refetch(): void {
+      store.dispatch(threadAdapterEvents.refetchRequested());
     },
     renameThread(threadId: string, name: string): Promise<void> {
       return trackMutation(

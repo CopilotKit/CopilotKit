@@ -10,8 +10,7 @@ import {
 } from "rxjs/operators";
 
 export interface PhoenixChannelLike {
-  on(event: string, callback: (payload: unknown) => void): number;
-  off(event: string, ref?: number): void;
+  on(event: string, callback: (payload: unknown) => void): unknown;
   onError?(callback: (reason?: unknown) => void): unknown;
   join(): {
     receive(status: string, callback: (payload?: unknown) => unknown): unknown;
@@ -28,12 +27,8 @@ export function ɵobservePhoenixChannelEvent$<T>(
   eventName: string,
 ): Observable<T> {
   return new Observable<T>((observer) => {
-    const ref = channel.on(eventName, (payload) => observer.next(payload as T));
+    channel.on(eventName, (payload) => observer.next(payload as T));
     channel.onError?.(() => {});
-
-    return () => {
-      channel.off(eventName, ref);
-    };
   });
 }
 
@@ -105,9 +100,7 @@ export function ɵobservePhoenixSocketSignals$(
   socket: PhoenixSocketLike,
 ): Observable<ɵPhoenixSocketSignal> {
   return merge(
-    ɵobservePhoenixSocketOpen$(socket).pipe(
-      map(() => ({ type: "open" as const })),
-    ),
+    ɵobservePhoenixSocketOpen$(socket).pipe(map(() => ({ type: "open" as const }))),
     ɵobservePhoenixSocketError$(socket).pipe(
       map((error) => ({ type: "error" as const, error })),
     ),
