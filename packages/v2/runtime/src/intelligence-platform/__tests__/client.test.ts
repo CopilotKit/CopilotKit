@@ -14,6 +14,16 @@ function jsonResponse(body: unknown, status = 200) {
   } as Response);
 }
 
+function emptyResponse(status = 204) {
+  return Promise.resolve({
+    ok: status >= 200 && status < 300,
+    status,
+    statusText: "No Content",
+    json: () => Promise.resolve(null),
+    text: () => Promise.resolve(""),
+  } as Response);
+}
+
 describe("IntelligencePlatformClient", () => {
   let client: IntelligencePlatformClient;
 
@@ -287,6 +297,56 @@ describe("IntelligencePlatformClient", () => {
         client.getActiveJoinCode({ threadId: "t-1" }),
       ).rejects.toThrow(/404/);
       consoleSpy.mockRestore();
+    });
+  });
+
+  describe("connectThread", () => {
+    it("returns null on 204", async () => {
+      fetchMock.mockReturnValue(emptyResponse());
+
+      const result = await client.connectThread({
+        threadId: "t-1",
+        lastSeenEventId: "event-1",
+      });
+
+      expect(result).toBeNull();
+      const [url, opts] = fetchMock.mock.calls[0];
+      expect(url).toBe("https://api.example.com/api/threads/t-1/connect");
+      expect(opts.method).toBe("POST");
+      expect(JSON.parse(opts.body)).toEqual({ lastSeenEventId: "event-1" });
+    });
+
+    it("returns a bootstrap connect plan", async () => {
+      const payload = {
+        mode: "bootstrap",
+        latestEventId: "event-2",
+        events: [{ type: "MESSAGES_SNAPSHOT", messages: [] }],
+      };
+      fetchMock.mockReturnValue(jsonResponse(payload));
+
+      const result = await client.connectThread({
+        threadId: "t-1",
+        lastSeenEventId: "event-1",
+      });
+
+      expect(result).toEqual(payload);
+    });
+
+    it("returns a live connect plan", async () => {
+      const payload = {
+        mode: "live",
+        joinToken: "jt-live",
+        joinFromEventId: "event-2",
+        events: [],
+      };
+      fetchMock.mockReturnValue(jsonResponse(payload));
+
+      const result = await client.connectThread({
+        threadId: "t-1",
+        lastSeenEventId: "event-2",
+      });
+
+      expect(result).toEqual(payload);
     });
   });
 });
