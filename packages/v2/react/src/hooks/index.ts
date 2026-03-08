@@ -17,7 +17,6 @@ export type { UseInterruptConfig } from "./use-interrupt";
 export { useThreads } from "./use-threads";
 export type {
   Thread,
-  UpdateThreadInput,
   UseThreadsInput,
   UseThreadsResult,
 } from "./use-threads";

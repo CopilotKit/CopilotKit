@@ -71,6 +71,14 @@ export interface ThreadConnectionResponse {
   joinCode?: string;
 }
 
+export interface SubscribeToThreadsRequest {
+  userId: string;
+}
+
+export interface SubscribeToThreadsResponse {
+  joinToken: string;
+}
+
 export interface ConnectThreadBootstrapResponse {
   mode: "bootstrap";
   latestEventId: string | null;
@@ -194,6 +202,18 @@ export class CopilotIntelligenceSdk {
   }): Promise<ListThreadsResponse> {
     const query = new URLSearchParams(params).toString();
     return this.request<ListThreadsResponse>("GET", `/api/threads?${query}`);
+  }
+
+  async subscribeToThreads(
+    params: SubscribeToThreadsRequest,
+  ): Promise<SubscribeToThreadsResponse> {
+    return this.request<SubscribeToThreadsResponse>(
+      "POST",
+      "/api/threads/subscribe",
+      {
+        userId: params.userId,
+      },
+    );
   }
 
   async updateThread(params: {

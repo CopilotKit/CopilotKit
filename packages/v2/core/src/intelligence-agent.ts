@@ -18,11 +18,8 @@ import {
 import {
   endWith,
   finalize,
-  filter,
   ignoreElements,
-  map,
   mergeMap,
-  scan,
   share,
   take,
   takeUntil,
@@ -30,6 +27,12 @@ import {
 } from "rxjs/operators";
 import { Socket, Channel } from "phoenix";
 import { phoenixExponentialBackoff } from "@copilotkitnext/shared";
+import {
+  ɵjoinPhoenixChannel$,
+  ɵobservePhoenixChannelEvent$,
+  ɵobservePhoenixSocketSignals$,
+  ɵobservePhoenixSocketHealth$,
+} from "./utils/phoenix-observable";
 
 const CLIENT_AG_UI_EVENT = "ag_ui_event";
 const STOP_RUN_EVENT = "stop_run";
@@ -246,7 +249,7 @@ export class IntelligenceAgent extends AbstractAgent {
             context: input.context,
             state: input.state,
             forwardedProps: input.forwardedProps,
-            lastSeenEventId: this.getLastSeenEventId(input.threadId),
+            lastSeenEventId: this.getReconnectCursor(input),
           }),
           ...(this.config.credentials
             ? { credentials: this.config.credentials }
@@ -365,53 +368,11 @@ export class IntelligenceAgent extends AbstractAgent {
   }
 
   private joinThreadChannel$(channel: Channel): Observable<never> {
-    return new Observable<void>((observer) => {
-      channel
-        .join()
-        .receive("ok", () => observer.complete())
-        .receive("error", (response: unknown) => {
-          observer.error(
-            new Error(`Failed to join channel: ${JSON.stringify(response)}`),
-          );
-        })
-        .receive("timeout", () => {
-          observer.error(new Error("Timed out joining channel"));
-        });
-    }).pipe(ignoreElements());
+    return ɵjoinPhoenixChannel$(channel);
   }
 
   private observeSocketHealth$(socket: Socket): Observable<never> {
-    const maxConsecutiveErrors = 5;
-
-    return merge(
-      this.observeSocketOpen$(socket).pipe(map(() => "open" as const)),
-      this.observeSocketError$(socket).pipe(map(() => "error" as const)),
-    ).pipe(
-      scan(
-        (consecutiveErrors, eventType) =>
-          eventType === "open" ? 0 : consecutiveErrors + 1,
-        0,
-      ),
-      filter((consecutiveErrors) => consecutiveErrors >= maxConsecutiveErrors),
-      take(1),
-      mergeMap((consecutiveErrors) => {
-        throw new Error(
-          `WebSocket connection failed after ${consecutiveErrors} consecutive errors`,
-        );
-      }),
-    );
-  }
-
-  private observeSocketOpen$(socket: Socket): Observable<void> {
-    return new Observable<void>((observer) => {
-      socket.onOpen(() => observer.next());
-    });
-  }
-
-  private observeSocketError$(socket: Socket): Observable<unknown> {
-    return new Observable<unknown>((observer) => {
-      socket.onError((error) => observer.next(error));
-    });
+    return ɵobservePhoenixSocketHealth$(ɵobservePhoenixSocketSignals$(socket), 5);
   }
 
   private observeThreadEvents$(
@@ -437,10 +398,7 @@ export class IntelligenceAgent extends AbstractAgent {
     channel: Channel,
     eventName: string,
   ): Observable<T> {
-    return new Observable<T>((observer) => {
-      channel.on(eventName, (payload: T) => observer.next(payload));
-      channel.onError(() => {});
-    });
+    return ɵobservePhoenixChannelEvent$<T>(channel, eventName);
   }
 
   private createThreadNotifications(
@@ -494,7 +452,9 @@ export class IntelligenceAgent extends AbstractAgent {
         : {
             stream_mode: "connect",
             last_seen_event_id:
-              replayCursor ?? this.getLastSeenEventId(input.threadId),
+              replayCursor === undefined
+                ? this.getReconnectCursor(input)
+                : replayCursor,
           };
 
     return socket.channel(`thread:${input.threadId}`, payload);
@@ -502,6 +462,16 @@ export class IntelligenceAgent extends AbstractAgent {
 
   private getLastSeenEventId(threadId: string): string | null {
     return this.sharedState.lastSeenEventIds.get(threadId) ?? null;
+  }
+
+  private getReconnectCursor(input: RunAgentInput): string | null {
+    return this.hasLocalThreadMessages(input)
+      ? this.getLastSeenEventId(input.threadId)
+      : null;
+  }
+
+  private hasLocalThreadMessages(input: RunAgentInput): boolean {
+    return Array.isArray(input.messages) && input.messages.length > 0;
   }
 
   private updateLastSeenEventId(threadId: string, payload: BaseEvent): void {
