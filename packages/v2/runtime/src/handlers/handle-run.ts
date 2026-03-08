@@ -1,5 +1,6 @@
 import {
   AbstractAgent,
+  Message,
   RunAgentInput,
   RunAgentInputSchema,
 } from "@ag-ui/client";
@@ -215,12 +216,41 @@ export async function handleRunAgent({
         );
       }
 
+      let persistedInputMessages: Message[] | undefined;
+      if (Array.isArray(input.messages)) {
+        try {
+          const history = await runtime.intelligencePlatform.getThreadMessages({
+            threadId: input.threadId,
+          });
+          const historicMessageIds = new Set(
+            history.messages.map((message) => message.id),
+          );
+          persistedInputMessages = input.messages.filter(
+            (message) => !historicMessageIds.has(message.id),
+          );
+        } catch (error) {
+          return new Response(
+            JSON.stringify({
+              error: "Thread history lookup failed",
+              message: error instanceof Error ? error.message : String(error),
+            }),
+            {
+              status: 502,
+              headers: { "Content-Type": "application/json" },
+            },
+          );
+        }
+      }
+
       // Kick off the agent run in the background with the join code.
       runtime.runner
         .run({
           threadId: input.threadId,
           agent,
           input,
+          ...(persistedInputMessages !== undefined
+            ? { persistedInputMessages }
+            : {}),
           ...(joinCode ? { joinCode } : {}),
         })
         .subscribe({

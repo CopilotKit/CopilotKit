@@ -172,6 +172,28 @@ describe("IntelligencePlatformClient", () => {
     });
   });
 
+  describe("getThreadMessages", () => {
+    it("sends GET to thread messages endpoint and returns the durable transcript", async () => {
+      const payload = {
+        messages: [
+          {
+            id: "m-1",
+            role: "user",
+            content: "Persisted",
+          },
+        ],
+      };
+      fetchMock.mockReturnValue(jsonResponse(payload));
+
+      const result = await client.getThreadMessages({ threadId: "t-1" });
+
+      expect(result).toEqual(payload);
+      const [url, opts] = fetchMock.mock.calls[0];
+      expect(url).toBe("https://api.example.com/api/threads/t-1/messages");
+      expect(opts.method).toBe("GET");
+    });
+  });
+
   describe("archiveThread", () => {
     it("sends POST to archive endpoint with userId and agentId", async () => {
       fetchMock.mockReturnValue(jsonResponse(undefined));
