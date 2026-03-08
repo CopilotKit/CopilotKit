@@ -2,7 +2,6 @@ import { RunAgentInput, RunAgentInputSchema } from "@ag-ui/client";
 import { EventEncoder } from "@ag-ui/encoder";
 import { CopilotRuntime } from "../runtime";
 import { extractForwardableHeaders } from "./header-utils";
-import { IntelligenceAgentRunner } from "../runner/intelligence";
 
 interface ConnectAgentParameters {
   request: Request;
@@ -71,13 +70,13 @@ export async function handleConnectAgent({
 
     // For IntelligenceAgentRunner, fetch the active thread connection
     // credentials and return the join token for the client socket.
-    if (runtime.runner instanceof IntelligenceAgentRunner) {
-      if (!runtime.intelligencePlatform) {
+    if (runtime.isIntelligenceMode) {
+      if (!runtime.intelligenceSdk) {
         return new Response(
           JSON.stringify({
-            error: "Intelligence platform not configured",
+            error: "Intelligence SDK not configured",
             message:
-              "IntelligenceAgentRunner requires an intelligencePlatform client",
+              "Intelligence mode requires a CopilotIntelligenceSdk",
           }),
           {
             status: 500,
@@ -87,7 +86,7 @@ export async function handleConnectAgent({
       }
 
       try {
-        const result = await runtime.intelligencePlatform.connectThread({
+        const result = await runtime.intelligenceSdk.connectThread({
           threadId: input.threadId,
           lastSeenEventId,
         });

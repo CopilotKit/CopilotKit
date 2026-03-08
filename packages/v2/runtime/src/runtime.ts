@@ -1,4 +1,8 @@
-import { MaybePromise, NonEmptyRecord } from "@copilotkitnext/shared";
+import {
+  MaybePromise,
+  NonEmptyRecord,
+  RuntimeMode,
+} from "@copilotkitnext/shared";
 import { AbstractAgent } from "@ag-ui/client";
 import type { MCPClientConfig } from "@ag-ui/mcp-apps-middleware";
 import { A2UIMiddlewareConfig } from "@ag-ui/a2ui-middleware";
@@ -10,7 +14,8 @@ import type {
 import { TranscriptionService } from "./transcription-service/transcription-service";
 import { AgentRunner } from "./runner/agent-runner";
 import { InMemoryAgentRunner } from "./runner/in-memory";
-import { IntelligencePlatformClient } from "./intelligence-platform";
+import { IntelligenceAgentRunner } from "./runner/intelligence";
+import { CopilotIntelligenceSdk } from "./intelligence-platform";
 
 export const VERSION = pkg.version;
 
@@ -39,20 +44,32 @@ interface CopilotRuntimeMiddlewares {
 /**
  * Options used to construct a `CopilotRuntime` instance.
  */
-export interface CopilotRuntimeOptions extends CopilotRuntimeMiddlewares {
+interface BaseCopilotRuntimeOptions extends CopilotRuntimeMiddlewares {
   /** Map of available agents (loaded lazily is fine). */
   agents: MaybePromise<NonEmptyRecord<Record<string, AbstractAgent>>>;
-  /** The runner to use for running agents. */
-  runner?: AgentRunner;
   /** Optional transcription service for audio processing. */
   transcriptionService?: TranscriptionService;
   /** Optional *before* middleware – callback function or webhook URL. */
   beforeRequestMiddleware?: BeforeRequestMiddleware;
   /** Optional *after* middleware – callback function or webhook URL. */
   afterRequestMiddleware?: AfterRequestMiddleware;
-  /** Optional intelligence platform client for thread management and cloud features. */
-  intelligencePlatform?: IntelligencePlatformClient;
 }
+
+export interface SseCopilotRuntimeOptions extends BaseCopilotRuntimeOptions {
+  /** The runner to use for running agents in SSE mode. */
+  runner?: AgentRunner;
+  intelligenceSdk?: undefined;
+}
+
+export interface IntelligenceCopilotRuntimeOptions
+  extends BaseCopilotRuntimeOptions {
+  /** Configures Intelligence mode for durable threads and realtime events. */
+  intelligenceSdk: CopilotIntelligenceSdk;
+}
+
+export type CopilotRuntimeOptions =
+  | SseCopilotRuntimeOptions
+  | IntelligenceCopilotRuntimeOptions;
 
 /**
  * Central runtime object passed to all request handlers.
@@ -65,25 +82,40 @@ export class CopilotRuntime {
   public runner: AgentRunner;
   public a2ui: CopilotRuntimeOptions["a2ui"];
   public mcpApps: CopilotRuntimeOptions["mcpApps"];
-  public intelligencePlatform?: IntelligencePlatformClient;
+  public intelligenceSdk?: CopilotIntelligenceSdk;
+  public mode: RuntimeMode;
 
-  constructor({
-    agents,
-    transcriptionService,
-    beforeRequestMiddleware,
-    afterRequestMiddleware,
-    runner,
-    a2ui,
-    mcpApps,
-    intelligencePlatform,
-  }: CopilotRuntimeOptions) {
+  constructor(options: CopilotRuntimeOptions) {
+    const {
+      agents,
+      transcriptionService,
+      beforeRequestMiddleware,
+      afterRequestMiddleware,
+      a2ui,
+      mcpApps,
+    } = options;
     this.agents = agents;
     this.transcriptionService = transcriptionService;
     this.beforeRequestMiddleware = beforeRequestMiddleware;
     this.afterRequestMiddleware = afterRequestMiddleware;
-    this.runner = runner ?? new InMemoryAgentRunner();
     this.a2ui = a2ui;
     this.mcpApps = mcpApps;
-    this.intelligencePlatform = intelligencePlatform;
+    this.mode =
+      "intelligenceSdk" in options && options.intelligenceSdk
+        ? "intelligence"
+        : "sse";
+    this.intelligenceSdk =
+      "intelligenceSdk" in options ? options.intelligenceSdk : undefined;
+    this.runner =
+      this.mode === "intelligence" && this.intelligenceSdk
+        ? new IntelligenceAgentRunner({
+            url: this.intelligenceSdk.getRunnerWsUrl(),
+            authToken: this.intelligenceSdk.getRunnerAuthToken(),
+          })
+        : ("runner" in options && options.runner) ?? new InMemoryAgentRunner();
+  }
+
+  get isIntelligenceMode(): boolean {
+    return this.mode === "intelligence";
   }
 }

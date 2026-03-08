@@ -32,6 +32,7 @@ describe("handleGetRuntimeInfo", () => {
       version: expect.any(String),
       agents: {},
       audioFileTranscriptionEnabled: false,
+      mode: "sse",
     });
   });
 
@@ -54,6 +55,7 @@ describe("handleGetRuntimeInfo", () => {
       version: expect.any(String),
       agents: {},
       audioFileTranscriptionEnabled: true,
+      mode: "sse",
     });
   });
 
@@ -88,6 +90,7 @@ describe("handleGetRuntimeInfo", () => {
         },
       },
       audioFileTranscriptionEnabled: true,
+      mode: "sse",
     });
   });
 
@@ -99,6 +102,7 @@ describe("handleGetRuntimeInfo", () => {
       transcriptionService: undefined,
       beforeRequestMiddleware: undefined,
       afterRequestMiddleware: undefined,
+      mode: "sse",
     } as CopilotRuntime;
 
     const response = await handleGetRuntimeInfo({

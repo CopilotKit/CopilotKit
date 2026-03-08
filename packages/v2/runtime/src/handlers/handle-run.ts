@@ -9,7 +9,6 @@ import { MCPAppsMiddleware } from "@ag-ui/mcp-apps-middleware";
 import { EventEncoder } from "@ag-ui/encoder";
 import { CopilotRuntime } from "../runtime";
 import { extractForwardableHeaders } from "./header-utils";
-import { IntelligenceAgentRunner } from "../runner/intelligence";
 
 interface RunAgentParameters {
   request: Request;
@@ -108,13 +107,13 @@ export async function handleRunAgent({
 
     // For IntelligenceAgentRunner, acquire thread connection credentials and
     // return the join token so the client can connect to the Phoenix channel.
-    if (runtime.runner instanceof IntelligenceAgentRunner) {
-      if (!runtime.intelligencePlatform) {
+    if (runtime.isIntelligenceMode) {
+      if (!runtime.intelligenceSdk) {
         return new Response(
           JSON.stringify({
-            error: "Intelligence platform not configured",
+            error: "Intelligence SDK not configured",
             message:
-              "IntelligenceAgentRunner requires an intelligencePlatform client",
+              "Intelligence mode requires a CopilotIntelligenceSdk",
           }),
           {
             status: 500,
@@ -124,7 +123,7 @@ export async function handleRunAgent({
       }
 
       try {
-        await runtime.intelligencePlatform.getThread({
+        await runtime.intelligenceSdk.getThread({
           threadId: input.threadId,
         });
       } catch (error) {
@@ -157,7 +156,7 @@ export async function handleRunAgent({
         }
 
         try {
-          await runtime.intelligencePlatform.createThread({
+          await runtime.intelligenceSdk.createThread({
             threadId: input.threadId,
             userId,
             agentId,
@@ -182,7 +181,7 @@ export async function handleRunAgent({
       let joinCode: string | undefined;
       let joinToken: string | undefined;
       try {
-        const lockResult = await runtime.intelligencePlatform.acquireThreadLock(
+        const lockResult = await runtime.intelligenceSdk.acquireThreadLock(
           {
             threadId: input.threadId,
             runId: input.runId,
@@ -219,7 +218,7 @@ export async function handleRunAgent({
       let persistedInputMessages: Message[] | undefined;
       if (Array.isArray(input.messages)) {
         try {
-          const history = await runtime.intelligencePlatform.getThreadMessages({
+          const history = await runtime.intelligenceSdk.getThreadMessages({
             threadId: input.threadId,
           });
           const historicMessageIds = new Set(

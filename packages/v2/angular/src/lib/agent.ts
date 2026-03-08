@@ -100,6 +100,7 @@ export class CopilotkitAgentFactory {
             runtimeUrl,
             agentId: resolvedAgentId,
             transport: runtimeTransport,
+            runtimeMode: "pending",
           });
           // Apply current headers so runs/connects inherit them
 

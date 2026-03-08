@@ -29,6 +29,14 @@ export async function handleGetRuntimeInfo({
       version: VERSION,
       agents: agentsDict,
       audioFileTranscriptionEnabled: !!runtime.transcriptionService,
+      mode: runtime.mode,
+      ...(runtime.intelligenceSdk
+        ? {
+            intelligence: {
+              wsUrl: runtime.intelligenceSdk.getClientWsUrl(),
+            },
+          }
+        : {}),
     };
 
     return new Response(JSON.stringify(runtimeInfo), {

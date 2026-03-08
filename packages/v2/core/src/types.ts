@@ -1,4 +1,8 @@
 import { AbstractAgent, ToolCall } from "@ag-ui/client";
+import type {
+  IntelligenceRuntimeInfo,
+  RuntimeMode,
+} from "@copilotkitnext/shared";
 import { z } from "zod";
 
 /**
@@ -11,6 +15,7 @@ export enum ToolCallStatus {
 }
 
 export type CopilotRuntimeTransport = "rest" | "single";
+export type { RuntimeMode, IntelligenceRuntimeInfo };
 
 /**
  * Context passed to a frontend tool handler

@@ -5,7 +5,7 @@ import { A2UIMiddleware } from "@ag-ui/a2ui-middleware";
 import { handleRunAgent } from "../handlers/handle-run";
 import { CopilotRuntime } from "../runtime";
 import { IntelligenceAgentRunner } from "../runner/intelligence";
-import { IntelligencePlatformClient } from "../intelligence-platform/client";
+import { CopilotIntelligenceSdk } from "../intelligence-platform/client";
 
 describe("handleRunAgent", () => {
   const createMockRuntime = (
@@ -289,7 +289,7 @@ describe("handleRunAgent", () => {
   describe("IntelligenceAgentRunner join code path", () => {
     const createIntelligenceRuntime = (
       agent: AbstractAgent,
-      platform?: Partial<IntelligencePlatformClient>,
+      platform?: Partial<CopilotIntelligenceSdk>,
     ) => {
       const runner = Object.create(IntelligenceAgentRunner.prototype);
       runner.run = vi.fn(
@@ -304,7 +304,9 @@ describe("handleRunAgent", () => {
         beforeRequestMiddleware: undefined,
         afterRequestMiddleware: undefined,
         runner,
-        intelligencePlatform: platform,
+        mode: "intelligence",
+        isIntelligenceMode: true,
+        intelligenceSdk: platform,
       } as unknown as CopilotRuntime;
     };
 
@@ -593,7 +595,7 @@ describe("handleRunAgent", () => {
       expect(platform.acquireThreadLock).not.toHaveBeenCalled();
     });
 
-    it("returns 500 when intelligencePlatform is not configured", async () => {
+    it("returns 500 when intelligenceSdk is not configured", async () => {
       const agent = createAgentForIntelligence();
       const runtime = createIntelligenceRuntime(agent, undefined);
 
@@ -605,7 +607,7 @@ describe("handleRunAgent", () => {
 
       expect(response.status).toBe(500);
       const body = await response.json();
-      expect(body.error).toBe("Intelligence platform not configured");
+      expect(body.error).toBe("Intelligence SDK not configured");
     });
   });
 });
