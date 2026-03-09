@@ -15,7 +15,7 @@ import { TranscriptionService } from "./transcription-service/transcription-serv
 import { AgentRunner } from "./runner/agent-runner";
 import { InMemoryAgentRunner } from "./runner/in-memory";
 import { IntelligenceAgentRunner } from "./runner/intelligence";
-import { CopilotIntelligenceSdk } from "./intelligence-platform";
+import { CopilotKitIntelligence } from "./intelligence-platform";
 
 export const VERSION = pkg.version;
 
@@ -55,14 +55,13 @@ interface BaseCopilotRuntimeOptions extends CopilotRuntimeMiddlewares {
 export interface CopilotSseRuntimeOptions extends BaseCopilotRuntimeOptions {
   /** The runner to use for running agents in SSE mode. */
   runner?: AgentRunner;
-  intelligenceSdk?: undefined;
+  intelligence?: undefined;
   generateThreadNames?: undefined;
 }
 
-export interface CopilotIntelligenceRuntimeOptions
-  extends BaseCopilotRuntimeOptions {
+export interface CopilotIntelligenceRuntimeOptions extends BaseCopilotRuntimeOptions {
   /** Configures Intelligence mode for durable threads and realtime events. */
-  intelligenceSdk: CopilotIntelligenceSdk;
+  intelligence: CopilotKitIntelligence;
   /** Auto-generate short names for newly created threads. */
   generateThreadNames?: boolean;
 }
@@ -79,21 +78,21 @@ export interface CopilotRuntimeLike {
   runner: AgentRunner;
   a2ui: CopilotRuntimeOptions["a2ui"];
   mcpApps: CopilotRuntimeOptions["mcpApps"];
-  intelligenceSdk?: CopilotIntelligenceSdk;
+  intelligence?: CopilotKitIntelligence;
   generateThreadNames?: boolean;
   mode: RuntimeMode;
   readonly isIntelligenceMode: boolean;
 }
 
 export interface CopilotSseRuntimeLike extends CopilotRuntimeLike {
-  intelligenceSdk?: undefined;
+  intelligence?: undefined;
   generateThreadNames?: undefined;
   isIntelligenceMode: false;
   mode: "sse";
 }
 
 export interface CopilotIntelligenceRuntimeLike extends CopilotRuntimeLike {
-  intelligenceSdk: CopilotIntelligenceSdk;
+  intelligence: CopilotKitIntelligence;
   generateThreadNames: boolean;
   isIntelligenceMode: true;
   mode: "intelligence";
@@ -108,7 +107,7 @@ abstract class BaseCopilotRuntime implements CopilotRuntimeLike {
   public a2ui: CopilotRuntimeOptions["a2ui"];
   public mcpApps: CopilotRuntimeOptions["mcpApps"];
 
-  abstract readonly intelligenceSdk?: CopilotIntelligenceSdk;
+  abstract readonly intelligence?: CopilotKitIntelligence;
   abstract readonly generateThreadNames?: boolean;
   abstract readonly mode: RuntimeMode;
 
@@ -140,7 +139,7 @@ export class CopilotSseRuntime
   extends BaseCopilotRuntime
   implements CopilotSseRuntimeLike
 {
-  readonly intelligenceSdk = undefined;
+  readonly intelligence = undefined;
   readonly generateThreadNames = undefined;
   readonly mode = "sse" as const;
 
@@ -157,7 +156,7 @@ export class CopilotIntelligenceRuntime
   extends BaseCopilotRuntime
   implements CopilotIntelligenceRuntimeLike
 {
-  readonly intelligenceSdk: CopilotIntelligenceSdk;
+  readonly intelligence: CopilotKitIntelligence;
   readonly generateThreadNames: boolean;
   readonly mode = "intelligence" as const;
 
@@ -165,11 +164,11 @@ export class CopilotIntelligenceRuntime
     super(
       options,
       new IntelligenceAgentRunner({
-        url: options.intelligenceSdk.getRunnerWsUrl(),
-        authToken: options.intelligenceSdk.getRunnerAuthToken(),
+        url: options.intelligence.getRunnerWsUrl(),
+        authToken: options.intelligence.getRunnerAuthToken(),
       }),
     );
-    this.intelligenceSdk = options.intelligenceSdk;
+    this.intelligence = options.intelligence;
     this.generateThreadNames = options.generateThreadNames ?? true;
   }
 
@@ -181,13 +180,13 @@ export class CopilotIntelligenceRuntime
 function hasIntelligenceOptions(
   options: CopilotRuntimeOptions,
 ): options is CopilotIntelligenceRuntimeOptions {
-  return "intelligenceSdk" in options && !!options.intelligenceSdk;
+  return "intelligence" in options && !!options.intelligence;
 }
 
 export function isIntelligenceRuntime(
   runtime: CopilotRuntimeLike,
 ): runtime is CopilotIntelligenceRuntimeLike {
-  return runtime.mode === "intelligence" && !!runtime.intelligenceSdk;
+  return runtime.mode === "intelligence" && !!runtime.intelligence;
 }
 
 /**
@@ -231,8 +230,8 @@ export class CopilotRuntime implements CopilotRuntimeLike {
     return this.delegate.mcpApps;
   }
 
-  get intelligenceSdk(): CopilotIntelligenceSdk | undefined {
-    return this.delegate.intelligenceSdk;
+  get intelligence(): CopilotKitIntelligence | undefined {
+    return this.delegate.intelligence;
   }
 
   get generateThreadNames(): boolean | undefined {

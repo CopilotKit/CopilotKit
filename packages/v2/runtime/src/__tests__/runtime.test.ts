@@ -5,18 +5,18 @@ import {
   CopilotRuntime,
   CopilotSseRuntime,
 } from "../runtime";
-import type { CopilotIntelligenceSdk } from "../intelligence-platform";
+import type { CopilotKitIntelligence } from "../intelligence-platform";
 import { InMemoryAgentRunner } from "../runner/in-memory";
 import { IntelligenceAgentRunner } from "../runner/intelligence";
 
 describe("runtime construction", () => {
   const agents = {};
-  const createMockSdk = (): CopilotIntelligenceSdk =>
+  const createMockIntelligence = (): CopilotKitIntelligence =>
     ({
       getRunnerWsUrl: vi.fn().mockReturnValue("ws://runner.example"),
       getRunnerAuthToken: vi.fn().mockReturnValue("token-123"),
       getClientWsUrl: vi.fn().mockReturnValue("ws://client.example"),
-    }) as unknown as CopilotIntelligenceSdk;
+    }) as unknown as CopilotKitIntelligence;
 
   it("builds an SSE runtime by default", () => {
     const runtime = new CopilotSseRuntime({ agents });
@@ -24,20 +24,20 @@ describe("runtime construction", () => {
     expect(runtime.mode).toBe("sse");
     expect(runtime.isIntelligenceMode).toBe(false);
     expect(runtime.runner).toBeInstanceOf(InMemoryAgentRunner);
-    expect(runtime.intelligenceSdk).toBeUndefined();
+    expect(runtime.intelligence).toBeUndefined();
   });
 
   it("builds an Intelligence runtime with an Intelligence runner", () => {
-    const sdk = createMockSdk();
+    const sdk = createMockIntelligence();
 
     const runtime = new CopilotIntelligenceRuntime({
       agents,
-      intelligenceSdk: sdk,
+      intelligence: sdk,
     });
 
     expect(runtime.mode).toBe("intelligence");
     expect(runtime.isIntelligenceMode).toBe(true);
-    expect(runtime.intelligenceSdk).toBe(sdk);
+    expect(runtime.intelligence).toBe(sdk);
     expect(runtime.runner).toBeInstanceOf(IntelligenceAgentRunner);
     expect(runtime.generateThreadNames).toBe(true);
     expect(sdk.getRunnerWsUrl).toHaveBeenCalledTimes(1);
@@ -45,47 +45,47 @@ describe("runtime construction", () => {
   });
 
   it("preserves an explicit generateThreadNames=false option in Intelligence mode", () => {
-    const sdk = createMockSdk();
+    const sdk = createMockIntelligence();
 
     const runtime = new CopilotIntelligenceRuntime({
       agents,
-      intelligenceSdk: sdk,
+      intelligence: sdk,
       generateThreadNames: false,
     });
 
     expect(runtime.generateThreadNames).toBe(false);
   });
 
-  it("keeps CopilotRuntime as an SSE shim when no Intelligence SDK is provided", () => {
+  it("keeps CopilotRuntime as an SSE shim when no CopilotKitIntelligence is provided", () => {
     const runtime = new CopilotRuntime({ agents });
 
     expect(runtime.mode).toBe("sse");
     expect(runtime.isIntelligenceMode).toBe(false);
     expect(runtime.runner).toBeInstanceOf(InMemoryAgentRunner);
-    expect(runtime.intelligenceSdk).toBeUndefined();
+    expect(runtime.intelligence).toBeUndefined();
   });
 
-  it("keeps CopilotRuntime as an Intelligence shim when Intelligence SDK is provided", () => {
-    const sdk = createMockSdk();
+  it("keeps CopilotRuntime as an Intelligence shim when CopilotKitIntelligence is provided", () => {
+    const sdk = createMockIntelligence();
 
     const runtime = new CopilotRuntime({
       agents,
-      intelligenceSdk: sdk,
+      intelligence: sdk,
     });
 
     expect(runtime.mode).toBe("intelligence");
     expect(runtime.isIntelligenceMode).toBe(true);
-    expect(runtime.intelligenceSdk).toBe(sdk);
+    expect(runtime.intelligence).toBe(sdk);
     expect(runtime.runner).toBeInstanceOf(IntelligenceAgentRunner);
     expect(runtime.generateThreadNames).toBe(true);
   });
 
   it("passes generateThreadNames through the CopilotRuntime shim", () => {
-    const sdk = createMockSdk();
+    const sdk = createMockIntelligence();
 
     const runtime = new CopilotRuntime({
       agents,
-      intelligenceSdk: sdk,
+      intelligence: sdk,
       generateThreadNames: false,
     });
 

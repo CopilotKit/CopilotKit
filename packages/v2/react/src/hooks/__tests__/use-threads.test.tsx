@@ -227,9 +227,7 @@ describe("useThreads", () => {
     });
 
     expect(fetchMock).not.toHaveBeenCalled();
-    expect(result.current.error?.message).toBe(
-      "Runtime URL is not configured",
-    );
+    expect(result.current.error?.message).toBe("Runtime URL is not configured");
   });
 
   it("updates local state directly from realtime metadata events", async () => {

@@ -19,18 +19,18 @@ export async function handleIntelligenceRun({
   agent,
   input,
 }: HandleIntelligenceRunParams): Promise<Response> {
-  if (!runtime.intelligenceSdk) {
+  if (!runtime.intelligence) {
     return jsonResponse(
       {
         error: "Intelligence SDK not configured",
-        message: "Intelligence mode requires a CopilotIntelligenceSdk",
+        message: "Intelligence mode requires a CopilotKitIntelligence",
       },
       500,
     );
   }
 
   try {
-    await runtime.intelligenceSdk.getThread({
+    await runtime.intelligence.getThread({
       threadId: input.threadId,
     });
   } catch (error) {
@@ -57,7 +57,7 @@ export async function handleIntelligenceRun({
     }
 
     try {
-      const created = await runtime.intelligenceSdk.createThread({
+      const created = await runtime.intelligence.createThread({
         threadId: input.threadId,
         userId,
         agentId,
@@ -91,7 +91,7 @@ export async function handleIntelligenceRun({
   let joinCode: string | undefined;
   let joinToken: string | undefined;
   try {
-    const lockResult = await runtime.intelligenceSdk.acquireThreadLock({
+    const lockResult = await runtime.intelligence.acquireThreadLock({
       threadId: input.threadId,
       runId: input.runId,
     });
@@ -120,7 +120,7 @@ export async function handleIntelligenceRun({
   let persistedInputMessages: Message[] | undefined;
   if (Array.isArray(input.messages)) {
     try {
-      const history = await runtime.intelligenceSdk.getThreadMessages({
+      const history = await runtime.intelligence.getThreadMessages({
         threadId: input.threadId,
       });
       const historicMessageIds = new Set(

@@ -185,9 +185,11 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
     return defer(() => from(this.resolveDelegate())).pipe(
       switchMap((delegate) =>
         withAbortErrorHandling(
-          (delegate as AbstractAgent & {
-            connect: (input: RunAgentInput) => Observable<BaseEvent>;
-          }).connect(input),
+          (
+            delegate as AbstractAgent & {
+              connect: (input: RunAgentInput) => Observable<BaseEvent>;
+            }
+          ).connect(input),
         ),
       ),
     );
@@ -217,9 +219,11 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
     return defer(() => from(this.resolveDelegate())).pipe(
       switchMap((delegate) =>
         withAbortErrorHandling(
-          (delegate as AbstractAgent & {
-            run: (input: RunAgentInput) => Observable<BaseEvent>;
-          }).run(input),
+          (
+            delegate as AbstractAgent & {
+              run: (input: RunAgentInput) => Observable<BaseEvent>;
+            }
+          ).run(input),
         ),
       ),
     );
@@ -388,10 +392,11 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
     delegate.setState(this.state);
 
     if ("headers" in delegate) {
-      (delegate as AbstractAgent & { headers?: Record<string, string> }).headers =
-        {
-          ...this.headers,
-        };
+      (
+        delegate as AbstractAgent & { headers?: Record<string, string> }
+      ).headers = {
+        ...this.headers,
+      };
     }
 
     if ("credentials" in delegate) {
