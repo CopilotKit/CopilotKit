@@ -19,7 +19,7 @@ graph TB
 
     subgraph Your Server
         RT["CopilotRuntime"]
-        SDK["CopilotIntelligenceSdk"]
+        SDK["CopilotKitIntelligence"]
         Runner["IntelligenceAgentRunner"]
     end
 
@@ -42,16 +42,16 @@ graph TB
 
 ### SSE Mode vs Intelligence Mode
 
-| Mode | Thread storage | Realtime transport | `/info` reports |
-| ---- | -------------- | ------------------ | --------------- |
-| SSE | Ephemeral unless your runner persists state | SSE | `mode: "sse"` |
-| Intelligence | Durable thread APIs | WebSocket | `mode: "intelligence"` + `intelligence.wsUrl` |
+| Mode         | Thread storage                              | Realtime transport | `/info` reports                               |
+| ------------ | ------------------------------------------- | ------------------ | --------------------------------------------- |
+| SSE          | Ephemeral unless your runner persists state | SSE                | `mode: "sse"`                                 |
+| Intelligence | Durable thread APIs                         | WebSocket          | `mode: "intelligence"` + `intelligence.wsUrl` |
 
 The important design rule is:
 
 - The **runtime** decides the mode.
 - The **client** waits for `/info` before choosing the concrete remote agent implementation.
-- The **developer** only opts in by providing `intelligenceSdk`.
+- The **developer** only opts in by providing `intelligence`.
 
 ---
 
@@ -66,9 +66,9 @@ npm install @copilotkitnext/runtime
 ### 2. Create the Intelligence SDK
 
 ```typescript
-import { CopilotIntelligenceSdk } from "@copilotkitnext/runtime";
+import { CopilotKitIntelligence } from "@copilotkitnext/runtime";
 
-const intelligenceSdk = new CopilotIntelligenceSdk({
+const intelligence = new CopilotKitIntelligence({
   apiKey: process.env.COPILOTKIT_INTELLIGENCE_API_KEY!,
   tenantId: process.env.COPILOTKIT_INTELLIGENCE_TENANT_ID!,
   apiUrl: "https://your-intelligence-host/api",
@@ -89,7 +89,7 @@ const runtime = new CopilotRuntime({
   agents: {
     default: myAgent,
   },
-  intelligenceSdk,
+  intelligence,
 });
 
 app.use(
@@ -107,11 +107,11 @@ That is the mode switch. You do **not** separately configure Intelligence handle
 
 ## What `CopilotRuntime` Does For You
 
-When `intelligenceSdk` is present, `CopilotRuntime`:
+When `intelligence` is present, `CopilotRuntime`:
 
 - switches its mode from `"sse"` to `"intelligence"`
 - uses the Intelligence handler path for `run`, `connect`, and `threads`
-- auto-configures the Intelligence runner from `sdk.wsUrl`
+- auto-configures the Intelligence runner from `intelligence.wsUrl`
 - reports Intelligence metadata from `/info`
 
 Example `/info` response:
@@ -173,12 +173,12 @@ This is why the runtime owns the mode decision instead of the frontend guessing 
 
 Intelligence mode adds thread APIs on the runtime:
 
-| Route | Method | Purpose |
-| ----- | ------ | ------- |
-| `/threads` | GET | List durable threads |
-| `/threads/:threadId` | PATCH | Update thread metadata |
-| `/threads/:threadId/archive` | POST | Archive a thread |
-| `/threads/:threadId` | DELETE | Delete a thread |
+| Route                        | Method | Purpose                |
+| ---------------------------- | ------ | ---------------------- |
+| `/threads`                   | GET    | List durable threads   |
+| `/threads/:threadId`         | PATCH  | Update thread metadata |
+| `/threads/:threadId/archive` | POST   | Archive a thread       |
+| `/threads/:threadId`         | DELETE | Delete a thread        |
 
 These routes are **Intelligence-only**.
 
@@ -192,7 +192,7 @@ In SSE mode they should reject with an explicit error, because SSE runtimes do n
 sequenceDiagram
     participant Client as Frontend
     participant Runtime as CopilotRuntime
-    participant SDK as CopilotIntelligenceSdk
+    participant SDK as CopilotKitIntelligence
     participant WS as Intelligence WebSocket
 
     Client->>Runtime: GET /info
@@ -228,7 +228,7 @@ That lets application code override a runtime-reported agent with a local implem
 
 Think of Intelligence as a **runtime capability**, not a second transport API developers need to learn.
 
-- `CopilotIntelligenceSdk` configures the runtime's Intelligence backend.
+- `CopilotKitIntelligence` configures the runtime's Intelligence backend.
 - `CopilotRuntime` exposes that capability through the same frontend-facing contract.
 - `/info` tells the client which concrete remote-agent implementation to use.
 - Frontend app code stays mostly unchanged.

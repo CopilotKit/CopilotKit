@@ -34,7 +34,7 @@ export async function handleGetRuntimeInfo({
       ...(isIntelligenceRuntime(runtime)
         ? {
             intelligence: {
-              wsUrl: runtime.intelligenceSdk.getClientWsUrl(),
+              wsUrl: runtime.intelligence.getClientWsUrl(),
             },
           }
         : {}),

@@ -24,7 +24,7 @@ function requireIntelligenceRuntime(
 ): CopilotIntelligenceRuntimeLike | Response {
   if (!isIntelligenceRuntime(runtime)) {
     return errorResponse(
-      "Missing IntelligencePlatformClient configuration. Thread operations require an intelligenceSdk to be provided in CopilotRuntime options.",
+      "Missing IntelligencePlatformClient configuration. Thread operations require a CopilotKitIntelligence instance to be provided in CopilotRuntime options.",
       422,
     );
   }
@@ -50,7 +50,7 @@ export async function handleListThreads({
       return errorResponse("userId and agentId query params are required", 400);
     }
 
-    const data = await intelligenceRuntime.intelligenceSdk.listThreads({
+    const data = await intelligenceRuntime.intelligence.listThreads({
       userId,
       agentId,
     });
@@ -83,7 +83,7 @@ export async function handleUpdateThread({
       return errorResponse("userId and agentId are required", 400);
     }
 
-    const thread = await intelligenceRuntime.intelligenceSdk.updateThread({
+    const thread = await intelligenceRuntime.intelligence.updateThread({
       threadId,
       userId: userId as string,
       agentId: agentId as string,
@@ -118,7 +118,7 @@ export async function handleSubscribeToThreads({
     }
 
     const credentials =
-      await intelligenceRuntime.intelligenceSdk.subscribeToThreads({
+      await intelligenceRuntime.intelligence.subscribeToThreads({
         userId,
       });
 
@@ -150,7 +150,7 @@ export async function handleArchiveThread({
       return errorResponse("userId and agentId are required", 400);
     }
 
-    await intelligenceRuntime.intelligenceSdk.archiveThread({
+    await intelligenceRuntime.intelligence.archiveThread({
       threadId,
       userId: userId as string,
       agentId: agentId as string,
@@ -184,7 +184,7 @@ export async function handleDeleteThread({
       return errorResponse("userId and agentId are required", 400);
     }
 
-    await intelligenceRuntime.intelligenceSdk.deleteThread({
+    await intelligenceRuntime.intelligence.deleteThread({
       threadId,
       userId: userId as string,
       agentId: agentId as string,

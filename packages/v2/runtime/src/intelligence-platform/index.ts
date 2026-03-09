@@ -1,6 +1,6 @@
 export {
-  CopilotIntelligenceSdk,
-  type CopilotIntelligenceSdkConfig,
+  CopilotKitIntelligence,
+  type CopilotKitIntelligenceConfig,
   type CreateThreadRequest,
   type ThreadSummary,
   type ListThreadsResponse,

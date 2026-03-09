@@ -100,7 +100,9 @@ export function ɵobservePhoenixSocketSignals$(
   socket: PhoenixSocketLike,
 ): Observable<ɵPhoenixSocketSignal> {
   return merge(
-    ɵobservePhoenixSocketOpen$(socket).pipe(map(() => ({ type: "open" as const }))),
+    ɵobservePhoenixSocketOpen$(socket).pipe(
+      map(() => ({ type: "open" as const })),
+    ),
     ɵobservePhoenixSocketError$(socket).pipe(
       map((error) => ({ type: "error" as const, error })),
     ),

@@ -8,9 +8,9 @@ import type { BaseEvent } from "@ag-ui/client";
  * (e.g. `CopilotRuntime`, `IntelligenceAgentRunner`):
  *
  * ```ts
- * import { CopilotIntelligenceSdk, CopilotRuntime } from "@copilotkitnext/runtime";
+ * import { CopilotKitIntelligence, CopilotRuntime } from "@copilotkitnext/runtime";
  *
- * const sdk = new CopilotIntelligenceSdk({
+ * const intelligence = new CopilotKitIntelligence({
  *   apiUrl: "https://api.copilotkit.ai",
  *   wsUrl: "wss://api.copilotkit.ai",
  *   apiKey: process.env.COPILOTKIT_API_KEY!,
@@ -19,12 +19,12 @@ import type { BaseEvent } from "@ag-ui/client";
  *
  * const runtime = new CopilotRuntime({
  *   agents,
- *   intelligenceSdk: sdk,
+ *   intelligence,
  * });
  * ```
  */
 
-export interface CopilotIntelligenceSdkConfig {
+export interface CopilotKitIntelligenceConfig {
   /** Base URL of the intelligence platform API, e.g. "https://api.copilotkit.ai" */
   apiUrl: string;
   /** Intelligence websocket base URL. Runner and client socket URLs are derived from this. */
@@ -33,11 +33,11 @@ export interface CopilotIntelligenceSdkConfig {
   apiKey: string;
   /** Tenant identifier used for self-hosted Intelligence instances */
   tenantId: string;
-  /** Invoked synchronously after a thread is created via this SDK instance. */
+  /** Invoked synchronously after a thread is created via this instance. */
   onThreadCreated?: (thread: ThreadSummary) => void;
-  /** Invoked synchronously after a thread is updated via this SDK instance. */
+  /** Invoked synchronously after a thread is updated via this instance. */
   onThreadUpdated?: (thread: ThreadSummary) => void;
-  /** Invoked synchronously after a thread is deleted via this SDK instance. */
+  /** Invoked synchronously after a thread is deleted via this instance. */
   onThreadDeleted?: (params: {
     threadId: string;
     userId: string;
@@ -132,17 +132,17 @@ interface ThreadEnvelope {
   thread: ThreadSummary;
 }
 
-export class CopilotIntelligenceSdk {
+export class CopilotKitIntelligence {
   private apiUrl: string;
   private runnerWsUrl: string;
   private clientWsUrl: string;
   private apiKey: string;
   private tenantId: string;
-  private onThreadCreated?: CopilotIntelligenceSdkConfig["onThreadCreated"];
-  private onThreadUpdated?: CopilotIntelligenceSdkConfig["onThreadUpdated"];
-  private onThreadDeleted?: CopilotIntelligenceSdkConfig["onThreadDeleted"];
+  private onThreadCreated?: CopilotKitIntelligenceConfig["onThreadCreated"];
+  private onThreadUpdated?: CopilotKitIntelligenceConfig["onThreadUpdated"];
+  private onThreadDeleted?: CopilotKitIntelligenceConfig["onThreadDeleted"];
 
-  constructor(config: CopilotIntelligenceSdkConfig) {
+  constructor(config: CopilotKitIntelligenceConfig) {
     const intelligenceWsUrl = normalizeIntelligenceWsUrl(config.wsUrl);
 
     this.apiUrl = config.apiUrl.replace(/\/$/, "");
@@ -214,7 +214,9 @@ export class CopilotIntelligenceSdk {
 
   private invokeLifecycleCallback(
     callbackName: "onThreadCreated" | "onThreadUpdated" | "onThreadDeleted",
-    payload: ThreadSummary | { threadId: string; userId: string; agentId: string },
+    payload:
+      | ThreadSummary
+      | { threadId: string; userId: string; agentId: string },
   ): void {
     const callback = this[callbackName];
 
@@ -227,7 +229,7 @@ export class CopilotIntelligenceSdk {
     } catch (error) {
       logger.error(
         { err: error, callbackName, payload },
-        "Intelligence SDK lifecycle callback failed",
+        "Intelligence lifecycle callback failed",
       );
     }
   }
@@ -378,7 +380,11 @@ export class CopilotIntelligenceSdk {
     if (!response.ok) {
       const text = await response.text().catch(() => "");
       logger.error(
-        { status: response.status, body: text, path: `/api/threads/${params.threadId}/connect` },
+        {
+          status: response.status,
+          body: text,
+          path: `/api/threads/${params.threadId}/connect`,
+        },
         "Intelligence platform request failed",
       );
       throw new Error(
@@ -391,8 +397,8 @@ export class CopilotIntelligenceSdk {
 }
 
 export {
-  CopilotIntelligenceSdk as IntelligencePlatformClient,
-  type CopilotIntelligenceSdkConfig as IntelligencePlatformConfig,
+  CopilotKitIntelligence as IntelligencePlatformClient,
+  type CopilotKitIntelligenceConfig as IntelligencePlatformConfig,
 };
 
 function normalizeIntelligenceWsUrl(wsUrl: string): string {

@@ -160,11 +160,15 @@ export class IntelligenceAgent extends AbstractAgent {
 
         return concat(
           from(plan.events),
-          this.observeThread$(input, { joinToken: plan.joinToken }, {
-            completeOnRunError: true,
-            streamMode: "connect",
-            replayCursor: plan.joinFromEventId,
-          }),
+          this.observeThread$(
+            input,
+            { joinToken: plan.joinToken },
+            {
+              completeOnRunError: true,
+              streamMode: "connect",
+              replayCursor: plan.joinFromEventId,
+            },
+          ),
         );
       }),
     );
@@ -276,9 +280,7 @@ export class IntelligenceAgent extends AbstractAgent {
     });
   }
 
-  private normalizeConnectPlan(
-    payload: unknown,
-  ): NormalizedConnectPlan {
+  private normalizeConnectPlan(payload: unknown): NormalizedConnectPlan {
     const envelope =
       payload && typeof payload === "object"
         ? (payload as Record<string, unknown>)
@@ -288,7 +290,9 @@ export class IntelligenceAgent extends AbstractAgent {
       return {
         mode: "bootstrap",
         latestEventId:
-          typeof envelope.latestEventId === "string" ? envelope.latestEventId : null,
+          typeof envelope.latestEventId === "string"
+            ? envelope.latestEventId
+            : null,
         events: Array.isArray(envelope.events)
           ? (envelope.events as BaseEvent[])
           : [],
@@ -296,7 +300,10 @@ export class IntelligenceAgent extends AbstractAgent {
     }
 
     if (envelope?.mode === "live") {
-      if (typeof envelope.joinToken !== "string" || envelope.joinToken.length === 0) {
+      if (
+        typeof envelope.joinToken !== "string" ||
+        envelope.joinToken.length === 0
+      ) {
         throw new Error("missing joinToken");
       }
 
@@ -372,7 +379,10 @@ export class IntelligenceAgent extends AbstractAgent {
   }
 
   private observeSocketHealth$(socket: Socket): Observable<never> {
-    return ɵobservePhoenixSocketHealth$(ɵobservePhoenixSocketSignals$(socket), 5);
+    return ɵobservePhoenixSocketHealth$(
+      ɵobservePhoenixSocketSignals$(socket),
+      5,
+    );
   }
 
   private observeThreadEvents$(
@@ -388,7 +398,9 @@ export class IntelligenceAgent extends AbstractAgent {
         this.updateLastSeenEventId(threadId, payload);
       }),
       mergeMap((payload) =>
-        from(this.createThreadNotifications(payload, options.completeOnRunError)),
+        from(
+          this.createThreadNotifications(payload, options.completeOnRunError),
+        ),
       ),
       dematerialize(),
     );
@@ -406,10 +418,7 @@ export class IntelligenceAgent extends AbstractAgent {
     completeOnRunError: boolean,
   ): Array<Notification<BaseEvent>> {
     if (payload.type === EventType.RUN_FINISHED) {
-      return [
-        Notification.createNext(payload),
-        Notification.createComplete(),
-      ];
+      return [Notification.createNext(payload), Notification.createComplete()];
     }
 
     if (payload.type === EventType.RUN_ERROR) {
@@ -501,5 +510,4 @@ export class IntelligenceAgent extends AbstractAgent {
       .cpki_event_id;
     return typeof runnerEventId === "string" ? runnerEventId : null;
   }
-
 }

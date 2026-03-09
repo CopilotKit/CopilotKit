@@ -5,7 +5,7 @@ import { handleConnectAgent } from "../handlers/handle-connect";
 import { CopilotRuntime } from "../runtime";
 import { AgentRunnerConnectRequest } from "../runner/agent-runner";
 import { IntelligenceAgentRunner } from "../runner/intelligence";
-import { CopilotIntelligenceSdk } from "../intelligence-platform/client";
+import { CopilotKitIntelligence } from "../intelligence-platform/client";
 
 describe("handleConnectAgent", () => {
   const createMockRuntime = (
@@ -208,7 +208,7 @@ describe("handleConnectAgent", () => {
       });
 
     const createIntelligenceRuntime = (
-      platform?: Partial<CopilotIntelligenceSdk>,
+      platform?: Partial<CopilotKitIntelligence>,
     ) => {
       const runner = Object.create(IntelligenceAgentRunner.prototype);
       runner.connect = vi.fn(
@@ -227,7 +227,7 @@ describe("handleConnectAgent", () => {
         runner,
         mode: "intelligence",
         isIntelligenceMode: true,
-        intelligenceSdk: platform,
+        intelligence: platform,
       } as unknown as CopilotRuntime;
     };
 
@@ -308,7 +308,9 @@ describe("handleConnectAgent", () => {
 
     it("returns 404 when connect planning is not available", async () => {
       const platform = {
-        connectThread: vi.fn().mockRejectedValue(new Error("No active connect plan")),
+        connectThread: vi
+          .fn()
+          .mockRejectedValue(new Error("No active connect plan")),
       };
       const runtime = createIntelligenceRuntime(platform as any);
 
@@ -342,6 +344,5 @@ describe("handleConnectAgent", () => {
         lastSeenEventId: "event-9",
       });
     });
-
   });
 });

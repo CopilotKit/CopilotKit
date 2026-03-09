@@ -13,18 +13,18 @@ export async function handleIntelligenceConnect({
   threadId,
   lastSeenEventId,
 }: HandleIntelligenceConnectParams): Promise<Response> {
-  if (!runtime.intelligenceSdk) {
+  if (!runtime.intelligence) {
     return jsonResponse(
       {
         error: "Intelligence SDK not configured",
-        message: "Intelligence mode requires a CopilotIntelligenceSdk",
+        message: "Intelligence mode requires a CopilotKitIntelligence",
       },
       500,
     );
   }
 
   try {
-    const result = await runtime.intelligenceSdk.connectThread({
+    const result = await runtime.intelligence.connectThread({
       threadId,
       lastSeenEventId,
     });
