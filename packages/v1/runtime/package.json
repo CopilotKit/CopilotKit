@@ -20,14 +20,17 @@
   "module": "./dist/index.mjs",
   "exports": {
     ".": {
+      "types": "./dist/index.d.cts",
       "import": "./dist/index.mjs",
       "require": "./dist/index.cjs"
     },
     "./langgraph": {
+      "types": "./dist/langgraph.d.cts",
       "import": "./dist/langgraph.mjs",
       "require": "./dist/langgraph.cjs"
     },
     "./v2": {
+      "types": "./dist/v2/index.d.cts",
       "import": "./dist/v2/index.mjs",
       "require": "./dist/v2/index.cjs"
     },
