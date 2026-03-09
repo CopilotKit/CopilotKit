@@ -10,7 +10,7 @@ import {
 import { CopilotRuntime } from "../runtime";
 
 describe("thread handlers", () => {
-  it("returns 501 in SSE mode for listThreads", async () => {
+  it("returns 422 when intelligenceSdk is not configured for listThreads", async () => {
     const runtime = new CopilotRuntime({ agents: {} });
 
     const response = await handleListThreads({
@@ -20,44 +20,47 @@ describe("thread handlers", () => {
       ),
     });
 
-    expect(response.status).toBe(501);
+    expect(response.status).toBe(422);
     await expect(response.json()).resolves.toEqual({
       error:
-        "Threads are only available in Intelligence mode. Provide intelligenceSdk in CopilotRuntime options.",
+        "Missing IntelligencePlatformClient configuration. Thread operations require an intelligenceSdk to be provided in CopilotRuntime options.",
     });
   });
 
-  it("returns 501 in SSE mode for thread mutations", async () => {
+  it("returns 422 when intelligenceSdk is not configured for thread mutations", async () => {
     const runtime = new CopilotRuntime({ agents: {} });
-    const mutationRequest = new Request("https://example.com/threads/thread-1", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ userId: "user-1", agentId: "agent-1" }),
-    });
+    const mutationRequest = new Request(
+      "https://example.com/threads/thread-1",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: "user-1", agentId: "agent-1" }),
+      },
+    );
 
     const updateResponse = await handleUpdateThread({
       runtime,
       request: mutationRequest.clone(),
       threadId: "thread-1",
     });
-    expect(updateResponse.status).toBe(501);
+    expect(updateResponse.status).toBe(422);
 
     const archiveResponse = await handleArchiveThread({
       runtime,
       request: mutationRequest.clone(),
       threadId: "thread-1",
     });
-    expect(archiveResponse.status).toBe(501);
+    expect(archiveResponse.status).toBe(422);
 
     const deleteResponse = await handleDeleteThread({
       runtime,
       request: mutationRequest.clone(),
       threadId: "thread-1",
     });
-    expect(deleteResponse.status).toBe(501);
+    expect(deleteResponse.status).toBe(422);
   });
 
-  it("returns 501 in SSE mode for thread subscription", async () => {
+  it("returns 422 when intelligenceSdk is not configured for thread subscription", async () => {
     const runtime = new CopilotRuntime({ agents: {} });
 
     const response = await handleSubscribeToThreads({
@@ -69,6 +72,6 @@ describe("thread handlers", () => {
       }),
     });
 
-    expect(response.status).toBe(501);
+    expect(response.status).toBe(422);
   });
 });
