@@ -24,8 +24,8 @@ function requireIntelligenceRuntime(
 ): CopilotIntelligenceRuntimeLike | Response {
   if (!isIntelligenceRuntime(runtime)) {
     return errorResponse(
-      "Threads are only available in Intelligence mode. Provide intelligenceSdk in CopilotRuntime options.",
-      501,
+      "Missing IntelligencePlatformClient configuration. Thread operations require an intelligenceSdk to be provided in CopilotRuntime options.",
+      422,
     );
   }
 
@@ -117,9 +117,10 @@ export async function handleSubscribeToThreads({
       return errorResponse("userId is required", 400);
     }
 
-    const credentials = await intelligenceRuntime.intelligenceSdk.subscribeToThreads({
-      userId,
-    });
+    const credentials =
+      await intelligenceRuntime.intelligenceSdk.subscribeToThreads({
+        userId,
+      });
 
     return jsonResponse({ joinToken: credentials.joinToken });
   } catch (error) {
