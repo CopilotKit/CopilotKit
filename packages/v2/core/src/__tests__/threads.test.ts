@@ -184,7 +184,9 @@ describe("thread store", () => {
       });
     vi.stubGlobal("fetch", fetchMock);
 
-    const store = ɵcreateThreadStore(createEnvironment(fetchMock as typeof fetch));
+    const store = ɵcreateThreadStore(
+      createEnvironment(fetchMock as typeof fetch),
+    );
     stores.push(store);
     store.start();
     store.setContext({
@@ -205,10 +207,9 @@ describe("thread store", () => {
       "https://runtime.example.com/threads/subscribe",
       expect.objectContaining({ method: "POST" }),
     );
-    expect(ɵselectThreads(store.getState()).map((thread) => thread.id)).toEqual([
-      "thread-2",
-      "thread-1",
-    ]);
+    expect(ɵselectThreads(store.getState()).map((thread) => thread.id)).toEqual(
+      ["thread-2", "thread-1"],
+    );
     expect(ɵselectThreadsIsLoading(store.getState())).toBe(false);
     expect(MockSocket.instances).toHaveLength(1);
     expect(MockSocket.instances[0].channels[0].topic).toBe("user_meta:user-1");
@@ -231,7 +232,9 @@ describe("thread store", () => {
       });
     vi.stubGlobal("fetch", fetchMock);
 
-    const store = ɵcreateThreadStore(createEnvironment(fetchMock as typeof fetch));
+    const store = ɵcreateThreadStore(
+      createEnvironment(fetchMock as typeof fetch),
+    );
     stores.push(store);
     store.start();
     store.setContext({
@@ -284,7 +287,9 @@ describe("thread store", () => {
       });
     vi.stubGlobal("fetch", fetchMock);
 
-    const store = ɵcreateThreadStore(createEnvironment(fetchMock as typeof fetch));
+    const store = ɵcreateThreadStore(
+      createEnvironment(fetchMock as typeof fetch),
+    );
     stores.push(store);
     store.start();
     store.setContext({
@@ -342,7 +347,9 @@ describe("thread store", () => {
       });
     vi.stubGlobal("fetch", fetchMock);
 
-    const store = ɵcreateThreadStore(createEnvironment(fetchMock as typeof fetch));
+    const store = ɵcreateThreadStore(
+      createEnvironment(fetchMock as typeof fetch),
+    );
     stores.push(store);
     store.start();
     store.setContext({
@@ -401,7 +408,9 @@ describe("thread store", () => {
       });
     vi.stubGlobal("fetch", fetchMock);
 
-    const store = ɵcreateThreadStore(createEnvironment(fetchMock as typeof fetch));
+    const store = ɵcreateThreadStore(
+      createEnvironment(fetchMock as typeof fetch),
+    );
     stores.push(store);
     store.start();
     store.setContext({
@@ -452,7 +461,9 @@ describe("thread store", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    const store = ɵcreateThreadStore(createEnvironment(fetchMock as typeof fetch));
+    const store = ɵcreateThreadStore(
+      createEnvironment(fetchMock as typeof fetch),
+    );
     stores.push(store);
     store.start();
     store.setContext({

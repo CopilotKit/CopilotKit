@@ -100,9 +100,7 @@ export async function parseRunRequest(
   }
 }
 
-export async function parseConnectRequest(
-  request: Request,
-): Promise<
+export async function parseConnectRequest(request: Request): Promise<
   | Response
   | {
       input: RunAgentInput;
