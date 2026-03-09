@@ -1,6 +1,7 @@
 {
   "name": "@copilotkitnext/agent",
   "version": "1.54.0-next.8",
+  "deprecated": "This package is deprecated. Use @copilotkit/agent instead. V2 features are being integrated into the main @copilotkit exports and will be available under the /v2 subpath.",
   "description": "Basic Agent for CopilotKit",
   "main": "./dist/index.cjs",
   "types": "./dist/index.d.cts",
