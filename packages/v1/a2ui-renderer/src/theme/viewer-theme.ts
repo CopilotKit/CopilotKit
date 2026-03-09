@@ -182,10 +182,35 @@ const listItemLight = v0_8.Styles.merge(listItem, {
 export const theme: v0_8.Types.Theme = {
   additionalStyles: {
     Button: {
-      "--n-35": "var(--n-100)",
+      background: "var(--primary, oklch(0.205 0 0))",
+      color: "var(--primary-foreground, oklch(0.985 0 0))",
+      "border-radius": "calc(var(--radius, 0.625rem) - 2px)",
     },
     Card: {
-      padding: "32px",
+      background: "var(--card, oklch(1 0 0))",
+      border: "1px solid var(--border, oklch(0.922 0 0))",
+      "border-radius": "var(--radius, 0.625rem)",
+      padding: "16px",
+    },
+    TextField: {
+      "--p-100": "var(--background, oklch(1 0 0))",
+      "--p-60": "var(--border, oklch(0.922 0 0))",
+      "--n-30": "var(--foreground, oklch(0.145 0 0))",
+    },
+    CheckBox: {
+      "--p-100": "var(--background, oklch(1 0 0))",
+      "--p-60": "var(--border, oklch(0.922 0 0))",
+      "--n-30": "var(--foreground, oklch(0.145 0 0))",
+    },
+    DateTimeInput: {
+      "--p-100": "var(--background, oklch(1 0 0))",
+      "--p-60": "var(--border, oklch(0.922 0 0))",
+      "--n-30": "var(--foreground, oklch(0.145 0 0))",
+    },
+    Modal: {
+      "--p-100": "var(--card, oklch(1 0 0))",
+      "--p-80": "var(--border, oklch(0.922 0 0))",
+      "border-radius": "var(--radius, 0.625rem)",
     },
   },
   components: {
@@ -198,11 +223,11 @@ export const theme: v0_8.Types.Theme = {
       "border-br-12": true,
       "border-bw-0": true,
       "border-bs-s": true,
-      "color-bgc-p30": true,
+      "color-bgc-n10": true,
       "color-c-n100": true,
       "behavior-ho-70": true,
     },
-    Card: { "border-br-9": true, "color-bgc-p100": true },
+    Card: { "border-br-9": true, "color-bgc-n100": true },
     CheckBox: {
       element: {
         "layout-m-0": true,
@@ -211,13 +236,11 @@ export const theme: v0_8.Types.Theme = {
         "border-br-12": true,
         "border-bw-1": true,
         "border-bs-s": true,
-        "color-bgc-p100": true,
-        "color-bc-p60": true,
+        "color-bgc-n100": true,
+        "color-bc-n70": true,
         "color-c-n30": true,
-        "color-c-p30": true,
       },
       label: {
-        "color-c-p30": true,
         "typography-f-sf": true,
         "typography-v-r": true,
         "typography-w-400": true,
@@ -243,10 +266,9 @@ export const theme: v0_8.Types.Theme = {
         "border-br-12": true,
         "border-bw-1": true,
         "border-bs-s": true,
-        "color-bgc-p100": true,
-        "color-bc-p60": true,
+        "color-bgc-n100": true,
+        "color-bc-n70": true,
         "color-c-n30": true,
-        "color-c-p30": true,
       },
     },
     Divider: {},
@@ -270,14 +292,14 @@ export const theme: v0_8.Types.Theme = {
       "layout-p-2": true,
     },
     Modal: {
-      backdrop: { "color-bbgc-p60_20": true },
+      backdrop: { "color-bbgc-n10_20": true },
       element: {
         "border-br-2": true,
-        "color-bgc-p100": true,
+        "color-bgc-n100": true,
         "layout-p-4": true,
         "border-bw-1": true,
         "border-bs-s": true,
-        "color-bc-p80": true,
+        "color-bc-n80": true,
       },
     },
     MultipleChoice: {
@@ -366,10 +388,9 @@ export const theme: v0_8.Types.Theme = {
         "border-br-12": true,
         "border-bw-1": true,
         "border-bs-s": true,
-        "color-bgc-p100": true,
-        "color-bc-p60": true,
+        "color-bgc-n100": true,
+        "color-bc-n70": true,
         "color-c-n30": true,
-        "color-c-p30": true,
       },
     },
     Video: {
