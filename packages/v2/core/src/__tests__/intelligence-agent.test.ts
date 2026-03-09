@@ -832,7 +832,7 @@ describe("IntelligenceAgent", () => {
       expect(result.events).toEqual([
         {
           type: EventType.MESSAGES_SNAPSHOT,
-            messages: [],
+          messages: [],
         },
       ]);
     });

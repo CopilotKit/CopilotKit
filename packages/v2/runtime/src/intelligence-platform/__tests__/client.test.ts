@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { CopilotIntelligenceSdk } from "../client";
+import { CopilotKitIntelligence } from "../client";
 
 const fetchMock = vi.fn();
 globalThis.fetch = fetchMock;
@@ -25,13 +25,13 @@ function emptyResponse(status = 204) {
   } as Response);
 }
 
-describe("CopilotIntelligenceSdk", () => {
-  let client: CopilotIntelligenceSdk;
+describe("CopilotKitIntelligence", () => {
+  let client: CopilotKitIntelligence;
 
   beforeEach(() => {
     fetchMock.mockReset();
     consoleErrorSpy.mockClear();
-    client = new CopilotIntelligenceSdk({
+    client = new CopilotKitIntelligence({
       apiUrl: "https://api.example.com",
       wsUrl: "wss://ws.example.com/socket",
       apiKey: "test-key",
@@ -40,7 +40,7 @@ describe("CopilotIntelligenceSdk", () => {
   });
 
   it("strips trailing slash from apiUrl", async () => {
-    const c = new CopilotIntelligenceSdk({
+    const c = new CopilotKitIntelligence({
       apiUrl: "https://api.example.com/",
       wsUrl: "wss://ws.example.com/socket",
       apiKey: "k",
@@ -54,7 +54,7 @@ describe("CopilotIntelligenceSdk", () => {
   });
 
   it("derives runner and client websocket URLs from a single intelligence websocket URL", () => {
-    const c = new CopilotIntelligenceSdk({
+    const c = new CopilotKitIntelligence({
       apiUrl: "https://api.example.com",
       wsUrl: "wss://ws.example.com",
       apiKey: "k",
@@ -171,7 +171,7 @@ describe("CopilotIntelligenceSdk", () => {
 
     it("fires onThreadUpdated with the returned thread", async () => {
       const onThreadUpdated = vi.fn();
-      client = new CopilotIntelligenceSdk({
+      client = new CopilotKitIntelligence({
         apiUrl: "https://api.example.com",
         wsUrl: "wss://ws.example.com/socket",
         apiKey: "test-key",
@@ -221,7 +221,7 @@ describe("CopilotIntelligenceSdk", () => {
 
     it("fires onThreadCreated with the returned thread", async () => {
       const onThreadCreated = vi.fn();
-      client = new CopilotIntelligenceSdk({
+      client = new CopilotKitIntelligence({
         apiUrl: "https://api.example.com",
         wsUrl: "wss://ws.example.com/socket",
         apiKey: "test-key",
@@ -285,7 +285,9 @@ describe("CopilotIntelligenceSdk", () => {
   describe("archiveThread", () => {
     it("patches the thread with archived=true", async () => {
       fetchMock.mockReturnValue(
-        jsonResponse({ thread: { id: "t-1", name: "Archived", archived: true } }),
+        jsonResponse({
+          thread: { id: "t-1", name: "Archived", archived: true },
+        }),
       );
 
       await client.archiveThread({
@@ -304,7 +306,7 @@ describe("CopilotIntelligenceSdk", () => {
 
     it("fires onThreadUpdated after archiving", async () => {
       const onThreadUpdated = vi.fn();
-      client = new CopilotIntelligenceSdk({
+      client = new CopilotKitIntelligence({
         apiUrl: "https://api.example.com",
         wsUrl: "wss://ws.example.com/socket",
         apiKey: "test-key",
@@ -345,7 +347,7 @@ describe("CopilotIntelligenceSdk", () => {
 
     it("fires onThreadDeleted with the successful delete payload", async () => {
       const onThreadDeleted = vi.fn();
-      client = new CopilotIntelligenceSdk({
+      client = new CopilotKitIntelligence({
         apiUrl: "https://api.example.com",
         wsUrl: "wss://ws.example.com/socket",
         apiKey: "test-key",
@@ -368,7 +370,7 @@ describe("CopilotIntelligenceSdk", () => {
     });
 
     it("swallows lifecycle callback errors after a successful request", async () => {
-      client = new CopilotIntelligenceSdk({
+      client = new CopilotKitIntelligence({
         apiUrl: "https://api.example.com",
         wsUrl: "wss://ws.example.com/socket",
         apiKey: "test-key",

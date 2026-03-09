@@ -10,7 +10,7 @@ import {
 import { CopilotRuntime } from "../runtime";
 
 describe("thread handlers", () => {
-  it("returns 422 when intelligenceSdk is not configured for listThreads", async () => {
+  it("returns 422 when intelligence is not configured for listThreads", async () => {
     const runtime = new CopilotRuntime({ agents: {} });
 
     const response = await handleListThreads({
@@ -23,11 +23,11 @@ describe("thread handlers", () => {
     expect(response.status).toBe(422);
     await expect(response.json()).resolves.toEqual({
       error:
-        "Missing IntelligencePlatformClient configuration. Thread operations require an intelligenceSdk to be provided in CopilotRuntime options.",
+        "Missing IntelligencePlatformClient configuration. Thread operations require a CopilotKitIntelligence instance to be provided in CopilotRuntime options.",
     });
   });
 
-  it("returns 422 when intelligenceSdk is not configured for thread mutations", async () => {
+  it("returns 422 when intelligence is not configured for thread mutations", async () => {
     const runtime = new CopilotRuntime({ agents: {} });
     const mutationRequest = new Request(
       "https://example.com/threads/thread-1",
@@ -60,7 +60,7 @@ describe("thread handlers", () => {
     expect(deleteResponse.status).toBe(422);
   });
 
-  it("returns 422 when intelligenceSdk is not configured for thread subscription", async () => {
+  it("returns 422 when intelligence is not configured for thread subscription", async () => {
     const runtime = new CopilotRuntime({ agents: {} });
 
     const response = await handleSubscribeToThreads({

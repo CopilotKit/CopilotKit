@@ -4,7 +4,9 @@ import { Observable } from "rxjs";
 
 interface CreateSseEventResponseParams {
   request: Request;
-  observableFactory: () => Promise<Observable<BaseEvent>> | Observable<BaseEvent>;
+  observableFactory: () =>
+    | Promise<Observable<BaseEvent>>
+    | Observable<BaseEvent>;
 }
 
 export function createSseEventResponse({

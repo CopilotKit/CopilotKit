@@ -5,7 +5,7 @@ import { A2UIMiddleware } from "@ag-ui/a2ui-middleware";
 import { handleRunAgent } from "../handlers/handle-run";
 import { CopilotRuntime } from "../runtime";
 import { IntelligenceAgentRunner } from "../runner/intelligence";
-import { CopilotIntelligenceSdk } from "../intelligence-platform/client";
+import { CopilotKitIntelligence } from "../intelligence-platform/client";
 
 describe("handleRunAgent", () => {
   const createMockRuntime = (
@@ -289,7 +289,7 @@ describe("handleRunAgent", () => {
   describe("IntelligenceAgentRunner join code path", () => {
     const createIntelligenceRuntime = (
       agent: AbstractAgent,
-      platform?: Partial<CopilotIntelligenceSdk>,
+      platform?: Partial<CopilotKitIntelligence>,
       options?: { generateThreadNames?: boolean },
     ) => {
       const runner = Object.create(IntelligenceAgentRunner.prototype);
@@ -308,7 +308,7 @@ describe("handleRunAgent", () => {
         mode: "intelligence",
         isIntelligenceMode: true,
         generateThreadNames: options?.generateThreadNames ?? false,
-        intelligenceSdk: platform,
+        intelligence: platform,
       } as unknown as CopilotRuntime;
     };
 
@@ -550,12 +550,10 @@ describe("handleRunAgent", () => {
           name: null,
         }),
         getThreadMessages: vi.fn().mockResolvedValue({ messages: [] }),
-        acquireThreadLock: vi
-          .fn()
-          .mockResolvedValue({
-            joinToken: "jt-created",
-            joinCode: "jc-created",
-          }),
+        acquireThreadLock: vi.fn().mockResolvedValue({
+          joinToken: "jt-created",
+          joinCode: "jc-created",
+        }),
       };
       const runtime = createIntelligenceRuntime(agent, platform as any);
 
@@ -627,9 +625,10 @@ describe("handleRunAgent", () => {
           name: "Order refund status",
         }),
         getThreadMessages: vi.fn().mockResolvedValue({ messages: [] }),
-        acquireThreadLock: vi
-          .fn()
-          .mockResolvedValue({ joinToken: "jt-created", joinCode: "jc-created" }),
+        acquireThreadLock: vi.fn().mockResolvedValue({
+          joinToken: "jt-created",
+          joinCode: "jc-created",
+        }),
       };
       const runtime = createIntelligenceRuntime(baseAgent, platform as any, {
         generateThreadNames: true,
@@ -687,9 +686,10 @@ describe("handleRunAgent", () => {
         }),
         updateThread: vi.fn(),
         getThreadMessages: vi.fn().mockResolvedValue({ messages: [] }),
-        acquireThreadLock: vi
-          .fn()
-          .mockResolvedValue({ joinToken: "jt-created", joinCode: "jc-created" }),
+        acquireThreadLock: vi.fn().mockResolvedValue({
+          joinToken: "jt-created",
+          joinCode: "jc-created",
+        }),
       };
       const runtime = createIntelligenceRuntime(agent, platform as any, {
         generateThreadNames: false,
@@ -720,9 +720,10 @@ describe("handleRunAgent", () => {
         }),
         updateThread: vi.fn(),
         getThreadMessages: vi.fn().mockResolvedValue({ messages: [] }),
-        acquireThreadLock: vi
-          .fn()
-          .mockResolvedValue({ joinToken: "jt-created", joinCode: "jc-created" }),
+        acquireThreadLock: vi.fn().mockResolvedValue({
+          joinToken: "jt-created",
+          joinCode: "jc-created",
+        }),
       };
       const runtime = createIntelligenceRuntime(agent, platform as any, {
         generateThreadNames: true,
@@ -780,9 +781,10 @@ describe("handleRunAgent", () => {
         }),
         updateThread: vi.fn(),
         getThreadMessages: vi.fn().mockResolvedValue({ messages: [] }),
-        acquireThreadLock: vi
-          .fn()
-          .mockResolvedValue({ joinToken: "jt-created", joinCode: "jc-created" }),
+        acquireThreadLock: vi.fn().mockResolvedValue({
+          joinToken: "jt-created",
+          joinCode: "jc-created",
+        }),
       };
       const runtime = createIntelligenceRuntime(baseAgent, platform as any, {
         generateThreadNames: true,
@@ -857,6 +859,5 @@ describe("handleRunAgent", () => {
       expect(platform.createThread).not.toHaveBeenCalled();
       expect(platform.acquireThreadLock).not.toHaveBeenCalled();
     });
-
   });
 });
