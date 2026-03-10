@@ -13,9 +13,9 @@ describe("runtime construction", () => {
   const agents = {};
   const createMockIntelligence = (): CopilotKitIntelligence =>
     ({
-      getRunnerWsUrl: vi.fn().mockReturnValue("ws://runner.example"),
-      getRunnerAuthToken: vi.fn().mockReturnValue("token-123"),
-      getClientWsUrl: vi.fn().mockReturnValue("ws://client.example"),
+      ɵgetRunnerWsUrl: vi.fn().mockReturnValue("ws://runner.example"),
+      ɵgetRunnerAuthToken: vi.fn().mockReturnValue("token-123"),
+      ɵgetClientWsUrl: vi.fn().mockReturnValue("ws://client.example"),
     }) as unknown as CopilotKitIntelligence;
 
   it("builds an SSE runtime by default", () => {
@@ -40,8 +40,8 @@ describe("runtime construction", () => {
     expect(runtime.intelligence).toBe(sdk);
     expect(runtime.runner).toBeInstanceOf(IntelligenceAgentRunner);
     expect(runtime.generateThreadNames).toBe(true);
-    expect(sdk.getRunnerWsUrl).toHaveBeenCalledTimes(1);
-    expect(sdk.getRunnerAuthToken).toHaveBeenCalledTimes(1);
+    expect(sdk.ɵgetRunnerWsUrl).toHaveBeenCalledTimes(1);
+    expect(sdk.ɵgetRunnerAuthToken).toHaveBeenCalledTimes(1);
   });
 
   it("preserves an explicit generateThreadNames=false option in Intelligence mode", () => {

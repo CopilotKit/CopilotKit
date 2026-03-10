@@ -17,7 +17,7 @@ export function useKatexStyles(): void {
 
     // Dynamic import defers CSS loading to runtime, bypassing
     // Next.js static analysis that rejects global CSS from node_modules.
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
+
     void import("katex/dist/katex.min.css").catch(() => {
       // Silently ignore — consumers can import KaTeX CSS manually
     });

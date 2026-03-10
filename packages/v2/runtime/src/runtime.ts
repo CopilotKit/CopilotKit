@@ -149,8 +149,8 @@ export class CopilotIntelligenceRuntime
     super(
       options,
       new IntelligenceAgentRunner({
-        url: options.intelligence.getRunnerWsUrl(),
-        authToken: options.intelligence.getRunnerAuthToken(),
+        url: options.intelligence.ɵgetRunnerWsUrl(),
+        authToken: options.intelligence.ɵgetRunnerAuthToken(),
       }),
     );
     this.intelligence = options.intelligence;
