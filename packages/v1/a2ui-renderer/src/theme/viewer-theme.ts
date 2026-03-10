@@ -185,6 +185,11 @@ export const theme: v0_8.Types.Theme = {
       background: "var(--primary, oklch(0.205 0 0))",
       color: "var(--primary-foreground, oklch(0.985 0 0))",
       "border-radius": "calc(var(--radius, 0.625rem) - 2px)",
+      cursor: "pointer",
+      width: "100%",
+      "--n-10": "var(--primary-foreground, oklch(0.985 0 0))",
+      "--n-35": "var(--primary-foreground, oklch(0.985 0 0))",
+      "--n-60": "var(--primary-foreground, oklch(0.985 0 0))",
     },
     Card: {
       background: "var(--card, oklch(1 0 0))",
@@ -192,25 +197,35 @@ export const theme: v0_8.Types.Theme = {
       "border-radius": "var(--radius, 0.625rem)",
       padding: "16px",
     },
+    // Applied directly to <input>/<textarea> — direct CSS wins over class-based palette tokens
     TextField: {
-      "--p-100": "var(--background, oklch(1 0 0))",
-      "--p-60": "var(--border, oklch(0.922 0 0))",
-      "--n-30": "var(--foreground, oklch(0.145 0 0))",
+      "background-color": "var(--background, oklch(1 0 0))",
+      "border-color": "var(--input, oklch(0.922 0 0))",
+      color: "var(--foreground, oklch(0.145 0 0))",
+      "border-radius": "var(--radius, 0.625rem)",
     },
+    // Applied to <section> container — palette vars cascade to the <input type="checkbox"> inside
+    // TextField.element uses --n-* palette tokens, so we override those
     CheckBox: {
-      "--p-100": "var(--background, oklch(1 0 0))",
-      "--p-60": "var(--border, oklch(0.922 0 0))",
+      "--n-100": "var(--background, oklch(1 0 0))",
+      "--n-70": "var(--border, oklch(0.922 0 0))",
       "--n-30": "var(--foreground, oklch(0.145 0 0))",
     },
+    // Applied directly to <input> — direct CSS wins over class-based palette tokens
     DateTimeInput: {
-      "--p-100": "var(--background, oklch(1 0 0))",
-      "--p-60": "var(--border, oklch(0.922 0 0))",
-      "--n-30": "var(--foreground, oklch(0.145 0 0))",
+      "background-color": "var(--background, oklch(1 0 0))",
+      "border-color": "var(--input, oklch(0.922 0 0))",
+      color: "var(--foreground, oklch(0.145 0 0))",
+      "border-radius": "var(--radius, 0.625rem)",
     },
     Modal: {
       "--p-100": "var(--card, oklch(1 0 0))",
       "--p-80": "var(--border, oklch(0.922 0 0))",
       "border-radius": "var(--radius, 0.625rem)",
+    },
+    // Applied to <section> wrapping markdown — ensures text inherits CPK foreground
+    Text: {
+      color: "var(--foreground, oklch(0.145 0 0))",
     },
   },
   components: {
@@ -220,12 +235,8 @@ export const theme: v0_8.Types.Theme = {
       "layout-pb-2": true,
       "layout-pl-3": true,
       "layout-pr-3": true,
-      "border-br-12": true,
       "border-bw-0": true,
       "border-bs-s": true,
-      "color-bgc-n10": true,
-      "color-c-n100": true,
-      "behavior-ho-70": true,
     },
     Card: { "border-br-9": true, "color-bgc-n100": true },
     CheckBox: {
@@ -233,7 +244,7 @@ export const theme: v0_8.Types.Theme = {
         "layout-m-0": true,
         "layout-mr-2": true,
         "layout-p-2": true,
-        "border-br-12": true,
+        "border-br-2": true,
         "border-bw-1": true,
         "border-bs-s": true,
         "color-bgc-n100": true,
@@ -263,7 +274,7 @@ export const theme: v0_8.Types.Theme = {
         "layout-pb-2": true,
         "layout-pl-3": true,
         "layout-pr-3": true,
-        "border-br-12": true,
+        "border-br-2": true,
         "border-bw-1": true,
         "border-bs-s": true,
         "color-bgc-n100": true,
@@ -373,8 +384,7 @@ export const theme: v0_8.Types.Theme = {
         "typography-sz-bm": true,
         "layout-w-100": true,
         "layout-g-2": true,
-        "layout-dsp-flexhor": true,
-        "layout-al-c": true,
+        "layout-dsp-flexvert": true,
       },
       label: {
         "layout-flx-0": true,
@@ -385,7 +395,7 @@ export const theme: v0_8.Types.Theme = {
         "layout-pb-2": true,
         "layout-pl-3": true,
         "layout-pr-3": true,
-        "border-br-12": true,
+        "border-br-2": true,
         "border-bw-1": true,
         "border-bs-s": true,
         "color-bgc-n100": true,
@@ -403,6 +413,7 @@ export const theme: v0_8.Types.Theme = {
     audio,
     body: bodyLight,
     button: buttonLight,
+    em: { "typography-fs-n": true },
     h1: h1Light,
     h2: h2Light,
     h3: h3Light,
@@ -427,6 +438,6 @@ export const theme: v0_8.Types.Theme = {
     li: [...Object.keys(listItemLight)],
     a: [...Object.keys(aLight)],
     strong: [],
-    em: [],
+    em: ["typography-fs-n"],
   },
 };
