@@ -716,5 +716,7 @@ export function ensureObjectArgs(
   if (typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)) {
     return parsed as Record<string, unknown>;
   }
-  throw new Error(`Tool arguments for ${toolName} parsed to non-object (${typeof parsed})`);
+  throw new Error(
+    `Tool arguments for ${toolName} parsed to non-object (${typeof parsed})`,
+  );
 }
