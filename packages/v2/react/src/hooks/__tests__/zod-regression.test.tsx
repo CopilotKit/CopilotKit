@@ -35,9 +35,7 @@ type MockCore = {
 const mockUseCopilotKit = useCopilotKit as ReturnType<typeof vi.fn>;
 const mockUseFrontendTool = useFrontendTool as ReturnType<typeof vi.fn>;
 
-function createMockCore(
-  initial: ReactToolCallRenderer[] = [],
-): MockCore {
+function createMockCore(initial: ReactToolCallRenderer[] = []): MockCore {
   const core: MockCore = {
     renderToolCalls: initial,
     setRenderToolCalls: vi.fn((next: ReactToolCallRenderer[]) => {
@@ -110,9 +108,7 @@ describe("useRenderTool Zod regression", () => {
 
     render(<Harness />);
 
-    const renderer = core.renderToolCalls.find(
-      (r) => r.name === "sortable",
-    );
+    const renderer = core.renderToolCalls.find((r) => r.name === "sortable");
     expect(renderer).toBeDefined();
     expect(renderer?.args).toBe(schema);
   });
@@ -173,9 +169,7 @@ describe("useRenderTool Zod regression", () => {
 
     render(<Harness />);
 
-    const renderer = core.renderToolCalls.find(
-      (r) => r.name === "taggedItem",
-    );
+    const renderer = core.renderToolCalls.find((r) => r.name === "taggedItem");
     expect(renderer).toBeDefined();
     expect(renderer?.args).toBe(schema);
   });

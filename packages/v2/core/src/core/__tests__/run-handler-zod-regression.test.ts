@@ -17,9 +17,7 @@ function createRunHandler(): RunHandler {
   return new RunHandler({} as CopilotKitCore);
 }
 
-function buildSingleToolSchema(
-  params?: z.ZodTypeAny,
-): Record<string, unknown> {
+function buildSingleToolSchema(params?: z.ZodTypeAny): Record<string, unknown> {
   const runHandler = createRunHandler();
   runHandler.initialize([
     { name: "test", ...(params ? { parameters: params } : {}) },
@@ -31,9 +29,7 @@ function buildSingleToolSchema(
 describe("RunHandler Zod regression — tool schema generation", () => {
   describe("additionalProperties stripping (critical regression)", () => {
     it("strips top-level additionalProperties from simple object", () => {
-      const schema = buildSingleToolSchema(
-        z.object({ foo: z.string() }),
-      );
+      const schema = buildSingleToolSchema(z.object({ foo: z.string() }));
       expect(schema).toEqual({
         type: "object",
         properties: { foo: { type: "string" } },
@@ -49,15 +45,11 @@ describe("RunHandler Zod regression — tool schema generation", () => {
         }),
       );
       expect(schema).not.toHaveProperty("additionalProperties");
-      expect(schema).not.toHaveProperty(
-        "properties.user.additionalProperties",
-      );
+      expect(schema).not.toHaveProperty("properties.user.additionalProperties");
     });
 
     it("strips additionalProperties from catchall schemas", () => {
-      const schema = buildSingleToolSchema(
-        z.object({}).catchall(z.string()),
-      );
+      const schema = buildSingleToolSchema(z.object({}).catchall(z.string()));
       expect(schema).not.toHaveProperty("additionalProperties");
     });
 
@@ -98,9 +90,7 @@ describe("RunHandler Zod regression — tool schema generation", () => {
 
   describe("$schema key removal", () => {
     it("does not include $schema in output", () => {
-      const schema = buildSingleToolSchema(
-        z.object({ a: z.string() }),
-      );
+      const schema = buildSingleToolSchema(z.object({ a: z.string() }));
       expect(schema).not.toHaveProperty("$schema");
     });
   });
@@ -251,9 +241,7 @@ describe("RunHandler Zod regression — tool schema generation", () => {
               tags: z.array(z.string()).optional(),
             })
             .optional(),
-          sortBy: z
-            .enum(["relevance", "date", "rating"])
-            .default("relevance"),
+          sortBy: z.enum(["relevance", "date", "rating"]).default("relevance"),
         }),
       );
       expect(schema).toHaveProperty("type", "object");

@@ -23,9 +23,7 @@ function expectIdenticalOutput(schema: z.ZodTypeAny) {
 describe("Zod regression — schemaToJsonSchema produces identical output to direct zodToJsonSchema", () => {
   describe("simple object schemas", () => {
     it("required string and number fields", () => {
-      expectIdenticalOutput(
-        z.object({ name: z.string(), age: z.number() }),
-      );
+      expectIdenticalOutput(z.object({ name: z.string(), age: z.number() }));
     });
 
     it("optional fields", () => {
@@ -84,17 +82,13 @@ describe("Zod regression — schemaToJsonSchema produces identical output to dir
     it("object array", () => {
       expectIdenticalOutput(
         z.object({
-          items: z.array(
-            z.object({ id: z.number(), label: z.string() }),
-          ),
+          items: z.array(z.object({ id: z.number(), label: z.string() })),
         }),
       );
     });
 
     it("nested arrays", () => {
-      expectIdenticalOutput(
-        z.object({ matrix: z.array(z.array(z.number())) }),
-      );
+      expectIdenticalOutput(z.object({ matrix: z.array(z.array(z.number())) }));
     });
   });
 
@@ -106,15 +100,11 @@ describe("Zod regression — schemaToJsonSchema produces identical output to dir
     });
 
     it("z.literal string", () => {
-      expectIdenticalOutput(
-        z.object({ type: z.literal("user") }),
-      );
+      expectIdenticalOutput(z.object({ type: z.literal("user") }));
     });
 
     it("z.literal number", () => {
-      expectIdenticalOutput(
-        z.object({ version: z.literal(2) }),
-      );
+      expectIdenticalOutput(z.object({ version: z.literal(2) }));
     });
 
     it("z.nativeEnum", () => {
@@ -149,7 +139,11 @@ describe("Zod regression — schemaToJsonSchema produces identical output to dir
       expectIdenticalOutput(
         z.object({
           event: z.discriminatedUnion("type", [
-            z.object({ type: z.literal("click"), x: z.number(), y: z.number() }),
+            z.object({
+              type: z.literal("click"),
+              x: z.number(),
+              y: z.number(),
+            }),
             z.object({ type: z.literal("keypress"), key: z.string() }),
           ]),
         }),
@@ -159,15 +153,11 @@ describe("Zod regression — schemaToJsonSchema produces identical output to dir
 
   describe("nullable and nullish", () => {
     it("z.nullable", () => {
-      expectIdenticalOutput(
-        z.object({ bio: z.string().nullable() }),
-      );
+      expectIdenticalOutput(z.object({ bio: z.string().nullable() }));
     });
 
     it("z.nullish (optional + nullable)", () => {
-      expectIdenticalOutput(
-        z.object({ nickname: z.string().nullish() }),
-      );
+      expectIdenticalOutput(z.object({ nickname: z.string().nullish() }));
     });
   });
 
@@ -198,21 +188,15 @@ describe("Zod regression — schemaToJsonSchema produces identical output to dir
 
   describe("string constraints", () => {
     it("z.string with min/max", () => {
-      expectIdenticalOutput(
-        z.object({ username: z.string().min(3).max(20) }),
-      );
+      expectIdenticalOutput(z.object({ username: z.string().min(3).max(20) }));
     });
 
     it("z.string with email", () => {
-      expectIdenticalOutput(
-        z.object({ email: z.string().email() }),
-      );
+      expectIdenticalOutput(z.object({ email: z.string().email() }));
     });
 
     it("z.string with url", () => {
-      expectIdenticalOutput(
-        z.object({ website: z.string().url() }),
-      );
+      expectIdenticalOutput(z.object({ website: z.string().url() }));
     });
 
     it("z.string with regex", () => {
@@ -224,21 +208,15 @@ describe("Zod regression — schemaToJsonSchema produces identical output to dir
 
   describe("number constraints", () => {
     it("z.number with min/max", () => {
-      expectIdenticalOutput(
-        z.object({ score: z.number().min(0).max(100) }),
-      );
+      expectIdenticalOutput(z.object({ score: z.number().min(0).max(100) }));
     });
 
     it("z.number.int", () => {
-      expectIdenticalOutput(
-        z.object({ count: z.number().int() }),
-      );
+      expectIdenticalOutput(z.object({ count: z.number().int() }));
     });
 
     it("z.number.positive", () => {
-      expectIdenticalOutput(
-        z.object({ amount: z.number().positive() }),
-      );
+      expectIdenticalOutput(z.object({ amount: z.number().positive() }));
     });
   });
 
@@ -248,9 +226,7 @@ describe("Zod regression — schemaToJsonSchema produces identical output to dir
     });
 
     it("z.object with passthrough", () => {
-      expectIdenticalOutput(
-        z.object({ id: z.number() }).passthrough(),
-      );
+      expectIdenticalOutput(z.object({ id: z.number() }).passthrough());
     });
   });
 
@@ -264,9 +240,7 @@ describe("Zod regression — schemaToJsonSchema produces identical output to dir
     });
 
     it("object with z.any field", () => {
-      expectIdenticalOutput(
-        z.object({ data: z.any() }),
-      );
+      expectIdenticalOutput(z.object({ data: z.any() }));
     });
   });
 
@@ -297,7 +271,10 @@ describe("Zod regression — schemaToJsonSchema produces identical output to dir
       expectIdenticalOutput(
         z.object({
           city: z.string().describe("The city to get weather for"),
-          units: z.enum(["celsius", "fahrenheit"]).optional().describe("Temperature units"),
+          units: z
+            .enum(["celsius", "fahrenheit"])
+            .optional()
+            .describe("Temperature units"),
         }),
       );
     });
