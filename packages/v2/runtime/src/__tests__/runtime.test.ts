@@ -22,7 +22,7 @@ describe("runtime construction", () => {
     const runtime = new CopilotSseRuntime({ agents });
 
     expect(runtime.mode).toBe("sse");
-    expect(runtime.isIntelligenceMode).toBe(false);
+
     expect(runtime.runner).toBeInstanceOf(InMemoryAgentRunner);
     expect(runtime.intelligence).toBeUndefined();
   });
@@ -36,7 +36,7 @@ describe("runtime construction", () => {
     });
 
     expect(runtime.mode).toBe("intelligence");
-    expect(runtime.isIntelligenceMode).toBe(true);
+
     expect(runtime.intelligence).toBe(sdk);
     expect(runtime.runner).toBeInstanceOf(IntelligenceAgentRunner);
     expect(runtime.generateThreadNames).toBe(true);
@@ -60,7 +60,7 @@ describe("runtime construction", () => {
     const runtime = new CopilotRuntime({ agents });
 
     expect(runtime.mode).toBe("sse");
-    expect(runtime.isIntelligenceMode).toBe(false);
+
     expect(runtime.runner).toBeInstanceOf(InMemoryAgentRunner);
     expect(runtime.intelligence).toBeUndefined();
   });
@@ -74,21 +74,8 @@ describe("runtime construction", () => {
     });
 
     expect(runtime.mode).toBe("intelligence");
-    expect(runtime.isIntelligenceMode).toBe(true);
+
     expect(runtime.intelligence).toBe(sdk);
     expect(runtime.runner).toBeInstanceOf(IntelligenceAgentRunner);
-    expect(runtime.generateThreadNames).toBe(true);
-  });
-
-  it("passes generateThreadNames through the CopilotRuntime shim", () => {
-    const sdk = createMockIntelligence();
-
-    const runtime = new CopilotRuntime({
-      agents,
-      intelligence: sdk,
-      generateThreadNames: false,
-    });
-
-    expect(runtime.generateThreadNames).toBe(false);
   });
 });

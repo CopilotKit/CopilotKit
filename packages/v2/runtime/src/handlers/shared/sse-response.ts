@@ -1,6 +1,6 @@
 import { BaseEvent } from "@ag-ui/client";
 import { EventEncoder } from "@ag-ui/encoder";
-import { Observable } from "rxjs";
+import { Observable, Subscription } from "rxjs";
 
 interface CreateSseEventResponseParams {
   request: Request;
@@ -42,10 +42,12 @@ export function createSseEventResponse({
     });
   };
 
+  let subscription: Subscription | undefined;
+
   (async () => {
     const observable = await observableFactory();
 
-    observable.subscribe({
+    subscription = observable.subscribe({
       next: async (event) => {
         if (!request.signal.aborted && !streamClosed) {
           try {
@@ -65,9 +67,19 @@ export function createSseEventResponse({
         await closeStream();
       },
     });
+
+    // If the client disconnected before the subscription was created,
+    // unsubscribe immediately to avoid leaking the observable.
+    if (request.signal.aborted) {
+      subscription.unsubscribe();
+    }
   })().catch(async (error) => {
     logError(error);
     await closeStream();
+  });
+
+  request.signal.addEventListener("abort", () => {
+    subscription?.unsubscribe();
   });
 
   return new Response(stream.readable, {

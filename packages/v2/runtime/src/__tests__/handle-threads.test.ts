@@ -23,7 +23,7 @@ describe("thread handlers", () => {
     expect(response.status).toBe(422);
     await expect(response.json()).resolves.toEqual({
       error:
-        "Missing IntelligencePlatformClient configuration. Thread operations require a CopilotKitIntelligence instance to be provided in CopilotRuntime options.",
+        "Missing CopilotKitIntelligence configuration. Thread operations require a CopilotKitIntelligence instance to be provided in CopilotRuntime options.",
     });
   });
 

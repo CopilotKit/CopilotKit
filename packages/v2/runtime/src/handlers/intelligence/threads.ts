@@ -5,6 +5,7 @@ import {
 } from "../../runtime";
 import { logger } from "@copilotkitnext/shared";
 import { errorResponse, jsonResponse } from "../shared/json-response";
+import { isValidIdentifier } from "../shared/intelligence-utils";
 
 interface ThreadsHandlerParams {
   runtime: CopilotRuntimeLike;
@@ -15,8 +16,15 @@ interface ThreadMutationParams extends ThreadsHandlerParams {
   threadId: string;
 }
 
-interface ThreadSubscribeRequestBody {
-  userId?: unknown;
+async function parseJsonBody(
+  request: Request,
+): Promise<Record<string, unknown> | Response> {
+  try {
+    return (await request.json()) as Record<string, unknown>;
+  } catch (error) {
+    logger.error({ err: error }, "Malformed JSON in request body");
+    return errorResponse("Invalid request body", 400);
+  }
 }
 
 function requireIntelligenceRuntime(
@@ -24,7 +32,7 @@ function requireIntelligenceRuntime(
 ): CopilotIntelligenceRuntimeLike | Response {
   if (!isIntelligenceRuntime(runtime)) {
     return errorResponse(
-      "Missing IntelligencePlatformClient configuration. Thread operations require a CopilotKitIntelligence instance to be provided in CopilotRuntime options.",
+      "Missing CopilotKitIntelligence configuration. Thread operations require a CopilotKitIntelligence instance to be provided in CopilotRuntime options.",
       422,
     );
   }
@@ -46,8 +54,11 @@ export async function handleListThreads({
     const userId = url.searchParams.get("userId");
     const agentId = url.searchParams.get("agentId");
 
-    if (!userId || !agentId) {
-      return errorResponse("userId and agentId query params are required", 400);
+    if (!isValidIdentifier(userId) || !isValidIdentifier(agentId)) {
+      return errorResponse(
+        "Valid userId and agentId query params are required",
+        400,
+      );
     }
 
     const data = await intelligenceRuntime.intelligence.listThreads({
@@ -58,10 +69,7 @@ export async function handleListThreads({
     return jsonResponse(data);
   } catch (error) {
     logger.error({ err: error }, "Error listing threads");
-    return errorResponse(
-      error instanceof Error ? error.message : "Failed to list threads",
-      500,
-    );
+    return errorResponse("Failed to list threads", 500);
   }
 }
 
@@ -76,27 +84,25 @@ export async function handleUpdateThread({
   }
 
   try {
-    const body = await request.json();
-    const { userId, agentId, ...updates } = body as Record<string, unknown>;
+    const body = await parseJsonBody(request);
+    if (body instanceof Response) return body;
+    const { userId, agentId, ...updates } = body;
 
-    if (!userId || !agentId) {
-      return errorResponse("userId and agentId are required", 400);
+    if (!isValidIdentifier(userId) || !isValidIdentifier(agentId)) {
+      return errorResponse("Valid userId and agentId are required", 400);
     }
 
     const thread = await intelligenceRuntime.intelligence.updateThread({
       threadId,
-      userId: userId as string,
-      agentId: agentId as string,
+      userId,
+      agentId,
       updates,
     });
 
     return jsonResponse(thread);
   } catch (error) {
     logger.error({ err: error, threadId }, "Error updating thread");
-    return errorResponse(
-      error instanceof Error ? error.message : "Failed to update thread",
-      500,
-    );
+    return errorResponse("Failed to update thread", 500);
   }
 }
 
@@ -110,7 +116,8 @@ export async function handleSubscribeToThreads({
   }
 
   try {
-    const body = (await request.json()) as ThreadSubscribeRequestBody;
+    const body = await parseJsonBody(request);
+    if (body instanceof Response) return body;
     const userId = body.userId;
 
     if (typeof userId !== "string" || userId.length === 0) {
@@ -125,10 +132,7 @@ export async function handleSubscribeToThreads({
     return jsonResponse({ joinToken: credentials.joinToken });
   } catch (error) {
     logger.error({ err: error }, "Error subscribing to threads");
-    return errorResponse(
-      error instanceof Error ? error.message : "Failed to subscribe to threads",
-      500,
-    );
+    return errorResponse("Failed to subscribe to threads", 500);
   }
 }
 
@@ -143,26 +147,24 @@ export async function handleArchiveThread({
   }
 
   try {
-    const body = await request.json();
-    const { userId, agentId } = body as Record<string, unknown>;
+    const body = await parseJsonBody(request);
+    if (body instanceof Response) return body;
+    const { userId, agentId } = body;
 
-    if (!userId || !agentId) {
-      return errorResponse("userId and agentId are required", 400);
+    if (!isValidIdentifier(userId) || !isValidIdentifier(agentId)) {
+      return errorResponse("Valid userId and agentId are required", 400);
     }
 
     await intelligenceRuntime.intelligence.archiveThread({
       threadId,
-      userId: userId as string,
-      agentId: agentId as string,
+      userId,
+      agentId,
     });
 
     return jsonResponse({ threadId, archived: true });
   } catch (error) {
     logger.error({ err: error, threadId }, "Error archiving thread");
-    return errorResponse(
-      error instanceof Error ? error.message : "Failed to archive thread",
-      500,
-    );
+    return errorResponse("Failed to archive thread", 500);
   }
 }
 
@@ -177,25 +179,23 @@ export async function handleDeleteThread({
   }
 
   try {
-    const body = await request.json();
-    const { userId, agentId } = body as Record<string, unknown>;
+    const body = await parseJsonBody(request);
+    if (body instanceof Response) return body;
+    const { userId, agentId } = body;
 
-    if (!userId || !agentId) {
-      return errorResponse("userId and agentId are required", 400);
+    if (!isValidIdentifier(userId) || !isValidIdentifier(agentId)) {
+      return errorResponse("Valid userId and agentId are required", 400);
     }
 
     await intelligenceRuntime.intelligence.deleteThread({
       threadId,
-      userId: userId as string,
-      agentId: agentId as string,
+      userId,
+      agentId,
     });
 
     return jsonResponse({ threadId, deleted: true });
   } catch (error) {
     logger.error({ err: error, threadId }, "Error deleting thread");
-    return errorResponse(
-      error instanceof Error ? error.message : "Failed to delete thread",
-      500,
-    );
+    return errorResponse("Failed to delete thread", 500);
   }
 }
