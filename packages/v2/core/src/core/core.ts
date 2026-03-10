@@ -339,6 +339,10 @@ export class CopilotKitCore {
     return this.agentRegistry.intelligence;
   }
 
+  get a2uiEnabled(): boolean {
+    return this.agentRegistry.a2uiEnabled;
+  }
+
   /**
    * Configuration updates
    */

@@ -1,21 +1,30 @@
 import {
   AbstractAgent,
   RunAgentInput,
+  RunAgentParameters,
+  RunAgentResult,
+  AgentSubscriber,
   EventType,
   BaseEvent,
+  randomUUID,
+  transformChunks,
+  structuredClone_,
 } from "@ag-ui/client";
 import {
   EMPTY,
+  Subject,
   Notification,
   Observable,
   concat,
   defer,
   dematerialize,
   from,
+  lastValueFrom,
   merge,
   switchMap,
 } from "rxjs";
 import {
+  catchError,
   endWith,
   finalize,
   ignoreElements,
@@ -94,6 +103,102 @@ export class IntelligenceAgent extends AbstractAgent {
 
   clone(): IntelligenceAgent {
     return new IntelligenceAgent(this.config, this.sharedState);
+  }
+
+  /**
+   * Override of AbstractAgent.connectAgent that removes the `verifyEvents` step.
+   *
+   * Background: AbstractAgent's connectAgent pipeline runs events through
+   * `verifyEvents`, which validates that the stream follows the AG-UI protocol
+   * lifecycle — specifically, it expects a RUN_STARTED event before any content
+   * events and a RUN_FINISHED/RUN_ERROR event to complete the stream.
+   *
+   * IntelligenceAgent uses long-lived WebSocket connections rather than
+   * request-scoped SSE streams. When connecting to replay historical messages
+   * for an existing thread, the connection semantics don't map to a single
+   * agent run start/stop cycle. The replayed events may not include
+   * RUN_STARTED/RUN_FINISHED bookends (or may contain events from multiple
+   * past runs), which causes verifyEvents to either never complete or to
+   * error out.
+   *
+   * This override replicates the base connectAgent implementation exactly,
+   * substituting only `transformChunks` (which is still needed for message
+   * reassembly) and omitting `verifyEvents`.
+   *
+   * TODO: Remove this override once AG-UI's AbstractAgent supports opting out
+   * of verifyEvents for transports with different connection life-cycles.
+   */
+  override async connectAgent(
+    parameters?: RunAgentParameters,
+    subscriber?: AgentSubscriber,
+  ): Promise<RunAgentResult> {
+    // Access private fields through a type escape hatch — these are set/read
+    // by the base class and must be managed identically to the original.
+    // Using `any` because these fields are private in AbstractAgent, and
+    // intersecting private+public members of the same name produces `never`.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const self = this as any;
+
+    try {
+      this.isRunning = true;
+      this.agentId = this.agentId ?? randomUUID();
+
+      const input = this.prepareRunAgentInput(parameters);
+      let result: RunAgentResult["result"];
+      const previousMessageIds = new Set(this.messages.map((m) => m.id));
+      const subscribers: AgentSubscriber[] = [
+        {
+          onRunFinishedEvent: (event) => {
+            result = event.result;
+          },
+        },
+        ...this.subscribers,
+        subscriber ?? {},
+      ];
+
+      await this.onInitialize(input, subscribers);
+
+      self.activeRunDetach$ = new Subject<void>();
+      let resolveCompletion: (() => void) | undefined;
+      self.activeRunCompletionPromise = new Promise<void>((resolve) => {
+        resolveCompletion = resolve;
+      });
+
+      const source$ = defer(() => this.connect(input)).pipe(
+        // transformChunks reassembles partial/streamed messages — still needed.
+        transformChunks(this.debug),
+        // NOTE: verifyEvents is intentionally omitted here. See JSDoc above.
+        takeUntil(self.activeRunDetach$),
+      );
+
+      const applied$ = this.apply(input, source$, subscribers);
+      const processed$ = this.processApplyEvents(input, applied$, subscribers);
+
+      await lastValueFrom(
+        processed$.pipe(
+          catchError((error) => {
+            this.isRunning = false;
+            return this.onError(input, error, subscribers);
+          }),
+          finalize(() => {
+            this.isRunning = false;
+            this.onFinalize(input, subscribers);
+            resolveCompletion?.();
+            resolveCompletion = undefined;
+            self.activeRunCompletionPromise = undefined;
+            self.activeRunDetach$ = undefined;
+          }),
+        ),
+        { defaultValue: undefined },
+      );
+
+      const newMessages = structuredClone_(this.messages).filter(
+        (m) => !previousMessageIds.has(m.id),
+      );
+      return { result, newMessages };
+    } finally {
+      this.isRunning = false;
+    }
   }
 
   abortRun(): void {

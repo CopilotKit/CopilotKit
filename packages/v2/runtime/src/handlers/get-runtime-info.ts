@@ -37,6 +37,7 @@ export async function handleGetRuntimeInfo({
             },
           }
         : {}),
+      a2uiEnabled: !!runtime.a2ui,
     };
 
     return new Response(JSON.stringify(runtimeInfo), {

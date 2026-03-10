@@ -37,6 +37,7 @@ export class AgentRegistry {
   private _audioFileTranscriptionEnabled: boolean = false;
   private _runtimeMode: RuntimeMode = "sse";
   private _intelligence?: IntelligenceRuntimeInfo;
+  private _a2uiEnabled: boolean = false;
 
   constructor(private core: CopilotKitCore) {}
 
@@ -73,6 +74,10 @@ export class AgentRegistry {
 
   get intelligence(): IntelligenceRuntimeInfo | undefined {
     return this._intelligence;
+  }
+
+  get a2uiEnabled(): boolean {
+    return this._a2uiEnabled;
   }
 
   /**
@@ -224,6 +229,7 @@ export class AgentRegistry {
       this._audioFileTranscriptionEnabled = false;
       this._runtimeMode = "sse";
       this._intelligence = undefined;
+      this._a2uiEnabled = false;
       this.remoteAgents = {};
       this._agents = this.localAgents;
 
@@ -282,6 +288,7 @@ export class AgentRegistry {
         runtimeInfoResponse.audioFileTranscriptionEnabled ?? false;
       this._runtimeMode = runtimeInfoResponse.mode ?? "sse";
       this._intelligence = runtimeInfoResponse.intelligence;
+      this._a2uiEnabled = runtimeInfoResponse.a2uiEnabled ?? false;
 
       await this.notifyRuntimeStatusChanged(
         CopilotKitCoreRuntimeConnectionStatus.Connected,
@@ -294,6 +301,7 @@ export class AgentRegistry {
       this._audioFileTranscriptionEnabled = false;
       this._runtimeMode = "sse";
       this._intelligence = undefined;
+      this._a2uiEnabled = false;
       this.remoteAgents = {};
       this._agents = this.localAgents;
 

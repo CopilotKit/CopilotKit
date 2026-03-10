@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Editor, Location, Transforms } from "slate";
-import { useSlate, useSlateSelection } from "slate-react";
+import { ReactEditor, useSlate, useSlateSelection } from "slate-react";
 import {
   getFullEditorTextWithNewlines,
   getTextAroundSelection,
@@ -122,6 +122,36 @@ export const HoveringToolbar = (props: HoveringToolbarProps) => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
   }, [ref, setIsDisplayed]);
+
+  // Close the hovering editor on Escape and restore focus to the textarea.
+  // This complements the Escape handler in HoveringInsertionPromptBoxCore's
+  // onKeyDown. That handler covers Escape when the prompt input has focus;
+  // this document-level listener covers Escape from anywhere else in the popup.
+  // Both may fire when the input is focused (double setIsDisplayed(false) is
+  // harmless). If nested dismissible UI is ever added inside this toolbar,
+  // this listener will need stopPropagation guards to avoid stealing Escape.
+  useEffect(() => {
+    const handleEscapeKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setIsDisplayed(false);
+        // Re-focus the Slate editor after closing
+        try {
+          ReactEditor.focus(editor);
+        } catch {
+          // Editor may not be mounted, ignore
+        }
+      }
+    };
+
+    if (isDisplayed) {
+      document.addEventListener("keydown", handleEscapeKey);
+    }
+
+    return () => {
+      document.removeEventListener("keydown", handleEscapeKey);
+    };
+  }, [isDisplayed, setIsDisplayed, editor]);
 
   if (!isShown) {
     return null;

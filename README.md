@@ -138,7 +138,7 @@ https://github.com/user-attachments/assets/3cfacac0-4ffd-457a-96f9-d7951e4ab7b6
 #### Explore:
 
 - [Static (AG-UI Protocol)](https://docs.copilotkit.ai/ag-ui-protocol)
-- [Delclaritive (A2UI)](https://docs.copilotkit.ai/generative-ui/specs/a2ui#using-a2ui-with-copilotkit)
+- [Declarative (A2UI)](https://docs.copilotkit.ai/generative-ui/specs/a2ui#using-a2ui-with-copilotkit)
 - [Open-Ended (MCP Apps & Open JSON)](https://docs.copilotkit.ai/generative-ui/specs/mcp-apps)
 
 [Generative UI educational repo →](https://github.com/CopilotKit/generative-ui)

@@ -139,6 +139,11 @@ export class LangGraphAgent extends AGUILangGraphAgent {
         rawEvent.metadata["copilotkit:emit-messages"] === false &&
         isMessageEvent
       ) {
+        // Clean up tracked message state to prevent stale records from
+        // leaking into subsequent nodes that have emit-messages enabled.
+        if (this.activeRun?.id) {
+          this.messagesInProcess[this.activeRun.id] = null;
+        }
         return false;
       }
     }
