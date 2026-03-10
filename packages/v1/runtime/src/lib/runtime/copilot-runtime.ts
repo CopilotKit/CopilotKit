@@ -332,9 +332,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
   private runtimeArgs: CopilotRuntimeOptions;
   private _instance: CopilotRuntimeVNext;
 
-  constructor(
-    params?: CopilotRuntimeConstructorParams<T>,
-  ) {
+  constructor(params?: CopilotRuntimeConstructorParams<T>) {
     const agents = params?.agents ?? {};
     const endpointAgents = this.assignEndpointsToAgents(
       params?.remoteEndpoints ?? [],
