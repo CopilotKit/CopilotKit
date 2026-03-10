@@ -341,7 +341,7 @@ describe("handleRunAgent", () => {
           created: false,
         }),
         getThreadMessages: vi.fn().mockResolvedValue({ messages: [] }),
-        acquireThreadLock: vi
+        ɵacquireThreadLock: vi
           .fn()
           .mockResolvedValue({ joinToken: "jt-123", joinCode: "jc-123" }),
       };
@@ -362,7 +362,7 @@ describe("handleRunAgent", () => {
         userId: "user-1",
         agentId: "my-agent",
       });
-      expect(platform.acquireThreadLock).toHaveBeenCalledWith({
+      expect(platform.ɵacquireThreadLock).toHaveBeenCalledWith({
         threadId: "thread-1",
         runId: "run-1",
       });
@@ -379,7 +379,7 @@ describe("handleRunAgent", () => {
           created: false,
         }),
         getThreadMessages: vi.fn().mockResolvedValue({ messages: [] }),
-        acquireThreadLock: vi
+        ɵacquireThreadLock: vi
           .fn()
           .mockResolvedValue({ joinToken: "jt-456", joinCode: "jc-456" }),
       };
@@ -404,7 +404,7 @@ describe("handleRunAgent", () => {
           created: false,
         }),
         getThreadMessages: vi.fn().mockResolvedValue({ messages: [] }),
-        acquireThreadLock: vi.fn().mockResolvedValue({ joinCode: "jc-789" }),
+        ɵacquireThreadLock: vi.fn().mockResolvedValue({ joinCode: "jc-789" }),
       };
       const runtime = createIntelligenceRuntime(agent, platform as any);
 
@@ -428,7 +428,7 @@ describe("handleRunAgent", () => {
           created: false,
         }),
         getThreadMessages: vi.fn(),
-        acquireThreadLock: vi
+        ɵacquireThreadLock: vi
           .fn()
           .mockRejectedValue(new Error("Thread is locked by another runner")),
       };
@@ -461,7 +461,7 @@ describe("handleRunAgent", () => {
             },
           ],
         }),
-        acquireThreadLock: vi
+        ɵacquireThreadLock: vi
           .fn()
           .mockResolvedValue({ joinToken: "jt-123", joinCode: "jc-123" }),
       };
@@ -522,7 +522,7 @@ describe("handleRunAgent", () => {
         getThreadMessages: vi
           .fn()
           .mockRejectedValue(new Error("history unavailable")),
-        acquireThreadLock: vi
+        ɵacquireThreadLock: vi
           .fn()
           .mockResolvedValue({ joinToken: "jt-123", joinCode: "jc-123" }),
       };
@@ -548,7 +548,7 @@ describe("handleRunAgent", () => {
           created: true,
         }),
         getThreadMessages: vi.fn().mockResolvedValue({ messages: [] }),
-        acquireThreadLock: vi.fn().mockResolvedValue({
+        ɵacquireThreadLock: vi.fn().mockResolvedValue({
           joinToken: "jt-created",
           joinCode: "jc-created",
         }),
@@ -567,7 +567,7 @@ describe("handleRunAgent", () => {
         userId: "user-1",
         agentId: "my-agent",
       });
-      expect(platform.acquireThreadLock).toHaveBeenCalledWith({
+      expect(platform.ɵacquireThreadLock).toHaveBeenCalledWith({
         threadId: "thread-1",
         runId: "run-1",
       });
@@ -618,7 +618,7 @@ describe("handleRunAgent", () => {
           name: "Order refund status",
         }),
         getThreadMessages: vi.fn().mockResolvedValue({ messages: [] }),
-        acquireThreadLock: vi.fn().mockResolvedValue({
+        ɵacquireThreadLock: vi.fn().mockResolvedValue({
           joinToken: "jt-created",
           joinCode: "jc-created",
         }),
@@ -674,7 +674,7 @@ describe("handleRunAgent", () => {
         }),
         updateThread: vi.fn(),
         getThreadMessages: vi.fn().mockResolvedValue({ messages: [] }),
-        acquireThreadLock: vi.fn().mockResolvedValue({
+        ɵacquireThreadLock: vi.fn().mockResolvedValue({
           joinToken: "jt-created",
           joinCode: "jc-created",
         }),
@@ -703,7 +703,7 @@ describe("handleRunAgent", () => {
         }),
         updateThread: vi.fn(),
         getThreadMessages: vi.fn().mockResolvedValue({ messages: [] }),
-        acquireThreadLock: vi.fn().mockResolvedValue({
+        ɵacquireThreadLock: vi.fn().mockResolvedValue({
           joinToken: "jt-created",
           joinCode: "jc-created",
         }),
@@ -759,7 +759,7 @@ describe("handleRunAgent", () => {
         }),
         updateThread: vi.fn(),
         getThreadMessages: vi.fn().mockResolvedValue({ messages: [] }),
-        acquireThreadLock: vi.fn().mockResolvedValue({
+        ɵacquireThreadLock: vi.fn().mockResolvedValue({
           joinToken: "jt-created",
           joinCode: "jc-created",
         }),
@@ -818,7 +818,7 @@ describe("handleRunAgent", () => {
       const platform = {
         getOrCreateThread: vi.fn(),
         getThreadMessages: vi.fn(),
-        acquireThreadLock: vi.fn(),
+        ɵacquireThreadLock: vi.fn(),
       };
       const runtime = createIntelligenceRuntime(agent, platform as any);
 
@@ -830,7 +830,7 @@ describe("handleRunAgent", () => {
 
       expect(response.status).toBe(400);
       expect(platform.getOrCreateThread).not.toHaveBeenCalled();
-      expect(platform.acquireThreadLock).not.toHaveBeenCalled();
+      expect(platform.ɵacquireThreadLock).not.toHaveBeenCalled();
     });
   });
 });
