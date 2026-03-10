@@ -356,6 +356,7 @@ export class IntelligenceAgentRunner extends AgentRunner {
 
     const ensureRunStarted = (): void => {
       if (!state.hasRunStarted) {
+        state.hasRunStarted = true;
         pushCanonicalEvent(buildRunStartedEvent());
       }
     };
@@ -401,13 +402,28 @@ export class IntelligenceAgentRunner extends AgentRunner {
   /**
    * Tear down all resources for a thread: leave the channel,
    * disconnect the per-run socket, and remove the thread state.
+   *
+   * Idempotent — safe to call multiple times for the same threadId
+   * (e.g. from join error handlers, finalize, and Observable teardown).
    */
   private removeThread(threadId: string): void {
     const state = this.threads.get(threadId);
-    if (state) {
+    if (!state) {
+      return;
+    }
+
+    // Delete first so concurrent calls see the entry as already removed.
+    this.threads.delete(threadId);
+
+    try {
       state.channel.leave();
+    } catch {
+      // Channel may already be closed/left.
+    }
+    try {
       state.socket.disconnect();
-      this.threads.delete(threadId);
+    } catch {
+      // Socket may already be disconnected.
     }
   }
 }

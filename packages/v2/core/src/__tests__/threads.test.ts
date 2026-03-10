@@ -33,20 +33,35 @@ class MockChannel {
   topic: string;
   params: Record<string, unknown>;
   left = false;
-  private handlers = new Map<string, Array<(payload: unknown) => void>>();
+  private handlers = new Map<
+    string,
+    Array<{ ref: number; callback: (payload: unknown) => void }>
+  >();
   private joinPush = new MockPush();
+  private nextRef = 1;
 
   constructor(topic: string, params: Record<string, unknown> = {}) {
     this.topic = topic;
     this.params = params;
   }
 
-  on(event: string, callback: (payload: unknown) => void): void {
+  on(event: string, callback: (payload: unknown) => void): number {
     if (!this.handlers.has(event)) {
       this.handlers.set(event, []);
     }
+    const ref = this.nextRef++;
+    this.handlers.get(event)!.push({ ref, callback });
+    return ref;
+  }
 
-    this.handlers.get(event)!.push(callback);
+  off(event: string, ref?: number): void {
+    if (!this.handlers.has(event)) return;
+    if (ref === undefined) {
+      this.handlers.delete(event);
+    } else {
+      const filtered = this.handlers.get(event)!.filter((h) => h.ref !== ref);
+      this.handlers.set(event, filtered);
+    }
   }
 
   join(): MockPush {
@@ -58,7 +73,7 @@ class MockChannel {
   }
 
   serverPush(event: string, payload: unknown): void {
-    for (const callback of this.handlers.get(event) ?? []) {
+    for (const { callback } of this.handlers.get(event) ?? []) {
       callback(payload);
     }
   }

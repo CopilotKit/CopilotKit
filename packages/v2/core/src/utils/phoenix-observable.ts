@@ -10,7 +10,8 @@ import {
 } from "rxjs/operators";
 
 export interface PhoenixChannelLike {
-  on(event: string, callback: (payload: unknown) => void): unknown;
+  on(event: string, callback: (payload: unknown) => void): number;
+  off(event: string, ref?: number): void;
   onError?(callback: (reason?: unknown) => void): unknown;
   join(): {
     receive(status: string, callback: (payload?: unknown) => unknown): unknown;
@@ -27,8 +28,12 @@ export function ɵobservePhoenixChannelEvent$<T>(
   eventName: string,
 ): Observable<T> {
   return new Observable<T>((observer) => {
-    channel.on(eventName, (payload) => observer.next(payload as T));
+    const ref = channel.on(eventName, (payload) => observer.next(payload as T));
     channel.onError?.(() => {});
+
+    return () => {
+      channel.off(eventName, ref);
+    };
   });
 }
 

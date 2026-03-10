@@ -50,10 +50,10 @@ export async function handleIntelligenceConnect({
       });
     }
 
+    console.error("Connect plan not available:", error);
     return jsonResponse(
       {
         error: "Connect plan not available",
-        message: error instanceof Error ? error.message : String(error),
       },
       404,
     );

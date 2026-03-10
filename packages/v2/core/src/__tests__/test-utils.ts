@@ -289,9 +289,13 @@ export class MockChannel {
   public pushLog: Array<{ event: string; payload: any; push: MockPush }> = [];
   public left = false;
 
-  private handlers = new Map<string, Array<(payload: any) => void>>();
+  private handlers = new Map<
+    string,
+    Array<{ ref: number; callback: (payload: any) => void }>
+  >();
   private joinPush = new MockPush();
   private errorHandlers: Array<(reason?: any) => void> = [];
+  private nextRef = 1;
 
   constructor(topic: string = "", params: Record<string, any> = {}) {
     this.topic = topic;
@@ -302,8 +306,19 @@ export class MockChannel {
     if (!this.handlers.has(event)) {
       this.handlers.set(event, []);
     }
-    this.handlers.get(event)!.push(callback);
-    return this.handlers.get(event)!.length;
+    const ref = this.nextRef++;
+    this.handlers.get(event)!.push({ ref, callback });
+    return ref;
+  }
+
+  off(event: string, ref?: number): void {
+    if (!this.handlers.has(event)) return;
+    if (ref === undefined) {
+      this.handlers.delete(event);
+    } else {
+      const filtered = this.handlers.get(event)!.filter((h) => h.ref !== ref);
+      this.handlers.set(event, filtered);
+    }
   }
 
   onError(callback: (reason?: any) => void): void {
@@ -332,8 +347,8 @@ export class MockChannel {
 
   /** Test helper — simulate the server pushing an event. */
   serverPush(eventType: string, payload: any): void {
-    for (const handler of this.handlers.get(eventType) ?? []) {
-      handler(payload);
+    for (const { callback } of this.handlers.get(eventType) ?? []) {
+      callback(payload);
     }
   }
 

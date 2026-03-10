@@ -151,7 +151,6 @@ const threadAdapterEvents = createActionGroup("Thread Adapter", {
   started: empty(),
   stopped: empty(),
   contextChanged: props<{ context: ThreadRuntimeContext | null }>(),
-  refetchRequested: empty(),
   renameRequested: props<{
     requestId: string;
     threadId: string;
@@ -324,7 +323,6 @@ interface ThreadStore {
   start(): void;
   stop(): void;
   setContext(context: ThreadRuntimeContext | null): void;
-  refetch(): void;
   renameThread(threadId: string, name: string): Promise<void>;
   archiveThread(threadId: string): Promise<void>;
   deleteThread(threadId: string): Promise<void>;
@@ -497,10 +495,7 @@ function createThreadStore(environment: ThreadEnvironment): ThreadStore {
       state$,
     ): Observable<ReturnType<typeof threadRestEvents.listRequested>> =>
       actions$.pipe(
-        ofType(
-          threadAdapterEvents.contextChanged,
-          threadAdapterEvents.refetchRequested,
-        ),
+        ofType(threadAdapterEvents.contextChanged),
         withLatestFrom(state$),
         filter(([, state]) => Boolean(state.context)),
         map(([, state]) =>
@@ -825,9 +820,6 @@ function createThreadStore(environment: ThreadEnvironment): ThreadStore {
     },
     setContext(context: ThreadRuntimeContext | null): void {
       store.dispatch(threadAdapterEvents.contextChanged({ context }));
-    },
-    refetch(): void {
-      store.dispatch(threadAdapterEvents.refetchRequested());
     },
     renameThread(threadId: string, name: string): Promise<void> {
       return trackMutation(

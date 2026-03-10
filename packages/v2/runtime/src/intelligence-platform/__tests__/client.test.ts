@@ -61,8 +61,8 @@ describe("CopilotKitIntelligence", () => {
       tenantId: "tenant-1",
     });
 
-    expect(c.getRunnerWsUrl()).toBe("wss://ws.example.com/runner");
-    expect(c.getClientWsUrl()).toBe("wss://ws.example.com/client");
+    expect(c.ɵgetRunnerWsUrl()).toBe("wss://ws.example.com/runner");
+    expect(c.ɵgetClientWsUrl()).toBe("wss://ws.example.com/client");
   });
 
   it("sends Bearer authorization header", async () => {
@@ -114,7 +114,7 @@ describe("CopilotKitIntelligence", () => {
     it("sends POST with userId and returns the join token", async () => {
       fetchMock.mockReturnValue(jsonResponse({ joinToken: "jt-subscribe" }));
 
-      const result = await client.subscribeToThreads({
+      const result = await client.ɵsubscribeToThreads({
         userId: "user-1",
       });
 
@@ -300,6 +300,8 @@ describe("CopilotKitIntelligence", () => {
       expect(url).toBe("https://api.example.com/api/threads/t-1");
       expect(opts.method).toBe("PATCH");
       expect(JSON.parse(opts.body)).toEqual({
+        userId: "user-1",
+        agentId: "agent-1",
         archived: true,
       });
     });
@@ -397,7 +399,7 @@ describe("CopilotKitIntelligence", () => {
         jsonResponse({ joinToken: "jt-lock", joinCode: "jc-lock" }),
       );
 
-      const result = await client.acquireThreadLock({
+      const result = await client.ɵacquireThreadLock({
         threadId: "t-1",
         runId: "r-1",
       });
@@ -412,7 +414,7 @@ describe("CopilotKitIntelligence", () => {
     it("throws when lock is denied", async () => {
       fetchMock.mockReturnValue(jsonResponse("Thread is locked", 409));
       await expect(
-        client.acquireThreadLock({ threadId: "t-1", runId: "r-1" }),
+        client.ɵacquireThreadLock({ threadId: "t-1", runId: "r-1" }),
       ).rejects.toThrow(/409/);
     });
   });
@@ -423,7 +425,7 @@ describe("CopilotKitIntelligence", () => {
         jsonResponse({ joinToken: "jt-active", joinCode: "jc-active" }),
       );
 
-      const result = await client.getActiveJoinCode({ threadId: "t-1" });
+      const result = await client.ɵgetActiveJoinCode({ threadId: "t-1" });
 
       expect(result).toEqual({ joinToken: "jt-active", joinCode: "jc-active" });
       const [url, opts] = fetchMock.mock.calls[0];
@@ -434,8 +436,100 @@ describe("CopilotKitIntelligence", () => {
     it("throws when no active join code exists", async () => {
       fetchMock.mockReturnValue(jsonResponse("Not found", 404));
       await expect(
-        client.getActiveJoinCode({ threadId: "t-1" }),
+        client.ɵgetActiveJoinCode({ threadId: "t-1" }),
       ).rejects.toThrow(/404/);
+    });
+  });
+
+  describe("multi-listener subscriptions", () => {
+    it("supports multiple onThreadCreated listeners", async () => {
+      const listener1 = vi.fn();
+      const listener2 = vi.fn();
+      client.onThreadCreated(listener1);
+      client.onThreadCreated(listener2);
+
+      const thread = { id: "t-1", name: null };
+      fetchMock.mockReturnValue(jsonResponse({ thread }));
+
+      await client.createThread({
+        threadId: "t-1",
+        userId: "user-1",
+        agentId: "agent-1",
+      });
+
+      expect(listener1).toHaveBeenCalledWith(thread);
+      expect(listener2).toHaveBeenCalledWith(thread);
+    });
+
+    it("unsubscribe removes a specific listener", async () => {
+      const listener1 = vi.fn();
+      const listener2 = vi.fn();
+      const unsub1 = client.onThreadCreated(listener1);
+      client.onThreadCreated(listener2);
+
+      unsub1();
+
+      const thread = { id: "t-1", name: null };
+      fetchMock.mockReturnValue(jsonResponse({ thread }));
+
+      await client.createThread({
+        threadId: "t-1",
+        userId: "user-1",
+        agentId: "agent-1",
+      });
+
+      expect(listener1).not.toHaveBeenCalled();
+      expect(listener2).toHaveBeenCalledWith(thread);
+    });
+
+    it("config callback and runtime listener both fire", async () => {
+      const configCb = vi.fn();
+      const runtimeCb = vi.fn();
+      client = new CopilotKitIntelligence({
+        apiUrl: "https://api.example.com",
+        wsUrl: "wss://ws.example.com/socket",
+        apiKey: "test-key",
+        tenantId: "tenant-1",
+        onThreadUpdated: configCb,
+      });
+      client.onThreadUpdated(runtimeCb);
+
+      const thread = { id: "t-1", name: "Updated" };
+      fetchMock.mockReturnValue(jsonResponse({ thread }));
+
+      await client.updateThread({
+        threadId: "t-1",
+        userId: "user-1",
+        agentId: "agent-1",
+        updates: { name: "Updated" },
+      });
+
+      expect(configCb).toHaveBeenCalledWith(thread);
+      expect(runtimeCb).toHaveBeenCalledWith(thread);
+    });
+
+    it("one failing listener does not prevent others from running", async () => {
+      const failingCb = vi.fn(() => {
+        throw new Error("boom");
+      });
+      const healthyCb = vi.fn();
+      client.onThreadDeleted(failingCb);
+      client.onThreadDeleted(healthyCb);
+
+      fetchMock.mockReturnValue(jsonResponse(undefined));
+
+      await client.deleteThread({
+        threadId: "t-1",
+        userId: "user-1",
+        agentId: "agent-1",
+      });
+
+      expect(failingCb).toHaveBeenCalled();
+      expect(healthyCb).toHaveBeenCalledWith({
+        threadId: "t-1",
+        userId: "user-1",
+        agentId: "agent-1",
+      });
     });
   });
 
@@ -443,7 +537,7 @@ describe("CopilotKitIntelligence", () => {
     it("returns null on 204", async () => {
       fetchMock.mockReturnValue(emptyResponse());
 
-      const result = await client.connectThread({
+      const result = await client.ɵconnectThread({
         threadId: "t-1",
         lastSeenEventId: "event-1",
       });
@@ -463,7 +557,7 @@ describe("CopilotKitIntelligence", () => {
       };
       fetchMock.mockReturnValue(jsonResponse(payload));
 
-      const result = await client.connectThread({
+      const result = await client.ɵconnectThread({
         threadId: "t-1",
         lastSeenEventId: "event-1",
       });
@@ -480,7 +574,7 @@ describe("CopilotKitIntelligence", () => {
       };
       fetchMock.mockReturnValue(jsonResponse(payload));
 
-      const result = await client.connectThread({
+      const result = await client.ɵconnectThread({
         threadId: "t-1",
         lastSeenEventId: "event-2",
       });
