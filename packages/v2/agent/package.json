@@ -42,6 +42,7 @@
     "@ai-sdk/google": "^3.0.33",
     "@ai-sdk/mcp": "^1.0.21",
     "@ai-sdk/openai": "^3.0.36",
+    "@copilotkitnext/shared": "workspace:*",
     "@modelcontextprotocol/sdk": "^1.18.2",
     "ai": "^6.0.104",
     "rxjs": "7.8.1",

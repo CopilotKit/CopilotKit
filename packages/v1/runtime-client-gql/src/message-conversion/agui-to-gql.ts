@@ -198,8 +198,7 @@ export function aguiToolCallToGQLActionExecution(
       argumentsObj = JSON.parse(toolCall.function.arguments);
     } catch (error) {
       console.warn(
-        `Failed to parse tool call arguments for ${toolCall.function.name}:`,
-        error,
+        `[CopilotKit] Failed to parse tool arguments, falling back to empty object`,
       );
       // Provide fallback empty object to prevent application crash
       argumentsObj = {};
@@ -213,8 +212,7 @@ export function aguiToolCallToGQLActionExecution(
   } else {
     // Fallback for undefined, null, or other types
     console.warn(
-      `Invalid tool call arguments type for ${toolCall.function.name}:`,
-      typeof toolCall.function.arguments,
+      `[CopilotKit] Tool arguments parsed to non-object (${typeof toolCall.function.arguments}), falling back to empty object`,
     );
     argumentsObj = {};
   }
@@ -226,7 +224,7 @@ export function aguiToolCallToGQLActionExecution(
     Array.isArray(argumentsObj)
   ) {
     console.warn(
-      `Tool call arguments for ${toolCall.function.name} parsed to non-object, falling back to {}`,
+      `[CopilotKit] Tool arguments parsed to non-object (${typeof argumentsObj}), falling back to empty object`,
     );
     argumentsObj = {};
   }

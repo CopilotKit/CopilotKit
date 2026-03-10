@@ -70,11 +70,8 @@ export function convertGqlInputToMessages(
 
 /**
  * Safely parses a JSON string into a plain object for tool arguments.
- * Handles two failure modes:
- *  1. Malformed JSON (SyntaxError from JSON.parse)
- *  2. Valid JSON that isn't a plain object (e.g. "", [], null, 42, true)
- * Providers like Anthropic require tool_use.input to be a dictionary,
- * so we fall back to an empty object for safety in both cases.
+ * Mirrors the shared safeParseToolArgs in @copilotkitnext/shared (v2).
+ * Kept as a local copy because v1 does not import from v2 shared.
  */
 function safeParseToolArgs(raw: string): Record<string, unknown> {
   try {
@@ -86,9 +83,14 @@ function safeParseToolArgs(raw: string): Record<string, unknown> {
     ) {
       return parsed as Record<string, unknown>;
     }
+    console.warn(
+      `[CopilotKit] Tool arguments parsed to non-object (${typeof parsed}), falling back to empty object`,
+    );
     return {};
   } catch {
-    console.warn("Failed to parse tool arguments, falling back to {}:", raw);
+    console.warn(
+      "[CopilotKit] Failed to parse tool arguments, falling back to empty object",
+    );
     return {};
   }
 }

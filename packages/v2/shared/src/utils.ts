@@ -5,7 +5,7 @@ export function randomUUID() {
   return uuidv4();
 }
 
-export function partialJSONParse(json: string): Record<string, unknown> {
+export function partialJSONParse(json: string): unknown {
   try {
     const parsed = PartialJSON.parse(json);
     if (
@@ -15,8 +15,40 @@ export function partialJSONParse(json: string): Record<string, unknown> {
     ) {
       return parsed as Record<string, unknown>;
     }
+    console.warn(
+      `[CopilotKit] Tool arguments parsed to non-object (${typeof parsed}), falling back to empty object`,
+    );
     return {};
   } catch (error) {
+    return {};
+  }
+}
+
+/**
+ * Safely parses a JSON string into a plain object for tool arguments.
+ * Handles two failure modes:
+ *  1. Malformed JSON (SyntaxError from JSON.parse)
+ *  2. Valid JSON that isn't a plain object (e.g. "", [], null, 42, true)
+ * Falls back to an empty object for safety in both cases.
+ */
+export function safeParseToolArgs(raw: string): Record<string, unknown> {
+  try {
+    const parsed = JSON.parse(raw);
+    if (
+      typeof parsed === "object" &&
+      parsed !== null &&
+      !Array.isArray(parsed)
+    ) {
+      return parsed as Record<string, unknown>;
+    }
+    console.warn(
+      `[CopilotKit] Tool arguments parsed to non-object (${typeof parsed}), falling back to empty object`,
+    );
+    return {};
+  } catch {
+    console.warn(
+      "[CopilotKit] Failed to parse tool arguments, falling back to empty object",
+    );
     return {};
   }
 }

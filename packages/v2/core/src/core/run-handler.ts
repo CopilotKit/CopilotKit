@@ -306,7 +306,7 @@ export class RunHandler {
     if (tool?.handler) {
       let parsedArgs: unknown;
       try {
-        parsedArgs = safeParseToolArgs(
+        parsedArgs = ensureObjectArgs(
           JSON.parse(toolCall.function.arguments),
           toolCall.function.name,
         );
@@ -444,7 +444,7 @@ export class RunHandler {
     if (wildcardTool?.handler) {
       let parsedArgs: unknown;
       try {
-        parsedArgs = safeParseToolArgs(
+        parsedArgs = ensureObjectArgs(
           JSON.parse(toolCall.function.arguments),
           toolCall.function.name,
         );
@@ -704,20 +704,17 @@ function stripAdditionalProperties(schema: unknown): void {
 
 /**
  * Ensures parsed tool arguments are a plain object.
- * Returns {} with a warning for non-object values (strings, arrays, null, etc.).
- * Does NOT catch JSON.parse errors — callers that need structured error
- * reporting (e.g. TOOL_ARGUMENT_PARSE_FAILED) should catch SyntaxError
- * themselves before calling this.
+ * Throws for non-object values so the caller's catch block can emit
+ * a structured TOOL_ARGUMENT_PARSE_FAILED error.
+ *
+ * @internal Exported for testing only.
  */
-function safeParseToolArgs(
+export function ensureObjectArgs(
   parsed: unknown,
   toolName: string,
 ): Record<string, unknown> {
   if (typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)) {
     return parsed as Record<string, unknown>;
   }
-  logger.warn(
-    `Tool arguments for ${toolName} parsed to non-object, falling back to {}`,
-  );
-  return {};
+  throw new Error(`Tool arguments for ${toolName} parsed to non-object (${typeof parsed})`);
 }

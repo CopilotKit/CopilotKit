@@ -42,6 +42,7 @@ import { createOpenAI } from "@ai-sdk/openai";
 import { createAnthropic } from "@ai-sdk/anthropic";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { randomUUID } from "crypto";
+import { safeParseToolArgs } from "@copilotkitnext/shared";
 import { z } from "zod";
 import {
   StreamableHTTPClientTransport,
@@ -1235,28 +1236,3 @@ export class BasicAgent extends BuiltInAgent {
 }
 
 export type BasicAgentConfiguration = BuiltInAgentConfiguration;
-
-/**
- * Safely parses a JSON string into a plain object for tool arguments.
- * Handles two failure modes:
- *  1. Malformed JSON (SyntaxError from JSON.parse)
- *  2. Valid JSON that isn't a plain object (e.g. "", [], null, 42, true)
- * Providers like Anthropic require tool_use.input to be a dictionary,
- * so we fall back to an empty object for safety in both cases.
- */
-function safeParseToolArgs(raw: string): Record<string, unknown> {
-  try {
-    const parsed = JSON.parse(raw);
-    if (
-      typeof parsed === "object" &&
-      parsed !== null &&
-      !Array.isArray(parsed)
-    ) {
-      return parsed as Record<string, unknown>;
-    }
-    return {};
-  } catch {
-    console.warn("Failed to parse tool arguments, falling back to {}:", raw);
-    return {};
-  }
-}

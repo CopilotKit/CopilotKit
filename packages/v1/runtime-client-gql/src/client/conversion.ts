@@ -249,11 +249,14 @@ function getPartialArguments(args: string[]) {
       parsed === null ||
       Array.isArray(parsed)
     ) {
+      console.warn(
+        `[CopilotKit] Tool arguments parsed to non-object (${typeof parsed}), falling back to empty object`,
+      );
       return {};
     }
     return parsed;
   } catch (e) {
-    console.warn("Failed to parse tool arguments, falling back to {}:", e);
+    // Incomplete JSON is expected during streaming — no warning needed
     return {};
   }
 }
