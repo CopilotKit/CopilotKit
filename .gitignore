@@ -45,3 +45,15 @@ coverage
 .langgraph_api
 lefthook-local.yml
 .langgraph_api
+
+# Binary artifacts
+*.dSYM/
+*.exe
+*.dll
+*.so
+*.dylib
+*.o
+*.obj
+*.a
+*.lib
+*.wasm
