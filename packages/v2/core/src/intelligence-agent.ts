@@ -288,6 +288,9 @@ export class IntelligenceAgent extends AbstractAgent {
       this.socket.disconnect();
       this.socket = null;
     }
+    if (this.threadId) {
+      this.sharedState.lastSeenEventIds.delete(this.threadId);
+    }
     this.runId = null;
   }
 

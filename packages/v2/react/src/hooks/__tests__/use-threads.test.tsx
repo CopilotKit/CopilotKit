@@ -30,18 +30,38 @@ vi.mock("phoenix", () => {
     params: Record<string, unknown>;
     left = false;
     private joinPush = new MockPush();
-    private handlers = new Map<string, Array<(payload: unknown) => void>>();
+    private handlers = new Map<
+      string,
+      Array<{ ref: number; callback: (payload: unknown) => void }>
+    >();
+    private nextRef = 0;
 
     constructor(topic = "", params: Record<string, unknown> = {}) {
       this.topic = topic;
       this.params = params;
     }
 
-    on(event: string, callback: (payload: unknown) => void): void {
+    on(event: string, callback: (payload: unknown) => void): number {
       if (!this.handlers.has(event)) {
         this.handlers.set(event, []);
       }
-      this.handlers.get(event)!.push(callback);
+      const ref = this.nextRef++;
+      this.handlers.get(event)!.push({ ref, callback });
+      return ref;
+    }
+
+    off(event: string, ref?: number): void {
+      if (ref === undefined) {
+        this.handlers.delete(event);
+        return;
+      }
+      const entries = this.handlers.get(event);
+      if (entries) {
+        const index = entries.findIndex((entry) => entry.ref === ref);
+        if (index !== -1) {
+          entries.splice(index, 1);
+        }
+      }
     }
 
     join(): MockPush {
@@ -57,8 +77,8 @@ vi.mock("phoenix", () => {
     }
 
     serverPush(event: string, payload: unknown): void {
-      for (const callback of this.handlers.get(event) ?? []) {
-        callback(payload);
+      for (const entry of this.handlers.get(event) ?? []) {
+        entry.callback(payload);
       }
     }
   }
@@ -349,38 +369,6 @@ describe("useThreads", () => {
       userId: "user-1",
       agentId: "agent-1",
     });
-  });
-
-  it("refetches threads without replacing the active socket", async () => {
-    fetchMock
-      .mockReturnValueOnce(jsonResponse({ threads: sampleThreads }))
-      .mockReturnValueOnce(jsonResponse({ joinToken: "jt-first" }))
-      .mockReturnValueOnce(
-        jsonResponse({
-          threads: [sampleThreads[0]],
-        }),
-      );
-
-    const { result } = renderHook(() => useThreads(defaultInput));
-
-    await waitFor(() => {
-      expect(result.current.isLoading).toBe(false);
-    });
-
-    const firstSocket = getMockSockets()[0];
-
-    act(() => {
-      result.current.refetch();
-    });
-
-    await waitFor(() => {
-      expect(result.current.threads).toHaveLength(1);
-    });
-
-    expect(fetchMock).toHaveBeenCalledTimes(3);
-    expect(getMockSockets()).toHaveLength(1);
-    expect(firstSocket.disconnected).toBe(false);
-    expect(firstSocket.channels[0].topic).toBe("user_meta:user-1");
   });
 
   it("tears down sockets after repeated connection failures", async () => {

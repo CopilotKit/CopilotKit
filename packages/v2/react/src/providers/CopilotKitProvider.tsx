@@ -449,8 +449,6 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   }, [onError]);
 
   useEffect(() => {
-    if (!onErrorRef.current) return;
-
     const subscription = copilotkit.subscribe({
       onError: (event) => {
         onErrorRef.current?.({
