@@ -35,9 +35,9 @@ export class AgentRegistry {
     CopilotKitCoreRuntimeConnectionStatus.Disconnected;
   private _runtimeTransport: CopilotRuntimeTransport = "rest";
   private _audioFileTranscriptionEnabled: boolean = false;
-  private _a2uiEnabled: boolean = false;
   private _runtimeMode: RuntimeMode = "sse";
   private _intelligence?: IntelligenceRuntimeInfo;
+  private _a2uiEnabled: boolean = false;
 
   constructor(private core: CopilotKitCore) {}
 
@@ -68,16 +68,16 @@ export class AgentRegistry {
     return this._audioFileTranscriptionEnabled;
   }
 
-  get a2uiEnabled(): boolean {
-    return this._a2uiEnabled;
-  }
-
   get runtimeMode(): RuntimeMode {
     return this._runtimeMode;
   }
 
   get intelligence(): IntelligenceRuntimeInfo | undefined {
     return this._intelligence;
+  }
+
+  get a2uiEnabled(): boolean {
+    return this._a2uiEnabled;
   }
 
   /**
@@ -227,9 +227,9 @@ export class AgentRegistry {
         CopilotKitCoreRuntimeConnectionStatus.Disconnected;
       this._runtimeVersion = undefined;
       this._audioFileTranscriptionEnabled = false;
-      this._a2uiEnabled = false;
       this._runtimeMode = "sse";
       this._intelligence = undefined;
+      this._a2uiEnabled = false;
       this.remoteAgents = {};
       this._agents = this.localAgents;
 
@@ -286,9 +286,9 @@ export class AgentRegistry {
       this._runtimeVersion = version;
       this._audioFileTranscriptionEnabled =
         runtimeInfoResponse.audioFileTranscriptionEnabled ?? false;
-      this._a2uiEnabled = runtimeInfoResponse.a2uiEnabled ?? false;
       this._runtimeMode = runtimeInfoResponse.mode ?? "sse";
       this._intelligence = runtimeInfoResponse.intelligence;
+      this._a2uiEnabled = runtimeInfoResponse.a2uiEnabled ?? false;
 
       await this.notifyRuntimeStatusChanged(
         CopilotKitCoreRuntimeConnectionStatus.Connected,
@@ -299,9 +299,9 @@ export class AgentRegistry {
         CopilotKitCoreRuntimeConnectionStatus.Error;
       this._runtimeVersion = undefined;
       this._audioFileTranscriptionEnabled = false;
-      this._a2uiEnabled = false;
       this._runtimeMode = "sse";
       this._intelligence = undefined;
+      this._a2uiEnabled = false;
       this.remoteAgents = {};
       this._agents = this.localAgents;
 

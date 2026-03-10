@@ -29,7 +29,7 @@ export interface RuntimeInfo {
   version: string;
   agents: Record<string, AgentDescription>;
   audioFileTranscriptionEnabled: boolean;
-  a2uiEnabled?: boolean;
   mode: RuntimeMode;
   intelligence?: IntelligenceRuntimeInfo;
+  a2uiEnabled?: boolean;
 }

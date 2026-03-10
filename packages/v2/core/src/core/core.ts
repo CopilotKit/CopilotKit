@@ -343,16 +343,16 @@ export class CopilotKitCore {
     return this.agentRegistry.audioFileTranscriptionEnabled;
   }
 
-  get a2uiEnabled(): boolean {
-    return this.agentRegistry.a2uiEnabled;
-  }
-
   get runtimeMode(): RuntimeMode {
     return this.agentRegistry.runtimeMode;
   }
 
   get intelligence(): IntelligenceRuntimeInfo | undefined {
     return this.agentRegistry.intelligence;
+  }
+
+  get a2uiEnabled(): boolean {
+    return this.agentRegistry.a2uiEnabled;
   }
 
   /**

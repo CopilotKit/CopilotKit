@@ -32,8 +32,8 @@ describe("handleGetRuntimeInfo", () => {
       version: expect.any(String),
       agents: {},
       audioFileTranscriptionEnabled: false,
-      a2uiEnabled: false,
       mode: "sse",
+      a2uiEnabled: false,
     });
   });
 
@@ -56,8 +56,8 @@ describe("handleGetRuntimeInfo", () => {
       version: expect.any(String),
       agents: {},
       audioFileTranscriptionEnabled: true,
-      a2uiEnabled: false,
       mode: "sse",
+      a2uiEnabled: false,
     });
   });
 
@@ -92,8 +92,8 @@ describe("handleGetRuntimeInfo", () => {
         },
       },
       audioFileTranscriptionEnabled: true,
-      a2uiEnabled: false,
       mode: "sse",
+      a2uiEnabled: false,
     });
   });
 
