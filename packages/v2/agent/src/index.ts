@@ -42,6 +42,7 @@ import { createOpenAI } from "@ai-sdk/openai";
 import { createAnthropic } from "@ai-sdk/anthropic";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { randomUUID } from "crypto";
+import { safeParseToolArgs } from "@copilotkitnext/shared";
 import { z } from "zod";
 import {
   StreamableHTTPClientTransport,
@@ -327,7 +328,7 @@ export function convertMessagesToVercelAISDKMessages(
           type: "tool-call",
           toolCallId: toolCall.id,
           toolName: toolCall.function.name,
-          input: JSON.parse(toolCall.function.arguments),
+          input: safeParseToolArgs(toolCall.function.arguments),
         };
         parts.push(toolCallPart);
       }

@@ -36,7 +36,7 @@ export function convertGqlInputToMessages(
         id: message.id,
         createdAt: message.createdAt,
         name: message.actionExecutionMessage.name,
-        arguments: JSON.parse(message.actionExecutionMessage.arguments),
+        arguments: safeParseToolArgs(message.actionExecutionMessage.arguments),
         parentMessageId: message.actionExecutionMessage.parentMessageId,
       });
     } else if (message.resultMessage) {
@@ -66,4 +66,31 @@ export function convertGqlInputToMessages(
   });
 
   return messages.filter((m) => m);
+}
+
+/**
+ * Safely parses a JSON string into a plain object for tool arguments.
+ * Mirrors the shared safeParseToolArgs in @copilotkitnext/shared (v2).
+ * Kept as a local copy because v1 does not import from v2 shared.
+ */
+function safeParseToolArgs(raw: string): Record<string, unknown> {
+  try {
+    const parsed = JSON.parse(raw);
+    if (
+      typeof parsed === "object" &&
+      parsed !== null &&
+      !Array.isArray(parsed)
+    ) {
+      return parsed as Record<string, unknown>;
+    }
+    console.warn(
+      `[CopilotKit] Tool arguments parsed to non-object (${typeof parsed}), falling back to empty object`,
+    );
+    return {};
+  } catch {
+    console.warn(
+      "[CopilotKit] Failed to parse tool arguments, falling back to empty object",
+    );
+    return {};
+  }
 }
