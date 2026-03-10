@@ -116,6 +116,23 @@ If you're looking to add an MCP App into an existing application, let's walk thr
     <Callout type="info" title="Server ID">
       Always provide a `serverId` for production deployments. Without it, CopilotKit generates a hash from the server URL. If your URL changes (e.g., different environments), previously stored MCP Apps in conversation history won't load correctly.
     </Callout>
+
+    Alternatively, if you want to configure MCP servers for all agents from one place, you can pass `mcpApps` directly to `CopilotRuntime` instead of using per-agent `.use()`:
+
+    ```typescript title="app/api/copilotkit/route.ts"
+    const runtime = new CopilotRuntime({
+      agents: { default: agent },
+      mcpApps: {
+        servers: [
+          {
+            type: "http",
+            url: "http://localhost:3108/mcp",
+            serverId: "my-server",
+          },
+        ],
+      },
+    });
+    ```
   </Step>
   <Step>
     ### Configure environment
