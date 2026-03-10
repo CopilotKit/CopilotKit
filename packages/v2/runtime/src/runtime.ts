@@ -79,22 +79,17 @@ export interface CopilotRuntimeLike {
   a2ui: CopilotRuntimeOptions["a2ui"];
   mcpApps: CopilotRuntimeOptions["mcpApps"];
   intelligence?: CopilotKitIntelligence;
-  generateThreadNames?: boolean;
   mode: RuntimeMode;
-  readonly isIntelligenceMode: boolean;
 }
 
 export interface CopilotSseRuntimeLike extends CopilotRuntimeLike {
   intelligence?: undefined;
-  generateThreadNames?: undefined;
-  isIntelligenceMode: false;
   mode: "sse";
 }
 
 export interface CopilotIntelligenceRuntimeLike extends CopilotRuntimeLike {
   intelligence: CopilotKitIntelligence;
   generateThreadNames: boolean;
-  isIntelligenceMode: true;
   mode: "intelligence";
 }
 
@@ -108,7 +103,6 @@ abstract class BaseCopilotRuntime implements CopilotRuntimeLike {
   public mcpApps: CopilotRuntimeOptions["mcpApps"];
 
   abstract readonly intelligence?: CopilotKitIntelligence;
-  abstract readonly generateThreadNames?: boolean;
   abstract readonly mode: RuntimeMode;
 
   constructor(options: BaseCopilotRuntimeOptions, runner: AgentRunner) {
@@ -129,10 +123,6 @@ abstract class BaseCopilotRuntime implements CopilotRuntimeLike {
     this.mcpApps = mcpApps;
     this.runner = runner;
   }
-
-  get isIntelligenceMode(): boolean {
-    return this.mode === "intelligence";
-  }
 }
 
 export class CopilotSseRuntime
@@ -140,15 +130,10 @@ export class CopilotSseRuntime
   implements CopilotSseRuntimeLike
 {
   readonly intelligence = undefined;
-  readonly generateThreadNames = undefined;
   readonly mode = "sse" as const;
 
   constructor(options: CopilotSseRuntimeOptions) {
     super(options, options.runner ?? new InMemoryAgentRunner());
-  }
-
-  override get isIntelligenceMode(): false {
-    return false;
   }
 }
 
@@ -170,10 +155,6 @@ export class CopilotIntelligenceRuntime
     );
     this.intelligence = options.intelligence;
     this.generateThreadNames = options.generateThreadNames ?? true;
-  }
-
-  override get isIntelligenceMode(): true {
-    return true;
   }
 }
 
@@ -234,15 +215,7 @@ export class CopilotRuntime implements CopilotRuntimeLike {
     return this.delegate.intelligence;
   }
 
-  get generateThreadNames(): boolean | undefined {
-    return this.delegate.generateThreadNames;
-  }
-
   get mode(): RuntimeMode {
     return this.delegate.mode;
-  }
-
-  get isIntelligenceMode(): boolean {
-    return this.delegate.isIntelligenceMode;
   }
 }

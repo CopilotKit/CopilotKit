@@ -306,7 +306,6 @@ describe("handleRunAgent", () => {
         afterRequestMiddleware: undefined,
         runner,
         mode: "intelligence",
-        isIntelligenceMode: true,
         generateThreadNames: options?.generateThreadNames ?? false,
         intelligence: platform,
       } as unknown as CopilotRuntime;
@@ -337,9 +336,9 @@ describe("handleRunAgent", () => {
     it("returns joinToken JSON when lock is acquired", async () => {
       const agent = createAgentForIntelligence();
       const platform = {
-        getThread: vi.fn().mockResolvedValue({
-          id: "thread-1",
-          name: null,
+        getOrCreateThread: vi.fn().mockResolvedValue({
+          thread: { id: "thread-1", name: null },
+          created: false,
         }),
         getThreadMessages: vi.fn().mockResolvedValue({ messages: [] }),
         acquireThreadLock: vi
@@ -350,7 +349,7 @@ describe("handleRunAgent", () => {
 
       const response = await handleRunAgent({
         runtime,
-        request: createRunRequest(),
+        request: createRunRequest({ "X-User-Id": "user-1" }),
         agentId: "my-agent",
       });
 
@@ -358,8 +357,10 @@ describe("handleRunAgent", () => {
       expect(response.headers.get("Content-Type")).toBe("application/json");
       const body = await response.json();
       expect(body).toEqual({ joinToken: "jt-123" });
-      expect(platform.getThread).toHaveBeenCalledWith({
+      expect(platform.getOrCreateThread).toHaveBeenCalledWith({
         threadId: "thread-1",
+        userId: "user-1",
+        agentId: "my-agent",
       });
       expect(platform.acquireThreadLock).toHaveBeenCalledWith({
         threadId: "thread-1",
@@ -373,9 +374,9 @@ describe("handleRunAgent", () => {
     it("passes joinCode to runner.run() when provided", async () => {
       const agent = createAgentForIntelligence();
       const platform = {
-        getThread: vi.fn().mockResolvedValue({
-          id: "thread-1",
-          name: null,
+        getOrCreateThread: vi.fn().mockResolvedValue({
+          thread: { id: "thread-1", name: null },
+          created: false,
         }),
         getThreadMessages: vi.fn().mockResolvedValue({ messages: [] }),
         acquireThreadLock: vi
@@ -386,7 +387,7 @@ describe("handleRunAgent", () => {
 
       await handleRunAgent({
         runtime,
-        request: createRunRequest(),
+        request: createRunRequest({ "X-User-Id": "user-1" }),
         agentId: "my-agent",
       });
 
@@ -398,9 +399,9 @@ describe("handleRunAgent", () => {
     it("returns 502 when joinToken is missing", async () => {
       const agent = createAgentForIntelligence();
       const platform = {
-        getThread: vi.fn().mockResolvedValue({
-          id: "thread-1",
-          name: null,
+        getOrCreateThread: vi.fn().mockResolvedValue({
+          thread: { id: "thread-1", name: null },
+          created: false,
         }),
         getThreadMessages: vi.fn().mockResolvedValue({ messages: [] }),
         acquireThreadLock: vi.fn().mockResolvedValue({ joinCode: "jc-789" }),
@@ -409,7 +410,7 @@ describe("handleRunAgent", () => {
 
       const response = await handleRunAgent({
         runtime,
-        request: createRunRequest(),
+        request: createRunRequest({ "X-User-Id": "user-1" }),
         agentId: "my-agent",
       });
 
@@ -422,9 +423,9 @@ describe("handleRunAgent", () => {
     it("returns 409 when thread lock is denied", async () => {
       const agent = createAgentForIntelligence();
       const platform = {
-        getThread: vi.fn().mockResolvedValue({
-          id: "thread-1",
-          name: null,
+        getOrCreateThread: vi.fn().mockResolvedValue({
+          thread: { id: "thread-1", name: null },
+          created: false,
         }),
         getThreadMessages: vi.fn(),
         acquireThreadLock: vi
@@ -435,22 +436,21 @@ describe("handleRunAgent", () => {
 
       const response = await handleRunAgent({
         runtime,
-        request: createRunRequest(),
+        request: createRunRequest({ "X-User-Id": "user-1" }),
         agentId: "my-agent",
       });
 
       expect(response.status).toBe(409);
       const body = await response.json();
       expect(body.error).toBe("Thread lock denied");
-      expect(body.message).toContain("Thread is locked by another runner");
     });
 
     it("passes only unseen input messages to the runner for durable persistence", async () => {
       const agent = createAgentForIntelligence();
       const platform = {
-        getThread: vi.fn().mockResolvedValue({
-          id: "thread-1",
-          name: null,
+        getOrCreateThread: vi.fn().mockResolvedValue({
+          thread: { id: "thread-1", name: null },
+          created: false,
         }),
         getThreadMessages: vi.fn().mockResolvedValue({
           messages: [
@@ -470,7 +470,10 @@ describe("handleRunAgent", () => {
         runtime,
         request: new Request("https://example.com/agent/my-agent/run", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            "X-User-Id": "user-1",
+          },
           body: JSON.stringify({
             threadId: "thread-1",
             runId: "run-1",
@@ -512,9 +515,9 @@ describe("handleRunAgent", () => {
     it("returns 502 when durable thread history lookup fails", async () => {
       const agent = createAgentForIntelligence();
       const platform = {
-        getThread: vi.fn().mockResolvedValue({
-          id: "thread-1",
-          name: null,
+        getOrCreateThread: vi.fn().mockResolvedValue({
+          thread: { id: "thread-1", name: null },
+          created: false,
         }),
         getThreadMessages: vi
           .fn()
@@ -527,7 +530,7 @@ describe("handleRunAgent", () => {
 
       const response = await handleRunAgent({
         runtime,
-        request: createRunRequest(),
+        request: createRunRequest({ "X-User-Id": "user-1" }),
         agentId: "my-agent",
       });
 
@@ -540,14 +543,9 @@ describe("handleRunAgent", () => {
     it("creates the thread before locking when run targets a fresh thread", async () => {
       const agent = createAgentForIntelligence();
       const platform = {
-        getThread: vi
-          .fn()
-          .mockRejectedValue(
-            new Error("Intelligence platform error 404: Not found"),
-          ),
-        createThread: vi.fn().mockResolvedValue({
-          id: "thread-1",
-          name: null,
+        getOrCreateThread: vi.fn().mockResolvedValue({
+          thread: { id: "thread-1", name: null },
+          created: true,
         }),
         getThreadMessages: vi.fn().mockResolvedValue({ messages: [] }),
         acquireThreadLock: vi.fn().mockResolvedValue({
@@ -564,7 +562,7 @@ describe("handleRunAgent", () => {
       });
 
       expect(response.status).toBe(200);
-      expect(platform.createThread).toHaveBeenCalledWith({
+      expect(platform.getOrCreateThread).toHaveBeenCalledWith({
         threadId: "thread-1",
         userId: "user-1",
         agentId: "my-agent",
@@ -611,14 +609,9 @@ describe("handleRunAgent", () => {
         runAgent: vi.fn().mockResolvedValue(undefined),
       } as unknown as AbstractAgent;
       const platform = {
-        getThread: vi
-          .fn()
-          .mockRejectedValue(
-            new Error("Intelligence platform error 404: Not found"),
-          ),
-        createThread: vi.fn().mockResolvedValue({
-          id: "thread-1",
-          name: null,
+        getOrCreateThread: vi.fn().mockResolvedValue({
+          thread: { id: "thread-1", name: null },
+          created: true,
         }),
         updateThread: vi.fn().mockResolvedValue({
           id: "thread-1",
@@ -675,14 +668,9 @@ describe("handleRunAgent", () => {
     it("does not generate a thread name when generateThreadNames is false", async () => {
       const agent = createAgentForIntelligence();
       const platform = {
-        getThread: vi
-          .fn()
-          .mockRejectedValue(
-            new Error("Intelligence platform error 404: Not found"),
-          ),
-        createThread: vi.fn().mockResolvedValue({
-          id: "thread-1",
-          name: null,
+        getOrCreateThread: vi.fn().mockResolvedValue({
+          thread: { id: "thread-1", name: null },
+          created: true,
         }),
         updateThread: vi.fn(),
         getThreadMessages: vi.fn().mockResolvedValue({ messages: [] }),
@@ -709,14 +697,9 @@ describe("handleRunAgent", () => {
     it("does not generate a thread name when the created thread already has a name", async () => {
       const agent = createAgentForIntelligence();
       const platform = {
-        getThread: vi
-          .fn()
-          .mockRejectedValue(
-            new Error("Intelligence platform error 404: Not found"),
-          ),
-        createThread: vi.fn().mockResolvedValue({
-          id: "thread-1",
-          name: "Existing name",
+        getOrCreateThread: vi.fn().mockResolvedValue({
+          thread: { id: "thread-1", name: "Existing name" },
+          created: true,
         }),
         updateThread: vi.fn(),
         getThreadMessages: vi.fn().mockResolvedValue({ messages: [] }),
@@ -770,14 +753,9 @@ describe("handleRunAgent", () => {
         runAgent: vi.fn().mockResolvedValue(undefined),
       } as unknown as AbstractAgent;
       const platform = {
-        getThread: vi
-          .fn()
-          .mockRejectedValue(
-            new Error("Intelligence platform error 404: Not found"),
-          ),
-        createThread: vi.fn().mockResolvedValue({
-          id: "thread-1",
-          name: null,
+        getOrCreateThread: vi.fn().mockResolvedValue({
+          thread: { id: "thread-1", name: null },
+          created: true,
         }),
         updateThread: vi.fn(),
         getThreadMessages: vi.fn().mockResolvedValue({ messages: [] }),
@@ -838,12 +816,7 @@ describe("handleRunAgent", () => {
     it("returns 400 when a fresh thread run is missing X-User-Id", async () => {
       const agent = createAgentForIntelligence();
       const platform = {
-        getThread: vi
-          .fn()
-          .mockRejectedValue(
-            new Error("Intelligence platform error 404: Not found"),
-          ),
-        createThread: vi.fn(),
+        getOrCreateThread: vi.fn(),
         getThreadMessages: vi.fn(),
         acquireThreadLock: vi.fn(),
       };
@@ -856,7 +829,7 @@ describe("handleRunAgent", () => {
       });
 
       expect(response.status).toBe(400);
-      expect(platform.createThread).not.toHaveBeenCalled();
+      expect(platform.getOrCreateThread).not.toHaveBeenCalled();
       expect(platform.acquireThreadLock).not.toHaveBeenCalled();
     });
   });

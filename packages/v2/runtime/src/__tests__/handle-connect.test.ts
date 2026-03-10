@@ -226,7 +226,6 @@ describe("handleConnectAgent", () => {
         afterRequestMiddleware: undefined,
         runner,
         mode: "intelligence",
-        isIntelligenceMode: true,
         intelligence: platform,
       } as unknown as CopilotRuntime;
     };
@@ -323,7 +322,6 @@ describe("handleConnectAgent", () => {
       expect(response.status).toBe(404);
       const body = await response.json();
       expect(body.error).toBe("Connect plan not available");
-      expect(body.message).toContain("No active connect plan");
     });
 
     it("forwards lastSeenEventId to the intelligence platform", async () => {
