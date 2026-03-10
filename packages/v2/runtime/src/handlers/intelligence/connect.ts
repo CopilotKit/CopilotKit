@@ -24,7 +24,7 @@ export async function handleIntelligenceConnect({
   }
 
   try {
-    const result = await runtime.intelligence.connectThread({
+    const result = await runtime.intelligence.ɵconnectThread({
       threadId,
       lastSeenEventId,
     });
