@@ -232,7 +232,7 @@ describe("handleConnectAgent", () => {
 
     it("returns a live connect plan when join credentials are available", async () => {
       const platform = {
-        connectThread: vi.fn().mockResolvedValue({
+        ɵconnectThread: vi.fn().mockResolvedValue({
           mode: "live",
           joinToken: "jt-connect-1",
           joinFromEventId: "event-1",
@@ -256,7 +256,7 @@ describe("handleConnectAgent", () => {
         joinFromEventId: "event-1",
         events: [],
       });
-      expect(platform.connectThread).toHaveBeenCalledWith({
+      expect(platform.ɵconnectThread).toHaveBeenCalledWith({
         threadId: "thread-1",
         lastSeenEventId: null,
       });
@@ -264,7 +264,7 @@ describe("handleConnectAgent", () => {
 
     it("returns a bootstrap connect plan when no socket is needed", async () => {
       const platform = {
-        connectThread: vi.fn().mockResolvedValue({
+        ɵconnectThread: vi.fn().mockResolvedValue({
           mode: "bootstrap",
           latestEventId: "event-2",
           events: [{ type: "MESSAGES_SNAPSHOT", messages: [] }],
@@ -289,7 +289,7 @@ describe("handleConnectAgent", () => {
 
     it("returns 204 when connect targets a fresh thread", async () => {
       const platform = {
-        connectThread: vi.fn().mockResolvedValue(null),
+        ɵconnectThread: vi.fn().mockResolvedValue(null),
         createThread: vi.fn(),
       };
       const runtime = createIntelligenceRuntime(platform as any);
@@ -302,12 +302,12 @@ describe("handleConnectAgent", () => {
 
       expect(response.status).toBe(204);
       expect(platform.createThread).not.toHaveBeenCalled();
-      expect(platform.connectThread).toHaveBeenCalledTimes(1);
+      expect(platform.ɵconnectThread).toHaveBeenCalledTimes(1);
     });
 
     it("returns 404 when connect planning is not available", async () => {
       const platform = {
-        connectThread: vi
+        ɵconnectThread: vi
           .fn()
           .mockRejectedValue(new Error("No active connect plan")),
       };
@@ -326,7 +326,7 @@ describe("handleConnectAgent", () => {
 
     it("forwards lastSeenEventId to the intelligence platform", async () => {
       const platform = {
-        connectThread: vi.fn().mockResolvedValue(null),
+        ɵconnectThread: vi.fn().mockResolvedValue(null),
       };
       const runtime = createIntelligenceRuntime(platform as any);
 
@@ -337,7 +337,7 @@ describe("handleConnectAgent", () => {
       });
 
       expect(response.status).toBe(204);
-      expect(platform.connectThread).toHaveBeenCalledWith({
+      expect(platform.ɵconnectThread).toHaveBeenCalledWith({
         threadId: "thread-1",
         lastSeenEventId: "event-9",
       });
