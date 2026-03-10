@@ -125,7 +125,7 @@ export async function handleSubscribeToThreads({
     }
 
     const credentials =
-      await intelligenceRuntime.intelligence.subscribeToThreads({
+      await intelligenceRuntime.intelligence.ɵsubscribeToThreads({
         userId,
       });
 

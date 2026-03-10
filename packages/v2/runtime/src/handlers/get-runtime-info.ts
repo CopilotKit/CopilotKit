@@ -33,10 +33,11 @@ export async function handleGetRuntimeInfo({
       ...(isIntelligenceRuntime(runtime)
         ? {
             intelligence: {
-              wsUrl: runtime.intelligence.getClientWsUrl(),
+              wsUrl: runtime.intelligence.ɵgetClientWsUrl(),
             },
           }
         : {}),
+      a2uiEnabled: !!runtime.a2ui,
     };
 
     return new Response(JSON.stringify(runtimeInfo), {

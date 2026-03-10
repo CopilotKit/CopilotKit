@@ -72,7 +72,7 @@ export async function handleIntelligenceRun({
   let joinCode: string | undefined;
   let joinToken: string | undefined;
   try {
-    const lockResult = await runtime.intelligence.acquireThreadLock({
+    const lockResult = await runtime.intelligence.ɵacquireThreadLock({
       threadId: input.threadId,
       runId: input.runId,
     });
