@@ -1,0 +1,29 @@
+{
+  "name": "@copilotkit-storybook/vue",
+  "private": true,
+  "version": "0.0.1-next.0",
+  "scripts": {
+    "dev": "pnpm --filter @copilotkitnext/vue run build:css && sleep 1 && concurrently \"pnpm --filter @copilotkitnext/vue run dev\" \"pnpm --filter @copilotkitnext/web-inspector run dev\" \"storybook dev -p 6008 --no-open\"",
+    "build": "pnpm --filter @copilotkitnext/vue run build:css && storybook build",
+    "check-types": "pnpm --filter @copilotkitnext/vue exec vue-tsc --noEmit -p \"$PWD/tsconfig.json\"",
+    "storybook:dev": "pnpm --filter @copilotkitnext/vue run build:css && sleep 1 && concurrently \"pnpm --filter @copilotkitnext/vue run dev\" \"pnpm --filter @copilotkitnext/web-inspector run dev\" \"storybook dev -p 6008 --no-open\"",
+    "storybook:build": "pnpm --filter @copilotkitnext/vue run build:css && storybook build"
+  },
+  "dependencies": {
+    "@storybook/vue3-vite": "10.1.11",
+    "storybook": "10.1.11",
+    "vue": "^3.5.28"
+  },
+  "devDependencies": {
+    "@copilotkitnext/react": "workspace:*",
+    "@copilotkitnext/typescript-config": "workspace:*",
+    "@copilotkitnext/vue": "workspace:*",
+    "@storybook/addon-docs": "10.1.11",
+    "@storybook/addon-themes": "10.1.11",
+    "@types/node": "^22",
+    "@vitejs/plugin-vue": "^6.0.1",
+    "concurrently": "^9.1.0",
+    "lucide-vue-next": "^0.525.0",
+    "typescript": "5.8.2"
+  }
+}

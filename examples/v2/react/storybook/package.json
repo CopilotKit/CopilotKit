@@ -9,6 +9,7 @@
     "storybook:build": "storybook build"
   },
   "dependencies": {
+    "next": "15.4.10",
     "@storybook/nextjs": "^10.1.10",
     "@storybook/react": "^10.1.10",
     "next": "^15",
