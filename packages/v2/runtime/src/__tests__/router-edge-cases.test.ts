@@ -68,10 +68,7 @@ describe("matchRoute — URL decoding", () => {
   });
 
   it("decodes URL-encoded threadId", () => {
-    const result = matchRoute(
-      "/api/agent/myAgent/stop/thread%2F123",
-      "/api",
-    );
+    const result = matchRoute("/api/agent/myAgent/stop/thread%2F123", "/api");
     expect(result).toEqual({
       method: "agent/stop",
       agentId: "myAgent",
@@ -80,11 +77,11 @@ describe("matchRoute — URL decoding", () => {
   });
 
   it("handles agentId with special characters", () => {
-    const result = matchRoute(
-      "/api/agent/agent%40domain.com/run",
-      "/api",
-    );
-    expect(result).toEqual({ method: "agent/run", agentId: "agent@domain.com" });
+    const result = matchRoute("/api/agent/agent%40domain.com/run", "/api");
+    expect(result).toEqual({
+      method: "agent/run",
+      agentId: "agent@domain.com",
+    });
   });
 
   it("handles already-decoded agentId", () => {
@@ -183,10 +180,7 @@ describe("matchRoute — segment edge cases", () => {
   });
 
   it("matches with deep basePath", () => {
-    const result = matchRoute(
-      "/v1/api/copilotkit/info",
-      "/v1/api/copilotkit",
-    );
+    const result = matchRoute("/v1/api/copilotkit/info", "/v1/api/copilotkit");
     expect(result).toEqual({ method: "info" });
   });
 

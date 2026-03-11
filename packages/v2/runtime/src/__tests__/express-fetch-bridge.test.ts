@@ -168,7 +168,10 @@ describe("express-fetch-bridge — URL reconstruction", () => {
     const fetchHandler: CopilotRuntimeFetchHandler = async (req) => {
       const url = new URL(req.url);
       return new Response(
-        JSON.stringify({ search: url.search, param: url.searchParams.get("foo") }),
+        JSON.stringify({
+          search: url.search,
+          param: url.searchParams.get("foo"),
+        }),
         { status: 200, headers: { "Content-Type": "application/json" } },
       );
     };
@@ -242,10 +245,10 @@ describe("express-fetch-bridge — header preservation", () => {
 describe("express-fetch-bridge — HTTP methods", () => {
   it("GET requests bypass pre-parsed body logic", async () => {
     const fetchHandler: CopilotRuntimeFetchHandler = async (req) => {
-      return new Response(
-        JSON.stringify({ method: req.method }),
-        { status: 200, headers: { "Content-Type": "application/json" } },
-      );
+      return new Response(JSON.stringify({ method: req.method }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
     };
 
     const app = createApp(fetchHandler, { bodyParserFirst: true });

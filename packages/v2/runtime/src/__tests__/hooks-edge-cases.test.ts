@@ -37,9 +37,9 @@ const post = (url: string, body?: unknown) =>
 
 describe("hooks edge cases — onRequest errors", () => {
   it("async onRequest throwing Error triggers onError", async () => {
-    const onError = vi.fn().mockReturnValue(
-      new Response("handled", { status: 503 }),
-    );
+    const onError = vi
+      .fn()
+      .mockReturnValue(new Response("handled", { status: 503 }));
     const handler = createCopilotRuntimeHandler({
       runtime: createRuntime(),
       basePath: "/api",
@@ -62,9 +62,9 @@ describe("hooks edge cases — onRequest errors", () => {
   });
 
   it("onRequest throwing a string (non-Error) triggers onError", async () => {
-    const onError = vi.fn().mockReturnValue(
-      new Response("handled", { status: 503 }),
-    );
+    const onError = vi
+      .fn()
+      .mockReturnValue(new Response("handled", { status: 503 }));
     const handler = createCopilotRuntimeHandler({
       runtime: createRuntime(),
       basePath: "/api",
@@ -106,9 +106,9 @@ describe("hooks edge cases — onRequest errors", () => {
 
 describe("hooks edge cases — onBeforeHandler errors", () => {
   it("async onBeforeHandler throwing Error triggers onError with route info", async () => {
-    const onError = vi.fn().mockReturnValue(
-      new Response("handled", { status: 503 }),
-    );
+    const onError = vi
+      .fn()
+      .mockReturnValue(new Response("handled", { status: 503 }));
     const handler = createCopilotRuntimeHandler({
       runtime: createRuntime(),
       basePath: "/api",
@@ -153,9 +153,7 @@ describe("hooks edge cases — onBeforeHandler errors", () => {
       hooks: { onBeforeHandler },
     });
 
-    const response = await handler(
-      post("http://localhost/api/info"),
-    );
+    const response = await handler(post("http://localhost/api/info"));
     expect(response.status).toBe(405);
     expect(onBeforeHandler).not.toHaveBeenCalled();
   });
@@ -273,9 +271,9 @@ describe("hooks edge cases — onError", () => {
   });
 
   it("onError receives route info when error happens after routing", async () => {
-    const onError = vi.fn().mockReturnValue(
-      new Response("handled", { status: 503 }),
-    );
+    const onError = vi
+      .fn()
+      .mockReturnValue(new Response("handled", { status: 503 }));
     const handler = createCopilotRuntimeHandler({
       runtime: createRuntime(),
       basePath: "/api",
@@ -307,9 +305,9 @@ describe("hooks edge cases — onError", () => {
   });
 
   it("onError route is undefined when error happens before routing", async () => {
-    const onError = vi.fn().mockReturnValue(
-      new Response("handled", { status: 503 }),
-    );
+    const onError = vi
+      .fn()
+      .mockReturnValue(new Response("handled", { status: 503 }));
     const handler = createCopilotRuntimeHandler({
       runtime: createRuntime(),
       basePath: "/api",
@@ -339,9 +337,15 @@ describe("hooks edge cases — full pipeline", () => {
     const order: string[] = [];
 
     const hooks: CopilotRuntimeHooks = {
-      onRequest: () => { order.push("onRequest"); },
-      onBeforeHandler: () => { order.push("onBeforeHandler"); },
-      onResponse: () => { order.push("onResponse"); },
+      onRequest: () => {
+        order.push("onRequest");
+      },
+      onBeforeHandler: () => {
+        order.push("onBeforeHandler");
+      },
+      onResponse: () => {
+        order.push("onResponse");
+      },
     };
 
     const handler = createCopilotRuntimeHandler({
@@ -384,13 +388,10 @@ describe("hooks edge cases — full pipeline", () => {
       hooks: {
         onResponse: async ({ response }) => {
           const body = await response.json();
-          return new Response(
-            JSON.stringify({ ...body, injected: true }),
-            {
-              status: response.status,
-              headers: { "Content-Type": "application/json" },
-            },
-          );
+          return new Response(JSON.stringify({ ...body, injected: true }), {
+            status: response.status,
+            headers: { "Content-Type": "application/json" },
+          });
         },
       },
     });
