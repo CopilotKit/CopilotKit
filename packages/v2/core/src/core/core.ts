@@ -13,6 +13,8 @@ import {
   CopilotKitCoreRunAgentParams,
   CopilotKitCoreConnectAgentParams,
   CopilotKitCoreGetToolParams,
+  CopilotKitCoreRunToolParams,
+  CopilotKitCoreRunToolResult,
 } from "./run-handler";
 import { StateManager } from "./state-manager";
 
@@ -41,6 +43,8 @@ export type {
   CopilotKitCoreRunAgentParams,
   CopilotKitCoreConnectAgentParams,
   CopilotKitCoreGetToolParams,
+  CopilotKitCoreRunToolParams,
+  CopilotKitCoreRunToolResult,
 };
 
 export interface CopilotKitCoreStopAgentParams {
@@ -60,6 +64,8 @@ export enum CopilotKitCoreErrorCode {
   AGENT_RUN_ERROR_EVENT = "agent_run_error_event",
   TOOL_ARGUMENT_PARSE_FAILED = "tool_argument_parse_failed",
   TOOL_HANDLER_FAILED = "tool_handler_failed",
+  TOOL_NOT_FOUND = "tool_not_found",
+  AGENT_NOT_FOUND = "agent_not_found",
   // Transcription errors
   TRANSCRIPTION_FAILED = "transcription_failed",
   TRANSCRIPTION_SERVICE_NOT_CONFIGURED = "transcription_service_not_configured",
@@ -475,6 +481,17 @@ export class CopilotKitCore {
     params: CopilotKitCoreRunAgentParams,
   ): Promise<import("@ag-ui/client").RunAgentResult> {
     return this.runHandler.runAgent(params);
+  }
+
+  /**
+   * Programmatically execute a registered frontend tool without going through an LLM turn.
+   * The handler runs, render components show up in the UI, and both the tool call and
+   * result messages are added to `agent.messages`.
+   */
+  async runTool(
+    params: CopilotKitCoreRunToolParams,
+  ): Promise<CopilotKitCoreRunToolResult> {
+    return this.runHandler.runTool(params);
   }
 
   /**
