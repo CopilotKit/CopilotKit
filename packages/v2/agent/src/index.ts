@@ -42,7 +42,14 @@ import { createOpenAI } from "@ai-sdk/openai";
 import { createAnthropic } from "@ai-sdk/anthropic";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { randomUUID } from "crypto";
+import { safeParseToolArgs } from "@copilotkitnext/shared";
 import { z } from "zod";
+import type {
+  StandardSchemaV1,
+  InferSchemaOutput,
+} from "@copilotkitnext/shared";
+import { schemaToJsonSchema } from "@copilotkitnext/shared";
+import { jsonSchema as aiJsonSchema } from "ai";
 import {
   StreamableHTTPClientTransport,
   StreamableHTTPClientTransportOptions,
@@ -224,27 +231,27 @@ export function resolveModel(
  * Tool definition for BuiltInAgent
  */
 export interface ToolDefinition<
-  TParameters extends z.ZodTypeAny = z.ZodTypeAny,
+  TParameters extends StandardSchemaV1 = StandardSchemaV1,
 > {
   name: string;
   description: string;
   parameters: TParameters;
-  execute: (args: z.infer<TParameters>) => Promise<unknown>;
+  execute: (args: InferSchemaOutput<TParameters>) => Promise<unknown>;
 }
 
 /**
  * Define a tool for use with BuiltInAgent
  * @param name - The name of the tool
  * @param description - Description of what the tool does
- * @param parameters - Zod schema for the tool's input parameters
+ * @param parameters - Schema for the tool's input parameters (any Standard Schema V1 compatible library: Zod, Valibot, ArkType, etc.)
  * @param execute - Function to execute the tool server-side
  * @returns Tool definition
  */
-export function defineTool<TParameters extends z.ZodTypeAny>(config: {
+export function defineTool<TParameters extends StandardSchemaV1>(config: {
   name: string;
   description: string;
   parameters: TParameters;
-  execute: (args: z.infer<TParameters>) => Promise<unknown>;
+  execute: (args: InferSchemaOutput<TParameters>) => Promise<unknown>;
 }): ToolDefinition<TParameters> {
   return {
     name: config.name,
@@ -327,7 +334,7 @@ export function convertMessagesToVercelAISDKMessages(
           type: "tool-call",
           toolCallId: toolCall.id,
           toolName: toolCall.function.name,
-          input: JSON.parse(toolCall.function.arguments),
+          input: safeParseToolArgs(toolCall.function.arguments),
         };
         parts.push(toolCallPart);
       }
@@ -480,7 +487,18 @@ export function convertToolsToVercelAITools(
 }
 
 /**
- * Converts ToolDefinition array to Vercel AI SDK ToolSet
+ * Check whether a schema is a Zod schema by inspecting its Standard Schema vendor.
+ */
+function isZodSchema(schema: StandardSchemaV1): boolean {
+  return schema["~standard"]?.vendor === "zod";
+}
+
+/**
+ * Converts ToolDefinition array to Vercel AI SDK ToolSet.
+ *
+ * For Zod schemas, passes them directly to the AI SDK (Zod satisfies FlexibleSchema).
+ * For non-Zod schemas, converts to JSON Schema via schemaToJsonSchema() and wraps
+ * with the AI SDK's jsonSchema() helper.
  */
 export function convertToolDefinitionsToVercelAITools(
   tools: ToolDefinition[],
@@ -489,11 +507,22 @@ export function convertToolDefinitionsToVercelAITools(
   const result: Record<string, any> = {};
 
   for (const tool of tools) {
-    result[tool.name] = createVercelAISDKTool({
-      description: tool.description,
-      inputSchema: tool.parameters,
-      execute: tool.execute,
-    });
+    if (isZodSchema(tool.parameters)) {
+      // Zod schemas can be passed directly to AI SDK (satisfies FlexibleSchema)
+      result[tool.name] = createVercelAISDKTool({
+        description: tool.description,
+        inputSchema: tool.parameters as any,
+        execute: tool.execute,
+      });
+    } else {
+      // Non-Zod: convert to JSON Schema and wrap with AI SDK's jsonSchema()
+      const jsonSchemaObj = schemaToJsonSchema(tool.parameters);
+      result[tool.name] = createVercelAISDKTool({
+        description: tool.description,
+        inputSchema: aiJsonSchema(jsonSchemaObj),
+        execute: tool.execute,
+      });
+    }
   }
 
   return result;

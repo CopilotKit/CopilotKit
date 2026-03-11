@@ -1,9 +1,9 @@
-import { z } from "zod";
+import type { StandardSchemaV1 } from "@copilotkitnext/shared";
 import { ToolCallStatus } from "@copilotkitnext/core";
 
 export interface ReactToolCallRenderer<T = unknown> {
   name: string;
-  args: z.ZodSchema<T>;
+  args: StandardSchemaV1<any, T>;
   /**
    * Optional agent ID to constrain this tool renderer to a specific agent.
    * If specified, this renderer will only be used for the specified agent.

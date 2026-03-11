@@ -535,6 +535,80 @@ describe("CopilotKitProvider stability", () => {
       expect(tool).toBeDefined();
     });
 
+    it("preserves dynamically registered render tool calls through StrictMode remount cycle", () => {
+      let capturedInstance: CopilotKitCoreReact | null = null;
+
+      function DynamicRenderChild() {
+        const { copilotkit } = useCopilotKit();
+        capturedInstance = copilotkit;
+
+        useFrontendTool({
+          name: "strictModeRenderTool",
+          description: "Has render, survives StrictMode remount",
+          parameters: z.object({ topic: z.string() }),
+          handler: async () => "ok",
+          render: () => <div>Rendered!</div>,
+        });
+
+        return null;
+      }
+
+      render(
+        <React.StrictMode>
+          <CopilotKitProvider>
+            <DynamicRenderChild />
+          </CopilotKitProvider>
+        </React.StrictMode>,
+      );
+
+      expect(capturedInstance).not.toBeNull();
+      const renderToolCalls = capturedInstance!.renderToolCalls;
+      const hookRenderer = renderToolCalls.find(
+        (r) => r.name === "strictModeRenderTool",
+      );
+      expect(hookRenderer).toBeDefined();
+    });
+
+    it("hook render entries coexist with prop render entries through StrictMode remount", () => {
+      let capturedInstance: CopilotKitCoreReact | null = null;
+
+      function DynamicRenderChild() {
+        const { copilotkit } = useCopilotKit();
+        capturedInstance = copilotkit;
+
+        useFrontendTool({
+          name: "hookTool",
+          description: "Registered via hook",
+          parameters: z.object({ x: z.string() }),
+          handler: async () => "ok",
+          render: () => <div>Hook render</div>,
+        });
+
+        return null;
+      }
+
+      const propRtc: ReactToolCallRenderer<any>[] = [
+        {
+          name: "propTool",
+          args: z.object({ y: z.string() }),
+          render: () => <div>Prop render</div>,
+        },
+      ];
+
+      render(
+        <React.StrictMode>
+          <CopilotKitProvider renderToolCalls={propRtc}>
+            <DynamicRenderChild />
+          </CopilotKitProvider>
+        </React.StrictMode>,
+      );
+
+      expect(capturedInstance).not.toBeNull();
+      const renderToolCalls = capturedInstance!.renderToolCalls;
+      expect(renderToolCalls.find((r) => r.name === "propTool")).toBeDefined();
+      expect(renderToolCalls.find((r) => r.name === "hookTool")).toBeDefined();
+    });
+
     it("context value is stable through StrictMode remount", () => {
       const contextValues: CopilotKitContextValue[] = [];
 
@@ -558,6 +632,66 @@ describe("CopilotKitProvider stability", () => {
         expect(ctx.copilotkit).toBe(first.copilotkit);
         expect(ctx.executingToolCallIds).toBe(first.executingToolCallIds);
       }
+    });
+  });
+
+  describe("hook render entries survive prop changes", () => {
+    it("preserves hook-registered render entries when provider renderToolCalls prop changes", () => {
+      let capturedInstance: CopilotKitCoreReact | null = null;
+
+      function DynamicRenderChild() {
+        const { copilotkit } = useCopilotKit();
+        capturedInstance = copilotkit;
+
+        useFrontendTool({
+          name: "hookTool",
+          description: "Registered via hook",
+          parameters: z.object({ x: z.string() }),
+          handler: async () => "ok",
+          render: () => <div>Hook render</div>,
+        });
+
+        return null;
+      }
+
+      const rtc1: ReactToolCallRenderer<any>[] = [
+        {
+          name: "propToolA",
+          args: z.object({ a: z.string() }),
+          render: () => <div>A</div>,
+        },
+      ];
+      const rtc2: ReactToolCallRenderer<any>[] = [
+        {
+          name: "propToolB",
+          args: z.object({ b: z.string() }),
+          render: () => <div>B</div>,
+        },
+      ];
+
+      const { rerender } = render(
+        <CopilotKitProvider renderToolCalls={rtc1}>
+          <DynamicRenderChild />
+        </CopilotKitProvider>,
+      );
+
+      // Rerender with new prop render tool calls
+      rerender(
+        <CopilotKitProvider renderToolCalls={rtc2}>
+          <DynamicRenderChild />
+        </CopilotKitProvider>,
+      );
+
+      expect(capturedInstance).not.toBeNull();
+      const renderToolCalls = capturedInstance!.renderToolCalls;
+      // propToolA should be gone (replaced by propToolB)
+      expect(
+        renderToolCalls.find((r) => r.name === "propToolA"),
+      ).toBeUndefined();
+      // propToolB should exist (from new props)
+      expect(renderToolCalls.find((r) => r.name === "propToolB")).toBeDefined();
+      // hookTool should survive the prop change
+      expect(renderToolCalls.find((r) => r.name === "hookTool")).toBeDefined();
     });
   });
 

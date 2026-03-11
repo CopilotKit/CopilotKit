@@ -1,38 +1,40 @@
 import { useEffect } from "react";
-import type { z } from "zod";
+import type {
+  StandardSchemaV1,
+  InferSchemaOutput,
+} from "@copilotkitnext/shared";
 import { useCopilotKit } from "../providers/CopilotKitProvider";
 import { defineToolCallRenderer } from "../types/defineToolCallRenderer";
-import type { ReactToolCallRenderer } from "../types/react-tool-call-renderer";
 
 const EMPTY_DEPS: ReadonlyArray<unknown> = [];
 
-export interface RenderToolInProgressProps<S extends z.ZodTypeAny> {
+export interface RenderToolInProgressProps<S extends StandardSchemaV1> {
   name: string;
-  parameters: Partial<z.infer<S>>;
+  parameters: Partial<InferSchemaOutput<S>>;
   status: "inProgress";
   result: undefined;
 }
 
-export interface RenderToolExecutingProps<S extends z.ZodTypeAny> {
+export interface RenderToolExecutingProps<S extends StandardSchemaV1> {
   name: string;
-  parameters: z.infer<S>;
+  parameters: InferSchemaOutput<S>;
   status: "executing";
   result: undefined;
 }
 
-export interface RenderToolCompleteProps<S extends z.ZodTypeAny> {
+export interface RenderToolCompleteProps<S extends StandardSchemaV1> {
   name: string;
-  parameters: z.infer<S>;
+  parameters: InferSchemaOutput<S>;
   status: "complete";
   result: string;
 }
 
-export type RenderToolProps<S extends z.ZodTypeAny> =
+export type RenderToolProps<S extends StandardSchemaV1> =
   | RenderToolInProgressProps<S>
   | RenderToolExecutingProps<S>
   | RenderToolCompleteProps<S>;
 
-type RenderToolConfig<S extends z.ZodTypeAny> = {
+type RenderToolConfig<S extends StandardSchemaV1> = {
   name: string;
   parameters?: S;
   render: (props: RenderToolProps<S>) => React.ReactElement;
@@ -75,10 +77,11 @@ export function useRenderTool(
 /**
  * Registers a name-scoped renderer for tool calls.
  *
- * The provided `parameters` Zod schema defines the typed shape of `props.parameters`
- * in `render` for `executing` and `complete` states.
+ * The provided `parameters` schema defines the typed shape of `props.parameters`
+ * in `render` for `executing` and `complete` states. Accepts any Standard Schema V1
+ * compatible library (Zod, Valibot, ArkType, etc.).
  *
- * @typeParam S - Zod schema type describing tool call parameters.
+ * @typeParam S - Schema type describing tool call parameters.
  * @param config - Named renderer configuration.
  * @param deps - Optional dependencies to refresh registration.
  *
@@ -98,7 +101,7 @@ export function useRenderTool(
  * );
  * ```
  */
-export function useRenderTool<S extends z.ZodTypeAny>(
+export function useRenderTool<S extends StandardSchemaV1>(
   config: {
     name: string;
     parameters: S;
@@ -116,7 +119,7 @@ export function useRenderTool<S extends z.ZodTypeAny>(
  * - keeps renderer entries on cleanup so historical chat tool calls can still render,
  * - refreshes registration when `deps` change.
  *
- * @typeParam S - Zod schema type describing tool call parameters.
+ * @typeParam S - Schema type describing tool call parameters.
  * @param config - Renderer config for wildcard or named tools.
  * @param deps - Optional dependencies to refresh registration.
  *
@@ -149,7 +152,7 @@ export function useRenderTool<S extends z.ZodTypeAny>(
  * );
  * ```
  */
-export function useRenderTool<S extends z.ZodTypeAny>(
+export function useRenderTool<S extends StandardSchemaV1>(
   config: RenderToolConfig<S>,
   deps?: ReadonlyArray<unknown>,
 ): void {
@@ -174,20 +177,7 @@ export function useRenderTool<S extends z.ZodTypeAny>(
             ...(config.agentId ? { agentId: config.agentId } : {}),
           });
 
-    // Dedupe by "agentId:name" key, same pattern as useFrontendTool
-    const keyOf = (rc: ReactToolCallRenderer) =>
-      `${rc.agentId ?? ""}:${rc.name}`;
-    const currentRenderToolCalls =
-      copilotkit.renderToolCalls as ReactToolCallRenderer[];
-
-    const mergedMap = new Map<string, ReactToolCallRenderer>();
-    for (const rc of currentRenderToolCalls) {
-      mergedMap.set(keyOf(rc), rc);
-    }
-
-    mergedMap.set(keyOf(renderer), renderer);
-
-    copilotkit.setRenderToolCalls(Array.from(mergedMap.values()));
+    copilotkit.addHookRenderToolCall(renderer);
 
     // No cleanup removal — keeps renderer for chat history, same as useFrontendTool
   }, [config.name, copilotkit, extraDeps.length, ...extraDeps]);

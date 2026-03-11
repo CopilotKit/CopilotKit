@@ -135,6 +135,25 @@ describe("agui-to-gql", () => {
         aguiToolCallToGQLActionExecution(toolCall, "parent-id"),
       ).toThrow("Unsupported tool call type");
     });
+
+    test.each([
+      { label: "empty string", args: '""', desc: "JSON string" },
+      { label: "number", args: "42", desc: "JSON number" },
+      { label: "boolean", args: "true", desc: "JSON boolean" },
+      { label: "null", args: "null", desc: "JSON null" },
+      { label: "array", args: "[1,2,3]", desc: "JSON array" },
+    ])(
+      "should fall back to {} when arguments parse to $desc ($label)",
+      ({ args }) => {
+        const toolCall: agui.ToolCall = {
+          id: "tc-nonobj",
+          type: "function",
+          function: { name: "fn", arguments: args },
+        };
+        const result = aguiToolCallToGQLActionExecution(toolCall, "parent-id");
+        expect(result.arguments).toEqual({});
+      },
+    );
   });
 
   describe("aguiToolMessageToGQLResultMessage", () => {

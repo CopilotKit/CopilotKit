@@ -50,6 +50,8 @@
   "changesets": [
     "fifty-cobras-pull",
     "fix-escape-key-focus-loss-399",
-    "odd-planets-deliver"
+    "floppy-birds-sink",
+    "odd-planets-deliver",
+    "slimy-zoos-accept"
   ]
 }

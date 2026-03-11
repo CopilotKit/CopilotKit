@@ -13,6 +13,8 @@ vi.mock("@/providers/CopilotKitProvider", () => ({
 type MockCore = {
   renderToolCalls: ReactToolCallRenderer[];
   setRenderToolCalls: ReturnType<typeof vi.fn>;
+  addHookRenderToolCall: ReturnType<typeof vi.fn>;
+  removeHookRenderToolCall: ReturnType<typeof vi.fn>;
 };
 
 const mockUseCopilotKit = useCopilotKit as ReturnType<typeof vi.fn>;
@@ -20,10 +22,30 @@ const mockUseCopilotKit = useCopilotKit as ReturnType<typeof vi.fn>;
 function createMockCore(
   initialRenderToolCalls: ReactToolCallRenderer[] = [],
 ): MockCore {
+  const hookEntries = new Map<string, ReactToolCallRenderer>();
+
   const core: MockCore = {
-    renderToolCalls: initialRenderToolCalls,
+    get renderToolCalls() {
+      if (hookEntries.size === 0) return initialRenderToolCalls;
+      const merged = new Map<string, ReactToolCallRenderer>();
+      for (const rc of initialRenderToolCalls) {
+        merged.set(`${rc.agentId ?? ""}:${rc.name}`, rc);
+      }
+      for (const [key, rc] of hookEntries) {
+        merged.set(key, rc);
+      }
+      return Array.from(merged.values());
+    },
     setRenderToolCalls: vi.fn((next: ReactToolCallRenderer[]) => {
-      core.renderToolCalls = next;
+      initialRenderToolCalls = next;
+    }),
+    addHookRenderToolCall: vi.fn((entry: ReactToolCallRenderer) => {
+      const key = `${entry.agentId ?? ""}:${entry.name}`;
+      hookEntries.set(key, entry);
+    }),
+    removeHookRenderToolCall: vi.fn((name: string, agentId?: string) => {
+      const key = `${agentId ?? ""}:${name}`;
+      hookEntries.delete(key);
     }),
   };
 
@@ -58,7 +80,7 @@ describe("useRenderTool", () => {
 
     render(<Harness />);
 
-    expect(core.setRenderToolCalls).toHaveBeenCalledTimes(1);
+    expect(core.addHookRenderToolCall).toHaveBeenCalledTimes(1);
     const renderer = core.renderToolCalls.find(
       (item) => item.name === "searchDocs",
     );
@@ -201,10 +223,10 @@ describe("useRenderTool", () => {
     };
 
     const ui = render(<Harness version="v1" />);
-    expect(core.setRenderToolCalls).toHaveBeenCalledTimes(1);
+    expect(core.addHookRenderToolCall).toHaveBeenCalledTimes(1);
 
     ui.rerender(<Harness version="v2" />);
-    expect(core.setRenderToolCalls).toHaveBeenCalledTimes(2);
+    expect(core.addHookRenderToolCall).toHaveBeenCalledTimes(2);
   });
 
   it("does not remove renderer on unmount", () => {
@@ -224,10 +246,12 @@ describe("useRenderTool", () => {
     };
 
     const ui = render(<Harness />);
-    const setCallsAfterMount = core.setRenderToolCalls.mock.calls.length;
+    const callsAfterMount = core.addHookRenderToolCall.mock.calls.length;
     ui.unmount();
 
-    expect(core.setRenderToolCalls).toHaveBeenCalledTimes(setCallsAfterMount);
+    // No additional calls after unmount — renderer kept for chat history
+    expect(core.addHookRenderToolCall).toHaveBeenCalledTimes(callsAfterMount);
+    expect(core.removeHookRenderToolCall).not.toHaveBeenCalled();
     expect(
       core.renderToolCalls.find((item) => item.name === "searchDocs"),
     ).toBeDefined();

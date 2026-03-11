@@ -1,6 +1,6 @@
 {
   "name": "@copilotkitnext/angular",
-  "version": "1.53.1-next.2",
+  "version": "1.54.0-next.4",
   "description": "Angular library for CopilotKit",
   "main": "dist/fesm2022/copilotkitnext-angular.mjs",
   "module": "dist/fesm2022/copilotkitnext-angular.mjs",
@@ -36,7 +36,6 @@
     "marked": "^16.2.0",
     "rxjs": "^7.8.1",
     "tailwind-merge": "^2.6.0",
-    "zod": "^3.22.4",
     "tslib": "^2.6.0"
   },
   "peerDependencies": {
@@ -81,6 +80,7 @@
     "typescript-eslint": "^8.35.0",
     "vite": "^7.1.4",
     "vitest": "^3.2.4",
+    "zod": "^3.22.4",
     "zone.js": "^0.14.0"
   },
   "publishConfig": {
