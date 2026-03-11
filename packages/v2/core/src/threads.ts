@@ -4,11 +4,11 @@ import { defer, firstValueFrom, merge, of } from "rxjs";
 import { fromFetch } from "rxjs/fetch";
 import {
   catchError,
-  finalize,
   filter,
   map,
   mergeMap,
   share,
+  shareReplay,
   switchMap,
   take,
   takeUntil,
@@ -28,7 +28,10 @@ import {
   type Store,
 } from "./utils/micro-redux";
 import {
-  ɵobservePhoenixChannelEvent$,
+  ɵphoenixChannel$,
+  ɵphoenixSocket$,
+  type ɵPhoenixChannelSession,
+  ɵobservePhoenixEvent$,
   ɵobservePhoenixJoinOutcome$,
   ɵobservePhoenixSocketHealth$,
   ɵobservePhoenixSocketSignals$,
@@ -97,36 +100,8 @@ type MutationOutcome =
   | { requestId: string; ok: true }
   | { requestId: string; ok: false; error: Error };
 
-interface ThreadSocketLike {
-  on(event: string, callback: (payload: unknown) => void): void;
-  join(): {
-    receive(status: string, callback: (payload?: unknown) => void): unknown;
-  };
-  leave(): void;
-}
-
-interface ThreadSocketInstanceLike {
-  connect(): void;
-  disconnect(): void;
-  channel(topic: string, params?: Record<string, unknown>): ThreadSocketLike;
-  onError(callback: () => void): void;
-  onOpen(callback: () => void): void;
-}
-
-interface ThreadSocketConstructorLike {
-  new (
-    url: string,
-    options: {
-      params: Record<string, unknown>;
-      reconnectAfterMs: (tries: number) => number;
-      rejoinAfterMs: (tries: number) => number;
-    },
-  ): ThreadSocketInstanceLike;
-}
-
 interface ThreadEnvironment {
   fetch: typeof fetch;
-  Socket: ThreadSocketConstructorLike;
 }
 
 interface ThreadState {
@@ -605,14 +580,20 @@ function createThreadStore(environment: ThreadEnvironment): ThreadStore {
         );
 
         return defer(() => {
-          const socket = new environment.Socket(context.wsUrl!, {
-            params: { join_token: joinToken },
-            reconnectAfterMs: phoenixExponentialBackoff(100, 10_000),
-            rejoinAfterMs: phoenixExponentialBackoff(1_000, 30_000),
-          });
-          const channel = socket.channel(`user_meta:${context.userId}`);
+          const socket$ = ɵphoenixSocket$({
+            url: context.wsUrl!,
+            options: {
+              params: { join_token: joinToken },
+              reconnectAfterMs: phoenixExponentialBackoff(100, 10_000),
+              rejoinAfterMs: phoenixExponentialBackoff(1_000, 30_000),
+            },
+          }).pipe(shareReplay({ bufferSize: 1, refCount: true }));
+          const channel$ = ɵphoenixChannel$({
+            socket$,
+            topic: `user_meta:${context.userId}`,
+          }).pipe(shareReplay({ bufferSize: 1, refCount: true }));
           const socketSignals$ =
-            ɵobservePhoenixSocketSignals$(socket).pipe(share());
+            ɵobservePhoenixSocketSignals$(socket$).pipe(share());
           const fatalSocketShutdown$ = ɵobservePhoenixSocketHealth$(
             socketSignals$,
             MAX_SOCKET_RETRIES,
@@ -632,10 +613,13 @@ function createThreadStore(environment: ThreadEnvironment): ThreadStore {
                 : threadSocketEvents.errored({ sessionId: action.sessionId }),
             ),
           );
-          const metadata$ = ɵobservePhoenixChannelEvent$<ThreadMetadataEvent>(
-            channel,
-            THREADS_CHANNEL_EVENT,
-          ).pipe(
+          const metadata$ = channel$.pipe(
+            switchMap(({ channel }: ɵPhoenixChannelSession) =>
+              ɵobservePhoenixEvent$<ThreadMetadataEvent>(
+                channel,
+                THREADS_CHANNEL_EVENT,
+              ),
+            ),
             map((payload) =>
               threadSocketEvents.metadataReceived({
                 sessionId: action.sessionId,
@@ -643,7 +627,7 @@ function createThreadStore(environment: ThreadEnvironment): ThreadStore {
               }),
             ),
           );
-          const joinOutcome$ = ɵobservePhoenixJoinOutcome$(channel).pipe(
+          const joinOutcome$ = ɵobservePhoenixJoinOutcome$(channel$).pipe(
             filter((outcome) => outcome.type !== "joined"),
             map((outcome) =>
               outcome.type === "timeout"
@@ -652,18 +636,12 @@ function createThreadStore(environment: ThreadEnvironment): ThreadStore {
                   })
                 : threadSocketEvents.joinFailed({
                     sessionId: action.sessionId,
-                  }),
+                }),
             ),
           );
 
-          socket.connect();
-
           return merge(socketLifecycle$, metadata$, joinOutcome$).pipe(
             takeUntil(merge(shutdown$, fatalSocketShutdown$)),
-            finalize(() => {
-              channel.leave();
-              socket.disconnect();
-            }),
           );
         });
       }),

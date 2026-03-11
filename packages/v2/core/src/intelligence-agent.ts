@@ -30,17 +30,23 @@ import {
   ignoreElements,
   mergeMap,
   share,
+  shareReplay,
+  switchMap as switchMapOperator,
   take,
   takeUntil,
   tap,
 } from "rxjs/operators";
-import { Socket, Channel } from "phoenix";
+import type { Socket, Channel } from "phoenix";
 import { phoenixExponentialBackoff } from "@copilotkitnext/shared";
 import {
+  ɵphoenixChannel$,
+  ɵphoenixSocket$,
+  type ɵPhoenixChannelSession,
+  type ɵPhoenixSocketSession,
   ɵjoinPhoenixChannel$,
-  ɵobservePhoenixChannelEvent$,
   ɵobservePhoenixSocketSignals$,
   ɵobservePhoenixSocketHealth$,
+  ɵobservePhoenixEvent$,
 } from "./utils/phoenix-observable";
 
 const CLIENT_AG_UI_EVENT = "ag_ui_event";
@@ -441,16 +447,40 @@ export class IntelligenceAgent extends AbstractAgent {
     },
   ): Observable<BaseEvent> {
     return defer(() => {
-      const socket = this.createSocket(credentials);
-      const channel = this.createThreadChannel(
-        socket,
+      const socket$ = ɵphoenixSocket$({
+        url: this.config.url,
+        options: {
+          params: {
+            ...(this.config.socketParams ?? {}),
+            join_token: credentials.joinToken,
+          },
+          reconnectAfterMs: phoenixExponentialBackoff(100, 10_000),
+          rejoinAfterMs: phoenixExponentialBackoff(1_000, 30_000),
+        },
+      }).pipe(
+        tap(({ socket }) => {
+          this.socket = socket as Socket;
+        }),
+        shareReplay({ bufferSize: 1, refCount: true }),
+      );
+      const { topic, params } = this.createThreadChannelDescriptor(
         input,
         options.streamMode,
         options.replayCursor,
       );
+      const channel$ = ɵphoenixChannel$({
+        socket$,
+        topic,
+        params,
+      }).pipe(
+        tap(({ channel }) => {
+          this.activeChannel = channel as Channel;
+        }),
+        shareReplay({ bufferSize: 1, refCount: true }),
+      );
       const threadEvents$ = this.observeThreadEvents$(
         input.threadId,
-        channel,
+        channel$,
         options,
       ).pipe(share());
       const threadCompleted$ = threadEvents$.pipe(
@@ -459,49 +489,38 @@ export class IntelligenceAgent extends AbstractAgent {
         take(1),
       );
 
-      this.socket = socket;
-      this.activeChannel = channel;
-      socket.connect();
-
       return merge(
-        this.joinThreadChannel$(channel),
-        this.observeSocketHealth$(socket).pipe(takeUntil(threadCompleted$)),
+        this.joinThreadChannel$(channel$),
+        this.observeSocketHealth$(socket$).pipe(takeUntil(threadCompleted$)),
         threadEvents$,
       ).pipe(finalize(() => this.cleanup()));
     });
   }
 
-  private createSocket(credentials: ThreadJoinCredentials): Socket {
-    return new Socket(this.config.url, {
-      params: {
-        ...(this.config.socketParams ?? {}),
-        join_token: credentials.joinToken,
-      },
-      reconnectAfterMs: phoenixExponentialBackoff(100, 10_000),
-      rejoinAfterMs: phoenixExponentialBackoff(1_000, 30_000),
-    });
+  private joinThreadChannel$(
+    channel$: Observable<ɵPhoenixChannelSession>,
+  ): Observable<never> {
+    return ɵjoinPhoenixChannel$(channel$);
   }
 
-  private joinThreadChannel$(channel: Channel): Observable<never> {
-    return ɵjoinPhoenixChannel$(channel);
-  }
-
-  private observeSocketHealth$(socket: Socket): Observable<never> {
+  private observeSocketHealth$(
+    socket$: Observable<ɵPhoenixSocketSession>,
+  ): Observable<never> {
     return ɵobservePhoenixSocketHealth$(
-      ɵobservePhoenixSocketSignals$(socket),
+      ɵobservePhoenixSocketSignals$(socket$),
       5,
     );
   }
 
   private observeThreadEvents$(
     threadId: string,
-    channel: Channel,
+    channel$: Observable<ɵPhoenixChannelSession>,
     options: { completeOnRunError: boolean },
   ): Observable<BaseEvent> {
-    return this.observeChannelEvent$<BaseEvent>(
-      channel,
-      CLIENT_AG_UI_EVENT,
-    ).pipe(
+    return channel$.pipe(
+      switchMapOperator(({ channel }) =>
+        this.observeChannelEvent$<BaseEvent>(channel, CLIENT_AG_UI_EVENT),
+      ),
       tap((payload) => {
         this.updateLastSeenEventId(threadId, payload);
       }),
@@ -518,7 +537,7 @@ export class IntelligenceAgent extends AbstractAgent {
     channel: Channel,
     eventName: string,
   ): Observable<T> {
-    return ɵobservePhoenixChannelEvent$<T>(channel, eventName);
+    return ɵobservePhoenixEvent$<T>(channel, eventName);
   }
 
   private createThreadNotifications(
@@ -554,13 +573,12 @@ export class IntelligenceAgent extends AbstractAgent {
     return new URL(path, new URL(this.config.runtimeUrl, origin)).toString();
   }
 
-  private createThreadChannel(
-    socket: Socket,
+  private createThreadChannelDescriptor(
     input: RunAgentInput,
     streamMode: "run" | "connect",
     replayCursor?: string | null,
-  ): Channel {
-    const payload =
+  ): { topic: string; params: Record<string, unknown> } {
+    const params =
       streamMode === "run"
         ? {
             stream_mode: "run",
@@ -574,7 +592,10 @@ export class IntelligenceAgent extends AbstractAgent {
                 : replayCursor,
           };
 
-    return socket.channel(`thread:${input.threadId}`, payload);
+    return {
+      topic: `thread:${input.threadId}`,
+      params,
+    };
   }
 
   private getLastSeenEventId(threadId: string): string | null {

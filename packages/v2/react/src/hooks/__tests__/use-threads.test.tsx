@@ -8,14 +8,15 @@ vi.mock("@/providers/CopilotKitProvider", () => ({
 }));
 
 const mockUseCopilotKit = useCopilotKit as ReturnType<typeof vi.fn>;
-
-(globalThis as any).__mockSockets = [] as any[];
+const phoenix = vi.hoisted(() => ({
+  sockets: [] as any[],
+}));
 
 vi.mock("phoenix", () => {
   class MockPush {
-    private callbacks = new Map<string, Function>();
+    private callbacks = new Map<string, (payload?: unknown) => void>();
 
-    receive(status: string, callback: Function): MockPush {
+    receive(status: string, callback: (payload?: unknown) => void): MockPush {
       this.callbacks.set(status, callback);
       return this;
     }
@@ -29,12 +30,14 @@ vi.mock("phoenix", () => {
     topic: string;
     params: Record<string, unknown>;
     left = false;
-    private joinPush = new MockPush();
+    channels: MockChannel[] = [];
+
     private handlers = new Map<
       string,
       Array<{ ref: number; callback: (payload: unknown) => void }>
     >();
-    private nextRef = 0;
+    private joinPush = new MockPush();
+    private nextRef = 1;
 
     constructor(topic = "", params: Record<string, unknown> = {}) {
       this.topic = topic;
@@ -51,17 +54,18 @@ vi.mock("phoenix", () => {
     }
 
     off(event: string, ref?: number): void {
+      if (!this.handlers.has(event)) {
+        return;
+      }
       if (ref === undefined) {
         this.handlers.delete(event);
         return;
       }
-      const entries = this.handlers.get(event);
-      if (entries) {
-        const index = entries.findIndex((entry) => entry.ref === ref);
-        if (index !== -1) {
-          entries.splice(index, 1);
-        }
-      }
+
+      this.handlers.set(
+        event,
+        this.handlers.get(event)!.filter((entry) => entry.ref !== ref),
+      );
     }
 
     join(): MockPush {
@@ -72,10 +76,6 @@ vi.mock("phoenix", () => {
       this.left = true;
     }
 
-    triggerJoin(status: "ok" | "error" | "timeout", payload?: unknown): void {
-      this.joinPush.trigger(status, payload);
-    }
-
     serverPush(event: string, payload: unknown): void {
       for (const entry of this.handlers.get(event) ?? []) {
         entry.callback(payload);
@@ -84,14 +84,19 @@ vi.mock("phoenix", () => {
   }
 
   class MockSocket {
+    url: string;
+    opts: Record<string, unknown>;
     connected = false;
     disconnected = false;
     channels: MockChannel[] = [];
-    private errorCallbacks: Array<() => void> = [];
-    private openCallbacks: Array<() => void> = [];
 
-    constructor() {
-      (globalThis as any).__mockSockets.push(this);
+    private errorHandlers: Array<(error?: unknown) => void> = [];
+    private openHandlers: Array<() => void> = [];
+
+    constructor(url = "", opts: Record<string, unknown> = {}) {
+      this.url = url;
+      this.opts = opts;
+      phoenix.sockets.push(this);
     }
 
     connect(): void {
@@ -108,35 +113,35 @@ vi.mock("phoenix", () => {
       return channel;
     }
 
-    onError(callback: () => void): void {
-      this.errorCallbacks.push(callback);
+    onError(callback: (error?: unknown) => void): void {
+      this.errorHandlers.push(callback);
     }
 
     onOpen(callback: () => void): void {
-      this.openCallbacks.push(callback);
+      this.openHandlers.push(callback);
     }
 
-    simulateError(): void {
-      for (const callback of this.errorCallbacks) {
-        callback();
+    triggerError(error?: unknown): void {
+      for (const handler of this.errorHandlers) {
+        handler(error);
       }
     }
 
-    simulateOpen(): void {
-      for (const callback of this.openCallbacks) {
-        callback();
+    triggerOpen(): void {
+      for (const handler of this.openHandlers) {
+        handler();
       }
     }
   }
 
-  return { Socket: MockSocket, Channel: MockChannel };
+  return { Socket: MockSocket };
 });
 
 const fetchMock = vi.fn();
 globalThis.fetch = fetchMock;
 
 function getMockSockets(): any[] {
-  return (globalThis as any).__mockSockets;
+  return phoenix.sockets;
 }
 
 function setupCopilotKit(runtimeUrl = "http://localhost:4000") {
@@ -189,7 +194,7 @@ const { useThreads } = await import("../use-threads");
 
 describe("useThreads", () => {
   beforeEach(() => {
-    (globalThis as any).__mockSockets = [];
+    phoenix.sockets.splice(0);
     fetchMock.mockReset();
     setupCopilotKit();
   });
@@ -387,7 +392,7 @@ describe("useThreads", () => {
 
     act(() => {
       for (let index = 0; index < 5; index += 1) {
-        socket.simulateError();
+        socket.triggerError();
       }
     });
 

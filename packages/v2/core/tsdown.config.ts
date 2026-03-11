@@ -25,6 +25,7 @@ export default defineConfig([
       "rxjs",
       "zod",
     ],
+    noExternal: ["phoenix"],
     codeSplitting: false,
     checks: { pluginTimings: false },
     outputOptions(options) {
