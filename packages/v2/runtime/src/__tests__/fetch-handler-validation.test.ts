@@ -329,13 +329,13 @@ describe("fetch-handler validation — multi-route edge cases", () => {
     expect(response.headers.get("Access-Control-Allow-Origin")).toBe("*");
   });
 
-  it("error response includes error message for Error instances", async () => {
+  it("error response does not leak error details to clients", async () => {
     const handler = createCopilotRuntimeHandler({
       runtime,
       basePath: "/api",
       hooks: {
         onRequest: () => {
-          throw new Error("custom error message");
+          throw new Error("sensitive internal detail: /home/user/db.sqlite");
         },
       },
     });
@@ -346,10 +346,11 @@ describe("fetch-handler validation — multi-route edge cases", () => {
     expect(response.status).toBe(500);
     const body = await response.json();
     expect(body.error).toBe("internal_error");
-    expect(body.message).toBe("custom error message");
+    // Error message should NOT be exposed to the client
+    expect(body.message).toBeUndefined();
   });
 
-  it("error response uses generic message for non-Error throws", async () => {
+  it("error response returns internal_error for non-Error throws", async () => {
     const handler = createCopilotRuntimeHandler({
       runtime,
       basePath: "/api",
@@ -366,6 +367,6 @@ describe("fetch-handler validation — multi-route edge cases", () => {
     expect(response.status).toBe(500);
     const body = await response.json();
     expect(body.error).toBe("internal_error");
-    expect(body.message).toBe("Internal server error");
+    expect(body.message).toBeUndefined();
   });
 });

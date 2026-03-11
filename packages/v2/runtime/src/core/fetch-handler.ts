@@ -50,6 +50,7 @@ import {
   parseMethodCall,
   createJsonRequest,
   expectString,
+  type MethodCall,
 } from "../endpoints/single-route-helpers";
 import { logger } from "@copilotkitnext/shared";
 
@@ -151,7 +152,9 @@ export function createCopilotRuntimeHandler(
       let response: Response;
 
       if (mode === "single-route") {
-        route = await resolveSingleRoute(request, basePath, path);
+        const resolved = await resolveSingleRoute(request, basePath, path);
+        route = resolved.route;
+        const { methodCall } = resolved;
         // 5. onBeforeHandler hook
         request = await runOnBeforeHandler(hooks, {
           request,
@@ -160,7 +163,7 @@ export function createCopilotRuntimeHandler(
           route,
         });
         // 6. Dispatch
-        response = await dispatchSingleRoute(runtime, request, route);
+        response = await dispatchSingleRoute(runtime, request, route, methodCall);
       } else {
         // Multi-route: match URL pattern
         const matched = matchRoute(path, basePath);
@@ -205,14 +208,18 @@ export function createCopilotRuntimeHandler(
       response = maybeAddCors(response, corsConfig, requestOrigin);
 
       // 9. Legacy afterRequestMiddleware (non-blocking)
-      callAfterRequestMiddleware({ runtime, response, path }).catch(
-        (error: unknown) => {
-          logger.error(
-            { err: error, url: request.url, path },
-            "Error running after request middleware",
-          );
-        },
-      );
+      // Clone the response so middleware can read the body without consuming
+      // the original stream that will be sent to the client.
+      callAfterRequestMiddleware({
+        runtime,
+        response: response.clone(),
+        path,
+      }).catch((error: unknown) => {
+        logger.error(
+          { err: error, url: request.url, path },
+          "Error running after request middleware",
+        );
+      });
 
       return response;
     } catch (error) {
@@ -228,17 +235,24 @@ export function createCopilotRuntimeHandler(
         return maybeAddCors(finalResponse, corsConfig, requestOrigin);
       }
 
-      // Run onError hook
-      const errorResponse = await runOnError(hooks, {
-        request,
-        error,
-        path,
-        runtime,
-        route,
-      });
+      // Run onError hook — wrapped so a throwing hook doesn't escape
+      try {
+        const errorResponse = await runOnError(hooks, {
+          request,
+          error,
+          path,
+          runtime,
+          route,
+        });
 
-      if (errorResponse) {
-        return maybeAddCors(errorResponse, corsConfig, requestOrigin);
+        if (errorResponse) {
+          return maybeAddCors(errorResponse, corsConfig, requestOrigin);
+        }
+      } catch (hookError: unknown) {
+        logger.error(
+          { err: hookError, originalErr: error, url: request.url, path },
+          "onError hook threw",
+        );
       }
 
       logger.error(
@@ -247,14 +261,7 @@ export function createCopilotRuntimeHandler(
       );
 
       return maybeAddCors(
-        jsonResponse(
-          {
-            error: "internal_error",
-            message:
-              error instanceof Error ? error.message : "Internal server error",
-          },
-          500,
-        ),
+        jsonResponse({ error: "internal_error" }, 500),
         corsConfig,
         requestOrigin,
       );
@@ -304,11 +311,16 @@ function dispatchMultiRoute(
  * Single-route dispatch
  * --------------------------------------------------------------------------------------------- */
 
+interface SingleRouteResolution {
+  route: RouteInfo;
+  methodCall: MethodCall;
+}
+
 async function resolveSingleRoute(
   request: Request,
   basePath: string | undefined,
   pathname: string,
-): Promise<RouteInfo> {
+): Promise<SingleRouteResolution> {
   if (basePath) {
     const normalizedBase =
       basePath.length > 1 && basePath.endsWith("/")
@@ -320,7 +332,11 @@ async function resolveSingleRoute(
   }
 
   if (request.method !== "POST") {
-    throw jsonResponse({ error: "Method not allowed" }, 405);
+    throw jsonResponse(
+      { error: "Method not allowed" },
+      405,
+      { Allow: "POST" },
+    );
   }
 
   const methodCall = await parseMethodCall(request);
@@ -337,21 +353,15 @@ async function resolveSingleRoute(
     route.threadId = expectString(methodCall.params, "threadId");
   }
 
-  // Stash the parsed method call on the request for dispatch
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  (request as any).__cpk_methodCall = methodCall;
-
-  return route;
+  return { route, methodCall };
 }
 
 function dispatchSingleRoute(
   runtime: CopilotRuntime,
   request: Request,
   route: RouteInfo,
+  methodCall: MethodCall,
 ): Promise<Response> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const methodCall = (request as any).__cpk_methodCall;
-
   switch (route.method) {
     case "agent/run": {
       const handlerRequest = createJsonRequest(request, methodCall.body);
@@ -398,7 +408,12 @@ function validateHttpMethod(
   const method = httpMethod.toUpperCase();
   if (route.method === "info" && method === "GET") return null;
   if (route.method !== "info" && method === "POST") return null;
-  return jsonResponse({ error: "Method not allowed" }, 405);
+  const allowed = route.method === "info" ? "GET" : "POST";
+  return jsonResponse(
+    { error: "Method not allowed" },
+    405,
+    { Allow: allowed },
+  );
 }
 
 /* ------------------------------------------------------------------------------------------------
@@ -422,9 +437,13 @@ function maybeAddCors(
   return addCorsHeaders(response, config, requestOrigin);
 }
 
-function jsonResponse(body: unknown, status: number): Response {
+function jsonResponse(
+  body: unknown,
+  status: number,
+  extraHeaders?: Record<string, string>,
+): Response {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...extraHeaders },
   });
 }

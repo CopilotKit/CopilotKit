@@ -250,7 +250,7 @@ describe("hooks edge cases — onError", () => {
     expect(onError).not.toHaveBeenCalled();
   });
 
-  it("onError itself throwing propagates as unhandled error", async () => {
+  it("onError itself throwing returns a 500 fallback instead of rejecting", async () => {
     const handler = createCopilotRuntimeHandler({
       runtime: createRuntime(),
       basePath: "/api",
@@ -264,10 +264,12 @@ describe("hooks edge cases — onError", () => {
       },
     });
 
-    // When onError throws, there is no double-catch — the error propagates
-    await expect(handler(get("http://localhost/api/info"))).rejects.toThrow(
-      "error in error handler",
-    );
+    // When onError throws, the handler catches it and returns a 500 response
+    // instead of letting the promise reject (which would crash the server).
+    const response = await handler(get("http://localhost/api/info"));
+    expect(response.status).toBe(500);
+    const body = await response.json();
+    expect(body.error).toBe("internal_error");
   });
 
   it("onError receives route info when error happens after routing", async () => {

@@ -52,8 +52,20 @@ function setCorsHeaders(
   config: CopilotCorsConfig,
   requestOrigin: string | null,
 ): void {
-  const allowedOrigin = resolveOrigin(config, requestOrigin);
+  let allowedOrigin = resolveOrigin(config, requestOrigin);
   if (!allowedOrigin) return;
+
+  // Per the Fetch spec, Access-Control-Allow-Origin: * combined with
+  // Access-Control-Allow-Credentials: true causes browsers to reject the
+  // response. Auto-resolve wildcard to the request origin when credentials
+  // are enabled; if there is no request origin, skip CORS entirely.
+  if (config.credentials && allowedOrigin === "*") {
+    if (requestOrigin) {
+      allowedOrigin = requestOrigin;
+    } else {
+      return;
+    }
+  }
 
   headers.set("Access-Control-Allow-Origin", allowedOrigin);
 
@@ -98,6 +110,10 @@ export function handleCors(
   if (config.maxAge != null) {
     headers.set("Access-Control-Max-Age", String(config.maxAge));
   }
+
+  // Vary headers for correct CDN caching of preflight responses
+  headers.append("Vary", "Access-Control-Request-Headers");
+  headers.append("Vary", "Access-Control-Request-Method");
 
   return new Response(null, { status: 204, headers });
 }

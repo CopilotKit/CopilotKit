@@ -50,6 +50,14 @@ export function matchRoute(
   return matchSegments(remainder);
 }
 
+function safeDecodeURIComponent(value: string): string | null {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return null;
+  }
+}
+
 function matchSegments(path: string): RouteInfo | null {
   const segments = path.split("/").filter(Boolean);
   const len = segments.length;
@@ -72,10 +80,9 @@ function matchSegments(path: string): RouteInfo | null {
     segments[len - 3] === "agent" &&
     segments[len - 1] === "run"
   ) {
-    return {
-      method: "agent/run",
-      agentId: decodeURIComponent(segments[len - 2]!),
-    };
+    const agentId = safeDecodeURIComponent(segments[len - 2]!);
+    if (!agentId) return null;
+    return { method: "agent/run", agentId };
   }
 
   // /agent/:agentId/connect (3 segments)
@@ -84,10 +91,9 @@ function matchSegments(path: string): RouteInfo | null {
     segments[len - 3] === "agent" &&
     segments[len - 1] === "connect"
   ) {
-    return {
-      method: "agent/connect",
-      agentId: decodeURIComponent(segments[len - 2]!),
-    };
+    const agentId = safeDecodeURIComponent(segments[len - 2]!);
+    if (!agentId) return null;
+    return { method: "agent/connect", agentId };
   }
 
   // /agent/:agentId/stop/:threadId (4 segments)
@@ -96,11 +102,10 @@ function matchSegments(path: string): RouteInfo | null {
     segments[len - 4] === "agent" &&
     segments[len - 2] === "stop"
   ) {
-    return {
-      method: "agent/stop",
-      agentId: decodeURIComponent(segments[len - 3]!),
-      threadId: decodeURIComponent(segments[len - 1]!),
-    };
+    const agentId = safeDecodeURIComponent(segments[len - 3]!);
+    const threadId = safeDecodeURIComponent(segments[len - 1]!);
+    if (!agentId || !threadId) return null;
+    return { method: "agent/stop", agentId, threadId };
   }
 
   return null;

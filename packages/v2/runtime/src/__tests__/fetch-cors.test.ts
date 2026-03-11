@@ -138,17 +138,18 @@ describe("fetch-cors", () => {
       expect(response.headers.get("Access-Control-Max-Age")).toBe("86400");
     });
 
-    it("does not set credentials when origin is wildcard", () => {
+    it("auto-resolves wildcard to request origin when credentials enabled", () => {
       const request = new Request("http://localhost/api", {
         method: "OPTIONS",
         headers: { Origin: "https://example.com" },
       });
       const config: CopilotCorsConfig = { origin: "*", credentials: true };
       const response = handleCors(request, config)!;
-      // The origin resolves to the literal string "*"
-      expect(response.headers.get("Access-Control-Allow-Origin")).toBe("*");
-      // The implementation sets credentials even with wildcard origin;
-      // browsers will reject this combination, but the header IS emitted.
+      // Per Fetch spec, wildcard + credentials is invalid. We auto-resolve
+      // the wildcard to the actual request origin when credentials are enabled.
+      expect(response.headers.get("Access-Control-Allow-Origin")).toBe(
+        "https://example.com",
+      );
       expect(response.headers.get("Access-Control-Allow-Credentials")).toBe(
         "true",
       );

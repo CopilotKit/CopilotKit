@@ -26,3 +26,9 @@ export type {
 
 // Export CORS config type
 export type { CopilotCorsConfig } from "./core/fetch-cors";
+
+// Deprecated type aliases for backward compatibility
+/** @deprecated Use `CopilotRuntimeFetchHandler` instead. */
+export type CopilotKitRequestHandler = (params: {
+  request: Request;
+}) => Promise<Response>;

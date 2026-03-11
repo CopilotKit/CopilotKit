@@ -16,6 +16,7 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import { sendResponse } from "@remix-run/node-fetch-server";
 import { createCopilotNodeHandler } from "./node-fetch-handler";
 import type { CopilotRuntimeFetchHandler } from "../core/fetch-handler";
+import { logger } from "@copilotkitnext/shared";
 
 const METHODS_WITHOUT_BODY = new Set(["GET", "HEAD", "OPTIONS"]);
 
@@ -47,10 +48,11 @@ export function createExpressNodeHandler(
 
     // Slow path: body was consumed by Express middleware — rebuild the Request.
     try {
-      const fetchReq = buildPreParsedRequest(req);
+      const fetchReq = buildPreParsedRequest(req, res);
       const fetchRes = await handler(fetchReq);
       await sendResponse(res, fetchRes);
-    } catch {
+    } catch (err: unknown) {
+      logger.error({ err }, "Error in Express fetch bridge (pre-parsed path)");
       if (!res.headersSent) {
         res.statusCode = 500;
         res.end("Internal Server Error");
@@ -63,7 +65,10 @@ export function createExpressNodeHandler(
  * Build a Fetch Request from a Node IncomingMessage whose body stream has
  * already been consumed by an Express body parser.
  */
-function buildPreParsedRequest(req: IncomingMessage): Request {
+function buildPreParsedRequest(
+  req: IncomingMessage,
+  res: ServerResponse,
+): Request {
   const expressReq = req as IncomingMessage & { body?: unknown };
   const method = (req.method ?? "GET").toUpperCase();
 
@@ -81,7 +86,17 @@ function buildPreParsedRequest(req: IncomingMessage): Request {
     }
   }
 
-  const init: RequestInit & { duplex?: "half" } = { method, headers };
+  // Wire an AbortSignal so client disconnects propagate to the fetch handler
+  const controller = new AbortController();
+  res.on("close", () => {
+    if (!res.writableFinished) controller.abort();
+  });
+
+  const init: RequestInit & { duplex?: "half" } = {
+    method,
+    headers,
+    signal: controller.signal,
+  };
 
   const { body, contentType } = synthesizeBody(expressReq.body);
   if (contentType) {
@@ -115,7 +130,7 @@ function synthesizeBody(body: unknown): {
   if (typeof body === "string") {
     return { body };
   }
-  if (typeof body === "object" && body !== undefined) {
+  if (typeof body === "object" && body !== null) {
     return { body: JSON.stringify(body), contentType: "application/json" };
   }
   return {};
