@@ -1,7 +1,6 @@
 import { useEffect } from "react";
 import { useCopilotKit } from "../providers/CopilotKitProvider";
 import type { ReactFrontendTool } from "../types/frontend-tool";
-import type { ReactToolCallRenderer } from "../types/react-tool-call-renderer";
 
 const EMPTY_DEPS: ReadonlyArray<unknown> = [];
 
@@ -24,13 +23,13 @@ export function useFrontendTool<
     copilotkit.addTool(tool);
 
     // Register/override renderer by name and agentId through core
-    if (tool.render) {
+    if (tool.render && tool.parameters) {
       copilotkit.addHookRenderToolCall({
         name,
         args: tool.parameters,
         agentId: tool.agentId,
         render: tool.render,
-      } as ReactToolCallRenderer);
+      });
     }
 
     return () => {

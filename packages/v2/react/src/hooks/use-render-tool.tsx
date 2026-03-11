@@ -5,7 +5,6 @@ import type {
 } from "@copilotkitnext/shared";
 import { useCopilotKit } from "../providers/CopilotKitProvider";
 import { defineToolCallRenderer } from "../types/defineToolCallRenderer";
-import type { ReactToolCallRenderer } from "../types/react-tool-call-renderer";
 
 const EMPTY_DEPS: ReadonlyArray<unknown> = [];
 
