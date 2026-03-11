@@ -1,5 +1,15 @@
 # @copilotkitnext/react
 
+## 1.54.0-next.5
+
+### Patch Changes
+
+- Updated dependencies [7916df6]
+  - @copilotkit/a2ui-renderer@1.54.0-next.5
+  - @copilotkitnext/core@1.54.0-next.5
+  - @copilotkitnext/shared@1.54.0-next.5
+  - @copilotkitnext/web-inspector@1.54.0-next.5
+
 ## 1.54.0-next.4
 
 ### Patch Changes
