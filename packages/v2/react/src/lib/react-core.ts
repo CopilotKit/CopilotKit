@@ -30,6 +30,10 @@ export interface CopilotKitCoreReactSubscriber extends CopilotKitCoreSubscriber 
 
 export class CopilotKitCoreReact extends CopilotKitCore {
   private _renderToolCalls: ReactToolCallRenderer<any>[] = [];
+  private _hookRenderToolCalls: Map<string, ReactToolCallRenderer<any>> =
+    new Map();
+  private _cachedMergedRenderToolCalls: ReactToolCallRenderer<any>[] | null =
+    null;
   private _renderCustomMessages: ReactCustomMessageRenderer[] = [];
   private _renderActivityMessages: ReactActivityMessageRenderer<any>[] = [];
   private _interruptElement: React.ReactElement | null = null;
@@ -50,7 +54,22 @@ export class CopilotKitCoreReact extends CopilotKitCore {
   }
 
   get renderToolCalls(): Readonly<ReactToolCallRenderer<any>>[] {
-    return this._renderToolCalls;
+    if (this._hookRenderToolCalls.size === 0) {
+      return this._renderToolCalls;
+    }
+    if (this._cachedMergedRenderToolCalls) {
+      return this._cachedMergedRenderToolCalls;
+    }
+    // Merge: hook entries override prop entries with the same key
+    const merged = new Map<string, ReactToolCallRenderer<any>>();
+    for (const rc of this._renderToolCalls) {
+      merged.set(`${rc.agentId ?? ""}:${rc.name}`, rc);
+    }
+    for (const [key, rc] of this._hookRenderToolCalls) {
+      merged.set(key, rc);
+    }
+    this._cachedMergedRenderToolCalls = Array.from(merged.values());
+    return this._cachedMergedRenderToolCalls;
   }
 
   setRenderActivityMessages(
@@ -65,8 +84,26 @@ export class CopilotKitCoreReact extends CopilotKitCore {
 
   setRenderToolCalls(renderToolCalls: ReactToolCallRenderer<any>[]): void {
     this._renderToolCalls = renderToolCalls;
+    this._cachedMergedRenderToolCalls = null;
+    this._notifyRenderToolCallsChanged();
+  }
 
-    // Notify React-specific subscribers
+  addHookRenderToolCall(entry: ReactToolCallRenderer<any>): void {
+    const key = `${entry.agentId ?? ""}:${entry.name}`;
+    this._hookRenderToolCalls.set(key, entry);
+    this._cachedMergedRenderToolCalls = null;
+    this._notifyRenderToolCallsChanged();
+  }
+
+  removeHookRenderToolCall(name: string, agentId?: string): void {
+    const key = `${agentId ?? ""}:${name}`;
+    if (this._hookRenderToolCalls.delete(key)) {
+      this._cachedMergedRenderToolCalls = null;
+      this._notifyRenderToolCallsChanged();
+    }
+  }
+
+  private _notifyRenderToolCallsChanged(): void {
     void this.notifySubscribers((subscriber) => {
       const reactSubscriber = subscriber as CopilotKitCoreReactSubscriber;
       if (reactSubscriber.onRenderToolCallsChanged) {

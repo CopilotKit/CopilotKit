@@ -178,20 +178,7 @@ export function useRenderTool<S extends StandardSchemaV1>(
             ...(config.agentId ? { agentId: config.agentId } : {}),
           });
 
-    // Dedupe by "agentId:name" key, same pattern as useFrontendTool
-    const keyOf = (rc: ReactToolCallRenderer) =>
-      `${rc.agentId ?? ""}:${rc.name}`;
-    const currentRenderToolCalls =
-      copilotkit.renderToolCalls as ReactToolCallRenderer[];
-
-    const mergedMap = new Map<string, ReactToolCallRenderer>();
-    for (const rc of currentRenderToolCalls) {
-      mergedMap.set(keyOf(rc), rc);
-    }
-
-    mergedMap.set(keyOf(renderer), renderer);
-
-    copilotkit.setRenderToolCalls(Array.from(mergedMap.values()));
+    copilotkit.addHookRenderToolCall(renderer);
 
     // No cleanup removal — keeps renderer for chat history, same as useFrontendTool
   }, [config.name, copilotkit, extraDeps.length, ...extraDeps]);
