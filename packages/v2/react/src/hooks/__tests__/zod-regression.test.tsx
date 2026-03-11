@@ -30,17 +30,26 @@ vi.mock("../use-frontend-tool", () => ({
 type MockCore = {
   renderToolCalls: ReactToolCallRenderer[];
   setRenderToolCalls: ReturnType<typeof vi.fn>;
+  addHookRenderToolCall: ReturnType<typeof vi.fn>;
+  removeHookRenderToolCall: ReturnType<typeof vi.fn>;
 };
 
 const mockUseCopilotKit = useCopilotKit as ReturnType<typeof vi.fn>;
 const mockUseFrontendTool = useFrontendTool as ReturnType<typeof vi.fn>;
 
 function createMockCore(initial: ReactToolCallRenderer[] = []): MockCore {
+  const hookEntries = new Map<string, ReactToolCallRenderer>();
   const core: MockCore = {
     renderToolCalls: initial,
     setRenderToolCalls: vi.fn((next: ReactToolCallRenderer[]) => {
       core.renderToolCalls = next;
     }),
+    addHookRenderToolCall: vi.fn((entry: ReactToolCallRenderer) => {
+      const key = `${entry.agentId ?? ""}:${entry.name}`;
+      hookEntries.set(key, entry);
+      core.renderToolCalls = [...initial, ...hookEntries.values()];
+    }),
+    removeHookRenderToolCall: vi.fn(),
   };
   return core;
 }
@@ -76,7 +85,7 @@ describe("useRenderTool Zod regression", () => {
 
     render(<Harness />);
 
-    expect(core.setRenderToolCalls).toHaveBeenCalledTimes(1);
+    expect(core.addHookRenderToolCall).toHaveBeenCalledTimes(1);
     const renderer = core.renderToolCalls.find(
       (r) => r.name === "complexSearch",
     );

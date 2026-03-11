@@ -75,16 +75,7 @@ export function useHumanInTheLoop<
   // since they can't respond to user interactions anymore
   useEffect(() => {
     return () => {
-      const keyOf = (rc: ReactToolCallRenderer<any>) =>
-        `${rc.agentId ?? ""}:${rc.name}`;
-      const currentRenderToolCalls =
-        copilotkit.renderToolCalls as ReactToolCallRenderer<any>[];
-      const filtered = currentRenderToolCalls.filter(
-        (rc) =>
-          keyOf(rc) !==
-          keyOf({ name: tool.name, agentId: tool.agentId } as any),
-      );
-      copilotkit.setRenderToolCalls(filtered);
+      copilotkit.removeHookRenderToolCall(tool.name, tool.agentId);
     };
   }, [copilotkit, tool.name, tool.agentId]);
 }
