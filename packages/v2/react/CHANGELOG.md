@@ -1,5 +1,27 @@
 # @copilotkitnext/react
 
+## 1.54.0-next.4
+
+### Patch Changes
+
+- @copilotkit/a2ui-renderer@1.54.0-next.4
+- @copilotkitnext/core@1.54.0-next.4
+- @copilotkitnext/shared@1.54.0-next.4
+- @copilotkitnext/web-inspector@1.54.0-next.4
+
+## 1.54.0-next.3
+
+### Minor Changes
+
+- fa0d1cd: Add support for Standard Schema (instead of just Zod)
+
+### Patch Changes
+
+- @copilotkit/a2ui-renderer@1.54.0-next.3
+- @copilotkitnext/core@1.54.0-next.3
+- @copilotkitnext/shared@1.54.0-next.3
+- @copilotkitnext/web-inspector@1.54.0-next.3
+
 ## 1.53.1-next.2
 
 ### Patch Changes

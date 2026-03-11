@@ -6,7 +6,7 @@ import {
   RunAgentResult,
   Tool,
 } from "@ag-ui/client";
-import { randomUUID, logger } from "@copilotkitnext/shared";
+import { randomUUID, logger, schemaToJsonSchema } from "@copilotkitnext/shared";
 import { zodToJsonSchema } from "zod-to-json-schema";
 import type { CopilotKitCore } from "./core";
 import { CopilotKitCoreErrorCode, CopilotKitCoreFriendsAccess } from "./core";
@@ -660,9 +660,7 @@ function createToolSchema(tool: FrontendTool<any>): Record<string, unknown> {
     return { ...EMPTY_TOOL_SCHEMA };
   }
 
-  const rawSchema = zodToJsonSchema(tool.parameters as any, {
-    $refStrategy: "none",
-  });
+  const rawSchema = schemaToJsonSchema(tool.parameters, { zodToJsonSchema });
 
   if (!rawSchema || typeof rawSchema !== "object") {
     return { ...EMPTY_TOOL_SCHEMA };

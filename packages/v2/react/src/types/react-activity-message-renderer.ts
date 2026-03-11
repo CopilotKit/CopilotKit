@@ -1,6 +1,6 @@
 import { ActivityMessage } from "@ag-ui/core";
 import type { AbstractAgent } from "@ag-ui/client";
-import { z } from "zod";
+import type { StandardSchemaV1 } from "@copilotkitnext/shared";
 
 export interface ReactActivityMessageRenderer<TActivityContent> {
   /**
@@ -14,7 +14,7 @@ export interface ReactActivityMessageRenderer<TActivityContent> {
   /**
    * Schema describing the activity content payload.
    */
-  content: z.ZodSchema<TActivityContent>;
+  content: StandardSchemaV1<any, TActivityContent>;
   /**
    * React component invoked to render the activity message.
    */

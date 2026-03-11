@@ -1,6 +1,6 @@
 import { DestroyRef, Injector, Signal, Type, inject } from "@angular/core";
 import { FrontendTool, FrontendToolHandlerContext } from "@copilotkitnext/core";
-import { z } from "zod";
+import type { StandardSchemaV1 } from "@copilotkitnext/shared";
 import { CopilotKit } from "./copilotkit";
 
 export type AngularToolCall<
@@ -66,7 +66,7 @@ export interface RenderToolCallConfig<
   Args extends Record<string, unknown> = Record<string, unknown>,
 > {
   name: string;
-  args: z.ZodType<Args>;
+  args: StandardSchemaV1<any, Args>;
   component: Type<ToolRenderer<Args>>;
   agentId?: string;
 }
@@ -76,7 +76,7 @@ export interface FrontendToolConfig<
 > {
   name: string;
   description: string;
-  parameters: z.ZodType<Args>;
+  parameters: StandardSchemaV1<any, Args>;
   component?: Type<ToolRenderer<Args>>;
   handler: (
     args: Args,
@@ -90,7 +90,7 @@ export interface HumanInTheLoopConfig<
 > {
   name: string;
   description: string;
-  parameters: z.ZodType<Args>;
+  parameters: StandardSchemaV1<any, Args>;
   component: Type<HumanInTheLoopToolRenderer<Args>>;
   agentId?: string;
 }

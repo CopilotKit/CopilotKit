@@ -3,7 +3,7 @@ import type {
   IntelligenceRuntimeInfo,
   RuntimeMode,
 } from "@copilotkitnext/shared";
-import { z } from "zod";
+import type { StandardSchemaV1 } from "@copilotkitnext/shared";
 
 /**
  * Status of a tool call execution
@@ -30,7 +30,7 @@ export type FrontendTool<
 > = {
   name: string;
   description?: string;
-  parameters?: z.ZodType<T>;
+  parameters?: StandardSchemaV1<any, T>;
   handler?: (args: T, context: FrontendToolHandlerContext) => Promise<unknown>;
   followUp?: boolean;
   /**

@@ -154,6 +154,7 @@ Before you begin, you'll need the following:
                 import {
                   CopilotRuntime,
                   copilotRuntimeNextJSAppRouterEndpoint,
+                  ExperimentalEmptyAdapter,
                 } from "@copilotkit/runtime";
                 import { BuiltInAgent } from "@copilotkit/runtime/v2"; // [!code highlight]
                 import { NextRequest } from "next/server";
@@ -169,6 +170,7 @@ Before you begin, you'll need the following:
                 export const POST = async (req: NextRequest) => {
                   const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
                     runtime,
+                    serviceAdapter: new ExperimentalEmptyAdapter(),
                     endpoint: "/api/copilotkit",
                   });
 
@@ -182,6 +184,7 @@ Before you begin, you'll need the following:
                 Wrap your application with the CopilotKit provider:
 
                 ```tsx title="app/layout.tsx"
+                import "./globals.css"; // If using tailwindcss
                 import { CopilotKit } from "@copilotkit/react-core"; // [!code highlight]
                 import "@copilotkit/react-ui/v2/styles.css"; // [!code highlight]
 
