@@ -2,8 +2,8 @@
 
 ## Scope
 
-- Scope: `src/v2.x/apps/vue/storybook/**`.
-- Goal: visual and story-structure parity with `src/v2.x/apps/react/storybook/**`.
+- Scope: `examples/v2/vue/storybook/**`.
+- Goal: visual and story-structure parity with `examples/v2/react/storybook/**`.
 
 ## Source of truth
 
@@ -27,5 +27,5 @@
 
 Run after meaningful changes:
 
-1. `pnpm -C src/v2.x/apps/vue/storybook dev`
-2. `pnpm -C src/v2.x/apps/vue/storybook build`
+1. `pnpm -C examples/v2/vue/storybook dev`
+2. `pnpm -C examples/v2/vue/storybook build`

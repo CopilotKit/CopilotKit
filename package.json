@@ -27,11 +27,13 @@
     "dev:examples:next": "nx run-many -t build --projects=examples/v2/** && nx watch --projects=examples/v2/** -- nx run-many -t build --projects=examples/v2/**",
     "storybook:angular": "pnpm -C examples/v2/angular/storybook dev",
     "storybook:react": "pnpm -C examples/v2/react/storybook dev",
+    "storybook:vue": "pnpm -C examples/v2/vue/storybook dev",
     "storybook": "pnpm storybook:react",
     "docs:next": "pnpm -C examples/v2/docs dev",
     "docs:classic": "ts-node scripts/docs/gen.ts",
     "demo:next:angular": "nx run-many -t dev --projects=examples/v2/angular/demo,examples/v2/angular/demo-server",
     "demo:next:react": "pnpm -C examples/v2/react/demo dev",
+    "demo:next:vue": "pnpm -C examples/v2/vue/demo dev",
     "changeset": "changeset",
     "prepare": "lefthook install",
     "graph": "nx graph",
@@ -40,9 +42,9 @@
     "check:packages": "nx run-many -t publint,attw --projects=packages/**"
   },
   "v2Leftovers": {
-    "bump:prerelease": "pnpm -r --filter='@copilotkitnext/agent' --filter='@copilotkitnext/angular' --filter='@copilotkitnext/core' --filter='@copilotkitnext/react' --filter='@copilotkitnext/runtime' --filter='@copilotkitnext/sqlite-runner' --filter='@copilotkitnext/shared' --filter='@copilotkitnext/web-inspector' exec pnpm version prerelease --preid=alpha",
-    "bump:release": "pnpm -r --filter='@copilotkitnext/agent' --filter='@copilotkitnext/angular' --filter='@copilotkitnext/core' --filter='@copilotkitnext/react' --filter='@copilotkitnext/runtime' --filter='@copilotkitnext/sqlite-runner' --filter='@copilotkitnext/shared' --filter='@copilotkitnext/web-inspector' exec pnpm version patch",
-    "publish:prerelease": "pnpm -r clean && pnpm install && nx run-many -t build && pnpm publish -r --no-git-checks --filter='@copilotkitnext/agent' --filter='@copilotkitnext/angular' --filter='@copilotkitnext/core' --filter='@copilotkitnext/react' --filter='@copilotkitnext/runtime' --filter='@copilotkitnext/sqlite-runner' --filter='@copilotkitnext/shared' --filter='@copilotkitnext/web-inspector' --tag alpha",
+    "bump:prerelease": "pnpm -r --filter='@copilotkitnext/agent' --filter='@copilotkitnext/angular' --filter='@copilotkitnext/core' --filter='@copilotkitnext/react' --filter='@copilotkitnext/runtime' --filter='@copilotkitnext/sqlite-runner' --filter='@copilotkitnext/shared' --filter='@copilotkitnext/vue' --filter='@copilotkitnext/web-inspector' exec pnpm version prerelease --preid=alpha",
+    "bump:release": "pnpm -r --filter='@copilotkitnext/agent' --filter='@copilotkitnext/angular' --filter='@copilotkitnext/core' --filter='@copilotkitnext/react' --filter='@copilotkitnext/runtime' --filter='@copilotkitnext/sqlite-runner' --filter='@copilotkitnext/shared' --filter='@copilotkitnext/vue' --filter='@copilotkitnext/web-inspector' exec pnpm version patch",
+    "publish:prerelease": "pnpm -r clean && pnpm install && nx run-many -t build && pnpm publish -r --no-git-checks --filter='@copilotkitnext/agent' --filter='@copilotkitnext/angular' --filter='@copilotkitnext/core' --filter='@copilotkitnext/react' --filter='@copilotkitnext/runtime' --filter='@copilotkitnext/sqlite-runner' --filter='@copilotkitnext/shared' --filter='@copilotkitnext/vue' --filter='@copilotkitnext/web-inspector' --tag alpha",
     "publish:release:dry": "pnpm -r --filter '@copilotkitnext/*' publish --access public --dry-run",
     "publish:release": "pnpm -r --filter '@copilotkitnext/*' publish --access public",
     "server:node": "pnpm -C src/apps/node dev"

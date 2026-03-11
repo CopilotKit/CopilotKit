@@ -4,13 +4,13 @@ This file defines how agents should keep `@copilotkitnext/vue` aligned with upst
 
 ## Scope and goal
 
-- Scope: `src/v2.x/packages/vue/**`.
+- Scope: `packages/v2/vue/**`.
 - Primary goal: preserve **semantic parity** with React for core hooks/providers/types.
 - Secondary goal: keep Vue idiomatic where framework mechanics require it, while minimizing public API drift.
 
 ## Canonical source of truth
 
-- Treat `src/v2.x/packages/react` as the canonical behavioral reference.
+- Treat `packages/v2/react` as the canonical behavioral reference.
 - For non-chat core APIs, parity means:
   - same intent,
   - same runtime semantics,
@@ -47,7 +47,7 @@ This file defines how agents should keep `@copilotkitnext/vue` aligned with upst
   - when a programmatic renderer registration path exists, prefer Vue SFC/components over handwritten `h(...)` render functions where both are viable;
   - keep raw render functions mainly for renderer-bridge glue or places where template/SFC conversion is genuinely awkward.
 - Chat render parity contract:
-  - follow the architectural decision in `src/v2.x/packages/vue/README.md` section `Architectural Decision: Render APIs -> Slots`;
+  - follow the architectural decision in `packages/v2/vue/README.md` section `Architectural Decision: Render APIs -> Slots`;
   - translate React render props/hooks into Vue named/scoped slots deterministically;
   - prefer Vue emits for component-level UI interactions and do not expose a duplicated callback prop plus emit for the same public interaction;
   - keep callback functions inside slot payloads for imperative slotted actions;
@@ -76,14 +76,14 @@ This file defines how agents should keep `@copilotkitnext/vue` aligned with upst
 
 Run all three after meaningful changes:
 
-1. `pnpm -C src/v2.x/packages/vue lint`
-2. `pnpm -C src/v2.x/packages/vue check-types`
-3. `pnpm -C src/v2.x/packages/vue test`
+1. `pnpm -C packages/v2/vue lint`
+2. `pnpm -C packages/v2/vue check-types`
+3. `pnpm -C packages/v2/vue test`
 
 When touching package integration/build behavior, also run:
 
-- `pnpm -C src/v2.x/packages/vue build`
-- `pnpm turbo run build --filter=@copilotkitnext/vue`
+- `pnpm -C packages/v2/vue build`
+- `pnpm nx run-many -t build --projects=packages/v2/vue`
 
 ## Parity update workflow
 

@@ -4,7 +4,7 @@ Storybook workspace for `@copilotkitnext/vue` with strict parity intent against 
 
 ## Parity policy
 
-- Canonical reference: `src/v2.x/apps/react/storybook`.
+- Canonical reference: `examples/v2/react/storybook`.
 - Mirror React story structure, naming, and scenario coverage.
 - Keep story intent aligned to support visual and behavioral side-by-side checks.
 - Keep story scaffolding close to React file/story ownership so changes are easy to diff across frameworks.
@@ -19,11 +19,11 @@ Storybook workspace for `@copilotkitnext/vue` with strict parity intent against 
 ## Run
 
 ```bash
-pnpm -C src/v2.x/apps/vue/storybook dev
+pnpm -C examples/v2/vue/storybook dev
 ```
 
 ## Build check
 
 ```bash
-pnpm -C src/v2.x/apps/vue/storybook build
+pnpm -C examples/v2/vue/storybook build
 ```

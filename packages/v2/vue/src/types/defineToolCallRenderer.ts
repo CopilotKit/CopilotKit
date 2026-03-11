@@ -1,7 +1,6 @@
 import { z } from "zod";
 import type { VueToolCallRenderer } from "./vue-tool-call-renderer";
 import type { VueToolCallRendererRenderFn } from "./vue-tool-call-renderer";
-import type { VueToolCallRendererRenderProps } from "./vue-tool-call-renderer";
 
 export function defineToolCallRenderer(def: {
   name: "*";

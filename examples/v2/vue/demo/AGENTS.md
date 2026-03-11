@@ -2,8 +2,8 @@
 
 ## Scope
 
-- Scope: `src/v2.x/apps/vue/demo/**`.
-- Goal: mirror `src/v2.x/apps/react/demo/**` behavior and flow as closely as possible.
+- Scope: `examples/v2/vue/demo/**`.
+- Goal: mirror `examples/v2/react/demo/**` behavior and flow as closely as possible.
 
 ## Source of truth
 
@@ -31,5 +31,5 @@
 
 Run after meaningful changes:
 
-1. `pnpm -C src/v2.x/apps/vue/demo dev`
-2. `pnpm -C src/v2.x/apps/vue/demo build`
+1. `pnpm -C examples/v2/vue/demo dev`
+2. `pnpm -C examples/v2/vue/demo build`

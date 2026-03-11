@@ -1,6 +1,6 @@
 {
   "name": "@copilotkitnext/vue",
-  "version": "1.51.4-next.2",
+  "version": "1.51.4-next.7",
   "description": "Vue 3 components and composables for CopilotKit2",
   "main": "dist/index.js",
   "module": "dist/index.mjs",

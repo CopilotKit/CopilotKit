@@ -14,7 +14,7 @@ Import package styles once in your app entry:
 import "@copilotkitnext/vue/styles.css";
 ```
 
-`styles.css` is generated from `src/styles/globals.css` via Tailwind (`pnpm -C src/v2.x/packages/vue build:css`).
+`styles.css` is generated from `src/styles/globals.css` via Tailwind (`pnpm -C packages/v2/vue build:css`).
 The Vue package styles are self-contained and do not require importing `@copilotkitnext/react/styles.css`.
 
 ## Basic Usage
