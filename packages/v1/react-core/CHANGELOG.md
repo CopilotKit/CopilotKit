@@ -1,5 +1,16 @@
 # ui
 
+## 1.54.0-next.6
+
+### Patch Changes
+
+- c80498e: feat(core): add copilotkit.runTool() for programmatic tool execution
+- Updated dependencies [c80498e]
+  - @copilotkitnext/core@1.54.0-next.6
+  - @copilotkitnext/react@1.54.0-next.6
+  - @copilotkit/runtime-client-gql@1.54.0-next.6
+  - @copilotkit/shared@1.54.0-next.6
+
 ## 1.54.0-next.5
 
 ### Patch Changes

@@ -1,5 +1,12 @@
 # @copilotkitnext/core
 
+## 1.54.0-next.6
+
+### Patch Changes
+
+- c80498e: feat(core): add copilotkit.runTool() for programmatic tool execution
+  - @copilotkitnext/shared@1.54.0-next.6
+
 ## 1.54.0-next.5
 
 ### Patch Changes
