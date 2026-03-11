@@ -22,7 +22,7 @@ export async function handleIntelligenceRun({
   if (!runtime.intelligence) {
     return jsonResponse(
       {
-        error: "Intelligence SDK not configured",
+        error: "Intelligence not configured",
         message: "Intelligence mode requires a CopilotKitIntelligence",
       },
       500,

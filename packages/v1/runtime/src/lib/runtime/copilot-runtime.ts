@@ -32,9 +32,9 @@ import type {
 } from "../../service-adapters";
 import {
   CopilotRuntime as CopilotRuntimeVNext,
-  type AgentRunner,
   type CopilotRuntimeOptions,
   type CopilotRuntimeOptions as CopilotRuntimeOptionsVNext,
+  type AgentRunner,
   InMemoryAgentRunner,
 } from "@copilotkitnext/runtime";
 import { TelemetryAgentRunner } from "./telemetry-agent-runner";
@@ -184,6 +184,11 @@ export interface CopilotRuntimeConstructorParams_BASE<
    */
   langserve?: RemoteChainParameters[];
 
+  /**
+   * Optional agent runner to use for SSE runtime.
+   */
+  runner?: AgentRunner;
+
   /*
    * A map of agent names to AGUI agents.
    * Example agent config:
@@ -317,7 +322,6 @@ interface CopilotRuntimeConstructorParams<T extends Parameter[] | [] = []>
    *  – the `Record<string, AbstractAgent>` constraint in `both
    */
   agents?: MaybePromise<NonEmptyRecord<Record<string, AbstractAgent>>>;
-  runner?: AgentRunner;
 }
 
 /**
@@ -333,7 +337,8 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
   private _instance: CopilotRuntimeVNext;
 
   constructor(
-    params?: CopilotRuntimeConstructorParams<T>,
+    params?: CopilotRuntimeConstructorParams<T> &
+      PartialBy<CopilotRuntimeOptions, "agents">,
   ) {
     const agents = params?.agents ?? {};
     const endpointAgents = this.assignEndpointsToAgents(
@@ -494,7 +499,8 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
   }
 
   private createOnBeforeRequestHandler(
-    params?: CopilotRuntimeConstructorParams<T>,
+    params?: CopilotRuntimeConstructorParams<T> &
+      PartialBy<CopilotRuntimeOptions, "agents">,
   ) {
     return async (hookParams: BeforeRequestMiddlewareFnParameters[0]) => {
       const { request } = hookParams;
@@ -563,7 +569,8 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
   }
 
   private createOnAfterRequestHandler(
-    params?: CopilotRuntimeConstructorParams<T>,
+    params?: CopilotRuntimeConstructorParams<T> &
+      PartialBy<CopilotRuntimeOptions, "agents">,
   ) {
     return async (hookParams: AfterRequestMiddlewareFnParameters[0]) => {
       // TODO: get public api key and run with expected data
