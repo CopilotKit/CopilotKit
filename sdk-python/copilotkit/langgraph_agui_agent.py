@@ -202,3 +202,11 @@ class LangGraphAGUIAgent(LangGraphAgent):
                 'context': agui_properties.get('context', [])
             },
         }
+
+    def dict_repr(self):
+        """Return dictionary representation of the agent"""
+        super_repr = super().dict_repr()
+        return {
+            **super_repr,
+            'type': 'langgraph_agui'
+        }
