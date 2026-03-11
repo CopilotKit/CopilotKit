@@ -1,0 +1,39 @@
+{
+  "name": "@copilotkitnext/vue-demo",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "nuxt dev",
+    "build": "nuxt build",
+    "start": "nuxt start",
+    "lint": "eslint \"**/*.{js,mjs,cjs,ts,vue}\""
+  },
+  "dependencies": {
+    "@ag-ui/core": "0.0.42",
+    "@ag-ui/mcp-apps-middleware": "0.0.2",
+    "@copilotkit/voice": "workspace:*",
+    "@copilotkitnext/agent": "workspace:*",
+    "@copilotkitnext/core": "workspace:*",
+    "@copilotkitnext/runtime": "workspace:*",
+    "@copilotkitnext/vue": "workspace:*",
+    "h3": "^1.15.4",
+    "hono": "^4.11.4",
+    "nuxt": "3.17.5",
+    "openai": "^5.9.0",
+    "rxjs": "7.8.1",
+    "zod": "^3.25.75"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.2",
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^22",
+    "eslint": "^9.39.1",
+    "eslint-plugin-vue": "^10.8.0",
+    "globals": "^16.5.0",
+    "tailwindcss": "^4",
+    "typescript": "5.8.2",
+    "typescript-eslint": "^8.52.0",
+    "vue-eslint-parser": "^10.4.0"
+  }
+}
