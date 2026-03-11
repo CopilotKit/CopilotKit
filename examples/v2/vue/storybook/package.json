@@ -15,6 +15,7 @@
     "vue": "^3.5.28"
   },
   "devDependencies": {
+    "@ag-ui/core": "0.0.42",
     "@copilotkitnext/react": "workspace:*",
     "@copilotkitnext/typescript-config": "workspace:*",
     "@copilotkitnext/vue": "workspace:*",

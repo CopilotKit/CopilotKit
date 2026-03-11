@@ -17,7 +17,6 @@
         "../../../../packages/v2/shared/dist/index.d.ts",
         "../../../../packages/v2/shared/src/index.ts"
       ],
-      "@ag-ui/core": ["../../../../node_modules/@ag-ui/core/dist/index.d.ts"],
       "@/*": ["../../../../packages/v2/vue/src/*"]
     },
     "types": ["node"]
