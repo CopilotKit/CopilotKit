@@ -77,5 +77,25 @@ describe("runtime construction", () => {
 
     expect(runtime.intelligence).toBe(sdk);
     expect(runtime.runner).toBeInstanceOf(IntelligenceAgentRunner);
+    expect(
+      (runtime as CopilotRuntime & { generateThreadNames?: boolean })
+        .generateThreadNames,
+    ).toBe(true);
+  });
+
+  it("forwards generateThreadNames=false through the CopilotRuntime intelligence shim", () => {
+    const sdk = createMockIntelligence();
+
+    const runtime = new CopilotRuntime({
+      agents,
+      intelligence: sdk,
+      generateThreadNames: false,
+    });
+
+    expect(runtime.mode).toBe("intelligence");
+    expect(
+      (runtime as CopilotRuntime & { generateThreadNames?: boolean })
+        .generateThreadNames,
+    ).toBe(false);
   });
 });
