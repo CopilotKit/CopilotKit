@@ -1,5 +1,11 @@
 # @copilotkit/a2ui-renderer
 
+## 1.54.0-next.5
+
+### Patch Changes
+
+- 7916df6: feat: set default a2ui theme to fit cpk main theme
+
 ## 1.54.0-next.4
 
 ## 1.54.0-next.3
