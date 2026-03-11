@@ -470,10 +470,6 @@ export class RunHandler {
         toolType: "specific",
         messageId: message.id,
       });
-
-      if (handlerResult.isArgumentError) {
-        throw new Error(handlerResult.error ?? "Tool execution failed");
-      }
     }
 
     {
