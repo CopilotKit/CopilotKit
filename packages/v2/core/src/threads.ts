@@ -636,7 +636,7 @@ function createThreadStore(environment: ThreadEnvironment): ThreadStore {
                   })
                 : threadSocketEvents.joinFailed({
                     sessionId: action.sessionId,
-                }),
+                  }),
             ),
           );
 
