@@ -1,5 +1,15 @@
 # ui
 
+## 1.54.0-next.4
+
+### Patch Changes
+
+- af11b1e: Fixed hook render registrations lost under React Strict Mode.
+  - @copilotkit/runtime-client-gql@1.54.0-next.4
+  - @copilotkit/shared@1.54.0-next.4
+  - @copilotkitnext/core@1.54.0-next.4
+  - @copilotkitnext/react@1.54.0-next.4
+
 ## 1.54.0-next.3
 
 ### Minor Changes
