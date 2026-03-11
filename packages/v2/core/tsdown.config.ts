@@ -8,6 +8,7 @@ export default defineConfig([
     sourcemap: true,
     target: "es2022",
     outDir: "dist",
+    noExternal: ["phoenix"],
     checks: { pluginTimings: false },
     exports: true,
   },
