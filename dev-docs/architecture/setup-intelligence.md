@@ -2,7 +2,7 @@
 
 This guide shows how to set up **CopilotKit Intelligence**: durable thread storage plus a websocket transport for realtime events.
 
-Intelligence is designed to feel like a small runtime configuration change, not a separate product integration. You provide an Intelligence SDK to the runtime, and the rest of the stack switches from plain SSE mode into Intelligence mode automatically.
+Intelligence is designed to feel like a small runtime configuration change, not a separate product integration. You provide an Intelligence platform client to the runtime, and the rest of the stack switches from plain SSE mode into Intelligence mode automatically.
 
 ---
 
@@ -19,7 +19,7 @@ graph TB
 
     subgraph Your Server
         RT["CopilotRuntime"]
-        SDK["CopilotKitIntelligence"]
+        CPK-I["CopilotKitIntelligence"]
         Runner["IntelligenceAgentRunner"]
     end
 
@@ -31,8 +31,8 @@ graph TB
     App --> Core
     Core --> Proxy
     Proxy -->|info handshake| RT
-    RT --> SDK
-    SDK --> API
+    RT --> CPK-I
+    CPK-I --> API
     RT --> Runner
     Runner --> WS
     Proxy --> IA
@@ -63,7 +63,7 @@ The important design rule is:
 npm install @copilotkitnext/runtime
 ```
 
-### 2. Create the Intelligence SDK
+### 2. Create the Intelligence platform client
 
 ```typescript
 import { CopilotKitIntelligence } from "@copilotkitnext/runtime";
@@ -128,6 +128,7 @@ Example `/info` response:
     }
   },
   "audioFileTranscriptionEnabled": false,
+  "a2uiEnabled": false,
   "intelligence": {
     "wsUrl": "wss://your-intelligence-host/socket"
   }
@@ -173,12 +174,13 @@ This is why the runtime owns the mode decision instead of the frontend guessing 
 
 Intelligence mode adds thread APIs on the runtime:
 
-| Route                        | Method | Purpose                |
-| ---------------------------- | ------ | ---------------------- |
-| `/threads`                   | GET    | List durable threads   |
-| `/threads/:threadId`         | PATCH  | Update thread metadata |
-| `/threads/:threadId/archive` | POST   | Archive a thread       |
-| `/threads/:threadId`         | DELETE | Delete a thread        |
+| Route                        | Method | Purpose                              |
+| ---------------------------- | ------ | ------------------------------------ |
+| `/threads`                   | GET    | List durable threads                 |
+| `/threads/subscribe`         | POST   | Get credentials for realtime updates |
+| `/threads/:threadId`         | PATCH  | Update thread metadata               |
+| `/threads/:threadId/archive` | POST   | Archive a thread                     |
+| `/threads/:threadId`         | DELETE | Delete a thread                      |
 
 These routes are **Intelligence-only**.
 
@@ -192,15 +194,15 @@ In SSE mode they should reject with an explicit error, because SSE runtimes do n
 sequenceDiagram
     participant Client as Frontend
     participant Runtime as CopilotRuntime
-    participant SDK as CopilotKitIntelligence
+    participant CPK-I as CopilotKitIntelligence
     participant WS as Intelligence WebSocket
 
     Client->>Runtime: GET /info
     Runtime-->>Client: { mode: "intelligence", wsUrl: ... }
 
     Client->>Runtime: POST /agent/default/run
-    Runtime->>SDK: ensure thread exists + acquire lock
-    SDK-->>Runtime: join token / join code
+    Runtime->>CPK-I: ensure thread exists + acquire lock
+    CPK-I-->>Runtime: join token / join code
     Runtime-->>Client: bootstrap response
 
     Client->>WS: join thread channel
@@ -233,4 +235,4 @@ Think of Intelligence as a **runtime capability**, not a second transport API de
 - `/info` tells the client which concrete remote-agent implementation to use.
 - Frontend app code stays mostly unchanged.
 
-If the setup feels bigger than “add the SDK to the runtime,” the abstraction is probably leaking.
+If the setup feels bigger than “add the CPK-I to the runtime,” the abstraction is probably leaking.
