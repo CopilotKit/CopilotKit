@@ -122,7 +122,7 @@ export class RenderToolCalls {
   protected buildToolCall<Args extends Record<string, unknown>>(
     toolCall: ToolCall,
   ): AngularToolCall<Args> {
-    const args = partialJSONParse(toolCall.function.arguments);
+    const args = partialJSONParse(toolCall.function.arguments) as Args;
     const message = this.#getToolMessage(toolCall.id);
 
     if (message) {
@@ -149,7 +149,7 @@ export class RenderToolCalls {
   protected buildHumanInTheLoopToolCall<Args extends Record<string, unknown>>(
     toolCall: ToolCall,
   ): HumanInTheLoopToolCall<Args> {
-    const args = partialJSONParse(toolCall.function.arguments);
+    const args = partialJSONParse(toolCall.function.arguments) as Args;
     const message = this.#getToolMessage(toolCall.id);
     const respond = (result: unknown) => {
       this.#hitl.addResult(toolCall.id, toolCall.function.name, result);
