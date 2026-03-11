@@ -1,13 +1,5 @@
 import { Socket } from "phoenix";
-import {
-  EMPTY,
-  NEVER,
-  Observable,
-  concat,
-  defer,
-  of,
-  throwError,
-} from "rxjs";
+import { EMPTY, NEVER, Observable, concat, defer, of, throwError } from "rxjs";
 import {
   filter,
   finalize,
@@ -43,10 +35,7 @@ export interface ɵPhoenixChannelLike {
 export interface ɵPhoenixSocketLike {
   connect(): void;
   disconnect(): void;
-  channel(
-    topic: string,
-    params?: Record<string, unknown>,
-  ): ɵPhoenixChannelLike;
+  channel(topic: string, params?: Record<string, unknown>): ɵPhoenixChannelLike;
   onError(callback: (error?: unknown) => void): unknown;
   onOpen(callback: () => void): unknown;
 }
@@ -245,7 +234,9 @@ export function ɵjoinPhoenixChannel$(
 
       throw outcome.type === "timeout"
         ? new Error("Timed out joining channel")
-        : new Error(`Failed to join channel: ${JSON.stringify(outcome.response)}`);
+        : new Error(
+            `Failed to join channel: ${JSON.stringify(outcome.response)}`,
+          );
     }),
   );
 }
