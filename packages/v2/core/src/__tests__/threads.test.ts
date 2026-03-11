@@ -1,12 +1,27 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import {
+import { MockSocket } from "./test-utils";
+
+const phoenix = vi.hoisted(() => ({
+  sockets: [] as MockSocket[],
+}));
+
+vi.mock("phoenix", () => ({
+  Socket: class extends MockSocket {
+    constructor(url = "", opts: Record<string, any> = {}) {
+      super(url, opts);
+      phoenix.sockets.push(this);
+    }
+  },
+}));
+
+const {
   ɵcreateThreadStore,
   ɵselectThreads,
   ɵselectThreadsError,
   ɵselectThreadsIsLoading,
-  type ɵThread as ThreadRecord,
-  type ɵThreadEnvironment as ThreadEnvironment,
-} from "../threads";
+} = await import("../threads");
+
+type ThreadRecord = import("../threads").ɵThread;
 
 const flushEffects = async (): Promise<void> => {
   await Promise.resolve();
@@ -15,128 +30,6 @@ const flushEffects = async (): Promise<void> => {
   await Promise.resolve();
   await new Promise((resolve) => setTimeout(resolve, 0));
 };
-
-class MockPush {
-  private callbacks = new Map<string, (payload?: unknown) => void>();
-
-  receive(status: string, callback: (payload?: unknown) => void): MockPush {
-    this.callbacks.set(status, callback);
-    return this;
-  }
-
-  trigger(status: string, payload?: unknown): void {
-    this.callbacks.get(status)?.(payload);
-  }
-}
-
-class MockChannel {
-  topic: string;
-  params: Record<string, unknown>;
-  left = false;
-  private handlers = new Map<
-    string,
-    Array<{ ref: number; callback: (payload: unknown) => void }>
-  >();
-  private joinPush = new MockPush();
-  private nextRef = 1;
-
-  constructor(topic: string, params: Record<string, unknown> = {}) {
-    this.topic = topic;
-    this.params = params;
-  }
-
-  on(event: string, callback: (payload: unknown) => void): number {
-    if (!this.handlers.has(event)) {
-      this.handlers.set(event, []);
-    }
-    const ref = this.nextRef++;
-    this.handlers.get(event)!.push({ ref, callback });
-    return ref;
-  }
-
-  off(event: string, ref?: number): void {
-    if (!this.handlers.has(event)) return;
-    if (ref === undefined) {
-      this.handlers.delete(event);
-    } else {
-      const filtered = this.handlers.get(event)!.filter((h) => h.ref !== ref);
-      this.handlers.set(event, filtered);
-    }
-  }
-
-  join(): MockPush {
-    return this.joinPush;
-  }
-
-  leave(): void {
-    this.left = true;
-  }
-
-  serverPush(event: string, payload: unknown): void {
-    for (const { callback } of this.handlers.get(event) ?? []) {
-      callback(payload);
-    }
-  }
-
-  triggerJoin(status: "ok" | "error" | "timeout", payload?: unknown): void {
-    this.joinPush.trigger(status, payload);
-  }
-}
-
-class MockSocket {
-  static instances: MockSocket[] = [];
-
-  connected = false;
-  disconnected = false;
-  channels: MockChannel[] = [];
-  private errorCallbacks: Array<() => void> = [];
-  private openCallbacks: Array<() => void> = [];
-
-  constructor(
-    _url: string,
-    _options: {
-      params: Record<string, unknown>;
-      reconnectAfterMs: (tries: number) => number;
-      rejoinAfterMs: (tries: number) => number;
-    },
-  ) {
-    MockSocket.instances.push(this);
-  }
-
-  connect(): void {
-    this.connected = true;
-  }
-
-  disconnect(): void {
-    this.disconnected = true;
-  }
-
-  channel(topic: string, params: Record<string, unknown> = {}): MockChannel {
-    const channel = new MockChannel(topic, params);
-    this.channels.push(channel);
-    return channel;
-  }
-
-  onError(callback: () => void): void {
-    this.errorCallbacks.push(callback);
-  }
-
-  onOpen(callback: () => void): void {
-    this.openCallbacks.push(callback);
-  }
-
-  simulateError(): void {
-    for (const callback of this.errorCallbacks) {
-      callback();
-    }
-  }
-
-  simulateOpen(): void {
-    for (const callback of this.openCallbacks) {
-      callback();
-    }
-  }
-}
 
 const sampleThreads: ThreadRecord[] = [
   {
@@ -161,10 +54,9 @@ const sampleThreads: ThreadRecord[] = [
   },
 ];
 
-function createEnvironment(fetchImpl: typeof fetch): ThreadEnvironment {
+function createEnvironment(fetchImpl: typeof fetch) {
   return {
     fetch: fetchImpl,
-    Socket: MockSocket,
   };
 }
 
@@ -172,7 +64,7 @@ describe("thread store", () => {
   const stores: Array<ReturnType<typeof ɵcreateThreadStore>> = [];
 
   beforeEach(() => {
-    MockSocket.instances = [];
+    phoenix.sockets.splice(0);
   });
 
   afterEach(() => {
@@ -226,8 +118,8 @@ describe("thread store", () => {
       ["thread-2", "thread-1"],
     );
     expect(ɵselectThreadsIsLoading(store.getState())).toBe(false);
-    expect(MockSocket.instances).toHaveLength(1);
-    expect(MockSocket.instances[0].channels[0].topic).toBe("user_meta:user-1");
+    expect(phoenix.sockets).toHaveLength(1);
+    expect(phoenix.sockets[0].channels[0].topic).toBe("user_meta:user-1");
   });
 
   it("upserts realtime thread metadata without refetching", async () => {
@@ -262,7 +154,7 @@ describe("thread store", () => {
 
     await flushEffects();
 
-    const channel = MockSocket.instances[0].channels[0];
+    const channel = phoenix.sockets[0].channels[0];
     channel.serverPush("thread_metadata", {
       operation: "renamed",
       threadId: "thread-1",
@@ -317,7 +209,7 @@ describe("thread store", () => {
 
     await flushEffects();
 
-    MockSocket.instances[0].channels[0].serverPush("thread_metadata", {
+    phoenix.sockets[0].channels[0].serverPush("thread_metadata", {
       operation: "deleted",
       threadId: "thread-2",
       userId: "user-2",

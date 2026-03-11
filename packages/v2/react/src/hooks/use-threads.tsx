@@ -8,7 +8,6 @@ import {
   type ɵThreadRuntimeContext,
   type ɵThreadStore,
 } from "@copilotkitnext/core";
-import { Socket } from "phoenix";
 import {
   useCallback,
   useEffect,
@@ -149,7 +148,6 @@ export function useThreads({
   const [store] = useState(() =>
     ɵcreateThreadStore({
       fetch: globalThis.fetch,
-      Socket,
     }),
   );
 
