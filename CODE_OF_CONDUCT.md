@@ -24,11 +24,11 @@ CopilotKit is dedicated to creating an open-source framework that allows for the
 
 At CopilotKit, we prioritize the following values:
 
-| **Value**       | **Description**                                                                 |
-|------------------|---------------------------------------------------------------------------------|
-| **Inclusivity**   | We embrace diverse backgrounds and perspectives, enhancing our collective work.|
-| **Collaboration** | We believe in teamwork and encourage open communication and mutual support.    |
-| **Respect**       | We treat everyone with kindness and respect, fostering an environment where contributions are valued. |
+| **Value**         | **Description**                                                                                            |
+| ----------------- | ---------------------------------------------------------------------------------------------------------- |
+| **Inclusivity**   | We embrace diverse backgrounds and perspectives, enhancing our collective work.                            |
+| **Collaboration** | We believe in teamwork and encourage open communication and mutual support.                                |
+| **Respect**       | We treat everyone with kindness and respect, fostering an environment where contributions are valued.      |
 | **Innovation**    | We encourage creative thinking and experimentation, supporting initiatives that drive our project forward. |
 
 ---
@@ -49,13 +49,13 @@ As a participant in the CopilotKit community, you are expected to:
 
 The following behaviors are considered unacceptable within our community:
 
-| **Behavior Type**        | **Description**                                                 |
-|--------------------------|-----------------------------------------------------------------|
-| **Harassment**           | Any form of harassment, including offensive comments, intimidation, or unwanted attention. |
-| **Discrimination**       | Actions or comments that discriminate based on race, ethnicity, gender, sexual orientation, disability, age, or any other characteristic. |
-| **Personal Attacks**     | Engaging in personal insults or derogatory remarks directed at individuals or groups. |
-| **Disruption**           | Disrupting discussions, meetings, or community spaces, hindering constructive dialogue. |
-| **Invasive Actions**     | Unwanted physical contact or any other form of unwanted attention. |
+| **Behavior Type**    | **Description**                                                                                                                           |
+| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| **Harassment**       | Any form of harassment, including offensive comments, intimidation, or unwanted attention.                                                |
+| **Discrimination**   | Actions or comments that discriminate based on race, ethnicity, gender, sexual orientation, disability, age, or any other characteristic. |
+| **Personal Attacks** | Engaging in personal insults or derogatory remarks directed at individuals or groups.                                                     |
+| **Disruption**       | Disrupting discussions, meetings, or community spaces, hindering constructive dialogue.                                                   |
+| **Invasive Actions** | Unwanted physical contact or any other form of unwanted attention.                                                                        |
 
 ---
 
@@ -64,7 +64,7 @@ The following behaviors are considered unacceptable within our community:
 If you witness or experience unacceptable behavior, we encourage you to take the following steps:
 
 1. **Identify the Incident**: Clearly identify the nature of the unacceptable behavior and gather any evidence, such as screenshots or messages.
-  
+
 2. **Report the Incident**: Reach out to a project maintainer or designated community leader through direct message or email. Include detailed information about the incident, such as:
    - Names of those involved (if known)
    - Dates and times of the incident
@@ -83,12 +83,12 @@ If you witness or experience unacceptable behavior, we encourage you to take the
 
 Consequences for violating the Code of Conduct will be determined based on the severity and frequency of the behavior. Potential consequences include:
 
-| **Consequences**         | **Description**                                               |
-|--------------------------|---------------------------------------------------------------|
-| **Verbal Warning**       | A private discussion addressing the behavior.                |
-| **Written Warning**      | A formal notice outlining the behavior and expected changes. |
-| **Temporary Suspension**  | A temporary ban from contributing to the project or participating in community discussions. |
-| **Permanent Removal**    | A permanent ban for severe violations or repeated offenses.   |
+| **Consequences**         | **Description**                                                                             |
+| ------------------------ | ------------------------------------------------------------------------------------------- |
+| **Verbal Warning**       | A private discussion addressing the behavior.                                               |
+| **Written Warning**      | A formal notice outlining the behavior and expected changes.                                |
+| **Temporary Suspension** | A temporary ban from contributing to the project or participating in community discussions. |
+| **Permanent Removal**    | A permanent ban for severe violations or repeated offenses.                                 |
 
 ---
 

@@ -7,7 +7,7 @@ type Opts = {
 declare module "fixturez" {
   export default function (
     cwd: string,
-    opts?: Opts
+    opts?: Opts,
   ): {
     find: (a: string) => string;
     temp: () => string;

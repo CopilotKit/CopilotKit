@@ -1,0 +1,144 @@
+---
+title: useCopilotKit
+description: "useCopilotKit Hook API Reference"
+---
+
+`useCopilotKit` is a React hook that provides access to the CopilotKit context, including the core instance, tool
+rendering capabilities, and runtime connection status. It's the primary way to interact with CopilotKit's core
+functionality from React components.
+
+## What is useCopilotKit?
+
+The useCopilotKit hook:
+
+- Provides access to the `CopilotKitCore` instance for agent and tool management
+- Exposes render tool calls for visual tool execution feedback
+- Subscribes to runtime connection status changes
+- Enables programmatic control over agents, tools, and context
+
+## Basic Usage
+
+```tsx
+import { useCopilotKit } from "@copilotkitnext/react";
+
+function MyComponent() {
+  const { copilotkit } = useCopilotKit();
+
+  // Access runtime status
+  console.log("Runtime status:", copilotkit.runtimeConnectionStatus);
+
+  // Get an agent
+  const agent = copilotkit.getAgent("assistant");
+
+  return <div>Connected: {copilotkit.runtimeConnectionStatus === "Connected"}</div>;
+}
+```
+
+## Return Value
+
+The hook returns a `CopilotKitContextValue` object with the following properties:
+
+### copilotkit
+
+`CopilotKitCore`
+
+The core CopilotKit instance that manages agents, tools, context, and runtime connections. This is the main interface
+for interacting with CopilotKit programmatically.
+
+### renderToolCalls
+
+`ReactToolCallRenderer<any>[]`
+
+An array of tool call render configurations defined at the provider level. These are used to render visual feedback when
+tools are executed.
+
+### currentRenderToolCalls
+
+`ReactToolCallRenderer<unknown>[]`
+
+The current list of render tool calls, including both static configurations and dynamically registered ones.
+
+### setCurrentRenderToolCalls
+
+`React.Dispatch<React.SetStateAction<ReactToolCallRenderer<unknown>[]>>`
+
+A setter function to update the current render tool calls. Useful for dynamically adding or removing tool renderers.
+
+## Examples
+
+### Running an Agent
+
+```tsx
+import { useCopilotKit } from "@copilotkitnext/react";
+import { useAgent } from "@copilotkitnext/react";
+
+function AgentRunner() {
+  const { copilotkit } = useCopilotKit();
+  const { agent } = useAgent({ agentId: "assistant" });
+  const [message, setMessage] = useState("");
+
+  const handleSubmit = async () => {
+    if (!message) return;
+
+    // Add user message
+    agent.addMessage({
+      id: crypto.randomUUID(),
+      role: "user",
+      content: message,
+    });
+
+    // Run the agent
+    await copilotkit.runAgent({ agent, agentId: "assistant" });
+
+    setMessage("");
+  };
+
+  return (
+    <div>
+      <input value={message} onChange={(e) => setMessage(e.target.value)} placeholder="Type a message..." />
+      <button onClick={handleSubmit}>Send</button>
+    </div>
+  );
+}
+```
+
+### Monitoring Runtime Connection
+
+```tsx
+import { useCopilotKit } from "@copilotkitnext/react";
+
+function ConnectionStatus() {
+  const { copilotkit } = useCopilotKit();
+
+  const getStatusColor = () => {
+    switch (copilotkit.runtimeConnectionStatus) {
+      case "Connected":
+        return "green";
+      case "Connecting":
+        return "yellow";
+      case "Error":
+        return "red";
+      default:
+        return "gray";
+    }
+  };
+
+  return (
+    <div className="connection-status">
+      <div className={`indicator ${getStatusColor()}`} />
+      <span>Runtime: {copilotkit.runtimeConnectionStatus}</span>
+      {copilotkit.runtimeVersion && <span>v{copilotkit.runtimeVersion}</span>}
+    </div>
+  );
+}
+```
+
+## Automatic Re-renders
+
+The hook automatically subscribes to runtime connection status changes and triggers re-renders when:
+
+- The runtime connects or disconnects
+- The connection status changes
+- Connection errors occur
+
+This ensures your components always display the current connection state without manual subscriptions.

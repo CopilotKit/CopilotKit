@@ -1,0 +1,223 @@
+---
+title: useHumanInTheLoop
+description: "useHumanInTheLoop Hook API Reference"
+---
+
+`useHumanInTheLoop` is a React hook that creates interactive tools requiring human approval or input before the agent
+can proceed. It enables you to build approval workflows, confirmation dialogs, and interactive decision points where
+human oversight is needed.
+
+## What is useHumanInTheLoop?
+
+The useHumanInTheLoop hook:
+
+- Creates tools that pause execution until human input is received
+- Manages status transitions (InProgress → Executing → Complete)
+- Provides a `respond` callback for user interactions
+- Automatically handles promise resolution for agent continuation
+- Renders interactive UI components in the chat interface
+
+## Basic Usage
+
+```tsx
+import { useHumanInTheLoop } from "@copilotkitnext/react";
+import { ToolCallStatus } from "@copilotkitnext/core";
+import { z } from "zod";
+
+function ApprovalComponent() {
+  useHumanInTheLoop({
+    name: "requireApproval",
+    description: "Requires human approval before proceeding",
+    parameters: z.object({
+      action: z.string(),
+      reason: z.string(),
+    }),
+    render: ({ status, args, respond }) => {
+      if (status === ToolCallStatus.Executing && respond) {
+        return (
+          <div className="approval-request">
+            <p>Approve action: {args.action}</p>
+            <p>Reason: {args.reason}</p>
+            <button onClick={() => respond({ approved: true })}>Approve</button>
+            <button onClick={() => respond({ approved: false })}>Deny</button>
+          </div>
+        );
+      }
+      return <div>Status: {status}</div>;
+    },
+  });
+
+  return <div>Approval system active</div>;
+}
+```
+
+## Parameters
+
+The hook accepts:
+
+- A required `ReactHumanInTheLoop` object describing the tool
+- An optional `options` object for controlling dependency behavior
+
+### name
+
+`string` **(required)**
+
+A unique identifier for the human-in-the-loop tool.
+
+```tsx
+useHumanInTheLoop({
+  name: "confirmDeletion",
+  // ...
+});
+```
+
+### description
+
+`string` **(optional)**
+
+Describes the tool's purpose to help agents understand when human approval is needed.
+
+```tsx
+useHumanInTheLoop({
+  name: "sensitiveAction",
+  description: "Requires human confirmation for sensitive operations",
+  // ...
+});
+```
+
+### parameters
+
+`z.ZodType<T>` **(optional)**
+
+A Zod schema defining the parameters the agent will provide when requesting human input.
+
+```tsx
+import { z } from "zod";
+
+useHumanInTheLoop({
+  name: "reviewChanges",
+  parameters: z.object({
+    changes: z.array(z.string()),
+    impact: z.enum(["low", "medium", "high"]),
+    estimatedTime: z.number(),
+  }),
+  // ...
+});
+```
+
+### render
+
+`React.ComponentType` **(required)**
+
+A React component that renders the interactive UI. It receives different props based on the current status:
+
+#### Status: InProgress
+
+Initial state when the tool is called but not yet executing:
+
+```tsx
+{
+  name: string;
+  description: string;
+  args: Partial<T>; // Partial arguments as they're being streamed
+  status: ToolCallStatus.InProgress;
+  result: undefined;
+  respond: undefined;
+}
+```
+
+#### Status: Executing
+
+Active state where user interaction is required:
+
+```tsx
+{
+  name: string;
+  description: string;
+  args: T; // Complete arguments
+  status: ToolCallStatus.Executing;
+  result: undefined;
+  respond: (result: unknown) => Promise<void>; // Callback to provide response
+}
+```
+
+#### Status: Complete
+
+Final state after user has responded:
+
+```tsx
+{
+  name: string;
+  description: string;
+  args: T; // Complete arguments
+  status: ToolCallStatus.Complete;
+  result: string; // The response provided via respond()
+  respond: undefined;
+}
+```
+
+### followUp
+
+`boolean` **(optional, default: true)**
+
+Controls whether the agent continues after receiving the human response. Provided for completeness, but typically you
+would want the agent to continue (default behavior).
+
+```tsx
+useHumanInTheLoop({
+  name: "finalConfirmation",
+  followUp: false, // Don't continue after confirmation
+  // ...
+});
+```
+
+### agentId
+
+`string` **(optional)**
+
+Restricts this tool to a specific agent.
+
+```tsx
+useHumanInTheLoop({
+  name: "adminApproval",
+  agentId: "admin-assistant",
+  // ...
+});
+```
+
+## Options
+
+### deps (second argument)
+
+`ReadonlyArray<unknown>` **(optional)**
+
+Additional dependencies that should trigger re-registration of the human-in-the-loop tool. By default, the hook only
+depends on stable keys like the tool name and CopilotKit instance to avoid re-register loops from object identity
+changes. Pass a dependency array as the second argument when the tool configuration is derived from changing props or
+state:
+
+```tsx
+function VersionedApproval({ version }: { version: number }) {
+  useHumanInTheLoop(
+    {
+      name: "versionedApproval",
+      description: `Approve deployment v${version}`,
+      // ...
+    },
+    [version],
+  );
+
+  return null;
+}
+```
+
+## Differences from useFrontendTool
+
+While `useFrontendTool` executes immediately and returns results, `useHumanInTheLoop`:
+
+- Pauses execution until human input is received
+- Provides a `respond` callback during the Executing state
+- Manages status transitions automatically
+- Is designed specifically for approval workflows and interactive decisions
+
+Choose `useHumanInTheLoop` when you need human oversight, and `useFrontendTool` for automated tool execution.

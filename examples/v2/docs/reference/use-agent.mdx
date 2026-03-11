@@ -1,0 +1,486 @@
+---
+title: useAgent
+description: "useAgent Hook API Reference"
+---
+
+`useAgent` is a React hook that provides access to [AG-UI](https://ag-ui.com) agents and subscribes to their state
+changes. It enables components to interact with agents, access their messages, and respond to updates in real-time.
+The hook always returns an agent instance. While the runtime is syncing, it returns a provisional runtime agent; once
+the runtime has synced, if the agent id does not exist the hook throws an error.
+
+## What is useAgent?
+
+The useAgent hook:
+
+- Retrieves an agent by ID from the CopilotKit context
+- Subscribes to agent state changes (messages, state, run status)
+- Automatically triggers component re-renders when the agent updates
+- Handles cleanup of subscriptions when the component unmounts
+
+## Basic Usage
+
+```tsx
+import { useAgent } from "@copilotkitnext/react";
+
+function ChatComponent() {
+  const { agent } = useAgent({ agentId: "assistant" });
+
+  return (
+    <div>
+      <h2>Agent: {agent.id}</h2>
+      <div>Messages: {agent.messages.length}</div>
+      <div>Running: {agent.isRunning ? "Yes" : "No"}</div>
+    </div>
+  );
+}
+```
+
+## Parameters
+
+### agentId
+
+`string` **(optional)**
+
+The ID of the agent to retrieve. If not provided, defaults to `"default"`.
+
+```tsx
+const { agent } = useAgent({ agentId: "customer-support" });
+```
+
+### updates
+
+`UseAgentUpdate[]` **(optional)**
+
+An array of update types to subscribe to. This allows you to optimize re-renders by only subscribing to specific
+changes.
+
+```tsx
+import { useAgent, UseAgentUpdate } from "@copilotkitnext/react";
+
+const { agent } = useAgent({
+  agentId: "assistant",
+  updates: [UseAgentUpdate.OnMessagesChanged],
+});
+```
+
+Available update types:
+
+- `UseAgentUpdate.OnMessagesChanged` - Updates when messages are added or modified
+- `UseAgentUpdate.OnStateChanged` - Updates when agent state changes
+- `UseAgentUpdate.OnRunStatusChanged` - Updates when agent starts or stops running
+
+If `updates` is not provided, the hook subscribes to all update types by default.
+
+## Return Value
+
+The hook returns an object with a single property:
+
+### agent
+
+`AbstractAgent`
+
+The agent instance. During runtime synchronization, the hook returns a provisional runtime agent so you can bind UI
+immediately. After the runtime has synced (Connected or Error), if the agent id does not exist the hook throws an
+error.
+
+## Accessing Agent Messages
+
+The agent's message history is available through the `messages` property. You can read messages and add new ones to
+create interactive conversations.
+
+### Reading Messages
+
+```tsx
+function SimpleChat() {
+  const { agent } = useAgent();
+
+  return (
+    <div>
+      {agent.messages.map((message) => (
+        <div key={message.id}>
+          <strong>{message.role}:</strong> {message.content}
+        </div>
+      ))}
+    </div>
+  );
+}
+```
+
+### Sending Messages
+
+To send a message, add it to the agent and then run the agent:
+
+```tsx
+import { useAgent } from "@copilotkitnext/react";
+import { useCopilotKit } from "@copilotkitnext/react";
+
+function MessageSender() {
+  const { agent } = useAgent({ agentId: "assistant" });
+  const { copilotkit } = useCopilotKit();
+
+  const sendMessage = async (content: string) => {
+
+    // Add message to agent
+    agent.addMessage({
+      id: crypto.randomUUID(),
+      role: "user",
+      content,
+    });
+
+    // Run the agent to get a response
+    await copilotkit.runAgent({
+      agent,
+      agentId: "assistant",
+    });
+  };
+
+  return (
+    <div>
+      <button onClick={() => sendMessage("Hello!")} disabled={agent.isRunning}>
+        Send Hello
+      </button>
+    </div>
+  );
+}
+```
+
+## Accessing and Updating Shared State
+
+Shared state enables real-time collaboration between users and agents. Both can read and modify the state, creating a
+synchronized workspace for interactive features.
+
+### Understanding Shared State
+
+The agent's state is a shared data structure that:
+
+- Can be read by both your application and the agent
+- Can be modified by both parties
+- Automatically triggers re-renders when changed
+- Persists throughout the conversation
+
+State updates cause re-renders when:
+
+- You call `agent.setState()` from your application
+- The agent modifies the state during execution
+- Any state change occurs, regardless of source
+
+### Reading State
+
+```tsx
+function StateDisplay() {
+  const { agent } = useAgent({
+    updates: [UseAgentUpdate.OnStateChanged], // Subscribe to state changes
+  });
+
+  return (
+    <div>
+      <h3>Current State</h3>
+      <pre>{JSON.stringify(agent.state, null, 2)}</pre>
+    </div>
+  );
+}
+```
+
+### Updating State
+
+```tsx
+function StateController() {
+  const { agent } = useAgent({
+    updates: [UseAgentUpdate.OnStateChanged],
+  });
+
+  const updateState = (key: string, value: any) => {
+    // Update the shared state
+    agent.setState({
+      ...agent.state,
+      [key]: value,
+    });
+
+    // This will trigger re-renders for all components
+    // subscribed to OnStateChanged
+  };
+
+  return (
+    <div>
+      <button onClick={() => updateState("counter", (agent.state.counter || 0) + 1)}>
+        Increment Counter: {agent.state.counter || 0}
+      </button>
+    </div>
+  );
+}
+```
+
+### Collaborative Features
+
+Shared state enables collaborative features where users and agents work together:
+
+```tsx
+function CollaborativeTodo() {
+  const { agent } = useAgent({
+    updates: [UseAgentUpdate.OnStateChanged],
+  });
+  const { copilotkit } = useCopilotKit();
+
+  const todos = agent.state.todos || [];
+
+  const addTodo = (text: string) => {
+    agent.setState({
+      ...agent.state,
+      todos: [...todos, { id: crypto.randomUUID(), text, done: false }],
+    });
+  };
+
+  const toggleTodo = (id: string) => {
+    agent.setState({
+      ...agent.state,
+      todos: todos.map((todo) => (todo.id === id ? { ...todo, done: !todo.done } : todo)),
+    });
+  };
+
+  const askAgentToOrganize = async () => {
+    // Add a message asking the agent to organize todos
+    agent.addMessage({
+      id: crypto.randomUUID(),
+      role: "user",
+      content: "Please organize my todos by priority",
+    });
+
+    // The agent can read and modify the todos in agent.state
+    await copilotkit.runAgent({ agent });
+
+    // After the agent runs, the state will be updated
+    // and the component will re-render automatically
+  };
+
+  return (
+    <div>
+      <h3>Shared Todo List</h3>
+      <ul>
+        {todos.map((todo) => (
+          <li key={todo.id}>
+            <input type="checkbox" checked={todo.done} onChange={() => toggleTodo(todo.id)} />
+            <span className={todo.done ? "done" : ""}>{todo.text}</span>
+          </li>
+        ))}
+      </ul>
+
+      <button onClick={() => addTodo(prompt("New todo:") || "")}>Add Todo</button>
+
+      <button onClick={askAgentToOrganize}>Ask Agent to Organize</button>
+    </div>
+  );
+}
+```
+
+## Examples
+
+### Optimized Updates
+
+Subscribe only to message changes to avoid unnecessary re-renders:
+
+```tsx
+import { useAgent, UseAgentUpdate } from "@copilotkitnext/react";
+
+function MessageList() {
+  const { agent } = useAgent({
+    updates: [UseAgentUpdate.OnMessagesChanged],
+  });
+
+  
+
+  return (
+    <ul>
+      {agent.messages.map((msg) => (
+        <li key={msg.id}>{msg.content}</li>
+      ))}
+    </ul>
+  );
+}
+```
+
+### Run Status Indicator
+
+Show a loading indicator when the agent is processing:
+
+```tsx
+import { useAgent, UseAgentUpdate } from "@copilotkitnext/react";
+
+function RunStatus() {
+  const { agent } = useAgent({
+    agentId: "assistant",
+    updates: [UseAgentUpdate.OnRunStatusChanged],
+  });
+
+  
+
+  return (
+    <div className={`status ${agent.isRunning ? "running" : "idle"}`}>
+      {agent.isRunning ? "🔄 Processing..." : "✅ Ready"}
+    </div>
+  );
+}
+```
+
+### Multiple Agents
+
+Access different agents in different components:
+
+```tsx
+function DualAgentView() {
+  const { agent: primaryAgent } = useAgent({
+    agentId: "primary-assistant",
+  });
+
+  const { agent: supportAgent } = useAgent({
+    agentId: "support-assistant",
+  });
+
+  return (
+    <div className="dual-view">
+      <div className="primary">
+        <h3>Primary Assistant</h3>
+        <div>Messages: {primaryAgent.messages.length}</div>
+      </div>
+
+      <div className="support">
+        <h3>Support Assistant</h3>
+        <div>Messages: {supportAgent.messages.length}</div>
+      </div>
+    </div>
+  );
+}
+```
+
+### No Updates Subscription
+
+For static access without subscribing to updates:
+
+```tsx
+const { agent } = useAgent({
+  agentId: "assistant",
+  updates: [], // No subscriptions
+});
+
+// Component won't re-render on agent changes
+```
+
+### Custom Message Rendering with Optimized Updates
+
+```tsx
+import { useAgent, UseAgentUpdate } from "@copilotkitnext/react";
+import { Message } from "@ag-ui/core";
+
+function MessageRenderer() {
+  const { agent } = useAgent({
+    updates: [UseAgentUpdate.OnMessagesChanged], // Only re-render on message changes
+  });
+
+  if (agent.messages.length === 0) {
+    return <div>No messages yet</div>;
+  }
+
+  const renderMessage = (message: Message) => {
+    switch (message.role) {
+      case "user":
+        return (
+          <div className="user-message">
+            <span className="avatar">👤</span>
+            <span className="content">{message.content}</span>
+          </div>
+        );
+      case "assistant":
+        return (
+          <div className="assistant-message">
+            <span className="avatar">🤖</span>
+            <span className="content">{message.content}</span>
+          </div>
+        );
+      default:
+        return null;
+    }
+  };
+
+  return (
+    <div className="message-list">
+      {agent.messages.map((msg) => (
+        <div key={msg.id}>{renderMessage(msg)}</div>
+      ))}
+    </div>
+  );
+}
+```
+
+## Performance Considerations
+
+### Selective Updates
+
+By default, `useAgent` subscribes to all update types, which can cause frequent re-renders. Use the `updates` parameter
+to subscribe only to the changes you need:
+
+```tsx
+// ❌ Subscribes to all updates (may cause unnecessary re-renders)
+const { agent } = useAgent({ agentId: "assistant" });
+
+// ✅ Only subscribes to message changes
+const { agent } = useAgent({
+  agentId: "assistant",
+  updates: [UseAgentUpdate.OnMessagesChanged],
+});
+
+// ✅ Only subscribes to run status changes
+const { agent } = useAgent({
+  agentId: "assistant",
+  updates: [UseAgentUpdate.OnRunStatusChanged],
+});
+```
+
+### Component Splitting
+
+Split components by update type to optimize rendering:
+
+```tsx
+// Message display component - only updates on message changes
+function Messages() {
+  const { agent } = useAgent({
+    updates: [UseAgentUpdate.OnMessagesChanged],
+  });
+
+  // Render messages...
+}
+
+// Status indicator - only updates on run status changes
+function StatusIndicator() {
+  const { agent } = useAgent({
+    updates: [UseAgentUpdate.OnRunStatusChanged],
+  });
+
+  // Render status...
+}
+
+// Parent component doesn't need to subscribe
+function ChatView() {
+  return (
+    <>
+      <StatusIndicator />
+      <Messages />
+    </>
+  );
+}
+```
+
+## Error Handling
+
+After the runtime has synced (Connected or Error), `useAgent` throws if the requested agent id does not exist. During
+runtime syncing, a provisional agent is returned. To avoid runtime errors:
+
+- Ensure the agent id you request is registered (via `agents__unsafe_dev_only` or exposed by your runtime).
+- Optionally wrap the component that calls `useAgent` in an error boundary to render a fallback UI if the agent is
+  missing due to misconfiguration in development.
+
+Example configuration with a local agent for development:
+
+```tsx
+<CopilotKitProvider agents__unsafe_dev_only={{ myAgent: new MyAgent() }}>
+  <App />
+</CopilotKitProvider>
+```

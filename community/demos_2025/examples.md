@@ -13,6 +13,7 @@ Briefly describe the issue or challenge that your demo/project addresses.
 List all technologies, tools, and frameworks you are utilizing for the project:
 
 Example 👇
+
 - **Frameworks**: (e.g., Next.js, Mastra)
 - **Styling**: v0 Styling, Shadcn-UI Component Styling
 - **Developer Tools**: CopilotKit
@@ -45,4 +46,3 @@ Include a screenshot of your demo in action:
 ### 🙋‍♂️ **List your project repo here**
 
 Please list your GitHub repo project link.
-

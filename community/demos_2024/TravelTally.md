@@ -32,26 +32,26 @@ Dev.to[https://dev.to/avradeep_nayak_fa8d5f6995] -> https://dev.to/avradeep_naya
 ## Screenshots
 
 ### Home Page to Set your travel budget
+
 <img width="1679" alt="Screenshot 2024-10-26 at 23 01 45" src="https://github.com/user-attachments/assets/86aaf996-1896-4222-bd53-9d230cb4bed0">
 
-
 ### Before setting expenses
+
 <img width="1680" alt="Screenshot 2024-10-26 at 23 01 59" src="https://github.com/user-attachments/assets/021e6e95-0240-4f40-be59-175852219689">
 
-
 ### To add expenses for the new trip from the bottom + botton
+
 <img width="1680" alt="Screenshot 2024-10-26 at 23 02 11" src="https://github.com/user-attachments/assets/d80d0708-c32f-42c5-ac0a-d80fb1d77e71">
 
 ### To see the expenses and track the budget
+
 <img width="1677" alt="Screenshot 2024-10-26 at 23 02 33" src="https://github.com/user-attachments/assets/bbb0e403-0614-4f1b-a64e-df3d167a11fb">
 
 ### Copilot implementation
+
 <img width="1666" alt="Screenshot 2024-10-26 at 23 08 14" src="https://github.com/user-attachments/assets/286e856e-c5e2-4630-a239-a6326b9324d1">
-
-
 
 ## Who Are You?
 
 - [Avradeep](https://github.com/Zedoman)
 - [Avradeep on Linkedin](https://www.linkedin.com/in/avradeep-nayak-7604b5222/)
-

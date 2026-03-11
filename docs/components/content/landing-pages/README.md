@@ -65,7 +65,7 @@ interface FrameworkFeature {
 
 ```tsx
 interface LiveDemo {
-  type: 'saas' | 'canvas';
+  type: "saas" | "canvas";
   title: string;
   description: string;
   iframeUrl: string;
@@ -84,6 +84,7 @@ interface LiveDemo {
 ## Examples
 
 See the following files for complete examples:
+
 - `langgraph.tsx` - LangGraph framework implementation
 - `crewai-example.tsx` - CrewAI framework implementation example
 

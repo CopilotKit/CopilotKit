@@ -1,10 +1,17 @@
-<Tabs groupId="python-pm" items={['Poetry', 'pip', 'conda']} default="Poetry">
-    <Tab value="Poetry">
+import { Tabs, Tab } from "fumadocs-ui/components/tabs";
+
+<Tabs className="p-0 m-0" groupId="python-pm" items={['uv', 'poetry', 'pip', 'conda']} default="uv">
+    <Tab value="uv">
+    ```bash
+    uv add copilotkit
+    ```
+    </Tab>
+    <Tab value="poetry">
     ```bash
     poetry add copilotkit
     ```
     </Tab>
-    
+
     <Tab value="pip">
 
     ```bash

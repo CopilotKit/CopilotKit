@@ -57,7 +57,8 @@ git clone https://github.com/<your-GitHub-username>/CopilotKit
 
 - Node.js 20.x or later
 - pnpm v9.x installed globally (npm i -g pnpm@^9)
-- Turborepo v2.x installed globally (npm i -g turbo@2)
+
+> **Windows users:** Enable **Developer Mode** (Settings > System > For developers > Developer Mode → On) to allow symlink creation. This is required for Next.js standalone builds and pnpm to work correctly.
 
 ### 2)Install Dependencies
 
@@ -74,7 +75,7 @@ To make sure everything works, let’s build all packages once:
 
 ```jsx
 cd CopilotKit
-turbo run build
+pnpm build
 ```
 
 ## Step 4: Create a branch
@@ -94,14 +95,14 @@ git checkout -b <new-branch-name-here>
 
 ## Step 5: Make your changes
 
-Now that everything is set up and works as expected, you can get start developing or update the code with your bug fix or new feature.
+Now that everything is set up and works as expected, you can get started developing or update the code with your bug fix or new feature.
 
 ```jsx
 # To start all packages in development mode
-turbo run dev
+pnpm dev
 
 # Start a specific package in development mode
-turbo run dev --filter="@copilotkit/package-name"
+nx run @copilotkit/package-name:dev
 ```
 
 ## Step 6: Add the changes that are ready to be committed

@@ -37,6 +37,10 @@ class CopilotKitProperties(TypedDict):
     actions: List[Any]
     context: List[CopilotContextItem]
 
+    # Private state for CopilotKit middleware
+    intercepted_tool_calls: Any
+    original_ai_message_id: Any
+
 class CopilotKitState(MessagesState):
     """CopilotKit state"""
     copilotkit: CopilotKitProperties
@@ -84,8 +88,10 @@ def copilotkit_messages_to_langchain(
 
                     all_tool_calls = []
 
-                    # Find all tool calls for this message
+                    # Find all tool calls for this message (only ActionExecutionMessage type)
                     for msg in messages:
+                        if msg.get("type") != "ActionExecutionMessage":
+                            continue
                         if msg.get("parentMessageId", None) == message_id or msg["id"] == message_id:
                             all_tool_calls.append(msg)
 
@@ -157,6 +163,12 @@ def langchain_messages_to_copilotkit(
                 "id": message.id,
             })
         elif isinstance(message, AIMessage):
+            if content:
+                result.append({
+                    "role": "assistant",
+                    "content": content,
+                    "id": message.id,
+                })
             if message.tool_calls:
                 for tool_call in message.tool_calls:
                     result.append({
@@ -165,13 +177,6 @@ def langchain_messages_to_copilotkit(
                         "arguments": tool_call["args"],
                         "parentMessageId": message.id,
                     })
-            else:
-                result.append({
-                    "role": "assistant",
-                    "content": content,
-                    "id": message.id,
-                    "parentMessageId": message.id,
-                })
         elif isinstance(message, ToolMessage):
             result.append({
                 "actionExecutionId": message.tool_call_id,

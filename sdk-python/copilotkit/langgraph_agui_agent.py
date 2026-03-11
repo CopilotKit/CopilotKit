@@ -55,7 +55,12 @@ class LangGraphAGUIAgent(LangGraphAgent):
         self.constant_schema_keys = self.constant_schema_keys + ["copilotkit"]
 
     def _dispatch_event(self, event) -> str:
-        """Override the dispatch event method to handle custom CopilotKit events and filtering"""
+        """Override the dispatch event method to handle custom CopilotKit events and filtering.
+
+        Note: Returns None for filtered events (which violates the str return type annotation,
+        but the base class also violates it by returning event objects). The None values are
+        filtered out in run() before reaching the encoder.
+        """
         
         if event.type == EventType.CUSTOM:
             custom_event = event
@@ -150,25 +155,35 @@ class LangGraphAGUIAgent(LangGraphAgent):
                 EventType.TOOL_CALL_END
             ]
 
-            metadata = getattr(raw_event, 'metadata', {}) or {}
-            
+            # Handle both dict and object cases for raw_event
+            # See: https://github.com/CopilotKit/CopilotKit/issues/2066
+            metadata = (raw_event.get('metadata', {}) if isinstance(raw_event, dict)
+                        else getattr(raw_event, 'metadata', {})) or {}
+
             if "copilotkit:emit-tool-calls" in metadata:
                 if metadata["copilotkit:emit-tool-calls"] is False and is_tool_event:
-                    return ""  # Don't dispatch this event
-            
+                    return None  # Don't dispatch this event
+
             if "copilotkit:emit-messages" in metadata:
                 if metadata["copilotkit:emit-messages"] is False and is_message_event:
-                    return ""  # Don't dispatch this event
+                    return None  # Don't dispatch this event
 
         return super()._dispatch_event(event)
+
+    async def run(self, input):
+        """Override run to filter out None events from _dispatch_event filtering."""
+        async for event in super().run(input):
+            if event is not None:
+                yield event
 
     async def _handle_single_event(self, event: Any, state: State) -> AsyncGenerator[str, None]:
         """Override to add custom event processing for PredictState events"""
         
         # First, check if this is a raw event that should generate a PredictState event
         if event.get("event") == LangGraphEventTypes.OnChatModelStream.value:
-            predict_state_metadata = event.get("metadata", {}).get("copilotkit:emit-intermediate-state", [])
-            event["metadata"]['predict_state'] = predict_state_metadata
+            predict_state_metadata = event.get("metadata", {}).get("copilotkit:emit-intermediate-state", None)
+            if predict_state_metadata is not None:
+                event["metadata"]['predict_state'] = predict_state_metadata
 
         # Call the parent method to handle all other events
         async for event_str in super()._handle_single_event(event, state):

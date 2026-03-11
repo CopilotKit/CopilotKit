@@ -1,0 +1,120 @@
+import { Meta } from "@storybook/blocks";
+
+<Meta title="Welcome" />
+
+# CopilotKit Angular Components
+
+Welcome to the **CopilotKit Angular Storybook**! This is the dedicated documentation and showcase for all Angular components in the CopilotKit ecosystem.
+
+## What is CopilotKit?
+
+CopilotKit is a comprehensive toolkit for building AI-powered copilot experiences in your applications. This Angular package provides native Angular components that integrate seamlessly with your Angular applications.
+
+## Available Components
+
+### Chat Components
+
+- **CopilotChatInput** - A feature-rich chat input component with voice recording, tools menu, and file attachments
+- **CopilotChatTextarea** - An auto-resizing textarea component for chat interfaces
+- **CopilotChatView** - Complete chat interface with message history
+- **CopilotChatUserMessage** - User message display component
+- **CopilotAssistantMessage** - Assistant message display component
+
+### Context Management
+
+- **CopilotAgentContextProvider** - Provides agent context to child components
+- **CopilotChatConfigurationProvider** - Configures chat components globally
+
+## Getting Started
+
+### Installation
+
+```bash
+npm install @copilotkitnext/angular
+# or
+pnpm add @copilotkitnext/angular
+```
+
+### Basic Usage
+
+```typescript
+import { Component } from "@angular/core";
+import { CopilotChatInput } from "@copilotkitnext/angular";
+import { provideCopilotChatConfiguration } from "@copilotkitnext/angular";
+
+@Component({
+  selector: "app-chat",
+  standalone: true,
+  imports: [CopilotChatInput],
+  providers: [
+    provideCopilotChatConfiguration({
+      labels: {
+        chatInputPlaceholder: "Type a message...",
+      },
+    }),
+  ],
+  template: `
+    <copilot-chat-input
+      (submitMessage)="onSubmitMessage($event)"
+    ></copilot-chat-input>
+  `,
+})
+export class ChatComponent {
+  onSubmitMessage(message: string): void {
+    console.log("Message:", message);
+  }
+}
+```
+
+## Features
+
+### Angular 19+ Support
+
+Built with the latest Angular features including:
+
+- Standalone components
+- Signals for reactive state management
+- OnPush change detection
+- TypeScript strict mode
+
+### Full TypeScript Support
+
+All components are fully typed with comprehensive TypeScript definitions.
+
+### Customizable
+
+- Custom CSS classes for styling
+- Configurable labels and placeholders
+- Event emitters for all interactions
+- Flexible slot system for content projection
+
+## Development
+
+This Storybook runs alongside the [React Storybook](http://localhost:6006) on port 6007.
+
+### Available Scripts
+
+```bash
+# Run Angular Storybook in development mode
+pnpm --filter storybook-angular dev
+
+# Build Angular Storybook for production
+pnpm --filter storybook-angular build
+```
+
+## Links
+
+- [CopilotKit Documentation](https://docs.copilotkit.ai)
+- [GitHub Repository](https://github.com/CopilotKit/CopilotKit)
+- [React Components Storybook](http://localhost:6006)
+
+## Support
+
+For issues, feature requests, or questions:
+
+- [GitHub Issues](https://github.com/CopilotKit/CopilotKit/issues)
+- [Discord Community](https://discord.gg/copilotkit)
+
+---
+
+_Built with Angular 19 and Storybook 8_

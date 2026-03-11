@@ -1,0 +1,14 @@
+{
+  "name": "@copilotkitnext/typescript-config",
+  "version": "1.54.0-next.5",
+  "private": true,
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
+  "exports": {
+    "./base.json": "./base.json",
+    "./nextjs.json": "./nextjs.json",
+    "./react-library.json": "./react-library.json"
+  }
+}

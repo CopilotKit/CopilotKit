@@ -1,0 +1,11 @@
+packages:
+  - "packages/v1/*"
+  - "packages/v2/*"
+  - "examples/v1/*"
+  - "examples/v2/*"
+  - "examples/v2/*/apps/*"
+  - "examples/v2/react/*"
+  - "examples/v2/angular/*"
+  - "!examples/v1/_legacy"
+onlyBuiltDependencies:
+  - better-sqlite3

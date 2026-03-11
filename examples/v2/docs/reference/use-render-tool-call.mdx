@@ -1,0 +1,262 @@
+---
+title: useRenderToolCall
+description: "useRenderToolCall Hook API Reference"
+---
+
+<Warning>
+  You would use this hook if you use the headless functionality of CopilotKit, rendering your own chat UI instead of the
+  default `CopilotChat`. If you are using `CopilotChat`, you don't need to use this hook.
+</Warning>
+
+`useRenderToolCall` is a React hook that provides a function to render visual representations of tool calls in the chat
+interface. It manages the rendering of tool execution states (InProgress, Executing, Complete) based on configured
+render functions.
+
+## What is useRenderToolCall?
+
+The useRenderToolCall hook:
+
+- Returns a render function for tool calls
+- Automatically determines the appropriate status (InProgress, Executing, or Complete)
+- Manages tool execution state transitions
+- Supports agent-specific and wildcard renderers
+- Integrates with CopilotKit's tool rendering system
+
+## Basic Usage
+
+```tsx
+import { useRenderToolCall } from "@copilotkitnext/react";
+import { ToolCall } from "@ag-ui/core";
+
+function ToolCallDisplay({ toolCall, toolMessage }) {
+  const renderToolCall = useRenderToolCall();
+
+  return <div className="tool-call-container">{renderToolCall({ toolCall, toolMessage })}</div>;
+}
+```
+
+## Return Value
+
+The hook returns a function with the following signature:
+
+```tsx
+(props: UseRenderToolCallProps) => React.ReactElement | null;
+```
+
+### UseRenderToolCallProps
+
+```tsx
+interface UseRenderToolCallProps {
+  toolCall: ToolCall; // The tool call to render
+  toolMessage?: ToolMessage; // Optional result message
+}
+```
+
+## How It Works
+
+### Status Determination
+
+The render function automatically determines the tool's status:
+
+1. **Complete**: When a `toolMessage` is provided
+2. **Executing**: When the tool is currently running (tracked internally)
+3. **InProgress**: Default state when neither complete nor executing
+
+### Renderer Selection
+
+The function selects renderers based on priority:
+
+1. **Exact match** with matching agentId
+2. **Exact match** without agentId (global)
+3. **Exact match** (any agentId)
+4. **Wildcard** renderer (`*`)
+5. **No render** (returns null)
+
+## Examples
+
+### Basic Tool Call Rendering
+
+```tsx
+import { useRenderToolCall } from "@copilotkitnext/react";
+import { AssistantMessage } from "@ag-ui/core";
+
+function ChatMessage({ message }: { message: AssistantMessage }) {
+  const renderToolCall = useRenderToolCall();
+
+  if (!message.toolCalls) {
+    return <div>{message.content}</div>;
+  }
+
+  return (
+    <div>
+      {message.content}
+      {message.toolCalls.map((toolCall) => (
+        <div key={toolCall.id} className="tool-call">
+          {renderToolCall({ toolCall })}
+        </div>
+      ))}
+    </div>
+  );
+}
+```
+
+### With Tool Results
+
+```tsx
+import { useRenderToolCall } from "@copilotkitnext/react";
+import { Message, ToolMessage } from "@ag-ui/core";
+
+function ChatWithResults({ message, allMessages }: { message: AssistantMessage; allMessages: Message[] }) {
+  const renderToolCall = useRenderToolCall();
+
+  return (
+    <>
+      {message.toolCalls?.map((toolCall) => {
+        // Find the corresponding result message
+        const toolMessage = allMessages.find(
+          (m): m is ToolMessage => m.role === "tool" && m.toolCallId === toolCall.id,
+        );
+
+        return (
+          <div key={toolCall.id}>
+            {renderToolCall({
+              toolCall,
+              toolMessage, // Pass result if available
+            })}
+          </div>
+        );
+      })}
+    </>
+  );
+}
+```
+
+## Integration with Tool Renderers
+
+The hook works with tool renderers defined at various levels:
+
+### Provider-Level Renderers
+
+Renderers defined in `CopilotKitProvider`:
+
+```tsx
+import { CopilotKitProvider, defineToolCallRenderer } from "@copilotkitnext/react";
+
+const searchRenderer = defineToolCallRenderer({
+  name: "search",
+  render: ({ args, status }) => <SearchDisplay {...args} status={status} />,
+});
+
+function App() {
+  return (
+    <CopilotKitProvider renderToolCalls={[searchRenderer]}>
+      {/* Components using useRenderToolCall will use this renderer */}
+    </CopilotKitProvider>
+  );
+}
+```
+
+### Dynamic Tool Renderers
+
+Renderers registered via `useFrontendTool`:
+
+```tsx
+function DynamicTool() {
+  useFrontendTool({
+    name: "dynamicAction",
+    handler: async (args) => {
+      /* ... */
+    },
+    render: ({ args, status }) => <div>Dynamic tool: {status}</div>,
+  });
+
+  // This renderer is automatically available to useRenderToolCall
+  return null;
+}
+```
+
+### Wildcard Renderer
+
+A fallback renderer for unmatched tools:
+
+```tsx
+const wildcardRenderer = defineToolCallRenderer({
+  name: "*",
+  render: ({ name, args, status }) => (
+    <div className="unknown-tool">
+      <span>Unknown tool: {name}</span>
+      <span>Status: {status}</span>
+    </div>
+  ),
+});
+```
+
+## Status Lifecycle
+
+The hook manages three status states automatically:
+
+### InProgress
+
+Initial state when tool is called but not executing:
+
+```tsx
+// Renderer receives:
+{
+  name: string;
+  args: Partial<T>; // May be incomplete during streaming
+  status: ToolCallStatus.InProgress;
+  result: undefined;
+}
+```
+
+### Executing
+
+Active execution state:
+
+```tsx
+// Renderer receives:
+{
+  name: string;
+  args: T; // Complete arguments
+  status: ToolCallStatus.Executing;
+  result: undefined;
+}
+```
+
+### Complete
+
+Final state with results:
+
+```tsx
+// Renderer receives:
+{
+  name: string;
+  args: T; // Complete arguments
+  status: ToolCallStatus.Complete;
+  result: string; // Tool execution result
+}
+```
+
+## Agent-Specific Rendering
+
+The hook supports agent-specific renderers:
+
+```tsx
+import { useCopilotChatConfiguration } from "@copilotkitnext/react";
+
+function AgentAwareRendering() {
+  const renderToolCall = useRenderToolCall();
+  const config = useCopilotChatConfiguration();
+
+  // The hook automatically selects renderers based on the current agent
+  // Priority: agent-specific > global > wildcard
+
+  return (
+    <div>
+      <h3>Agent: {config?.agentId || "default"}</h3>
+      {/* Renders will use agent-appropriate renderers */}
+      {toolCalls.map((tc) => renderToolCall({ toolCall: tc }))}
+    </div>
+  );
+}
+```

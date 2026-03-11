@@ -1,0 +1,27 @@
+{
+  "extends": "@copilotkitnext/typescript-config/base.json",
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "lib": ["ES2022", "dom"],
+    "moduleResolution": "bundler",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "allowSyntheticDefaultImports": true,
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "resolveJsonModule": true,
+    "useDefineForClassFields": false,
+    "paths": {
+      "@copilotkitnext/angular": ["../../../packages/angular/src/index.ts"],
+      "@copilotkitnext/angular/*": ["../../../packages/angular/src/*"],
+      "@copilotkitnext/core": ["../../../packages/core/src/index.ts"],
+      "@copilotkitnext/shared": ["../../../packages/shared/src/index.ts"]
+    },
+    "types": ["node"]
+  },
+  "include": ["**/*.ts", "**/*.tsx", ".storybook/**/*"],
+  "exclude": ["node_modules", "dist"]
+}

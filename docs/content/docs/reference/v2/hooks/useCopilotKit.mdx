@@ -1,0 +1,129 @@
+---
+title: "useCopilotKit"
+description: "Low-level React hook for accessing the CopilotKit context"
+---
+
+## Overview
+
+`useCopilotKit` is a low-level React hook that returns the CopilotKit context value, providing direct access to the core instance and provider-level state. It subscribes to runtime connection status changes and triggers re-renders when the connection status updates.
+
+<Callout type="info">
+  `useCopilotKit` is a low-level hook. Most applications should use higher-level hooks like `useAgent` or `useFrontendTool` instead.
+</Callout>
+
+**Throws an error** if used outside of a `CopilotKitProvider` (or the `<CopilotKit>` wrapper component).
+
+## Signature
+
+```tsx
+import { useCopilotKit } from "@copilotkit/react-core/v2";
+
+function useCopilotKit(): CopilotKitContextValue
+```
+
+## Parameters
+
+This hook takes no parameters.
+
+## Return Value
+
+<PropertyReference name="context" type="CopilotKitContextValue">
+  The context object containing the core instance and provider-level state.
+
+  <PropertyReference name="copilotkit" type="CopilotKitCoreReact">
+    The live CopilotKit core instance. This is the central coordinator that manages agents, tools, suggestions, and runtime communication. It exposes methods for:
+    - Agent management (`agents`, `getAgent`)
+    - Tool registration and execution
+    - Suggestion configuration and retrieval
+    - Runtime connection management
+    - Event subscription via `subscribe()`
+
+    The core instance is created once per `CopilotKitProvider` and is stable across re-renders.
+  </PropertyReference>
+
+  <PropertyReference name="executingToolCallIds" type="ReadonlySet<string>">
+    Set of tool call IDs currently being executed. This is tracked at the provider level to ensure tool execution events are captured even before child components mount. This is important for scenarios like human-in-the-loop reconnection, where pending tool calls may already exist when the component tree mounts.
+  </PropertyReference>
+</PropertyReference>
+
+## Usage
+
+### Accessing the Core Instance
+
+```tsx
+import { useCopilotKit } from "@copilotkit/react-core/v2";
+
+function DebugPanel() {
+  const { copilotkit } = useCopilotKit();
+
+  const agents = Object.keys(copilotkit.agents ?? {});
+
+  return (
+    <div>
+      <h3>Registered Agents</h3>
+      <ul>
+        {agents.map((id) => (
+          <li key={id}>{id}</li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+```
+
+### Subscribing to Core Events
+
+```tsx
+import { useEffect } from "react";
+import { useCopilotKit } from "@copilotkit/react-core/v2";
+
+function ConnectionMonitor() {
+  const { copilotkit } = useCopilotKit();
+
+  useEffect(() => {
+    const subscription = copilotkit.subscribe({
+      onRuntimeConnectionStatusChanged: () => {
+        console.log("Runtime connection status changed");
+      },
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [copilotkit]);
+
+  return null;
+}
+```
+
+### Checking Tool Execution State
+
+```tsx
+import { useCopilotKit } from "@copilotkit/react-core/v2";
+
+function ToolExecutionIndicator() {
+  const { executingToolCallIds } = useCopilotKit();
+
+  if (executingToolCallIds.size === 0) {
+    return null;
+  }
+
+  return (
+    <div>
+      Executing {executingToolCallIds.size} tool call(s)...
+    </div>
+  );
+}
+```
+
+## Behavior
+
+- **Error on Missing Provider**: Throws an error if the hook is used outside of `CopilotKitProvider` or the `<CopilotKit>` wrapper component.
+- **Runtime Status Subscription**: The hook subscribes to `onRuntimeConnectionStatusChanged` events, so components re-render when the runtime connection completes or fails.
+- **Stable Core Reference**: The `copilotkit` instance is created once per provider and remains stable across re-renders. Only the `executingToolCallIds` set changes as tool calls begin and complete.
+- **Provider-Level Tool Tracking**: `executingToolCallIds` is tracked at the provider level rather than in individual components. This ensures that tool execution start events fired before child components mount are not lost.
+
+## Related
+
+- [`useAgent`](/reference/v2/hooks/useAgent) -- High-level hook for accessing agent instances
+- [`CopilotKitProvider`](/reference/v2) -- The provider component that creates the context

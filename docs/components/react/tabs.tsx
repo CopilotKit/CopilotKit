@@ -1,9 +1,9 @@
 "use client";
 
-import * as React from 'react';
-import * as TabsPrimitive from '@radix-ui/react-tabs';
+import * as React from "react";
+import * as TabsPrimitive from "@radix-ui/react-tabs";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from "next/navigation";
 
 interface TabProps {
   value: string;
@@ -28,31 +28,38 @@ const tabGroups: Record<string, Set<(value: string) => void>> = {};
 
 const getStorageKey = (groupId: string) => `copilotkit-tabs-${groupId}`;
 
-export function Tabs({ items, children, defaultValue, groupId, persist, ...props }: TabsProps) {
+export function Tabs({
+  items,
+  children,
+  defaultValue,
+  groupId,
+  persist,
+  ...props
+}: TabsProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  
-  const normalizedItems = items.map(item => 
-    typeof item === 'string' ? { value: item } : item
+
+  const normalizedItems = items.map((item) =>
+    typeof item === "string" ? { value: item } : item,
   );
 
   // Initialize value from URL or default
   const [value, setValue] = React.useState(() => {
     // First try URL
     const urlValue = searchParams.get(groupId);
-    if (urlValue && normalizedItems.some(item => item.value === urlValue)) {
+    if (urlValue && normalizedItems.some((item) => item.value === urlValue)) {
       return urlValue;
     }
 
     // Then try localStorage if persist is enabled
-    if (persist && typeof window !== 'undefined') {
+    if (persist && typeof window !== "undefined") {
       try {
         const stored = localStorage.getItem(getStorageKey(groupId));
-        if (stored && normalizedItems.some(item => item.value === stored)) {
+        if (stored && normalizedItems.some((item) => item.value === stored)) {
           return stored;
         }
       } catch (e) {
-        console.warn('Failed to read from localStorage:', e);
+        console.warn("Failed to read from localStorage:", e);
       }
     }
 
@@ -96,23 +103,23 @@ export function Tabs({ items, children, defaultValue, groupId, persist, ...props
 
     // Update all other tabs in the same group
     if (groupId && tabGroups[groupId]) {
-      tabGroups[groupId].forEach(setter => setter(newValue));
+      tabGroups[groupId].forEach((setter) => setter(newValue));
     }
 
     // Persist if enabled
-    if (persist && typeof window !== 'undefined') {
+    if (persist && typeof window !== "undefined") {
       try {
         localStorage.setItem(getStorageKey(groupId), newValue);
       } catch (e) {
-        console.warn('Failed to write to localStorage:', e);
+        console.warn("Failed to write to localStorage:", e);
       }
     }
   };
 
   return (
-    <TabsPrimitive.Root 
-      className="border rounded-md" 
-      value={value} 
+    <TabsPrimitive.Root
+      className="border rounded-md"
+      value={value}
       onValueChange={handleValueChange}
       {...props}
     >
@@ -139,7 +146,7 @@ export function Tabs({ items, children, defaultValue, groupId, persist, ...props
               {item.value}
             </TabsPrimitive.Trigger>
           ))}
-          <ScrollBar orientation="horizontal" className=""/>
+          <ScrollBar orientation="horizontal" className="" />
         </TabsPrimitive.List>
       </ScrollArea>
       {React.Children.map(children, (child) => {

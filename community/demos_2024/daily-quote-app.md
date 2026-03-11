@@ -1,6 +1,7 @@
 ## 🚀 **Daily Quote App**
+
 - The Daily Quote App provides users with a platform to generate, manage, and share motivational quotes. It addresses the challenge of finding daily inspiration and allows for customization by enabling users to add, delete, and explore quotes across various themes like educational , motivational etc.
-  
+
 ### 📝 **Name of Issue/Topic**
 
 ⭐ 07 - Daily Quote App (Hacktoberfest Demo) #608
@@ -25,11 +26,12 @@ If your app is live, include the link here:
 [Live Demo](https://jarvis-quote.vercel.app/)
 
 ### 🌐 **Github Link**
+
 [Github](https://github.com/nitesh2920/JarvisQuote)
 
 ### 📸 **Screenshot**
 
-Include a screenshot of your demo in action:  
+Include a screenshot of your demo in action:
 
 ![image](https://github.com/user-attachments/assets/ea407670-2ea3-47f5-96fc-8f1feeefffd1)
 ![image](https://github.com/user-attachments/assets/1e41ad52-b8e2-4cb1-b196-ce059159dfeb)
@@ -45,9 +47,8 @@ Link to any bonus activities, like solving GitHub Issues or posts on Twitter, De
 
 ---
 
-
 ### 🙋‍♂️ **Who Are You?**
+
 - [LinkedIn](https://www.linkedin.com/in/nitesh-tiwari-oak/)
 - [Github](github.com/nitesh2920)
 - [Dev](https://dev.to/niteshoak)
-

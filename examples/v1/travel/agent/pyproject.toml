@@ -1,0 +1,26 @@
+[tool.poetry]
+name = "travel"
+version = "0.1.0"
+description = ""
+authors = ["Tyler Slaton <tyler@copilotkit.ai>"]
+readme = "README.md"
+
+[project]
+name = "travel"
+version = "0.1.0"
+dependencies = [
+    "langgraph",
+    "langchain_core",
+    "langchain_openai",
+    "langchain-google-genai",
+    "langchain",
+    "openai",
+    "langchain-community",
+    "tavily-python",
+    "python-dotenv",
+    "uvicorn",
+    "copilotkit",
+    "googlemaps",
+    "html2text",
+    "ag-ui-langgraph",
+]

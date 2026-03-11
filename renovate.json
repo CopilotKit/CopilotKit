@@ -46,7 +46,7 @@
       "description": "[@copilotkit/*] Dependencies",
       "enabled": true,
       "matchFileNames": [
-        "CopilotKit/packages/**"
+        "packages/v1/**"
       ],
       "matchPackageNames": [
         "*"

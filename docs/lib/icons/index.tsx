@@ -13,7 +13,7 @@ export function icon(icon: any) {
     const iconName = icon.split("lucide/")[1];
     if (iconName in lucideIcons)
       iconElement = createElement(
-        lucideIcons[iconName as keyof typeof lucideIcons]
+        lucideIcons[iconName as keyof typeof lucideIcons],
       );
   }
 
@@ -21,7 +21,7 @@ export function icon(icon: any) {
     const iconName = icon.split("custom/")[1];
     if (iconName in customIcons)
       iconElement = createElement(
-        customIcons[iconName as keyof typeof customIcons]
+        customIcons[iconName as keyof typeof customIcons],
       );
   }
 

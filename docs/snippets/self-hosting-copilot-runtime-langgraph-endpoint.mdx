@@ -212,7 +212,7 @@ import { RiNextjsLine } from "react-icons/ri";
         import OpenAI from "openai";
 
         @Controller()
-        export class CopilotkitController {
+        export class CopilotKitController {
           @All('/copilotkit')
           copilotkit(@Req() req: Request, @Res() res: Response) {
             const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });

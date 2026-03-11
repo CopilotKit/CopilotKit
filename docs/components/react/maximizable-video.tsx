@@ -8,7 +8,10 @@ interface MaximizableVideoProps {
   className?: string;
 }
 
-export function MaximizableVideo({ src, className = "" }: MaximizableVideoProps) {
+export function MaximizableVideo({
+  src,
+  className = "",
+}: MaximizableVideoProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   return (
@@ -47,8 +50,18 @@ export function MaximizableVideo({ src, className = "" }: MaximizableVideoProps)
               className="absolute -top-12 right-0 p-2 text-white hover:text-gray-300 transition-colors"
               aria-label="Close video"
             >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              <svg
+                className="w-6 h-6"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
               </svg>
             </button>
             <video
@@ -64,4 +77,4 @@ export function MaximizableVideo({ src, className = "" }: MaximizableVideoProps)
       )}
     </>
   );
-} 
+}

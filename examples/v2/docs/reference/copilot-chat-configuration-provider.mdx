@@ -1,0 +1,179 @@
+---
+title: CopilotChatConfigurationProvider
+description: "CopilotChatConfigurationProvider API Reference"
+---
+
+`CopilotChatConfigurationProvider` is a React context provider that manages configuration for chat UI components,
+including labels, agent ID, and thread ID. It enables customization of all text labels in the chat interface and
+provides context for chat components to access configuration values.
+
+## What is CopilotChatConfigurationProvider?
+
+The CopilotChatConfigurationProvider:
+
+- Manages UI labels for all chat components (placeholders, button labels, etc.), allowing for localization or
+  customization of the chat interface.
+- Lets you to access the current `agentId` and `threadId`
+- Supports nested configuration with proper inheritance
+
+## Basic Usage
+
+Wrap your chat components with the provider to customize configuration:
+
+```tsx
+import { CopilotChatConfigurationProvider } from "@copilotkitnext/react";
+
+function App() {
+  return (
+    <CopilotChatConfigurationProvider
+      threadId="main-thread"
+      agentId="assistant"
+      labels={{
+        chatInputPlaceholder: "Ask me anything...",
+        assistantMessageToolbarCopyMessageLabel: "Copy response",
+      }}
+    >
+      {/* Your chat components */}
+    </CopilotChatConfigurationProvider>
+  );
+}
+```
+
+## Props
+
+### threadId
+
+`string` **(required)**
+
+A unique identifier for the conversation thread. This is used to maintain conversation history and context.
+
+```tsx
+<CopilotChatConfigurationProvider threadId="conversation-123">{children}</CopilotChatConfigurationProvider>
+```
+
+### agentId
+
+`string` **(optional)**
+
+The ID of the agent to use for this chat context. If not provided, defaults to `"default"`.
+
+```tsx
+<CopilotChatConfigurationProvider threadId="thread-1" agentId="customer-support">
+  {children}
+</CopilotChatConfigurationProvider>
+```
+
+### labels
+
+`Partial<CopilotChatLabels>` **(optional)**
+
+Custom labels for chat UI elements. Any labels not provided will use the default values.
+
+```tsx
+<CopilotChatConfigurationProvider
+  threadId="thread-1"
+  labels={{
+    chatInputPlaceholder: "Type your message here...",
+    chatDisclaimerText: "AI responses may contain errors.",
+    assistantMessageToolbarRegenerateLabel: "Try again",
+  }}
+>
+  {children}
+</CopilotChatConfigurationProvider>
+```
+
+### children
+
+`ReactNode` **(required)**
+
+The React components that will have access to the chat configuration context.
+
+## Using with CopilotChat
+
+The `CopilotChat` component automatically creates its own `CopilotChatConfigurationProvider` internally. When using
+`CopilotChat`, you can pass configuration directly as props:
+
+```tsx
+<CopilotChat
+  threadId="main-thread"
+  agentId="assistant"
+  labels={{
+    chatInputPlaceholder: "How can I help you today?",
+  }}
+/>
+```
+
+### Priority System
+
+When `CopilotChat` is used within an existing `CopilotChatConfigurationProvider`, values are merged with the following
+priority (highest to lowest):
+
+1. Props passed directly to `CopilotChat`
+2. Values from the outer `CopilotChatConfigurationProvider`
+3. Default values
+
+Example:
+
+```tsx
+<CopilotChatConfigurationProvider agentId="outer-agent">
+  <CopilotChat
+    threadId="inner-thread"
+    // agentId inherits from outer: "outer-agent"
+  />
+</CopilotChatConfigurationProvider>
+```
+
+## Accessing Configuration
+
+Use the `useCopilotChatConfiguration` hook to access configuration values in your components:
+
+```tsx
+import { useCopilotChatConfiguration } from "@copilotkitnext/react";
+
+function MyComponent() {
+  const config = useCopilotChatConfiguration();
+
+  if (!config) {
+    // No provider found
+    return null;
+  }
+
+  return (
+    <div>
+      <p>Agent: {config.agentId}</p>
+      <p>Thread: {config.threadId}</p>
+      <p>Labels: {JSON.stringify(config.labels)}</p>
+    </div>
+  );
+}
+```
+
+Note: The hook returns `null` if no provider is found in the component tree.
+
+## Localization Example
+
+The provider is ideal for implementing localization:
+
+```tsx
+import { useTranslation } from "react-i18next";
+
+function LocalizedChat() {
+  const { t } = useTranslation();
+
+  return (
+    <CopilotChatConfigurationProvider
+      threadId="chat-1"
+      labels={{
+        chatInputPlaceholder: t("chat.input.placeholder"),
+        assistantMessageToolbarCopyMessageLabel: t("chat.assistant.copy"),
+        assistantMessageToolbarThumbsUpLabel: t("chat.assistant.thumbsUp"),
+        assistantMessageToolbarThumbsDownLabel: t("chat.assistant.thumbsDown"),
+        userMessageToolbarEditMessageLabel: t("chat.user.edit"),
+        chatDisclaimerText: t("chat.disclaimer"),
+      }}
+    >
+      <CopilotChat />
+    </CopilotChatConfigurationProvider>
+  );
+}
+```

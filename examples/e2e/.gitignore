@@ -1,7 +1,2 @@
-node_modules/
-/test-results/
-/playwright-report/
-/blob-report/
-/playwright/.cache/
-app-configs.json
 .env
+test-results

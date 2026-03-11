@@ -1,11 +1,12 @@
 ## 1. Flashcard and Quiz Generator Bot
+
 In this project, I developed an interactive Flashcard and Quiz Generator App using React, styled with Tailwind CSS, and enhanced with Shadcn UI components for a polished user experience.
 
 - Flashcard Generation:
-Users can create flashcards by entering a topic or concept. The app automatically generates flashcards with key terms, definitions, and helpful examples through internal logic or AI-based integration.
+  Users can create flashcards by entering a topic or concept. The app automatically generates flashcards with key terms, definitions, and helpful examples through internal logic or AI-based integration.
 
 - Interactive Quiz Generation:
-Users can generate quizzes based on a specific topic or concept. The app uses predefined logic (or AI) to create adaptive quizzes, delivering questions that help users assess and reinforce their knowledge.
+  Users can generate quizzes based on a specific topic or concept. The app uses predefined logic (or AI) to create adaptive quizzes, delivering questions that help users assess and reinforce their knowledge.
 
 ## 2. Name of Issue/Topic
 
@@ -14,6 +15,7 @@ Users can generate quizzes based on a specific topic or concept. The app uses pr
 ## 3. Technologies Being Used
 
 List the technologies and frameworks you used (e.g., CopilotKit, Next.js)
+
 - [Next.js](https://nextjs.org)
 - [Tailwind CSS](https://tailwindcss.com)
 - [CopilotKit](https://copilotkit.ai)
@@ -26,7 +28,7 @@ List the technologies and frameworks you used (e.g., CopilotKit, Next.js)
 ## 5 Live Link
 
 - [Live app](https://ai-flashcards-free.vercel.app/)
- 
+
 ## 6. Screenshot
 
 ![image](https://github.com/user-attachments/assets/114bc863-1330-4af1-bb3c-b7b6c9b98487)
@@ -37,7 +39,7 @@ List the technologies and frameworks you used (e.g., CopilotKit, Next.js)
 
 ## 7. Who am i?
 
-Please list your **GitHub** and **Twitter** handles if you feel comfortable doing so. 
+Please list your **GitHub** and **Twitter** handles if you feel comfortable doing so.
 
 - [sanket on github](https://github.com/sanketshinde3001)
 - [sanket on X](https://x.com/sanketshinde04)

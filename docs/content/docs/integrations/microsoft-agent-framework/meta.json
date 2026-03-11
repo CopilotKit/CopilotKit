@@ -1,0 +1,24 @@
+{
+  "title": "Microsoft Agent Framework",
+  "root": true,
+  "pages": [
+    "---Getting Started---",
+    "index", "quickstart", "coding-agents",
+    "---Basics---",
+    "prebuilt-components", "custom-look-and-feel", "programmatic-control", "inspector",
+    "---Generative UI---",
+    "...generative-ui",
+    "---App Control---",
+    "frontend-tools", "shared-state", "agent-app-context",
+    "---Microsoft Agent Framework---",
+    "auth",
+    "---Backend---",
+    "copilot-runtime", "ag-ui",
+    "---Premium Features---",
+    "...premium",
+    "---Troubleshooting---",
+    "...troubleshooting",
+    "---Other---",
+    "...(other)"
+  ]
+}

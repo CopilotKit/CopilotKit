@@ -1,9 +1,0 @@
-{
-  "name": "tsconfig",
-  "version": "1.4.6",
-  "private": true,
-  "license": "MIT",
-  "publishConfig": {
-    "access": "public"
-  }
-}

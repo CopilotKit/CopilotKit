@@ -1,0 +1,384 @@
+---
+title: useAgentContext
+description: "useAgentContext Hook API Reference"
+---
+
+`useAgentContext` is a React hook that provides contextual information to AI agents during their execution. It allows
+you to dynamically add relevant data that agents can use to make more informed decisions and provide better responses.
+
+## What is useAgentContext?
+
+The useAgentContext hook:
+
+- Provides contextual information to agents
+- Automatically manages context lifecycle (add on mount, remove on unmount)
+- Updates context when values change
+- Helps agents understand application state and user data
+
+## Basic Usage
+
+```tsx
+import { useAgentContext } from "@copilotkitnext/react";
+
+function UserPreferences() {
+  const userSettings = {
+    theme: "dark",
+    language: "en",
+    timezone: "UTC-5",
+  };
+
+  useAgentContext({
+    description: "User preferences and settings",
+    value: userSettings,
+  });
+
+  return <div>User preferences loaded</div>;
+}
+```
+
+## Parameters
+
+The hook accepts a single `Context` object with the following properties:
+
+### description
+
+`string` **(required)**
+
+A clear description of what this context represents. This helps agents understand how to use the provided information.
+
+```tsx
+useAgentContext({
+  description: "Current shopping cart contents",
+  value: cartItems,
+});
+```
+
+### value
+
+`any` **(required)**
+
+The actual data to provide as context. Can be any serializable value including objects, arrays, strings, or numbers.
+
+```tsx
+useAgentContext({
+  description: "Current form validation state",
+  value: {
+    hasErrors: false,
+    touchedFields: ["email", "name"],
+    dirtyFields: ["email"],
+    isSubmitting: false,
+  },
+});
+```
+
+## Examples
+
+### User Preferences Context
+
+```tsx
+import { useAgentContext } from "@copilotkitnext/react";
+import { useUserPreferences } from "./hooks/useUserPreferences";
+
+function UserPreferencesContext() {
+  const { preferences, isLoading } = useUserPreferences();
+
+  useAgentContext({
+    description: "User display preferences and settings",
+    value: {
+      theme: preferences?.theme || "light",
+      language: preferences?.language || "en",
+      timezone: preferences?.timezone || "UTC",
+      displayDensity: preferences?.displayDensity || "comfortable",
+      isLoading,
+    },
+  });
+
+  return null; // Context-only component
+}
+```
+
+### Form State Context
+
+```tsx
+import { useAgentContext } from "@copilotkitnext/react";
+import { useState } from "react";
+
+function ContactForm() {
+  const [formData, setFormData] = useState({
+    name: "",
+    email: "",
+    subject: "",
+    message: "",
+  });
+
+  // Provide form state to agent for assistance
+  useAgentContext({
+    description: "Contact form current state",
+    value: {
+      formData,
+      hasUnsavedChanges: Object.values(formData).some((v) => v !== ""),
+      isValid: formData.email.includes("@") && formData.name.length > 0,
+    },
+  });
+
+  return (
+    <form>
+      <input
+        value={formData.name}
+        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+        placeholder="Name"
+      />
+      {/* Rest of form fields */}
+    </form>
+  );
+}
+```
+
+### Application State Context
+
+```tsx
+import { useAgentContext } from "@copilotkitnext/react";
+import { useLocation } from "react-router-dom";
+
+function AppStateContext() {
+  const location = useLocation();
+  const currentTime = new Date().toISOString();
+
+  useAgentContext({
+    description: "Current application state and navigation",
+    value: {
+      currentPath: location.pathname,
+      queryParams: Object.fromEntries(new URLSearchParams(location.search)),
+      timestamp: currentTime,
+    },
+  });
+
+  return null;
+}
+```
+
+### Dynamic Data Context
+
+```tsx
+import { useAgentContext } from "@copilotkitnext/react";
+import { useEffect, useState } from "react";
+
+function DynamicDataContext() {
+  const [data, setData] = useState(null);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      const response = await fetch("/api/context-data");
+      setData(await response.json());
+    };
+    fetchData();
+  }, []);
+
+  // Context updates automatically when data changes
+  useAgentContext({
+    description: "Dynamic application data",
+    value: data || { loading: true },
+  });
+
+  return null;
+}
+```
+
+### Multiple Contexts
+
+```tsx
+import { useAgentContext } from "@copilotkitnext/react";
+
+function MultipleContexts() {
+  const userContext = { id: "123", name: "John" };
+  const appContext = { version: "1.0.0", features: ["chat", "search"] };
+
+  // Use multiple hooks for different contexts
+  useAgentContext({
+    description: "User information",
+    value: userContext,
+  });
+
+  useAgentContext({
+    description: "Application configuration",
+    value: appContext,
+  });
+
+  return <div>Multiple contexts provided</div>;
+}
+```
+
+## Context Lifecycle
+
+### Automatic Management
+
+Context is automatically managed throughout the component lifecycle:
+
+```tsx
+function ManagedContext() {
+  const [count, setCount] = useState(0);
+
+  useAgentContext({
+    description: "Counter state",
+    value: { count, lastUpdated: Date.now() },
+  });
+
+  // Context is:
+  // 1. Added when component mounts
+  // 2. Updated when count changes
+  // 3. Removed when component unmounts
+
+  return <button onClick={() => setCount(count + 1)}>Count: {count}</button>;
+}
+```
+
+### Updates on Change
+
+Context automatically updates when values change:
+
+```tsx
+function ReactiveContext() {
+  const [filters, setFilters] = useState({
+    category: "all",
+    priceRange: [0, 100],
+  });
+
+  // Context updates whenever filters change
+  useAgentContext({
+    description: "Active search filters",
+    value: filters,
+  });
+
+  return (
+    <div>
+      <select value={filters.category} onChange={(e) => setFilters({ ...filters, category: e.target.value })}>
+        <option value="all">All</option>
+        <option value="electronics">Electronics</option>
+        <option value="clothing">Clothing</option>
+      </select>
+    </div>
+  );
+}
+```
+
+## Best Practices
+
+### Descriptive Context Names
+
+Provide clear, descriptive names for your context:
+
+```tsx
+// ✅ Good - Clear and specific
+useAgentContext({
+  description: "E-commerce shopping cart with items and totals",
+  value: cartData,
+});
+
+// ❌ Avoid - Too vague
+useAgentContext({
+  description: "Data",
+  value: cartData,
+});
+```
+
+### Structured Data
+
+Organize context data in a structured format:
+
+```tsx
+// ✅ Good - Well-structured data
+useAgentContext({
+  description: "Order processing state",
+  value: {
+    orderId: "ORD-123",
+    status: "processing",
+    items: [{ id: "1", name: "Product", quantity: 2, price: 29.99 }],
+    customer: {
+      id: "CUST-456",
+      email: "user@example.com",
+    },
+    timestamps: {
+      created: "2024-01-01T10:00:00Z",
+      updated: "2024-01-01T10:30:00Z",
+    },
+  },
+});
+
+// ❌ Avoid - Unstructured data
+useAgentContext({
+  description: "Order info",
+  value: "Order ORD-123 for user@example.com with 2 items",
+});
+```
+
+### Performance Optimization
+
+Memoize complex computed values:
+
+```tsx
+import { useMemo } from "react";
+
+function OptimizedContext({ items }) {
+  const contextValue = useMemo(
+    () => ({
+      itemCount: items.length,
+      totalValue: items.reduce((sum, item) => sum + item.price, 0),
+      categories: [...new Set(items.map((item) => item.category))],
+    }),
+    [items],
+  );
+
+  useAgentContext({
+    description: "Computed inventory statistics",
+    value: contextValue,
+  });
+
+  return null;
+}
+```
+
+## Integration with Agents
+
+Context provided through this hook is available to agents during execution:
+
+```tsx
+import { useAgentContext, useAgent, useCopilotKit } from "@copilotkitnext/react";
+
+function IntegratedExample() {
+  const { agent } = useAgent();
+  const { copilotkit } = useCopilotKit();
+  const [productSearch, setProductSearch] = useState("");
+
+  // Provide search context
+  useAgentContext({
+    description: "Current product search parameters",
+    value: {
+      searchQuery: productSearch,
+      resultsPerPage: 20,
+      sortBy: "relevance",
+    },
+  });
+
+  const handleSearch = async () => {
+    // Agent has access to the context when running
+    agent.addMessage({
+      id: crypto.randomUUID(),
+      role: "user",
+      content: `Help me refine my search for: ${productSearch}`,
+    });
+
+    await copilotkit.runAgent({ agent });
+  };
+
+  return (
+    <div>
+      <input
+        value={productSearch}
+        onChange={(e) => setProductSearch(e.target.value)}
+        placeholder="Search products..."
+      />
+      <button onClick={handleSearch}>Get AI Help</button>
+    </div>
+  );
+}
+```

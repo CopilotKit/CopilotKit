@@ -1,0 +1,35 @@
+# Source files (only publish dist)
+src/
+tsup.config.ts
+tsconfig.json
+
+# Turbo cache
+.turbo/
+
+# Test files
+**/*.test.ts
+**/*.spec.ts
+**/__tests__/
+
+# Config files
+.eslintrc.js
+.prettierrc
+
+# IDE
+.vscode/
+.idea/
+
+# Logs
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Documentation
+*.md
+!README.md
+
+# Git
+.git/
+.gitignore
