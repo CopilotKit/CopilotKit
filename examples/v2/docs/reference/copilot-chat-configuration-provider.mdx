@@ -48,7 +48,9 @@ function App() {
 A unique identifier for the conversation thread. This is used to maintain conversation history and context.
 
 ```tsx
-<CopilotChatConfigurationProvider threadId="conversation-123">{children}</CopilotChatConfigurationProvider>
+<CopilotChatConfigurationProvider threadId="conversation-123">
+  {children}
+</CopilotChatConfigurationProvider>
 ```
 
 ### agentId
@@ -58,7 +60,10 @@ A unique identifier for the conversation thread. This is used to maintain conver
 The ID of the agent to use for this chat context. If not provided, defaults to `"default"`.
 
 ```tsx
-<CopilotChatConfigurationProvider threadId="thread-1" agentId="customer-support">
+<CopilotChatConfigurationProvider
+  threadId="thread-1"
+  agentId="customer-support"
+>
   {children}
 </CopilotChatConfigurationProvider>
 ```

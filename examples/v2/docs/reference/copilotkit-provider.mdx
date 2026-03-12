@@ -42,7 +42,9 @@ The URL of your CopilotRuntime server. The provider will automatically connect t
 agents.
 
 ```tsx
-<CopilotKitProvider runtimeUrl="https://api.example.com/copilot">{children}</CopilotKitProvider>
+<CopilotKitProvider runtimeUrl="https://api.example.com/copilot">
+  {children}
+</CopilotKitProvider>
 ```
 
 ### headers
@@ -89,8 +91,9 @@ Application-specific data that gets forwarded to agents as additional context. A
 `Record<string, AbstractAgent>` **(optional, development only)**
 
 <Warning>
-  This property is intended solely for rapid prototyping during development. Production deployments require the
-  security, reliability, and performance guarantees that only the CopilotRuntime can provide.
+  This property is intended solely for rapid prototyping during development.
+  Production deployments require the security, reliability, and performance
+  guarantees that only the CopilotRuntime can provide.
 </Warning>
 
 Local agents for development testing. The key becomes the agent's identifier.
@@ -144,12 +147,15 @@ const renderToolCalls = [
   },
 ];
 
-<CopilotKitProvider renderToolCalls={renderToolCalls}>{children}</CopilotKitProvider>;
+<CopilotKitProvider renderToolCalls={renderToolCalls}>
+  {children}
+</CopilotKitProvider>;
 ```
 
 <Note>
-  The `renderToolCalls` array must be stable across renders. Define it outside your component or use `useMemo`. For
-  dynamic tool rendering, use the `useRenderToolCall` hook instead.
+  The `renderToolCalls` array must be stable across renders. Define it outside
+  your component or use `useMemo`. For dynamic tool rendering, use the
+  `useRenderToolCall` hook instead.
 </Note>
 
 ### frontendTools
@@ -179,8 +185,8 @@ const tools = [
 ```
 
 <Note>
-  The `frontendTools` array must be stable across renders. For dynamically adding/removing tools, use the
-  `useFrontendTool` hook.
+  The `frontendTools` array must be stable across renders. For dynamically
+  adding/removing tools, use the `useFrontendTool` hook.
 </Note>
 
 ### humanInTheLoop
@@ -210,7 +216,9 @@ const humanInTheLoop = [
   },
 ];
 
-<CopilotKitProvider humanInTheLoop={humanInTheLoop}>{children}</CopilotKitProvider>;
+<CopilotKitProvider humanInTheLoop={humanInTheLoop}>
+  {children}
+</CopilotKitProvider>;
 ```
 
 ### children
@@ -228,7 +236,9 @@ interface CopilotKitContextValue {
   copilotkit: CopilotKitCore;
   renderToolCalls: ReactToolCallRenderer<any>[];
   currentRenderToolCalls: ReactToolCallRenderer<unknown>[];
-  setCurrentRenderToolCalls: React.Dispatch<React.SetStateAction<ReactToolCallRenderer<unknown>[]>>;
+  setCurrentRenderToolCalls: React.Dispatch<
+    React.SetStateAction<ReactToolCallRenderer<unknown>[]>
+  >;
 }
 ```
 

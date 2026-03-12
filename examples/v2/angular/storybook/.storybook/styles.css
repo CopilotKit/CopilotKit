@@ -1,5 +1,5 @@
 /* Import the pre-built Tailwind CSS */
-@import '../../../../../packages/v2/angular/dist/styles.css';
+@import "../../../../../packages/v2/angular/dist/styles.css";
 
 /* Storybook dark mode custom background */
 html.dark {

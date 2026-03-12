@@ -25,14 +25,18 @@ type FrontendToolHandlerContext = {
   agent: AbstractAgent;
 };
 
-type FrontendTool<T extends Record<string, unknown> = Record<string, unknown>> = {
-  name: string;
-  description?: string;
-  parameters?: z.ZodType<T>;
-  handler?: (args: T, context: FrontendToolHandlerContext) => Promise<unknown>;
-  followUp?: boolean;
-  agentId?: string;
-};
+type FrontendTool<T extends Record<string, unknown> = Record<string, unknown>> =
+  {
+    name: string;
+    description?: string;
+    parameters?: z.ZodType<T>;
+    handler?: (
+      args: T,
+      context: FrontendToolHandlerContext,
+    ) => Promise<unknown>;
+    followUp?: boolean;
+    agentId?: string;
+  };
 ```
 
 ## Properties
