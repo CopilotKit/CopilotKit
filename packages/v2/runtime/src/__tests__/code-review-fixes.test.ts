@@ -52,10 +52,7 @@ describe("Item 1: methodCall preserved when hooks replace request", () => {
           // Return a brand-new Request with only headers modified.
           // This discards any properties stashed on the old request object.
           return new Request(request, {
-            headers: new Headers([
-              ...request.headers,
-              ["x-replaced", "true"],
-            ]),
+            headers: new Headers([...request.headers, ["x-replaced", "true"]]),
           });
         },
       },
@@ -130,9 +127,7 @@ describe("Item 2: credentials + wildcard CORS", () => {
     expect(result.headers.get("Access-Control-Allow-Origin")).toBe(
       "https://mysite.com",
     );
-    expect(result.headers.get("Access-Control-Allow-Credentials")).toBe(
-      "true",
-    );
+    expect(result.headers.get("Access-Control-Allow-Credentials")).toBe("true");
   });
 
   it("skips CORS entirely when credentials enabled, wildcard origin, and no request origin", () => {
@@ -178,9 +173,7 @@ describe("Item 2: credentials + wildcard CORS", () => {
     );
 
     const allowOrigin = response.headers.get("Access-Control-Allow-Origin");
-    const allowCreds = response.headers.get(
-      "Access-Control-Allow-Credentials",
-    );
+    const allowCreds = response.headers.get("Access-Control-Allow-Credentials");
 
     // Must NEVER be "*" + "true" — that's the invalid combo
     if (allowCreds === "true") {
@@ -426,9 +419,8 @@ describe("Item 7: synthesizeBody null guard", () => {
   // by confirming that null bodies don't reach the handler as the string "null"
   it("null req.body is treated as no pre-parsed body (falls through to generic handler)", async () => {
     // Import dynamically since this is a Node-specific module
-    const { createExpressNodeHandler } = await import(
-      "../endpoints/express-fetch-bridge"
-    );
+    const { createExpressNodeHandler } =
+      await import("../endpoints/express-fetch-bridge");
 
     let receivedBody: string | null = null;
     const fetchHandler = async (req: Request) => {
@@ -512,9 +504,8 @@ describe("Breaking change: CopilotKitRequestHandler type alias exists", () => {
 
 describe("Item 13: node-fetch-handler exports are both available", () => {
   it("both createCopilotNodeHandler and createNodeFetchHandler are exported", async () => {
-    const { createCopilotNodeHandler, createNodeFetchHandler } = await import(
-      "../endpoints/node-fetch-handler"
-    );
+    const { createCopilotNodeHandler, createNodeFetchHandler } =
+      await import("../endpoints/node-fetch-handler");
     expect(typeof createCopilotNodeHandler).toBe("function");
     expect(typeof createNodeFetchHandler).toBe("function");
     // The deprecated alias should reference the same function

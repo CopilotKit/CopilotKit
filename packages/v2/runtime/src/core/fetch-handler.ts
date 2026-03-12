@@ -163,7 +163,12 @@ export function createCopilotRuntimeHandler(
           route,
         });
         // 6. Dispatch
-        response = await dispatchSingleRoute(runtime, request, route, methodCall);
+        response = await dispatchSingleRoute(
+          runtime,
+          request,
+          route,
+          methodCall,
+        );
       } else {
         // Multi-route: match URL pattern
         const matched = matchRoute(path, basePath);
@@ -332,11 +337,7 @@ async function resolveSingleRoute(
   }
 
   if (request.method !== "POST") {
-    throw jsonResponse(
-      { error: "Method not allowed" },
-      405,
-      { Allow: "POST" },
-    );
+    throw jsonResponse({ error: "Method not allowed" }, 405, { Allow: "POST" });
   }
 
   const methodCall = await parseMethodCall(request);
@@ -409,11 +410,7 @@ function validateHttpMethod(
   if (route.method === "info" && method === "GET") return null;
   if (route.method !== "info" && method === "POST") return null;
   const allowed = route.method === "info" ? "GET" : "POST";
-  return jsonResponse(
-    { error: "Method not allowed" },
-    405,
-    { Allow: allowed },
-  );
+  return jsonResponse({ error: "Method not allowed" }, 405, { Allow: allowed });
 }
 
 /* ------------------------------------------------------------------------------------------------
