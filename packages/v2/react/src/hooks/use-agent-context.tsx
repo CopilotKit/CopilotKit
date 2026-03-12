@@ -1,5 +1,5 @@
 import { useCopilotKit } from "../providers/CopilotKitProvider";
-import { useEffect, useMemo } from "react";
+import { useLayoutEffect, useMemo } from "react";
 
 /**
  * Represents any value that can be serialized to JSON.
@@ -34,7 +34,7 @@ export function useAgentContext(context: AgentContextInput) {
     return JSON.stringify(value);
   }, [value]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!copilotkit) return;
 
     const id = copilotkit.addContext({ description, value: stringValue });
