@@ -148,11 +148,55 @@ const elementVideo = {
 
 export const litTheme: Types.Theme = {
   // ===========================================================================
-  // Additional Styles (inline CSS properties)
+  // Additional Styles — map to CopilotKit CSS variables
   // ===========================================================================
 
-  // additionalStyles is optional - only define if custom styling is needed
-  // The default Lit theme does not apply any additional inline styles
+  additionalStyles: {
+    Button: {
+      background: "var(--primary, oklch(0.205 0 0))",
+      color: "var(--primary-foreground, oklch(0.985 0 0))",
+      "border-radius": "calc(var(--radius, 0.625rem) - 2px)",
+      cursor: "pointer",
+      width: "100%",
+      "--n-10": "var(--primary-foreground, oklch(0.985 0 0))",
+      "--n-35": "var(--primary-foreground, oklch(0.985 0 0))",
+      "--n-60": "var(--primary-foreground, oklch(0.985 0 0))",
+    },
+    Card: {
+      background: "var(--card, oklch(1 0 0))",
+      border: "1px solid var(--border, oklch(0.922 0 0))",
+      "border-radius": "var(--radius, 0.625rem)",
+    },
+    // Applied directly to <input>/<textarea>
+    TextField: {
+      "background-color": "var(--background, oklch(1 0 0))",
+      "border-color": "var(--input, oklch(0.922 0 0))",
+      color: "var(--foreground, oklch(0.145 0 0))",
+      "border-radius": "var(--radius, 0.625rem)",
+    },
+    // Applied to <section> container — palette vars cascade to <input type="checkbox"> inside
+    CheckBox: {
+      "--p-100": "var(--background, oklch(1 0 0))",
+      "--p-60": "var(--input, oklch(0.922 0 0))",
+      "--n-30": "var(--foreground, oklch(0.145 0 0))",
+    },
+    // Applied directly to <input>
+    DateTimeInput: {
+      "background-color": "var(--background, oklch(1 0 0))",
+      "border-color": "var(--input, oklch(0.922 0 0))",
+      color: "var(--foreground, oklch(0.145 0 0))",
+      "border-radius": "var(--radius, 0.625rem)",
+    },
+    Modal: {
+      "--p-100": "var(--card, oklch(1 0 0))",
+      "--p-80": "var(--border, oklch(0.922 0 0))",
+      "border-radius": "var(--radius, 0.625rem)",
+    },
+    // Applied to <section> wrapping markdown content
+    Text: {
+      color: "var(--foreground, oklch(0.145 0 0))",
+    },
+  },
 
   components: {
     // =========================================================================
@@ -289,12 +333,8 @@ export const litTheme: Types.Theme = {
       "layout-pb-2": true,
       "layout-pl-3": true,
       "layout-pr-3": true,
-      "border-br-12": true,
       "border-bw-0": true,
       "border-bs-s": true,
-      "color-bgc-p30": true,
-      "color-c-p100": true, // White text on dark purple background
-      "behavior-ho-70": true,
       "typography-w-400": true,
     },
 
@@ -307,16 +347,14 @@ export const litTheme: Types.Theme = {
         "layout-m-0": true,
         "layout-mr-2": true,
         "layout-p-2": true,
-        "border-br-12": true,
+        "border-br-2": true,
         "border-bw-1": true,
         "border-bs-s": true,
         "color-bgc-p100": true,
         "color-bc-p60": true,
         "color-c-n30": true,
-        "color-c-p30": true,
       },
       label: {
-        "color-c-p30": true,
         "typography-f-sf": true,
         "typography-v-r": true,
         "typography-w-400": true,
@@ -330,9 +368,7 @@ export const litTheme: Types.Theme = {
         "typography-sz-bm": true,
         "layout-w-100": true,
         "layout-g-2": true,
-        "layout-dsp-flexhor": true,
-        "layout-al-c": true,
-        "typography-ws-nw": true,
+        "layout-dsp-flexvert": true,
       },
       label: {
         "color-c-p30": true,
@@ -343,13 +379,8 @@ export const litTheme: Types.Theme = {
         "layout-pb-2": true,
         "layout-pl-3": true,
         "layout-pr-3": true,
-        "border-br-2": true,
         "border-bw-1": true,
         "border-bs-s": true,
-        "color-bgc-p100": true,
-        "color-bc-p60": true,
-        "color-c-n30": true,
-        "color-c-p30": true,
       },
     },
 
@@ -370,13 +401,10 @@ export const litTheme: Types.Theme = {
         "typography-sz-bm": true,
         "layout-w-100": true,
         "layout-g-2": true,
-        "layout-dsp-flexhor": true,
-        "layout-al-c": true,
-        "typography-ws-nw": true,
+        "layout-dsp-flexvert": true,
       },
       label: {
         "layout-flx-0": true,
-        "color-c-p30": true,
       },
       element: {
         "typography-sz-bm": true,
@@ -384,13 +412,8 @@ export const litTheme: Types.Theme = {
         "layout-pb-2": true,
         "layout-pl-3": true,
         "layout-pr-3": true,
-        "border-br-2": true,
         "border-bw-1": true,
         "border-bs-s": true,
-        "color-bgc-p100": true,
-        "color-bc-p60": true,
-        "color-c-n30": true,
-        "color-c-p30": true,
       },
     },
   },
@@ -433,7 +456,7 @@ export const litTheme: Types.Theme = {
     li: Object.keys(elementList),
     a: Object.keys(elementA),
     strong: [],
-    em: [],
+    em: ["typography-fs-n"],
   },
 };
 

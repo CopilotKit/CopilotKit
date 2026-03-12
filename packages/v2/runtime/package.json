@@ -1,6 +1,7 @@
 {
   "name": "@copilotkitnext/runtime",
-  "version": "1.54.0-next.4",
+  "version": "1.54.0-next.9",
+  "deprecated": "This package is deprecated. Use @copilotkit/runtime instead. V2 features are being integrated into the main @copilotkit exports and will be available under the /v2 subpath.",
   "description": "Server-side runtime package for CopilotKit2",
   "main": "./dist/index.cjs",
   "types": "./dist/index.d.cts",

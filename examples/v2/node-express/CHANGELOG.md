@@ -1,5 +1,41 @@
 # @copilotkitnext/node-express
 
+## 1.54.0-next.9
+
+### Patch Changes
+
+- Updated dependencies [3780c6a]
+  - @copilotkitnext/agent@1.54.0-next.9
+  - @copilotkitnext/runtime@1.54.0-next.9
+
+## 1.54.0-next.8
+
+### Patch Changes
+
+- @copilotkitnext/agent@1.54.0-next.8
+- @copilotkitnext/runtime@1.54.0-next.8
+
+## 1.54.0-next.7
+
+### Patch Changes
+
+- @copilotkitnext/agent@1.54.0-next.7
+- @copilotkitnext/runtime@1.54.0-next.7
+
+## 1.54.0-next.6
+
+### Patch Changes
+
+- @copilotkitnext/agent@1.54.0-next.6
+- @copilotkitnext/runtime@1.54.0-next.6
+
+## 1.54.0-next.5
+
+### Patch Changes
+
+- @copilotkitnext/agent@1.54.0-next.5
+- @copilotkitnext/runtime@1.54.0-next.5
+
 ## 1.54.0-next.4
 
 ### Patch Changes
