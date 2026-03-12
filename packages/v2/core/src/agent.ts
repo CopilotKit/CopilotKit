@@ -1,9 +1,12 @@
 import {
   AbstractAgent,
+  AgentSubscriber,
   BaseEvent,
   HttpAgent,
   HttpAgentConfig,
   RunAgentInput,
+  RunAgentParameters,
+  RunAgentResult,
   runHttpRequest,
   transformHttpEventStream,
 } from "@ag-ui/client";
@@ -174,6 +177,18 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
     }).catch((error) => {
       console.error("ProxiedCopilotRuntimeAgent: stop request failed", error);
     });
+  }
+
+  override async connectAgent(
+    parameters?: RunAgentParameters,
+    subscriber?: AgentSubscriber,
+  ): Promise<RunAgentResult> {
+    if (this.runtimeMode !== "intelligence") {
+      return super.connectAgent(parameters, subscriber);
+    }
+
+    const delegate = await this.resolveDelegate();
+    return delegate.connectAgent(parameters, subscriber);
   }
 
   connect(input: RunAgentInput): Observable<BaseEvent> {
