@@ -184,6 +184,7 @@ export class RunHandler {
         {
           forwardedProps: this._internal.properties,
           tools: this.buildFrontendTools(agent.agentId),
+          context: Object.values(this._internal.context),
         },
         this.createAgentErrorSubscriber(agent),
       );
