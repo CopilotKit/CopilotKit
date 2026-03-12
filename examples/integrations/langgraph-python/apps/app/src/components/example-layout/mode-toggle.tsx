@@ -24,7 +24,7 @@ export function ModeToggle({ mode, onModeChange }: ModeToggleProps) {
             : "text-neutral-500 dark:text-neutral-400"
         }`}
       >
-        Tasks
+        App
       </button>
     </div>
   );

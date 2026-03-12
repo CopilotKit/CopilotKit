@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { useTheme } from "@/hooks/use-theme";
 
-// CopiotKit imports
+// CopilotKit imports
 import {
   useComponent,
   useFrontendTool,
@@ -24,24 +24,10 @@ import { ToolReasoning } from "@/components/tool-rendering";
 export const useGenerativeUIExamples = () => {
   const { theme, setTheme } = useTheme();
 
-  // ------------------
-  // 🪁 Frontend Tools: https://docs.copilotkit.ai/langgraph/frontend-actions
-  // ------------------
-  useFrontendTool(
-    {
-      name: "toggleTheme",
-      description: "Frontend tool for toggling the theme of the app.",
-      parameters: z.object({}),
-      handler: async () => {
-        setTheme(theme === "dark" ? "light" : "dark");
-      },
-    },
-    [theme, setTheme],
-  );
-
-  // --------------------------
-  // 🪁 Frontend Generative UI: https://docs.copilotkit.ai/langgraph/generative-ui/frontend-tools
-  // --------------------------
+  // ----------------------------------------------------------
+  // 1. Controlled Generative UI (frontend-defined components)
+  //    https://docs.copilotkit.ai/langgraph/generative-ui/frontend-tools
+  // ----------------------------------------------------------
   useComponent({
     name: "pieChart",
     description: "Controlled Generative UI that displays data as a pie chart.",
@@ -56,20 +42,10 @@ export const useGenerativeUIExamples = () => {
     render: BarChart,
   });
 
-  // --------------------------
-  // 🪁 Default Tool Rendering: https://docs.copilotkit.ai/langgraph/generative-ui/backend-tools
-  // --------------------------
-  const ignoredTools = ["generate_form"];
-  useDefaultRenderTool({
-    render: ({ name, status, parameters }) => {
-      if (ignoredTools.includes(name)) return <></>;
-      return <ToolReasoning name={name} status={status} args={parameters} />;
-    },
-  });
-
-  // -------------------------------------
-  // 🪁 Frontend-tools - Human-in-the-loop: https://docs.copilotkit.ai/langgraph/human-in-the-loop/frontend-tool-based
-  // -------------------------------------
+  // ----------------------------------------------------------
+  // 2. Human-in-the-Loop (frontend tool requiring user decision)
+  //    https://docs.copilotkit.ai/langgraph/human-in-the-loop/frontend-tool-based
+  // ----------------------------------------------------------
   useHumanInTheLoop({
     name: "scheduleTime",
     description: "Use human-in-the-loop to schedule a meeting with the user.",
@@ -85,4 +61,37 @@ export const useGenerativeUIExamples = () => {
       return <MeetingTimePicker status={status} respond={respond} {...args} />;
     },
   });
+
+  // ----------------------------------------------------------
+  // 3. Default Tool Rendering (backend tool UI)
+  //    https://docs.copilotkit.ai/langgraph/generative-ui/backend-tools
+  // ----------------------------------------------------------
+  const ignoredTools = [
+    // generate_form is rendered by A2UI's declarative surface system, not as a tool call
+    "generate_form",
+    // log_a2ui_event is an internal A2UI event tracker, not meaningful to display to users
+    "log_a2ui_event",
+  ];
+  useDefaultRenderTool({
+    render: ({ name, status, parameters }) => {
+      if (ignoredTools.includes(name)) return <></>;
+      return <ToolReasoning name={name} status={status} args={parameters} />;
+    },
+  });
+
+  // ----------------------------------------------------------
+  // 4. Frontend Tools (direct frontend state manipulation)
+  //    https://docs.copilotkit.ai/langgraph/frontend-actions
+  // ----------------------------------------------------------
+  useFrontendTool(
+    {
+      name: "toggleTheme",
+      description: "Frontend tool for toggling the theme of the app.",
+      parameters: z.object({}),
+      handler: async () => {
+        setTheme(theme === "dark" ? "light" : "dark");
+      },
+    },
+    [theme, setTheme],
+  );
 };
