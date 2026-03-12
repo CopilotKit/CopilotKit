@@ -535,9 +535,9 @@ export class CopilotKitCore {
    *
    * When a frontend tool handler calls framework state setters (e.g. React's
    * setState), those updates are batched and deferred — they do not take effect
-   * until the framework's scheduler runs (React uses MessageChannel / useEffect).
-   * useAgentContext registers context via useEffect, so the context store is
-   * only updated after that deferred work completes.
+   * until the framework's scheduler runs (React uses MessageChannel).
+   * useAgentContext registers context via useLayoutEffect, which runs
+   * synchronously after React commits that deferred batch.
    *
    * Without yielding here, the follow-up runAgent reads the context store
    * synchronously while the deferred updates are still pending, producing stale

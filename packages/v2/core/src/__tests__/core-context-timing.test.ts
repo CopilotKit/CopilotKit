@@ -25,14 +25,16 @@ import {
 
 /**
  * Subclass that simulates the React adapter's behavior:
- * waitForPendingFrameworkUpdates yields to the macrotask queue so that
- * deferred React useEffect callbacks can run before the follow-up agent run.
+ * waitForPendingFrameworkUpdates flushes pending framework state so that
+ * deferred context updates can complete before the follow-up agent run.
  *
- * This is the override that CopilotKitCoreReact will provide.
- * Using a test subclass here keeps this test dependency-free from React.
+ * In production, CopilotKitCoreReact calls flushSync() which forces React to
+ * commit pending state synchronously, causing useLayoutEffect (useAgentContext)
+ * to run immediately. Here we simulate the same net effect with setTimeout(0)
+ * to keep this test dependency-free from React and react-dom.
  */
 class CopilotKitCoreWithFrameworkFlush extends CopilotKitCore {
-  protected async waitForPendingFrameworkUpdates(): Promise<void> {
+  async waitForPendingFrameworkUpdates(): Promise<void> {
     await new Promise<void>((resolve) => setTimeout(resolve, 0));
   }
 }
