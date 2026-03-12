@@ -49,6 +49,7 @@
   },
   "changesets": [
     "afraid-oranges-fry",
+    "deprecate-copilotkitnext-packages",
     "fifty-cobras-pull",
     "fix-escape-key-focus-loss-399",
     "floppy-birds-sink",
