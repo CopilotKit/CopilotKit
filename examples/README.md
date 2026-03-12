@@ -1,6 +1,6 @@
 # CopilotKit Examples
 
-This directory contains 54 consolidated demo repositories showcasing CopilotKit integrations, canvas apps, showcases, and starter templates.
+This directory contains 47 consolidated demo repositories showcasing CopilotKit integrations, canvas apps, and showcases.
 
 Each example is a self-contained project. To get started:
 
@@ -81,17 +81,3 @@ Full-featured demo applications highlighting CopilotKit capabilities in real-wor
 | [a2a-travel](./showcases/a2a-travel/)                                   | A2A + AG-UI multi-agent travel demo (LangGraph + Google ADK)                           |
 | [spreadsheet](./showcases/spreadsheet/)                                 | AI-powered Excel-like spreadsheet web app                                              |
 | [todo](./showcases/todo/)                                               | Simple todo app built with CopilotKit                                                  |
-
-## Starters (7)
-
-Minimal starter templates for getting up and running quickly.
-
-| Example                                                    | Description                                                                         |
-| ---------------------------------------------------------- | ----------------------------------------------------------------------------------- |
-| [textarea](./starters/textarea/)                           | Basic Next.js starter with CopilotKit textarea integration                          |
-| [todos-app](./starters/todos-app/)                         | Basic Next.js starter with CopilotKit todo functionality                            |
-| [coagents-langgraph](./starters/coagents-langgraph/)       | CoAgents starter with Python and JavaScript LangGraph agents                        |
-| [coagents-crewai-flows](./starters/coagents-crewai-flows/) | CoAgents starter with CrewAI Flows (Python)                                         |
-| [llamaindex-hitl](./starters/llamaindex-hitl/)             | Human-in-the-Loop demo with LlamaIndex — essay drafting with accept/reject workflow |
-| [enterprise-runner](./starters/enterprise-runner/)         | Enterprise runtime with PostgreSQL storage, Redis caching, and agent state recovery |
-| [react-vite-agent](./starters/react-vite-agent/)           | Agentic incident response platform with React, TypeScript, and CopilotKit           |

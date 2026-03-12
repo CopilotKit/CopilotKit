@@ -98,13 +98,13 @@ migrate_repo() {
 }
 
 # ============================================================
-# MANIFEST: All 54 repos organized by group
+# MANIFEST: All 47 repos organized by group
 # Format: migrate_repo <github-repo-name> <target-path> [branch]
 # ============================================================
 
 migrate_group_a() {
     echo ""
-    echo "========== GROUP A: Demo Team Repos (24) =========="
+    echo "========== GROUP A: Demo Team Repos (22) =========="
     echo ""
     migrate_repo with-langgraph-python           examples/integrations/langgraph-python
     migrate_repo with-langgraph-js               examples/integrations/langgraph-js
@@ -122,8 +122,6 @@ migrate_group_a() {
     migrate_repo with-a2a-a2ui                    examples/integrations/a2a-a2ui
     migrate_repo demo-banking                     examples/showcases/banking
     migrate_repo demo-presentation                examples/showcases/presentation
-    migrate_repo example-textarea                 examples/starters/textarea
-    migrate_repo example-todos-app                examples/starters/todos-app
     migrate_repo deep-agents-demo                 examples/showcases/deep-agents
     migrate_repo deep-agents-job-search-assistant examples/showcases/deep-agents-job-search
     migrate_repo generative-ui                    examples/showcases/generative-ui
@@ -134,7 +132,7 @@ migrate_group_a() {
 
 migrate_group_b() {
     echo ""
-    echo "========== GROUP B: Additional Repos (24) =========="
+    echo "========== GROUP B: Additional Repos (21) =========="
     echo ""
     # Integration starters
     migrate_repo with-agno                        examples/integrations/agno
@@ -155,13 +153,10 @@ migrate_group_b() {
     migrate_repo multi-page-demo                  examples/showcases/multi-page
     migrate_repo orca-CopilotKit-demo             examples/showcases/orca
 
-    # Starters and showcases
-    migrate_repo coagents-starter-langgraph       examples/starters/coagents-langgraph
-    migrate_repo coagents-starter-crewai-flows    examples/starters/coagents-crewai-flows
+    # Showcases
     migrate_repo pydantic-ai-todos                examples/showcases/pydantic-ai-todos
     migrate_repo scene-creator-copilot            examples/showcases/scene-creator
     migrate_repo open-gemini-canvas               examples/canvas/gemini
-    migrate_repo llamaindex-hitl-guide-example    examples/starters/llamaindex-hitl
     migrate_repo adk-generative-dashboard         examples/showcases/adk-dashboard
     migrate_repo mastra-pm-canvas                 examples/canvas/mastra-pm
     migrate_repo langgraph-js-support-agents      examples/showcases/langgraph-js-support-agents
@@ -171,11 +166,9 @@ migrate_group_b() {
 
 migrate_group_c() {
     echo ""
-    echo "========== GROUP C: Remaining Repos (4) =========="
+    echo "========== GROUP C: Remaining Repos (2) =========="
     echo ""
     migrate_repo enterprise-brex-demo             examples/showcases/enterprise-brex
-    migrate_repo enterprise-runner-example        examples/starters/enterprise-runner
-    migrate_repo react-vite-built-in-agent        examples/starters/react-vite-agent
     migrate_repo a2a-travel                       examples/showcases/a2a-travel
 }
 

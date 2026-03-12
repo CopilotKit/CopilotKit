@@ -80,22 +80,25 @@ README_EOF
 }
 
 # ============================================================
-# MANIFEST: All 54 consolidated repos organized by group
+# MANIFEST: All 47 consolidated repos organized by group
 # Format: archive_repo <github-repo-name> <target-path>
 #
-# NOT archived (not consolidated — experiments and dropped showcases):
+# NOT archived (not consolidated — experiments, dropped showcases, and starters):
 #   vnext_experimental_angular_demo, 1.50-demo, private_a2ui_demo,
 #   llamaindex-composio-hackathon-sample, vnext-with-pydantic,
 #   copilotkit-jupyter-notebook, deep-agent-cpk-experiments,
 #   crew-flow-ent-dojo, crew-flow-cpk-temp, ag2-feature-viewer,
 #   ag-ui-expo-playground, find-the-bug, cuddly-fortnight,
 #   crew_ai_enterprise_demo, agui-demo, demo-campaign-manager,
-#   demo-chat-sso, demo-crm, autotale-ai-web-ui
+#   demo-chat-sso, demo-crm, autotale-ai-web-ui,
+#   example-textarea, example-todos-app, coagents-starter-langgraph,
+#   coagents-starter-crewai-flows, llamaindex-hitl-guide-example,
+#   enterprise-runner-example, react-vite-built-in-agent
 # ============================================================
 
 archive_group_a() {
     echo ""
-    echo "========== GROUP A: Demo Team Repos (24) =========="
+    echo "========== GROUP A: Demo Team Repos (22) =========="
     echo ""
     archive_repo with-langgraph-python           examples/integrations/langgraph-python
     archive_repo with-langgraph-js               examples/integrations/langgraph-js
@@ -113,8 +116,6 @@ archive_group_a() {
     archive_repo with-a2a-a2ui                    examples/integrations/a2a-a2ui
     archive_repo demo-banking                     examples/showcases/banking
     archive_repo demo-presentation                examples/showcases/presentation
-    archive_repo example-textarea                 examples/starters/textarea
-    archive_repo example-todos-app                examples/starters/todos-app
     archive_repo deep-agents-demo                 examples/showcases/deep-agents
     archive_repo deep-agents-job-search-assistant examples/showcases/deep-agents-job-search
     archive_repo generative-ui                    examples/showcases/generative-ui
@@ -125,7 +126,7 @@ archive_group_a() {
 
 archive_group_b() {
     echo ""
-    echo "========== GROUP B: Additional Repos (24) =========="
+    echo "========== GROUP B: Additional Repos (21) =========="
     echo ""
     # Integration starters
     archive_repo with-agno                        examples/integrations/agno
@@ -146,13 +147,10 @@ archive_group_b() {
     archive_repo multi-page-demo                  examples/showcases/multi-page
     archive_repo orca-CopilotKit-demo             examples/showcases/orca
 
-    # Starters and showcases
-    archive_repo coagents-starter-langgraph       examples/starters/coagents-langgraph
-    archive_repo coagents-starter-crewai-flows    examples/starters/coagents-crewai-flows
+    # Showcases
     archive_repo pydantic-ai-todos                examples/showcases/pydantic-ai-todos
     archive_repo scene-creator-copilot            examples/showcases/scene-creator
     archive_repo open-gemini-canvas               examples/canvas/gemini
-    archive_repo llamaindex-hitl-guide-example    examples/starters/llamaindex-hitl
     archive_repo adk-generative-dashboard         examples/showcases/adk-dashboard
     archive_repo mastra-pm-canvas                 examples/canvas/mastra-pm
     archive_repo langgraph-js-support-agents      examples/showcases/langgraph-js-support-agents
@@ -162,11 +160,9 @@ archive_group_b() {
 
 archive_group_c() {
     echo ""
-    echo "========== GROUP C: Remaining Repos (4) =========="
+    echo "========== GROUP C: Remaining Repos (2) =========="
     echo ""
     archive_repo enterprise-brex-demo             examples/showcases/enterprise-brex
-    archive_repo enterprise-runner-example        examples/starters/enterprise-runner
-    archive_repo react-vite-built-in-agent        examples/starters/react-vite-agent
     archive_repo a2a-travel                       examples/showcases/a2a-travel
 }
 
