@@ -1,8 +1,8 @@
 import { AbstractAgent, Message, RunAgentInput } from "@ag-ui/client";
 import { CopilotIntelligenceRuntimeLike } from "../../runtime";
-import { jsonResponse } from "../shared/json-response";
 import { isValidIdentifier } from "../shared/intelligence-utils";
 import { generateThreadNameForNewThread } from "./thread-names";
+import { logger } from "@copilotkitnext/shared";
 
 interface HandleIntelligenceRunParams {
   runtime: CopilotIntelligenceRuntimeLike;
@@ -20,23 +20,23 @@ export async function handleIntelligenceRun({
   input,
 }: HandleIntelligenceRunParams): Promise<Response> {
   if (!runtime.intelligence) {
-    return jsonResponse(
+    return Response.json(
       {
         error: "Intelligence not configured",
         message: "Intelligence mode requires a CopilotKitIntelligence",
       },
-      500,
+      { status: 500 },
     );
   }
 
   const userId = request.headers.get("X-User-Id");
   if (!isValidIdentifier(userId)) {
-    return jsonResponse(
+    return Response.json(
       {
         error: "X-User-Id header is required",
         message: "A valid X-User-Id header is required",
       },
-      400,
+      { status: 400 },
     );
   }
 
@@ -56,16 +56,16 @@ export async function handleIntelligenceRun({
         thread,
         userId,
       }).catch((nameError) => {
-        console.error("Failed to generate thread name:", nameError);
+        logger.error("Failed to generate thread name:", nameError);
       });
     }
   } catch (error) {
-    console.error("Failed to get or create thread:", error);
-    return jsonResponse(
+    logger.error("Failed to get or create thread:", error);
+    return Response.json(
       {
         error: "Failed to initialize thread",
       },
-      502,
+      { status: 502 },
     );
   }
 
@@ -79,22 +79,22 @@ export async function handleIntelligenceRun({
     joinToken = lockResult.joinToken;
     joinCode = lockResult.joinCode;
   } catch (error) {
-    console.error("Thread lock denied:", error);
-    return jsonResponse(
+    logger.error("Thread lock denied:", error);
+    return Response.json(
       {
         error: "Thread lock denied",
       },
-      409,
+      { status: 409 },
     );
   }
 
   if (!joinToken) {
-    return jsonResponse(
+    return Response.json(
       {
         error: "Join token not available",
         message: "Intelligence platform did not return a join token",
       },
-      502,
+      { status: 502 },
     );
   }
 
@@ -111,12 +111,12 @@ export async function handleIntelligenceRun({
         (message) => !historicMessageIds.has(message.id),
       );
     } catch (error) {
-      console.error("Thread history lookup failed:", error);
-      return jsonResponse(
+      logger.error("Thread history lookup failed:", error);
+      return Response.json(
         {
           error: "Thread history lookup failed",
         },
-        502,
+        { status: 502 },
       );
     }
   }
@@ -133,15 +133,14 @@ export async function handleIntelligenceRun({
     })
     .subscribe({
       error: (error) => {
-        console.error("Error running agent:", error);
+        logger.error("Error running agent:", error);
       },
     });
 
-  return new Response(JSON.stringify({ joinToken }), {
-    status: 200,
-    headers: {
-      "Content-Type": "application/json",
-      "Cache-Control": "no-cache",
+  return Response.json(
+    { joinToken },
+    {
+      headers: { "Cache-Control": "no-cache" },
     },
-  });
+  );
 }

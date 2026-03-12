@@ -8,7 +8,6 @@ export default defineConfig([
     sourcemap: true,
     target: "es2022",
     outDir: "dist",
-    inlineOnly: false,
     checks: { pluginTimings: false },
     exports: true,
   },
@@ -26,7 +25,6 @@ export default defineConfig([
       "rxjs",
       "zod",
     ],
-    inlineOnly: false,
     codeSplitting: false,
     checks: { pluginTimings: false },
     outputOptions(options) {

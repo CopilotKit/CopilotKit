@@ -21,6 +21,9 @@ export interface AgentDescription {
 
 export type RuntimeMode = "sse" | "intelligence";
 
+export const RUNTIME_MODE_SSE = "sse" as const;
+export const RUNTIME_MODE_INTELLIGENCE = "intelligence" as const;
+
 export interface IntelligenceRuntimeInfo {
   wsUrl: string;
 }

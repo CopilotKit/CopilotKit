@@ -5,6 +5,8 @@ import {
   AgentDescription,
   RuntimeMode,
   IntelligenceRuntimeInfo,
+  RUNTIME_MODE_SSE,
+  RUNTIME_MODE_INTELLIGENCE,
 } from "@copilotkitnext/shared";
 import { ProxiedCopilotRuntimeAgent } from "../agent";
 import type { CopilotKitCore } from "./core";
@@ -35,7 +37,7 @@ export class AgentRegistry {
     CopilotKitCoreRuntimeConnectionStatus.Disconnected;
   private _runtimeTransport: CopilotRuntimeTransport = "rest";
   private _audioFileTranscriptionEnabled: boolean = false;
-  private _runtimeMode: RuntimeMode = "sse";
+  private _runtimeMode: RuntimeMode = RUNTIME_MODE_SSE;
   private _intelligence?: IntelligenceRuntimeInfo;
   private _a2uiEnabled: boolean = false;
 
@@ -227,7 +229,7 @@ export class AgentRegistry {
         CopilotKitCoreRuntimeConnectionStatus.Disconnected;
       this._runtimeVersion = undefined;
       this._audioFileTranscriptionEnabled = false;
-      this._runtimeMode = "sse";
+      this._runtimeMode = RUNTIME_MODE_SSE;
       this._intelligence = undefined;
       this._a2uiEnabled = false;
       this.remoteAgents = {};
@@ -268,10 +270,7 @@ export class AgentRegistry {
             description: description,
             transport: this._runtimeTransport,
             credentials,
-            runtimeMode:
-              runtimeInfoResponse.mode === "intelligence"
-                ? "intelligence"
-                : "sse",
+            runtimeMode: runtimeInfoResponse.mode ?? RUNTIME_MODE_SSE,
             intelligence: runtimeInfoResponse.intelligence,
           });
           this.applyHeadersToAgent(agent);
@@ -286,7 +285,7 @@ export class AgentRegistry {
       this._runtimeVersion = version;
       this._audioFileTranscriptionEnabled =
         runtimeInfoResponse.audioFileTranscriptionEnabled ?? false;
-      this._runtimeMode = runtimeInfoResponse.mode ?? "sse";
+      this._runtimeMode = runtimeInfoResponse.mode ?? RUNTIME_MODE_SSE;
       this._intelligence = runtimeInfoResponse.intelligence;
       this._a2uiEnabled = runtimeInfoResponse.a2uiEnabled ?? false;
 
@@ -299,7 +298,7 @@ export class AgentRegistry {
         CopilotKitCoreRuntimeConnectionStatus.Error;
       this._runtimeVersion = undefined;
       this._audioFileTranscriptionEnabled = false;
-      this._runtimeMode = "sse";
+      this._runtimeMode = RUNTIME_MODE_SSE;
       this._intelligence = undefined;
       this._a2uiEnabled = false;
       this.remoteAgents = {};

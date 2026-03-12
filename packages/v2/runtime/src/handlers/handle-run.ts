@@ -1,4 +1,3 @@
-import { jsonResponse } from "./shared/json-response";
 import { isIntelligenceRuntime } from "../runtime";
 import {
   cloneAgentForRequest,
@@ -54,12 +53,12 @@ export async function handleRunAgent({
       cause: error instanceof Error ? error.cause : undefined,
     });
 
-    return jsonResponse(
+    return Response.json(
       {
         error: "Failed to run agent",
         message: error instanceof Error ? error.message : "Unknown error",
       },
-      500,
+      { status: 500 },
     );
   }
 }

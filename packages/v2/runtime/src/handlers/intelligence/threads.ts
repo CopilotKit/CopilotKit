@@ -4,7 +4,7 @@ import {
   isIntelligenceRuntime,
 } from "../../runtime";
 import { logger } from "@copilotkitnext/shared";
-import { errorResponse, jsonResponse } from "../shared/json-response";
+import { errorResponse } from "../shared/json-response";
 import { isValidIdentifier } from "../shared/intelligence-utils";
 
 interface ThreadsHandlerParams {
@@ -66,7 +66,7 @@ export async function handleListThreads({
       agentId,
     });
 
-    return jsonResponse(data);
+    return Response.json(data);
   } catch (error) {
     logger.error({ err: error }, "Error listing threads");
     return errorResponse("Failed to list threads", 500);
@@ -99,7 +99,7 @@ export async function handleUpdateThread({
       updates,
     });
 
-    return jsonResponse(thread);
+    return Response.json(thread);
   } catch (error) {
     logger.error({ err: error, threadId }, "Error updating thread");
     return errorResponse("Failed to update thread", 500);
@@ -129,7 +129,7 @@ export async function handleSubscribeToThreads({
         userId,
       });
 
-    return jsonResponse({ joinToken: credentials.joinToken });
+    return Response.json({ joinToken: credentials.joinToken });
   } catch (error) {
     logger.error({ err: error }, "Error subscribing to threads");
     return errorResponse("Failed to subscribe to threads", 500);
@@ -161,7 +161,7 @@ export async function handleArchiveThread({
       agentId,
     });
 
-    return jsonResponse({ threadId, archived: true });
+    return Response.json({ threadId, archived: true });
   } catch (error) {
     logger.error({ err: error, threadId }, "Error archiving thread");
     return errorResponse("Failed to archive thread", 500);
@@ -193,7 +193,7 @@ export async function handleDeleteThread({
       agentId,
     });
 
-    return jsonResponse({ threadId, deleted: true });
+    return Response.json({ threadId, deleted: true });
   } catch (error) {
     logger.error({ err: error, threadId }, "Error deleting thread");
     return errorResponse("Failed to delete thread", 500);

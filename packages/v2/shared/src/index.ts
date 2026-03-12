@@ -5,6 +5,8 @@ export {
   type IntelligenceRuntimeInfo,
   type RuntimeMode,
   type RuntimeInfo,
+  RUNTIME_MODE_SSE,
+  RUNTIME_MODE_INTELLIGENCE,
 } from "./types";
 
 export * from "./utils";

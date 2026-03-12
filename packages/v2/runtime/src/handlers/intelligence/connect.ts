@@ -1,5 +1,4 @@
 import { CopilotIntelligenceRuntimeLike } from "../../runtime";
-import { jsonResponse } from "../shared/json-response";
 import { isPlatformNotFoundError } from "../shared/intelligence-utils";
 
 interface HandleIntelligenceConnectParams {
@@ -14,12 +13,12 @@ export async function handleIntelligenceConnect({
   lastSeenEventId,
 }: HandleIntelligenceConnectParams): Promise<Response> {
   if (!runtime.intelligence) {
-    return jsonResponse(
+    return Response.json(
       {
         error: "Intelligence not configured",
         message: "Intelligence mode requires a CopilotKitIntelligence",
       },
-      500,
+      { status: 500 },
     );
   }
 
@@ -35,13 +34,8 @@ export async function handleIntelligenceConnect({
       });
     }
 
-    return new Response(JSON.stringify(result), {
-      status: 200,
-      headers: {
-        "Content-Type": "application/json",
-        "Cache-Control": "no-cache",
-        Connection: "keep-alive",
-      },
+    return Response.json(result, {
+      headers: { "Cache-Control": "no-cache", Connection: "keep-alive" },
     });
   } catch (error) {
     if (isPlatformNotFoundError(error)) {
@@ -51,11 +45,11 @@ export async function handleIntelligenceConnect({
     }
 
     console.error("Connect plan not available:", error);
-    return jsonResponse(
+    return Response.json(
       {
         error: "Connect plan not available",
       },
-      404,
+      { status: 404 },
     );
   }
 }
