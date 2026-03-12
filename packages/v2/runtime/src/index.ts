@@ -8,4 +8,13 @@ export * from "./runner";
 export * from "./transcription-service/transcription-service";
 
 // Export intelligence platform client and types
-export * from "./intelligence-platform";
+export {
+  CopilotKitIntelligence,
+  type CopilotKitIntelligenceConfig,
+  type CreateThreadRequest,
+  type ThreadSummary,
+  type ListThreadsResponse,
+  type SubscribeToThreadsRequest,
+  type SubscribeToThreadsResponse,
+  type UpdateThreadRequest,
+} from "./intelligence-platform";
