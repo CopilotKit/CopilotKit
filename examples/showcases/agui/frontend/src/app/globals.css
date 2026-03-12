@@ -1,0 +1,219 @@
+@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+/* Copied CSS from user query */
+.copilotKitWindow {
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+.copilotKitHeader {
+  border-top-left-radius: 5px !important;
+}
+
+.page-background {
+  /* Darker gradient background */
+  background: linear-gradient(170deg, #e9ecef 0%, #ced4da 100%); 
+}
+
+@keyframes fade-scale-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Updated card entry animation */
+@keyframes pop-in {
+  0% {
+    opacity: 0;
+    transform: translateY(15px) scale(0.95);
+  }
+  70% {
+    opacity: 1;
+    transform: translateY(-2px) scale(1.02);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Animation for subtle background gradient movement */
+@keyframes animated-gradient {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+/* Animation for flash effect on apply */
+@keyframes flash-border-glow {
+  0% {
+    /* Start slightly intensified */
+    border-top-color: #ff5b4a !important;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.07), 
+                inset 0 1px 2px rgba(0, 0, 0, 0.01), 
+                0 0 25px rgba(255, 91, 74, 0.5);
+  }
+  50% {
+    /* Peak intensity */
+    border-top-color: #ff4733 !important;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08), 
+                inset 0 1px 2px rgba(0, 0, 0, 0.01), 
+                0 0 35px rgba(255, 71, 51, 0.7);
+  }
+  100% {
+    /* Return to default state appearance */
+    border-top-color: #ff6f61 !important;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.07), 
+                inset 0 1px 2px rgba(0, 0, 0, 0.01), 
+                0 0 10px rgba(255, 111, 97, 0.15); 
+  }
+}
+
+/* Existing animation for haiku lines */
+@keyframes fade-slide-in {
+  from {
+    opacity: 0;
+    transform: translateX(-15px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.animated-fade-in { 
+  /* Use the new pop-in animation */
+  animation: pop-in 0.6s ease-out forwards;
+}
+
+.haiku-card {
+  /* Subtle animated gradient background */
+  background: linear-gradient(120deg, #ffffff 0%, #fdfdfd 50%, #ffffff 100%);
+  background-size: 200% 200%; 
+  animation: animated-gradient 10s ease infinite; 
+
+  /* === Explicit Border Override Attempt === */
+  /* 1. Set the default grey border for all sides */
+  border: 1px solid #dee2e6; 
+  
+  /* 2. Explicitly override the top border immediately after */
+  border-top: 10px solid #ff6f61 !important; /* Orange top - Added !important */
+  /* === End Explicit Border Override Attempt === */
+  
+  padding: 2.5rem 3rem; 
+  border-radius: 20px; 
+  
+  /* Default glow intensity */
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.07), 
+              inset 0 1px 2px rgba(0, 0, 0, 0.01), 
+              0 0 15px rgba(255, 111, 97, 0.25); 
+  text-align: left;
+  max-width: 745px; 
+  margin: 3rem auto;
+  min-width: 600px;
+  
+  /* Transition */
+  transition: transform 0.35s ease, box-shadow 0.35s ease, border-top-width 0.35s ease, border-top-color 0.35s ease;
+}
+
+.haiku-card:hover {
+  transform: translateY(-8px) scale(1.03); 
+  /* Enhanced shadow + Glow */
+  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1), 
+              inset 0 1px 2px rgba(0, 0, 0, 0.01), 
+              0 0 25px rgba(255, 91, 74, 0.5); 
+  /* Modify only top border properties */
+  border-top-width: 14px !important; /* Added !important */
+  border-top-color: #ff5b4a !important; /* Added !important */
+}
+
+.haiku-card .flex {
+  margin-bottom: 1.5rem;
+}
+
+.haiku-card .flex.haiku-line { /* Target the lines specifically */
+  margin-bottom: 1.5rem;
+  opacity: 0; /* Start hidden for animation */
+  animation: fade-slide-in 0.5s ease-out forwards;
+  /* animation-delay is set inline in page.tsx */
+}
+
+/* Remove previous explicit color overrides - rely on Tailwind */
+/* .haiku-card p.text-4xl {
+  color: #212529; 
+}
+
+.haiku-card p.text-base {
+  color: #495057; 
+} */
+
+.haiku-card.applied-flash {
+  /* Apply the flash animation once */
+  /* Note: animation itself has !important on border-top-color */
+  animation: flash-border-glow 0.6s ease-out forwards; 
+}
+
+/* Styling for images within the main haiku card */
+/* .haiku-card-image { ... } // Removed */
+
+/* Styling for images within the suggestion card */
+/* .suggestion-card-image { ... } // Removed */
+
+/* Styling for the focused suggestion card image */
+/* .suggestion-card-image-focus { ... } // Removed */
+
+/* Styling for the suggestion card container in the sidebar */
+.suggestion-card {
+  border: 1px solid #dee2e6;
+  border-top: 10px solid #ff6f61;
+  border-radius: 0.75rem;
+  /* Add transition for smooth hover effects */
+  transition: transform 0.35s ease, box-shadow 0.35s ease, border-top-width 0.35s ease, border-top-color 0.35s ease;
+  /* Note: background-color is set by Tailwind bg-gray-100 in JSX, padding, margin, etc., are also handled by Tailwind */
+}
+
+.suggestion-card:hover {
+  transform: translateY(-8px) scale(1.03);
+  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1), 
+              inset 0 1px 2px rgba(0, 0, 0, 0.01), 
+              0 0 25px rgba(255, 91, 74, 0.5);
+  border-top-width: 14px !important;
+  border-top-color: #ff5b4a !important;
+}
+
+/* .suggestion-image-container { ... } // Removed */

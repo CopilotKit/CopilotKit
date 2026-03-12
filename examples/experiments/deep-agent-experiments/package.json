@@ -1,0 +1,31 @@
+{
+  "name": "copilotkit-integration-experiments",
+  "version": "1.0.0",
+  "description": "",
+  "homepage": "https://github.com/CopilotKit/deep-agent-cpk-experiments#readme",
+  "bugs": {
+    "url": "https://github.com/CopilotKit/deep-agent-cpk-experiments/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/CopilotKit/deep-agent-cpk-experiments.git"
+  },
+  "license": "ISC",
+  "author": "",
+  "type": "commonjs",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "dev": "concurrently --kill-others -n agent,app -c blue,green \"cd agent && PYTHONUNBUFFERED=1 AGENT_LOG_LEVEL=DEBUG uv run python agent.py\" \"cd app && bun run dev\"",
+    "dev:local-cpk": "LOCAL_COPILOTKIT=../../CopilotKit/packages concurrently --kill-others -n agent,app -c blue,green \"cd agent && LOCAL_COPILOTKIT=1 PYTHONUNBUFFERED=1 AGENT_LOG_LEVEL=DEBUG uv run python agent.py\" \"cd app && bun run dev\"",
+    "dev:local-cpk-agent": "concurrently --kill-others -n agent,app -c blue,green \"cd agent && LOCAL_COPILOTKIT=1 PYTHONUNBUFFERED=1 AGENT_LOG_LEVEL=DEBUG uv run python agent.py\" \"cd app && bun run dev\"",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "up": "bun --interactive --latest update"
+  },
+  "devDependencies": {
+    "@types/node": "^25.3.0",
+    "concurrently": "^9.1.2"
+  }
+}

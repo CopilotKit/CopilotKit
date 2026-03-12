@@ -1,0 +1,55 @@
+<!--
+ Copyright 2025 Google LLC
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ you may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+
+      https://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+ -->
+
+<main class="main">
+  <app-toolbar></app-toolbar>
+  <a2a-chat-canvas [emptyHistoryTemplate]="welcomeMessage"></a2a-chat-canvas>
+  <ng-template #welcomeMessage>
+    <div class="empty-history">
+        <div class="agent-header">
+          <div class="agent-header-part">
+            <div class="agent-icon">
+              <img src="rizz-agent.png" class="large-icon" alt="Rizz agent icon" />
+            </div>
+          </div>
+          <div class="agent-header-part agent-name">
+            <strong>{{ agentName() }}</strong>
+          </div>
+        </div>
+        <br />
+
+        <p class="empty-history-text">
+          I help you understand and visualize sales pipelines and analyze customer performance data.
+        </p>
+        <div class="suggestion-chips">
+          <button mat-stroked-button class="chip" (click)="sendMessage('Show me sales data for Q1')">
+            <span class="material-icons-outlined">pie_chart</span>
+            Show me sales data for Q1
+          </button>
+          <button mat-stroked-button class="chip" (click)="sendMessage('Show me 2024-Q3 sales report')">
+            <span class="material-icons-outlined">analytics</span>
+            Show me 2024-Q3 sales report
+          </button>
+          <button mat-stroked-button class="chip" (click)="sendMessage('Which stores have unique sales trends?')">
+            <span class="material-icons-outlined">local_mall</span>
+            Which stores have unique sales trends?
+          </button>
+        </div>
+    </div>
+  </ng-template>
+</main>
+
+<router-outlet />

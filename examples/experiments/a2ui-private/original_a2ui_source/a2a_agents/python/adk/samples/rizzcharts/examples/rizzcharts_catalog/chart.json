@@ -1,0 +1,95 @@
+[
+  {
+    "beginRendering": {
+      "surfaceId": "sales-dashboard",
+      "root": "root-canvas"
+    }
+  },
+  {
+    "surfaceUpdate": {
+      "surfaceId": "sales-dashboard",
+      "components": [
+        {
+          "id": "root-canvas",
+          "component": {
+            "Canvas": {
+              "children": {
+                "explicitList": ["chart-container"]
+              }
+            }
+          }          
+        },
+        {
+          "id": "chart-container",
+          "component": {
+            "Column": {
+              "children": {
+                "explicitList": [
+                  "sales-chart"
+                ]
+              },
+              "alignment": "center"
+            }
+          }
+        },
+        {
+          "id": "sales-chart",
+          "component": {
+            "Chart": {
+              "type": "doughnut",
+              "title": {
+                "path": "chart.title"
+              },
+              "chartData": {
+                "path": "chart.items"
+              }
+            }
+          }
+        }
+      ]
+    }
+  },
+  {
+    "dataModelUpdate": {
+      "surfaceId": "sales-dashboard",
+      "path": "/",
+      "contents": [
+        { "key": "chart.title", "valueString": "Sales by Category" },
+        { "key": "chart.items[0].label", "valueString": "Apparel" },
+        { "key": "chart.items[0].value", "valueNumber": 41 },
+        { "key": "chart.items[0].drillDown[0].label", "valueString": "Tops" },
+        { "key": "chart.items[0].drillDown[0].value", "valueNumber": 31 },
+        { "key": "chart.items[0].drillDown[1].label", "valueString": "Bottoms" },
+        { "key": "chart.items[0].drillDown[1].value", "valueNumber": 38 },
+        { "key": "chart.items[0].drillDown[2].label", "valueString": "Outerwear" },
+        { "key": "chart.items[0].drillDown[2].value", "valueNumber": 20 },
+        { "key": "chart.items[0].drillDown[3].label", "valueString": "Footwear" },
+        { "key": "chart.items[0].drillDown[3].value", "valueNumber": 11 },
+        { "key": "chart.items[1].label", "valueString": "Home Goods" },
+        { "key": "chart.items[1].value", "valueNumber": 15 },
+        { "key": "chart.items[1].drillDown[0].label", "valueString": "Pillow" },
+        { "key": "chart.items[1].drillDown[0].value", "valueNumber": 8 },
+        { "key": "chart.items[1].drillDown[1].label", "valueString": "Coffee Maker" },
+        { "key": "chart.items[1].drillDown[1].value", "valueNumber": 16 },
+        { "key": "chart.items[1].drillDown[2].label", "valueString": "Area Rug" },
+        { "key": "chart.items[1].drillDown[2].value", "valueNumber": 3 },
+        { "key": "chart.items[1].drillDown[3].label", "valueString": "Bath Towels" },
+        { "key": "chart.items[1].drillDown[3].value", "valueNumber": 14 },
+        { "key": "chart.items[2].label", "valueString": "Electronics" },
+        { "key": "chart.items[2].value", "valueNumber": 28 },
+        { "key": "chart.items[2].drillDown[0].label", "valueString": "Phones" },
+        { "key": "chart.items[2].drillDown[0].value", "valueNumber": 25 },
+        { "key": "chart.items[2].drillDown[1].label", "valueString": "Laptops" },
+        { "key": "chart.items[2].drillDown[1].value", "valueNumber": 27 },
+        { "key": "chart.items[2].drillDown[2].label", "valueString": "TVs" },
+        { "key": "chart.items[2].drillDown[2].value", "valueNumber": 21 },
+        { "key": "chart.items[2].drillDown[3].label", "valueString": "Other" },
+        { "key": "chart.items[2].drillDown[3].value", "valueNumber": 27 },
+        { "key": "chart.items[3].label", "valueString": "Health & Beauty" },
+        { "key": "chart.items[3].value", "valueNumber": 10 },
+        { "key": "chart.items[4].label", "valueString": "Other" },
+        { "key": "chart.items[4].value", "valueNumber": 6 }
+      ]
+    }
+  }
+]

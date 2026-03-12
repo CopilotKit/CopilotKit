@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>A2UI Org Chart Test (Contact Sample)</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+
+    .container {
+      margin-top: 20px;
+      display: flex;
+      justify-content: center;
+    }
+  </style>
+  <script type="module">
+    import { registerContactComponents } from '../register-components.js';
+
+    // Register custom components
+    registerContactComponents();
+    console.log('Custom components registered in Contact Sample');
+  </script>
+</head>
+
+<body>
+  <h1>A2UI Org Chart Test (Contact Sample)</h1>
+
+  <div class="container">
+    <org-chart id="graph"></org-chart>
+  </div>
+
+  <script>
+    customElements.whenDefined('org-chart').then(() => {
+      const graph = document.getElementById('graph');
+
+      graph.chain = [
+        { title: 'CEO', name: 'Alice Johnson' },
+        { title: 'SVP', name: 'Bob Smith' },
+        { title: 'VP', name: 'Charlie Brown' },
+        { title: 'Director', name: 'Diana Prince' },
+        { title: 'Software Engineer', name: 'Evan Wright' }
+      ];
+
+      graph.action = {
+        name: 'showContactCard',
+        context: []
+      };
+
+      graph.addEventListener('a2uiaction', (e) => {
+        const status = document.createElement('div');
+        const clickedNodeTitle = e.detail.action.context.find(c => c.key === 'clickedNodeTitle')?.value.literalString;
+        const clickedNodeName = e.detail.action.context.find(c => c.key === 'clickedNodeName')?.value.literalString;
+        status.textContent = `Clicked: ${clickedNodeTitle} - ${clickedNodeName}`;
+        status.style.marginTop = '20px';
+        status.style.padding = '10px';
+        status.style.background = '#e0f7fa';
+        status.style.border = '1px solid #006064';
+        status.id = 'action-status';
+        document.body.appendChild(status);
+      });
+    });
+  </script>
+</body>
+
+</html>

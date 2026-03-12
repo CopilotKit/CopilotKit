@@ -1,0 +1,70 @@
+{
+  "$schema": "https://turborepo.com/schema.json",
+  "ui": "tui",
+  "tasks": {
+    "build": {
+      "dependsOn": ["^build"],
+      "inputs": ["$TURBO_DEFAULT$", ".env*"],
+      "outputs": [".next/**", "!.next/cache/**", "dist/**"]
+    },
+    "lint": {
+      "dependsOn": ["^lint"],
+      "env": ["LOG_LEVEL", "NODE_ENV"]
+    },
+    "check-types": {
+      "dependsOn": ["^check-types"]
+    },
+    "test": {
+      "inputs": [
+        "src/**/*.ts",
+        "src/**/*.tsx",
+        "**/__tests__/**",
+        "**/*.test.*",
+        "**/*.spec.*"
+      ],
+      "outputs": ["coverage/**"],
+      "env": ["LOG_LEVEL", "NODE_ENV"]
+    },
+    "test:watch": {
+      "cache": false,
+      "persistent": true,
+      "env": ["LOG_LEVEL", "NODE_ENV"]
+    },
+    "test:coverage": {
+      "inputs": [
+        "src/**/*.ts",
+        "src/**/*.tsx",
+        "**/__tests__/**",
+        "**/*.test.*",
+        "**/*.spec.*"
+      ],
+      "outputs": ["coverage/**"],
+      "env": ["LOG_LEVEL", "NODE_ENV"]
+    },
+    "dev": {
+      "cache": false,
+      "persistent": true
+    },
+    "build:css": {
+      "cache": true,
+      "outputs": ["dist/styles.css"]
+    },
+    "frontend#dev": {
+      "cache": false,
+      "persistent": true
+    },
+    "server#dev": {
+      "cache": false,
+      "persistent": true
+    },
+    "agent#dev": {
+      "cache": false,
+      "persistent": true
+    },
+    "clean": {
+      "cache": false,
+      "persistent": false,
+      "dependsOn": ["^clean"]
+    }
+  }
+}

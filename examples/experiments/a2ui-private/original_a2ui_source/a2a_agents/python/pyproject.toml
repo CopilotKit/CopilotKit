@@ -1,0 +1,19 @@
+[project]
+name = "python"
+version = "0.1.0"
+description = "A top-level project to manage python libraries and samples."
+dependencies = []
+
+[tool.uv.workspace]
+members = [
+  "a2ui_extension",
+  "adk/samples/restaurant_finder",
+  "adk/samples/contact_lookup",
+  "adk/samples/rizzcharts",
+  "adk/samples/orchestrator",
+]
+
+[tool.uv.sources]
+a2ui = { path = "a2ui_extension", editable = true }
+# The key must match the package name
+a2ui-restaurant-finder = { path = "adk/samples/restaurant_finder", editable = true } # <-- Renamed here

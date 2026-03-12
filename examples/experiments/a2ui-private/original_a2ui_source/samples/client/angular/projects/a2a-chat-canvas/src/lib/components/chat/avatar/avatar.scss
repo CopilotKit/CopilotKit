@@ -1,0 +1,77 @@
+// Copyright 2025 Google LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      https://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+@use '@angular/material' as mat;
+
+:host {
+    display: inline-block;
+}
+
+.agent-icon-container {
+    height: 20px;
+    width: 20px;
+    padding: 6px;
+    font-size: 20px;
+}
+
+.icon {
+    width: 20px;
+    height: 20px;
+    // The icon isn't so much of a font than a graphic, so we use px instead of
+    // rem.
+    font-size: 20px;
+    border-radius: var(--mat-sys-corner-extra-large);
+    vertical-align: top;
+}
+
+.large-icon {
+    width: 32px;
+    height: 32px;
+    font-size: 32px;
+    border-radius: var(--mat-sys-corner-extra-large);
+    vertical-align: top;
+}
+
+.large-icon-container {
+    height: 32px;
+    width: 32px;
+    font-size: 32px;
+    padding: 0;
+}
+
+.container {
+    position: relative;
+    height: 32px;
+    font-size: 32px;
+    display: inline-block;
+    vertical-align: middle;
+}
+
+.progress-indicator-wrapper {
+    position: absolute;
+    top: 0;
+    inset-inline-start: 0;
+    height: 32px;
+    width: 60px;
+}
+
+.progress-indicator {
+    @include mat.progress-spinner-density(-2);
+
+    z-index: 500;
+}
+
+.agent-icon {
+    display: contents;
+}

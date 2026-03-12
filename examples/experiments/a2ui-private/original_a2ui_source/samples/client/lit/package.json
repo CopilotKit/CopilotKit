@@ -1,0 +1,10 @@
+{
+  "name": "@a2ui/lit-samples",
+  "private": true,
+  "version": "0.1.0",
+  "description": "A2UI Lit Samples",
+  "workspaces": [
+    "contact",
+    "restaurant"
+  ]
+}

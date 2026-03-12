@@ -1,0 +1,93 @@
+// Copyright 2025 Google LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      https://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+@use '@angular/material' as mat;
+
+:host {
+  display: block;
+  padding-inline: 16px;
+  margin-block-end: 24px;
+  // Lets the ::before pseudo element be positioned absolutely releative to
+  // the InputArea.
+  position: relative;
+
+  // Gives a scrolling overlay effect to indicate that there is more content.
+  &::before {
+    content: '';
+    position: absolute;
+    top: -24px;
+    bottom: 0;
+    inset-inline-start: 0;
+    width: 100%;
+    height: 48px;
+    pointer-events: none;
+    background: linear-gradient(
+      180deg,
+      color(from var(--mat-sys-surface-container-lowest) srgb r g b / 0),
+      color(from var(--mat-sys-surface-container-lowest) srgb r g b / 100) 60%
+    );
+  }
+}
+
+.text-field {
+  @include mat.form-field-overrides(
+    (
+      outlined-container-shape: var(--mat-sys-corner-extra-large),
+    )
+  );
+  width: 100%;
+}
+
+.input-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  margin-block-start: 24px;
+}
+
+.text-area-container {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.action-button {
+  // Alignment with the text field bottom.
+  margin-block-end: 28px;
+}
+
+.disclaimer {
+  font: var(--mat-sys-body-small);
+  color: var(--mat-sys-on-surface-variant);
+  margin-block-start: 12px;
+  text-align: center;
+}
+
+.stop-button-icon {
+  font-variation-settings: 'FILL' 1;
+}
+
+.stop-button {
+  @include mat.icon-button-overrides(
+    (
+      state-layer-color: var(--mat-sys-secondary-container),
+      icon-color: var(--mat-sys-on-secondary-container),
+    )
+  );
+}
+
+::ng-deep {
+  .stop-button.mat-mdc-icon-button {
+    background-color: var(--mat-sys-secondary-container);
+  }
+}

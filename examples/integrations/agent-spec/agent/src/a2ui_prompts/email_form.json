@@ -1,0 +1,257 @@
+[
+  {
+    "id": "root",
+    "component": {
+      "Card": {
+        "child": "main-column"
+      }
+    }
+  },
+  {
+    "id": "main-column",
+    "component": {
+      "Column": {
+        "children": {
+          "explicitList": [
+            "from-row",
+            "to-row",
+            "subject-row",
+            "divider",
+            "message",
+            "actions"
+          ]
+        },
+        "gap": "small"
+      }
+    }
+  },
+  {
+    "id": "from-row",
+    "component": {
+      "Row": {
+        "children": {
+          "explicitList": [
+            "from-label",
+            "from-value"
+          ]
+        },
+        "gap": "medium",
+        "alignment": "center"
+      }
+    }
+  },
+  {
+    "id": "from-label",
+    "component": {
+      "Text": {
+        "text": {
+          "literalString": "FROM"
+        },
+        "usageHint": "caption"
+      }
+    }
+  },
+  {
+    "id": "from-value",
+    "component": {
+      "Text": {
+        "text": {
+          "path": "/from"
+        },
+        "usageHint": "body"
+      }
+    }
+  },
+  {
+    "id": "to-row",
+    "component": {
+      "Row": {
+        "children": {
+          "explicitList": [
+            "to-label",
+            "to-value"
+          ]
+        },
+        "gap": "medium",
+        "alignment": "center"
+      }
+    }
+  },
+  {
+    "id": "to-label",
+    "component": {
+      "Text": {
+        "text": {
+          "literalString": "TO"
+        },
+        "usageHint": "caption"
+      }
+    }
+  },
+  {
+    "id": "to-value",
+    "component": {
+      "Text": {
+        "text": {
+          "path": "/to"
+        },
+        "usageHint": "body"
+      }
+    }
+  },
+  {
+    "id": "subject-row",
+    "component": {
+      "Row": {
+        "children": {
+          "explicitList": [
+            "subject-label",
+            "subject-value"
+          ]
+        },
+        "gap": "medium",
+        "alignment": "center"
+      }
+    }
+  },
+  {
+    "id": "subject-label",
+    "component": {
+      "Text": {
+        "text": {
+          "literalString": "SUBJECT"
+        },
+        "usageHint": "caption"
+      }
+    }
+  },
+  {
+    "id": "subject-value",
+    "component": {
+      "Text": {
+        "text": {
+          "path": "/subject"
+        },
+        "usageHint": "body"
+      }
+    }
+  },
+  {
+    "id": "divider",
+    "component": {
+      "Divider": {}
+    }
+  },
+  {
+    "id": "message",
+    "component": {
+      "Column": {
+        "children": {
+          "explicitList": [
+            "greeting",
+            "body-text",
+            "closing",
+            "signature"
+          ]
+        },
+        "gap": "small"
+      }
+    }
+  },
+  {
+    "id": "greeting",
+    "component": {
+      "Text": {
+        "text": {
+          "path": "/greeting"
+        },
+        "usageHint": "body"
+      }
+    }
+  },
+  {
+    "id": "body-text",
+    "component": {
+      "Text": {
+        "text": {
+          "path": "/body"
+        },
+        "usageHint": "body"
+      }
+    }
+  },
+  {
+    "id": "closing",
+    "component": {
+      "Text": {
+        "text": {
+          "path": "/closing"
+        },
+        "usageHint": "body"
+      }
+    }
+  },
+  {
+    "id": "signature",
+    "component": {
+      "Text": {
+        "text": {
+          "path": "/signature"
+        },
+        "usageHint": "body"
+      }
+    }
+  },
+  {
+    "id": "actions",
+    "component": {
+      "Row": {
+        "children": {
+          "explicitList": [
+            "send-btn",
+            "discard-btn"
+          ]
+        },
+        "gap": "small"
+      }
+    }
+  },
+  {
+    "id": "send-btn-text",
+    "component": {
+      "Text": {
+        "text": {
+          "literalString": "Send email"
+        }
+      }
+    }
+  },
+  {
+    "id": "send-btn",
+    "component": {
+      "Button": {
+        "child": "send-btn-text",
+        "action": "send"
+      }
+    }
+  },
+  {
+    "id": "discard-btn-text",
+    "component": {
+      "Text": {
+        "text": {
+          "literalString": "Discard"
+        }
+      }
+    }
+  },
+  {
+    "id": "discard-btn",
+    "component": {
+      "Button": {
+        "child": "discard-btn-text",
+        "action": "discard"
+      }
+    }
+  }
+]

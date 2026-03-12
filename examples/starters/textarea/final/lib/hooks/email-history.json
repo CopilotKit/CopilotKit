@@ -1,0 +1,20 @@
+[
+  {
+    "timestamp": "2024-02-12T11:00:00",
+    "from": "me",
+    "to": "John Doe <john@acme.com>",
+    "body": "Hi John, what was the outcome of the call with SpaceY?"
+  },
+  {
+    "timestamp": "2024-02-14T12:00:00",
+    "from": "John Doe <john@acme.com>",
+    "to": "me",
+    "body": "Thanks for reminding me! Albert from SpaceY is excited to continue. First, we'll build their landing page."
+  },
+  {
+    "timestamp": "2024-01-14T14:00:00",
+    "from": "John Doe <john@acme.com>",
+    "to": "me",
+    "body": "Forgot to mention, they really liked your proposed technology stack. They'd also like to add some AI features."
+  }
+]

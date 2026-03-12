@@ -1,0 +1,118 @@
+[
+  {
+    "beginRendering": {
+      "surfaceId": "sales-dashboard",
+      "root": "root-column",
+      "styles": {
+        "primaryColor": "#00BFFF",
+        "font": "Arial"
+      }
+    }
+  },
+  {
+    "surfaceUpdate": {
+      "surfaceId": "sales-dashboard",
+      "components": [        
+        {
+          "id": "root-column",
+          "component": {
+            "Column": {
+              "children": {
+                "explicitList": [
+                  "chart-title",
+                  "category-list"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "id": "chart-title",
+          "component": {
+            "Text": {
+              "text": {
+                "path": "chart.title"
+              },
+              "usageHint": "h2"
+            }
+          }
+        },
+        {
+          "id": "category-list",
+          "component": {
+            "List": {
+              "direction": "vertical",
+              "children": {
+                "template": {
+                  "componentId": "category-item-template",
+                  "dataBinding": "/chart.items"
+                }
+              }
+            }
+          }
+        },
+        {
+          "id": "category-item-template",
+          "component": {
+            "Card": {
+              "child": "item-row"
+            }
+          }
+        },
+        {
+          "id": "item-row",
+          "component": {
+            "Row": {
+              "distribution": "spaceBetween",
+              "children": {
+                "explicitList": [
+                  "item-label",
+                  "item-value"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "id": "item-label",
+          "component": {
+            "Text": {
+              "text": {
+                "path": "label"
+              }
+            }
+          }
+        },
+        {
+          "id": "item-value",
+          "component": {
+            "Text": {
+              "text": {
+                "path": "value"
+              }
+            }
+          }
+        }
+      ]
+    }
+  },
+  {
+    "dataModelUpdate": {
+      "surfaceId": "sales-dashboard",
+      "path": "/",
+      "contents": [
+        { "key": "chart.title", "valueString": "Sales by Category" },
+        { "key": "chart.items[0].label", "valueString": "Apparel" },
+        { "key": "chart.items[0].value", "valueNumber": 41 },
+        { "key": "chart.items[1].label", "valueString": "Home Goods" },
+        { "key": "chart.items[1].value", "valueNumber": 15 },
+        { "key": "chart.items[2].label", "valueString": "Electronics" },
+        { "key": "chart.items[2].value", "valueNumber": 28 },
+        { "key": "chart.items[3].label", "valueString": "Health & Beauty" },
+        { "key": "chart.items[3].value", "valueNumber": 10 },
+        { "key": "chart.items[4].label", "valueString": "Other" },
+        { "key": "chart.items[4].value", "valueNumber": 6 }
+      ]
+    }
+  }
+]

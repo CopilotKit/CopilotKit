@@ -1,0 +1,23 @@
+{
+  "name": "@a2ui/web",
+  "private": true,
+  "version": "0.1.0",
+  "description": "AI-first UI Toolkit Demo",
+  "repository": {
+    "directory": "web",
+    "type": "git",
+    "url": "git+https://github.com/google/A2UI.git"
+  },
+  "keywords": [],
+  "author": "Google",
+  "bugs": {
+    "url": "https://github.com/google/A2UI/issues"
+  },
+  "homepage": "https://github.com/google/A2UI/tree/main/web#readme",
+  "devDependencies": {},
+  "dependencies": {},
+  "workspaces": [
+    "../renderers/lit",
+    "lit/inspector"
+  ]
+}

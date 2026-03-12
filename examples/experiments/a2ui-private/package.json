@@ -1,0 +1,28 @@
+{
+  "name": "aguiaturbo",
+  "private": true,
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "lint": "turbo run lint",
+    "format": "prettier --write \"**/*.{ts,tsx,md}\"",
+    "check-types": "turbo run check-types",
+    "sync:python": "pnpm --filter a2a-samples run sync",
+    "postinstall": "pnpm run sync:python",
+    "original:install": "npm install --prefix original_a2ui_source/web && uv sync --directory original_a2ui_source/a2a_samples",
+    "original:demo": "pnpm dlx concurrently --kill-others --handle-input=pipe --names=PY,WEB \"uv run --directory original_a2ui_source/a2a_samples/a2ui_restaurant_finder .\" \"npm run dev --workspace @a2ui/restaurant --prefix original_a2ui_source/web\""
+  },
+  "devDependencies": {
+    "prettier": "^3.6.2",
+    "turbo": "^2.5.8",
+    "typescript": "5.9.2"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "packageManager": "pnpm@9.12.3",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ]
+}

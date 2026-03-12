@@ -1,0 +1,9 @@
+{
+  "name": "a2a-samples",
+  "private": true,
+  "scripts": {
+    "sync": "uv sync --all-packages",
+    "predev": "uv sync --all-packages",
+    "dev": "uv run --directory adk/samples/restaurant_finder ."
+  }
+}

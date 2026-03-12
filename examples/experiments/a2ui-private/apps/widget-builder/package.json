@@ -1,0 +1,47 @@
+{
+  "name": "widget-builder",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --turbopack --port 3001",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint"
+  },
+  "dependencies": {
+    "@copilotkit/react-core": "^1.50.0",
+    "@copilotkit/react-ui": "^1.50.0",
+    "@copilotkit/runtime": "^1.50.0",
+    "@copilotkitnext/a2ui-renderer": "workspace:*",
+    "@monaco-editor/react": "^4.7.0",
+    "@radix-ui/react-alert-dialog": "^1.1.15",
+    "@radix-ui/react-dropdown-menu": "^2.1.16",
+    "@radix-ui/react-separator": "^1.1.8",
+    "@radix-ui/react-slot": "^1.2.4",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "hono": "^4.6.18",
+    "localforage": "^1.10.0",
+    "lucide-react": "^0.556.0",
+    "next": "16.0.10",
+    "react": "19.2.1",
+    "react-dom": "19.2.1",
+    "react-resizable-panels": "^3.0.6",
+    "shiki": "^3.20.0",
+    "tailwind-merge": "^3.4.0",
+    "uuid": "^13.0.0",
+    "zod": "^3.25.75"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/react": "19.2.3",
+    "@types/react-dom": "19.2.3",
+    "@types/uuid": "^11.0.0",
+    "eslint": "^9",
+    "eslint-config-next": "16.0.8",
+    "tailwindcss": "^4",
+    "tw-animate-css": "^1.4.0",
+    "typescript": "^5"
+  }
+}

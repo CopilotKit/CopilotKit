@@ -1,0 +1,124 @@
+.cross-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.cross-timeline-empty {
+  text-align: center;
+  padding: 2rem;
+  color: var(--text-tertiary, #94a3b8);
+  font-size: 0.875rem;
+}
+
+.cross-timeline-events {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  max-height: 500px;
+  overflow-y: auto;
+}
+
+.cross-timeline-event {
+  display: flex;
+  gap: 0.75rem;
+  padding: 0.625rem 0;
+  position: relative;
+}
+
+.cross-timeline-event:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  left: 11px;
+  top: 2rem;
+  bottom: 0;
+  width: 2px;
+  background: var(--border, #e2e8f0);
+}
+
+.cross-timeline-dot {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-size: 0.75rem;
+}
+
+.cross-timeline-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.cross-timeline-header {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.cross-timeline-incident-link {
+  background: none;
+  border: none;
+  font-family: inherit;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--primary, #6366f1);
+  cursor: pointer;
+  padding: 0;
+  text-align: left;
+}
+
+.cross-timeline-incident-link:hover {
+  text-decoration: underline;
+}
+
+.cross-timeline-time {
+  font-size: 0.75rem;
+  color: var(--text-tertiary, #94a3b8);
+  font-style: italic;
+}
+
+.cross-timeline-description {
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+  margin-top: 0.125rem;
+  line-height: 1.5;
+}
+
+.cross-timeline-type {
+  font-weight: 600;
+  text-transform: capitalize;
+  color: var(--text-primary);
+}
+
+.cross-timeline-author {
+  color: var(--text-tertiary, #94a3b8);
+}
+
+.cross-timeline-show-all {
+  background: none;
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: var(--radius-sm, 8px);
+  padding: 0.5rem 1rem;
+  font-family: inherit;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--primary, #6366f1);
+  cursor: pointer;
+  text-align: center;
+  transition: all 0.15s;
+}
+
+.cross-timeline-show-all:hover {
+  background: rgba(99, 102, 241, 0.05);
+  border-color: var(--primary, #6366f1);
+}
+
+@media (max-width: 768px) {
+  .cross-timeline-events {
+    max-height: 350px;
+  }
+}

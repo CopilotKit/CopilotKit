@@ -1,0 +1,43 @@
+{
+  "name": "langgraph-python-starter",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently \"npm run dev:ui\" \"npm run dev:agent\" --names ui,agent --prefix-colors blue,green --kill-others",
+    "dev:debug": "LOG_LEVEL=debug npm run dev",
+    "dev:agent": "cd agent && npx @langchain/langgraph-cli dev --port 8123 --no-browser",
+    "dev:ui": "next dev --turbopack",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "@ag-ui/langgraph": "0.0.20",
+    "@copilotkit/react-core": "1.50.0-beta.7",
+    "@copilotkit/react-ui": "1.50.0-beta.7",
+    "@copilotkit/runtime": "1.50.0-beta.7",
+    "@dagrejs/dagre": "^1.1.8",
+    "@xyflow/react": "^12.10.0",
+    "framer-motion": "^12.23.25",
+    "lucide-react": "^0.555.0",
+    "next": "16.0.7",
+    "openai": "^5.23.2",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "use-sound": "^5.0.0",
+    "zod": "^3.24.4"
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "^3",
+    "@langchain/langgraph-cli": "^1.0.4",
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "concurrently": "^9.1.2",
+    "eslint": "^9",
+    "eslint-config-next": "16.0.1",
+    "tailwindcss": "^4",
+    "typescript": "^5"
+  }
+}

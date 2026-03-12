@@ -1,0 +1,42 @@
+[
+    {
+        "name": "Joe's Shanghai",
+        "detail": "Famous for its soup dumplings.",
+        "imageUrl": "http://localhost:10002/static/springrolls.jpeg",
+        "rating": "★★★★☆",
+        "infoLink": "[More Info](https://www.joesshanghai.com/)",
+        "address": "46 Bowery, New York, NY 10013"
+    },
+    {
+        "name": "Xi'an Famous Foods",
+        "detail": "Spicy and savory hand-pulled noodles.",
+        "imageUrl": "http://localhost:10002/static/shrimpchowmein.jpeg",
+        "rating": "★★★★☆",
+        "infoLink": "[More Info](https://www.xianfoods.com/)",
+        "address": "81 St Marks Pl, New York, NY 10003"
+    },
+    {
+        "name": "Han Dynasty",
+        "detail": "Authentic Szechuan cuisine.",
+        "imageUrl": "http://localhost:10002/static/mapotofu.jpeg",
+        "rating": "★★★★☆",
+        "infoLink": "[More Info](https://www.handynasty.net/)",
+        "address": "90 3rd Ave, New York, NY 10003"
+    },
+    {
+        "name": "Shu Jiao Fu Zhou",
+        "detail": "Inexpensive and delicious dumplings.",
+        "imageUrl": "http://localhost:10002/static/kungpao.jpeg",
+        "rating": "★★★★☆",
+        "infoLink": "",
+        "address": "295 Grand St, New York, NY 10002"
+    },
+    {
+        "name": "RedFarm",
+        "detail": "Modern Chinese with a farm-to-table approach.",
+        "imageUrl": "http://localhost:10002/static/beefbroccoli.jpeg",
+        "rating": "★★★★☆",
+        "infoLink": "[More Info](https://www.redfarmnyc.com/)",
+        "address": "529 Hudson St, New York, NY 10014"
+    }
+]

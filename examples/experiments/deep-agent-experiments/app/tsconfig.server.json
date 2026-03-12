@@ -1,0 +1,35 @@
+{
+  "compilerOptions": {
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.server.tsbuildinfo",
+    "target": "ES2023",
+    "lib": ["ES2023"],
+    "module": "ESNext",
+    "types": ["node"],
+    "skipLibCheck": true,
+
+    /* Bundler mode */
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": true,
+    "moduleDetection": "force",
+    "noEmit": true,
+
+    /* Linting */
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "erasableSyntaxOnly": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUncheckedSideEffectImports": true,
+
+    "baseUrl": ".",
+    "paths": {
+      "@copilotkitnext/runtime": ["../../CopilotKit/packages/v2/runtime/src/index.ts"],
+      "@copilotkitnext/runtime/express": ["../../CopilotKit/packages/v2/runtime/src/express.ts"],
+      "@copilotkitnext/shared": ["../../CopilotKit/packages/v2/shared/src/index.ts"],
+      "@copilotkitnext/agent": ["../../CopilotKit/packages/v2/agent/src/index.ts"],
+      "@copilotkitnext/core": ["../../CopilotKit/packages/v2/core/src/index.ts"]
+    }
+  },
+  "include": ["server"]
+}

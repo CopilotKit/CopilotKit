@@ -1,0 +1,27 @@
+[project]
+name = "orchestrator"
+version = "0.1.0"
+description = "Sample Google ADK-based orchestrator agent that uses a2ui extension with a custom catalog and is hosted as an A2A server agent."
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "a2a-sdk>=0.3.0",
+    "click>=8.1.8",
+    "google-adk>=1.8.0",
+    "google-genai>=1.27.0",
+    "python-dotenv>=1.1.0",
+    "litellm",
+    "a2ui",
+    "jsonschema>=4.0.0",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["."]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.uv.sources]
+a2ui = { workspace = true }
+google-adk = { git = "https://github.com/google/adk-python.git", rev = "143ad44" }

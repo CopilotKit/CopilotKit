@@ -1,0 +1,18 @@
+---
+description: High-level map of the monorepo. Always applied.
+globs: "*"
+alwaysApply: true
+---
+
+# 📦 Repository layout
+
+- `packages/*` – workspace packages
+  - `eslint-config` – shared ESLint configs
+  - `typescript-config` – tsconfig presets
+  - `runtime` – server-side runtime utilities and handlers
+  - `shared` – common utilities
+
+# General
+
+- Do **NOT** edit `dist/` or `node_modules/` directories; they are build artefacts.
+- When adding dependencies, use `pnpm add -w <pkg>`.

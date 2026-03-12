@@ -1,0 +1,51 @@
+// Copyright 2025 Google LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      https://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+:host {
+  display: contents;
+}
+
+.message-row {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.agent-message-row {
+  align-items: start;
+}
+
+.user-message-row {
+  align-items: end;
+}
+
+.message-container {
+  word-wrap: break-word;
+  width: 100%;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-block-start: 8px;
+}
+
+.user-message-container {
+  background-color: var(--mat-sys-surface-container-high);
+  color: var(--mat-sys-on-surface);
+  border-radius: var(--mat-sys-corner-extra-large)
+    var(--mat-sys-corner-extra-small) var(--mat-sys-corner-extra-large)
+    var(--mat-sys-corner-extra-large);
+  max-width: fit-content;
+  padding: 0.75rem;
+}

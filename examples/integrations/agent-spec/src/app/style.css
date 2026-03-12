@@ -1,0 +1,653 @@
+/* === Theme variables === */
+:root {
+  --surface-primary: #fff;
+  --surface-secondary: #fafafa;
+  --surface-tertiary: #f9fafb;
+  --surface-quaternary: #f3f4f6;
+  --surface-btn: #fff;
+  --surface-btn-hover: #f9fafb;
+  --surface-canvas-header: #fff;
+  --surface-dialog: #fff;
+
+  --text-primary: #374151;
+  --text-secondary: #6b7280;
+  --text-tertiary: #9ca3af;
+
+  --border-default: #e5e7eb;
+  --border-hover: #d1d5db;
+  --border-subtle: #f0f0f0;
+  --border-light: #f3f4f6;
+  --border-card: transparent;
+
+  --accent-indigo: #6366f1;
+  --accent-blue: #3b82f6;
+  --accent-emerald: #10b981;
+
+  --backdrop: rgba(0, 0, 0, 0.4);
+
+  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.08), 0 4px 12px rgba(0, 0, 0, 0.04);
+  --shadow-card-hover: 0 2px 6px rgba(0, 0, 0, 0.08), 0 4px 16px rgba(0, 0, 0, 0.04);
+  --shadow-compact: 0 1px 3px rgba(0, 0, 0, 0.06), 0 2px 8px rgba(0, 0, 0, 0.03);
+  --shadow-compact-hover: 0 2px 6px rgba(0, 0, 0, 0.08), 0 4px 16px rgba(0, 0, 0, 0.04);
+  --shadow-canvas-card: 0 1px 3px rgba(0, 0, 0, 0.08), 0 8px 20px rgba(0, 0, 0, 0.06);
+  --shadow-dialog: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --surface-primary: rgba(0, 0, 0, 0.35);
+    --surface-secondary: #111;
+    --surface-tertiary: rgba(255, 255, 255, 0.1);
+    --surface-quaternary: rgba(255, 255, 255, 0.08);
+    --surface-btn: rgba(255, 255, 255, 0.06);
+    --surface-btn-hover: rgba(255, 255, 255, 0.1);
+    --surface-canvas-header: rgba(0, 0, 0, 0.3);
+    --surface-dialog: #1f2937;
+
+    --text-primary: #e5e7eb;
+    --text-secondary: #9ca3af;
+    --text-tertiary: #6b7280;
+
+    --border-default: rgba(255, 255, 255, 0.1);
+    --border-hover: rgba(255, 255, 255, 0.16);
+    --border-subtle: rgba(255, 255, 255, 0.1);
+    --border-light: rgba(255, 255, 255, 0.08);
+    --border-card: rgba(255, 255, 255, 0.1);
+
+    --backdrop: rgba(0, 0, 0, 0.6);
+
+    --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3);
+    --shadow-card-hover: 0 2px 6px rgba(0, 0, 0, 0.4);
+    --shadow-compact: 0 1px 2px rgba(0, 0, 0, 0.3);
+    --shadow-compact-hover: 0 2px 6px rgba(0, 0, 0, 0.4);
+    --shadow-canvas-card: 0 1px 3px rgba(0, 0, 0, 0.3);
+    --shadow-dialog: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+
+  }
+}
+
+/* CopilotKit v2 dark mode — media-query override so we don't need .dark class
+   (avoids Next.js hydration mismatch from toggling className on <html>). */
+@media (prefers-color-scheme: dark) {
+  [data-copilotkit][data-copilotkit] {
+    --background: oklch(14.5% 0 0);
+    --foreground: oklch(98.5% 0 0);
+    --card: oklch(14.5% 0 0);
+    --card-foreground: oklch(98.5% 0 0);
+    --popover: oklch(14.5% 0 0);
+    --popover-foreground: oklch(98.5% 0 0);
+    --primary: oklch(98.5% 0 0);
+    --primary-foreground: oklch(20.5% 0 0);
+    --secondary: oklch(26.9% 0 0);
+    --secondary-foreground: oklch(98.5% 0 0);
+    --muted: oklch(26.9% 0 0);
+    --muted-foreground: oklch(70.8% 0 0);
+    --accent: oklch(26.9% 0 0);
+    --accent-foreground: oklch(98.5% 0 0);
+    --destructive: oklch(39.6% .141 25.723);
+    --destructive-foreground: oklch(63.7% .237 25.331);
+    --border: oklch(26.9% 0 0);
+    --input: oklch(26.9% 0 0);
+    --ring: oklch(55.6% 0 0);
+    --sidebar: oklch(20.5% 0 0);
+    --sidebar-foreground: oklch(98.5% 0 0);
+    --sidebar-primary: oklch(48.8% .243 264.376);
+    --sidebar-primary-foreground: oklch(98.5% 0 0);
+    --sidebar-accent: oklch(26.9% 0 0);
+    --sidebar-accent-foreground: oklch(98.5% 0 0);
+    --sidebar-border: oklch(26.9% 0 0);
+    --sidebar-ring: oklch(43.9% 0 0);
+  }
+
+  /* CopilotKit v1 fallback variables */
+  :root {
+    --copilot-kit-primary-color: rgb(255, 255, 255);
+    --copilot-kit-contrast-color: rgb(28, 28, 28);
+    --copilot-kit-background-color: rgb(17, 17, 17);
+    --copilot-kit-input-background-color: #2c2c2c;
+    --copilot-kit-secondary-color: rgb(28, 28, 28);
+    --copilot-kit-secondary-contrast-color: rgb(255, 255, 255);
+    --copilot-kit-separator-color: rgb(45, 45, 45);
+    --copilot-kit-muted-color: rgb(45, 45, 45);
+    --copilot-kit-error-background: #7f1d1d;
+    --copilot-kit-error-border: #dc2626;
+    --copilot-kit-error-text: #fca5a5;
+    --copilot-kit-shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
+    --copilot-kit-shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -1px rgba(0, 0, 0, 0.3);
+    --copilot-kit-shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.4), 0 4px 6px -2px rgba(0, 0, 0, 0.3);
+    --copilot-kit-dev-console-bg: #1a1a1a;
+    --copilot-kit-dev-console-text: white;
+  }
+}
+
+/* Fix for messages being hidden behind the absolutely-positioned input */
+.a2ui-chat-container [class*="overflow-y-scroll"] {
+  padding-bottom: 120px !important;
+}
+
+/* === Custom chat layout: chips above input pill === */
+
+/* The children render prop layout container */
+.copilot-custom-chat {
+  position: relative;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Hide the duplicate suggestions inside the scroll area (they're also rendered
+   separately in .chips-above-input via the suggestionView render prop) */
+.copilot-custom-chat > :first-child [data-testid="copilot-suggestions"] {
+  display: none !important;
+}
+
+/* Floating suggestion chips positioned just above the input pill */
+.chips-above-input {
+  position: absolute;
+  bottom: 110px;
+  left: 0;
+  right: 0;
+  z-index: 15;
+  display: flex;
+  justify-content: center;
+  padding: 0 16px;
+  pointer-events: none;
+}
+
+[data-sidebar-chat] .chips-above-input {
+  bottom: 96px;
+  padding: 0 8px;
+}
+
+/* Hide the scroll-to-bottom button (overlaps with chips) */
+[data-testid="copilot-scroll-to-bottom"] {
+  display: none !important;
+}
+
+/* === Suggestion chips: welcome screen reordering === */
+
+/* On the welcome screen (no messages), CopilotChatView renders its own layout.
+   Reorder children so chips appear above the input pill. */
+[data-testid="copilot-welcome-screen"] > div > div:nth-child(2) {
+  order: 3;
+}
+[data-testid="copilot-welcome-screen"] > div > div:nth-child(3) {
+  order: 2;
+  width: 100%;
+  justify-content: center;
+  margin-top: 0;
+  margin-bottom: 12px;
+  padding-inline: 0;
+}
+
+/* === Suggestion chips: shared styles === */
+
+/* Single non-wrapping row with hidden scrollbar */
+[data-testid="copilot-suggestions"] {
+  flex-wrap: nowrap !important;
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+  max-width: 100% !important;
+  padding-bottom: 2px; /* prevent clipping box-shadow on pills */
+  justify-content: center;
+  /* Hide scrollbar (still scrollable) */
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+[data-testid="copilot-suggestions"]::-webkit-scrollbar {
+  display: none;
+}
+
+/* Use the system font for A2UI surfaces to match the rest of the UI. */
+.a2ui-chat-container .a2ui-surface {
+  --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+  --font-family-flex: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+}
+
+/* A2UI activity messages — clean card matching inbox/calendar components. */
+.a2ui-chat-container .a2ui-activity-message {
+  position: relative;
+  margin: 12px 0;
+  border-radius: 12px;
+  border: 1px solid var(--border-card);
+  background: var(--surface-primary);
+  overflow: hidden;
+  box-shadow: var(--shadow-card);
+}
+
+.a2ui-chat-container .a2ui-activity-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border-light);
+  background: transparent;
+}
+
+.a2ui-chat-container .a2ui-activity-message--flash {
+  animation: a2ui-activity-flash 700ms ease-out;
+}
+
+@keyframes a2ui-activity-flash {
+  0% {
+    outline: 2px solid rgba(99, 102, 241, 0.5);
+    outline-offset: 2px;
+  }
+  100% {
+    outline: 2px solid transparent;
+    outline-offset: 8px;
+  }
+}
+
+.a2ui-chat-container .a2ui-activity-header-left {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+.a2ui-chat-container .a2ui-activity-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--accent-indigo);
+  box-shadow: none;
+  flex: none;
+}
+
+.a2ui-chat-container .a2ui-activity-meta {
+  font-weight: 400;
+  letter-spacing: normal;
+  text-transform: none;
+  opacity: 0.6;
+  white-space: nowrap;
+}
+
+.a2ui-chat-container .a2ui-activity-toggle {
+  appearance: none;
+  border: 1px solid var(--border-default);
+  background: var(--surface-btn);
+  color: var(--text-primary);
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition:
+    background 120ms ease,
+    border-color 120ms ease;
+}
+
+.a2ui-chat-container .a2ui-activity-toggle:hover {
+  background: var(--surface-btn-hover);
+  border-color: var(--border-hover);
+}
+
+.a2ui-chat-container .a2ui-activity-toggle:active {
+  transform: translateY(1px);
+}
+
+.a2ui-chat-container .a2ui-activity-toggle:focus-visible {
+  outline: 2px solid rgba(99, 102, 241, 0.5);
+  outline-offset: 2px;
+}
+
+.a2ui-chat-container .a2ui-activity-body {
+  padding: 12px 16px 16px;
+}
+
+/* The base A2UI renderer adds generous vertical padding; remove it inside the wrapper. */
+.a2ui-chat-container .a2ui-activity-body > div {
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+}
+
+.a2ui-chat-container .a2ui-activity-message--collapsed .a2ui-activity-body {
+  display: none;
+}
+
+/* === Split Layout: Canvas + Chat Sidebar === */
+
+.layout-chat {
+  flex-direction: column;
+}
+
+.layout-split {
+  flex-direction: row;
+}
+
+/* Canvas panel (left side) */
+.canvas-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  border-right: 1px solid var(--border-default);
+  background: var(--surface-secondary);
+  overflow: hidden;
+}
+
+.canvas-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--border-default);
+  background: var(--surface-canvas-header);
+}
+
+.canvas-header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.canvas-header-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.canvas-header-close {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: var(--text-tertiary);
+  border-radius: 6px;
+  padding: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 120ms ease, background 120ms ease;
+}
+
+.canvas-header-close:hover {
+  background: var(--surface-quaternary);
+  color: var(--text-primary);
+}
+
+.canvas-header-close:active {
+  transform: translateY(1px);
+}
+
+.canvas-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px;
+}
+
+.canvas-a2ui {
+  max-width: 640px;
+  margin: 0 auto;
+}
+
+.canvas-content-centered {
+  max-width: 560px;
+  margin: 0 auto;
+}
+
+/* Chat sidebar (right side in split mode) */
+.chat-sidebar {
+  width: 400px;
+  min-width: 320px;
+  max-width: 480px;
+  border-left: none;
+}
+
+/* Force compact single-row input layout in sidebar.
+   CopilotKit's layout evaluator switches to "expanded" (2-row) mode in narrow
+   containers. Override to keep the + | textarea | send layout on one row. */
+[data-sidebar-chat] [data-testid="copilot-chat-input"] > div {
+  grid-template-rows: auto !important;
+  align-items: center !important;
+}
+
+[data-sidebar-chat] [data-testid="copilot-chat-input"] > div > div:first-child {
+  grid-row: 1 !important;
+}
+
+[data-sidebar-chat] [data-testid="copilot-chat-input"] > div > div:nth-child(2) {
+  grid-column: 2 / 3 !important;
+  grid-row: 1 !important;
+}
+
+[data-sidebar-chat] [data-testid="copilot-chat-input"] > div > div:last-child {
+  grid-row: 1 !important;
+}
+
+/* === Compact Tool Cards (chat sidebar when content is in canvas) === */
+
+.compact-tool-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  margin: 8px 0;
+  border-radius: 12px;
+  border: 1px solid var(--border-light);
+  background: var(--surface-primary);
+  box-shadow: var(--shadow-compact);
+  transition: box-shadow 180ms ease, border-color 180ms ease;
+}
+
+.compact-tool-card:hover {
+  border-color: var(--border-default);
+  box-shadow: var(--shadow-compact-hover);
+}
+
+.compact-tool-card-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  flex: 1;
+}
+
+.compact-tool-card-icon {
+  width: 20px;
+  height: 20px;
+  flex: none;
+}
+
+.compact-tool-card-icon--indigo {
+  color: var(--accent-indigo);
+}
+
+.compact-tool-card-icon--blue {
+  color: var(--accent-blue);
+}
+
+.compact-tool-card-icon--emerald {
+  color: var(--accent-emerald);
+}
+
+.compact-tool-card-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.compact-tool-card-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.compact-tool-card-summary {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.compact-tool-card-btn {
+  appearance: none;
+  border: 1px solid var(--border-default);
+  background: var(--surface-btn);
+  color: var(--text-secondary);
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+  flex: none;
+  transition:
+    background 120ms ease,
+    border-color 120ms ease,
+    color 120ms ease;
+}
+
+.compact-tool-card-btn:hover {
+  background: var(--surface-btn-hover);
+  border-color: var(--border-hover);
+  color: var(--text-primary);
+}
+
+.compact-tool-card-btn:active {
+  transform: translateY(1px);
+}
+
+/* === Canvas A2UI Polish === */
+/* A2UIViewer uses a hardcoded internal theme that doesn't include our custom
+   Card shadows, Divider styling, etc. These CSS overrides apply the polish
+   to the canvas-rendered A2UI surface. */
+
+/* Cards — shadow, rounded corners, proper padding (overrides viewer-theme inline padding: 32px) */
+.canvas-a2ui .a2ui-card > section {
+  border-radius: 12px !important;
+  padding: 20px 24px !important;
+  box-shadow: var(--shadow-canvas-card) !important;
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-primary);
+}
+
+/* Modal trigger (entry point) — hover highlight to indicate clickability */
+.canvas-a2ui .a2ui-modal > section:first-child {
+  padding: 8px 12px;
+  border-radius: 8px;
+  transition: background 150ms ease;
+  cursor: pointer;
+}
+
+.canvas-a2ui .a2ui-modal > section:first-child:hover {
+  background: var(--surface-quaternary);
+}
+
+/* Modal dialog — polished popup with shadow and rounded corners */
+.canvas-a2ui .a2ui-modal dialog {
+  border-radius: 16px;
+  border: none;
+  box-shadow: var(--shadow-dialog);
+  max-width: 480px;
+  width: 90%;
+}
+
+.canvas-a2ui .a2ui-modal dialog > section {
+  border-radius: 16px !important;
+  padding: 24px !important;
+  border: none !important;
+  background: var(--surface-dialog) !important;
+}
+
+.canvas-a2ui .a2ui-modal dialog::backdrop {
+  background: var(--backdrop);
+}
+
+/* Modal close button */
+.canvas-a2ui .a2ui-modal dialog #controls {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 8px;
+}
+
+.canvas-a2ui .a2ui-modal dialog #controls button {
+  appearance: none;
+  border: 1px solid var(--border-default);
+  background: var(--surface-btn);
+  color: var(--text-secondary);
+  border-radius: 999px;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease;
+}
+
+.canvas-a2ui .a2ui-modal dialog #controls button:hover {
+  background: var(--surface-quaternary);
+  border-color: var(--border-hover);
+}
+
+/* Divider — subtler */
+.canvas-a2ui .a2ui-divider > hr {
+  margin: 8px 0 !important;
+  opacity: 0.4;
+  border-color: var(--border-default);
+}
+
+/* Icon — ensure Material Symbols Outlined font renders */
+.canvas-a2ui .g-icon {
+  font-family: 'Material Symbols Outlined', sans-serif;
+  font-size: 20px;
+  font-weight: normal;
+  font-style: normal;
+  line-height: 1;
+  display: inline-block;
+  vertical-align: middle;
+  -webkit-font-smoothing: antialiased;
+  color: var(--text-secondary);
+}
+
+/* Row — ensure vertical centering of children */
+.canvas-a2ui .a2ui-row > section {
+  align-items: center;
+}
+
+/* Text — remove extra paragraph margins for clean layout */
+.canvas-a2ui .a2ui-text section p {
+  margin: 0;
+}
+
+/* Surface — small top padding for breathing room */
+.canvas-a2ui .a2ui-surface {
+  padding: 4px 0;
+}
+
+/* Responsive: stack on mobile */
+@media (max-width: 768px) {
+  .layout-split {
+    flex-direction: column;
+  }
+  .chat-sidebar {
+    width: 100%;
+    max-width: none;
+    min-width: 0;
+    height: 50%;
+  }
+  .canvas-panel {
+    border-right: none;
+    border-bottom: 1px solid var(--border-default);
+  }
+}

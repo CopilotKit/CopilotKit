@@ -1,0 +1,21 @@
+[project]
+name = "agentic_chat"
+version = "0.1.0"
+description = "agentic_chat using crewAI"
+authors = [{ name = "Your Name", email = "you@example.com" }]
+requires-python = ">=3.10,<3.13"
+dependencies = [
+    "crewai[tools]>=0.118.0,<1.0.0",
+]
+
+[project.scripts]
+kickoff = "agentic_chat.main:kickoff"
+run_crew = "agentic_chat.main:kickoff"
+plot = "agentic_chat.main:plot"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.crewai]
+type = "flow"

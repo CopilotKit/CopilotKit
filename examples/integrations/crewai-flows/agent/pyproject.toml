@@ -1,0 +1,12 @@
+[project]
+name = "crewai-agent"
+version = "0.1.0"
+description = "CrewAI agent with AG-UI integration"
+requires-python = ">=3.10"
+dependencies = [
+    "crewai>=0.130.0,<0.131.0",
+    "ag-ui-crewai==0.1.4",
+    "ag-ui-protocol==0.1.5",
+    "python-dotenv==1.0.1",
+    "uvicorn>=0.34.3,<0.35.0",
+]

@@ -1,0 +1,10 @@
+---
+description: TypeScript style guide.
+globs: "**/*.{ts,tsx}"
+---
+
+- The repository uses `@copilotkitnext/typescript-config` presets with `strict` and `noUncheckedIndexedAccess` enabled.
+- Prefer `type` aliases over `interface` for data structures.
+- Avoid `any`; use explicit generics or `unknown` where necessary.
+- Files should be named in `kebab-case.ts` or `kebab-case.tsx` with a single export per file.
+- Keep runtime-only scripts (e.g., ts-node) in dev scripts, not in production code.

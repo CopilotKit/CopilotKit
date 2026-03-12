@@ -1,0 +1,44 @@
+{
+  "query": "Latest news on Politics",
+  "follow_up_questions": null,
+  "answer": null,
+  "images": [],
+  "results": [
+    {
+      "title": "Politics: Latest news and headlines | NBC News",
+      "url": "https://www.nbcnews.com/politics",
+      "content": "Find the latest political news stories, photos, and videos on NBCNews.com. Read breaking headlines covering Congress, Democrats, Republicans, and more.",
+      "score": 0.68344116,
+      "raw_content": null
+    },
+    {
+      "title": "Politics: Latest & Breaking US Political News | AP News",
+      "url": "https://apnews.com/politics",
+      "content": "Read breaking political news today from The Associated Press. Get the updates from AP News so you won't miss the latest in US political news.",
+      "score": 0.6010557,
+      "raw_content": null
+    },
+    {
+      "title": "Politics | CNN Politics",
+      "url": "https://www.cnn.com/politics",
+      "content": "Politics at CNN has news, opinion and analysis of American and global politics Find news and video about elections, the White House, the U.N and much more.",
+      "score": 0.43568602,
+      "raw_content": null
+    },
+    {
+      "title": "May 4, 2025: Donald Trump presidency news | CNN Politics",
+      "url": "https://www.cnn.com/politics/live-news/trump-presidency-news-05-04-25",
+      "content": "Smith rose to national fame as a star of ESPN's debate and talk show programming, and in recent years he's broadened his commentary on social issues and politics, emerging as an outspoken",
+      "score": 0.4098117,
+      "raw_content": null
+    },
+    {
+      "title": "Trump administration live updates: U.S. announces trade deal with U.K ...",
+      "url": "https://www.nbcnews.com/politics/trump-administration/live-blog/trump-administration-britain-tariffs-immigration-doge-live-updates-rcna204764",
+      "content": "Live updates and the latest news as Trump signs a trade deal with the U.K. and the House votes on ... Speaking about former Vice President Kamala Harris and her future life in politics,",
+      "score": 0.3644614,
+      "raw_content": null
+    }
+  ],
+  "response_time": 1.79
+}

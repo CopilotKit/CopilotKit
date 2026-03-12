@@ -1,0 +1,38 @@
+{
+  "name": "web",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --turbopack --port 3000",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint --max-warnings 0",
+    "check-types": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@a2a-js/sdk": "0.2.5",
+    "@ag-ui/a2a": "workspace:*",
+    "@copilotkitnext/a2ui-renderer": "workspace:*",
+    "@copilotkit/react-core": "1.50.0",
+    "@copilotkit/runtime": "1.50.0",
+    "@repo/a2ui": "workspace:*",
+    "hono": "^4.6.18",
+    "next": "^15.5.0",
+    "react": "19.2.1",
+    "react-dom": "19.2.1",
+    "zod": "^3.25.75"
+  },
+  "devDependencies": {
+    "@repo/eslint-config": "workspace:*",
+    "@repo/typescript-config": "workspace:*",
+    "@types/node": "^22.15.3",
+    "@types/react": "19.2.3",
+    "@types/react-dom": "19.2.3",
+    "@tailwindcss/postcss": "^4.1.13",
+    "eslint": "^9.34.0",
+    "postcss": "^8.4.49",
+    "tailwindcss": "^4.1.13",
+    "typescript": "5.9.2"
+  }
+}

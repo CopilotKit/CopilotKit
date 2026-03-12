@@ -1,0 +1,125 @@
+{
+  "components": {
+    "$ref": "../../../../specification/0.8/json/standard_catalog_definition.json#/components",
+    "Canvas": {
+      "type": "object",
+      "description": "Renders the UI element in a stateful panel next to the chat window.",
+      "properties": {
+        "children": {
+          "type": "object",
+          "description": "Defines the children. Use 'explicitList' for a fixed set of children.",
+          "properties": {
+            "explicitList": {
+              "type": "array",
+              "items": { "type": "string" }
+            }
+          }
+        }
+      },
+      "required": [ "children" ]
+    },
+    "Chart": {
+      "type": "object",
+      "description": "An interactive chart that uses a hierarchical list of objects for its data.",
+      "properties": {
+        "type": {
+          "type": "string",
+          "description": "The type of chart to render.",
+          "enum": [ "doughnut", "pie" ]
+        },
+        "title": {
+          "type": "object",
+          "description": "The title of the chart. Can be a literal string or a data model path.",
+          "properties": {
+            "literalString": { "type": "string" },
+            "path": { "type": "string" }
+          }
+        },
+        "chartData": {
+          "type": "object",
+          "description": "The data for the chart, provided as a list of items. Can be a literal array or a data model path.",
+          "properties": {
+            "literalArray": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "label": { "type": "string" },
+                  "value": { "type": "number" },
+                  "drillDown": {
+                    "type": "array",
+                    "description": "An optional list of items for the next level of data.",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "label": { "type": "string" },
+                        "value": { "type": "number" }
+                      },
+                      "required": [ "label", "value" ]
+                    }
+                  }
+                },
+                "required": [ "label", "value" ]
+              }
+            },
+            "path": { "type": "string" }
+          }
+        }
+      },
+      "required": [ "type", "chartData" ]
+    },
+    "GoogleMap": {
+      "type": "object",
+      "description": "A component to display a Google Map with pins.",
+      "properties": {
+        "center": {
+          "type": "object",
+          "description": "The center point of the map, containing latitude and longitude. Can be a literal object or a data model path.",
+          "properties": {
+            "literalObject": {
+              "type": "object",
+              "properties": {
+                "lat": { "type": "number" },
+                "lng": { "type": "number" }
+              },
+              "required": [ "lat", "lng" ]
+            },
+            "path": { "type": "string" }
+          }
+        },
+        "zoom": {
+          "type": "object",
+          "description": "The zoom level of the map. Can be a literal number or a data model path.",
+          "properties": {
+            "literalNumber": { "type": "number" },
+            "path": { "type": "string" }
+          }
+        },
+        "pins": {
+          "type": "object",
+          "description": "A list of pin objects to display on the map. Can be a literal array or a data model path.",
+          "properties": {
+            "literalArray": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "lat": { "type": "number" },
+                  "lng": { "type": "number" },
+                  "name": { "type": "string" },
+                  "description": { "type": "string" },
+                  "background": { "type": "string", "description": "Hex color code for the pin background (e.g., '#FBBC04')." },
+                  "borderColor": { "type": "string", "description": "Hex color code for the pin border (e.g., '#000000')." },
+                  "glyphColor": { "type": "string", "description": "Hex color code for the pin's glyph/icon (e.g., '#000000')." }
+                },
+                "required": [ "lat", "lng", "name" ]
+              }
+            },
+            "path": { "type": "string" }
+          }
+        }
+      },
+      "required": [ "center", "zoom" ]
+    }
+  }
+}

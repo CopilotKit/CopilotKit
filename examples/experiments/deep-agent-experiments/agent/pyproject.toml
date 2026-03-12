@@ -1,0 +1,14 @@
+[project]
+name = "agent"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "copilotkit>=0.1.78",
+    "deepagents>=0.4.1",
+    "fastapi>=0.115.14",
+    "langchain-openai>=1.1.9",
+    "python-dotenv>=1.2.1",
+    "uvicorn>=0.40.0",
+]

@@ -1,0 +1,162 @@
+[
+    {
+        "name": "Joe's Shanghai",
+        "detail": "Famous for its soup dumplings.",
+        "imageUrl": "http://localhost:10002/static/springrolls.jpeg",
+        "rating": "★★★★☆",
+        "infoLink": "[More Info](https://www.joesshanghai.com/)",
+        "address": "46 Bowery, New York, NY 10013"
+    },
+    {
+        "name": "Xi'an Famous Foods",
+        "detail": "Spicy and savory hand-pulled noodles.",
+        "imageUrl": "http://localhost:10002/static/shrimpchowmein.jpeg",
+        "rating": "★★★★☆",
+        "infoLink": "[More Info](https://www.xianfoods.com/)",
+        "address": "81 St Marks Pl, New York, NY 10003"
+    },
+    {
+        "name": "Han Dynasty",
+        "detail": "Authentic Szechuan cuisine.",
+        "imageUrl": "http://localhost:10002/static/mapotofu.jpeg",
+        "rating": "★★★★☆",
+        "infoLink": "[More Info](https://www.handynasty.net/)",
+        "address": "90 3rd Ave, New York, NY 10003"
+    },
+    {
+        "name": "Shu Jiao Fu Zhou",
+        "detail": "Inexpensive and delicious dumplings.",
+        "imageUrl": "http://localhost:10002/static/kungpao.jpeg",
+        "rating": "★★★★☆",
+        "infoLink": "",
+        "address": "295 Grand St, New York, NY 10002"
+    },
+    {
+        "name": "RedFarm",
+        "detail": "Modern Chinese with a farm-to-table approach.",
+        "imageUrl": "http://localhost:10002/static/beefbroccoli.jpeg",
+        "rating": "★★★★☆",
+        "infoLink": "[More Info](https://www.redfarmnyc.com/)",
+        "address": "529 Hudson St, New York, NY 10014"
+    },
+    {
+        "name": "Great NY Noodletown",
+        "detail": "Late-night spot for roast pork and noodles.",
+        "imageUrl": "http://localhost:10002/static/shrimpchowmein.jpeg",
+        "rating": "★★★★☆",
+        "infoLink": "",
+        "address": "28 Bowery, New York, NY 10013"
+    },
+    {
+        "name": "Mott 32",
+        "detail": "Upscale Cantonese dining.",
+        "imageUrl": "http://localhost:10002/static/springrolls.jpeg",
+        "rating": "★★★★★",
+        "infoLink": "[More Info](https://mott32.com/newyork/)",
+        "address": "111 W 57th St, New York, NY 10019"
+    },
+    {
+        "name": "Spicy Village",
+        "detail": "Henan-style cuisine in a tiny space.",
+        "imageUrl": "http://localhost:10002/static/mapotofu.jpeg",
+        "rating": "★★★★☆",
+        "infoLink": "",
+        "address": "68 Forsyth St, New York, NY 10002"
+    },
+    {
+        "name": "Hwa Yuan Szechuan",
+        "detail": "Famous for its cold noodles with sesame sauce.",
+        "imageUrl": "http://localhost:10002/static/kungpao.jpeg",
+        "rating": "★★★★☆",
+        "infoLink": "[More Info](https://hwayuannyc.com/)",
+        "address": "40 E Broadway, New York, NY 10002"
+    },
+    {
+        "name": "Jing Fong",
+        "detail": "Huge dim sum hall.",
+        "imageUrl": "http://localhost:10002/static/beefbroccoli.jpeg",
+        "rating": "★★★★☆",
+        "infoLink": "[More Info](https://jingfong.com/)",
+        "address": "20 Elizabeth St, New York, NY 10013"
+    },
+    {
+        "name": "Tasty Hand-Pulled Noodles Inc.",
+        "detail": "No-frills spot for hand-pulled noodles.",
+        "imageUrl": "http://localhost:10002/static/shrimpchowmein.jpeg",
+        "rating": "★★★★☆",
+        "infoLink": "",
+        "address": "1 Doyers St, New York, NY 10013"
+    },
+    {
+        "name": "Cafe China",
+        "detail": "Szechuan food in a 1930s Shanghai setting.",
+        "imageUrl": "http://localhost:10002/static/mapotofu.jpeg",
+        "rating": "★★★★☆",
+        "infoLink": "[More Info](https://www.cafechinanyc.com/)",
+        "address": "59 W 37th St, New York, NY 10018"
+    },
+    {
+        "name": "Delight Wong",
+        "detail": "Cantonese BBQ and roast meats.",
+        "imageUrl": "http://localhost:10002/static/sweetsourpork.jpeg",
+        "rating": "★★★★☆",
+        "infoLink": "",
+        "address": "81 Mott St, New York, NY 10013"
+    },
+    {
+        "name": "Uncle Lou",
+        "detail": "Modern take on classic Cantonese.",
+        "imageUrl": "http://localhost:10002/static/springrolls.jpeg",
+        "rating": "★★★★☆",
+        "infoLink": "[More Info](https://www.unclelou.nyc/)",
+        "address": "73 Mulberry St, New York, NY 10013"
+    },
+    {
+        "name": "Birds of a Feather",
+        "detail": "Modern Szechuan in Williamsburg.",
+        "imageUrl": "http://localhost:10002/static/kungpao.jpeg",
+        "rating": "★★★★☆",
+        "infoLink": "[More Info](https://www.birdsofafeatherny.com/)",
+        "address": "191 Grand St, Brooklyn, NY 11211"
+    },
+    {
+        "name": "Philippe Chow",
+        "detail": "High-end Beijing-style cuisine.",
+        "imageUrl": "http://localhost:10002/static/beefbroccoli.jpeg",
+        "rating": "★★★★☆",
+        "infoLink": "[More Info](https://www.philippechow.com/)",
+        "address": "33 E 60th St, New York, NY 10022"
+    },
+    {
+        "name": "Hop Kee",
+        "detail": "Old-school Cantonese seafood.",
+        "imageUrl": "http://localhost:10002/static/shrimpchowmein.jpeg",
+        "rating": "★★★★☆",
+        "infoLink": "",
+        "address": "21 Mott St, New York, NY 10013"
+    },
+    {
+        "name": "Chinese Tuxedo",
+        "detail": "Contemporary Chinese in a former opera house.",
+        "imageUrl": "http://localhost:10002/static/mapotofu.jpeg",
+        "rating": "★★★★☆",
+        "infoLink": "[More Info](https://chinesetuxedo.com/)",
+        "address": "5 Doyers St, New York, NY 10013"
+    },
+    {
+        "name": "Szechuan Gourmet",
+        "detail": "Spicy and authentic Szechuan dishes.",
+        "imageUrl": "http://localhost:10002/static/kungpao.jpeg",
+        "rating": "★★★★☆",
+        "infoLink": "[More Info](https://szechuangourmetnyc.com/)",
+        "address": "21 W 39th St, New York, NY 10018"
+    },
+    {
+        "name": "Wo Hop",
+        "detail": "Iconic, late-night American Chinese food.",
+        "imageUrl": "http://localhost:10002/static/beefbroccoli.jpeg",
+        "rating": "★★★☆☆",
+        "infoLink": "",
+        "address": "17 Mott St, New York, NY 10013"
+    }
+]

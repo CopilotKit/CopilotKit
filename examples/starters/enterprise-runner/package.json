@@ -1,0 +1,45 @@
+{
+  "name": "copilotkit-enterprise-runtime",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint"
+  },
+  "dependencies": {
+    "@copilotkitnext/agent": "file:/Users/valdes/workspace/cursor-workspace/enterprise/vnext_experimental/packages/agent",
+    "@copilotkitnext/react": "file:/Users/valdes/workspace/cursor-workspace/enterprise/vnext_experimental/packages/react",
+    "@copilotkitnext/runtime": "file:/Users/valdes/workspace/cursor-workspace/enterprise/vnext_experimental/packages/runtime",
+    "@copilotkitnext/enterprise-runner": "file:/Users/valdes/workspace/cursor-workspace/enterprise/CopilotKitEnterprise/packages/enterprise-runner",
+    "ai": "5.0.59",
+    "hono": "^4.6.13",
+    "ioredis": "^5.8.2",
+    "kysely": "^0.28.8",
+    "next": "16.0.1",
+    "pg": "^8.16.3",
+    "react": "19.2.0",
+    "react-dom": "19.2.0",
+    "rxjs": "7.8.1",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/pg": "^8.15.6",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "16.0.1",
+    "tailwindcss": "^4",
+    "typescript": "^5"
+  },
+  "pnpm": {
+    "overrides": {
+      "@copilotkitnext/core": "file:/Users/valdes/workspace/cursor-workspace/enterprise/vnext_experimental/packages/core",
+      "@copilotkitnext/shared": "file:/Users/valdes/workspace/cursor-workspace/enterprise/vnext_experimental/packages/shared",
+      "@copilotkitnext/web-inspector": "file:/Users/valdes/workspace/cursor-workspace/enterprise/vnext_experimental/packages/web-inspector"
+    }
+  }
+}

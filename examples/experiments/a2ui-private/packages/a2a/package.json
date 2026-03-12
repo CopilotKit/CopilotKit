@@ -1,0 +1,52 @@
+{
+  "name": "@ag-ui/a2a",
+  "author": "Markus Ecker <markus.ecker@gmail.com>",
+  "version": "0.0.5",
+  "license": "Apache-2.0",
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "sideEffects": false,
+  "private": false,
+  "publishConfig": {
+    "access": "public"
+  },
+  "files": [
+    "dist/**",
+    "README.md"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "clean": "rm -rf dist .turbo node_modules",
+    "typecheck": "tsc --noEmit",
+    "test": "jest",
+    "link:global": "pnpm link --global",
+    "unlink:global": "pnpm unlink --global"
+  },
+  "dependencies": {
+    "@a2a-js/sdk": "^0.2.2",
+    "rxjs": "7.8.1"
+  },
+  "peerDependencies": {
+    "@ag-ui/core": ">=0.0.42",
+    "@ag-ui/client": ">=0.0.42"
+  },
+  "devDependencies": {
+    "@ag-ui/core": "0.0.42",
+    "@ag-ui/client": "0.0.42",
+    "@types/jest": "^29.5.14",
+    "@types/node": "^20.11.19",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.1.2",
+    "tsup": "^8.0.2",
+    "typescript": "^5.3.3"
+  }
+}

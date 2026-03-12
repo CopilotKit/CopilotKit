@@ -1,0 +1,53 @@
+<!--
+ Copyright 2025 Google LLC
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ you may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+
+      https://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+ -->
+
+<div class="container">
+  @if (showProgressIndicator()) {
+    <div class="progress-indicator-wrapper">
+      <mat-progress-spinner
+        mode="indeterminate"
+        color="primary"
+        aria-label="Agent is thinking"
+        class="progress-indicator"
+        strokeWidth="2"
+        diameter="32"
+      >
+      </mat-progress-spinner>
+    </div>
+  }
+  <div [class]="showProgressIndicator() ? 'agent-icon-container' : 'large-icon-container'">
+    <ng-container
+      *ngTemplateOutlet="
+        agentIcon;
+        context: {
+          agentIconUrl: iconUrl(),
+          iconClass: showProgressIndicator() ? 'icon' : 'large-icon',
+        }
+      "
+    >
+    </ng-container>
+  </div>
+</div>
+
+<ng-template #agentIcon let-agentIconUrl="agentIconUrl" let-iconClass="iconClass">
+  <div class="agent-icon">
+    @if (agentIconUrl) {
+      <img [src]="agentIconUrl" [class]="iconClass" role="presentation" alt="" />
+    } @else {
+      <mat-icon [class]="iconClass">spark</mat-icon>
+    }
+  </div>
+</ng-template>

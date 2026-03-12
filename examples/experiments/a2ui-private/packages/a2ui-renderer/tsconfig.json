@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "compilerOptions": {
+    "composite": false,
+    "declaration": true,
+    "declarationMap": true,
+    "incremental": true,
+    "forceConsistentCasingInFileNames": true,
+    "inlineSources": false,
+    "preserveWatchOutput": true,
+    "sourceMap": true,
+    "target": "es2022",
+    "module": "esnext",
+    "lib": ["es2023", "DOM", "DOM.Iterable"],
+    "skipLibCheck": true,
+    "useDefineForClassFields": false,
+    "rootDir": "src",
+    "outDir": "dist",
+    "tsBuildInfoFile": "dist/.tsbuildinfo",
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "jsx": "react-jsx",
+    "strict": false,
+    "noUnusedLocals": false,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "types": ["react", "react-dom"]
+  },
+  "include": ["src/**/*.ts", "src/**/*.tsx"]
+}

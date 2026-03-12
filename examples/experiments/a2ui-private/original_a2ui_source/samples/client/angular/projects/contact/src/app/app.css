@@ -1,0 +1,145 @@
+/*
+ Copyright 2025 Google LLC
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ you may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+
+      https://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+ */
+
+:host {
+  display: block;
+  max-width: 640px;
+  margin: 0 auto;
+  min-height: 100%;
+}
+
+.surfaces {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  padding: var(--bb-grid-size-3) 0;
+  animation: fadeIn 1s cubic-bezier(0, 0, 0.3, 1) 0.3s backwards;
+
+  & a2ui-surface {
+    align-items: center;
+  }
+}
+
+form {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  gap: 16px;
+  align-items: center;
+  padding: 16px 0;
+  animation: fadeIn 1s cubic-bezier(0, 0, 0.3, 1) 1s backwards;
+
+  & > div {
+    display: flex;
+    flex: 1;
+    gap: 16px;
+    align-items: center;
+    width: 100%;
+
+    & > input {
+      display: block;
+      flex: 1;
+      border-radius: 32px;
+      padding: 16px 24px;
+      border: 1px solid var(--p-60);
+      font-size: 16px;
+    }
+
+    & > button {
+      display: flex;
+      align-items: center;
+      background: var(--p-40);
+      color: var(--n-100);
+      border: none;
+      padding: 8px 16px;
+      border-radius: 32px;
+      opacity: 0.5;
+
+      &:not([disabled]) {
+        cursor: pointer;
+        opacity: 1;
+      }
+    }
+  }
+}
+
+h1 {
+  font-weight: 400;
+  font-family: var(--font-family-flex, var(--default-font-family));
+  font-optical-sizing: auto;
+  color: var(--p-30);
+}
+
+.rotate {
+  animation: rotate 1s linear infinite;
+}
+
+.pending {
+  width: 100%;
+  min-height: 200px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: fadeIn 1s cubic-bezier(0, 0, 0.3, 1) 0.3s backwards;
+
+  & .g-icon {
+    margin-right: 8px;
+  }
+}
+
+.g-icon {
+  font-family: "Google Symbols";
+  font-weight: normal;
+  font-style: normal;
+  font-size: 20px;
+  width: 1em;
+  height: 1em;
+  user-select: none;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  display: inline-block;
+  white-space: nowrap;
+  overflow-wrap: normal;
+  direction: ltr;
+  font-feature-settings: "liga";
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+
+  &.filled-heavy {
+    font-variation-settings: "FILL" 1, "wght" 700, "GRAD" 0, "opsz" 48, "ROND" 100;
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes rotate {
+  from {
+    rotate: 0deg;
+  }
+
+  to {
+    rotate: 360deg;
+  }
+}

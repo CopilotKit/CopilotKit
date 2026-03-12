@@ -1,0 +1,37 @@
+{
+  "name": "CopilotKit Angular Demo",
+  "private": true,
+  "scripts": {
+    "build": "turbo run build",
+    "clean": "turbo run clean",
+    "dev": "turbo run dev --filter='server' --filter='frontend' --filter='agent'",
+    "dev:agent": "cd apps/agent && npx @langchain/langgraph-cli dev --port 8123 --no-browser",
+    "lint": "turbo run lint",
+    "format": "prettier --write \"**/*.{ts,tsx,md}\"",
+    "check-types": "turbo run check-types",
+    "test": "turbo run test",
+    "test:watch": "turbo run test:watch",
+    "test:coverage": "turbo run test:coverage"
+  },
+  "devDependencies": {
+    "prettier": "^3.6.0",
+    "turbo": "^2.5.4",
+    "typescript": "5.8.2"
+  },
+  "packageManager": "pnpm@9.0.0",
+  "engines": {
+    "node": ">=18"
+  },
+  "pnpm": {
+    "peerDependencyRules": {
+      "ignoreMissing": [
+        "react",
+        "react-dom"
+      ],
+      "allowedVersions": {
+        "react": "*",
+        "react-dom": "*"
+      }
+    }
+  }
+}

@@ -1,0 +1,105 @@
+[
+  {
+    "beginRendering": {
+      "surfaceId": "la-map-view",
+      "root": "root-canvas"
+    }
+  },
+  {
+    "surfaceUpdate": {
+      "surfaceId": "la-map-view",
+      "components": [
+        {
+          "id": "root-canvas",
+          "component": {
+            "Canvas": {
+              "children": {
+                "explicitList": ["map-layout-container"]
+              }
+            }
+          }          
+        },
+        {
+          "id": "map-layout-container",
+          "component": {
+            "Column": {
+              "children": {
+                "explicitList": [
+                  "map-header",
+                  "location-map"
+                ]
+              },
+              "alignment": "stretch"
+            }
+          }
+        },
+        {
+          "id": "map-header",
+          "component": {
+            "Text": {
+              "text": {
+                "literalString": "Points of Interest in Los Angeles"
+              },
+              "usageHint": "h2"
+            }
+          }
+        },
+        {
+          "id": "location-map",
+          "component": {
+            "GoogleMap": {
+              "center": {
+                "path": "mapConfig.center"
+              },
+              "zoom": {
+                "path": "mapConfig.zoom"
+              },
+              "pins": {
+                "path": "mapConfig.locations"
+              }
+            }
+          }
+        }
+      ]
+    }
+  },
+  {
+    "dataModelUpdate": {
+      "surfaceId": "la-map-view",
+      "path": "/",
+      "contents": [
+        { "key": "mapConfig.center.lat", "valueNumber": 34.0522 },
+        { "key": "mapConfig.center.lng", "valueNumber": -118.2437 },
+        { "key": "mapConfig.zoom", "valueNumber": 11 },
+
+        { "key": "mapConfig.locations[0].lat", "valueNumber": 34.0135 },
+        { "key": "mapConfig.locations[0].lng", "valueNumber": -118.4947 },
+        { "key": "mapConfig.locations[0].name", "valueString": "Google Store Santa Monica" },
+        { "key": "mapConfig.locations[0].description", "valueString": "Your local destination for Google hardware." },
+        { "key": "mapConfig.locations[0].background", "valueString": "#4285F4" },
+        { "key": "mapConfig.locations[0].borderColor", "valueString": "#FFFFFF" },
+        { "key": "mapConfig.locations[0].glyphColor", "valueString": "#FFFFFF" },
+
+        { "key": "mapConfig.locations[1].lat", "valueNumber": 34.1341 },
+        { "key": "mapConfig.locations[1].lng", "valueNumber": -118.3215 },
+        { "key": "mapConfig.locations[1].name", "valueString": "Griffith Observatory" },
+
+        { "key": "mapConfig.locations[2].lat", "valueNumber": 34.1340 },
+        { "key": "mapConfig.locations[2].lng", "valueNumber": -118.3397 },
+        { "key": "mapConfig.locations[2].name", "valueString": "Hollywood Sign Viewpoint" },
+
+        { "key": "mapConfig.locations[3].lat", "valueNumber": 34.0453 },
+        { "key": "mapConfig.locations[3].lng", "valueNumber": -118.2673 },
+        { "key": "mapConfig.locations[3].name", "valueString": "Crypto.com Arena" },
+
+        { "key": "mapConfig.locations[4].lat", "valueNumber": 34.0639 },
+        { "key": "mapConfig.locations[4].lng", "valueNumber": -118.3592 },
+        { "key": "mapConfig.locations[4].name", "valueString": "LACMA" },
+
+        { "key": "mapConfig.locations[5].lat", "valueNumber": 33.9850 },
+        { "key": "mapConfig.locations[5].lng", "valueNumber": -118.4729 },
+        { "key": "mapConfig.locations[5].name", "valueString": "Venice Beach Boardwalk" }
+      ]
+    }
+  }
+]

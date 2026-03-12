@@ -1,0 +1,24 @@
+{
+  "name": "server",
+  "private": true,
+  "type": "module",
+  "version": "0.0.0",
+  "scripts": {
+    "dev": "tsx --env-file=.env src/index.ts",
+    "start": "node --env-file=.env --loader tsx src/index.ts"
+  },
+  "dependencies": {
+    "@ag-ui/client": "0.0.36-alpha.1",
+    "@ag-ui/langgraph": "0.0.12-alpha.0",
+    "@copilotkitnext/runtime": "0.0.6",
+    "@hono/node-server": "^1.13.6",
+    "better-sqlite3": "^12.2.0",
+    "hono": "^4.6.11",
+    "openai": "^5.9.0",
+    "rxjs": "^7.8.1"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3"
+  }
+}

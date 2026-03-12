@@ -1,0 +1,18 @@
+{
+  "files": [],
+  "references": [{ "path": "./tsconfig.app.json" }, { "path": "./tsconfig.node.json" }, { "path": "./tsconfig.server.json" }],
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./client/src/*"],
+      "@copilotkit/runtime": ["../../CopilotKit/packages/v1/runtime/dist/index.mjs"],
+      "@copilotkit/runtime/langgraph": ["../../CopilotKit/packages/v1/runtime/dist/langgraph.mjs"],
+      "@copilotkit/runtime/v2": ["../../CopilotKit/packages/v1/runtime/dist/v2/index.mjs"],
+      "@copilotkit/shared": ["../../CopilotKit/packages/v1/shared/dist/index.mjs"],
+      "@copilotkitnext/runtime": ["../../CopilotKit/packages/v2/runtime/src/index.ts"],
+      "@copilotkitnext/shared": ["../../CopilotKit/packages/v2/shared/src/index.ts"],
+      "@copilotkitnext/agent": ["../../CopilotKit/packages/v2/agent/src/index.ts"],
+      "@copilotkitnext/core": ["../../CopilotKit/packages/v2/core/src/index.ts"]
+    }
+  }
+}

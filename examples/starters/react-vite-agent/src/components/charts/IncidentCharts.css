@@ -1,0 +1,52 @@
+.chart-container {
+  width: 300px;
+  min-width: 300px;
+  background: var(--surface-elevated, #ffffff);
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: 0.75rem;
+  padding: 1rem;
+  margin: 0.5rem 0;
+}
+
+.chart-title {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--text-primary, #0f172a);
+  margin-bottom: 0.75rem;
+  text-align: center;
+}
+
+.chart-container .recharts-wrapper {
+  font-size: 0.6875rem;
+}
+
+.chart-container .recharts-legend-wrapper {
+  font-size: 0.6875rem;
+}
+
+.chart-container .recharts-tooltip-wrapper {
+  font-size: 0.75rem;
+}
+
+.chart-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 1.5rem;
+  color: var(--text-secondary, #64748b);
+  font-size: 0.8125rem;
+}
+
+.chart-loading-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--border, #e2e8f0);
+  border-top-color: var(--primary, #6366f1);
+  border-radius: 50%;
+  animation: chart-spin 0.6s linear infinite;
+}
+
+@keyframes chart-spin {
+  to { transform: rotate(360deg); }
+}
