@@ -316,6 +316,13 @@ export class RunHandler {
     }
 
     if (needsFollowUp) {
+      // Yield to the framework scheduler before the follow-up run so that any
+      // deferred state updates (e.g. React useEffect in useAgentContext) can
+      // complete and write fresh values into the context store before runAgent
+      // reads it. The base implementation is a no-op; React overrides this.
+      await (
+        this.core as unknown as CopilotKitCoreFriendsAccess
+      ).waitForPendingFrameworkUpdates();
       return await this.runAgent({ agent });
     }
 

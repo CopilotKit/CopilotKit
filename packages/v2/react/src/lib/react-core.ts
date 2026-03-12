@@ -136,4 +136,25 @@ export class CopilotKitCoreReact extends CopilotKitCore {
   ): CopilotKitCoreSubscription {
     return super.subscribe(subscriber);
   }
+
+  /**
+   * Yield to React's scheduler before the follow-up agent run.
+   *
+   * When a frontend tool handler calls setState(), React 18 batches the update
+   * and schedules a re-render via its internal scheduler (MessageChannel in
+   * browsers). The useAgentContext hook updates the context store inside a
+   * useEffect callback, which only runs after React commits that re-render.
+   *
+   * Awaiting a zero-delay timeout yields to the macrotask queue. In practice
+   * this gives React's scheduler tasks (re-render + useEffect) time to run
+   * before the follow-up runAgent call reads context. This is a best-effort
+   * heuristic: scheduler ordering between MessageChannel callbacks and
+   * setTimeout(0) is implementation-defined and not spec-guaranteed across all
+   * environments. It is reliable in the browser environments we target and in
+   * jsdom (Node.js), but edge cases (e.g. startTransition, concurrent mode
+   * suspense, React Native) may require additional handling in the future.
+   */
+  async waitForPendingFrameworkUpdates(): Promise<void> {
+    await new Promise<void>((resolve) => setTimeout(resolve, 0));
+  }
 }
