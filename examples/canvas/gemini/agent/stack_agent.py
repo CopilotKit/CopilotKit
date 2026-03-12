@@ -402,6 +402,8 @@ async def analyze_with_gemini_node(state: StackAgentState, config: RunnableConfi
     structured_payload: Optional[Dict[str, Any]] = None
 
     # 10. Attempt tool-based structured output first
+    tool_calls = None
+    tool_msg = None
     try:
         bound = model.bind_tools([return_stack_analysis_tool])
         tool_msg = await bound.ainvoke(messages, config)
@@ -445,8 +447,9 @@ async def analyze_with_gemini_node(state: StackAgentState, config: RunnableConfi
     state["tool_logs"][-1]["status"] = "completed"
     await copilotkit_emit_state(config, state)
     messages[-1].content = state["last_user_content"]
-    messages.append(AIMessage(tool_calls=tool_calls, id = tool_msg.id, type = "ai", content= ''))
-    messages.append(ToolMessage(content= "The GitHub Repository has been analyzed", tool_call_id = tool_calls[0]["id"], type = "tool"))
+    if tool_calls and tool_msg:
+        messages.append(AIMessage(tool_calls=tool_calls, id=tool_msg.id, type="ai", content=''))
+        messages.append(ToolMessage(content="The GitHub Repository has been analyzed", tool_call_id=tool_calls[0]["id"], type="tool"))
     messages[0].content = "Generate a summary of the GitHub Repository. It should be in a concise and strictly textual"
     
     # 13. Generate a user-facing summary referencing the tool call outcome
@@ -461,9 +464,7 @@ async def analyze_with_gemini_node(state: StackAgentState, config: RunnableConfi
     model_response = await client.ainvoke(messages, config)
     state["tool_logs"][-1]["status"] = "completed"
     await copilotkit_emit_state(config, state)
-    print(model_response, "model_response")
-   
-    state["messages"].append(AIMessage(content= model_response.content))
+    state["messages"].append(AIMessage(content=model_response.content))
     # 14. Return a message containing the analysis
     return Command(
         goto= "end",

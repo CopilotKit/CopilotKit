@@ -173,7 +173,6 @@ FRONTEND_TOOL_ALLOWLIST = set([
 
 
 async def chat_node(state: AgentState, config: RunnableConfig) -> Command[Literal["tool_node", "__end__"]]:
-    print(f"state: {state}")
     """
     Standard chat node based on the ReAct design pattern. It handles:
     - The model to use (and binds in CopilotKit actions and the tools defined above)

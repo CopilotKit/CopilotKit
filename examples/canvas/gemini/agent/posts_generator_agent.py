@@ -64,7 +64,7 @@ async def chat_node(state: AgentState, config: RunnableConfig):
     else:
         config = copilotkit_customize_config(config, emit_messages=True, emit_tool_calls=True)
     # 4. Generating the response using the model. This returns the response along with the web search queries.
-    response = model.models.generate_content(
+    response = await model.aio.models.generate_content(
         model="gemini-2.5-pro",
         contents=[
             types.Content(role="user", parts=[types.Part(text=system_prompt)]),
@@ -88,7 +88,9 @@ async def chat_node(state: AgentState, config: RunnableConfig):
     state["response"] = response.text
     
     # 6. Orchestrating the web search queries and updating the tool logs
-    for query in response.candidates[0].grounding_metadata.web_search_queries:
+    grounding = getattr(response.candidates[0], "grounding_metadata", None) if response.candidates else None
+    search_queries = getattr(grounding, "web_search_queries", None) if grounding else None
+    for query in (search_queries or []):
         state["tool_logs"].append(
             {
                 "id": str(uuid.uuid4()),
@@ -104,11 +106,8 @@ async def chat_node(state: AgentState, config: RunnableConfig):
 
 
 async def fe_actions_node(state: AgentState, config: RunnableConfig):
-    try:
-        if state["messages"][-2].type == "tool":
-            return Command(goto="end_node", update=state)
-    except Exception as e:
-        print("Moved")
+    if len(state["messages"]) >= 2 and state["messages"][-2].type == "tool":
+        return Command(goto="end_node", update=state)
         
     state["tool_logs"].append(
         {
@@ -140,13 +139,6 @@ async def end_node(state: AgentState, config: RunnableConfig):
     return Command(goto=END, update={"messages": state["messages"], "tool_logs": []})
 
 
-def router_function(state: AgentState, config: RunnableConfig):
-    if state["messages"][-2].role == "tool":
-        return "end_node"
-    else:
-        return "fe_actions_node"
-
-
 # Define a new graph
 workflow = StateGraph(AgentState)
 workflow.add_node("chat_node", chat_node)
@@ -154,9 +146,6 @@ workflow.add_node("fe_actions_node", fe_actions_node)
 workflow.add_node("end_node", end_node)
 workflow.set_entry_point("chat_node")
 workflow.set_finish_point("end_node")
-workflow.add_edge(START, "chat_node")
-workflow.add_edge("chat_node", "fe_actions_node")
-workflow.add_edge("fe_actions_node", END)
 
 
 # Compile the graph
