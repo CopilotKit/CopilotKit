@@ -2,6 +2,8 @@ import {
   MaybePromise,
   NonEmptyRecord,
   RuntimeMode,
+  RUNTIME_MODE_SSE,
+  RUNTIME_MODE_INTELLIGENCE,
 } from "@copilotkitnext/shared";
 import { AbstractAgent } from "@ag-ui/client";
 import type { MCPClientConfig } from "@ag-ui/mcp-apps-middleware";
@@ -130,7 +132,7 @@ export class CopilotSseRuntime
   implements CopilotSseRuntimeLike
 {
   readonly intelligence = undefined;
-  readonly mode = "sse" as const;
+  readonly mode = RUNTIME_MODE_SSE;
 
   constructor(options: CopilotSseRuntimeOptions) {
     super(options, options.runner ?? new InMemoryAgentRunner());
@@ -143,7 +145,7 @@ export class CopilotIntelligenceRuntime
 {
   readonly intelligence: CopilotKitIntelligence;
   readonly generateThreadNames: boolean;
-  readonly mode = "intelligence" as const;
+  readonly mode = RUNTIME_MODE_INTELLIGENCE;
 
   constructor(options: CopilotIntelligenceRuntimeOptions) {
     super(
@@ -167,7 +169,7 @@ function hasIntelligenceOptions(
 export function isIntelligenceRuntime(
   runtime: CopilotRuntimeLike,
 ): runtime is CopilotIntelligenceRuntimeLike {
-  return runtime.mode === "intelligence" && !!runtime.intelligence;
+  return runtime.mode === RUNTIME_MODE_INTELLIGENCE && !!runtime.intelligence;
 }
 
 /**

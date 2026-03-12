@@ -1,6 +1,5 @@
 import { handleIntelligenceConnect } from "./intelligence/connect";
 import { handleSseConnect } from "./sse/connect";
-import { jsonResponse } from "./shared/json-response";
 import { isIntelligenceRuntime } from "../runtime";
 import {
   parseConnectRequest,
@@ -49,12 +48,12 @@ export async function handleConnectAgent({
       cause: error instanceof Error ? error.cause : undefined,
     });
 
-    return jsonResponse(
+    return Response.json(
       {
         error: "Failed to run agent",
         message: error instanceof Error ? error.message : "Unknown error",
       },
-      500,
+      { status: 500 },
     );
   }
 }

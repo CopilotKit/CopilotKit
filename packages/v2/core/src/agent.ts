@@ -9,15 +9,34 @@ import {
 } from "@ag-ui/client";
 import { Observable, EMPTY, defer, from } from "rxjs";
 import { catchError, switchMap } from "rxjs/operators";
-import type {
-  IntelligenceRuntimeInfo,
-  RuntimeInfo,
-  RuntimeMode,
+import {
+  RUNTIME_MODE_SSE,
+  RUNTIME_MODE_INTELLIGENCE,
+  type IntelligenceRuntimeInfo,
+  type RuntimeInfo,
+  type RuntimeMode,
 } from "@copilotkitnext/shared";
 import { IntelligenceAgent } from "./intelligence-agent";
 import { CopilotRuntimeTransport } from "./types";
 
 type ResolvedRuntimeMode = RuntimeMode | "pending";
+
+interface RunnableAgent {
+  connect(input: RunAgentInput): Observable<BaseEvent>;
+  run(input: RunAgentInput): Observable<BaseEvent>;
+}
+
+function hasHeaders(
+  agent: AbstractAgent,
+): agent is AbstractAgent & { headers?: Record<string, string> } {
+  return "headers" in agent;
+}
+
+function hasCredentials(
+  agent: AbstractAgent,
+): agent is AbstractAgent & { credentials?: RequestCredentials } {
+  return "credentials" in agent;
+}
 
 function isZodError(error: unknown): boolean {
   return (
@@ -85,7 +104,7 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
     this.runtimeUrl = normalizedRuntimeUrl ?? config.runtimeUrl;
     this.credentials = config.credentials;
     this.transport = transport;
-    this.runtimeMode = config.runtimeMode ?? "sse";
+    this.runtimeMode = config.runtimeMode ?? RUNTIME_MODE_SSE;
     this.intelligence = config.intelligence;
     if (this.transport === "single") {
       this.singleEndpointUrl = this.runtimeUrl;
@@ -158,75 +177,73 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
   }
 
   connect(input: RunAgentInput): Observable<BaseEvent> {
-    if (this.runtimeMode !== "intelligence") {
-      if (this.transport === "single") {
-        if (!this.singleEndpointUrl) {
-          throw new Error("Single endpoint transport requires a runtimeUrl");
-        }
-
-        const requestInit = this.createSingleRouteRequestInit(
-          input,
-          "agent/connect",
-          {
-            agentId: this.agentId!,
-          },
-        );
-        const httpEvents = runHttpRequest(this.singleEndpointUrl, requestInit);
-        return withAbortErrorHandling(transformHttpEventStream(httpEvents));
-      }
-
-      const httpEvents = runHttpRequest(
-        `${this.runtimeUrl}/agent/${this.agentId}/connect`,
-        this.requestInit(input),
-      );
-      return withAbortErrorHandling(transformHttpEventStream(httpEvents));
+    if (this.runtimeMode === RUNTIME_MODE_INTELLIGENCE) {
+      return this.#connectViaDelegate(input);
     }
-
-    return defer(() => from(this.resolveDelegate())).pipe(
-      switchMap((delegate) =>
-        withAbortErrorHandling(
-          (
-            delegate as AbstractAgent & {
-              connect: (input: RunAgentInput) => Observable<BaseEvent>;
-            }
-          ).connect(input),
-        ),
-      ),
-    );
+    return this.#connectViaHttp(input);
   }
 
   public run(input: RunAgentInput): Observable<BaseEvent> {
-    if (this.runtimeMode !== "intelligence") {
-      if (this.transport === "single") {
-        if (!this.singleEndpointUrl) {
-          throw new Error("Single endpoint transport requires a runtimeUrl");
-        }
+    if (this.runtimeMode === RUNTIME_MODE_INTELLIGENCE) {
+      return this.#runViaDelegate(input);
+    }
+    return this.#runViaHttp(input);
+  }
 
-        const requestInit = this.createSingleRouteRequestInit(
-          input,
-          "agent/run",
-          {
-            agentId: this.agentId!,
-          },
-        );
-        const httpEvents = runHttpRequest(this.singleEndpointUrl, requestInit);
-        return withAbortErrorHandling(transformHttpEventStream(httpEvents));
+  #connectViaDelegate(input: RunAgentInput): Observable<BaseEvent> {
+    return defer(() => from(this.resolveDelegate())).pipe(
+      switchMap((delegate) => withAbortErrorHandling(delegate.connect(input))),
+    );
+  }
+
+  #connectViaHttp(input: RunAgentInput): Observable<BaseEvent> {
+    if (this.transport === "single") {
+      if (!this.singleEndpointUrl) {
+        throw new Error("Single endpoint transport requires a runtimeUrl");
       }
 
-      return withAbortErrorHandling(super.run(input));
+      const requestInit = this.createSingleRouteRequestInit(
+        input,
+        "agent/connect",
+        {
+          agentId: this.agentId!,
+        },
+      );
+      const httpEvents = runHttpRequest(this.singleEndpointUrl, requestInit);
+      return withAbortErrorHandling(transformHttpEventStream(httpEvents));
     }
 
-    return defer(() => from(this.resolveDelegate())).pipe(
-      switchMap((delegate) =>
-        withAbortErrorHandling(
-          (
-            delegate as AbstractAgent & {
-              run: (input: RunAgentInput) => Observable<BaseEvent>;
-            }
-          ).run(input),
-        ),
-      ),
+    const httpEvents = runHttpRequest(
+      `${this.runtimeUrl}/agent/${this.agentId}/connect`,
+      this.requestInit(input),
     );
+    return withAbortErrorHandling(transformHttpEventStream(httpEvents));
+  }
+
+  #runViaDelegate(input: RunAgentInput): Observable<BaseEvent> {
+    return defer(() => from(this.resolveDelegate())).pipe(
+      switchMap((delegate) => withAbortErrorHandling(delegate.run(input))),
+    );
+  }
+
+  #runViaHttp(input: RunAgentInput): Observable<BaseEvent> {
+    if (this.transport === "single") {
+      if (!this.singleEndpointUrl) {
+        throw new Error("Single endpoint transport requires a runtimeUrl");
+      }
+
+      const requestInit = this.createSingleRouteRequestInit(
+        input,
+        "agent/run",
+        {
+          agentId: this.agentId!,
+        },
+      );
+      const httpEvents = runHttpRequest(this.singleEndpointUrl, requestInit);
+      return withAbortErrorHandling(transformHttpEventStream(httpEvents));
+    }
+
+    return withAbortErrorHandling(super.run(input));
   }
 
   public override clone(): ProxiedCopilotRuntimeAgent {
@@ -250,21 +267,21 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
     return cloned;
   }
 
-  private async resolveDelegate(): Promise<AbstractAgent> {
+  private async resolveDelegate(): Promise<RunnableAgent> {
     await this.ensureRuntimeMode();
 
-    if (this.delegate) {
-      this.syncDelegate(this.delegate);
-      return this.delegate;
+    if (!this.delegate) {
+      if (this.runtimeMode !== RUNTIME_MODE_INTELLIGENCE) {
+        throw new Error("A delegate is only created for Intelligence mode");
+      }
+      this.delegate = this.createIntelligenceDelegate();
     }
 
-    if (this.runtimeMode !== "intelligence") {
-      throw new Error("A delegate is only created for Intelligence mode");
-    }
-
-    this.delegate = this.createIntelligenceDelegate();
     this.syncDelegate(this.delegate);
-    return this.delegate;
+
+    // AbstractAgent declares connect() as protected, but concrete delegates
+    // (IntelligenceAgent, HttpAgent) expose both connect() and run() publicly.
+    return this.delegate as unknown as RunnableAgent;
   }
 
   private async ensureRuntimeMode(): Promise<void> {
@@ -277,7 +294,7 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
     }
 
     this.runtimeInfoPromise ??= this.fetchRuntimeInfo().then((runtimeInfo) => {
-      this.runtimeMode = runtimeInfo.mode ?? "sse";
+      this.runtimeMode = runtimeInfo.mode ?? RUNTIME_MODE_SSE;
       this.intelligence = runtimeInfo.intelligence;
     });
 
@@ -289,6 +306,9 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
       ...this.headers,
     };
 
+    let init: RequestInit;
+    let url: string;
+
     if (this.transport === "single") {
       if (!this.singleEndpointUrl) {
         throw new Error("Single endpoint transport requires a runtimeUrl");
@@ -296,21 +316,15 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
       if (!headers["Content-Type"]) {
         headers["Content-Type"] = "application/json";
       }
-      const response = await fetch(this.runtimeUrl!, {
-        method: "POST",
-        headers,
-        body: JSON.stringify({ method: "info" }),
-        ...(this.credentials ? { credentials: this.credentials } : {}),
-      });
-      if (!response.ok) {
-        throw new Error(
-          `Runtime info request failed with status ${response.status}`,
-        );
-      }
-      return (await response.json()) as RuntimeInfo;
+      url = this.runtimeUrl!;
+      init = { method: "POST", body: JSON.stringify({ method: "info" }) };
+    } else {
+      url = `${this.runtimeUrl}/info`;
+      init = {};
     }
 
-    const response = await fetch(`${this.runtimeUrl}/info`, {
+    const response = await fetch(url, {
+      ...init,
       headers,
       ...(this.credentials ? { credentials: this.credentials } : {}),
     });
@@ -391,20 +405,12 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
     delegate.setMessages(this.messages);
     delegate.setState(this.state);
 
-    if ("headers" in delegate) {
-      (
-        delegate as AbstractAgent & { headers?: Record<string, string> }
-      ).headers = {
-        ...this.headers,
-      };
+    if (hasHeaders(delegate)) {
+      delegate.headers = { ...this.headers };
     }
 
-    if ("credentials" in delegate) {
-      (
-        delegate as AbstractAgent & {
-          credentials?: RequestCredentials;
-        }
-      ).credentials = this.credentials;
+    if (hasCredentials(delegate)) {
+      delegate.credentials = this.credentials;
     }
   }
 }
