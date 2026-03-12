@@ -142,7 +142,7 @@ function ReactSurfaceHost({
   );
 
   return (
-    <div className="cpk:flex cpk:w-full cpk:flex-none cpk:overflow-hidden cpk:rounded-lg cpk:bg-white/5 cpk:p-4">
+    <div className="cpk:flex cpk:w-full cpk:flex-none cpk:flex-col cpk:gap-4">
       <A2UIProvider onAction={handleAction} theme={theme}>
         <SurfaceMessageProcessor
           surfaceId={surfaceId}

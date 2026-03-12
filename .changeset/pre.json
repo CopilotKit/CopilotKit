@@ -48,10 +48,15 @@
     "@copilotkitnext/web-inspector": "1.53.0"
   },
   "changesets": [
+    "afraid-oranges-fry",
+    "deprecate-copilotkitnext-packages",
     "fifty-cobras-pull",
     "fix-escape-key-focus-loss-399",
     "floppy-birds-sink",
+    "funny-pans-shave",
+    "mighty-bags-sneeze",
     "odd-planets-deliver",
-    "slimy-zoos-accept"
+    "slimy-zoos-accept",
+    "tricky-moose-build"
   ]
 }

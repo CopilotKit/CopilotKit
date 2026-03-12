@@ -8,9 +8,9 @@ import {
 } from "@ag-ui/client";
 import { randomUUID, logger, schemaToJsonSchema } from "@copilotkitnext/shared";
 import { zodToJsonSchema } from "zod-to-json-schema";
-import type { CopilotKitCore } from "./core";
-import { CopilotKitCoreErrorCode, CopilotKitCoreFriendsAccess } from "./core";
-import { FrontendTool } from "../types";
+import type { CopilotKitCore, CopilotKitCoreFriendsAccess } from "./core";
+import { CopilotKitCoreErrorCode } from "./core";
+import type { FrontendTool } from "../types";
 
 export interface CopilotKitCoreRunAgentParams {
   agent: AbstractAgent;
@@ -27,6 +27,46 @@ export interface CopilotKitCoreGetToolParams {
 }
 
 /**
+ * Parameters for programmatic tool execution via `copilotkit.runTool()`.
+ */
+export interface CopilotKitCoreRunToolParams {
+  /** Name of the registered frontend tool to execute. */
+  name: string;
+  /** Optional agent ID. If omitted, uses the default agent lookup. */
+  agentId?: string;
+  /** Parameters to pass to the tool handler. */
+  parameters?: Record<string, unknown>;
+  /**
+   * Whether to trigger an LLM follow-up after tool execution.
+   * - `false` (default): execute tool, add messages to history, done.
+   * - `"generate"`: after execution, trigger another agent run so the LLM responds to the tool result.
+   * - Any other string: add a user message with this text, then trigger another agent run.
+   */
+  followUp?: string | false;
+}
+
+/**
+ * Result of programmatic tool execution via `copilotkit.runTool()`.
+ */
+export interface CopilotKitCoreRunToolResult {
+  /** The unique ID of the tool call. */
+  toolCallId: string;
+  /** The stringified result from the tool handler. */
+  result: string;
+  /** Error message if the handler failed. */
+  error?: string;
+}
+
+/**
+ * Internal result from the shared tool handler execution logic.
+ */
+interface ExecuteToolHandlerResult {
+  result: string;
+  error?: string;
+  isArgumentError: boolean;
+}
+
+/**
  * Handles agent execution, tool calling, and agent connectivity for CopilotKitCore.
  * Manages the complete lifecycle of agent runs including tool execution and follow-ups.
  */
@@ -35,6 +75,14 @@ export class RunHandler {
   private _tools: FrontendTool<any>[] = [];
 
   constructor(private core: CopilotKitCore) {}
+
+  /**
+   * Typed access to CopilotKitCore's internal ("friend") methods.
+   * Centralises the single unavoidable cast so call-sites stay clean.
+   */
+  private get _internal(): CopilotKitCoreFriendsAccess {
+    return this.core as unknown as CopilotKitCoreFriendsAccess;
+  }
 
   /**
    * Get all tools as a readonly array
@@ -128,15 +176,15 @@ export class RunHandler {
 
       if (agent instanceof HttpAgent) {
         agent.headers = {
-          ...(this.core as unknown as CopilotKitCoreFriendsAccess).headers,
+          ...this._internal.headers,
         };
       }
 
       const runAgentResult = await agent.connectAgent(
         {
-          forwardedProps: (this.core as unknown as CopilotKitCoreFriendsAccess)
-            .properties,
+          forwardedProps: this._internal.properties,
           tools: this.buildFrontendTools(agent.agentId),
+          context: Object.values(this._internal.context),
         },
         this.createAgentErrorSubscriber(agent),
       );
@@ -149,7 +197,7 @@ export class RunHandler {
       if (agent.agentId) {
         context.agentId = agent.agentId;
       }
-      await (this.core as unknown as CopilotKitCoreFriendsAccess).emitError({
+      await this._internal.emitError({
         error: connectError,
         code: CopilotKitCoreErrorCode.AGENT_CONNECT_FAILED,
         context,
@@ -167,14 +215,12 @@ export class RunHandler {
   }: CopilotKitCoreRunAgentParams): Promise<RunAgentResult> {
     // Agent ID is guaranteed to be set by validateAndAssignAgentId
     if (agent.agentId) {
-      void (
-        this.core as unknown as CopilotKitCoreFriendsAccess
-      ).suggestionEngine.clearSuggestions(agent.agentId);
+      void this._internal.suggestionEngine.clearSuggestions(agent.agentId);
     }
 
     if (agent instanceof HttpAgent) {
       agent.headers = {
-        ...(this.core as unknown as CopilotKitCoreFriendsAccess).headers,
+        ...this._internal.headers,
       };
     }
 
@@ -182,13 +228,11 @@ export class RunHandler {
       const runAgentResult = await agent.runAgent(
         {
           forwardedProps: {
-            ...(this.core as unknown as CopilotKitCoreFriendsAccess).properties,
+            ...this._internal.properties,
             ...forwardedProps,
           },
           tools: this.buildFrontendTools(agent.agentId),
-          context: Object.values(
-            (this.core as unknown as CopilotKitCoreFriendsAccess).context,
-          ),
+          context: Object.values(this._internal.context),
         },
         this.createAgentErrorSubscriber(agent),
       );
@@ -200,7 +244,7 @@ export class RunHandler {
       if (agent.agentId) {
         context.agentId = agent.agentId;
       }
-      await (this.core as unknown as CopilotKitCoreFriendsAccess).emitError({
+      await this._internal.emitError({
         error: runError,
         code: CopilotKitCoreErrorCode.AGENT_RUN_FAILED,
         context,
@@ -273,14 +317,131 @@ export class RunHandler {
     }
 
     if (needsFollowUp) {
+      // Yield to the framework scheduler before the follow-up run so that any
+      // deferred state updates (e.g. React useEffect in useAgentContext) can
+      // complete and write fresh values into the context store before runAgent
+      // reads it. The base implementation is a no-op; React overrides this.
+      await this._internal.waitForPendingFrameworkUpdates();
       return await this.runAgent({ agent });
     }
 
-    void (
-      this.core as unknown as CopilotKitCoreFriendsAccess
-    ).suggestionEngine.reloadSuggestions(agentId);
+    void this._internal.suggestionEngine.reloadSuggestions(agentId);
 
     return runAgentResult;
+  }
+
+  /**
+   * Shared handler execution logic used by executeSpecificTool, executeWildcardTool, and runTool.
+   * Handles arg parsing, subscriber notifications, handler invocation, result stringification,
+   * and error handling.
+   */
+  private async executeToolHandler({
+    tool,
+    toolCall,
+    agent,
+    agentId,
+    handlerArgs,
+    toolType,
+    messageId,
+  }: {
+    tool: FrontendTool<any>;
+    toolCall: { id: string; function: { name: string; arguments: string } };
+    agent: AbstractAgent;
+    agentId: string;
+    handlerArgs: unknown;
+    toolType: string;
+    messageId?: string;
+  }): Promise<ExecuteToolHandlerResult> {
+    let toolCallResult = "";
+    let errorMessage: string | undefined;
+    let isArgumentError = false;
+
+    let parsedArgs: unknown;
+    try {
+      const raw =
+        typeof handlerArgs === "string" ? JSON.parse(handlerArgs) : handlerArgs;
+      parsedArgs = ensureObjectArgs(raw, toolCall.function.name);
+    } catch (error) {
+      const parseError =
+        error instanceof Error ? error : new Error(String(error));
+      errorMessage = parseError.message;
+      isArgumentError = true;
+      await this._internal.emitError({
+        error: parseError,
+        code: CopilotKitCoreErrorCode.TOOL_ARGUMENT_PARSE_FAILED,
+        context: {
+          agentId,
+          toolCallId: toolCall.id,
+          toolName: toolCall.function.name,
+          rawArguments: handlerArgs,
+          toolType,
+          ...(messageId ? { messageId } : {}),
+        },
+      });
+    }
+
+    await this._internal.notifySubscribers(
+      (subscriber) =>
+        subscriber.onToolExecutionStart?.({
+          copilotkit: this.core,
+          toolCallId: toolCall.id,
+          agentId,
+          toolName: toolCall.function.name,
+          args: parsedArgs,
+        }),
+      "Subscriber onToolExecutionStart error:",
+    );
+
+    if (!errorMessage) {
+      try {
+        const result = await tool.handler!(parsedArgs as any, {
+          toolCall: toolCall as any,
+          agent,
+        });
+        if (result === undefined || result === null) {
+          toolCallResult = "";
+        } else if (typeof result === "string") {
+          toolCallResult = result;
+        } else {
+          toolCallResult = JSON.stringify(result);
+        }
+      } catch (error) {
+        const handlerError =
+          error instanceof Error ? error : new Error(String(error));
+        errorMessage = handlerError.message;
+        await this._internal.emitError({
+          error: handlerError,
+          code: CopilotKitCoreErrorCode.TOOL_HANDLER_FAILED,
+          context: {
+            agentId,
+            toolCallId: toolCall.id,
+            toolName: toolCall.function.name,
+            parsedArgs,
+            toolType,
+            ...(messageId ? { messageId } : {}),
+          },
+        });
+      }
+    }
+
+    if (errorMessage) {
+      toolCallResult = `Error: ${errorMessage}`;
+    }
+
+    await this._internal.notifySubscribers(
+      (subscriber) =>
+        subscriber.onToolExecutionEnd?.({
+          copilotkit: this.core,
+          toolCallId: toolCall.id,
+          agentId,
+          toolName: toolCall.function.name,
+          result: errorMessage ? "" : toolCallResult,
+          error: errorMessage,
+        }),
+      "Subscriber onToolExecutionEnd error:",
+    );
+
+    return { result: toolCallResult, error: errorMessage, isArgumentError };
   }
 
   /**
@@ -299,102 +460,22 @@ export class RunHandler {
       return false;
     }
 
-    let toolCallResult = "";
-    let errorMessage: string | undefined;
-    let isArgumentError = false;
+    let handlerResult: ExecuteToolHandlerResult = {
+      result: "",
+      error: undefined,
+      isArgumentError: false,
+    };
 
     if (tool?.handler) {
-      let parsedArgs: unknown;
-      try {
-        parsedArgs = ensureObjectArgs(
-          JSON.parse(toolCall.function.arguments),
-          toolCall.function.name,
-        );
-      } catch (error) {
-        const parseError =
-          error instanceof Error ? error : new Error(String(error));
-        errorMessage = parseError.message;
-        isArgumentError = true;
-        await (this.core as unknown as CopilotKitCoreFriendsAccess).emitError({
-          error: parseError,
-          code: CopilotKitCoreErrorCode.TOOL_ARGUMENT_PARSE_FAILED,
-          context: {
-            agentId: agentId,
-            toolCallId: toolCall.id,
-            toolName: toolCall.function.name,
-            rawArguments: toolCall.function.arguments,
-            toolType: "specific",
-            messageId: message.id,
-          },
-        });
-      }
-
-      await (
-        this.core as unknown as CopilotKitCoreFriendsAccess
-      ).notifySubscribers(
-        (subscriber) =>
-          subscriber.onToolExecutionStart?.({
-            copilotkit: this.core,
-            toolCallId: toolCall.id,
-            agentId: agentId,
-            toolName: toolCall.function.name,
-            args: parsedArgs,
-          }),
-        "Subscriber onToolExecutionStart error:",
-      );
-
-      if (!errorMessage) {
-        try {
-          const result = await tool.handler(parsedArgs as any, {
-            toolCall,
-            agent,
-          });
-          if (result === undefined || result === null) {
-            toolCallResult = "";
-          } else if (typeof result === "string") {
-            toolCallResult = result;
-          } else {
-            toolCallResult = JSON.stringify(result);
-          }
-        } catch (error) {
-          const handlerError =
-            error instanceof Error ? error : new Error(String(error));
-          errorMessage = handlerError.message;
-          await (this.core as unknown as CopilotKitCoreFriendsAccess).emitError(
-            {
-              error: handlerError,
-              code: CopilotKitCoreErrorCode.TOOL_HANDLER_FAILED,
-              context: {
-                agentId: agentId,
-                toolCallId: toolCall.id,
-                toolName: toolCall.function.name,
-                parsedArgs,
-                toolType: "specific",
-                messageId: message.id,
-              },
-            },
-          );
-        }
-      }
-
-      if (errorMessage) {
-        toolCallResult = `Error: ${errorMessage}`;
-      }
-
-      await (
-        this.core as unknown as CopilotKitCoreFriendsAccess
-      ).notifySubscribers(
-        (subscriber) =>
-          subscriber.onToolExecutionEnd?.({
-            copilotkit: this.core,
-            toolCallId: toolCall.id,
-            agentId: agentId,
-            toolName: toolCall.function.name,
-            result: errorMessage ? "" : toolCallResult,
-            error: errorMessage,
-          }),
-        "Subscriber onToolExecutionEnd error:",
-      );
+      handlerResult = await this.executeToolHandler({
+        tool,
+        toolCall,
+        agent,
+        agentId,
+        handlerArgs: toolCall.function.arguments,
+        toolType: "specific",
+        messageId: message.id,
+      });
     }
 
     {
@@ -409,11 +490,11 @@ export class RunHandler {
         id: randomUUID(),
         role: "tool" as const,
         toolCallId: toolCall.id,
-        content: toolCallResult,
+        content: handlerResult.result,
       };
       agent.messages.splice(messageIndex + 1, 0, toolMessage);
 
-      if (!errorMessage && tool?.followUp !== false) {
+      if (!handlerResult.error && tool?.followUp !== false) {
         return true; // Needs follow-up
       }
     }
@@ -422,7 +503,10 @@ export class RunHandler {
   }
 
   /**
-   * Execute a wildcard tool
+   * Execute a wildcard tool.
+   * Wildcard tools receive args wrapped as `{toolName, args}`, which differs from
+   * specific tools, so this method keeps its own arg-wrapping logic rather than
+   * delegating to `executeToolHandler`.
    */
   private async executeWildcardTool(
     wildcardTool: FrontendTool<any>,
@@ -453,7 +537,7 @@ export class RunHandler {
           error instanceof Error ? error : new Error(String(error));
         errorMessage = parseError.message;
         isArgumentError = true;
-        await (this.core as unknown as CopilotKitCoreFriendsAccess).emitError({
+        await this._internal.emitError({
           error: parseError,
           code: CopilotKitCoreErrorCode.TOOL_ARGUMENT_PARSE_FAILED,
           context: {
@@ -472,9 +556,7 @@ export class RunHandler {
         args: parsedArgs,
       };
 
-      await (
-        this.core as unknown as CopilotKitCoreFriendsAccess
-      ).notifySubscribers(
+      await this._internal.notifySubscribers(
         (subscriber) =>
           subscriber.onToolExecutionStart?.({
             copilotkit: this.core,
@@ -503,20 +585,18 @@ export class RunHandler {
           const handlerError =
             error instanceof Error ? error : new Error(String(error));
           errorMessage = handlerError.message;
-          await (this.core as unknown as CopilotKitCoreFriendsAccess).emitError(
-            {
-              error: handlerError,
-              code: CopilotKitCoreErrorCode.TOOL_HANDLER_FAILED,
-              context: {
-                agentId: agentId,
-                toolCallId: toolCall.id,
-                toolName: toolCall.function.name,
-                parsedArgs: wildcardArgs,
-                toolType: "wildcard",
-                messageId: message.id,
-              },
+          await this._internal.emitError({
+            error: handlerError,
+            code: CopilotKitCoreErrorCode.TOOL_HANDLER_FAILED,
+            context: {
+              agentId: agentId,
+              toolCallId: toolCall.id,
+              toolName: toolCall.function.name,
+              parsedArgs: wildcardArgs,
+              toolType: "wildcard",
+              messageId: message.id,
             },
-          );
+          });
         }
       }
 
@@ -524,9 +604,7 @@ export class RunHandler {
         toolCallResult = `Error: ${errorMessage}`;
       }
 
-      await (
-        this.core as unknown as CopilotKitCoreFriendsAccess
-      ).notifySubscribers(
+      await this._internal.notifySubscribers(
         (subscriber) =>
           subscriber.onToolExecutionEnd?.({
             copilotkit: this.core,
@@ -565,6 +643,125 @@ export class RunHandler {
   }
 
   /**
+   * Programmatically execute a registered frontend tool without going through an LLM turn.
+   * The handler runs, render components show up in the UI, and both the tool call and
+   * result messages are added to `agent.messages`.
+   */
+  async runTool(
+    params: CopilotKitCoreRunToolParams,
+  ): Promise<CopilotKitCoreRunToolResult> {
+    const { name, agentId, parameters = {}, followUp = false } = params;
+
+    // 1. Look up the tool
+    const tool = this.getTool({ toolName: name, agentId });
+    if (!tool) {
+      const error = new Error(`Tool not found: ${name}`);
+      await this._internal.emitError({
+        error,
+        code: CopilotKitCoreErrorCode.TOOL_NOT_FOUND,
+        context: { toolName: name, agentId },
+      });
+      throw error;
+    }
+
+    // 2. Look up the agent
+    const resolvedAgentId = agentId ?? "default";
+    const agent = this._internal.getAgent(resolvedAgentId);
+    if (!agent) {
+      const error = new Error(`Agent not found: ${resolvedAgentId}`);
+      await this._internal.emitError({
+        error,
+        code: CopilotKitCoreErrorCode.AGENT_NOT_FOUND,
+        context: { agentId: resolvedAgentId },
+      });
+      throw error;
+    }
+
+    // 3. Create assistant message with tool call
+    const toolCallId = randomUUID();
+    const assistantMessage: Message = {
+      id: randomUUID(),
+      role: "assistant",
+      content: "",
+      toolCalls: [
+        {
+          id: toolCallId,
+          type: "function",
+          function: {
+            name,
+            arguments: JSON.stringify(parameters),
+          },
+        },
+      ],
+    };
+
+    // 4. Push assistant message into agent's messages
+    agent.messages.push(assistantMessage);
+
+    // 5. Execute the tool handler (if it has one)
+    let handlerResult: ExecuteToolHandlerResult = {
+      result: "",
+      error: undefined,
+      isArgumentError: false,
+    };
+
+    if (tool.handler) {
+      handlerResult = await this.executeToolHandler({
+        tool,
+        toolCall: assistantMessage.toolCalls![0],
+        agent,
+        agentId: resolvedAgentId,
+        handlerArgs: parameters,
+        toolType: "runTool",
+      });
+    }
+
+    // 6. Create and insert tool result message
+    const toolResultMessage: Message = {
+      id: randomUUID(),
+      role: "tool",
+      toolCallId,
+      content: handlerResult.result,
+    };
+
+    const assistantIndex = agent.messages.findIndex(
+      (m) => m.id === assistantMessage.id,
+    );
+    if (assistantIndex !== -1) {
+      agent.messages.splice(assistantIndex + 1, 0, toolResultMessage);
+    } else {
+      // Fallback: push to end if assistant message was removed
+      agent.messages.push(toolResultMessage);
+    }
+
+    // 7. Handle followUp (only if no error)
+    if (!handlerResult.error && followUp !== false) {
+      if (typeof followUp === "string" && followUp !== "generate") {
+        // Custom text: add a user message first
+        const userMessage: Message = {
+          id: randomUUID(),
+          role: "user",
+          content: followUp,
+        };
+        agent.messages.push(userMessage);
+      }
+      // Yield to the framework scheduler so deferred state updates (e.g. React
+      // useEffect in useAgentContext) can complete before the follow-up run reads
+      // the context store. Mirrors the same yield in processAgentResult.
+      await this._internal.waitForPendingFrameworkUpdates();
+      // Trigger agent run for both "generate" and custom text
+      await this.runAgent({ agent });
+    }
+
+    // 8. Return result
+    return {
+      toolCallId,
+      result: handlerResult.result,
+      error: handlerResult.error,
+    };
+  }
+
+  /**
    * Build frontend tools for an agent
    */
   buildFrontendTools(agentId?: string): Tool[] {
@@ -594,7 +791,7 @@ export class RunHandler {
       if (agent.agentId) {
         context.agentId = agent.agentId;
       }
-      await (this.core as unknown as CopilotKitCoreFriendsAccess).emitError({
+      await this._internal.emitError({
         error,
         code,
         context,

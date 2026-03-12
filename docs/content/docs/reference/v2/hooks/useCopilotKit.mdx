@@ -96,6 +96,80 @@ function ConnectionMonitor() {
 }
 ```
 
+### Running a Tool Programmatically
+
+`copilotkit.runTool()` lets you execute a registered frontend tool directly from code — no LLM turn required. The tool's handler runs, render components appear in the UI, and both the tool call and result are added to the agent's message history.
+
+```tsx
+import { useCopilotKit, useFrontendTool } from "@copilotkit/react-core/v2";
+
+function ExportButton() {
+  const { copilotkit } = useCopilotKit();
+
+  // Register the tool
+  useFrontendTool({
+    name: "exportData",
+    description: "Export data as CSV",
+    parameters: [{ name: "format", type: "string" }],
+    handler: async ({ format }) => {
+      const csv = await generateCsv(format);
+      downloadFile(csv);
+      return `Exported as ${format}`;
+    },
+  });
+
+  // Trigger it from a button — no LLM needed
+  const handleExport = async () => {
+    const { result, error } = await copilotkit.runTool({
+      name: "exportData",
+      parameters: { format: "csv" },
+    });
+    if (error) console.error(error);
+  };
+
+  return <button onClick={handleExport}>Export CSV</button>;
+}
+```
+
+#### `runTool` Parameters
+
+<PropertyReference name="params" type="CopilotKitCoreRunToolParams">
+  <PropertyReference name="name" type="string" required>
+    Name of the registered frontend tool to execute.
+  </PropertyReference>
+
+  <PropertyReference name="agentId" type="string">
+    Agent ID for tool and message scoping. Defaults to `"default"`.
+  </PropertyReference>
+
+  <PropertyReference name="parameters" type="Record<string, unknown>" default="{}">
+    Arguments passed to the tool handler.
+  </PropertyReference>
+
+  <PropertyReference name="followUp" type="string | false" default="false">
+    Controls whether an LLM follow-up is triggered after execution:
+    - `false` — execute tool and stop (default)
+    - `"generate"` — trigger an agent run so the LLM responds to the tool result
+    - Any other string — add a user message with this text, then trigger an agent run
+  </PropertyReference>
+</PropertyReference>
+
+#### `runTool` Return Value
+
+<PropertyReference name="result" type="CopilotKitCoreRunToolResult">
+  <PropertyReference name="toolCallId" type="string">
+    Unique ID of the tool call, matching the message added to history.
+  </PropertyReference>
+
+  <PropertyReference name="result" type="string">
+    Stringified return value from the tool handler (empty string for render-only tools).
+  </PropertyReference>
+
+  <PropertyReference name="error" type="string | undefined">
+    Error message if the handler threw. The tool result message will contain `"Error: ..."`.
+  </PropertyReference>
+</PropertyReference>
+
 ### Checking Tool Execution State
 
 ```tsx
@@ -126,4 +200,5 @@ function ToolExecutionIndicator() {
 ## Related
 
 - [`useAgent`](/reference/v2/hooks/useAgent) -- High-level hook for accessing agent instances
+- [`useFrontendTool`](/reference/v2/hooks/useFrontendTool) -- Register frontend tools that `runTool()` can execute
 - [`CopilotKitProvider`](/reference/v2) -- The provider component that creates the context

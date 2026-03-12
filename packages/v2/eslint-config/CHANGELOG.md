@@ -1,5 +1,15 @@
 # @copilotkitnext/eslint-config
 
+## 1.54.0-next.9
+
+## 1.54.0-next.8
+
+## 1.54.0-next.7
+
+## 1.54.0-next.6
+
+## 1.54.0-next.5
+
 ## 1.54.0-next.4
 
 ## 1.54.0-next.3

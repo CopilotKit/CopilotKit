@@ -1,5 +1,57 @@
 # @copilotkitnext/react
 
+## 1.54.0-next.9
+
+### Patch Changes
+
+- 3780c6a: deprecate: mark all @copilotkitnext/_ packages as deprecated in favor of @copilotkit/_ equivalents
+- Updated dependencies [3780c6a]
+  - @copilotkitnext/shared@1.54.0-next.9
+  - @copilotkitnext/core@1.54.0-next.9
+  - @copilotkitnext/web-inspector@1.54.0-next.9
+  - @copilotkit/a2ui-renderer@1.54.0-next.9
+
+## 1.54.0-next.8
+
+### Patch Changes
+
+- Updated dependencies [f1571ef]
+  - @copilotkitnext/core@1.54.0-next.8
+  - @copilotkitnext/web-inspector@1.54.0-next.8
+  - @copilotkit/a2ui-renderer@1.54.0-next.8
+  - @copilotkitnext/shared@1.54.0-next.8
+
+## 1.54.0-next.7
+
+### Patch Changes
+
+- eb1e0bf: fix(react): yield to React scheduler before follow-up agent run to pr…
+- Updated dependencies [eb1e0bf]
+  - @copilotkitnext/core@1.54.0-next.7
+  - @copilotkitnext/web-inspector@1.54.0-next.7
+  - @copilotkit/a2ui-renderer@1.54.0-next.7
+  - @copilotkitnext/shared@1.54.0-next.7
+
+## 1.54.0-next.6
+
+### Patch Changes
+
+- Updated dependencies [c80498e]
+  - @copilotkitnext/core@1.54.0-next.6
+  - @copilotkitnext/web-inspector@1.54.0-next.6
+  - @copilotkit/a2ui-renderer@1.54.0-next.6
+  - @copilotkitnext/shared@1.54.0-next.6
+
+## 1.54.0-next.5
+
+### Patch Changes
+
+- Updated dependencies [7916df6]
+  - @copilotkit/a2ui-renderer@1.54.0-next.5
+  - @copilotkitnext/core@1.54.0-next.5
+  - @copilotkitnext/shared@1.54.0-next.5
+  - @copilotkitnext/web-inspector@1.54.0-next.5
+
 ## 1.54.0-next.4
 
 ### Patch Changes
