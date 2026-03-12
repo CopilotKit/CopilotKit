@@ -217,6 +217,12 @@ export class CopilotRuntime implements CopilotRuntimeLike {
     return this.delegate.intelligence;
   }
 
+  get generateThreadNames(): boolean | undefined {
+    return isIntelligenceRuntime(this.delegate)
+      ? this.delegate.generateThreadNames
+      : undefined;
+  }
+
   get mode(): RuntimeMode {
     return this.delegate.mode;
   }
