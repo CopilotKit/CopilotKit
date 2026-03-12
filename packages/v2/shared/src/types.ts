@@ -34,4 +34,5 @@ export interface RuntimeInfo {
   audioFileTranscriptionEnabled: boolean;
   mode: RuntimeMode;
   intelligence?: IntelligenceRuntimeInfo;
+  a2uiEnabled?: boolean;
 }
