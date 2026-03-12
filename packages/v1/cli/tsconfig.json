@@ -15,21 +15,11 @@
     "strictNullChecks": true,
     "sourceMap": true,
     "sourceRoot": "/",
-    "paths": {
-      "@repo/trpc-cli/cli-router": [
-        "../trpc-cli/src/cli-router.ts"
-      ]
-    }
   },
   "include": [
     "./src/**/*"
   ],
   "ts-node": {
     "esm": true
-  },
-  "references": [
-    {
-      "path": "../trpc-cli"
-    }
-  ]
+  }
 }

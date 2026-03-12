@@ -184,7 +184,7 @@ export default class Create extends BaseCommand {
       this.log(theme.primary("~ Welcome to CopilotKit! ~\n"));
       this.log(theme.divider);
 
-      if ((!flags.name || flags.projectName) && !flags.framework) {
+      if (!flags.name && !args.projectName && !flags.framework) {
         this.log(
           "\n" + theme.secondary("Just a few questions to get started!\n"),
         );
