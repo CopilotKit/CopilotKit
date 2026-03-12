@@ -62,22 +62,6 @@ export async function scaffoldAgent(userAnswers: Config) {
       spinner.text = chalk.cyan("Added API keys to agent .env file");
     }
 
-    // Add LangSmith API key for LangGraph
-    if (userAnswers.mode === "LangGraph" && userAnswers.langSmithApiKey) {
-      envContent += `LANGSMITH_API_KEY=${userAnswers.langSmithApiKey}\n`;
-    }
-
-    if (envContent) {
-      const agentEnvFile = path.join(agentDir, ".env");
-      fs.writeFileSync(agentEnvFile, envContent, "utf8");
-      spinner.text = chalk.cyan("Added API keys to agent .env file");
-    }
-
-    if (envContent) {
-      const agentEnvFile = path.join(agentDir, ".env");
-      fs.writeFileSync(agentEnvFile, envContent, "utf8");
-      spinner.text = chalk.cyan("Added API keys to agent .env file");
-    }
   } catch (error) {
     spinner.fail(chalk.red("Failed to clone agent template"));
     throw error;
@@ -90,15 +74,15 @@ export const AgentTemplates = {
   LangGraph: {
     Starter: {
       Python:
-        "https://github.com/CopilotKit/coagents-starter-langgraph/tree/main/agent-py",
+        "https://github.com/CopilotKit/CopilotKit/tree/main/examples/starters/coagents-langgraph/agent-py",
       TypeScript:
-        "https://github.com/CopilotKit/coagents-starter-langgraph/tree/main/agent-js",
+        "https://github.com/CopilotKit/CopilotKit/tree/main/examples/starters/coagents-langgraph/agent-js",
     },
   },
   CrewAI: {
     Flows: {
       Starter:
-        "https://github.com/CopilotKit/coagents-starter-crewai-flows/tree/main/agent-py",
+        "https://github.com/CopilotKit/CopilotKit/tree/main/examples/starters/coagents-crewai-flows/agent-py",
     },
   },
 };
