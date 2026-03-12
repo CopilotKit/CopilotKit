@@ -1,0 +1,33 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "agent"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.9, <3.14"
+dependencies = [
+    "llama-index-core>=0.14.0,<0.15",
+    "llama-index-llms-openai>=0.5.0,<0.6",
+    "llama-index-protocols-ag-ui>=0.2.2",
+    "python-dotenv>=1.0.1",
+    "jsonpatch>=1.33",
+    "uvicorn>=0.27.0",
+    "fastapi>=0.100.0",
+    "composio",
+    "composio-llamaindex",
+]
+authors = [
+    { name = "Logan Markewich", email = "logan@runllama.ai" },
+]
+
+[tool.hatch.build.targets.sdist]
+include = ["agent/"]
+
+[tool.hatch.build.targets.wheel]
+include = ["agent/"]
+
+[project.scripts]
+dev = "agent:main"

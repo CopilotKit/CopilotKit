@@ -1,0 +1,111 @@
+@import "tailwindcss";
+
+:root {
+  /* Neo-Brutalist Palette */
+  --bg-primary: #F2F0E9; /* Warm off-white */
+  --bg-secondary: #E6E4DD;
+  --bg-card: #FFFFFF;
+  
+  --fg-primary: #121212;
+  --fg-secondary: #555555;
+  
+  --accent-red: #FF3333;
+  --accent-blue: #3355FF;
+  --accent-yellow: #FFCC00;
+  
+  --border-color: #121212;
+  
+  --shadow-hard: 4px 4px 0px 0px var(--border-color);
+  --shadow-hard-hover: 6px 6px 0px 0px var(--border-color);
+  --shadow-hard-sm: 2px 2px 0px 0px var(--border-color);
+}
+
+body {
+  background-color: var(--bg-primary);
+  color: var(--fg-primary);
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 12px;
+  background: var(--bg-secondary);
+  border-left: 2px solid var(--border-color);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--fg-primary);
+  border: 2px solid var(--bg-secondary);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--accent-red);
+}
+
+/* Utilities */
+.brutalist-card {
+  background-color: var(--bg-card);
+  border: 2px solid var(--border-color);
+  box-shadow: var(--shadow-hard);
+  transition: all 0.1s ease;
+}
+
+.brutalist-card:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: var(--shadow-hard-hover);
+}
+
+.brutalist-btn {
+  background-color: var(--bg-card);
+  border: 2px solid var(--border-color);
+  box-shadow: var(--shadow-hard-sm);
+  font-weight: 700;
+  text-transform: uppercase;
+  transition: all 0.1s ease;
+}
+
+.brutalist-btn:hover:not(:disabled) {
+  transform: translate(-1px, -1px);
+  box-shadow: 3px 3px 0px 0px var(--border-color);
+  background-color: var(--accent-yellow);
+}
+
+.brutalist-btn:active:not(:disabled) {
+  transform: translate(1px, 1px);
+  box-shadow: 1px 1px 0px 0px var(--border-color);
+}
+
+.brutalist-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  box-shadow: none;
+  transform: translate(2px, 2px);
+}
+
+.brutalist-input {
+  background-color: var(--bg-card);
+  border: 2px solid var(--border-color);
+  box-shadow: var(--shadow-hard-sm);
+  outline: none;
+  transition: all 0.1s ease;
+}
+
+.brutalist-input:focus {
+  border-color: var(--accent-blue);
+  box-shadow: 4px 4px 0px 0px var(--accent-blue);
+}
+
+/* Copilot Kit Overrides */
+.copilot-kit-sidebar {
+  border-left: 2px solid var(--border-color) !important;
+  background-color: var(--bg-primary) !important;
+}
+
+/* Pattern Background Utility */
+.bg-grid-pattern {
+  background-image: 
+    linear-gradient(var(--border-color) 1px, transparent 1px),
+    linear-gradient(90deg, var(--border-color) 1px, transparent 1px);
+  background-size: 40px 40px;
+  background-position: center center;
+  opacity: 0.5;
+}

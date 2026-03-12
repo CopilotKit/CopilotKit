@@ -1,0 +1,94 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+@layer base {
+  :root {
+    /* Base colors */
+    --background: #FAF9F6;
+    --foreground: #3D2B1F;
+    --card: #FFFFFF;
+    --card-foreground: #3D2B1F;
+    --popover: #FFFFFF;
+    --popover-foreground: #3D2B1F;
+    --primary: #8B4513;
+    --primary-foreground: #FFFFFF;
+    --secondary: rgba(139, 69, 19, 0.05);
+    --secondary-foreground: #8B4513;
+    --muted: rgba(139, 69, 19, 0.05);
+    --muted-foreground: rgba(61, 43, 31, 0.6);
+    --accent: rgba(139, 69, 19, 0.05);
+    --accent-foreground: #8B4513;
+    --destructive: #EF4444;
+    --destructive-foreground: #FFFFFF;
+    --border: rgba(139, 69, 19, 0.1);
+    --input: rgba(139, 69, 19, 0.1);
+    --ring: #8B4513;
+    --radius: 0.5rem;
+
+    /* Chart colors */
+    --chart-1: 12 76% 61%;
+    --chart-2: 173 58% 39%;
+    --chart-3: 197 37% 24%;
+    --chart-4: 43 74% 66%;
+    --chart-5: 27 87% 67%;
+
+    /* Custom colors */
+    --primary-light: rgba(139, 69, 19, 0.05);
+    --primary-light-alt: rgba(139, 69, 19, 0.1);
+    --background-alt: #FFFFFF;
+    --input-border: rgba(139, 69, 19, 0.2);
+    --focus-border: rgba(139, 69, 19, 0.5);
+    --button-hover: rgba(139, 69, 19, 0.8);
+    --ai-avatar: #4A5568;
+    --text-contrast: #FFFFFF;
+  }
+
+  .dark {
+    --background: #1A1A1A;
+    --foreground: #FFFFFF;
+    --card: #262626;
+    --card-foreground: #FFFFFF;
+    --popover: #262626;
+    --popover-foreground: #FFFFFF;
+    --primary: #FFFFFF;
+    --primary-foreground: #1A1A1A;
+    --secondary: #333333;
+    --secondary-foreground: #FFFFFF;
+    --muted: #333333;
+    --muted-foreground: rgba(255, 255, 255, 0.6);
+    --accent: #333333;
+    --accent-foreground: #FFFFFF;
+    --destructive: #991B1B;
+    --destructive-foreground: #FFFFFF;
+    --border: #333333;
+    --input: #333333;
+    --ring: #D4D4D4;
+    --chart-1: 220 70% 50%;
+    --chart-2: 160 60% 45%;
+    --chart-3: 30 80% 55%;
+    --chart-4: 280 65% 60%;
+    --chart-5: 340 75% 55%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+    --copilot-kit-primary-color: var(--primary);
+    --copilot-kit-secondary-color: var(--primary-light);
+    --copilot-kit-scrollbar-color: var(--primary-light-alt);
+    --copilot-kit-separator-color: var(--border);
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+.copilotKitInput {
+  border-radius: 0 !important;
+}
