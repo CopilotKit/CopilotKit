@@ -21,10 +21,12 @@ export interface AgentContextInput {
   description: string;
   /** The context value - will be converted to a JSON string if not already a string */
   value: JsonSerializable;
+  /** Optional agent ID to scope this context to a specific agent */
+  agentId?: string;
 }
 
 export function useAgentContext(context: AgentContextInput) {
-  const { description, value } = context;
+  const { description, value, agentId } = context;
   const { copilotkit } = useCopilotKit();
 
   const stringValue = useMemo(() => {
@@ -37,9 +39,13 @@ export function useAgentContext(context: AgentContextInput) {
   useLayoutEffect(() => {
     if (!copilotkit) return;
 
-    const id = copilotkit.addContext({ description, value: stringValue });
+    const id = copilotkit.addContext({
+      description,
+      value: stringValue,
+      agentId,
+    });
     return () => {
       copilotkit.removeContext(id);
     };
-  }, [description, stringValue, copilotkit]);
+  }, [description, stringValue, agentId, copilotkit]);
 }

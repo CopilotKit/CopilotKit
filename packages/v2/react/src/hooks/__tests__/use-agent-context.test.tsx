@@ -373,6 +373,92 @@ describe("useAgentContext", () => {
     });
   });
 
+  describe("agentId scoping", () => {
+    it("passes agentId to addContext when specified", () => {
+      const TestComponent: React.FC = () => {
+        useAgentContext({
+          description: "scoped context",
+          value: "scoped value",
+          agentId: "agent-123",
+        });
+        return null;
+      };
+
+      render(<TestComponent />);
+
+      expect(addContextMock).toHaveBeenCalledWith({
+        description: "scoped context",
+        value: "scoped value",
+        agentId: "agent-123",
+      });
+    });
+
+    it("does not include agentId when not specified", () => {
+      const TestComponent: React.FC = () => {
+        useAgentContext({
+          description: "global context",
+          value: "global value",
+        });
+        return null;
+      };
+
+      render(<TestComponent />);
+
+      expect(addContextMock).toHaveBeenCalledWith({
+        description: "global context",
+        value: "global value",
+        agentId: undefined,
+      });
+    });
+
+    it("re-adds context when agentId changes", () => {
+      const TestComponent: React.FC<{ agentId?: string }> = ({ agentId }) => {
+        useAgentContext({
+          description: "context",
+          value: "value",
+          agentId,
+        });
+        return null;
+      };
+
+      const { rerender } = render(<TestComponent agentId="agent-1" />);
+
+      expect(addContextMock).toHaveBeenCalledTimes(1);
+      const firstContextId = addContextMock.mock.results[0]?.value;
+
+      rerender(<TestComponent agentId="agent-2" />);
+
+      expect(removeContextMock).toHaveBeenCalledTimes(1);
+      expect(removeContextMock).toHaveBeenCalledWith(firstContextId);
+      expect(addContextMock).toHaveBeenCalledTimes(2);
+      expect(addContextMock).toHaveBeenLastCalledWith({
+        description: "context",
+        value: "value",
+        agentId: "agent-2",
+      });
+    });
+
+    it("does not re-add context when agentId stays the same", () => {
+      const TestComponent: React.FC<{ counter: number }> = ({ counter }) => {
+        useAgentContext({
+          description: "context",
+          value: "value",
+          agentId: "stable-agent",
+        });
+        return <div>{counter}</div>;
+      };
+
+      const { rerender } = render(<TestComponent counter={0} />);
+
+      expect(addContextMock).toHaveBeenCalledTimes(1);
+
+      rerender(<TestComponent counter={1} />);
+
+      expect(addContextMock).toHaveBeenCalledTimes(1);
+      expect(removeContextMock).not.toHaveBeenCalled();
+    });
+  });
+
   describe("copilotkit not available", () => {
     it("does nothing when copilotkit is null", () => {
       mockUseCopilotKit.mockReturnValue({
