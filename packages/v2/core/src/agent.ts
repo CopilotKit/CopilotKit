@@ -183,12 +183,35 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
     parameters?: RunAgentParameters,
     subscriber?: AgentSubscriber,
   ): Promise<RunAgentResult> {
-    if (this.runtimeMode !== "intelligence") {
+    if (this.runtimeMode !== RUNTIME_MODE_INTELLIGENCE) {
       return super.connectAgent(parameters, subscriber);
     }
 
-    const delegate = await this.resolveDelegate();
-    return delegate.connectAgent(parameters, subscriber);
+    // Ensure the delegate exists and is synced with the proxy's current state.
+    await this.resolveDelegate();
+    const delegate = this.delegate!;
+
+    // Forward the proxy's subscribers to the delegate so that UI hooks
+    // (e.g. useAgent's onMessagesChanged) receive real-time updates as
+    // the delegate processes events during connectAgent.
+    const subscriptions = this.subscribers.map((s) => delegate.subscribe(s));
+
+    try {
+      const result = await delegate.connectAgent(parameters, subscriber);
+
+      // Sync the delegate's accumulated state back to the proxy so that
+      // any code reading proxy.messages sees the connected thread's history.
+      this.setMessages([...delegate.messages]);
+      this.setState({ ...delegate.state });
+
+      return result;
+    } finally {
+      // Remove forwarded subscribers to avoid duplicate notifications on
+      // subsequent calls (they'll be re-forwarded next time).
+      for (const sub of subscriptions) {
+        sub.unsubscribe();
+      }
+    }
   }
 
   connect(input: RunAgentInput): Observable<BaseEvent> {
