@@ -109,9 +109,12 @@ export class IntelligenceAgent extends AbstractAgent {
       // The 5-second fallback handles the case where the socket is down and
       // Phoenix never flushes the buffered push (its .receive("timeout") only
       // fires for pushes that were actually sent but not replied to).
-      const fallback = setTimeout(() => this.cleanup(), 5_000);
+      // detachActiveRun() gracefully tears down the connectAgent() pipeline;
+      // cleanup() follows as a safety net for the run() path.
+      const fallback = setTimeout(() => clear(), 5_000);
       const clear = () => {
         clearTimeout(fallback);
+        void this.detachActiveRun();
         this.cleanup();
       };
 
@@ -121,6 +124,7 @@ export class IntelligenceAgent extends AbstractAgent {
         .receive("error", clear)
         .receive("timeout", clear);
     } else {
+      void this.detachActiveRun();
       this.cleanup();
     }
   }
