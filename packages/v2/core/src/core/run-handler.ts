@@ -316,6 +316,11 @@ export class RunHandler {
     }
 
     if (needsFollowUp) {
+      // Yield to the framework scheduler before the follow-up run so that any
+      // deferred state updates (e.g. React useEffect in useAgentContext) can
+      // complete and write fresh values into the context store before runAgent
+      // reads it. The base implementation is a no-op; React overrides this.
+      await this._internal.waitForPendingFrameworkUpdates();
       return await this.runAgent({ agent });
     }
 
@@ -739,6 +744,10 @@ export class RunHandler {
         };
         agent.messages.push(userMessage);
       }
+      // Yield to the framework scheduler so deferred state updates (e.g. React
+      // useEffect in useAgentContext) can complete before the follow-up run reads
+      // the context store. Mirrors the same yield in processAgentResult.
+      await this._internal.waitForPendingFrameworkUpdates();
       // Trigger agent run for both "generate" and custom text
       await this.runAgent({ agent });
     }

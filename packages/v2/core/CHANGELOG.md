@@ -1,5 +1,12 @@
 # @copilotkitnext/core
 
+## 1.54.0-next.7
+
+### Patch Changes
+
+- eb1e0bf: fix(react): yield to React scheduler before follow-up agent run to pr…
+  - @copilotkitnext/shared@1.54.0-next.7
+
 ## 1.54.0-next.6
 
 ### Patch Changes

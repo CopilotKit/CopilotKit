@@ -180,6 +180,12 @@ export interface CopilotKitCoreFriendsAccess {
     clearSuggestions(agentId: string): void;
     reloadSuggestions(agentId: string): void;
   };
+
+  /**
+   * Called before each follow-up agent run (after tool execution).
+   * See CopilotKitCore.waitForPendingFrameworkUpdates for details.
+   */
+  waitForPendingFrameworkUpdates(): Promise<void>;
 }
 
 export class CopilotKitCore {
@@ -523,4 +529,23 @@ export class CopilotKitCore {
   private buildFrontendTools(agentId?: string): import("@ag-ui/client").Tool[] {
     return this.runHandler.buildFrontendTools(agentId);
   }
+
+  /**
+   * Called before each follow-up agent run (after tool execution).
+   *
+   * When a frontend tool handler calls framework state setters (e.g. React's
+   * setState), those updates are batched and deferred — they do not take effect
+   * until the framework's scheduler runs (React uses MessageChannel).
+   * useAgentContext registers context via useLayoutEffect, which runs
+   * synchronously after React commits that deferred batch.
+   *
+   * Without yielding here, the follow-up runAgent reads the context store
+   * synchronously while the deferred updates are still pending, producing stale
+   * context for the next agent turn.
+   *
+   * Override in framework-specific subclasses to yield to the framework
+   * scheduler before the follow-up run. The base implementation is a no-op
+   * because non-React environments have no deferred state to flush.
+   */
+  async waitForPendingFrameworkUpdates(): Promise<void> {}
 }
