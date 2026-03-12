@@ -191,16 +191,29 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
     await this.resolveDelegate();
     const delegate = this.delegate!;
 
+    // Subscribe a bridging observer FIRST so it fires before the forwarded
+    // UI subscribers.  This keeps proxy.messages in sync with the delegate
+    // in real-time — otherwise the UI re-renders (triggered by the
+    // forwarded onMessagesChanged) but reads stale proxy.messages because
+    // the final sync only happens after connectAgent resolves.
+    const bridgeSub = delegate.subscribe({
+      onMessagesChanged: () => {
+        this.setMessages([...delegate.messages]);
+      },
+      onStateChanged: () => {
+        this.setState({ ...delegate.state });
+      },
+    });
+
     // Forward the proxy's subscribers to the delegate so that UI hooks
     // (e.g. useAgent's onMessagesChanged) receive real-time updates as
     // the delegate processes events during connectAgent.
-    const subscriptions = this.subscribers.map((s) => delegate.subscribe(s));
+    const forwardedSubs = this.subscribers.map((s) => delegate.subscribe(s));
 
     try {
       const result = await delegate.connectAgent(parameters, subscriber);
 
-      // Sync the delegate's accumulated state back to the proxy so that
-      // any code reading proxy.messages sees the connected thread's history.
+      // Final sync to guarantee the proxy reflects the delegate's end state.
       this.setMessages([...delegate.messages]);
       this.setState({ ...delegate.state });
 
@@ -208,7 +221,8 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
     } finally {
       // Remove forwarded subscribers to avoid duplicate notifications on
       // subsequent calls (they'll be re-forwarded next time).
-      for (const sub of subscriptions) {
+      bridgeSub.unsubscribe();
+      for (const sub of forwardedSubs) {
         sub.unsubscribe();
       }
     }
