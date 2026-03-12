@@ -1,5 +1,28 @@
 # @copilotkitnext/react
 
+## 1.54.0
+
+### Minor Changes
+
+- fa0d1cd: Add support for Standard Schema (instead of just Zod)
+
+### Patch Changes
+
+- eb1e0bf: fix(react): yield to React scheduler before follow-up agent run to pr…
+- 3780c6a: deprecate: mark all @copilotkitnext/_ packages as deprecated in favor of @copilotkit/_ equivalents
+- 6e0cddf: feat: move a2ui message renderer to v2s react package
+- d746e4f: feat: eagerly create default A2UI renderer when middleware is enabled
+- Updated dependencies [eb1e0bf]
+- Updated dependencies [3780c6a]
+- Updated dependencies [6e0cddf]
+- Updated dependencies [c80498e]
+- Updated dependencies [7916df6]
+- Updated dependencies [f1571ef]
+  - @copilotkitnext/core@1.54.0
+  - @copilotkitnext/shared@1.54.0
+  - @copilotkitnext/web-inspector@1.54.0
+  - @copilotkit/a2ui-renderer@1.54.0
+
 ## 1.54.0-next.9
 
 ### Patch Changes
