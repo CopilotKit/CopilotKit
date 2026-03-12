@@ -46,24 +46,28 @@ export class BaseCommand extends Command {
   async run() {}
 
   async checkCLIVersion() {
-    const response = await fetch(`${COPILOT_CLOUD_BASE_URL}/api/healthz`);
+    try {
+      const response = await fetch(`${COPILOT_CLOUD_BASE_URL}/api/healthz`);
 
-    const data = await response.json();
-    const cloudVersion = data.cliVersion;
+      const data = await response.json();
+      const cloudVersion = data.cliVersion;
 
-    if (!cloudVersion || cloudVersion === LIB_VERSION) {
-      return;
+      if (!cloudVersion || cloudVersion === LIB_VERSION) {
+        return;
+      }
+
+      // TODO: add this back in, removed for crew ai launch since we don't want to keep releasing cloud
+      // this.log(chalk.yellow('================ New version available! =================\n'))
+      // this.log(`You are using CopilotKit CLI v${LIB_VERSION}.`)
+      // this.log(`A new CopilotKit CLI version is available (v${cloudVersion}).\n`)
+      // this.log('Please update your CLI to the latest version:\n\n')
+      // this.log(`${chalk.cyan(chalk.underline(chalk.bold('npm:')))}\t npm install -g copilotkit@${cloudVersion}\n`)
+      // this.log(`${chalk.cyan(chalk.underline(chalk.bold('pnpm:')))}\t pnpm install -g copilotkit@${cloudVersion}\n`)
+      // this.log(`${chalk.cyan(chalk.underline(chalk.bold('yarn:')))}\t yarn global add copilotkit@${cloudVersion}\n`)
+      // this.log(chalk.yellow('============================================================\n\n'))
+    } catch {
+      // Version check is non-critical — don't crash the CLI when offline
     }
-
-    // TODO: add this back in, removed for crew ai launch since we don't want to keep releasing cloud
-    // this.log(chalk.yellow('================ New version available! =================\n'))
-    // this.log(`You are using CopilotKit CLI v${LIB_VERSION}.`)
-    // this.log(`A new CopilotKit CLI version is available (v${cloudVersion}).\n`)
-    // this.log('Please update your CLI to the latest version:\n\n')
-    // this.log(`${chalk.cyan(chalk.underline(chalk.bold('npm:')))}\t npm install -g copilotkit@${cloudVersion}\n`)
-    // this.log(`${chalk.cyan(chalk.underline(chalk.bold('pnpm:')))}\t pnpm install -g copilotkit@${cloudVersion}\n`)
-    // this.log(`${chalk.cyan(chalk.underline(chalk.bold('yarn:')))}\t yarn global add copilotkit@${cloudVersion}\n`)
-    // this.log(chalk.yellow('============================================================\n\n'))
   }
 
   async gracefulError(message: string) {
