@@ -15,12 +15,19 @@
     "@copilotkit/react-ui": "next",
     "@copilotkit/runtime": "next",
     "@copilotkitnext/shared": "next",
+    "@radix-ui/react-checkbox": "^1.3.3",
+    "@radix-ui/react-label": "^2.1.8",
+    "@radix-ui/react-separator": "^1.1.8",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "lucide-react": "^0.577.0",
     "next": "16.1.6",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "react-rnd": "^10.5.2",
     "react18-json-view": "^0.2.9",
-    "recharts": "^3.7.0"
+    "recharts": "^3.7.0",
+    "tailwind-merge": "^3.5.0"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",

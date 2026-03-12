@@ -1,6 +1,11 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import { Card } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Button } from "@/components/ui/button";
+import { X } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface Todo {
   id: string;
@@ -73,50 +78,38 @@ export function TodoCard({
   }, [editValue]);
 
   return (
-    <div
-      className={`group relative rounded-2xl p-5 transition-all duration-150 border ${
-        isCompleted
-          ? "bg-neutral-100 border-neutral-200 dark:bg-neutral-800/50 dark:border-neutral-700"
-          : "bg-white border-neutral-300 dark:bg-neutral-800 dark:border-neutral-700"
-      }`}
+    <Card
+      className={cn(
+        "group relative p-5 transition-all duration-150",
+        isCompleted && "opacity-60",
+      )}
     >
       {/* Delete — top right on hover */}
-      <button
+      <Button
+        variant="ghost"
+        size="icon"
         onClick={() => onDelete(todo)}
-        className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity duration-100 cursor-pointer rounded-full p-1 text-neutral-400 hover:text-neutral-600 dark:text-neutral-500 dark:hover:text-neutral-300"
+        className="absolute top-3 right-3 h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
         aria-label="Delete todo"
       >
-        <svg
-          width="14"
-          height="14"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-        >
-          <line x1="18" y1="6" x2="6" y2="18" />
-          <line x1="6" y1="6" x2="18" y2="18" />
-        </svg>
-      </button>
+        <X className="h-3.5 w-3.5" />
+      </Button>
 
       {/* Emoji avatar */}
       <div className="relative inline-block mb-3">
         <button
           onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-          className={`block text-3xl leading-none cursor-pointer rounded-xl p-2 transition-colors duration-100 ${
-            isCompleted
-              ? "bg-neutral-200 dark:bg-neutral-700"
-              : "bg-neutral-100 dark:bg-neutral-700/50"
-          }`}
+          className={cn(
+            "block text-3xl leading-none cursor-pointer rounded-xl p-2 transition-colors",
+            isCompleted ? "bg-[var(--muted)]" : "bg-[var(--secondary)]",
+          )}
           aria-label="Change emoji"
         >
           {todo.emoji}
         </button>
 
-        {/* Emoji picker */}
         {showEmojiPicker && (
-          <div className="absolute top-0 left-full ml-2 z-10 flex gap-1 p-1.5 rounded-full bg-white border border-neutral-300 shadow-lg dark:bg-neutral-800 dark:border-neutral-600">
+          <div className="absolute top-0 left-full ml-2 z-10 flex gap-1 p-1.5 rounded-full bg-[var(--card)] border border-[var(--border)] shadow-lg">
             {EMOJI_OPTIONS.map((emoji) => (
               <button
                 key={emoji}
@@ -124,7 +117,7 @@ export function TodoCard({
                   onUpdateEmoji(todo.id, emoji);
                   setShowEmojiPicker(false);
                 }}
-                className="text-lg w-8 h-8 flex items-center justify-center rounded-full cursor-pointer transition-colors hover:bg-neutral-100 dark:hover:bg-neutral-700"
+                className="text-lg w-8 h-8 flex items-center justify-center rounded-full cursor-pointer transition-colors hover:bg-[var(--secondary)]"
               >
                 {emoji}
               </button>
@@ -135,46 +128,12 @@ export function TodoCard({
 
       {/* Title */}
       <div className="flex items-start gap-3">
-        {/* Checkbox */}
-        <button
-          onClick={() => onToggleStatus(todo)}
-          className="flex-shrink-0 mt-[2px] cursor-pointer"
-          aria-label={isCompleted ? "Mark as incomplete" : "Mark as complete"}
-        >
-          {isCompleted ? (
-            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-              <rect
-                x="1"
-                y="1"
-                width="18"
-                height="18"
-                rx="6"
-                className="fill-neutral-900 dark:fill-neutral-100"
-              />
-              <path
-                d="M6 10.5L8.5 13L14 7"
-                className="stroke-white dark:stroke-neutral-900"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-          ) : (
-            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-              <rect
-                x="1"
-                y="1"
-                width="18"
-                height="18"
-                rx="6"
-                className="stroke-neutral-300 dark:stroke-neutral-600"
-                strokeWidth="1.5"
-              />
-            </svg>
-          )}
-        </button>
+        <Checkbox
+          checked={isCompleted}
+          onCheckedChange={() => onToggleStatus(todo)}
+          className="mt-[2px]"
+        />
 
-        {/* Text content */}
         <div className="flex-1 min-w-0">
           {editingField === "title" ? (
             <input
@@ -186,18 +145,19 @@ export function TodoCard({
                 if (e.key === "Enter") saveEdit("title");
                 if (e.key === "Escape") cancelEdit();
               }}
-              className="w-full text-[16px] font-semibold focus:outline-none bg-transparent text-neutral-900 dark:text-neutral-100 border-b-2 border-neutral-900 dark:border-neutral-100 pb-[2px]"
+              className="w-full text-base font-semibold focus:outline-none bg-transparent text-[var(--foreground)] border-b-2 border-[var(--primary)] pb-[2px]"
               autoFocus
               aria-label="Edit todo title"
             />
           ) : (
             <div
               onClick={() => startEdit("title")}
-              className={`text-[16px] font-semibold cursor-text break-words leading-snug ${
+              className={cn(
+                "text-base font-semibold cursor-text break-words leading-snug",
                 isCompleted
-                  ? "text-neutral-400 line-through dark:text-neutral-500"
-                  : "text-neutral-900 dark:text-neutral-100"
-              }`}
+                  ? "text-[var(--muted-foreground)] line-through"
+                  : "text-[var(--foreground)]",
+              )}
             >
               {todo.title}
             </div>
@@ -212,7 +172,7 @@ export function TodoCard({
               onKeyDown={(e) => {
                 if (e.key === "Escape") cancelEdit();
               }}
-              className="w-full mt-1.5 text-[14px] leading-relaxed focus:outline-none resize-none bg-transparent text-neutral-500 dark:text-neutral-400 border-b-2 border-neutral-900 dark:border-neutral-100 pb-[2px]"
+              className="w-full mt-1.5 text-sm leading-relaxed focus:outline-none resize-none bg-transparent text-[var(--muted-foreground)] border-b-2 border-[var(--primary)] pb-[2px]"
               rows={1}
               autoFocus
               aria-label="Edit todo description"
@@ -220,17 +180,18 @@ export function TodoCard({
           ) : (
             <p
               onClick={() => startEdit("description")}
-              className={`mt-1.5 text-[14px] leading-relaxed cursor-text ${
+              className={cn(
+                "mt-1.5 text-sm leading-relaxed cursor-text",
                 isCompleted
-                  ? "text-neutral-300 line-through dark:text-neutral-600"
-                  : "text-neutral-500 dark:text-neutral-400"
-              }`}
+                  ? "text-[var(--muted-foreground)] line-through"
+                  : "text-[var(--muted-foreground)]",
+              )}
             >
               {truncatedDescription}
             </p>
           )}
         </div>
       </div>
-    </div>
+    </Card>
   );
 }
