@@ -25,55 +25,55 @@
 🦋  [36minfo[39m npm info @copilotkit/voice
 🦋  [36minfo[39m npm info @copilotkitnext/web-inspector
 🦋  [33mwarn[39m agent-langraph-interrupt is not being published because version 0.0.1 is already published on npm
-🦋  [36minfo[39m @copilotkit/a2ui-renderer is being published because our local version (1.54.0-next.7) has not been published on npm
-🦋  [36minfo[39m @copilotkit/react-core is being published because our local version (1.54.0-next.7) has not been published on npm
-🦋  [36minfo[39m @copilotkit/react-textarea is being published because our local version (1.54.0-next.7) has not been published on npm
-🦋  [36minfo[39m @copilotkit/react-ui is being published because our local version (1.54.0-next.7) has not been published on npm
-🦋  [36minfo[39m @copilotkit/runtime is being published because our local version (1.54.0-next.7) has not been published on npm
-🦋  [36minfo[39m @copilotkit/runtime-client-gql is being published because our local version (1.54.0-next.7) has not been published on npm
-🦋  [36minfo[39m @copilotkit/sdk-js is being published because our local version (1.54.0-next.7) has not been published on npm
-🦋  [36minfo[39m @copilotkit/shared is being published because our local version (1.54.0-next.7) has not been published on npm
-🦋  [36minfo[39m @copilotkitnext/agent is being published because our local version (1.54.0-next.7) has not been published on npm
-🦋  [36minfo[39m @copilotkitnext/angular is being published because our local version (1.54.0-next.7) has not been published on npm
-🦋  [36minfo[39m @copilotkitnext/core is being published because our local version (1.54.0-next.7) has not been published on npm
-🦋  [36minfo[39m @copilotkitnext/react is being published because our local version (1.54.0-next.7) has not been published on npm
-🦋  [36minfo[39m @copilotkitnext/runtime is being published because our local version (1.54.0-next.7) has not been published on npm
-🦋  [36minfo[39m @copilotkitnext/shared is being published because our local version (1.54.0-next.7) has not been published on npm
-🦋  [36minfo[39m @copilotkitnext/sqlite-runner is being published because our local version (1.54.0-next.7) has not been published on npm
-🦋  [36minfo[39m @copilotkit/voice is being published because our local version (1.54.0-next.7) has not been published on npm
-🦋  [36minfo[39m @copilotkitnext/web-inspector is being published because our local version (1.54.0-next.7) has not been published on npm
-🦋  [36minfo[39m Publishing [36m"@copilotkit/a2ui-renderer"[39m at [32m"1.54.0-next.7"[39m
-🦋  [36minfo[39m Publishing [36m"@copilotkit/react-core"[39m at [32m"1.54.0-next.7"[39m
-🦋  [36minfo[39m Publishing [36m"@copilotkit/react-textarea"[39m at [32m"1.54.0-next.7"[39m
-🦋  [36minfo[39m Publishing [36m"@copilotkit/react-ui"[39m at [32m"1.54.0-next.7"[39m
-🦋  [36minfo[39m Publishing [36m"@copilotkit/runtime"[39m at [32m"1.54.0-next.7"[39m
-🦋  [36minfo[39m Publishing [36m"@copilotkit/runtime-client-gql"[39m at [32m"1.54.0-next.7"[39m
-🦋  [36minfo[39m Publishing [36m"@copilotkit/sdk-js"[39m at [32m"1.54.0-next.7"[39m
-🦋  [36minfo[39m Publishing [36m"@copilotkit/shared"[39m at [32m"1.54.0-next.7"[39m
-🦋  [36minfo[39m Publishing [36m"@copilotkitnext/agent"[39m at [32m"1.54.0-next.7"[39m
-🦋  [36minfo[39m Publishing [36m"@copilotkitnext/angular"[39m at [32m"1.54.0-next.7"[39m
-🦋  [36minfo[39m Publishing [36m"@copilotkitnext/core"[39m at [32m"1.54.0-next.7"[39m
-🦋  [36minfo[39m Publishing [36m"@copilotkitnext/react"[39m at [32m"1.54.0-next.7"[39m
-🦋  [36minfo[39m Publishing [36m"@copilotkitnext/runtime"[39m at [32m"1.54.0-next.7"[39m
-🦋  [36minfo[39m Publishing [36m"@copilotkitnext/shared"[39m at [32m"1.54.0-next.7"[39m
-🦋  [36minfo[39m Publishing [36m"@copilotkitnext/sqlite-runner"[39m at [32m"1.54.0-next.7"[39m
-🦋  [36minfo[39m Publishing [36m"@copilotkit/voice"[39m at [32m"1.54.0-next.7"[39m
-🦋  [36minfo[39m Publishing [36m"@copilotkitnext/web-inspector"[39m at [32m"1.54.0-next.7"[39m
+🦋  [36minfo[39m @copilotkit/a2ui-renderer is being published because our local version (1.54.0-next.8) has not been published on npm
+🦋  [36minfo[39m @copilotkit/react-core is being published because our local version (1.54.0-next.8) has not been published on npm
+🦋  [36minfo[39m @copilotkit/react-textarea is being published because our local version (1.54.0-next.8) has not been published on npm
+🦋  [36minfo[39m @copilotkit/react-ui is being published because our local version (1.54.0-next.8) has not been published on npm
+🦋  [36minfo[39m @copilotkit/runtime is being published because our local version (1.54.0-next.8) has not been published on npm
+🦋  [36minfo[39m @copilotkit/runtime-client-gql is being published because our local version (1.54.0-next.8) has not been published on npm
+🦋  [36minfo[39m @copilotkit/sdk-js is being published because our local version (1.54.0-next.8) has not been published on npm
+🦋  [36minfo[39m @copilotkit/shared is being published because our local version (1.54.0-next.8) has not been published on npm
+🦋  [36minfo[39m @copilotkitnext/agent is being published because our local version (1.54.0-next.8) has not been published on npm
+🦋  [36minfo[39m @copilotkitnext/angular is being published because our local version (1.54.0-next.8) has not been published on npm
+🦋  [36minfo[39m @copilotkitnext/core is being published because our local version (1.54.0-next.8) has not been published on npm
+🦋  [36minfo[39m @copilotkitnext/react is being published because our local version (1.54.0-next.8) has not been published on npm
+🦋  [36minfo[39m @copilotkitnext/runtime is being published because our local version (1.54.0-next.8) has not been published on npm
+🦋  [36minfo[39m @copilotkitnext/shared is being published because our local version (1.54.0-next.8) has not been published on npm
+🦋  [36minfo[39m @copilotkitnext/sqlite-runner is being published because our local version (1.54.0-next.8) has not been published on npm
+🦋  [36minfo[39m @copilotkit/voice is being published because our local version (1.54.0-next.8) has not been published on npm
+🦋  [36minfo[39m @copilotkitnext/web-inspector is being published because our local version (1.54.0-next.8) has not been published on npm
+🦋  [36minfo[39m Publishing [36m"@copilotkit/a2ui-renderer"[39m at [32m"1.54.0-next.8"[39m
+🦋  [36minfo[39m Publishing [36m"@copilotkit/react-core"[39m at [32m"1.54.0-next.8"[39m
+🦋  [36minfo[39m Publishing [36m"@copilotkit/react-textarea"[39m at [32m"1.54.0-next.8"[39m
+🦋  [36minfo[39m Publishing [36m"@copilotkit/react-ui"[39m at [32m"1.54.0-next.8"[39m
+🦋  [36minfo[39m Publishing [36m"@copilotkit/runtime"[39m at [32m"1.54.0-next.8"[39m
+🦋  [36minfo[39m Publishing [36m"@copilotkit/runtime-client-gql"[39m at [32m"1.54.0-next.8"[39m
+🦋  [36minfo[39m Publishing [36m"@copilotkit/sdk-js"[39m at [32m"1.54.0-next.8"[39m
+🦋  [36minfo[39m Publishing [36m"@copilotkit/shared"[39m at [32m"1.54.0-next.8"[39m
+🦋  [36minfo[39m Publishing [36m"@copilotkitnext/agent"[39m at [32m"1.54.0-next.8"[39m
+🦋  [36minfo[39m Publishing [36m"@copilotkitnext/angular"[39m at [32m"1.54.0-next.8"[39m
+🦋  [36minfo[39m Publishing [36m"@copilotkitnext/core"[39m at [32m"1.54.0-next.8"[39m
+🦋  [36minfo[39m Publishing [36m"@copilotkitnext/react"[39m at [32m"1.54.0-next.8"[39m
+🦋  [36minfo[39m Publishing [36m"@copilotkitnext/runtime"[39m at [32m"1.54.0-next.8"[39m
+🦋  [36minfo[39m Publishing [36m"@copilotkitnext/shared"[39m at [32m"1.54.0-next.8"[39m
+🦋  [36minfo[39m Publishing [36m"@copilotkitnext/sqlite-runner"[39m at [32m"1.54.0-next.8"[39m
+🦋  [36minfo[39m Publishing [36m"@copilotkit/voice"[39m at [32m"1.54.0-next.8"[39m
+🦋  [36minfo[39m Publishing [36m"@copilotkitnext/web-inspector"[39m at [32m"1.54.0-next.8"[39m
 🦋  [32msuccess[39m packages published successfully:
-🦋  @copilotkit/a2ui-renderer@1.54.0-next.7
-🦋  @copilotkit/react-core@1.54.0-next.7
-🦋  @copilotkit/react-textarea@1.54.0-next.7
-🦋  @copilotkit/react-ui@1.54.0-next.7
-🦋  @copilotkit/runtime@1.54.0-next.7
-🦋  @copilotkit/runtime-client-gql@1.54.0-next.7
-🦋  @copilotkit/sdk-js@1.54.0-next.7
-🦋  @copilotkit/shared@1.54.0-next.7
-🦋  @copilotkitnext/agent@1.54.0-next.7
-🦋  @copilotkitnext/angular@1.54.0-next.7
-🦋  @copilotkitnext/core@1.54.0-next.7
-🦋  @copilotkitnext/react@1.54.0-next.7
-🦋  @copilotkitnext/runtime@1.54.0-next.7
-🦋  @copilotkitnext/shared@1.54.0-next.7
-🦋  @copilotkitnext/sqlite-runner@1.54.0-next.7
-🦋  @copilotkit/voice@1.54.0-next.7
-🦋  @copilotkitnext/web-inspector@1.54.0-next.7
+🦋  @copilotkit/a2ui-renderer@1.54.0-next.8
+🦋  @copilotkit/react-core@1.54.0-next.8
+🦋  @copilotkit/react-textarea@1.54.0-next.8
+🦋  @copilotkit/react-ui@1.54.0-next.8
+🦋  @copilotkit/runtime@1.54.0-next.8
+🦋  @copilotkit/runtime-client-gql@1.54.0-next.8
+🦋  @copilotkit/sdk-js@1.54.0-next.8
+🦋  @copilotkit/shared@1.54.0-next.8
+🦋  @copilotkitnext/agent@1.54.0-next.8
+🦋  @copilotkitnext/angular@1.54.0-next.8
+🦋  @copilotkitnext/core@1.54.0-next.8
+🦋  @copilotkitnext/react@1.54.0-next.8
+🦋  @copilotkitnext/runtime@1.54.0-next.8
+🦋  @copilotkitnext/shared@1.54.0-next.8
+🦋  @copilotkitnext/sqlite-runner@1.54.0-next.8
+🦋  @copilotkit/voice@1.54.0-next.8
+🦋  @copilotkitnext/web-inspector@1.54.0-next.8

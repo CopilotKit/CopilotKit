@@ -1,5 +1,12 @@
 # @copilotkitnext/core
 
+## 1.54.0-next.8
+
+### Patch Changes
+
+- f1571ef: fix: inject useCopilotReadable context into connectAgent
+  - @copilotkitnext/shared@1.54.0-next.8
+
 ## 1.54.0-next.7
 
 ### Patch Changes
