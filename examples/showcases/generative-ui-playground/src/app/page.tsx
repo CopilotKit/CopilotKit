@@ -2,7 +2,11 @@
 
 import { useState, useEffect } from "react";
 // All modes use @copilotkitnext packages
-import { CopilotKitProvider, CopilotSidebar, CopilotPopup } from "@copilotkitnext/react";
+import {
+  CopilotKitProvider,
+  CopilotSidebar,
+  CopilotPopup,
+} from "@copilotkitnext/react";
 import { useMediaQuery } from "@/hooks/use-media-query";
 // A2UI mode: separate component with A2UI-specific configuration
 import { A2UIPage } from "./components/A2UIPage";
@@ -72,7 +76,8 @@ function PageContent({
                 </a>
               </div>
               <p className="text-lg text-[var(--color-text-secondary)] max-w-2xl mx-auto">
-                Explore three approaches to building AI-powered user interfaces with CopilotKit
+                Explore three approaches to building AI-powered user interfaces
+                with CopilotKit
               </p>
               <div className="flex justify-center gap-3 mt-4">
                 <a
@@ -101,7 +106,14 @@ function PageContent({
                 className={`protocol-tab ${activeAgent === "default" ? "active" : ""}`}
               >
                 <span className="flex items-center gap-2">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                  >
                     <rect x="3" y="3" width="18" height="18" rx="2" />
                     <path d="M9 9h6v6H9z" />
                   </svg>
@@ -113,7 +125,14 @@ function PageContent({
                 className={`protocol-tab ${activeAgent === "a2ui" ? "active" : ""}`}
               >
                 <span className="flex items-center gap-2">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                  >
                     <circle cx="12" cy="12" r="10" />
                     <path d="M12 6v6l4 2" />
                   </svg>
@@ -124,9 +143,18 @@ function PageContent({
 
             {/* Protocol Cards */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-              <StaticGenUICard isActive={activeAgent === "default"} onPromptClick={(prompt) => onPillClick(prompt, "default")} />
-              <MCPAppsCard isActive={activeAgent === "default"} onPromptClick={(prompt) => onPillClick(prompt, "default")} />
-              <A2UICard isActive={activeAgent === "a2ui"} onPromptClick={(prompt) => onPillClick(prompt, "a2ui")} />
+              <StaticGenUICard
+                isActive={activeAgent === "default"}
+                onPromptClick={(prompt) => onPillClick(prompt, "default")}
+              />
+              <MCPAppsCard
+                isActive={activeAgent === "default"}
+                onPromptClick={(prompt) => onPillClick(prompt, "default")}
+              />
+              <A2UICard
+                isActive={activeAgent === "a2ui"}
+                onPromptClick={(prompt) => onPillClick(prompt, "a2ui")}
+              />
             </div>
 
             {/* Comparison Table */}
@@ -175,8 +203,10 @@ function PageContent({
                     "Show me restaurants with secret menus",
                     "Find a place that serves breakfast at midnight",
                   ];
-                  const prompts = activeAgent === "default" ? defaultPrompts : a2uiPrompts;
-                  const randomPrompt = prompts[Math.floor(Math.random() * prompts.length)];
+                  const prompts =
+                    activeAgent === "default" ? defaultPrompts : a2uiPrompts;
+                  const randomPrompt =
+                    prompts[Math.floor(Math.random() * prompts.length)];
                   sendMessage(randomPrompt);
                 }}
                 className="mt-4 px-4 py-2 bg-gradient-to-r from-[#9f8fef] to-[#7dd3c0] text-white rounded-full font-medium hover:opacity-90 transition-opacity flex items-center gap-2 mx-auto"
@@ -228,7 +258,11 @@ export default function Home() {
   // Default mode: Static GenUI + MCP Apps (no A2UI renderer needed)
   // Key forces complete remount when switching to avoid stale state issues
   return (
-    <CopilotKitProvider key="default-provider" runtimeUrl="/api/copilotkit" showDevConsole={false}>
+    <CopilotKitProvider
+      key="default-provider"
+      runtimeUrl="/api/copilotkit"
+      showDevConsole={false}
+    >
       <CopilotContextProvider>
         {isDesktop ? (
           // Desktop: Sidebar layout
@@ -244,7 +278,8 @@ export default function Home() {
               defaultOpen={true}
               labels={{
                 modalHeaderTitle: "Static + MCP Apps",
-                chatInputPlaceholder: "Ask about weather, stocks, or try the interactive apps!",
+                chatInputPlaceholder:
+                  "Ask about weather, stocks, or try the interactive apps!",
               }}
             />
           </>
@@ -262,7 +297,8 @@ export default function Home() {
               defaultOpen={false}
               labels={{
                 modalHeaderTitle: "Static + MCP Apps",
-                chatInputPlaceholder: "Ask about weather, stocks, or try the interactive apps!",
+                chatInputPlaceholder:
+                  "Ask about weather, stocks, or try the interactive apps!",
               }}
             />
           </>

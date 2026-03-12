@@ -1,6 +1,5 @@
 # CopilotKit <> A2A + A2UI Starter
 
-
 This is a starter template for building AI agents that use [A2UI](https://a2ui.org) and [CopilotKit](https://copilotkit.ai). It provides a modern Next.js application with an integrated restaurant finder agent that can find restaurants and book reservations
 
 ![Demo](Demo.gif)
@@ -22,6 +21,7 @@ This is a starter template for building AI agents that use [A2UI](https://a2ui.o
 ## Getting Started
 
 1. Install dependencies using your preferred package manager:
+
 ```bash
 # Using pnpm (recommended)
 pnpm install
@@ -44,7 +44,6 @@ bun install
 > npm run install:agent
 > ```
 
-
 3. Set up your Gemeni API key:
 
 Create a `.env` file inside the `agent` folder with the following content:
@@ -53,8 +52,8 @@ Create a `.env` file inside the `agent` folder with the following content:
 GEMENI_API_KEY=sk-...your-openai-key-here...
 ```
 
-
 4. Start the development server:
+
 ```bash
 # Using pnpm
 pnpm dev
@@ -72,7 +71,9 @@ bun run dev
 This will start both the UI and agent servers concurrently.
 
 ## Available Scripts
+
 The following scripts can also be run using your preferred package manager:
+
 - `dev` - Starts both UI and agent servers in development mode
 - `dev:debug` - Starts development servers with debug logging enabled
 - `dev:ui` - Starts only the Next.js UI server
@@ -88,6 +89,7 @@ The main UI component is in `src/app/page.tsx`, but most of the UI comes from fr
 To generate new components, try the [A2UI Composer](https://a2ui-editor.ag-ui.com)
 
 ## 📚 Documentation
+
 - [A2UI + CopilotKit Documentation](https://docs.copilotkit.ai/a2a) - Learn more about how to use A2UI with CopilotKit
 - [A2UI Documentation](https://a2ui.org) - Learn more about A2UI and its capabilities
 - [CopilotKit Documentation](https://docs.copilotkit.ai) - Explore CopilotKit's capabilities
@@ -104,13 +106,17 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 ## Troubleshooting
 
 ### Agent Connection Issues
+
 If you see "I'm having trouble connecting to my tools", make sure:
+
 1. The ADK agent is running on port 10002
 2. Your Gemini API key is set correctly
 3. Both servers started successfully
 
 ### Python Dependencies
+
 If you encounter Python import errors:
+
 ```bash
 cd agent
 uv sync

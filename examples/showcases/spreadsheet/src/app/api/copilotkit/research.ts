@@ -41,19 +41,19 @@ async function curate(state: typeof StateAnnotation.State) {
   const response = await model().invoke(
     [
       new SystemMessage(
-        'Return 5 most relevant article URLs as JSON: {urls: ["url1",...]}'
+        'Return 5 most relevant article URLs as JSON: {urls: ["url1",...]}',
       ),
       new HumanMessage(
-        `Topic: ${state.agentState.topic}\nArticles: ${state.agentState.searchResults}`
+        `Topic: ${state.agentState.topic}\nArticles: ${state.agentState.searchResults}`,
       ),
     ],
-    { response_format: { type: "json_object" } }
+    { response_format: { type: "json_object" } },
   );
 
   const urls = JSON.parse(response.content as string).urls;
   const searchResults = JSON.parse(state.agentState.searchResults!);
   const filtered = searchResults.filter((r: any) =>
-    urls.includes(r.metadata.source)
+    urls.includes(r.metadata.source),
   );
   return {
     agentState: {
@@ -67,7 +67,7 @@ async function write(state: typeof StateAnnotation.State) {
   const response = await model().invoke([
     new SystemMessage("Write a 5-paragraph article in markdown."),
     new HumanMessage(
-      `Topic: ${state.agentState.topic}\nSources: ${state.agentState.searchResults}`
+      `Topic: ${state.agentState.topic}\nSources: ${state.agentState.searchResults}`,
     ),
   ]);
   return {
@@ -81,7 +81,7 @@ async function critique(state: typeof StateAnnotation.State) {
     : "";
   const response = await model().invoke([
     new SystemMessage(
-      "Review article. Return [DONE] if good, or provide brief feedback."
+      "Review article. Return [DONE] if good, or provide brief feedback.",
     ),
     new HumanMessage(`${feedback}\nArticle: ${state.agentState.article}`),
   ]);
@@ -98,7 +98,7 @@ async function revise(state: typeof StateAnnotation.State) {
   const response = await model().invoke([
     new SystemMessage("Edit article based on critique."),
     new HumanMessage(
-      `Article: ${state.agentState.article}\nCritique: ${state.agentState.critique}`
+      `Article: ${state.agentState.article}\nCritique: ${state.agentState.critique}`,
     ),
   ]);
   return {
@@ -137,10 +137,10 @@ export async function researchWithLangGraph(topic: string) {
     { agentState: { topic } },
     {
       configurable: { thread_id: "research-" + Date.now(), checkpoint_id: "1" },
-    }
+    },
   );
   return result?.agentState?.article?.replace(
     /<FEEDBACK>[\s\S]*?<\/FEEDBACK>/g,
-    ""
+    "",
   );
 }

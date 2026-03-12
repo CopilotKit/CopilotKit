@@ -9,25 +9,25 @@ body {
 @layer base {
   :root {
     /* Base colors */
-    --background: #FAF9F6;
-    --foreground: #3D2B1F;
-    --card: #FFFFFF;
-    --card-foreground: #3D2B1F;
-    --popover: #FFFFFF;
-    --popover-foreground: #3D2B1F;
-    --primary: #8B4513;
-    --primary-foreground: #FFFFFF;
+    --background: #faf9f6;
+    --foreground: #3d2b1f;
+    --card: #ffffff;
+    --card-foreground: #3d2b1f;
+    --popover: #ffffff;
+    --popover-foreground: #3d2b1f;
+    --primary: #8b4513;
+    --primary-foreground: #ffffff;
     --secondary: rgba(139, 69, 19, 0.05);
-    --secondary-foreground: #8B4513;
+    --secondary-foreground: #8b4513;
     --muted: rgba(139, 69, 19, 0.05);
     --muted-foreground: rgba(61, 43, 31, 0.6);
     --accent: rgba(139, 69, 19, 0.05);
-    --accent-foreground: #8B4513;
-    --destructive: #EF4444;
-    --destructive-foreground: #FFFFFF;
+    --accent-foreground: #8b4513;
+    --destructive: #ef4444;
+    --destructive-foreground: #ffffff;
     --border: rgba(139, 69, 19, 0.1);
     --input: rgba(139, 69, 19, 0.1);
-    --ring: #8B4513;
+    --ring: #8b4513;
     --radius: 0.5rem;
 
     /* Chart colors */
@@ -40,34 +40,34 @@ body {
     /* Custom colors */
     --primary-light: rgba(139, 69, 19, 0.05);
     --primary-light-alt: rgba(139, 69, 19, 0.1);
-    --background-alt: #FFFFFF;
+    --background-alt: #ffffff;
     --input-border: rgba(139, 69, 19, 0.2);
     --focus-border: rgba(139, 69, 19, 0.5);
     --button-hover: rgba(139, 69, 19, 0.8);
-    --ai-avatar: #4A5568;
-    --text-contrast: #FFFFFF;
+    --ai-avatar: #4a5568;
+    --text-contrast: #ffffff;
   }
 
   .dark {
-    --background: #1A1A1A;
-    --foreground: #FFFFFF;
+    --background: #1a1a1a;
+    --foreground: #ffffff;
     --card: #262626;
-    --card-foreground: #FFFFFF;
+    --card-foreground: #ffffff;
     --popover: #262626;
-    --popover-foreground: #FFFFFF;
-    --primary: #FFFFFF;
-    --primary-foreground: #1A1A1A;
+    --popover-foreground: #ffffff;
+    --primary: #ffffff;
+    --primary-foreground: #1a1a1a;
     --secondary: #333333;
-    --secondary-foreground: #FFFFFF;
+    --secondary-foreground: #ffffff;
     --muted: #333333;
     --muted-foreground: rgba(255, 255, 255, 0.6);
     --accent: #333333;
-    --accent-foreground: #FFFFFF;
-    --destructive: #991B1B;
-    --destructive-foreground: #FFFFFF;
+    --accent-foreground: #ffffff;
+    --destructive: #991b1b;
+    --destructive-foreground: #ffffff;
     --border: #333333;
     --input: #333333;
-    --ring: #D4D4D4;
+    --ring: #d4d4d4;
     --chart-1: 220 70% 50%;
     --chart-2: 160 60% 45%;
     --chart-3: 30 80% 55%;

@@ -16,7 +16,7 @@ export function NavButton({ children, onClick, disabled }: NavButtonProps) {
         "focus:outline-none",
         disabled
           ? "opacity-40 cursor-not-allowed"
-          : "hover:bg-white hover:text-black"
+          : "hover:bg-white hover:text-black",
       )}
     >
       {children}

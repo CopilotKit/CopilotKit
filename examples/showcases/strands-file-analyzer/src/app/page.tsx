@@ -1,9 +1,6 @@
 "use client";
 
-import {
-  useDefaultTool,
-  useCoAgent,
-} from "@copilotkit/react-core";
+import { useDefaultTool, useCoAgent } from "@copilotkit/react-core";
 import { CopilotChat } from "@copilotkit/react-ui";
 import { useCallback, useEffect, useRef, useState } from "react";
 
@@ -50,7 +47,7 @@ export default function FileInvestigatorPage() {
         summary: null,
       });
     },
-    [state, setState]
+    [state, setState],
   );
 
   // Handle tweet copy
@@ -66,13 +63,13 @@ export default function FileInvestigatorPage() {
       setState({
         ...stateRef.current,
         tweets: stateRef.current.tweets.map((t) =>
-          t.id === id ? { ...t, posted: true } : t
+          t.id === id ? { ...t, posted: true } : t,
         ),
       });
       setToastMessage("Tweet posted! The truth is out there.");
       setTimeout(() => setToastMessage(null), 2000);
     },
-    [setState]
+    [setState],
   );
 
   // Handle tweet edit
@@ -81,11 +78,11 @@ export default function FileInvestigatorPage() {
       setState({
         ...stateRef.current,
         tweets: stateRef.current.tweets.map((t) =>
-          t.id === id ? { ...t, content: newContent } : t
+          t.id === id ? { ...t, content: newContent } : t,
         ),
       });
     },
-    [setState]
+    [setState],
   );
 
   // Tools update state directly, dashboard panels render from state
@@ -116,13 +113,27 @@ export default function FileInvestigatorPage() {
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center">
-              <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              <svg
+                className="w-5 h-5 text-white"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                />
               </svg>
             </div>
             <div>
-              <h1 className="text-xl font-bold text-slate-900">File Investigator</h1>
-              <p className="text-sm text-slate-500">AI-powered document analysis</p>
+              <h1 className="text-xl font-bold text-slate-900">
+                File Investigator
+              </h1>
+              <p className="text-sm text-slate-500">
+                AI-powered document analysis
+              </p>
             </div>
           </div>
           <div className="text-xs text-slate-400">
@@ -164,7 +175,8 @@ export default function FileInvestigatorPage() {
               <CopilotChat
                 labels={{
                   title: "Investigation Assistant",
-                  initial: "Upload a PDF and I'll help you investigate it. Some documents have more... interesting... contents than others.",
+                  initial:
+                    "Upload a PDF and I'll help you investigate it. Some documents have more... interesting... contents than others.",
                   placeholder: "Ask me to analyze the document...",
                 }}
                 className="h-full"

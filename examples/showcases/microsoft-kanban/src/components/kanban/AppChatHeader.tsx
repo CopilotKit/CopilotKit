@@ -18,7 +18,11 @@ export function AppChatHeader({ onClose }: { onClose?: () => void }) {
             <h3 className="font-bold text-sidebar-foreground">Kanban Board</h3>
             <div className="flex items-center gap-x-1.5 text-xs text-muted-foreground">
               <div className="inline-block size-1.5 rounded-full bg-green-500" />
-              <div>Online <span className="opacity-50 text-[90%] select-none">•</span> Ready to help</div>
+              <div>
+                Online{" "}
+                <span className="opacity-50 text-[90%] select-none">•</span>{" "}
+                Ready to help
+              </div>
             </div>
           </div>
         </div>

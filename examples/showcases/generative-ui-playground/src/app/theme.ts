@@ -133,8 +133,8 @@ const textareaLight = v0_8.Styles.merge(textarea, { "color-c-n5": true });
 export const a2uiTheme: v0_8.Types.Theme = {
   additionalStyles: {
     Button: {
-      "--n-35": "var(--n-100)",  // Ensures hover state also uses white text
-      "--n-30": "var(--n-100)",  // Override text color inside button to white
+      "--n-35": "var(--n-100)", // Ensures hover state also uses white text
+      "--n-30": "var(--n-100)", // Override text color inside button to white
     },
   },
   components: {

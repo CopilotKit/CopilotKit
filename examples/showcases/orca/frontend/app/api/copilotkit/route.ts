@@ -11,7 +11,6 @@ const serviceAdapter = new OpenAIAdapter();
 
 let runtime = new CopilotRuntime();
 
-
 export const POST = async (req: NextRequest) => {
   console.log("req", req);
   const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({

@@ -3,7 +3,15 @@ import { CardContent } from "@/components/ui/card";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { AgentSetState, AgentState, type Metric } from "@/lib/types";
 import { RenderFunctionStatus } from "@copilotkit/react-core";
-import { Pin, TrendingUp, Trash2, TrendingDown, DollarSign, Users, Pencil } from "lucide-react";
+import {
+  Pin,
+  TrendingUp,
+  Trash2,
+  TrendingDown,
+  DollarSign,
+  Users,
+  Pencil,
+} from "lucide-react";
 import { useState } from "react";
 
 function MetricIcon({ name }: { name?: Metric["icon"] }) {
@@ -28,7 +36,12 @@ interface PinnedMetricCardProps {
   status?: RenderFunctionStatus;
 }
 
-export const PinnedMetricCard = ({ pinnedMetric, setState, onHumanInput, status }: PinnedMetricCardProps) => {
+export const PinnedMetricCard = ({
+  pinnedMetric,
+  setState,
+  onHumanInput,
+  status,
+}: PinnedMetricCardProps) => {
   const [isEditing, setIsEditing] = useState(false);
   return (
     <>
@@ -44,11 +57,15 @@ export const PinnedMetricCard = ({ pinnedMetric, setState, onHumanInput, status 
             </button>
             <button
               className="text-muted-foreground hover:text-foreground"
-              onClick={() => setState((state) => ({ 
-                title: state?.title ?? "Dashboard",
-                charts: state?.charts ?? [],
-                pinnedMetrics: (state?.pinnedMetrics ?? []).filter((x: Metric) => x.id !== pinnedMetric.id) 
-              }))}
+              onClick={() =>
+                setState((state) => ({
+                  title: state?.title ?? "Dashboard",
+                  charts: state?.charts ?? [],
+                  pinnedMetrics: (state?.pinnedMetrics ?? []).filter(
+                    (x: Metric) => x.id !== pinnedMetric.id,
+                  ),
+                }))
+              }
               title="Remove metric"
             >
               <Trash2 className="size-4" />
@@ -59,11 +76,17 @@ export const PinnedMetricCard = ({ pinnedMetric, setState, onHumanInput, status 
           <CardTitle className="inline-flex items-center gap-2 text-sm">
             <MetricIcon name={pinnedMetric.icon} />
             {pinnedMetric.title}
-          </CardTitle>  
+          </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="text-3xl font-bold text-primary truncate">{pinnedMetric.value}</div>
-          {pinnedMetric.hint && <p className="text-muted-foreground text-sm mt-1">{pinnedMetric.hint}</p>}
+          <div className="text-3xl font-bold text-primary truncate">
+            {pinnedMetric.value}
+          </div>
+          {pinnedMetric.hint && (
+            <p className="text-muted-foreground text-sm mt-1">
+              {pinnedMetric.hint}
+            </p>
+          )}
         </CardContent>
       </Card>
       {isEditing && (
@@ -74,31 +97,56 @@ export const PinnedMetricCard = ({ pinnedMetric, setState, onHumanInput, status 
             setState((state) => ({
               title: state?.title ?? "Dashboard",
               charts: state?.charts ?? [],
-              pinnedMetrics: (state?.pinnedMetrics ?? []).map((m: Metric) => m.id === next.id ? next : m),
+              pinnedMetrics: (state?.pinnedMetrics ?? []).map((m: Metric) =>
+                m.id === next.id ? next : m,
+              ),
             }));
             setIsEditing(false);
           }}
         />
       )}
-      {status !== "complete" && onHumanInput && 
+      {status !== "complete" && onHumanInput && (
         <div className="flex justify-end gap-2 py-4">
-          <Button variant="outline" onClick={() => onHumanInput(false)}>Cancel</Button>
+          <Button variant="outline" onClick={() => onHumanInput(false)}>
+            Cancel
+          </Button>
           <Button onClick={() => onHumanInput(true)}>Add</Button>
         </div>
-      }
+      )}
     </>
-  )
-}
+  );
+};
 
-function MetricEditModal({ metric, onCancel, onSave }: { metric: Metric; onCancel: () => void; onSave: (next: Metric) => void }) {
+function MetricEditModal({
+  metric,
+  onCancel,
+  onSave,
+}: {
+  metric: Metric;
+  onCancel: () => void;
+  onSave: (next: Metric) => void;
+}) {
   const [title, setTitle] = useState(metric.title);
   const [value, setValue] = useState(metric.value);
   const [hint, setHint] = useState(metric.hint ?? "");
   const [icon, setIcon] = useState<Metric["icon"]>(metric.icon ?? "custom");
 
   const save = () => {
-    const safeIcon = (icon === 'users' || icon === 'mrr' || icon === 'conversion' || icon === 'churn' || icon === 'custom') ? icon : 'custom';
-    onSave({ ...metric, title, value, hint: hint || undefined, icon: safeIcon });
+    const safeIcon =
+      icon === "users" ||
+      icon === "mrr" ||
+      icon === "conversion" ||
+      icon === "churn" ||
+      icon === "custom"
+        ? icon
+        : "custom";
+    onSave({
+      ...metric,
+      title,
+      value,
+      hint: hint || undefined,
+      icon: safeIcon,
+    });
   };
 
   return (
@@ -108,19 +156,35 @@ function MetricEditModal({ metric, onCancel, onSave }: { metric: Metric; onCance
         <div className="p-4 space-y-3">
           <div>
             <label className="block text-sm mb-1">Title</label>
-            <input value={title} onChange={(e) => setTitle(e.target.value)} className="w-full border rounded px-2 py-1 bg-background" />
+            <input
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              className="w-full border rounded px-2 py-1 bg-background"
+            />
           </div>
           <div>
             <label className="block text-sm mb-1">Value</label>
-            <input value={value} onChange={(e) => setValue(e.target.value)} className="w-full border rounded px-2 py-1 bg-background" />
+            <input
+              value={value}
+              onChange={(e) => setValue(e.target.value)}
+              className="w-full border rounded px-2 py-1 bg-background"
+            />
           </div>
           <div>
             <label className="block text-sm mb-1">Hint</label>
-            <input value={hint} onChange={(e) => setHint(e.target.value)} className="w-full border rounded px-2 py-1 bg-background" />
+            <input
+              value={hint}
+              onChange={(e) => setHint(e.target.value)}
+              className="w-full border rounded px-2 py-1 bg-background"
+            />
           </div>
           <div>
             <label className="block text-sm mb-1">Icon</label>
-            <select value={icon} onChange={(e) => setIcon(e.target.value as Metric["icon"])} className="w-full border rounded px-2 py-1 bg-background">
+            <select
+              value={icon}
+              onChange={(e) => setIcon(e.target.value as Metric["icon"])}
+              className="w-full border rounded px-2 py-1 bg-background"
+            >
               <option value="users">Users</option>
               <option value="mrr">MRR</option>
               <option value="conversion">Conversion</option>
@@ -130,7 +194,9 @@ function MetricEditModal({ metric, onCancel, onSave }: { metric: Metric; onCance
           </div>
         </div>
         <div className="p-4 border-t flex justify-end gap-2">
-          <Button variant="outline" onClick={onCancel}>Cancel</Button>
+          <Button variant="outline" onClick={onCancel}>
+            Cancel
+          </Button>
           <Button onClick={save}>Save</Button>
         </div>
       </div>

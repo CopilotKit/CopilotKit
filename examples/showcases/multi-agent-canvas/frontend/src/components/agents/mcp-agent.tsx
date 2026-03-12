@@ -22,28 +22,35 @@ export const MCPAgent: FC = () => {
       done: boolean;
     }>
   >([]);
-  
+
   const isProcessing = useRef(false);
-  
+
   // Use ref to avoid re-rendering issues
   const configsRef = useRef<Record<string, ServerConfig>>({});
-  
+
   // Get saved MCP configurations from localStorage
-  const [savedConfigs] = useLocalStorage<Record<string, ServerConfig>>(MCP_STORAGE_KEY, {});
-  
+  const [savedConfigs] = useLocalStorage<Record<string, ServerConfig>>(
+    MCP_STORAGE_KEY,
+    {},
+  );
+
   // Set the ref value once we have the saved configs
-  if (Object.keys(savedConfigs).length > 0 && Object.keys(configsRef.current).length === 0) {
+  if (
+    Object.keys(savedConfigs).length > 0 &&
+    Object.keys(configsRef.current).length === 0
+  ) {
     configsRef.current = savedConfigs;
   }
 
-  const { state: mcpAgentState, stop: stopMcpAgent } = useCoAgent<MCPAgentState>({
-    name: AvailableAgents.MCP_AGENT,
-    initialState: {
-      response: "",
-      logs: [],
-      mcp_config: configsRef.current,
-    },
-  });
+  const { state: mcpAgentState, stop: stopMcpAgent } =
+    useCoAgent<MCPAgentState>({
+      name: AvailableAgents.MCP_AGENT,
+      initialState: {
+        response: "",
+        logs: [],
+        mcp_config: configsRef.current,
+      },
+    });
 
   useEffect(() => {
     if (mcpAgentState.logs) {
@@ -51,7 +58,7 @@ export const MCPAgent: FC = () => {
         const newLogs = [...prevLogs];
         mcpAgentState.logs.forEach((log) => {
           const existingLogIndex = newLogs.findIndex(
-            (l) => l.message === log.message
+            (l) => l.message === log.message,
           );
           if (existingLogIndex >= 0) {
             if (log.done && !newLogs[existingLogIndex].done) {
@@ -80,11 +87,15 @@ export const MCPAgent: FC = () => {
         isProcessing.current = true;
         return (
           <div className="p-4 bg-gray-50 rounded-lg">
-            <h3 className="text-lg font-semibold mb-2">Processing your request...</h3>
+            <h3 className="text-lg font-semibold mb-2">
+              Processing your request...
+            </h3>
             <ul className="space-y-2">
               {logs.map((log, idx) => (
                 <li key={idx} className="flex items-start">
-                  <span className={`mr-2 ${log.done ? "text-green-500" : "text-gray-400"}`}>
+                  <span
+                    className={`mr-2 ${log.done ? "text-green-500" : "text-gray-400"}`}
+                  >
                     {log.done ? "✓" : "⟳"}
                   </span>
                   <span>{log.message}</span>

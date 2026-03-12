@@ -2,19 +2,19 @@
 
 :root {
   /* Neo-Brutalist Palette */
-  --bg-primary: #F2F0E9; /* Warm off-white */
-  --bg-secondary: #E6E4DD;
-  --bg-card: #FFFFFF;
-  
+  --bg-primary: #f2f0e9; /* Warm off-white */
+  --bg-secondary: #e6e4dd;
+  --bg-card: #ffffff;
+
   --fg-primary: #121212;
   --fg-secondary: #555555;
-  
-  --accent-red: #FF3333;
-  --accent-blue: #3355FF;
-  --accent-yellow: #FFCC00;
-  
+
+  --accent-red: #ff3333;
+  --accent-blue: #3355ff;
+  --accent-yellow: #ffcc00;
+
   --border-color: #121212;
-  
+
   --shadow-hard: 4px 4px 0px 0px var(--border-color);
   --shadow-hard-hover: 6px 6px 0px 0px var(--border-color);
   --shadow-hard-sm: 2px 2px 0px 0px var(--border-color);
@@ -102,7 +102,7 @@ body {
 
 /* Pattern Background Utility */
 .bg-grid-pattern {
-  background-image: 
+  background-image:
     linear-gradient(var(--border-color) 1px, transparent 1px),
     linear-gradient(90deg, var(--border-color) 1px, transparent 1px);
   background-size: 40px 40px;

@@ -28,12 +28,19 @@ export function CopilotKitWrapper({ children }: { children: React.ReactNode }) {
         }
         labels={{
           title: "Bankito Assistant",
-          initial: "Hi, I'm the Bankito Copilot, built with copilotkit.  How can I help?  You can try one of these suggestions, or ask me anything.",
+          initial:
+            "Hi, I'm the Bankito Copilot, built with copilotkit.  How can I help?  You can try one of these suggestions, or ask me anything.",
         }}
         suggestions={[
           { title: "Add a card", message: "Add a new credit card" },
-          { title: "View transactions", message: "Show me my recent transactions" },
-          { title: "Assign a policy", message: "Assign a spending policy to one of my cards" },
+          {
+            title: "View transactions",
+            message: "Show me my recent transactions",
+          },
+          {
+            title: "Assign a policy",
+            message: "Assign a spending policy to one of my cards",
+          },
         ]}
       />
     </CopilotKit>

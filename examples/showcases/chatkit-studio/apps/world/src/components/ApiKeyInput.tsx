@@ -62,9 +62,12 @@ export default function ApiKeyInput() {
   return (
     <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center">
       <div className="bg-slate-800 rounded-lg p-6 shadow-xl border border-slate-700 max-w-md w-full mx-4">
-        <h2 className="text-xl font-semibold text-white mb-4">OpenAI API Key Required</h2>
+        <h2 className="text-xl font-semibold text-white mb-4">
+          OpenAI API Key Required
+        </h2>
         <p className="text-sm text-slate-300 mb-4">
-          Enter your OpenAI API key to use the World Travel Agent. Your key is stored locally and never sent to our servers.
+          Enter your OpenAI API key to use the World Travel Agent. Your key is
+          stored locally and never sent to our servers.
         </p>
         <input
           type="password"

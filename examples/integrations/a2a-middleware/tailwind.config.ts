@@ -45,14 +45,19 @@ const config = {
         },
       },
       fontFamily: {
-        sans: ['Plus Jakarta Sans', 'ui-sans-serif', 'system-ui', 'sans-serif'],
-        mono: ['Spline Sans Mono', 'ui-monospace', 'SFMono-Regular', 'monospace'],
+        sans: ["Plus Jakarta Sans", "ui-sans-serif", "system-ui", "sans-serif"],
+        mono: [
+          "Spline Sans Mono",
+          "ui-monospace",
+          "SFMono-Regular",
+          "monospace",
+        ],
       },
       boxShadow: {
-        'elevation-sm': 'var(--shadow-sm)',
-        'elevation-md': 'var(--shadow-md)',
-        'elevation-lg': 'var(--shadow-lg)',
-        'elevation-xl': 'var(--shadow-xl)',
+        "elevation-sm": "var(--shadow-sm)",
+        "elevation-md": "var(--shadow-md)",
+        "elevation-lg": "var(--shadow-lg)",
+        "elevation-xl": "var(--shadow-xl)",
       },
       keyframes: {
         "accordion-down": {

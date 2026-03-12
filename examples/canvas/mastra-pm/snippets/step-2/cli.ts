@@ -1,6 +1,6 @@
 import * as readline from "readline";
 import { weatherAgent } from "@/mastra/agents";
-import { MastraAgent } from "@ag-ui/mastra"
+import { MastraAgent } from "@ag-ui/mastra";
 import { randomUUID } from "node:crypto";
 
 const rl = readline.createInterface({
@@ -9,7 +9,9 @@ const rl = readline.createInterface({
 });
 
 async function chatLoop() {
-  console.log("🤖 AG-UI chat started! Type your messages and press Enter. Press Ctrl+D to quit.\n");
+  console.log(
+    "🤖 AG-UI chat started! Type your messages and press Enter. Press Ctrl+D to quit.\n",
+  );
 
   const agent = new MastraAgent({
     agent: weatherAgent,

@@ -56,7 +56,7 @@ export default function App() {
 
   const cartQuantity = Object.values(cartItems as CartRecord[]).reduce(
     (acc, { quantity }) => acc + quantity,
-    0
+    0,
   );
 
   const navigation = useNavigation();
@@ -82,7 +82,7 @@ export default function App() {
         <script
           dangerouslySetInnerHTML={{
             __html: `window.CPKK = ${JSON.stringify(
-              PUBLIC_COPILOT_KIT_PUBLIC_API_KEY
+              PUBLIC_COPILOT_KIT_PUBLIC_API_KEY,
             )};`,
           }}
         />
@@ -128,7 +128,8 @@ export default function App() {
               <div id="cartButton">
                 <Link to={`/cart`}>
                   <button type="button">
-                    {"Cart" + (cartQuantity ? ` (${cartQuantity} items)` : "")}{" "}
+                    {"Cart" +
+                      (cartQuantity ? ` (${cartQuantity} items)` : "")}{" "}
                   </button>
                 </Link>
               </div>

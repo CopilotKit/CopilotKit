@@ -60,7 +60,8 @@ export default function MyChat() {
   // Register frontend action that the agent can call to render country cards
   useCopilotAction({
     name: "renderCountry",
-    description: "Render chosen country in the UI with details like capital and flag",
+    description:
+      "Render chosen country in the UI with details like capital and flag",
     parameters: [
       {
         name: "countryName",
@@ -77,7 +78,8 @@ export default function MyChat() {
       {
         name: "flagEmoji",
         type: "string",
-        description: "The flag emoji for the country (e.g., 🇺🇸 for United States)",
+        description:
+          "The flag emoji for the country (e.g., 🇺🇸 for United States)",
         required: false,
       },
       {

@@ -1,13 +1,13 @@
 import { RunnableConfig } from "@langchain/core/runnables";
 import { CustomerSupportState } from "../types/state";
 import { escalationDecisionTool } from "../tools";
-import { AIMessage } from "@langchain/core/messages";/**
+import { AIMessage } from "@langchain/core/messages"; /**
  * Escalation Agent Node
  * Determines if issue needs human intervention
  */
 export async function escalationAgentNode(
   state: CustomerSupportState,
-  config: RunnableConfig
+  config: RunnableConfig,
 ): Promise<Partial<CustomerSupportState>> {
   console.log("Escalation Agent: Checking escalation criteria...");
 
@@ -30,7 +30,7 @@ export async function escalationAgentNode(
       console.log(`ESCALATION REQUIRED: ${escalation.reason}`);
       console.log(`Ticket: ${escalation.ticketId}`);
       console.log(
-        `Assigned to: ${escalation.assignedTo} (Priority: ${escalation.priority})`
+        `Assigned to: ${escalation.assignedTo} (Priority: ${escalation.priority})`,
       );
 
       const messages = state.messages || [];
@@ -44,8 +44,7 @@ export async function escalationAgentNode(
         escalation: escalation,
         messages: [...messages, escalationMessage],
       };
-    }
-     else {
+    } else {
       console.log("No escalation needed - AI can handle this");
       // Return complete state including customers
       return {

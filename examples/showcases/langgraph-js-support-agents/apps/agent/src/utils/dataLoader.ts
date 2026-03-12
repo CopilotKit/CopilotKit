@@ -16,9 +16,7 @@ export function loadTicketsData(): CustomerData[] {
  */
 export function findCustomerById(customerId: string): CustomerData | null {
   const tickets = loadTicketsData();
-  const customer = tickets.find(
-    (ticket) => ticket.customerID === customerId
-  );
+  const customer = tickets.find((ticket) => ticket.customerID === customerId);
   return customer || null;
 }
 
@@ -28,7 +26,7 @@ export function findCustomerById(customerId: string): CustomerData | null {
 export function searchCustomers(query: string): CustomerData[] {
   const tickets = loadTicketsData();
   const lowerQuery = query.toLowerCase();
-  
+
   return tickets.filter((ticket) => {
     return (
       ticket.customerID?.toLowerCase().includes(lowerQuery) ||

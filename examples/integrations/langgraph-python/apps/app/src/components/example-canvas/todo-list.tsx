@@ -29,7 +29,7 @@ export function TodoList({ todos, onUpdate, isAgentRunning }: TodoListProps) {
               | "pending"
               | "completed",
           }
-        : t
+        : t,
     );
     onUpdate(updated);
   };
@@ -39,23 +39,19 @@ export function TodoList({ todos, onUpdate, isAgentRunning }: TodoListProps) {
   };
 
   const updateTitle = (todoId: string, title: string) => {
-    const updated = todos.map((t) =>
-      t.id === todoId ? { ...t, title } : t
-    );
+    const updated = todos.map((t) => (t.id === todoId ? { ...t, title } : t));
     onUpdate(updated);
   };
 
   const updateDescription = (todoId: string, description: string) => {
     const updated = todos.map((t) =>
-      t.id === todoId ? { ...t, description } : t
+      t.id === todoId ? { ...t, description } : t,
     );
     onUpdate(updated);
   };
 
   const updateEmoji = (todoId: string, emoji: string) => {
-    const updated = todos.map((t) =>
-      t.id === todoId ? { ...t, emoji } : t
-    );
+    const updated = todos.map((t) => (t.id === todoId ? { ...t, emoji } : t));
     onUpdate(updated);
   };
 

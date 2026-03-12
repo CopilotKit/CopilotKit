@@ -9,15 +9,17 @@
   --copilot-kit-separator-color: rgb(200 200 200);
   --copilot-kit-muted-color: rgb(200 200 200);
   --copilot-kit-shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-  --copilot-kit-shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-  --copilot-kit-shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  --copilot-kit-shadow-md:
+    0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --copilot-kit-shadow-lg:
+    0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
   --copilot-kit-dev-console-bg: #f8f8fa;
   --copilot-kit-dev-console-text: black;
 }
 .dark,
 html.dark,
 body.dark,
-[data-theme=dark],
+[data-theme="dark"],
 html[style*="color-scheme: dark"],
 body[style*="color-scheme: dark"] :root {
   --copilot-kit-primary-color: rgb(255, 255, 255);
@@ -29,8 +31,10 @@ body[style*="color-scheme: dark"] :root {
   --copilot-kit-separator-color: rgb(45, 45, 45);
   --copilot-kit-muted-color: rgb(45, 45, 45);
   --copilot-kit-shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
-  --copilot-kit-shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -1px rgba(0, 0, 0, 0.3);
-  --copilot-kit-shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.4), 0 4px 6px -2px rgba(0, 0, 0, 0.3);
+  --copilot-kit-shadow-md:
+    0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -1px rgba(0, 0, 0, 0.3);
+  --copilot-kit-shadow-lg:
+    0 10px 15px -3px rgba(0, 0, 0, 0.4), 0 4px 6px -2px rgba(0, 0, 0, 0.3);
 }
 
 /* src/css/popup.css */
@@ -140,7 +144,9 @@ body[style*="color-scheme: dark"] :root {
   box-shadow: var(--copilot-kit-shadow-sm);
 }
 .copilotKitButtonIcon {
-  transition: opacity 100ms, transform 300ms;
+  transition:
+    opacity 100ms,
+    transform 300ms;
   position: absolute;
   top: 50%;
   left: 50%;
@@ -359,7 +365,7 @@ body[style*="color-scheme: dark"] :root {
 .dark,
 html.dark,
 body.dark,
-[data-theme=dark],
+[data-theme="dark"],
 html[style*="color-scheme: dark"],
 body[style*="color-scheme: dark"] .poweredBy {
   color: rgb(69, 69, 69) !important;
@@ -477,7 +483,8 @@ body[style*="color-scheme: dark"] .poweredBy {
   display: block;
   pointer-events: none;
 }
-.copilotKitMessage.copilotKitAssistantMessage + .copilotKitMessage.copilotKitUserMessage {
+.copilotKitMessage.copilotKitAssistantMessage
+  + .copilotKitMessage.copilotKitUserMessage {
   margin-top: 1.5rem;
 }
 .copilotKitCustomAssistantMessage {
@@ -507,7 +514,9 @@ body[style*="color-scheme: dark"] .poweredBy {
   margin-left: 8px;
 }
 @keyframes copilotKitActivityDotAnimation {
-  0%, 80%, 100% {
+  0%,
+  80%,
+  100% {
     transform: scale(0.5);
     opacity: 0.5;
   }
@@ -535,7 +544,9 @@ body[style*="color-scheme: dark"] .poweredBy {
   border-radius: 0.75rem;
   box-shadow: rgba(0, 0, 0, 0.16) 0px 5px 40px;
   flex-direction: column;
-  transition: opacity 100ms ease-out, transform 200ms ease-out;
+  transition:
+    opacity 100ms ease-out,
+    transform 200ms ease-out;
   opacity: 0;
   transform: scale(0.95) translateY(20px);
   display: flex;
@@ -591,7 +602,8 @@ body[style*="color-scheme: dark"] .poweredBy {
   animation-delay: 0.2s;
 }
 @keyframes copilotKitActivityDotsAnimation {
-  0%, 57.14% {
+  0%,
+  57.14% {
     animation-timing-function: cubic-bezier(0.33, 0.66, 0.66, 1);
     transform: translate(0);
   }
@@ -755,7 +767,9 @@ li.copilotKitMarkdownElement {
   border-radius: 15px;
   border: 1px solid var(--copilot-kit-muted-color);
   color: var(--copilot-kit-secondary-contrast-color);
-  box-shadow: 0 5px 5px 0px rgba(0, 0, 0, .01), 0 2px 3px 0px rgba(0, 0, 0, .02);
+  box-shadow:
+    0 5px 5px 0px rgba(0, 0, 0, 0.01),
+    0 2px 3px 0px rgba(0, 0, 0, 0.02);
 }
 .copilotKitMessages footer .suggestions .suggestion.loading {
   padding: 0;
@@ -884,30 +898,46 @@ li.copilotKitMarkdownElement {
   font-size: 8px;
 }
 .copilotKitDevConsole .copilotKitDebugMenuTriggerButton:hover {
-  background-color: color-mix(in srgb, var(--copilot-kit-dev-console-bg) 85%, black);
+  background-color: color-mix(
+    in srgb,
+    var(--copilot-kit-dev-console-bg) 85%,
+    black
+  );
   color: var(--copilot-kit-dev-console-text);
 }
 .dark,
 html.dark,
 body.dark,
-[data-theme=dark],
+[data-theme="dark"],
 html[style*="color-scheme: dark"],
-body[style*="color-scheme: dark"] .copilotKitDevConsole .copilotKitDebugMenuTriggerButton {
+body[style*="color-scheme: dark"]
+  .copilotKitDevConsole
+  .copilotKitDebugMenuTriggerButton {
   color: white;
 }
 .dark,
 html.dark,
 body.dark,
-[data-theme=dark],
+[data-theme="dark"],
 html[style*="color-scheme: dark"],
-body[style*="color-scheme: dark"] .copilotKitDevConsole .copilotKitDebugMenuTriggerButton:hover {
-  background-color: color-mix(in srgb, var(--copilot-kit-dev-console-bg) 20%, black);
+body[style*="color-scheme: dark"]
+  .copilotKitDevConsole
+  .copilotKitDebugMenuTriggerButton:hover {
+  background-color: color-mix(
+    in srgb,
+    var(--copilot-kit-dev-console-bg) 20%,
+    black
+  );
 }
 .copilotKitDevConsole .copilotKitDebugMenuTriggerButton > svg {
   margin-left: 10px;
 }
 .copilotKitDebugMenu {
-  --copilot-kit-dev-console-border: color-mix(in srgb, var(--copilot-kit-dev-console-bg) 80%, black);
+  --copilot-kit-dev-console-border: color-mix(
+    in srgb,
+    var(--copilot-kit-dev-console-bg) 80%,
+    black
+  );
   margin-top: 2px;
   border-radius: 6px;
   background-color: var(--copilot-kit-dev-console-bg);
@@ -930,7 +960,11 @@ body[style*="color-scheme: dark"] .copilotKitDevConsole .copilotKitDebugMenuTrig
   color: var(--copilot-kit-dev-console-text);
 }
 .copilotKitDebugMenuItem:hover {
-  background-color: color-mix(in srgb, var(--copilot-kit-dev-console-bg) 95%, black);
+  background-color: color-mix(
+    in srgb,
+    var(--copilot-kit-dev-console-bg) 95%,
+    black
+  );
   border-radius: 4px;
 }
 .copilotKitDebugMenu[data-closed] {
@@ -956,11 +990,17 @@ body[style*="color-scheme: dark"] .copilotKitDevConsole .copilotKitDebugMenuTrig
   font-size: 0.8rem;
   border: 1px solid var(--copilot-kit-muted-color);
   color: var(--copilot-kit-dev-console-text);
-  box-shadow: 0 5px 5px 0px rgba(0, 0, 0, .01), 0 2px 3px 0px rgba(0, 0, 0, .02);
+  box-shadow:
+    0 5px 5px 0px rgba(0, 0, 0, 0.01),
+    0 2px 3px 0px rgba(0, 0, 0, 0.02);
   background-color: var(--copilot-kit-dev-console-bg);
 }
 .copilotKitHelpItemButton:hover {
-  background-color: color-mix(in srgb, var(--copilot-kit-dev-console-bg) 95%, black);
+  background-color: color-mix(
+    in srgb,
+    var(--copilot-kit-dev-console-bg) 95%,
+    black
+  );
 }
 
 /* src/css/crew.css */
@@ -1138,7 +1178,8 @@ body[style*="color-scheme: dark"] .copilotKitDevConsole .copilotKitDebugMenuTrig
   }
 }
 @keyframes pulse {
-  0%, 100% {
+  0%,
+  100% {
     opacity: 0.4;
   }
   50% {

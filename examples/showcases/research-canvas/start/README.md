@@ -1,6 +1,6 @@
 # open-research-ANA 🔍
 
-This demo showcases ANA (Agent Native Application), a research canvas app that combines Human-in-the-Loop capabilities with [Tavily's](https://tavily.com/) real-time search and [CopilotKit's](https://copilotkit.ai) agentic interface. 
+This demo showcases ANA (Agent Native Application), a research canvas app that combines Human-in-the-Loop capabilities with [Tavily's](https://tavily.com/) real-time search and [CopilotKit's](https://copilotkit.ai) agentic interface.
 
 Powered by [LangGraph](https://www.langchain.com/langgraph), it simplifies complex research tasks, making them more interactive and efficient.
 
@@ -15,6 +15,7 @@ Powered by [LangGraph](https://www.langchain.com/langgraph), it simplifies compl
 ## Quick Start 🚀
 
 ### 1. Prerequisites
+
 This projects uses the following tools:
 
 - [pnpm](https://pnpm.io/installation)
@@ -22,6 +23,7 @@ This projects uses the following tools:
 - [Langgraph CLI](https://langchain-ai.github.io/langgraph/cloud/reference/cli/)
 
 ### 2. API Keys Needed
+
 Running locally, you'll need the following API keys:
 
 - [OpenAI](https://platform.openai.com/api-keys)
@@ -30,6 +32,7 @@ Running locally, you'll need the following API keys:
 - [CopilotKit](https://cloud.copilotkit.ai)
 
 ### 3. Start the Agent
+
 There are two main components to this project: the agent and the frontend. First, we'll start the agent.
 
 ```bash
@@ -49,12 +52,15 @@ langgraph up
 ```
 
 ### 4. Open a tunnel to your local agent
+
 Create a tunnel to your local agent:
+
 ```bash
 npx copilotkit@latest dev --port 8000
 ```
 
 ### 5. Start the Frontend
+
 Next, we'll start the frontend.
 
 ```bash
@@ -73,5 +79,6 @@ pnpm run dev
 ```
 
 ## Documentation 📚
+
 - [CopilotKit Docs](https://docs.copilotkit.ai/coagents)
 - [LangGraph Platform Docs](https://langchain-ai.github.io/langgraph/cloud/deployment/cloud/)

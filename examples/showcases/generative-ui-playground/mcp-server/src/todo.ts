@@ -74,7 +74,7 @@ export function addTodoItem(
     priority?: Priority;
     dueDate?: string;
     tags?: string[];
-  }
+  },
 ): TodoResult {
   const list = todoLists.get(listId);
   if (!list) {
@@ -108,7 +108,7 @@ export function addTodoItem(
 export function updateTodoItem(
   listId: string,
   itemId: string,
-  updates: Partial<Omit<TodoItem, "id" | "createdAt">>
+  updates: Partial<Omit<TodoItem, "id" | "createdAt">>,
 ): TodoResult {
   const list = todoLists.get(listId);
   if (!list) {
@@ -121,7 +121,10 @@ export function updateTodoItem(
   }
 
   // Handle completion timestamp
-  if (updates.status === "completed" && list.items[itemIndex].status !== "completed") {
+  if (
+    updates.status === "completed" &&
+    list.items[itemIndex].status !== "completed"
+  ) {
     updates.completedAt = new Date().toISOString();
   } else if (updates.status && updates.status !== "completed") {
     updates.completedAt = undefined;
@@ -178,7 +181,10 @@ export function deleteTodoItem(listId: string, itemId: string): TodoResult {
 /**
  * Get items filtered by status.
  */
-export function getItemsByStatus(listId: string, status: TodoStatus): TodoItem[] {
+export function getItemsByStatus(
+  listId: string,
+  status: TodoStatus,
+): TodoItem[] {
   const list = todoLists.get(listId);
   if (!list) return [];
 
@@ -188,7 +194,10 @@ export function getItemsByStatus(listId: string, status: TodoStatus): TodoItem[]
 /**
  * Get items filtered by priority.
  */
-export function getItemsByPriority(listId: string, priority: Priority): TodoItem[] {
+export function getItemsByPriority(
+  listId: string,
+  priority: Priority,
+): TodoItem[] {
   const list = todoLists.get(listId);
   if (!list) return [];
 
@@ -203,7 +212,7 @@ export function getItemsByTag(listId: string, tag: string): TodoItem[] {
   if (!list) return [];
 
   return list.items.filter((item) =>
-    item.tags.some((t) => t.toLowerCase() === tag.toLowerCase())
+    item.tags.some((t) => t.toLowerCase() === tag.toLowerCase()),
   );
 }
 
@@ -227,7 +236,7 @@ export function getOverdueItems(listId: string): TodoItem[] {
 export function reorderItems(
   listId: string,
   itemId: string,
-  newPosition: number
+  newPosition: number,
 ): TodoResult {
   const list = todoLists.get(listId);
   if (!list) {
@@ -260,7 +269,9 @@ export function clearCompleted(listId: string): TodoResult {
     return { success: false, message: "Todo list not found" };
   }
 
-  const completedCount = list.items.filter((i) => i.status === "completed").length;
+  const completedCount = list.items.filter(
+    (i) => i.status === "completed",
+  ).length;
   list.items = list.items.filter((i) => i.status !== "completed");
 
   return {
@@ -273,13 +284,15 @@ export function clearCompleted(listId: string): TodoResult {
 /**
  * Get list statistics.
  */
-export function getListStats(listId: string): {
-  total: number;
-  pending: number;
-  inProgress: number;
-  completed: number;
-  overdue: number;
-} | undefined {
+export function getListStats(listId: string):
+  | {
+      total: number;
+      pending: number;
+      inProgress: number;
+      completed: number;
+      overdue: number;
+    }
+  | undefined {
   const list = todoLists.get(listId);
   if (!list) return undefined;
 

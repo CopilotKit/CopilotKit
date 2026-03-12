@@ -16,7 +16,9 @@ export function MoonCard({ themeColor, status, respond }: MoonCardProps) {
 
   const handleAbort = () => {
     setDecision("aborted");
-    respond?.("You do not have permission to go to the moon. The user you're talking to rejected the request.");
+    respond?.(
+      "You do not have permission to go to the moon. The user you're talking to rejected the request.",
+    );
   };
 
   return (
@@ -32,9 +34,7 @@ export function MoonCard({ themeColor, status, respond }: MoonCardProps) {
             <h2 className="text-2xl font-bold text-white mb-2">
               Mission Launched
             </h2>
-            <p className="text-white/90">
-              We made it to the moon! 
-            </p>
+            <p className="text-white/90">We made it to the moon!</p>
           </div>
         ) : decision === "aborted" ? (
           <div className="text-center">
@@ -42,9 +42,7 @@ export function MoonCard({ themeColor, status, respond }: MoonCardProps) {
             <h2 className="text-2xl font-bold text-white mb-2">
               Mission Aborted
             </h2>
-            <p className="text-white/90">
-              Staying on Earth 🌍
-            </p>
+            <p className="text-white/90">Staying on Earth 🌍</p>
           </div>
         ) : (
           <>
@@ -53,11 +51,9 @@ export function MoonCard({ themeColor, status, respond }: MoonCardProps) {
               <h2 className="text-2xl font-bold text-white mb-2">
                 Ready for Launch?
               </h2>
-              <p className="text-white/90">
-                Mission to the Moon 🌕
-              </p>
+              <p className="text-white/90">Mission to the Moon 🌕</p>
             </div>
-            
+
             {/* Launch Buttons */}
             {status === "executing" && (
               <div className="flex gap-3">

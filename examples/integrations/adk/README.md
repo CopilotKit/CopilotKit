@@ -18,6 +18,7 @@ This is a starter template for building AI agents using Google's [ADK](https://g
 ## Getting Started
 
 1. Install dependencies using your preferred package manager:
+
 ```bash
 # Using pnpm (recommended)
 pnpm install
@@ -33,6 +34,7 @@ bun install
 ```
 
 2. Install Python dependencies for the ADK agent:
+
 ```bash
 # Using pnpm
 pnpm install:agent
@@ -50,17 +52,19 @@ bun run install:agent
 > **Note:** This will automatically setup a `.venv` (virtual environment) inside the `agent` directory.
 >
 > To activate the virtual environment manually, you can run:
+>
 > ```bash
 > source agent/.venv/bin/activate
 > ```
 
-
 3. Set up your Google API key:
+
 ```bash
 export GOOGLE_API_KEY="your-google-api-key-here"
 ```
 
 4. Start the development server:
+
 ```bash
 # Using pnpm
 pnpm dev
@@ -78,7 +82,9 @@ bun run dev
 This will start both the UI and agent servers concurrently.
 
 ## Available Scripts
+
 The following scripts can also be run using your preferred package manager:
+
 - `dev` - Starts both UI and agent servers in development mode
 - `dev:debug` - Starts development servers with debug logging enabled
 - `dev:ui` - Starts only the Next.js UI server
@@ -91,6 +97,7 @@ The following scripts can also be run using your preferred package manager:
 ## Documentation
 
 The main UI component is in `src/app/page.tsx`. You can:
+
 - Modify the theme colors and styling
 - Add new frontend actions
 - Customize the CopilotKit sidebar appearance
@@ -100,7 +107,6 @@ The main UI component is in `src/app/page.tsx`. You can:
 - [ADK Documentation](https://google.github.io/adk-docs/) - Learn more about the ADK and its features
 - [CopilotKit Documentation](https://docs.copilotkit.ai) - Explore CopilotKit's capabilities
 - [Next.js Documentation](https://nextjs.org/docs) - Learn about Next.js features and API
-
 
 ## Contributing
 
@@ -113,13 +119,17 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 ## Troubleshooting
 
 ### Agent Connection Issues
+
 If you see "I'm having trouble connecting to my tools", make sure:
+
 1. The ADK agent is running on port 8000
 2. Your Google API key is set correctly
 3. Both servers started successfully
 
 ### Python Dependencies
+
 If you encounter Python import errors:
+
 ```bash
 cd agent
 pip install -r requirements.txt

@@ -9,7 +9,7 @@ import { AIMessage } from "@langchain/core/messages";
  */
 export async function replyAgentNode(
   state: CustomerSupportState,
-  config: RunnableConfig
+  config: RunnableConfig,
 ): Promise<Partial<CustomerSupportState>> {
   console.log("Reply Agent: Generating response...");
 

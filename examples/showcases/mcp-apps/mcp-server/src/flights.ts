@@ -101,21 +101,51 @@ export interface Booking {
  * Mock airport database with 15 airports.
  */
 const AIRPORTS: Airport[] = [
-  { code: "JFK", city: "New York", name: "John F. Kennedy International", country: "US" },
-  { code: "LAX", city: "Los Angeles", name: "Los Angeles International", country: "US" },
+  {
+    code: "JFK",
+    city: "New York",
+    name: "John F. Kennedy International",
+    country: "US",
+  },
+  {
+    code: "LAX",
+    city: "Los Angeles",
+    name: "Los Angeles International",
+    country: "US",
+  },
   { code: "LHR", city: "London", name: "Heathrow", country: "UK" },
   { code: "CDG", city: "Paris", name: "Charles de Gaulle", country: "FR" },
   { code: "NRT", city: "Tokyo", name: "Narita International", country: "JP" },
   { code: "DXB", city: "Dubai", name: "Dubai International", country: "AE" },
   { code: "SIN", city: "Singapore", name: "Changi", country: "SG" },
-  { code: "SFO", city: "San Francisco", name: "San Francisco International", country: "US" },
+  {
+    code: "SFO",
+    city: "San Francisco",
+    name: "San Francisco International",
+    country: "US",
+  },
   { code: "ORD", city: "Chicago", name: "O'Hare International", country: "US" },
   { code: "MIA", city: "Miami", name: "Miami International", country: "US" },
-  { code: "SEA", city: "Seattle", name: "Seattle-Tacoma International", country: "US" },
+  {
+    code: "SEA",
+    city: "Seattle",
+    name: "Seattle-Tacoma International",
+    country: "US",
+  },
   { code: "BOS", city: "Boston", name: "Logan International", country: "US" },
   { code: "FRA", city: "Frankfurt", name: "Frankfurt am Main", country: "DE" },
-  { code: "HKG", city: "Hong Kong", name: "Hong Kong International", country: "HK" },
-  { code: "SYD", city: "Sydney", name: "Sydney Kingsford Smith", country: "AU" },
+  {
+    code: "HKG",
+    city: "Hong Kong",
+    name: "Hong Kong International",
+    country: "HK",
+  },
+  {
+    code: "SYD",
+    city: "Sydney",
+    name: "Sydney Kingsford Smith",
+    country: "AU",
+  },
 ];
 
 /**
@@ -190,18 +220,97 @@ function generateConfirmationNumber(): string {
  * Calculate approximate flight duration based on airport codes.
  * Uses simple distance estimation.
  */
-function calculateDuration(origin: string, destination: string): { duration: string; hours: number } {
+function calculateDuration(
+  origin: string,
+  destination: string,
+): { duration: string; hours: number } {
   // Simplified distance matrix (hours of flight time)
   const distances: Record<string, Record<string, number>> = {
-    JFK: { LAX: 5.5, LHR: 7, CDG: 7.5, NRT: 14, DXB: 12, SIN: 18, SFO: 6, ORD: 2.5, MIA: 3, SEA: 6, BOS: 1.5, FRA: 8, HKG: 16, SYD: 21 },
-    LAX: { JFK: 5.5, LHR: 10, CDG: 11, NRT: 11, DXB: 16, SIN: 17, SFO: 1.5, ORD: 4, MIA: 5, SEA: 2.5, BOS: 5.5, FRA: 11, HKG: 14, SYD: 15 },
-    LHR: { JFK: 7, LAX: 10, CDG: 1, NRT: 11.5, DXB: 7, SIN: 13, SFO: 10.5, ORD: 8.5, MIA: 9, SEA: 10, BOS: 7, FRA: 1.5, HKG: 12, SYD: 21 },
-    CDG: { JFK: 7.5, LAX: 11, LHR: 1, NRT: 12, DXB: 6.5, SIN: 12.5, SFO: 11, ORD: 9, MIA: 9.5, SEA: 10.5, BOS: 7.5, FRA: 1, HKG: 11.5, SYD: 21.5 },
-    SFO: { JFK: 6, LAX: 1.5, LHR: 10.5, CDG: 11, NRT: 10, DXB: 16, SIN: 16, ORD: 4.5, MIA: 5.5, SEA: 2, BOS: 5.5, FRA: 11, HKG: 13, SYD: 14 },
+    JFK: {
+      LAX: 5.5,
+      LHR: 7,
+      CDG: 7.5,
+      NRT: 14,
+      DXB: 12,
+      SIN: 18,
+      SFO: 6,
+      ORD: 2.5,
+      MIA: 3,
+      SEA: 6,
+      BOS: 1.5,
+      FRA: 8,
+      HKG: 16,
+      SYD: 21,
+    },
+    LAX: {
+      JFK: 5.5,
+      LHR: 10,
+      CDG: 11,
+      NRT: 11,
+      DXB: 16,
+      SIN: 17,
+      SFO: 1.5,
+      ORD: 4,
+      MIA: 5,
+      SEA: 2.5,
+      BOS: 5.5,
+      FRA: 11,
+      HKG: 14,
+      SYD: 15,
+    },
+    LHR: {
+      JFK: 7,
+      LAX: 10,
+      CDG: 1,
+      NRT: 11.5,
+      DXB: 7,
+      SIN: 13,
+      SFO: 10.5,
+      ORD: 8.5,
+      MIA: 9,
+      SEA: 10,
+      BOS: 7,
+      FRA: 1.5,
+      HKG: 12,
+      SYD: 21,
+    },
+    CDG: {
+      JFK: 7.5,
+      LAX: 11,
+      LHR: 1,
+      NRT: 12,
+      DXB: 6.5,
+      SIN: 12.5,
+      SFO: 11,
+      ORD: 9,
+      MIA: 9.5,
+      SEA: 10.5,
+      BOS: 7.5,
+      FRA: 1,
+      HKG: 11.5,
+      SYD: 21.5,
+    },
+    SFO: {
+      JFK: 6,
+      LAX: 1.5,
+      LHR: 10.5,
+      CDG: 11,
+      NRT: 10,
+      DXB: 16,
+      SIN: 16,
+      ORD: 4.5,
+      MIA: 5.5,
+      SEA: 2,
+      BOS: 5.5,
+      FRA: 11,
+      HKG: 13,
+      SYD: 14,
+    },
   };
 
   // Get hours, default to 5 if not found
-  const hours = distances[origin]?.[destination] || distances[destination]?.[origin] || 5;
+  const hours =
+    distances[origin]?.[destination] || distances[destination]?.[origin] || 5;
   const h = Math.floor(hours);
   const m = Math.round((hours - h) * 60);
 
@@ -223,7 +332,9 @@ function generateDepartureTimes(count: number): string[] {
   for (let i = 0; i < count; i++) {
     const hour = Math.floor(startHour + i * interval);
     const minute = Math.floor(Math.random() * 4) * 15; // 0, 15, 30, or 45
-    times.push(`${hour.toString().padStart(2, "0")}:${minute.toString().padStart(2, "0")}`);
+    times.push(
+      `${hour.toString().padStart(2, "0")}:${minute.toString().padStart(2, "0")}`,
+    );
   }
 
   return times;
@@ -232,7 +343,10 @@ function generateDepartureTimes(count: number): string[] {
 /**
  * Calculate arrival time given departure and duration.
  */
-function calculateArrivalTime(departure: string, durationHours: number): string {
+function calculateArrivalTime(
+  departure: string,
+  durationHours: number,
+): string {
   const [depHour, depMinute] = departure.split(":").map(Number);
   const totalMinutes = depHour * 60 + depMinute + durationHours * 60;
   const arrHour = Math.floor(totalMinutes / 60) % 24;
@@ -251,7 +365,8 @@ function generatePrice(durationHours: number, cabinClass: CabinClass): number {
   basePrice *= 0.8 + Math.random() * 0.4;
 
   // Multiply by class
-  const classMultiplier = cabinClass === "first" ? 4 : cabinClass === "business" ? 2.5 : 1;
+  const classMultiplier =
+    cabinClass === "first" ? 4 : cabinClass === "business" ? 2.5 : 1;
 
   return Math.round(basePrice * classMultiplier);
 }
@@ -266,13 +381,21 @@ export function searchFlights(params: {
   passengers: number;
   cabinClass?: CabinClass;
 }): FlightSearch {
-  const { origin, destination, departureDate, passengers, cabinClass = "economy" } = params;
+  const {
+    origin,
+    destination,
+    departureDate,
+    passengers,
+    cabinClass = "economy",
+  } = params;
 
   const originAirport = getAirportByCode(origin);
   const destAirport = getAirportByCode(destination);
 
   if (!originAirport || !destAirport) {
-    throw new Error(`Invalid airport code: ${!originAirport ? origin : destination}`);
+    throw new Error(
+      `Invalid airport code: ${!originAirport ? origin : destination}`,
+    );
   }
 
   const searchId = generateSearchId();
@@ -297,9 +420,13 @@ export function searchFlights(params: {
       destination: destAirport,
       departureTime: depTime,
       arrivalTime: calculateArrivalTime(depTime, hours + stops * 1.5),
-      duration: stops > 0 ? `${Math.floor(hours + stops * 1.5)}h ${Math.round(((hours + stops * 1.5) % 1) * 60)}m` : duration,
+      duration:
+        stops > 0
+          ? `${Math.floor(hours + stops * 1.5)}h ${Math.round(((hours + stops * 1.5) % 1) * 60)}m`
+          : duration,
       stops,
-      aircraft: AIRCRAFT_TYPES[Math.floor(Math.random() * AIRCRAFT_TYPES.length)],
+      aircraft:
+        AIRCRAFT_TYPES[Math.floor(Math.random() * AIRCRAFT_TYPES.length)],
       price,
       cabinClass,
       seatsAvailable,
@@ -337,7 +464,10 @@ export function getFlightSearch(searchId: string): FlightSearch | undefined {
 /**
  * Select a flight from search results.
  */
-export function selectFlight(searchId: string, flightId: string): { flight: Flight; seatMap: Seat[][] } | undefined {
+export function selectFlight(
+  searchId: string,
+  flightId: string,
+): { flight: Flight; seatMap: Seat[][] } | undefined {
   const search = flightSearches.get(searchId);
   if (!search) return undefined;
 
@@ -360,7 +490,7 @@ export function generateSeatMap(flightId: string): Seat[][] {
   // Simple hash of flight ID for consistent random generation
   let hash = 0;
   for (let i = 0; i < flightId.length; i++) {
-    hash = ((hash << 5) - hash) + flightId.charCodeAt(i);
+    hash = (hash << 5) - hash + flightId.charCodeAt(i);
     hash = hash & hash;
   }
 
@@ -392,7 +522,7 @@ export function generateSeatMap(flightId: string): Seat[][] {
         id: `${row}${pos}`,
         row,
         position: pos,
-        status: isOccupied ? "occupied" : (isExitRow ? "exit" : "available"),
+        status: isOccupied ? "occupied" : isExitRow ? "exit" : "available",
         isWindow,
         isAisle,
         isExitRow,
@@ -409,7 +539,11 @@ export function generateSeatMap(flightId: string): Seat[][] {
 /**
  * Select seats for a flight.
  */
-export function selectSeats(searchId: string, flightId: string, seatIds: string[]): {
+export function selectSeats(
+  searchId: string,
+  flightId: string,
+  seatIds: string[],
+): {
   success: boolean;
   message: string;
   selectedSeats?: string[];
@@ -456,7 +590,7 @@ export function selectSeats(searchId: string, flightId: string, seatIds: string[
  */
 export function createBooking(
   searchId: string,
-  passengers: Passenger[]
+  passengers: Passenger[],
 ): { success: boolean; message: string; booking?: Booking } {
   const search = flightSearches.get(searchId);
   if (!search) {
@@ -474,7 +608,7 @@ export function createBooking(
   if (passengers.length !== search.searchParams.passengers) {
     return {
       success: false,
-      message: `Expected ${search.searchParams.passengers} passengers, got ${passengers.length}`
+      message: `Expected ${search.searchParams.passengers} passengers, got ${passengers.length}`,
     };
   }
 
@@ -499,7 +633,7 @@ export function createBooking(
     if (seat) seatFees += seat.price;
   }
 
-  const totalPrice = (flight.price * passengers.length) + seatFees;
+  const totalPrice = flight.price * passengers.length + seatFees;
 
   const confirmationNumber = generateConfirmationNumber();
 

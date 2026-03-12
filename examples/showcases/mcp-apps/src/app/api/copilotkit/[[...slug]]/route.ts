@@ -5,7 +5,11 @@
  * Reference: v2.x/apps/react/demo/src/app/api/copilotkit-mcp/[[...slug]]/route.ts
  */
 
-import { CopilotRuntime, createCopilotEndpoint, InMemoryAgentRunner } from "@copilotkitnext/runtime";
+import {
+  CopilotRuntime,
+  createCopilotEndpoint,
+  InMemoryAgentRunner,
+} from "@copilotkitnext/runtime";
 import { handle } from "hono/vercel";
 import { BuiltInAgent } from "@copilotkitnext/agent";
 import { MCPAppsMiddleware } from "@ag-ui/mcp-apps-middleware";
@@ -60,11 +64,16 @@ Create task boards with drag-drop cards and columns.
 - Ask clarifying questions if key parameters are missing
 - Each app has helper tools for additional interactions within the UI
 - Be helpful and guide users through the interactive features`,
-}).use(new MCPAppsMiddleware({
-  mcpServers: [
-    { type: "http", url: process.env.MCP_SERVER_URL || "http://localhost:3001/mcp" }
-  ],
-}));
+}).use(
+  new MCPAppsMiddleware({
+    mcpServers: [
+      {
+        type: "http",
+        url: process.env.MCP_SERVER_URL || "http://localhost:3001/mcp",
+      },
+    ],
+  }),
+);
 
 // Create CopilotKit runtime
 const runtime = new CopilotRuntime({

@@ -33,7 +33,7 @@ const Map = dynamic(
   () => import("react-leaflet").then((mod) => mod.MapContainer),
   {
     ssr: false,
-  }
+  },
 );
 
 export default function MapComponent() {
@@ -41,7 +41,7 @@ export default function MapComponent() {
   const [center, setCenter] = useState<LatLngTuple>([0, 0]);
   const hasProcessedTrips = useRef(false);
   const hasInProgress = useRef(false);
-  
+
   const researchAgentActive = useRef(false);
   const { running: researchAgentRunning } = useCoAgent({
     name: AvailableAgents.RESEARCH_AGENT,
@@ -168,8 +168,8 @@ export default function MapComponent() {
             const message = isLoading
               ? "Adding Trips..."
               : isExecuting
-              ? "Please Confirm"
-              : "Trips Added Successfully!";
+                ? "Please Confirm"
+                : "Trips Added Successfully!";
 
             return (
               <div className="flex items-start py-2 px-3">
@@ -334,9 +334,9 @@ export default function MapComponent() {
   // Show map with points
   return (
     <div style={{ height: "100vh", width: "100%", position: "relative" }}>
-      <Map 
-        center={center} 
-        zoom={13} 
+      <Map
+        center={center}
+        zoom={13}
         style={{ height: "100%", width: "100%" }}
         className="leaflet-container"
       >

@@ -5,7 +5,6 @@
  * Base Agent State
  */
 
-
 /**
  * Travel Agent Types
  */
@@ -32,7 +31,6 @@ export type SearchProgress = {
   query: string;
   done: boolean;
 };
-
 
 /**
  * Research Agent Types
@@ -67,13 +65,5 @@ export const CoAgentsProvider = ({
 }: {
   children: React.ReactNode;
 }) => {
-
-
-
-  return (
-    <>
-      {children}
-    </>
-  );
+  return <>{children}</>;
 };
-

@@ -21,7 +21,7 @@ export function useGlobeInteraction(
   globeRef: React.MutableRefObject<GlobeMethods | undefined>,
   visitedCountries: VisitedCountry[],
   clickedCountry: ClickedCountry | null,
-  setClickedCountry: (country: ClickedCountry | null) => void
+  setClickedCountry: (country: ClickedCountry | null) => void,
 ) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [hoverId, setHoverId] = useState<string | null>(null);
@@ -38,14 +38,23 @@ export function useGlobeInteraction(
 
       const countryName = feature.properties?.name ?? "Unknown";
       const flagEmoji = feature.properties?.flagEmoji ?? null;
-      const isVisited = visitedCountries.some(country => country.name === countryName);
+      const isVisited = visitedCountries.some(
+        (country) => country.name === countryName,
+      );
 
       const [lngRaw, latRaw] = geoCentroid(feature);
       const lat = Number.isFinite(latRaw) ? latRaw : undefined;
       const lng = Number.isFinite(lngRaw) ? lngRaw : undefined;
 
-      if (globeRef.current?.pointOfView && lat !== undefined && lng !== undefined) {
-        globeRef.current.pointOfView({ lat, lng, altitude: 1.6 }, GLOBE_ANIMATION_DURATION_MS);
+      if (
+        globeRef.current?.pointOfView &&
+        lat !== undefined &&
+        lng !== undefined
+      ) {
+        globeRef.current.pointOfView(
+          { lat, lng, altitude: 1.6 },
+          GLOBE_ANIMATION_DURATION_MS,
+        );
 
         setTimeout(() => {
           if (globeRef.current) {
@@ -62,7 +71,7 @@ export function useGlobeInteraction(
         }, GLOBE_ANIMATION_DURATION_MS);
       }
     },
-    [globeRef, visitedCountries, setClickedCountry]
+    [globeRef, visitedCountries, setClickedCountry],
   );
 
   const handlePolygonHover = useCallback((polygon: unknown | null) => {
@@ -82,7 +91,7 @@ export function useGlobeInteraction(
           </div>`
         : "";
     },
-    [hoverId]
+    [hoverId],
   );
 
   return {

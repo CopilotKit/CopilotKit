@@ -27,7 +27,7 @@ export const AVAILABLE_OPERATIONS_PER_PAGE = {
 // A component dedicated to adding readables/actions that are global to the app.
 const CopilotContext = ({ children }: { children: React.ReactNode }) => {
   const { currentUser } = useAuthContext();
-  useServiceNow(currentUser.email)
+  useServiceNow(currentUser.email);
 
   // A readable of app wide authentication and authorization context.
   // The LLM will now know which user is it working against, when performing operations.

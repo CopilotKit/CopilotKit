@@ -58,21 +58,21 @@ async function curate(state: {
          {
           urls: ["url1", "url2", "url3", "url4", "url5"]
          }
-         .`.replace(/\s+/g, " ")
+         .`.replace(/\s+/g, " "),
       ),
       new HumanMessage(
         `Today's date is ${new Date().toLocaleDateString("en-GB")}.
        Topic or Query: ${state.agentState.topic}
        
        Here is a list of articles:
-       ${state.agentState.searchResults}`.replace(/\s+/g, " ")
+       ${state.agentState.searchResults}`.replace(/\s+/g, " "),
       ),
     ],
     {
       response_format: {
         type: "json_object",
       },
-    }
+    },
   );
   const urls = JSON.parse(response.content as string).urls;
   const searchResults = JSON.parse(state.agentState.searchResults!);
@@ -109,11 +109,11 @@ async function critique(state: {
       if you think the article is good, please return [DONE].
       you can provide feedback on the revised article or just
       return [DONE] if you think the article is good.
-      Please return a string of your critique or [DONE].`.replace(/\s+/g, " ")
+      Please return a string of your critique or [DONE].`.replace(/\s+/g, " "),
     ),
     new HumanMessage(
       `${feedbackInstructions}
-       This is the article: ${state.agentState.article}`
+       This is the article: ${state.agentState.article}`,
     ),
   ]);
   const content = response.content as string;
@@ -135,8 +135,8 @@ async function write(state: {
       `You are a personal newspaper writer. Your sole purpose is to write a well-written article about a 
       topic using a list of articles. Write 5 paragraphs in markdown.`.replace(
         /\s+/g,
-        " "
-      )
+        " ",
+      ),
     ),
     new HumanMessage(
       `Today's date is ${new Date().toLocaleDateString("en-GB")}.
@@ -146,8 +146,8 @@ async function write(state: {
       This is the topic: ${state.agentState.topic}
       Please return a well-written article based on the provided information.`.replace(
         /\s+/g,
-        " "
-      )
+        " ",
+      ),
     ),
   ]);
   const content = response.content as string;
@@ -167,7 +167,7 @@ async function revise(state: {
   const response = await model().invoke([
     new SystemMessage(
       `You are a personal newspaper editor. Your sole purpose is to edit a well-written article about a 
-      topic based on given critique.`.replace(/\s+/g, " ")
+      topic based on given critique.`.replace(/\s+/g, " "),
     ),
     new HumanMessage(
       `Your task is to edit the article based on the critique given.
@@ -175,7 +175,7 @@ async function revise(state: {
       This is the critique: ${state.agentState.critique}
       Please return the edited article based on the critique given.
       You may leave feedback about the critique encoded between <FEEDBACK> tags like this:
-      <FEEDBACK> here goes the feedback ...</FEEDBACK>`.replace(/\s+/g, " ")
+      <FEEDBACK> here goes the feedback ...</FEEDBACK>`.replace(/\s+/g, " "),
     ),
   ]);
   const content = response.content as string;
@@ -235,7 +235,7 @@ workflow.addConditionalEdges(
     continue: "revise",
     // Otherwise we finish.
     end: END,
-  }
+  },
 );
 
 workflow.addEdge("revise", "critique");

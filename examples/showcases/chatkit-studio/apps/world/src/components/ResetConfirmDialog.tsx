@@ -49,7 +49,8 @@ export default function ResetConfirmDialog({
             Reset Progress?
           </h3>
           <p className="text-sm text-gray-500">
-            This will delete all your visited countries and reset your level to Wanderer.
+            This will delete all your visited countries and reset your level to
+            Wanderer.
           </p>
         </div>
 

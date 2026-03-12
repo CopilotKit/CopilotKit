@@ -19,7 +19,10 @@ interface StaticGenUICardProps {
   onPromptClick?: (prompt: string) => void;
 }
 
-export function StaticGenUICard({ isActive, onPromptClick }: StaticGenUICardProps) {
+export function StaticGenUICard({
+  isActive,
+  onPromptClick,
+}: StaticGenUICardProps) {
   return (
     <div className={`protocol-card ${isActive ? "active" : ""}`}>
       <div className="protocol-card-icon static">
@@ -37,7 +40,8 @@ export function StaticGenUICard({ isActive, onPromptClick }: StaticGenUICardProp
       </div>
       <h3 className="text-lg font-semibold mb-2">Static GenUI</h3>
       <p className="text-sm text-[var(--color-text-secondary)] mb-4">
-        Pre-built React components rendered by the frontend when tools are called.
+        Pre-built React components rendered by the frontend when tools are
+        called.
       </p>
       <div className="flex flex-wrap gap-2">
         {Object.entries(PROMPTS).map(([label, prompt]) => (

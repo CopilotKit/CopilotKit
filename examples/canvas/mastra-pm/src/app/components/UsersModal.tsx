@@ -15,7 +15,9 @@ export function UsersModal({ isOpen, onClose, state }: UsersModalProps) {
         <div className="flex justify-between items-center p-8 border-b border-white/10">
           <div>
             <h2 className="text-3xl font-bold text-white">Team Members</h2>
-            <p className="text-gray-200 text-sm mt-1">Manage your project team</p>
+            <p className="text-gray-200 text-sm mt-1">
+              Manage your project team
+            </p>
           </div>
           <button
             onClick={onClose}
@@ -35,7 +37,7 @@ export function UsersModal({ isOpen, onClose, state }: UsersModalProps) {
 }
 
 interface UserCardProps {
-  user: AgentState['users'][0];
+  user: AgentState["users"][0];
 }
 
 function UserCard({ user }: UserCardProps) {
@@ -52,11 +54,13 @@ function UserCard({ user }: UserCardProps) {
       <div className="flex-1">
         <div className="font-semibold text-xl text-white mb-1">{user.name}</div>
         <div className="text-sm text-gray-200 mb-2">{user.role}</div>
-        <div className="text-sm text-gray-300 leading-relaxed">{user.summary}</div>
+        <div className="text-sm text-gray-300 leading-relaxed">
+          {user.summary}
+        </div>
       </div>
       <div className="text-right">
         <div className="text-sm text-gray-400">{user.email}</div>
       </div>
     </div>
   );
-} 
+}

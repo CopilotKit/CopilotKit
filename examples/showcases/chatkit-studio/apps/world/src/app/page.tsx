@@ -21,7 +21,9 @@ import type { CountryFeature } from "@/utils/countryData";
 import type { ClickedCountry } from "@/hooks/useGlobeInteraction";
 
 // Client-side only to avoid SSR issues with Three.js
-const CountryGlobe = dynamic(() => import("@/components/globe/CountryGlobe"), { ssr: false });
+const CountryGlobe = dynamic(() => import("@/components/globe/CountryGlobe"), {
+  ssr: false,
+});
 
 // Animation timing constants
 const GLOBE_ANIMATION_DURATION_MS = 1200;
@@ -42,7 +44,9 @@ export default function Home() {
     isLoaded,
   } = useJourneyProgress();
   const [isJourneyModalOpen, setIsJourneyModalOpen] = useState(false);
-  const [clickedCountry, setClickedCountry] = useState<ClickedCountry | null>(null);
+  const [clickedCountry, setClickedCountry] = useState<ClickedCountry | null>(
+    null,
+  );
 
   // Close tooltip
   const handleCloseTooltip = useCallback(() => {
@@ -50,19 +54,25 @@ export default function Home() {
   }, []);
 
   // Add to journey silently (for programmatic visits via AI)
-  const addToJourneyOnly = useCallback((country: string, flagEmoji: string | null) => {
-    addCountry(country, flagEmoji);
-  }, [addCountry]);
+  const addToJourneyOnly = useCallback(
+    (country: string, flagEmoji: string | null) => {
+      addCountry(country, flagEmoji);
+    },
+    [addCountry],
+  );
 
   // Add to journey and notify agent (for manual clicks on globe)
-  const handleVisit = useCallback(async (country: string, flagEmoji: string | null) => {
-    addCountry(country, flagEmoji);
-    const message = new TextMessage({
-      role: MessageRole.User,
-      content: `I want to visit ${country}`,
-    });
-    await appendMessage(message);
-  }, [addCountry, appendMessage]);
+  const handleVisit = useCallback(
+    async (country: string, flagEmoji: string | null) => {
+      addCountry(country, flagEmoji);
+      const message = new TextMessage({
+        role: MessageRole.User,
+        content: `I want to visit ${country}`,
+      });
+      await appendMessage(message);
+    },
+    [addCountry, appendMessage],
+  );
 
   // Programmatic visit via natural language
   const visitCountryProgrammatically = useCallback(
@@ -73,7 +83,7 @@ export default function Home() {
 
       const normalizedInput = normalizeName(countryName);
       const country = polygons.find(
-        (p) => normalizeName(p.properties?.name ?? "") === normalizedInput
+        (p) => normalizeName(p.properties?.name ?? "") === normalizedInput,
       );
 
       if (!country) {
@@ -88,13 +98,20 @@ export default function Home() {
       const lat = Number.isFinite(latRaw) ? latRaw : undefined;
       const lng = Number.isFinite(lngRaw) ? lngRaw : undefined;
 
-      if (globeRef.current?.pointOfView && lat !== undefined && lng !== undefined) {
+      if (
+        globeRef.current?.pointOfView &&
+        lat !== undefined &&
+        lng !== undefined
+      ) {
         // Stop auto-rotation
         const controls = globeRef.current.controls?.();
         if (controls) controls.autoRotate = false;
 
         // Animate to country
-        globeRef.current.pointOfView({ lat, lng, altitude: 1.6 }, GLOBE_ANIMATION_DURATION_MS);
+        globeRef.current.pointOfView(
+          { lat, lng, altitude: 1.6 },
+          GLOBE_ANIMATION_DURATION_MS,
+        );
 
         // Add to journey after animation (no message - AI will respond to original message)
         setTimeout(() => {
@@ -106,19 +123,21 @@ export default function Home() {
 
       return false;
     },
-    [polygons, addToJourneyOnly, globeRef]
+    [polygons, addToJourneyOnly, globeRef],
   );
 
   // CopilotKit action for AI to call
   useCopilotAction(
     {
       name: "visitCountry",
-      description: "Navigate the globe to a specific country and mark it as visited. Use this when the user expresses interest in visiting or learning about a country.",
+      description:
+        "Navigate the globe to a specific country and mark it as visited. Use this when the user expresses interest in visiting or learning about a country.",
       parameters: [
         {
           name: "countryName",
           type: "string",
-          description: "The name of the country to visit (e.g., 'France', 'Japan', 'Brazil')",
+          description:
+            "The name of the country to visit (e.g., 'France', 'Japan', 'Brazil')",
           required: true,
         },
       ],
@@ -131,7 +150,7 @@ export default function Home() {
         return `Sorry, I couldn't find a country named "${countryName}". Please try another name.`;
       },
     },
-    [visitCountryProgrammatically, handleCloseTooltip]
+    [visitCountryProgrammatically, handleCloseTooltip],
   );
 
   return (

@@ -3,7 +3,11 @@ import type { AssistantMessageProps } from "@copilotkit/react-ui";
 import { Markdown } from "@/components/chat/layout/markdown";
 import { Cursor } from "@/components/chat/layout/cursor";
 
-export function AssistantBubble({ message, isGenerating, isLoading }: AssistantMessageProps) {
+export function AssistantBubble({
+  message,
+  isGenerating,
+  isLoading,
+}: AssistantMessageProps) {
   const content = message?.content ?? "";
 
   if (!message) return null;
@@ -18,7 +22,7 @@ export function AssistantBubble({ message, isGenerating, isLoading }: AssistantM
       <div className="text-foreground rounded-lg p-3">
         <Markdown content={content} />
       </div>
-      
+
       {message.generativeUI?.()}
     </div>
   );

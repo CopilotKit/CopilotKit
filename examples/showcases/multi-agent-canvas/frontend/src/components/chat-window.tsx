@@ -18,7 +18,6 @@ export const ChatWindow: FC = () => {
         - MCP Agent: For general or multipurpose tasks use the mcp-agent
         - Travel Agent: Expert in planning trips, itineraries and travel recommendations
         - Research Agent: You are a helpful research assistant, set to help the user with conduction and writing a research paper on any topic."
-
       labels={{
         placeholder: "Type your message here...",
         regenerateResponse: "Try another response",

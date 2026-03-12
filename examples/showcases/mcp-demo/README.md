@@ -1,8 +1,9 @@
 <div align="center">
 
 # Working Memory
-   
+
 ![CopilotKit-Banner](https://github.com/user-attachments/assets/8167c845-0381-45d9-ad1c-83f995d48290)
+
 </div>
 
 Working Memory is an example for the implementation of the MCP server-client integrations to handle and manage your projects and tasks from your project management applications like Linear.
@@ -11,7 +12,6 @@ Working Memory is an example for the implementation of the MCP server-client int
 
 - **CopilotKit AI Chat Interface:**  
   Chat with the CopilotKit AI which acts as useful assitant who can able to provide answers to user queries and perform executable actions inside the application.
-  
 - **Real-Time Interactivity:**  
   Enjoy a live chat powered by `@copilotkit/react-ui` that orchestrates dynamic state changes and agent responses.
 
@@ -36,15 +36,16 @@ Working Memory is an example for the implementation of the MCP server-client int
 
 ## Setup Instructions
 
-1. **Prerequisites:**  
+1. **Prerequisites:**
    - [Node.js](https://nodejs.org) (LTS version recommended)
    - npm, yarn, or pnpm
 
-2. **Installation:**  
+2. **Installation:**
+
    ```bash
    # Clone the repository
    git clone <repository-url>
-   
+
    # Install dependencies
    npm install
    # or
@@ -55,11 +56,12 @@ Working Memory is an example for the implementation of the MCP server-client int
 
 3. **Environment Setup:**  
    Create a `.env` file in the root directory with the necessary environment variables.
+
    ```bash
     OPENAI_API_KEY = YOUR_API_KEY
    ```
 
-4. **Running the Development Server:**  
+4. **Running the Development Server:**
    ```bash
    npm run dev
    # or
@@ -91,7 +93,8 @@ Working Memory is an example for the implementation of the MCP server-client int
 
 ## Development
 
-- **Linting:**  
+- **Linting:**
+
   ```bash
   npm run lint
   # or
@@ -100,7 +103,7 @@ Working Memory is an example for the implementation of the MCP server-client int
   pnpm lint
   ```
 
-- **Building for Production:**  
+- **Building for Production:**
   ```bash
   npm run build
   # or
@@ -112,10 +115,12 @@ Working Memory is an example for the implementation of the MCP server-client int
 ## Deployment
 
 The easiest way to deploy this project is with [Vercel](https://vercel.com). Build and start your application with:
+
 ```bash
 npm run build
 npm run start
 ```
+
 Follow Vercel's deployment guide for more details if needed.
 
 ## Contributing

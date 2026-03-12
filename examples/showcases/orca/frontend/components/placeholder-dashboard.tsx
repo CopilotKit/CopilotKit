@@ -1,4 +1,10 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 
 export function PlaceholderDashboard({ title }: { title: string }) {
   return (
@@ -13,7 +19,9 @@ export function PlaceholderDashboard({ title }: { title: string }) {
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold">95.2%</div>
-            <p className="text-xs text-muted-foreground">+2.1% from last period</p>
+            <p className="text-xs text-muted-foreground">
+              +2.1% from last period
+            </p>
           </CardContent>
         </Card>
         <Card>
@@ -23,7 +31,9 @@ export function PlaceholderDashboard({ title }: { title: string }) {
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold">$12.4K</div>
-            <p className="text-xs text-muted-foreground">+5.2% from last period</p>
+            <p className="text-xs text-muted-foreground">
+              +5.2% from last period
+            </p>
           </CardContent>
         </Card>
         <Card>
@@ -33,7 +43,9 @@ export function PlaceholderDashboard({ title }: { title: string }) {
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold">842</div>
-            <p className="text-xs text-muted-foreground">-1.8% from last period</p>
+            <p className="text-xs text-muted-foreground">
+              -1.8% from last period
+            </p>
           </CardContent>
         </Card>
       </div>
@@ -41,15 +53,20 @@ export function PlaceholderDashboard({ title }: { title: string }) {
       <Card>
         <CardHeader>
           <CardTitle>Placeholder Content</CardTitle>
-          <CardDescription>This is a placeholder dashboard. Real content will be implemented later.</CardDescription>
+          <CardDescription>
+            This is a placeholder dashboard. Real content will be implemented
+            later.
+          </CardDescription>
         </CardHeader>
         <CardContent className="h-80 flex items-center justify-center">
           <div className="text-center text-muted-foreground">
             <p className="text-lg">Content coming soon</p>
-            <p className="text-sm">This section will contain relevant data visualizations and tables</p>
+            <p className="text-sm">
+              This section will contain relevant data visualizations and tables
+            </p>
           </div>
         </CardContent>
       </Card>
     </div>
-  )
+  );
 }

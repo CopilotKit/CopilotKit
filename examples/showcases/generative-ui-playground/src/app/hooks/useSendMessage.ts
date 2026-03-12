@@ -8,7 +8,11 @@
  */
 
 import { useCallback } from "react";
-import { useAgent, useCopilotKit, useCopilotChatConfiguration } from "@copilotkitnext/react";
+import {
+  useAgent,
+  useCopilotKit,
+  useCopilotChatConfiguration,
+} from "@copilotkitnext/react";
 import { randomUUID, DEFAULT_AGENT_ID } from "@copilotkitnext/shared";
 
 export function useSendMessage() {
@@ -29,7 +33,7 @@ export function useSendMessage() {
         console.error("Failed to run agent:", error);
       }
     },
-    [agent, copilotkit, config]
+    [agent, copilotkit, config],
   );
 
   return { sendMessage };

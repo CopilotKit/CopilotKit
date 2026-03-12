@@ -2,11 +2,7 @@
 
 import { useEffect, useReducer } from "react";
 import { useCopilotAction, useCopilotReadable } from "@copilotkit/react-core";
-import {
-  CARD_COLORS,
-  NewCardRequest,
-  Transaction,
-} from "@/app/api/v1/data";
+import { CARD_COLORS, NewCardRequest, Transaction } from "@/app/api/v1/data";
 import { CreditCardDetails } from "@/components/credit-card-details";
 import { PartialBy } from "@/lib/type-helpers";
 import {
@@ -43,7 +39,7 @@ export default function Page() {
       ...state,
       ...payload,
     }),
-    { newPin: "", dialogOpen: false, cardId: null, loading: false }
+    { newPin: "", dialogOpen: false, cardId: null, loading: false },
   );
   const {
     cards,
@@ -84,7 +80,7 @@ export default function Page() {
   };
 
   const handleAddCard = async (
-    cardRequest: PartialBy<NewCardRequest, "color" | "pin">
+    cardRequest: PartialBy<NewCardRequest, "color" | "pin">,
   ) => {
     void addNewCard({
       ...cardRequest,
@@ -144,7 +140,7 @@ export default function Page() {
     ],
     handler: async ({ cardId, policyType }) => {
       const policyId = policies.find(
-        (policy) => policy.type === policyType
+        (policy) => policy.type === policyType,
       )?.id;
       if (!policyId)
         throw new Error("Could not find matching policy to assign");
@@ -211,17 +207,17 @@ export default function Page() {
         filteredTransactions = filterTransactionsByCardLast4(
           transactions,
           cards,
-          card4Digits
+          card4Digits,
         );
       } else if (policyId) {
         filteredTransactions = filterTransactionsByPolicyId(
           transactions,
-          policyId
+          policyId,
         );
       } else if (transactionTitle) {
         filteredTransactions = filterTransactionByTitle(
           transactions,
-          transactionTitle
+          transactionTitle,
         );
       }
 
@@ -281,7 +277,7 @@ export default function Page() {
 
       if (!transactionId) {
         handler?.(
-          "A transaction ID was not given, could be that there arent any pending approval or there was an error"
+          "A transaction ID was not given, could be that there arent any pending approval or there was an error",
         );
         return <div>No pending transactions</div>;
       }
@@ -300,7 +296,7 @@ export default function Page() {
       return (
         <TransactionsList
           transactions={transactions.filter((t) =>
-            transactionId.includes(t.id)
+            transactionId.includes(t.id),
           )}
           showApprovalInterface
           approvalInterfaceProps={{
@@ -329,7 +325,9 @@ export default function Page() {
       "is that they do not have permission to perform the action.",
     value: Object.keys(PERMISSIONS).filter(
       (key) =>
-        !PERMISSIONS[key as keyof typeof PERMISSIONS].includes(currentUser.role)
+        !PERMISSIONS[key as keyof typeof PERMISSIONS].includes(
+          currentUser.role,
+        ),
     ),
   });
 

@@ -1,6 +1,6 @@
 # Job Application Assistant
 
-A Job assistant built with [CopilotKit](http://copilotkit.ai/) (Next.js) on the frontend and [DeepAgents](https://github.com/langchain-ai/deepagents) (by LangChain) on the backend. Users upload their resume (PDF), the system extracts skills and context and DeepAgents orchestrate sub-agents & tools to search the web (via Tavily) for relevant job postings. Results stream back to the UI in real time and are rendered alongside the chat. 
+A Job assistant built with [CopilotKit](http://copilotkit.ai/) (Next.js) on the frontend and [DeepAgents](https://github.com/langchain-ai/deepagents) (by LangChain) on the backend. Users upload their resume (PDF), the system extracts skills and context and DeepAgents orchestrate sub-agents & tools to search the web (via Tavily) for relevant job postings. Results stream back to the UI in real time and are rendered alongside the chat.
 
 DeepAgents provides clean orchestration with sub-agents and tools, while CopilotKit (AG‑UI) handles real-time streaming and stateful UI updates. Refer to the [official integration docs](https://docs.copilotkit.ai/integrations/langgraph/deep-agents).
 
@@ -47,7 +47,7 @@ Jobs rendered in table + chat stay clean
 .
 ├── src/                               ← Next.js frontend
 │   ├── app/
-│   │   ├── page.tsx                      
+│   │   ├── page.tsx
 │   │   ├── layout.tsx                 ← CopilotKit provider
 │   │   └── api/
 │   │       ├── upload-resume/route.ts ← upload endpoint
@@ -56,7 +56,7 @@ Jobs rendered in table + chat stay clean
 │   │   ├── ChatPanel.tsx              ← Chat + tool capture
 │   │   ├── ResumeUpload.tsx           ← PDF upload UI
 │   │   ├── JobsResults.tsx            ← Jobs table renderer
-│   │   └── LivePreviewPanel.tsx          
+│   │   └── LivePreviewPanel.tsx
 │   └── lib/
 │       ├── jobsParser.ts              ← Normalization helpers
 │       └── types.ts                   ← Shared frontend types

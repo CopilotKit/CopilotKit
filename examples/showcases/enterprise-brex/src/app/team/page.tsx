@@ -102,7 +102,7 @@ export default function Team() {
       ...state,
       ...payload,
     }),
-    defaultDialogState
+    defaultDialogState,
   );
 
   const handleAddMemberSubmit = () => {

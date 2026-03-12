@@ -1,22 +1,22 @@
-"use client"
+"use client";
 
-import { Check } from "lucide-react"
-import React, { useEffect } from "react"
+import { Check } from "lucide-react";
+import React, { useEffect } from "react";
 
 interface ToolLog {
-  id: string | number
-  message: string
-  status: "processing" | "completed"
+  id: string | number;
+  message: string;
+  status: "processing" | "completed";
 }
 
 interface ToolLogsProps {
-  logs: ToolLog[]
+  logs: ToolLog[];
 }
 
 export function ToolLogs({ logs }: ToolLogsProps) {
-    useEffect(() => {
-        console.log(logs, "logs")
-    }, [])
+  useEffect(() => {
+    console.log(logs, "logs");
+  }, []);
   return (
     <div className="flex flex-col gap-2 p-2">
       {logs.map((log) => (
@@ -38,11 +38,13 @@ export function ToolLogs({ logs }: ToolLogsProps) {
           ) : (
             <Check size={18} className="text-green-600" />
           )}
-          <span className="text-xs font-semibold font-['Plus_Jakarta_Sans']">{log.message}</span>
+          <span className="text-xs font-semibold font-['Plus_Jakarta_Sans']">
+            {log.message}
+          </span>
         </div>
       ))}
     </div>
-  )
+  );
 }
 
 // Example usage (remove in production):

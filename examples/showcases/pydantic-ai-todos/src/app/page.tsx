@@ -3,7 +3,11 @@
 import { TodoBoard } from "@/components/todo-board";
 import { FullSendCard } from "@/components/full-send";
 import { AgentState } from "@/lib/types";
-import { CatchAllActionRenderProps, useCoAgent, useCopilotAction } from "@copilotkit/react-core";
+import {
+  CatchAllActionRenderProps,
+  useCoAgent,
+  useCopilotAction,
+} from "@copilotkit/react-core";
 import { CopilotKitCSSProperties, CopilotSidebar } from "@copilotkit/react-ui";
 import { useState } from "react";
 import { BackendToolsCard } from "@/components/backend-tools";
@@ -17,7 +21,7 @@ export default function Home() {
   */
   const { state, setState } = useCoAgent<AgentState>({
     name: "my_agent", // Must match the agent name in route.ts
-    initialState
+    initialState,
   });
 
   /*
@@ -25,7 +29,13 @@ export default function Home() {
   */
   useCopilotAction({
     name: "setThemeColor",
-    parameters: [{ name: "themeColor", description: "The theme color to set.", required: true }],
+    parameters: [
+      {
+        name: "themeColor",
+        description: "The theme color to set.",
+        required: true,
+      },
+    ],
     handler({ themeColor }) {
       setThemeColor(themeColor);
     },
@@ -34,26 +44,41 @@ export default function Home() {
   /*
     🪁 Human in the Loop
   */
-  useCopilotAction({
-    name: "full_send",
-    description: "Mark all todos as complete. Requires user confirmation.",
-    renderAndWaitForResponse: (props) => (
-      <FullSendCard themeColor={themeColor} {...props} state={state} setState={setState} />
-    ),
-  }, [themeColor, state, setState]);
+  useCopilotAction(
+    {
+      name: "full_send",
+      description: "Mark all todos as complete. Requires user confirmation.",
+      renderAndWaitForResponse: (props) => (
+        <FullSendCard
+          themeColor={themeColor}
+          {...props}
+          state={state}
+          setState={setState}
+        />
+      ),
+    },
+    [themeColor, state, setState],
+  );
 
   /*
     🪁 Backend Tools
   */
-  useCopilotAction({
-    name: "*",
-    render: (props: CatchAllActionRenderProps) => (
-      <BackendToolsCard themeColor={themeColor} {...props} />
-    ),
-  }, [themeColor]);
+  useCopilotAction(
+    {
+      name: "*",
+      render: (props: CatchAllActionRenderProps) => (
+        <BackendToolsCard themeColor={themeColor} {...props} />
+      ),
+    },
+    [themeColor],
+  );
 
   return (
-    <main style={{ "--copilot-kit-primary-color": themeColor } as CopilotKitCSSProperties}>
+    <main
+      style={
+        { "--copilot-kit-primary-color": themeColor } as CopilotKitCSSProperties
+      }
+    >
       {/* 
         🪁 Agent Chat UI
       */}
@@ -67,7 +92,10 @@ export default function Home() {
         suggestions={[
           { title: "Add Todos", message: "Add a todo to build a website." },
           { title: "Change Theme", message: "Set the theme to a nice purple." },
-          { title: "Update Status", message: "Move the first todo to in-progress." },
+          {
+            title: "Update Status",
+            message: "Move the first todo to in-progress.",
+          },
           { title: "Full Send", message: "Please full send it!" },
           { title: "Manage Tasks", message: "Delete all completed todos." },
           { title: "Read State", message: "What todos do I have?" },

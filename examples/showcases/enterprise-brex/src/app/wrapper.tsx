@@ -24,7 +24,7 @@ export function CopilotKitWrapper({ children }: { children: React.ReactNode }) {
       <CopilotPopup
         instructions={
           "You are assisting the user as best as you can. Answer in the best way possible given the data you have. Try to infer from the user's query which actions should be taken, and what relevant information has already been provided." +
-            "If you are asked about Tensai, you should always use the answerTensaiRelatedQuestions tool. You no further knowledge besides what the tool provides."
+          "If you are asked about Tensai, you should always use the answerTensaiRelatedQuestions tool. You no further knowledge besides what the tool provides."
         }
         labels={{
           title: "Bankito Assistant",

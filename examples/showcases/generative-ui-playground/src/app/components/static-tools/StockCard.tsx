@@ -20,13 +20,7 @@ interface StockCardProps {
  * Mini sparkline chart using SVG path
  * Renders price history as a simple line chart
  */
-function Sparkline({
-  data,
-  positive,
-}: {
-  data: number[];
-  positive: boolean;
-}) {
+function Sparkline({ data, positive }: { data: number[]; positive: boolean }) {
   if (!data || data.length < 2) return null;
 
   const width = 120;
@@ -40,7 +34,8 @@ function Sparkline({
   // Generate SVG path points
   const points = data.map((value, index) => {
     const x = padding + (index / (data.length - 1)) * (width - padding * 2);
-    const y = height - padding - ((value - min) / range) * (height - padding * 2);
+    const y =
+      height - padding - ((value - min) / range) * (height - padding * 2);
     return `${x},${y}`;
   });
 
@@ -50,7 +45,9 @@ function Sparkline({
   const areaD = `${pathD} L ${width - padding},${height - padding} L ${padding},${height - padding} Z`;
 
   const strokeColor = positive ? "var(--color-mint-dark)" : "#ef4444";
-  const fillColor = positive ? "rgba(27, 147, 111, 0.1)" : "rgba(239, 68, 68, 0.1)";
+  const fillColor = positive
+    ? "rgba(27, 147, 111, 0.1)"
+    : "rgba(239, 68, 68, 0.1)";
 
   return (
     <svg width={width} height={height} className="overflow-visible">
@@ -68,7 +65,11 @@ function Sparkline({
       {/* End dot */}
       <circle
         cx={width - padding}
-        cy={height - padding - ((data[data.length - 1] - min) / range) * (height - padding * 2)}
+        cy={
+          height -
+          padding -
+          ((data[data.length - 1] - min) / range) * (height - padding * 2)
+        }
         r={3}
         fill={strokeColor}
       />
@@ -85,7 +86,9 @@ export function StockCard({
   companyName,
 }: StockCardProps) {
   const isPositive = change >= 0;
-  const changeColor = isPositive ? "text-[var(--color-mint-dark)]" : "text-red-500";
+  const changeColor = isPositive
+    ? "text-[var(--color-mint-dark)]"
+    : "text-red-500";
   const changeArrow = isPositive ? "↑" : "↓";
 
   // Format price with 2 decimal places
@@ -113,7 +116,9 @@ export function StockCard({
           )}
         </div>
         <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-[var(--color-glass-subtle)]">
-          <span className="text-xs text-[var(--color-text-tertiary)]">STOCK</span>
+          <span className="text-xs text-[var(--color-text-tertiary)]">
+            STOCK
+          </span>
         </div>
       </div>
 

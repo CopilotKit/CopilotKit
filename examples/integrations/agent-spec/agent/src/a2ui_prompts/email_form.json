@@ -30,10 +30,7 @@
     "component": {
       "Row": {
         "children": {
-          "explicitList": [
-            "from-label",
-            "from-value"
-          ]
+          "explicitList": ["from-label", "from-value"]
         },
         "gap": "medium",
         "alignment": "center"
@@ -67,10 +64,7 @@
     "component": {
       "Row": {
         "children": {
-          "explicitList": [
-            "to-label",
-            "to-value"
-          ]
+          "explicitList": ["to-label", "to-value"]
         },
         "gap": "medium",
         "alignment": "center"
@@ -104,10 +98,7 @@
     "component": {
       "Row": {
         "children": {
-          "explicitList": [
-            "subject-label",
-            "subject-value"
-          ]
+          "explicitList": ["subject-label", "subject-value"]
         },
         "gap": "medium",
         "alignment": "center"
@@ -147,12 +138,7 @@
     "component": {
       "Column": {
         "children": {
-          "explicitList": [
-            "greeting",
-            "body-text",
-            "closing",
-            "signature"
-          ]
+          "explicitList": ["greeting", "body-text", "closing", "signature"]
         },
         "gap": "small"
       }
@@ -207,10 +193,7 @@
     "component": {
       "Row": {
         "children": {
-          "explicitList": [
-            "send-btn",
-            "discard-btn"
-          ]
+          "explicitList": ["send-btn", "discard-btn"]
         },
         "gap": "small"
       }

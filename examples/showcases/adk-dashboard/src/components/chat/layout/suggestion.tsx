@@ -1,6 +1,6 @@
 import {
-    CopilotChatSuggestion,
-    RenderSuggestionsListProps,
+  CopilotChatSuggestion,
+  RenderSuggestionsListProps,
 } from "@copilotkit/react-ui";
 import "@copilotkit/react-ui/styles.css";
 import { Card, CardContent } from "@/components/ui/card";
@@ -25,9 +25,12 @@ export const Suggestions = (props: RenderSuggestionsListProps) => {
             key={index}
             onClick={() => props.onSuggestionClick(suggestion.message)}
           >
-            <CardContent className="px-0 py-0 text-sm font-medium"> {suggestion.title} </CardContent>
+            <CardContent className="px-0 py-0 text-sm font-medium">
+              {" "}
+              {suggestion.title}{" "}
+            </CardContent>
           </Card>
-        ))}  
+        ))}
       </div>
     </div>
   );

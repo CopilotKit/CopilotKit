@@ -3,7 +3,12 @@
 import { useState, useEffect, useRef, useContext } from "react";
 import { useCoAgent, useCopilotChat } from "@copilotkit/react-core";
 import { useLocalStorage } from "@/hooks/use-local-storage";
-import { ConnectionType, ServerConfig, MCP_STORAGE_KEY, MCPConfig } from "@/lib/mcp-config-types";
+import {
+  ConnectionType,
+  ServerConfig,
+  MCP_STORAGE_KEY,
+  MCPConfig,
+} from "@/lib/mcp-config-types";
 import { X, Plus, Server, Globe, Trash2 } from "lucide-react";
 import { ServerConfigsContext } from "@/providers/Providers";
 // External link icon component
@@ -62,41 +67,50 @@ export function MCPConfigModal({ isOpen, onClose }: MCPConfigModalProps) {
 
   // Calculate server statistics
   const totalServers = configs.length;
-  const stdioServers = 0
-  const sseServers = configs.length
+  const stdioServers = 0;
+  const sseServers = configs.length;
 
   const { setMcpServers } = useCopilotChat();
-
-
 
   // Set loading to false when state is loaded
   useEffect(() => {
     setIsLoading(false);
     return () => {
       setMcpConfig(configs);
-    }
+    };
   }, []);
 
   const addConfig = () => {
     if (!serverName) return;
 
-
-    setConfigs([...configs, {
-      endpoint: url,
-      serverName: serverName,
-    }]);
-    con?.setConfig([...configs, {
-      endpoint: url,
-      serverName: serverName,
-    }]);
-    setMcpConfig([...configs, {
-      endpoint: url,
-      serverName: serverName,
-    }]);
-    setMcpServers([...configs, {
-      endpoint: url,
-      serverName: serverName,
-    }]);
+    setConfigs([
+      ...configs,
+      {
+        endpoint: url,
+        serverName: serverName,
+      },
+    ]);
+    con?.setConfig([
+      ...configs,
+      {
+        endpoint: url,
+        serverName: serverName,
+      },
+    ]);
+    setMcpConfig([
+      ...configs,
+      {
+        endpoint: url,
+        serverName: serverName,
+      },
+    ]);
+    setMcpServers([
+      ...configs,
+      {
+        endpoint: url,
+        serverName: serverName,
+      },
+    ]);
 
     // Reset form
     setServerName("");
@@ -107,7 +121,9 @@ export function MCPConfigModal({ isOpen, onClose }: MCPConfigModalProps) {
   };
 
   const removeConfig = (index: number) => {
-    setConfigs((prev) => { return prev.filter((_item, i) => i != index) });
+    setConfigs((prev) => {
+      return prev.filter((_item, i) => i != index);
+    });
     con?.setConfig(con?.config.filter((_item, i: number) => i != index));
     setMcpConfig(mcpConfig.filter((_item: Config[], i: number) => i != index));
   };
@@ -132,7 +148,9 @@ export function MCPConfigModal({ isOpen, onClose }: MCPConfigModalProps) {
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center">
               <Server className="h-6 w-6 mr-2 text-gray-700" />
-              <h1 className="text-2xl font-semibold">MCP Server Configuration</h1>
+              <h1 className="text-2xl font-semibold">
+                MCP Server Configuration
+              </h1>
             </div>
             <button
               onClick={onClose}
@@ -178,7 +196,8 @@ export function MCPConfigModal({ isOpen, onClose }: MCPConfigModalProps) {
 
           {totalServers === 0 ? (
             <div className="text-gray-500 text-center py-10">
-              No servers configured. Click &quot;Add Server&quot; to get started.
+              No servers configured. Click &quot;Add Server&quot; to get
+              started.
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -198,7 +217,6 @@ export function MCPConfigModal({ isOpen, onClose }: MCPConfigModalProps) {
                             <Globe className="w-3 h-3 mr-1" />
                           )} */}
                           <Globe className="w-3 h-3 mr-1" />
-
                           {/* {config.transport} */}
                           SSE
                         </div>
@@ -284,7 +302,6 @@ export function MCPConfigModal({ isOpen, onClose }: MCPConfigModalProps) {
                   />
                 </div>
 
-
                 {connectionType === "stdio" ? (
                   <>
                     <div>
@@ -314,7 +331,9 @@ export function MCPConfigModal({ isOpen, onClose }: MCPConfigModalProps) {
                   </>
                 ) : (
                   <div>
-                    <label className="block text-sm font-medium mb-1">SSE URL</label>
+                    <label className="block text-sm font-medium mb-1">
+                      SSE URL
+                    </label>
                     <input
                       type="text"
                       value={url}

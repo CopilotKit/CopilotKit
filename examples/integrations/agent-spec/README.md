@@ -23,6 +23,7 @@ This is a starter template for building AI agents using Agent Spec and CopilotKi
 Before installing, please clone the [AG-UI repository](https://github.com/ag-ui-protocol/ag-ui) into the same directory as this repo, `with-agent-spec`.
 
 1. Install dependencies using your preferred package manager:
+
 ```bash
 # Using pnpm (recommended)
 pnpm install
@@ -56,10 +57,12 @@ OPENAI_MODEL=gpt-5.2                               # optional
 ```
 
 The backend loads this `.env` automatically (via `python-dotenv`). You can also set:
+
 - `PORT` to change the FastAPI server port (defaults to `8000` in this template)
 - Any provider-specific variables your tools require
 
 3. Start the development servers:
+
 ```bash
 # Using pnpm
 pnpm dev
@@ -77,6 +80,7 @@ bun run dev
 This starts both the UI and the agent concurrently. The agent runs at `http://localhost:8000/`, and the UI runs at `http://localhost:3000`. The UI proxies requests to the agent (no extra env required by default).
 
 To run only the UI or only the backend:
+
 ```bash
 # Only UI
 pnpm run dev:ui
@@ -94,7 +98,9 @@ pnpm run dev:agent
 - `agent/src/main.py` - FastAPI server entry point
 
 ## Available Scripts
+
 You can run these with any package manager:
+
 - `dev` - Starts both UI and agent servers in development mode
 - `dev:debug` - Starts development servers with debug logging enabled
 - `dev:ui` - Starts only the Next.js UI server
@@ -148,13 +154,17 @@ pnpm patch:ui
 After copying, restart `pnpm dev`.
 
 ### Agent Connection Issues
+
 If you see "I'm having trouble connecting to my tools", make sure:
+
 1. The Agent Spec backend is running on port 8000
 2. The UI started successfully on port 3000
 3. If using a custom backend URL, set `NEXT_PUBLIC_COPILOTKIT_SERVER_URL`
 
 ### Python Dependencies
+
 If you encounter Python import errors:
+
 ```bash
 cd agent
 uv sync

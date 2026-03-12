@@ -14,20 +14,20 @@ const protocols = [
     name: "Static GenUI",
     features: "React components via useRenderToolCall",
     bestFor: "Type-safe, customizable UI patterns",
-    example: "Weather cards, stock tickers, approval flows"
+    example: "Weather cards, stock tickers, approval flows",
   },
   {
     name: "MCP Apps",
     features: "HTML apps in sandboxed iframes",
     bestFor: "Rich interactive apps, isolation",
-    example: "Flight booking, trading simulator"
+    example: "Flight booking, trading simulator",
   },
   {
     name: "A2UI",
     features: "Declarative JSON → Lit components",
     bestFor: "Agent-composed UI, cross-framework",
-    example: "Restaurant finder, dynamic forms"
-  }
+    example: "Restaurant finder, dynamic forms",
+  },
 ];
 
 export function ComparisonTable() {
@@ -35,13 +35,36 @@ export function ComparisonTable() {
     <>
       {/* Mobile: Stacked cards */}
       <div className="md:hidden space-y-4">
-        {protocols.map(protocol => (
+        {protocols.map((protocol) => (
           <div key={protocol.name} className="glass-card p-4">
-            <h3 className="font-bold text-lg mb-2 text-gradient">{protocol.name}</h3>
+            <h3 className="font-bold text-lg mb-2 text-gradient">
+              {protocol.name}
+            </h3>
             <dl className="space-y-2 text-sm">
-              <div><dt className="font-medium text-[--color-text-tertiary]">Features</dt><dd className="text-[--color-text-secondary]">{protocol.features}</dd></div>
-              <div><dt className="font-medium text-[--color-text-tertiary]">Best For</dt><dd className="text-[--color-text-secondary]">{protocol.bestFor}</dd></div>
-              <div><dt className="font-medium text-[--color-text-tertiary]">Example</dt><dd className="text-[--color-text-secondary]">{protocol.example}</dd></div>
+              <div>
+                <dt className="font-medium text-[--color-text-tertiary]">
+                  Features
+                </dt>
+                <dd className="text-[--color-text-secondary]">
+                  {protocol.features}
+                </dd>
+              </div>
+              <div>
+                <dt className="font-medium text-[--color-text-tertiary]">
+                  Best For
+                </dt>
+                <dd className="text-[--color-text-secondary]">
+                  {protocol.bestFor}
+                </dd>
+              </div>
+              <div>
+                <dt className="font-medium text-[--color-text-tertiary]">
+                  Example
+                </dt>
+                <dd className="text-[--color-text-secondary]">
+                  {protocol.example}
+                </dd>
+              </div>
             </dl>
           </div>
         ))}
@@ -59,7 +82,7 @@ export function ComparisonTable() {
             </tr>
           </thead>
           <tbody>
-            {protocols.map(protocol => (
+            {protocols.map((protocol) => (
               <tr key={protocol.name}>
                 <td className="font-medium text-gradient">{protocol.name}</td>
                 <td>{protocol.features}</td>

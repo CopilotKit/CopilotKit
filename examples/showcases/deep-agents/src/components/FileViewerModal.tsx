@@ -28,7 +28,7 @@ export function FileViewerModal({ file, onClose }: FileViewerModalProps) {
         onClose();
       }
     },
-    [onClose]
+    [onClose],
   );
 
   useEffect(() => {
@@ -75,40 +75,49 @@ export function FileViewerModal({ file, onClose }: FileViewerModalProps) {
       <div
         className="relative max-w-3xl w-full max-h-[85vh] flex flex-col"
         style={{
-          background: 'var(--color-glass-elevated)',
-          backdropFilter: 'blur(20px)',
-          WebkitBackdropFilter: 'blur(20px)',
+          background: "var(--color-glass-elevated)",
+          backdropFilter: "blur(20px)",
+          WebkitBackdropFilter: "blur(20px)",
           padding: 0,
-          borderRadius: 'var(--radius-2xl)',
-          border: '1px solid var(--color-border-glass)',
-          boxShadow: '0 4px 30px rgba(0, 0, 0, 0.1)'
+          borderRadius: "var(--radius-2xl)",
+          border: "1px solid var(--color-border-glass)",
+          boxShadow: "0 4px 30px rgba(0, 0, 0, 0.1)",
         }}
         role="dialog"
         aria-modal="true"
         aria-labelledby="file-viewer-title"
       >
         {/* Header */}
-        <div style={{ padding: 'var(--space-6) var(--space-6) var(--space-4) var(--space-6)' }} className="flex items-center justify-between border-b border-[var(--color-border-glass)]">
+        <div
+          style={{
+            padding:
+              "var(--space-6) var(--space-6) var(--space-4) var(--space-6)",
+          }}
+          className="flex items-center justify-between border-b border-[var(--color-border-glass)]"
+        >
           <div className="flex items-center gap-3">
             <div
               style={{
-                background: 'linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-dark) 100%)',
-                padding: 'var(--space-3)',
-                borderRadius: 'var(--radius-md)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
+                background:
+                  "linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-dark) 100%)",
+                padding: "var(--space-3)",
+                borderRadius: "var(--radius-md)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
               }}
             >
-              <FileText style={{ width: '20px', height: '20px', color: 'white' }} />
+              <FileText
+                style={{ width: "20px", height: "20px", color: "white" }}
+              />
             </div>
             <h2
               id="file-viewer-title"
               style={{
-                fontSize: 'var(--text-2xl)',
-                fontWeight: 'var(--font-bold)',
-                fontFamily: 'var(--font-display)',
-                color: 'var(--color-text-primary)'
+                fontSize: "var(--text-2xl)",
+                fontWeight: "var(--font-bold)",
+                fontFamily: "var(--font-display)",
+                color: "var(--color-text-primary)",
               }}
               className="truncate max-w-md"
             >
@@ -136,19 +145,25 @@ export function FileViewerModal({ file, onClose }: FileViewerModalProps) {
         </div>
 
         {/* Scrollable content with markdown rendering */}
-        <div className="flex-1 overflow-y-auto" style={{ padding: 'var(--space-8)' }}>
+        <div
+          className="flex-1 overflow-y-auto"
+          style={{ padding: "var(--space-8)" }}
+        >
           <div className="prose prose-sm prose-slate max-w-none">
             <ReactMarkdown>{file.content}</ReactMarkdown>
           </div>
         </div>
 
         {/* Footer with file path */}
-        <div style={{ padding: 'var(--space-3) var(--space-6)' }} className="border-t border-[var(--color-border-glass)]">
+        <div
+          style={{ padding: "var(--space-3) var(--space-6)" }}
+          className="border-t border-[var(--color-border-glass)]"
+        >
           <code
             style={{
-              fontFamily: 'var(--font-mono)',
-              fontSize: 'var(--text-sm)',
-              color: 'var(--color-text-tertiary)'
+              fontFamily: "var(--font-mono)",
+              fontSize: "var(--text-sm)",
+              color: "var(--color-text-tertiary)",
             }}
           >
             {file.path}

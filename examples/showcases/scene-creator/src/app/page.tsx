@@ -1,6 +1,11 @@
 "use client";
 
-import { useCoAgent, useCopilotAction, useCopilotReadable, useHumanInTheLoop } from "@copilotkit/react-core";
+import {
+  useCoAgent,
+  useCopilotAction,
+  useCopilotReadable,
+  useHumanInTheLoop,
+} from "@copilotkit/react-core";
 import { CopilotSidebar } from "@copilotkit/react-ui";
 import { ArtifactPanel } from "@/components/ArtifactPanel";
 import { CustomChatInput } from "@/components/CustomChatInput";
@@ -93,11 +98,13 @@ export default function SceneCreatorPage() {
     }
 
     // During loading, show the last known state if current is empty
-    if (running && !hasData && (
-      lastValidState.current.characters.length > 0 ||
-      lastValidState.current.backgrounds.length > 0 ||
-      lastValidState.current.scenes.length > 0
-    )) {
+    if (
+      running &&
+      !hasData &&
+      (lastValidState.current.characters.length > 0 ||
+        lastValidState.current.backgrounds.length > 0 ||
+        lastValidState.current.scenes.length > 0)
+    ) {
       return lastValidState.current;
     }
 
@@ -111,28 +118,37 @@ export default function SceneCreatorPage() {
   // Make artifact data readable to the Copilot for better context awareness
   useCopilotReadable({
     description: "Available characters that can be used in scenes",
-    value: displayState.characters.map(c => ({ id: c.id, name: c.name, description: c.description })),
+    value: displayState.characters.map((c) => ({
+      id: c.id,
+      name: c.name,
+      description: c.description,
+    })),
   });
 
   useCopilotReadable({
     description: "Available backgrounds that can be used in scenes",
-    value: displayState.backgrounds.map(b => ({ id: b.id, name: b.name, description: b.description })),
+    value: displayState.backgrounds.map((b) => ({
+      id: b.id,
+      name: b.name,
+      description: b.description,
+    })),
   });
 
   useCopilotReadable({
     description: "Created scenes combining characters and backgrounds",
-    value: displayState.scenes.map(s => ({
+    value: displayState.scenes.map((s) => ({
       id: s.id,
       name: s.name,
       characterIds: s.characterIds,
-      backgroundId: s.backgroundId
+      backgroundId: s.backgroundId,
     })),
   });
 
   // Human-in-the-loop prompt approval before image generation
   useHumanInTheLoop({
     name: "approve_image_prompt",
-    description: "Request user approval for an image generation prompt before creating the image. Call this BEFORE calling create_character, create_background, or create_scene.",
+    description:
+      "Request user approval for an image generation prompt before creating the image. Call this BEFORE calling create_character, create_background, or create_scene.",
     parameters: [
       {
         name: "artifact_type",
@@ -160,7 +176,9 @@ export default function SceneCreatorPage() {
             artifactType={args.artifact_type as string}
             name={args.name as string}
             prompt={args.prompt as string}
-            onApprove={(finalPrompt) => respond({ approved: true, prompt: finalPrompt })}
+            onApprove={(finalPrompt) =>
+              respond({ approved: true, prompt: finalPrompt })
+            }
             onCancel={() => respond({ approved: false })}
           />
         );
@@ -174,12 +192,16 @@ export default function SceneCreatorPage() {
               {res.approved ? (
                 <>
                   <span className="text-green-600">✓</span>
-                  <span className="text-sm text-neutral-600">Prompt approved</span>
+                  <span className="text-sm text-neutral-600">
+                    Prompt approved
+                  </span>
                 </>
               ) : (
                 <>
                   <span className="text-red-500">✕</span>
-                  <span className="text-sm text-neutral-600">Generation cancelled</span>
+                  <span className="text-sm text-neutral-600">
+                    Generation cancelled
+                  </span>
                 </>
               )}
             </div>
@@ -246,7 +268,11 @@ export default function SceneCreatorPage() {
         title="Editing Character"
         status={status}
         description={args?.edit_description as string}
-        result={result && !(result as any)?.error ? `Updated "${(result as any)?.name}"` : (result as any)?.error}
+        result={
+          result && !(result as any)?.error
+            ? `Updated "${(result as any)?.name}"`
+            : (result as any)?.error
+        }
       />
     ),
   });
@@ -261,7 +287,11 @@ export default function SceneCreatorPage() {
         title="Editing Background"
         status={status}
         description={args?.edit_description as string}
-        result={result && !(result as any)?.error ? `Updated "${(result as any)?.name}"` : (result as any)?.error}
+        result={
+          result && !(result as any)?.error
+            ? `Updated "${(result as any)?.name}"`
+            : (result as any)?.error
+        }
       />
     ),
   });
@@ -276,7 +306,11 @@ export default function SceneCreatorPage() {
         title="Editing Scene"
         status={status}
         description={args?.edit_description as string}
-        result={result && !(result as any)?.error ? `Updated "${(result as any)?.name}"` : (result as any)?.error}
+        result={
+          result && !(result as any)?.error
+            ? `Updated "${(result as any)?.name}"`
+            : (result as any)?.error
+        }
       />
     ),
   });
@@ -370,14 +404,18 @@ function ToolCard({
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
-            <span className="font-bold uppercase tracking-wider text-sm">{title}</span>
+            <span className="font-bold uppercase tracking-wider text-sm">
+              {title}
+            </span>
             {isExecuting && (
               <span className="inline-flex items-center gap-1 text-xs font-bold bg-[var(--accent-blue)] text-white px-2 py-0.5 border border-black">
                 <span className="animate-pulse">PROCESSING</span>
               </span>
             )}
             {isComplete && (
-              <span className="text-xs font-bold bg-[var(--accent-red)] text-white px-2 py-0.5 border border-black">DONE</span>
+              <span className="text-xs font-bold bg-[var(--accent-red)] text-white px-2 py-0.5 border border-black">
+                DONE
+              </span>
             )}
           </div>
           {description && (
@@ -413,7 +451,12 @@ function PromptApprovalCard({
   const [editedPrompt, setEditedPrompt] = useState(prompt);
   const [isEditing, setIsEditing] = useState(false);
 
-  const icon = artifactType === "character" ? "👤" : artifactType === "background" ? "🏞️" : "🎬";
+  const icon =
+    artifactType === "character"
+      ? "👤"
+      : artifactType === "background"
+        ? "🏞️"
+        : "🎬";
 
   return (
     <div className="my-4 brutalist-card bg-[var(--accent-yellow)] p-4">
@@ -425,7 +468,9 @@ function PromptApprovalCard({
       </div>
 
       <div className="mb-4">
-        <div className="text-xs font-bold uppercase mb-1 opacity-70">Target: {name}</div>
+        <div className="text-xs font-bold uppercase mb-1 opacity-70">
+          Target: {name}
+        </div>
         {isEditing ? (
           <textarea
             value={editedPrompt}

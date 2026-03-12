@@ -25,9 +25,7 @@ CUSTOMER PROFILE:
 - Monthly Charges: $${customer.MonthlyCharges}
 - Contract: ${customer.Contract}
 - Service: ${customer.InternetService}
-- Churn Risk: ${
-          customer.Churn === "Yes" ? "HIGH (at risk of leaving)" : "Low"
-        }
+- Churn Risk: ${customer.Churn === "Yes" ? "HIGH (at risk of leaving)" : "Low"}
 - Senior Citizen: ${customer.SeniorCitizen === "1" ? "Yes" : "No"}
 - Payment Method: ${customer.PaymentMethod}
 `
@@ -135,14 +133,14 @@ Now decide:`;
       intent: z.string().describe("The classified intent category"),
       urgency: z.enum(["low", "medium", "high"]).describe("The urgency level"),
     }),
-  }
+  },
 );
 
 // Fallback rule-based escalation if AI fails
 function fallbackRuleBasedEscalation(
   customerId: string | undefined,
   intent: string,
-  urgency: string
+  urgency: string,
 ) {
   let shouldEscalate = false;
   let reason = "";
@@ -189,13 +187,16 @@ function fallbackRuleBasedEscalation(
       }
 
       if (
-        urgency === "high" && 
-        customer.Churn === "No" && 
-        (intent === "service_outage" || intent === "tech_support" || intent === "internet_issue")
+        urgency === "high" &&
+        customer.Churn === "No" &&
+        (intent === "service_outage" ||
+          intent === "tech_support" ||
+          intent === "internet_issue")
       ) {
         suggestAiFirst = true;
         shouldEscalate = false; // Don't escalate immediately
-        reason = "High urgency tech issue - offering AI suggestions first before escalation";
+        reason =
+          "High urgency tech issue - offering AI suggestions first before escalation";
         priority = 2;
       }
     }

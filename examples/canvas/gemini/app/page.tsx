@@ -1,4 +1,4 @@
-"use client"
+"use client";
 
 import "@copilotkit/react-ui/styles.css";
 import { useEffect } from "react";
@@ -12,7 +12,5 @@ export default function GoogleDeepMindChatUI() {
     router.push("/post-generator");
   }, [router]);
 
-  return (
-    <></>
-  )
+  return <></>;
 }

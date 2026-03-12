@@ -44,17 +44,23 @@ export const POST = async (req: NextRequest) => {
     }),
     serviceAdapter: new LangChainAdapter({
       chainFn: async ({ messages, tools, threadId }) => {
-        console.log("POST messages: ", messages)
-        console.log("POST tools: ", Object.keys(tools))
-        console.log("POST tools: ", tools.map(tool => {
-          return {
-            name: tool.lc_kwargs.name,
-            func: JSON.stringify(tool.lc_kwargs.func)
-          }
-        }))
-        console.log("POST threadId: ", threadId)
+        console.log("POST messages: ", messages);
+        console.log("POST tools: ", Object.keys(tools));
+        console.log(
+          "POST tools: ",
+          tools.map((tool) => {
+            return {
+              name: tool.lc_kwargs.name,
+              func: JSON.stringify(tool.lc_kwargs.func),
+            };
+          }),
+        );
+        console.log("POST threadId: ", threadId);
         const modelWithTools = model.bindTools(tools, { strict: true });
-        return modelWithTools.stream(messages, { tools, metadata: { conversation_id: threadId } });
+        return modelWithTools.stream(messages, {
+          tools,
+          metadata: { conversation_id: threadId },
+        });
       },
     }),
     endpoint: req.nextUrl.pathname,

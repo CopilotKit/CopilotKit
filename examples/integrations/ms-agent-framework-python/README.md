@@ -7,7 +7,7 @@ This is a starter template for building CopilotKit experiences using the [Micros
 - OpenAI or Azure OpenAI credentials (for the Microsoft Agent Framework agent)
 - Python 3.12+
 - uv
-- Node.js 20+ 
+- Node.js 20+
 - Any of the following package managers:
   - pnpm (recommended)
   - npm
@@ -45,12 +45,14 @@ This is a starter template for building CopilotKit experiences using the [Micros
 2. Set up your agent credentials. The backend automatically uses Azure when the Azure env vars below are present; otherwise it falls back to OpenAI. Create a `.env` file inside the `agent` folder with one of the following configurations:
 
    **OpenAI**
+
    ```
    OPENAI_API_KEY=sk-...your-openai-key-here...
    OPENAI_CHAT_MODEL_ID=gpt-4o-mini
    ```
 
    **Azure OpenAI**
+
    ```
    AZURE_OPENAI_ENDPOINT=https://your-resource.openai.azure.com/
    AZURE_OPENAI_CHAT_DEPLOYMENT_NAME=gpt-4o-mini

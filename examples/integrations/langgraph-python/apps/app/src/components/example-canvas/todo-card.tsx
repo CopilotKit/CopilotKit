@@ -86,7 +86,15 @@ export function TodoCard({
         className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity duration-100 cursor-pointer rounded-full p-1 text-neutral-400 hover:text-neutral-600 dark:text-neutral-500 dark:hover:text-neutral-300"
         aria-label="Delete todo"
       >
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+        <svg
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+        >
           <line x1="18" y1="6" x2="6" y2="18" />
           <line x1="6" y1="6" x2="18" y2="18" />
         </svg>
@@ -135,12 +143,33 @@ export function TodoCard({
         >
           {isCompleted ? (
             <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-              <rect x="1" y="1" width="18" height="18" rx="6" className="fill-neutral-900 dark:fill-neutral-100" />
-              <path d="M6 10.5L8.5 13L14 7" className="stroke-white dark:stroke-neutral-900" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+              <rect
+                x="1"
+                y="1"
+                width="18"
+                height="18"
+                rx="6"
+                className="fill-neutral-900 dark:fill-neutral-100"
+              />
+              <path
+                d="M6 10.5L8.5 13L14 7"
+                className="stroke-white dark:stroke-neutral-900"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
             </svg>
           ) : (
             <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-              <rect x="1" y="1" width="18" height="18" rx="6" className="stroke-neutral-300 dark:stroke-neutral-600" strokeWidth="1.5" />
+              <rect
+                x="1"
+                y="1"
+                width="18"
+                height="18"
+                rx="6"
+                className="stroke-neutral-300 dark:stroke-neutral-600"
+                strokeWidth="1.5"
+              />
             </svg>
           )}
         </button>

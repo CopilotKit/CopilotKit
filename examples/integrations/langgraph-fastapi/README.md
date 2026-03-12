@@ -4,7 +4,7 @@ This is a starter template for building AI agents using [LangGraph](https://www.
 
 ## Prerequisites
 
-- Node.js 18+ 
+- Node.js 18+
 - Python 3.8+
 - Poetry 2+
 - Any of the following package managers:
@@ -19,6 +19,7 @@ This is a starter template for building AI agents using [LangGraph](https://www.
 ## Getting Started
 
 1. Install dependencies using your preferred package manager:
+
 ```bash
 # Using pnpm (recommended)
 pnpm install
@@ -34,6 +35,7 @@ bun install
 ```
 
 2. Install Python dependencies for the LangGraph agent:
+
 ```bash
 # Using pnpm
 pnpm install:agent
@@ -49,11 +51,13 @@ bun run install:agent
 ```
 
 3. Set up your OpenAI API key:
+
 ```bash
 echo 'OPENAI_API_KEY=your-openai-api-key-here' > agent/.env
 ```
 
 4. Start the development server:
+
 ```bash
 # Using pnpm
 pnpm dev
@@ -71,7 +75,9 @@ bun run dev
 This will start both the UI and agent servers concurrently.
 
 ## Available Scripts
+
 The following scripts can also be run using your preferred package manager:
+
 - `dev` - Starts both UI and agent servers in development mode
 - `dev:debug` - Starts development servers with debug logging enabled
 - `dev:ui` - Starts only the Next.js UI server
@@ -84,6 +90,7 @@ The following scripts can also be run using your preferred package manager:
 ## Documentation
 
 The main UI component is in `src/app/page.tsx`. You can:
+
 - Modify the theme colors and styling
 - Add new frontend actions
 - Customize the CopilotKit sidebar appearance
@@ -106,13 +113,17 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 ## Troubleshooting
 
 ### Agent Connection Issues
+
 If you see "I'm having trouble connecting to my tools", make sure:
+
 1. The LangGraph agent is running on port 8000
 2. Your OpenAI API key is set correctly
 3. Both servers started successfully
 
 ### Python Dependencies
+
 If you encounter Python import errors:
+
 ```bash
 cd agent
 poetry lock && poetry install

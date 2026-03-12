@@ -18,4 +18,3 @@ export interface AgentState {
   activeBoardId: string;
   lastAction?: string;
 }
-

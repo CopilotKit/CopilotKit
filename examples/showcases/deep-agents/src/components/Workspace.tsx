@@ -1,7 +1,18 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronDown, ChevronRight, ListTodo, FileText, Download, Globe, Check, Circle, CircleDot, X } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronRight,
+  ListTodo,
+  FileText,
+  Download,
+  Globe,
+  Check,
+  Circle,
+  CircleDot,
+  X,
+} from "lucide-react";
 import { ResearchState, Todo, ResearchFile, Source } from "@/types/research";
 import { FileViewerModal } from "@/components/FileViewerModal";
 
@@ -46,16 +57,18 @@ function Section({
       >
         <div className="flex items-center gap-3">
           <Icon className="w-5 h-5 text-[var(--color-text-secondary)]" />
-          <span className="font-semibold text-[var(--color-text-primary)]">{title}</span>
+          <span className="font-semibold text-[var(--color-text-primary)]">
+            {title}
+          </span>
           {badge !== undefined && badge > 0 && (
             <span
               style={{
-                background: 'var(--color-accent)',
-                color: 'var(--color-background)',
-                padding: 'var(--space-1) var(--space-2)',
-                fontSize: 'var(--text-xs)',
-                fontWeight: 'var(--font-semibold)',
-                borderRadius: 'var(--radius-lg)'
+                background: "var(--color-accent)",
+                color: "var(--color-background)",
+                padding: "var(--space-1) var(--space-2)",
+                fontSize: "var(--text-xs)",
+                fontWeight: "var(--font-semibold)",
+                borderRadius: "var(--radius-lg)",
               }}
             >
               {badge}
@@ -77,16 +90,23 @@ function Section({
 function TodoList({ todos }: { todos: Todo[] }) {
   if (todos.length === 0) {
     return (
-      <div className="empty-state" style={{ paddingTop: 'var(--space-8)', paddingBottom: 'var(--space-8)', animation: 'fadeIn 0.4s ease' }}>
+      <div
+        className="empty-state"
+        style={{
+          paddingTop: "var(--space-8)",
+          paddingBottom: "var(--space-8)",
+          animation: "fadeIn 0.4s ease",
+        }}
+      >
         <ListTodo
           size={32}
           strokeWidth={1.5}
           style={{
-            color: 'var(--color-text-tertiary)',
-            marginBottom: 'var(--space-3)'
+            color: "var(--color-text-tertiary)",
+            marginBottom: "var(--space-3)",
           }}
         />
-        <p style={{ fontSize: 'var(--text-sm)' }}>No tasks yet</p>
+        <p style={{ fontSize: "var(--text-sm)" }}>No tasks yet</p>
         <p className="text-xs mt-1">Research tasks will appear here</p>
       </div>
     );
@@ -101,8 +121,8 @@ function TodoList({ todos }: { todos: Todo[] }) {
             todo.status === "completed"
               ? "todo-item-completed"
               : todo.status === "in_progress"
-              ? "todo-item-inprogress"
-              : "todo-item-pending"
+                ? "todo-item-inprogress"
+                : "todo-item-pending"
           }`}
         >
           <span
@@ -110,8 +130,8 @@ function TodoList({ todos }: { todos: Todo[] }) {
               todo.status === "completed"
                 ? "status-completed"
                 : todo.status === "in_progress"
-                ? "status-inprogress"
-                : "status-pending"
+                  ? "status-inprogress"
+                  : "status-pending"
             }`}
           >
             {todo.status === "completed" ? (
@@ -139,16 +159,23 @@ function FileList({
 }) {
   if (files.length === 0) {
     return (
-      <div className="empty-state" style={{ paddingTop: 'var(--space-8)', paddingBottom: 'var(--space-8)', animation: 'fadeIn 0.4s ease' }}>
+      <div
+        className="empty-state"
+        style={{
+          paddingTop: "var(--space-8)",
+          paddingBottom: "var(--space-8)",
+          animation: "fadeIn 0.4s ease",
+        }}
+      >
         <FileText
           size={32}
           strokeWidth={1.5}
           style={{
-            color: 'var(--color-text-tertiary)',
-            marginBottom: 'var(--space-3)'
+            color: "var(--color-text-tertiary)",
+            marginBottom: "var(--space-3)",
           }}
         />
-        <p style={{ fontSize: 'var(--text-sm)' }}>No files yet</p>
+        <p style={{ fontSize: "var(--text-sm)" }}>No files yet</p>
         <p className="text-xs mt-1">Research artifacts will appear here</p>
       </div>
     );
@@ -170,7 +197,9 @@ function FileList({
               <p className="text-sm font-medium text-[var(--color-text-primary)]">
                 {file.path.split("/").pop()}
               </p>
-              <p className="text-xs text-[var(--color-text-tertiary)]">{file.path}</p>
+              <p className="text-xs text-[var(--color-text-tertiary)]">
+                {file.path}
+              </p>
             </div>
           </div>
           <button
@@ -194,16 +223,23 @@ function FileList({
 function SourceList({ sources }: { sources: Source[] }) {
   if (sources.length === 0) {
     return (
-      <div className="empty-state" style={{ paddingTop: 'var(--space-8)', paddingBottom: 'var(--space-8)', animation: 'fadeIn 0.4s ease' }}>
+      <div
+        className="empty-state"
+        style={{
+          paddingTop: "var(--space-8)",
+          paddingBottom: "var(--space-8)",
+          animation: "fadeIn 0.4s ease",
+        }}
+      >
         <Globe
           size={32}
           strokeWidth={1.5}
           style={{
-            color: 'var(--color-text-tertiary)',
-            marginBottom: 'var(--space-3)'
+            color: "var(--color-text-tertiary)",
+            marginBottom: "var(--space-3)",
           }}
         />
-        <p style={{ fontSize: 'var(--text-sm)' }}>No sources yet</p>
+        <p style={{ fontSize: "var(--text-sm)" }}>No sources yet</p>
         <p className="text-xs mt-1">Web sources will appear here</p>
       </div>
     );
@@ -215,7 +251,11 @@ function SourceList({ sources }: { sources: Source[] }) {
         <div
           key={`${source.url}-${i}`}
           className={`file-item animate-fadeSlideIn ${source.status === "failed" ? "source-failed" : ""}`}
-          title={source.status === "failed" ? "Failed to scrape this source" : undefined}
+          title={
+            source.status === "failed"
+              ? "Failed to scrape this source"
+              : undefined
+          }
         >
           <div className="flex items-center gap-3">
             <span
@@ -223,28 +263,33 @@ function SourceList({ sources }: { sources: Source[] }) {
                 source.status === "scraped"
                   ? "status-completed"
                   : source.status === "failed"
-                  ? ""
-                  : "status-pending"
+                    ? ""
+                    : "status-pending"
               }`}
-              style={source.status === "failed" ? { color: 'var(--color-error)' } : undefined}
+              style={
+                source.status === "failed"
+                  ? { color: "var(--color-error)" }
+                  : undefined
+              }
             >
               {source.status === "scraped" ? (
-                <Check size={14} style={{ color: 'var(--color-success)' }} />
+                <Check size={14} style={{ color: "var(--color-success)" }} />
               ) : source.status === "failed" ? (
-                <X size={14} style={{ color: 'var(--color-error)' }} />
+                <X size={14} style={{ color: "var(--color-error)" }} />
               ) : (
                 <Circle size={14} />
               )}
             </span>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-[var(--color-text-primary)] truncate">
-                {source.title || (() => {
-                  try {
-                    return new URL(source.url).hostname;
-                  } catch {
-                    return source.url.slice(0, 40);
-                  }
-                })()}
+                {source.title ||
+                  (() => {
+                    try {
+                      return new URL(source.url).hostname;
+                    } catch {
+                      return source.url.slice(0, 40);
+                    }
+                  })()}
               </p>
               <a
                 href={source.url}
@@ -275,7 +320,9 @@ export function Workspace({ state }: WorkspaceProps) {
   return (
     <div className="workspace-panel p-6">
       <div className="mb-6">
-        <h2 className="text-xl font-bold text-[var(--color-text-primary)]">Workspace</h2>
+        <h2 className="text-xl font-bold text-[var(--color-text-primary)]">
+          Workspace
+        </h2>
         <p className="text-sm text-[var(--color-text-secondary)]">
           Research progress and artifacts
         </p>
@@ -294,7 +341,10 @@ export function Workspace({ state }: WorkspaceProps) {
       </Section>
 
       {/* File Viewer Modal */}
-      <FileViewerModal file={selectedFile} onClose={() => setSelectedFile(null)} />
+      <FileViewerModal
+        file={selectedFile}
+        onClose={() => setSelectedFile(null)}
+      />
     </div>
   );
 }

@@ -31,7 +31,7 @@ const fakeCart = {
 
   async updateQuantity(
     id: string,
-    quantity: number
+    quantity: number,
   ): Promise<CartRecord | null> {
     invariant(quantity >= 0, "quantity must be >= 0");
     if (quantity == 0) {

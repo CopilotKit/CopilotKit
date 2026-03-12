@@ -1,7 +1,11 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { PlaygroundConfig, DEFAULT_CONFIG, COLOR_SCHEMES } from "@/types/playground";
+import {
+  PlaygroundConfig,
+  DEFAULT_CONFIG,
+  COLOR_SCHEMES,
+} from "@/types/playground";
 
 export function usePlaygroundConfig() {
   const [config, setConfig] = useState<PlaygroundConfig>(DEFAULT_CONFIG);
@@ -16,7 +20,7 @@ export function usePlaygroundConfig() {
         },
       }));
     },
-    []
+    [],
   );
 
   const updateColor = useCallback(
@@ -29,7 +33,7 @@ export function usePlaygroundConfig() {
         },
       }));
     },
-    []
+    [],
   );
 
   const updateTypography = useCallback(
@@ -42,7 +46,7 @@ export function usePlaygroundConfig() {
         },
       }));
     },
-    []
+    [],
   );
 
   const updateStyle = useCallback(
@@ -55,7 +59,7 @@ export function usePlaygroundConfig() {
         },
       }));
     },
-    []
+    [],
   );
 
   const updateAgentConfig = useCallback(
@@ -68,7 +72,7 @@ export function usePlaygroundConfig() {
         },
       }));
     },
-    []
+    [],
   );
 
   const updateColorScheme = useCallback((scheme: "light" | "dark") => {

@@ -7,11 +7,13 @@ This guide covers deploying the Kanban application (C# backend agent + Next.js f
 ### 1. Azure CLI
 
 Install the Azure CLI:
+
 - **macOS**: `brew install azure-cli`
 - **Windows**: Download from [Microsoft Docs](https://docs.microsoft.com/en-us/cli/azure/install-azure-cli-windows)
 - **Linux**: Follow instructions at [Microsoft Docs](https://docs.microsoft.com/en-us/cli/azure/install-azure-cli-linux)
 
 After installation, verify:
+
 ```bash
 az --version
 ```
@@ -25,6 +27,7 @@ You need an active Azure subscription. Sign up for a free account at [azure.micr
 The backend agent requires a GitHub token to access GitHub Models API.
 
 **Get your token:**
+
 ```bash
 # If you have GitHub CLI installed
 gh auth token
@@ -37,6 +40,7 @@ gh auth token
 ```
 
 **Set the token as an environment variable:**
+
 ```bash
 export GITHUB_TOKEN="your_token_here"
 ```
@@ -60,6 +64,7 @@ From the project root:
 ```
 
 The script will:
+
 1. Prompt for configuration (or use defaults)
 2. Create Azure resource group
 3. Create Azure Container Registry (ACR)
@@ -72,6 +77,7 @@ The script will:
 ### 2. Access Your Application
 
 After deployment completes, you'll see:
+
 ```
 Frontend URL: https://kanban-ui.xxx.azurecontainerapps.io
 Backend URL:  https://kanban-agent.xxx.azurecontainerapps.io
@@ -83,13 +89,13 @@ Open the frontend URL in your browser to use the Kanban board.
 
 When running the deployment script, you can customize:
 
-| Option | Default | Description |
-|--------|---------|-------------|
-| Resource Group | `kanban-demo-rg` | Azure resource group name |
-| Location | `eastus` | Azure region |
-| ACR Name | `kanbandemoacr` | Container registry name (must be globally unique) |
-| Backend App | `kanban-agent` | Backend container app name |
-| Frontend App | `kanban-ui` | Frontend container app name |
+| Option         | Default          | Description                                       |
+| -------------- | ---------------- | ------------------------------------------------- |
+| Resource Group | `kanban-demo-rg` | Azure resource group name                         |
+| Location       | `eastus`         | Azure region                                      |
+| ACR Name       | `kanbandemoacr`  | Container registry name (must be globally unique) |
+| Backend App    | `kanban-agent`   | Backend container app name                        |
+| Frontend App   | `kanban-ui`      | Frontend container app name                       |
 
 ## Manual Deployment Steps
 
@@ -116,6 +122,7 @@ az acr create \
 ### 3. Build and Push Images
 
 **Backend:**
+
 ```bash
 az acr build \
   --registry kanbandemoacr \
@@ -125,6 +132,7 @@ az acr build \
 ```
 
 **Frontend:**
+
 ```bash
 az acr build \
   --registry kanbandemoacr \
@@ -145,12 +153,14 @@ az containerapp env create \
 ### 5. Deploy Backend
 
 Get ACR credentials:
+
 ```bash
 ACR_USERNAME=$(az acr credential show --name kanbandemoacr --query username -o tsv)
 ACR_PASSWORD=$(az acr credential show --name kanbandemoacr --query passwords[0].value -o tsv)
 ```
 
 Deploy backend:
+
 ```bash
 az containerapp create \
   --name kanban-agent \
@@ -167,6 +177,7 @@ az containerapp create \
 ```
 
 Get backend URL:
+
 ```bash
 BACKEND_URL=$(az containerapp show \
   --name kanban-agent \
@@ -252,6 +263,7 @@ az containerapp logs show \
 ### Log Analytics
 
 Access detailed logs via Azure Portal:
+
 1. Navigate to your Container App
 2. Click "Log stream" in the left menu
 3. Or use "Logs" for advanced querying with KQL
@@ -272,12 +284,12 @@ az containerapp update \
 
 Azure Container Apps pricing (as of 2024):
 
-| Resource | Cost | Notes |
-|----------|------|-------|
-| Container Apps | **Free tier**: 180,000 vCPU-seconds/month | Should cover demo usage |
-| Container Apps (beyond free) | ~$0.000012/vCPU-second | After free tier |
-| Azure Container Registry (Basic) | ~$5/month | 10 GB storage included |
-| **Estimated total** | **~$5-10/month** | For demo with minimal traffic |
+| Resource                         | Cost                                      | Notes                         |
+| -------------------------------- | ----------------------------------------- | ----------------------------- |
+| Container Apps                   | **Free tier**: 180,000 vCPU-seconds/month | Should cover demo usage       |
+| Container Apps (beyond free)     | ~$0.000012/vCPU-second                    | After free tier               |
+| Azure Container Registry (Basic) | ~$5/month                                 | 10 GB storage included        |
+| **Estimated total**              | **~$5-10/month**                          | For demo with minimal traffic |
 
 ### Cost Optimization Tips
 
@@ -297,6 +309,7 @@ az group delete \
 ```
 
 This removes:
+
 - Container Apps environment
 - Both container apps (frontend + backend)
 - Container registry
@@ -311,6 +324,7 @@ This removes:
 **Error**: `The registry DNS name 'kanbandemoacr' is already in use.`
 
 **Solution**: ACR names must be globally unique. Try a different name:
+
 ```bash
 ACR_NAME="kanbandemoacr$(date +%s)"
 ```
@@ -318,11 +332,13 @@ ACR_NAME="kanbandemoacr$(date +%s)"
 ### Issue: Backend fails to start
 
 **Check logs**:
+
 ```bash
 az containerapp logs show --name kanban-agent --resource-group kanban-demo-rg --tail 50
 ```
 
 **Common causes**:
+
 - Missing or invalid GitHub token
 - Port misconfiguration
 - Dependencies not copied (check Dockerfile)
@@ -330,6 +346,7 @@ az containerapp logs show --name kanban-agent --resource-group kanban-demo-rg --
 ### Issue: Frontend can't connect to backend
 
 **Verify backend URL**:
+
 ```bash
 az containerapp show \
   --name kanban-agent \
@@ -338,6 +355,7 @@ az containerapp show \
 ```
 
 **Update frontend**:
+
 ```bash
 az containerapp update \
   --name kanban-ui \
@@ -348,6 +366,7 @@ az containerapp update \
 ### Issue: Container build fails
 
 **Check Docker locally**:
+
 ```bash
 # Test backend build
 docker build -t kanban-agent -f agent/Dockerfile .
@@ -357,6 +376,7 @@ docker build -t kanban-ui -f Dockerfile .
 ```
 
 **Common causes**:
+
 - Missing dependencies in package.json
 - Incorrect COPY paths in Dockerfile
 - .dockerignore excluding required files
@@ -368,6 +388,7 @@ Install Azure CLI (see Prerequisites section).
 ### Issue: Authentication errors
 
 Re-authenticate:
+
 ```bash
 az logout
 az login
@@ -397,6 +418,7 @@ az login
 ### Access Control
 
 Restrict access to Azure resources:
+
 ```bash
 az role assignment create \
   --assignee user@example.com \
@@ -407,6 +429,7 @@ az role assignment create \
 ## Support
 
 For issues specific to:
+
 - **Azure Container Apps**: Check [Microsoft Docs](https://learn.microsoft.com/en-us/azure/container-apps/)
 - **CopilotKit**: Visit [CopilotKit Docs](https://docs.copilotkit.ai/)
 - **Microsoft Agent Framework**: See [GitHub Repository](https://github.com/microsoft/agent-framework)

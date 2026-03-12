@@ -20,14 +20,19 @@ function reconstructString(obj: Record<string, unknown>): string {
   return Object.values(obj).join("");
 }
 
-export function ToolCallCard({ name, args, result, status = "executing" }: ToolCallCardProps) {
+export function ToolCallCard({
+  name,
+  args,
+  result,
+  status = "executing",
+}: ToolCallCardProps) {
   const isExecuting = status === "executing" || status === "inProgress";
   const isComplete = status === "complete";
 
   // Format tool name for display (e.g., "create_task" -> "Create Task")
   const displayName = name
     .split("_")
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
     .join(" ");
 
   // Handle edge case where args is a spread string (CopilotKit bug?)
@@ -37,7 +42,7 @@ export function ToolCallCard({ name, args, result, status = "executing" }: ToolC
   } else {
     // Filter out empty/null values from args for cleaner display
     displayArgs = Object.fromEntries(
-      Object.entries(args).filter(([, v]) => v != null && v !== "")
+      Object.entries(args).filter(([, v]) => v != null && v !== ""),
     );
   }
 
@@ -60,16 +65,22 @@ export function ToolCallCard({ name, args, result, status = "executing" }: ToolC
         <span className="text-base">{isExecuting ? "⏳" : "✅"}</span>
         <span className="font-medium text-gray-700">{displayName}</span>
         {isExecuting && (
-          <span className="text-xs text-gray-400 animate-pulse">Running...</span>
+          <span className="text-xs text-gray-400 animate-pulse">
+            Running...
+          </span>
         )}
       </div>
 
       {/* Show args (input) */}
-      {(typeof displayArgs === "string" ? displayArgs.length > 0 : Object.keys(displayArgs).length > 0) && (
+      {(typeof displayArgs === "string"
+        ? displayArgs.length > 0
+        : Object.keys(displayArgs).length > 0) && (
         <div className="mb-2">
           <span className="text-xs text-gray-500 font-medium">Input:</span>
           <pre className="text-xs text-gray-600 bg-white rounded p-2 overflow-x-auto mt-1">
-            {typeof displayArgs === "string" ? displayArgs : JSON.stringify(displayArgs, null, 2)}
+            {typeof displayArgs === "string"
+              ? displayArgs
+              : JSON.stringify(displayArgs, null, 2)}
           </pre>
         </div>
       )}

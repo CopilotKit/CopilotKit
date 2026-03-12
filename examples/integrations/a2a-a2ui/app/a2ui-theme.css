@@ -117,7 +117,9 @@
   --text-color: #fff;
   --background-light: #f6f7f8;
   --background-dark: #101922;
-  --border-color: oklch(from var(--background-light) l c h / calc(alpha * 0.15));
+  --border-color: oklch(
+    from var(--background-light) l c h / calc(alpha * 0.15)
+  );
   --elevated-background-light: oklch(
     from var(--background-light) l c h / calc(alpha * 0.05)
   );
@@ -146,10 +148,10 @@
 html,
 body {
   --font-family: "Google Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
-  --font-family-flex: "Google Sans Flex", "Helvetica Neue", Helvetica, Arial,
-    sans-serif;
-  --font-family-mono: "Google Sans Code", "Helvetica Neue", Helvetica, Arial,
-    sans-serif;
+  --font-family-flex:
+    "Google Sans Flex", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --font-family-mono:
+    "Google Sans Code", "Helvetica Neue", Helvetica, Arial, sans-serif;
 
   background: var(--background-light);
   font-family: var(--font-family);

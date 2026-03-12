@@ -9,7 +9,7 @@ import { AIMessage } from "@langchain/core/messages";
  */
 export async function intentAgentNode(
   state: CustomerSupportState,
-  config: RunnableConfig
+  config: RunnableConfig,
 ): Promise<Partial<CustomerSupportState>> {
   // Get the last user message
   const messages = state.messages || [];
@@ -36,14 +36,14 @@ export async function intentAgentNode(
     const intent: IntentResult = JSON.parse(intentResult);
 
     console.log(
-      `Intent classified: ${intent.category} (urgency: ${intent.urgency})`
+      `Intent classified: ${intent.category} (urgency: ${intent.urgency})`,
     );
 
     // Add AI message about classification
     const aiMessage = new AIMessage({
       content: `I understand this is a ${intent.category.replace(
         "_",
-        " "
+        " ",
       )} issue with ${intent.urgency} urgency. Let me help you with that.`,
     });
 

@@ -18,8 +18,9 @@ const TodoNode = styled.div`
   border-radius: 8px;
   background: white;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-  border: 2px solid ${(props: { completed: boolean }) => 
-    props.completed ? "#10B981" : "#E5E7EB"};
+  border: 2px solid
+    ${(props: { completed: boolean }) =>
+      props.completed ? "#10B981" : "#E5E7EB"};
   min-width: 150px;
   text-align: center;
   transition: all 0.3s ease;
@@ -39,9 +40,9 @@ const NodeContent = styled.div`
 const NodeTitle = styled.h3`
   margin: 0;
   font-size: 14px;
-  color: ${(props: { completed: boolean }) => 
+  color: ${(props: { completed: boolean }) =>
     props.completed ? "#6B7280" : "#1F2937"};
-  text-decoration: ${(props: { completed: boolean }) => 
+  text-decoration: ${(props: { completed: boolean }) =>
     props.completed ? "line-through" : "none"};
 `;
 
@@ -54,12 +55,12 @@ const SubTaskList = styled.div`
 
 const SubTaskItem = styled.div`
   font-size: 12px;
-  color: ${(props: { completed: boolean }) => 
+  color: ${(props: { completed: boolean }) =>
     props.completed ? "#6B7280" : "#4B5563"};
-  text-decoration: ${(props: { completed: boolean }) => 
+  text-decoration: ${(props: { completed: boolean }) =>
     props.completed ? "line-through" : "none"};
   padding: 4px 8px;
-  background: ${(props: { completed: boolean }) => 
+  background: ${(props: { completed: boolean }) =>
     props.completed ? "#F3F4F6" : "#F9FAFB"};
   border-radius: 4px;
 `;
@@ -115,7 +116,7 @@ function VisualRepresentation() {
       });
     } else {
       // Show selected todo and its subtasks
-      const selectedTodoData = todos.find(t => t.id === selectedTodo);
+      const selectedTodoData = todos.find((t) => t.id === selectedTodo);
       if (selectedTodoData) {
         // Parent node
         newNodes.push({

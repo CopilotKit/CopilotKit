@@ -63,14 +63,14 @@ export default function Item() {
                 console.log(
                   quantity,
                   event.target.value,
-                  event.target.value.replace(/\D/, "")
+                  event.target.value.replace(/\D/, ""),
                 );
                 const clean = event.target.value.replace(/\D/, "").trim();
                 if (!clean) {
                   setQuantity(() => quantity);
                 } else {
                   setQuantity(() =>
-                    parseInt(event.target.value.replace(/\D/, ""), 10)
+                    parseInt(event.target.value.replace(/\D/, ""), 10),
                   );
                 }
               }}

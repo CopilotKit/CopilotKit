@@ -14,7 +14,7 @@ export default function Page() {
                 Job Application Assistant
               </h1>
               <p className="mt-1 text-sm md:text-base text-slate-600">
-              Find personalized job openings based on skills and preferences
+                Find personalized job openings based on skills and preferences
               </p>
             </div>
 

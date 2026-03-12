@@ -56,11 +56,13 @@ Each app runs on its own port and can be developed independently. The studio lau
 ## Development
 
 ### Building All Apps
+
 ```bash
 pnpm build
 ```
 
 ### Building Individual Apps
+
 ```bash
 pnpm build:studio
 pnpm build:playground

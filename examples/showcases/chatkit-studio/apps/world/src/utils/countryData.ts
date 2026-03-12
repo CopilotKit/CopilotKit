@@ -36,7 +36,10 @@ export const MANUAL_FLAG_MAP: Record<string, string> = {
 
 // Normalize country names: remove accents, spaces, special chars
 export const normalizeName = (value: string) =>
-  value.toLowerCase().normalize("NFD").replace(/[^a-z]/g, "");
+  value
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[^a-z]/g, "");
 
 // Convert ISO-2 code to flag emoji (e.g., "US" -> "🇺🇸")
 export const codeToFlagEmoji = (code?: string | null) => {
@@ -49,7 +52,7 @@ export const codeToFlagEmoji = (code?: string | null) => {
 };
 
 // Generic JSON fetcher
-export const fetchJson = async <T,>(path: string): Promise<T> => {
+export const fetchJson = async <T>(path: string): Promise<T> => {
   const response = await fetch(path);
   if (!response.ok) throw new Error(`Failed to load ${path}`);
   return (await response.json()) as T;
@@ -60,10 +63,12 @@ export const getPolygonColor = (
   polygon: CountryFeature,
   selectedId: string | null,
   hoverId: string | null,
-  visitedCountries: VisitedCountry[]
+  visitedCountries: VisitedCountry[],
 ) => {
   const countryName = polygon.properties?.name;
-  const isVisited = visitedCountries.some(country => country.name === countryName);
+  const isVisited = visitedCountries.some(
+    (country) => country.name === countryName,
+  );
 
   if (selectedId && polygon.id?.toString() === selectedId) {
     return "rgba(96, 165, 250, 0.85)"; // blue - selected

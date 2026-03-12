@@ -22,7 +22,7 @@ export function useCountryData() {
       try {
         const [worldData, flagCodes] = await Promise.all([
           fetchJson<Topology<{ countries: GeometryCollection<Geometry> }>>(
-            "/data/countries-110m.json"
+            "/data/countries-110m.json",
           ),
           fetchJson<Record<string, string>>("/data/flag-codes.json"),
         ]);
@@ -31,29 +31,35 @@ export function useCountryData() {
           Object.entries(flagCodes).map(([code, label]) => [
             normalizeName(label),
             code.toUpperCase(),
-          ])
+          ]),
         );
 
-        const topoFeatures = feature(worldData, worldData.objects.countries) as FeatureCollection<
-          Geometry,
-          { name?: string }
-        >;
+        const topoFeatures = feature(
+          worldData,
+          worldData.objects.countries,
+        ) as FeatureCollection<Geometry, { name?: string }>;
 
-        const enrichedFeatures: CountryFeature[] = topoFeatures.features.map((country) => {
-          const countryName = country.properties?.name;
-          const normalizedName = countryName !== undefined ? normalizeName(countryName) : "";
-          const iso2 = flagLookup.get(normalizedName) ?? MANUAL_FLAG_MAP[normalizedName] ?? null;
+        const enrichedFeatures: CountryFeature[] = topoFeatures.features.map(
+          (country) => {
+            const countryName = country.properties?.name;
+            const normalizedName =
+              countryName !== undefined ? normalizeName(countryName) : "";
+            const iso2 =
+              flagLookup.get(normalizedName) ??
+              MANUAL_FLAG_MAP[normalizedName] ??
+              null;
 
-          return {
-            ...country,
-            id: country.id?.toString() ?? country.id ?? countryName ?? "",
-            properties: {
-              ...country.properties,
-              iso2,
-              flagEmoji: codeToFlagEmoji(iso2),
-            },
-          };
-        });
+            return {
+              ...country,
+              id: country.id?.toString() ?? country.id ?? countryName ?? "",
+              properties: {
+                ...country.properties,
+                iso2,
+                flagEmoji: codeToFlagEmoji(iso2),
+              },
+            };
+          },
+        );
 
         setPolygons(enrichedFeatures);
       } catch (error) {

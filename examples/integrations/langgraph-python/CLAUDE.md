@@ -9,6 +9,7 @@ This repository serves as both a **showcase** and **template** for building AI a
 ## Core Concept
 
 The todo list demonstrates **agent-driven UI** where:
+
 - The agent can manipulate application state (adding todos, updating status, organizing tasks)
 - Users can interact with the same state (editing titles, checking off tasks, deleting todos)
 - Both agent and user changes update the same shared state
@@ -55,6 +56,7 @@ The todo list uses **CopilotKit v2's agent state pattern** where state lives in 
 ### How It Works
 
 1. **Agent defines state schema and tools** (Python)
+
    ```python
    # apps/agent/src/todos.py
    class Todo(TypedDict):
@@ -74,6 +76,7 @@ The todo list uses **CopilotKit v2's agent state pattern** where state lives in 
    ```
 
 2. **Frontend reads from agent state**
+
    ```typescript
    // apps/app/src/components/canvas/index.tsx
    const { agent } = useAgent();
@@ -88,11 +91,14 @@ The todo list uses **CopilotKit v2's agent state pattern** where state lives in 
    ```
 
 3. **User interactions update agent state**
+
    ```typescript
    // User clicks checkbox → frontend calls agent.setState()
    const toggleStatus = (todo) => {
-     const updated = todos.map(t =>
-       t.id === todo.id ? { ...t, status: t.status === "completed" ? "pending" : "completed" } : t
+     const updated = todos.map((t) =>
+       t.id === todo.id
+         ? { ...t, status: t.status === "completed" ? "pending" : "completed" }
+         : t,
      );
      agent.setState({ todos: updated });
    };
@@ -115,6 +121,7 @@ The todo list uses **CopilotKit v2's agent state pattern** where state lives in 
 ### Agent Backend
 
 **Agent Definition** (`apps/agent/main.py`):
+
 ```python
 from langchain.agents import create_agent
 from copilotkit import CopilotKitMiddleware
@@ -130,6 +137,7 @@ agent = create_agent(
 ```
 
 **Todo Tools** (`apps/agent/src/todos.py`):
+
 ```python
 @tool
 def manage_todos(todos: list[Todo], runtime: ToolRuntime) -> Command:
@@ -154,6 +162,7 @@ def get_todos(runtime: ToolRuntime):
 ### Frontend
 
 **Canvas Component** (`apps/app/src/components/canvas/index.tsx`):
+
 ```typescript
 export function Canvas() {
   const { agent } = useAgent();  // CopilotKit v2 hook
@@ -174,6 +183,7 @@ export function Canvas() {
 ```
 
 **Todo List** (`apps/app/src/components/canvas/todo-list.tsx`):
+
 ```typescript
 export function TodoList({ todos, onUpdate, isAgentRunning }: TodoListProps) {
   const toggleStatus = (todo: Todo) => {
@@ -258,6 +268,7 @@ echo 'OPENAI_API_KEY=your-key-here' > apps/agent/.env
 ## Future Enhancements
 
 Possible extensions to demonstrate more CopilotKit capabilities:
+
 - Todo categories/tags/priorities
 - Agent-driven task organization (auto-categorize, suggest priorities)
 - Due dates and reminders
@@ -271,6 +282,7 @@ Possible extensions to demonstrate more CopilotKit capabilities:
 ## Key Takeaways for Developers
 
 **State Management Pattern**: This app uses CopilotKit v2's agent state pattern where:
+
 - State is defined in the agent backend (Python TypedDict)
 - Frontend reads via `agent.state.todos`
 - Frontend writes via `agent.setState({ todos: ... })`
@@ -278,6 +290,7 @@ Possible extensions to demonstrate more CopilotKit capabilities:
 - Changes sync bidirectionally automatically
 
 **When extending this template**:
+
 - Define state schema in the agent (`AgentState`)
 - Create tools that manipulate state via `Command(update={...})`
 - Use `useAgent()` hook in frontend to read/write state

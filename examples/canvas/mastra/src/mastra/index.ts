@@ -3,14 +3,14 @@ import { LibSQLStore } from "@mastra/libsql";
 import { canvasAgent } from "./agents";
 import { ConsoleLogger, LogLevel } from "@mastra/core/logger";
 
-const LOG_LEVEL = process.env.LOG_LEVEL as LogLevel || "info";
+const LOG_LEVEL = (process.env.LOG_LEVEL as LogLevel) || "info";
 
 export const mastra = new Mastra({
   agents: {
-    "sample_agent": canvasAgent,
+    sample_agent: canvasAgent,
   },
   storage: new LibSQLStore({
-    url: ":memory:"
+    url: ":memory:",
   }),
   logger: new ConsoleLogger({
     level: LOG_LEVEL,

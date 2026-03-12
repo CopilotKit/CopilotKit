@@ -15,22 +15,22 @@ const middlewares = [
       {
         type: "http",
         url: "http://localhost:3108/mcp",
-        serverId: "threejs" // Recommended: stable identifier
+        serverId: "threejs", // Recommended: stable identifier
       },
     ],
   }),
   // 1.2. More middlewares can be added here
-]
+];
 
 // 2. Create the agent
 const agent = new BuiltInAgent({
   model: "openai/gpt-4o",
   prompt: "You are a helpful assistant.",
-})
+});
 
 // 3. Apply the middleware to the agent
 for (const middleware of middlewares) {
-  agent.use(middleware)
+  agent.use(middleware);
 }
 
 // 4. Create the service adapter, empty if not relevant

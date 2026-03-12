@@ -27,10 +27,10 @@ graph LR
 
 ### Slot Descriptions
 
-| Slot | Description |
-|------|-------------|
-| `scrollToBottomButton` | Button that appears when scrolled up from bottom |
-| `feather` | Gradient fade overlay at the bottom of the scroll area |
+| Slot                   | Description                                            |
+| ---------------------- | ------------------------------------------------------ |
+| `scrollToBottomButton` | Button that appears when scrolled up from bottom       |
+| `feather`              | Gradient fade overlay at the bottom of the scroll area |
 
 ## Basic Usage
 
@@ -99,7 +99,7 @@ function CustomScrollButton({ onClick }) {
   scrollView={{
     scrollToBottomButton: CustomScrollButton,
   }}
-/>
+/>;
 ```
 
 ### Feather (Gradient Overlay) Customization
@@ -144,7 +144,7 @@ function CustomScrollView({ children, autoScroll, ...props }) {
   );
 }
 
-<CopilotChat scrollView={CustomScrollView} />
+<CopilotChat scrollView={CustomScrollView} />;
 ```
 
 ## Examples
@@ -155,7 +155,8 @@ function CustomScrollView({ children, autoScroll, ...props }) {
 <CopilotChat
   scrollView={{
     scrollToBottomButton: {
-      className: "bg-gradient-to-r from-pink-500 to-orange-500 text-white shadow-xl",
+      className:
+        "bg-gradient-to-r from-pink-500 to-orange-500 text-white shadow-xl",
     },
   }}
 />

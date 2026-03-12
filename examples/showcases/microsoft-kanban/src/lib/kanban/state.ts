@@ -24,14 +24,13 @@ export const initialState: AgentState = {
     {
       id: "board001",
       name: "My First Board",
-      tasks: sampleTasks
-    }
+      tasks: sampleTasks,
+    },
   ],
   activeBoardId: "board001",
-  lastAction: ""
+  lastAction: "",
 };
 
 export function isNonEmptyAgentState(state: unknown): boolean {
   return !!(state as AgentState)?.boards?.length;
 }
-

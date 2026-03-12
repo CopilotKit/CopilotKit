@@ -27,7 +27,7 @@ export type MessageActionRenderProps = ActionRenderProps<
       readonly name: "task";
       readonly type: "string";
       readonly description: "The message to send to the A2A agent";
-    }
+    },
   ]
 >;
 
@@ -41,7 +41,7 @@ export type BudgetApprovalActionRenderProps = ActionRenderProps<
       readonly name: "budgetData";
       readonly type: "object";
       readonly description: "The budget data to approve";
-    }
+    },
   ]
 >;
 
@@ -70,7 +70,7 @@ export type TripRequirementsActionRenderProps = ActionRenderProps<
       readonly name: "budgetLevel";
       readonly type: "string";
       readonly description: "Budget level: Economy, Comfort, or Premium";
-    }
+    },
   ]
 >;
 

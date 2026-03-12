@@ -10,8 +10,14 @@ import {
 } from "@copilotkit/react-core/v2";
 
 // Generative UI imports
-import { PieChart, PieChartProps } from "@/components/generative-ui/charts/pie-chart";
-import { BarChart, BarChartProps } from "@/components/generative-ui/charts/bar-chart";
+import {
+  PieChart,
+  PieChartProps,
+} from "@/components/generative-ui/charts/pie-chart";
+import {
+  BarChart,
+  BarChartProps,
+} from "@/components/generative-ui/charts/bar-chart";
 import { MeetingTimePicker } from "@/components/generative-ui/meeting-time-picker";
 import { ToolReasoning } from "@/components/tool-rendering";
 
@@ -21,14 +27,17 @@ export const useGenerativeUIExamples = () => {
   // ------------------
   // 🪁 Frontend Tools: https://docs.copilotkit.ai/langgraph/frontend-actions
   // ------------------
-  useFrontendTool({
-    name: "toggleTheme",
-    description: "Frontend tool for toggling the theme of the app.",
-    parameters: z.object({}),
-    handler: async () => {
-      setTheme(theme === "dark" ? "light" : "dark")
+  useFrontendTool(
+    {
+      name: "toggleTheme",
+      description: "Frontend tool for toggling the theme of the app.",
+      parameters: z.object({}),
+      handler: async () => {
+        setTheme(theme === "dark" ? "light" : "dark");
+      },
     },
-  }, [theme, setTheme]);
+    [theme, setTheme],
+  );
 
   // --------------------------
   // 🪁 Frontend Generative UI: https://docs.copilotkit.ai/langgraph/generative-ui/frontend-tools
@@ -50,10 +59,10 @@ export const useGenerativeUIExamples = () => {
   // --------------------------
   // 🪁 Default Tool Rendering: https://docs.copilotkit.ai/langgraph/generative-ui/backend-tools
   // --------------------------
-  const ignoredTools = ["generate_form"]
+  const ignoredTools = ["generate_form"];
   useDefaultRenderTool({
     render: ({ name, status, parameters }) => {
-      if(ignoredTools.includes(name)) return <></>;
+      if (ignoredTools.includes(name)) return <></>;
       return <ToolReasoning name={name} status={status} args={parameters} />;
     },
   });
@@ -65,8 +74,12 @@ export const useGenerativeUIExamples = () => {
     name: "scheduleTime",
     description: "Use human-in-the-loop to schedule a meeting with the user.",
     parameters: z.object({
-      reasonForScheduling: z.string().describe("Reason for scheduling, very brief - 5 words."),
-      meetingDuration: z.number().describe("Duration of the meeting in minutes"),
+      reasonForScheduling: z
+        .string()
+        .describe("Reason for scheduling, very brief - 5 words."),
+      meetingDuration: z
+        .number()
+        .describe("Duration of the meeting in minutes"),
     }),
     render: ({ respond, status, args }) => {
       return <MeetingTimePicker status={status} respond={respond} {...args} />;

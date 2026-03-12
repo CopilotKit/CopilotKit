@@ -1,4 +1,5 @@
 ## 🧮 CopilotKit Spreadsheet Demo
+
 This is a demo that showcases using CopilotKit to build an Excel like web app.
 
 ## 🧑‍💻 Run the live demo
@@ -30,7 +31,6 @@ npm i
 
 copy `.env.local.example` to `.env.local` and populate the required environment variables.
 
-
 ### 3. Run the app
 
 ```bash
@@ -60,5 +60,3 @@ To learn more about CopilotKit, take a look at the following resources:
 - [CopilotKit Documentation](https://docs.copilotkit.ai/getting-started/quickstart-chatbot) - learn about CopilotKit features and API.
 - [GitHub](https://github.com/CopilotKit/CopilotKit) - Check out the CopilotKit GitHub repository.
 - [Discord](https://discord.gg/6dffbvGU3D) - Join the CopilotKit Discord community.
-
-

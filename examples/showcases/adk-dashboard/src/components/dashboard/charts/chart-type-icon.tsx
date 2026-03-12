@@ -1,4 +1,9 @@
-import { BarChart3, ChartLine, PieChart as PieChartIcon, LayoutDashboard } from "lucide-react";
+import {
+  BarChart3,
+  ChartLine,
+  PieChart as PieChartIcon,
+  LayoutDashboard,
+} from "lucide-react";
 import type { ChartSpec } from "@/lib/types";
 
 export function ChartTypeIcon({ spec }: { spec: ChartSpec }) {

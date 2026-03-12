@@ -1,4 +1,12 @@
-import { AgentState, CardType, ChartData, EntityData, ItemData, NoteData, ProjectData } from "@/lib/canvas/types";
+import {
+  AgentState,
+  CardType,
+  ChartData,
+  EntityData,
+  ItemData,
+  NoteData,
+  ProjectData,
+} from "@/lib/canvas/types";
 
 export const initialState: AgentState = {
   items: [],
@@ -39,7 +47,3 @@ export function defaultDataFor(type: CardType): ItemData {
       return { field1: "" } as NoteData;
   }
 }
-
-
-
-

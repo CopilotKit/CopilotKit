@@ -6,7 +6,8 @@ import "@copilotkit/react-ui/styles.css";
 
 export const metadata: Metadata = {
   title: "Deep Research Assistant | CopilotKit Deep Agents Demo",
-  description: "A research assistant powered by Deep Agents and CopilotKit - demonstrating planning, memory, subagents, and generative UI",
+  description:
+    "A research assistant powered by Deep Agents and CopilotKit - demonstrating planning, memory, subagents, and generative UI",
   openGraph: {
     title: "Deep Research Assistant",
     description: "A research assistant powered by Deep Agents and CopilotKit",

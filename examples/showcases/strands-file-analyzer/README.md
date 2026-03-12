@@ -5,16 +5,19 @@ AI-powered document analysis demo built with [CopilotKit](https://copilotkit.ai)
 ## About This Project
 
 **What This Is:**
+
 - Educational demo showing how to integrate CopilotKit with Python agents
 - Reference for building TypeScript frontends with Python backends
 - Example of real-time state synchronization between frontend and agent
 
 **What This Is NOT:**
+
 - Production-ready document processing service
 - Secure analysis tool for sensitive documents
 - Replacement for professional legal/compliance review
 
 **Use this to:**
+
 - Learn CopilotKit + Strands integration patterns
 - See how to sync state between React and Python
 - Understand multi-file document processing with AWS Bedrock
@@ -24,6 +27,7 @@ AI-powered document analysis demo built with [CopilotKit](https://copilotkit.ai)
 ## Quick Start
 
 ### Prerequisites
+
 - Node.js 20+
 - Python 3.12+
 - AWS credentials with Bedrock access
@@ -52,6 +56,7 @@ npm run dev
 ```
 
 This starts:
+
 - **Frontend**: http://localhost:3000
 - **Agent**: http://localhost:8000
 
@@ -60,17 +65,20 @@ This starts:
 ## Key Features
 
 **Multi-File PDF Support:**
+
 - Upload up to 10 PDFs (150MB each)
 - Files ≤4.5MB sent as native PDFs to preserve formatting
 - Files >4.5MB automatically use text extraction
 - Combined analysis across all documents
 
 **Real-Time UI Updates:**
+
 - Dashboard panels update as agent processes documents
 - Key findings, redacted content speculation, tweet generation
 - Executive summary with markdown formatting
 
 **Conversational Interface:**
+
 - Chat with the agent about uploaded documents
 - Tool calls render as custom UI components in the chat
 
@@ -85,7 +93,7 @@ Keeps frontend and Python agent in sync automatically:
 ```typescript
 const { state, setState } = useCoAgent({
   name: "file_investigator",
-  initialState: INITIAL_STATE
+  initialState: INITIAL_STATE,
 });
 ```
 
@@ -134,6 +142,7 @@ const defaultTools = [
 ### What is ag_ui_strands?
 
 [ag_ui_strands](https://pypi.org/project/ag-ui-strands/) bridges Strands with CopilotKit. It:
+
 - Wraps your Strands agent with FastAPI endpoints
 - Emits state updates when tools are called
 - Handles the AG-UI Protocol communication
@@ -189,6 +198,7 @@ update_findings.state_from_args = lambda args, context: {
 ### The Challenge
 
 AWS Bedrock has limits:
+
 - 4.5MB per document
 - 5 documents per message
 
@@ -271,16 +281,16 @@ The agent sees all files and analyzes them together, regardless of how they were
 
 ### Agent (`agent/.env`)
 
-| Variable | Description |
-|----------|-------------|
-| `AWS_ACCESS_KEY_ID` | AWS access key for Bedrock |
-| `AWS_SECRET_ACCESS_KEY` | AWS secret key |
-| `AWS_REGION` | AWS region (default: `us-west-1`) |
+| Variable                | Description                       |
+| ----------------------- | --------------------------------- |
+| `AWS_ACCESS_KEY_ID`     | AWS access key for Bedrock        |
+| `AWS_SECRET_ACCESS_KEY` | AWS secret key                    |
+| `AWS_REGION`            | AWS region (default: `us-west-1`) |
 
 ### Frontend (optional)
 
-| Variable | Description |
-|----------|-------------|
+| Variable    | Description                                  |
+| ----------- | -------------------------------------------- |
 | `AGENT_URL` | Agent URL (default: `http://localhost:8000`) |
 
 ---
@@ -288,12 +298,14 @@ The agent sees all files and analyzes them together, regardless of how they were
 ## Tech Stack
 
 **Frontend:**
+
 - Next.js 16
 - React 19
 - CopilotKit 1.10
 - Tailwind CSS 4
 
 **Backend:**
+
 - Python 3.12
 - Strands Agents 1.15+
 - ag_ui_strands 0.1.0b12
@@ -305,29 +317,32 @@ The agent sees all files and analyzes them together, regardless of how they were
 
 ## Commands
 
-| Command | Description |
-|---------|-------------|
-| `npm run dev` | Start both frontend and agent |
-| `npm run dev:ui` | Start frontend only |
-| `npm run dev:agent` | Start agent only |
-| `npm run build` | Build for production |
-| `npm run lint` | Run ESLint |
+| Command             | Description                   |
+| ------------------- | ----------------------------- |
+| `npm run dev`       | Start both frontend and agent |
+| `npm run dev:ui`    | Start frontend only           |
+| `npm run dev:agent` | Start agent only              |
+| `npm run build`     | Build for production          |
+| `npm run lint`      | Run ESLint                    |
 
 ---
 
 ## Troubleshooting
 
 **Agent not connecting:**
+
 - Verify agent is running on port 8000
 - Check AWS credentials in `agent/.env`
 - Ensure Bedrock model access is enabled
 
 **PDF not processing:**
+
 - Large PDFs (>4.5MB) automatically use text extraction
 - Check agent logs for errors
 - Verify PDF is not corrupted or encrypted
 
 **State not syncing:**
+
 - Ensure both servers are running
 - Check browser console for errors
 - Verify agent name matches in both frontend and backend
@@ -337,15 +352,18 @@ The agent sees all files and analyzes them together, regardless of how they were
 ## Learning Resources
 
 **CopilotKit:**
+
 - [CopilotKit Docs](https://docs.copilotkit.ai)
 - [useCoAgent Hook](https://docs.copilotkit.ai/reference/hooks/useCoAgent)
 - [AG-UI Protocol](https://docs.copilotkit.ai/coagents/ag-ui-protocol)
 
 **Strands Agents:**
+
 - [Strands Documentation](https://strandsagents.com)
 - [ag_ui_strands Package](https://pypi.org/project/ag-ui-strands/)
 
 **AWS Bedrock:**
+
 - [Bedrock API Reference](https://docs.aws.amazon.com/bedrock/latest/APIReference/welcome.html)
 
 ---

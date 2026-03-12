@@ -8,7 +8,7 @@ import { CustomerSupportState } from "../types/state";
  */
 export async function customerLookupAgentNode(
   state: CustomerSupportState,
-  config: RunnableConfig
+  config: RunnableConfig,
 ): Promise<Partial<CustomerSupportState>> {
   console.log("Customer Lookup Agent: Searching for customer...");
 
@@ -36,7 +36,7 @@ export async function customerLookupAgentNode(
       // Use customers from shared state (synced with frontend)
       const customers = (state as any).customers || [];
       const customerData = customers.find(
-        (c: any) => c.customerID === customerId
+        (c: any) => c.customerID === customerId,
       );
 
       if (customerData) {

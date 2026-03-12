@@ -14,4 +14,4 @@ export type TodoItem = {
 
 export type AgentState = {
   todos: TodoItem[];
-}
+};

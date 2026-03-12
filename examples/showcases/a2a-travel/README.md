@@ -4,7 +4,6 @@
 
 A demonstration of Agent-to-Agent (A2A) communication between different AI agent frameworks using the AG-UI Protocol and A2A Middleware.
 
-
 ## Quick Start
 
 ### Prerequisites

@@ -47,7 +47,10 @@ const ChatInner = ({
       for (const message of visibleMessages) {
         const msg = message as any;
 
-        if (msg.type === "ResultMessage" && msg.actionName === "send_message_to_a2a_agent") {
+        if (
+          msg.type === "ResultMessage" &&
+          msg.actionName === "send_message_to_a2a_agent"
+        ) {
           try {
             const result = msg.result;
             let parsed;
@@ -63,26 +66,38 @@ const ChatInner = ({
             }
 
             if (parsed) {
-              if (parsed.destination && parsed.itinerary && Array.isArray(parsed.itinerary)) {
+              if (
+                parsed.destination &&
+                parsed.itinerary &&
+                Array.isArray(parsed.itinerary)
+              ) {
                 onItineraryUpdate?.(parsed as ItineraryData);
-              }
-              else if (parsed.totalBudget && parsed.breakdown && Array.isArray(parsed.breakdown)) {
+              } else if (
+                parsed.totalBudget &&
+                parsed.breakdown &&
+                Array.isArray(parsed.breakdown)
+              ) {
                 const budgetKey = `budget-${parsed.totalBudget}`;
                 const isApproved = approvalStates[budgetKey]?.approved || false;
                 if (isApproved) {
                   onBudgetUpdate?.(parsed as BudgetData);
                 }
-              }
-              else if (parsed.destination && parsed.forecast && Array.isArray(parsed.forecast)) {
+              } else if (
+                parsed.destination &&
+                parsed.forecast &&
+                Array.isArray(parsed.forecast)
+              ) {
                 const weatherDataParsed = parsed as WeatherData;
                 onWeatherUpdate?.(weatherDataParsed);
-              }
-              else if (parsed.destination && parsed.meals && Array.isArray(parsed.meals)) {
+              } else if (
+                parsed.destination &&
+                parsed.meals &&
+                Array.isArray(parsed.meals)
+              ) {
                 onRestaurantUpdate?.(parsed as RestaurantData);
               }
             }
-          } catch (e) {
-          }
+          } catch (e) {}
         }
       }
     };
@@ -138,17 +153,28 @@ const ChatInner = ({
       ],
       renderAndWaitForResponse: ({ args, respond }) => {
         if (!args.budgetData || typeof args.budgetData !== "object") {
-          return <div className="text-xs text-gray-500 p-2">Loading budget data...</div>;
+          return (
+            <div className="text-xs text-gray-500 p-2">
+              Loading budget data...
+            </div>
+          );
         }
 
         const budget = args.budgetData as BudgetData;
 
         if (!budget.totalBudget || !budget.breakdown) {
-          return <div className="text-xs text-gray-500 p-2">Loading budget data...</div>;
+          return (
+            <div className="text-xs text-gray-500 p-2">
+              Loading budget data...
+            </div>
+          );
         }
 
         const budgetKey = `budget-${budget.totalBudget}`;
-        const currentState = approvalStates[budgetKey] || { approved: false, rejected: false };
+        const currentState = approvalStates[budgetKey] || {
+          approved: false,
+          rejected: false,
+        };
 
         const handleApprove = () => {
           setApprovalStates((prev) => ({
@@ -177,18 +203,20 @@ const ChatInner = ({
         );
       },
     },
-    [approvalStates]
+    [approvalStates],
   );
 
   // Register HITL trip requirements form (collects trip info at start)
   useCopilotAction({
     name: "gather_trip_requirements",
-    description: "Gather trip requirements from the user (city, days, people, budget level)",
+    description:
+      "Gather trip requirements from the user (city, days, people, budget level)",
     parameters: [
       {
         name: "city",
         type: "string",
-        description: "The destination city (may be pre-filled from user message)",
+        description:
+          "The destination city (may be pre-filled from user message)",
         required: false,
       },
       {
@@ -234,7 +262,11 @@ const ChatInner = ({
 
       const weather = args.weatherData as WeatherData;
 
-      if (!weather.destination || !weather.forecast || !Array.isArray(weather.forecast)) {
+      if (
+        !weather.destination ||
+        !weather.forecast ||
+        !Array.isArray(weather.forecast)
+      ) {
         return <></>;
       }
 
@@ -267,7 +299,11 @@ export default function TravelChat({
   onRestaurantUpdate,
 }: TravelChatProps) {
   return (
-    <CopilotKit runtimeUrl="/api/copilotkit" showDevConsole={false} agent="a2a_chat">
+    <CopilotKit
+      runtimeUrl="/api/copilotkit"
+      showDevConsole={false}
+      agent="a2a_chat"
+    >
       <ChatInner
         onItineraryUpdate={onItineraryUpdate}
         onBudgetUpdate={onBudgetUpdate}

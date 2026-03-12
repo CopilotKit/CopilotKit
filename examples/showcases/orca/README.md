@@ -1,9 +1,11 @@
 # Cisco CopilotKit Demo
+
 .
 
 ## Overview
 
 This project is a modern dashboard and analytics solution built with Next.js (in the `frontend` directory). It features:
+
 - Clean, responsive UI for PR and repository analytics
 - Interactive charts and tables
 - Integration with OpenAI via CopilotKit
@@ -11,6 +13,7 @@ This project is a modern dashboard and analytics solution built with Next.js (in
 ## Quick Start (Frontend)
 
 1. **Install dependencies**
+
    ```bash
    cd frontend
    pnpm install
@@ -30,4 +33,3 @@ This project is a modern dashboard and analytics solution built with Next.js (in
    The app will be available at [http://localhost:3000](http://localhost:3000).
 
 ---
-

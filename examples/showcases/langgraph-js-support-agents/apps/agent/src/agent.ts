@@ -74,7 +74,7 @@ Be helpful and professional. Use the customers array from state for lookups.`,
   // Invoke the model
   const response = await modelWithTools.invoke(
     [systemMessage, ...state.messages],
-    config
+    config,
   );
 
   console.log("Model response generated");
@@ -90,7 +90,7 @@ const tool_node = new ToolNode(tools);
 // 4. Process tool results and update state
 async function process_tool_results(
   state: CustomerSupportState,
-  config: RunnableConfig
+  config: RunnableConfig,
 ) {
   const messages = state.messages || [];
   const lastMessage = messages[messages.length - 1];

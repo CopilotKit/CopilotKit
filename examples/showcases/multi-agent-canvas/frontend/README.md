@@ -8,7 +8,6 @@ Open Multi-Agent Canvas is an open-source multi-agent chat interface that levera
   Chat with a range of specialized agents:
   - **Travel Agent:** Plan trips, create itineraries, and view travel recommendations on an interactive map powered by Leaflet.
   - **Research Agent:** Conduct research with real-time logs and progress updates.
-  
 - **Real-Time Interactivity:**  
   Enjoy a live chat powered by `@copilotkit/react-ui` that orchestrates dynamic state changes and agent responses.
 
@@ -28,15 +27,16 @@ Open Multi-Agent Canvas is an open-source multi-agent chat interface that levera
 
 ## Setup Instructions
 
-1. **Prerequisites:**  
+1. **Prerequisites:**
    - [Node.js](https://nodejs.org) (LTS version recommended)
    - npm or yarn
 
-2. **Installation:**  
+2. **Installation:**
+
    ```bash
    # Clone the repository
    git clone <repository-url>
-   
+
    # Navigate to the frontend directory
    cd frontend
 
@@ -46,7 +46,7 @@ Open Multi-Agent Canvas is an open-source multi-agent chat interface that levera
    yarn install
    ```
 
-3. **Running the Development Server:**  
+3. **Running the Development Server:**
    ```bash
    npm run dev
    # or
@@ -75,10 +75,12 @@ Open Multi-Agent Canvas simplifies complex tasks by unifying multiple specialize
 ## Deployment
 
 The easiest way to deploy this project is with [Vercel](https://vercel.com). Build and start your application with:
+
 ```bash
 npm run build
 npm run start
 ```
+
 Follow Vercel's deployment guide for more details if needed.
 
 ## Contributing

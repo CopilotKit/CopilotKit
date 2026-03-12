@@ -34,13 +34,13 @@ pnpm dev
 
 ## Scripts
 
-| Command | Description |
-|---------|-------------|
-| `pnpm dev` | Start UI + agent servers |
-| `pnpm dev:ui` | Start only Next.js UI |
-| `pnpm dev:agent` | Start only C# agent |
-| `pnpm build` | Build for production |
-| `pnpm lint` | Run ESLint |
+| Command          | Description              |
+| ---------------- | ------------------------ |
+| `pnpm dev`       | Start UI + agent servers |
+| `pnpm dev:ui`    | Start only Next.js UI    |
+| `pnpm dev:agent` | Start only C# agent      |
+| `pnpm build`     | Build for production     |
+| `pnpm lint`      | Run ESLint               |
 
 ## Project Structure
 
@@ -91,6 +91,7 @@ The C# agent provides 11 tools for Kanban management:
 **Agent won't connect**: Verify agent running on port 8000 (`curl http://localhost:8000/`)
 
 **OpenAIKey not found**:
+
 ```bash
 cd agent && dotnet user-secrets set OpenAIKey "sk-..."
 ```

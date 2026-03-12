@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState, ReactNode } from "react";
 
 // Define the types for our todo items
 export interface SubTask {
@@ -33,30 +33,39 @@ interface TodoContextType {
 const TodoContext = createContext<TodoContextType | undefined>(undefined);
 
 // Create a provider component
-export const TodoProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [todos, setTodos] = useState<Todo[]>([{
-    id: Date.now(),
-    text: "Blog Posts",
-    completed: false,
-    subtasks: [{
-      id: 1,
-      text: "Agents 101: Build an Agent in 30 Minutes",
-      completed: true
-    }, {
-      id: 2,
-      text: "Simple Stack for Powerful Agents",
-      completed: false
-    }, {
-      id: 3,
-      text: "How I Built a Helpful Agent",
-      completed: false
-    }, {
-      id: 4,
-      text: "What I Learned Building Agents",
-      completed: false
-    }],
-    expanded: true
-  }]);
+export const TodoProvider: React.FC<{ children: ReactNode }> = ({
+  children,
+}) => {
+  const [todos, setTodos] = useState<Todo[]>([
+    {
+      id: Date.now(),
+      text: "Blog Posts",
+      completed: false,
+      subtasks: [
+        {
+          id: 1,
+          text: "Agents 101: Build an Agent in 30 Minutes",
+          completed: true,
+        },
+        {
+          id: 2,
+          text: "Simple Stack for Powerful Agents",
+          completed: false,
+        },
+        {
+          id: 3,
+          text: "How I Built a Helpful Agent",
+          completed: false,
+        },
+        {
+          id: 4,
+          text: "What I Learned Building Agents",
+          completed: false,
+        },
+      ],
+      expanded: true,
+    },
+  ]);
 
   const addTodo = (str: string | null = null) => {
     if (str === null) return null;
@@ -67,8 +76,8 @@ export const TodoProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         text: str,
         completed: false,
         subtasks: [],
-        expanded: false
-      }
+        expanded: false,
+      },
     ]);
     return todos.length;
   };
@@ -83,14 +92,14 @@ export const TodoProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           return {
             ...todo,
             completed: newCompleted,
-            subtasks: todo.subtasks.map(subtask => ({
+            subtasks: todo.subtasks.map((subtask) => ({
               ...subtask,
-              completed: newCompleted
-            }))
+              completed: newCompleted,
+            })),
           };
         }
         return todo;
-      })
+      }),
     );
   };
 
@@ -103,8 +112,8 @@ export const TodoProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       todos.map((todo) =>
         todo.id === id
           ? { ...todo, expanded: !todo.expanded }
-          : { ...todo, expanded: false }
-      )
+          : { ...todo, expanded: false },
+      ),
     );
   };
 
@@ -118,17 +127,20 @@ export const TodoProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             ...todo,
             subtasks: [
               ...todo.subtasks,
-              { id: Date.now() + Math.random(), text: subtask, completed: false }
-            ]
+              {
+                id: Date.now() + Math.random(),
+                text: subtask,
+                completed: false,
+              },
+            ],
           };
         }
         return todo;
-      })
+      }),
     );
   };
 
   const addTaskAndSubtask = (title: string, subtask: string[]) => {
-
     setTodos([
       ...todos,
       {
@@ -138,10 +150,10 @@ export const TodoProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         subtasks: subtask.map((subtask) => ({
           id: Date.now() + Math.random(),
           text: subtask,
-          completed: false
+          completed: false,
         })),
-        expanded: false
-      }
+        expanded: false,
+      },
     ]);
   };
 
@@ -154,37 +166,39 @@ export const TodoProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           const updatedSubtasks = todo.subtasks.map((subtask) =>
             subtask.id === subtaskId
               ? { ...subtask, completed: !subtask.completed }
-              : subtask
+              : subtask,
           );
 
           // Then check if all subtasks are completed
-          const allSubtasksCompleted = updatedSubtasks.length > 0 &&
-            updatedSubtasks.every(subtask => subtask.completed);
+          const allSubtasksCompleted =
+            updatedSubtasks.length > 0 &&
+            updatedSubtasks.every((subtask) => subtask.completed);
 
           // Update the parent's completed status based on subtasks
           return {
             ...todo,
             completed: allSubtasksCompleted,
-            subtasks: updatedSubtasks
+            subtasks: updatedSubtasks,
           };
         }
         return todo;
-      })
+      }),
     );
   };
 
   const deleteSubtask = (parentId: number, subtaskId: number) => {
-
     setTodos(
       todos.map((todo) => {
         if (todo.id === parentId) {
           return {
             ...todo,
-            subtasks: todo.subtasks.filter((subtask) => subtask.id !== subtaskId)
+            subtasks: todo.subtasks.filter(
+              (subtask) => subtask.id !== subtaskId,
+            ),
           };
         }
         return todo;
-      })
+      }),
     );
   };
 
@@ -197,7 +211,7 @@ export const TodoProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     addSubtask,
     toggleSubtask,
     deleteSubtask,
-    addTaskAndSubtask
+    addTaskAndSubtask,
   };
 
   return <TodoContext.Provider value={value}>{children}</TodoContext.Provider>;
@@ -207,7 +221,7 @@ export const TodoProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 export const useTodo = () => {
   const context = useContext(TodoContext);
   if (context === undefined) {
-    throw new Error('useTodo must be used within a TodoProvider');
+    throw new Error("useTodo must be used within a TodoProvider");
   }
   return context;
-}; 
+};

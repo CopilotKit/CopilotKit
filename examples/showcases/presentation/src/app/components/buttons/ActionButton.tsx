@@ -23,7 +23,7 @@ export function ActionButton({
           ? "opacity-50 cursor-not-allowed"
           : "hover:border hover:border-white",
         inProgress &&
-          "animate-bounce text-blue-400 cursor-not-allowed hover:border-none"
+          "animate-bounce text-blue-400 cursor-not-allowed hover:border-none",
       )}
     >
       {children}

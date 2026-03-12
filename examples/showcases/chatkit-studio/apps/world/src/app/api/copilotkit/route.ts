@@ -16,7 +16,8 @@ export const POST = async (req: NextRequest) => {
   const runtime = new CopilotRuntime({
     agents: {
       [process.env.LANGGRAPH_GRAPH_ID || "world_agent"]: new LangGraphAgent({
-        deploymentUrl: process.env.LANGGRAPH_DEPLOYMENT_URL || "http://localhost:8125",
+        deploymentUrl:
+          process.env.LANGGRAPH_DEPLOYMENT_URL || "http://localhost:8125",
         graphId: process.env.LANGGRAPH_GRAPH_ID || "world_agent",
         langsmithApiKey: process.env.LANGSMITH_API_KEY || "",
         config: {

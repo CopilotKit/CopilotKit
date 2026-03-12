@@ -91,7 +91,7 @@ Now classify this message:`;
     schema: z.object({
       message: z.string().describe("The customer's message to classify"),
     }),
-  }
+  },
 );
 
 // Fallback keyword-based classification if AI fails
@@ -169,7 +169,7 @@ function fallbackKeywordClassification(message: string) {
 
   for (const [intent, keywords] of Object.entries(intentPatterns)) {
     const matches = keywords.filter((keyword) =>
-      lowerMessage.includes(keyword)
+      lowerMessage.includes(keyword),
     );
     if (matches.length > maxMatches) {
       maxMatches = matches.length;

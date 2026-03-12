@@ -25,7 +25,10 @@ export function PreviewPanel({ config, onExport }: PreviewPanelProps) {
 
   useEffect(() => {
     if (isReady && iframeRef.current?.contentWindow) {
-      iframeRef.current.contentWindow.postMessage({ type: "UPDATE_CONFIG", config }, "*");
+      iframeRef.current.contentWindow.postMessage(
+        { type: "UPDATE_CONFIG", config },
+        "*",
+      );
     }
   }, [config, isReady]);
 
@@ -33,7 +36,9 @@ export function PreviewPanel({ config, onExport }: PreviewPanelProps) {
     <div className="flex-1 flex flex-col border-2 border-white bg-white/50 backdrop-blur-sm rounded-lg overflow-hidden">
       <div className="border-b border-palette-border-container px-6 py-4 flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-semibold text-palette-text-primary">Preview</h2>
+          <h2 className="text-lg font-semibold text-palette-text-primary">
+            Preview
+          </h2>
           <p className="text-xs text-palette-text-secondary mt-0.5">
             Live preview of your chat component
           </p>

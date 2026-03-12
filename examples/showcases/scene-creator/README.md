@@ -15,17 +15,18 @@ https://github.com/user-attachments/assets/3c60c2b8-5ccd-42f0-817f-0e5e22398a48
 
 ## Demo Features
 
-| Feature | Description |
-|---------|-------------|
-| Character Generation | Create characters with AI-generated images |
-| Background Generation | Generate environments and scenes |
-| Scene Composition | Combine characters and backgrounds |
-| Image Editing | Modify generated images with natural language |
-| HITL Approval | Review and approve image prompts before generation |
+| Feature               | Description                                        |
+| --------------------- | -------------------------------------------------- |
+| Character Generation  | Create characters with AI-generated images         |
+| Background Generation | Generate environments and scenes                   |
+| Scene Composition     | Combine characters and backgrounds                 |
+| Image Editing         | Modify generated images with natural language      |
+| HITL Approval         | Review and approve image prompts before generation |
 
 ## Quick Start
 
 ### Prerequisites
+
 - Node.js 18+
 - Python 3.10+
 - Google AI API Key ([get one here](https://makersuite.google.com/app/apikey))
@@ -97,7 +98,7 @@ api_key = state.get("apiKey", "")
 // Frontend: Enable HITL for specific tool
 useCopilotAction({
   name: "approve_image_prompt",
-  disabled: true,  // Agent calls this, not user
+  disabled: true, // Agent calls this, not user
   handler: async ({ prompt }) => {
     // Show approval UI, return approved/rejected
   },
@@ -148,13 +149,13 @@ See [agent/DEPLOY.md](agent/DEPLOY.md) for detailed deployment guide.
 
 ## Tech Stack
 
-| Layer | Technology |
-|-------|------------|
-| Frontend | Next.js 16, React 19, Tailwind CSS 4 |
-| AI Integration | CopilotKit 1.10.6 |
-| Agent | Python, LangGraph 0.6.6 |
-| LLM | Gemini 3 Pro Preview |
-| Image Gen | Nano Banana (gemini-2.5-flash-image) |
+| Layer          | Technology                           |
+| -------------- | ------------------------------------ |
+| Frontend       | Next.js 16, React 19, Tailwind CSS 4 |
+| AI Integration | CopilotKit 1.10.6                    |
+| Agent          | Python, LangGraph 0.6.6              |
+| LLM            | Gemini 3 Pro Preview                 |
+| Image Gen      | Nano Banana (gemini-2.5-flash-image) |
 
 ## Learn More
 

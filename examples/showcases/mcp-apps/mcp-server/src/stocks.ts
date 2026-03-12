@@ -4,9 +4,20 @@
  */
 
 // Type definitions
-export type Sector = "technology" | "healthcare" | "finance" | "energy" | "consumer" | "industrial";
+export type Sector =
+  | "technology"
+  | "healthcare"
+  | "finance"
+  | "energy"
+  | "consumer"
+  | "industrial";
 export type RiskTolerance = "conservative" | "moderate" | "aggressive";
-export type PortfolioFocus = "tech" | "healthcare" | "diversified" | "growth" | "dividend";
+export type PortfolioFocus =
+  | "tech"
+  | "healthcare"
+  | "diversified"
+  | "growth"
+  | "dividend";
 
 /**
  * Represents a stock in the market.
@@ -85,34 +96,178 @@ export interface TradeResult {
  */
 const STOCKS: Stock[] = [
   // Technology
-  { symbol: "AAPL", name: "Apple Inc.", price: 178.50, change: 1.2, sector: "technology", volatility: 0.3, dividendYield: 0.5 },
-  { symbol: "MSFT", name: "Microsoft Corp.", price: 378.25, change: 0.8, sector: "technology", volatility: 0.25, dividendYield: 0.8 },
-  { symbol: "GOOGL", name: "Alphabet Inc.", price: 141.80, change: -0.5, sector: "technology", volatility: 0.35, dividendYield: 0 },
-  { symbol: "NVDA", name: "NVIDIA Corp.", price: 495.20, change: 2.5, sector: "technology", volatility: 0.5, dividendYield: 0.04 },
-  { symbol: "META", name: "Meta Platforms", price: 505.30, change: 1.8, sector: "technology", volatility: 0.45, dividendYield: 0.4 },
+  {
+    symbol: "AAPL",
+    name: "Apple Inc.",
+    price: 178.5,
+    change: 1.2,
+    sector: "technology",
+    volatility: 0.3,
+    dividendYield: 0.5,
+  },
+  {
+    symbol: "MSFT",
+    name: "Microsoft Corp.",
+    price: 378.25,
+    change: 0.8,
+    sector: "technology",
+    volatility: 0.25,
+    dividendYield: 0.8,
+  },
+  {
+    symbol: "GOOGL",
+    name: "Alphabet Inc.",
+    price: 141.8,
+    change: -0.5,
+    sector: "technology",
+    volatility: 0.35,
+    dividendYield: 0,
+  },
+  {
+    symbol: "NVDA",
+    name: "NVIDIA Corp.",
+    price: 495.2,
+    change: 2.5,
+    sector: "technology",
+    volatility: 0.5,
+    dividendYield: 0.04,
+  },
+  {
+    symbol: "META",
+    name: "Meta Platforms",
+    price: 505.3,
+    change: 1.8,
+    sector: "technology",
+    volatility: 0.45,
+    dividendYield: 0.4,
+  },
 
   // Healthcare
-  { symbol: "JNJ", name: "Johnson & Johnson", price: 156.40, change: 0.3, sector: "healthcare", volatility: 0.15, dividendYield: 3.0 },
-  { symbol: "UNH", name: "UnitedHealth Group", price: 528.90, change: -0.2, sector: "healthcare", volatility: 0.2, dividendYield: 1.4 },
-  { symbol: "PFE", name: "Pfizer Inc.", price: 27.15, change: -1.5, sector: "healthcare", volatility: 0.3, dividendYield: 5.8 },
+  {
+    symbol: "JNJ",
+    name: "Johnson & Johnson",
+    price: 156.4,
+    change: 0.3,
+    sector: "healthcare",
+    volatility: 0.15,
+    dividendYield: 3.0,
+  },
+  {
+    symbol: "UNH",
+    name: "UnitedHealth Group",
+    price: 528.9,
+    change: -0.2,
+    sector: "healthcare",
+    volatility: 0.2,
+    dividendYield: 1.4,
+  },
+  {
+    symbol: "PFE",
+    name: "Pfizer Inc.",
+    price: 27.15,
+    change: -1.5,
+    sector: "healthcare",
+    volatility: 0.3,
+    dividendYield: 5.8,
+  },
 
   // Finance
-  { symbol: "JPM", name: "JPMorgan Chase", price: 195.60, change: 0.9, sector: "finance", volatility: 0.25, dividendYield: 2.4 },
-  { symbol: "BAC", name: "Bank of America", price: 33.80, change: 1.1, sector: "finance", volatility: 0.3, dividendYield: 2.8 },
-  { symbol: "V", name: "Visa Inc.", price: 279.45, change: 0.6, sector: "finance", volatility: 0.2, dividendYield: 0.8 },
+  {
+    symbol: "JPM",
+    name: "JPMorgan Chase",
+    price: 195.6,
+    change: 0.9,
+    sector: "finance",
+    volatility: 0.25,
+    dividendYield: 2.4,
+  },
+  {
+    symbol: "BAC",
+    name: "Bank of America",
+    price: 33.8,
+    change: 1.1,
+    sector: "finance",
+    volatility: 0.3,
+    dividendYield: 2.8,
+  },
+  {
+    symbol: "V",
+    name: "Visa Inc.",
+    price: 279.45,
+    change: 0.6,
+    sector: "finance",
+    volatility: 0.2,
+    dividendYield: 0.8,
+  },
 
   // Energy
-  { symbol: "XOM", name: "Exxon Mobil", price: 104.25, change: -0.8, sector: "energy", volatility: 0.35, dividendYield: 3.5 },
-  { symbol: "CVX", name: "Chevron Corp.", price: 151.70, change: -0.4, sector: "energy", volatility: 0.3, dividendYield: 4.0 },
+  {
+    symbol: "XOM",
+    name: "Exxon Mobil",
+    price: 104.25,
+    change: -0.8,
+    sector: "energy",
+    volatility: 0.35,
+    dividendYield: 3.5,
+  },
+  {
+    symbol: "CVX",
+    name: "Chevron Corp.",
+    price: 151.7,
+    change: -0.4,
+    sector: "energy",
+    volatility: 0.3,
+    dividendYield: 4.0,
+  },
 
   // Consumer
-  { symbol: "AMZN", name: "Amazon.com", price: 178.90, change: 1.5, sector: "consumer", volatility: 0.35, dividendYield: 0 },
-  { symbol: "WMT", name: "Walmart Inc.", price: 163.20, change: 0.4, sector: "consumer", volatility: 0.15, dividendYield: 1.4 },
-  { symbol: "KO", name: "Coca-Cola Co.", price: 60.85, change: 0.2, sector: "consumer", volatility: 0.1, dividendYield: 3.1 },
+  {
+    symbol: "AMZN",
+    name: "Amazon.com",
+    price: 178.9,
+    change: 1.5,
+    sector: "consumer",
+    volatility: 0.35,
+    dividendYield: 0,
+  },
+  {
+    symbol: "WMT",
+    name: "Walmart Inc.",
+    price: 163.2,
+    change: 0.4,
+    sector: "consumer",
+    volatility: 0.15,
+    dividendYield: 1.4,
+  },
+  {
+    symbol: "KO",
+    name: "Coca-Cola Co.",
+    price: 60.85,
+    change: 0.2,
+    sector: "consumer",
+    volatility: 0.1,
+    dividendYield: 3.1,
+  },
 
   // Industrial
-  { symbol: "CAT", name: "Caterpillar Inc.", price: 345.60, change: 0.7, sector: "industrial", volatility: 0.25, dividendYield: 1.6 },
-  { symbol: "BA", name: "Boeing Co.", price: 198.30, change: -1.2, sector: "industrial", volatility: 0.4, dividendYield: 0 },
+  {
+    symbol: "CAT",
+    name: "Caterpillar Inc.",
+    price: 345.6,
+    change: 0.7,
+    sector: "industrial",
+    volatility: 0.25,
+    dividendYield: 1.6,
+  },
+  {
+    symbol: "BA",
+    name: "Boeing Co.",
+    price: 198.3,
+    change: -1.2,
+    sector: "industrial",
+    volatility: 0.4,
+    dividendYield: 0,
+  },
 ];
 
 // In-memory portfolio storage (in production, use proper storage)
@@ -177,8 +332,11 @@ export function createPortfolio(options: {
 
   // Determine allocation percentages based on risk tolerance
   const stockAllocation =
-    riskTolerance === "conservative" ? 0.4 :
-    riskTolerance === "moderate" ? 0.6 : 0.8;
+    riskTolerance === "conservative"
+      ? 0.4
+      : riskTolerance === "moderate"
+        ? 0.6
+        : 0.8;
 
   const investmentAmount = initialBalance * stockAllocation;
   const cashAmount = initialBalance - investmentAmount;
@@ -187,7 +345,10 @@ export function createPortfolio(options: {
   let selectedStocks: Stock[];
   switch (focus) {
     case "tech":
-      selectedStocks = STOCKS.filter((s) => s.sector === "technology").slice(0, 4);
+      selectedStocks = STOCKS.filter((s) => s.sector === "technology").slice(
+        0,
+        4,
+      );
       break;
     case "healthcare":
       selectedStocks = STOCKS.filter((s) => s.sector === "healthcare");
@@ -196,13 +357,21 @@ export function createPortfolio(options: {
       selectedStocks = STOCKS.filter((s) => s.dividendYield >= 2.0).slice(0, 5);
       break;
     case "growth":
-      selectedStocks = STOCKS.filter((s) => s.volatility >= 0.3 && s.dividendYield < 1).slice(0, 4);
+      selectedStocks = STOCKS.filter(
+        (s) => s.volatility >= 0.3 && s.dividendYield < 1,
+      ).slice(0, 4);
       break;
     default: // diversified
       // One from each sector
-      const sectors: Sector[] = ["technology", "healthcare", "finance", "energy", "consumer"];
-      selectedStocks = sectors.map((sector) =>
-        STOCKS.find((s) => s.sector === sector)!
+      const sectors: Sector[] = [
+        "technology",
+        "healthcare",
+        "finance",
+        "energy",
+        "consumer",
+      ];
+      selectedStocks = sectors.map(
+        (sector) => STOCKS.find((s) => s.sector === sector)!,
       );
   }
 
@@ -272,7 +441,7 @@ export function executeTrade(
   portfolioId: string,
   symbol: string,
   action: TradeAction,
-  quantity: number
+  quantity: number,
 ): TradeResult {
   const portfolio = portfolios.get(portfolioId);
   if (!portfolio) {
@@ -306,7 +475,8 @@ export function executeTrade(
       holding.currentPrice = stock.price;
       holding.change = stock.change;
       holding.value = Math.round(totalShares * stock.price * 100) / 100;
-      holding.profitLoss = Math.round((holding.value - totalShares * holding.avgCost) * 100) / 100;
+      holding.profitLoss =
+        Math.round((holding.value - totalShares * holding.avgCost) * 100) / 100;
     } else {
       // Create new holding
       portfolio.holdings.push({
@@ -340,28 +510,44 @@ export function executeTrade(
     holding.shares -= quantity;
     if (holding.shares === 0) {
       // Remove holding entirely
-      portfolio.holdings = portfolio.holdings.filter((h) => h.symbol !== symbol);
+      portfolio.holdings = portfolio.holdings.filter(
+        (h) => h.symbol !== symbol,
+      );
     } else {
       holding.value = Math.round(holding.shares * stock.price * 100) / 100;
-      holding.profitLoss = Math.round((holding.value - holding.shares * holding.avgCost) * 100) / 100;
+      holding.profitLoss =
+        Math.round((holding.value - holding.shares * holding.avgCost) * 100) /
+        100;
     }
 
     portfolio.cash = Math.round((portfolio.cash + totalCost) * 100) / 100;
   }
 
   // Recalculate portfolio totals
-  const totalStockValue = portfolio.holdings.reduce((sum, h) => sum + h.value, 0);
-  portfolio.totalValue = Math.round((totalStockValue + portfolio.cash) * 100) / 100;
-  portfolio.totalProfitLoss = Math.round(
-    portfolio.holdings.reduce((sum, h) => sum + h.profitLoss, 0) * 100
-  ) / 100;
+  const totalStockValue = portfolio.holdings.reduce(
+    (sum, h) => sum + h.value,
+    0,
+  );
+  portfolio.totalValue =
+    Math.round((totalStockValue + portfolio.cash) * 100) / 100;
+  portfolio.totalProfitLoss =
+    Math.round(
+      portfolio.holdings.reduce((sum, h) => sum + h.profitLoss, 0) * 100,
+    ) / 100;
   portfolio.allocation = {
-    stocks: portfolio.totalValue > 0 ? Math.round((totalStockValue / portfolio.totalValue) * 100) : 0,
-    cash: portfolio.totalValue > 0 ? Math.round((portfolio.cash / portfolio.totalValue) * 100) : 0,
+    stocks:
+      portfolio.totalValue > 0
+        ? Math.round((totalStockValue / portfolio.totalValue) * 100)
+        : 0,
+    cash:
+      portfolio.totalValue > 0
+        ? Math.round((portfolio.cash / portfolio.totalValue) * 100)
+        : 0,
   };
 
   // Update performance (add today's value)
-  portfolio.performance[portfolio.performance.length - 1].value = portfolio.totalValue;
+  portfolio.performance[portfolio.performance.length - 1].value =
+    portfolio.totalValue;
 
   return {
     success: true,
@@ -380,7 +566,9 @@ export function executeTrade(
 /**
  * Refresh stock prices with random small changes.
  */
-export function refreshPrices(portfolioId: string): { portfolio: Portfolio; availableStocks: Stock[] } | undefined {
+export function refreshPrices(
+  portfolioId: string,
+): { portfolio: Portfolio; availableStocks: Stock[] } | undefined {
   const portfolio = portfolios.get(portfolioId);
   if (!portfolio) {
     return undefined;
@@ -401,19 +589,32 @@ export function refreshPrices(portfolioId: string): { portfolio: Portfolio; avai
       holding.currentPrice = stock.price;
       holding.change = stock.change;
       holding.value = Math.round(holding.shares * stock.price * 100) / 100;
-      holding.profitLoss = Math.round((holding.value - holding.shares * holding.avgCost) * 100) / 100;
+      holding.profitLoss =
+        Math.round((holding.value - holding.shares * holding.avgCost) * 100) /
+        100;
     }
   });
 
   // Recalculate totals
-  const totalStockValue = portfolio.holdings.reduce((sum, h) => sum + h.value, 0);
-  portfolio.totalValue = Math.round((totalStockValue + portfolio.cash) * 100) / 100;
-  portfolio.totalProfitLoss = Math.round(
-    portfolio.holdings.reduce((sum, h) => sum + h.profitLoss, 0) * 100
-  ) / 100;
+  const totalStockValue = portfolio.holdings.reduce(
+    (sum, h) => sum + h.value,
+    0,
+  );
+  portfolio.totalValue =
+    Math.round((totalStockValue + portfolio.cash) * 100) / 100;
+  portfolio.totalProfitLoss =
+    Math.round(
+      portfolio.holdings.reduce((sum, h) => sum + h.profitLoss, 0) * 100,
+    ) / 100;
   portfolio.allocation = {
-    stocks: portfolio.totalValue > 0 ? Math.round((totalStockValue / portfolio.totalValue) * 100) : 0,
-    cash: portfolio.totalValue > 0 ? Math.round((portfolio.cash / portfolio.totalValue) * 100) : 0,
+    stocks:
+      portfolio.totalValue > 0
+        ? Math.round((totalStockValue / portfolio.totalValue) * 100)
+        : 0,
+    cash:
+      portfolio.totalValue > 0
+        ? Math.round((portfolio.cash / portfolio.totalValue) * 100)
+        : 0,
   };
 
   // Get available stocks

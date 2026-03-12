@@ -72,7 +72,9 @@
   /* Default to Manrope as app-wide sans font */
   --font-sans: var(--font-manrope);
   --font-serif: ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
-  --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, "SF Mono", Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  --font-mono:
+    var(--font-geist-mono), ui-monospace, SFMono-Regular, "SF Mono", Monaco,
+    Consolas, "Liberation Mono", "Courier New", monospace;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -153,17 +155,20 @@ html {
     display: none;
   }
   .copilotKitMessage {
-    &, & * {
+    &,
+    & * {
       @apply font-sans text-sm! subpixel-antialiased leading-normal text-primary!;
     }
     &.copilotKitAssistantMessage {
       @apply rounded-bl-none! pl-3! mb-10! border-1 border-accent/50! bg-accent/10!;
       .copilotKitMessageControls {
         @apply mt-3! gap-x-2.5! opacity-100!;
-        &, & * {
+        &,
+        & * {
           @apply text-primary/50! transition-colors!;
         }
-        & button:hover, & button:hover * {
+        & button:hover,
+        & button:hover * {
           @apply text-accent!;
           transform: scale(1) !important;
         }

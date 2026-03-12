@@ -53,7 +53,11 @@ export default function TaskCard({
   }, [isAddingTag]);
 
   const handleTitleBlur = () => {
-    if (titleValue.trim() !== "" && titleValue !== task.title && onUpdateTitle) {
+    if (
+      titleValue.trim() !== "" &&
+      titleValue !== task.title &&
+      onUpdateTitle
+    ) {
       onUpdateTitle(titleValue);
     } else {
       setTitleValue(task.title);

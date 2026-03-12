@@ -8,7 +8,10 @@ import {
   useCopilotAction,
   useCopilotReadable,
 } from "@copilotkit/react-core";
-import { CopilotSidebar, useCopilotChatSuggestions } from "@copilotkit/react-ui";
+import {
+  CopilotSidebar,
+  useCopilotChatSuggestions,
+} from "@copilotkit/react-ui";
 import { INSTRUCTIONS } from "./instructions";
 import { canonicalSpreadsheetData } from "./utils/canonicalSpreadsheetData";
 import { SpreadsheetData } from "./types";
@@ -26,7 +29,8 @@ const HomePage = () => {
       <CopilotSidebar
         instructions={INSTRUCTIONS}
         labels={{
-          initial: "Welcome to the spreadsheet app!  What would you like help with?",
+          initial:
+            "Welcome to the spreadsheet app!  What would you like help with?",
         }}
         defaultOpen={true}
         clickOutsideToClose={false}
@@ -69,7 +73,6 @@ const Main = () => {
       title: "Projects Tracker",
       rows: sampleData2,
     },
-
   ]);
 
   const [selectedSpreadsheetIndex, setSelectedSpreadsheetIndex] = useState(0);
@@ -104,7 +107,7 @@ const Main = () => {
       },
     ],
     render: (props) => {
-      console.log("createSpreadsheet => props: => ", props)
+      console.log("createSpreadsheet => props: => ", props);
       const { rows, title } = props.args;
       const newRows = canonicalSpreadsheetData(rows);
 
@@ -131,10 +134,11 @@ const Main = () => {
   });
 
   useCopilotChatSuggestions({
-    instructions: "Provide suggestions for the user like creating a new sheet with sample data, appending rows, telling them about this view. Strictly show only these options at the start of the chat.",
+    instructions:
+      "Provide suggestions for the user like creating a new sheet with sample data, appending rows, telling them about this view. Strictly show only these options at the start of the chat.",
     maxSuggestions: 3,
-    minSuggestions: 1
-  })
+    minSuggestions: 1,
+  });
   useCopilotReadable({
     description: "Today's date",
     value: new Date().toLocaleDateString(),

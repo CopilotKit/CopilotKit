@@ -82,7 +82,7 @@ const Wrapper: FC<WrapperProps> = ({ children }: WrapperProps) => {
     handler: async ({ itemId, quantity = 1 }) => {
       return fetcher.submit(
         { itemId, quantity },
-        { method: "post", action: `/items/${itemId}` }
+        { method: "post", action: `/items/${itemId}` },
       );
     },
   });
@@ -101,7 +101,7 @@ const Wrapper: FC<WrapperProps> = ({ children }: WrapperProps) => {
     handler: async ({ address }) => {
       return fetcher.submit(
         { address },
-        { method: "post", action: "/settings" }
+        { method: "post", action: "/settings" },
       );
     },
   });

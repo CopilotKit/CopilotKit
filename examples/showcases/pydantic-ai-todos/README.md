@@ -7,7 +7,7 @@ This is a starter template for building AI agents using [PydanticAI](https://ai.
 - OpenAI API Key (for the PydanticAI agent)
 - Python 3.12+
 - uv
-- Node.js 20+ 
+- Node.js 20+
 - Any of the following package managers:
   - pnpm (recommended)
   - npm
@@ -19,6 +19,7 @@ This is a starter template for building AI agents using [PydanticAI](https://ai.
 ## Getting Started
 
 1. Install dependencies using your preferred package manager:
+
 ```bash
 # Using pnpm (recommended)
 pnpm install
@@ -41,7 +42,6 @@ bun install
 > npm run install:agent
 > ```
 
-
 3. Set up your API keys:
 
 Create a `.env` file inside the `agent` folder with the following content:
@@ -57,6 +57,7 @@ LOGFIRE_TOKEN=...your-logfire-token...
 ```
 
 4. Start the development server:
+
 ```bash
 # Using pnpm
 pnpm dev
@@ -155,7 +156,9 @@ graph TD
 - [Next.js Documentation](https://nextjs.org/docs) - Learn about Next.js features and API
 
 ### Available Scripts
+
 The following scripts can also be run using your preferred package manager:
+
 - `dev` - Starts both UI and agent servers in development mode
 - `dev:debug` - Starts development servers with debug logging enabled
 - `dev:ui` - Starts only the Next.js UI server
@@ -176,13 +179,17 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 ## Troubleshooting
 
 ### Agent Connection Issues
+
 If you see "I'm having trouble connecting to my tools", make sure:
+
 1. The PydanticAI agent is running on port 8000
 2. Your OpenAI API key is set correctly
 3. Both servers started successfully
 
 ### Python Dependencies
+
 If you encounter Python import errors:
+
 ```bash
 cd agent
 uv sync

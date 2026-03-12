@@ -3,7 +3,11 @@
 import { useState, useEffect, useRef } from "react";
 import { useCoAgent } from "@copilotkit/react-core";
 import { useLocalStorage } from "@/hooks/use-local-storage";
-import { ConnectionType, ServerConfig, MCP_STORAGE_KEY } from "@/lib/mcp-config-types";
+import {
+  ConnectionType,
+  ServerConfig,
+  MCP_STORAGE_KEY,
+} from "@/lib/mcp-config-types";
 import { X, Plus, Server, Globe, Trash2 } from "lucide-react";
 import { AvailableAgents } from "@/lib/available-agents";
 
@@ -33,12 +37,12 @@ interface MCPConfigModalProps {
 export function MCPConfigModal({ isOpen, onClose }: MCPConfigModalProps) {
   // Use ref to avoid re-rendering issues
   const configsRef = useRef<Record<string, ServerConfig>>({});
-  
+
   // Use localStorage hook for persistent storage
   const [savedConfigs, setSavedConfigs] = useLocalStorage<
     Record<string, ServerConfig>
   >(MCP_STORAGE_KEY, {});
-  
+
   // Set the ref value once we have the saved configs
   useEffect(() => {
     if (Object.keys(savedConfigs).length > 0) {
@@ -84,10 +88,10 @@ export function MCPConfigModal({ isOpen, onClose }: MCPConfigModalProps) {
   // Calculate server statistics
   const totalServers = Object.keys(configs).length;
   const stdioServers = Object.values(configs).filter(
-    (config) => config.transport === "stdio"
+    (config) => config.transport === "stdio",
   ).length;
   const sseServers = Object.values(configs).filter(
-    (config) => config.transport === "sse"
+    (config) => config.transport === "sse",
   ).length;
 
   // Set loading to false when state is loaded
@@ -151,16 +155,18 @@ export function MCPConfigModal({ isOpen, onClose }: MCPConfigModalProps) {
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center">
               <Server className="h-6 w-6 mr-2 text-gray-700" />
-              <h1 className="text-2xl font-semibold">MCP Server Configuration</h1>
+              <h1 className="text-2xl font-semibold">
+                MCP Server Configuration
+              </h1>
             </div>
-            <button 
+            <button
               onClick={onClose}
               className="text-gray-500 hover:text-gray-700"
             >
               <X className="h-5 w-5" />
             </button>
           </div>
-          
+
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mt-4 gap-4">
             <p className="text-sm text-gray-600">
               Manage and configure your MCP servers
@@ -197,7 +203,8 @@ export function MCPConfigModal({ isOpen, onClose }: MCPConfigModalProps) {
 
           {totalServers === 0 ? (
             <div className="text-gray-500 text-center py-10">
-              No servers configured. Click &quot;Add Server&quot; to get started.
+              No servers configured. Click &quot;Add Server&quot; to get
+              started.
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -361,7 +368,9 @@ export function MCPConfigModal({ isOpen, onClose }: MCPConfigModalProps) {
                   </>
                 ) : (
                   <div>
-                    <label className="block text-sm font-medium mb-1">URL</label>
+                    <label className="block text-sm font-medium mb-1">
+                      URL
+                    </label>
                     <input
                       type="text"
                       value={url}

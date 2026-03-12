@@ -61,7 +61,6 @@ export async function scaffoldAgent(userAnswers: Config) {
       fs.writeFileSync(agentEnvFile, envContent, "utf8");
       spinner.text = chalk.cyan("Added API keys to agent .env file");
     }
-
   } catch (error) {
     spinner.fail(chalk.red("Failed to clone agent template"));
     throw error;

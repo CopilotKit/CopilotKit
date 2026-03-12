@@ -29,12 +29,15 @@ Here's a contact form for you:
 ### A2UI Extension
 
 The agent advertises A2UI support via:
+
 ```json
 {
-  "extensions": [{
-    "uri": "https://a2ui.org/a2a-extension/a2ui/v0.8",
-    "required": true
-  }]
+  "extensions": [
+    {
+      "uri": "https://a2ui.org/a2a-extension/a2ui/v0.8",
+      "required": true
+    }
+  ]
 }
 ```
 
@@ -65,21 +68,25 @@ The agent generates ANY UI type based on user requests. It uses template example
 ### Supported UI Types
 
 **Forms**: Contact forms, signup forms, surveys, settings panels, feedback forms
+
 ```
 User: "Create a contact form with name, email, and message fields"
 ```
 
 **Lists**: Todo lists, shopping lists, search results, notifications, item catalogs
+
 ```
 User: "Show me a todo list with 5 items"
 ```
 
 **Cards**: Profile cards, product cards, info cards, stats cards, notification cards
+
 ```
 User: "Generate a profile card for John Doe, Software Engineer"
 ```
 
 **Confirmations**: Success messages, error alerts, booking confirmations, status updates
+
 ```
 User: "Create a success confirmation message"
 ```
@@ -104,31 +111,31 @@ Then reference it in `get_ui_prompt()`.
 
 ## Key Files
 
-| File | Purpose |
-|------|---------|
-| `__main__.py` | A2A server entry, CORS, routes |
-| `agent.py` | UIGeneratorAgent class, LlmAgent setup |
-| `agent_executor.py` | Handles A2A protocol, parses A2UI |
-| `prompt_builder.py` | A2UI schema, UI examples, system prompts |
-| `tools.py` | Reserved for future tools (currently empty) |
-| `a2ui_extension.py` | A2UI Part creation helpers |
+| File                | Purpose                                     |
+| ------------------- | ------------------------------------------- |
+| `__main__.py`       | A2A server entry, CORS, routes              |
+| `agent.py`          | UIGeneratorAgent class, LlmAgent setup      |
+| `agent_executor.py` | Handles A2A protocol, parses A2UI           |
+| `prompt_builder.py` | A2UI schema, UI examples, system prompts    |
+| `tools.py`          | Reserved for future tools (currently empty) |
+| `a2ui_extension.py` | A2UI Part creation helpers                  |
 
 ## A2UI Component Types
 
 Available components for building UIs:
 
-| Component | Purpose |
-|-----------|---------|
-| `Text` | Display text with styling (h1-h5, caption, body) |
-| `Icon` | Material icons (check, close, mail, phone, etc.) |
-| `Row` | Horizontal layout container |
-| `Column` | Vertical layout container |
-| `List` | Repeating items with data binding |
-| `Card` | Container with shadow/border |
-| `Divider` | Visual separator |
-| `Button` | Interactive button with action |
-| `TextField` | Text input (shortText, longText, number, date, obscured) |
-| `DateTimeInput` | Date and/or time picker |
+| Component       | Purpose                                                  |
+| --------------- | -------------------------------------------------------- |
+| `Text`          | Display text with styling (h1-h5, caption, body)         |
+| `Icon`          | Material icons (check, close, mail, phone, etc.)         |
+| `Row`           | Horizontal layout container                              |
+| `Column`        | Vertical layout container                                |
+| `List`          | Repeating items with data binding                        |
+| `Card`          | Container with shadow/border                             |
+| `Divider`       | Visual separator                                         |
+| `Button`        | Interactive button with action                           |
+| `TextField`     | Text input (shortText, longText, number, date, obscured) |
+| `DateTimeInput` | Date and/or time picker                                  |
 
 ## Styling
 

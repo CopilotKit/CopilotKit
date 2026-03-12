@@ -1,9 +1,14 @@
-import * as React from "react"
+import * as React from "react";
 
-import { cn } from "@/lib/utils"
+import { cn } from "@/lib/utils";
 
-function Progress({ value, className, ...props }: React.ComponentProps<"div"> & { value?: number }) {
-  const clamped = typeof value === "number" ? Math.max(0, Math.min(100, value)) : 0
+function Progress({
+  value,
+  className,
+  ...props
+}: React.ComponentProps<"div"> & { value?: number }) {
+  const clamped =
+    typeof value === "number" ? Math.max(0, Math.min(100, value)) : 0;
   return (
     <div
       role="progressbar"
@@ -12,7 +17,7 @@ function Progress({ value, className, ...props }: React.ComponentProps<"div"> & 
       aria-valuenow={clamped}
       className={cn(
         "relative h-2 w-full overflow-hidden rounded-full bg-muted",
-        className
+        className,
       )}
       {...props}
     >
@@ -21,9 +26,7 @@ function Progress({ value, className, ...props }: React.ComponentProps<"div"> & 
         style={{ transform: `translateX(-${100 - clamped}%)` }}
       />
     </div>
-  )
+  );
 }
 
-export { Progress }
-
-
+export { Progress };

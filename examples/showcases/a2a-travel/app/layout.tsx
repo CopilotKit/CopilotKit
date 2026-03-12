@@ -17,7 +17,8 @@ const splineSansMono = Spline_Sans_Mono({
 
 export const metadata: Metadata = {
   title: "AG-UI + A2A Multi-Agent Demo",
-  description: "Agent-to-Agent communication demo with ADK and LangGraph using A2A Protocol",
+  description:
+    "Agent-to-Agent communication demo with ADK and LangGraph using A2A Protocol",
 };
 
 export default function RootLayout({
@@ -27,12 +28,14 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`${plusJakartaSans.variable} ${splineSansMono.variable} antialiased`}>
+      <body
+        className={`${plusJakartaSans.variable} ${splineSansMono.variable} antialiased`}
+      >
         <ThemeProvider
           attribute="class"
           defaultTheme="light"
           enableSystem={false}
-          themes={['light']}
+          themes={["light"]}
           disableTransitionOnChange
         >
           {children}

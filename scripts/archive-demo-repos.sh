@@ -80,13 +80,22 @@ README_EOF
 }
 
 # ============================================================
-# MANIFEST: All 73 repos organized by group
+# MANIFEST: All 54 consolidated repos organized by group
 # Format: archive_repo <github-repo-name> <target-path>
+#
+# NOT archived (not consolidated — experiments and dropped showcases):
+#   vnext_experimental_angular_demo, 1.50-demo, private_a2ui_demo,
+#   llamaindex-composio-hackathon-sample, vnext-with-pydantic,
+#   copilotkit-jupyter-notebook, deep-agent-cpk-experiments,
+#   crew-flow-ent-dojo, crew-flow-cpk-temp, ag2-feature-viewer,
+#   ag-ui-expo-playground, find-the-bug, cuddly-fortnight,
+#   crew_ai_enterprise_demo, agui-demo, demo-campaign-manager,
+#   demo-chat-sso, demo-crm, autotale-ai-web-ui
 # ============================================================
 
 archive_group_a() {
     echo ""
-    echo "========== GROUP A: Demo Team Repos (25) =========="
+    echo "========== GROUP A: Demo Team Repos (24) =========="
     echo ""
     archive_repo with-langgraph-python           examples/integrations/langgraph-python
     archive_repo with-langgraph-js               examples/integrations/langgraph-js
@@ -112,12 +121,11 @@ archive_group_a() {
     archive_repo generative-ui-playground         examples/showcases/generative-ui-playground
     archive_repo mcp-apps-demo                    examples/showcases/mcp-apps
     archive_repo open-research-ANA                examples/showcases/research-canvas
-    archive_repo vnext_experimental_angular_demo  examples/experiments/angular-vnext
 }
 
 archive_group_b() {
     echo ""
-    echo "========== GROUP B: Additional Repos (34) =========="
+    echo "========== GROUP B: Additional Repos (24) =========="
     echo ""
     # Integration starters
     archive_repo with-agno                        examples/integrations/agno
@@ -132,18 +140,11 @@ archive_group_b() {
     archive_repo canvas-with-mastra                examples/canvas/mastra
 
     # Feature demos
-    archive_repo crew_ai_enterprise_demo          examples/showcases/crewai-enterprise
     archive_repo copilotkit-mcp-demo              examples/showcases/mcp-demo
-    archive_repo agui-demo                        examples/showcases/agui
     archive_repo strands-file-analyzer-demo       examples/showcases/strands-file-analyzer
     archive_repo microsoft-kanban-demo            examples/showcases/microsoft-kanban
-    archive_repo 1.50-demo                        examples/experiments/v1.50
     archive_repo multi-page-demo                  examples/showcases/multi-page
-    archive_repo demo-crm                         examples/showcases/crm
-    archive_repo demo-campaign-manager            examples/showcases/campaign-manager
-    archive_repo demo-chat-sso                    examples/showcases/chat-sso
     archive_repo orca-CopilotKit-demo             examples/showcases/orca
-    archive_repo private_a2ui_demo                examples/experiments/a2ui-private
 
     # Starters and showcases
     archive_repo coagents-starter-langgraph       examples/starters/coagents-langgraph
@@ -152,31 +153,20 @@ archive_group_b() {
     archive_repo scene-creator-copilot            examples/showcases/scene-creator
     archive_repo open-gemini-canvas               examples/canvas/gemini
     archive_repo llamaindex-hitl-guide-example    examples/starters/llamaindex-hitl
-    archive_repo llamaindex-composio-hackathon-sample examples/experiments/llamaindex-composio-hackathon
     archive_repo adk-generative-dashboard         examples/showcases/adk-dashboard
     archive_repo mastra-pm-canvas                 examples/canvas/mastra-pm
-    archive_repo vnext-with-pydantic              examples/experiments/vnext-pydantic
     archive_repo langgraph-js-support-agents      examples/showcases/langgraph-js-support-agents
     archive_repo open-multi-agent-canvas          examples/showcases/multi-agent-canvas
     archive_repo open-chatkit-studio              examples/showcases/chatkit-studio
-    archive_repo copilotkit-jupyter-notebook       examples/experiments/jupyter-notebook
 }
 
 archive_group_c() {
     echo ""
-    echo "========== GROUP C: Borderline Repos (12) =========="
+    echo "========== GROUP C: Remaining Repos (4) =========="
     echo ""
-    archive_repo deep-agent-cpk-experiments       examples/experiments/deep-agent-experiments
-    archive_repo crew-flow-ent-dojo               examples/experiments/crew-flow-ent-dojo
-    archive_repo crew-flow-cpk-temp               examples/experiments/crew-flow-cpk-temp
-    archive_repo ag2-feature-viewer               examples/experiments/ag2-feature-viewer
     archive_repo enterprise-brex-demo             examples/showcases/enterprise-brex
     archive_repo enterprise-runner-example        examples/starters/enterprise-runner
-    archive_repo ag-ui-expo-playground            examples/experiments/expo-playground
     archive_repo react-vite-built-in-agent        examples/starters/react-vite-agent
-    archive_repo find-the-bug                     examples/experiments/find-the-bug
-    archive_repo autotale-ai-web-ui               examples/showcases/autotale
-    archive_repo cuddly-fortnight                 examples/experiments/cuddly-fortnight
     archive_repo a2a-travel                       examples/showcases/a2a-travel
 }
 

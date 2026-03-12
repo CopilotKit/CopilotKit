@@ -175,353 +175,380 @@ export function AgentSetupModal({ isOpen, onClose }: AgentSetupModalProps) {
 
           <ScrollArea className="flex-1 overflow-y-auto">
             {/* Main Paths */}
-            <Accordion type="multiple" defaultValue={["new-agent"]} className="mx-6 mt-4">
-          {/* Path 1: Already have an agent */}
-          <AccordionItem
-            value="existing-agent"
-            className="border border-palette-border-container rounded-lg px-4 bg-palette-lilac-40010"
-          >
-            <AccordionTrigger className="text-sm font-semibold hover:no-underline py-3 text-palette-text-primary">
-              ✅ I already have an agent
-            </AccordionTrigger>
-            <AccordionContent className="pb-3">
-              <div className="space-y-3">
-                <p className="text-xs text-palette-text-secondary leading-relaxed">
-                  If you already have a LangGraph agent running, simply use its URL:
+            <Accordion
+              type="multiple"
+              defaultValue={["new-agent"]}
+              className="mx-6 mt-4"
+            >
+              {/* Path 1: Already have an agent */}
+              <AccordionItem
+                value="existing-agent"
+                className="border border-palette-border-container rounded-lg px-4 bg-palette-lilac-40010"
+              >
+                <AccordionTrigger className="text-sm font-semibold hover:no-underline py-3 text-palette-text-primary">
+                  ✅ I already have an agent
+                </AccordionTrigger>
+                <AccordionContent className="pb-3">
+                  <div className="space-y-3">
+                    <p className="text-xs text-palette-text-secondary leading-relaxed">
+                      If you already have a LangGraph agent running, simply use
+                      its URL:
+                    </p>
+                    <div className="space-y-2">
+                      <div className="flex items-start gap-2">
+                        <span className="text-xs font-semibold text-palette-text-primary mt-0.5">
+                          •
+                        </span>
+                        <div className="flex-1">
+                          <p className="text-xs text-palette-text-secondary">
+                            <span className="font-semibold">
+                              Local development:
+                            </span>{" "}
+                            Use{" "}
+                            <code className="bg-white/50 px-1.5 py-0.5 rounded text-xs font-mono">
+                              http://localhost:PORT
+                            </code>{" "}
+                            (e.g., http://localhost:8123)
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-start gap-2">
+                        <span className="text-xs font-semibold text-palette-text-primary mt-0.5">
+                          •
+                        </span>
+                        <div className="flex-1">
+                          <p className="text-xs text-palette-text-secondary">
+                            <span className="font-semibold">
+                              Deployed agent:
+                            </span>{" "}
+                            Use your deployment URL (e.g.,
+                            https://your-agent.example.com)
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                      <p className="text-xs text-blue-900 font-medium">
+                        💡 Make sure your agent is running before testing the
+                        chat interface!
+                      </p>
+                    </div>
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+
+              {/* Path 2: Need to set up an agent */}
+              <AccordionItem
+                value="new-agent"
+                className="border border-palette-border-container rounded-lg px-4 mt-2 bg-palette-lilac-40010"
+              >
+                <AccordionTrigger className="text-sm font-semibold hover:no-underline py-3 text-palette-text-primary">
+                  🚀 I need to set up an agent (2 min setup)
+                </AccordionTrigger>
+                <AccordionContent className="pb-3">
+                  <div className="space-y-3">
+                    <p className="text-xs text-palette-text-secondary leading-relaxed mb-3">
+                      Follow these steps to create a simple LangGraph agent:
+                    </p>
+
+                    {/* Step-by-step instructions */}
+                    <div className="space-y-2.5">
+                      {/* Step 1 */}
+                      <div className="flex items-start gap-2">
+                        <span className="bg-primary text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">
+                          1
+                        </span>
+                        <div className="flex-1">
+                          <p className="text-xs text-palette-text-primary font-semibold mb-1">
+                            Create project structure
+                          </p>
+                          <p className="text-xs text-palette-text-secondary mb-2">
+                            Create an{" "}
+                            <code className="bg-white/50 px-1.5 py-0.5 rounded text-xs font-mono">
+                              agent/
+                            </code>{" "}
+                            folder in your project root
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Step 2 */}
+                      <div className="flex items-start gap-2">
+                        <span className="bg-primary text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">
+                          2
+                        </span>
+                        <div className="flex-1">
+                          <p className="text-xs text-palette-text-primary font-semibold mb-1">
+                            Add configuration files
+                          </p>
+                          <p className="text-xs text-palette-text-secondary mb-2">
+                            Copy the files from the tabs below into your{" "}
+                            <code className="bg-white/50 px-1.5 py-0.5 rounded text-xs font-mono">
+                              agent/
+                            </code>{" "}
+                            folder
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Step 3 */}
+                      <div className="flex items-start gap-2">
+                        <span className="bg-primary text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">
+                          3
+                        </span>
+                        <div className="flex-1">
+                          <p className="text-xs text-palette-text-primary font-semibold mb-1">
+                            Install dependencies
+                          </p>
+                          <div className="relative mt-2">
+                            <pre className="bg-white/50 border border-palette-border-container px-3 py-2 rounded-lg text-xs font-mono overflow-x-auto pr-16">
+                              <code>
+                                cd agent && python3 -m venv .venv && source
+                                .venv/bin/activate && pip install -r
+                                requirements.txt
+                              </code>
+                            </pre>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() =>
+                                handleCopy(
+                                  "cd agent && python3 -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt",
+                                  "install-deps",
+                                )
+                              }
+                              className="absolute top-2 right-2 h-6 text-xs px-2"
+                            >
+                              {copiedItems.has("install-deps") ? "✓" : "Copy"}
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Step 4 */}
+                      <div className="flex items-start gap-2">
+                        <span className="bg-primary text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">
+                          4
+                        </span>
+                        <div className="flex-1">
+                          <p className="text-xs text-palette-text-primary font-semibold mb-1">
+                            Set up environment variables
+                          </p>
+                          <p className="text-xs text-palette-text-secondary mb-2">
+                            Create a{" "}
+                            <code className="bg-white/50 px-1.5 py-0.5 rounded text-xs font-mono">
+                              .env
+                            </code>{" "}
+                            file in the{" "}
+                            <code className="bg-white/50 px-1.5 py-0.5 rounded text-xs font-mono">
+                              agent/
+                            </code>{" "}
+                            folder with your OpenAI API key
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Step 5 */}
+                      <div className="flex items-start gap-2">
+                        <span className="bg-primary text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">
+                          5
+                        </span>
+                        <div className="flex-1">
+                          <p className="text-xs text-palette-text-primary font-semibold mb-1">
+                            Run your agent
+                          </p>
+                          <div className="relative mt-2">
+                            <pre className="bg-white/50 border border-palette-border-container px-3 py-2 rounded-lg text-xs font-mono overflow-x-auto pr-16">
+                              <code>
+                                npx @langchain/langgraph-cli dev --port 8123
+                              </code>
+                            </pre>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() =>
+                                handleCopy(
+                                  "npx @langchain/langgraph-cli dev --port 8123",
+                                  "run-agent",
+                                )
+                              }
+                              className="absolute top-2 right-2 h-6 text-xs px-2"
+                            >
+                              {copiedItems.has("run-agent") ? "✓" : "Copy"}
+                            </Button>
+                          </div>
+                          <p className="text-xs text-palette-text-secondary mt-2">
+                            Or add to your{" "}
+                            <code className="bg-white/50 px-1.5 py-0.5 rounded text-xs font-mono">
+                              package.json
+                            </code>
+                            :
+                          </p>
+                          <div className="relative mt-2">
+                            <pre className="bg-white/50 border border-palette-border-container px-3 py-2 rounded-lg text-xs font-mono overflow-x-auto pr-16">
+                              <code>{`"dev:agent": "cd agent && npx @langchain/langgraph-cli dev --port 8123 --no-browser"`}</code>
+                            </pre>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() =>
+                                handleCopy(
+                                  `"dev:agent": "cd agent && npx @langchain/langgraph-cli dev --port 8123 --no-browser"`,
+                                  "npm-script",
+                                )
+                              }
+                              className="absolute top-2 right-2 h-6 text-xs px-2"
+                            >
+                              {copiedItems.has("npm-script") ? "✓" : "Copy"}
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Step 6 */}
+                      <div className="flex items-start gap-2">
+                        <span className="bg-primary text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">
+                          6
+                        </span>
+                        <div className="flex-1">
+                          <p className="text-xs text-palette-text-primary font-semibold mb-1">
+                            Use the agent URL
+                          </p>
+                          <p className="text-xs text-palette-text-secondary">
+                            Enter{" "}
+                            <code className="bg-white/50 px-1.5 py-0.5 rounded text-xs font-mono">
+                              http://localhost:8123
+                            </code>{" "}
+                            in the Agent Endpoint field above
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+                      <p className="text-xs text-green-900 font-medium">
+                        ✨ That&apos;s it! Your agent should now be running and
+                        ready to use.
+                      </p>
+                    </div>
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
+
+            {/* File Tabs */}
+            <Tabs
+              value={activeTab}
+              onValueChange={setActiveTab}
+              className="flex-1 flex flex-col px-6 pb-6 pt-4 overflow-hidden"
+            >
+              <div className="mb-2">
+                <p className="text-xs text-palette-text-secondary">
+                  📁 Files to create in your{" "}
+                  <code className="bg-white/50 px-1.5 py-0.5 rounded text-xs font-mono">
+                    agent/
+                  </code>{" "}
+                  folder:
                 </p>
-                <div className="space-y-2">
-                  <div className="flex items-start gap-2">
-                    <span className="text-xs font-semibold text-palette-text-primary mt-0.5">
-                      •
-                    </span>
-                    <div className="flex-1">
-                      <p className="text-xs text-palette-text-secondary">
-                        <span className="font-semibold">Local development:</span> Use{" "}
-                        <code className="bg-white/50 px-1.5 py-0.5 rounded text-xs font-mono">
-                          http://localhost:PORT
-                        </code>{" "}
-                        (e.g., http://localhost:8123)
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-2">
-                    <span className="text-xs font-semibold text-palette-text-primary mt-0.5">
-                      •
-                    </span>
-                    <div className="flex-1">
-                      <p className="text-xs text-palette-text-secondary">
-                        <span className="font-semibold">Deployed agent:</span> Use your
-                        deployment URL (e.g., https://your-agent.example.com)
-                      </p>
-                    </div>
-                  </div>
-                </div>
-                <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                  <p className="text-xs text-blue-900 font-medium">
-                    💡 Make sure your agent is running before testing the chat interface!
-                  </p>
-                </div>
               </div>
-            </AccordionContent>
-          </AccordionItem>
+              <TabsList className="w-full justify-start h-9">
+                <TabsTrigger value="agent" className="text-xs">
+                  agent.py
+                </TabsTrigger>
+                <TabsTrigger value="requirements" className="text-xs">
+                  requirements.txt
+                </TabsTrigger>
+                <TabsTrigger value="langgraph" className="text-xs">
+                  langgraph.json
+                </TabsTrigger>
+                <TabsTrigger value="env" className="text-xs">
+                  .env
+                </TabsTrigger>
+              </TabsList>
 
-          {/* Path 2: Need to set up an agent */}
-          <AccordionItem
-            value="new-agent"
-            className="border border-palette-border-container rounded-lg px-4 mt-2 bg-palette-lilac-40010"
-          >
-            <AccordionTrigger className="text-sm font-semibold hover:no-underline py-3 text-palette-text-primary">
-              🚀 I need to set up an agent (2 min setup)
-            </AccordionTrigger>
-            <AccordionContent className="pb-3">
-              <div className="space-y-3">
-                <p className="text-xs text-palette-text-secondary leading-relaxed mb-3">
-                  Follow these steps to create a simple LangGraph agent:
+              <TabsContent value="agent" className="flex-1 mt-3 overflow-auto">
+                <div className="relative">
+                  <pre className="bg-white/50 border border-palette-border-container text-palette-text-primary p-4 rounded-lg overflow-x-auto text-xs font-mono leading-relaxed">
+                    <code>{agentPyCode}</code>
+                  </pre>
+                  <Button
+                    size="sm"
+                    variant="default"
+                    onClick={() => handleCopy(agentPyCode, "agent")}
+                    className="absolute top-3 right-3 h-7 text-xs"
+                  >
+                    {copiedItems.has("agent") ? "✓ Copied!" : "Copy"}
+                  </Button>
+                </div>
+              </TabsContent>
+
+              <TabsContent
+                value="requirements"
+                className="flex-1 mt-3 overflow-auto"
+              >
+                <div className="relative">
+                  <pre className="bg-white/50 border border-palette-border-container text-palette-text-primary p-4 rounded-lg overflow-x-auto text-xs font-mono leading-relaxed">
+                    <code>{requirementsTxtCode}</code>
+                  </pre>
+                  <Button
+                    size="sm"
+                    variant="default"
+                    onClick={() =>
+                      handleCopy(requirementsTxtCode, "requirements")
+                    }
+                    className="absolute top-3 right-3 h-7 text-xs"
+                  >
+                    {copiedItems.has("requirements") ? "✓ Copied!" : "Copy"}
+                  </Button>
+                </div>
+              </TabsContent>
+
+              <TabsContent
+                value="langgraph"
+                className="flex-1 mt-3 overflow-auto"
+              >
+                <div className="relative">
+                  <pre className="bg-white/50 border border-palette-border-container text-palette-text-primary p-4 rounded-lg overflow-x-auto text-xs font-mono leading-relaxed">
+                    <code>{langgraphJsonCode}</code>
+                  </pre>
+                  <Button
+                    size="sm"
+                    variant="default"
+                    onClick={() => handleCopy(langgraphJsonCode, "langgraph")}
+                    className="absolute top-3 right-3 h-7 text-xs"
+                  >
+                    {copiedItems.has("langgraph") ? "✓ Copied!" : "Copy"}
+                  </Button>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="env" className="flex-1 mt-3 overflow-auto">
+                <div className="relative">
+                  <pre className="bg-white/50 border border-palette-border-container text-palette-text-primary p-4 rounded-lg overflow-x-auto text-xs font-mono leading-relaxed">
+                    <code>{envCode}</code>
+                  </pre>
+                  <Button
+                    size="sm"
+                    variant="default"
+                    onClick={() => handleCopy(envCode, "env")}
+                    className="absolute top-3 right-3 h-7 text-xs"
+                  >
+                    {copiedItems.has("env") ? "✓ Copied!" : "Copy"}
+                  </Button>
+                </div>
+                <p className="text-xs text-palette-text-secondary mt-2">
+                  Get your OpenAI API key from{" "}
+                  <a
+                    href="https://platform.openai.com/api-keys"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary hover:underline"
+                  >
+                    https://platform.openai.com/api-keys
+                  </a>
                 </p>
-
-                {/* Step-by-step instructions */}
-                <div className="space-y-2.5">
-                  {/* Step 1 */}
-                  <div className="flex items-start gap-2">
-                    <span className="bg-primary text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">
-                      1
-                    </span>
-                    <div className="flex-1">
-                      <p className="text-xs text-palette-text-primary font-semibold mb-1">
-                        Create project structure
-                      </p>
-                      <p className="text-xs text-palette-text-secondary mb-2">
-                        Create an{" "}
-                        <code className="bg-white/50 px-1.5 py-0.5 rounded text-xs font-mono">
-                          agent/
-                        </code>{" "}
-                        folder in your project root
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Step 2 */}
-                  <div className="flex items-start gap-2">
-                    <span className="bg-primary text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">
-                      2
-                    </span>
-                    <div className="flex-1">
-                      <p className="text-xs text-palette-text-primary font-semibold mb-1">
-                        Add configuration files
-                      </p>
-                      <p className="text-xs text-palette-text-secondary mb-2">
-                        Copy the files from the tabs below into your{" "}
-                        <code className="bg-white/50 px-1.5 py-0.5 rounded text-xs font-mono">
-                          agent/
-                        </code>{" "}
-                        folder
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Step 3 */}
-                  <div className="flex items-start gap-2">
-                    <span className="bg-primary text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">
-                      3
-                    </span>
-                    <div className="flex-1">
-                      <p className="text-xs text-palette-text-primary font-semibold mb-1">
-                        Install dependencies
-                      </p>
-                      <div className="relative mt-2">
-                        <pre className="bg-white/50 border border-palette-border-container px-3 py-2 rounded-lg text-xs font-mono overflow-x-auto pr-16">
-                          <code>cd agent && python3 -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt</code>
-                        </pre>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() =>
-                            handleCopy(
-                              "cd agent && python3 -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt",
-                              "install-deps"
-                            )
-                          }
-                          className="absolute top-2 right-2 h-6 text-xs px-2"
-                        >
-                          {copiedItems.has("install-deps") ? "✓" : "Copy"}
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Step 4 */}
-                  <div className="flex items-start gap-2">
-                    <span className="bg-primary text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">
-                      4
-                    </span>
-                    <div className="flex-1">
-                      <p className="text-xs text-palette-text-primary font-semibold mb-1">
-                        Set up environment variables
-                      </p>
-                      <p className="text-xs text-palette-text-secondary mb-2">
-                        Create a{" "}
-                        <code className="bg-white/50 px-1.5 py-0.5 rounded text-xs font-mono">
-                          .env
-                        </code>{" "}
-                        file in the{" "}
-                        <code className="bg-white/50 px-1.5 py-0.5 rounded text-xs font-mono">
-                          agent/
-                        </code>{" "}
-                        folder with your OpenAI API key
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Step 5 */}
-                  <div className="flex items-start gap-2">
-                    <span className="bg-primary text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">
-                      5
-                    </span>
-                    <div className="flex-1">
-                      <p className="text-xs text-palette-text-primary font-semibold mb-1">
-                        Run your agent
-                      </p>
-                      <div className="relative mt-2">
-                        <pre className="bg-white/50 border border-palette-border-container px-3 py-2 rounded-lg text-xs font-mono overflow-x-auto pr-16">
-                          <code>npx @langchain/langgraph-cli dev --port 8123</code>
-                        </pre>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() =>
-                            handleCopy(
-                              "npx @langchain/langgraph-cli dev --port 8123",
-                              "run-agent"
-                            )
-                          }
-                          className="absolute top-2 right-2 h-6 text-xs px-2"
-                        >
-                          {copiedItems.has("run-agent") ? "✓" : "Copy"}
-                        </Button>
-                      </div>
-                      <p className="text-xs text-palette-text-secondary mt-2">
-                        Or add to your{" "}
-                        <code className="bg-white/50 px-1.5 py-0.5 rounded text-xs font-mono">
-                          package.json
-                        </code>
-                        :
-                      </p>
-                      <div className="relative mt-2">
-                        <pre className="bg-white/50 border border-palette-border-container px-3 py-2 rounded-lg text-xs font-mono overflow-x-auto pr-16">
-                          <code>{`"dev:agent": "cd agent && npx @langchain/langgraph-cli dev --port 8123 --no-browser"`}</code>
-                        </pre>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() =>
-                            handleCopy(
-                              `"dev:agent": "cd agent && npx @langchain/langgraph-cli dev --port 8123 --no-browser"`,
-                              "npm-script"
-                            )
-                          }
-                          className="absolute top-2 right-2 h-6 text-xs px-2"
-                        >
-                          {copiedItems.has("npm-script") ? "✓" : "Copy"}
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Step 6 */}
-                  <div className="flex items-start gap-2">
-                    <span className="bg-primary text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">
-                      6
-                    </span>
-                    <div className="flex-1">
-                      <p className="text-xs text-palette-text-primary font-semibold mb-1">
-                        Use the agent URL
-                      </p>
-                      <p className="text-xs text-palette-text-secondary">
-                        Enter{" "}
-                        <code className="bg-white/50 px-1.5 py-0.5 rounded text-xs font-mono">
-                          http://localhost:8123
-                        </code>{" "}
-                        in the Agent Endpoint field above
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
-                  <p className="text-xs text-green-900 font-medium">
-                    ✨ That&apos;s it! Your agent should now be running and ready to use.
-                  </p>
-                </div>
-              </div>
-            </AccordionContent>
-          </AccordionItem>
-        </Accordion>
-
-        {/* File Tabs */}
-        <Tabs
-          value={activeTab}
-          onValueChange={setActiveTab}
-          className="flex-1 flex flex-col px-6 pb-6 pt-4 overflow-hidden"
-        >
-          <div className="mb-2">
-            <p className="text-xs text-palette-text-secondary">
-              📁 Files to create in your{" "}
-              <code className="bg-white/50 px-1.5 py-0.5 rounded text-xs font-mono">
-                agent/
-              </code>{" "}
-              folder:
-            </p>
-          </div>
-          <TabsList className="w-full justify-start h-9">
-            <TabsTrigger value="agent" className="text-xs">
-              agent.py
-            </TabsTrigger>
-            <TabsTrigger value="requirements" className="text-xs">
-              requirements.txt
-            </TabsTrigger>
-            <TabsTrigger value="langgraph" className="text-xs">
-              langgraph.json
-            </TabsTrigger>
-            <TabsTrigger value="env" className="text-xs">
-              .env
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="agent" className="flex-1 mt-3 overflow-auto">
-            <div className="relative">
-              <pre className="bg-white/50 border border-palette-border-container text-palette-text-primary p-4 rounded-lg overflow-x-auto text-xs font-mono leading-relaxed">
-                <code>{agentPyCode}</code>
-              </pre>
-              <Button
-                size="sm"
-                variant="default"
-                onClick={() => handleCopy(agentPyCode, "agent")}
-                className="absolute top-3 right-3 h-7 text-xs"
-              >
-                {copiedItems.has("agent") ? "✓ Copied!" : "Copy"}
-              </Button>
-            </div>
-          </TabsContent>
-
-          <TabsContent value="requirements" className="flex-1 mt-3 overflow-auto">
-            <div className="relative">
-              <pre className="bg-white/50 border border-palette-border-container text-palette-text-primary p-4 rounded-lg overflow-x-auto text-xs font-mono leading-relaxed">
-                <code>{requirementsTxtCode}</code>
-              </pre>
-              <Button
-                size="sm"
-                variant="default"
-                onClick={() => handleCopy(requirementsTxtCode, "requirements")}
-                className="absolute top-3 right-3 h-7 text-xs"
-              >
-                {copiedItems.has("requirements") ? "✓ Copied!" : "Copy"}
-              </Button>
-            </div>
-          </TabsContent>
-
-          <TabsContent value="langgraph" className="flex-1 mt-3 overflow-auto">
-            <div className="relative">
-              <pre className="bg-white/50 border border-palette-border-container text-palette-text-primary p-4 rounded-lg overflow-x-auto text-xs font-mono leading-relaxed">
-                <code>{langgraphJsonCode}</code>
-              </pre>
-              <Button
-                size="sm"
-                variant="default"
-                onClick={() => handleCopy(langgraphJsonCode, "langgraph")}
-                className="absolute top-3 right-3 h-7 text-xs"
-              >
-                {copiedItems.has("langgraph") ? "✓ Copied!" : "Copy"}
-              </Button>
-            </div>
-          </TabsContent>
-
-          <TabsContent value="env" className="flex-1 mt-3 overflow-auto">
-            <div className="relative">
-              <pre className="bg-white/50 border border-palette-border-container text-palette-text-primary p-4 rounded-lg overflow-x-auto text-xs font-mono leading-relaxed">
-                <code>{envCode}</code>
-              </pre>
-              <Button
-                size="sm"
-                variant="default"
-                onClick={() => handleCopy(envCode, "env")}
-                className="absolute top-3 right-3 h-7 text-xs"
-              >
-                {copiedItems.has("env") ? "✓ Copied!" : "Copy"}
-              </Button>
-            </div>
-            <p className="text-xs text-palette-text-secondary mt-2">
-              Get your OpenAI API key from{" "}
-              <a
-                href="https://platform.openai.com/api-keys"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-primary hover:underline"
-              >
-                https://platform.openai.com/api-keys
-              </a>
-            </p>
-          </TabsContent>
-        </Tabs>
+              </TabsContent>
+            </Tabs>
           </ScrollArea>
         </DialogContent>
       </DialogPortal>

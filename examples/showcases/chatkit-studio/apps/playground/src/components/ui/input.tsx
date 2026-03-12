@@ -16,11 +16,12 @@ const inputVariants = cva(
     defaultVariants: {
       size: "sm",
     },
-  }
+  },
 );
 
 export interface InputProps
-  extends Omit<React.ComponentProps<"input">, "size">,
+  extends
+    Omit<React.ComponentProps<"input">, "size">,
     VariantProps<typeof inputVariants> {}
 
 function Input({ className, type, size, ...props }: InputProps) {

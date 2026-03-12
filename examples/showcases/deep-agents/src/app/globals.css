@@ -1,5 +1,5 @@
 /* Inter + JetBrains Mono - Refined typography system */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap");
 
 @import "tailwindcss";
 
@@ -12,39 +12,39 @@
 
 :root {
   /* Background & Surfaces */
-  --color-background: #FAFAF9;
-  --color-surface: #F5F5F4;
-  --color-surface-light: #FAFAF9;
-  --color-surface-elevated: #FFFFFF;
-  --color-container: #FFFFFF;
+  --color-background: #fafaf9;
+  --color-surface: #f5f5f4;
+  --color-surface-light: #fafaf9;
+  --color-surface-elevated: #ffffff;
+  --color-container: #ffffff;
 
   /* Text Hierarchy */
-  --color-text-primary: #1C1917;
-  --color-text-secondary: #57534E;
-  --color-text-tertiary: #A8A29E;
+  --color-text-primary: #1c1917;
+  --color-text-secondary: #57534e;
+  --color-text-tertiary: #a8a29e;
 
   /* Accent Color (Deep Amber) */
-  --color-accent: #D97706;
-  --color-accent-light: #F59E0B;
-  --color-accent-dark: #92400E;
+  --color-accent: #d97706;
+  --color-accent-light: #f59e0b;
+  --color-accent-dark: #92400e;
 
   /* Legacy color names for compatibility */
   --color-lilac: var(--color-accent);
   --color-lilac-light: var(--color-accent-light);
   --color-lilac-dark: var(--color-accent-dark);
   --color-mint: var(--color-success);
-  --color-mint-light: #10B981;
+  --color-mint-light: #10b981;
   --color-mint-dark: var(--color-success);
 
   /* Status Colors */
-  --color-success: #15803D;
-  --color-error: #B91C1C;
-  --color-warning: #D97706;
+  --color-success: #15803d;
+  --color-error: #b91c1c;
+  --color-warning: #d97706;
 
   /* Borders */
-  --color-border: #E7E5E4;
-  --color-border-light: #F5F5F4;
-  --color-border-subtle: #F5F5F4;
+  --color-border: #e7e5e4;
+  --color-border-light: #f5f5f4;
+  --color-border-subtle: #f5f5f4;
   --color-border-glass: rgba(231, 229, 228, 0.4);
 
   /* Glassmorphism */
@@ -55,8 +55,10 @@
 
   /* Shadows */
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -1px rgba(0, 0, 0, 0.04);
-  --shadow-lg: 0 10px 25px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -2px rgba(0, 0, 0, 0.03);
+  --shadow-md:
+    0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -1px rgba(0, 0, 0, 0.04);
+  --shadow-lg:
+    0 10px 25px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -2px rgba(0, 0, 0, 0.03);
   --shadow-glass: 0 4px 30px rgba(0, 0, 0, 0.1);
 
   /* Spacing */
@@ -80,10 +82,10 @@
   --radius-2xl: 24px;
 
   /* Typography */
-  --font-display: 'Inter', system-ui, sans-serif;
-  --font-body: 'Inter', system-ui, sans-serif;
-  --font-mono: 'JetBrains Mono', 'Courier New', monospace;
-  --font-family: 'Inter', system-ui, sans-serif;
+  --font-display: "Inter", system-ui, sans-serif;
+  --font-body: "Inter", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", "Courier New", monospace;
+  --font-family: "Inter", system-ui, sans-serif;
 
   --text-xs: 0.75rem;
   --text-sm: 0.875rem;
@@ -140,12 +142,16 @@ body {
   inset: 0;
   overflow: hidden;
   z-index: 0;
-  background: linear-gradient(135deg, var(--color-surface-light) 0%, var(--color-surface) 100%);
+  background: linear-gradient(
+    135deg,
+    var(--color-surface-light) 0%,
+    var(--color-surface) 100%
+  );
 }
 
 .abstract-bg::before,
 .abstract-bg::after {
-  content: '';
+  content: "";
   position: absolute;
   border-radius: 50%;
   filter: blur(80px);
@@ -200,23 +206,48 @@ body {
 }
 
 @keyframes blob1 {
-  0%, 100% { transform: translate(0, 0) scale(1); }
-  25% { transform: translate(-30px, 50px) scale(1.1); }
-  50% { transform: translate(20px, -30px) scale(0.95); }
-  75% { transform: translate(40px, 20px) scale(1.05); }
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+  25% {
+    transform: translate(-30px, 50px) scale(1.1);
+  }
+  50% {
+    transform: translate(20px, -30px) scale(0.95);
+  }
+  75% {
+    transform: translate(40px, 20px) scale(1.05);
+  }
 }
 
 @keyframes blob2 {
-  0%, 100% { transform: translate(0, 0) scale(1); }
-  33% { transform: translate(50px, -40px) scale(1.1); }
-  66% { transform: translate(-30px, 30px) scale(0.9); }
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+  33% {
+    transform: translate(50px, -40px) scale(1.1);
+  }
+  66% {
+    transform: translate(-30px, 30px) scale(0.9);
+  }
 }
 
 @keyframes blob3 {
-  0%, 100% { transform: translate(-50%, -50%) scale(1); }
-  25% { transform: translate(-45%, -55%) scale(1.15); }
-  50% { transform: translate(-55%, -45%) scale(0.9); }
-  75% { transform: translate(-48%, -52%) scale(1.1); }
+  0%,
+  100% {
+    transform: translate(-50%, -50%) scale(1);
+  }
+  25% {
+    transform: translate(-45%, -55%) scale(1.15);
+  }
+  50% {
+    transform: translate(-55%, -45%) scale(0.9);
+  }
+  75% {
+    transform: translate(-48%, -52%) scale(1.1);
+  }
 }
 
 /* =============================================================================
@@ -248,7 +279,9 @@ body {
   border-radius: var(--radius-xl);
   box-shadow: var(--shadow-glass);
   padding: var(--space-6);
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
 }
 
 .glass-card:hover {
@@ -338,8 +371,13 @@ body {
 }
 
 @keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
 }
 
 /* File items */
@@ -361,7 +399,11 @@ body {
   width: 32px;
   height: 32px;
   border-radius: var(--radius-sm);
-  background: linear-gradient(135deg, var(--color-accent), var(--color-accent-dark));
+  background: linear-gradient(
+    135deg,
+    var(--color-accent),
+    var(--color-accent-dark)
+  );
   display: flex;
   align-items: center;
   justify-content: center;
@@ -374,7 +416,11 @@ body {
   align-items: center;
   gap: var(--space-3);
   padding: var(--space-4);
-  background: linear-gradient(135deg, var(--color-accent-light), rgba(231, 229, 228, 0.5));
+  background: linear-gradient(
+    135deg,
+    var(--color-accent-light),
+    rgba(231, 229, 228, 0.5)
+  );
   border-radius: var(--radius-lg);
 }
 
@@ -383,15 +429,24 @@ body {
 }
 
 @keyframes shimmer {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.7; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
 }
 
 .subagent-avatar {
   width: 40px;
   height: 40px;
   border-radius: 50%;
-  background: linear-gradient(135deg, var(--color-accent-dark), var(--color-accent));
+  background: linear-gradient(
+    135deg,
+    var(--color-accent-dark),
+    var(--color-accent)
+  );
   display: flex;
   align-items: center;
   justify-content: center;
@@ -426,7 +481,11 @@ body {
 ============================================================================= */
 
 .text-gradient {
-  background: linear-gradient(135deg, var(--color-accent-dark), var(--color-accent));
+  background: linear-gradient(
+    135deg,
+    var(--color-accent-dark),
+    var(--color-accent)
+  );
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -434,8 +493,10 @@ body {
 
 .border-gradient {
   border: 2px solid transparent;
-  background: linear-gradient(var(--color-container), var(--color-container)) padding-box,
-              linear-gradient(135deg, var(--color-accent), var(--color-accent-light)) border-box;
+  background:
+    linear-gradient(var(--color-container), var(--color-container)) padding-box,
+    linear-gradient(135deg, var(--color-accent), var(--color-accent-light))
+      border-box;
 }
 
 /* Empty state styling */

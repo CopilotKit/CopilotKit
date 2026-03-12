@@ -16,7 +16,9 @@ const serviceAdapter = new ExperimentalEmptyAdapter();
 const runtime = new CopilotRuntime({
   agents: {
     // Our FastAPI endpoint URL
-    strands_agent: new HttpAgent({ url: process.env.STRANDS_AGENT_URL || "http://localhost:8000" }),
+    strands_agent: new HttpAgent({
+      url: process.env.STRANDS_AGENT_URL || "http://localhost:8000",
+    }),
   },
 });
 

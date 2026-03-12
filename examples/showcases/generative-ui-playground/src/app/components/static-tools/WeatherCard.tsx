@@ -62,7 +62,9 @@ export function WeatherCard({
         <span className="text-5xl font-bold text-gradient">
           {Math.round(temperature)}°
         </span>
-        <span className="text-xl text-[var(--color-text-secondary)] ml-1">F</span>
+        <span className="text-xl text-[var(--color-text-secondary)] ml-1">
+          F
+        </span>
       </div>
 
       {/* Conditions */}
@@ -76,7 +78,9 @@ export function WeatherCard({
           <div className="flex items-center gap-2">
             <span className="text-lg">💧</span>
             <div>
-              <p className="text-xs text-[var(--color-text-tertiary)]">Humidity</p>
+              <p className="text-xs text-[var(--color-text-tertiary)]">
+                Humidity
+              </p>
               <p className="text-sm font-medium text-[var(--color-text-primary)]">
                 {humidity}%
               </p>

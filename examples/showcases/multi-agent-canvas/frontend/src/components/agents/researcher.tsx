@@ -49,7 +49,7 @@ export const AIResearchAgent: FC = () => {
         const newLogs = [...prevLogs];
         researchAgentState.logs.forEach((log) => {
           const existingLogIndex = newLogs.findIndex(
-            (l) => l.message === log.message
+            (l) => l.message === log.message,
           );
           if (existingLogIndex >= 0) {
             // Only update done status if changing from false to true

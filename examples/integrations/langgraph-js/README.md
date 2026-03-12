@@ -25,17 +25,20 @@ This project is organized as a monorepo using [Turborepo](https://turbo.build) a
 ## Getting Started
 
 1. Install all dependencies (this installs everything for both apps):
+
 ```bash
 pnpm install
 ```
 
 2. Set up your OpenAI API key:
+
 ```bash
 cd apps/agent
 echo "OPENAI_API_KEY=your-openai-api-key-here" > .env
 ```
 
 3. Start the development servers:
+
 ```bash
 pnpm dev
 ```
@@ -70,6 +73,7 @@ pnpm dev
 ## Customization
 
 The main UI component is in `apps/web/src/app/page.tsx`. You can:
+
 - Modify the theme colors and styling
 - Add new frontend actions
 - Utilize shared-state
@@ -94,7 +98,9 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 ## Troubleshooting
 
 ### Agent Connection Issues
+
 If you see "I'm having trouble connecting to my tools", make sure:
+
 1. The LangGraph agent is running on port 8000
 2. Your OpenAI API key is set correctly
 3. Both servers started successfully

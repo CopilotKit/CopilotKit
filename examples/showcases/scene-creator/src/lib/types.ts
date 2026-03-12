@@ -31,5 +31,5 @@ export interface AgentState {
   characters: Character[];
   backgrounds: Background[];
   scenes: Scene[];
-  apiKey?: string;  // Dynamic API key from frontend
+  apiKey?: string; // Dynamic API key from frontend
 }

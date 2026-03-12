@@ -38,7 +38,7 @@ export function TransactionsList({
       <div
         className={cn(
           "border rounded-lg overflow-hidden p-4",
-          compact ? "text-sm" : "text-base"
+          compact ? "text-sm" : "text-base",
         )}
       >
         Fetching data...
@@ -50,7 +50,7 @@ export function TransactionsList({
     <div
       className={cn(
         "border rounded-lg overflow-hidden",
-        compact ? "text-sm" : "text-base"
+        compact ? "text-sm" : "text-base",
       )}
     >
       {transactions.map((transaction, index) => (
@@ -60,7 +60,7 @@ export function TransactionsList({
               className={cn(
                 "rounded-full flex items-center justify-center mr-4",
                 transaction.amount > 0 ? "bg-green-500" : "bg-red-500",
-                compact ? "w-6 h-6" : "w-8 h-8"
+                compact ? "w-6 h-6" : "w-8 h-8",
               )}
             >
               {transaction.amount > 0 ? (
@@ -77,7 +77,7 @@ export function TransactionsList({
               <p
                 className={cn(
                   "font-medium leading-tight",
-                  compact ? "text-xs" : "text-sm"
+                  compact ? "text-xs" : "text-sm",
                 )}
               >
                 {transaction.title}
@@ -85,7 +85,7 @@ export function TransactionsList({
               <p
                 className={cn(
                   "text-neutral-500 dark:text-neutral-400 leading-tight",
-                  compact ? "text-xs" : "text-sm"
+                  compact ? "text-xs" : "text-sm",
                 )}
               >
                 {transaction.date}
@@ -94,7 +94,7 @@ export function TransactionsList({
             <div
               className={cn(
                 transaction.amount > 0 ? "text-green-500" : "text-red-500",
-                compact ? "text-sm" : "text-base"
+                compact ? "text-sm" : "text-base",
               )}
             >
               {transaction.amount > 0 ? "+" : ""}
@@ -105,20 +105,20 @@ export function TransactionsList({
             <div
               className={cn(
                 "bg-neutral-100 dark:bg-neutral-800 p-3 flex items-start",
-                compact ? "p-2" : "p-3"
+                compact ? "p-2" : "p-3",
               )}
             >
               <MessageSquare
                 className={cn(
                   "text-neutral-500 dark:text-neutral-400 mr-2 flex-shrink-0",
-                  compact ? "h-3 w-3 mt-0.5" : "h-4 w-4 mt-1"
+                  compact ? "h-3 w-3 mt-0.5" : "h-4 w-4 mt-1",
                 )}
               />
               <div className="flex-1">
                 <p
                   className={cn(
                     "text-neutral-700 dark:text-neutral-300",
-                    compact ? "text-xs" : "text-sm"
+                    compact ? "text-xs" : "text-sm",
                   )}
                 >
                   {transaction.note.content}
@@ -126,7 +126,7 @@ export function TransactionsList({
                 <p
                   className={cn(
                     "text-neutral-500 dark:text-neutral-400 mt-1",
-                    compact ? "text-xs" : "text-sm"
+                    compact ? "text-xs" : "text-sm",
                   )}
                 >
                   {transaction.note.date}

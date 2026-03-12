@@ -84,7 +84,8 @@ export default function Team() {
   useHumanInTheLoop({
     followUp: false,
     name: "removeMember",
-    description: "Remove a team member. Do NOT ask for confirmation - just call this action immediately. The approval UI will handle user confirmation.",
+    description:
+      "Remove a team member. Do NOT ask for confirmation - just call this action immediately. The approval UI will handle user confirmation.",
     parameters: [
       {
         name: "id",
@@ -102,8 +103,13 @@ export default function Team() {
         <div className="rounded-lg border bg-white p-4 shadow-sm space-y-4">
           <h3 className="font-semibold text-lg">Remove Team Member</h3>
           <div className="text-sm space-y-1">
-            <p><span className="text-gray-500">Member:</span> {member?.name ?? id}</p>
-            <p><span className="text-gray-500">Role:</span> {member?.role}</p>
+            <p>
+              <span className="text-gray-500">Member:</span>{" "}
+              {member?.name ?? id}
+            </p>
+            <p>
+              <span className="text-gray-500">Role:</span> {member?.role}
+            </p>
           </div>
           <ApprovalButtons
             onApprove={async () => {
@@ -124,7 +130,8 @@ export default function Team() {
   useHumanInTheLoop({
     followUp: false,
     name: "changeMemberRole",
-    description: "Change the role of a team member. Do NOT ask for confirmation - just call this action immediately. The approval UI will handle user confirmation.",
+    description:
+      "Change the role of a team member. Do NOT ask for confirmation - just call this action immediately. The approval UI will handle user confirmation.",
     parameters: [
       {
         name: "id",
@@ -147,9 +154,17 @@ export default function Team() {
         <div className="rounded-lg border bg-white p-4 shadow-sm space-y-4">
           <h3 className="font-semibold text-lg">Change Member Role</h3>
           <div className="text-sm space-y-1">
-            <p><span className="text-gray-500">Member:</span> {member?.name ?? id}</p>
-            <p><span className="text-gray-500">Current Role:</span> {member?.role}</p>
-            <p><span className="text-gray-500">New Role:</span> {role}</p>
+            <p>
+              <span className="text-gray-500">Member:</span>{" "}
+              {member?.name ?? id}
+            </p>
+            <p>
+              <span className="text-gray-500">Current Role:</span>{" "}
+              {member?.role}
+            </p>
+            <p>
+              <span className="text-gray-500">New Role:</span> {role}
+            </p>
           </div>
           <ApprovalButtons
             onApprove={async () => {
@@ -170,7 +185,8 @@ export default function Team() {
   useHumanInTheLoop({
     followUp: false,
     name: "changeMemberTeam",
-    description: "Change the team of a team member. Do NOT ask for confirmation - just call this action immediately. The approval UI will handle user confirmation.",
+    description:
+      "Change the team of a team member. Do NOT ask for confirmation - just call this action immediately. The approval UI will handle user confirmation.",
     parameters: [
       {
         name: "id",
@@ -193,9 +209,17 @@ export default function Team() {
         <div className="rounded-lg border bg-white p-4 shadow-sm space-y-4">
           <h3 className="font-semibold text-lg">Change Member Team</h3>
           <div className="text-sm space-y-1">
-            <p><span className="text-gray-500">Member:</span> {member?.name ?? id}</p>
-            <p><span className="text-gray-500">Current Team:</span> {member?.team}</p>
-            <p><span className="text-gray-500">New Team:</span> {newTeam}</p>
+            <p>
+              <span className="text-gray-500">Member:</span>{" "}
+              {member?.name ?? id}
+            </p>
+            <p>
+              <span className="text-gray-500">Current Team:</span>{" "}
+              {member?.team}
+            </p>
+            <p>
+              <span className="text-gray-500">New Team:</span> {newTeam}
+            </p>
           </div>
           <ApprovalButtons
             onApprove={async () => {
@@ -220,7 +244,7 @@ export default function Team() {
       ...state,
       ...payload,
     }),
-    defaultDialogState
+    defaultDialogState,
   );
 
   const handleAddMemberSubmit = () => {

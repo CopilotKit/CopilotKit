@@ -14,7 +14,7 @@ const getCurrentlyRunningAgent = (
     status: boolean;
     name: string;
     nodeName: string;
-  }>
+  }>,
 ) => {
   return state.find((agent) => agent.status);
 };
@@ -25,8 +25,8 @@ const DefaultView = () => (
       <strong>Powered by CopilotKit 🪁</strong>
       <br />
       <br />
-      Start a conversation in the chat to begin planning your
-      trip, researching topics, or use the MCP agent for other tasks!
+      Start a conversation in the chat to begin planning your trip, researching
+      topics, or use the MCP agent for other tasks!
     </p>
   </div>
 );
@@ -88,7 +88,7 @@ export default function Canvas() {
         </div>
       ) : (
         <div className="absolute top-4 right-4 flex gap-2 z-[9999]">
-          <button 
+          <button
             onClick={() => setShowMCPConfigModal(true)}
             className="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-full shadow-lg flex items-center gap-2"
           >
@@ -120,7 +120,7 @@ export default function Canvas() {
       </div>
 
       {/* MCP Config Modal */}
-      <MCPConfigModal 
+      <MCPConfigModal
         isOpen={showMCPConfigModal}
         onClose={() => setShowMCPConfigModal(false)}
       />

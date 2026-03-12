@@ -7,6 +7,7 @@ A comprehensive workshop demonstrating **AG-UI** (Agent User Interaction) protoc
 ## What is AG-UI?
 
 AG-UI is a protocol for communicating between AI Agents and Users, enabling:
+
 - **Shared-State**: Real-time synchronization between agents and UI components
 - **Multiple Clients**: Build web apps, CLI tools, mobile apps - all connected to the same agent
 - **Generative UI**: Agents can render dynamic interface components
@@ -19,6 +20,7 @@ Learn more: [@ag-ui/mastra on npm](https://www.npmjs.com/package/@ag-ui/mastra)
 This workshop is organized into **3 progressive steps**, each building on the previous to demonstrate different aspects of AG-UI:
 
 ### 🎯 **Step 1**: Basic AG-UI Integration
+
 **Branch**: `git checkout step-1`
 
 **Link**: https://github.com/CopilotKit/CopilotKit/tree/main/examples/canvas/mastra-pm
@@ -30,7 +32,8 @@ This workshop is organized into **3 progressive steps**, each building on the pr
 - Frontend actions and generative UI
 - CLI and Web clients with same agent
 
-### 🎯 **Step 2**: Complex State & Agent Behavior  
+### 🎯 **Step 2**: Complex State & Agent Behavior
+
 **Branch**: `git checkout step-2`
 
 **Link**: https://github.com/CopilotKit/CopilotKit/tree/main/examples/canvas/mastra-pm
@@ -43,6 +46,7 @@ This workshop is organized into **3 progressive steps**, each building on the pr
 - Enhanced CLI debugging with state snapshots
 
 ### 🎯 **Step 3**: Production-Ready Application
+
 **Branch**: `git checkout step-3`
 
 **Link**: https://github.com/CopilotKit/CopilotKit/tree/main/examples/canvas/mastra-pm
@@ -75,6 +79,7 @@ By completing this workshop, you'll understand:
 ### Setup
 
 1. **Clone and install dependencies**:
+
 ```bash
 git clone <repository-url>
 cd mastra-pm-canvas
@@ -82,11 +87,13 @@ pnpm install
 ```
 
 2. **Add your OpenAI API key**:
+
 ```bash
 echo "OPENAI_API_KEY=your-key-here" >> .env
 ```
 
 3. **Choose your starting point**:
+
 ```bash
 # Start from the beginning
 git checkout step-1
@@ -101,12 +108,14 @@ git checkout step-3
 Each step provides **two different client interfaces** for the same agent:
 
 #### 🌐 **Web Interface** (CopilotKit + React)
+
 ```bash
 pnpm dev
 # Opens http://localhost:3000
 ```
 
 #### 💻 **CLI Interface** (Terminal-based)
+
 ```bash
 pnpm cli
 # Interactive chat in your terminal
@@ -117,17 +126,19 @@ pnpm cli
 ## Workshop Navigation
 
 ### Step-by-Step Progression
+
 ```bash
 git checkout step-1    # Basic concepts
 # Work through step-1, then:
 
-git checkout step-2    # Enhanced state management  
+git checkout step-2    # Enhanced state management
 # Work through step-2, then:
 
 git checkout step-3    # Full application
 ```
 
 ### Compare Between Steps
+
 ```bash
 # See what changed between steps
 git diff step-1 step-2 --name-only
@@ -154,7 +165,7 @@ git diff step-2 step-3 --name-only
 ## Technologies Used
 
 - **[Mastra](https://mastra.ai)**: AI agent framework
-- **[AG-UI](https://www.npmjs.com/package/@ag-ui/mastra)**: Agent User Interaction protocol  
+- **[AG-UI](https://www.npmjs.com/package/@ag-ui/mastra)**: Agent User Interaction protocol
 - **[CopilotKit](https://copilotkit.ai)**: React AI interface components
 - **[Next.js](https://nextjs.org)**: React framework
 - **[Zod](https://zod.dev)**: Schema validation
@@ -169,6 +180,7 @@ git diff step-2 step-3 --name-only
 ## Next Steps
 
 After completing this workshop:
+
 1. Experiment with custom tools and agent instructions
 2. Try building additional client interfaces (mobile, desktop)
 3. Explore more complex agent behaviors and state schemas

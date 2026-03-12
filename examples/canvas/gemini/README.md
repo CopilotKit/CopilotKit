@@ -19,25 +19,24 @@ It includes two agents, exposed through a **Next.js frontend** and a **FastAPI b
 
 ## 🛠️ Tech Stack
 
-- **Frontend**: Next.js  
-- **Backend**: FastAPI  
-- **Agents**:  Google Gemini + LangGraph
+- **Frontend**: Next.js
+- **Backend**: FastAPI
+- **Agents**: Google Gemini + LangGraph
 - **UI Layer**: CopilotKit
-
 
 ## 📌 About
 
 This demo illustrates how CopilotKit can be paired with LangGraph and Gemini to create agents that are:
+
 - **Context-aware** (understand the input you provide)
 - **Task-focused** (generate content or analyze stacks)
 - **UI-integrated** (feels like part of your app, not just a chatbox)
-
 
 ---
 
 ## Project Structure
 
-- `/` — Next.js 15 app (UI) in the Project Root 
+- `/` — Next.js 15 app (UI) in the Project Root
 - `agent/` — FastAPI backend agent (Python)
 
 ---
@@ -45,19 +44,21 @@ This demo illustrates how CopilotKit can be paired with LangGraph and Gemini to 
 ## 🚀 Getting Started
 
 ### 1. Clone the repository
-Clone this repo `git clone <project URL>`
 
+Clone this repo `git clone <project URL>`
 
 ### 2. Environment Configuration
 
-Create a `.env` file in each relevant directory as needed. 
+Create a `.env` file in each relevant directory as needed.
 
 #### Backend (`agent/.env`):
+
 ```env
 GOOGLE_API_KEY=<<your-gemini-key-here>>
 ```
 
 #### Frontend (`/.env`):
+
 ```env
 GOOGLE_API_KEY=<<your-gemini-key-here>>
 ```
@@ -78,6 +79,7 @@ Open [http://localhost:3000](http://localhost:3000) in your browser to view the 
 ---
 
 ## Notes
+
 - Ensure the backend agent is running before using the frontend.
 - Update environment variables as needed for your deployment.
 

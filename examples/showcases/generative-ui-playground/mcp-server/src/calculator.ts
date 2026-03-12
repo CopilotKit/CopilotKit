@@ -54,7 +54,9 @@ export function createCalculator(): CalculatorState {
 /**
  * Get calculator state by ID.
  */
-export function getCalculator(calculatorId: string): CalculatorState | undefined {
+export function getCalculator(
+  calculatorId: string,
+): CalculatorState | undefined {
   return calculators.get(calculatorId);
 }
 
@@ -91,7 +93,7 @@ function safeEvaluate(expression: string): number {
  */
 export function inputCalculator(
   calculatorId: string,
-  input: string
+  input: string,
 ): CalculatorResult {
   const state = calculators.get(calculatorId);
   if (!state) {
@@ -150,7 +152,8 @@ export function inputCalculator(
           state.display = "Error";
           return {
             success: false,
-            message: error instanceof Error ? error.message : "Calculation error",
+            message:
+              error instanceof Error ? error.message : "Calculation error",
             state,
           };
         }
@@ -262,7 +265,7 @@ export function inputCalculator(
  */
 export function evaluateExpression(
   calculatorId: string,
-  expression: string
+  expression: string,
 ): CalculatorResult {
   const state = calculators.get(calculatorId);
   if (!state) {

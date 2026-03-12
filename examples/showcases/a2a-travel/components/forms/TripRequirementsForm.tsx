@@ -13,7 +13,10 @@ interface TripRequirementsFormProps {
   respond: any;
 }
 
-export const TripRequirementsForm: React.FC<TripRequirementsFormProps> = ({ args, respond }) => {
+export const TripRequirementsForm: React.FC<TripRequirementsFormProps> = ({
+  args,
+  respond,
+}) => {
   let parsedArgs = args;
   if (typeof args === "string") {
     try {
@@ -35,16 +38,33 @@ export const TripRequirementsForm: React.FC<TripRequirementsFormProps> = ({ args
     if (parsedArgs && parsedArgs.city && parsedArgs.city !== city) {
       setCity(parsedArgs.city);
     }
-    if (parsedArgs && parsedArgs.numberOfDays && parsedArgs.numberOfDays !== numberOfDays) {
+    if (
+      parsedArgs &&
+      parsedArgs.numberOfDays &&
+      parsedArgs.numberOfDays !== numberOfDays
+    ) {
       setNumberOfDays(parsedArgs.numberOfDays);
     }
-    if (parsedArgs && parsedArgs.numberOfPeople && parsedArgs.numberOfPeople !== numberOfPeople) {
+    if (
+      parsedArgs &&
+      parsedArgs.numberOfPeople &&
+      parsedArgs.numberOfPeople !== numberOfPeople
+    ) {
       setNumberOfPeople(parsedArgs.numberOfPeople);
     }
-    if (parsedArgs && parsedArgs.budgetLevel && parsedArgs.budgetLevel !== budgetLevel) {
+    if (
+      parsedArgs &&
+      parsedArgs.budgetLevel &&
+      parsedArgs.budgetLevel !== budgetLevel
+    ) {
       setBudgetLevel(parsedArgs.budgetLevel);
     }
-  }, [parsedArgs?.city, parsedArgs?.numberOfDays, parsedArgs?.numberOfPeople, parsedArgs?.budgetLevel]);
+  }, [
+    parsedArgs?.city,
+    parsedArgs?.numberOfDays,
+    parsedArgs?.numberOfPeople,
+    parsedArgs?.budgetLevel,
+  ]);
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
@@ -85,10 +105,12 @@ export const TripRequirementsForm: React.FC<TripRequirementsFormProps> = ({ args
         <div className="flex items-center gap-2">
           <div className="text-2xl">✓</div>
           <div>
-            <h3 className="text-base font-semibold text-[#010507]">Trip Requirements Submitted</h3>
+            <h3 className="text-base font-semibold text-[#010507]">
+              Trip Requirements Submitted
+            </h3>
             <p className="text-xs text-[#57575B]">
-              Planning your {numberOfDays}-day trip to {city} for {numberOfPeople} people with{" "}
-              {budgetLevel} budget...
+              Planning your {numberOfDays}-day trip to {city} for{" "}
+              {numberOfPeople} people with {budgetLevel} budget...
             </p>
           </div>
         </div>
@@ -101,8 +123,12 @@ export const TripRequirementsForm: React.FC<TripRequirementsFormProps> = ({ args
       <div className="flex items-center gap-2 mb-4">
         <div className="text-2xl">✈️</div>
         <div>
-          <h3 className="text-base font-semibold text-[#010507]">Trip Planning Details</h3>
-          <p className="text-xs text-[#57575B]">Please provide some information about your trip</p>
+          <h3 className="text-base font-semibold text-[#010507]">
+            Trip Planning Details
+          </h3>
+          <p className="text-xs text-[#57575B]">
+            Please provide some information about your trip
+          </p>
         </div>
       </div>
 
@@ -122,7 +148,9 @@ export const TripRequirementsForm: React.FC<TripRequirementsFormProps> = ({ args
                 : "border-[#DBDBE5] bg-white/80 backdrop-blur-sm focus:border-[#BEC2FF] focus:outline-none"
             }`}
           />
-          {errors.city && <p className="text-xs text-[#FFAC4D] mt-1">{errors.city}</p>}
+          {errors.city && (
+            <p className="text-xs text-[#FFAC4D] mt-1">{errors.city}</p>
+          )}
         </div>
 
         <div className="grid grid-cols-2 gap-3">
@@ -140,15 +168,19 @@ export const TripRequirementsForm: React.FC<TripRequirementsFormProps> = ({ args
                   onChange={(e) => setNumberOfDays(parseInt(e.target.value))}
                   className="w-full h-1.5 bg-[#E9E9EF] rounded-lg appearance-none cursor-pointer"
                   style={{
-                    WebkitAppearance: 'none',
-                    background: `linear-gradient(to right, #BEC2FF 0%, #BEC2FF ${((numberOfDays - 1) / 6) * 100}%, #E9E9EF ${((numberOfDays - 1) / 6) * 100}%, #E9E9EF 100%)`
+                    WebkitAppearance: "none",
+                    background: `linear-gradient(to right, #BEC2FF 0%, #BEC2FF ${((numberOfDays - 1) / 6) * 100}%, #E9E9EF ${((numberOfDays - 1) / 6) * 100}%, #E9E9EF 100%)`,
                   }}
                 />
               </div>
-              <span className="text-lg font-bold text-[#010507] min-w-[24px] text-center">{numberOfDays}</span>
+              <span className="text-lg font-bold text-[#010507] min-w-[24px] text-center">
+                {numberOfDays}
+              </span>
             </div>
             {errors.numberOfDays && (
-              <p className="text-xs text-[#FFAC4D] mt-1">{errors.numberOfDays}</p>
+              <p className="text-xs text-[#FFAC4D] mt-1">
+                {errors.numberOfDays}
+              </p>
             )}
           </div>
 
@@ -166,21 +198,27 @@ export const TripRequirementsForm: React.FC<TripRequirementsFormProps> = ({ args
                   onChange={(e) => setNumberOfPeople(parseInt(e.target.value))}
                   className="w-full h-1.5 bg-[#E9E9EF] rounded-lg appearance-none cursor-pointer"
                   style={{
-                    WebkitAppearance: 'none',
-                    background: `linear-gradient(to right, #85E0CE 0%, #85E0CE ${((numberOfPeople - 1) / 14) * 100}%, #E9E9EF ${((numberOfPeople - 1) / 14) * 100}%, #E9E9EF 100%)`
+                    WebkitAppearance: "none",
+                    background: `linear-gradient(to right, #85E0CE 0%, #85E0CE ${((numberOfPeople - 1) / 14) * 100}%, #E9E9EF ${((numberOfPeople - 1) / 14) * 100}%, #E9E9EF 100%)`,
                   }}
                 />
               </div>
-              <span className="text-lg font-bold text-[#010507] min-w-[24px] text-center">{numberOfPeople}</span>
+              <span className="text-lg font-bold text-[#010507] min-w-[24px] text-center">
+                {numberOfPeople}
+              </span>
             </div>
             {errors.numberOfPeople && (
-              <p className="text-xs text-[#FFAC4D] mt-1">{errors.numberOfPeople}</p>
+              <p className="text-xs text-[#FFAC4D] mt-1">
+                {errors.numberOfPeople}
+              </p>
             )}
           </div>
         </div>
 
         <div>
-          <label className="block text-xs font-medium text-[#010507] mb-1.5">Budget Level *</label>
+          <label className="block text-xs font-medium text-[#010507] mb-1.5">
+            Budget Level *
+          </label>
           <div className="grid grid-cols-3 gap-2">
             {["Economy", "Comfort", "Premium"].map((level) => (
               <button

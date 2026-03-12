@@ -15,10 +15,10 @@ export const Charts = ({ state, setState }: ChartsProps) => {
     setState((prev) => {
       const charts = [...(prev?.charts ?? [])];
       charts.splice(index, 1);
-      return { 
+      return {
         title: prev?.title ?? "Dashboard",
         charts,
-        pinnedMetrics: prev?.pinnedMetrics ?? []
+        pinnedMetrics: prev?.pinnedMetrics ?? [],
       } as AgentState;
     });
   };
@@ -29,26 +29,26 @@ export const Charts = ({ state, setState }: ChartsProps) => {
       // Preserve the data when editing
       const existingData = charts[index]?.data ?? [];
       charts[index] = { ...newSpec, data: existingData } as Chart;
-      return { 
+      return {
         title: prev?.title ?? "Dashboard",
         charts,
-        pinnedMetrics: prev?.pinnedMetrics ?? []
+        pinnedMetrics: prev?.pinnedMetrics ?? [],
       } as AgentState;
     });
   };
 
   const handleAddChart = () => {
-    const newChart: Chart = { 
-      type: "line", 
-      title: "New Chart", 
-      x: "x", 
-      y: "y", 
-      data: [] 
+    const newChart: Chart = {
+      type: "line",
+      title: "New Chart",
+      x: "x",
+      y: "y",
+      data: [],
     } as Chart;
-    setState((prev) => ({ 
+    setState((prev) => ({
       title: prev?.title ?? "Dashboard",
       charts: [...(prev?.charts ?? []), newChart],
-      pinnedMetrics: prev?.pinnedMetrics ?? []
+      pinnedMetrics: prev?.pinnedMetrics ?? [],
     }));
   };
 
@@ -68,18 +68,23 @@ export const Charts = ({ state, setState }: ChartsProps) => {
         </Button>
       </CardHeader>
       <CardContent className="p-0 m-0">
-        {(!(state?.charts?.length)) && (
-          <p className="text-sm italic">No dashboard yet. Describe what you want in chat (eg, &quot;funnel of signups and revenue line chart&quot;).</p>
+        {!state?.charts?.length && (
+          <p className="text-sm italic">
+            No dashboard yet. Describe what you want in chat (eg, &quot;funnel
+            of signups and revenue line chart&quot;).
+          </p>
         )}
-        {(state?.charts?.length > 0) && (
+        {state?.charts?.length > 0 && (
           <ChartGrid
             charts={state.charts}
-            chartData={(state as AgentState & { chartData?: ChartDataMap }).chartData}
+            chartData={
+              (state as AgentState & { chartData?: ChartDataMap }).chartData
+            }
             onRemoveChart={handleRemoveChart}
             onEditChart={handleEditChart}
           />
         )}
       </CardContent>
     </Card>
-  )
-}
+  );
+};

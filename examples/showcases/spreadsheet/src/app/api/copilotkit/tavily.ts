@@ -25,7 +25,7 @@ export async function research(query: string) {
       {
         role: "system",
         content: `Summarize the following JSON to answer the research query \`"${query}"\`: ${JSON.stringify(
-          responseJson
+          responseJson,
         )} in plain English.`,
       },
     ],

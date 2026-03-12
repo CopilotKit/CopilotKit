@@ -43,7 +43,7 @@ export function FileUpload({ onFilesChange, currentFiles }: FileUploadProps) {
 
       setIsLoading(true);
       setLoadingMessage(
-        LOADING_MESSAGES[Math.floor(Math.random() * LOADING_MESSAGES.length)]
+        LOADING_MESSAGES[Math.floor(Math.random() * LOADING_MESSAGES.length)],
       );
 
       for (const file of Array.from(fileList)) {
@@ -83,7 +83,7 @@ export function FileUpload({ onFilesChange, currentFiles }: FileUploadProps) {
       onFilesChange(combined);
       setIsLoading(false);
     },
-    [currentFiles, onFilesChange]
+    [currentFiles, onFilesChange],
   );
 
   const handleDrop = useCallback(
@@ -94,7 +94,7 @@ export function FileUpload({ onFilesChange, currentFiles }: FileUploadProps) {
         handleFiles(e.dataTransfer.files);
       }
     },
-    [handleFiles]
+    [handleFiles],
   );
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
@@ -163,7 +163,9 @@ export function FileUpload({ onFilesChange, currentFiles }: FileUploadProps) {
               )}
               <button
                 onClick={() =>
-                  onFilesChange(currentFiles.filter((f) => f.name !== file.name))
+                  onFilesChange(
+                    currentFiles.filter((f) => f.name !== file.name),
+                  )
                 }
                 className="text-slate-400 hover:text-red-500 flex-shrink-0"
               >

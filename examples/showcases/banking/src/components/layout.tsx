@@ -152,7 +152,7 @@ function NavItem({ href, icon: Icon, label }: NavItemProps) {
             href={href}
             className={cn(
               "flex h-10 w-10 items-center justify-center rounded-md text-gray-400 hover:bg-gray-800 hover:text-white",
-              "transition-colors duration-200"
+              "transition-colors duration-200",
             )}
           >
             <Icon className="h-5 w-5" />

@@ -11,27 +11,32 @@ This guide covers deploying the LangGraph agent to Railway.
 ## Method 1: Deploy via Railway CLI (Recommended)
 
 1. **Install Railway CLI** (if not already installed):
+
    ```bash
    npm install -g @railway/cli
    ```
 
 2. **Login to Railway**:
+
    ```bash
    railway login
    ```
 
 3. **Initialize Railway project** (from the agent directory):
+
    ```bash
    cd agent
    railway init
    ```
 
 4. **Set environment variables**:
+
    ```bash
    railway variables set GOOGLE_API_KEY=your-google-ai-api-key-here
    ```
 
 5. **Deploy**:
+
    ```bash
    railway up
    ```
@@ -84,6 +89,7 @@ After deploying the agent, update your Next.js frontend to use the Railway URL:
 
 1. Open `src/app/api/copilotkit/route.ts`
 2. Update the agent URL:
+
    ```typescript
    const agent = new LangGraphAgent({
      agentUrl: process.env.AGENT_URL || "https://your-project.up.railway.app",
@@ -112,25 +118,30 @@ curl https://your-project.up.railway.app/health
 ## Troubleshooting
 
 ### Build fails with "No space left on device"
+
 - Railway free tier has limited build space
 - Try removing unused dependencies from requirements.txt
 
 ### Agent timeout errors
+
 - Railway free tier has request timeouts
 - For production, upgrade to Railway Pro
 
 ### Environment variables not working
+
 - Ensure variables are set in Railway dashboard or via CLI
 - Restart the deployment after adding variables
 
 ## Cost Optimization
 
 Railway pricing:
+
 - Free tier: $5 credit/month
 - Pro: $20/month + usage-based pricing
 - Image generation with Gemini uses Google AI quota, not Railway resources
 
 For production deployment, consider:
+
 - Monitoring image generation usage
 - Implementing rate limiting
 - Caching generated images

@@ -1,21 +1,59 @@
 "use client";
 
-import { useCoAgent, useCopilotAction, useCoAgentStateRender, useCopilotAdditionalInstructions } from "@copilotkit/react-core";
-import { CopilotKitCSSProperties, CopilotChat, CopilotPopup } from "@copilotkit/react-ui";
+import {
+  useCoAgent,
+  useCopilotAction,
+  useCoAgentStateRender,
+  useCopilotAdditionalInstructions,
+} from "@copilotkit/react-core";
+import {
+  CopilotKitCSSProperties,
+  CopilotChat,
+  CopilotPopup,
+} from "@copilotkit/react-ui";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type React from "react";
-import { Button } from "@/components/ui/button"
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Button } from "@/components/ui/button";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 import AppChatHeader, { PopupHeader } from "@/components/canvas/AppChatHeader";
-import { X, Check, Loader2 } from "lucide-react"
+import { X, Check, Loader2 } from "lucide-react";
 import CardRenderer from "@/components/canvas/CardRenderer";
 import ShikiHighlighter from "react-shiki/web";
-import { motion, useScroll, useTransform, useMotionValueEvent } from "motion/react";
+import {
+  motion,
+  useScroll,
+  useTransform,
+  useMotionValueEvent,
+} from "motion/react";
 import { EmptyState } from "@/components/empty-state";
 import { cn, getContentArg } from "@/lib/utils";
-import type { AgentState, PlanStep, Item, ItemData, ProjectData, EntityData, NoteData, ChartData, CardType } from "@/lib/canvas/types";
+import type {
+  AgentState,
+  PlanStep,
+  Item,
+  ItemData,
+  ProjectData,
+  EntityData,
+  NoteData,
+  ChartData,
+  CardType,
+} from "@/lib/canvas/types";
 import { initialState, isNonEmptyAgentState } from "@/lib/canvas/state";
-import { projectAddField4Item, projectSetField4ItemText, projectSetField4ItemDone, projectRemoveField4Item, chartAddField1Metric, chartSetField1Label, chartSetField1Value, chartRemoveField1Metric } from "@/lib/canvas/updates";
+import {
+  projectAddField4Item,
+  projectSetField4ItemText,
+  projectSetField4ItemDone,
+  projectRemoveField4Item,
+  chartAddField1Metric,
+  chartSetField1Label,
+  chartSetField1Value,
+  chartRemoveField1Metric,
+} from "@/lib/canvas/updates";
 import useMediaQuery from "@/hooks/use-media-query";
 import ItemHeader from "@/components/canvas/ItemHeader";
 import NewItemMenu from "@/components/canvas/NewItemMenu";
@@ -34,18 +72,29 @@ export default function CopilotKitPage() {
     }
   }, [state]);
   // we use viewState to avoid transient flicker
-  const viewState: AgentState = isNonEmptyAgentState(state) ? (state as AgentState) : cachedStateRef.current;
+  const viewState: AgentState = isNonEmptyAgentState(state)
+    ? (state as AgentState)
+    : cachedStateRef.current;
 
   const isDesktop = useMediaQuery("(min-width: 768px)");
   const [showJsonView, setShowJsonView] = useState<boolean>(false);
   const scrollAreaRef = useRef<HTMLDivElement | null>(null);
   const { scrollY } = useScroll({ container: scrollAreaRef });
   const headerScrollThreshold = 64;
-  const headerOpacity = useTransform(scrollY, [0, headerScrollThreshold], [1, 0]);
+  const headerOpacity = useTransform(
+    scrollY,
+    [0, headerScrollThreshold],
+    [1, 0],
+  );
   const [headerDisabled, setHeaderDisabled] = useState<boolean>(false);
   const titleInputRef = useRef<HTMLInputElement | null>(null);
   const descTextareaRef = useRef<HTMLInputElement | null>(null);
-  const lastCreationRef = useRef<{ type: CardType; name: string; id: string; ts: number } | null>(null);
+  const lastCreationRef = useRef<{
+    type: CardType;
+    name: string;
+    id: string;
+    ts: number;
+  } | null>(null);
 
   useMotionValueEvent(scrollY, "change", (y) => {
     const disable = y >= headerScrollThreshold;
@@ -63,9 +112,13 @@ export default function CopilotKitPage() {
     }
   }, [viewState?.items, showJsonView]);
 
-  const planStepsMemo = (viewState?.planSteps ?? initialState.planSteps) as PlanStep[];
+  const planStepsMemo = (viewState?.planSteps ??
+    initialState.planSteps) as PlanStep[];
   const planStatusMemo = viewState?.planStatus ?? initialState.planStatus;
-  const currentStepIndexMemo = typeof viewState?.currentStepIndex === "number" ? viewState.currentStepIndex : initialState.currentStepIndex;
+  const currentStepIndexMemo =
+    typeof viewState?.currentStepIndex === "number"
+      ? viewState.currentStepIndex
+      : initialState.currentStepIndex;
 
   useCoAgentStateRender<AgentState>({
     name: "sample_agent",
@@ -82,16 +135,40 @@ export default function CopilotKitPage() {
             <AccordionItem value="done">
               <AccordionTrigger className="text-xs">
                 <span className="inline-flex items-center gap-2">
-                  <Check className={cn("h-4 w-4", status === "completed" ? "text-green-600" : "text-red-600")} />
-                  <span className="font-medium">{count} steps {status}</span>
+                  <Check
+                    className={cn(
+                      "h-4 w-4",
+                      status === "completed"
+                        ? "text-green-600"
+                        : "text-red-600",
+                    )}
+                  />
+                  <span className="font-medium">
+                    {count} steps {status}
+                  </span>
                 </span>
               </AccordionTrigger>
               <AccordionContent>
                 <div className="rounded-2xl border shadow-sm bg-card p-4">
-                  <div className="mb-2 text-xs font-semibold">Plan <span className={cn("ml-2 rounded-full px-2 py-0.5 text-[10px] font-medium border", status === "completed" ? "text-green-700 border-green-300 bg-green-50" : "text-red-700 border-red-300 bg-red-50")}>{status}</span></div>
+                  <div className="mb-2 text-xs font-semibold">
+                    Plan{" "}
+                    <span
+                      className={cn(
+                        "ml-2 rounded-full px-2 py-0.5 text-[10px] font-medium border",
+                        status === "completed"
+                          ? "text-green-700 border-green-300 bg-green-50"
+                          : "text-red-700 border-red-300 bg-red-50",
+                      )}
+                    >
+                      {status}
+                    </span>
+                  </div>
                   <ol className="space-y-1">
                     {steps.map((s, i) => (
-                      <li key={`${s.title ?? "step"}-${i}`} className="flex items-start gap-2">
+                      <li
+                        key={`${s.title ?? "step"}-${i}`}
+                        className="flex items-start gap-2"
+                      >
                         <span className="mt-0.5 inline-flex h-4 w-4 items-center justify-center">
                           {String(s.status).toLowerCase() === "completed" ? (
                             <Check className="h-4 w-4 text-green-600" />
@@ -102,7 +179,17 @@ export default function CopilotKitPage() {
                           )}
                         </span>
                         <div className="flex-1 text-xs">
-                          <div className={cn("leading-5", String(s.status).toLowerCase() === "completed" && "text-green-700", String(s.status).toLowerCase() === "failed" && "text-red-700")}>{s.title ?? `Step ${i + 1}`}</div>
+                          <div
+                            className={cn(
+                              "leading-5",
+                              String(s.status).toLowerCase() === "completed" &&
+                                "text-green-700",
+                              String(s.status).toLowerCase() === "failed" &&
+                                "text-red-700",
+                            )}
+                          >
+                            {s.title ?? `Step ${i + 1}`}
+                          </div>
                         </div>
                       </li>
                     ))}
@@ -116,7 +203,9 @@ export default function CopilotKitPage() {
     },
   });
 
-  const getStatePreviewJSON = (s: AgentState | undefined): Record<string, unknown> => {
+  const getStatePreviewJSON = (
+    s: AgentState | undefined,
+  ): Record<string, unknown> => {
     const snapshot = (s ?? initialState) as AgentState;
     const { globalTitle, globalDescription, items } = snapshot;
     return {
@@ -183,7 +272,12 @@ export default function CopilotKitPage() {
     description: "Ask the user to choose an item id from the canvas.",
     available: "remote",
     parameters: [
-      { name: "content", type: "string", required: false, description: "Prompt to display." },
+      {
+        name: "content",
+        type: "string",
+        required: false,
+        description: "Prompt to display.",
+      },
     ],
     renderAndWaitForResponse: ({ respond, args }) => {
       const items = viewState.items ?? initialState.items;
@@ -198,7 +292,9 @@ export default function CopilotKitPage() {
       return (
         <div className="rounded-md border bg-white p-4 text-sm shadow">
           <p className="mb-2 font-medium">Select an item</p>
-          <p className="mb-3 text-xs text-gray-600">{getContentArg(args) ?? "Which item should I use?"}</p>
+          <p className="mb-3 text-xs text-gray-600">
+            {getContentArg(args) ?? "Which item should I use?"}
+          </p>
           <select
             className="w-full rounded border px-2 py-1"
             defaultValue={selectedId}
@@ -213,8 +309,18 @@ export default function CopilotKitPage() {
             ))}
           </select>
           <div className="mt-3 flex justify-end gap-2">
-            <button className="rounded border px-3 py-1" onClick={() => respond?.("")}>Cancel</button>
-            <button className="rounded border bg-blue-600 px-3 py-1 text-white" onClick={() => respond?.(selectedId)}>Use item</button>
+            <button
+              className="rounded border px-3 py-1"
+              onClick={() => respond?.("")}
+            >
+              Cancel
+            </button>
+            <button
+              className="rounded border bg-blue-600 px-3 py-1 text-white"
+              onClick={() => respond?.(selectedId)}
+            >
+              Use item
+            </button>
           </div>
         </div>
       );
@@ -227,7 +333,12 @@ export default function CopilotKitPage() {
     description: "Ask the user to choose a card type to create.",
     available: "remote",
     parameters: [
-      { name: "content", type: "string", required: false, description: "Prompt to display." },
+      {
+        name: "content",
+        type: "string",
+        required: false,
+        description: "Prompt to display.",
+      },
     ],
     renderAndWaitForResponse: ({ respond, args }) => {
       const options: { id: CardType; label: string }[] = [
@@ -240,7 +351,9 @@ export default function CopilotKitPage() {
       return (
         <div className="rounded-md border bg-white p-4 text-sm shadow">
           <p className="mb-2 font-medium">Select a card type</p>
-          <p className="mb-3 text-xs text-gray-600">{getContentArg(args) ?? "Which type of card should I create?"}</p>
+          <p className="mb-3 text-xs text-gray-600">
+            {getContentArg(args) ?? "Which type of card should I create?"}
+          </p>
           <select
             className="w-full rounded border px-2 py-1"
             defaultValue=""
@@ -248,13 +361,22 @@ export default function CopilotKitPage() {
               selected = e.target.value as CardType;
             }}
           >
-            <option value="" disabled>Select an item type…</option>
+            <option value="" disabled>
+              Select an item type…
+            </option>
             {options.map((opt) => (
-              <option key={opt.id} value={opt.id}>{opt.label}</option>
+              <option key={opt.id} value={opt.id}>
+                {opt.label}
+              </option>
             ))}
           </select>
           <div className="mt-3 flex justify-end gap-2">
-            <button className="rounded border px-3 py-1" onClick={() => respond?.("")}>Cancel</button>
+            <button
+              className="rounded border px-3 py-1"
+              onClick={() => respond?.("")}
+            >
+              Cancel
+            </button>
             <button
               className="rounded border bg-blue-600 px-3 py-1 text-white"
               onClick={() => selected && respond?.(selected)}
@@ -273,11 +395,13 @@ export default function CopilotKitPage() {
       setState((prev) => {
         const base = prev ?? initialState;
         const items: Item[] = base.items ?? [];
-        const nextItems = items.map((p) => (p.id === itemId ? { ...p, ...updates } : p));
+        const nextItems = items.map((p) =>
+          p.id === itemId ? { ...p, ...updates } : p,
+        );
         return { ...base, items: nextItems } as AgentState;
       });
     },
-    [setState]
+    [setState],
   );
 
   const updateItemData = useCallback(
@@ -285,33 +409,46 @@ export default function CopilotKitPage() {
       setState((prev) => {
         const base = prev ?? initialState;
         const items: Item[] = base.items ?? [];
-        const nextItems = items.map((p) => (p.id === itemId ? { ...p, data: updater(p.data) } : p));
+        const nextItems = items.map((p) =>
+          p.id === itemId ? { ...p, data: updater(p.data) } : p,
+        );
         return { ...base, items: nextItems } as AgentState;
       });
     },
-    [setState]
+    [setState],
   );
 
-  const deleteItem = useCallback((itemId: string) => {
-    setState((prev) => {
-      const base = prev ?? initialState;
-      const existed = (base.items ?? []).some((p) => p.id === itemId);
-      const items: Item[] = (base.items ?? []).filter((p) => p.id !== itemId);
-      return { ...base, items, lastAction: existed ? `deleted:${itemId}` : `not_found:${itemId}` } as AgentState;
-    });
-  }, [setState]);
+  const deleteItem = useCallback(
+    (itemId: string) => {
+      setState((prev) => {
+        const base = prev ?? initialState;
+        const existed = (base.items ?? []).some((p) => p.id === itemId);
+        const items: Item[] = (base.items ?? []).filter((p) => p.id !== itemId);
+        return {
+          ...base,
+          items,
+          lastAction: existed ? `deleted:${itemId}` : `not_found:${itemId}`,
+        } as AgentState;
+      });
+    },
+    [setState],
+  );
 
-  const toggleTag = useCallback((itemId: string, tag: string) => {
-    updateItemData(itemId, (prev) => {
-      const anyPrev = prev as { field3?: string[] };
-      if (Array.isArray(anyPrev.field3)) {
-        const selected = new Set<string>(anyPrev.field3 ?? []);
-        if (selected.has(tag)) selected.delete(tag); else selected.add(tag);
-        return { ...anyPrev, field3: Array.from(selected) } as ItemData;
-      }
-      return prev;
-    });
-  }, [updateItemData]);
+  const toggleTag = useCallback(
+    (itemId: string, tag: string) => {
+      updateItemData(itemId, (prev) => {
+        const anyPrev = prev as { field3?: string[] };
+        if (Array.isArray(anyPrev.field3)) {
+          const selected = new Set<string>(anyPrev.field3 ?? []);
+          if (selected.has(tag)) selected.delete(tag);
+          else selected.add(tag);
+          return { ...anyPrev, field3: Array.from(selected) } as ItemData;
+        }
+        return prev;
+      });
+    },
+    [updateItemData],
+  );
 
   const defaultDataFor = useCallback((type: CardType): ItemData => {
     switch (type) {
@@ -339,38 +476,53 @@ export default function CopilotKitPage() {
     }
   }, []);
 
-  const addItem = useCallback((type: CardType, name?: string) => {
-    const t: CardType = type;
-    let createdId = "";
-    setState((prev) => {
-      const base = prev ?? initialState;
-      const items: Item[] = base.items ?? [];
-      const maxExisting = items.reduce((max, it) => {
-        const parsed = Number.parseInt(String(it.id ?? "0"), 10);
-        return Number.isFinite(parsed) ? Math.max(max, parsed) : max;
-      }, 0);
-      const priorCount = Number.isFinite(base.itemsCreated) ? (base.itemsCreated as number) : 0;
-      const nextNumber = Math.max(priorCount, maxExisting) + 1;
-      createdId = String(nextNumber).padStart(4, "0");
-      const item: Item = {
-        id: createdId,
-        type: t,
-        name: name && name.trim() ? name.trim() : "",
-        subtitle: "",
-        data: defaultDataFor(t),
-      };
-      const nextItems = [...items, item];
-      return { ...base, items: nextItems, itemsCreated: nextNumber, lastAction: `created:${createdId}` } as AgentState;
-    });
-    return createdId;
-  }, [defaultDataFor, setState]);
+  const addItem = useCallback(
+    (type: CardType, name?: string) => {
+      const t: CardType = type;
+      let createdId = "";
+      setState((prev) => {
+        const base = prev ?? initialState;
+        const items: Item[] = base.items ?? [];
+        const maxExisting = items.reduce((max, it) => {
+          const parsed = Number.parseInt(String(it.id ?? "0"), 10);
+          return Number.isFinite(parsed) ? Math.max(max, parsed) : max;
+        }, 0);
+        const priorCount = Number.isFinite(base.itemsCreated)
+          ? (base.itemsCreated as number)
+          : 0;
+        const nextNumber = Math.max(priorCount, maxExisting) + 1;
+        createdId = String(nextNumber).padStart(4, "0");
+        const item: Item = {
+          id: createdId,
+          type: t,
+          name: name && name.trim() ? name.trim() : "",
+          subtitle: "",
+          data: defaultDataFor(t),
+        };
+        const nextItems = [...items, item];
+        return {
+          ...base,
+          items: nextItems,
+          itemsCreated: nextNumber,
+          lastAction: `created:${createdId}`,
+        } as AgentState;
+      });
+      return createdId;
+    },
+    [defaultDataFor, setState],
+  );
 
   useCopilotAction({
     name: "setGlobalTitle",
     description: "Set the global title/name (outside of items).",
     available: "remote",
     parameters: [
-      { name: "title", type: "string", required: true, description: "The new global title/name." },
+      {
+        name: "title",
+        type: "string",
+        required: true,
+        description: "The new global title/name.",
+      },
     ],
     handler: ({ title }: { title: string }) => {
       setState((prev) => ({ ...(prev ?? initialState), globalTitle: title }));
@@ -382,10 +534,18 @@ export default function CopilotKitPage() {
     description: "Set the global description/subtitle (outside of items).",
     available: "remote",
     parameters: [
-      { name: "description", type: "string", required: true, description: "The new global description/subtitle." },
+      {
+        name: "description",
+        type: "string",
+        required: true,
+        description: "The new global description/subtitle.",
+      },
     ],
     handler: ({ description }: { description: string }) => {
-      setState((prev) => ({ ...(prev ?? initialState), globalDescription: description }));
+      setState((prev) => ({
+        ...(prev ?? initialState),
+        globalDescription: description,
+      }));
     },
   });
 
@@ -394,8 +554,18 @@ export default function CopilotKitPage() {
     description: "Set an item's name/title.",
     available: "remote",
     parameters: [
-      { name: "name", type: "string", required: true, description: "The new item name/title." },
-      { name: "itemId", type: "string", required: true, description: "Target item id." },
+      {
+        name: "name",
+        type: "string",
+        required: true,
+        description: "The new item name/title.",
+      },
+      {
+        name: "itemId",
+        type: "string",
+        required: true,
+        description: "Target item id.",
+      },
     ],
     handler: ({ name, itemId }: { name: string; itemId: string }) => {
       updateItem(itemId, { name });
@@ -404,11 +574,22 @@ export default function CopilotKitPage() {
 
   useCopilotAction({
     name: "setItemSubtitleOrDescription",
-    description: "Set an item's description/subtitle (short description or subtitle).",
+    description:
+      "Set an item's description/subtitle (short description or subtitle).",
     available: "remote",
     parameters: [
-      { name: "subtitle", type: "string", required: true, description: "The new item description/subtitle." },
-      { name: "itemId", type: "string", required: true, description: "Target item id." },
+      {
+        name: "subtitle",
+        type: "string",
+        required: true,
+        description: "The new item description/subtitle.",
+      },
+      {
+        name: "itemId",
+        type: "string",
+        required: true,
+        description: "Target item id.",
+      },
     ],
     handler: ({ subtitle, itemId }: { subtitle: string; itemId: string }) => {
       updateItem(itemId, { subtitle });
@@ -420,8 +601,18 @@ export default function CopilotKitPage() {
     description: "Update note content (note.data.field1).",
     available: "remote",
     parameters: [
-      { name: "value", type: "string", required: true, description: "New content for note.data.field1." },
-      { name: "itemId", type: "string", required: true, description: "Target item id (note)." },
+      {
+        name: "value",
+        type: "string",
+        required: true,
+        description: "New content for note.data.field1.",
+      },
+      {
+        name: "itemId",
+        type: "string",
+        required: true,
+        description: "Target item id (note).",
+      },
     ],
     handler: ({ value, itemId }: { value: string; itemId: string }) => {
       updateItemData(itemId, (prev) => {
@@ -439,15 +630,38 @@ export default function CopilotKitPage() {
     description: "Append text to note content (note.data.field1).",
     available: "remote",
     parameters: [
-      { name: "value", type: "string", required: true, description: "Text to append to note.data.field1." },
-      { name: "itemId", type: "string", required: true, description: "Target item id (note)." },
-      { name: "withNewline", type: "boolean", required: false, description: "If true, prefix with a newline." },
+      {
+        name: "value",
+        type: "string",
+        required: true,
+        description: "Text to append to note.data.field1.",
+      },
+      {
+        name: "itemId",
+        type: "string",
+        required: true,
+        description: "Target item id (note).",
+      },
+      {
+        name: "withNewline",
+        type: "boolean",
+        required: false,
+        description: "If true, prefix with a newline.",
+      },
     ],
-    handler: ({ value, itemId, withNewline }: { value: string; itemId: string; withNewline?: boolean }) => {
+    handler: ({
+      value,
+      itemId,
+      withNewline,
+    }: {
+      value: string;
+      itemId: string;
+      withNewline?: boolean;
+    }) => {
       updateItemData(itemId, (prev) => {
         const nd = prev as NoteData;
         if (Object.prototype.hasOwnProperty.call(nd, "field1")) {
-          const existing = (nd.field1 ?? "");
+          const existing = nd.field1 ?? "";
           const next = existing + (withNewline ? "\n" : "") + value;
           return { ...(nd as NoteData), field1: next } as NoteData;
         }
@@ -461,7 +675,12 @@ export default function CopilotKitPage() {
     description: "Clear note content (note.data.field1).",
     available: "remote",
     parameters: [
-      { name: "itemId", type: "string", required: true, description: "Target item id (note)." },
+      {
+        name: "itemId",
+        type: "string",
+        required: true,
+        description: "Target item id (note).",
+      },
     ],
     handler: ({ itemId }: { itemId: string }) => {
       updateItemData(itemId, (prev) => {
@@ -479,8 +698,18 @@ export default function CopilotKitPage() {
     description: "Update project field1 (text).",
     available: "remote",
     parameters: [
-      { name: "value", type: "string", required: true, description: "New value for field1." },
-      { name: "itemId", type: "string", required: true, description: "Target item id." },
+      {
+        name: "value",
+        type: "string",
+        required: true,
+        description: "New value for field1.",
+      },
+      {
+        name: "itemId",
+        type: "string",
+        required: true,
+        description: "Target item id.",
+      },
     ],
     handler: ({ value, itemId }: { value: string; itemId: string }) => {
       const safeValue = String((value as unknown as string) ?? "");
@@ -499,8 +728,18 @@ export default function CopilotKitPage() {
     description: "Update project field2 (select).",
     available: "remote",
     parameters: [
-      { name: "value", type: "string", required: true, description: "New value for field2." },
-      { name: "itemId", type: "string", required: true, description: "Target item id." },
+      {
+        name: "value",
+        type: "string",
+        required: true,
+        description: "New value for field2.",
+      },
+      {
+        name: "itemId",
+        type: "string",
+        required: true,
+        description: "Target item id.",
+      },
     ],
     handler: ({ value, itemId }: { value: string; itemId: string }) => {
       const safeValue = String((value as unknown as string) ?? "");
@@ -519,13 +758,29 @@ export default function CopilotKitPage() {
     description: "Update project field3 (date, YYYY-MM-DD).",
     available: "remote",
     parameters: [
-      { name: "date", type: "string", required: true, description: "Date in YYYY-MM-DD format." },
-      { name: "itemId", type: "string", required: true, description: "Target item id." },
+      {
+        name: "date",
+        type: "string",
+        required: true,
+        description: "Date in YYYY-MM-DD format.",
+      },
+      {
+        name: "itemId",
+        type: "string",
+        required: true,
+        description: "Target item id.",
+      },
     ],
-    handler: (args: { date?: string; itemId: string } & Record<string, unknown>) => {
+    handler: (
+      args: { date?: string; itemId: string } & Record<string, unknown>,
+    ) => {
       const itemId = String(args.itemId);
       const dictArgs = args as Record<string, unknown>;
-      const rawInput = (dictArgs["date"]) ?? (dictArgs["value"]) ?? (dictArgs["val"]) ?? (dictArgs["text"]);
+      const rawInput =
+        dictArgs["date"] ??
+        dictArgs["value"] ??
+        dictArgs["val"] ??
+        dictArgs["text"];
       const normalizeDate = (input: unknown): string | null => {
         if (input == null) return null;
         if (input instanceof Date && !isNaN(input.getTime())) {
@@ -562,7 +817,12 @@ export default function CopilotKitPage() {
     description: "Clear project field3 (date).",
     available: "remote",
     parameters: [
-      { name: "itemId", type: "string", required: true, description: "Target item id." },
+      {
+        name: "itemId",
+        type: "string",
+        required: true,
+        description: "Target item id.",
+      },
     ],
     handler: ({ itemId }: { itemId: string }) => {
       updateItemData(itemId, (prev) => {
@@ -580,14 +840,27 @@ export default function CopilotKitPage() {
     description: "Add a new checklist item to a project.",
     available: "remote",
     parameters: [
-      { name: "itemId", type: "string", required: true, description: "Target item id (project)." },
-      { name: "text", type: "string", required: false, description: "Initial checklist text (optional)." },
+      {
+        name: "itemId",
+        type: "string",
+        required: true,
+        description: "Target item id (project).",
+      },
+      {
+        name: "text",
+        type: "string",
+        required: false,
+        description: "Initial checklist text (optional).",
+      },
     ],
     handler: ({ itemId, text }: { itemId: string; text?: string }) => {
       // Keep logic simple in this template; just add the item
       let createdId = "";
       updateItemData(itemId, (prev) => {
-        const { next, createdId: id } = projectAddField4Item(prev as ProjectData, text);
+        const { next, createdId: id } = projectAddField4Item(
+          prev as ProjectData,
+          text,
+        );
         createdId = id;
         return next;
       });
@@ -600,17 +873,38 @@ export default function CopilotKitPage() {
     description: "Update a project's checklist item text and/or done state.",
     available: "remote",
     parameters: [
-      { name: "itemId", type: "string", required: true, description: "Target item id (project)." },
-      { name: "checklistItemId", type: "string", required: true, description: "Checklist item id." },
-      { name: "text", type: "string", required: false, description: "New text (optional)." },
-      { name: "done", type: "boolean", required: false, description: "Done status (optional)." },
+      {
+        name: "itemId",
+        type: "string",
+        required: true,
+        description: "Target item id (project).",
+      },
+      {
+        name: "checklistItemId",
+        type: "string",
+        required: true,
+        description: "Checklist item id.",
+      },
+      {
+        name: "text",
+        type: "string",
+        required: false,
+        description: "New text (optional).",
+      },
+      {
+        name: "done",
+        type: "boolean",
+        required: false,
+        description: "Done status (optional).",
+      },
     ],
     handler: (args) => {
       const itemId = String(args.itemId ?? "");
       const target = args.checklistItemId ?? args.itemId;
       let targetId = target != null ? String(target) : "";
       const maybeDone = args.done;
-      const text: string | undefined = args.text != null ? String(args.text) : undefined;
+      const text: string | undefined =
+        args.text != null ? String(args.text) : undefined;
       const toBool = (v: unknown): boolean | undefined => {
         if (typeof v === "boolean") return v;
         if (typeof v === "string") {
@@ -623,7 +917,7 @@ export default function CopilotKitPage() {
       const done = toBool(maybeDone);
       updateItemData(itemId, (prev) => {
         let next = prev as ProjectData;
-        const list = (next.field4 ?? []);
+        const list = next.field4 ?? [];
         if (!list.some((c) => c.id === targetId) && /^\d+$/.test(targetId)) {
           const n = parseInt(targetId, 10);
           let idx = -1;
@@ -631,8 +925,10 @@ export default function CopilotKitPage() {
           else if (n > 0 && n - 1 < list.length) idx = n - 1;
           if (idx >= 0) targetId = list[idx].id;
         }
-        if (typeof text === "string") next = projectSetField4ItemText(next, targetId, text);
-        if (typeof done === "boolean") next = projectSetField4ItemDone(next, targetId, done);
+        if (typeof text === "string")
+          next = projectSetField4ItemText(next, targetId, text);
+        if (typeof done === "boolean")
+          next = projectSetField4ItemDone(next, targetId, done);
         return next;
       });
     },
@@ -643,11 +939,29 @@ export default function CopilotKitPage() {
     description: "Remove a checklist item from a project by id.",
     available: "remote",
     parameters: [
-      { name: "itemId", type: "string", required: true, description: "Target item id (project)." },
-      { name: "checklistItemId", type: "string", required: true, description: "Checklist item id to remove." },
+      {
+        name: "itemId",
+        type: "string",
+        required: true,
+        description: "Target item id (project).",
+      },
+      {
+        name: "checklistItemId",
+        type: "string",
+        required: true,
+        description: "Checklist item id to remove.",
+      },
     ],
-    handler: ({ itemId, checklistItemId }: { itemId: string; checklistItemId: string }) => {
-      updateItemData(itemId, (prev) => projectRemoveField4Item(prev as ProjectData, checklistItemId));
+    handler: ({
+      itemId,
+      checklistItemId,
+    }: {
+      itemId: string;
+      checklistItemId: string;
+    }) => {
+      updateItemData(itemId, (prev) =>
+        projectRemoveField4Item(prev as ProjectData, checklistItemId),
+      );
     },
   });
 
@@ -656,14 +970,27 @@ export default function CopilotKitPage() {
     description: "Update entity field1 (text).",
     available: "remote",
     parameters: [
-      { name: "value", type: "string", required: true, description: "New value for field1." },
-      { name: "itemId", type: "string", required: true, description: "Target item id (entity)." },
+      {
+        name: "value",
+        type: "string",
+        required: true,
+        description: "New value for field1.",
+      },
+      {
+        name: "itemId",
+        type: "string",
+        required: true,
+        description: "Target item id (entity).",
+      },
     ],
     handler: ({ value, itemId }: { value: string; itemId: string }) => {
       updateItemData(itemId, (prev) => {
         const anyPrev = prev as { field1?: unknown };
         if (typeof anyPrev.field1 === "string") {
-          return { ...(anyPrev as Record<string, unknown>), field1: value } as ItemData;
+          return {
+            ...(anyPrev as Record<string, unknown>),
+            field1: value,
+          } as ItemData;
         }
         return prev;
       });
@@ -675,8 +1002,18 @@ export default function CopilotKitPage() {
     description: "Update entity field2 (select).",
     available: "remote",
     parameters: [
-      { name: "value", type: "string", required: true, description: "New value for field2." },
-      { name: "itemId", type: "string", required: true, description: "Target item id (entity)." },
+      {
+        name: "value",
+        type: "string",
+        required: true,
+        description: "New value for field2.",
+      },
+      {
+        name: "itemId",
+        type: "string",
+        required: true,
+        description: "Target item id (entity).",
+      },
     ],
     handler: ({ value, itemId }: { value: string; itemId: string }) => {
       updateItemData(itemId, (prev) => {
@@ -694,8 +1031,18 @@ export default function CopilotKitPage() {
     description: "Add a tag to entity field3 (tags) if not present.",
     available: "remote",
     parameters: [
-      { name: "tag", type: "string", required: true, description: "Tag to add." },
-      { name: "itemId", type: "string", required: true, description: "Target item id (entity)." },
+      {
+        name: "tag",
+        type: "string",
+        required: true,
+        description: "Tag to add.",
+      },
+      {
+        name: "itemId",
+        type: "string",
+        required: true,
+        description: "Target item id (entity).",
+      },
     ],
     handler: ({ tag, itemId }: { tag: string; itemId: string }) => {
       updateItemData(itemId, (prev) => {
@@ -712,13 +1059,26 @@ export default function CopilotKitPage() {
     description: "Remove a tag from entity field3 (tags) if present.",
     available: "remote",
     parameters: [
-      { name: "tag", type: "string", required: true, description: "Tag to remove." },
-      { name: "itemId", type: "string", required: true, description: "Target item id (entity)." },
+      {
+        name: "tag",
+        type: "string",
+        required: true,
+        description: "Tag to remove.",
+      },
+      {
+        name: "itemId",
+        type: "string",
+        required: true,
+        description: "Target item id (entity).",
+      },
     ],
     handler: ({ tag, itemId }: { tag: string; itemId: string }) => {
       updateItemData(itemId, (prev) => {
         const e = prev as EntityData;
-        return { ...e, field3: ((e.field3 ?? []) as string[]).filter((t) => t !== tag) } as EntityData;
+        return {
+          ...e,
+          field3: ((e.field3 ?? []) as string[]).filter((t) => t !== tag),
+        } as EntityData;
       });
     },
   });
@@ -728,14 +1088,41 @@ export default function CopilotKitPage() {
     description: "Add a new metric (field1 entries).",
     available: "remote",
     parameters: [
-      { name: "itemId", type: "string", required: true, description: "Target item id (chart)." },
-      { name: "label", type: "string", required: false, description: "Metric label (optional)." },
-      { name: "value", type: "number", required: false, description: "Metric value 0..100 (optional)." },
+      {
+        name: "itemId",
+        type: "string",
+        required: true,
+        description: "Target item id (chart).",
+      },
+      {
+        name: "label",
+        type: "string",
+        required: false,
+        description: "Metric label (optional).",
+      },
+      {
+        name: "value",
+        type: "number",
+        required: false,
+        description: "Metric value 0..100 (optional).",
+      },
     ],
-    handler: ({ itemId, label, value }: { itemId: string; label?: string; value?: number }) => {
+    handler: ({
+      itemId,
+      label,
+      value,
+    }: {
+      itemId: string;
+      label?: string;
+      value?: number;
+    }) => {
       let createdId = "";
       updateItemData(itemId, (prev) => {
-        const { next, createdId: id } = chartAddField1Metric(prev as ChartData, label, value);
+        const { next, createdId: id } = chartAddField1Metric(
+          prev as ChartData,
+          label,
+          value,
+        );
         createdId = id;
         return next;
       });
@@ -748,12 +1135,37 @@ export default function CopilotKitPage() {
     description: "Update chart field1 entry label by index.",
     available: "remote",
     parameters: [
-      { name: "itemId", type: "string", required: true, description: "Target item id (chart)." },
-      { name: "index", type: "number", required: true, description: "Metric index (0-based)." },
-      { name: "label", type: "string", required: true, description: "New metric label." },
+      {
+        name: "itemId",
+        type: "string",
+        required: true,
+        description: "Target item id (chart).",
+      },
+      {
+        name: "index",
+        type: "number",
+        required: true,
+        description: "Metric index (0-based).",
+      },
+      {
+        name: "label",
+        type: "string",
+        required: true,
+        description: "New metric label.",
+      },
     ],
-    handler: ({ itemId, index, label }: { itemId: string; index: number; label: string }) => {
-      updateItemData(itemId, (prev) => chartSetField1Label(prev as ChartData, index, label));
+    handler: ({
+      itemId,
+      index,
+      label,
+    }: {
+      itemId: string;
+      index: number;
+      label: string;
+    }) => {
+      updateItemData(itemId, (prev) =>
+        chartSetField1Label(prev as ChartData, index, label),
+      );
     },
   });
 
@@ -762,12 +1174,37 @@ export default function CopilotKitPage() {
     description: "Update chart field1 entry value by index (0..100).",
     available: "remote",
     parameters: [
-      { name: "itemId", type: "string", required: true, description: "Target item id (chart)." },
-      { name: "index", type: "number", required: true, description: "Metric index (0-based)." },
-      { name: "value", type: "number", required: true, description: "Metric value 0..100." },
+      {
+        name: "itemId",
+        type: "string",
+        required: true,
+        description: "Target item id (chart).",
+      },
+      {
+        name: "index",
+        type: "number",
+        required: true,
+        description: "Metric index (0-based).",
+      },
+      {
+        name: "value",
+        type: "number",
+        required: true,
+        description: "Metric value 0..100.",
+      },
     ],
-    handler: ({ itemId, index, value }: { itemId: string; index: number; value: number }) => {
-      updateItemData(itemId, (prev) => chartSetField1Value(prev as ChartData, index, value));
+    handler: ({
+      itemId,
+      index,
+      value,
+    }: {
+      itemId: string;
+      index: number;
+      value: number;
+    }) => {
+      updateItemData(itemId, (prev) =>
+        chartSetField1Value(prev as ChartData, index, value),
+      );
     },
   });
 
@@ -776,11 +1213,23 @@ export default function CopilotKitPage() {
     description: "Clear chart field1 entry value by index (sets to empty).",
     available: "remote",
     parameters: [
-      { name: "itemId", type: "string", required: true, description: "Target item id (chart)." },
-      { name: "index", type: "number", required: true, description: "Metric index (0-based)." },
+      {
+        name: "itemId",
+        type: "string",
+        required: true,
+        description: "Target item id (chart).",
+      },
+      {
+        name: "index",
+        type: "number",
+        required: true,
+        description: "Metric index (0-based).",
+      },
     ],
     handler: ({ itemId, index }: { itemId: string; index: number }) => {
-      updateItemData(itemId, (prev) => chartSetField1Value(prev as ChartData, index, ""));
+      updateItemData(itemId, (prev) =>
+        chartSetField1Value(prev as ChartData, index, ""),
+      );
     },
   });
 
@@ -789,11 +1238,23 @@ export default function CopilotKitPage() {
     description: "Remove a chart field1 entry by index.",
     available: "remote",
     parameters: [
-      { name: "itemId", type: "string", required: true, description: "Target item id (chart)." },
-      { name: "index", type: "number", required: true, description: "Metric index (0-based)." },
+      {
+        name: "itemId",
+        type: "string",
+        required: true,
+        description: "Target item id (chart).",
+      },
+      {
+        name: "index",
+        type: "number",
+        required: true,
+        description: "Metric index (0-based).",
+      },
     ],
     handler: ({ itemId, index }: { itemId: string; index: number }) => {
-      updateItemData(itemId, (prev) => chartRemoveField1Metric(prev as ChartData, index));
+      updateItemData(itemId, (prev) =>
+        chartRemoveField1Metric(prev as ChartData, index),
+      );
     },
   });
 
@@ -802,14 +1263,29 @@ export default function CopilotKitPage() {
     description: "Create a new item.",
     available: "remote",
     parameters: [
-      { name: "type", type: "string", required: true, description: "One of: project, entity, note, chart." },
-      { name: "name", type: "string", required: false, description: "Optional item name." },
+      {
+        name: "type",
+        type: "string",
+        required: true,
+        description: "One of: project, entity, note, chart.",
+      },
+      {
+        name: "name",
+        type: "string",
+        required: false,
+        description: "Optional item name.",
+      },
     ],
     handler: ({ type, name }: { type: string; name?: string }) => {
-      const t = (type as CardType);
+      const t = type as CardType;
       const normalized = (name ?? "").trim();
       const id = addItem(t, name);
-      lastCreationRef.current = { type: t, name: normalized, id, ts: Date.now() };
+      lastCreationRef.current = {
+        type: t,
+        name: normalized,
+        id,
+        ts: Date.now(),
+      };
       return id;
     },
   });
@@ -819,10 +1295,17 @@ export default function CopilotKitPage() {
     description: "Delete an item by id.",
     available: "remote",
     parameters: [
-      { name: "itemId", type: "string", required: true, description: "Target item id." },
+      {
+        name: "itemId",
+        type: "string",
+        required: true,
+        description: "Target item id.",
+      },
     ],
     handler: ({ itemId }: { itemId: string }) => {
-      const existed = (viewState.items ?? initialState.items).some((p) => p.id === itemId);
+      const existed = (viewState.items ?? initialState.items).some(
+        (p) => p.id === itemId,
+      );
       deleteItem(itemId);
       return existed ? `deleted:${itemId}` : `not_found:${itemId}`;
     },
@@ -839,7 +1322,9 @@ export default function CopilotKitPage() {
 
   return (
     <div
-      style={{ "--copilot-kit-primary-color": "#2563eb" } as CopilotKitCSSProperties}
+      style={
+        { "--copilot-kit-primary-color": "#2563eb" } as CopilotKitCSSProperties
+      }
       className="h-screen flex flex-col"
     >
       <div className="flex flex-1 overflow-hidden">
@@ -850,7 +1335,14 @@ export default function CopilotKitPage() {
               const steps = planStepsMemo;
               const count = steps.length;
               const status = String(planStatusMemo ?? "");
-              if (!Array.isArray(steps) || count === 0 || status === "completed" || status === "failed" || status === "") return null;
+              if (
+                !Array.isArray(steps) ||
+                count === 0 ||
+                status === "completed" ||
+                status === "failed" ||
+                status === ""
+              )
+                return null;
               if (status === "completed") {
                 return (
                   <div className="px-4 pt-3 border-b">
@@ -859,20 +1351,32 @@ export default function CopilotKitPage() {
                         <AccordionTrigger className="text-xs pt-0 pb-3">
                           <span className="inline-flex items-center gap-2">
                             <Check className="h-4 w-4 text-green-600" />
-                            <span className="font-medium">{count} steps completed</span>
+                            <span className="font-medium">
+                              {count} steps completed
+                            </span>
                           </span>
                         </AccordionTrigger>
                         <AccordionContent>
                           <div className="rounded-xl border bg-card p-3">
-                            <div className="mb-1 text-xs font-semibold">Plan <span className="ml-2 rounded-full px-2 py-0.5 text-[10px] font-medium border text-green-700 border-green-300 bg-green-50">completed</span></div>
+                            <div className="mb-1 text-xs font-semibold">
+                              Plan{" "}
+                              <span className="ml-2 rounded-full px-2 py-0.5 text-[10px] font-medium border text-green-700 border-green-300 bg-green-50">
+                                completed
+                              </span>
+                            </div>
                             <ol className="space-y-1">
                               {steps.map((s, i) => (
-                                <li key={`${s.title ?? "step"}-${i}`} className="flex items-start gap-2">
+                                <li
+                                  key={`${s.title ?? "step"}-${i}`}
+                                  className="flex items-start gap-2"
+                                >
                                   <span className="mt-0.5 inline-flex h-4 w-4 items-center justify-center">
                                     <Check className="h-4 w-4 text-green-600" />
                                   </span>
                                   <div className="flex-1 text-xs">
-                                    <div className="leading-5 text-green-700">{s.title ?? `Step ${i + 1}`}</div>
+                                    <div className="leading-5 text-green-700">
+                                      {s.title ?? `Step ${i + 1}`}
+                                    </div>
                                   </div>
                                 </li>
                               ))}
@@ -887,15 +1391,26 @@ export default function CopilotKitPage() {
               return (
                 <div className="p-4 py-3 border-b">
                   <div className="rounded-xl border bg-card p-3">
-                    <div className="mb-1 text-xs font-semibold">Plan <span className="ml-2 rounded-full px-2 py-0.5 text-[10px] font-medium border text-blue-700 border-blue-300 bg-blue-50">in_progress</span></div>
+                    <div className="mb-1 text-xs font-semibold">
+                      Plan{" "}
+                      <span className="ml-2 rounded-full px-2 py-0.5 text-[10px] font-medium border text-blue-700 border-blue-300 bg-blue-50">
+                        in_progress
+                      </span>
+                    </div>
                     <ol className="space-y-1">
                       {steps.map((s, i) => {
                         const st = String(s?.status ?? "pending").toLowerCase();
-                        const isActive = typeof currentStepIndexMemo === "number" && currentStepIndexMemo === i && st === "in_progress";
+                        const isActive =
+                          typeof currentStepIndexMemo === "number" &&
+                          currentStepIndexMemo === i &&
+                          st === "in_progress";
                         const isDone = st === "completed";
                         const isFailed = st === "failed";
                         return (
-                          <li key={`${s.title ?? "step"}-${i}`} className="flex items-start gap-2">
+                          <li
+                            key={`${s.title ?? "step"}-${i}`}
+                            className="flex items-start gap-2"
+                          >
                             <span className="mt-0.5 inline-flex h-4 w-4 items-center justify-center">
                               {isDone ? (
                                 <Check className="h-4 w-4 text-green-600" />
@@ -908,7 +1423,16 @@ export default function CopilotKitPage() {
                               )}
                             </span>
                             <div className="flex-1 text-xs">
-                              <div className={cn("leading-5", isDone && "text-green-700", isActive && "text-blue-700", isFailed && "text-red-700")}>{s.title ?? `Step ${i + 1}`}</div>
+                              <div
+                                className={cn(
+                                  "leading-5",
+                                  isDone && "text-green-700",
+                                  isActive && "text-blue-700",
+                                  isFailed && "text-red-700",
+                                )}
+                              >
+                                {s.title ?? `Step ${i + 1}`}
+                              </div>
                             </div>
                           </li>
                         );
@@ -949,19 +1473,31 @@ export default function CopilotKitPage() {
           </div>
         </aside>
         <main className="relative flex flex-1 h-full">
-          <div ref={scrollAreaRef} className="relative overflow-auto size-full px-4 sm:px-8 md:px-10 py-4">
-            <div className={cn(
-              "relative mx-auto max-w-7xl h-full min-h-8",
-              (showJsonView || (viewState.items ?? []).length === 0) && "flex flex-col",
-            )}>
+          <div
+            ref={scrollAreaRef}
+            className="relative overflow-auto size-full px-4 sm:px-8 md:px-10 py-4"
+          >
+            <div
+              className={cn(
+                "relative mx-auto max-w-7xl h-full min-h-8",
+                (showJsonView || (viewState.items ?? []).length === 0) &&
+                  "flex flex-col",
+              )}
+            >
               {!showJsonView && (
-                <motion.div style={{ opacity: headerOpacity }} className="sticky top-0 mb-6">
+                <motion.div
+                  style={{ opacity: headerOpacity }}
+                  className="sticky top-0 mb-6"
+                >
                   <input
                     ref={titleInputRef}
                     disabled={headerDisabled}
                     value={viewState?.globalTitle ?? initialState.globalTitle}
                     onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                      setState((prev) => ({ ...(prev ?? initialState), globalTitle: e.target.value }))
+                      setState((prev) => ({
+                        ...(prev ?? initialState),
+                        globalTitle: e.target.value,
+                      }))
                     }
                     placeholder="Canvas title..."
                     className={cn(titleClasses, "text-2xl font-semibold")}
@@ -969,22 +1505,39 @@ export default function CopilotKitPage() {
                   <input
                     ref={descTextareaRef}
                     disabled={headerDisabled}
-                    value={viewState?.globalDescription ?? initialState.globalDescription}
+                    value={
+                      viewState?.globalDescription ??
+                      initialState.globalDescription
+                    }
                     onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                      setState((prev) => ({ ...(prev ?? initialState), globalDescription: e.target.value }))
+                      setState((prev) => ({
+                        ...(prev ?? initialState),
+                        globalDescription: e.target.value,
+                      }))
                     }
                     placeholder="Canvas description..."
-                    className={cn(titleClasses, "mt-2 text-sm leading-6 resize-none overflow-hidden")}
+                    className={cn(
+                      titleClasses,
+                      "mt-2 text-sm leading-6 resize-none overflow-hidden",
+                    )}
                   />
                 </motion.div>
               )}
               {(viewState.items ?? []).length === 0 ? (
                 <EmptyState className="flex-1">
                   <div className="mx-auto max-w-lg text-center">
-                    <h2 className="text-lg font-semibold text-foreground">Nothing here yet</h2>
-                    <p className="mt-2 text-sm text-muted-foreground">Create your first item to get started.</p>
+                    <h2 className="text-lg font-semibold text-foreground">
+                      Nothing here yet
+                    </h2>
+                    <p className="mt-2 text-sm text-muted-foreground">
+                      Create your first item to get started.
+                    </p>
                     <div className="mt-6 flex justify-center">
-                      <NewItemMenu onSelect={(t: CardType) => addItem(t)} align="center" className="md:h-10" />
+                      <NewItemMenu
+                        onSelect={(t: CardType) => addItem(t)}
+                        align="center"
+                        className="md:h-10"
+                      />
                     </div>
                   </div>
                 </EmptyState>
@@ -994,14 +1547,21 @@ export default function CopilotKitPage() {
                     <div className="pb-16 size-full">
                       <div className="rounded-2xl border shadow-sm bg-card size-full overflow-auto max-md:text-sm">
                         <ShikiHighlighter language="json" theme="github-light">
-                          {JSON.stringify(getStatePreviewJSON(viewState), null, 2)}
+                          {JSON.stringify(
+                            getStatePreviewJSON(viewState),
+                            null,
+                            2,
+                          )}
                         </ShikiHighlighter>
                       </div>
                     </div>
                   ) : (
                     <div className="grid gap-6 lg:grid-cols-2 pb-20">
                       {(viewState.items ?? []).map((item) => (
-                        <article key={item.id} className="relative rounded-2xl border p-5 shadow-sm transition-colors ease-out bg-card hover:border-accent/40 focus-within:border-accent/60">
+                        <article
+                          key={item.id}
+                          className="relative rounded-2xl border p-5 shadow-sm transition-colors ease-out bg-card hover:border-accent/40 focus-within:border-accent/60"
+                        >
                           <button
                             type="button"
                             aria-label="Delete card"
@@ -1015,12 +1575,22 @@ export default function CopilotKitPage() {
                             name={item.name}
                             subtitle={item.subtitle}
                             description={""}
-                            onNameChange={(v) => updateItem(item.id, { name: v })}
-                            onSubtitleChange={(v) => updateItem(item.id, { subtitle: v })}
+                            onNameChange={(v) =>
+                              updateItem(item.id, { name: v })
+                            }
+                            onSubtitleChange={(v) =>
+                              updateItem(item.id, { subtitle: v })
+                            }
                           />
 
                           <div className="mt-6">
-                            <CardRenderer item={item} onUpdateData={(updater) => updateItemData(item.id, updater)} onToggleTag={(tag) => toggleTag(item.id, tag)} />
+                            <CardRenderer
+                              item={item}
+                              onUpdateData={(updater) =>
+                                updateItemData(item.id, updater)
+                              }
+                              onToggleTag={(tag) => toggleTag(item.id, tag)}
+                            />
                           </div>
                         </article>
                       ))}
@@ -1031,14 +1601,16 @@ export default function CopilotKitPage() {
             </div>
           </div>
           {(viewState.items ?? []).length > 0 ? (
-            <div className={cn(
-              "absolute left-1/2 -translate-x-1/2 bottom-4",
-              "inline-flex rounded-lg shadow-lg bg-card",
-              "[&_button]:bg-card [&_button]:w-22 md:[&_button]:h-10",
-              "[&_button]:shadow-none! [&_button]:hover:bg-accent",
-              "[&_button]:hover:border-accent [&_button]:hover:text-accent",
-              "[&_button]:hover:bg-accent/10!",
-            )}>
+            <div
+              className={cn(
+                "absolute left-1/2 -translate-x-1/2 bottom-4",
+                "inline-flex rounded-lg shadow-lg bg-card",
+                "[&_button]:bg-card [&_button]:w-22 md:[&_button]:h-10",
+                "[&_button]:shadow-none! [&_button]:hover:bg-accent",
+                "[&_button]:hover:border-accent [&_button]:hover:text-accent",
+                "[&_button]:hover:bg-accent/10!",
+              )}
+            >
               <NewItemMenu
                 onSelect={(t: CardType) => addItem(t)}
                 align="center"
@@ -1053,10 +1625,7 @@ export default function CopilotKitPage() {
                 )}
                 onClick={() => setShowJsonView((v) => !v)}
               >
-                {showJsonView
-                  ? "Canvas"
-                  : <>JSON</>
-                }
+                {showJsonView ? "Canvas" : <>JSON</>}
               </Button>
             </div>
           ) : null}
@@ -1095,5 +1664,3 @@ export default function CopilotKitPage() {
     </div>
   );
 }
-
-

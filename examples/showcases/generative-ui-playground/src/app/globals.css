@@ -1,5 +1,5 @@
 /* Plus Jakarta Sans - CopilotKit's brand font */
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
+@import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap");
 
 @import "tailwindcss";
 
@@ -9,26 +9,26 @@
 
 :root {
   /* Brand Colors */
-  --color-lilac: #BEC2FF;
-  --color-lilac-light: #D4D7FF;
-  --color-lilac-dark: #9599CC;
-  --color-mint: #85E0CE;
-  --color-mint-light: #A8E9DC;
-  --color-mint-dark: #1B936F;
+  --color-lilac: #bec2ff;
+  --color-lilac-light: #d4d7ff;
+  --color-lilac-dark: #9599cc;
+  --color-mint: #85e0ce;
+  --color-mint-light: #a8e9dc;
+  --color-mint-dark: #1b936f;
 
   /* Surfaces */
-  --color-surface: #DEDEE9;
-  --color-surface-light: #F7F7F9;
-  --color-container: #FFFFFF;
+  --color-surface: #dedee9;
+  --color-surface-light: #f7f7f9;
+  --color-container: #ffffff;
 
   /* Text */
   --color-text-primary: #010507;
-  --color-text-secondary: #57575B;
-  --color-text-tertiary: #8E8E93;
+  --color-text-secondary: #57575b;
+  --color-text-tertiary: #8e8e93;
 
   /* Borders */
-  --color-border: #DBDBE5;
-  --color-border-light: #EBEBF0;
+  --color-border: #dbdbe5;
+  --color-border-light: #ebebf0;
   --color-border-glass: rgba(255, 255, 255, 0.3);
 
   /* Glassmorphism */
@@ -38,8 +38,10 @@
 
   /* Shadows */
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -1px rgba(0, 0, 0, 0.04);
-  --shadow-lg: 0 10px 25px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -2px rgba(0, 0, 0, 0.03);
+  --shadow-md:
+    0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -1px rgba(0, 0, 0, 0.04);
+  --shadow-lg:
+    0 10px 25px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -2px rgba(0, 0, 0, 0.03);
   --shadow-glass: 0 4px 30px rgba(0, 0, 0, 0.1);
 
   /* Spacing */
@@ -61,7 +63,7 @@
   --radius-2xl: 24px;
 
   /* Typography */
-  --font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  --font-family: "Plus Jakarta Sans", system-ui, -apple-system, sans-serif;
   --font-size-xs: 12px;
   --font-size-sm: 14px;
   --font-size-base: 16px;
@@ -102,12 +104,16 @@ body {
   inset: 0;
   overflow: hidden;
   z-index: 0;
-  background: linear-gradient(135deg, var(--color-surface-light) 0%, var(--color-surface) 100%);
+  background: linear-gradient(
+    135deg,
+    var(--color-surface-light) 0%,
+    var(--color-surface) 100%
+  );
 }
 
 .abstract-bg::before,
 .abstract-bg::after {
-  content: '';
+  content: "";
   position: absolute;
   border-radius: 50%;
   filter: blur(80px);
@@ -136,7 +142,11 @@ body {
   position: absolute;
   width: 400px;
   height: 400px;
-  background: linear-gradient(135deg, var(--color-lilac-light), var(--color-mint-light));
+  background: linear-gradient(
+    135deg,
+    var(--color-lilac-light),
+    var(--color-mint-light)
+  );
   border-radius: 50%;
   filter: blur(100px);
   opacity: 0.4;
@@ -147,23 +157,48 @@ body {
 }
 
 @keyframes blob1 {
-  0%, 100% { transform: translate(0, 0) scale(1); }
-  25% { transform: translate(-30px, 50px) scale(1.1); }
-  50% { transform: translate(20px, -30px) scale(0.95); }
-  75% { transform: translate(40px, 20px) scale(1.05); }
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+  25% {
+    transform: translate(-30px, 50px) scale(1.1);
+  }
+  50% {
+    transform: translate(20px, -30px) scale(0.95);
+  }
+  75% {
+    transform: translate(40px, 20px) scale(1.05);
+  }
 }
 
 @keyframes blob2 {
-  0%, 100% { transform: translate(0, 0) scale(1); }
-  33% { transform: translate(50px, -40px) scale(1.1); }
-  66% { transform: translate(-30px, 30px) scale(0.9); }
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+  33% {
+    transform: translate(50px, -40px) scale(1.1);
+  }
+  66% {
+    transform: translate(-30px, 30px) scale(0.9);
+  }
 }
 
 @keyframes blob3 {
-  0%, 100% { transform: translate(-50%, -50%) scale(1); }
-  25% { transform: translate(-45%, -55%) scale(1.15); }
-  50% { transform: translate(-55%, -45%) scale(0.9); }
-  75% { transform: translate(-48%, -52%) scale(1.1); }
+  0%,
+  100% {
+    transform: translate(-50%, -50%) scale(1);
+  }
+  25% {
+    transform: translate(-45%, -55%) scale(1.15);
+  }
+  50% {
+    transform: translate(-55%, -45%) scale(0.9);
+  }
+  75% {
+    transform: translate(-48%, -52%) scale(1.1);
+  }
 }
 
 /* Mobile responsive blobs - reduce size and blur for performance */
@@ -214,7 +249,9 @@ body {
   border-radius: var(--radius-xl);
   box-shadow: var(--shadow-glass);
   padding: var(--space-6);
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
 }
 
 .glass-card:hover {
@@ -239,7 +276,7 @@ body {
 }
 
 .protocol-card::before {
-  content: '';
+  content: "";
   position: absolute;
   top: 0;
   left: 0;
@@ -271,7 +308,7 @@ body {
 }
 
 .protocol-card-icon.static {
-  background: linear-gradient(135deg, #3B82F6, #1D4ED8);
+  background: linear-gradient(135deg, #3b82f6, #1d4ed8);
 }
 
 .protocol-card-icon.mcp {
@@ -279,7 +316,7 @@ body {
 }
 
 .protocol-card-icon.a2ui {
-  background: linear-gradient(135deg, #F59E0B, #D97706);
+  background: linear-gradient(135deg, #f59e0b, #d97706);
 }
 
 /* =============================================================================
@@ -398,7 +435,11 @@ div[data-sidebar-chat] > div > div {
 ============================================================================= */
 
 .text-gradient {
-  background: linear-gradient(135deg, var(--color-lilac-dark), var(--color-mint-dark));
+  background: linear-gradient(
+    135deg,
+    var(--color-lilac-dark),
+    var(--color-mint-dark)
+  );
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -406,8 +447,9 @@ div[data-sidebar-chat] > div > div {
 
 .border-gradient {
   border: 2px solid transparent;
-  background: linear-gradient(var(--color-container), var(--color-container)) padding-box,
-              linear-gradient(135deg, var(--color-lilac), var(--color-mint)) border-box;
+  background:
+    linear-gradient(var(--color-container), var(--color-container)) padding-box,
+    linear-gradient(135deg, var(--color-lilac), var(--color-mint)) border-box;
 }
 
 /* =============================================================================

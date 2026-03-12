@@ -28,9 +28,12 @@ export default function StatsPanel({
 
         {/* Level Info */}
         <div className="text-left">
-          <h3 className="text-lg font-bold text-gray-900">{currentLevel.name}</h3>
+          <h3 className="text-lg font-bold text-gray-900">
+            {currentLevel.name}
+          </h3>
           <p className="text-sm text-gray-500">
-            {visitedCount} {visitedCount === 1 ? "country" : "countries"} visited
+            {visitedCount} {visitedCount === 1 ? "country" : "countries"}{" "}
+            visited
           </p>
         </div>
 

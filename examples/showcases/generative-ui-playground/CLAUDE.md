@@ -27,13 +27,17 @@ Generative UI playground showcasing three protocols for AI-powered interfaces.
 ## Three Protocols
 
 ### 1. Static GenUI
+
 Pre-built React components rendered by frontend hooks.
+
 - **useRenderToolCall**: Display-only rendering (WeatherCard, StockCard)
 - **useHumanInTheLoop**: Interactive approval (TaskApprovalCard)
 - **Files**: `src/app/components/static-tools/*.tsx`
 
 ### 2. MCP Apps
+
 HTML/JS apps served by MCP server, rendered as sandboxed iframes.
+
 - 6 apps: Flights, Hotels, Trading, Kanban, Calculator, Todo
 - MCP server registers tools with UI resources (`mimeType: "text/html+mcp"`)
 - MCPAppsMiddleware bridges MCP to AG-UI events
@@ -41,7 +45,9 @@ HTML/JS apps served by MCP server, rendered as sandboxed iframes.
 - **Files**: `mcp-server/apps/*.html`, `mcp-server/server.ts`, `public/sandbox.html`
 
 ### 3. A2UI (Agent-to-UI)
+
 Agent-composed declarative JSON UI, rendered dynamically.
+
 - Python agent (Google ADK) generates A2UI JSON at runtime
 - General-purpose UI generator: forms, lists, cards, confirmations
 - No external data dependencies - generates UI from user descriptions
@@ -68,6 +74,7 @@ npm run dev
 ```
 
 ### URLs
+
 - Frontend: http://localhost:3000
 - MCP Server: http://localhost:3001/mcp
 - A2A Agent: http://localhost:10002
@@ -84,6 +91,7 @@ A2A_AGENT_URL=http://localhost:10002
 ## Production URLs (Railway)
 
 Live deployment on Railway:
+
 - **Frontend**: https://frontend-production-456e.up.railway.app
 - **MCP Server**: https://mcp-server-production-5419.up.railway.app
 - **A2A Agent**: https://a2a-agent-production.up.railway.app
@@ -126,6 +134,7 @@ ui-protocols-demo/
 ## Agent Switching
 
 Frontend uses `useState` to toggle between agents:
+
 - `"default"`: Static GenUI + MCP Apps (BasicAgent + MCPAppsMiddleware)
 - `"a2ui"`: General-purpose UI generator (HttpAgent → Python A2A backend)
 
@@ -191,10 +200,13 @@ Located at `src/app/hooks/useSendMessage.ts`.
 ## Styling Notes
 
 ### CopilotKit Banner
+
 To disable the "CopilotKit v1.50 is now live!" announcement banner, set `showDevConsole={false}` on CopilotKitProvider. This must be set on both providers (default mode in `page.tsx` and A2UI mode in `A2UIPage.tsx`).
 
 ### Chat Padding Override
+
 CopilotKit's sidebar chat has hardcoded 32px horizontal padding via Tailwind class `[div[data-sidebar-chat]_&]:px-8`. To override:
+
 ```css
 div[data-sidebar-chat] > div > div {
   padding-left: 8px !important;
@@ -203,9 +215,11 @@ div[data-sidebar-chat] > div > div {
 ```
 
 ### Content Centering with Sidebar
+
 When using a fixed-position 400px sidebar, apply `paddingRight: '400px'` to the flex **container** (not the child). This ensures `mx-auto` centers content relative to the visible viewport:
+
 ```tsx
-<div className="flex min-h-screen" style={{ paddingRight: '400px' }}>
+<div className="flex min-h-screen" style={{ paddingRight: "400px" }}>
   <div className="flex-1">
     <div className="max-w-3xl mx-auto">...</div>
   </div>
@@ -213,11 +227,13 @@ When using a fixed-position 400px sidebar, apply `paddingRight: '400px'` to the 
 ```
 
 ### A2UI Button Text Color
+
 A2UI uses Lit web components with shadow DOM. Button text is rendered inside nested `<a2ui-text>` elements that use `<p>` tags with `color-c-n30` class.
 
 **Required**: Import `a2ui-theme.css` in layout.tsx - this defines the CSS custom properties (`--n-100: #ffffff`, `--n-30: #474747`, etc.) that A2UI components need.
 
 **Theme additionalStyles** override button text color:
+
 ```typescript
 additionalStyles: {
   Button: {

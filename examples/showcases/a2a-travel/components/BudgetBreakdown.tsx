@@ -56,7 +56,9 @@ export const BudgetBreakdown: React.FC<BudgetBreakdownProps> = ({ data }) => {
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
             <span className="text-xl">💰</span>
-            <h2 className="text-xl font-semibold text-[#010507]">Budget Estimate</h2>
+            <h2 className="text-xl font-semibold text-[#010507]">
+              Budget Estimate
+            </h2>
           </div>
           <div className="text-right">
             <div className="text-2xl font-bold text-[#010507]">
@@ -77,7 +79,10 @@ export const BudgetBreakdown: React.FC<BudgetBreakdownProps> = ({ data }) => {
         {data.breakdown.map((category, index) => {
           const colors = getCategoryColor(index);
           return (
-            <div key={index} className="bg-white/80 backdrop-blur-sm rounded-lg p-2 shadow-elevation-sm border border-[#E9E9EF]">
+            <div
+              key={index}
+              className="bg-white/80 backdrop-blur-sm rounded-lg p-2 shadow-elevation-sm border border-[#E9E9EF]"
+            >
               {/* Category Header */}
               <div className="flex items-center justify-between mb-1">
                 <div className="flex items-center gap-2">
@@ -103,7 +108,10 @@ export const BudgetBreakdown: React.FC<BudgetBreakdownProps> = ({ data }) => {
               <div className="w-full bg-[#E9E9EF] rounded-full h-2 overflow-hidden">
                 <div
                   className="h-full transition-all duration-1000 ease-out rounded-full"
-                  style={{ width: `${category.percentage}%`, backgroundColor: colors.bg }}
+                  style={{
+                    width: `${category.percentage}%`,
+                    backgroundColor: colors.bg,
+                  }}
                 ></div>
               </div>
             </div>

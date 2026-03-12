@@ -114,7 +114,7 @@ IMPORTANT:
       const fallbackReply = customer
         ? `I understand your ${intent.replace(
             /_/g,
-            " "
+            " ",
           )} concern. I can see you're on our ${
             customer.InternetService
           } service at $${
@@ -140,5 +140,5 @@ IMPORTANT:
       intent: z.string().describe("The classified intent category"),
       message: z.string().describe("The original customer message"),
     }),
-  }
+  },
 );

@@ -37,14 +37,20 @@ export const BudgetApprovalCard: React.FC<BudgetApprovalCardProps> = ({
       <div className="flex items-center gap-2 mb-3">
         <div className="text-2xl">💰</div>
         <div>
-          <h3 className="text-base font-semibold text-[#010507]">Budget Approval Required</h3>
-          <p className="text-xs text-[#57575B]">Please review and approve the estimated budget</p>
+          <h3 className="text-base font-semibold text-[#010507]">
+            Budget Approval Required
+          </h3>
+          <p className="text-xs text-[#57575B]">
+            Please review and approve the estimated budget
+          </p>
         </div>
       </div>
 
       <div className="bg-white/80 backdrop-blur-sm rounded-lg p-3 mb-3 border border-[#DBDBE5] shadow-elevation-sm">
         <div className="flex items-center justify-between mb-2">
-          <span className="text-[#57575B] font-medium text-sm">Total Budget</span>
+          <span className="text-[#57575B] font-medium text-sm">
+            Total Budget
+          </span>
           <span className="text-2xl font-bold text-[#010507]">
             {formatCurrency(budgetData.totalBudget)}
           </span>
@@ -52,13 +58,18 @@ export const BudgetApprovalCard: React.FC<BudgetApprovalCardProps> = ({
 
         <div className="space-y-1.5">
           {budgetData.breakdown?.map((category, idx) => (
-            <div key={idx} className="flex items-center justify-between text-xs">
+            <div
+              key={idx}
+              className="flex items-center justify-between text-xs"
+            >
               <span className="text-[#57575B]">{category.category}</span>
               <div className="flex items-center gap-2">
                 <span className="font-semibold text-[#010507]">
                   {formatCurrency(category.amount)}
                 </span>
-                <span className="text-[#838389]">({category.percentage.toFixed(0)}%)</span>
+                <span className="text-[#838389]">
+                  ({category.percentage.toFixed(0)}%)
+                </span>
               </div>
             </div>
           ))}
@@ -93,8 +104,8 @@ export const BudgetApprovalCard: React.FC<BudgetApprovalCardProps> = ({
             isApproved
               ? "bg-[#1B936F] text-white cursor-not-allowed"
               : isRejected
-              ? "bg-[#838389] text-white cursor-not-allowed"
-              : "bg-[#1B936F] hover:bg-[#189370] text-white"
+                ? "bg-[#838389] text-white cursor-not-allowed"
+                : "bg-[#1B936F] hover:bg-[#189370] text-white"
           }`}
         >
           {isApproved ? "✓ Approved" : "Approve Budget"}

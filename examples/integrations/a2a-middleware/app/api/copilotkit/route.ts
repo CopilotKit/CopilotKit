@@ -20,9 +20,12 @@ import { A2AMiddlewareAgent } from "@ag-ui/a2a-middleware";
 import { NextRequest } from "next/server";
 
 export async function POST(request: NextRequest) {
-  const researchAgentUrl = process.env.RESEARCH_AGENT_URL || "http://localhost:9001";
-  const analysisAgentUrl = process.env.ANALYSIS_AGENT_URL || "http://localhost:9002";
-  const orchestratorUrl = process.env.ORCHESTRATOR_URL || "http://localhost:9000";
+  const researchAgentUrl =
+    process.env.RESEARCH_AGENT_URL || "http://localhost:9001";
+  const analysisAgentUrl =
+    process.env.ANALYSIS_AGENT_URL || "http://localhost:9002";
+  const orchestratorUrl =
+    process.env.ORCHESTRATOR_URL || "http://localhost:9000";
 
   // Connect to orchestrator via AG-UI Protocol
   const orchestrationAgent = new HttpAgent({
@@ -34,10 +37,7 @@ export async function POST(request: NextRequest) {
   const a2aMiddlewareAgent = new A2AMiddlewareAgent({
     description:
       "Research assistant with 2 specialized agents: Research (LangGraph) and Analysis (ADK)",
-    agentUrls: [
-      researchAgentUrl,
-      analysisAgentUrl,
-    ],
+    agentUrls: [researchAgentUrl, analysisAgentUrl],
     orchestrationAgent,
     instructions: `
       You are a research assistant that orchestrates between 2 specialized agents.

@@ -1,9 +1,9 @@
-"use client"
+"use client";
 
-import { useEffect, useState } from "react"
-import { Badge } from "@/components/ui/badge"
-import { ScrollArea } from "@/components/ui/scroll-area"
-import { CopilotChat, useCopilotChatSuggestions } from "@copilotkit/react-ui"
+import { useEffect, useState } from "react";
+import { Badge } from "@/components/ui/badge";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { CopilotChat, useCopilotChatSuggestions } from "@copilotkit/react-ui";
 import "@copilotkit/react-ui/styles.css";
 import { TextMessage, Role } from "@copilotkit/runtime-client-gql";
 import {
@@ -21,24 +21,33 @@ import {
   Star,
   ChevronDown,
   Check,
-} from "lucide-react"
-import { useCoAgent, useCoAgentStateRender, useCopilotAction, useCopilotChat } from "@copilotkit/react-core"
-import { ToolLogs } from "@/components/ui/tool-logs"
-import { XPost, XPostPreview, XPostCompact } from "@/components/ui/x-post"
-import { LinkedInPost, LinkedInPostPreview, LinkedInPostCompact } from "@/components/ui/linkedin-post"
-import { Button } from "@/components/ui/button"
-import { initialPrompt, suggestionPrompt } from "../prompts/prompts"
-import { Textarea } from "@/components/ui/textarea"
-import { cn } from "@/lib/utils"
-import { useRouter } from "next/navigation"
-import { useLayout } from "../contexts/LayoutContext"
-
+} from "lucide-react";
+import {
+  useCoAgent,
+  useCoAgentStateRender,
+  useCopilotAction,
+  useCopilotChat,
+} from "@copilotkit/react-core";
+import { ToolLogs } from "@/components/ui/tool-logs";
+import { XPost, XPostPreview, XPostCompact } from "@/components/ui/x-post";
+import {
+  LinkedInPost,
+  LinkedInPostPreview,
+  LinkedInPostCompact,
+} from "@/components/ui/linkedin-post";
+import { Button } from "@/components/ui/button";
+import { initialPrompt, suggestionPrompt } from "../prompts/prompts";
+import { Textarea } from "@/components/ui/textarea";
+import { cn } from "@/lib/utils";
+import { useRouter } from "next/navigation";
+import { useLayout } from "../contexts/LayoutContext";
 
 const agents = [
   {
     id: "post_generation_agent",
     name: "Post Generator",
-    description: "Generate posts for Linkedin and X with Gemini and Google web search",
+    description:
+      "Generate posts for Linkedin and X with Gemini and Google web search",
     icon: Search,
     gradient: "from-blue-500 to-purple-600",
     active: true,
@@ -50,71 +59,91 @@ const agents = [
     icon: FileText,
     gradient: "from-green-500 to-teal-600",
     active: false,
-  }
-]
+  },
+];
 
 const quickActions = [
-  { label: "Recent Research", icon: Search, color: "text-blue-600", prompt: "Generate a post about recent research on String Theory" },
-  { label: "Recent News", icon: FileText, color: "text-green-600", prompt: "Generate a post about recent news in United States" },
-  { label: "Post about Social Media", icon: Twitter, color: "text-purple-600", prompt: "Generate a post about Instagram" },
-  { label: "Post about Stocks", icon: TrendingUp, color: "text-orange-600", prompt: "Generate a post about Nvidia" },
-]
+  {
+    label: "Recent Research",
+    icon: Search,
+    color: "text-blue-600",
+    prompt: "Generate a post about recent research on String Theory",
+  },
+  {
+    label: "Recent News",
+    icon: FileText,
+    color: "text-green-600",
+    prompt: "Generate a post about recent news in United States",
+  },
+  {
+    label: "Post about Social Media",
+    icon: Twitter,
+    color: "text-purple-600",
+    prompt: "Generate a post about Instagram",
+  },
+  {
+    label: "Post about Stocks",
+    icon: TrendingUp,
+    color: "text-orange-600",
+    prompt: "Generate a post about Nvidia",
+  },
+];
 
 interface PostInterface {
   tweet: {
-    title: string
-    content: string
-  }
+    title: string;
+    content: string;
+  };
   linkedIn: {
-    title: string
-    content: string
-  }
+    title: string;
+    content: string;
+  };
 }
 
-
 export default function PostGenerator() {
-  const router = useRouter()
-  const { updateLayout } = useLayout()
-  const [selectedAgent, setSelectedAgent] = useState(agents[0])
-  const [showColumns, setShowColumns] = useState(false)
-  const [posts, setPosts] = useState<PostInterface>({ tweet: { title: "", content: "" }, linkedIn: { title: "", content: "" } })
-  const [isAgentActive, setIsAgentActive] = useState(false)
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false)
+  const router = useRouter();
+  const { updateLayout } = useLayout();
+  const [selectedAgent, setSelectedAgent] = useState(agents[0]);
+  const [showColumns, setShowColumns] = useState(false);
+  const [posts, setPosts] = useState<PostInterface>({
+    tweet: { title: "", content: "" },
+    linkedIn: { title: "", content: "" },
+  });
+  const [isAgentActive, setIsAgentActive] = useState(false);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const { setState, running } = useCoAgent({
     name: "post_generation_agent",
     initialState: {
-      tool_logs: []
-    }
-  })
+      tool_logs: [],
+    },
+  });
 
-  const { appendMessage, setMessages } = useCopilotChat()
-
+  const { appendMessage, setMessages } = useCopilotChat();
 
   // Handle clicking outside dropdown to close it
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      const target = event.target as Element
-      if (!target.closest('.dropdown-container')) {
-        setIsDropdownOpen(false)
+      const target = event.target as Element;
+      if (!target.closest(".dropdown-container")) {
+        setIsDropdownOpen(false);
       }
-    }
+    };
 
     if (isDropdownOpen) {
-      document.addEventListener('mousedown', handleClickOutside)
+      document.addEventListener("mousedown", handleClickOutside);
     }
 
     return () => {
-      document.removeEventListener('mousedown', handleClickOutside)
-    }
-  }, [isDropdownOpen])
-
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [isDropdownOpen]);
 
   useCoAgentStateRender({
     name: "post_generation_agent",
     render: (state) => {
-      return <ToolLogs logs={state?.state?.tool_logs || []} />
-    }
-  })
+      return <ToolLogs logs={state?.state?.tool_logs || []} />;
+    },
+  });
 
   useCopilotAction({
     name: "generate_post",
@@ -128,14 +157,14 @@ export default function PostGenerator() {
           {
             name: "title",
             type: "string",
-            description: "The title of the post"
+            description: "The title of the post",
           },
           {
             name: "content",
             type: "string",
-            description: "The content of the post"
-          }
-        ]
+            description: "The content of the post",
+          },
+        ],
       },
       {
         name: "linkedIn",
@@ -145,46 +174,57 @@ export default function PostGenerator() {
           {
             name: "title",
             type: "string",
-            description: "The title of the post"
+            description: "The title of the post",
           },
           {
             name: "content",
             type: "string",
-            description: "The content of the post"
-          }
-        ]
-      }
+            description: "The content of the post",
+          },
+        ],
+      },
     ],
     render: ({ args }) => {
       useEffect(() => {
-        console.log("Rendering posts with args:", args)
+        console.log("Rendering posts with args:", args);
         // console.log(posts.linkedIn.content == '')
-      }, [args])
-      return <>
-        {args.tweet?.content != '' && <div className="px-2 mb-3">
-          <XPostCompact title={args.tweet?.title || ""} content={args.tweet?.content || ""} />
-        </div>}
-        {args.linkedIn?.content != '' && <div className="px-2">
-          <LinkedInPostCompact title={args.linkedIn?.title || ""} content={args.linkedIn?.content || ""} />
-        </div>}
-      </>
+      }, [args]);
+      return (
+        <>
+          {args.tweet?.content != "" && (
+            <div className="px-2 mb-3">
+              <XPostCompact
+                title={args.tweet?.title || ""}
+                content={args.tweet?.content || ""}
+              />
+            </div>
+          )}
+          {args.linkedIn?.content != "" && (
+            <div className="px-2">
+              <LinkedInPostCompact
+                title={args.linkedIn?.title || ""}
+                content={args.linkedIn?.content || ""}
+              />
+            </div>
+          )}
+        </>
+      );
     },
     handler: (args) => {
-      console.log(args, "args")
-      setShowColumns(true)
-      setPosts({ tweet: args.tweet, linkedIn: args.linkedIn })
+      console.log(args, "args");
+      setShowColumns(true);
+      setPosts({ tweet: args.tweet, linkedIn: args.linkedIn });
       setState((prevState) => ({
         ...prevState,
-        tool_logs: []
-      }))
-    }
-  })
+        tool_logs: [],
+      }));
+    },
+  });
 
   useCopilotChatSuggestions({
     available: "enabled",
     instructions: suggestionPrompt,
-  })
-
+  });
 
   return (
     <div className="flex h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 overflow-hidden">
@@ -211,58 +251,72 @@ export default function PostGenerator() {
 
           {/* Enhanced Agent Selector */}
           <div className="space-y-3">
-            <label className="text-sm font-semibold text-gray-700">Active Agent</label>
+            <label className="text-sm font-semibold text-gray-700">
+              Active Agent
+            </label>
             <div className="relative dropdown-container">
               <button
                 onClick={() => setIsDropdownOpen(!isDropdownOpen)}
                 className="w-full p-4 pr-8 border border-gray-200/50 rounded-xl bg-white/50 backdrop-blur-sm text-sm  transition-all duration-300 shadow-sm hover:shadow-md hover:bg-white/70 flex items-center justify-between group"
               >
                 <div className="flex items-center gap-3">
-                  <div className={`w-6 h-6 bg-gradient-to-r ${selectedAgent.gradient} rounded-lg flex items-center justify-center shadow-sm`}>
+                  <div
+                    className={`w-6 h-6 bg-gradient-to-r ${selectedAgent.gradient} rounded-lg flex items-center justify-center shadow-sm`}
+                  >
                     <selectedAgent.icon className="w-4 h-4 text-white" />
                   </div>
-                  <span className="font-medium text-gray-900">{selectedAgent.name}</span>
+                  <span className="font-medium text-gray-900">
+                    {selectedAgent.name}
+                  </span>
                 </div>
-                <ChevronDown 
+                <ChevronDown
                   className={cn(
                     "w-4 h-4 text-gray-500 transition-transform duration-300",
-                    isDropdownOpen && "rotate-180"
-                  )} 
+                    isDropdownOpen && "rotate-180",
+                  )}
                 />
               </button>
-              
+
               {/* Dropdown Menu */}
-              <div className={cn(
-                "absolute top-full left-0 right-0 mt-1 bg-white/95 backdrop-blur-xl border border-gray-200/50 rounded-xl shadow-xl z-50 transition-all duration-300 transform origin-top",
-                isDropdownOpen 
-                  ? "opacity-100 scale-100 translate-y-0" 
-                  : "opacity-0 scale-95 -translate-y-2 pointer-events-none"
-              )}>
+              <div
+                className={cn(
+                  "absolute top-full left-0 right-0 mt-1 bg-white/95 backdrop-blur-xl border border-gray-200/50 rounded-xl shadow-xl z-50 transition-all duration-300 transform origin-top",
+                  isDropdownOpen
+                    ? "opacity-100 scale-100 translate-y-0"
+                    : "opacity-0 scale-95 -translate-y-2 pointer-events-none",
+                )}
+              >
                 <div className="p-1">
                   {agents.map((agent) => (
                     <button
                       key={agent.id}
                       onClick={() => {
                         if (selectedAgent.id != agent.id) {
-                            updateLayout({ agent: agent.id })
-                            setMessages([])
-                            router.push(`/stack-analyzer`)
+                          updateLayout({ agent: agent.id });
+                          setMessages([]);
+                          router.push(`/stack-analyzer`);
                         }
-                        setIsDropdownOpen(false)
+                        setIsDropdownOpen(false);
                       }}
                       className="w-full p-3 rounded-lg text-left transition-all duration-200 flex items-center gap-3 hover:bg-gradient-to-r hover:from-blue-50 hover:to-purple-50 hover:shadow-sm group"
                     >
-                      <div className={`w-6 h-6 bg-gradient-to-r ${agent.gradient} rounded-lg flex items-center justify-center shadow-sm group-hover:scale-110 transition-transform duration-200`}>
+                      <div
+                        className={`w-6 h-6 bg-gradient-to-r ${agent.gradient} rounded-lg flex items-center justify-center shadow-sm group-hover:scale-110 transition-transform duration-200`}
+                      >
                         <agent.icon className="w-4 h-4 text-white" />
                       </div>
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
-                          <span className="font-medium text-gray-900 group-hover:text-blue-700 transition-colors duration-200">{agent.name}</span>
+                          <span className="font-medium text-gray-900 group-hover:text-blue-700 transition-colors duration-200">
+                            {agent.name}
+                          </span>
                           {selectedAgent.id === agent.id && (
                             <Check className="w-4 h-4 text-blue-600" />
                           )}
                         </div>
-                        <p className="text-xs text-gray-500 mt-1 group-hover:text-gray-600 transition-colors duration-200">{agent.description}</p>
+                        <p className="text-xs text-gray-500 mt-1 group-hover:text-gray-600 transition-colors duration-200">
+                          {agent.description}
+                        </p>
                       </div>
                     </button>
                   ))}
@@ -272,58 +326,63 @@ export default function PostGenerator() {
           </div>
         </div>
 
-
         <div className="flex-1 overflow-auto">
-
           {/* Chat Input at Bottom */}
-          <CopilotChat className="h-full p-2" labels={{
-            initial: initialPrompt
-          }}
+          <CopilotChat
+            className="h-full p-2"
+            labels={{
+              initial: initialPrompt,
+            }}
             Input={({ onSend, inProgress }) => {
               useEffect(() => {
                 if (inProgress) {
-                  setIsAgentActive(true)
+                  setIsAgentActive(true);
                 } else {
-                  setIsAgentActive(false)
+                  setIsAgentActive(false);
                 }
-              }, [inProgress])
-              const [input, setInput] = useState("")
-              return (<>
-                <div className="space-y-3">
-                  <form className="flex flex-col gap-3">
-                    <Textarea
-                      value={input}
-                      onKeyDown={(e) => {
-                        if (e.key.toLowerCase() === 'enter' && !inProgress) {
-                          appendMessage(new TextMessage({
-                            role: Role.User,
-                            content: input
-                          }))
-                        }
-                      }}
-                      onChange={(e) => setInput(e.target.value)}
-                      placeholder="Type your message..."
-                      className="min-h-[80px] resize-none rounded-xl border-muted-foreground/20 p-3"
-                    />
-                    <Button disabled={inProgress}
-                      
-                      onClick={(e) => {
-                        e.preventDefault()
-                        if (input.trim() === "") return
-                        console.log("sending message")
-                        onSend(input)
-                        setInput("")
-                      }} className="self-end rounded-xl px-5 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 text-white">
-                      <Send className="mr-2 h-4 w-4" />
-                      Send
-                    </Button>
-                  </form>
-                </div>
-              </>)
+              }, [inProgress]);
+              const [input, setInput] = useState("");
+              return (
+                <>
+                  <div className="space-y-3">
+                    <form className="flex flex-col gap-3">
+                      <Textarea
+                        value={input}
+                        onKeyDown={(e) => {
+                          if (e.key.toLowerCase() === "enter" && !inProgress) {
+                            appendMessage(
+                              new TextMessage({
+                                role: Role.User,
+                                content: input,
+                              }),
+                            );
+                          }
+                        }}
+                        onChange={(e) => setInput(e.target.value)}
+                        placeholder="Type your message..."
+                        className="min-h-[80px] resize-none rounded-xl border-muted-foreground/20 p-3"
+                      />
+                      <Button
+                        disabled={inProgress}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          if (input.trim() === "") return;
+                          console.log("sending message");
+                          onSend(input);
+                          setInput("");
+                        }}
+                        className="self-end rounded-xl px-5 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 text-white"
+                      >
+                        <Send className="mr-2 h-4 w-4" />
+                        Send
+                      </Button>
+                    </form>
+                  </div>
+                </>
+              );
             }}
           />
         </div>
-
       </div>
 
       {/* Main Content */}
@@ -339,14 +398,18 @@ export default function PostGenerator() {
                 <h2 className="text-2xl font-bold bg-gradient-to-r from-gray-900 via-blue-800 to-purple-800 bg-clip-text text-transparent">
                   Posts Generation Canvas
                 </h2>
-                <p className="text-sm text-gray-600">Powered by Gemini AI & Google Web Search</p>
+                <p className="text-sm text-gray-600">
+                  Powered by Gemini AI & Google Web Search
+                </p>
               </div>
             </div>
             <div className="flex items-center gap-3">
-              {isAgentActive && <Badge className="bg-gradient-to-r from-green-500 to-emerald-500 text-white border-0 shadow-sm">
-                <div className="w-2 h-2 bg-white rounded-full mr-2 animate-pulse"></div>
-                Live Research
-              </Badge>}
+              {isAgentActive && (
+                <Badge className="bg-gradient-to-r from-green-500 to-emerald-500 text-white border-0 shadow-sm">
+                  <div className="w-2 h-2 bg-white rounded-full mr-2 animate-pulse"></div>
+                  Live Research
+                </Badge>
+              )}
               {/* <div className="w-8 h-8 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-lg flex items-center justify-center">
                 <Zap className="w-4 h-4 text-white" />
               </div> */}
@@ -359,14 +422,24 @@ export default function PostGenerator() {
           {showColumns ? (
             <div className="flex gap-6 min-h-full">
               {/* LinkedIn Column - 75% */}
-              {posts.linkedIn.content != '' && <div className="w-[75%] h-full">
-                <LinkedInPostPreview title={posts.linkedIn.title || ""} content={posts.linkedIn.content || ""} />
-              </div>}
+              {posts.linkedIn.content != "" && (
+                <div className="w-[75%] h-full">
+                  <LinkedInPostPreview
+                    title={posts.linkedIn.title || ""}
+                    content={posts.linkedIn.content || ""}
+                  />
+                </div>
+              )}
 
               {/* X Post Column - 25% */}
-              {posts.tweet.content != '' && <div className="w-[25%] h-full">
-                <XPostPreview title={posts.tweet.title || ""} content={posts.tweet.content || ""} />
-              </div>}
+              {posts.tweet.content != "" && (
+                <div className="w-[25%] h-full">
+                  <XPostPreview
+                    title={posts.tweet.title || ""}
+                    content={posts.tweet.content || ""}
+                  />
+                </div>
+              )}
             </div>
           ) : (
             <div className="text-center py-16">
@@ -379,7 +452,8 @@ export default function PostGenerator() {
                 Ready to Explore
               </h3>
               <p className="text-gray-600 mb-8 max-w-md mx-auto leading-relaxed">
-                Harness the power of Google's most advanced AI models for generating interactive LinkedIn and X Posts.
+                Harness the power of Google's most advanced AI models for
+                generating interactive LinkedIn and X Posts.
               </p>
               <div className="grid grid-cols-2 gap-4 max-w-lg mx-auto">
                 {quickActions.slice(0, 4).map((action, index) => (
@@ -387,12 +461,15 @@ export default function PostGenerator() {
                     key={index}
                     variant="outline"
                     disabled={running}
-
                     className="h-auto p-6 flex flex-col items-center gap-3 bg-white/50 backdrop-blur-sm border-gray-200/50 hover:bg-gradient-to-r hover:from-blue-50 hover:to-purple-50 rounded-xl transition-all duration-300 group"
-                    onClick={() => appendMessage(new TextMessage({
-                      role: Role.User,
-                      content: action.prompt
-                    }))}
+                    onClick={() =>
+                      appendMessage(
+                        new TextMessage({
+                          role: Role.User,
+                          content: action.prompt,
+                        }),
+                      )
+                    }
                   >
                     <action.icon
                       className={`w-6 h-6 ${action.color} group-hover:scale-110 transition-transform duration-200`}
@@ -405,6 +482,6 @@ export default function PostGenerator() {
           )}
         </div>
       </div>
-    </div >
-  )
+    </div>
+  );
 }

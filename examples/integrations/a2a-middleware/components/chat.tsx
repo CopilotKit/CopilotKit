@@ -6,7 +6,11 @@
  */
 
 import React, { useEffect } from "react";
-import { CopilotKit, useCopilotChat, useCopilotAction } from "@copilotkit/react-core";
+import {
+  CopilotKit,
+  useCopilotChat,
+  useCopilotAction,
+} from "@copilotkit/react-core";
 import { CopilotChat } from "@copilotkit/react-ui";
 import "@copilotkit/react-ui/styles.css";
 import { MessageToA2A } from "./a2a/MessageToA2A";
@@ -40,7 +44,10 @@ const ChatInner = ({ onResearchUpdate, onAnalysisUpdate }: ChatProps) => {
       for (const message of visibleMessages) {
         const msg = message as any;
 
-        if (msg.type === "ResultMessage" && msg.actionName === "send_message_to_a2a_agent") {
+        if (
+          msg.type === "ResultMessage" &&
+          msg.actionName === "send_message_to_a2a_agent"
+        ) {
           try {
             const result = msg.result;
             let parsed;
@@ -107,19 +114,20 @@ const ChatInner = ({ onResearchUpdate, onAnalysisUpdate }: ChatProps) => {
     <CopilotChat
       labels={{
         title: "Research Assistant",
-        initial: "👋 Hi! I'm your research assistant. I can help you research any topic.\n\nFor example, try:\n- \"Research quantum computing\"\n- \"Tell me about artificial intelligence\"\n- \"Research renewable energy\"\n\nI'll coordinate with specialized agents to gather information and provide insights!",
+        initial:
+          '👋 Hi! I\'m your research assistant. I can help you research any topic.\n\nFor example, try:\n- "Research quantum computing"\n- "Tell me about artificial intelligence"\n- "Research renewable energy"\n\nI\'ll coordinate with specialized agents to gather information and provide insights!',
       }}
       className="h-full"
     />
   );
 };
 
-export default function Chat({ onResearchUpdate, onAnalysisUpdate }: ChatProps) {
+export default function Chat({
+  onResearchUpdate,
+  onAnalysisUpdate,
+}: ChatProps) {
   return (
-    <CopilotKit
-      runtimeUrl="/api/copilotkit"
-      agent="a2a_chat"
-    >
+    <CopilotKit runtimeUrl="/api/copilotkit" agent="a2a_chat">
       <ChatInner
         onResearchUpdate={onResearchUpdate}
         onAnalysisUpdate={onAnalysisUpdate}

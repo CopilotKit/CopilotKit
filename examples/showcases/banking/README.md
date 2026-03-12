@@ -9,7 +9,9 @@ To get started, install the package and run the development server:
 ```bash
 pnpm i
 ```
+
 and then
+
 ```bash
 pnpm dev
 ```
@@ -21,6 +23,7 @@ Please ensure to `export OPENAI_API_KEY=your-key` to enable OpenAI functionality
 ## Key Features and Their Locations
 
 ### Authorization and Contextualization
+
 Authorization is key in this app, with users assigned to different departments and roles.
 
 Explore how user roles and departments impact the app's behavior. Navigate to the bottom left corner and switch between users. This is done through an app-wide context provided to the co-pilot.<br>
@@ -30,8 +33,8 @@ Implemented in `copilot-context.tsx`, it's a wrapper component that includes `us
 
 The application offers various operations that can be performed through the co-pilot on different pages. Here are some examples:
 
-* On the `/cards` page, you can request the co-pilot to change a credit card's PIN or add a new card. Note that adding a new card may have different outcomes depending on the user's role.
-* On the `/team` page, the co-pilot can assist with inviting a new member, editing a member's role or department, or removing a member.
+- On the `/cards` page, you can request the co-pilot to change a credit card's PIN or add a new card. Note that adding a new card may have different outcomes depending on the user's role.
+- On the `/team` page, the co-pilot can assist with inviting a new member, editing a member's role or department, or removing a member.
 
 ### Generative UI
 
@@ -60,6 +63,3 @@ The SQL query generator at `/sql` leverages co-pilot chat with Generative UI to 
 ## Backend and data
 
 The `/api/v1` path serves as the primary endpoint for API requests, handling various routes that interact with the application's data. Notably, the `data.ts` file contains hardcoded data that is utilized throughout the application.
-
-
-  

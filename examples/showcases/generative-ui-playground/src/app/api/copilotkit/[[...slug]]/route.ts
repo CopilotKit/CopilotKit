@@ -8,7 +8,11 @@
  * The frontend uses the `agent` prop on CopilotKitProvider to select which agent to use.
  */
 
-import { CopilotRuntime, createCopilotEndpoint, InMemoryAgentRunner } from "@copilotkitnext/runtime";
+import {
+  CopilotRuntime,
+  createCopilotEndpoint,
+  InMemoryAgentRunner,
+} from "@copilotkitnext/runtime";
 import { handle } from "hono/vercel";
 import { BasicAgent } from "@copilotkitnext/agent";
 import { MCPAppsMiddleware } from "@ag-ui/mcp-apps-middleware";
@@ -75,11 +79,16 @@ You also have access to 6 interactive apps that render in the chat:
 - When users want interactive apps (flights, hotels, etc.), use the MCP tools
 - Be helpful and guide users through the features`,
   temperature: 0.7,
-}).use(new MCPAppsMiddleware({
-  mcpServers: [
-    { type: "http", url: process.env.MCP_SERVER_URL || "http://localhost:3001/mcp" }
-  ],
-}));
+}).use(
+  new MCPAppsMiddleware({
+    mcpServers: [
+      {
+        type: "http",
+        url: process.env.MCP_SERVER_URL || "http://localhost:3001/mcp",
+      },
+    ],
+  }),
+);
 
 /**
  * "a2ui" Agent: A2AAgent connecting to Python A2A server
@@ -91,14 +100,16 @@ You also have access to 6 interactive apps that render in the chat:
  * Handles:
  * - Restaurant finding and booking with rich UI
  */
-const a2aClient = new A2AClient(process.env.A2A_AGENT_URL || "http://localhost:10002");
+const a2aClient = new A2AClient(
+  process.env.A2A_AGENT_URL || "http://localhost:10002",
+);
 const a2uiAgent = new A2AAgent({ a2aClient });
 
 // Create CopilotKit runtime with both agents
 const runtime = new CopilotRuntime({
   agents: {
-    default: defaultAgent,  // Static GenUI + MCP Apps
-    a2ui: a2uiAgent,        // A2UI with Python A2A server
+    default: defaultAgent, // Static GenUI + MCP Apps
+    a2ui: a2uiAgent, // A2UI with Python A2A server
   },
   runner: new InMemoryAgentRunner(),
 });

@@ -22,23 +22,85 @@ export interface LevelInfo {
 }
 
 const LEVELS: LevelInfo[] = [
-  { level: 1, name: "Wanderer", minCountries: 0, maxCountries: 4, color: "bg-gray-500" },
-  { level: 2, name: "Explorer", minCountries: 5, maxCountries: 9, color: "bg-purple-500" },
-  { level: 3, name: "Adventurer", minCountries: 10, maxCountries: 19, color: "bg-blue-500" },
-  { level: 4, name: "Voyager", minCountries: 20, maxCountries: 29, color: "bg-cyan-500" },
-  { level: 5, name: "Traveler", minCountries: 30, maxCountries: 44, color: "bg-green-500" },
-  { level: 6, name: "Navigator", minCountries: 45, maxCountries: 59, color: "bg-lime-500" },
-  { level: 7, name: "Pioneer", minCountries: 60, maxCountries: 79, color: "bg-yellow-500" },
-  { level: 8, name: "Pathfinder", minCountries: 80, maxCountries: 99, color: "bg-orange-500" },
-  { level: 9, name: "Globetrotter", minCountries: 100, maxCountries: 134, color: "bg-red-500" },
-  { level: 10, name: "Master Explorer", minCountries: 135, maxCountries: 175, color: "bg-pink-500" },
+  {
+    level: 1,
+    name: "Wanderer",
+    minCountries: 0,
+    maxCountries: 4,
+    color: "bg-gray-500",
+  },
+  {
+    level: 2,
+    name: "Explorer",
+    minCountries: 5,
+    maxCountries: 9,
+    color: "bg-purple-500",
+  },
+  {
+    level: 3,
+    name: "Adventurer",
+    minCountries: 10,
+    maxCountries: 19,
+    color: "bg-blue-500",
+  },
+  {
+    level: 4,
+    name: "Voyager",
+    minCountries: 20,
+    maxCountries: 29,
+    color: "bg-cyan-500",
+  },
+  {
+    level: 5,
+    name: "Traveler",
+    minCountries: 30,
+    maxCountries: 44,
+    color: "bg-green-500",
+  },
+  {
+    level: 6,
+    name: "Navigator",
+    minCountries: 45,
+    maxCountries: 59,
+    color: "bg-lime-500",
+  },
+  {
+    level: 7,
+    name: "Pioneer",
+    minCountries: 60,
+    maxCountries: 79,
+    color: "bg-yellow-500",
+  },
+  {
+    level: 8,
+    name: "Pathfinder",
+    minCountries: 80,
+    maxCountries: 99,
+    color: "bg-orange-500",
+  },
+  {
+    level: 9,
+    name: "Globetrotter",
+    minCountries: 100,
+    maxCountries: 134,
+    color: "bg-red-500",
+  },
+  {
+    level: 10,
+    name: "Master Explorer",
+    minCountries: 135,
+    maxCountries: 175,
+    color: "bg-pink-500",
+  },
 ];
 
 const TOTAL_COUNTRIES = 175;
 const STORAGE_KEY = "journey_progress";
 
 export function useJourneyProgress() {
-  const [visitedCountries, setVisitedCountries] = useState<VisitedCountry[]>([]);
+  const [visitedCountries, setVisitedCountries] = useState<VisitedCountry[]>(
+    [],
+  );
   const [isLoaded, setIsLoaded] = useState(false);
 
   // Load from localStorage on mount
@@ -69,9 +131,11 @@ export function useJourneyProgress() {
 
   const getCurrentLevel = useCallback((): LevelInfo => {
     const count = visitedCountries.length;
-    return LEVELS.find(
-      (level) => count >= level.minCountries && count <= level.maxCountries
-    ) || LEVELS[0];
+    return (
+      LEVELS.find(
+        (level) => count >= level.minCountries && count <= level.maxCountries,
+      ) || LEVELS[0]
+    );
   }, [visitedCountries.length]);
 
   const getProgress = useCallback((): number => {
@@ -86,7 +150,9 @@ export function useJourneyProgress() {
   const getCountriesToNextLevel = useCallback((): number => {
     const currentLevel = getCurrentLevel();
     if (currentLevel.level === LEVELS.length) return 0;
-    const nextLevel = LEVELS.find((level) => level.level === currentLevel.level + 1);
+    const nextLevel = LEVELS.find(
+      (level) => level.level === currentLevel.level + 1,
+    );
     if (!nextLevel) return 0;
     return nextLevel.minCountries - visitedCountries.length;
   }, [visitedCountries.length, getCurrentLevel]);
@@ -99,7 +165,9 @@ export function useJourneyProgress() {
   }, []);
 
   const removeCountry = useCallback((name: string) => {
-    setVisitedCountries((prev) => prev.filter((country) => country.name !== name));
+    setVisitedCountries((prev) =>
+      prev.filter((country) => country.name !== name),
+    );
   }, []);
 
   const resetProgress = useCallback(() => {

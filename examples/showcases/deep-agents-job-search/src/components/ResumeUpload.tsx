@@ -94,7 +94,9 @@ export function ResumeUpload({ onUploadSuccess }: ResumeUploadProps) {
             <div className="text-center space-y-2">
               <Upload className="w-8 h-8 text-slate-400 mx-auto" />
               <div>
-                <p className="text-sm font-medium text-slate-700">Upload your resume</p>
+                <p className="text-sm font-medium text-slate-700">
+                  Upload your resume
+                </p>
                 <p className="text-xs text-slate-500">PDF or TXT file</p>
                 {selectedFile && (
                   <p className="text-xs text-slate-700 mt-2">
@@ -122,7 +124,11 @@ export function ResumeUpload({ onUploadSuccess }: ResumeUploadProps) {
           disabled={isLoading || !selectedFile}
           className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-slate-400 font-medium transition-colors"
         >
-          {isLoading ? "Uploading..." : selectedFile ? "Upload Resume" : "Choose a file"}
+          {isLoading
+            ? "Uploading..."
+            : selectedFile
+              ? "Upload Resume"
+              : "Choose a file"}
         </button>
       </form>
 

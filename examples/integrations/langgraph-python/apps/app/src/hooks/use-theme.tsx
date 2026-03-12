@@ -4,7 +4,10 @@ import { createContext, useContext, useEffect, useState } from "react";
 
 type Theme = "dark" | "light" | "system";
 
-const ThemeContext = createContext<{ theme: Theme; setTheme: (t: Theme) => void }>({
+const ThemeContext = createContext<{
+  theme: Theme;
+  setTheme: (t: Theme) => void;
+}>({
   theme: "system",
   setTheme: () => {},
 });

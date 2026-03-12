@@ -9,7 +9,10 @@ import React from "react";
 import { MessageActionRenderProps } from "../types";
 import { getAgentStyle, truncateTask } from "./agent-styles";
 
-export const MessageToA2A: React.FC<MessageActionRenderProps> = ({ status, args }) => {
+export const MessageToA2A: React.FC<MessageActionRenderProps> = ({
+  status,
+  args,
+}) => {
   switch (status) {
     case "executing":
     case "complete":
@@ -41,12 +44,17 @@ export const MessageToA2A: React.FC<MessageActionRenderProps> = ({ status, args 
               <span>{args.agentName}</span>
             </span>
             {agentStyle.framework && (
-              <span className="text-[9px] text-gray-500 mt-0.5">{agentStyle.framework}</span>
+              <span className="text-[9px] text-gray-500 mt-0.5">
+                {agentStyle.framework}
+              </span>
             )}
           </div>
         </div>
 
-        <span className="text-gray-700 text-sm flex-1 min-w-0 break-words" title={args.task}>
+        <span
+          className="text-gray-700 text-sm flex-1 min-w-0 break-words"
+          title={args.task}
+        >
           {truncateTask(args.task)}
         </span>
       </div>

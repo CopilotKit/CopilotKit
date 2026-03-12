@@ -43,7 +43,8 @@ export function withA2UIActivityMessage(baseRenderer: any) {
     }, [operations]);
 
     const activityLabel = useMemo(() => {
-      if (!Array.isArray(operations) || operations.length === 0) return "Interactive UI";
+      if (!Array.isArray(operations) || operations.length === 0)
+        return "Interactive UI";
       return surfaceCount > 1
         ? `Interactive UI \u00B7 ${surfaceCount} surfaces`
         : "Interactive UI";
@@ -121,4 +122,3 @@ export function withA2UIActivityMessage(baseRenderer: any) {
     render: A2UIActivityMessage,
   };
 }
-

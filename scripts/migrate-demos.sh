@@ -98,13 +98,13 @@ migrate_repo() {
 }
 
 # ============================================================
-# MANIFEST: All 73 repos organized by group
+# MANIFEST: All 54 repos organized by group
 # Format: migrate_repo <github-repo-name> <target-path> [branch]
 # ============================================================
 
 migrate_group_a() {
     echo ""
-    echo "========== GROUP A: Demo Team Repos (25) =========="
+    echo "========== GROUP A: Demo Team Repos (24) =========="
     echo ""
     migrate_repo with-langgraph-python           examples/integrations/langgraph-python
     migrate_repo with-langgraph-js               examples/integrations/langgraph-js
@@ -130,12 +130,11 @@ migrate_group_a() {
     migrate_repo generative-ui-playground         examples/showcases/generative-ui-playground
     migrate_repo mcp-apps-demo                    examples/showcases/mcp-apps
     migrate_repo open-research-ANA                examples/showcases/research-canvas
-    migrate_repo vnext_experimental_angular_demo  examples/experiments/angular-vnext
 }
 
 migrate_group_b() {
     echo ""
-    echo "========== GROUP B: Additional Repos (34) =========="
+    echo "========== GROUP B: Additional Repos (24) =========="
     echo ""
     # Integration starters
     migrate_repo with-agno                        examples/integrations/agno
@@ -150,18 +149,11 @@ migrate_group_b() {
     migrate_repo canvas-with-mastra                examples/canvas/mastra
 
     # Feature demos
-    migrate_repo crew_ai_enterprise_demo          examples/showcases/crewai-enterprise
     migrate_repo copilotkit-mcp-demo              examples/showcases/mcp-demo
-    migrate_repo agui-demo                        examples/showcases/agui
     migrate_repo strands-file-analyzer-demo       examples/showcases/strands-file-analyzer
     migrate_repo microsoft-kanban-demo            examples/showcases/microsoft-kanban
-    migrate_repo 1.50-demo                        examples/experiments/v1.50
     migrate_repo multi-page-demo                  examples/showcases/multi-page
-    migrate_repo demo-crm                         examples/showcases/crm
-    migrate_repo demo-campaign-manager            examples/showcases/campaign-manager
-    migrate_repo demo-chat-sso                    examples/showcases/chat-sso
     migrate_repo orca-CopilotKit-demo             examples/showcases/orca
-    migrate_repo private_a2ui_demo                examples/experiments/a2ui-private
 
     # Starters and showcases
     migrate_repo coagents-starter-langgraph       examples/starters/coagents-langgraph
@@ -170,31 +162,20 @@ migrate_group_b() {
     migrate_repo scene-creator-copilot            examples/showcases/scene-creator
     migrate_repo open-gemini-canvas               examples/canvas/gemini
     migrate_repo llamaindex-hitl-guide-example    examples/starters/llamaindex-hitl
-    migrate_repo llamaindex-composio-hackathon-sample examples/experiments/llamaindex-composio-hackathon
     migrate_repo adk-generative-dashboard         examples/showcases/adk-dashboard
     migrate_repo mastra-pm-canvas                 examples/canvas/mastra-pm
-    migrate_repo vnext-with-pydantic              examples/experiments/vnext-pydantic
     migrate_repo langgraph-js-support-agents      examples/showcases/langgraph-js-support-agents
     migrate_repo open-multi-agent-canvas          examples/showcases/multi-agent-canvas
     migrate_repo open-chatkit-studio              examples/showcases/chatkit-studio
-    migrate_repo copilotkit-jupyter-notebook       examples/experiments/jupyter-notebook
 }
 
 migrate_group_c() {
     echo ""
-    echo "========== GROUP C: Borderline Repos (12) =========="
+    echo "========== GROUP C: Remaining Repos (4) =========="
     echo ""
-    migrate_repo deep-agent-cpk-experiments       examples/experiments/deep-agent-experiments
-    migrate_repo crew-flow-ent-dojo               examples/experiments/crew-flow-ent-dojo
-    migrate_repo crew-flow-cpk-temp               examples/experiments/crew-flow-cpk-temp
-    migrate_repo ag2-feature-viewer               examples/experiments/ag2-feature-viewer
     migrate_repo enterprise-brex-demo             examples/showcases/enterprise-brex
     migrate_repo enterprise-runner-example        examples/starters/enterprise-runner
-    migrate_repo ag-ui-expo-playground            examples/experiments/expo-playground
     migrate_repo react-vite-built-in-agent        examples/starters/react-vite-agent
-    migrate_repo find-the-bug                     examples/experiments/find-the-bug
-    migrate_repo autotale-ai-web-ui               examples/showcases/autotale
-    migrate_repo cuddly-fortnight                 examples/experiments/cuddly-fortnight
     migrate_repo a2a-travel                       examples/showcases/a2a-travel
 }
 

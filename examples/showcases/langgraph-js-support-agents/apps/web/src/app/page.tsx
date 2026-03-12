@@ -1,15 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import {
-  FiUser,
-  FiX,
-  FiCheck,
-} from "react-icons/fi";
+import { FiUser, FiX, FiCheck } from "react-icons/fi";
 import { RxAvatar } from "react-icons/rx";
 import { CustomerProvider, useCustomers } from "@/hooks/CustomerContext";
-import { CopilotSidebar } from "@copilotkit/react-ui"; 
-import "@copilotkit/react-ui/styles.css"; 
+import { CopilotSidebar } from "@copilotkit/react-ui";
+import "@copilotkit/react-ui/styles.css";
 import { WelcomeScreen } from "@/components/WelcomeScreen";
 
 export default function CustomerSupportPage() {
@@ -28,11 +24,13 @@ export default function CustomerSupportPage() {
           suggestions={[
             {
               title: "Check my services",
-              message: "Hi, I want to know about my services for customer ID: 5575-GNVDE",
+              message:
+                "Hi, I want to know about my services for customer ID: 5575-GNVDE",
             },
             {
               title: "Report an outage",
-              message: "My internet has been down for 2 hours! Customer ID: 7590-VHVEG",
+              message:
+                "My internet has been down for 2 hours! Customer ID: 7590-VHVEG",
             },
           ]}
         />
@@ -117,7 +115,7 @@ function CustomerCard({
   updateCustomer: any;
 }) {
   if (!customer) {
-    return <WelcomeScreen />
+    return <WelcomeScreen />;
   }
 
   const data = customer;
@@ -301,10 +299,11 @@ function CustomerCard({
           You Can also Ask
         </h3>
         <p className="text-sm text-gray-600 leading-relaxed">
-          Ask the AI assistant to <strong>switch to Fiber Optic or DSL</strong>, 
-          <strong> enable paperless billing</strong>, 
-          <strong> change payment method</strong>, or 
-          <strong> add/remove services</strong> like streaming, security, and tech support.
+          Ask the AI assistant to <strong>switch to Fiber Optic or DSL</strong>,
+          <strong> enable paperless billing</strong>,
+          <strong> change payment method</strong>, or
+          <strong> add/remove services</strong> like streaming, security, and
+          tech support.
         </p>
       </div>
     </div>

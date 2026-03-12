@@ -33,7 +33,6 @@ export default function MCPToolCall({
   };
 
   const getStatusIcon = () => {
-    
     if (status === "complete") {
       console.log(result, "MCPToolCall Result");
       if (result && result.error) {
@@ -41,26 +40,55 @@ export default function MCPToolCall({
         // window.alert(`Tool Call Error (${name || 'Unknown Tool'}):\n${errorMessage}`);
         console.log(errorMessage, "MCPToolCall Error");
         return (
-          <svg className="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          <svg
+            className="w-4 h-4 text-red-500"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M6 18L18 6M6 6l12 12"
+            />
           </svg>
         );
-      }
-      else {
-        return (( result=="" ? false : JSON.parse(result?.content[0].text)?.error)) ? (
-          <svg className="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+      } else {
+        return (
+          result == "" ? false : JSON.parse(result?.content[0].text)?.error
+        ) ? (
+          <svg
+            className="w-4 h-4 text-red-500"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M6 18L18 6M6 6l12 12"
+            />
           </svg>
         ) : (
-          <svg className="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+          <svg
+            className="w-4 h-4 text-green-500"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M5 13l4 4L19 7"
+            />
           </svg>
         );
       }
     }
-    return (
-      <Loader2 className="w-5 h-5 animate-spin text-gray-600" />
-    );
+    return <Loader2 className="w-5 h-5 animate-spin text-gray-600" />;
   };
 
   return (
@@ -74,7 +102,9 @@ export default function MCPToolCall({
       >
         <div className="flex items-center gap-2">
           <div className="flex items-center justify-center w-6 h-6 rounded-full bg-gray-100 group-hover:bg-gray-200 transition-colors">
-            <span className="w-4 h-4 flex items-center justify-center">{getStatusIcon()}</span>
+            <span className="w-4 h-4 flex items-center justify-center">
+              {getStatusIcon()}
+            </span>
           </div>
           <span className="text-gray-900 text-xs truncate max-w-xs">
             {name || "MCP Tool Call"}

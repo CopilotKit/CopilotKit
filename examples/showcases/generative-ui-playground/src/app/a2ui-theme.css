@@ -11,10 +11,13 @@
 }
 
 /* Font family variables */
-html, body {
+html,
+body {
   --font-family: "Google Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
-  --font-family-flex: "Google Sans Flex", "Helvetica Neue", Helvetica, Arial, sans-serif;
-  --font-family-mono: "Google Sans Code", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --font-family-flex:
+    "Google Sans Flex", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --font-family-mono:
+    "Google Sans Code", "Helvetica Neue", Helvetica, Arial, sans-serif;
   font-family: var(--font-family);
 }
 

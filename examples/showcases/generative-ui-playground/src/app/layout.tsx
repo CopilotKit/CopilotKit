@@ -4,7 +4,8 @@ import "./a2ui-theme.css";
 
 export const metadata: Metadata = {
   title: "UI Protocols Demo - CopilotKit Generative UI Playground",
-  description: "Explore three approaches to Generative UI: Static GenUI, MCP Apps, and A2UI",
+  description:
+    "Explore three approaches to Generative UI: Static GenUI, MCP Apps, and A2UI",
 };
 
 export default function RootLayout({
@@ -26,9 +27,7 @@ export default function RootLayout({
           href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap"
         />
       </head>
-      <body className="antialiased">
-        {children}
-      </body>
+      <body className="antialiased">{children}</body>
     </html>
   );
 }

@@ -19,8 +19,10 @@ This is a starter template for building AI agents using [Microsoft Agent Framewo
       ```
 
       </details>
+
   - Windows
     - [Install via WinGet](https://winstall.app/apps/Microsoft.DotNet.SDK.9) (`winget install --id=Microsoft.DotNet.SDK.9 -e`)
+
 - **Node.js 20+**
   - [Download directly](https://nodejs.org/en/download)
   - macOS/Linux
@@ -39,8 +41,10 @@ This is a starter template for building AI agents using [Microsoft Agent Framewo
       ```
 
       </details>
+
   - Windows
     - [Install via WinGet](https://winstall.app/apps/OpenJS.NodeJS) (`winget install --id=OpenJS.NodeJS -v "24.11.0" -e`)
+
 - Any of the following package managers:
   - [pnpm](https://pnpm.io/installation) **(recommended)**
   - [npm](https://docs.npmjs.com/downloading-and-installing-node-js-and-npm) (usually installed with Node.js)
@@ -53,68 +57,72 @@ This is a starter template for building AI agents using [Microsoft Agent Framewo
 
 1. Install dependencies using your preferred package manager:
 
-    ```bash
-    # Using pnpm (recommended)
-    pnpm install
+   ```bash
+   # Using pnpm (recommended)
+   pnpm install
 
-    # Using npm
-    npm install
+   # Using npm
+   npm install
 
-    # Using yarn
-    yarn install
+   # Using yarn
+   yarn install
 
-    # Using bun
-    bun install
-    ```
+   # Using bun
+   bun install
+   ```
 
-    > **Note:** This will automatically setup the C# agent as well (restore NuGet packages).
-    >
-    > If you have manual issues, you can run:
-    >
-    > ```sh
-    > npm run install:agent
-    > ```
+   > **Note:** This will automatically setup the C# agent as well (restore NuGet packages).
+   >
+   > If you have manual issues, you can run:
+   >
+   > ```sh
+   > npm run install:agent
+   > ```
 
 2. Set up your GitHub token for GitHub Models:
 
-    First, get your GitHub token:
-    ```bash
-    gh auth token
-    ```
+   First, get your GitHub token:
 
-    Then, navigate to the agent directory and set it as a user secret:
-    ```bash
-    cd agent
-    dotnet user-secrets set GitHubToken "<your-token>"
-    cd ..
-    ```
+   ```bash
+   gh auth token
+   ```
 
-    Or set it in one command:
-    ```bash
-    cd agent; dotnet user-secrets set GitHubToken "$(gh auth token)"; cd ..
-    ```
+   Then, navigate to the agent directory and set it as a user secret:
 
+   ```bash
+   cd agent
+   dotnet user-secrets set GitHubToken "<your-token>"
+   cd ..
+   ```
+
+   Or set it in one command:
+
+   ```bash
+   cd agent; dotnet user-secrets set GitHubToken "$(gh auth token)"; cd ..
+   ```
 
 3. Start the development server:
 
-    ```bash
-    # Using pnpm
-    pnpm dev
+   ```bash
+   # Using pnpm
+   pnpm dev
 
-    # Using npm
-    npm run dev
+   # Using npm
+   npm run dev
 
-    # Using yarn
-    yarn dev
+   # Using yarn
+   yarn dev
 
-    # Using bun
-    bun run dev
-    ```
+   # Using bun
+   bun run dev
+   ```
 
-    This will start both the Next.js UI (port 3000) and C# agent server (port 8000) concurrently.
+   This will start both the Next.js UI (port 3000) and C# agent server (port 8000) concurrently.
 
 ## Available Scripts
+
 The following scripts can also be run using your preferred package manager:
+
 - `dev` - Starts both UI and agent servers in development mode
 - `dev:debug` - Starts development servers with debug logging enabled
 - `dev:ui` - Starts only the Next.js UI server
@@ -172,37 +180,46 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 ## Troubleshooting
 
 ### Agent Connection Issues
+
 If you see "I'm having trouble connecting to my tools", make sure:
+
 1. The C# agent is running on port 8000
 2. Your GitHub token is set correctly via user secrets
 3. Both servers started successfully (check terminal output)
 
 ### .NET SDK Not Installed
+
 If you don't have .NET 9.0 installed:
 
 **macOS/Linux (Homebrew):**
+
 ```bash
 brew install dotnet@9
 dotnet --version
 ```
 
 **macOS/Linux (Install Script):**
+
 ```bash
 curl -sSL https://dot.net/v1/dotnet-install.sh | bash /dev/stdin --channel 9.0
 export PATH="$HOME/.dotnet:$PATH"
 ```
 
 **Windows (WinGet):**
+
 ```powershell
 winget install --id=Microsoft.DotNet.SDK.9 -e
 ```
 
 **Windows/macOS (Direct Download):**
+
 - Visit https://dotnet.microsoft.com/download/dotnet/9.0
 - Download and run the installer
 
 ### .NET SDK Issues
+
 If you encounter .NET-related errors:
+
 ```bash
 # Verify .NET SDK is installed
 dotnet --version  # Should be 9.0.x or higher
@@ -214,13 +231,16 @@ dotnet run
 ```
 
 ### GitHub Token Issues
+
 If the agent fails to start with "GitHubToken not found":
+
 ```bash
 cd agent
 dotnet user-secrets set GitHubToken "$(gh auth token)"
 ```
 
 Or manually:
+
 ```bash
 # Get your token
 gh auth token
@@ -231,6 +251,8 @@ dotnet user-secrets set GitHubToken "YOUR_TOKEN_HERE"
 ```
 
 ### Port Conflicts
+
 If port 8000 is already in use, you can change it in:
+
 - `agent/Properties/launchSettings.json` - Update `applicationUrl`
 - `src/app/api/copilotkit/route.ts` - Update the HttpAgent URL

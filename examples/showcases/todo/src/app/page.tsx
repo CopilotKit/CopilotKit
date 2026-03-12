@@ -121,7 +121,7 @@ const TodoList: React.FC = () => {
       const newTodos = [...todos];
       for (const item of items) {
         const existingItemIndex = newTodos.findIndex(
-          (todo) => todo.id === item.id
+          (todo) => todo.id === item.id,
         );
         if (existingItemIndex !== -1) {
           newTodos[existingItemIndex] = item;
@@ -177,8 +177,8 @@ const TodoList: React.FC = () => {
   const toggleComplete = (id: string) => {
     setTodos(
       todos.map((todo) =>
-        todo.id === id ? { ...todo, isCompleted: !todo.isCompleted } : todo
-      )
+        todo.id === id ? { ...todo, isCompleted: !todo.isCompleted } : todo,
+      ),
     );
   };
 
@@ -191,8 +191,8 @@ const TodoList: React.FC = () => {
       todos.map((todo) =>
         todo.id === id
           ? { ...todo, assignedTo: person ? person : undefined }
-          : todo
-      )
+          : todo,
+      ),
     );
   };
 

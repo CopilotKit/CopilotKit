@@ -1,7 +1,10 @@
 import { AgentState, TodoItem, TodoStatus } from "@/lib/types";
 import { generateRandomId } from "@/lib/utils";
 import { useState, useEffect, useRef } from "react";
-import { draggable, dropTargetForElements } from "@atlaskit/pragmatic-drag-and-drop/element/adapter";
+import {
+  draggable,
+  dropTargetForElements,
+} from "@atlaskit/pragmatic-drag-and-drop/element/adapter";
 
 interface TodoCardProps {
   todo: TodoItem;
@@ -13,14 +16,14 @@ interface TodoCardProps {
   onDragEnd: () => void;
 }
 
-function TodoCard({ 
-  todo, 
+function TodoCard({
+  todo,
   isDragging,
   onUpdate,
   onDelete,
   onUpdateStatus,
   onDragStart,
-  onDragEnd
+  onDragEnd,
 }: TodoCardProps) {
   const cardRef = useRef<HTMLDivElement>(null);
   const titleRef = useRef<HTMLDivElement>(null);
@@ -57,10 +60,10 @@ function TodoCard({
   };
 
   const handleKeyDown = (e: React.KeyboardEvent, isTitle: boolean) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
+    if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       (e.target as HTMLElement).blur();
-    } else if (e.key === 'Escape') {
+    } else if (e.key === "Escape") {
       e.preventDefault();
       if (isTitle && titleRef.current) {
         titleRef.current.textContent = todo.title;
@@ -150,8 +153,18 @@ function TodoCard({
             className="text-white/70 hover:text-red-300 transition-colors"
             title="Delete"
           >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            <svg
+              className="w-4 h-4"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M6 18L18 6M6 6l12 12"
+              />
             </svg>
           </button>
         </div>
@@ -207,7 +220,11 @@ export function TodoBoard({ state, setState }: TodoBoardProps) {
 
   const columns: { title: string; status: TodoStatus; bgColor: string }[] = [
     { title: "Todo", status: "todo", bgColor: "bg-indigo-400/25" },
-    { title: "In-Progress", status: "in-progress", bgColor: "bg-purple-400/25" },
+    {
+      title: "In-Progress",
+      status: "in-progress",
+      bgColor: "bg-purple-400/25",
+    },
     { title: "Done", status: "done", bgColor: "bg-teal-400/25" },
   ];
 
@@ -215,14 +232,14 @@ export function TodoBoard({ state, setState }: TodoBoardProps) {
     const updatedTodos = state.todos.map((todo) =>
       todo.id === id
         ? { ...todo, title, description: description || undefined }
-        : todo
+        : todo,
     );
     setState({ todos: updatedTodos });
   };
 
   const updateTodoStatus = (id: string, newStatus: TodoStatus) => {
     const updatedTodos = state.todos.map((todo) =>
-      todo.id === id ? { ...todo, status: newStatus } : todo
+      todo.id === id ? { ...todo, status: newStatus } : todo,
     );
     setState({ todos: updatedTodos });
   };
@@ -272,8 +289,18 @@ export function TodoBoard({ state, setState }: TodoBoardProps) {
               onClick={() => addNewTodo(column.status)}
               className="w-full py-2.5 text-white/60 hover:text-white/90 border border-dashed border-white/20 hover:border-white/40 hover:bg-white/5 rounded-lg transition-all text-sm flex items-center justify-center gap-2"
             >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 4v16m8-8H4"
+                />
               </svg>
               Add Task
             </button>

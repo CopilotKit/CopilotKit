@@ -6,7 +6,7 @@ https://github.com/user-attachments/assets/47761912-d46a-4fb3-b9bd-cb41ddd02e34
 
 ## Prerequisites
 
-- Node.js 18+ 
+- Node.js 18+
 - Python 3.8+
 - Any of the following package managers:
   - [pnpm](https://pnpm.io/installation) (recommended)
@@ -20,6 +20,7 @@ https://github.com/user-attachments/assets/47761912-d46a-4fb3-b9bd-cb41ddd02e34
 ## Getting Started
 
 1. Install dependencies using your preferred package manager:
+
 ```bash
 # Using pnpm (recommended)
 pnpm install
@@ -34,8 +35,8 @@ yarn install
 bun install
 ```
 
-
 2. Set up your environment variables:
+
 ```bash
 cp .env.example .env
 ```
@@ -47,6 +48,7 @@ OPENAI_API_KEY=your-openai-api-key-here
 ```
 
 3. Start the development server:
+
 ```bash
 # Using pnpm
 pnpm dev
@@ -64,7 +66,9 @@ bun run dev
 This will start both the UI and agent servers concurrently.
 
 ## Available Scripts
+
 The following scripts can also be run using your preferred package manager:
+
 - `dev` - Starts both UI and agent servers in development mode
 - `dev:debug` - Starts development servers with debug logging enabled
 - `dev:ui` - Starts only the Next.js UI server
@@ -77,6 +81,7 @@ The following scripts can also be run using your preferred package manager:
 ## Documentation
 
 The main UI component is in `src/app/page.tsx`. You can:
+
 - Modify the theme colors and styling
 - Add new frontend actions
 - Customize the CopilotKit sidebar appearance
@@ -97,13 +102,17 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 ## Troubleshooting
 
 ### Agent Connection Issues
+
 If you see "I'm having trouble connecting to my tools", make sure:
+
 1. The LangGraph agent is running on port 8000
 2. Your OpenAI API key is set correctly
 3. Both servers started successfully
 
 ### Python Dependencies
+
 If you encounter Python import errors:
+
 ```bash
 npm install:agent
 ```

@@ -8,11 +8,11 @@ A generative UI playground showcasing the three types for building AI-powered us
 
 This demo demonstrates how different types of generative UI can be used to create rich, interactive AI experiences:
 
-| Spec | Description | Use Case |
-|----------|-------------|----------|
-| **Static GenUI** | Pre-built React components rendered by frontend hooks | Weather cards, stock displays, task approvals |
-| **MCP Apps** | HTML/JS apps served by MCP servers in sandboxed iframes | Flight booking, hotel search, trading simulator |
-| **A2UI** | Agent-composed declarative JSON UI rendered dynamically | Restaurant finder, booking forms |
+| Spec             | Description                                             | Use Case                                        |
+| ---------------- | ------------------------------------------------------- | ----------------------------------------------- |
+| **Static GenUI** | Pre-built React components rendered by frontend hooks   | Weather cards, stock displays, task approvals   |
+| **MCP Apps**     | HTML/JS apps served by MCP servers in sandboxed iframes | Flight booking, hotel search, trading simulator |
+| **A2UI**         | Agent-composed declarative JSON UI rendered dynamically | Restaurant finder, booking forms                |
 
 ## CopilotKit Features Used
 
@@ -83,6 +83,7 @@ Open http://localhost:3000 to see the demo.
 ### Static + MCP Apps Mode
 
 Click the "Static + MCP Apps" tab to use:
+
 - "What's the weather in Tokyo?" → Weather card
 - "Get stock price for AAPL" → Stock card with sparkline
 - "Open the calculator" → Interactive calculator app
@@ -91,6 +92,7 @@ Click the "Static + MCP Apps" tab to use:
 ### A2UI Mode
 
 Click the "A2UI" tab to use:
+
 - "Find Italian restaurants nearby" → Restaurant list with booking
 - "Show me Chinese food options" → Filtered results
 - "Book a table for 4" → Interactive booking form

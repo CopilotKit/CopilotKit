@@ -86,12 +86,18 @@ export const CoAgentsProvider = ({
 }) => {
   // Use ref to avoid re-rendering issues
   const configsRef = useRef<Record<string, ServerConfig>>({});
-  
+
   // Get saved MCP configurations from localStorage
-  const [savedConfigs] = useLocalStorage<Record<string, ServerConfig>>(MCP_STORAGE_KEY, {});
-  
+  const [savedConfigs] = useLocalStorage<Record<string, ServerConfig>>(
+    MCP_STORAGE_KEY,
+    {},
+  );
+
   // Set the ref value once we have the saved configs
-  if (Object.keys(savedConfigs).length > 0 && Object.keys(configsRef.current).length === 0) {
+  if (
+    Object.keys(savedConfigs).length > 0 &&
+    Object.keys(configsRef.current).length === 0
+  ) {
     configsRef.current = savedConfigs;
   }
 

@@ -9,7 +9,7 @@ export interface Finding {
   id: string;
   title: string;
   description: string;
-  severity: 'low' | 'medium' | 'high' | 'critical';
+  severity: "low" | "medium" | "high" | "critical";
 }
 
 export interface RedactedItem {
@@ -25,7 +25,7 @@ export interface Tweet {
   posted: boolean;
 }
 
-export type AnalysisStatus = 'idle' | 'proposed' | 'analyzing' | 'complete';
+export type AnalysisStatus = "idle" | "proposed" | "analyzing" | "complete";
 
 export interface FileInvestigatorState {
   uploadedFiles: UploadedFile[];
@@ -42,5 +42,5 @@ export const INITIAL_STATE: FileInvestigatorState = {
   redactedContent: [],
   tweets: [],
   summary: null,
-  analysisStatus: 'idle',
+  analysisStatus: "idle",
 };

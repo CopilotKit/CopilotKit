@@ -55,7 +55,9 @@ export function LivePreviewPanel() {
 
           <div className="border-t border-slate-200 bg-slate-50 px-4 py-3 space-y-3">
             <Row label="Status">
-              <span className="text-xs font-medium text-slate-800">{status}</span>
+              <span className="text-xs font-medium text-slate-800">
+                {status}
+              </span>
             </Row>
 
             <Row label="Args">

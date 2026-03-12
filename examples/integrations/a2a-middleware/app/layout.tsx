@@ -26,7 +26,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${plusJakartaSans.variable} ${splineSansMono.variable} antialiased`}>
+      <body
+        className={`${plusJakartaSans.variable} ${splineSansMono.variable} antialiased`}
+      >
         {children}
       </body>
     </html>

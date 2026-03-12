@@ -70,7 +70,7 @@ function CustomInput({ onSubmitMessage, isRunning, ...props }) {
   );
 }
 
-<CopilotChat input={CustomInput} />
+<CopilotChat input={CustomInput} />;
 ```
 
 Custom components receive all the props that would have been passed to the default component.
@@ -94,7 +94,7 @@ function CustomInput(props) {
   );
 }
 
-<CopilotChat input={CustomInput} />
+<CopilotChat input={CustomInput} />;
 ```
 
 The render function receives pre-built slot elements that you can arrange however you like.
@@ -130,12 +130,12 @@ To hide a slot entirely, return `null` from a component function:
 ```tsx
 <CopilotChat
   input={{
-    disclaimer: () => null,  // Hide disclaimer
-    startTranscribeButton: () => null,  // Hide voice button
+    disclaimer: () => null, // Hide disclaimer
+    startTranscribeButton: () => null, // Hide voice button
   }}
   messageView={{
     assistantMessage: {
-      regenerateButton: () => null,  // Hide regenerate
+      regenerateButton: () => null, // Hide regenerate
     },
   }}
 />
@@ -194,8 +194,8 @@ Every slot accepts one of three value types:
 
 ```typescript
 type SlotValue<C extends React.ComponentType<any>> =
-  | C                              // Custom component
-  | string                         // Tailwind class string
+  | C // Custom component
+  | string // Tailwind class string
   | Partial<React.ComponentProps<C>>; // Props object
 ```
 
@@ -287,7 +287,7 @@ function CustomButton({ onClick, disabled, className, ...props }) {
       onClick={onClick}
       disabled={disabled}
       className={twMerge("my-custom-classes", className)}
-      {...props}  // Preserve other props
+      {...props} // Preserve other props
     />
   );
 }

@@ -25,7 +25,7 @@ export function MeetingTimePicker({
     { date: "Tomorrow", time: "2:00 PM", duration: "30 min" },
     { date: "Friday", time: "10:00 AM", duration: "30 min" },
     { date: "Next Monday", time: "3:00 PM", duration: "30 min" },
-  ]
+  ],
 }: MeetingTimePickerProps) {
   const displayTitle = reasonForScheduling || title;
   const slots = meetingDuration
@@ -36,12 +36,16 @@ export function MeetingTimePicker({
 
   const handleSelectSlot = (slot: TimeSlot) => {
     setSelectedSlot(slot);
-    respond?.(`Meeting scheduled for ${slot.date} at ${slot.time}${slot.duration ? ` (${slot.duration})` : ''}.`);
+    respond?.(
+      `Meeting scheduled for ${slot.date} at ${slot.time}${slot.duration ? ` (${slot.duration})` : ""}.`,
+    );
   };
 
   const handleDecline = () => {
     setDeclined(true);
-    respond?.("The user declined all proposed meeting times. Please suggest alternative times or ask for their availability.");
+    respond?.(
+      "The user declined all proposed meeting times. Please suggest alternative times or ask for their availability.",
+    );
   };
 
   return (
@@ -100,11 +104,17 @@ export function MeetingTimePicker({
                       hover:bg-blue-50 dark:hover:bg-blue-900/30"
                   >
                     <div className="text-left">
-                      <div className="font-bold text-gray-900 dark:text-zinc-100">{slot.date}</div>
-                      <div className="text-sm text-gray-600 dark:text-zinc-400">{slot.time}</div>
+                      <div className="font-bold text-gray-900 dark:text-zinc-100">
+                        {slot.date}
+                      </div>
+                      <div className="text-sm text-gray-600 dark:text-zinc-400">
+                        {slot.time}
+                      </div>
                     </div>
                     {slot.duration && (
-                      <div className="text-sm text-gray-500 dark:text-zinc-400">{slot.duration}</div>
+                      <div className="text-sm text-gray-500 dark:text-zinc-400">
+                        {slot.duration}
+                      </div>
                     )}
                   </button>
                 ))}

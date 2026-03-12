@@ -26,7 +26,7 @@ export const Presentation = ({
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
   const currentSlide = useMemo(
     () => slides[currentSlideIndex],
-    [slides, currentSlideIndex]
+    [slides, currentSlideIndex],
   );
 
   /**
@@ -62,7 +62,7 @@ export const Presentation = ({
         ...slides.slice(currentSlideIndex + 1),
       ]);
     },
-    [currentSlideIndex, setSlides]
+    [currentSlideIndex, setSlides],
   );
 
   return (

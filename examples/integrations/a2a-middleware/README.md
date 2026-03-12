@@ -91,7 +91,6 @@ npm run lint
 ### Adding New Agents
 
 1. **Create a new Python agent** in `agents/`:
-
    - Implement A2A Protocol (see existing agents as examples)
    - Choose a port (e.g., 9003)
    - Define agent capabilities and skills
@@ -162,13 +161,11 @@ This starter shows how specialized agents built with different frameworks can co
 ### Agents
 
 1. **Orchestrator (ADK + AG-UI Protocol)**
-
    - Receives requests from the UI
    - Coordinates specialized agents
    - Port: 9000
 
 2. **Research Agent (LangGraph + A2A Protocol)**
-
    - Gathers and summarizes information
    - Returns structured JSON
    - Port: 9001

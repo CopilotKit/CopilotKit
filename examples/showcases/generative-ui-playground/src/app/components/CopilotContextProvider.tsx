@@ -31,7 +31,13 @@ type ApprovalResult = {
 
 // Mock weather data generator
 function getMockWeather(location: string): WeatherData {
-  const conditions = ["Sunny", "Partly Cloudy", "Cloudy", "Light Rain", "Clear"];
+  const conditions = [
+    "Sunny",
+    "Partly Cloudy",
+    "Cloudy",
+    "Light Rain",
+    "Clear",
+  ];
   const condition = conditions[Math.floor(Math.random() * conditions.length)];
   return {
     location,
@@ -53,11 +59,15 @@ function getMockStock(symbol: string): StockData {
   };
   const basePrice = Math.random() * 300 + 100;
   const change = (Math.random() - 0.5) * 20;
-  const history = Array.from({ length: 20 }, () => basePrice + (Math.random() - 0.5) * 30);
+  const history = Array.from(
+    { length: 20 },
+    () => basePrice + (Math.random() - 0.5) * 30,
+  );
 
   return {
     symbol: symbol.toUpperCase(),
-    companyName: companies[symbol.toUpperCase()] || `${symbol.toUpperCase()} Corp`,
+    companyName:
+      companies[symbol.toUpperCase()] || `${symbol.toUpperCase()} Corp`,
     price: Math.round(basePrice * 100) / 100,
     change: Math.round(change * 100) / 100,
     changePercent: Math.round((change / basePrice) * 10000) / 100,
@@ -118,7 +128,9 @@ export function CopilotContextProvider({
     name: "get_stock",
     description: "Get current stock price and information for a symbol",
     parameters: z.object({
-      symbol: z.string().describe("The stock ticker symbol (e.g., AAPL, GOOGL)"),
+      symbol: z
+        .string()
+        .describe("The stock ticker symbol (e.g., AAPL, GOOGL)"),
     }),
     handler: async ({ symbol }) => {
       // Simulate API delay
@@ -154,8 +166,12 @@ export function CopilotContextProvider({
     name: "approve_task",
     description: "Request user approval for a task before executing it",
     parameters: z.object({
-      taskTitle: z.string().describe("The title of the task requiring approval"),
-      taskDescription: z.string().describe("Detailed description of what the task will do"),
+      taskTitle: z
+        .string()
+        .describe("The title of the task requiring approval"),
+      taskDescription: z
+        .string()
+        .describe("Detailed description of what the task will do"),
       impact: z.string().describe("The impact or scope of the task").optional(),
     }),
     render: ({ args, status, respond, result }) => {
@@ -182,20 +198,44 @@ export function CopilotContextProvider({
               {data.approved ? (
                 <>
                   <div className="w-6 h-6 rounded-full bg-green-500/20 flex items-center justify-center">
-                    <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    <svg
+                      className="w-4 h-4 text-green-600"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M5 13l4 4L19 7"
+                      />
                     </svg>
                   </div>
-                  <span className="text-sm font-medium text-green-600">Task Approved</span>
+                  <span className="text-sm font-medium text-green-600">
+                    Task Approved
+                  </span>
                 </>
               ) : (
                 <>
                   <div className="w-6 h-6 rounded-full bg-red-500/20 flex items-center justify-center">
-                    <svg className="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    <svg
+                      className="w-4 h-4 text-red-600"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M6 18L18 6M6 6l12 12"
+                      />
                     </svg>
                   </div>
-                  <span className="text-sm font-medium text-red-600">Task Rejected</span>
+                  <span className="text-sm font-medium text-red-600">
+                    Task Rejected
+                  </span>
                 </>
               )}
             </div>

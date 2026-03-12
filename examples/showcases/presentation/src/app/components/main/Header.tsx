@@ -30,7 +30,7 @@ export function Header({
 }: HeaderProps) {
   const currentSlide = useMemo(
     () => slides[currentSlideIndex],
-    [slides, currentSlideIndex]
+    [slides, currentSlideIndex],
   );
 
   /**

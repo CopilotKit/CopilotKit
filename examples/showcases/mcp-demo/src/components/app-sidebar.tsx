@@ -32,7 +32,10 @@ export function AppSidebar() {
       <SidebarContent>
         <SidebarGroup>
           <div className="space-y-1 px-2">
-            <Link href="/tasks" className="flex w-full items-center gap-2 rounded p-2 hover:bg-accent">
+            <Link
+              href="/tasks"
+              className="flex w-full items-center gap-2 rounded p-2 hover:bg-accent"
+            >
               <ClipboardList className="h-4 w-4" />
               <span>Task Manager</span>
             </Link>

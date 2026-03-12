@@ -68,5 +68,3 @@ export interface AgentState {
   currentStepIndex: number;
   planStatus: string;
 }
-
-

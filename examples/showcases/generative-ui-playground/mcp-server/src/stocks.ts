@@ -3,7 +3,13 @@
  * Contains mock stock data, portfolio management, and trade execution.
  */
 
-export type Sector = "technology" | "healthcare" | "finance" | "consumer" | "energy" | "industrial";
+export type Sector =
+  | "technology"
+  | "healthcare"
+  | "finance"
+  | "consumer"
+  | "energy"
+  | "industrial";
 export type TradeType = "buy" | "sell";
 
 export interface Stock {
@@ -59,18 +65,126 @@ export interface TradeResult {
 
 // Mock stock database
 const STOCKS: Stock[] = [
-  { symbol: "AAPL", name: "Apple Inc.", sector: "technology", price: 178.50, change: 2.35, changePercent: 1.33, volume: 52400000, marketCap: "2.8T" },
-  { symbol: "GOOGL", name: "Alphabet Inc.", sector: "technology", price: 141.25, change: -0.85, changePercent: -0.60, volume: 21300000, marketCap: "1.8T" },
-  { symbol: "MSFT", name: "Microsoft Corp.", sector: "technology", price: 378.90, change: 4.20, changePercent: 1.12, volume: 18700000, marketCap: "2.8T" },
-  { symbol: "AMZN", name: "Amazon.com Inc.", sector: "consumer", price: 178.25, change: 1.15, changePercent: 0.65, volume: 35200000, marketCap: "1.9T" },
-  { symbol: "NVDA", name: "NVIDIA Corp.", sector: "technology", price: 875.50, change: 15.30, changePercent: 1.78, volume: 42100000, marketCap: "2.2T" },
-  { symbol: "META", name: "Meta Platforms", sector: "technology", price: 505.75, change: -3.25, changePercent: -0.64, volume: 14800000, marketCap: "1.3T" },
-  { symbol: "JPM", name: "JPMorgan Chase", sector: "finance", price: 195.40, change: 1.80, changePercent: 0.93, volume: 8900000, marketCap: "565B" },
-  { symbol: "JNJ", name: "Johnson & Johnson", sector: "healthcare", price: 156.25, change: 0.45, changePercent: 0.29, volume: 6700000, marketCap: "376B" },
-  { symbol: "XOM", name: "Exxon Mobil", sector: "energy", price: 104.80, change: -1.20, changePercent: -1.13, volume: 15400000, marketCap: "418B" },
-  { symbol: "BA", name: "Boeing Co.", sector: "industrial", price: 178.90, change: 3.50, changePercent: 2.00, volume: 4200000, marketCap: "107B" },
-  { symbol: "DIS", name: "Walt Disney Co.", sector: "consumer", price: 112.35, change: 0.90, changePercent: 0.81, volume: 9100000, marketCap: "205B" },
-  { symbol: "V", name: "Visa Inc.", sector: "finance", price: 278.60, change: 2.10, changePercent: 0.76, volume: 5800000, marketCap: "570B" },
+  {
+    symbol: "AAPL",
+    name: "Apple Inc.",
+    sector: "technology",
+    price: 178.5,
+    change: 2.35,
+    changePercent: 1.33,
+    volume: 52400000,
+    marketCap: "2.8T",
+  },
+  {
+    symbol: "GOOGL",
+    name: "Alphabet Inc.",
+    sector: "technology",
+    price: 141.25,
+    change: -0.85,
+    changePercent: -0.6,
+    volume: 21300000,
+    marketCap: "1.8T",
+  },
+  {
+    symbol: "MSFT",
+    name: "Microsoft Corp.",
+    sector: "technology",
+    price: 378.9,
+    change: 4.2,
+    changePercent: 1.12,
+    volume: 18700000,
+    marketCap: "2.8T",
+  },
+  {
+    symbol: "AMZN",
+    name: "Amazon.com Inc.",
+    sector: "consumer",
+    price: 178.25,
+    change: 1.15,
+    changePercent: 0.65,
+    volume: 35200000,
+    marketCap: "1.9T",
+  },
+  {
+    symbol: "NVDA",
+    name: "NVIDIA Corp.",
+    sector: "technology",
+    price: 875.5,
+    change: 15.3,
+    changePercent: 1.78,
+    volume: 42100000,
+    marketCap: "2.2T",
+  },
+  {
+    symbol: "META",
+    name: "Meta Platforms",
+    sector: "technology",
+    price: 505.75,
+    change: -3.25,
+    changePercent: -0.64,
+    volume: 14800000,
+    marketCap: "1.3T",
+  },
+  {
+    symbol: "JPM",
+    name: "JPMorgan Chase",
+    sector: "finance",
+    price: 195.4,
+    change: 1.8,
+    changePercent: 0.93,
+    volume: 8900000,
+    marketCap: "565B",
+  },
+  {
+    symbol: "JNJ",
+    name: "Johnson & Johnson",
+    sector: "healthcare",
+    price: 156.25,
+    change: 0.45,
+    changePercent: 0.29,
+    volume: 6700000,
+    marketCap: "376B",
+  },
+  {
+    symbol: "XOM",
+    name: "Exxon Mobil",
+    sector: "energy",
+    price: 104.8,
+    change: -1.2,
+    changePercent: -1.13,
+    volume: 15400000,
+    marketCap: "418B",
+  },
+  {
+    symbol: "BA",
+    name: "Boeing Co.",
+    sector: "industrial",
+    price: 178.9,
+    change: 3.5,
+    changePercent: 2.0,
+    volume: 4200000,
+    marketCap: "107B",
+  },
+  {
+    symbol: "DIS",
+    name: "Walt Disney Co.",
+    sector: "consumer",
+    price: 112.35,
+    change: 0.9,
+    changePercent: 0.81,
+    volume: 9100000,
+    marketCap: "205B",
+  },
+  {
+    symbol: "V",
+    name: "Visa Inc.",
+    sector: "finance",
+    price: 278.6,
+    change: 2.1,
+    changePercent: 0.76,
+    volume: 5800000,
+    marketCap: "570B",
+  },
 ];
 
 // In-memory storage
@@ -91,21 +205,26 @@ function getStockWithVariation(stock: Stock): Stock {
     ...stock,
     price: Math.round(newPrice * 100) / 100,
     change: Math.round(newChange * 100) / 100,
-    changePercent: Math.round((newChange / (stock.price - stock.change)) * 10000) / 100,
+    changePercent:
+      Math.round((newChange / (stock.price - stock.change)) * 10000) / 100,
   };
 }
 
 export function getStocks(): Stock[] {
-  return STOCKS.map(s => getStockWithVariation(s));
+  return STOCKS.map((s) => getStockWithVariation(s));
 }
 
 export function getStock(symbol: string): Stock | undefined {
-  const stock = STOCKS.find(s => s.symbol.toUpperCase() === symbol.toUpperCase());
+  const stock = STOCKS.find(
+    (s) => s.symbol.toUpperCase() === symbol.toUpperCase(),
+  );
   return stock ? getStockWithVariation(stock) : undefined;
 }
 
 export function getStocksBySector(sector: Sector): Stock[] {
-  return STOCKS.filter(s => s.sector === sector).map(s => getStockWithVariation(s));
+  return STOCKS.filter((s) => s.sector === sector).map((s) =>
+    getStockWithVariation(s),
+  );
 }
 
 export function createPortfolio(params: {
@@ -114,7 +233,12 @@ export function createPortfolio(params: {
   riskTolerance?: "conservative" | "moderate" | "aggressive";
   focus?: Sector;
 }): Portfolio {
-  const { name = "My Portfolio", initialBalance, riskTolerance = "moderate", focus } = params;
+  const {
+    name = "My Portfolio",
+    initialBalance,
+    riskTolerance = "moderate",
+    focus,
+  } = params;
 
   const id = generateId("portfolio");
 
@@ -143,7 +267,7 @@ export function getPortfolio(portfolioId: string): Portfolio | undefined {
   let holdingsValue = 0;
   let totalCost = 0;
 
-  portfolio.holdings = portfolio.holdings.map(h => {
+  portfolio.holdings = portfolio.holdings.map((h) => {
     const currentStock = getStock(h.symbol);
     const currentPrice = currentStock?.price || h.currentPrice;
     const value = h.shares * currentPrice;
@@ -164,7 +288,8 @@ export function getPortfolio(portfolioId: string): Portfolio | undefined {
 
   portfolio.totalValue = portfolio.cashBalance + holdingsValue;
   portfolio.totalGain = holdingsValue - totalCost;
-  portfolio.totalGainPercent = totalCost > 0 ? (portfolio.totalGain / totalCost) * 100 : 0;
+  portfolio.totalGainPercent =
+    totalCost > 0 ? (portfolio.totalGain / totalCost) * 100 : 0;
 
   return portfolio;
 }
@@ -173,7 +298,7 @@ export function executeTrade(
   portfolioId: string,
   type: TradeType,
   symbol: string,
-  shares: number
+  shares: number,
 ): TradeResult {
   const portfolio = portfolios.get(portfolioId);
   if (!portfolio) return { success: false, message: "Portfolio not found" };
@@ -185,16 +310,20 @@ export function executeTrade(
 
   if (type === "buy") {
     if (portfolio.cashBalance < total) {
-      return { success: false, message: `Insufficient funds. Need $${total.toFixed(2)}, have $${portfolio.cashBalance.toFixed(2)}` };
+      return {
+        success: false,
+        message: `Insufficient funds. Need $${total.toFixed(2)}, have $${portfolio.cashBalance.toFixed(2)}`,
+      };
     }
 
     portfolio.cashBalance -= total;
 
     // Update or create holding
-    const existingHolding = portfolio.holdings.find(h => h.symbol === symbol);
+    const existingHolding = portfolio.holdings.find((h) => h.symbol === symbol);
     if (existingHolding) {
       const totalShares = existingHolding.shares + shares;
-      const totalCost = (existingHolding.shares * existingHolding.avgCost) + total;
+      const totalCost =
+        existingHolding.shares * existingHolding.avgCost + total;
       existingHolding.shares = totalShares;
       existingHolding.avgCost = totalCost / totalShares;
       existingHolding.currentPrice = stock.price;
@@ -213,17 +342,23 @@ export function executeTrade(
     }
   } else {
     // Sell
-    const existingHolding = portfolio.holdings.find(h => h.symbol === symbol);
-    if (!existingHolding) return { success: false, message: `No ${symbol} shares to sell` };
+    const existingHolding = portfolio.holdings.find((h) => h.symbol === symbol);
+    if (!existingHolding)
+      return { success: false, message: `No ${symbol} shares to sell` };
     if (existingHolding.shares < shares) {
-      return { success: false, message: `Not enough shares. Have ${existingHolding.shares}, trying to sell ${shares}` };
+      return {
+        success: false,
+        message: `Not enough shares. Have ${existingHolding.shares}, trying to sell ${shares}`,
+      };
     }
 
     portfolio.cashBalance += total;
     existingHolding.shares -= shares;
 
     if (existingHolding.shares === 0) {
-      portfolio.holdings = portfolio.holdings.filter(h => h.symbol !== symbol);
+      portfolio.holdings = portfolio.holdings.filter(
+        (h) => h.symbol !== symbol,
+      );
     } else {
       existingHolding.value = existingHolding.shares * stock.price;
     }

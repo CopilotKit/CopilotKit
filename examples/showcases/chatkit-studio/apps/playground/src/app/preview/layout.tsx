@@ -14,10 +14,7 @@ export default function PreviewLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en">
       <body>
-        <CopilotKit
-          runtimeUrl="/api/copilotkit-preview"
-          agent="sample_agent"
-        >
+        <CopilotKit runtimeUrl="/api/copilotkit-preview" agent="sample_agent">
           {children}
         </CopilotKit>
       </body>

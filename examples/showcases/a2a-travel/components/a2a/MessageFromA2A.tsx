@@ -10,7 +10,10 @@ import React from "react";
 import { MessageActionRenderProps } from "../types";
 import { getAgentStyle } from "./agent-styles";
 
-export const MessageFromA2A: React.FC<MessageActionRenderProps> = ({ status, args }) => {
+export const MessageFromA2A: React.FC<MessageActionRenderProps> = ({
+  status,
+  args,
+}) => {
   switch (status) {
     case "complete":
       break;
@@ -33,7 +36,9 @@ export const MessageFromA2A: React.FC<MessageActionRenderProps> = ({ status, arg
                 <span>{args.agentName}</span>
               </span>
               {agentStyle.framework && (
-                <span className="text-[9px] text-gray-500 mt-0.5">{agentStyle.framework}</span>
+                <span className="text-[9px] text-gray-500 mt-0.5">
+                  {agentStyle.framework}
+                </span>
               )}
             </div>
 

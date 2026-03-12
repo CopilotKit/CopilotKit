@@ -5,7 +5,12 @@ import { Button } from "@/components/ui/button";
 import type { InputProps as CpkInputProps } from "@copilotkit/react-ui";
 import { ArrowUp, Square } from "lucide-react";
 
-export function SidebarInput({ inProgress, onSend, onStop, hideStopButton }: CpkInputProps) {
+export function SidebarInput({
+  inProgress,
+  onSend,
+  onStop,
+  hideStopButton,
+}: CpkInputProps) {
   const [text, setText] = useState("");
   const canSend = !inProgress && text.trim().length > 0;
 
@@ -33,11 +38,23 @@ export function SidebarInput({ inProgress, onSend, onStop, hideStopButton }: Cpk
             }}
           />
           {inProgress && !hideStopButton ? (
-            <Button size="icon" variant="ghost" onClick={onStop} title="Stop generating" className="text-accent hover:text-white">
+            <Button
+              size="icon"
+              variant="ghost"
+              onClick={onStop}
+              title="Stop generating"
+              className="text-accent hover:text-white"
+            >
               <Square className="size-3 animate-pulse" />
             </Button>
           ) : (
-            <Button size="icon" variant="ghost" disabled={!canSend} onClick={submit} title="Send" >
+            <Button
+              size="icon"
+              variant="ghost"
+              disabled={!canSend}
+              onClick={submit}
+              title="Send"
+            >
               <ArrowUp className="size-4" />
             </Button>
           )}

@@ -1,8 +1,7 @@
-import { CheckCircleIcon } from '@heroicons/react/20/solid'
-import { SpreadsheetRow } from '../types';
-import { useState } from 'react';
-import Spreadsheet from 'react-spreadsheet';
-
+import { CheckCircleIcon } from "@heroicons/react/20/solid";
+import { SpreadsheetRow } from "../types";
+import { useState } from "react";
+import Spreadsheet from "react-spreadsheet";
 
 export interface PreviewSpreadsheetChanges {
   preCommitTitle: string;
@@ -23,10 +22,10 @@ export function PreviewSpreadsheetChanges(props: PreviewSpreadsheetChanges) {
           setChangesCommitted(true);
         }}
       >
-        {props.preCommitTitle} 
+        {props.preCommitTitle}
       </button>
     );
-  }
+  };
 
   const changesCommittedButtonPlaceholder = () => {
     return (
@@ -34,22 +33,21 @@ export function PreviewSpreadsheetChanges(props: PreviewSpreadsheetChanges) {
         className=" inline-flex items-center gap-x-2 rounded-md bg-gray-100 px-3.5 py-2.5 text-sm font-semibold text-green-600 shadow-sm cursor-not-allowed"
         disabled
       >
-        {props.postCommitTitle} 
+        {props.postCommitTitle}
         <CheckCircleIcon className="-mr-0.5 h-5 w-5" aria-hidden="true" />
       </button>
     );
-  }
+  };
 
   return (
     <div className="flex flex-col">
-      <Spreadsheet
-        data={props.newRows}
-      />
+      <Spreadsheet data={props.newRows} />
 
       <div className="mt-5">
-        {changesCommitted ? changesCommittedButtonPlaceholder() :  commitChangesButton() }
+        {changesCommitted
+          ? changesCommittedButtonPlaceholder()
+          : commitChangesButton()}
       </div>
-
     </div>
   );
 }

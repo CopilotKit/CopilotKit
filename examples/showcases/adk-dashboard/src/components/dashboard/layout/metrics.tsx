@@ -14,7 +14,7 @@ const CreateDefaultMetric = (): Metric => {
     title: "New Metric",
     value: "0",
     hint: "",
-    icon: "custom" as const
+    icon: "custom" as const,
   };
 };
 
@@ -30,7 +30,10 @@ export const PinnedMetrics = ({ state, setState }: PinnedMetricsProps) => {
             setState((prev) => ({
               title: prev?.title ?? "Dashboard",
               charts: prev?.charts ?? [],
-              pinnedMetrics: [...(prev?.pinnedMetrics ?? []), CreateDefaultMetric()]
+              pinnedMetrics: [
+                ...(prev?.pinnedMetrics ?? []),
+                CreateDefaultMetric(),
+              ],
             }));
           }}
         >
@@ -39,13 +42,9 @@ export const PinnedMetrics = ({ state, setState }: PinnedMetricsProps) => {
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {state.pinnedMetrics?.map((m, i) => (
-          <PinnedMetricCard
-            key={i}
-            pinnedMetric={m}
-            setState={setState}
-          />
+          <PinnedMetricCard key={i} pinnedMetric={m} setState={setState} />
         ))}
       </div>
     </>
-  )
-}
+  );
+};

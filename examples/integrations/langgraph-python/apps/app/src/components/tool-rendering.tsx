@@ -9,8 +9,12 @@ interface ToolReasoningProps {
 }
 
 const statusIndicator = {
-  executing: <span className="inline-block h-3 w-3 rounded-full border-2 border-gray-400 border-t-transparent animate-spin" />,
-  inProgress: <span className="inline-block h-3 w-3 rounded-full border-2 border-gray-400 border-t-transparent animate-spin" />,
+  executing: (
+    <span className="inline-block h-3 w-3 rounded-full border-2 border-gray-400 border-t-transparent animate-spin" />
+  ),
+  inProgress: (
+    <span className="inline-block h-3 w-3 rounded-full border-2 border-gray-400 border-t-transparent animate-spin" />
+  ),
   complete: <span className="text-green-500 text-xs">✓</span>,
 };
 
@@ -25,7 +29,7 @@ function formatValue(value: unknown): string {
 export function ToolReasoning({ name, args, status }: ToolReasoningProps) {
   const entries = args ? Object.entries(args) : [];
   const detailsRef = useRef<HTMLDetailsElement>(null);
-  const toolStatus = status as "complete" | "inProgress" | "executing"
+  const toolStatus = status as "complete" | "inProgress" | "executing";
 
   // Auto-open while executing, auto-close when complete
   useEffect(() => {

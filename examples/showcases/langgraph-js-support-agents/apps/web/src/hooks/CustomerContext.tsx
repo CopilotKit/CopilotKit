@@ -81,7 +81,7 @@ interface CustomerContextType {
   deleteCustomer: (customerId: number) => boolean;
   updateCustomer: (
     customerId: number,
-    updates: Partial<Customer>
+    updates: Partial<Customer>,
   ) => Customer | null;
   addAddon: (customerId: string, addon: AddonService) => Customer | null;
   removeAddon: (customerId: string, addon: AddonService) => Customer | null;
@@ -98,13 +98,13 @@ type AgentState = {
 };
 
 const CustomerContext = createContext<CustomerContextType | undefined>(
-  undefined
+  undefined,
 );
 
 function generateCustomerID(): string {
   const digits = Math.floor(1000 + Math.random() * 9000);
   const letters = Array.from({ length: 5 }, () =>
-    String.fromCharCode(65 + Math.floor(Math.random() * 26))
+    String.fromCharCode(65 + Math.floor(Math.random() * 26)),
   ).join("");
   return `${digits}-${letters}`;
 }
@@ -117,7 +117,7 @@ export function CustomerProvider({ children }: { children: ReactNode }) {
       initialState: {
         customers: initialCustomers,
       },
-    }
+    },
   );
 
   // OPTION 1: Optimistic local state + agent sync
@@ -189,7 +189,7 @@ export function CustomerProvider({ children }: { children: ReactNode }) {
       setAgentState({ customers: updatedCustomers });
       return newCustomer;
     },
-    [customers, recalculateCharges, setAgentState]
+    [customers, recalculateCharges, setAgentState],
   );
 
   const deleteCustomer = useCallback(
@@ -201,7 +201,7 @@ export function CustomerProvider({ children }: { children: ReactNode }) {
       setAgentState({ customers: updatedCustomers });
       return initialLength !== updatedCustomers.length;
     },
-    [customers, setAgentState]
+    [customers, setAgentState],
   );
 
   const updateCustomer = useCallback(
@@ -237,7 +237,7 @@ export function CustomerProvider({ children }: { children: ReactNode }) {
       setAgentState({ customers: updatedCustomers });
       return updatedCustomer;
     },
-    [customers, recalculateCharges, setAgentState]
+    [customers, recalculateCharges, setAgentState],
   );
 
   const addAddon = useCallback(
@@ -280,18 +280,18 @@ export function CustomerProvider({ children }: { children: ReactNode }) {
         setAgentState({ customers: updatedCustomers });
       } else {
         console.warn(
-          `[CustomerContext] Failed to update. Customer ID ${customerId} not found in state.`
+          `[CustomerContext] Failed to update. Customer ID ${customerId} not found in state.`,
         );
       }
 
       return updatedCustomer;
     },
-    [customers, recalculateCharges, setAgentState]
+    [customers, recalculateCharges, setAgentState],
   );
 
   const removeAddon = (
     customerId: string,
-    addon: AddonService
+    addon: AddonService,
   ): Customer | null => {
     let updatedCustomer: Customer | null = null;
 
@@ -335,14 +335,14 @@ export function CustomerProvider({ children }: { children: ReactNode }) {
     (customerId: number): Customer | undefined => {
       return customers.find((c) => c.id === customerId);
     },
-    [customers]
+    [customers],
   );
 
   const getCustomerByCustomerId = useCallback(
     (customerID: string): Customer | undefined => {
       return customers.find((c) => c.customerID === customerID);
     },
-    [customers]
+    [customers],
   );
 
   // Frontend Tool: Add Addon
@@ -370,7 +370,7 @@ export function CustomerProvider({ children }: { children: ReactNode }) {
       // Access current state directly from ref to avoid stale closure
       const currentCustomers = customersRef.current;
       const customer = currentCustomers.find(
-        (c) => c.customerID === customerID
+        (c) => c.customerID === customerID,
       );
       if (!customer) {
         return {
@@ -426,7 +426,7 @@ export function CustomerProvider({ children }: { children: ReactNode }) {
       // Access current state directly from ref to avoid stale closure
       const currentCustomers = customersRef.current;
       const customer = currentCustomers.find(
-        (c) => c.customerID === customerID
+        (c) => c.customerID === customerID,
       );
 
       if (!customer) {
@@ -438,7 +438,7 @@ export function CustomerProvider({ children }: { children: ReactNode }) {
 
       const result = removeAddon(
         customer.customerID,
-        addonName as AddonService
+        addonName as AddonService,
       );
 
       if (!result) {
@@ -493,7 +493,7 @@ export function CustomerProvider({ children }: { children: ReactNode }) {
       // Access current state directly from ref to avoid stale closure
       const currentCustomers = customersRef.current;
       const customer = currentCustomers.find(
-        (c) => c.customerID === customerID
+        (c) => c.customerID === customerID,
       );
 
       if (!customer) {
