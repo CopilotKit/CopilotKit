@@ -1,0 +1,35 @@
+{
+  "compilerOptions": {
+    "incremental": false,
+    "declaration": true,
+    "module": "Node16",
+    "outDir": "dist",
+    "strict": true,
+    "target": "es2022",
+    "moduleResolution": "node16",
+    "esModuleInterop": true,
+    "types": [
+      "node"
+    ],
+    "skipLibCheck": true,
+    "strictNullChecks": true,
+    "sourceMap": true,
+    "sourceRoot": "/",
+    "paths": {
+      "@repo/trpc-cli/cli-router": [
+        "../trpc-cli/src/cli-router.ts"
+      ]
+    }
+  },
+  "include": [
+    "./src/**/*"
+  ],
+  "ts-node": {
+    "esm": true
+  },
+  "references": [
+    {
+      "path": "../trpc-cli"
+    }
+  ]
+}
