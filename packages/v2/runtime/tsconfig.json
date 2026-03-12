@@ -6,6 +6,8 @@
     "declaration": true,
     "declarationMap": true,
     "sourceMap": true,
+    "moduleResolution": "bundler",
+    "module": "esnext",
     "baseUrl": ".",
     "paths": {
       "@copilotkitnext/shared": [

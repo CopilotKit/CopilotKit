@@ -49,6 +49,7 @@
     "@modelcontextprotocol/sdk": "^1.18.2",
     "ai": "^6.0.104",
     "rxjs": "7.8.1",
+    "@copilotkitnext/shared": "workspace:*",
     "zod": "^3.25.75"
   },
   "engines": {

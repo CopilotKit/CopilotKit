@@ -6,7 +6,7 @@ import {
 import { A2UIMiddleware } from "@ag-ui/a2ui-middleware";
 import { MCPAppsMiddleware } from "@ag-ui/mcp-apps-middleware";
 import { EventEncoder } from "@ag-ui/encoder";
-import { CopilotRuntime } from "../runtime";
+import { CopilotRuntime } from "../core/runtime";
 import { extractForwardableHeaders } from "./header-utils";
 
 interface RunAgentParameters {
