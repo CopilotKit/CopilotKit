@@ -6,7 +6,7 @@ Currently, our app has a simple textarea for replying to emails. Let's replace t
 
 ## The `<Reply />` Component
 
-Head over to the [`/components/Reply.tsx`](https://github.com/CopilotKit/example-textarea/blob/base-start-here/components/Reply.tsx) file.
+Head over to the [`/components/Reply.tsx`](https://github.com/CopilotKit/CopilotKit/tree/main/examples/starters/textarea/start/components/Reply.tsx) file.
 
 At a glance, you can see that this component uses `useState` to hold the current input value and provide it to the textarea. We also use the `onChange` prop of the textarea to update the state.
 
@@ -31,7 +31,7 @@ export function Reply() {
         // [!code highlight:4]
         autosuggestionsConfig={{
           textareaPurpose: `Assist me in replying to this email thread. Remember all important details.`,
-          chatApiConfigs: {}
+          chatApiConfigs: {},
         }}
       />
       <Button disabled={!input} onClick={handleReply}>
