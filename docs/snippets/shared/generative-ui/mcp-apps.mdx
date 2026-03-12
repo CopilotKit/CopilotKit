@@ -54,7 +54,7 @@ If you're looking to add an MCP App into an existing application, let's walk thr
   <Step>
     ### Configure your agent
 
-    Add your agent configuration to CopilotRuntime and add the `MCPAppsMiddleware` to the BuiltInAgent with your MCP server configurations:
+    Add your agent configuration to CopilotRuntime with your MCP server configurations:
 
     <Callout>
       This same process will work with any agent configuration.
@@ -72,31 +72,29 @@ If you're looking to add an MCP App into an existing application, let's walk thr
     } from "@copilotkit/runtime";
     import { BuiltInAgent } from "@copilotkit/runtime/v2";
     import { NextRequest } from "next/server";
-    import { MCPAppsMiddleware } from "@ag-ui/mcp-apps-middleware";
 
-    // 1. Create your agent and add the MCP Apps middleware
+    // 1. Create your agent
     const agent = new BuiltInAgent({
       model: "openai/gpt-5.2",
       prompt: "You are a helpful assistant.",
-    }).use(
-       new MCPAppsMiddleware({
-        mcpServers: [
-          {
-            type: "http",
-            url: "http://localhost:3108/mcp",
-            serverId: "my-server" // Recommended: stable identifier
-          },
-        ],
-      }),
-    )
+    });
 
     // 2. Create a service adapter, empty if not relevant
     const serviceAdapter = new ExperimentalEmptyAdapter();
 
-    // 3. Create the runtime and add the agent
+    // 3. Create the runtime with mcpApps configured
     const runtime = new CopilotRuntime({
       agents: {
         default: agent,
+      },
+      mcpApps: {
+        servers: [
+          {
+            type: "http",
+            url: "http://localhost:3108/mcp",
+            serverId: "my-server", // Recommended: stable identifier
+          },
+        ],
       },
     });
 
@@ -117,21 +115,25 @@ If you're looking to add an MCP App into an existing application, let's walk thr
       Always provide a `serverId` for production deployments. Without it, CopilotKit generates a hash from the server URL. If your URL changes (e.g., different environments), previously stored MCP Apps in conversation history won't load correctly.
     </Callout>
 
-    Alternatively, if you want to configure MCP servers for all agents from one place, you can pass `mcpApps` directly to `CopilotRuntime` instead of using per-agent `.use()`:
+    Alternatively, if you want to scope MCP Apps to specific agents, you can use `MCPAppsMiddleware` directly on the agent via `.use()`:
 
     ```typescript title="app/api/copilotkit/route.ts"
-    const runtime = new CopilotRuntime({
-      agents: { default: agent },
-      mcpApps: {
-        servers: [
+    import { MCPAppsMiddleware } from "@ag-ui/mcp-apps-middleware";
+
+    const agent = new BuiltInAgent({
+      model: "openai/gpt-5.2",
+      prompt: "You are a helpful assistant.",
+    }).use(
+      new MCPAppsMiddleware({
+        mcpServers: [
           {
             type: "http",
             url: "http://localhost:3108/mcp",
             serverId: "my-server",
           },
         ],
-      },
-    });
+      }),
+    );
     ```
   </Step>
   <Step>

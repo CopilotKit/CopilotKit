@@ -57,6 +57,8 @@ const runtime = new CopilotRuntime({
 
 This automatically applies `A2UIMiddleware` to all registered agents. To scope it to specific agents, you can specify agents with the `agents` property: `a2ui: { agents: ["my-agent"] }`.
 
+Once configured, any A2UI output returned from your agent will automatically be rendered in the chat interface — no additional frontend code required.
+
 ### Frontend
 
 The A2UI renderer activates automatically — no extra configuration needed on the frontend. Optionally, pass a custom theme:
