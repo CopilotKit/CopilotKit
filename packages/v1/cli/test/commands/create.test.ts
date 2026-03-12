@@ -22,7 +22,7 @@ describe("Create Command - Cloudless flow", () => {
   });
 
   test("supports creating projects in the current directory", () => {
-    expect(createCommandSource).toContain("projectName === '.'");
+    expect(createCommandSource).toMatch(/projectName === ["']\.["']/);
     expect(createCommandSource).toContain(
       "You are already inside your new project directory",
     );

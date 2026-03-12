@@ -134,7 +134,7 @@ export class AuthService {
     const port = await getPort();
     const state = crypto.randomBytes(16).toString("hex");
 
-    return new Promise(async (resolve) => {
+    return new Promise(async (resolve, reject) => {
       const server = app.listen(port, () => {});
 
       await analytics.track({
@@ -146,6 +146,14 @@ export class AuthService {
 
       app.post("/callback", async (req, res) => {
         const { cliToken, user, organization } = req.body;
+
+        if (state !== req.query.state) {
+          res.status(401).json({ message: "Invalid state" });
+          spinner.fail("Invalid state");
+          server.close();
+          reject(new Error("OAuth state mismatch"));
+          return;
+        }
 
         analytics = new AnalyticsService({
           userId: user.id,
@@ -160,12 +168,6 @@ export class AuthService {
             email: user.email,
           },
         });
-
-        if (state !== req.query.state) {
-          res.status(401).json({ message: "Invalid state" });
-          spinner.fail("Invalid state");
-          return;
-        }
 
         this.config.set("cliToken", cliToken);
         res.status(200).json({ message: "Callback called" });
