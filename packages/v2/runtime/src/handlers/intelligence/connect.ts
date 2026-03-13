@@ -1,4 +1,4 @@
-import { CopilotIntelligenceRuntimeLike } from "../../runtime";
+import { CopilotIntelligenceRuntimeLike } from "../../core/runtime";
 import { isPlatformNotFoundError } from "../shared/intelligence-utils";
 
 interface HandleIntelligenceConnectParams {

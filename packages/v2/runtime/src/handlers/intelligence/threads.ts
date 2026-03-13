@@ -2,7 +2,7 @@ import {
   CopilotIntelligenceRuntimeLike,
   CopilotRuntimeLike,
   isIntelligenceRuntime,
-} from "../../runtime";
+} from "../../core/runtime";
 import { logger } from "@copilotkitnext/shared";
 import { errorResponse } from "../shared/json-response";
 import { isValidIdentifier } from "../shared/intelligence-utils";

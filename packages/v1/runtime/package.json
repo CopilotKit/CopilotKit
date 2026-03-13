@@ -31,6 +31,18 @@
       "import": "./dist/v2/index.mjs",
       "require": "./dist/v2/index.cjs"
     },
+    "./v2/express": {
+      "import": "./dist/v2/express.mjs",
+      "require": "./dist/v2/express.cjs"
+    },
+    "./v2/hono": {
+      "import": "./dist/v2/hono.mjs",
+      "require": "./dist/v2/hono.cjs"
+    },
+    "./v2/node": {
+      "import": "./dist/v2/node.mjs",
+      "require": "./dist/v2/node.cjs"
+    },
     "./package.json": "./package.json"
   },
   "types": "./dist/index.d.cts",
