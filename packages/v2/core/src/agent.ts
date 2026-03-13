@@ -220,6 +220,19 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
       onStateChanged: () => {
         this.setState({ ...delegate.state });
       },
+      // Mirror isRunning so the proxy reflects the delegate's run lifecycle.
+      // Without this, UI components read proxy.isRunning (always false) even
+      // though the delegate is actively running, causing the stop button to
+      // never appear.
+      onRunInitialized: () => {
+        this.isRunning = true;
+      },
+      onRunFinalized: () => {
+        this.isRunning = false;
+      },
+      onRunFailed: () => {
+        this.isRunning = false;
+      },
     });
 
     // Forward the proxy's subscribers to the delegate so that UI hooks
@@ -236,6 +249,10 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
 
       return result;
     } finally {
+      // Ensure the proxy's isRunning is reset — the bridging subscription
+      // may have already handled this, but if the delegate threw before
+      // firing onRunFinalized the proxy would be stuck in isRunning=true.
+      this.isRunning = false;
       // Remove forwarded subscribers to avoid duplicate notifications on
       // subsequent calls (they'll be re-forwarded next time).
       bridgeSub.unsubscribe();
