@@ -4,7 +4,7 @@ import {
   CopilotIntelligenceRuntime,
   CopilotRuntime,
   CopilotSseRuntime,
-} from "../runtime";
+} from "../core/runtime";
 import type { CopilotKitIntelligence } from "../intelligence-platform";
 import { InMemoryAgentRunner } from "../runner/in-memory";
 import { IntelligenceAgentRunner } from "../runner/intelligence";
