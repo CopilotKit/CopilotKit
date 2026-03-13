@@ -94,8 +94,14 @@ export function safeParseToolArgs(raw: string): Record<string, unknown> {
     if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
       return parsed;
     }
+    console.warn(
+      `[CopilotKit] Tool arguments parsed to non-object (${typeof parsed}), falling back to empty object`,
+    );
     return {};
   } catch {
+    console.warn(
+      "[CopilotKit] Failed to parse tool arguments, falling back to empty object",
+    );
     return {};
   }
 }

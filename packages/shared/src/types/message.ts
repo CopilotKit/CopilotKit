@@ -1,4 +1,4 @@
-import agui from "@ag-ui/core";
+import * as agui from "@ag-ui/core";
 
 export interface ImageData {
   format: string;

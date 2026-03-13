@@ -100,7 +100,7 @@ npm install @copilotkit/react
 ```
 
 ```tsx
-import { CopilotKitProvider, CopilotChat } from "@copilotkit/react";
+import { CopilotKitProvider, CopilotChat } from "@copilotkit/react-core";
 
 export default function App() {
   return (
@@ -120,7 +120,7 @@ export default function App() {
 Tools are functions the AI agent can call. They run in the browser.
 
 ```tsx
-import { useFrontendTool } from "@copilotkit/react";
+import { useFrontendTool } from "@copilotkit/react-core";
 // or: import { useCopilotAction } from "@copilotkit/react-core"; (V1 equivalent)
 import { z } from "zod";
 
@@ -166,7 +166,7 @@ sequenceDiagram
 Context tells the agent about what the user currently sees.
 
 ```tsx
-import { useAgentContext } from "@copilotkit/react";
+import { useAgentContext } from "@copilotkit/react-core";
 // or: import { useCopilotReadable } from "@copilotkit/react-core"; (V1 equivalent)
 
 function Dashboard({ user, metrics }) {
@@ -187,7 +187,7 @@ function Dashboard({ user, metrics }) {
 Show custom UI while a tool is being called:
 
 ```tsx
-import { useRenderToolCall } from "@copilotkit/react";
+import { useRenderToolCall } from "@copilotkit/react-core";
 import { z } from "zod";
 
 function App() {
@@ -225,7 +225,7 @@ graph LR
 Require user approval before a tool executes:
 
 ```tsx
-import { useHumanInTheLoop } from "@copilotkit/react";
+import { useHumanInTheLoop } from "@copilotkit/react-core";
 import { z } from "zod";
 
 function App() {
@@ -259,7 +259,7 @@ function App() {
 Auto-generate prompt suggestions for users:
 
 ```tsx
-import { useConfigureSuggestions } from "@copilotkit/react";
+import { useConfigureSuggestions } from "@copilotkit/react-core";
 
 function App() {
   useConfigureSuggestions({

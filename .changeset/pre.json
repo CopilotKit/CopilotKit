@@ -39,7 +39,6 @@
     "@copilotkit/core": "1.54.0",
     "@copilotkit/demo-agents": "1.54.0",
     "@copilotkit/eslint-config": "1.54.0",
-    "@copilotkit/react": "1.54.0",
     "@copilotkit/sqlite-runner": "1.54.0",
     "@copilotkit/typescript-config": "1.54.0",
     "@copilotkit/voice": "1.54.0",

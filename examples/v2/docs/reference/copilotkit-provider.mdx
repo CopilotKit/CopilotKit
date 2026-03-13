@@ -21,7 +21,7 @@ The CopilotKitProvider is the root component that:
 Typically you would wrap your application with `CopilotKitProvider` at the root level:
 
 ```tsx
-import { CopilotKitProvider } from "@copilotkit/react";
+import { CopilotKitProvider } from "@copilotkit/react-core";
 
 function App() {
   return (
@@ -245,7 +245,7 @@ interface CopilotKitContextValue {
 Access this context using the `useCopilotKit` hook:
 
 ```tsx
-import { useCopilotKit } from "@copilotkit/react";
+import { useCopilotKit } from "@copilotkit/react-core";
 
 function MyComponent() {
   const { copilotkit } = useCopilotKit();

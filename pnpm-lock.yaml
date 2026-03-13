@@ -1820,9 +1820,6 @@ importers:
       use-stick-to-bottom:
         specifier: ^1.1.1
         version: 1.1.1(react@19.1.0)
-      zod:
-        specifier: ^3.25.75
-        version: 3.25.76
     devDependencies:
       '@tailwindcss/cli':
         specifier: ^4.1.11
@@ -1899,6 +1896,9 @@ importers:
       vitest:
         specifier: ^3.2.4
         version: 3.2.4(@types/debug@4.1.12)(@types/node@22.19.11)(@vitest/ui@3.2.4)(jiti@2.6.1)(jsdom@26.1.0)(less@4.5.1)(lightningcss@1.30.2)(sass@1.97.2)(terser@5.44.1)(tsx@4.21.0)(yaml@2.8.2)
+      zod:
+        specifier: '>=3.0.0'
+        version: 3.25.76
 
   packages/react-textarea:
     dependencies:
