@@ -1,5 +1,16 @@
 # @copilotkitnext/web-inspector
 
+## 1.54.0
+
+### Patch Changes
+
+- 3780c6a: deprecate: mark all @copilotkitnext/_ packages as deprecated in favor of @copilotkit/_ equivalents
+- Updated dependencies [eb1e0bf]
+- Updated dependencies [3780c6a]
+- Updated dependencies [c80498e]
+- Updated dependencies [f1571ef]
+  - @copilotkitnext/core@1.54.0
+
 ## 1.54.0-next.9
 
 ### Patch Changes

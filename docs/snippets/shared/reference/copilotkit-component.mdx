@@ -118,6 +118,20 @@ Whether to show the dev console.
   Defaults to `false` for production safety.
 </PropertyReference>
 
+<PropertyReference name="a2ui" type="{ theme?: Theme }">
+Configuration for the A2UI (Agent-to-UI) renderer.
+
+  The built-in A2UI renderer is activated automatically when the runtime reports
+  that `a2ui` is configured in `CopilotRuntime`. This prop is optional and only
+  needed if you want to override the default theme.
+
+  ```tsx
+  <CopilotKit runtimeUrl="/api/copilotkit" a2ui={{ theme: myCustomTheme }}>
+    {children}
+  </CopilotKit>
+  ```
+</PropertyReference>
+
 <PropertyReference name="agent" type="string"  >
 The name of the agent to use.
 </PropertyReference>

@@ -119,7 +119,6 @@ function MessageSender() {
   const { copilotkit } = useCopilotKit();
 
   const sendMessage = async (content: string) => {
-
     // Add message to agent
     agent.addMessage({
       id: crypto.randomUUID(),
@@ -202,7 +201,9 @@ function StateController() {
 
   return (
     <div>
-      <button onClick={() => updateState("counter", (agent.state.counter || 0) + 1)}>
+      <button
+        onClick={() => updateState("counter", (agent.state.counter || 0) + 1)}
+      >
         Increment Counter: {agent.state.counter || 0}
       </button>
     </div>
@@ -233,7 +234,9 @@ function CollaborativeTodo() {
   const toggleTodo = (id: string) => {
     agent.setState({
       ...agent.state,
-      todos: todos.map((todo) => (todo.id === id ? { ...todo, done: !todo.done } : todo)),
+      todos: todos.map((todo) =>
+        todo.id === id ? { ...todo, done: !todo.done } : todo,
+      ),
     });
   };
 
@@ -258,13 +261,19 @@ function CollaborativeTodo() {
       <ul>
         {todos.map((todo) => (
           <li key={todo.id}>
-            <input type="checkbox" checked={todo.done} onChange={() => toggleTodo(todo.id)} />
+            <input
+              type="checkbox"
+              checked={todo.done}
+              onChange={() => toggleTodo(todo.id)}
+            />
             <span className={todo.done ? "done" : ""}>{todo.text}</span>
           </li>
         ))}
       </ul>
 
-      <button onClick={() => addTodo(prompt("New todo:") || "")}>Add Todo</button>
+      <button onClick={() => addTodo(prompt("New todo:") || "")}>
+        Add Todo
+      </button>
 
       <button onClick={askAgentToOrganize}>Ask Agent to Organize</button>
     </div>
@@ -285,8 +294,6 @@ function MessageList() {
   const { agent } = useAgent({
     updates: [UseAgentUpdate.OnMessagesChanged],
   });
-
-  
 
   return (
     <ul>
@@ -310,8 +317,6 @@ function RunStatus() {
     agentId: "assistant",
     updates: [UseAgentUpdate.OnRunStatusChanged],
   });
-
-  
 
   return (
     <div className={`status ${agent.isRunning ? "running" : "idle"}`}>

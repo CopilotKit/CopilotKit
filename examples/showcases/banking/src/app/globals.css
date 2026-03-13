@@ -1,0 +1,50 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}
+
+@layer base {
+  :root {
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+    color-scheme: dark;
+  }
+
+  .light {
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+    color-scheme: light;
+  }
+}
+
+.prefix-arrow::before {
+  content: "↑ ";
+}
+
+.dark body {
+  background-color: #121212;
+  color: #e0e0e0;
+}
+
+.dark header,
+.dark .border-b,
+.dark .border-r {
+  border-color: #333;
+}
+
+.dark .bg-gray-900 {
+  background-color: #1a1a1a;
+}

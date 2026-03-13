@@ -1,5 +1,13 @@
 # @copilotkitnext/sqlite-runner
 
+## 1.54.0
+
+### Patch Changes
+
+- 3780c6a: deprecate: mark all @copilotkitnext/_ packages as deprecated in favor of @copilotkit/_ equivalents
+- Updated dependencies [3780c6a]
+  - @copilotkitnext/runtime@1.54.0
+
 ## 1.54.0-next.9
 
 ### Patch Changes

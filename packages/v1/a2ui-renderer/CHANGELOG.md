@@ -1,5 +1,12 @@
 # @copilotkit/a2ui-renderer
 
+## 1.54.0
+
+### Patch Changes
+
+- 6e0cddf: feat: move a2ui message renderer to v2s react package
+- 7916df6: feat: set default a2ui theme to fit cpk main theme
+
 ## 1.54.0-next.9
 
 ## 1.54.0-next.8

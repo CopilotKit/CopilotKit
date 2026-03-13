@@ -157,7 +157,8 @@ export const LandingExamples: CarouselExample[] = [
       src: "https://cdn.copilotkit.ai/docs/copilotkit/images/examples/spreadsheets.mp4",
     },
     links: {
-      source: "https://github.com/CopilotKit/demo-spreadsheet",
+      source:
+        "https://github.com/CopilotKit/CopilotKit/tree/main/examples/showcases/spreadsheet",
       demo: "https://spreadsheet-demo-tau.vercel.app/",
     },
   },
@@ -171,7 +172,8 @@ export const LandingExamples: CarouselExample[] = [
       src: "https://cdn.copilotkit.ai/docs/copilotkit/images/examples/banking.mp4",
     },
     links: {
-      source: "https://github.com/CopilotKit/demo-banking",
+      source:
+        "https://github.com/CopilotKit/CopilotKit/tree/main/examples/showcases/banking",
       demo: "https://brex-demo-temp.vercel.app/",
     },
   },

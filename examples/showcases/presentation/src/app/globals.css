@@ -1,0 +1,46 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}
+
+:root {
+  --copilot-kit-primary-color: #222222 !important;
+}
+
+.copilotKitHeader {
+  height: 60px;
+  border-left: 1px solid #555;
+}
+
+.copilotKitWindow.open {
+  box-shadow: none;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+}
+
+.aspect-ratio-box {
+  width: 100%;
+  max-width: calc(100% - 5rem); /* Account for margin */
+  position: relative;
+}
+.aspect-ratio-box::before {
+  content: "";
+  display: block;
+  padding-top: 56.25%; /* 16:9 Aspect Ratio */
+}
+.aspect-ratio-box > * {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+}
