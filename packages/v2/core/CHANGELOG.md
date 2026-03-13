@@ -1,5 +1,16 @@
 # @copilotkitnext/core
 
+## 1.54.0
+
+### Patch Changes
+
+- eb1e0bf: fix(react): yield to React scheduler before follow-up agent run to pr…
+- 3780c6a: deprecate: mark all @copilotkitnext/_ packages as deprecated in favor of @copilotkit/_ equivalents
+- c80498e: feat(core): add copilotkit.runTool() for programmatic tool execution
+- f1571ef: fix: inject useCopilotReadable context into connectAgent
+- Updated dependencies [3780c6a]
+  - @copilotkitnext/shared@1.54.0
+
 ## 1.54.0-next.9
 
 ### Patch Changes

@@ -71,7 +71,8 @@ decision-making.
 ```tsx
 useFrontendTool({
   name: "fetchUserData",
-  description: "Retrieve detailed user profile information including preferences and history",
+  description:
+    "Retrieve detailed user profile information including preferences and history",
   // ...
 });
 ```
@@ -148,7 +149,9 @@ useFrontendTool({
     <div className="tool-execution">
       <h3>Generating {args.type} chart...</h3>
       {status === ToolCallStatus.InProgress && <Spinner />}
-      {status === ToolCallStatus.Complete && result && <ChartDisplay data={result} />}
+      {status === ToolCallStatus.Complete && result && (
+        <ChartDisplay data={result} />
+      )}
     </div>
   ),
 });

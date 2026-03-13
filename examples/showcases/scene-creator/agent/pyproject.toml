@@ -1,0 +1,21 @@
+# Python dependencies for the Scene Creator agent
+# This file documents the project dependencies in a standard format
+# For installation, use: uv pip install -r requirements.txt
+
+[project]
+name = "scene-creator-agent"
+version = "0.1.0"
+description = "LangGraph agent for scene creation with Gemini 3 and Nano Banana"
+requires-python = ">=3.10"
+dependencies = [
+    "langchain>=0.3.28",
+    "langgraph>=0.6.6",
+    "langsmith>=0.4.23",
+    "langchain-google-genai>=3.1.0",
+    "langchain-core>=1.0.5",
+    "httpx>=0.28.0",
+    "fastapi>=0.115.5,<1.0.0",
+    "uvicorn>=0.29.0,<1.0.0",
+    "python-dotenv>=1.0.0,<2.0.0",
+    "langgraph-cli[inmem]>=0.3.3",
+]

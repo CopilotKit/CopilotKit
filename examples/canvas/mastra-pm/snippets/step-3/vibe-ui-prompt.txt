@@ -1,0 +1,5 @@
+Take the data types in @src/lib/types.ts and build a kanban board out of the data.
+
+The types define there will be defined in the state value in the `useCoAgent` hook.
+
+Please make this look somewhat minimal and do all of your edits on the @src/app/page.tsx page.

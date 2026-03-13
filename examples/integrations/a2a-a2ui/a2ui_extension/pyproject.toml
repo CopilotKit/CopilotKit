@@ -1,0 +1,11 @@
+[project]
+name = "a2ui"
+version = "0.1.0"
+description = "A2UI Extension"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = ["a2a-sdk>=0.3.0"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

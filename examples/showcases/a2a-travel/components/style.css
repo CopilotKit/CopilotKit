@@ -1,0 +1,79 @@
+/**
+ * Component-specific Styles
+ *
+ * This file contains styling overrides and custom animations
+ * for CopilotKit components and A2A message visualization.
+ */
+
+/* ===== CopilotKit Component Overrides ===== */
+/* These styles customize the appearance of CopilotKit chat components */
+
+.copilotKitInput {
+  border-bottom-left-radius: 0.75rem;
+  border-bottom-right-radius: 0.75rem;
+  border-top-left-radius: 0.75rem;
+  border-top-right-radius: 0.75rem;
+  border: 1px solid var(--copilot-kit-separator-color) !important;
+}
+
+/* Make CopilotKit backgrounds transparent to blend with our gradient */
+.copilotKitChat {
+  background-color: transparent !important;
+}
+
+.copilotKitMessages {
+  background-color: transparent !important;
+}
+
+.copilotKitInputContainer {
+  background-color: transparent !important;
+}
+
+.poweredBy {
+  background-color: transparent !important;
+}
+
+/* ===== Animations for Generative UI Components ===== */
+
+/**
+ * Fade in and slide up animation
+ * Used by ItineraryCard, BudgetBreakdown, and WeatherCard components
+ * to create smooth entrance effects when data is received from agents
+ */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Apply fade-in-up animation to generative UI cards */
+.animate-fade-in-up {
+  animation: fadeInUp 0.6s ease-out forwards;
+}
+
+/* Stagger animations for list items (optional, for future use) */
+.animate-stagger-1 {
+  animation-delay: 0.1s;
+}
+
+.animate-stagger-2 {
+  animation-delay: 0.2s;
+}
+
+.animate-stagger-3 {
+  animation-delay: 0.3s;
+}
+
+/**
+ * A2A message entrance animation
+ * Used by MessageToA2A and MessageFromA2A components
+ * to animate A2A protocol communication badges
+ */
+.a2a-message-enter {
+  animation: fadeInUp 0.4s ease-out;
+}

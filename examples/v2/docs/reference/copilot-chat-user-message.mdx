@@ -30,13 +30,13 @@ graph LR
 
 ### Slot Descriptions
 
-| Slot | Description |
-|------|-------------|
-| `messageRenderer` | Renders the message text content |
-| `toolbar` | Container for action buttons (appears on hover) |
-| `copyButton` | Button to copy message content |
-| `editButton` | Button to edit the message |
-| `branchNavigation` | Navigation controls for conversation branches |
+| Slot               | Description                                     |
+| ------------------ | ----------------------------------------------- |
+| `messageRenderer`  | Renders the message text content                |
+| `toolbar`          | Container for action buttons (appears on hover) |
+| `copyButton`       | Button to copy message content                  |
+| `editButton`       | Button to edit the message                      |
+| `branchNavigation` | Navigation controls for conversation branches   |
 
 ## Basic Usage
 
@@ -76,9 +76,9 @@ CopilotChatUserMessage provides callbacks for user interactions:
 
 ### Callback Props
 
-| Callback | Signature | Description |
-|----------|-----------|-------------|
-| `onEditMessage` | `({ message }) => void` | Called when user clicks the edit button |
+| Callback           | Signature                                              | Description                                 |
+| ------------------ | ------------------------------------------------------ | ------------------------------------------- |
+| `onEditMessage`    | `({ message }) => void`                                | Called when user clicks the edit button     |
 | `onSwitchToBranch` | `({ message, branchIndex, numberOfBranches }) => void` | Called when user navigates between branches |
 
 ## Slot Customization
@@ -98,7 +98,8 @@ Style the message bubble:
 <CopilotChat
   messageView={{
     userMessage: {
-      messageRenderer: "bg-gradient-to-r from-blue-500 to-purple-500 text-white",
+      messageRenderer:
+        "bg-gradient-to-r from-blue-500 to-purple-500 text-white",
     },
   }}
 />
@@ -192,7 +193,7 @@ function CustomUserMessage({ message, ...props }) {
   messageView={{
     userMessage: CustomUserMessage,
   }}
-/>
+/>;
 ```
 
 ### Using the Render Function
@@ -223,21 +224,21 @@ function CustomUserMessage(props) {
   messageView={{
     userMessage: CustomUserMessage,
   }}
-/>
+/>;
 ```
 
 The render function receives:
 
-| Property | Type | Description |
-|----------|------|-------------|
-| `messageRenderer` | `ReactElement` | The rendered message content |
-| `toolbar` | `ReactElement` | The action buttons toolbar |
-| `copyButton` | `ReactElement` | Copy button |
-| `editButton` | `ReactElement` | Edit button |
-| `branchNavigation` | `ReactElement` | Branch navigation controls |
-| `message` | `UserMessage` | The message data |
-| `branchIndex` | `number` | Current branch index |
-| `numberOfBranches` | `number` | Total number of branches |
+| Property           | Type           | Description                  |
+| ------------------ | -------------- | ---------------------------- |
+| `messageRenderer`  | `ReactElement` | The rendered message content |
+| `toolbar`          | `ReactElement` | The action buttons toolbar   |
+| `copyButton`       | `ReactElement` | Copy button                  |
+| `editButton`       | `ReactElement` | Edit button                  |
+| `branchNavigation` | `ReactElement` | Branch navigation controls   |
+| `message`          | `UserMessage`  | The message data             |
+| `branchIndex`      | `number`       | Current branch index         |
+| `numberOfBranches` | `number`       | Total number of branches     |
 
 ## Branch Navigation
 
@@ -248,7 +249,9 @@ When users edit messages and regenerate responses, CopilotKit creates conversati
   messageView={{
     userMessage: {
       onSwitchToBranch: ({ message, branchIndex, numberOfBranches }) => {
-        console.log(`Switching to branch ${branchIndex + 1} of ${numberOfBranches}`);
+        console.log(
+          `Switching to branch ${branchIndex + 1} of ${numberOfBranches}`,
+        );
         // Your branch switching logic
       },
     },
@@ -257,6 +260,7 @@ When users edit messages and regenerate responses, CopilotKit creates conversati
 ```
 
 The branch navigation shows:
+
 - Previous/Next arrows to navigate between branches
 - Current branch indicator (e.g., "2/3")
 
@@ -269,7 +273,8 @@ The branch navigation shows:
   messageView={{
     userMessage: {
       className: "items-end",
-      messageRenderer: "bg-blue-600 text-white rounded-2xl px-4 py-2 max-w-[75%]",
+      messageRenderer:
+        "bg-blue-600 text-white rounded-2xl px-4 py-2 max-w-[75%]",
       toolbar: "opacity-0 group-hover:opacity-100 transition-opacity",
     },
   }}
@@ -345,7 +350,7 @@ function UserMessageWithAvatar(props) {
   messageView={{
     userMessage: UserMessageWithAvatar,
   }}
-/>
+/>;
 ```
 
 ### Styled for Dark Mode

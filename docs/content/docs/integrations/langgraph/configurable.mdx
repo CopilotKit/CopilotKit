@@ -14,6 +14,10 @@ If you wish to read further, you can refer to [the configuration guide by LangGr
 
 This is useful when you want to send execution-time configuration information (such as different tokens or metadata for a given session) that should not be part of the agent state.
 
+<Callout type="info" title="Looking for authentication?">
+  If you need to pass authentication tokens specifically, see the dedicated [Authentication guide](/langgraph/auth) which covers LangGraph Platform and self-hosted authentication patterns in detail.
+</Callout>
+
 ## Implementation
 
 By default, LangGraph agents are invoked with a `config` argument. This config has a `configurable` property which can be accessed and filled with your data.

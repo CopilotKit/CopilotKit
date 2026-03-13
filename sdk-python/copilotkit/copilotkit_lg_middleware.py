@@ -17,7 +17,7 @@ Example:
 import json
 from typing import Any, Callable, Awaitable, ClassVar, List
 
-from langchain_core.messages import AIMessage, SystemMessage
+from langchain_core.messages import AIMessage, SystemMessage, ToolMessage
 from langchain.agents.middleware import (
     AgentMiddleware,
     AgentState,
@@ -61,11 +61,96 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
 
         return handler(request.override(tools=merged_tools))
 
+    @staticmethod
+    def _fix_messages_for_bedrock(messages: list) -> list:
+        """Fix messages loaded from checkpoint before sending to Bedrock.
+
+        Handles three issues caused by CopilotKit's after_agent restoring
+        frontend tool_calls to the checkpoint:
+        1. Strip unanswered tool_calls (no matching ToolMessage) — Bedrock
+           rejects toolUse without a corresponding toolResult.
+        2. Sync msg.content tool_use blocks with msg.tool_calls.
+        3. Fix tool_use content blocks with string input (must be dict).
+        """
+        # Collect all tool_call_ids that have a ToolMessage answer
+        answered_tc_ids = {
+            m.tool_call_id for m in messages
+            if isinstance(m, ToolMessage) and hasattr(m, 'tool_call_id')
+        }
+
+        for msg in messages:
+            if not isinstance(msg, AIMessage):
+                continue
+
+            tool_calls = getattr(msg, 'tool_calls', None) or []
+
+            # 1. Sync content with tool_calls: remove tool_use content blocks
+            #    that aren't in msg.tool_calls (e.g. stripped by after_model
+            #    but content blocks left behind in checkpoint).
+            if tool_calls and isinstance(msg.content, list):
+                tc_ids = {tc.get('id') for tc in tool_calls}
+                msg.content = [
+                    block for block in msg.content
+                    if not (isinstance(block, dict)
+                            and block.get('type') == 'tool_use'
+                            and block.get('id') not in tc_ids)
+                ]
+            elif not tool_calls and isinstance(msg.content, list):
+                # No tool_calls at all — strip ALL tool_use content blocks
+                msg.content = [
+                    block for block in msg.content
+                    if not (isinstance(block, dict)
+                            and block.get('type') == 'tool_use')
+                ]
+
+            if not tool_calls:
+                continue
+
+            # 2. Strip unanswered tool_calls (no matching ToolMessage)
+            unanswered = [tc for tc in tool_calls if tc.get('id') not in answered_tc_ids]
+            if unanswered:
+                unanswered_ids = {tc['id'] for tc in unanswered}
+                msg.tool_calls = [tc for tc in tool_calls if tc.get('id') in answered_tc_ids]
+
+                # Also strip matching content blocks
+                if isinstance(msg.content, list):
+                    msg.content = [
+                        block for block in msg.content
+                        if not (isinstance(block, dict)
+                                and block.get('type') == 'tool_use'
+                                and block.get('id') in unanswered_ids)
+                    ]
+
+            # 3. Fix string args in tool_calls
+            for tc in (msg.tool_calls or []):
+                if isinstance(tc.get('args'), str):
+                    try:
+                        tc['args'] = json.loads(tc['args'])
+                    except (json.JSONDecodeError, TypeError):
+                        tc['args'] = {}
+
+            # 4. Fix string input in content blocks
+            if isinstance(msg.content, list):
+                for block in msg.content:
+                    if isinstance(block, dict) and block.get('type') == 'tool_use':
+                        inp = block.get('input')
+                        if isinstance(inp, str):
+                            try:
+                                block['input'] = json.loads(inp) if inp else {}
+                            except (json.JSONDecodeError, TypeError):
+                                block['input'] = {}
+                        elif inp is None:
+                            block['input'] = {}
+
+        return messages
+
     async def awrap_model_call(
             self,
             request: ModelRequest,
             handler: Callable[[ModelRequest], Awaitable[ModelResponse]],
     ) -> ModelResponse:
+        self._fix_messages_for_bedrock(request.messages)
+
         frontend_tools = request.state.get("copilotkit", {}).get("actions", [])
 
         if not frontend_tools:

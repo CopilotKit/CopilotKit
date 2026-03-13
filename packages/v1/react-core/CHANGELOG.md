@@ -1,5 +1,27 @@
 # ui
 
+## 1.54.0
+
+### Minor Changes
+
+- fa0d1cd: Add support for Standard Schema (instead of just Zod)
+
+### Patch Changes
+
+- c80498e: feat(core): add copilotkit.runTool() for programmatic tool execution
+- af11b1e: Fixed hook render registrations lost under React Strict Mode.
+- Updated dependencies [eb1e0bf]
+- Updated dependencies [3780c6a]
+- Updated dependencies [6e0cddf]
+- Updated dependencies [fa0d1cd]
+- Updated dependencies [c80498e]
+- Updated dependencies [d746e4f]
+- Updated dependencies [f1571ef]
+  - @copilotkitnext/core@1.54.0
+  - @copilotkitnext/react@1.54.0
+  - @copilotkit/runtime-client-gql@1.54.0
+  - @copilotkit/shared@1.54.0
+
 ## 1.54.0-next.9
 
 ### Patch Changes

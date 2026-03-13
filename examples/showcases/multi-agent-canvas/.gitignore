@@ -1,0 +1,43 @@
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# dependencies
+node_modules
+.pnpm-store/
+
+# testing
+/coverage
+
+# next.js
+/.next/
+/out/
+
+# production
+/build
+dist
+
+# misc
+.DS_Store
+*.pem
+
+# debug
+npm-debug.log*
+pnpm-debug.log*
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+index.cjs
+index.js
+index.d.ts
+
+# build artifacts
+.turbo
+**/.turbo
+**/.eslintcache
+
+# env and temp files
+.env*
+.ipynb_checkpoints
+
+frontend/node_modules
+frontend/.next

@@ -5,14 +5,15 @@ title: "Step 1: Checkout the repo"
 <Steps>
 <Step>
 ## Get the starting code
-We'll use the [open-research-ana repository](https://github.com/CopilotKit/open-research-ana) as our starting point. Clone the `tutorial-start` branch:
+We'll use the [research-canvas example](https://github.com/CopilotKit/CopilotKit/tree/main/examples/showcases/research-canvas) as our starting point. Clone the repository:
 
 ```shell
-git clone -b tutorial-start https://github.com/CopilotKit/open-research-ana.git
-cd open-research-ana
+GIT_LFS_SKIP_SMUDGE=1 git clone --depth 1 https://github.com/CopilotKit/CopilotKit.git
+cd CopilotKit/examples/showcases/research-canvas/start
 ```
 
 The repository contains:
+
 - `frontend/`: A NextJS application where we'll integrate our agent
 - `agent/`: A Python-based LangGraph agent we'll enhance with CopilotKit
 
@@ -25,6 +26,7 @@ Navigate to the frontend directory and install dependencies:
 cd frontend
 pnpm install
 ```
+
 </Step>
 <Step>
 ## Start the application
@@ -35,6 +37,7 @@ pnpm run dev
 ```
 
 Visit [http://localhost:3000](http://localhost:3000) to see the initial application. You'll see an empty chat interface and document - this is our starting point.
+
 </Step>
 </Steps>
 
