@@ -5,7 +5,7 @@ Goal
 - Change `packages/react/src/hooks/use-agent.tsx` so it never returns `undefined`.
 - While the runtime is not yet synced, return a provisional `ProxiedCopilotRuntimeAgent` instance.
 - After the runtime has synced (Connected or Error), if the agent id does not exist, throw a descriptive error.
-- Do not change core (`@copilotkitnext/core`) behavior so existing core tests continue to pass.
+- Do not change core (`@copilotkit/core`) behavior so existing core tests continue to pass.
 
 Non-Goals
 
@@ -27,7 +27,7 @@ Implementation Plan
 1. Update hook signature and behavior
    - File: `packages/react/src/hooks/use-agent.tsx`
    - Change the return type to always include an `agent: AbstractAgent` (no `undefined`).
-   - Import `ProxiedCopilotRuntimeAgent` from `@copilotkitnext/core`.
+   - Import `ProxiedCopilotRuntimeAgent` from `@copilotkit/core`.
    - Compute `agent` as follows:
      - Call `copilotkit.getAgent(agentId)`.
      - If it returns an agent, use it.

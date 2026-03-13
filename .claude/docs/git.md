@@ -25,4 +25,3 @@ When the work is ready:
 - Stage specific files — avoid `git add -A` or `git add .` to prevent accidentally including unrelated changes.
 - Never amend commits unless explicitly asked. Always create new commits.
 - Never force-push unless explicitly asked.
-- When committing a batch of changes, group commits by area of focus/purpose. Commits should be separated by area of concern. If modifications include related files being moved, group those with the associated changes.
