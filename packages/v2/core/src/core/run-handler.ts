@@ -224,6 +224,17 @@ export class RunHandler {
       };
     }
 
+    // Signal any active run to detach (e.g. a long-lived connectAgent pipeline)
+    // before starting a new run.  We intentionally fire-and-forget rather than
+    // awaiting: the detach merely completes the previous observable pipeline, and
+    // `agent.runAgent()` below will create a fresh pipeline anyway.  Awaiting
+    // caused a deadlock when `connectAgent` was still resolving its internal
+    // promise (e.g. ConnectNotImplementedError cleanup) at the moment the user
+    // triggered a run.
+    if (agent.detachActiveRun) {
+      void agent.detachActiveRun();
+    }
+
     try {
       const runAgentResult = await agent.runAgent(
         {

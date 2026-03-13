@@ -11,8 +11,53 @@ const { IntelligenceAgent } = await import("../intelligence-agent");
 
 let mockFetch: ReturnType<typeof vi.fn>;
 
+function jsonResponse(body: unknown, status = 200) {
+  return Promise.resolve({
+    ok: status >= 200 && status < 300,
+    status,
+    statusText: status === 200 ? "OK" : "Error",
+    json: () => Promise.resolve(body),
+    text: () => Promise.resolve(JSON.stringify(body)),
+  } as Response);
+}
+
+function emptyResponse(status = 204) {
+  return Promise.resolve({
+    ok: status >= 200 && status < 300,
+    status,
+    statusText: "No Content",
+    json: () => Promise.resolve(null),
+    text: () => Promise.resolve(""),
+  } as Response);
+}
+
+async function flushAsyncWork() {
+  await Promise.resolve();
+  await Promise.resolve();
+  await Promise.resolve();
+  await Promise.resolve();
+  if (vi.isFakeTimers()) {
+    await vi.runOnlyPendingTimersAsync();
+  } else {
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  }
+  await Promise.resolve();
+}
+
+async function waitForConnection(
+  agent: InstanceType<typeof IntelligenceAgent>,
+  attempts = 5,
+) {
+  for (let index = 0; index < attempts; index += 1) {
+    await flushAsyncWork();
+    if (getSocket(agent) && getChannel(agent)) {
+      return;
+    }
+  }
+}
+
 beforeEach(() => {
-  mockFetch = vi.fn().mockResolvedValue({ ok: true });
+  mockFetch = vi.fn().mockResolvedValue(jsonResponse({ joinToken: "jt-123" }));
   vi.stubGlobal("fetch", mockFetch);
 });
 
@@ -22,7 +67,7 @@ afterEach(() => {
 
 function createAgent() {
   return new IntelligenceAgent({
-    url: "ws://localhost:4000/socket",
+    url: "ws://localhost:4000/client",
     runtimeUrl: "http://localhost:4000",
     agentId: "my-agent",
     socketParams: { token: "test-token" },
@@ -53,10 +98,10 @@ function collectEvents(
     events: BaseEvent[];
     completed: boolean;
     error: Error | null;
-    channel: MockChannel;
-    socket: MockSocket;
+    channel: MockChannel | null;
+    socket: MockSocket | null;
   }>((resolve) => {
-    const subscription = agent.run(input).subscribe({
+    agent.run(input).subscribe({
       next: (event) => events.push(event),
       complete: () => {
         completed = true;
@@ -82,41 +127,58 @@ function collectEvents(
   });
 }
 
-function getSocket(agent: InstanceType<typeof IntelligenceAgent>): MockSocket {
-  return (agent as any).socket as MockSocket;
+function getSocket(
+  agent: InstanceType<typeof IntelligenceAgent>,
+): MockSocket | null {
+  return ((agent as any).socket as MockSocket | null) ?? null;
 }
 
 function getChannel(
   agent: InstanceType<typeof IntelligenceAgent>,
-): MockChannel {
-  return (agent as any).activeChannel as MockChannel;
+): MockChannel | null {
+  return ((agent as any).activeChannel as MockChannel | null) ?? null;
 }
 
 describe("IntelligenceAgent", () => {
   describe("run kickoff", () => {
-    it("connects the socket and joins the channel on subscribe", () => {
+    it("fetches joinToken before connecting the socket", async () => {
+      let resolveFetch: ((value: Response) => void) | null = null;
+      mockFetch.mockReturnValueOnce(
+        new Promise((resolve) => {
+          resolveFetch = resolve;
+        }),
+      );
+
       const agent = createAgent();
       agent.run(defaultInput).subscribe({ next: () => {}, error: () => {} });
 
-      const socket = getSocket(agent);
-      expect(socket.connected).toBe(true);
-      expect(socket.url).toBe("ws://localhost:4000/socket");
-      expect(socket.opts.params).toEqual({ token: "test-token" });
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+      expect(getSocket(agent)).toBeNull();
+      expect(getChannel(agent)).toBeNull();
 
-      const channel = getChannel(agent);
-      expect(channel.topic).toBe("agent:thread-1");
-      expect(channel.params).toEqual({ runId: "run-1" });
+      resolveFetch!(await jsonResponse({ joinToken: "jt-delayed" }));
+      await flushAsyncWork();
+
+      const socket = getSocket(agent)!;
+      expect(socket.connected).toBe(true);
+      expect(socket.url).toBe("ws://localhost:4000/client");
+      expect(socket.opts.params).toEqual({
+        token: "test-token",
+        join_token: "jt-delayed",
+      });
+
+      const channel = getChannel(agent)!;
+      expect(channel.topic).toBe("thread:thread-1");
+      expect(channel.params).toEqual({
+        stream_mode: "run",
+        run_id: "run-1",
+      });
     });
 
-    it("fires a REST POST to /agent/{agentId}/run after join ok", async () => {
+    it("fires a REST POST to /agent/{agentId}/run on subscribe", async () => {
       const agent = createAgent();
       agent.run(defaultInput).subscribe({ next: () => {}, error: () => {} });
-
-      const channel = getChannel(agent);
-      channel.triggerJoin("ok");
-
-      // Wait a tick for the fetch to be called
-      await Promise.resolve();
+      await flushAsyncWork();
 
       expect(mockFetch).toHaveBeenCalledTimes(1);
       const [url, options] = mockFetch.mock.calls[0];
@@ -137,44 +199,57 @@ describe("IntelligenceAgent", () => {
       });
     });
 
-    it("does not push any CUSTOM events to the channel", () => {
+    it("does not push any events to the channel during join", async () => {
       const agent = createAgent();
       agent.run(defaultInput).subscribe({ next: () => {}, error: () => {} });
+      await flushAsyncWork();
 
-      const channel = getChannel(agent);
+      const channel = getChannel(agent)!;
       channel.triggerJoin("ok");
 
-      // No pushes to channel — run is triggered via REST
       expect(channel.pushLog).toHaveLength(0);
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+    });
+
+    it("joins with a null replay cursor when the thread has no prior events", async () => {
+      const agent = createAgent();
+      agent.run(defaultInput).subscribe({ next: () => {}, error: () => {} });
+      await flushAsyncWork();
+
+      const channel = getChannel(agent)!;
+
+      expect(channel.params).toEqual({
+        stream_mode: "run",
+        run_id: "run-1",
+      });
     });
   });
 
   describe("REST run failure", () => {
-    it("errors the observable on fetch failure", async () => {
+    it("errors the observable on fetch failure without creating a socket", async () => {
       mockFetch.mockRejectedValueOnce(new Error("Network error"));
 
       const agent = createAgent();
-      const promise = collectEvents(agent);
+      const result = await collectEvents(agent);
 
-      const channel = getChannel(agent);
-      channel.triggerJoin("ok");
-
-      const result = await promise;
       expect(result.completed).toBe(false);
       expect(result.error).toBeInstanceOf(Error);
       expect(result.error!.message).toContain("REST run request failed");
+      expect(result.socket).toBeNull();
+      expect(result.channel).toBeNull();
     });
   });
 
   describe("event relay", () => {
-    it("forwards AG-UI events from the server to the subscriber", () => {
+    it("forwards AG-UI events from the server to the subscriber", async () => {
       const agent = createAgent();
       const events: BaseEvent[] = [];
       agent
         .run(defaultInput)
         .subscribe({ next: (e) => events.push(e), error: () => {} });
+      await flushAsyncWork();
 
-      const channel = getChannel(agent);
+      const channel = getChannel(agent)!;
       channel.triggerJoin("ok");
 
       const textEvent = {
@@ -182,7 +257,7 @@ describe("IntelligenceAgent", () => {
         messageId: "msg-1",
         delta: "hello",
       } as BaseEvent;
-      channel.serverPush("ag-ui", textEvent);
+      channel.serverPush("ag_ui_event", textEvent);
 
       const toolEvent = {
         type: EventType.TOOL_CALL_START,
@@ -190,7 +265,7 @@ describe("IntelligenceAgent", () => {
         toolCallName: "search",
         parentMessageId: "msg-1",
       } as BaseEvent;
-      channel.serverPush("ag-ui", toolEvent);
+      channel.serverPush("ag_ui_event", toolEvent);
 
       expect(events).toContainEqual(textEvent);
       expect(events).toContainEqual(toolEvent);
@@ -201,8 +276,9 @@ describe("IntelligenceAgent", () => {
     it("completes the observable on RUN_FINISHED", async () => {
       const agent = createAgent();
       const promise = collectEvents(agent);
+      await waitForConnection(agent);
 
-      const channel = getChannel(agent);
+      const channel = getChannel(agent)!;
       channel.triggerJoin("ok");
 
       const finishedEvent = {
@@ -210,7 +286,7 @@ describe("IntelligenceAgent", () => {
         threadId: "thread-1",
         runId: "run-1",
       } as BaseEvent;
-      channel.serverPush("ag-ui", finishedEvent);
+      channel.serverPush("ag_ui_event", finishedEvent);
 
       const result = await promise;
       expect(result.completed).toBe(true);
@@ -221,15 +297,16 @@ describe("IntelligenceAgent", () => {
     it("errors the observable on RUN_ERROR", async () => {
       const agent = createAgent();
       const promise = collectEvents(agent);
+      await waitForConnection(agent);
 
-      const channel = getChannel(agent);
+      const channel = getChannel(agent)!;
       channel.triggerJoin("ok");
 
       const errorEvent = {
         type: EventType.RUN_ERROR,
         message: "something went wrong",
       } as BaseEvent;
-      channel.serverPush("ag-ui", errorEvent);
+      channel.serverPush("ag_ui_event", errorEvent);
 
       const result = await promise;
       expect(result.completed).toBe(false);
@@ -241,11 +318,12 @@ describe("IntelligenceAgent", () => {
     it("cleans up socket and channel on RUN_FINISHED", async () => {
       const agent = createAgent();
       const promise = collectEvents(agent);
+      await flushAsyncWork();
 
-      const socket = getSocket(agent);
-      const channel = getChannel(agent);
+      const socket = getSocket(agent)!;
+      const channel = getChannel(agent)!;
       channel.triggerJoin("ok");
-      channel.serverPush("ag-ui", {
+      channel.serverPush("ag_ui_event", {
         type: EventType.RUN_FINISHED,
         threadId: "thread-1",
         runId: "run-1",
@@ -258,7 +336,7 @@ describe("IntelligenceAgent", () => {
   });
 
   describe("mid-run disconnect", () => {
-    it("does not error the observable on a single channel crash (Phoenix retries)", () => {
+    it("does not error the observable on a single channel crash (Phoenix retries)", async () => {
       const agent = createAgent();
       let error: Error | null = null;
       agent.run(defaultInput).subscribe({
@@ -267,17 +345,17 @@ describe("IntelligenceAgent", () => {
           error = err;
         },
       });
+      await flushAsyncWork();
 
-      const channel = getChannel(agent);
+      await waitForConnection(agent);
+      const channel = getChannel(agent)!;
       channel.triggerJoin("ok");
-
-      // A single channel error should be a no-op — Phoenix handles rejoin.
       channel.triggerError("server crash");
 
       expect(error).toBeNull();
     });
 
-    it("does not error the observable on a single socket error (Phoenix retries)", () => {
+    it("does not error the observable on a single socket error (Phoenix retries)", async () => {
       const agent = createAgent();
       let error: Error | null = null;
       agent.run(defaultInput).subscribe({
@@ -286,28 +364,23 @@ describe("IntelligenceAgent", () => {
           error = err;
         },
       });
+      await waitForConnection(agent);
 
-      const channel = getChannel(agent);
-      channel.triggerJoin("ok");
+      getChannel(agent)!.triggerJoin("ok");
+      getSocket(agent)!.triggerError(new Error("network failure"));
 
-      const socket = getSocket(agent);
-      socket.triggerError(new Error("network failure"));
-
-      // A single socket error should not kill the connection — Phoenix retries.
       expect(error).toBeNull();
     });
 
     it("errors the observable after MAX_CONSECUTIVE_ERRORS socket errors", async () => {
       const agent = createAgent();
       const promise = collectEvents(agent);
+      await waitForConnection(agent);
 
-      const socket = getSocket(agent);
-      const channel = getChannel(agent);
-      channel.triggerJoin("ok");
+      getChannel(agent)!.triggerJoin("ok");
 
-      // Fire 5 consecutive errors (the threshold)
       for (let i = 0; i < 5; i++) {
-        socket.triggerError(new Error("network failure"));
+        getSocket(agent)!.triggerError(new Error("network failure"));
       }
 
       const result = await promise;
@@ -319,9 +392,10 @@ describe("IntelligenceAgent", () => {
     it("cleans up socket and channel after reaching the error threshold", async () => {
       const agent = createAgent();
       const promise = collectEvents(agent);
+      await flushAsyncWork();
 
-      const socket = getSocket(agent);
-      const channel = getChannel(agent);
+      const socket = getSocket(agent)!;
+      const channel = getChannel(agent)!;
       channel.triggerJoin("ok");
 
       for (let i = 0; i < 5; i++) {
@@ -333,7 +407,7 @@ describe("IntelligenceAgent", () => {
       expect(socket.disconnected).toBe(true);
     });
 
-    it("resets the error counter on successful reconnection", () => {
+    it("resets the error counter on successful reconnection", async () => {
       const agent = createAgent();
       let error: Error | null = null;
       agent.run(defaultInput).subscribe({
@@ -342,21 +416,18 @@ describe("IntelligenceAgent", () => {
           error = err;
         },
       });
+      await flushAsyncWork();
 
-      const socket = getSocket(agent);
-      const channel = getChannel(agent);
-      channel.triggerJoin("ok");
+      const socket = getSocket(agent)!;
+      getChannel(agent)!.triggerJoin("ok");
 
-      // 4 errors (just below threshold)
       for (let i = 0; i < 4; i++) {
         socket.triggerError();
       }
       expect(error).toBeNull();
 
-      // Successful reconnect resets counter
       socket.triggerOpen();
 
-      // 4 more errors — still below threshold because counter was reset
       for (let i = 0; i < 4; i++) {
         socket.triggerError();
       }
@@ -368,9 +439,9 @@ describe("IntelligenceAgent", () => {
     it("errors the observable on join error", async () => {
       const agent = createAgent();
       const promise = collectEvents(agent);
+      await flushAsyncWork();
 
-      const channel = getChannel(agent);
-      channel.triggerJoin("error", { reason: "unauthorized" });
+      getChannel(agent)!.triggerJoin("error", { reason: "unauthorized" });
 
       const result = await promise;
       expect(result.completed).toBe(false);
@@ -381,9 +452,9 @@ describe("IntelligenceAgent", () => {
     it("errors the observable on join timeout", async () => {
       const agent = createAgent();
       const promise = collectEvents(agent);
+      await flushAsyncWork();
 
-      const channel = getChannel(agent);
-      channel.triggerJoin("timeout");
+      getChannel(agent)!.triggerJoin("timeout");
 
       const result = await promise;
       expect(result.completed).toBe(false);
@@ -393,116 +464,106 @@ describe("IntelligenceAgent", () => {
   });
 
   describe("abortRun", () => {
-    it("pushes a CUSTOM stop event to the channel", () => {
+    it("pushes stop_run with the current run id", async () => {
       const agent = createAgent();
       agent.run(defaultInput).subscribe({ next: () => {}, error: () => {} });
+      await flushAsyncWork();
 
-      const channel = getChannel(agent);
+      const channel = getChannel(agent)!;
       channel.triggerJoin("ok");
 
       agent.abortRun();
 
-      const stopPush = channel.pushLog.find(
-        (c) =>
-          c.payload?.type === EventType.CUSTOM && c.payload?.name === "stop",
-      );
+      const stopPush = channel.pushLog.find((c) => c.event === "stop_run");
       expect(stopPush).toBeDefined();
-      expect(stopPush!.payload).toMatchObject({
-        type: EventType.CUSTOM,
-        name: "stop",
-        value: { threadId: "thread-1" },
-      });
+      expect(stopPush!.payload).toEqual({ run_id: "run-1" });
     });
 
-    it("defers cleanup until the push is acknowledged (ok)", () => {
+    it("defers cleanup until the push is acknowledged (ok)", async () => {
       const agent = createAgent();
       agent.run(defaultInput).subscribe({ next: () => {}, error: () => {} });
+      await flushAsyncWork();
 
-      const channel = getChannel(agent);
+      const channel = getChannel(agent)!;
       channel.triggerJoin("ok");
-
       agent.abortRun();
 
-      // Cleanup has NOT happened yet — waiting for push ACK
       expect(channel.left).toBe(false);
 
-      // Server acknowledges the stop push
-      const stopEntry = channel.pushLog.find(
-        (c) => c.payload?.name === "stop",
-      )!;
+      const stopEntry = channel.pushLog.find((c) => c.event === "stop_run")!;
       stopEntry.push.trigger("ok");
 
       expect(channel.left).toBe(true);
     });
 
-    it("cleans up on push error reply", () => {
+    it("cleans up on push error reply", async () => {
       const agent = createAgent();
       agent.run(defaultInput).subscribe({ next: () => {}, error: () => {} });
+      await flushAsyncWork();
 
-      const channel = getChannel(agent);
+      const channel = getChannel(agent)!;
       channel.triggerJoin("ok");
       agent.abortRun();
 
-      const stopEntry = channel.pushLog.find(
-        (c) => c.payload?.name === "stop",
-      )!;
+      const stopEntry = channel.pushLog.find((c) => c.event === "stop_run")!;
       stopEntry.push.trigger("error");
 
       expect(channel.left).toBe(true);
     });
 
-    it("cleans up on push timeout reply", () => {
+    it("cleans up on push timeout reply", async () => {
       const agent = createAgent();
       agent.run(defaultInput).subscribe({ next: () => {}, error: () => {} });
+      await flushAsyncWork();
 
-      const channel = getChannel(agent);
+      const channel = getChannel(agent)!;
       channel.triggerJoin("ok");
       agent.abortRun();
 
-      const stopEntry = channel.pushLog.find(
-        (c) => c.payload?.name === "stop",
-      )!;
+      const stopEntry = channel.pushLog.find((c) => c.event === "stop_run")!;
       stopEntry.push.trigger("timeout");
 
       expect(channel.left).toBe(true);
     });
 
-    it("cleans up immediately via fallback timer when socket is down", () => {
+    it("cleans up immediately via fallback timer when socket is down", async () => {
       vi.useFakeTimers();
-      const agent = createAgent();
-      agent.run(defaultInput).subscribe({ next: () => {}, error: () => {} });
 
-      const channel = getChannel(agent);
-      channel.triggerJoin("ok");
-      agent.abortRun();
+      try {
+        const agent = createAgent();
+        agent.run(defaultInput).subscribe({ next: () => {}, error: () => {} });
+        await waitForConnection(agent);
 
-      // No ACK will arrive (socket is down) — channel still open
-      expect(channel.left).toBe(false);
+        const channel = getChannel(agent)!;
+        channel.triggerJoin("ok");
+        agent.abortRun();
 
-      // Fallback fires after 5 seconds
-      vi.advanceTimersByTime(5_000);
-      expect(channel.left).toBe(true);
+        expect(channel.left).toBe(false);
 
-      vi.useRealTimers();
+        vi.advanceTimersByTime(5_000);
+        expect(channel.left).toBe(true);
+      } finally {
+        vi.useRealTimers();
+      }
     });
 
     it("cleans up immediately when no run is active", () => {
       const agent = createAgent();
-      // Should not throw and should not push anything
       expect(() => agent.abortRun()).not.toThrow();
       expect(mockFetch).not.toHaveBeenCalled();
     });
   });
 
   describe("unsubscribe cleanup", () => {
-    it("leaves the channel and disconnects the socket on unsubscribe", () => {
+    it("leaves the channel and disconnects the socket on unsubscribe", async () => {
       const agent = createAgent();
       const subscription = agent
         .run(defaultInput)
         .subscribe({ next: () => {}, error: () => {} });
+      await flushAsyncWork();
 
-      const socket = getSocket(agent);
-      const channel = getChannel(agent);
+      const socket = getSocket(agent)!;
+      const channel = getChannel(agent)!;
       channel.triggerJoin("ok");
 
       subscription.unsubscribe();
@@ -515,16 +576,13 @@ describe("IntelligenceAgent", () => {
   describe("credentials forwarding", () => {
     it("forwards credentials on run fetch when configured", async () => {
       const agent = new IntelligenceAgent({
-        url: "ws://localhost:4000/socket",
+        url: "ws://localhost:4000/client",
         runtimeUrl: "http://localhost:4000",
         agentId: "my-agent",
         credentials: "include",
       });
       agent.run(defaultInput).subscribe({ next: () => {}, error: () => {} });
-
-      const channel = getChannel(agent);
-      channel.triggerJoin("ok");
-      await Promise.resolve();
+      await flushAsyncWork();
 
       const [, options] = mockFetch.mock.calls[0];
       expect(options.credentials).toBe("include");
@@ -533,10 +591,7 @@ describe("IntelligenceAgent", () => {
     it("omits credentials when not configured", async () => {
       const agent = createAgent();
       agent.run(defaultInput).subscribe({ next: () => {}, error: () => {} });
-
-      const channel = getChannel(agent);
-      channel.triggerJoin("ok");
-      await Promise.resolve();
+      await flushAsyncWork();
 
       const [, options] = mockFetch.mock.calls[0];
       expect(options.credentials).toBeUndefined();
@@ -544,7 +599,6 @@ describe("IntelligenceAgent", () => {
   });
 
   describe("connect", () => {
-    /** Access the protected connect() method for testing. */
     function connectAgent(
       agent: InstanceType<typeof IntelligenceAgent>,
       input = defaultInput,
@@ -557,8 +611,8 @@ describe("IntelligenceAgent", () => {
         events: BaseEvent[];
         completed: boolean;
         error: Error | null;
-        channel: MockChannel;
-        socket: MockSocket;
+        channel: MockChannel | null;
+        socket: MockSocket | null;
       }>((resolve) => {
         (agent as any).connect(input).subscribe({
           next: (event: BaseEvent) => events.push(event),
@@ -586,78 +640,307 @@ describe("IntelligenceAgent", () => {
       });
     }
 
-    it("joins channel in connect mode and pushes CUSTOM connect event", () => {
+    it("fetches a live connect plan and joins the thread topic without pushing connect", async () => {
+      mockFetch.mockResolvedValueOnce(
+        await jsonResponse({
+          mode: "live",
+          joinToken: "jt-123",
+          joinFromEventId: null,
+          events: [],
+        }),
+      );
+
       const agent = createAgent();
       (agent as any).connect(defaultInput).subscribe({
         next: () => {},
         error: () => {},
       });
+      await waitForConnection(agent);
 
-      const channel = getChannel(agent);
-      expect(channel.params).toEqual({ mode: "connect" });
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+      const [url] = mockFetch.mock.calls[0];
+      expect(url).toContain("/agent/my-agent/connect");
+
+      const socket = getSocket(agent)!;
+      expect(socket.opts.params).toEqual({
+        token: "test-token",
+        join_token: "jt-123",
+      });
+
+      const channel = getChannel(agent)!;
+      expect(channel.topic).toBe("thread:thread-1");
+      expect(channel.params).toEqual({
+        stream_mode: "connect",
+        last_seen_event_id: null,
+      });
 
       channel.triggerJoin("ok");
+      expect(channel.pushLog).toHaveLength(0);
+    });
 
-      const connectPush = channel.pushLog.find(
-        (c) => c.event === EventType.CUSTOM,
+    it("reuses the latest cpki_event_id value as the replay cursor", async () => {
+      const agent = createAgent();
+      agent.run(defaultInput).subscribe({ next: () => {}, error: () => {} });
+      await waitForConnection(agent);
+
+      const runChannel = getChannel(agent)!;
+      runChannel.triggerJoin("ok");
+      runChannel.serverPush("ag_ui_event", {
+        type: EventType.TEXT_MESSAGE_CONTENT,
+        metadata: {
+          cpki_event_id: "event-1",
+          cpki_event_seq: 1,
+        },
+      } as BaseEvent);
+
+      mockFetch.mockResolvedValueOnce(
+        await jsonResponse({
+          mode: "live",
+          joinToken: "jt-123",
+          joinFromEventId: "event-1",
+          events: [],
+        }),
       );
-      expect(connectPush).toBeDefined();
-      expect(connectPush!.payload).toMatchObject({
-        type: EventType.CUSTOM,
-        name: "connect",
-        value: { threadId: "thread-1" },
+
+      (agent as any).connect(defaultInput).subscribe({
+        next: () => {},
+        error: () => {},
+      });
+      await waitForConnection(agent);
+
+      const connectChannel = getChannel(agent)!;
+      expect(connectChannel.params).toEqual({
+        stream_mode: "connect",
+        last_seen_event_id: "event-1",
       });
     });
 
     it("completes on RUN_FINISHED from server", async () => {
+      mockFetch.mockResolvedValueOnce(
+        await jsonResponse({
+          mode: "live",
+          joinToken: "jt-123",
+          joinFromEventId: null,
+          events: [],
+        }),
+      );
+
       const agent = createAgent();
       const promise = connectAgent(agent);
+      await waitForConnection(agent);
 
-      const channel = getChannel(agent);
+      const channel = getChannel(agent)!;
       channel.triggerJoin("ok");
+      await flushAsyncWork();
 
-      channel.serverPush("ag-ui", {
+      channel.serverPush("ag_ui_event", {
         type: EventType.RUN_FINISHED,
         threadId: "thread-1",
         runId: "run-1",
       } as BaseEvent);
+      await flushAsyncWork();
 
       const result = await promise;
       expect(result.completed).toBe(true);
       expect(result.error).toBeNull();
+    });
+
+    it("completes immediately without creating a socket on 204 connect", async () => {
+      mockFetch.mockResolvedValueOnce(await emptyResponse());
+
+      const agent = createAgent();
+      const result = await connectAgent(agent);
+
+      expect(result.completed).toBe(true);
+      expect(result.error).toBeNull();
+      expect(result.events).toHaveLength(0);
+      expect(result.socket).toBeNull();
+      expect(result.channel).toBeNull();
     });
 
     it("completes on RUN_ERROR from server", async () => {
+      mockFetch.mockResolvedValueOnce(
+        await jsonResponse({
+          mode: "live",
+          joinToken: "jt-123",
+          joinFromEventId: null,
+          events: [],
+        }),
+      );
+
       const agent = createAgent();
       const promise = connectAgent(agent);
+      await waitForConnection(agent);
 
-      const channel = getChannel(agent);
+      const channel = getChannel(agent)!;
       channel.triggerJoin("ok");
+      await flushAsyncWork();
 
-      channel.serverPush("ag-ui", {
+      channel.serverPush("ag_ui_event", {
         type: EventType.RUN_ERROR,
         message: "something went wrong",
       } as BaseEvent);
+      await flushAsyncWork();
 
       const result = await promise;
       expect(result.completed).toBe(true);
       expect(result.error).toBeNull();
-      expect(result.events).toHaveLength(1);
+      expect(result.events).toEqual([
+        {
+          type: EventType.RUN_ERROR,
+          message: "something went wrong",
+        },
+      ]);
+    });
+
+    it("applies bootstrap events and completes without creating a socket", async () => {
+      mockFetch.mockResolvedValueOnce(
+        await jsonResponse({
+          mode: "bootstrap",
+          latestEventId: "event-2",
+          events: [
+            {
+              type: EventType.MESSAGES_SNAPSHOT,
+              messages: [
+                {
+                  id: "msg-1",
+                  role: "user",
+                  content: "hello",
+                },
+              ],
+            },
+          ],
+        }),
+      );
+
+      const agent = createAgent();
+      const promise = connectAgent(agent);
+      await waitForConnection(agent);
+
+      const result = await promise;
+      expect(result.completed).toBe(true);
+      expect(result.error).toBeNull();
+      expect(result.socket).toBeNull();
+      expect(result.channel).toBeNull();
+      expect(result.events).toEqual([
+        {
+          type: EventType.MESSAGES_SNAPSHOT,
+          messages: [
+            {
+              id: "msg-1",
+              role: "user",
+              content: "hello",
+            },
+          ],
+        },
+      ]);
+    });
+
+    it("does not create a socket for bootstrap-only connect plans", async () => {
+      mockFetch.mockResolvedValueOnce(
+        await jsonResponse({
+          mode: "bootstrap",
+          latestEventId: "event-2",
+          events: [{ type: EventType.MESSAGES_SNAPSHOT, messages: [] }],
+        }),
+      );
+
+      const agent = createAgent();
+      const promise = connectAgent(agent);
+      await waitForConnection(agent);
+
+      const result = await promise;
+      expect(result.completed).toBe(true);
+      expect(result.error).toBeNull();
+      expect(result.socket).toBeNull();
+      expect(result.channel).toBeNull();
+      expect(result.events).toEqual([
+        {
+          type: EventType.MESSAGES_SNAPSHOT,
+          messages: [],
+        },
+      ]);
+    });
+
+    it("emits bootstrap events before opening a live socket", async () => {
+      mockFetch.mockResolvedValueOnce(
+        await jsonResponse({
+          mode: "live",
+          joinToken: "jt-123",
+          joinFromEventId: "event-2",
+          events: [{ type: EventType.MESSAGES_SNAPSHOT, messages: [] }],
+        }),
+      );
+
+      const agent = createAgent();
+      const events: BaseEvent[] = [];
+
+      (agent as any).connect(defaultInput).subscribe({
+        next: (event: BaseEvent) => events.push(event),
+        error: () => {},
+      });
+      await waitForConnection(agent);
+
+      const channel = getChannel(agent)!;
+      channel.triggerJoin("ok");
+
+      await flushAsyncWork();
+
+      expect(events[0]).toEqual({
+        type: EventType.MESSAGES_SNAPSHOT,
+        messages: [],
+      });
+    });
+
+    it("errors the observable on connect fetch failure", async () => {
+      mockFetch.mockRejectedValueOnce(new Error("Network error"));
+
+      const agent = createAgent();
+      const result = await new Promise<{
+        error: Error | null;
+      }>((resolve) => {
+        (agent as any).connect(defaultInput).subscribe({
+          next: () => {},
+          error: (error: Error) => resolve({ error }),
+        });
+      });
+
+      expect(result.error).toBeInstanceOf(Error);
+      expect(result.error!.message).toContain("REST connect request failed");
+      expect(getSocket(agent)).toBeNull();
     });
 
     it("errors the observable on join error", async () => {
+      mockFetch.mockResolvedValueOnce(
+        await jsonResponse({
+          mode: "live",
+          joinToken: "jt-123",
+          joinFromEventId: null,
+          events: [],
+        }),
+      );
+
       const agent = createAgent();
       const promise = connectAgent(agent);
+      await waitForConnection(agent);
 
-      const channel = getChannel(agent);
-      channel.triggerJoin("error", { reason: "unauthorized" });
+      getChannel(agent)!.triggerJoin("error", { reason: "unauthorized" });
 
       const result = await promise;
       expect(result.error).toBeInstanceOf(Error);
       expect(result.error!.message).toContain("Failed to join channel");
     });
 
-    it("does not error the observable on a single channel crash (Phoenix retries)", () => {
+    it("does not error the observable on a single channel crash (Phoenix retries)", async () => {
+      mockFetch.mockResolvedValueOnce(
+        await jsonResponse({
+          mode: "live",
+          joinToken: "jt-123",
+          joinFromEventId: null,
+          events: [],
+        }),
+      );
+
       const agent = createAgent();
       let error: Error | null = null;
       (agent as any).connect(defaultInput).subscribe({
@@ -666,25 +949,33 @@ describe("IntelligenceAgent", () => {
           error = err;
         },
       });
+      await waitForConnection(agent);
 
-      const channel = getChannel(agent);
+      const channel = getChannel(agent)!;
       channel.triggerJoin("ok");
       channel.triggerError("server crash");
 
-      // Channel errors are handled by Phoenix auto-rejoin — no observer error.
       expect(error).toBeNull();
     });
 
     it("errors the observable after MAX_CONSECUTIVE_ERRORS socket errors", async () => {
+      mockFetch.mockResolvedValueOnce(
+        await jsonResponse({
+          mode: "live",
+          joinToken: "jt-123",
+          joinFromEventId: null,
+          events: [],
+        }),
+      );
+
       const agent = createAgent();
       const promise = connectAgent(agent);
+      await waitForConnection(agent);
 
-      const socket = getSocket(agent);
-      const channel = getChannel(agent);
-      channel.triggerJoin("ok");
+      getChannel(agent)!.triggerJoin("ok");
 
       for (let i = 0; i < 5; i++) {
-        socket.triggerError(new Error("network failure"));
+        getSocket(agent)!.triggerError(new Error("network failure"));
       }
 
       const result = await promise;
@@ -702,6 +993,94 @@ describe("IntelligenceAgent", () => {
       expect(cloned).toBeInstanceOf(IntelligenceAgent);
       expect(cloned).not.toBe(agent);
       expect((cloned as any).config).toEqual((agent as any).config);
+    });
+
+    it("shares replay cursor state across clones when reconnecting with local messages", async () => {
+      const agent = createAgent();
+      agent.run(defaultInput).subscribe({ next: () => {}, error: () => {} });
+      await waitForConnection(agent);
+
+      const runChannel = getChannel(agent)!;
+      runChannel.triggerJoin("ok");
+      runChannel.serverPush("ag_ui_event", {
+        type: EventType.TEXT_MESSAGE_CONTENT,
+        metadata: {
+          cpki_event_id: "event-2",
+          cpki_event_seq: 2,
+        },
+      } as BaseEvent);
+
+      const cloned = agent.clone();
+      const reconnectInput = {
+        ...defaultInput,
+        messages: [
+          {
+            id: "msg-1",
+            role: "user",
+            content: "hello",
+          },
+        ],
+      };
+      mockFetch.mockResolvedValueOnce(
+        await jsonResponse({
+          mode: "live",
+          joinToken: "jt-123",
+          joinFromEventId: "event-2",
+          events: [],
+        }),
+      );
+      (cloned as any).connect(reconnectInput).subscribe({
+        next: () => {},
+        error: () => {},
+      });
+      await waitForConnection(cloned);
+
+      const connectChannel = getChannel(cloned)!;
+      expect(connectChannel.params).toEqual({
+        stream_mode: "connect",
+        last_seen_event_id: "event-2",
+      });
+    });
+
+    it("does not reuse a cached replay cursor when reconnecting with no local messages", async () => {
+      const agent = createAgent();
+      agent.run(defaultInput).subscribe({ next: () => {}, error: () => {} });
+      await waitForConnection(agent);
+
+      const runChannel = getChannel(agent)!;
+      runChannel.triggerJoin("ok");
+      runChannel.serverPush("ag_ui_event", {
+        type: EventType.TEXT_MESSAGE_CONTENT,
+        metadata: {
+          cpki_event_id: "event-2",
+          cpki_event_seq: 2,
+        },
+      } as BaseEvent);
+
+      const cloned = agent.clone();
+      mockFetch.mockResolvedValueOnce(
+        await jsonResponse({
+          mode: "live",
+          joinToken: "jt-123",
+          joinFromEventId: null,
+          events: [],
+        }),
+      );
+      (cloned as any).connect(defaultInput).subscribe({
+        next: () => {},
+        error: () => {},
+      });
+      await waitForConnection(cloned);
+
+      expect(JSON.parse(mockFetch.mock.calls[1][1].body)).toMatchObject({
+        lastSeenEventId: null,
+      });
+
+      const connectChannel = getChannel(cloned)!;
+      expect(connectChannel.params).toEqual({
+        stream_mode: "connect",
+        last_seen_event_id: null,
+      });
     });
   });
 });

@@ -19,9 +19,20 @@ export interface AgentDescription {
   description: string;
 }
 
+export type RuntimeMode = "sse" | "intelligence";
+
+export const RUNTIME_MODE_SSE = "sse" as const;
+export const RUNTIME_MODE_INTELLIGENCE = "intelligence" as const;
+
+export interface IntelligenceRuntimeInfo {
+  wsUrl: string;
+}
+
 export interface RuntimeInfo {
   version: string;
   agents: Record<string, AgentDescription>;
   audioFileTranscriptionEnabled: boolean;
+  mode: RuntimeMode;
+  intelligence?: IntelligenceRuntimeInfo;
   a2uiEnabled?: boolean;
 }

@@ -34,6 +34,7 @@ import {
   CopilotRuntime as CopilotRuntimeVNext,
   type CopilotRuntimeOptions,
   type CopilotRuntimeOptions as CopilotRuntimeOptionsVNext,
+  type AgentRunner,
   InMemoryAgentRunner,
 } from "@copilotkitnext/runtime";
 import { TelemetryAgentRunner } from "./telemetry-agent-runner";
@@ -182,6 +183,11 @@ export interface CopilotRuntimeConstructorParams_BASE<
    * An array of LangServer URLs.
    */
   langserve?: RemoteChainParameters[];
+
+  /**
+   * Optional agent runner to use for SSE runtime.
+   */
+  runner?: AgentRunner;
 
   /*
    * A map of agent names to AGUI agents.
