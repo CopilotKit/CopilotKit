@@ -15,7 +15,6 @@
     "build": "tsup",
     "lint": "echo oops",
     "generate-manifest": "oclif manifest",
-    "prepare": "pnpm run build && pnpm run generate-manifest",
     "prepublishOnly": "pnpm run build && pnpm run generate-manifest",
     "test": "jest",
     "version": "oclif readme && git add README.md",
