@@ -6,7 +6,7 @@ import {
 } from "@angular/core";
 import { CommonModule } from "@angular/common";
 import { FormsModule } from "@angular/forms";
-import { injectChatState } from "@copilotkitnext/angular";
+import { injectChatState } from "@copilotkit/angular";
 
 @Component({
   selector: "nextgen-custom-input",

@@ -1,5 +1,5 @@
 {
-  "extends": "@copilotkitnext/typescript-config/base.json",
+  "extends": "@copilotkit/typescript-config/base.json",
   "compilerOptions": {
     "target": "ES2022",
     "module": "ESNext",
@@ -15,10 +15,10 @@
     "resolveJsonModule": true,
     "useDefineForClassFields": false,
     "paths": {
-      "@copilotkitnext/angular": ["../../../packages/angular/src/index.ts"],
-      "@copilotkitnext/angular/*": ["../../../packages/angular/src/*"],
-      "@copilotkitnext/core": ["../../../packages/core/src/index.ts"],
-      "@copilotkitnext/shared": ["../../../packages/shared/src/index.ts"]
+      "@copilotkit/angular": ["../../../packages/angular/src/index.ts"],
+      "@copilotkit/angular/*": ["../../../packages/angular/src/*"],
+      "@copilotkit/core": ["../../../packages/core/src/index.ts"],
+      "@copilotkit/shared": ["../../../packages/shared/src/index.ts"]
     },
     "types": ["node"]
   },

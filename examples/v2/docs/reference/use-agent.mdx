@@ -20,7 +20,7 @@ The useAgent hook:
 ## Basic Usage
 
 ```tsx
-import { useAgent } from "@copilotkitnext/react";
+import { useAgent } from "@copilotkit/react-core";
 
 function ChatComponent() {
   const { agent } = useAgent({ agentId: "assistant" });
@@ -55,7 +55,7 @@ An array of update types to subscribe to. This allows you to optimize re-renders
 changes.
 
 ```tsx
-import { useAgent, UseAgentUpdate } from "@copilotkitnext/react";
+import { useAgent, UseAgentUpdate } from "@copilotkit/react-core";
 
 const { agent } = useAgent({
   agentId: "assistant",
@@ -111,8 +111,8 @@ function SimpleChat() {
 To send a message, add it to the agent and then run the agent:
 
 ```tsx
-import { useAgent } from "@copilotkitnext/react";
-import { useCopilotKit } from "@copilotkitnext/react";
+import { useAgent } from "@copilotkit/react-core";
+import { useCopilotKit } from "@copilotkit/react-core";
 
 function MessageSender() {
   const { agent } = useAgent({ agentId: "assistant" });
@@ -288,7 +288,7 @@ function CollaborativeTodo() {
 Subscribe only to message changes to avoid unnecessary re-renders:
 
 ```tsx
-import { useAgent, UseAgentUpdate } from "@copilotkitnext/react";
+import { useAgent, UseAgentUpdate } from "@copilotkit/react-core";
 
 function MessageList() {
   const { agent } = useAgent({
@@ -310,7 +310,7 @@ function MessageList() {
 Show a loading indicator when the agent is processing:
 
 ```tsx
-import { useAgent, UseAgentUpdate } from "@copilotkitnext/react";
+import { useAgent, UseAgentUpdate } from "@copilotkit/react-core";
 
 function RunStatus() {
   const { agent } = useAgent({
@@ -372,7 +372,7 @@ const { agent } = useAgent({
 ### Custom Message Rendering with Optimized Updates
 
 ```tsx
-import { useAgent, UseAgentUpdate } from "@copilotkitnext/react";
+import { useAgent, UseAgentUpdate } from "@copilotkit/react-core";
 import { Message } from "@ag-ui/core";
 
 function MessageRenderer() {

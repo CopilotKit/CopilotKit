@@ -24,7 +24,7 @@ pnpm install
 pnpm turbo run build
 
 # Build specific package
-pnpm turbo run build --filter=@copilotkitnext/react
+pnpm turbo run build --filter=@copilotkit/react
 ```
 
 #### Development
