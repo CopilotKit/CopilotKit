@@ -1,15 +1,78 @@
 import {
   AbstractAgent,
   RunAgentInput,
+  RunAgentParameters,
+  RunAgentResult,
+  AgentSubscriber,
   EventType,
   BaseEvent,
+  randomUUID,
+  transformChunks,
+  structuredClone_,
 } from "@ag-ui/client";
-import { Observable } from "rxjs";
-import { Socket, Channel } from "phoenix";
 import {
-  AG_UI_CHANNEL_EVENT,
-  phoenixExponentialBackoff,
-} from "@copilotkitnext/shared";
+  EMPTY,
+  Subject,
+  Notification,
+  Observable,
+  concat,
+  defer,
+  dematerialize,
+  from,
+  lastValueFrom,
+  merge,
+  switchMap,
+} from "rxjs";
+import {
+  catchError,
+  endWith,
+  finalize,
+  ignoreElements,
+  mergeMap,
+  share,
+  shareReplay,
+  switchMap as switchMapOperator,
+  take,
+  takeUntil,
+  tap,
+} from "rxjs/operators";
+import type { Socket, Channel } from "phoenix";
+import { phoenixExponentialBackoff } from "@copilotkitnext/shared";
+import {
+  ɵphoenixChannel$,
+  ɵphoenixSocket$,
+  type ɵPhoenixChannelSession,
+  type ɵPhoenixSocketSession,
+  ɵjoinPhoenixChannel$,
+  ɵobservePhoenixSocketSignals$,
+  ɵobservePhoenixSocketHealth$,
+  ɵobservePhoenixEvent$,
+} from "./utils/phoenix-observable";
+
+const CLIENT_AG_UI_EVENT = "ag_ui_event";
+const STOP_RUN_EVENT = "stop_run";
+interface ThreadJoinCredentials {
+  joinToken: string;
+}
+
+interface IntelligenceAgentSharedState {
+  lastSeenEventIds: Map<string, string>;
+}
+
+interface ConnectBootstrapPlan {
+  mode: "bootstrap";
+  latestEventId: string | null;
+  events: BaseEvent[];
+}
+
+interface ConnectLivePlan {
+  mode: "live";
+  joinToken: string;
+  joinFromEventId: string | null;
+  events: BaseEvent[];
+}
+
+type NormalizedConnectPlan = ConnectBootstrapPlan | ConnectLivePlan;
 
 export interface IntelligenceAgentConfig {
   /** Phoenix websocket URL, e.g. "ws://localhost:4000/socket" */
@@ -30,282 +93,200 @@ export class IntelligenceAgent extends AbstractAgent {
   private config: IntelligenceAgentConfig;
   private socket: Socket | null = null;
   private activeChannel: Channel | null = null;
-  private threadId: string | null = null;
+  private runId: string | null = null;
+  private sharedState: IntelligenceAgentSharedState;
 
-  constructor(config: IntelligenceAgentConfig) {
+  constructor(
+    config: IntelligenceAgentConfig,
+    sharedState: IntelligenceAgentSharedState = {
+      lastSeenEventIds: new Map<string, string>(),
+    },
+  ) {
     super();
     this.config = config;
+    this.sharedState = sharedState;
   }
 
   clone(): IntelligenceAgent {
-    return new IntelligenceAgent(this.config);
+    return new IntelligenceAgent(this.config, this.sharedState);
+  }
+
+  /**
+   * Override of AbstractAgent.connectAgent that removes the `verifyEvents` step.
+   *
+   * Background: AbstractAgent's connectAgent pipeline runs events through
+   * `verifyEvents`, which validates that the stream follows the AG-UI protocol
+   * lifecycle — specifically, it expects a RUN_STARTED event before any content
+   * events and a RUN_FINISHED/RUN_ERROR event to complete the stream.
+   *
+   * IntelligenceAgent uses long-lived WebSocket connections rather than
+   * request-scoped SSE streams. When connecting to replay historical messages
+   * for an existing thread, the connection semantics don't map to a single
+   * agent run start/stop cycle. The replayed events may not include
+   * RUN_STARTED/RUN_FINISHED bookends (or may contain events from multiple
+   * past runs), which causes verifyEvents to either never complete or to
+   * error out.
+   *
+   * This override replicates the base connectAgent implementation exactly,
+   * substituting only `transformChunks` (which is still needed for message
+   * reassembly) and omitting `verifyEvents`.
+   *
+   * TODO: Remove this override once AG-UI's AbstractAgent supports opting out
+   * of verifyEvents for transports with different connection life-cycles.
+   */
+  override async connectAgent(
+    parameters?: RunAgentParameters,
+    subscriber?: AgentSubscriber,
+  ): Promise<RunAgentResult> {
+    // Access private fields through a type escape hatch — these are set/read
+    // by the base class and must be managed identically to the original.
+    // Using `any` because these fields are private in AbstractAgent, and
+    // intersecting private+public members of the same name produces `never`.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const self = this as any;
+
+    try {
+      this.isRunning = true;
+      this.agentId = this.agentId ?? randomUUID();
+
+      const input = this.prepareRunAgentInput(parameters);
+      let result: RunAgentResult["result"];
+      const previousMessageIds = new Set(this.messages.map((m) => m.id));
+      const subscribers: AgentSubscriber[] = [
+        {
+          onRunFinishedEvent: (event) => {
+            result = event.result;
+          },
+        },
+        ...this.subscribers,
+        subscriber ?? {},
+      ];
+
+      await this.onInitialize(input, subscribers);
+
+      self.activeRunDetach$ = new Subject<void>();
+      let resolveCompletion: (() => void) | undefined;
+      self.activeRunCompletionPromise = new Promise<void>((resolve) => {
+        resolveCompletion = resolve;
+      });
+
+      const source$ = defer(() => this.connect(input)).pipe(
+        // transformChunks reassembles partial/streamed messages — still needed.
+        transformChunks(this.debug),
+        // NOTE: verifyEvents is intentionally omitted here. See JSDoc above.
+        takeUntil(self.activeRunDetach$),
+      );
+
+      const applied$ = this.apply(input, source$, subscribers);
+      const processed$ = this.processApplyEvents(input, applied$, subscribers);
+
+      await lastValueFrom(
+        processed$.pipe(
+          catchError((error) => {
+            this.isRunning = false;
+            return this.onError(input, error, subscribers);
+          }),
+          finalize(() => {
+            this.isRunning = false;
+            this.onFinalize(input, subscribers);
+            resolveCompletion?.();
+            resolveCompletion = undefined;
+            self.activeRunCompletionPromise = undefined;
+            self.activeRunDetach$ = undefined;
+          }),
+        ),
+        { defaultValue: undefined },
+      );
+
+      const newMessages = structuredClone_(this.messages).filter(
+        (m) => !previousMessageIds.has(m.id),
+      );
+      return { result, newMessages };
+    } finally {
+      this.isRunning = false;
+    }
   }
 
   abortRun(): void {
-    if (this.activeChannel && this.threadId) {
+    if (this.activeChannel && this.runId) {
       // Defer cleanup until the push is acknowledged so socket.disconnect()
       // doesn't clear the push buffer before the stop signal is sent.
       // The 5-second fallback handles the case where the socket is down and
       // Phoenix never flushes the buffered push (its .receive("timeout") only
       // fires for pushes that were actually sent but not replied to).
-      const fallback = setTimeout(() => this.cleanup(), 5_000);
+      // detachActiveRun() gracefully tears down the connectAgent() pipeline;
+      // cleanup() follows as a safety net for the run() path.
+      const fallback = setTimeout(() => clear(), 5_000);
       const clear = () => {
         clearTimeout(fallback);
+        void this.detachActiveRun();
         this.cleanup();
       };
 
       this.activeChannel
-        .push(AG_UI_CHANNEL_EVENT, {
-          type: EventType.CUSTOM,
-          name: "stop",
-          value: { threadId: this.threadId },
-        })
+        .push(STOP_RUN_EVENT, { run_id: this.runId })
         .receive("ok", clear)
         .receive("error", clear)
         .receive("timeout", clear);
     } else {
+      void this.detachActiveRun();
       this.cleanup();
     }
   }
 
   /**
-   * Connect to a Phoenix channel scoped to the thread, trigger the run via
-   * REST, and relay server-pushed AG-UI events to the Observable subscriber.
-   *
-   * The server pushes each AG-UI event using its EventType string as the
-   * Phoenix event name (e.g. "TEXT_MESSAGE_CHUNK", "TOOL_CALL_START"), with
-   * the full BaseEvent as payload. RUN_FINISHED and RUN_ERROR are terminal
-   * events that complete or error the Observable.
+   * Trigger the run via REST, then join the realtime thread channel and relay
+   * server-pushed AG-UI events to the Observable subscriber.
    */
   run(input: RunAgentInput): Observable<BaseEvent> {
-    return new Observable<BaseEvent>((observer) => {
-      this.threadId = input.threadId;
+    this.threadId = input.threadId;
+    this.runId = input.runId;
 
-      // 1. Establish socket connection with explicit exponential backoff.
-      //
-      //    reconnectAfterMs — controls how long Phoenix waits before
-      //    reconnecting the underlying WebSocket after an unclean close.
-      //    100ms base, doubling up to a 10s cap.
-      //
-      //    rejoinAfterMs — controls how long Phoenix waits before
-      //    re-joining a channel that entered the "errored" state (e.g.
-      //    after a socket reconnect). 1s base, doubling up to 30s cap.
-      //
-      //    These must be set explicitly because the default Phoenix
-      //    behaviour uses a stepped (non-exponential) schedule, and —
-      //    more importantly — any socket.onError / channel.onError
-      //    callback that calls cleanup() / disconnect() will set
-      //    `closeWasClean = true` and reset the reconnect timer,
-      //    silently disabling all automatic retries.
-      const socket = new Socket(this.config.url, {
-        params: this.config.socketParams ?? {},
-        reconnectAfterMs: phoenixExponentialBackoff(100, 10_000),
-        rejoinAfterMs: phoenixExponentialBackoff(1_000, 30_000),
-      });
-      this.socket = socket;
-      socket.connect();
-
-      // 2. Join a channel scoped to this thread/run
-      const channel = socket.channel(`agent:${input.threadId}`, {
-        runId: input.runId,
-      });
-      this.activeChannel = channel;
-
-      // 3. Listen for AG-UI events pushed by the server
-      channel.on(AG_UI_CHANNEL_EVENT, (payload: BaseEvent) => {
-        observer.next(payload);
-
-        if (payload.type === EventType.RUN_FINISHED) {
-          observer.complete();
-          this.cleanup();
-        } else if (payload.type === EventType.RUN_ERROR) {
-          observer.error(
-            new Error(
-              (payload as BaseEvent & { message?: string }).message ??
-                "Run error",
-            ),
-          );
-          this.cleanup();
-        }
-      });
-
-      // 4. Connection error handling — let Phoenix retry automatically.
-      //
-      //    IMPORTANT: We intentionally do NOT call this.cleanup() in
-      //    these handlers. Calling cleanup() triggers socket.disconnect()
-      //    which sets closeWasClean = true and resets the reconnect timer,
-      //    permanently killing Phoenix's built-in retry loop. Instead we
-      //    count consecutive failures and only give up after the threshold.
-      //
-      //    socket.onOpen resets the counter so transient blips don't
-      //    accumulate across successful reconnections.
-      const MAX_CONSECUTIVE_ERRORS = 5;
-      let consecutiveErrors = 0;
-
-      socket.onError(() => {
-        consecutiveErrors++;
-        if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
-          observer.error(
-            new Error(
-              `WebSocket connection failed after ${MAX_CONSECUTIVE_ERRORS} consecutive errors`,
-            ),
-          );
-          this.cleanup();
-        }
-        // Otherwise: Phoenix will automatically attempt to reconnect
-        // using the exponential backoff schedule configured above.
-      });
-
-      socket.onOpen(() => {
-        // A successful (re)connection resets the error counter so that
-        // a brief network interruption followed by recovery doesn't
-        // count toward the fatal threshold.
-        consecutiveErrors = 0;
-      });
-
-      // Channel errors (e.g. socket dropped mid-join) trigger an
-      // automatic rejoin via Phoenix's rejoinAfterMs timer. We do NOT
-      // call cleanup() here — that would leave the channel and cancel
-      // the rejoin timer, defeating the retry mechanism.
-      channel.onError(() => {
-        // No-op: Phoenix handles channel rejoin automatically.
-      });
-
-      // 5. Join the channel, then trigger the run via REST
-      channel
-        .join()
-        .receive("ok", () => {
-          const { runtimeUrl, agentId, headers, credentials } = this.config;
-          const runPath = `${runtimeUrl}/agent/${encodeURIComponent(agentId)}/run`;
-          const origin =
-            typeof window !== "undefined" && window.location
-              ? window.location.origin
-              : "http://localhost";
-          const runUrl = new URL(runPath, new URL(runtimeUrl, origin));
-
-          fetch(runUrl.toString(), {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              ...headers,
-            },
-            body: JSON.stringify({
-              threadId: input.threadId,
-              runId: input.runId,
-              messages: input.messages,
-              tools: input.tools,
-              context: input.context,
-              state: input.state,
-              forwardedProps: input.forwardedProps,
-            }),
-            ...(credentials ? { credentials } : {}),
-          }).catch((error) => {
-            observer.error(
-              new Error(`REST run request failed: ${error.message ?? error}`),
-            );
-            this.cleanup();
-          });
-        })
-        .receive("error", (resp) => {
-          observer.error(
-            new Error(`Failed to join channel: ${JSON.stringify(resp)}`),
-          );
-          this.cleanup();
-        })
-        .receive("timeout", () => {
-          observer.error(new Error("Timed out joining channel"));
-          this.cleanup();
-        });
-
-      // 6. Teardown on unsubscribe
-      return () => {
-        this.cleanup();
-      };
-    });
+    return defer(() => this.requestJoinCredentials$("run", input)).pipe(
+      switchMap((credentials) =>
+        this.observeThread$(input, credentials, {
+          completeOnRunError: false,
+          streamMode: "run",
+        }),
+      ),
+    );
   }
 
   /**
-   * Reconnect to an existing thread by joining the Phoenix channel in
-   * "connect" mode and requesting the server replay history.
+   * Reconnect to an existing thread by fetching websocket credentials and
+   * joining the realtime thread channel.
    */
   protected connect(input: RunAgentInput): Observable<BaseEvent> {
-    return new Observable<BaseEvent>((observer) => {
-      this.threadId = input.threadId;
+    this.threadId = input.threadId;
+    this.runId = input.runId;
 
-      // Same backoff configuration as run() — see comments there for details.
-      const socket = new Socket(this.config.url, {
-        params: this.config.socketParams ?? {},
-        reconnectAfterMs: phoenixExponentialBackoff(100, 10_000),
-        rejoinAfterMs: phoenixExponentialBackoff(1_000, 30_000),
-      });
-      this.socket = socket;
-      socket.connect();
-
-      const channel = socket.channel(`agent:${input.threadId}`, {
-        mode: "connect",
-      });
-      this.activeChannel = channel;
-
-      channel.on(AG_UI_CHANNEL_EVENT, (payload: BaseEvent) => {
-        observer.next(payload);
-
-        if (
-          payload.type === EventType.RUN_FINISHED ||
-          payload.type === EventType.RUN_ERROR
-        ) {
-          observer.complete();
-          this.cleanup();
+    return defer(() => this.requestConnectPlan$(input)).pipe(
+      switchMap((plan) => {
+        if (plan === null) {
+          return EMPTY;
         }
-      });
 
-      // Let Phoenix handle transient errors via automatic retry.
-      // See run() for detailed explanation of why we don't call cleanup() here.
-      const MAX_CONSECUTIVE_ERRORS = 5;
-      let consecutiveErrors = 0;
-
-      socket.onError(() => {
-        consecutiveErrors++;
-        if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
-          observer.error(
-            new Error(
-              `WebSocket connection failed after ${MAX_CONSECUTIVE_ERRORS} consecutive errors`,
-            ),
-          );
-          this.cleanup();
+        if (plan.mode === "bootstrap") {
+          this.setLastSeenEventId(input.threadId, plan.latestEventId);
+          return from(plan.events);
         }
-      });
 
-      socket.onOpen(() => {
-        consecutiveErrors = 0;
-      });
+        this.setLastSeenEventId(input.threadId, plan.joinFromEventId);
 
-      // No-op: Phoenix handles channel rejoin automatically.
-      channel.onError(() => {});
-
-      channel
-        .join()
-        .receive("ok", () => {
-          channel.push(EventType.CUSTOM, {
-            type: EventType.CUSTOM,
-            name: "connect",
-            value: { threadId: input.threadId },
-          });
-        })
-        .receive("error", (resp) => {
-          observer.error(
-            new Error(`Failed to join channel: ${JSON.stringify(resp)}`),
-          );
-          this.cleanup();
-        })
-        .receive("timeout", () => {
-          observer.error(new Error("Timed out joining channel"));
-          this.cleanup();
-        });
-
-      return () => {
-        this.cleanup();
-      };
-    });
+        return concat(
+          from(plan.events),
+          this.observeThread$(
+            input,
+            { joinToken: plan.joinToken },
+            {
+              completeOnRunError: true,
+              streamMode: "connect",
+              replayCursor: plan.joinFromEventId,
+            },
+          ),
+        );
+      }),
+    );
   }
 
   private cleanup(): void {
@@ -317,5 +298,349 @@ export class IntelligenceAgent extends AbstractAgent {
       this.socket.disconnect();
       this.socket = null;
     }
+    if (this.threadId) {
+      this.sharedState.lastSeenEventIds.delete(this.threadId);
+    }
+    this.runId = null;
+  }
+
+  private requestJoinCredentials$(
+    mode: "run",
+    input: RunAgentInput,
+  ): Observable<ThreadJoinCredentials> {
+    return defer(async () => {
+      try {
+        const response = await fetch(this.buildRuntimeUrl(mode), {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...this.config.headers,
+          },
+          body: JSON.stringify({
+            threadId: input.threadId,
+            runId: input.runId,
+            messages: input.messages,
+            tools: input.tools,
+            context: input.context,
+            state: input.state,
+            forwardedProps: input.forwardedProps,
+          }),
+          ...(this.config.credentials
+            ? { credentials: this.config.credentials }
+            : {}),
+        });
+
+        if (!response.ok) {
+          const text = await response.text().catch(() => "");
+          throw new Error(
+            text || response.statusText || String(response.status),
+          );
+        }
+
+        const payload =
+          (await response.json()) as Partial<ThreadJoinCredentials>;
+        if (!payload.joinToken) {
+          throw new Error("missing joinToken");
+        }
+
+        return { joinToken: payload.joinToken };
+      } catch (error) {
+        throw new Error(
+          `REST ${mode} request failed: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
+    });
+  }
+
+  private requestConnectPlan$(
+    input: RunAgentInput,
+  ): Observable<NormalizedConnectPlan | null> {
+    return defer(async () => {
+      try {
+        const response = await fetch(this.buildRuntimeUrl("connect"), {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...this.config.headers,
+          },
+          body: JSON.stringify({
+            threadId: input.threadId,
+            runId: input.runId,
+            messages: input.messages,
+            tools: input.tools,
+            context: input.context,
+            state: input.state,
+            forwardedProps: input.forwardedProps,
+            lastSeenEventId: this.getReconnectCursor(input),
+          }),
+          ...(this.config.credentials
+            ? { credentials: this.config.credentials }
+            : {}),
+        });
+
+        if (response.status === 204) {
+          return null;
+        }
+
+        if (!response.ok) {
+          const text = await response.text().catch(() => "");
+          throw new Error(
+            text || response.statusText || String(response.status),
+          );
+        }
+
+        return this.normalizeConnectPlan(await response.json());
+      } catch (error) {
+        throw new Error(
+          `REST connect request failed: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
+    });
+  }
+
+  private normalizeConnectPlan(payload: unknown): NormalizedConnectPlan {
+    const envelope =
+      payload && typeof payload === "object"
+        ? (payload as Record<string, unknown>)
+        : null;
+
+    if (envelope?.mode === "bootstrap") {
+      return {
+        mode: "bootstrap",
+        latestEventId:
+          typeof envelope.latestEventId === "string"
+            ? envelope.latestEventId
+            : null,
+        events: Array.isArray(envelope.events)
+          ? (envelope.events as BaseEvent[])
+          : [],
+      };
+    }
+
+    if (envelope?.mode === "live") {
+      if (
+        typeof envelope.joinToken !== "string" ||
+        envelope.joinToken.length === 0
+      ) {
+        throw new Error("missing joinToken");
+      }
+
+      return {
+        mode: "live",
+        joinToken: envelope.joinToken,
+        joinFromEventId:
+          typeof envelope.joinFromEventId === "string"
+            ? envelope.joinFromEventId
+            : null,
+        events: Array.isArray(envelope.events)
+          ? (envelope.events as BaseEvent[])
+          : [],
+      };
+    }
+
+    throw new Error("invalid connect plan");
+  }
+
+  private observeThread$(
+    input: RunAgentInput,
+    credentials: ThreadJoinCredentials,
+    options: {
+      completeOnRunError: boolean;
+      streamMode: "run" | "connect";
+      replayCursor?: string | null;
+    },
+  ): Observable<BaseEvent> {
+    return defer(() => {
+      const socket$ = ɵphoenixSocket$({
+        url: this.config.url,
+        options: {
+          params: {
+            ...(this.config.socketParams ?? {}),
+            join_token: credentials.joinToken,
+          },
+          reconnectAfterMs: phoenixExponentialBackoff(100, 10_000),
+          rejoinAfterMs: phoenixExponentialBackoff(1_000, 30_000),
+        },
+      }).pipe(
+        tap(({ socket }) => {
+          this.socket = socket as Socket;
+        }),
+        shareReplay({ bufferSize: 1, refCount: true }),
+      );
+      const { topic, params } = this.createThreadChannelDescriptor(
+        input,
+        options.streamMode,
+        options.replayCursor,
+      );
+      const channel$ = ɵphoenixChannel$({
+        socket$,
+        topic,
+        params,
+      }).pipe(
+        tap(({ channel }) => {
+          this.activeChannel = channel as Channel;
+        }),
+        shareReplay({ bufferSize: 1, refCount: true }),
+      );
+      const threadEvents$ = this.observeThreadEvents$(
+        input.threadId,
+        channel$,
+        options,
+      ).pipe(share());
+      const threadCompleted$ = threadEvents$.pipe(
+        ignoreElements(),
+        endWith(null),
+        take(1),
+      );
+
+      return merge(
+        this.joinThreadChannel$(channel$),
+        this.observeSocketHealth$(socket$).pipe(takeUntil(threadCompleted$)),
+        threadEvents$,
+      ).pipe(finalize(() => this.cleanup()));
+    });
+  }
+
+  private joinThreadChannel$(
+    channel$: Observable<ɵPhoenixChannelSession>,
+  ): Observable<never> {
+    return ɵjoinPhoenixChannel$(channel$);
+  }
+
+  private observeSocketHealth$(
+    socket$: Observable<ɵPhoenixSocketSession>,
+  ): Observable<never> {
+    return ɵobservePhoenixSocketHealth$(
+      ɵobservePhoenixSocketSignals$(socket$),
+      5,
+    );
+  }
+
+  private observeThreadEvents$(
+    threadId: string,
+    channel$: Observable<ɵPhoenixChannelSession>,
+    options: { completeOnRunError: boolean },
+  ): Observable<BaseEvent> {
+    return channel$.pipe(
+      switchMapOperator(({ channel }) =>
+        this.observeChannelEvent$<BaseEvent>(channel, CLIENT_AG_UI_EVENT),
+      ),
+      tap((payload) => {
+        this.updateLastSeenEventId(threadId, payload);
+      }),
+      mergeMap((payload) =>
+        from(
+          this.createThreadNotifications(payload, options.completeOnRunError),
+        ),
+      ),
+      dematerialize(),
+    );
+  }
+
+  private observeChannelEvent$<T>(
+    channel: Channel,
+    eventName: string,
+  ): Observable<T> {
+    return ɵobservePhoenixEvent$<T>(channel, eventName);
+  }
+
+  private createThreadNotifications(
+    payload: BaseEvent,
+    completeOnRunError: boolean,
+  ): Array<Notification<BaseEvent>> {
+    if (payload.type === EventType.RUN_FINISHED) {
+      return [Notification.createNext(payload), Notification.createComplete()];
+    }
+
+    if (payload.type === EventType.RUN_ERROR) {
+      const errorMessage =
+        (payload as BaseEvent & { message?: string }).message ?? "Run error";
+
+      return completeOnRunError
+        ? [Notification.createNext(payload), Notification.createComplete()]
+        : [
+            Notification.createNext(payload),
+            Notification.createError(new Error(errorMessage)),
+          ];
+    }
+
+    return [Notification.createNext(payload)];
+  }
+
+  private buildRuntimeUrl(mode: "run" | "connect"): string {
+    const path = `${this.config.runtimeUrl}/agent/${encodeURIComponent(this.config.agentId)}/${mode}`;
+    const origin =
+      typeof window !== "undefined" && window.location
+        ? window.location.origin
+        : "http://localhost";
+
+    return new URL(path, new URL(this.config.runtimeUrl, origin)).toString();
+  }
+
+  private createThreadChannelDescriptor(
+    input: RunAgentInput,
+    streamMode: "run" | "connect",
+    replayCursor?: string | null,
+  ): { topic: string; params: Record<string, unknown> } {
+    const params =
+      streamMode === "run"
+        ? {
+            stream_mode: "run",
+            run_id: input.runId,
+          }
+        : {
+            stream_mode: "connect",
+            last_seen_event_id:
+              replayCursor === undefined
+                ? this.getReconnectCursor(input)
+                : replayCursor,
+          };
+
+    return {
+      topic: `thread:${input.threadId}`,
+      params,
+    };
+  }
+
+  private getLastSeenEventId(threadId: string): string | null {
+    return this.sharedState.lastSeenEventIds.get(threadId) ?? null;
+  }
+
+  private getReconnectCursor(input: RunAgentInput): string | null {
+    return this.hasLocalThreadMessages(input)
+      ? this.getLastSeenEventId(input.threadId)
+      : null;
+  }
+
+  private hasLocalThreadMessages(input: RunAgentInput): boolean {
+    return Array.isArray(input.messages) && input.messages.length > 0;
+  }
+
+  private updateLastSeenEventId(threadId: string, payload: BaseEvent): void {
+    const eventId = this.readEventId(payload);
+    if (!eventId) {
+      return;
+    }
+
+    this.sharedState.lastSeenEventIds.set(threadId, eventId);
+  }
+
+  private setLastSeenEventId(threadId: string, eventId: string | null): void {
+    if (!eventId) {
+      return;
+    }
+
+    this.sharedState.lastSeenEventIds.set(threadId, eventId);
+  }
+
+  private readEventId(payload: BaseEvent): string | null {
+    const metadata = (payload as BaseEvent & { metadata?: unknown }).metadata;
+    if (!metadata || typeof metadata !== "object") {
+      return null;
+    }
+
+    const runnerEventId = (metadata as { cpki_event_id?: unknown })
+      .cpki_event_id;
+    return typeof runnerEventId === "string" ? runnerEventId : null;
   }
 }

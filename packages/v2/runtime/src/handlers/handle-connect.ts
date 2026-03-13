@@ -1,13 +1,11 @@
-import { RunAgentInput, RunAgentInputSchema } from "@ag-ui/client";
-import { EventEncoder } from "@ag-ui/encoder";
-import { CopilotRuntime } from "../runtime";
-import { extractForwardableHeaders } from "./header-utils";
-
-interface ConnectAgentParameters {
-  request: Request;
-  runtime: CopilotRuntime;
-  agentId: string;
-}
+import { handleIntelligenceConnect } from "./intelligence/connect";
+import { handleSseConnect } from "./sse/connect";
+import { isIntelligenceRuntime } from "../runtime";
+import {
+  parseConnectRequest,
+  RunAgentParameters as ConnectAgentParameters,
+  cloneAgentForRequest,
+} from "./shared/agent-utils";
 
 export async function handleConnectAgent({
   runtime,
@@ -15,119 +13,28 @@ export async function handleConnectAgent({
   agentId,
 }: ConnectAgentParameters) {
   try {
-    const agents = await runtime.agents;
-
-    // Check if the requested agent exists
-    if (!agents[agentId]) {
-      return new Response(
-        JSON.stringify({
-          error: "Agent not found",
-          message: `Agent '${agentId}' does not exist`,
-        }),
-        {
-          status: 404,
-          headers: { "Content-Type": "application/json" },
-        },
-      );
+    const agent = await cloneAgentForRequest(runtime, agentId);
+    if (agent instanceof Response) {
+      return agent;
     }
 
-    // Parse and validate input BEFORE creating the stream
-    // so we can return a proper error response
-    let input: RunAgentInput;
-    try {
-      const requestBody = await request.json();
-      input = RunAgentInputSchema.parse(requestBody);
-    } catch (error) {
-      console.error("Invalid connect request body:", error);
-      return new Response(
-        JSON.stringify({
-          error: "Invalid request body",
-          details: error instanceof Error ? error.message : String(error),
-        }),
-        {
-          status: 400,
-          headers: { "Content-Type": "application/json" },
-        },
-      );
+    const connectRequest = await parseConnectRequest(request);
+    if (connectRequest instanceof Response) {
+      return connectRequest;
     }
 
-    const stream = new TransformStream();
-    const writer = stream.writable.getWriter();
-    const encoder = new EventEncoder();
-    let streamClosed = false;
-
-    // Process the agent connect in the background
-    (async () => {
-      const forwardableHeaders = extractForwardableHeaders(request);
-
-      runtime.runner
-        .connect({
-          threadId: input.threadId,
-          headers: forwardableHeaders,
-        })
-        .subscribe({
-          next: async (event) => {
-            if (!request.signal.aborted && !streamClosed) {
-              try {
-                await writer.write(encoder.encode(event));
-              } catch (error) {
-                if (error instanceof Error && error.name === "AbortError") {
-                  streamClosed = true;
-                }
-              }
-            }
-          },
-          error: async (error) => {
-            console.error("Error running agent:", error);
-            if (!streamClosed) {
-              try {
-                await writer.close();
-                streamClosed = true;
-              } catch {
-                // Stream already closed
-              }
-            }
-          },
-          complete: async () => {
-            if (!streamClosed) {
-              try {
-                await writer.close();
-                streamClosed = true;
-              } catch {
-                // Stream already closed
-              }
-            }
-          },
-        });
-    })().catch((error) => {
-      console.error("Error running agent:", error);
-      console.error(
-        "Error stack:",
-        error instanceof Error ? error.stack : "No stack trace",
-      );
-      console.error("Error details:", {
-        name: error instanceof Error ? error.name : "Unknown",
-        message: error instanceof Error ? error.message : String(error),
-        cause: error instanceof Error ? error.cause : undefined,
+    if (isIntelligenceRuntime(runtime)) {
+      return handleIntelligenceConnect({
+        runtime,
+        threadId: connectRequest.input.threadId,
+        lastSeenEventId: connectRequest.lastSeenEventId,
       });
-      if (!streamClosed) {
-        try {
-          writer.close();
-          streamClosed = true;
-        } catch {
-          // Stream already closed
-        }
-      }
-    });
+    }
 
-    // Return the SSE response
-    return new Response(stream.readable, {
-      status: 200,
-      headers: {
-        "Content-Type": "text/event-stream",
-        "Cache-Control": "no-cache",
-        Connection: "keep-alive",
-      },
+    return handleSseConnect({
+      runtime,
+      request,
+      threadId: connectRequest.input.threadId,
     });
   } catch (error) {
     console.error("Error running agent:", error);
@@ -141,15 +48,12 @@ export async function handleConnectAgent({
       cause: error instanceof Error ? error.cause : undefined,
     });
 
-    return new Response(
-      JSON.stringify({
+    return Response.json(
+      {
         error: "Failed to run agent",
         message: error instanceof Error ? error.message : "Unknown error",
-      }),
-      {
-        status: 500,
-        headers: { "Content-Type": "application/json" },
       },
+      { status: 500 },
     );
   }
 }

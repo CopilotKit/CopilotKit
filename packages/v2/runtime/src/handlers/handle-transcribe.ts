@@ -1,4 +1,4 @@
-import { CopilotRuntime } from "../runtime";
+import { CopilotRuntimeLike } from "../runtime";
 import {
   TranscriptionErrorCode,
   TranscriptionErrors,
@@ -21,7 +21,7 @@ const ERROR_STATUS_CODES: Record<TranscriptionErrorCode, number> = {
 };
 
 interface HandleTranscribeParameters {
-  runtime: CopilotRuntime;
+  runtime: CopilotRuntimeLike;
   request: Request;
 }
 
