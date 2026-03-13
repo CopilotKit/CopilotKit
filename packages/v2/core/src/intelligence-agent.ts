@@ -289,35 +289,19 @@ export class IntelligenceAgent extends AbstractAgent {
     );
   }
 
-  /**
-   * Tear down a specific channel + socket pair that belongs to one pipeline.
-   * Only nulls instance references when they still point to the owned resource,
-   * so a concurrent pipeline's resources are never clobbered.
-   */
-  private cleanupOwned(
-    ownChannel: Channel | null,
-    ownSocket: Socket | null,
-  ): void {
-    if (ownChannel) {
-      ownChannel.leave();
-      if (this.activeChannel === ownChannel) {
-        this.activeChannel = null;
-      }
+  private cleanup(): void {
+    if (this.activeChannel) {
+      this.activeChannel.leave();
+      this.activeChannel = null;
     }
-    if (ownSocket) {
-      ownSocket.disconnect();
-      if (this.socket === ownSocket) {
-        this.socket = null;
-      }
+    if (this.socket) {
+      this.socket.disconnect();
+      this.socket = null;
     }
     if (this.threadId) {
       this.sharedState.lastSeenEventIds.delete(this.threadId);
     }
     this.runId = null;
-  }
-
-  private cleanup(): void {
-    this.cleanupOwned(this.activeChannel, this.socket);
   }
 
   private requestJoinCredentials$(
@@ -467,16 +451,6 @@ export class IntelligenceAgent extends AbstractAgent {
     },
   ): Observable<BaseEvent> {
     return defer(() => {
-      // Capture references to the socket and channel created by THIS pipeline
-      // so the finalize closure only tears down its own resources.  Without
-      // this, a fire-and-forget detachActiveRun() from run-handler can race:
-      // the old pipeline's deferred cleanup reads from `this.socket` /
-      // `this.activeChannel`, which by then may already point to the NEW
-      // pipeline's resources — destroying the live connection and preventing
-      // the stop signal from ever reaching the backend.
-      let ownSocket: Socket | null = null;
-      let ownChannel: Channel | null = null;
-
       const socket$ = ɵphoenixSocket$({
         url: this.config.url,
         options: {
@@ -489,8 +463,7 @@ export class IntelligenceAgent extends AbstractAgent {
         },
       }).pipe(
         tap(({ socket }) => {
-          ownSocket = socket as Socket;
-          this.socket = ownSocket;
+          this.socket = socket as Socket;
         }),
         shareReplay({ bufferSize: 1, refCount: true }),
       );
@@ -505,8 +478,7 @@ export class IntelligenceAgent extends AbstractAgent {
         params,
       }).pipe(
         tap(({ channel }) => {
-          ownChannel = channel as Channel;
-          this.activeChannel = ownChannel;
+          this.activeChannel = channel as Channel;
         }),
         shareReplay({ bufferSize: 1, refCount: true }),
       );
@@ -525,7 +497,7 @@ export class IntelligenceAgent extends AbstractAgent {
         this.joinThreadChannel$(channel$),
         this.observeSocketHealth$(socket$).pipe(takeUntil(threadCompleted$)),
         threadEvents$,
-      ).pipe(finalize(() => this.cleanupOwned(ownChannel, ownSocket)));
+      ).pipe(finalize(() => this.cleanup()));
     });
   }
 
