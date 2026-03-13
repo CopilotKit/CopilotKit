@@ -1,7 +1,7 @@
 {
   "name": "copilotkit",
   "description": "CopilotKit CLI",
-  "version": "1.54.0",
+  "version": "1.0.0",
   "author": "CopilotKit",
   "bin": {
     "copilotkit": "./bin/run.js",
