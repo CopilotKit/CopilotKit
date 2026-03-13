@@ -15,6 +15,7 @@ import {
 } from "react";
 import { z } from "zod";
 import { CopilotKitInspector } from "../components/CopilotKitInspector";
+import type { Anchor } from "@copilotkitnext/web-inspector";
 import type { CopilotKitCoreErrorCode } from "@copilotkitnext/core";
 import {
   MCPAppsActivityContentSchema,
@@ -112,6 +113,12 @@ export interface CopilotKitProviderProps {
      */
     theme?: A2UITheme;
   };
+  /**
+   * Default anchor corner for the inspector button and window.
+   * Only used on first load before the user drags to a custom position.
+   * Defaults to `{ horizontal: "right", vertical: "top" }`.
+   */
+  inspectorDefaultAnchor?: Anchor;
 }
 
 // Small helper to normalize array props to a stable reference and warn
@@ -157,6 +164,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   useSingleEndpoint = false,
   onError,
   a2ui,
+  inspectorDefaultAnchor,
 }) => {
   const [shouldRenderInspector, setShouldRenderInspector] = useState(false);
   const [runtimeA2UIEnabled, setRuntimeA2UIEnabled] = useState(false);
@@ -526,7 +534,12 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   return (
     <CopilotKitContext.Provider value={contextValue}>
       {children}
-      {shouldRenderInspector ? <CopilotKitInspector core={copilotkit} /> : null}
+      {shouldRenderInspector ? (
+        <CopilotKitInspector
+          core={copilotkit}
+          defaultAnchor={inspectorDefaultAnchor}
+        />
+      ) : null}
     </CopilotKitContext.Provider>
   );
 };
