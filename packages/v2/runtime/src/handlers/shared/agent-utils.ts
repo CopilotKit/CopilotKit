@@ -5,7 +5,7 @@ import {
 } from "@ag-ui/client";
 import { A2UIMiddleware } from "@ag-ui/a2ui-middleware";
 import { MCPAppsMiddleware } from "@ag-ui/mcp-apps-middleware";
-import { CopilotRuntimeLike } from "../../runtime";
+import { CopilotRuntimeLike } from "../../core/runtime";
 import { extractForwardableHeaders } from "../header-utils";
 import { logger } from "@copilotkitnext/shared";
 

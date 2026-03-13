@@ -5,6 +5,10 @@ export default defineConfig({
     environment: "node",
     globals: true,
     include: ["src/**/__tests__/**/*.{test,spec}.ts"],
+    exclude: [
+      "**/node_modules/**",
+      "**/integration/bun/**",
+    ],
     reporters: [["default", { summary: false }]],
     silent: true,
     coverage: {

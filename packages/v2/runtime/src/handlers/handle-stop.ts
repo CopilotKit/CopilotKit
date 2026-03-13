@@ -1,9 +1,9 @@
-import { CopilotRuntimeLike } from "../runtime";
+import { CopilotRuntime } from "../core/runtime";
 import { EventType } from "@ag-ui/client";
 
 interface StopAgentParameters {
   request: Request;
-  runtime: CopilotRuntimeLike;
+  runtime: CopilotRuntime;
   agentId: string;
   threadId: string;
 }

@@ -41,7 +41,6 @@ import { Observable } from "rxjs";
 import { createOpenAI } from "@ai-sdk/openai";
 import { createAnthropic } from "@ai-sdk/anthropic";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
-import { randomUUID } from "crypto";
 import { safeParseToolArgs } from "@copilotkitnext/shared";
 import { z } from "zod";
 import type {
@@ -55,6 +54,7 @@ import {
   StreamableHTTPClientTransportOptions,
 } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
+import { randomUUID } from "@copilotkitnext/shared";
 
 /**
  * Properties that can be overridden by forwardedProps

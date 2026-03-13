@@ -7,7 +7,7 @@ import {
   handleSubscribeToThreads,
   handleUpdateThread,
 } from "../handlers/handle-threads";
-import { CopilotRuntime } from "../runtime";
+import { CopilotRuntime } from "../core/runtime";
 
 describe("thread handlers", () => {
   it("returns 422 when intelligence is not configured for listThreads", async () => {
