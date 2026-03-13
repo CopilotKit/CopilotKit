@@ -21,10 +21,7 @@ export const PieChartProps = z.object({
 
 type PieChartProps = z.infer<typeof PieChartProps>;
 
-/**
- * Custom SVG donut chart built with <circle> + stroke-dasharray.
- * CSS transitions smoothly animate slice sizes as data streams in.
- */
+/** Custom SVG donut chart built with <circle> + stroke-dasharray. */
 function DonutChart({
   data,
   size = 240,
@@ -88,10 +85,6 @@ function DonutChart({
           strokeDashoffset={slice.dashoffset}
           strokeLinecap="butt"
           transform={`rotate(-90 ${center} ${center})`}
-          style={{
-            transition:
-              "stroke-dasharray 0.4s ease-out, stroke-dashoffset 0.4s ease-out",
-          }}
         />
       ))}
     </svg>
