@@ -20,7 +20,7 @@ AI agent framework with three layers: **Frontend** (React/Angular/Vanilla) → *
 ## Essentials
 
 - **Nx monorepo** — always run tasks through `nx` (`nx run`, `nx run-many`, `nx affected`), never the underlying tooling directly.
-- **V1 wraps V2** — V2 (`@copilotkit/`) is the real implementation. V1 (`@copilotkit/`) is the public compatibility layer that delegates to V2. Build new features in V2 first. Add V1 wrappers only if backward compatibility is needed.
+- **Flat package structure** — All packages live under `packages/` with the `@copilotkit/` scope. Some packages have `v1/` and `v2/` internal directories for backward compatibility, but they're a single published package.
 - **Simplicity** — prefer the simplest correct solution. For non-trivial changes, consider if there's a cleaner approach before committing.
 - **Worktrees** — always work in a git worktree for isolation. See [Git & PRs](.claude/docs/git.md) for the full workflow.
 

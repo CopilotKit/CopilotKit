@@ -101,8 +101,7 @@
     "tw-animate-css": "^1.3.5",
     "untruncate-json": "^0.0.1",
     "use-stick-to-bottom": "^1.1.1",
-    "rxjs": "7.8.1",
-    "zod": "^3.25.75"
+    "rxjs": "7.8.1"
   },
   "keywords": [
     "copilotkit",

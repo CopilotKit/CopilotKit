@@ -195,15 +195,15 @@ graph LR
 
 ### Agent Communication
 
-| Goal                            | Package               | Key file / API                                 |
-| ------------------------------- | --------------------- | ---------------------------------------------- |
-| Get an agent instance (React)   | `@copilotkit/react`   | `useAgent({ agentId })`                        |
-| Get an agent instance (Angular) | `@copilotkit/angular` | `AgentStore` with signals                      |
-| Get an agent instance (vanilla) | `@copilotkit/core`    | `copilotkit.getAgent(id)`                      |
-| Run an agent                    | Core / hooks          | `copilotkit.runAgent({ agent })`               |
-| Use multiple agents             | Runtime config        | `agents: { research: agent1, coding: agent2 }` |
-| Agent-specific tools            | `useFrontendTool`     | `{ name, agentId: "specific-agent", handler }` |
-| Shared context for all agents   | `useAgentContext`     | `useAgentContext("desc", value)`               |
+| Goal                            | Package                  | Key file / API                                 |
+| ------------------------------- | ------------------------ | ---------------------------------------------- |
+| Get an agent instance (React)   | `@copilotkit/react-core` | `useAgent({ agentId })`                        |
+| Get an agent instance (Angular) | `@copilotkit/angular`    | `AgentStore` with signals                      |
+| Get an agent instance (vanilla) | `@copilotkit/core`       | `copilotkit.getAgent(id)`                      |
+| Run an agent                    | Core / hooks             | `copilotkit.runAgent({ agent })`               |
+| Use multiple agents             | Runtime config           | `agents: { research: agent1, coding: agent2 }` |
+| Agent-specific tools            | `useFrontendTool`        | `{ name, agentId: "specific-agent", handler }` |
+| Shared context for all agents   | `useAgentContext`        | `useAgentContext("desc", value)`               |
 
 ### Tools & Interactivity
 

@@ -46,7 +46,7 @@ See [Slot Customization](#slot-customization) for details on how to customize th
 ## Basic Usage
 
 ```tsx
-import { CopilotChat, CopilotKitProvider } from "@copilotkit/react";
+import { CopilotChat, CopilotKitProvider } from "@copilotkit/react-core";
 
 function App() {
   return (
@@ -186,7 +186,7 @@ You can drill down into nested components through props objects:
 For full control, replace components entirely:
 
 ```tsx
-import { CopilotChatView } from "@copilotkit/react";
+import { CopilotChatView } from "@copilotkit/react-core";
 
 function CustomChatView(props) {
   return (
@@ -385,7 +385,7 @@ Here's a fully customized CopilotChat implementation:
 import {
   CopilotChat,
   CopilotKitProvider
-} from "@copilotkit/react";
+} from "@copilotkit/react-core";
 
 function App() {
   const handleFeedback = (messageId: string, type: "positive" | "negative") => {

@@ -98,7 +98,7 @@ graph LR
 ### React
 
 ```tsx
-import { useAgent } from "@copilotkit/react";
+import { useAgent } from "@copilotkit/react-core";
 
 function ResearchPanel() {
   // Gets the "research" agent
@@ -122,7 +122,7 @@ function CodingPanel() {
 ### Using CopilotChat with agent IDs
 
 ```tsx
-import { CopilotChat } from "@copilotkit/react";
+import { CopilotChat } from "@copilotkit/react-core";
 
 function App() {
   return (
@@ -374,7 +374,7 @@ import {
   useAgent,
   useFrontendTool,
   useAgentContext,
-} from "@copilotkit/react";
+} from "@copilotkit/react-core";
 import { z } from "zod";
 
 export default function App() {

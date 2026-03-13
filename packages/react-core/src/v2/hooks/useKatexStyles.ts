@@ -19,7 +19,9 @@ export function useKatexStyles(): void {
     // Next.js static analysis that rejects global CSS from node_modules.
 
     void import("katex/dist/katex.min.css").catch(() => {
-      // Silently ignore — consumers can import KaTeX CSS manually
+      console.warn(
+        "[CopilotKit] Failed to load katex styles — math content may render without formatting",
+      );
     });
   }, []);
 }
