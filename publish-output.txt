@@ -27,7 +27,7 @@
 🦋  [36minfo[39m npm info @copilotkitnext/web-inspector
 🦋  [33mwarn[39m agent-langraph-interrupt is not being published because version 0.0.1 is already published on npm
 🦋  [33mwarn[39m @copilotkit/a2ui-renderer is not being published because version 1.54.0 is already published on npm
-🦋  [36minfo[39m copilotkit is being published because our local version (1.54.0) has not been published on npm
+🦋  [36minfo[39m copilotkit is being published because our local version (1.0.0) has not been published on npm
 🦋  [33mwarn[39m @copilotkit/react-core is not being published because version 1.54.0 is already published on npm
 🦋  [33mwarn[39m @copilotkit/react-textarea is not being published because version 1.54.0 is already published on npm
 🦋  [33mwarn[39m @copilotkit/react-ui is not being published because version 1.54.0 is already published on npm
@@ -44,6 +44,6 @@
 🦋  [33mwarn[39m @copilotkitnext/sqlite-runner is not being published because version 1.54.0 is already published on npm
 🦋  [33mwarn[39m @copilotkit/voice is not being published because version 1.54.0 is already published on npm
 🦋  [33mwarn[39m @copilotkitnext/web-inspector is not being published because version 1.54.0 is already published on npm
-🦋  [36minfo[39m Publishing [36m"copilotkit"[39m at [32m"1.54.0"[39m
+🦋  [36minfo[39m Publishing [36m"copilotkit"[39m at [32m"1.0.0"[39m
 🦋  [32msuccess[39m packages published successfully:
-🦋  copilotkit@1.54.0
+🦋  copilotkit@1.0.0
