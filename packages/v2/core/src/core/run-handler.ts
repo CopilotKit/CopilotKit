@@ -272,15 +272,39 @@ export class RunHandler {
     for (const message of newMessages) {
       if (message.role === "assistant") {
         for (const toolCall of message.toolCalls || []) {
-          if (
-            newMessages.findIndex(
-              (m) => m.role === "tool" && m.toolCallId === toolCall.id,
-            ) === -1
-          ) {
-            const tool = this.getTool({
-              toolName: toolCall.function.name,
-              agentId: agent.agentId,
-            });
+          const existingResultIdx = newMessages.findIndex(
+            (m) => m.role === "tool" && m.toolCallId === toolCall.id,
+          );
+
+          const tool = this.getTool({
+            toolName: toolCall.function.name,
+            agentId: agent.agentId,
+          });
+
+          // Execute the frontend tool if either:
+          // 1. No tool result exists yet (normal flow), or
+          // 2. A result exists but the tool is a registered frontend tool
+          //    with a handler — the existing result is a backend placeholder
+          //    (e.g. "Forwarded to client") that must be replaced by the
+          //    real frontend execution result.
+          const shouldExecute =
+            existingResultIdx === -1 ||
+            (existingResultIdx !== -1 && tool?.handler);
+
+          if (shouldExecute) {
+            // Remove the backend placeholder result so executeSpecificTool
+            // can insert the real one at the correct position.
+            if (existingResultIdx !== -1) {
+              const placeholderId = newMessages[existingResultIdx].id;
+              newMessages.splice(existingResultIdx, 1);
+              const agentMsgIdx = agent.messages.findIndex(
+                (m) => m.id === placeholderId,
+              );
+              if (agentMsgIdx !== -1) {
+                agent.messages.splice(agentMsgIdx, 1);
+              }
+            }
+
             if (tool) {
               const followUp = await this.executeSpecificTool(
                 tool,
