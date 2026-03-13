@@ -3,6 +3,7 @@
 import React, { useEffect, useRef, useState, useCallback } from "react";
 import { z } from "zod";
 import type { AbstractAgent, RunAgentResult } from "@ag-ui/client";
+import { useCopilotKit } from "@/providers/CopilotKitProvider";
 
 // Protocol version supported
 const PROTOCOL_VERSION = "2025-06-18";
@@ -272,6 +273,11 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> =
     const agentRef = useRef(agent);
     agentRef.current = agent;
 
+    // Get copilotkit core instance for proper RunHandler pipeline
+    const { copilotkit } = useCopilotKit();
+    const copilotkitRef = useRef(copilotkit);
+    copilotkitRef.current = copilotkit;
+
     // Ref to track fetch state - survives StrictMode remounts
     const fetchStateRef = useRef<{
       inProgress: boolean;
@@ -537,6 +543,7 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> =
                     const params = msg.params as {
                       role?: string;
                       content?: Array<{ type: string; text?: string }>;
+                      followUp?: boolean;
                     };
 
                     // Extract text content from the message
@@ -546,12 +553,31 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> =
                         .map((c) => c.text)
                         .join("\n") || "";
 
+                    const role =
+                      (params.role as "user" | "assistant") || "user";
+
+                    // followUp controls whether the agent is invoked after
+                    // adding the message. When not specified, defaults to
+                    // true for user messages and false for assistant messages.
+                    const shouldFollowUp = params.followUp ?? role === "user";
+
                     if (textContent) {
                       currentAgent.addMessage({
                         id: crypto.randomUUID(),
-                        role: (params.role as "user" | "assistant") || "user",
+                        role,
                         content: textContent,
                       });
+
+                      if (shouldFollowUp) {
+                        copilotkitRef.current
+                          .runAgent({ agent: currentAgent })
+                          .catch((err) => {
+                            console.error(
+                              "[MCPAppsRenderer] ui/message runAgent error:",
+                              err,
+                            );
+                          });
+                      }
                     }
                     sendResponse(msg.id, { isError: false });
                   } catch (err) {
