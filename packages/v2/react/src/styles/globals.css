@@ -177,6 +177,12 @@
 
 [data-copilotkit] div[data-streamdown="code-block"] > pre {
   @apply cpk:mt-0 cpk:mb-0;
+  white-space: pre !important;
+  overflow-x: auto;
+}
+
+[data-copilotkit] div[data-streamdown="code-block"] > pre code {
+  white-space: pre !important;
 }
 
 [data-copilotkit] .prose input[type="checkbox"] {
