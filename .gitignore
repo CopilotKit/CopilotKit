@@ -44,6 +44,7 @@ coverage
 .turbo
 .langgraph_api
 lefthook-local.yml
+.husky/
 .langgraph_api
 
 # Binary artifacts
