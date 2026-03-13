@@ -7,6 +7,8 @@ settings:
 overrides:
   esbuild: ^0.27.3
 
+pnpmfileChecksum: 2jro2whxro5cqxnskbsnppy3li
+
 importers:
 
   .:
