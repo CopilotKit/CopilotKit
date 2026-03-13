@@ -114,6 +114,13 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
     }
   }
 
+  override async detachActiveRun(): Promise<void> {
+    if (this.delegate) {
+      await this.delegate.detachActiveRun();
+    }
+    await super.detachActiveRun();
+  }
+
   abortRun(): void {
     if (this.delegate) {
       this.syncDelegate(this.delegate);
@@ -185,6 +192,16 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
   ): Promise<RunAgentResult> {
     if (this.runtimeMode !== RUNTIME_MODE_INTELLIGENCE) {
       return super.connectAgent(parameters, subscriber);
+    }
+
+    // If the delegate already has an active run (e.g. from a previous
+    // connectAgent call that hasn't finished yet), detach it first.  This
+    // ensures only one run is active on the delegate at a time — without it,
+    // two parallel runs would both pump events into the shared delegate,
+    // and both bridge subscriptions would copy the interleaved messages to
+    // the proxy, causing the UI to flicker between the two conversations.
+    if (this.delegate) {
+      await this.delegate.detachActiveRun();
     }
 
     // Ensure the delegate exists and is synced with the proxy's current state.

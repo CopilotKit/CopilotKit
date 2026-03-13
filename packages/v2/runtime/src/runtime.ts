@@ -86,13 +86,13 @@ export interface CopilotRuntimeLike {
 
 export interface CopilotSseRuntimeLike extends CopilotRuntimeLike {
   intelligence?: undefined;
-  mode: "sse";
+  mode: RUNTIME_MODE_SSE;
 }
 
 export interface CopilotIntelligenceRuntimeLike extends CopilotRuntimeLike {
   intelligence: CopilotKitIntelligence;
   generateThreadNames: boolean;
-  mode: "intelligence";
+  mode: RUNTIME_MODE_INTELLIGENCE;
 }
 
 abstract class BaseCopilotRuntime implements CopilotRuntimeLike {
