@@ -125,6 +125,10 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
     if (this.delegate) {
       this.syncDelegate(this.delegate);
       this.delegate.abortRun();
+      // Also detach the proxy's own runAgent pipeline so the proxy's
+      // isRunning resets and onRunFinalized fires even if the delegate's
+      // observable doesn't propagate a clean completion.
+      void this.detachActiveRun();
       return;
     }
 
