@@ -17,6 +17,7 @@ import { CopilotKitCoreRuntimeConnectionStatus } from "@copilotkitnext/core";
 let mockRuntimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus =
   CopilotKitCoreRuntimeConnectionStatus.Disconnected;
 const mockConnectAgent = vi.fn().mockResolvedValue(undefined);
+const mockRunAgent = vi.fn().mockResolvedValue(undefined);
 
 const mockAgent: Record<string, unknown> = {
   messages: [],
@@ -30,6 +31,7 @@ const mockAgent: Record<string, unknown> = {
   runAgent: vi.fn(),
   threadId: undefined as string | undefined,
 };
+let currentAgent: Record<string, unknown> = mockAgent;
 
 let mockConfigThreadId: string | undefined = "config-thread-id";
 
@@ -43,7 +45,7 @@ vi.mock("@copilotkitnext/react", () => ({
       connectAgent: mockConnectAgent,
       runtimeConnectionStatus: mockRuntimeConnectionStatus,
       getRunIdForMessage: vi.fn(),
-      runAgent: vi.fn(),
+      runAgent: mockRunAgent,
       clearSuggestions: vi.fn(),
       addSuggestionsConfig: vi.fn(),
       reloadSuggestions: vi.fn(),
@@ -93,7 +95,7 @@ function applyMocks() {
       connectAgent: mockConnectAgent,
       runtimeConnectionStatus: mockRuntimeConnectionStatus,
       getRunIdForMessage: vi.fn(),
-      runAgent: vi.fn(),
+      runAgent: mockRunAgent,
       clearSuggestions: vi.fn(),
       addSuggestionsConfig: vi.fn(),
       reloadSuggestions: vi.fn(),
@@ -107,7 +109,7 @@ function applyMocks() {
     threadId: mockConfigThreadId,
   } as any);
 
-  vi.mocked(useAgent).mockReturnValue({ agent: mockAgent } as any);
+  vi.mocked(useAgent).mockReturnValue({ agent: currentAgent } as any);
 }
 
 function createWrapper() {
@@ -127,9 +129,11 @@ function createWrapper() {
 describe("useCopilotChatInternal – connectAgent guard", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    currentAgent = mockAgent;
     mockRuntimeConnectionStatus =
       CopilotKitCoreRuntimeConnectionStatus.Disconnected;
     mockConnectAgent.mockResolvedValue(undefined);
+    mockRunAgent.mockResolvedValue(undefined);
     mockAgent.threadId = undefined;
     mockAgent.messages = [];
     mockAgent.state = {};
@@ -230,5 +234,74 @@ describe("useCopilotChatInternal – connectAgent guard", () => {
     });
 
     expect(mockAgent.threadId).toBe("config-thread-id");
+  });
+
+  it("reloadMessages uses the latest agent instance after an agent swap", async () => {
+    const sharedSetMessages = vi.fn(function (
+      this: Record<string, unknown>,
+      messages: unknown[],
+    ) {
+      this.messages = messages;
+    });
+    const sharedSetState = vi.fn(function (
+      this: Record<string, unknown>,
+      state: unknown,
+    ) {
+      this.state = state;
+    });
+
+    const firstAgent = {
+      ...mockAgent,
+      messages: [
+        { id: "system", role: "system", content: "sys" },
+        { id: "user-1", role: "user", content: "hello" },
+        { id: "assistant-1", role: "assistant", content: "hi there" },
+      ],
+      setMessages: sharedSetMessages,
+      setState: sharedSetState,
+      isRunning: false,
+      threadId: "thread-1",
+    };
+
+    const secondAgent = {
+      ...mockAgent,
+      messages: [
+        { id: "system", role: "system", content: "sys" },
+        { id: "user-1", role: "user", content: "hello" },
+        { id: "assistant-1", role: "assistant", content: "hi there" },
+      ],
+      setMessages: sharedSetMessages,
+      setState: sharedSetState,
+      isRunning: false,
+      threadId: "thread-2",
+    };
+
+    mockRuntimeConnectionStatus =
+      CopilotKitCoreRuntimeConnectionStatus.Connected;
+    currentAgent = firstAgent;
+    applyMocks();
+
+    const { result, rerender } = renderHook(() => useCopilotChatInternal(), {
+      wrapper: createWrapper(),
+    });
+
+    currentAgent = secondAgent;
+    applyMocks();
+    rerender();
+
+    await act(async () => {
+      await result.current.reloadMessages("assistant-1");
+    });
+
+    expect(secondAgent.messages).toEqual([
+      { id: "system", role: "system", content: "sys" },
+      { id: "user-1", role: "user", content: "hello" },
+    ]);
+    expect(firstAgent.messages).toEqual([
+      { id: "system", role: "system", content: "sys" },
+      { id: "user-1", role: "user", content: "hello" },
+      { id: "assistant-1", role: "assistant", content: "hi there" },
+    ]);
+    expect(mockRunAgent).toHaveBeenCalledWith({ agent: secondAgent });
   });
 });
