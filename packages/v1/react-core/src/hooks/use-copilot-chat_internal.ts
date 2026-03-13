@@ -475,6 +475,7 @@ export function useCopilotChatInternal({
       return;
     },
     [
+      agent,
       agent?.messages.length,
       agent?.isRunning,
       agent?.setMessages,
@@ -748,11 +749,11 @@ export function useCopilotChatInternal({
 // it whenever it changes.
 function useUpdatedRef<T>(value: T) {
   const ref = useRef(value);
-
-  useEffect(() => {
-    ref.current = value;
-  }, [value]);
-
+  // Update synchronously during render so callers never see a stale value.
+  // The previous useEffect-based update left a window between render and
+  // effect where ref.current pointed to the previous closure, causing
+  // reset/reload to operate on a stale agent instance.
+  ref.current = value;
   return ref;
 }
 
