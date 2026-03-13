@@ -224,6 +224,12 @@ export class RunHandler {
       };
     }
 
+    // Detach any active run (e.g. a long-lived connectAgent pipeline) before
+    // starting a new run to avoid orphaned pipelines that can never be signaled.
+    if (agent.detachActiveRun) {
+      await agent.detachActiveRun();
+    }
+
     try {
       const runAgentResult = await agent.runAgent(
         {
