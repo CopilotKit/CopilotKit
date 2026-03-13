@@ -57,9 +57,7 @@ export class GoogleGenerativeAIAdapter extends LangChainAdapter {
     super({
       chainFn: async ({ messages, tools, threadId }) => {
         // Lazy require for optional peer dependencies
-        // eslint-disable-next-line @typescript-eslint/no-var-requires
         const { ChatGoogle } = require("@langchain/google-gauth");
-        // eslint-disable-next-line @typescript-eslint/no-var-requires
         const { AIMessage } = require("@langchain/core/messages");
 
         // Filter out empty assistant messages to prevent Gemini validation errors

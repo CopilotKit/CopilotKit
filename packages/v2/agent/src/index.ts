@@ -469,7 +469,6 @@ function isJsonSchema(obj: unknown): obj is JsonSchema {
 export function convertToolsToVercelAITools(
   tools: RunAgentInput["tools"],
 ): ToolSet {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const result: Record<string, any> = {};
 
   for (const tool of tools) {
@@ -503,7 +502,6 @@ function isZodSchema(schema: StandardSchemaV1): boolean {
 export function convertToolDefinitionsToVercelAITools(
   tools: ToolDefinition[],
 ): ToolSet {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const result: Record<string, any> = {};
 
   for (const tool of tools) {

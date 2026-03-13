@@ -30,8 +30,7 @@ pnpm i
 - Create a Pinecone and Anthropic accounts
 - Note your API keys
 
-4. Configure environment variables:
-   Create a `.env` file with:
+4. Configure environment variables: Create a `.env` file with:
 
 ```bash
 ANTHROPIC_API_KEY="your_anthropic_key"

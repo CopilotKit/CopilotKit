@@ -1,12 +1,13 @@
 ## 1. Flashcard and Quiz Generator Bot
 
-In this project, I developed an interactive Flashcard and Quiz Generator App using React, styled with Tailwind CSS, and enhanced with Shadcn UI components for a polished user experience.
+In this project, I developed an interactive Flashcard and Quiz Generator App using React, styled with Tailwind CSS, and
+enhanced with Shadcn UI components for a polished user experience.
 
-- Flashcard Generation:
-  Users can create flashcards by entering a topic or concept. The app automatically generates flashcards with key terms, definitions, and helpful examples through internal logic or AI-based integration.
+- Flashcard Generation: Users can create flashcards by entering a topic or concept. The app automatically generates
+  flashcards with key terms, definitions, and helpful examples through internal logic or AI-based integration.
 
-- Interactive Quiz Generation:
-  Users can generate quizzes based on a specific topic or concept. The app uses predefined logic (or AI) to create adaptive quizzes, delivering questions that help users assess and reinforce their knowledge.
+- Interactive Quiz Generation: Users can generate quizzes based on a specific topic or concept. The app uses predefined
+  logic (or AI) to create adaptive quizzes, delivering questions that help users assess and reinforce their knowledge.
 
 ## 2. Name of Issue/Topic
 

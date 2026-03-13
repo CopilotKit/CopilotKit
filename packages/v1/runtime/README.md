@@ -57,7 +57,9 @@ To get started with CopilotKit, please check out the [documentation](https://doc
 
 ## Analytics & Privacy
 
-CopilotKit uses [Scarf](https://scarf.sh) for anonymous usage analytics to help improve the product. Scarf handles all privacy compliance and does not store raw IP addresses. This helps us understand how CopilotKit is being used and prioritize improvements.
+CopilotKit uses [Scarf](https://scarf.sh) for anonymous usage analytics to help improve the product. Scarf handles all
+privacy compliance and does not store raw IP addresses. This helps us understand how CopilotKit is being used and
+prioritize improvements.
 
 ### Opting Out
 

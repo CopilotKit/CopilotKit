@@ -75,7 +75,8 @@ export function ChatWidget() {
 }
 ```
 
-That's it — you now have a working AI chat. The provider connects to your runtime, fetches available agents, and the popup gives users a chat interface.
+That's it — you now have a working AI chat. The provider connects to your runtime, fetches available agents, and the
+popup gives users a chat interface.
 
 ```mermaid
 sequenceDiagram

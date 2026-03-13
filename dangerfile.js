@@ -11,12 +11,12 @@ const lgcExecutor = "LangGraph Cloud executor (remote-lg-cloud-action.ts)";
 // Check if only one of the files is modified
 if (changedFiles.includes(file1) && !changedFiles.includes(file2)) {
   warn(
-    `⚠️ ${lgPyExecutorName} was modified, but ${lgcExecutor} was not updated. Please align both files.`
+    `⚠️ ${lgPyExecutorName} was modified, but ${lgcExecutor} was not updated. Please align both files.`,
   );
 }
 
 if (changedFiles.includes(file2) && !changedFiles.includes(file1)) {
   warn(
-    `⚠️ ${lgcExecutor} was modified, but ${lgPyExecutorName} was not updated. Please align both files.`
+    `⚠️ ${lgcExecutor} was modified, but ${lgPyExecutorName} was not updated. Please align both files.`,
   );
 }

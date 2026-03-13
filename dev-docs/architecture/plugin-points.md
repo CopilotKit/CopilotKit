@@ -1,6 +1,7 @@
 # Pluggable Architecture Guide
 
-CopilotKit is built around extension points. Almost everything is optional and replaceable. This guide catalogs **every** pluggable part, where it's configured, and what happens when you don't provide it.
+CopilotKit is built around extension points. Almost everything is optional and replaceable. This guide catalogs
+**every** pluggable part, where it's configured, and what happens when you don't provide it.
 
 ---
 
@@ -133,7 +134,8 @@ graph LR
 
 ### 4. Human-in-the-Loop
 
-**What:** Tools that pause and wait for user input before continuing. The user sees a custom UI with approve/deny buttons.
+**What:** Tools that pause and wait for user input before continuing. The user sees a custom UI with approve/deny
+buttons.
 
 **Where configured:**
 
@@ -426,7 +428,8 @@ abstract class TranscriptionService {
 
 ### 13. AG-UI Middleware
 
-**What:** Intercept and transform the agent execution pipeline. Cross-cutting concerns like logging, filtering, and backward compatibility.
+**What:** Intercept and transform the agent execution pipeline. Cross-cutting concerns like logging, filtering, and
+backward compatibility.
 
 **Where configured:** At the agent level (outside CopilotKit core).
 

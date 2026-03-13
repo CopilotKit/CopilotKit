@@ -248,7 +248,9 @@ describe("CopilotEndpoint routing", () => {
       const response = await testRoute(
         "https://example.com/agent/test%20agent/run",
         "POST",
-        { agentId: "test%20agent" },
+        {
+          agentId: "test%20agent",
+        },
       );
 
       expect(response.status).not.toBe(404);

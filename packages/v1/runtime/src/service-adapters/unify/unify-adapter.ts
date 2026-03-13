@@ -58,7 +58,6 @@ export class UnifyAdapter implements CopilotServiceAdapter {
   ): Promise<CopilotRuntimeChatCompletionResponse> {
     const tools = request.actions.map(convertActionInputToOpenAITool);
     // Lazy require for optional peer dependency
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
     const OpenAI = require("openai").default;
     const openai = new OpenAI({
       apiKey: this.apiKey,

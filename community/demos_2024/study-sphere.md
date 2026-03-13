@@ -2,13 +2,16 @@
 
 ### :star2: About
 
-**Study Sphere** is an all-in-one learning platform designed to enhance your study experience. The project offers three key features:
+**Study Sphere** is an all-in-one learning platform designed to enhance your study experience. The project offers three
+key features:
 
 1. **Notes**: Manage and organize your notes efficiently.
 2. **Quiz**: Test your knowledge with quizzes tailored to various subjects.
-3. **Study Buddy (AI Mentor)**: An AI-powered mentor to help you with your learning, offering guidance and insights like a personal tutor.
+3. **Study Buddy (AI Mentor)**: An AI-powered mentor to help you with your learning, offering guidance and insights like
+   a personal tutor.
 
-With a clean, intuitive interface and responsive design, Study Sphere makes it easy to keep track of your studies and improve your learning outcomes.
+With a clean, intuitive interface and responsive design, Study Sphere makes it easy to keep track of your studies and
+improve your learning outcomes.
 
 ### :hammer_and_wrench: Tech Stack
 

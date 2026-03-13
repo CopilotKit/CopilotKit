@@ -102,7 +102,10 @@ describe("renderSlot", () => {
       const element = renderSlot(
         { className: "slot-class", "data-slot": "true" },
         SimpleDiv,
-        { children: "merged content", "data-base": "true" },
+        {
+          children: "merged content",
+          "data-base": "true",
+        },
       );
       const { container } = render(element);
 
@@ -294,7 +297,11 @@ describe("renderSlot", () => {
       const element = renderSlot(
         { title: undefined, "data-test": null },
         SimpleDiv,
-        { title: "base-title", "data-base": "value", children: "test" },
+        {
+          title: "base-title",
+          "data-base": "value",
+          children: "test",
+        },
       );
       const { container } = render(element);
 
@@ -351,7 +358,11 @@ describe("renderSlot", () => {
       const element = renderSlot(
         { disabled: true, className: "override-class" },
         SubComponent,
-        { label: "Click me", disabled: false, className: "base-class" },
+        {
+          label: "Click me",
+          disabled: false,
+          className: "base-class",
+        },
       );
 
       render(element);
@@ -429,7 +440,11 @@ describe("renderSlot", () => {
       const element = renderSlot(
         { isVisible: false, count: 10 },
         ComponentWithBooleans,
-        { isVisible: true, count: 5, className: "test-class" },
+        {
+          isVisible: true,
+          count: 5,
+          className: "test-class",
+        },
       );
 
       const { container } = render(element);
@@ -451,7 +466,10 @@ describe("renderSlot", () => {
       const element = renderSlot(
         { items: ["slot1", "slot2"] },
         ComponentWithArray,
-        { items: ["base1", "base2"], className: "list-class" },
+        {
+          items: ["base1", "base2"],
+          className: "list-class",
+        },
       );
 
       render(element);

@@ -2,7 +2,10 @@
 
 [Cookbook](https://cookbook-eosin.vercel.app) - A Recipe Generating App
 
-CookBook is a recipe generating app that allows users to search for recipes based on ingredients they have on hand. Users can also save recipes in their personal cookbook for future reference. CookBook uses CopilotKit to generate recipes with the help of GroqAI's API (you can use your own LLM model if you have one or try ChatGPT, Gemini, or any other model).
+CookBook is a recipe generating app that allows users to search for recipes based on ingredients they have on hand.
+Users can also save recipes in their personal cookbook for future reference. CookBook uses CopilotKit to generate
+recipes with the help of GroqAI's API (you can use your own LLM model if you have one or try ChatGPT, Gemini, or any
+other model).
 
 ## Name of Issue/Topic
 

@@ -1,6 +1,7 @@
 # Runtime / Backend Setup Guide
 
-This guide shows how to set up the CopilotKit backend — from minimal to fully configured with all optional extension points.
+This guide shows how to set up the CopilotKit backend — from minimal to fully configured with all optional extension
+points.
 
 ---
 

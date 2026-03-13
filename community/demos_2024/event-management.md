@@ -1,9 +1,12 @@
 # Event management with Copilot Bot
 
-In this project, I developed an Event management with Copilot Bot integration using Next Js for the frontend, Tailwind CSS for styling, and the CopilotKit for interactive guidance and suggestions.
+In this project, I developed an Event management with Copilot Bot integration using Next Js for the frontend, Tailwind
+CSS for styling, and the CopilotKit for interactive guidance and suggestions.
 
-- Event Calendar: Users can add an event in a specific target date and time. The app displays a calendar view where users can add event , and users can manage multiple events by adding or removing them from the list.
-- Copilot Bot Integration: The app is integrated with Copilot Bot to assist users with instructions on how to add an event , offering help for planning event in a user-friendly way.
+- Event Calendar: Users can add an event in a specific target date and time. The app displays a calendar view where
+  users can add event , and users can manage multiple events by adding or removing them from the list.
+- Copilot Bot Integration: The app is integrated with Copilot Bot to assist users with instructions on how to add an
+  event , offering help for planning event in a user-friendly way.
 
 ## 2. Name of Issue/Topic
 
@@ -48,7 +51,8 @@ Please list your **GitHub** and **Twitter** handles if you feel comfortable doin
 
 ## 5 Extra Bonus Points
 
-Link to any bonus activities you did such as solving GitHub Issues or posting to Twitter, Dev.to, Medium, etc related to your project and CopilotKit.
+Link to any bonus activities you did such as solving GitHub Issues or posting to Twitter, Dev.to, Medium, etc related to
+your project and CopilotKit.
 
 - A dev.to blog link - [Link]()
 - Tweet link - [Link]()

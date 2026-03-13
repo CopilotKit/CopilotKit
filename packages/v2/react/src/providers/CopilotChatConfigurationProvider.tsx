@@ -65,8 +65,8 @@ export const CopilotChatConfigurationProvider: React.FC<
   const mergedLabels: CopilotChatLabels = useMemo(
     () => ({
       ...CopilotChatDefaultLabels,
-      ...(parentConfig?.labels ?? {}),
-      ...(labels ?? {}),
+      ...parentConfig?.labels,
+      ...labels,
     }),
     [labels, parentConfig?.labels],
   );

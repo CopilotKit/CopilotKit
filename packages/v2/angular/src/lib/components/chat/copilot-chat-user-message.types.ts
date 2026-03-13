@@ -20,7 +20,6 @@ export interface CopyButtonContext {
   copied?: boolean;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export interface EditButtonContext {
   // Empty context - click handled via outputs map
 }

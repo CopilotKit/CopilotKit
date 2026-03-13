@@ -45,7 +45,6 @@ export const ActionButtons = ({
         className="w-full"
         disabled={status === "complete" || status === "inProgress"}
         onClick={() => {
-          debugger;
           if (selectedPlaceIds && selectedPlaceIds.size > 0) {
             if (type == "edit") {
               console.log(Array.from(selectedPlaceIds), "selectedPlaceIds");

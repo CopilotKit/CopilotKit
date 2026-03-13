@@ -1,5 +1,5 @@
 /**
- * ESLint rule: require-cpk-prefix
+ * Oxlint rule: require-cpk-prefix
  *
  * Enforces that Tailwind utility classes in className attributes and
  * class-helper calls (cn, twMerge, cva, clsx) use the `cpk:` prefix.
@@ -17,31 +17,105 @@ const PREFIX = "cpk:";
 // ── Tailwind utility detection ──────────────────────────────────────────────
 
 const SINGLE_WORD_UTILITIES = new Set([
-  "absolute","antialiased","block","border","capitalize","collapse",
-  "container","contents","fixed","flex","grid","grow","hidden","inline",
-  "inline-block","inline-flex","inline-grid","invisible","isolate","italic",
-  "lowercase","ordinal","outline","overflow","overline","relative","resize",
-  "ring","rounded","shadow","shrink","static","sticky","table","truncate",
-  "underline","uppercase","visible","prose",
+  "absolute",
+  "antialiased",
+  "block",
+  "border",
+  "capitalize",
+  "collapse",
+  "container",
+  "contents",
+  "fixed",
+  "flex",
+  "grid",
+  "grow",
+  "hidden",
+  "inline",
+  "inline-block",
+  "inline-flex",
+  "inline-grid",
+  "invisible",
+  "isolate",
+  "italic",
+  "lowercase",
+  "ordinal",
+  "outline",
+  "overflow",
+  "overline",
+  "relative",
+  "resize",
+  "ring",
+  "rounded",
+  "shadow",
+  "shrink",
+  "static",
+  "sticky",
+  "table",
+  "truncate",
+  "underline",
+  "uppercase",
+  "visible",
+  "prose",
 ]);
 
 const JS_VALUE_WORDS = new Set([
-  "absolute","static","relative","fixed","sticky",
-  "contents","none","auto","inherit","initial","unset","revert",
-  "block","inline","flex","grid","hidden",
-  "smooth","instant","nearest",
-  "button","submit","reset",
-  "input","transcribe","processing",
-  "recording","idle",
-  "text","password","email","number","tel","url","search",
-  "top","bottom","left","right","start","end",
-  "compact","expanded",
-  "before","after",
-  "open","closed",
-  "default","destructive","outline","secondary","ghost","link",
+  "absolute",
+  "static",
+  "relative",
+  "fixed",
+  "sticky",
+  "contents",
+  "none",
+  "auto",
+  "inherit",
+  "initial",
+  "unset",
+  "revert",
+  "block",
+  "inline",
+  "flex",
+  "grid",
+  "hidden",
+  "smooth",
+  "instant",
+  "nearest",
+  "button",
+  "submit",
+  "reset",
+  "input",
+  "transcribe",
+  "processing",
+  "recording",
+  "idle",
+  "text",
+  "password",
+  "email",
+  "number",
+  "tel",
+  "url",
+  "search",
+  "top",
+  "bottom",
+  "left",
+  "right",
+  "start",
+  "end",
+  "compact",
+  "expanded",
+  "before",
+  "after",
+  "open",
+  "closed",
+  "default",
+  "destructive",
+  "outline",
+  "secondary",
+  "ghost",
+  "link",
 ]);
 
-const VARIANT_RE = /^(?:dark|hover|focus|focus-visible|focus-within|active|disabled|visited|checked|required|invalid|first|last|odd|even|only|empty|enabled|read-only|placeholder-shown|autofill|default|indeterminate|open|closed|group-hover|group-focus|peer-hover|peer-focus|peer-checked|placeholder|before|after|selection|marker|first-line|first-letter|file|sm|md|lg|xl|2xl|portrait|landscape|motion-safe|motion-reduce|contrast-more|contrast-less|forced-colors|print|ltr|rtl|aria-invalid|aria-checked|aria-disabled|aria-expanded|aria-hidden|aria-pressed|aria-readonly|aria-required|aria-selected|has-\[.+?\]|not-\[.+?\]|group-data-\[.+?\]|supports-\[.+?\]|min-\[.+?\]|max-\[.+?\]|data-\[.+?\]|aria-\[.+?\]|\[.+?\]):/;
+const VARIANT_RE =
+  /^(?:dark|hover|focus|focus-visible|focus-within|active|disabled|visited|checked|required|invalid|first|last|odd|even|only|empty|enabled|read-only|placeholder-shown|autofill|default|indeterminate|open|closed|group-hover|group-focus|peer-hover|peer-focus|peer-checked|placeholder|before|after|selection|marker|first-line|first-letter|file|sm|md|lg|xl|2xl|portrait|landscape|motion-safe|motion-reduce|contrast-more|contrast-less|forced-colors|print|ltr|rtl|aria-invalid|aria-checked|aria-disabled|aria-expanded|aria-hidden|aria-pressed|aria-readonly|aria-required|aria-selected|has-\[.+?\]|not-\[.+?\]|group-data-\[.+?\]|supports-\[.+?\]|min-\[.+?\]|max-\[.+?\]|data-\[.+?\]|aria-\[.+?\]|\[.+?\]):/;
 
 function stripVariants(token) {
   let base = token;
@@ -68,28 +142,121 @@ function isBaseUtility(base) {
   if (SINGLE_WORD_UTILITIES.has(bNoOpacity)) return true;
 
   const prefixes = [
-    "bg-","text-","font-","p-","px-","py-","pt-","pb-","pl-","pr-",
-    "m-","mx-","my-","mt-","mb-","ml-","mr-",
-    "w-","h-","min-w-","max-w-","min-h-","max-h-","size-",
-    "flex-","grid-","col-","row-","auto-cols-","auto-rows-",
-    "gap-","gap-x-","gap-y-","space-x-","space-y-",
-    "items-","justify-","self-","content-","place-",
-    "border-","rounded-","ring-","outline-","divide-","shadow-",
-    "z-","inset-","inset-x-","inset-y-","top-","right-","bottom-","left-","start-","end-",
-    "leading-","tracking-","whitespace-","break-","indent-","align-",
-    "decoration-","underline-offset-",
-    "opacity-","overflow-","object-","float-","clear-",
-    "transition-","duration-","ease-","delay-","animate-",
-    "scale-","rotate-","translate-","skew-","origin-",
-    "cursor-","pointer-events-","select-","touch-","scroll-","snap-",
-    "accent-","caret-","will-change-","contain-",
-    "fill-","stroke-","aspect-","columns-",
-    "from-","via-","to-","gradient-",
-    "backdrop-","blur-","brightness-","contrast-","drop-shadow-",
-    "grayscale-","hue-rotate-","invert-","saturate-","sepia-",
+    "bg-",
+    "text-",
+    "font-",
+    "p-",
+    "px-",
+    "py-",
+    "pt-",
+    "pb-",
+    "pl-",
+    "pr-",
+    "m-",
+    "mx-",
+    "my-",
+    "mt-",
+    "mb-",
+    "ml-",
+    "mr-",
+    "w-",
+    "h-",
+    "min-w-",
+    "max-w-",
+    "min-h-",
+    "max-h-",
+    "size-",
+    "flex-",
+    "grid-",
+    "col-",
+    "row-",
+    "auto-cols-",
+    "auto-rows-",
+    "gap-",
+    "gap-x-",
+    "gap-y-",
+    "space-x-",
+    "space-y-",
+    "items-",
+    "justify-",
+    "self-",
+    "content-",
+    "place-",
+    "border-",
+    "rounded-",
+    "ring-",
+    "outline-",
+    "divide-",
+    "shadow-",
+    "z-",
+    "inset-",
+    "inset-x-",
+    "inset-y-",
+    "top-",
+    "right-",
+    "bottom-",
+    "left-",
+    "start-",
+    "end-",
+    "leading-",
+    "tracking-",
+    "whitespace-",
+    "break-",
+    "indent-",
+    "align-",
+    "decoration-",
+    "underline-offset-",
+    "opacity-",
+    "overflow-",
+    "object-",
+    "float-",
+    "clear-",
+    "transition-",
+    "duration-",
+    "ease-",
+    "delay-",
+    "animate-",
+    "scale-",
+    "rotate-",
+    "translate-",
+    "skew-",
+    "origin-",
+    "cursor-",
+    "pointer-events-",
+    "select-",
+    "touch-",
+    "scroll-",
+    "snap-",
+    "accent-",
+    "caret-",
+    "will-change-",
+    "contain-",
+    "fill-",
+    "stroke-",
+    "aspect-",
+    "columns-",
+    "from-",
+    "via-",
+    "to-",
+    "gradient-",
+    "backdrop-",
+    "blur-",
+    "brightness-",
+    "contrast-",
+    "drop-shadow-",
+    "grayscale-",
+    "hue-rotate-",
+    "invert-",
+    "saturate-",
+    "sepia-",
     "ring-offset-",
-    "list-","order-","basis-","grow-","shrink-",
-    "sr-","appearance-",
+    "list-",
+    "order-",
+    "basis-",
+    "grow-",
+    "shrink-",
+    "sr-",
+    "appearance-",
     "transform-",
   ];
 
@@ -101,7 +268,11 @@ function isBaseUtility(base) {
   if (/\[.+\]/.test(b)) return true;
   if (/\(/.test(b) && /^[a-z]/.test(b)) return true;
 
-  if (/^(line-through|no-underline|normal-case|not-italic|subpixel-antialiased|table-auto|table-fixed|border-collapse|border-separate|sr-only|not-sr-only|break-words|break-all|break-normal|overflow-auto|overflow-hidden|overflow-visible|overflow-scroll|overflow-x-auto|overflow-x-hidden|overflow-y-auto|overflow-y-hidden|overflow-y-scroll|inline-block|inline-flex|inline-grid|flow-root|list-item|outline-hidden|outline-none|bg-clip-padding|bg-gradient-to-t|bg-gradient-to-b|bg-gradient-to-l|bg-gradient-to-r|not-prose|transform-gpu)$/.test(bNoOpacity))
+  if (
+    /^(line-through|no-underline|normal-case|not-italic|subpixel-antialiased|table-auto|table-fixed|border-collapse|border-separate|sr-only|not-sr-only|break-words|break-all|break-normal|overflow-auto|overflow-hidden|overflow-visible|overflow-scroll|overflow-x-auto|overflow-x-hidden|overflow-y-auto|overflow-y-hidden|overflow-y-scroll|inline-block|inline-flex|inline-grid|flow-root|list-item|outline-hidden|outline-none|bg-clip-padding|bg-gradient-to-t|bg-gradient-to-b|bg-gradient-to-l|bg-gradient-to-r|not-prose|transform-gpu)$/.test(
+      bNoOpacity,
+    )
+  )
     return true;
 
   return false;
@@ -136,7 +307,8 @@ function prefixToken(token) {
 
 // Detect tokens where cpk: is placed after variant(s) instead of before them.
 // e.g. dark:cpk:bg-white, hover:cpk:text-blue, dark:hover:cpk:bg-red
-const WRONG_PREFIX_RE = /^((?:[a-z][-a-z0-9]*(?:\[.*?\])?:|\[.*?\]:)+)cpk:(.+)$/;
+const WRONG_PREFIX_RE =
+  /^((?:[a-z][-a-z0-9]*(?:\[.*?\])?:|\[.*?\]:)+)cpk:(.+)$/;
 
 function hasWrongPrefixPosition(token) {
   return WRONG_PREFIX_RE.test(token);
@@ -146,7 +318,7 @@ function fixPrefixPosition(token) {
   return token.replace(WRONG_PREFIX_RE, "cpk:$1$2");
 }
 
-// ── ESLint rule ─────────────────────────────────────────────────────────────
+// ── Oxlint rule ─────────────────────────────────────────────────────────────
 
 const rule = {
   meta: {
@@ -159,9 +331,9 @@ const rule = {
     schema: [],
     messages: {
       missingPrefix:
-        "'{{token}}' is missing the 'cpk:' prefix. Use '{{fixed}}' instead. See eslint-rules/README.md for why.",
+        "'{{token}}' is missing the 'cpk:' prefix. Use '{{fixed}}' instead. See oxlint-rules/README.md for why.",
       wrongPrefixPosition:
-        "'{{token}}' has 'cpk:' in the wrong position. The prefix must come BEFORE variants. Use '{{fixed}}' instead. See eslint-rules/README.md for why.",
+        "'{{token}}' has 'cpk:' in the wrong position. The prefix must come BEFORE variants. Use '{{fixed}}' instead. See oxlint-rules/README.md for why.",
     },
   },
 

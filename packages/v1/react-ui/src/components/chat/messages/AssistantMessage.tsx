@@ -95,9 +95,7 @@ export const AssistantMessage = (props: AssistantMessageProps) => {
               </button>
               {onThumbsUp && (
                 <button
-                  className={`copilotKitMessageControlButton ${
-                    feedback === "thumbsUp" ? "active" : ""
-                  }`}
+                  className={`copilotKitMessageControlButton ${feedback === "thumbsUp" ? "active" : ""}`}
                   onClick={handleThumbsUp}
                   aria-label={labels.thumbsUp}
                   title={labels.thumbsUp}
@@ -107,9 +105,7 @@ export const AssistantMessage = (props: AssistantMessageProps) => {
               )}
               {onThumbsDown && (
                 <button
-                  className={`copilotKitMessageControlButton ${
-                    feedback === "thumbsDown" ? "active" : ""
-                  }`}
+                  className={`copilotKitMessageControlButton ${feedback === "thumbsDown" ? "active" : ""}`}
                   onClick={handleThumbsDown}
                   aria-label={labels.thumbsDown}
                   title={labels.thumbsDown}

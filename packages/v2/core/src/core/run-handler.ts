@@ -71,7 +71,6 @@ interface ExecuteToolHandlerResult {
  * Manages the complete lifecycle of agent runs including tool execution and follow-ups.
  */
 export class RunHandler {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private _tools: FrontendTool<any>[] = [];
 
   constructor(private core: CopilotKitCore) {}

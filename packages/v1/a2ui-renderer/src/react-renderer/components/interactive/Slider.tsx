@@ -34,7 +34,7 @@ export const Slider = memo(function Slider({
         setLocalValue(Number(externalValue));
       }
     }
-  }, [valuePath, getValue]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [valuePath, getValue]);
 
   // Sync when literal value changes from props (server-driven updates via surfaceUpdate)
   useEffect(() => {
@@ -57,7 +57,6 @@ export const Slider = memo(function Slider({
   );
 
   // Access label from props if it exists (Lit component supports it but type doesn't define it)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const labelValue = (props as any).label;
   const label = labelValue ? resolveString(labelValue) : "";
 

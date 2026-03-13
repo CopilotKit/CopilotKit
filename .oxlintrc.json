@@ -1,0 +1,39 @@
+{
+  "$schema": "https://raw.githubusercontent.com/nicolo-ribaudo/oxlint-json-schema/refs/heads/main/.oxlintrc.json",
+  "plugins": ["typescript", "unicorn", "oxc", "react", "nextjs", "import"],
+  "jsPlugins": ["./packages/v2/react/oxlint-rules/copilotkit-plugin.mjs"],
+  "categories": {
+    "correctness": "warn",
+    "suspicious": "warn"
+  },
+  "rules": {
+    "react/react-in-jsx-scope": "off",
+    "import/no-unassigned-import": "off",
+    "unicorn/no-array-sort": "off",
+    "copilotkit/require-cpk-prefix": "off"
+  },
+  "overrides": [
+    {
+      "files": ["packages/v2/react/src/**/*.{ts,tsx}"],
+      "rules": {
+        "copilotkit/require-cpk-prefix": "warn"
+      }
+    },
+    {
+      "files": ["**/__tests__/**", "**/*.test.*", "**/*.spec.*"],
+      "rules": {
+        "copilotkit/require-cpk-prefix": "off"
+      }
+    }
+  ],
+  "ignorePatterns": [
+    "dist/**",
+    "node_modules/**",
+    ".next/**",
+    ".nuxt/**",
+    "coverage/**",
+    "storybook-static/**",
+    "**/@generated/**",
+    "docs/**"
+  ]
+}

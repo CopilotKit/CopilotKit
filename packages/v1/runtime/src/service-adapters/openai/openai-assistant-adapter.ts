@@ -117,7 +117,6 @@ export class OpenAIAssistantAdapter implements CopilotServiceAdapter {
 
   private ensureOpenAI(): OpenAI {
     if (!this._openai) {
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
       const OpenAI = require("openai").default;
       this._openai = new OpenAI({});
     }

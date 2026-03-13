@@ -3242,7 +3242,8 @@
 - 1721cbd: Add convertActionsToDynamicStructuredTools to sdk-js
 - CopilotKit Core:
   - Improved error messages and overall logs
-  - `useCopilotAction.renderAndAwait` renamed to `.renderAndAwaitForResponse` (backwards compatible, will be deprecated in the future)
+  - `useCopilotAction.renderAndAwait` renamed to `.renderAndAwaitForResponse` (backwards compatible, will be deprecated
+    in the future)
   - Improved scrolling behavior. It is now possible to scroll up during LLM response generation
   - Added Azure OpenAI integration
   - Updated interfaces for better developer ergonomics
@@ -3358,7 +3359,8 @@
 CopilotKit Core:
 
 - Improved error messages and overall logs
-- `useCopilotAction.renderAndAwait` renamed to `.renderAndAwaitForResponse` (backwards compatible, will be deprecated in the future)
+- `useCopilotAction.renderAndAwait` renamed to `.renderAndAwaitForResponse` (backwards compatible, will be deprecated in
+  the future)
 - Improved scrolling behavior. It is now possible to scroll up during LLM response generation
 - Added Azure OpenAI integration
 - Updated interfaces for better developer ergonomics
@@ -3553,7 +3555,8 @@ CopilotKid Back-end SDK:
 
 ### Patch Changes
 
-- 1. Removes the usage of the `crypto` Node pacakge, instaed uses `uuid`. This ensures that non-Next.js React apps can use CopilotKit.
+- 1. Removes the usage of the `crypto` Node pacakge, instaed uses `uuid`. This ensures that non-Next.js React apps can
+     use CopilotKit.
   2. Fixes Nest.js runtime docs
 
 - Updated dependencies
@@ -3660,7 +3663,8 @@ CopilotKid Back-end SDK:
   - removes the need to import `styles.css` manually
   - empty `styles.css` included in the build for backwards compatibility
   - uses tsup's `injectStyles` with `postcss` to bundle and minify the CSS, then inject it as a style tag
-  - currently uses my fork of `tsup` where I added support for async function in `injectStyles` (must-have for postcss), a PR from my fork to the main library will follow shortly
+  - currently uses my fork of `tsup` where I added support for async function in `injectStyles` (must-have for postcss),
+    a PR from my fork to the main library will follow shortly
   - remove material-ui, and use `react-icons` for icons (same icons as before)
   - remove unused `IncludedFilesPreview` component
   - updated docs
@@ -5116,7 +5120,8 @@ CopilotKid Back-end SDK:
 
 ### Minor Changes
 
-- ec7484f: - CopilotTextarea supports passing in ref compatible with <textarea>'s HTMLTextAreaElement ref (for focus, blur, styling, etc.)
+- ec7484f: - CopilotTextarea supports passing in ref compatible with <textarea>'s HTMLTextAreaElement ref (for focus,
+  blur, styling, etc.)
   - Minor bug fix: CopilotTextarea branding remains correclty positioned as textarea scrolls
 
 ## 0.11.0

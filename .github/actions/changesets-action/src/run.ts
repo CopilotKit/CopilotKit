@@ -7,12 +7,7 @@ import { getPackages, Package } from "@manypkg/get-packages";
 import path from "path";
 import * as semver from "semver";
 import { PreState } from "@changesets/types";
-import {
-  getChangelogEntry,
-  getChangedPackages,
-  sortTheThings,
-  getVersionsByDirectory,
-} from "./utils";
+import { getChangelogEntry, getChangedPackages, sortTheThings, getVersionsByDirectory } from "./utils";
 import * as gitUtils from "./gitUtils";
 import readChangesetState from "./readChangesetState";
 import resolveFrom from "resolve-from";
@@ -29,24 +24,15 @@ const setupOctokit = (githubToken: string) => {
     getOctokitOptions(githubToken, {
       throttle: {
         onRateLimit: (retryAfter, options: any, octokit, retryCount) => {
-          core.warning(
-            `Request quota exhausted for request ${options.method} ${options.url}`,
-          );
+          core.warning(`Request quota exhausted for request ${options.method} ${options.url}`);
 
           if (retryCount <= 2) {
             core.info(`Retrying after ${retryAfter} seconds!`);
             return true;
           }
         },
-        onSecondaryRateLimit: (
-          retryAfter,
-          options: any,
-          octokit,
-          retryCount,
-        ) => {
-          core.warning(
-            `SecondaryRateLimit detected for request ${options.method} ${options.url}`,
-          );
+        onSecondaryRateLimit: (retryAfter, options: any, octokit, retryCount) => {
+          core.warning(`SecondaryRateLimit detected for request ${options.method} ${options.url}`);
 
           if (retryCount <= 2) {
             core.info(`Retrying after ${retryAfter} seconds!`);
@@ -71,9 +57,7 @@ const createRelease = async (
     if (!changelogEntry) {
       // we can find a changelog but not the entry for this version
       // if this is true, something has probably gone wrong
-      throw new Error(
-        `Could not find changelog entry for ${pkg.packageJson.name}@${pkg.packageJson.version}`,
-      );
+      throw new Error(`Could not find changelog entry for ${pkg.packageJson.name}@${pkg.packageJson.version}`);
     }
 
     await octokit.rest.repos.createRelease({
@@ -85,12 +69,7 @@ const createRelease = async (
     });
   } catch (err) {
     // if we can't find a changelog, the user has probably disabled changelogs
-    if (
-      err &&
-      typeof err === "object" &&
-      "code" in err &&
-      err.code !== "ENOENT"
-    ) {
+    if (err && typeof err === "object" && "code" in err && err.code !== "ENOENT") {
       throw err;
     }
   }
@@ -124,11 +103,7 @@ export async function runPublish({
 
   let [publishCommand, ...publishArgs] = script.split(/\s+/);
 
-  let changesetPublishOutput = await getExecOutput(
-    publishCommand,
-    publishArgs,
-    { cwd },
-  );
+  let changesetPublishOutput = await getExecOutput(publishCommand, publishArgs, { cwd });
 
   await gitUtils.pushTags();
 
@@ -148,8 +123,7 @@ export async function runPublish({
       let pkg = packagesByName.get(pkgName);
       if (pkg === undefined) {
         throw new Error(
-          `Package "${pkgName}" not found.` +
-            "This is probably a bug in the action, please open an issue",
+          `Package "${pkgName}" not found.` + "This is probably a bug in the action, please open an issue",
         );
       }
       releasedPackages.push(pkg);
@@ -167,10 +141,7 @@ export async function runPublish({
     }
   } else {
     if (packages.length === 0) {
-      throw new Error(
-        `No package found.` +
-          "This is probably a bug in the action, please open an issue",
-      );
+      throw new Error(`No package found.` + "This is probably a bug in the action, please open an issue");
     }
     let pkg = packages[0];
     let newTagRegex = /New tag:/;
@@ -208,15 +179,8 @@ const requireChangesetsCliPkgJson = (cwd: string) => {
   try {
     return require(resolveFrom(cwd, "@changesets/cli/package.json"));
   } catch (err) {
-    if (
-      err &&
-      typeof err === "object" &&
-      "code" in err &&
-      err.code === "MODULE_NOT_FOUND"
-    ) {
-      throw new Error(
-        `Have you forgotten to install \`@changesets/cli\` in "${cwd}"?`,
-      );
+    if (err && typeof err === "object" && "code" in err && err.code === "MODULE_NOT_FOUND") {
+      throw new Error(`Have you forgotten to install \`@changesets/cli\` in "${cwd}"?`, { cause: err });
     }
     throw err;
   }
@@ -334,9 +298,7 @@ export async function runVersion({
     await exec(versionCommand, versionArgs, { cwd });
   } else {
     let changesetsCliPkgJson = requireChangesetsCliPkgJson(cwd);
-    let cmd = semver.lt(changesetsCliPkgJson.version, "2.0.0")
-      ? "bump"
-      : "version";
+    let cmd = semver.lt(changesetsCliPkgJson.version, "2.0.0") ? "bump" : "version";
     await exec("node", [resolveFrom(cwd, "@changesets/cli/bin.js"), cmd], {
       cwd,
     });
@@ -351,10 +313,7 @@ export async function runVersion({
   let changedPackages = await getChangedPackages(cwd, versionsByDirectory);
   let changedPackagesInfoPromises = Promise.all(
     changedPackages.map(async (pkg) => {
-      let changelogContents = await fs.readFile(
-        path.join(pkg.dir, "CHANGELOG.md"),
-        "utf8",
-      );
+      let changelogContents = await fs.readFile(path.join(pkg.dir, "CHANGELOG.md"), "utf8");
 
       let entry = getChangelogEntry(changelogContents, pkg.packageJson.version);
       return {
@@ -371,9 +330,7 @@ export async function runVersion({
 
   // project with `commit: true` setting could have already committed files
   if (!(await gitUtils.checkIfClean())) {
-    const finalCommitMessage = `${commitMessage}${
-      !!preState ? ` (${preState.tag})` : ""
-    }`;
+    const finalCommitMessage = `${commitMessage}${!!preState ? ` (${preState.tag})` : ""}`;
     await gitUtils.commitAll(finalCommitMessage);
   }
 
@@ -382,9 +339,7 @@ export async function runVersion({
   let existingPullRequests = await existingPullRequestsPromise;
   core.info(JSON.stringify(existingPullRequests.data, null, 2));
 
-  const changedPackagesInfo = (await changedPackagesInfoPromises)
-    .filter((x) => x)
-    .sort(sortTheThings);
+  const changedPackagesInfo = (await changedPackagesInfoPromises).filter((x) => x).toSorted(sortTheThings);
 
   let prBody = await getVersionPrBody({
     hasPublishScript,

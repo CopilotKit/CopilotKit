@@ -203,8 +203,7 @@
   - useRenderTool
   - useDefaultRenderTool
 
-  Also, fixing issues with styles not being
-  properly scoped for tailwind.
+  Also, fixing issues with styles not being properly scoped for tailwind.
 
 ### Patch Changes
 
@@ -257,8 +256,7 @@
   - useRenderTool
   - useDefaultRenderTool
 
-  Also, fixing issues with styles not being
-  properly scoped for tailwind.
+  Also, fixing issues with styles not being properly scoped for tailwind.
 
 ### Patch Changes
 
@@ -1248,8 +1246,8 @@
 
 - 8674da1: - refactor(headless): completely overhaul headless ui to better support agentic features
 
-  Headless UI has been in a bad state for a bit now. When we added support for different
-  agentic runtimes we acquired tech-debt that, with this PR, is being alleviated.
+  Headless UI has been in a bad state for a bit now. When we added support for different agentic runtimes we acquired
+  tech-debt that, with this PR, is being alleviated.
 
   As such, the following features have been updated to be completely functional with Headless UI.
   - Generative UI
@@ -1437,8 +1435,8 @@
 
 - 8674da1: - refactor(headless): completely overhaul headless ui to better support agentic features
 
-  Headless UI has been in a bad state for a bit now. When we added support for different
-  agentic runtimes we acquired tech-debt that, with this PR, is being alleviated.
+  Headless UI has been in a bad state for a bit now. When we added support for different agentic runtimes we acquired
+  tech-debt that, with this PR, is being alleviated.
 
   As such, the following features have been updated to be completely functional with Headless UI.
   - Generative UI
@@ -1517,12 +1515,12 @@
 
 - e1de032: - fix: synchronously execute renderAndWaitForResponse
 
-  Previously, it was impossible to execute multiple human-in-the-loop (renderAndWaitForResponse)
-  calls in a row. Ultimately this was due to an issue with how CopilotKit was rendering the updates
-  when multiple renderAndWaitForResponse actions appeared on screen due to a reference based approach.
+  Previously, it was impossible to execute multiple human-in-the-loop (renderAndWaitForResponse) calls in a row.
+  Ultimately this was due to an issue with how CopilotKit was rendering the updates when multiple
+  renderAndWaitForResponse actions appeared on screen due to a reference based approach.
 
-  With this change, actions will be executed in a synchronous way appearing almost queue like. This
-  works with any combination of action given much more freedom when asking for user input.
+  With this change, actions will be executed in a synchronous way appearing almost queue like. This works with any
+  combination of action given much more freedom when asking for user input.
 
   Signed-off-by: Tyler Slaton <tyler@copilotkit.ai>
 
@@ -1603,12 +1601,12 @@
 
 - e1de032: - fix: synchronously execute renderAndWaitForResponse
 
-  Previously, it was impossible to execute multiple human-in-the-loop (renderAndWaitForResponse)
-  calls in a row. Ultimately this was due to an issue with how CopilotKit was rendering the updates
-  when multiple renderAndWaitForResponse actions appeared on screen due to a reference based approach.
+  Previously, it was impossible to execute multiple human-in-the-loop (renderAndWaitForResponse) calls in a row.
+  Ultimately this was due to an issue with how CopilotKit was rendering the updates when multiple
+  renderAndWaitForResponse actions appeared on screen due to a reference based approach.
 
-  With this change, actions will be executed in a synchronous way appearing almost queue like. This
-  works with any combination of action given much more freedom when asking for user input.
+  With this change, actions will be executed in a synchronous way appearing almost queue like. This works with any
+  combination of action given much more freedom when asking for user input.
 
   Signed-off-by: Tyler Slaton <tyler@copilotkit.ai>
 
@@ -3332,10 +3330,9 @@
 
 - ea0c5d5: - fix: prevent sending empty messages via Enter key
 
-  When the input field was empty, pressing Enter would still trigger the
-  send() function despite the send button being correctly disabled. Added
-  the sendDisabled check to the onKeyDown handler to ensure consistent
-  validation between button and keyboard triggers.
+  When the input field was empty, pressing Enter would still trigger the send() function despite the send button being
+  correctly disabled. Added the sendDisabled check to the onKeyDown handler to ensure consistent validation between
+  button and keyboard triggers.
   - Added validation check to Enter key handler
   - Ensures empty messages can't be sent via keyboard shortcut
   - Makes behavior consistent with disabled send button state
@@ -3357,10 +3354,9 @@
 
 - ea0c5d5: - fix: prevent sending empty messages via Enter key
 
-  When the input field was empty, pressing Enter would still trigger the
-  send() function despite the send button being correctly disabled. Added
-  the sendDisabled check to the onKeyDown handler to ensure consistent
-  validation between button and keyboard triggers.
+  When the input field was empty, pressing Enter would still trigger the send() function despite the send button being
+  correctly disabled. Added the sendDisabled check to the onKeyDown handler to ensure consistent validation between
+  button and keyboard triggers.
   - Added validation check to Enter key handler
   - Ensures empty messages can't be sent via keyboard shortcut
   - Makes behavior consistent with disabled send button state
@@ -3505,7 +3501,8 @@
 - 1721cbd: Add convertActionsToDynamicStructuredTools to sdk-js
 - CopilotKit Core:
   - Improved error messages and overall logs
-  - `useCopilotAction.renderAndAwait` renamed to `.renderAndAwaitForResponse` (backwards compatible, will be deprecated in the future)
+  - `useCopilotAction.renderAndAwait` renamed to `.renderAndAwaitForResponse` (backwards compatible, will be deprecated
+    in the future)
   - Improved scrolling behavior. It is now possible to scroll up during LLM response generation
   - Added Azure OpenAI integration
   - Updated interfaces for better developer ergonomics
@@ -3621,7 +3618,8 @@
 CopilotKit Core:
 
 - Improved error messages and overall logs
-- `useCopilotAction.renderAndAwait` renamed to `.renderAndAwaitForResponse` (backwards compatible, will be deprecated in the future)
+- `useCopilotAction.renderAndAwait` renamed to `.renderAndAwaitForResponse` (backwards compatible, will be deprecated in
+  the future)
 - Improved scrolling behavior. It is now possible to scroll up during LLM response generation
 - Added Azure OpenAI integration
 - Updated interfaces for better developer ergonomics
@@ -3816,7 +3814,8 @@ CopilotKid Back-end SDK:
 
 ### Patch Changes
 
-- 1. Removes the usage of the `crypto` Node pacakge, instaed uses `uuid`. This ensures that non-Next.js React apps can use CopilotKit.
+- 1. Removes the usage of the `crypto` Node pacakge, instaed uses `uuid`. This ensures that non-Next.js React apps can
+     use CopilotKit.
   2. Fixes Nest.js runtime docs
 
 - Updated dependencies
@@ -3923,7 +3922,8 @@ CopilotKid Back-end SDK:
   - removes the need to import `styles.css` manually
   - empty `styles.css` included in the build for backwards compatibility
   - uses tsup's `injectStyles` with `postcss` to bundle and minify the CSS, then inject it as a style tag
-  - currently uses my fork of `tsup` where I added support for async function in `injectStyles` (must-have for postcss), a PR from my fork to the main library will follow shortly
+  - currently uses my fork of `tsup` where I added support for async function in `injectStyles` (must-have for postcss),
+    a PR from my fork to the main library will follow shortly
   - remove material-ui, and use `react-icons` for icons (same icons as before)
   - remove unused `IncludedFilesPreview` component
   - updated docs
@@ -5405,9 +5405,7 @@ CopilotKid Back-end SDK:
 
 ### Minor Changes
 
-- initial
-  s would render a math block
-  Signed-off-by: Tyler Slaton <tyler@copilotkit.ai>
+- initial s would render a math block Signed-off-by: Tyler Slaton <tyler@copilotkit.ai>
   - @copilotkit/react-core@1.10.1-next.2
   - @copilotkit/runtime-client-gql@1.10.1-next.2
   - @copilotkit/shared@1.10.1-next.2
@@ -5436,8 +5434,8 @@ CopilotKid Back-end SDK:
 
 - 8674da1: - refactor(headless): completely overhaul headless ui to better support agentic features
 
-  Headless UI has been in a bad state for a bit now. When we added support for different
-  agentic runtimes we acquired tech-debt that, with this PR, is being alleviated.
+  Headless UI has been in a bad state for a bit now. When we added support for different agentic runtimes we acquired
+  tech-debt that, with this PR, is being alleviated.
 
   As such, the following features have been updated to be completely functional with Headless UI.
   - Generative UI
@@ -5625,8 +5623,8 @@ CopilotKid Back-end SDK:
 
 - 8674da1: - refactor(headless): completely overhaul headless ui to better support agentic features
 
-  Headless UI has been in a bad state for a bit now. When we added support for different
-  agentic runtimes we acquired tech-debt that, with this PR, is being alleviated.
+  Headless UI has been in a bad state for a bit now. When we added support for different agentic runtimes we acquired
+  tech-debt that, with this PR, is being alleviated.
 
   As such, the following features have been updated to be completely functional with Headless UI.
   - Generative UI
@@ -5705,12 +5703,12 @@ CopilotKid Back-end SDK:
 
 - e1de032: - fix: synchronously execute renderAndWaitForResponse
 
-  Previously, it was impossible to execute multiple human-in-the-loop (renderAndWaitForResponse)
-  calls in a row. Ultimately this was due to an issue with how CopilotKit was rendering the updates
-  when multiple renderAndWaitForResponse actions appeared on screen due to a reference based approach.
+  Previously, it was impossible to execute multiple human-in-the-loop (renderAndWaitForResponse) calls in a row.
+  Ultimately this was due to an issue with how CopilotKit was rendering the updates when multiple
+  renderAndWaitForResponse actions appeared on screen due to a reference based approach.
 
-  With this change, actions will be executed in a synchronous way appearing almost queue like. This
-  works with any combination of action given much more freedom when asking for user input.
+  With this change, actions will be executed in a synchronous way appearing almost queue like. This works with any
+  combination of action given much more freedom when asking for user input.
 
   Signed-off-by: Tyler Slaton <tyler@copilotkit.ai>
 
@@ -5791,12 +5789,12 @@ CopilotKid Back-end SDK:
 
 - e1de032: - fix: synchronously execute renderAndWaitForResponse
 
-  Previously, it was impossible to execute multiple human-in-the-loop (renderAndWaitForResponse)
-  calls in a row. Ultimately this was due to an issue with how CopilotKit was rendering the updates
-  when multiple renderAndWaitForResponse actions appeared on screen due to a reference based approach.
+  Previously, it was impossible to execute multiple human-in-the-loop (renderAndWaitForResponse) calls in a row.
+  Ultimately this was due to an issue with how CopilotKit was rendering the updates when multiple
+  renderAndWaitForResponse actions appeared on screen due to a reference based approach.
 
-  With this change, actions will be executed in a synchronous way appearing almost queue like. This
-  works with any combination of action given much more freedom when asking for user input.
+  With this change, actions will be executed in a synchronous way appearing almost queue like. This works with any
+  combination of action given much more freedom when asking for user input.
 
   Signed-off-by: Tyler Slaton <tyler@copilotkit.ai>
 
@@ -7520,10 +7518,9 @@ CopilotKid Back-end SDK:
 
 - ea0c5d5: - fix: prevent sending empty messages via Enter key
 
-  When the input field was empty, pressing Enter would still trigger the
-  send() function despite the send button being correctly disabled. Added
-  the sendDisabled check to the onKeyDown handler to ensure consistent
-  validation between button and keyboard triggers.
+  When the input field was empty, pressing Enter would still trigger the send() function despite the send button being
+  correctly disabled. Added the sendDisabled check to the onKeyDown handler to ensure consistent validation between
+  button and keyboard triggers.
   - Added validation check to Enter key handler
   - Ensures empty messages can't be sent via keyboard shortcut
   - Makes behavior consistent with disabled send button state
@@ -7545,10 +7542,9 @@ CopilotKid Back-end SDK:
 
 - ea0c5d5: - fix: prevent sending empty messages via Enter key
 
-  When the input field was empty, pressing Enter would still trigger the
-  send() function despite the send button being correctly disabled. Added
-  the sendDisabled check to the onKeyDown handler to ensure consistent
-  validation between button and keyboard triggers.
+  When the input field was empty, pressing Enter would still trigger the send() function despite the send button being
+  correctly disabled. Added the sendDisabled check to the onKeyDown handler to ensure consistent validation between
+  button and keyboard triggers.
   - Added validation check to Enter key handler
   - Ensures empty messages can't be sent via keyboard shortcut
   - Makes behavior consistent with disabled send button state
@@ -7693,7 +7689,8 @@ CopilotKid Back-end SDK:
 - 1721cbd: Add convertActionsToDynamicStructuredTools to sdk-js
 - CopilotKit Core:
   - Improved error messages and overall logs
-  - `useCopilotAction.renderAndAwait` renamed to `.renderAndAwaitForResponse` (backwards compatible, will be deprecated in the future)
+  - `useCopilotAction.renderAndAwait` renamed to `.renderAndAwaitForResponse` (backwards compatible, will be deprecated
+    in the future)
   - Improved scrolling behavior. It is now possible to scroll up during LLM response generation
   - Added Azure OpenAI integration
   - Updated interfaces for better developer ergonomics
@@ -7809,7 +7806,8 @@ CopilotKid Back-end SDK:
 CopilotKit Core:
 
 - Improved error messages and overall logs
-- `useCopilotAction.renderAndAwait` renamed to `.renderAndAwaitForResponse` (backwards compatible, will be deprecated in the future)
+- `useCopilotAction.renderAndAwait` renamed to `.renderAndAwaitForResponse` (backwards compatible, will be deprecated in
+  the future)
 - Improved scrolling behavior. It is now possible to scroll up during LLM response generation
 - Added Azure OpenAI integration
 - Updated interfaces for better developer ergonomics
@@ -8004,7 +8002,8 @@ CopilotKid Back-end SDK:
 
 ### Patch Changes
 
-- 1. Removes the usage of the `crypto` Node pacakge, instaed uses `uuid`. This ensures that non-Next.js React apps can use CopilotKit.
+- 1. Removes the usage of the `crypto` Node pacakge, instaed uses `uuid`. This ensures that non-Next.js React apps can
+     use CopilotKit.
   2. Fixes Nest.js runtime docs
 
 - Updated dependencies
@@ -8111,7 +8110,8 @@ CopilotKid Back-end SDK:
   - removes the need to import `styles.css` manually
   - empty `styles.css` included in the build for backwards compatibility
   - uses tsup's `injectStyles` with `postcss` to bundle and minify the CSS, then inject it as a style tag
-  - currently uses my fork of `tsup` where I added support for async function in `injectStyles` (must-have for postcss), a PR from my fork to the main library will follow shortly
+  - currently uses my fork of `tsup` where I added support for async function in `injectStyles` (must-have for postcss),
+    a PR from my fork to the main library will follow shortly
   - remove material-ui, and use `react-icons` for icons (same icons as before)
   - remove unused `IncludedFilesPreview` component
   - updated docs
@@ -9593,9 +9593,7 @@ CopilotKid Back-end SDK:
 
 ### Minor Changes
 
-- initial
-  s would render a math block
-  Signed-off-by: Tyler Slaton <tyler@copilotkit.ai>
+- initial s would render a math block Signed-off-by: Tyler Slaton <tyler@copilotkit.ai>
 - Updated dependencies [76e2603]
 - Updated dependencies [7bf9dfa]
   - @copilotkit/runtime-client-gql@1.10.1
@@ -9632,8 +9630,8 @@ CopilotKid Back-end SDK:
 
 - 8674da1: - refactor(headless): completely overhaul headless ui to better support agentic features
 
-  Headless UI has been in a bad state for a bit now. When we added support for different
-  agentic runtimes we acquired tech-debt that, with this PR, is being alleviated.
+  Headless UI has been in a bad state for a bit now. When we added support for different agentic runtimes we acquired
+  tech-debt that, with this PR, is being alleviated.
 
   As such, the following features have been updated to be completely functional with Headless UI.
   - Generative UI
@@ -9821,8 +9819,8 @@ CopilotKid Back-end SDK:
 
 - 8674da1: - refactor(headless): completely overhaul headless ui to better support agentic features
 
-  Headless UI has been in a bad state for a bit now. When we added support for different
-  agentic runtimes we acquired tech-debt that, with this PR, is being alleviated.
+  Headless UI has been in a bad state for a bit now. When we added support for different agentic runtimes we acquired
+  tech-debt that, with this PR, is being alleviated.
 
   As such, the following features have been updated to be completely functional with Headless UI.
   - Generative UI
@@ -9901,12 +9899,12 @@ CopilotKid Back-end SDK:
 
 - e1de032: - fix: synchronously execute renderAndWaitForResponse
 
-  Previously, it was impossible to execute multiple human-in-the-loop (renderAndWaitForResponse)
-  calls in a row. Ultimately this was due to an issue with how CopilotKit was rendering the updates
-  when multiple renderAndWaitForResponse actions appeared on screen due to a reference based approach.
+  Previously, it was impossible to execute multiple human-in-the-loop (renderAndWaitForResponse) calls in a row.
+  Ultimately this was due to an issue with how CopilotKit was rendering the updates when multiple
+  renderAndWaitForResponse actions appeared on screen due to a reference based approach.
 
-  With this change, actions will be executed in a synchronous way appearing almost queue like. This
-  works with any combination of action given much more freedom when asking for user input.
+  With this change, actions will be executed in a synchronous way appearing almost queue like. This works with any
+  combination of action given much more freedom when asking for user input.
 
   Signed-off-by: Tyler Slaton <tyler@copilotkit.ai>
 
@@ -9987,12 +9985,12 @@ CopilotKid Back-end SDK:
 
 - e1de032: - fix: synchronously execute renderAndWaitForResponse
 
-  Previously, it was impossible to execute multiple human-in-the-loop (renderAndWaitForResponse)
-  calls in a row. Ultimately this was due to an issue with how CopilotKit was rendering the updates
-  when multiple renderAndWaitForResponse actions appeared on screen due to a reference based approach.
+  Previously, it was impossible to execute multiple human-in-the-loop (renderAndWaitForResponse) calls in a row.
+  Ultimately this was due to an issue with how CopilotKit was rendering the updates when multiple
+  renderAndWaitForResponse actions appeared on screen due to a reference based approach.
 
-  With this change, actions will be executed in a synchronous way appearing almost queue like. This
-  works with any combination of action given much more freedom when asking for user input.
+  With this change, actions will be executed in a synchronous way appearing almost queue like. This works with any
+  combination of action given much more freedom when asking for user input.
 
   Signed-off-by: Tyler Slaton <tyler@copilotkit.ai>
 
@@ -11716,10 +11714,9 @@ CopilotKid Back-end SDK:
 
 - ea0c5d5: - fix: prevent sending empty messages via Enter key
 
-  When the input field was empty, pressing Enter would still trigger the
-  send() function despite the send button being correctly disabled. Added
-  the sendDisabled check to the onKeyDown handler to ensure consistent
-  validation between button and keyboard triggers.
+  When the input field was empty, pressing Enter would still trigger the send() function despite the send button being
+  correctly disabled. Added the sendDisabled check to the onKeyDown handler to ensure consistent validation between
+  button and keyboard triggers.
   - Added validation check to Enter key handler
   - Ensures empty messages can't be sent via keyboard shortcut
   - Makes behavior consistent with disabled send button state
@@ -11741,10 +11738,9 @@ CopilotKid Back-end SDK:
 
 - ea0c5d5: - fix: prevent sending empty messages via Enter key
 
-  When the input field was empty, pressing Enter would still trigger the
-  send() function despite the send button being correctly disabled. Added
-  the sendDisabled check to the onKeyDown handler to ensure consistent
-  validation between button and keyboard triggers.
+  When the input field was empty, pressing Enter would still trigger the send() function despite the send button being
+  correctly disabled. Added the sendDisabled check to the onKeyDown handler to ensure consistent validation between
+  button and keyboard triggers.
   - Added validation check to Enter key handler
   - Ensures empty messages can't be sent via keyboard shortcut
   - Makes behavior consistent with disabled send button state
@@ -11889,7 +11885,8 @@ CopilotKid Back-end SDK:
 - 1721cbd: Add convertActionsToDynamicStructuredTools to sdk-js
 - CopilotKit Core:
   - Improved error messages and overall logs
-  - `useCopilotAction.renderAndAwait` renamed to `.renderAndAwaitForResponse` (backwards compatible, will be deprecated in the future)
+  - `useCopilotAction.renderAndAwait` renamed to `.renderAndAwaitForResponse` (backwards compatible, will be deprecated
+    in the future)
   - Improved scrolling behavior. It is now possible to scroll up during LLM response generation
   - Added Azure OpenAI integration
   - Updated interfaces for better developer ergonomics
@@ -12005,7 +12002,8 @@ CopilotKid Back-end SDK:
 CopilotKit Core:
 
 - Improved error messages and overall logs
-- `useCopilotAction.renderAndAwait` renamed to `.renderAndAwaitForResponse` (backwards compatible, will be deprecated in the future)
+- `useCopilotAction.renderAndAwait` renamed to `.renderAndAwaitForResponse` (backwards compatible, will be deprecated in
+  the future)
 - Improved scrolling behavior. It is now possible to scroll up during LLM response generation
 - Added Azure OpenAI integration
 - Updated interfaces for better developer ergonomics
@@ -12200,7 +12198,8 @@ CopilotKid Back-end SDK:
 
 ### Patch Changes
 
-- 1. Removes the usage of the `crypto` Node pacakge, instaed uses `uuid`. This ensures that non-Next.js React apps can use CopilotKit.
+- 1. Removes the usage of the `crypto` Node pacakge, instaed uses `uuid`. This ensures that non-Next.js React apps can
+     use CopilotKit.
   2. Fixes Nest.js runtime docs
 
 - Updated dependencies
@@ -12307,7 +12306,8 @@ CopilotKid Back-end SDK:
   - removes the need to import `styles.css` manually
   - empty `styles.css` included in the build for backwards compatibility
   - uses tsup's `injectStyles` with `postcss` to bundle and minify the CSS, then inject it as a style tag
-  - currently uses my fork of `tsup` where I added support for async function in `injectStyles` (must-have for postcss), a PR from my fork to the main library will follow shortly
+  - currently uses my fork of `tsup` where I added support for async function in `injectStyles` (must-have for postcss),
+    a PR from my fork to the main library will follow shortly
   - remove material-ui, and use `react-icons` for icons (same icons as before)
   - remove unused `IncludedFilesPreview` component
   - updated docs
@@ -13789,9 +13789,7 @@ CopilotKid Back-end SDK:
 
 ### Minor Changes
 
-- initial
-  s would render a math block
-  Signed-off-by: Tyler Slaton <tyler@copilotkit.ai>
+- initial s would render a math block Signed-off-by: Tyler Slaton <tyler@copilotkit.ai>
   - @copilotkit/react-core@1.10.1-next.2
   - @copilotkit/runtime-client-gql@1.10.1-next.2
   - @copilotkit/shared@1.10.1-next.2
@@ -13820,8 +13818,8 @@ CopilotKid Back-end SDK:
 
 - 8674da1: - refactor(headless): completely overhaul headless ui to better support agentic features
 
-  Headless UI has been in a bad state for a bit now. When we added support for different
-  agentic runtimes we acquired tech-debt that, with this PR, is being alleviated.
+  Headless UI has been in a bad state for a bit now. When we added support for different agentic runtimes we acquired
+  tech-debt that, with this PR, is being alleviated.
 
   As such, the following features have been updated to be completely functional with Headless UI.
   - Generative UI
@@ -14009,8 +14007,8 @@ CopilotKid Back-end SDK:
 
 - 8674da1: - refactor(headless): completely overhaul headless ui to better support agentic features
 
-  Headless UI has been in a bad state for a bit now. When we added support for different
-  agentic runtimes we acquired tech-debt that, with this PR, is being alleviated.
+  Headless UI has been in a bad state for a bit now. When we added support for different agentic runtimes we acquired
+  tech-debt that, with this PR, is being alleviated.
 
   As such, the following features have been updated to be completely functional with Headless UI.
   - Generative UI
@@ -14089,12 +14087,12 @@ CopilotKid Back-end SDK:
 
 - e1de032: - fix: synchronously execute renderAndWaitForResponse
 
-  Previously, it was impossible to execute multiple human-in-the-loop (renderAndWaitForResponse)
-  calls in a row. Ultimately this was due to an issue with how CopilotKit was rendering the updates
-  when multiple renderAndWaitForResponse actions appeared on screen due to a reference based approach.
+  Previously, it was impossible to execute multiple human-in-the-loop (renderAndWaitForResponse) calls in a row.
+  Ultimately this was due to an issue with how CopilotKit was rendering the updates when multiple
+  renderAndWaitForResponse actions appeared on screen due to a reference based approach.
 
-  With this change, actions will be executed in a synchronous way appearing almost queue like. This
-  works with any combination of action given much more freedom when asking for user input.
+  With this change, actions will be executed in a synchronous way appearing almost queue like. This works with any
+  combination of action given much more freedom when asking for user input.
 
   Signed-off-by: Tyler Slaton <tyler@copilotkit.ai>
 
@@ -14175,12 +14173,12 @@ CopilotKid Back-end SDK:
 
 - e1de032: - fix: synchronously execute renderAndWaitForResponse
 
-  Previously, it was impossible to execute multiple human-in-the-loop (renderAndWaitForResponse)
-  calls in a row. Ultimately this was due to an issue with how CopilotKit was rendering the updates
-  when multiple renderAndWaitForResponse actions appeared on screen due to a reference based approach.
+  Previously, it was impossible to execute multiple human-in-the-loop (renderAndWaitForResponse) calls in a row.
+  Ultimately this was due to an issue with how CopilotKit was rendering the updates when multiple
+  renderAndWaitForResponse actions appeared on screen due to a reference based approach.
 
-  With this change, actions will be executed in a synchronous way appearing almost queue like. This
-  works with any combination of action given much more freedom when asking for user input.
+  With this change, actions will be executed in a synchronous way appearing almost queue like. This works with any
+  combination of action given much more freedom when asking for user input.
 
   Signed-off-by: Tyler Slaton <tyler@copilotkit.ai>
 
@@ -15904,10 +15902,9 @@ CopilotKid Back-end SDK:
 
 - ea0c5d5: - fix: prevent sending empty messages via Enter key
 
-  When the input field was empty, pressing Enter would still trigger the
-  send() function despite the send button being correctly disabled. Added
-  the sendDisabled check to the onKeyDown handler to ensure consistent
-  validation between button and keyboard triggers.
+  When the input field was empty, pressing Enter would still trigger the send() function despite the send button being
+  correctly disabled. Added the sendDisabled check to the onKeyDown handler to ensure consistent validation between
+  button and keyboard triggers.
   - Added validation check to Enter key handler
   - Ensures empty messages can't be sent via keyboard shortcut
   - Makes behavior consistent with disabled send button state
@@ -15929,10 +15926,9 @@ CopilotKid Back-end SDK:
 
 - ea0c5d5: - fix: prevent sending empty messages via Enter key
 
-  When the input field was empty, pressing Enter would still trigger the
-  send() function despite the send button being correctly disabled. Added
-  the sendDisabled check to the onKeyDown handler to ensure consistent
-  validation between button and keyboard triggers.
+  When the input field was empty, pressing Enter would still trigger the send() function despite the send button being
+  correctly disabled. Added the sendDisabled check to the onKeyDown handler to ensure consistent validation between
+  button and keyboard triggers.
   - Added validation check to Enter key handler
   - Ensures empty messages can't be sent via keyboard shortcut
   - Makes behavior consistent with disabled send button state
@@ -16077,7 +16073,8 @@ CopilotKid Back-end SDK:
 - 1721cbd: Add convertActionsToDynamicStructuredTools to sdk-js
 - CopilotKit Core:
   - Improved error messages and overall logs
-  - `useCopilotAction.renderAndAwait` renamed to `.renderAndAwaitForResponse` (backwards compatible, will be deprecated in the future)
+  - `useCopilotAction.renderAndAwait` renamed to `.renderAndAwaitForResponse` (backwards compatible, will be deprecated
+    in the future)
   - Improved scrolling behavior. It is now possible to scroll up during LLM response generation
   - Added Azure OpenAI integration
   - Updated interfaces for better developer ergonomics
@@ -16193,7 +16190,8 @@ CopilotKid Back-end SDK:
 CopilotKit Core:
 
 - Improved error messages and overall logs
-- `useCopilotAction.renderAndAwait` renamed to `.renderAndAwaitForResponse` (backwards compatible, will be deprecated in the future)
+- `useCopilotAction.renderAndAwait` renamed to `.renderAndAwaitForResponse` (backwards compatible, will be deprecated in
+  the future)
 - Improved scrolling behavior. It is now possible to scroll up during LLM response generation
 - Added Azure OpenAI integration
 - Updated interfaces for better developer ergonomics
@@ -16388,7 +16386,8 @@ CopilotKid Back-end SDK:
 
 ### Patch Changes
 
-- 1. Removes the usage of the `crypto` Node pacakge, instaed uses `uuid`. This ensures that non-Next.js React apps can use CopilotKit.
+- 1. Removes the usage of the `crypto` Node pacakge, instaed uses `uuid`. This ensures that non-Next.js React apps can
+     use CopilotKit.
   2. Fixes Nest.js runtime docs
 
 - Updated dependencies
@@ -16495,7 +16494,8 @@ CopilotKid Back-end SDK:
   - removes the need to import `styles.css` manually
   - empty `styles.css` included in the build for backwards compatibility
   - uses tsup's `injectStyles` with `postcss` to bundle and minify the CSS, then inject it as a style tag
-  - currently uses my fork of `tsup` where I added support for async function in `injectStyles` (must-have for postcss), a PR from my fork to the main library will follow shortly
+  - currently uses my fork of `tsup` where I added support for async function in `injectStyles` (must-have for postcss),
+    a PR from my fork to the main library will follow shortly
   - remove material-ui, and use `react-icons` for icons (same icons as before)
   - remove unused `IncludedFilesPreview` component
   - updated docs

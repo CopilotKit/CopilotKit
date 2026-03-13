@@ -2,9 +2,12 @@
 
 ## `copilotkit/require-cpk-prefix`
 
-CopilotKit v2/react uses Tailwind v4's `prefix(cpk)` feature (configured in `src/styles/base.css`) to scope all generated CSS. This prevents CopilotKit's styles from colliding with the host application's own Tailwind classes.
+CopilotKit v2/react uses Tailwind v4's `prefix(cpk)` feature (configured in `src/styles/base.css`) to scope all
+generated CSS. This prevents CopilotKit's styles from colliding with the host application's own Tailwind classes.
 
-The prefix means every Tailwind utility in component code must be written as `cpk:bg-white` instead of `bg-white`. If you forget the prefix, the class silently produces no CSS — there's no build error, no runtime error, just missing styles.
+The prefix means every Tailwind utility in component code must be written as `cpk:bg-white` instead of `bg-white`. If
+you forget the prefix, the class silently produces no CSS — there's no build error, no runtime error, just missing
+styles.
 
 This ESLint rule catches that mistake inline in your editor.
 
@@ -31,7 +34,8 @@ This rule detects both problems:
 
 ### Auto-fix
 
-The rule is auto-fixable. Run `eslint --fix` or use your editor's quick-fix (`Cmd+.`) to insert or reposition the `cpk:` prefix automatically.
+The rule is auto-fixable. Run `eslint --fix` or use your editor's quick-fix (`Cmd+.`) to insert or reposition the `cpk:`
+prefix automatically.
 
 Variants are handled correctly — `dark:hover:bg-white` becomes `cpk:dark:hover:bg-white`.
 

@@ -40,16 +40,12 @@ export interface MCPEndpointConfig {
  * @param toolOrSchema The schema object from an MCPTool or the full MCPTool object.
  * @returns An array of Parameter objects.
  */
-export function extractParametersFromSchema(
-  toolOrSchema?: MCPTool | MCPTool["schema"],
-): Parameter[] {
+export function extractParametersFromSchema(toolOrSchema?: MCPTool | MCPTool["schema"]): Parameter[] {
   const parameters: Parameter[] = [];
 
   // Handle either full tool object or just schema
   const schema =
-    "schema" in (toolOrSchema || {})
-      ? (toolOrSchema as MCPTool).schema
-      : (toolOrSchema as MCPTool["schema"]);
+    "schema" in (toolOrSchema || {}) ? (toolOrSchema as MCPTool).schema : (toolOrSchema as MCPTool["schema"]);
 
   const toolParameters = schema?.parameters?.jsonSchema || schema?.parameters;
   const properties = toolParameters?.properties;
@@ -72,13 +68,8 @@ export function extractParametersFromSchema(
         const itemType = paramDef.items.type || "object";
         if (itemType === "object" && paramDef.items.properties) {
           // For arrays of objects, describe the structure
-          const itemProperties = Object.keys(paramDef.items.properties).join(
-            ", ",
-          );
-          description =
-            description +
-            (description ? " " : "") +
-            `Array of objects with properties: ${itemProperties}`;
+          const itemProperties = Object.keys(paramDef.items.properties).join(", ");
+          description = description + (description ? " " : "") + `Array of objects with properties: ${itemProperties}`;
         } else {
           // For arrays of primitives
           type = `array<${itemType}>`;
@@ -88,19 +79,13 @@ export function extractParametersFromSchema(
       // Handle enums
       if (paramDef.enum && Array.isArray(paramDef.enum)) {
         const enumValues = paramDef.enum.join(" | ");
-        description =
-          description +
-          (description ? " " : "") +
-          `Allowed values: ${enumValues}`;
+        description = description + (description ? " " : "") + `Allowed values: ${enumValues}`;
       }
 
       // Handle objects with properties
       if (type === "object" && paramDef.properties) {
         const objectProperties = Object.keys(paramDef.properties).join(", ");
-        description =
-          description +
-          (description ? " " : "") +
-          `Object with properties: ${objectProperties}`;
+        description = description + (description ? " " : "") + `Object with properties: ${objectProperties}`;
       }
 
       parameters.push({
@@ -121,10 +106,7 @@ export function extractParametersFromSchema(
  * @param mcpEndpoint The endpoint URL from which these tools were fetched.
  * @returns An array of Action<any> objects.
  */
-export function convertMCPToolsToActions(
-  mcpTools: Record<string, MCPTool>,
-  mcpEndpoint: string,
-): Action<any>[] {
+export function convertMCPToolsToActions(mcpTools: Record<string, MCPTool>, mcpEndpoint: string): Action<any>[] {
   const actions: Action<any>[] = [];
 
   for (const [toolName, tool] of Object.entries(mcpTools)) {
@@ -137,23 +119,17 @@ export function convertMCPToolsToActions(
         // This might need adjustment depending on how different LLMs handle tool results.
         return typeof result === "string" ? result : JSON.stringify(result);
       } catch (error) {
-        console.error(
-          `Error executing MCP tool '${toolName}' from endpoint ${mcpEndpoint}:`,
-          error,
-        );
+        console.error(`Error executing MCP tool '${toolName}' from endpoint ${mcpEndpoint}:`, error);
         // Re-throw or format the error for the LLM
         throw new Error(
-          `Execution failed for MCP tool '${toolName}': ${
-            error instanceof Error ? error.message : String(error)
-          }`,
+          `Execution failed for MCP tool '${toolName}': ${error instanceof Error ? error.message : String(error)}`, { cause: error },
         );
       }
     };
 
     actions.push({
       name: toolName,
-      description:
-        tool.description || `MCP tool: ${toolName} (from ${mcpEndpoint})`,
+      description: tool.description || `MCP tool: ${toolName} (from ${mcpEndpoint})`,
       parameters: parameters,
       handler: handler,
       // Add metadata for easier identification/debugging
@@ -169,9 +145,7 @@ export function convertMCPToolsToActions(
  * Generate better instructions for using MCP tools
  * This is used to enhance the system prompt with tool documentation
  */
-export function generateMcpToolInstructions(
-  toolsMap: Record<string, MCPTool>,
-): string {
+export function generateMcpToolInstructions(toolsMap: Record<string, MCPTool>): string {
   if (!toolsMap || Object.keys(toolsMap).length === 0) {
     return "";
   }
@@ -189,65 +163,45 @@ export function generateMcpToolInstructions(
           const schema = tool.schema as any;
 
           // Extract parameters from JSON Schema - check both schema.parameters.properties and schema.properties
-          const toolParameters =
-            schema.parameters?.jsonSchema || schema.parameters;
+          const toolParameters = schema.parameters?.jsonSchema || schema.parameters;
           const properties = toolParameters?.properties || schema.properties;
-          const requiredParams =
-            toolParameters?.required || schema.required || [];
+          const requiredParams = toolParameters?.required || schema.required || [];
 
           if (properties) {
             // Build parameter documentation from properties with enhanced type information
-            const paramsList = Object.entries(properties).map(
-              ([paramName, propSchema]) => {
-                const propDetails = propSchema as any;
-                const requiredMark = requiredParams.includes(paramName)
-                  ? "*"
-                  : "";
-                let typeInfo = propDetails.type || "any";
-                let description = propDetails.description
-                  ? ` - ${propDetails.description}`
-                  : "";
+            const paramsList = Object.entries(properties).map(([paramName, propSchema]) => {
+              const propDetails = propSchema as any;
+              const requiredMark = requiredParams.includes(paramName) ? "*" : "";
+              let typeInfo = propDetails.type || "any";
+              let description = propDetails.description ? ` - ${propDetails.description}` : "";
 
-                // Enhanced type display for complex schemas
-                if (typeInfo === "array" && propDetails.items) {
-                  const itemType = propDetails.items.type || "object";
-                  if (itemType === "object" && propDetails.items.properties) {
-                    const itemProps = Object.keys(
-                      propDetails.items.properties,
-                    ).join(", ");
-                    typeInfo = `array<object>`;
-                    description =
-                      description +
-                      (description ? " " : " - ") +
-                      `Array of objects with properties: ${itemProps}`;
-                  } else {
-                    typeInfo = `array<${itemType}>`;
-                  }
-                }
-
-                // Handle enums
-                if (propDetails.enum && Array.isArray(propDetails.enum)) {
-                  const enumValues = propDetails.enum.join(" | ");
+              // Enhanced type display for complex schemas
+              if (typeInfo === "array" && propDetails.items) {
+                const itemType = propDetails.items.type || "object";
+                if (itemType === "object" && propDetails.items.properties) {
+                  const itemProps = Object.keys(propDetails.items.properties).join(", ");
+                  typeInfo = `array<object>`;
                   description =
-                    description +
-                    (description ? " " : " - ") +
-                    `Allowed values: ${enumValues}`;
+                    description + (description ? " " : " - ") + `Array of objects with properties: ${itemProps}`;
+                } else {
+                  typeInfo = `array<${itemType}>`;
                 }
+              }
 
-                // Handle objects
-                if (typeInfo === "object" && propDetails.properties) {
-                  const objectProps = Object.keys(propDetails.properties).join(
-                    ", ",
-                  );
-                  description =
-                    description +
-                    (description ? " " : " - ") +
-                    `Object with properties: ${objectProps}`;
-                }
+              // Handle enums
+              if (propDetails.enum && Array.isArray(propDetails.enum)) {
+                const enumValues = propDetails.enum.join(" | ");
+                description = description + (description ? " " : " - ") + `Allowed values: ${enumValues}`;
+              }
 
-                return `    - ${paramName}${requiredMark} (${typeInfo})${description}`;
-              },
-            );
+              // Handle objects
+              if (typeInfo === "object" && propDetails.properties) {
+                const objectProps = Object.keys(propDetails.properties).join(", ");
+                description = description + (description ? " " : " - ") + `Object with properties: ${objectProps}`;
+              }
+
+              return `    - ${paramName}${requiredMark} (${typeInfo})${description}`;
+            });
 
             if (paramsList.length > 0) {
               paramsDoc = paramsList.join("\n");

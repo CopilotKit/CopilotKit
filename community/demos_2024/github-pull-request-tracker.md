@@ -1,6 +1,7 @@
 ## 🚀 **Project Title**
 
-⏰[**AI Powered GitHub Pull Request Tracker**](https://github-ai-pr-tracker.vercel.app/) - An AI-powered tool designed to efficiently track your GitHub pull requests across various open-source events like Hacktoberfest and Devfest.
+⏰[**AI Powered GitHub Pull Request Tracker**](https://github-ai-pr-tracker.vercel.app/) - An AI-powered tool designed
+to efficiently track your GitHub pull requests across various open-source events like Hacktoberfest and Devfest.
 
 ### 📝 **Name of Issue/Topic**
 
@@ -25,7 +26,8 @@ CopilotKit Demo
 - **Comprehensive Filtering:** Easily filter PRs based on events like Hacktoberfest.
 - **User-Friendly Interface:** Enjoy a seamless experience built with modern technologies.
 - **Multi-Event Support:** Track PRs across different open-source events.
-- **Sharable Links:** Easily generate links to highlight your pull requests or share your progress with others, making collaboration seamless.
+- **Sharable Links:** Easily generate links to highlight your pull requests or share your progress with others, making
+  collaboration seamless.
 
 ---
 
@@ -43,7 +45,8 @@ GitHub Link: [Repository](https://github.com/jeevaramanathan/github-ai-pr-tracke
 
 ### 🎯 **Bonus Points**
 
-1. Dev.to - [AI-Powered GitHub Pull Request Tracker for Your Hacktoberfest (and More!)](https://dev.to/jeevaramanathan/ai-powered-github-pull-request-tracker-for-your-hacktoberfest-and-more-fm7)
+1. Dev.to -
+   [AI-Powered GitHub Pull Request Tracker for Your Hacktoberfest (and More!)](https://dev.to/jeevaramanathan/ai-powered-github-pull-request-tracker-for-your-hacktoberfest-and-more-fm7)
 2. x.com - [Post on X](https://x.com/jeevaramanathan/status/1843907368578613517)
 
 ---

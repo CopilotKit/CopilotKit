@@ -168,19 +168,16 @@ export type UseInterruptConfig<
  * }
  * ```
  */
-/* eslint-disable @typescript-eslint/no-explicit-any */
 export function useInterrupt<
   TResult = never,
   TRenderInChat extends InterruptRenderInChat = undefined,
 >(
   config: UseInterruptConfig<any, TResult, TRenderInChat>,
 ): UseInterruptReturn<TRenderInChat> {
-  /* eslint-enable @typescript-eslint/no-explicit-any */
   const { copilotkit } = useCopilotKit();
   const { agent } = useAgent({ agentId: config.agentId });
   const [pendingEvent, setPendingEvent] = useState<InterruptEvent | null>(null);
   const [handlerResult, setHandlerResult] =
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     useState<InterruptResult<any, TResult>>(null);
 
   useEffect(() => {
@@ -261,7 +258,6 @@ export function useInterrupt<
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingEvent, config.enabled, config.handler, resolve]);
 
   const element = useMemo(() => {
@@ -273,7 +269,6 @@ export function useInterrupt<
       result: handlerResult,
       resolve,
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingEvent, handlerResult, config.enabled, config.render, resolve]);
 
   // Publish to core for in-chat rendering

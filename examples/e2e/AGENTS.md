@@ -73,7 +73,8 @@ Install deps in the example directory you want to test, e.g.:
 
 Notes:
 
-- If an example has a `postinstall` that requires non-Node tooling (e.g. Python `uv`), you may want to run `pnpm install --ignore-scripts` for CI-like behavior.
+- If an example has a `postinstall` that requires non-Node tooling (e.g. Python `uv`), you may want to run
+  `pnpm install --ignore-scripts` for CI-like behavior.
 
 ### Run a single example
 
@@ -113,7 +114,8 @@ Patterns used:
   - `await expect(page).toHaveTitle(/.../)`
   - `await expect(page.getByRole("heading", { name: "..." })).toBeVisible()`
 
-If an example auto-opens Copilot UI / triggers calls, prefer adding a query param to disable it (e.g. `travel` uses `/?copilotOpen=false`).
+If an example auto-opens Copilot UI / triggers calls, prefer adding a query param to disable it (e.g. `travel` uses
+`/?copilotOpen=false`).
 
 ## CI (GitHub Actions)
 
@@ -142,7 +144,8 @@ Artifacts:
 
 ## Common issues / debugging
 
-- "`next: command not found`": the selected example’s `node_modules` are missing; run `pnpm install` in that example directory.
+- "`next: command not found`": the selected example’s `node_modules` are missing; run `pnpm install` in that example
+  directory.
 - "module not found" for a transitive dep (e.g. `shiki`): add it explicitly to the example’s dependencies and reinstall.
 - Next.js dev warnings about cross-origin (`allowedDevOrigins`): currently treated as warnings; tests can still pass.
 

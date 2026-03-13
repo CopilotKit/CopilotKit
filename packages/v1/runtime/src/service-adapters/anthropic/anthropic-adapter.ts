@@ -110,7 +110,6 @@ export class AnthropicAdapter implements CopilotServiceAdapter {
 
   private ensureAnthropic(): Anthropic {
     if (!this._anthropic) {
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
       const Anthropic = require("@anthropic-ai/sdk").default;
       this._anthropic = new Anthropic({});
     }

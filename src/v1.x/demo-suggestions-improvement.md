@@ -2,7 +2,8 @@
 
 ## Problem Fixed
 
-Previously, when suggestions failed to load (due to network errors, server issues, etc.), CopilotKit would continuously retry the request, creating an infinite loop that would hammer the server.
+Previously, when suggestions failed to load (due to network errors, server issues, etc.), CopilotKit would continuously
+retry the request, creating an infinite loop that would hammer the server.
 
 ## Solution Implemented
 

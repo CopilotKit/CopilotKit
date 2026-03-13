@@ -13,7 +13,6 @@ export const config = {
 // This import is needed to fix the type error
 // Fix is currently in TypeScript 5.5 beta, waiting for stable version
 // https://github.com/microsoft/TypeScript/issues/42873#issuecomment-2066874644
-export type {} from "@whatwg-node/server";
 
 export function copilotRuntimeNextJSPagesRouterEndpoint(
   options: CreateCopilotRuntimeServerOptions,

@@ -24,8 +24,7 @@ https://github.com/NathanTarbert/my-cool-project
 
 ### 5 bonus points
 
-- If your app is live, include the link here:
-  [Live Demo](http://google.com)
+- If your app is live, include the link here: [Live Demo](http://google.com)
 
 - Deploy your app on [Vercel](https://vercel.com/new)
 
@@ -42,4 +41,5 @@ We want to promote what you've built and your hard work
 
 ## 5 Extra Bonus Points
 
-Link to any bonus activities you did such as solving GitHub Issues or posting to Twitter, Dev.to, Medium, etc related to your project and CopilotKit.
+Link to any bonus activities you did such as solving GitHub Issues or posting to Twitter, Dev.to, Medium, etc related to
+your project and CopilotKit.

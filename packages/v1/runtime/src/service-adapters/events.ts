@@ -132,10 +132,6 @@ interface RuntimeEventWithState {
 type EventSourceCallback = (eventStream$: RuntimeEventSubject) => Promise<void>;
 
 export class RuntimeEventSubject extends ReplaySubject<RuntimeEvent> {
-  constructor() {
-    super();
-  }
-
   sendTextMessageStart({
     messageId,
     parentMessageId,

@@ -2,7 +2,8 @@
 
 [Cal Buddy](https://cal-buddy.vercel.app/) - Your Smart Calendar Assistant
 
-Cal Buddy is a smart calendar assistant that helps you schedule, manage, and chat with your calendar. Boost your productivity with AI-powered task management.
+Cal Buddy is a smart calendar assistant that helps you schedule, manage, and chat with your calendar. Boost your
+productivity with AI-powered task management.
 
 ## Name of Issue/Topic
 

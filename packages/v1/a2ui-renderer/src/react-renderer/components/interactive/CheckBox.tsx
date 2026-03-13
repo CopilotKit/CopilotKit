@@ -32,7 +32,7 @@ export const CheckBox = memo(function CheckBox({
         setChecked(Boolean(externalValue));
       }
     }
-  }, [valuePath, getValue]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [valuePath, getValue]);
 
   // Sync when literal value changes from props (server-driven updates via surfaceUpdate)
   useEffect(() => {

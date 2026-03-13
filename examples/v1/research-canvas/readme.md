@@ -40,8 +40,7 @@ TAVILY_API_KEY=...
 LANGSMITH_API_KEY=...(JS ONLY)
 ```
 
-⚠️ IMPORTANT:
-Make sure the OpenAI API Key you provide, supports gpt-4o.
+⚠️ IMPORTANT: Make sure the OpenAI API Key you provide, supports gpt-4o.
 
 Then, run the demo:
 
@@ -72,8 +71,8 @@ Then, run the Next.js project:
 pnpm run dev
 ```
 
-⚠️ IMPORTANT:
-If you're using the JS agent, follow the steps and uncomment the code inside the `app/api/copilotkit/route.ts`, `remoteEndpoints` action:
+⚠️ IMPORTANT: If you're using the JS agent, follow the steps and uncomment the code inside the
+`app/api/copilotkit/route.ts`, `remoteEndpoints` action:
 
 ```ts
 //const runtime = new CopilotRuntime({

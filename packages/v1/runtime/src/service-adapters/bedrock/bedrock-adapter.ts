@@ -52,7 +52,6 @@ export class BedrockAdapter extends LangChainAdapter {
     super({
       chainFn: async ({ messages, tools, threadId }) => {
         // Lazy require for optional peer dependency
-        // eslint-disable-next-line @typescript-eslint/no-var-requires
         const { ChatBedrockConverse } = require("@langchain/aws");
 
         this.model = options?.model ?? "amazon.nova-lite-v1:0";

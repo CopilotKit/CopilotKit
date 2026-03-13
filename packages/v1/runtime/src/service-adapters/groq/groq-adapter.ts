@@ -94,7 +94,6 @@ export class GroqAdapter implements CopilotServiceAdapter {
 
   private ensureGroq(): Groq {
     if (!this._groq) {
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
       const { Groq } = require("groq-sdk");
       this._groq = new Groq({});
     }

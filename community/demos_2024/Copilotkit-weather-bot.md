@@ -1,8 +1,8 @@
 # 1. CopilotKit-weather-Bot
 
-This Next.js application is a weather forecasting tool that utilizes CopilotKit for
-AI-powered interactions and Shadcn-UI for styling. It allows users to input a location and receive
-real-time weather information, including temperature, description, humidity, and wind speed.
+This Next.js application is a weather forecasting tool that utilizes CopilotKit for AI-powered interactions and
+Shadcn-UI for styling. It allows users to input a location and receive real-time weather information, including
+temperature, description, humidity, and wind speed.
 
 ## 2. Name of Issue/Topic
 
@@ -54,6 +54,7 @@ Please list your **GitHub** and **Twitter** handles if you feel comfortable doin
 
 ## 5 Extra Bonus Points
 
-Link to any bonus activities you did such as solving GitHub Issues or posting to Twitter, Dev.to, Medium, etc related to your project and CopilotKit.
+Link to any bonus activities you did such as solving GitHub Issues or posting to Twitter, Dev.to, Medium, etc related to
+your project and CopilotKit.
 
 #issue 602 : Build a chatbot that gives real-time weather updates using CopilotKit's AI interaction capabilities.

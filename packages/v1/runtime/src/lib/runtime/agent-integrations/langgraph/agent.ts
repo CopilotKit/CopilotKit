@@ -32,10 +32,6 @@ import {
 export { CustomEventNames };
 
 export class LangGraphAgent extends AGUILangGraphAgent {
-  constructor(config: LangGraphAgentConfig) {
-    super(config);
-  }
-
   dispatchEvent(event: ProcessedEvents) {
     if (event.type === EventType.CUSTOM) {
       // const event = processedEvent as unknown as CustomEvent;

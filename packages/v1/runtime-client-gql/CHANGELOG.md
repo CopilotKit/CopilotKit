@@ -925,8 +925,8 @@
 
 - 8674da1: - refactor(headless): completely overhaul headless ui to better support agentic features
 
-  Headless UI has been in a bad state for a bit now. When we added support for different
-  agentic runtimes we acquired tech-debt that, with this PR, is being alleviated.
+  Headless UI has been in a bad state for a bit now. When we added support for different agentic runtimes we acquired
+  tech-debt that, with this PR, is being alleviated.
 
   As such, the following features have been updated to be completely functional with Headless UI.
   - Generative UI
@@ -1033,8 +1033,8 @@
 
 - 8674da1: - refactor(headless): completely overhaul headless ui to better support agentic features
 
-  Headless UI has been in a bad state for a bit now. When we added support for different
-  agentic runtimes we acquired tech-debt that, with this PR, is being alleviated.
+  Headless UI has been in a bad state for a bit now. When we added support for different agentic runtimes we acquired
+  tech-debt that, with this PR, is being alleviated.
 
   As such, the following features have been updated to be completely functional with Headless UI.
   - Generative UI
@@ -2451,7 +2451,8 @@
 - 1721cbd: Add convertActionsToDynamicStructuredTools to sdk-js
 - CopilotKit Core:
   - Improved error messages and overall logs
-  - `useCopilotAction.renderAndAwait` renamed to `.renderAndAwaitForResponse` (backwards compatible, will be deprecated in the future)
+  - `useCopilotAction.renderAndAwait` renamed to `.renderAndAwaitForResponse` (backwards compatible, will be deprecated
+    in the future)
   - Improved scrolling behavior. It is now possible to scroll up during LLM response generation
   - Added Azure OpenAI integration
   - Updated interfaces for better developer ergonomics
@@ -2551,7 +2552,8 @@
 CopilotKit Core:
 
 - Improved error messages and overall logs
-- `useCopilotAction.renderAndAwait` renamed to `.renderAndAwaitForResponse` (backwards compatible, will be deprecated in the future)
+- `useCopilotAction.renderAndAwait` renamed to `.renderAndAwaitForResponse` (backwards compatible, will be deprecated in
+  the future)
 - Improved scrolling behavior. It is now possible to scroll up during LLM response generation
 - Added Azure OpenAI integration
 - Updated interfaces for better developer ergonomics
@@ -2734,7 +2736,8 @@ CopilotKid Back-end SDK:
 
 ### Patch Changes
 
-- 1. Removes the usage of the `crypto` Node pacakge, instaed uses `uuid`. This ensures that non-Next.js React apps can use CopilotKit.
+- 1. Removes the usage of the `crypto` Node pacakge, instaed uses `uuid`. This ensures that non-Next.js React apps can
+     use CopilotKit.
   2. Fixes Nest.js runtime docs
 
 - Updated dependencies
@@ -2833,7 +2836,8 @@ CopilotKid Back-end SDK:
   - removes the need to import `styles.css` manually
   - empty `styles.css` included in the build for backwards compatibility
   - uses tsup's `injectStyles` with `postcss` to bundle and minify the CSS, then inject it as a style tag
-  - currently uses my fork of `tsup` where I added support for async function in `injectStyles` (must-have for postcss), a PR from my fork to the main library will follow shortly
+  - currently uses my fork of `tsup` where I added support for async function in `injectStyles` (must-have for postcss),
+    a PR from my fork to the main library will follow shortly
   - remove material-ui, and use `react-icons` for icons (same icons as before)
   - remove unused `IncludedFilesPreview` component
   - updated docs

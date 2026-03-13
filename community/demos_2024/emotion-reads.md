@@ -1,6 +1,7 @@
 ## 🚀 **Project Title**
 
-Emotion Reads - A Simple Book Recommendation System that gives recommendation based on the users emotions described by the person.
+Emotion Reads - A Simple Book Recommendation System that gives recommendation based on the users emotions described by
+the person.
 
 ### 📝 **Name of Issue/Topic**
 
@@ -22,8 +23,7 @@ List all technologies, tools, and frameworks you are utilizing for the project:
 
 ### 🌐 **App Link**
 
-[Live Demo](https://emotion-reads.vercel.app/)
-[Repo Link](https://github.com/Edantuti/Emotion-Reads)
+[Live Demo](https://emotion-reads.vercel.app/) [Repo Link](https://github.com/Edantuti/Emotion-Reads)
 
 ---
 
@@ -41,5 +41,4 @@ List all technologies, tools, and frameworks you are utilizing for the project:
 
 ### 🙋‍♂️ **Who Are You?**
 
-[Github](https://github.com/Edantuti)
-[Twitter/X](https://x.com/edantuti11)
+[Github](https://github.com/Edantuti) [Twitter/X](https://x.com/edantuti11)

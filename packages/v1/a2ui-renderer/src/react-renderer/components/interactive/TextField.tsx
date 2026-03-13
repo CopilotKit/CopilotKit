@@ -40,7 +40,7 @@ export const TextField = memo(function TextField({
         setLocalValue(String(externalValue));
       }
     }
-  }, [textPath, getValue]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [textPath, getValue]);
 
   const handleChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {

@@ -2,7 +2,9 @@
 
 [MINI-FAQ-BOT](https://mini-faq-bot.vercel.app/) - An AI powered FAQ chatbot to answer users' frequently asked questions
 
-Mini is an AI chatbot that reads business information stored in a markdown or json file (in this case, the information is about a fictional social media scheduling software called Teeweety). Mini utilizes CopilotKit to read the data given in order to be able to provide informed answers to users' queries about the software.
+Mini is an AI chatbot that reads business information stored in a markdown or json file (in this case, the information
+is about a fictional social media scheduling software called Teeweety). Mini utilizes CopilotKit to read the data given
+in order to be able to provide informed answers to users' queries about the software.
 
 ### 📝 **Name of Issue/Topic**
 

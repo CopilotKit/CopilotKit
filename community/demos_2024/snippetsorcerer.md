@@ -4,7 +4,8 @@
 
 ⭐ 31 - Code Snippet Generator (Hacktoberfest Demo) #678
 
-This demo addresses the challenge of efficiently generating code snippets using AI, tailored to user needs across various programming languages.
+This demo addresses the challenge of efficiently generating code snippets using AI, tailored to user needs across
+various programming languages.
 
 ## Technologies Being Used
 
@@ -15,8 +16,7 @@ This demo addresses the challenge of efficiently generating code snippets using 
 
 ## App Link
 
-If your app is live, include the link here:
-[Live Demo](https://snippet-generator-jet.vercel.app/)
+If your app is live, include the link here: [Live Demo](https://snippet-generator-jet.vercel.app/)
 
 Deploy your app on [Vercel](https://snippet-generator-jet.vercel.app/)
 

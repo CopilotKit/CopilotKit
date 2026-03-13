@@ -254,7 +254,6 @@ function CopilotPopupViewInternal({
 
 CopilotPopupView.displayName = "CopilotPopupView";
 
-// eslint-disable-next-line @typescript-eslint/no-namespace
 export namespace CopilotPopupView {
   /**
    * Popup-specific welcome screen layout:

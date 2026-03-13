@@ -16,7 +16,10 @@
 
 ## 1. Statement of Purpose
 
-CopilotKit is dedicated to creating an open-source framework that allows for the seamless integration of powerful AI copilots into various applications. Our Code of Conduct aims to foster a collaborative, respectful, and innovative community that empowers contributors and users alike. By adhering to this code, we can ensure that our community thrives and remains a welcoming space for everyone.
+CopilotKit is dedicated to creating an open-source framework that allows for the seamless integration of powerful AI
+copilots into various applications. Our Code of Conduct aims to foster a collaborative, respectful, and innovative
+community that empowers contributors and users alike. By adhering to this code, we can ensure that our community thrives
+and remains a welcoming space for everyone.
 
 ---
 
@@ -37,11 +40,14 @@ At CopilotKit, we prioritize the following values:
 
 As a participant in the CopilotKit community, you are expected to:
 
-- **Be Respectful and Inclusive**: Treat all individuals with respect and kindness, regardless of their background, identity, or experience level.
-- **Communicate Constructively**: Engage in discussions that are constructive, focusing on ideas and solutions rather than personal opinions.
+- **Be Respectful and Inclusive**: Treat all individuals with respect and kindness, regardless of their background,
+  identity, or experience level.
+- **Communicate Constructively**: Engage in discussions that are constructive, focusing on ideas and solutions rather
+  than personal opinions.
 - **Welcome Collaboration**: Actively seek out diverse viewpoints and be open to feedback that can improve our projects.
 - **Support Others**: Offer help to fellow contributors, especially newcomers, and encourage a culture of mentorship.
-- **Practice Empathy**: Consider the feelings and experiences of others, striving to create an understanding environment.
+- **Practice Empathy**: Consider the feelings and experiences of others, striving to create an understanding
+  environment.
 
 ---
 
@@ -63,17 +69,21 @@ The following behaviors are considered unacceptable within our community:
 
 If you witness or experience unacceptable behavior, we encourage you to take the following steps:
 
-1. **Identify the Incident**: Clearly identify the nature of the unacceptable behavior and gather any evidence, such as screenshots or messages.
+1. **Identify the Incident**: Clearly identify the nature of the unacceptable behavior and gather any evidence, such as
+   screenshots or messages.
 
-2. **Report the Incident**: Reach out to a project maintainer or designated community leader through direct message or email. Include detailed information about the incident, such as:
+2. **Report the Incident**: Reach out to a project maintainer or designated community leader through direct message or
+   email. Include detailed information about the incident, such as:
    - Names of those involved (if known)
    - Dates and times of the incident
    - Context surrounding the behavior
    - Any relevant evidence
 
-3. **Documentation**: Keep a record of your report and any responses received to ensure a transparent resolution process.
+3. **Documentation**: Keep a record of your report and any responses received to ensure a transparent resolution
+   process.
 
-4. **Confidentiality**: All reports will be treated confidentially. Personal information will only be shared with those involved in the resolution process.
+4. **Confidentiality**: All reports will be treated confidentially. Personal information will only be shared with those
+   involved in the resolution process.
 
 5. **Follow-Up**: You can request updates on the status of your report and any actions taken.
 
@@ -81,7 +91,8 @@ If you witness or experience unacceptable behavior, we encourage you to take the
 
 ## 6. Consequences of Unacceptable Behavior
 
-Consequences for violating the Code of Conduct will be determined based on the severity and frequency of the behavior. Potential consequences include:
+Consequences for violating the Code of Conduct will be determined based on the severity and frequency of the behavior.
+Potential consequences include:
 
 | **Consequences**         | **Description**                                                                             |
 | ------------------------ | ------------------------------------------------------------------------------------------- |
@@ -94,7 +105,8 @@ Consequences for violating the Code of Conduct will be determined based on the s
 
 ## 7. Scope
 
-This Code of Conduct applies to all participants in the CopilotKit community, including contributors, maintainers, and users, both online and offline. It encompasses interactions in the following areas:
+This Code of Conduct applies to all participants in the CopilotKit community, including contributors, maintainers, and
+users, both online and offline. It encompasses interactions in the following areas:
 
 - GitHub discussions and issues
 - Community meetings and events
@@ -105,12 +117,17 @@ This Code of Conduct applies to all participants in the CopilotKit community, in
 
 ## 8. Acknowledgments
 
-This Code of Conduct draws inspiration from various open-source communities dedicated to inclusivity and respect. We appreciate their efforts in creating positive environments and strive to uphold similar standards in our community. Your feedback is always welcome to improve our Code of Conduct and practices.
+This Code of Conduct draws inspiration from various open-source communities dedicated to inclusivity and respect. We
+appreciate their efforts in creating positive environments and strive to uphold similar standards in our community. Your
+feedback is always welcome to improve our Code of Conduct and practices.
 
 ---
 
 ## 9. Get Involved
 
-We invite you to contribute to CopilotKit! Whether through code, documentation, or community engagement, your participation is invaluable. For more information on how to contribute, please check our [contribution guide](https://docs.copilotkit.ai/contributing/docs-contributions#how-to-contribute).
+We invite you to contribute to CopilotKit! Whether through code, documentation, or community engagement, your
+participation is invaluable. For more information on how to contribute, please check our
+[contribution guide](https://docs.copilotkit.ai/contributing/docs-contributions#how-to-contribute).
 
-Thank you for being part of the CopilotKit community! Together, we can build a safe, respectful, and innovative space for all.
+Thank you for being part of the CopilotKit community! Together, we can build a safe, respectful, and innovative space
+for all.

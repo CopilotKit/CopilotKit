@@ -17,7 +17,9 @@ import { cn } from "../../utils";
   host: {
     "[class]": "computedClass()",
   },
-  template: `{{ content() }}`,
+  template: `
+    {{ content() }}
+  `,
 })
 export class CopilotChatUserMessageRenderer {
   readonly content = input<string>("");

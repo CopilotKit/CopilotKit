@@ -35,7 +35,7 @@ export const DateTimeInput = memo(function DateTimeInput({
         setLocalValue(String(externalValue));
       }
     }
-  }, [valuePath, getValue]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [valuePath, getValue]);
 
   const handleChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {

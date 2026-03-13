@@ -8,7 +8,9 @@ inputs:
     description: "The command to use to build and publish packages"
     required: false
   version:
-    description: "The command to update version, edit CHANGELOG, read and delete changesets. Default to `changeset version` if not provided"
+    description:
+      "The command to update version, edit CHANGELOG, read and delete changesets. Default to `changeset version` if not
+      provided"
     required: false
   cwd:
     description: Sets the cwd for the node process. Default to `process.cwd()`
@@ -36,7 +38,8 @@ outputs:
     description: A boolean value to indicate whether a publishing is happened or not
   publishedPackages:
     description: >
-      A JSON array to present the published packages. The format is `[{"name": "@xx/xx", "version": "1.2.0"}, {"name": "@xx/xy", "version": "0.8.9"}]`
+      A JSON array to present the published packages. The format is `[{"name": "@xx/xx", "version": "1.2.0"}, {"name":
+      "@xx/xy", "version": "0.8.9"}]`
   hasChangesets:
     description: A boolean about whether there were changesets. Useful if you want to create your own publishing functionality.
   pullRequestNumber:

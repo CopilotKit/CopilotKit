@@ -52,7 +52,6 @@ export class ExperimentalOllamaAdapter implements CopilotServiceAdapter {
     const { messages, actions, eventSource } = request;
     // const messages = this.transformMessages(forwardedProps.messages);
 
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
     const { Ollama } = require("@langchain/community/llms/ollama");
     const ollama = new Ollama({
       model: this.model,
