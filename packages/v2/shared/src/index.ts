@@ -2,7 +2,11 @@ export {
   type MaybePromise,
   type NonEmptyRecord,
   type AgentDescription,
+  type IntelligenceRuntimeInfo,
+  type RuntimeMode,
   type RuntimeInfo,
+  RUNTIME_MODE_SSE,
+  RUNTIME_MODE_INTELLIGENCE,
 } from "./types";
 
 export * from "./utils";

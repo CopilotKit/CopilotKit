@@ -71,6 +71,7 @@ export function useAgent({ agentId, updates }: UseAgentProps = {}) {
         runtimeUrl: copilotkit.runtimeUrl,
         agentId,
         transport: copilotkit.runtimeTransport,
+        runtimeMode: "pending",
       });
       // Apply current headers so runs/connects inherit them
       provisional.headers = { ...copilotkit.headers };
@@ -91,6 +92,7 @@ export function useAgent({ agentId, updates }: UseAgentProps = {}) {
         runtimeUrl: copilotkit.runtimeUrl,
         agentId,
         transport: copilotkit.runtimeTransport,
+        runtimeMode: "pending",
       });
       provisional.headers = { ...copilotkit.headers };
       return provisional;
