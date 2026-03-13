@@ -96,11 +96,11 @@ sequenceDiagram
 If you're building new features and want the V2 API directly:
 
 ```bash
-npm install @copilotkitnext/react
+npm install @copilotkit/react
 ```
 
 ```tsx
-import { CopilotKitProvider, CopilotChat } from "@copilotkitnext/react";
+import { CopilotKitProvider, CopilotChat } from "@copilotkit/react";
 
 export default function App() {
   return (
@@ -120,7 +120,7 @@ export default function App() {
 Tools are functions the AI agent can call. They run in the browser.
 
 ```tsx
-import { useFrontendTool } from "@copilotkitnext/react";
+import { useFrontendTool } from "@copilotkit/react";
 // or: import { useCopilotAction } from "@copilotkit/react-core"; (V1 equivalent)
 import { z } from "zod";
 
@@ -166,7 +166,7 @@ sequenceDiagram
 Context tells the agent about what the user currently sees.
 
 ```tsx
-import { useAgentContext } from "@copilotkitnext/react";
+import { useAgentContext } from "@copilotkit/react";
 // or: import { useCopilotReadable } from "@copilotkit/react-core"; (V1 equivalent)
 
 function Dashboard({ user, metrics }) {
@@ -187,7 +187,7 @@ function Dashboard({ user, metrics }) {
 Show custom UI while a tool is being called:
 
 ```tsx
-import { useRenderToolCall } from "@copilotkitnext/react";
+import { useRenderToolCall } from "@copilotkit/react";
 import { z } from "zod";
 
 function App() {
@@ -225,7 +225,7 @@ graph LR
 Require user approval before a tool executes:
 
 ```tsx
-import { useHumanInTheLoop } from "@copilotkitnext/react";
+import { useHumanInTheLoop } from "@copilotkit/react";
 import { z } from "zod";
 
 function App() {
@@ -259,7 +259,7 @@ function App() {
 Auto-generate prompt suggestions for users:
 
 ```tsx
-import { useConfigureSuggestions } from "@copilotkitnext/react";
+import { useConfigureSuggestions } from "@copilotkit/react";
 
 function App() {
   useConfigureSuggestions({

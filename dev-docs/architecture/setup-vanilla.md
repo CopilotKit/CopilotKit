@@ -45,13 +45,13 @@ graph LR
 ### 1. Install
 
 ```bash
-npm install @copilotkitnext/core
+npm install @copilotkit/core
 ```
 
 ### 2. Create the core instance
 
 ```typescript
-import { CopilotKitCore } from "@copilotkitnext/core";
+import { CopilotKitCore } from "@copilotkit/core";
 
 const copilotKit = new CopilotKitCore({
   runtimeUrl: "http://localhost:3000/api/copilotkit",
@@ -442,7 +442,7 @@ graph LR
 ## Full Example: Simple Chat App (No Framework)
 
 ```typescript
-import { CopilotKitCore } from "@copilotkitnext/core";
+import { CopilotKitCore } from "@copilotkit/core";
 import { z } from "zod";
 
 // DOM elements

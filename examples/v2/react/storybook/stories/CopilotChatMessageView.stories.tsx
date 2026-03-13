@@ -4,9 +4,9 @@ import {
   CopilotChatConfigurationProvider,
   CopilotChatMessageView,
   CopilotKitProvider,
-} from "@copilotkitnext/react";
+} from "@copilotkit/react-core/v2";
 import { z } from "zod";
-import { ToolCallStatus } from "@copilotkitnext/core";
+import { ToolCallStatus } from "@copilotkit/core";
 
 const STORYBOOK_THREAD_ID = "storybook-thread";
 
@@ -175,9 +175,9 @@ export const WithToolCalls: Story = {
   CopilotChatConfigurationProvider,
   CopilotChatMessageView,
   CopilotKitProvider,
-} from "@copilotkitnext/react";
+} from "@copilotkit/react-core/v2";
 import { z } from "zod";
-import { ToolCallStatus } from "@copilotkitnext/core";
+import { ToolCallStatus } from "@copilotkit/core";
 
 // Define schemas for different tool arguments
 const searchSchema = z.object({

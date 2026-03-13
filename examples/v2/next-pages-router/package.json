@@ -1,5 +1,5 @@
 {
-  "name": "@copilotkitnext/next-pages-router",
+  "name": "@copilotkit/next-pages-router",
   "version": "1.54.1-next.1",
   "private": true,
   "scripts": {
@@ -9,7 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "@copilotkitnext/react": "workspace:*",
+    "@copilotkit/react-core": "workspace:*",
     "next": "15.4.4",
     "react": "19.1.0",
     "react-dom": "19.1.0"

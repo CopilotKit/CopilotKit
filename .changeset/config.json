@@ -4,14 +4,14 @@
   "commit": false,
   "access": "public",
   "baseBranch": "origin/main",
-  "fixed": [["@copilotkit/*", "@copilotkitnext/*"]],
+  "fixed": [["@copilotkit/*", "@copilotkit/*"]],
   "ignore": [
     "*",
     "@copilotkit-examples/*",
     "!@copilotkit-storybook/*",
-    "@copilotkitnext/angular-demo",
-    "@copilotkitnext/angular-demo-server",
-    "@copilotkitnext/docs",
+    "@copilotkit/angular-demo",
+    "@copilotkit/angular-demo-server",
+    "@copilotkit/docs",
     "@apps/node"
   ],
   "linked": [],

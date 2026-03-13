@@ -20,13 +20,13 @@ AI agent framework with three layers: **Frontend** (React/Angular/Vanilla) → *
 ## Essentials
 
 - **Nx monorepo** — always run tasks through `nx` (`nx run`, `nx run-many`, `nx affected`), never the underlying tooling directly.
-- **V1 wraps V2** — V2 (`@copilotkitnext/`) is the real implementation. V1 (`@copilotkit/`) is the public compatibility layer that delegates to V2. Build new features in V2 first. Add V1 wrappers only if backward compatibility is needed.
+- **Flat package structure** — all packages live directly under `packages/` (no `v1/` or `v2/` subdirectories). Every package uses the `@copilotkit/` scope.
 - **Simplicity** — prefer the simplest correct solution. For non-trivial changes, consider if there's a cleaner approach before committing.
 - **Worktrees** — always work in a git worktree for isolation. See [Git & PRs](.claude/docs/git.md) for the full workflow.
 
 ## Reference (read when relevant to your task)
 
-- [Architecture & Packages](.claude/docs/architecture.md) — V2/V1 package roles, request lifecycle, core concepts (AG-UI, ProxiedAgent, AgentRunner, tools, context, multi-agent)
+- [Architecture & Packages](.claude/docs/architecture.md) — package roles, request lifecycle, core concepts (AG-UI, ProxiedAgent, AgentRunner, tools, context, multi-agent)
 - [Hook Development](.claude/docs/hooks.md) — checklist for creating new hooks (docs, tests, JSDoc)
 - [Workflow & Process](.claude/docs/workflow.md) — when to plan, when to fix autonomously, verification, self-improvement loop, this should be your default mindset when working on any task
 - [Git & PRs](.claude/docs/git.md) — worktree workflow, branching, creating PRs
