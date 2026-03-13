@@ -200,7 +200,7 @@ describe("useRenderTool", () => {
       (item) => item.name === "summarize",
     );
     expect(byName).toHaveLength(2);
-    expect(byName.map((item) => item.agentId).sort()).toEqual([
+    expect(byName.map((item) => item.agentId).toSorted()).toEqual([
       "agent-a",
       "agent-b",
     ]);

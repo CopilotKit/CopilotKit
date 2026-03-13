@@ -21,11 +21,7 @@ export function Progress({
           <div
             key={index}
             data-test-id="progress-step-item"
-            className={`flex ${
-              log.done || index === logs.findIndex((log) => !log.done)
-                ? ""
-                : "opacity-50"
-            }`}
+            className={`flex ${log.done || index === logs.findIndex((log) => !log.done) ? "" : "opacity-50"}`}
           >
             <div className="w-8">
               <div

@@ -1,6 +1,7 @@
 # Travel Planner
 
-Plan your next trip with an AI-powered travel planner. This demo showcases a travel application where an AI assistant helps you create, manage, and explore trips with real-time map visualization and Google Maps integration.
+Plan your next trip with an AI-powered travel planner. This demo showcases a travel application where an AI assistant
+helps you create, manage, and explore trips with real-time map visualization and Google Maps integration.
 
 [Click here for a running example](https://copilotkit.ai/examples/travel-planner)
 
@@ -28,7 +29,8 @@ Plan your next trip with an AI-powered travel planner. This demo showcases a tra
 
 ## Overview
 
-This application demonstrates the power of CopilotKit working with an Agent Framework (LangGraph in this case), where the agent shares state with your React frontend, enabling seamless AI-human collaboration. Key features include:
+This application demonstrates the power of CopilotKit working with an Agent Framework (LangGraph in this case), where
+the agent shares state with your React frontend, enabling seamless AI-human collaboration. Key features include:
 
 - **Interactive Map** - Visualize your trips and places on a Leaflet-powered map
 - **Google Maps Search** - The AI agent can search for real places using Google Maps API

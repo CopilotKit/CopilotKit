@@ -1,8 +1,11 @@
 # CopilotKit <> LangGraph Starter
 
-This is a starter template for building AI agents using [LangGraph](https://www.langchain.com/langgraph) and [CopilotKit](https://copilotkit.ai). It provides a modern Next.js application with an integrated LangGraph agent to be built on top of.
+This is a starter template for building AI agents using [LangGraph](https://www.langchain.com/langgraph) and
+[CopilotKit](https://copilotkit.ai). It provides a modern Next.js application with an integrated LangGraph agent to be
+built on top of.
 
-This project is organized as a monorepo using [Turborepo](https://turbo.build) and [pnpm workspaces](https://pnpm.io/workspaces).
+This project is organized as a monorepo using [Turborepo](https://turbo.build) and
+[pnpm workspaces](https://pnpm.io/workspaces).
 
 ## Project Structure
 

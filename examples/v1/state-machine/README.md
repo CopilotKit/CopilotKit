@@ -1,6 +1,7 @@
 # State Machine Copilot
 
-Transform complex conversational flows into manageable state machines. This AI-powered car sales application demonstrates how to build sophisticated multi-stage interactions with contextual awareness and state transitions.
+Transform complex conversational flows into manageable state machines. This AI-powered car sales application
+demonstrates how to build sophisticated multi-stage interactions with contextual awareness and state transitions.
 
 [Click here for a running example](https://copilotkit.ai/examples/state-machine-copilot)
 
@@ -109,11 +110,14 @@ Each stage hook encapsulates stage-specific CopilotKit configuration and prompts
 
 ### Global State Management
 
-The [use-global-state.tsx](./src/lib/stages/use-global-state.tsx) hook manages the application's global state, while the [car-sales-chat.tsx](./src/components/car-sales-chat.tsx) component ties all stages together.
+The [use-global-state.tsx](./src/lib/stages/use-global-state.tsx) hook manages the application's global state, while the
+[car-sales-chat.tsx](./src/components/car-sales-chat.tsx) component ties all stages together.
 
 ### State Visualization
 
-A [React Flow](https://reactflow.dev/) powered visualizer ([state-visualizer.tsx](./src/components/state-visualizer.tsx)) displays the current state and possible transitions, updating in real-time as the conversation progresses.
+A [React Flow](https://reactflow.dev/) powered visualizer
+([state-visualizer.tsx](./src/components/state-visualizer.tsx)) displays the current state and possible transitions,
+updating in real-time as the conversation progresses.
 
 ### CopilotKit Integration
 
@@ -145,7 +149,8 @@ Ready to build your own AI-powered state machine? Check out these resources:
 
 - [CopilotKit Documentation](https://docs.copilotkit.ai) - Comprehensive guides and API references
 - [CopilotKit Cloud](https://cloud.copilotkit.ai/) - Deploy your copilots with our managed cloud solution
-- [React Flow Documentation](https://reactflow.dev/docs/introduction/) - Learn more about building interactive node-based UIs
+- [React Flow Documentation](https://reactflow.dev/docs/introduction/) - Learn more about building interactive
+  node-based UIs
 
 ## 🤝 Contributing
 

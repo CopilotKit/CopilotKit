@@ -11,11 +11,11 @@ import { ChatState } from "@copilotkitnext/angular";
     <div
       [class]="inputClass"
       style="
-      background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-      padding: 20px;
-      border-radius: 15px;
-      margin: 10px;
-    "
+        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        padding: 20px;
+        border-radius: 15px;
+        margin: 10px;
+      "
     >
       <input
         type="text"

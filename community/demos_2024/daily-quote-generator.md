@@ -1,8 +1,11 @@
 # 1. Daily Quotes Generator
 
-- Daily Quote Display: The app displays a new inspirational quote each day, providing motivation and positivity to users. The quote updates in real-time with a visually appealing clock and date display.
+- Daily Quote Display: The app displays a new inspirational quote each day, providing motivation and positivity to
+  users. The quote updates in real-time with a visually appealing clock and date display.
 
-- Quote Generation and Selection: Users can generate a new quote by pressing the "Generate New Quote" button. Additionally, the app allows users to request specific categories of quotes, like Motivational, Inspirational, Positive, Life, or Wisdom. Based on the input category, the app retrieves an appropriate quote using predefined logic.
+- Quote Generation and Selection: Users can generate a new quote by pressing the "Generate New Quote" button.
+  Additionally, the app allows users to request specific categories of quotes, like Motivational, Inspirational,
+  Positive, Life, or Wisdom. Based on the input category, the app retrieves an appropriate quote using predefined logic.
 
 ## 2. Name of Issue/Topic
 

@@ -1,8 +1,10 @@
 ## 🚀 **Project Title**
 
-[Meal Prep Planner](https://meal-prep-planner.vercel.app/) - An AI powered meal planning app that prepares meal plans based on user preferences and nutritional requirements.
+[Meal Prep Planner](https://meal-prep-planner.vercel.app/) - An AI powered meal planning app that prepares meal plans
+based on user preferences and nutritional requirements.
 
-Meal Prep Planner is an AI powered meal planning app that prepares meal plans based on user preferences and nutritional requirements. The app uses AI algorithms to suggest meals based on user preferences and nutritional requirements.
+Meal Prep Planner is an AI powered meal planning app that prepares meal plans based on user preferences and nutritional
+requirements. The app uses AI algorithms to suggest meals based on user preferences and nutritional requirements.
 
 ### 📝 **Name of Issue/Topic**
 

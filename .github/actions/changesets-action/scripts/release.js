@@ -13,11 +13,11 @@ process.chdir(path.join(__dirname, ".."));
     ["ls-remote", "--exit-code", "origin", "--tags", `refs/tags/${tag}`],
     {
       ignoreReturnCode: true,
-    }
+    },
   );
   if (exitCode === 0) {
     console.log(
-      `Action is not being published because version ${tag} is already published`
+      `Action is not being published because version ${tag} is already published`,
     );
     return;
   }

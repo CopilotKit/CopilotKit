@@ -190,7 +190,6 @@ function CopilotSidebarViewInternal({
 
 CopilotSidebarView.displayName = "CopilotSidebarView";
 
-// eslint-disable-next-line @typescript-eslint/no-namespace
 export namespace CopilotSidebarView {
   /**
    * Sidebar-specific welcome screen layout:

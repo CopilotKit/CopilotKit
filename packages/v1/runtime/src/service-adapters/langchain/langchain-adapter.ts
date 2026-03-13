@@ -103,7 +103,6 @@ export class LangChainAdapter implements CopilotServiceAdapter {
       };
     } finally {
       // Lazy require for optional peer dependency
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
       const {
         awaitAllCallbacks,
       } = require("@langchain/core/callbacks/promises");

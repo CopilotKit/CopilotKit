@@ -26,8 +26,7 @@ https://github.com/kushal34712/language-translator
 
 ## 7. Who Are You?
 
-[Github](https://github.com/kushal34712)
-[Twitter](https://x.com/Kushal_347)
+[Github](https://github.com/kushal34712) [Twitter](https://x.com/Kushal_347)
 
 ## 5 Extra Bonus Points
 

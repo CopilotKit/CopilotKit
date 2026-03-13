@@ -28,8 +28,7 @@ https://github.com/anshuman-rai-27/Recipe_Modifier
 
 ## 7. Who Are You?
 
-[Github](https://github.com/anshuman-rai-27)
-[Twitter](https://x.com/Anshuman_rai_?t=jOqgQuKILlsoA7ERNt_7Kw&s=08)
+[Github](https://github.com/anshuman-rai-27) [Twitter](https://x.com/Anshuman_rai_?t=jOqgQuKILlsoA7ERNt_7Kw&s=08)
 
 ## 5 Extra Bonus Points
 

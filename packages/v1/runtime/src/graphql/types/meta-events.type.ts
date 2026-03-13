@@ -36,7 +36,7 @@ registerEnumType(MetaEventName, {
 @InterfaceType()
 export abstract class BaseMetaEvent {
   @Field(() => String)
-  type: "MetaEvent" = "MetaEvent";
+  type = "MetaEvent" as const;
 
   @Field(() => MetaEventName)
   name: MetaEventName;

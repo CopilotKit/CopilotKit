@@ -126,7 +126,7 @@ function ReactSurfaceHost({
         console.info("[A2UI] Action dispatched", message.userAction);
 
         copilotkit.setProperties({
-          ...(copilotkit.properties ?? {}),
+          ...copilotkit.properties,
           a2uiAction: message,
         });
 

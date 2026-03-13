@@ -8,7 +8,6 @@ export interface MessageViewContext {
   messageElements: any[]; // Will be populated with rendered elements
 }
 
-// eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export interface CursorContext {
   // Empty for now, can be extended if needed
 }

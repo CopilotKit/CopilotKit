@@ -12,23 +12,31 @@ const packageDirs = [
 ];
 
 function getPackageChangelog(packageDir, version) {
-  const packageJsonPath = join(__dirname, `../../packages/v1/${packageDir}/package.json`);
+  const packageJsonPath = join(
+    __dirname,
+    `../../packages/v1/${packageDir}/package.json`,
+  );
   const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, "utf8"));
   const packageName = packageJson.name;
 
-  const changelogPath = join(__dirname, `../../packages/v1/${packageDir}/CHANGELOG.md`);
+  const changelogPath = join(
+    __dirname,
+    `../../packages/v1/${packageDir}/CHANGELOG.md`,
+  );
   const changelog = fs.readFileSync(changelogPath, "utf8");
 
   // Find where the following line starts: "## ${version}"
   const changelogStart = changelog.indexOf(`## ${version}`);
 
   if (changelogStart === -1) {
-    throw new Error(`Changelog for ${packageName} version ${version} not found`);
+    throw new Error(
+      `Changelog for ${packageName} version ${version} not found`,
+    );
   }
 
   // Find the next "## " after our version section
   const changelogEnd = changelog.indexOf("\n## ", changelogStart + 1);
-  
+
   // If no next section found, use the entire rest of the file
   const sectionEnd = changelogEnd === -1 ? changelog.length : changelogEnd;
 

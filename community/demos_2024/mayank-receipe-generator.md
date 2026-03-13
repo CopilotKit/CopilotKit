@@ -1,12 +1,13 @@
 # 1. Recipe Generator
 
-In this project, I developed a Recipe Generator and Suggestion App using React for the frontend, Tailwind CSS for styling, and Shadcn UI for enhanced UI components.
+In this project, I developed a Recipe Generator and Suggestion App using React for the frontend, Tailwind CSS for
+styling, and Shadcn UI for enhanced UI components.
 
-- Recipe Generation:
-  Users can add a recipe by entering the dish name. The app automatically generates ingredients, instructions, and tips using an internal logic (or AI-based integration).4
+- Recipe Generation: Users can add a recipe by entering the dish name. The app automatically generates ingredients,
+  instructions, and tips using an internal logic (or AI-based integration).4
 
-- Recipe Suggestions:
-  Users can input available ingredients, and the app will suggest recipes based on matching ingredients using predefined logic.
+- Recipe Suggestions: Users can input available ingredients, and the app will suggest recipes based on matching
+  ingredients using predefined logic.
 
 ## 2. Name of Issue/Topic
 

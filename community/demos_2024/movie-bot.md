@@ -1,6 +1,7 @@
 ## 🚀 **Movie-BOT**
 
-[Movie-CopilotKit-Bot](https://moviebot-sigma.vercel.app/) - An AI powered Movie Bot app that suggests you movies based on the genre , mood and your previous watch history.
+[Movie-CopilotKit-Bot](https://moviebot-sigma.vercel.app/) - An AI powered Movie Bot app that suggests you movies based
+on the genre , mood and your previous watch history.
 
 ### 📝 **Name of Issue/Topic**
 

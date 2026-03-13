@@ -1,9 +1,12 @@
 # Event Timer with Copilot Bot
 
-In this project, I developed an Event Countdown Timer with Copilot Bot integration using React for the frontend, Tailwind CSS for styling, and the CopilotKit for interactive guidance and suggestions.
+In this project, I developed an Event Countdown Timer with Copilot Bot integration using React for the frontend,
+Tailwind CSS for styling, and the CopilotKit for interactive guidance and suggestions.
 
-- Event Timer: Users can add an event with a specific target date and time. The app displays a countdown for the event, and users can manage multiple events by adding or removing them from the list.
-- Copilot Bot Integration: The app is integrated with Copilot Bot to assist users with instructions on how to set timers, offering help for timer creation in a user-friendly way.
+- Event Timer: Users can add an event with a specific target date and time. The app displays a countdown for the event,
+  and users can manage multiple events by adding or removing them from the list.
+- Copilot Bot Integration: The app is integrated with Copilot Bot to assist users with instructions on how to set
+  timers, offering help for timer creation in a user-friendly way.
 
 ## 2. Name of Issue/Topic
 
@@ -43,7 +46,8 @@ Please list your **GitHub** and **Twitter** handles if you feel comfortable doin
 
 ## 5 Extra Bonus Points
 
-Link to any bonus activities you did such as solving GitHub Issues or posting to Twitter, Dev.to, Medium, etc related to your project and CopilotKit.
+Link to any bonus activities you did such as solving GitHub Issues or posting to Twitter, Dev.to, Medium, etc related to
+your project and CopilotKit.
 
 - A dev.to blog link - [Link](https://dev.to/prathamesh_gursal/event-timer-powered-by-copilotkit-chatbot-2c78)
 - Tweet link - [Link](https://x.com/Prathamesh_G24/status/1850161431477731547)

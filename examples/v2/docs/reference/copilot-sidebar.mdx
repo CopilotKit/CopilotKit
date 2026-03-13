@@ -3,7 +3,9 @@ title: CopilotSidebar
 description: "Sidebar chat interface with slide-in animation"
 ---
 
-`CopilotSidebar` is a React component that provides a slide-in sidebar chat interface. It wraps [CopilotChat](/reference/copilot-chat) with additional sidebar-specific behavior including a toggle button, slide-in animation, and automatic body margin adjustment.
+`CopilotSidebar` is a React component that provides a slide-in sidebar chat interface. It wraps
+[CopilotChat](/reference/copilot-chat) with additional sidebar-specific behavior including a toggle button, slide-in
+animation, and automatic body margin adjustment.
 
 ## What is CopilotSidebar?
 
@@ -32,7 +34,8 @@ graph LR
 | `header`       | Header bar with title and close button    |
 | `toggleButton` | Floating button to open/close the sidebar |
 
-CopilotSidebar also inherits all slots from CopilotChat: `messageView`, `scrollView`, `input`, `suggestionView`, and `welcomeScreen`.
+CopilotSidebar also inherits all slots from CopilotChat: `messageView`, `scrollView`, `input`, `suggestionView`, and
+`welcomeScreen`.
 
 See [Slot Customization](#slot-customization) for details on how to customize these slots.
 
@@ -156,7 +159,8 @@ function CustomToggleButton() {
 
 ## Slot Customization
 
-CopilotSidebar uses the same [slot system](/reference/slot-system) as CopilotChat. Each slot accepts four types of values:
+CopilotSidebar uses the same [slot system](/reference/slot-system) as CopilotChat. Each slot accepts four types of
+values:
 
 1. **Tailwind class string** - Add or override CSS classes
 2. **Props object** - Pass additional props to the default component

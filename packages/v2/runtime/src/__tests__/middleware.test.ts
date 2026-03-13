@@ -45,7 +45,6 @@ describe("CopilotEndpoint middleware", () => {
       throw new Error(`Unexpected fetch URL: ${url}`);
     });
     // Override global fetch for the duration of this test
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
     // @ts-ignore
     global.fetch = fetchMock as unknown as typeof fetch;
   };
@@ -95,7 +94,6 @@ describe("CopilotEndpoint middleware", () => {
     });
     const logSpy = vi
       .spyOn(logger, "error")
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .mockImplementation(() => undefined as any);
 
     const endpoint = createCopilotEndpoint({ runtime, basePath: "/" });
@@ -125,7 +123,6 @@ describe("CopilotEndpoint middleware", () => {
     });
     const logSpy = vi
       .spyOn(logger, "error")
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .mockImplementation(() => undefined as any);
 
     const endpoint = createCopilotEndpoint({ runtime, basePath: "/" });
@@ -165,7 +162,6 @@ describe("CopilotEndpoint middleware", () => {
     });
     const logSpy = vi
       .spyOn(logger, "error")
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .mockImplementation(() => undefined as any);
 
     const endpoint = createCopilotEndpoint({ runtime, basePath: "/" });
@@ -219,7 +215,6 @@ describe("CopilotEndpoint middleware", () => {
     });
     const logSpy = vi
       .spyOn(logger, "error")
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .mockImplementation(() => undefined as any);
 
     const endpoint = createCopilotEndpoint({ runtime, basePath: "/" });

@@ -3,7 +3,8 @@
 ### 📝 **Intelligent Ingredient to Recipe Assistant**
 
 This project tackles the everyday problem of deciding _what to cook_ with the ingredients you already have.  
-It allows users to **add ingredients manually or using CopilotKit AI commands**, and instantly generates **3–5 structured recipes** that match the provided items.  
+It allows users to **add ingredients manually or using CopilotKit AI commands**, and instantly generates **3–5
+structured recipes** that match the provided items.  
 Each recipe is beautifully displayed as a card with title, description, ingredients, steps, time, calories, and tags.
 
 ### 🛠️ **Technologies Being Used**

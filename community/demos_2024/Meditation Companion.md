@@ -1,8 +1,11 @@
 # 1. Meditation Companion
 
-- **Meditation Prompt Display**: This app offers users calming meditation prompts, providing a peaceful space for mindfulness and introspection. Each prompt updates with an aesthetically pleasing real-time clock and date display.
+- **Meditation Prompt Display**: This app offers users calming meditation prompts, providing a peaceful space for
+  mindfulness and introspection. Each prompt updates with an aesthetically pleasing real-time clock and date display.
 
-- **Prompt Generation and Interaction**: Users can generate a new meditation prompt by pressing the "Generate New Meditation" button. Additionally, users can like and share their favorite prompts, promoting a sense of community and mindfulness. The prompts are displayed within a visually relaxing interface.
+- **Prompt Generation and Interaction**: Users can generate a new meditation prompt by pressing the "Generate New
+  Meditation" button. Additionally, users can like and share their favorite prompts, promoting a sense of community and
+  mindfulness. The prompts are displayed within a visually relaxing interface.
 
 ## 2. Name of Issue/Topic
 

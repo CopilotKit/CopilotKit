@@ -1,15 +1,15 @@
 {
   "name": "examples-e2e",
-  "private": true,
   "version": "0.0.0",
+  "private": true,
   "scripts": {
     "test": "playwright test",
     "test:headed": "playwright test --headed",
     "test:ui": "playwright test --ui"
   },
   "devDependencies": {
-    "@types/node": "^22",
     "@playwright/test": "^1.50.0",
+    "@types/node": "^22",
     "typescript": "^5"
   }
 }

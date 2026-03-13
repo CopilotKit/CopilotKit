@@ -26,7 +26,6 @@ export const MultipleChoice = memo(function MultipleChoice({
   const selectionsPath = props.selections?.path;
 
   // Access description from props (Lit component supports it)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const description =
     resolveString((props as any).description) ?? "Select an item";
 

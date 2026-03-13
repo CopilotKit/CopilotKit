@@ -2,8 +2,9 @@
 
 ### 📝 **Build a Custom Demo with CopilotKit + CrewAI Agent Framework**
 
-This project demonstrates how CopilotKit’s UI layer integrates seamlessly with the CrewAI agent framework to create an interactive and intelligent app.<br>
-This demo focuses on summarizing long emails into short concise point-wise summary which is easy to read and questions can be asked from the bot about the email too.
+This project demonstrates how CopilotKit’s UI layer integrates seamlessly with the CrewAI agent framework to create an
+interactive and intelligent app.<br> This demo focuses on summarizing long emails into short concise point-wise summary
+which is easy to read and questions can be asked from the bot about the email too.
 
 ### 🛠️ **Technologies Used**
 
@@ -29,5 +30,5 @@ This demo focuses on summarizing long emails into short concise point-wise summa
 
 ### 🙋‍♂️ **Github Repo Link**
 
-[Repository Link](https://github.com/rishabh-jain89/Email-Summarizer.git)<br>
-**Created by** [Rishabh Jain](https://github.com/rishabh-jain89)
+[Repository Link](https://github.com/rishabh-jain89/Email-Summarizer.git)<br> **Created by**
+[Rishabh Jain](https://github.com/rishabh-jain89)

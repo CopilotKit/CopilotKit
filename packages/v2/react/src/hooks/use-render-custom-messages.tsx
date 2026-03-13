@@ -22,7 +22,7 @@ export function useRenderCustomMessages() {
       (renderer) =>
         renderer.agentId === undefined || renderer.agentId === agentId,
     )
-    .sort((a, b) => {
+    .toSorted((a, b) => {
       const aHasAgent = a.agentId !== undefined;
       const bHasAgent = b.agentId !== undefined;
       if (aHasAgent === bHasAgent) return 0;

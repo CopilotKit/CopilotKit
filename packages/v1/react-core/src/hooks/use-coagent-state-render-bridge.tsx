@@ -135,7 +135,6 @@ export function useCoagentStateRenderBridge(
     return () => {
       unsubscribe();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [agentId, nodeName]);
 
   const getStateRender = useCallback(

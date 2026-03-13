@@ -105,7 +105,6 @@ export class MockAgent {
 
   // Provide a no-op subscribe API so core can attach state listeners
   // without errors during tests.
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   public subscribe(_subscriber?: any): { unsubscribe: () => void } {
     return { unsubscribe: () => {} };
   }

@@ -1,12 +1,13 @@
 # 1. Recipe Generator Bot
 
-In this project, I developed a Recipe Generator and Suggestion App using React for the frontend, Tailwind CSS for styling, and Shadcn UI for enhanced UI components.
+In this project, I developed a Recipe Generator and Suggestion App using React for the frontend, Tailwind CSS for
+styling, and Shadcn UI for enhanced UI components.
 
-- Recipe Generation:
-  Users can add a recipe by entering the dish name. The app automatically generates ingredients, instructions, and tips using an internal logic (or AI-based integration).4
+- Recipe Generation: Users can add a recipe by entering the dish name. The app automatically generates ingredients,
+  instructions, and tips using an internal logic (or AI-based integration).4
 
-- Recipe Suggestions:
-  Users can input available ingredients, and the app will suggest recipes based on matching ingredients using predefined logic.
+- Recipe Suggestions: Users can input available ingredients, and the app will suggest recipes based on matching
+  ingredients using predefined logic.
 
 ## 2. Name of Issue/Topic
 
@@ -52,7 +53,8 @@ Please list your **GitHub** and **Twitter** handles if you feel comfortable doin
 
 ## 5 Extra Bonus Points
 
-Link to any bonus activities you did such as solving GitHub Issues or posting to Twitter, Dev.to, Medium, etc related to your project and CopilotKit.
+Link to any bonus activities you did such as solving GitHub Issues or posting to Twitter, Dev.to, Medium, etc related to
+your project and CopilotKit.
 
 - A dev.to blog link - [Link](https://dev.to/sanketshinde/recipe-generator-powered-by-copilotkit-chatbot-2nl0)
 - Tweet link - [Link](https://x.com/sanketshinde04/status/1845898967038521511)

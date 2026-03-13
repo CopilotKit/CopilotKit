@@ -2,12 +2,17 @@
   "extends": "../tsconfig/base.json",
   "compilerOptions": {
     "types": ["node", "vitest/globals"],
-    "lib": ["es2017", "dom"],
+    "lib": ["es2022", "dom"],
     "emitDecoratorMetadata": true,
     "experimentalDecorators": true,
     "strict": false,
     "resolveJsonModule": true
   },
-  "include": ["./src/**/*.ts", "./src/**/*.test.ts", "./src/**/__tests__/*", "./tests/**/*.ts"],
+  "include": [
+    "./src/**/*.ts",
+    "./src/**/*.test.ts",
+    "./src/**/__tests__/*",
+    "./tests/**/*.ts"
+  ],
   "exclude": ["dist", "build", "node_modules"]
 }

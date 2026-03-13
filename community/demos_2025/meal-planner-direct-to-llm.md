@@ -2,7 +2,8 @@
 
 ### 📝 **Intelligent Recipe Planning and Management**
 
-This project showcases how to use CopilotKit direct-to-LLM integration to connect a React frontend with any external agent that supports AGUI (Pydantic AI in this case) through a middleware layer.
+This project showcases how to use CopilotKit direct-to-LLM integration to connect a React frontend with any external
+agent that supports AGUI (Pydantic AI in this case) through a middleware layer.
 
 This example includes a mini meal planner agent configured as a demonstration of the integration.
 

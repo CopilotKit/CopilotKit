@@ -1,6 +1,7 @@
 # 1. CopilotMate
 
-CopilotMate: An AI-powered productivity assistant with tools like to-do lists, expense tracking, StudyBuddy with coagent, ai spreadsheet and more.
+CopilotMate: An AI-powered productivity assistant with tools like to-do lists, expense tracking, StudyBuddy with
+coagent, ai spreadsheet and more.
 
 ### 2. Technologies Being Used
 

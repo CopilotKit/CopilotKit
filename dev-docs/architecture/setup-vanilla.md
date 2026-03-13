@@ -1,6 +1,7 @@
 # Vanilla JavaScript Setup Guide
 
-This guide shows how to use CopilotKit without React or Angular — using the core API directly. This works with any framework (Vue, Svelte, vanilla JS, Node.js, etc).
+This guide shows how to use CopilotKit without React or Angular — using the core API directly. This works with any
+framework (Vue, Svelte, vanilla JS, Node.js, etc).
 
 ---
 
@@ -413,7 +414,8 @@ agent.addMessage({
 await agent.runAgent();
 ```
 
-> **When to use this:** Only if you want zero abstraction and just need to talk to a single agent. You lose tools, context, suggestions, and multi-agent orchestration.
+> **When to use this:** Only if you want zero abstraction and just need to talk to a single agent. You lose tools,
+> context, suggestions, and multi-agent orchestration.
 
 ```mermaid
 graph LR

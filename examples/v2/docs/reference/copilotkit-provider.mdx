@@ -118,7 +118,8 @@ const devAgent = new HttpAgent({
 
 `boolean` **(optional, default: `false`)**
 
-When set to `true`, the provider connects to runtimes that expose the **single-route** transport (a single POST endpoint that multiplexes all runtime actions). Leave this `false` for the default REST-style transport.
+When set to `true`, the provider connects to runtimes that expose the **single-route** transport (a single POST endpoint
+that multiplexes all runtime actions). Leave this `false` for the default REST-style transport.
 
 Pair this flag with the matching server endpoint helper:
 
@@ -128,7 +129,8 @@ Pair this flag with the matching server endpoint helper:
 </CopilotKitProvider>
 ```
 
-On the server, mount one of the single-route runtimes (`createCopilotEndpointSingleRoute` for Hono or `createCopilotEndpointSingleRouteExpress` for Express).
+On the server, mount one of the single-route runtimes (`createCopilotEndpointSingleRoute` for Hono or
+`createCopilotEndpointSingleRouteExpress` for Express).
 
 ### renderToolCalls
 

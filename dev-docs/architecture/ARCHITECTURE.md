@@ -1,6 +1,7 @@
 # CopilotKit Architecture Guide
 
-CopilotKit lets you add AI agents to your app. You write hooks (React/Angular) or use the core API (vanilla JS), CopilotKit handles the rest — connecting your UI to any AI agent framework.
+CopilotKit lets you add AI agents to your app. You write hooks (React/Angular) or use the core API (vanilla JS),
+CopilotKit handles the rest — connecting your UI to any AI agent framework.
 
 ---
 
@@ -26,7 +27,8 @@ graph TB
     B -->|SSE Stream| A
 ```
 
-That's it. Your app talks to a runtime on your server. The runtime talks to an AI agent. They communicate using **AG-UI** — an event-based protocol (think: "text is streaming", "agent wants to call a tool", "state changed").
+That's it. Your app talks to a runtime on your server. The runtime talks to an AI agent. They communicate using
+**AG-UI** — an event-based protocol (think: "text is streaming", "agent wants to call a tool", "state changed").
 
 ---
 
@@ -34,7 +36,8 @@ That's it. Your app talks to a runtime on your server. The runtime talks to an A
 
 ### Layer 1: Frontend (your app)
 
-You use hooks/services to wire up your app — registering tools agents can call, providing context, and getting agent instances.
+You use hooks/services to wire up your app — registering tools agents can call, providing context, and getting agent
+instances.
 
 ### Layer 2: Runtime (your server)
 
@@ -145,7 +148,8 @@ graph BT
     v1runtime ==>|wraps| v2agent
 ```
 
-> **Why V1 + V2?** V2 is a rewrite with cleaner architecture. V1 wraps V2 so existing apps don't break. When you import `@copilotkit/react-core`, it internally uses `@copilotkitnext/core` and `@copilotkitnext/react`.
+> **Why V1 + V2?** V2 is a rewrite with cleaner architecture. V1 wraps V2 so existing apps don't break. When you import
+> `@copilotkit/react-core`, it internally uses `@copilotkitnext/core` and `@copilotkitnext/react`.
 
 ---
 
@@ -188,7 +192,8 @@ graph LR
 | `@ag-ui/encoder` | Serializes events for transport          | `EventEncoder` (SSE, binary, protobuf)                            |
 | `@ag-ui/proto`   | Protobuf binary transport                | `encode()`, `decode()`                                            |
 
-13+ framework integrations at `ag-ui/integrations/`: LangGraph, CrewAI, Mastra, Vercel AI SDK, Agno, AWS Strands, LlamaIndex, and more.
+13+ framework integrations at `ag-ui/integrations/`: LangGraph, CrewAI, Mastra, Vercel AI SDK, Agno, AWS Strands,
+LlamaIndex, and more.
 
 ---
 

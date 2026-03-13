@@ -1,6 +1,7 @@
 ## 🚀 **Task Manager**
 
-[Task Manager](https://copilotkit-task-manager.vercel.app/) - An AI powered Task Manager app that lets you have chat with copilotkit and you can add,delete,update and mark as complete using the chatbot.
+[Task Manager](https://copilotkit-task-manager.vercel.app/) - An AI powered Task Manager app that lets you have chat
+with copilotkit and you can add,delete,update and mark as complete using the chatbot.
 
 Task Manager,is an app that leverages AI to help users add, edit, update, and manage tasks efficiently
 

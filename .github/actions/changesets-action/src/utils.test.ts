@@ -97,5 +97,5 @@ test("it sorts the things right", () => {
       private: false,
     },
   ];
-  expect(things.sort(sortTheThings)).toMatchSnapshot();
+  expect(things.toSorted(sortTheThings)).toMatchSnapshot();
 });

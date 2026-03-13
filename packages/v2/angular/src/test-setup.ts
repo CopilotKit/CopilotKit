@@ -3,7 +3,6 @@ import "@angular/compiler";
 import "@analogjs/vitest-angular/setup-zone";
 
 import { getTestBed } from "@angular/core/testing";
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { Injector } from "@angular/core";
 import {
   BrowserDynamicTestingModule,
@@ -34,7 +33,6 @@ if (!(globalThis as any).ResizeObserver) {
 // IntersectionObserver
 if (!(globalThis as any).IntersectionObserver) {
   class IO {
-    constructor(_: IntersectionObserverCallback) {}
     observe() {}
     unobserve() {}
     disconnect() {}
@@ -71,7 +69,6 @@ if (!globalThis.requestAnimationFrame) {
 
 // Canvas context - provide a mock implementation for testing
 Object.defineProperty(HTMLCanvasElement.prototype, "getContext", {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   value: function (contextType: string) {
     // Return mock context for testing
     return {

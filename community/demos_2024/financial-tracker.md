@@ -1,7 +1,8 @@
 ## 1. Expense Tracking
 
-[Expense Tracking](https://copilotkit-financial-adviser.vercel.app/) -
-An Financial Adviser with Copilot, Shadcn-UI, Next js and Groq API. This allows user to add, delete, update expense and get personalize advice based on spending trend with Copilot kit chat interface and also the input section.
+[Expense Tracking](https://copilotkit-financial-adviser.vercel.app/) - An Financial Adviser with Copilot, Shadcn-UI,
+Next js and Groq API. This allows user to add, delete, update expense and get personalize advice based on spending trend
+with Copilot kit chat interface and also the input section.
 
 ## 2. Name of Issue/Topic
 
@@ -27,8 +28,7 @@ List the technologies and frameworks you used (e.g., CopilotKit, Next.js)
 
 ### 5 bonus points
 
-- If your app is live, include the link here:
-  [Live Demo](https://copilotkit-financial-adviser.vercel.app/)
+- If your app is live, include the link here: [Live Demo](https://copilotkit-financial-adviser.vercel.app/)
 
 ## 6. Screenshot
 
@@ -46,4 +46,5 @@ We want to promote what you've built and your hard work
 
 ## 5 Extra Bonus Points
 
-Link to any bonus activities you did such as solving GitHub Issues or posting to Twitter, Dev.to, Medium, etc related to your project and CopilotKit.
+Link to any bonus activities you did such as solving GitHub Issues or posting to Twitter, Dev.to, Medium, etc related to
+your project and CopilotKit.

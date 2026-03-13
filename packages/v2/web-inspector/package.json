@@ -1,11 +1,13 @@
 {
   "name": "@copilotkitnext/web-inspector",
   "version": "1.54.0",
-  "deprecated": "This package is deprecated. Use @copilotkit/web-inspector instead. V2 features are being integrated into the main @copilotkit exports and will be available under the /v2 subpath.",
   "description": "Lit-based web component for the CopilotKit web inspector",
-  "main": "./dist/index.cjs",
-  "types": "./dist/index.d.cts",
   "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.cts",
+  "unpkg": "./dist/index.umd.js",
+  "jsdelivr": "./dist/index.umd.js",
   "exports": {
     ".": {
       "import": "./dist/index.mjs",
@@ -13,8 +15,6 @@
     },
     "./package.json": "./package.json"
   },
-  "unpkg": "./dist/index.umd.js",
-  "jsdelivr": "./dist/index.umd.js",
   "publishConfig": {
     "access": "public"
   },
@@ -23,7 +23,6 @@
     "build:css": "tailwindcss -i ./src/styles/tailwind.css -o ./src/styles/generated.css -m",
     "dev": "pnpm run build:css && concurrently \"pnpm run dev:css\" \"tsdown --watch\"",
     "dev:css": "tailwindcss -i ./src/styles/tailwind.css -o ./src/styles/generated.css --watch --minify",
-    "lint": "eslint .",
     "check-types": "pnpm run build:css && tsc --noEmit",
     "test": "pnpm run build:css && vitest run",
     "publint": "publint .",
@@ -37,12 +36,10 @@
     "marked": "^12.0.2"
   },
   "devDependencies": {
-    "@copilotkitnext/eslint-config": "workspace:*",
     "@copilotkitnext/typescript-config": "workspace:*",
     "@tailwindcss/cli": "^4.1.11",
     "@types/node": "^22.15.3",
     "concurrently": "^9.1.0",
-    "eslint": "^9.30.0",
     "tailwindcss": "^4.0.8",
     "tsdown": "^0.20.3",
     "typescript": "5.8.2",
@@ -51,5 +48,5 @@
   "engines": {
     "node": ">=18"
   },
-  "module": "./dist/index.mjs"
+  "deprecated": "This package is deprecated. Use @copilotkit/web-inspector instead. V2 features are being integrated into the main @copilotkit exports and will be available under the /v2 subpath."
 }

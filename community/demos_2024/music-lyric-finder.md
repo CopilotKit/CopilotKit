@@ -1,6 +1,7 @@
 ## 🚀 **Project Title**
 
-[Music Lyric Finder](https://music-lyric-finder.vercel.app/) - This is a bot that helps users find the lyrics to their favorite songs. It finds and displays lyrics to any song based on user input.
+[Music Lyric Finder](https://music-lyric-finder.vercel.app/) - This is a bot that helps users find the lyrics to their
+favorite songs. It finds and displays lyrics to any song based on user input.
 
 ### 📝 **Name of Issue/Topic**
 

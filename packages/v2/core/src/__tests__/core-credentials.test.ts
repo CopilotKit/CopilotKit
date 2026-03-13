@@ -32,7 +32,6 @@ describe("CopilotKitCore credentials", () => {
     });
     global.fetch = fetchMock as unknown as typeof fetch;
 
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const core = new CopilotKitCore({
       runtimeUrl: "https://runtime.example",
       // NO credentials configured
@@ -50,7 +49,6 @@ describe("CopilotKitCore credentials", () => {
     });
     global.fetch = fetchMock as unknown as typeof fetch;
 
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const core = new CopilotKitCore({
       runtimeUrl: "https://runtime.example",
       credentials: "include",
@@ -68,7 +66,6 @@ describe("CopilotKitCore credentials", () => {
     });
     global.fetch = fetchMock as unknown as typeof fetch;
 
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const core = new CopilotKitCore({
       runtimeUrl: "https://runtime.example",
       credentials: "same-origin",
@@ -144,7 +141,6 @@ describe("CopilotKitCore credentials", () => {
     });
     global.fetch = fetchMock as unknown as typeof fetch;
 
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const core = new CopilotKitCore({
       runtimeUrl: "https://runtime.example",
       runtimeTransport: "single",

@@ -548,7 +548,6 @@ export const useCopilotKit = (): CopilotKitContextValue => {
     return () => {
       subscription.unsubscribe();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return context;

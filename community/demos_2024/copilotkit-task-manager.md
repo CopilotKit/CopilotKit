@@ -1,6 +1,7 @@
 # 1. Task Manager
 
-In this project, I developed a Task Manager using React for the frontend, Tailwind CSS for styling, and Shadcn UI for enhanced UI components.
+In this project, I developed a Task Manager using React for the frontend, Tailwind CSS for styling, and Shadcn UI for
+enhanced UI components.
 
 ### Method 1 - Using Form
 

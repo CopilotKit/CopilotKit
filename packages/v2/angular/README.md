@@ -1,6 +1,7 @@
 # CopilotKit for Angular
 
-Angular bindings for CopilotKit core and AG-UI agents. This package provides services, directives, and utilities for building custom, headless Copilot UIs.
+Angular bindings for CopilotKit core and AG-UI agents. This package provides services, directives, and utilities for
+building custom, headless Copilot UIs.
 
 ## Installation
 
@@ -86,7 +87,8 @@ export class HeadlessChatComponent {
 }
 ```
 
-The `agent` is an AG-UI `AbstractAgent`. Refer to your AG-UI agent implementation for available methods and message formats.
+The `agent` is an AG-UI `AbstractAgent`. Refer to your AG-UI agent implementation for available methods and message
+formats.
 
 ## Core configuration
 
@@ -165,7 +167,9 @@ Returns a `Signal<AgentStore>`. The store exposes:
 - `isRunning`: `Signal<boolean>`
 - `teardown()`: Clean up subscriptions
 
-If the agent is not available locally but a `runtimeUrl` is configured, a proxy agent is created while the runtime connects. If the agent still cannot be resolved, an error is thrown that includes the configured runtime and known agent IDs.
+If the agent is not available locally but a `runtimeUrl` is configured, a proxy agent is created while the runtime
+connects. If the agent still cannot be resolved, an error is thrown that includes the configured runtime and known agent
+IDs.
 
 ### `CopilotkitAgentFactory`
 
@@ -186,7 +190,8 @@ connectAgentContext({
 });
 ```
 
-You must call it within an injection context (e.g., inside a component constructor or `runInInjectionContext`), or pass an explicit `Injector`:
+You must call it within an injection context (e.g., inside a component constructor or `runInInjectionContext`), or pass
+an explicit `Injector`:
 
 ```ts
 connectAgentContext(contextSignal, { injector });
@@ -238,12 +243,13 @@ export interface HumanInTheLoopToolRenderer<Args> {
 }
 ```
 
-`AngularToolCall` / `HumanInTheLoopToolCall` expose `args`, `status` (`"in-progress" | "executing" | "complete"`), and `result`.
+`AngularToolCall` / `HumanInTheLoopToolCall` expose `args`, `status` (`"in-progress" | "executing" | "complete"`), and
+`result`.
 
 ### Register tools with DI
 
-These helpers auto-remove tools when the current injection context is destroyed:
-Call them from an injection context (e.g., a component constructor, directive, or `runInInjectionContext`).
+These helpers auto-remove tools when the current injection context is destroyed: Call them from an injection context
+(e.g., a component constructor, directive, or `runInInjectionContext`).
 
 ```ts
 import {
@@ -294,7 +300,8 @@ provideCopilotKit({
 });
 ```
 
-`tools` are advertised to the runtime. If you include `renderer` + `parameters` on a `ClientTool`, CopilotKit will also register a renderer for tool calls.
+`tools` are advertised to the runtime. If you include `renderer` + `parameters` on a `ClientTool`, CopilotKit will also
+register a renderer for tool calls.
 
 ## `RenderToolCalls` component
 
@@ -324,4 +331,5 @@ Tool arguments are parsed with `partialJSONParse`, so incomplete JSON during str
 
 ## Not documented here
 
-This package also exports a full set of chat UI components under `src/lib/components/chat`. Those APIs are intentionally omitted from this README.
+This package also exports a full set of chat UI components under `src/lib/components/chat`. Those APIs are intentionally
+omitted from this README.

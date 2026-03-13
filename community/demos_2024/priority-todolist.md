@@ -1,6 +1,7 @@
 # 1. TO-DO List with Prioritization
 
-In this project, I developed a TO-DO List with Prioritization using React for the frontend, Tailwind CSS for styling, and Shadcn UI for enhanced UI components.
+In this project, I developed a TO-DO List with Prioritization using React for the frontend, Tailwind CSS for styling,
+and Shadcn UI for enhanced UI components.
 
 ### Method 1 - Using Form
 
@@ -50,7 +51,8 @@ Please list your **GitHub** and **Linkedin** handles if you feel comfortable doi
 
 ## 5 Extra Bonus Points
 
-Link to any bonus activities you did such as solving GitHub Issues or posting to Dev.to, Twitter, etc related to your project and CopilotKit.
+Link to any bonus activities you did such as solving GitHub Issues or posting to Dev.to, Twitter, etc related to your
+project and CopilotKit.
 
 - A dev.to blog link - [Link](https://dev.to/vaishnavi_raykar/priority-based-todo-list-4ap6)
 

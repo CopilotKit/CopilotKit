@@ -150,21 +150,25 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
-[data-copilotkit] .prose
+[data-copilotkit]
+  .prose
   :where(code):not(
     :where([class~="not-prose"], [class~="not-prose"] *)
   )::before {
   content: none;
 }
 
-[data-copilotkit] .prose
+[data-copilotkit]
+  .prose
   :where(code):not(
     :where([class~="not-prose"], [class~="not-prose"] *)
   )::after {
   content: none;
 }
 
-[data-copilotkit] .prose :where(code):not(:where([class~="not-prose"], [class~="not-prose"] *)) {
+[data-copilotkit]
+  .prose
+  :where(code):not(:where([class~="not-prose"], [class~="not-prose"] *)) {
   font-weight: 400;
 }
 
@@ -209,7 +213,8 @@
   color: #749ac8;
 }
 
-[data-copilotkit] .prose
+[data-copilotkit]
+  .prose
   :where(blockquote p:first-of-type):not(
     :where([class~="not-prose"], [class~="not-prose"] *)
   )::before {

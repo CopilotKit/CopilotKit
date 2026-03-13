@@ -183,7 +183,6 @@ export function CopilotChatUserMessage({
   );
 }
 
-// eslint-disable-next-line @typescript-eslint/no-namespace
 export namespace CopilotChatUserMessage {
   export const Container: React.FC<
     React.PropsWithChildren<React.HTMLAttributes<HTMLDivElement>>

@@ -46,17 +46,12 @@ import { cn } from "../../utils";
       <!-- Default layout - exact React DOM structure: div with "flex flex-col" classes -->
       <div [class]="computedClass()">
         <!-- Message iteration - simplified without tool calls -->
-        @for (
-          message of messagesValue();
-          track trackByMessageId($index, message)
-        ) {
+        @for (message of messagesValue(); track trackByMessageId($index, message)) {
           @if (message && message.role === "assistant") {
             <!-- Assistant message with slot support -->
             @if (assistantMessageComponent() || assistantMessageTemplate()) {
               <copilot-slot
-                [slot]="
-                  assistantMessageTemplate() || assistantMessageComponent()
-                "
+                [slot]="assistantMessageTemplate() || assistantMessageComponent()"
                 [context]="mergeAssistantProps(message)"
                 [defaultComponent]="defaultAssistantComponent"
               >
@@ -201,8 +196,6 @@ export class CopilotChatMessageView {
   trackByMessageId(index: number, message: Message): string {
     return message?.id || `index-${index}`;
   }
-
-  constructor() {}
 
   // Event handlers - just pass them through
   handleAssistantThumbsUp(event: { message: Message }): void {

@@ -2,7 +2,10 @@
 
 ## 2. Use Case
 
-FemTracker Agent is an innovative AI-powered women's health tracking platform that leverages cutting-edge multi-agent technology to provide personalized health insights, cycle predictions, and comprehensive wellness monitoring. The system features 8 specialized AI agents that work together to deliver intelligent health assistance, real-time analytics, and WHO-standard health scoring.
+FemTracker Agent is an innovative AI-powered women's health tracking platform that leverages cutting-edge multi-agent
+technology to provide personalized health insights, cycle predictions, and comprehensive wellness monitoring. The system
+features 8 specialized AI agents that work together to deliver intelligent health assistance, real-time analytics, and
+WHO-standard health scoring.
 
 **Key Problems Solved:**
 
@@ -46,14 +49,11 @@ FemTracker Agent is an innovative AI-powered women's health tracking platform th
 
 ## 4. GitHub + YouTube
 
-- [x] GitHub Repo:
-      https://github.com/ChanMeng666/femtracker-agent
+- [x] GitHub Repo: https://github.com/ChanMeng666/femtracker-agent
 
-- [x] Deployed Demo:
-      https://femtracker-agent.vercel.app/
+- [x] Deployed Demo: https://femtracker-agent.vercel.app/
 
-- [x] YouTube:
-      https://youtu.be/VVCQKmeEtRs?si=j74lzM_UfeACgYKu
+- [x] YouTube: https://youtu.be/VVCQKmeEtRs?si=j74lzM_UfeACgYKu
 
 Note: Include a screenshot of your demo in action
 ![FemTracker Agent Demo](https://img.youtube.com/vi/VVCQKmeEtRs/maxresdefault.jpg)
@@ -72,17 +72,22 @@ Note: Include a screenshot of your demo in action
 
 ### AI-Powered Women's Health Companion
 
-An innovative women's health tracking platform that leverages cutting-edge AI multi-agent technology to provide personalized health insights, cycle predictions, and comprehensive wellness monitoring.
+An innovative women's health tracking platform that leverages cutting-edge AI multi-agent technology to provide
+personalized health insights, cycle predictions, and comprehensive wellness monitoring.
 
 **Built with CopilotKit for seamless conversational AI experience**
 
-[🚀 Live Demo](https://femtracker-agent.vercel.app/) · [📖 Documentation](https://github.com/ChanMeng666/femtracker-agent) · [🐛 Issues](https://github.com/ChanMeng666/femtracker-agent/issues)
+[🚀 Live Demo](https://femtracker-agent.vercel.app/) ·
+[📖 Documentation](https://github.com/ChanMeng666/femtracker-agent) ·
+[🐛 Issues](https://github.com/ChanMeng666/femtracker-agent/issues)
 
 </div>
 
 ## 🌟 Introduction
 
-FemTracker Agent is a cutting-edge women's health companion that combines the power of AI multi-agent systems with comprehensive health tracking. Built with **CopilotKit integration**, it features 8 specialized AI agents that provide personalized health insights, cycle predictions, and wellness monitoring through natural language conversations.
+FemTracker Agent is a cutting-edge women's health companion that combines the power of AI multi-agent systems with
+comprehensive health tracking. Built with **CopilotKit integration**, it features 8 specialized AI agents that provide
+personalized health insights, cycle predictions, and wellness monitoring through natural language conversations.
 
 ## ✨ Key Features
 
@@ -339,7 +344,8 @@ We welcome contributions to advance women's health technology:
 
 ## 📄 License
 
-This project is licensed under the MIT License - see the [LICENSE](https://github.com/ChanMeng666/femtracker-agent/blob/main/LICENSE) file for details.
+This project is licensed under the MIT License - see the
+[LICENSE](https://github.com/ChanMeng666/femtracker-agent/blob/main/LICENSE) file for details.
 
 ## 🙏 Acknowledgments
 
