@@ -24,15 +24,17 @@ export const POST = async (req: NextRequest) => {
       agents: { default: defaultAgent },
       a2ui: {
         injectA2UITool: true,
-        schemas: {
-          // Streaming A2UI: schema emitted at tool call start, data streams progressively
-          search_flights_streaming: {
-            surfaceId: "flight-search-streaming",
-            root: "root",
-            components: flightSchema,
-            dataKey: "flights",
+        streamingSurfaces: [
+          {
+            toolName: "search_flights_streaming",
+            surface: {
+              surfaceId: "flight-search-streaming",
+              root: "root",
+              components: flightSchema,
+              dataKey: "flights",
+            },
           },
-        },
+        ],
       },
       mcpApps: {
         servers: [
