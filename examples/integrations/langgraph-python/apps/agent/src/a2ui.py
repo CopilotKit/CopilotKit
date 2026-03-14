@@ -5,7 +5,14 @@ A2UI helper — converts schema + data into A2UI operations JSON.
 from __future__ import annotations
 
 import json
+from pathlib import Path
 from typing import Any
+
+
+def load_schema(path: str | Path) -> list[dict[str, Any]]:
+    """Load an A2UI component schema from a JSON file."""
+    with open(path) as f:
+        return json.load(f)
 
 
 def _to_typed_value(value: Any) -> dict[str, Any]:

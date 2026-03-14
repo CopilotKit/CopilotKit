@@ -1,0 +1,270 @@
+[
+  {
+    "id": "root",
+    "component": {
+      "Card": {
+        "child": "main-column"
+      }
+    }
+  },
+  {
+    "id": "main-column",
+    "component": {
+      "Column": {
+        "children": {
+          "explicitList": [
+            "header-row",
+            "route-row",
+            "divider",
+            "times-row"
+          ]
+        },
+        "gap": "small",
+        "alignment": "stretch"
+      }
+    }
+  },
+  {
+    "id": "header-row",
+    "component": {
+      "Row": {
+        "children": {
+          "explicitList": [
+            "header-left",
+            "date"
+          ]
+        },
+        "distribution": "spaceBetween",
+        "alignment": "center"
+      }
+    }
+  },
+  {
+    "id": "header-left",
+    "component": {
+      "Row": {
+        "children": {
+          "explicitList": [
+            "flight-indicator",
+            "flight-number"
+          ]
+        },
+        "gap": "small",
+        "alignment": "center"
+      }
+    }
+  },
+  {
+    "id": "flight-indicator",
+    "component": {
+      "Icon": {
+        "name": {
+          "literalString": "flight"
+        }
+      }
+    }
+  },
+  {
+    "id": "flight-number",
+    "component": {
+      "Text": {
+        "text": {
+          "path": "/flightNumber"
+        },
+        "usageHint": "h3"
+      }
+    }
+  },
+  {
+    "id": "date",
+    "component": {
+      "Text": {
+        "text": {
+          "path": "/date"
+        },
+        "usageHint": "caption"
+      }
+    }
+  },
+  {
+    "id": "route-row",
+    "component": {
+      "Row": {
+        "children": {
+          "explicitList": [
+            "origin",
+            "arrow",
+            "destination"
+          ]
+        },
+        "gap": "small",
+        "alignment": "center"
+      }
+    }
+  },
+  {
+    "id": "origin",
+    "component": {
+      "Text": {
+        "text": {
+          "path": "/origin"
+        },
+        "usageHint": "h2"
+      }
+    }
+  },
+  {
+    "id": "arrow",
+    "component": {
+      "Text": {
+        "text": {
+          "literalString": "→"
+        },
+        "usageHint": "h2"
+      }
+    }
+  },
+  {
+    "id": "destination",
+    "component": {
+      "Text": {
+        "text": {
+          "path": "/destination"
+        },
+        "usageHint": "h2"
+      }
+    }
+  },
+  {
+    "id": "divider",
+    "component": {
+      "Divider": {}
+    }
+  },
+  {
+    "id": "times-row",
+    "component": {
+      "Row": {
+        "children": {
+          "explicitList": [
+            "departure-col",
+            "status-col",
+            "arrival-col"
+          ]
+        },
+        "distribution": "spaceBetween"
+      }
+    }
+  },
+  {
+    "id": "departure-col",
+    "component": {
+      "Column": {
+        "children": {
+          "explicitList": [
+            "departure-label",
+            "departure-time"
+          ]
+        },
+        "alignment": "start",
+        "gap": "none"
+      }
+    }
+  },
+  {
+    "id": "departure-label",
+    "component": {
+      "Text": {
+        "text": {
+          "literalString": "Departs"
+        },
+        "usageHint": "caption"
+      }
+    }
+  },
+  {
+    "id": "departure-time",
+    "component": {
+      "Text": {
+        "text": {
+          "path": "/departureTime"
+        },
+        "usageHint": "h3"
+      }
+    }
+  },
+  {
+    "id": "status-col",
+    "component": {
+      "Column": {
+        "children": {
+          "explicitList": [
+            "status-label",
+            "status-value"
+          ]
+        },
+        "alignment": "center",
+        "gap": "none"
+      }
+    }
+  },
+  {
+    "id": "status-label",
+    "component": {
+      "Text": {
+        "text": {
+          "literalString": "Status"
+        },
+        "usageHint": "caption"
+      }
+    }
+  },
+  {
+    "id": "status-value",
+    "component": {
+      "Text": {
+        "text": {
+          "path": "/status"
+        },
+        "usageHint": "body"
+      }
+    }
+  },
+  {
+    "id": "arrival-col",
+    "component": {
+      "Column": {
+        "children": {
+          "explicitList": [
+            "arrival-label",
+            "arrival-time"
+          ]
+        },
+        "alignment": "end",
+        "gap": "none"
+      }
+    }
+  },
+  {
+    "id": "arrival-label",
+    "component": {
+      "Text": {
+        "text": {
+          "literalString": "Arrives"
+        },
+        "usageHint": "caption"
+      }
+    }
+  },
+  {
+    "id": "arrival-time",
+    "component": {
+      "Text": {
+        "text": {
+          "path": "/arrivalTime"
+        },
+        "usageHint": "h3"
+      }
+    }
+  }
+]
