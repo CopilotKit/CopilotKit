@@ -10,7 +10,9 @@
     "prepare": "husky",
     "check-links": "node scripts/check-broken-links.js",
     "verify-broken-links": "node scripts/verify-broken-links.js",
-    "generate": "node scripts/generate-integration-features.mjs",
+    "generate:integration-features": "node scripts/generate-integration-features.mjs",
+    "generate:skills": "node scripts/generate-skills.mjs",
+    "generate": "npm run generate:integration-features && npm run generate:skills",
     "predev": "npm run generate",
     "prebuild": "npm run generate && npm run check-links"
   },
