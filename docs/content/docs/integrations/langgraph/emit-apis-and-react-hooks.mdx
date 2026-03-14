@@ -1,0 +1,149 @@
+---
+title: "Emit APIs and React Hooks"
+icon: "lucide/Workflow"
+description: "How LangGraph emit APIs map to CopilotKit React v2 hooks, with persistence and lifecycle patterns."
+hideTOC: true
+---
+
+import { Tabs, Tab } from "fumadocs-ui/components/tabs";
+
+## Why this guide exists
+
+This page explains how backend LangGraph emit APIs and frontend React v2 hooks work together in one place.
+
+The key mental model is:
+
+- **Emit APIs** are for real-time streaming updates.
+- **Returned state/messages** are your source of truth after node completion.
+
+If something is emitted but not persisted in final state/messages, it can disappear after refresh or after the node finishes.
+
+## Behavior Matrix
+
+| Backend behavior | Typical frontend path | Persists by default | Best use |
+|---|---|---|---|
+| Return tool calls/messages in node output | `useRenderToolCall` pipeline (`useRenderTool`, `useComponent`, `useFrontendTool` renderers) | Yes, when stored in `messages` | Durable chat history and reproducible UI |
+| `copilotkit_emit_tool_call(config, name, args)` | Same tool-rendering pipeline (matching tool name) | No (unless also returned in final `messages`) | Ephemeral progress cards and transient UI |
+| `copilotkit_emit_message(config, message)` | Chat message stream | No (unless also returned in final `messages`) | Mid-node status updates |
+| `copilotkit_emit_state(config, state)` | `useAgent().agent.state`, state renderers | No (until next final state snapshot) | Predictive state and side panels |
+| `copilotkit_customize_config(..., emit_messages/emit_tool_calls)` | Filters what is streamed to UI | N/A | Control chat/tool visibility |
+
+## Hook Lifecycles
+
+### `useComponent`
+
+- Convenience wrapper around `useFrontendTool` for UI rendering.
+- Registers a renderer by **tool name**.
+- Use this when you only need UI rendering from tool args.
+
+### `useFrontendTool`
+
+- Registers both a **handler** and optional **render** component.
+- Handler executes client-side when a matching tool call is executed in the frontend tool pipeline.
+- If you need side effects, make handler logic idempotent.
+
+### `useRenderToolCall`
+
+- Low-level renderer resolver used by chat components.
+- Resolves matching named renderer first, then wildcard (`"*"`).
+- Use when building custom chat UIs.
+
+## Production Patterns
+
+<Steps>
+  <Step>
+    ### Pattern A: Persisted generative UI
+
+    Use normal tool calling and ensure final state returns the tool calls/messages you want to keep in history.
+
+    <Tabs groupId="language_langgraph_emit_hooks" items={['Python', 'TypeScript']} default="Python" persist>
+      <Tab value="Python">
+        ```python title="agent.py"
+        async def chat_node(state: AgentState, config: RunnableConfig):
+            response = await llm_with_tools.ainvoke([
+                SystemMessage(content="You are a helpful assistant"),
+                *state["messages"],
+            ], config=config)
+
+            # Persisted output: survives refresh/thread reload
+            return {"messages": [response]}
+        ```
+      </Tab>
+      <Tab value="TypeScript">
+        ```tsx title="app/page.tsx"
+        import { useComponent } from "@copilotkit/react-core/v2";
+        import { z } from "zod";
+
+        useComponent({
+          name: "get_weather",
+          parameters: z.object({ location: z.string() }),
+          render: ({ location }) => <p>Weather requested for {location}</p>,
+        });
+        ```
+      </Tab>
+    </Tabs>
+  </Step>
+
+  <Step>
+    ### Pattern B: Transient progress without polluting history
+
+    Emit interim updates for UX responsiveness, then return only the final result in `messages`.
+
+    ```python title="agent.py"
+    from copilotkit.langgraph import copilotkit_emit_message, copilotkit_emit_tool_call
+
+    async def long_running_node(state: AgentState, config: RunnableConfig):
+        await copilotkit_emit_message(config, "Starting research...")
+        await copilotkit_emit_tool_call(config, name="ProgressCard", args={"step": "Gathering sources"})
+
+        # ... long task ...
+
+        final_text = "Research complete."
+        return {
+            "messages": [AIMessage(content=final_text)]
+        }
+    ```
+  </Step>
+
+  <Step>
+    ### Pattern C: Side-panel state streaming
+
+    Stream in-progress state with `copilotkit_emit_state` and treat final state snapshot as source of truth.
+
+    ```python title="agent.py"
+    from copilotkit.langgraph import copilotkit_emit_state
+
+    async def node(state: AgentState, config: RunnableConfig):
+        state["progress"] = "indexing"
+        await copilotkit_emit_state(config, state)
+
+        state["progress"] = "ranking"
+        await copilotkit_emit_state(config, state)
+
+        # Final persisted state
+        return state
+    ```
+  </Step>
+</Steps>
+
+## Common Pitfalls
+
+- Tool name mismatch between backend call and frontend registration.
+- Streaming disabled via `emit_tool_calls=False` or filtered tool names.
+- Using `invoke()` instead of `ainvoke()` when expecting progressive streaming.
+- Emitting messages/tool calls but not returning persisted state/messages from the node.
+- Registering multiple tools with the same name and assuming all remain active.
+
+## Version Notes (v1 vs v2)
+
+- **v2**: use `useComponent`, `useFrontendTool`, `useRenderTool`, `useRenderToolCall` and Zod schemas.
+- **v1**: equivalent workflows exist, but API surface differs and docs are in the v1 reference section.
+- For new implementations, prefer v2 hooks and use v1 docs only for migration.
+
+## Related
+
+- [LangGraph SDK reference (`copilotkit_emit_*`)](/reference/v1/sdk/python/LangGraph)
+- [Frontend Tools](/langgraph/frontend-tools)
+- [Tool Rendering](/langgraph/generative-ui/tool-rendering)
+- [Predictive State Updates](/langgraph/shared-state/predictive-state-updates)
+- [Common LangGraph Issues](/langgraph/coagent-troubleshooting/common-coagent-issues)
