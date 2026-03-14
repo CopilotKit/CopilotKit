@@ -21,19 +21,26 @@ import "@copilotkit/react-core/v2/styles.css";
 ### Own Props
 
 <PropertyReference name="agentId" type="string">
-  ID of the agent to use. Must match an agent configured in `CopilotKitProvider`. Defaults to the provider-level default agent when omitted.
+  ID of the agent to use. Must match an agent configured in
+  `CopilotKitProvider`. Defaults to the provider-level default agent when
+  omitted.
 </PropertyReference>
 
 <PropertyReference name="threadId" type="string">
-  ID of the conversation thread. Pass a specific thread ID to resume an existing conversation or let the agent create a new one.
+  ID of the conversation thread. Pass a specific thread ID to resume an existing
+  conversation or let the agent create a new one.
 </PropertyReference>
 
 <PropertyReference name="labels" type="Partial<CopilotChatLabels>">
-  Partial label overrides for all text strings rendered inside the chat (input placeholder, toolbar buttons, disclaimer text, etc.). Any label you omit falls back to the built-in default.
+  Partial label overrides for all text strings rendered inside the chat (input
+  placeholder, toolbar buttons, disclaimer text, etc.). Any label you omit falls
+  back to the built-in default.
 </PropertyReference>
 
 <PropertyReference name="chatView" type="SlotValue<typeof CopilotChatView>">
-  Slot override for the inner `CopilotChatView` component. Accepts a replacement component, a `className` string merged into the default, or a partial props object to extend the default.
+  Slot override for the inner `CopilotChatView` component. Accepts a replacement
+  component, a `className` string merged into the default, or a partial props
+  object to extend the default.
 </PropertyReference>
 
 <PropertyReference name="onError" type="(event: { error: Error; code: CopilotKitCoreErrorCode; context: Record<string, any> }) => void | Promise<void>">
@@ -52,7 +59,9 @@ import "@copilotkit/react-core/v2/styles.css";
 </PropertyReference>
 
 <PropertyReference name="isModalDefaultOpen" type="boolean">
-  When used inside `CopilotPopup` or `CopilotSidebar`, controls whether the modal starts in the open state. Stored in the chat configuration context so child components can read it.
+  When used inside `CopilotPopup` or `CopilotSidebar`, controls whether the
+  modal starts in the open state. Stored in the chat configuration context so
+  child components can read it.
 </PropertyReference>
 
 ### Inherited CopilotChatView Props
@@ -65,23 +74,33 @@ This means you can pass slot overrides such as `messageView`, `input`, `scrollVi
   Whether the chat scrolls to the bottom automatically when new messages arrive.
 </PropertyReference>
 
-<PropertyReference name="inputProps" type="Partial<Omit<CopilotChatInputProps, 'children'>>">
-  Additional props forwarded to the inner `CopilotChatInput` component. Use this to configure auto-focus, custom submission handlers, transcription callbacks, or tools menus.
+<PropertyReference
+  name="inputProps"
+  type="Partial<Omit<CopilotChatInputProps, 'children'>>"
+>
+  Additional props forwarded to the inner `CopilotChatInput` component. Use this
+  to configure auto-focus, custom submission handlers, transcription callbacks,
+  or tools menus.
 </PropertyReference>
 
-<PropertyReference name="welcomeScreen" type='SlotValue<React.FC<WelcomeScreenProps>> | boolean'>
-  Controls the welcome screen shown when no messages exist. Pass `true` for the default, `false` to disable, a `className` to style the default, or a replacement component.
+<PropertyReference
+  name="welcomeScreen"
+  type="SlotValue<React.FC<WelcomeScreenProps>> | boolean"
+>
+  Controls the welcome screen shown when no messages exist. Pass `true` for the
+  default, `false` to disable, a `className` to style the default, or a
+  replacement component.
 </PropertyReference>
 
 ## Slot System
 
 All slot props inherited from `CopilotChatView` follow the same override pattern. Each slot accepts one of three value types:
 
-| Value | Behavior |
-|-------|----------|
-| **Component** | Replaces the default component entirely. Receives the same props the default would. |
-| **`className` string** | Merged into the default component's class list via `twMerge`. |
-| **Partial props object** | Spread into the default component as additional or overriding props. |
+| Value                    | Behavior                                                                            |
+| ------------------------ | ----------------------------------------------------------------------------------- |
+| **Component**            | Replaces the default component entirely. Receives the same props the default would. |
+| **`className` string**   | Merged into the default component's class list via `twMerge`.                       |
+| **Partial props object** | Spread into the default component as additional or overriding props.                |
 
 Additionally, a `children` render-prop can be used to receive all composed slot elements and arrange them in a custom layout.
 
@@ -125,6 +144,42 @@ function App() {
 }
 ```
 
+### Send an Assistant Message on First Load
+
+If you want the assistant to speak first (for example, a greeting before the user sends anything), seed the conversation once with `agent.addMessage(...)`.
+
+```tsx
+import { useEffect, useRef } from "react";
+import { CopilotChat, useAgent } from "@copilotkit/react-core/v2";
+import "@copilotkit/react-core/v2/styles.css";
+
+function ChatWithInitialAssistantMessage() {
+  const { agent } = useAgent({ agentId: "my-agent" });
+  const hasSeededInitialMessage = useRef(false);
+
+  useEffect(() => {
+    if (hasSeededInitialMessage.current) return;
+    if (agent.messages.length > 0) return;
+
+    agent.addMessage({
+      id: crypto.randomUUID(),
+      role: "assistant",
+      content:
+        "Hi! I can help you plan, summarize, or troubleshoot. What should we start with?",
+    });
+
+    hasSeededInitialMessage.current = true;
+  }, [agent]);
+
+  return <CopilotChat agentId="my-agent" />;
+}
+```
+
+<Callout type="info">
+  On v1, this is usually done via `labels.initial`. In v2, seed the message
+  directly through the agent state as shown above.
+</Callout>
+
 ### Overriding the Chat View Slot
 
 ```tsx
@@ -144,7 +199,7 @@ function App() {
 ## Behavior
 
 - **Agent wiring**: On mount, `CopilotChat` calls `useAgent` with the provided `agentId` and binds the agent's `messages`, `isRunning`, and suggestion state to `CopilotChatView`.
-- **Initial run**: If the agent has not been run yet, `CopilotChat` triggers `runAgent` automatically so the agent can send an initial greeting or set up state.
+- **Initial assistant content**: `CopilotChat` renders whatever is already in `agent.messages`. To show an assistant message before the first user input, seed a message with `agent.addMessage(...)`.
 - **Auto-clear input**: After a message is submitted, the input field is cleared automatically.
 - **Configuration context**: Wraps children in `CopilotChatConfigurationProvider`, making `labels`, `agentId`, `threadId`, and modal state available to all descendant components via `useCopilotChatConfiguration`.
 - **Suggestion management**: Subscribes to the agent's suggestion system and passes suggestions, loading states, and selection callbacks down to `CopilotChatView`.
