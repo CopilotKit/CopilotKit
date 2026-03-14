@@ -369,8 +369,14 @@ export class RunHandler {
 
     let parsedArgs: unknown;
     try {
+      // Treat empty, null, or undefined arguments as an empty object.
+      // Some providers (e.g. @ai-sdk/openai-compatible) may send "" instead of "{}".
       const raw =
-        typeof handlerArgs === "string" ? JSON.parse(handlerArgs) : handlerArgs;
+        handlerArgs === "" || handlerArgs === null || handlerArgs === undefined
+          ? {}
+          : typeof handlerArgs === "string"
+            ? JSON.parse(handlerArgs)
+            : handlerArgs;
       parsedArgs = ensureObjectArgs(raw, toolCall.function.name);
     } catch (error) {
       const parseError =
@@ -539,8 +545,12 @@ export class RunHandler {
     if (wildcardTool?.handler) {
       let parsedArgs: unknown;
       try {
+        // Treat empty, null, or undefined arguments as an empty object (see executeToolHandler).
+        const rawArgs = toolCall.function.arguments;
         parsedArgs = ensureObjectArgs(
-          JSON.parse(toolCall.function.arguments),
+          rawArgs === "" || rawArgs === null || rawArgs === undefined
+            ? {}
+            : JSON.parse(rawArgs),
           toolCall.function.name,
         );
       } catch (error) {
