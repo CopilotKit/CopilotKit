@@ -1,15 +1,18 @@
 """
 Fixed-schema A2UI tool: flight search results.
 
-Demonstrates the full A2UI lifecycle with data binding:
-  1. surfaceUpdate  — define the component tree (no data)
-  2. dataModelUpdate — supply typed data values
+Emits three A2UI operations as separate messages:
+  1. surfaceUpdate  — the component schema (template with data bindings)
+  2. dataModelUpdate — the data contents that fill the template
   3. beginRendering  — signal the client to render
+
+The schema is fixed (same components every time). Only the data changes
+per invocation. The middleware and renderer handle each message type
+independently — schema and data are separate concerns.
 """
 
 from __future__ import annotations
 
-import copy
 import json
 from typing import Any
 
@@ -58,16 +61,6 @@ def _to_contents_entry(key: str, value: Any) -> dict[str, Any]:
 
 def _data_to_contents(data: dict[str, Any]) -> list[dict[str, Any]]:
     return [_to_contents_entry(k, v) for k, v in data.items()]
-
-
-def _merge_schema_data(
-    schema: list[dict[str, Any]],
-    data: dict[str, Any],
-) -> dict[str, Any]:
-    return {
-        "components": copy.deepcopy(schema),
-        "data": _normalize_data(copy.deepcopy(data)),
-    }
 
 
 # ---------------------------------------------------------------------------
@@ -273,26 +266,31 @@ def search_flights(flights: list[Flight]) -> str:
     Each flight must have: id, origin, destination, duration,
     departure, arrival, airline, flightNumber, and price.
     """
-    merged = _merge_schema_data(FLIGHT_SCHEMA, {"flights": flights})
+    # Normalize data for list binding (single dicts become single-element arrays)
+    normalized = _normalize_data({"flights": flights})
 
-    operations = [
-        {
-            "surfaceUpdate": {
-                "surfaceId": SURFACE_ID,
-                "components": merged["components"],
-            }
-        },
-        {
-            "dataModelUpdate": {
-                "surfaceId": SURFACE_ID,
-                "contents": _data_to_contents(merged["data"]),
-            }
-        },
-        {
-            "beginRendering": {
-                "surfaceId": SURFACE_ID,
-                "root": "root",
-            }
-        },
-    ]
-    return json.dumps(operations)
+    # Schema — the fixed component template (same every call)
+    schema = {
+        "surfaceUpdate": {
+            "surfaceId": SURFACE_ID,
+            "components": FLIGHT_SCHEMA,
+        }
+    }
+
+    # Data — the contents that change per invocation
+    data = {
+        "dataModelUpdate": {
+            "surfaceId": SURFACE_ID,
+            "contents": _data_to_contents(normalized),
+        }
+    }
+
+    # Render trigger
+    render = {
+        "beginRendering": {
+            "surfaceId": SURFACE_ID,
+            "root": "root",
+        }
+    }
+
+    return json.dumps([schema, data, render])
