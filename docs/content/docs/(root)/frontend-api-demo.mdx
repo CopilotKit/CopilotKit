@@ -1,0 +1,181 @@
+---
+title: Frontend API Demo
+icon: "lucide/Layers"
+description: One end-to-end example showing how multiple frontend APIs work together.
+---
+
+## Why this page?
+
+The frontend API docs are intentionally modular, but real apps usually combine
+several APIs in one screen.
+
+This guide shows a practical composition of:
+
+- `CopilotKit` (provider)
+- `CopilotSidebar` (UI)
+- `useAgent` (state + messages)
+- `useCopilotKit` (programmatic run)
+- `useAgentContext` (dynamic context)
+- `useFrontendTool` (client-side tools)
+- `useHumanInTheLoop` (approval/confirmation flow)
+
+## End-to-end Example
+
+```tsx title="app/page.tsx"
+"use client";
+
+import { useState } from "react";
+import { z } from "zod";
+import { CopilotKit } from "@copilotkit/react-core";
+import {
+  CopilotSidebar,
+  ToolCallStatus,
+  useAgent,
+  useAgentContext,
+  useCopilotKit,
+  useFrontendTool,
+  useHumanInTheLoop,
+} from "@copilotkit/react-core/v2";
+
+type ProjectState = {
+  activeProjectId?: string;
+  draftSummary?: string;
+};
+
+function Workspace() {
+  const { agent } = useAgent({ agentId: "workspace_agent" });
+  const { copilotkit } = useCopilotKit();
+
+  const [activeProjectId, setActiveProjectId] = useState("project_alpha");
+  const [toast, setToast] = useState<string | null>(null);
+
+  // 1) Context visible to the agent on every run
+  useAgentContext({
+    description: "Currently selected project in the UI",
+    value: { projectId: activeProjectId },
+  });
+
+  // 2) Shared state synchronization with the agent
+  const state = (agent.state ?? {}) as ProjectState;
+  const activeDraftSummary = state.draftSummary ?? "";
+
+  // 3) Frontend tool that updates local UI state
+  useFrontendTool(
+    {
+      name: "openProject",
+      description: "Open a project in the workspace UI by project ID",
+      parameters: z.object({
+        projectId: z.string().describe("The project to open"),
+      }),
+      handler: async ({ projectId }) => {
+        setActiveProjectId(projectId);
+        setToast(`Opened ${projectId}`);
+        return `Opened project ${projectId}`;
+      },
+    },
+    [],
+  );
+
+  // 4) Human approval tool that pauses the agent until the user responds
+  useHumanInTheLoop(
+    {
+      name: "confirmPublish",
+      description: "Ask the user for final approval before publishing",
+      parameters: z.object({
+        title: z.string().describe("Title to publish"),
+        summary: z.string().describe("Summary to publish"),
+      }),
+      render: ({ args, status, respond }) => {
+        if (status !== ToolCallStatus.Executing || !respond) return null;
+
+        return (
+          <div className="rounded border p-3 space-y-2">
+            <p className="font-medium">Ready to publish?</p>
+            <p className="text-sm">Title: {args.title}</p>
+            <p className="text-sm">Summary: {args.summary}</p>
+            <div className="flex gap-2">
+              <button onClick={() => respond({ approved: true })}>
+                Approve
+              </button>
+              <button onClick={() => respond({ approved: false })}>
+                Reject
+              </button>
+            </div>
+          </div>
+        );
+      },
+    },
+    [],
+  );
+
+  // 5) Programmatic run with explicit message + state update
+  const askForSummary = async () => {
+    agent.setState({
+      ...state,
+      activeProjectId,
+    });
+
+    agent.addMessage({
+      id: crypto.randomUUID(),
+      role: "user",
+      content: "Summarize the current project and prepare a publish draft.",
+    });
+
+    await copilotkit.runAgent({ agent });
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-2">
+        <label htmlFor="project-select">Project</label>
+        <select
+          id="project-select"
+          value={activeProjectId}
+          onChange={(e) => setActiveProjectId(e.target.value)}
+        >
+          <option value="project_alpha">project_alpha</option>
+          <option value="project_beta">project_beta</option>
+          <option value="project_gamma">project_gamma</option>
+        </select>
+        <button onClick={askForSummary}>Generate Summary</button>
+      </div>
+
+      {toast ? <p>{toast}</p> : null}
+
+      <pre>
+        {JSON.stringify({ activeProjectId, activeDraftSummary }, null, 2)}
+      </pre>
+
+      <CopilotSidebar
+        agentId="workspace_agent"
+        labels={{ modalHeaderTitle: "Workspace Copilot" }}
+      />
+    </div>
+  );
+}
+
+export default function Page() {
+  return (
+    <CopilotKit runtimeUrl="/api/copilotkit">
+      <Workspace />
+    </CopilotKit>
+  );
+}
+```
+
+## How these APIs work together
+
+1. `useAgentContext` sends lightweight, dynamic UI context to the agent.
+2. `useAgent` keeps UI and agent state synchronized (`agent.state`).
+3. `useFrontendTool` lets the agent trigger client-side actions directly.
+4. `useHumanInTheLoop` handles approvals without breaking the conversation.
+5. `useCopilotKit` + `copilotkit.runAgent` gives explicit control over when runs
+   start.
+6. `CopilotSidebar` provides a ready-made chat UX over the same connected agent.
+
+## See Also
+
+- [`Programmatic Control`](/programmatic-control)
+- [`Frontend Tools`](/frontend-tools)
+- [`Shared State`](/shared-state)
+- [`useAgent`](/reference/v2/hooks/useAgent)
