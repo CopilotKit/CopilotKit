@@ -9,7 +9,7 @@
     "build": "turbo run build",
     "lint": "turbo run lint",
     "clean": "turbo run clean",
-    "local-install": "bash -c 'cd ../../.. && ./node_modules/.bin/nx run-many -t build -p @copilotkit/react-core @copilotkit/react-ui @copilotkit/runtime @copilotkitnext/shared' && bash -c 'cd ../../../.. && cd ag-ui && npx -y pnpm@10 install && npx -y pnpm@10 run build' && COPILOTKIT_LOCAL=1 pnpm install"
+    "local-install": "bash -c 'cd ../../.. && ./node_modules/.bin/nx run-many -t build -p @copilotkit/react-core @copilotkit/react-ui @copilotkit/runtime @copilotkitnext/shared' && bash -c 'cd ../../../.. && cd ag-ui && npx -y pnpm@10 install && npx -y pnpm@10 run build' && COPILOTKIT_LOCAL=1 pnpm install && bash -c 'cp ../../../node_modules/.pnpm/@ag-ui+a2ui-middleware@*/node_modules/@ag-ui/a2ui-middleware/dist/index.js /tmp/_a2ui_bak.js 2>/dev/null; AG_DIST=$(echo ../../../node_modules/.pnpm/@ag-ui+a2ui-middleware@*/node_modules/@ag-ui/a2ui-middleware/dist); cp ../../../../ag-ui/middlewares/a2ui-middleware/dist/index.js $AG_DIST/index.js; cp ../../../../ag-ui/middlewares/a2ui-middleware/dist/index.mjs $AG_DIST/index.mjs 2>/dev/null; echo \"a2ui-middleware: monorepo node_modules patched with local build\"'"
   },
   "devDependencies": {
     "turbo": "^2.5.4",
