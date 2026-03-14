@@ -1,0 +1,139 @@
+---
+title: "Message Persistence"
+icon: "lucide/Database"
+description: Persist Microsoft Agent Framework conversation history and restore it by thread.
+hideTOC: true
+---
+
+import { Tabs, Tab } from "fumadocs-ui/components/tabs";
+
+## What this page covers
+
+This guide explains how to persist conversation history when using Microsoft Agent Framework with CopilotKit.
+
+The core pattern is:
+
+1. Keep a stable `threadId` per conversation on the frontend.
+2. Use that same thread identifier on the backend to load and save messages.
+3. Return persisted messages as part of normal agent execution so reloaded sessions remain consistent.
+
+## Key concepts
+
+- **CopilotKit `threadId`**: conversation identity sent from the UI.
+- **Backend conversation store**: where you persist turns for a thread (SQL/NoSQL/etc.).
+- **Source of truth**: persisted backend history for that thread.
+
+<Callout type="info" title="Important">
+  Emitted intermediate events are great for live UX, but they are not durable unless they are also part of persisted conversation state.
+</Callout>
+
+## Step 1: Set a stable `threadId` in the UI
+
+```tsx title="ui/app/layout.tsx"
+import { CopilotKit } from "@copilotkit/react-core/v2";
+
+export function AppLayout({ children }: { children: React.ReactNode }) {
+  // Replace with a persisted value from your DB or route param.
+  const threadId = "customer-42-support-thread";
+
+  return (
+    <CopilotKit threadId={threadId}>
+      {children}
+    </CopilotKit>
+  );
+}
+```
+
+## Step 2: Persist turns by thread on the backend
+
+Use any store you prefer. The important part is to read and write by the same thread id.
+
+<Tabs groupId="language_microsoft-agent-framework_persistence" items={['.NET', 'Python']} persist>
+  <Tab value=".NET">
+    ```csharp title="agent/Program.cs (pattern)"
+    using Microsoft.Agents.AI;
+    using Microsoft.Agents.AI.Hosting.AGUI.AspNetCore;
+    using Microsoft.Extensions.AI;
+
+    var builder = WebApplication.CreateBuilder(args);
+    builder.Services.AddAGUI();
+    builder.Services.AddSingleton<IConversationStore, SqlConversationStore>();
+
+    var app = builder.Build();
+
+    AIAgent baseAgent = /* create your ChatAgent / AIAgent */;
+    IConversationStore store = app.Services.GetRequiredService<IConversationStore>();
+
+    // Wrap your agent with persistence middleware.
+    AIAgent agent = new PersistingAgent(baseAgent, store);
+
+    app.MapAGUI("/", agent);
+    await app.RunAsync();
+
+    public interface IConversationStore
+    {
+        Task<IReadOnlyList<ChatMessage>> LoadMessagesAsync(string threadId, CancellationToken ct);
+        Task SaveMessagesAsync(string threadId, IEnumerable<ChatMessage> delta, CancellationToken ct);
+    }
+    ```
+  </Tab>
+  <Tab value="Python">
+    ```python title="agent/src/agent.py (pattern)"
+    from __future__ import annotations
+    from typing import Iterable
+
+    from fastapi import FastAPI
+    from agent_framework import ChatAgent, ChatClientProtocol
+    from agent_framework.ag_ui import add_agent_framework_fastapi_endpoint
+
+    class ConversationStore:
+      async def load_messages(self, thread_id: str):
+        # Return previously persisted messages for this thread.
+        ...
+
+      async def save_messages(self, thread_id: str, new_messages: Iterable[object]):
+        # Persist new assistant/tool turns for this thread.
+        ...
+
+    app = FastAPI()
+    store = ConversationStore()
+
+    def create_agent(chat_client: ChatClientProtocol):
+      base_agent = ChatAgent(
+        name="sample_agent",
+        instructions="You are a helpful assistant.",
+        chat_client=chat_client,
+      )
+      # Wrap or compose your agent execution to:
+      # 1) load history by thread id
+      # 2) run agent
+      # 3) persist newly produced turns
+      return base_agent
+
+    add_agent_framework_fastapi_endpoint(
+      app=app,
+      agent=create_agent,
+      path="/",
+    )
+    ```
+  </Tab>
+</Tabs>
+
+## Step 3: Restore history when users reopen a thread
+
+When a user reopens an existing `threadId`, CopilotKit reuses that thread. If your backend store loads persisted messages for the same id, the chat experience resumes naturally.
+
+## Recommended production checklist
+
+- Use deterministic thread ids (per user + workspace + conversation).
+- Save each completed assistant turn and tool result.
+- Keep emitted progress events out of durable history unless intentionally stored.
+- Version your stored payload schema for safe migrations.
+- Add retention policy and PII controls to your conversation store.
+
+## Related
+
+- [Quickstart](/microsoft-agent-framework/quickstart)
+- [Agent App Context](/microsoft-agent-framework/agent-app-context)
+- [Predictive State Updates](/microsoft-agent-framework/shared-state/predictive-state-updates)
+- [Frontend Tools](/microsoft-agent-framework/frontend-tools)
