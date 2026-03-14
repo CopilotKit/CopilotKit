@@ -167,6 +167,8 @@ export function CopilotChatInput({
   const audioRecorderRef =
     useRef<React.ElementRef<typeof CopilotChatAudioRecorder>>(null);
   const slashMenuRef = useRef<HTMLDivElement>(null);
+  const isComposingRef = useRef(false);
+  const compositionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const config = useCopilotChatConfiguration();
   const labels = config?.labels ?? CopilotChatDefaultLabels;
 
@@ -178,6 +180,14 @@ export function CopilotChatInput({
     paddingLeft: 0,
     paddingRight: 0,
   });
+
+  useEffect(() => {
+    return () => {
+      if (compositionTimeoutRef.current !== null) {
+        clearTimeout(compositionTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const commandItems = useMemo(() => {
     const entries: ToolsMenuItem[] = [];
@@ -377,6 +387,20 @@ export function CopilotChatInput({
     [clearInputValue],
   );
 
+  const handleCompositionStart = () => {
+    isComposingRef.current = true;
+  };
+
+  const handleCompositionEnd = () => {
+    // Firefox fires compositionend BEFORE the final keydown (Enter).
+    // Deferring the reset ensures handleKeyDown still sees isComposing=true
+    // for that Enter event, preventing premature message send.
+    compositionTimeoutRef.current = setTimeout(() => {
+      isComposingRef.current = false;
+      compositionTimeoutRef.current = null;
+    }, 0);
+  };
+
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (commandQuery !== null && mode === "input") {
       if (e.key === "ArrowDown") {
@@ -409,7 +433,7 @@ export function CopilotChatInput({
         return;
       }
 
-      if (e.key === "Enter") {
+      if (e.key === "Enter" && !isComposingRef.current && !e.nativeEvent.isComposing) {
         const selected =
           slashHighlightIndex >= 0
             ? filteredCommands[slashHighlightIndex]
@@ -428,7 +452,7 @@ export function CopilotChatInput({
       }
     }
 
-    if (e.key === "Enter" && !e.shiftKey) {
+    if (e.key === "Enter" && !e.shiftKey && !isComposingRef.current && !e.nativeEvent.isComposing) {
       e.preventDefault();
       if (isProcessing) {
         onStop?.();
@@ -464,6 +488,8 @@ export function CopilotChatInput({
     value: resolvedValue,
     onChange: handleChange,
     onKeyDown: handleKeyDown,
+    onCompositionStart: handleCompositionStart,
+    onCompositionEnd: handleCompositionEnd,
     autoFocus: autoFocus,
     className: twMerge(
       "cpk:w-full cpk:py-3",
