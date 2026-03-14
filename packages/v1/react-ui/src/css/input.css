@@ -19,7 +19,7 @@
   border-bottom-right-radius: 0.75rem;
 }
 
-.copilotKitSidebar .copilotKitInputContainer {
+:where(.copilotKitSidebar) .copilotKitInputContainer {
   border-bottom-left-radius: 0;
   border-bottom-right-radius: 0;
 }
@@ -149,4 +149,3 @@ html[style*="color-scheme: dark"],
 body[style*="color-scheme: dark"] .poweredBy {
   color: rgb(69, 69, 69) !important;
 }
-
