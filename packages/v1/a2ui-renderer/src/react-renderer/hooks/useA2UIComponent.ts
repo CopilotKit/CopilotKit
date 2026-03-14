@@ -208,6 +208,9 @@ export function useA2UIComponent<T extends Types.AnyComponentNode>(
           surfaceId,
           timestamp: new Date().toISOString(),
           context: actionContext,
+          // Include the data context path so optimistic updates can target
+          // the specific list item's data (e.g., "/flights/0")
+          dataContextPath: node.dataContextPath,
         },
       });
     },

@@ -1,0 +1,48 @@
+[
+  {
+    "id": "root",
+    "component": {
+      "Card": {
+        "child": "booked-col"
+      }
+    }
+  },
+  {
+    "id": "booked-col",
+    "component": {
+      "Column": {
+        "children": {
+          "explicitList": ["booked-icon", "booked-title", "booked-detail"]
+        },
+        "alignment": "center",
+        "gap": "small"
+      }
+    }
+  },
+  {
+    "id": "booked-icon",
+    "component": {
+      "Icon": {
+        "name": { "literalString": "checkCircle" }
+      }
+    }
+  },
+  {
+    "id": "booked-title",
+    "component": {
+      "Text": {
+        "text": { "path": "/title" },
+        "usageHint": "h2"
+      }
+    }
+  },
+  {
+    "id": "booked-detail",
+    "component": {
+      "Text": {
+        "text": { "path": "/detail" },
+        "usageHint": "caption"
+      }
+    }
+  }
+]

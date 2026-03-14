@@ -112,6 +112,12 @@ export interface CopilotKitProviderProps {
      * When omitted, the built-in `viewerTheme` from `@copilotkit/a2ui-renderer` is used.
      */
     theme?: A2UITheme;
+    /**
+     * Handler called when an A2UI action is dispatched (e.g., button click).
+     * Return an array of A2UI operations (e.g., dataModelUpdate) to apply
+     * optimistically on the frontend before the action reaches the agent.
+     */
+    onAction?: import("../a2ui/A2UIMessageRenderer").A2UIActionHandler;
   };
   /**
    * Default anchor corner for the inspector button and window.
@@ -234,7 +240,10 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
 
     if (runtimeA2UIEnabled) {
       renderers.unshift(
-        createA2UIMessageRenderer({ theme: a2ui?.theme ?? viewerTheme }),
+        createA2UIMessageRenderer({
+          theme: a2ui?.theme ?? viewerTheme,
+          onAction: a2ui?.onAction,
+        }),
       );
     }
 
