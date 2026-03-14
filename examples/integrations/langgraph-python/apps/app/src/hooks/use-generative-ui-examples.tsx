@@ -69,6 +69,8 @@ export const useGenerativeUIExamples = () => {
   const ignoredTools = [
     // generate_form is rendered by A2UI's declarative surface system, not as a tool call
     "generate_form",
+    // search_flights is rendered by A2UI's declarative surface system (fixed schema with data binding)
+    "search_flights",
     // log_a2ui_event is an internal A2UI event tracker, not meaningful to display to users
     "log_a2ui_event",
   ];

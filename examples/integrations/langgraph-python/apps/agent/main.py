@@ -10,10 +10,11 @@ from langchain_openai import ChatOpenAI
 from src.query import query_data
 from src.todos import AgentState, todo_tools
 from src.form import generate_form
+from src.a2ui_fixed import search_flights
 
 agent = create_agent(
     model="openai:gpt-4.1",
-    tools=[query_data, *todo_tools, generate_form],
+    tools=[query_data, *todo_tools, generate_form, search_flights],
     middleware=[CopilotKitMiddleware()],
     state_schema=AgentState,
     system_prompt="""
