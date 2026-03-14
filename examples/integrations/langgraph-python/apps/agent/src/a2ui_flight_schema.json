@@ -2,6 +2,21 @@
   {
     "id": "root",
     "component": {
+      "List": {
+        "children": {
+          "template": {
+            "componentId": "flight-card",
+            "dataBinding": "/flights"
+          }
+        },
+        "direction": "horizontal",
+        "alignment": "start"
+      }
+    }
+  },
+  {
+    "id": "flight-card",
+    "component": {
       "Card": {
         "child": "main-column"
       }
