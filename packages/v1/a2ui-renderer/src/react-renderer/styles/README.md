@@ -1,12 +1,11 @@
 # A2UI React Renderer — Style Architecture
 
-The React renderer uses Light DOM (regular HTML elements), unlike the Lit
-renderer which uses Shadow DOM with built-in style encapsulation. This means
-all CSS lives in the global document scope and must be carefully organized to
-avoid conflicts with host-app stylesheets.
+The React renderer uses Light DOM (regular HTML elements), unlike the Lit renderer which uses Shadow DOM with built-in
+style encapsulation. This means all CSS lives in the global document scope and must be carefully organized to avoid
+conflicts with host-app stylesheets.
 
-All styles are injected into a single `<style id="a2ui-structural-styles">`
-element in the document head via `injectStyles()`.
+All styles are injected into a single `<style id="a2ui-structural-styles">` element in the document head via
+`injectStyles()`.
 
 ## Style Layers (lowest → highest priority)
 
@@ -20,17 +19,14 @@ element in the document head via `injectStyles()`.
 }
 ```
 
-**Purpose:** Restores browser-default styles (heading margins, list styles,
-form appearance, etc.) inside `.a2ui-surface`. Without this, host-app CSS
-resets like Tailwind preflight strip defaults that the renderer expects.
+**Purpose:** Restores browser-default styles (heading margins, list styles, form appearance, etc.) inside
+`.a2ui-surface`. Without this, host-app CSS resets like Tailwind preflight strip defaults that the renderer expects.
 
-**Why it works:** CSS `@layer` styles have the lowest author-level priority.
-Every other A2UI style is unlayered and automatically overrides the reset.
-The `:where()` wrapper also zeroes specificity for extra safety.
+**Why it works:** CSS `@layer` styles have the lowest author-level priority. Every other A2UI style is unlayered and
+automatically overrides the reset. The `:where()` wrapper also zeroes specificity for extra safety.
 
-**Why it's needed:** The Lit renderer doesn't need this because Shadow DOM
-isolates its elements from external stylesheets. The React renderer uses
-Light DOM, so host-app resets leak in.
+**Why it's needed:** The Lit renderer doesn't need this because Shadow DOM isolates its elements from external
+stylesheets. The React renderer uses Light DOM, so host-app resets leak in.
 
 ### 2. Structural / Utility Classes (`structuralStyles`)
 
@@ -52,14 +48,14 @@ Utility classes shared between all renderers, generated from `web_core`:
 
 **Specificity:** Single class selector — `(0,1,0)`.
 
-These classes are applied to HTML elements via the theme's class maps
-(e.g. `{ 'layout-p-2': true, 'color-bgc-p30': true }`), which components
-convert to `className` strings using `classMapToString()`.
+These classes are applied to HTML elements via the theme's class maps (e.g.
+`{ 'layout-p-2': true, 'color-bgc-p30': true }`), which components convert to `className` strings using
+`classMapToString()`.
 
 ### 3. Component-Specific Styles (`componentSpecificStyles`)
 
-Hand-written CSS that replicates each Lit component's `static styles`.
-Covers host-level layout (`display`, `flex`) and element-level defaults.
+Hand-written CSS that replicates each Lit component's `static styles`. Covers host-level layout (`display`, `flex`) and
+element-level defaults.
 
 **Two specificity tiers:**
 
@@ -81,13 +77,13 @@ Covers host-level layout (`display`, `flex`) and element-level defaults.
   }
   ```
 
-  `:where()` zeroes the wrapper specificity so that theme utility classes
-  (specificity `(0,1,0)`) can override element defaults.
+  `:where()` zeroes the wrapper specificity so that theme utility classes (specificity `(0,1,0)`) can override element
+  defaults.
 
 ### 4. Theme Class Maps (`theme.components.*`)
 
-Applied per-component as CSS class names. The theme object provides
-`Record<string, boolean>` maps that reference utility classes from layer 2.
+Applied per-component as CSS class names. The theme object provides `Record<string, boolean>` maps that reference
+utility classes from layer 2.
 
 ```typescript
 // From the theme object
@@ -104,14 +100,12 @@ Components merge these with `classMapToString()` and apply as `className`:
 
 ### 5. Theme Element Styles (`theme.elements.*`)
 
-Applied to raw HTML elements rendered inside components (e.g. `<h1>`,
-`<input>`, `<button>` inside Text, TextField, Button). Same mechanism
-as component class maps.
+Applied to raw HTML elements rendered inside components (e.g. `<h1>`, `<input>`, `<button>` inside Text, TextField,
+Button). Same mechanism as component class maps.
 
 ### 6. Theme Additional Styles (`theme.additionalStyles.*`)
 
-Applied as **inline styles** via React's `style` prop. Used for CSS custom
-properties and direct property overrides.
+Applied as **inline styles** via React's `style` prop. Used for CSS custom properties and direct property overrides.
 
 ```typescript
 // Theme definition
@@ -128,8 +122,7 @@ additionalStyles: {
 
 ### 7. Inline Layout Styles
 
-Components set `--weight` and other layout vars as inline styles based on
-component properties:
+Components set `--weight` and other layout vars as inline styles based on component properties:
 
 ```tsx
 <div className="a2ui-card" style={{ '--weight': node.weight }}>
@@ -139,9 +132,8 @@ component properties:
 
 ## CSS Variable Dependencies
 
-The renderer expects color palette variables to be defined by the host
-application on `:root` or a parent element. These are consumed by the
-utility classes:
+The renderer expects color palette variables to be defined by the host application on `:root` or a parent element. These
+are consumed by the utility classes:
 
 ```css
 /* Neutral */     --n-0 through --n-100, --nv-0 through --nv-100
@@ -151,9 +143,8 @@ utility classes:
 /* Error */       --e-0 through --e-100
 ```
 
-In the Lit renderer, `@copilotkit/a2ui-renderer` bundles these internally.
-For the React renderer, the host app must provide them (e.g. via
-`a2ui-palette.css`).
+In the Lit renderer, `@copilotkit/a2ui-renderer` bundles these internally. For the React renderer, the host app must
+provide them (e.g. via `a2ui-palette.css`).
 
 ## Override Priority Summary
 
@@ -168,10 +159,9 @@ For the React renderer, the host app must provide them (e.g. via
   Lowest  ───┘
 ```
 
-Note: Component host styles have higher specificity `(0,2,0)` than utility
-classes `(0,1,0)`, but they only set structural properties (`display`,
-`flex`, `overflow`) that theme utilities don't typically target — so there
-is no conflict in practice.
+Note: Component host styles have higher specificity `(0,2,0)` than utility classes `(0,1,0)`, but they only set
+structural properties (`display`, `flex`, `overflow`) that theme utilities don't typically target — so there is no
+conflict in practice.
 
 ## File Overview
 

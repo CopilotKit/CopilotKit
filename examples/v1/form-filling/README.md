@@ -1,6 +1,7 @@
 # Form-Filling Copilot
 
-Transform tedious form-filling into natural conversations. Your AI assistant asks the right questions, understands context, and completes forms for you—no more field-by-field drudgery.
+Transform tedious form-filling into natural conversations. Your AI assistant asks the right questions, understands
+context, and completes forms for you—no more field-by-field drudgery.
 
 [Click here for a running example](https://copilotkit.ai/examples/form-filling-copilot)
 
@@ -110,7 +111,8 @@ export default function RootLayout({
 
 ### CopilotReadable
 
-This provides the form fields and their current values to the AI so it understands the current state of the form and session.
+This provides the form fields and their current values to the AI so it understands the current state of the form and
+session.
 
 <em>[components/IncidentReportForm.tsx](./components/IncidentReportForm.tsx)</em>
 
@@ -164,6 +166,8 @@ useCopilotAction({
 
 Ready to build your own AI-powered form assistant? Check out these resources:
 
-[CopilotKit Documentation](https://docs.copilotkit.ai) - Comprehensive guides and API references to help you build your own copilots.
+[CopilotKit Documentation](https://docs.copilotkit.ai) - Comprehensive guides and API references to help you build your
+own copilots.
 
-[CopilotKit Cloud](https://cloud.copilotkit.ai/) - Deploy your copilots with our managed cloud solution for production-ready AI assistants.
+[CopilotKit Cloud](https://cloud.copilotkit.ai/) - Deploy your copilots with our managed cloud solution for
+production-ready AI assistants.

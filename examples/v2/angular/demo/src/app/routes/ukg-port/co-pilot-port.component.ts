@@ -10,7 +10,7 @@ import { CustomChatInputComponent } from "../custom-input/custom-chat-input.comp
   standalone: true,
   imports: [CopilotChatView],
   template: `
-    <div style="display:block;height:100vh;">
+    <div style="display: block; height: 100vh">
       <copilot-chat-view [inputComponent]="customInput"></copilot-chat-view>
     </div>
   `,

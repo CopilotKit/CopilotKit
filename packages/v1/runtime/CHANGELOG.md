@@ -217,8 +217,7 @@
   - useRenderTool
   - useDefaultRenderTool
 
-  Also, fixing issues with styles not being
-  properly scoped for tailwind.
+  Also, fixing issues with styles not being properly scoped for tailwind.
 
 ### Patch Changes
 
@@ -261,8 +260,7 @@
   - useRenderTool
   - useDefaultRenderTool
 
-  Also, fixing issues with styles not being
-  properly scoped for tailwind.
+  Also, fixing issues with styles not being properly scoped for tailwind.
 
 ### Patch Changes
 
@@ -1110,7 +1108,8 @@
 ### Patch Changes
 
 - 1abcecf: - fix: add graphqlContext to constructAGUIRemoteAction for enhanced agent properties
-  - Updated constructAGUIRemoteAction to accept graphqlContext, allowing forwarding of properties like Authorization token to the agent.
+  - Updated constructAGUIRemoteAction to accept graphqlContext, allowing forwarding of properties like Authorization
+    token to the agent.
   - Modified setupRemoteActions to include graphqlContext in the parameters.
 
 - 6f2f54b: - fix(openai): update maxTokens parameter to max_completion_tokens in OpenAIAdapter
@@ -1211,7 +1210,8 @@
 ### Patch Changes
 
 - 1abcecf: - fix: add graphqlContext to constructAGUIRemoteAction for enhanced agent properties
-  - Updated constructAGUIRemoteAction to accept graphqlContext, allowing forwarding of properties like Authorization token to the agent.
+  - Updated constructAGUIRemoteAction to accept graphqlContext, allowing forwarding of properties like Authorization
+    token to the agent.
   - Modified setupRemoteActions to include graphqlContext in the parameters.
   - @copilotkit/shared@1.10.0-next.1
 
@@ -1298,7 +1298,9 @@
 - 10345a5: - feat: structured error visibility system for streaming errors
 - 8ef8199: - fix: use latest agui dependencies to include required fixes
 - 20e8c3c: - fix(anthropic-adapter): resolve infinite loop caused by duplicate result messages
-- 9169ad7: - feat: add onTrace handler for comprehensive debugging and observability - Add CopilotTraceEvent interfaces with rich debugging context, implement runtime-side tracing with publicApiKey gating, add UI-side error tracing, include comprehensive test coverage, and fix tsup build config to exclude test files
+- 9169ad7: - feat: add onTrace handler for comprehensive debugging and observability - Add CopilotTraceEvent interfaces
+  with rich debugging context, implement runtime-side tracing with publicApiKey gating, add UI-side error tracing,
+  include comprehensive test coverage, and fix tsup build config to exclude test files
   - fix: extract publicApiKey for all requests + trace GraphQL errors
 - fc6b653: - Fix extract toolParameters in extractParametersFromSchema
   - Ensures consistency in how parameters are passed to the execute function across the codebase.
@@ -1477,7 +1479,9 @@
 ### Patch Changes
 
 - 9169ad7: - feat: add onTrace handler for runtime and UI error/event tracking
-- 9169ad7: - feat: add onTrace handler for comprehensive debugging and observability - Add CopilotTraceEvent interfaces with rich debugging context, implement runtime-side tracing with publicApiKey gating, add UI-side error tracing, include comprehensive test coverage, and fix tsup build config to exclude test files
+- 9169ad7: - feat: add onTrace handler for comprehensive debugging and observability - Add CopilotTraceEvent interfaces
+  with rich debugging context, implement runtime-side tracing with publicApiKey gating, add UI-side error tracing,
+  include comprehensive test coverage, and fix tsup build config to exclude test files
   - fix: extract publicApiKey for all requests + trace GraphQL errors
 - Updated dependencies [9169ad7]
 - Updated dependencies [9169ad7]
@@ -1672,7 +1676,8 @@
 - 2b89ad7: - fix: use latest claude 3.5 as default model instead of specific
   - chore: add missing variable assignment in llm provider docs
   - chore: add missing call to fetch azure api key in docs
-- f419d99: - fix: Implement allowlist approach to prevent duplicate tool_result blocks in API calls to OpenAI and Anthropic
+- f419d99: - fix: Implement allowlist approach to prevent duplicate tool_result blocks in API calls to OpenAI and
+  Anthropic
   - @copilotkit/shared@1.8.12
 
 ## 1.8.12-next.6
@@ -1691,7 +1696,8 @@
 
 ### Patch Changes
 
-- f419d99: - fix: Implement allowlist approach to prevent duplicate tool_result blocks in API calls to OpenAI and Anthropic
+- f419d99: - fix: Implement allowlist approach to prevent duplicate tool_result blocks in API calls to OpenAI and
+  Anthropic
   - @copilotkit/shared@1.8.12-next.4
 
 ## 1.8.12-next.3
@@ -2929,7 +2935,8 @@
 - 1721cbd: Add convertActionsToDynamicStructuredTools to sdk-js
 - CopilotKit Core:
   - Improved error messages and overall logs
-  - `useCopilotAction.renderAndAwait` renamed to `.renderAndAwaitForResponse` (backwards compatible, will be deprecated in the future)
+  - `useCopilotAction.renderAndAwait` renamed to `.renderAndAwaitForResponse` (backwards compatible, will be deprecated
+    in the future)
   - Improved scrolling behavior. It is now possible to scroll up during LLM response generation
   - Added Azure OpenAI integration
   - Updated interfaces for better developer ergonomics
@@ -3029,7 +3036,8 @@
 CopilotKit Core:
 
 - Improved error messages and overall logs
-- `useCopilotAction.renderAndAwait` renamed to `.renderAndAwaitForResponse` (backwards compatible, will be deprecated in the future)
+- `useCopilotAction.renderAndAwait` renamed to `.renderAndAwaitForResponse` (backwards compatible, will be deprecated in
+  the future)
 - Improved scrolling behavior. It is now possible to scroll up during LLM response generation
 - Added Azure OpenAI integration
 - Updated interfaces for better developer ergonomics
@@ -3200,7 +3208,8 @@ CopilotKid Back-end SDK:
 
 ### Patch Changes
 
-- 1. Removes the usage of the `crypto` Node pacakge, instaed uses `uuid`. This ensures that non-Next.js React apps can use CopilotKit.
+- 1. Removes the usage of the `crypto` Node pacakge, instaed uses `uuid`. This ensures that non-Next.js React apps can
+     use CopilotKit.
   2. Fixes Nest.js runtime docs
 
 - Updated dependencies
@@ -3291,7 +3300,8 @@ CopilotKid Back-end SDK:
   - removes the need to import `styles.css` manually
   - empty `styles.css` included in the build for backwards compatibility
   - uses tsup's `injectStyles` with `postcss` to bundle and minify the CSS, then inject it as a style tag
-  - currently uses my fork of `tsup` where I added support for async function in `injectStyles` (must-have for postcss), a PR from my fork to the main library will follow shortly
+  - currently uses my fork of `tsup` where I added support for async function in `injectStyles` (must-have for postcss),
+    a PR from my fork to the main library will follow shortly
   - remove material-ui, and use `react-icons` for icons (same icons as before)
   - remove unused `IncludedFilesPreview` component
   - updated docs

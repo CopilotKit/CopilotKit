@@ -2,7 +2,11 @@
 
 [TravelTally](https://travel-budget-liart.vercel.app/) - A budgeting and expense management tool for Travel Expenses.
 
-TravelTally is a travel budget planner that allows users to efficiently manage their finances by tracking expenses related to their trips, including airfare, lodging, and activities. Users can monitor their budgets, view how much money they have spent compared to their allocated budget, and receive assistance from a built-in Copilot assistant. The application features a clean, responsive UI built with TailwindCSS, while leveraging React and Redux for robust state management, along with CopilotKit and Shadcn-UI for enhanced functionality and styling.
+TravelTally is a travel budget planner that allows users to efficiently manage their finances by tracking expenses
+related to their trips, including airfare, lodging, and activities. Users can monitor their budgets, view how much money
+they have spent compared to their allocated budget, and receive assistance from a built-in Copilot assistant. The
+application features a clean, responsive UI built with TailwindCSS, while leveraging React and Redux for robust state
+management, along with CopilotKit and Shadcn-UI for enhanced functionality and styling.
 
 ## Name of Issue/Topic
 

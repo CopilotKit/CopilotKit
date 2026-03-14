@@ -6,8 +6,7 @@
 
 <div align=center>
 
-[Docs](https://docs.copilotkit.ai/?ref=github_readme) ·
-[Examples](https://www.copilotkit.ai/examples) ·
+[Docs](https://docs.copilotkit.ai/?ref=github_readme) · [Examples](https://www.copilotkit.ai/examples) ·
 [Copilot Cloud](https://cloud.copilotkit.ai?ref=github_readme) ·
 [Discord](https://discord.gg/6dffbvGU3D?ref=github_readme)
 
@@ -53,16 +52,20 @@ Build **agent-native applications** with generative UI, shared state, and human-
 
 CopilotKit is a best-in-class SDK for building full-stack agentic applications, Generative UI, and chat applications.
 
-We are the company behind the **AG-UI Protocol**, adopted by Google, LangChain, AWS, Microsoft, Mastra, PydanticAI, and more!
+We are the company behind the **AG-UI Protocol**, adopted by Google, LangChain, AWS, Microsoft, Mastra, PydanticAI, and
+more!
 
 https://github.com/user-attachments/assets/de5bcc17-1b51-4092-9a85-42971ecc1f4c
 
 **Features:**
 
 - **Chat UI** – A React-based chat interface that supports message streaming, tool calls, and agent responses.
-- **Backend Tool Rendering** – Enables agents to call backend tools that return UI components rendered directly in the client.
-- **Generative UI** – Allows agents to generate and update UI components dynamically at runtime based on user intent and agent state.
-- **Shared State** – A synchronized state layer that both agents and UI components can read from and write to in real time.
+- **Backend Tool Rendering** – Enables agents to call backend tools that return UI components rendered directly in the
+  client.
+- **Generative UI** – Allows agents to generate and update UI components dynamically at runtime based on user intent and
+  agent state.
+- **Shared State** – A synchronized state layer that both agents and UI components can read from and write to in real
+  time.
 - **Human-in-the-Loop** – Lets agents pause execution to request user input, confirmation, or edits before continuing.
 
 https://github.com/user-attachments/assets/55bf6714-62a7-4d5d-9232-07747cc0763b
@@ -106,7 +109,8 @@ This enables:
 
 ## ⭐️ useAgent Hook
 
-The `useAgent` hook is a proper superset of `useCoAgent` and sits directly on AG-UI, giving more control over the agent connection.
+The `useAgent` hook is a proper superset of `useCoAgent` and sits directly on AG-UI, giving more control over the agent
+connection.
 
 ```ts
 // Programmatically access and control your agents
@@ -145,7 +149,8 @@ https://github.com/user-attachments/assets/3cfacac0-4ffd-457a-96f9-d7951e4ab7b6
 
 ## 🖥️ AG-UI: The Agent–User Interaction Protocol
 
-Connect agent workflow to user-facing apps, with deep partnerships and 1st-party integrations across the agentic stack—including LangGraph, CrewAI, and more.
+Connect agent workflow to user-facing apps, with deep partnerships and 1st-party integrations across the agentic
+stack—including LangGraph, CrewAI, and more.
 
 [![AG-UI](https://github.com/user-attachments/assets/a625237a-cfc1-45fc-8d0c-637316b81291)](https://go.copilotkit.ai/ag-ui)
 
@@ -189,10 +194,12 @@ We value all contributions, whether it's through code, documentation, creating d
 Here are a few useful resources to help you get started:
 
 - For code contributions, [CONTRIBUTING.md](./CONTRIBUTING.md).
-- For documentation-related contributions, [check out the documentation contributions guide](https://docs.copilotkit.ai/contributing/docs-contributions?ref=github_readme).
+- For documentation-related contributions,
+  [check out the documentation contributions guide](https://docs.copilotkit.ai/contributing/docs-contributions?ref=github_readme).
 
 - Want to contribute but not sure how? [Join our Discord](https://discord.gg/6dffbvGU3D) and we'll help you out!
 
 ## 📄 License
 
-This repository's source code is available under the [MIT License](https://github.com/CopilotKit/CopilotKit/blob/main/LICENSE).
+This repository's source code is available under the
+[MIT License](https://github.com/CopilotKit/CopilotKit/blob/main/LICENSE).

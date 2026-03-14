@@ -33,8 +33,7 @@ pnpm install
 - Enable Atlas Vector Search
 - Get your connection URI
 
-4. Configure environment variables:
-   Create a `.env` file with:
+4. Configure environment variables: Create a `.env` file with:
 
 ```bash
 OPENAI_API_KEY="your_openai_key"

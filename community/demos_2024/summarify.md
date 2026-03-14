@@ -33,16 +33,15 @@ https://github.com/jainanuj94/summarify
 ## 6. Screenshot
 
 Summarify - Content Summary Tool:
-![image](https://github.com/user-attachments/assets/44b6adca-bffb-4c60-b056-59760e6fcde1)
-Suggestions:
+![image](https://github.com/user-attachments/assets/44b6adca-bffb-4c60-b056-59760e6fcde1) Suggestions:
 ![image](https://github.com/user-attachments/assets/23c6d02c-5dac-4b43-b46e-186928854ca1)
 
 ## 7. Who Are You?
 
-[**GitHub Username:**](https://github.com/jainanuj94)
-[**Twitter Handle:**](https://x.com/jainanuj94)
+[**GitHub Username:**](https://github.com/jainanuj94) [**Twitter Handle:**](https://x.com/jainanuj94)
 [**LinkedIn Profile:**](https://www.linkedin.com/in/anuj-jain-5300448a)
 
 ## 5 Extra Bonus Points
 
-Link to any bonus activities you did such as solving GitHub Issues or posting to Twitter, Dev.to, Medium, etc related to your project and CopilotKit.
+Link to any bonus activities you did such as solving GitHub Issues or posting to Twitter, Dev.to, Medium, etc related to
+your project and CopilotKit.

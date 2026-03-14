@@ -26,8 +26,7 @@ https://github.com/Mayank77maruti/TranslateApp
 
 ## 7. Who Are You?
 
-[Github](https://github.com/Mayank77maruti)
-[Twitter](https://x.com/MayankMoha31086)
+[Github](https://github.com/Mayank77maruti) [Twitter](https://x.com/MayankMoha31086)
 
 ## 5 Extra Bonus Points
 

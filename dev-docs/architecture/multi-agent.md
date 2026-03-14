@@ -1,6 +1,7 @@
 # Multi-Agent Patterns Guide
 
-This guide shows how to use multiple agents in CopilotKit — from basic routing to agent-specific tools and shared context.
+This guide shows how to use multiple agents in CopilotKit — from basic routing to agent-specific tools and shared
+context.
 
 ---
 

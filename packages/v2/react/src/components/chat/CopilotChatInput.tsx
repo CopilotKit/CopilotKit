@@ -1011,7 +1011,6 @@ export function CopilotChatInput({
   );
 }
 
-// eslint-disable-next-line @typescript-eslint/no-namespace
 export namespace CopilotChatInput {
   export const SendButton: React.FC<
     React.ButtonHTMLAttributes<HTMLButtonElement>

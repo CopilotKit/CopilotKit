@@ -2,7 +2,8 @@
 
 [Snippy](https://snippy-self.vercel.app) - A code snippet generator and manager for developers
 
-Snippy is a code snippet manager that allows you to store and manage your code snippets in one place. Snippy uses CopilotKit to provide features for AI-powered code completion, code generation, and automation.
+Snippy is a code snippet manager that allows you to store and manage your code snippets in one place. Snippy uses
+CopilotKit to provide features for AI-powered code completion, code generation, and automation.
 
 ## Name of Issue/Topic
 

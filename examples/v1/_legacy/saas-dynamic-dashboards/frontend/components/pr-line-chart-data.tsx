@@ -62,7 +62,7 @@ export function PRLineChartData({ args }: any) {
 
     return Object.entries(weekMap)
       .map(([week, count]) => ({ week, count }))
-      .sort((a, b) => a.week.localeCompare(b.week));
+      .toSorted((a, b) => a.week.localeCompare(b.week));
   }
 
   const chartColors = [
@@ -123,12 +123,9 @@ export function PRLineChartData({ args }: any) {
 
 const CustomPieTooltip = ({ active, payload }: any) => {
   if (active && payload && payload.length) {
-    debugger;
     const { week, count } = payload[0].payload;
     return (
-      <div className="bg-white p-2 rounded shadow text-black">
-        {`${week} - ${count}`}
-      </div>
+      <div className="bg-white p-2 rounded shadow text-black">{`${week} - ${count}`}</div>
     );
   }
   return null;

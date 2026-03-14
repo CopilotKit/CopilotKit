@@ -94,7 +94,10 @@ export function DataTable({ columns, data }: DataTableProps) {
                             {row.createdAt
                               ? new Date(row.createdAt).toLocaleString(
                                   undefined,
-                                  { dateStyle: "medium", timeStyle: "short" },
+                                  {
+                                    dateStyle: "medium",
+                                    timeStyle: "short",
+                                  },
                                 )
                               : ""}
                           </span>
@@ -107,7 +110,10 @@ export function DataTable({ columns, data }: DataTableProps) {
                             {row.updatedAt
                               ? new Date(row.updatedAt).toLocaleString(
                                   undefined,
-                                  { dateStyle: "medium", timeStyle: "short" },
+                                  {
+                                    dateStyle: "medium",
+                                    timeStyle: "short",
+                                  },
                                 )
                               : ""}
                           </span>

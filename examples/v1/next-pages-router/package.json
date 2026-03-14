@@ -6,7 +6,7 @@
     "example-dev": "next dev",
     "example-build": "next build",
     "example-start": "next start",
-    "lint": "next lint",
+    "lint": "oxlint .",
     "clean": "rm -rf .turbo && rm -rf node_modules && rm -rf dist && rm -rf .next"
   },
   "dependencies": {
@@ -28,9 +28,6 @@
     "@types/react": "^18.2.5",
     "@types/react-dom": "^18.2.4",
     "autoprefixer": "^10.4.13",
-    "eslint": "^8",
-    "eslint-config-custom": "workspace:*",
-    "eslint-config-next": "14.2.4",
     "postcss": "^8.4.20",
     "tailwind-config": "workspace:*",
     "tailwindcss": "^3.2.4",

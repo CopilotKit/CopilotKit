@@ -2,11 +2,7 @@ import OpenAI from "openai";
 import { MongoClient } from "mongodb";
 import { posts } from "@/app/lib/data/data";
 
-import {
-  CopilotRuntime,
-  OpenAIAdapter,
-  copilotRuntimeNextJSAppRouterEndpoint,
-} from "@copilotkit/runtime";
+import { CopilotRuntime, OpenAIAdapter, copilotRuntimeNextJSAppRouterEndpoint } from "@copilotkit/runtime";
 import { NextRequest } from "next/server";
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
@@ -108,14 +104,12 @@ const runtime = new CopilotRuntime({
   actions: () => [
     {
       name: "FetchKnowledgebaseArticles",
-      description:
-        "Fetch relevant knowledge base articles based on a user query",
+      description: "Fetch relevant knowledge base articles based on a user query",
       parameters: [
         {
           name: "query",
           type: "string",
-          description:
-            "The User query for the knowledge base index search to perform",
+          description: "The User query for the knowledge base index search to perform",
           required: true,
         },
       ],
@@ -153,7 +147,7 @@ const runtime = new CopilotRuntime({
           return { articles };
         } catch (error) {
           console.error("Error fetching knowledge base articles:", error);
-          throw new Error("Failed to fetch knowledge base articles.");
+          throw new Error("Failed to fetch knowledge base articles.", { cause: error });
         }
       },
     },

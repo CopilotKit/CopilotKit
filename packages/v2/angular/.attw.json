@@ -1,10 +1,4 @@
 {
-  "ignoreRules": [
-    "cjs-resolves-to-esm",
-    "no-resolution",
-    "untyped-resolution"
-  ],
-  "excludeEntrypoints": [
-    "./styles.css"
-  ]
+  "ignoreRules": ["cjs-resolves-to-esm", "no-resolution", "untyped-resolution"],
+  "excludeEntrypoints": ["./styles.css"]
 }

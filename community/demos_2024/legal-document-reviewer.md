@@ -2,7 +2,8 @@
 
 ## ⭐ 42 - Legal Document Reviewer (Hacktoberfest Demo)
 
-Develop a system where AI agents analyze legal documents, highlight important sections, and suggest revisions to ensure compliance and clarity.
+Develop a system where AI agents analyze legal documents, highlight important sections, and suggest revisions to ensure
+compliance and clarity.
 
 ## Technologies Being Used
 

@@ -16,17 +16,16 @@ An AI-powered open-source Financial Manager that helps you plan your savings and
 
 ## GitHub + YouTube
 
-- [ ] GitHub Repo:
-      https://github.com/Tabintel/finance_ai
+- [ ] GitHub Repo: https://github.com/Tabintel/finance_ai
 
-- [ ] YouTube:
-      https://www.youtube.com/watch?v=Pn-pONOwfwg&embeds_referring_euri=https%3A%2F%2Fdev.to%2F
+- [ ] YouTube: https://www.youtube.com/watch?v=Pn-pONOwfwg&embeds_referring_euri=https%3A%2F%2Fdev.to%2F
 
 ![image](https://github.com/user-attachments/assets/26e9cdb5-f667-421f-a58d-b97e0877bd06)
 
 ## Who Are You?
 
-I'm Ekemini, a Technical writer and Software developer, we can connect on [Twitter](https://twitter.com/realEkemini) and [LinkedIn](https://www.linkedin.com/in/ekeminisamuel/).
+I'm Ekemini, a Technical writer and Software developer, we can connect on [Twitter](https://twitter.com/realEkemini) and
+[LinkedIn](https://www.linkedin.com/in/ekeminisamuel/).
 
 ## ⭐️ Project README with installation and getting started steps ⭐️👇
 
@@ -39,7 +38,8 @@ I'm Ekemini, a Technical writer and Software developer, we can connect on [Twitt
 <p><em>Your AI-powered financial companion</em></p>
 </div>
 
-Coyamin is an AI-powered financial insights application that helps users understand and optimize their personal finances. Built with Next.js, CopilotKit for AI assistance, and Maybe Finance API for financial data.
+Coyamin is an AI-powered financial insights application that helps users understand and optimize their personal
+finances. Built with Next.js, CopilotKit for AI assistance, and Maybe Finance API for financial data.
 
 ## Features
 

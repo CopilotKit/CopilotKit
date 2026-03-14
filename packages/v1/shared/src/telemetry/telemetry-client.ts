@@ -55,7 +55,6 @@ export class TelemetryClient {
 
     this.setSampleRate(sampleRate);
 
-    // eslint-disable-next-line
     const writeKey =
       process.env.COPILOTKIT_SEGMENT_WRITE_KEY ||
       "n7XAZtQCGS2v1vvBy3LgBCv2h3Y8whja";
@@ -89,7 +88,7 @@ export class TelemetryClient {
       ...flattenedProperties,
     };
     const orderedPropertiesWithGlobal = Object.keys(propertiesWithGlobal)
-      .sort()
+      .toSorted()
       .reduce(
         (obj, key) => {
           obj[key] = propertiesWithGlobal[key];
@@ -133,9 +132,7 @@ export class TelemetryClient {
 
     _sampleRate = sampleRate ?? 0.05;
 
-    // eslint-disable-next-line
     if (process.env.COPILOTKIT_TELEMETRY_SAMPLE_RATE) {
-      // eslint-disable-next-line
       _sampleRate = parseFloat(process.env.COPILOTKIT_TELEMETRY_SAMPLE_RATE);
     }
 

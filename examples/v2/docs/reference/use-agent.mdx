@@ -4,9 +4,9 @@ description: "useAgent Hook API Reference"
 ---
 
 `useAgent` is a React hook that provides access to [AG-UI](https://ag-ui.com) agents and subscribes to their state
-changes. It enables components to interact with agents, access their messages, and respond to updates in real-time.
-The hook always returns an agent instance. While the runtime is syncing, it returns a provisional runtime agent; once
-the runtime has synced, if the agent id does not exist the hook throws an error.
+changes. It enables components to interact with agents, access their messages, and respond to updates in real-time. The
+hook always returns an agent instance. While the runtime is syncing, it returns a provisional runtime agent; once the
+runtime has synced, if the agent id does not exist the hook throws an error.
 
 ## What is useAgent?
 
@@ -80,8 +80,7 @@ The hook returns an object with a single property:
 `AbstractAgent`
 
 The agent instance. During runtime synchronization, the hook returns a provisional runtime agent so you can bind UI
-immediately. After the runtime has synced (Connected or Error), if the agent id does not exist the hook throws an
-error.
+immediately. After the runtime has synced (Connected or Error), if the agent id does not exist the hook throws an error.
 
 ## Accessing Agent Messages
 

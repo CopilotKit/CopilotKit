@@ -1,6 +1,8 @@
 ## 🚀 **Daily Quote App**
 
-- The Daily Quote App provides users with a platform to generate, manage, and share motivational quotes. It addresses the challenge of finding daily inspiration and allows for customization by enabling users to add, delete, and explore quotes across various themes like educational , motivational etc.
+- The Daily Quote App provides users with a platform to generate, manage, and share motivational quotes. It addresses
+  the challenge of finding daily inspiration and allows for customization by enabling users to add, delete, and explore
+  quotes across various themes like educational , motivational etc.
 
 ### 📝 **Name of Issue/Topic**
 

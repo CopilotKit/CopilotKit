@@ -46,11 +46,13 @@ For detailed documentation and examples, visit [copilotkit.ai](https://copilotki
 
 ## Contributing
 
-We welcome contributions! Please see our [Contributing Guidelines](https://github.com/CopilotKit/CopilotKit/blob/main/CONTRIBUTING.md) for details.
+We welcome contributions! Please see our
+[Contributing Guidelines](https://github.com/CopilotKit/CopilotKit/blob/main/CONTRIBUTING.md) for details.
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](https://github.com/CopilotKit/CopilotKit/blob/main/LICENSE) file for details.
+This project is licensed under the MIT License - see the
+[LICENSE](https://github.com/CopilotKit/CopilotKit/blob/main/LICENSE) file for details.
 
 ## Support
 

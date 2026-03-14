@@ -3,7 +3,9 @@ title: CopilotRuntime
 description: "Server-side runtime for hosting CopilotKit agents"
 ---
 
-The `CopilotRuntime` package gives you everything you need to host CopilotKit agents on your own infrastructure. It owns the agent registry, wires an `AgentRunner`, exposes HTTP endpoints (Express or Hono), and optionally coordinates middleware and transcription services.
+The `CopilotRuntime` package gives you everything you need to host CopilotKit agents on your own infrastructure. It owns
+the agent registry, wires an `AgentRunner`, exposes HTTP endpoints (Express or Hono), and optionally coordinates
+middleware and transcription services.
 
 ## Basic Setup
 
@@ -42,10 +44,14 @@ new CopilotRuntime(options: CopilotRuntimeOptions)
 
 ### Passing Agents
 
-- Provide a plain object mapping agent ids to instances. The helper `BasicAgent` covers common OpenAI/Anthropic/Gemini setups, but you can supply any `AbstractAgent`.
-- Because `agents` may be an async function, you can lazily load credentials or fetch configuration before returning the record.
-- Each request clones the selected agent instance so per-request state (messages, headers, tool registration) does not leak between threads.
-- `Authorization` and `x-*` headers on the incoming request are forwarded to the cloned agent automatically. Override or strip them inside `beforeRequestMiddleware` if needed.
+- Provide a plain object mapping agent ids to instances. The helper `BasicAgent` covers common OpenAI/Anthropic/Gemini
+  setups, but you can supply any `AbstractAgent`.
+- Because `agents` may be an async function, you can lazily load credentials or fetch configuration before returning the
+  record.
+- Each request clones the selected agent instance so per-request state (messages, headers, tool registration) does not
+  leak between threads.
+- `Authorization` and `x-*` headers on the incoming request are forwarded to the cloned agent automatically. Override or
+  strip them inside `beforeRequestMiddleware` if needed.
 
 ```ts
 const runtime = new CopilotRuntime({
@@ -58,7 +64,8 @@ const runtime = new CopilotRuntime({
 
 ### Choosing an `AgentRunner`
 
-`InMemoryAgentRunner` is the default and streams events directly from your Node.js process. Swap it with a custom `AgentRunner` if you need to enqueue work or forward to another service:
+`InMemoryAgentRunner` is the default and streams events directly from your Node.js process. Swap it with a custom
+`AgentRunner` if you need to enqueue work or forward to another service:
 
 ```ts
 class QueueBackedRunner implements AgentRunner {
@@ -96,7 +103,8 @@ const runtime = new CopilotRuntime({
 });
 ```
 
-Throwing a `Response` from `beforeRequestMiddleware` short-circuits the request. `afterRequestMiddleware` runs in the background and should swallow its own errors.
+Throwing a `Response` from `beforeRequestMiddleware` short-circuits the request. `afterRequestMiddleware` runs in the
+background and should swallow its own errors.
 
 #### `AfterRequestMiddlewareParameters`
 
@@ -109,7 +117,8 @@ Throwing a `Response` from `beforeRequestMiddleware` short-circuits the request.
 | `threadId` | `string \| undefined` | Thread ID from the `RUN_STARTED` event.                                                                                                                         |
 | `runId`    | `string \| undefined` | Run ID from the `RUN_STARTED` event.                                                                                                                            |
 
-This makes `afterRequestMiddleware` suitable for telemetry, audit logging, and post-run analytics without needing to manually parse the streamed response.
+This makes `afterRequestMiddleware` suitable for telemetry, audit logging, and post-run analytics without needing to
+manually parse the streamed response.
 
 ### Audio Transcription
 
@@ -128,7 +137,8 @@ const runtime = new CopilotRuntime({
 });
 ```
 
-This enables the `/transcribe` endpoint and shows a microphone button in the chat UI. The `/info` endpoint will report `audioFileTranscriptionEnabled: true`.
+This enables the `/transcribe` endpoint and shows a microphone button in the chat UI. The `/info` endpoint will report
+`audioFileTranscriptionEnabled: true`.
 
 For custom providers, extend `TranscriptionService` from runtime:
 
@@ -221,7 +231,8 @@ export const GET = handle(app);
 export const POST = handle(app);
 ```
 
-Swap `createCopilotEndpoint` for `createCopilotEndpointSingleRoute` if you configure the client with `useSingleEndpoint`.
+Swap `createCopilotEndpoint` for `createCopilotEndpointSingleRoute` if you configure the client with
+`useSingleEndpoint`.
 
 ### Express (REST-style)
 
@@ -236,7 +247,8 @@ app.use(
 );
 ```
 
-The router mirrors the Hono REST routes and automatically enables permissive CORS (allowing all origins, headers, and methods). Adjust headers upstream if you need tighter controls.
+The router mirrors the Hono REST routes and automatically enables permissive CORS (allowing all origins, headers, and
+methods). Adjust headers upstream if you need tighter controls.
 
 ### Express (Single-route)
 
@@ -251,7 +263,8 @@ app.use(
 );
 ```
 
-Single-route Express works identically to the Hono version: send the JSON envelope described earlier, and set `useSingleEndpoint` on the client.
+Single-route Express works identically to the Hono version: send the JSON envelope described earlier, and set
+`useSingleEndpoint` on the client.
 
 ### NestJS (Express backend)
 
@@ -297,7 +310,8 @@ Available routes (no global prefix):
 - `GET  /api/copilotkit/info`
 - `POST /api/copilotkit/transcribe`
 
-If you prefer the single-route transport, mount the single-route helper instead and set `useSingleEndpoint` on the client:
+If you prefer the single-route transport, mount the single-route helper instead and set `useSingleEndpoint` on the
+client:
 
 ```ts
 import { createCopilotEndpointSingleRouteExpress } from "@copilotkitnext/runtime/express";
@@ -310,7 +324,8 @@ app.use(
 
 Notes:
 
-- If you call `app.setGlobalPrefix('api')`, the effective paths become `/api/copilotkit/...` (or `/api/copilotkit` for single-route).
+- If you call `app.setGlobalPrefix('api')`, the effective paths become `/api/copilotkit/...` (or `/api/copilotkit` for
+  single-route).
 - Endpoints stream Server‑Sent Events; ensure your proxy honors `text/event-stream` and keep‑alive.
 - The router enables permissive CORS; tighten via Nest’s `enableCors` if needed.
 

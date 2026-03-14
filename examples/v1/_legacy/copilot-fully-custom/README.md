@@ -24,7 +24,8 @@ npm install
 
 2. Setup your runtime:
 
-CopilotKit requires `runtime`, a production-ready proxy for your LLM requests. You can either use Copilot Cloud or self-host it.
+CopilotKit requires `runtime`, a production-ready proxy for your LLM requests. You can either use Copilot Cloud or
+self-host it.
 
 First, make a `.env` file in the root of the project.
 
@@ -32,7 +33,8 @@ First, make a `.env` file in the root of the project.
 touch .env
 ```
 
-Now, you can either provide your [Copilot Cloud public API key](https://cloud.copilotkit.ai) or [OpenAI API key](https://platform.openai.com/api-keys).
+Now, you can either provide your [Copilot Cloud public API key](https://cloud.copilotkit.ai) or
+[OpenAI API key](https://platform.openai.com/api-keys).
 
 > **Note:** Copilot Cloud will provide you some free OpenAI API credits to get you started!
 
@@ -53,4 +55,5 @@ npm run dev
 
 This project demonstrates how to fully customize CopilotKit using components from MongoDB's Leafy Green Design System.
 
-To see this in action, take a look at the [components](./components) folder. In particular, the [Chat.tsx](./components/Chat.tsx) file demonstrates how to customize the chat interface using Leafy Green components.
+To see this in action, take a look at the [components](./components) folder. In particular, the
+[Chat.tsx](./components/Chat.tsx) file demonstrates how to customize the chat interface using Leafy Green components.

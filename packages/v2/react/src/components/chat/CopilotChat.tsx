@@ -158,7 +158,6 @@ export function CopilotChat({
       agent.detachActiveRun();
     };
     // copilotkit is intentionally excluded — it is a stable ref that never changes.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [resolvedThreadId, agent, resolvedAgentId]);
 
   const onSubmitInput = useCallback(
@@ -177,7 +176,6 @@ export function CopilotChat({
       }
     },
     // copilotkit is intentionally excluded — it is a stable ref that never changes.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [agent],
   );
 
@@ -198,7 +196,6 @@ export function CopilotChat({
         );
       }
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [agent],
   );
 
@@ -213,7 +210,6 @@ export function CopilotChat({
         console.error("CopilotChat: abortRun fallback failed", abortError);
       }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [agent]);
 
   // Transcription handlers
@@ -299,7 +295,6 @@ export function CopilotChat({
         setIsTranscribing(false);
       }
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [],
   );
 
@@ -402,7 +397,6 @@ export function CopilotChat({
   );
 }
 
-// eslint-disable-next-line @typescript-eslint/no-namespace
 export namespace CopilotChat {
   export const View = CopilotChatView;
 }

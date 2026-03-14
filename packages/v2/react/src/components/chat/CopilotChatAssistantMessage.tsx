@@ -208,7 +208,6 @@ export function CopilotChatAssistantMessage({
   );
 }
 
-// eslint-disable-next-line @typescript-eslint/no-namespace
 export namespace CopilotChatAssistantMessage {
   export const MarkdownRenderer: React.FC<
     Omit<React.ComponentProps<typeof Streamdown>, "children"> & {

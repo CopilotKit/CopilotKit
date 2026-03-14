@@ -2293,7 +2293,8 @@
 - 1721cbd: Add convertActionsToDynamicStructuredTools to sdk-js
 - CopilotKit Core:
   - Improved error messages and overall logs
-  - `useCopilotAction.renderAndAwait` renamed to `.renderAndAwaitForResponse` (backwards compatible, will be deprecated in the future)
+  - `useCopilotAction.renderAndAwait` renamed to `.renderAndAwaitForResponse` (backwards compatible, will be deprecated
+    in the future)
   - Improved scrolling behavior. It is now possible to scroll up during LLM response generation
   - Added Azure OpenAI integration
   - Updated interfaces for better developer ergonomics
@@ -2393,7 +2394,8 @@
 CopilotKit Core:
 
 - Improved error messages and overall logs
-- `useCopilotAction.renderAndAwait` renamed to `.renderAndAwaitForResponse` (backwards compatible, will be deprecated in the future)
+- `useCopilotAction.renderAndAwait` renamed to `.renderAndAwaitForResponse` (backwards compatible, will be deprecated in
+  the future)
 - Improved scrolling behavior. It is now possible to scroll up during LLM response generation
 - Added Azure OpenAI integration
 - Updated interfaces for better developer ergonomics

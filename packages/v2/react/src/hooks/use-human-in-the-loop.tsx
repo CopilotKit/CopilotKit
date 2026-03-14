@@ -57,7 +57,6 @@ export function useHumanInTheLoop<
       }
 
       // Fallback - just render with original props
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       return React.createElement(ToolComponent, props as any);
     },
     [tool.render, tool.name, tool.description, respond],

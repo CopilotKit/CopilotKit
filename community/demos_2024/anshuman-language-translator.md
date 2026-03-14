@@ -26,8 +26,7 @@ https://github.com/anshuman-rai-27/lang-translator-ai
 
 ## 7. Who Are You?
 
-[Github](https://github.com/anshuman-rai-27)
-[Twitter](https://x.com/Anshuman_rai_?s=08)
+[Github](https://github.com/anshuman-rai-27) [Twitter](https://x.com/Anshuman_rai_?s=08)
 
 ## 5 Extra Bonus Points
 

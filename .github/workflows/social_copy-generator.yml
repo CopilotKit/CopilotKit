@@ -20,8 +20,8 @@ permissions:
 jobs:
   post-comment:
     if: >-
-      (github.event_name == 'workflow_dispatch') ||
-      (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository)
+      (github.event_name == 'workflow_dispatch') || (github.event_name == 'pull_request' &&
+      github.event.pull_request.head.repo.full_name == github.repository)
     runs-on: ubuntu-latest
     steps:
       - name: Post initial comment
@@ -74,10 +74,8 @@ jobs:
 
   generate:
     if: >-
-      github.event_name == 'issue_comment' &&
-      github.event.issue.pull_request &&
-      contains(github.event.comment.body, '<!-- social-copy-generator -->') &&
-      contains(github.event.comment.body, '- [x]')
+      github.event_name == 'issue_comment' && github.event.issue.pull_request && contains(github.event.comment.body,
+      '<!-- social-copy-generator -->') && contains(github.event.comment.body, '- [x]')
     runs-on: ubuntu-latest
     concurrency:
       group: social-copy-${{ github.event.issue.number }}

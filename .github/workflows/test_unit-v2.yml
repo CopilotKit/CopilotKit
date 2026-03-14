@@ -23,6 +23,7 @@ on:
         type: string
 env:
   NODE_OPTIONS: "--max-old-space-size=4096"
+  NX_VERBOSE_LOGGING: true
   NX_CI_EXECUTION_ID: ${{ github.head_ref }}-${{ github.sha }}-${{ github.run_attempt }}
   NX_CI_EXECUTION_ENV: "Unit Tests V2"
 

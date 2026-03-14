@@ -1,6 +1,8 @@
 # Chat with your data
 
-Transform your data visualization experience with an AI-powered dashboard assistant. Ask questions about your data in natural language, get insights, and interact with your metrics—all through a conversational interface powered by CopilotKit.
+Transform your data visualization experience with an AI-powered dashboard assistant. Ask questions about your data in
+natural language, get insights, and interact with your metrics—all through a conversational interface powered by
+CopilotKit.
 
 [Click here for a running example](https://copilotkit.ai/examples/chat-with-your-data)
 
@@ -52,7 +54,8 @@ Transform your data visualization experience with an AI-powered dashboard assist
      ```
    </details>
 
-3. Create a `.env` file in the project root and add your [OpenAI API Key](https://platform.openai.com/api-keys) and [Tavily API Key](https://tavily.com/api-key):
+3. Create a `.env` file in the project root and add your [OpenAI API Key](https://platform.openai.com/api-keys) and
+   [Tavily API Key](https://tavily.com/api-key):
 
    ```
    OPENAI_API_KEY=your_openai_api_key
@@ -142,8 +145,8 @@ useCopilotReadable({
 
 ### Backend Actions
 
-Backend actions are used to handle operations that require secure server-side processing. This allows you to
-still let the LLM talk to your data, even when it needs to be secured.
+Backend actions are used to handle operations that require secure server-side processing. This allows you to still let
+the LLM talk to your data, even when it needs to be secured.
 
 <em>[app/api/copilotkit/route.ts](./app/api/copilotkit/route.ts)</em>
 
@@ -203,7 +206,8 @@ useCopilotAction({
 
 ### CopilotSidebar
 
-The CopilotSidebar component provides a chat interface for users to interact with the AI assistant. It's customized with specific labels and instructions to provide a data-focused experience.
+The CopilotSidebar component provides a chat interface for users to interact with the AI assistant. It's customized with
+specific labels and instructions to provide a data-focused experience.
 
 <em>[app/page.tsx](./app/page.tsx)</em>
 
@@ -222,7 +226,8 @@ The CopilotSidebar component provides a chat interface for users to interact wit
 
 ### Custom Assistant Message
 
-The dashboard uses a custom assistant message component to style the AI responses to match the dashboard's design system.
+The dashboard uses a custom assistant message component to style the AI responses to match the dashboard's design
+system.
 
 <em>[components/AssistantMessage.tsx](./components/AssistantMessage.tsx)</em>
 
@@ -254,7 +259,8 @@ export const CustomAssistantMessage = (props: AssistantMessageProps) => {
 
 ### CSS Customization
 
-The dashboard uses CSS variables to customize the appearance of the CopilotKit components to match the dashboard's design system.
+The dashboard uses CSS variables to customize the appearance of the CopilotKit components to match the dashboard's
+design system.
 
 <em>[app/globals.css](./app/globals.css)</em>
 
@@ -286,6 +292,8 @@ The dashboard uses CSS variables to customize the appearance of the CopilotKit c
 
 Ready to build your own AI-powered dashboard? Check out these resources:
 
-[CopilotKit Documentation](https://docs.copilotkit.ai) - Comprehensive guides and API references to help you build your own copilots.
+[CopilotKit Documentation](https://docs.copilotkit.ai) - Comprehensive guides and API references to help you build your
+own copilots.
 
-[CopilotKit Cloud](https://cloud.copilotkit.ai/) - Deploy your copilots with our managed cloud solution for production-ready AI assistants.
+[CopilotKit Cloud](https://cloud.copilotkit.ai/) - Deploy your copilots with our managed cloud solution for
+production-ready AI assistants.

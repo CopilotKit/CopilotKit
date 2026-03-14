@@ -1,6 +1,7 @@
 ## **News Pulse**
 
-News Aggregator uses a large language model with the copilot kit eco-system to generate a summary of news and happenings based on specified topics keywords or even provided articles.
+News Aggregator uses a large language model with the copilot kit eco-system to generate a summary of news and happenings
+based on specified topics keywords or even provided articles.
 
 ### 📝 **Name of Issue/Topic**
 

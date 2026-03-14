@@ -1,8 +1,4 @@
-import {
-  CopilotRuntime,
-  AnthropicAdapter,
-  copilotRuntimeNextJSAppRouterEndpoint,
-} from "@copilotkit/runtime";
+import { CopilotRuntime, AnthropicAdapter, copilotRuntimeNextJSAppRouterEndpoint } from "@copilotkit/runtime";
 
 import { Pinecone } from "@pinecone-database/pinecone";
 import { posts } from "@/app/lib/data/data";
@@ -50,9 +46,7 @@ const initializePinecone = async () => {
       return pinecone.index(indexName);
     } catch (error) {
       if (i === maxRetries - 1) throw error;
-      console.warn(
-        `Retrying Pinecone initialization... (${i + 1}/${maxRetries})`,
-      );
+      console.warn(`Retrying Pinecone initialization... (${i + 1}/${maxRetries})`);
       await new Promise((resolve) => setTimeout(resolve, retryDelay));
     }
   }
@@ -91,27 +85,19 @@ const runtime = new CopilotRuntime({
   actions: () => [
     {
       name: "FetchKnowledgebaseArticles",
-      description:
-        "Fetch relevant knowledge base articles based on a user query",
+      description: "Fetch relevant knowledge base articles based on a user query",
       parameters: [
         {
           name: "query",
           type: "string",
-          description:
-            "The User query for the knowledge base index search to perform",
+          description: "The User query for the knowledge base index search to perform",
           required: true,
         },
       ],
       handler: async ({ query }: { query: string }) => {
-        console.log(
-          `[Pinecone] Executing FetchKnowledgebaseArticles with query: "${query}"`,
-        );
+        console.log(`[Pinecone] Executing FetchKnowledgebaseArticles with query: "${query}"`);
         try {
-          const queryEmbedding = await pinecone.inference.embed(
-            model,
-            [query],
-            { inputType: "query" },
-          );
+          const queryEmbedding = await pinecone.inference.embed(model, [query], { inputType: "query" });
           console.log(`[Pinecone] Successfully generated embedding for query`);
 
           const queryResponse = await pinecone
@@ -124,11 +110,7 @@ const runtime = new CopilotRuntime({
               includeMetadata: true,
             });
 
-          console.log(
-            `[Pinecone] Query response: Found ${
-              queryResponse?.matches?.length || 0
-            } matches`,
-          );
+          console.log(`[Pinecone] Query response: Found ${queryResponse?.matches?.length || 0} matches`);
 
           // Format the results in a more structured way for the AI
           const formattedResults =
@@ -141,13 +123,8 @@ const runtime = new CopilotRuntime({
             }) || [];
 
           if (queryResponse?.matches?.length > 0) {
-            console.log(
-              `[Pinecone] First match score: ${queryResponse.matches[0].score}`,
-            );
-            console.log(
-              `[Pinecone] First match metadata:`,
-              queryResponse.matches[0].metadata,
-            );
+            console.log(`[Pinecone] First match score: ${queryResponse.matches[0].score}`);
+            console.log(`[Pinecone] First match metadata:`, queryResponse.matches[0].metadata);
           }
 
           // Provide a more comprehensive response structure
@@ -158,17 +135,12 @@ const runtime = new CopilotRuntime({
             content_summary:
               formattedResults.length > 0
                 ? "Here are the key CopilotKit features found in our knowledge base:\n" +
-                  formattedResults
-                    .map(
-                      (result, i) =>
-                        `${i + 1}. ${String(result.content).trim()}`,
-                    )
-                    .join("\n\n")
+                  formattedResults.map((result, i) => `${i + 1}. ${String(result.content).trim()}`).join("\n\n")
                 : "No relevant articles found about CopilotKit features. The knowledge base may not contain comprehensive documentation.",
           };
         } catch (error) {
           console.error("Error fetching knowledge base articles:", error);
-          throw new Error("Failed to fetch knowledge base articles.");
+          throw new Error("Failed to fetch knowledge base articles.", { cause: error });
         }
       },
     },

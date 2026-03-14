@@ -8,6 +8,9 @@ on:
 
 concurrency: ${{ github.workflow }}-${{ github.ref }}
 
+env:
+  NX_VERBOSE_LOGGING: true
+
 jobs:
   release:
     runs-on: ubuntu-latest
@@ -105,7 +108,8 @@ jobs:
           git push origin main --force
 
       - name: Git Tag
-        if: ${{ steps.check-if-published.outputs.published == 'true' && steps.is-in-prerelease-mode.outputs.is_in_prerelease_mode == 'false' }}
+        if: ${{ steps.check-if-published.outputs.published == 'true' &&
+          steps.is-in-prerelease-mode.outputs.is_in_prerelease_mode == 'false' }}
         run: |
           node -p "require('./scripts/release/generate-changelog')('${{ steps.new-version.outputs.version }}')" > changelog.txt
           git tag -a v${{ steps.new-version.outputs.version }} -m "Release ${{ steps.new-version.outputs.version }}"
@@ -113,7 +117,8 @@ jobs:
           git push origin main --force
 
       - name: Create Release
-        if: ${{ steps.check-if-published.outputs.published == 'true' && steps.is-in-prerelease-mode.outputs.is_in_prerelease_mode == 'false' }}
+        if: ${{ steps.check-if-published.outputs.published == 'true' &&
+          steps.is-in-prerelease-mode.outputs.is_in_prerelease_mode == 'false' }}
         id: create_release
         uses: comnoco/create-release-action@v2.0.5
         env:

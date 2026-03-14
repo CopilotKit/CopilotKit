@@ -39,11 +39,7 @@ export function Tabs({
             <button
               key={id}
               onClick={() => onTabChange(id)}
-              className={`${buttonClassName} ${
-                activeTab === id
-                  ? activeButtonClassName
-                  : inactiveButtonClassName
-              }`}
+              className={`${buttonClassName} ${activeTab === id ? activeButtonClassName : inactiveButtonClassName}`}
             >
               {label}
             </button>

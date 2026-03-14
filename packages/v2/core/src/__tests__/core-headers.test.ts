@@ -38,7 +38,6 @@ describe("CopilotKitCore headers", () => {
       "X-Custom-Header": "custom-value",
     };
 
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const core = new CopilotKitCore({
       runtimeUrl: "https://runtime.example",
       headers,

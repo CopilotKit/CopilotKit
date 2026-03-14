@@ -110,7 +110,6 @@ export function useAgent({ agentId, updates }: UseAgentProps = {}) {
           : "No agents registered.") +
         " Verify your runtime /info and/or agents__unsafe_dev_only.",
     );
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     agentId,
     copilotkit.agents,
@@ -146,7 +145,6 @@ export function useAgent({ agentId, updates }: UseAgentProps = {}) {
 
     const subscription = agent.subscribe(handlers);
     return () => subscription.unsubscribe();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [agent, forceUpdate, JSON.stringify(updateFlags)]);
 
   return {

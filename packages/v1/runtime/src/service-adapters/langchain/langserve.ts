@@ -33,7 +33,6 @@ export class RemoteChain {
       description: this.description,
       parameters: this.parameters!,
       handler: async (args: any) => {
-        // eslint-disable-next-line @typescript-eslint/no-var-requires
         const { RemoteRunnable } = require("langchain/runnables/remote");
         const runnable = new RemoteRunnable({ url: this.chainUrl });
         let input: any;

@@ -1,0 +1,11 @@
+{
+  "printWidth": 80,
+  "proseWrap": "preserve",
+  "ignorePatterns": [
+    "docs/**",
+    "packages/v1/runtime/src/lib/runtime/mcp-tools-utils.ts",
+    ".github/actions/changesets-action/src/run.ts",
+    "examples/v1/_legacy/copilot-anthropic-pinecone/src/app/api/copilotkit/route.ts",
+    "examples/v1/_legacy/copilot-openai-mongodb-atlas-vector-search/src/app/api/copilotkit/route.ts"
+  ]
+}

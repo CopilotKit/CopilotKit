@@ -6,10 +6,14 @@ browser extension featuring ai usability
 
 ## 3. 🥪 Technologies Being Used
 
-- **Frontend**: [React](https://reactjs.org/) - A JavaScript library for building user interfaces, known for its component-based architecture and efficient rendering.
-- **Backend**: [CopilotKit](https://www.copilotkit.ai/) - A framework for building custom AI copilots, including in-app chatbots and AI-powered text areas.
-- **Framework**: [WXT](https://wxt.dev/) - A next-gen web extension framework that makes Briowser extension development faster than ever before, offering a simplified development experience.
-- **Styling**: [Tailwind CSS](https://tailwindcss.com/) - A utility-first CSS framework that provides a set of classes to build custom designs quickly.
+- **Frontend**: [React](https://reactjs.org/) - A JavaScript library for building user interfaces, known for its
+  component-based architecture and efficient rendering.
+- **Backend**: [CopilotKit](https://www.copilotkit.ai/) - A framework for building custom AI copilots, including in-app
+  chatbots and AI-powered text areas.
+- **Framework**: [WXT](https://wxt.dev/) - A next-gen web extension framework that makes Briowser extension development
+  faster than ever before, offering a simplified development experience.
+- **Styling**: [Tailwind CSS](https://tailwindcss.com/) - A utility-first CSS framework that provides a set of classes
+  to build custom designs quickly.
 
 ## 4. 🖥️ GitHub Project
 
