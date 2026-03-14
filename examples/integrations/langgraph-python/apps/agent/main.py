@@ -10,12 +10,12 @@ from langchain_openai import ChatOpenAI
 from src.query import query_data
 from src.todos import AgentState, todo_tools
 from src.form import generate_form
-from src.a2ui_fixed import search_flights
+from src.a2ui_fixed import search_flights, update_flights
 from src.a2ui_streaming import search_flights_streaming
 
 agent = create_agent(
     model="openai:gpt-4.1",
-    tools=[query_data, *todo_tools, generate_form, search_flights, search_flights_streaming],
+    tools=[query_data, *todo_tools, generate_form, search_flights, update_flights, search_flights_streaming],
     middleware=[CopilotKitMiddleware()],
     state_schema=AgentState,
     system_prompt="""
@@ -26,9 +26,10 @@ agent = create_agent(
         When demonstrating charts, always call the query_data tool to fetch data first.
         When asked to manage todos, enable app mode first, then manage todos.
 
-        When you see a log_a2ui_event tool result indicating a user action like "book_flight",
-        respond naturally to confirm the action. For example: "Flight UA123 from SFO to JFK
-        has been booked! You'll receive a confirmation email shortly."
+        When you see a log_a2ui_event tool result indicating a user action like "book_flight":
+        1. Call update_flights with the SAME flights data but change the booked flight's
+           status to "Booked ✓". Keep all other flights unchanged.
+        2. Respond with a brief confirmation message.
     """,
 )
 
