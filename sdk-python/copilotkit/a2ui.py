@@ -69,9 +69,13 @@ def begin_rendering(
     }
 
 
+A2UI_OPERATIONS_KEY = "a2ui_operations"
+"""The container key used to wrap A2UI operations for explicit detection."""
+
+
 def render(operations: list[dict[str, Any]]) -> str:
     """Wrap operations in the a2ui_operations container and serialize to JSON."""
-    return json.dumps({"a2ui_operations": operations})
+    return json.dumps({A2UI_OPERATIONS_KEY: operations})
 
 
 # ---------------------------------------------------------------------------

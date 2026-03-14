@@ -12,6 +12,12 @@ import {
 } from "@copilotkit/a2ui-renderer";
 import type { Theme, A2UIClientEventMessage } from "@copilotkit/a2ui-renderer";
 
+/**
+ * The container key used to wrap A2UI operations for explicit detection.
+ * Must match A2UI_OPERATIONS_KEY in @ag-ui/a2ui-middleware and copilotkit.a2ui (Python).
+ */
+const A2UI_OPERATIONS_KEY = "a2ui_operations";
+
 // Initialize the React renderer's component catalog and styles once
 let initialized = false;
 function ensureInitialized() {
@@ -42,8 +48,8 @@ export function createA2UIMessageRenderer(
       const { copilotkit } = useCopilotKit();
 
       useEffect(() => {
-        // Support both explicit container (a2ui_operations) and legacy (operations)
-        const incoming = content?.a2ui_operations ?? content?.operations;
+        // Support both explicit container and legacy (operations)
+        const incoming = content?.[A2UI_OPERATIONS_KEY] ?? content?.operations;
         if (!content || !Array.isArray(incoming)) {
           lastSignatureRef.current = null;
           setOperations([]);
