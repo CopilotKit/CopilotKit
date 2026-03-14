@@ -15,6 +15,7 @@ import {
 } from "react";
 import { z } from "zod";
 import { CopilotKitInspector } from "../components/CopilotKitInspector";
+import type { Anchor } from "@copilotkitnext/web-inspector";
 import type { CopilotKitCoreErrorCode } from "@copilotkitnext/core";
 import {
   MCPAppsActivityContentSchema,
@@ -111,7 +112,19 @@ export interface CopilotKitProviderProps {
      * When omitted, the built-in `viewerTheme` from `@copilotkit/a2ui-renderer` is used.
      */
     theme?: A2UITheme;
+    /**
+     * Handler called when an A2UI action is dispatched (e.g., button click).
+     * Return an array of A2UI operations (e.g., dataModelUpdate) to apply
+     * optimistically on the frontend before the action reaches the agent.
+     */
+    onAction?: import("../a2ui/A2UIMessageRenderer").A2UIActionHandler;
   };
+  /**
+   * Default anchor corner for the inspector button and window.
+   * Only used on first load before the user drags to a custom position.
+   * Defaults to `{ horizontal: "right", vertical: "top" }`.
+   */
+  inspectorDefaultAnchor?: Anchor;
 }
 
 // Small helper to normalize array props to a stable reference and warn
@@ -157,6 +170,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   useSingleEndpoint = false,
   onError,
   a2ui,
+  inspectorDefaultAnchor,
 }) => {
   const [shouldRenderInspector, setShouldRenderInspector] = useState(false);
   const [runtimeA2UIEnabled, setRuntimeA2UIEnabled] = useState(false);
@@ -226,7 +240,10 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
 
     if (runtimeA2UIEnabled) {
       renderers.unshift(
-        createA2UIMessageRenderer({ theme: a2ui?.theme ?? viewerTheme }),
+        createA2UIMessageRenderer({
+          theme: a2ui?.theme ?? viewerTheme,
+          onAction: a2ui?.onAction,
+        }),
       );
     }
 
@@ -526,7 +543,12 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   return (
     <CopilotKitContext.Provider value={contextValue}>
       {children}
-      {shouldRenderInspector ? <CopilotKitInspector core={copilotkit} /> : null}
+      {shouldRenderInspector ? (
+        <CopilotKitInspector
+          core={copilotkit}
+          defaultAnchor={inspectorDefaultAnchor}
+        />
+      ) : null}
     </CopilotKitContext.Provider>
   );
 };

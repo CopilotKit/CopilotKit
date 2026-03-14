@@ -26,6 +26,18 @@ export const useExampleSuggestions = () => {
         message:
           "Generate an event registration form using the generate_form tool.",
       },
+      // 3b. Fixed Schema A2UI — data-bound declarative UI with flight cards
+      {
+        title: "Flight Search (Fixed Schema A2UI)",
+        message:
+          "Search for flights using the search_flights tool. Show 4 options with diverse routes (e.g. LAX→ORD, SFO→JFK, DEN→ATL, SEA→MIA) and different airlines and times.",
+      },
+      // 3c. Streaming A2UI — schema emitted at tool start, data streams in progressively
+      {
+        title: "Flight Search Streaming (A2UI Streaming)",
+        message:
+          "Search for flights from LAX to ORD using the search_flights_streaming tool. Show 3 options with different airlines and times.",
+      },
       // 4. Open Generative UI — MCP app renders its own UI
       {
         title: "Excalidraw Diagram (Open Generative UI)",

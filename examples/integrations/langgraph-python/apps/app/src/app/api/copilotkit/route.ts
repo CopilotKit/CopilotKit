@@ -5,6 +5,7 @@ import {
 } from "@copilotkit/runtime";
 import { LangGraphAgent } from "@copilotkit/runtime/langgraph";
 import { NextRequest } from "next/server";
+import flightSchema from "./a2ui_flight_schema.json";
 
 // 1. Define the agent connection to LangGraph
 const defaultAgent = new LangGraphAgent({
@@ -21,7 +22,20 @@ export const POST = async (req: NextRequest) => {
     serviceAdapter: new ExperimentalEmptyAdapter(),
     runtime: new CopilotRuntime({
       agents: { default: defaultAgent },
-      a2ui: { injectA2UITool: true },
+      a2ui: {
+        injectA2UITool: true,
+        streamingSurfaces: [
+          {
+            toolName: "search_flights_streaming",
+            surface: {
+              surfaceId: "flight-search-streaming",
+              root: "root",
+              components: flightSchema,
+              dataKey: "flights",
+            },
+          },
+        ],
+      },
       mcpApps: {
         servers: [
           {

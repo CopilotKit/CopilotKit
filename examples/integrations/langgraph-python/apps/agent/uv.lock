@@ -1,5 +1,5 @@
 version = 1
-revision = 2
+revision = 3
 requires-python = ">=3.12"
 
 [[package]]
@@ -244,7 +244,7 @@ wheels = [
 [[package]]
 name = "copilotkit"
 version = "0.1.78"
-source = { registry = "https://pypi.org/simple" }
+source = { editable = "../../../../../sdk-python" }
 dependencies = [
     { name = "ag-ui-langgraph", extra = ["fastapi"] },
     { name = "fastapi" },
@@ -253,10 +253,18 @@ dependencies = [
     { name = "partialjson" },
     { name = "toml" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/d4/33/4ff1f1d732f89f8a08f08a20c6288af8d407438221b44748967f10df88f8/copilotkit-0.1.78.tar.gz", hash = "sha256:d27c303d61539eab3dc168ada6ec0a0ecb02f770da8aa4f1f9bbd9488235c556", size = 37578, upload-time = "2026-02-06T11:56:04.523Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/5a/5c/81bcea99f0da7d6b43f5bbdce13943da260ea94cd5d61c0d8bb1d047e50c/copilotkit-0.1.78-py3-none-any.whl", hash = "sha256:d4230094c96de708a58c9d5da82258a4bfda6ce85846b2fb154a1837ed0a92f5", size = 46919, upload-time = "2026-02-06T11:56:03.318Z" },
+
+[package.metadata]
+requires-dist = [
+    { name = "ag-ui-langgraph", extras = ["fastapi"], specifier = ">=0.0.24" },
+    { name = "crewai", marker = "extra == 'crewai'", specifier = "==0.118.0" },
+    { name = "fastapi", specifier = ">=0.115.0,<1.0.0" },
+    { name = "langchain", specifier = ">=0.3.0" },
+    { name = "langgraph", specifier = ">=0.3.25,<1.1.0" },
+    { name = "partialjson", specifier = ">=0.0.8,<0.0.9" },
+    { name = "toml", specifier = ">=0.10.2,<0.11.0" },
 ]
+provides-extras = ["crewai"]
 
 [[package]]
 name = "croniter"
@@ -1404,7 +1412,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "copilotkit", specifier = "==0.1.78" },
+    { name = "copilotkit", editable = "../../../../../sdk-python" },
     { name = "fastapi", specifier = ">=0.115.5,<1.0.0" },
     { name = "langchain", specifier = "==1.2.0" },
     { name = "langchain-anthropic", specifier = ">=1.3.4" },

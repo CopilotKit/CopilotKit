@@ -40,6 +40,8 @@ import {
   isValidDockMode,
 } from "./lib/persistence";
 
+export type { Anchor } from "./lib/types";
+
 export const WEB_INSPECTOR_TAG = "cpk-web-inspector" as const;
 
 type LucideIconName = keyof typeof icons;
@@ -159,7 +161,15 @@ export class WebInspectorElement extends LitElement {
   static properties = {
     core: { attribute: false },
     autoAttachCore: { type: Boolean, attribute: "auto-attach-core" },
+    defaultAnchor: { attribute: false },
   } as const;
+
+  /**
+   * Default anchor corner for the inspector button and window.
+   * Only used on first load (before the user drags to a custom position).
+   * Defaults to top-right if not specified.
+   */
+  defaultAnchor: Anchor | null = null;
 
   private _core: CopilotKitCore | null = null;
   private coreSubscriber: CopilotKitCoreSubscriber | null = null;
@@ -1211,10 +1221,15 @@ ${argsString}</pre
     this.measureContext("button");
     this.measureContext("window");
 
-    this.contextState.button.anchor = { horizontal: "right", vertical: "top" };
+    const anchor = this.defaultAnchor ?? {
+      horizontal: "right",
+      vertical: "top",
+    };
+
+    this.contextState.button.anchor = { ...anchor };
     this.contextState.button.anchorOffset = { x: EDGE_MARGIN, y: EDGE_MARGIN };
 
-    this.contextState.window.anchor = { horizontal: "right", vertical: "top" };
+    this.contextState.window.anchor = { ...anchor };
     this.contextState.window.anchorOffset = { x: EDGE_MARGIN, y: EDGE_MARGIN };
 
     this.hydrateStateFromStorage();
@@ -1521,11 +1536,19 @@ ${argsString}</pre
 
     const persistedButton = persisted.button;
     if (persistedButton) {
-      if (isValidAnchor(persistedButton.anchor)) {
+      // When a defaultAnchor is provided, only restore persisted position
+      // if the user actually dragged the inspector to a custom position.
+      const restoreButtonPosition =
+        !this.defaultAnchor || persistedButton.hasCustomPosition;
+
+      if (restoreButtonPosition && isValidAnchor(persistedButton.anchor)) {
         this.contextState.button.anchor = persistedButton.anchor;
       }
 
-      if (isValidPosition(persistedButton.anchorOffset)) {
+      if (
+        restoreButtonPosition &&
+        isValidPosition(persistedButton.anchorOffset)
+      ) {
         this.contextState.button.anchorOffset = persistedButton.anchorOffset;
       }
 
@@ -1536,11 +1559,17 @@ ${argsString}</pre
 
     const persistedWindow = persisted.window;
     if (persistedWindow) {
-      if (isValidAnchor(persistedWindow.anchor)) {
+      const restoreWindowPosition =
+        !this.defaultAnchor || persistedWindow.hasCustomPosition;
+
+      if (restoreWindowPosition && isValidAnchor(persistedWindow.anchor)) {
         this.contextState.window.anchor = persistedWindow.anchor;
       }
 
-      if (isValidPosition(persistedWindow.anchorOffset)) {
+      if (
+        restoreWindowPosition &&
+        isValidPosition(persistedWindow.anchorOffset)
+      ) {
         this.contextState.window.anchorOffset = persistedWindow.anchorOffset;
       }
 

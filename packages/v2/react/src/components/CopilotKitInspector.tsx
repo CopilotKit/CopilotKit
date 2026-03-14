@@ -1,9 +1,11 @@
 import * as React from "react";
 import { createComponent } from "@lit-labs/react";
 import type { CopilotKitCore } from "@copilotkitnext/core";
+import type { Anchor } from "@copilotkitnext/web-inspector";
 
 type CopilotKitInspectorBaseProps = {
   core?: CopilotKitCore | null;
+  defaultAnchor?: Anchor;
   [key: string]: unknown;
 };
 
