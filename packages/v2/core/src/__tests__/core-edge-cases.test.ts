@@ -81,9 +81,13 @@ describe("CopilotKitCore.runAgent - Edge Cases", () => {
   });
 
   it("should handle tool arguments as empty string", async () => {
+    const handler = vi.fn(
+      async (args: any) => `Received: ${JSON.stringify(args)}`,
+    );
     const tool = createTool({
       name: "emptyArgsTool",
-      handler: vi.fn(async (args) => `Received: ${JSON.stringify(args)}`),
+      handler,
+      followUp: false,
     });
     copilotKitCore.addTool(tool);
 
@@ -107,8 +111,115 @@ describe("CopilotKitCore.runAgent - Edge Cases", () => {
       agent: agent as any,
     });
 
-    // Should resolve (error is emitted, not thrown)
+    // Empty string arguments should be treated as empty object
     await copilotKitCore.runAgent({ agent: agent as any });
+    expect(handler).toHaveBeenCalledWith({}, expect.anything());
+  });
+
+  it("should handle tool arguments as null", async () => {
+    const handler = vi.fn(
+      async (args: any) => `Received: ${JSON.stringify(args)}`,
+    );
+    const tool = createTool({
+      name: "nullArgsTool",
+      handler,
+      followUp: false,
+    });
+    copilotKitCore.addTool(tool);
+
+    const message = createAssistantMessage({
+      content: "",
+      toolCalls: [
+        {
+          id: "null-args-call",
+          type: "function",
+          function: {
+            name: "nullArgsTool",
+            arguments: null as any,
+          },
+        },
+      ],
+    });
+
+    const agent = new MockAgent({ newMessages: [message] });
+    copilotKitCore.addAgent__unsafe_dev_only({
+      id: "test",
+      agent: agent as any,
+    });
+
+    await copilotKitCore.runAgent({ agent: agent as any });
+    expect(handler).toHaveBeenCalledWith({}, expect.anything());
+  });
+
+  it("should handle tool arguments as undefined", async () => {
+    const handler = vi.fn(
+      async (args: any) => `Received: ${JSON.stringify(args)}`,
+    );
+    const tool = createTool({
+      name: "undefArgsTool",
+      handler,
+      followUp: false,
+    });
+    copilotKitCore.addTool(tool);
+
+    const message = createAssistantMessage({
+      content: "",
+      toolCalls: [
+        {
+          id: "undef-args-call",
+          type: "function",
+          function: {
+            name: "undefArgsTool",
+            arguments: undefined as any,
+          },
+        },
+      ],
+    });
+
+    const agent = new MockAgent({ newMessages: [message] });
+    copilotKitCore.addAgent__unsafe_dev_only({
+      id: "test",
+      agent: agent as any,
+    });
+
+    await copilotKitCore.runAgent({ agent: agent as any });
+    expect(handler).toHaveBeenCalledWith({}, expect.anything());
+  });
+
+  it("should handle empty arguments via wildcard tool path", async () => {
+    const handler = vi.fn(async (args: any) => `Wildcard: ${JSON.stringify(args)}`);
+    const wildcardTool = createTool({
+      name: "*",
+      handler,
+      followUp: false,
+    });
+    copilotKitCore.addTool(wildcardTool);
+
+    const message = createAssistantMessage({
+      content: "",
+      toolCalls: [
+        {
+          id: "wildcard-empty-call",
+          type: "function",
+          function: {
+            name: "unknownTool",
+            arguments: "",
+          },
+        },
+      ],
+    });
+
+    const agent = new MockAgent({ newMessages: [message] });
+    copilotKitCore.addAgent__unsafe_dev_only({
+      id: "test",
+      agent: agent as any,
+    });
+
+    await copilotKitCore.runAgent({ agent: agent as any });
+    expect(handler).toHaveBeenCalledWith(
+      expect.objectContaining({ toolName: "unknownTool", args: {} }),
+      expect.anything(),
+    );
   });
 
   it("should handle very large tool result", async () => {
