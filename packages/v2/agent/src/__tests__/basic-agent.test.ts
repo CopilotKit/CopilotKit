@@ -203,6 +203,42 @@ describe("BasicAgent", () => {
       // Verify that the valid ID from provider is used
       expect(textEvents[0].messageId).toBe(validId);
     });
+
+    it("should generate unique messageId when provider returns default pattern IDs like 'txt-0'", async () => {
+      const agent = new BasicAgent({
+        model: "openai/gpt-4o",
+      });
+
+      vi.mocked(streamText).mockReturnValue(
+        mockStreamTextResponse([
+          textStart("txt-0"), // Simulate @ai-sdk/openai-compatible default ID
+          textDelta("First message"),
+          finish(),
+        ]) as any,
+      );
+
+      const input: RunAgentInput = {
+        threadId: "thread1",
+        runId: "run1",
+        messages: [],
+        tools: [],
+        context: [],
+        state: {},
+      };
+
+      const events = await collectEvents(agent["run"](input));
+
+      const textEvents = events.filter(
+        (e: any) => e.type === EventType.TEXT_MESSAGE_CHUNK,
+      );
+      expect(textEvents).toHaveLength(1);
+
+      // "txt-0" should be treated as a default ID and replaced with UUID
+      expect(textEvents[0].messageId).not.toBe("txt-0");
+      expect(textEvents[0].messageId).toMatch(
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
+      );
+    });
   });
 
   describe("Tool Call Events", () => {
@@ -1017,6 +1053,41 @@ describe("BasicAgent", () => {
         (e: any) => e.type === EventType.REASONING_START,
       );
       expect(reasoningEvent.messageId).not.toBe("0");
+      expect(reasoningEvent.messageId).toMatch(
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
+      );
+    });
+
+    it("should generate unique reasoningMessageId when provider returns 'reasoning-0'", async () => {
+      const agent = new BasicAgent({
+        model: "openai/gpt-4o",
+      });
+
+      vi.mocked(streamText).mockReturnValue(
+        mockStreamTextResponse([
+          reasoningStart("reasoning-0"), // Simulate @ai-sdk/openai-compatible default ID
+          reasoningDelta("content"),
+          reasoningEnd(),
+          finish(),
+        ]) as any,
+      );
+
+      const input: RunAgentInput = {
+        threadId: "thread1",
+        runId: "run1",
+        messages: [],
+        tools: [],
+        context: [],
+        state: {},
+      };
+
+      const events = await collectEvents(agent["run"](input));
+
+      const reasoningEvent = events.find(
+        (e: any) => e.type === EventType.REASONING_START,
+      );
+      // "reasoning-0" should be treated as a default ID and replaced with UUID
+      expect(reasoningEvent.messageId).not.toBe("reasoning-0");
       expect(reasoningEvent.messageId).toMatch(
         /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
       );
