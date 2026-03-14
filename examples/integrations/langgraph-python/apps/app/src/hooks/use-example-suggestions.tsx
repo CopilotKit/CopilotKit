@@ -30,7 +30,7 @@ export const useExampleSuggestions = () => {
       {
         title: "Flight Search (Fixed Schema A2UI)",
         message:
-          "Search for flights from SFO to JFK using the search_flights tool. Show a few options with different airlines, times, and prices.",
+          "Search for flights using the search_flights tool. Show 4 options with diverse routes (e.g. LAX→ORD, SFO→JFK, DEN→ATL, SEA→MIA) and different airlines and times.",
       },
       // 3c. Streaming A2UI — schema emitted at tool start, data streams in progressively
       {

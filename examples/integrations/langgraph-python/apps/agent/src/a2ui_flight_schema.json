@@ -308,9 +308,9 @@
         "action": {
           "name": "book_flight",
           "context": [
-            { "key": "flightNumber", "path": "/flightNumber" },
-            { "key": "origin", "path": "/origin" },
-            { "key": "destination", "path": "/destination" }
+            { "key": "flightNumber", "value": { "path": "/flightNumber" } },
+            { "key": "origin", "value": { "path": "/origin" } },
+            { "key": "destination", "value": { "path": "/destination" } }
           ]
         }
       }
