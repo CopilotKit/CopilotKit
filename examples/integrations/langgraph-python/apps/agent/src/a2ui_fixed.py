@@ -1,71 +1,19 @@
 """
 Fixed-schema A2UI tool: flight search results.
 
-Emits three A2UI operations as separate messages:
-  1. surfaceUpdate  — the component schema (template with data bindings)
-  2. dataModelUpdate — the data contents that fill the template
-  3. beginRendering  — signal the client to render
-
-The schema is fixed (same components every time). Only the data changes
-per invocation. The middleware and renderer handle each message type
-independently — schema and data are separate concerns.
+The schema (component template) is fixed — same every call.
+Only the data changes per invocation.
 """
 
 from __future__ import annotations
 
-import json
 from typing import Any
 
 from langchain.tools import tool
 from typing_extensions import TypedDict
 
+from src.a2ui import a2ui_surface
 
-# ---------------------------------------------------------------------------
-# Data normalization helpers
-# ---------------------------------------------------------------------------
-
-def _normalize_data_value(value: Any) -> Any:
-    """Wrap a single dict in a list so list-binding templates work uniformly."""
-    if isinstance(value, list):
-        return value
-    if isinstance(value, dict):
-        return [value]
-    return value
-
-
-def _normalize_data(data: dict[str, Any]) -> dict[str, Any]:
-    return {k: _normalize_data_value(v) for k, v in data.items()}
-
-
-# ---------------------------------------------------------------------------
-# Typed data-model conversion  (Python values → A2UI contents entries)
-# ---------------------------------------------------------------------------
-
-def _to_data_model_contents(value: Any) -> dict[str, Any]:
-    if isinstance(value, bool):
-        return {"valueBoolean": value}
-    if isinstance(value, str):
-        return {"valueString": value}
-    if isinstance(value, (int, float)):
-        return {"valueNumber": value}
-    if isinstance(value, dict):
-        return {"valueMap": [_to_contents_entry(k, v) for k, v in value.items()]}
-    if isinstance(value, list):
-        return {"valueMap": [_to_contents_entry(str(i), item) for i, item in enumerate(value)]}
-    return {"valueString": str(value)}
-
-
-def _to_contents_entry(key: str, value: Any) -> dict[str, Any]:
-    return {"key": key, **_to_data_model_contents(value)}
-
-
-def _data_to_contents(data: dict[str, Any]) -> list[dict[str, Any]]:
-    return [_to_contents_entry(k, v) for k, v in data.items()]
-
-
-# ---------------------------------------------------------------------------
-# Schema & tool
-# ---------------------------------------------------------------------------
 
 SURFACE_ID = "flight-search-results"
 
@@ -266,31 +214,9 @@ def search_flights(flights: list[Flight]) -> str:
     Each flight must have: id, origin, destination, duration,
     departure, arrival, airline, flightNumber, and price.
     """
-    # Normalize data for list binding (single dicts become single-element arrays)
-    normalized = _normalize_data({"flights": flights})
-
-    # Schema — the fixed component template (same every call)
-    schema = {
-        "surfaceUpdate": {
-            "surfaceId": SURFACE_ID,
-            "components": FLIGHT_SCHEMA,
-        }
-    }
-
-    # Data — the contents that change per invocation
-    data = {
-        "dataModelUpdate": {
-            "surfaceId": SURFACE_ID,
-            "contents": _data_to_contents(normalized),
-        }
-    }
-
-    # Render trigger
-    render = {
-        "beginRendering": {
-            "surfaceId": SURFACE_ID,
-            "root": "root",
-        }
-    }
-
-    return json.dumps([schema, data, render])
+    return a2ui_surface(
+        surface_id=SURFACE_ID,
+        root="root",
+        components=FLIGHT_SCHEMA,
+        data={"flights": flights},
+    )
