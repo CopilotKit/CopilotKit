@@ -1143,6 +1143,135 @@ describe("BasicAgent", () => {
       expect(eventTypes).toContain(EventType.TOOL_CALL_START);
       expect(eventTypes).toContain(EventType.TOOL_CALL_END);
     });
+
+    it("should auto-close reasoning when SDK omits reasoning-end before tool call", async () => {
+      // Reproduces the Anthropic bug: SDK emits reasoning-start + deltas
+      // but never emits reasoning-end before transitioning to tool calls.
+      const agent = new BasicAgent({
+        model: "openai/gpt-4o",
+      });
+
+      vi.mocked(streamText).mockReturnValue(
+        mockStreamTextResponse([
+          reasoningStart(),
+          reasoningDelta("Thinking about the problem"),
+          // NOTE: no reasoningEnd() here — simulates the Anthropic SDK bug
+          toolCallStreamingStart("call1", "testTool"),
+          toolCallDelta("call1", '{"arg":"val"}'),
+          toolCall("call1", "testTool", { arg: "val" }),
+          toolResult("call1", "testTool", { result: "done" }),
+          finish(),
+        ]) as any,
+      );
+
+      const input: RunAgentInput = {
+        threadId: "thread1",
+        runId: "run1",
+        messages: [],
+        tools: [],
+        context: [],
+        state: {},
+      };
+
+      const events = await collectEvents(agent["run"](input));
+      const eventTypes = events.map((e: any) => e.type);
+
+      // Reasoning lifecycle must still be fully closed
+      expect(eventTypes).toContain(EventType.REASONING_START);
+      expect(eventTypes).toContain(EventType.REASONING_MESSAGE_END);
+      expect(eventTypes).toContain(EventType.REASONING_END);
+
+      // Tool call lifecycle must also complete
+      expect(eventTypes).toContain(EventType.TOOL_CALL_START);
+      expect(eventTypes).toContain(EventType.TOOL_CALL_END);
+
+      // Reasoning must close before tool call starts
+      const reasoningEndIdx = eventTypes.indexOf(EventType.REASONING_END);
+      const toolCallStartIdx = eventTypes.indexOf(EventType.TOOL_CALL_START);
+      expect(reasoningEndIdx).toBeLessThan(toolCallStartIdx);
+
+      // Stream must finish normally
+      expect(eventTypes[eventTypes.length - 1]).toBe(EventType.RUN_FINISHED);
+    });
+
+    it("should auto-close reasoning when SDK omits reasoning-end before text", async () => {
+      // Anthropic may transition directly from reasoning to text output
+      const agent = new BasicAgent({
+        model: "openai/gpt-4o",
+      });
+
+      vi.mocked(streamText).mockReturnValue(
+        mockStreamTextResponse([
+          reasoningStart(),
+          reasoningDelta("Let me think"),
+          // NOTE: no reasoningEnd() — goes straight to text
+          textStart(),
+          textDelta("Here is my answer"),
+          finish(),
+        ]) as any,
+      );
+
+      const input: RunAgentInput = {
+        threadId: "thread1",
+        runId: "run1",
+        messages: [],
+        tools: [],
+        context: [],
+        state: {},
+      };
+
+      const events = await collectEvents(agent["run"](input));
+      const eventTypes = events.map((e: any) => e.type);
+
+      // Reasoning lifecycle auto-closed
+      expect(eventTypes).toContain(EventType.REASONING_START);
+      expect(eventTypes).toContain(EventType.REASONING_MESSAGE_END);
+      expect(eventTypes).toContain(EventType.REASONING_END);
+
+      // Text still arrives
+      expect(eventTypes).toContain(EventType.TEXT_MESSAGE_CHUNK);
+
+      // Reasoning closes before text
+      const reasoningEndIdx = eventTypes.indexOf(EventType.REASONING_END);
+      const textIdx = eventTypes.indexOf(EventType.TEXT_MESSAGE_CHUNK);
+      expect(reasoningEndIdx).toBeLessThan(textIdx);
+
+      expect(eventTypes[eventTypes.length - 1]).toBe(EventType.RUN_FINISHED);
+    });
+
+    it("should auto-close reasoning when SDK omits reasoning-end before finish", async () => {
+      // Edge case: reasoning-only stream with no text or tool calls, and no reasoning-end
+      const agent = new BasicAgent({
+        model: "openai/gpt-4o",
+      });
+
+      vi.mocked(streamText).mockReturnValue(
+        mockStreamTextResponse([
+          reasoningStart(),
+          reasoningDelta("Deep thought"),
+          // NOTE: no reasoningEnd() — goes straight to finish
+          finish(),
+        ]) as any,
+      );
+
+      const input: RunAgentInput = {
+        threadId: "thread1",
+        runId: "run1",
+        messages: [],
+        tools: [],
+        context: [],
+        state: {},
+      };
+
+      const events = await collectEvents(agent["run"](input));
+      const eventTypes = events.map((e: any) => e.type);
+
+      // Reasoning lifecycle auto-closed before finish
+      expect(eventTypes).toContain(EventType.REASONING_START);
+      expect(eventTypes).toContain(EventType.REASONING_MESSAGE_END);
+      expect(eventTypes).toContain(EventType.REASONING_END);
+      expect(eventTypes[eventTypes.length - 1]).toBe(EventType.RUN_FINISHED);
+    });
   });
 
   describe("Provider Options", () => {
