@@ -11,10 +11,11 @@ from src.query import query_data
 from src.todos import AgentState, todo_tools
 from src.form import generate_form
 from src.a2ui_fixed import search_flights
+from src.a2ui_streaming import search_flights_streaming
 
 agent = create_agent(
     model="openai:gpt-4.1",
-    tools=[query_data, *todo_tools, generate_form, search_flights],
+    tools=[query_data, *todo_tools, generate_form, search_flights, search_flights_streaming],
     middleware=[CopilotKitMiddleware()],
     state_schema=AgentState,
     system_prompt="""

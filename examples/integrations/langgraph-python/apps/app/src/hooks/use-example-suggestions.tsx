@@ -32,6 +32,12 @@ export const useExampleSuggestions = () => {
         message:
           "Search for flights from SFO to JFK using the search_flights tool. Show a few options with different airlines, times, and prices.",
       },
+      // 3c. Streaming A2UI — schema emitted at tool start, data streams in progressively
+      {
+        title: "Flight Search Streaming (A2UI Streaming)",
+        message:
+          "Search for flights from LAX to ORD using the search_flights_streaming tool. Show 3 options with different airlines and times.",
+      },
       // 4. Open Generative UI — MCP app renders its own UI
       {
         title: "Excalidraw Diagram (Open Generative UI)",

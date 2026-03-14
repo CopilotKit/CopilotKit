@@ -71,6 +71,8 @@ export const useGenerativeUIExamples = () => {
     "generate_form",
     // search_flights is rendered by A2UI's declarative surface system (fixed schema with data binding)
     "search_flights",
+    // search_flights_streaming is rendered by A2UI with streaming data updates
+    "search_flights_streaming",
     // log_a2ui_event is an internal A2UI event tracker, not meaningful to display to users
     "log_a2ui_event",
   ];
