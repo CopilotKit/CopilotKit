@@ -31,7 +31,9 @@
             "header-row",
             "route-row",
             "divider",
-            "times-row"
+            "times-row",
+            "divider-2",
+            "book-btn"
           ]
         },
         "gap": "small",
@@ -279,6 +281,38 @@
           "path": "/arrivalTime"
         },
         "usageHint": "h3"
+      }
+    }
+  },
+  {
+    "id": "divider-2",
+    "component": {
+      "Divider": {}
+    }
+  },
+  {
+    "id": "book-btn-text",
+    "component": {
+      "Text": {
+        "text": {
+          "literalString": "Book Flight"
+        }
+      }
+    }
+  },
+  {
+    "id": "book-btn",
+    "component": {
+      "Button": {
+        "child": "book-btn-text",
+        "action": {
+          "name": "book_flight",
+          "context": [
+            { "key": "flightNumber", "path": "/flightNumber" },
+            { "key": "origin", "path": "/origin" },
+            { "key": "destination", "path": "/destination" }
+          ]
+        }
       }
     }
   }

@@ -25,6 +25,10 @@ agent = create_agent(
 
         When demonstrating charts, always call the query_data tool to fetch data first.
         When asked to manage todos, enable app mode first, then manage todos.
+
+        When you see a log_a2ui_event tool result indicating a user action like "book_flight",
+        respond naturally to confirm the action. For example: "Flight UA123 from SFO to JFK
+        has been booked! You'll receive a confirmation email shortly."
     """,
 )
 
