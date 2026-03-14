@@ -9,13 +9,12 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from copilotkit import a2ui
 from langchain.tools import tool
 from typing_extensions import TypedDict
 
-from src.a2ui import a2ui_surface, load_schema
-
 SURFACE_ID = "flight-search-results"
-FLIGHT_SCHEMA = load_schema(Path(__file__).parent / "a2ui_flight_schema.json")
+FLIGHT_SCHEMA = a2ui.load_schema(Path(__file__).parent / "a2ui_flight_schema.json")
 
 
 class Flight(TypedDict):
@@ -36,9 +35,8 @@ def search_flights(flights: list[Flight]) -> str:
     Each flight must have: id, origin, destination, date,
     departureTime, arrivalTime, status, and flightNumber.
     """
-    return a2ui_surface(
-        surface_id=SURFACE_ID,
-        root="root",
-        components=FLIGHT_SCHEMA,
-        data={"flights": flights},
-    )
+    return a2ui.render([
+        a2ui.surface_update(SURFACE_ID, FLIGHT_SCHEMA),
+        a2ui.data_model_update(SURFACE_ID, {"flights": flights}),
+        a2ui.begin_rendering(SURFACE_ID, "root"),
+    ])

@@ -9,7 +9,7 @@
     "build": "turbo run build",
     "lint": "turbo run lint",
     "clean": "turbo run clean",
-    "local-install": "bash -c 'cd ../../.. && ./node_modules/.bin/nx run-many -t build -p @copilotkit/react-core @copilotkit/react-ui @copilotkit/runtime @copilotkitnext/shared' && bash -c 'cd ../../../.. && cd ag-ui && npx -y pnpm@10 install && npx -y pnpm@10 run build' && COPILOTKIT_LOCAL=1 pnpm install"
+    "local-install": "bash -c 'cd ../../.. && ./node_modules/.bin/nx run-many -t build -p @copilotkit/react-core @copilotkit/react-ui @copilotkit/runtime @copilotkitnext/shared' && bash -c 'cd ../../../.. && cd ag-ui && npx -y pnpm@10 install && npx -y pnpm@10 run build' && COPILOTKIT_LOCAL=1 pnpm install && cd apps/agent && uv pip install -e ../../../../../sdk-python"
   },
   "devDependencies": {
     "turbo": "^2.5.4",

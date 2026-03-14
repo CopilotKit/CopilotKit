@@ -42,13 +42,13 @@ export function createA2UIMessageRenderer(
       const { copilotkit } = useCopilotKit();
 
       useEffect(() => {
-        if (!content || !Array.isArray(content.operations)) {
+        // Support both explicit container (a2ui_operations) and legacy (operations)
+        const incoming = content?.a2ui_operations ?? content?.operations;
+        if (!content || !Array.isArray(incoming)) {
           lastSignatureRef.current = null;
           setOperations([]);
           return;
         }
-
-        const incoming = content.operations as any[];
         const signature = stringifyOperations(incoming);
 
         if (signature && signature === lastSignatureRef.current) {
