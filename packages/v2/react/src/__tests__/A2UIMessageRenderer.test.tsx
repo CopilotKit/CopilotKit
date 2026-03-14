@@ -13,6 +13,14 @@ vi.mock("../providers", () => ({
   })),
 }));
 
+vi.mock("../providers/A2UIActionHandlerRegistry", () => ({
+  useA2UIActionHandlerRegistry: vi.fn(() => ({
+    register: vi.fn(),
+    unregister: vi.fn(),
+    getHandlers: vi.fn(() => []),
+  })),
+}));
+
 describe("A2UIMessageRenderer rendering integration", () => {
   it("should render A2UI surface content via React renderer", async () => {
     const { createA2UIMessageRenderer } =

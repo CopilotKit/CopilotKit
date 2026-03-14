@@ -16,7 +16,6 @@ export default function RootLayout({
           <CopilotKit
             runtimeUrl="/api/copilotkit"
             inspectorDefaultAnchor={{ horizontal: "left", vertical: "top" }}
-            // a2ui={ theme } // Custom theme for A2UI, check @/lib/a2ui-theme.css
           >
             {children}
           </CopilotKit>

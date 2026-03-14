@@ -7,7 +7,11 @@ import {
   useFrontendTool,
   useHumanInTheLoop,
   useDefaultRenderTool,
+  useA2UIActionHandler,
 } from "@copilotkit/react-core/v2";
+
+// A2UI schemas
+import bookedSchema from "@/a2ui/booked-confirmation.json";
 
 // Generative UI imports
 import {
@@ -23,6 +27,33 @@ import { ToolReasoning } from "@/components/tool-rendering";
 
 export const useGenerativeUIExamples = () => {
   const { theme, setTheme } = useTheme();
+
+  // ----------------------------------------------------------
+  // 0. A2UI Optimistic Action Handlers
+  //    Registered via hook — react to button clicks with instant UI updates
+  // ----------------------------------------------------------
+  useA2UIActionHandler({
+    actionName: "book_flight",
+    handler: (action) => {
+      const { surfaceId } = action;
+      const fn = action.context?.flightNumber ?? "flight";
+      const orig = action.context?.origin ?? "";
+      const dest = action.context?.destination ?? "";
+      return [
+        { surfaceUpdate: { surfaceId, components: bookedSchema } },
+        {
+          dataModelUpdate: {
+            surfaceId,
+            contents: [
+              { key: "title", valueString: "Booked!" },
+              { key: "detail", valueString: `${fn}: ${orig} → ${dest}` },
+            ],
+          },
+        },
+        { beginRendering: { surfaceId, root: "root" } },
+      ];
+    },
+  });
 
   // ----------------------------------------------------------
   // 1. Controlled Generative UI (frontend-defined components)
@@ -69,9 +100,8 @@ export const useGenerativeUIExamples = () => {
   const ignoredTools = [
     // generate_form is rendered by A2UI's declarative surface system, not as a tool call
     "generate_form",
-    // search_flights and update_flights are rendered by A2UI's declarative surface system
+    // search_flights is rendered by A2UI's declarative surface system (fixed schema with data binding)
     "search_flights",
-    "update_flights",
     // search_flights_streaming is rendered by A2UI with streaming data updates
     "search_flights_streaming",
     // log_a2ui_event is an internal A2UI event tracker, not meaningful to display to users

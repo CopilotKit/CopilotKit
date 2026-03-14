@@ -23,6 +23,10 @@ import {
   MCPAppsActivityType,
 } from "../components/MCPAppsActivityRenderer";
 import { createA2UIMessageRenderer } from "../a2ui/A2UIMessageRenderer";
+import {
+  A2UIActionHandlerRegistryProvider,
+  useA2UIActionHandlerRegistry,
+} from "./A2UIActionHandlerRegistry";
 import { viewerTheme } from "@copilotkit/a2ui-renderer";
 import type { Theme as A2UITheme } from "@copilotkit/a2ui-renderer";
 import { CopilotKitCoreReact } from "../lib/react-core";
@@ -112,6 +116,26 @@ export interface CopilotKitProviderProps {
      * When omitted, the built-in `viewerTheme` from `@copilotkit/a2ui-renderer` is used.
      */
     theme?: A2UITheme;
+    /**
+     * Optional orchestrator for A2UI action dispatch. Receives the action
+     * and an array of handlers registered via useA2UIActionHandler hooks.
+     *
+     * Default behavior (when omitted): loops through handlers and uses
+     * the first one that returns a non-empty operations array.
+     *
+     * @example
+     * ```tsx
+     * onAction: (action, handlers) => {
+     *   // Custom logic — e.g., log, transform, or skip
+     *   for (const h of handlers) {
+     *     const ops = h(action);
+     *     if (ops?.length) return ops;
+     *   }
+     *   return null;
+     * }
+     * ```
+     */
+    onAction?: import("../a2ui/A2UIMessageRenderer").A2UIActionOrchestrator;
   };
   /**
    * Default anchor corner for the inspector button and window.
@@ -234,7 +258,10 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
 
     if (runtimeA2UIEnabled) {
       renderers.unshift(
-        createA2UIMessageRenderer({ theme: a2ui?.theme ?? viewerTheme }),
+        createA2UIMessageRenderer({
+          theme: a2ui?.theme ?? viewerTheme,
+          onAction: a2ui?.onAction,
+        }),
       );
     }
 
@@ -533,7 +560,9 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
 
   return (
     <CopilotKitContext.Provider value={contextValue}>
-      {children}
+      <A2UIActionHandlerRegistryProvider>
+        {children}
+      </A2UIActionHandlerRegistryProvider>
       {shouldRenderInspector ? (
         <CopilotKitInspector
           core={copilotkit}

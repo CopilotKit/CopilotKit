@@ -40,16 +40,3 @@ def search_flights(flights: list[Flight]) -> str:
         a2ui.data_model_update(SURFACE_ID, {"flights": flights}),
         a2ui.begin_rendering(SURFACE_ID, "root"),
     ])
-
-
-@tool
-def update_flights(flights: list[Flight]) -> str:
-    """Update the existing flight cards with new data.
-
-    Use this to change flight status (e.g. mark as "Booked ✓") after a
-    user action like book_flight. The surface schema is already rendered —
-    this only updates the data.
-    """
-    return a2ui.render([
-        a2ui.data_model_update(SURFACE_ID, {"flights": flights}),
-    ])

@@ -14,3 +14,5 @@ export { useSuggestions } from "./use-suggestions";
 export { useConfigureSuggestions } from "./use-configure-suggestions";
 export { useInterrupt } from "./use-interrupt";
 export type { UseInterruptConfig } from "./use-interrupt";
+export { useA2UIActionHandler } from "./use-a2ui-action-handler";
+export type { A2UIActionHandlerRegistration } from "./use-a2ui-action-handler";

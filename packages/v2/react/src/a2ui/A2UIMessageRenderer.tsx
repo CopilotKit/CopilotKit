@@ -1,4 +1,5 @@
 import { useCopilotKit } from "../providers";
+import { useA2UIActionHandlerRegistry } from "../providers/A2UIActionHandlerRegistry";
 import type { ReactActivityMessageRenderer } from "../types/react-activity-message-renderer";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { z } from "zod";
@@ -10,7 +11,11 @@ import {
   injectStyles,
   DEFAULT_SURFACE_ID,
 } from "@copilotkit/a2ui-renderer";
-import type { Theme, A2UIClientEventMessage } from "@copilotkit/a2ui-renderer";
+import type {
+  Theme,
+  A2UIClientEventMessage,
+  ServerToClientMessage,
+} from "@copilotkit/a2ui-renderer";
 
 /**
  * The container key used to wrap A2UI operations for explicit detection.
@@ -28,14 +33,45 @@ function ensureInitialized() {
   }
 }
 
+/**
+ * User action with dataContextPath, as dispatched by A2UI components.
+ */
+export type A2UIUserAction = {
+  name: string;
+  sourceComponentId: string;
+  surfaceId: string;
+  timestamp: string;
+  context?: Record<string, unknown>;
+  dataContextPath?: string;
+};
+
+/**
+ * A single action handler function.
+ */
+export type A2UIActionHandler = (
+  action: A2UIUserAction,
+) => Array<Record<string, unknown>> | null | undefined | void;
+
+/**
+ * Orchestrator that receives the action and all registered handlers.
+ * Default behavior (when not provided): loops through handlers and uses
+ * the first one that returns a non-empty operations array.
+ */
+export type A2UIActionOrchestrator = (
+  action: A2UIUserAction,
+  handlers: A2UIActionHandler[],
+) => Array<Record<string, unknown>> | null | undefined | void;
+
 export type A2UIMessageRendererOptions = {
   theme: Theme;
+  /** Optional orchestrator for A2UI action dispatch. */
+  onAction?: A2UIActionOrchestrator;
 };
 
 export function createA2UIMessageRenderer(
   options: A2UIMessageRendererOptions,
 ): ReactActivityMessageRenderer<any> {
-  const { theme } = options;
+  const { theme, onAction } = options;
 
   return {
     activityType: "a2ui-surface",
@@ -96,6 +132,7 @@ export function createA2UIMessageRenderer(
               theme={theme}
               agent={agent}
               copilotkit={copilotkit}
+              onAction={onAction}
             />
           ))}
         </div>
@@ -110,7 +147,23 @@ type ReactSurfaceHostProps = {
   theme: Theme;
   agent: any;
   copilotkit: any;
+  onAction?: A2UIActionOrchestrator;
 };
+
+/**
+ * Default orchestrator: loops through registered handlers, uses first
+ * one that returns a non-empty operations array.
+ */
+function defaultActionOrchestrator(
+  action: A2UIUserAction,
+  handlers: A2UIActionHandler[],
+): Array<Record<string, unknown>> | null {
+  for (const handler of handlers) {
+    const ops = handler(action);
+    if (ops && ops.length > 0) return ops;
+  }
+  return null;
+}
 
 /**
  * Renders a single A2UI surface using the React renderer.
@@ -122,15 +175,32 @@ function ReactSurfaceHost({
   theme,
   agent,
   copilotkit,
+  onAction: onActionOrchestrator,
 }: ReactSurfaceHostProps) {
-  // Bridge: when the React renderer dispatches an action, send it to CopilotKit
+  // Ref to access A2UI actions from inside the provider context
+  const actionsRef = useRef<ReturnType<typeof useA2UIActions> | null>(null);
+  const registry = useA2UIActionHandlerRegistry();
+
+  // Bridge: when the React renderer dispatches an action, apply
+  // optimistic updates then forward to CopilotKit
   const handleAction = useCallback(
     async (message: A2UIClientEventMessage) => {
       if (!agent) return;
 
-      try {
-        console.info("[A2UI] Action dispatched", message.userAction);
+      const action = message.userAction as A2UIUserAction | undefined;
+      console.info("[A2UI] Action dispatched", action);
 
+      // Run optimistic updates via registered handlers
+      if (actionsRef.current && action) {
+        const handlers = registry.getHandlers();
+        const orchestrate = onActionOrchestrator ?? defaultActionOrchestrator;
+        const optimisticOps = orchestrate(action, handlers);
+        if (optimisticOps && optimisticOps.length > 0) {
+          actionsRef.current.processMessages(optimisticOps as any[]);
+        }
+      }
+
+      try {
         copilotkit.setProperties({
           ...(copilotkit.properties ?? {}),
           a2uiAction: message,
@@ -144,12 +214,13 @@ function ReactSurfaceHost({
         }
       }
     },
-    [agent, copilotkit],
+    [agent, copilotkit, onActionOrchestrator, registry],
   );
 
   return (
     <div className="cpk:flex cpk:w-full cpk:flex-none cpk:flex-col cpk:gap-4">
       <A2UIProvider onAction={handleAction} theme={theme}>
+        <ActionsBridge actionsRef={actionsRef} />
         <SurfaceMessageProcessor
           surfaceId={surfaceId}
           operations={operations}
@@ -158,6 +229,20 @@ function ReactSurfaceHost({
       </A2UIProvider>
     </div>
   );
+}
+
+/**
+ * Bridges A2UI actions context into a ref accessible by the parent component.
+ * This allows handleAction (which is outside the provider) to read/write data.
+ */
+function ActionsBridge({
+  actionsRef,
+}: {
+  actionsRef: React.MutableRefObject<ReturnType<typeof useA2UIActions> | null>;
+}) {
+  const actions = useA2UIActions();
+  actionsRef.current = actions;
+  return null;
 }
 
 /**
