@@ -15,6 +15,7 @@ from typing import Any
 from copilotkit import a2ui
 from langchain.tools import tool, ToolRuntime
 from langchain_core.messages import SystemMessage
+from langchain_core.runnables import RunnableConfig
 from langchain_openai import ChatOpenAI
 from pathlib import Path
 
@@ -34,6 +35,10 @@ def generate_a2ui(runtime: ToolRuntime[Any]) -> str:
     messages = runtime.state["messages"][:-1]
 
     model = ChatOpenAI(model="gpt-4.1-mini", temperature=0)
-    response = model.invoke([SystemMessage(content=SCHEMA_PROMPT), *messages])
+    # Suppress callback propagation so nested LLM tokens don't stream to chat UI
+    response = model.invoke(
+        [SystemMessage(content=SCHEMA_PROMPT), *messages],
+        config=RunnableConfig(callbacks=[]),
+    )
 
     return a2ui.render(operations=json.loads(response.content))
