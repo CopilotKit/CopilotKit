@@ -1,5 +1,9 @@
 import { useEffect, useRef } from "react";
-import type { A2UIUserAction } from "../a2ui/A2UIMessageRenderer";
+import type {
+  A2UIUserAction,
+  A2UIDeclaredOps,
+  A2UIOps,
+} from "../a2ui/A2UIMessageRenderer";
 import { useA2UIActionHandlerRegistry } from "../providers/A2UIActionHandlerRegistry";
 
 /**
@@ -10,11 +14,17 @@ export interface A2UIActionHandlerRegistration {
   actionName: string;
   /**
    * Handler called when the action is dispatched.
-   * Return A2UI operations to apply optimistically, or null to skip.
+   *
+   * @param action - The dispatched user action with context and dataContextPath.
+   * @param declaredOps - Pre-declared A2UI operations for this action from the
+   *   agent's action_handlers (exact match or "*" catch-all), or null.
+   *   You can return these directly, modify them, or ignore them.
+   * @returns A2UI operations to apply optimistically, or null to skip.
    */
   handler: (
     action: A2UIUserAction,
-  ) => Array<Record<string, unknown>> | null | undefined | void;
+    declaredOps: A2UIDeclaredOps,
+  ) => A2UIOps | null | undefined | void;
 }
 
 /**

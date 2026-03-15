@@ -15,7 +15,7 @@ export * from "./lib/react-core";
 export {
   createA2UIMessageRenderer,
   defaultActionOrchestrator,
-  buildActionHandlers,
+  resolveDeclaredOps,
 } from "./a2ui/A2UIMessageRenderer";
 export { useA2UIActionHandler } from "./hooks/use-a2ui-action-handler";
 export type { A2UIActionHandlerRegistration } from "./hooks/use-a2ui-action-handler";
@@ -24,5 +24,7 @@ export type {
   A2UIActionHandler,
   A2UIActionOrchestrator,
   A2UIUserAction,
+  A2UIOps,
+  A2UIDeclaredOps,
 } from "./a2ui/A2UIMessageRenderer";
 export type { Theme as A2UITheme } from "@copilotkit/a2ui-renderer";

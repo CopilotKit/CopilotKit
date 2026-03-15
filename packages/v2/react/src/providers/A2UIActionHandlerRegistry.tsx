@@ -1,6 +1,9 @@
 import { createContext, useContext, useRef, type ReactNode } from "react";
 import type { A2UIActionHandlerRegistration } from "../hooks/use-a2ui-action-handler";
-import type { A2UIUserAction } from "../a2ui/A2UIMessageRenderer";
+import type {
+  A2UIUserAction,
+  A2UIDeclaredOps,
+} from "../a2ui/A2UIMessageRenderer";
 
 /**
  * Registry for A2UI action handlers registered via useA2UIActionHandler.
@@ -52,9 +55,9 @@ export function A2UIActionHandlerRegistryProvider({
       },
       getHandlers: () => {
         return Array.from(registrations.current.values()).map(
-          (reg) => (action: A2UIUserAction) => {
+          (reg) => (action: A2UIUserAction, declaredOps: A2UIDeclaredOps) => {
             if (action.name === reg.actionName) {
-              return reg.handler(action);
+              return reg.handler(action, declaredOps);
             }
             return null;
           },
