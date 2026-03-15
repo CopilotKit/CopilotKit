@@ -62,7 +62,7 @@
     "react-dom": "^19.2.0",
     "tsconfig": "workspace:*",
     "vitest": "^3.2.4",
-    "tsdown": "^0.20.3",
+    "tsdown": "^0.21.0",
     "typescript": "^5.2.3",
     "zod": ">=3.0.0"
   },
