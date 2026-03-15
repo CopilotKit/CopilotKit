@@ -27,3 +27,4 @@ export type {
   A2UIDeclaredOps,
 } from "./a2ui/A2UIMessageRenderer";
 export type { Theme as A2UITheme } from "@copilotkit/a2ui-renderer";
+export { defaultTheme as a2uiDefaultTheme } from "@copilotkit/a2ui-renderer";
