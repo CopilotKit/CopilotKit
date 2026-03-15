@@ -115,8 +115,7 @@ export function createA2UIMessageRenderer(
         if (content === lastContentRef.current) return;
         lastContentRef.current = content;
 
-        // Support both explicit container and legacy (operations)
-        const incoming = content?.[A2UI_OPERATIONS_KEY] ?? content?.operations;
+        const incoming = content?.[A2UI_OPERATIONS_KEY];
         if (!content || !Array.isArray(incoming)) {
           setOperations([]);
           setActionHandlers(undefined);

@@ -30,7 +30,7 @@ describe("A2UIMessageRenderer rendering integration", () => {
     });
 
     const content = {
-      operations: [
+      a2ui_operations: [
         {
           beginRendering: {
             surfaceId: "test-surface",
@@ -77,7 +77,7 @@ describe("A2UIMessageRenderer rendering integration", () => {
     let setContent: (content: any) => void;
     const TestWrapper = () => {
       const [content, _setContent] = useState({
-        operations: [
+        a2ui_operations: [
           { beginRendering: { surfaceId: "test", root: "root", styles: {} } },
           {
             surfaceUpdate: {
@@ -102,7 +102,7 @@ describe("A2UIMessageRenderer rendering integration", () => {
 
     await act(async () => {
       setContent({
-        operations: [
+        a2ui_operations: [
           { beginRendering: { surfaceId: "test", root: "root", styles: {} } },
           {
             surfaceUpdate: {
@@ -127,7 +127,7 @@ describe("A2UIMessageRenderer rendering integration", () => {
     const RenderComponent = renderer.render as React.FC<any>;
 
     const TestWrapper = () => (
-      <RenderComponent content={{ operations: [] }} agent={null} />
+      <RenderComponent content={{ a2ui_operations: [] }} agent={null} />
     );
 
     let container: HTMLElement;
@@ -148,7 +148,7 @@ describe("A2UIMessageRenderer rendering integration", () => {
     const RenderComponent = renderer.render as React.FC<any>;
 
     const content = {
-      operations: [
+      a2ui_operations: [
         { beginRendering: { surfaceId: "s1", root: "r1", styles: {} } },
         { beginRendering: { surfaceId: "s2", root: "r2", styles: {} } },
         {
