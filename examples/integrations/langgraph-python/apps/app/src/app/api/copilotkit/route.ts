@@ -45,11 +45,13 @@ export const POST = async (req: NextRequest) => {
                     dataModelUpdate: {
                       surfaceId: "flight-search-streaming",
                       contents: [
-                        { key: "title", valueString: "Booked!" },
+                        { key: "title", valueString: "Booking Confirmed" },
                         {
                           key: "detail",
-                          valueString: "Your flight has been confirmed.",
+                          valueString:
+                            "Your flight has been booked successfully.",
                         },
+                        { key: "reference", valueString: "CK-38291" },
                       ],
                     },
                   },

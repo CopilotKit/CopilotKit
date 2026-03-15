@@ -18,21 +18,23 @@
     "id": "flight-card",
     "component": {
       "Card": {
-        "child": "main-column"
+        "child": "main-col"
       }
     }
   },
   {
-    "id": "main-column",
+    "id": "main-col",
     "component": {
       "Column": {
         "children": {
           "explicitList": [
             "header-row",
-            "route-row",
-            "divider",
+            "meta-row",
+            "divider-1",
             "times-row",
+            "route-row",
             "divider-2",
+            "status-row",
             "book-btn"
           ]
         },
@@ -41,15 +43,67 @@
       }
     }
   },
+
   {
     "id": "header-row",
     "component": {
       "Row": {
         "children": {
-          "explicitList": [
-            "flight-number",
-            "date"
-          ]
+          "explicitList": ["airline-info", "price-text"]
+        },
+        "distribution": "spaceBetween",
+        "alignment": "center"
+      }
+    }
+  },
+  {
+    "id": "airline-info",
+    "component": {
+      "Row": {
+        "children": {
+          "explicitList": ["airline-logo", "airline-name"]
+        },
+        "gap": "small",
+        "alignment": "center"
+      }
+    }
+  },
+  {
+    "id": "airline-logo",
+    "component": {
+      "Image": {
+        "url": { "path": "/airlineLogo" },
+        "altText": { "path": "/airline" },
+        "fit": "contain",
+        "usageHint": "avatar"
+      }
+    }
+  },
+  {
+    "id": "airline-name",
+    "component": {
+      "Text": {
+        "text": { "path": "/airline" },
+        "usageHint": "h3"
+      }
+    }
+  },
+  {
+    "id": "price-text",
+    "component": {
+      "Text": {
+        "text": { "path": "/price" },
+        "usageHint": "h2"
+      }
+    }
+  },
+
+  {
+    "id": "meta-row",
+    "component": {
+      "Row": {
+        "children": {
+          "explicitList": ["flight-number", "date-text"]
         },
         "distribution": "spaceBetween",
         "alignment": "center"
@@ -60,34 +114,111 @@
     "id": "flight-number",
     "component": {
       "Text": {
-        "text": {
-          "path": "/flightNumber"
-        },
-        "usageHint": "h3"
-      }
-    }
-  },
-  {
-    "id": "date",
-    "component": {
-      "Text": {
-        "text": {
-          "path": "/date"
-        },
+        "text": { "path": "/flightNumber" },
         "usageHint": "caption"
       }
     }
   },
   {
+    "id": "date-text",
+    "component": {
+      "Text": {
+        "text": { "path": "/date" },
+        "usageHint": "caption"
+      }
+    }
+  },
+
+  { "id": "divider-1", "component": { "Divider": {} } },
+
+  {
+    "id": "times-row",
+    "component": {
+      "Row": {
+        "children": {
+          "explicitList": ["depart-time", "duration-text", "arrive-time"]
+        },
+        "distribution": "spaceBetween",
+        "alignment": "center"
+      }
+    }
+  },
+  {
+    "id": "depart-time",
+    "component": {
+      "Text": {
+        "text": { "path": "/departureTime" },
+        "usageHint": "h2"
+      }
+    }
+  },
+  {
+    "id": "duration-text",
+    "component": {
+      "Text": {
+        "text": { "path": "/duration" },
+        "usageHint": "caption"
+      }
+    }
+  },
+  {
+    "id": "arrive-time",
+    "component": {
+      "Text": {
+        "text": { "path": "/arrivalTime" },
+        "usageHint": "h2"
+      }
+    }
+  },
+
+  {
     "id": "route-row",
     "component": {
       "Row": {
         "children": {
-          "explicitList": [
-            "origin",
-            "arrow",
-            "destination"
-          ]
+          "explicitList": ["origin-code", "arrow-text", "dest-code"]
+        },
+        "distribution": "spaceBetween",
+        "alignment": "center"
+      }
+    }
+  },
+  {
+    "id": "origin-code",
+    "component": {
+      "Text": {
+        "text": { "path": "/origin" },
+        "usageHint": "h3"
+      }
+    }
+  },
+  {
+    "id": "arrow-text",
+    "component": {
+      "Text": {
+        "text": { "literalString": "→" },
+        "usageHint": "h3"
+      }
+    }
+  },
+  {
+    "id": "dest-code",
+    "component": {
+      "Text": {
+        "text": { "path": "/destination" },
+        "usageHint": "h3"
+      }
+    }
+  },
+
+  { "id": "divider-2", "component": { "Divider": {} } },
+
+  {
+    "id": "status-row",
+    "component": {
+      "Row": {
+        "children": {
+          "explicitList": ["status-dot", "status-text"]
         },
         "gap": "small",
         "alignment": "center"
@@ -95,183 +226,31 @@
     }
   },
   {
-    "id": "origin",
+    "id": "status-dot",
+    "component": {
+      "Image": {
+        "url": { "path": "/statusIcon" },
+        "altText": { "path": "/status" },
+        "fit": "contain",
+        "usageHint": "icon"
+      }
+    }
+  },
+  {
+    "id": "status-text",
     "component": {
       "Text": {
-        "text": {
-          "path": "/origin"
-        },
-        "usageHint": "h2"
-      }
-    }
-  },
-  {
-    "id": "arrow",
-    "component": {
-      "Text": {
-        "text": {
-          "literalString": "→"
-        },
-        "usageHint": "h2"
-      }
-    }
-  },
-  {
-    "id": "destination",
-    "component": {
-      "Text": {
-        "text": {
-          "path": "/destination"
-        },
-        "usageHint": "h2"
-      }
-    }
-  },
-  {
-    "id": "divider",
-    "component": {
-      "Divider": {}
-    }
-  },
-  {
-    "id": "times-row",
-    "component": {
-      "Row": {
-        "children": {
-          "explicitList": [
-            "departure-col",
-            "status-col",
-            "arrival-col"
-          ]
-        },
-        "distribution": "spaceBetween"
-      }
-    }
-  },
-  {
-    "id": "departure-col",
-    "component": {
-      "Column": {
-        "children": {
-          "explicitList": [
-            "departure-label",
-            "departure-time"
-          ]
-        },
-        "alignment": "start",
-        "gap": "none"
-      }
-    }
-  },
-  {
-    "id": "departure-label",
-    "component": {
-      "Text": {
-        "text": {
-          "literalString": "Departs"
-        },
+        "text": { "path": "/status" },
         "usageHint": "caption"
       }
     }
   },
-  {
-    "id": "departure-time",
-    "component": {
-      "Text": {
-        "text": {
-          "path": "/departureTime"
-        },
-        "usageHint": "h3"
-      }
-    }
-  },
-  {
-    "id": "status-col",
-    "component": {
-      "Column": {
-        "children": {
-          "explicitList": [
-            "status-label",
-            "status-value"
-          ]
-        },
-        "alignment": "center",
-        "gap": "none"
-      }
-    }
-  },
-  {
-    "id": "status-label",
-    "component": {
-      "Text": {
-        "text": {
-          "literalString": "Status"
-        },
-        "usageHint": "caption"
-      }
-    }
-  },
-  {
-    "id": "status-value",
-    "component": {
-      "Text": {
-        "text": {
-          "path": "/status"
-        },
-        "usageHint": "body"
-      }
-    }
-  },
-  {
-    "id": "arrival-col",
-    "component": {
-      "Column": {
-        "children": {
-          "explicitList": [
-            "arrival-label",
-            "arrival-time"
-          ]
-        },
-        "alignment": "end",
-        "gap": "none"
-      }
-    }
-  },
-  {
-    "id": "arrival-label",
-    "component": {
-      "Text": {
-        "text": {
-          "literalString": "Arrives"
-        },
-        "usageHint": "caption"
-      }
-    }
-  },
-  {
-    "id": "arrival-time",
-    "component": {
-      "Text": {
-        "text": {
-          "path": "/arrivalTime"
-        },
-        "usageHint": "h3"
-      }
-    }
-  },
-  {
-    "id": "divider-2",
-    "component": {
-      "Divider": {}
-    }
-  },
+
   {
     "id": "book-btn-text",
     "component": {
       "Text": {
-        "text": {
-          "literalString": "Book Flight"
-        }
+        "text": { "literalString": "Select" }
       }
     }
   },
@@ -285,7 +264,8 @@
           "context": [
             { "key": "flightNumber", "value": { "path": "/flightNumber" } },
             { "key": "origin", "value": { "path": "/origin" } },
-            { "key": "destination", "value": { "path": "/destination" } }
+            { "key": "destination", "value": { "path": "/destination" } },
+            { "key": "price", "value": { "path": "/price" } }
           ]
         }
       }

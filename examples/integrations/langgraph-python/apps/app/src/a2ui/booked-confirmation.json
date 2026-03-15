@@ -3,28 +3,25 @@
     "id": "root",
     "component": {
       "Card": {
-        "child": "booked-col"
+        "child": "main-col"
       }
     }
   },
   {
-    "id": "booked-col",
+    "id": "main-col",
     "component": {
       "Column": {
         "children": {
-          "explicitList": ["booked-emoji", "booked-title", "booked-detail"]
+          "explicitList": [
+            "booked-title",
+            "booked-detail",
+            "divider",
+            "ref-row",
+            "email-note"
+          ]
         },
         "alignment": "center",
         "gap": "small"
-      }
-    }
-  },
-  {
-    "id": "booked-emoji",
-    "component": {
-      "Text": {
-        "text": { "literalString": "✅" },
-        "usageHint": "h1"
       }
     }
   },
@@ -43,6 +40,46 @@
       "Text": {
         "text": { "path": "/detail" },
         "usageHint": "body"
+      }
+    }
+  },
+  { "id": "divider", "component": { "Divider": {} } },
+  {
+    "id": "ref-row",
+    "component": {
+      "Row": {
+        "children": {
+          "explicitList": ["ref-label", "ref-value"]
+        },
+        "distribution": "spaceBetween",
+        "alignment": "center"
+      }
+    }
+  },
+  {
+    "id": "ref-label",
+    "component": {
+      "Text": {
+        "text": { "literalString": "Confirmation" },
+        "usageHint": "caption"
+      }
+    }
+  },
+  {
+    "id": "ref-value",
+    "component": {
+      "Text": {
+        "text": { "path": "/reference" },
+        "usageHint": "h3"
+      }
+    }
+  },
+  {
+    "id": "email-note",
+    "component": {
+      "Text": {
+        "text": { "literalString": "Details sent to your email" },
+        "usageHint": "caption"
       }
     }
   }
