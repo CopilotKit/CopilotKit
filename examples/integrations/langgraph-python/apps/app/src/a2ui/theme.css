@@ -1,0 +1,10 @@
+.a2ui-surface {
+  --primary: #000;
+  --primary-foreground: #fff;
+  --card: #fff;
+  --border: #e5e7eb;
+  --radius: 12px;
+  --foreground: #1f2937;
+  --input: #d1d5db;
+  --background: #fff;
+}
