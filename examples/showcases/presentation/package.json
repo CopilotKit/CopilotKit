@@ -9,11 +9,11 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "@copilotkit/runtime": "1.3.1",
-    "@copilotkit/react-core": "1.3.1",
-    "@copilotkit/react-textarea": "1.3.1",
-    "@copilotkit/react-ui": "1.3.1",
-    "@copilotkit/shared": "1.3.1",
+    "@copilotkit/runtime": "1.54.0",
+    "@copilotkit/react-core": "1.54.0",
+    "@copilotkit/react-textarea": "1.54.0",
+    "@copilotkit/react-ui": "1.54.0",
+    "@copilotkit/shared": "1.54.0",
     "@heroicons/react": "^2.1.1",
     "@langchain/community": "^0.0.29",
     "@langchain/core": "^0.1.29",

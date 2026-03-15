@@ -17,7 +17,7 @@
     "@ag-ui/client": "^0.0.35",
     "@ai-sdk/openai": "^1.3.24",
     "@copilotkit/react-core": "^1.10.4",
-    "@copilotkit/react-textarea": "1.10.4",
+    "@copilotkit/react-textarea": "1.54.0",
     "@copilotkit/react-ui": "^1.10.4",
     "@copilotkit/runtime": "^1.10.4",
     "@radix-ui/react-accordion": "^1.2.12",
