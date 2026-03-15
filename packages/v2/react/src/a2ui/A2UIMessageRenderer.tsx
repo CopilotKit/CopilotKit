@@ -80,6 +80,9 @@ export function createA2UIMessageRenderer(
       ensureInitialized();
 
       const [operations, setOperations] = useState<any[]>([]);
+      const [actionHandlers, setActionHandlers] = useState<
+        Record<string, any[]> | undefined
+      >(undefined);
       const lastSignatureRef = useRef<string | null>(null);
       const { copilotkit } = useCopilotKit();
 
@@ -89,6 +92,7 @@ export function createA2UIMessageRenderer(
         if (!content || !Array.isArray(incoming)) {
           lastSignatureRef.current = null;
           setOperations([]);
+          setActionHandlers(undefined);
           return;
         }
         const signature = stringifyOperations(incoming);
@@ -99,6 +103,16 @@ export function createA2UIMessageRenderer(
 
         lastSignatureRef.current = signature;
         setOperations(incoming);
+
+        // Extract pre-declared action handlers from the content
+        const handlers = content?.actionHandlers;
+        if (
+          handlers &&
+          typeof handlers === "object" &&
+          !Array.isArray(handlers)
+        ) {
+          setActionHandlers(handlers);
+        }
       }, [content]);
 
       // Group operations by surface ID
@@ -133,6 +147,7 @@ export function createA2UIMessageRenderer(
               agent={agent}
               copilotkit={copilotkit}
               onAction={onAction}
+              actionHandlers={actionHandlers}
             />
           ))}
         </div>
@@ -148,6 +163,8 @@ type ReactSurfaceHostProps = {
   agent: any;
   copilotkit: any;
   onAction?: A2UIActionOrchestrator;
+  /** Pre-declared action handlers from the agent's a2ui_action_handlers */
+  actionHandlers?: Record<string, any[]>;
 };
 
 /**
@@ -176,6 +193,7 @@ function ReactSurfaceHost({
   agent,
   copilotkit,
   onAction: onActionOrchestrator,
+  actionHandlers: declaredHandlers,
 }: ReactSurfaceHostProps) {
   // Ref to access A2UI actions from inside the provider context
   const actionsRef = useRef<ReturnType<typeof useA2UIActions> | null>(null);
@@ -190,11 +208,23 @@ function ReactSurfaceHost({
       const action = message.userAction as A2UIUserAction | undefined;
       console.info("[A2UI] Action dispatched", action);
 
-      // Run optimistic updates via registered handlers
+      // Run optimistic updates: check pre-declared handlers first,
+      // then hook-registered handlers
       if (actionsRef.current && action) {
-        const handlers = registry.getHandlers();
+        // Convert pre-declared action handlers to A2UIActionHandler format
+        const declaredHandlerFns: A2UIActionHandler[] = [];
+        if (declaredHandlers) {
+          declaredHandlerFns.push((a) => {
+            // Check for exact match, then "*" catch-all
+            const ops = declaredHandlers[a.name] ?? declaredHandlers["*"];
+            return ops ?? null;
+          });
+        }
+
+        const hookHandlers = registry.getHandlers();
+        const allHandlers = [...declaredHandlerFns, ...hookHandlers];
         const orchestrate = onActionOrchestrator ?? defaultActionOrchestrator;
-        const optimisticOps = orchestrate(action, handlers);
+        const optimisticOps = orchestrate(action, allHandlers);
         if (optimisticOps && optimisticOps.length > 0) {
           actionsRef.current.processMessages(optimisticOps as any[]);
         }

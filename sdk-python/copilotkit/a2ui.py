@@ -72,10 +72,42 @@ def begin_rendering(
 A2UI_OPERATIONS_KEY = "a2ui_operations"
 """The container key used to wrap A2UI operations for explicit detection."""
 
+A2UI_ACTION_HANDLERS_KEY = "a2ui_action_handlers"
+"""The key for pre-declared action handlers in the container."""
 
-def render(operations: list[dict[str, Any]]) -> str:
-    """Wrap operations in the a2ui_operations container and serialize to JSON."""
-    return json.dumps({A2UI_OPERATIONS_KEY: operations})
+
+def render(
+    operations: list[dict[str, Any]],
+    action_handlers: dict[str, list[dict[str, Any]]] | None = None,
+) -> str:
+    """Wrap operations in the a2ui_operations container and serialize to JSON.
+
+    Args:
+        operations: The A2UI operations (surfaceUpdate, dataModelUpdate, beginRendering).
+        action_handlers: Optional dict mapping action names to A2UI operations that
+            should be applied optimistically when that action is triggered.
+            Use "*" as a catch-all for any unmatched action.
+
+    Example::
+
+        render(
+            operations=[...],
+            action_handlers={
+                "book_flight": [
+                    surface_update(sid, BOOKED_SCHEMA),
+                    begin_rendering(sid, "root"),
+                ],
+                "*": [
+                    surface_update(sid, PROCESSING_SCHEMA),
+                    begin_rendering(sid, "root"),
+                ],
+            },
+        )
+    """
+    result: dict[str, Any] = {A2UI_OPERATIONS_KEY: operations}
+    if action_handlers:
+        result[A2UI_ACTION_HANDLERS_KEY] = action_handlers
+    return json.dumps(result)
 
 
 # ---------------------------------------------------------------------------

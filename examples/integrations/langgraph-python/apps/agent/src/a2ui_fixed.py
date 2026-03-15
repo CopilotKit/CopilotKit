@@ -15,6 +15,7 @@ from typing_extensions import TypedDict
 
 SURFACE_ID = "flight-search-results"
 FLIGHT_SCHEMA = a2ui.load_schema(Path(__file__).parent / "a2ui_flight_schema.json")
+BOOKED_SCHEMA = a2ui.load_schema(Path(__file__).parent / "a2ui_booked_schema.json")
 
 
 class Flight(TypedDict):
@@ -35,8 +36,20 @@ def search_flights(flights: list[Flight]) -> str:
     Each flight must have: id, origin, destination, date,
     departureTime, arrivalTime, status, and flightNumber.
     """
-    return a2ui.render([
-        a2ui.surface_update(SURFACE_ID, FLIGHT_SCHEMA),
-        a2ui.data_model_update(SURFACE_ID, {"flights": flights}),
-        a2ui.begin_rendering(SURFACE_ID, "root"),
-    ])
+    return a2ui.render(
+        operations=[
+            a2ui.surface_update(SURFACE_ID, FLIGHT_SCHEMA),
+            a2ui.data_model_update(SURFACE_ID, {"flights": flights}),
+            a2ui.begin_rendering(SURFACE_ID, "root"),
+        ],
+        action_handlers={
+            "book_flight": [
+                a2ui.surface_update(SURFACE_ID, BOOKED_SCHEMA),
+                a2ui.data_model_update(SURFACE_ID, {
+                    "title": "Booked!",
+                    "detail": "Your flight has been confirmed.",
+                }),
+                a2ui.begin_rendering(SURFACE_ID, "root"),
+            ],
+        },
+    )
