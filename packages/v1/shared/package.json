@@ -41,7 +41,7 @@
     "eslint": "^8.56.0",
     "eslint-config-custom": "workspace:*",
     "tsconfig": "workspace:*",
-    "tsdown": "^0.20.3",
+    "tsdown": "^0.21.0",
     "typescript": "^5.2.3",
     "vitest": "^3.2.4",
     "zod-to-json-schema": "^3.23.5"
