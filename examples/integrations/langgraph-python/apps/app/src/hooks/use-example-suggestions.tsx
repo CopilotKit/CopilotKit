@@ -38,6 +38,12 @@ export const useExampleSuggestions = () => {
         message:
           "Search for flights from LAX to ORD using the search_flights_streaming tool. Show 3 options with different airlines and times.",
       },
+      // 3d. Dynamic Schema A2UI — LLM generates the entire UI spec from scratch
+      {
+        title: "User Profile Card (Dynamic A2UI)",
+        message:
+          "Use the generate_a2ui tool to create a user profile card for a fictional person. Include an avatar image, name, bio, and stats (followers, posts).",
+      },
       // 4. Open Generative UI — MCP app renders its own UI
       {
         title: "Excalidraw Diagram (Open Generative UI)",

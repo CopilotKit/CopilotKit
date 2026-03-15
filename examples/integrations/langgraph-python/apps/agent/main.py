@@ -12,10 +12,11 @@ from src.todos import AgentState, todo_tools
 from src.form import generate_form
 from src.a2ui_fixed import search_flights
 from src.a2ui_streaming import search_flights_streaming
+from src.a2ui_dynamic import generate_a2ui
 
 agent = create_agent(
     model="openai:gpt-4.1",
-    tools=[query_data, *todo_tools, generate_form, search_flights, search_flights_streaming],
+    tools=[query_data, *todo_tools, generate_form, search_flights, search_flights_streaming, generate_a2ui],
     middleware=[CopilotKitMiddleware()],
     state_schema=AgentState,
     system_prompt="""
@@ -28,6 +29,9 @@ agent = create_agent(
 
         When you see a log_a2ui_event tool result indicating a user action like "book_flight",
         respond with a brief confirmation message. The UI updates optimistically on the frontend.
+
+        When asked to generate dynamic/custom UI, call generate_a2ui. It returns
+        A2UI operations directly — no need to call send_a2ui_json_to_client afterward.
     """,
 )
 
