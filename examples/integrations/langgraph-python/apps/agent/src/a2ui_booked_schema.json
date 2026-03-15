@@ -12,7 +12,7 @@
     "component": {
       "Column": {
         "children": {
-          "explicitList": ["booked-icon", "booked-title", "booked-detail"]
+          "explicitList": ["booked-emoji", "booked-title", "booked-detail"]
         },
         "alignment": "center",
         "gap": "small"
@@ -20,10 +20,11 @@
     }
   },
   {
-    "id": "booked-icon",
+    "id": "booked-emoji",
     "component": {
-      "Icon": {
-        "name": { "literalString": "checkCircle" }
+      "Text": {
+        "text": { "literalString": "✅" },
+        "usageHint": "h1"
       }
     }
   },
@@ -41,7 +42,7 @@
     "component": {
       "Text": {
         "text": { "path": "/detail" },
-        "usageHint": "caption"
+        "usageHint": "body"
       }
     }
   }
