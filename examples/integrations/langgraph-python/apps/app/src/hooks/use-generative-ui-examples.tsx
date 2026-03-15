@@ -7,7 +7,11 @@ import {
   useFrontendTool,
   useHumanInTheLoop,
   useDefaultRenderTool,
+  useA2UIActionHandler,
 } from "@copilotkit/react-core/v2";
+
+// A2UI schemas
+import bookedSchema from "@/a2ui/booked-confirmation.json";
 
 // Generative UI imports
 import {
@@ -81,6 +85,39 @@ export const useGenerativeUIExamples = () => {
       if (ignoredTools.includes(name)) return <></>;
       return <ToolReasoning name={name} status={status} args={parameters} />;
     },
+  });
+
+  // ----------------------------------------------------------
+  // 3b. A2UI Optimistic Action Handler (Advanced)
+  //     Applies instant UI updates when A2UI buttons are clicked.
+  //     Uses pre-declared ops from the agent when available,
+  //     otherwise builds custom confirmation ops on the frontend.
+  // ----------------------------------------------------------
+  useA2UIActionHandler((action, declaredOps) => {
+    if (action.name === "book_flight") {
+      // If the agent declared ops for this action, use them
+      if (declaredOps) return declaredOps;
+
+      // Otherwise, build our own
+      const { surfaceId } = action;
+      const fn = action.context?.flightNumber ?? "flight";
+      const orig = action.context?.origin ?? "";
+      const dest = action.context?.destination ?? "";
+      return [
+        { surfaceUpdate: { surfaceId, components: bookedSchema } },
+        {
+          dataModelUpdate: {
+            surfaceId,
+            contents: [
+              { key: "title", valueString: "Booked!" },
+              { key: "detail", valueString: `${fn}: ${orig} → ${dest}` },
+            ],
+          },
+        },
+        { beginRendering: { surfaceId, root: "root" } },
+      ];
+    }
+    return null;
   });
 
   // ----------------------------------------------------------
