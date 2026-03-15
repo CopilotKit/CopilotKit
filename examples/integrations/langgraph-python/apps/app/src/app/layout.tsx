@@ -15,13 +15,20 @@ const a2uiTheme = {
     Card: {
       ...a2uiDefaultTheme.additionalStyles?.Card,
       "border-radius": "12px",
-      "box-shadow": "0 2px 8px rgba(0,0,0,0.08)",
+      "box-shadow": "0 1px 4px rgba(0,0,0,0.1)",
+      padding: "16px",
     },
     Button: {
       ...a2uiDefaultTheme.additionalStyles?.Button,
+      background: "#000",
+      color: "#fff",
+      "border-radius": "8px",
       "font-weight": "600",
-      "letter-spacing": "0.02em",
+      // Override CSS variables that child Text components read
+      "--foreground": "#fff",
     },
+    // Note: Don't set Text.color here — it would override button text color
+    // via inline styles. Let Text inherit color from parent elements.
   },
 };
 

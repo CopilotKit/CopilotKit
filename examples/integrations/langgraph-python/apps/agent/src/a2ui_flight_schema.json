@@ -47,37 +47,12 @@
       "Row": {
         "children": {
           "explicitList": [
-            "header-left",
+            "flight-number",
             "date"
           ]
         },
         "distribution": "spaceBetween",
         "alignment": "center"
-      }
-    }
-  },
-  {
-    "id": "header-left",
-    "component": {
-      "Row": {
-        "children": {
-          "explicitList": [
-            "flight-indicator",
-            "flight-number"
-          ]
-        },
-        "gap": "small",
-        "alignment": "center"
-      }
-    }
-  },
-  {
-    "id": "flight-indicator",
-    "component": {
-      "Icon": {
-        "name": {
-          "literalString": "flight"
-        }
       }
     }
   },
