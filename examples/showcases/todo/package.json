@@ -9,11 +9,11 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "@copilotkit/runtime": "1.0.0-beta.2",
-    "@copilotkit/react-core": "1.0.0-beta.2",
-    "@copilotkit/react-textarea": "1.0.0-beta.2",
-    "@copilotkit/react-ui": "1.0.0-beta.2",
-    "@copilotkit/shared": "1.0.0-beta.2",
+    "@copilotkit/runtime": "1.54.0",
+    "@copilotkit/react-core": "1.54.0",
+    "@copilotkit/react-textarea": "1.54.0",
+    "@copilotkit/react-ui": "1.54.0",
+    "@copilotkit/shared": "1.54.0",
     "nanoid": "^5.0.6",
     "next": "14.1.3",
     "react": "^18",
