@@ -1,25 +1,14 @@
 import { createContext, useContext, useRef, type ReactNode } from "react";
-import type { A2UIActionHandlerRegistration } from "../hooks/use-a2ui-action-handler";
-import type {
-  A2UIUserAction,
-  A2UIDeclaredOps,
-} from "../a2ui/A2UIMessageRenderer";
+import type { A2UIActionHandler } from "../a2ui/A2UIMessageRenderer";
 
 /**
  * Registry for A2UI action handlers registered via useA2UIActionHandler.
  */
 export interface A2UIActionHandlerRegistryValue {
-  register: (id: string, registration: A2UIActionHandlerRegistration) => void;
+  register: (id: string, handler: A2UIActionHandler) => void;
   unregister: (id: string) => void;
-  /**
-   * Get all registered handlers as an array of handler functions.
-   * Each function checks if the action name matches and calls the handler.
-   */
-  getHandlers: () => Array<
-    (
-      action: A2UIUserAction,
-    ) => Array<Record<string, unknown>> | null | undefined | void
-  >;
+  /** Get all registered handlers in registration order. */
+  getHandlers: () => A2UIActionHandler[];
 }
 
 const A2UIActionHandlerRegistryContext =
@@ -40,28 +29,19 @@ export function A2UIActionHandlerRegistryProvider({
 }: {
   children: ReactNode;
 }) {
-  const registrations = useRef(
-    new Map<string, A2UIActionHandlerRegistration>(),
-  );
+  const handlers = useRef(new Map<string, A2UIActionHandler>());
 
   const registryRef = useRef<A2UIActionHandlerRegistryValue | null>(null);
   if (!registryRef.current) {
     registryRef.current = {
-      register: (id, registration) => {
-        registrations.current.set(id, registration);
+      register: (id, handler) => {
+        handlers.current.set(id, handler);
       },
       unregister: (id) => {
-        registrations.current.delete(id);
+        handlers.current.delete(id);
       },
       getHandlers: () => {
-        return Array.from(registrations.current.values()).map(
-          (reg) => (action: A2UIUserAction, declaredOps: A2UIDeclaredOps) => {
-            if (action.name === reg.actionName) {
-              return reg.handler(action, declaredOps);
-            }
-            return null;
-          },
-        );
+        return Array.from(handlers.current.values());
       },
     };
   }

@@ -1,66 +1,60 @@
 import { useEffect, useRef } from "react";
-import type {
-  A2UIUserAction,
-  A2UIDeclaredOps,
-  A2UIOps,
-} from "../a2ui/A2UIMessageRenderer";
+import type { A2UIActionHandler } from "../a2ui/A2UIMessageRenderer";
 import { useA2UIActionHandlerRegistry } from "../providers/A2UIActionHandlerRegistry";
-
-/**
- * A registered A2UI action handler.
- */
-export interface A2UIActionHandlerRegistration {
-  /** The action name to match (e.g., "book_flight"). */
-  actionName: string;
-  /**
-   * Handler called when the action is dispatched.
-   *
-   * @param action - The dispatched user action with context and dataContextPath.
-   * @param declaredOps - Pre-declared A2UI operations for this action from the
-   *   agent's action_handlers (exact match or "*" catch-all), or null.
-   *   You can return these directly, modify them, or ignore them.
-   * @returns A2UI operations to apply optimistically, or null to skip.
-   */
-  handler: (
-    action: A2UIUserAction,
-    declaredOps: A2UIDeclaredOps,
-  ) => A2UIOps | null | undefined | void;
-}
 
 /**
  * Register an optimistic action handler for A2UI surfaces.
  *
- * When a user clicks a button in an A2UI surface, registered handlers
- * are checked. The first handler whose actionName matches and returns
- * operations wins — the operations are applied to the surface immediately,
- * before the action reaches the agent.
+ * The handler is called for every A2UI action dispatched (e.g., button click).
+ * It receives the action and any pre-declared ops from the agent, and can
+ * return A2UI operations to apply optimistically before the agent responds.
+ *
+ * Return a non-empty array to apply ops. Return null/undefined to skip
+ * (the next handler or fallback will be tried).
+ *
+ * @param handler - Called with (action, declaredOps). The handler decides
+ *   whether to handle this action based on action.name, surfaceId, context, etc.
+ * @param deps - Dependency array (like useEffect). Handler is re-registered when deps change.
  *
  * @example
  * ```tsx
- * useA2UIActionHandler({
- *   actionName: "book_flight",
- *   handler: (action) => [
- *     { surfaceUpdate: { surfaceId: action.surfaceId, components: bookedSchema } },
- *     { dataModelUpdate: { surfaceId: action.surfaceId, contents: [...] } },
- *     { beginRendering: { surfaceId: action.surfaceId, root: "root" } },
- *   ],
+ * // Handle a specific action
+ * useA2UIActionHandler((action, declaredOps) => {
+ *   if (action.name === "book_flight") {
+ *     return [
+ *       { surfaceUpdate: { surfaceId: action.surfaceId, components: bookedSchema } },
+ *       { beginRendering: { surfaceId: action.surfaceId, root: "root" } },
+ *     ];
+ *   }
+ *   return null; // skip — let other handlers try
+ * });
+ *
+ * // Delegate to pre-declared ops from the agent
+ * useA2UIActionHandler((action, declaredOps) => {
+ *   if (action.name === "book_flight") return declaredOps;
+ *   return null;
+ * });
+ *
+ * // Handle all actions on a specific surface
+ * useA2UIActionHandler((action, declaredOps) => {
+ *   if (action.surfaceId === "my-surface") return declaredOps;
+ *   return null;
  * });
  * ```
  */
 export function useA2UIActionHandler(
-  registration: A2UIActionHandlerRegistration,
+  handler: A2UIActionHandler,
   deps: unknown[] = [],
 ) {
   const registry = useA2UIActionHandlerRegistry();
   const idRef = useRef<string | null>(null);
 
   useEffect(() => {
-    // Generate a stable ID for this registration
     if (!idRef.current) {
       idRef.current = `a2ui-handler-${Math.random().toString(36).slice(2)}`;
     }
 
-    registry.register(idRef.current, registration);
+    registry.register(idRef.current, handler);
 
     return () => {
       if (idRef.current) {
@@ -68,5 +62,5 @@ export function useA2UIActionHandler(
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [registry, registration.actionName, ...deps]);
+  }, [registry, ...deps]);
 }

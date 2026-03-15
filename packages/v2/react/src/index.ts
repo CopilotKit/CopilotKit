@@ -18,7 +18,6 @@ export {
   resolveDeclaredOps,
 } from "./a2ui/A2UIMessageRenderer";
 export { useA2UIActionHandler } from "./hooks/use-a2ui-action-handler";
-export type { A2UIActionHandlerRegistration } from "./hooks/use-a2ui-action-handler";
 export type {
   A2UIMessageRendererOptions,
   A2UIActionHandler,
