@@ -107,25 +107,22 @@ export function createA2UIMessageRenderer(
       const [actionHandlers, setActionHandlers] = useState<
         Record<string, any[]> | undefined
       >(undefined);
-      const lastSignatureRef = useRef<string | null>(null);
       const { copilotkit } = useCopilotKit();
 
+      const lastContentRef = useRef<unknown>(null);
       useEffect(() => {
+        // Skip if same content reference
+        if (content === lastContentRef.current) return;
+        lastContentRef.current = content;
+
         // Support both explicit container and legacy (operations)
         const incoming = content?.[A2UI_OPERATIONS_KEY] ?? content?.operations;
         if (!content || !Array.isArray(incoming)) {
-          lastSignatureRef.current = null;
           setOperations([]);
           setActionHandlers(undefined);
           return;
         }
-        const signature = stringifyOperations(incoming);
 
-        if (signature && signature === lastSignatureRef.current) {
-          return;
-        }
-
-        lastSignatureRef.current = signature;
         setOperations(incoming);
 
         // Extract pre-declared action handlers from the content
@@ -327,15 +324,14 @@ function SurfaceMessageProcessor({
   operations: any[];
 }) {
   const { processMessages } = useA2UIActions();
-  const lastProcessedRef = useRef<string>("");
-
+  const lastOpsRef = useRef<any[]>([]);
   useEffect(() => {
-    const key = `${surfaceId}-${JSON.stringify(operations)}`;
-    if (key === lastProcessedRef.current) return;
-    lastProcessedRef.current = key;
+    // Skip if same reference (no change)
+    if (operations === lastOpsRef.current) return;
+    lastOpsRef.current = operations;
 
     processMessages(operations);
-  }, [processMessages, surfaceId, operations]);
+  }, [processMessages, operations]);
 
   return null;
 }
@@ -356,12 +352,4 @@ function getOperationSurfaceId(operation: any): string | null {
     operation?.deleteSurface?.surfaceId ??
     null
   );
-}
-
-function stringifyOperations(ops: any[]): string | null {
-  try {
-    return JSON.stringify(ops);
-  } catch (error) {
-    return null;
-  }
 }
