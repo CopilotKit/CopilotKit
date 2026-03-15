@@ -12,7 +12,11 @@ export * from "./hooks";
 export * from "./providers";
 export * from "./types";
 export * from "./lib/react-core";
-export { createA2UIMessageRenderer } from "./a2ui/A2UIMessageRenderer";
+export {
+  createA2UIMessageRenderer,
+  defaultActionOrchestrator,
+  buildActionHandlers,
+} from "./a2ui/A2UIMessageRenderer";
 export { useA2UIActionHandler } from "./hooks/use-a2ui-action-handler";
 export type { A2UIActionHandlerRegistration } from "./hooks/use-a2ui-action-handler";
 export type {

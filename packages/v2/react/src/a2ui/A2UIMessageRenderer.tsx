@@ -171,7 +171,7 @@ type ReactSurfaceHostProps = {
  * Default orchestrator: loops through registered handlers, uses first
  * one that returns a non-empty operations array.
  */
-function defaultActionOrchestrator(
+export function defaultActionOrchestrator(
   action: A2UIUserAction,
   handlers: A2UIActionHandler[],
 ): Array<Record<string, unknown>> | null {
@@ -180,6 +180,29 @@ function defaultActionOrchestrator(
     if (ops && ops.length > 0) return ops;
   }
   return null;
+}
+
+/**
+ * Build A2UIActionHandler functions from pre-declared action handler map
+ * and hook-registered handlers. Priority: declared exact match → declared
+ * "*" catch-all → hook handlers.
+ */
+export function buildActionHandlers(
+  declaredHandlers: Record<string, any[]> | undefined,
+  hookHandlers: A2UIActionHandler[],
+): A2UIActionHandler[] {
+  const handlers: A2UIActionHandler[] = [];
+
+  if (declaredHandlers) {
+    handlers.push((action) => {
+      // Check for exact action name match first, then "*" catch-all
+      const ops = declaredHandlers[action.name] ?? declaredHandlers["*"];
+      return ops ?? null;
+    });
+  }
+
+  handlers.push(...hookHandlers);
+  return handlers;
 }
 
 /**
@@ -208,21 +231,12 @@ function ReactSurfaceHost({
       const action = message.userAction as A2UIUserAction | undefined;
       console.info("[A2UI] Action dispatched", action);
 
-      // Run optimistic updates: check pre-declared handlers first,
-      // then hook-registered handlers
+      // Run optimistic updates: pre-declared → hook-registered → catch-all
       if (actionsRef.current && action) {
-        // Convert pre-declared action handlers to A2UIActionHandler format
-        const declaredHandlerFns: A2UIActionHandler[] = [];
-        if (declaredHandlers) {
-          declaredHandlerFns.push((a) => {
-            // Check for exact match, then "*" catch-all
-            const ops = declaredHandlers[a.name] ?? declaredHandlers["*"];
-            return ops ?? null;
-          });
-        }
-
-        const hookHandlers = registry.getHandlers();
-        const allHandlers = [...declaredHandlerFns, ...hookHandlers];
+        const allHandlers = buildActionHandlers(
+          declaredHandlers,
+          registry.getHandlers(),
+        );
         const orchestrate = onActionOrchestrator ?? defaultActionOrchestrator;
         const optimisticOps = orchestrate(action, allHandlers);
         if (optimisticOps && optimisticOps.length > 0) {
