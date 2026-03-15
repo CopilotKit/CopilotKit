@@ -6,6 +6,7 @@ import {
 import { LangGraphAgent } from "@copilotkit/runtime/langgraph";
 import { NextRequest } from "next/server";
 import flightSchema from "./a2ui_flight_schema.json";
+import bookedSchema from "../../../a2ui/booked-confirmation.json";
 
 // 1. Define the agent connection to LangGraph
 const defaultAgent = new LangGraphAgent({
@@ -32,6 +33,34 @@ export const POST = async (req: NextRequest) => {
               root: "root",
               components: flightSchema,
               dataKey: "flights",
+              actionHandlers: {
+                book_flight: [
+                  {
+                    surfaceUpdate: {
+                      surfaceId: "flight-search-streaming",
+                      components: bookedSchema,
+                    },
+                  },
+                  {
+                    dataModelUpdate: {
+                      surfaceId: "flight-search-streaming",
+                      contents: [
+                        { key: "title", valueString: "Booked!" },
+                        {
+                          key: "detail",
+                          valueString: "Your flight has been confirmed.",
+                        },
+                      ],
+                    },
+                  },
+                  {
+                    beginRendering: {
+                      surfaceId: "flight-search-streaming",
+                      root: "root",
+                    },
+                  },
+                ],
+              },
             },
           },
         ],
