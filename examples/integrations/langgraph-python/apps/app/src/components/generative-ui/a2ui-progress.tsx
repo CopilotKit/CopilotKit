@@ -1,12 +1,30 @@
 "use client";
 
+import { memo, useRef } from "react";
+
 interface A2UIProgressProps {
   parameters: unknown;
 }
 
-export function A2UIProgress({ parameters }: A2UIProgressProps) {
-  const charCount = JSON.stringify(parameters ?? {}).length;
-  const tokens = Math.round(charCount / 4);
+/**
+ * Progress indicator for dynamic A2UI generation.
+ *
+ * The render callback is invoked on every streaming token (~3000 times per
+ * generation). We throttle JSON.stringify to every 200ms and memo the
+ * component to keep React work minimal.
+ */
+export const A2UIProgress = memo(function A2UIProgress({
+  parameters,
+}: A2UIProgressProps) {
+  const lastRef = useRef({ time: 0, tokens: 0 });
+  const now = Date.now();
+
+  let { tokens } = lastRef.current;
+  if (now - lastRef.current.time > 200) {
+    const chars = JSON.stringify(parameters ?? {}).length;
+    tokens = Math.round(chars / 4);
+    lastRef.current = { time: now, tokens };
+  }
 
   return (
     <div className="my-2">
@@ -63,4 +81,4 @@ export function A2UIProgress({ parameters }: A2UIProgressProps) {
       `}</style>
     </div>
   );
-}
+});
