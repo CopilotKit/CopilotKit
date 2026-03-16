@@ -39,7 +39,9 @@ export class CopilotKitCoreVue extends CopilotKitCore {
     return this._renderCustomMessages;
   }
 
-  get renderActivityMessages(): Readonly<VueActivityMessageRenderer<unknown>>[] {
+  get renderActivityMessages(): Readonly<
+    VueActivityMessageRenderer<unknown>
+  >[] {
     return this._renderActivityMessages;
   }
 
@@ -49,21 +51,20 @@ export class CopilotKitCoreVue extends CopilotKitCore {
 
   setRenderToolCalls(renderToolCalls: VueToolCallRenderer<unknown>[]): void {
     this._renderToolCalls = [...renderToolCalls];
-    void this.notifySubscribers(
-      (subscriber) => {
-        const vueSubscriber = subscriber as CopilotKitCoreVueSubscriber;
-        if (vueSubscriber.onRenderToolCallsChanged) {
-          vueSubscriber.onRenderToolCallsChanged({
-            copilotkit: this,
-            renderToolCalls: [...this._renderToolCalls],
-          });
-        }
-      },
-      "Subscriber onRenderToolCallsChanged error:",
-    );
+    void this.notifySubscribers((subscriber) => {
+      const vueSubscriber = subscriber as CopilotKitCoreVueSubscriber;
+      if (vueSubscriber.onRenderToolCallsChanged) {
+        vueSubscriber.onRenderToolCallsChanged({
+          copilotkit: this,
+          renderToolCalls: [...this._renderToolCalls],
+        });
+      }
+    }, "Subscriber onRenderToolCallsChanged error:");
   }
 
-  subscribe(subscriber: CopilotKitCoreVueSubscriber): CopilotKitCoreSubscription {
+  subscribe(
+    subscriber: CopilotKitCoreVueSubscriber,
+  ): CopilotKitCoreSubscription {
     return super.subscribe(subscriber);
   }
 }

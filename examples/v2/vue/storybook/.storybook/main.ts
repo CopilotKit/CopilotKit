@@ -7,10 +7,7 @@ const config: StorybookConfig = {
     options: {},
   },
   stories: ["../stories/**/*.stories.@(ts|mdx)"],
-  addons: [
-    "@storybook/addon-docs",
-    "@storybook/addon-themes",
-  ],
+  addons: ["@storybook/addon-docs", "@storybook/addon-themes"],
   viteFinal: async (config) => {
     config.plugins = [...(config.plugins ?? []), vue()];
 

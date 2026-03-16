@@ -43,7 +43,11 @@ import { CopilotKitProvider } from "@copilotkitnext/vue";
 <template>
   <CopilotChatMessageView :messages="messages" :is-running="isRunning">
     <template #message-before="{ message, runId, messageIndexInRun }">
-      <MessageMeta :id="message.id" :run-id="runId" :index-in-run="messageIndexInRun" />
+      <MessageMeta
+        :id="message.id"
+        :run-id="runId"
+        :index-in-run="messageIndexInRun"
+      />
     </template>
 
     <template #assistant-message="{ message }">
@@ -99,7 +103,10 @@ Supported tool-level slots:
 ```vue
 <script setup lang="ts">
 import { ref } from "vue";
-import { CopilotChatConfigurationProvider, CopilotChatInput } from "@copilotkitnext/vue";
+import {
+  CopilotChatConfigurationProvider,
+  CopilotChatInput,
+} from "@copilotkitnext/vue";
 
 const input = ref("");
 
@@ -154,14 +161,14 @@ Instead, the mirror strategy is deterministic slot translation at chat view boun
 
 Translation map:
 
-| React surface | Vue surface |
-| --- | --- |
-| `renderToolCalls` / `useRenderToolCall` specific tool renderer | `#tool-call-<toolName>` |
-| `renderToolCalls` wildcard renderer (`name: "*"` ) | `#tool-call` |
-| `renderActivityMessages` specific activity renderer | `#activity-<activityType>` |
-| `renderActivityMessages` fallback renderer | `#activity-message` |
-| `renderCustomMessages` (`position: "before"`) | `#message-before` |
-| `renderCustomMessages` (`position: "after"`) | `#message-after` |
+| React surface                                                  | Vue surface                |
+| -------------------------------------------------------------- | -------------------------- |
+| `renderToolCalls` / `useRenderToolCall` specific tool renderer | `#tool-call-<toolName>`    |
+| `renderToolCalls` wildcard renderer (`name: "*"` )             | `#tool-call`               |
+| `renderActivityMessages` specific activity renderer            | `#activity-<activityType>` |
+| `renderActivityMessages` fallback renderer                     | `#activity-message`        |
+| `renderCustomMessages` (`position: "before"`)                  | `#message-before`          |
+| `renderCustomMessages` (`position: "after"`)                   | `#message-after`           |
 
 Deterministic rules:
 

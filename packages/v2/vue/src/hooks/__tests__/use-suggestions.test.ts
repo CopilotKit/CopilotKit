@@ -16,7 +16,8 @@ describe("useSuggestions", () => {
   function makeHarness() {
     return defineComponent({
       setup() {
-        const { suggestions, isLoading, reloadSuggestions, clearSuggestions } = useSuggestions();
+        const { suggestions, isLoading, reloadSuggestions, clearSuggestions } =
+          useSuggestions();
         const { copilotkit } = useCopilotKit();
 
         const configId = copilotkit.value.addSuggestionsConfig({
@@ -31,16 +32,29 @@ describe("useSuggestions", () => {
 
         return () =>
           h("div", [
-            h("span", { "data-testid": "count" }, String(suggestions.value.length)),
-            h("span", { "data-testid": "loading" }, isLoading.value ? "loading" : "idle"),
-            h("span", { "data-testid": "json" }, JSON.stringify(suggestions.value)),
+            h(
+              "span",
+              { "data-testid": "count" },
+              String(suggestions.value.length),
+            ),
+            h(
+              "span",
+              { "data-testid": "loading" },
+              isLoading.value ? "loading" : "idle",
+            ),
+            h(
+              "span",
+              { "data-testid": "json" },
+              JSON.stringify(suggestions.value),
+            ),
             h("button", { "data-testid": "reload", onClick: reload }, "reload"),
             h("button", { "data-testid": "clear", onClick: clear }, "clear"),
             h(
               "button",
               {
                 "data-testid": "remove-config",
-                onClick: () => copilotkit.value.removeSuggestionsConfig(configId),
+                onClick: () =>
+                  copilotkit.value.removeSuggestionsConfig(configId),
               },
               "remove",
             ),
@@ -54,7 +68,9 @@ describe("useSuggestions", () => {
     const Harness = makeHarness();
 
     const { wrapper } = mountWithProvider(() => h(Harness), {
-      agents__unsafe_dev_only: { [DEFAULT_AGENT_ID]: agent as unknown as AbstractAgent },
+      agents__unsafe_dev_only: {
+        [DEFAULT_AGENT_ID]: agent as unknown as AbstractAgent,
+      },
     });
 
     expect(wrapper.find("[data-testid=count]").text()).toBe("0");
@@ -72,7 +88,9 @@ describe("useSuggestions", () => {
     const Harness = makeHarness();
 
     const { wrapper } = mountWithProvider(() => h(Harness), {
-      agents__unsafe_dev_only: { [DEFAULT_AGENT_ID]: agent as unknown as AbstractAgent },
+      agents__unsafe_dev_only: {
+        [DEFAULT_AGENT_ID]: agent as unknown as AbstractAgent,
+      },
     });
 
     await wrapper.find("[data-testid=reload]").trigger("click");
@@ -95,7 +113,9 @@ describe("useSuggestions", () => {
     const Harness = makeHarness();
 
     const { wrapper } = mountWithProvider(() => h(Harness), {
-      agents__unsafe_dev_only: { [DEFAULT_AGENT_ID]: agent as unknown as AbstractAgent },
+      agents__unsafe_dev_only: {
+        [DEFAULT_AGENT_ID]: agent as unknown as AbstractAgent,
+      },
     });
 
     await wrapper.find("[data-testid=reload]").trigger("click");
@@ -114,15 +134,25 @@ describe("useSuggestions", () => {
   it("supports reload after clear and special characters", async () => {
     const agent = new SuggestionsProviderAgent(
       [
-        { title: 'Option with "quotes"', message: "Message with 'quotes'", isLoading: false },
-        { title: "Option with\nnewlines", message: "Message\nwith\nnewlines", isLoading: false },
+        {
+          title: 'Option with "quotes"',
+          message: "Message with 'quotes'",
+          isLoading: false,
+        },
+        {
+          title: "Option with\nnewlines",
+          message: "Message\nwith\nnewlines",
+          isLoading: false,
+        },
       ],
       DEFAULT_AGENT_ID,
     );
     const Harness = makeHarness();
 
     const { wrapper } = mountWithProvider(() => h(Harness), {
-      agents__unsafe_dev_only: { [DEFAULT_AGENT_ID]: agent as unknown as AbstractAgent },
+      agents__unsafe_dev_only: {
+        [DEFAULT_AGENT_ID]: agent as unknown as AbstractAgent,
+      },
     });
 
     await wrapper.find("[data-testid=reload]").trigger("click");
@@ -151,7 +181,9 @@ describe("useSuggestions", () => {
     const Harness = makeHarness();
 
     const { wrapper } = mountWithProvider(() => h(Harness), {
-      agents__unsafe_dev_only: { [DEFAULT_AGENT_ID]: agent as unknown as AbstractAgent },
+      agents__unsafe_dev_only: {
+        [DEFAULT_AGENT_ID]: agent as unknown as AbstractAgent,
+      },
     });
 
     await wrapper.find("[data-testid=reload]").trigger("click");

@@ -8,7 +8,9 @@ type SuggestionPillStoryArgs = {
   isLoading?: boolean;
   icon?: Component;
 };
-type SuggestionPillIcon = InstanceType<typeof CopilotChatSuggestionPill>["$props"]["icon"];
+type SuggestionPillIcon = InstanceType<
+  typeof CopilotChatSuggestionPill
+>["$props"]["icon"];
 
 const meta = {
   title: "UI/CopilotChatSuggestionPill",

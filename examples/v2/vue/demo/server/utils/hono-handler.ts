@@ -53,6 +53,9 @@ export function defineHonoEventHandler(app: Hono) {
       return await response.text();
     }
 
-    return sendStream(event, Readable.fromWeb(response.body as globalThis.ReadableStream<Uint8Array>));
+    return sendStream(
+      event,
+      Readable.fromWeb(response.body as globalThis.ReadableStream<Uint8Array>),
+    );
   });
 }

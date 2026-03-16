@@ -147,7 +147,8 @@ const toolCallMessages: Message[] = [
     id: "tool-weather-1",
     role: "tool",
     toolCallId: "weather-1",
-    content: "Current weather in San Francisco: 68°F, partly cloudy with a gentle breeze.",
+    content:
+      "Current weather in San Francisco: 68°F, partly cloudy with a gentle breeze.",
   } as ToolMessage,
 ];
 
@@ -158,7 +159,8 @@ const meta = {
     layout: "fullscreen",
     docs: {
       description: {
-        component: "A simple conversation between user and AI using CopilotChatMessageView component.",
+        component:
+          "A simple conversation between user and AI using CopilotChatMessageView component.",
       },
     },
   },
@@ -264,7 +266,8 @@ export const WithToolCalls: Story = {
   parameters: {
     docs: {
       description: {
-        story: "Demonstrates tool call rendering parity via Vue tool-call slots.",
+        story:
+          "Demonstrates tool call rendering parity via Vue tool-call slots.",
       },
     },
   },
@@ -278,7 +281,8 @@ export const WithToolCalls: Story = {
       const globalCounter = ref(0);
       const localCounters = ref<Record<string, number>>({});
 
-      const getLocalCounter = (toolCallId: string) => localCounters.value[toolCallId] ?? 0;
+      const getLocalCounter = (toolCallId: string) =>
+        localCounters.value[toolCallId] ?? 0;
       const incrementLocalCounter = (toolCallId: string) => {
         localCounters.value[toolCallId] = getLocalCounter(toolCallId) + 1;
       };

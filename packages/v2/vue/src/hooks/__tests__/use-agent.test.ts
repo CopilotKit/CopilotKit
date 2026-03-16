@@ -20,19 +20,28 @@ describe("useAgent", () => {
       setup() {
         const { agent } = useAgent({ agentId: "test-agent" });
         return () =>
-          h("span", { "data-testid": "agent-id" }, agent.value?.agentId ?? "none");
+          h(
+            "span",
+            { "data-testid": "agent-id" },
+            agent.value?.agentId ?? "none",
+          );
       },
     });
 
     const { wrapper } = mountWithProvider(() => h(Child), {
-      agents__unsafe_dev_only: { "test-agent": mockAgent as unknown as AbstractAgent },
+      agents__unsafe_dev_only: {
+        "test-agent": mockAgent as unknown as AbstractAgent,
+      },
     });
 
     expect(wrapper.find("[data-testid=agent-id]").text()).toBe("test-agent");
   });
 
   it("passes state set through useAgent into run input", async () => {
-    const mockAgent = new StateCapturingAgent([{ newMessages: [] }], "test-agent");
+    const mockAgent = new StateCapturingAgent(
+      [{ newMessages: [] }],
+      "test-agent",
+    );
 
     const Child = defineComponent({
       setup() {
@@ -41,25 +50,40 @@ describe("useAgent", () => {
 
         const runWithState = async () => {
           toRaw(agent.value).setState({ testKey: "testValue", counter: 42 });
-          await copilotkit.value.runAgent({ agent: mockAgent as AbstractAgent });
+          await copilotkit.value.runAgent({
+            agent: mockAgent as AbstractAgent,
+          });
         };
 
-        return () => h("button", { "data-testid": "run-state", onClick: runWithState }, "run");
+        return () =>
+          h(
+            "button",
+            { "data-testid": "run-state", onClick: runWithState },
+            "run",
+          );
       },
     });
 
     const { wrapper } = mountWithProvider(() => h(Child), {
-      agents__unsafe_dev_only: { "test-agent": mockAgent as unknown as AbstractAgent },
+      agents__unsafe_dev_only: {
+        "test-agent": mockAgent as unknown as AbstractAgent,
+      },
     });
 
     await wrapper.find("[data-testid=run-state]").trigger("click");
     await nextTick();
 
-    expect(mockAgent.lastRunInput?.state).toEqual({ testKey: "testValue", counter: 42 });
+    expect(mockAgent.lastRunInput?.state).toEqual({
+      testKey: "testValue",
+      counter: 42,
+    });
   });
 
   it("passes messages added through useAgent into run input", async () => {
-    const mockAgent = new StateCapturingAgent([{ newMessages: [] }], "test-agent");
+    const mockAgent = new StateCapturingAgent(
+      [{ newMessages: [] }],
+      "test-agent",
+    );
 
     const Child = defineComponent({
       setup() {
@@ -73,21 +97,32 @@ describe("useAgent", () => {
             content: "Hello from useAgent",
           } as Message;
           toRaw(agent.value).addMessage(userMessage);
-          await copilotkit.value.runAgent({ agent: mockAgent as AbstractAgent });
+          await copilotkit.value.runAgent({
+            agent: mockAgent as AbstractAgent,
+          });
         };
 
-        return () => h("button", { "data-testid": "run-message", onClick: runWithMessage }, "run");
+        return () =>
+          h(
+            "button",
+            { "data-testid": "run-message", onClick: runWithMessage },
+            "run",
+          );
       },
     });
 
     const { wrapper } = mountWithProvider(() => h(Child), {
-      agents__unsafe_dev_only: { "test-agent": mockAgent as unknown as AbstractAgent },
+      agents__unsafe_dev_only: {
+        "test-agent": mockAgent as unknown as AbstractAgent,
+      },
     });
 
     await wrapper.find("[data-testid=run-message]").trigger("click");
     await nextTick();
 
-    const lastMessage = mockAgent.lastRunInput?.messages?.find((m) => m.role === "user");
+    const lastMessage = mockAgent.lastRunInput?.messages?.find(
+      (m) => m.role === "user",
+    );
     expect(lastMessage?.content).toBe("Hello from useAgent");
   });
 });

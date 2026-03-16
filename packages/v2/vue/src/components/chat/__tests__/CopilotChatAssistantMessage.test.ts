@@ -56,7 +56,9 @@ describe("CopilotChatAssistantMessage", () => {
     expect(wrapper.text()).toContain("Hello from assistant");
     expect(
       wrapper
-        .find(`[aria-label="${CopilotChatDefaultLabels.assistantMessageToolbarCopyMessageLabel}"]`)
+        .find(
+          `[aria-label="${CopilotChatDefaultLabels.assistantMessageToolbarCopyMessageLabel}"]`,
+        )
         .exists(),
     ).toBe(true);
   });
@@ -81,11 +83,15 @@ describe("CopilotChatAssistantMessage", () => {
     expect(onThumbsUp).toHaveBeenCalledTimes(1);
     expect(onThumbsUp).toHaveBeenCalledWith(message);
 
-    const assistantMessageWrapper = wrapper.findComponent(CopilotChatAssistantMessage);
+    const assistantMessageWrapper = wrapper.findComponent(
+      CopilotChatAssistantMessage,
+    );
     expect(assistantMessageWrapper.emitted("thumbs-up")?.length).toBe(1);
     expect(
       wrapper
-        .find(`[aria-label="${CopilotChatDefaultLabels.assistantMessageToolbarThumbsDownLabel}"]`)
+        .find(
+          `[aria-label="${CopilotChatDefaultLabels.assistantMessageToolbarThumbsDownLabel}"]`,
+        )
         .exists(),
     ).toBe(false);
   });
@@ -106,7 +112,9 @@ describe("CopilotChatAssistantMessage", () => {
 
     expect(
       wrapper
-        .find(`[aria-label="${CopilotChatDefaultLabels.assistantMessageToolbarCopyMessageLabel}"]`)
+        .find(
+          `[aria-label="${CopilotChatDefaultLabels.assistantMessageToolbarCopyMessageLabel}"]`,
+        )
         .exists(),
     ).toBe(false);
   });
@@ -123,7 +131,9 @@ describe("CopilotChatAssistantMessage", () => {
 
     expect(
       wrapper
-        .find(`[aria-label="${CopilotChatDefaultLabels.assistantMessageToolbarCopyMessageLabel}"]`)
+        .find(
+          `[aria-label="${CopilotChatDefaultLabels.assistantMessageToolbarCopyMessageLabel}"]`,
+        )
         .exists(),
     ).toBe(false);
   });
@@ -148,7 +158,9 @@ const value = 1;
     expect(wrapper.find("ul li").exists()).toBe(true);
     expect(wrapper.find("strong").text()).toBe("First");
     expect(wrapper.find('[data-streamdown="code-block"]').exists()).toBe(true);
-    expect(wrapper.find('[data-streamdown="code-lang"]').text().toLowerCase()).toBe("ts");
+    expect(
+      wrapper.find('[data-streamdown="code-lang"]').text().toLowerCase(),
+    ).toBe("ts");
   });
 
   it("renders markdown image and table actions", () => {
@@ -204,9 +216,21 @@ const value = 1;
                   },
                   {
                     "message-renderer": ({ content }: { content: string }) =>
-                      h("div", { "data-testid": "custom-assistant-renderer" }, `slot:${content}`),
-                    toolbar: ({ shouldShowToolbar }: { shouldShowToolbar: boolean }) =>
-                      h("div", { "data-testid": "custom-assistant-toolbar" }, String(shouldShowToolbar)),
+                      h(
+                        "div",
+                        { "data-testid": "custom-assistant-renderer" },
+                        `slot:${content}`,
+                      ),
+                    toolbar: ({
+                      shouldShowToolbar,
+                    }: {
+                      shouldShowToolbar: boolean;
+                    }) =>
+                      h(
+                        "div",
+                        { "data-testid": "custom-assistant-toolbar" },
+                        String(shouldShowToolbar),
+                      ),
                   },
                 ),
             },
@@ -214,9 +238,15 @@ const value = 1;
       },
     });
 
-    expect(wrapper.find('[data-testid="custom-assistant-renderer"]').exists()).toBe(false);
-    expect(wrapped.get("[data-testid='custom-assistant-renderer']").text()).toBe("slot:Render me with slots");
-    expect(wrapped.get("[data-testid='custom-assistant-toolbar']").text()).toBe("true");
+    expect(
+      wrapper.find('[data-testid="custom-assistant-renderer"]').exists(),
+    ).toBe(false);
+    expect(
+      wrapped.get("[data-testid='custom-assistant-renderer']").text(),
+    ).toBe("slot:Render me with slots");
+    expect(wrapped.get("[data-testid='custom-assistant-toolbar']").text()).toBe(
+      "true",
+    );
   });
 
   it("supports custom toolbar button slots and forwards actions", async () => {
@@ -251,16 +281,56 @@ const value = 1;
                     onRegenerate,
                   },
                   {
-                    "copy-button": ({ onCopy }: { onCopy: () => Promise<void> }) =>
-                      h("button", { "data-testid": "custom-copy", onClick: onCopy }, "copy"),
-                    "thumbs-up-button": ({ onThumbsUp: onClick }: { onThumbsUp: () => void }) =>
-                      h("button", { "data-testid": "custom-thumbs-up", onClick }, "up"),
-                    "thumbs-down-button": ({ onThumbsDown: onClick }: { onThumbsDown: () => void }) =>
-                      h("button", { "data-testid": "custom-thumbs-down", onClick }, "down"),
-                    "read-aloud-button": ({ onReadAloud: onClick }: { onReadAloud: () => void }) =>
-                      h("button", { "data-testid": "custom-read", onClick }, "read"),
-                    "regenerate-button": ({ onRegenerate: onClick }: { onRegenerate: () => void }) =>
-                      h("button", { "data-testid": "custom-regenerate", onClick }, "regen"),
+                    "copy-button": ({
+                      onCopy,
+                    }: {
+                      onCopy: () => Promise<void>;
+                    }) =>
+                      h(
+                        "button",
+                        { "data-testid": "custom-copy", onClick: onCopy },
+                        "copy",
+                      ),
+                    "thumbs-up-button": ({
+                      onThumbsUp: onClick,
+                    }: {
+                      onThumbsUp: () => void;
+                    }) =>
+                      h(
+                        "button",
+                        { "data-testid": "custom-thumbs-up", onClick },
+                        "up",
+                      ),
+                    "thumbs-down-button": ({
+                      onThumbsDown: onClick,
+                    }: {
+                      onThumbsDown: () => void;
+                    }) =>
+                      h(
+                        "button",
+                        { "data-testid": "custom-thumbs-down", onClick },
+                        "down",
+                      ),
+                    "read-aloud-button": ({
+                      onReadAloud: onClick,
+                    }: {
+                      onReadAloud: () => void;
+                    }) =>
+                      h(
+                        "button",
+                        { "data-testid": "custom-read", onClick },
+                        "read",
+                      ),
+                    "regenerate-button": ({
+                      onRegenerate: onClick,
+                    }: {
+                      onRegenerate: () => void;
+                    }) =>
+                      h(
+                        "button",
+                        { "data-testid": "custom-regenerate", onClick },
+                        "regen",
+                      ),
                   },
                 ),
             },
@@ -318,8 +388,16 @@ const value = 1;
                     messages: [message],
                   },
                   {
-                    "tool-calls-view": ({ message: slotMessage }: { message: AssistantMessage }) =>
-                      h("div", { "data-testid": "custom-tool-calls-view" }, slotMessage.id),
+                    "tool-calls-view": ({
+                      message: slotMessage,
+                    }: {
+                      message: AssistantMessage;
+                    }) =>
+                      h(
+                        "div",
+                        { "data-testid": "custom-tool-calls-view" },
+                        slotMessage.id,
+                      ),
                   },
                 ),
             },
@@ -327,6 +405,8 @@ const value = 1;
       },
     });
 
-    expect(wrapper.get("[data-testid='custom-tool-calls-view']").text()).toBe("assistant-9");
+    expect(wrapper.get("[data-testid='custom-tool-calls-view']").text()).toBe(
+      "assistant-9",
+    );
   });
 });

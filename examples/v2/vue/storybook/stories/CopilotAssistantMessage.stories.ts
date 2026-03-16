@@ -361,7 +361,13 @@ export const WithToolbarButtons: Story = {
       const handleThumbsDown = () => window.alert("Thumbs down clicked!");
       const handleReadAloud = () => window.alert("Read aloud clicked!");
       const handleRegenerate = () => window.alert("Regenerate clicked!");
-      return { args, handleThumbsUp, handleThumbsDown, handleReadAloud, handleRegenerate };
+      return {
+        args,
+        handleThumbsUp,
+        handleThumbsDown,
+        handleReadAloud,
+        handleRegenerate,
+      };
     },
     template: `
       <div style="display:flex; justify-content:center; align-items:flex-start; min-height:100vh; padding:16px">

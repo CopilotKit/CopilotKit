@@ -4,7 +4,9 @@ import { useCopilotKit } from "../../providers/useCopilotKit";
 import { useAgentContext } from "../use-agent-context";
 import { mountWithProvider } from "../../__tests__/utils/mount";
 
-function getContextEntries(core: ReturnType<typeof useCopilotKit>["copilotkit"]["value"]) {
+function getContextEntries(
+  core: ReturnType<typeof useCopilotKit>["copilotkit"]["value"],
+) {
   return Object.values(core.context ?? {});
 }
 
@@ -15,11 +17,16 @@ describe("useAgentContext", () => {
   });
 
   it("adds context on mount and removes on unmount", () => {
-    let core: ReturnType<typeof useCopilotKit>["copilotkit"]["value"] | undefined;
+    let core:
+      | ReturnType<typeof useCopilotKit>["copilotkit"]["value"]
+      | undefined;
 
     const Child = defineComponent({
       setup() {
-        useAgentContext({ description: "Test context", value: { key: "value" } });
+        useAgentContext({
+          description: "Test context",
+          value: { key: "value" },
+        });
         return () => h("div", "child");
       },
     });
@@ -40,7 +47,9 @@ describe("useAgentContext", () => {
   });
 
   it("removes context when conditionally unmounted", async () => {
-    let core: ReturnType<typeof useCopilotKit>["copilotkit"]["value"] | undefined;
+    let core:
+      | ReturnType<typeof useCopilotKit>["copilotkit"]["value"]
+      | undefined;
 
     const ContextUser = defineComponent({
       setup() {
@@ -56,7 +65,14 @@ describe("useAgentContext", () => {
         core = copilotkit.value;
         return () =>
           h("div", [
-            h("button", { "data-testid": "toggle", onClick: () => (shown.value = !shown.value) }, "toggle"),
+            h(
+              "button",
+              {
+                "data-testid": "toggle",
+                onClick: () => (shown.value = !shown.value),
+              },
+              "toggle",
+            ),
             shown.value ? h(ContextUser) : null,
           ]);
       },
@@ -72,11 +88,16 @@ describe("useAgentContext", () => {
   });
 
   it("does not duplicate context on parent re-render with stable inputs", async () => {
-    let core: ReturnType<typeof useCopilotKit>["copilotkit"]["value"] | undefined;
+    let core:
+      | ReturnType<typeof useCopilotKit>["copilotkit"]["value"]
+      | undefined;
 
     const Child = defineComponent({
       setup() {
-        useAgentContext({ description: "Stable context", value: "stable value" });
+        useAgentContext({
+          description: "Stable context",
+          value: "stable value",
+        });
         return () => h("div", "child");
       },
     });
@@ -88,7 +109,14 @@ describe("useAgentContext", () => {
         core = copilotkit.value;
         return () =>
           h("div", [
-            h("button", { "data-testid": "increment", onClick: () => (counter.value += 1) }, String(counter.value)),
+            h(
+              "button",
+              {
+                "data-testid": "increment",
+                onClick: () => (counter.value += 1),
+              },
+              String(counter.value),
+            ),
             h(Child),
           ]);
       },
@@ -105,7 +133,9 @@ describe("useAgentContext", () => {
   });
 
   it("re-adds context when description changes", async () => {
-    let core: ReturnType<typeof useCopilotKit>["copilotkit"]["value"] | undefined;
+    let core:
+      | ReturnType<typeof useCopilotKit>["copilotkit"]["value"]
+      | undefined;
     const description = ref("first");
 
     const Child = defineComponent({
@@ -120,11 +150,20 @@ describe("useAgentContext", () => {
         const { copilotkit } = useCopilotKit();
         core = copilotkit.value;
         return () =>
-          h("button", { "data-testid": "update", onClick: () => (description.value = "second") }, "update");
+          h(
+            "button",
+            {
+              "data-testid": "update",
+              onClick: () => (description.value = "second"),
+            },
+            "update",
+          );
       },
     });
 
-    const { wrapper } = mountWithProvider(() => h("div", [h(Parent), h(Child)]));
+    const { wrapper } = mountWithProvider(() =>
+      h("div", [h(Parent), h(Child)]),
+    );
     expect(getContextEntries(core!)[0]?.description).toBe("first");
 
     await wrapper.find("[data-testid=update]").trigger("click");
@@ -137,7 +176,9 @@ describe("useAgentContext", () => {
   });
 
   it("re-adds context when value changes", async () => {
-    let core: ReturnType<typeof useCopilotKit>["copilotkit"]["value"] | undefined;
+    let core:
+      | ReturnType<typeof useCopilotKit>["copilotkit"]["value"]
+      | undefined;
     const value = ref("first");
 
     const Child = defineComponent({
@@ -152,11 +193,20 @@ describe("useAgentContext", () => {
         const { copilotkit } = useCopilotKit();
         core = copilotkit.value;
         return () =>
-          h("button", { "data-testid": "update", onClick: () => (value.value = "second") }, "update");
+          h(
+            "button",
+            {
+              "data-testid": "update",
+              onClick: () => (value.value = "second"),
+            },
+            "update",
+          );
       },
     });
 
-    const { wrapper } = mountWithProvider(() => h("div", [h(Parent), h(Child)]));
+    const { wrapper } = mountWithProvider(() =>
+      h("div", [h(Parent), h(Child)]),
+    );
     expect(getContextEntries(core!)[0]?.value).toBe("first");
 
     await wrapper.find("[data-testid=update]").trigger("click");
@@ -169,7 +219,9 @@ describe("useAgentContext", () => {
   });
 
   it("serializes string values unchanged", () => {
-    let core: ReturnType<typeof useCopilotKit>["copilotkit"]["value"] | undefined;
+    let core:
+      | ReturnType<typeof useCopilotKit>["copilotkit"]["value"]
+      | undefined;
     const Child = defineComponent({
       setup() {
         const { copilotkit } = useCopilotKit();
@@ -191,11 +243,19 @@ describe("useAgentContext", () => {
     ["null", null, "null"],
     [
       "nested",
-      { user: { name: "Alice", settings: { theme: "dark", notifications: true } }, items: [1, 2, { nested: "value" }] },
+      {
+        user: {
+          name: "Alice",
+          settings: { theme: "dark", notifications: true },
+        },
+        items: [1, 2, { nested: "value" }],
+      },
       '{"user":{"name":"Alice","settings":{"theme":"dark","notifications":true}},"items":[1,2,{"nested":"value"}]}',
     ],
   ])("serializes %s values", (_name, value, expected) => {
-    let core: ReturnType<typeof useCopilotKit>["copilotkit"]["value"] | undefined;
+    let core:
+      | ReturnType<typeof useCopilotKit>["copilotkit"]["value"]
+      | undefined;
     const Child = defineComponent({
       setup() {
         const { copilotkit } = useCopilotKit();

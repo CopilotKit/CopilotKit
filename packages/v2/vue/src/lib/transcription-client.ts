@@ -30,7 +30,9 @@ async function blobToBase64(blob: Blob): Promise<string> {
   });
 }
 
-function isTranscriptionErrorResponse(data: unknown): data is TranscriptionErrorResponse {
+function isTranscriptionErrorResponse(
+  data: unknown,
+): data is TranscriptionErrorResponse {
   return (
     typeof data === "object" &&
     data !== null &&
@@ -41,7 +43,9 @@ function isTranscriptionErrorResponse(data: unknown): data is TranscriptionError
   );
 }
 
-function parseTranscriptionError(response: TranscriptionErrorResponse): TranscriptionErrorInfo {
+function parseTranscriptionError(
+  response: TranscriptionErrorResponse,
+): TranscriptionErrorInfo {
   return {
     code: response.error,
     message: response.message,
@@ -109,7 +113,8 @@ export async function transcribeAudio(
   } catch (error) {
     throw new TranscriptionError({
       code: TranscriptionErrorCode.NETWORK_ERROR,
-      message: error instanceof Error ? error.message : "Network request failed",
+      message:
+        error instanceof Error ? error.message : "Network request failed",
       retryable: true,
     });
   }
@@ -133,7 +138,9 @@ export async function transcribeAudio(
     throw new TranscriptionError({
       code: TranscriptionErrorCode.PROVIDER_ERROR,
       message:
-        typeof errorData === "object" && errorData !== null && "message" in errorData
+        typeof errorData === "object" &&
+        errorData !== null &&
+        "message" in errorData
           ? String((errorData as { message: unknown }).message)
           : "Transcription failed",
       retryable: response.status >= 500,

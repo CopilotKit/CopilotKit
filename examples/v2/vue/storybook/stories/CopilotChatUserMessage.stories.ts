@@ -119,7 +119,8 @@ export const CodeRelatedMessage: Story = {
   render: (args: Story["args"]) => ({
     components: { CopilotChatUserMessage },
     setup() {
-      const handleEditMessage = () => window.alert("Edit code message clicked!");
+      const handleEditMessage = () =>
+        window.alert("Edit code message clicked!");
       return { args, handleEditMessage };
     },
     template: `<CopilotChatUserMessage v-bind="args" @edit-message="handleEditMessage" />`,
@@ -131,7 +132,8 @@ export const ShortQuestion: Story = {
   render: (args: Story["args"]) => ({
     components: { CopilotChatUserMessage },
     setup() {
-      const handleEditMessage = () => console.log("Edit short message clicked!");
+      const handleEditMessage = () =>
+        console.log("Edit short message clicked!");
       return { args, handleEditMessage };
     },
     template: `<CopilotChatUserMessage v-bind="args" @edit-message="handleEditMessage" />`,

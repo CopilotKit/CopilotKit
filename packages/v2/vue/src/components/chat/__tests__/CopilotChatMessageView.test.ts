@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { defineComponent, h, nextTick } from "vue";
 import { mount } from "@vue/test-utils";
-import type { ActivityMessage, AssistantMessage, Message, ToolMessage } from "@ag-ui/core";
+import type {
+  ActivityMessage,
+  AssistantMessage,
+  Message,
+  ToolMessage,
+} from "@ag-ui/core";
 import CopilotKitProvider from "../../../providers/CopilotKitProvider.vue";
 import CopilotChatConfigurationProvider from "../../../providers/CopilotChatConfigurationProvider.vue";
 import { useCopilotKit } from "../../../providers/useCopilotKit";
@@ -20,12 +25,7 @@ function mountMessageView(
           CopilotChatConfigurationProvider,
           { threadId: "thread-1", agentId: "default" },
           {
-            default: () =>
-              h(
-                CopilotChatMessageView,
-                { messages },
-                slotEntries,
-              ),
+            default: () => h(CopilotChatMessageView, { messages }, slotEntries),
           },
         ),
     },
@@ -49,11 +49,17 @@ describe("CopilotChatMessageView (Vue slots)", () => {
 
     const wrapper = mountMessageView(messages);
 
-    expect(wrapper.find('[data-message-id="user-default"]').exists()).toBe(true);
-    expect(wrapper.find('[data-message-id="assistant-default"]').exists()).toBe(true);
+    expect(wrapper.find('[data-message-id="user-default"]').exists()).toBe(
+      true,
+    );
+    expect(wrapper.find('[data-message-id="assistant-default"]').exists()).toBe(
+      true,
+    );
     expect(
       wrapper
-        .find(`[aria-label="${CopilotChatDefaultLabels.assistantMessageToolbarCopyMessageLabel}"]`)
+        .find(
+          `[aria-label="${CopilotChatDefaultLabels.assistantMessageToolbarCopyMessageLabel}"]`,
+        )
         .exists(),
     ).toBe(true);
   });
@@ -69,11 +75,21 @@ describe("CopilotChatMessageView (Vue slots)", () => {
     ];
 
     const wrapper = mountMessageView(messages, {
-      "activity-search-progress": ({ content }: { content: { percent: number } }) =>
-        h("div", { "data-testid": "activity-rendered" }, `Progress: ${content.percent}`),
+      "activity-search-progress": ({
+        content,
+      }: {
+        content: { percent: number };
+      }) =>
+        h(
+          "div",
+          { "data-testid": "activity-rendered" },
+          `Progress: ${content.percent}`,
+        ),
     });
 
-    expect(wrapper.find("[data-testid=activity-rendered]").text()).toContain("42");
+    expect(wrapper.find("[data-testid=activity-rendered]").text()).toContain(
+      "42",
+    );
   });
 
   it("falls back to generic activity slot when named slot is absent", () => {
@@ -91,7 +107,9 @@ describe("CopilotChatMessageView (Vue slots)", () => {
         h("div", { "data-testid": "activity-fallback" }, activityType),
     });
 
-    expect(wrapper.find("[data-testid=activity-fallback]").text()).toBe("build-progress");
+    expect(wrapper.find("[data-testid=activity-fallback]").text()).toBe(
+      "build-progress",
+    );
   });
 
   it("prefers named activity slot over generic fallback slot", () => {
@@ -111,8 +129,12 @@ describe("CopilotChatMessageView (Vue slots)", () => {
         h("div", { "data-testid": "activity-fallback-precedence" }, "fallback"),
     });
 
-    expect(wrapper.find("[data-testid=activity-named-precedence]").text()).toBe("named");
-    expect(wrapper.find("[data-testid=activity-fallback-precedence]").exists()).toBe(false);
+    expect(wrapper.find("[data-testid=activity-named-precedence]").text()).toBe(
+      "named",
+    );
+    expect(
+      wrapper.find("[data-testid=activity-fallback-precedence]").exists(),
+    ).toBe(false);
   });
 
   it("renders built-in MCP fallback when no activity slot exists", async () => {
@@ -150,11 +172,16 @@ describe("CopilotChatMessageView (Vue slots)", () => {
     ];
 
     const wrapper = mountMessageView(messages, {
-      "activity-message": () => h("div", { "data-testid": "generic-activity-over-mcp" }, "generic"),
+      "activity-message": () =>
+        h("div", { "data-testid": "generic-activity-over-mcp" }, "generic"),
     });
 
-    expect(wrapper.find("[data-testid=generic-activity-over-mcp]").text()).toBe("generic");
-    expect(wrapper.text()).not.toContain("No agent available to fetch resource");
+    expect(wrapper.find("[data-testid=generic-activity-over-mcp]").text()).toBe(
+      "generic",
+    );
+    expect(wrapper.text()).not.toContain(
+      "No agent available to fetch resource",
+    );
   });
 
   it("uses named tool slot over generic tool slot", () => {
@@ -179,7 +206,8 @@ describe("CopilotChatMessageView (Vue slots)", () => {
     const wrapper = mountMessageView(messages, {
       "tool-call-search_docs": ({ status }: { status: string }) =>
         h("div", { "data-testid": "tool-named" }, status),
-      "tool-call": () => h("div", { "data-testid": "tool-fallback" }, "fallback"),
+      "tool-call": () =>
+        h("div", { "data-testid": "tool-fallback" }, "fallback"),
     });
 
     expect(wrapper.find("[data-testid=tool-named]").text()).toBe("inProgress");
@@ -210,7 +238,9 @@ describe("CopilotChatMessageView (Vue slots)", () => {
         h("div", { "data-testid": "tool-fallback" }, name),
     });
 
-    expect(wrapper.find("[data-testid=tool-fallback]").text()).toBe("unknown_tool");
+    expect(wrapper.find("[data-testid=tool-fallback]").text()).toBe(
+      "unknown_tool",
+    );
   });
 
   it("provides before/after message scoped slots with run metadata", () => {
@@ -263,11 +293,18 @@ describe("CopilotChatMessageView (Vue slots)", () => {
     ];
 
     const wrapper = mountMessageView(messages, {
-      "tool-call-search_docs": ({ status, result }: { status: string; result?: string }) =>
-        h("div", { "data-testid": "tool-complete" }, `${status}:${result}`),
+      "tool-call-search_docs": ({
+        status,
+        result,
+      }: {
+        status: string;
+        result?: string;
+      }) => h("div", { "data-testid": "tool-complete" }, `${status}:${result}`),
     });
 
-    expect(wrapper.find("[data-testid=tool-complete]").text()).toBe("complete:finished");
+    expect(wrapper.find("[data-testid=tool-complete]").text()).toBe(
+      "complete:finished",
+    );
   });
 
   it("passes executing status when tool id is in executing set", () => {
@@ -312,7 +349,11 @@ describe("CopilotChatMessageView (Vue slots)", () => {
                     CopilotChatMessageView,
                     { messages },
                     {
-                      "tool-call-search_docs": ({ status }: { status: string }) =>
+                      "tool-call-search_docs": ({
+                        status,
+                      }: {
+                        status: string;
+                      }) =>
                         h("div", { "data-testid": "tool-executing" }, status),
                     },
                   ),
@@ -322,7 +363,9 @@ describe("CopilotChatMessageView (Vue slots)", () => {
       },
     });
 
-    expect(wrapper.find("[data-testid=tool-executing]").text()).toBe("executing");
+    expect(wrapper.find("[data-testid=tool-executing]").text()).toBe(
+      "executing",
+    );
   });
 
   it("maps tool statuses across inProgress, executing, and complete", () => {
@@ -346,7 +389,9 @@ describe("CopilotChatMessageView (Vue slots)", () => {
       "tool-call-search_docs": ({ status }: { status: string }) =>
         h("div", { "data-testid": "status-value" }, status),
     });
-    expect(inProgressWrapper.find("[data-testid=status-value]").text()).toBe("inProgress");
+    expect(inProgressWrapper.find("[data-testid=status-value]").text()).toBe(
+      "inProgress",
+    );
 
     const SetExecuting = defineComponent({
       setup() {
@@ -371,8 +416,11 @@ describe("CopilotChatMessageView (Vue slots)", () => {
                     CopilotChatMessageView,
                     { messages: [baseMessage] },
                     {
-                      "tool-call-search_docs": ({ status }: { status: string }) =>
-                        h("div", { "data-testid": "status-value" }, status),
+                      "tool-call-search_docs": ({
+                        status,
+                      }: {
+                        status: string;
+                      }) => h("div", { "data-testid": "status-value" }, status),
                     },
                   ),
                 ]),
@@ -380,7 +428,9 @@ describe("CopilotChatMessageView (Vue slots)", () => {
           ),
       },
     });
-    expect(executingWrapper.find("[data-testid=status-value]").text()).toBe("executing");
+    expect(executingWrapper.find("[data-testid=status-value]").text()).toBe(
+      "executing",
+    );
 
     const completeWrapper = mountMessageView(
       [
@@ -397,7 +447,9 @@ describe("CopilotChatMessageView (Vue slots)", () => {
           h("div", { "data-testid": "status-value" }, status),
       },
     );
-    expect(completeWrapper.find("[data-testid=status-value]").text()).toBe("complete");
+    expect(completeWrapper.find("[data-testid=status-value]").text()).toBe(
+      "complete",
+    );
   });
 
   it("passes stable metadata payload to before/after slots", () => {

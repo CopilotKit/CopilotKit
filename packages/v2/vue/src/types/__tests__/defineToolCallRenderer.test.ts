@@ -10,18 +10,26 @@ describe("defineToolCallRenderer", () => {
     const wildcardRenderer = defineToolCallRenderer({
       name: "*",
       render: ({ name, args, status }) =>
-        h("div", { "data-testid": "wildcard" }, `${name}:${status}:${JSON.stringify(args)}`),
+        h(
+          "div",
+          { "data-testid": "wildcard" },
+          `${name}:${status}:${JSON.stringify(args)}`,
+        ),
     });
 
     expect(wildcardRenderer.name).toBe("*");
-    expect(wildcardRenderer.args.safeParse({ anything: true }).success).toBe(true);
+    expect(wildcardRenderer.args.safeParse({ anything: true }).success).toBe(
+      true,
+    );
 
-    const rendered = (wildcardRenderer.render as (props: {
-      name: string;
-      args: Record<string, unknown>;
-      status: ToolCallStatus;
-      result: string | undefined;
-    }) => ReturnType<typeof h>)({
+    const rendered = (
+      wildcardRenderer.render as (props: {
+        name: string;
+        args: Record<string, unknown>;
+        status: ToolCallStatus;
+        result: string | undefined;
+      }) => ReturnType<typeof h>
+    )({
       name: "customTool",
       args: { x: 1 },
       status: ToolCallStatus.Executing,
@@ -43,7 +51,10 @@ describe("defineToolCallRenderer", () => {
       render: ({ args }) => h("div", `weather:${args.location}`),
     });
 
-    const renderers: VueToolCallRenderer<unknown>[] = [wildcardRenderer, weatherRenderer];
+    const renderers: VueToolCallRenderer<unknown>[] = [
+      wildcardRenderer,
+      weatherRenderer,
+    ];
     expect(renderers).toHaveLength(2);
     expect(renderers[0]?.name).toBe("*");
     expect(renderers[1]?.name).toBe("get_weather");
@@ -93,12 +104,14 @@ describe("defineToolCallRenderer", () => {
       },
     });
 
-    const rendered = (typedRenderer.render as (props: {
-      name: string;
-      args: { location: string; units?: "celsius" | "fahrenheit" };
-      status: ToolCallStatus;
-      result: string | undefined;
-    }) => ReturnType<typeof h>)({
+    const rendered = (
+      typedRenderer.render as (props: {
+        name: string;
+        args: { location: string; units?: "celsius" | "fahrenheit" };
+        status: ToolCallStatus;
+        result: string | undefined;
+      }) => ReturnType<typeof h>
+    )({
       name: "get_weather",
       args: { location: "Paris", units: "celsius" },
       status: ToolCallStatus.Executing,

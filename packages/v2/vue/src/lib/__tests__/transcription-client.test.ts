@@ -13,7 +13,11 @@ describe("transcription-client", () => {
   it("transcribes audio in REST mode", async () => {
     globalThis.fetch = vi.fn().mockResolvedValue({
       ok: true,
-      json: async () => ({ text: "Transcribed text", size: 12, type: "audio/webm" }),
+      json: async () => ({
+        text: "Transcribed text",
+        size: 12,
+        type: "audio/webm",
+      }),
     } satisfies Partial<Response>) as typeof fetch;
 
     const result = await transcribeAudio(

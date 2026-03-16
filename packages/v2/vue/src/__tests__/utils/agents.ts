@@ -11,7 +11,11 @@ import type { Suggestion } from "@copilotkitnext/core";
 import { randomUUID } from "@copilotkitnext/shared";
 import { Observable } from "rxjs";
 
-export function toolCallMessage(toolCallName: string, args: unknown = {}, id?: string): Message {
+export function toolCallMessage(
+  toolCallName: string,
+  args: unknown = {},
+  id?: string,
+): Message {
   return {
     id: id ?? randomUUID(),
     role: "assistant",
@@ -47,7 +51,10 @@ export class StateCapturingAgent extends AbstractAgent {
   }
 
   override clone(): StateCapturingAgent {
-    const cloned = new StateCapturingAgent(this.outcomes, this.agentId ?? "default");
+    const cloned = new StateCapturingAgent(
+      this.outcomes,
+      this.agentId ?? "default",
+    );
     cloned.threadId = this.threadId;
     cloned.messages = JSON.parse(JSON.stringify(this.messages));
     cloned.state = JSON.parse(JSON.stringify(this.state));
@@ -108,11 +115,16 @@ export class SuggestionsProviderAgent extends AbstractAgent {
   }
 
   run(): Observable<BaseEvent> {
-    throw new Error("SuggestionsProviderAgent.run() should not be used in tests");
+    throw new Error(
+      "SuggestionsProviderAgent.run() should not be used in tests",
+    );
   }
 
   override clone(): SuggestionsProviderAgent {
-    const cloned = new SuggestionsProviderAgent(this.responses, this.agentId ?? "default");
+    const cloned = new SuggestionsProviderAgent(
+      this.responses,
+      this.agentId ?? "default",
+    );
     cloned.threadId = this.threadId;
     cloned.messages = JSON.parse(JSON.stringify(this.messages));
     cloned.state = JSON.parse(JSON.stringify(this.state));
@@ -176,7 +188,9 @@ export class SequencedRunAgent extends AbstractAgent {
   >;
 
   constructor(
-    handlers: Array<(input: RunAgentInput) => Promise<RunAgentResult> | RunAgentResult>,
+    handlers: Array<
+      (input: RunAgentInput) => Promise<RunAgentResult> | RunAgentResult
+    >,
     agentId = "default",
   ) {
     super({ agentId });
@@ -188,7 +202,10 @@ export class SequencedRunAgent extends AbstractAgent {
   }
 
   override clone(): SequencedRunAgent {
-    const cloned = new SequencedRunAgent(this.handlers, this.agentId ?? "default");
+    const cloned = new SequencedRunAgent(
+      this.handlers,
+      this.agentId ?? "default",
+    );
     cloned.threadId = this.threadId;
     cloned.messages = JSON.parse(JSON.stringify(this.messages));
     cloned.state = JSON.parse(JSON.stringify(this.state));

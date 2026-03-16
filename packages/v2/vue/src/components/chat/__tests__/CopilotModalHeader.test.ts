@@ -63,7 +63,11 @@ describe("CopilotModalHeader", () => {
               "title-content": ({ title }: { title: string }) =>
                 h("div", { "data-testid": "custom-title" }, title),
               "close-button": ({ onClose }: { onClose: () => void }) =>
-                h("button", { "data-testid": "custom-close", onClick: onClose }, "close"),
+                h(
+                  "button",
+                  { "data-testid": "custom-close", onClick: onClose },
+                  "close",
+                ),
             },
           ),
           h(ModalStateProbe),
@@ -71,7 +75,9 @@ describe("CopilotModalHeader", () => {
       },
     });
 
-    expect(wrapper.get("[data-testid='custom-title']").text()).toBe("Slot Title");
+    expect(wrapper.get("[data-testid='custom-title']").text()).toBe(
+      "Slot Title",
+    );
     await wrapper.get("[data-testid='custom-close']").trigger("click");
     expect(wrapper.get("[data-testid='modal-state']").text()).toBe("false");
   });
@@ -94,7 +100,9 @@ describe("CopilotModalHeader", () => {
       },
     });
 
-    expect(wrapper.get("[data-testid='custom-layout']").text()).toBe("Layout Title");
+    expect(wrapper.get("[data-testid='custom-layout']").text()).toBe(
+      "Layout Title",
+    );
   });
 
   it("exposes namespaced Title and CloseButton components", () => {

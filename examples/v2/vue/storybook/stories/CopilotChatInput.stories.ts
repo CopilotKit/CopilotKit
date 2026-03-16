@@ -1,6 +1,10 @@
 import { onMounted, onUnmounted, ref } from "vue";
 import type { Meta, StoryObj } from "@storybook/vue3-vite";
-import { CopilotChatConfigurationProvider, CopilotChatInput, type ToolsMenuItem } from "@copilotkitnext/vue";
+import {
+  CopilotChatConfigurationProvider,
+  CopilotChatInput,
+  type ToolsMenuItem,
+} from "@copilotkitnext/vue";
 
 const meta = {
   title: "UI/CopilotChatInput",
@@ -294,7 +298,8 @@ export const CustomLayout: Story = {
     components: { CopilotChatInput },
     setup() {
       const value = ref("");
-      const extractValue = (event: Event) => (event.target as HTMLTextAreaElement).value;
+      const extractValue = (event: Event) =>
+        (event.target as HTMLTextAreaElement).value;
       return { value, extractValue };
     },
     template: `

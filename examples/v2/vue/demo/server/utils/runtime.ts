@@ -58,7 +58,7 @@ export const createMcpRuntime = () => {
         { type: "http", url: "http://localhost:3109/mcp" },
         { type: "http", url: "http://localhost:3110/mcp" },
         { type: "http", url: "http://localhost:3111/mcp" },
-        { type: "http", url: "http://localhost:3112/mcp" }
+        { type: "http", url: "http://localhost:3112/mcp" },
       ],
     }),
   );

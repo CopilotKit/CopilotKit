@@ -52,7 +52,9 @@ describe("CopilotKitProvider wildcard behavior", () => {
     ];
 
     const { getCore } = mountWithProvider(() => h("div"), { frontendTools });
-    const wildcardRender = getCore().renderToolCalls.find((rc) => rc.name === "*");
+    const wildcardRender = getCore().renderToolCalls.find(
+      (rc) => rc.name === "*",
+    );
 
     expect(wildcardRender).toBeDefined();
     expect(wildcardRender?.render).toStrictEqual(WildcardRender);
@@ -93,7 +95,9 @@ describe("CopilotKitProvider wildcard behavior", () => {
     const { getCore } = mountWithProvider(() => h("div"), { humanInTheLoop });
 
     expect(getCore().getTool({ toolName: "*" })).toBeDefined();
-    const wildcardRender = getCore().renderToolCalls.find((rc) => rc.name === "*");
+    const wildcardRender = getCore().renderToolCalls.find(
+      (rc) => rc.name === "*",
+    );
     expect(wildcardRender).toBeDefined();
     expect(wildcardRender?.render).toStrictEqual(WildcardComponent);
   });

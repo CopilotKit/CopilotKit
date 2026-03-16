@@ -23,11 +23,10 @@ export interface CopilotChatViewProps {
   onFinishTranscribeWithAudio?: (audioBlob: Blob) => void | Promise<void>;
 }
 
-export interface CopilotChatProps
-  extends Omit<
-    CopilotChatViewProps,
-    "messages" | "isRunning" | "suggestions" | "suggestionLoadingIndexes"
-  > {
+export interface CopilotChatProps extends Omit<
+  CopilotChatViewProps,
+  "messages" | "isRunning" | "suggestions" | "suggestionLoadingIndexes"
+> {
   agentId?: string;
   threadId?: string;
   labels?: Partial<CopilotChatLabels>;
@@ -71,7 +70,10 @@ export interface CopilotChatInputSlotProps {
 export interface CopilotChatSuggestionViewSlotProps {
   suggestions: import("@copilotkitnext/core").Suggestion[];
   loadingIndexes: ReadonlyArray<number>;
-  onSelectSuggestion: (suggestion: import("@copilotkitnext/core").Suggestion, index: number) => void;
+  onSelectSuggestion: (
+    suggestion: import("@copilotkitnext/core").Suggestion,
+    index: number,
+  ) => void;
 }
 
 export interface CopilotChatWelcomeScreenSlotProps extends CopilotChatSuggestionViewSlotProps {
@@ -256,14 +258,19 @@ export interface CopilotSidebarWelcomeScreenInputSlotProps {
 export interface CopilotSidebarWelcomeScreenSuggestionViewSlotProps {
   suggestions: import("@copilotkitnext/core").Suggestion[];
   loadingIndexes: ReadonlyArray<number>;
-  onSelectSuggestion: (suggestion: import("@copilotkitnext/core").Suggestion, index: number) => void;
+  onSelectSuggestion: (
+    suggestion: import("@copilotkitnext/core").Suggestion,
+    index: number,
+  ) => void;
 }
 
 export interface CopilotSidebarWelcomeScreenLayoutSlotProps
-  extends CopilotSidebarWelcomeScreenInputSlotProps,
+  extends
+    CopilotSidebarWelcomeScreenInputSlotProps,
     CopilotSidebarWelcomeScreenSuggestionViewSlotProps {}
 
-export type CopilotSidebarWelcomeScreenProps = CopilotSidebarWelcomeScreenLayoutSlotProps;
+export type CopilotSidebarWelcomeScreenProps =
+  CopilotSidebarWelcomeScreenLayoutSlotProps;
 
 export interface CopilotSidebarViewHeaderSlotProps {
   title: string;
@@ -285,16 +292,20 @@ export interface CopilotSidebarViewProps extends CopilotChatViewProps {
 
 export type CopilotPopupViewHeaderSlotProps = CopilotSidebarViewHeaderSlotProps;
 
-export type CopilotPopupViewToggleButtonSlotProps = CopilotSidebarViewToggleButtonSlotProps;
+export type CopilotPopupViewToggleButtonSlotProps =
+  CopilotSidebarViewToggleButtonSlotProps;
 
-export type CopilotPopupWelcomeScreenInputSlotProps = CopilotSidebarWelcomeScreenInputSlotProps;
+export type CopilotPopupWelcomeScreenInputSlotProps =
+  CopilotSidebarWelcomeScreenInputSlotProps;
 
 export type CopilotPopupWelcomeScreenSuggestionViewSlotProps =
   CopilotSidebarWelcomeScreenSuggestionViewSlotProps;
 
-export type CopilotPopupWelcomeScreenLayoutSlotProps = CopilotSidebarWelcomeScreenLayoutSlotProps;
+export type CopilotPopupWelcomeScreenLayoutSlotProps =
+  CopilotSidebarWelcomeScreenLayoutSlotProps;
 
-export type CopilotPopupWelcomeScreenProps = CopilotPopupWelcomeScreenLayoutSlotProps;
+export type CopilotPopupWelcomeScreenProps =
+  CopilotPopupWelcomeScreenLayoutSlotProps;
 
 export interface CopilotPopupViewProps extends CopilotChatViewProps {
   width?: number | string;

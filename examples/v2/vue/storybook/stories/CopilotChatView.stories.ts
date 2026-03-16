@@ -86,7 +86,8 @@ const meta = {
   parameters: {
     docs: {
       description: {
-        component: "A complete chat interface with message feed and input components.",
+        component:
+          "A complete chat interface with message feed and input components.",
       },
     },
   },

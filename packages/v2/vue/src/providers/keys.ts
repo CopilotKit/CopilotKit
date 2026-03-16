@@ -7,8 +7,9 @@ export interface CopilotKitContextValue {
   executingToolCallIds: Ref<ReadonlySet<string>>;
 }
 
-export const CopilotKitKey: InjectionKey<CopilotKitContextValue> = Symbol("CopilotKit");
+export const CopilotKitKey: InjectionKey<CopilotKitContextValue> =
+  Symbol("CopilotKit");
 
-export const CopilotChatConfigurationKey: InjectionKey<ComputedRef<CopilotChatConfigurationValue>> = Symbol(
-  "CopilotChatConfiguration",
-);
+export const CopilotChatConfigurationKey: InjectionKey<
+  ComputedRef<CopilotChatConfigurationValue>
+> = Symbol("CopilotChatConfiguration");

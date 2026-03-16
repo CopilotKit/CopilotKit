@@ -14,7 +14,8 @@ export const CopilotChatDefaultLabels = {
   assistantMessageToolbarRegenerateLabel: "Regenerate",
   userMessageToolbarCopyMessageLabel: "Copy",
   userMessageToolbarEditMessageLabel: "Edit",
-  chatDisclaimerText: "AI can make mistakes. Please verify important information.",
+  chatDisclaimerText:
+    "AI can make mistakes. Please verify important information.",
   chatToggleOpenLabel: "Open chat",
   chatToggleCloseLabel: "Close chat",
   modalHeaderTitle: "CopilotKit Chat",

@@ -45,7 +45,9 @@ describe("CopilotKitInspector", () => {
     await settleInspectorLoad();
 
     const inspector = wrapper.get("cpk-web-inspector");
-    const resolvedCore = (inspector.element as HTMLElement & { core?: CopilotKitCoreVue }).core;
+    const resolvedCore = (
+      inspector.element as HTMLElement & { core?: CopilotKitCoreVue }
+    ).core;
 
     expect(inspector.attributes("data-testid")).toBe("inspector");
     expect(inspector.attributes("data-surface")).toBe("storybook");

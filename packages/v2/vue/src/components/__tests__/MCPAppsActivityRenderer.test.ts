@@ -16,7 +16,9 @@ function createAgentMock(options?: {
 }): AbstractAgent {
   const runAgent = options?.runImpl
     ? vi.fn(options.runImpl)
-    : vi.fn().mockResolvedValue(options?.runResult ?? { result: { contents: [] } });
+    : vi
+        .fn()
+        .mockResolvedValue(options?.runResult ?? { result: { contents: [] } });
 
   return {
     threadId: options?.threadId ?? `thread-${Math.random()}`,
@@ -333,7 +335,9 @@ describe("MCPAppsActivityRenderer", () => {
     const agent = createAgentMock({
       runResult: {
         result: {
-          contents: [{ uri: "ui://server/default-csp", text: "<div>default</div>" }],
+          contents: [
+            { uri: "ui://server/default-csp", text: "<div>default</div>" },
+          ],
         },
       },
       threadId: "default-csp-thread",

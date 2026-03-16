@@ -73,9 +73,9 @@ describe("CopilotChatView", () => {
       messages: [],
     });
 
-    expect(wrapper.get("[data-testid='copilot-chat-view-welcome-screen']").text()).toContain(
-      "Welcome to Copilot",
-    );
+    expect(
+      wrapper.get("[data-testid='copilot-chat-view-welcome-screen']").text(),
+    ).toContain("Welcome to Copilot");
   });
 
   it("can disable welcome screen for empty message threads", () => {
@@ -84,8 +84,14 @@ describe("CopilotChatView", () => {
       welcomeScreen: false,
     });
 
-    expect(wrapper.find("[data-testid='copilot-chat-view-welcome-screen']").exists()).toBe(false);
-    expect(wrapper.find("[data-testid='copilot-chat-view-input-container']").exists()).toBe(true);
+    expect(
+      wrapper.find("[data-testid='copilot-chat-view-welcome-screen']").exists(),
+    ).toBe(false);
+    expect(
+      wrapper
+        .find("[data-testid='copilot-chat-view-input-container']")
+        .exists(),
+    ).toBe(true);
   });
 
   it("renders messages and forwards input change/submit events", async () => {
@@ -102,7 +108,9 @@ describe("CopilotChatView", () => {
     await textarea.trigger("keydown", { key: "Enter" });
 
     expect(onInputChange).toHaveBeenCalledTimes(2);
-    expect(onInputChange).toHaveBeenCalledWith("   hello from vue chat view   ");
+    expect(onInputChange).toHaveBeenCalledWith(
+      "   hello from vue chat view   ",
+    );
     expect(onSubmitMessage).toHaveBeenCalledTimes(1);
     expect(onSubmitMessage).toHaveBeenCalledWith("hello from vue chat view");
 
@@ -110,7 +118,9 @@ describe("CopilotChatView", () => {
     expect(chatViewWrapper.emitted("input-change")).toEqual(
       expect.arrayContaining([["   hello from vue chat view   "], [""]]),
     );
-    expect(chatViewWrapper.emitted("submit-message")?.at(0)).toEqual(["hello from vue chat view"]);
+    expect(chatViewWrapper.emitted("submit-message")?.at(0)).toEqual([
+      "hello from vue chat view",
+    ]);
   });
 
   it("renders suggestions and forwards selection callback and event", async () => {
@@ -121,7 +131,9 @@ describe("CopilotChatView", () => {
       onSelectSuggestion,
     });
 
-    const suggestionButtons = wrapper.findAll("[data-testid='copilot-chat-suggestion-pill']");
+    const suggestionButtons = wrapper.findAll(
+      "[data-testid='copilot-chat-suggestion-pill']",
+    );
     expect(suggestionButtons).toHaveLength(2);
 
     await suggestionButtons[1]?.trigger("click");
@@ -129,7 +141,10 @@ describe("CopilotChatView", () => {
     expect(onSelectSuggestion).toHaveBeenCalledTimes(1);
     expect(onSelectSuggestion).toHaveBeenCalledWith(suggestions[1], 1);
     const chatViewWrapper = wrapper.findComponent(CopilotChatView);
-    expect(chatViewWrapper.emitted("select-suggestion")?.at(0)).toEqual([suggestions[1], 1]);
+    expect(chatViewWrapper.emitted("select-suggestion")?.at(0)).toEqual([
+      suggestions[1],
+      1,
+    ]);
   });
 
   it("hides transcribe action when no transcribe handler is configured", () => {
@@ -138,7 +153,9 @@ describe("CopilotChatView", () => {
     });
 
     expect(
-      wrapper.find("[data-testid='copilot-chat-input-start-transcribe']").exists(),
+      wrapper
+        .find("[data-testid='copilot-chat-input-start-transcribe']")
+        .exists(),
     ).toBe(false);
   });
 
@@ -149,7 +166,9 @@ describe("CopilotChatView", () => {
       onStartTranscribe,
     });
 
-    const startTranscribeButton = wrapper.get("[data-testid='copilot-chat-input-start-transcribe']");
+    const startTranscribeButton = wrapper.get(
+      "[data-testid='copilot-chat-input-start-transcribe']",
+    );
     await startTranscribeButton.trigger("click");
 
     expect(onStartTranscribe).toHaveBeenCalledTimes(1);
@@ -169,18 +188,24 @@ describe("CopilotChatView", () => {
       onFinishTranscribeWithAudio,
     });
 
-    await wrapper.get("[data-testid='copilot-chat-input-cancel-transcribe']").trigger("click");
+    await wrapper
+      .get("[data-testid='copilot-chat-input-cancel-transcribe']")
+      .trigger("click");
     expect(onCancelTranscribe).toHaveBeenCalledTimes(1);
 
     await new Promise((resolve) => setTimeout(resolve, 0));
-    await wrapper.get("[data-testid='copilot-chat-input-finish-transcribe']").trigger("click");
+    await wrapper
+      .get("[data-testid='copilot-chat-input-finish-transcribe']")
+      .trigger("click");
     expect(onFinishTranscribe).toHaveBeenCalledTimes(1);
     expect(onFinishTranscribeWithAudio).toHaveBeenCalledTimes(1);
 
     const chatViewWrapper = wrapper.findComponent(CopilotChatView);
     expect(chatViewWrapper.emitted("cancel-transcribe")?.length ?? 0).toBe(1);
     expect(chatViewWrapper.emitted("finish-transcribe")?.length ?? 0).toBe(1);
-    expect(chatViewWrapper.emitted("finish-transcribe-with-audio")).toBeUndefined();
+    expect(
+      chatViewWrapper.emitted("finish-transcribe-with-audio"),
+    ).toBeUndefined();
   });
 
   it("supports message-view drill-down slots for assistant and user customization", async () => {
@@ -189,7 +214,13 @@ describe("CopilotChatView", () => {
         messages: chatMessages,
       },
       {
-        "message-view": ({ messages, isRunning }: { messages: Message[]; isRunning: boolean }) =>
+        "message-view": ({
+          messages,
+          isRunning,
+        }: {
+          messages: Message[];
+          isRunning: boolean;
+        }) =>
           h(
             CopilotChatMessageView,
             { messages, isRunning },
@@ -212,10 +243,17 @@ describe("CopilotChatView", () => {
                     onThumbsUp: vi.fn(),
                   },
                   {
-                    "copy-button": ({ onCopy }: { onCopy: () => Promise<void> }) =>
+                    "copy-button": ({
+                      onCopy,
+                    }: {
+                      onCopy: () => Promise<void>;
+                    }) =>
                       h(
                         "button",
-                        { "data-testid": "chat-view-custom-assistant-copy", onClick: onCopy },
+                        {
+                          "data-testid": "chat-view-custom-assistant-copy",
+                          onClick: onCopy,
+                        },
                         "copy",
                       ),
                   },
@@ -226,7 +264,11 @@ describe("CopilotChatView", () => {
                   { message },
                   {
                     "message-renderer": ({ content }: { content: string }) =>
-                      h("div", { "data-testid": "chat-view-custom-user-message" }, content),
+                      h(
+                        "div",
+                        { "data-testid": "chat-view-custom-user-message" },
+                        content,
+                      ),
                   },
                 ),
             },
@@ -234,10 +276,16 @@ describe("CopilotChatView", () => {
       },
     );
 
-    expect(wrapper.find("[data-testid='chat-view-custom-assistant-copy']").exists()).toBe(true);
-    expect(wrapper.find("[data-testid='chat-view-custom-user-message']").text()).toBe("Hello");
+    expect(
+      wrapper.find("[data-testid='chat-view-custom-assistant-copy']").exists(),
+    ).toBe(true);
+    expect(
+      wrapper.find("[data-testid='chat-view-custom-user-message']").text(),
+    ).toBe("Hello");
 
-    await wrapper.get("[data-testid='chat-view-custom-assistant-copy']").trigger("click");
+    await wrapper
+      .get("[data-testid='chat-view-custom-assistant-copy']")
+      .trigger("click");
   });
 
   it("preserves scroll position when new messages arrive and the user is scrolled up", async () => {
@@ -246,28 +294,34 @@ describe("CopilotChatView", () => {
     const Host = defineComponent({
       setup() {
         return () =>
-          h(CopilotKitProvider, { runtimeUrl: "/api/copilotkit" }, {
-            default: () =>
-              h(
-                CopilotChatConfigurationProvider,
-                {
-                  threadId: "thread-1",
-                  agentId: "default",
-                },
-                {
-                  default: () =>
-                    h(CopilotChatView, {
-                      messages: messages.value,
-                    }),
-                },
-              ),
-          });
+          h(
+            CopilotKitProvider,
+            { runtimeUrl: "/api/copilotkit" },
+            {
+              default: () =>
+                h(
+                  CopilotChatConfigurationProvider,
+                  {
+                    threadId: "thread-1",
+                    agentId: "default",
+                  },
+                  {
+                    default: () =>
+                      h(CopilotChatView, {
+                        messages: messages.value,
+                      }),
+                  },
+                ),
+            },
+          );
       },
     });
 
     const wrapper = mount(Host);
     await new Promise((resolve) => setTimeout(resolve, 0));
-    const scrollElement = wrapper.get("[data-testid='copilot-chat-view-scroll']").element as HTMLElement;
+    const scrollElement = wrapper.get(
+      "[data-testid='copilot-chat-view-scroll']",
+    ).element as HTMLElement;
 
     let scrollTop = 0;
     Object.defineProperty(scrollElement, "scrollHeight", {
@@ -293,7 +347,11 @@ describe("CopilotChatView", () => {
     scrollElement.dispatchEvent(new Event("scroll"));
     await nextTick();
 
-    expect(wrapper.find("[data-testid='copilot-chat-view-scroll-to-bottom']").exists()).toBe(true);
+    expect(
+      wrapper
+        .find("[data-testid='copilot-chat-view-scroll-to-bottom']")
+        .exists(),
+    ).toBe(true);
 
     messages.value = [
       ...messages.value,
@@ -309,6 +367,10 @@ describe("CopilotChatView", () => {
     await nextTick();
 
     expect(scrollTop).toBe(120);
-    expect(wrapper.find("[data-testid='copilot-chat-view-scroll-to-bottom']").exists()).toBe(true);
+    expect(
+      wrapper
+        .find("[data-testid='copilot-chat-view-scroll-to-bottom']")
+        .exists(),
+    ).toBe(true);
   });
 });

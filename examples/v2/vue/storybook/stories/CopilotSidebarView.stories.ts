@@ -1,8 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/vue3-vite";
-import {
-  CopilotModalHeader,
-  CopilotSidebarView,
-} from "@copilotkitnext/vue";
+import { CopilotModalHeader, CopilotSidebarView } from "@copilotkitnext/vue";
 import CopilotStoryLayout from "./CopilotStoryLayout.vue";
 
 const meta = {

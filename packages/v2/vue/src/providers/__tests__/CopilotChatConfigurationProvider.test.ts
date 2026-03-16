@@ -12,15 +12,32 @@ function makeDisplay() {
       const config = useCopilotChatConfiguration();
       return () =>
         h("div", [
-          h("span", { "data-testid": "agent" }, config.value?.agentId ?? "no-config"),
-          h("span", { "data-testid": "thread" }, config.value?.threadId ?? "no-config"),
-          h("span", { "data-testid": "placeholder" }, config.value?.labels.chatInputPlaceholder ?? "no-config"),
+          h(
+            "span",
+            { "data-testid": "agent" },
+            config.value?.agentId ?? "no-config",
+          ),
+          h(
+            "span",
+            { "data-testid": "thread" },
+            config.value?.threadId ?? "no-config",
+          ),
+          h(
+            "span",
+            { "data-testid": "placeholder" },
+            config.value?.labels.chatInputPlaceholder ?? "no-config",
+          ),
           h(
             "span",
             { "data-testid": "copy" },
-            config.value?.labels.assistantMessageToolbarCopyMessageLabel ?? "no-config",
+            config.value?.labels.assistantMessageToolbarCopyMessageLabel ??
+              "no-config",
           ),
-          h("span", { "data-testid": "modal" }, String(config.value?.isModalOpen)),
+          h(
+            "span",
+            { "data-testid": "modal" },
+            String(config.value?.isModalOpen),
+          ),
         ]);
     },
   });
@@ -53,7 +70,9 @@ describe("CopilotChatConfigurationProvider", () => {
     });
 
     expect(wrapper.find("[data-testid=agent]").text()).toBe("agent-custom");
-    expect(wrapper.find("[data-testid=placeholder]").text()).toBe("Custom Placeholder");
+    expect(wrapper.find("[data-testid=placeholder]").text()).toBe(
+      "Custom Placeholder",
+    );
     expect(wrapper.find("[data-testid=copy]").text()).toBe(
       CopilotChatDefaultLabels.assistantMessageToolbarCopyMessageLabel,
     );
@@ -102,7 +121,11 @@ describe("CopilotChatConfigurationProvider", () => {
         const close = () => config.value?.setModalOpen?.(false);
         return () =>
           h("div", [
-            h("span", { "data-testid": "modal" }, String(config.value?.isModalOpen)),
+            h(
+              "span",
+              { "data-testid": "modal" },
+              String(config.value?.isModalOpen),
+            ),
             h("button", { "data-testid": "close", onClick: close }, "close"),
           ]);
       },
@@ -145,7 +168,12 @@ describe("CopilotChatConfigurationProvider", () => {
     const ChildDisplay = defineComponent({
       setup() {
         const config = useCopilotChatConfiguration();
-        return () => h("span", { "data-testid": "child-modal" }, String(config.value?.isModalOpen));
+        return () =>
+          h(
+            "span",
+            { "data-testid": "child-modal" },
+            String(config.value?.isModalOpen),
+          );
       },
     });
 
@@ -155,8 +183,16 @@ describe("CopilotChatConfigurationProvider", () => {
         const close = () => config.value?.setModalOpen?.(false);
         return () =>
           h("div", [
-            h("button", { "data-testid": "close-parent", onClick: close }, "close"),
-            h(CopilotChatConfigurationProvider, { threadId: "child" }, { default: () => h(ChildDisplay) }),
+            h(
+              "button",
+              { "data-testid": "close-parent", onClick: close },
+              "close",
+            ),
+            h(
+              CopilotChatConfigurationProvider,
+              { threadId: "child" },
+              { default: () => h(ChildDisplay) },
+            ),
           ]);
       },
     });

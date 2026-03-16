@@ -11,7 +11,9 @@ describe("CopilotChatSuggestionPill", () => {
       },
     });
 
-    const button = wrapper.get("button[data-testid='copilot-chat-suggestion-pill']");
+    const button = wrapper.get(
+      "button[data-testid='copilot-chat-suggestion-pill']",
+    );
     expect(button.attributes("type")).toBe("button");
     expect(button.text()).toContain("Draft a project brief");
     expect(button.attributes("disabled")).toBeUndefined();
@@ -27,7 +29,9 @@ describe("CopilotChatSuggestionPill", () => {
       },
     });
 
-    const button = wrapper.get("button[data-testid='copilot-chat-suggestion-pill']");
+    const button = wrapper.get(
+      "button[data-testid='copilot-chat-suggestion-pill']",
+    );
     expect(button.attributes("aria-busy")).toBe("true");
     expect(button.attributes("disabled")).toBeDefined();
     expect(wrapper.find(".animate-spin").exists()).toBe(true);
@@ -61,7 +65,9 @@ describe("CopilotChatSuggestionPill", () => {
       },
     });
 
-    await wrapper.get("button[data-testid='copilot-chat-suggestion-pill']").trigger("click");
+    await wrapper
+      .get("button[data-testid='copilot-chat-suggestion-pill']")
+      .trigger("click");
     expect(onClick).toHaveBeenCalledTimes(1);
   });
 });

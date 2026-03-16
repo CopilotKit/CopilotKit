@@ -2,9 +2,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { h, nextTick } from "vue";
 import { mount } from "@vue/test-utils";
 import CopilotKitProvider from "../../../providers/CopilotKitProvider.vue";
-import { CopilotPopupView, CopilotPopupView as NamespacedPopupView } from "../index";
+import {
+  CopilotPopupView,
+  CopilotPopupView as NamespacedPopupView,
+} from "../index";
 
-function mountPopupView(props: Record<string, unknown> = {}, slots: Parameters<typeof h>[2] = {}) {
+function mountPopupView(
+  props: Record<string, unknown> = {},
+  slots: Parameters<typeof h>[2] = {},
+) {
   return mount(CopilotKitProvider, {
     props: { runtimeUrl: "/api/copilotkit" },
     slots: {
@@ -32,7 +38,9 @@ describe("CopilotPopupView", () => {
 
     const popup = wrapper.get("[data-copilot-popup]");
     expect(popup.attributes("style")).toContain("--copilot-popup-width: 500px");
-    expect(popup.attributes("style")).toContain("--copilot-popup-height: 700px");
+    expect(popup.attributes("style")).toContain(
+      "--copilot-popup-height: 700px",
+    );
   });
 
   it("stays hidden when defaultOpen is false", async () => {
@@ -42,7 +50,9 @@ describe("CopilotPopupView", () => {
 
     await nextTick();
     expect(wrapper.find("[data-copilot-popup]").exists()).toBe(false);
-    expect(wrapper.find("[data-slot='chat-toggle-button']").exists()).toBe(true);
+    expect(wrapper.find("[data-slot='chat-toggle-button']").exists()).toBe(
+      true,
+    );
   });
 
   it("closes on escape and outside pointerdown when enabled", async () => {
@@ -74,9 +84,14 @@ describe("CopilotPopupView", () => {
         clickOutsideToClose: true,
       },
       {
-        header: ({ title }: { title: string }) => h("div", { "data-testid": "custom-header" }, title),
+        header: ({ title }: { title: string }) =>
+          h("div", { "data-testid": "custom-header" }, title),
         "toggle-button": ({ toggle }: { toggle: () => void }) =>
-          h("button", { "data-testid": "custom-toggle", onClick: toggle }, "toggle"),
+          h(
+            "button",
+            { "data-testid": "custom-toggle", onClick: toggle },
+            "toggle",
+          ),
       },
     );
 

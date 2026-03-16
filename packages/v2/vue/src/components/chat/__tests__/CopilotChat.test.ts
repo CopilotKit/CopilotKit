@@ -65,7 +65,9 @@ describe("CopilotChat", () => {
     });
 
     await nextTick();
-    expect(wrapper.find("textarea").attributes("placeholder")).toBe("Custom placeholder text...");
+    expect(wrapper.find("textarea").attributes("placeholder")).toBe(
+      "Custom placeholder text...",
+    );
   });
 
   it("submits a user message and runs the resolved agent", async () => {
@@ -74,11 +76,15 @@ describe("CopilotChat", () => {
     const wrapper = mountChat({}, { agents: { default: agent } });
 
     const chat = wrapper.findComponent(CopilotChat);
-    await chat.findComponent(CopilotChatView).vm.$emit("submit-message", "Hello");
+    await chat
+      .findComponent(CopilotChatView)
+      .vm.$emit("submit-message", "Hello");
     await flushPromises();
 
     expect(chat.emitted("submit-message")).toEqual([["Hello"]]);
-    expect(agent.messages.some((message) => message.content === "Hello")).toBe(true);
+    expect(agent.messages.some((message) => message.content === "Hello")).toBe(
+      true,
+    );
     expect(runAgent).toHaveBeenCalledTimes(1);
   });
 
@@ -97,12 +103,15 @@ describe("CopilotChat", () => {
         },
         providerThreadId: "provider-thread",
         slots: {
-          "chat-view": (slotProps: { onSubmitMessage: (value: string) => Promise<void> }) =>
+          "chat-view": (slotProps: {
+            onSubmitMessage: (value: string) => Promise<void>;
+          }) =>
             h(
               "button",
               {
                 "data-testid": "submit-via-slot",
-                onClick: () => void slotProps.onSubmitMessage("From custom agent"),
+                onClick: () =>
+                  void slotProps.onSubmitMessage("From custom agent"),
               },
               "submit",
             ),
@@ -114,7 +123,11 @@ describe("CopilotChat", () => {
     await flushPromises();
 
     expect(customAgent.threadId).toBe("explicit-thread");
-    expect(customAgent.messages.some((message) => message.content === "From custom agent")).toBe(true);
+    expect(
+      customAgent.messages.some(
+        (message) => message.content === "From custom agent",
+      ),
+    ).toBe(true);
     expect(defaultAgent.messages).toHaveLength(0);
   });
 
@@ -130,7 +143,9 @@ describe("CopilotChat", () => {
     agent.isRunning = true;
     agent.abortRun = vi.fn();
 
-    let core: ReturnType<typeof useCopilotKit>["copilotkit"]["value"] | undefined;
+    let core:
+      | ReturnType<typeof useCopilotKit>["copilotkit"]["value"]
+      | undefined;
     const Probe = defineComponent({
       setup() {
         const { copilotkit } = useCopilotKit();
@@ -174,7 +189,11 @@ describe("CopilotChat", () => {
 
   it("transcribes audio through the runtime helper and updates the input value", async () => {
     const onFinishTranscribeWithAudio = vi.fn().mockResolvedValue(undefined);
-    vi.spyOn(CopilotKitCoreVue.prototype, "audioFileTranscriptionEnabled", "get").mockReturnValue(true);
+    vi.spyOn(
+      CopilotKitCoreVue.prototype,
+      "audioFileTranscriptionEnabled",
+      "get",
+    ).mockReturnValue(true);
 
     const wrapper = mountChat(
       {
@@ -194,7 +213,11 @@ describe("CopilotChat", () => {
                     new Blob(["audio"], { type: "audio/webm" }),
                   ),
               }),
-              h("div", { "data-testid": "input-value" }, slotProps.inputValue ?? ""),
+              h(
+                "div",
+                { "data-testid": "input-value" },
+                slotProps.inputValue ?? "",
+              ),
             ]),
         },
       },
@@ -215,7 +238,9 @@ describe("CopilotChat", () => {
       .mockImplementation(async ({ agent }) => {
         agent.setMessages([]);
         agent.setState({});
-        return { newMessages: [] } as Awaited<ReturnType<CopilotKitCoreVue["connectAgent"]>>;
+        return { newMessages: [] } as Awaited<
+          ReturnType<CopilotKitCoreVue["connectAgent"]>
+        >;
       });
 
     const Host = defineComponent({

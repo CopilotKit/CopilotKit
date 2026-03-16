@@ -5,7 +5,11 @@ import { useFrontendTool } from "../use-frontend-tool";
 import type { VueFrontendTool } from "../../types";
 import { z } from "zod";
 import { mountWithProvider } from "../../__tests__/utils/mount";
-import { SequencedRunAgent, StateCapturingAgent, toolCallMessage } from "../../__tests__/utils/agents";
+import {
+  SequencedRunAgent,
+  StateCapturingAgent,
+  toolCallMessage,
+} from "../../__tests__/utils/agents";
 
 describe("useFrontendTool", () => {
   let consoleWarnSpy: ReturnType<typeof vi.spyOn>;
@@ -42,14 +46,20 @@ describe("useFrontendTool", () => {
       },
     });
 
-    const agent = new StateCapturingAgent([{
-      newMessages: [toolCallMessage("dynamicTool", { x: 42 })],
-    }], "test-agent");
-
-    const { getCore, wrapper } = mountWithProvider(
-      () => h(ToolUser),
-      { agents__unsafe_dev_only: { "test-agent": agent as unknown as AbstractAgent } },
+    const agent = new StateCapturingAgent(
+      [
+        {
+          newMessages: [toolCallMessage("dynamicTool", { x: 42 })],
+        },
+      ],
+      "test-agent",
     );
+
+    const { getCore, wrapper } = mountWithProvider(() => h(ToolUser), {
+      agents__unsafe_dev_only: {
+        "test-agent": agent as unknown as AbstractAgent,
+      },
+    });
 
     await nextTick();
     await getCore().runAgent({ agent: agent as unknown as AbstractAgent });
@@ -84,7 +94,14 @@ describe("useFrontendTool", () => {
         const shown = ref(true);
         return () =>
           h("div", [
-            h("button", { "data-testid": "toggle", onClick: () => (shown.value = !shown.value) }, "toggle"),
+            h(
+              "button",
+              {
+                "data-testid": "toggle",
+                onClick: () => (shown.value = !shown.value),
+              },
+              "toggle",
+            ),
             shown.value
               ? h(
                   defineComponent({
@@ -100,10 +117,11 @@ describe("useFrontendTool", () => {
     });
 
     const agent = new StateCapturingAgent([{ newMessages: [] }], "test-agent");
-    const { getCore, wrapper } = mountWithProvider(
-      () => h(Show),
-      { agents__unsafe_dev_only: { "test-agent": agent as unknown as AbstractAgent } },
-    );
+    const { getCore, wrapper } = mountWithProvider(() => h(Show), {
+      agents__unsafe_dev_only: {
+        "test-agent": agent as unknown as AbstractAgent,
+      },
+    });
 
     await nextTick();
     expect(getCore().getTool({ toolName: "toolToRemove" })).toBeDefined();
@@ -152,18 +170,29 @@ describe("useFrontendTool", () => {
         const showSecond = ref(false);
         return () =>
           h("div", [
-            h("button", { "data-testid": "show-second", onClick: () => (showSecond.value = true) }, "show"),
+            h(
+              "button",
+              {
+                "data-testid": "show-second",
+                onClick: () => (showSecond.value = true),
+              },
+              "show",
+            ),
             h(Tool1User),
             showSecond.value ? h(Tool2User) : null,
           ]);
       },
     });
 
-    const agent = new StateCapturingAgent([{ newMessages: [toolCallMessage("sameTool")] }], "test-agent");
-    const { getCore, wrapper } = mountWithProvider(
-      () => h(Parent),
-      { agents__unsafe_dev_only: { "test-agent": agent as unknown as AbstractAgent } },
+    const agent = new StateCapturingAgent(
+      [{ newMessages: [toolCallMessage("sameTool")] }],
+      "test-agent",
     );
+    const { getCore, wrapper } = mountWithProvider(() => h(Parent), {
+      agents__unsafe_dev_only: {
+        "test-agent": agent as unknown as AbstractAgent,
+      },
+    });
 
     await nextTick();
     expect(getCore().getTool({ toolName: "sameTool" })?.handler).toBe(handler1);
@@ -197,14 +226,20 @@ describe("useFrontendTool", () => {
       },
     });
 
-    const agent = new StateCapturingAgent([{
-      newMessages: [toolCallMessage("unknownTool", { message: "hi" })],
-    }], "test-agent");
-
-    const { getCore, wrapper } = mountWithProvider(
-      () => h(ToolUser),
-      { agents__unsafe_dev_only: { "test-agent": agent as unknown as AbstractAgent } },
+    const agent = new StateCapturingAgent(
+      [
+        {
+          newMessages: [toolCallMessage("unknownTool", { message: "hi" })],
+        },
+      ],
+      "test-agent",
     );
+
+    const { getCore, wrapper } = mountWithProvider(() => h(ToolUser), {
+      agents__unsafe_dev_only: {
+        "test-agent": agent as unknown as AbstractAgent,
+      },
+    });
 
     await nextTick();
     await getCore().runAgent({ agent: agent as unknown as AbstractAgent });
@@ -236,10 +271,11 @@ describe("useFrontendTool", () => {
     });
 
     const agent = new StateCapturingAgent([{ newMessages: [] }], "test-agent");
-    const { getCore } = mountWithProvider(
-      () => h(ToolUser),
-      { agents__unsafe_dev_only: { "test-agent": agent as unknown as AbstractAgent } },
-    );
+    const { getCore } = mountWithProvider(() => h(ToolUser), {
+      agents__unsafe_dev_only: {
+        "test-agent": agent as unknown as AbstractAgent,
+      },
+    });
 
     await nextTick();
     const core = getCore();
@@ -287,10 +323,11 @@ describe("useFrontendTool", () => {
     });
 
     const agent = new StateCapturingAgent([{ newMessages: [] }], "test-agent");
-    const { getCore } = mountWithProvider(
-      () => h(ToolUser),
-      { agents__unsafe_dev_only: { "test-agent": agent as unknown as AbstractAgent } },
-    );
+    const { getCore } = mountWithProvider(() => h(ToolUser), {
+      agents__unsafe_dev_only: {
+        "test-agent": agent as unknown as AbstractAgent,
+      },
+    });
 
     await nextTick();
 
@@ -317,16 +354,22 @@ describe("useFrontendTool", () => {
       },
     });
 
-    const agent = new SequencedRunAgent([
-      () => ({ newMessages: [toolCallMessage("noFollowUpTool", { value: "x" })] }),
-      () => ({ newMessages: [assistantMessage("this should not run")] }),
-    ], "test-agent");
+    const agent = new SequencedRunAgent(
+      [
+        () => ({
+          newMessages: [toolCallMessage("noFollowUpTool", { value: "x" })],
+        }),
+        () => ({ newMessages: [assistantMessage("this should not run")] }),
+      ],
+      "test-agent",
+    );
     const runSpy = vi.spyOn(agent, "runAgent");
 
-    const { getCore } = mountWithProvider(
-      () => h(ToolUser),
-      { agents__unsafe_dev_only: { "test-agent": agent as unknown as AbstractAgent } },
-    );
+    const { getCore } = mountWithProvider(() => h(ToolUser), {
+      agents__unsafe_dev_only: {
+        "test-agent": agent as unknown as AbstractAgent,
+      },
+    });
 
     await nextTick();
     await getCore().runAgent({ agent: agent as unknown as AbstractAgent });
@@ -361,27 +404,42 @@ describe("useFrontendTool", () => {
       },
     });
 
-    const explicitAgent = new SequencedRunAgent([
-      () => ({ newMessages: [toolCallMessage("followUpTool", { value: "x" })] }),
-      () => ({ newMessages: [assistantMessage("follow-up explicit")] }),
-    ], "test-agent");
+    const explicitAgent = new SequencedRunAgent(
+      [
+        () => ({
+          newMessages: [toolCallMessage("followUpTool", { value: "x" })],
+        }),
+        () => ({ newMessages: [assistantMessage("follow-up explicit")] }),
+      ],
+      "test-agent",
+    );
     const explicitRunSpy = vi.spyOn(explicitAgent, "runAgent");
 
-    const { getCore } = mountWithProvider(
-      () => h(ToolUser),
-      { agents__unsafe_dev_only: { "test-agent": explicitAgent as unknown as AbstractAgent } },
-    );
+    const { getCore } = mountWithProvider(() => h(ToolUser), {
+      agents__unsafe_dev_only: {
+        "test-agent": explicitAgent as unknown as AbstractAgent,
+      },
+    });
     await nextTick();
-    await getCore().runAgent({ agent: explicitAgent as unknown as AbstractAgent });
+    await getCore().runAgent({
+      agent: explicitAgent as unknown as AbstractAgent,
+    });
     expect(explicitRunSpy).toHaveBeenCalledTimes(2);
     expect(explicitFollowUpHandler).toHaveBeenCalledTimes(1);
 
-    const defaultAgent = new SequencedRunAgent([
-      () => ({ newMessages: [toolCallMessage("defaultFollowUpTool", { value: "y" })] }),
-      () => ({ newMessages: [assistantMessage("follow-up default")] }),
-    ], "test-agent");
+    const defaultAgent = new SequencedRunAgent(
+      [
+        () => ({
+          newMessages: [toolCallMessage("defaultFollowUpTool", { value: "y" })],
+        }),
+        () => ({ newMessages: [assistantMessage("follow-up default")] }),
+      ],
+      "test-agent",
+    );
     const defaultRunSpy = vi.spyOn(defaultAgent, "runAgent");
-    await getCore().runAgent({ agent: defaultAgent as unknown as AbstractAgent });
+    await getCore().runAgent({
+      agent: defaultAgent as unknown as AbstractAgent,
+    });
     expect(defaultRunSpy).toHaveBeenCalledTimes(2);
     expect(defaultFollowUpHandler).toHaveBeenCalledTimes(1);
   });
@@ -408,18 +466,19 @@ describe("useFrontendTool", () => {
     });
 
     const agent = new StateCapturingAgent([{ newMessages: [] }], "test-agent");
-    const { getCore } = mountWithProvider(
-      () => h(ToolUser),
-      {
-        frontendTools: [baseTool],
-        agents__unsafe_dev_only: { "test-agent": agent as unknown as AbstractAgent },
+    const { getCore } = mountWithProvider(() => h(ToolUser), {
+      frontendTools: [baseTool],
+      agents__unsafe_dev_only: {
+        "test-agent": agent as unknown as AbstractAgent,
       },
-    );
+    });
 
     await nextTick();
     await getCore().runAgent({ agent: agent as unknown as AbstractAgent });
 
-    const toolNames = (agent.lastRunInput?.tools ?? []).map((tool) => tool.name);
+    const toolNames = (agent.lastRunInput?.tools ?? []).map(
+      (tool) => tool.name,
+    );
     expect(toolNames).toContain("baseForwarded");
     expect(toolNames).toContain("dynamicForwarded");
   });
@@ -450,36 +509,41 @@ describe("useFrontendTool", () => {
       },
     });
 
-    const targetAgent = new StateCapturingAgent([
-      { newMessages: [toolCallMessage("sharedName", { a: 1 })] },
-    ], "target-agent");
-    const otherAgent = new StateCapturingAgent([
-      { newMessages: [toolCallMessage("sharedName", { a: 2 })] },
-    ], "other-agent");
-
-    const { getCore } = mountWithProvider(
-      () => h(ToolUser),
-      {
-        agents__unsafe_dev_only: {
-          "target-agent": targetAgent as unknown as AbstractAgent,
-          "other-agent": otherAgent as unknown as AbstractAgent,
-        },
-      },
+    const targetAgent = new StateCapturingAgent(
+      [{ newMessages: [toolCallMessage("sharedName", { a: 1 })] }],
+      "target-agent",
+    );
+    const otherAgent = new StateCapturingAgent(
+      [{ newMessages: [toolCallMessage("sharedName", { a: 2 })] }],
+      "other-agent",
     );
 
+    const { getCore } = mountWithProvider(() => h(ToolUser), {
+      agents__unsafe_dev_only: {
+        "target-agent": targetAgent as unknown as AbstractAgent,
+        "other-agent": otherAgent as unknown as AbstractAgent,
+      },
+    });
+
     await nextTick();
-    await getCore().runAgent({ agent: targetAgent as unknown as AbstractAgent });
+    await getCore().runAgent({
+      agent: targetAgent as unknown as AbstractAgent,
+    });
     await getCore().runAgent({ agent: otherAgent as unknown as AbstractAgent });
 
     expect(scopedHandler).toHaveBeenCalledTimes(1);
     expect(globalHandler).toHaveBeenCalledTimes(1);
     expect(scopedHandler).toHaveBeenCalledWith(
       { a: 1 },
-      expect.objectContaining({ agent: expect.objectContaining({ agentId: "target-agent" }) }),
+      expect.objectContaining({
+        agent: expect.objectContaining({ agentId: "target-agent" }),
+      }),
     );
     expect(globalHandler).toHaveBeenCalledWith(
       { a: 2 },
-      expect.objectContaining({ agent: expect.objectContaining({ agentId: "other-agent" }) }),
+      expect.objectContaining({
+        agent: expect.objectContaining({ agentId: "other-agent" }),
+      }),
     );
   });
 
@@ -501,19 +565,25 @@ describe("useFrontendTool", () => {
       },
     });
 
-    const agent = new StateCapturingAgent([
-      { newMessages: [toolCallMessage("errorTool", { x: 1 })] },
-    ], "test-agent");
-
-    const { getCore } = mountWithProvider(
-      () => h(ToolUser),
-      { agents__unsafe_dev_only: { "test-agent": agent as unknown as AbstractAgent } },
+    const agent = new StateCapturingAgent(
+      [{ newMessages: [toolCallMessage("errorTool", { x: 1 })] }],
+      "test-agent",
     );
 
-    await nextTick();
-    await expect(getCore().runAgent({ agent: agent as unknown as AbstractAgent })).resolves.toBeDefined();
+    const { getCore } = mountWithProvider(() => h(ToolUser), {
+      agents__unsafe_dev_only: {
+        "test-agent": agent as unknown as AbstractAgent,
+      },
+    });
 
-    const toolMessage = agent.messages.find((message) => message.role === "tool");
+    await nextTick();
+    await expect(
+      getCore().runAgent({ agent: agent as unknown as AbstractAgent }),
+    ).resolves.toBeDefined();
+
+    const toolMessage = agent.messages.find(
+      (message) => message.role === "tool",
+    );
     expect(toolMessage?.content).toContain("Error: boom");
   });
 
@@ -549,15 +619,21 @@ describe("useFrontendTool", () => {
       },
     });
 
-    const agent = new StateCapturingAgent([{ newMessages: [invalidToolCall] }], "test-agent");
-
-    const { getCore } = mountWithProvider(
-      () => h(ToolUser),
-      { agents__unsafe_dev_only: { "test-agent": agent as unknown as AbstractAgent } },
+    const agent = new StateCapturingAgent(
+      [{ newMessages: [invalidToolCall] }],
+      "test-agent",
     );
 
+    const { getCore } = mountWithProvider(() => h(ToolUser), {
+      agents__unsafe_dev_only: {
+        "test-agent": agent as unknown as AbstractAgent,
+      },
+    });
+
     await nextTick();
-    await expect(getCore().runAgent({ agent: agent as unknown as AbstractAgent })).rejects.toThrow();
+    await expect(
+      getCore().runAgent({ agent: agent as unknown as AbstractAgent }),
+    ).rejects.toThrow();
     expect(handler).not.toHaveBeenCalled();
   });
 });

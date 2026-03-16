@@ -15,7 +15,9 @@ import type { VueHumanInTheLoop } from "../../types";
 import { mountWithProvider } from "../../__tests__/utils/mount";
 import { StateCapturingAgent } from "../../__tests__/utils/agents";
 
-type CopilotKitCoreContextValue = ReturnType<typeof useCopilotKit>["copilotkit"]["value"];
+type CopilotKitCoreContextValue = ReturnType<
+  typeof useCopilotKit
+>["copilotkit"]["value"];
 
 interface CopilotKitCoreTestAccess {
   notifySubscribers: (
@@ -44,7 +46,12 @@ describe("CopilotKitProvider", () => {
       const Child = defineComponent({
         setup() {
           const { copilotkit } = useCopilotKit();
-          return () => h("span", { "data-testid": "has-copilotkit" }, copilotkit.value ? "yes" : "no");
+          return () =>
+            h(
+              "span",
+              { "data-testid": "has-copilotkit" },
+              copilotkit.value ? "yes" : "no",
+            );
         },
       });
 
@@ -110,7 +117,8 @@ describe("CopilotKitProvider", () => {
             void copilotkit.value.runtimeConnectionStatus;
             count.value += 1;
           });
-          return () => h("span", { "data-testid": props.testId }, String(count.value));
+          return () =>
+            h("span", { "data-testid": props.testId }, String(count.value));
         },
       });
 
@@ -186,7 +194,9 @@ describe("CopilotKitProvider", () => {
       ];
 
       const { getCore } = mountWithProvider(() => h("div"), { frontendTools });
-      const renderTool = getCore().renderToolCalls.find((rc) => rc.name === "renderTool");
+      const renderTool = getCore().renderToolCalls.find(
+        (rc) => rc.name === "renderTool",
+      );
       expect(renderTool).toBeDefined();
       expect(renderTool?.render).toStrictEqual(TestComponent);
     });
@@ -208,7 +218,9 @@ describe("CopilotKitProvider", () => {
       ];
 
       const { getCore } = mountWithProvider(() => h("div"), { frontendTools });
-      const renderTool = getCore().renderToolCalls.find((rc) => rc.name === "agentRenderTool");
+      const renderTool = getCore().renderToolCalls.find(
+        (rc) => rc.name === "agentRenderTool",
+      );
 
       expect(renderTool).toBeDefined();
       expect(renderTool?.agentId).toBeUndefined();
@@ -304,7 +316,9 @@ describe("CopilotKitProvider", () => {
       expect(tool).toBeDefined();
       expect(tool?.handler).toBeDefined();
 
-      const renderTool = getCore().renderToolCalls.find((rc) => rc.name === "approvalTool");
+      const renderTool = getCore().renderToolCalls.find(
+        (rc) => rc.name === "approvalTool",
+      );
       expect(renderTool).toBeDefined();
       expect(renderTool?.render).toStrictEqual(TestComponent);
     });
@@ -325,7 +339,9 @@ describe("CopilotKitProvider", () => {
       ];
 
       const { getCore } = mountWithProvider(() => h("div"), { humanInTheLoop });
-      const handler = getCore().getTool({ toolName: "interactiveTool" })?.handler;
+      const handler = getCore().getTool({
+        toolName: "interactiveTool",
+      })?.handler;
       expect(handler).toBeDefined();
 
       const result = await handler!(
@@ -334,7 +350,9 @@ describe("CopilotKitProvider", () => {
       );
       expect(result).toBeUndefined();
       expect(consoleWarnSpy).toHaveBeenCalledWith(
-        expect.stringContaining("Human-in-the-loop tool 'interactiveTool' called"),
+        expect.stringContaining(
+          "Human-in-the-loop tool 'interactiveTool' called",
+        ),
       );
     });
 
@@ -373,13 +391,20 @@ describe("CopilotKitProvider", () => {
         },
       });
       const frontendTools: VueFrontendTool[] = [
-        { name: "frontendTool", description: "Frontend tool", handler: vi.fn() },
+        {
+          name: "frontendTool",
+          description: "Frontend tool",
+          handler: vi.fn(),
+        },
       ];
       const humanInTheLoop: VueHumanInTheLoop[] = [
         { name: "humanTool", description: "Human tool", render: TestComponent },
       ];
 
-      const { getCore } = mountWithProvider(() => h("div"), { frontendTools, humanInTheLoop });
+      const { getCore } = mountWithProvider(() => h("div"), {
+        frontendTools,
+        humanInTheLoop,
+      });
       expect(getCore().getTool({ toolName: "frontendTool" })).toBeDefined();
       expect(getCore().getTool({ toolName: "humanTool" })).toBeDefined();
     });
@@ -543,9 +568,13 @@ describe("CopilotKitProvider", () => {
       await vi.dynamicImportSettled();
       await nextTick();
 
-      const shouldRenderOnThisHost = new Set(["localhost", "127.0.0.1"]).has(window.location.hostname);
+      const shouldRenderOnThisHost = new Set(["localhost", "127.0.0.1"]).has(
+        window.location.hostname,
+      );
 
-      expect(wrapper.find("cpk-web-inspector").exists()).toBe(shouldRenderOnThisHost);
+      expect(wrapper.find("cpk-web-inspector").exists()).toBe(
+        shouldRenderOnThisHost,
+      );
     });
 
     it("does not render inspector when showDevConsole is false", async () => {

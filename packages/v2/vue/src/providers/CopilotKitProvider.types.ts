@@ -1,8 +1,5 @@
 import type { AbstractAgent } from "@ag-ui/client";
-import type {
-  VueFrontendTool,
-  VueHumanInTheLoop,
-} from "../types";
+import type { VueFrontendTool, VueHumanInTheLoop } from "../types";
 
 export interface CopilotKitProviderProps {
   runtimeUrl?: string;

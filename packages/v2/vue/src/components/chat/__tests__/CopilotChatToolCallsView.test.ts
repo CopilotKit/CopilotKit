@@ -72,11 +72,16 @@ describe("CopilotChatToolCallsView", () => {
     const wrapper = mountToolCallsView(message, [message], {
       "tool-call-search_docs": ({ status }: { status: string }) =>
         h("div", { "data-testid": "named-tool-slot" }, status),
-      "tool-call": () => h("div", { "data-testid": "fallback-tool-slot" }, "fallback"),
+      "tool-call": () =>
+        h("div", { "data-testid": "fallback-tool-slot" }, "fallback"),
     });
 
-    expect(wrapper.find("[data-testid='named-tool-slot']").text()).toBe("inProgress");
-    expect(wrapper.find("[data-testid='fallback-tool-slot']").exists()).toBe(false);
+    expect(wrapper.find("[data-testid='named-tool-slot']").text()).toBe(
+      "inProgress",
+    );
+    expect(wrapper.find("[data-testid='fallback-tool-slot']").exists()).toBe(
+      false,
+    );
   });
 
   it("uses fallback tool slot when no named slot matches", () => {
@@ -86,7 +91,9 @@ describe("CopilotChatToolCallsView", () => {
         h("div", { "data-testid": "fallback-tool-slot" }, name),
     });
 
-    expect(wrapper.find("[data-testid='fallback-tool-slot']").text()).toBe("unknown_tool");
+    expect(wrapper.find("[data-testid='fallback-tool-slot']").text()).toBe(
+      "unknown_tool",
+    );
   });
 
   it("falls back to provider/core renderers when no slots are provided", () => {
@@ -99,7 +106,11 @@ describe("CopilotChatToolCallsView", () => {
             name: "search_docs",
             args: undefined,
             render: ({ name, status }) =>
-              h("div", { "data-testid": "core-render-tool" }, `${name}:${status}`),
+              h(
+                "div",
+                { "data-testid": "core-render-tool" },
+                `${name}:${status}`,
+              ),
           }),
         ]);
         return () => null;
@@ -127,7 +138,9 @@ describe("CopilotChatToolCallsView", () => {
       },
     });
 
-    expect(wrapper.get("[data-testid='core-render-tool']").text()).toBe("search_docs:inProgress");
+    expect(wrapper.get("[data-testid='core-render-tool']").text()).toBe(
+      "search_docs:inProgress",
+    );
   });
 
   it("renders a registered Vue component renderer", () => {
@@ -180,7 +193,9 @@ describe("CopilotChatToolCallsView", () => {
       },
     });
 
-    expect(wrapper.get("[data-testid='component-render-tool']").text()).toBe("search_docs:inProgress");
+    expect(wrapper.get("[data-testid='component-render-tool']").text()).toBe(
+      "search_docs:inProgress",
+    );
   });
 
   it("prefers slots over registered core renderers", () => {
@@ -192,7 +207,8 @@ describe("CopilotChatToolCallsView", () => {
           defineToolCallRenderer({
             name: "search_docs",
             args: undefined,
-            render: () => h("div", { "data-testid": "core-render-tool" }, "core"),
+            render: () =>
+              h("div", { "data-testid": "core-render-tool" }, "core"),
           }),
         ]);
         return () => null;
@@ -214,7 +230,11 @@ describe("CopilotChatToolCallsView", () => {
                     CopilotChatToolCallsView,
                     { message, messages: [message] },
                     {
-                      "tool-call-search_docs": ({ status }: { status: string }) =>
+                      "tool-call-search_docs": ({
+                        status,
+                      }: {
+                        status: string;
+                      }) =>
                         h("div", { "data-testid": "named-tool-slot" }, status),
                     },
                   ),
@@ -224,8 +244,12 @@ describe("CopilotChatToolCallsView", () => {
       },
     });
 
-    expect(wrapper.get("[data-testid='named-tool-slot']").text()).toBe("inProgress");
-    expect(wrapper.find("[data-testid='core-render-tool']").exists()).toBe(false);
+    expect(wrapper.get("[data-testid='named-tool-slot']").text()).toBe(
+      "inProgress",
+    );
+    expect(wrapper.find("[data-testid='core-render-tool']").exists()).toBe(
+      false,
+    );
   });
 
   it("prefers current-agent renderers over unscoped and wildcard renderers", () => {
@@ -236,18 +260,21 @@ describe("CopilotChatToolCallsView", () => {
         copilotkit.value.setRenderToolCalls([
           defineToolCallRenderer({
             name: "*",
-            render: () => h("div", { "data-testid": "wildcard-render-tool" }, "wildcard"),
+            render: () =>
+              h("div", { "data-testid": "wildcard-render-tool" }, "wildcard"),
           }),
           defineToolCallRenderer({
             name: "search_docs",
             args: undefined,
-            render: () => h("div", { "data-testid": "global-render-tool" }, "global"),
+            render: () =>
+              h("div", { "data-testid": "global-render-tool" }, "global"),
           }),
           defineToolCallRenderer({
             name: "search_docs",
             args: undefined,
             agentId: "default",
-            render: () => h("div", { "data-testid": "agent-render-tool" }, "agent"),
+            render: () =>
+              h("div", { "data-testid": "agent-render-tool" }, "agent"),
           }),
         ]);
         return () => null;
@@ -275,9 +302,15 @@ describe("CopilotChatToolCallsView", () => {
       },
     });
 
-    expect(wrapper.get("[data-testid='agent-render-tool']").text()).toBe("agent");
-    expect(wrapper.find("[data-testid='global-render-tool']").exists()).toBe(false);
-    expect(wrapper.find("[data-testid='wildcard-render-tool']").exists()).toBe(false);
+    expect(wrapper.get("[data-testid='agent-render-tool']").text()).toBe(
+      "agent",
+    );
+    expect(wrapper.find("[data-testid='global-render-tool']").exists()).toBe(
+      false,
+    );
+    expect(wrapper.find("[data-testid='wildcard-render-tool']").exists()).toBe(
+      false,
+    );
   });
 
   it("renders complete status and result when tool message exists", () => {
@@ -290,11 +323,18 @@ describe("CopilotChatToolCallsView", () => {
     };
 
     const wrapper = mountToolCallsView(message, [message, toolMessage], {
-      "tool-call-search_docs": ({ status, result }: { status: string; result?: string }) =>
-        h("div", { "data-testid": "tool-status" }, `${status}:${result}`),
+      "tool-call-search_docs": ({
+        status,
+        result,
+      }: {
+        status: string;
+        result?: string;
+      }) => h("div", { "data-testid": "tool-status" }, `${status}:${result}`),
     });
 
-    expect(wrapper.find("[data-testid='tool-status']").text()).toBe("complete:found docs");
+    expect(wrapper.find("[data-testid='tool-status']").text()).toBe(
+      "complete:found docs",
+    );
   });
 
   it("renders executing status when tool call id is executing", () => {
@@ -322,8 +362,11 @@ describe("CopilotChatToolCallsView", () => {
                     CopilotChatToolCallsView,
                     { message, messages: [message] },
                     {
-                      "tool-call-search_docs": ({ status }: { status: string }) =>
-                        h("div", { "data-testid": "tool-status" }, status),
+                      "tool-call-search_docs": ({
+                        status,
+                      }: {
+                        status: string;
+                      }) => h("div", { "data-testid": "tool-status" }, status),
                     },
                   ),
                 ]),
@@ -332,6 +375,8 @@ describe("CopilotChatToolCallsView", () => {
       },
     });
 
-    expect(wrapper.find("[data-testid='tool-status']").text()).toBe("executing");
+    expect(wrapper.find("[data-testid='tool-status']").text()).toBe(
+      "executing",
+    );
   });
 });

@@ -30,10 +30,7 @@ export const CopilotChatToggleButton = Object.assign(_CopilotChatToggleButton, {
   CloseIcon: CopilotChatToggleButtonCloseIcon,
 });
 
-export {
-  CopilotChatToggleButtonOpenIcon,
-  CopilotChatToggleButtonCloseIcon,
-};
+export { CopilotChatToggleButtonOpenIcon, CopilotChatToggleButtonCloseIcon };
 
 export const CopilotModalHeader = Object.assign(_CopilotModalHeader, {
   Title: CopilotModalHeaderTitle,

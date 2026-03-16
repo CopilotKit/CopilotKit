@@ -4,5 +4,8 @@ export type { AgentContextInput, JsonSerializable } from "./use-agent-context";
 export { useFrontendTool } from "./use-frontend-tool";
 export { useHumanInTheLoop } from "./use-human-in-the-loop";
 export { useSuggestions } from "./use-suggestions";
-export type { UseSuggestionsOptions, UseSuggestionsResult } from "./use-suggestions";
+export type {
+  UseSuggestionsOptions,
+  UseSuggestionsResult,
+} from "./use-suggestions";
 export { useConfigureSuggestions } from "./use-configure-suggestions";

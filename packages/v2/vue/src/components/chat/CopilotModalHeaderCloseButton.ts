@@ -29,7 +29,9 @@ export default defineComponent({
           ],
           "aria-label": ariaLabel.value,
         },
-        slots.default ? slots.default() : [h(IconX, { class: "h-4 w-4", "aria-hidden": true })],
+        slots.default
+          ? slots.default()
+          : [h(IconX, { class: "h-4 w-4", "aria-hidden": true })],
       );
     };
   },

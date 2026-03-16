@@ -18,7 +18,9 @@ describe("CopilotChatSuggestionView", () => {
       },
     });
 
-    const pills = wrapper.findAll("[data-testid='copilot-chat-suggestion-pill']");
+    const pills = wrapper.findAll(
+      "[data-testid='copilot-chat-suggestion-pill']",
+    );
     expect(pills).toHaveLength(3);
     expect(wrapper.text()).toContain("Suggestion 1");
     expect(wrapper.text()).toContain("Suggestion 2");
@@ -46,12 +48,17 @@ describe("CopilotChatSuggestionView", () => {
       },
     });
 
-    const buttons = wrapper.findAll("button[data-testid='copilot-chat-suggestion-pill']");
+    const buttons = wrapper.findAll(
+      "button[data-testid='copilot-chat-suggestion-pill']",
+    );
     await buttons[1]?.trigger("click");
 
     expect(onSelectSuggestion).toHaveBeenCalledTimes(1);
     expect(onSelectSuggestion).toHaveBeenCalledWith(suggestions[1], 1);
-    expect(wrapper.emitted("select-suggestion")?.[0]).toEqual([suggestions[1], 1]);
+    expect(wrapper.emitted("select-suggestion")?.[0]).toEqual([
+      suggestions[1],
+      1,
+    ]);
   });
 
   it("supports custom suggestion slot and onSelect forwarding", async () => {

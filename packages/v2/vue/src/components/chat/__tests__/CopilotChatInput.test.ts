@@ -42,7 +42,9 @@ describe("CopilotChatInput", () => {
       },
     );
 
-    await wrapper.get("[data-testid=copilot-chat-input-textarea]").trigger("keydown", { key: "Enter" });
+    await wrapper
+      .get("[data-testid=copilot-chat-input-textarea]")
+      .trigger("keydown", { key: "Enter" });
 
     expect(onSubmitMessage).toHaveBeenCalledWith("hello world");
     expect(onUpdateModelValue).toHaveBeenCalledWith("");
@@ -118,31 +120,49 @@ describe("CopilotChatInput", () => {
 
   it("renders disclaimer only for absolute positioning by default", () => {
     const staticWrapper = mountWithProvider();
-    expect(staticWrapper.find("[data-testid=copilot-chat-input-disclaimer]").exists()).toBe(false);
+    expect(
+      staticWrapper
+        .find("[data-testid=copilot-chat-input-disclaimer]")
+        .exists(),
+    ).toBe(false);
 
     const absoluteWrapper = mountWithProvider({ positioning: "absolute" });
-    expect(absoluteWrapper.get("[data-testid=copilot-chat-input-disclaimer]").text()).toBe(
-      "Double-check important answers.",
-    );
+    expect(
+      absoluteWrapper.get("[data-testid=copilot-chat-input-disclaimer]").text(),
+    ).toBe("Double-check important answers.");
   });
 
   it("supports explicit disclaimer override", () => {
-    const visible = mountWithProvider({ positioning: "static", showDisclaimer: true });
-    expect(visible.find("[data-testid=copilot-chat-input-disclaimer]").exists()).toBe(true);
+    const visible = mountWithProvider({
+      positioning: "static",
+      showDisclaimer: true,
+    });
+    expect(
+      visible.find("[data-testid=copilot-chat-input-disclaimer]").exists(),
+    ).toBe(true);
 
-    const hidden = mountWithProvider({ positioning: "absolute", showDisclaimer: false });
-    expect(hidden.find("[data-testid=copilot-chat-input-disclaimer]").exists()).toBe(false);
+    const hidden = mountWithProvider({
+      positioning: "absolute",
+      showDisclaimer: false,
+    });
+    expect(
+      hidden.find("[data-testid=copilot-chat-input-disclaimer]").exists(),
+    ).toBe(false);
   });
 
   it("shows start transcribe button only when handler exists", () => {
     const withoutHandler = mountWithProvider();
     expect(
-      withoutHandler.find("[data-testid=copilot-chat-input-start-transcribe]").exists(),
+      withoutHandler
+        .find("[data-testid=copilot-chat-input-start-transcribe]")
+        .exists(),
     ).toBe(false);
 
     const withHandler = mountWithProvider({}, { onStartTranscribe: vi.fn() });
     expect(
-      withHandler.find("[data-testid=copilot-chat-input-start-transcribe]").exists(),
+      withHandler
+        .find("[data-testid=copilot-chat-input-start-transcribe]")
+        .exists(),
     ).toBe(true);
   });
 
@@ -166,11 +186,16 @@ describe("CopilotChatInput", () => {
       { label: "Open docs", action: secondAction },
     ];
 
-    const wrapper = mountWithProvider({ toolsMenu }, { onSubmitMessage: vi.fn() });
+    const wrapper = mountWithProvider(
+      { toolsMenu },
+      { onSubmitMessage: vi.fn() },
+    );
     const textarea = wrapper.get("[data-testid=copilot-chat-input-textarea]");
 
     await textarea.setValue("/");
-    expect(wrapper.find("[data-testid=copilot-slash-menu]").exists()).toBe(true);
+    expect(wrapper.find("[data-testid=copilot-slash-menu]").exists()).toBe(
+      true,
+    );
 
     await textarea.trigger("keydown", { key: "ArrowDown" });
     await textarea.trigger("keydown", { key: "Enter" });
@@ -217,15 +242,29 @@ describe("CopilotChatInput", () => {
       },
     );
 
-    expect(wrapper.find("[data-testid=copilot-chat-input-textarea]").exists()).toBe(false);
-    expect(wrapper.find("[data-testid=copilot-chat-input-cancel-transcribe]").exists()).toBe(true);
-    expect(wrapper.find("[data-testid=copilot-chat-input-finish-transcribe]").exists()).toBe(true);
+    expect(
+      wrapper.find("[data-testid=copilot-chat-input-textarea]").exists(),
+    ).toBe(false);
+    expect(
+      wrapper
+        .find("[data-testid=copilot-chat-input-cancel-transcribe]")
+        .exists(),
+    ).toBe(true);
+    expect(
+      wrapper
+        .find("[data-testid=copilot-chat-input-finish-transcribe]")
+        .exists(),
+    ).toBe(true);
 
-    await wrapper.get("[data-testid=copilot-chat-input-cancel-transcribe]").trigger("click");
+    await wrapper
+      .get("[data-testid=copilot-chat-input-cancel-transcribe]")
+      .trigger("click");
     expect(onCancelTranscribe).toHaveBeenCalledTimes(1);
 
     await new Promise((resolve) => setTimeout(resolve, 0));
-    await wrapper.get("[data-testid=copilot-chat-input-finish-transcribe]").trigger("click");
+    await wrapper
+      .get("[data-testid=copilot-chat-input-finish-transcribe]")
+      .trigger("click");
     expect(onFinishTranscribe).toHaveBeenCalledTimes(1);
     expect(onFinishTranscribeWithAudio).toHaveBeenCalledTimes(1);
   });
@@ -249,15 +288,19 @@ describe("CopilotChatInput", () => {
       setup() {
         const value = ref("");
         return () =>
-          h(CopilotChatConfigurationProvider, { threadId: "thread-1", agentId: "default" }, {
-            default: () =>
-              h(CopilotChatInput, {
-                modelValue: value.value,
-                "onUpdate:modelValue": (next: string) => {
-                  value.value = next;
-                },
-              }),
-          });
+          h(
+            CopilotChatConfigurationProvider,
+            { threadId: "thread-1", agentId: "default" },
+            {
+              default: () =>
+                h(CopilotChatInput, {
+                  modelValue: value.value,
+                  "onUpdate:modelValue": (next: string) => {
+                    value.value = next;
+                  },
+                }),
+            },
+          );
       },
     });
 

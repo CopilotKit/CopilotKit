@@ -1,4 +1,11 @@
-import { computed, ref, toValue, watch, type MaybeRefOrGetter, type Ref } from "vue";
+import {
+  computed,
+  ref,
+  toValue,
+  watch,
+  type MaybeRefOrGetter,
+  type Ref,
+} from "vue";
 import type { Suggestion } from "@copilotkitnext/core";
 import { useCopilotKit } from "../providers/useCopilotKit";
 import { useCopilotChatConfiguration } from "../providers/useCopilotChatConfiguration";
@@ -33,11 +40,9 @@ export function useSuggestions(
     isLoading.value = result.isLoading;
   };
 
-  watch(
-    [() => copilotkit.value, resolvedAgentId],
-    () => initState(),
-    { immediate: true },
-  );
+  watch([() => copilotkit.value, resolvedAgentId], () => initState(), {
+    immediate: true,
+  });
 
   watch(
     [() => copilotkit.value, resolvedAgentId],

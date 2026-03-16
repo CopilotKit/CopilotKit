@@ -8,7 +8,10 @@ export default defineNuxtConfig({
   css: ["@copilotkitnext/vue/styles.css", "~/assets/css/main.css"],
   alias: {
     // Nuxt's SSR style extraction does not resolve the workspace package CSS export reliably.
-    "@copilotkitnext/vue/styles.css": resolve(currentDir, "../../../../packages/v2/vue/dist/styles.css"),
+    "@copilotkitnext/vue/styles.css": resolve(
+      currentDir,
+      "../../../../packages/v2/vue/dist/styles.css",
+    ),
   },
   vite: {
     ssr: {

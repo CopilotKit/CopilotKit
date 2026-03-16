@@ -1,11 +1,4 @@
-import {
-  computed,
-  defineComponent,
-  h,
-  ref,
-  watch,
-  type PropType,
-} from "vue";
+import { computed, defineComponent, h, ref, watch, type PropType } from "vue";
 import { z } from "zod";
 import type { AbstractAgent, RunAgentResult } from "@ag-ui/client";
 import { randomUUID } from "@copilotkitnext/shared";
@@ -161,7 +154,9 @@ export const MCPAppsActivityContentSchema = z.object({
   toolInput: z.record(z.unknown()).optional(),
 });
 
-export type MCPAppsActivityContent = z.infer<typeof MCPAppsActivityContentSchema>;
+export type MCPAppsActivityContent = z.infer<
+  typeof MCPAppsActivityContentSchema
+>;
 
 interface FetchedResource {
   uri: string;
@@ -205,7 +200,9 @@ function isRequest(message: JSONRPCMessage): message is JSONRPCRequest {
   return "id" in message && "method" in message;
 }
 
-function isNotification(message: JSONRPCMessage): message is JSONRPCNotification {
+function isNotification(
+  message: JSONRPCMessage,
+): message is JSONRPCNotification {
   return !("id" in message) && "method" in message;
 }
 
@@ -221,7 +218,9 @@ export const MCPAppsActivityRenderer = defineComponent({
       required: true,
     },
     message: {
-      type: Object as PropType<VueActivityMessageRendererProps<MCPAppsActivityContent>["message"]>,
+      type: Object as PropType<
+        VueActivityMessageRendererProps<MCPAppsActivityContent>["message"]
+      >,
       required: true,
     },
     agent: {
@@ -275,7 +274,10 @@ export const MCPAppsActivityRenderer = defineComponent({
       });
     };
 
-    const sendNotification = (method: string, params?: Record<string, unknown>) => {
+    const sendNotification = (
+      method: string,
+      params?: Record<string, unknown>,
+    ) => {
       sendToIframe({
         jsonrpc: "2.0",
         method,
@@ -485,7 +487,8 @@ export const MCPAppsActivityRenderer = defineComponent({
                       if (textContent) {
                         currentAgent.addMessage({
                           id: randomUUID(),
-                          role: (params?.role as "user" | "assistant") || "user",
+                          role:
+                            (params?.role as "user" | "assistant") || "user",
                           content: textContent,
                         });
                       }
@@ -500,7 +503,11 @@ export const MCPAppsActivityRenderer = defineComponent({
                   case "ui/open-link": {
                     const url = msg.params?.url as string | undefined;
                     if (!url) {
-                      sendErrorResponse(msg.id, -32602, "Missing url parameter");
+                      sendErrorResponse(
+                        msg.id,
+                        -32602,
+                        "Missing url parameter",
+                      );
                       break;
                     }
                     window.open(url, "_blank", "noopener,noreferrer");
@@ -695,7 +702,11 @@ export const MCPAppsActivityRenderer = defineComponent({
         },
         [
           isLoading.value
-            ? h("div", { style: { padding: "1rem", color: "#666" } }, "Loading...")
+            ? h(
+                "div",
+                { style: { padding: "1rem", color: "#666" } },
+                "Loading...",
+              )
             : null,
           error.value
             ? h(

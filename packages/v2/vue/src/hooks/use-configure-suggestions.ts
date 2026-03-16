@@ -55,13 +55,18 @@ export function useConfigureSuggestions(
   );
 
   const normalizedConfig = computed<SuggestionsConfig | null>(() => {
-    if (!config || (config as { available?: string }).available === "disabled") {
+    if (
+      !config ||
+      (config as { available?: string }).available === "disabled"
+    ) {
       return null;
     }
     if (isDynamicConfig(config)) {
       return { ...config };
     }
-    const normalizedSuggestions = normalizeStaticSuggestions(config.suggestions);
+    const normalizedSuggestions = normalizeStaticSuggestions(
+      config.suggestions,
+    );
     return { ...config, suggestions: normalizedSuggestions };
   });
   const serializedConfig = computed(() =>
@@ -71,15 +76,18 @@ export function useConfigureSuggestions(
   const targetAgentId = computed(() => {
     if (!normalizedConfig.value) return resolvedConsumerAgentId.value;
     const consumer = (
-      normalizedConfig.value as StaticSuggestionsConfig | DynamicSuggestionsConfig
+      normalizedConfig.value as
+        | StaticSuggestionsConfig
+        | DynamicSuggestionsConfig
     ).consumerAgentId;
-    if (!consumer || consumer === "*")
-      return resolvedConsumerAgentId.value;
+    if (!consumer || consumer === "*") return resolvedConsumerAgentId.value;
     return consumer;
   });
 
   const isGlobalConfig = computed(
-    () => rawConsumerAgentId.value === undefined || rawConsumerAgentId.value === "*",
+    () =>
+      rawConsumerAgentId.value === undefined ||
+      rawConsumerAgentId.value === "*",
   );
 
   const requestReload = () => {
@@ -99,7 +107,12 @@ export function useConfigureSuggestions(
   };
 
   watch(
-    [() => copilotkit.value, serializedConfig, () => extraDeps.length, ...extraDeps],
+    [
+      () => copilotkit.value,
+      serializedConfig,
+      () => extraDeps.length,
+      ...extraDeps,
+    ],
     (_newValues, _old, onCleanup) => {
       const cfg = normalizedConfig.value;
       if (!cfg) return;

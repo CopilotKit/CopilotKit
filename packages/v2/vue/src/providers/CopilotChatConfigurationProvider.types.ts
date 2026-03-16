@@ -6,4 +6,3 @@ export interface CopilotChatConfigurationProviderProps {
   threadId?: string;
   isModalDefaultOpen?: boolean;
 }
-

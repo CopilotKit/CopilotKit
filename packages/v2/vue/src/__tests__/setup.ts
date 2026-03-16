@@ -89,11 +89,17 @@ if (typeof window !== "undefined") {
   }
 
   if (!window.MediaRecorder) {
-    vi.stubGlobal("MediaRecorder", MockMediaRecorder as unknown as typeof MediaRecorder);
+    vi.stubGlobal(
+      "MediaRecorder",
+      MockMediaRecorder as unknown as typeof MediaRecorder,
+    );
   }
 
   if (!window.AudioContext) {
-    vi.stubGlobal("AudioContext", MockAudioContext as unknown as typeof AudioContext);
+    vi.stubGlobal(
+      "AudioContext",
+      MockAudioContext as unknown as typeof AudioContext,
+    );
   }
 
   if (!window.navigator.mediaDevices) {

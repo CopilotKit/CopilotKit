@@ -1,4 +1,11 @@
-import { computed, shallowRef, toValue, triggerRef, watch, type MaybeRefOrGetter } from "vue";
+import {
+  computed,
+  shallowRef,
+  toValue,
+  triggerRef,
+  watch,
+  type MaybeRefOrGetter,
+} from "vue";
 import { DEFAULT_AGENT_ID } from "@copilotkitnext/shared";
 import type { AbstractAgent } from "@ag-ui/client";
 import {

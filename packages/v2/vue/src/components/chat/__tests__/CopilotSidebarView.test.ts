@@ -20,9 +20,13 @@ const suggestions: Suggestion[] = [
 ];
 
 const originalResizeObserver = globalThis.ResizeObserver;
-const originalGetBoundingClientRect = HTMLElement.prototype.getBoundingClientRect;
+const originalGetBoundingClientRect =
+  HTMLElement.prototype.getBoundingClientRect;
 
-function mountSidebarView(props: Record<string, unknown> = {}, slots: Parameters<typeof h>[2] = {}) {
+function mountSidebarView(
+  props: Record<string, unknown> = {},
+  slots: Parameters<typeof h>[2] = {},
+) {
   return mount(CopilotKitProvider, {
     props: { runtimeUrl: "/api/copilotkit" },
     slots: {
@@ -50,21 +54,22 @@ describe("CopilotSidebarView", () => {
       },
     );
 
-    HTMLElement.prototype.getBoundingClientRect = function getBoundingClientRect() {
-      return {
-        width: 612,
-        height: 400,
-        top: 0,
-        left: 0,
-        bottom: 400,
-        right: 612,
-        x: 0,
-        y: 0,
-        toJSON() {
-          return {};
-        },
-      } as DOMRect;
-    };
+    HTMLElement.prototype.getBoundingClientRect =
+      function getBoundingClientRect() {
+        return {
+          width: 612,
+          height: 400,
+          top: 0,
+          left: 0,
+          bottom: 400,
+          right: 612,
+          x: 0,
+          y: 0,
+          toJSON() {
+            return {};
+          },
+        } as DOMRect;
+      };
   });
 
   afterEach(() => {
@@ -93,9 +98,15 @@ describe("CopilotSidebarView", () => {
       width: 520,
     });
 
-    expect(wrapper.get("[data-copilot-sidebar]").attributes("style")).toContain("--sidebar-width: 520px");
-    expect(wrapper.find("[data-slot='copilot-modal-header']").exists()).toBe(true);
-    expect(wrapper.find("[data-slot='chat-toggle-button']").exists()).toBe(true);
+    expect(wrapper.get("[data-copilot-sidebar]").attributes("style")).toContain(
+      "--sidebar-width: 520px",
+    );
+    expect(wrapper.find("[data-slot='copilot-modal-header']").exists()).toBe(
+      true,
+    );
+    expect(wrapper.find("[data-slot='chat-toggle-button']").exists()).toBe(
+      true,
+    );
   });
 
   it("replaces default header and toggle button via slots", () => {
@@ -105,13 +116,19 @@ describe("CopilotSidebarView", () => {
         header: ({ title }: { title: string }) =>
           h("div", { "data-testid": "custom-header" }, title),
         "toggle-button": ({ toggle }: { toggle: () => void }) =>
-          h("button", { "data-testid": "custom-toggle", onClick: toggle }, "toggle"),
+          h(
+            "button",
+            { "data-testid": "custom-toggle", onClick: toggle },
+            "toggle",
+          ),
       },
     );
 
     expect(wrapper.find("[data-testid='custom-header']").exists()).toBe(true);
     expect(wrapper.find("[data-testid='custom-toggle']").exists()).toBe(true);
-    expect(wrapper.find("[data-slot='copilot-modal-header']").exists()).toBe(false);
+    expect(wrapper.find("[data-slot='copilot-modal-header']").exists()).toBe(
+      false,
+    );
   });
 
   it("forwards chat view slots and emitted interactions", async () => {
@@ -124,12 +141,18 @@ describe("CopilotSidebarView", () => {
       },
       {
         "message-view": ({ messages: slotMessages }: { messages: Message[] }) =>
-          h("div", { "data-testid": "custom-message-view" }, String(slotMessages.length)),
+          h(
+            "div",
+            { "data-testid": "custom-message-view" },
+            String(slotMessages.length),
+          ),
       },
     );
 
     expect(wrapper.get("[data-testid='custom-message-view']").text()).toBe("1");
-    await wrapper.get("[data-testid='copilot-chat-suggestion-pill']").trigger("click");
+    await wrapper
+      .get("[data-testid='copilot-chat-suggestion-pill']")
+      .trigger("click");
     expect(onSelectSuggestion).toHaveBeenCalledTimes(1);
   });
 
@@ -140,13 +163,20 @@ describe("CopilotSidebarView", () => {
         suggestions,
       },
       {
-        "welcome-message": () => h("div", { "data-testid": "custom-welcome-message" }, "Hello"),
+        "welcome-message": () =>
+          h("div", { "data-testid": "custom-welcome-message" }, "Hello"),
       },
     );
 
-    expect(wrapper.find("[data-testid='copilot-sidebar-welcome-screen']").exists()).toBe(false);
-    expect(wrapper.find("[data-testid='copilot-chat-view-welcome-screen']").exists()).toBe(true);
-    expect(wrapper.get("[data-testid='custom-welcome-message']").text()).toBe("Hello");
+    expect(
+      wrapper.find("[data-testid='copilot-sidebar-welcome-screen']").exists(),
+    ).toBe(false);
+    expect(
+      wrapper.find("[data-testid='copilot-chat-view-welcome-screen']").exists(),
+    ).toBe(true);
+    expect(wrapper.get("[data-testid='custom-welcome-message']").text()).toBe(
+      "Hello",
+    );
   });
 
   it("exposes the WelcomeScreen namespaced export", () => {
@@ -168,11 +198,16 @@ describe("CopilotSidebarView", () => {
         onSelectSuggestion: vi.fn(),
       },
       slots: {
-        "welcome-message": () => h("div", { "data-testid": "sidebar-welcome-message" }, "Hello"),
+        "welcome-message": () =>
+          h("div", { "data-testid": "sidebar-welcome-message" }, "Hello"),
       },
     });
 
-    expect(wrapper.find("[data-testid='copilot-sidebar-welcome-screen']").exists()).toBe(true);
-    expect(wrapper.get("[data-testid='sidebar-welcome-message']").text()).toBe("Hello");
+    expect(
+      wrapper.find("[data-testid='copilot-sidebar-welcome-screen']").exists(),
+    ).toBe(true);
+    expect(wrapper.get("[data-testid='sidebar-welcome-message']").text()).toBe(
+      "Hello",
+    );
   });
 });

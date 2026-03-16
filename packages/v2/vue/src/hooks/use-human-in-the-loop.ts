@@ -30,7 +30,9 @@ export function useHumanInTheLoop<T extends Record<string, unknown>>(
     });
   };
 
-  const RenderComponent: VueToolCallRenderer<T>["render"] = (props: VueToolCallRendererRenderProps<T>) => {
+  const RenderComponent: VueToolCallRenderer<T>["render"] = (
+    props: VueToolCallRendererRenderProps<T>,
+  ) => {
     const ToolComponent = tool.render;
     if (props.status === "inProgress") {
       return h(ToolComponent as Parameters<typeof h>[0], {

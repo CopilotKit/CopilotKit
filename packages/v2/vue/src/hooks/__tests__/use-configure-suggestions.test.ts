@@ -13,7 +13,10 @@ import { useConfigureSuggestions } from "../use-configure-suggestions";
 import { useSuggestions } from "../use-suggestions";
 import { useCopilotKit } from "../../providers/useCopilotKit";
 import { mountWithProvider } from "../../__tests__/utils/mount";
-import { StateCapturingAgent, SuggestionsProviderAgent } from "../../__tests__/utils/agents";
+import {
+  StateCapturingAgent,
+  SuggestionsProviderAgent,
+} from "../../__tests__/utils/agents";
 
 class LongRunningAgent extends StateCapturingAgent {
   private finalizeRun: (() => void) | null = null;
@@ -88,15 +91,29 @@ describe("useConfigureSuggestions", () => {
         const { suggestions, isLoading } = useSuggestions();
         return () =>
           h("div", [
-            h("span", { "data-testid": "count" }, String(suggestions.value.length)),
-            h("span", { "data-testid": "loading" }, isLoading.value ? "loading" : "idle"),
-            h("span", { "data-testid": "json" }, JSON.stringify(suggestions.value)),
+            h(
+              "span",
+              { "data-testid": "count" },
+              String(suggestions.value.length),
+            ),
+            h(
+              "span",
+              { "data-testid": "loading" },
+              isLoading.value ? "loading" : "idle",
+            ),
+            h(
+              "span",
+              { "data-testid": "json" },
+              JSON.stringify(suggestions.value),
+            ),
           ]);
       },
     });
 
     const { wrapper } = mountWithProvider(() => h(Harness), {
-      agents__unsafe_dev_only: { [DEFAULT_AGENT_ID]: provider as unknown as AbstractAgent },
+      agents__unsafe_dev_only: {
+        [DEFAULT_AGENT_ID]: provider as unknown as AbstractAgent,
+      },
     });
 
     await nextTick();
@@ -127,19 +144,33 @@ describe("useConfigureSuggestions", () => {
       setup() {
         useConfigureSuggestions(config, [mode]);
 
-        const { suggestions: alphaSuggestions } = useSuggestions({ agentId: "alpha" });
-        const { suggestions: betaSuggestions } = useSuggestions({ agentId: "beta" });
+        const { suggestions: alphaSuggestions } = useSuggestions({
+          agentId: "alpha",
+        });
+        const { suggestions: betaSuggestions } = useSuggestions({
+          agentId: "beta",
+        });
 
         return () =>
           h("div", [
-            h("span", { "data-testid": "alpha" }, JSON.stringify(alphaSuggestions.value)),
-            h("span", { "data-testid": "beta" }, JSON.stringify(betaSuggestions.value)),
+            h(
+              "span",
+              { "data-testid": "alpha" },
+              JSON.stringify(alphaSuggestions.value),
+            ),
+            h(
+              "span",
+              { "data-testid": "beta" },
+              JSON.stringify(betaSuggestions.value),
+            ),
             h(
               "button",
               {
                 "data-testid": "update",
                 onClick: () => {
-                  config.suggestions = [{ title: "Global v2", message: "Global v2" }];
+                  config.suggestions = [
+                    { title: "Global v2", message: "Global v2" },
+                  ];
                 },
               },
               "update",
@@ -202,7 +233,11 @@ describe("useConfigureSuggestions", () => {
         const { suggestions } = useSuggestions();
         return () =>
           h("div", [
-            h("span", { "data-testid": "json" }, JSON.stringify(suggestions.value)),
+            h(
+              "span",
+              { "data-testid": "json" },
+              JSON.stringify(suggestions.value),
+            ),
             h(
               "button",
               {
@@ -210,7 +245,11 @@ describe("useConfigureSuggestions", () => {
                 onClick: () => {
                   version.value += 1;
                   provider.setResponses([
-                    { title: `Version ${version.value}`, message: `Version ${version.value}`, isLoading: false },
+                    {
+                      title: `Version ${version.value}`,
+                      message: `Version ${version.value}`,
+                      isLoading: false,
+                    },
                   ]);
                 },
               },
@@ -221,7 +260,9 @@ describe("useConfigureSuggestions", () => {
     });
 
     const { wrapper } = mountWithProvider(() => h(Harness), {
-      agents__unsafe_dev_only: { [DEFAULT_AGENT_ID]: provider as unknown as AbstractAgent },
+      agents__unsafe_dev_only: {
+        [DEFAULT_AGENT_ID]: provider as unknown as AbstractAgent,
+      },
     });
 
     await nextTick();
@@ -266,7 +307,9 @@ describe("useConfigureSuggestions", () => {
     });
 
     const { wrapper, getCore } = mountWithProvider(() => h(Harness), {
-      agents__unsafe_dev_only: { [DEFAULT_AGENT_ID]: provider as unknown as AbstractAgent },
+      agents__unsafe_dev_only: {
+        [DEFAULT_AGENT_ID]: provider as unknown as AbstractAgent,
+      },
     });
 
     await nextTick();
@@ -283,7 +326,9 @@ describe("useConfigureSuggestions", () => {
 
   it("clears suggestions when run starts and applies deferred update after run finishes", async () => {
     const runner = new LongRunningAgent(DEFAULT_AGENT_ID);
-    const config = reactive<{ suggestions: Array<{ title: string; message: string }> }>({
+    const config = reactive<{
+      suggestions: Array<{ title: string; message: string }>;
+    }>({
       suggestions: [{ title: "Initial", message: "Initial" }],
     });
 
@@ -292,29 +337,42 @@ describe("useConfigureSuggestions", () => {
         useConfigureSuggestions(config);
         const { suggestions } = useSuggestions();
         const { copilotkit } = useCopilotKit();
-        const startRun = () => void copilotkit.value.runAgent({ agent: runner });
+        const startRun = () =>
+          void copilotkit.value.runAgent({ agent: runner });
 
         return () =>
           h("div", [
-            h("span", { "data-testid": "json" }, JSON.stringify(suggestions.value)),
+            h(
+              "span",
+              { "data-testid": "json" },
+              JSON.stringify(suggestions.value),
+            ),
             h("button", { "data-testid": "start", onClick: startRun }, "start"),
             h(
               "button",
               {
                 "data-testid": "update",
                 onClick: () => {
-                  config.suggestions = [{ title: "Deferred", message: "Deferred" }];
+                  config.suggestions = [
+                    { title: "Deferred", message: "Deferred" },
+                  ];
                 },
               },
               "update",
             ),
-            h("button", { "data-testid": "finish", onClick: () => runner.finish() }, "finish"),
+            h(
+              "button",
+              { "data-testid": "finish", onClick: () => runner.finish() },
+              "finish",
+            ),
           ]);
       },
     });
 
     const { wrapper } = mountWithProvider(() => h(Harness), {
-      agents__unsafe_dev_only: { [DEFAULT_AGENT_ID]: runner as unknown as AbstractAgent },
+      agents__unsafe_dev_only: {
+        [DEFAULT_AGENT_ID]: runner as unknown as AbstractAgent,
+      },
     });
 
     await nextTick();

@@ -69,13 +69,25 @@ describe("CopilotChatToggleButton", () => {
     const wrapper = mount(CopilotChatToggleButton, {
       slots: {
         "open-icon": ({ iconClass }: { iconClass: string }) =>
-          h("span", { "data-testid": "custom-open-icon", class: iconClass }, "open"),
+          h(
+            "span",
+            { "data-testid": "custom-open-icon", class: iconClass },
+            "open",
+          ),
         "close-icon": ({ iconClass }: { iconClass: string }) =>
-          h("span", { "data-testid": "custom-close-icon", class: iconClass }, "close"),
+          h(
+            "span",
+            { "data-testid": "custom-close-icon", class: iconClass },
+            "close",
+          ),
       },
     });
 
-    expect(wrapper.find("[data-testid='custom-open-icon']").exists()).toBe(true);
-    expect(wrapper.find("[data-testid='custom-close-icon']").exists()).toBe(true);
+    expect(wrapper.find("[data-testid='custom-open-icon']").exists()).toBe(
+      true,
+    );
+    expect(wrapper.find("[data-testid='custom-close-icon']").exists()).toBe(
+      true,
+    );
   });
 });

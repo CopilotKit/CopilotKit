@@ -35,16 +35,26 @@ describe("useHumanInTheLoop", () => {
     });
 
     const { getCore } = mountWithProvider(() => h(Child), {
-      agents__unsafe_dev_only: { "test-agent": new StateCapturingAgent([], "test-agent") as unknown as AbstractAgent },
+      agents__unsafe_dev_only: {
+        "test-agent": new StateCapturingAgent(
+          [],
+          "test-agent",
+        ) as unknown as AbstractAgent,
+      },
     });
 
     const registeredTool = getCore().getTool({ toolName: "approveTool" });
-    const renderer = getCore().renderToolCalls.find((rc) => rc.name === "approveTool");
+    const renderer = getCore().renderToolCalls.find(
+      (rc) => rc.name === "approveTool",
+    );
 
     expect(registeredTool?.handler).toBeDefined();
     expect(renderer).toBeDefined();
 
-    const pending = registeredTool!.handler!({ question: "Proceed?" }, {} as never);
+    const pending = registeredTool!.handler!(
+      { question: "Proceed?" },
+      {} as never,
+    );
 
     const executingVNode = renderer!.render({
       name: "approveTool",
@@ -53,7 +63,9 @@ describe("useHumanInTheLoop", () => {
       result: undefined,
     });
 
-    const respond = (executingVNode as { props?: { respond?: (result: unknown) => void } })?.props?.respond;
+    const respond = (
+      executingVNode as { props?: { respond?: (result: unknown) => void } }
+    )?.props?.respond;
     expect(typeof respond).toBe("function");
 
     respond?.({ approved: true });
@@ -69,8 +81,16 @@ describe("useHumanInTheLoop", () => {
       },
     });
 
-    const ToolA = { name: "toolA", parameters: z.object({}), render: RenderComp };
-    const ToolB = { name: "toolB", parameters: z.object({}), render: RenderComp };
+    const ToolA = {
+      name: "toolA",
+      parameters: z.object({}),
+      render: RenderComp,
+    };
+    const ToolB = {
+      name: "toolB",
+      parameters: z.object({}),
+      render: RenderComp,
+    };
 
     const Child = defineComponent({
       setup() {
@@ -89,12 +109,26 @@ describe("useHumanInTheLoop", () => {
     const pA = toolA!.handler!({}, {} as never);
     const pB = toolB!.handler!({}, {} as never);
 
-    const respondA = (renderA!.render({ name: "toolA", args: {}, status: "executing", result: undefined }) as {
-      props?: { respond?: (result: unknown) => void };
-    }).props?.respond;
-    const respondB = (renderB!.render({ name: "toolB", args: {}, status: "executing", result: undefined }) as {
-      props?: { respond?: (result: unknown) => void };
-    }).props?.respond;
+    const respondA = (
+      renderA!.render({
+        name: "toolA",
+        args: {},
+        status: "executing",
+        result: undefined,
+      }) as {
+        props?: { respond?: (result: unknown) => void };
+      }
+    ).props?.respond;
+    const respondB = (
+      renderB!.render({
+        name: "toolB",
+        args: {},
+        status: "executing",
+        result: undefined,
+      }) as {
+        props?: { respond?: (result: unknown) => void };
+      }
+    ).props?.respond;
 
     respondA?.("A");
     respondB?.("B");
@@ -113,21 +147,42 @@ describe("useHumanInTheLoop", () => {
 
     const Child = defineComponent({
       setup() {
-        useHumanInTheLoop({ name: "approveTool", parameters: z.object({}), render: RenderComp });
+        useHumanInTheLoop({
+          name: "approveTool",
+          parameters: z.object({}),
+          render: RenderComp,
+        });
         return () => null;
       },
     });
 
     const { getCore } = mountWithProvider(() => h(Child));
-    const renderer = getCore().renderToolCalls.find((rc) => rc.name === "approveTool");
+    const renderer = getCore().renderToolCalls.find(
+      (rc) => rc.name === "approveTool",
+    );
 
-    const inProgress = renderer!.render({ name: "approveTool", args: {}, status: "inProgress", result: undefined }) as {
+    const inProgress = renderer!.render({
+      name: "approveTool",
+      args: {},
+      status: "inProgress",
+      result: undefined,
+    }) as {
       props?: { respond?: unknown };
     };
-    const executing = renderer!.render({ name: "approveTool", args: {}, status: "executing", result: undefined }) as {
+    const executing = renderer!.render({
+      name: "approveTool",
+      args: {},
+      status: "executing",
+      result: undefined,
+    }) as {
       props?: { respond?: unknown };
     };
-    const complete = renderer!.render({ name: "approveTool", args: {}, status: "complete", result: "ok" }) as {
+    const complete = renderer!.render({
+      name: "approveTool",
+      args: {},
+      status: "complete",
+      result: "ok",
+    }) as {
       props?: { respond?: unknown };
     };
 
@@ -148,12 +203,23 @@ describe("useHumanInTheLoop", () => {
         const shown = ref(true);
         return () =>
           h("div", [
-            h("button", { "data-testid": "toggle", onClick: () => (shown.value = !shown.value) }, "toggle"),
+            h(
+              "button",
+              {
+                "data-testid": "toggle",
+                onClick: () => (shown.value = !shown.value),
+              },
+              "toggle",
+            ),
             shown.value
               ? h(
                   defineComponent({
                     setup() {
-                      useHumanInTheLoop({ name: "cleanupTool", parameters: z.object({}), render: RenderComp });
+                      useHumanInTheLoop({
+                        name: "cleanupTool",
+                        parameters: z.object({}),
+                        render: RenderComp,
+                      });
                       return () => null;
                     },
                   }),
@@ -167,13 +233,17 @@ describe("useHumanInTheLoop", () => {
     await nextTick();
 
     expect(getCore().getTool({ toolName: "cleanupTool" })).toBeDefined();
-    expect(getCore().renderToolCalls.find((rc) => rc.name === "cleanupTool")).toBeDefined();
+    expect(
+      getCore().renderToolCalls.find((rc) => rc.name === "cleanupTool"),
+    ).toBeDefined();
 
     await wrapper.find("[data-testid=toggle]").trigger("click");
     await nextTick();
 
     expect(getCore().getTool({ toolName: "cleanupTool" })).toBeUndefined();
-    expect(getCore().renderToolCalls.find((rc) => rc.name === "cleanupTool")).toBeUndefined();
+    expect(
+      getCore().renderToolCalls.find((rc) => rc.name === "cleanupTool"),
+    ).toBeUndefined();
   });
 
   it("re-registers when deps change", async () => {
@@ -186,8 +256,16 @@ describe("useHumanInTheLoop", () => {
     const version = ref(0);
     const Child = defineComponent({
       setup() {
-        useHumanInTheLoop({ name: "depHitl", parameters: z.object({}), render: RenderComp }, [version]);
-        return () => h("button", { "data-testid": "bump", onClick: () => (version.value += 1) }, "bump");
+        useHumanInTheLoop(
+          { name: "depHitl", parameters: z.object({}), render: RenderComp },
+          [version],
+        );
+        return () =>
+          h(
+            "button",
+            { "data-testid": "bump", onClick: () => (version.value += 1) },
+            "bump",
+          );
       },
     });
 

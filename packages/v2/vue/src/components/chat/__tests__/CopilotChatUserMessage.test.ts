@@ -72,7 +72,11 @@ describe("CopilotChatUserMessage", () => {
     });
 
     expect(
-      wrapper.find(`[aria-label="${CopilotChatDefaultLabels.userMessageToolbarEditMessageLabel}"]`).exists(),
+      wrapper
+        .find(
+          `[aria-label="${CopilotChatDefaultLabels.userMessageToolbarEditMessageLabel}"]`,
+        )
+        .exists(),
     ).toBe(false);
   });
 
@@ -131,8 +135,12 @@ describe("CopilotChatUserMessage", () => {
       },
     });
 
-    expect(wrapper.find('[aria-label="Previous branch"]').attributes("disabled")).toBeDefined();
-    expect(wrapper.find('[aria-label="Next branch"]').attributes("disabled")).toBeUndefined();
+    expect(
+      wrapper.find('[aria-label="Previous branch"]').attributes("disabled"),
+    ).toBeDefined();
+    expect(
+      wrapper.find('[aria-label="Next branch"]').attributes("disabled"),
+    ).toBeUndefined();
   });
 
   it("supports custom message-renderer slot", () => {
@@ -147,11 +155,17 @@ describe("CopilotChatUserMessage", () => {
       props: { message },
       slots: {
         "message-renderer": ({ content }: { content: string }) =>
-          h("div", { "data-testid": "custom-message-renderer" }, `slot:${content}`),
+          h(
+            "div",
+            { "data-testid": "custom-message-renderer" },
+            `slot:${content}`,
+          ),
       },
     });
 
-    expect(wrapper.find("[data-testid='custom-message-renderer']").text()).toBe("slot:Custom slot message");
+    expect(wrapper.find("[data-testid='custom-message-renderer']").text()).toBe(
+      "slot:Custom slot message",
+    );
   });
 
   it("supports custom copy/edit/branch slots and forwards handlers", async () => {
@@ -173,22 +187,38 @@ describe("CopilotChatUserMessage", () => {
         numberOfBranches: 3,
       },
       slots: {
-        "copy-button": ({ onCopy, copied }: { onCopy: () => Promise<void>; copied: boolean }) =>
+        "copy-button": ({
+          onCopy,
+          copied,
+        }: {
+          onCopy: () => Promise<void>;
+          copied: boolean;
+        }) =>
           h(
             "button",
             { "data-testid": "custom-copy-button", onClick: onCopy },
             copied ? "copied" : "copy",
           ),
         "edit-button": ({ onEdit }: { onEdit: () => void }) =>
-          h("button", { "data-testid": "custom-edit-button", onClick: onEdit }, "edit"),
+          h(
+            "button",
+            { "data-testid": "custom-edit-button", onClick: onEdit },
+            "edit",
+          ),
         "branch-navigation": ({ goNext }: { goNext: () => void }) =>
-          h("button", { "data-testid": "custom-branch-next", onClick: goNext }, "next"),
+          h(
+            "button",
+            { "data-testid": "custom-branch-next", onClick: goNext },
+            "next",
+          ),
       },
     });
 
     await wrapper.get("[data-testid='custom-copy-button']").trigger("click");
     await nextTick();
-    expect(wrapper.get("[data-testid='custom-copy-button']").text()).toBe("copied");
+    expect(wrapper.get("[data-testid='custom-copy-button']").text()).toBe(
+      "copied",
+    );
 
     await wrapper.get("[data-testid='custom-edit-button']").trigger("click");
     expect(onEditMessage).toHaveBeenCalledTimes(1);
@@ -239,16 +269,36 @@ describe("CopilotChatUserMessage", () => {
         }) =>
           h("div", { "data-testid": "custom-layout" }, [
             h("div", { "data-testid": "layout-content" }, content),
-            h("div", { "data-testid": "layout-flags" }, `${hasEditAction}:${showBranchNavigation}`),
-            h("button", { "data-testid": "layout-copy", onClick: onCopy }, "copy"),
-            h("button", { "data-testid": "layout-edit", onClick: onEdit }, "edit"),
-            h("button", { "data-testid": "layout-next", onClick: goNext }, "next"),
+            h(
+              "div",
+              { "data-testid": "layout-flags" },
+              `${hasEditAction}:${showBranchNavigation}`,
+            ),
+            h(
+              "button",
+              { "data-testid": "layout-copy", onClick: onCopy },
+              "copy",
+            ),
+            h(
+              "button",
+              { "data-testid": "layout-edit", onClick: onEdit },
+              "edit",
+            ),
+            h(
+              "button",
+              { "data-testid": "layout-next", onClick: goNext },
+              "next",
+            ),
           ]),
       },
     });
 
-    expect(wrapper.get("[data-testid='layout-content']").text()).toBe("Layout slot content");
-    expect(wrapper.get("[data-testid='layout-flags']").text()).toBe("true:true");
+    expect(wrapper.get("[data-testid='layout-content']").text()).toBe(
+      "Layout slot content",
+    );
+    expect(wrapper.get("[data-testid='layout-flags']").text()).toBe(
+      "true:true",
+    );
 
     await wrapper.get("[data-testid='layout-copy']").trigger("click");
     await wrapper.get("[data-testid='layout-edit']").trigger("click");
