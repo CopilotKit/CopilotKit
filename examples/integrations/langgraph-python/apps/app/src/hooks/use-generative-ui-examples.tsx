@@ -24,6 +24,7 @@ import {
 } from "@/components/generative-ui/charts/bar-chart";
 import { MeetingTimePicker } from "@/components/generative-ui/meeting-time-picker";
 import { ToolReasoning } from "@/components/tool-rendering";
+import { A2UIProgress } from "@/components/generative-ui/a2ui-progress";
 
 export const useGenerativeUIExamples = () => {
   const { theme, setTheme } = useTheme();
@@ -79,6 +80,13 @@ export const useGenerativeUIExamples = () => {
   useDefaultRenderTool({
     render: ({ name, status, parameters }) => {
       if (ignoredTools.includes(name)) return <></>;
+
+      // Custom progress visualization for dynamic A2UI generation
+      if (name === "render_a2ui") {
+        if (status === "complete") return <></>;
+        return <A2UIProgress parameters={parameters} />;
+      }
+
       return <ToolReasoning name={name} status={status} args={parameters} />;
     },
   });
