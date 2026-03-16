@@ -81,9 +81,12 @@ export const useGenerativeUIExamples = () => {
     render: ({ name, status, parameters }) => {
       if (ignoredTools.includes(name)) return <></>;
 
-      // Custom progress visualization for dynamic A2UI generation
+      // Custom progress visualization for dynamic A2UI generation.
+      // Hide once actual data items start streaming (not just schema).
       if (name === "render_a2ui") {
         if (status === "complete") return <></>;
+        const items = (parameters as any)?.items;
+        if (Array.isArray(items) && items.length > 0) return <></>;
         return <A2UIProgress parameters={parameters} />;
       }
 
