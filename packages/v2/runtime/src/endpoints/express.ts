@@ -7,12 +7,19 @@ import type {
 } from "express";
 import cors from "cors";
 
-import { CopilotRuntime } from "../runtime";
+import { CopilotRuntimeLike } from "../runtime";
 import { handleRunAgent } from "../handlers/handle-run";
 import { handleConnectAgent } from "../handlers/handle-connect";
 import { handleStopAgent } from "../handlers/handle-stop";
 import { handleGetRuntimeInfo } from "../handlers/get-runtime-info";
 import { handleTranscribe } from "../handlers/handle-transcribe";
+import {
+  handleListThreads,
+  handleSubscribeToThreads,
+  handleUpdateThread,
+  handleArchiveThread,
+  handleDeleteThread,
+} from "../handlers/handle-threads";
 import { logger } from "@copilotkitnext/shared";
 import {
   callBeforeRequestMiddleware,
@@ -24,7 +31,7 @@ import {
 } from "./express-utils";
 
 interface CopilotExpressEndpointParams {
-  runtime: CopilotRuntime;
+  runtime: CopilotRuntimeLike;
   basePath: string;
 }
 
@@ -82,6 +89,44 @@ export function createCopilotEndpointExpress({
     }),
   );
 
+  router.get(
+    joinPath(normalizedBase, "/threads"),
+    createRouteHandler(runtime, async ({ request }) => {
+      return handleListThreads({ runtime, request });
+    }),
+  );
+
+  router.post(
+    joinPath(normalizedBase, "/threads/subscribe"),
+    createRouteHandler(runtime, async ({ request }) => {
+      return handleSubscribeToThreads({ runtime, request });
+    }),
+  );
+
+  router.patch(
+    joinPath(normalizedBase, "/threads/:threadId"),
+    createRouteHandler(runtime, async ({ request, req }) => {
+      const threadId = req.params.threadId as string;
+      return handleUpdateThread({ runtime, request, threadId });
+    }),
+  );
+
+  router.post(
+    joinPath(normalizedBase, "/threads/:threadId/archive"),
+    createRouteHandler(runtime, async ({ request, req }) => {
+      const threadId = req.params.threadId as string;
+      return handleArchiveThread({ runtime, request, threadId });
+    }),
+  );
+
+  router.delete(
+    joinPath(normalizedBase, "/threads/:threadId"),
+    createRouteHandler(runtime, async ({ request, req }) => {
+      const threadId = req.params.threadId as string;
+      return handleDeleteThread({ runtime, request, threadId });
+    }),
+  );
+
   router.use(joinPath(normalizedBase, "*"), (req, res) => {
     res.status(404).json({ error: "Not found" });
   });
@@ -97,7 +142,7 @@ type RouteHandlerContext = {
 type RouteHandlerFactory = (ctx: RouteHandlerContext) => Promise<Response>;
 
 function createRouteHandler(
-  runtime: CopilotRuntime,
+  runtime: CopilotRuntimeLike,
   factory: RouteHandlerFactory,
 ) {
   return async (

@@ -1,9 +1,11 @@
 import { Observable } from "rxjs";
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { BaseEvent } from "@ag-ui/client";
 import { handleConnectAgent } from "../handlers/handle-connect";
 import { CopilotRuntime } from "../runtime";
 import { AgentRunnerConnectRequest } from "../runner/agent-runner";
+import { IntelligenceAgentRunner } from "../runner/intelligence";
+import { CopilotKitIntelligence } from "../intelligence-platform/client";
 
 describe("handleConnectAgent", () => {
   const createMockRuntime = (
@@ -183,5 +185,162 @@ describe("handleConnectAgent", () => {
 
     expect(recordedRequests).toHaveLength(1);
     expect(recordedRequests[0].headers).toEqual({});
+  });
+
+  describe("IntelligenceAgentRunner connect planning path", () => {
+    const createConnectRequest = (
+      headers?: Record<string, string>,
+      lastSeenEventId?: string | null,
+    ) =>
+      new Request("https://example.com/agent/my-agent/connect", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...headers },
+        body: JSON.stringify({
+          threadId: "thread-1",
+          runId: "run-1",
+          state: {},
+          messages: [],
+          tools: [],
+          context: [],
+          forwardedProps: {},
+          ...(lastSeenEventId !== undefined ? { lastSeenEventId } : {}),
+        }),
+      });
+
+    const createIntelligenceRuntime = (
+      platform?: Partial<CopilotKitIntelligence>,
+    ) => {
+      const runner = Object.create(IntelligenceAgentRunner.prototype);
+      runner.connect = vi.fn(
+        () =>
+          new Observable<BaseEvent>((subscriber) => {
+            subscriber.complete();
+          }),
+      );
+      return {
+        agents: Promise.resolve({
+          "my-agent": { clone: () => ({}) },
+        }),
+        transcriptionService: undefined,
+        beforeRequestMiddleware: undefined,
+        afterRequestMiddleware: undefined,
+        runner,
+        mode: "intelligence",
+        intelligence: platform,
+      } as unknown as CopilotRuntime;
+    };
+
+    it("returns a live connect plan when join credentials are available", async () => {
+      const platform = {
+        ɵconnectThread: vi.fn().mockResolvedValue({
+          mode: "live",
+          joinToken: "jt-connect-1",
+          joinFromEventId: "event-1",
+          events: [],
+        }),
+      };
+      const runtime = createIntelligenceRuntime(platform as any);
+
+      const response = await handleConnectAgent({
+        runtime,
+        request: createConnectRequest(),
+        agentId: "my-agent",
+      });
+
+      expect(response.status).toBe(200);
+      expect(response.headers.get("Content-Type")).toBe("application/json");
+      const body = await response.json();
+      expect(body).toEqual({
+        mode: "live",
+        joinToken: "jt-connect-1",
+        joinFromEventId: "event-1",
+        events: [],
+      });
+      expect(platform.ɵconnectThread).toHaveBeenCalledWith({
+        threadId: "thread-1",
+        lastSeenEventId: null,
+      });
+    });
+
+    it("returns a bootstrap connect plan when no socket is needed", async () => {
+      const platform = {
+        ɵconnectThread: vi.fn().mockResolvedValue({
+          mode: "bootstrap",
+          latestEventId: "event-2",
+          events: [{ type: "MESSAGES_SNAPSHOT", messages: [] }],
+        }),
+      };
+      const runtime = createIntelligenceRuntime(platform as any);
+
+      const response = await handleConnectAgent({
+        runtime,
+        request: createConnectRequest(),
+        agentId: "my-agent",
+      });
+
+      expect(response.status).toBe(200);
+      const body = await response.json();
+      expect(body).toEqual({
+        mode: "bootstrap",
+        latestEventId: "event-2",
+        events: [{ type: "MESSAGES_SNAPSHOT", messages: [] }],
+      });
+    });
+
+    it("returns 204 when connect targets a fresh thread", async () => {
+      const platform = {
+        ɵconnectThread: vi.fn().mockResolvedValue(null),
+        createThread: vi.fn(),
+      };
+      const runtime = createIntelligenceRuntime(platform as any);
+
+      const response = await handleConnectAgent({
+        runtime,
+        request: createConnectRequest(),
+        agentId: "my-agent",
+      });
+
+      expect(response.status).toBe(204);
+      expect(platform.createThread).not.toHaveBeenCalled();
+      expect(platform.ɵconnectThread).toHaveBeenCalledTimes(1);
+    });
+
+    it("returns 404 when connect planning is not available", async () => {
+      const platform = {
+        ɵconnectThread: vi
+          .fn()
+          .mockRejectedValue(new Error("No active connect plan")),
+      };
+      const runtime = createIntelligenceRuntime(platform as any);
+
+      const response = await handleConnectAgent({
+        runtime,
+        request: createConnectRequest(),
+        agentId: "my-agent",
+      });
+
+      expect(response.status).toBe(404);
+      const body = await response.json();
+      expect(body.error).toBe("Connect plan not available");
+    });
+
+    it("forwards lastSeenEventId to the intelligence platform", async () => {
+      const platform = {
+        ɵconnectThread: vi.fn().mockResolvedValue(null),
+      };
+      const runtime = createIntelligenceRuntime(platform as any);
+
+      const response = await handleConnectAgent({
+        runtime,
+        request: createConnectRequest(undefined, "event-9"),
+        agentId: "my-agent",
+      });
+
+      expect(response.status).toBe(204);
+      expect(platform.ɵconnectThread).toHaveBeenCalledWith({
+        threadId: "thread-1",
+        lastSeenEventId: "event-9",
+      });
+    });
   });
 });

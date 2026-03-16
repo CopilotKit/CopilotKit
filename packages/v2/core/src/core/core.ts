@@ -4,6 +4,8 @@ import {
   SuggestionsConfig,
   Suggestion,
   CopilotRuntimeTransport,
+  RuntimeMode,
+  IntelligenceRuntimeInfo,
 } from "../types";
 import { AgentRegistry, CopilotKitCoreAddAgentParams } from "./agent-registry";
 import { ContextStore } from "./context-store";
@@ -339,6 +341,14 @@ export class CopilotKitCore {
 
   get audioFileTranscriptionEnabled(): boolean {
     return this.agentRegistry.audioFileTranscriptionEnabled;
+  }
+
+  get runtimeMode(): RuntimeMode {
+    return this.agentRegistry.runtimeMode;
+  }
+
+  get intelligence(): IntelligenceRuntimeInfo | undefined {
+    return this.agentRegistry.intelligence;
   }
 
   get a2uiEnabled(): boolean {
