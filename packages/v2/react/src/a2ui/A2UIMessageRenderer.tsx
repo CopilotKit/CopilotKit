@@ -281,7 +281,7 @@ function ReactSurfaceHost({
         }
       }
     },
-    [agent, copilotkit, onActionOrchestrator, registry],
+    [agent, copilotkit, onActionOrchestrator, registry, declaredHandlers],
   );
 
   return (

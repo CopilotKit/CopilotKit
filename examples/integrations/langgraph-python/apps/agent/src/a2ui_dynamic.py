@@ -66,11 +66,36 @@ Create polished, visually appealing interfaces:
   Use distribution only on Row components.
 - Add Button for interactivity. Button needs child (Text ID) + action (name + context).
   Context values use path bindings like {"key": "name", "value": {"path": "/name"}}.
+
+ACTION HANDLERS (for button interactivity):
+When you include Button components, also provide an "actionHandlers" argument.
+This is a dict mapping action names to arrays of A2UI operations that replace the
+surface when the button is clicked (optimistic UI update).
+
+Example: if a Button has action.name="select_item", provide:
+  "actionHandlers": {
+    "select_item": [
+      {"surfaceUpdate": {"surfaceId": "THE-SAME-SURFACE-ID", "components": [
+        {"id": "root", "component": {"Card": {"child": "confirm-col"}}},
+        {"id": "confirm-col", "component": {"Column": {"children": {"explicitList": ["title", "detail"]}, "alignment": "center"}}},
+        {"id": "title", "component": {"Text": {"text": {"literalString": "Selected!"}, "usageHint": "h2"}}},
+        {"id": "detail", "component": {"Text": {"text": {"literalString": "Your selection has been confirmed."}, "usageHint": "body"}}}
+      ]}},
+      {"beginRendering": {"surfaceId": "THE-SAME-SURFACE-ID", "root": "root"}}
+    ]
+  }
+Use the SAME surfaceId as the main surface. Match action names to Button action names.
 """
 
 
 @lc_tool
-def render_a2ui(surfaceId: str, components: list[dict], root: str, items: list[dict]) -> str:
+def render_a2ui(
+    surfaceId: str,
+    components: list[dict],
+    root: str,
+    items: list[dict],
+    actionHandlers: dict | None = None,
+) -> str:
     """Render a dynamic A2UI surface with progressive streaming.
 
     Args:
@@ -80,6 +105,8 @@ def render_a2ui(surfaceId: str, components: list[dict], root: str, items: list[d
         root: ID of the root component.
         items: Plain JSON array of data objects. Each object's keys
             correspond to the path bindings in the template components.
+        actionHandlers: Optional dict mapping action names to arrays of
+            A2UI operations for optimistic UI updates on button click.
     """
     return "rendered"
 
