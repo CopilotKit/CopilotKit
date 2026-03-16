@@ -6,6 +6,7 @@ import { z } from "zod";
 import {
   A2UIProvider,
   useA2UIActions,
+  useA2UIError,
   A2UIRenderer,
   initializeDefaultCatalog,
   injectStyles,
@@ -291,10 +292,26 @@ function ReactSurfaceHost({
           surfaceId={surfaceId}
           operations={operations}
         />
-        <A2UIRenderer surfaceId={surfaceId} className="cpk:flex cpk:flex-1" />
+        <A2UISurfaceOrError surfaceId={surfaceId} />
       </A2UIProvider>
     </div>
   );
+}
+
+/**
+ * Renders the A2UI surface, or an error message if processing failed.
+ * Must be a child of A2UIProvider to access the error state.
+ */
+function A2UISurfaceOrError({ surfaceId }: { surfaceId: string }) {
+  const error = useA2UIError();
+  if (error) {
+    return (
+      <div className="cpk:rounded-lg cpk:border cpk:border-red-200 cpk:bg-red-50 cpk:p-3 cpk:text-sm cpk:text-red-700">
+        A2UI render error: {error}
+      </div>
+    );
+  }
+  return <A2UIRenderer surfaceId={surfaceId} className="cpk:flex cpk:flex-1" />;
 }
 
 /**
@@ -329,6 +346,7 @@ function SurfaceMessageProcessor({
     if (operations === lastOpsRef.current) return;
     lastOpsRef.current = operations;
 
+    // Error handling is done inside A2UIProvider.processMessages
     processMessages(operations);
   }, [processMessages, operations]);
 

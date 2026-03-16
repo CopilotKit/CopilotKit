@@ -21,7 +21,7 @@ const A2UIActionsContext = createContext<A2UIActions | null>(null);
  * Context for reactive state (changes trigger re-renders).
  * Only components that need to react to state changes subscribe to this.
  */
-const A2UIStateContext = createContext<{ version: number } | null>(null);
+const A2UIStateContext = createContext<{ version: number; error: string | null } | null>(null);
 
 /**
  * Props for the A2UIProvider component.
@@ -72,6 +72,9 @@ export function A2UIProvider({ onAction, theme, children }: A2UIProviderProps) {
   // Version counter for triggering re-renders
   const [version, setVersion] = useState(0);
 
+  // Error state for graceful error handling
+  const [error, setError] = useState<string | null>(null);
+
   // Store onAction in a ref so callbacks always have the latest value
   const onActionRef = useRef<OnActionCallback | null>(onAction ?? null);
   onActionRef.current = onAction ?? null;
@@ -81,7 +84,14 @@ export function A2UIProvider({ onAction, theme, children }: A2UIProviderProps) {
   if (!actionsRef.current) {
     actionsRef.current = {
       processMessages: (messages: Types.ServerToClientMessage[]) => {
-        processor.processMessages(messages);
+        try {
+          processor.processMessages(messages);
+        } catch (err) {
+          console.warn("[A2UI] processMessages error:", err);
+          setError(err instanceof Error ? err.message : String(err));
+          return;
+        }
+        setError(null);
         setVersion((v) => v + 1);
       },
 
@@ -129,8 +139,8 @@ export function A2UIProvider({ onAction, theme, children }: A2UIProviderProps) {
   }
   const actions = actionsRef.current;
 
-  // State context value - only changes when version changes
-  const stateValue = useMemo(() => ({ version }), [version]);
+  // State context value - changes when version or error changes
+  const stateValue = useMemo(() => ({ version, error }), [version, error]);
 
   return (
     <A2UIActionsContext.Provider value={actions}>
@@ -199,6 +209,15 @@ export function useA2UIContext(): A2UIContextValue {
  * @deprecated Use useA2UIContext instead. This alias exists for backward compatibility only.
  */
 export const useA2UIStore = useA2UIContext;
+
+/**
+ * Hook to access the current A2UI error state.
+ * Returns the error message string or null if no error.
+ */
+export function useA2UIError(): string | null {
+  const state = useContext(A2UIStateContext);
+  return state?.error ?? null;
+}
 
 /**
  * @deprecated This selector pattern does not provide performance benefits with React Context.

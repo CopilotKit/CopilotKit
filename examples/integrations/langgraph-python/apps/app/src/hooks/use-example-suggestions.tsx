@@ -40,9 +40,9 @@ export const useExampleSuggestions = () => {
       },
       // 3d. Dynamic Schema A2UI — LLM generates the entire UI spec from scratch
       {
-        title: "User Profile Card (Dynamic A2UI)",
+        title: "Product Card (Dynamic A2UI)",
         message:
-          "Use the generate_a2ui tool to create a user profile card for a fictional person. Include an avatar image, name, bio, and stats (followers, posts).",
+          "Use the generate_a2ui tool to create a product comparison of 3 headphones with name, price, rating, a short description, and a Select button on each card.",
       },
       // 4. Open Generative UI — MCP app renders its own UI
       {

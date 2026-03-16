@@ -6,6 +6,7 @@ export {
   useA2UIContext,
   useA2UIStore, // @deprecated - use useA2UIContext
   useA2UIStoreSelector, // @deprecated - use useA2UIContext or useA2UI
+  useA2UIError,
 } from "./core/A2UIProvider";
 export type { A2UIProviderProps } from "./core/A2UIProvider";
 export { A2UIRenderer } from "./core/A2UIRenderer";
