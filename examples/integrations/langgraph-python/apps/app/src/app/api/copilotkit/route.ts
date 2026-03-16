@@ -5,8 +5,8 @@ import {
 } from "@copilotkit/runtime";
 import { LangGraphAgent } from "@copilotkit/runtime/langgraph";
 import { NextRequest } from "next/server";
-import flightSchema from "./a2ui_flight_schema.json";
-import bookedSchema from "../../../a2ui/booked-confirmation.json";
+import flightSchema from "./streaming_flight_schema.json";
+import bookedSchema from "../../../a2ui/booked_schema.json";
 
 // 1. Define the agent connection to LangGraph
 const defaultAgent = new LangGraphAgent({

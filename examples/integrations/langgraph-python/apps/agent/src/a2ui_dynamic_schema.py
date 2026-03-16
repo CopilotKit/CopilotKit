@@ -17,7 +17,7 @@ from langchain_core.tools import tool as lc_tool
 from langchain_openai import ChatOpenAI
 from pathlib import Path
 
-_SCHEMA_PROMPT_PATH = Path(__file__).parent / "a2ui_schema_prompt.md"
+_SCHEMA_PROMPT_PATH = Path(__file__).parent / "a2ui" / "schemas" / "dynamic_schema_prompt.md"
 SCHEMA_PROMPT = _SCHEMA_PROMPT_PATH.read_text()
 
 SCHEMA_PROMPT += """

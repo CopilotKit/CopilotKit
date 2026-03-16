@@ -11,7 +11,7 @@ import {
 } from "@copilotkit/react-core/v2";
 
 // A2UI schemas
-import bookedSchema from "@/a2ui/booked-confirmation.json";
+import bookedSchema from "@/a2ui/booked_schema.json";
 
 // Generative UI imports
 import {
@@ -71,13 +71,10 @@ export const useGenerativeUIExamples = () => {
   //    https://docs.copilotkit.ai/langgraph/generative-ui/backend-tools
   // ----------------------------------------------------------
   const ignoredTools = [
-    // search_flights is rendered by A2UI's declarative surface system (fixed schema with data binding)
-    "search_flights",
-    // search_flights_streaming is rendered by A2UI with streaming data updates
-    "search_flights_streaming",
-    "generate_a2ui",
-    // log_a2ui_event is an internal A2UI event tracker, not meaningful to display to users
-    "log_a2ui_event",
+    "search_flights",            // Rendered by A2UI fixed-schema surfaces, not as a tool card
+    "search_flights_streaming",  // Rendered by A2UI streaming surfaces, not as a tool card
+    "generate_a2ui",             // Rendered by A2UI dynamic surfaces, not as a tool card
+    "log_a2ui_event",            // Internal A2UI event tracker injected by middleware
   ];
   useDefaultRenderTool({
     render: ({ name, status, parameters }) => {

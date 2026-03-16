@@ -11,11 +11,11 @@ from pathlib import Path
 
 from copilotkit import a2ui
 from langchain.tools import tool
-from typing_extensions import TypedDict
+from typing import TypedDict
 
 SURFACE_ID = "flight-search-results"
-FLIGHT_SCHEMA = a2ui.load_schema(Path(__file__).parent / "a2ui_flight_schema.json")
-BOOKED_SCHEMA = a2ui.load_schema(Path(__file__).parent / "a2ui_booked_schema.json")
+FLIGHT_SCHEMA = a2ui.load_schema(Path(__file__).parent / "a2ui" / "schemas" / "flight_schema.json")
+BOOKED_SCHEMA = a2ui.load_schema(Path(__file__).parent / "a2ui" / "schemas" / "booked_schema.json")
 
 
 class Flight(TypedDict):

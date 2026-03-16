@@ -12,7 +12,7 @@ middleware config (streamingSurfaces in route.ts). The middleware:
 from __future__ import annotations
 
 from langchain.tools import tool
-from typing_extensions import TypedDict
+from typing import TypedDict
 
 
 class Flight(TypedDict):
