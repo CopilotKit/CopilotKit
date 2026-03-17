@@ -224,3 +224,30 @@ Deterministic rules:
    Component-based registered renderers are acceptable for programmatic registration, but they do not replace the slot-first model.
 
 This is an architectural constraint for future parity work: new React render-hook behavior should be mirrored by extending slot contracts, not by re-introducing provider render props in Vue.
+
+## Architectural Decision: Render Hooks -> Composable State + Slots
+
+Vue also diverges intentionally from React for render-oriented hooks that mix behavior with a render callback.
+
+Rule:
+
+- If a React hook is headless/data-oriented, mirror it as a normal Vue composable with near-identical semantics.
+- If a React hook exists primarily to bridge stateful behavior into rendering, translate it into:
+  - a Vue composable that owns the behavior/state machine; and
+  - slot/template rendering at the chat/component boundary.
+
+This keeps semantic parity with React while avoiding a Vue API that requires userland render functions or TSX for common usage.
+
+Examples:
+
+- Keep as composables: `useAgent`, `useAgentContext`, `useFrontendTool`, `useHumanInTheLoop`, `useSuggestions`, `useConfigureSuggestions`, `useThreads`.
+- Translate with this recipe: `useInterrupt`.
+- Apply the same recipe to future render-bridge parity surfaces such as `useRenderTool`, `useDefaultRenderTool`, and `useComponent` if they are ever ported.
+
+Design constraints:
+
+1. The composable owns subscription, filtering, preprocessing, pending state, and imperative actions such as resume/resolve.
+2. In-chat presentation should be expressed through named/scoped slots on Vue chat components.
+3. External/manual placement may expose reactive state or renderable refs from the composable when needed.
+4. Do not require Vue consumers to write `h(...)` render functions or TSX for the primary usage path.
+5. Keep divergence minimal and explicit: runtime semantics should still match React.

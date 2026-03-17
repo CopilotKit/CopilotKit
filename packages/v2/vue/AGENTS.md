@@ -50,10 +50,14 @@ This file defines how agents should keep `@copilotkitnext/vue` aligned with upst
   - keep raw render functions mainly for renderer-bridge glue or places where template/SFC conversion is genuinely awkward.
 - Chat render parity contract:
   - follow the architectural decision in `packages/v2/vue/README.md` section `Architectural Decision: Render APIs -> Slots`;
+  - follow the architectural decision in `packages/v2/vue/README.md` section `Architectural Decision: Render Hooks -> Composable State + Slots`;
   - translate React render props/hooks into Vue named/scoped slots deterministically;
+  - for render-oriented React hooks, prefer a Vue composable that owns behavior/state plus slot-based rendering at the chat/component boundary;
+  - keep headless/data-oriented React hooks as normal Vue composables;
   - prefer Vue emits for component-level UI interactions and do not expose a duplicated callback prop plus emit for the same public interaction;
   - keep callback functions inside slot payloads for imperative slotted actions;
   - only keep public callback props for true command-style flows that must be awaited by the child (current exception: `CopilotChatView.onFinishTranscribeWithAudio`);
+  - do not require Vue consumers to write `h(...)` render functions or TSX for the primary usage path;
   - do not re-introduce provider-level `render*` props in Vue unless the ADR is explicitly changed.
 
 ## Testing parity strategy
@@ -98,7 +102,9 @@ When touching package integration/build behavior, also run:
 When React changes:
 
 1. Identify impacted React hooks/providers/types and tests.
-2. Apply the README slot-translation ADR for any render-hook/render-prop related changes.
+2. Apply the README ADRs:
+   - `Render APIs -> Slots` for render-prop/render-array surfaces
+   - `Render Hooks -> Composable State + Slots` for render-oriented hooks
 3. Port behavior to Vue with minimal API drift.
 4. Port/add equivalent Vue tests for the changed behavior.
 5. Run validation gates.
