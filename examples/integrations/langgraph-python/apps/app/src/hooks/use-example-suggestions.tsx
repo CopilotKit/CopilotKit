@@ -22,7 +22,7 @@ export const useExampleSuggestions = () => {
       },
       // 3. Streaming A2UI — schema emitted at tool start, data streams in progressively
       {
-        title: "Flight Search Streaming (A2UI Streaming)",
+        title: "Flight Search (Fixed Schema A2UI - Streaming)",
         message:
           "Search for flights from LAX to ORD using the search_flights_streaming tool. Show 3 options with different airlines and times.",
       },
