@@ -2,10 +2,8 @@
 
 import { Banner } from "fumadocs-ui/components/banner";
 import Link from "next/link";
-import { PaintbrushIcon } from "lucide-react";
-import { PiGraph } from "react-icons/pi";
+import { PaintbrushIcon, Rocket } from "lucide-react";
 import { SiCrewai } from "@icons-pack/react-simple-icons";
-import { Sparkles, Rocket } from "lucide-react";
 import { useState, useEffect } from "react";
 
 // Time in milliseconds before a dismissed banner reappears
@@ -23,15 +21,7 @@ export function Banners() {
       mobileText: "CopilotKit fully supports MCP Apps!",
       desktopText: "Bring MCP Apps interaction to your users with CopilotKit!",
       buttonText: "See What's New",
-      href: "/whats-new/mcp-apps-support",
-    },
-    {
-      icon: <Sparkles className="w-5 h-5 hidden md:block flex-shrink-0" />,
-      mobileText: "CopilotKit 1.50 is available!",
-      desktopText:
-        "CopilotKit 1.50 is available, featuring threads, no GraphQL, new interfaces, and more!",
-      buttonText: "See What's New",
-      href: "/whats-new/v1-50",
+      href: "/generative-ui/mcp-apps",
     },
   ];
 
@@ -181,36 +171,6 @@ export function CoagentsCrewAnnouncementBanner() {
   );
 }
 
-export function ModelContextProtocolBanner() {
-  return (
-    <Banner
-      className="w-full text-white bg-indigo-500 dark:bg-indigo-900 h-24 sm:h-14 !important"
-      variant="rainbow"
-      id="model-context-protocol-banner"
-    >
-      <p className="w-3/4">
-        <PiGraph className="w-5 h-5 inline mr-2" /> Model Context Protocol (MCP)
-        support is here! Try it out{" "}
-        <Link
-          href="/direct-to-llm/guides/model-context-protocol"
-          className="underline"
-        >
-          here
-        </Link>
-        . Register to our
-        <Link
-          href="https://go.copilotkit.ai/webinarMastra"
-          target="_blank"
-          className="underline ml-1"
-        >
-          webinar
-        </Link>{" "}
-        for a walkthrough.
-      </p>
-    </Banner>
-  );
-}
-
 export function AGUIBanner() {
   return (
     <Banner
@@ -235,77 +195,3 @@ export function AGUIBanner() {
   );
 }
 
-export function V150Banner() {
-  return (
-    <div className="w-full px-1 mt-1 xl:px-2 xl:mt-2">
-      <Banner
-        className="w-full text-foreground bg-secondary/80 backdrop-blur-sm border border-border rounded-2xl py-1.5 md:py-2"
-        id="v150-banner"
-      >
-        <div className="flex flex-row items-center justify-center gap-1.5 md:gap-3 w-full px-1 md:px-4">
-          <div className="flex items-center gap-1.5 md:gap-2 flex-shrink min-w-0">
-            <Sparkles className="w-5 h-5 hidden md:block flex-shrink-0" />
-            {/* Short text for mobile (below 768px) */}
-            <p
-              className="text-xs md:text-base font-normal md:hidden font-sans"
-              style={{ fontWeight: 400 }}
-            >
-              CopilotKit 1.50 is available!
-            </p>
-            {/* Full text for desktop (768px and above) */}
-            <p
-              className="text-sm sm:text-base font-normal hidden md:block font-sans"
-              style={{ fontWeight: 400 }}
-            >
-              CopilotKit 1.50 is available, featuring threads, no GraphQL, new
-              interfaces, and more!
-            </p>
-          </div>
-          <Link
-            href="/whats-new/v1-50"
-            className="text-indigo-800 dark:text-indigo-300 ring-1 ring-indigo-200 dark:ring-indigo-900 text-xs md:text-sm items-center bg-gradient-to-r from-indigo-200/50 to-purple-200/80 dark:from-indigo-900/40 dark:to-purple-900/50 flex px-2 py-0.5 md:px-4 md:py-1 no-underline whitespace-nowrap transition-all duration-100 hover:ring-2 hover:ring-indigo-400 hover:dark:text-indigo-200 rounded-lg flex-shrink-0"
-          >
-            See What&apos;s New
-          </Link>
-        </div>
-      </Banner>
-    </div>
-  );
-}
-
-export function MCPAppsLaunchBanner() {
-  return (
-    <div className="w-full px-1 mt-1 xl:px-2 xl:mt-2">
-      <Banner
-        className="w-full text-foreground bg-secondary/80 backdrop-blur-sm border border-border rounded-2xl py-1.5 md:py-2"
-        id="mcp-apps-launch-banner"
-      >
-        <div className="flex flex-row items-center justify-center gap-1.5 md:gap-3 w-full px-1 md:px-4">
-          <div className="flex items-center gap-1.5 md:gap-2 flex-shrink min-w-0">
-            <Rocket className="w-5 h-5 hidden md:block flex-shrink-0" />
-            {/* Short text for mobile (below 768px) */}
-            <p
-              className="text-xs md:text-base font-normal md:hidden font-sans"
-              style={{ fontWeight: 400 }}
-            >
-              Use MCP Apps with CopilotKit and AG-UI
-            </p>
-            {/* Full text for desktop (768px and above) */}
-            <p
-              className="text-sm sm:text-base font-normal hidden md:block font-sans"
-              style={{ fontWeight: 400 }}
-            >
-              Use MCP Apps with CopilotKit and AG-UI
-            </p>
-          </div>
-          <Link
-            href="/whats-new/mcp-apps-support"
-            className="text-indigo-800 dark:text-indigo-300 ring-1 ring-indigo-200 dark:ring-indigo-900 text-xs md:text-sm items-center bg-gradient-to-r from-indigo-200/50 to-purple-200/80 dark:from-indigo-900/40 dark:to-purple-900/50 flex px-2 py-0.5 md:px-4 md:py-1 no-underline whitespace-nowrap transition-all duration-100 hover:ring-2 hover:ring-indigo-400 hover:dark:text-indigo-200 rounded-lg flex-shrink-0"
-          >
-            See What's New
-          </Link>
-        </div>
-      </Banner>
-    </div>
-  );
-}
