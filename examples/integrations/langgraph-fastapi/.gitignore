@@ -1,8 +1,8 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
 # dependencies
-/node_modules
-/.pnp
+node_modules
+.pnp
 .pnp.*
 .yarn/*
 !.yarn/patches
@@ -11,14 +11,14 @@
 !.yarn/versions
 
 # testing
-/coverage
+coverage
 
 # next.js
-/.next/
-/out/
+.next/
+out/
 
 # production
-/build
+build
 
 # misc
 .DS_Store
@@ -32,6 +32,7 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+!.env.example
 
 # vercel
 .vercel
@@ -43,18 +44,17 @@ next-env.d.ts
 # lock files
 package-lock.json
 yarn.lock
-pnpm-lock.yaml
 bun.lockb
-
-# LangGraph API
-.langgraph_api
-
-venv/
-__pycache__/
-*.pyc
-.env
-.vercel
 
 # python
 .venv/
+venv/
+__pycache__/
+*.pyc
 .langgraph_api/
+
+# Turbo
+.turbo
+
+# Tools
+.claude

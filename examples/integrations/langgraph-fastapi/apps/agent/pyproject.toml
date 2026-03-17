@@ -1,0 +1,17 @@
+[project]
+name = "agent"
+version = "0.1.0"
+description = ""
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "copilotkit==0.1.78",
+    "langchain==1.2.0",
+    "langchain-openai>=1.1.0",
+    "langgraph==1.0.5",
+    "openai>=1.68.2,<2.0.0",
+    "fastapi>=0.115.5,<1.0.0",
+    "uvicorn>=0.29.0,<1.0.0",
+    "python-dotenv>=1.0.0,<2.0.0",
+    "pydantic>=2.0.0,<3.0.0",
+]

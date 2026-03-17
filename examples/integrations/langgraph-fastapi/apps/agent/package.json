@@ -1,0 +1,9 @@
+{
+  "name": "@repo/agent",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "uv run main.py",
+    "postinstall": "uv sync"
+  }
+}
