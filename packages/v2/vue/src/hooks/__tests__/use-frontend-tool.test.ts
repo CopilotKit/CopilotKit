@@ -633,7 +633,16 @@ describe("useFrontendTool", () => {
     await nextTick();
     await expect(
       getCore().runAgent({ agent: agent as unknown as AbstractAgent }),
-    ).rejects.toThrow();
+    ).resolves.toMatchObject({
+      newMessages: [invalidToolCall],
+    });
     expect(handler).not.toHaveBeenCalled();
+    expect(agent.messages).toContainEqual(
+      expect.objectContaining({
+        role: "tool",
+        toolCallId: "tool-1",
+        content: expect.stringContaining("Error:"),
+      }),
+    );
   });
 });
