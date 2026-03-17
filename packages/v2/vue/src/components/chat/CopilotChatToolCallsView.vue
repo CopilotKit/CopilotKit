@@ -77,10 +77,22 @@ function getCoreRenderProps(toolCall: ToolCall): VueToolCallRendererRenderProps<
   }
 
   const isExecuting = executingToolCallIds.value.has(toolCall.id);
+  if (isExecuting) {
+    return {
+      name: toolCall.function.name,
+      args: parsedArgs,
+      status: ToolCallStatus.Executing,
+      result: undefined,
+    };
+  }
+
   return {
     name: toolCall.function.name,
-    args: parsedArgs,
-    status: isExecuting ? ToolCallStatus.Executing : ToolCallStatus.InProgress,
+    args:
+      parsedArgs && typeof parsedArgs === "object"
+        ? parsedArgs
+        : {},
+    status: ToolCallStatus.InProgress,
     result: undefined,
   };
 }
