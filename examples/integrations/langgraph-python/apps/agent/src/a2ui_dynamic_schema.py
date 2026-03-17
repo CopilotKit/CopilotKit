@@ -9,6 +9,7 @@ the surface renders as soon as the schema is ready.
 
 from __future__ import annotations
 
+import json
 from typing import Any
 
 from langchain.tools import tool, ToolRuntime
@@ -63,9 +64,12 @@ def generate_a2ui(runtime: ToolRuntime[Any]) -> str:
         [SystemMessage(content=A2UI_GENERATION_PROMPT), *messages],
     )
 
-    # The render_a2ui tool call streams through LangGraph as
-    # TOOL_CALL_ARGS events, which the A2UI middleware intercepts
-    # and renders progressively. Return a plain ack — returning the
-    # actual args would cause the middleware auto-detect to create
-    # a duplicate surface.
-    return "rendered"
+    # Extract the render_a2ui tool call arguments and format a readable summary.
+    tool_call = response.tool_calls[0]
+    args = tool_call["args"]
+
+    return (
+        f"Rendered A2UI on the client.\n"
+        f"Arguments: {json.dumps(args, indent=2)}\n"
+        f"Return value: rendered"
+    )
