@@ -23,15 +23,7 @@ export function Banners() {
       mobileText: "CopilotKit fully supports MCP Apps!",
       desktopText: "Bring MCP Apps interaction to your users with CopilotKit!",
       buttonText: "See What's New",
-      href: "/whats-new/mcp-apps-support",
-    },
-    {
-      icon: <Sparkles className="w-5 h-5 hidden md:block flex-shrink-0" />,
-      mobileText: "CopilotKit 1.50 is available!",
-      desktopText:
-        "CopilotKit 1.50 is available, featuring threads, no GraphQL, new interfaces, and more!",
-      buttonText: "See What's New",
-      href: "/whats-new/v1-50",
+      href: "/generative-ui/mcp-apps",
     },
   ];
 
