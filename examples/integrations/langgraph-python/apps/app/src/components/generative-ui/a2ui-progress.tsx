@@ -41,61 +41,149 @@ export const A2UIProgress = memo(function A2UIProgress({
           </div>
           <div
             className="h-[6px] rounded-full bg-gray-200"
-            style={{ width: 64, opacity: phase >= 1 ? 1 : 0.4, transition: "opacity 0.5s" }}
+            style={{
+              width: 64,
+              opacity: phase >= 1 ? 1 : 0.4,
+              transition: "opacity 0.5s",
+            }}
           />
         </div>
 
         {/* Skeleton code lines */}
         <div className="space-y-[7px]">
           {/* Line 1 */}
-          <div className="flex items-center gap-2" style={{ opacity: phase >= 0 ? 1 : 0, transition: "opacity 0.4s" }}>
-            <div className="h-[7px] w-[36px] rounded-full bg-blue-200/70" style={{ animation: "a2ui-fade 2.4s ease-in-out infinite" }} />
-            <div className="h-[7px] w-[80px] rounded-full bg-blue-100/80" style={{ animation: "a2ui-fade 2.4s ease-in-out 0.2s infinite" }} />
+          <div
+            className="flex items-center gap-2"
+            style={{ opacity: phase >= 0 ? 1 : 0, transition: "opacity 0.4s" }}
+          >
+            <div
+              className="h-[7px] w-[36px] rounded-full bg-blue-200/70"
+              style={{ animation: "a2ui-fade 2.4s ease-in-out infinite" }}
+            />
+            <div
+              className="h-[7px] w-[80px] rounded-full bg-blue-100/80"
+              style={{ animation: "a2ui-fade 2.4s ease-in-out 0.2s infinite" }}
+            />
           </div>
 
           {/* Line 2 */}
-          <div className="flex items-center gap-2" style={{ opacity: phase >= 0 ? 1 : 0, transition: "opacity 0.4s 0.1s" }}>
+          <div
+            className="flex items-center gap-2"
+            style={{
+              opacity: phase >= 0 ? 1 : 0,
+              transition: "opacity 0.4s 0.1s",
+            }}
+          >
             <div className="w-3" />
             <div className="h-[6px] w-[6px] rounded-full bg-gray-300" />
-            <div className="h-[7px] w-[100px] rounded-full bg-gray-800/20" style={{ animation: "a2ui-fade 2.4s ease-in-out 0.3s infinite" }} />
+            <div
+              className="h-[7px] w-[100px] rounded-full bg-gray-800/20"
+              style={{ animation: "a2ui-fade 2.4s ease-in-out 0.3s infinite" }}
+            />
           </div>
 
           {/* Line 3: row of blocks */}
-          <div className="flex items-center gap-[6px]" style={{ opacity: phase >= 1 ? 1 : 0, transition: "opacity 0.4s 0.15s" }}>
+          <div
+            className="flex items-center gap-[6px]"
+            style={{
+              opacity: phase >= 1 ? 1 : 0,
+              transition: "opacity 0.4s 0.15s",
+            }}
+          >
             <div className="w-3" />
-            <div className="h-[7px] w-[48px] rounded-full bg-gray-800/15" style={{ animation: "a2ui-fade 2.4s ease-in-out 0.1s infinite" }} />
-            <div className="h-[7px] w-[40px] rounded-full bg-teal-200/60" style={{ animation: "a2ui-fade 2.4s ease-in-out 0.5s infinite" }} />
-            <div className="h-[7px] w-[56px] rounded-full bg-blue-200/60" style={{ animation: "a2ui-fade 2.4s ease-in-out 0.3s infinite" }} />
+            <div
+              className="h-[7px] w-[48px] rounded-full bg-gray-800/15"
+              style={{ animation: "a2ui-fade 2.4s ease-in-out 0.1s infinite" }}
+            />
+            <div
+              className="h-[7px] w-[40px] rounded-full bg-teal-200/60"
+              style={{ animation: "a2ui-fade 2.4s ease-in-out 0.5s infinite" }}
+            />
+            <div
+              className="h-[7px] w-[56px] rounded-full bg-blue-200/60"
+              style={{ animation: "a2ui-fade 2.4s ease-in-out 0.3s infinite" }}
+            />
           </div>
 
           {/* Line 4 */}
-          <div className="flex items-center gap-2" style={{ opacity: phase >= 1 ? 1 : 0, transition: "opacity 0.4s 0.2s" }}>
+          <div
+            className="flex items-center gap-2"
+            style={{
+              opacity: phase >= 1 ? 1 : 0,
+              transition: "opacity 0.4s 0.2s",
+            }}
+          >
             <div className="w-3" />
             <div className="h-[6px] w-[6px] rounded-full bg-gray-300" />
-            <div className="h-[7px] w-[60px] rounded-full bg-gray-800/15" style={{ animation: "a2ui-fade 2.4s ease-in-out 0.4s infinite" }} />
+            <div
+              className="h-[7px] w-[60px] rounded-full bg-gray-800/15"
+              style={{ animation: "a2ui-fade 2.4s ease-in-out 0.4s infinite" }}
+            />
           </div>
 
           {/* Line 5: wider row */}
-          <div className="flex items-center gap-[6px]" style={{ opacity: phase >= 2 ? 1 : 0, transition: "opacity 0.4s 0.25s" }}>
-            <div className="h-[7px] w-[40px] rounded-full bg-teal-200/50" style={{ animation: "a2ui-fade 2.4s ease-in-out 0.2s infinite" }} />
+          <div
+            className="flex items-center gap-[6px]"
+            style={{
+              opacity: phase >= 2 ? 1 : 0,
+              transition: "opacity 0.4s 0.25s",
+            }}
+          >
+            <div
+              className="h-[7px] w-[40px] rounded-full bg-teal-200/50"
+              style={{ animation: "a2ui-fade 2.4s ease-in-out 0.2s infinite" }}
+            />
             <div className="h-[6px] w-[6px] rounded-full bg-gray-300" />
-            <div className="h-[7px] w-[48px] rounded-full bg-gray-800/15" style={{ animation: "a2ui-fade 2.4s ease-in-out 0.6s infinite" }} />
-            <div className="h-[7px] w-[64px] rounded-full bg-blue-200/50" style={{ animation: "a2ui-fade 2.4s ease-in-out 0.1s infinite" }} />
+            <div
+              className="h-[7px] w-[48px] rounded-full bg-gray-800/15"
+              style={{ animation: "a2ui-fade 2.4s ease-in-out 0.6s infinite" }}
+            />
+            <div
+              className="h-[7px] w-[64px] rounded-full bg-blue-200/50"
+              style={{ animation: "a2ui-fade 2.4s ease-in-out 0.1s infinite" }}
+            />
           </div>
 
           {/* Line 6 */}
-          <div className="flex items-center gap-2" style={{ opacity: phase >= 2 ? 1 : 0, transition: "opacity 0.4s 0.3s" }}>
-            <div className="h-[7px] w-[36px] rounded-full bg-blue-200/60" style={{ animation: "a2ui-fade 2.4s ease-in-out 0.5s infinite" }} />
-            <div className="h-[7px] w-[36px] rounded-full bg-gray-800/12" style={{ animation: "a2ui-fade 2.4s ease-in-out 0.7s infinite" }} />
+          <div
+            className="flex items-center gap-2"
+            style={{
+              opacity: phase >= 2 ? 1 : 0,
+              transition: "opacity 0.4s 0.3s",
+            }}
+          >
+            <div
+              className="h-[7px] w-[36px] rounded-full bg-blue-200/60"
+              style={{ animation: "a2ui-fade 2.4s ease-in-out 0.5s infinite" }}
+            />
+            <div
+              className="h-[7px] w-[36px] rounded-full bg-gray-800/12"
+              style={{ animation: "a2ui-fade 2.4s ease-in-out 0.7s infinite" }}
+            />
           </div>
 
           {/* Line 7: bottom row */}
-          <div className="flex items-center gap-[6px]" style={{ opacity: phase >= 3 ? 1 : 0, transition: "opacity 0.4s 0.35s" }}>
+          <div
+            className="flex items-center gap-[6px]"
+            style={{
+              opacity: phase >= 3 ? 1 : 0,
+              transition: "opacity 0.4s 0.35s",
+            }}
+          >
             <div className="h-[6px] w-[6px] rounded-full bg-gray-300" />
-            <div className="h-[7px] w-[44px] rounded-full bg-gray-800/18" style={{ animation: "a2ui-fade 2.4s ease-in-out 0.3s infinite" }} />
+            <div
+              className="h-[7px] w-[44px] rounded-full bg-gray-800/18"
+              style={{ animation: "a2ui-fade 2.4s ease-in-out 0.3s infinite" }}
+            />
             <div className="h-[6px] w-[6px] rounded-full bg-gray-300" />
-            <div className="h-[7px] w-[56px] rounded-full bg-teal-200/50" style={{ animation: "a2ui-fade 2.4s ease-in-out 0.8s infinite" }} />
-            <div className="h-[7px] w-[48px] rounded-full bg-blue-200/50" style={{ animation: "a2ui-fade 2.4s ease-in-out 0.4s infinite" }} />
+            <div
+              className="h-[7px] w-[56px] rounded-full bg-teal-200/50"
+              style={{ animation: "a2ui-fade 2.4s ease-in-out 0.8s infinite" }}
+            />
+            <div
+              className="h-[7px] w-[48px] rounded-full bg-blue-200/50"
+              style={{ animation: "a2ui-fade 2.4s ease-in-out 0.4s infinite" }}
+            />
           </div>
         </div>
 

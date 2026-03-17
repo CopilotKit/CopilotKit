@@ -21,7 +21,10 @@ const A2UIActionsContext = createContext<A2UIActions | null>(null);
  * Context for reactive state (changes trigger re-renders).
  * Only components that need to react to state changes subscribe to this.
  */
-const A2UIStateContext = createContext<{ version: number; error: string | null } | null>(null);
+const A2UIStateContext = createContext<{
+  version: number;
+  error: string | null;
+} | null>(null);
 
 /**
  * Props for the A2UIProvider component.

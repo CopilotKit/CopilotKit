@@ -72,10 +72,10 @@ export const useGenerativeUIExamples = () => {
   //    https://docs.copilotkit.ai/langgraph/generative-ui/backend-tools
   // ----------------------------------------------------------
   const ignoredTools = [
-    "search_flights",            // Rendered by A2UI fixed-schema surfaces, not as a tool card
-    "search_flights_streaming",  // Rendered by A2UI streaming surfaces, not as a tool card
-    "generate_a2ui",             // Rendered by A2UI dynamic surfaces, not as a tool card
-    "log_a2ui_event",            // Internal A2UI event tracker injected by middleware
+    "search_flights", // Rendered by A2UI fixed-schema surfaces, not as a tool card
+    "search_flights_streaming", // Rendered by A2UI streaming surfaces, not as a tool card
+    "generate_a2ui", // Rendered by A2UI dynamic surfaces, not as a tool card
+    "log_a2ui_event", // Internal A2UI event tracker injected by middleware
   ];
   useDefaultRenderTool({
     render: ({ name, status, parameters }) => {

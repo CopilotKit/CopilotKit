@@ -52,9 +52,10 @@ def generate_a2ui(runtime: ToolRuntime[Any]) -> str:
     The secondary LLM's tool call args stream as TOOL_CALL_ARGS events.
     The middleware extracts complete operations progressively.
     """
+     # The last message is this tool call (generate_a2ui) so we remove it, as it is not yet balanced with a tool call response.
     messages = runtime.state["messages"][:-1]
 
-    model = ChatOpenAI(model="gpt-4.1", temperature=0)
+    model = ChatOpenAI(model="gpt-4.1")
     model_with_tool = model.bind_tools(
         [render_a2ui],
         tool_choice="render_a2ui",
