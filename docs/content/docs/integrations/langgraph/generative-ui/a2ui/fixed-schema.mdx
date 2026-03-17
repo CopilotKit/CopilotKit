@@ -1,0 +1,119 @@
+---
+title: "Fixed Schema A2UI"
+description: "Pre-defined A2UI schema with dynamic data. The fastest approach — no LLM schema generation needed."
+---
+
+import { Callout } from "fumadocs-ui/components/callout"
+import { Steps, Step } from "fumadocs-ui/components/steps"
+
+In the fixed-schema approach, you design the UI schema once (in a JSON file or using the [A2UI Composer](https://a2ui-editor.ag-ui.com/gallery)) and your agent tool only provides the data. The surface appears instantly when the tool returns.
+
+## How it works
+
+1. Schema is loaded from a JSON file at startup
+2. Agent tool receives data from the LLM (e.g., flight search results)
+3. Tool returns `a2ui.render()` with surfaceUpdate + dataModelUpdate + beginRendering
+4. The A2UI middleware intercepts the tool result and renders the surface
+
+## Implementation
+
+<Steps>
+<Step>
+### Create the A2UI schema
+
+Design your schema using the [A2UI Composer](https://a2ui-editor.ag-ui.com/gallery) or write it by hand. Save it as a JSON file:
+
+```
+apps/agent/src/a2ui/schemas/flight_schema.json
+```
+</Step>
+
+<Step>
+### Define the agent tool (Python)
+
+```python title="apps/agent/src/a2ui_fixed_schema.py"
+from copilotkit import a2ui
+from langchain.tools import tool
+from pathlib import Path
+
+SURFACE_ID = "flight-search-results"
+FLIGHT_SCHEMA = a2ui.load_schema(
+    Path(__file__).parent / "a2ui" / "schemas" / "flight_schema.json"
+)
+
+@tool
+def search_flights(flights: list[dict]) -> str:
+    """Search for flights and display results as rich cards."""
+    return a2ui.render(
+        operations=[
+            a2ui.surface_update(SURFACE_ID, FLIGHT_SCHEMA),
+            a2ui.data_model_update(SURFACE_ID, {"flights": flights}),
+            a2ui.begin_rendering(SURFACE_ID, "root"),
+        ],
+    )
+```
+
+The LLM provides the `flights` data. The schema is fixed — it never changes between invocations.
+</Step>
+
+<Step>
+### Register the tool
+
+```python title="apps/agent/main.py"
+from src.a2ui_fixed_schema import search_flights
+
+agent = create_agent(
+    tools=[search_flights, ...],
+    ...
+)
+```
+</Step>
+
+<Step>
+### Configure the runtime (TypeScript)
+
+Enable A2UI in your CopilotRuntime:
+
+```typescript title="app/api/copilotkit/route.ts"
+const runtime = new CopilotRuntime({
+  agents: { default: myAgent },
+  a2ui: {
+    injectA2UITool: true,
+  },
+});
+```
+</Step>
+</Steps>
+
+## Adding interactivity (action handlers)
+
+You can add buttons that trigger optimistic UI updates when clicked:
+
+```python
+@tool
+def search_flights(flights: list[dict]) -> str:
+    """Search for flights and display results as rich cards."""
+    return a2ui.render(
+        operations=[
+            a2ui.surface_update(SURFACE_ID, FLIGHT_SCHEMA),
+            a2ui.data_model_update(SURFACE_ID, {"flights": flights}),
+            a2ui.begin_rendering(SURFACE_ID, "root"),
+        ],
+        action_handlers={
+            "book_flight": [
+                a2ui.surface_update(SURFACE_ID, BOOKED_SCHEMA),
+                a2ui.data_model_update(SURFACE_ID, {
+                    "title": "Booking Confirmed",
+                    "detail": "Your flight has been booked.",
+                }),
+                a2ui.begin_rendering(SURFACE_ID, "root"),
+            ],
+        },
+    )
+```
+
+When a user clicks a "Book" button with `action.name="book_flight"`, the surface instantly replaces with the confirmation UI.
+
+<Callout type="info">
+Action handlers are pre-declared in the tool return. The frontend applies them optimistically — no round-trip to the server.
+</Callout>

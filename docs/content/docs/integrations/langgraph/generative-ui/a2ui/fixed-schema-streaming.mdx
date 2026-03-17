@@ -1,0 +1,119 @@
+---
+title: "Fixed Schema A2UI (Streaming)"
+description: "Pre-defined schema with progressive rendering — cards appear one by one as the LLM streams data."
+---
+
+import { Callout } from "fumadocs-ui/components/callout"
+import { Steps, Step } from "fumadocs-ui/components/steps"
+
+The streaming fixed-schema approach uses the same pre-defined schema as the non-streaming variant, but cards appear progressively as the LLM streams the tool call arguments. This gives users immediate visual feedback instead of waiting for the full response.
+
+## How it works
+
+1. Schema is configured on the frontend (in the CopilotRuntime config)
+2. When the LLM starts calling the tool, the middleware emits the schema immediately
+3. As the LLM streams each item in the data array, the middleware partial-parses it and emits a `dataModelUpdate`
+4. Cards appear one at a time in the UI
+
+The key difference from the non-streaming approach: **the agent tool itself is a plain `@tool`** — all the streaming magic happens in the middleware configuration.
+
+## Implementation
+
+<Steps>
+<Step>
+### Define a plain agent tool (Python)
+
+The tool is simple — no `a2ui.render()` needed. The middleware handles everything.
+
+```python title="apps/agent/src/a2ui_fixed_schema_streaming.py"
+from langchain.tools import tool
+
+@tool
+def search_flights_streaming(flights: list[dict]) -> str:
+    """Search for flights and display results with streaming rendering.
+
+    Each flight must have: id, airline, flightNumber, origin,
+    destination, departureTime, arrivalTime, price, etc.
+    """
+    return f"Displayed {len(flights)} flights."
+```
+
+That's it on the Python side. The tool just returns a plain string.
+</Step>
+
+<Step>
+### Configure streaming surfaces (TypeScript)
+
+The schema and streaming behavior are configured in the CopilotRuntime:
+
+```typescript title="app/api/copilotkit/route.ts"
+import flightSchema from "./streaming_flight_schema.json";
+import bookedSchema from "../../../a2ui/booked_schema.json";
+
+const runtime = new CopilotRuntime({
+  agents: { default: myAgent },
+  a2ui: {
+    injectA2UITool: true,
+    streamingSurfaces: [
+      {
+        toolName: "search_flights_streaming",
+        surface: {
+          surfaceId: "flight-search-streaming",
+          root: "root",
+          components: flightSchema,
+          dataKey: "flights",  // which tool arg contains the data array
+          actionHandlers: {
+            book_flight: [
+              { surfaceUpdate: { surfaceId: "flight-search-streaming", components: bookedSchema } },
+              { dataModelUpdate: {
+                  surfaceId: "flight-search-streaming",
+                  contents: [
+                    { key: "title", valueString: "Booking Confirmed" },
+                    { key: "detail", valueString: "Your flight has been booked." },
+                  ],
+              }},
+              { beginRendering: { surfaceId: "flight-search-streaming", root: "root" } },
+            ],
+          },
+        },
+      },
+    ],
+  },
+});
+```
+</Step>
+
+<Step>
+### Register the tool
+
+```python title="apps/agent/main.py"
+from src.a2ui_fixed_schema_streaming import search_flights_streaming
+
+agent = create_agent(
+    tools=[search_flights_streaming, ...],
+    ...
+)
+```
+</Step>
+</Steps>
+
+## How streaming works under the hood
+
+The A2UI middleware intercepts `TOOL_CALL_ARGS` events for the registered tool:
+
+1. **`TOOL_CALL_START`** — middleware emits `surfaceUpdate` + `beginRendering` immediately (schema is known)
+2. **`TOOL_CALL_ARGS`** — middleware partial-parses the accumulating JSON, extracts complete items from the `dataKey` array, emits `dataModelUpdate` progressively
+3. **`TOOL_CALL_END`** — final snapshot emitted with all items
+
+<Callout type="info">
+The `dataKey` config tells the middleware which tool argument contains the data array to stream. For `search_flights_streaming`, this is `"flights"`.
+</Callout>
+
+## Fixed Schema vs Fixed Schema Streaming
+
+| | Fixed Schema | Fixed Schema Streaming |
+|---|---|---|
+| **Schema defined in** | Python (JSON file) | TypeScript (runtime config) |
+| **Rendering** | All at once | Card by card |
+| **Python tool complexity** | Uses `a2ui.render()` | Plain `@tool`, returns string |
+| **Streaming config** | None needed | `streamingSurfaces` in runtime |
