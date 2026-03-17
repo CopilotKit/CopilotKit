@@ -100,6 +100,13 @@ export class StateCapturingAgent extends AbstractAgent {
     this.isRunning = false;
     return outcome;
   }
+
+  override async connectAgent(
+    _parameters: RunAgentParameters = {},
+    _subscriber?: AgentSubscriber,
+  ): Promise<RunAgentResult> {
+    return { newMessages: [] };
+  }
 }
 
 export class SuggestionsProviderAgent extends AbstractAgent {

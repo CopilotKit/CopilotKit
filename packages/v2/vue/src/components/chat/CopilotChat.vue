@@ -120,6 +120,33 @@ watch(
 );
 
 watch(
+  [() => copilotkit.value, resolvedAgentId, () => props.onError],
+  ([core, agentId, onError], _old, onCleanup) => {
+    if (!onError) {
+      return;
+    }
+
+    const subscription = core.subscribe({
+      onError: (event) => {
+        if (
+          event.context?.agentId === agentId ||
+          !event.context?.agentId
+        ) {
+          void onError({
+            error: event.error,
+            code: event.code,
+            context: event.context,
+          });
+        }
+      },
+    });
+
+    onCleanup(() => subscription.unsubscribe());
+  },
+  { immediate: true },
+);
+
+watch(
   [agent, resolvedThreadId, copilotkit],
   ([currentAgent, threadId, core]) => {
     if (typeof window === "undefined") {
@@ -131,9 +158,6 @@ watch(
 
     if (currentAgent.threadId !== threadId) {
       currentAgent.threadId = threadId;
-    }
-    if (!core.runtimeUrl) {
-      return;
     }
     if (
       lastConnectedAgent.value === currentAgent &&
@@ -151,7 +175,7 @@ watch(
       if (error instanceof AGUIConnectNotImplementedError) {
         return;
       }
-      throw error;
+      console.error("CopilotChat: connectAgent failed", error);
     });
   },
   { immediate: true },

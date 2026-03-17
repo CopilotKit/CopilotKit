@@ -5,7 +5,10 @@ import type {
   ToolMessage,
   UserMessage,
 } from "@ag-ui/core";
-import type { ToolCallStatus } from "@copilotkitnext/core";
+import type {
+  CopilotKitCoreErrorCode,
+  ToolCallStatus,
+} from "@copilotkitnext/core";
 import type { CopilotChatLabels } from "../../providers/types";
 
 export type CopilotChatInputMode = "input" | "transcribe" | "processing";
@@ -30,6 +33,11 @@ export interface CopilotChatProps extends Omit<
   agentId?: string;
   threadId?: string;
   labels?: Partial<CopilotChatLabels>;
+  onError?: (event: {
+    error: Error;
+    code: CopilotKitCoreErrorCode;
+    context: Record<string, any>;
+  }) => void | Promise<void>;
 }
 
 export interface CopilotChatViewOverrideSlotProps extends CopilotChatViewProps {
