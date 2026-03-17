@@ -8,6 +8,8 @@ readme = "README.md"
 homepage = "https://copilotkit.ai"
 repository = "https://github.com/CopilotKit/CopilotKit/tree/main/sdk-python"
 keywords = ["copilot", "copilotkit", "langgraph", "langchain", "ai", "langsmith", "langserve"]
+packages = [{include = "copilotkit"}]
+include = ["copilotkit/*.json"]
 
 [tool.poetry.dependencies]
 python = ">=3.10,<3.13"

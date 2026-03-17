@@ -16,7 +16,7 @@ from langchain_core.messages import SystemMessage
 from langchain_core.tools import tool as lc_tool
 from langchain_openai import ChatOpenAI
 
-from src.a2ui.schemas.prompt import a2ui_prompt
+from copilotkit.a2ui import a2ui_prompt
 
 SCHEMA_PROMPT = a2ui_prompt()
 
