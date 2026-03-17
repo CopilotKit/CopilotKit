@@ -2,6 +2,13 @@
 
 Vue 3 bindings for CopilotKit2: providers, composables, and chat rendering primitives for integrating AI agents into Vue applications.
 
+## Documentation Location
+
+Vue-specific documentation does not belong in the shared `docs/` V2 reference unless the repository adds a dedicated Vue docs section there.
+
+- Keep package guidance and architectural notes in this README.
+- Put public-facing Vue API and component documentation in Vue Storybook under `examples/v2/vue/storybook`.
+
 ## Installation
 
 ```bash
@@ -87,10 +94,36 @@ Supported tool-level slots:
 ## Current Scope
 
 - **Providers**: `CopilotKitProvider`, `CopilotChatConfigurationProvider`
-- **Composables**: `useCopilotKit`, `useCopilotChatConfiguration`, `useAgent`, `useAgentContext`, `useFrontendTool`, `useHumanInTheLoop`, `useSuggestions`, `useConfigureSuggestions`
+- **Composables**: `useCopilotKit`, `useCopilotChatConfiguration`, `useAgent`, `useAgentContext`, `useFrontendTool`, `useHumanInTheLoop`, `useSuggestions`, `useConfigureSuggestions`, `useThreads`
 - **Components**: `CopilotChat`, `CopilotKitInspector`, `CopilotChatAssistantMessage`, `CopilotChatUserMessage`, `CopilotChatMessageView`, `CopilotChatSuggestionPill`, `CopilotChatSuggestionView`, `CopilotChatInput`, `CopilotChatToggleButton`, `CopilotModalHeader`, `CopilotChatView`, `CopilotChatToolCallsView`, `CopilotSidebarView`, `CopilotPopupView`, `CopilotSidebar`, `CopilotPopup`, `MCPAppsActivityRenderer`
 - **Markdown Renderer**: `CopilotChatAssistantMessage` uses `streamdown-vue` (with KaTeX support)
 - **Core**: `CopilotKitCoreVue`
+
+## Threads
+
+```vue
+<script setup lang="ts">
+import { useThreads } from "@copilotkitnext/vue";
+
+const { threads, isLoading, renameThread, deleteThread } = useThreads({
+  userId: "user-1",
+  agentId: "agent-1",
+});
+</script>
+
+<template>
+  <div v-if="isLoading">Loading…</div>
+  <ul v-else>
+    <li v-for="thread in threads" :key="thread.id">
+      {{ thread.name ?? "Untitled" }}
+      <button @click="renameThread(thread.id, 'Renamed')">Rename</button>
+      <button @click="deleteThread(thread.id)">Delete</button>
+    </li>
+  </ul>
+</template>
+```
+
+`useThreads` is a headless composable for Intelligence-platform thread lists. It subscribes to realtime metadata updates when the runtime exposes a websocket URL and returns reactive refs for `threads`, `isLoading`, and `error`.
 
 ## Icon Foundation (Internal)
 

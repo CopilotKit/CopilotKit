@@ -23,6 +23,8 @@ This file defines how agents should keep `@copilotkitnext/vue` aligned with upst
 - `@copilotkitnext/vue` follows the same single-package direction as `@copilotkitnext/react`.
 - Core hooks/providers/types and UI-facing rendering primitives should live in this package.
 - Keep scope aligned with React's package surface; avoid introducing a parallel `vue-ui` package split.
+- Vue-specific public documentation should not be added to the shared `docs/` V2 reference unless the repo adopts an explicit Vue section there.
+- For the current Vue port, package-level guidance lives in `packages/v2/vue/README.md` and user-facing Vue API/component docs should live in Vue Storybook under `examples/v2/vue/storybook`.
 
 ## API compatibility policy
 
@@ -84,6 +86,12 @@ When touching package integration/build behavior, also run:
 
 - `pnpm -C packages/v2/vue build`
 - `pnpm nx run-many -t build --projects=packages/v2/vue`
+
+## Documentation placement
+
+- Do not add Vue-only hook/component pages to `docs/content/docs/reference/v2/**`.
+- Keep package usage notes, parity constraints, and architectural decisions in `packages/v2/vue/README.md`.
+- When a Vue API needs public-facing documentation or examples, add it to Vue Storybook first.
 
 ## Parity update workflow
 
