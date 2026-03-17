@@ -5,7 +5,10 @@ import type {
   CopilotKitCoreSubscriber,
   FrontendToolHandlerContext,
 } from "@copilotkitnext/core";
-import { CopilotKitCoreRuntimeConnectionStatus } from "@copilotkitnext/core";
+import {
+  CopilotKitCoreErrorCode,
+  CopilotKitCoreRuntimeConnectionStatus,
+} from "@copilotkitnext/core";
 import { defineWebInspector } from "@copilotkitnext/web-inspector";
 import { z } from "zod";
 import CopilotKitProvider from "../CopilotKitProvider.vue";
@@ -29,6 +32,7 @@ interface CopilotKitCoreTestAccess {
 describe("CopilotKitProvider", () => {
   let consoleErrorSpy: ReturnType<typeof vi.spyOn>;
   let consoleWarnSpy: ReturnType<typeof vi.spyOn>;
+  const originalFetch = global.fetch;
 
   beforeEach(() => {
     consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
@@ -39,6 +43,7 @@ describe("CopilotKitProvider", () => {
   afterEach(() => {
     consoleErrorSpy.mockRestore();
     consoleWarnSpy.mockRestore();
+    global.fetch = originalFetch;
   });
 
   describe("Basic functionality", () => {
@@ -156,6 +161,98 @@ describe("CopilotKitProvider", () => {
 
       expect(wrapper.find("[data-testid=consumer-a]").text()).toBe("2");
       expect(wrapper.find("[data-testid=consumer-b]").text()).toBe("2");
+    });
+
+    it("treats selfManagedAgents as local agents for runtime validation", () => {
+      const selfManagedAgent = new StateCapturingAgent([], "default");
+
+      mount(CopilotKitProvider, {
+        props: {
+          runtimeUrl: undefined,
+          selfManagedAgents: { default: selfManagedAgent },
+        },
+        slots: { default: () => h("div", "test") },
+      });
+
+      expect(consoleWarnSpy).not.toHaveBeenCalledWith(
+        expect.stringContaining(
+          "Missing required prop: 'runtimeUrl' or 'publicApiKey' or 'publicLicenseKey'",
+        ),
+      );
+    });
+
+    it("registers selfManagedAgents with CopilotKitCore", () => {
+      const selfManagedAgent = new StateCapturingAgent([], "default");
+      selfManagedAgent.state = { source: "self-managed" };
+
+      const { getCore } = mountWithProvider(() => h("div"), {
+        runtimeUrl: undefined,
+        selfManagedAgents: { default: selfManagedAgent },
+      });
+
+      expect(getCore().getAgent("default")?.state).toEqual({
+        source: "self-managed",
+      });
+    });
+
+    it("prefers selfManagedAgents over agents__unsafe_dev_only for the same id", () => {
+      const unsafeAgent = new StateCapturingAgent([], "shared");
+      const selfManagedAgent = new StateCapturingAgent([], "shared");
+      unsafeAgent.state = { source: "unsafe" };
+      selfManagedAgent.state = { source: "self-managed" };
+
+      const { getCore } = mountWithProvider(() => h("div"), {
+        agents__unsafe_dev_only: { shared: unsafeAgent },
+        selfManagedAgents: { shared: selfManagedAgent },
+      });
+
+      expect(getCore().getAgent("shared")?.state).toEqual({
+        source: "self-managed",
+      });
+    });
+
+    it("forwards core errors to onError", async () => {
+      global.fetch = vi.fn().mockRejectedValue(new Error("network failure"));
+      const onError = vi.fn();
+
+      mount(CopilotKitProvider, {
+        props: {
+          runtimeUrl: "http://localhost:59999/nonexistent",
+          onError,
+        },
+        slots: { default: () => h("div", "test") },
+      });
+
+      await vi.waitFor(() => {
+        expect(onError).toHaveBeenCalled();
+      });
+
+      const event = onError.mock.calls[0][0] as {
+        error: Error;
+        code: CopilotKitCoreErrorCode;
+        context: Record<string, any>;
+      };
+      expect(event.code).toBe(CopilotKitCoreErrorCode.RUNTIME_INFO_FETCH_FAILED);
+      expect(event.error).toBeInstanceOf(Error);
+      expect(event.error.message).toContain("network failure");
+      expect(event.context).toEqual(expect.any(Object));
+    });
+
+    it("fires onError without publicApiKey", async () => {
+      global.fetch = vi.fn().mockRejectedValue(new Error("network failure"));
+      const onError = vi.fn();
+
+      mount(CopilotKitProvider, {
+        props: {
+          runtimeUrl: "http://localhost:59999/nonexistent",
+          onError,
+        },
+        slots: { default: () => h("div", "test") },
+      });
+
+      await vi.waitFor(() => {
+        expect(onError).toHaveBeenCalled();
+      });
     });
   });
 

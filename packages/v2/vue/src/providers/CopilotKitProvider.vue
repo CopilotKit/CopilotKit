@@ -27,6 +27,7 @@ const props = withDefaults(
     headers: () => ({}),
     properties: () => ({}),
     agents__unsafe_dev_only: () => ({}),
+    selfManagedAgents: () => ({}),
     frontendTools: () => [],
     humanInTheLoop: () => [],
     showDevConsole: false,
@@ -73,8 +74,12 @@ watch(() => props.humanInTheLoop, (next) => {
 const resolvedPublicKey = computed(
   () => props.publicApiKey ?? props.publicLicenseKey,
 );
+const mergedAgents = computed(() => ({
+  ...props.agents__unsafe_dev_only,
+  ...props.selfManagedAgents,
+}));
 const hasLocalAgents = computed(
-  () => props.agents__unsafe_dev_only && Object.keys(props.agents__unsafe_dev_only).length > 0,
+  () => Object.keys(mergedAgents.value).length > 0,
 );
 
 const mergedHeaders = computed(() => {
@@ -167,7 +172,7 @@ const createCopilotKit = () =>
     headers: mergedHeaders.value,
     credentials: props.credentials,
     properties: props.properties,
-    agents__unsafe_dev_only: props.agents__unsafe_dev_only,
+    agents__unsafe_dev_only: mergedAgents.value,
     tools: allTools.value,
     renderToolCalls: allRenderToolCalls.value,
   });
@@ -213,10 +218,20 @@ watch(
         triggerRef(copilotkit);
       },
     });
+    const sub4 = core.subscribe({
+      onError: (event) => {
+        void props.onError?.({
+          error: event.error,
+          code: event.code,
+          context: event.context,
+        });
+      },
+    });
     onCleanup(() => {
       sub1.unsubscribe();
       sub2.unsubscribe();
       sub3.unsubscribe();
+      sub4.unsubscribe();
     });
   },
   { immediate: true },
@@ -228,7 +243,7 @@ watch(
     () => mergedHeaders.value,
     () => props.credentials,
     () => props.properties,
-    () => props.agents__unsafe_dev_only,
+    () => mergedAgents.value,
     () => props.useSingleEndpoint,
   ],
   () => {
@@ -239,7 +254,7 @@ watch(
     copilotkit.value.setHeaders(mergedHeaders.value);
     copilotkit.value.setCredentials(props.credentials);
     copilotkit.value.setProperties(props.properties);
-    copilotkit.value.setAgents__unsafe_dev_only(props.agents__unsafe_dev_only ?? {});
+    copilotkit.value.setAgents__unsafe_dev_only(mergedAgents.value);
   },
 );
 
