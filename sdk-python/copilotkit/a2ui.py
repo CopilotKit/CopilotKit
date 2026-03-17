@@ -199,10 +199,13 @@ Create polished, visually appealing interfaces:
 - Use Divider between logical sections within cards.
 - Use Row with distribution="spaceBetween" for label-value pairs
   (e.g. "Rating" on left, "4.5/5" on right).
-- Include images when relevant (product photos, avatars, icons):
+- Include images when relevant (logos, icons, product photos):
   - Use Image component with usageHint="smallFeature" or "avatar"
-  - Use real image URLs from Unsplash: https://images.unsplash.com/photo-ID?w=200&h=200&fit=crop
-  - Or Google favicons: https://www.google.com/s2/favicons?domain=example.com&sz=128
+  - Prefer company logos for branded products — Google favicons are reliable:
+    https://www.google.com/s2/favicons?domain=sony.com&sz=128
+    https://www.google.com/s2/favicons?domain=bose.com&sz=128
+  - For generic icons: https://placehold.co/128x128/EEE/999?text=🎧
+  - Do NOT invent Unsplash photo-IDs — they will 404. Only use real, known URLs.
 - Use horizontal List direction for side-by-side comparison cards.
 - Keep cards clean — avoid clutter. Whitespace is good.
 - Use consistent surfaceIds (lowercase, hyphenated).
