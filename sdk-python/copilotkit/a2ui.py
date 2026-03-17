@@ -228,7 +228,11 @@ Example: if a Button has action.name="select_item", provide:
       {"beginRendering": {"surfaceId": "THE-SAME-SURFACE-ID", "root": "root"}}
     ]
   }
-Use the SAME surfaceId as the main surface. Match action names to Button action names."""
+Use the SAME surfaceId as the main surface. Match action names to Button action names.
+
+Note: Action handler components are outside the List template, so Text components
+in action handlers should use {"literalString": "..."} rather than {"path": "..."}.
+(Path bindings in Button action.context are fine — those capture data at click time.)"""
 
 
 def a2ui_prompt(
