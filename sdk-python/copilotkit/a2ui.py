@@ -110,36 +110,6 @@ def render(
     return json.dumps(result)
 
 
-def render_dynamic(
-    surfaceId: str,
-    components: list[dict[str, Any]],
-    root: str,
-    items: list[dict[str, Any]] | None = None,
-    actionHandlers: dict[str, list[dict[str, Any]]] | None = None,
-) -> str:
-    """Build A2UI operations from flat args and serialize — one-liner for dynamic tools.
-
-    Parameter names use camelCase to match the LLM tool-call schema, so you
-    can unpack the tool args directly::
-
-        tool_call = response.tool_calls[0]
-        return a2ui.render_dynamic(**tool_call["args"])
-
-    Args:
-        surfaceId: Unique surface identifier.
-        components: A2UI component array (the schema).
-        root: ID of the root component.
-        items: Plain JSON array of data objects for the template.
-        actionHandlers: Optional dict mapping action names to A2UI operations.
-    """
-    operations = [
-        surface_update(surfaceId, components),
-        data_model_update(surfaceId, {"items": items or []}),
-        begin_rendering(surfaceId, root),
-    ]
-    return render(operations, action_handlers=actionHandlers)
-
-
 # ---------------------------------------------------------------------------
 # Dynamic A2UI prompt builder
 # ---------------------------------------------------------------------------
