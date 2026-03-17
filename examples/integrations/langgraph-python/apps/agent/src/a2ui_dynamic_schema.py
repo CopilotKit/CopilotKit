@@ -18,7 +18,7 @@ from langchain_openai import ChatOpenAI
 
 from copilotkit.a2ui import a2ui_prompt
 
-SCHEMA_PROMPT = a2ui_prompt()
+A2UI_GENERATION_PROMPT = a2ui_prompt()
 
 
 @lc_tool
@@ -60,7 +60,7 @@ def generate_a2ui(runtime: ToolRuntime[Any]) -> str:
     )
 
     response = model_with_tool.invoke(
-        [SystemMessage(content=SCHEMA_PROMPT), *messages],
+        [SystemMessage(content=A2UI_GENERATION_PROMPT), *messages],
     )
 
     # The render_a2ui tool call streams through LangGraph as
