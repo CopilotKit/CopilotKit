@@ -11,15 +11,15 @@
     "paths": {
       "@/*": ["./src/*"],
       "@copilotkitnext/core": [
-        "../core/dist/index.d.ts",
+        "../core/dist/index.d.mts",
         "../core/src/index.ts"
       ],
       "@copilotkitnext/shared": [
-        "../shared/dist/index.d.ts",
+        "../shared/dist/index.d.mts",
         "../shared/src/index.ts"
       ],
       "@copilotkitnext/web-inspector": [
-        "../web-inspector/dist/index.d.ts",
+        "../web-inspector/dist/index.d.mts",
         "../web-inspector/src/index.ts"
       ]
     },
