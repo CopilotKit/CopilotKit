@@ -4,6 +4,7 @@
     "index",
     "fixed-schema",
     "fixed-schema-streaming",
-    "dynamic-schema"
+    "dynamic-schema",
+    "advanced"
   ]
 }

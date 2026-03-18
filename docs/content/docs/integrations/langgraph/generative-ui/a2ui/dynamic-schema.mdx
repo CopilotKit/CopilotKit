@@ -123,21 +123,29 @@ The secondary LLM's `render_a2ui` tool call streams through LangGraph as `TOOL_C
 
 CopilotKit includes a built-in progress indicator that shows while the schema is being generated. It appears automatically and hides once data items start streaming.
 
-To customize it, register your own renderer:
+To replace it with a custom component, see the [Advanced — Custom A2UI Progress Renderer](./advanced#custom-a2ui-progress-renderer) guide.
 
-```tsx
-import { useRenderTool } from "@copilotkit/react-core/v2";
-import { z } from "zod";
+## Action handlers in dynamic schemas
 
-useRenderTool({
-  name: "render_a2ui",
-  parameters: z.any(),
-  render: ({ status, parameters }) => {
-    if (status === "complete") return <></>;
-    return <MyCustomProgress parameters={parameters} />;
-  },
-}, []);
+With dynamic schemas, the secondary LLM can generate action handlers as part of the `render_a2ui` tool call. The `actionHandlers` parameter is optional — if the LLM includes buttons with actions in the component tree, it can also include matching handlers:
+
+```python
+# The render_a2ui tool schema includes actionHandlers
+@lc_tool
+def render_a2ui(
+    surfaceId: str,
+    components: list[dict],
+    root: str,
+    items: list[dict],
+    actionHandlers: dict | None = None,  # LLM can generate these
+) -> str:
+    """Render a dynamic A2UI surface with progressive streaming."""
+    return "rendered"
 ```
+
+The `a2ui_prompt()` generation guidelines instruct the LLM on how to produce valid action handlers alongside buttons. You don't need to configure anything extra — if the LLM generates them, they work automatically.
+
+For frontend-side action handling with `useA2UIActionHandler`, see [Advanced — Action Handlers](./advanced#action-handlers).
 
 ## Customizing the generation prompt
 

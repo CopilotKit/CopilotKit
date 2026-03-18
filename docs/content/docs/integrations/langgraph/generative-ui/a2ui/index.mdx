@@ -10,6 +10,29 @@ import { Callout } from "fumadocs-ui/components/callout"
 
 You can design and preview A2UI schemas visually using the [A2UI Composer](https://a2ui-composer.ag-ui.com/).
 
+## Setup
+
+Enable A2UI in your CopilotRuntime by adding the `a2ui` config:
+
+```typescript title="app/api/copilotkit/route.ts"
+import { CopilotRuntime } from "@copilotkit/runtime";
+
+const runtime = new CopilotRuntime({
+  agents: { default: myAgent },
+  a2ui: {
+    injectA2UITool: true,
+  },
+});
+```
+
+This tells the runtime to apply the A2UI middleware to your agents. The middleware intercepts tool results containing A2UI operations and renders them as rich UI surfaces in the chat.
+
+<Callout type="warn">
+Without `a2ui: { injectA2UITool: true }` in your CopilotRuntime config, A2UI surfaces will not render — tool results will appear as plain text.
+</Callout>
+
+## Approaches
+
 CopilotKit supports three approaches to A2UI, each with different tradeoffs:
 
 - **[Fixed Schema](./fixed-schema)** — Pre-defined schema loaded from JSON. Agent provides data only. Fastest — no LLM schema generation.

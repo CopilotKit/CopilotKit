@@ -123,6 +123,38 @@ The A2UI middleware intercepts `TOOL_CALL_ARGS` events for the registered tool:
 The `dataKey` config tells the middleware which tool argument contains the data array to stream. For `search_flights_streaming`, this is `"flights"`.
 </Callout>
 
+## Adding interactivity (action handlers)
+
+With streaming surfaces, action handlers are declared in the `streamingSurfaces` config (not in the Python tool). The pattern is the same as the fixed-schema approach — when a button is clicked, the pre-declared operations replace the surface instantly.
+
+The `actionHandlers` key is part of the `surface` config:
+
+```typescript
+streamingSurfaces: [{
+  toolName: "search_flights_streaming",
+  surface: {
+    surfaceId: "flight-search-streaming",
+    root: "root",
+    components: flightSchema,
+    dataKey: "flights",
+    actionHandlers: {
+      book_flight: [
+        { surfaceUpdate: { surfaceId: "flight-search-streaming", components: bookedSchema } },
+        { dataModelUpdate: { surfaceId: "flight-search-streaming", contents: [
+          { key: "title", valueString: "Booking Confirmed" },
+          { key: "detail", valueString: "Your flight has been booked." },
+        ]}},
+        { beginRendering: { surfaceId: "flight-search-streaming", root: "root" } },
+      ],
+    },
+  },
+}],
+```
+
+<Callout type="info">
+The key difference from fixed-schema: action handlers are declared in TypeScript (runtime config) rather than Python (tool return). The schema button definition is the same — use `action.name` and `action.context` in the JSON schema. For frontend customization, see [Advanced — Action Handlers](./advanced#action-handlers).
+</Callout>
+
 ## Fixed Schema vs Fixed Schema Streaming
 
 | | Fixed Schema | Fixed Schema Streaming |
