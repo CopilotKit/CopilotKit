@@ -5,6 +5,7 @@ import type {
   ActivityMessage,
   AssistantMessage,
   Message,
+  ReasoningMessage,
   ToolMessage,
 } from "@ag-ui/core";
 import CopilotKitProvider from "../../../providers/CopilotKitProvider.vue";
@@ -703,6 +704,105 @@ describe("CopilotChatMessageView (Vue slots)", () => {
     );
     expect(html.indexOf('data-testid="copilot-chat-cursor"')).toBeGreaterThan(
       html.indexOf('data-testid="interrupt-slot"'),
+    );
+  });
+
+  it("renders reasoning messages via default reasoning component", () => {
+    const messages: Message[] = [
+      {
+        id: "reasoning-default",
+        role: "reasoning",
+        content: "Reasoning content",
+      } as ReasoningMessage,
+    ];
+
+    const wrapper = mountMessageView(messages);
+
+    expect(wrapper.find('[data-message-id="reasoning-default"]').exists()).toBe(
+      true,
+    );
+  });
+
+  it("supports custom reasoning-message slot override", () => {
+    const messages: Message[] = [
+      {
+        id: "reasoning-slot",
+        role: "reasoning",
+        content: "custom reasoning",
+      } as ReasoningMessage,
+    ];
+
+    const wrapper = mountMessageView(messages, {
+      "reasoning-message": ({ message }: { message: ReasoningMessage }) =>
+        h("div", { "data-testid": "reasoning-slot" }, message.id),
+    });
+
+    expect(wrapper.find("[data-testid=reasoning-slot]").text()).toBe(
+      "reasoning-slot",
+    );
+    expect(wrapper.find('[data-message-id="reasoning-slot"]').exists()).toBe(
+      false,
+    );
+  });
+
+  it("hides chat cursor when latest message is reasoning", () => {
+    const messages: Message[] = [
+      {
+        id: "reasoning-streaming",
+        role: "reasoning",
+        content: "thinking",
+      } as ReasoningMessage,
+    ];
+
+    const wrapper = mount(CopilotKitProvider, {
+      props: { runtimeUrl: "/api/copilotkit" },
+      slots: {
+        default: () =>
+          h(
+            CopilotChatConfigurationProvider,
+            { threadId: "thread-1", agentId: "default" },
+            {
+              default: () => h(CopilotChatMessageView, { messages, isRunning: true }),
+            },
+          ),
+      },
+    });
+
+    expect(wrapper.find("[data-testid=copilot-chat-cursor]").exists()).toBe(
+      false,
+    );
+  });
+
+  it("shows chat cursor when latest message is not reasoning", () => {
+    const messages: Message[] = [
+      {
+        id: "reasoning-before",
+        role: "reasoning",
+        content: "thinking",
+      } as ReasoningMessage,
+      {
+        id: "assistant-after",
+        role: "assistant",
+        content: "answer",
+      } as AssistantMessage,
+    ];
+
+    const wrapper = mount(CopilotKitProvider, {
+      props: { runtimeUrl: "/api/copilotkit" },
+      slots: {
+        default: () =>
+          h(
+            CopilotChatConfigurationProvider,
+            { threadId: "thread-1", agentId: "default" },
+            {
+              default: () => h(CopilotChatMessageView, { messages, isRunning: true }),
+            },
+          ),
+      },
+    });
+
+    expect(wrapper.find("[data-testid=copilot-chat-cursor]").exists()).toBe(
+      true,
     );
   });
 });

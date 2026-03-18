@@ -1,4 +1,4 @@
-import type { AssistantMessage, Message, ToolMessage } from "@ag-ui/core";
+import type { AssistantMessage, Message, ReasoningMessage, ToolMessage } from "@ag-ui/core";
 import type { Meta, StoryObj } from "@storybook/vue3-vite";
 import {
   CopilotChatAssistantMessage,
@@ -150,6 +150,19 @@ const toolCallMessages: Message[] = [
     content:
       "Current weather in San Francisco: 68°F, partly cloudy with a gentle breeze.",
   } as ToolMessage,
+];
+
+const reasoningMessages: Message[] = [
+  {
+    id: "user-reasoning",
+    role: "user",
+    content: "Explain this step by step",
+  },
+  {
+    id: "reasoning-1",
+    role: "reasoning",
+    content: "First, I will break the request into smaller parts.",
+  } as ReasoningMessage,
 ];
 
 const meta = {
@@ -430,6 +443,39 @@ export const WithToolCalls: Story = {
                 </div>
               </template>
             </CopilotChatMessageView>
+          </div>
+        </CopilotChatConfigurationProvider>
+      </CopilotKitProvider>
+    `,
+  }),
+};
+
+export const ReasoningParityBridge: Story = {
+  parameters: {
+    docs: {
+      description: {
+        story:
+          "Vue-only parity bridge: reasoning-message rendering and cursor suppression when reasoning is the latest streaming message.",
+      },
+    },
+  },
+  render: () => ({
+    components: {
+      CopilotKitProvider,
+      CopilotChatConfigurationProvider,
+      CopilotChatMessageView,
+    },
+    setup() {
+      return {
+        messages: reasoningMessages,
+        isRunning: true,
+      };
+    },
+    template: `
+      <CopilotKitProvider runtime-url="https://copilotkit.ai">
+        <CopilotChatConfigurationProvider thread-id="123">
+          <div style="height: 100%">
+            <CopilotChatMessageView :messages="messages" :is-running="isRunning" />
           </div>
         </CopilotChatConfigurationProvider>
       </CopilotKitProvider>

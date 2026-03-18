@@ -1,6 +1,7 @@
 import type {
   AssistantMessage,
   Message,
+  ReasoningMessage,
   ToolCall,
   ToolMessage,
   UserMessage,
@@ -217,6 +218,34 @@ export interface CopilotChatAssistantMessageRegenerateButtonSlotProps {
 export interface CopilotChatAssistantMessageToolCallsViewSlotProps {
   message: AssistantMessage;
   messages: Message[];
+}
+
+export interface CopilotChatReasoningMessageHeaderSlotProps {
+  isOpen: boolean;
+  label: string;
+  hasContent: boolean;
+  isStreaming: boolean;
+  onClick?: () => void;
+}
+
+export interface CopilotChatReasoningMessageContentViewSlotProps {
+  isStreaming: boolean;
+  hasContent: boolean;
+  content: string;
+}
+
+export interface CopilotChatReasoningMessageToggleSlotProps {
+  isOpen: boolean;
+  contentView: CopilotChatReasoningMessageContentViewSlotProps;
+}
+
+export interface CopilotChatReasoningMessageLayoutSlotProps {
+  message: ReasoningMessage;
+  messages: Message[];
+  isRunning: boolean;
+  header: CopilotChatReasoningMessageHeaderSlotProps;
+  contentView: CopilotChatReasoningMessageContentViewSlotProps;
+  toggle: CopilotChatReasoningMessageToggleSlotProps;
 }
 
 export interface CopilotChatToolCallRenderSlotProps {

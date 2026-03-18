@@ -158,6 +158,7 @@ Supported message-level slots:
 - `message-before`
 - `assistant-message`
 - `user-message`
+- `reasoning-message`
 - `activity-<activityType>` (dynamic)
 - `activity-message` (fallback)
 - `message-after`
@@ -168,11 +169,22 @@ Supported tool-level slots:
 - `tool-call-<toolName>` (dynamic)
 - `tool-call` (fallback)
 
+## Reasoning Messages
+
+`CopilotChatMessageView` supports reasoning messages via the `reasoning-message` slot, with a default `CopilotChatReasoningMessage` fallback.
+
+Default reasoning behavior mirrors React semantics:
+
+- Shows `Thinking…` while the reasoning message is the latest streaming message.
+- Switches to `Thought for ...` when reasoning finishes.
+- Auto-opens while streaming and auto-collapses on completion.
+- Hides the chat-level cursor when the latest message is reasoning.
+
 ## Current Scope
 
 - **Providers**: `CopilotKitProvider`, `CopilotChatConfigurationProvider`
 - **Composables**: `useCopilotKit`, `useCopilotChatConfiguration`, `useAgent`, `useAgentContext`, `useFrontendTool`, `useHumanInTheLoop`, `useSuggestions`, `useConfigureSuggestions`, `useThreads`, `useInterrupt`
-- **Components**: `CopilotChat`, `CopilotKitInspector`, `CopilotChatAssistantMessage`, `CopilotChatUserMessage`, `CopilotChatMessageView`, `CopilotChatSuggestionPill`, `CopilotChatSuggestionView`, `CopilotChatInput`, `CopilotChatToggleButton`, `CopilotModalHeader`, `CopilotChatView`, `CopilotChatToolCallsView`, `CopilotSidebarView`, `CopilotPopupView`, `CopilotSidebar`, `CopilotPopup`, `MCPAppsActivityRenderer`, `A2UISurfaceActivityRenderer`
+- **Components**: `CopilotChat`, `CopilotKitInspector`, `CopilotChatAssistantMessage`, `CopilotChatUserMessage`, `CopilotChatReasoningMessage`, `CopilotChatMessageView`, `CopilotChatSuggestionPill`, `CopilotChatSuggestionView`, `CopilotChatInput`, `CopilotChatToggleButton`, `CopilotModalHeader`, `CopilotChatView`, `CopilotChatToolCallsView`, `CopilotSidebarView`, `CopilotPopupView`, `CopilotSidebar`, `CopilotPopup`, `MCPAppsActivityRenderer`, `A2UISurfaceActivityRenderer`
 - **Markdown Renderer**: `CopilotChatAssistantMessage` uses `streamdown-vue` (with KaTeX support)
 - **Core**: `CopilotKitCoreVue`
 

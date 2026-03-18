@@ -4,6 +4,7 @@ import type {
   ActivityMessage,
   AssistantMessage,
   Message,
+  ReasoningMessage,
   ToolMessage,
   UserMessage,
 } from "@ag-ui/core";
@@ -22,6 +23,7 @@ import {
 } from "../MCPAppsActivityRenderer";
 import A2UISurfaceActivityRenderer from "../A2UISurfaceActivityRenderer.vue";
 import CopilotChatAssistantMessage from "./CopilotChatAssistantMessage.vue";
+import CopilotChatReasoningMessage from "./CopilotChatReasoningMessage.vue";
 import CopilotChatUserMessage from "./CopilotChatUserMessage.vue";
 
 interface MessageMetaProps {
@@ -65,6 +67,11 @@ defineSlots<{
     isRunning: boolean;
   }) => unknown;
   "user-message"?: (props: { message: UserMessage }) => unknown;
+  "reasoning-message"?: (props: {
+    message: ReasoningMessage;
+    messages: Message[];
+    isRunning: boolean;
+  }) => unknown;
   "activity-message"?: (props: ActivitySlotProps) => unknown;
   [key: string]: ((props: any) => unknown) | undefined;
   cursor?: () => unknown;
@@ -131,6 +138,10 @@ watch(
 
 const resolvedAgentId = computed(
   () => config.value?.agentId ?? DEFAULT_AGENT_ID,
+);
+const lastMessage = computed(() => props.messages[props.messages.length - 1]);
+const showCursor = computed(
+  () => props.isRunning && lastMessage.value?.role !== "reasoning",
 );
 
 function getMeta(message: Message): Omit<MessageMetaProps, "position" | "message"> {
@@ -252,6 +263,20 @@ function resolveToolMessage(message: Message, toolCallId: string): ToolMessage |
       </slot>
 
       <slot
+        v-else-if="message.role === 'reasoning'"
+        name="reasoning-message"
+        :message="message"
+        :messages="messages"
+        :is-running="isRunning"
+      >
+        <CopilotChatReasoningMessage
+          :message="message"
+          :messages="messages"
+          :is-running="isRunning"
+        />
+      </slot>
+
+      <slot
         v-else-if="message.role === 'activity'"
         :name="getActivitySlotName(message.activityType)"
         :activity-type="message.activityType"
@@ -309,7 +334,7 @@ function resolveToolMessage(message: Message, toolCallId: string): ToolMessage |
       :resolve="interruptState.resolve"
     />
 
-    <slot v-if="isRunning" name="cursor">
+    <slot v-if="showCursor" name="cursor">
       <div
         class="w-[11px] h-[11px] rounded-full bg-foreground animate-pulse ml-1"
         data-testid="copilot-chat-cursor"
