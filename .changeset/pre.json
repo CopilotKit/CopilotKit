@@ -48,5 +48,7 @@
     "@copilotkit/voice": "1.54.0",
     "@copilotkitnext/web-inspector": "1.54.0"
   },
-  "changesets": []
+  "changesets": [
+    "cyan-buses-sell"
+  ]
 }

@@ -1,5 +1,7 @@
 # @copilotkit/a2ui-renderer
 
+## 1.54.1-next.0
+
 ## 1.54.0
 
 ### Patch Changes

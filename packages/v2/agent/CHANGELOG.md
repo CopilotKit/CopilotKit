@@ -1,5 +1,12 @@
 # @copilotkitnext/agent
 
+## 1.54.1-next.0
+
+### Patch Changes
+
+- da558d3: Add vertex AI
+  - @copilotkitnext/shared@1.54.1-next.0
+
 ## 1.54.0
 
 ### Minor Changes
