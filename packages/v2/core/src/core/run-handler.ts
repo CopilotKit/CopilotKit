@@ -5,6 +5,7 @@ import {
   Message,
   RunAgentResult,
   Tool,
+  ToolCall,
 } from "@ag-ui/client";
 import { randomUUID, logger, schemaToJsonSchema } from "@copilotkitnext/shared";
 import { zodToJsonSchema } from "zod-to-json-schema";
@@ -369,9 +370,7 @@ export class RunHandler {
 
     let parsedArgs: unknown;
     try {
-      const raw =
-        typeof handlerArgs === "string" ? JSON.parse(handlerArgs) : handlerArgs;
-      parsedArgs = ensureObjectArgs(raw, toolCall.function.name);
+      parsedArgs = parseToolArguments(handlerArgs, toolCall.function.name);
     } catch (error) {
       const parseError =
         error instanceof Error ? error : new Error(String(error));
@@ -460,7 +459,7 @@ export class RunHandler {
    */
   private async executeSpecificTool(
     tool: FrontendTool<any>,
-    toolCall: any,
+    toolCall: ToolCall,
     message: Message,
     agent: AbstractAgent,
     agentId: string,
@@ -521,7 +520,7 @@ export class RunHandler {
    */
   private async executeWildcardTool(
     wildcardTool: FrontendTool<any>,
-    toolCall: any,
+    toolCall: ToolCall,
     message: Message,
     agent: AbstractAgent,
     agentId: string,
@@ -539,8 +538,8 @@ export class RunHandler {
     if (wildcardTool?.handler) {
       let parsedArgs: unknown;
       try {
-        parsedArgs = ensureObjectArgs(
-          JSON.parse(toolCall.function.arguments),
+        parsedArgs = parseToolArguments(
+          toolCall.function.arguments,
           toolCall.function.name,
         );
       } catch (error) {
@@ -925,4 +924,30 @@ export function ensureObjectArgs(
   throw new Error(
     `Tool arguments for ${toolName} parsed to non-object (${typeof parsed})`,
   );
+}
+
+/**
+ * Parses raw tool call arguments into a validated object.
+ *
+ * Some LLM providers (e.g. @ai-sdk/openai-compatible) may send empty string "",
+ * null, or undefined instead of "{}". This function normalises those cases to an
+ * empty object so callers don't crash on JSON.parse("").
+ *
+ * A debug-level warning is emitted when the fallback triggers so silent coercion
+ * is observable in logs.
+ *
+ * @internal Exported for testing only.
+ */
+export function parseToolArguments(
+  rawArgs: unknown,
+  toolName: string,
+): Record<string, unknown> {
+  if (rawArgs === "" || rawArgs === null || rawArgs === undefined) {
+    logger.debug(
+      `[parseToolArguments] Tool "${toolName}" received empty/null/undefined arguments — defaulting to {}`,
+    );
+    return {};
+  }
+  const parsed = typeof rawArgs === "string" ? JSON.parse(rawArgs) : rawArgs;
+  return ensureObjectArgs(parsed, toolName);
 }
