@@ -6,6 +6,21 @@ import type { VueToolCallRenderer } from "../types";
 
 const EMPTY_DEPS: WatchSource<unknown>[] = [];
 
+/**
+ * Registers a frontend tool and optional renderer with CopilotKit core.
+ *
+ * The tool registration is reactive to provided dependencies and is cleaned up
+ * automatically when the current scope is disposed.
+ *
+ * @example
+ * ```ts
+ * useFrontendTool({
+ *   name: "sayHello",
+ *   parameters: z.object({ name: z.string() }),
+ *   handler: async ({ name }) => `Hello ${name}`,
+ * });
+ * ```
+ */
 export function useFrontendTool<T extends Record<string, unknown>>(
   tool: VueFrontendTool<T>,
   deps?: WatchSource<unknown>[],

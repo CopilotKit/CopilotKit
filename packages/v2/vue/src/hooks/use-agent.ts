@@ -31,6 +31,18 @@ export interface UseAgentProps {
   updates?: UseAgentUpdate[];
 }
 
+/**
+ * Resolves and subscribes to a CopilotKit agent for the current Vue scope.
+ *
+ * It returns a reactive `agent` ref that updates when the selected agent
+ * changes, when runtime connection state changes, or when subscribed update
+ * events fire.
+ *
+ * @example
+ * ```ts
+ * const { agent } = useAgent({ agentId: "default" });
+ * ```
+ */
 export function useAgent(props: UseAgentProps = {}) {
   const agentId = computed(() => toValue(props.agentId) ?? DEFAULT_AGENT_ID);
   const { copilotkit } = useCopilotKit();

@@ -39,6 +39,20 @@ function normalizeStaticSuggestions(
   }));
 }
 
+/**
+ * Registers a suggestions configuration (dynamic or static) for the current
+ * chat context.
+ *
+ * Configuration is kept in sync reactively and removed on scope cleanup.
+ *
+ * @example
+ * ```ts
+ * useConfigureSuggestions({
+ *   instructions: "Suggest concise next steps for the user",
+ *   available: "always",
+ * });
+ * ```
+ */
 export function useConfigureSuggestions(
   config: SuggestionsConfigInput | null | undefined,
   deps?: WatchSource<unknown>[],

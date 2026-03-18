@@ -22,6 +22,19 @@ export interface UseSuggestionsResult {
   clearSuggestions: () => void;
 }
 
+/**
+ * Provides reactive access to agent suggestions.
+ *
+ * It tracks suggestion updates for the resolved agent and exposes helpers to
+ * reload or clear suggestions.
+ *
+ * @example
+ * ```ts
+ * const { suggestions, isLoading, reloadSuggestions } = useSuggestions({
+ *   agentId: "default",
+ * });
+ * ```
+ */
 export function useSuggestions(
   options: UseSuggestionsOptions = {},
 ): UseSuggestionsResult {

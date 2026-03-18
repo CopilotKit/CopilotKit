@@ -14,6 +14,20 @@ export interface AgentContextInput {
   value: MaybeRefOrGetter<JsonSerializable>;
 }
 
+/**
+ * Registers reactive contextual data that is sent with agent runs.
+ *
+ * The context entry is added when the composable is active and removed
+ * automatically on scope cleanup.
+ *
+ * @example
+ * ```ts
+ * useAgentContext({
+ *   description: "Current workspace",
+ *   value: "copilotkit-vue",
+ * });
+ * ```
+ */
 export function useAgentContext(context: AgentContextInput): void {
   const { copilotkit } = useCopilotKit();
   const resolvedDescription = computed(() => toValue(context.description));

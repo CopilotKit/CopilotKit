@@ -10,6 +10,21 @@ import type {
   VueToolCallRendererRenderProps,
 } from "../types";
 
+/**
+ * Registers a human-in-the-loop frontend tool.
+ *
+ * The tool pauses execution until `respond` is called from the rendered
+ * component during the `executing` phase.
+ *
+ * @example
+ * ```ts
+ * useHumanInTheLoop({
+ *   name: "approveAction",
+ *   parameters: z.object({ reason: z.string() }),
+ *   render: ApprovalCard,
+ * });
+ * ```
+ */
 export function useHumanInTheLoop<T extends Record<string, unknown>>(
   tool: VueHumanInTheLoop<T>,
   deps?: WatchSource<unknown>[],
