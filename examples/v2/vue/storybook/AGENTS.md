@@ -13,7 +13,7 @@
 
 ## Parity constraints
 
-- Do not add Vue-only stories, controls, or showcase flows unless React has an equivalent.
+- If React has no Storybook equivalent for a shipped Vue parity feature, a Vue-only parity story is allowed and should be marked explicitly as a parity bridge.
 - Story titles should stay aligned with React naming to preserve comparison clarity.
 - Avoid introducing Vue-only scaffold abstractions that make React↔Vue story diffs harder to follow.
 

@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { AbstractAgent, type BaseEvent, type RunAgentParameters, type RunAgentResult } from "@ag-ui/client";
+import { Observable } from "rxjs";
 import { computed, defineComponent, h, ref } from "vue";
 import { z } from "zod";
 import {
@@ -11,6 +13,7 @@ import {
 } from "@copilotkitnext/vue";
 
 const selectedThreadId = ref<"thread---a" | "thread---b" | "thread---c">("thread---a");
+const providerErrorLog = ref<string[]>([]);
 
 const threadOptions: Array<{ id: typeof selectedThreadId.value; label: string }> = [
   { id: "thread---a", label: "Thread A" },
@@ -49,6 +52,44 @@ const toolsMenu: (ToolsMenuItem | "-")[] = [
     },
   },
 ];
+
+class LocalDemoAgent extends AbstractAgent {
+  constructor(agentId = "default") {
+    super({ agentId });
+  }
+
+  run(): Observable<BaseEvent> {
+    return new Observable((subscriber) => subscriber.complete());
+  }
+
+  override clone(): LocalDemoAgent {
+    const cloned = new LocalDemoAgent(this.agentId ?? "default");
+    cloned.threadId = this.threadId;
+    cloned.messages = JSON.parse(JSON.stringify(this.messages));
+    return cloned;
+  }
+
+  override async runAgent(
+    _parameters: RunAgentParameters = {},
+  ): Promise<RunAgentResult> {
+    return { newMessages: [] };
+  }
+
+  override async connectAgent(
+    _parameters: RunAgentParameters = {},
+  ): Promise<RunAgentResult> {
+    return { newMessages: [] };
+  }
+}
+
+const selfManagedDemoAgent = new LocalDemoAgent("default");
+
+function handleProviderError(event: { code: string; error: Error }) {
+  providerErrorLog.value.unshift(`${event.code}: ${event.error.message}`);
+  if (providerErrorLog.value.length > 6) {
+    providerErrorLog.value.length = 6;
+  }
+}
 
 const DefaultChatRouteContent = defineComponent({
   name: "DefaultChatRouteContent",
@@ -101,9 +142,27 @@ function threadButtonStyle(threadId: typeof selectedThreadId.value) {
 </script>
 
 <template>
-  <CopilotKitProvider runtime-url="/api/copilotkit" show-dev-console="auto">
+  <CopilotKitProvider
+    runtime-url="/api/copilotkit"
+    :self-managed-agents="{ default: selfManagedDemoAgent }"
+    :on-error="handleProviderError"
+    show-dev-console="auto"
+  >
     <div style="height: 100vh; margin: 0; padding: 0; overflow: hidden">
       <div style="display: flex; flex-direction: column; height: 100%; padding: 16px; gap: 16px">
+        <div
+          style="border: 1px solid #e5e7eb; border-radius: 12px; padding: 10px 12px; background: #f9fafb; font-size: 12px; color: #111827;"
+        >
+          <strong>Provider parity:</strong>
+          <span> using </span>
+          <code>selfManagedAgents</code>
+          <span> + </span>
+          <code>onError</code>
+          <ul style="margin-top: 8px; padding-left: 18px;">
+            <li v-if="providerErrorLog.length === 0">No provider errors yet</li>
+            <li v-for="entry in providerErrorLog" :key="entry">{{ entry }}</li>
+          </ul>
+        </div>
         <div style="display: flex; gap: 10px; justify-content: center">
           <button
             v-for="thread in threadOptions"

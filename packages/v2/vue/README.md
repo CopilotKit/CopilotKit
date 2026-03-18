@@ -51,6 +51,40 @@ import { CopilotKitProvider } from "@copilotkitnext/vue";
 </template>
 ```
 
+## Provider Parity: `selfManagedAgents` and `onError`
+
+`CopilotKitProvider` supports React-parity provider controls for local agent registration and runtime error handling.
+
+```vue
+<script setup lang="ts">
+import { CopilotKitProvider } from "@copilotkitnext/vue";
+import type { CopilotKitCoreErrorCode } from "@copilotkitnext/core";
+
+function onProviderError(event: {
+  error: Error;
+  code: CopilotKitCoreErrorCode;
+  context: Record<string, any>;
+}) {
+  console.error("CopilotKit provider error", event.code, event.context, event.error);
+}
+</script>
+
+<template>
+  <CopilotKitProvider
+    runtime-url="/api/copilotkit"
+    :self-managed-agents="{}"
+    :on-error="onProviderError"
+  >
+    <slot />
+  </CopilotKitProvider>
+</template>
+```
+
+Notes:
+
+- `selfManagedAgents` is merged with `agents__unsafe_dev_only`, with `selfManagedAgents` taking precedence for duplicate IDs.
+- `onError` receives provider-scope core errors and is independent from chat-level `CopilotChat.onError`.
+
 ## Chat Rendering (Slot-Based)
 
 `@copilotkitnext/vue` uses Vue named/scoped slots for message, activity, and tool rendering:
