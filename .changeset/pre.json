@@ -49,6 +49,7 @@
     "@copilotkitnext/web-inspector": "1.54.0"
   },
   "changesets": [
-    "cyan-buses-sell"
+    "cyan-buses-sell",
+    "handle-empty-tool-arguments"
   ]
 }

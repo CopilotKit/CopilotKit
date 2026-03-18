@@ -1,5 +1,12 @@
 # @copilotkitnext/core
 
+## 1.54.1-next.1
+
+### Patch Changes
+
+- d423001: fix: handle empty tool arguments without crashing — treat empty/null/undefined args as `{}` instead of throwing JSON parse error
+  - @copilotkitnext/shared@1.54.1-next.1
+
 ## 1.54.1-next.0
 
 ### Patch Changes

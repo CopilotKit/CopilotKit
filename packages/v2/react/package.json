@@ -1,6 +1,6 @@
 {
   "name": "@copilotkitnext/react",
-  "version": "1.54.1-next.0",
+  "version": "1.54.1-next.1",
   "deprecated": "This package is deprecated. Use @copilotkit/react instead. V2 features are being integrated into the main @copilotkit exports and will be available under the /v2 subpath.",
   "description": "React components for CopilotKit2",
   "main": "./dist/index.cjs",
