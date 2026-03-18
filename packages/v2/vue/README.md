@@ -85,6 +85,34 @@ Notes:
 - `selfManagedAgents` is merged with `agents__unsafe_dev_only`, with `selfManagedAgents` taking precedence for duplicate IDs.
 - `onError` receives provider-scope core errors and is independent from chat-level `CopilotChat.onError`.
 
+## Chat Error Parity: `CopilotChat.onError`
+
+`CopilotChat` also exposes an `onError` callback with React-parity filtering semantics.
+It only forwards errors for the resolved chat agent (or global errors without an `agentId`).
+
+```vue
+<script setup lang="ts">
+import { CopilotChat } from "@copilotkitnext/vue";
+
+function onChatError(event: {
+  error: Error;
+  code: string;
+  context: Record<string, any>;
+}) {
+  console.error("CopilotChat error", event.code, event.context, event.error);
+}
+</script>
+
+<template>
+  <CopilotChat agent-id="default" :on-error="onChatError" />
+</template>
+```
+
+Notes:
+
+- Provider `onError` and chat `onError` are independent subscriptions and can both fire for the same matching error.
+- Chat `onError` ignores errors scoped to other `agentId` values.
+
 ## Chat Rendering (Slot-Based)
 
 `@copilotkitnext/vue` uses Vue named/scoped slots for message, activity, and tool rendering:

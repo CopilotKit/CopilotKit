@@ -146,3 +146,79 @@ export const ProviderOnError: Story = {
     `,
   }),
 };
+
+export const ChatOnErrorScoped: Story = {
+  render: () => ({
+    components: { CopilotKitProvider, CopilotChat },
+    setup() {
+      const chatErrors = ref<string[]>([]);
+
+      const chatOnError = (event: {
+        error: Error;
+        code: string;
+      }) => {
+        chatErrors.value.push(`${event.code}: ${event.error.message}`);
+      };
+
+      const ErrorEmitter = defineComponent({
+        setup() {
+          const { copilotkit } = useCopilotKit();
+
+          const emitErrorFor = async (agentId?: string) => {
+            await (copilotkit.value as unknown as CopilotKitCoreTestAccess).notifySubscribers(
+              (subscriber) =>
+                subscriber.onError?.({
+                  copilotkit: copilotkit.value,
+                  error: new Error(agentId ? `error for ${agentId}` : "global error"),
+                  code: "RUNTIME_INFO_FETCH_FAILED",
+                  context: agentId ? { source: "storybook", agentId } : { source: "storybook" },
+                }),
+              "storybook chat parity error",
+            );
+          };
+
+          return () =>
+            h("div", { style: "display: flex; gap: 8px; flex-wrap: wrap;" }, [
+              h(
+                "button",
+                {
+                  type: "button",
+                  style:
+                    "padding: 8px 12px; border-radius: 8px; border: 1px solid #d1d5db; background: #111827; color: white;",
+                  onClick: () => void emitErrorFor("default"),
+                },
+                "Emit Error (default)",
+              ),
+              h(
+                "button",
+                {
+                  type: "button",
+                  style:
+                    "padding: 8px 12px; border-radius: 8px; border: 1px solid #d1d5db; background: white; color: #111827;",
+                  onClick: () => void emitErrorFor("other-agent"),
+                },
+                "Emit Error (other-agent)",
+              ),
+            ]);
+        },
+      });
+
+      return { chatErrors, chatOnError, ErrorEmitter };
+    },
+    template: `
+      <div style="display: grid; grid-template-columns: 320px 1fr; gap: 12px; height: 100vh; padding: 12px;">
+        <div style="border: 1px solid #e5e7eb; border-radius: 12px; padding: 12px; overflow: auto;">
+          <h3 style="font-size: 14px; font-weight: 600; margin-bottom: 8px;">Chat onError Log (agent-scoped)</h3>
+          <ErrorEmitter />
+          <ul style="margin-top: 12px; padding-left: 16px;">
+            <li v-if="chatErrors.length === 0">No chat errors yet</li>
+            <li v-for="entry in chatErrors" :key="entry">{{ entry }}</li>
+          </ul>
+        </div>
+        <CopilotKitProvider runtime-url="/api/copilotkit">
+          <CopilotChat :welcome-screen="false" :on-error="chatOnError" />
+        </CopilotKitProvider>
+      </div>
+    `,
+  }),
+};

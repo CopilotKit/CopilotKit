@@ -6,6 +6,7 @@ import { z } from "zod";
 import {
   CopilotChat,
   CopilotKitProvider,
+  useCopilotKit,
   useAgentContext,
   useConfigureSuggestions,
   useFrontendTool,
@@ -14,6 +15,20 @@ import {
 
 const selectedThreadId = ref<"thread---a" | "thread---b" | "thread---c">("thread---a");
 const providerErrorLog = ref<string[]>([]);
+const chatErrorLog = ref<string[]>([]);
+
+type CopilotKitCoreTestAccess = {
+  notifySubscribers: (
+    handler: (subscriber: {
+      onError?: (event: {
+        error: Error;
+        code: string;
+        context: Record<string, any>;
+      }) => void | Promise<void>;
+    }) => void | Promise<void>,
+    errorMessage: string,
+  ) => Promise<void>;
+};
 
 const threadOptions: Array<{ id: typeof selectedThreadId.value; label: string }> = [
   { id: "thread---a", label: "Thread A" },
@@ -91,6 +106,55 @@ function handleProviderError(event: { code: string; error: Error }) {
   }
 }
 
+function handleChatError(event: { code: string; error: Error }) {
+  chatErrorLog.value.unshift(`${event.code}: ${event.error.message}`);
+  if (chatErrorLog.value.length > 6) {
+    chatErrorLog.value.length = 6;
+  }
+}
+
+const EmitSyntheticErrors = defineComponent({
+  name: "EmitSyntheticErrors",
+  setup() {
+    const { copilotkit } = useCopilotKit();
+    const emitErrorFor = async (agentId?: string) => {
+      await (copilotkit.value as unknown as CopilotKitCoreTestAccess).notifySubscribers(
+        (subscriber) =>
+          subscriber.onError?.({
+            error: new Error(agentId ? `synthetic error for ${agentId}` : "synthetic global error"),
+            code: "RUNTIME_INFO_FETCH_FAILED",
+            context: agentId ? { source: "vue-demo", agentId } : { source: "vue-demo" },
+          }),
+        "vue demo parity error",
+      );
+    };
+
+    return () =>
+      h("div", { style: "display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px;" }, [
+        h(
+          "button",
+          {
+            type: "button",
+            style:
+              "padding: 6px 10px; border-radius: 8px; border: 1px solid #d1d5db; background: #111827; color: #fff; cursor: pointer;",
+            onClick: () => void emitErrorFor("default"),
+          },
+          "Emit error (default)",
+        ),
+        h(
+          "button",
+          {
+            type: "button",
+            style:
+              "padding: 6px 10px; border-radius: 8px; border: 1px solid #d1d5db; background: #fff; color: #111827; cursor: pointer;",
+            onClick: () => void emitErrorFor("other-agent"),
+          },
+          "Emit error (other-agent)",
+        ),
+      ]);
+  },
+});
+
 const DefaultChatRouteContent = defineComponent({
   name: "DefaultChatRouteContent",
   setup() {
@@ -121,6 +185,7 @@ const DefaultChatRouteContent = defineComponent({
       h(CopilotChat, {
         threadId: selectedThreadId.value,
         inputToolsMenu: toolsMenu,
+        onError: handleChatError,
       });
   },
 });
@@ -153,14 +218,25 @@ function threadButtonStyle(threadId: typeof selectedThreadId.value) {
         <div
           style="border: 1px solid #e5e7eb; border-radius: 12px; padding: 10px 12px; background: #f9fafb; font-size: 12px; color: #111827;"
         >
-          <strong>Provider parity:</strong>
+          <strong>Error parity:</strong>
           <span> using </span>
-          <code>selfManagedAgents</code>
-          <span> + </span>
-          <code>onError</code>
+          <code>CopilotKitProvider.onError</code>
+          <span> and </span>
+          <code>CopilotChat.onError</code>
+          <EmitSyntheticErrors />
+          <div style="margin-top: 8px;">
+            <strong>Provider errors</strong>
+          </div>
           <ul style="margin-top: 8px; padding-left: 18px;">
             <li v-if="providerErrorLog.length === 0">No provider errors yet</li>
             <li v-for="entry in providerErrorLog" :key="entry">{{ entry }}</li>
+          </ul>
+          <div style="margin-top: 8px;">
+            <strong>Chat errors (default agent only)</strong>
+          </div>
+          <ul style="margin-top: 8px; padding-left: 18px;">
+            <li v-if="chatErrorLog.length === 0">No chat errors yet</li>
+            <li v-for="entry in chatErrorLog" :key="entry">{{ entry }}</li>
           </ul>
         </div>
         <div style="display: flex; gap: 10px; justify-content: center">
