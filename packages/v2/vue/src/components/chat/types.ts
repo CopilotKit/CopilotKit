@@ -10,6 +10,7 @@ import type {
   ToolCallStatus,
 } from "@copilotkitnext/core";
 import type { CopilotChatLabels } from "../../providers/types";
+import type { InterruptEvent } from "../../types";
 
 export type CopilotChatInputMode = "input" | "transcribe" | "processing";
 
@@ -58,6 +59,12 @@ export interface CopilotChatViewOverrideSlotProps extends CopilotChatViewProps {
 export interface CopilotChatMessageViewSlotProps {
   messages: Message[];
   isRunning: boolean;
+}
+
+export interface CopilotChatInterruptSlotProps<TValue = unknown, TResult = unknown> {
+  event: InterruptEvent<TValue>;
+  result: TResult;
+  resolve: (response: unknown) => void;
 }
 
 export interface CopilotChatInputSlotProps {

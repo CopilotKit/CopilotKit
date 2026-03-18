@@ -8,7 +8,12 @@ import { IconChevronDown } from "../icons";
 import CopilotChatInput from "./CopilotChatInput.vue";
 import CopilotChatMessageView from "./CopilotChatMessageView.vue";
 import CopilotChatSuggestionView from "./CopilotChatSuggestionView.vue";
-import type { CopilotChatInputMode, CopilotChatViewProps, ToolsMenuItem } from "./types";
+import type {
+  CopilotChatInputMode,
+  CopilotChatInterruptSlotProps,
+  CopilotChatViewProps,
+  ToolsMenuItem,
+} from "./types";
 
 const FEATHER_HEIGHT = 96;
 const SCROLL_BOTTOM_THRESHOLD = 12;
@@ -31,6 +36,7 @@ const props = withDefaults(
 
 defineSlots<{
   "message-view"?: (props: { messages: Message[]; isRunning: boolean }) => unknown;
+  interrupt?: (props: CopilotChatInterruptSlotProps) => unknown;
   input?: (props: {
     modelValue: string;
     isRunning: boolean;
@@ -403,7 +409,11 @@ onBeforeUnmount(() => {
                 <CopilotChatMessageView
                   :messages="messages"
                   :is-running="isRunning"
-                />
+                >
+                  <template v-if="$slots.interrupt" #interrupt="slotProps">
+                    <slot name="interrupt" v-bind="slotProps" />
+                  </template>
+                </CopilotChatMessageView>
               </slot>
               <div
                 v-if="hasSuggestions"

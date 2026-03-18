@@ -94,7 +94,7 @@ Supported tool-level slots:
 ## Current Scope
 
 - **Providers**: `CopilotKitProvider`, `CopilotChatConfigurationProvider`
-- **Composables**: `useCopilotKit`, `useCopilotChatConfiguration`, `useAgent`, `useAgentContext`, `useFrontendTool`, `useHumanInTheLoop`, `useSuggestions`, `useConfigureSuggestions`, `useThreads`
+- **Composables**: `useCopilotKit`, `useCopilotChatConfiguration`, `useAgent`, `useAgentContext`, `useFrontendTool`, `useHumanInTheLoop`, `useSuggestions`, `useConfigureSuggestions`, `useThreads`, `useInterrupt`
 - **Components**: `CopilotChat`, `CopilotKitInspector`, `CopilotChatAssistantMessage`, `CopilotChatUserMessage`, `CopilotChatMessageView`, `CopilotChatSuggestionPill`, `CopilotChatSuggestionView`, `CopilotChatInput`, `CopilotChatToggleButton`, `CopilotModalHeader`, `CopilotChatView`, `CopilotChatToolCallsView`, `CopilotSidebarView`, `CopilotPopupView`, `CopilotSidebar`, `CopilotPopup`, `MCPAppsActivityRenderer`
 - **Markdown Renderer**: `CopilotChatAssistantMessage` uses `streamdown-vue` (with KaTeX support)
 - **Core**: `CopilotKitCoreVue`
@@ -124,6 +124,40 @@ const { threads, isLoading, renameThread, deleteThread } = useThreads({
 ```
 
 `useThreads` is a headless composable for Intelligence-platform thread lists. It subscribes to realtime metadata updates when the runtime exposes a websocket URL and returns reactive refs for `threads`, `isLoading`, and `error`.
+
+### `useInterrupt`
+
+`useInterrupt` handles agent `on_interrupt` events without requiring Vue users to write render functions or TSX.
+
+For in-chat usage, combine the composable with the `#interrupt` slot on `CopilotChat`:
+
+```vue
+<script setup lang="ts">
+import { useInterrupt } from "@copilotkitnext/vue";
+
+useInterrupt({
+  handler: async ({ event }) => ({ label: String(event.value) }),
+});
+</script>
+
+<template>
+  <CopilotChat>
+    <template #interrupt="{ event, result, resolve }">
+      <button @click="resolve({ approved: true, value: event.value })">
+        {{ result?.label ?? event.value }}
+      </button>
+    </template>
+  </CopilotChat>
+</template>
+```
+
+For manual placement, use `renderInChat: false` and consume the returned refs:
+
+```ts
+const { interrupt, result, hasInterrupt, resolveInterrupt } = useInterrupt({
+  renderInChat: false,
+});
+```
 
 ## Icon Foundation (Internal)
 

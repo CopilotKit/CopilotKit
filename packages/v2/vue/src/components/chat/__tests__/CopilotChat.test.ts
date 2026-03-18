@@ -455,4 +455,44 @@ describe("CopilotChat", () => {
       CopilotKitCoreErrorCode.AGENT_RUN_FAILED,
     );
   });
+
+  it("forwards the interrupt slot through CopilotChat", async () => {
+    let core:
+      | ReturnType<typeof useCopilotKit>["copilotkit"]["value"]
+      | undefined;
+    const Probe = defineComponent({
+      setup() {
+        const { copilotkit } = useCopilotKit();
+        core = copilotkit.value;
+        return () => null;
+      },
+    });
+
+    const wrapper = mount(CopilotKitProvider, {
+      props: {
+        agents__unsafe_dev_only: {
+          default: new StateCapturingAgent([], "default"),
+        },
+      },
+      slots: {
+        default: () =>
+          h("div", [
+            h(CopilotChat, { welcomeScreen: false }, {
+              interrupt: ({ event }: { event: { value: string } }) =>
+                h("div", { "data-testid": "chat-interrupt" }, event.value),
+            }),
+            h(Probe),
+          ]),
+      },
+    });
+
+    core?.setInterruptState({
+      event: { name: "on_interrupt", value: "slot-forwarded" },
+      result: null,
+      resolve: () => undefined,
+    });
+    await nextTick();
+
+    expect(wrapper.get("[data-testid=chat-interrupt]").text()).toBe("slot-forwarded");
+  });
 });

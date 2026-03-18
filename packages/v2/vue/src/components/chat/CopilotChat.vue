@@ -13,6 +13,7 @@ import CopilotChatView from "./CopilotChatView.vue";
 import type {
   CopilotChatInputSlotProps,
   CopilotChatProps,
+  CopilotChatInterruptSlotProps,
   CopilotChatSuggestionViewSlotProps,
   CopilotChatViewOverrideSlotProps,
   CopilotChatWelcomeScreenSlotProps,
@@ -32,6 +33,7 @@ const props = withDefaults(defineProps<CopilotChatProps>(), {
 defineSlots<{
   "chat-view"?: (props: CopilotChatViewOverrideSlotProps) => unknown;
   "message-view"?: (props: { messages: import("@ag-ui/core").Message[]; isRunning: boolean }) => unknown;
+  interrupt?: (props: CopilotChatInterruptSlotProps) => unknown;
   input?: (props: CopilotChatInputSlotProps) => unknown;
   "suggestion-view"?: (props: CopilotChatSuggestionViewSlotProps) => unknown;
   "welcome-screen"?: (props: CopilotChatWelcomeScreenSlotProps) => unknown;
@@ -404,6 +406,10 @@ const defaultChatViewBindings = computed(() => {
       >
         <template v-if="$slots['message-view']" #message-view="slotProps">
           <slot name="message-view" v-bind="slotProps" />
+        </template>
+
+        <template v-if="$slots.interrupt" #interrupt="slotProps">
+          <slot name="interrupt" v-bind="slotProps" />
         </template>
 
         <template v-if="$slots.input" #input="slotProps">

@@ -4,3 +4,4 @@ export * from "./vue-custom-message-renderer";
 export * from "./frontend-tool";
 export * from "./human-in-the-loop";
 export * from "./defineToolCallRenderer";
+export * from "./interrupt";

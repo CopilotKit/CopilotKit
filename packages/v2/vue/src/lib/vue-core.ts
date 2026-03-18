@@ -3,6 +3,7 @@ import type {
   VueToolCallRenderer,
   VueCustomMessageRenderer,
 } from "../types";
+import type { InterruptRenderProps } from "../types/interrupt";
 import {
   CopilotKitCore,
   type CopilotKitCoreConfig,
@@ -21,12 +22,17 @@ export interface CopilotKitCoreVueSubscriber extends CopilotKitCoreSubscriber {
     copilotkit: CopilotKitCoreVue;
     renderToolCalls: VueToolCallRenderer<unknown>[];
   }) => void | Promise<void>;
+  onInterruptStateChanged?: (event: {
+    copilotkit: CopilotKitCoreVue;
+    interruptState: InterruptRenderProps<unknown, unknown> | null;
+  }) => void | Promise<void>;
 }
 
 export class CopilotKitCoreVue extends CopilotKitCore {
   private _renderToolCalls: VueToolCallRenderer<unknown>[] = [];
   private _renderCustomMessages: VueCustomMessageRenderer[] = [];
   private _renderActivityMessages: VueActivityMessageRenderer<unknown>[] = [];
+  private _interruptState: InterruptRenderProps<unknown, unknown> | null = null;
 
   constructor(config: CopilotKitCoreVueConfig) {
     super(config);
@@ -49,6 +55,10 @@ export class CopilotKitCoreVue extends CopilotKitCore {
     return this._renderToolCalls;
   }
 
+  get interruptState(): InterruptRenderProps<unknown, unknown> | null {
+    return this._interruptState;
+  }
+
   setRenderToolCalls(renderToolCalls: VueToolCallRenderer<unknown>[]): void {
     this._renderToolCalls = [...renderToolCalls];
     void this.notifySubscribers((subscriber) => {
@@ -60,6 +70,19 @@ export class CopilotKitCoreVue extends CopilotKitCore {
         });
       }
     }, "Subscriber onRenderToolCallsChanged error:");
+  }
+
+  setInterruptState(
+    interruptState: InterruptRenderProps<unknown, unknown> | null,
+  ): void {
+    this._interruptState = interruptState;
+    void this.notifySubscribers((subscriber) => {
+      const vueSubscriber = subscriber as CopilotKitCoreVueSubscriber;
+      vueSubscriber.onInterruptStateChanged?.({
+        copilotkit: this,
+        interruptState: this._interruptState,
+      });
+    }, "Subscriber onInterruptStateChanged error:");
   }
 
   subscribe(

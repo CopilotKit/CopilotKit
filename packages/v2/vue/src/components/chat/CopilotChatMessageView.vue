@@ -8,6 +8,7 @@ import type {
   UserMessage,
 } from "@ag-ui/core";
 import { DEFAULT_AGENT_ID } from "@copilotkitnext/shared";
+import type { InterruptRenderProps } from "../../types";
 import { useCopilotKit } from "../../providers/useCopilotKit";
 import { useCopilotChatConfiguration } from "../../providers/useCopilotChatConfiguration";
 import {
@@ -36,6 +37,8 @@ interface ActivitySlotProps {
   agent: unknown;
 }
 
+type InterruptSlotProps = InterruptRenderProps<unknown, unknown>;
+
 const props = withDefaults(
   defineProps<{
     messages?: Message[];
@@ -50,6 +53,7 @@ const props = withDefaults(
 defineSlots<{
   "message-before"?: (props: MessageMetaProps) => unknown;
   "message-after"?: (props: MessageMetaProps) => unknown;
+  interrupt?: (props: InterruptSlotProps) => unknown;
   "assistant-message"?: (props: {
     message: AssistantMessage;
     messages: Message[];
@@ -80,6 +84,7 @@ defineSlots<{
 const { copilotkit } = useCopilotKit();
 const config = useCopilotChatConfiguration();
 const stateTick = ref(0);
+const interruptState = ref<InterruptSlotProps | null>(null);
 const componentSlots = useSlots() as Record<string, (props?: any) => unknown>;
 const forwardedSlotNames = computed(() => Object.keys(componentSlots));
 
@@ -93,6 +98,21 @@ watch(
     const sub = agent.subscribe({
       onStateChanged: () => {
         stateTick.value += 1;
+      },
+    });
+
+    onCleanup(() => sub.unsubscribe());
+  },
+  { immediate: true },
+);
+
+watch(
+  () => copilotkit.value,
+  (core, _previous, onCleanup) => {
+    interruptState.value = core.interruptState as InterruptSlotProps | null;
+    const sub = core.subscribe({
+      onInterruptStateChanged: ({ interruptState: nextInterruptState }) => {
+        interruptState.value = nextInterruptState as InterruptSlotProps | null;
       },
     });
 
@@ -252,6 +272,14 @@ function resolveToolMessage(message: Message, toolCallId: string): ToolMessage |
         :state-snapshot="getMeta(message).stateSnapshot"
       />
     </template>
+
+    <slot
+      v-if="interruptState"
+      name="interrupt"
+      :event="interruptState.event"
+      :result="interruptState.result"
+      :resolve="interruptState.resolve"
+    />
 
     <slot v-if="isRunning" name="cursor">
       <div

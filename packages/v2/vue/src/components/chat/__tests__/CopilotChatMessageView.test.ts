@@ -497,4 +497,67 @@ describe("CopilotChatMessageView (Vue slots)", () => {
     expect(typeof sampleBefore.numberOfMessagesInRun).toBe("number");
     expect(typeof sampleAfter.stateSnapshot).toBe("undefined");
   });
+
+  it("renders interrupt slot after messages and before the cursor", async () => {
+    let core:
+      | ReturnType<typeof useCopilotKit>["copilotkit"]["value"]
+      | undefined;
+
+    const Probe = defineComponent({
+      setup() {
+        const { copilotkit } = useCopilotKit();
+        core = copilotkit.value;
+        return () => null;
+      },
+    });
+
+    const messages: Message[] = [
+      {
+        id: "assistant-interrupt",
+        role: "assistant",
+        content: "hello",
+      } as AssistantMessage,
+    ];
+
+    const wrapper = mount(CopilotKitProvider, {
+      props: { runtimeUrl: "/api/copilotkit" },
+      slots: {
+        default: () =>
+          h(
+            CopilotChatConfigurationProvider,
+            { threadId: "thread-1", agentId: "default" },
+            {
+              default: () =>
+                h("div", [
+                  h(Probe),
+                  h(
+                    CopilotChatMessageView,
+                    { messages, isRunning: true },
+                    {
+                      interrupt: ({ event }: { event: { value: string } }) =>
+                        h("div", { "data-testid": "interrupt-slot" }, event.value),
+                    },
+                  ),
+                ]),
+            },
+          ),
+      },
+    });
+
+    core?.setInterruptState({
+      event: { name: "on_interrupt", value: "needs approval" },
+      result: null,
+      resolve: () => undefined,
+    });
+    await nextTick();
+
+    const html = wrapper.html();
+    expect(html.indexOf('data-message-id="assistant-interrupt"')).toBeGreaterThanOrEqual(0);
+    expect(html.indexOf('data-testid="interrupt-slot"')).toBeGreaterThan(
+      html.indexOf('data-message-id="assistant-interrupt"'),
+    );
+    expect(html.indexOf('data-testid="copilot-chat-cursor"')).toBeGreaterThan(
+      html.indexOf('data-testid="interrupt-slot"'),
+    );
+  });
 });
