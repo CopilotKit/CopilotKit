@@ -173,6 +173,13 @@ CRITICAL: You MUST call the render_a2ui tool with these arguments:
 - root: The ID of the root component.
 - items: Plain JSON array of data objects that populate the template.
 
+COMPONENT ID RULES:
+- Every component ID must be unique within the surface.
+- A component MUST NOT reference itself as child/children. This causes a
+  circular dependency error. For example, if a component has id="avatar",
+  its child must be a DIFFERENT id (e.g. "avatar-img"), never "avatar".
+- The child/children tree must be a DAG — no cycles allowed.
+
 PATH RULES FOR TEMPLATES:
 Components inside a template use RELATIVE paths resolved against each item.
 If List has dataBinding="/items" and item has key "name", use path="/name"
@@ -209,6 +216,8 @@ Create polished, visually appealing interfaces:
 - Use horizontal List direction for side-by-side comparison cards.
 - Keep cards clean — avoid clutter. Whitespace is good.
 - Use consistent surfaceIds (lowercase, hyphenated).
+- NEVER use the same ID for a component and its child — this creates a
+  circular dependency. E.g. if id="avatar", child must NOT be "avatar".
 - Column does NOT support "distribution" — only "alignment" and "gap".
   Use distribution only on Row components.
 - Add Button for interactivity. Button needs child (Text ID) + action (name + context).

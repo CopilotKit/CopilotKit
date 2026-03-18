@@ -69,12 +69,30 @@ def search_flights(flights: list[Flight]) -> str:
             a2ui.data_model_update(SURFACE_ID, {"flights": flights}),
             a2ui.begin_rendering(SURFACE_ID, "root"),
         ],
+        action_handlers={
+            # Exact match: fires when a button with action.name="book_flight" is clicked
+            "book_flight": [
+                a2ui.surface_update(SURFACE_ID, BOOKED_SCHEMA),
+                a2ui.data_model_update(SURFACE_ID, {
+                    "title": "Booking Confirmed",
+                    "detail": "Your flight has been booked.",
+                }),
+                a2ui.begin_rendering(SURFACE_ID, "root"),
+            ],
+            # Catch-all: fires for any button action without a specific match
+            "*": [
+                a2ui.data_model_update(SURFACE_ID, {
+                    "status": "Action received",
+                }),
+            ],
+        },
     )
 ```
 
-The `Flight` TypedDict is essential — LangChain serializes it into the tool's JSON schema, which is what the LLM sees when deciding what data to generate. Without typed fields, the LLM has no way to know the expected shape.
-
-The schema is fixed — it never changes between invocations.
+Key points:
+- The `Flight` TypedDict is essential — LangChain serializes it into the tool's JSON schema, which is what the LLM sees when deciding what data to generate.
+- `action_handlers` declares optimistic UI responses. When a user clicks a button, the matching handler replaces the surface instantly — no round-trip to the server.
+- `"book_flight"` matches the `action.name` from the schema button. `"*"` is a catch-all for any unmatched action.
 </Step>
 
 <Step>
@@ -106,13 +124,13 @@ const runtime = new CopilotRuntime({
 </Step>
 </Steps>
 
-## Adding interactivity (action handlers)
+## Action handler details
 
-You can add buttons that trigger optimistic UI updates when clicked. This requires two parts: a button in the schema and a handler in the tool return.
+The `action_handlers` in the example above work together with buttons defined in the A2UI schema. Here's how the schema side looks:
 
-### 1. Define a button with an action in the schema
+### Button with action context
 
-In your `flight_schema.json`, add a Button component with an `action` that captures context from the current data item:
+In your `flight_schema.json`, buttons declare an `action` with data-bound context fields. When clicked, the values are resolved from that specific card's data:
 
 ```json
 {
@@ -129,36 +147,7 @@ In your `flight_schema.json`, add a Button component with an `action` that captu
 }
 ```
 
-When clicked, the button resolves `/flightNumber` and `/price` from that card's data and dispatches a `book_flight` action with those values.
-
-### 2. Declare the handler in the tool return
-
-Pass `action_handlers` to `a2ui.render()`. When the action fires, the matching handler's operations replace the surface instantly:
-
-```python
-@tool
-def search_flights(flights: list[Flight]) -> str:
-    """Search for flights and display results as rich cards."""
-    return a2ui.render(
-        operations=[
-            a2ui.surface_update(SURFACE_ID, FLIGHT_SCHEMA),
-            a2ui.data_model_update(SURFACE_ID, {"flights": flights}),
-            a2ui.begin_rendering(SURFACE_ID, "root"),
-        ],
-        action_handlers={
-            "book_flight": [
-                a2ui.surface_update(SURFACE_ID, BOOKED_SCHEMA),
-                a2ui.data_model_update(SURFACE_ID, {
-                    "title": "Booking Confirmed",
-                    "detail": "Your flight has been booked.",
-                }),
-                a2ui.begin_rendering(SURFACE_ID, "root"),
-            ],
-        },
-    )
-```
-
-The handler is applied optimistically on the frontend — no round-trip to the server. The `"book_flight"` key matches the `action.name` from the schema button. You can also use `"*"` as a catch-all for any unmatched action.
+When this button is clicked on a card showing flight AA100 at $350, the `"book_flight"` handler fires with `context: { flightNumber: "AA100", price: "$350" }`, and the surface instantly replaces with the booking confirmation.
 
 <Callout type="info">
 For custom frontend handling with `useA2UIActionHandler`, custom orchestrators, and the full resolution chain, see the [Advanced — Action Handlers](./advanced#action-handlers) guide.
