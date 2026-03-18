@@ -187,7 +187,9 @@ describe("CopilotKitCore.runAgent - Edge Cases", () => {
   });
 
   it("should handle empty arguments via wildcard tool path", async () => {
-    const handler = vi.fn(async (args: any) => `Wildcard: ${JSON.stringify(args)}`);
+    const handler = vi.fn(
+      async (args: any) => `Wildcard: ${JSON.stringify(args)}`,
+    );
     const wildcardTool = createTool({
       name: "*",
       handler,
