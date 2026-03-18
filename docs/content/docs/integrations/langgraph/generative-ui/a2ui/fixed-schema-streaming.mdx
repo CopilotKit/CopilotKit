@@ -10,7 +10,7 @@ The streaming fixed-schema approach uses the same pre-defined schema as the non-
 
 ## How it works
 
-1. Schema is configured on the frontend (in the CopilotRuntime config)
+1. Schema is configured in the AG-UI A2UI middleware (typically in the CopilotRuntime config)
 2. When the LLM starts calling the tool, the middleware emits the schema immediately
 3. As the LLM streams each item in the data array, the middleware partial-parses it and emits a `dataModelUpdate`
 4. Cards appear one at a time in the UI
@@ -27,24 +27,38 @@ The tool is simple — no `a2ui.render()` needed. The middleware handles everyth
 
 ```python title="apps/agent/src/a2ui_fixed_schema_streaming.py"
 from langchain.tools import tool
+from typing import TypedDict
+
+class Flight(TypedDict):
+    id: str
+    airline: str
+    airlineLogo: str
+    flightNumber: str
+    origin: str
+    destination: str
+    date: str
+    departureTime: str
+    arrivalTime: str
+    duration: str
+    status: str
+    statusIcon: str
+    price: str
 
 @tool
-def search_flights_streaming(flights: list[dict]) -> str:
-    """Search for flights and display results with streaming rendering.
-
-    Each flight must have: id, airline, flightNumber, origin,
-    destination, departureTime, arrivalTime, price, etc.
-    """
+def search_flights_streaming(flights: list[Flight]) -> str:
+    """Search for flights and display results with streaming rendering."""
     return f"Displayed {len(flights)} flights."
 ```
 
-That's it on the Python side. The tool just returns a plain string.
+The `Flight` TypedDict is essential — LangChain serializes it into the tool's JSON schema, which the LLM uses to generate data matching the A2UI schema's data bindings. Without typed fields, the LLM won't know what shape to produce.
+
+That's it on the Python side. The tool just returns a plain string — all rendering is handled by the middleware.
 </Step>
 
 <Step>
 ### Configure streaming surfaces (TypeScript)
 
-The schema and streaming behavior are configured in the CopilotRuntime:
+The schema and streaming behavior are configured in the CopilotRuntime. You can generate your schema using the [A2UI Composer](https://a2ui-composer.ag-ui.com/):
 
 ```typescript title="app/api/copilotkit/route.ts"
 import flightSchema from "./streaming_flight_schema.json";
@@ -113,7 +127,7 @@ The `dataKey` config tells the middleware which tool argument contains the data 
 
 | | Fixed Schema | Fixed Schema Streaming |
 |---|---|---|
-| **Schema defined in** | Python (JSON file) | TypeScript (runtime config) |
+| **Schema defined in** | Python (JSON file) | AG-UI A2UI middleware (runtime config) |
 | **Rendering** | All at once | Card by card |
 | **Python tool complexity** | Uses `a2ui.render()` | Plain `@tool`, returns string |
 | **Streaming config** | None needed | `streamingSurfaces` in runtime |

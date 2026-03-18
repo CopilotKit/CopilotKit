@@ -6,7 +6,7 @@ description: "Pre-defined A2UI schema with dynamic data. The fastest approach �
 import { Callout } from "fumadocs-ui/components/callout"
 import { Steps, Step } from "fumadocs-ui/components/steps"
 
-In the fixed-schema approach, you design the UI schema once (in a JSON file or using the [A2UI Composer](https://a2ui-editor.ag-ui.com/gallery)) and your agent tool only provides the data. The surface appears instantly when the tool returns.
+In the fixed-schema approach, you design the UI schema once (in a JSON file or using the [A2UI Composer](https://a2ui-composer.ag-ui.com/)) and your agent tool only provides the data. The surface appears instantly when the tool returns.
 
 ## How it works
 
@@ -21,7 +21,7 @@ In the fixed-schema approach, you design the UI schema once (in a JSON file or u
 <Step>
 ### Create the A2UI schema
 
-Design your schema using the [A2UI Composer](https://a2ui-editor.ag-ui.com/gallery) or write it by hand. Save it as a JSON file:
+Design your schema using the [A2UI Composer](https://a2ui-composer.ag-ui.com/) or write it by hand. Save it as a JSON file:
 
 ```
 apps/agent/src/a2ui/schemas/flight_schema.json
@@ -35,14 +35,33 @@ apps/agent/src/a2ui/schemas/flight_schema.json
 from copilotkit import a2ui
 from langchain.tools import tool
 from pathlib import Path
+from typing import TypedDict
+
+class Flight(TypedDict):
+    id: str
+    airline: str
+    airlineLogo: str
+    flightNumber: str
+    origin: str
+    destination: str
+    date: str
+    departureTime: str
+    arrivalTime: str
+    duration: str
+    status: str
+    statusIcon: str
+    price: str
 
 SURFACE_ID = "flight-search-results"
 FLIGHT_SCHEMA = a2ui.load_schema(
     Path(__file__).parent / "a2ui" / "schemas" / "flight_schema.json"
 )
+BOOKED_SCHEMA = a2ui.load_schema(
+    Path(__file__).parent / "a2ui" / "schemas" / "booked_schema.json"
+)
 
 @tool
-def search_flights(flights: list[dict]) -> str:
+def search_flights(flights: list[Flight]) -> str:
     """Search for flights and display results as rich cards."""
     return a2ui.render(
         operations=[
@@ -53,7 +72,9 @@ def search_flights(flights: list[dict]) -> str:
     )
 ```
 
-The LLM provides the `flights` data. The schema is fixed — it never changes between invocations.
+The `Flight` TypedDict is essential — LangChain serializes it into the tool's JSON schema, which is what the LLM sees when deciding what data to generate. Without typed fields, the LLM has no way to know the expected shape.
+
+The schema is fixed — it never changes between invocations.
 </Step>
 
 <Step>
@@ -91,7 +112,7 @@ You can add buttons that trigger optimistic UI updates when clicked:
 
 ```python
 @tool
-def search_flights(flights: list[dict]) -> str:
+def search_flights(flights: list[Flight]) -> str:
     """Search for flights and display results as rich cards."""
     return a2ui.render(
         operations=[
