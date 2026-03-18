@@ -1,27 +1,22 @@
 {
-  "name": "langgraph-js-starter",
-  "version": "0.1.0",
+  "name": "copilotkit-langgraph-js-template",
   "private": true,
-  "workspaces": [
-    "apps/*"
-  ],
   "scripts": {
     "dev": "turbo run dev",
+    "dev:app": "turbo run dev --filter='app'",
+    "dev:agent": "turbo run dev --filter='agent'",
     "build": "turbo run build",
-    "lint": "turbo run lint"
+    "lint": "turbo run lint",
+    "clean": "turbo run clean"
   },
   "devDependencies": {
-    "@langchain/langgraph-cli": "^1.0.4",
-    "eslint": "^9.39.1",
-    "eslint-config-next": "^16.0.8",
-    "turbo": "^2.3.3"
+    "turbo": "^2.5.4",
+    "concurrently": "^9.1.2"
   },
-  "packageManager": "pnpm@9.15.0",
-  "engines": {
-    "node": ">=18.0.0"
-  },
-  "overrides": {
-    "@langchain/core": "^1.0.1",
-    "@langchain/langgraph": "1.0.2"
+  "packageManager": "pnpm@9.0.0",
+  "pnpm": {
+    "overrides": {
+      "esbuild": "^0.27.3"
+    }
   }
 }
