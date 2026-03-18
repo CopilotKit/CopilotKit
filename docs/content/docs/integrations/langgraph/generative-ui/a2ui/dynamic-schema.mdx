@@ -24,9 +24,9 @@ In the dynamic-schema approach, a secondary LLM generates the entire UI — sche
 This LangChain tool defines the shape the secondary LLM must produce. It's never actually executed — it's just a schema for `bind_tools`:
 
 ```python title="apps/agent/src/a2ui_dynamic_schema.py"
-from langchain_core.tools import tool as lc_tool
+from langchain.tools import tool
 
-@lc_tool
+@tool
 def render_a2ui(
     surfaceId: str,
     components: list[dict],

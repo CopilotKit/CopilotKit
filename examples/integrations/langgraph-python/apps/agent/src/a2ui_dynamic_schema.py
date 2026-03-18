@@ -14,7 +14,6 @@ from typing import Any
 
 from langchain.tools import tool, ToolRuntime
 from langchain_core.messages import SystemMessage
-from langchain_core.tools import tool as lc_tool
 from langchain_openai import ChatOpenAI
 
 from copilotkit.a2ui import a2ui_prompt
@@ -22,7 +21,7 @@ from copilotkit.a2ui import a2ui_prompt
 A2UI_GENERATION_PROMPT = a2ui_prompt()
 
 
-@lc_tool
+@tool
 def render_a2ui(
     surfaceId: str,
     components: list[dict],
