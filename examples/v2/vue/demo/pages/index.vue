@@ -6,6 +6,7 @@ import { z } from "zod";
 import {
   CopilotChat,
   CopilotKitProvider,
+  type InterruptRenderProps,
   useCopilotKit,
   useAgentContext,
   useConfigureSuggestions,
@@ -16,6 +17,7 @@ import {
 const selectedThreadId = ref<"thread---a" | "thread---b" | "thread---c">("thread---a");
 const providerErrorLog = ref<string[]>([]);
 const chatErrorLog = ref<string[]>([]);
+const interruptResolveLog = ref<string[]>([]);
 
 type CopilotKitCoreTestAccess = {
   notifySubscribers: (
@@ -155,6 +157,44 @@ const EmitSyntheticErrors = defineComponent({
   },
 });
 
+const TriggerSyntheticInterrupt = defineComponent({
+  name: "TriggerSyntheticInterrupt",
+  setup() {
+    const { copilotkit } = useCopilotKit();
+    const triggerInterrupt = () => {
+      const state: InterruptRenderProps<{ prompt: string }, { label: string }> = {
+        event: {
+          name: "on_interrupt",
+          value: {
+            prompt: "Approve applying this interrupt?",
+          },
+        },
+        result: { label: "Awaiting decision" },
+        resolve: (response: unknown) => {
+          interruptResolveLog.value.unshift(JSON.stringify(response));
+          if (interruptResolveLog.value.length > 4) {
+            interruptResolveLog.value.length = 4;
+          }
+          copilotkit.value.setInterruptState(null);
+        },
+      };
+      copilotkit.value.setInterruptState(state);
+    };
+
+    return () =>
+      h(
+        "button",
+        {
+          type: "button",
+          style:
+            "padding: 6px 10px; border-radius: 8px; border: 1px solid #d1d5db; background: #111827; color: #fff; cursor: pointer;",
+          onClick: triggerInterrupt,
+        },
+        "Trigger interrupt",
+      );
+  },
+});
+
 const DefaultChatRouteContent = defineComponent({
   name: "DefaultChatRouteContent",
   setup() {
@@ -186,6 +226,30 @@ const DefaultChatRouteContent = defineComponent({
         threadId: selectedThreadId.value,
         inputToolsMenu: toolsMenu,
         onError: handleChatError,
+      }, {
+        interrupt: ({ event, result, resolve }) =>
+          h(
+            "div",
+            {
+              style:
+                "padding: 10px; margin: 10px; border-radius: 10px; border: 1px solid #d1d5db; background: #f9fafb;",
+            },
+            [
+              h("strong", { style: "display: block; margin-bottom: 4px;" }, "Interrupt"),
+              h("div", { style: "font-size: 13px;" }, String((event as { value?: { prompt?: string } }).value?.prompt ?? "")),
+              h("div", { style: "font-size: 12px; color: #4b5563; margin-top: 6px;" }, String((result as { label?: string } | null)?.label ?? "")),
+              h(
+                "button",
+                {
+                  type: "button",
+                  style:
+                    "margin-top: 8px; padding: 6px 10px; border-radius: 8px; border: 1px solid #111827; background: #111827; color: #fff;",
+                  onClick: () => resolve({ approved: true, source: "vue-demo" }),
+                },
+                "Resolve interrupt",
+              ),
+            ],
+          ),
       });
   },
 });
@@ -224,6 +288,14 @@ function threadButtonStyle(threadId: typeof selectedThreadId.value) {
           <span> and </span>
           <code>CopilotChat.onError</code>
           <EmitSyntheticErrors />
+          <div style="margin-top: 8px;">
+            <strong>Interrupt slot</strong>
+          </div>
+          <TriggerSyntheticInterrupt />
+          <ul style="margin-top: 8px; padding-left: 18px;">
+            <li v-if="interruptResolveLog.length === 0">No interrupt resolutions yet</li>
+            <li v-for="entry in interruptResolveLog" :key="entry">{{ entry }}</li>
+          </ul>
           <div style="margin-top: 8px;">
             <strong>Provider errors</strong>
           </div>

@@ -62,6 +62,20 @@ export function isPromiseLike<TValue>(
 }
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
+/**
+ * Vue composable for handling `on_interrupt` custom events from an agent.
+ *
+ * It tracks the latest pending interrupt, optionally derives UI data via
+ * `handler`, and can publish slot state into `CopilotChat` so consumers render
+ * interrupts through the `#interrupt` slot instead of render functions/TSX.
+ *
+ * @example
+ * ```ts
+ * const { interrupt, hasInterrupt, resolveInterrupt } = useInterrupt({
+ *   handler: ({ event }) => ({ label: String(event.value) }),
+ * });
+ * ```
+ */
 export function useInterrupt<TValue = unknown, TResult = never>(
   config: UseInterruptConfig<TValue, TResult> = {},
 ): UseInterruptResult<TValue, TResult> {
