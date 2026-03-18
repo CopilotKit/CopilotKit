@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import * as VuePackage from "../index";
 
 describe("package exports", () => {
-  it("exports chat components and MCP activity renderer from the package root", () => {
+  it("exports chat components and built-in activity renderers from the package root", () => {
     expect(typeof VuePackage.CopilotChat).toBe("object");
     expect(typeof VuePackage.CopilotChat.View).toBe("object");
     expect(typeof VuePackage.CopilotChatMessageView).toBe("object");
@@ -20,6 +20,8 @@ describe("package exports", () => {
     expect(typeof VuePackage.CopilotSidebar).toBe("object");
     expect(VuePackage.MCPAppsActivityType).toBe("mcp-apps");
     expect(typeof VuePackage.MCPAppsActivityRenderer).toBe("object");
+    expect(VuePackage.A2UISurfaceActivityType).toBe("a2ui-surface");
+    expect(typeof VuePackage.A2UISurfaceActivityRenderer).toBe("object");
   });
 
   it("exports the vue stylesheet entrypoint", () => {

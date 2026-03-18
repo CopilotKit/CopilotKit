@@ -13,6 +13,15 @@ import { useCopilotKit } from "../../../providers/useCopilotKit";
 import { CopilotChatDefaultLabels } from "../../../providers/types";
 import CopilotChatMessageView from "../CopilotChatMessageView.vue";
 
+type CopilotKitCoreTestAccess = {
+  notifySubscribers: (
+    handler: (subscriber: {
+      onRuntimeConnectionStatusChanged?: () => void | Promise<void>;
+    }) => void | Promise<void>,
+    errorMessage: string,
+  ) => Promise<void>;
+};
+
 function mountMessageView(
   messages: Message[],
   slotEntries: Parameters<typeof h>[2] = {},
@@ -181,6 +190,142 @@ describe("CopilotChatMessageView (Vue slots)", () => {
     );
     expect(wrapper.text()).not.toContain(
       "No agent available to fetch resource",
+    );
+  });
+
+  it("renders built-in A2UI fallback only when runtime reports a2ui enabled", async () => {
+    let core:
+      | ReturnType<typeof useCopilotKit>["copilotkit"]["value"]
+      | undefined;
+    const Probe = defineComponent({
+      setup() {
+        const { copilotkit } = useCopilotKit();
+        core = copilotkit.value;
+        return () => null;
+      },
+    });
+
+    const messages: Message[] = [
+      {
+        id: "act-a2ui",
+        role: "activity",
+        activityType: "a2ui-surface",
+        content: {
+          operations: [
+            {
+              beginRendering: {
+                surfaceId: "surface-1",
+                root: "root",
+                styles: {},
+              },
+            },
+          ],
+        },
+      } as ActivityMessage,
+    ];
+
+    const wrapper = mount(CopilotKitProvider, {
+      props: { runtimeUrl: "/api/copilotkit" },
+      slots: {
+        default: () =>
+          h(
+            CopilotChatConfigurationProvider,
+            { threadId: "thread-1", agentId: "default" },
+            {
+              default: () =>
+                h("div", [
+                  h(Probe),
+                  h(CopilotChatMessageView, { messages }),
+                ]),
+            },
+          ),
+      },
+    });
+
+    await nextTick();
+    expect(wrapper.find("[data-testid=a2ui-activity-renderer]").exists()).toBe(
+      false,
+    );
+
+    Object.defineProperty(core as object, "a2uiEnabled", {
+      configurable: true,
+      get: () => true,
+    });
+    await (core as unknown as CopilotKitCoreTestAccess).notifySubscribers(
+      (subscriber) => subscriber.onRuntimeConnectionStatusChanged?.(),
+      "test runtime a2ui enabled",
+    );
+    await nextTick();
+
+    expect(wrapper.find("[data-testid=a2ui-activity-renderer]").exists()).toBe(
+      true,
+    );
+    expect(wrapper.find("[data-testid=a2ui-surface]").attributes("data-surface-id")).toBe(
+      "surface-1",
+    );
+  });
+
+  it("prefers generic activity slot over built-in A2UI fallback", async () => {
+    let core:
+      | ReturnType<typeof useCopilotKit>["copilotkit"]["value"]
+      | undefined;
+    const Probe = defineComponent({
+      setup() {
+        const { copilotkit } = useCopilotKit();
+        core = copilotkit.value;
+        return () => null;
+      },
+    });
+
+    const messages: Message[] = [
+      {
+        id: "act-a2ui-override",
+        role: "activity",
+        activityType: "a2ui-surface",
+        content: {
+          operations: [{ beginRendering: { surfaceId: "surface-2", root: "root" } }],
+        },
+      } as ActivityMessage,
+    ];
+
+    const wrapper = mount(CopilotKitProvider, {
+      props: { runtimeUrl: "/api/copilotkit" },
+      slots: {
+        default: () =>
+          h(
+            CopilotChatConfigurationProvider,
+            { threadId: "thread-1", agentId: "default" },
+            {
+              default: () =>
+                h("div", [
+                  h(Probe),
+                  h(
+                    CopilotChatMessageView,
+                    { messages },
+                    {
+                      "activity-message": () =>
+                        h("div", { "data-testid": "activity-over-a2ui" }, "generic"),
+                    },
+                  ),
+                ]),
+            },
+          ),
+      },
+    });
+
+    Object.defineProperty(core as object, "a2uiEnabled", {
+      configurable: true,
+      get: () => true,
+    });
+    await (core as unknown as CopilotKitCoreTestAccess).notifySubscribers(
+      (subscriber) => subscriber.onRuntimeConnectionStatusChanged?.(),
+      "test runtime a2ui enabled for override",
+    );
+    await nextTick();
+
+    expect(wrapper.find("[data-testid=activity-over-a2ui]").exists()).toBe(true);
+    expect(wrapper.find("[data-testid=a2ui-activity-renderer]").exists()).toBe(
+      false,
     );
   });
 

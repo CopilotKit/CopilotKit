@@ -1,6 +1,6 @@
 import type { AbstractAgent } from "@ag-ui/client";
 import type { CopilotKitCoreErrorCode } from "@copilotkitnext/core";
-import type { VueFrontendTool, VueHumanInTheLoop } from "../types";
+import type { A2UITheme, VueFrontendTool, VueHumanInTheLoop } from "../types";
 
 export interface CopilotKitProviderProps {
   runtimeUrl?: string;
@@ -20,4 +20,7 @@ export interface CopilotKitProviderProps {
     code: CopilotKitCoreErrorCode;
     context: Record<string, any>;
   }) => void | Promise<void>;
+  a2ui?: {
+    theme?: A2UITheme;
+  };
 }

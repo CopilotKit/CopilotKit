@@ -256,6 +256,9 @@ watch(
     }
 
     focusTimer = setTimeout(() => {
+      if (typeof document === "undefined") {
+        return;
+      }
       const container = containerRef.value;
       if (container && !container.contains(document.activeElement)) {
         container.focus({ preventScroll: true });

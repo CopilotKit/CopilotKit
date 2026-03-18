@@ -32,6 +32,7 @@ const props = withDefaults(
     humanInTheLoop: () => [],
     showDevConsole: false,
     useSingleEndpoint: false,
+    a2ui: undefined,
   },
 );
 
@@ -258,7 +259,8 @@ watch(
   },
 );
 
-provide(CopilotKitKey, { copilotkit, executingToolCallIds });
+const a2uiTheme = computed(() => props.a2ui?.theme);
+provide(CopilotKitKey, { copilotkit, executingToolCallIds, a2uiTheme });
 </script>
 
 <template>

@@ -51,7 +51,7 @@ import { CopilotKitProvider } from "@copilotkitnext/vue";
 </template>
 ```
 
-## Provider Parity: `selfManagedAgents` and `onError`
+## Provider Parity: `selfManagedAgents`, `onError`, and `a2ui`
 
 `CopilotKitProvider` supports React-parity provider controls for local agent registration and runtime error handling.
 
@@ -74,6 +74,7 @@ function onProviderError(event: {
     runtime-url="/api/copilotkit"
     :self-managed-agents="{}"
     :on-error="onProviderError"
+    :a2ui="{ theme: { mode: 'light' } }"
   >
     <slot />
   </CopilotKitProvider>
@@ -84,6 +85,7 @@ Notes:
 
 - `selfManagedAgents` is merged with `agents__unsafe_dev_only`, with `selfManagedAgents` taking precedence for duplicate IDs.
 - `onError` receives provider-scope core errors and is independent from chat-level `CopilotChat.onError`.
+- `a2ui.theme` customizes the built-in `a2ui-surface` fallback renderer when the runtime reports `a2uiEnabled: true`.
 
 ## Chat Error Parity: `CopilotChat.onError`
 
@@ -170,7 +172,7 @@ Supported tool-level slots:
 
 - **Providers**: `CopilotKitProvider`, `CopilotChatConfigurationProvider`
 - **Composables**: `useCopilotKit`, `useCopilotChatConfiguration`, `useAgent`, `useAgentContext`, `useFrontendTool`, `useHumanInTheLoop`, `useSuggestions`, `useConfigureSuggestions`, `useThreads`, `useInterrupt`
-- **Components**: `CopilotChat`, `CopilotKitInspector`, `CopilotChatAssistantMessage`, `CopilotChatUserMessage`, `CopilotChatMessageView`, `CopilotChatSuggestionPill`, `CopilotChatSuggestionView`, `CopilotChatInput`, `CopilotChatToggleButton`, `CopilotModalHeader`, `CopilotChatView`, `CopilotChatToolCallsView`, `CopilotSidebarView`, `CopilotPopupView`, `CopilotSidebar`, `CopilotPopup`, `MCPAppsActivityRenderer`
+- **Components**: `CopilotChat`, `CopilotKitInspector`, `CopilotChatAssistantMessage`, `CopilotChatUserMessage`, `CopilotChatMessageView`, `CopilotChatSuggestionPill`, `CopilotChatSuggestionView`, `CopilotChatInput`, `CopilotChatToggleButton`, `CopilotModalHeader`, `CopilotChatView`, `CopilotChatToolCallsView`, `CopilotSidebarView`, `CopilotPopupView`, `CopilotSidebar`, `CopilotPopup`, `MCPAppsActivityRenderer`, `A2UISurfaceActivityRenderer`
 - **Markdown Renderer**: `CopilotChatAssistantMessage` uses `streamdown-vue` (with KaTeX support)
 - **Core**: `CopilotKitCoreVue`
 
@@ -320,16 +322,18 @@ Deterministic rules:
    `inProgress` -> `executing` -> `complete`.
 3. Keep built-in MCP apps fallback behavior:
    If no matching slot handles `mcp-apps`, render `MCPAppsActivityRenderer`.
-4. Keep slot payloads stable and parity-tested against React behavior (not component internals).
-5. Keep public Vue interaction APIs idiomatic:
+4. Keep built-in A2UI fallback behavior:
+   If no matching slot handles `a2ui-surface` and the runtime reports `a2uiEnabled: true`, render `A2UISurfaceActivityRenderer`.
+5. Keep slot payloads stable and parity-tested against React behavior (not component internals).
+6. Keep public Vue interaction APIs idiomatic:
    Use emits for component-level UI interactions such as `@submit-message`, `@input-change`, `@select-suggestion`, `@edit-message`, `@switch-to-branch`, `@thumbs-up`, `@thumbs-down`, `@read-aloud`, and `@regenerate`.
-6. Keep slot payload actions imperative:
+7. Keep slot payload actions imperative:
    Use slot payload callbacks such as `onCopy`, `onEdit`, `goPrev`, `goNext`, and `onSubmitMessage` for slotted control surfaces.
-7. Only keep public callback props for true command-style flows that must be awaited by the child:
+8. Only keep public callback props for true command-style flows that must be awaited by the child:
    Current exception: `CopilotChatView.onFinishTranscribeWithAudio`.
-8. If a programmatic renderer registration path is used:
+9. If a programmatic renderer registration path is used:
    Prefer Vue SFC/components over handwritten `h(...)` render functions when either can express the same behavior.
-9. Keep slots as the primary public customization mechanism:
+10. Keep slots as the primary public customization mechanism:
    Component-based registered renderers are acceptable for programmatic registration, but they do not replace the slot-first model.
 
 This is an architectural constraint for future parity work: new React render-hook behavior should be mirrored by extending slot contracts, not by re-introducing provider render props in Vue.

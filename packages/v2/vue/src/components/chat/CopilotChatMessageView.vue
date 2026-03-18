@@ -12,10 +12,15 @@ import type { InterruptRenderProps } from "../../types";
 import { useCopilotKit } from "../../providers/useCopilotKit";
 import { useCopilotChatConfiguration } from "../../providers/useCopilotChatConfiguration";
 import {
+  A2UIActivityContentSchema,
+  A2UISurfaceActivityType,
+} from "../a2ui";
+import {
   MCPAppsActivityContentSchema,
   MCPAppsActivityRenderer,
   MCPAppsActivityType,
 } from "../MCPAppsActivityRenderer";
+import A2UISurfaceActivityRenderer from "../A2UISurfaceActivityRenderer.vue";
 import CopilotChatAssistantMessage from "./CopilotChatAssistantMessage.vue";
 import CopilotChatUserMessage from "./CopilotChatUserMessage.vue";
 
@@ -81,7 +86,7 @@ defineSlots<{
   }) => unknown;
 }>();
 
-const { copilotkit } = useCopilotKit();
+const { copilotkit, a2uiTheme } = useCopilotKit();
 const config = useCopilotChatConfiguration();
 const stateTick = ref(0);
 const interruptState = ref<InterruptSlotProps | null>(null);
@@ -113,6 +118,9 @@ watch(
     const sub = core.subscribe({
       onInterruptStateChanged: ({ interruptState: nextInterruptState }) => {
         interruptState.value = nextInterruptState as InterruptSlotProps | null;
+      },
+      onRuntimeConnectionStatusChanged: () => {
+        stateTick.value += 1;
       },
     });
 
@@ -172,6 +180,14 @@ function getActivitySlotName(activityType: string): `activity-${string}` {
 
 function parseMCPContent(content: unknown) {
   const parsed = MCPAppsActivityContentSchema.safeParse(content);
+  if (!parsed.success) {
+    return undefined;
+  }
+  return parsed.data;
+}
+
+function parseA2UIContent(content: unknown) {
+  const parsed = A2UIActivityContentSchema.safeParse(content);
   if (!parsed.success) {
     return undefined;
   }
@@ -250,6 +266,18 @@ function resolveToolMessage(message: Message, toolCallId: string): ToolMessage |
           :message="message"
           :agent="copilotkit.getAgent(resolvedAgentId)"
         >
+          <A2UISurfaceActivityRenderer
+            v-if="
+              message.activityType === A2UISurfaceActivityType &&
+              copilotkit.a2uiEnabled &&
+              parseA2UIContent(message.content)
+            "
+            :activity-type="A2UISurfaceActivityType"
+            :content="parseA2UIContent(message.content)!"
+            :message="message"
+            :agent="copilotkit.getAgent(resolvedAgentId)"
+            :theme="a2uiTheme"
+          />
           <MCPAppsActivityRenderer
             v-if="message.activityType === MCPAppsActivityType && parseMCPContent(message.content)"
             :activity-type="MCPAppsActivityType"
