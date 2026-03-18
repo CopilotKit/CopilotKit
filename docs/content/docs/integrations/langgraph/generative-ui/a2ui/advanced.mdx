@@ -1,6 +1,6 @@
 ---
 title: "Advanced"
-description: "Custom progress rendering, theming, and advanced A2UI configuration."
+description: "Custom progress rendering, frontend action handlers, and advanced A2UI configuration."
 ---
 
 import { Callout } from "fumadocs-ui/components/callout"
@@ -239,24 +239,3 @@ const activityRenderers = [
 | `resolveDeclaredOps` | Helper: resolves exact match or `"*"` catch-all from declared handlers map |
 | `defaultActionOrchestrator` | The built-in orchestrator — hooks first, then declared fallback |
 
-## Theming A2UI Surfaces
-
-A2UI surfaces are rendered using web components from `@a2ui/lit`. You can customize their appearance with CSS custom properties:
-
-```css title="src/a2ui/theme.css"
-:root {
-  --a2ui-primary: #1a1a1a;
-  --a2ui-card-bg: #ffffff;
-  --a2ui-card-border: #e5e5e5;
-  --a2ui-card-radius: 12px;
-  --a2ui-foreground: #1a1a1a;
-  --a2ui-input-border: #d4d4d4;
-  --a2ui-background: #fafafa;
-}
-```
-
-Import this CSS in your layout:
-
-```tsx title="src/app/layout.tsx"
-import "@/a2ui/theme.css";
-```
