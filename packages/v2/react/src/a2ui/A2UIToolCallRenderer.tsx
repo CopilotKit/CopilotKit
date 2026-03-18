@@ -1,5 +1,6 @@
-import React, { useRef } from "react";
-import { useRenderTool } from "../hooks/use-render-tool";
+import React, { useEffect, useRef } from "react";
+import { useCopilotKit } from "../providers/CopilotKitProvider";
+import { defineToolCallRenderer } from "../types/defineToolCallRenderer";
 import { z } from "zod";
 
 /**
@@ -248,24 +249,35 @@ function Row({
 // --- Hook entry point ---
 
 /**
- * Registers the built-in `render_a2ui` tool call renderer via `useRenderTool`.
- * Render as a child component when A2UI is enabled.
+ * Registers the built-in `render_a2ui` tool call renderer via the props-based
+ * `setRenderToolCalls` mechanism (not `useRenderTool`).
  *
- * Users can override by registering their own `useRenderTool({ name: "render_a2ui", ... })`.
+ * This ensures user-registered `useRenderTool({ name: "render_a2ui", ... })`
+ * hooks automatically override the built-in, since the merge logic in
+ * react-core.ts gives hook-based entries priority over prop-based entries.
  */
 export function A2UIBuiltInToolCallRenderer(): null {
-  useRenderTool(
-    {
+  const { copilotkit } = useCopilotKit();
+
+  useEffect(() => {
+    const renderer = defineToolCallRenderer({
       name: RENDER_A2UI_TOOL_NAME,
-      parameters: z.any(),
-      render: ({ status, parameters }) => {
+      args: z.any(),
+      render: ({ status, args: parameters }) => {
         if (status === "complete") return <></>;
         const items = (parameters as any)?.items;
         if (Array.isArray(items) && items.length > 0) return <></>;
         return <A2UIProgressIndicator parameters={parameters} />;
       },
-    },
-    [],
-  );
+    });
+
+    // Register via props-based mechanism so useRenderTool hooks take priority
+    const existing = (copilotkit as any)._renderToolCalls ?? [];
+    copilotkit.setRenderToolCalls([
+      ...existing.filter((rc: any) => rc.name !== RENDER_A2UI_TOOL_NAME),
+      renderer,
+    ]);
+  }, [copilotkit]);
+
   return null;
 }
