@@ -9,6 +9,19 @@ Vue-specific documentation does not belong in the shared `docs/` V2 reference un
 - Keep package guidance and architectural notes in this README.
 - Put public-facing Vue API and component documentation in Vue Storybook under `examples/v2/vue/storybook`.
 
+## Parity Delivery Checklist
+
+When porting a React feature to Vue, treat this as required delivery criteria.
+All items must be complete for the feature to be considered done.
+
+1. API parity in `packages/v2/vue/src/**` and package exports.
+2. Functional parity with React behavior and edge cases.
+3. Equivalent Vue tests for behavior, lifecycle, and error paths.
+4. JSDoc on new public hooks/composables (with example usage).
+5. Vue package docs in this README.
+6. Vue Storybook coverage for user-visible behavior.
+7. Vue demo/example usage in `examples/v2/vue/demo/**` for user-facing features.
+
 ## Installation
 
 ```bash

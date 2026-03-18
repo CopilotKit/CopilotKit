@@ -23,6 +23,17 @@
 - Upgrade each story to full behavior parity as the corresponding Vue primitive lands.
 - Prefer stable, deterministic props/data so visual comparisons remain consistent.
 
+## Story Completion Checklist (Blocking)
+
+For each ported user-visible Vue feature, story parity is complete only if all items below are true.
+
+1. There is a Vue story that maps to the corresponding React story intent.
+2. Story title/grouping is aligned with React naming.
+3. Core interaction states are represented (default, active/loading, error/fallback where applicable).
+4. Slot/customization behavior is demonstrated when the feature uses Vue slots.
+5. Story data is deterministic and stable for side-by-side React↔Vue comparison.
+6. Story build and dev both succeed (`storybook build`, `storybook dev`).
+
 ## Validation
 
 Run after meaningful changes:

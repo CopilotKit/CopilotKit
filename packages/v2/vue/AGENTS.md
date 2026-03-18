@@ -109,3 +109,28 @@ When React changes:
 4. Port/add equivalent Vue tests for the changed behavior.
 5. Run validation gates.
 6. If divergence remains, document the reason and keep it explicit and minimal.
+
+## Parity Checklist (Blocking)
+
+For each ported React feature, all items below are required before the feature is considered complete in Vue.
+Missing any item is a blocker.
+
+1. API parity:
+   - Public Vue API surface is present in `packages/v2/vue/src/**`.
+   - Exports are wired through the relevant package barrels.
+2. Functional parity:
+   - Runtime behavior and edge-case semantics match React intent.
+   - Any required Vue divergence is minimal and documented in `packages/v2/vue/README.md`.
+3. Test parity:
+   - Equivalent behavior coverage exists in Vue tests.
+   - Lifecycle and error/edge paths are covered, not only happy path.
+4. Code-level docs parity:
+   - New public hooks/composables include JSDoc on implementation with at least one usage example.
+5. Package docs parity:
+   - Vue-facing usage/API notes are documented in `packages/v2/vue/README.md`.
+6. Visual parity:
+   - A corresponding Vue Storybook story exists (or is updated) in `examples/v2/vue/storybook/**` for user-visible features.
+7. Demo/example parity:
+   - A runnable Vue demo/example usage exists in `examples/v2/vue/demo/**` when the feature is user-facing.
+
+Use this checklist together with `Parity update workflow` above. A port is done only when both are satisfied.
