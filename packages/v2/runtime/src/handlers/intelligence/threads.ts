@@ -6,6 +6,7 @@ import {
 import { logger } from "@copilotkitnext/shared";
 import { errorResponse } from "../shared/json-response";
 import { isValidIdentifier } from "../shared/intelligence-utils";
+import { resolveIntelligenceUser } from "../shared/resolve-intelligence-user";
 
 interface ThreadsHandlerParams {
   runtime: CopilotRuntimeLike;
@@ -14,6 +15,12 @@ interface ThreadsHandlerParams {
 
 interface ThreadMutationParams extends ThreadsHandlerParams {
   threadId: string;
+}
+
+interface ThreadMutationContext {
+  userId: string;
+  agentId: string;
+  body: Record<string, unknown>;
 }
 
 async function parseJsonBody(
@@ -40,6 +47,28 @@ function requireIntelligenceRuntime(
   return runtime;
 }
 
+async function resolveThreadMutationContext(
+  runtime: CopilotIntelligenceRuntimeLike,
+  request: Request,
+): Promise<ThreadMutationContext | Response> {
+  const body = await parseJsonBody(request);
+  if (body instanceof Response) return body;
+
+  const user = await resolveIntelligenceUser({ runtime, request });
+  if (user instanceof Response) return user;
+
+  const agentId = body.agentId;
+  if (!isValidIdentifier(agentId)) {
+    return errorResponse("Valid agentId is required", 400);
+  }
+
+  return {
+    body,
+    userId: user.id,
+    agentId,
+  };
+}
+
 export async function handleListThreads({
   runtime,
   request,
@@ -51,18 +80,19 @@ export async function handleListThreads({
 
   try {
     const url = new URL(request.url);
-    const userId = url.searchParams.get("userId");
     const agentId = url.searchParams.get("agentId");
+    const user = await resolveIntelligenceUser({
+      runtime: intelligenceRuntime,
+      request,
+    });
+    if (user instanceof Response) return user;
 
-    if (!isValidIdentifier(userId) || !isValidIdentifier(agentId)) {
-      return errorResponse(
-        "Valid userId and agentId query params are required",
-        400,
-      );
+    if (!isValidIdentifier(agentId)) {
+      return errorResponse("Valid agentId query param is required", 400);
     }
 
     const data = await intelligenceRuntime.intelligence.listThreads({
-      userId,
+      userId: user.id,
       agentId,
     });
 
@@ -84,18 +114,20 @@ export async function handleUpdateThread({
   }
 
   try {
-    const body = await parseJsonBody(request);
-    if (body instanceof Response) return body;
-    const { userId, agentId, ...updates } = body;
+    const mutation = await resolveThreadMutationContext(
+      intelligenceRuntime,
+      request,
+    );
+    if (mutation instanceof Response) return mutation;
 
-    if (!isValidIdentifier(userId) || !isValidIdentifier(agentId)) {
-      return errorResponse("Valid userId and agentId are required", 400);
-    }
+    const updates = { ...mutation.body };
+    delete updates.agentId;
+    delete updates.userId;
 
     const thread = await intelligenceRuntime.intelligence.updateThread({
       threadId,
-      userId,
-      agentId,
+      userId: mutation.userId,
+      agentId: mutation.agentId,
       updates,
     });
 
@@ -116,17 +148,15 @@ export async function handleSubscribeToThreads({
   }
 
   try {
-    const body = await parseJsonBody(request);
-    if (body instanceof Response) return body;
-    const userId = body.userId;
-
-    if (typeof userId !== "string" || userId.length === 0) {
-      return errorResponse("userId is required", 400);
-    }
+    const user = await resolveIntelligenceUser({
+      runtime: intelligenceRuntime,
+      request,
+    });
+    if (user instanceof Response) return user;
 
     const credentials =
       await intelligenceRuntime.intelligence.ɵsubscribeToThreads({
-        userId,
+        userId: user.id,
       });
 
     return Response.json({ joinToken: credentials.joinToken });
@@ -147,18 +177,16 @@ export async function handleArchiveThread({
   }
 
   try {
-    const body = await parseJsonBody(request);
-    if (body instanceof Response) return body;
-    const { userId, agentId } = body;
-
-    if (!isValidIdentifier(userId) || !isValidIdentifier(agentId)) {
-      return errorResponse("Valid userId and agentId are required", 400);
-    }
+    const mutation = await resolveThreadMutationContext(
+      intelligenceRuntime,
+      request,
+    );
+    if (mutation instanceof Response) return mutation;
 
     await intelligenceRuntime.intelligence.archiveThread({
       threadId,
-      userId,
-      agentId,
+      userId: mutation.userId,
+      agentId: mutation.agentId,
     });
 
     return Response.json({ threadId, archived: true });
@@ -179,18 +207,16 @@ export async function handleDeleteThread({
   }
 
   try {
-    const body = await parseJsonBody(request);
-    if (body instanceof Response) return body;
-    const { userId, agentId } = body;
-
-    if (!isValidIdentifier(userId) || !isValidIdentifier(agentId)) {
-      return errorResponse("Valid userId and agentId are required", 400);
-    }
+    const mutation = await resolveThreadMutationContext(
+      intelligenceRuntime,
+      request,
+    );
+    if (mutation instanceof Response) return mutation;
 
     await intelligenceRuntime.intelligence.deleteThread({
       threadId,
-      userId,
-      agentId,
+      userId: mutation.userId,
+      agentId: mutation.agentId,
     });
 
     return Response.json({ threadId, deleted: true });

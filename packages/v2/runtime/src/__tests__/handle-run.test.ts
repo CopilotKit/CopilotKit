@@ -290,7 +290,12 @@ describe("handleRunAgent", () => {
     const createIntelligenceRuntime = (
       agent: AbstractAgent,
       platform?: Partial<CopilotKitIntelligence>,
-      options?: { generateThreadNames?: boolean },
+      options?: {
+        generateThreadNames?: boolean;
+        identifyUser?: (
+          request: Request,
+        ) => { id: string } | Promise<{ id: string }>;
+      },
     ) => {
       const runner = Object.create(IntelligenceAgentRunner.prototype);
       runner.run = vi.fn(
@@ -308,6 +313,8 @@ describe("handleRunAgent", () => {
         mode: "intelligence",
         generateThreadNames: options?.generateThreadNames ?? false,
         intelligence: platform,
+        identifyUser:
+          options?.identifyUser ?? vi.fn().mockResolvedValue({ id: "user-1" }),
       } as unknown as CopilotRuntime;
     };
 
@@ -349,7 +356,7 @@ describe("handleRunAgent", () => {
 
       const response = await handleRunAgent({
         runtime,
-        request: createRunRequest({ "X-User-Id": "user-1" }),
+        request: createRunRequest(),
         agentId: "my-agent",
       });
 
@@ -371,6 +378,40 @@ describe("handleRunAgent", () => {
       });
     });
 
+    it("uses identifyUser instead of a conflicting X-User-Id header", async () => {
+      const agent = createAgentForIntelligence();
+      const platform = {
+        getOrCreateThread: vi.fn().mockResolvedValue({
+          thread: { id: "thread-1", name: null },
+          created: false,
+        }),
+        getThreadMessages: vi.fn().mockResolvedValue({ messages: [] }),
+        ɵacquireThreadLock: vi
+          .fn()
+          .mockResolvedValue({ joinToken: "jt-123", joinCode: "jc-123" }),
+      };
+      const identifyUser = vi.fn().mockResolvedValue({ id: "resolved-user" });
+      const runtime = createIntelligenceRuntime(agent, platform as any, {
+        identifyUser,
+      });
+      const request = createRunRequest({ "X-User-Id": "legacy-user" });
+
+      const response = await handleRunAgent({
+        runtime,
+        request,
+        agentId: "my-agent",
+      });
+
+      expect(response.status).toBe(200);
+      expect(identifyUser).toHaveBeenCalledTimes(1);
+      expect(identifyUser).toHaveBeenCalledWith(request);
+      expect(platform.getOrCreateThread).toHaveBeenCalledWith({
+        threadId: "thread-1",
+        userId: "resolved-user",
+        agentId: "my-agent",
+      });
+    });
+
     it("passes joinCode to runner.run() when provided", async () => {
       const agent = createAgentForIntelligence();
       const platform = {
@@ -387,7 +428,7 @@ describe("handleRunAgent", () => {
 
       await handleRunAgent({
         runtime,
-        request: createRunRequest({ "X-User-Id": "user-1" }),
+        request: createRunRequest(),
         agentId: "my-agent",
       });
 
@@ -410,7 +451,7 @@ describe("handleRunAgent", () => {
 
       const response = await handleRunAgent({
         runtime,
-        request: createRunRequest({ "X-User-Id": "user-1" }),
+        request: createRunRequest(),
         agentId: "my-agent",
       });
 
@@ -436,7 +477,7 @@ describe("handleRunAgent", () => {
 
       const response = await handleRunAgent({
         runtime,
-        request: createRunRequest({ "X-User-Id": "user-1" }),
+        request: createRunRequest(),
         agentId: "my-agent",
       });
 
@@ -472,7 +513,6 @@ describe("handleRunAgent", () => {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "X-User-Id": "user-1",
           },
           body: JSON.stringify({
             threadId: "thread-1",
@@ -530,7 +570,7 @@ describe("handleRunAgent", () => {
 
       const response = await handleRunAgent({
         runtime,
-        request: createRunRequest({ "X-User-Id": "user-1" }),
+        request: createRunRequest(),
         agentId: "my-agent",
       });
 
@@ -557,7 +597,7 @@ describe("handleRunAgent", () => {
 
       const response = await handleRunAgent({
         runtime,
-        request: createRunRequest({ "X-User-Id": "user-1" }),
+        request: createRunRequest(),
         agentId: "my-agent",
       });
 
@@ -632,7 +672,6 @@ describe("handleRunAgent", () => {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "X-User-Id": "user-1",
           },
           body: JSON.stringify({
             threadId: "thread-1",
@@ -685,7 +724,7 @@ describe("handleRunAgent", () => {
 
       const response = await handleRunAgent({
         runtime,
-        request: createRunRequest({ "X-User-Id": "user-1" }),
+        request: createRunRequest(),
         agentId: "my-agent",
       });
 
@@ -714,7 +753,7 @@ describe("handleRunAgent", () => {
 
       const response = await handleRunAgent({
         runtime,
-        request: createRunRequest({ "X-User-Id": "user-1" }),
+        request: createRunRequest(),
         agentId: "my-agent",
       });
 
@@ -776,7 +815,6 @@ describe("handleRunAgent", () => {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
-              "X-User-Id": "user-1",
             },
             body: JSON.stringify({
               threadId: "thread-1",
@@ -813,14 +851,16 @@ describe("handleRunAgent", () => {
       }
     });
 
-    it("returns 400 when a fresh thread run is missing X-User-Id", async () => {
+    it("returns 400 when identifyUser returns an invalid id", async () => {
       const agent = createAgentForIntelligence();
       const platform = {
         getOrCreateThread: vi.fn(),
         getThreadMessages: vi.fn(),
         ɵacquireThreadLock: vi.fn(),
       };
-      const runtime = createIntelligenceRuntime(agent, platform as any);
+      const runtime = createIntelligenceRuntime(agent, platform as any, {
+        identifyUser: vi.fn().mockResolvedValue({ id: "" }),
+      });
 
       const response = await handleRunAgent({
         runtime,
@@ -831,6 +871,33 @@ describe("handleRunAgent", () => {
       expect(response.status).toBe(400);
       expect(platform.getOrCreateThread).not.toHaveBeenCalled();
       expect(platform.ɵacquireThreadLock).not.toHaveBeenCalled();
+    });
+
+    it("returns 500 when identifyUser throws", async () => {
+      const agent = createAgentForIntelligence();
+      const platform = {
+        getOrCreateThread: vi.fn(),
+        getThreadMessages: vi.fn(),
+        ɵacquireThreadLock: vi.fn(),
+      };
+      const runtime = createIntelligenceRuntime(agent, platform as any, {
+        identifyUser: vi.fn().mockRejectedValue(new Error("auth failed")),
+      });
+      const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+      try {
+        const response = await handleRunAgent({
+          runtime,
+          request: createRunRequest(),
+          agentId: "my-agent",
+        });
+
+        expect(response.status).toBe(500);
+        expect(platform.getOrCreateThread).not.toHaveBeenCalled();
+        expect(platform.ɵacquireThreadLock).not.toHaveBeenCalled();
+      } finally {
+        errorSpy.mockRestore();
+      }
     });
   });
 });

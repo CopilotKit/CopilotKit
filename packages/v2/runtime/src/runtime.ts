@@ -54,6 +54,14 @@ interface BaseCopilotRuntimeOptions extends CopilotRuntimeMiddlewares {
   afterRequestMiddleware?: AfterRequestMiddleware;
 }
 
+export interface CopilotRuntimeUser {
+  id: string;
+}
+
+export type IdentifyUserCallback = (
+  request: Request,
+) => MaybePromise<CopilotRuntimeUser>;
+
 export interface CopilotSseRuntimeOptions extends BaseCopilotRuntimeOptions {
   /** The runner to use for running agents in SSE mode. */
   runner?: AgentRunner;
@@ -64,6 +72,8 @@ export interface CopilotSseRuntimeOptions extends BaseCopilotRuntimeOptions {
 export interface CopilotIntelligenceRuntimeOptions extends BaseCopilotRuntimeOptions {
   /** Configures Intelligence mode for durable threads and realtime events. */
   intelligence: CopilotKitIntelligence;
+  /** Resolves the authenticated user for intelligence requests. */
+  identifyUser: IdentifyUserCallback;
   /** Auto-generate short names for newly created threads. */
   generateThreadNames?: boolean;
 }
@@ -81,6 +91,7 @@ export interface CopilotRuntimeLike {
   a2ui: CopilotRuntimeOptions["a2ui"];
   mcpApps: CopilotRuntimeOptions["mcpApps"];
   intelligence?: CopilotKitIntelligence;
+  identifyUser?: IdentifyUserCallback;
   mode: RuntimeMode;
 }
 
@@ -91,6 +102,7 @@ export interface CopilotSseRuntimeLike extends CopilotRuntimeLike {
 
 export interface CopilotIntelligenceRuntimeLike extends CopilotRuntimeLike {
   intelligence: CopilotKitIntelligence;
+  identifyUser: IdentifyUserCallback;
   generateThreadNames: boolean;
   mode: RUNTIME_MODE_INTELLIGENCE;
 }
@@ -144,6 +156,7 @@ export class CopilotIntelligenceRuntime
   implements CopilotIntelligenceRuntimeLike
 {
   readonly intelligence: CopilotKitIntelligence;
+  readonly identifyUser: IdentifyUserCallback;
   readonly generateThreadNames: boolean;
   readonly mode = RUNTIME_MODE_INTELLIGENCE;
 
@@ -156,6 +169,7 @@ export class CopilotIntelligenceRuntime
       }),
     );
     this.intelligence = options.intelligence;
+    this.identifyUser = options.identifyUser;
     this.generateThreadNames = options.generateThreadNames ?? true;
   }
 }
@@ -220,6 +234,12 @@ export class CopilotRuntime implements CopilotRuntimeLike {
   get generateThreadNames(): boolean | undefined {
     return isIntelligenceRuntime(this.delegate)
       ? this.delegate.generateThreadNames
+      : undefined;
+  }
+
+  get identifyUser(): IdentifyUserCallback | undefined {
+    return isIntelligenceRuntime(this.delegate)
+      ? this.delegate.identifyUser
       : undefined;
   }
 
