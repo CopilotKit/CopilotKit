@@ -363,8 +363,7 @@ When a node in your LangGraph finishes executing, **its returned state becomes t
         <Tabs groupId="language_langgraph_agent" items={["Python", "TypeScript"]} persist>
           <Tab value="Python">
             ```python title="agent.py"
-            from ag_ui_langgraph import StateStreamingMiddleware, StateItem  # [!code highlight]
-            from copilotkit import CopilotKitMiddleware, CopilotKitState
+            from copilotkit import CopilotKitMiddleware, CopilotKitState, StateStreamingMiddleware, StateItem  # [!code highlight]
             from langchain.agents import create_agent
             from langchain.tools import tool
 
@@ -390,7 +389,7 @@ When a node in your LangGraph finishes executing, **its returned state becomes t
             ```ts title="agent-js/src/agent.ts"
             import { createAgent } from "langchain";
             import { copilotkitMiddleware } from "@copilotkit/sdk-js/langgraph";
-            import { stateStreamingMiddleware, stateItem } from "@ag-ui/langgraph/middleware";  // [!code highlight]
+            import { stateStreamingMiddleware, stateItem } from "@copilotkit/sdk-js/langgraph-middlewares";  // [!code highlight]
             import { tool } from "@langchain/core/tools";
             import { z } from "zod";
 
