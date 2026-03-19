@@ -236,7 +236,7 @@ export function useJsonParser<Output = unknown>(
     const next = resolveNextSession(previous, json, schema, schemaKey);
     sessionRef.current = next;
     return next;
-  }, [json, schema]);
+  }, [json, schema, schemaKey]);
 
   return {
     parserState: session.parserState,
