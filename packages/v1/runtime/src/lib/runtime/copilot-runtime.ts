@@ -358,6 +358,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
     this.runtimeArgs = {
       agents: { ...endpointAgents, ...agents },
       runner,
+      licenseToken: params?.licenseToken,
       // TODO: add support for transcriptionService from CopilotRuntimeOptionsVNext once it is ready
       // transcriptionService: params?.transcriptionService,
 

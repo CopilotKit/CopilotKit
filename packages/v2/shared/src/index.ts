@@ -28,3 +28,9 @@ export {
   type SchemaToJsonSchemaOptions,
   schemaToJsonSchema,
 } from "./standard-schema";
+
+export {
+  createLicenseChecker,
+  getLicenseWarningHeader,
+  type LicenseChecker,
+} from "@copilotkit/license-verifier";

@@ -37,6 +37,10 @@ export async function handleRunAgent({
 
     configureAgentForRequest({ runtime, request, agentId, agent });
 
+    if (runtime.licenseChecker && !runtime.licenseChecker.checkFeature("agents")) {
+      console.warn('[CopilotKit Runtime] Warning: "agents" feature is not licensed. Visit copilotkit.ai/pricing');
+    }
+
     const input = await parseRunRequest(request);
     if (input instanceof Response) {
       return input;
