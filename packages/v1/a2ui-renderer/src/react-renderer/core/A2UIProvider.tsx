@@ -6,20 +6,20 @@ import {
   useMemo,
   type ReactNode,
 } from "react";
-import { Data, type Types } from "@a2ui/lit/0.8";
+import { MessageProcessor } from "@a2ui/web_core/v0_9";
+import { basicCatalog } from "@a2ui/react/v0_9";
 import type { A2UIContextValue, A2UIActions } from "./store";
 import { ThemeProvider } from "../theme/ThemeContext";
 import type { OnActionCallback } from "../types";
+import type { A2UIClientEventMessage, Theme } from "../../a2ui-types";
 
 /**
  * Context for stable actions (never changes reference, prevents re-renders).
- * Components that only need to dispatch actions or read data won't re-render.
  */
 const A2UIActionsContext = createContext<A2UIActions | null>(null);
 
 /**
  * Context for reactive state (changes trigger re-renders).
- * Only components that need to react to state changes subscribe to this.
  */
 const A2UIStateContext = createContext<{
   version: number;
@@ -32,43 +32,45 @@ const A2UIStateContext = createContext<{
 export interface A2UIProviderProps {
   /** Callback invoked when a user action is dispatched (button click, etc.) */
   onAction?: OnActionCallback;
-  /** Theme configuration. Falls back to default theme if not provided. */
-  theme?: Types.Theme;
+  /** Theme configuration */
+  theme?: Theme;
   /** Child components */
   children: ReactNode;
 }
 
 /**
- * Provider component that sets up the A2UI context for descendant components.
- *
- * This provider uses a two-context architecture for performance:
+ * Provider component that sets up the A2UI v0.9 context for descendant components.
+ * Uses a two-context architecture for performance:
  * - A2UIActionsContext: Stable actions that never change (no re-renders)
  * - A2UIStateContext: Reactive state that triggers re-renders when needed
- *
- * @example
- * ```tsx
- * function App() {
- *   const handleAction = async (message) => {
- *     const response = await fetch('/api/a2ui', {
- *       method: 'POST',
- *       body: JSON.stringify(message)
- *     });
- *     const newMessages = await response.json();
- *   };
- *
- *   return (
- *     <A2UIProvider onAction={handleAction}>
- *       <A2UIRenderer surfaceId="main" />
- *     </A2UIProvider>
- *   );
- * }
- * ```
  */
 export function A2UIProvider({ onAction, theme, children }: A2UIProviderProps) {
-  // Create message processor only once using ref
-  const processorRef = useRef<Types.MessageProcessor | null>(null);
+  // Store onAction in a ref so callbacks always have the latest value
+  const onActionRef = useRef<OnActionCallback | null>(onAction ?? null);
+  onActionRef.current = onAction ?? null;
+
+  // Create v0.9 MessageProcessor only once using ref
+  const processorRef = useRef<MessageProcessor<any> | null>(null);
   if (!processorRef.current) {
-    processorRef.current = Data.createSignalA2uiMessageProcessor();
+    processorRef.current = new MessageProcessor(
+      [basicCatalog],
+      // Action handler: convert v0.9 Action to A2UIClientEventMessage format
+      (action: any, context: any) => {
+        if (onActionRef.current) {
+          const event = action?.event;
+          const message: A2UIClientEventMessage = {
+            userAction: {
+              name: event?.name ?? "unknown",
+              surfaceId: context?.surface?.id ?? "default",
+              sourceComponentId: context?.componentId,
+              context: event?.context,
+              timestamp: new Date().toISOString(),
+            },
+          };
+          onActionRef.current(message);
+        }
+      },
+    );
   }
   const processor = processorRef.current;
 
@@ -78,17 +80,13 @@ export function A2UIProvider({ onAction, theme, children }: A2UIProviderProps) {
   // Error state for graceful error handling
   const [error, setError] = useState<string | null>(null);
 
-  // Store onAction in a ref so callbacks always have the latest value
-  const onActionRef = useRef<OnActionCallback | null>(onAction ?? null);
-  onActionRef.current = onAction ?? null;
-
   // Create stable actions object once - stored in ref, never changes
   const actionsRef = useRef<A2UIActions | null>(null);
   if (!actionsRef.current) {
     actionsRef.current = {
-      processMessages: (messages: Types.ServerToClientMessage[]) => {
+      processMessages: (messages: Array<Record<string, unknown>>) => {
         try {
-          processor.processMessages(messages);
+          processor.processMessages(messages as any[]);
         } catch (err) {
           console.warn("[A2UI] processMessages error:", err);
           setError(err instanceof Error ? err.message : String(err));
@@ -98,45 +96,25 @@ export function A2UIProvider({ onAction, theme, children }: A2UIProviderProps) {
         setVersion((v) => v + 1);
       },
 
-      setData: (
-        node: Types.AnyComponentNode | null,
-        path: string,
-        value: Types.DataValue,
-        surfaceId: string,
-      ) => {
-        processor.setData(node, path, value, surfaceId);
-        setVersion((v) => v + 1);
-      },
-
-      dispatch: (message: Types.A2UIClientEventMessage) => {
+      dispatch: (message: any) => {
         if (onActionRef.current) {
           onActionRef.current(message);
         }
       },
 
-      clearSurfaces: () => {
-        processor.clearSurfaces();
-        setVersion((v) => v + 1);
-      },
-
       getSurface: (surfaceId: string) => {
-        return processor.getSurfaces().get(surfaceId);
+        return processor.model.getSurface(surfaceId);
       },
 
-      getSurfaces: () => {
-        return processor.getSurfaces();
-      },
-
-      getData: (
-        node: Types.AnyComponentNode,
-        path: string,
-        surfaceId: string,
-      ) => {
-        return processor.getData(node, path, surfaceId);
-      },
-
-      resolvePath: (path: string, dataContextPath?: string) => {
-        return processor.resolvePath(path, dataContextPath);
+      clearSurfaces: () => {
+        // Process a deleteSurface for all known surfaces
+        const surfaces = processor.model.surfacesMap;
+        for (const [id] of surfaces) {
+          processor.processMessages([
+            { version: "v0.9", deleteSurface: { surfaceId: id } } as any,
+          ]);
+        }
+        setVersion((v) => v + 1);
       },
     };
   }
@@ -156,10 +134,6 @@ export function A2UIProvider({ onAction, theme, children }: A2UIProviderProps) {
 
 /**
  * Hook to access stable A2UI actions (won't cause re-renders).
- * Use this when you only need to dispatch actions or read data.
- *
- * @returns Stable actions object
- * @throws If used outside of an A2UIProvider
  */
 export function useA2UIActions(): A2UIActions {
   const actions = useContext(A2UIActionsContext);
@@ -171,10 +145,6 @@ export function useA2UIActions(): A2UIActions {
 
 /**
  * Hook to subscribe to A2UI state changes.
- * Components using this will re-render when state changes.
- *
- * @returns Current version number
- * @throws If used outside of an A2UIProvider
  */
 export function useA2UIState(): { version: number } {
   const state = useContext(A2UIStateContext);
@@ -186,50 +156,33 @@ export function useA2UIState(): { version: number } {
 
 /**
  * Hook to access the full A2UI context (actions + state).
- * Components using this will re-render when state changes.
- *
- * @returns The A2UI context value
- * @throws If used outside of an A2UIProvider
  */
 export function useA2UIContext(): A2UIContextValue {
   const actions = useA2UIActions();
   const state = useA2UIState();
 
-  // Memoize combined value - only changes when state changes
-  // Actions are stable, so this only re-creates when version changes
   return useMemo(
     () => ({
       ...actions,
-      processor: null as unknown as Types.MessageProcessor, // Not exposed directly
       version: state.version,
-      onAction: null, // Use dispatch instead
+      onAction: null,
     }),
     [actions, state.version],
   );
 }
 
-/**
- * @deprecated Use useA2UIContext instead. This alias exists for backward compatibility only.
- */
+/** @deprecated Use useA2UIContext instead. */
 export const useA2UIStore = useA2UIContext;
 
 /**
  * Hook to access the current A2UI error state.
- * Returns the error message string or null if no error.
  */
 export function useA2UIError(): string | null {
   const state = useContext(A2UIStateContext);
   return state?.error ?? null;
 }
 
-/**
- * @deprecated This selector pattern does not provide performance benefits with React Context.
- * Components will re-render on any context change regardless of what you select.
- * Use useA2UIContext() or useA2UI() directly instead.
- *
- * @param selector - Function to select a slice of state
- * @returns The selected state
- */
+/** @deprecated Use useA2UIContext() or useA2UI() directly instead. */
 export function useA2UIStoreSelector<T>(
   selector: (state: A2UIContextValue) => T,
 ): T {

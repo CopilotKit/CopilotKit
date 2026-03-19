@@ -362,10 +362,11 @@ function getOperationSurfaceId(operation: any): string | null {
     return operation.surfaceId;
   }
 
+  // v0.9 message keys
   return (
-    operation?.beginRendering?.surfaceId ??
-    operation?.surfaceUpdate?.surfaceId ??
-    operation?.dataModelUpdate?.surfaceId ??
+    operation?.createSurface?.surfaceId ??
+    operation?.updateComponents?.surfaceId ??
+    operation?.updateDataModel?.surfaceId ??
     operation?.deleteSurface?.surfaceId ??
     null
   );

@@ -1,5 +1,5 @@
 """
-A2UI helpers — build A2UI operations from schema + data.
+A2UI helpers — build v0.9 A2UI operations from schema + data.
 
 Usage:
     from copilotkit import a2ui
@@ -9,9 +9,9 @@ Usage:
     @tool
     def search_flights(flights: list[Flight]) -> str:
         return a2ui.render([
-            a2ui.surface_update("my-surface", schema),
-            a2ui.data_model_update("my-surface", {"flights": flights}),
-            a2ui.begin_rendering("my-surface", "root"),
+            a2ui.create_surface("my-surface"),
+            a2ui.update_components("my-surface", schema),
+            a2ui.update_data_model("my-surface", {"flights": flights}),
         ])
 """
 
@@ -28,43 +28,50 @@ def load_schema(path: str | Path) -> list[dict[str, Any]]:
         return json.load(f)
 
 
-def surface_update(
+def update_components(
     surface_id: str,
     components: list[dict[str, Any]],
 ) -> dict[str, Any]:
-    """Build a surfaceUpdate operation."""
+    """Build a v0.9 updateComponents operation."""
     return {
-        "surfaceUpdate": {
+        "version": "v0.9",
+        "updateComponents": {
             "surfaceId": surface_id,
             "components": components,
         }
     }
 
 
-def data_model_update(
+def update_data_model(
     surface_id: str,
-    data: dict[str, Any],
+    data: Any,
+    path: str = "/",
 ) -> dict[str, Any]:
-    """Build a dataModelUpdate operation from a plain Python dict."""
-    normalized = _normalize_for_list_binding(data)
-    contents = [{"key": k, **_to_typed_value(v)} for k, v in normalized.items()]
+    """Build a v0.9 updateDataModel operation with plain JSON value."""
     return {
-        "dataModelUpdate": {
+        "version": "v0.9",
+        "updateDataModel": {
             "surfaceId": surface_id,
-            "contents": contents,
+            "path": path,
+            "value": data,
         }
     }
 
 
-def begin_rendering(
+BASIC_CATALOG_ID = "https://a2ui.org/specification/v0_9/basic_catalog.json"
+"""The catalog ID for the standard v0.9 basic catalog."""
+
+
+def create_surface(
     surface_id: str,
-    root: str,
+    catalog_id: str = BASIC_CATALOG_ID,
 ) -> dict[str, Any]:
-    """Build a beginRendering operation."""
+    """Build a v0.9 createSurface operation."""
     return {
-        "beginRendering": {
+        "version": "v0.9",
+        "createSurface": {
             "surfaceId": surface_id,
-            "root": root,
+            "catalogId": catalog_id,
         }
     }
 
@@ -83,7 +90,7 @@ def render(
     """Wrap operations in the a2ui_operations container and serialize to JSON.
 
     Args:
-        operations: The A2UI operations (surfaceUpdate, dataModelUpdate, beginRendering).
+        operations: The A2UI v0.9 operations (createSurface, updateComponents, updateDataModel).
         action_handlers: Optional dict mapping action names to A2UI operations that
             should be applied optimistically when that action is triggered.
             Use "*" as a catch-all for any unmatched action.
@@ -94,12 +101,10 @@ def render(
             operations=[...],
             action_handlers={
                 "book_flight": [
-                    surface_update(sid, BOOKED_SCHEMA),
-                    begin_rendering(sid, "root"),
+                    update_components(sid, BOOKED_SCHEMA),
                 ],
                 "*": [
-                    surface_update(sid, PROCESSING_SCHEMA),
-                    begin_rendering(sid, "root"),
+                    update_components(sid, PROCESSING_SCHEMA),
                 ],
             },
         )
@@ -117,7 +122,7 @@ def render(
 _A2UI_JSON_SCHEMA = (Path(__file__).parent / "a2ui_json_schema.json").read_text()
 
 DEFAULT_GENERATION_GUIDELINES = """\
-Generate A2UI JSON.
+Generate A2UI v0.9 JSON.
 
 ## A2UI Protocol Instructions
 
@@ -125,9 +130,11 @@ A2UI (Agent to UI) is a protocol for rendering rich UI surfaces from agent respo
 
 To render a surface, you MUST send ALL messages in a SINGLE tool call, in this order:
 
-1. **surfaceUpdate** - Define all UI components (REQUIRED)
-2. **dataModelUpdate** - Set any data values (OPTIONAL)
-3. **beginRendering** - Signal the client to start rendering (REQUIRED)
+1. **createSurface** - Create the surface (REQUIRED)
+2. **updateComponents** - Define all UI components (REQUIRED)
+3. **updateDataModel** - Set any data values (OPTIONAL)
+
+All messages MUST include `"version": "v0.9"`.
 
 ### Minimal Working Example
 
@@ -136,41 +143,38 @@ Here is the simplest possible A2UI surface - a button:
 ```json
 [
   {
-    "surfaceUpdate": {
+    "version": "v0.9",
+    "createSurface": {
+      "surfaceId": "my-surface",
+      "catalogId": "basic"
+    }
+  },
+  {
+    "version": "v0.9",
+    "updateComponents": {
       "surfaceId": "my-surface",
       "components": [
         {
           "id": "root",
-          "component": {
-            "Button": {
-              "child": "btn-text",
-              "action": { "name": "button_clicked" }
-            }
-          }
+          "component": "Button",
+          "content": "btn-text",
+          "action": { "event": { "name": "button_clicked" } }
         },
         {
           "id": "btn-text",
-          "component": {
-            "Text": { "text": { "literalString": "Click Me" } }
-          }
+          "component": "Text",
+          "text": "Click Me"
         }
       ]
     }
-  },
-  {
-    "beginRendering": {
-      "surfaceId": "my-surface",
-      "root": "root"
-    }
   }
 ]
-
+```
 
 CRITICAL: You MUST call the render_a2ui tool with these arguments:
 - surfaceId: A unique ID for the surface (e.g. "product-comparison")
 - components: The A2UI component array (schema). Use a List with
   template/dataBinding="/items" for repeating cards.
-- root: The ID of the root component.
 - items: Plain JSON array of data objects that populate the template.
 
 COMPONENT ID RULES:
@@ -187,12 +191,11 @@ If List has dataBinding="/items" and item has key "name", use path="/name"
 
 DATA FORMAT:
 The "items" key in the tool args should be a plain JSON array of objects.
-Do NOT use valueMap/valueString format — just use regular JSON:
+Just use regular JSON — no typed wrappers needed:
   "items": [
     {"name": "Product A", "price": "$99", "rating": "4.5/5", "description": "..."},
     {"name": "Product B", "price": "$149", "rating": "4.8/5", "description": "..."}
-  ]
-The system converts this to A2UI format automatically."""
+  ]"""
 
 DEFAULT_DESIGN_GUIDELINES = """\
 Create polished, visually appealing interfaces:
@@ -204,10 +207,10 @@ Create polished, visually appealing interfaces:
   - caption for secondary info (ratings, categories, metadata)
   - body for descriptions
 - Use Divider between logical sections within cards.
-- Use Row with distribution="spaceBetween" for label-value pairs
+- Use Row with justify="spaceBetween" for label-value pairs
   (e.g. "Rating" on left, "4.5/5" on right).
 - Include images when relevant (logos, icons, product photos):
-  - Use Image component with usageHint="smallFeature" or "avatar"
+  - Use Image component with variant="smallFeature" or "avatar"
   - Prefer company logos for branded products — Google favicons are reliable:
     https://www.google.com/s2/favicons?domain=sony.com&sz=128
     https://www.google.com/s2/favicons?domain=bose.com&sz=128
@@ -218,9 +221,9 @@ Create polished, visually appealing interfaces:
 - Use consistent surfaceIds (lowercase, hyphenated).
 - NEVER use the same ID for a component and its child — this creates a
   circular dependency. E.g. if id="avatar", child must NOT be "avatar".
-- Column does NOT support "distribution" — only "alignment" and "gap".
-  Use distribution only on Row components.
-- Add Button for interactivity. Button needs child (Text ID) + action (name + context).
+- Column does NOT support "justify" — only "align" and "gap".
+  Use justify only on Row components.
+- Add Button for interactivity. Button needs content (Text ID) + action (event).
   Context values use path bindings like {"key": "name", "value": {"path": "/name"}}.
 
 ACTION HANDLERS (for button interactivity):
@@ -228,22 +231,21 @@ When you include Button components, also provide an "actionHandlers" argument.
 This is a dict mapping action names to arrays of A2UI operations that replace the
 surface when the button is clicked (optimistic UI update).
 
-Example: if a Button has action.name="select_item", provide:
+Example: if a Button has action.event.name="select_item", provide:
   "actionHandlers": {
     "select_item": [
-      {"surfaceUpdate": {"surfaceId": "THE-SAME-SURFACE-ID", "components": [
-        {"id": "root", "component": {"Card": {"child": "confirm-col"}}},
-        {"id": "confirm-col", "component": {"Column": {"children": {"explicitList": ["title", "detail"]}, "alignment": "center"}}},
-        {"id": "title", "component": {"Text": {"text": {"literalString": "Selected!"}, "usageHint": "h2"}}},
-        {"id": "detail", "component": {"Text": {"text": {"literalString": "Your selection has been confirmed."}, "usageHint": "body"}}}
-      ]}},
-      {"beginRendering": {"surfaceId": "THE-SAME-SURFACE-ID", "root": "root"}}
+      {"version": "v0.9", "updateComponents": {"surfaceId": "THE-SAME-SURFACE-ID", "components": [
+        {"id": "root", "component": "Card", "content": "confirm-col"},
+        {"id": "confirm-col", "component": "Column", "children": ["title", "detail"], "align": "center"},
+        {"id": "title", "component": "Text", "text": "Selected!", "variant": "h2"},
+        {"id": "detail", "component": "Text", "text": "Your selection has been confirmed.", "variant": "body"}
+      ]}}
     ]
   }
-Use the SAME surfaceId as the main surface. Match action names to Button action names.
+Use the SAME surfaceId as the main surface. Match action names to Button action event names.
 
 Note: Action handler components are outside the List template, so Text components
-in action handlers should use {"literalString": "..."} rather than {"path": "..."}.
+in action handlers should use plain text strings rather than {"path": "..."}.
 (Path bindings in Button action.context are fine — those capture data at click time.)"""
 
 
@@ -285,33 +287,3 @@ def a2ui_prompt(
 ## DESIGN GUIDELINES:
 {design_guidelines}
 """
-
-
-# ---------------------------------------------------------------------------
-# Internal helpers
-# ---------------------------------------------------------------------------
-
-def _to_typed_value(value: Any) -> dict[str, Any]:
-    """Convert a Python value to an A2UI typed entry."""
-    if isinstance(value, bool):
-        return {"valueBoolean": value}
-    if isinstance(value, str):
-        return {"valueString": value}
-    if isinstance(value, (int, float)):
-        return {"valueNumber": value}
-    if isinstance(value, dict):
-        return {"valueMap": [{"key": k, **_to_typed_value(v)} for k, v in value.items()]}
-    if isinstance(value, list):
-        return {"valueMap": [{"key": str(i), **_to_typed_value(item)} for i, item in enumerate(value)]}
-    return {"valueString": str(value)}
-
-
-def _normalize_for_list_binding(data: dict[str, Any]) -> dict[str, Any]:
-    """Wrap single dicts in arrays so list-binding templates work uniformly."""
-    out = {}
-    for k, v in data.items():
-        if isinstance(v, dict):
-            out[k] = [v]
-        else:
-            out[k] = v
-    return out
