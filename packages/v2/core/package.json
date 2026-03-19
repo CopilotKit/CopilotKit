@@ -11,6 +11,11 @@
       "import": "./dist/index.mjs",
       "require": "./dist/index.cjs"
     },
+    "./streaming-json": {
+      "types": "./dist/streaming-json/index.d.mts",
+      "import": "./dist/streaming-json/index.mjs",
+      "require": "./dist/streaming-json/index.cjs"
+    },
     "./package.json": "./package.json"
   },
   "unpkg": "./dist/index.umd.js",
