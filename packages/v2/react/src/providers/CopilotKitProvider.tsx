@@ -15,6 +15,13 @@ import {
 } from "react";
 import { z } from "zod";
 import { CopilotKitInspector } from "../components/CopilotKitInspector";
+import { LicenseWarningBanner } from "../components/license-warning-banner";
+import {
+  verifyLicense,
+  createLicenseContextValue,
+  type LicenseStatus,
+  type LicenseContextValue,
+} from "@copilotkit/shared";
 import type { CopilotKitCoreErrorCode } from "@copilotkitnext/core";
 import {
   MCPAppsActivityContentSchema,
@@ -56,6 +63,13 @@ const CopilotKitContext = createContext<CopilotKitContextValue>({
   executingToolCallIds: EMPTY_SET,
 });
 
+const LicenseContext = createContext<LicenseContextValue>(
+  createLicenseContextValue(null),
+);
+
+export const useLicenseContext = (): LicenseContextValue =>
+  useContext(LicenseContext);
+
 // Provider props interface
 export interface CopilotKitProviderProps {
   children: ReactNode;
@@ -73,6 +87,11 @@ export interface CopilotKitProviderProps {
    * Alias for `publicApiKey`
    **/
   publicLicenseKey?: string;
+  /**
+   * Signed license token for offline verification of premium features.
+   * Obtain from https://cloud.copilotkit.ai.
+   */
+  licenseToken?: string;
   properties?: Record<string, unknown>;
   useSingleEndpoint?: boolean;
   agents__unsafe_dev_only?: Record<string, AbstractAgent>;
@@ -145,6 +164,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   credentials,
   publicApiKey,
   publicLicenseKey,
+  licenseToken,
   properties = {},
   agents__unsafe_dev_only: agents = {},
   selfManagedAgents = {},
@@ -523,10 +543,63 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     [copilotkit, executingToolCallIds],
   );
 
+  // License verification
+  const licenseStatus = useMemo<LicenseStatus | null>(() => {
+    if (!licenseToken) return null;
+    return verifyLicense(licenseToken);
+  }, [licenseToken]);
+
+  const licenseContextValue = useMemo(
+    () => createLicenseContextValue(licenseStatus),
+    [licenseStatus],
+  );
+
+  // Console warnings
+  useEffect(() => {
+    if (!licenseStatus) return;
+    if (!licenseStatus.valid && licenseStatus.error) {
+      console.warn(
+        `[CopilotKit] License: ${licenseStatus.error}. Visit copilotkit.ai/pricing`,
+      );
+    }
+    if (licenseStatus.graceRemaining != null) {
+      console.warn(
+        `[CopilotKit] License expires in ${licenseStatus.graceRemaining} days. Please renew.`,
+      );
+    }
+  }, [licenseStatus]);
+
   return (
     <CopilotKitContext.Provider value={contextValue}>
-      {children}
-      {shouldRenderInspector ? <CopilotKitInspector core={copilotkit} /> : null}
+      <LicenseContext.Provider value={licenseContextValue}>
+        {children}
+        {shouldRenderInspector ? (
+          <CopilotKitInspector core={copilotkit} />
+        ) : null}
+        {/* License warnings */}
+        {!licenseToken && !resolvedPublicKey && (
+          <LicenseWarningBanner type="no_license" />
+        )}
+        {licenseStatus?.warningSeverity === "critical" &&
+          licenseStatus.error === "expired" && (
+            <LicenseWarningBanner
+              type="expired"
+              expiryDate={licenseStatus.license?.expires_at}
+            />
+          )}
+        {licenseStatus?.warningSeverity === "critical" &&
+          (licenseStatus.error === "invalid_signature" ||
+            licenseStatus.error === "parse_error") && (
+            <LicenseWarningBanner type="invalid" />
+          )}
+        {licenseStatus?.warningSeverity === "warning" &&
+          licenseStatus.graceRemaining != null && (
+            <LicenseWarningBanner
+              type="expiring"
+              graceRemaining={licenseStatus.graceRemaining}
+            />
+          )}
+      </LicenseContext.Provider>
     </CopilotKitContext.Provider>
   );
 };

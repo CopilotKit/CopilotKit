@@ -51,6 +51,7 @@
     "chalk": "4.1.2",
     "graphql": "^16.8.1",
     "uuid": "^10.0.0",
+    "@copilotkit/license-verifier": "file:../../../../intelligence/packages/license-verifier",
     "zod": "^3.23.3"
   },
   "peerDependencies": {

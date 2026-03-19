@@ -1,4 +1,6 @@
-import React, { useMemo } from "react";
+import React, { useEffect, useMemo } from "react";
+import { useLicenseContext } from "@/providers/CopilotKitProvider";
+import { InlineFeatureWarning } from "@/components/license-warning-banner";
 
 import { CopilotChat, CopilotChatProps } from "./CopilotChat";
 import CopilotChatView, { CopilotChatViewProps } from "./CopilotChatView";
@@ -22,6 +24,15 @@ export function CopilotPopup({
   clickOutsideToClose,
   ...chatProps
 }: CopilotPopupProps) {
+  const { checkFeature } = useLicenseContext();
+  const isPopupLicensed = checkFeature("popup");
+
+  useEffect(() => {
+    if (!isPopupLicensed) {
+      console.warn('[CopilotKit] Warning: "popup" feature is not licensed. Visit copilotkit.ai/pricing');
+    }
+  }, [isPopupLicensed]);
+
   const PopupViewOverride = useMemo(() => {
     const Component: React.FC<CopilotChatViewProps> = (viewProps) => {
       const {
@@ -51,12 +62,15 @@ export function CopilotPopup({
   }, [clickOutsideToClose, header, toggleButton, height, width, defaultOpen]);
 
   return (
-    <CopilotChat
-      welcomeScreen={CopilotPopupView.WelcomeScreen}
-      {...chatProps}
-      isModalDefaultOpen={defaultOpen}
-      chatView={PopupViewOverride}
-    />
+    <>
+      {!isPopupLicensed && <InlineFeatureWarning featureName="Popup" />}
+      <CopilotChat
+        welcomeScreen={CopilotPopupView.WelcomeScreen}
+        {...chatProps}
+        isModalDefaultOpen={defaultOpen}
+        chatView={PopupViewOverride}
+      />
+    </>
   );
 }
 

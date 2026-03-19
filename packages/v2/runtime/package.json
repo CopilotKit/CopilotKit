@@ -50,6 +50,7 @@
     "@ag-ui/core": "0.0.48",
     "@ag-ui/encoder": "0.0.48",
     "@ag-ui/mcp-apps-middleware": "0.0.2",
+    "@copilotkit/shared": "workspace:*",
     "@copilotkitnext/shared": "workspace:*",
     "@scarf/scarf": "^1.3.0",
     "cors": "^2.8.5",

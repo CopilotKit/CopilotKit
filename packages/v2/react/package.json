@@ -62,6 +62,7 @@
   },
   "dependencies": {
     "@copilotkit/a2ui-renderer": "workspace:*",
+    "@copilotkit/shared": "workspace:*",
     "@ag-ui/client": "0.0.48",
     "@ag-ui/core": "0.0.48",
     "@copilotkitnext/core": "workspace:*",
