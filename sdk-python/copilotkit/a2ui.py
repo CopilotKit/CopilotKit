@@ -157,7 +157,7 @@ Here is the simplest possible A2UI surface - a button:
         {
           "id": "root",
           "component": "Button",
-          "content": "btn-text",
+          "child": "btn-text",
           "action": { "event": { "name": "button_clicked" } }
         },
         {
@@ -223,7 +223,7 @@ Create polished, visually appealing interfaces:
   circular dependency. E.g. if id="avatar", child must NOT be "avatar".
 - Column does NOT support "justify" — only "align" and "gap".
   Use justify only on Row components.
-- Add Button for interactivity. Button needs content (Text ID) + action (event).
+- Add Button for interactivity. Button needs child (Text ID) + action (event).
   Context values use path bindings like {"key": "name", "value": {"path": "/name"}}.
 
 ACTION HANDLERS (for button interactivity):
@@ -235,7 +235,7 @@ Example: if a Button has action.event.name="select_item", provide:
   "actionHandlers": {
     "select_item": [
       {"version": "v0.9", "updateComponents": {"surfaceId": "THE-SAME-SURFACE-ID", "components": [
-        {"id": "root", "component": "Card", "content": "confirm-col"},
+        {"id": "root", "component": "Card", "child": "confirm-col"},
         {"id": "confirm-col", "component": "Column", "children": ["title", "detail"], "align": "center"},
         {"id": "title", "component": "Text", "text": "Selected!", "variant": "h2"},
         {"id": "detail", "component": "Text", "text": "Your selection has been confirmed.", "variant": "body"}
