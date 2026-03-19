@@ -11,6 +11,7 @@ import { IntelligenceAgentRunner } from "../runner/intelligence";
 
 describe("runtime construction", () => {
   const agents = {};
+  const identifyUser = vi.fn().mockResolvedValue({ id: "user-1" });
   const createMockIntelligence = (): CopilotKitIntelligence =>
     ({
       ɵgetRunnerWsUrl: vi.fn().mockReturnValue("ws://runner.example"),
@@ -33,6 +34,7 @@ describe("runtime construction", () => {
     const runtime = new CopilotIntelligenceRuntime({
       agents,
       intelligence: sdk,
+      identifyUser,
     });
 
     expect(runtime.mode).toBe("intelligence");
@@ -40,6 +42,7 @@ describe("runtime construction", () => {
     expect(runtime.intelligence).toBe(sdk);
     expect(runtime.runner).toBeInstanceOf(IntelligenceAgentRunner);
     expect(runtime.generateThreadNames).toBe(true);
+    expect(runtime.identifyUser).toBe(identifyUser);
     expect(sdk.ɵgetRunnerWsUrl).toHaveBeenCalledTimes(1);
     expect(sdk.ɵgetRunnerAuthToken).toHaveBeenCalledTimes(1);
   });
@@ -50,6 +53,7 @@ describe("runtime construction", () => {
     const runtime = new CopilotIntelligenceRuntime({
       agents,
       intelligence: sdk,
+      identifyUser,
       generateThreadNames: false,
     });
 
@@ -71,6 +75,7 @@ describe("runtime construction", () => {
     const runtime = new CopilotRuntime({
       agents,
       intelligence: sdk,
+      identifyUser,
     });
 
     expect(runtime.mode).toBe("intelligence");
@@ -81,6 +86,13 @@ describe("runtime construction", () => {
       (runtime as CopilotRuntime & { generateThreadNames?: boolean })
         .generateThreadNames,
     ).toBe(true);
+    expect(
+      (
+        runtime as CopilotRuntime & {
+          identifyUser?: typeof identifyUser;
+        }
+      ).identifyUser,
+    ).toBe(identifyUser);
   });
 
   it("forwards generateThreadNames=false through the CopilotRuntime intelligence shim", () => {
@@ -89,6 +101,7 @@ describe("runtime construction", () => {
     const runtime = new CopilotRuntime({
       agents,
       intelligence: sdk,
+      identifyUser,
       generateThreadNames: false,
     });
 
@@ -97,5 +110,14 @@ describe("runtime construction", () => {
       (runtime as CopilotRuntime & { generateThreadNames?: boolean })
         .generateThreadNames,
     ).toBe(false);
+  });
+
+  it("exposes identifyUser as undefined for SSE runtimes", () => {
+    const runtime = new CopilotRuntime({ agents });
+
+    expect(
+      (runtime as CopilotRuntime & { identifyUser?: typeof identifyUser })
+        .identifyUser,
+    ).toBeUndefined();
   });
 });
