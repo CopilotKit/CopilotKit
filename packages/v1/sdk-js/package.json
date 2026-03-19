@@ -27,6 +27,10 @@
       "import": "./dist/langgraph.mjs",
       "require": "./dist/langgraph.cjs"
     },
+    "./langgraph-middlewares": {
+      "import": "./dist/langgraph-middlewares.mjs",
+      "require": "./dist/langgraph-middlewares.cjs"
+    },
     "./package.json": "./package.json"
   },
   "types": "./dist/index.d.cts",
@@ -43,6 +47,7 @@
     "attw": "attw --pack . --profile node16"
   },
   "dependencies": {
+    "@ag-ui/langgraph": "^0.0.25",
     "@copilotkit/shared": "workspace:*"
   },
   "devDependencies": {

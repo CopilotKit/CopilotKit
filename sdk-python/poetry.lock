@@ -2,20 +2,20 @@
 
 [[package]]
 name = "ag-ui-langgraph"
-version = "0.0.26"
+version = "0.0.27"
 description = "Implementation of the AG-UI protocol for LangGraph."
 optional = false
 python-versions = "<3.14,>=3.10"
 groups = ["main"]
 files = [
-    {file = "ag_ui_langgraph-0.0.26-py3-none-any.whl", hash = "sha256:2ea35aff538b4a04d46e923c93c29c8bfa86fabfeb2f2a10fa3042b77e9bffe3"},
-    {file = "ag_ui_langgraph-0.0.26.tar.gz", hash = "sha256:287fa72bde1f1f2d3764d63b3c120043e314f37dddb36a03f2a5d393ac64fb92"},
+    {file = "ag_ui_langgraph-0.0.27-py3-none-any.whl", hash = "sha256:47ae29828fc6b28fb1f94c55769989fdd57acc8cdf245e1a40f65ac6ce98e927"},
+    {file = "ag_ui_langgraph-0.0.27.tar.gz", hash = "sha256:913d4645e710a3cc8af8407754482362b519ad62f4611f2f2c0feed5d1728fab"},
 ]
 
 [package.dependencies]
 ag-ui-protocol = ">=0.1.10"
 fastapi = {version = ">=0.115.12", optional = true, markers = "extra == \"fastapi\""}
-langchain = ">=0.3.0"
+langchain = ">=1.2.0"
 langchain-core = ">=0.3.0"
 langgraph = ">=0.3.25,<1.1.0"
 pydantic = ">=2.0.0"
@@ -25,18 +25,18 @@ fastapi = ["fastapi (>=0.115.12)"]
 
 [[package]]
 name = "ag-ui-protocol"
-version = "0.1.10"
+version = "0.1.14"
 description = ""
 optional = false
-python-versions = "<4.0,>=3.9"
+python-versions = ">=3.9"
 groups = ["main"]
 files = [
-    {file = "ag_ui_protocol-0.1.10-py3-none-any.whl", hash = "sha256:c81e6981f30aabdf97a7ee312bfd4df0cd38e718d9fc10019c7d438128b93ab5"},
-    {file = "ag_ui_protocol-0.1.10.tar.gz", hash = "sha256:3213991c6b2eb24bb1a8c362ee270c16705a07a4c5962267a083d0959ed894f4"},
+    {file = "ag_ui_protocol-0.1.14-py3-none-any.whl", hash = "sha256:ec072e6a45e0d45b8714e6d54919cc9bde3d097fdc36f7e82953b2f21f1cdbef"},
+    {file = "ag_ui_protocol-0.1.14.tar.gz", hash = "sha256:d8e86b308f86a6cf6a5e18ca7154d7642895de2fe94cd2cece57723cdbba6406"},
 ]
 
 [package.dependencies]
-pydantic = ">=2.11.2,<3.0.0"
+pydantic = ">=2.11.2"
 
 [[package]]
 name = "aiohappyeyeballs"
@@ -5834,4 +5834,4 @@ crewai = ["crewai"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10,<3.13"
-content-hash = "e01fb6252135d0d33c7ace5486057a6905398826c99d64b1c8fcc2f39f84b628"
+content-hash = "05d170a2b6c29aa5ad05a4be918bfa97cd3544f3c821826abefd6f1e2e7eb0f2"
