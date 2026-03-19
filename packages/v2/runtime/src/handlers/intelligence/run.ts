@@ -4,6 +4,7 @@ import { generateThreadNameForNewThread } from "./thread-names";
 import { logger } from "@copilotkitnext/shared";
 import { telemetry } from "../../telemetry";
 import { resolveIntelligenceUser } from "../shared/resolve-intelligence-user";
+import { isHandlerResponse } from "../shared/json-response";
 
 interface HandleIntelligenceRunParams {
   runtime: CopilotIntelligenceRuntimeLike;
@@ -31,7 +32,7 @@ export async function handleIntelligenceRun({
   }
 
   const user = await resolveIntelligenceUser({ runtime, request });
-  if (user instanceof Response) {
+  if (isHandlerResponse(user)) {
     return user;
   }
   const userId = user.id;

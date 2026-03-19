@@ -4,7 +4,7 @@ import {
   isIntelligenceRuntime,
 } from "../../runtime";
 import { logger } from "@copilotkitnext/shared";
-import { errorResponse } from "../shared/json-response";
+import { errorResponse, isHandlerResponse } from "../shared/json-response";
 import { isValidIdentifier } from "../shared/intelligence-utils";
 import { resolveIntelligenceUser } from "../shared/resolve-intelligence-user";
 
@@ -52,10 +52,10 @@ async function resolveThreadMutationContext(
   request: Request,
 ): Promise<ThreadMutationContext | Response> {
   const body = await parseJsonBody(request);
-  if (body instanceof Response) return body;
+  if (isHandlerResponse(body)) return body;
 
   const user = await resolveIntelligenceUser({ runtime, request });
-  if (user instanceof Response) return user;
+  if (isHandlerResponse(user)) return user;
 
   const agentId = body.agentId;
   if (!isValidIdentifier(agentId)) {
@@ -74,7 +74,7 @@ export async function handleListThreads({
   request,
 }: ThreadsHandlerParams): Promise<Response> {
   const intelligenceRuntime = requireIntelligenceRuntime(runtime);
-  if (intelligenceRuntime instanceof Response) {
+  if (isHandlerResponse(intelligenceRuntime)) {
     return intelligenceRuntime;
   }
 
@@ -85,7 +85,7 @@ export async function handleListThreads({
       runtime: intelligenceRuntime,
       request,
     });
-    if (user instanceof Response) return user;
+    if (isHandlerResponse(user)) return user;
 
     if (!isValidIdentifier(agentId)) {
       return errorResponse("Valid agentId query param is required", 400);
@@ -109,7 +109,7 @@ export async function handleUpdateThread({
   threadId,
 }: ThreadMutationParams): Promise<Response> {
   const intelligenceRuntime = requireIntelligenceRuntime(runtime);
-  if (intelligenceRuntime instanceof Response) {
+  if (isHandlerResponse(intelligenceRuntime)) {
     return intelligenceRuntime;
   }
 
@@ -118,7 +118,7 @@ export async function handleUpdateThread({
       intelligenceRuntime,
       request,
     );
-    if (mutation instanceof Response) return mutation;
+    if (isHandlerResponse(mutation)) return mutation;
 
     const updates = { ...mutation.body };
     delete updates.agentId;
@@ -143,7 +143,7 @@ export async function handleSubscribeToThreads({
   request,
 }: ThreadsHandlerParams): Promise<Response> {
   const intelligenceRuntime = requireIntelligenceRuntime(runtime);
-  if (intelligenceRuntime instanceof Response) {
+  if (isHandlerResponse(intelligenceRuntime)) {
     return intelligenceRuntime;
   }
 
@@ -152,7 +152,7 @@ export async function handleSubscribeToThreads({
       runtime: intelligenceRuntime,
       request,
     });
-    if (user instanceof Response) return user;
+    if (isHandlerResponse(user)) return user;
 
     const credentials =
       await intelligenceRuntime.intelligence.ɵsubscribeToThreads({
@@ -172,7 +172,7 @@ export async function handleArchiveThread({
   threadId,
 }: ThreadMutationParams): Promise<Response> {
   const intelligenceRuntime = requireIntelligenceRuntime(runtime);
-  if (intelligenceRuntime instanceof Response) {
+  if (isHandlerResponse(intelligenceRuntime)) {
     return intelligenceRuntime;
   }
 
@@ -181,7 +181,7 @@ export async function handleArchiveThread({
       intelligenceRuntime,
       request,
     );
-    if (mutation instanceof Response) return mutation;
+    if (isHandlerResponse(mutation)) return mutation;
 
     await intelligenceRuntime.intelligence.archiveThread({
       threadId,
@@ -202,7 +202,7 @@ export async function handleDeleteThread({
   threadId,
 }: ThreadMutationParams): Promise<Response> {
   const intelligenceRuntime = requireIntelligenceRuntime(runtime);
-  if (intelligenceRuntime instanceof Response) {
+  if (isHandlerResponse(intelligenceRuntime)) {
     return intelligenceRuntime;
   }
 
@@ -211,7 +211,7 @@ export async function handleDeleteThread({
       intelligenceRuntime,
       request,
     );
-    if (mutation instanceof Response) return mutation;
+    if (isHandlerResponse(mutation)) return mutation;
 
     await intelligenceRuntime.intelligence.deleteThread({
       threadId,
