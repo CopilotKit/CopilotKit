@@ -1,6 +1,7 @@
 import { BaseEvent } from "@ag-ui/client";
 import { EventEncoder } from "@ag-ui/encoder";
 import { Observable, Subscription } from "rxjs";
+import { telemetry } from "../../telemetry";
 
 interface CreateSseEventResponseParams {
   request: Request;
@@ -47,6 +48,8 @@ export function createSseEventResponse({
   (async () => {
     const observable = await observableFactory();
 
+    telemetry.capture("oss.runtime.agent_execution_stream_started", {});
+
     subscription = observable.subscribe({
       next: async (event) => {
         if (!request.signal.aborted && !streamClosed) {
@@ -60,10 +63,14 @@ export function createSseEventResponse({
         }
       },
       error: async (error) => {
+        telemetry.capture("oss.runtime.agent_execution_stream_errored", {
+          error: error instanceof Error ? error.message : String(error),
+        });
         logError(error);
         await closeStream();
       },
       complete: async () => {
+        telemetry.capture("oss.runtime.agent_execution_stream_ended", {});
         await closeStream();
       },
     });

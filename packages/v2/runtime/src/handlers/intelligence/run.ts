@@ -3,6 +3,7 @@ import { CopilotIntelligenceRuntimeLike } from "../../runtime";
 import { isValidIdentifier } from "../shared/intelligence-utils";
 import { generateThreadNameForNewThread } from "./thread-names";
 import { logger } from "@copilotkitnext/shared";
+import { telemetry } from "../../telemetry";
 
 interface HandleIntelligenceRunParams {
   runtime: CopilotIntelligenceRuntimeLike;
@@ -121,6 +122,8 @@ export async function handleIntelligenceRun({
     }
   }
 
+  telemetry.capture("oss.runtime.agent_execution_stream_started", {});
+
   runtime.runner
     .run({
       threadId: input.threadId,
@@ -133,7 +136,13 @@ export async function handleIntelligenceRun({
     })
     .subscribe({
       error: (error) => {
+        telemetry.capture("oss.runtime.agent_execution_stream_errored", {
+          error: error instanceof Error ? error.message : String(error),
+        });
         logger.error("Error running agent:", error);
+      },
+      complete: () => {
+        telemetry.capture("oss.runtime.agent_execution_stream_ended", {});
       },
     });
 
