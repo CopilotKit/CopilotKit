@@ -155,7 +155,11 @@ export function CopilotChat({
       // preventing duplicate /connect requests from reaching the server.
       detached = true;
       connectAbortController.abort();
-      agent.detachActiveRun();
+      // The .catch() is required to prevent a false-positive "Uncaught (in promise)
+      // AbortError" in browser devtools. detachActiveRun() itself does not reject,
+      // but without an attached handler V8 flags the promise chain as unhandled
+      // when the abort signal propagates through connected promises internally.
+      void agent.detachActiveRun().catch(() => {});
     };
     // copilotkit is intentionally excluded — it is a stable ref that never changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
