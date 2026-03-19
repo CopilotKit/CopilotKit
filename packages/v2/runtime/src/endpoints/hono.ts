@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { CopilotRuntimeLike } from "../runtime";
+import { telemetry } from "../telemetry";
 import { handleRunAgent } from "../handlers/handle-run";
 import { handleGetRuntimeInfo } from "../handlers/get-runtime-info";
 import { handleTranscribe } from "../handlers/handle-transcribe";
@@ -66,6 +67,21 @@ export function createCopilotEndpoint({
   cors: corsConfig,
 }: CopilotEndpointParams) {
   const app = new Hono<CopilotEndpointContext>();
+
+  // Fire instance_created telemetry - resolve agents if needed
+  Promise.resolve(runtime.agents)
+    .then((agents) => {
+      telemetry.capture("oss.runtime.instance_created", {
+        actionsAmount: 0,
+        endpointTypes: [],
+        endpointsAmount: 0,
+        agentsAmount: Object.keys(agents).length,
+        "cloud.api_key_provided": false,
+      });
+    })
+    .catch(() => {
+      // Silently fail - telemetry should not break the application
+    });
 
   return app
     .basePath(basePath)

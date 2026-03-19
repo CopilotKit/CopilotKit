@@ -1,6 +1,7 @@
 import { handleIntelligenceConnect } from "./intelligence/connect";
 import { handleSseConnect } from "./sse/connect";
 import { isIntelligenceRuntime } from "../runtime";
+import { telemetry } from "../telemetry";
 import {
   parseConnectRequest,
   RunAgentParameters as ConnectAgentParameters,
@@ -12,6 +13,21 @@ export async function handleConnectAgent({
   request,
   agentId,
 }: ConnectAgentParameters) {
+  telemetry.capture("oss.runtime.copilot_request_created", {
+    "cloud.guardrails.enabled": false,
+    requestType: "connect",
+    "cloud.api_key_provided": !!request.headers.get(
+      "x-copilotcloud-public-api-key",
+    ),
+    ...(request.headers.get("x-copilotcloud-public-api-key")
+      ? {
+          "cloud.public_api_key": request.headers.get(
+            "x-copilotcloud-public-api-key",
+          )!,
+        }
+      : {}),
+  });
+
   try {
     const agent = await cloneAgentForRequest(runtime, agentId);
     if (agent instanceof Response) {
