@@ -14,7 +14,9 @@ export const OpenGenerativeUIContentSchema = z.object({
   html: z.array(z.string()).optional(),
   htmlComplete: z.boolean().optional(),
   jsFunctions: z.string().optional(),
+  jsFunctionsComplete: z.boolean().optional(),
   jsExpressions: z.array(z.string()).optional(),
+  jsExpressionsComplete: z.boolean().optional(),
 });
 
 export type OpenGenerativeUIContent = z.infer<
@@ -110,26 +112,9 @@ export const OpenGenerativeUIActivityRenderer: React.FC<
       sandbox.iframe.style.border = "none";
       sandbox.iframe.style.backgroundColor = "transparent";
 
-      const onMessage = (e: MessageEvent) => {
-        if (e.source === sandbox.iframe.contentWindow && e.data?.type === "__ck_resize") {
-          setAutoHeight(e.data.height);
-        }
-      };
-      window.addEventListener("message", onMessage);
-
       sandbox.promise.then(() => {
         if (cancelled) return;
         previewReadyRef.current = true;
-
-        sandbox.run(`
-          (function() {
-            var ro = new ResizeObserver(function() {
-              var h = document.documentElement.scrollHeight;
-              parent.postMessage({ type: "__ck_resize", height: h }, "*");
-            });
-            ro.observe(document.documentElement);
-          })();
-        `);
 
         // Apply current preview content immediately
         if (previewStyles) {
@@ -198,28 +183,9 @@ export const OpenGenerativeUIActivityRenderer: React.FC<
       sandbox.iframe.style.border = "none";
       sandbox.iframe.style.backgroundColor = "transparent";
 
-      // Listen for height updates from the iframe's ResizeObserver
-      const onMessage = (e: MessageEvent) => {
-        if (e.source === sandbox.iframe.contentWindow && e.data?.type === "__ck_resize") {
-          setAutoHeight(e.data.height);
-        }
-      };
-      window.addEventListener("message", onMessage);
-
       sandbox.promise.then(() => {
         if (cancelled) return;
         sandboxReadyRef.current = true;
-
-        // Inject ResizeObserver to report content height back to parent
-        sandbox.run(`
-          (function() {
-            var ro = new ResizeObserver(function() {
-              var h = document.documentElement.scrollHeight;
-              parent.postMessage({ type: "__ck_resize", height: h }, "*");
-            });
-            ro.observe(document.documentElement);
-          })();
-        `);
 
         // Flush pending queue
         const queue = pendingQueueRef.current;
@@ -282,6 +248,54 @@ export const OpenGenerativeUIActivityRenderer: React.FC<
       pendingQueueRef.current.push(...newExprs);
     }
   }, [content.jsExpressions?.length]);
+
+  // All content is complete — html, jsFunctions, and jsExpressions are all done
+  const allContentComplete = !!content.htmlComplete
+    && (content.jsFunctionsComplete || !content.jsFunctions)
+    && (content.jsExpressionsComplete || !content.jsExpressions?.length);
+
+  // Effect 4 — ResizeObserver injection (only when all content is complete)
+  useEffect(() => {
+    const sandbox = sandboxRef.current;
+    if (!allContentComplete || !sandbox) return;
+
+    const onMessage = (e: MessageEvent) => {
+      if (e.source === sandbox.iframe.contentWindow && e.data?.type === "__ck_resize") {
+        setAutoHeight(e.data.height);
+      }
+    };
+    window.addEventListener("message", onMessage);
+
+    const inject = () => {
+      sandbox.run(`
+        (function() {
+          var ro = new ResizeObserver(function() {
+            var h = document.documentElement.scrollHeight;
+            parent.postMessage({ type: "__ck_resize", height: h }, "*");
+          });
+          ro.observe(document.documentElement);
+        })();
+      `);
+    };
+
+    if (sandboxReadyRef.current) {
+      inject();
+    } else {
+      pendingQueueRef.current.push(`
+        (function() {
+          var ro = new ResizeObserver(function() {
+            var h = document.documentElement.scrollHeight;
+            parent.postMessage({ type: "__ck_resize", height: h }, "*");
+          });
+          ro.observe(document.documentElement);
+        })();
+      `);
+    }
+
+    return () => {
+      window.removeEventListener("message", onMessage);
+    };
+  }, [allContentComplete]);
 
   const height = autoHeight ?? initialHeight;
 

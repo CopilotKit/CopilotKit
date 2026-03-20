@@ -263,9 +263,12 @@ describe("OpenGenerativeUIMiddleware e2e", () => {
       const fnDeltas = emitted.filter(
         (e) => e.type === EventType.ACTIVITY_DELTA,
       ) as ActivityDeltaEvent[];
-      expect(fnDeltas).toHaveLength(1);
+      expect(fnDeltas).toHaveLength(2);
       expect(fnDeltas[0].patch).toEqual([
         { op: "add", path: "/jsFunctions", value: "fn(){}" },
+      ]);
+      expect(fnDeltas[1].patch).toEqual([
+        { op: "add", path: "/jsFunctionsComplete", value: true },
       ]);
     });
 
@@ -300,10 +303,13 @@ describe("OpenGenerativeUIMiddleware e2e", () => {
 
       emitted.length = 0;
       parser.write('"expr3"]}');
-      expect(emitted).toHaveLength(1);
+      expect(emitted).toHaveLength(2);
       const delta3 = emitted[0] as ActivityDeltaEvent;
       expect(delta3.patch).toEqual([
         { op: "add", path: "/jsExpressions/-", value: "expr3" },
+      ]);
+      expect((emitted[1] as ActivityDeltaEvent).patch).toEqual([
+        { op: "add", path: "/jsExpressionsComplete", value: true },
       ]);
     });
 

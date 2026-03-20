@@ -159,6 +159,9 @@ export class ArgsParser {
 
     this.parser.onclosearray = () => {
       if (this.depth === 1) {
+        if (this.currentArrayKey === "jsExpressions") {
+          this.emitParamDelta("jsExpressionsComplete", true);
+        }
         this.currentArrayKey = null;
       }
     };
@@ -216,6 +219,7 @@ export class ArgsParser {
       case "jsFunctions":
         this.params.jsFunctions = value != null ? String(value) : undefined;
         this.emitParamDelta("jsFunctions", this.params.jsFunctions);
+        this.emitParamDelta("jsFunctionsComplete", true);
         break;
     }
   }
