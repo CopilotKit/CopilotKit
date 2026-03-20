@@ -82,7 +82,8 @@
     "ts-deepmerge": "^7.0.3",
     "tw-animate-css": "^1.3.5",
     "use-stick-to-bottom": "^1.1.1",
-    "zod": "^3.25.75"
+    "zod": "^3.25.75",
+    "zod-to-json-schema": "^3.25.1"
   },
   "peerDependencies": {
     "react": ">=16.8.0",

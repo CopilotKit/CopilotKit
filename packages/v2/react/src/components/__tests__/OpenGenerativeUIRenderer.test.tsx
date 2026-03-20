@@ -1,9 +1,13 @@
 import { render, cleanup, act } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import React from "react";
+import { z } from "zod";
 import {
   OpenGenerativeUIActivityRenderer,
   OpenGenerativeUIContent,
 } from "../OpenGenerativeUIRenderer";
+import { SandboxFunctionsContext } from "../../providers/SandboxFunctionsContext";
+import type { SandboxFunction } from "../../types/sandbox-function";
 
 // Mock @jetbrains/websandbox
 const mockRun = vi.fn().mockResolvedValue(undefined);
@@ -246,5 +250,149 @@ describe("OpenGenerativeUIActivityRenderer", () => {
 
     const [, options] = mockCreate.mock.calls[1];
     expect(options.frameContent).toContain("v2");
+  });
+
+  describe("sandboxFunctions / localApi", () => {
+    function renderWithSandboxFunctions(
+      content: OpenGenerativeUIContent,
+      sandboxFunctions: SandboxFunction[],
+    ) {
+      return render(
+        <SandboxFunctionsContext.Provider value={sandboxFunctions}>
+          <OpenGenerativeUIActivityRenderer
+            activityType="open-generative-ui"
+            content={content}
+            message={{}}
+            agent={{}}
+          />
+        </SandboxFunctionsContext.Provider>,
+      );
+    }
+
+    it("passes localApi built from sandbox functions to websandbox", async () => {
+      const handler = vi.fn().mockResolvedValue(42);
+      const fns: SandboxFunction[] = [
+        {
+          name: "addToCart",
+          description: "Add item to cart",
+          parameters: z.object({ itemId: z.string() }),
+          handler,
+        },
+      ];
+
+      renderWithSandboxFunctions(
+        { html: "<head></head><body>test</body>" },
+        fns,
+      );
+      await flushImport();
+
+      expect(mockCreate).toHaveBeenCalledTimes(1);
+      const [localApi] = mockCreate.mock.calls[0];
+      expect(localApi).toHaveProperty("addToCart");
+      expect(localApi.addToCart).toBe(handler);
+    });
+
+    it("passes empty localApi when no sandbox functions", async () => {
+      renderWithSandboxFunctions(
+        { html: "<head></head><body>test</body>" },
+        [],
+      );
+      await flushImport();
+
+      expect(mockCreate).toHaveBeenCalledTimes(1);
+      const [localApi] = mockCreate.mock.calls[0];
+      expect(Object.keys(localApi)).toHaveLength(0);
+    });
+
+    it("recreates sandbox when sandbox functions change", async () => {
+      const handler1 = vi.fn();
+      const fns1: SandboxFunction[] = [
+        {
+          name: "fn1",
+          description: "first",
+          parameters: z.object({}),
+          handler: handler1,
+        },
+      ];
+
+      const { rerender } = render(
+        <SandboxFunctionsContext.Provider value={fns1}>
+          <OpenGenerativeUIActivityRenderer
+            activityType="open-generative-ui"
+            content={{ html: "<head></head><body>test</body>" }}
+            message={{}}
+            agent={{}}
+          />
+        </SandboxFunctionsContext.Provider>,
+      );
+      await flushImport();
+
+      expect(mockCreate).toHaveBeenCalledTimes(1);
+      await act(async () => {
+        mockPromiseResolve();
+        await mockPromise;
+      });
+
+      // Change sandbox functions
+      const handler2 = vi.fn();
+      const fns2: SandboxFunction[] = [
+        {
+          name: "fn2",
+          description: "second",
+          parameters: z.object({}),
+          handler: handler2,
+        },
+      ];
+
+      resetMockPromise();
+      rerender(
+        <SandboxFunctionsContext.Provider value={fns2}>
+          <OpenGenerativeUIActivityRenderer
+            activityType="open-generative-ui"
+            content={{ html: "<head></head><body>test</body>" }}
+            message={{}}
+            agent={{}}
+          />
+        </SandboxFunctionsContext.Provider>,
+      );
+      await flushImport();
+
+      // Old sandbox destroyed, new one created with new localApi
+      expect(mockDestroy).toHaveBeenCalledTimes(1);
+      expect(mockCreate).toHaveBeenCalledTimes(2);
+      const [localApi] = mockCreate.mock.calls[1];
+      expect(localApi).toHaveProperty("fn2");
+      expect(localApi.fn2).toBe(handler2);
+    });
+
+    it("includes multiple sandbox functions in localApi", async () => {
+      const handlerA = vi.fn();
+      const handlerB = vi.fn();
+      const fns: SandboxFunction[] = [
+        {
+          name: "fnA",
+          description: "A",
+          parameters: z.object({}),
+          handler: handlerA,
+        },
+        {
+          name: "fnB",
+          description: "B",
+          parameters: z.object({}),
+          handler: handlerB,
+        },
+      ];
+
+      renderWithSandboxFunctions(
+        { html: "<head></head><body>test</body>" },
+        fns,
+      );
+      await flushImport();
+
+      const [localApi] = mockCreate.mock.calls[0];
+      expect(Object.keys(localApi)).toHaveLength(2);
+      expect(localApi.fnA).toBe(handlerA);
+      expect(localApi.fnB).toBe(handlerB);
+    });
   });
 });

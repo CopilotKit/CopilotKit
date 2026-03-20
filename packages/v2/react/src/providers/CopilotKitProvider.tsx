@@ -43,6 +43,7 @@ import type { ReactCustomMessageRenderer } from "../types/react-custom-message-r
 import type { SandboxFunction } from "../types/sandbox-function";
 import { SandboxFunctionsContext } from "./SandboxFunctionsContext";
 import { schemaToJsonSchema } from "@copilotkitnext/shared";
+import { zodToJsonSchema } from "zod-to-json-schema";
 
 const HEADER_NAME = "X-CopilotCloud-Public-Api-Key";
 const COPILOT_CLOUD_CHAT_URL = "https://api.cloud.copilotkit.ai/copilotkit/v1";
@@ -586,7 +587,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
       sandboxFunctionsList.map((fn) => ({
         name: fn.name,
         description: fn.description,
-        parameters: schemaToJsonSchema(fn.parameters),
+        parameters: schemaToJsonSchema(fn.parameters, { zodToJsonSchema }),
       })),
     );
   }, [sandboxFunctionsList]);
