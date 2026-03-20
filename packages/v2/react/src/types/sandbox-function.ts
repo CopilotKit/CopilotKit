@@ -1,7 +1,4 @@
-import type {
-  StandardSchemaV1,
-  InferSchemaOutput,
-} from "@copilotkitnext/shared";
+import type { StandardSchemaV1 } from "@copilotkitnext/shared";
 
 export type SandboxFunction<
   TParams extends StandardSchemaV1 = StandardSchemaV1,
@@ -9,5 +6,6 @@ export type SandboxFunction<
   name: string;
   description: string;
   parameters: TParams;
-  handler: (args: InferSchemaOutput<TParams>) => Promise<unknown>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  handler: (args: any) => Promise<unknown>;
 };
