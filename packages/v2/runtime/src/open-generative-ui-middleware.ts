@@ -220,6 +220,21 @@ export class OpenGenerativeUIMiddleware extends Middleware {
       let heldRunFinished: EventWithState | null = null;
       // Track active generate_sandboxed_ui tool call IDs → their streaming parser
       const activeParsers = new Map<string, ArgsParser>();
+      // Hold genui tool call events until the first activity event is emitted
+      const heldToolCallEvents = new Map<string, BaseEvent[]>();
+      const flushedToolCalls = new Set<string>();
+
+      const flushHeldEvents = (toolCallId: string) => {
+        if (flushedToolCalls.has(toolCallId)) return;
+        flushedToolCalls.add(toolCallId);
+        const held = heldToolCallEvents.get(toolCallId);
+        if (held) {
+          for (const e of held) {
+            subscriber.next(e);
+          }
+          heldToolCallEvents.delete(toolCallId);
+        }
+      };
 
       const subscription = source.subscribe({
         next: (eventWithState) => {
@@ -235,30 +250,51 @@ export class OpenGenerativeUIMiddleware extends Middleware {
             return;
           }
 
-          // Track TOOL_CALL_START for our tool
+          // Hold TOOL_CALL_START for genui until the first activity event
           if (event.type === EventType.TOOL_CALL_START) {
             const startEvent = event as ToolCallStartEvent;
             if (startEvent.toolCallName === TOOL_NAME) {
+              heldToolCallEvents.set(startEvent.toolCallId, [event]);
               activeParsers.set(
                 startEvent.toolCallId,
                 new ArgsParser(startEvent.toolCallId, (activityEvent) => {
                   subscriber.next(activityEvent);
+                  flushHeldEvents(startEvent.toolCallId);
                 }),
               );
+              return;
             }
           }
 
-          subscriber.next(event);
-
-          // Feed TOOL_CALL_ARGS chunks into the parser (after emitting the args event,
-          // so activity events appear after the args event that triggered them)
+          // Hold or emit TOOL_CALL_ARGS for genui tool calls
           if (event.type === EventType.TOOL_CALL_ARGS) {
             const argsEvent = event as ToolCallArgsEvent;
             const parser = activeParsers.get(argsEvent.toolCallId);
             if (parser) {
+              if (!flushedToolCalls.has(argsEvent.toolCallId)) {
+                heldToolCallEvents.get(argsEvent.toolCallId)!.push(event);
+              } else {
+                subscriber.next(event);
+              }
               parser.write(argsEvent.delta);
+              return;
             }
           }
+
+          // Hold or emit TOOL_CALL_END for genui tool calls
+          if (event.type === EventType.TOOL_CALL_END) {
+            const endEvent = event as { toolCallId: string } & BaseEvent;
+            if (activeParsers.has(endEvent.toolCallId)) {
+              if (!flushedToolCalls.has(endEvent.toolCallId)) {
+                heldToolCallEvents.get(endEvent.toolCallId)!.push(event);
+              } else {
+                subscriber.next(event);
+              }
+              return;
+            }
+          }
+
+          subscriber.next(event);
         },
         error: (err) => {
           if (heldRunFinished) {
@@ -268,6 +304,11 @@ export class OpenGenerativeUIMiddleware extends Middleware {
           subscriber.error(err);
         },
         complete: () => {
+          // Flush any remaining held tool call events (e.g. parser never emitted)
+          heldToolCallEvents.forEach((_, toolCallId) => {
+            flushHeldEvents(toolCallId);
+          });
+
           if (heldRunFinished) {
             const pendingToolCalls = this.findPendingToolCalls(heldRunFinished.messages);
             const pendingGenUICalls = pendingToolCalls.filter(

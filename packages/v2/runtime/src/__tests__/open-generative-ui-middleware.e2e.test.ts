@@ -513,7 +513,7 @@ describe("OpenGenerativeUIMiddleware e2e", () => {
       ]);
     });
 
-    it("emits activity events through the middleware stream", async () => {
+    it("holds genui tool call events and flushes after first activity event", async () => {
       const middleware = new OpenGenerativeUIMiddleware();
       const toolCallId = "tc-stream";
       const parentMessageId = "msg-1";
@@ -554,11 +554,22 @@ describe("OpenGenerativeUIMiddleware e2e", () => {
 
       const events = await collectEvents(middleware.run(createRunInput(), agent));
 
+      // ACTIVITY_SNAPSHOT should appear before any tool call events
+      const snapshotIdx = events.findIndex(
+        (e) => e.type === EventType.ACTIVITY_SNAPSHOT,
+      );
+      const toolCallStartIdx = events.findIndex(
+        (e) => e.type === EventType.TOOL_CALL_START,
+      );
+      expect(snapshotIdx).toBeGreaterThan(-1);
+      expect(toolCallStartIdx).toBeGreaterThan(-1);
+      expect(snapshotIdx).toBeLessThan(toolCallStartIdx);
+
+      // Activity content is correct
       const snapshots = events.filter(
         (e) => e.type === EventType.ACTIVITY_SNAPSHOT,
       ) as ActivitySnapshotEvent[];
       expect(snapshots).toHaveLength(1);
-      expect(snapshots[0].messageId).toBe(`${toolCallId}-activity`);
       expect(snapshots[0].content).toEqual({ height: 300 });
 
       const deltas = events.filter(
@@ -568,13 +579,54 @@ describe("OpenGenerativeUIMiddleware e2e", () => {
       expect(deltas[0].patch).toEqual([
         { op: "add", path: "/html", value: "<p>hi</p>" },
       ]);
+    });
 
-      // Activity events should appear after the TOOL_CALL_ARGS that triggered them
-      const firstArgsIdx = events.findIndex(
-        (e) => e.type === EventType.TOOL_CALL_ARGS,
-      );
-      const snapshotIdx = events.indexOf(snapshots[0]);
-      expect(snapshotIdx).toBeGreaterThan(firstArgsIdx);
+    it("passes through tool call events for non-genui tools", async () => {
+      const middleware = new OpenGenerativeUIMiddleware();
+      const toolCallId = "tc-other";
+      const parentMessageId = "msg-1";
+
+      const agent = new MockAgent([
+        { type: EventType.RUN_STARTED, threadId: "thread-1", runId: "run-1" } as BaseEvent,
+        {
+          type: EventType.TEXT_MESSAGE_START,
+          messageId: parentMessageId,
+          role: "assistant",
+        } as BaseEvent,
+        {
+          type: EventType.TEXT_MESSAGE_END,
+          messageId: parentMessageId,
+        } as BaseEvent,
+        {
+          type: EventType.TOOL_CALL_START,
+          toolCallId,
+          toolCallName: "some_other_tool",
+          parentMessageId,
+        } as BaseEvent,
+        {
+          type: EventType.TOOL_CALL_ARGS,
+          toolCallId,
+          delta: "{}",
+        } as BaseEvent,
+        {
+          type: EventType.TOOL_CALL_END,
+          toolCallId,
+        } as BaseEvent,
+        { type: EventType.RUN_FINISHED, threadId: "thread-1", runId: "run-1" } as BaseEvent,
+      ]);
+
+      const events = await collectEvents(middleware.run(createRunInput(), agent));
+
+      const types = events.map((e) => e.type);
+      expect(types).toEqual([
+        EventType.RUN_STARTED,
+        EventType.TEXT_MESSAGE_START,
+        EventType.TEXT_MESSAGE_END,
+        EventType.TOOL_CALL_START,
+        EventType.TOOL_CALL_ARGS,
+        EventType.TOOL_CALL_END,
+        EventType.RUN_FINISHED,
+      ]);
     });
 
     it("emits full activity events for js_functions and js_expressions through middleware", async () => {
