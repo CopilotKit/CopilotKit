@@ -84,10 +84,14 @@ export const OpenGenerativeUIActivityRenderer: React.FC<
 
     // Dynamic import to avoid SSR issues (websandbox references `self` at module level)
     const htmlContent = content.html;
-    import("@jetbrains/websandbox").then(({ default: WebsandboxModule }) => {
+    import("@jetbrains/websandbox").then((mod: any) => {
       if (cancelled) return;
 
-      const sandbox = WebsandboxModule.create(localApi, {
+      // websandbox ships a UMD bundle with its own webpack `default` export.
+      // Consumer bundlers (e.g. Next.js webpack) wrap CJS under another `.default`,
+      // resulting in mod.default.default for the actual Websandbox class.
+      const Websandbox = mod.default?.default ?? mod.default;
+      const sandbox = Websandbox.create(localApi, {
         frameContainer: container,
         frameContent: ensureHead(htmlContent),
       });
