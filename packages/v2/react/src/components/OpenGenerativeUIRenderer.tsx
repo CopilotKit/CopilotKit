@@ -94,6 +94,7 @@ export const OpenGenerativeUIActivityRenderer: React.FC<
       const sandbox = Websandbox.create(localApi, {
         frameContainer: container,
         frameContent: ensureHead(htmlContent),
+        allowAdditionalAttributes: "",
       });
       sandboxRef.current = sandbox;
 

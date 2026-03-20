@@ -18,7 +18,11 @@ const ACTIVITY_TYPE = "open-generative-ui";
 
 const GENERATE_SANDBOXED_UI_TOOL: Tool = {
   name: TOOL_NAME,
-  description: "Generate sandboxed UI",
+  description:
+    "Generate sandboxed UI. " +
+    "IMPORTANT: The generated code runs in a sandboxed iframe WITHOUT same-origin access. " +
+    "Do NOT use localStorage, sessionStorage, document.cookie, IndexedDB, or fetch/XMLHttpRequest to same-origin URLs. " +
+    "To communicate with the host application, use Websandbox.connection.remote.<functionName>(args) which returns a Promise.",
   parameters: {
     type: "object",
     properties: {
