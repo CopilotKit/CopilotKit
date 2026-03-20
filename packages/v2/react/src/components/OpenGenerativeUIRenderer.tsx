@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { z } from "zod";
 
 export const OpenGenerativeUIActivityType = "open-generative-ui";
@@ -31,10 +31,11 @@ function ensureHead(html: string): string {
 export const OpenGenerativeUIRenderer: React.FC<
   OpenGenerativeUIRendererProps
 > = function OpenGenerativeUIRenderer({ content }) {
-  const height = content.height ?? 200;
+  const initialHeight = content.height ?? 200;
+  const [autoHeight, setAutoHeight] = useState<number | null>(null);
 
   const containerRef = useRef<HTMLDivElement>(null);
-  const sandboxRef = useRef<{ run: (code: string | Function) => Promise<unknown>; destroy: () => void } | null>(null);
+  const sandboxRef = useRef<{ run: (code: string | Function) => Promise<unknown>; destroy: () => void; iframe: HTMLIFrameElement } | null>(null);
   const sandboxReadyRef = useRef(false);
   const executedIndexRef = useRef(0);
   const pendingQueueRef = useRef<string[]>([]);
@@ -70,9 +71,29 @@ export const OpenGenerativeUIRenderer: React.FC<
       sandbox.iframe.style.border = "none";
       sandbox.iframe.style.backgroundColor = "transparent";
 
+      // Listen for height updates from the iframe's ResizeObserver
+      const onMessage = (e: MessageEvent) => {
+        if (e.source === sandbox.iframe.contentWindow && e.data?.type === "__ck_resize") {
+          setAutoHeight(e.data.height);
+        }
+      };
+      window.addEventListener("message", onMessage);
+
       sandbox.promise.then(() => {
         if (cancelled) return;
         sandboxReadyRef.current = true;
+
+        // Inject ResizeObserver to report content height back to parent
+        sandbox.run(`
+          (function() {
+            var ro = new ResizeObserver(function() {
+              var h = document.documentElement.scrollHeight;
+              parent.postMessage({ type: "__ck_resize", height: h }, "*");
+            });
+            ro.observe(document.documentElement);
+          })();
+        `);
+
         // Flush pending queue
         const queue = pendingQueueRef.current;
         pendingQueueRef.current = [];
@@ -89,6 +110,7 @@ export const OpenGenerativeUIRenderer: React.FC<
         sandboxRef.current = null;
       }
       sandboxReadyRef.current = false;
+      setAutoHeight(null);
     };
   }, [content.html]);
 
@@ -127,6 +149,8 @@ export const OpenGenerativeUIRenderer: React.FC<
       pendingQueueRef.current.push(...newExprs);
     }
   }, [content.js_expressions?.length]);
+
+  const height = autoHeight ?? initialHeight;
 
   return (
     <div
