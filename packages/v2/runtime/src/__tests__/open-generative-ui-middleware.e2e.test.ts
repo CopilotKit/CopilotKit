@@ -80,6 +80,11 @@ describe("OpenGenerativeUIMiddleware e2e", () => {
         type: "object",
         properties: {
           initialHeight: { type: "number", description: expect.any(String) },
+          placeholderMessages: {
+            type: "array",
+            items: { type: "string" },
+            description: expect.any(String),
+          },
           html: { type: "string", description: expect.any(String) },
           jsFunctions: { type: "string", description: expect.any(String) },
           jsExpressions: {

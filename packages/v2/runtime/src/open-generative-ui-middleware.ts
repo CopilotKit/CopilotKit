@@ -30,6 +30,12 @@ const GENERATE_SANDBOXED_UI_TOOL: Tool = {
         type: "number",
         description: "Fixed height of the UI container in pixels",
       },
+      placeholderMessages: {
+        type: "array",
+        items: { type: "string" },
+        description:
+          "Short loading messages displayed while the UI is being generated. Generate these FIRST before the html so the user sees them while waiting.",
+      },
       html: {
         type: "string",
         description:
@@ -54,6 +60,7 @@ const GENERATE_SANDBOXED_UI_TOOL: Tool = {
  */
 export interface GenerateSandboxedUIParams {
   initialHeight?: number;
+  placeholderMessages?: string[];
   html?: string;
   jsFunctions?: string;
   jsExpressions?: string[];
@@ -72,7 +79,7 @@ export class ArgsParser {
   private parser: ReturnType<typeof clarinet.parser>;
   private currentKey: string | null = null;
   private depth = 0;
-  private inArray = false;
+  private currentArrayKey: string | null = null;
   private snapshotEmitted = false;
 
   public readonly params: GenerateSandboxedUIParams = {};
@@ -99,13 +106,16 @@ export class ArgsParser {
 
     this.parser.onvalue = (value: string | boolean | number | null) => {
       if (this.depth === 1 && this.currentKey) {
-        if (this.inArray && this.currentKey === "jsExpressions") {
-          if (!this.params.jsExpressions) {
-            this.params.jsExpressions = [];
-          }
+        if (this.currentArrayKey) {
           const strValue = String(value);
-          this.params.jsExpressions.push(strValue);
-          this.emitArrayItemDelta(strValue);
+          if (this.currentArrayKey === "jsExpressions") {
+            if (!this.params.jsExpressions) this.params.jsExpressions = [];
+            this.params.jsExpressions.push(strValue);
+          } else if (this.currentArrayKey === "placeholderMessages") {
+            if (!this.params.placeholderMessages) this.params.placeholderMessages = [];
+            this.params.placeholderMessages.push(strValue);
+          }
+          this.emitArrayItemDelta(this.currentArrayKey, strValue);
         } else {
           this.setParam(this.currentKey, value);
         }
@@ -113,18 +123,22 @@ export class ArgsParser {
     };
 
     this.parser.onopenarray = () => {
-      if (this.depth === 1 && this.currentKey === "jsExpressions") {
-        this.inArray = true;
-        this.params.jsExpressions = [];
-        // Emit a delta to create the array in the activity content.
-        // Subsequent "add" ops with path "/jsExpressions/-" append to this array.
-        this.emitParamDelta("jsExpressions", []);
+      if (this.depth === 1 && this.currentKey) {
+        const key = this.currentKey;
+        if (key === "jsExpressions" || key === "placeholderMessages") {
+          this.currentArrayKey = key;
+          if (key === "jsExpressions") this.params.jsExpressions = [];
+          else this.params.placeholderMessages = [];
+          // Emit a delta to create the array in the activity content.
+          // Subsequent "add" ops with path "/<key>/-" append to this array.
+          this.emitParamDelta(key, []);
+        }
       }
     };
 
     this.parser.onclosearray = () => {
       if (this.depth === 1) {
-        this.inArray = false;
+        this.currentArrayKey = null;
       }
     };
 
@@ -183,12 +197,12 @@ export class ArgsParser {
     this.onEvent(event);
   }
 
-  private emitArrayItemDelta(value: string): void {
+  private emitArrayItemDelta(arrayKey: string, value: string): void {
     const event: ActivityDeltaEvent = {
       type: EventType.ACTIVITY_DELTA,
       messageId: this.messageId,
       activityType: ACTIVITY_TYPE,
-      patch: [{ op: "add", path: "/jsExpressions/-", value }],
+      patch: [{ op: "add", path: `/${arrayKey}/-`, value }],
     };
     this.onEvent(event);
   }
