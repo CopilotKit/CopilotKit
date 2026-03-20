@@ -218,7 +218,7 @@ export class OpenGenerativeUIMiddleware extends Middleware {
   private processStream(source: Observable<EventWithState>): Observable<BaseEvent> {
     return new Observable<BaseEvent>((subscriber) => {
       let heldRunFinished: EventWithState | null = null;
-      // Track active generate_sandboxed_ui tool call IDs → their streaming parser
+      // Track active generateSandboxedUi tool call IDs → their streaming parser
       const activeParsers = new Map<string, ArgsParser>();
       // Hold genui tool call events until the first activity event is emitted
       const heldToolCallEvents = new Map<string, BaseEvent[]>();

@@ -114,7 +114,7 @@ export const OpenGenerativeUIRenderer: React.FC<
     };
   }, [content.html]);
 
-  // Effect 2 — js_functions injection (depends on content.jsFunctions)
+  // Effect 2 — jsFunctions injection (depends on content.jsFunctions)
   useEffect(() => {
     if (!content.jsFunctions || jsFunctionsInjectedRef.current) return;
     jsFunctionsInjectedRef.current = true;
@@ -127,7 +127,7 @@ export const OpenGenerativeUIRenderer: React.FC<
     }
   }, [content.jsFunctions]);
 
-  // Effect 3 — js_expressions execution (depends on content.jsExpressions?.length)
+  // Effect 3 — jsExpressions execution (depends on content.jsExpressions?.length)
   useEffect(() => {
     const expressions = content.jsExpressions;
     if (!expressions || expressions.length === 0) return;
