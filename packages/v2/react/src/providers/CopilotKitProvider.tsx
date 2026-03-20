@@ -24,7 +24,9 @@ import {
 import {
   OpenGenerativeUIActivityType,
   OpenGenerativeUIContentSchema,
-  OpenGenerativeUIRenderer,
+  OpenGenerativeUIActivityRenderer,
+  OpenGenerativeUIToolRenderer,
+  GenerateSandboxedUiArgsSchema,
 } from "../components/OpenGenerativeUIRenderer";
 import { createA2UIMessageRenderer } from "../a2ui/A2UIMessageRenderer";
 import { viewerTheme } from "@copilotkit/a2ui-renderer";
@@ -230,7 +232,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
       {
         activityType: OpenGenerativeUIActivityType,
         content: OpenGenerativeUIContentSchema,
-        render: OpenGenerativeUIRenderer,
+        render: OpenGenerativeUIActivityRenderer,
       },
     ];
 
@@ -333,25 +335,39 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     return { tools: processedTools, renderToolCalls: processedRenderToolCalls };
   }, [humanInTheLoopList]);
 
+  // Built-in frontend tool for generateSandboxedUi — provides the tool result
+  const builtInFrontendTools = useMemo<ReactFrontendTool[]>(() => {
+    return [
+      {
+        name: "generateSandboxedUi",
+        parameters: GenerateSandboxedUiArgsSchema,
+        handler: async () => "UI generated",
+        followUp: false,
+        render: OpenGenerativeUIToolRenderer,
+      },
+    ];
+  }, []);
+
   // Combine all tools for CopilotKitCore
   const allTools = useMemo(() => {
     const tools: FrontendTool[] = [];
 
-    // Add frontend tools
+    // Add frontend tools (user-provided + built-in)
     tools.push(...frontendToolsList);
+    tools.push(...builtInFrontendTools);
 
     // Add processed human-in-the-loop tools
     tools.push(...processedHumanInTheLoopTools.tools);
 
     return tools;
-  }, [frontendToolsList, processedHumanInTheLoopTools]);
+  }, [frontendToolsList, builtInFrontendTools, processedHumanInTheLoopTools]);
 
   // Combine all render tool calls
   const allRenderToolCalls = useMemo(() => {
     const combined: ReactToolCallRenderer<unknown>[] = [...renderToolCallsList];
 
-    // Add render components from frontend tools
-    frontendToolsList.forEach((tool) => {
+    // Add render components from frontend tools (user-provided + built-in)
+    [...frontendToolsList, ...builtInFrontendTools].forEach((tool) => {
       if (tool.render) {
         // For wildcard tools without parameters, default to z.any()
         const args =
@@ -370,7 +386,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     combined.push(...processedHumanInTheLoopTools.renderToolCalls);
 
     return combined;
-  }, [renderToolCallsList, frontendToolsList, processedHumanInTheLoopTools]);
+  }, [renderToolCallsList, frontendToolsList, builtInFrontendTools, processedHumanInTheLoopTools]);
 
   // Stable instance: created once for the provider lifetime.
   // Updates are applied via setter effects below rather than recreating the instance.

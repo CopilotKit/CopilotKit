@@ -2,12 +2,12 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import { z } from "zod";
+import { ToolCallStatus } from "@copilotkitnext/core";
 
 export const OpenGenerativeUIActivityType = "open-generative-ui";
 
 export const OpenGenerativeUIContentSchema = z.object({
   initialHeight: z.number().optional(),
-  placeholderMessages: z.array(z.string()).optional(),
   html: z.string().optional(),
   jsFunctions: z.string().optional(),
   jsExpressions: z.array(z.string()).optional(),
@@ -17,7 +17,23 @@ export type OpenGenerativeUIContent = z.infer<
   typeof OpenGenerativeUIContentSchema
 >;
 
-interface OpenGenerativeUIRendererProps {
+/**
+ * Schema for the generateSandboxedUi tool call arguments.
+ * Used by the frontend tool renderer to display placeholder messages.
+ */
+export const GenerateSandboxedUiArgsSchema = z.object({
+  initialHeight: z.number().optional(),
+  placeholderMessages: z.array(z.string()).optional(),
+  html: z.string().optional(),
+  jsFunctions: z.string().optional(),
+  jsExpressions: z.array(z.string()).optional(),
+});
+
+export type GenerateSandboxedUiArgs = z.infer<
+  typeof GenerateSandboxedUiArgsSchema
+>;
+
+interface OpenGenerativeUIActivityRendererProps {
   activityType: string;
   content: OpenGenerativeUIContent;
   message: unknown;
@@ -29,32 +45,11 @@ function ensureHead(html: string): string {
   return `<head></head>${html}`;
 }
 
-export const OpenGenerativeUIRenderer: React.FC<
-  OpenGenerativeUIRendererProps
-> = function OpenGenerativeUIRenderer({ content }) {
+export const OpenGenerativeUIActivityRenderer: React.FC<
+  OpenGenerativeUIActivityRendererProps
+> = function OpenGenerativeUIActivityRenderer({ content }) {
   const initialHeight = content.initialHeight ?? 200;
   const [autoHeight, setAutoHeight] = useState<number | null>(null);
-  const [visibleMessageIndex, setVisibleMessageIndex] = useState(0);
-  const prevMessageCountRef = useRef(0);
-
-  // Cycle through placeholder messages — advance when a new message arrives or on a timer
-  useEffect(() => {
-    const messages = content.placeholderMessages;
-    if (!messages || messages.length === 0) return;
-
-    // When a new message streams in, jump to it immediately
-    if (messages.length !== prevMessageCountRef.current) {
-      prevMessageCountRef.current = messages.length;
-      setVisibleMessageIndex(messages.length - 1);
-    }
-
-    // Auto-cycle every 3s once all messages have arrived and html hasn't loaded yet
-    if (content.html) return;
-    const timer = setInterval(() => {
-      setVisibleMessageIndex((i) => (i + 1) % messages.length);
-    }, 3000);
-    return () => clearInterval(timer);
-  }, [content.placeholderMessages?.length, content.html]);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const sandboxRef = useRef<{ run: (code: string | Function) => Promise<unknown>; destroy: () => void; iframe: HTMLIFrameElement } | null>(null);
@@ -191,11 +186,74 @@ export const OpenGenerativeUIRenderer: React.FC<
     >
       {!content.html && (
         <span style={{ color: "#999", fontSize: "14px" }}>
-          {content.placeholderMessages?.length
-            ? content.placeholderMessages[visibleMessageIndex] ?? content.placeholderMessages[0]
-            : "Generative UI Placeholder"}
+          Generative UI Placeholder
         </span>
       )}
+    </div>
+  );
+};
+
+/**
+ * Frontend tool renderer for generateSandboxedUi.
+ * Displays placeholder messages while the UI is being generated.
+ */
+export const OpenGenerativeUIToolRenderer: React.FC<
+  | {
+      name: string;
+      args: Partial<GenerateSandboxedUiArgs>;
+      status: ToolCallStatus.InProgress;
+      result: undefined;
+    }
+  | {
+      name: string;
+      args: GenerateSandboxedUiArgs;
+      status: ToolCallStatus.Executing;
+      result: undefined;
+    }
+  | {
+      name: string;
+      args: GenerateSandboxedUiArgs;
+      status: ToolCallStatus.Complete;
+      result: string;
+    }
+> = function OpenGenerativeUIToolRenderer(props) {
+  const [visibleMessageIndex, setVisibleMessageIndex] = useState(0);
+  const prevMessageCountRef = useRef(0);
+
+  const messages = props.args.placeholderMessages;
+
+  // Cycle through placeholder messages
+  useEffect(() => {
+    if (!messages || messages.length === 0) return;
+
+    // When a new message streams in, jump to it immediately
+    if (messages.length !== prevMessageCountRef.current) {
+      prevMessageCountRef.current = messages.length;
+      setVisibleMessageIndex(messages.length - 1);
+    }
+
+    // Auto-cycle every 3s while still in progress
+    if (props.status === ToolCallStatus.Complete) return;
+    const timer = setInterval(() => {
+      setVisibleMessageIndex((i) => (i + 1) % messages.length);
+    }, 3000);
+    return () => clearInterval(timer);
+  }, [messages?.length, props.status]);
+
+  // Don't render anything once complete — the activity renderer handles the UI
+  if (props.status === ToolCallStatus.Complete) return null;
+
+  if (!messages || messages.length === 0) return null;
+
+  return (
+    <div
+      style={{
+        padding: "8px 12px",
+        color: "#999",
+        fontSize: "14px",
+      }}
+    >
+      {messages[visibleMessageIndex] ?? messages[0]}
     </div>
   );
 };

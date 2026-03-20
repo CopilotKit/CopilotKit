@@ -56,9 +56,10 @@ export default function Home() {
 
 function Chat() {
   const [selectedThreadId, setSelectedThreadId] = useState<
-    "thread---a" | "thread---b" | "thread---c"
-  >("thread---a");
+    "thread---a" | "thread---b" | "thread---c" | undefined
+  >(undefined);
   const threadOptions: Array<{ id: typeof selectedThreadId; label: string }> = [
+    { id: undefined, label: "Stateless" },
     { id: "thread---a", label: "Thread A" },
     { id: "thread---b", label: "Thread B" },
     { id: "thread---c", label: "Thread C" },
@@ -71,7 +72,7 @@ function Chat() {
 
   useAgentContext({
     description: "The current Thread ID is:",
-    value: selectedThreadId,
+    value: selectedThreadId ?? "stateless",
   });
 
   //useConfigureSuggestions({
@@ -155,7 +156,7 @@ function Chat() {
           const isActive = id === selectedThreadId;
           return (
             <button
-              key={id}
+              key={id ?? "stateless"}
               type="button"
               onClick={() => setSelectedThreadId(id)}
               aria-pressed={isActive}
@@ -177,7 +178,7 @@ function Chat() {
         })}
       </div>
       <div style={{ flex: 1, minHeight: 0 }}>
-        <CopilotChat input={{ toolsMenu }} threadId={selectedThreadId} />
+        <CopilotChat input={{ toolsMenu }} threadId={selectedThreadId} key={selectedThreadId ?? "stateless"} />
       </div>
     </div>
   );

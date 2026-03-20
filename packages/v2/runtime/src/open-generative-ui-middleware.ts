@@ -1,13 +1,9 @@
-import { randomUUID } from "node:crypto";
 import {
   Middleware,
   RunAgentInput,
   AbstractAgent,
   BaseEvent,
   EventType,
-  Message,
-  ToolCall,
-  ToolCallResultEvent,
   ToolCallStartEvent,
   ToolCallArgsEvent,
   ActivitySnapshotEvent,
@@ -324,21 +320,6 @@ export class OpenGenerativeUIMiddleware extends Middleware {
           });
 
           if (heldRunFinished) {
-            const pendingToolCalls = this.findPendingToolCalls(heldRunFinished.messages);
-            const pendingGenUICalls = pendingToolCalls.filter(
-              (tc) => tc.function.name === TOOL_NAME,
-            );
-
-            for (const toolCall of pendingGenUICalls) {
-              const resultEvent: ToolCallResultEvent = {
-                type: EventType.TOOL_CALL_RESULT,
-                messageId: randomUUID(),
-                toolCallId: toolCall.id,
-                content: "UI generated",
-              };
-              subscriber.next(resultEvent);
-            }
-
             subscriber.next(heldRunFinished.event);
             heldRunFinished = null;
           }
@@ -349,27 +330,5 @@ export class OpenGenerativeUIMiddleware extends Middleware {
 
       return () => subscription.unsubscribe();
     });
-  }
-
-  private findPendingToolCalls(messages: Message[]): ToolCall[] {
-    const allToolCalls: ToolCall[] = [];
-    for (const message of messages) {
-      if (
-        message.role === "assistant" &&
-        "toolCalls" in message &&
-        message.toolCalls
-      ) {
-        allToolCalls.push(...message.toolCalls);
-      }
-    }
-
-    const resolvedToolCallIds = new Set<string>();
-    for (const message of messages) {
-      if (message.role === "tool" && "toolCallId" in message) {
-        resolvedToolCallIds.add(message.toolCallId);
-      }
-    }
-
-    return allToolCalls.filter((tc) => !resolvedToolCallIds.has(tc.id));
   }
 }

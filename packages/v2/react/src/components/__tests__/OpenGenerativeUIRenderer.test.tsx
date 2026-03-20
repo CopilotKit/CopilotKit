@@ -1,7 +1,7 @@
 import { render, cleanup, act } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import {
-  OpenGenerativeUIRenderer,
+  OpenGenerativeUIActivityRenderer,
   OpenGenerativeUIContent,
 } from "../OpenGenerativeUIRenderer";
 
@@ -43,7 +43,7 @@ async function flushImport() {
 
 function renderRenderer(content: OpenGenerativeUIContent) {
   return render(
-    <OpenGenerativeUIRenderer
+    <OpenGenerativeUIActivityRenderer
       activityType="open-generative-ui"
       content={content}
       message={{}}
@@ -52,7 +52,7 @@ function renderRenderer(content: OpenGenerativeUIContent) {
   );
 }
 
-describe("OpenGenerativeUIRenderer", () => {
+describe("OpenGenerativeUIActivityRenderer", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     resetMockPromise();
@@ -138,7 +138,7 @@ describe("OpenGenerativeUIRenderer", () => {
 
   it("tracks index — no re-execution on re-render", async () => {
     const { rerender } = render(
-      <OpenGenerativeUIRenderer
+      <OpenGenerativeUIActivityRenderer
         activityType="open-generative-ui"
         content={{
           html: "<head></head><body></body>",
@@ -163,7 +163,7 @@ describe("OpenGenerativeUIRenderer", () => {
 
     // Re-render with additional expression
     rerender(
-      <OpenGenerativeUIRenderer
+      <OpenGenerativeUIActivityRenderer
         activityType="open-generative-ui"
         content={{
           html: "<head></head><body></body>",
@@ -213,7 +213,7 @@ describe("OpenGenerativeUIRenderer", () => {
 
   it("recreates sandbox when html changes", async () => {
     const { rerender } = render(
-      <OpenGenerativeUIRenderer
+      <OpenGenerativeUIActivityRenderer
         activityType="open-generative-ui"
         content={{ html: "<head></head><body>v1</body>" }}
         message={{}}
@@ -231,7 +231,7 @@ describe("OpenGenerativeUIRenderer", () => {
     // Change html — need a new promise for the new sandbox
     resetMockPromise();
     rerender(
-      <OpenGenerativeUIRenderer
+      <OpenGenerativeUIActivityRenderer
         activityType="open-generative-ui"
         content={{ html: "<head></head><body>v2</body>" }}
         message={{}}
