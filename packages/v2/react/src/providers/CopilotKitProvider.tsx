@@ -342,7 +342,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
         name: "generateSandboxedUi",
         parameters: GenerateSandboxedUiArgsSchema,
         handler: async () => "UI generated",
-        followUp: false,
+        followUp: true,
         render: OpenGenerativeUIToolRenderer,
       },
     ];

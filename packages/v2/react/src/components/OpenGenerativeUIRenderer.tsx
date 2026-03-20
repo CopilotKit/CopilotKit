@@ -8,6 +8,7 @@ export const OpenGenerativeUIActivityType = "open-generative-ui";
 
 export const OpenGenerativeUIContentSchema = z.object({
   initialHeight: z.number().optional(),
+  generating: z.boolean().optional(),
   html: z.string().optional(),
   jsFunctions: z.string().optional(),
   jsExpressions: z.array(z.string()).optional(),
@@ -169,10 +170,13 @@ export const OpenGenerativeUIActivityRenderer: React.FC<
 
   const height = autoHeight ?? initialHeight;
 
+  const isGenerating = content.generating !== false;
+
   return (
     <div
       ref={containerRef}
       style={{
+        position: "relative",
         width: "100%",
         height: `${height}px`,
         borderRadius: "8px",
@@ -184,10 +188,36 @@ export const OpenGenerativeUIActivityRenderer: React.FC<
         overflow: "hidden",
       }}
     >
-      {!content.html && (
-        <span style={{ color: "#999", fontSize: "14px" }}>
-          Generative UI Placeholder
-        </span>
+      {isGenerating && (
+        <div
+          style={{
+            position: content.html ? "absolute" : "relative",
+            inset: content.html ? 0 : undefined,
+            zIndex: 10,
+            pointerEvents: content.html ? "all" : "none",
+            backgroundColor: content.html ? "rgba(255, 255, 255, 0.5)" : "transparent",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <svg
+            width="48"
+            height="48"
+            viewBox="0 0 24 24"
+            fill="none"
+            style={{ animation: "ck-spin 1s linear infinite" }}
+          >
+            <circle cx="12" cy="12" r="10" stroke="#e0e0e0" strokeWidth="3" />
+            <path
+              d="M12 2a10 10 0 0 1 10 10"
+              stroke="#999"
+              strokeWidth="3"
+              strokeLinecap="round"
+            />
+          </svg>
+          <style>{`@keyframes ck-spin { to { transform: rotate(360deg) } }`}</style>
+        </div>
       )}
     </div>
   );
@@ -236,7 +266,7 @@ export const OpenGenerativeUIToolRenderer: React.FC<
     if (props.status === ToolCallStatus.Complete) return;
     const timer = setInterval(() => {
       setVisibleMessageIndex((i) => (i + 1) % messages.length);
-    }, 3000);
+    }, 5000);
     return () => clearInterval(timer);
   }, [messages?.length, props.status]);
 

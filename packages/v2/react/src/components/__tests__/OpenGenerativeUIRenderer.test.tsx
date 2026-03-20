@@ -68,7 +68,7 @@ describe("OpenGenerativeUIActivityRenderer", () => {
 
     const div = container.firstElementChild as HTMLElement;
     expect(div.style.height).toBe("300px");
-    expect(div.textContent).toContain("Generative UI Placeholder");
+    expect(div.querySelector("svg")).not.toBeNull();
     expect(mockCreate).not.toHaveBeenCalled();
   });
 

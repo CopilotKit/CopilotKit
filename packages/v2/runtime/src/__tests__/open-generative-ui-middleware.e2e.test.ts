@@ -198,7 +198,7 @@ describe("OpenGenerativeUIMiddleware e2e", () => {
       expect(snapshot.type).toBe(EventType.ACTIVITY_SNAPSHOT);
       expect(snapshot.messageId).toBe("tc-1-activity");
       expect(snapshot.activityType).toBe("open-generative-ui");
-      expect(snapshot.content).toEqual({ initialHeight: 400 });
+      expect(snapshot.content).toEqual({ initialHeight: 400, generating: true });
     });
 
     it("emits ACTIVITY_DELTA for html and jsFunctions", () => {
@@ -307,6 +307,7 @@ describe("OpenGenerativeUIMiddleware e2e", () => {
 
       expect(content).toEqual({
         initialHeight: 400,
+        generating: true,
         html: "<body>game</body>",
         jsFunctions: "function init(){}",
         jsExpressions: ["init()", "update()"],
@@ -346,6 +347,7 @@ describe("OpenGenerativeUIMiddleware e2e", () => {
 
       expect(content).toEqual({
         initialHeight: 300,
+        generating: true,
         html: "<div>hi</div>",
         jsFunctions: "function go(){}",
         jsExpressions: ["go()", "render()", "done()"],
@@ -429,14 +431,17 @@ describe("OpenGenerativeUIMiddleware e2e", () => {
         (e) => e.type === EventType.ACTIVITY_SNAPSHOT,
       ) as ActivitySnapshotEvent[];
       expect(snapshots).toHaveLength(1);
-      expect(snapshots[0].content).toEqual({ initialHeight: 300 });
+      expect(snapshots[0].content).toEqual({ initialHeight: 300, generating: true });
 
       const deltas = events.filter(
         (e) => e.type === EventType.ACTIVITY_DELTA,
       ) as ActivityDeltaEvent[];
-      expect(deltas).toHaveLength(1);
+      expect(deltas).toHaveLength(2);
       expect(deltas[0].patch).toEqual([
         { op: "add", path: "/html", value: "<p>hi</p>" },
+      ]);
+      expect(deltas[1].patch).toEqual([
+        { op: "add", path: "/generating", value: false },
       ]);
     });
 
@@ -549,20 +554,21 @@ describe("OpenGenerativeUIMiddleware e2e", () => {
         (e) => e.type === EventType.ACTIVITY_SNAPSHOT,
       ) as ActivitySnapshotEvent[];
       expect(snapshots).toHaveLength(1);
-      expect(snapshots[0].content).toEqual({ initialHeight: 400 });
+      expect(snapshots[0].content).toEqual({ initialHeight: 400, generating: true });
 
       // Verify deltas
       const deltas = events.filter(
         (e) => e.type === EventType.ACTIVITY_DELTA,
       ) as ActivityDeltaEvent[];
 
-      // Expected deltas: html, jsFunctions, jsExpressions array creation, init(), render()
-      expect(deltas).toHaveLength(5);
+      // Expected deltas: html, jsFunctions, jsExpressions array creation, init(), render(), generating: false
+      expect(deltas).toHaveLength(6);
       expect(deltas[0].patch).toEqual([{ op: "add", path: "/html", value: "<body>game</body>" }]);
       expect(deltas[1].patch).toEqual([{ op: "add", path: "/jsFunctions", value: "function init(){}" }]);
       expect(deltas[2].patch).toEqual([{ op: "add", path: "/jsExpressions", value: [] }]);
       expect(deltas[3].patch).toEqual([{ op: "add", path: "/jsExpressions/-", value: "init()" }]);
       expect(deltas[4].patch).toEqual([{ op: "add", path: "/jsExpressions/-", value: "render()" }]);
+      expect(deltas[5].patch).toEqual([{ op: "add", path: "/generating", value: false }]);
 
       // Reconstruct content to prove patches work end-to-end
       let content: Record<string, unknown> = {};
@@ -585,6 +591,7 @@ describe("OpenGenerativeUIMiddleware e2e", () => {
 
       expect(content).toEqual({
         initialHeight: 400,
+        generating: false,
         html: "<body>game</body>",
         jsFunctions: "function init(){}",
         jsExpressions: ["init()", "render()"],

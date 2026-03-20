@@ -30,7 +30,7 @@ const GENERATE_SANDBOXED_UI_TOOL: Tool = {
         type: "array",
         items: { type: "string" },
         description:
-          "Short loading messages displayed while the UI is being generated. Generate these FIRST before the html so the user sees them while waiting.",
+          "Exactly 5 short loading messages displayed while the UI is being generated. Generate these FIRST before the html so the user sees them while waiting.",
       },
       html: {
         type: "string",
@@ -79,7 +79,7 @@ export class ArgsParser {
   private snapshotEmitted = false;
 
   public readonly params: GenerateSandboxedUIParams = {};
-  private readonly messageId: string;
+  public readonly messageId: string;
   private readonly onEvent: OnParamEvent;
 
   constructor(toolCallId: string, onEvent: OnParamEvent) {
@@ -178,7 +178,7 @@ export class ArgsParser {
       type: EventType.ACTIVITY_SNAPSHOT,
       messageId: this.messageId,
       activityType: ACTIVITY_TYPE,
-      content: { initialHeight: this.params.initialHeight },
+      content: { initialHeight: this.params.initialHeight, generating: true },
     };
     this.onEvent(event);
   }
@@ -211,7 +211,18 @@ type ExtractObservableType<T> = T extends Observable<infer U> ? U : never;
 type RunNextWithStateReturn = ReturnType<Middleware["runNextWithState"]>;
 type EventWithState = ExtractObservableType<RunNextWithStateReturn>;
 
+export interface OpenGenerativeUIMiddlewareOptions {
+  instructions?: string;
+}
+
 export class OpenGenerativeUIMiddleware extends Middleware {
+  private readonly instructions?: string;
+
+  constructor(options: OpenGenerativeUIMiddlewareOptions = {}) {
+    super();
+    this.instructions = options.instructions;
+  }
+
   run(input: RunAgentInput, next: AbstractAgent): Observable<BaseEvent> {
     const enhancedInput = this.injectTool(input);
     return this.processStream(this.runNextWithState(enhancedInput, next));
@@ -219,9 +230,15 @@ export class OpenGenerativeUIMiddleware extends Middleware {
 
   private injectTool(input: RunAgentInput): RunAgentInput {
     const filteredTools = input.tools.filter((t) => t.name !== TOOL_NAME);
+    const tool = this.instructions
+      ? {
+          ...GENERATE_SANDBOXED_UI_TOOL,
+          description: `${GENERATE_SANDBOXED_UI_TOOL.description}\n\n${this.instructions}`,
+        }
+      : GENERATE_SANDBOXED_UI_TOOL;
     return {
       ...input,
-      tools: [...filteredTools, GENERATE_SANDBOXED_UI_TOOL],
+      tools: [...filteredTools, tool],
     };
   }
 
@@ -294,7 +311,17 @@ export class OpenGenerativeUIMiddleware extends Middleware {
           // Hold or emit TOOL_CALL_END for genui tool calls
           if (event.type === EventType.TOOL_CALL_END) {
             const endEvent = event as { toolCallId: string } & BaseEvent;
-            if (activeParsers.has(endEvent.toolCallId)) {
+            const parser = activeParsers.get(endEvent.toolCallId);
+            if (parser) {
+              // Mark generation complete
+              const completeEvent: ActivityDeltaEvent = {
+                type: EventType.ACTIVITY_DELTA,
+                messageId: parser.messageId,
+                activityType: ACTIVITY_TYPE,
+                patch: [{ op: "add", path: "/generating", value: false }],
+              };
+              subscriber.next(completeEvent);
+
               if (!flushedToolCalls.has(endEvent.toolCallId)) {
                 heldToolCallEvents.get(endEvent.toolCallId)!.push(event);
               } else {
