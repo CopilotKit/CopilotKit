@@ -2,7 +2,6 @@
 
 import React, { useEffect, useRef } from "react";
 import { z } from "zod";
-import Websandbox from "@jetbrains/websandbox";
 
 export const OpenGenerativeUIActivityType = "open-generative-ui";
 
@@ -35,7 +34,7 @@ export const OpenGenerativeUIRenderer: React.FC<
   const height = content.height ?? 200;
 
   const containerRef = useRef<HTMLDivElement>(null);
-  const sandboxRef = useRef<Websandbox | null>(null);
+  const sandboxRef = useRef<{ run: (code: string | Function) => Promise<unknown>; destroy: () => void } | null>(null);
   const sandboxReadyRef = useRef(false);
   const executedIndexRef = useRef(0);
   const pendingQueueRef = useRef<string[]>([]);
@@ -46,37 +45,49 @@ export const OpenGenerativeUIRenderer: React.FC<
     const container = containerRef.current;
     if (!container || !content.html) return;
 
+    let cancelled = false;
+
     // Reset state for new html
     executedIndexRef.current = 0;
     jsFunctionsInjectedRef.current = false;
     sandboxReadyRef.current = false;
     pendingQueueRef.current = [];
 
-    const sandbox = Websandbox.create({}, {
-      frameContainer: container,
-      frameContent: ensureHead(content.html),
-    });
-    sandboxRef.current = sandbox;
+    // Dynamic import to avoid SSR issues (websandbox references `self` at module level)
+    const htmlContent = content.html;
+    import("@jetbrains/websandbox").then(({ default: WebsandboxModule }) => {
+      if (cancelled) return;
 
-    // Style the iframe to fill container
-    sandbox.iframe.style.width = "100%";
-    sandbox.iframe.style.height = "100%";
-    sandbox.iframe.style.border = "none";
-    sandbox.iframe.style.backgroundColor = "transparent";
+      const sandbox = WebsandboxModule.create({}, {
+        frameContainer: container,
+        frameContent: ensureHead(htmlContent),
+      });
+      sandboxRef.current = sandbox;
 
-    sandbox.promise.then(() => {
-      sandboxReadyRef.current = true;
-      // Flush pending queue
-      const queue = pendingQueueRef.current;
-      pendingQueueRef.current = [];
-      for (const code of queue) {
-        sandbox.run(code);
-      }
+      // Style the iframe to fill container
+      sandbox.iframe.style.width = "100%";
+      sandbox.iframe.style.height = "100%";
+      sandbox.iframe.style.border = "none";
+      sandbox.iframe.style.backgroundColor = "transparent";
+
+      sandbox.promise.then(() => {
+        if (cancelled) return;
+        sandboxReadyRef.current = true;
+        // Flush pending queue
+        const queue = pendingQueueRef.current;
+        pendingQueueRef.current = [];
+        for (const code of queue) {
+          sandbox.run(code);
+        }
+      });
     });
 
     return () => {
-      sandbox.destroy();
-      sandboxRef.current = null;
+      cancelled = true;
+      if (sandboxRef.current) {
+        sandboxRef.current.destroy();
+        sandboxRef.current = null;
+      }
       sandboxReadyRef.current = false;
     };
   }, [content.html]);
