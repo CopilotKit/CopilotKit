@@ -36,11 +36,15 @@ export interface McpAppsConfig {
   servers: McpAppsServerConfig[];
 }
 
+export type OpenGenerativeUIConfig = boolean | BaseCopilotRuntimeMiddlewareOptions;
+
 interface CopilotRuntimeMiddlewares {
   /** Auto-apply A2UIMiddleware to agents at run time. */
   a2ui?: BaseCopilotRuntimeMiddlewareOptions & A2UIMiddlewareConfig;
   /** Auto-apply MCPAppsMiddleware to agents at run time. */
   mcpApps?: McpAppsConfig;
+  /** Auto-apply OpenGenerativeUIMiddleware to agents at run time. */
+  openGenerativeUI?: OpenGenerativeUIConfig;
 }
 
 interface BaseCopilotRuntimeOptions extends CopilotRuntimeMiddlewares {
@@ -90,6 +94,7 @@ export interface CopilotRuntimeLike {
   runner: AgentRunner;
   a2ui: CopilotRuntimeOptions["a2ui"];
   mcpApps: CopilotRuntimeOptions["mcpApps"];
+  openGenerativeUI: CopilotRuntimeOptions["openGenerativeUI"];
   intelligence?: CopilotKitIntelligence;
   identifyUser?: IdentifyUserCallback;
   mode: RuntimeMode;
@@ -115,6 +120,7 @@ abstract class BaseCopilotRuntime implements CopilotRuntimeLike {
   public runner: AgentRunner;
   public a2ui: CopilotRuntimeOptions["a2ui"];
   public mcpApps: CopilotRuntimeOptions["mcpApps"];
+  public openGenerativeUI: CopilotRuntimeOptions["openGenerativeUI"];
 
   abstract readonly intelligence?: CopilotKitIntelligence;
   abstract readonly mode: RuntimeMode;
@@ -127,6 +133,7 @@ abstract class BaseCopilotRuntime implements CopilotRuntimeLike {
       afterRequestMiddleware,
       a2ui,
       mcpApps,
+      openGenerativeUI,
     } = options;
 
     this.agents = agents;
@@ -135,6 +142,7 @@ abstract class BaseCopilotRuntime implements CopilotRuntimeLike {
     this.afterRequestMiddleware = afterRequestMiddleware;
     this.a2ui = a2ui;
     this.mcpApps = mcpApps;
+    this.openGenerativeUI = openGenerativeUI;
     this.runner = runner;
   }
 }
@@ -225,6 +233,10 @@ export class CopilotRuntime implements CopilotRuntimeLike {
 
   get mcpApps(): CopilotRuntimeOptions["mcpApps"] {
     return this.delegate.mcpApps;
+  }
+
+  get openGenerativeUI(): CopilotRuntimeOptions["openGenerativeUI"] {
+    return this.delegate.openGenerativeUI;
   }
 
   get intelligence(): CopilotKitIntelligence | undefined {

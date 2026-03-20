@@ -21,6 +21,11 @@ import {
   MCPAppsActivityRenderer,
   MCPAppsActivityType,
 } from "../components/MCPAppsActivityRenderer";
+import {
+  OpenGenerativeUIActivityType,
+  OpenGenerativeUIContentSchema,
+  OpenGenerativeUIRenderer,
+} from "../components/OpenGenerativeUIRenderer";
 import { createA2UIMessageRenderer } from "../a2ui/A2UIMessageRenderer";
 import { viewerTheme } from "@copilotkit/a2ui-renderer";
 import type { Theme as A2UITheme } from "@copilotkit/a2ui-renderer";
@@ -221,6 +226,11 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
         activityType: MCPAppsActivityType,
         content: MCPAppsActivityContentSchema,
         render: MCPAppsActivityRenderer,
+      },
+      {
+        activityType: OpenGenerativeUIActivityType,
+        content: OpenGenerativeUIContentSchema,
+        render: OpenGenerativeUIRenderer,
       },
     ];
 
