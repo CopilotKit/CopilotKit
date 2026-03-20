@@ -91,12 +91,14 @@ export type A2UIMessageRendererOptions = {
   theme: Theme;
   /** Optional orchestrator for A2UI action dispatch. */
   onAction?: A2UIActionOrchestrator;
+  /** Optional component catalogs to pass to A2UIProvider */
+  catalogs?: any[];
 };
 
 export function createA2UIMessageRenderer(
   options: A2UIMessageRendererOptions,
 ): ReactActivityMessageRenderer<any> {
-  const { theme, onAction } = options;
+  const { theme, onAction, catalogs } = options;
 
   return {
     activityType: "a2ui-surface",
@@ -169,6 +171,7 @@ export function createA2UIMessageRenderer(
               copilotkit={copilotkit}
               onAction={onAction}
               actionHandlers={actionHandlers}
+              catalogs={catalogs}
             />
           ))}
         </div>
@@ -186,6 +189,8 @@ type ReactSurfaceHostProps = {
   onAction?: A2UIActionOrchestrator;
   /** Pre-declared action handlers from the agent's a2ui_action_handlers */
   actionHandlers?: Record<string, any[]>;
+  /** Optional component catalogs to pass to A2UIProvider */
+  catalogs?: any[];
 };
 
 /**
@@ -239,6 +244,7 @@ function ReactSurfaceHost({
   copilotkit,
   onAction: onActionOrchestrator,
   actionHandlers: declaredHandlers,
+  catalogs,
 }: ReactSurfaceHostProps) {
   // Ref to access A2UI actions from inside the provider context
   const actionsRef = useRef<ReturnType<typeof useA2UIActions> | null>(null);
@@ -286,7 +292,7 @@ function ReactSurfaceHost({
 
   return (
     <div className="cpk:flex cpk:w-full cpk:flex-none cpk:flex-col cpk:gap-4">
-      <A2UIProvider onAction={handleAction} theme={theme}>
+      <A2UIProvider onAction={handleAction} theme={theme} catalogs={catalogs}>
         <ActionsBridge actionsRef={actionsRef} />
         <SurfaceMessageProcessor
           surfaceId={surfaceId}

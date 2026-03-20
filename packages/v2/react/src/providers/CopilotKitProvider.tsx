@@ -137,6 +137,11 @@ export interface CopilotKitProviderProps {
      * ```
      */
     onAction?: import("../a2ui/A2UIMessageRenderer").A2UIActionOrchestrator;
+    /**
+     * Optional component catalogs to pass to the A2UI renderer.
+     * When omitted, the default basicCatalog is used.
+     */
+    catalogs?: any[];
   };
   /**
    * Default anchor corner for the inspector button and window.
@@ -262,6 +267,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
         createA2UIMessageRenderer({
           theme: a2ui?.theme ?? viewerTheme,
           onAction: a2ui?.onAction,
+          catalogs: a2ui?.catalogs,
         }),
       );
     }

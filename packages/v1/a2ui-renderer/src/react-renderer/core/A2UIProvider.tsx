@@ -34,6 +34,8 @@ export interface A2UIProviderProps {
   onAction?: OnActionCallback;
   /** Theme configuration */
   theme?: Theme;
+  /** Optional component catalogs to use instead of the default basicCatalog */
+  catalogs?: any[];
   /** Child components */
   children: ReactNode;
 }
@@ -44,7 +46,7 @@ export interface A2UIProviderProps {
  * - A2UIActionsContext: Stable actions that never change (no re-renders)
  * - A2UIStateContext: Reactive state that triggers re-renders when needed
  */
-export function A2UIProvider({ onAction, theme, children }: A2UIProviderProps) {
+export function A2UIProvider({ onAction, theme, catalogs, children }: A2UIProviderProps) {
   // Store onAction in a ref so callbacks always have the latest value
   const onActionRef = useRef<OnActionCallback | null>(onAction ?? null);
   onActionRef.current = onAction ?? null;
@@ -53,7 +55,7 @@ export function A2UIProvider({ onAction, theme, children }: A2UIProviderProps) {
   const processorRef = useRef<MessageProcessor<any> | null>(null);
   if (!processorRef.current) {
     processorRef.current = new MessageProcessor(
-      [basicCatalog],
+      catalogs ?? [basicCatalog],
       // Action handler: convert v0.9 Action to A2UIClientEventMessage format
       (action: any, context: any) => {
         if (onActionRef.current) {
