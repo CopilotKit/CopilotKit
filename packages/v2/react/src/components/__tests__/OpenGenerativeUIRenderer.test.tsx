@@ -87,11 +87,14 @@ describe("OpenGenerativeUIActivityRenderer", () => {
     expect(options.frameContainer).toBeInstanceOf(HTMLElement);
   });
 
-  it("does not create sandbox when html is streaming (not complete)", async () => {
+  it("creates preview sandbox when html is streaming (not complete)", async () => {
     renderRenderer({ html: ["<head></head><body>partial"], htmlComplete: false });
     await flushImport();
 
-    expect(mockCreate).not.toHaveBeenCalled();
+    // Preview sandbox is created with empty body template
+    expect(mockCreate).toHaveBeenCalledTimes(1);
+    const [, options] = mockCreate.mock.calls[0];
+    expect(options.frameContent).toBe("<head></head><body></body>");
   });
 
   it("wraps html missing <head>", async () => {
@@ -414,6 +417,145 @@ describe("OpenGenerativeUIActivityRenderer", () => {
       expect(Object.keys(localApi)).toHaveLength(2);
       expect(localApi.fnA).toBe(handlerA);
       expect(localApi.fnB).toBe(handlerB);
+    });
+  });
+
+  describe("progressive streaming preview", () => {
+    it("creates preview sandbox when chunks arrive but htmlComplete is false", async () => {
+      renderRenderer({
+        html: ["<body><div>Hello</div>"],
+        htmlComplete: false,
+        generating: true,
+      });
+      await flushImport();
+
+      // Preview sandbox created with empty body template
+      expect(mockCreate).toHaveBeenCalledTimes(1);
+      const [localApi, options] = mockCreate.mock.calls[0];
+      expect(options.frameContent).toBe("<head></head><body></body>");
+      expect(Object.keys(localApi)).toHaveLength(0);
+    });
+
+    it("updates preview on re-render with more chunks", async () => {
+      const { rerender } = render(
+        <OpenGenerativeUIActivityRenderer
+          activityType="open-generative-ui"
+          content={{
+            html: ["<body><div>Hello</div>"],
+            htmlComplete: false,
+            generating: true,
+          }}
+          message={{}}
+          agent={{}}
+        />,
+      );
+      await flushImport();
+
+      // Resolve preview sandbox promise
+      await act(async () => {
+        mockPromiseResolve();
+        await mockPromise;
+      });
+      await flushImport();
+
+      // Should have called run with innerHTML update (ResizeObserver + initial content)
+      const innerHtmlCalls = mockRun.mock.calls.filter(
+        (c: unknown[]) => typeof c[0] === "string" && (c[0] as string).includes("document.body.innerHTML"),
+      );
+      expect(innerHtmlCalls.length).toBeGreaterThanOrEqual(1);
+
+      // Re-render with more chunks
+      mockRun.mockClear();
+      rerender(
+        <OpenGenerativeUIActivityRenderer
+          activityType="open-generative-ui"
+          content={{
+            html: ["<body><div>Hello</div>", "<p>World</p>"],
+            htmlComplete: false,
+            generating: true,
+          }}
+          message={{}}
+          agent={{}}
+        />,
+      );
+      await flushImport();
+
+      // Should have updated innerHTML with new content
+      const updateCalls = mockRun.mock.calls.filter(
+        (c: unknown[]) => typeof c[0] === "string" && (c[0] as string).includes("document.body.innerHTML"),
+      );
+      expect(updateCalls.length).toBeGreaterThanOrEqual(1);
+      expect(updateCalls[updateCalls.length - 1]![0]).toContain("World");
+    });
+
+    it("destroys preview and creates final sandbox when htmlComplete arrives", async () => {
+      const { rerender } = render(
+        <OpenGenerativeUIActivityRenderer
+          activityType="open-generative-ui"
+          content={{
+            html: ["<body><div>Hello</div>"],
+            htmlComplete: false,
+            generating: true,
+          }}
+          message={{}}
+          agent={{}}
+        />,
+      );
+      await flushImport();
+
+      expect(mockCreate).toHaveBeenCalledTimes(1);
+
+      // Now complete the HTML
+      resetMockPromise();
+      rerender(
+        <OpenGenerativeUIActivityRenderer
+          activityType="open-generative-ui"
+          content={{
+            html: ["<head><style>body{margin:0}</style></head><body><div>Hello</div></body>"],
+            htmlComplete: true,
+            generating: false,
+          }}
+          message={{}}
+          agent={{}}
+        />,
+      );
+      await flushImport();
+
+      // Preview destroyed, final sandbox created
+      expect(mockDestroy).toHaveBeenCalledTimes(1);
+      expect(mockCreate).toHaveBeenCalledTimes(2);
+
+      const [, options] = mockCreate.mock.calls[1];
+      expect(options.frameContent).toContain("<style>");
+      expect(options.frameContent).toContain("Hello");
+    });
+
+    it("does not create preview when no meaningful body content", async () => {
+      renderRenderer({
+        html: ["<head><style>.foo { color: red; }</style></head>"],
+        htmlComplete: false,
+        generating: true,
+      });
+      await flushImport();
+
+      // No preview — only head content, no body
+      expect(mockCreate).not.toHaveBeenCalled();
+    });
+
+    it("skips preview entirely for fast completion", async () => {
+      renderRenderer({
+        html: ["<head></head><body><div>Done</div></body>"],
+        htmlComplete: true,
+        generating: false,
+      });
+      await flushImport();
+
+      // Only final sandbox created, no preview
+      expect(mockCreate).toHaveBeenCalledTimes(1);
+      const [, options] = mockCreate.mock.calls[0];
+      expect(options.frameContent).toContain("Done");
+      // Final sandbox uses localApi, not empty object
+      expect(options.frameContent).not.toBe("<head></head><body></body>");
     });
   });
 });
