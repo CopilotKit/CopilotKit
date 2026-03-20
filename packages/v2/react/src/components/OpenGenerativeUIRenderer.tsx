@@ -287,10 +287,6 @@ export const OpenGenerativeUIActivityRenderer: React.FC<
 
   const isGenerating = content.generating !== false;
 
-  // Spinner mode: small indicator during preview, large centered when no content
-  const showSmallSpinner = isGenerating && hasVisibleSandbox && !fullHtml;
-  const showLargeSpinner = isGenerating && !hasVisibleSandbox;
-
   return (
     <div
       ref={containerRef}
@@ -307,13 +303,14 @@ export const OpenGenerativeUIActivityRenderer: React.FC<
         overflow: "hidden",
       }}
     >
-      {showLargeSpinner && (
+      {isGenerating && (
         <div
           style={{
-            position: "relative",
+            position: "absolute",
+            inset: 0,
             zIndex: 10,
-            pointerEvents: "none",
-            backgroundColor: "transparent",
+            pointerEvents: "all",
+            backgroundColor: "rgba(255, 255, 255, 0.5)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
@@ -322,35 +319,6 @@ export const OpenGenerativeUIActivityRenderer: React.FC<
           <svg
             width="48"
             height="48"
-            viewBox="0 0 24 24"
-            fill="none"
-            style={{ animation: "ck-spin 1s linear infinite" }}
-          >
-            <circle cx="12" cy="12" r="10" stroke="#e0e0e0" strokeWidth="3" />
-            <path
-              d="M12 2a10 10 0 0 1 10 10"
-              stroke="#999"
-              strokeWidth="3"
-              strokeLinecap="round"
-            />
-          </svg>
-          <style>{`@keyframes ck-spin { to { transform: rotate(360deg) } }`}</style>
-        </div>
-      )}
-      {showSmallSpinner && (
-        <div
-          style={{
-            position: "absolute",
-            top: 8,
-            right: 8,
-            zIndex: 10,
-            pointerEvents: "none",
-            opacity: 0.5,
-          }}
-        >
-          <svg
-            width="24"
-            height="24"
             viewBox="0 0 24 24"
             fill="none"
             style={{ animation: "ck-spin 1s linear infinite" }}
