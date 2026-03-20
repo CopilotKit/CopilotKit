@@ -1,8 +1,9 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { z } from "zod";
 import { ToolCallStatus } from "@copilotkitnext/core";
+import { useSandboxFunctions } from "../providers/SandboxFunctionsContext";
 
 export const OpenGenerativeUIActivityType = "open-generative-ui";
 
@@ -51,6 +52,15 @@ export const OpenGenerativeUIActivityRenderer: React.FC<
 > = function OpenGenerativeUIActivityRenderer({ content }) {
   const initialHeight = content.initialHeight ?? 200;
   const [autoHeight, setAutoHeight] = useState<number | null>(null);
+  const sandboxFunctions = useSandboxFunctions();
+
+  const localApi = useMemo(() => {
+    const api: Record<string, Function> = {};
+    for (const fn of sandboxFunctions) {
+      api[fn.name] = fn.handler;
+    }
+    return api;
+  }, [sandboxFunctions]);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const sandboxRef = useRef<{ run: (code: string | Function) => Promise<unknown>; destroy: () => void; iframe: HTMLIFrameElement } | null>(null);
@@ -77,7 +87,7 @@ export const OpenGenerativeUIActivityRenderer: React.FC<
     import("@jetbrains/websandbox").then(({ default: WebsandboxModule }) => {
       if (cancelled) return;
 
-      const sandbox = WebsandboxModule.create({}, {
+      const sandbox = WebsandboxModule.create(localApi, {
         frameContainer: container,
         frameContent: ensureHead(htmlContent),
       });
@@ -130,7 +140,7 @@ export const OpenGenerativeUIActivityRenderer: React.FC<
       sandboxReadyRef.current = false;
       setAutoHeight(null);
     };
-  }, [content.html]);
+  }, [content.html, localApi]);
 
   // Effect 2 — jsFunctions injection (depends on content.jsFunctions)
   useEffect(() => {

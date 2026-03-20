@@ -12,3 +12,8 @@ export {
   type CopilotKitProviderProps,
   type CopilotKitContextValue,
 } from "./CopilotKitProvider";
+
+export {
+  SandboxFunctionsContext,
+  useSandboxFunctions,
+} from "./SandboxFunctionsContext";

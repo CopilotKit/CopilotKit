@@ -583,8 +583,11 @@ describe("CopilotKitProvider", () => {
         ),
       });
 
-      expect(result.current.copilotkit.tools).toHaveLength(0);
-      expect(result.current.copilotkit.renderToolCalls).toHaveLength(0);
+      // 1 built-in tool: generateSandboxedUi
+      expect(result.current.copilotkit.tools).toHaveLength(1);
+      expect(result.current.copilotkit.tools[0].name).toBe("generateSandboxedUi");
+      // Built-in tool has a render component
+      expect(result.current.copilotkit.renderToolCalls).toHaveLength(1);
     });
 
     it("handles tools without render components", () => {
