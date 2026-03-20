@@ -89,12 +89,10 @@ export function isStreamConsumed(req: IncomingWithBody): boolean {
   // runs in async frameworks (Next.js pages router, etc.) even when no
   // application code has read the stream — so they are false positives here.
   //
-  // req.readableEnded (===_readableState.endEmitted) only becomes true after
-  // application code has fully drained the stream and the 'end' event fires,
-  // making it the only reliable signal that the body is actually consumed.
-  const readableState = (req as any)._readableState;
-
-  return Boolean(req.readableEnded || readableState?.endEmitted);
+  // req.readableEnded only becomes true after application code has fully
+  // drained the stream and the 'end' event fires, making it the only reliable
+  // signal that the body is actually consumed.
+  return Boolean(req.readableEnded);
 }
 
 export function synthesizeBodyFromParsedBody(
