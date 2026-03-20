@@ -84,14 +84,6 @@ export function toHeaders(rawHeaders: IncomingMessage["headers"]): Headers {
 }
 
 export function isStreamConsumed(req: IncomingWithBody): boolean {
-  // req.complete and _readableState.ended become true after the HTTP parser
-  // receives all bytes at the network layer. This happens before the handler
-  // runs in async frameworks (Next.js pages router, etc.) even when no
-  // application code has read the stream — so they are false positives here.
-  //
-  // req.readableEnded only becomes true after application code has fully
-  // drained the stream and the 'end' event fires, making it the only reliable
-  // signal that the body is actually consumed.
   return Boolean(req.readableEnded);
 }
 
