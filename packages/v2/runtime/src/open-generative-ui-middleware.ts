@@ -17,7 +17,7 @@ import {
 import { Observable } from "rxjs";
 import * as clarinet from "clarinet";
 
-const TOOL_NAME = "generate_sandboxed_ui";
+const TOOL_NAME = "generateSandboxedUi";
 const ACTIVITY_TYPE = "open-generative-ui";
 
 const GENERATE_SANDBOXED_UI_TOOL: Tool = {
@@ -26,7 +26,7 @@ const GENERATE_SANDBOXED_UI_TOOL: Tool = {
   parameters: {
     type: "object",
     properties: {
-      height: {
+      initialHeight: {
         type: "number",
         description: "Fixed height of the UI container in pixels",
       },
@@ -35,11 +35,11 @@ const GENERATE_SANDBOXED_UI_TOOL: Tool = {
         description:
           "HTML markup for the UI. Must be a complete HTML document including <head> and <body> tags.",
       },
-      js_functions: {
+      jsFunctions: {
         type: "string",
         description: "A chunk of reusable JS functions",
       },
-      js_expressions: {
+      jsExpressions: {
         type: "array",
         items: { type: "string" },
         description:
@@ -50,13 +50,13 @@ const GENERATE_SANDBOXED_UI_TOOL: Tool = {
 };
 
 /**
- * Parsed parameters from the generate_sandboxed_ui tool call.
+ * Parsed parameters from the generateSandboxedUi tool call.
  */
 export interface GenerateSandboxedUIParams {
-  height?: number;
+  initialHeight?: number;
   html?: string;
-  js_functions?: string;
-  js_expressions?: string[];
+  jsFunctions?: string;
+  jsExpressions?: string[];
 }
 
 /**
@@ -99,12 +99,12 @@ export class ArgsParser {
 
     this.parser.onvalue = (value: string | boolean | number | null) => {
       if (this.depth === 1 && this.currentKey) {
-        if (this.inArray && this.currentKey === "js_expressions") {
-          if (!this.params.js_expressions) {
-            this.params.js_expressions = [];
+        if (this.inArray && this.currentKey === "jsExpressions") {
+          if (!this.params.jsExpressions) {
+            this.params.jsExpressions = [];
           }
           const strValue = String(value);
-          this.params.js_expressions.push(strValue);
+          this.params.jsExpressions.push(strValue);
           this.emitArrayItemDelta(strValue);
         } else {
           this.setParam(this.currentKey, value);
@@ -113,12 +113,12 @@ export class ArgsParser {
     };
 
     this.parser.onopenarray = () => {
-      if (this.depth === 1 && this.currentKey === "js_expressions") {
+      if (this.depth === 1 && this.currentKey === "jsExpressions") {
         this.inArray = true;
-        this.params.js_expressions = [];
+        this.params.jsExpressions = [];
         // Emit a delta to create the array in the activity content.
-        // Subsequent "add" ops with path "/js_expressions/-" append to this array.
-        this.emitParamDelta("js_expressions", []);
+        // Subsequent "add" ops with path "/jsExpressions/-" append to this array.
+        this.emitParamDelta("jsExpressions", []);
       }
     };
 
@@ -145,17 +145,17 @@ export class ArgsParser {
 
   private setParam(key: string, value: string | boolean | number | null): void {
     switch (key) {
-      case "height":
-        this.params.height = typeof value === "number" ? value : undefined;
+      case "initialHeight":
+        this.params.initialHeight = typeof value === "number" ? value : undefined;
         this.emitSnapshot();
         break;
       case "html":
         this.params.html = value != null ? String(value) : undefined;
         this.emitParamDelta("html", this.params.html);
         break;
-      case "js_functions":
-        this.params.js_functions = value != null ? String(value) : undefined;
-        this.emitParamDelta("js_functions", this.params.js_functions);
+      case "jsFunctions":
+        this.params.jsFunctions = value != null ? String(value) : undefined;
+        this.emitParamDelta("jsFunctions", this.params.jsFunctions);
         break;
     }
   }
@@ -168,7 +168,7 @@ export class ArgsParser {
       type: EventType.ACTIVITY_SNAPSHOT,
       messageId: this.messageId,
       activityType: ACTIVITY_TYPE,
-      content: { height: this.params.height },
+      content: { initialHeight: this.params.initialHeight },
     };
     this.onEvent(event);
   }
@@ -188,7 +188,7 @@ export class ArgsParser {
       type: EventType.ACTIVITY_DELTA,
       messageId: this.messageId,
       activityType: ACTIVITY_TYPE,
-      patch: [{ op: "add", path: "/js_expressions/-", value }],
+      patch: [{ op: "add", path: "/jsExpressions/-", value }],
     };
     this.onEvent(event);
   }

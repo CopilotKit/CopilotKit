@@ -6,10 +6,10 @@ import { z } from "zod";
 export const OpenGenerativeUIActivityType = "open-generative-ui";
 
 export const OpenGenerativeUIContentSchema = z.object({
-  height: z.number().optional(),
+  initialHeight: z.number().optional(),
   html: z.string().optional(),
-  js_functions: z.string().optional(),
-  js_expressions: z.array(z.string()).optional(),
+  jsFunctions: z.string().optional(),
+  jsExpressions: z.array(z.string()).optional(),
 });
 
 export type OpenGenerativeUIContent = z.infer<
@@ -31,7 +31,7 @@ function ensureHead(html: string): string {
 export const OpenGenerativeUIRenderer: React.FC<
   OpenGenerativeUIRendererProps
 > = function OpenGenerativeUIRenderer({ content }) {
-  const initialHeight = content.height ?? 200;
+  const initialHeight = content.initialHeight ?? 200;
   const [autoHeight, setAutoHeight] = useState<number | null>(null);
 
   const containerRef = useRef<HTMLDivElement>(null);
@@ -114,22 +114,22 @@ export const OpenGenerativeUIRenderer: React.FC<
     };
   }, [content.html]);
 
-  // Effect 2 — js_functions injection (depends on content.js_functions)
+  // Effect 2 — js_functions injection (depends on content.jsFunctions)
   useEffect(() => {
-    if (!content.js_functions || jsFunctionsInjectedRef.current) return;
+    if (!content.jsFunctions || jsFunctionsInjectedRef.current) return;
     jsFunctionsInjectedRef.current = true;
 
     const sandbox = sandboxRef.current;
     if (sandboxReadyRef.current && sandbox) {
-      sandbox.run(content.js_functions);
+      sandbox.run(content.jsFunctions);
     } else {
-      pendingQueueRef.current.push(content.js_functions);
+      pendingQueueRef.current.push(content.jsFunctions);
     }
-  }, [content.js_functions]);
+  }, [content.jsFunctions]);
 
-  // Effect 3 — js_expressions execution (depends on content.js_expressions?.length)
+  // Effect 3 — js_expressions execution (depends on content.jsExpressions?.length)
   useEffect(() => {
-    const expressions = content.js_expressions;
+    const expressions = content.jsExpressions;
     if (!expressions || expressions.length === 0) return;
 
     const startIndex = executedIndexRef.current;
@@ -148,7 +148,7 @@ export const OpenGenerativeUIRenderer: React.FC<
     } else {
       pendingQueueRef.current.push(...newExprs);
     }
-  }, [content.js_expressions?.length]);
+  }, [content.jsExpressions?.length]);
 
   const height = autoHeight ?? initialHeight;
 

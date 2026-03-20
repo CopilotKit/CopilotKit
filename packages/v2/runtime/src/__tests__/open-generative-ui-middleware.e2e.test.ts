@@ -64,7 +64,7 @@ async function collectEvents(observable: Observable<BaseEvent>): Promise<BaseEve
 
 describe("OpenGenerativeUIMiddleware e2e", () => {
   describe("Tool injection", () => {
-    it("injects the generate_sandboxed_ui tool into the agent input", async () => {
+    it("injects the generateSandboxedUi tool into the agent input", async () => {
       const middleware = new OpenGenerativeUIMiddleware();
       const agent = new MockAgent([
         { type: EventType.RUN_STARTED, threadId: "thread-1", runId: "run-1" } as BaseEvent,
@@ -74,15 +74,15 @@ describe("OpenGenerativeUIMiddleware e2e", () => {
       await collectEvents(middleware.run(createRunInput(), agent));
 
       const tools = agent.receivedInput!.tools;
-      const injectedTool = tools.find((t: Tool) => t.name === "generate_sandboxed_ui");
+      const injectedTool = tools.find((t: Tool) => t.name === "generateSandboxedUi");
       expect(injectedTool).toBeDefined();
       expect(injectedTool!.parameters).toEqual({
         type: "object",
         properties: {
-          height: { type: "number", description: expect.any(String) },
+          initialHeight: { type: "number", description: expect.any(String) },
           html: { type: "string", description: expect.any(String) },
-          js_functions: { type: "string", description: expect.any(String) },
-          js_expressions: {
+          jsFunctions: { type: "string", description: expect.any(String) },
+          jsExpressions: {
             type: "array",
             items: { type: "string" },
             description: expect.any(String),
@@ -94,7 +94,7 @@ describe("OpenGenerativeUIMiddleware e2e", () => {
     it("does not duplicate the tool if it already exists in input", async () => {
       const middleware = new OpenGenerativeUIMiddleware();
       const existingTool: Tool = {
-        name: "generate_sandboxed_ui",
+        name: "generateSandboxedUi",
         description: "old",
         parameters: { type: "object", properties: {} },
       };
@@ -106,13 +106,13 @@ describe("OpenGenerativeUIMiddleware e2e", () => {
       await collectEvents(middleware.run(createRunInput({ tools: [existingTool] }), agent));
 
       const tools = agent.receivedInput!.tools;
-      const matchingTools = tools.filter((t: Tool) => t.name === "generate_sandboxed_ui");
+      const matchingTools = tools.filter((t: Tool) => t.name === "generateSandboxedUi");
       expect(matchingTools).toHaveLength(1);
     });
   });
 
   describe("Tool result injection", () => {
-    it("adds a TOOL_CALL_RESULT with 'UI generated' for pending generate_sandboxed_ui calls", async () => {
+    it("adds a TOOL_CALL_RESULT with 'UI generated' for pending generateSandboxedUi calls", async () => {
       const middleware = new OpenGenerativeUIMiddleware();
       const toolCallId = "tc-1";
       const parentMessageId = "msg-1";
@@ -129,11 +129,11 @@ describe("OpenGenerativeUIMiddleware e2e", () => {
           type: EventType.TEXT_MESSAGE_END,
           messageId: parentMessageId,
         } as BaseEvent,
-        // Tool call for generate_sandboxed_ui — no TOOL_CALL_RESULT
+        // Tool call for generateSandboxedUi — no TOOL_CALL_RESULT
         {
           type: EventType.TOOL_CALL_START,
           toolCallId,
-          toolCallName: "generate_sandboxed_ui",
+          toolCallName: "generateSandboxedUi",
           parentMessageId,
         } as BaseEvent,
         {
@@ -164,7 +164,7 @@ describe("OpenGenerativeUIMiddleware e2e", () => {
       expect(resultIndex).toBeLessThan(finishedIndex);
     });
 
-    it("does not inject a result for non-generate_sandboxed_ui tool calls", async () => {
+    it("does not inject a result for non-generateSandboxedUi tool calls", async () => {
       const middleware = new OpenGenerativeUIMiddleware();
       const toolCallId = "tc-other";
       const parentMessageId = "msg-1";
@@ -223,7 +223,7 @@ describe("OpenGenerativeUIMiddleware e2e", () => {
         {
           type: EventType.TOOL_CALL_START,
           toolCallId,
-          toolCallName: "generate_sandboxed_ui",
+          toolCallName: "generateSandboxedUi",
           parentMessageId,
         } as BaseEvent,
         {
@@ -261,42 +261,42 @@ describe("OpenGenerativeUIMiddleware e2e", () => {
 
     it("parses a complete JSON object in one chunk", () => {
       const parser = new ArgsParser("tc-1", noop);
-      parser.write('{"height":400,"html":"<div>hi</div>","js_functions":"function foo(){}","js_expressions":["expr1","expr2"]}');
+      parser.write('{"initialHeight":400,"html":"<div>hi</div>","jsFunctions":"function foo(){}","jsExpressions":["expr1","expr2"]}');
 
       expect(parser.params).toEqual({
-        height: 400,
+        initialHeight: 400,
         html: "<div>hi</div>",
-        js_functions: "function foo(){}",
-        js_expressions: ["expr1", "expr2"],
+        jsFunctions: "function foo(){}",
+        jsExpressions: ["expr1", "expr2"],
       });
     });
 
     it("parses JSON streamed in small chunks", () => {
       const parser = new ArgsParser("tc-1", noop);
-      const json = '{"height":300,"html":"<p>hello</p>"}';
+      const json = '{"initialHeight":300,"html":"<p>hello</p>"}';
 
       for (const ch of json) {
         parser.write(ch);
       }
 
-      expect(parser.params.height).toBe(300);
+      expect(parser.params.initialHeight).toBe(300);
       expect(parser.params.html).toBe("<p>hello</p>");
     });
 
-    it("parses js_expressions array streamed incrementally", () => {
+    it("parses jsExpressions array streamed incrementally", () => {
       const parser = new ArgsParser("tc-1", noop);
 
-      parser.write('{"js_expressions":');
-      expect(parser.params.js_expressions).toBeUndefined();
+      parser.write('{"jsExpressions":');
+      expect(parser.params.jsExpressions).toBeUndefined();
 
       parser.write('["alert(1)",');
-      expect(parser.params.js_expressions).toEqual(["alert(1)"]);
+      expect(parser.params.jsExpressions).toEqual(["alert(1)"]);
 
       parser.write('"console.log(2)",');
-      expect(parser.params.js_expressions).toEqual(["alert(1)", "console.log(2)"]);
+      expect(parser.params.jsExpressions).toEqual(["alert(1)", "console.log(2)"]);
 
       parser.write('"document.title"]}');
-      expect(parser.params.js_expressions).toEqual([
+      expect(parser.params.jsExpressions).toEqual([
         "alert(1)",
         "console.log(2)",
         "document.title",
@@ -306,47 +306,47 @@ describe("OpenGenerativeUIMiddleware e2e", () => {
     it("handles partial chunks that split across keys and values", () => {
       const parser = new ArgsParser("tc-1", noop);
 
-      parser.write('{"hei');
-      parser.write('ght":');
+      parser.write('{"ini');
+      parser.write('tialHeight":');
       parser.write("25");
       parser.write('0,"ht');
       parser.write('ml":"<div');
       parser.write('>test</div>"}');
 
-      expect(parser.params.height).toBe(250);
+      expect(parser.params.initialHeight).toBe(250);
       expect(parser.params.html).toBe("<div>test</div>");
     });
 
     it("ignores unknown keys", () => {
       const parser = new ArgsParser("tc-1", noop);
-      parser.write('{"height":100,"unknown_field":"ignored","html":"ok"}');
+      parser.write('{"initialHeight":100,"unknown_field":"ignored","html":"ok"}');
 
-      expect(parser.params.height).toBe(100);
+      expect(parser.params.initialHeight).toBe(100);
       expect(parser.params.html).toBe("ok");
       expect(parser.params).not.toHaveProperty("unknown_field");
     });
   });
 
   describe("Activity event emission", () => {
-    it("emits ACTIVITY_SNAPSHOT when height finishes", () => {
+    it("emits ACTIVITY_SNAPSHOT when initialHeight finishes", () => {
       const emitted: BaseEvent[] = [];
       const parser = new ArgsParser("tc-1", (e) => emitted.push(e));
 
-      parser.write('{"height":400}');
+      parser.write('{"initialHeight":400}');
 
       expect(emitted).toHaveLength(1);
       const snapshot = emitted[0] as ActivitySnapshotEvent;
       expect(snapshot.type).toBe(EventType.ACTIVITY_SNAPSHOT);
       expect(snapshot.messageId).toBe("tc-1-activity");
       expect(snapshot.activityType).toBe("open-generative-ui");
-      expect(snapshot.content).toEqual({ height: 400 });
+      expect(snapshot.content).toEqual({ initialHeight: 400 });
     });
 
-    it("emits ACTIVITY_DELTA for html and js_functions", () => {
+    it("emits ACTIVITY_DELTA for html and jsFunctions", () => {
       const emitted: BaseEvent[] = [];
       const parser = new ArgsParser("tc-1", (e) => emitted.push(e));
 
-      parser.write('{"height":200,');
+      parser.write('{"initialHeight":200,');
       emitted.length = 0; // clear snapshot
 
       parser.write('"html":"<div/>",');
@@ -359,33 +359,33 @@ describe("OpenGenerativeUIMiddleware e2e", () => {
       ]);
 
       emitted.length = 0;
-      parser.write('"js_functions":"fn(){}"}');
+      parser.write('"jsFunctions":"fn(){}"}');
       expect(emitted).toHaveLength(1);
       const fnDelta = emitted[0] as ActivityDeltaEvent;
       expect(fnDelta.patch).toEqual([
-        { op: "add", path: "/js_functions", value: "fn(){}" },
+        { op: "add", path: "/jsFunctions", value: "fn(){}" },
       ]);
     });
 
-    it("emits ACTIVITY_DELTA with add op for each js_expressions item", () => {
+    it("emits ACTIVITY_DELTA with add op for each jsExpressions item", () => {
       const emitted: BaseEvent[] = [];
       const parser = new ArgsParser("tc-1", (e) => emitted.push(e));
 
-      parser.write('{"height":100,');
+      parser.write('{"initialHeight":100,');
       emitted.length = 0; // clear snapshot
 
-      parser.write('"js_expressions":["expr1",');
+      parser.write('"jsExpressions":["expr1",');
       // First: array-creation delta, then the first item append
       expect(emitted).toHaveLength(2);
       const arrayCreate = emitted[0] as ActivityDeltaEvent;
       expect(arrayCreate.type).toBe(EventType.ACTIVITY_DELTA);
       expect(arrayCreate.patch).toEqual([
-        { op: "add", path: "/js_expressions", value: [] },
+        { op: "add", path: "/jsExpressions", value: [] },
       ]);
       const delta1 = emitted[1] as ActivityDeltaEvent;
       expect(delta1.type).toBe(EventType.ACTIVITY_DELTA);
       expect(delta1.patch).toEqual([
-        { op: "add", path: "/js_expressions/-", value: "expr1" },
+        { op: "add", path: "/jsExpressions/-", value: "expr1" },
       ]);
 
       emitted.length = 0;
@@ -393,7 +393,7 @@ describe("OpenGenerativeUIMiddleware e2e", () => {
       expect(emitted).toHaveLength(1);
       const delta2 = emitted[0] as ActivityDeltaEvent;
       expect(delta2.patch).toEqual([
-        { op: "add", path: "/js_expressions/-", value: "expr2" },
+        { op: "add", path: "/jsExpressions/-", value: "expr2" },
       ]);
 
       emitted.length = 0;
@@ -401,7 +401,7 @@ describe("OpenGenerativeUIMiddleware e2e", () => {
       expect(emitted).toHaveLength(1);
       const delta3 = emitted[0] as ActivityDeltaEvent;
       expect(delta3.patch).toEqual([
-        { op: "add", path: "/js_expressions/-", value: "expr3" },
+        { op: "add", path: "/jsExpressions/-", value: "expr3" },
       ]);
     });
 
@@ -409,7 +409,7 @@ describe("OpenGenerativeUIMiddleware e2e", () => {
       const emitted: BaseEvent[] = [];
       const parser = new ArgsParser("tc-1", (e) => emitted.push(e));
 
-      parser.write('{"height":100,"html":"a","js_functions":"b"}');
+      parser.write('{"initialHeight":100,"html":"a","jsFunctions":"b"}');
 
       const snapshots = emitted.filter(
         (e) => e.type === EventType.ACTIVITY_SNAPSHOT,
@@ -422,7 +422,7 @@ describe("OpenGenerativeUIMiddleware e2e", () => {
       const parser = new ArgsParser("tc-1", (e) => emitted.push(e));
 
       // Simulate a full tool call with all parameter types
-      parser.write('{"height":400,"html":"<body>game</body>","js_functions":"function init(){}","js_expressions":["init()","update()"]}');
+      parser.write('{"initialHeight":400,"html":"<body>game</body>","jsFunctions":"function init(){}","jsExpressions":["init()","update()"]}');
 
       // Reconstruct content by applying snapshot + deltas in order
       let content: Record<string, unknown> = {};
@@ -434,7 +434,7 @@ describe("OpenGenerativeUIMiddleware e2e", () => {
           for (const op of delta.patch) {
             if (op.op === "add") {
               if (op.path.endsWith("/-")) {
-                // Array append: path like "/js_expressions/-"
+                // Array append: path like "/jsExpressions/-"
                 const arrayKey = op.path.slice(1, -2);
                 (content[arrayKey] as unknown[]).push(op.value);
               } else {
@@ -447,10 +447,10 @@ describe("OpenGenerativeUIMiddleware e2e", () => {
       }
 
       expect(content).toEqual({
-        height: 400,
+        initialHeight: 400,
         html: "<body>game</body>",
-        js_functions: "function init(){}",
-        js_expressions: ["init()", "update()"],
+        jsFunctions: "function init(){}",
+        jsExpressions: ["init()", "update()"],
       });
     });
 
@@ -459,10 +459,10 @@ describe("OpenGenerativeUIMiddleware e2e", () => {
       const parser = new ArgsParser("tc-1", (e) => emitted.push(e));
 
       // Stream in small chunks like a real LLM would
-      parser.write('{"height":300,');
+      parser.write('{"initialHeight":300,');
       parser.write('"html":"<div>hi</div>",');
-      parser.write('"js_functions":"function go(){}",');
-      parser.write('"js_expressions":["go()",');
+      parser.write('"jsFunctions":"function go(){}",');
+      parser.write('"jsExpressions":["go()",');
       parser.write('"render()","done()"]}');
 
       // Reconstruct content
@@ -486,30 +486,30 @@ describe("OpenGenerativeUIMiddleware e2e", () => {
       }
 
       expect(content).toEqual({
-        height: 300,
+        initialHeight: 300,
         html: "<div>hi</div>",
-        js_functions: "function go(){}",
-        js_expressions: ["go()", "render()", "done()"],
+        jsFunctions: "function go(){}",
+        jsExpressions: ["go()", "render()", "done()"],
       });
     });
 
-    it("emits array-creation delta before first js_expressions item", () => {
+    it("emits array-creation delta before first jsExpressions item", () => {
       const emitted: BaseEvent[] = [];
       const parser = new ArgsParser("tc-1", (e) => emitted.push(e));
 
-      parser.write('{"height":100,');
+      parser.write('{"initialHeight":100,');
       emitted.length = 0; // clear snapshot
 
       // Trailing comma needed — clarinet fires onvalue after a delimiter
-      parser.write('"js_expressions":["first",');
+      parser.write('"jsExpressions":["first",');
 
       // Should get array creation delta followed by item delta
       expect(emitted).toHaveLength(2);
       expect((emitted[0] as ActivityDeltaEvent).patch).toEqual([
-        { op: "add", path: "/js_expressions", value: [] },
+        { op: "add", path: "/jsExpressions", value: [] },
       ]);
       expect((emitted[1] as ActivityDeltaEvent).patch).toEqual([
-        { op: "add", path: "/js_expressions/-", value: "first" },
+        { op: "add", path: "/jsExpressions/-", value: "first" },
       ]);
     });
 
@@ -532,13 +532,13 @@ describe("OpenGenerativeUIMiddleware e2e", () => {
         {
           type: EventType.TOOL_CALL_START,
           toolCallId,
-          toolCallName: "generate_sandboxed_ui",
+          toolCallName: "generateSandboxedUi",
           parentMessageId,
         } as BaseEvent,
         {
           type: EventType.TOOL_CALL_ARGS,
           toolCallId,
-          delta: '{"height":300,',
+          delta: '{"initialHeight":300,',
         } as BaseEvent,
         {
           type: EventType.TOOL_CALL_ARGS,
@@ -570,7 +570,7 @@ describe("OpenGenerativeUIMiddleware e2e", () => {
         (e) => e.type === EventType.ACTIVITY_SNAPSHOT,
       ) as ActivitySnapshotEvent[];
       expect(snapshots).toHaveLength(1);
-      expect(snapshots[0].content).toEqual({ height: 300 });
+      expect(snapshots[0].content).toEqual({ initialHeight: 300 });
 
       const deltas = events.filter(
         (e) => e.type === EventType.ACTIVITY_DELTA,
@@ -629,7 +629,7 @@ describe("OpenGenerativeUIMiddleware e2e", () => {
       ]);
     });
 
-    it("emits full activity events for js_functions and js_expressions through middleware", async () => {
+    it("emits full activity events for jsFunctions and jsExpressions through middleware", async () => {
       const middleware = new OpenGenerativeUIMiddleware();
       const toolCallId = "tc-js";
       const parentMessageId = "msg-1";
@@ -648,13 +648,13 @@ describe("OpenGenerativeUIMiddleware e2e", () => {
         {
           type: EventType.TOOL_CALL_START,
           toolCallId,
-          toolCallName: "generate_sandboxed_ui",
+          toolCallName: "generateSandboxedUi",
           parentMessageId,
         } as BaseEvent,
         {
           type: EventType.TOOL_CALL_ARGS,
           toolCallId,
-          delta: '{"height":400,',
+          delta: '{"initialHeight":400,',
         } as BaseEvent,
         {
           type: EventType.TOOL_CALL_ARGS,
@@ -664,12 +664,12 @@ describe("OpenGenerativeUIMiddleware e2e", () => {
         {
           type: EventType.TOOL_CALL_ARGS,
           toolCallId,
-          delta: '"js_functions":"function init(){}",',
+          delta: '"jsFunctions":"function init(){}",',
         } as BaseEvent,
         {
           type: EventType.TOOL_CALL_ARGS,
           toolCallId,
-          delta: '"js_expressions":["init()",',
+          delta: '"jsExpressions":["init()",',
         } as BaseEvent,
         {
           type: EventType.TOOL_CALL_ARGS,
@@ -690,20 +690,20 @@ describe("OpenGenerativeUIMiddleware e2e", () => {
         (e) => e.type === EventType.ACTIVITY_SNAPSHOT,
       ) as ActivitySnapshotEvent[];
       expect(snapshots).toHaveLength(1);
-      expect(snapshots[0].content).toEqual({ height: 400 });
+      expect(snapshots[0].content).toEqual({ initialHeight: 400 });
 
       // Verify deltas
       const deltas = events.filter(
         (e) => e.type === EventType.ACTIVITY_DELTA,
       ) as ActivityDeltaEvent[];
 
-      // Expected deltas: html, js_functions, js_expressions array creation, init(), render()
+      // Expected deltas: html, jsFunctions, jsExpressions array creation, init(), render()
       expect(deltas).toHaveLength(5);
       expect(deltas[0].patch).toEqual([{ op: "add", path: "/html", value: "<body>game</body>" }]);
-      expect(deltas[1].patch).toEqual([{ op: "add", path: "/js_functions", value: "function init(){}" }]);
-      expect(deltas[2].patch).toEqual([{ op: "add", path: "/js_expressions", value: [] }]);
-      expect(deltas[3].patch).toEqual([{ op: "add", path: "/js_expressions/-", value: "init()" }]);
-      expect(deltas[4].patch).toEqual([{ op: "add", path: "/js_expressions/-", value: "render()" }]);
+      expect(deltas[1].patch).toEqual([{ op: "add", path: "/jsFunctions", value: "function init(){}" }]);
+      expect(deltas[2].patch).toEqual([{ op: "add", path: "/jsExpressions", value: [] }]);
+      expect(deltas[3].patch).toEqual([{ op: "add", path: "/jsExpressions/-", value: "init()" }]);
+      expect(deltas[4].patch).toEqual([{ op: "add", path: "/jsExpressions/-", value: "render()" }]);
 
       // Reconstruct content to prove patches work end-to-end
       let content: Record<string, unknown> = {};
@@ -725,10 +725,10 @@ describe("OpenGenerativeUIMiddleware e2e", () => {
       }
 
       expect(content).toEqual({
-        height: 400,
+        initialHeight: 400,
         html: "<body>game</body>",
-        js_functions: "function init(){}",
-        js_expressions: ["init()", "render()"],
+        jsFunctions: "function init(){}",
+        jsExpressions: ["init()", "render()"],
       });
     });
   });

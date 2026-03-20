@@ -63,7 +63,7 @@ describe("OpenGenerativeUIRenderer", () => {
   });
 
   it("renders placeholder when no html", async () => {
-    const { container } = renderRenderer({ height: 300 });
+    const { container } = renderRenderer({ initialHeight: 300 });
     await flushImport();
 
     const div = container.firstElementChild as HTMLElement;
@@ -101,11 +101,11 @@ describe("OpenGenerativeUIRenderer", () => {
     expect(mockDestroy).toHaveBeenCalledTimes(1);
   });
 
-  it("injects js_functions via run()", async () => {
-    const js_functions = "function greet() { return 'hi'; }";
+  it("injects jsFunctions via run()", async () => {
+    const jsFunctions = "function greet() { return 'hi'; }";
     renderRenderer({
       html: "<head></head><body></body>",
-      js_functions,
+      jsFunctions,
     });
     await flushImport();
 
@@ -116,13 +116,13 @@ describe("OpenGenerativeUIRenderer", () => {
     });
     await flushImport();
 
-    expect(mockRun).toHaveBeenCalledWith(js_functions);
+    expect(mockRun).toHaveBeenCalledWith(jsFunctions);
   });
 
-  it("executes js_expressions sequentially", async () => {
+  it("executes jsExpressions sequentially", async () => {
     renderRenderer({
       html: "<head></head><body></body>",
-      js_expressions: ["expr1()", "expr2()"],
+      jsExpressions: ["expr1()", "expr2()"],
     });
     await flushImport();
 
@@ -142,7 +142,7 @@ describe("OpenGenerativeUIRenderer", () => {
         activityType="open-generative-ui"
         content={{
           html: "<head></head><body></body>",
-          js_expressions: ["expr1()"],
+          jsExpressions: ["expr1()"],
         }}
         message={{}}
         agent={{}}
@@ -167,7 +167,7 @@ describe("OpenGenerativeUIRenderer", () => {
         activityType="open-generative-ui"
         content={{
           html: "<head></head><body></body>",
-          js_expressions: ["expr1()", "expr2()"],
+          jsExpressions: ["expr1()", "expr2()"],
         }}
         message={{}}
         agent={{}}
@@ -191,8 +191,8 @@ describe("OpenGenerativeUIRenderer", () => {
   it("queues JS before sandbox ready", async () => {
     renderRenderer({
       html: "<head></head><body></body>",
-      js_functions: "function foo() {}",
-      js_expressions: ["foo()"],
+      jsFunctions: "function foo() {}",
+      jsExpressions: ["foo()"],
     });
     await flushImport();
 
