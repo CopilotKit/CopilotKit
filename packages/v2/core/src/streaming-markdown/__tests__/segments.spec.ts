@@ -59,29 +59,19 @@ describe("segmentText", () => {
 
   describe("Intl.Segmenter fallback", () => {
     afterEach(() => {
-      vi.restoreAllMocks();
+      vi.unstubAllGlobals();
     });
 
     it("should fall back to Array.from when Intl.Segmenter is unavailable", () => {
-      // Mock Intl.Segmenter as undefined to trigger fallback
-      const originalSegmenter = Intl.Segmenter;
       vi.stubGlobal("Intl", { ...Intl, Segmenter: undefined });
-
       expect(segmentText("abc")).toEqual(["a", "b", "c"]);
-
-      // Restore
-      vi.stubGlobal("Intl", { ...Intl, Segmenter: originalSegmenter });
     });
 
     it("should handle basic emoji with Array.from fallback", () => {
-      const originalSegmenter = Intl.Segmenter;
       vi.stubGlobal("Intl", { ...Intl, Segmenter: undefined });
-
       // Array.from splits by code points, so a simple emoji is still one entry
       const result = segmentText("\u{1F600}");
       expect(result).toEqual(["\u{1F600}"]);
-
-      vi.stubGlobal("Intl", { ...Intl, Segmenter: originalSegmenter });
     });
   });
 });
