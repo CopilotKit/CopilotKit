@@ -82,6 +82,11 @@ export class ArgsParser {
   private currentArrayKey: string | null = null;
   private snapshotEmitted = false;
 
+  // Streaming html state — reads parser.textNode to emit incremental chunks
+  private streamingHtmlKey = false;
+  private htmlEmittedLength = 0;
+  private htmlArrayEmitted = false;
+
   public readonly params: GenerateSandboxedUIParams = {};
   public readonly messageId: string;
   private readonly onEvent: OnParamEvent;
@@ -95,12 +100,14 @@ export class ArgsParser {
       this.depth++;
       if (key !== undefined && this.depth === 1) {
         this.currentKey = key;
+        this.initHtmlStreaming(key);
       }
     };
 
     this.parser.onkey = (key: string) => {
       if (this.depth === 1) {
         this.currentKey = key;
+        this.initHtmlStreaming(key);
       }
     };
 
@@ -116,6 +123,20 @@ export class ArgsParser {
             this.params.placeholderMessages.push(strValue);
           }
           this.emitArrayItemDelta(this.currentArrayKey, strValue);
+        } else if (this.streamingHtmlKey) {
+          // HTML string completed — emit final chunk + htmlComplete
+          const fullHtml = value != null ? String(value) : "";
+          this.params.html = fullHtml || undefined;
+          if (!this.htmlArrayEmitted) {
+            this.htmlArrayEmitted = true;
+            this.emitParamDelta("html", []);
+          }
+          const remaining = fullHtml.slice(this.htmlEmittedLength);
+          if (remaining) {
+            this.emitArrayItemDelta("html", remaining);
+          }
+          this.emitParamDelta("htmlComplete", true);
+          this.streamingHtmlKey = false;
         } else {
           this.setParam(this.currentKey, value);
         }
@@ -155,6 +176,35 @@ export class ArgsParser {
 
   write(chunk: string): void {
     this.parser.write(chunk);
+    this.flushHtmlChunks();
+  }
+
+  private initHtmlStreaming(key: string): void {
+    if (key === "html") {
+      this.streamingHtmlKey = true;
+      this.htmlEmittedLength = 0;
+      this.htmlArrayEmitted = false;
+    }
+  }
+
+  /**
+   * Read clarinet's internal textNode buffer to emit html chunks incrementally.
+   * Called after every write() so partial string content is emitted as it streams in.
+   */
+  private flushHtmlChunks(): void {
+    if (!this.streamingHtmlKey) return;
+    const textNode = (this.parser as any).textNode;
+    if (typeof textNode !== "string") return;
+
+    const newContent = textNode.slice(this.htmlEmittedLength);
+    if (newContent.length === 0) return;
+
+    if (!this.htmlArrayEmitted) {
+      this.htmlArrayEmitted = true;
+      this.emitParamDelta("html", []);
+    }
+    this.emitArrayItemDelta("html", newContent);
+    this.htmlEmittedLength = textNode.length;
   }
 
   private setParam(key: string, value: string | boolean | number | null): void {
@@ -162,10 +212,6 @@ export class ArgsParser {
       case "initialHeight":
         this.params.initialHeight = typeof value === "number" ? value : undefined;
         this.emitSnapshot();
-        break;
-      case "html":
-        this.params.html = value != null ? String(value) : undefined;
-        this.emitParamDelta("html", this.params.html);
         break;
       case "jsFunctions":
         this.params.jsFunctions = value != null ? String(value) : undefined;

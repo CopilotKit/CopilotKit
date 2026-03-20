@@ -76,9 +76,9 @@ describe("OpenGenerativeUIActivityRenderer", () => {
     expect(mockCreate).not.toHaveBeenCalled();
   });
 
-  it("creates sandbox when html arrives", async () => {
+  it("creates sandbox when html is complete", async () => {
     const html = "<head></head><body><p>Hello</p></body>";
-    renderRenderer({ html });
+    renderRenderer({ html: [html], htmlComplete: true });
     await flushImport();
 
     expect(mockCreate).toHaveBeenCalledTimes(1);
@@ -87,8 +87,15 @@ describe("OpenGenerativeUIActivityRenderer", () => {
     expect(options.frameContainer).toBeInstanceOf(HTMLElement);
   });
 
+  it("does not create sandbox when html is streaming (not complete)", async () => {
+    renderRenderer({ html: ["<head></head><body>partial"], htmlComplete: false });
+    await flushImport();
+
+    expect(mockCreate).not.toHaveBeenCalled();
+  });
+
   it("wraps html missing <head>", async () => {
-    renderRenderer({ html: "<body><p>No head</p></body>" });
+    renderRenderer({ html: ["<body><p>No head</p></body>"], htmlComplete: true });
     await flushImport();
 
     expect(mockCreate).toHaveBeenCalledTimes(1);
@@ -96,8 +103,17 @@ describe("OpenGenerativeUIActivityRenderer", () => {
     expect(options.frameContent).toContain("<head></head>");
   });
 
+  it("joins html chunks when complete", async () => {
+    renderRenderer({ html: ["<head></head>", "<body>", "<p>Hello</p>", "</body>"], htmlComplete: true });
+    await flushImport();
+
+    expect(mockCreate).toHaveBeenCalledTimes(1);
+    const [, options] = mockCreate.mock.calls[0];
+    expect(options.frameContent).toBe("<head></head><body><p>Hello</p></body>");
+  });
+
   it("destroys sandbox on unmount", async () => {
-    const { unmount } = renderRenderer({ html: "<head></head><body></body>" });
+    const { unmount } = renderRenderer({ html: ["<head></head><body></body>"], htmlComplete: true });
     await flushImport();
 
     expect(mockCreate).toHaveBeenCalledTimes(1);
@@ -108,7 +124,8 @@ describe("OpenGenerativeUIActivityRenderer", () => {
   it("injects jsFunctions via run()", async () => {
     const jsFunctions = "function greet() { return 'hi'; }";
     renderRenderer({
-      html: "<head></head><body></body>",
+      html: ["<head></head><body></body>"],
+      htmlComplete: true,
       jsFunctions,
     });
     await flushImport();
@@ -125,7 +142,8 @@ describe("OpenGenerativeUIActivityRenderer", () => {
 
   it("executes jsExpressions sequentially", async () => {
     renderRenderer({
-      html: "<head></head><body></body>",
+      html: ["<head></head><body></body>"],
+      htmlComplete: true,
       jsExpressions: ["expr1()", "expr2()"],
     });
     await flushImport();
@@ -145,7 +163,8 @@ describe("OpenGenerativeUIActivityRenderer", () => {
       <OpenGenerativeUIActivityRenderer
         activityType="open-generative-ui"
         content={{
-          html: "<head></head><body></body>",
+          html: ["<head></head><body></body>"],
+          htmlComplete: true,
           jsExpressions: ["expr1()"],
         }}
         message={{}}
@@ -170,7 +189,8 @@ describe("OpenGenerativeUIActivityRenderer", () => {
       <OpenGenerativeUIActivityRenderer
         activityType="open-generative-ui"
         content={{
-          html: "<head></head><body></body>",
+          html: ["<head></head><body></body>"],
+          htmlComplete: true,
           jsExpressions: ["expr1()", "expr2()"],
         }}
         message={{}}
@@ -194,7 +214,8 @@ describe("OpenGenerativeUIActivityRenderer", () => {
 
   it("queues JS before sandbox ready", async () => {
     renderRenderer({
-      html: "<head></head><body></body>",
+      html: ["<head></head><body></body>"],
+      htmlComplete: true,
       jsFunctions: "function foo() {}",
       jsExpressions: ["foo()"],
     });
@@ -219,7 +240,7 @@ describe("OpenGenerativeUIActivityRenderer", () => {
     const { rerender } = render(
       <OpenGenerativeUIActivityRenderer
         activityType="open-generative-ui"
-        content={{ html: "<head></head><body>v1</body>" }}
+        content={{ html: ["<head></head><body>v1</body>"], htmlComplete: true }}
         message={{}}
         agent={{}}
       />,
@@ -237,7 +258,7 @@ describe("OpenGenerativeUIActivityRenderer", () => {
     rerender(
       <OpenGenerativeUIActivityRenderer
         activityType="open-generative-ui"
-        content={{ html: "<head></head><body>v2</body>" }}
+        content={{ html: ["<head></head><body>v2</body>"], htmlComplete: true }}
         message={{}}
         agent={{}}
       />,
@@ -281,7 +302,7 @@ describe("OpenGenerativeUIActivityRenderer", () => {
       ];
 
       renderWithSandboxFunctions(
-        { html: "<head></head><body>test</body>" },
+        { html: ["<head></head><body>test</body>"], htmlComplete: true },
         fns,
       );
       await flushImport();
@@ -294,7 +315,7 @@ describe("OpenGenerativeUIActivityRenderer", () => {
 
     it("passes empty localApi when no sandbox functions", async () => {
       renderWithSandboxFunctions(
-        { html: "<head></head><body>test</body>" },
+        { html: ["<head></head><body>test</body>"], htmlComplete: true },
         [],
       );
       await flushImport();
@@ -319,7 +340,7 @@ describe("OpenGenerativeUIActivityRenderer", () => {
         <SandboxFunctionsContext.Provider value={fns1}>
           <OpenGenerativeUIActivityRenderer
             activityType="open-generative-ui"
-            content={{ html: "<head></head><body>test</body>" }}
+            content={{ html: ["<head></head><body>test</body>"], htmlComplete: true }}
             message={{}}
             agent={{}}
           />
@@ -349,7 +370,7 @@ describe("OpenGenerativeUIActivityRenderer", () => {
         <SandboxFunctionsContext.Provider value={fns2}>
           <OpenGenerativeUIActivityRenderer
             activityType="open-generative-ui"
-            content={{ html: "<head></head><body>test</body>" }}
+            content={{ html: ["<head></head><body>test</body>"], htmlComplete: true }}
             message={{}}
             agent={{}}
           />
@@ -384,7 +405,7 @@ describe("OpenGenerativeUIActivityRenderer", () => {
       ];
 
       renderWithSandboxFunctions(
-        { html: "<head></head><body>test</body>" },
+        { html: ["<head></head><body>test</body>"], htmlComplete: true },
         fns,
       );
       await flushImport();

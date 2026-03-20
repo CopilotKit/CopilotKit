@@ -10,7 +10,8 @@ export const OpenGenerativeUIActivityType = "open-generative-ui";
 export const OpenGenerativeUIContentSchema = z.object({
   initialHeight: z.number().optional(),
   generating: z.boolean().optional(),
-  html: z.string().optional(),
+  html: z.array(z.string()).optional(),
+  htmlComplete: z.boolean().optional(),
   jsFunctions: z.string().optional(),
   jsExpressions: z.array(z.string()).optional(),
 });
@@ -62,6 +63,11 @@ export const OpenGenerativeUIActivityRenderer: React.FC<
     return api;
   }, [sandboxFunctions]);
 
+  // Join html chunks only when streaming is complete
+  const fullHtml = content.htmlComplete && content.html?.length
+    ? content.html.join("")
+    : undefined;
+
   const containerRef = useRef<HTMLDivElement>(null);
   const sandboxRef = useRef<{ run: (code: string | Function) => Promise<unknown>; destroy: () => void; iframe: HTMLIFrameElement } | null>(null);
   const sandboxReadyRef = useRef(false);
@@ -69,10 +75,10 @@ export const OpenGenerativeUIActivityRenderer: React.FC<
   const pendingQueueRef = useRef<string[]>([]);
   const jsFunctionsInjectedRef = useRef(false);
 
-  // Effect 1 — Sandbox lifecycle (depends on content.html)
+  // Effect 1 — Sandbox lifecycle (depends on fullHtml)
   useEffect(() => {
     const container = containerRef.current;
-    if (!container || !content.html) return;
+    if (!container || !fullHtml) return;
 
     let cancelled = false;
 
@@ -83,7 +89,7 @@ export const OpenGenerativeUIActivityRenderer: React.FC<
     pendingQueueRef.current = [];
 
     // Dynamic import to avoid SSR issues (websandbox references `self` at module level)
-    const htmlContent = content.html;
+    const htmlContent = fullHtml;
     import("@jetbrains/websandbox").then((mod: any) => {
       if (cancelled) return;
 
@@ -145,7 +151,7 @@ export const OpenGenerativeUIActivityRenderer: React.FC<
       sandboxReadyRef.current = false;
       setAutoHeight(null);
     };
-  }, [content.html, localApi]);
+  }, [fullHtml, localApi]);
 
   // Effect 2 — jsFunctions injection (depends on content.jsFunctions)
   useEffect(() => {
@@ -195,22 +201,22 @@ export const OpenGenerativeUIActivityRenderer: React.FC<
         width: "100%",
         height: `${height}px`,
         borderRadius: "8px",
-        backgroundColor: content.html ? "transparent" : "#f5f5f5",
-        border: content.html ? "none" : "1px solid #e0e0e0",
-        display: content.html ? "block" : "flex",
-        alignItems: content.html ? undefined : "center",
-        justifyContent: content.html ? undefined : "center",
+        backgroundColor: fullHtml ? "transparent" : "#f5f5f5",
+        border: fullHtml ? "none" : "1px solid #e0e0e0",
+        display: fullHtml ? "block" : "flex",
+        alignItems: fullHtml ? undefined : "center",
+        justifyContent: fullHtml ? undefined : "center",
         overflow: "hidden",
       }}
     >
       {isGenerating && (
         <div
           style={{
-            position: content.html ? "absolute" : "relative",
-            inset: content.html ? 0 : undefined,
+            position: fullHtml ? "absolute" : "relative",
+            inset: fullHtml ? 0 : undefined,
             zIndex: 10,
-            pointerEvents: content.html ? "all" : "none",
-            backgroundColor: content.html ? "rgba(255, 255, 255, 0.5)" : "transparent",
+            pointerEvents: fullHtml ? "all" : "none",
+            backgroundColor: fullHtml ? "rgba(255, 255, 255, 0.5)" : "transparent",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
