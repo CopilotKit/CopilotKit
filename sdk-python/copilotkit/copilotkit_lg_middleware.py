@@ -65,20 +65,65 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
     def _fix_messages_for_bedrock(messages: list) -> list:
         """Fix messages loaded from checkpoint before sending to Bedrock.
 
-        Handles three issues caused by CopilotKit's after_agent restoring
+        Handles four issues caused by CopilotKit's after_agent restoring
         frontend tool_calls to the checkpoint:
         1. Strip unanswered tool_calls (no matching ToolMessage) — Bedrock
            rejects toolUse without a corresponding toolResult.
         2. Sync msg.content tool_use blocks with msg.tool_calls.
         3. Fix tool_use content blocks with string input (must be dict).
+        4. Deduplicate ToolMessages by tool_call_id — patch_orphan_tool_calls
+           injects a placeholder with a new random ID on every checkpoint load;
+           when the real result is later appended alongside it, Bedrock rejects
+           the duplicate toolResult IDs. We keep the real result (non-interrupted)
+           over the placeholder, falling back to the last occurrence if both look
+           real.
         """
-        # Collect all tool_call_ids that have a ToolMessage answer
-        answered_tc_ids = {
-            m.tool_call_id for m in messages
-            if isinstance(m, ToolMessage) and hasattr(m, 'tool_call_id')
-        }
+        # 4. Deduplicate ToolMessages by tool_call_id before all other processing.
+        #    patch_orphan_tool_calls adds "…was interrupted before completion."
+        #    placeholders with fresh random IDs on every checkpoint load. The real
+        #    result comes in as a separate message with a different ID, so both end
+        #    up in the list. Keep the real (non-interrupted) one; if multiple real
+        #    ones exist, keep the last.
+        _INTERRUPTED_PAT = re.compile(
+            r"^Tool call '.+' with id '.+' was interrupted before completion\.$"
+        )
+        # Group ToolMessages by tool_call_id, preserving position
+        tc_groups: dict[str, list] = {}
+        for i, msg in enumerate(messages):
+            if isinstance(msg, ToolMessage):
+                tc_id = getattr(msg, 'tool_call_id', None)
+                if tc_id:
+                    tc_groups.setdefault(tc_id, []).append(i)
 
-        for msg in messages:
+        drop_indices: set = set()
+        for tc_id, indices in tc_groups.items():
+            if len(indices) <= 1:
+                continue
+            # Separate interrupted placeholders from real results
+            real_indices = [
+                i for i in indices
+                if not (isinstance(messages[i].content, str)
+                        and _INTERRUPTED_PAT.match(messages[i].content))
+            ]
+            interrupted_indices = [i for i in indices if i not in real_indices]
+            if real_indices and interrupted_indices:
+                # Replace the first placeholder (correct position, adjacent to AI
+                # message) with the last real result (likely appended at the end).
+                # This keeps the tool result in the right position for Bedrock.
+                messages[interrupted_indices[0]] = messages[real_indices[-1]]
+                drop_indices.update(interrupted_indices[1:])
+                drop_indices.update(real_indices)  # drop all originals (we moved one)
+            elif real_indices:
+                # No placeholders, multiple real — keep only the last
+                drop_indices.update(real_indices[:-1])
+            else:
+                # All interrupted — keep only the last
+                drop_indices.update(interrupted_indices[:-1])
+
+        if drop_indices:
+            messages[:] = [msg for i, msg in enumerate(messages) if i not in drop_indices]
+
+        for idx, msg in enumerate(messages):
             if not isinstance(msg, AIMessage):
                 continue
 
@@ -106,11 +151,23 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
             if not tool_calls:
                 continue
 
-            # 2. Strip unanswered tool_calls (no matching ToolMessage)
-            unanswered = [tc for tc in tool_calls if tc.get('id') not in answered_tc_ids]
+            # 2. Strip unanswered tool_calls — only consider ToolMessages that
+            #    are ADJACENT (immediately following this AIMessage, before the
+            #    next non-ToolMessage). A ToolMessage at the wrong position
+            #    won't satisfy Bedrock's Converse API requirement that toolResult
+            #    blocks appear in the user turn right after the assistant turn.
+            adjacent_tc_ids: set = set()
+            j = idx + 1
+            while j < len(messages) and isinstance(messages[j], ToolMessage):
+                tc_id = getattr(messages[j], 'tool_call_id', None)
+                if tc_id:
+                    adjacent_tc_ids.add(tc_id)
+                j += 1
+
+            unanswered = [tc for tc in tool_calls if tc.get('id') not in adjacent_tc_ids]
             if unanswered:
                 unanswered_ids = {tc['id'] for tc in unanswered}
-                msg.tool_calls = [tc for tc in tool_calls if tc.get('id') in answered_tc_ids]
+                msg.tool_calls = [tc for tc in tool_calls if tc.get('id') in adjacent_tc_ids]
 
                 # Also strip matching content blocks
                 if isinstance(msg.content, list):
@@ -141,6 +198,22 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
                                 block['input'] = {}
                         elif inp is None:
                             block['input'] = {}
+
+        # 5. Remove orphan ToolMessages whose tool_call_id no longer matches
+        #    any remaining tool_call in any AIMessage. These can be left over
+        #    after stripping unanswered tool_calls above.
+        remaining_tc_ids: set = set()
+        for msg in messages:
+            if isinstance(msg, AIMessage):
+                for tc in (getattr(msg, 'tool_calls', None) or []):
+                    tc_id = tc.get('id')
+                    if tc_id:
+                        remaining_tc_ids.add(tc_id)
+        messages[:] = [
+            msg for msg in messages
+            if not isinstance(msg, ToolMessage)
+               or getattr(msg, 'tool_call_id', None) in remaining_tc_ids
+        ]
 
         return messages
 
