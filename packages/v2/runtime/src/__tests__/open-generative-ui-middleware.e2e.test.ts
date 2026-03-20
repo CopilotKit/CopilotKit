@@ -375,8 +375,14 @@ describe("OpenGenerativeUIMiddleware e2e", () => {
       emitted.length = 0; // clear snapshot
 
       parser.write('"js_expressions":["expr1",');
-      expect(emitted).toHaveLength(1);
-      const delta1 = emitted[0] as ActivityDeltaEvent;
+      // First: array-creation delta, then the first item append
+      expect(emitted).toHaveLength(2);
+      const arrayCreate = emitted[0] as ActivityDeltaEvent;
+      expect(arrayCreate.type).toBe(EventType.ACTIVITY_DELTA);
+      expect(arrayCreate.patch).toEqual([
+        { op: "add", path: "/js_expressions", value: [] },
+      ]);
+      const delta1 = emitted[1] as ActivityDeltaEvent;
       expect(delta1.type).toBe(EventType.ACTIVITY_DELTA);
       expect(delta1.patch).toEqual([
         { op: "add", path: "/js_expressions/-", value: "expr1" },
@@ -409,6 +415,102 @@ describe("OpenGenerativeUIMiddleware e2e", () => {
         (e) => e.type === EventType.ACTIVITY_SNAPSHOT,
       );
       expect(snapshots).toHaveLength(1);
+    });
+
+    it("produces patches that build complete content when applied sequentially", () => {
+      const emitted: BaseEvent[] = [];
+      const parser = new ArgsParser("tc-1", (e) => emitted.push(e));
+
+      // Simulate a full tool call with all parameter types
+      parser.write('{"height":400,"html":"<body>game</body>","js_functions":"function init(){}","js_expressions":["init()","update()"]}');
+
+      // Reconstruct content by applying snapshot + deltas in order
+      let content: Record<string, unknown> = {};
+      for (const event of emitted) {
+        if (event.type === EventType.ACTIVITY_SNAPSHOT) {
+          content = { ...(event as ActivitySnapshotEvent).content } as Record<string, unknown>;
+        } else if (event.type === EventType.ACTIVITY_DELTA) {
+          const delta = event as ActivityDeltaEvent;
+          for (const op of delta.patch) {
+            if (op.op === "add") {
+              if (op.path.endsWith("/-")) {
+                // Array append: path like "/js_expressions/-"
+                const arrayKey = op.path.slice(1, -2);
+                (content[arrayKey] as unknown[]).push(op.value);
+              } else {
+                // Direct property: path like "/html"
+                content[op.path.slice(1)] = op.value;
+              }
+            }
+          }
+        }
+      }
+
+      expect(content).toEqual({
+        height: 400,
+        html: "<body>game</body>",
+        js_functions: "function init(){}",
+        js_expressions: ["init()", "update()"],
+      });
+    });
+
+    it("produces patches that build content correctly when streamed in chunks", () => {
+      const emitted: BaseEvent[] = [];
+      const parser = new ArgsParser("tc-1", (e) => emitted.push(e));
+
+      // Stream in small chunks like a real LLM would
+      parser.write('{"height":300,');
+      parser.write('"html":"<div>hi</div>",');
+      parser.write('"js_functions":"function go(){}",');
+      parser.write('"js_expressions":["go()",');
+      parser.write('"render()","done()"]}');
+
+      // Reconstruct content
+      let content: Record<string, unknown> = {};
+      for (const event of emitted) {
+        if (event.type === EventType.ACTIVITY_SNAPSHOT) {
+          content = { ...(event as ActivitySnapshotEvent).content } as Record<string, unknown>;
+        } else if (event.type === EventType.ACTIVITY_DELTA) {
+          const delta = event as ActivityDeltaEvent;
+          for (const op of delta.patch) {
+            if (op.op === "add") {
+              if (op.path.endsWith("/-")) {
+                const arrayKey = op.path.slice(1, -2);
+                (content[arrayKey] as unknown[]).push(op.value);
+              } else {
+                content[op.path.slice(1)] = op.value;
+              }
+            }
+          }
+        }
+      }
+
+      expect(content).toEqual({
+        height: 300,
+        html: "<div>hi</div>",
+        js_functions: "function go(){}",
+        js_expressions: ["go()", "render()", "done()"],
+      });
+    });
+
+    it("emits array-creation delta before first js_expressions item", () => {
+      const emitted: BaseEvent[] = [];
+      const parser = new ArgsParser("tc-1", (e) => emitted.push(e));
+
+      parser.write('{"height":100,');
+      emitted.length = 0; // clear snapshot
+
+      // Trailing comma needed — clarinet fires onvalue after a delimiter
+      parser.write('"js_expressions":["first",');
+
+      // Should get array creation delta followed by item delta
+      expect(emitted).toHaveLength(2);
+      expect((emitted[0] as ActivityDeltaEvent).patch).toEqual([
+        { op: "add", path: "/js_expressions", value: [] },
+      ]);
+      expect((emitted[1] as ActivityDeltaEvent).patch).toEqual([
+        { op: "add", path: "/js_expressions/-", value: "first" },
+      ]);
     });
 
     it("emits activity events through the middleware stream", async () => {
@@ -473,6 +575,109 @@ describe("OpenGenerativeUIMiddleware e2e", () => {
       );
       const snapshotIdx = events.indexOf(snapshots[0]);
       expect(snapshotIdx).toBeGreaterThan(firstArgsIdx);
+    });
+
+    it("emits full activity events for js_functions and js_expressions through middleware", async () => {
+      const middleware = new OpenGenerativeUIMiddleware();
+      const toolCallId = "tc-js";
+      const parentMessageId = "msg-1";
+
+      const agent = new MockAgent([
+        { type: EventType.RUN_STARTED, threadId: "thread-1", runId: "run-1" } as BaseEvent,
+        {
+          type: EventType.TEXT_MESSAGE_START,
+          messageId: parentMessageId,
+          role: "assistant",
+        } as BaseEvent,
+        {
+          type: EventType.TEXT_MESSAGE_END,
+          messageId: parentMessageId,
+        } as BaseEvent,
+        {
+          type: EventType.TOOL_CALL_START,
+          toolCallId,
+          toolCallName: "generate_sandboxed_ui",
+          parentMessageId,
+        } as BaseEvent,
+        {
+          type: EventType.TOOL_CALL_ARGS,
+          toolCallId,
+          delta: '{"height":400,',
+        } as BaseEvent,
+        {
+          type: EventType.TOOL_CALL_ARGS,
+          toolCallId,
+          delta: '"html":"<body>game</body>",',
+        } as BaseEvent,
+        {
+          type: EventType.TOOL_CALL_ARGS,
+          toolCallId,
+          delta: '"js_functions":"function init(){}",',
+        } as BaseEvent,
+        {
+          type: EventType.TOOL_CALL_ARGS,
+          toolCallId,
+          delta: '"js_expressions":["init()",',
+        } as BaseEvent,
+        {
+          type: EventType.TOOL_CALL_ARGS,
+          toolCallId,
+          delta: '"render()"]}',
+        } as BaseEvent,
+        {
+          type: EventType.TOOL_CALL_END,
+          toolCallId,
+        } as BaseEvent,
+        { type: EventType.RUN_FINISHED, threadId: "thread-1", runId: "run-1" } as BaseEvent,
+      ]);
+
+      const events = await collectEvents(middleware.run(createRunInput(), agent));
+
+      // Verify snapshot
+      const snapshots = events.filter(
+        (e) => e.type === EventType.ACTIVITY_SNAPSHOT,
+      ) as ActivitySnapshotEvent[];
+      expect(snapshots).toHaveLength(1);
+      expect(snapshots[0].content).toEqual({ height: 400 });
+
+      // Verify deltas
+      const deltas = events.filter(
+        (e) => e.type === EventType.ACTIVITY_DELTA,
+      ) as ActivityDeltaEvent[];
+
+      // Expected deltas: html, js_functions, js_expressions array creation, init(), render()
+      expect(deltas).toHaveLength(5);
+      expect(deltas[0].patch).toEqual([{ op: "add", path: "/html", value: "<body>game</body>" }]);
+      expect(deltas[1].patch).toEqual([{ op: "add", path: "/js_functions", value: "function init(){}" }]);
+      expect(deltas[2].patch).toEqual([{ op: "add", path: "/js_expressions", value: [] }]);
+      expect(deltas[3].patch).toEqual([{ op: "add", path: "/js_expressions/-", value: "init()" }]);
+      expect(deltas[4].patch).toEqual([{ op: "add", path: "/js_expressions/-", value: "render()" }]);
+
+      // Reconstruct content to prove patches work end-to-end
+      let content: Record<string, unknown> = {};
+      for (const event of events) {
+        if (event.type === EventType.ACTIVITY_SNAPSHOT) {
+          content = { ...(event as ActivitySnapshotEvent).content } as Record<string, unknown>;
+        } else if (event.type === EventType.ACTIVITY_DELTA) {
+          for (const op of (event as ActivityDeltaEvent).patch) {
+            if (op.op === "add") {
+              if (op.path.endsWith("/-")) {
+                const arrayKey = op.path.slice(1, -2);
+                (content[arrayKey] as unknown[]).push(op.value);
+              } else {
+                content[op.path.slice(1)] = op.value;
+              }
+            }
+          }
+        }
+      }
+
+      expect(content).toEqual({
+        height: 400,
+        html: "<body>game</body>",
+        js_functions: "function init(){}",
+        js_expressions: ["init()", "render()"],
+      });
     });
   });
 });

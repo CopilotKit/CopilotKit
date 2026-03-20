@@ -116,6 +116,9 @@ export class ArgsParser {
       if (this.depth === 1 && this.currentKey === "js_expressions") {
         this.inArray = true;
         this.params.js_expressions = [];
+        // Emit a delta to create the array in the activity content.
+        // Subsequent "add" ops with path "/js_expressions/-" append to this array.
+        this.emitParamDelta("js_expressions", []);
       }
     };
 
