@@ -355,7 +355,7 @@ describe("OpenGenerativeUIMiddleware e2e", () => {
       expect(htmlDelta.type).toBe(EventType.ACTIVITY_DELTA);
       expect(htmlDelta.messageId).toBe("tc-1-activity");
       expect(htmlDelta.patch).toEqual([
-        { op: "replace", path: "/html", value: "<div/>" },
+        { op: "add", path: "/html", value: "<div/>" },
       ]);
 
       emitted.length = 0;
@@ -363,7 +363,7 @@ describe("OpenGenerativeUIMiddleware e2e", () => {
       expect(emitted).toHaveLength(1);
       const fnDelta = emitted[0] as ActivityDeltaEvent;
       expect(fnDelta.patch).toEqual([
-        { op: "replace", path: "/js_functions", value: "fn(){}" },
+        { op: "add", path: "/js_functions", value: "fn(){}" },
       ]);
     });
 
@@ -464,7 +464,7 @@ describe("OpenGenerativeUIMiddleware e2e", () => {
       ) as ActivityDeltaEvent[];
       expect(deltas).toHaveLength(1);
       expect(deltas[0].patch).toEqual([
-        { op: "replace", path: "/html", value: "<p>hi</p>" },
+        { op: "add", path: "/html", value: "<p>hi</p>" },
       ]);
 
       // Activity events should appear after the TOOL_CALL_ARGS that triggered them

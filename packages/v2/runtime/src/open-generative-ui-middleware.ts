@@ -175,7 +175,7 @@ export class ArgsParser {
       type: EventType.ACTIVITY_DELTA,
       messageId: this.messageId,
       activityType: ACTIVITY_TYPE,
-      patch: [{ op: "replace", path: `/${key}`, value }],
+      patch: [{ op: "add", path: `/${key}`, value }],
     };
     this.onEvent(event);
   }
