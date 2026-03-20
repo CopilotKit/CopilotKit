@@ -15,6 +15,7 @@ Example:
 """
 
 import json
+import re
 from typing import Any, Callable, Awaitable, ClassVar, List
 
 from langchain_core.messages import AIMessage, SystemMessage, ToolMessage
