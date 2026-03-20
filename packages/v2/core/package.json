@@ -1,6 +1,6 @@
 {
   "name": "@copilotkitnext/core",
-  "version": "1.54.0",
+  "version": "1.54.1-next.1",
   "deprecated": "This package is deprecated. Use @copilotkit/core instead. V2 features are being integrated into the main @copilotkit exports and will be available under the /v2 subpath.",
   "description": "Core web utilities for CopilotKit2",
   "main": "./dist/index.cjs",
@@ -10,6 +10,11 @@
     ".": {
       "import": "./dist/index.mjs",
       "require": "./dist/index.cjs"
+    },
+    "./streaming-json": {
+      "types": "./dist/streaming-json/index.d.mts",
+      "import": "./dist/streaming-json/index.mjs",
+      "require": "./dist/streaming-json/index.cjs"
     },
     "./package.json": "./package.json"
   },
