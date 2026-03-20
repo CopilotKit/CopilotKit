@@ -1,3 +1,31 @@
+/**
+ * @deprecated Use the streaming markdown parser instead:
+ *   import { createMagicTextParserState, parseMagicTextChunk, finalizeMagicText }
+ *     from './streaming-markdown';
+ *
+ * DEPRECATION PLAN (CPK-7073):
+ *
+ * This regex-based heuristic is replaced by a proper streaming state-machine
+ * parser in `../streaming-markdown/`. The new parser correctly handles tables
+ * (a known bug here), produces a block tree with stable IDs for React key
+ * stability, and supports incremental parsing.
+ *
+ * Current consumers:
+ *   1. packages/v2/angular/.../copilot-chat-assistant-message-renderer.ts
+ *      — uses completePartialMarkdown to pre-process markdown before
+ *        feeding to `marked`. Migration: adopt the streaming parser with
+ *        an Angular equivalent of useMagicTextParser, or use the block
+ *        tree directly for rendering.
+ *   2. packages/v2/react/src/lib/__tests__/completePartialMarkdown.test.ts
+ *      — test suite for this function. Will be removed when this function
+ *        is removed.
+ *
+ * Migration timeline:
+ *   - Walk milestone: migrate Angular consumer to new parser
+ *   - Post-Walk: remove this function and its test suite
+ *
+ * DO NOT add new consumers of this function.
+ */
 export function completePartialMarkdown(input: string): string {
   let s = input;
 
