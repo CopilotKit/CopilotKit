@@ -16,6 +16,7 @@ overrides:
   serve-static@<=1.16.0: 1.16.0
   prismjs@<=1.30.0: 1.30.0
   pino@<=10.1.1: 10.1.1
+  '@copilotkit/license-verifier': link:../intelligence/packages/license-verifier
 
 patchedDependencies:
   '@changesets/assemble-release-plan@6.0.9':
@@ -2188,8 +2189,8 @@ importers:
         specifier: ^0.0.48
         version: 0.0.48
       '@copilotkit/license-verifier':
-        specifier: file:../../../../intelligence/packages/license-verifier
-        version: file:../intelligence/packages/license-verifier
+        specifier: link:../../../../intelligence/packages/license-verifier
+        version: link:../../../../intelligence/packages/license-verifier
       '@segment/analytics-node':
         specifier: ^2.1.2
         version: 2.3.0(encoding@0.1.13)
@@ -2815,8 +2816,8 @@ importers:
         specifier: 0.0.48
         version: 0.0.48
       '@copilotkit/license-verifier':
-        specifier: file:../../../../intelligence/packages/license-verifier
-        version: file:../intelligence/packages/license-verifier
+        specifier: link:../../../../intelligence/packages/license-verifier
+        version: link:../../../../intelligence/packages/license-verifier
       '@standard-schema/spec':
         specifier: ^1.1.0
         version: 1.1.0
@@ -4608,9 +4609,6 @@ packages:
   '@commitlint/types@20.3.1':
     resolution: {integrity: sha512-VmIFV/JkBRhDRRv7N5B7zEUkNZIx9Mp+8Pe65erz0rKycXLsi8Epcw0XJ+btSeRXgTzE7DyOyA9bkJ9mn/yqVQ==}
     engines: {node: '>=v18'}
-
-  '@copilotkit/license-verifier@file:../intelligence/packages/license-verifier':
-    resolution: {directory: ../intelligence/packages/license-verifier, type: directory}
 
   '@cspotcode/source-map-support@0.8.1':
     resolution: {integrity: sha512-IchNf6dN4tHoMFIn/7OE8LWZ19Y6q/67Bmf6vnGREv8RSbBVb9LPJxEcnwrcwX6ixSvaiGoomAUvu4YSxXrVgw==}
@@ -25461,8 +25459,6 @@ snapshots:
     dependencies:
       '@types/conventional-commits-parser': 5.0.2
       chalk: 5.6.2
-
-  '@copilotkit/license-verifier@file:../intelligence/packages/license-verifier': {}
 
   '@cspotcode/source-map-support@0.8.1':
     dependencies:

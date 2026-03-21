@@ -28,6 +28,14 @@ export interface IntelligenceRuntimeInfo {
   wsUrl: string;
 }
 
+export type RuntimeLicenseStatus =
+  | "valid"
+  | "none"
+  | "expired"
+  | "expiring"
+  | "invalid"
+  | "unknown";
+
 export interface RuntimeInfo {
   version: string;
   agents: Record<string, AgentDescription>;
@@ -35,4 +43,5 @@ export interface RuntimeInfo {
   mode: RuntimeMode;
   intelligence?: IntelligenceRuntimeInfo;
   a2uiEnabled?: boolean;
+  licenseStatus?: RuntimeLicenseStatus;
 }

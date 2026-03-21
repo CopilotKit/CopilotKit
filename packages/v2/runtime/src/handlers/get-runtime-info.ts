@@ -1,6 +1,23 @@
 import { CopilotRuntimeLike, isIntelligenceRuntime } from "../runtime";
-import { AgentDescription, RuntimeInfo } from "@copilotkitnext/shared";
+import {
+  AgentDescription,
+  RuntimeInfo,
+  type RuntimeLicenseStatus,
+} from "@copilotkitnext/shared";
 import { VERSION } from "../runtime";
+
+function resolveLicenseStatus(
+  runtime: CopilotRuntimeLike,
+): RuntimeLicenseStatus {
+  if (!runtime.licenseChecker) return "none";
+  const status = runtime.licenseChecker.getStatus();
+  if (status.warningSeverity === "none") return "valid";
+  if (status.error === "expired") return "expired";
+  if (status.warningSeverity === "warning") return "expiring";
+  if (status.error) return "invalid";
+  if (status.warningSeverity === "info") return "none";
+  return "unknown";
+}
 
 interface HandleGetRuntimeInfoParameters {
   runtime: CopilotRuntimeLike;
@@ -38,6 +55,9 @@ export async function handleGetRuntimeInfo({
           }
         : {}),
       a2uiEnabled: !!runtime.a2ui,
+      ...(isIntelligenceRuntime(runtime)
+        ? { licenseStatus: resolveLicenseStatus(runtime) }
+        : {}),
     };
 
     return new Response(JSON.stringify(runtimeInfo), {

@@ -28,7 +28,9 @@ export function CopilotSidebar({
 
   useEffect(() => {
     if (!isSidebarLicensed) {
-      console.warn('[CopilotKit] Warning: "sidebar" feature is not licensed. Visit copilotkit.ai/pricing');
+      console.warn(
+        '[CopilotKit] Warning: "sidebar" feature is not licensed. Visit copilotkit.ai/pricing',
+      );
     }
   }, [isSidebarLicensed]);
 

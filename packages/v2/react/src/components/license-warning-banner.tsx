@@ -15,15 +15,21 @@ interface LicenseWarningBannerProps {
 
 const BANNER_STYLES: Record<string, React.CSSProperties> = {
   base: {
-    display: "flex",
+    position: "fixed",
+    bottom: "8px",
+    left: "50%",
+    transform: "translateX(-50%)",
+    zIndex: 99999,
+    display: "inline-flex",
     alignItems: "center",
-    justifyContent: "space-between",
+    gap: "12px",
+    whiteSpace: "nowrap",
     padding: "8px 16px",
     fontSize: "13px",
     fontFamily:
       "-apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif",
     borderRadius: "6px",
-    margin: "8px",
+    boxShadow: "0 2px 8px rgba(0, 0, 0, 0.15)",
   },
   info: {
     backgroundColor: "#eff6ff",

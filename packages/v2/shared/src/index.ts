@@ -32,5 +32,6 @@ export {
 export {
   createLicenseChecker,
   getLicenseWarningHeader,
+  LICENSE_PUBLIC_KEYS,
   type LicenseChecker,
 } from "@copilotkit/license-verifier";

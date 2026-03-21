@@ -17,9 +17,7 @@ import { z } from "zod";
 import { CopilotKitInspector } from "../components/CopilotKitInspector";
 import { LicenseWarningBanner } from "../components/license-warning-banner";
 import {
-  verifyLicense,
   createLicenseContextValue,
-  type LicenseStatus,
   type LicenseContextValue,
 } from "@copilotkit/shared";
 import type { CopilotKitCoreErrorCode } from "@copilotkitnext/core";
@@ -180,6 +178,9 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
 }) => {
   const [shouldRenderInspector, setShouldRenderInspector] = useState(false);
   const [runtimeA2UIEnabled, setRuntimeA2UIEnabled] = useState(false);
+  const [runtimeLicenseStatus, setRuntimeLicenseStatus] = useState<
+    string | undefined
+  >(undefined);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -401,11 +402,12 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   }
   const copilotkit = copilotkitRef.current;
 
-  // Sync runtimeA2UIEnabled from the core once runtime info is fetched
+  // Sync runtime-reported state once runtime info is fetched
   useEffect(() => {
     const subscription = copilotkit.subscribe({
       onRuntimeConnectionStatusChanged: () => {
         setRuntimeA2UIEnabled(copilotkit.a2uiEnabled);
+        setRuntimeLicenseStatus(copilotkit.licenseStatus);
       },
     });
     return () => {
@@ -543,31 +545,11 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     [copilotkit, executingToolCallIds],
   );
 
-  // License verification
-  const licenseStatus = useMemo<LicenseStatus | null>(() => {
-    if (!licenseToken) return null;
-    return verifyLicense(licenseToken);
-  }, [licenseToken]);
-
+  // License context — driven by server-reported status via /info endpoint
   const licenseContextValue = useMemo(
-    () => createLicenseContextValue(licenseStatus),
-    [licenseStatus],
+    () => createLicenseContextValue(null),
+    [],
   );
-
-  // Console warnings
-  useEffect(() => {
-    if (!licenseStatus) return;
-    if (!licenseStatus.valid && licenseStatus.error) {
-      console.warn(
-        `[CopilotKit] License: ${licenseStatus.error}. Visit copilotkit.ai/pricing`,
-      );
-    }
-    if (licenseStatus.graceRemaining != null) {
-      console.warn(
-        `[CopilotKit] License expires in ${licenseStatus.graceRemaining} days. Please renew.`,
-      );
-    }
-  }, [licenseStatus]);
 
   return (
     <CopilotKitContext.Provider value={contextValue}>
@@ -576,29 +558,19 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
         {shouldRenderInspector ? (
           <CopilotKitInspector core={copilotkit} />
         ) : null}
-        {/* License warnings */}
-        {!licenseToken && !resolvedPublicKey && (
+        {/* License warnings — driven by server-reported status */}
+        {runtimeLicenseStatus === "none" && !resolvedPublicKey && (
           <LicenseWarningBanner type="no_license" />
         )}
-        {licenseStatus?.warningSeverity === "critical" &&
-          licenseStatus.error === "expired" && (
-            <LicenseWarningBanner
-              type="expired"
-              expiryDate={licenseStatus.license?.expires_at}
-            />
-          )}
-        {licenseStatus?.warningSeverity === "critical" &&
-          (licenseStatus.error === "invalid_signature" ||
-            licenseStatus.error === "parse_error") && (
-            <LicenseWarningBanner type="invalid" />
-          )}
-        {licenseStatus?.warningSeverity === "warning" &&
-          licenseStatus.graceRemaining != null && (
-            <LicenseWarningBanner
-              type="expiring"
-              graceRemaining={licenseStatus.graceRemaining}
-            />
-          )}
+        {runtimeLicenseStatus === "expired" && (
+          <LicenseWarningBanner type="expired" />
+        )}
+        {runtimeLicenseStatus === "invalid" && (
+          <LicenseWarningBanner type="invalid" />
+        )}
+        {runtimeLicenseStatus === "expiring" && (
+          <LicenseWarningBanner type="expiring" />
+        )}
       </LicenseContext.Provider>
     </CopilotKitContext.Provider>
   );
