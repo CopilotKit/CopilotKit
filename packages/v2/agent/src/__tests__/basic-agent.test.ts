@@ -204,6 +204,38 @@ describe("BasicAgent", () => {
       expect(textEvents[0].messageId).toBe(validId);
     });
 
+    it("should preserve near-miss provider messageIds like 'txt-abc123'", async () => {
+      const agent = new BasicAgent({
+        model: "openai/gpt-4o",
+      });
+
+      const validId = "txt-abc123";
+      vi.mocked(streamText).mockReturnValue(
+        mockStreamTextResponse([
+          textStart(validId),
+          textDelta("Test message"),
+          finish(),
+        ]) as any,
+      );
+
+      const input: RunAgentInput = {
+        threadId: "thread1",
+        runId: "run1",
+        messages: [],
+        tools: [],
+        context: [],
+        state: {},
+      };
+
+      const events = await collectEvents(agent["run"](input));
+
+      const textEvents = events.filter(
+        (e: any) => e.type === EventType.TEXT_MESSAGE_CHUNK,
+      );
+      expect(textEvents).toHaveLength(1);
+      expect(textEvents[0].messageId).toBe(validId);
+    });
+
     it("should generate unique messageId when provider returns default pattern IDs like 'txt-0'", async () => {
       const agent = new BasicAgent({
         model: "openai/gpt-4o",
@@ -1090,6 +1122,58 @@ describe("BasicAgent", () => {
       expect(reasoningEvent.messageId).not.toBe("reasoning-0");
       expect(reasoningEvent.messageId).toMatch(
         /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
+      );
+    });
+
+    it("should generate distinct reasoningMessageIds for consecutive default provider ids", async () => {
+      const agent = new BasicAgent({
+        model: "openai/gpt-4o",
+      });
+
+      vi.mocked(streamText).mockReturnValue(
+        mockStreamTextResponse([
+          reasoningStart("reasoning-0"),
+          reasoningDelta("first"),
+          reasoningEnd(),
+          reasoningStart("reasoning-1"),
+          reasoningDelta("second"),
+          reasoningEnd(),
+          finish(),
+        ]) as any,
+      );
+
+      const input: RunAgentInput = {
+        threadId: "thread1",
+        runId: "run1",
+        messages: [],
+        tools: [],
+        context: [],
+        state: {},
+      };
+
+      const events = await collectEvents(agent["run"](input));
+
+      const reasoningStartEvents = events.filter(
+        (e: any) => e.type === EventType.REASONING_START,
+      );
+      expect(reasoningStartEvents).toHaveLength(2);
+
+      const reasoningIds = reasoningStartEvents.map((e: any) => e.messageId);
+      expect(reasoningIds[0]).not.toBe("reasoning-0");
+      expect(reasoningIds[1]).not.toBe("reasoning-1");
+      expect(reasoningIds[0]).not.toBe(reasoningIds[1]);
+
+      for (const reasoningId of reasoningIds) {
+        expect(reasoningId).toMatch(
+          /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
+        );
+      }
+
+      const reasoningEndEvents = events.filter(
+        (e: any) => e.type === EventType.REASONING_END,
+      );
+      expect(reasoningEndEvents.map((e: any) => e.messageId)).toEqual(
+        reasoningIds,
       );
     });
 
