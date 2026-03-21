@@ -178,7 +178,7 @@ export class GroqAdapter implements CopilotServiceAdapter {
           if (mode === null) {
             if (toolCall?.id) {
               mode = "function";
-              currentToolCallId = toolCall!.id;
+              currentToolCallId = toolCall.id;
               eventStream$.sendActionExecutionStart({
                 actionExecutionId: currentToolCallId,
                 actionName: toolCall!.function!.name,
