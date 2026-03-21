@@ -76,7 +76,7 @@ export const OpenGenerativeUIActivityRenderer: React.FC<
     ? content.html.join("")
     : undefined;
   const previewBody = partialHtml ? processPartialHtml(partialHtml) : undefined;
-  const previewStyles = partialHtml ? extractCompleteStyles(partialHtml) : undefined;
+  const previewStyles = partialHtml ? extractCompleteStyles(partialHtml) : "";
   const hasPreview = !!previewBody?.trim();
   const hasVisibleSandbox = !!fullHtml || hasPreview;
 
@@ -131,15 +131,35 @@ export const OpenGenerativeUIActivityRenderer: React.FC<
     };
   }, [hasPreview, fullHtml]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Effect 0b — Preview content updates (body + styles)
+  // Effect 0b — Throttled preview content updates (body + styles, max ~3/sec)
+  // Store latest values in refs so the interval reads them without re-running the effect
+  const latestPreviewBodyRef = useRef(previewBody);
+  latestPreviewBodyRef.current = previewBody;
+  const latestPreviewStylesRef = useRef(previewStyles);
+  latestPreviewStylesRef.current = previewStyles;
+  const lastInjectedBodyRef = useRef<string | null>(null);
+  const lastInjectedStylesRef = useRef<string | null>(null);
+
   useEffect(() => {
-    if (!previewSandboxRef.current || !previewReadyRef.current) return;
-    if (previewStyles) {
-      previewSandboxRef.current.run(`document.head.innerHTML = ${JSON.stringify(previewStyles)}`);
-    }
-    if (!previewBody) return;
-    previewSandboxRef.current.run(`document.body.innerHTML = ${JSON.stringify(previewBody)}`);
-  }, [previewBody, previewStyles]);
+    if (!hasPreview) return;
+
+    const interval = setInterval(() => {
+      if (!previewSandboxRef.current || !previewReadyRef.current) return;
+
+      const styles = latestPreviewStylesRef.current;
+      if (styles && styles !== lastInjectedStylesRef.current) {
+        lastInjectedStylesRef.current = styles;
+        previewSandboxRef.current.run(`document.head.innerHTML = ${JSON.stringify(styles)}`);
+      }
+
+      const body = latestPreviewBodyRef.current;
+      if (!body || body === lastInjectedBodyRef.current) return;
+      lastInjectedBodyRef.current = body;
+      previewSandboxRef.current.run(`document.body.innerHTML = ${JSON.stringify(body)}`);
+    }, 300);
+
+    return () => clearInterval(interval);
+  }, [hasPreview]);
 
   // Effect 1 — Final sandbox lifecycle (depends on fullHtml)
   useEffect(() => {
