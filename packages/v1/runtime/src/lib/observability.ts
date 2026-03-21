@@ -94,6 +94,13 @@ function setupProgressiveLogging(
   },
   publicApiKey?: string,
 ): void {
+  if (this.observability?.enabled && this.observability.progressive && !publicApiKey) {
+    console.error(
+      "[CopilotKit] Observability progressive logging is enabled but publicApiKey is not set. " +
+        "Skipping progressive logging. Provide a publicApiKey to enable this feature.",
+    );
+  }
+
   if (
     this.observability?.enabled &&
     this.observability.progressive &&
@@ -157,6 +164,13 @@ async function logObservabilityError(
   errorData: LLMErrorData,
   publicApiKey?: string,
 ): Promise<void> {
+  if (this.observability?.enabled && !publicApiKey) {
+    console.error(
+      "[CopilotKit] Observability error logging is enabled but publicApiKey is not set. " +
+        "Skipping error hook. Provide a publicApiKey to enable this feature.",
+    );
+  }
+
   if (this.observability?.enabled && publicApiKey) {
     try {
       await this.observability.hooks.handleError(errorData);

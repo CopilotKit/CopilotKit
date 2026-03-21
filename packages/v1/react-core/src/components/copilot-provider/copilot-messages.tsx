@@ -138,8 +138,15 @@ export function CopilotMessages({ children }: { children: ReactNode }) {
   // Helper function to trace UI errors (similar to useCopilotRuntimeClient)
   const traceUIError = useCallback(
     async (error: CopilotKitError, originalError?: any) => {
-      // Just check if onError and publicApiKey are defined
-      if (!onError || !copilotApiConfig.publicApiKey) return;
+      if (!onError) return;
+
+      if (!copilotApiConfig.publicApiKey) {
+        console.error(
+          "[CopilotKit] onError handler is configured but publicApiKey is not set. " +
+            "Skipping error tracing. Provide a publicApiKey to enable this feature.",
+        );
+        return;
+      }
 
       try {
         const traceEvent = {
