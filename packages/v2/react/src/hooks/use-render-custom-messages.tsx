@@ -40,7 +40,13 @@ export function useRenderCustomMessages() {
     const runId = resolvedRunId ?? `missing-run-id:${message.id}`;
     const agent = copilotkit.getAgent(agentId);
     if (!agent) {
-      throw new Error("Agent not found");
+      // Agent may not be registered yet while the runtime is connecting,
+      // in an error state, or during React re-renders before the /info
+      // sync completes.  Return null to skip custom rendering for this
+      // cycle — the component will re-render once the agent is available.
+      // This matches the defensive pattern used by useRenderActivityMessage
+      // and SuggestionEngine.reloadSuggestions.
+      return null;
     }
 
     const messagesIdsInRun = resolvedRunId
