@@ -36,6 +36,13 @@ export type CopilotChatProps = Omit<
   labels?: Partial<CopilotChatLabels>;
   chatView?: SlotValue<typeof CopilotChatView>;
   /**
+   * Whether the chat modal (sidebar/popup) should be open by default.
+   * Forwarded to the inner CopilotChatConfigurationProvider so nested
+   * view components respect the caller's preference instead of
+   * defaulting to `true`.
+   */
+  isModalDefaultOpen?: boolean;
+  /**
    * Error handler scoped to this chat's agent. Fires in addition to the
    * provider-level onError (does not suppress it). Receives only errors
    * whose context.agentId matches this chat's agent.
@@ -51,6 +58,7 @@ export function CopilotChat({
   threadId,
   labels,
   chatView,
+  isModalDefaultOpen,
   onError,
   ...props
 }: CopilotChatProps) {
@@ -378,6 +386,7 @@ export function CopilotChat({
       agentId={resolvedAgentId}
       threadId={resolvedThreadId}
       labels={labels}
+      isModalDefaultOpen={isModalDefaultOpen}
     >
       {transcriptionError && (
         <div
