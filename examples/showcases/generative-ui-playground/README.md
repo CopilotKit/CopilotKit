@@ -1,29 +1,22 @@
-# Generative UI Demo
+# A2UI Playground
 
 https://github.com/user-attachments/assets/79ead351-f63c-4119-9d28-9d604e7f8876
 
-A generative UI playground showcasing the three types for building AI-powered user interfaces with CopilotKit.
+A **CopilotKit + A2UI** demo: the Python A2A agent emits declarative A2UI JSON, and the Next.js app renders it with `A2UIRenderer`.
 
-## Demo Overview
+## Overview
 
-This demo demonstrates how different types of generative UI can be used to create rich, interactive AI experiences:
-
-| Spec             | Description                                             | Use Case                                        |
-| ---------------- | ------------------------------------------------------- | ----------------------------------------------- |
-| **Static GenUI** | Pre-built React components rendered by frontend hooks   | Weather cards, stock displays, task approvals   |
-| **MCP Apps**     | HTML/JS apps served by MCP servers in sandboxed iframes | Flight booking, hotel search, trading simulator |
-| **A2UI**         | Agent-composed declarative JSON UI rendered dynamically | Restaurant finder, booking forms                |
+| Piece        | Role                                                                 |
+| ------------ | -------------------------------------------------------------------- |
+| **Next.js**  | `CopilotKitProvider`, chat UI, A2UI theme, `/api/copilotkit-a2ui`    |
+| **a2a-agent** | LangGraph + ChatOpenAI → A2UI JSON over the A2A protocol          |
 
 ## CopilotKit Features Used
 
-- **CopilotKitProvider** - Main provider with agent switching
-- **CopilotSidebar** - Chat interface component
-- **useRenderToolCall** - Display-only tool rendering (WeatherCard, StockCard)
-- **useHumanInTheLoop** - Interactive approval flows (TaskApprovalCard)
-- **A2UIRenderer** - Renders A2UI declarative JSON from agent responses
-- **MCPAppsMiddleware** - Bridges MCP server tools with UI resources
-- **BasicAgent** - TypeScript agent for Static GenUI + MCP Apps
-- **HttpAgent** - Connects to Python A2A backend for A2UI
+- **CopilotKitProvider** — wired in `A2UIPage.tsx` to `/api/copilotkit-a2ui`
+- **CopilotSidebar** / **CopilotPopup** — chat shell
+- **A2UIRenderer** — renders A2UI declarative JSON from agent activity messages
+- **A2AAgent** (`@ag-ui/a2a`) — talks to the Python A2A server
 
 ## Setup
 
@@ -31,21 +24,16 @@ This demo demonstrates how different types of generative UI can be used to creat
 
 - Node.js 18+
 - Python 3.11+
-- OpenAI API key
+- LLM keys for **a2a-agent**: DashScope (`DASHSCOPE_API_KEY`) and/or `OPENAI_API_KEY` (see `a2a-agent/CLAUDE.md`)
 
 ### Installation
 
+This folder includes **`.npmrc`** with `legacy-peer-deps=true` so plain `npm install` succeeds when peer ranges conflict.
+
 ```bash
-# Clone and install dependencies
-cd ui-protocols-demo
+cd examples/showcases/generative-ui-playground
 npm install
 
-# Install MCP server dependencies
-cd mcp-server
-npm install
-cd ..
-
-# Install Python A2A agent
 cd a2a-agent
 pip install -e .
 cd ..
@@ -53,85 +41,61 @@ cd ..
 
 ### Environment Variables
 
-Create a `.env` file:
+Copy the template if present and set:
 
 ```bash
-OPENAI_API_KEY=sk-your-key-here
-MCP_SERVER_URL=http://localhost:3001/mcp
 A2A_AGENT_URL=http://localhost:10002
 ```
 
-### Running the Demo
-
-Start all three services:
+LLM keys belong in **`a2a-agent`** (or your process env), e.g.:
 
 ```bash
-# Terminal 1: MCP Server (port 3001)
-cd mcp-server && npm run dev
+DASHSCOPE_API_KEY=sk-...
+# or
+OPENAI_API_KEY=sk-...
+# Optional: QWEN_LITELLM_MODEL=dashscope/qwen-plus, LITELLM_MODEL=openai/gpt-5.2
+```
 
-# Terminal 2: Python A2A Agent (port 10002)
+### Running
+
+```bash
+# Terminal 1: Python A2A agent (port 10002)
 cd a2a-agent && python -m agent
 
-# Terminal 3: Next.js Frontend (port 3000)
+# Terminal 2: Next.js (port 3000)
 npm run dev
 ```
 
-Open http://localhost:3000 to see the demo.
+Open http://localhost:3000.
 
-## Usage
+## Try in Chat
 
-### Static + MCP Apps Mode
-
-Click the "Static + MCP Apps" tab to use:
-
-- "What's the weather in Tokyo?" → Weather card
-- "Get stock price for AAPL" → Stock card with sparkline
-- "Open the calculator" → Interactive calculator app
-- "Search for flights to Paris" → Flight booking workflow
-
-### A2UI Mode
-
-Click the "A2UI" tab to use:
-
-- "Find Italian restaurants nearby" → Restaurant list with booking
-- "Show me Chinese food options" → Filtered results
-- "Book a table for 4" → Interactive booking form
+- Example pills on the page (restaurant / booking style prompts)
+- **Widget Builder** (header link) — https://a2ui-composer.ag-ui.com/
 
 ## Architecture
 
 ```
-Frontend (Next.js) ─────────────────────────────────────────────────────
-├── Protocol tabs switch between agents
-├── Static GenUI: useRenderToolCall, useHumanInTheLoop
-├── MCP Apps: Automatic iframe rendering via middleware events
-└── A2UI: A2UIRenderer for declarative JSON
-                    │
-          ┌─────────┴─────────┐
-          ▼                   ▼
-   "default" Agent      "a2ui" Agent
-   BasicAgent + MCP     HttpAgent → Python
-   Port 3001            Port 10002
+Next.js (A2UIPage + A2UIRenderer)
+        │
+        ▼
+/api/copilotkit-a2ui  →  A2AAgent  →  Python a2a-agent :10002
 ```
 
 ## Project Structure
 
 ```
-ui-protocols-demo/
-├── src/app/              # Next.js frontend
-│   ├── page.tsx          # Main page with agent switching
-│   ├── theme.ts          # A2UI theme configuration
-│   ├── api/copilotkit/   # CopilotKit API route
-│   └── components/       # React components
-├── mcp-server/           # MCP Apps server
-│   ├── server.ts         # Tool registrations
-│   └── apps/             # HTML app files
-└── a2a-agent/            # Python A2A agent
-    └── agent/            # Agent modules
+generative-ui-playground/
+├── src/app/
+│   ├── page.tsx
+│   ├── theme.ts
+│   ├── api/copilotkit-a2ui/
+│   └── components/
+└── a2a-agent/
 ```
 
 ## Learn More
 
 - [CopilotKit Documentation](https://docs.copilotkit.ai)
-- [Generative UI Types](https://www.copilotkit.ai/generative-ui)
+- [Generative UI](https://www.copilotkit.ai/generative-ui)
 - [A2UI Specification](https://a2ui.org)
-- [MCP Apps](https://modelcontextprotocol.io)

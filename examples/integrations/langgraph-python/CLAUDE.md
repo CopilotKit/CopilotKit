@@ -244,6 +244,8 @@ pnpm dev:app    # Next.js frontend on port 3000
 pnpm dev:agent  # LangGraph agent on port 8123
 pnpm dev:mcp    # MCP server
 
+`@repo/agent` runs **`uv run langgraph dev`** so the CLI and **`langgraph-api`** come from this package’s `pyproject.toml` (including `langgraph-cli[inmem]`), not whatever `langgraph` is on your global PATH. Run `pnpm install` / `uv sync` in `apps/agent` first. If you insist on a global install, use `pip install -U "langgraph-cli[inmem]"` (plain `langgraph-cli` is missing `langgraph-api` for `dev`). Fallback when Node can reach the download: `pnpm --filter @repo/agent run dev:js`.
+
 # Build all apps
 pnpm build
 

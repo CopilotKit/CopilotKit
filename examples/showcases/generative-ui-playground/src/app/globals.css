@@ -307,54 +307,8 @@ body {
   color: white;
 }
 
-.protocol-card-icon.static {
-  background: linear-gradient(135deg, #3b82f6, #1d4ed8);
-}
-
-.protocol-card-icon.mcp {
-  background: linear-gradient(135deg, #667eea, #764ba2);
-}
-
 .protocol-card-icon.a2ui {
   background: linear-gradient(135deg, #f59e0b, #d97706);
-}
-
-/* =============================================================================
-   PROTOCOL TABS
-============================================================================= */
-
-.protocol-tabs {
-  display: flex;
-  gap: var(--space-2);
-  padding: var(--space-2);
-  background: var(--color-glass-subtle);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  border-radius: var(--radius-xl);
-  border: 1px solid var(--color-border-glass);
-}
-
-.protocol-tab {
-  padding: var(--space-3) var(--space-5);
-  border-radius: var(--radius-lg);
-  font-size: var(--font-size-sm);
-  font-weight: 500;
-  color: var(--color-text-secondary);
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.protocol-tab:hover {
-  color: var(--color-text-primary);
-  background: var(--color-glass-subtle);
-}
-
-.protocol-tab.active {
-  color: var(--color-text-primary);
-  background: var(--color-container);
-  box-shadow: var(--shadow-sm);
 }
 
 /* =============================================================================

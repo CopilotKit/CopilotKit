@@ -1,113 +1,87 @@
-# UI Protocols Demo
+# A2UI Playground
 
-Generative UI playground showcasing three protocols for AI-powered interfaces.
+Next.js demo: **A2UI** (declarative JSON UI) with CopilotKit, backed by the Python **A2A** agent (`a2a-agent`).
 
 ## Architecture Overview
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
 │  FRONTEND (Next.js)                                                  │
-│  ├── Protocol tabs: [Static+MCP] [A2UI]                             │
-│  ├── CopilotKitProvider with agent switching                        │
-│  ├── renderActivityMessages: A2UIRenderer (a2ui mode only)          │
-│  ├── useRenderToolCall: WeatherCard, StockCard                      │
-│  ├── useHumanInTheLoop: TaskApprovalCard                            │
-│  └── CopilotSidebar                                                 │
+│  ├── CopilotKitProvider → /api/copilotkit-a2ui                      │
+│  ├── renderActivityMessages: A2UIRenderer                           │
+│  └── CopilotSidebar / CopilotPopup                                  │
 └────────────────────────────┬────────────────────────────────────────┘
                              │
-              ┌──────────────┴──────────────┐
-              ▼                             ▼
-┌─────────────────────────┐     ┌─────────────────────────┐
-│ "default" Agent         │     │ "a2ui" Agent            │
-│ BasicAgent + MCP Apps   │     │ HttpAgent → Python A2A  │
-│ Port: 3001 (MCP)        │     │ Port: 10002             │
-└─────────────────────────┘     └─────────────────────────┘
+                             ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│  A2AAgent (@ag-ui/a2a) → Python A2A server (port 10002)              │
+│  LangGraph + ChatOpenAI generates A2UI JSON                          │
+└─────────────────────────────────────────────────────────────────────┘
 ```
 
-## Three Protocols
-
-### 1. Static GenUI
-
-Pre-built React components rendered by frontend hooks.
-
-- **useRenderToolCall**: Display-only rendering (WeatherCard, StockCard)
-- **useHumanInTheLoop**: Interactive approval (TaskApprovalCard)
-- **Files**: `src/app/components/static-tools/*.tsx`
-
-### 2. MCP Apps
-
-HTML/JS apps served by MCP server, rendered as sandboxed iframes.
-
-- 6 apps: Flights, Hotels, Trading, Kanban, Calculator, Todo
-- MCP server registers tools with UI resources (`mimeType: "text/html+mcp"`)
-- MCPAppsMiddleware bridges MCP to AG-UI events
-- **CRITICAL**: Requires `public/sandbox.html` — the iframe sandbox page that MCPAppsActivityRenderer loads app content into. Without it, iframes show 404.
-- **Files**: `mcp-server/apps/*.html`, `mcp-server/server.ts`, `public/sandbox.html`
-
-### 3. A2UI (Agent-to-UI)
+## A2UI (Agent-to-UI)
 
 Agent-composed declarative JSON UI, rendered dynamically.
 
-- Python agent (Google ADK) generates A2UI JSON at runtime
+- Python agent (LangGraph + ChatOpenAI) generates A2UI JSON at runtime
 - General-purpose UI generator: forms, lists, cards, confirmations
-- No external data dependencies - generates UI from user descriptions
 - A2UIRenderer processes activity messages
-- **Files**: `a2a-agent/agent/*.py`
+- **Files**: `a2a-agent/agent/*.py`, `src/app/components/A2UIPage.tsx`, `src/app/theme.ts`
 
 ## Widget Builder
 
 The "Widget Builder" link in the header opens the official A2UI Composer at https://a2ui-composer.ag-ui.com/.
 
+## npm
+
+- **`legacy-peer-deps`**: Root `.npmrc` sets `legacy-peer-deps=true` so `npm install` works without flags when peer ranges conflict.
+
 ## Development
 
-### Start All Services
+### Start Services
 
 ```bash
-# Terminal 1: MCP Server
-cd mcp-server && npm run dev
-
-# Terminal 2: Python A2A Agent
+# Terminal 1: Python A2A Agent
 cd a2a-agent && python -m agent
 
-# Terminal 3: Next.js Frontend
+# Terminal 2: Next.js Frontend
 npm run dev
 ```
 
 ### URLs
 
 - Frontend: http://localhost:3000
-- MCP Server: http://localhost:3001/mcp
 - A2A Agent: http://localhost:10002
 
 ## Environment Variables
 
 ```bash
-# .env
-OPENAI_API_KEY=sk-...          # OpenAI API key for gpt-5.2
-MCP_SERVER_URL=http://localhost:3001/mcp
-A2A_AGENT_URL=http://localhost:10002
+# Keys for the Python A2A agent (see a2a-agent/CLAUDE.md)
+DASHSCOPE_API_KEY=sk-...
+# QWEN_LITELLM_MODEL=dashscope/qwen-plus
+
+# or
+OPENAI_API_KEY=sk-...
+
+A2A_AGENT_URL=http://localhost:10002   # Next.js API route → Python agent
 ```
 
 ## Production URLs (Railway)
 
-Live deployment on Railway:
+Live deployment on Railway (project `ui-protocols-demo`):
 
 - **Frontend**: https://frontend-production-456e.up.railway.app
-- **MCP Server**: https://mcp-server-production-5419.up.railway.app
 - **A2A Agent**: https://a2a-agent-production.up.railway.app
-
-Railway Project: `ui-protocols-demo`
 
 ## Key Packages
 
 ```json
 {
-  "@copilotkit/react-core": "Frontend provider and hooks",
-  "@copilotkit/react-ui": "CopilotSidebar component",
   "@copilotkit/a2ui-renderer": "A2UI message renderer",
+  "@copilotkitnext/react": "CopilotKitProvider, sidebar, popup",
   "@copilotkitnext/runtime": "CopilotRuntime backend",
-  "@copilotkitnext/agent": "BasicAgent class",
-  "@ag-ui/mcp-apps-middleware": "MCP Apps → AG-UI bridge"
+  "@ag-ui/a2a": "A2AAgent",
+  "@a2a-js/sdk": "A2A client"
 }
 ```
 
@@ -116,64 +90,16 @@ Railway Project: `ui-protocols-demo`
 ```
 ui-protocols-demo/
 ├── src/app/
-│   ├── page.tsx                 # Main page with agent switching
+│   ├── page.tsx                 # Landing + A2UI protocol card + prompts
 │   ├── theme.ts                 # A2UI v0.8 theme
 │   ├── api/
-│   │   ├── copilotkit/          # CopilotRuntime API route (default agent)
-│   │   └── copilotkit-a2ui/     # CopilotRuntime API route (A2UI agent)
+│   │   └── copilotkit-a2ui/     # CopilotRuntime + A2AAgent
 │   └── components/
-│       ├── CopilotContextProvider.tsx   # Static tool hooks
-│       ├── static-tools/        # Weather, Stock, TaskApproval cards
-│       ├── protocol-cards/      # Educational protocol cards
-│       ├── ComparisonTable.tsx  # Protocol comparison
-│       └── PromptPill.tsx       # Clickable suggestion pills
-├── mcp-server/                  # MCP Apps server (see mcp-server/CLAUDE.md)
-└── a2a-agent/                   # Python A2A agent (see a2a-agent/CLAUDE.md)
+│       ├── A2UIPage.tsx         # Provider + A2UIRenderer + chat shell
+│       ├── protocol-cards/      # A2UICard
+│       └── PromptPill.tsx
+└── a2a-agent/                   # Python A2A agent
 ```
-
-## Agent Switching
-
-Frontend uses `useState` to toggle between agents:
-
-- `"default"`: Static GenUI + MCP Apps (BasicAgent + MCPAppsMiddleware)
-- `"a2ui"`: General-purpose UI generator (HttpAgent → Python A2A backend)
-
-The `agent` prop on CopilotKitProvider determines which backend agent handles requests.
-
-### Pending Message Pattern
-
-Protocol card pills can trigger automatic mode switches. When clicking a pill for a different mode than currently active, the app:
-
-1. Sets `pendingMessage` state in `Home` component (outside provider)
-2. Switches `activeAgent` state, triggering provider remount
-3. `PageContent` (inside provider) has `useEffect` that watches `pendingMessage`
-4. After remount, `useEffect` sends the message and clears state
-
-This pattern handles the challenge that `useSendMessage` hook only works inside provider context, but mode switching causes a full provider remount.
-
-```tsx
-// In Home (outside provider)
-const handlePillClick = (prompt: string, targetMode: "default" | "a2ui") => {
-  setPendingMessage(prompt);
-  if (targetMode !== activeAgent) {
-    setActiveAgent(targetMode);
-  }
-};
-
-// In PageContent (inside provider)
-useEffect(() => {
-  if (pendingMessage) {
-    // 100ms delay ensures CopilotKit context is fully initialized after remount
-    const timer = setTimeout(() => {
-      sendMessage(pendingMessage);
-      clearPendingMessage();
-    }, 100);
-    return () => clearTimeout(timer);
-  }
-}, [pendingMessage, sendMessage, clearPendingMessage]);
-```
-
-**Note:** The 100ms delay is necessary because `useSendMessage` depends on `useAgent` and `useCopilotKit` hooks which need time to initialize after provider remount. A 0ms timeout is not sufficient.
 
 ## Hooks
 
@@ -188,8 +114,8 @@ function MyComponent() {
   const { sendMessage } = useSendMessage();
 
   return (
-    <button onClick={() => sendMessage("What's the weather in Tokyo?")}>
-      Ask about weather
+    <button onClick={() => sendMessage("Create a contact form with email and phone")}>
+      Open form demo
     </button>
   );
 }
@@ -201,7 +127,7 @@ Located at `src/app/hooks/useSendMessage.ts`.
 
 ### CopilotKit Banner
 
-To disable the "CopilotKit v1.50 is now live!" announcement banner, set `showDevConsole={false}` on CopilotKitProvider. This must be set on both providers (default mode in `page.tsx` and A2UI mode in `A2UIPage.tsx`).
+To disable the "CopilotKit v1.50 is now live!" announcement banner, set `showDevConsole={false}` on CopilotKitProvider (see `A2UIPage.tsx`).
 
 ### Chat Padding Override
 

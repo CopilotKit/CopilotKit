@@ -10,6 +10,7 @@
 // Prompts for each pill - generic UI generation examples
 const PROMPTS = {
   "Contact Form": "Create a contact form with name, email, and message fields",
+  "Dropdowns": "Create a form with two dropdowns: country (US, Canada, Japan) and role (Developer, Designer, Manager)",
   "Todo List": "Show me a todo list with 5 sample items",
   "Profile Card": "Generate a profile card for John Doe, Software Engineer",
 };

@@ -43,8 +43,31 @@ class ResearchState(TypedDict):
     structured_research: Optional[dict]
 
 class ResearchAgent:
+    def _build_llm(self):
+        """OpenAI by default; set LLM_PROVIDER=qwen to use Qwen via DashScope (OpenAI-compatible API)."""
+        provider = os.getenv("LLM_PROVIDER", "openai").lower().strip()
+        if provider == "qwen":
+            key = os.getenv("DASHSCOPE_API_KEY")
+            if not key:
+                raise ValueError(
+                    "LLM_PROVIDER=qwen requires DASHSCOPE_API_KEY (set it in examples/integrations/a2a-middleware/.env)."
+                )
+            return ChatOpenAI(
+                model=os.getenv("QWEN_MODEL", "qwen-plus"),
+                base_url=os.getenv(
+                    "DASHSCOPE_BASE_URL",
+                    "https://dashscope.aliyuncs.com/compatible-mode/v1",
+                ),
+                api_key=key,
+                temperature=0.7,
+            )
+        return ChatOpenAI(
+            model=os.getenv("OPENAI_MODEL", "gpt-4o-mini"),
+            temperature=0.7,
+        )
+
     def __init__(self):
-        self.llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.7)
+        self.llm = self._build_llm()
         self.graph = self._build_graph()
 
     def _build_graph(self):

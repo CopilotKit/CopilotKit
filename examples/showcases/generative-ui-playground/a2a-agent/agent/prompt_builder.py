@@ -277,6 +277,54 @@ A2UI_SCHEMA = r'''
                       "enableTime": { "type": "boolean" }
                     },
                     "required": ["value"]
+                  },
+                  "MultipleChoice": {
+                    "type": "object",
+                    "description": "Single- or multi-select from fixed options. The client renders this as a dropdown (<select>) when maxAllowedSelections is 1.",
+                    "properties": {
+                      "description": {
+                        "type": "object",
+                        "description": "Optional label shown above the dropdown (defaults to 'Select an item' if omitted).",
+                        "properties": {
+                          "literalString": { "type": "string" },
+                          "path": { "type": "string" }
+                        }
+                      },
+                      "selections": {
+                        "type": "object",
+                        "description": "Selected option values as a string array. Use path to bind to the data model (updated on change), or literalArray for a fixed initial selection.",
+                        "properties": {
+                          "literalArray": {
+                            "type": "array",
+                            "items": { "type": "string" }
+                          },
+                          "path": { "type": "string" }
+                        }
+                      },
+                      "options": {
+                        "type": "array",
+                        "description": "Choices shown in the dropdown; value is stored when selected.",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "label": {
+                              "type": "object",
+                              "properties": {
+                                "literalString": { "type": "string" },
+                                "path": { "type": "string" }
+                              }
+                            },
+                            "value": { "type": "string" }
+                          },
+                          "required": ["label", "value"]
+                        }
+                      },
+                      "maxAllowedSelections": {
+                        "type": "integer",
+                        "description": "Use 1 for a standard single-select dropdown."
+                      }
+                    },
+                    "required": ["selections", "options"]
                   }
                 }
               }
@@ -363,6 +411,49 @@ UI_EXAMPLES = """
   }} }}
 ]
 ---END FORM_EXAMPLE---
+
+---BEGIN DROPDOWN_EXAMPLE---
+[
+  {{ "beginRendering": {{ "surfaceId": "dropdown-surface", "root": "dropdown-column", "styles": {{ "primaryColor": "#9B8AFF", "font": "Plus Jakarta Sans" }} }} }},
+  {{ "surfaceUpdate": {{
+    "surfaceId": "dropdown-surface",
+    "components": [
+      {{ "id": "dropdown-column", "component": {{ "Column": {{ "children": {{ "explicitList": ["dropdown-title", "country-field", "role-field", "submit-button"] }} }} }} }},
+      {{ "id": "dropdown-title", "component": {{ "Text": {{ "usageHint": "h2", "text": {{ "literalString": "Preferences" }} }} }} }},
+      {{ "id": "country-field", "component": {{ "MultipleChoice": {{
+        "description": {{ "literalString": "Country" }},
+        "selections": {{ "path": "country" }},
+        "options": [
+          {{ "label": {{ "literalString": "United States" }}, "value": "us" }},
+          {{ "label": {{ "literalString": "Canada" }}, "value": "ca" }},
+          {{ "label": {{ "literalString": "Japan" }}, "value": "jp" }}
+        ],
+        "maxAllowedSelections": 1
+      }} }} }},
+      {{ "id": "role-field", "component": {{ "MultipleChoice": {{
+        "description": {{ "literalString": "Role" }},
+        "selections": {{ "path": "role" }},
+        "options": [
+          {{ "label": {{ "literalString": "Developer" }}, "value": "dev" }},
+          {{ "label": {{ "literalString": "Designer" }}, "value": "design" }},
+          {{ "label": {{ "literalString": "Manager" }}, "value": "mgr" }}
+        ],
+        "maxAllowedSelections": 1
+      }} }} }},
+      {{ "id": "submit-button", "component": {{ "Button": {{ "child": "submit-text", "primary": true, "action": {{ "name": "submit_preferences", "context": [
+        {{ "key": "country", "value": {{ "path": "country" }} }},
+        {{ "key": "role", "value": {{ "path": "role" }} }}
+      ] }} }} }} }},
+      {{ "id": "submit-text", "component": {{ "Text": {{ "text": {{ "literalString": "Save" }} }} }} }}
+    ]
+  }} }},
+  {{ "dataModelUpdate": {{
+    "surfaceId": "dropdown-surface",
+    "path": "/",
+    "contents": []
+  }} }}
+]
+---END DROPDOWN_EXAMPLE---
 
 ---BEGIN LIST_EXAMPLE---
 [
@@ -482,6 +573,7 @@ def get_ui_prompt(base_url: str, examples: str) -> str:
     --- UI TEMPLATE DEFAULTS ---
     Use these examples as starting patterns for common UI types:
     - For forms (contact, signup, survey, settings): Start with `FORM_EXAMPLE`
+    - For dropdowns / select lists (country, role, category): Start with `DROPDOWN_EXAMPLE` — use **MultipleChoice** with **maxAllowedSelections: 1**
     - For lists (todo, shopping, search results, notifications): Start with `LIST_EXAMPLE`
     - For cards (profile, product, info, stats): Start with `CARD_EXAMPLE`
     - For confirmations (success, error, status updates): Start with `CONFIRMATION_EXAMPLE`
@@ -490,7 +582,7 @@ def get_ui_prompt(base_url: str, examples: str) -> str:
     Templates are starting points, not strict requirements. You can and should modify them based on user requests:
 
     **Adding fields:** If the user asks for additional fields:
-    - Add new TextField, DateTimeInput, or other appropriate components
+    - Add new TextField, DateTimeInput, MultipleChoice (dropdown), or other appropriate components
     - Add the field to the Column's children explicitList
     - Add a corresponding key in dataModelUpdate.contents
     - For forms with submit buttons, add the field path to the button's action.context array
@@ -514,6 +606,7 @@ def get_ui_prompt(base_url: str, examples: str) -> str:
     - Button: Interactive button with action
     - TextField: Text input (shortText, longText, number, date, obscured)
     - DateTimeInput: Date and/or time picker
+    - MultipleChoice: Dropdown / multi-select — provide options (label + value), selections bound with path, set maxAllowedSelections to 1 for a single-select dropdown
 
     **The only hard constraint:** Your JSON must validate against the A2UI JSON SCHEMA.
 
