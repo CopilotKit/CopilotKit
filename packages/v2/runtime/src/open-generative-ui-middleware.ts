@@ -22,39 +22,46 @@ const GENERATE_SANDBOXED_UI_TOOL: Tool = {
     "Generate sandboxed UI. " +
     "IMPORTANT: The generated code runs in a sandboxed iframe WITHOUT same-origin access. " +
     "Do NOT use localStorage, sessionStorage, document.cookie, IndexedDB, or fetch/XMLHttpRequest to same-origin URLs. " +
-    "To communicate with the host application, use Websandbox.connection.remote.<functionName>(args) which returns a Promise.",
+    "To communicate with the host application, use Websandbox.connection.remote.<functionName>(args) which returns a Promise.\n\n" +
+    "PARAMETER ORDER IS CRITICAL — generate parameters in exactly this order:\n" +
+    "1. initialHeight + placeholderMessages (shown to user while generating)\n" +
+    "2. css (all styles FIRST — the user sees a placeholder until CSS is complete)\n" +
+    "3. html (streams in live — the user watches the UI build as HTML is generated)\n" +
+    "4. jsFunctions (reusable helper functions)\n" +
+    "5. jsExpressions (applied one-by-one — the user sees each expression take effect)",
   parameters: {
     type: "object",
     properties: {
       initialHeight: {
         type: "number",
-        description: "Fixed height of the UI container in pixels",
+        description: "Fixed height of the UI container in pixels.",
       },
       placeholderMessages: {
         type: "array",
         items: { type: "string" },
         description:
-          "Exactly 5 short loading messages displayed while the UI is being generated. Generate these FIRST before the html so the user sees them while waiting.",
+          "Exactly 5 short loading messages displayed while the UI is being generated. Generate these FIRST before anything else so the user sees them while waiting.",
       },
       css: {
         type: "string",
         description:
-          "CSS styles for the UI. Generate this BEFORE the html so styles are ready when HTML rendering begins.",
+          "All CSS styles for the UI. Generate ALL styles BEFORE the html — the user sees a placeholder until CSS is complete, then the HTML preview begins streaming in with styles already applied.",
       },
       html: {
         type: "string",
         description:
-          "HTML markup for the UI. Must be a complete HTML document including <head> and <body> tags.",
+          "HTML markup for the UI. Must be a complete HTML document including <head> and <body> tags. This streams live to the user — they watch the UI build as you generate the HTML.",
       },
       jsFunctions: {
         type: "string",
-        description: "A chunk of reusable JS functions",
+        description:
+          "Reusable JS helper functions. Generate these AFTER the html and BEFORE jsExpressions so they are available when expressions execute.",
       },
       jsExpressions: {
         type: "array",
         items: { type: "string" },
         description:
-          "Array of JS expressions executed sequentially to iteratively build the UI",
+          "Array of JS expressions executed sequentially to build up the UI. The user sees each expression take effect one after the other. Generate these LAST.",
       },
     },
   },

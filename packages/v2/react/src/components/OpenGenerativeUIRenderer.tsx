@@ -365,16 +365,11 @@ const OpenGenerativeUIActivityRendererInner = React.memo(
       }
     }, [content.jsExpressions?.length]);
 
-    // All content is complete — css, html, jsFunctions, and jsExpressions are all done
-    const allContentComplete = !!content.htmlComplete
-      && (content.cssComplete || !content.css)
-      && (content.jsFunctionsComplete || !content.jsFunctions)
-      && (content.jsExpressionsComplete || !content.jsExpressions?.length);
-
-    // Effect 4 — ResizeObserver injection (only when all content is complete)
+    // Effect 4 — ResizeObserver injection (only once generation is fully done)
+    const generationDone = content.generating === false;
     useEffect(() => {
       const sandbox = sandboxRef.current;
-      if (!allContentComplete || !sandbox) return;
+      if (!generationDone || !sandbox) return;
 
       const onMessage = (e: MessageEvent) => {
         if (e.source === sandbox.iframe.contentWindow && e.data?.type === "__ck_resize") {
@@ -412,7 +407,7 @@ const OpenGenerativeUIActivityRendererInner = React.memo(
       return () => {
         window.removeEventListener("message", onMessage);
       };
-    }, [allContentComplete]);
+    }, [generationDone]);
 
     const height = autoHeight ?? initialHeight;
 
