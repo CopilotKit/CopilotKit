@@ -63,6 +63,13 @@ import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
  * message identifiers. These IDs follow patterns like "0", "txt-0",
  * "reasoning-0", or other numeric placeholders and reset for each response,
  * causing message ID collisions.
+ *
+ * The bare `\d+` branch intentionally matches any purely numeric string (e.g.
+ * "0", "1", "42"). AI SDK providers never use globally unique numeric IDs —
+ * they always use sequential counters that restart per response. If a provider
+ * were to emit a stable numeric ID, it would be falsely replaced with a UUID;
+ * however, that scenario has not been observed in practice and the collision
+ * risk of keeping a sequential numeric ID outweighs the false-positive risk.
  */
 const DEFAULT_PROVIDER_ID_PATTERN = /^(?:\d+|(?:txt|reasoning)-\d+)$/;
 

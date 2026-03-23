@@ -236,6 +236,78 @@ describe("BasicAgent", () => {
       expect(textEvents[0].messageId).toBe(validId);
     });
 
+    it("should preserve near-miss IDs like 'msg-0' that don't match the default provider pattern", async () => {
+      const agent = new BasicAgent({
+        model: "openai/gpt-4o",
+      });
+
+      // "msg-0" does NOT match DEFAULT_PROVIDER_ID_PATTERN — only "txt-N" and
+      // "reasoning-N" prefixes are recognised, so this ID should be kept as-is.
+      const validId = "msg-0";
+      vi.mocked(streamText).mockReturnValue(
+        mockStreamTextResponse([
+          textStart(validId),
+          textDelta("Test message"),
+          finish(),
+        ]) as any,
+      );
+
+      const input: RunAgentInput = {
+        threadId: "thread1",
+        runId: "run1",
+        messages: [],
+        tools: [],
+        context: [],
+        state: {},
+      };
+
+      const events = await collectEvents(agent["run"](input));
+
+      const textEvents = events.filter(
+        (e: any) => e.type === EventType.TEXT_MESSAGE_CHUNK,
+      );
+      expect(textEvents).toHaveLength(1);
+      // "msg-0" is not a recognised default-provider pattern — it must be preserved.
+      expect(textEvents[0].messageId).toBe(validId);
+    });
+
+    it("should replace multi-digit numeric IDs like '42' (bare numeric is a default-provider pattern)", async () => {
+      const agent = new BasicAgent({
+        model: "openai/gpt-4o",
+      });
+
+      // Any purely numeric string matches DEFAULT_PROVIDER_ID_PATTERN (\d+) and
+      // must be replaced with a UUID to prevent collisions across responses.
+      vi.mocked(streamText).mockReturnValue(
+        mockStreamTextResponse([
+          textStart("42"),
+          textDelta("Test message"),
+          finish(),
+        ]) as any,
+      );
+
+      const input: RunAgentInput = {
+        threadId: "thread1",
+        runId: "run1",
+        messages: [],
+        tools: [],
+        context: [],
+        state: {},
+      };
+
+      const events = await collectEvents(agent["run"](input));
+
+      const textEvents = events.filter(
+        (e: any) => e.type === EventType.TEXT_MESSAGE_CHUNK,
+      );
+      expect(textEvents).toHaveLength(1);
+      // "42" is a bare numeric string — it must be replaced with a UUID.
+      expect(textEvents[0].messageId).not.toBe("42");
+      expect(textEvents[0].messageId).toMatch(
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
+      );
+    });
+
     it("should generate unique messageId when provider returns default pattern IDs like 'txt-0'", async () => {
       const agent = new BasicAgent({
         model: "openai/gpt-4o",
