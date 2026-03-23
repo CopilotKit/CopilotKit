@@ -4,7 +4,7 @@ icon: "lucide/Cpu"
 description: "Choose and configure models for your Built-in Agent."
 ---
 
-The Built-in Agent uses the [Vercel AI SDK](https://sdk.vercel.ai) under the hood, giving you access to models from OpenAI, Anthropic, and Google — plus the ability to use any custom AI SDK model.
+The Built-in Agent uses the [Vercel AI SDK](https://sdk.vercel.ai) under the hood, giving you access to models from OpenAI, Anthropic, Google, and MiniMax — plus the ability to use any custom AI SDK model.
 
 ## Supported Models
 
@@ -62,6 +62,19 @@ const agent = new BuiltInAgent({
 });
 ```
 
+### MiniMax
+
+| Model | Specifier |
+|-------|-----------|
+| MiniMax-M2.7 | `minimax:MiniMax-M2.7` |
+| MiniMax-M2.7-highspeed | `minimax:MiniMax-M2.7-highspeed` |
+
+```typescript
+const agent = new BuiltInAgent({
+  model: "minimax:MiniMax-M2.7",
+});
+```
+
 ## Environment Variables
 
 Set the API key for your chosen provider:
@@ -75,6 +88,9 @@ ANTHROPIC_API_KEY=sk-ant-...
 
 # Google
 GOOGLE_API_KEY=...
+
+# MiniMax
+MINIMAX_API_KEY=...
 ```
 
 Alternatively, pass the API key directly in your configuration:
@@ -126,5 +142,6 @@ Under the hood, the Built-in Agent resolves model strings to AI SDK provider ins
 - `"openai:gpt-4.1"` → `@ai-sdk/openai` → `openai("gpt-4.1")`
 - `"anthropic:claude-sonnet-4.5"` → `@ai-sdk/anthropic` → `anthropic("claude-sonnet-4.5")`
 - `"google:gemini-2.5-pro"` → `@ai-sdk/google` → `google("gemini-2.5-pro")`
+- `"minimax:MiniMax-M2.7"` → `@ai-sdk/openai` (compatible mode) → `minimax("MiniMax-M2.7")`
 
 Both `"provider:model"` and `"provider/model"` separators are supported and work identically.
