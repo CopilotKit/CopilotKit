@@ -386,7 +386,15 @@ const OpenGenerativeUIActivityRendererInner = React.memo(
       const measureOnce = `
         (function() {
           var ro = new ResizeObserver(function() {
+            // Force height:auto so scrollHeight reflects true content size
+            // (otherwise it's clamped to the iframe viewport height)
+            var prevHtml = document.documentElement.style.height;
+            var prevBody = document.body.style.height;
+            document.documentElement.style.height = 'auto';
+            document.body.style.height = 'auto';
             var h = document.documentElement.scrollHeight;
+            document.documentElement.style.height = prevHtml;
+            document.body.style.height = prevBody;
             parent.postMessage({ type: "__ck_resize", height: h }, "*");
             ro.disconnect();
           });
