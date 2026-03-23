@@ -436,7 +436,7 @@ describe("OpenGenerativeUIActivityRenderer", () => {
       expect(Object.keys(localApi)).toHaveLength(0);
     });
 
-    it("updates preview on re-render with more chunks", async () => {
+    it("updates preview on re-render with more chunks (after throttle)", async () => {
       const { rerender } = render(
         <OpenGenerativeUIActivityRenderer
           activityType="open-generative-ui"
@@ -458,13 +458,13 @@ describe("OpenGenerativeUIActivityRenderer", () => {
       });
       await flushImport();
 
-      // Should have called run with innerHTML update (initial content applied immediately)
+      // Should have called run with innerHTML update (initial content — immediate flush)
       const innerHtmlCalls = mockRun.mock.calls.filter(
         (c: unknown[]) => typeof c[0] === "string" && (c[0] as string).includes("document.body.innerHTML"),
       );
       expect(innerHtmlCalls.length).toBeGreaterThanOrEqual(1);
 
-      // Re-render with more chunks
+      // Re-render with more chunks — throttled by the outer wrapper
       mockRun.mockClear();
       rerender(
         <OpenGenerativeUIActivityRenderer
@@ -478,15 +478,20 @@ describe("OpenGenerativeUIActivityRenderer", () => {
           agent={{}}
         />,
       );
+
+      // Wait for the 1s throttle window to pass
+      await act(async () => {
+        await new Promise((r) => setTimeout(r, 1100));
+      });
       await flushImport();
 
-      // Should have updated innerHTML with new content (no frontend throttle)
+      // Should have updated innerHTML with new content after throttle
       const updateCalls = mockRun.mock.calls.filter(
         (c: unknown[]) => typeof c[0] === "string" && (c[0] as string).includes("document.body.innerHTML"),
       );
       expect(updateCalls.length).toBeGreaterThanOrEqual(1);
       expect(updateCalls[updateCalls.length - 1]![0]).toContain("World");
-    });
+    }, 10000);
 
     it("destroys preview and creates final sandbox when htmlComplete arrives", async () => {
       const { rerender } = render(

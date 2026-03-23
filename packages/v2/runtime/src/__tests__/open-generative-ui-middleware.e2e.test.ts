@@ -313,14 +313,14 @@ describe("OpenGenerativeUIMiddleware e2e", () => {
       ]);
     });
 
-    it("throttles html chunk emissions to 1 per second", () => {
+    it("emits html chunks immediately without throttling", () => {
       const emitted: BaseEvent[] = [];
       const parser = new ArgsParser("tc-1", (e) => emitted.push(e));
 
       parser.write('{"initialHeight":200,');
       emitted.length = 0;
 
-      // Start html streaming — first write should emit (no prior emit)
+      // Start html streaming — first write should emit
       parser.write('"html":"chunk1');
       const firstDeltas = emitted.filter(
         (e) => e.type === EventType.ACTIVITY_DELTA,
@@ -328,26 +328,21 @@ describe("OpenGenerativeUIMiddleware e2e", () => {
       // Should have array creation + first chunk
       expect(firstDeltas.length).toBeGreaterThanOrEqual(1);
 
-      // Immediate second write should be throttled (within 1s)
+      // Immediate second write should also emit (no throttle)
       emitted.length = 0;
       parser.write("chunk2");
-      const throttledDeltas = emitted.filter(
+      const secondDeltas = emitted.filter(
         (e) => e.type === EventType.ACTIVITY_DELTA,
       ) as ActivityDeltaEvent[];
-      expect(throttledDeltas).toHaveLength(0);
+      expect(secondDeltas).toHaveLength(1);
+      expect(secondDeltas[0].patch[0].value).toContain("chunk2");
 
-      // Completing the html string should flush everything regardless of throttle
+      // Completing the html string should flush remaining + htmlComplete
       emitted.length = 0;
       parser.write('",');
       const completeDeltas = emitted.filter(
         (e) => e.type === EventType.ACTIVITY_DELTA,
       ) as ActivityDeltaEvent[];
-      // Should have the remaining chunk + htmlComplete
-      const chunkDelta = completeDeltas.find((d) =>
-        d.patch.some((p) => p.path === "/html/-"),
-      );
-      expect(chunkDelta).toBeDefined();
-      expect(chunkDelta!.patch[0].value).toContain("chunk2");
       const completeDelta = completeDeltas.find((d) =>
         d.patch.some((p) => p.path === "/htmlComplete"),
       );

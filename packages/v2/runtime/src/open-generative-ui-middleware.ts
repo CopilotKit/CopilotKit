@@ -86,8 +86,6 @@ export class ArgsParser {
   private streamingHtmlKey = false;
   private htmlEmittedLength = 0;
   private htmlArrayEmitted = false;
-  private htmlLastEmitTime = 0;
-  private htmlThrottleMs = 1000;
 
   public readonly params: GenerateSandboxedUIParams = {};
   public readonly messageId: string;
@@ -188,7 +186,6 @@ export class ArgsParser {
   /**
    * Read clarinet's internal textNode buffer to emit html chunks incrementally.
    * Called after every write() so partial string content is emitted as it streams in.
-   * Throttled to emit at most once per htmlThrottleMs to avoid overwhelming the frontend.
    */
   private flushHtmlChunks(): void {
     if (!this.streamingHtmlKey) return;
@@ -196,15 +193,12 @@ export class ArgsParser {
     if (typeof textNode !== "string") return;
     if (textNode.length === this.htmlEmittedLength) return;
 
-    const now = Date.now();
-    if (now - this.htmlLastEmitTime < this.htmlThrottleMs) return;
-
     this.emitPendingHtml(textNode);
   }
 
   /**
    * Emit accumulated html content since the last emission.
-   * Called by the throttle in flushHtmlChunks and directly when html completes.
+   * Called by flushHtmlChunks and directly when html completes.
    */
   private emitPendingHtml(textNode: string): void {
     const newContent = textNode.slice(this.htmlEmittedLength);
@@ -216,7 +210,6 @@ export class ArgsParser {
     }
     this.emitArrayItemDelta("html", newContent);
     this.htmlEmittedLength = textNode.length;
-    this.htmlLastEmitTime = Date.now();
   }
 
   private setParam(key: string, value: string | boolean | number | null): void {
