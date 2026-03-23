@@ -11,6 +11,8 @@ export const OpenGenerativeUIActivityType = "open-generative-ui";
 export const OpenGenerativeUIContentSchema = z.object({
   initialHeight: z.number().optional(),
   generating: z.boolean().optional(),
+  css: z.string().optional(),
+  cssComplete: z.boolean().optional(),
   html: z.array(z.string()).optional(),
   htmlComplete: z.boolean().optional(),
   jsFunctions: z.string().optional(),
@@ -30,6 +32,7 @@ export type OpenGenerativeUIContent = z.infer<
 export const GenerateSandboxedUiArgsSchema = z.object({
   initialHeight: z.number().optional(),
   placeholderMessages: z.array(z.string()).optional(),
+  css: z.string().optional(),
   html: z.string().optional(),
   jsFunctions: z.string().optional(),
   jsExpressions: z.array(z.string()).optional(),
@@ -56,6 +59,8 @@ function shouldFlushImmediately(
   prev: OpenGenerativeUIContent | null,
   next: OpenGenerativeUIContent,
 ): boolean {
+  // CSS finished — switch from placeholder to preview
+  if (next.cssComplete && (!prev || !prev.cssComplete)) return true;
   // Streaming done
   if (next.htmlComplete) return true;
   // Generation finished
@@ -144,6 +149,14 @@ function ensureHead(html: string): string {
   return `<head></head>${html}`;
 }
 
+function injectCssIntoHtml(html: string, css: string): string {
+  const headCloseIdx = html.indexOf("</head>");
+  if (headCloseIdx !== -1) {
+    return html.slice(0, headCloseIdx) + `<style>${css}</style>` + html.slice(headCloseIdx);
+  }
+  return `<head><style>${css}</style></head>${html}`;
+}
+
 const OpenGenerativeUIActivityRendererInner = React.memo(
   function OpenGenerativeUIActivityRendererInner({ content }: InnerProps) {
     const initialHeight = content.initialHeight ?? 200;
@@ -163,13 +176,18 @@ const OpenGenerativeUIActivityRendererInner = React.memo(
       ? content.html.join("")
       : undefined;
 
-    // Derived state for preview streaming
+    // CSS from the dedicated parameter (available once cssComplete)
+    const css = content.cssComplete ? content.css : undefined;
+
+    // Derived state for preview streaming — gate on cssComplete so we
+    // show the placeholder until styles are ready.
+    const cssReady = !!content.cssComplete;
     const partialHtml = !content.htmlComplete && content.html?.length
       ? content.html.join("")
       : undefined;
     const previewBody = partialHtml ? processPartialHtml(partialHtml) : undefined;
     const previewStyles = partialHtml ? extractCompleteStyles(partialHtml) : "";
-    const hasPreview = !!previewBody?.trim();
+    const hasPreview = cssReady && !!previewBody?.trim();
     const hasVisibleSandbox = !!fullHtml || hasPreview;
 
     const containerRef = useRef<HTMLDivElement>(null);
@@ -208,9 +226,12 @@ const OpenGenerativeUIActivityRendererInner = React.memo(
           if (cancelled) return;
           previewReadyRef.current = true;
 
-          // Apply current preview content immediately
-          if (previewStyles) {
-            sandbox.run(`document.head.innerHTML = ${JSON.stringify(previewStyles)}`);
+          // Inject CSS from the dedicated parameter + any inline styles from HTML
+          const headParts: string[] = [];
+          if (css) headParts.push(`<style>${css}</style>`);
+          if (previewStyles) headParts.push(previewStyles);
+          if (headParts.length) {
+            sandbox.run(`document.head.innerHTML = ${JSON.stringify(headParts.join(""))}`);
           }
           if (previewBody) {
             sandbox.run(`document.body.innerHTML = ${JSON.stringify(previewBody)}`);
@@ -226,12 +247,15 @@ const OpenGenerativeUIActivityRendererInner = React.memo(
     // Effect 0b — Preview content updates (body + styles)
     useEffect(() => {
       if (!previewSandboxRef.current || !previewReadyRef.current) return;
-      if (previewStyles) {
-        previewSandboxRef.current.run(`document.head.innerHTML = ${JSON.stringify(previewStyles)}`);
+      const headParts: string[] = [];
+      if (css) headParts.push(`<style>${css}</style>`);
+      if (previewStyles) headParts.push(previewStyles);
+      if (headParts.length) {
+        previewSandboxRef.current.run(`document.head.innerHTML = ${JSON.stringify(headParts.join(""))}`);
       }
       if (!previewBody) return;
       previewSandboxRef.current.run(`document.body.innerHTML = ${JSON.stringify(previewBody)}`);
-    }, [previewBody, previewStyles]);
+    }, [previewBody, previewStyles, css]);
 
     // Effect 1 — Final sandbox lifecycle (depends on fullHtml)
     useEffect(() => {
@@ -254,7 +278,7 @@ const OpenGenerativeUIActivityRendererInner = React.memo(
       pendingQueueRef.current = [];
 
       // Dynamic import to avoid SSR issues (websandbox references `self` at module level)
-      const htmlContent = fullHtml;
+      const htmlContent = css ? injectCssIntoHtml(fullHtml, css) : fullHtml;
       import("@jetbrains/websandbox").then((mod: any) => {
         if (cancelled) return;
 
@@ -303,7 +327,7 @@ const OpenGenerativeUIActivityRendererInner = React.memo(
         sandboxReadyRef.current = false;
         setAutoHeight(null);
       };
-    }, [fullHtml, localApi]);
+    }, [fullHtml, css, localApi]);
 
     // Effect 2 — jsFunctions injection (depends on content.jsFunctions)
     useEffect(() => {
@@ -341,8 +365,9 @@ const OpenGenerativeUIActivityRendererInner = React.memo(
       }
     }, [content.jsExpressions?.length]);
 
-    // All content is complete — html, jsFunctions, and jsExpressions are all done
+    // All content is complete — css, html, jsFunctions, and jsExpressions are all done
     const allContentComplete = !!content.htmlComplete
+      && (content.cssComplete || !content.css)
       && (content.jsFunctionsComplete || !content.jsFunctions)
       && (content.jsExpressionsComplete || !content.jsExpressions?.length);
 

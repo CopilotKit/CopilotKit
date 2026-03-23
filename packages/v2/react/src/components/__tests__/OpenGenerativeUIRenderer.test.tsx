@@ -88,7 +88,7 @@ describe("OpenGenerativeUIActivityRenderer", () => {
   });
 
   it("creates preview sandbox when html is streaming (not complete)", async () => {
-    renderRenderer({ html: ["<head></head><body>partial"], htmlComplete: false });
+    renderRenderer({ html: ["<head></head><body>partial"], htmlComplete: false, cssComplete: true });
     await flushImport();
 
     // Preview sandbox is created with empty body template
@@ -425,6 +425,7 @@ describe("OpenGenerativeUIActivityRenderer", () => {
       renderRenderer({
         html: ["<body><div>Hello</div>"],
         htmlComplete: false,
+        cssComplete: true,
         generating: true,
       });
       await flushImport();
@@ -443,6 +444,7 @@ describe("OpenGenerativeUIActivityRenderer", () => {
           content={{
             html: ["<body><div>Hello</div>"],
             htmlComplete: false,
+            cssComplete: true,
             generating: true,
           }}
           message={{}}
@@ -472,6 +474,7 @@ describe("OpenGenerativeUIActivityRenderer", () => {
           content={{
             html: ["<body><div>Hello</div>", "<p>World</p>"],
             htmlComplete: false,
+            cssComplete: true,
             generating: true,
           }}
           message={{}}
@@ -500,6 +503,7 @@ describe("OpenGenerativeUIActivityRenderer", () => {
           content={{
             html: ["<body><div>Hello</div>"],
             htmlComplete: false,
+            cssComplete: true,
             generating: true,
           }}
           message={{}}
@@ -518,6 +522,7 @@ describe("OpenGenerativeUIActivityRenderer", () => {
           content={{
             html: ["<head><style>body{margin:0}</style></head><body><div>Hello</div></body>"],
             htmlComplete: true,
+            cssComplete: true,
             generating: false,
           }}
           message={{}}
@@ -533,6 +538,71 @@ describe("OpenGenerativeUIActivityRenderer", () => {
       const [, options] = mockCreate.mock.calls[1];
       expect(options.frameContent).toContain("<style>");
       expect(options.frameContent).toContain("Hello");
+    });
+
+    it("does not show preview until cssComplete, then starts streaming HTML immediately", async () => {
+      // Phase 1: HTML chunks arrive but CSS is not yet complete — no preview
+      const { rerender } = render(
+        <OpenGenerativeUIActivityRenderer
+          activityType="open-generative-ui"
+          content={{
+            html: ["<body><div>Streaming content</div>"],
+            htmlComplete: false,
+            generating: true,
+            // cssComplete is NOT set — CSS still generating
+          }}
+          message={{}}
+          agent={{}}
+        />,
+      );
+      await flushImport();
+
+      // No sandbox created — placeholder shown while CSS is pending
+      expect(mockCreate).not.toHaveBeenCalled();
+
+      // Phase 2: CSS completes — preview should appear immediately with the
+      // HTML chunks that have already accumulated
+      rerender(
+        <OpenGenerativeUIActivityRenderer
+          activityType="open-generative-ui"
+          content={{
+            css: "body { margin: 0; color: red; }",
+            cssComplete: true,
+            html: ["<body><div>Streaming content</div>"],
+            htmlComplete: false,
+            generating: true,
+          }}
+          message={{}}
+          agent={{}}
+        />,
+      );
+      await flushImport();
+
+      // Preview sandbox created now that CSS is complete
+      expect(mockCreate).toHaveBeenCalledTimes(1);
+      const [, options] = mockCreate.mock.calls[0];
+      expect(options.frameContent).toBe("<head></head><body></body>");
+
+      // Resolve sandbox promise so preview content is applied
+      await act(async () => {
+        mockPromiseResolve();
+        await mockPromise;
+      });
+      await flushImport();
+
+      // CSS should be injected into <head> as a <style> tag
+      const headCalls = mockRun.mock.calls.filter(
+        (c: unknown[]) => typeof c[0] === "string" && (c[0] as string).includes("document.head.innerHTML"),
+      );
+      expect(headCalls.length).toBeGreaterThanOrEqual(1);
+      expect(headCalls[0][0]).toContain("body { margin: 0; color: red; }");
+
+      // HTML body content should be rendered in the preview
+      const bodyCalls = mockRun.mock.calls.filter(
+        (c: unknown[]) => typeof c[0] === "string" && (c[0] as string).includes("document.body.innerHTML"),
+      );
+      expect(bodyCalls.length).toBeGreaterThanOrEqual(1);
+      expect(bodyCalls[0][0]).toContain("Streaming content");
     });
 
     it("does not create preview when no meaningful body content", async () => {

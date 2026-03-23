@@ -84,6 +84,7 @@ describe("OpenGenerativeUIMiddleware e2e", () => {
             items: { type: "string" },
             description: expect.any(String),
           },
+          css: { type: "string", description: expect.any(String) },
           html: { type: "string", description: expect.any(String) },
           jsFunctions: { type: "string", description: expect.any(String) },
           jsExpressions: {

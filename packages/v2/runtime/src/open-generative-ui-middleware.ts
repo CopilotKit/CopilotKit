@@ -36,6 +36,11 @@ const GENERATE_SANDBOXED_UI_TOOL: Tool = {
         description:
           "Exactly 5 short loading messages displayed while the UI is being generated. Generate these FIRST before the html so the user sees them while waiting.",
       },
+      css: {
+        type: "string",
+        description:
+          "CSS styles for the UI. Generate this BEFORE the html so styles are ready when HTML rendering begins.",
+      },
       html: {
         type: "string",
         description:
@@ -61,6 +66,7 @@ const GENERATE_SANDBOXED_UI_TOOL: Tool = {
 export interface GenerateSandboxedUIParams {
   initialHeight?: number;
   placeholderMessages?: string[];
+  css?: string;
   html?: string;
   jsFunctions?: string;
   jsExpressions?: string[];
@@ -217,6 +223,11 @@ export class ArgsParser {
       case "initialHeight":
         this.params.initialHeight = typeof value === "number" ? value : undefined;
         this.emitSnapshot();
+        break;
+      case "css":
+        this.params.css = value != null ? String(value) : undefined;
+        this.emitParamDelta("css", this.params.css);
+        this.emitParamDelta("cssComplete", true);
         break;
       case "jsFunctions":
         this.params.jsFunctions = value != null ? String(value) : undefined;
