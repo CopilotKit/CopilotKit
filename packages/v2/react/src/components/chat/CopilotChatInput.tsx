@@ -583,6 +583,7 @@ export function CopilotChatInput({
       positioning,
       keyboardHeight,
       showDisclaimer: shouldShowDisclaimer,
+      containerRef,
     } as CopilotChatInputChildrenArgs;
 
     return (
