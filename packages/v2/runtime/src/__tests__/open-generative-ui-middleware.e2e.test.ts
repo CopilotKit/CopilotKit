@@ -313,6 +313,47 @@ describe("OpenGenerativeUIMiddleware e2e", () => {
       ]);
     });
 
+    it("throttles html chunk emissions to 1 per second", () => {
+      const emitted: BaseEvent[] = [];
+      const parser = new ArgsParser("tc-1", (e) => emitted.push(e));
+
+      parser.write('{"initialHeight":200,');
+      emitted.length = 0;
+
+      // Start html streaming — first write should emit (no prior emit)
+      parser.write('"html":"chunk1');
+      const firstDeltas = emitted.filter(
+        (e) => e.type === EventType.ACTIVITY_DELTA,
+      ) as ActivityDeltaEvent[];
+      // Should have array creation + first chunk
+      expect(firstDeltas.length).toBeGreaterThanOrEqual(1);
+
+      // Immediate second write should be throttled (within 1s)
+      emitted.length = 0;
+      parser.write("chunk2");
+      const throttledDeltas = emitted.filter(
+        (e) => e.type === EventType.ACTIVITY_DELTA,
+      ) as ActivityDeltaEvent[];
+      expect(throttledDeltas).toHaveLength(0);
+
+      // Completing the html string should flush everything regardless of throttle
+      emitted.length = 0;
+      parser.write('",');
+      const completeDeltas = emitted.filter(
+        (e) => e.type === EventType.ACTIVITY_DELTA,
+      ) as ActivityDeltaEvent[];
+      // Should have the remaining chunk + htmlComplete
+      const chunkDelta = completeDeltas.find((d) =>
+        d.patch.some((p) => p.path === "/html/-"),
+      );
+      expect(chunkDelta).toBeDefined();
+      expect(chunkDelta!.patch[0].value).toContain("chunk2");
+      const completeDelta = completeDeltas.find((d) =>
+        d.patch.some((p) => p.path === "/htmlComplete"),
+      );
+      expect(completeDelta).toBeDefined();
+    });
+
     it("emits snapshot only once even with multiple params", () => {
       const emitted: BaseEvent[] = [];
       const parser = new ArgsParser("tc-1", (e) => emitted.push(e));

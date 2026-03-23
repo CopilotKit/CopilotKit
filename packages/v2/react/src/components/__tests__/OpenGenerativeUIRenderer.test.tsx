@@ -436,7 +436,7 @@ describe("OpenGenerativeUIActivityRenderer", () => {
       expect(Object.keys(localApi)).toHaveLength(0);
     });
 
-    it("updates preview on re-render with more chunks (throttled)", async () => {
+    it("updates preview on re-render with more chunks", async () => {
       const { rerender } = render(
         <OpenGenerativeUIActivityRenderer
           activityType="open-generative-ui"
@@ -480,12 +480,7 @@ describe("OpenGenerativeUIActivityRenderer", () => {
       );
       await flushImport();
 
-      // Wait for the 300ms throttle to fire
-      await act(async () => {
-        await new Promise((r) => setTimeout(r, 350));
-      });
-
-      // Should have updated innerHTML with new content
+      // Should have updated innerHTML with new content (no frontend throttle)
       const updateCalls = mockRun.mock.calls.filter(
         (c: unknown[]) => typeof c[0] === "string" && (c[0] as string).includes("document.body.innerHTML"),
       );
