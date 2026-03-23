@@ -23,6 +23,8 @@ const GENERATE_SANDBOXED_UI_TOOL: Tool = {
     "IMPORTANT: The generated code runs in a sandboxed iframe WITHOUT same-origin access. " +
     "Do NOT use localStorage, sessionStorage, document.cookie, IndexedDB, or fetch/XMLHttpRequest to same-origin URLs. " +
     "To communicate with the host application, use Websandbox.connection.remote.<functionName>(args) which returns a Promise.\n\n" +
+    "You CAN use external libraries from CDNs by including <script> or <link> tags in the HTML <head> (e.g., Chart.js, D3, Three.js, x-data-spreadsheet, etc.). " +
+    "CDN resources load normally inside the sandbox.\n\n" +
     "PARAMETER ORDER IS CRITICAL — generate parameters in exactly this order:\n" +
     "1. initialHeight + placeholderMessages (shown to user while generating)\n" +
     "2. css (all styles FIRST — the user sees a placeholder until CSS is complete)\n" +
