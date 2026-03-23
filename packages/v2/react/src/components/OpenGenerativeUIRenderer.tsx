@@ -366,42 +366,38 @@ const OpenGenerativeUIActivityRendererInner = React.memo(
     }, [content.jsExpressions?.length]);
 
     // Effect 4 — ResizeObserver injection (only once generation is fully done)
+    // Effect 4 — One-shot height measurement (only once generation is done)
     const generationDone = content.generating === false;
     useEffect(() => {
       const sandbox = sandboxRef.current;
       if (!generationDone || !sandbox) return;
 
+      let handled = false;
       const onMessage = (e: MessageEvent) => {
+        if (handled) return;
         if (e.source === sandbox.iframe.contentWindow && e.data?.type === "__ck_resize") {
+          handled = true;
           setAutoHeight(e.data.height);
+          window.removeEventListener("message", onMessage);
         }
       };
       window.addEventListener("message", onMessage);
 
-      const inject = () => {
-        sandbox.run(`
-          (function() {
-            var ro = new ResizeObserver(function() {
-              var h = document.documentElement.scrollHeight;
-              parent.postMessage({ type: "__ck_resize", height: h }, "*");
-            });
-            ro.observe(document.documentElement);
-          })();
-        `);
-      };
+      const measureOnce = `
+        (function() {
+          var ro = new ResizeObserver(function() {
+            var h = document.documentElement.scrollHeight;
+            parent.postMessage({ type: "__ck_resize", height: h }, "*");
+            ro.disconnect();
+          });
+          ro.observe(document.documentElement);
+        })();
+      `;
 
       if (sandboxReadyRef.current) {
-        inject();
+        sandbox.run(measureOnce);
       } else {
-        pendingQueueRef.current.push(`
-          (function() {
-            var ro = new ResizeObserver(function() {
-              var h = document.documentElement.scrollHeight;
-              parent.postMessage({ type: "__ck_resize", height: h }, "*");
-            });
-            ro.observe(document.documentElement);
-          })();
-        `);
+        pendingQueueRef.current.push(measureOnce);
       }
 
       return () => {
