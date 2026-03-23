@@ -6,6 +6,7 @@
     "tool-rendering",
     "state-rendering",
     "mcp-apps",
+    "open-generative-ui",
     "a2ui"
   ]
 }
