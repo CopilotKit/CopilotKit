@@ -1,8 +1,10 @@
 import { AbstractAgent, Message, RunAgentInput } from "@ag-ui/client";
 import { CopilotIntelligenceRuntimeLike } from "../../runtime";
-import { isValidIdentifier } from "../shared/intelligence-utils";
 import { generateThreadNameForNewThread } from "./thread-names";
 import { logger } from "@copilotkitnext/shared";
+import { telemetry } from "../../telemetry";
+import { resolveIntelligenceUser } from "../shared/resolve-intelligence-user";
+import { isHandlerResponse } from "../shared/json-response";
 
 interface HandleIntelligenceRunParams {
   runtime: CopilotIntelligenceRuntimeLike;
@@ -29,16 +31,11 @@ export async function handleIntelligenceRun({
     );
   }
 
-  const userId = request.headers.get("X-User-Id");
-  if (!isValidIdentifier(userId)) {
-    return Response.json(
-      {
-        error: "X-User-Id header is required",
-        message: "A valid X-User-Id header is required",
-      },
-      { status: 400 },
-    );
+  const user = await resolveIntelligenceUser({ runtime, request });
+  if (isHandlerResponse(user)) {
+    return user;
   }
+  const userId = user.id;
 
   try {
     const { thread, created } = await runtime.intelligence.getOrCreateThread({
@@ -121,6 +118,8 @@ export async function handleIntelligenceRun({
     }
   }
 
+  telemetry.capture("oss.runtime.agent_execution_stream_started", {});
+
   runtime.runner
     .run({
       threadId: input.threadId,
@@ -133,7 +132,13 @@ export async function handleIntelligenceRun({
     })
     .subscribe({
       error: (error) => {
+        telemetry.capture("oss.runtime.agent_execution_stream_errored", {
+          error: error instanceof Error ? error.message : String(error),
+        });
         logger.error("Error running agent:", error);
+      },
+      complete: () => {
+        telemetry.capture("oss.runtime.agent_execution_stream_ended", {});
       },
     });
 

@@ -7,6 +7,7 @@ import {
   configureAgentForRequest,
 } from "../shared/agent-utils";
 import { ThreadSummary } from "../../intelligence-platform";
+import { isHandlerResponse } from "../shared/json-response";
 
 const THREAD_NAME_SYSTEM_PROMPT = [
   "You generate short, specific conversation titles.",
@@ -99,7 +100,7 @@ async function runTitleGenerationAttempt(params: {
 }): Promise<string | null> {
   const { runtime, request, agentId, threadId, prompt } = params;
   const agent = await cloneAgentForRequest(runtime, agentId);
-  if (agent instanceof Response) {
+  if (isHandlerResponse(agent)) {
     logger.warn(
       { agentId, threadId },
       "Skipping thread naming because the agent could not be cloned",

@@ -10,7 +10,7 @@
   "publishConfig": {
     "access": "public"
   },
-  "version": "1.54.1-next.1",
+  "version": "1.54.1-next.2",
   "sideEffects": false,
   "main": "./dist/index.cjs",
   "module": "./dist/index.mjs",
@@ -26,6 +26,10 @@
     "./langgraph": {
       "import": "./dist/langgraph.mjs",
       "require": "./dist/langgraph.cjs"
+    },
+    "./langgraph-middlewares": {
+      "import": "./dist/langgraph-middlewares.mjs",
+      "require": "./dist/langgraph-middlewares.cjs"
     },
     "./package.json": "./package.json"
   },
@@ -43,6 +47,7 @@
     "attw": "attw --pack . --profile node16"
   },
   "dependencies": {
+    "@ag-ui/langgraph": "^0.0.25",
     "@copilotkit/shared": "workspace:*"
   },
   "devDependencies": {
