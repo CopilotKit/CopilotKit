@@ -225,15 +225,22 @@ export class RunHandler {
       };
     }
 
-    // Signal any active run to detach (e.g. a long-lived connectAgent pipeline)
-    // before starting a new run.  We intentionally fire-and-forget rather than
-    // awaiting: the detach merely completes the previous observable pipeline, and
-    // `agent.runAgent()` below will create a fresh pipeline anyway.  Awaiting
-    // caused a deadlock when `connectAgent` was still resolving its internal
-    // promise (e.g. ConnectNotImplementedError cleanup) at the moment the user
-    // triggered a run.
+    // Detach any active run (e.g. a long-lived connectAgent pipeline) before
+    // starting a new run.  We await the detach to ensure the previous pipeline
+    // has fully finalized — its activeRunCompletionPromise resolves once the
+    // observable finalize block runs, which happens synchronously after the
+    // takeUntil signal completes the chain.  This prevents a race where the new
+    // runAgent() overwrites activeRunDetach$ / activeRunCompletionPromise before
+    // the old pipeline can clean up, causing dropped runs.
+    //
+    // Historical note: an earlier version used fire-and-forget (`void`) here
+    // because awaiting caused a deadlock when connectAgent's
+    // ConnectNotImplementedError cleanup was still in-flight.  That deadlock
+    // was resolved in @ag-ui/client ≥0.0.42 where the catchError path
+    // (ConnectNotImplementedError → EMPTY) always runs the finalize block,
+    // so the completion promise now resolves reliably.
     if (agent.detachActiveRun) {
-      void agent.detachActiveRun();
+      await agent.detachActiveRun();
     }
 
     try {

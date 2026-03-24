@@ -28,6 +28,7 @@ const mockAgent: Record<string, unknown> = {
   addMessage: vi.fn(),
   abortRun: vi.fn(),
   runAgent: vi.fn(),
+  detachActiveRun: vi.fn().mockResolvedValue(undefined),
   threadId: undefined as string | undefined,
 };
 
