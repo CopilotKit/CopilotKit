@@ -1,4 +1,10 @@
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, {
+  useState,
+  useEffect,
+  useCallback,
+  useMemo,
+  useRef,
+} from "react";
 import { useCopilotKit } from "@/providers/CopilotKitProvider";
 import { useAgent } from "./use-agent";
 import type {
@@ -179,6 +185,8 @@ export function useInterrupt<
   const { copilotkit } = useCopilotKit();
   const { agent } = useAgent({ agentId: config.agentId });
   const [pendingEvent, setPendingEvent] = useState<InterruptEvent | null>(null);
+  const pendingEventRef = useRef(pendingEvent);
+  pendingEventRef.current = pendingEvent;
   const [handlerResult, setHandlerResult] =
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     useState<InterruptResult<any, TResult>>(null);
@@ -215,7 +223,12 @@ export function useInterrupt<
       setPendingEvent(null);
       copilotkit.runAgent({
         agent,
-        forwardedProps: { command: { resume: response } },
+        forwardedProps: {
+          command: {
+            resume: response,
+            interruptEvent: pendingEventRef.current?.value,
+          },
+        },
       });
     },
     [agent, copilotkit],
