@@ -365,53 +365,43 @@ const OpenGenerativeUIActivityRendererInner = React.memo(
       }
     }, [content.jsExpressions?.length]);
 
-    // Effect 4 — Persistent ResizeObserver for auto-height (after generation completes)
-    // Sets html/body height to 0 before measuring so scrollHeight reports true content
-    // size instead of being clamped to the iframe viewport height.
+    // Effect 4 — One-shot height measurement (fires once when generation completes)
+    // Uses body.scrollHeight (not documentElement.scrollHeight) because the latter
+    // is clamped to the iframe viewport and can never shrink below the current size.
     const generationDone = content.generating === false;
     useEffect(() => {
       const sandbox = sandboxRef.current;
       if (!generationDone || !sandbox) return;
 
+      let handled = false;
       const onMessage = (e: MessageEvent) => {
+        if (handled) return;
         if (e.source === sandbox.iframe.contentWindow && e.data?.type === "__ck_resize") {
+          handled = true;
           setAutoHeight(e.data.height);
+          window.removeEventListener("message", onMessage);
         }
       };
       window.addEventListener("message", onMessage);
 
-      const measureScript = `
+      const measureOnce = `
         (function() {
-          var lastH = 0;
-          function measure() {
-            // Measure body.scrollHeight (NOT documentElement.scrollHeight).
-            // documentElement.scrollHeight is clamped to the iframe viewport height
-            // which is set by the parent — it can never shrink below the current iframe size.
-            // body.scrollHeight with height:auto reflects actual content height.
-            var s = document.createElement('style');
-            s.textContent = 'body { height: auto !important; min-height: 0 !important; }';
-            document.head.appendChild(s);
-            var h = document.body.scrollHeight;
-            var cs = getComputedStyle(document.body);
-            h += parseFloat(cs.marginTop) || 0;
-            h += parseFloat(cs.marginBottom) || 0;
-            s.remove();
-            h = Math.ceil(h);
-            if (h !== lastH) {
-              lastH = h;
-              parent.postMessage({ type: "__ck_resize", height: h }, "*");
-            }
-          }
-          measure();
-          var ro = new ResizeObserver(function() { measure(); });
-          ro.observe(document.body);
+          var s = document.createElement('style');
+          s.textContent = 'body { height: auto !important; min-height: 0 !important; }';
+          document.head.appendChild(s);
+          var h = document.body.scrollHeight;
+          var cs = getComputedStyle(document.body);
+          h += parseFloat(cs.marginTop) || 0;
+          h += parseFloat(cs.marginBottom) || 0;
+          s.remove();
+          parent.postMessage({ type: "__ck_resize", height: Math.ceil(h) }, "*");
         })();
       `;
 
       if (sandboxReadyRef.current) {
-        sandbox.run(measureScript);
+        sandbox.run(measureOnce);
       } else {
-        pendingQueueRef.current.push(measureScript);
+        pendingQueueRef.current.push(measureOnce);
       }
 
       return () => {
