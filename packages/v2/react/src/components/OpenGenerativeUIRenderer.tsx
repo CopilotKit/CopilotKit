@@ -226,6 +226,13 @@ const OpenGenerativeUIActivityRendererInner = React.memo(
           if (cancelled) return;
           previewReadyRef.current = true;
 
+          // Prevent scrollbars inside preview iframe
+          sandbox.run(`
+            var s = document.createElement('style');
+            s.textContent = 'html, body { overflow: hidden !important; }';
+            document.head.appendChild(s);
+          `);
+
           // Inject CSS from the dedicated parameter + any inline styles from HTML
           const headParts: string[] = [];
           if (css) headParts.push(`<style>${css}</style>`);
@@ -302,6 +309,13 @@ const OpenGenerativeUIActivityRendererInner = React.memo(
         sandbox.promise.then(() => {
           if (cancelled) return;
           sandboxReadyRef.current = true;
+
+          // Prevent scrollbars — the container auto-sizes to fit content
+          sandbox.run(`
+            var s = document.createElement('style');
+            s.textContent = 'html, body { overflow: hidden !important; }';
+            document.head.appendChild(s);
+          `);
 
           // Flush pending queue
           const queue = pendingQueueRef.current;
