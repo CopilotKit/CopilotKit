@@ -2,7 +2,7 @@
 title: "Advanced: Package Linking"
 ---
 
-In this guide, we'll teach you how to link the CopilotKit packages to your own project to test your changes. This way, you can run `turbo run dev` in the CopilotKit monorepo, and see changes in your own project immediately.
+In this guide, we'll teach you how to link the CopilotKit packages to your own project to test your changes. This way, you can run `pnpm run dev` at the CopilotKit repository root, and see changes in your own project immediately.
 
 ## Global Package Linking With `pnpm`
 
@@ -16,7 +16,7 @@ We will use pnpm's [global linking feature](https://pnpm.io/cli/link#pnpm-link--
   Navigate to the CopilotKit monorepo and run the following command to link the packages globally:
 
   ```bash
-  turbo run link:global
+  pnpm exec nx run-many -t link:global
   ```
   </Step>
   <Step>
@@ -41,7 +41,7 @@ We will use pnpm's [global linking feature](https://pnpm.io/cli/link#pnpm-link--
   Once you are done, you can undo the global linking by running the following command in the CopilotKit monorepo:
 
   ```bash
-  turbo run unlink:global
+  pnpm exec nx run-many -t unlink:global
   ```
 
   And then in your project:
