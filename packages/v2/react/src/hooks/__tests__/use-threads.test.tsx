@@ -170,7 +170,7 @@ const defaultInput = { userId: "user-1", agentId: "agent-1" };
 const sampleThreads = [
   {
     id: "t-1",
-    tenantId: "tenant-1",
+    organizationId: "org-1",
     agentId: "agent-1",
     createdById: "user-1",
     name: "Thread One",
@@ -180,7 +180,7 @@ const sampleThreads = [
   },
   {
     id: "t-2",
-    tenantId: "tenant-1",
+    organizationId: "org-1",
     agentId: "agent-1",
     createdById: "user-1",
     name: "Thread Two",
@@ -273,7 +273,7 @@ describe("useThreads", () => {
         operation: "updated",
         threadId: "t-1",
         userId: "user-1",
-        tenantId: "tenant-1",
+        organizationId: "org-1",
         occurredAt: "2026-01-03T00:00:00Z",
         thread: {
           ...sampleThreads[0],
@@ -306,7 +306,7 @@ describe("useThreads", () => {
         operation: "deleted",
         threadId: "t-2",
         userId: "user-2",
-        tenantId: "tenant-1",
+        organizationId: "org-1",
         occurredAt: "2026-01-03T00:00:00Z",
         deleted: { id: "t-2" },
       });
