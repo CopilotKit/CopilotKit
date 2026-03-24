@@ -1,5 +1,16 @@
 # ui
 
+## 1.54.1-next.4
+
+### Patch Changes
+
+- 8113dba: fix: race condition in RunHandler.runAgent() causes dropped runs
+- Updated dependencies [8113dba]
+  - @copilotkitnext/core@1.54.1-next.4
+  - @copilotkitnext/react@1.54.1-next.4
+  - @copilotkit/runtime-client-gql@1.54.1-next.4
+  - @copilotkit/shared@1.54.1-next.4
+
 ## 1.54.1-next.3
 
 ### Patch Changes

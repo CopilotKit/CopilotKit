@@ -1,5 +1,12 @@
 # @copilotkitnext/core
 
+## 1.54.1-next.4
+
+### Patch Changes
+
+- 8113dba: fix: race condition in RunHandler.runAgent() causes dropped runs
+  - @copilotkitnext/shared@1.54.1-next.4
+
 ## 1.54.1-next.3
 
 ### Patch Changes

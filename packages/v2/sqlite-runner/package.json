@@ -1,6 +1,6 @@
 {
   "name": "@copilotkitnext/sqlite-runner",
-  "version": "1.54.1-next.3",
+  "version": "1.54.1-next.4",
   "deprecated": "This package is deprecated. Use @copilotkit/sqlite-runner instead. V2 features are being integrated into the main @copilotkit exports and will be available under the /v2 subpath.",
   "description": "SQLite-backed agent runner for CopilotKit2",
   "main": "./dist/index.cjs",
