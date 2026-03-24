@@ -26,7 +26,11 @@ import {
   CopilotKitCoreRuntimeConnectionStatus,
 } from "@copilotkitnext/core";
 import { useLazyToolRenderer } from "./use-lazy-tool-renderer";
-import { AbstractAgent, AGUIConnectNotImplementedError } from "@ag-ui/client";
+import {
+  AbstractAgent,
+  AGUIConnectNotImplementedError,
+  HttpAgent,
+} from "@ag-ui/client";
 import {
   CoAgentStateRenderBridge,
   type CoAgentStateRenderBridgeProps,
@@ -336,12 +340,28 @@ export function useCopilotChatInternal({
   const { agent } = useAgent({ agentId: resolvedAgentId });
 
   useEffect(() => {
+    let detached = false;
+
+    // Create a fresh AbortController so we can cancel the HTTP request on cleanup.
+    // Mirrors the V2 CopilotChat pattern: HttpAgent uses abortController.signal in
+    // its fetch config.  connectAgent() does NOT create a new AbortController
+    // automatically, so we must set one before connecting.
+    const connectAbortController = new AbortController();
+    if (agent instanceof HttpAgent) {
+      agent.abortController = connectAbortController;
+    }
+
     const connect = async (agent: AbstractAgent) => {
       setAgentAvailable(false);
       try {
         await copilotkit.connectAgent({ agent });
-        setAgentAvailable(true);
+        // Guard against setting state after cleanup (e.g. React StrictMode unmount)
+        if (!detached) {
+          setAgentAvailable(true);
+        }
       } catch (error) {
+        // Ignore errors from aborted connections (e.g. React StrictMode cleanup)
+        if (detached) return;
         if (error instanceof AGUIConnectNotImplementedError) {
           // connect not implemented, ignore
         } else {
@@ -360,7 +380,14 @@ export function useCopilotChatInternal({
       agent.threadId = existingConfig.threadId;
       connect(agent);
     }
-    return () => {};
+    return () => {
+      // Abort the HTTP request and detach the active run.
+      // This is critical for React StrictMode which unmounts+remounts in dev,
+      // preventing duplicate /connect requests from reaching the server.
+      detached = true;
+      connectAbortController.abort();
+      agent?.detachActiveRun();
+    };
   }, [
     existingConfig?.threadId,
     agent,
