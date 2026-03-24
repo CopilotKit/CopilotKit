@@ -75,7 +75,31 @@ export class RunHandler {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private _tools: FrontendTool<any>[] = [];
 
+  /**
+   * Tracks whether the current run (including in-flight tool execution)
+   * has been aborted via `stopAgent()` or `agent.abortRun()`. Created
+   * fresh in `runAgent()`, aborted by `abortCurrentRun()`.
+   */
+  private _runAbortController: AbortController | null = null;
+
+  /**
+   * Tracks recursive `runAgent` depth so that the abort controller and
+   * `agent.abortRun()` intercept are only set up / torn down at the
+   * top-level call, not on follow-up recursive calls from
+   * `processAgentResult`.
+   */
+  private _runDepth = 0;
+
   constructor(private core: CopilotKitCore) {}
+
+  /**
+   * Abort the current run. Called by `CopilotKitCore.stopAgent()` to signal
+   * that in-flight tool handlers should stop and `processAgentResult` should
+   * not start a follow-up run.
+   */
+  abortCurrentRun(): void {
+    this._runAbortController?.abort();
+  }
 
   /**
    * Typed access to CopilotKitCore's internal ("friend") methods.
@@ -236,6 +260,28 @@ export class RunHandler {
       void agent.detachActiveRun();
     }
 
+    // Set up abort controller and agent.abortRun() intercept only for the
+    // top-level call. Recursive follow-up calls from processAgentResult
+    // reuse the same controller.
+    const isTopLevel = this._runDepth === 0;
+    let originalAbortRun: (() => void) | undefined;
+
+    if (isTopLevel) {
+      this._runAbortController = new AbortController();
+
+      // Intercept agent.abortRun() so that calling it directly (not via
+      // stopAgent) also aborts in-flight tool execution and prevents
+      // follow-up runs.
+      const controller = this._runAbortController;
+      originalAbortRun = agent.abortRun.bind(agent);
+      agent.abortRun = () => {
+        controller.abort();
+        originalAbortRun!();
+      };
+    }
+
+    this._runDepth++;
+
     try {
       const runAgentResult = await agent.runAgent(
         {
@@ -248,7 +294,7 @@ export class RunHandler {
         },
         this.createAgentErrorSubscriber(agent),
       );
-      return this.processAgentResult({ runAgentResult, agent });
+      return await this.processAgentResult({ runAgentResult, agent });
     } catch (error) {
       const runError =
         error instanceof Error ? error : new Error(String(error));
@@ -262,6 +308,13 @@ export class RunHandler {
         context,
       });
       return { newMessages: [] };
+    } finally {
+      this._runDepth--;
+      // Restore original abortRun when the entire chain (including
+      // recursive follow-ups) is complete.
+      if (isTopLevel && originalAbortRun) {
+        agent.abortRun = originalAbortRun;
+      }
     }
   }
 
@@ -328,7 +381,7 @@ export class RunHandler {
       }
     }
 
-    if (needsFollowUp) {
+    if (needsFollowUp && !this._runAbortController?.signal.aborted) {
       // Yield to the framework scheduler before the follow-up run so that any
       // deferred state updates (e.g. React useEffect in useAgentContext) can
       // complete and write fresh values into the context store before runAgent
@@ -407,6 +460,7 @@ export class RunHandler {
         const result = await tool.handler!(parsedArgs as any, {
           toolCall: toolCall as any,
           agent,
+          signal: this._runAbortController?.signal,
         });
         if (result === undefined || result === null) {
           toolCallResult = "";
