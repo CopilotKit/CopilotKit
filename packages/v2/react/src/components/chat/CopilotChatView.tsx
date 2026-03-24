@@ -171,7 +171,7 @@ export function CopilotChatView({
     onCancelTranscribe,
     onFinishTranscribe,
     onFinishTranscribeWithAudio,
-    positioning: "absolute",
+    positioning: "static",
     keyboardHeight: isKeyboardOpen ? keyboardHeight : 0,
     containerRef: inputContainerRef,
     showDisclaimer: true,
@@ -195,7 +195,7 @@ export function CopilotChatView({
     children: (
       <div
         style={{
-          paddingBottom: `${inputContainerHeight + FEATHER_HEIGHT + (hasSuggestions ? 4 : 32)}px`,
+          paddingBottom: `${hasSuggestions ? 4 : 32}px`,
         }}
       >
         <div className="cpk:max-w-3xl cpk:mx-auto">
@@ -281,7 +281,10 @@ export function CopilotChatView({
       data-copilotkit
       data-testid="copilot-chat"
       data-copilot-running={isRunning ? "true" : "false"}
-      className={twMerge("copilotKitChat cpk:relative cpk:h-full", className)}
+      className={twMerge(
+        "copilotKitChat cpk:relative cpk:h-full cpk:flex cpk:flex-col",
+        className,
+      )}
       {...props}
     >
       {BoundScrollView}
@@ -461,7 +464,7 @@ export namespace CopilotChatView {
     return (
       <StickToBottom
         className={cn(
-          "cpk:h-full cpk:max-h-full cpk:flex cpk:flex-col cpk:min-h-0 cpk:relative",
+          "cpk:flex-1 cpk:max-h-full cpk:flex cpk:flex-col cpk:min-h-0",
           className,
         )}
         resize="smooth"
