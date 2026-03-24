@@ -36,7 +36,7 @@ const flushEffects = async (): Promise<void> => {
 const sampleThreads: ThreadRecord[] = [
   {
     id: "thread-1",
-    tenantId: "tenant-1",
+    organizationId: "org-1",
     agentId: "agent-1",
     createdById: "user-1",
     name: "Older Thread",
@@ -46,7 +46,7 @@ const sampleThreads: ThreadRecord[] = [
   },
   {
     id: "thread-2",
-    tenantId: "tenant-1",
+    organizationId: "org-1",
     agentId: "agent-1",
     createdById: "user-1",
     name: "Newest Thread",
@@ -161,7 +161,7 @@ describe("thread store", () => {
       operation: "renamed",
       threadId: "thread-1",
       userId: "user-1",
-      tenantId: "tenant-1",
+      organizationId: "org-1",
       occurredAt: "2026-01-03T00:00:00Z",
       thread: {
         ...sampleThreads[0],
@@ -215,7 +215,7 @@ describe("thread store", () => {
       operation: "deleted",
       threadId: "thread-2",
       userId: "user-2",
-      tenantId: "tenant-1",
+      organizationId: "org-1",
       occurredAt: "2026-01-03T00:00:00Z",
       deleted: { id: "thread-2" },
     });
