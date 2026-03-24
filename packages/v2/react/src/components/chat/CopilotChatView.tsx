@@ -315,7 +315,7 @@ export namespace CopilotChatView {
     return (
       <>
         <StickToBottom.Content
-          className="cpk:overflow-y-scroll cpk:overflow-x-hidden"
+          className="cpk:overflow-y-auto cpk:overflow-x-hidden"
           style={{ flex: "1 1 0%", minHeight: 0 }}
         >
           <div className="cpk:px-4 cpk:sm:px-0 cpk:[div[data-sidebar-chat]_&]:px-8 cpk:[div[data-popup-chat]_&]:px-6">
@@ -406,7 +406,7 @@ export namespace CopilotChatView {
 
     if (!hasMounted) {
       return (
-        <div className="cpk:h-full cpk:max-h-full cpk:flex cpk:flex-col cpk:min-h-0 cpk:overflow-y-scroll cpk:overflow-x-hidden">
+        <div className="cpk:h-full cpk:max-h-full cpk:flex cpk:flex-col cpk:min-h-0 cpk:overflow-y-auto cpk:overflow-x-hidden">
           <div className="cpk:px-4 cpk:sm:px-0 cpk:[div[data-sidebar-chat]_&]:px-8 cpk:[div[data-popup-chat]_&]:px-6">
             {children}
           </div>
@@ -422,7 +422,7 @@ export namespace CopilotChatView {
         <div
           ref={scrollRef}
           className={cn(
-            "cpk:h-full cpk:max-h-full cpk:flex cpk:flex-col cpk:min-h-0 cpk:overflow-y-scroll cpk:overflow-x-hidden cpk:relative",
+            "cpk:h-full cpk:max-h-full cpk:flex cpk:flex-col cpk:min-h-0 cpk:overflow-y-auto cpk:overflow-x-hidden cpk:relative",
             className,
           )}
           {...props}
