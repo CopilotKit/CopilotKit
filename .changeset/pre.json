@@ -50,6 +50,7 @@
   },
   "changesets": [
     "cyan-buses-sell",
+    "fix-scrollbar-styling",
     "funny-dolls-march",
     "handle-empty-tool-arguments"
   ]

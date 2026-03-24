@@ -1,5 +1,15 @@
 # ui
 
+## 1.54.1-next.3
+
+### Patch Changes
+
+- Updated dependencies [9e6a09f]
+  - @copilotkitnext/react@1.54.1-next.3
+  - @copilotkit/runtime-client-gql@1.54.1-next.3
+  - @copilotkit/shared@1.54.1-next.3
+  - @copilotkitnext/core@1.54.1-next.3
+
 ## 1.54.1-next.2
 
 ### Patch Changes

@@ -1,5 +1,11 @@
 # @copilotkit/voice
 
+## 1.54.1-next.3
+
+### Patch Changes
+
+- @copilotkitnext/runtime@1.54.1-next.3
+
 ## 1.54.1-next.2
 
 ### Patch Changes
