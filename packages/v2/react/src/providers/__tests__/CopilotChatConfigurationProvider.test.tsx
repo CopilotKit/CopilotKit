@@ -330,6 +330,35 @@ describe("CopilotChatConfigurationProvider", () => {
       expect(screen.getByTestId("isModalOpen").textContent).toBe("closed");
       expect(screen.getByTestId("hasSetModalOpen").textContent).toBe("yes");
     });
+
+    it("should allow nested provider to override parent modal state with explicit isModalDefaultOpen", () => {
+      function ModalStateDisplay() {
+        const config = useCopilotChatConfiguration();
+        return (
+          <div>
+            <div data-testid="isModalOpen">
+              {config?.isModalOpen ? "open" : "closed"}
+            </div>
+          </div>
+        );
+      }
+
+      render(
+        <CopilotChatConfigurationProvider
+          threadId="outer-thread"
+          isModalDefaultOpen={true}
+        >
+          <CopilotChatConfigurationProvider
+            threadId="inner-thread"
+            isModalDefaultOpen={false}
+          >
+            <ModalStateDisplay />
+          </CopilotChatConfigurationProvider>
+        </CopilotChatConfigurationProvider>,
+      );
+
+      expect(screen.getByTestId("isModalOpen").textContent).toBe("closed");
+    });
   });
 
   describe("Nested providers", () => {

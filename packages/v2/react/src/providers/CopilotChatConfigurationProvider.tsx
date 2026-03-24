@@ -88,9 +88,13 @@ export const CopilotChatConfigurationProvider: React.FC<
   const [internalModalOpen, setInternalModalOpen] =
     useState<boolean>(resolvedDefaultOpen);
 
-  const resolvedIsModalOpen = parentConfig?.isModalOpen ?? internalModalOpen;
-  const resolvedSetModalOpen =
-    parentConfig?.setModalOpen ?? setInternalModalOpen;
+  const hasExplicitDefault = isModalDefaultOpen !== undefined;
+  const resolvedIsModalOpen = hasExplicitDefault
+    ? internalModalOpen
+    : (parentConfig?.isModalOpen ?? internalModalOpen);
+  const resolvedSetModalOpen = hasExplicitDefault
+    ? setInternalModalOpen
+    : (parentConfig?.setModalOpen ?? setInternalModalOpen);
 
   const configurationValue: CopilotChatConfigurationValue = useMemo(
     () => ({
