@@ -242,6 +242,7 @@ describe("useInterrupt", () => {
       forwardedProps: {
         command: {
           resume: { approved: true, value: "approve-me" },
+          interruptEvent: "approve-me",
         },
       },
     });
