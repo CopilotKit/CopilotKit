@@ -48,6 +48,17 @@ import { zodToJsonSchema } from "zod-to-json-schema";
 const HEADER_NAME = "X-CopilotCloud-Public-Api-Key";
 const COPILOT_CLOUD_CHAT_URL = "https://api.cloud.copilotkit.ai/copilotkit/v1";
 
+const DEFAULT_DESIGN_SKILL = `When generating UI with generateSandboxedUi, follow these design principles inspired by shadcn/ui:
+
+- Use a minimal, flat aesthetic. Avoid drop shadows and gradients — rely on subtle borders (1px solid, light gray like #e5e7eb) to define surfaces.
+- Neutral base palette: white backgrounds, zinc/slate gray text (#09090b for headings, #71717a for secondary text). One accent color for interactive elements.
+- Use system font stacks (system-ui, -apple-system, sans-serif) at readable sizes (14px body, 600 weight for headings). Tight line-heights.
+- Small, consistent border-radius (6–8px). Cards and containers use border, not shadow, for separation.
+- Buttons: solid fill for primary (dark bg, white text), outline for secondary (border + transparent bg). Subtle hover state (slight opacity or background shift).
+- Use CSS Grid or Flexbox for layout. Ensure the UI looks good at any width.
+- Minimal transitions (150ms) for hover/focus states only. No decorative animations.
+- Keep the UI focused and dense — avoid excessive padding. Use compact spacing (8–12px gaps, 10–14px padding in controls).`;
+
 // Define the context value interface - idiomatic React naming
 export interface CopilotKitContextValue {
   copilotkit: CopilotKitCoreReact;
@@ -119,6 +130,13 @@ export interface CopilotKitProviderProps {
      * ```
      */
     sandboxFunctions?: SandboxFunction[];
+    /**
+     * Design guidelines injected as agent context for the `generateSandboxedUi` tool.
+     * Override this to control the visual style of generated UIs.
+     *
+     * A sensible default is provided if omitted.
+     */
+    designSkill?: string;
   };
   showDevConsole?: boolean | "auto";
   /**
@@ -579,6 +597,22 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   useEffect(() => {
     didMountRef.current = true;
   }, []);
+
+  // Register design skill as agent context for the generateSandboxedUi tool
+  const designSkill = openGenerativeUI?.designSkill ?? DEFAULT_DESIGN_SKILL;
+
+  useLayoutEffect(() => {
+    if (!copilotkit) return;
+
+    const id = copilotkit.addContext({
+      description:
+        "Design guidelines for the generateSandboxedUi tool. Follow these when building UI.",
+      value: designSkill,
+    });
+    return () => {
+      copilotkit.removeContext(id);
+    };
+  }, [copilotkit, designSkill]);
 
   // Register sandbox functions as agent context so the LLM knows how to call them
   const sandboxFunctionsDescriptors = useMemo(() => {
