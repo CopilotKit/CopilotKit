@@ -174,7 +174,7 @@ Here is the simplest possible A2UI surface - a button:
 CRITICAL: You MUST call the render_a2ui tool with these arguments:
 - surfaceId: A unique ID for the surface (e.g. "product-comparison")
 - components: The A2UI component array (schema). Use a List with
-  template/dataBinding="/items" for repeating cards.
+  children: { componentId: "card-id", path: "/items" } for repeating cards.
 - items: Plain JSON array of data objects that populate the template.
 
 COMPONENT ID RULES:
@@ -185,9 +185,14 @@ COMPONENT ID RULES:
 - The child/children tree must be a DAG — no cycles allowed.
 
 PATH RULES FOR TEMPLATES:
-Components inside a template use RELATIVE paths resolved against each item.
-If List has dataBinding="/items" and item has key "name", use path="/name"
-(NOT "/items/0/name" or "/items/{@key}/name").
+Components inside a repeating List use RELATIVE paths (no leading slash).
+The path is resolved relative to each array item automatically.
+If List has children: { componentId: "card", path: "/items" } and item has key "name",
+use { "path": "name" } (NO leading slash — relative to item).
+CRITICAL: Do NOT use "/name" (absolute) inside templates — use "name" (relative).
+The List's own path ("/items") uses a leading slash (absolute), but all
+components INSIDE the template card use paths WITHOUT leading slash.
+Do NOT use "/items/0/name" or "/items/{@key}/name" — just "name".
 
 DATA FORMAT:
 The "items" key in the tool args should be a plain JSON array of objects.
@@ -221,10 +226,10 @@ Create polished, visually appealing interfaces:
 - Use consistent surfaceIds (lowercase, hyphenated).
 - NEVER use the same ID for a component and its child — this creates a
   circular dependency. E.g. if id="avatar", child must NOT be "avatar".
-- Column does NOT support "justify" — only "align" and "gap".
-  Use justify only on Row components.
+- Both Row and Column support "justify" and "align".
 - Add Button for interactivity. Button needs child (Text ID) + action (event).
-  Context values use path bindings like {"key": "name", "value": {"path": "/name"}}.
+  Use variant="primary" for main action buttons, variant="borderless" for links.
+  Action context is a plain object: {"name": {"path": "name"}, "id": "static-value"}.
 
 ACTION HANDLERS (for button interactivity):
 When you include Button components, also provide an "actionHandlers" argument.

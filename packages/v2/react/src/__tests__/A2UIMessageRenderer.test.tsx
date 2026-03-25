@@ -32,17 +32,18 @@ describe("A2UIMessageRenderer rendering integration", () => {
     const content = {
       a2ui_operations: [
         {
-          beginRendering: {
+          version: "v0.9",
+          createSurface: {
             surfaceId: "test-surface",
-            root: "root",
-            styles: {},
+            catalogId: "https://a2ui.org/specification/v0_9/basic_catalog.json",
           },
         },
         {
-          surfaceUpdate: {
+          version: "v0.9",
+          updateComponents: {
             surfaceId: "test-surface",
             components: [
-              { id: "root", text: { literalString: "Hello World" } },
+              { id: "root", component: "Text", text: "Hello World", variant: "body" },
             ],
           },
         },
@@ -78,11 +79,20 @@ describe("A2UIMessageRenderer rendering integration", () => {
     const TestWrapper = () => {
       const [content, _setContent] = useState({
         a2ui_operations: [
-          { beginRendering: { surfaceId: "test", root: "root", styles: {} } },
           {
-            surfaceUpdate: {
+            version: "v0.9",
+            createSurface: {
               surfaceId: "test",
-              components: [{ id: "root", text: { literalString: "Initial" } }],
+              catalogId: "https://a2ui.org/specification/v0_9/basic_catalog.json",
+            },
+          },
+          {
+            version: "v0.9",
+            updateComponents: {
+              surfaceId: "test",
+              components: [
+                { id: "root", component: "Text", text: "Initial", variant: "body" },
+              ],
             },
           },
         ],
@@ -103,11 +113,20 @@ describe("A2UIMessageRenderer rendering integration", () => {
     await act(async () => {
       setContent({
         a2ui_operations: [
-          { beginRendering: { surfaceId: "test", root: "root", styles: {} } },
           {
-            surfaceUpdate: {
+            version: "v0.9",
+            createSurface: {
               surfaceId: "test",
-              components: [{ id: "root", text: { literalString: "Updated" } }],
+              catalogId: "https://a2ui.org/specification/v0_9/basic_catalog.json",
+            },
+          },
+          {
+            version: "v0.9",
+            updateComponents: {
+              surfaceId: "test",
+              components: [
+                { id: "root", component: "Text", text: "Updated", variant: "body" },
+              ],
             },
           },
         ],
@@ -149,18 +168,36 @@ describe("A2UIMessageRenderer rendering integration", () => {
 
     const content = {
       a2ui_operations: [
-        { beginRendering: { surfaceId: "s1", root: "r1", styles: {} } },
-        { beginRendering: { surfaceId: "s2", root: "r2", styles: {} } },
         {
-          surfaceUpdate: {
+          version: "v0.9",
+          createSurface: {
             surfaceId: "s1",
-            components: [{ id: "r1", text: { literalString: "Surface 1" } }],
+            catalogId: "https://a2ui.org/specification/v0_9/basic_catalog.json",
           },
         },
         {
-          surfaceUpdate: {
+          version: "v0.9",
+          createSurface: {
             surfaceId: "s2",
-            components: [{ id: "r2", text: { literalString: "Surface 2" } }],
+            catalogId: "https://a2ui.org/specification/v0_9/basic_catalog.json",
+          },
+        },
+        {
+          version: "v0.9",
+          updateComponents: {
+            surfaceId: "s1",
+            components: [
+              { id: "root", component: "Text", text: "Surface 1", variant: "body" },
+            ],
+          },
+        },
+        {
+          version: "v0.9",
+          updateComponents: {
+            surfaceId: "s2",
+            components: [
+              { id: "root", component: "Text", text: "Surface 2", variant: "body" },
+            ],
           },
         },
       ],

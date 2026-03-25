@@ -346,11 +346,14 @@ function SurfaceMessageProcessor({
   operations: any[];
 }) {
   const { processMessages } = useA2UIActions();
-  const lastOpsRef = useRef<any[]>([]);
+  const lastHashRef = useRef<string>("");
   useEffect(() => {
-    // Skip if same reference (no change)
-    if (operations === lastOpsRef.current) return;
-    lastOpsRef.current = operations;
+    // Skip if operations haven't actually changed (deep compare via hash).
+    // ACTIVITY_DELTA + ACTIVITY_SNAPSHOT can trigger multiple renders with
+    // the same logical content but different object references.
+    const hash = JSON.stringify(operations);
+    if (hash === lastHashRef.current) return;
+    lastHashRef.current = hash;
 
     // Error handling is done inside A2UIProvider.processMessages
     processMessages(operations);
