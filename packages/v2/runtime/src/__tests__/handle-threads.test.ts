@@ -342,4 +342,51 @@ describe("thread handlers", () => {
 
     expect(response.status).toBe(422);
   });
+
+  it("forwards includeArchived, limit, and cursor query params to listThreads", async () => {
+    const intelligence = {
+      listThreads: vi.fn().mockResolvedValue({
+        threads: [{ id: "thread-1", name: "Hello" }],
+        joinCode: "jc-1",
+        nextCursor: "cursor-xyz",
+      }),
+    };
+    const identifyUser = createIdentifyUser();
+    const runtime = createIntelligenceRuntime({ intelligence, identifyUser });
+    const request = new Request(
+      "https://example.com/threads?agentId=agent-1&includeArchived=true&limit=10&cursor=prev-cursor",
+    );
+
+    const response = await handleListThreads({ runtime, request });
+
+    expect(response.status).toBe(200);
+    expect(intelligence.listThreads).toHaveBeenCalledWith({
+      userId: "user-1",
+      agentId: "agent-1",
+      includeArchived: true,
+      limit: 10,
+      cursor: "prev-cursor",
+    });
+    const body = await response.json();
+    expect(body.nextCursor).toBe("cursor-xyz");
+  });
+
+  it("omits includeArchived, limit, and cursor when not provided", async () => {
+    const intelligence = {
+      listThreads: vi.fn().mockResolvedValue({
+        threads: [],
+        joinCode: "jc-1",
+      }),
+    };
+    const identifyUser = createIdentifyUser();
+    const runtime = createIntelligenceRuntime({ intelligence, identifyUser });
+    const request = new Request("https://example.com/threads?agentId=agent-1");
+
+    await handleListThreads({ runtime, request });
+
+    expect(intelligence.listThreads).toHaveBeenCalledWith({
+      userId: "user-1",
+      agentId: "agent-1",
+    });
+  });
 });

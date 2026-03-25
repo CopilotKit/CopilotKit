@@ -81,6 +81,9 @@ export async function handleListThreads({
   try {
     const url = new URL(request.url);
     const agentId = url.searchParams.get("agentId");
+    const includeArchived = url.searchParams.get("includeArchived") === "true";
+    const limitParam = url.searchParams.get("limit");
+    const cursor = url.searchParams.get("cursor");
     const user = await resolveIntelligenceUser({
       runtime: intelligenceRuntime,
       request,
@@ -94,6 +97,9 @@ export async function handleListThreads({
     const data = await intelligenceRuntime.intelligence.listThreads({
       userId: user.id,
       agentId,
+      ...(includeArchived ? { includeArchived: true } : {}),
+      ...(limitParam ? { limit: Number(limitParam) } : {}),
+      ...(cursor ? { cursor } : {}),
     });
 
     return Response.json(data);
