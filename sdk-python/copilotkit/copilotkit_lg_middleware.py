@@ -103,6 +103,14 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
         if isinstance(app_context, str):
             context_content = app_context
         else:
+            # Handle Pydantic models (e.g. ag_ui Context)
+            if hasattr(app_context, "model_dump"):
+                app_context = app_context.model_dump()
+            elif isinstance(app_context, list):
+                app_context = [
+                    item.model_dump() if hasattr(item, "model_dump") else item
+                    for item in app_context
+                ]
             context_content = json.dumps(app_context, indent=2)
 
         context_message_content = f"App Context:\n{context_content}"

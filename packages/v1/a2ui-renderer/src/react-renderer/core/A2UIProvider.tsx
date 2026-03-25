@@ -57,16 +57,15 @@ export function A2UIProvider({ onAction, theme, catalogs, children }: A2UIProvid
     processorRef.current = new MessageProcessor(
       catalogs ?? [basicCatalog],
       // Action handler: convert v0.9 Action to A2UIClientEventMessage format
-      (action: any, context: any) => {
+      (action: any) => {
         if (onActionRef.current) {
-          const event = action?.event;
           const message: A2UIClientEventMessage = {
             userAction: {
-              name: event?.name ?? "unknown",
-              surfaceId: context?.surface?.id ?? "default",
-              sourceComponentId: context?.componentId,
-              context: event?.context,
-              timestamp: new Date().toISOString(),
+              name: action?.name ?? "unknown",
+              surfaceId: action?.surfaceId ?? "default",
+              sourceComponentId: action?.sourceComponentId,
+              context: action?.context,
+              timestamp: action?.timestamp ?? new Date().toISOString(),
             },
           };
           onActionRef.current(message);
