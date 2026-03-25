@@ -43,7 +43,7 @@
     "zod-to-json-schema": "^3.24.6"
   },
   "dependencies": {
-    "@ag-ui/client": "0.0.47",
+    "@ag-ui/client": "0.0.48",
     "@standard-schema/spec": "^1.1.0",
     "partial-json": "^0.1.7",
     "uuid": "^11.1.0"
