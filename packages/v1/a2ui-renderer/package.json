@@ -46,8 +46,8 @@
     "renderer"
   ],
   "dependencies": {
-    "@a2ui/web_core": "file:../../../../A2UI/renderers/web_core",
-    "@a2ui/react": "file:../../../../A2UI/renderers/react",
+    "@a2ui/web_core": "0.8.0",
+    "@a2ui/react": "0.8.0",
     "clsx": "^2.1.1",
     "zod": "^3.25.75"
   },
