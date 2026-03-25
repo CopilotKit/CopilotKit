@@ -70,7 +70,7 @@ import { CopilotKitIntelligence } from "@copilotkitnext/runtime";
 
 const intelligence = new CopilotKitIntelligence({
   apiKey: process.env.COPILOTKIT_INTELLIGENCE_API_KEY!,
-  tenantId: process.env.COPILOTKIT_INTELLIGENCE_TENANT_ID!,
+  organizationId: process.env.COPILOTKIT_INTELLIGENCE_ORGANIZATION_ID!,
   apiUrl: "https://your-intelligence-host/api",
   wsUrl: "wss://your-intelligence-host/socket",
 });
