@@ -35,6 +35,7 @@ export type CopilotChatProps = Omit<
   threadId?: string;
   labels?: Partial<CopilotChatLabels>;
   chatView?: SlotValue<typeof CopilotChatView>;
+  isModalDefaultOpen?: boolean;
   /**
    * Error handler scoped to this chat's agent. Fires in addition to the
    * provider-level onError (does not suppress it). Receives only errors
@@ -51,6 +52,7 @@ export function CopilotChat({
   threadId,
   labels,
   chatView,
+  isModalDefaultOpen,
   onError,
   ...props
 }: CopilotChatProps) {
@@ -382,6 +384,7 @@ export function CopilotChat({
       agentId={resolvedAgentId}
       threadId={resolvedThreadId}
       labels={labels}
+      isModalDefaultOpen={isModalDefaultOpen}
     >
       {transcriptionError && (
         <div

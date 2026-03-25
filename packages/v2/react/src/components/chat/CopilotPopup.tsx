@@ -54,6 +54,7 @@ export function CopilotPopup({
     <CopilotChat
       welcomeScreen={CopilotPopupView.WelcomeScreen}
       {...chatProps}
+      isModalDefaultOpen={defaultOpen}
       chatView={PopupViewOverride}
     />
   );

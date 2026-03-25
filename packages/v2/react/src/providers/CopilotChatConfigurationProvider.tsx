@@ -1,8 +1,11 @@
 import React, {
   createContext,
+  useCallback,
   useContext,
   ReactNode,
+  useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import { DEFAULT_AGENT_ID, randomUUID } from "@copilotkitnext/shared";
@@ -88,9 +91,44 @@ export const CopilotChatConfigurationProvider: React.FC<
   const [internalModalOpen, setInternalModalOpen] =
     useState<boolean>(resolvedDefaultOpen);
 
-  const resolvedIsModalOpen = parentConfig?.isModalOpen ?? internalModalOpen;
-  const resolvedSetModalOpen =
-    parentConfig?.setModalOpen ?? setInternalModalOpen;
+  const hasExplicitDefault = isModalDefaultOpen !== undefined;
+
+  // When this provider owns its modal state, wrap the setter so that changes
+  // propagate upward to any ancestor provider. This allows an outer
+  // CopilotChatConfigurationProvider (e.g. a user's layout-level provider) to
+  // observe open/close events that originate deep in the tree — fixing the
+  // "outer hook always returns true" regression (CPK-7152 Behavior B).
+  const setAndSync = useCallback(
+    (open: boolean) => {
+      setInternalModalOpen(open);
+      parentConfig?.setModalOpen(open);
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [parentConfig?.setModalOpen],
+  );
+
+  // Sync parent → child: when an ancestor's modal state is changed externally
+  // (e.g. the user calls setModalOpen from an outer hook), reflect that change
+  // in our own state so the sidebar/popup responds accordingly.
+  // Skip the initial mount so that our own isModalDefaultOpen is respected and
+  // not immediately overwritten by the parent's current value.
+  const isMounted = useRef(false);
+  useEffect(() => {
+    if (!hasExplicitDefault) return;
+    if (!isMounted.current) {
+      isMounted.current = true;
+      return;
+    }
+    if (parentConfig?.isModalOpen === undefined) return;
+    setInternalModalOpen(parentConfig.isModalOpen);
+  }, [parentConfig?.isModalOpen, hasExplicitDefault]);
+
+  const resolvedIsModalOpen = hasExplicitDefault
+    ? internalModalOpen
+    : (parentConfig?.isModalOpen ?? internalModalOpen);
+  const resolvedSetModalOpen = hasExplicitDefault
+    ? setAndSync
+    : (parentConfig?.setModalOpen ?? setInternalModalOpen);
 
   const configurationValue: CopilotChatConfigurationValue = useMemo(
     () => ({
