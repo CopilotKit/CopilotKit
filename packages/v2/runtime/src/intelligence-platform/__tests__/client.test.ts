@@ -402,41 +402,55 @@ describe("CopilotKitIntelligence", () => {
       const result = await client.ɵacquireThreadLock({
         threadId: "t-1",
         runId: "r-1",
+        userId: "user-1",
       });
 
       expect(result).toEqual({ joinToken: "jt-lock", joinCode: "jc-lock" });
       const [url, opts] = fetchMock.mock.calls[0];
       expect(url).toBe("https://api.example.com/api/threads/t-1/lock");
       expect(opts.method).toBe("POST");
-      expect(JSON.parse(opts.body)).toEqual({ runId: "r-1" });
+      expect(JSON.parse(opts.body)).toEqual({
+        runId: "r-1",
+        userId: "user-1",
+      });
     });
 
     it("throws when lock is denied", async () => {
       fetchMock.mockReturnValue(jsonResponse("Thread is locked", 409));
       await expect(
-        client.ɵacquireThreadLock({ threadId: "t-1", runId: "r-1" }),
+        client.ɵacquireThreadLock({
+          threadId: "t-1",
+          runId: "r-1",
+          userId: "user-1",
+        }),
       ).rejects.toThrow(/409/);
     });
   });
 
   describe("getActiveJoinCode", () => {
-    it("sends GET to join-code endpoint and returns thread connection credentials", async () => {
+    it("sends GET to join-code endpoint with userId query param and returns thread connection credentials", async () => {
       fetchMock.mockReturnValue(
         jsonResponse({ joinToken: "jt-active", joinCode: "jc-active" }),
       );
 
-      const result = await client.ɵgetActiveJoinCode({ threadId: "t-1" });
+      const result = await client.ɵgetActiveJoinCode({
+        threadId: "t-1",
+        userId: "user-1",
+      });
 
       expect(result).toEqual({ joinToken: "jt-active", joinCode: "jc-active" });
       const [url, opts] = fetchMock.mock.calls[0];
-      expect(url).toBe("https://api.example.com/api/threads/t-1/join-code");
+      expect(url).toBe(
+        "https://api.example.com/api/threads/t-1/join-code?userId=user-1",
+      );
       expect(opts.method).toBe("GET");
+      expect(opts.body).toBeUndefined();
     });
 
     it("throws when no active join code exists", async () => {
       fetchMock.mockReturnValue(jsonResponse("Not found", 404));
       await expect(
-        client.ɵgetActiveJoinCode({ threadId: "t-1" }),
+        client.ɵgetActiveJoinCode({ threadId: "t-1", userId: "user-1" }),
       ).rejects.toThrow(/404/);
     });
   });
@@ -539,6 +553,7 @@ describe("CopilotKitIntelligence", () => {
 
       const result = await client.ɵconnectThread({
         threadId: "t-1",
+        userId: "user-1",
         lastSeenEventId: "event-1",
       });
 
@@ -546,7 +561,10 @@ describe("CopilotKitIntelligence", () => {
       const [url, opts] = fetchMock.mock.calls[0];
       expect(url).toBe("https://api.example.com/api/threads/t-1/connect");
       expect(opts.method).toBe("POST");
-      expect(JSON.parse(opts.body)).toEqual({ lastSeenEventId: "event-1" });
+      expect(JSON.parse(opts.body)).toEqual({
+        userId: "user-1",
+        lastSeenEventId: "event-1",
+      });
     });
 
     it("returns a bootstrap connect plan", async () => {
@@ -559,6 +577,7 @@ describe("CopilotKitIntelligence", () => {
 
       const result = await client.ɵconnectThread({
         threadId: "t-1",
+        userId: "user-1",
         lastSeenEventId: "event-1",
       });
 
@@ -576,6 +595,7 @@ describe("CopilotKitIntelligence", () => {
 
       const result = await client.ɵconnectThread({
         threadId: "t-1",
+        userId: "user-1",
         lastSeenEventId: "event-2",
       });
 
