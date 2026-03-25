@@ -138,7 +138,8 @@ const agent = new BuiltInAgent({
 | `maxRetries` | `number` | — | Retry count |
 | `prompt` | `string` | — | System prompt |
 | `tools` | `ToolDefinition[]` | `[]` | Server-side tools |
-| `mcpServers` | `MCPClientConfig[]` | `[]` | MCP server connections |
+| `mcpServers` | `MCPClientConfig[]` | `[]` | MCP server connections (agent-managed, per-request) |
+| `mcpClients` | `MCPClientProvider[]` | `[]` | User-managed MCP clients (persistent, user controls lifecycle) |
 | `overridableProperties` | `string[]` | `[]` | Properties the frontend can override |
 | `providerOptions` | `Record<string, any>` | — | Provider-specific options |
 | `forwardSystemMessages` | `boolean` | `false` | Forward system messages |

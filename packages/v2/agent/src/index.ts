@@ -153,6 +153,19 @@ export interface MCPClientConfigSSE {
 export type MCPClientConfig = MCPClientConfigHTTP | MCPClientConfigSSE;
 
 /**
+ * A user-managed MCP client that provides tools to the agent.
+ * The user is responsible for creating, configuring, and closing the client.
+ * Compatible with the return type of @ai-sdk/mcp's createMCPClient().
+ *
+ * Unlike mcpServers, the agent does NOT create or close these clients.
+ * This allows persistent connections, custom auth, and tool caching.
+ */
+export interface MCPClientProvider {
+  /** Return tools to be merged into the agent's tool set. */
+  tools(): Promise<ToolSet>;
+}
+
+/**
  * Resolves a model specifier to a LanguageModel instance
  * @param spec - Model string (e.g., "openai/gpt-4o") or LanguageModel instance
  * @param apiKey - Optional API key to use instead of environment variables
@@ -607,6 +620,18 @@ export interface BuiltInAgentConfiguration {
    */
   mcpServers?: MCPClientConfig[];
   /**
+   * Optional list of user-managed MCP clients.
+   * Unlike mcpServers, the agent does NOT create or close these clients.
+   * The user controls the lifecycle, persistence, auth, and caching.
+   *
+   * Compatible with @ai-sdk/mcp's createMCPClient() return type:
+   * ```typescript
+   * const client = await createMCPClient({ transport });
+   * const agent = new BuiltInAgent({ model: "...", mcpClients: [client] });
+   * ```
+   */
+  mcpClients?: MCPClientProvider[];
+  /**
    * Optional tools available to the agent
    */
   tools?: ToolDefinition[];
@@ -893,6 +918,17 @@ export class BuiltInAgent extends AbstractAgent {
               },
             }),
           };
+
+          // Merge tools from user-managed MCP clients (user controls lifecycle)
+          if (this.config.mcpClients && this.config.mcpClients.length > 0) {
+            for (const client of this.config.mcpClients) {
+              const mcpTools = await client.tools();
+              streamTextParams.tools = {
+                ...streamTextParams.tools,
+                ...mcpTools,
+              } as ToolSet;
+            }
+          }
 
           // Initialize MCP clients and get their tools
           if (this.config.mcpServers && this.config.mcpServers.length > 0) {
