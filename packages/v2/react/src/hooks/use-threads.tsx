@@ -29,12 +29,10 @@ export interface Thread extends CoreThread {}
 /**
  * Configuration for the {@link useThreads} hook.
  *
- * Both fields are required — they scope the thread list and all mutations
- * to a specific user/agent pair on the Intelligence platform.
+ * Thread operations are scoped to the runtime-authenticated user and the
+ * provided agent on the Intelligence platform.
  */
 export interface UseThreadsInput {
-  /** The ID of the current user. Thread queries and mutations are scoped to this user. */
-  userId: string;
   /** The ID of the agent whose threads to list and manage. */
   agentId: string;
   /** When `true`, archived threads are included in the list. Defaults to `false`. */
@@ -120,17 +118,17 @@ function useThreadStoreSelector<T>(
 /**
  * React hook for listing and managing Intelligence platform threads.
  *
- * On mount the hook fetches the thread list for the given `userId`/`agentId`
- * pair. When the Intelligence platform exposes a WebSocket URL, it also opens
- * a realtime subscription so the `threads` array stays current without
- * polling — thread creates, renames, archives, and deletes from any client
- * are reflected immediately.
+ * On mount the hook fetches the thread list for the runtime-authenticated user
+ * and the given `agentId`. When the Intelligence platform exposes a WebSocket
+ * URL, it also opens a realtime subscription so the `threads` array stays
+ * current without polling — thread creates, renames, archives, and deletes
+ * from any client are reflected immediately.
  *
  * Mutation methods (`renameThread`, `archiveThread`, `deleteThread`) return
  * promises that resolve once the platform confirms the operation and reject
  * with an `Error` on failure.
  *
- * @param input - User and agent identifiers that scope the thread list.
+ * @param input - Agent identifier and optional list controls.
  * @returns Thread list state and stable mutation callbacks.
  *
  * @example
@@ -139,7 +137,6 @@ function useThreadStoreSelector<T>(
  *
  * function ThreadList() {
  *   const { threads, isLoading, renameThread, deleteThread } = useThreads({
- *     userId: "user-1",
  *     agentId: "agent-1",
  *   });
  *
@@ -160,7 +157,6 @@ function useThreadStoreSelector<T>(
  * ```
  */
 export function useThreads({
-  userId,
   agentId,
   includeArchived,
   limit,
@@ -211,7 +207,6 @@ export function useThreads({
           runtimeUrl: copilotkit.runtimeUrl,
           headers: { ...copilotkit.headers },
           wsUrl: copilotkit.intelligence?.wsUrl,
-          userId,
           agentId,
           includeArchived,
           limit,
@@ -224,7 +219,6 @@ export function useThreads({
     copilotkit.runtimeUrl,
     headersKey,
     copilotkit.intelligence?.wsUrl,
-    userId,
     agentId,
     copilotkit.headers,
     includeArchived,

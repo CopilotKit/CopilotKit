@@ -212,6 +212,7 @@ export interface ThreadMessagesResponse {
 export interface AcquireThreadLockRequest {
   threadId: string;
   runId: string;
+  userId: string;
 }
 
 interface ThreadEnvelope {
@@ -595,26 +596,30 @@ export class CopilotKitIntelligence {
     return this.#request<ThreadConnectionResponse>(
       "POST",
       `/api/threads/${encodeURIComponent(params.threadId)}/lock`,
-      { runId: params.runId },
+      { runId: params.runId, userId: params.userId },
     );
   }
 
   async ɵgetActiveJoinCode(params: {
     threadId: string;
+    userId: string;
   }): Promise<ThreadConnectionResponse> {
+    const qs = new URLSearchParams({ userId: params.userId }).toString();
     return this.#request<ThreadConnectionResponse>(
       "GET",
-      `/api/threads/${encodeURIComponent(params.threadId)}/join-code`,
+      `/api/threads/${encodeURIComponent(params.threadId)}/join-code?${qs}`,
     );
   }
 
   async ɵconnectThread(params: {
     threadId: string;
+    userId: string;
     lastSeenEventId?: string | null;
   }): Promise<ConnectThreadResponse> {
     const result = await this.#request<
       ConnectThreadBootstrapResponse | ConnectThreadLiveResponse
     >("POST", `/api/threads/${encodeURIComponent(params.threadId)}/connect`, {
+      userId: params.userId,
       ...(params.lastSeenEventId !== undefined
         ? { lastSeenEventId: params.lastSeenEventId }
         : {}),

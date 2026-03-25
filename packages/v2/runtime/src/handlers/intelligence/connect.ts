@@ -1,14 +1,18 @@
 import { CopilotIntelligenceRuntimeLike } from "../../runtime";
 import { isPlatformNotFoundError } from "../shared/intelligence-utils";
+import { resolveIntelligenceUser } from "../shared/resolve-intelligence-user";
+import { isHandlerResponse } from "../shared/json-response";
 
 interface HandleIntelligenceConnectParams {
   runtime: CopilotIntelligenceRuntimeLike;
+  request: Request;
   threadId: string;
   lastSeenEventId: string | null;
 }
 
 export async function handleIntelligenceConnect({
   runtime,
+  request,
   threadId,
   lastSeenEventId,
 }: HandleIntelligenceConnectParams): Promise<Response> {
@@ -23,8 +27,14 @@ export async function handleIntelligenceConnect({
   }
 
   try {
+    const user = await resolveIntelligenceUser({ runtime, request });
+    if (isHandlerResponse(user)) {
+      return user;
+    }
+
     const result = await runtime.intelligence.ɵconnectThread({
       threadId,
+      userId: user.id,
       lastSeenEventId,
     });
 
