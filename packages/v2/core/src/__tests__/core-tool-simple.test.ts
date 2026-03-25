@@ -37,7 +37,7 @@ describe("CopilotKitCore Tool Simple", () => {
 
     expect(tool.handler).toHaveBeenCalledWith(
       { input: "test" },
-      {
+      expect.objectContaining({
         toolCall: expect.objectContaining({
           id: expect.any(String),
           function: expect.objectContaining({
@@ -48,7 +48,7 @@ describe("CopilotKitCore Tool Simple", () => {
         agent: expect.objectContaining({
           agentId: "test",
         }),
-      },
+      }),
     );
     expect(agent.messages.length).toBeGreaterThan(0);
   });

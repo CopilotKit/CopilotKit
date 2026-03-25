@@ -123,6 +123,8 @@ export interface ListThreadsResponse {
   joinCode: string;
   /** Short-lived token for authenticating the realtime subscription. */
   joinToken?: string;
+  /** Opaque cursor for fetching the next page. `null` or absent when there are no more pages. */
+  nextCursor?: string | null;
 }
 
 /**
@@ -394,9 +396,20 @@ export class CopilotKitIntelligence {
   async listThreads(params: {
     userId: string;
     agentId: string;
+    includeArchived?: boolean;
+    limit?: number;
+    cursor?: string;
   }): Promise<ListThreadsResponse> {
-    const query = new URLSearchParams(params).toString();
-    return this.#request<ListThreadsResponse>("GET", `/api/threads?${query}`);
+    const query: Record<string, string> = {
+      userId: params.userId,
+      agentId: params.agentId,
+    };
+    if (params.includeArchived) query.includeArchived = "true";
+    if (params.limit != null) query.limit = String(params.limit);
+    if (params.cursor) query.cursor = params.cursor;
+
+    const qs = new URLSearchParams(query).toString();
+    return this.#request<ListThreadsResponse>("GET", `/api/threads?${qs}`);
   }
 
   async ɵsubscribeToThreads(
