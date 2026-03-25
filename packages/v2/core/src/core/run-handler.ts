@@ -193,15 +193,23 @@ export class RunHandler {
     } catch (error) {
       const connectError =
         error instanceof Error ? error : new Error(String(error));
-      const context: Record<string, any> = {};
-      if (agent.agentId) {
-        context.agentId = agent.agentId;
+      // Silently ignore abort errors (e.g. from navigation during active requests)
+      const isAbort =
+        connectError.name === "AbortError" ||
+        connectError.message === "Fetch is aborted" ||
+        connectError.message === "signal is aborted without reason" ||
+        connectError.message === "component unmounted";
+      if (!isAbort) {
+        const context: Record<string, any> = {};
+        if (agent.agentId) {
+          context.agentId = agent.agentId;
+        }
+        await this._internal.emitError({
+          error: connectError,
+          code: CopilotKitCoreErrorCode.AGENT_CONNECT_FAILED,
+          context,
+        });
       }
-      await this._internal.emitError({
-        error: connectError,
-        code: CopilotKitCoreErrorCode.AGENT_CONNECT_FAILED,
-        context,
-      });
       return { newMessages: [] };
     }
   }

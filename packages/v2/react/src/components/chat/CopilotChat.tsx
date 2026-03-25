@@ -154,7 +154,11 @@ export function CopilotChat({
       // This is critical for React StrictMode which unmounts+remounts in dev,
       // preventing duplicate /connect requests from reaching the server.
       detached = true;
-      connectAbortController.abort();
+      try {
+        connectAbortController.abort("component unmounted");
+      } catch {
+        // Ignore abort errors during cleanup
+      }
       agent.detachActiveRun();
     };
     // copilotkit is intentionally excluded — it is a stable ref that never changes.

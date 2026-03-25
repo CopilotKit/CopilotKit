@@ -77,6 +77,17 @@ export function CopilotListeners() {
   useEffect(() => {
     const subscriber: CopilotKitCoreSubscriber = {
       onError: ({ error, code, context }) => {
+        // Silently ignore abort errors (e.g. from navigation during active requests)
+        if (
+          error.name === "AbortError" ||
+          error.message === "Fetch is aborted" ||
+          error.message === "signal is aborted without reason" ||
+          error.message === "component unmounted" ||
+          !error.message
+        ) {
+          return;
+        }
+
         // Always log full error details in development
         if (process.env.NODE_ENV === "development") {
           console.error(
