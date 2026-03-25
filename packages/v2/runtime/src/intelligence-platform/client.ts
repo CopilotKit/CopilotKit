@@ -331,8 +331,6 @@ export class CopilotKitIntelligence {
   async #request<T>(method: string, path: string, body?: unknown): Promise<T> {
     const url = `${this.#apiUrl}${path}`;
 
-    console.log(url);
-
     const headers: Record<string, string> = {
       Authorization: `Bearer ${this.#apiKey}`,
       "Content-Type": "application/json",
