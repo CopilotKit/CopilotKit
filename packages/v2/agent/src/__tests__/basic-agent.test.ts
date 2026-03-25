@@ -203,6 +203,146 @@ describe("BasicAgent", () => {
       // Verify that the valid ID from provider is used
       expect(textEvents[0].messageId).toBe(validId);
     });
+
+    it("should preserve near-miss provider messageIds like 'txt-abc123'", async () => {
+      const agent = new BasicAgent({
+        model: "openai/gpt-4o",
+      });
+
+      const validId = "txt-abc123";
+      vi.mocked(streamText).mockReturnValue(
+        mockStreamTextResponse([
+          textStart(validId),
+          textDelta("Test message"),
+          finish(),
+        ]) as any,
+      );
+
+      const input: RunAgentInput = {
+        threadId: "thread1",
+        runId: "run1",
+        messages: [],
+        tools: [],
+        context: [],
+        state: {},
+      };
+
+      const events = await collectEvents(agent["run"](input));
+
+      const textEvents = events.filter(
+        (e: any) => e.type === EventType.TEXT_MESSAGE_CHUNK,
+      );
+      expect(textEvents).toHaveLength(1);
+      expect(textEvents[0].messageId).toBe(validId);
+    });
+
+    it("should preserve near-miss IDs like 'msg-0' that don't match the default provider pattern", async () => {
+      const agent = new BasicAgent({
+        model: "openai/gpt-4o",
+      });
+
+      // "msg-0" does NOT match DEFAULT_PROVIDER_ID_PATTERN — only "txt-N" and
+      // "reasoning-N" prefixes are recognised, so this ID should be kept as-is.
+      const validId = "msg-0";
+      vi.mocked(streamText).mockReturnValue(
+        mockStreamTextResponse([
+          textStart(validId),
+          textDelta("Test message"),
+          finish(),
+        ]) as any,
+      );
+
+      const input: RunAgentInput = {
+        threadId: "thread1",
+        runId: "run1",
+        messages: [],
+        tools: [],
+        context: [],
+        state: {},
+      };
+
+      const events = await collectEvents(agent["run"](input));
+
+      const textEvents = events.filter(
+        (e: any) => e.type === EventType.TEXT_MESSAGE_CHUNK,
+      );
+      expect(textEvents).toHaveLength(1);
+      // "msg-0" is not a recognised default-provider pattern — it must be preserved.
+      expect(textEvents[0].messageId).toBe(validId);
+    });
+
+    it("should replace multi-digit numeric IDs like '42' (bare numeric is a default-provider pattern)", async () => {
+      const agent = new BasicAgent({
+        model: "openai/gpt-4o",
+      });
+
+      // Any purely numeric string matches DEFAULT_PROVIDER_ID_PATTERN (\d+) and
+      // must be replaced with a UUID to prevent collisions across responses.
+      vi.mocked(streamText).mockReturnValue(
+        mockStreamTextResponse([
+          textStart("42"),
+          textDelta("Test message"),
+          finish(),
+        ]) as any,
+      );
+
+      const input: RunAgentInput = {
+        threadId: "thread1",
+        runId: "run1",
+        messages: [],
+        tools: [],
+        context: [],
+        state: {},
+      };
+
+      const events = await collectEvents(agent["run"](input));
+
+      const textEvents = events.filter(
+        (e: any) => e.type === EventType.TEXT_MESSAGE_CHUNK,
+      );
+      expect(textEvents).toHaveLength(1);
+      // "42" is a bare numeric string — it must be replaced with a UUID.
+      expect(textEvents[0].messageId).not.toBe("42");
+      expect(textEvents[0].messageId).toMatch(
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
+      );
+    });
+
+    it("should generate unique messageId when provider returns default pattern IDs like 'txt-0'", async () => {
+      const agent = new BasicAgent({
+        model: "openai/gpt-4o",
+      });
+
+      vi.mocked(streamText).mockReturnValue(
+        mockStreamTextResponse([
+          textStart("txt-0"), // Simulate @ai-sdk/openai-compatible default ID
+          textDelta("First message"),
+          finish(),
+        ]) as any,
+      );
+
+      const input: RunAgentInput = {
+        threadId: "thread1",
+        runId: "run1",
+        messages: [],
+        tools: [],
+        context: [],
+        state: {},
+      };
+
+      const events = await collectEvents(agent["run"](input));
+
+      const textEvents = events.filter(
+        (e: any) => e.type === EventType.TEXT_MESSAGE_CHUNK,
+      );
+      expect(textEvents).toHaveLength(1);
+
+      // "txt-0" should be treated as a default ID and replaced with UUID
+      expect(textEvents[0].messageId).not.toBe("txt-0");
+      expect(textEvents[0].messageId).toMatch(
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
+      );
+    });
   });
 
   describe("Tool Call Events", () => {
@@ -1019,6 +1159,93 @@ describe("BasicAgent", () => {
       expect(reasoningEvent.messageId).not.toBe("0");
       expect(reasoningEvent.messageId).toMatch(
         /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
+      );
+    });
+
+    it("should generate unique reasoningMessageId when provider returns 'reasoning-0'", async () => {
+      const agent = new BasicAgent({
+        model: "openai/gpt-4o",
+      });
+
+      vi.mocked(streamText).mockReturnValue(
+        mockStreamTextResponse([
+          reasoningStart("reasoning-0"), // Simulate @ai-sdk/openai-compatible default ID
+          reasoningDelta("content"),
+          reasoningEnd(),
+          finish(),
+        ]) as any,
+      );
+
+      const input: RunAgentInput = {
+        threadId: "thread1",
+        runId: "run1",
+        messages: [],
+        tools: [],
+        context: [],
+        state: {},
+      };
+
+      const events = await collectEvents(agent["run"](input));
+
+      const reasoningEvent = events.find(
+        (e: any) => e.type === EventType.REASONING_START,
+      );
+      // "reasoning-0" should be treated as a default ID and replaced with UUID
+      expect(reasoningEvent.messageId).not.toBe("reasoning-0");
+      expect(reasoningEvent.messageId).toMatch(
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
+      );
+    });
+
+    it("should generate distinct reasoningMessageIds for consecutive default provider ids", async () => {
+      const agent = new BasicAgent({
+        model: "openai/gpt-4o",
+      });
+
+      vi.mocked(streamText).mockReturnValue(
+        mockStreamTextResponse([
+          reasoningStart("reasoning-0"),
+          reasoningDelta("first"),
+          reasoningEnd(),
+          reasoningStart("reasoning-1"),
+          reasoningDelta("second"),
+          reasoningEnd(),
+          finish(),
+        ]) as any,
+      );
+
+      const input: RunAgentInput = {
+        threadId: "thread1",
+        runId: "run1",
+        messages: [],
+        tools: [],
+        context: [],
+        state: {},
+      };
+
+      const events = await collectEvents(agent["run"](input));
+
+      const reasoningStartEvents = events.filter(
+        (e: any) => e.type === EventType.REASONING_START,
+      );
+      expect(reasoningStartEvents).toHaveLength(2);
+
+      const reasoningIds = reasoningStartEvents.map((e: any) => e.messageId);
+      expect(reasoningIds[0]).not.toBe("reasoning-0");
+      expect(reasoningIds[1]).not.toBe("reasoning-1");
+      expect(reasoningIds[0]).not.toBe(reasoningIds[1]);
+
+      for (const reasoningId of reasoningIds) {
+        expect(reasoningId).toMatch(
+          /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
+        );
+      }
+
+      const reasoningEndEvents = events.filter(
+        (e: any) => e.type === EventType.REASONING_END,
+      );
+      expect(reasoningEndEvents.map((e: any) => e.messageId)).toEqual(
+        reasoningIds,
       );
     });
 
