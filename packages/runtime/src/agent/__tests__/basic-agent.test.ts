@@ -1047,10 +1047,11 @@ describe("BasicAgent", () => {
 
       const events = await collectEvents(agent["run"](input));
 
-      const contentEvent = events.find(
+      // Empty delta must NOT be emitted — EventSchemas rejects delta: ""
+      const contentEvents = events.filter(
         (e: any) => e.type === EventType.REASONING_MESSAGE_CONTENT,
       );
-      expect(contentEvent).toMatchObject({ delta: "" });
+      expect(contentEvents).toHaveLength(0);
 
       // Full lifecycle should still complete
       const eventTypes = events.map((e: any) => e.type);
@@ -1100,6 +1101,154 @@ describe("BasicAgent", () => {
       expect(reasoningContentEvents[0]).toMatchObject({
         delta: "Deep thought",
       });
+    });
+
+    it("should skip empty reasoning deltas and continue stream", async () => {
+      const agent = new BasicAgent({
+        model: "openai/gpt-4o",
+      });
+
+      vi.mocked(streamText).mockReturnValue(
+        mockStreamTextResponse([
+          reasoningStart(),
+          reasoningDelta(""),
+          reasoningEnd(),
+          finish(),
+        ]) as any,
+      );
+
+      const input: RunAgentInput = {
+        threadId: "thread1",
+        runId: "run1",
+        messages: [],
+        tools: [],
+        context: [],
+        state: {},
+      };
+
+      const events = await collectEvents(agent["run"](input));
+
+      // No REASONING_MESSAGE_CONTENT events — empty delta skipped
+      const contentEvents = events.filter(
+        (e: any) => e.type === EventType.REASONING_MESSAGE_CONTENT,
+      );
+      expect(contentEvents).toHaveLength(0);
+
+      // Stream still completes with RUN_FINISHED
+      const eventTypes = events.map((e: any) => e.type);
+      expect(eventTypes[eventTypes.length - 1]).toBe(EventType.RUN_FINISHED);
+    });
+
+    it("should auto-close reasoning when SDK omits reasoning-end before tool call", async () => {
+      const agent = new BasicAgent({
+        model: "openai/gpt-4o",
+      });
+
+      vi.mocked(streamText).mockReturnValue(
+        mockStreamTextResponse([
+          reasoningStart(),
+          reasoningDelta("Thinking..."),
+          // NO reasoningEnd() — simulates @ai-sdk/anthropic behaviour
+          toolCallStreamingStart("call1", "testTool"),
+          toolCallDelta("call1", '{"arg":"val"}'),
+          toolCall("call1", "testTool", { arg: "val" }),
+          toolResult("call1", "testTool", { result: "success" }),
+          finish(),
+        ]) as any,
+      );
+
+      const input: RunAgentInput = {
+        threadId: "thread1",
+        runId: "run1",
+        messages: [],
+        tools: [],
+        context: [],
+        state: {},
+      };
+
+      const events = await collectEvents(agent["run"](input));
+      const eventTypes = events.map((e: any) => e.type);
+
+      // REASONING_END must appear before TOOL_CALL_START
+      const reasoningEndIdx = eventTypes.indexOf(EventType.REASONING_END);
+      const toolCallStartIdx = eventTypes.indexOf(EventType.TOOL_CALL_START);
+      expect(reasoningEndIdx).toBeGreaterThan(0);
+      expect(reasoningEndIdx).toBeLessThan(toolCallStartIdx);
+
+      // Stream still completes with RUN_FINISHED
+      expect(eventTypes[eventTypes.length - 1]).toBe(EventType.RUN_FINISHED);
+    });
+
+    it("should auto-close reasoning when SDK omits reasoning-end before text", async () => {
+      const agent = new BasicAgent({
+        model: "openai/gpt-4o",
+      });
+
+      vi.mocked(streamText).mockReturnValue(
+        mockStreamTextResponse([
+          reasoningStart(),
+          reasoningDelta("Let me think"),
+          // NO reasoningEnd() — simulates @ai-sdk/anthropic behaviour
+          textStart(),
+          textDelta("Answer"),
+          finish(),
+        ]) as any,
+      );
+
+      const input: RunAgentInput = {
+        threadId: "thread1",
+        runId: "run1",
+        messages: [],
+        tools: [],
+        context: [],
+        state: {},
+      };
+
+      const events = await collectEvents(agent["run"](input));
+      const eventTypes = events.map((e: any) => e.type);
+
+      // REASONING_END must appear before TEXT_MESSAGE_CHUNK
+      const reasoningEndIdx = eventTypes.indexOf(EventType.REASONING_END);
+      const textChunkIdx = eventTypes.indexOf(EventType.TEXT_MESSAGE_CHUNK);
+      expect(reasoningEndIdx).toBeGreaterThan(0);
+      expect(reasoningEndIdx).toBeLessThan(textChunkIdx);
+
+      // Stream still completes with RUN_FINISHED
+      expect(eventTypes[eventTypes.length - 1]).toBe(EventType.RUN_FINISHED);
+    });
+
+    it("should auto-close reasoning when SDK omits reasoning-end before finish", async () => {
+      const agent = new BasicAgent({
+        model: "openai/gpt-4o",
+      });
+
+      vi.mocked(streamText).mockReturnValue(
+        mockStreamTextResponse([
+          reasoningStart(),
+          reasoningDelta("Deep thought"),
+          // NO reasoningEnd() — simulates @ai-sdk/anthropic behaviour
+          finish(),
+        ]) as any,
+      );
+
+      const input: RunAgentInput = {
+        threadId: "thread1",
+        runId: "run1",
+        messages: [],
+        tools: [],
+        context: [],
+        state: {},
+      };
+
+      const events = await collectEvents(agent["run"](input));
+      const eventTypes = events.map((e: any) => e.type);
+
+      // REASONING_END must be emitted (auto-closed by finish case)
+      expect(eventTypes).toContain(EventType.REASONING_END);
+      expect(eventTypes).toContain(EventType.REASONING_MESSAGE_END);
+
+      // Stream still completes with RUN_FINISHED
+      expect(eventTypes[eventTypes.length - 1]).toBe(EventType.RUN_FINISHED);
     });
 
     it("should handle reasoning interleaved with tool calls", async () => {
