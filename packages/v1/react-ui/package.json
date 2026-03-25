@@ -10,7 +10,7 @@
     "access": "public"
   },
   "type": "module",
-  "version": "1.54.1-next.4",
+  "version": "1.54.1-next.5",
   "sideEffects": [
     "**/*.css"
   ],

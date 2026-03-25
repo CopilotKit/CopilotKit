@@ -1,5 +1,14 @@
 # @copilotkit/runtime
 
+## 1.54.1-next.5
+
+### Patch Changes
+
+- c62c5c8: custom mcpClients configuration
+  - @copilotkit/shared@1.54.1-next.5
+  - @copilotkitnext/agent@1.54.1-next.5
+  - @copilotkitnext/runtime@1.54.1-next.5
+
 ## 1.54.1-next.4
 
 ### Patch Changes
