@@ -1,7 +1,7 @@
 import { useCopilotKit } from "@/providers/CopilotKitProvider";
 import { useMemo, useEffect, useReducer, useRef } from "react";
 import { DEFAULT_AGENT_ID } from "@copilotkitnext/shared";
-import { AbstractAgent } from "@ag-ui/client";
+import { AbstractAgent, HttpAgent } from "@ag-ui/client";
 import {
   ProxiedCopilotRuntimeAgent,
   CopilotKitCoreRuntimeConnectionStatus,
@@ -21,10 +21,31 @@ const ALL_UPDATES: UseAgentUpdate[] = [
 
 export interface UseAgentProps {
   agentId?: string;
+  threadId?: string;
   updates?: UseAgentUpdate[];
 }
 
-export function useAgent({ agentId, updates }: UseAgentProps = {}) {
+/**
+ * Clone a registry agent for per-thread isolation.
+ * Copies agent configuration (transport, headers, etc.) but resets conversation
+ * state (messages, threadId, state) so each thread starts fresh.
+ */
+function cloneForThread(
+  source: AbstractAgent,
+  threadId: string,
+  headers: Record<string, string>,
+): AbstractAgent {
+  const clone = source.clone();
+  clone.threadId = threadId;
+  clone.setMessages([]);
+  clone.setState({});
+  if (clone instanceof HttpAgent) {
+    clone.headers = { ...headers };
+  }
+  return clone;
+}
+
+export function useAgent({ agentId, threadId, updates }: UseAgentProps = {}) {
   agentId ??= DEFAULT_AGENT_ID;
 
   const { copilotkit } = useCopilotKit();
@@ -42,12 +63,37 @@ export function useAgent({ agentId, updates }: UseAgentProps = {}) {
     new Map(),
   );
 
+  // When threadId is provided, each (agentId, threadId) pair gets its own
+  // cloned agent instance so that messages and state are isolated.
+  const threadAgentCache = useRef<Map<string, AbstractAgent>>(new Map());
+
   const agent: AbstractAgent = useMemo(() => {
+    // Use a composite key when threadId is provided so that different threads
+    // for the same agent get independent instances.
+    const cacheKey = threadId ? `${agentId}:${threadId}` : agentId;
+
     const existing = copilotkit.getAgent(agentId);
     if (existing) {
-      // Real agent found — clear any cached provisional for this ID
-      provisionalAgentCache.current.delete(agentId);
-      return existing;
+      // Real agent found — clear any cached provisional for this key
+      provisionalAgentCache.current.delete(cacheKey);
+
+      if (!threadId) {
+        // No threadId — return the shared registry agent (original behavior)
+        return existing;
+      }
+
+      // threadId provided — return a per-thread clone
+      const cached = threadAgentCache.current.get(cacheKey);
+      if (cached) {
+        if (cached instanceof HttpAgent) {
+          cached.headers = { ...copilotkit.headers };
+        }
+        return cached;
+      }
+
+      const clone = cloneForThread(existing, threadId, copilotkit.headers);
+      threadAgentCache.current.set(cacheKey, clone);
+      return clone;
     }
 
     const isRuntimeConfigured = copilotkit.runtimeUrl !== undefined;
@@ -60,7 +106,7 @@ export function useAgent({ agentId, updates }: UseAgentProps = {}) {
         status === CopilotKitCoreRuntimeConnectionStatus.Connecting)
     ) {
       // Return cached provisional if available (keeps reference stable)
-      const cached = provisionalAgentCache.current.get(agentId);
+      const cached = provisionalAgentCache.current.get(cacheKey);
       if (cached) {
         // Update headers on the cached agent in case they changed
         cached.headers = { ...copilotkit.headers };
@@ -75,7 +121,10 @@ export function useAgent({ agentId, updates }: UseAgentProps = {}) {
       });
       // Apply current headers so runs/connects inherit them
       provisional.headers = { ...copilotkit.headers };
-      provisionalAgentCache.current.set(agentId, provisional);
+      if (threadId) {
+        provisional.threadId = threadId;
+      }
+      provisionalAgentCache.current.set(cacheKey, provisional);
       return provisional;
     }
 
@@ -95,6 +144,9 @@ export function useAgent({ agentId, updates }: UseAgentProps = {}) {
         runtimeMode: "pending",
       });
       provisional.headers = { ...copilotkit.headers };
+      if (threadId) {
+        provisional.threadId = threadId;
+      }
       return provisional;
     }
 
@@ -113,6 +165,7 @@ export function useAgent({ agentId, updates }: UseAgentProps = {}) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     agentId,
+    threadId,
     copilotkit.agents,
     copilotkit.runtimeConnectionStatus,
     copilotkit.runtimeUrl,

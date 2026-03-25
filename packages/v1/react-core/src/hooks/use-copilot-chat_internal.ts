@@ -337,7 +337,10 @@ export function useCopilotChatInternal({
 
   // Apply priority: props > existing config > defaults
   const resolvedAgentId = existingConfig?.agentId ?? "default";
-  const { agent } = useAgent({ agentId: resolvedAgentId });
+  const { agent } = useAgent({
+    agentId: resolvedAgentId,
+    threadId: existingConfig?.threadId,
+  });
 
   useEffect(() => {
     let detached = false;
@@ -372,12 +375,9 @@ export function useCopilotChatInternal({
     };
     if (
       agent &&
-      existingConfig?.threadId &&
-      agent.threadId !== existingConfig.threadId &&
       copilotkit.runtimeConnectionStatus ===
         CopilotKitCoreRuntimeConnectionStatus.Connected
     ) {
-      agent.threadId = existingConfig.threadId;
       connect(agent);
     }
     return () => {

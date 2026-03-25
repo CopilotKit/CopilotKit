@@ -67,7 +67,10 @@ export function CopilotChat({
     [threadId, existingConfig?.threadId],
   );
 
-  const { agent } = useAgent({ agentId: resolvedAgentId });
+  const { agent } = useAgent({
+    agentId: resolvedAgentId,
+    threadId: resolvedThreadId,
+  });
   const { copilotkit } = useCopilotKit();
   const { suggestions: autoSuggestions } = useSuggestions({
     agentId: resolvedAgentId,
@@ -149,7 +152,6 @@ export function CopilotChat({
         console.error("CopilotChat: connectAgent failed", error);
       }
     };
-    agent.threadId = resolvedThreadId;
     connect(agent);
     return () => {
       // Abort the HTTP request and detach the active run.
