@@ -993,8 +993,9 @@ export function CopilotChatInput({
       data-copilotkit
       ref={containerRef}
       className={cn(
+        "cpk:pointer-events-none cpk:relative cpk:z-20",
         positioning === "absolute" &&
-          "cpk:absolute cpk:bottom-0 cpk:left-0 cpk:right-0 cpk:z-20 cpk:pointer-events-none",
+          "cpk:absolute cpk:bottom-0 cpk:left-0 cpk:right-0",
         className,
       )}
       style={{
