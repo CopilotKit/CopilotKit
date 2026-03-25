@@ -14,7 +14,10 @@ description: "React hook for accessing AG-UI agent instances"
 ```tsx
 import { useAgent } from "@copilotkit/react-core/v2";
 
-function useAgent(options?: UseAgentProps): { agent: AbstractAgent; streamingStatus: StreamingStatus }
+function useAgent(options?: UseAgentProps): {
+  agent: AbstractAgent;
+  streamingStatus: StreamingStatus;
+};
 ```
 
 ## Parameters
@@ -22,9 +25,10 @@ function useAgent(options?: UseAgentProps): { agent: AbstractAgent; streamingSta
 <PropertyReference name="options" type="UseAgentProps">
   Configuration object for the hook.
 
-  <PropertyReference name="agentId" type="string" default='"default"'>
-    ID of the agent to retrieve. Must match an agent configured in `CopilotKitProvider`.
-  </PropertyReference>
+<PropertyReference name="agentId" type="string" default='"default"'>
+  ID of the agent to retrieve. Must match an agent configured in
+  `CopilotKitProvider`.
+</PropertyReference>
 
   <PropertyReference name="updates" type="UseAgentUpdate[]" default="[OnMessagesChanged, OnStateChanged, OnRunStatusChanged, OnStreamingPhaseChanged]">
     Controls which agent changes trigger component re-renders. Options:
@@ -34,6 +38,7 @@ function useAgent(options?: UseAgentProps): { agent: AbstractAgent; streamingSta
     - `UseAgentUpdate.OnStreamingPhaseChanged` - Re-render when streaming phase changes (reasoning, tool calling, streaming)
 
     Pass an empty array `[]` to prevent automatic re-renders.
+
   </PropertyReference>
 </PropertyReference>
 
@@ -149,12 +154,13 @@ function useAgent(options?: UseAgentProps): { agent: AbstractAgent; streamingSta
     </PropertyReference>
 
     <PropertyReference name="toolName" type="string | null">
-      Name of the tool currently being called, or `null`.
+      Name of the tool currently being called, or `null`. Only set when `phase` is `"tool_calling"` — automatically cleared on phase transitions.
     </PropertyReference>
 
     <PropertyReference name="toolCallId" type="string | null">
-      ID of the active tool call, or `null`.
+      ID of the active tool call, or `null`. Only set when `phase` is `"tool_calling"` — automatically cleared on phase transitions.
     </PropertyReference>
+
   </PropertyReference>
 
 </PropertyReference>
@@ -251,7 +257,8 @@ function StatusBadge() {
   return (
     <span>
       {streamingStatus.phase === "reasoning" && "Thinking..."}
-      {streamingStatus.phase === "tool_calling" && `Calling ${streamingStatus.toolName}...`}
+      {streamingStatus.phase === "tool_calling" &&
+        `Calling ${streamingStatus.toolName}...`}
       {streamingStatus.phase === "streaming" && "Writing response..."}
       {streamingStatus.phase === "idle" && "Starting..."}
     </span>
@@ -267,7 +274,7 @@ import { useAgent, UseAgentUpdate } from "@copilotkit/react-core/v2";
 // Only re-render when messages change (no streaming phase updates)
 function MessageCount() {
   const { agent } = useAgent({
-    updates: [UseAgentUpdate.OnMessagesChanged]
+    updates: [UseAgentUpdate.OnMessagesChanged],
   });
 
   return <div>Messages: {agent.messages.length}</div>;

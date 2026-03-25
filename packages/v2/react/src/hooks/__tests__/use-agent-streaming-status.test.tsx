@@ -207,6 +207,42 @@ describe("useAgent streamingStatus", () => {
     expect(registeredHandlers.onTextMessageStartEvent).toBeUndefined();
   });
 
+  it("clears toolName when transitioning from tool_calling to reasoning", () => {
+    render(<Harness />);
+    act(() => handlers.onRunInitialized?.());
+    act(() =>
+      handlers.onToolCallStartEvent?.({
+        event: { toolCallName: "fetch", toolCallId: "tc-789" },
+      }),
+    );
+    expect(screen.getByTestId("status").dataset.tool).toBe("fetch");
+
+    act(() => handlers.onReasoningStartEvent?.());
+
+    const el = screen.getByTestId("status");
+    expect(el.dataset.phase).toBe("reasoning");
+    expect(el.dataset.tool).toBe("");
+    expect(el.dataset.toolcallid).toBe("");
+  });
+
+  it("clears toolName when transitioning from tool_calling to streaming", () => {
+    render(<Harness />);
+    act(() => handlers.onRunInitialized?.());
+    act(() =>
+      handlers.onToolCallStartEvent?.({
+        event: { toolCallName: "search", toolCallId: "tc-abc" },
+      }),
+    );
+    expect(screen.getByTestId("status").dataset.tool).toBe("search");
+
+    act(() => handlers.onTextMessageStartEvent?.());
+
+    const el = screen.getByTestId("status");
+    expect(el.dataset.phase).toBe("streaming");
+    expect(el.dataset.tool).toBe("");
+    expect(el.dataset.toolcallid).toBe("");
+  });
+
   it("ignores out-of-order reasoning end while in tool_calling phase", () => {
     render(<Harness />);
     act(() => handlers.onRunInitialized?.());

@@ -193,7 +193,12 @@ export function useAgent({ agentId, updates }: UseAgentProps = {}) {
       };
 
       handlers.onReasoningStartEvent = () =>
-        setStreamingStatus((prev) => ({ ...prev, phase: "reasoning" }));
+        setStreamingStatus((prev) => ({
+          ...prev,
+          phase: "reasoning",
+          toolName: null,
+          toolCallId: null,
+        }));
       handlers.onReasoningEndEvent = () =>
         setStreamingStatus((prev) =>
           prev.phase === "reasoning" ? { ...prev, phase: "idle" } : prev,
@@ -219,7 +224,12 @@ export function useAgent({ agentId, updates }: UseAgentProps = {}) {
         );
 
       handlers.onTextMessageStartEvent = () =>
-        setStreamingStatus((prev) => ({ ...prev, phase: "streaming" }));
+        setStreamingStatus((prev) => ({
+          ...prev,
+          phase: "streaming",
+          toolName: null,
+          toolCallId: null,
+        }));
       handlers.onTextMessageEndEvent = () =>
         setStreamingStatus((prev) =>
           prev.phase === "streaming" ? { ...prev, phase: "idle" } : prev,
