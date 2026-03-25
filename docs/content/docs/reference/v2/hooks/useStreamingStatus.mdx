@@ -1,0 +1,144 @@
+---
+title: "useStreamingStatus"
+description: "React hook for observing the real-time phase of the current agent run"
+---
+
+## Overview
+
+`useStreamingStatus` exposes the granular streaming phase of the current agent run as React state.
+
+While `useAgent()` only surfaces `agent.isRunning` (a single boolean), `useStreamingStatus` tells you **what** the agent is doing at any moment: reasoning, invoking a specific tool, or streaming a text response. This lets you build phase-aware UI — status badges, progress bars, or tool-specific indicators — without subscribing to low-level AG-UI events yourself.
+
+The hook subscribes to AG-UI events internally and re-renders the component on each phase transition. It automatically unsubscribes on unmount.
+
+## Signature
+
+```tsx
+import { useStreamingStatus } from "@copilotkit/react-core/v2";
+
+function useStreamingStatus(props?: UseStreamingStatusProps): StreamingStatus;
+```
+
+## Parameters
+
+<PropertyReference name="props" type="UseStreamingStatusProps">
+  Optional configuration.
+
+  <PropertyReference name="agentId" type="string">
+    ID of the agent to observe. Defaults to the chat agent configured by the nearest `<CopilotKitProvider>`.
+  </PropertyReference>
+</PropertyReference>
+
+## Return Value
+
+Returns a `StreamingStatus` object:
+
+<PropertyReference name="phase" type="StreamingPhase" required>
+  Current phase of the agent run. One of:
+  - `"idle"` — No active run, or between phases within a run.
+  - `"reasoning"` — Agent is reasoning / thinking (chain-of-thought).
+  - `"tool_calling"` — Agent is invoking a tool. Check `toolName` for which one.
+  - `"streaming"` — Agent is streaming a text response to the user.
+</PropertyReference>
+
+<PropertyReference name="isRunning" type="boolean" required>
+  `true` while an agent run is active (between `onRunInitialized` and `onRunFinalized`/`onRunFailed`).
+</PropertyReference>
+
+<PropertyReference name="toolName" type="string | null" required>
+  Name of the tool currently being called, or `null` when not in a tool call.
+</PropertyReference>
+
+<PropertyReference name="toolCallId" type="string | null" required>
+  ID of the active tool call, or `null` when not in a tool call.
+</PropertyReference>
+
+## Usage
+
+### Simple status badge
+
+Show a text indicator while the agent is running:
+
+```tsx
+import { useStreamingStatus } from "@copilotkit/react-core/v2";
+
+function StatusBadge() {
+  const status = useStreamingStatus();
+
+  if (!status.isRunning) return null;
+
+  return (
+    <span>
+      {status.phase === "reasoning" && "Thinking..."}
+      {status.phase === "tool_calling" && `Calling ${status.toolName}...`}
+      {status.phase === "streaming" && "Writing response..."}
+      {status.phase === "idle" && "Starting..."}
+    </span>
+  );
+}
+```
+
+### Phase-specific colored pill
+
+Color-code each phase for a richer UI:
+
+```tsx
+import { useStreamingStatus } from "@copilotkit/react-core/v2";
+
+function PhaseIndicator() {
+  const status = useStreamingStatus();
+
+  if (!status.isRunning) return null;
+
+  const styles: Record<string, { background: string; color: string }> = {
+    reasoning:    { background: "#fef3c7", color: "#92400e" },
+    tool_calling: { background: "#dbeafe", color: "#1e40af" },
+    streaming:    { background: "#d1fae5", color: "#065f46" },
+    idle:         { background: "#f3f4f6", color: "#6b7280" },
+  };
+
+  const { background, color } = styles[status.phase] ?? styles.idle;
+
+  return (
+    <span style={{ padding: "4px 12px", borderRadius: "12px", background, color }}>
+      {status.phase === "reasoning" && "Thinking..."}
+      {status.phase === "tool_calling" && `Calling ${status.toolName}...`}
+      {status.phase === "streaming" && "Writing response..."}
+      {status.phase === "idle" && "Starting..."}
+    </span>
+  );
+}
+```
+
+### Observing a specific agent
+
+Pass `agentId` to watch a non-default agent:
+
+```tsx
+import { useStreamingStatus } from "@copilotkit/react-core/v2";
+
+function ResearchAgentStatus() {
+  const status = useStreamingStatus({ agentId: "research-agent" });
+
+  return (
+    <div>
+      {status.isRunning ? `Active: ${status.phase}` : "Idle"}
+    </div>
+  );
+}
+```
+
+## Behavior
+
+- Phase transitions follow AG-UI events: `onRunInitialized`, `onReasoningStartEvent`/`onReasoningEndEvent`, `onToolCallStartEvent`/`onToolCallEndEvent`, `onTextMessageStartEvent`/`onTextMessageEndEvent`, `onRunFinalized`/`onRunFailed`.
+- `isRunning` is set to `true` on `onRunInitialized` and reset to `false` only on `onRunFinalized` or `onRunFailed`.
+- `toolName` and `toolCallId` are populated during `tool_calling` phase and cleared when the call ends.
+- When a run ends, the hook resets to the full idle state: `{ phase: "idle", isRunning: false, toolName: null, toolCallId: null }`.
+- Phase-end events are guarded: `onReasoningEndEvent` only transitions from `"reasoning"`, `onToolCallEndEvent` from `"tool_calling"`, and `onTextMessageEndEvent` from `"streaming"`. Out-of-order events are safely ignored.
+- **Parallel tool calls:** Only the most recent tool call is tracked. If the agent invokes multiple tools concurrently, `toolName` / `toolCallId` reflect whichever started last and are cleared when any call ends.
+
+## Related
+
+- [`useAgent`](/reference/v2/hooks/useAgent) — access agent state and subscribe to AG-UI events directly
+- [`useInterrupt`](/reference/v2/hooks/useInterrupt) — handle agent interrupt events with UI
+- [`useFrontendTool`](/reference/v2/hooks/useFrontendTool) — register client-side tools the agent can call

@@ -16,3 +16,9 @@ export { useInterrupt } from "./use-interrupt";
 export type { UseInterruptConfig } from "./use-interrupt";
 export { useThreads } from "./use-threads";
 export type { Thread, UseThreadsInput, UseThreadsResult } from "./use-threads";
+export { useStreamingStatus } from "./use-streaming-status";
+export type {
+  StreamingStatus,
+  StreamingPhase,
+  UseStreamingStatusProps,
+} from "./use-streaming-status";

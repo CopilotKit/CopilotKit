@@ -7,6 +7,7 @@ import {
   useAgentContext,
   useConfigureSuggestions,
   useFrontendTool,
+  useStreamingStatus,
 } from "@copilotkitnext/react";
 import type { ToolsMenuItem } from "@copilotkitnext/react";
 import { useMemo, useState } from "react";
@@ -74,23 +75,6 @@ function Chat() {
     value: selectedThreadId,
   });
 
-  //useConfigureSuggestions({
-  //  instructions: "Suggest helpful next actions",
-  //});
-
-  // useConfigureSuggestions({
-  //   suggestions: [
-  //     {
-  //       title: "Action 1",
-  //       message: "Do action 1",
-  //     },
-  //     {
-  //       title: "Action 2",
-  //       message: "Do action 2",
-  //     },
-  //   ],
-  // });
-
   useFrontendTool({
     name: "sayHello",
     parameters: z.object({
@@ -101,6 +85,10 @@ function Chat() {
       return `Hello ${name}`;
     },
   });
+
+  // useStreamingStatus: exposes granular AG-UI event phases as React state
+  const status = useStreamingStatus();
+
   const toolsMenu = useMemo<(ToolsMenuItem | "-")[]>(
     () => [
       {
@@ -150,7 +138,14 @@ function Chat() {
         gap: "16px",
       }}
     >
-      <div style={{ display: "flex", gap: "10px", justifyContent: "center" }}>
+      <div
+        style={{
+          display: "flex",
+          gap: "10px",
+          justifyContent: "center",
+          alignItems: "center",
+        }}
+      >
         {threadOptions.map(({ id, label }) => {
           const isActive = id === selectedThreadId;
           return (
@@ -176,8 +171,48 @@ function Chat() {
           );
         })}
       </div>
-      <div style={{ flex: 1, minHeight: 0 }}>
+      <div style={{ flex: 1, minHeight: 0, position: "relative" }}>
         <CopilotChat input={{ toolsMenu }} threadId={selectedThreadId} />
+        {status.isRunning && (
+          <div
+            style={{
+              position: "absolute",
+              bottom: "80px",
+              left: "50%",
+              transform: "translateX(-50%)",
+              zIndex: 50,
+              padding: "6px 16px",
+              borderRadius: "20px",
+              fontSize: "0.8rem",
+              fontWeight: 600,
+              pointerEvents: "none",
+              whiteSpace: "nowrap",
+              backgroundColor:
+                status.phase === "reasoning"
+                  ? "#fef3c7"
+                  : status.phase === "tool_calling"
+                    ? "#dbeafe"
+                    : status.phase === "streaming"
+                      ? "#d1fae5"
+                      : "#f3f4f6",
+              color:
+                status.phase === "reasoning"
+                  ? "#92400e"
+                  : status.phase === "tool_calling"
+                    ? "#1e40af"
+                    : status.phase === "streaming"
+                      ? "#065f46"
+                      : "#6b7280",
+              boxShadow: "0 2px 8px rgba(0,0,0,0.12)",
+              transition: "all 0.2s ease-in-out",
+            }}
+          >
+            {status.phase === "reasoning" && "Thinking..."}
+            {status.phase === "tool_calling" && `Calling ${status.toolName}...`}
+            {status.phase === "streaming" && "Writing response..."}
+            {status.phase === "idle" && "Starting..."}
+          </div>
+        )}
       </div>
     </div>
   );
