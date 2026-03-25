@@ -4,10 +4,10 @@ import {
   CopilotChat,
   CopilotKitProvider,
   defineToolCallRenderer,
+  useAgent,
   useAgentContext,
   useConfigureSuggestions,
   useFrontendTool,
-  useStreamingStatus,
 } from "@copilotkitnext/react";
 import type { ToolsMenuItem } from "@copilotkitnext/react";
 import { useMemo, useState } from "react";
@@ -86,9 +86,8 @@ function Chat() {
     },
   });
 
-  // useStreamingStatus: exposes granular AG-UI event phases as React state
-  const status = useStreamingStatus();
-
+  // useAgent: streamingStatus exposes granular AG-UI event phases as React state
+  const { streamingStatus: status } = useAgent();
   const toolsMenu = useMemo<(ToolsMenuItem | "-")[]>(
     () => [
       {

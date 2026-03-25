@@ -8,6 +8,7 @@ export { useRenderTool } from "./use-render-tool";
 export { useDefaultRenderTool } from "./use-default-render-tool";
 export { useHumanInTheLoop } from "./use-human-in-the-loop";
 export { useAgent, UseAgentUpdate } from "./use-agent";
+export type { StreamingStatus, StreamingPhase } from "./use-agent";
 export { useAgentContext } from "./use-agent-context";
 export type { AgentContextInput, JsonSerializable } from "./use-agent-context";
 export { useSuggestions } from "./use-suggestions";
@@ -16,9 +17,3 @@ export { useInterrupt } from "./use-interrupt";
 export type { UseInterruptConfig } from "./use-interrupt";
 export { useThreads } from "./use-threads";
 export type { Thread, UseThreadsInput, UseThreadsResult } from "./use-threads";
-export { useStreamingStatus } from "./use-streaming-status";
-export type {
-  StreamingStatus,
-  StreamingPhase,
-  UseStreamingStatusProps,
-} from "./use-streaming-status";

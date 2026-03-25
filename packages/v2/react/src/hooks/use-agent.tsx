@@ -1,5 +1,5 @@
 import { useCopilotKit } from "@/providers/CopilotKitProvider";
-import { useMemo, useEffect, useReducer, useRef } from "react";
+import { useMemo, useEffect, useReducer, useRef, useState } from "react";
 import { DEFAULT_AGENT_ID } from "@copilotkitnext/shared";
 import { AbstractAgent } from "@ag-ui/client";
 import {
@@ -7,16 +7,38 @@ import {
   CopilotKitCoreRuntimeConnectionStatus,
 } from "@copilotkitnext/core";
 
+export type StreamingPhase =
+  | "idle"
+  | "reasoning"
+  | "tool_calling"
+  | "streaming";
+
+export interface StreamingStatus {
+  phase: StreamingPhase;
+  isRunning: boolean;
+  toolName: string | null;
+  toolCallId: string | null;
+}
+
+const IDLE_STATUS: StreamingStatus = {
+  phase: "idle",
+  isRunning: false,
+  toolName: null,
+  toolCallId: null,
+};
+
 export enum UseAgentUpdate {
   OnMessagesChanged = "OnMessagesChanged",
   OnStateChanged = "OnStateChanged",
   OnRunStatusChanged = "OnRunStatusChanged",
+  OnStreamingPhaseChanged = "OnStreamingPhaseChanged",
 }
 
 const ALL_UPDATES: UseAgentUpdate[] = [
   UseAgentUpdate.OnMessagesChanged,
   UseAgentUpdate.OnStateChanged,
   UseAgentUpdate.OnRunStatusChanged,
+  UseAgentUpdate.OnStreamingPhaseChanged,
 ];
 
 export interface UseAgentProps {
@@ -29,6 +51,8 @@ export function useAgent({ agentId, updates }: UseAgentProps = {}) {
 
   const { copilotkit } = useCopilotKit();
   const [, forceUpdate] = useReducer((x) => x + 1, 0);
+  const [streamingStatus, setStreamingStatus] =
+    useState<StreamingStatus>(IDLE_STATUS);
 
   const updateFlags = useMemo(
     () => updates ?? ALL_UPDATES,
@@ -139,9 +163,79 @@ export function useAgent({ agentId, updates }: UseAgentProps = {}) {
     }
 
     if (updateFlags.includes(UseAgentUpdate.OnRunStatusChanged)) {
-      handlers.onRunInitialized = forceUpdate;
-      handlers.onRunFinalized = forceUpdate;
-      handlers.onRunFailed = forceUpdate;
+      const prevOnRunInitialized = handlers.onRunInitialized;
+      const prevOnRunFinalized = handlers.onRunFinalized;
+      const prevOnRunFailed = handlers.onRunFailed;
+      handlers.onRunInitialized = (...args) => {
+        prevOnRunInitialized?.(...args);
+        forceUpdate();
+      };
+      handlers.onRunFinalized = (...args) => {
+        prevOnRunFinalized?.(...args);
+        forceUpdate();
+      };
+      handlers.onRunFailed = (...args) => {
+        prevOnRunFailed?.(...args);
+        forceUpdate();
+      };
+    }
+
+    if (updateFlags.includes(UseAgentUpdate.OnStreamingPhaseChanged)) {
+      const prevOnRunInitialized = handlers.onRunInitialized;
+      handlers.onRunInitialized = (...args) => {
+        prevOnRunInitialized?.(...args);
+        setStreamingStatus({
+          phase: "idle",
+          isRunning: true,
+          toolName: null,
+          toolCallId: null,
+        });
+      };
+
+      handlers.onReasoningStartEvent = () =>
+        setStreamingStatus((prev) => ({ ...prev, phase: "reasoning" }));
+      handlers.onReasoningEndEvent = () =>
+        setStreamingStatus((prev) =>
+          prev.phase === "reasoning" ? { ...prev, phase: "idle" } : prev,
+        );
+
+      handlers.onToolCallStartEvent = ({ event }) =>
+        setStreamingStatus((prev) => ({
+          ...prev,
+          phase: "tool_calling",
+          toolName: event.toolCallName,
+          toolCallId: event.toolCallId,
+        }));
+      handlers.onToolCallEndEvent = () =>
+        setStreamingStatus((prev) =>
+          prev.phase === "tool_calling"
+            ? {
+                ...prev,
+                phase: "idle",
+                toolName: null,
+                toolCallId: null,
+              }
+            : prev,
+        );
+
+      handlers.onTextMessageStartEvent = () =>
+        setStreamingStatus((prev) => ({ ...prev, phase: "streaming" }));
+      handlers.onTextMessageEndEvent = () =>
+        setStreamingStatus((prev) =>
+          prev.phase === "streaming" ? { ...prev, phase: "idle" } : prev,
+        );
+
+      const prevOnRunFinalized = handlers.onRunFinalized;
+      handlers.onRunFinalized = (...args) => {
+        prevOnRunFinalized?.(...args);
+        setStreamingStatus(IDLE_STATUS);
+      };
+
+      const prevOnRunFailed = handlers.onRunFailed;
+      handlers.onRunFailed = (...args) => {
+        prevOnRunFailed?.(...args);
+        setStreamingStatus(IDLE_STATUS);
+      };
     }
 
     const subscription = agent.subscribe(handlers);
@@ -151,5 +245,6 @@ export function useAgent({ agentId, updates }: UseAgentProps = {}) {
 
   return {
     agent,
+    streamingStatus,
   };
 }

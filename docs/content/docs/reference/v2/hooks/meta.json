@@ -9,7 +9,6 @@
     "---Agent & Context---",
     "useAgent",
     "useAgentContext",
-    "useStreamingStatus",
     "---Frontend Tools---",
     "useFrontendTool",
     "useHumanInTheLoop",

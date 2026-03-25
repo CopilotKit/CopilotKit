@@ -14,7 +14,7 @@ description: "React hook for accessing AG-UI agent instances"
 ```tsx
 import { useAgent } from "@copilotkit/react-core/v2";
 
-function useAgent(options?: UseAgentProps): { agent: AbstractAgent }
+function useAgent(options?: UseAgentProps): { agent: AbstractAgent; streamingStatus: StreamingStatus }
 ```
 
 ## Parameters
@@ -26,11 +26,12 @@ function useAgent(options?: UseAgentProps): { agent: AbstractAgent }
     ID of the agent to retrieve. Must match an agent configured in `CopilotKitProvider`.
   </PropertyReference>
 
-  <PropertyReference name="updates" type="UseAgentUpdate[]" default="[OnMessagesChanged, OnStateChanged, OnRunStatusChanged]">
+  <PropertyReference name="updates" type="UseAgentUpdate[]" default="[OnMessagesChanged, OnStateChanged, OnRunStatusChanged, OnStreamingPhaseChanged]">
     Controls which agent changes trigger component re-renders. Options:
     - `UseAgentUpdate.OnMessagesChanged` - Re-render when messages change
     - `UseAgentUpdate.OnStateChanged` - Re-render when state changes
     - `UseAgentUpdate.OnRunStatusChanged` - Re-render when execution status changes
+    - `UseAgentUpdate.OnStreamingPhaseChanged` - Re-render when streaming phase changes (reasoning, tool calling, streaming)
 
     Pass an empty array `[]` to prevent automatic re-renders.
   </PropertyReference>
@@ -38,8 +39,8 @@ function useAgent(options?: UseAgentProps): { agent: AbstractAgent }
 
 ## Return Value
 
-<PropertyReference name="object" type="{ agent: AbstractAgent }">
-  Object containing the agent instance.
+<PropertyReference name="object" type="{ agent: AbstractAgent; streamingStatus: StreamingStatus }">
+  Object containing the agent instance and streaming status.
 
   <PropertyReference name="agent" type="AbstractAgent">
     The AG-UI agent instance. See [AbstractAgent documentation](https://docs.ag-ui.com/sdk/js/client/abstract-agent) for full interface details.
@@ -135,6 +136,27 @@ function useAgent(options?: UseAgentProps): { agent: AbstractAgent }
     </PropertyReference>
 
   </PropertyReference>
+
+  <PropertyReference name="streamingStatus" type="StreamingStatus">
+    Real-time streaming phase of the current agent run. Updated via `UseAgentUpdate.OnStreamingPhaseChanged` (on by default).
+
+    <PropertyReference name="phase" type="StreamingPhase">
+      Current phase: `"idle"`, `"reasoning"`, `"tool_calling"`, or `"streaming"`.
+    </PropertyReference>
+
+    <PropertyReference name="isRunning" type="boolean">
+      `true` while an agent run is active (between `onRunInitialized` and `onRunFinalized`/`onRunFailed`).
+    </PropertyReference>
+
+    <PropertyReference name="toolName" type="string | null">
+      Name of the tool currently being called, or `null`.
+    </PropertyReference>
+
+    <PropertyReference name="toolCallId" type="string | null">
+      ID of the active tool call, or `null`.
+    </PropertyReference>
+  </PropertyReference>
+
 </PropertyReference>
 
 ## Usage
@@ -216,12 +238,33 @@ function MultiAgentView() {
 }
 ```
 
+### Streaming Status Indicator
+
+```tsx
+import { useAgent } from "@copilotkit/react-core/v2";
+
+function StatusBadge() {
+  const { streamingStatus } = useAgent();
+
+  if (!streamingStatus.isRunning) return null;
+
+  return (
+    <span>
+      {streamingStatus.phase === "reasoning" && "Thinking..."}
+      {streamingStatus.phase === "tool_calling" && `Calling ${streamingStatus.toolName}...`}
+      {streamingStatus.phase === "streaming" && "Writing response..."}
+      {streamingStatus.phase === "idle" && "Starting..."}
+    </span>
+  );
+}
+```
+
 ### Optimizing Re-renders
 
 ```tsx
 import { useAgent, UseAgentUpdate } from "@copilotkit/react-core/v2";
 
-// Only re-render when messages change
+// Only re-render when messages change (no streaming phase updates)
 function MessageCount() {
   const { agent } = useAgent({
     updates: [UseAgentUpdate.OnMessagesChanged]
