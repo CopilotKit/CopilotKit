@@ -1,5 +1,7 @@
 # @copilotkit/a2ui-renderer
 
+## 1.54.1-next.5
+
 ## 1.54.1-next.4
 
 ## 1.54.1-next.3
