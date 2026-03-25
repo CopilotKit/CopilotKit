@@ -1,7 +1,7 @@
 ---
 title: "MCP Servers"
 icon: "lucide/Plug"
-description: "Connect MCP servers to your Built-in Agent."
+description: "Connect MCP servers to your Built-in Agent, with support for persistent clients, tool caching, and dynamic auth."
 ---
 
 ## What are MCP Servers?
@@ -116,6 +116,94 @@ const builtInAgent = new BuiltInAgent({
   tools: [customTool], // Your custom tools
   mcpServers: [        // Plus tools from MCP servers
     { type: "sse", url: "https://search-mcp.example.com/sse" },
+  ],
+});
+```
+
+## User-managed MCP clients
+
+The `mcpServers` approach creates a fresh MCP connection on every agent run. For latency-sensitive setups — or when you need persistent connections, dynamic auth, or tool caching — use `mcpClients` instead. You create and manage the MCP client yourself; the agent just calls `.tools()` to get tool definitions.
+
+```typescript
+import { BuiltInAgent } from "@copilotkit/runtime/v2";
+import { createMCPClient } from "@ai-sdk/mcp";
+import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
+
+// Create a persistent client at startup
+const transport = new StreamableHTTPClientTransport(
+  new URL("https://my-mcp-server.example.com/mcp"),
+);
+const client = await createMCPClient({ transport });
+
+const builtInAgent = new BuiltInAgent({
+  model: "openai:gpt-5.2",
+  mcpClients: [client], // [!code highlight]
+});
+```
+
+Unlike `mcpServers`, the agent **never** creates or closes these clients — you control the full lifecycle.
+
+### Tool caching
+
+By default, `.tools()` fetches from the MCP server on every agent run. To cache tools at startup:
+
+```typescript
+const client = await createMCPClient({ transport });
+
+let cachedTools: ToolSet | null = null;
+const warmupPromise = client.tools().then(tools => { cachedTools = tools; });
+
+const provider = {
+  async tools() {
+    if (cachedTools) return cachedTools;
+    await warmupPromise;
+    return cachedTools!;
+  },
+};
+
+const builtInAgent = new BuiltInAgent({
+  model: "openai:gpt-5.2",
+  mcpClients: [provider], // [!code highlight]
+});
+```
+
+Tool discovery runs once in the background. The first request waits only if warmup hasn't finished yet; subsequent requests return instantly from cache.
+
+### Dynamic authentication
+
+When using a persistent client, auth tokens may expire between requests. Handle this inside your provider:
+
+```typescript
+const provider = {
+  async tools() {
+    if (isTokenExpired()) {
+      await currentClient.close();
+      currentClient = await createMCPClient({
+        transport: makeTransport(getFreshToken()),
+      });
+    }
+    return currentClient.tools();
+  },
+};
+
+const builtInAgent = new BuiltInAgent({
+  model: "openai:gpt-5.2",
+  mcpClients: [provider],
+});
+```
+
+You only pay the reconnection cost when the token actually expires, not on every request.
+
+### Combining with mcpServers
+
+`mcpClients` and `mcpServers` can be used together. Tools from both are merged — on name collision, `mcpServers` tools take precedence:
+
+```typescript
+const builtInAgent = new BuiltInAgent({
+  model: "openai:gpt-5.2",
+  mcpClients: [persistentClient],  // User-managed, persistent
+  mcpServers: [                     // Agent-managed, per-request
+    { type: "sse", url: "https://other-mcp.example.com/sse" },
   ],
 });
 ```
