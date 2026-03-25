@@ -16,6 +16,7 @@ import type { FrontendTool } from "../types";
 export interface CopilotKitCoreRunAgentParams {
   agent: AbstractAgent;
   forwardedProps?: Record<string, unknown>;
+  runId?: string;
 }
 
 export interface CopilotKitCoreConnectAgentParams {
@@ -213,6 +214,7 @@ export class RunHandler {
   async runAgent({
     agent,
     forwardedProps,
+    runId,
   }: CopilotKitCoreRunAgentParams): Promise<RunAgentResult> {
     // Agent ID is guaranteed to be set by validateAndAssignAgentId
     if (agent.agentId) {
@@ -252,10 +254,11 @@ export class RunHandler {
           },
           tools: this.buildFrontendTools(agent.agentId),
           context: Object.values(this._internal.context),
+          runId,
         },
         this.createAgentErrorSubscriber(agent),
       );
-      return this.processAgentResult({ runAgentResult, agent });
+      return this.processAgentResult({ runAgentResult, agent, runId });
     } catch (error) {
       const runError =
         error instanceof Error ? error : new Error(String(error));
@@ -278,9 +281,11 @@ export class RunHandler {
   private async processAgentResult({
     runAgentResult,
     agent,
+    runId,
   }: {
     runAgentResult: RunAgentResult;
     agent: AbstractAgent;
+    runId?: string;
   }): Promise<RunAgentResult> {
     const { newMessages } = runAgentResult;
     // Agent ID is guaranteed to be set by validateAndAssignAgentId
@@ -341,7 +346,7 @@ export class RunHandler {
       // complete and write fresh values into the context store before runAgent
       // reads it. The base implementation is a no-op; React overrides this.
       await this._internal.waitForPendingFrameworkUpdates();
-      return await this.runAgent({ agent });
+      return await this.runAgent({ agent, runId });
     }
 
     void this._internal.suggestionEngine.reloadSuggestions(agentId);
