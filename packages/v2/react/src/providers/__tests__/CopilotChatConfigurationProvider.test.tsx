@@ -1,5 +1,5 @@
 import React from "react";
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent, act } from "@testing-library/react";
 import { describe, it, expect } from "vitest";
 import {
   CopilotChatConfigurationProvider,
@@ -358,6 +358,158 @@ describe("CopilotChatConfigurationProvider", () => {
       );
 
       expect(screen.getByTestId("isModalOpen").textContent).toBe("closed");
+    });
+  });
+
+  /**
+   * CPK-7152: Bidirectional sync between nested providers.
+   *
+   * The fix must satisfy both:
+   *   Behavior A — child provider respects its own isModalDefaultOpen even
+   *                when a parent provider exists (covered by the existing
+   *                "allow nested provider to override" test above).
+   *   Behavior B — state changes in the inner provider propagate outward so
+   *                that hooks reading from an outer provider stay in sync.
+   *
+   * Scenarios mirror the reproduction cases in:
+   * https://github.com/CopilotKit/deep-agent-cpk-experiments/tree/main/app/client/src/tickets/tkt-modal-default-open
+   */
+  describe("Bidirectional sync (CPK-7152)", () => {
+    // Reusable probe/control component that reads the closest provider.
+    function ModalControls({ id }: { id: string }) {
+      const config = useCopilotChatConfiguration();
+      return (
+        <>
+          <div data-testid={`${id}-state`}>{String(config?.isModalOpen)}</div>
+          <button
+            data-testid={`${id}-open`}
+            onClick={() => config?.setModalOpen(true)}
+          >
+            open
+          </button>
+          <button
+            data-testid={`${id}-close`}
+            onClick={() => config?.setModalOpen(false)}
+          >
+            close
+          </button>
+        </>
+      );
+    }
+
+    it("scenario-sidebar-outer-hook: inner setModalOpen propagates to outer hook (Behavior B)", () => {
+      // Abe.Hu's layout: outer bare provider, inner provider owns explicit state.
+      // Toggling via the inner provider should update the outer hook.
+      render(
+        <CopilotChatConfigurationProvider threadId="outer">
+          {/* OuterProbe sits outside the inner provider — reads outer context */}
+          <ModalControls id="outer" />
+          <CopilotChatConfigurationProvider
+            threadId="inner"
+            isModalDefaultOpen={true}
+          >
+            <ModalControls id="inner" />
+          </CopilotChatConfigurationProvider>
+        </CopilotChatConfigurationProvider>,
+      );
+
+      expect(screen.getByTestId("outer-state").textContent).toBe("true");
+      expect(screen.getByTestId("inner-state").textContent).toBe("true");
+
+      act(() => {
+        fireEvent.click(screen.getByTestId("inner-close"));
+      });
+
+      // Inner closed — outer hook must reflect the change.
+      expect(screen.getByTestId("inner-state").textContent).toBe("false");
+      expect(screen.getByTestId("outer-state").textContent).toBe("false");
+    });
+
+    it("scenario-sidebar-outer-hook: outer setModalOpen propagates to inner (parent→child sync)", () => {
+      // If the user calls setModalOpen from the outer hook, the inner
+      // provider (and therefore the sidebar) must respond.
+      render(
+        <CopilotChatConfigurationProvider
+          threadId="outer"
+          isModalDefaultOpen={false}
+        >
+          <ModalControls id="outer" />
+          <CopilotChatConfigurationProvider
+            threadId="inner"
+            isModalDefaultOpen={false}
+          >
+            <ModalControls id="inner" />
+          </CopilotChatConfigurationProvider>
+        </CopilotChatConfigurationProvider>,
+      );
+
+      expect(screen.getByTestId("outer-state").textContent).toBe("false");
+      expect(screen.getByTestId("inner-state").textContent).toBe("false");
+
+      act(() => {
+        fireEvent.click(screen.getByTestId("outer-open"));
+      });
+
+      // Outer opened — inner must follow.
+      expect(screen.getByTestId("outer-state").textContent).toBe("true");
+      expect(screen.getByTestId("inner-state").textContent).toBe("true");
+    });
+
+    it("scenario-nested-provider: three-level chain propagates through middle provider", () => {
+      // Mirrors the real provider stack:
+      //   Provider 1 (user's outer, no isModalDefaultOpen)
+      //     └── Provider 2 (CopilotChat's, no isModalDefaultOpen) — "middle"
+      //           └── Provider 3 (CopilotSidebarView's, explicit isModalDefaultOpen)
+      //
+      // Toggling P3 must reach P1 even though P2 has no explicit default.
+      render(
+        <CopilotChatConfigurationProvider threadId="p1">
+          <ModalControls id="p1" />
+          <CopilotChatConfigurationProvider threadId="p2">
+            {/* p2 has no isModalDefaultOpen — proxies p1's state */}
+            <CopilotChatConfigurationProvider
+              threadId="p3"
+              isModalDefaultOpen={true}
+            >
+              <ModalControls id="p3" />
+            </CopilotChatConfigurationProvider>
+          </CopilotChatConfigurationProvider>
+        </CopilotChatConfigurationProvider>,
+      );
+
+      expect(screen.getByTestId("p1-state").textContent).toBe("true");
+      expect(screen.getByTestId("p3-state").textContent).toBe("true");
+
+      act(() => {
+        fireEvent.click(screen.getByTestId("p3-close"));
+      });
+
+      expect(screen.getByTestId("p3-state").textContent).toBe("false");
+      expect(screen.getByTestId("p1-state").textContent).toBe("false");
+    });
+
+    it("scenario-nested-provider: Behavior A still holds after sync fix (no regression)", () => {
+      // Explicit isModalDefaultOpen on a child must still override the
+      // parent's current value on initial render — the sync effect must
+      // not overwrite the child's own initial state.
+      render(
+        <CopilotChatConfigurationProvider
+          threadId="outer"
+          isModalDefaultOpen={true}
+        >
+          <ModalControls id="outer" />
+          <CopilotChatConfigurationProvider
+            threadId="inner"
+            isModalDefaultOpen={false}
+          >
+            <ModalControls id="inner" />
+          </CopilotChatConfigurationProvider>
+        </CopilotChatConfigurationProvider>,
+      );
+
+      // Inner must start closed despite outer being open.
+      expect(screen.getByTestId("outer-state").textContent).toBe("true");
+      expect(screen.getByTestId("inner-state").textContent).toBe("false");
     });
   });
 
