@@ -461,7 +461,7 @@ describe("thread store", () => {
   it("tracks nextCursor and fetches next page", async () => {
     const page2Thread: ThreadRecord = {
       id: "thread-3",
-      tenantId: "tenant-1",
+      organizationId: "organization-1",
       agentId: "agent-1",
       createdById: "user-1",
       name: "Page 2 Thread",
@@ -556,7 +556,7 @@ describe("thread store", () => {
       operation: "archived",
       threadId: "thread-1",
       userId: "user-1",
-      tenantId: "tenant-1",
+      organizationId: "organization-1",
       occurredAt: "2026-01-03T00:00:00Z",
       thread: { ...sampleThreads[0], archived: true },
     });
@@ -602,7 +602,7 @@ describe("thread store", () => {
       operation: "archived",
       threadId: "thread-1",
       userId: "user-1",
-      tenantId: "tenant-1",
+      organizationId: "organization-1",
       occurredAt: "2026-01-03T00:00:00Z",
       thread: {
         ...sampleThreads[0],
