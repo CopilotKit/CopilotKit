@@ -179,6 +179,27 @@
   @apply cpk:mt-0 cpk:mb-0;
 }
 
+/* Minimal scrollbar for WebKit browsers (Chrome, Safari, Edge) */
+[data-copilotkit] ::-webkit-scrollbar {
+  width: 6px;
+}
+[data-copilotkit] ::-webkit-scrollbar-track {
+  background: transparent;
+}
+[data-copilotkit] ::-webkit-scrollbar-thumb {
+  background: oklch(0.5 0 0);
+  border-radius: 9999px;
+}
+[data-copilotkit] ::-webkit-scrollbar-thumb:hover {
+  background: oklch(0.4 0 0);
+}
+
+/* Firefox */
+[data-copilotkit] * {
+  scrollbar-width: thin;
+  scrollbar-color: oklch(0.5 0 0) transparent;
+}
+
 [data-copilotkit] .prose input[type="checkbox"] {
   appearance: none;
   background-color: #fff;

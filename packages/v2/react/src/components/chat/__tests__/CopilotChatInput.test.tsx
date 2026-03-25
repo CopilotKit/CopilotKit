@@ -340,6 +340,28 @@ describe("CopilotChatInput", () => {
     expect(customLayout.textContent?.includes("Custom Layout:")).toBe(true);
   });
 
+  it("passes containerRef to children render prop", () => {
+    const ref = React.createRef<HTMLDivElement>();
+    renderWithProvider(
+      <CopilotChatInput
+        value=""
+        onChange={vi.fn()}
+        onSubmitMessage={mockOnSubmitMessage}
+        containerRef={ref}
+      >
+        {({ containerRef }) => (
+          <div ref={containerRef} data-testid="custom-container">
+            Custom Container
+          </div>
+        )}
+      </CopilotChatInput>,
+    );
+
+    const container = screen.getByTestId("custom-container");
+    expect(container).toBeDefined();
+    expect(ref.current).toBe(container);
+  });
+
   it("updates its internal layout data attribute when content expands", async () => {
     renderWithProvider(
       <CopilotChatInput onSubmitMessage={mockOnSubmitMessage} />,

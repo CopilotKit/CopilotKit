@@ -50,6 +50,8 @@
   },
   "changesets": [
     "cyan-buses-sell",
+    "fix-race-condition-dropped-runs",
+    "fix-scrollbar-styling",
     "funny-dolls-march",
     "handle-empty-tool-arguments"
   ]

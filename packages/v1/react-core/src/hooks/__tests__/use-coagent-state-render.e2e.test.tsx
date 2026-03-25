@@ -35,6 +35,7 @@ const mockAgent = {
   addMessage: vi.fn(),
   abortRun: vi.fn(),
   runAgent: vi.fn(),
+  detachActiveRun: vi.fn().mockResolvedValue(undefined),
 };
 
 let lastSubscriber: TestAgentSubscriber | null = null;
