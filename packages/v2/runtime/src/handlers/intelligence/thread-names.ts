@@ -237,3 +237,10 @@ function normalizeGeneratedTitle(rawTitle: string): string | null {
 function hasThreadName(name: string | null | undefined): boolean {
   return typeof name === "string" && name.trim().length > 0;
 }
+
+/** @internal Exported for testing only. */
+export const ɵnormalizeGeneratedTitle = normalizeGeneratedTitle;
+/** @internal Exported for testing only. */
+export const ɵbuildThreadTitlePrompt = buildThreadTitlePrompt;
+/** @internal Exported for testing only. */
+export const ɵhasThreadName = hasThreadName;

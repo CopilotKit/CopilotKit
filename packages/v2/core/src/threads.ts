@@ -59,6 +59,8 @@ interface ThreadRuntimeContext {
   wsUrl?: string;
   userId: string;
   agentId: string;
+  includeArchived?: boolean;
+  limit?: number;
 }
 
 type ThreadMetadataEvent =
@@ -83,6 +85,7 @@ type ThreadMetadataEvent =
 
 interface ThreadListResponse {
   threads: ThreadRecord[];
+  nextCursor?: string | null;
 }
 
 interface ThreadMetadataCredentialsResponse {
@@ -107,25 +110,30 @@ interface ThreadEnvironment {
 interface ThreadState {
   threads: ThreadRecord[];
   isLoading: boolean;
+  isFetchingNextPage: boolean;
   error: Error | null;
   context: ThreadRuntimeContext | null;
   sessionId: number;
   metadataCredentialsRequested: boolean;
+  nextCursor: string | null;
 }
 
 const initialThreadState: ThreadState = {
   threads: [],
   isLoading: false,
+  isFetchingNextPage: false,
   error: null,
   context: null,
   sessionId: 0,
   metadataCredentialsRequested: false,
+  nextCursor: null,
 };
 
 const threadAdapterEvents = createActionGroup("Thread Adapter", {
   started: empty(),
   stopped: empty(),
   contextChanged: props<{ context: ThreadRuntimeContext | null }>(),
+  fetchNextPageRequested: empty(),
   renameRequested: props<{
     requestId: string;
     threadId: string;
@@ -140,8 +148,15 @@ const threadRestEvents = createActionGroup("Thread REST", {
   listSucceeded: props<{
     sessionId: number;
     threads: ThreadRecord[];
+    nextCursor: string | null;
   }>(),
   listFailed: props<{ sessionId: number; error: Error }>(),
+  nextPageSucceeded: props<{
+    sessionId: number;
+    threads: ThreadRecord[];
+    nextCursor: string | null;
+  }>(),
+  nextPageFailed: props<{ sessionId: number; error: Error }>(),
   metadataCredentialsRequested: props<{ sessionId: number }>(),
   metadataCredentialsSucceeded: props<{
     sessionId: number;
@@ -195,15 +210,19 @@ const threadReducer = createReducer<ThreadState>(
     sessionId: state.sessionId + 1,
     threads: [],
     isLoading: Boolean(context),
+    isFetchingNextPage: false,
     error: null,
     metadataCredentialsRequested: false,
+    nextCursor: null,
   })),
   on(threadAdapterEvents.stopped, (state) => ({
     ...state,
     threads: [],
     isLoading: false,
+    isFetchingNextPage: false,
     error: null,
     metadataCredentialsRequested: false,
+    nextCursor: null,
   })),
   on(threadRestEvents.listRequested, (state, { sessionId }) => {
     if (sessionId !== state.sessionId || !state.context) {
@@ -216,18 +235,22 @@ const threadReducer = createReducer<ThreadState>(
       error: null,
     };
   }),
-  on(threadRestEvents.listSucceeded, (state, { sessionId, threads }) => {
-    if (sessionId !== state.sessionId) {
-      return state;
-    }
+  on(
+    threadRestEvents.listSucceeded,
+    (state, { sessionId, threads, nextCursor }) => {
+      if (sessionId !== state.sessionId) {
+        return state;
+      }
 
-    return {
-      ...state,
-      threads: sortThreadsByUpdatedAt(threads),
-      isLoading: false,
-      error: null,
-    };
-  }),
+      return {
+        ...state,
+        threads: sortThreadsByUpdatedAt(threads),
+        isLoading: false,
+        error: null,
+        nextCursor,
+      };
+    },
+  ),
   on(threadRestEvents.listFailed, (state, { sessionId, error }) => {
     if (sessionId !== state.sessionId) {
       return state;
@@ -236,6 +259,37 @@ const threadReducer = createReducer<ThreadState>(
     return {
       ...state,
       isLoading: false,
+      error,
+    };
+  }),
+  on(
+    threadRestEvents.nextPageSucceeded,
+    (state, { sessionId, threads, nextCursor }) => {
+      if (sessionId !== state.sessionId) {
+        return state;
+      }
+
+      let merged = state.threads;
+      for (const thread of threads) {
+        merged = upsertThread(merged, thread);
+      }
+
+      return {
+        ...state,
+        threads: merged,
+        isFetchingNextPage: false,
+        nextCursor,
+      };
+    },
+  ),
+  on(threadRestEvents.nextPageFailed, (state, { sessionId, error }) => {
+    if (sessionId !== state.sessionId) {
+      return state;
+    }
+
+    return {
+      ...state,
+      isFetchingNextPage: false,
       error,
     };
   }),
@@ -260,6 +314,16 @@ const threadReducer = createReducer<ThreadState>(
     return {
       ...state,
       metadataCredentialsRequested: true,
+    };
+  }),
+  on(threadAdapterEvents.fetchNextPageRequested, (state) => {
+    if (!state.nextCursor || state.isFetchingNextPage) {
+      return state;
+    }
+
+    return {
+      ...state,
+      isFetchingNextPage: true,
     };
   }),
   on(threadRestEvents.mutationFinished, (state, { outcome }) => ({
@@ -293,11 +357,18 @@ const selectThreadsIsLoading = createSelector(
   (state: ThreadState) => state.isLoading,
 );
 const selectThreadsError = createSelector((state: ThreadState) => state.error);
+const selectHasNextPage = createSelector(
+  (state: ThreadState) => state.nextCursor != null,
+);
+const selectIsFetchingNextPage = createSelector(
+  (state: ThreadState) => state.isFetchingNextPage,
+);
 
 interface ThreadStore {
   start(): void;
   stop(): void;
   setContext(context: ThreadRuntimeContext | null): void;
+  fetchNextPage(): void;
   renameThread(threadId: string, name: string): Promise<void>;
   archiveThread(threadId: string): Promise<void>;
   deleteThread(threadId: string): Promise<void>;
@@ -321,11 +392,15 @@ function createThreadFetchObservable(
   | ReturnType<typeof threadRestEvents.listFailed>
 > {
   return defer(() => {
-    const params = new URLSearchParams({
+    const params: Record<string, string> = {
       userId: context.userId,
       agentId: context.agentId,
-    });
-    return fromFetch(`${context.runtimeUrl}/threads?${params.toString()}`, {
+    };
+    if (context.includeArchived) params.includeArchived = "true";
+    if (context.limit != null) params.limit = String(context.limit);
+
+    const qs = new URLSearchParams(params);
+    return fromFetch(`${context.runtimeUrl}/threads?${qs.toString()}`, {
       selector: (response) => {
         if (!response.ok) {
           throw new Error(`Failed to fetch threads: ${response.status}`);
@@ -347,6 +422,7 @@ function createThreadFetchObservable(
         threadRestEvents.listSucceeded({
           sessionId,
           threads: data.threads,
+          nextCursor: data.nextCursor ?? null,
         }),
       ),
       catchError((error) => {
@@ -658,7 +734,7 @@ function createThreadStore(environment: ThreadEnvironment): ThreadStore {
           action.payload.userId === state.context?.userId
         );
       }),
-      map(([action]) => {
+      map(([action, state]) => {
         if (action.payload.operation === "deleted") {
           return threadDomainEvents.threadDeleted({
             sessionId: action.sessionId,
@@ -666,10 +742,91 @@ function createThreadStore(environment: ThreadEnvironment): ThreadStore {
           });
         }
 
+        // When includeArchived is false, an "archived" event should remove
+        // the thread from the local list rather than upserting it.
+        if (
+          action.payload.operation === "archived" &&
+          !state.context?.includeArchived
+        ) {
+          return threadDomainEvents.threadDeleted({
+            sessionId: action.sessionId,
+            threadId: action.payload.threadId,
+          });
+        }
+
         return threadDomainEvents.threadUpserted({
           sessionId: action.sessionId,
           thread: action.payload.thread,
         });
+      }),
+    ),
+  );
+
+  const fetchNextPageEffect = createEffect((actions$, state$) =>
+    actions$.pipe(
+      ofType(threadAdapterEvents.fetchNextPageRequested),
+      withLatestFrom(state$),
+      filter(
+        ([, state]) => Boolean(state.context) && Boolean(state.nextCursor),
+      ),
+      switchMap(([, state]) => {
+        const context = state.context as ThreadRuntimeContext;
+        const params: Record<string, string> = {
+          userId: context.userId,
+          agentId: context.agentId,
+          cursor: state.nextCursor!,
+        };
+        if (context.includeArchived) params.includeArchived = "true";
+        if (context.limit != null) params.limit = String(context.limit);
+
+        return fromFetch(
+          `${context.runtimeUrl}/threads?${new URLSearchParams(params).toString()}`,
+          {
+            selector: (response) => {
+              if (!response.ok) {
+                throw new Error(
+                  `Failed to fetch next page: ${response.status}`,
+                );
+              }
+
+              return response.json() as Promise<ThreadListResponse>;
+            },
+            fetch: environment.fetch,
+            method: "GET",
+            headers: { ...context.headers },
+          },
+        ).pipe(
+          timeout({
+            first: REQUEST_TIMEOUT_MS,
+            with: () => {
+              throw new Error("Request timed out");
+            },
+          }),
+          map((data) =>
+            threadRestEvents.nextPageSucceeded({
+              sessionId: state.sessionId,
+              threads: data.threads,
+              nextCursor: data.nextCursor ?? null,
+            }),
+          ),
+          catchError((error) =>
+            of(
+              threadRestEvents.nextPageFailed({
+                sessionId: state.sessionId,
+                error:
+                  error instanceof Error ? error : new Error(String(error)),
+              }),
+            ),
+          ),
+          takeUntil(
+            actions$.pipe(
+              ofType(
+                threadAdapterEvents.contextChanged,
+                threadAdapterEvents.stopped,
+              ),
+            ),
+          ),
+        );
       }),
     ),
   );
@@ -742,6 +899,7 @@ function createThreadStore(environment: ThreadEnvironment): ThreadStore {
       metadataCredentialsFetchEffect,
       socketEffect,
       realtimeMappingEffect,
+      fetchNextPageEffect,
       mutationEffect,
     ],
   });
@@ -799,6 +957,9 @@ function createThreadStore(environment: ThreadEnvironment): ThreadStore {
     setContext(context: ThreadRuntimeContext | null): void {
       store.dispatch(threadAdapterEvents.contextChanged({ context }));
     },
+    fetchNextPage(): void {
+      store.dispatch(threadAdapterEvents.fetchNextPageRequested());
+    },
     renameThread(threadId: string, name: string): Promise<void> {
       return trackMutation(
         threadAdapterEvents.renameRequested({
@@ -840,4 +1001,6 @@ export const ɵthreadAdapterEvents = threadAdapterEvents;
 export const ɵselectThreads = selectThreads;
 export const ɵselectThreadsIsLoading = selectThreadsIsLoading;
 export const ɵselectThreadsError = selectThreadsError;
+export const ɵselectHasNextPage = selectHasNextPage;
+export const ɵselectIsFetchingNextPage = selectIsFetchingNextPage;
 export { createThreadStore as ɵcreateThreadStore };

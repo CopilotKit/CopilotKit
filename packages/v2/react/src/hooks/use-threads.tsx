@@ -4,6 +4,8 @@ import {
   ɵselectThreads,
   ɵselectThreadsError,
   ɵselectThreadsIsLoading,
+  ɵselectHasNextPage,
+  ɵselectIsFetchingNextPage,
   type ɵThread as CoreThread,
   type ɵThreadRuntimeContext,
   type ɵThreadStore,
@@ -35,6 +37,10 @@ export interface UseThreadsInput {
   userId: string;
   /** The ID of the agent whose threads to list and manage. */
   agentId: string;
+  /** When `true`, archived threads are included in the list. Defaults to `false`. */
+  includeArchived?: boolean;
+  /** Maximum number of threads to fetch per page. When set, enables cursor-based pagination. */
+  limit?: number;
 }
 
 /**
@@ -46,9 +52,9 @@ export interface UseThreadsInput {
  */
 export interface UseThreadsResult {
   /**
-   * All non-archived threads for the current user/agent pair, sorted by
-   * most recently updated first. Updated in realtime when the platform
-   * pushes metadata events.
+   * Threads for the current user/agent pair, sorted by most recently
+   * updated first. Updated in realtime when the platform pushes metadata
+   * events. Includes archived threads only when `includeArchived` is set.
    */
   threads: Thread[];
   /**
@@ -62,6 +68,20 @@ export interface UseThreadsResult {
    * successful fetch.
    */
   error: Error | null;
+  /**
+   * `true` when there are more threads available to fetch via
+   * {@link fetchNextPage}. Only meaningful when `limit` is set.
+   */
+  hasNextPage: boolean;
+  /**
+   * `true` while a subsequent page of threads is being fetched.
+   */
+  isFetchingNextPage: boolean;
+  /**
+   * Fetch the next page of threads. No-op when {@link hasNextPage} is
+   * `false` or a page fetch is already in progress.
+   */
+  fetchNextPage: () => void;
   /**
    * Rename a thread on the platform.
    * Resolves when the server confirms the update; rejects on failure.
@@ -142,6 +162,8 @@ function useThreadStoreSelector<T>(
 export function useThreads({
   userId,
   agentId,
+  includeArchived,
+  limit,
 }: UseThreadsInput): UseThreadsResult {
   const { copilotkit } = useCopilotKit();
 
@@ -154,6 +176,11 @@ export function useThreads({
   const threads = useThreadStoreSelector(store, ɵselectThreads);
   const storeIsLoading = useThreadStoreSelector(store, ɵselectThreadsIsLoading);
   const storeError = useThreadStoreSelector(store, ɵselectThreadsError);
+  const hasNextPage = useThreadStoreSelector(store, ɵselectHasNextPage);
+  const isFetchingNextPage = useThreadStoreSelector(
+    store,
+    ɵselectIsFetchingNextPage,
+  );
   const headersKey = useMemo(() => {
     return JSON.stringify(
       Object.entries(copilotkit.headers ?? {}).sort(([left], [right]) =>
@@ -186,6 +213,8 @@ export function useThreads({
           wsUrl: copilotkit.intelligence?.wsUrl,
           userId,
           agentId,
+          includeArchived,
+          limit,
         }
       : null;
 
@@ -198,6 +227,8 @@ export function useThreads({
     userId,
     agentId,
     copilotkit.headers,
+    includeArchived,
+    limit,
   ]);
 
   const renameThread = useCallback(
@@ -215,10 +246,15 @@ export function useThreads({
     [store],
   );
 
+  const fetchNextPage = useCallback(() => store.fetchNextPage(), [store]);
+
   return {
     threads,
     isLoading,
     error,
+    hasNextPage,
+    isFetchingNextPage,
+    fetchNextPage,
     renameThread,
     archiveThread,
     deleteThread,

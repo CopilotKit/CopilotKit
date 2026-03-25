@@ -19,6 +19,8 @@ const {
   ɵselectThreads,
   ɵselectThreadsError,
   ɵselectThreadsIsLoading,
+  ɵselectHasNextPage,
+  ɵselectIsFetchingNextPage,
 } = await import("../threads");
 
 type ThreadRecord = import("../threads").ɵThread;
@@ -384,5 +386,237 @@ describe("thread store", () => {
     await flushEffects();
 
     expect(ɵselectThreadsError(store.getState())?.message).toContain("500");
+  });
+
+  it("passes includeArchived=true as a query param when set", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ threads: sampleThreads }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ joinToken: "jt-1" }),
+      });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const store = ɵcreateThreadStore(
+      createEnvironment(fetchMock as typeof fetch),
+    );
+    stores.push(store);
+    store.start();
+    store.setContext({
+      runtimeUrl: "https://runtime.example.com",
+      headers: {},
+      wsUrl: "ws://localhost:4000/client",
+      userId: "user-1",
+      agentId: "agent-1",
+      includeArchived: true,
+    });
+
+    await flushEffects();
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining("includeArchived=true"),
+      expect.objectContaining({ method: "GET" }),
+    );
+  });
+
+  it("passes limit as a query param when set", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ threads: sampleThreads }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ joinToken: "jt-1" }),
+      });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const store = ɵcreateThreadStore(
+      createEnvironment(fetchMock as typeof fetch),
+    );
+    stores.push(store);
+    store.start();
+    store.setContext({
+      runtimeUrl: "https://runtime.example.com",
+      headers: {},
+      wsUrl: "ws://localhost:4000/client",
+      userId: "user-1",
+      agentId: "agent-1",
+      limit: 10,
+    });
+
+    await flushEffects();
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining("limit=10"),
+      expect.objectContaining({ method: "GET" }),
+    );
+  });
+
+  it("tracks nextCursor and fetches next page", async () => {
+    const page2Thread: ThreadRecord = {
+      id: "thread-3",
+      tenantId: "tenant-1",
+      agentId: "agent-1",
+      createdById: "user-1",
+      name: "Page 2 Thread",
+      archived: false,
+      createdAt: "2025-12-01T00:00:00Z",
+      updatedAt: "2025-12-01T00:00:00Z",
+    };
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          threads: sampleThreads,
+          nextCursor: "cursor-abc",
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ joinToken: "jt-1" }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          threads: [page2Thread],
+          nextCursor: null,
+        }),
+      });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const store = ɵcreateThreadStore(
+      createEnvironment(fetchMock as typeof fetch),
+    );
+    stores.push(store);
+    store.start();
+    store.setContext({
+      runtimeUrl: "https://runtime.example.com",
+      headers: {},
+      wsUrl: "ws://localhost:4000/client",
+      userId: "user-1",
+      agentId: "agent-1",
+      limit: 2,
+    });
+
+    await flushEffects();
+
+    expect(ɵselectHasNextPage(store.getState())).toBe(true);
+    expect(ɵselectThreads(store.getState())).toHaveLength(2);
+
+    store.fetchNextPage();
+    await flushEffects();
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining("cursor=cursor-abc"),
+      expect.objectContaining({ method: "GET" }),
+    );
+    expect(ɵselectThreads(store.getState())).toHaveLength(3);
+    expect(ɵselectHasNextPage(store.getState())).toBe(false);
+    expect(ɵselectIsFetchingNextPage(store.getState())).toBe(false);
+  });
+
+  it("removes thread on archived WS event when includeArchived is false", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ threads: sampleThreads }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ joinToken: "jt-1" }),
+      });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const store = ɵcreateThreadStore(
+      createEnvironment(fetchMock as typeof fetch),
+    );
+    stores.push(store);
+    store.start();
+    store.setContext({
+      runtimeUrl: "https://runtime.example.com",
+      headers: {},
+      wsUrl: "ws://localhost:4000/client",
+      userId: "user-1",
+      agentId: "agent-1",
+    });
+
+    await flushEffects();
+    expect(ɵselectThreads(store.getState())).toHaveLength(2);
+
+    const channel = phoenix.sockets[0].channels[0];
+    channel.serverPush("thread_metadata", {
+      operation: "archived",
+      threadId: "thread-1",
+      userId: "user-1",
+      tenantId: "tenant-1",
+      occurredAt: "2026-01-03T00:00:00Z",
+      thread: { ...sampleThreads[0], archived: true },
+    });
+
+    await flushEffects();
+
+    expect(ɵselectThreads(store.getState())).toHaveLength(1);
+    expect(ɵselectThreads(store.getState())[0].id).toBe("thread-2");
+  });
+
+  it("keeps thread on archived WS event when includeArchived is true", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ threads: sampleThreads }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ joinToken: "jt-1" }),
+      });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const store = ɵcreateThreadStore(
+      createEnvironment(fetchMock as typeof fetch),
+    );
+    stores.push(store);
+    store.start();
+    store.setContext({
+      runtimeUrl: "https://runtime.example.com",
+      headers: {},
+      wsUrl: "ws://localhost:4000/client",
+      userId: "user-1",
+      agentId: "agent-1",
+      includeArchived: true,
+    });
+
+    await flushEffects();
+    expect(ɵselectThreads(store.getState())).toHaveLength(2);
+
+    const channel = phoenix.sockets[0].channels[0];
+    channel.serverPush("thread_metadata", {
+      operation: "archived",
+      threadId: "thread-1",
+      userId: "user-1",
+      tenantId: "tenant-1",
+      occurredAt: "2026-01-03T00:00:00Z",
+      thread: {
+        ...sampleThreads[0],
+        archived: true,
+        updatedAt: "2026-01-03T00:00:00Z",
+      },
+    });
+
+    await flushEffects();
+
+    expect(ɵselectThreads(store.getState())).toHaveLength(2);
+    expect(ɵselectThreads(store.getState())[0]).toMatchObject({
+      id: "thread-1",
+      archived: true,
+    });
   });
 });
