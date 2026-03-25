@@ -1,5 +1,34 @@
 # @copilotkitnext/react
 
+## 1.54.1-next.4
+
+### Patch Changes
+
+- Updated dependencies [8113dba]
+  - @copilotkitnext/core@1.54.1-next.4
+  - @copilotkitnext/web-inspector@1.54.1-next.4
+  - @copilotkit/a2ui-renderer@1.54.1-next.4
+  - @copilotkitnext/shared@1.54.1-next.4
+
+## 1.54.1-next.3
+
+### Patch Changes
+
+- 9e6a09f: fix: address scroll bar styling when using mouse-wheel
+  - @copilotkit/a2ui-renderer@1.54.1-next.3
+  - @copilotkitnext/core@1.54.1-next.3
+  - @copilotkitnext/shared@1.54.1-next.3
+  - @copilotkitnext/web-inspector@1.54.1-next.3
+
+## 1.54.1-next.2
+
+### Patch Changes
+
+- @copilotkit/a2ui-renderer@1.54.1-next.2
+- @copilotkitnext/core@1.54.1-next.2
+- @copilotkitnext/shared@1.54.1-next.2
+- @copilotkitnext/web-inspector@1.54.1-next.2
+
 ## 1.54.1-next.1
 
 ### Patch Changes

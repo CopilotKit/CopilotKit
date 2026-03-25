@@ -1,5 +1,30 @@
 # @copilotkit/runtime
 
+## 1.54.1-next.4
+
+### Patch Changes
+
+- @copilotkit/shared@1.54.1-next.4
+- @copilotkitnext/agent@1.54.1-next.4
+- @copilotkitnext/runtime@1.54.1-next.4
+
+## 1.54.1-next.3
+
+### Patch Changes
+
+- @copilotkit/shared@1.54.1-next.3
+- @copilotkitnext/agent@1.54.1-next.3
+- @copilotkitnext/runtime@1.54.1-next.3
+
+## 1.54.1-next.2
+
+### Patch Changes
+
+- a0a1cf4: feat: re export state streaming langgraph middleware
+  - @copilotkit/shared@1.54.1-next.2
+  - @copilotkitnext/agent@1.54.1-next.2
+  - @copilotkitnext/runtime@1.54.1-next.2
+
 ## 1.54.1-next.1
 
 ### Patch Changes

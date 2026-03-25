@@ -2,6 +2,10 @@ import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   test: {
+    // Prevent Scarf telemetry events from firing during test runs
+    env: {
+      COPILOTKIT_TELEMETRY_DISABLED: "true",
+    },
     environment: "node",
     globals: true,
     include: ["src/**/__tests__/**/*.{test,spec}.ts"],

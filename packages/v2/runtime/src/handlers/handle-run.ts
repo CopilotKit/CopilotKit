@@ -1,4 +1,5 @@
 import { isIntelligenceRuntime } from "../runtime";
+import { telemetry } from "../telemetry";
 import {
   cloneAgentForRequest,
   configureAgentForRequest,
@@ -13,6 +14,21 @@ export async function handleRunAgent({
   request,
   agentId,
 }: RunAgentParameters) {
+  telemetry.capture("oss.runtime.copilot_request_created", {
+    "cloud.guardrails.enabled": false,
+    requestType: "run",
+    "cloud.api_key_provided": !!request.headers.get(
+      "x-copilotcloud-public-api-key",
+    ),
+    ...(request.headers.get("x-copilotcloud-public-api-key")
+      ? {
+          "cloud.public_api_key": request.headers.get(
+            "x-copilotcloud-public-api-key",
+          )!,
+        }
+      : {}),
+  });
+
   try {
     const agent = await cloneAgentForRequest(runtime, agentId);
     if (agent instanceof Response) {

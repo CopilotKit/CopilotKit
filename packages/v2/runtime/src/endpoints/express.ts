@@ -8,6 +8,7 @@ import type {
 import cors from "cors";
 
 import { CopilotRuntimeLike } from "../runtime";
+import { telemetry } from "../telemetry";
 import { handleRunAgent } from "../handlers/handle-run";
 import { handleConnectAgent } from "../handlers/handle-connect";
 import { handleStopAgent } from "../handlers/handle-stop";
@@ -41,6 +42,21 @@ export function createCopilotEndpointExpress({
 }: CopilotExpressEndpointParams): Router {
   const router = express.Router();
   const normalizedBase = normalizeBasePath(basePath);
+
+  // Fire instance_created telemetry - resolve agents if needed
+  Promise.resolve(runtime.agents)
+    .then((agents) => {
+      telemetry.capture("oss.runtime.instance_created", {
+        actionsAmount: 0,
+        endpointTypes: [],
+        endpointsAmount: 0,
+        agentsAmount: Object.keys(agents).length,
+        "cloud.api_key_provided": false,
+      });
+    })
+    .catch(() => {
+      // Silently fail - telemetry should not break the application
+    });
 
   router.use(
     cors({
