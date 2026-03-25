@@ -1,5 +1,15 @@
 # @copilotkitnext/react
 
+## 1.54.1-next.6
+
+### Patch Changes
+
+- 13584d0: fix: respect defaultOpen={false} in CopilotSidebar and CopilotPopup
+  - @copilotkit/a2ui-renderer@1.54.1-next.6
+  - @copilotkitnext/core@1.54.1-next.6
+  - @copilotkitnext/shared@1.54.1-next.6
+  - @copilotkitnext/web-inspector@1.54.1-next.6
+
 ## 1.54.1-next.5
 
 ### Patch Changes
