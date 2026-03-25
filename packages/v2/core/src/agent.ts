@@ -50,12 +50,19 @@ function isZodError(error: unknown): boolean {
   );
 }
 
+function isAbortError(error: unknown): boolean {
+  return (
+    (error instanceof DOMException || error instanceof Error) &&
+    (error as Error).name === "AbortError"
+  );
+}
+
 function withAbortErrorHandling(
   observable: Observable<BaseEvent>,
 ): Observable<BaseEvent> {
   return observable.pipe(
     catchError((error) => {
-      if (isZodError(error)) {
+      if (isZodError(error) || isAbortError(error)) {
         return EMPTY;
       }
       throw error;
