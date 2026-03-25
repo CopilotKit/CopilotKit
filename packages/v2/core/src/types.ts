@@ -23,6 +23,9 @@ export type { RuntimeMode, IntelligenceRuntimeInfo };
 export type FrontendToolHandlerContext = {
   toolCall: ToolCall;
   agent: AbstractAgent;
+  /** Aborted when `stopAgent()` is called. Handlers can check `signal.aborted`
+   *  or pass the signal to fetch/setTimeout to cooperatively cancel. */
+  signal?: AbortSignal;
 };
 
 export type FrontendTool<
