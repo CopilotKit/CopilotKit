@@ -26,6 +26,13 @@ export {
 // Utilities
 export { cn } from "./lib/utils";
 
+// Catalog utilities
+export {
+  extendsBasicCatalog,
+  getCustomComponentNames,
+  buildCatalogContextValue,
+} from "./catalog-utils";
+
 // Styles
 export { injectStyles, removeStyles } from "./styles";
 
@@ -56,8 +63,12 @@ export type {
 // No individual component exports needed
 
 // Backward compat: no-op functions for initializeDefaultCatalog
-export function registerDefaultCatalog() { /* v0.9: catalog is built-in */ }
-export function initializeDefaultCatalog() { /* v0.9: catalog is built-in */ }
+export function registerDefaultCatalog() {
+  /* v0.9: catalog is built-in */
+}
+export function initializeDefaultCatalog() {
+  /* v0.9: catalog is built-in */
+}
 
 // Backward compat: defaultTheme export (v0.9 themes are handled internally)
 export const defaultTheme: Record<string, unknown> = {};
