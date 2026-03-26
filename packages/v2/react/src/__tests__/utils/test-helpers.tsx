@@ -53,6 +53,10 @@ export class MockStepwiseAgent extends AbstractAgent {
     return this;
   }
 
+  // No-op: prevent the base class from tearing down the Subject
+  // before tests have finished emitting events.
+  async detachActiveRun(): Promise<void> {}
+
   run(_input: RunAgentInput): Observable<BaseEvent> {
     return this.subject.asObservable();
   }
@@ -105,6 +109,10 @@ export class MockReconnectableAgent extends AbstractAgent {
   clone(): MockReconnectableAgent {
     return this;
   }
+
+  // No-op: prevent the base class from tearing down the Subject
+  // before tests have finished emitting events.
+  async detachActiveRun(): Promise<void> {}
 
   run(_input: RunAgentInput): Observable<BaseEvent> {
     return this.subject.asObservable();

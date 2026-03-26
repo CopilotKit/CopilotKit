@@ -68,6 +68,22 @@ export enum CopilotKitCoreErrorCode {
   TOOL_HANDLER_FAILED = "tool_handler_failed",
   TOOL_NOT_FOUND = "tool_not_found",
   AGENT_NOT_FOUND = "agent_not_found",
+  /**
+   * Emitted when an agent run fails because the thread is already locked
+   * by another active run.
+   *
+   * @example
+   * ```tsx
+   * <CopilotKitProvider
+   *   onError={({ code, error, context }) => {
+   *     if (code === "agent_thread_locked") {
+   *       // Show "Agent is busy, retry?" UI
+   *     }
+   *   }}
+   * />
+   * ```
+   */
+  AGENT_THREAD_LOCKED = "agent_thread_locked",
   // Transcription errors
   TRANSCRIPTION_FAILED = "transcription_failed",
   TRANSCRIPTION_SERVICE_NOT_CONFIGURED = "transcription_service_not_configured",

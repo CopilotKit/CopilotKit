@@ -571,6 +571,7 @@ describe("useFrontendTool E2E - Dynamic Registration", () => {
           // Keep state across runs so the second run emits different args
           return this;
         }
+        async detachActiveRun(): Promise<void> {}
         run(_input: RunAgentInput): Observable<BaseEvent> {
           return new Observable<BaseEvent>((observer) => {
             const messageId = testId("m");
