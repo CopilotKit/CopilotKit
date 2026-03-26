@@ -43,7 +43,12 @@ describe("A2UIMessageRenderer rendering integration", () => {
           updateComponents: {
             surfaceId: "test-surface",
             components: [
-              { id: "root", component: "Text", text: "Hello World", variant: "body" },
+              {
+                id: "root",
+                component: "Text",
+                text: "Hello World",
+                variant: "body",
+              },
             ],
           },
         },
@@ -83,7 +88,8 @@ describe("A2UIMessageRenderer rendering integration", () => {
             version: "v0.9",
             createSurface: {
               surfaceId: "test",
-              catalogId: "https://a2ui.org/specification/v0_9/basic_catalog.json",
+              catalogId:
+                "https://a2ui.org/specification/v0_9/basic_catalog.json",
             },
           },
           {
@@ -91,7 +97,12 @@ describe("A2UIMessageRenderer rendering integration", () => {
             updateComponents: {
               surfaceId: "test",
               components: [
-                { id: "root", component: "Text", text: "Initial", variant: "body" },
+                {
+                  id: "root",
+                  component: "Text",
+                  text: "Initial",
+                  variant: "body",
+                },
               ],
             },
           },
@@ -117,7 +128,8 @@ describe("A2UIMessageRenderer rendering integration", () => {
             version: "v0.9",
             createSurface: {
               surfaceId: "test",
-              catalogId: "https://a2ui.org/specification/v0_9/basic_catalog.json",
+              catalogId:
+                "https://a2ui.org/specification/v0_9/basic_catalog.json",
             },
           },
           {
@@ -125,7 +137,12 @@ describe("A2UIMessageRenderer rendering integration", () => {
             updateComponents: {
               surfaceId: "test",
               components: [
-                { id: "root", component: "Text", text: "Updated", variant: "body" },
+                {
+                  id: "root",
+                  component: "Text",
+                  text: "Updated",
+                  variant: "body",
+                },
               ],
             },
           },
@@ -187,7 +204,12 @@ describe("A2UIMessageRenderer rendering integration", () => {
           updateComponents: {
             surfaceId: "s1",
             components: [
-              { id: "root", component: "Text", text: "Surface 1", variant: "body" },
+              {
+                id: "root",
+                component: "Text",
+                text: "Surface 1",
+                variant: "body",
+              },
             ],
           },
         },
@@ -196,7 +218,12 @@ describe("A2UIMessageRenderer rendering integration", () => {
           updateComponents: {
             surfaceId: "s2",
             components: [
-              { id: "root", component: "Text", text: "Surface 2", variant: "body" },
+              {
+                id: "root",
+                component: "Text",
+                text: "Surface 2",
+                variant: "body",
+              },
             ],
           },
         },
