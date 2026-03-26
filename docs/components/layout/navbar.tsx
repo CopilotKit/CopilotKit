@@ -17,6 +17,7 @@ import GithubIcon from "@/components/ui/icons/github";
 import DiscordIcon from "@/components/ui/icons/discord";
 import ExternalLinkIcon from "@/components/ui/icons/external-link";
 import BurgerMenuIcon from "@/components/ui/icons/burger-menu";
+import CrossIcon from "@/components/ui/icons/cross";
 import { BookOpenIcon, ScrollTextIcon } from "lucide-react";
 
 export interface NavbarLink {
@@ -280,10 +281,25 @@ const Navbar = ({ pageTree }: NavbarProps) => {
             <SearchDialogButton />
 
             <button
-              className="flex justify-center items-center w-11 h-full cursor-pointer md:hidden"
-              onClick={() => setIsMobileSidebarOpen(true)}
+              type="button"
+              className={`flex justify-center items-center w-11 h-full cursor-pointer md:hidden text-icon transition-opacity duration-300 ${
+                isMobileSidebarOpen
+                  ? "opacity-100"
+                  : "opacity-70 hover:opacity-100"
+              }`}
+              onClick={() =>
+                isMobileSidebarOpen
+                  ? setIsMobileSidebarOpen(false)
+                  : setIsMobileSidebarOpen(true)
+              }
+              aria-expanded={isMobileSidebarOpen}
+              aria-label={
+                isMobileSidebarOpen
+                  ? "Cerrar menú de navegación"
+                  : "Abrir menú de navegación"
+              }
             >
-              <BurgerMenuIcon />
+              {isMobileSidebarOpen ? <CrossIcon /> : <BurgerMenuIcon />}
             </button>
           </div>
         </div>
