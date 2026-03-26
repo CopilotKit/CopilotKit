@@ -345,7 +345,7 @@ function SurfaceMessageProcessor({
   surfaceId: string;
   operations: any[];
 }) {
-  const { processMessages } = useA2UIActions();
+  const { processMessages, getSurface } = useA2UIActions();
   const lastHashRef = useRef<string>("");
   useEffect(() => {
     // Skip if operations haven't actually changed (deep compare via hash).
@@ -355,9 +355,17 @@ function SurfaceMessageProcessor({
     if (hash === lastHashRef.current) return;
     lastHashRef.current = hash;
 
+    // Filter out createSurface if the surface already exists — the
+    // MessageProcessor throws on duplicate createSurface, but content
+    // snapshots always include the full operation list.
+    const existing = getSurface(surfaceId);
+    const ops = existing
+      ? operations.filter((op) => !op?.createSurface)
+      : operations;
+
     // Error handling is done inside A2UIProvider.processMessages
-    processMessages(operations);
-  }, [processMessages, operations]);
+    processMessages(ops);
+  }, [processMessages, getSurface, surfaceId, operations]);
 
   return null;
 }
