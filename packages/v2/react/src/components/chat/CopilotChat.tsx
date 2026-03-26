@@ -15,7 +15,11 @@ import {
 import { Suggestion, CopilotKitCoreErrorCode } from "@copilotkitnext/core";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { merge } from "ts-deepmerge";
-import { useCopilotKit } from "@/providers/CopilotKitProvider";
+import {
+  useCopilotKit,
+  useLicenseContext,
+} from "@/providers/CopilotKitProvider";
+import { InlineFeatureWarning } from "@/components/license-warning-banner";
 import { AbstractAgent, HttpAgent } from "@ag-ui/client";
 import { renderSlot, SlotValue } from "@/lib/slots";
 import {
@@ -72,6 +76,17 @@ export function CopilotChat({
   const { suggestions: autoSuggestions } = useSuggestions({
     agentId: resolvedAgentId,
   });
+
+  const { checkFeature } = useLicenseContext();
+  const isChatLicensed = checkFeature("chat");
+
+  useEffect(() => {
+    if (!isChatLicensed) {
+      console.warn(
+        '[CopilotKit] Warning: "chat" feature is not licensed. Visit copilotkit.ai/pricing',
+      );
+    }
+  }, [isChatLicensed]);
 
   // onError subscription — forward core errors scoped to this chat's agent
   const onErrorRef = useRef(onError);
@@ -386,6 +401,7 @@ export function CopilotChat({
       labels={labels}
       isModalDefaultOpen={isModalDefaultOpen}
     >
+      {!isChatLicensed && <InlineFeatureWarning featureName="Chat" />}
       {transcriptionError && (
         <div
           style={{

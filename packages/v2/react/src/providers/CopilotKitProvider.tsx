@@ -15,6 +15,11 @@ import {
 } from "react";
 import { z } from "zod";
 import { CopilotKitInspector } from "../components/CopilotKitInspector";
+import { LicenseWarningBanner } from "../components/license-warning-banner";
+import {
+  createLicenseContextValue,
+  type LicenseContextValue,
+} from "@copilotkit/shared";
 import type { CopilotKitCoreErrorCode } from "@copilotkitnext/core";
 import {
   MCPAppsActivityContentSchema,
@@ -56,6 +61,13 @@ const CopilotKitContext = createContext<CopilotKitContextValue>({
   executingToolCallIds: EMPTY_SET,
 });
 
+const LicenseContext = createContext<LicenseContextValue>(
+  createLicenseContextValue(null),
+);
+
+export const useLicenseContext = (): LicenseContextValue =>
+  useContext(LicenseContext);
+
 // Provider props interface
 export interface CopilotKitProviderProps {
   children: ReactNode;
@@ -73,6 +85,11 @@ export interface CopilotKitProviderProps {
    * Alias for `publicApiKey`
    **/
   publicLicenseKey?: string;
+  /**
+   * Signed license token for offline verification of premium features.
+   * Obtain from https://cloud.copilotkit.ai.
+   */
+  licenseToken?: string;
   properties?: Record<string, unknown>;
   useSingleEndpoint?: boolean;
   agents__unsafe_dev_only?: Record<string, AbstractAgent>;
@@ -145,6 +162,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   credentials,
   publicApiKey,
   publicLicenseKey,
+  licenseToken,
   properties = {},
   agents__unsafe_dev_only: agents = {},
   selfManagedAgents = {},
@@ -160,6 +178,9 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
 }) => {
   const [shouldRenderInspector, setShouldRenderInspector] = useState(false);
   const [runtimeA2UIEnabled, setRuntimeA2UIEnabled] = useState(false);
+  const [runtimeLicenseStatus, setRuntimeLicenseStatus] = useState<
+    string | undefined
+  >(undefined);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -381,11 +402,12 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   }
   const copilotkit = copilotkitRef.current;
 
-  // Sync runtimeA2UIEnabled from the core once runtime info is fetched
+  // Sync runtime-reported state once runtime info is fetched
   useEffect(() => {
     const subscription = copilotkit.subscribe({
       onRuntimeConnectionStatusChanged: () => {
         setRuntimeA2UIEnabled(copilotkit.a2uiEnabled);
+        setRuntimeLicenseStatus(copilotkit.licenseStatus);
       },
     });
     return () => {
@@ -523,10 +545,33 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     [copilotkit, executingToolCallIds],
   );
 
+  // License context — driven by server-reported status via /info endpoint
+  const licenseContextValue = useMemo(
+    () => createLicenseContextValue(null),
+    [],
+  );
+
   return (
     <CopilotKitContext.Provider value={contextValue}>
-      {children}
-      {shouldRenderInspector ? <CopilotKitInspector core={copilotkit} /> : null}
+      <LicenseContext.Provider value={licenseContextValue}>
+        {children}
+        {shouldRenderInspector ? (
+          <CopilotKitInspector core={copilotkit} />
+        ) : null}
+        {/* License warnings — driven by server-reported status */}
+        {runtimeLicenseStatus === "none" && !resolvedPublicKey && (
+          <LicenseWarningBanner type="no_license" />
+        )}
+        {runtimeLicenseStatus === "expired" && (
+          <LicenseWarningBanner type="expired" />
+        )}
+        {runtimeLicenseStatus === "invalid" && (
+          <LicenseWarningBanner type="invalid" />
+        )}
+        {runtimeLicenseStatus === "expiring" && (
+          <LicenseWarningBanner type="expiring" />
+        )}
+      </LicenseContext.Provider>
     </CopilotKitContext.Provider>
   );
 };

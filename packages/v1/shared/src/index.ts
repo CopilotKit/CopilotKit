@@ -5,3 +5,5 @@ export * from "./telemetry";
 
 import * as packageJson from "../package.json";
 export const COPILOTKIT_VERSION = packageJson.version;
+
+export * from "@copilotkit/license-verifier";

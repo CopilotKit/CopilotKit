@@ -5,7 +5,7 @@ import { telemetry } from "../telemetry";
 import { handleRunAgent } from "../handlers/handle-run";
 import { handleGetRuntimeInfo } from "../handlers/get-runtime-info";
 import { handleTranscribe } from "../handlers/handle-transcribe";
-import { logger } from "@copilotkitnext/shared";
+import { logger, getLicenseWarningHeader } from "@copilotkitnext/shared";
 import {
   callBeforeRequestMiddleware,
   callAfterRequestMiddleware,
@@ -125,6 +125,9 @@ export function createCopilotEndpoint({
         }
         throw error;
       }
+
+      const warning = getLicenseWarningHeader(runtime.licenseChecker);
+      if (warning) c.header(warning.key, warning.value);
 
       await next();
     })

@@ -5,6 +5,7 @@ import {
   Suggestion,
   CopilotRuntimeTransport,
   RuntimeMode,
+  RuntimeLicenseStatus,
   IntelligenceRuntimeInfo,
 } from "../types";
 import { AgentRegistry, CopilotKitCoreAddAgentParams } from "./agent-registry";
@@ -369,6 +370,10 @@ export class CopilotKitCore {
 
   get a2uiEnabled(): boolean {
     return this.agentRegistry.a2uiEnabled;
+  }
+
+  get licenseStatus(): RuntimeLicenseStatus | undefined {
+    return this.agentRegistry.licenseStatus;
   }
 
   /**

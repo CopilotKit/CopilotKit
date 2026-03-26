@@ -3,8 +3,10 @@ import { useDarkMode } from "../../hooks/use-dark-mode";
 
 export function PoweredByTag({
   showPoweredBy = true,
+  removeBranding = false,
 }: {
   showPoweredBy?: boolean;
+  removeBranding?: boolean;
 }) {
   const [mounted, setMounted] = useState(false);
   const isDark = useDarkMode();
@@ -21,7 +23,7 @@ export function PoweredByTag({
     setMounted(true);
   }, []);
 
-  if (!showPoweredBy) {
+  if (!showPoweredBy || removeBranding) {
     return null;
   }
 

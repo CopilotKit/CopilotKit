@@ -4,6 +4,8 @@ import {
   RuntimeMode,
   RUNTIME_MODE_SSE,
   RUNTIME_MODE_INTELLIGENCE,
+  createLicenseChecker,
+  type LicenseChecker,
 } from "@copilotkitnext/shared";
 import { AbstractAgent } from "@ag-ui/client";
 import type { MCPClientConfig } from "@ag-ui/mcp-apps-middleware";
@@ -52,6 +54,8 @@ interface BaseCopilotRuntimeOptions extends CopilotRuntimeMiddlewares {
   beforeRequestMiddleware?: BeforeRequestMiddleware;
   /** Optional *after* middleware – callback function or webhook URL. */
   afterRequestMiddleware?: AfterRequestMiddleware;
+  /** Signed license token for server-side feature verification. Falls back to COPILOTKIT_LICENSE_TOKEN env var. */
+  licenseToken?: string;
 }
 
 export interface CopilotRuntimeUser {
@@ -93,6 +97,7 @@ export interface CopilotRuntimeLike {
   intelligence?: CopilotKitIntelligence;
   identifyUser?: IdentifyUserCallback;
   mode: RuntimeMode;
+  licenseChecker?: LicenseChecker;
 }
 
 export interface CopilotSseRuntimeLike extends CopilotRuntimeLike {
@@ -115,6 +120,7 @@ abstract class BaseCopilotRuntime implements CopilotRuntimeLike {
   public runner: AgentRunner;
   public a2ui: CopilotRuntimeOptions["a2ui"];
   public mcpApps: CopilotRuntimeOptions["mcpApps"];
+  public licenseChecker?: LicenseChecker;
 
   abstract readonly intelligence?: CopilotKitIntelligence;
   abstract readonly mode: RuntimeMode;
@@ -136,6 +142,7 @@ abstract class BaseCopilotRuntime implements CopilotRuntimeLike {
     this.a2ui = a2ui;
     this.mcpApps = mcpApps;
     this.runner = runner;
+    this.licenseChecker = createLicenseChecker(options.licenseToken);
   }
 }
 
@@ -245,5 +252,9 @@ export class CopilotRuntime implements CopilotRuntimeLike {
 
   get mode(): RuntimeMode {
     return this.delegate.mode;
+  }
+
+  get licenseChecker() {
+    return this.delegate.licenseChecker;
   }
 }

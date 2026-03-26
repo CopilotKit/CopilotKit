@@ -21,7 +21,7 @@ import {
   handleArchiveThread,
   handleDeleteThread,
 } from "../handlers/handle-threads";
-import { logger } from "@copilotkitnext/shared";
+import { logger, getLicenseWarningHeader } from "@copilotkitnext/shared";
 import {
   callBeforeRequestMiddleware,
   callAfterRequestMiddleware,
@@ -168,6 +168,10 @@ function createRouteHandler(
   ) => {
     const path = req.originalUrl ?? req.path;
     let request = createFetchRequestFromExpress(req);
+
+    const warning = getLicenseWarningHeader(runtime.licenseChecker);
+    if (warning) res.setHeader(warning.key, warning.value);
+
     try {
       const maybeModifiedRequest = await callBeforeRequestMiddleware({
         runtime,
