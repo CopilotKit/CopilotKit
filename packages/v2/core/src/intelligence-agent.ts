@@ -10,6 +10,13 @@ import {
   transformChunks,
   structuredClone_,
 } from "@ag-ui/client";
+export class AgentThreadLockedError extends Error {
+  constructor(threadId?: string) {
+    super(threadId ? `Thread ${threadId} is locked` : "Thread is locked");
+    this.name = "AgentThreadLockedError";
+  }
+}
+
 import {
   EMPTY,
   Subject,
@@ -357,6 +364,10 @@ export class IntelligenceAgent extends AbstractAgent {
             : {}),
         });
 
+        if (response.status === 409) {
+          throw new AgentThreadLockedError(input.threadId);
+        }
+
         if (!response.ok) {
           const text = await response.text().catch(() => "");
           throw new Error(
@@ -372,6 +383,9 @@ export class IntelligenceAgent extends AbstractAgent {
 
         return { joinToken: payload.joinToken };
       } catch (error) {
+        if (error instanceof AgentThreadLockedError) {
+          throw error;
+        }
         throw new Error(
           `REST ${mode} request failed: ${error instanceof Error ? error.message : String(error)}`,
         );

@@ -238,6 +238,29 @@ describe("IntelligenceAgent", () => {
       expect(result.socket).toBeNull();
       expect(result.channel).toBeNull();
     });
+
+    it("throws AgentThreadLockedError on 409 response", async () => {
+      const { AgentThreadLockedError } = await import("../intelligence-agent");
+      mockFetch.mockResolvedValueOnce(
+        Promise.resolve({
+          ok: false,
+          status: 409,
+          statusText: "Conflict",
+          json: () => Promise.resolve({ error: "Thread lock denied" }),
+          text: () => Promise.resolve('{"error":"Thread lock denied"}'),
+        } as Response),
+      );
+
+      const agent = createAgent();
+      const result = await collectEvents(agent);
+
+      expect(result.completed).toBe(false);
+      expect(result.error).toBeInstanceOf(AgentThreadLockedError);
+      expect(result.error!.message).toContain("thread-1");
+      expect(result.error!.message).toContain("locked");
+      expect(result.socket).toBeNull();
+      expect(result.channel).toBeNull();
+    });
   });
 
   describe("event relay", () => {

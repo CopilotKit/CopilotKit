@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ProxiedCopilotRuntimeAgent } from "../agent";
 import { CopilotKitCore, CopilotKitCoreErrorCode } from "../core";
+import { AgentThreadLockedError } from "../intelligence-agent";
 import { createAssistantMessage } from "./test-utils";
 
 describe("CopilotKitCore error handling", () => {
@@ -68,6 +69,54 @@ describe("CopilotKitCore error handling", () => {
       )!;
       expect(evt.context.agentId).toBe("agent1");
       expect(evt.context.event).toBeDefined();
+
+      sub.unsubscribe();
+    });
+
+    it("emits AGENT_THREAD_LOCKED when onRunFailed receives AgentThreadLockedError", async () => {
+      const core = new CopilotKitCore({});
+      const errors: Array<{
+        code: CopilotKitCoreErrorCode;
+        error: Error;
+        context: any;
+      }> = [];
+      const sub = core.subscribe({ onError: (e) => void errors.push(e) });
+
+      const agent = {
+        agentId: "agent-locked",
+        threadId: "t-locked",
+        messages: [] as any[],
+        state: {},
+        addMessages: (_m: any[]) => {},
+        addMessage: (_m: any) => {},
+        abortRun: () => {},
+        clone: () => agent,
+        subscribe: () => ({ unsubscribe() {} }),
+        async runAgent(_params: any, subscriber?: any) {
+          await subscriber?.onRunFailed?.({
+            error: new AgentThreadLockedError("t-locked"),
+          });
+          return { newMessages: [] };
+        },
+      } as any;
+
+      core.addAgent__unsafe_dev_only({
+        id: agent.agentId,
+        agent: agent as any,
+      });
+      await core.runAgent({ agent });
+
+      expect(
+        errors.some(
+          (e) => e.code === CopilotKitCoreErrorCode.AGENT_THREAD_LOCKED,
+        ),
+      ).toBe(true);
+      const evt = errors.find(
+        (e) => e.code === CopilotKitCoreErrorCode.AGENT_THREAD_LOCKED,
+      )!;
+      expect(evt.context.agentId).toBe("agent-locked");
+      expect(evt.context.source).toBe("onRunFailed");
+      expect(evt.error).toBeInstanceOf(AgentThreadLockedError);
 
       sub.unsubscribe();
     });

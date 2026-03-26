@@ -81,6 +81,8 @@ class MockMCPProxyAgent extends AbstractAgent {
     return this;
   }
 
+  async detachActiveRun(): Promise<void> {}
+
   run(_input: RunAgentInput): Observable<BaseEvent> {
     return this.subject.asObservable();
   }

@@ -30,6 +30,8 @@ class MockStreamingAgent extends AbstractAgent {
     return new MockStreamingAgent();
   }
 
+  async detachActiveRun(): Promise<void> {}
+
   run(_input: RunAgentInput): Observable<BaseEvent> {
     return new Observable<BaseEvent>((observer) => {
       const messageId = `m_${Date.now()}`;
@@ -251,6 +253,8 @@ class MockStepwiseAgent extends AbstractAgent {
     // For tests, return same instance so we can keep controlling it.
     return this;
   }
+
+  async detachActiveRun(): Promise<void> {}
 
   run(_input: RunAgentInput): Observable<BaseEvent> {
     return this.subject.asObservable();

@@ -11,6 +11,7 @@ import { randomUUID, logger, schemaToJsonSchema } from "@copilotkitnext/shared";
 import { zodToJsonSchema } from "zod-to-json-schema";
 import type { CopilotKitCore, CopilotKitCoreFriendsAccess } from "./core";
 import { CopilotKitCoreErrorCode } from "./core";
+import { AgentThreadLockedError } from "../intelligence-agent";
 import type { FrontendTool } from "../types";
 
 export interface CopilotKitCoreRunAgentParams {
@@ -871,13 +872,13 @@ export class RunHandler {
 
     return {
       onRunFailed: async ({ error }: { error: Error }) => {
-        await emitAgentError(
-          error,
-          CopilotKitCoreErrorCode.AGENT_RUN_FAILED_EVENT,
-          {
-            source: "onRunFailed",
-          },
-        );
+        const code =
+          error instanceof AgentThreadLockedError
+            ? CopilotKitCoreErrorCode.AGENT_THREAD_LOCKED
+            : CopilotKitCoreErrorCode.AGENT_RUN_FAILED_EVENT;
+        await emitAgentError(error, code, {
+          source: "onRunFailed",
+        });
       },
       onRunErrorEvent: async ({ event }) => {
         const eventError =
