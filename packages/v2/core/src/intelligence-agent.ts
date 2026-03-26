@@ -10,12 +10,6 @@ import {
   transformChunks,
   structuredClone_,
 } from "@ag-ui/client";
-export class AgentThreadLockedError extends Error {
-  constructor(threadId?: string) {
-    super(threadId ? `Thread ${threadId} is locked` : "Thread is locked");
-    this.name = "AgentThreadLockedError";
-  }
-}
 
 import {
   EMPTY,
@@ -77,6 +71,13 @@ interface ConnectLivePlan {
   joinToken: string;
   joinFromEventId: string | null;
   events: BaseEvent[];
+}
+
+export class AgentThreadLockedError extends Error {
+  constructor(threadId?: string) {
+    super(threadId ? `Thread ${threadId} is locked` : "Thread is locked");
+    this.name = "AgentThreadLockedError";
+  }
 }
 
 type NormalizedConnectPlan = ConnectBootstrapPlan | ConnectLivePlan;
