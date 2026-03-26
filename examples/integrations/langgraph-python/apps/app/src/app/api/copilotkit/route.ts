@@ -30,35 +30,28 @@ export const POST = async (req: NextRequest) => {
             toolName: "search_flights_streaming",
             surface: {
               surfaceId: "flight-search-streaming",
-              root: "root",
+              catalogId:
+                "https://a2ui.org/specification/v0_9/basic_catalog.json",
               components: flightSchema,
               dataKey: "flights",
               actionHandlers: {
                 book_flight: [
                   {
-                    surfaceUpdate: {
+                    version: "v0.9",
+                    updateComponents: {
                       surfaceId: "flight-search-streaming",
                       components: bookedSchema,
                     },
                   },
                   {
-                    dataModelUpdate: {
+                    version: "v0.9",
+                    updateDataModel: {
                       surfaceId: "flight-search-streaming",
-                      contents: [
-                        { key: "title", valueString: "Booking Confirmed" },
-                        {
-                          key: "detail",
-                          valueString:
-                            "Your flight has been booked successfully.",
-                        },
-                        { key: "reference", valueString: "CK-38291" },
-                      ],
-                    },
-                  },
-                  {
-                    beginRendering: {
-                      surfaceId: "flight-search-streaming",
-                      root: "root",
+                      value: {
+                        title: "Booking Confirmed",
+                        detail: "Your flight has been booked successfully.",
+                        reference: "CK-38291",
+                      },
                     },
                   },
                 ],
