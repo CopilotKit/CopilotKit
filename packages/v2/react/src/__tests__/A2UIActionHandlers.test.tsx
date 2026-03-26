@@ -24,25 +24,59 @@ function makeAction(
 }
 
 const BOOKED_OPS: A2UIOps = [
-  { version: "v0.9", updateComponents: { surfaceId: "surface-1", components: [
-    { id: "root", component: "Card", child: "msg" },
-    { id: "msg", component: "Text", text: "Booked!", variant: "h2" },
-  ] } },
+  {
+    version: "v0.9",
+    updateComponents: {
+      surfaceId: "surface-1",
+      components: [
+        { id: "root", component: "Card", child: "msg" },
+        { id: "msg", component: "Text", text: "Booked!", variant: "h2" },
+      ],
+    },
+  },
 ];
 const CANCELLED_OPS: A2UIOps = [
-  { version: "v0.9", updateComponents: { surfaceId: "surface-1", components: [
-    { id: "root", component: "Text", text: "Cancelled", variant: "body" },
-  ] } },
+  {
+    version: "v0.9",
+    updateComponents: {
+      surfaceId: "surface-1",
+      components: [
+        { id: "root", component: "Text", text: "Cancelled", variant: "body" },
+      ],
+    },
+  },
 ];
 const CATCHALL_OPS: A2UIOps = [
-  { version: "v0.9", updateComponents: { surfaceId: "surface-1", components: [
-    { id: "root", component: "Text", text: "Action received", variant: "body" },
-  ] } },
+  {
+    version: "v0.9",
+    updateComponents: {
+      surfaceId: "surface-1",
+      components: [
+        {
+          id: "root",
+          component: "Text",
+          text: "Action received",
+          variant: "body",
+        },
+      ],
+    },
+  },
 ];
 const HOOK_OPS: A2UIOps = [
-  { version: "v0.9", updateComponents: { surfaceId: "surface-1", components: [
-    { id: "root", component: "Text", text: "Hook handled", variant: "body" },
-  ] } },
+  {
+    version: "v0.9",
+    updateComponents: {
+      surfaceId: "surface-1",
+      components: [
+        {
+          id: "root",
+          component: "Text",
+          text: "Hook handled",
+          variant: "body",
+        },
+      ],
+    },
+  },
 ];
 
 // ---------------------------------------------------------------
