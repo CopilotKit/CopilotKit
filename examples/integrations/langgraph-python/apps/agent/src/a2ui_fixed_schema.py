@@ -55,19 +55,18 @@ def search_flights(flights: list[Flight]) -> str:
     """
     return a2ui.render(
         operations=[
-            a2ui.surface_update(SURFACE_ID, FLIGHT_SCHEMA),
-            a2ui.data_model_update(SURFACE_ID, {"flights": flights}),
-            a2ui.begin_rendering(SURFACE_ID, "root"),
+            a2ui.create_surface(SURFACE_ID),
+            a2ui.update_components(SURFACE_ID, FLIGHT_SCHEMA),
+            a2ui.update_data_model(SURFACE_ID, {"flights": flights}),
         ],
         action_handlers={
             "book_flight": [
-                a2ui.surface_update(SURFACE_ID, BOOKED_SCHEMA),
-                a2ui.data_model_update(SURFACE_ID, {
+                a2ui.update_components(SURFACE_ID, BOOKED_SCHEMA),
+                a2ui.update_data_model(SURFACE_ID, {
                     "title": "Booking Confirmed",
                     "detail": "Your flight has been booked successfully.",
                     "reference": "CK-74921",
                 }),
-                a2ui.begin_rendering(SURFACE_ID, "root"),
             ],
         },
     )
