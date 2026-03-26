@@ -10,7 +10,6 @@ import {
   AbstractAgent,
   BaseEvent,
   EventType,
-  MessagesSnapshotEvent,
   RunStartedEvent,
   compactEvents,
 } from "@ag-ui/client";
@@ -292,6 +291,51 @@ export class InMemoryAgentRunner extends AgentRunner {
   }
 
   connect(request: AgentRunnerConnectRequest): Observable<BaseEvent> {
+    if (request.agent && request.input) {
+      if (typeof request.agent.setMessages === "function") {
+        request.agent.setMessages(request.input.messages);
+      }
+      if (typeof request.agent.setState === "function") {
+        request.agent.setState(request.input.state);
+      }
+      request.agent.threadId = request.input.threadId;
+
+      return new Observable<BaseEvent>((subscriber) => {
+        void request
+          .agent!.connectAgent(
+            {
+              runId: request.input!.runId,
+              tools: request.input!.tools,
+              context: request.input!.context,
+              forwardedProps: request.input!.forwardedProps,
+            },
+            {
+              onEvent: ({ event }) => {
+                if (!subscriber.closed) {
+                  subscriber.next(event);
+                }
+              },
+            },
+          )
+          .then(() => {
+            if (!subscriber.closed) {
+              subscriber.complete();
+            }
+          })
+          .catch((error: unknown) => {
+            if (!subscriber.closed) {
+              subscriber.error(
+                error instanceof Error ? error : new Error(String(error)),
+              );
+            }
+          });
+
+        return () => {
+          void request.agent?.detachActiveRun();
+        };
+      });
+    }
+
     const store = GLOBAL_STORE.get(request.threadId);
     const connectionSubject = new ReplaySubject<BaseEvent>(Infinity);
 

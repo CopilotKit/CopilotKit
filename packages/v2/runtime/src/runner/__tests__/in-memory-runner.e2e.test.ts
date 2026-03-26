@@ -142,6 +142,32 @@ class RunnerConnectAgent extends AbstractAgent {
   }
 }
 
+class AgentOwnedConnectAgent extends AbstractAgent {
+  public readonly connectInputs: RunAgentInput[] = [];
+
+  constructor(
+    private readonly eventsFactory: (input: RunAgentInput) => BaseEvent[],
+    threadId: string,
+  ) {
+    super({ threadId });
+  }
+
+  async runAgent(): Promise<void> {
+    throw new Error("not used");
+  }
+
+  protected run(): ReturnType<AbstractAgent["run"]> {
+    return EMPTY;
+  }
+
+  protected connect(
+    input: RunAgentInput,
+  ): ReturnType<AbstractAgent["connect"]> {
+    this.connectInputs.push(input);
+    return from(this.eventsFactory(input));
+  }
+}
+
 type Deferred<T> = {
   promise: Promise<T>;
   resolve: (value: T) => void;
@@ -354,6 +380,67 @@ describe("InMemoryAgentRunner e2e", () => {
   });
 
   describe("Fresh Agent Connection After Prior Runs", () => {
+    it("preserves agent-owned connect semantics when an agent and input are provided", async () => {
+      const runner = new InMemoryAgentRunner();
+      const threadId = "thread-agent-connect";
+      const input = createRunInput({
+        threadId,
+        runId: "run-agent-connect",
+        messages: [{ id: "user-1", role: "user", content: "hello" }],
+      });
+
+      const connectAgent = new AgentOwnedConnectAgent(
+        (connectInput) => [
+          {
+            type: EventType.RUN_STARTED,
+            threadId: connectInput.threadId,
+            runId: connectInput.runId,
+          } satisfies RunStartedEvent,
+          ...createTextMessageEvents({
+            messageId: "assistant-connect",
+            content: "from-agent-connect",
+          }),
+          {
+            type: EventType.RUN_FINISHED,
+            threadId: connectInput.threadId,
+            runId: connectInput.runId,
+          } satisfies RunFinishedEvent,
+        ],
+        threadId,
+      );
+
+      const events = await collectEvents(
+        runner.connect({
+          threadId,
+          agent: connectAgent,
+          input,
+        }),
+      );
+
+      expect(connectAgent.connectInputs).toHaveLength(1);
+      expect(connectAgent.connectInputs[0]).toMatchObject({
+        threadId,
+        runId: "run-agent-connect",
+        messages: input.messages,
+        state: {},
+      });
+      expect(events.map((event) => event.type)).toEqual([
+        EventType.RUN_STARTED,
+        EventType.TEXT_MESSAGE_START,
+        EventType.TEXT_MESSAGE_CONTENT,
+        EventType.TEXT_MESSAGE_END,
+        EventType.RUN_FINISHED,
+      ]);
+      expect(
+        (
+          events[2] as Extract<
+            BaseEvent,
+            { type: EventType.TEXT_MESSAGE_CONTENT }
+          >
+        ).delta,
+      ).toBe("from-agent-connect");
+    });
+
     it("hydrates a brand-new agent via connect()", async () => {
       const runner = new InMemoryAgentRunner();
       const threadId = "thread-new-agent-connection";
