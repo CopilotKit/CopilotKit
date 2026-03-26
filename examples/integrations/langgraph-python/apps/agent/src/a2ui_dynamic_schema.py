@@ -1,10 +1,9 @@
 """
 Dynamic A2UI tool: LLM-generated UI from conversation context.
 
-The secondary LLM generates A2UI operations via a structured tool call.
-Operations stream as TOOL_CALL_ARGS events. The middleware extracts
-complete operations progressively and auto-injects beginRendering so
-the surface renders as soon as the schema is ready.
+A secondary LLM generates v0.9 A2UI components via a structured tool call.
+The generate_a2ui tool wraps the output as a2ui_operations, which the
+middleware detects in the TOOL_CALL_RESULT and renders automatically.
 """
 
 from __future__ import annotations
@@ -14,32 +13,35 @@ from typing import Any
 
 from langchain.tools import tool, ToolRuntime
 from langchain_core.messages import SystemMessage
+from langchain_core.tools import tool as lc_tool
 from langchain_openai import ChatOpenAI
 
-from copilotkit.a2ui import a2ui_prompt
+from copilotkit import a2ui
 
-A2UI_GENERATION_PROMPT = a2ui_prompt()
+A2UI_GENERATION_PROMPT = a2ui.a2ui_prompt()
+
+CUSTOM_CATALOG_ID = "https://a2ui.org/demos/dojo/custom_catalog.json"
 
 
-@tool
+@lc_tool
 def render_a2ui(
     surfaceId: str,
     components: list[dict],
-    root: str,
     items: list[dict],
     actionHandlers: dict | None = None,
 ) -> str:
-    """Render a dynamic A2UI surface with progressive streaming.
+    """Render a dynamic A2UI v0.9 surface.
 
     Args:
         surfaceId: Unique surface identifier.
-        components: A2UI component array (the schema). Use a List with
-            template/dataBinding="/items" for repeating cards.
-        root: ID of the root component.
+        components: A2UI v0.9 component array (flat format). The root
+            component must have id "root". Use a List with
+            children: { componentId, path: "/items" } for repeating cards.
         items: Plain JSON array of data objects. Each object's keys
             correspond to the path bindings in the template components.
+            Use relative paths (no leading /) inside templates.
         actionHandlers: Optional dict mapping action names to arrays of
-            A2UI operations for optimistic UI updates on button click.
+            v0.9 A2UI operations for optimistic UI updates on button click.
     """
     return "rendered"
 
@@ -65,10 +67,11 @@ def _build_context_addendum(state: dict) -> str:
 def generate_a2ui(runtime: ToolRuntime[Any]) -> str:
     """Generate dynamic A2UI components based on the conversation.
 
-    The secondary LLM's tool call args stream as TOOL_CALL_ARGS events.
-    The middleware extracts complete operations progressively.
+    A secondary LLM designs the UI schema and data. The result is
+    returned as an a2ui_operations container for the middleware to detect.
     """
-    # The last message is this tool call (generate_a2ui) so we remove it, as it is not yet balanced with a tool call response.
+    # The last message is this tool call (generate_a2ui) so we remove it,
+    # as it is not yet balanced with a tool call response.
     messages = runtime.state["messages"][:-1]
 
     # Inject client-provided context (e.g. custom catalog definitions)
@@ -85,12 +88,24 @@ def generate_a2ui(runtime: ToolRuntime[Any]) -> str:
         [SystemMessage(content=prompt), *messages],
     )
 
-    # Extract the render_a2ui tool call arguments and format a readable summary.
+    # Extract the render_a2ui tool call arguments
+    if not response.tool_calls:
+        return json.dumps({"error": "LLM did not call render_a2ui"})
+
     tool_call = response.tool_calls[0]
     args = tool_call["args"]
 
-    return (
-        f"Rendered A2UI on the client.\n"
-        f"Arguments: {json.dumps(args, indent=2)}\n"
-        f"Return value: rendered"
+    surface_id = args.get("surfaceId", "dynamic-surface")
+    components = args.get("components", [])
+    items = args.get("items", [])
+    action_handlers = args.get("actionHandlers")
+
+    # Wrap as v0.9 a2ui_operations so the middleware detects it
+    return a2ui.render(
+        operations=[
+            a2ui.create_surface(surface_id, catalog_id=CUSTOM_CATALOG_ID),
+            a2ui.update_components(surface_id, components),
+            a2ui.update_data_model(surface_id, {"items": items}),
+        ],
+        action_handlers=action_handlers,
     )
