@@ -65,6 +65,9 @@ export function useAgent({ agentId, threadId, updates }: UseAgentProps = {}) {
 
   // When threadId is provided, each (agentId, threadId) pair gets its own
   // cloned agent instance so that messages and state are isolated.
+  // Clones are intentionally kept for the component's lifetime — eviction would
+  // add complexity for a case (many rotating threadIds on a single hook caller)
+  // that doesn't arise in typical usage.
   const threadAgentCache = useRef<Map<string, AbstractAgent>>(new Map());
 
   const agent: AbstractAgent = useMemo(() => {
