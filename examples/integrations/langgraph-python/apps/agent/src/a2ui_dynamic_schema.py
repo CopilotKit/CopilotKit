@@ -44,6 +44,23 @@ def render_a2ui(
     return "rendered"
 
 
+def _build_context_addendum(state: dict) -> str:
+    """Extract agent context from state and format as a prompt addendum."""
+    ag_ui = state.get("ag-ui", {})
+    context_entries = ag_ui.get("context", [])
+    if not context_entries:
+        return ""
+    parts = ["\n\n## Additional Context from Client:\n"]
+    for entry in context_entries:
+        desc = entry.get("description", "")
+        value = entry.get("value", "")
+        if desc:
+            parts.append(f"### {desc}\n{value}\n")
+        else:
+            parts.append(f"{value}\n")
+    return "\n".join(parts)
+
+
 @tool()
 def generate_a2ui(runtime: ToolRuntime[Any]) -> str:
     """Generate dynamic A2UI components based on the conversation.
@@ -51,8 +68,12 @@ def generate_a2ui(runtime: ToolRuntime[Any]) -> str:
     The secondary LLM's tool call args stream as TOOL_CALL_ARGS events.
     The middleware extracts complete operations progressively.
     """
-     # The last message is this tool call (generate_a2ui) so we remove it, as it is not yet balanced with a tool call response.
+    # The last message is this tool call (generate_a2ui) so we remove it, as it is not yet balanced with a tool call response.
     messages = runtime.state["messages"][:-1]
+
+    # Inject client-provided context (e.g. custom catalog definitions)
+    context_addendum = _build_context_addendum(runtime.state)
+    prompt = A2UI_GENERATION_PROMPT + context_addendum
 
     model = ChatOpenAI(model="gpt-4.1")
     model_with_tool = model.bind_tools(
@@ -61,7 +82,7 @@ def generate_a2ui(runtime: ToolRuntime[Any]) -> str:
     )
 
     response = model_with_tool.invoke(
-        [SystemMessage(content=A2UI_GENERATION_PROMPT), *messages],
+        [SystemMessage(content=prompt), *messages],
     )
 
     # Extract the render_a2ui tool call arguments and format a readable summary.

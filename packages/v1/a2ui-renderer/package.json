@@ -49,7 +49,8 @@
     "@a2ui/web_core": "0.8.0",
     "@a2ui/react": "0.8.0",
     "clsx": "^2.1.1",
-    "zod": "^3.25.75"
+    "zod": "^3.25.75",
+    "zod-to-json-schema": "^3.24.1"
   },
   "peerDependencies": {
     "react": "^18 || ^19 || ^19.0.0-rc",

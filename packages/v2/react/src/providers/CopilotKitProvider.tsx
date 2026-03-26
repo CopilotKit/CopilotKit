@@ -24,6 +24,7 @@ import {
 } from "../components/MCPAppsActivityRenderer";
 import { createA2UIMessageRenderer } from "../a2ui/A2UIMessageRenderer";
 import { A2UIBuiltInToolCallRenderer } from "../a2ui/A2UIToolCallRenderer";
+import { A2UICatalogContext } from "../a2ui/A2UICatalogContext";
 import {
   A2UIActionHandlerRegistryProvider,
   useA2UIActionHandlerRegistry,
@@ -568,6 +569,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   return (
     <CopilotKitContext.Provider value={contextValue}>
       {runtimeA2UIEnabled && <A2UIBuiltInToolCallRenderer />}
+      {runtimeA2UIEnabled && <A2UICatalogContext catalogs={a2ui?.catalogs} />}
       <A2UIActionHandlerRegistryProvider>
         {children}
       </A2UIActionHandlerRegistryProvider>
