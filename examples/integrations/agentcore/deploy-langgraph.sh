@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # deploy-langgraph.sh — Deploy CopilotKit + LangGraph on AWS AgentCore
-# Usage: ./deploy-langgraph.sh [--skip-frontend]
+# Usage: ./deploy-langgraph.sh [--skip-frontend] [--skip-backend]
 # Stack: <stack_name_base>-lg  (isolated from deploy-strands.sh)
 # Using Terraform instead? See infra-terraform/README.md
 set -euo pipefail
@@ -11,9 +11,11 @@ SUFFIX="-lg"
 CONFIG="$SCRIPT_DIR/config.yaml"
 CDK_DIR="$SCRIPT_DIR/infra-cdk"
 SKIP_FRONTEND=false
+SKIP_BACKEND=false
 
 for arg in "$@"; do
   [[ "$arg" == "--skip-frontend" ]] && SKIP_FRONTEND=true
+  [[ "$arg" == "--skip-backend" ]] && SKIP_BACKEND=true
 done
 
 echo "── CopilotKit + AWS AgentCore (LangGraph) ──────────────────────────────"
@@ -54,19 +56,24 @@ print(f"✓ config.yaml → pattern: {pattern}, stack: {stack}")
 PYEOF
 
 # ── CDK deploy ───────────────────────────────────────────────────────────────
-echo "Deploying infrastructure (this takes ~10–15 min on first run)..."
-cd "$CDK_DIR"
-npm install --silent
-npx cdk@latest deploy --all --require-approval never --output "${SCRIPT_DIR}/cdk.out${SUFFIX}"
-cd "$SCRIPT_DIR"
-echo "✓ Infrastructure deployed"
+if [ "$SKIP_BACKEND" = true ]; then
+  echo "⚡ Skipping backend deploy (--skip-backend)"
+else
+  echo "Deploying infrastructure (this takes ~10–15 min on first run)..."
+  cd "$CDK_DIR"
+  npm install --silent
+  npx cdk@latest deploy --all --require-approval never --output "${SCRIPT_DIR}/cdk.out${SUFFIX}"
+  cd "$SCRIPT_DIR"
+  echo "✓ Infrastructure deployed"
+fi
 
 # ── Frontend deploy ───────────────────────────────────────────────────────────
 if [ "$SKIP_FRONTEND" = true ]; then
   echo "⚡ Skipping frontend deploy (--skip-frontend)"
 else
-  echo "Deploying frontend..."
-  python3 scripts/deploy-frontend.py
+  STACK_NAME=$(python3 -c "import re; c=open('$CONFIG').read(); print(re.search(r'stack_name_base:\s*([\w-]+)', c).group(1))")
+  echo "Deploying frontend for stack: $STACK_NAME"
+  python3 scripts/deploy-frontend.py "$STACK_NAME"
 fi
 echo ""
 echo "✓ Done!"

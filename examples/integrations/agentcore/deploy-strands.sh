@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # deploy-strands.sh — Deploy CopilotKit + AWS Strands on AWS AgentCore
-# Usage: ./deploy-strands.sh [--skip-frontend]
+# Usage: ./deploy-strands.sh [--skip-frontend] [--skip-backend]
 # Stack: <stack_name_base>-st  (isolated from deploy-langgraph.sh)
 # Using Terraform instead? See infra-terraform/README.md
 set -euo pipefail
@@ -11,9 +11,11 @@ SUFFIX="-st"
 CONFIG="$SCRIPT_DIR/config.yaml"
 CDK_DIR="$SCRIPT_DIR/infra-cdk"
 SKIP_FRONTEND=false
+SKIP_BACKEND=false
 
 for arg in "$@"; do
   [[ "$arg" == "--skip-frontend" ]] && SKIP_FRONTEND=true
+  [[ "$arg" == "--skip-backend" ]] && SKIP_BACKEND=true
 done
 
 echo "── CopilotKit + AWS AgentCore (Strands) ────────────────────────────────"
@@ -64,8 +66,9 @@ echo "✓ Infrastructure deployed"
 if [ "$SKIP_FRONTEND" = true ]; then
   echo "⚡ Skipping frontend deploy (--skip-frontend)"
 else
-  echo "Deploying frontend..."
-  python3 scripts/deploy-frontend.py
+  STACK_NAME=$(python3 -c "import re; c=open('$CONFIG').read(); print(re.search(r'stack_name_base:\s*([\w-]+)', c).group(1))")
+  echo "Deploying frontend for stack: $STACK_NAME"
+  python3 scripts/deploy-frontend.py "$STACK_NAME"
 fi
 echo ""
 echo "✓ Done!"
