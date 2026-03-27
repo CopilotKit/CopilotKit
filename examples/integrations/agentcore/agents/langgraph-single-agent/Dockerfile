@@ -23,8 +23,9 @@ USER bedrock_agentcore
 
 EXPOSE 8080
 
-# Copy agent code and shared utilities
+# Copy agent code, tools, and shared utilities
 COPY agents/langgraph-single-agent/langgraph_agent.py .
+COPY agents/langgraph-single-agent/tools/ tools/
 COPY agents/utils/ utils/
 
 # Healthcheck using Python (no extra dependencies needed)

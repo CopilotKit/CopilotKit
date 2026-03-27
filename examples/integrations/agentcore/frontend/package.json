@@ -34,6 +34,7 @@
     "react-router-dom": "^6.21.0",
     "react-spinners": "^0.17.0",
     "react-syntax-highlighter": "^16.1.0",
+    "recharts": "^3.8.1",
     "remark-gfm": "^4.0.1",
     "tailwind-merge": "^3.2.0",
     "zod": "^3.25.76"

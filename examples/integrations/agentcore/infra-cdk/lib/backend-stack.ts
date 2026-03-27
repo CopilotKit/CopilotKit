@@ -346,14 +346,9 @@ export class BackendStack extends cdk.NestedStack {
     }
 
     // Use own runtime ARN for the current stack; for the other stack,
-    // look up its SSM parameter only if it has been deployed, otherwise
-    // fall back to our own ARN (safe because routing uses config.pattern).
-    const langgraphRuntimeArn = config.stack_name_base === "langgraph-stack"
-      ? this.runtimeArn
-      : ssm.StringParameter.valueForStringParameter(this, "/langgraph-stack/runtime-arn")
-    const strandsRuntimeArn = config.stack_name_base === "strands-stack"
-      ? this.runtimeArn
-      : this.runtimeArn
+    // Always use this stack's own runtime — each deployment is self-contained.
+    const langgraphRuntimeArn = this.runtimeArn
+    const strandsRuntimeArn = this.runtimeArn
 
     const defaultRuntimeArn =
       config.backend?.pattern === "strands-single-agent" ? strandsRuntimeArn : langgraphRuntimeArn

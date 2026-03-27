@@ -1,68 +1,120 @@
 import { useState } from "react"
 
-interface TimeSlot {
+export interface TimeSlot {
   date: string
   time: string
-  label?: string
+  duration?: string
 }
 
-interface MeetingTimePickerProps {
+export interface MeetingTimePickerProps {
+  status: "inProgress" | "executing" | "complete"
+  respond?: (response: string) => void
+  reasonForScheduling?: string
+  meetingDuration?: number
   title?: string
-  slots: TimeSlot[]
-  onSelect?: (slot: TimeSlot) => void
+  timeSlots?: TimeSlot[]
 }
 
-export function MeetingTimePicker({ title = "Pick a time", slots, onSelect }: MeetingTimePickerProps) {
-  const [selected, setSelected] = useState<number | null>(null)
-  const [confirmed, setConfirmed] = useState(false)
+export function MeetingTimePicker({
+  status,
+  respond,
+  reasonForScheduling,
+  meetingDuration,
+  title = "Schedule a Meeting",
+  timeSlots = [
+    { date: "Tomorrow", time: "2:00 PM", duration: "30 min" },
+    { date: "Friday", time: "10:00 AM", duration: "30 min" },
+    { date: "Next Monday", time: "3:00 PM", duration: "30 min" },
+  ],
+}: MeetingTimePickerProps) {
+  const displayTitle = reasonForScheduling || title
+  const slots = meetingDuration
+    ? timeSlots.map((slot) => ({ ...slot, duration: `${meetingDuration} min` }))
+    : timeSlots
+  const [selectedSlot, setSelectedSlot] = useState<TimeSlot | null>(null)
+  const [declined, setDeclined] = useState(false)
 
-  const handleConfirm = () => {
-    if (selected === null) return
-    setConfirmed(true)
-    onSelect?.(slots[selected])
+  const handleSelectSlot = (slot: TimeSlot) => {
+    setSelectedSlot(slot)
+    respond?.(
+      `Meeting scheduled for ${slot.date} at ${slot.time}${slot.duration ? ` (${slot.duration})` : ""}.`
+    )
   }
 
-  const formatDate = (iso: string) =>
-    new Date(iso).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })
-
-  if (confirmed && selected !== null) {
-    return (
-      <div className="my-3 p-4 rounded-xl border bg-white dark:bg-zinc-900 shadow-sm max-w-xs text-sm">
-        <p className="text-green-600 font-medium">✓ Scheduled</p>
-        <p className="text-gray-600 dark:text-gray-400 mt-1">
-          {formatDate(slots[selected].date)} at {slots[selected].time}
-        </p>
-      </div>
+  const handleDecline = () => {
+    setDeclined(true)
+    respond?.(
+      "The user declined all proposed meeting times. Please suggest alternative times or ask for their availability."
     )
   }
 
   return (
-    <div className="my-3 p-4 rounded-xl border bg-white dark:bg-zinc-900 shadow-sm max-w-xs">
-      <p className="text-sm font-semibold mb-3">{title}</p>
-      <div className="space-y-2">
-        {slots.map((slot, i) => (
-          <button
-            key={i}
-            onClick={() => { setSelected(i); setConfirmed(false) }}
-            className={`w-full text-left px-3 py-2 rounded-lg border text-sm transition-colors
-              ${selected === i
-                ? "border-indigo-500 bg-indigo-50 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300"
-                : "border-gray-200 dark:border-zinc-700 hover:border-indigo-300 text-gray-700 dark:text-gray-300"
-              }`}
-          >
-            <span className="font-medium">{formatDate(slot.date)}</span>
-            <span className="ml-2 text-gray-500">{slot.time}</span>
-            {slot.label && <span className="ml-2 text-xs text-gray-400">{slot.label}</span>}
-          </button>
-        ))}
+    <div className="rounded-2xl shadow-lg max-w-md w-full border dark:border-zinc-700 mx-auto mb-6 bg-white dark:bg-zinc-800">
+      <div className="backdrop-blur-md p-8 w-full rounded-2xl">
+        {selectedSlot ? (
+          <div className="text-center">
+            <div className="text-7xl mb-4">📅</div>
+            <h2 className="text-2xl font-bold mb-2 dark:text-white">Meeting Scheduled</h2>
+            <p className="text-gray-600 dark:text-zinc-400 mb-2">
+              {selectedSlot.date} at {selectedSlot.time}
+            </p>
+            {selectedSlot.duration && (
+              <p className="text-sm text-gray-500 dark:text-zinc-400">
+                Duration: {selectedSlot.duration}
+              </p>
+            )}
+          </div>
+        ) : declined ? (
+          <div className="text-center">
+            <div className="text-7xl mb-4">🔄</div>
+            <h2 className="text-2xl font-bold mb-2 dark:text-white">No Time Selected</h2>
+            <p className="text-gray-600 dark:text-zinc-400">
+              Let me find a better time that works for you
+            </p>
+          </div>
+        ) : (
+          <>
+            <div className="text-center mb-6">
+              <div className="text-7xl mb-4">🗓️</div>
+              <h2 className="text-2xl font-bold mb-2 dark:text-white">{displayTitle}</h2>
+              <p className="text-gray-600 dark:text-zinc-400">Select a time that works for you</p>
+            </div>
+
+            {status === "executing" && (
+              <div className="space-y-3">
+                {slots.map((slot, index) => (
+                  <button
+                    key={index}
+                    onClick={() => handleSelectSlot(slot)}
+                    className="w-full px-6 py-4 rounded-xl font-medium
+                      border-2 border-gray-200 dark:border-zinc-600 hover:border-blue-500 dark:hover:border-blue-400
+                      shadow-sm hover:shadow-md transition-all cursor-pointer
+                      flex justify-between items-center
+                      hover:bg-blue-50 dark:hover:bg-blue-900/30"
+                  >
+                    <div className="text-left">
+                      <div className="font-bold text-gray-900 dark:text-zinc-100">{slot.date}</div>
+                      <div className="text-sm text-gray-600 dark:text-zinc-400">{slot.time}</div>
+                    </div>
+                    {slot.duration && (
+                      <div className="text-sm text-gray-500 dark:text-zinc-400">{slot.duration}</div>
+                    )}
+                  </button>
+                ))}
+
+                <button
+                  onClick={handleDecline}
+                  className="w-full px-6 py-3 rounded-xl font-medium
+                    text-gray-600 dark:text-zinc-400 hover:text-gray-800 dark:hover:text-zinc-200
+                    transition-all cursor-pointer hover:bg-gray-100 dark:hover:bg-zinc-700"
+                >
+                  None of these work
+                </button>
+              </div>
+            )}
+          </>
+        )}
       </div>
-      <button
-        onClick={handleConfirm}
-        disabled={selected === null}
-        className="mt-3 w-full py-2 rounded-lg bg-indigo-600 text-white text-sm font-medium disabled:opacity-40 hover:bg-indigo-700 transition-colors"
-      >
-        Confirm
-      </button>
     </div>
   )
 }

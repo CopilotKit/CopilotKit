@@ -1,43 +1,69 @@
-interface Bar {
-  label: string
-  value: number
-  color?: string
+import {
+  BarChart as RechartsBarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+} from "recharts"
+import { z } from "zod"
+
+const CHART_COLORS = ["#3b82f6", "#8b5cf6", "#ec4899", "#f59e0b", "#10b981", "#06b6d4", "#f97316"]
+
+const TOOLTIP_STYLE = {
+  backgroundColor: "var(--chart-tooltip-bg)",
+  border: "1px solid var(--chart-tooltip-border)",
+  borderRadius: "8px",
+  padding: "8px 12px",
+  color: "var(--foreground)",
 }
 
-interface BarChartProps {
-  title?: string
-  data: Bar[]
-  unit?: string
-}
+export const BarChartPropsSchema = z.object({
+  title: z.string().describe("Chart title"),
+  description: z.string().describe("Brief description or subtitle"),
+  data: z.array(
+    z.object({
+      label: z.string(),
+      value: z.number(),
+    })
+  ),
+})
 
-export function BarChart({ title, data, unit = "" }: BarChartProps) {
-  const max = Math.max(...data.map((d) => Math.abs(d.value)), 1)
+type BarChartProps = z.infer<typeof BarChartPropsSchema>
+
+export function BarChart({ title, description, data }: BarChartProps) {
+  if (!data || !Array.isArray(data) || data.length === 0) {
+    return (
+      <div className="rounded-xl border dark:border-zinc-700 shadow-sm p-6 max-w-2xl mx-auto my-6 bg-[var(--background)]">
+        <div className="mb-4">
+          <h3 className="text-xl font-bold dark:text-white">{title}</h3>
+          <p className="text-sm text-gray-600 dark:text-zinc-400">{description}</p>
+        </div>
+        <p className="text-gray-500 dark:text-zinc-400 text-center py-8">No data available</p>
+      </div>
+    )
+  }
+
+  const coloredData = data.map((entry, index) => ({
+    ...entry,
+    fill: CHART_COLORS[index % CHART_COLORS.length],
+  }))
 
   return (
-    <div className="my-3 p-4 rounded-xl border bg-white dark:bg-zinc-900 shadow-sm max-w-sm">
-      {title && <p className="text-sm font-semibold mb-3">{title}</p>}
-      <div className="space-y-2">
-        {data.map((bar, i) => {
-          const pct = (Math.abs(bar.value) / max) * 100
-          const color = bar.color ?? "#6366f1"
-          return (
-            <div key={i} className="flex items-center gap-2 text-xs">
-              <span className="w-20 text-right truncate text-gray-600 dark:text-gray-400 shrink-0">
-                {bar.label}
-              </span>
-              <div className="flex-1 bg-gray-100 dark:bg-zinc-800 rounded-full h-4 overflow-hidden">
-                <div
-                  className="h-full rounded-full transition-all"
-                  style={{ width: `${pct}%`, background: color }}
-                />
-              </div>
-              <span className="w-16 text-right font-mono text-gray-500 shrink-0">
-                {bar.value.toLocaleString()}{unit}
-              </span>
-            </div>
-          )
-        })}
+    <div className="rounded-xl border dark:border-zinc-700 shadow-sm p-6 max-w-2xl mx-auto my-6 bg-[var(--background)]">
+      <div className="mb-4">
+        <h3 className="text-xl font-bold dark:text-white">{title}</h3>
+        <p className="text-sm text-gray-600 dark:text-zinc-400">{description}</p>
       </div>
+
+      <ResponsiveContainer width="100%" height={300}>
+        <RechartsBarChart data={coloredData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
+          <XAxis dataKey="label" tick={{ fontSize: 12 }} stroke="var(--chart-axis)" />
+          <YAxis tick={{ fontSize: 12 }} stroke="var(--chart-axis)" />
+          <Tooltip contentStyle={TOOLTIP_STYLE} />
+          <Bar isAnimationActive={false} dataKey="value" radius={[4, 4, 0, 0]} />
+        </RechartsBarChart>
+      </ResponsiveContainer>
     </div>
   )
 }

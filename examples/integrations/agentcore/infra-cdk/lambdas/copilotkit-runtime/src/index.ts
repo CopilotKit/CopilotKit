@@ -25,7 +25,7 @@ function getConfiguredAgents(): Record<string, HttpAgent> {
 
   for (const [name, url] of Object.entries(agentUrls)) {
     if (url) {
-      const agent = new HttpAgent({ url })
+      const agent = new HttpAgent({ url, headers: {} })
       agent.use(
         new MCPAppsMiddleware({
           mcpServers: [
@@ -44,6 +44,7 @@ function getConfiguredAgents(): Record<string, HttpAgent> {
   if (Object.keys(configuredAgents).length === 0) {
     configuredAgents.default = new HttpAgent({
       url: requireEnv("AGENTCORE_AG_UI_URL"),
+      headers: {},
     })
   }
 
@@ -138,6 +139,7 @@ const app = createCopilotEndpoint({
   runtime,
   basePath: "/copilotkit",
 })
+
 
 export const handler: (...args: unknown[]) => unknown = streamHandle(app) as (
   ...args: unknown[]

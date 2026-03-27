@@ -358,7 +358,6 @@ def generate_aws_exports(
         "CognitoUserPoolId",
         "AmplifyUrl",
         "RuntimeArn",
-        "FeedbackApiUrl",
         "CopilotKitRuntimeUrl",
     ]
     missing = [k for k in required if k not in outputs]
@@ -376,7 +375,6 @@ def generate_aws_exports(
         "automaticSilentRenew": True,
         "agentRuntimeArn": outputs["RuntimeArn"],
         "awsRegion": region,
-        "feedbackApiUrl": outputs["FeedbackApiUrl"],
         "copilotKitRuntimeUrl": outputs["CopilotKitRuntimeUrl"],
         "agentPattern": pattern,
     }

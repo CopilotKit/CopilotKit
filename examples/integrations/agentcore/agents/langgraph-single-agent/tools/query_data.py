@@ -1,36 +1,25 @@
-"""Tool for querying the sample financial CSV dataset."""
+# patterns/langgraph-single-agent/tools/query_data.py
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
 
 import csv
-import os
-from langchain_core.tools import tool
+from pathlib import Path
 
-_CSV_PATH = os.path.join(os.path.dirname(__file__), "db.csv")
+from langchain.tools import tool
+
+# Read at module load time — avoids file I/O on every tool invocation.
+_csv_path = Path(__file__).parent / "db.csv"
+try:
+    with open(_csv_path) as _f:
+        _cached_data = list(csv.DictReader(_f))
+except (FileNotFoundError, OSError) as e:
+    raise RuntimeError(f"query_data: cannot load sample data from {_csv_path}") from e
 
 
 @tool
-def query_data(category: str = "", transaction_type: str = "") -> list[dict]:
+def query_data(query: str) -> list[dict]:
     """
-    Query the financial dataset. Optionally filter by category and/or type.
-
-    Args:
-        category: Filter by category (e.g. 'Food', 'Transport'). Empty = all.
-        transaction_type: Filter by type ('income' or 'expense'). Empty = all.
-
-    Returns:
-        List of matching rows as dicts with keys: date, category, amount, type.
+    Query the database. Accepts natural language.
+    Always call this tool before displaying a chart or graph.
     """
-    rows = []
-    with open(_CSV_PATH, newline="") as f:
-        reader = csv.DictReader(f)
-        for row in reader:
-            if category and row["category"].lower() != category.lower():
-                continue
-            if transaction_type and row["type"].lower() != transaction_type.lower():
-                continue
-            rows.append({
-                "date": row["date"],
-                "category": row["category"],
-                "amount": float(row["amount"]),
-                "type": row["type"],
-            })
-    return rows
+    return _cached_data

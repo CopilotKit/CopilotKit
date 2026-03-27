@@ -1,66 +1,83 @@
-interface Slice {
-  label: string
-  value: number
-  color?: string
+import { PieChart as RechartsPieChart, Pie, Tooltip, ResponsiveContainer } from "recharts"
+import { z } from "zod"
+
+const CHART_COLORS = ["#3b82f6", "#8b5cf6", "#ec4899", "#f59e0b", "#10b981", "#06b6d4", "#f97316"]
+const TOOLTIP_STYLE = {
+  backgroundColor: "var(--chart-tooltip-bg)",
+  border: "1px solid var(--chart-tooltip-border)",
+  borderRadius: "8px",
+  padding: "8px 12px",
+  color: "var(--foreground)",
 }
 
-interface PieChartProps {
-  title?: string
-  data: Slice[]
-}
+export const PieChartPropsSchema = z.object({
+  title: z.string().describe("Chart title"),
+  description: z.string().describe("Brief description or subtitle"),
+  data: z.array(
+    z.object({
+      label: z.string(),
+      value: z.number(),
+    })
+  ),
+})
 
-const DEFAULT_COLORS = [
-  "#6366f1", "#22d3ee", "#f59e0b", "#10b981", "#f43f5e",
-  "#8b5cf6", "#14b8a6", "#fb923c", "#84cc16", "#ec4899",
-]
+type PieChartProps = z.infer<typeof PieChartPropsSchema>
 
-export function PieChart({ title, data }: PieChartProps) {
-  const total = data.reduce((sum, s) => sum + s.value, 0)
-  if (total === 0) return null
-
-  let cumulative = 0
-  const slices = data.map((slice, i) => {
-    const pct = slice.value / total
-    const start = cumulative
-    cumulative += pct
-    const color = slice.color ?? DEFAULT_COLORS[i % DEFAULT_COLORS.length]
-    return { ...slice, pct, start, color }
-  })
-
-  const polarToXY = (pct: number, r: number) => {
-    const angle = pct * 2 * Math.PI - Math.PI / 2
-    return [50 + r * Math.cos(angle), 50 + r * Math.sin(angle)]
+export function PieChart({ title, description, data }: PieChartProps) {
+  if (!data || !Array.isArray(data) || data.length === 0) {
+    return (
+      <div className="rounded-xl border dark:border-zinc-700 shadow-sm p-6 max-w-lg mx-auto my-6 bg-[var(--background)]">
+        <div className="mb-4">
+          <h3 className="text-xl font-bold dark:text-white">{title}</h3>
+          <p className="text-sm text-gray-600 dark:text-zinc-400">{description}</p>
+        </div>
+        <p className="text-gray-500 dark:text-zinc-400 text-center py-8">No data available</p>
+      </div>
+    )
   }
 
+  // Add colors to data
+  const coloredData = data.map((entry, index) => ({
+    ...entry,
+    fill: CHART_COLORS[index % CHART_COLORS.length],
+  }))
+
   return (
-    <div className="my-3 p-4 rounded-xl border bg-white dark:bg-zinc-900 shadow-sm max-w-xs">
-      {title && <p className="text-sm font-semibold mb-3 text-center">{title}</p>}
-      <svg viewBox="0 0 100 100" className="w-32 h-32 mx-auto">
-        {slices.map((s, i) => {
-          if (s.pct === 1) {
-            return <circle key={i} cx="50" cy="50" r="40" fill={s.color} />
-          }
-          const [x1, y1] = polarToXY(s.start, 40)
-          const [x2, y2] = polarToXY(s.start + s.pct, 40)
-          const large = s.pct > 0.5 ? 1 : 0
-          return (
-            <path
-              key={i}
-              d={`M50,50 L${x1},${y1} A40,40 0 ${large},1 ${x2},${y2} Z`}
-              fill={s.color}
+    <div className="rounded-xl border dark:border-zinc-700 shadow-sm p-6 max-w-lg mx-auto my-6 bg-[var(--background)]">
+      <div className="mb-4">
+        <h3 className="text-xl font-bold dark:text-white">{title}</h3>
+        <p className="text-sm text-gray-600 dark:text-zinc-400">{description}</p>
+      </div>
+
+      <ResponsiveContainer width="100%" height={300}>
+        <RechartsPieChart>
+          <Pie
+            data={coloredData}
+            dataKey="value"
+            nameKey="label"
+            cx="50%"
+            cy="50%"
+            outerRadius={100}
+            isAnimationActive={false}
+          />
+          <Tooltip contentStyle={TOOLTIP_STYLE} />
+        </RechartsPieChart>
+      </ResponsiveContainer>
+
+      {/* Legend */}
+      <div className="mt-4 grid grid-cols-2 gap-2">
+        {data.map((item, index) => (
+          <div key={index} className="flex items-center gap-2">
+            <div
+              className="w-3 h-3 rounded-sm"
+              style={{
+                backgroundColor: CHART_COLORS[index % CHART_COLORS.length],
+              }}
             />
-          )
-        })}
-      </svg>
-      <ul className="mt-3 space-y-1">
-        {slices.map((s, i) => (
-          <li key={i} className="flex items-center gap-2 text-xs">
-            <span className="inline-block w-3 h-3 rounded-sm shrink-0" style={{ background: s.color }} />
-            <span className="truncate text-gray-700 dark:text-gray-300">{s.label}</span>
-            <span className="ml-auto font-mono text-gray-500">{(s.pct * 100).toFixed(1)}%</span>
-          </li>
+            <span className="text-sm dark:text-zinc-300">{item.label}</span>
+          </div>
         ))}
-      </ul>
+      </div>
     </div>
   )
 }
