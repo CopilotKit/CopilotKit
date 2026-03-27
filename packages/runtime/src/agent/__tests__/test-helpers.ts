@@ -146,6 +146,15 @@ export function finish(): MockStreamEvent {
 }
 
 /**
+ * Helper to create an abort event
+ */
+export function abort(): MockStreamEvent {
+  return {
+    type: "abort",
+  };
+}
+
+/**
  * Helper to create an error event
  */
 export function error(errorMessage: string): MockStreamEvent {

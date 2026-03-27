@@ -1024,6 +1024,7 @@ export class BuiltInAgent extends AbstractAgent {
                 break;
               }
               case "reasoning-start": {
+                closeReasoningIfOpen();
                 // New text message starting - use the SDK-provided id
                 // Use randomUUID() if part.id is falsy or "0" to prevent message merging issues
                 const providedId = "id" in part ? part.id : undefined;
@@ -1265,6 +1266,7 @@ export class BuiltInAgent extends AbstractAgent {
           }
 
           if (!terminalEventEmitted) {
+            closeReasoningIfOpen();
             if (abortController.signal.aborted) {
               // Let the runner finalize the stream on stop requests so it can
               // inject consistent closing events and a RUN_FINISHED marker.

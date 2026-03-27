@@ -8,6 +8,8 @@ import {
   textStart,
   textDelta,
   finish,
+  abort,
+  error,
   collectEvents,
   toolCallStreamingStart,
   toolCallDelta,
@@ -1169,10 +1171,14 @@ describe("BasicAgent", () => {
       const events = await collectEvents(agent["run"](input));
       const eventTypes = events.map((e: any) => e.type);
 
-      // REASONING_END must appear before TOOL_CALL_START
+      // REASONING_MESSAGE_END must appear before REASONING_END, which must appear before TOOL_CALL_START
+      const reasoningMsgEndIdx = eventTypes.indexOf(
+        EventType.REASONING_MESSAGE_END,
+      );
       const reasoningEndIdx = eventTypes.indexOf(EventType.REASONING_END);
       const toolCallStartIdx = eventTypes.indexOf(EventType.TOOL_CALL_START);
-      expect(reasoningEndIdx).toBeGreaterThan(0);
+      expect(reasoningMsgEndIdx).toBeGreaterThan(0);
+      expect(reasoningEndIdx).toBeGreaterThan(reasoningMsgEndIdx);
       expect(reasoningEndIdx).toBeLessThan(toolCallStartIdx);
 
       // Stream still completes with RUN_FINISHED
@@ -1207,10 +1213,14 @@ describe("BasicAgent", () => {
       const events = await collectEvents(agent["run"](input));
       const eventTypes = events.map((e: any) => e.type);
 
-      // REASONING_END must appear before TEXT_MESSAGE_CHUNK
+      // REASONING_MESSAGE_END must appear before REASONING_END, which must appear before TEXT_MESSAGE_CHUNK
+      const reasoningMsgEndIdx = eventTypes.indexOf(
+        EventType.REASONING_MESSAGE_END,
+      );
       const reasoningEndIdx = eventTypes.indexOf(EventType.REASONING_END);
       const textChunkIdx = eventTypes.indexOf(EventType.TEXT_MESSAGE_CHUNK);
-      expect(reasoningEndIdx).toBeGreaterThan(0);
+      expect(reasoningMsgEndIdx).toBeGreaterThan(0);
+      expect(reasoningEndIdx).toBeGreaterThan(reasoningMsgEndIdx);
       expect(reasoningEndIdx).toBeLessThan(textChunkIdx);
 
       // Stream still completes with RUN_FINISHED
@@ -1243,12 +1253,99 @@ describe("BasicAgent", () => {
       const events = await collectEvents(agent["run"](input));
       const eventTypes = events.map((e: any) => e.type);
 
-      // REASONING_END must be emitted (auto-closed by finish case)
-      expect(eventTypes).toContain(EventType.REASONING_END);
-      expect(eventTypes).toContain(EventType.REASONING_MESSAGE_END);
+      // REASONING_MESSAGE_END must appear before REASONING_END (auto-closed by finish case)
+      const reasoningMsgEndIdx = eventTypes.indexOf(
+        EventType.REASONING_MESSAGE_END,
+      );
+      const reasoningEndIdx = eventTypes.indexOf(EventType.REASONING_END);
+      expect(reasoningMsgEndIdx).toBeGreaterThan(0);
+      expect(reasoningEndIdx).toBeGreaterThan(reasoningMsgEndIdx);
 
       // Stream still completes with RUN_FINISHED
       expect(eventTypes[eventTypes.length - 1]).toBe(EventType.RUN_FINISHED);
+    });
+
+    it("should auto-close reasoning when stream aborts mid-reasoning", async () => {
+      const agent = new BasicAgent({
+        model: "openai/gpt-4o",
+      });
+
+      vi.mocked(streamText).mockReturnValue(
+        mockStreamTextResponse([
+          reasoningStart(),
+          reasoningDelta("Thinking..."),
+          // NO reasoningEnd() — stream aborts before SDK can close reasoning
+          abort(),
+        ]) as any,
+      );
+
+      const input: RunAgentInput = {
+        threadId: "thread1",
+        runId: "run1",
+        messages: [],
+        tools: [],
+        context: [],
+        state: {},
+      };
+
+      const events = await collectEvents(agent["run"](input));
+      const eventTypes = events.map((e: any) => e.type);
+
+      // REASONING_MESSAGE_END must appear before REASONING_END, both before RUN_FINISHED
+      const reasoningMsgEndIdx = eventTypes.indexOf(
+        EventType.REASONING_MESSAGE_END,
+      );
+      const reasoningEndIdx = eventTypes.indexOf(EventType.REASONING_END);
+      const runFinishedIdx = eventTypes.indexOf(EventType.RUN_FINISHED);
+      expect(reasoningMsgEndIdx).toBeGreaterThan(0);
+      expect(reasoningEndIdx).toBeGreaterThan(reasoningMsgEndIdx);
+      expect(runFinishedIdx).toBeGreaterThan(reasoningEndIdx);
+    });
+
+    it("should auto-close reasoning when stream errors mid-reasoning", async () => {
+      const agent = new BasicAgent({
+        model: "openai/gpt-4o",
+      });
+
+      vi.mocked(streamText).mockReturnValue(
+        mockStreamTextResponse([
+          reasoningStart(),
+          reasoningDelta("Thinking..."),
+          // NO reasoningEnd() — stream errors before SDK can close reasoning
+          error("stream failed"),
+        ]) as any,
+      );
+
+      const input: RunAgentInput = {
+        threadId: "thread1",
+        runId: "run1",
+        messages: [],
+        tools: [],
+        context: [],
+        state: {},
+      };
+
+      // subscriber.error() causes collectEvents to reject, so collect manually
+      const events: any[] = [];
+      await new Promise<void>((resolve) => {
+        agent["run"](input).subscribe({
+          next: (e: any) => events.push(e),
+          error: () => resolve(), // error is expected
+          complete: () => resolve(),
+        });
+      });
+
+      const eventTypes = events.map((e: any) => e.type);
+
+      // REASONING_MESSAGE_END must appear before REASONING_END, both before RUN_ERROR
+      const reasoningMsgEndIdx = eventTypes.indexOf(
+        EventType.REASONING_MESSAGE_END,
+      );
+      const reasoningEndIdx = eventTypes.indexOf(EventType.REASONING_END);
+      const runErrorIdx = eventTypes.indexOf(EventType.RUN_ERROR);
+      expect(reasoningMsgEndIdx).toBeGreaterThan(0);
+      expect(reasoningEndIdx).toBeGreaterThan(reasoningMsgEndIdx);
+      expect(runErrorIdx).toBeGreaterThan(reasoningEndIdx);
     });
 
     it("should handle reasoning interleaved with tool calls", async () => {
