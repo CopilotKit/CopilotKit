@@ -182,17 +182,26 @@ describe("useCopilotChatInternal – connectAgent guard", () => {
     });
   });
 
-  it("calls connectAgent when status is Connected regardless of threadId match", async () => {
-    // With per-thread agent isolation in useAgent, the V1 wrapper no longer
-    // guards on threadId mismatch — useAgent returns a per-thread clone, so
-    // the wrapper just connects whenever status is Connected.
+  it("does not call connectAgent when threadId matches (same agent instance, no re-render)", async () => {
+    // useAgent now returns a per-thread clone, so the wrapper guards via
+    // lastConnectedAgentRef: connect fires once per agent instance, not once
+    // per render. After the first connect, further re-renders with the same
+    // agent do not trigger another connect.
     mockRuntimeConnectionStatus =
       CopilotKitCoreRuntimeConnectionStatus.Connected;
-    mockAgent.threadId = "config-thread-id"; // same as mockConfigThreadId
+    mockAgent.threadId = "config-thread-id";
     applyMocks();
 
-    renderHook(() => useCopilotChatInternal(), { wrapper: createWrapper() });
+    const { rerender } = renderHook(() => useCopilotChatInternal(), {
+      wrapper: createWrapper(),
+    });
 
+    await vi.waitFor(() => {
+      expect(mockConnectAgent).toHaveBeenCalledTimes(1);
+    });
+
+    // Re-render with same agent — should NOT connect again
+    rerender();
     await vi.waitFor(() => {
       expect(mockConnectAgent).toHaveBeenCalledTimes(1);
     });
@@ -223,5 +232,15 @@ describe("useCopilotChatInternal – connectAgent guard", () => {
       expect(mockConnectAgent).toHaveBeenCalledTimes(1);
       expect(mockConnectAgent).toHaveBeenCalledWith({ agent: mockAgent });
     });
+  });
+
+  it("passes config threadId to useAgent", () => {
+    applyMocks();
+
+    renderHook(() => useCopilotChatInternal(), { wrapper: createWrapper() });
+
+    expect(vi.mocked(useAgent)).toHaveBeenCalledWith(
+      expect.objectContaining({ threadId: "config-thread-id" }),
+    );
   });
 });

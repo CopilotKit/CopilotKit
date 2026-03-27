@@ -342,6 +342,13 @@ export function useCopilotChatInternal({
     threadId: existingConfig?.threadId,
   });
 
+  // Track the last agent instance we called connect() on. Without this,
+  // connect() fires on every render where status is Connected — including
+  // unrelated context re-renders and StrictMode double-invocations.
+  // The ref is reset in the cleanup so that remounts (StrictMode, real
+  // unmount/remount) always trigger a fresh connect.
+  const lastConnectedAgentRef = useRef<AbstractAgent | null>(null);
+
   useEffect(() => {
     let detached = false;
 
@@ -375,15 +382,19 @@ export function useCopilotChatInternal({
     };
     if (
       agent &&
+      agent !== lastConnectedAgentRef.current &&
       copilotkit.runtimeConnectionStatus ===
         CopilotKitCoreRuntimeConnectionStatus.Connected
     ) {
+      lastConnectedAgentRef.current = agent;
       connect(agent);
     }
     return () => {
       // Abort the HTTP request and detach the active run.
       // This is critical for React StrictMode which unmounts+remounts in dev,
       // preventing duplicate /connect requests from reaching the server.
+      // Reset the ref so remounts always trigger a fresh connect.
+      lastConnectedAgentRef.current = null;
       detached = true;
       connectAbortController.abort();
       agent?.detachActiveRun();

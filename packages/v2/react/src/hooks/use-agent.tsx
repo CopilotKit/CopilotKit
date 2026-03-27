@@ -36,6 +36,12 @@ function cloneForThread(
   headers: Record<string, string>,
 ): AbstractAgent {
   const clone = source.clone();
+  if (clone === source) {
+    throw new Error(
+      `useAgent: ${source.constructor.name}.clone() returned the same instance. ` +
+        `clone() must return a new, independent object.`,
+    );
+  }
   clone.threadId = threadId;
   clone.setMessages([]);
   clone.setState({});
@@ -65,10 +71,12 @@ export function useAgent({ agentId, threadId, updates }: UseAgentProps = {}) {
 
   // When threadId is provided, each (agentId, threadId) pair gets its own
   // cloned agent instance so that messages and state are isolated.
-  // Clones are intentionally kept for the component's lifetime — eviction would
-  // add complexity for a case (many rotating threadIds on a single hook caller)
-  // that doesn't arise in typical usage.
-  const threadAgentCache = useRef<Map<string, AbstractAgent>>(new Map());
+  // Each entry stores { source, clone } so we can detect when the registry
+  // agent is replaced (e.g. after reconnect or hot-reload) and invalidate the
+  // stale clone rather than silently returning it with the old configuration.
+  const threadAgentCache = useRef<
+    Map<string, { source: AbstractAgent; clone: AbstractAgent }>
+  >(new Map());
 
   const agent: AbstractAgent = useMemo(() => {
     // Use a composite key when threadId is provided so that different threads
@@ -77,25 +85,28 @@ export function useAgent({ agentId, threadId, updates }: UseAgentProps = {}) {
 
     const existing = copilotkit.getAgent(agentId);
     if (existing) {
-      // Real agent found — clear any cached provisional for this key
+      // Real agent found — clear any cached provisionals for this key and the
+      // bare agentId key (handles the case where a provisional was created
+      // before threadId was available, then the component re-renders with one).
       provisionalAgentCache.current.delete(cacheKey);
+      provisionalAgentCache.current.delete(agentId);
 
       if (!threadId) {
         // No threadId — return the shared registry agent (original behavior)
         return existing;
       }
 
-      // threadId provided — return a per-thread clone
-      const cached = threadAgentCache.current.get(cacheKey);
-      if (cached) {
-        if (cached instanceof HttpAgent) {
-          cached.headers = { ...copilotkit.headers };
-        }
-        return cached;
+      // threadId provided — return a per-thread clone.
+      // Check source reference: if the registry agent was replaced (reconnect,
+      // hot-reload, config change) invalidate the cached clone so the new
+      // configuration is picked up rather than silently using stale state.
+      const entry = threadAgentCache.current.get(cacheKey);
+      if (entry && entry.source === existing) {
+        return entry.clone; // headers kept fresh by useEffect below
       }
 
       const clone = cloneForThread(existing, threadId, copilotkit.headers);
-      threadAgentCache.current.set(cacheKey, clone);
+      threadAgentCache.current.set(cacheKey, { source: existing, clone });
       return clone;
     }
 
@@ -204,6 +215,24 @@ export function useAgent({ agentId, threadId, updates }: UseAgentProps = {}) {
     return () => subscription.unsubscribe();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [agent, forceUpdate, JSON.stringify(updateFlags)]);
+
+  // Keep HttpAgent headers fresh without mutating inside useMemo, which is
+  // unsafe in concurrent mode (React may invoke useMemo multiple times and
+  // discard intermediate results, but mutations always land).
+  useEffect(() => {
+    if (agent instanceof HttpAgent) {
+      agent.headers = { ...copilotkit.headers };
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [agent, JSON.stringify(copilotkit.headers)]);
+
+  // Release per-thread clones on unmount so agents holding event listeners,
+  // WebSocket connections, or timers don't accumulate indefinitely.
+  useEffect(() => {
+    return () => {
+      threadAgentCache.current.clear();
+    };
+  }, []);
 
   return {
     agent,
