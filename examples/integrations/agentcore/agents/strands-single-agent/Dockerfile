@@ -24,7 +24,7 @@ USER bedrock_agentcore
 EXPOSE 8080
 
 # Copy agent code, shared utilities, and code interpreter support
-COPY agents/strands-single-agent/basic_agent.py .
+COPY agents/strands-single-agent/strands_agent.py .
 COPY agents/strands-single-agent/strands_code_interpreter.py .
 COPY agents/strands-single-agent/tools/ tools/
 COPY agents/utils/ utils/
@@ -34,4 +34,4 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
   CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8080/ping', timeout=2)" || exit 1
 
 # Start agent with OpenTelemetry instrumentation
-CMD ["opentelemetry-instrument", "python", "-m", "basic_agent"]
+CMD ["opentelemetry-instrument", "python", "-m", "strands_agent"]

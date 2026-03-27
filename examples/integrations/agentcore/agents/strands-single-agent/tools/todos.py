@@ -1,27 +1,23 @@
-"""Todo management tool for Strands agent."""
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
 
-import json
-import uuid
+from typing import Literal, TypedDict
+
 from strands import tool
+
+
+class Todo(TypedDict):
+    id: str
+    title: str
+    description: str
+    emoji: str
+    status: Literal["pending", "completed"]
 
 
 @tool
 def manage_todos(todos: list) -> str:
     """
-    Update the todo list. Each item must have 'title' and optionally
-    'description', 'status' ('todo'|'in_progress'|'done'), 'priority' ('low'|'medium'|'high').
-    Returns a confirmation string. State sync is handled by CopilotKit's PredictStateMapping.
-
-    Args:
-        todos: Complete replacement list of todo items.
+    Manage the current todos. Replaces the entire todo list.
+    Each todo should have: id (str), title (str), description (str), emoji (str), status ('pending' or 'completed').
     """
-    normalized = []
-    for t in todos:
-        normalized.append({
-            "id": t.get("id") or str(uuid.uuid4()),
-            "title": t["title"],
-            "description": t.get("description", ""),
-            "status": t.get("status", "todo"),
-            "priority": t.get("priority", "medium"),
-        })
-    return json.dumps({"updated": True, "count": len(normalized), "todos": normalized})
+    return "Todos updated successfully"
