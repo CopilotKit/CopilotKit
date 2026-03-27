@@ -55,12 +55,16 @@ print(f"✓ config.yaml → pattern: {pattern}, stack: {stack}")
 PYEOF
 
 # ── CDK deploy ───────────────────────────────────────────────────────────────
-echo "Deploying infrastructure (this takes ~10–15 min on first run)..."
-cd "$CDK_DIR"
-npm install --silent
-npx cdk@latest deploy --all --require-approval never --output "${SCRIPT_DIR}/cdk.out${SUFFIX}"
-cd "$SCRIPT_DIR"
-echo "✓ Infrastructure deployed"
+if [ "$SKIP_BACKEND" = true ]; then
+  echo "⚡ Skipping backend deploy (--skip-backend)"
+else
+  echo "Deploying infrastructure (this takes ~10–15 min on first run)..."
+  cd "$CDK_DIR"
+  npm install --silent
+  npx cdk@latest deploy --all --require-approval never --output "${SCRIPT_DIR}/cdk.out${SUFFIX}"
+  cd "$SCRIPT_DIR"
+  echo "✓ Infrastructure deployed"
+fi
 
 # ── Frontend deploy ───────────────────────────────────────────────────────────
 if [ "$SKIP_FRONTEND" = true ]; then
