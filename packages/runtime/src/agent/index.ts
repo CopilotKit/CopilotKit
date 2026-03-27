@@ -1025,12 +1025,13 @@ export class BuiltInAgent extends AbstractAgent {
               }
               case "reasoning-start": {
                 closeReasoningIfOpen();
-                // New text message starting - use the SDK-provided id
-                // Use randomUUID() if part.id is falsy or "0" to prevent message merging issues
+                // Use SDK-provided id, or generate a fresh UUID if id is falsy/"0"
+                // to prevent consecutive reasoning blocks from sharing a messageId
                 const providedId = "id" in part ? part.id : undefined;
-                if (providedId && providedId !== "0") {
-                  reasoningMessageId = providedId as typeof reasoningMessageId;
-                }
+                reasoningMessageId =
+                  providedId && providedId !== "0"
+                    ? (providedId as typeof reasoningMessageId)
+                    : randomUUID();
                 const reasoningStartEvent: ReasoningStartEvent = {
                   type: EventType.REASONING_START,
                   messageId: reasoningMessageId,
