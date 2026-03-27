@@ -57,7 +57,7 @@ PYEOF
 echo "Deploying infrastructure (this takes ~10–15 min on first run)..."
 cd "$CDK_DIR"
 npm install --silent
-npx cdk deploy --all --require-approval never --output "${SCRIPT_DIR}/cdk.out${SUFFIX}"
+npx cdk@latest deploy --all --require-approval never --output "${SCRIPT_DIR}/cdk.out${SUFFIX}"
 cd "$SCRIPT_DIR"
 echo "✓ Infrastructure deployed"
 
