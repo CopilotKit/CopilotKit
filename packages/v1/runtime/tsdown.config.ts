@@ -1,7 +1,12 @@
 import { defineConfig } from "tsdown";
 
 export default defineConfig({
-  entry: ["src/index.ts", "src/v2/index.ts", "src/langgraph.ts"],
+  entry: [
+    "src/index.ts",
+    "src/browser.ts",
+    "src/v2/index.ts",
+    "src/langgraph.ts",
+  ],
   format: ["esm", "cjs"],
   dts: true,
   sourcemap: true,
