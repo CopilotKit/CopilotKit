@@ -92,4 +92,19 @@ describe("copilotkitCustomizeConfig emit-raw-events", () => {
     expect(config.metadata["copilotkit:emit-raw-events"]).toBeUndefined();
     expect(config.metadata["emit-raw-events"]).toBeUndefined();
   });
+
+  it("emitAll and raw event flags are independent", () => {
+    const config = copilotkitCustomizeConfig(
+      { metadata: {} },
+      { emitAll: true, emitRawEvents: false, emitRawEventData: false },
+    );
+    // emitAll sets messages and tool calls to true
+    expect(config.metadata["copilotkit:emit-messages"]).toBe(true);
+    expect(config.metadata["copilotkit:emit-tool-calls"]).toBe(true);
+    // raw event flags remain false — independent of emitAll
+    expect(config.metadata["copilotkit:emit-raw-events"]).toBe(false);
+    expect(config.metadata["emit-raw-events"]).toBe(false);
+    expect(config.metadata["copilotkit:emit-raw-event-data"]).toBe(false);
+    expect(config.metadata["emit-raw-event-data"]).toBe(false);
+  });
 });

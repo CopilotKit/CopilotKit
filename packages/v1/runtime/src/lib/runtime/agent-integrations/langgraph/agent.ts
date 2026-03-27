@@ -42,19 +42,19 @@ export class LangGraphAgent extends AGUILangGraphAgent {
       const customEvent = event as unknown as CustomEvent;
 
       if (customEvent.name === CustomEventNames.CopilotKitManuallyEmitMessage) {
-        this.subscriber.next({
+        super.dispatchEvent({
           type: EventType.TEXT_MESSAGE_START,
           role: "assistant",
           messageId: customEvent.value.message_id,
           rawEvent: event,
         });
-        this.subscriber.next({
+        super.dispatchEvent({
           type: EventType.TEXT_MESSAGE_CONTENT,
           messageId: customEvent.value.message_id,
           delta: customEvent.value.message,
           rawEvent: event,
         });
-        this.subscriber.next({
+        super.dispatchEvent({
           type: EventType.TEXT_MESSAGE_END,
           messageId: customEvent.value.message_id,
           rawEvent: event,
@@ -65,20 +65,20 @@ export class LangGraphAgent extends AGUILangGraphAgent {
       if (
         customEvent.name === CustomEventNames.CopilotKitManuallyEmitToolCall
       ) {
-        this.subscriber.next({
+        super.dispatchEvent({
           type: EventType.TOOL_CALL_START,
           toolCallId: customEvent.value.id,
           toolCallName: customEvent.value.name,
           parentMessageId: customEvent.value.id,
           rawEvent: event,
         });
-        this.subscriber.next({
+        super.dispatchEvent({
           type: EventType.TOOL_CALL_ARGS,
           toolCallId: customEvent.value.id,
           delta: customEvent.value.args,
           rawEvent: event,
         });
-        this.subscriber.next({
+        super.dispatchEvent({
           type: EventType.TOOL_CALL_END,
           toolCallId: customEvent.value.id,
           rawEvent: event,
@@ -102,7 +102,7 @@ export class LangGraphAgent extends AGUILangGraphAgent {
       }
 
       if (customEvent.name === CustomEventNames.CopilotKitExit) {
-        this.subscriber.next({
+        super.dispatchEvent({
           type: EventType.CUSTOM,
           name: "Exit",
           value: true,
@@ -114,8 +114,7 @@ export class LangGraphAgent extends AGUILangGraphAgent {
     // Intercept all text message and tool call events and check if should disable
     const rawEvent = (event as ToolCallEvents | TextMessageEvents).rawEvent;
     if (!rawEvent) {
-      this.subscriber.next(event);
-      return true;
+      return super.dispatchEvent(event);
     }
 
     const isMessageEvent =
@@ -148,8 +147,7 @@ export class LangGraphAgent extends AGUILangGraphAgent {
       }
     }
 
-    this.subscriber.next(event);
-    return true;
+    return super.dispatchEvent(event);
   }
 
   // @ts-ignore

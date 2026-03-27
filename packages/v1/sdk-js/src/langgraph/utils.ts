@@ -125,6 +125,10 @@ export function copilotkitCustomizeConfig(
     const metadata = { ...(baseConfig?.metadata || {}) };
 
     if (options?.emitAll) {
+      console.warn(
+        "copilotkitCustomizeConfig: emitAll is deprecated. Set emitMessages and emitToolCalls directly. " +
+          "Note: emitAll only controls emitMessages and emitToolCalls — it does not affect emitRawEvents or emitRawEventData.",
+      );
       metadata["copilotkit:emit-tool-calls"] = true;
       metadata["copilotkit:emit-messages"] = true;
     } else {
@@ -137,8 +141,10 @@ export function copilotkitCustomizeConfig(
     }
 
     // emitRawEvents and emitRawEventData write both prefixed and unprefixed
-    // metadata keys: the unprefixed key is read by the ag-ui base agent, while
-    // the prefixed key follows the convention used by the CopilotKit dispatch layer.
+    // metadata keys: the unprefixed key is read by the ag-ui base agent. The
+    // prefixed key is set for convention consistency with other copilotkit:
+    // metadata keys (e.g., copilotkit:emit-messages) but is not currently
+    // consumed by any code path.
     if (options?.emitRawEvents != null) {
       metadata["copilotkit:emit-raw-events"] = options.emitRawEvents;
       metadata["emit-raw-events"] = options.emitRawEvents;

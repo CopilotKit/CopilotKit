@@ -148,7 +148,7 @@ that node's LLM calls:
                 emitRawEventData: false,   // strip raw_event from typed events
             });
 
-            const model = new ChatOpenAI({ temperature: 0, model: "gpt-5.2" });
+            const model = new ChatOpenAI({ temperature: 0, model: "gpt-5.2" }).bindTools([ragSearchTool]);
             const response = await model.invoke(state.messages, modifiedConfig);
 
             return { messages: [response] };
@@ -172,9 +172,7 @@ metadata directly:
             graph=agent,
             config={
                 "metadata": {
-                    "copilotkit:emit-raw-events": False, # [!code highlight]
                     "emit-raw-events": False, # [!code highlight]
-                    "copilotkit:emit-raw-event-data": False, # [!code highlight]
                     "emit-raw-event-data": False, # [!code highlight]
                 }
             },
@@ -186,9 +184,7 @@ metadata directly:
         // Set metadata when configuring the agent
         const config = {
             metadata: {
-                "copilotkit:emit-raw-events": false,
                 "emit-raw-events": false,
-                "copilotkit:emit-raw-event-data": false,
                 "emit-raw-event-data": false,
             }
         };

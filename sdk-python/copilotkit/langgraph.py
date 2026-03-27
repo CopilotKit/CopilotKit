@@ -275,11 +275,13 @@ def copilotkit_customize_config(
     emit_intermediate_state : Optional[List[IntermediateStateConfig]]
         Lets you emit tool calls as streaming LangGraph state.
     emit_raw_events : Optional[bool]
-        When set, controls whether raw AG-UI events are emitted.
-        Sets both prefixed ("copilotkit:emit-raw-events") and unprefixed ("emit-raw-events") metadata keys.
+        When False, suppresses standalone RAW event objects (LangChain callback
+        wrappers used by the CopilotKit web inspector). Does not affect the
+        raw_event field on typed events — use ``emit_raw_event_data`` for that.
     emit_raw_event_data : Optional[bool]
-        When set, controls whether raw event data is included in AG-UI events.
-        Sets both prefixed ("copilotkit:emit-raw-event-data") and unprefixed ("emit-raw-event-data") metadata keys.
+        When False, strips the raw_event field from typed events (text messages,
+        tool calls, state snapshots). Does not affect standalone RAW event
+        objects — use ``emit_raw_events`` for that.
 
     Returns
     -------
@@ -305,8 +307,10 @@ def copilotkit_customize_config(
             metadata["copilotkit:emit-messages"] = emit_messages
 
     # emit_raw_events and emit_raw_event_data write both prefixed and unprefixed
-    # metadata keys: the unprefixed key is read by the ag-ui base agent, while the
-    # prefixed key follows the convention used by the CopilotKit dispatch layer.
+    # metadata keys: the unprefixed key is read by the ag-ui base agent. The
+    # prefixed key is set for convention consistency with other copilotkit:
+    # metadata keys (e.g., copilotkit:emit-messages) but is not currently
+    # consumed by any code path.
     if emit_raw_events is not None:
         metadata["copilotkit:emit-raw-events"] = emit_raw_events
         metadata["emit-raw-events"] = emit_raw_events

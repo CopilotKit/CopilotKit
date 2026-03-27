@@ -240,3 +240,20 @@ class TestEmitRawEventsConfig:
         )
         assert config["metadata"]["copilotkit:emit-raw-events"] is False
         assert config["metadata"]["emit-raw-events"] is False
+
+    def test_emit_all_and_raw_flags_are_independent(self):
+        config = copilotkit_customize_config(
+            {"metadata": {}},
+            emit_all=True,
+            emit_raw_events=False,
+            emit_raw_event_data=False,
+        )
+        metadata = config["metadata"]
+        # emit_all sets messages and tool calls to true
+        assert metadata["copilotkit:emit-messages"] is True
+        assert metadata["copilotkit:emit-tool-calls"] is True
+        # raw event flags remain false — independent of emit_all
+        assert metadata["copilotkit:emit-raw-events"] is False
+        assert metadata["emit-raw-events"] is False
+        assert metadata["copilotkit:emit-raw-event-data"] is False
+        assert metadata["emit-raw-event-data"] is False
