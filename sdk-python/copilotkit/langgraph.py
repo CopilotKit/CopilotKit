@@ -216,6 +216,8 @@ def copilotkit_customize_config(
         emit_messages: Optional[bool] = None,
         emit_tool_calls: Optional[Union[bool, str, List[str]]] = None,
         emit_intermediate_state: Optional[List[IntermediateStateConfig]] = None,
+        emit_raw_events: Optional[bool] = None,
+        emit_raw_event_data: Optional[bool] = None,
         emit_all: Optional[bool] = None, # deprecated
     ) -> RunnableConfig:
     """
@@ -272,6 +274,12 @@ def copilotkit_customize_config(
         disable emitting tool calls. Pass a string or list of strings to emit only specific tool calls.
     emit_intermediate_state : Optional[List[IntermediateStateConfig]]
         Lets you emit tool calls as streaming LangGraph state.
+    emit_raw_events : Optional[bool]
+        When set, controls whether raw AG-UI events are emitted.
+        Sets both prefixed ("copilotkit:emit-raw-events") and unprefixed ("emit-raw-events") metadata keys.
+    emit_raw_event_data : Optional[bool]
+        When set, controls whether raw event data is included in AG-UI events.
+        Sets both prefixed ("copilotkit:emit-raw-event-data") and unprefixed ("emit-raw-event-data") metadata keys.
 
     Returns
     -------
@@ -295,6 +303,13 @@ def copilotkit_customize_config(
             metadata["copilotkit:emit-tool-calls"] = emit_tool_calls
         if emit_messages is not None:
             metadata["copilotkit:emit-messages"] = emit_messages
+
+    if emit_raw_events is not None:
+        metadata["copilotkit:emit-raw-events"] = emit_raw_events
+        metadata["emit-raw-events"] = emit_raw_events
+    if emit_raw_event_data is not None:
+        metadata["copilotkit:emit-raw-event-data"] = emit_raw_event_data
+        metadata["emit-raw-event-data"] = emit_raw_event_data
 
     if emit_intermediate_state:
         metadata["copilotkit:emit-intermediate-state"] = emit_intermediate_state

@@ -132,6 +132,15 @@ export function copilotkitCustomizeConfig(
       }
     }
 
+    if (options?.emitRawEvents !== undefined) {
+      metadata["copilotkit:emit-raw-events"] = options.emitRawEvents;
+      metadata["emit-raw-events"] = options.emitRawEvents;
+    }
+    if (options?.emitRawEventData !== undefined) {
+      metadata["copilotkit:emit-raw-event-data"] = options.emitRawEventData;
+      metadata["emit-raw-event-data"] = options.emitRawEventData;
+    }
+
     if (options?.emitIntermediateState) {
       const snakeCaseIntermediateState = options.emitIntermediateState.map(
         (state) => ({

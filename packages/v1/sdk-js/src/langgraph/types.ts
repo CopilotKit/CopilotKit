@@ -23,6 +23,8 @@ export interface OptionsConfig {
   emitMessages?: boolean;
   emitAll?: boolean;
   emitIntermediateState?: IntermediateStateConfig[];
+  emitRawEvents?: boolean;
+  emitRawEventData?: boolean;
 }
 
 export type CopilotKitState = typeof CopilotKitStateAnnotation.State;
