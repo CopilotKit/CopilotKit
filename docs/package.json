@@ -12,6 +12,7 @@
     "verify-broken-links": "node scripts/verify-broken-links.js",
     "generate:integration-features": "node scripts/generate-integration-features.mjs",
     "generate:skills": "node scripts/generate-skills.mjs",
+    "test:skills": "node --test scripts/generate-skills.test.mjs",
     "generate": "npm run generate:integration-features && npm run generate:skills",
     "predev": "npm run generate",
     "prebuild": "npm run generate && npm run check-links"
