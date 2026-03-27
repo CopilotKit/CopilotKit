@@ -1,0 +1,14 @@
+# LangGraph agent dependencies with pinned versions
+langgraph==1.0.10
+langchain-aws==1.0.0
+langchain-mcp-adapters==0.1.13
+langgraph-checkpoint-aws==1.0.1
+mcp==1.23.1
+bedrock-agentcore==1.0.6
+PyJWT[crypto]>=2.10.1
+
+# CopilotKit / AG-UI integration (used when COPILOTKIT_ENABLED=true)
+ag-ui-protocol>=0.1.10
+ag-ui-langgraph==0.0.28
+copilotkit==0.1.83
+langchain>=1.0.0
