@@ -293,7 +293,7 @@ def copilotkit_customize_config(
             DeprecationWarning,
             stacklevel=2
         )
-    metadata = base_config.get("metadata", {}) if base_config else {}
+    metadata = dict(base_config.get("metadata") or {}) if base_config else {}
 
     if emit_all is True:
         metadata["copilotkit:emit-tool-calls"] = True
@@ -304,6 +304,9 @@ def copilotkit_customize_config(
         if emit_messages is not None:
             metadata["copilotkit:emit-messages"] = emit_messages
 
+    # emit_raw_events and emit_raw_event_data write both prefixed and unprefixed
+    # metadata keys: the unprefixed key is read by the ag-ui base agent, while the
+    # prefixed key follows the convention used by the CopilotKit dispatch layer.
     if emit_raw_events is not None:
         metadata["copilotkit:emit-raw-events"] = emit_raw_events
         metadata["emit-raw-events"] = emit_raw_events

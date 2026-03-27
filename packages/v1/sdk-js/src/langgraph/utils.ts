@@ -67,6 +67,10 @@ export function copilotkitCustomizeConfig(
    *   disable emitting tool calls. Pass a string or list of strings to emit only specific tool calls.
    * - `emitIntermediateState: IntermediateStateConfig[]?`
    *   Lets you emit tool calls as streaming LangGraph state.
+   * - `emitRawEvents: boolean?`
+   *   When false, suppresses standalone RAW event objects (LangChain callback wrappers).
+   * - `emitRawEventData: boolean?`
+   *   When false, strips the rawEvent field from typed events (messages, tool calls, etc.).
    */
   options?: OptionsConfig,
 ): RunnableConfig {
@@ -118,7 +122,7 @@ export function copilotkitCustomizeConfig(
   }
 
   try {
-    const metadata = baseConfig?.metadata || {};
+    const metadata = { ...(baseConfig?.metadata || {}) };
 
     if (options?.emitAll) {
       metadata["copilotkit:emit-tool-calls"] = true;
@@ -132,6 +136,9 @@ export function copilotkitCustomizeConfig(
       }
     }
 
+    // emitRawEvents and emitRawEventData write both prefixed and unprefixed
+    // metadata keys: the unprefixed key is read by the ag-ui base agent, while
+    // the prefixed key follows the convention used by the CopilotKit dispatch layer.
     if (options?.emitRawEvents !== undefined) {
       metadata["copilotkit:emit-raw-events"] = options.emitRawEvents;
       metadata["emit-raw-events"] = options.emitRawEvents;

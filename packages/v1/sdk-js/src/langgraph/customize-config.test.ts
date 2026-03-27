@@ -46,6 +46,17 @@ describe("copilotkitCustomizeConfig emit-raw-events", () => {
     expect(config.metadata["emit-raw-event-data"]).toBeUndefined();
   });
 
+  it("sets all keys when both flags are provided", () => {
+    const config = copilotkitCustomizeConfig(
+      { metadata: {} },
+      { emitRawEvents: false, emitRawEventData: false },
+    );
+    expect(config.metadata["copilotkit:emit-raw-events"]).toBe(false);
+    expect(config.metadata["emit-raw-events"]).toBe(false);
+    expect(config.metadata["copilotkit:emit-raw-event-data"]).toBe(false);
+    expect(config.metadata["emit-raw-event-data"]).toBe(false);
+  });
+
   it("preserves existing metadata when adding new flags", () => {
     const config = copilotkitCustomizeConfig(
       { metadata: { "copilotkit:emit-messages": false } },

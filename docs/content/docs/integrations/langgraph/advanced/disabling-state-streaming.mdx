@@ -99,13 +99,13 @@ of context — this can inflate the SSE stream significantly.
 
 Two additional flags let you control this:
 
-| Flag | Default | Effect |
-|------|---------|--------|
-| `emit_raw_events` | `True` | When `False`, suppresses `RAW` events entirely. These wrap every LangChain callback (`on_llm_*`, `on_chain_*`) and are only used by the CopilotKit web inspector for debugging. |
-| `emit_raw_event_data` | `True` | When `False`, strips the `raw_event` field from typed events (state snapshots, text messages, tool calls, etc.). This field carries the full underlying LangGraph event dict and can be large. |
+| Flag | TypeScript | Default | Effect |
+|------|-----------|---------|--------|
+| `emit_raw_events` | `emitRawEvents` | `True` | When `False`, suppresses `RAW` events entirely. These wrap every LangChain callback (`on_llm_*`, `on_chain_*`) and are only used by the CopilotKit web inspector for debugging. |
+| `emit_raw_event_data` | `emitRawEventData` | `True` | When `False`, strips the `raw_event` field from typed events (state snapshots, text messages, tool calls, etc.). This field carries the full underlying LangGraph event dict and can be large. |
 
-Setting both to `False` can reduce stream payload by **up to ~94%** with no impact on
-frontend functionality.
+Setting both to `False` can significantly reduce the amount of data sent over the wire,
+with no impact on frontend functionality.
 
 ### Per-node control
 
@@ -159,7 +159,7 @@ metadata directly:
 <Tabs groupId="language_langgraph_agent" items={['Python', 'TypeScript']} default="Python" persist>
     <Tab value="Python">
         ```python
-        from copilotkit import CopilotKitMiddleware, LangGraphAGUIAgent
+        from copilotkit import LangGraphAGUIAgent
 
         LangGraphAGUIAgent(
             name="my_agent",
