@@ -8,66 +8,12 @@ import {
   ToolCallArgsEvent,
   ActivitySnapshotEvent,
   ActivityDeltaEvent,
-  Tool,
 } from "@ag-ui/client";
 import { Observable } from "rxjs";
 import * as clarinet from "clarinet";
 
 const TOOL_NAME = "generateSandboxedUi";
 const ACTIVITY_TYPE = "open-generative-ui";
-
-const GENERATE_SANDBOXED_UI_TOOL: Tool = {
-  name: TOOL_NAME,
-  description:
-    "Generate sandboxed UI. " +
-    "IMPORTANT: The generated code runs in a sandboxed iframe WITHOUT same-origin access. " +
-    "Do NOT use localStorage, sessionStorage, document.cookie, IndexedDB, or fetch/XMLHttpRequest to same-origin URLs. " +
-    "To communicate with the host application, use Websandbox.connection.remote.<functionName>(args) which returns a Promise.\n\n" +
-    "You CAN use external libraries from CDNs by including <script> or <link> tags in the HTML <head> (e.g., Chart.js, D3, Three.js, x-data-spreadsheet, etc.). " +
-    "CDN resources load normally inside the sandbox.\n\n" +
-    "PARAMETER ORDER IS CRITICAL — generate parameters in exactly this order:\n" +
-    "1. initialHeight + placeholderMessages (shown to user while generating)\n" +
-    "2. css (all styles FIRST — the user sees a placeholder until CSS is complete)\n" +
-    "3. html (streams in live — the user watches the UI build as HTML is generated)\n" +
-    "4. jsFunctions (reusable helper functions)\n" +
-    "5. jsExpressions (applied one-by-one — the user sees each expression take effect)",
-  parameters: {
-    type: "object",
-    properties: {
-      initialHeight: {
-        type: "number",
-        description: "Fixed height of the UI container in pixels.",
-      },
-      placeholderMessages: {
-        type: "array",
-        items: { type: "string" },
-        description:
-          "Exactly 5 short loading messages displayed while the UI is being generated. Generate these FIRST before anything else so the user sees them while waiting.",
-      },
-      css: {
-        type: "string",
-        description:
-          "All CSS styles for the UI. Generate ALL styles BEFORE the html — the user sees a placeholder until CSS is complete, then the HTML preview begins streaming in with styles already applied.",
-      },
-      html: {
-        type: "string",
-        description:
-          "HTML markup for the UI. Must be a complete HTML document including <head> and <body> tags. This streams live to the user — they watch the UI build as you generate the HTML.",
-      },
-      jsFunctions: {
-        type: "string",
-        description:
-          "Reusable JS helper functions. Generate these AFTER the html and BEFORE jsExpressions so they are available when expressions execute.",
-      },
-      jsExpressions: {
-        type: "array",
-        items: { type: "string" },
-        description:
-          "Array of JS expressions executed sequentially to build up the UI. The user sees each expression take effect one after the other. Generate these LAST.",
-      },
-    },
-  },
-};
 
 /**
  * Parsed parameters from the generateSandboxedUi tool call.
@@ -287,35 +233,9 @@ type ExtractObservableType<T> = T extends Observable<infer U> ? U : never;
 type RunNextWithStateReturn = ReturnType<Middleware["runNextWithState"]>;
 type EventWithState = ExtractObservableType<RunNextWithStateReturn>;
 
-export interface OpenGenerativeUIMiddlewareOptions {
-  instructions?: string;
-}
-
 export class OpenGenerativeUIMiddleware extends Middleware {
-  private readonly instructions?: string;
-
-  constructor(options: OpenGenerativeUIMiddlewareOptions = {}) {
-    super();
-    this.instructions = options.instructions;
-  }
-
   run(input: RunAgentInput, next: AbstractAgent): Observable<BaseEvent> {
-    const enhancedInput = this.injectTool(input);
-    return this.processStream(this.runNextWithState(enhancedInput, next));
-  }
-
-  private injectTool(input: RunAgentInput): RunAgentInput {
-    const filteredTools = input.tools.filter((t) => t.name !== TOOL_NAME);
-    const tool = this.instructions
-      ? {
-          ...GENERATE_SANDBOXED_UI_TOOL,
-          description: `${GENERATE_SANDBOXED_UI_TOOL.description}\n\n${this.instructions}`,
-        }
-      : GENERATE_SANDBOXED_UI_TOOL;
-    return {
-      ...input,
-      tools: [...filteredTools, tool],
-    };
+    return this.processStream(this.runNextWithState(input, next));
   }
 
   private processStream(source: Observable<EventWithState>): Observable<BaseEvent> {

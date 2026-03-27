@@ -40,6 +40,7 @@ export class AgentRegistry {
   private _runtimeMode: RuntimeMode = RUNTIME_MODE_SSE;
   private _intelligence?: IntelligenceRuntimeInfo;
   private _a2uiEnabled: boolean = false;
+  private _openGenerativeUIEnabled: boolean = false;
 
   constructor(private core: CopilotKitCore) {}
 
@@ -80,6 +81,10 @@ export class AgentRegistry {
 
   get a2uiEnabled(): boolean {
     return this._a2uiEnabled;
+  }
+
+  get openGenerativeUIEnabled(): boolean {
+    return this._openGenerativeUIEnabled;
   }
 
   /**
@@ -232,6 +237,7 @@ export class AgentRegistry {
       this._runtimeMode = RUNTIME_MODE_SSE;
       this._intelligence = undefined;
       this._a2uiEnabled = false;
+      this._openGenerativeUIEnabled = false;
       this.remoteAgents = {};
       this._agents = this.localAgents;
 
@@ -288,6 +294,7 @@ export class AgentRegistry {
       this._runtimeMode = runtimeInfoResponse.mode ?? RUNTIME_MODE_SSE;
       this._intelligence = runtimeInfoResponse.intelligence;
       this._a2uiEnabled = runtimeInfoResponse.a2uiEnabled ?? false;
+      this._openGenerativeUIEnabled = runtimeInfoResponse.openGenerativeUIEnabled ?? false;
 
       await this.notifyRuntimeStatusChanged(
         CopilotKitCoreRuntimeConnectionStatus.Connected,
@@ -301,6 +308,7 @@ export class AgentRegistry {
       this._runtimeMode = RUNTIME_MODE_SSE;
       this._intelligence = undefined;
       this._a2uiEnabled = false;
+      this._openGenerativeUIEnabled = false;
       this.remoteAgents = {};
       this._agents = this.localAgents;
 

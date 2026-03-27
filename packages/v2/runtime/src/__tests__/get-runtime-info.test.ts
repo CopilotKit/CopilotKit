@@ -34,6 +34,7 @@ describe("handleGetRuntimeInfo", () => {
       audioFileTranscriptionEnabled: false,
       mode: "sse",
       a2uiEnabled: false,
+      openGenerativeUIEnabled: false,
     });
   });
 
@@ -58,6 +59,7 @@ describe("handleGetRuntimeInfo", () => {
       audioFileTranscriptionEnabled: true,
       mode: "sse",
       a2uiEnabled: false,
+      openGenerativeUIEnabled: false,
     });
   });
 
@@ -94,6 +96,7 @@ describe("handleGetRuntimeInfo", () => {
       audioFileTranscriptionEnabled: true,
       mode: "sse",
       a2uiEnabled: false,
+      openGenerativeUIEnabled: false,
     });
   });
 

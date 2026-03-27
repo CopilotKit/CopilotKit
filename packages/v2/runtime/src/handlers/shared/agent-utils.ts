@@ -80,8 +80,7 @@ export function configureAgentForRequest(params: {
     const targetAgents = typeof config === "object" ? config.agents : undefined;
     const shouldApply = !targetAgents || targetAgents.includes(agentId);
     if (shouldApply && typeof agent.use === "function") {
-      const instructions = typeof config === "object" ? config.instructions : undefined;
-      agent.use(new OpenGenerativeUIMiddleware({ instructions }));
+        agent.use(new OpenGenerativeUIMiddleware());
     }
   }
 

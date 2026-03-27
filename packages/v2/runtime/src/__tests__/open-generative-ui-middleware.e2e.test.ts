@@ -4,7 +4,6 @@ import {
   BaseEvent,
   EventType,
   RunAgentInput,
-  Tool,
   ActivitySnapshotEvent,
   ActivityDeltaEvent,
 } from "@ag-ui/client";
@@ -62,57 +61,18 @@ async function collectEvents(observable: Observable<BaseEvent>): Promise<BaseEve
 }
 
 describe("OpenGenerativeUIMiddleware e2e", () => {
-  describe("Tool injection", () => {
-    it("injects the generateSandboxedUi tool into the agent input", async () => {
+  describe("Tool passthrough", () => {
+    it("does not modify the tools list", async () => {
       const middleware = new OpenGenerativeUIMiddleware();
       const agent = new MockAgent([
         { type: EventType.RUN_STARTED, threadId: "thread-1", runId: "run-1" } as BaseEvent,
         { type: EventType.RUN_FINISHED, threadId: "thread-1", runId: "run-1" } as BaseEvent,
       ]);
 
-      await collectEvents(middleware.run(createRunInput(), agent));
+      const input = createRunInput();
+      await collectEvents(middleware.run(input, agent));
 
-      const tools = agent.receivedInput!.tools;
-      const injectedTool = tools.find((t: Tool) => t.name === "generateSandboxedUi");
-      expect(injectedTool).toBeDefined();
-      expect(injectedTool!.parameters).toEqual({
-        type: "object",
-        properties: {
-          initialHeight: { type: "number", description: expect.any(String) },
-          placeholderMessages: {
-            type: "array",
-            items: { type: "string" },
-            description: expect.any(String),
-          },
-          css: { type: "string", description: expect.any(String) },
-          html: { type: "string", description: expect.any(String) },
-          jsFunctions: { type: "string", description: expect.any(String) },
-          jsExpressions: {
-            type: "array",
-            items: { type: "string" },
-            description: expect.any(String),
-          },
-        },
-      });
-    });
-
-    it("does not duplicate the tool if it already exists in input", async () => {
-      const middleware = new OpenGenerativeUIMiddleware();
-      const existingTool: Tool = {
-        name: "generateSandboxedUi",
-        description: "old",
-        parameters: { type: "object", properties: {} },
-      };
-      const agent = new MockAgent([
-        { type: EventType.RUN_STARTED, threadId: "thread-1", runId: "run-1" } as BaseEvent,
-        { type: EventType.RUN_FINISHED, threadId: "thread-1", runId: "run-1" } as BaseEvent,
-      ]);
-
-      await collectEvents(middleware.run(createRunInput({ tools: [existingTool] }), agent));
-
-      const tools = agent.receivedInput!.tools;
-      const matchingTools = tools.filter((t: Tool) => t.name === "generateSandboxedUi");
-      expect(matchingTools).toHaveLength(1);
+      expect(agent.receivedInput!.tools).toEqual(input.tools);
     });
   });
 

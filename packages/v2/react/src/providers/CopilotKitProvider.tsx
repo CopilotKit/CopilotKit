@@ -59,6 +59,20 @@ const DEFAULT_DESIGN_SKILL = `When generating UI with generateSandboxedUi, follo
 - Minimal transitions (150ms) for hover/focus states only. No decorative animations.
 - Keep the UI focused and dense — avoid excessive padding. Use compact spacing (8–12px gaps, 10–14px padding in controls).`;
 
+const GENERATE_SANDBOXED_UI_DESCRIPTION =
+  "Generate sandboxed UI. " +
+  "IMPORTANT: The generated code runs in a sandboxed iframe WITHOUT same-origin access. " +
+  "Do NOT use localStorage, sessionStorage, document.cookie, IndexedDB, or fetch/XMLHttpRequest to same-origin URLs. " +
+  "To communicate with the host application, use Websandbox.connection.remote.<functionName>(args) which returns a Promise.\n\n" +
+  "You CAN use external libraries from CDNs by including <script> or <link> tags in the HTML <head> (e.g., Chart.js, D3, Three.js, x-data-spreadsheet, etc.). " +
+  "CDN resources load normally inside the sandbox.\n\n" +
+  "PARAMETER ORDER IS CRITICAL — generate parameters in exactly this order:\n" +
+  "1. initialHeight + placeholderMessages (shown to user while generating)\n" +
+  "2. css (all styles FIRST — the user sees a placeholder until CSS is complete)\n" +
+  "3. html (streams in live — the user watches the UI build as HTML is generated)\n" +
+  "4. jsFunctions (reusable helper functions)\n" +
+  "5. jsExpressions (applied one-by-one — the user sees each expression take effect)";
+
 // Define the context value interface - idiomatic React naming
 export interface CopilotKitContextValue {
   copilotkit: CopilotKitCoreReact;
@@ -217,6 +231,8 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
 }) => {
   const [shouldRenderInspector, setShouldRenderInspector] = useState(false);
   const [runtimeA2UIEnabled, setRuntimeA2UIEnabled] = useState(false);
+  const [runtimeOpenGenUIEnabled, setRuntimeOpenGenUIEnabled] = useState(false);
+  const openGenUIActive = runtimeOpenGenUIEnabled || !!openGenerativeUI;
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -279,12 +295,15 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
         content: MCPAppsActivityContentSchema,
         render: MCPAppsActivityRenderer,
       },
-      {
+    ];
+
+    if (openGenUIActive) {
+      renderers.push({
         activityType: OpenGenerativeUIActivityType,
         content: OpenGenerativeUIContentSchema,
         render: OpenGenerativeUIActivityRenderer,
-      },
-    ];
+      });
+    }
 
     if (runtimeA2UIEnabled) {
       renderers.unshift(
@@ -293,7 +312,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     }
 
     return renderers;
-  }, [runtimeA2UIEnabled, a2ui]);
+  }, [runtimeA2UIEnabled, openGenUIActive, a2ui]);
 
   // Combine user-provided activity renderers with built-in ones
   // User-provided renderers take precedence (come first) so they can override built-ins
@@ -389,18 +408,20 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     return { tools: processedTools, renderToolCalls: processedRenderToolCalls };
   }, [humanInTheLoopList]);
 
-  // Built-in frontend tool for generateSandboxedUi — provides the tool result
+  // Built-in frontend tool for generateSandboxedUi — registered only when the runtime has openGenerativeUI enabled
   const builtInFrontendTools = useMemo<ReactFrontendTool[]>(() => {
+    if (!openGenUIActive) return [];
     return [
       {
         name: "generateSandboxedUi",
+        description: GENERATE_SANDBOXED_UI_DESCRIPTION,
         parameters: GenerateSandboxedUiArgsSchema,
         handler: async () => "UI generated",
         followUp: true,
         render: OpenGenerativeUIToolRenderer,
       },
     ];
-  }, []);
+  }, [openGenUIActive]);
 
   // Combine all tools for CopilotKitCore
   const allTools = useMemo(() => {
@@ -461,11 +482,12 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   }
   const copilotkit = copilotkitRef.current;
 
-  // Sync runtimeA2UIEnabled from the core once runtime info is fetched
+  // Sync runtime feature flags from the core once runtime info is fetched
   useEffect(() => {
     const subscription = copilotkit.subscribe({
       onRuntimeConnectionStatusChanged: () => {
         setRuntimeA2UIEnabled(copilotkit.a2uiEnabled);
+        setRuntimeOpenGenUIEnabled(copilotkit.openGenerativeUIEnabled);
       },
     });
     return () => {
@@ -602,7 +624,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   const designSkill = openGenerativeUI?.designSkill ?? DEFAULT_DESIGN_SKILL;
 
   useLayoutEffect(() => {
-    if (!copilotkit) return;
+    if (!copilotkit || !openGenUIActive) return;
 
     const id = copilotkit.addContext({
       description:
@@ -612,7 +634,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     return () => {
       copilotkit.removeContext(id);
     };
-  }, [copilotkit, designSkill]);
+  }, [copilotkit, designSkill, openGenUIActive]);
 
   // Register sandbox functions as agent context so the LLM knows how to call them
   const sandboxFunctionsDescriptors = useMemo(() => {
@@ -627,7 +649,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   }, [sandboxFunctionsList]);
 
   useLayoutEffect(() => {
-    if (!copilotkit || !sandboxFunctionsDescriptors) return;
+    if (!copilotkit || !sandboxFunctionsDescriptors || !openGenUIActive) return;
 
     const id = copilotkit.addContext({
       description:
@@ -637,7 +659,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     return () => {
       copilotkit.removeContext(id);
     };
-  }, [copilotkit, sandboxFunctionsDescriptors]);
+  }, [copilotkit, sandboxFunctionsDescriptors, openGenUIActive]);
 
   const contextValue = useMemo<CopilotKitContextValue>(
     () => ({ copilotkit, executingToolCallIds }),

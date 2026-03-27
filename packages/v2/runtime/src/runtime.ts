@@ -36,10 +36,7 @@ export interface McpAppsConfig {
   servers: McpAppsServerConfig[];
 }
 
-export interface OpenGenerativeUIOptions extends BaseCopilotRuntimeMiddlewareOptions {
-  /** Extra instructions appended to the tool description. */
-  instructions?: string;
-}
+export interface OpenGenerativeUIOptions extends BaseCopilotRuntimeMiddlewareOptions {}
 
 export type OpenGenerativeUIConfig = boolean | OpenGenerativeUIOptions;
 

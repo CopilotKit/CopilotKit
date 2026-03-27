@@ -38,6 +38,7 @@ export async function handleGetRuntimeInfo({
           }
         : {}),
       a2uiEnabled: !!runtime.a2ui,
+      openGenerativeUIEnabled: !!runtime.openGenerativeUI,
     };
 
     return new Response(JSON.stringify(runtimeInfo), {
