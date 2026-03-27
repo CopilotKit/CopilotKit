@@ -308,11 +308,11 @@ is a situation where a user and an agent are working together to solve a problem
 
       // [!code highlight:13]
       // styles omitted for brevity
-      useAgent<AgentState>({
+      useAgent({
         name: "sample_agent", // the name the agent is served as
-        render: ({ agentState }) => (
+        render: ({ state }) => (
           <div>
-            {agentState.searches?.map((search, index) => (
+            {state.searches?.map((search, index) => (
               <div key={index}>
                 {search.done ? "✅" : "❌"} {search.query}{search.done ? "" : "..."}
               </div>
@@ -347,7 +347,7 @@ is a situation where a user and an agent are working together to solve a problem
       // ...
 
       // [!code highlight:3]
-      const { agentState } = useAgent<AgentState>({
+      const { agent } = useAgent({
         name: "sample_agent", // the name the agent is served as
       })
 
@@ -358,7 +358,7 @@ is a situation where a user and an agent are working together to solve a problem
           {/* ... */}
           <div className="flex flex-col gap-2 mt-4">
             {/* [!code highlight:5] */}
-            {agentState.searches?.map((search, index) => (
+            {agent.state?.searches?.map((search, index) => (
               <div key={index} className="flex flex-row">
                 {search.done ? "✅" : "❌"} {search.query}
               </div>
@@ -430,6 +430,7 @@ of everything that has happened during a HITL interaction.
         First, we'll create a component that renders the agent's essay draft and waits for user approval.
 
 ```tsx title="ui/app/page.tsx"
+        import { z } from "zod";
         import { useFrontendTool } from "@copilotkit/react-core/v2"
         import { Markdown } from "@copilotkit/react-core/v2"
 
@@ -440,9 +441,9 @@ of everything that has happened during a HITL interaction.
             name: "writeEssay",
             available: "remote",
             description: "Writes an essay and takes the draft as an argument.",
-            parameters: [
-              { name: "draft", type: "string", description: "The draft of the essay", required: true },
-            ],
+            parameters: z.object({
+              draft: z.string().describe("The draft of the essay"),
+            }),
             // [!code highlight:25]
             renderAndWaitForResponse: ({ args, respond, status }) => {
               return (
@@ -705,7 +706,7 @@ for a concrete example.
 To load an existing thread in CopilotKit, set the `threadId` property on ``:
 
 ```tsx
-import { CopilotKit } from "@copilotkit/react-core/v2";
+import { CopilotKit } from "@copilotkit/react-core";
 
 <CopilotKit threadId="37aa68d0-d15b-45ae-afc1-0ba6c3e11353">
   <YourApp />
@@ -718,7 +719,7 @@ You can make the `threadId` dynamic. Once set, CopilotKit will load previous mes
 
 ```tsx
 import { useState } from "react";
-import { CopilotKit } from "@copilotkit/react-core/v2";
+import { CopilotKit } from "@copilotkit/react-core";
 
 const Page = () => {
   const [threadId, setThreadId] = useState(
@@ -824,7 +825,7 @@ Before you begin, you must have a [CrewAI Flow](https://docs.crewai.com/guides/f
 ```
 
             ### Setup the CopilotKit Provider
-            The [``](/reference/v1/components/CopilotKit) component must wrap the Copilot-aware parts of your application. For most use-cases,
+            The ```` component must wrap the Copilot-aware parts of your application. For most use-cases,
             it's appropriate to wrap the CopilotKit provider around the entire app, e.g. in your layout.tsx.
 
 ```tsx title="layout.tsx"
@@ -956,7 +957,9 @@ import "@copilotkit/react-ui/v2/styles.css";
 ```tsx title="page.tsx"
             "use client";
             import "@copilotkit/react-ui/v2/styles.css";
-            import { CopilotKit, useFrontendTool } from "@copilotkit/react-core/v2";
+            import { CopilotKit } from "@copilotkit/react-core";
+            import { z } from "zod";
+            import { useFrontendTool } from "@copilotkit/react-core/v2";
             import { CopilotChat } from "@copilotkit/react-core/v2";
             import React, { useState } from "react";
 
@@ -979,14 +982,13 @@ import "@copilotkit/react-ui/v2/styles.css";
                 name: "change_background",
                 description:
                   "Change the background color of the chat. Can be anything that the CSS background attribute accepts. Regular colors, linear of radial gradients etc.",
-                parameters: [
-                  {
-                    name: "background",
-                    type: "string",
-                    description: "The background. Prefer gradients.",
-                  },
-                ],
-                handler: ({ background }) => setBackground(background),
+                parameters: z.object({
+                  background: z.string().describe("The background. Prefer gradients."),
+                }),
+                handler: async ({ background }) => {
+                  setBackground(background);
+                  return `Background changed to ${background}`;
+                },
                 followUp: false,
               });
 
@@ -1098,7 +1100,7 @@ state updates, you can reflect these updates natively in your application.
 
     function YourMainContent() {
       // [!code highlight:4]
-      const { agentState } = useAgent<AgentState>({
+      const { agent } = useAgent({
         name: "sample_agent",
         initialState: { language: "english" }  // optionally provide an initial state
       });
@@ -1110,12 +1112,12 @@ state updates, you can reflect these updates natively in your application.
         <div>
           <h1>Your main content</h1>
           {/* [!code highlight:1] */}
-          <p>Language: {agentState.language}</p>
+          <p>Language: {agent.state?.language}</p>
         </div>
       );
     }
 ```
-      The `agentState` in `useAgent` is reactive and will automatically update when the agent's state changes.
+      The `agent.state` in `useAgent` is reactive and will automatically update when the agent's state changes.
 
     ### Give it a try!
     As the agent state updates, your `state` variable will automatically update with it! In this case, you'll see the
@@ -1137,18 +1139,18 @@ type AgentState = {
 function YourMainContent() {
   // ...
   // [!code highlight:7]
-  useAgent<AgentState>({
+  useAgent({
     name: "sample_agent",
-    render: ({ agentState }) => {
-      if (!agentState.language) return null;
-      return <div>Language: {agentState.language}</div>;
+    render: ({ state }) => {
+      if (!state.language) return null;
+      return <div>Language: {state.language}</div>;
     },
   });
   // ...
 }
 ```
 
-  The `agentState` in `useAgent` is reactive and will automatically
+  The `agent.state` in `useAgent` is reactive and will automatically
   update when the agent's state changes.
 
 ## Intermediately Stream and Render Agent State
@@ -1198,8 +1200,8 @@ when your agent is calling tools. CopilotKit allows you to fully customize how t
             language: Literal["english", "spanish"] = "english"
 ```
 
-    ### Call `setAgentState` function from the `useAgent` hook
-    `useAgent` returns a `setAgentState` function that you can use to update the agent state. Calling this
+    ### Call `agent.setState` from the `useAgent` hook
+    `useAgent` returns an `agent` object with a `setState` method that you can use to update the agent state. Calling this
     will update the agent state and trigger a rerender of anything that depends on the agent state.
 
 ```tsx title="ui/app/page.tsx"
@@ -1212,7 +1214,7 @@ when your agent is calling tools. CopilotKit allows you to fully customize how t
 
     // Example usage in a pseudo React component
     function YourMainContent() {
-      const { agentState, setAgentState } = useAgent<AgentState>({ // [!code highlight]
+      const { agent } = useAgent({ // [!code highlight]
         name: "sample_agent",
         initialState: { language: "english" }  // optionally provide an initial state
       });
@@ -1220,7 +1222,7 @@ when your agent is calling tools. CopilotKit allows you to fully customize how t
       // ...
 
       const toggleLanguage = () => {
-        setAgentState({ language: agentState.language === "english" ? "spanish" : "english" }); // [!code highlight]
+        agent.setState({ language: agent.state?.language === "english" ? "spanish" : "english" }); // [!code highlight]
       };
 
       // ...
@@ -1230,7 +1232,7 @@ when your agent is calling tools. CopilotKit allows you to fully customize how t
         <div>
           <h1>Your main content</h1>
           {/* [!code highlight:2] */}
-          <p>Language: {agentState.language}</p>
+          <p>Language: {agent.state?.language}</p>
           <button onClick={toggleLanguage}>Toggle Language</button>
         </div>
       );
@@ -1238,7 +1240,7 @@ when your agent is calling tools. CopilotKit allows you to fully customize how t
 ```
 
     ### Give it a try!
-    You can now use the `setAgentState` function to update the agent state and `agentState` to read it. Try toggling the language button
+    You can now use `agent.setState` to update the agent state and `agent.state` to read it. Try toggling the language button
     and talking to your agent. You'll see the language change to match the agent's state.
 
 ## Advanced Usage
@@ -1258,15 +1260,15 @@ import { TextMessage, MessageRole } from "@copilotkit/runtime-client-gql";  // [
 
 function YourMainContent() {
   // [!code word:run:1]
-  const { agentState, setAgentState, run } = useAgent<AgentState>({
+  const { agent, run } = useAgent({
     name: "sample_agent",
     initialState: { language: "english" }  // optionally provide an initial state
   });
 
   // setup to be called when some event in the app occurs
   const toggleLanguage = () => {
-    const newLanguage = agentState.language === "english" ? "spanish" : "english";
-    setAgentState({ language: newLanguage });
+    const newLanguage = agent.state?.language === "english" ? "spanish" : "english";
+    agent.setState({ language: newLanguage });
 
     // re-run the agent and provide a hint about what's changed
     // [!code highlight:6]
@@ -1468,18 +1470,18 @@ included in the function's final returned state. Otherwise, they will be overwri
 
         const YourMainContent = () => {
             // Get access to both predicted and final states
-            const { agentState } = useAgent({ name: "sample_agent" });
+            const { agent } = useAgent({ name: "sample_agent" });
 
             // Add a state renderer to observe predictions
             useAgent({
                 name: "sample_agent",
-                render: ({ agentState }) => {
-                    if (!agentState.observed_steps?.length) return null;
+                render: ({ state }) => {
+                    if (!state.observed_steps?.length) return null;
                     return (
                         <div>
                             <h3>Current Progress:</h3>
                             <ul>
-                                {agentState.observed_steps.map((step, i) => (
+                                {state.observed_steps.map((step, i) => (
                                     <li key={i}>{step}</li>
                                 ))}
                             </ul>
@@ -1491,11 +1493,11 @@ included in the function's final returned state. Otherwise, they will be overwri
             return (
                 <div>
                     <h1>Agent Progress</h1>
-                    {agentState.observed_steps?.length > 0 && (
+                    {agent.state?.observed_steps?.length > 0 && (
                         <div>
                             <h3>Final Steps:</h3>
                             <ul>
-                                {agentState.observed_steps.map((step, i) => (
+                                {agent.state.observed_steps.map((step, i) => (
                                     <li key={i}>{step}</li>
                                 ))}
                             </ul>

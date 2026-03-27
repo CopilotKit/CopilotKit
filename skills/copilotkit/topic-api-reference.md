@@ -1,6 +1,6 @@
-# V2 API Reference
+# API Reference
 
-V2 hooks/components references and API-oriented documentation.
+Hooks and components API reference documentation.
 
 ## Guidance
 ### API Reference
@@ -437,7 +437,7 @@ function AdminPanel({ isAdmin }: { isAdmin: boolean }) {
 - [`useRenderToolCall`](/reference/v2/hooks/useRenderToolCall) -- for rendering backend tool calls without a client-side handler
 - [`useComponent`](/reference/v2/hooks/useComponent) -- convenience wrapper for rendering React components from tool args
 - [`useRenderTool`](/reference/v2/hooks/useRenderTool) -- register renderer-only tool call UI (named or wildcard)
-- [`useCopilotAction`](/reference/v1/hooks/useCopilotAction) -- v1 equivalent
+- ``useCopilotAction`` -- v1 equivalent
 
 ### useAgentContext
 - Route: `/reference/v2/hooks/useAgentContext`
@@ -564,7 +564,7 @@ function Sidebar() {
 
 ## Related
 
-- [`useCopilotReadable`](/reference/v1/hooks/useCopilotReadable) -- v1 equivalent for providing context
+- ``useCopilotReadable`` -- v1 equivalent for providing context
 
 ### CopilotChat
 - Route: `/reference/v2/components/CopilotChat`

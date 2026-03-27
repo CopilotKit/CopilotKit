@@ -135,11 +135,11 @@ CopilotKit implementation guide for LlamaIndex.
 
       // [!code highlight:13]
       // styles omitted for brevity
-      useAgent<AgentState>({
+      useAgent({
         name: "my_agent", // MUST match the agent name in CopilotRuntime
-        render: ({ agentState }) => (
+        render: ({ state }) => (
           <div>
-            {agentState.searches?.map((search, index) => (
+            {state.searches?.map((search, index) => (
               <div key={index}>
                 {search.done ? "✅" : "❌"} {search.query}{search.done ? "" : "..."}
               </div>
@@ -169,7 +169,7 @@ CopilotKit implementation guide for LlamaIndex.
       // ...
 
       // [!code highlight:3]
-      const { agentState } = useAgent<AgentState>({
+      const { agent } = useAgent({
         name: "my_agent", // MUST match the agent name in CopilotRuntime
       })
 
@@ -180,7 +180,7 @@ CopilotKit implementation guide for LlamaIndex.
           {/* ... */}
           <div className="flex flex-col gap-2 mt-4">
             {/* [!code highlight:5] */}
-            {agentState.searches?.map((search, index) => (
+            {agent.state?.searches?.map((search, index) => (
               <div key={index} className="flex flex-row">
                 {search.done ? "✅" : "❌"} {search.query}
               </div>
@@ -236,13 +236,13 @@ if __name__ == "__main__":
     uvicorn.run(app, host="localhost", port=8000)
 ```
 ```tsx title="app/page.tsx"
-import { useRenderToolCall } from "@copilotkit/react-core/v2"; // [!code highlight]
+import { useRenderTool } from "@copilotkit/react-core/v2"; // [!code highlight]
 // ...
 
 const YourMainContent = () => {
   // ...
   // [!code highlight:12]
-  useRenderToolCall({
+  useRenderTool({
     name: "getWeather",
     render: ({status, args}) => {
       return (
@@ -585,7 +585,7 @@ Before you begin, you'll need the following:
                 Wrap your application with the CopilotKit provider:
 
 ```tsx title="app/layout.tsx"
-                import { CopilotKit } from "@copilotkit/react-core/v2"; // [!code highlight]
+                import { CopilotKit } from "@copilotkit/react-core"; // [!code highlight]
                 import "@copilotkit/react-ui/v2/styles.css";
 
                 // ...
@@ -733,7 +733,7 @@ Now that you have your basic agent setup, explore these advanced features:
 
     function YourMainContent() {
       // [!code highlight:4]
-      const { agentState } = useAgent<AgentState>({
+      const { agent } = useAgent({
         name: "my_agent", // MUST match the agent name in CopilotRuntime
         initialState: { language: "english" }  // optionally provide an initial state
       });
@@ -745,7 +745,7 @@ Now that you have your basic agent setup, explore these advanced features:
         <div>
           <h1>Your main content</h1>
           {/* [!code highlight:1] */}
-          <p>Language: {agentState.language}</p>
+          <p>Language: {agent.state?.language}</p>
         </div>
       );
     }
@@ -761,11 +761,11 @@ type AgentState = {
 function YourMainContent() {
   // ...
   // [!code highlight:7]
-  useAgent<AgentState>({
+  useAgent({
     name: "my_agent", // MUST match the agent name in CopilotRuntime
-    render: ({ agentState }) => {
-      if (!agentState.language) return null;
-      return <div>Language: {agentState.language}</div>;
+    render: ({ state }) => {
+      if (!state.language) return null;
+      return <div>Language: {state.language}</div>;
     },
   });
   // ...
@@ -831,7 +831,7 @@ function YourMainContent() {
 
     // Example usage in a pseudo React component
     function YourMainContent() {
-      const { agentState, setAgentState } = useAgent<AgentState>({ // [!code highlight]
+      const { agent } = useAgent({ // [!code highlight]
         name: "my_agent", // MUST match the agent name in CopilotRuntime
         initialState: { language: "english" }  // optionally provide an initial state
       });
@@ -839,7 +839,7 @@ function YourMainContent() {
       // ...
 
       const toggleLanguage = () => {
-        setAgentState({ language: agentState.language === "english" ? "spanish" : "english" }); // [!code highlight]
+        agent.setState({ language: agent.state?.language === "english" ? "spanish" : "english" }); // [!code highlight]
       };
 
       // ...
@@ -849,7 +849,7 @@ function YourMainContent() {
         <div>
           <h1>Your main content</h1>
           {/* [!code highlight:2] */}
-          <p>Language: {agentState.language}</p>
+          <p>Language: {agent.state?.language}</p>
           <button onClick={toggleLanguage}>Toggle Language</button>
         </div>
       );
@@ -863,15 +863,15 @@ import { TextMessage, MessageRole } from "@copilotkit/runtime-client-gql";  // [
 
 function YourMainContent() {
   // [!code word:run:1]
-  const { agentState, setAgentState, run } = useAgent<AgentState>({
+  const { agent, run } = useAgent({
     name: "my_agent", // MUST match the agent name in CopilotRuntime
     initialState: { language: "english" }  // optionally provide an initial state
   });
 
   // setup to be called when some event in the app occurs
   const toggleLanguage = () => {
-    const newLanguage = agentState.language === "english" ? "spanish" : "english";
-    setAgentState({ language: newLanguage });
+    const newLanguage = agent.state?.language === "english" ? "spanish" : "english";
+    agent.setState({ language: newLanguage });
 
     // re-run the agent and provide a hint about what's changed
     // [!code highlight:6]
@@ -1086,20 +1086,20 @@ When your agent finishes executing, **its final state becomes the single source 
 
     export default function Page() {
         // Get access to both predicted and final states
-        const { agentState } = useAgent<AgentState>({ name: "my_agent" });
+        const { agent } = useAgent({ name: "my_agent" });
 
         // Add a state renderer to show progress in the chat
-        useAgent<AgentState>({
+        useAgent({
             name: "my_agent",
-            render: ({ agentState, status }) => {
-                if (!agentState?.observed_steps?.length) return null;
+            render: ({ state, status }) => {
+                if (!state?.observed_steps?.length) return null;
                 return (
                     <div className="p-4 bg-gray-50 rounded-lg border border-gray-200 my-2">
                         <h3 className="font-semibold text-gray-700 mb-2">
                             {status === 'inProgress' ? '⏳ Progress:' : '✅ Completed:'}
                         </h3>
                         <ul className="space-y-1">
-                            {agentState.observed_steps.map((step, i) => (
+                            {state.observed_steps.map((step, i) => (
                                 <li key={i} className="flex items-center gap-2">
                                     <span>
                                         {step.status === 'completed' ? '✅' : '⏳'}
@@ -1125,9 +1125,9 @@ When your agent finishes executing, **its final state becomes the single source 
                     {/* Side panel showing final state */}
                     <aside>
                         <h2>Agent State</h2>
-                        {agentState?.observed_steps?.length > 0 ? (
+                        {agent.state?.observed_steps?.length > 0 ? (
                             <ul>
-                                {agentState.observed_steps.map((step, i) => (
+                                {agent.state.observed_steps.map((step, i) => (
                                     <li key={i}>
                                         <span>{step.status === 'completed' ? '✅' : '⏳'}</span>
                                         <span>{step.description}</span>
@@ -1322,7 +1322,7 @@ In addition, some state properties contain a lot of information. Syncing them ba
       const [inputQuestion, setInputQuestion] = useState("What's the capital of France?");
       const [isLoading, setIsLoading] = useState(false);
 
-      const { agentState, setAgentState, run } = useAgent<AgentState>({
+      const { agent, run } = useAgent({
         name: "my_agent",
         initialState: {
           question: "",
@@ -1334,7 +1334,7 @@ In addition, some state properties contain a lot of information. Syncing them ba
         setIsLoading(true);
 
         // Update the state with the new question
-        setAgentState({ ...agentState, question: newQuestion, answer: "" });
+        agent.setState({ ...agent.state, question: newQuestion, answer: "" });
 
         try {
           // Trigger the agent to run with a hint message that includes the question
@@ -1385,8 +1385,8 @@ In addition, some state properties contain a lot of information. Syncing them ba
           </div>
 
           <div style={{ marginTop: "1.5rem" }}>
-            <p><strong>Question:</strong> {agentState.question || "(none yet)"}</p>
-            <p><strong>Answer:</strong> {agentState.answer || (isLoading ? "Thinking..." : "Waiting for question...")}</p>
+            <p><strong>Question:</strong> {agent.state?.question || "(none yet)"}</p>
+            <p><strong>Answer:</strong> {agent.state?.answer || (isLoading ? "Thinking..." : "Waiting for question...")}</p>
           </div>
         </div>
       );
@@ -1564,7 +1564,7 @@ In addition, some state properties contain a lot of information. Syncing them ba
       const [inputQuestion, setInputQuestion] = useState("What's the capital of France?");
       const [isLoading, setIsLoading] = useState(false);
 
-      const { agentState, setAgentState, run } = useAgent<AgentState>({
+      const { agent, run } = useAgent({
         name: "my_agent",
         initialState: {
           question: "",
@@ -1576,7 +1576,7 @@ In addition, some state properties contain a lot of information. Syncing them ba
         setIsLoading(true);
 
         // Update the state with the new question
-        setAgentState({ ...agentState, question: newQuestion, answer: "" });
+        agent.setState({ ...agent.state, question: newQuestion, answer: "" });
 
         try {
           // Trigger the agent to run with a hint message that includes the question
@@ -1627,8 +1627,8 @@ In addition, some state properties contain a lot of information. Syncing them ba
           </div>
 
           <div style={{ marginTop: "1.5rem" }}>
-            <p><strong>Question:</strong> {agentState.question || "(none yet)"}</p>
-            <p><strong>Answer:</strong> {agentState.answer || (isLoading ? "Thinking..." : "Waiting for question...")}</p>
+            <p><strong>Question:</strong> {agent.state?.question || "(none yet)"}</p>
+            <p><strong>Answer:</strong> {agent.state?.answer || (isLoading ? "Thinking..." : "Waiting for question...")}</p>
           </div>
         </div>
       );

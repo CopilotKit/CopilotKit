@@ -68,13 +68,13 @@ CopilotKit implementation guide for Open Agent Spec.
 
 ```
 ```tsx title="app/page.tsx"
-import { useRenderToolCall } from "@copilotkit/react-core/v2"; // [!code highlight]
+import { useRenderTool } from "@copilotkit/react-core/v2"; // [!code highlight]
 // ...
 
 const YourMainContent = () => {
   // ...
   // [!code highlight:12]
-  useRenderToolCall({
+  useRenderTool({
     name: "get_weather",
     render: ({status, args}) => {
       return (

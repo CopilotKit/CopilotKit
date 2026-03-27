@@ -11,23 +11,19 @@ CopilotKit implementation guide for Agno.
 - Description: Create frontend tools and use them within your Agno agent.
 
 ```tsx title="page.tsx"
+        import { z } from "zod";
         import { useFrontendTool } from "@copilotkit/react-core/v2" // [!code highlight]
 
         export function Page() {
           // ...
 
-          {/* [!code highlight:15] */}
+          {/* [!code highlight:12] */}
           useFrontendTool({
             name: "sayHello",
             description: "Say hello to the user",
-            parameters: [
-              {
-                name: "name",
-                type: "string",
-                description: "The name of the user to say hello to",
-                required: true,
-              },
-            ],
+            parameters: z.object({
+              name: z.string().describe("The name of the user to say hello to"),
+            }),
             handler: async ({ name }) => {
               alert(`Hello, ${name}!`);
               return `Said hello to ${name}!`;
@@ -96,13 +92,13 @@ CopilotKit implementation guide for Agno.
         )
 ```
 ```tsx title="app/page.tsx"
-import { useRenderToolCall } from "@copilotkit/react-core/v2"; // [!code highlight]
+import { useRenderTool } from "@copilotkit/react-core/v2"; // [!code highlight]
 // ...
 
 const YourMainContent = () => {
   // ...
   {/* [!code highlight:12] */}
-  useRenderToolCall({
+  useRenderTool({
     name: "get_weather",
     render: ({status, args}) => {
       return (
@@ -346,7 +342,7 @@ Before you begin, you'll need the following:
                 Wrap your application with the CopilotKit provider:
 
 ```tsx title="app/layout.tsx"
-                import { CopilotKit } from "@copilotkit/react-core/v2"; // [!code highlight]
+                import { CopilotKit } from "@copilotkit/react-core"; // [!code highlight]
                 import "@copilotkit/react-ui/v2/styles.css";
 
                 // ...

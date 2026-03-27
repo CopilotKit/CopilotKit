@@ -13,26 +13,22 @@ Use this as the default path when a user asks to build a basic CopilotKit app fa
 ```ts title="app/api/copilotkit/route.ts"
 import {
   CopilotRuntime,
-  ExperimentalEmptyAdapter,
   copilotRuntimeNextJSAppRouterEndpoint,
 } from "@copilotkit/runtime";
 import { BuiltInAgent } from "@copilotkit/runtime/v2";
 import { NextRequest } from "next/server";
 
-const agent = new BuiltInAgent({
-  model: "openai/gpt-4o",
-  prompt: "You are a helpful assistant.",
+const builtInAgent = new BuiltInAgent({
+  model: "openai:gpt-4o",
 });
 
 const runtime = new CopilotRuntime({
-  agents: { default: agent },
+  agents: { default: builtInAgent },
 });
-const serviceAdapter = new ExperimentalEmptyAdapter();
 
 export const POST = async (req: NextRequest) => {
   const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
     runtime,
-    serviceAdapter,
     endpoint: "/api/copilotkit",
   });
   return handleRequest(req);
@@ -41,7 +37,7 @@ export const POST = async (req: NextRequest) => {
 
 ```tsx title="app/layout.tsx"
 import { CopilotKit } from "@copilotkit/react-core";
-import "@copilotkit/react-ui/styles.css";
+import "@copilotkit/react-ui/v2/styles.css";
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -55,12 +51,15 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 ```
 
 ```tsx title="app/page.tsx"
-"use client";
-
-import { CopilotSidebar } from "@copilotkit/react-ui";
+import { CopilotSidebar } from "@copilotkit/react-core/v2";
 
 export default function Page() {
-  return <CopilotSidebar defaultOpen />;
+  return (
+    <main>
+      <h1>Your App</h1>
+      <CopilotSidebar />
+    </main>
+  );
 }
 ```
 
@@ -310,7 +309,7 @@ Before you begin, you'll need the following:
                 Wrap your application with the CopilotKit provider:
 
 ```tsx title="app/layout.tsx"
-                import { CopilotKit } from "@copilotkit/react-core/v2"; // [!code highlight]
+                import { CopilotKit } from "@copilotkit/react-core"; // [!code highlight]
                 import "@copilotkit/react-ui/v2/styles.css"; // [!code highlight]
 
                 // ...

@@ -60,16 +60,15 @@ const SECTION_CHUNK_MAP = {
   "Generative UI": "features",
   "Premium Features": "troubleshooting",
   "Troubleshooting": "troubleshooting",
-  "Tutorials": "tutorials",
-  "Tutorials & Videos": "tutorials",
-  "Videos": "tutorials",
+  "Tutorials": null, // excluded — v1 tutorials removed
+  "Tutorials & Videos": null,
+  "Videos": null,
   "Other": null, // excluded
 };
 
 const CHUNK_LABELS = {
   core: "Core Setup",
   features: "Features & Capabilities",
-  tutorials: "Tutorials",
   troubleshooting: "Troubleshooting & Ops",
 };
 
@@ -399,6 +398,7 @@ function filterExcludedSections(lines) {
     /^mcp\s+/i,
     /model context protocol/i,
     /state machine/i,
+    /^migrat/i,
   ];
 
   const output = [];
@@ -462,7 +462,10 @@ function filterExcludedSections(lines) {
 }
 
 function buildDocContent(lines) {
-  return lines.join("\n").trim();
+  return lines
+    .join("\n")
+    .replace(/\[([^\]]+)\]\(\/reference\/v1\/[^)]+\)/g, "`$1`")
+    .trim();
 }
 
 function toDocsRoute(relativeDocPath) {
@@ -537,6 +540,8 @@ function getAllDocRelativePaths() {
   );
   return absolutePaths
     .map((absolutePath) => toPosixPath(path.relative(docsContentDir, absolutePath)))
+    .filter((docPath) => !docPath.startsWith("reference/v1/"))
+    .filter((docPath) => !/migrate-to-1\.\d/i.test(docPath))
     .sort();
 }
 
@@ -580,6 +585,8 @@ function pickIntegrationDocs(allDocPaths, integrationId) {
     .filter((integrationDocPath) => !integrationDocPath.startsWith("(other)/"))
     .filter((integrationDocPath) => !/mcp/i.test(integrationDocPath))
     .filter((integrationDocPath) => !/state[- ]?machine/i.test(integrationDocPath))
+    .filter((integrationDocPath) => !/tutorials\//i.test(integrationDocPath))
+    .filter((integrationDocPath) => !/migrate-to-/i.test(integrationDocPath))
     .sort();
 
   return integrationDocPaths
@@ -658,26 +665,22 @@ Use this as the default path when a user asks to build a basic CopilotKit app fa
 \`\`\`ts title="app/api/copilotkit/route.ts"
 import {
   CopilotRuntime,
-  ExperimentalEmptyAdapter,
   copilotRuntimeNextJSAppRouterEndpoint,
 } from "@copilotkit/runtime";
 import { BuiltInAgent } from "@copilotkit/runtime/v2";
 import { NextRequest } from "next/server";
 
-const agent = new BuiltInAgent({
-  model: "openai/gpt-4o",
-  prompt: "You are a helpful assistant.",
+const builtInAgent = new BuiltInAgent({
+  model: "openai:gpt-4o",
 });
 
 const runtime = new CopilotRuntime({
-  agents: { default: agent },
+  agents: { default: builtInAgent },
 });
-const serviceAdapter = new ExperimentalEmptyAdapter();
 
 export const POST = async (req: NextRequest) => {
   const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
     runtime,
-    serviceAdapter,
     endpoint: "/api/copilotkit",
   });
   return handleRequest(req);
@@ -686,7 +689,7 @@ export const POST = async (req: NextRequest) => {
 
 \`\`\`tsx title="app/layout.tsx"
 import { CopilotKit } from "@copilotkit/react-core";
-import "@copilotkit/react-ui/styles.css";
+import "@copilotkit/react-ui/v2/styles.css";
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -700,12 +703,15 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 \`\`\`
 
 \`\`\`tsx title="app/page.tsx"
-"use client";
-
-import { CopilotSidebar } from "@copilotkit/react-ui";
+import { CopilotSidebar } from "@copilotkit/react-core/v2";
 
 export default function Page() {
-  return <CopilotSidebar defaultOpen />;
+  return (
+    <main>
+      <h1>Your App</h1>
+      <CopilotSidebar />
+    </main>
+  );
 }
 \`\`\`
 
@@ -767,12 +773,12 @@ function renderSkillMd({ topicFiles, frameworkEntries }) {
 
   return `---
 name: copilotkit
-description: Single CopilotKit implementation skill with BuiltInAgent starter path and linked subtopic guides.
+description: Implements CopilotKit apps — runtime setup, agent integration, frontend tools, shared state, generative UI. Use when building with CopilotKit, LangGraph, CrewAI, Mastra, Pydantic AI, or any supported agent framework.
 argument-hint: "<task>"
 user-invocable: true
 ---
 
-Use this skill for any CopilotKit implementation, debugging, migration, or architecture request.
+Use this skill for any CopilotKit implementation, debugging, or architecture request.
 
 ## Default Path: Build A Basic CopilotKit App (BuiltInAgent)
 
@@ -922,9 +928,9 @@ function buildTopicSpecs() {
       ],
     },
     {
-      fileName: "topic-reference-v2.md",
-      label: "V2 API Reference",
-      summary: "V2 hooks/components references and API-oriented documentation.",
+      fileName: "topic-api-reference.md",
+      label: "API Reference",
+      summary: "Hooks and components API reference documentation.",
       docPaths: [
         "reference/v2/index.mdx",
         "reference/v2/hooks/useAgent.mdx",
@@ -937,12 +943,10 @@ function buildTopicSpecs() {
     {
       fileName: "topic-troubleshooting.md",
       label: "Troubleshooting",
-      summary: "Common failures, debugging patterns, and migration notes.",
+      summary: "Common failures, debugging patterns, and observability.",
       docPaths: [
         "(root)/troubleshooting/common-issues.mdx",
         "(root)/troubleshooting/error-debugging.mdx",
-        "(root)/troubleshooting/migrate-to-v2.mdx",
-        "(root)/troubleshooting/migrate-to-1.10.X.mdx",
         "(root)/premium/observability.mdx",
         "(root)/inspector.mdx",
       ],

@@ -623,7 +623,7 @@ export function CustomInterruptHandler() {
 }
 ```
 
-For a more declarative approach, see [useLangGraphInterrupt](/reference/v1/hooks/useLangGraphInterrupt).
+For a more declarative approach, see `useInterrupt`.
 
 ## See Also
 
@@ -914,7 +914,7 @@ Before you begin, you'll need the following:
 
 ```tsx title="app/layout.tsx"
               // [!code highlight:2]
-              import { CopilotKit } from "@copilotkit/react-core/v2";
+              import { CopilotKit } from "@copilotkit/react-core";
               import "@copilotkit/react-ui/v2/styles.css";
 
               // ...

@@ -12,7 +12,7 @@ Features & Capabilities guide for the Microsoft Agent Framework integration.
 
 ```tsx title="YourComponent.tsx" showLineNumbers {1, 7-10}
         "use client" // only necessary if you are using Next.js with the App Router. // [!code highlight]
-        import { useCopilotReadable } from "@copilotkit/react-core/v2"; // [!code highlight]
+        import { useAgentContext } from "@copilotkit/react-core/v2"; // [!code highlight]
         import { useState } from 'react';
 
         export function YourComponent() {
@@ -25,7 +25,7 @@ Features & Capabilities guide for the Microsoft Agent Framework integration.
 
             // Define Copilot readable state
             // [!code highlight:4]
-            useCopilotReadable({
+            useAgentContext({
                 description: "The current user's colleagues",
                 value: colleagues,
             });
@@ -69,7 +69,7 @@ Features & Capabilities guide for the Microsoft Agent Framework integration.
             app.MapAGUI("/", agent);
             await app.RunAsync();
 
-            // Middleware to inject useCopilotReadable context as a system message
+            // Middleware to inject useAgentContext context as a system message
             async IAsyncEnumerable<AgentRunResponseUpdate> InjectContextMiddleware(
                 IEnumerable<ChatMessage> messages,
                 AgentThread? thread,
@@ -634,23 +634,19 @@ See [Human-in-the-Loop](/microsoft-agent-framework/human-in-the-loop) for more d
 - Description: Create frontend tools and use them within your Microsoft Agent Framework agent.
 
 ```tsx title="page.tsx"
+        import { z } from "zod";
         import { useFrontendTool } from "@copilotkit/react-core/v2" // [!code highlight]
 
         export function Page() {
           // ...
 
-          // [!code highlight:15]
+          // [!code highlight:12]
           useFrontendTool({
             name: "sayHello",
             description: "Say hello to the user",
-            parameters: [
-              {
-                name: "name",
-                type: "string",
-                description: "The name of the user to say hello to",
-                required: true,
-              },
-            ],
+            parameters: z.object({
+              name: z.string().describe("The name of the user to say hello to"),
+            }),
             handler: async ({ name }) => {
               alert(`Hello, ${name}!`);
               return `Said hello to ${name}!`;
@@ -980,11 +976,11 @@ See [Human-in-the-Loop](/microsoft-agent-framework/human-in-the-loop) for more d
 
       // [!code highlight:13]
       // styles omitted for brevity
-      useAgent<AgentState>({
+      useAgent({
         name: "sample_agent", // the name the agent is served as
-        render: ({ agentState }) => (
+        render: ({ state }) => (
           <div>
-            {agentState.searches?.map((search, index) => (
+            {state.searches?.map((search, index) => (
               <div key={index}>
                 {search.done ? "✅" : "❌"} {search.query}{search.done ? "" : "..."}
               </div>
@@ -1014,7 +1010,7 @@ See [Human-in-the-Loop](/microsoft-agent-framework/human-in-the-loop) for more d
       // ...
 
       // [!code highlight:3]
-      const { agentState } = useAgent<AgentState>({
+      const { agent } = useAgent({
         name: "sample_agent", // the name the agent is served as
       })
 
@@ -1025,7 +1021,7 @@ See [Human-in-the-Loop](/microsoft-agent-framework/human-in-the-loop) for more d
           {/* ... */}
           <div className="flex flex-col gap-2 mt-4">
             {/* [!code highlight:5] */}
-            {agentState.searches?.map((search, index) => (
+            {agent.state?.searches?.map((search, index) => (
               <div key={index} className="flex flex-row">
                 {search.done ? "✅" : "❌"} {search.query}
               </div>
@@ -1107,13 +1103,13 @@ See [Human-in-the-Loop](/microsoft-agent-framework/human-in-the-loop) for more d
         )
 ```
 ```tsx title="app/page.tsx"
-import { useRenderToolCall } from "@copilotkit/react-core/v2"; // [!code highlight]
+import { useRenderTool } from "@copilotkit/react-core/v2"; // [!code highlight]
 // ...
 
 const YourMainContent = () => {
   // ...
   // [!code highlight:11]
-  useRenderToolCall({
+  useRenderTool({
     name: "get_weather",
     render: ({status, args}) => {
       return (
@@ -1263,7 +1259,7 @@ const YourMainContent = () => {
 
     function YourMainContent() {
       // [!code highlight:4]
-      const { agentState } = useAgent<AgentState>({
+      const { agent } = useAgent({
         name: "sample_agent",
         initialState: { language: "english" }  // optionally provide an initial state
       });
@@ -1275,7 +1271,7 @@ const YourMainContent = () => {
         <div>
           <h1>Your main content</h1>
           {/* [!code highlight:1] */}
-          <p>Language: {agentState.language}</p>
+          <p>Language: {agent.state?.language}</p>
         </div>
       );
     }
@@ -1291,11 +1287,11 @@ type AgentState = {
 function YourMainContent() {
   // ...
   // [!code highlight:7]
-  useAgent<AgentState>({
+  useAgent({
     name: "sample_agent",
-    render: ({ agentState }) => {
-      if (!agentState.language) return null;
-      return <div>Language: {agentState.language}</div>;
+    render: ({ state }) => {
+      if (!state.language) return null;
+      return <div>Language: {state.language}</div>;
     },
   });
   // ...
@@ -1375,7 +1371,7 @@ function YourMainContent() {
 
     // Example usage in a pseudo React component
     function YourMainContent() {
-      const { agentState, setAgentState } = useAgent<AgentState>({ // [!code highlight]
+      const { agent } = useAgent({ // [!code highlight]
         name: "sample_agent",
         initialState: { language: "english" }  // optionally provide an initial state
       });
@@ -1383,7 +1379,7 @@ function YourMainContent() {
       // ...
 
       const toggleLanguage = () => {
-        setAgentState({ language: agentState.language === "english" ? "spanish" : "english" }); // [!code highlight]
+        agent.setState({ language: agent.state?.language === "english" ? "spanish" : "english" }); // [!code highlight]
       };
 
       // ...
@@ -1393,7 +1389,7 @@ function YourMainContent() {
         <div>
           <h1>Your main content</h1>
           {/* [!code highlight:1] */}
-          <p>Language: {agentState.language}</p>
+          <p>Language: {agent.state?.language}</p>
           <button onClick={toggleLanguage}>Toggle Language</button>
         </div>
       );
@@ -1407,15 +1403,15 @@ import { TextMessage, MessageRole } from "@copilotkit/runtime-client-gql";  // [
 
 function YourMainContent() {
   // [!code word:run:1]
-  const { agentState, setAgentState, run } = useAgent<AgentState>({
+  const { agent, run } = useAgent({
     name: "sample_agent",
     initialState: { language: "english" }  // optionally provide an initial state
   });
 
   // setup to be called when some event in the app occurs
   const toggleLanguage = () => {
-    const newLanguage = agentState.language === "english" ? "spanish" : "english";
-    setAgentState({ language: newLanguage });
+    const newLanguage = agent.state?.language === "english" ? "spanish" : "english";
+    agent.setState({ language: newLanguage });
 
     // [!code highlight:7]
     // re-run the agent and provide a hint about what's changed
@@ -1658,18 +1654,18 @@ When the tool completes, the agent emits a final state snapshot. Any predictive 
 
     export default function Page() {
       // Access both predicted and final states
-      const { agentState } = useAgent<AgentState>({ name: "sample_agent" });
+      const { agent } = useAgent({ name: "sample_agent" });
 
       // Observe predictions (render inside the chat)
-      useAgent<AgentState>({
+      useAgent({
         name: "sample_agent",
-        render: ({ agentState }) => {
-          if (!agentState.observed_steps?.length) return null;
+        render: ({ state }) => {
+          if (!state.observed_steps?.length) return null;
           return (
             <div>
               <h3>Current Progress:</h3>
               <ul>
-                {agentState.observed_steps.map((step, i) => (
+                {state.observed_steps.map((step, i) => (
                   <li key={i}>{step}</li>
                 ))}
               </ul>

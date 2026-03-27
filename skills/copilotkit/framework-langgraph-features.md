@@ -1635,7 +1635,7 @@ Before you begin, you'll need the following:
 
 ```tsx title="app/layout.tsx"
         // [!code highlight:2]
-        import { CopilotKit } from "@copilotkit/react-core/v2";
+        import { CopilotKit } from "@copilotkit/react-core";
         import "@copilotkit/react-ui/v2/styles.css";
 
         // ...
@@ -1661,10 +1661,10 @@ Before you begin, you'll need the following:
     "use client";
 
     import { CopilotSidebar } from "@copilotkit/react-core/v2";
-    import { useDefaultTool } from "@copilotkit/react-core/v2";
+    import { useDefaultRenderTool } from "@copilotkit/react-core/v2";
 
     export default function Page() {
-        useDefaultTool({
+        useDefaultRenderTool({
         render: ({name, status, args, result}) => (
             <details>
                 <summary>
@@ -2614,17 +2614,17 @@ We're going to have the agent ask us to name it, so we'll need a state property 
     At this point, your LangGraph agent's `interrupt` will be called. However, we currently have no handling for rendering or
     responding to the interrupt in the frontend.
 
-    To do this, we'll use the `useLangGraphInterrupt` hook, give it a component to render, and then call `resolve` with the user's response.
+    To do this, we'll use the `useInterrupt` hook, give it a component to render, and then call `resolve` with the user's response.
 
 ```tsx title="app/page.tsx"
-    import { useLangGraphInterrupt } from "@copilotkit/react-core/v2"; // [!code highlight]
+    import { useInterrupt } from "@copilotkit/react-core/v2"; // [!code highlight]
     // ...
 
     const YourMainContent = () => {
     // ...
     // [!code highlight:15]
     // styles omitted for brevity
-    useLangGraphInterrupt({
+    useInterrupt({
         render: ({ event, resolve }) => (
             <div>
                 <p>{event.value}</p>
@@ -2651,7 +2651,7 @@ Try talking to your agent, you'll see that it now pauses execution and waits for
 
 ### Condition UI executions
 
-When rendering multiple `interrupt` events in the agent, there could be conflicts between multiple `useLangGraphInterrupt` hooks calls in the UI.
+When rendering multiple `interrupt` events in the agent, there could be conflicts between multiple `useInterrupt` hooks calls in the UI.
 For this reason, the hook can take an `enabled` argument which will apply it conditionally:
 
         ### Define multiple interrupts
@@ -2718,10 +2718,10 @@ For this reason, the hook can take an `enabled` argument which will apply it con
 ```
         ### Add multiple frontend handlers
         With the differentiator in mind, we will add a handler that takes care of any "ask" and any "approve" types.
-        With two `useLangGraphInterrupt` hooks in our page, we can leverage the `enabled` property to enable each in the right time:
+        With two `useInterrupt` hooks in our page, we can leverage the `enabled` property to enable each in the right time:
 
 ```tsx title="app/page.tsx"
-        import { useLangGraphInterrupt } from "@copilotkit/react-core/v2"; // [!code highlight]
+        import { useInterrupt } from "@copilotkit/react-core/v2"; // [!code highlight]
         // ...
 
         const ApproveComponent = ({ content, onAnswer }: { content: string; onAnswer: (approved: boolean) => void }) => (
@@ -2750,14 +2750,14 @@ For this reason, the hook can take an `enabled` argument which will apply it con
         const YourMainContent = () => {
             // ...
             // [!code highlight:13]
-            useLangGraphInterrupt({
+            useInterrupt({
                 enabled: ({ eventValue }) => eventValue.type === 'ask',
                 render: ({ event, resolve }) => (
                     <AskComponent question={event.value.content} onAnswer={answer => resolve(answer)} />
                 )
             });
 
-            useLangGraphInterrupt({
+            useInterrupt({
                 enabled: ({ eventValue }) => eventValue.type === 'approval',
                 render: ({ event, resolve }) => (
                     <ApproveComponent content={event.value.content} onAnswer={answer => resolve(answer)} />
@@ -2782,7 +2782,7 @@ interface AuthorizationInterruptEvent {
     accessDepartment: Department,
 }
 
-import { useLangGraphInterrupt } from "@copilotkit/react-core/v2";
+import { useInterrupt } from "@copilotkit/react-core/v2";
 
 const YourMainContent = () => {
     const [userEmail, setUserEmail] = useState({ email: 'example@user.com' })
@@ -2793,7 +2793,7 @@ const YourMainContent = () => {
     // ...
     // styles omitted for brevity
     // [!code highlight:28]
-    useLangGraphInterrupt({
+    useInterrupt({
         handler: async ({ result, event, resolve }) => {
             const { department } = await getUserByEmail(userEmail)
             if (event.value.accessDepartment === department || department === 'admin') {
@@ -3636,3 +3636,13 @@ const { agent } = useAgent({
 // Access agent state as usual - subgraph streaming is handled automatically
 const state = agent.state;
 ```
+
+### Video: Research Canvas
+- Route: `/langgraph/videos/research-canvas`
+- Source: `docs/content/docs/integrations/langgraph/videos/research-canvas.mdx`
+
+The clip above shows [Tako](https://tako.com) powering an Agent-Native Research canvas—generating interactive visuals from its index of trusted, real-time data spanning finance, sports, politics, and more.
+
+Dive deeper to explore Tako's [documentation](https://docs.tako.com/documentation/integrations-and-examples/langgraph-copilotkit) and their open-source [Research Canvas example](https://github.com/TakoData/tako-copilotkit) built with CopilotKit, LangGraph, Tako, and Tavily.
+
+Explore the step-by-step walkthrough of building an agentic Research Canvas with **CopilotKit and LangGraph**. You can [run the app here](https://examples-coagents-research-canvas-ui.vercel.app/) or browse the [full source code on GitHub](https://github.com/CopilotKit/CopilotKit/blob/main/examples/coagents-research-canvas/readme.md).

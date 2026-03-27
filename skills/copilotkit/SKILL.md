@@ -1,11 +1,11 @@
 ---
 name: copilotkit
-description: Single CopilotKit implementation skill with BuiltInAgent starter path and linked subtopic guides.
+description: Implements CopilotKit apps — runtime setup, agent integration, frontend tools, shared state, generative UI. Use when building with CopilotKit, LangGraph, CrewAI, Mastra, Pydantic AI, or any supported agent framework.
 argument-hint: "<task>"
 user-invocable: true
 ---
 
-Use this skill for any CopilotKit implementation, debugging, migration, or architecture request.
+Use this skill for any CopilotKit implementation, debugging, or architecture request.
 
 ## Default Path: Build A Basic CopilotKit App (BuiltInAgent)
 
@@ -27,14 +27,14 @@ Use [BuiltInAgent Quickstart](built-in-agent-quickstart.md) for the full code sc
 - [Human In The Loop](topic-human-in-the-loop.md)
 - [Generative UI](topic-generative-ui.md)
 - [Agentic Protocols](topic-agentic-protocols.md)
-- [V2 API Reference](topic-reference-v2.md)
+- [API Reference](topic-api-reference.md)
 - [Troubleshooting](topic-troubleshooting.md)
 
 ## Partner Frameworks
 Framework index: [Partner Frameworks Overview](partner-frameworks.md)
 
-- **Built In Agent**: [Core Setup](framework-built-in-agent-core.md) · [Features & Capabilities](framework-built-in-agent-features.md) · [Tutorials](framework-built-in-agent-tutorials.md)
-- **LangGraph**: [Core Setup](framework-langgraph-core.md) · [Features & Capabilities](framework-langgraph-features.md) · [Tutorials](framework-langgraph-tutorials.md) · [Troubleshooting & Ops](framework-langgraph-troubleshooting.md)
+- [Built In Agent](framework-built-in-agent.md)
+- **LangGraph**: [Core Setup](framework-langgraph-core.md) · [Features & Capabilities](framework-langgraph-features.md) · [Troubleshooting & Ops](framework-langgraph-troubleshooting.md)
 - [ADK](framework-adk.md)
 - **Microsoft Agent Framework**: [Core Setup](framework-microsoft-agent-framework-core.md) · [Features & Capabilities](framework-microsoft-agent-framework-features.md)
 - [AWS Strands](framework-aws-strands.md)

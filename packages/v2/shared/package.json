@@ -14,11 +14,16 @@
   },
   "unpkg": "./dist/index.umd.js",
   "jsdelivr": "./dist/index.umd.js",
+  "files": [
+    "dist",
+    "skills"
+  ],
   "publishConfig": {
     "access": "public"
   },
   "scripts": {
-    "build": "tsdown",
+    "build": "tsdown && node ./scripts/copy-skills-to-dist.mjs",
+    "copy:skills": "node ./scripts/copy-skills-to-dist.mjs",
     "dev": "tsdown --watch",
     "lint": "eslint .",
     "check-types": "tsc --noEmit",

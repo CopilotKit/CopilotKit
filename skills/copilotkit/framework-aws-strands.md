@@ -53,6 +53,7 @@ CopilotKit implementation guide for AWS Strands.
 ```tsx title="app/page.tsx"
         "use client";
 
+        import { z } from "zod";
         import { useFrontendTool } from "@copilotkit/react-core/v2"; // [!code highlight]
         import { CopilotSidebar, CopilotKitCSSProperties } from "@copilotkit/react-core/v2";
         import { useState } from "react";
@@ -60,18 +61,13 @@ CopilotKit implementation guide for AWS Strands.
         export default function Page() {
           const [background, setBackground] = useState("#6366f1");
 
-          // [!code highlight:15]
+          // [!code highlight:12]
           useFrontendTool({
             name: "change_background",
             description: "Change the background color of the chat.",
-            parameters: [
-              {
-                name: "background",
-                type: "string",
-                description: "The background color or gradient. Prefer gradients.",
-                required: true,
-              },
-            ],
+            parameters: z.object({
+              background: z.string().describe("The background color or gradient. Prefer gradients."),
+            }),
             handler: async ({ background }) => {
               setBackground(background);
               return `Background changed to ${background}`;
@@ -100,6 +96,7 @@ CopilotKit implementation guide for AWS Strands.
 ```tsx
 "use client";
 
+import { z } from "zod";
 import { useFrontendTool } from "@copilotkit/react-core/v2";
 import { useState } from "react";
 
@@ -109,14 +106,9 @@ export default function Page() {
   useFrontendTool({
     name: "add_task",
     description: "Add a task to the todo list",
-    parameters: [
-      {
-        name: "task",
-        type: "string",
-        description: "The task to add",
-        required: true,
-      },
-    ],
+    parameters: z.object({
+      task: z.string().describe("The task to add"),
+    }),
     handler: async ({ task }) => {
       setTasks((prev) => [...prev, task]);
       return `Added task: ${task}`;
@@ -202,11 +194,11 @@ export default function Page() {
 
       // [!code highlight:13]
       // styles omitted for brevity
-      useAgent<AgentState>({
+      useAgent({
         name: "searchAgent", // MUST match the agent name in your Strands configuration
-        render: ({ agentState }) => (
+        render: ({ state }) => (
           <div>
-            {agentState.searches?.map((search, index) => (
+            {state.searches?.map((search, index) => (
               <div key={index}>
                 {search.done ? "✅" : "❌"} {search.query}{search.done ? "" : "..."}
               </div>
@@ -236,7 +228,7 @@ export default function Page() {
       // ...
 
       // [!code highlight:3]
-      const { agentState } = useAgent<AgentState>({
+      const { agent } = useAgent({
         name: "searchAgent", // MUST match the agent name in your Strands configuration
       })
 
@@ -247,7 +239,7 @@ export default function Page() {
           {/* ... */}
           <div className="flex flex-col gap-2 mt-4">
             {/* [!code highlight:5] */}
-            {agentState.searches?.map((search, index) => (
+            {agent.state?.searches?.map((search, index) => (
               <div key={index} className="flex flex-row">
                 {search.done ? "✅" : "❌"} {search.query}
               </div>
@@ -314,12 +306,12 @@ app = create_strands_app(agui_agent, "/")
 ```tsx title="app/page.tsx"
 "use client";
 
-import { useRenderToolCall } from "@copilotkit/react-core/v2"; // [!code highlight]
+import { useRenderTool } from "@copilotkit/react-core/v2"; // [!code highlight]
 import { CopilotSidebar } from "@copilotkit/react-core/v2";
 
 export default function Page() {
   // [!code highlight:41]
-  useRenderToolCall({
+  useRenderTool({
     name: "get_weather",
     parameters: [
       {
@@ -371,7 +363,7 @@ export default function Page() {
 What's the weather in San Francisco?
 ```
 ```tsx
-useRenderToolCall({
+useRenderTool({
   name: "get_weather",
   parameters: [
     {
@@ -563,7 +555,7 @@ Before you begin, you'll need the following:
                 Wrap your application with the CopilotKit provider:
 
 ```tsx title="app/layout.tsx"
-                import { CopilotKit } from "@copilotkit/react-core/v2"; // [!code highlight]
+                import { CopilotKit } from "@copilotkit/react-core"; // [!code highlight]
                 import "@copilotkit/react-ui/v2/styles.css";
 
                 // ...
@@ -685,7 +677,7 @@ Now that you have your basic agent setup, explore these advanced features:
 
     function YourMainContent() {
       // [!code highlight:5]
-      const { agentState } = useAgent<AgentState>({
+      const { agent } = useAgent({
         name: "languageAgent",
         // optionally provide a type-safe initial state
         initialState: { language: "spanish" }
@@ -698,7 +690,7 @@ Now that you have your basic agent setup, explore these advanced features:
         <div>
           <h1>Your main content</h1>
           {/* [!code highlight:1] */}
-          <p>Language: {agentState.language}</p>
+          <p>Language: {agent.state?.language}</p>
         </div>
       );
     }
@@ -714,11 +706,11 @@ type AgentState = {
 function YourMainContent() {
   // ...
   // [!code highlight:7]
-  useAgent<AgentState>({
+  useAgent({
     name: "languageAgent",
-    render: ({ agentState }) => {
-      if (!agentState.language) return null;
-      return <div>Language: {agentState.language}</div>;
+    render: ({ state }) => {
+      if (!state.language) return null;
+      return <div>Language: {state.language}</div>;
     },
   });
   // ...
@@ -757,14 +749,14 @@ function YourMainContent() {
 
     function YourMainContent() {
       // [!code highlight:5]
-      const { agentState, setAgentState } = useAgent<AgentState>({
+      const { agent } = useAgent({
         name: "languageAgent",
         // optionally provide a type-safe initial state
         initialState: { language: "spanish" }
       });
 
       const toggleLanguage = () => {
-        setAgentState({ language: agentState.language === "english" ? "spanish" : "english" }); // [!code highlight]
+        agent.setState({ language: agent.state?.language === "english" ? "spanish" : "english" }); // [!code highlight]
       };
 
       return (
@@ -772,7 +764,7 @@ function YourMainContent() {
         <div>
           <h1>Your main content</h1>
           {/* [!code highlight:2] */}
-          <p>Language: {agentState.language}</p>
+          <p>Language: {agent.state?.language}</p>
           <button onClick={toggleLanguage}>Toggle Language</button>
         </div>
       );

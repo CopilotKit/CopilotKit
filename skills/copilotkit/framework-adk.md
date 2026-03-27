@@ -11,23 +11,19 @@ CopilotKit implementation guide for ADK.
 - Description: Create frontend tools and use them within your ADK agent.
 
 ```tsx title="page.tsx"
+        import { z } from "zod";
         import { useFrontendTool } from "@copilotkit/react-core/v2" // [!code highlight]
 
         export function Page() {
           // ...
 
-          // [!code highlight:15]
+          // [!code highlight:12]
           useFrontendTool({
             name: "sayHello",
             description: "Say hello to the user",
-            parameters: [
-              {
-                name: "name",
-                type: "string",
-                description: "The name of the user to say hello to",
-                required: true,
-              },
-            ],
+            parameters: z.object({
+              name: z.string().describe("The name of the user to say hello to"),
+            }),
             handler: async ({ name }) => {
               alert(`Hello, ${name}!`);
               return `Said hello to ${name}!`;
@@ -106,11 +102,11 @@ CopilotKit implementation guide for ADK.
 
       // [!code highlight:13]
       // styles omitted for brevity
-      useAgent<AgentState>({
+      useAgent({
         name: "my_agent", // MUST match the agent name in CopilotRuntime
-        render: ({ agentState }) => (
+        render: ({ state }) => (
           <div>
-            Current language: {agentState.language || 'not set'}
+            Current language: {state.language || 'not set'}
           </div>
         ),
       });
@@ -133,7 +129,7 @@ CopilotKit implementation guide for ADK.
       // ...
 
       // [!code highlight:3]
-      const { agentState } = useAgent<AgentState>({
+      const { agent } = useAgent({
         name: "my_agent", // MUST match the agent name in CopilotRuntime
       })
 
@@ -144,7 +140,7 @@ CopilotKit implementation guide for ADK.
           {/* ... */}
           <div className="flex flex-col gap-2 mt-4">
             {/* [!code highlight:1] */}
-            Current language: {agentState.language || 'not set'}
+            Current language: {agent.state?.language || 'not set'}
           </div>
         </div>
       )
@@ -193,13 +189,13 @@ CopilotKit implementation guide for ADK.
             uvicorn.run(app, host="0.0.0.0", port=8000)
 ```
 ```tsx title="app/page.tsx"
-import { useRenderToolCall } from "@copilotkit/react-core/v2"; // [!code highlight]
+import { useRenderTool } from "@copilotkit/react-core/v2"; // [!code highlight]
 // ...
 
 const YourMainContent = () => {
   // ...
   // [!code highlight:12]
-  useRenderToolCall({
+  useRenderTool({
     name: "get_weather",
     render: ({status, args}) => {
       return (
@@ -438,7 +434,7 @@ Before you begin, you'll need the following:
                 Wrap your application with the CopilotKit provider:
 
 ```tsx title="app/layout.tsx"
-                import { CopilotKit } from "@copilotkit/react-core/v2"; // [!code highlight]
+                import { CopilotKit } from "@copilotkit/react-core"; // [!code highlight]
                 import "@copilotkit/react-ui/v2/styles.css";
 
                 // ...
@@ -593,7 +589,7 @@ Now that you have your basic agent setup, explore these advanced features:
 
     function YourMainContent() {
       // [!code highlight:4]
-      const { agentState } = useAgent<AgentState>({
+      const { agent } = useAgent({
         name: "my_agent", // MUST match the agent name in CopilotRuntime
         initialState: { language: "english" }  // optionally provide an initial state
       });
@@ -605,7 +601,7 @@ Now that you have your basic agent setup, explore these advanced features:
         <div>
           <h1>Your main content</h1>
           {/* [!code highlight:1] */}
-          <p>Language: {agentState.language}</p>
+          <p>Language: {agent.state?.language}</p>
         </div>
       );
     }
@@ -621,11 +617,11 @@ type AgentState = {
 function YourMainContent() {
   // ...
   // [!code highlight:7]
-  useAgent<AgentState>({
+  useAgent({
     name: "my_agent", // MUST match the agent name in CopilotRuntime
-    render: ({ agentState }) => {
-      if (!agentState.language) return null;
-      return <div>Language: {agentState.language}</div>;
+    render: ({ state }) => {
+      if (!state.language) return null;
+      return <div>Language: {state.language}</div>;
     },
   });
   // ...
@@ -698,7 +694,7 @@ function YourMainContent() {
 
     // Example usage in a pseudo React component
     function YourMainContent() {
-      const { agentState, setAgentState } = useAgent<AgentState>({ // [!code highlight]
+      const { agent } = useAgent({ // [!code highlight]
         name: "my_agent", // MUST match the agent name in CopilotRuntime
         initialState: { language: "english" }  // optionally provide an initial state
       });
@@ -706,7 +702,7 @@ function YourMainContent() {
       // ...
 
       const toggleLanguage = () => {
-        setAgentState({ language: agentState.language === "english" ? "spanish" : "english" }); // [!code highlight]
+        agent.setState({ language: agent.state?.language === "english" ? "spanish" : "english" }); // [!code highlight]
       };
 
       // ...
@@ -716,7 +712,7 @@ function YourMainContent() {
         <div>
           <h1>Your main content</h1>
           {/* [!code highlight:2] */}
-          <p>Language: {agentState.language}</p>
+          <p>Language: {agent.state?.language}</p>
           <button onClick={toggleLanguage}>Toggle Language</button>
         </div>
       );
@@ -730,15 +726,15 @@ import { TextMessage, MessageRole } from "@copilotkit/runtime-client-gql";  // [
 
 function YourMainContent() {
   // [!code word:run:1]
-  const { agentState, setAgentState, run } = useAgent<AgentState>({
+  const { agent, run } = useAgent({
     name: "my_agent", // MUST match the agent name in CopilotRuntime
     initialState: { language: "english" }  // optionally provide an initial state
   });
 
   // setup to be called when some event in the app occurs
   const toggleLanguage = () => {
-    const newLanguage = agentState.language === "english" ? "spanish" : "english";
-    setAgentState({ language: newLanguage });
+    const newLanguage = agent.state?.language === "english" ? "spanish" : "english";
+    agent.setState({ language: newLanguage });
 
     // re-run the agent and provide a hint about what's changed
     // [!code highlight:6]
@@ -896,18 +892,18 @@ When your agent finishes executing, **its final state becomes the single source 
 
     const YourMainContent = () => {
         // Get access to both predicted and final states
-        const { agentState } = useAgent<AgentState>({ name: "my_agent" });
+        const { agent } = useAgent({ name: "my_agent" });
 
         // Add a state renderer to observe predictions
-        useAgent<AgentState>({
+        useAgent({
             name: "my_agent",
-            render: ({ agentState }) => {
-                if (!agentState.observed_steps?.length) return null;
+            render: ({ state }) => {
+                if (!state.observed_steps?.length) return null;
                 return (
                     <div>
                         <h3>Current Progress:</h3>
                         <ul>
-                            {agentState.observed_steps.map((step, i) => (
+                            {state.observed_steps.map((step, i) => (
                                 <li key={i}>{step}</li>
                             ))}
                         </ul>
@@ -919,11 +915,11 @@ When your agent finishes executing, **its final state becomes the single source 
         return (
             <div>
                 <h1>Agent Progress</h1>
-                {agentState.observed_steps?.length > 0 && (
+                {agent.state?.observed_steps?.length > 0 && (
                     <div>
                         <h3>Final Steps:</h3>
                         <ul>
-                            {agentState.observed_steps.map((step, i) => (
+                            {agent.state.observed_steps.map((step, i) => (
                                 <li key={i}>{step}</li>
                             ))}
                         </ul>
@@ -1067,7 +1063,7 @@ In addition, some state properties contain a lot of information. Syncing them ba
     }
 
     function YourMainContent() {
-      const { agentState, setAgentState } = useAgent<AgentState>({
+      const { agent } = useAgent({
         name: "my_agent",
         initialState: {
           question: "How's the weather in SF?",
@@ -1076,14 +1072,14 @@ In addition, some state properties contain a lot of information. Syncing them ba
       });
 
       const askQuestion = (newQuestion: string) => {
-        setAgentState({ ...agentState, question: newQuestion });
+        agent.setState({ ...agent.state, question: newQuestion });
       };
 
       return (
         <div>
           <h1>Q&A Assistant</h1>
-          <p><strong>Question:</strong> {agentState.question}</p>
-          <p><strong>Answer:</strong> {agentState.answer || "Waiting for response..."}</p>
+          <p><strong>Question:</strong> {agent.state?.question}</p>
+          <p><strong>Answer:</strong> {agent.state?.answer || "Waiting for response..."}</p>
           <button onClick={() => askQuestion("What's the capital of France?")}>
             Ask New Question
           </button>
@@ -1227,7 +1223,7 @@ In addition, some state properties contain a lot of information. Syncing them ba
     }
 
     function YourMainContent() {
-      const { agentState, setAgentState } = useAgent<AgentState>({
+      const { agent } = useAgent({
         name: "my_agent",
         initialState: {
           question: "How's the weather in SF?",
@@ -1236,14 +1232,14 @@ In addition, some state properties contain a lot of information. Syncing them ba
       });
 
       const askQuestion = (newQuestion: string) => {
-        setAgentState({ ...agentState, question: newQuestion });
+        agent.setState({ ...agent.state, question: newQuestion });
       };
 
       return (
         <div>
           <h1>Q&A Assistant</h1>
-          <p><strong>Question:</strong> {agentState.question}</p>
-          <p><strong>Answer:</strong> {agentState.answer || "Waiting for response..."}</p>
+          <p><strong>Question:</strong> {agent.state?.question}</p>
+          <p><strong>Answer:</strong> {agent.state?.answer || "Waiting for response..."}</p>
           <button onClick={() => askQuestion("What's the capital of France?")}>
             Ask New Question
           </button>

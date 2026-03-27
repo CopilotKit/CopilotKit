@@ -263,28 +263,24 @@ Without frontend actions, agents are limited to just processing and returning da
 
         ### Create a frontend action
 
-        First, you'll need to create a frontend action using the [useFrontendTool](/reference/v1/hooks/useFrontendTool) hook. Here's a simple one to get you started
+        First, you'll need to create a frontend action using the `useFrontendTool` hook. Here's a simple one to get you started
         that says hello to the user.
 
 ```tsx title="page.tsx"
+        import { z } from "zod";
         import { useFrontendTool } from "@copilotkit/react-core/v2" // [!code highlight]
 
         export function Page() {
           // ...
 
-          // [!code highlight:16]
+          // [!code highlight:13]
           useFrontendTool({
             name: "sayHello",
             description: "Say hello to the user",
             available: "remote", // optional, makes it so the action is *only* available to the AG2 backend over AG-UI
-            parameters: [
-              {
-                name: "name",
-                type: "string",
-                description: "The name of the user to say hello to",
-                required: true,
-              },
-            ],
+            parameters: z.object({
+              name: z.string().describe("The name of the user to say hello to"),
+            }),
             handler: async ({ name }) => {
               alert(`Hello, ${name}!`);
               return `Said hello to ${name}!`;
@@ -443,11 +439,11 @@ is a situation where a user and an agent are working together to solve a problem
 
       // [!code highlight:13]
       // styles omitted for brevity
-      useAgent<AgentState>({
+      useAgent({
         name: "my_agent", // MUST match the agent name in CopilotRuntime
-        render: ({ agentState }) => (
+        render: ({ state }) => (
           <div>
-            {agentState.searches?.map((search, index) => (
+            {state.searches?.map((search, index) => (
               <div key={index}>
                 {search.done ? "✅" : "❌"} {search.query}{search.done ? "" : "..."}
               </div>
@@ -484,7 +480,7 @@ is a situation where a user and an agent are working together to solve a problem
       // ...
 
       // [!code highlight:3]
-      const { agent } = useAgent<AgentState>({
+      const { agent } = useAgent({
         agentId: "my_agent", // MUST match the agent name in CopilotRuntime
       })
 
@@ -574,19 +570,19 @@ Start your AG2 backend with a `/chat` endpoint and connect CopilotKit to that en
 
 ### Render the tool call in your frontend
 At this point, your agent will be able to call the `get_weather` tool. Now
-we just need to add a `useRenderToolCall` hook to render the tool call in
+we just need to add a `useRenderTool` hook to render the tool call in
 the UI.
 
   In order to render a tool call in the UI, the name of the action must match the name of the tool.
 
 ```tsx title="app/page.tsx"
-import { useRenderToolCall } from "@copilotkit/react-core/v2"; // [!code highlight]
+import { useRenderTool } from "@copilotkit/react-core/v2"; // [!code highlight]
 // ...
 
 const YourMainContent = () => {
   // ...
   // [!code highlight:12]
-  useRenderToolCall({
+  useRenderTool({
     name: "get_weather",
     render: ({status, args}) => {
       return (
@@ -608,20 +604,20 @@ render the tool call and display the arguments that were passed to the tool.
 
 ## Default Tool Rendering
 
-`useDefaultTool` provides a catch-all renderer for **any tool** that doesn't have a specific `useRenderToolCall` defined. This is useful for:
+`useDefaultRenderTool` provides a catch-all renderer for **any tool** that doesn't have a specific `useRenderToolCall` defined. This is useful for:
 
 - Displaying all tool calls during development
 - Rendering MCP (Model Context Protocol) tools
 - Providing a generic fallback UI for unexpected tools
 
 ```tsx title="app/page.tsx"
-import { useDefaultTool } from "@copilotkit/react-core/v2"; // [!code highlight]
+import { useDefaultRenderTool } from "@copilotkit/react-core/v2"; // [!code highlight]
 // ...
 
 const YourMainContent = () => {
   // ...
   // [!code highlight:15]
-  useDefaultTool({
+  useDefaultRenderTool({
     render: ({ name, args, status, result }) => {
       return (
         <div style={{ color: "black" }}>
@@ -640,7 +636,7 @@ const YourMainContent = () => {
 }
 ```
 
-  Unlike `useRenderToolCall`, which targets a specific tool by name, `useDefaultTool` catches **all** tools that don't have a dedicated renderer.
+  Unlike `useRenderToolCall`, which targets a specific tool by name, `useDefaultRenderTool` catches **all** tools that don't have a dedicated renderer.
 
   In v2, use [`useDefaultRenderTool`](/reference/v2/hooks/useDefaultRenderTool) for wildcard fallback rendering, and [`useRenderTool`](/reference/v2/hooks/useRenderTool) for named or wildcard renderer registration.
 
@@ -887,7 +883,7 @@ You've now got a Weather Agent running with CopilotKit! This demonstrates how qu
 - Source: `docs/content/docs/integrations/ag2/readables.mdx`
 - Description: Share app specific context with your agent.
 
-One of the most common use cases for CopilotKit is to register app state and context using `useCopilotReadable`.
+One of the most common use cases for CopilotKit is to register app state and context using `useAgentContext`.
 This way, you can notify CopilotKit of what is going in your app in real time.
 Some examples might be: the current user, the current page, etc.
 
@@ -900,11 +896,11 @@ This context can then be shared with your AG2 backend.
 
                 ### Add the data to the Copilot
 
-                The [`useCopilotReadable` hook](/reference/v1/hooks/useCopilotReadable) is used to add data as context to the Copilot.
+                The ``useAgentContext` hook` is used to add data as context to the Copilot.
 
 ```tsx title="YourComponent.tsx" showLineNumbers {1, 7-10}
                 "use client" // only necessary if you are using Next.js with the App Router. // [!code highlight]
-                import { useCopilotReadable } from "@copilotkit/react-core/v2"; // [!code highlight]
+                import { useAgentContext } from "@copilotkit/react-core/v2"; // [!code highlight]
                 import { useState } from 'react';
 
                 export function YourComponent() {
@@ -917,7 +913,7 @@ This context can then be shared with your AG2 backend.
 
                   // Define Copilot readable state
                   // [!code highlight:4]
-                  useCopilotReadable({
+                  useAgentContext({
                     description: "The current user's colleagues",
                     value: colleagues,
                   });
@@ -993,11 +989,11 @@ This context can then be shared with your AG2 backend.
                 Ask your agent a question about the context. It should be able to answer.
                 ### Add the data to the Copilot
 
-                The [`useCopilotReadable` hook](/reference/v1/hooks/useCopilotReadable) is used to add data as context to the Copilot.
+                The ``useAgentContext` hook` is used to add data as context to the Copilot.
 
 ```tsx title="YourComponent.tsx" showLineNumbers {1, 7-10}
                 "use client" // only necessary if you are using Next.js with the App Router. // [!code highlight]
-                import { useCopilotReadable } from "@copilotkit/react-core/v2"; // [!code highlight]
+                import { useAgentContext } from "@copilotkit/react-core/v2"; // [!code highlight]
                 import { useState } from 'react';
 
                 export function YourComponent() {
@@ -1010,7 +1006,7 @@ This context can then be shared with your AG2 backend.
 
                   // Define Copilot readable state
                   // [!code highlight:4]
-                  useCopilotReadable({
+                  useAgentContext({
                     description: "The current user's colleagues",
                     value: colleagues,
                   });
@@ -1164,7 +1160,7 @@ state updates, you can reflect these updates natively in your application.
 ```
 
     ### Use the `useAgent` Hook
-    With your agent connected and running all that is left is to call the [useAgent](/reference/v1/hooks/useAgent) hook, pass the agent's ID, and
+    With your agent connected and running all that is left is to call the `useAgent` hook, pass the agent's ID, and
     optionally provide an initial state.
 
 ```tsx title="ui/app/page.tsx"
@@ -1177,7 +1173,7 @@ state updates, you can reflect these updates natively in your application.
 
     function YourMainContent() {
       // [!code highlight:4]
-      const { agent } = useAgent<AgentState>({
+      const { agent } = useAgent({
         agentId: "my_agent", // MUST match the agent name in CopilotRuntime
         initialState: { language: "english" }  // optionally provide an initial state
       });
@@ -1219,11 +1215,11 @@ type AgentState = {
 function YourMainContent() {
   // ...
   // [!code highlight:7]
-  useAgent<AgentState>({
+  useAgent({
     name: "my_agent", // MUST match the agent name in CopilotRuntime
-    render: ({ agentState }) => {
-      if (!agentState.language) return null;
-      return <div>Language: {agentState.language}</div>;
+    render: ({ state }) => {
+      if (!state.language) return null;
+      return <div>Language: {state.language}</div>;
     },
   });
   // ...
@@ -1232,7 +1228,7 @@ function YourMainContent() {
 
   The `name` parameter must exactly match the agent name you defined in your CopilotRuntime configuration (e.g., `my_agent` from the quickstart).
 
-  The `agentState` in `useAgent` is reactive and will automatically
+  The `agent.state` in `useAgent` is reactive and will automatically
   update when the agent's state changes.
 
 ## Intermediately Stream and Render Agent State
@@ -1327,7 +1323,7 @@ You can use this when you want to keep your interface and backend agent state sy
 
     // Example usage in a pseudo React component
     function YourMainContent() {
-      const { agent } = useAgent<AgentState>({ // [!code highlight]
+      const { agent } = useAgent({ // [!code highlight]
         agentId: "my_agent", // MUST match the agent name in CopilotRuntime
         initialState: { language: "english" }  // optionally provide an initial state
       });
@@ -1375,7 +1371,7 @@ import { TextMessage, MessageRole } from "@copilotkit/runtime-client-gql";  // [
 
 function YourMainContent() {
   // [!code word:run:1]
-  const { agent } = useAgent<AgentState>({
+  const { agent } = useAgent({
     agentId: "my_agent", // MUST match the agent name in CopilotRuntime
     initialState: { language: "english" }  // optionally provide an initial state
   });

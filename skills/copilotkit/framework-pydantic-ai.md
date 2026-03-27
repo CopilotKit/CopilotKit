@@ -95,11 +95,11 @@ CopilotKit implementation guide for Pydantic AI.
 
       // [!code highlight:13]
       // styles omitted for brevity
-      useAgent<AgentState>({
+      useAgent({
         name: "my_agent", // MUST match the agent name in CopilotRuntime
-        render: ({ agentState }) => (
+        render: ({ state }) => (
           <div>
-            {agentState.searches?.map((search, index) => (
+            {state.searches?.map((search, index) => (
               <div key={index}>
                 {search.done ? "✅" : "❌"} {search.query}{search.done ? "" : "..."}
               </div>
@@ -129,7 +129,7 @@ CopilotKit implementation guide for Pydantic AI.
       // ...
 
       // [!code highlight:3]
-      const { agentState } = useAgent<AgentState>({
+      const { agent } = useAgent({
         name: "my_agent", // MUST match the agent name in CopilotRuntime
       })
 
@@ -140,7 +140,7 @@ CopilotKit implementation guide for Pydantic AI.
           {/* ... */}
           <div className="flex flex-col gap-2 mt-4">
             {/* [!code highlight:5] */}
-            {agentState.searches?.map((search, index) => (
+            {agent.state?.searches?.map((search, index) => (
               <div key={index} className="flex flex-row">
                 {search.done ? "✅" : "❌"} {search.query}
               </div>
@@ -174,13 +174,13 @@ CopilotKit implementation guide for Pydantic AI.
             uvicorn.run(app, host="0.0.0.0", port=8000)
 ```
 ```tsx title="app/page.tsx"
-import { useRenderToolCall } from "@copilotkit/react-core/v2"; // [!code highlight]
+import { useRenderTool } from "@copilotkit/react-core/v2"; // [!code highlight]
 // ...
 
 const YourMainContent = () => {
   // ...
   // [!code highlight:12]
-  useRenderToolCall({
+  useRenderTool({
     name: "get_weather",
     render: ({status, args}) => {
       return (
@@ -282,6 +282,7 @@ of everything that has happened during a HITL interaction.
         First, we'll create a component that renders the agent's essay draft and waits for user approval.
 
 ```tsx title="ui/app/page.tsx"
+        import { z } from "zod";
         import { useFrontendTool } from "@copilotkit/react-core/v2"
         import { Markdown } from "@copilotkit/react-core/v2"
 
@@ -292,9 +293,9 @@ of everything that has happened during a HITL interaction.
             name: "write_essay",
             available: "frontend",
             description: "Writes an essay and takes the draft as an argument.",
-            parameters: [
-              { name: "draft", type: "string", description: "The draft of the essay", required: true },
-            ],
+            parameters: z.object({
+              draft: z.string().describe("The draft of the essay"),
+            }),
             // [!code highlight:25]
             renderAndWaitForResponse: ({ args, respond, status }) => {
               return (
@@ -573,7 +574,7 @@ Before you begin, you'll need the following:
                 Wrap your application with the CopilotKit provider:
 
 ```tsx title="app/layout.tsx"
-                import { CopilotKit } from "@copilotkit/react-core/v2"; // [!code highlight]
+                import { CopilotKit } from "@copilotkit/react-core"; // [!code highlight]
                 import "@copilotkit/react-ui/v2/styles.css";
 
                 // ...
@@ -787,7 +788,7 @@ Before you begin, you'll need the following:
 ```tsx title="app/layout.tsx"
                 import "./globals.css";
                 import { ReactNode } from "react";
-                import { CopilotKit } from "@copilotkit/react-core/v2";
+                import { CopilotKit } from "@copilotkit/react-core";
 
                 export default function RootLayout({ children }: { children: ReactNode }) {
                   return (
@@ -908,7 +909,7 @@ can help you build power agent native applications.
 
     function YourMainContent() {
       // [!code highlight:4]
-      const { agentState } = useAgent<AgentState>({
+      const { agent } = useAgent({
         name: "my_agent", // MUST match the agent name in CopilotRuntime
         initialState: { language: "english" }  // optionally provide an initial state
       });
@@ -920,7 +921,7 @@ can help you build power agent native applications.
         <div>
           <h1>Your main content</h1>
           {/* [!code highlight:1] */}
-          <p>Language: {agentState.language}</p>
+          <p>Language: {agent.state?.language}</p>
         </div>
       );
     }
@@ -936,11 +937,11 @@ type AgentState = {
 function YourMainContent() {
   // ...
   // [!code highlight:7]
-  useAgent<AgentState>({
+  useAgent({
     name: "my_agent", // MUST match the agent name in CopilotRuntime
-    render: ({ agentState }) => {
-      if (!agentState.language) return null;
-      return <div>Language: {agentState.language}</div>;
+    render: ({ state }) => {
+      if (!state.language) return null;
+      return <div>Language: {state.language}</div>;
     },
   });
   // ...
@@ -1001,7 +1002,7 @@ function YourMainContent() {
 
     // Example usage in a pseudo React component
     function YourMainContent() {
-      const { agentState, setAgentState } = useAgent<AgentState>({ // [!code highlight]
+      const { agent } = useAgent({ // [!code highlight]
         name: "my_agent", // MUST match the agent name in CopilotRuntime
         initialState: { language: "english" }  // optionally provide an initial state
       });
@@ -1009,7 +1010,7 @@ function YourMainContent() {
       // ...
 
       const toggleLanguage = () => {
-        setAgentState({ language: agentState.language === "english" ? "spanish" : "english" }); // [!code highlight]
+        agent.setState({ language: agent.state?.language === "english" ? "spanish" : "english" }); // [!code highlight]
       };
 
       // ...
@@ -1019,7 +1020,7 @@ function YourMainContent() {
         <div>
           <h1>Your main content</h1>
           {/* [!code highlight:2] */}
-          <p>Language: {agentState.language}</p>
+          <p>Language: {agent.state?.language}</p>
           <button onClick={toggleLanguage}>Toggle Language</button>
         </div>
       );
@@ -1033,15 +1034,15 @@ import { TextMessage, MessageRole } from "@copilotkit/runtime-client-gql";  // [
 
 function YourMainContent() {
   // [!code word:run:1]
-  const { agentState, setAgentState, run } = useAgent<AgentState>({
+  const { agent, run } = useAgent({
     name: "my_agent", // MUST match the agent name in CopilotRuntime
     initialState: { language: "english" }  // optionally provide an initial state
   });
 
   // setup to be called when some event in the app occurs
   const toggleLanguage = () => {
-    const newLanguage = agentState.language === "english" ? "spanish" : "english";
-    setAgentState({ language: newLanguage });
+    const newLanguage = agent.state?.language === "english" ? "spanish" : "english";
+    agent.setState({ language: newLanguage });
 
     // re-run the agent and provide a hint about what's changed
     // [!code highlight:6]
@@ -1141,18 +1142,18 @@ This allows for a consistent experience where both the agent and the user are on
 
         const YourMainContent = () => {
             // Get access to both predicted and final states
-            const { agentState } = useAgent({ name: "my_agent" }); // MUST match the agent name in CopilotRuntime
+            const { agent } = useAgent({ name: "my_agent" }); // MUST match the agent name in CopilotRuntime
 
             // Add a state renderer to observe predictions
             useAgent({
                 name: "my_agent", // MUST match the agent name in CopilotRuntime
-                render: ({ agentState }) => {
-                    if (!agentState.observed_steps?.length) return null;
+                render: ({ state }) => {
+                    if (!state.observed_steps?.length) return null;
                     return (
                         <div>
                             <h3>Current Progress:</h3>
                             <ul>
-                                {agentState.observed_steps.map((step, i) => (
+                                {state.observed_steps.map((step, i) => (
                                     <li key={i}>{step}</li>
                                 ))}
                             </ul>
@@ -1164,11 +1165,11 @@ This allows for a consistent experience where both the agent and the user are on
             return (
                 <div>
                     <h1>Agent Progress</h1>
-                    {agentState.observed_steps?.length > 0 && (
+                    {agent.state?.observed_steps?.length > 0 && (
                         <div>
                             <h3>Final Steps:</h3>
                             <ul>
-                                {agentState.observed_steps.map((step, i) => (
+                                {agent.state.observed_steps.map((step, i) => (
                                     <li key={i}>{step}</li>
                                 ))}
                             </ul>

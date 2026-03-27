@@ -25,11 +25,11 @@ Some examples might be: the current user, the current page, etc. This be shared 
 ## Implementation
         ### Wrap your data in a readable
 
-        The [`useCopilotReadable` hook](/reference/v1/hooks/useCopilotReadable) is used to add data as context to the Copilot.
+        The ``useAgentContext` hook` is used to add data as context to the Copilot.
 
 ```tsx title="YourComponent.tsx" showLineNumbers {1, 7-10}
         "use client" // only necessary if you are using Next.js with the App Router. // [!code highlight]
-        import { useCopilotReadable } from "@copilotkit/react-core/v2"; // [!code highlight]
+        import { useAgentContext } from "@copilotkit/react-core/v2"; // [!code highlight]
         import { useState } from 'react';
 
         export function YourComponent() {
@@ -42,7 +42,7 @@ Some examples might be: the current user, the current page, etc. This be shared 
 
             // Define Copilot readable state
             // [!code highlight:4]
-            useCopilotReadable({
+            useAgentContext({
                 description: "The current user's colleagues",
                 value: colleagues,
             });
@@ -86,23 +86,19 @@ Some examples might be: the current user, the current page, etc. This be shared 
 - Description: Create frontend tools and use them within your Mastra agent.
 
 ```tsx title="page.tsx"
+        import { z } from "zod";
         import { useFrontendTool } from "@copilotkit/react-core/v2" // [!code highlight]
 
         export function Page() {
           // ...
 
-          // [!code highlight:15]
+          // [!code highlight:12]
           useFrontendTool({
             name: "sayHello",
             description: "Say hello to the user",
-            parameters: [
-              {
-                name: "name",
-                type: "string",
-                description: "The name of the user to say hello to",
-                required: true,
-              },
-            ],
+            parameters: z.object({
+              name: z.string().describe("The name of the user to say hello to"),
+            }),
             handler: async ({ name }) => {
               alert(`Hello, ${name}!`);
               return `Said hello to ${name}!`;
@@ -193,11 +189,11 @@ Some examples might be: the current user, the current page, etc. This be shared 
 
       // [!code highlight:13]
       // styles omitted for brevity
-      useAgent<AgentState>({
+      useAgent({
         name: "searchAgent", // MUST match the agent name in your Mastra instance
-        render: ({ agentState }) => (
+        render: ({ state }) => (
           <div>
-            {agentState.searches?.map((search, index) => (
+            {state.searches?.map((search, index) => (
               <div key={index}>
                 {search.done ? "✅" : "❌"} {search.query}{search.done ? "" : "..."}
               </div>
@@ -227,7 +223,7 @@ Some examples might be: the current user, the current page, etc. This be shared 
       // ...
 
       // [!code highlight:3]
-      const { agentState } = useAgent<AgentState>({
+      const { agent } = useAgent({
         name: "searchAgent", // MUST match the agent name in your Mastra instance
       })
 
@@ -238,7 +234,7 @@ Some examples might be: the current user, the current page, etc. This be shared 
           {/* ... */}
           <div className="flex flex-col gap-2 mt-4">
             {/* [!code highlight:5] */}
-            {agentState.searches?.map((search, index) => (
+            {agent.state?.searches?.map((search, index) => (
               <div key={index} className="flex flex-row">
                 {search.done ? "✅" : "❌"} {search.query}
               </div>
@@ -287,13 +283,13 @@ export const weatherAgent = new Agent({
 });
 ```
 ```tsx title="app/page.tsx"
-import { useRenderToolCall } from "@copilotkit/react-core/v2"; // [!code highlight]
+import { useRenderTool } from "@copilotkit/react-core/v2"; // [!code highlight]
 // ...
 
 const YourMainContent = () => {
   // ...
   // [!code highlight:12]
-  useRenderToolCall({
+  useRenderTool({
     name: "weatherInfo",
     render: ({ status, args }) => {
       return (
@@ -462,7 +458,7 @@ Before you begin, you'll need the following:
                 ### Install CopilotKit packages
 
 ```npm
-                npm install @copilotkit/react-ui @copilotkit/react-core @copilotkit/runtime @ag-ui/mastra @ag-ui/core @ag-ui/client @mastra/client-js
+                npm install @copilotkit/react-ui @copilotkit/react-core @copilotkit/runtime @ag-ui/mastra @ag-ui/core @ag-ui/client @mastra/client-js @ai-sdk/openai
 ```
                 ### Setup Copilot Runtime
 
@@ -499,7 +495,7 @@ Before you begin, you'll need the following:
                 Wrap your application with the CopilotKit provider:
 
 ```tsx title="app/layout.tsx"
-                import { CopilotKit } from "@copilotkit/react-core/v2"; // [!code highlight]
+                import { CopilotKit } from "@copilotkit/react-core"; // [!code highlight]
                 import "@copilotkit/react-ui/v2/styles.css";
 
                 // ...
@@ -623,7 +619,7 @@ Now that you have your basic agent setup, explore these advanced features:
 
     function YourMainContent() {
       // [!code highlight:5]
-      const { agentState } = useAgent<AgentState>({
+      const { agent } = useAgent({
         name: "your-mastra-agent-name",
         // optionally provide a type-safe initial state
         initialState: { language: "english" }
@@ -636,7 +632,7 @@ Now that you have your basic agent setup, explore these advanced features:
         <div>
           <h1>Your main content</h1>
           {/* [!code highlight:1] */}
-          <p>Language: {agentState.language}</p>
+          <p>Language: {agent.state?.language}</p>
         </div>
       );
     }
@@ -652,11 +648,11 @@ type AgentState = {
 function YourMainContent() {
   // ...
   // [!code highlight:7]
-  useAgent<AgentState>({
+  useAgent({
     name: "your-mastra-agent-name",
-    render: ({ agentState }) => {
-      if (!agentState.language) return null;
-      return <div>Language: {agentState.language}</div>;
+    render: ({ state }) => {
+      if (!state.language) return null;
+      return <div>Language: {state.language}</div>;
     },
   });
   // ...
@@ -712,14 +708,14 @@ function YourMainContent() {
 
     function YourMainContent() {
       // [!code highlight:5]
-      const { agentState, setAgentState } = useAgent<AgentState>({
+      const { agent } = useAgent({
         name: "your-mastra-agent-name",
         // optionally provide a type-safe initial state
         initialState: { language: "english" }
       });
 
       const toggleLanguage = () => {
-        setAgentState({ language: agentState.language === "english" ? "spanish" : "english" }); // [!code highlight]
+        agent.setState({ language: agent.state?.language === "english" ? "spanish" : "english" }); // [!code highlight]
       };
 
       return (
@@ -727,7 +723,7 @@ function YourMainContent() {
         <div>
           <h1>Your main content</h1>
           {/* [!code highlight:2] */}
-          <p>Language: {agentState.language}</p>
+          <p>Language: {agent.state?.language}</p>
           <button onClick={toggleLanguage}>Toggle Language</button>
         </div>
       );
