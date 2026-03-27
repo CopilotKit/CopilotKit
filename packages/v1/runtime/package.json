@@ -11,6 +11,8 @@
   },
   "version": "1.54.1-next.6",
   "sideEffects": [
+    "./dist/browser.mjs",
+    "./dist/browser.cjs",
     "./dist/index.mjs",
     "./dist/index.cjs",
     "./dist/v2/index.mjs",
@@ -20,8 +22,22 @@
   "module": "./dist/index.mjs",
   "exports": {
     ".": {
+      "browser": {
+        "import": {
+          "types": "./dist/browser.d.mts",
+          "default": "./dist/browser.mjs"
+        },
+        "require": {
+          "types": "./dist/browser.d.cts",
+          "default": "./dist/browser.cjs"
+        }
+      },
       "import": "./dist/index.mjs",
       "require": "./dist/index.cjs"
+    },
+    "./browser": {
+      "import": "./dist/browser.mjs",
+      "require": "./dist/browser.cjs"
     },
     "./langgraph": {
       "import": "./dist/langgraph.mjs",
