@@ -207,3 +207,36 @@ class TestEmitRawEventsConfig:
         metadata = config["metadata"]
         assert metadata["copilotkit:emit-messages"] is False
         assert metadata["copilotkit:emit-raw-events"] is False
+
+    def test_does_not_mutate_original_metadata(self):
+        original_metadata = {"copilotkit:emit-messages": True}
+        copilotkit_customize_config(
+            {"metadata": original_metadata},
+            emit_raw_events=False,
+        )
+        assert "copilotkit:emit-raw-events" not in original_metadata
+        assert "emit-raw-events" not in original_metadata
+
+    def test_base_config_without_metadata_key(self):
+        config = copilotkit_customize_config(
+            {},
+            emit_raw_events=False,
+        )
+        assert config["metadata"]["copilotkit:emit-raw-events"] is False
+        assert config["metadata"]["emit-raw-events"] is False
+
+    def test_base_config_none(self):
+        config = copilotkit_customize_config(
+            None,
+            emit_raw_events=False,
+        )
+        assert config["metadata"]["copilotkit:emit-raw-events"] is False
+        assert config["metadata"]["emit-raw-events"] is False
+
+    def test_base_config_with_metadata_none(self):
+        config = copilotkit_customize_config(
+            {"metadata": None},
+            emit_raw_events=False,
+        )
+        assert config["metadata"]["copilotkit:emit-raw-events"] is False
+        assert config["metadata"]["emit-raw-events"] is False

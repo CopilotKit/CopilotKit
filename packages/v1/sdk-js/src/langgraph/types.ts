@@ -21,6 +21,11 @@ export interface IntermediateStateConfig {
 export interface OptionsConfig {
   emitToolCalls?: boolean | string | string[];
   emitMessages?: boolean;
+  /**
+   * @deprecated CopilotKit now emits all messages and tool calls by default.
+   * Note: this only controls emitMessages and emitToolCalls — it does not
+   * affect {@link emitRawEvents} or {@link emitRawEventData}.
+   */
   emitAll?: boolean;
   emitIntermediateState?: IntermediateStateConfig[];
   /**

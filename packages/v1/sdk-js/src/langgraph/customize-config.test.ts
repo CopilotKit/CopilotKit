@@ -65,4 +65,31 @@ describe("copilotkitCustomizeConfig emit-raw-events", () => {
     expect(config.metadata["copilotkit:emit-messages"]).toBe(false);
     expect(config.metadata["copilotkit:emit-raw-events"]).toBe(false);
   });
+
+  it("does not mutate the original baseConfig metadata", () => {
+    const originalMetadata: Record<string, any> = {
+      "copilotkit:emit-messages": true,
+    };
+    const baseConfig = { metadata: originalMetadata };
+    copilotkitCustomizeConfig(baseConfig, { emitRawEvents: false });
+    expect(originalMetadata["copilotkit:emit-raw-events"]).toBeUndefined();
+    expect(originalMetadata["emit-raw-events"]).toBeUndefined();
+  });
+
+  it("handles base config with no metadata key", () => {
+    const config = copilotkitCustomizeConfig({} as any, {
+      emitRawEvents: false,
+    });
+    expect(config.metadata["copilotkit:emit-raw-events"]).toBe(false);
+    expect(config.metadata["emit-raw-events"]).toBe(false);
+  });
+
+  it("skips keys when null is passed (same as omitted)", () => {
+    const config = copilotkitCustomizeConfig(
+      { metadata: {} },
+      { emitRawEvents: null as any },
+    );
+    expect(config.metadata["copilotkit:emit-raw-events"]).toBeUndefined();
+    expect(config.metadata["emit-raw-events"]).toBeUndefined();
+  });
 });

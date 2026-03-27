@@ -218,7 +218,7 @@ def copilotkit_customize_config(
         emit_intermediate_state: Optional[List[IntermediateStateConfig]] = None,
         emit_raw_events: Optional[bool] = None,
         emit_raw_event_data: Optional[bool] = None,
-        emit_all: Optional[bool] = None, # deprecated
+        emit_all: Optional[bool] = None, # deprecated — only controls emit_messages/emit_tool_calls, not emit_raw_events/emit_raw_event_data
     ) -> RunnableConfig:
     """
     Customize the LangGraph configuration for use in CopilotKit.

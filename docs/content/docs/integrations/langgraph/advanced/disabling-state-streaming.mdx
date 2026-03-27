@@ -101,8 +101,14 @@ Two additional flags let you control this:
 
 | Flag | TypeScript | Default | Effect |
 |------|-----------|---------|--------|
-| `emit_raw_events` | `emitRawEvents` | `True` | When `False`, suppresses `RAW` events entirely. These wrap every LangChain callback (`on_llm_*`, `on_chain_*`) and are only used by the CopilotKit web inspector for debugging. |
-| `emit_raw_event_data` | `emitRawEventData` | `True` | When `False`, strips the `raw_event` field from typed events (state snapshots, text messages, tool calls, etc.). This field carries the full underlying LangGraph event dict and can be large. |
+| `emit_raw_events` | `emitRawEvents` | unset (AG-UI default: emit) | When `False`, suppresses `RAW` events entirely. These wrap every LangChain callback (`on_llm_*`, `on_chain_*`) and are only used by the CopilotKit web inspector for debugging. |
+| `emit_raw_event_data` | `emitRawEventData` | unset (AG-UI default: emit) | When `False`, strips the `raw_event` field from typed events (state snapshots, text messages, tool calls, etc.). This field carries the full underlying LangGraph event dict and can be large. |
+
+<Callout type="info" title="Relationship with emit_all">
+  These flags are independent of `emit_all` / `emitAll`. Setting `emit_all=True` only
+  controls message and tool call emission — it does not affect raw event flags. Set
+  `emit_raw_events` and `emit_raw_event_data` explicitly if needed.
+</Callout>
 
 Setting both to `False` can significantly reduce the amount of data sent over the wire,
 with no impact on frontend functionality.
@@ -166,7 +172,9 @@ metadata directly:
             graph=agent,
             config={
                 "metadata": {
+                    "copilotkit:emit-raw-events": False, # [!code highlight]
                     "emit-raw-events": False, # [!code highlight]
+                    "copilotkit:emit-raw-event-data": False, # [!code highlight]
                     "emit-raw-event-data": False, # [!code highlight]
                 }
             },
@@ -178,7 +186,9 @@ metadata directly:
         // Set metadata when configuring the agent
         const config = {
             metadata: {
+                "copilotkit:emit-raw-events": false,
                 "emit-raw-events": false,
+                "copilotkit:emit-raw-event-data": false,
                 "emit-raw-event-data": false,
             }
         };

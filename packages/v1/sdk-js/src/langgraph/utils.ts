@@ -139,11 +139,11 @@ export function copilotkitCustomizeConfig(
     // emitRawEvents and emitRawEventData write both prefixed and unprefixed
     // metadata keys: the unprefixed key is read by the ag-ui base agent, while
     // the prefixed key follows the convention used by the CopilotKit dispatch layer.
-    if (options?.emitRawEvents !== undefined) {
+    if (options?.emitRawEvents != null) {
       metadata["copilotkit:emit-raw-events"] = options.emitRawEvents;
       metadata["emit-raw-events"] = options.emitRawEvents;
     }
-    if (options?.emitRawEventData !== undefined) {
+    if (options?.emitRawEventData != null) {
       metadata["copilotkit:emit-raw-event-data"] = options.emitRawEventData;
       metadata["emit-raw-event-data"] = options.emitRawEventData;
     }
