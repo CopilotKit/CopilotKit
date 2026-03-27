@@ -1,4 +1,4 @@
-import { FC, memo } from "react";
+import { FC, memo, useMemo } from "react";
 import ReactMarkdown, { Options, Components } from "react-markdown";
 import { CodeBlock } from "./CodeBlock";
 import remarkGfm from "remark-gfm";
@@ -136,10 +136,14 @@ type MarkdownProps = {
 };
 
 export const Markdown = ({ content, components }: MarkdownProps) => {
+  const mergedComponents = useMemo(
+    () => ({ ...defaultComponents, ...components }),
+    [components],
+  );
   return (
     <div className="copilotKitMarkdown">
       <MemoizedReactMarkdown
-        components={{ ...defaultComponents, ...components }}
+        components={mergedComponents}
         remarkPlugins={[
           remarkGfm,
           [remarkMath, { singleDollarTextMath: false }],
