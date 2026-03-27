@@ -137,7 +137,12 @@ export class OpenAIAdapter implements CopilotServiceAdapter {
       headers: options.defaultHeaders,
       fetch: options.fetch,
     });
-    return provider(this.model);
+    // Use .chat() explicitly to force the Chat Completions API.
+    // The default provider(model) auto-selects the Responses API for newer
+    // models, which breaks OpenAI-compatible providers (e.g. OpenRouter)
+    // that expose /responses as a separate, incompatible endpoint.
+    // See: https://github.com/CopilotKit/CopilotKit/issues/3317
+    return provider.chat(this.model);
   }
 
   private ensureOpenAI(): OpenAI {
