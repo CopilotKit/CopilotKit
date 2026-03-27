@@ -36,7 +36,7 @@ const flushEffects = async (): Promise<void> => {
 const sampleThreads: ThreadRecord[] = [
   {
     id: "thread-1",
-    tenantId: "tenant-1",
+    organizationId: "org-1",
     agentId: "agent-1",
     createdById: "user-1",
     name: "Older Thread",
@@ -46,7 +46,7 @@ const sampleThreads: ThreadRecord[] = [
   },
   {
     id: "thread-2",
-    tenantId: "tenant-1",
+    organizationId: "org-1",
     agentId: "agent-1",
     createdById: "user-1",
     name: "Newest Thread",
@@ -83,6 +83,7 @@ describe("thread store", () => {
         ok: true,
         json: async () => ({
           threads: [sampleThreads[0], sampleThreads[1]],
+          joinCode: "jc-1",
         }),
       })
       .mockResolvedValueOnce({
@@ -102,14 +103,13 @@ describe("thread store", () => {
       runtimeUrl: "https://runtime.example.com",
       headers: { Authorization: "Bearer token" },
       wsUrl: "ws://localhost:4000/client",
-      userId: "user-1",
       agentId: "agent-1",
     });
 
     await flushEffects();
 
     expect(fetchMock).toHaveBeenCalledWith(
-      "https://runtime.example.com/threads?userId=user-1&agentId=agent-1",
+      "https://runtime.example.com/threads?agentId=agent-1",
       expect.objectContaining({ method: "GET" }),
     );
     expect(fetchMock).toHaveBeenCalledWith(
@@ -121,7 +121,7 @@ describe("thread store", () => {
     );
     expect(ɵselectThreadsIsLoading(store.getState())).toBe(false);
     expect(phoenix.sockets).toHaveLength(1);
-    expect(phoenix.sockets[0].channels[0].topic).toBe("user_meta:user-1");
+    expect(phoenix.sockets[0].channels[0].topic).toBe("user_meta:jc-1");
   });
 
   it("upserts realtime thread metadata without refetching", async () => {
@@ -131,6 +131,7 @@ describe("thread store", () => {
         ok: true,
         json: async () => ({
           threads: sampleThreads,
+          joinCode: "jc-1",
         }),
       })
       .mockResolvedValueOnce({
@@ -150,7 +151,6 @@ describe("thread store", () => {
       runtimeUrl: "https://runtime.example.com",
       headers: {},
       wsUrl: "ws://localhost:4000/client",
-      userId: "user-1",
       agentId: "agent-1",
     });
 
@@ -161,7 +161,7 @@ describe("thread store", () => {
       operation: "renamed",
       threadId: "thread-1",
       userId: "user-1",
-      tenantId: "tenant-1",
+      organizationId: "org-1",
       occurredAt: "2026-01-03T00:00:00Z",
       thread: {
         ...sampleThreads[0],
@@ -179,13 +179,14 @@ describe("thread store", () => {
     });
   });
 
-  it("ignores realtime events for a different user", async () => {
+  it("applies realtime events without client-side user filtering", async () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce({
         ok: true,
         json: async () => ({
           threads: sampleThreads,
+          joinCode: "jc-1",
         }),
       })
       .mockResolvedValueOnce({
@@ -205,7 +206,6 @@ describe("thread store", () => {
       runtimeUrl: "https://runtime.example.com",
       headers: {},
       wsUrl: "ws://localhost:4000/client",
-      userId: "user-1",
       agentId: "agent-1",
     });
 
@@ -215,14 +215,14 @@ describe("thread store", () => {
       operation: "deleted",
       threadId: "thread-2",
       userId: "user-2",
-      tenantId: "tenant-1",
+      organizationId: "org-1",
       occurredAt: "2026-01-03T00:00:00Z",
       deleted: { id: "thread-2" },
     });
 
     await flushEffects();
 
-    expect(ɵselectThreads(store.getState())).toHaveLength(2);
+    expect(ɵselectThreads(store.getState())).toHaveLength(1);
   });
 
   it("switches sessions when context changes and ignores stale results", async () => {
@@ -246,6 +246,7 @@ describe("thread store", () => {
               updatedAt: "2026-02-01T00:00:00Z",
             },
           ],
+          joinCode: "jc-2",
         }),
       })
       .mockResolvedValueOnce({
@@ -265,7 +266,6 @@ describe("thread store", () => {
       runtimeUrl: "https://runtime.example.com",
       headers: {},
       wsUrl: "ws://localhost:4000/client",
-      userId: "user-1",
       agentId: "agent-1",
     });
     await flushEffects();
@@ -274,7 +274,6 @@ describe("thread store", () => {
       runtimeUrl: "https://runtime.example.com",
       headers: {},
       wsUrl: "ws://localhost:4000/client",
-      userId: "user-1",
       agentId: "agent-2",
     });
 
@@ -296,13 +295,14 @@ describe("thread store", () => {
     ]);
   });
 
-  it("sends rename, archive, and delete requests with userId and agentId", async () => {
+  it("sends rename, archive, and delete requests with agentId only", async () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce({
         ok: true,
         json: async () => ({
           threads: sampleThreads,
+          joinCode: "jc-1",
         }),
       })
       .mockResolvedValueOnce({
@@ -326,7 +326,6 @@ describe("thread store", () => {
       runtimeUrl: "https://runtime.example.com",
       headers: { Authorization: "Bearer token" },
       wsUrl: "ws://localhost:4000/client",
-      userId: "user-1",
       agentId: "agent-1",
     });
 
@@ -340,7 +339,6 @@ describe("thread store", () => {
     expect(renameCall[0]).toBe("https://runtime.example.com/threads/thread-1");
     expect(renameCall[1]).toMatchObject({ method: "PATCH" });
     expect(JSON.parse(renameCall[1].body)).toMatchObject({
-      userId: "user-1",
       agentId: "agent-1",
       name: "Renamed",
     });
@@ -350,7 +348,6 @@ describe("thread store", () => {
       "https://runtime.example.com/threads/thread-2/archive",
     );
     expect(JSON.parse(archiveCall[1].body)).toMatchObject({
-      userId: "user-1",
       agentId: "agent-1",
     });
 
@@ -358,7 +355,6 @@ describe("thread store", () => {
     expect(deleteCall[0]).toBe("https://runtime.example.com/threads/thread-2");
     expect(deleteCall[1]).toMatchObject({ method: "DELETE" });
     expect(JSON.parse(deleteCall[1].body)).toMatchObject({
-      userId: "user-1",
       agentId: "agent-1",
     });
   });
@@ -379,7 +375,6 @@ describe("thread store", () => {
       runtimeUrl: "https://runtime.example.com",
       headers: {},
       wsUrl: "ws://localhost:4000/client",
-      userId: "user-1",
       agentId: "agent-1",
     });
 
@@ -393,7 +388,7 @@ describe("thread store", () => {
       .fn()
       .mockResolvedValueOnce({
         ok: true,
-        json: async () => ({ threads: sampleThreads }),
+        json: async () => ({ threads: sampleThreads, joinCode: "jc-1" }),
       })
       .mockResolvedValueOnce({
         ok: true,
@@ -410,7 +405,6 @@ describe("thread store", () => {
       runtimeUrl: "https://runtime.example.com",
       headers: {},
       wsUrl: "ws://localhost:4000/client",
-      userId: "user-1",
       agentId: "agent-1",
       includeArchived: true,
     });
@@ -428,7 +422,7 @@ describe("thread store", () => {
       .fn()
       .mockResolvedValueOnce({
         ok: true,
-        json: async () => ({ threads: sampleThreads }),
+        json: async () => ({ threads: sampleThreads, joinCode: "jc-1" }),
       })
       .mockResolvedValueOnce({
         ok: true,
@@ -445,7 +439,6 @@ describe("thread store", () => {
       runtimeUrl: "https://runtime.example.com",
       headers: {},
       wsUrl: "ws://localhost:4000/client",
-      userId: "user-1",
       agentId: "agent-1",
       limit: 10,
     });
@@ -461,7 +454,7 @@ describe("thread store", () => {
   it("tracks nextCursor and fetches next page", async () => {
     const page2Thread: ThreadRecord = {
       id: "thread-3",
-      tenantId: "tenant-1",
+      organizationId: "organization-1",
       agentId: "agent-1",
       createdById: "user-1",
       name: "Page 2 Thread",
@@ -475,6 +468,7 @@ describe("thread store", () => {
         ok: true,
         json: async () => ({
           threads: sampleThreads,
+          joinCode: "jc-1",
           nextCursor: "cursor-abc",
         }),
       })
@@ -500,7 +494,6 @@ describe("thread store", () => {
       runtimeUrl: "https://runtime.example.com",
       headers: {},
       wsUrl: "ws://localhost:4000/client",
-      userId: "user-1",
       agentId: "agent-1",
       limit: 2,
     });
@@ -527,7 +520,7 @@ describe("thread store", () => {
       .fn()
       .mockResolvedValueOnce({
         ok: true,
-        json: async () => ({ threads: sampleThreads }),
+        json: async () => ({ threads: sampleThreads, joinCode: "jc-1" }),
       })
       .mockResolvedValueOnce({
         ok: true,
@@ -544,7 +537,6 @@ describe("thread store", () => {
       runtimeUrl: "https://runtime.example.com",
       headers: {},
       wsUrl: "ws://localhost:4000/client",
-      userId: "user-1",
       agentId: "agent-1",
     });
 
@@ -556,7 +548,7 @@ describe("thread store", () => {
       operation: "archived",
       threadId: "thread-1",
       userId: "user-1",
-      tenantId: "tenant-1",
+      organizationId: "organization-1",
       occurredAt: "2026-01-03T00:00:00Z",
       thread: { ...sampleThreads[0], archived: true },
     });
@@ -572,7 +564,7 @@ describe("thread store", () => {
       .fn()
       .mockResolvedValueOnce({
         ok: true,
-        json: async () => ({ threads: sampleThreads }),
+        json: async () => ({ threads: sampleThreads, joinCode: "jc-1" }),
       })
       .mockResolvedValueOnce({
         ok: true,
@@ -589,7 +581,6 @@ describe("thread store", () => {
       runtimeUrl: "https://runtime.example.com",
       headers: {},
       wsUrl: "ws://localhost:4000/client",
-      userId: "user-1",
       agentId: "agent-1",
       includeArchived: true,
     });
@@ -602,7 +593,7 @@ describe("thread store", () => {
       operation: "archived",
       threadId: "thread-1",
       userId: "user-1",
-      tenantId: "tenant-1",
+      organizationId: "organization-1",
       occurredAt: "2026-01-03T00:00:00Z",
       thread: {
         ...sampleThreads[0],

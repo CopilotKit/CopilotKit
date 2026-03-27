@@ -42,7 +42,7 @@ export class PlatformRequestError extends Error {
  *   apiUrl: "https://api.copilotkit.ai",
  *   wsUrl: "wss://api.copilotkit.ai",
  *   apiKey: process.env.COPILOTKIT_API_KEY!,
- *   tenantId: process.env.COPILOTKIT_TENANT_ID!,
+ *   organizationId: process.env.COPILOTKIT_ORGANIZATION_ID!,
  * });
  *
  * const runtime = new CopilotRuntime({
@@ -66,8 +66,8 @@ export interface CopilotKitIntelligenceConfig {
   wsUrl: string;
   /** API key for authenticating with the intelligence platform */
   apiKey: string;
-  /** Tenant identifier used for self-hosted Intelligence instances */
-  tenantId: string;
+  /** Organization identifier used for self-hosted Intelligence instances */
+  organizationId: string;
   /**
    * Initial listener invoked after a thread is created.
    * Prefer {@link CopilotKitIntelligence.onThreadCreated} for multiple listeners.
@@ -111,8 +111,8 @@ export interface ThreadSummary {
   agentId?: string;
   /** The user who created this thread. */
   createdById?: string;
-  /** The tenant this thread belongs to. */
-  tenantId?: string;
+  /** The organization this thread belongs to. */
+  organizationId?: string;
 }
 
 /** Response from listing threads for a user/agent pair. */
@@ -212,6 +212,7 @@ export interface ThreadMessagesResponse {
 export interface AcquireThreadLockRequest {
   threadId: string;
   runId: string;
+  userId: string;
 }
 
 interface ThreadEnvelope {
@@ -223,7 +224,7 @@ export class CopilotKitIntelligence {
   #runnerWsUrl: string;
   #clientWsUrl: string;
   #apiKey: string;
-  #tenantId: string;
+  #organizationId: string;
   #threadCreatedListeners = new Set<(thread: ThreadSummary) => void>();
   #threadUpdatedListeners = new Set<(thread: ThreadSummary) => void>();
   #threadDeletedListeners = new Set<(params: ThreadDeletedPayload) => void>();
@@ -235,7 +236,7 @@ export class CopilotKitIntelligence {
     this.#runnerWsUrl = deriveRunnerWsUrl(intelligenceWsUrl);
     this.#clientWsUrl = deriveClientWsUrl(intelligenceWsUrl);
     this.#apiKey = config.apiKey;
-    this.#tenantId = config.tenantId;
+    this.#organizationId = config.organizationId;
 
     if (config.onThreadCreated) {
       this.onThreadCreated(config.onThreadCreated);
@@ -320,8 +321,8 @@ export class CopilotKitIntelligence {
     return this.#clientWsUrl;
   }
 
-  ɵgetTenantId(): string {
-    return this.#tenantId;
+  ɵgetOrganizationId(): string {
+    return this.#organizationId;
   }
 
   ɵgetRunnerAuthToken(): string {
@@ -334,7 +335,7 @@ export class CopilotKitIntelligence {
     const headers: Record<string, string> = {
       Authorization: `Bearer ${this.#apiKey}`,
       "Content-Type": "application/json",
-      "X-Tenant-Id": this.#tenantId,
+      "X-Organization-Id": this.#organizationId,
     };
 
     const response = await fetch(url, {
@@ -595,26 +596,30 @@ export class CopilotKitIntelligence {
     return this.#request<ThreadConnectionResponse>(
       "POST",
       `/api/threads/${encodeURIComponent(params.threadId)}/lock`,
-      { runId: params.runId },
+      { runId: params.runId, userId: params.userId },
     );
   }
 
   async ɵgetActiveJoinCode(params: {
     threadId: string;
+    userId: string;
   }): Promise<ThreadConnectionResponse> {
+    const qs = new URLSearchParams({ userId: params.userId }).toString();
     return this.#request<ThreadConnectionResponse>(
       "GET",
-      `/api/threads/${encodeURIComponent(params.threadId)}/join-code`,
+      `/api/threads/${encodeURIComponent(params.threadId)}/join-code?${qs}`,
     );
   }
 
   async ɵconnectThread(params: {
     threadId: string;
+    userId: string;
     lastSeenEventId?: string | null;
   }): Promise<ConnectThreadResponse> {
     const result = await this.#request<
       ConnectThreadBootstrapResponse | ConnectThreadLiveResponse
     >("POST", `/api/threads/${encodeURIComponent(params.threadId)}/connect`, {
+      userId: params.userId,
       ...(params.lastSeenEventId !== undefined
         ? { lastSeenEventId: params.lastSeenEventId }
         : {}),

@@ -51,9 +51,7 @@ describe("thread handlers", () => {
 
     const response = await handleListThreads({
       runtime,
-      request: new Request(
-        "https://example.com/threads?userId=user-1&agentId=agent-1",
-      ),
+      request: new Request("https://example.com/threads?agentId=agent-1"),
     });
 
     expect(response.status).toBe(422);
@@ -335,8 +333,6 @@ describe("thread handlers", () => {
       runtime,
       request: new Request("https://example.com/threads/subscribe", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId: "user-1" }),
       }),
     });
 

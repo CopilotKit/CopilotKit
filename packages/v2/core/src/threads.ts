@@ -44,7 +44,7 @@ const REQUEST_TIMEOUT_MS = 15_000;
 
 interface ThreadRecord {
   id: string;
-  tenantId: string;
+  organizationId: string;
   agentId: string;
   createdById: string;
   name: string | null;
@@ -57,7 +57,6 @@ interface ThreadRuntimeContext {
   runtimeUrl: string;
   headers: Record<string, string>;
   wsUrl?: string;
-  userId: string;
   agentId: string;
   includeArchived?: boolean;
   limit?: number;
@@ -68,7 +67,7 @@ type ThreadMetadataEvent =
       operation: "created" | "renamed" | "archived" | "unarchived" | "updated";
       threadId: string;
       userId: string;
-      tenantId: string;
+      organizationId: string;
       occurredAt: string;
       thread: ThreadRecord;
     }
@@ -76,7 +75,7 @@ type ThreadMetadataEvent =
       operation: "deleted";
       threadId: string;
       userId: string;
-      tenantId: string;
+      organizationId: string;
       occurredAt: string;
       deleted: {
         id: string;
@@ -85,6 +84,7 @@ type ThreadMetadataEvent =
 
 interface ThreadListResponse {
   threads: ThreadRecord[];
+  joinCode?: string | null;
   nextCursor?: string | null;
 }
 
@@ -115,6 +115,7 @@ interface ThreadState {
   context: ThreadRuntimeContext | null;
   sessionId: number;
   metadataCredentialsRequested: boolean;
+  metadataJoinCode: string | null;
   nextCursor: string | null;
 }
 
@@ -126,6 +127,7 @@ const initialThreadState: ThreadState = {
   context: null,
   sessionId: 0,
   metadataCredentialsRequested: false,
+  metadataJoinCode: null,
   nextCursor: null,
 };
 
@@ -148,6 +150,7 @@ const threadRestEvents = createActionGroup("Thread REST", {
   listSucceeded: props<{
     sessionId: number;
     threads: ThreadRecord[];
+    joinCode: string | null;
     nextCursor: string | null;
   }>(),
   listFailed: props<{ sessionId: number; error: Error }>(),
@@ -213,6 +216,7 @@ const threadReducer = createReducer<ThreadState>(
     isFetchingNextPage: false,
     error: null,
     metadataCredentialsRequested: false,
+    metadataJoinCode: null,
     nextCursor: null,
   })),
   on(threadAdapterEvents.stopped, (state) => ({
@@ -222,6 +226,7 @@ const threadReducer = createReducer<ThreadState>(
     isFetchingNextPage: false,
     error: null,
     metadataCredentialsRequested: false,
+    metadataJoinCode: null,
     nextCursor: null,
   })),
   on(threadRestEvents.listRequested, (state, { sessionId }) => {
@@ -237,7 +242,7 @@ const threadReducer = createReducer<ThreadState>(
   }),
   on(
     threadRestEvents.listSucceeded,
-    (state, { sessionId, threads, nextCursor }) => {
+    (state, { sessionId, threads, joinCode, nextCursor }) => {
       if (sessionId !== state.sessionId) {
         return state;
       }
@@ -247,6 +252,7 @@ const threadReducer = createReducer<ThreadState>(
         threads: sortThreadsByUpdatedAt(threads),
         isLoading: false,
         error: null,
+        metadataJoinCode: joinCode,
         nextCursor,
       };
     },
@@ -393,7 +399,6 @@ function createThreadFetchObservable(
 > {
   return defer(() => {
     const params: Record<string, string> = {
-      userId: context.userId,
       agentId: context.agentId,
     };
     if (context.includeArchived) params.includeArchived = "true";
@@ -422,6 +427,10 @@ function createThreadFetchObservable(
         threadRestEvents.listSucceeded({
           sessionId,
           threads: data.threads,
+          joinCode:
+            typeof data.joinCode === "string" && data.joinCode.length > 0
+              ? data.joinCode
+              : null,
           nextCursor: data.nextCursor ?? null,
         }),
       ),
@@ -462,9 +471,7 @@ function createThreadMetadataCredentialsObservable(
         ...context.headers,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        userId: context.userId,
-      }),
+      body: JSON.stringify({}),
     }).pipe(
       timeout({
         first: REQUEST_TIMEOUT_MS,
@@ -594,7 +601,8 @@ function createThreadStore(environment: ThreadEnvironment): ThreadStore {
         return (
           action.sessionId === state.sessionId &&
           !state.metadataCredentialsRequested &&
-          Boolean(state.context?.wsUrl)
+          Boolean(state.context?.wsUrl) &&
+          Boolean(state.metadataJoinCode)
         );
       }),
       map(([action]) =>
@@ -648,6 +656,7 @@ function createThreadStore(environment: ThreadEnvironment): ThreadStore {
       switchMap(([action, state]) => {
         const context = state.context as ThreadRuntimeContext;
         const joinToken = action.joinToken as string;
+        const joinCode = state.metadataJoinCode as string;
         const shutdown$ = actions$.pipe(
           ofType(
             threadAdapterEvents.contextChanged,
@@ -666,7 +675,7 @@ function createThreadStore(environment: ThreadEnvironment): ThreadStore {
           }).pipe(shareReplay({ bufferSize: 1, refCount: true }));
           const channel$ = ɵphoenixChannel$({
             socket$,
-            topic: `user_meta:${context.userId}`,
+            topic: `user_meta:${joinCode}`,
           }).pipe(shareReplay({ bufferSize: 1, refCount: true }));
           const socketSignals$ =
             ɵobservePhoenixSocketSignals$(socket$).pipe(share());
@@ -728,12 +737,7 @@ function createThreadStore(environment: ThreadEnvironment): ThreadStore {
     actions$.pipe(
       ofType(threadSocketEvents.metadataReceived),
       withLatestFrom(state$),
-      filter(([action, state]) => {
-        return (
-          action.sessionId === state.sessionId &&
-          action.payload.userId === state.context?.userId
-        );
-      }),
+      filter(([action, state]) => action.sessionId === state.sessionId),
       map(([action, state]) => {
         if (action.payload.operation === "deleted") {
           return threadDomainEvents.threadDeleted({
@@ -772,7 +776,6 @@ function createThreadStore(environment: ThreadEnvironment): ThreadStore {
       switchMap(([, state]) => {
         const context = state.context as ThreadRuntimeContext;
         const params: Record<string, string> = {
-          userId: context.userId,
           agentId: context.agentId,
           cursor: state.nextCursor!,
         };
@@ -855,7 +858,6 @@ function createThreadStore(environment: ThreadEnvironment): ThreadStore {
         }
 
         const commonBody = {
-          userId: context.userId,
           agentId: context.agentId,
         };
 

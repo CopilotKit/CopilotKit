@@ -226,6 +226,7 @@ describe("handleConnectAgent", () => {
         afterRequestMiddleware: undefined,
         runner,
         mode: "intelligence",
+        identifyUser: vi.fn().mockResolvedValue({ id: "user-1" }),
         intelligence: platform,
       } as unknown as CopilotRuntime;
     };
@@ -258,6 +259,7 @@ describe("handleConnectAgent", () => {
       });
       expect(platform.ɵconnectThread).toHaveBeenCalledWith({
         threadId: "thread-1",
+        userId: "user-1",
         lastSeenEventId: null,
       });
     });
@@ -303,6 +305,11 @@ describe("handleConnectAgent", () => {
       expect(response.status).toBe(204);
       expect(platform.createThread).not.toHaveBeenCalled();
       expect(platform.ɵconnectThread).toHaveBeenCalledTimes(1);
+      expect(platform.ɵconnectThread).toHaveBeenCalledWith({
+        threadId: "thread-1",
+        userId: "user-1",
+        lastSeenEventId: null,
+      });
     });
 
     it("returns 404 when connect planning is not available", async () => {
@@ -339,8 +346,78 @@ describe("handleConnectAgent", () => {
       expect(response.status).toBe(204);
       expect(platform.ɵconnectThread).toHaveBeenCalledWith({
         threadId: "thread-1",
+        userId: "user-1",
         lastSeenEventId: "event-9",
       });
+    });
+
+    it("uses identifyUser instead of a conflicting X-User-Id header", async () => {
+      const platform = {
+        ɵconnectThread: vi.fn().mockResolvedValue(null),
+      };
+      const identifyUser = vi.fn().mockResolvedValue({ id: "resolved-user" });
+      const runtime = createIntelligenceRuntime(platform as any);
+      runtime.identifyUser = identifyUser;
+      const request = createConnectRequest(
+        { "X-User-Id": "legacy-user" },
+        "event-9",
+      );
+
+      const response = await handleConnectAgent({
+        runtime,
+        request,
+        agentId: "my-agent",
+      });
+
+      expect(response.status).toBe(204);
+      expect(identifyUser).toHaveBeenCalledTimes(1);
+      expect(identifyUser).toHaveBeenCalledWith(request);
+      expect(platform.ɵconnectThread).toHaveBeenCalledWith({
+        threadId: "thread-1",
+        userId: "resolved-user",
+        lastSeenEventId: "event-9",
+      });
+    });
+
+    it("returns 400 when identifyUser returns an invalid id", async () => {
+      const platform = {
+        ɵconnectThread: vi.fn(),
+      };
+      const runtime = createIntelligenceRuntime(platform as any);
+      runtime.identifyUser = vi.fn().mockResolvedValue({ id: "" });
+
+      const response = await handleConnectAgent({
+        runtime,
+        request: createConnectRequest(),
+        agentId: "my-agent",
+      });
+
+      expect(response.status).toBe(400);
+      expect(platform.ɵconnectThread).not.toHaveBeenCalled();
+    });
+
+    it("returns 500 when identifyUser throws", async () => {
+      const platform = {
+        ɵconnectThread: vi.fn(),
+      };
+      const runtime = createIntelligenceRuntime(platform as any);
+      runtime.identifyUser = vi
+        .fn()
+        .mockRejectedValue(new Error("auth failed"));
+      const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+      try {
+        const response = await handleConnectAgent({
+          runtime,
+          request: createConnectRequest(),
+          agentId: "my-agent",
+        });
+
+        expect(response.status).toBe(500);
+        expect(platform.ɵconnectThread).not.toHaveBeenCalled();
+      } finally {
+        errorSpy.mockRestore();
+      }
     });
   });
 });

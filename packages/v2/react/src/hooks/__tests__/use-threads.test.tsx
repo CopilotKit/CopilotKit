@@ -165,12 +165,12 @@ function jsonResponse(body: unknown, status = 200) {
   });
 }
 
-const defaultInput = { userId: "user-1", agentId: "agent-1" };
+const defaultInput = { agentId: "agent-1" };
 
 const sampleThreads = [
   {
     id: "t-1",
-    tenantId: "tenant-1",
+    organizationId: "org-1",
     agentId: "agent-1",
     createdById: "user-1",
     name: "Thread One",
@@ -180,7 +180,7 @@ const sampleThreads = [
   },
   {
     id: "t-2",
-    tenantId: "tenant-1",
+    organizationId: "org-1",
     agentId: "agent-1",
     createdById: "user-1",
     name: "Thread Two",
@@ -201,7 +201,9 @@ describe("useThreads", () => {
 
   it("fetches threads and subscribes to the user metadata channel", async () => {
     fetchMock
-      .mockReturnValueOnce(jsonResponse({ threads: sampleThreads }))
+      .mockReturnValueOnce(
+        jsonResponse({ threads: sampleThreads, joinCode: "jc-1" }),
+      )
       .mockReturnValueOnce(jsonResponse({ joinToken: "jt-1" }));
 
     const { result } = renderHook(() => useThreads(defaultInput));
@@ -216,7 +218,7 @@ describe("useThreads", () => {
     ]);
     expect(result.current.error).toBeNull();
     expect(fetchMock).toHaveBeenCalledWith(
-      expect.stringContaining("/threads?userId=user-1&agentId=agent-1"),
+      expect.stringContaining("/threads?agentId=agent-1"),
       expect.objectContaining({ method: "GET" }),
     );
     expect(fetchMock).toHaveBeenCalledWith(
@@ -226,7 +228,7 @@ describe("useThreads", () => {
 
     const socket = getMockSockets()[0];
     expect(socket.connected).toBe(true);
-    expect(socket.channels[0].topic).toBe("user_meta:user-1");
+    expect(socket.channels[0].topic).toBe("user_meta:jc-1");
   });
 
   it("stores fetch failures in error state", async () => {
@@ -257,7 +259,9 @@ describe("useThreads", () => {
 
   it("updates local state directly from realtime metadata events", async () => {
     fetchMock
-      .mockReturnValueOnce(jsonResponse({ threads: sampleThreads }))
+      .mockReturnValueOnce(
+        jsonResponse({ threads: sampleThreads, joinCode: "jc-1" }),
+      )
       .mockReturnValueOnce(jsonResponse({ joinToken: "jt-1" }));
 
     const { result } = renderHook(() => useThreads(defaultInput));
@@ -273,7 +277,7 @@ describe("useThreads", () => {
         operation: "updated",
         threadId: "t-1",
         userId: "user-1",
-        tenantId: "tenant-1",
+        organizationId: "org-1",
         occurredAt: "2026-01-03T00:00:00Z",
         thread: {
           ...sampleThreads[0],
@@ -290,9 +294,11 @@ describe("useThreads", () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
-  it("ignores realtime metadata for a different user", async () => {
+  it("applies realtime metadata without client-side user filtering", async () => {
     fetchMock
-      .mockReturnValueOnce(jsonResponse({ threads: sampleThreads }))
+      .mockReturnValueOnce(
+        jsonResponse({ threads: sampleThreads, joinCode: "jc-1" }),
+      )
       .mockReturnValueOnce(jsonResponse({ joinToken: "jt-1" }));
 
     const { result } = renderHook(() => useThreads(defaultInput));
@@ -306,20 +312,22 @@ describe("useThreads", () => {
         operation: "deleted",
         threadId: "t-2",
         userId: "user-2",
-        tenantId: "tenant-1",
+        organizationId: "org-1",
         occurredAt: "2026-01-03T00:00:00Z",
         deleted: { id: "t-2" },
       });
     });
 
     await waitFor(() => {
-      expect(result.current.threads).toHaveLength(2);
+      expect(result.current.threads).toHaveLength(1);
     });
   });
 
   it("renames a thread through the runtime contract", async () => {
     fetchMock
-      .mockReturnValueOnce(jsonResponse({ threads: sampleThreads }))
+      .mockReturnValueOnce(
+        jsonResponse({ threads: sampleThreads, joinCode: "jc-1" }),
+      )
       .mockReturnValueOnce(jsonResponse({ joinToken: "jt-1" }))
       .mockReturnValueOnce(jsonResponse({}));
 
@@ -337,7 +345,6 @@ describe("useThreads", () => {
     expect(url).toContain("/threads/t-1");
     expect(options.method).toBe("PATCH");
     expect(JSON.parse(options.body)).toMatchObject({
-      userId: "user-1",
       agentId: "agent-1",
       name: "Renamed",
     });
@@ -345,7 +352,9 @@ describe("useThreads", () => {
 
   it("archives and deletes threads through the runtime contract", async () => {
     fetchMock
-      .mockReturnValueOnce(jsonResponse({ threads: sampleThreads }))
+      .mockReturnValueOnce(
+        jsonResponse({ threads: sampleThreads, joinCode: "jc-1" }),
+      )
       .mockReturnValueOnce(jsonResponse({ joinToken: "jt-1" }))
       .mockReturnValueOnce(jsonResponse({}))
       .mockReturnValueOnce(jsonResponse({}));
@@ -364,21 +373,21 @@ describe("useThreads", () => {
     expect(fetchMock.mock.calls[2][0]).toContain("/threads/t-2/archive");
     expect(fetchMock.mock.calls[2][1].method).toBe("POST");
     expect(JSON.parse(fetchMock.mock.calls[2][1].body)).toMatchObject({
-      userId: "user-1",
       agentId: "agent-1",
     });
 
     expect(fetchMock.mock.calls[3][0]).toContain("/threads/t-1");
     expect(fetchMock.mock.calls[3][1].method).toBe("DELETE");
     expect(JSON.parse(fetchMock.mock.calls[3][1].body)).toMatchObject({
-      userId: "user-1",
       agentId: "agent-1",
     });
   });
 
   it("tears down sockets after repeated connection failures", async () => {
     fetchMock
-      .mockReturnValueOnce(jsonResponse({ threads: sampleThreads }))
+      .mockReturnValueOnce(
+        jsonResponse({ threads: sampleThreads, joinCode: "jc-1" }),
+      )
       .mockReturnValueOnce(jsonResponse({ joinToken: "jt-1" }));
 
     renderHook(() => useThreads(defaultInput));
@@ -402,7 +411,9 @@ describe("useThreads", () => {
 
   it("tears down the active socket on unmount", async () => {
     fetchMock
-      .mockReturnValueOnce(jsonResponse({ threads: sampleThreads }))
+      .mockReturnValueOnce(
+        jsonResponse({ threads: sampleThreads, joinCode: "jc-1" }),
+      )
       .mockReturnValueOnce(jsonResponse({ joinToken: "jt-1" }));
 
     const { unmount } = renderHook(() => useThreads(defaultInput));
