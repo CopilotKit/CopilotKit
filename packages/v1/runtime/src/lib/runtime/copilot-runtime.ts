@@ -371,6 +371,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
         : {}),
       a2ui: params?.a2ui,
       mcpApps: params?.mcpApps,
+      openGenerativeUI: params?.openGenerativeUI,
     };
     this.params = params;
     this.observability = params?.observability_c;
