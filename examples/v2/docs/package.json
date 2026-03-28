@@ -1,6 +1,6 @@
 {
   "name": "@copilotkit/docs",
-  "version": "0.1.9",
+  "version": "0.1.8",
   "private": true,
   "scripts": {
     "dev": "mintlify dev --port 4000",

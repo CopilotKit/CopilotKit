@@ -1,18 +1,5 @@
 # @copilotkit/voice
 
-## 1.55.0
-
-### Minor Changes
-
-- 96885b5: refactor: consolidate V1/V2 packages into flat @copilotkit/\* structure
-
-### Patch Changes
-
-- Updated dependencies [96885b5]
-- Updated dependencies [a0a1cf4]
-- Updated dependencies [c62c5c8]
-  - @copilotkit/runtime@1.55.0
-
 ## 1.54.1-next.6
 
 ### Patch Changes

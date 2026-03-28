@@ -1,18 +1,5 @@
 # @copilotkit/core
 
-## 1.55.0
-
-### Minor Changes
-
-- 96885b5: refactor: consolidate V1/V2 packages into flat @copilotkit/\* structure
-
-### Patch Changes
-
-- 8113dba: fix: race condition in RunHandler.runAgent() causes dropped runs
-- d423001: fix: handle empty tool arguments without crashing — treat empty/null/undefined args as `{}` instead of throwing JSON parse error
-- Updated dependencies [96885b5]
-  - @copilotkit/shared@1.55.0
-
 ## 1.54.1-next.6
 
 ### Patch Changes
