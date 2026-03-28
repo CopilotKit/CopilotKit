@@ -103,6 +103,9 @@ export type BuiltInAgentModel =
   | "google/gemini-2.5-pro"
   | "google/gemini-2.5-flash"
   | "google/gemini-2.5-flash-lite"
+  // MiniMax models
+  | "minimax/MiniMax-M2.7"
+  | "minimax/MiniMax-M2.7-highspeed"
   // Allow any LanguageModel instance
   | (string & {});
 
@@ -234,6 +237,16 @@ export function resolveModel(
       return google(model);
     }
 
+    case "minimax": {
+      // Use OpenAI-compatible mode for MiniMax API
+      const minimax = createOpenAI({
+        baseURL: "https://api.minimax.io/v1",
+        apiKey: apiKey || process.env.MINIMAX_API_KEY!,
+        compatibility: "compatible",
+      });
+      return minimax(model);
+    }
+
     case "vertex": {
       const vertex = createVertex();
       return vertex(model);
@@ -241,7 +254,7 @@ export function resolveModel(
 
     default:
       throw new Error(
-        `Unknown provider "${provider}" in "${spec}". Supported: openai, anthropic, google (gemini).`,
+        `Unknown provider "${provider}" in "${spec}". Supported: openai, anthropic, google (gemini), minimax.`,
       );
   }
 }
