@@ -1,18 +1,5 @@
 # @copilotkit/runtime
 
-## 1.55.0
-
-### Minor Changes
-
-- 96885b5: refactor: consolidate V1/V2 packages into flat @copilotkit/\* structure
-
-### Patch Changes
-
-- a0a1cf4: feat: re export state streaming langgraph middleware
-- c62c5c8: custom mcpClients configuration
-- Updated dependencies [96885b5]
-  - @copilotkit/shared@1.55.0
-
 ## 1.54.1-next.6
 
 ### Patch Changes

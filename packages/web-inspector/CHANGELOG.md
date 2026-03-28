@@ -1,18 +1,5 @@
 # @copilotkit/web-inspector
 
-## 1.55.0
-
-### Minor Changes
-
-- 96885b5: refactor: consolidate V1/V2 packages into flat @copilotkit/\* structure
-
-### Patch Changes
-
-- Updated dependencies [96885b5]
-- Updated dependencies [8113dba]
-- Updated dependencies [d423001]
-  - @copilotkit/core@1.55.0
-
 ## 1.54.1-next.6
 
 ### Patch Changes
