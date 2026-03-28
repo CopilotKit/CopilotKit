@@ -94,5 +94,7 @@
     }
   },
   "parallel": 14,
-  "defaultBase": "main"
+  "defaultBase": "main",
+  "nxCloudId": "69c7bf9782147299c6e8d6f0",
+  "nxCloudUrl": "https://staging.nx.app"
 }
