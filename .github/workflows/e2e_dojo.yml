@@ -4,15 +4,13 @@ on:
   push:
     branches: [main]
     paths:
-      - "packages/v1/**"
-      - "packages/v2/**"
+      - "packages/**"
       - "sdk-python/**"
       - ".github/workflows/e2e_dojo.yml"
   pull_request:
     branches: [main]
     paths:
-      - "packages/v1/**"
-      - "packages/v2/**"
+      - "packages/**"
       - "sdk-python/**"
       - ".github/workflows/e2e_dojo.yml"
       - ".changeset"
@@ -41,8 +39,7 @@ jobs:
         with:
           filters: |
             ts:
-              - 'packages/v1/**'
-              - 'packages/v2/**'
+              - 'packages/**'
               - '.github/workflows/e2e_dojo.yml'
               - '.changeset'
             python:

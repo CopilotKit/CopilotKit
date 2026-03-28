@@ -1,16 +1,16 @@
-import { useState, useRef, useEffect } from "react"
-import type { Todo } from "./types"
+import { useState, useRef, useEffect } from "react";
+import type { Todo } from "./types";
 
 interface TodoCardProps {
-  todo: Todo
-  onToggleStatus: (todo: Todo) => void
-  onDelete: (todo: Todo) => void
-  onUpdateTitle: (todoId: string, title: string) => void
-  onUpdateDescription: (todoId: string, description: string) => void
-  onUpdateEmoji: (todoId: string, emoji: string) => void
+  todo: Todo;
+  onToggleStatus: (todo: Todo) => void;
+  onDelete: (todo: Todo) => void;
+  onUpdateTitle: (todoId: string, title: string) => void;
+  onUpdateDescription: (todoId: string, description: string) => void;
+  onUpdateEmoji: (todoId: string, emoji: string) => void;
 }
 
-const EMOJI_OPTIONS = ["✅", "🔥", "🎯", "💡", "🚀"]
+const EMOJI_OPTIONS = ["✅", "🔥", "🎯", "💡", "🚀"];
 
 export function TodoCard({
   todo,
@@ -20,44 +20,47 @@ export function TodoCard({
   onUpdateDescription,
   onUpdateEmoji,
 }: TodoCardProps) {
-  const [editingField, setEditingField] = useState<"title" | "description" | null>(null)
-  const [editValue, setEditValue] = useState("")
-  const [showEmojiPicker, setShowEmojiPicker] = useState(false)
-  const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const [editingField, setEditingField] = useState<
+    "title" | "description" | null
+  >(null);
+  const [editValue, setEditValue] = useState("");
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  const isCompleted = todo.status === "completed"
+  const isCompleted = todo.status === "completed";
   const truncatedDescription =
     todo.description.length > 120
       ? todo.description.slice(0, 120) + "..."
-      : todo.description
+      : todo.description;
 
   const startEdit = (field: "title" | "description") => {
-    setEditingField(field)
-    setEditValue(field === "title" ? todo.title : todo.description)
-  }
+    setEditingField(field);
+    setEditValue(field === "title" ? todo.title : todo.description);
+  };
 
   const saveEdit = (field: "title" | "description") => {
     if (!editValue.trim()) {
       // Don't save empty value — keep the editor open
-      return
+      return;
     }
-    if (field === "title") onUpdateTitle(todo.id, editValue.trim())
-    else onUpdateDescription(todo.id, editValue.trim())
-    setEditingField(null)
-    setEditValue("")
-  }
+    if (field === "title") onUpdateTitle(todo.id, editValue.trim());
+    else onUpdateDescription(todo.id, editValue.trim());
+    setEditingField(null);
+    setEditValue("");
+  };
 
   const cancelEdit = () => {
-    setEditingField(null)
-    setEditValue("")
-  }
+    setEditingField(null);
+    setEditValue("");
+  };
 
   useEffect(() => {
     if (textareaRef.current) {
-      textareaRef.current.style.height = "auto"
-      textareaRef.current.style.height = textareaRef.current.scrollHeight + "px"
+      textareaRef.current.style.height = "auto";
+      textareaRef.current.style.height =
+        textareaRef.current.scrollHeight + "px";
     }
-  }, [editValue])
+  }, [editValue]);
 
   return (
     <div
@@ -73,7 +76,15 @@ export function TodoCard({
         className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity duration-100 cursor-pointer rounded-full p-1 text-neutral-400 hover:text-neutral-600 dark:text-neutral-500 dark:hover:text-neutral-300"
         aria-label="Delete todo"
       >
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+        <svg
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+        >
           <line x1="18" y1="6" x2="6" y2="18" />
           <line x1="6" y1="6" x2="18" y2="18" />
         </svg>
@@ -98,8 +109,8 @@ export function TodoCard({
               <button
                 key={emoji}
                 onClick={() => {
-                  onUpdateEmoji(todo.id, emoji)
-                  setShowEmojiPicker(false)
+                  onUpdateEmoji(todo.id, emoji);
+                  setShowEmojiPicker(false);
                 }}
                 className="text-lg w-8 h-8 flex items-center justify-center rounded-full cursor-pointer transition-colors hover:bg-neutral-100 dark:hover:bg-neutral-700"
               >
@@ -119,12 +130,33 @@ export function TodoCard({
         >
           {isCompleted ? (
             <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-              <rect x="1" y="1" width="18" height="18" rx="6" className="fill-neutral-900 dark:fill-neutral-100" />
-              <path d="M6 10.5L8.5 13L14 7" className="stroke-white dark:stroke-neutral-900" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+              <rect
+                x="1"
+                y="1"
+                width="18"
+                height="18"
+                rx="6"
+                className="fill-neutral-900 dark:fill-neutral-100"
+              />
+              <path
+                d="M6 10.5L8.5 13L14 7"
+                className="stroke-white dark:stroke-neutral-900"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
             </svg>
           ) : (
             <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-              <rect x="1" y="1" width="18" height="18" rx="6" className="stroke-neutral-300 dark:stroke-neutral-600" strokeWidth="1.5" />
+              <rect
+                x="1"
+                y="1"
+                width="18"
+                height="18"
+                rx="6"
+                className="stroke-neutral-300 dark:stroke-neutral-600"
+                strokeWidth="1.5"
+              />
             </svg>
           )}
         </button>
@@ -137,8 +169,8 @@ export function TodoCard({
               onChange={(e) => setEditValue(e.target.value)}
               onBlur={() => saveEdit("title")}
               onKeyDown={(e) => {
-                if (e.key === "Enter") saveEdit("title")
-                if (e.key === "Escape") cancelEdit()
+                if (e.key === "Enter") saveEdit("title");
+                if (e.key === "Escape") cancelEdit();
               }}
               className="w-full text-[16px] font-semibold focus:outline-none bg-transparent text-neutral-900 dark:text-neutral-100 border-b-2 border-neutral-900 dark:border-neutral-100 pb-[2px]"
               autoFocus
@@ -164,7 +196,7 @@ export function TodoCard({
               onChange={(e) => setEditValue(e.target.value)}
               onBlur={() => saveEdit("description")}
               onKeyDown={(e) => {
-                if (e.key === "Escape") cancelEdit()
+                if (e.key === "Escape") cancelEdit();
               }}
               className="w-full mt-1.5 text-[14px] leading-relaxed focus:outline-none resize-none bg-transparent text-neutral-500 dark:text-neutral-400 border-b-2 border-neutral-900 dark:border-neutral-100 pb-[2px]"
               rows={1}
@@ -186,5 +218,5 @@ export function TodoCard({
         </div>
       </div>
     </div>
-  )
+  );
 }

@@ -37,4 +37,4 @@ pnpm -C ../../ --filter node-express example-build
 ## Notes
 
 - This example uses `createCopilotEndpointSingleRouteExpress`.
-- TypeScript uses `moduleResolution: node16` to resolve the `@copilotkitnext/runtime/express` export correctly.
+- TypeScript uses `moduleResolution: node16` to resolve the `@copilotkit/runtime/express` export correctly.

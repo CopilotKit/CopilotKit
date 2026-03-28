@@ -1,15 +1,15 @@
-import type { Todo } from "./types"
-import { TodoColumn } from "./TodoColumn"
+import type { Todo } from "./types";
+import { TodoColumn } from "./TodoColumn";
 
 interface TodoListProps {
-  todos: Todo[]
-  onUpdate: (todos: Todo[]) => void
-  isAgentRunning: boolean
+  todos: Todo[];
+  onUpdate: (todos: Todo[]) => void;
+  isAgentRunning: boolean;
 }
 
 export function TodoList({ todos, onUpdate, isAgentRunning }: TodoListProps) {
-  const pendingTodos = todos.filter((t) => t.status === "pending")
-  const completedTodos = todos.filter((t) => t.status === "completed")
+  const pendingTodos = todos.filter((t) => t.status === "pending");
+  const completedTodos = todos.filter((t) => t.status === "completed");
 
   const toggleStatus = (todo: Todo) => {
     onUpdate(
@@ -19,26 +19,26 @@ export function TodoList({ todos, onUpdate, isAgentRunning }: TodoListProps) {
               ...t,
               status: t.status === "completed" ? "pending" : "completed",
             }
-          : t
-      )
-    )
-  }
+          : t,
+      ),
+    );
+  };
 
   const deleteTodo = (todo: Todo) => {
-    onUpdate(todos.filter((t) => t.id !== todo.id))
-  }
+    onUpdate(todos.filter((t) => t.id !== todo.id));
+  };
 
   const updateTitle = (todoId: string, title: string) => {
-    onUpdate(todos.map((t) => (t.id === todoId ? { ...t, title } : t)))
-  }
+    onUpdate(todos.map((t) => (t.id === todoId ? { ...t, title } : t)));
+  };
 
   const updateDescription = (todoId: string, description: string) => {
-    onUpdate(todos.map((t) => (t.id === todoId ? { ...t, description } : t)))
-  }
+    onUpdate(todos.map((t) => (t.id === todoId ? { ...t, description } : t)));
+  };
 
   const updateEmoji = (todoId: string, emoji: string) => {
-    onUpdate(todos.map((t) => (t.id === todoId ? { ...t, emoji } : t)))
-  }
+    onUpdate(todos.map((t) => (t.id === todoId ? { ...t, emoji } : t)));
+  };
 
   const addTodo = () => {
     const newTodo: Todo = {
@@ -47,9 +47,9 @@ export function TodoList({ todos, onUpdate, isAgentRunning }: TodoListProps) {
       description: "Add a description",
       emoji: "🎯",
       status: "pending",
-    }
-    onUpdate([...todos, newTodo])
-  }
+    };
+    onUpdate([...todos, newTodo]);
+  };
 
   if (todos.length === 0) {
     return (
@@ -70,7 +70,7 @@ export function TodoList({ todos, onUpdate, isAgentRunning }: TodoListProps) {
           Add a task
         </button>
       </div>
-    )
+    );
   }
 
   return (
@@ -100,5 +100,5 @@ export function TodoList({ todos, onUpdate, isAgentRunning }: TodoListProps) {
         isAgentRunning={isAgentRunning}
       />
     </div>
-  )
+  );
 }

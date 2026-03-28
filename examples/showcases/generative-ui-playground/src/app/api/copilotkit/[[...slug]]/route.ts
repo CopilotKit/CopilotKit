@@ -12,9 +12,9 @@ import {
   CopilotRuntime,
   createCopilotEndpoint,
   InMemoryAgentRunner,
-} from "@copilotkitnext/runtime";
+} from "@copilotkit/runtime";
 import { handle } from "hono/vercel";
-import { BasicAgent } from "@copilotkitnext/agent";
+import { BasicAgent } from "@copilotkit/runtime/v2";
 import { MCPAppsMiddleware } from "@ag-ui/mcp-apps-middleware";
 import { A2AAgent } from "@ag-ui/a2a";
 import { A2AClient } from "@a2a-js/sdk/client";

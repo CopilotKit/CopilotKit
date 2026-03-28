@@ -8,30 +8,24 @@ Frontend (React/Angular/Vanilla)  →  Runtime (Express/Hono server)  →  Agent
 
 All layers communicate via the **AG-UI protocol** — an event-based standard streamed over SSE.
 
-## V1 vs V2
+## Package Structure
 
-V2 (`@copilotkitnext/`) is the real implementation. V1 (`@copilotkit/`) is the public API that wraps V2 internally. New features always go in V2. If V1 compatibility is needed, create a thin re-export or wrapper in the corresponding V1 package.
+All packages live flat under `packages/` using the `@copilotkit/` scope. There is no v1/v2 split — the codebase is consolidated.
 
-## V2 Packages
+## Packages
 
 - **shared**: Common utilities, types, and constants used across all other packages.
 - **core**: The `CopilotKitCore` orchestrator — the central brain on the frontend. Manages the agent registry, tool registry, context store, and event subscriptions. All framework packages (React, Angular, Vanilla) wrap this.
-- **react**: React hooks (`useAgent`, `useFrontendTool`, `useAgentContext`, etc.) and `CopilotKitProvider`. Hooks are thin wrappers that register/unregister with `CopilotKitCore` on mount/unmount.
+- **react-core**: The public `<CopilotKit>` provider and hooks. Wraps core for React.
+- **react-ui**: Chat UI components — `CopilotChat`, `CopilotPopup`, `CopilotSidebar`, `CopilotPanel`.
+- **react-textarea**: The `CopilotTextarea` component for AI-assisted text editing.
 - **angular**: Angular DI tokens, services, and signal-based state. Same concepts as React but using Angular patterns (`inject()`, signals, `AgentStore`).
-- **runtime**: The server-side `CopilotRuntime` class that receives HTTP requests and delegates to agents. Provides Express and Hono adapters. Contains the `AgentRunner` abstraction for managing thread/conversation state.
+- **runtime**: The server-side `CopilotRuntime` class that receives HTTP requests and delegates to agents. Provides Express and Hono adapters. Contains the `AgentRunner` abstraction for managing thread/conversation state. Also includes GraphQL server and LLM adapters.
+- **runtime-client-gql**: urql-based GraphQL client for frontend-to-runtime communication.
 - **agent**: The `BuiltInAgent` — a default agent implementation powered by the Vercel AI SDK. Used when developers don't bring their own agent framework.
 - **voice**: Voice input and transcription support.
 - **web-inspector**: A debug console (Lit web component) for inspecting agent communication in development.
 - **sqlite-runner**: An `AgentRunner` implementation that persists thread state to SQLite instead of memory.
-
-## V1 Packages
-
-- **react-core**: The public `<CopilotKit>` provider and hooks. Internally delegates to V2 core.
-- **react-ui**: Chat UI components — `CopilotChat`, `CopilotPopup`, `CopilotSidebar`, `CopilotPanel`.
-- **react-textarea**: The `CopilotTextarea` component for AI-assisted text editing.
-- **shared**: Shared types and telemetry utilities.
-- **runtime**: Server-side runtime with GraphQL server and LLM adapters.
-- **runtime-client-gql**: urql-based GraphQL client for frontend-to-runtime communication.
 - **sdk-js**: Helpers for LangGraph/LangChain agent integration.
 
 ## Request Lifecycle

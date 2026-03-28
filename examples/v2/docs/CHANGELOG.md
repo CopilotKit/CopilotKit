@@ -1,4 +1,4 @@
-# @copilotkitnext/docs
+# @copilotkit/docs
 
 ## 0.1.8
 

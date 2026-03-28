@@ -43,8 +43,8 @@ sequenceDiagram
 ## Backend: Register Multiple Agents
 
 ```typescript
-import { CopilotRuntime } from "@copilotkitnext/runtime";
-import { createCopilotEndpointExpress } from "@copilotkitnext/runtime/express";
+import { CopilotRuntime } from "@copilotkit/runtime";
+import { createCopilotEndpointExpress } from "@copilotkit/runtime/express";
 
 const runtime = new CopilotRuntime({
   agents: {
@@ -98,7 +98,7 @@ graph LR
 ### React
 
 ```tsx
-import { useAgent } from "@copilotkitnext/react";
+import { useAgent } from "@copilotkit/react-core";
 
 function ResearchPanel() {
   // Gets the "research" agent
@@ -122,7 +122,7 @@ function CodingPanel() {
 ### Using CopilotChat with agent IDs
 
 ```tsx
-import { CopilotChat } from "@copilotkitnext/react";
+import { CopilotChat } from "@copilotkit/react-core";
 
 function App() {
   return (
@@ -341,9 +341,9 @@ Each thread maintains its own:
 ### Backend
 
 ```typescript
-import { CopilotRuntime } from "@copilotkitnext/runtime";
-import { createCopilotEndpointExpress } from "@copilotkitnext/runtime/express";
-import { BuiltInAgent } from "@copilotkitnext/agent";
+import { CopilotRuntime } from "@copilotkit/runtime";
+import { createCopilotEndpointExpress } from "@copilotkit/runtime/express";
+import { BuiltInAgent } from "@copilotkit/runtime/v2";
 
 const agents = {
   default: new BuiltInAgent({
@@ -374,7 +374,7 @@ import {
   useAgent,
   useFrontendTool,
   useAgentContext,
-} from "@copilotkitnext/react";
+} from "@copilotkit/react-core";
 import { z } from "zod";
 
 export default function App() {

@@ -4,18 +4,19 @@ Chat UI with generative charts, shared-state todo canvas, and inline tool render
 
 ## Prerequisites
 
-| Tool | Version |
-|---|---|
+| Tool    | Version                      |
+| ------- | ---------------------------- |
 | AWS CLI | configured (`aws configure`) |
-| Node.js | 18+ |
-| Python | 3.8+ |
-| Docker | running |
+| Node.js | 18+                          |
+| Python  | 3.8+                         |
+| Docker  | running                      |
 
 ## Quick Start
 
 1. **Edit `config.yaml`** — set `stack_name_base` and `admin_user_email`
 
 2. **Deploy:**
+
    ```bash
    ./deploy-langgraph.sh                    # LangGraph agent (infra + frontend)
    ./deploy-langgraph.sh --skip-frontend    # infra/agent only, skip frontend
@@ -28,13 +29,13 @@ Chat UI with generative charts, shared-state todo canvas, and inline tool render
 
 ## What's inside
 
-| Piece | What it does |
-|---|---|
-| `frontend/` | Vite + React with CopilotKit chat, charts, todo canvas |
-| `agents/langgraph/` | LangGraph agent with tools + shared todo state |
-| `agents/strands/` | Strands agent with tools + shared todo state |
-| `infra-cdk/` | CDK: Cognito, AgentCore, CopilotKit Lambda bridge, Amplify |
-| `infra-terraform/` | Terraform equivalent — see `infra-terraform/README.md` |
+| Piece               | What it does                                               |
+| ------------------- | ---------------------------------------------------------- |
+| `frontend/`         | Vite + React with CopilotKit chat, charts, todo canvas     |
+| `agents/langgraph/` | LangGraph agent with tools + shared todo state             |
+| `agents/strands/`   | Strands agent with tools + shared todo state               |
+| `infra-cdk/`        | CDK: Cognito, AgentCore, CopilotKit Lambda bridge, Amplify |
+| `infra-terraform/`  | Terraform equivalent — see `infra-terraform/README.md`     |
 
 ## Architecture
 

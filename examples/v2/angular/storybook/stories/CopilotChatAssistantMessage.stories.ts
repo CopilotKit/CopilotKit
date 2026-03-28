@@ -6,7 +6,7 @@ import { Component, Input } from "@angular/core";
 import {
   CopilotChatAssistantMessage,
   provideCopilotChatLabels,
-} from "@copilotkitnext/angular";
+} from "@copilotkit/angular";
 import { AssistantMessage } from "@ag-ui/client";
 
 // Simple default message
@@ -356,7 +356,7 @@ export const Default: Story = {
       source: {
         type: "code",
         code: `import { Component } from '@angular/core';
-import { CopilotChatAssistantMessage } from '@copilotkitnext/angular';
+import { CopilotChatAssistantMessage } from '@copilotkit/angular';
 import { AssistantMessage } from '@ag-ui/client';
 
 @Component({
@@ -413,7 +413,7 @@ export const TestAllMarkdownFeatures: Story = {
       source: {
         type: "code",
         code: `import { Component } from '@angular/core';
-import { CopilotChatAssistantMessage } from '@copilotkitnext/angular';
+import { CopilotChatAssistantMessage } from '@copilotkit/angular';
 import { AssistantMessage } from '@ag-ui/client';
 
 @Component({
@@ -502,7 +502,7 @@ export const WithToolbarButtons: Story = {
       source: {
         type: "code",
         code: `import { Component } from '@angular/core';
-import { CopilotChatAssistantMessage } from '@copilotkitnext/angular';
+import { CopilotChatAssistantMessage } from '@copilotkit/angular';
 import { AssistantMessage } from '@ag-ui/client';
 
 @Component({
@@ -595,7 +595,7 @@ export const WithAdditionalToolbarItems: Story = {
       source: {
         type: "code",
         code: `import { Component, ViewChild, TemplateRef } from '@angular/core';
-import { CopilotChatAssistantMessage } from '@copilotkitnext/angular';
+import { CopilotChatAssistantMessage } from '@copilotkit/angular';
 import { AssistantMessage } from '@ag-ui/client';
 
 @Component({
@@ -678,7 +678,7 @@ export const CodeBlocksWithLanguages: Story = {
       source: {
         type: "code",
         code: `import { Component } from '@angular/core';
-import { CopilotChatAssistantMessage } from '@copilotkitnext/angular';
+import { CopilotChatAssistantMessage } from '@copilotkit/angular';
 import { AssistantMessage } from '@ag-ui/client';
 
 @Component({
