@@ -6,6 +6,7 @@ import {
   parseConnectRequest,
   RunAgentParameters as ConnectAgentParameters,
   cloneAgentForRequest,
+  configureAgentForRequest,
 } from "./shared/agent-utils";
 
 export async function handleConnectAgent({
@@ -34,10 +35,20 @@ export async function handleConnectAgent({
       return agent;
     }
 
+    configureAgentForRequest({ runtime, request, agentId, agent });
+
     const connectRequest = await parseConnectRequest(request);
     if (connectRequest instanceof Response) {
       return connectRequest;
     }
+
+    if (typeof agent.setMessages === "function") {
+      agent.setMessages(connectRequest.input.messages);
+    }
+    if (typeof agent.setState === "function") {
+      agent.setState(connectRequest.input.state);
+    }
+    agent.threadId = connectRequest.input.threadId;
 
     if (isIntelligenceRuntime(runtime)) {
       return handleIntelligenceConnect({
@@ -51,6 +62,8 @@ export async function handleConnectAgent({
     return handleSseConnect({
       runtime,
       request,
+      agent,
+      input: connectRequest.input,
       threadId: connectRequest.input.threadId,
     });
   } catch (error) {

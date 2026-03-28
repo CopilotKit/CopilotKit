@@ -1,6 +1,6 @@
 import { Observable } from "rxjs";
 import { describe, it, expect, vi } from "vitest";
-import { BaseEvent } from "@ag-ui/client";
+import { BaseEvent, HttpAgent, type AbstractAgent } from "@ag-ui/client";
 import { handleConnectAgent } from "../handlers/handle-connect";
 import { CopilotRuntime } from "../runtime";
 import { AgentRunnerConnectRequest } from "../runner/agent-runner";
@@ -185,6 +185,89 @@ describe("handleConnectAgent", () => {
 
     expect(recordedRequests).toHaveLength(1);
     expect(recordedRequests[0].headers).toEqual({});
+  });
+
+  it("configures and seeds the cloned agent before delegating connect", async () => {
+    class RecordingHttpAgent extends HttpAgent {
+      constructor(initialHeaders: Record<string, string>) {
+        super({ url: "https://runtime.example/connect" });
+        this.headers = initialHeaders;
+      }
+
+      clone(): AbstractAgent {
+        return new RecordingHttpAgent({ ...(this.headers ?? {}) });
+      }
+    }
+
+    const recordedRequests: AgentRunnerConnectRequest[] = [];
+    let resolveConnect: (() => void) | undefined;
+    const connectInvoked = new Promise<void>((resolve) => {
+      resolveConnect = resolve;
+    });
+
+    const registeredAgent = new RecordingHttpAgent({
+      authorization: "Bearer base-token",
+    });
+
+    const runtime = {
+      agents: Promise.resolve({ "test-agent": registeredAgent }),
+      transcriptionService: undefined,
+      beforeRequestMiddleware: undefined,
+      afterRequestMiddleware: undefined,
+      runner: {
+        run: () =>
+          new Observable<BaseEvent>((subscriber) => {
+            subscriber.complete();
+          }),
+        connect: (request: AgentRunnerConnectRequest) =>
+          new Observable<BaseEvent>((subscriber) => {
+            recordedRequests.push(request);
+            resolveConnect?.();
+            subscriber.complete();
+          }),
+        isRunning: async () => false,
+        stop: async () => false,
+      },
+    } as CopilotRuntime;
+
+    const input = {
+      threadId: "thread-configured",
+      runId: "run-configured",
+      state: { cycle: 3 },
+      messages: [{ id: "m-1", role: "user", content: "hello" }],
+      tools: [],
+      context: [],
+      forwardedProps: {},
+    };
+
+    const response = await handleConnectAgent({
+      runtime,
+      request: new Request("https://example.com/agent/test-agent/connect", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: "Bearer forwarded-token",
+          "X-Connect": "enabled",
+        },
+        body: JSON.stringify(input),
+      }),
+      agentId: "test-agent",
+    });
+
+    expect(response.status).toBe(200);
+    await connectInvoked;
+
+    expect(recordedRequests).toHaveLength(1);
+    expect(recordedRequests[0].threadId).toBe("thread-configured");
+    expect(recordedRequests[0].agent).toBeInstanceOf(RecordingHttpAgent);
+    expect((recordedRequests[0].agent as HttpAgent).headers).toMatchObject({
+      authorization: "Bearer forwarded-token",
+      "x-connect": "enabled",
+    });
+    expect(recordedRequests[0].agent?.threadId).toBe("thread-configured");
+    expect(recordedRequests[0].agent?.state).toEqual({ cycle: 3 });
+    expect(recordedRequests[0].agent?.messages).toEqual(input.messages);
+    expect(recordedRequests[0].input).toMatchObject(input);
   });
 
   describe("IntelligenceAgentRunner connect planning path", () => {
