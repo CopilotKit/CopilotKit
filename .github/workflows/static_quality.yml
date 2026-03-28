@@ -50,13 +50,10 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - uses: nrwl/nx-set-shas@v4
+
       - name: Run Prettier check (affected files only)
-        run: |
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            npx nx format:check --base=origin/${{ github.base_ref }} --head=HEAD
-          else
-            npx nx format:check --base=HEAD~1 --head=HEAD
-          fi
+        run: pnpm exec nx-cloud record -- nx format:check
 
   eslint:
     runs-on: ubuntu-latest
