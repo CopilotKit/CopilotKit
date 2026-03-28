@@ -5,6 +5,7 @@ import {
   fireEvent,
   waitFor,
   within,
+  act,
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { vi } from "vitest";
@@ -981,6 +982,127 @@ describe("CopilotChatInput", () => {
       // It's up to the parent to manage the value
       expect((input as HTMLTextAreaElement).value).toBe("test message");
       expect(mockOnSubmitMessage).toHaveBeenCalledWith("test message");
+    });
+  });
+
+  describe("IME composition handling", () => {
+    it("does not send message when Enter is pressed during IME composition", () => {
+      const mockOnChange = vi.fn();
+      renderWithProvider(
+        <CopilotChatInput
+          value="test"
+          onChange={mockOnChange}
+          onSubmitMessage={mockOnSubmitMessage}
+        />,
+      );
+
+      const input = screen.getByPlaceholderText("Type a message...");
+      fireEvent.compositionStart(input);
+      fireEvent.keyDown(input, { key: "Enter", shiftKey: false });
+
+      expect(mockOnSubmitMessage).not.toHaveBeenCalled();
+    });
+
+    it("sends message normally after IME composition ends", async () => {
+      const mockOnChange = vi.fn();
+      renderWithProvider(
+        <CopilotChatInput
+          value="你好"
+          onChange={mockOnChange}
+          onSubmitMessage={mockOnSubmitMessage}
+        />,
+      );
+
+      const input = screen.getByPlaceholderText("Type a message...");
+      fireEvent.compositionStart(input);
+      fireEvent.compositionEnd(input);
+
+      // Wait for setTimeout(0) in compositionEnd handler to flush
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      });
+
+      fireEvent.keyDown(input, { key: "Enter", shiftKey: false });
+
+      expect(mockOnSubmitMessage).toHaveBeenCalledWith("你好");
+    });
+
+    it("does not select slash command when Enter is pressed during IME composition", async () => {
+      const handleCommand = vi.fn();
+
+      renderWithProvider(
+        <CopilotChatInput
+          onSubmitMessage={mockOnSubmitMessage}
+          toolsMenu={[{ label: "Say hi", action: handleCommand }]}
+        />,
+      );
+
+      const textarea = screen.getByRole("textbox");
+      fireEvent.change(textarea, { target: { value: "/" } });
+
+      await screen.findByTestId("copilot-slash-menu");
+
+      fireEvent.compositionStart(textarea);
+      fireEvent.keyDown(textarea, { key: "Enter" });
+
+      expect(handleCommand).not.toHaveBeenCalled();
+      expect(mockOnSubmitMessage).not.toHaveBeenCalled();
+    });
+
+    it("allows send button click during IME composition", () => {
+      const mockOnChange = vi.fn();
+      const { container } = renderWithProvider(
+        <CopilotChatInput
+          value="composed"
+          onChange={mockOnChange}
+          onSubmitMessage={mockOnSubmitMessage}
+        />,
+      );
+
+      const input = screen.getByPlaceholderText("Type a message...");
+      fireEvent.compositionStart(input);
+
+      const sendButton = getSendButton(container);
+      fireEvent.click(sendButton!);
+
+      expect(mockOnSubmitMessage).toHaveBeenCalledWith("composed");
+    });
+
+    it("handles Firefox compositionend-before-keydown timing correctly", () => {
+      vi.useFakeTimers();
+
+      try {
+        const mockOnChange = vi.fn();
+        renderWithProvider(
+          <CopilotChatInput
+            value="你好"
+            onChange={mockOnChange}
+            onSubmitMessage={mockOnSubmitMessage}
+          />,
+        );
+
+        const input = screen.getByPlaceholderText("Type a message...");
+
+        // Simulate Firefox event order: compositionend fires BEFORE keydown
+        fireEvent.compositionStart(input);
+        fireEvent.compositionEnd(input);
+
+        // In Firefox, keydown fires immediately after compositionend
+        // but setTimeout(0) in compositionEnd handler hasn't flushed yet
+        fireEvent.keyDown(input, { key: "Enter", shiftKey: false });
+
+        // Message should NOT be sent because isComposingRef is still true
+        expect(mockOnSubmitMessage).not.toHaveBeenCalled();
+
+        // Now flush the setTimeout(0) that resets isComposingRef
+        vi.runAllTimers();
+
+        // After timer flush, Enter should work normally
+        fireEvent.keyDown(input, { key: "Enter", shiftKey: false });
+        expect(mockOnSubmitMessage).toHaveBeenCalledWith("你好");
+      } finally {
+        vi.useRealTimers();
+      }
     });
   });
 });
