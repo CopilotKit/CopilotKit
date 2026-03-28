@@ -194,6 +194,8 @@ export class WebInspectorElement extends LitElement {
   private dockMode: DockMode = "floating";
   private previousBodyMargins: { left: string; bottom: string } | null = null;
   private transitionTimeoutId: ReturnType<typeof setTimeout> | null = null;
+  private bodyTransitionTimeoutIds: Set<ReturnType<typeof setTimeout>> =
+    new Set();
   private pendingSelectedContext: string | null = null;
   private autoAttachCore = true;
   private attemptedAutoAttach = false;
@@ -1195,7 +1197,16 @@ ${argsString}</pre
         this.handleGlobalPointerDown as EventListener,
       );
     }
-    this.removeDockStyles(); // Clean up any docking styles
+    // Clear pending body-transition timers to prevent post-teardown errors
+    for (const id of this.bodyTransitionTimeoutIds) {
+      clearTimeout(id);
+    }
+    this.bodyTransitionTimeoutIds.clear();
+    if (this.transitionTimeoutId !== null) {
+      clearTimeout(this.transitionTimeoutId);
+      this.transitionTimeoutId = null;
+    }
+    this.removeDockStyles(true); // Clean up any docking styles, skip transition
     this.detachFromCore();
   }
 
@@ -2032,21 +2043,23 @@ ${argsString}</pre
 
     // Remove transition after animation completes
     if (!this.isResizing && !skipTransition) {
-      setTimeout(() => {
-        if (document.body) {
+      const id = setTimeout(() => {
+        this.bodyTransitionTimeoutIds.delete(id);
+        if (typeof document !== "undefined" && document.body) {
           document.body.style.transition = "";
         }
       }, 300);
+      this.bodyTransitionTimeoutIds.add(id);
     }
   }
 
-  private removeDockStyles(): void {
+  private removeDockStyles(skipTransition = false): void {
     if (typeof document === "undefined" || !document.body) {
       return;
     }
 
-    // Only add transition if not resizing
-    if (!this.isResizing) {
+    // Only add transition if not resizing and not skipping
+    if (!this.isResizing && !skipTransition) {
       document.body.style.transition = "margin 300ms ease";
     }
 
@@ -2062,11 +2075,17 @@ ${argsString}</pre
     }
 
     // Clean up transition after animation completes
-    setTimeout(() => {
-      if (document.body) {
-        document.body.style.transition = "";
-      }
-    }, 300);
+    if (!skipTransition) {
+      const id = setTimeout(() => {
+        this.bodyTransitionTimeoutIds.delete(id);
+        if (typeof document !== "undefined" && document.body) {
+          document.body.style.transition = "";
+        }
+      }, 300);
+      this.bodyTransitionTimeoutIds.add(id);
+    } else {
+      document.body.style.transition = "";
+    }
   }
 
   private updateHostTransform(context: ContextKey = this.activeContext): void {
