@@ -31,4 +31,5 @@ jobs:
       - name: Build
         run: pnpm run build
 
-      - run: npx pkg-pr-new publish  --pnpm --packageManager pnpm "./packages/*"
+      - name: Publish preview packages (skipped in fork)
+        run: echo "Skipping pkg-pr-new publish (fork — no access)"
