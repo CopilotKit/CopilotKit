@@ -253,11 +253,11 @@ export class OpenAIAdapter implements CopilotServiceAdapter {
             if (mode === null) {
               if (toolCall?.id) {
                 mode = "function";
-                currentToolCallId = toolCall!.id;
+                currentToolCallId = toolCall.id;
                 eventStream$.sendActionExecutionStart({
                   actionExecutionId: currentToolCallId,
                   parentMessageId: chunk.id,
-                  actionName: toolCall!.function!.name,
+                  actionName: toolCall.function!.name,
                 });
               } else if (content) {
                 mode = "message";
