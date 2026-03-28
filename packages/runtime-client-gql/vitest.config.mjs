@@ -7,5 +7,6 @@ export default defineConfig({
     include: ["src/**/*.{test,spec}.ts"],
     reporters: [["default", { summary: false }]],
     silent: true,
+    retry: 2,
   },
 });

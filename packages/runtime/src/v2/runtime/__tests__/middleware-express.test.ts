@@ -48,15 +48,15 @@ describe("CopilotEndpointExpress middleware", () => {
       path: "/info",
     });
 
-    await new Promise((resolve) => setTimeout(resolve, 20));
-
-    expect(after).toHaveBeenCalledWith(
-      expect.objectContaining({
-        runtime,
-        response: expect.any(Response),
-        path: "/info",
-      }),
-    );
+    await vi.waitFor(() => {
+      expect(after).toHaveBeenCalledWith(
+        expect.objectContaining({
+          runtime,
+          response: expect.any(Response),
+          path: "/info",
+        }),
+      );
+    });
 
     expect(response.status).toBe(200);
     expect(response.body).toHaveProperty("version");
@@ -142,8 +142,9 @@ describe("CopilotEndpointExpress middleware", () => {
 
     expect(response.status).toBe(500);
     expect(logSpy).toHaveBeenCalled();
-    await new Promise((resolve) => setTimeout(resolve, 50));
-    expect(after).toHaveBeenCalled();
+    await vi.waitFor(() => {
+      expect(after).toHaveBeenCalled();
+    });
   });
 
   it("passes parsed messages to afterRequestMiddleware", async () => {
@@ -159,10 +160,11 @@ describe("CopilotEndpointExpress middleware", () => {
     const app = buildApp(runtime);
     const response = await request(app).get("/info");
 
-    await new Promise((resolve) => setTimeout(resolve, 50));
+    await vi.waitFor(() => {
+      expect(after).toHaveBeenCalled();
+    });
 
     expect(response.status).toBe(200);
-    expect(after).toHaveBeenCalled();
     expect(receivedParams).toHaveProperty("messages");
     expect(receivedParams.messages).toEqual([]);
   });
@@ -184,15 +186,15 @@ describe("CopilotEndpointExpress middleware", () => {
 
     expect(response.status).toBe(200);
 
-    await new Promise((resolve) => setTimeout(resolve, 20));
-
-    expect(after).toHaveBeenCalledWith(
-      expect.objectContaining({
-        runtime,
-        response: expect.any(Response),
-        path: "/info",
-      }),
-    );
+    await vi.waitFor(() => {
+      expect(after).toHaveBeenCalledWith(
+        expect.objectContaining({
+          runtime,
+          response: expect.any(Response),
+          path: "/info",
+        }),
+      );
+    });
 
     expect(logSpy).toHaveBeenCalledWith(
       expect.objectContaining({
