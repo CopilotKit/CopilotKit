@@ -1,5 +1,11 @@
 # @copilotkit/demo-agents
 
+## 1.55.0
+
+### Minor Changes
+
+- 96885b5: refactor: consolidate V1/V2 packages into flat @copilotkit/\* structure
+
 ## 1.54.1-next.6
 
 ## 1.54.1-next.5
