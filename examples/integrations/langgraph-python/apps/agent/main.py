@@ -3,6 +3,8 @@ This is the main entry point for the agent.
 It defines the workflow graph, state, tools, nodes and edges.
 """
 
+import os
+
 from copilotkit import CopilotKitMiddleware
 from langchain.agents import create_agent
 from langchain_openai import ChatOpenAI
@@ -11,8 +13,27 @@ from src.query import query_data
 from src.todos import AgentState, todo_tools
 from src.form import generate_form
 
+def _build_llm():
+    """OpenAI by default; set LLM_PROVIDER=qwen to use Qwen via DashScope (OpenAI-compatible API)."""
+    provider = os.getenv("LLM_PROVIDER", "openai").lower().strip()
+    if provider == "qwen":
+        key = os.getenv("DASHSCOPE_API_KEY")
+        if not key:
+            raise ValueError(
+                "LLM_PROVIDER=qwen requires DASHSCOPE_API_KEY (set it in .env at examples/integrations/langgraph-python/.env)."
+            )
+        return ChatOpenAI(
+            model=os.getenv("QWEN_MODEL", "qwen-plus"),
+            base_url=os.getenv(
+                "DASHSCOPE_BASE_URL",
+                "https://dashscope.aliyuncs.com/compatible-mode/v1",
+            ),
+            api_key=key,
+        )
+    return "openai:gpt-4.1"
+
 agent = create_agent(
-    model="openai:gpt-4.1",
+    model=_build_llm(),
     tools=[query_data, *todo_tools, generate_form],
     middleware=[CopilotKitMiddleware()],
     state_schema=AgentState,

@@ -1,7 +1,7 @@
 /**
  * A2UI Theme Configuration (v0.8)
  *
- * Matches the mcp-apps styling with lilac/mint color palette.
+ * Lilac/mint color palette for A2UI surfaces.
  * Used by createA2UIMessageRenderer for rendering A2UI components.
  */
 
@@ -136,6 +136,13 @@ export const a2uiTheme: v0_8.Types.Theme = {
       "--n-35": "var(--n-100)", // Ensures hover state also uses white text
       "--n-30": "var(--n-100)", // Override text color inside button to white
     },
+    /** Native <select> — match TextField input text/background (utility classes don't always apply the same way) */
+    MultipleChoice: {
+      cursor: "pointer",
+      color: "var(--n-10)",
+      backgroundColor: "var(--n-100)",
+      borderColor: "var(--p-60)",
+    },
   },
   components: {
     AudioPlayer: {},
@@ -242,9 +249,31 @@ export const a2uiTheme: v0_8.Types.Theme = {
       },
     },
     MultipleChoice: {
-      container: {},
-      label: {},
-      element: {},
+      /** Match TextField: same container + label + control layout and borders */
+      container: {
+        "typography-sz-bm": true,
+        "layout-w-100": true,
+        "layout-g-2": true,
+        "layout-dsp-flexhor": true,
+        "layout-al-c": true,
+      },
+      label: {
+        "layout-flx-0": true,
+      },
+      element: {
+        "typography-sz-bm": true,
+        "layout-pt-2": true,
+        "layout-pb-2": true,
+        "layout-pl-3": true,
+        "layout-pr-3": true,
+        "border-br-12": true,
+        "border-bw-1": true,
+        "border-bs-s": true,
+        "color-bgc-p100": true,
+        "color-bc-p60": true,
+        "color-c-n30": true,
+        "color-c-p30": true,
+      },
     },
     Row: {
       "layout-g-4": true,

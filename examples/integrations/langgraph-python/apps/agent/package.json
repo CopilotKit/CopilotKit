@@ -3,7 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "npx @langchain/langgraph-cli dev --port 8123 --no-browser",
+    "dev": "uv run langgraph dev --port 8123 --no-browser",
+    "dev:js": "npx @langchain/langgraph-cli dev --port 8123 --no-browser",
     "postinstall": "uv sync"
   },
   "devDependencies": {

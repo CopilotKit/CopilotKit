@@ -7,14 +7,14 @@ Python A2A agent with A2UI (declarative generative UI) support for dynamic UI ge
 ```
 A2A Server (port 10002)
 ├── AgentCard: Advertises A2UI extension
-├── UIGeneratorAgent: Google ADK LlmAgent
+├── UIGeneratorAgent: LangGraph (single node) + LangChain ChatOpenAI
 ├── Tools: None (UI generated from user descriptions)
 └── A2UI Output: JSON array of UI components
 ```
 
 ## A2UI Protocol
 
-A2UI (Agent-to-UI) is Google's declarative generative UI protocol. The agent generates JSON describing UI components, and the frontend renders them.
+A2UI (Agent-to-UI) is a declarative generative UI protocol. The agent generates JSON describing UI components, and the frontend renders them.
 
 ### Response Format
 
@@ -57,8 +57,9 @@ curl http://localhost:10002/.well-known/agent.json
 ## Environment Variables
 
 ```bash
-OPENAI_API_KEY=sk-...        # Required for LiteLLM
-LITELLM_MODEL=openai/gpt-5.2  # Optional, defaults to gpt-5.2
+# Qwen (DashScope) — default model when this key is set (no LITELLM_MODEL needed)
+DASHSCOPE_API_KEY=sk-...
+QWEN_MODEL=qwen3.5-plus  # Optional; maps to qwen3.5-plus on DashScope
 ```
 
 ## UI Generation
@@ -114,7 +115,7 @@ Then reference it in `get_ui_prompt()`.
 | File                | Purpose                                     |
 | ------------------- | ------------------------------------------- |
 | `__main__.py`       | A2A server entry, CORS, routes              |
-| `agent.py`          | UIGeneratorAgent class, LlmAgent setup      |
+| `agent.py`          | UIGeneratorAgent, LangGraph graph + ChatOpenAI |
 | `agent_executor.py` | Handles A2A protocol, parses A2UI           |
 | `prompt_builder.py` | A2UI schema, UI examples, system prompts    |
 | `tools.py`          | Reserved for future tools (currently empty) |
@@ -136,7 +137,8 @@ Available components for building UIs:
 | `Button`        | Interactive button with action                           |
 | `TextField`     | Text input (shortText, longText, number, date, obscured) |
 | `DateTimeInput` | Date and/or time picker                                  |
+| `MultipleChoice` | Dropdown / multi-select (`maxAllowedSelections: 1` = single `<select>`) |
 
 ## Styling
 
-A2UI components are styled via the theme in `src/app/theme.ts`. The theme uses lilac/mint colors to match the mcp-apps design system.
+A2UI components are styled via the theme in `src/app/theme.ts`. The theme uses lilac/mint colors aligned with the playground UI.
