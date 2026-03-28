@@ -84,14 +84,7 @@ export function toHeaders(rawHeaders: IncomingMessage["headers"]): Headers {
 }
 
 export function isStreamConsumed(req: IncomingWithBody): boolean {
-  const readableState = (req as any)._readableState;
-
-  return Boolean(
-    req.readableEnded ||
-    req.complete ||
-    readableState?.ended ||
-    readableState?.endEmitted,
-  );
+  return Boolean(req.readableEnded);
 }
 
 export function synthesizeBodyFromParsedBody(
