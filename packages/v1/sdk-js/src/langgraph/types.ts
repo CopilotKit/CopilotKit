@@ -21,8 +21,25 @@ export interface IntermediateStateConfig {
 export interface OptionsConfig {
   emitToolCalls?: boolean | string | string[];
   emitMessages?: boolean;
+  /**
+   * @deprecated CopilotKit now emits all messages and tool calls by default.
+   * Note: this only controls emitMessages and emitToolCalls — it does not
+   * affect {@link emitRawEvents} or {@link emitRawEventData}.
+   */
   emitAll?: boolean;
   emitIntermediateState?: IntermediateStateConfig[];
+  /**
+   * When false, suppresses standalone RAW event objects (LangChain callback wrappers
+   * used by the CopilotKit web inspector). Does not affect the rawEvent field on
+   * typed events — use {@link emitRawEventData} for that.
+   */
+  emitRawEvents?: boolean;
+  /**
+   * When false, strips the rawEvent field from typed events (text messages,
+   * tool calls, state snapshots). Does not affect standalone RAW event objects —
+   * use {@link emitRawEvents} for that.
+   */
+  emitRawEventData?: boolean;
 }
 
 export type CopilotKitState = typeof CopilotKitStateAnnotation.State;

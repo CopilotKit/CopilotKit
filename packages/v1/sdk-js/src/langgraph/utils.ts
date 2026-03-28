@@ -67,6 +67,10 @@ export function copilotkitCustomizeConfig(
    *   disable emitting tool calls. Pass a string or list of strings to emit only specific tool calls.
    * - `emitIntermediateState: IntermediateStateConfig[]?`
    *   Lets you emit tool calls as streaming LangGraph state.
+   * - `emitRawEvents: boolean?`
+   *   When false, suppresses standalone RAW event objects (LangChain callback wrappers).
+   * - `emitRawEventData: boolean?`
+   *   When false, strips the rawEvent field from typed events (messages, tool calls, etc.).
    */
   options?: OptionsConfig,
 ): RunnableConfig {
@@ -118,9 +122,13 @@ export function copilotkitCustomizeConfig(
   }
 
   try {
-    const metadata = baseConfig?.metadata || {};
+    const metadata = { ...(baseConfig?.metadata || {}) };
 
     if (options?.emitAll) {
+      console.warn(
+        "copilotkitCustomizeConfig: emitAll is deprecated. Set emitMessages and emitToolCalls directly. " +
+          "Note: emitAll only controls emitMessages and emitToolCalls — it does not affect emitRawEvents or emitRawEventData.",
+      );
       metadata["copilotkit:emit-tool-calls"] = true;
       metadata["copilotkit:emit-messages"] = true;
     } else {
@@ -130,6 +138,20 @@ export function copilotkitCustomizeConfig(
       if (options?.emitMessages !== undefined) {
         metadata["copilotkit:emit-messages"] = options.emitMessages;
       }
+    }
+
+    // emitRawEvents and emitRawEventData write both prefixed and unprefixed
+    // metadata keys: the unprefixed key is read by the ag-ui base agent. The
+    // prefixed key is set for convention consistency with other copilotkit:
+    // metadata keys (e.g., copilotkit:emit-messages) but is not currently
+    // consumed by any code path.
+    if (options?.emitRawEvents != null) {
+      metadata["copilotkit:emit-raw-events"] = options.emitRawEvents;
+      metadata["emit-raw-events"] = options.emitRawEvents;
+    }
+    if (options?.emitRawEventData != null) {
+      metadata["copilotkit:emit-raw-event-data"] = options.emitRawEventData;
+      metadata["emit-raw-event-data"] = options.emitRawEventData;
     }
 
     if (options?.emitIntermediateState) {

@@ -135,3 +135,125 @@ async def _collect_async_gen(agen):
     async for item in agen:
         items.append(item)
     return items
+
+
+from copilotkit.langgraph import copilotkit_customize_config
+
+
+class TestEmitRawEventsConfig:
+    """copilotkit_customize_config sets both prefixed and unprefixed metadata keys."""
+
+    def test_emit_raw_events_false_sets_both_keys(self):
+        config = copilotkit_customize_config(
+            {"metadata": {}},
+            emit_raw_events=False,
+        )
+        metadata = config["metadata"]
+        assert metadata["copilotkit:emit-raw-events"] is False
+        assert metadata["emit-raw-events"] is False
+
+    def test_emit_raw_events_true_sets_both_keys(self):
+        config = copilotkit_customize_config(
+            {"metadata": {}},
+            emit_raw_events=True,
+        )
+        metadata = config["metadata"]
+        assert metadata["copilotkit:emit-raw-events"] is True
+        assert metadata["emit-raw-events"] is True
+
+    def test_emit_raw_event_data_false_sets_both_keys(self):
+        config = copilotkit_customize_config(
+            {"metadata": {}},
+            emit_raw_event_data=False,
+        )
+        metadata = config["metadata"]
+        assert metadata["copilotkit:emit-raw-event-data"] is False
+        assert metadata["emit-raw-event-data"] is False
+
+    def test_emit_raw_event_data_true_sets_both_keys(self):
+        config = copilotkit_customize_config(
+            {"metadata": {}},
+            emit_raw_event_data=True,
+        )
+        metadata = config["metadata"]
+        assert metadata["copilotkit:emit-raw-event-data"] is True
+        assert metadata["emit-raw-event-data"] is True
+
+    def test_emit_raw_events_none_does_not_set_keys(self):
+        config = copilotkit_customize_config({"metadata": {}})
+        metadata = config["metadata"]
+        assert "copilotkit:emit-raw-events" not in metadata
+        assert "emit-raw-events" not in metadata
+        assert "copilotkit:emit-raw-event-data" not in metadata
+        assert "emit-raw-event-data" not in metadata
+
+    def test_both_flags_combined(self):
+        config = copilotkit_customize_config(
+            {"metadata": {}},
+            emit_raw_events=False,
+            emit_raw_event_data=False,
+        )
+        metadata = config["metadata"]
+        assert metadata["copilotkit:emit-raw-events"] is False
+        assert metadata["emit-raw-events"] is False
+        assert metadata["copilotkit:emit-raw-event-data"] is False
+        assert metadata["emit-raw-event-data"] is False
+
+    def test_preserves_existing_metadata(self):
+        config = copilotkit_customize_config(
+            {"metadata": {"copilotkit:emit-messages": False}},
+            emit_raw_events=False,
+        )
+        metadata = config["metadata"]
+        assert metadata["copilotkit:emit-messages"] is False
+        assert metadata["copilotkit:emit-raw-events"] is False
+
+    def test_does_not_mutate_original_metadata(self):
+        original_metadata = {"copilotkit:emit-messages": True}
+        copilotkit_customize_config(
+            {"metadata": original_metadata},
+            emit_raw_events=False,
+        )
+        assert "copilotkit:emit-raw-events" not in original_metadata
+        assert "emit-raw-events" not in original_metadata
+
+    def test_base_config_without_metadata_key(self):
+        config = copilotkit_customize_config(
+            {},
+            emit_raw_events=False,
+        )
+        assert config["metadata"]["copilotkit:emit-raw-events"] is False
+        assert config["metadata"]["emit-raw-events"] is False
+
+    def test_base_config_none(self):
+        config = copilotkit_customize_config(
+            None,
+            emit_raw_events=False,
+        )
+        assert config["metadata"]["copilotkit:emit-raw-events"] is False
+        assert config["metadata"]["emit-raw-events"] is False
+
+    def test_base_config_with_metadata_none(self):
+        config = copilotkit_customize_config(
+            {"metadata": None},
+            emit_raw_events=False,
+        )
+        assert config["metadata"]["copilotkit:emit-raw-events"] is False
+        assert config["metadata"]["emit-raw-events"] is False
+
+    def test_emit_all_and_raw_flags_are_independent(self):
+        config = copilotkit_customize_config(
+            {"metadata": {}},
+            emit_all=True,
+            emit_raw_events=False,
+            emit_raw_event_data=False,
+        )
+        metadata = config["metadata"]
+        # emit_all sets messages and tool calls to true
+        assert metadata["copilotkit:emit-messages"] is True
+        assert metadata["copilotkit:emit-tool-calls"] is True
+        # raw event flags remain false — independent of emit_all
+        assert metadata["copilotkit:emit-raw-events"] is False
+        assert metadata["emit-raw-events"] is False
+        assert metadata["copilotkit:emit-raw-event-data"] is False
+        assert metadata["emit-raw-event-data"] is False

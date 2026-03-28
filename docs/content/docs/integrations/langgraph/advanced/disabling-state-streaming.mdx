@@ -1,20 +1,22 @@
 ---
-title: "Disabling state streaming"
+title: "Controlling event streaming"
 icon: "lucide/Cog"
 description: "Granularly control what is streamed to the frontend."
 ---
 
 ## What is this?
-By default, CopilotKit will stream both your state and tool calls to the frontend.
-You can disable this by using CopilotKit's custom `RunnableConfig`.
+By default, CopilotKit streams messages, tool calls, and raw LangGraph events to the
+frontend. You can control exactly what gets streamed using CopilotKit's custom `RunnableConfig`.
 
 ## When should I use this?
 
-Occasionally, you'll want to disable streaming temporarily — for example, the LLM may be
-doing something the current user should not see, like emitting tool calls or questions
-pertaining to other employees in an HR system.
+- **Privacy:** The LLM is doing something the current user should not see (e.g. tool calls
+  pertaining to other employees in an HR system)
+- **Performance:** Your agent produces large tool responses (RAG retrieval, document
+  processing) and the raw event overhead is significant — see
+  [Reducing stream payload size](#reducing-stream-payload-size) below
 
-## Implementation
+## Controlling messages and tool calls
 
 ### Disable all streaming
 You can disable all message streaming and tool call streaming by passing `emit_messages=False` and `emit_tool_calls=False` to the CopilotKit config.
@@ -84,6 +86,108 @@ You can disable all message streaming and tool call streaming by passing `emit_m
             // don't return the new response to hide it from the user
             return state;
         }
+        ```
+    </Tab>
+</Tabs>
+
+## Reducing stream payload size
+
+By default, the AG-UI LangGraph integration streams **raw LangGraph events** alongside the
+typed events (messages, tool calls, state snapshots) that the frontend actually uses.
+For agents with large tool responses — such as RAG retrieval returning tens of kilobytes
+of context — this can inflate the SSE stream significantly.
+
+Two additional flags let you control this:
+
+| Flag | TypeScript | Default | Effect |
+|------|-----------|---------|--------|
+| `emit_raw_events` | `emitRawEvents` | unset (AG-UI default: emit) | When `False`, suppresses `RAW` events entirely. These wrap every LangChain callback (`on_llm_*`, `on_chain_*`) and are only used by the CopilotKit web inspector for debugging. |
+| `emit_raw_event_data` | `emitRawEventData` | unset (AG-UI default: emit) | When `False`, strips the `raw_event` field from typed events (state snapshots, text messages, tool calls, etc.). This field carries the full underlying LangGraph event dict and can be large. |
+
+<Callout type="info" title="Relationship with emit_all">
+  These flags are independent of `emit_all` / `emitAll`. Setting `emit_all=True` only
+  controls message and tool call emission — it does not affect raw event flags. Set
+  `emit_raw_events` and `emit_raw_event_data` explicitly if needed.
+</Callout>
+
+Setting both to `False` can significantly reduce the amount of data sent over the wire,
+with no impact on frontend functionality.
+
+### Per-node control
+
+Use `copilotkit_customize_config` in a specific node to suppress raw events only for
+that node's LLM calls:
+
+<Tabs groupId="language_langgraph_agent" items={['Python', 'TypeScript']} default="Python" persist>
+    <Tab value="Python">
+        ```python
+        from copilotkit.langgraph import copilotkit_customize_config
+
+        async def rag_node(state: AgentState, config: RunnableConfig):
+            # Suppress raw events for this node (large RAG responses)
+            modifiedConfig = copilotkit_customize_config(
+                config,
+                emit_raw_events=False,      # suppress RAW event objects # [!code highlight]
+                emit_raw_event_data=False,   # strip raw_event from typed events # [!code highlight]
+            )
+
+            model = ChatOpenAI(model="gpt-5.2").bind_tools([rag_search_tool])
+            response = await model.ainvoke(state["messages"], modifiedConfig)
+
+            return {"messages": [response]}
+        ```
+    </Tab>
+    <Tab value="TypeScript">
+        ```typescript
+        import { copilotkitCustomizeConfig } from '@copilotkit/sdk-js/langgraph';
+
+        async function ragNode(state: AgentState, config: RunnableConfig): Promise<AgentState> {
+            // Suppress raw events for this node (large RAG responses)
+            const modifiedConfig = copilotkitCustomizeConfig(config, {
+                emitRawEvents: false,      // suppress RAW event objects
+                emitRawEventData: false,   // strip raw_event from typed events
+            });
+
+            const model = new ChatOpenAI({ temperature: 0, model: "gpt-5.2" }).bindTools([ragSearchTool]);
+            const response = await model.invoke(state.messages, modifiedConfig);
+
+            return { messages: [response] };
+        }
+        ```
+    </Tab>
+</Tabs>
+
+### Global control
+
+To suppress raw events for all nodes in an agent, set the flags in the agent's config
+metadata directly:
+
+<Tabs groupId="language_langgraph_agent" items={['Python', 'TypeScript']} default="Python" persist>
+    <Tab value="Python">
+        ```python
+        from copilotkit import LangGraphAGUIAgent
+
+        LangGraphAGUIAgent(
+            name="my_agent",
+            graph=agent,
+            config={
+                "metadata": {
+                    "emit-raw-events": False, # [!code highlight]
+                    "emit-raw-event-data": False, # [!code highlight]
+                }
+            },
+        )
+        ```
+    </Tab>
+    <Tab value="TypeScript">
+        ```typescript
+        // Set metadata when configuring the agent
+        const config = {
+            metadata: {
+                "emit-raw-events": false,
+                "emit-raw-event-data": false,
+            }
+        };
         ```
     </Tab>
 </Tabs>

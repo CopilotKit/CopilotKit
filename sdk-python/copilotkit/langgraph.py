@@ -216,7 +216,9 @@ def copilotkit_customize_config(
         emit_messages: Optional[bool] = None,
         emit_tool_calls: Optional[Union[bool, str, List[str]]] = None,
         emit_intermediate_state: Optional[List[IntermediateStateConfig]] = None,
-        emit_all: Optional[bool] = None, # deprecated
+        emit_raw_events: Optional[bool] = None,
+        emit_raw_event_data: Optional[bool] = None,
+        emit_all: Optional[bool] = None, # deprecated — only controls emit_messages/emit_tool_calls, not emit_raw_events/emit_raw_event_data
     ) -> RunnableConfig:
     """
     Customize the LangGraph configuration for use in CopilotKit.
@@ -272,6 +274,14 @@ def copilotkit_customize_config(
         disable emitting tool calls. Pass a string or list of strings to emit only specific tool calls.
     emit_intermediate_state : Optional[List[IntermediateStateConfig]]
         Lets you emit tool calls as streaming LangGraph state.
+    emit_raw_events : Optional[bool]
+        When False, suppresses standalone RAW event objects (LangChain callback
+        wrappers used by the CopilotKit web inspector). Does not affect the
+        raw_event field on typed events — use ``emit_raw_event_data`` for that.
+    emit_raw_event_data : Optional[bool]
+        When False, strips the raw_event field from typed events (text messages,
+        tool calls, state snapshots). Does not affect standalone RAW event
+        objects — use ``emit_raw_events`` for that.
 
     Returns
     -------
@@ -285,7 +295,7 @@ def copilotkit_customize_config(
             DeprecationWarning,
             stacklevel=2
         )
-    metadata = base_config.get("metadata", {}) if base_config else {}
+    metadata = dict(base_config.get("metadata") or {}) if base_config else {}
 
     if emit_all is True:
         metadata["copilotkit:emit-tool-calls"] = True
@@ -295,6 +305,18 @@ def copilotkit_customize_config(
             metadata["copilotkit:emit-tool-calls"] = emit_tool_calls
         if emit_messages is not None:
             metadata["copilotkit:emit-messages"] = emit_messages
+
+    # emit_raw_events and emit_raw_event_data write both prefixed and unprefixed
+    # metadata keys: the unprefixed key is read by the ag-ui base agent. The
+    # prefixed key is set for convention consistency with other copilotkit:
+    # metadata keys (e.g., copilotkit:emit-messages) but is not currently
+    # consumed by any code path.
+    if emit_raw_events is not None:
+        metadata["copilotkit:emit-raw-events"] = emit_raw_events
+        metadata["emit-raw-events"] = emit_raw_events
+    if emit_raw_event_data is not None:
+        metadata["copilotkit:emit-raw-event-data"] = emit_raw_event_data
+        metadata["emit-raw-event-data"] = emit_raw_event_data
 
     if emit_intermediate_state:
         metadata["copilotkit:emit-intermediate-state"] = emit_intermediate_state
