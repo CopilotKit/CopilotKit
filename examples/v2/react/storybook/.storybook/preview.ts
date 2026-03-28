@@ -1,6 +1,6 @@
 import type { Preview } from "@storybook/nextjs";
 import { withThemeByClassName } from "@storybook/addon-themes";
-import "@copilotkitnext/react/styles.css";
+import "@copilotkit/react-core/v2/styles.css";
 import "./preview.css";
 
 const preview: Preview = {

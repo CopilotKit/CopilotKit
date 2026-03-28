@@ -14,9 +14,7 @@
           "description": "Tthe number of most frequent characters to return (optional, default = 5)"
         }
       },
-      "required": [
-        "text"
-      ]
+      "required": ["text"]
     }
   }
 ]

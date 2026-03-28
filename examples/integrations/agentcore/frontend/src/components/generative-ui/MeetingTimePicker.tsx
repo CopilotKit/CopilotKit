@@ -1,18 +1,18 @@
-import { useState } from "react"
+import { useState } from "react";
 
 export interface TimeSlot {
-  date: string
-  time: string
-  duration?: string
+  date: string;
+  time: string;
+  duration?: string;
 }
 
 export interface MeetingTimePickerProps {
-  status: "inProgress" | "executing" | "complete"
-  respond?: (response: string) => void
-  reasonForScheduling?: string
-  meetingDuration?: number
-  title?: string
-  timeSlots?: TimeSlot[]
+  status: "inProgress" | "executing" | "complete";
+  respond?: (response: string) => void;
+  reasonForScheduling?: string;
+  meetingDuration?: number;
+  title?: string;
+  timeSlots?: TimeSlot[];
 }
 
 export function MeetingTimePicker({
@@ -27,26 +27,26 @@ export function MeetingTimePicker({
     { date: "Next Monday", time: "3:00 PM", duration: "30 min" },
   ],
 }: MeetingTimePickerProps) {
-  const displayTitle = reasonForScheduling || title
+  const displayTitle = reasonForScheduling || title;
   const slots = meetingDuration
     ? timeSlots.map((slot) => ({ ...slot, duration: `${meetingDuration} min` }))
-    : timeSlots
-  const [selectedSlot, setSelectedSlot] = useState<TimeSlot | null>(null)
-  const [declined, setDeclined] = useState(false)
+    : timeSlots;
+  const [selectedSlot, setSelectedSlot] = useState<TimeSlot | null>(null);
+  const [declined, setDeclined] = useState(false);
 
   const handleSelectSlot = (slot: TimeSlot) => {
-    setSelectedSlot(slot)
+    setSelectedSlot(slot);
     respond?.(
-      `Meeting scheduled for ${slot.date} at ${slot.time}${slot.duration ? ` (${slot.duration})` : ""}.`
-    )
-  }
+      `Meeting scheduled for ${slot.date} at ${slot.time}${slot.duration ? ` (${slot.duration})` : ""}.`,
+    );
+  };
 
   const handleDecline = () => {
-    setDeclined(true)
+    setDeclined(true);
     respond?.(
-      "The user declined all proposed meeting times. Please suggest alternative times or ask for their availability."
-    )
-  }
+      "The user declined all proposed meeting times. Please suggest alternative times or ask for their availability.",
+    );
+  };
 
   return (
     <div className="rounded-2xl shadow-lg max-w-md w-full border dark:border-zinc-700 mx-auto mb-6 bg-white dark:bg-zinc-800">
@@ -54,7 +54,9 @@ export function MeetingTimePicker({
         {selectedSlot ? (
           <div className="text-center">
             <div className="text-7xl mb-4">📅</div>
-            <h2 className="text-2xl font-bold mb-2 dark:text-white">Meeting Scheduled</h2>
+            <h2 className="text-2xl font-bold mb-2 dark:text-white">
+              Meeting Scheduled
+            </h2>
             <p className="text-gray-600 dark:text-zinc-400 mb-2">
               {selectedSlot.date} at {selectedSlot.time}
             </p>
@@ -67,7 +69,9 @@ export function MeetingTimePicker({
         ) : declined ? (
           <div className="text-center">
             <div className="text-7xl mb-4">🔄</div>
-            <h2 className="text-2xl font-bold mb-2 dark:text-white">No Time Selected</h2>
+            <h2 className="text-2xl font-bold mb-2 dark:text-white">
+              No Time Selected
+            </h2>
             <p className="text-gray-600 dark:text-zinc-400">
               Let me find a better time that works for you
             </p>
@@ -76,8 +80,12 @@ export function MeetingTimePicker({
           <>
             <div className="text-center mb-6">
               <div className="text-7xl mb-4">🗓️</div>
-              <h2 className="text-2xl font-bold mb-2 dark:text-white">{displayTitle}</h2>
-              <p className="text-gray-600 dark:text-zinc-400">Select a time that works for you</p>
+              <h2 className="text-2xl font-bold mb-2 dark:text-white">
+                {displayTitle}
+              </h2>
+              <p className="text-gray-600 dark:text-zinc-400">
+                Select a time that works for you
+              </p>
             </div>
 
             {status === "executing" && (
@@ -93,11 +101,17 @@ export function MeetingTimePicker({
                       hover:bg-blue-50 dark:hover:bg-blue-900/30"
                   >
                     <div className="text-left">
-                      <div className="font-bold text-gray-900 dark:text-zinc-100">{slot.date}</div>
-                      <div className="text-sm text-gray-600 dark:text-zinc-400">{slot.time}</div>
+                      <div className="font-bold text-gray-900 dark:text-zinc-100">
+                        {slot.date}
+                      </div>
+                      <div className="text-sm text-gray-600 dark:text-zinc-400">
+                        {slot.time}
+                      </div>
                     </div>
                     {slot.duration && (
-                      <div className="text-sm text-gray-500 dark:text-zinc-400">{slot.duration}</div>
+                      <div className="text-sm text-gray-500 dark:text-zinc-400">
+                        {slot.duration}
+                      </div>
                     )}
                   </button>
                 ))}
@@ -116,5 +130,5 @@ export function MeetingTimePicker({
         )}
       </div>
     </div>
-  )
+  );
 }

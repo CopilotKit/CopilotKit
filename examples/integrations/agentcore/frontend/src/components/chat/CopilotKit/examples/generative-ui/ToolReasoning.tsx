@@ -1,9 +1,9 @@
-import { useEffect, useRef } from "react"
+import { useEffect, useRef } from "react";
 
 interface ToolReasoningProps {
-  name: string
-  args?: object | unknown
-  status: string
+  name: string;
+  args?: object | unknown;
+  status: string;
 }
 
 const statusIndicator = {
@@ -14,26 +14,26 @@ const statusIndicator = {
     <span className="inline-block h-3 w-3 rounded-full border-2 border-gray-400 border-t-transparent animate-spin" />
   ),
   complete: <span className="text-green-500 text-xs">✓</span>,
-}
+};
 
 function formatValue(value: unknown): string {
-  if (Array.isArray(value)) return `[${value.length} items]`
+  if (Array.isArray(value)) return `[${value.length} items]`;
   if (typeof value === "object" && value !== null)
-    return `{${Object.keys(value).length} keys}`
-  if (typeof value === "string") return `"${value}"`
-  return String(value)
+    return `{${Object.keys(value).length} keys}`;
+  if (typeof value === "string") return `"${value}"`;
+  return String(value);
 }
 
 export function ToolReasoning({ name, args, status }: ToolReasoningProps) {
-  const entries = args ? Object.entries(args as Record<string, unknown>) : []
-  const detailsRef = useRef<HTMLDetailsElement>(null)
-  const toolStatus = status as "complete" | "inProgress" | "executing"
+  const entries = args ? Object.entries(args as Record<string, unknown>) : [];
+  const detailsRef = useRef<HTMLDetailsElement>(null);
+  const toolStatus = status as "complete" | "inProgress" | "executing";
 
   // Auto-open while executing, auto-close when complete
   useEffect(() => {
-    if (!detailsRef.current) return
-    detailsRef.current.open = status === "executing"
-  }, [status])
+    if (!detailsRef.current) return;
+    detailsRef.current.open = status === "executing";
+  }, [status]);
 
   return (
     <div className="my-2 text-sm">
@@ -62,5 +62,5 @@ export function ToolReasoning({ name, args, status }: ToolReasoningProps) {
         </div>
       )}
     </div>
-  )
+  );
 }

@@ -6,7 +6,7 @@ import {
   defineToolCallRenderer,
   useConfigureSuggestions,
   useFrontendTool,
-} from "@copilotkitnext/react";
+} from "@copilotkit/react-core/v2";
 import { z } from "zod";
 
 export const dynamic = "force-dynamic";

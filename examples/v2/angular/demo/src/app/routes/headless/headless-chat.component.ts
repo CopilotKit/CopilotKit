@@ -17,12 +17,12 @@ import {
   HumanInTheLoopToolRenderer,
   injectAgentStore,
   registerHumanInTheLoop,
-} from "@copilotkitnext/angular";
-import { RenderToolCalls } from "@copilotkitnext/angular";
+} from "@copilotkit/angular";
+import { RenderToolCalls } from "@copilotkit/angular";
 import {
   WEB_INSPECTOR_TAG,
   type WebInspectorElement,
-} from "@copilotkitnext/web-inspector";
+} from "@copilotkit/web-inspector";
 import { z } from "zod";
 
 @Component({

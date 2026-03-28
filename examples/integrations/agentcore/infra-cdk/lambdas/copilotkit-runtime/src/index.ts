@@ -1,31 +1,36 @@
-import { EventType, HttpAgent, type BaseEvent } from "@ag-ui/client"
-import { MCPAppsMiddleware } from "@ag-ui/mcp-apps-middleware"
-import { CopilotRuntime, createCopilotEndpoint, InMemoryAgentRunner } from "@copilotkit/runtime/v2"
-import { streamHandle } from "hono/aws-lambda"
-import { concatMap, of } from "rxjs"
-import { randomUUID } from "node:crypto"
+import { EventType, HttpAgent, type BaseEvent } from "@ag-ui/client";
+import { MCPAppsMiddleware } from "@ag-ui/mcp-apps-middleware";
+import {
+  CopilotRuntime,
+  createCopilotEndpoint,
+  InMemoryAgentRunner,
+} from "@copilotkit/runtime/v2";
+import { streamHandle } from "hono/aws-lambda";
+import { concatMap, of } from "rxjs";
+import { randomUUID } from "node:crypto";
 
 function requireEnv(name: string): string {
-  const value = process.env[name]
+  const value = process.env[name];
   if (!value) {
-    throw new Error(`${name} environment variable is required`)
+    throw new Error(`${name} environment variable is required`);
   }
-  return value
+  return value;
 }
 
 function getConfiguredAgents(): Record<string, HttpAgent> {
-  const configuredAgents: Record<string, HttpAgent> = {}
+  const configuredAgents: Record<string, HttpAgent> = {};
 
   const agentUrls = {
     "langgraph-single-agent": process.env.LANGGRAPH_AGENTCORE_AG_UI_URL,
     "strands-single-agent": process.env.STRANDS_AGENTCORE_AG_UI_URL,
-  }
+  };
 
-  const mcpServerUrl = process.env.MCP_SERVER_URL || "https://mcp.excalidraw.com"
+  const mcpServerUrl =
+    process.env.MCP_SERVER_URL || "https://mcp.excalidraw.com";
 
   for (const [name, url] of Object.entries(agentUrls)) {
     if (url) {
-      const agent = new HttpAgent({ url, headers: {} })
+      const agent = new HttpAgent({ url, headers: {} });
       agent.use(
         new MCPAppsMiddleware({
           mcpServers: [
@@ -35,9 +40,9 @@ function getConfiguredAgents(): Record<string, HttpAgent> {
               serverId: "example_mcp_app",
             },
           ],
-        })
-      )
-      configuredAgents[name] = agent
+        }),
+      );
+      configuredAgents[name] = agent;
     }
   }
 
@@ -45,39 +50,42 @@ function getConfiguredAgents(): Record<string, HttpAgent> {
     configuredAgents.default = new HttpAgent({
       url: requireEnv("AGENTCORE_AG_UI_URL"),
       headers: {},
-    })
+    });
   }
 
-  return configuredAgents
+  return configuredAgents;
 }
 
-const agentName = process.env.COPILOTKIT_AGENT_NAME ?? "default"
-const agents = getConfiguredAgents()
-const defaultAgent = agents[agentName] ?? agents.default ?? Object.values(agents)[0]
+const agentName = process.env.COPILOTKIT_AGENT_NAME ?? "default";
+const agents = getConfiguredAgents();
+const defaultAgent =
+  agents[agentName] ?? agents.default ?? Object.values(agents)[0];
 
 if (!defaultAgent) {
-  throw new Error("At least one CopilotKit agent URL must be configured")
+  throw new Error("At least one CopilotKit agent URL must be configured");
 }
 
 class CopilotKitRunner extends InMemoryAgentRunner {
-  private readonly knownThreadIds = new Set<string>()
+  private readonly knownThreadIds = new Set<string>();
 
-  override run(request: Parameters<InMemoryAgentRunner["run"]>[0]): ReturnType<InMemoryAgentRunner["run"]> {
+  override run(
+    request: Parameters<InMemoryAgentRunner["run"]>[0],
+  ): ReturnType<InMemoryAgentRunner["run"]> {
     if (request.threadId) {
-      this.knownThreadIds.add(request.threadId)
+      this.knownThreadIds.add(request.threadId);
     }
 
-    return super.run(request)
+    return super.run(request);
   }
 
   override connect(
-    request: Parameters<InMemoryAgentRunner["connect"]>[0]
+    request: Parameters<InMemoryAgentRunner["connect"]>[0],
   ): ReturnType<InMemoryAgentRunner["connect"]> {
     if (!request.threadId || !this.knownThreadIds.has(request.threadId)) {
       const runId =
         typeof (request as { runId?: unknown }).runId === "string"
           ? ((request as { runId?: string }).runId ?? randomUUID())
-          : randomUUID()
+          : randomUUID();
 
       const emptySnapshot = of(
         {
@@ -93,37 +101,45 @@ class CopilotKitRunner extends InMemoryAgentRunner {
           type: EventType.RUN_FINISHED,
           threadId: request.threadId ?? randomUUID(),
           runId,
-        } as BaseEvent
-      )
+        } as BaseEvent,
+      );
 
-      return emptySnapshot as unknown as ReturnType<InMemoryAgentRunner["connect"]>
+      return emptySnapshot as unknown as ReturnType<
+        InMemoryAgentRunner["connect"]
+      >;
     }
 
-    const connect$ = super.connect(request) as any
+    const connect$ = super.connect(request) as any;
 
     return connect$.pipe(
       concatMap((event: any) => {
-        if (event.type !== EventType.MESSAGES_SNAPSHOT || !("messages" in event)) {
-          return of(event)
+        if (
+          event.type !== EventType.MESSAGES_SNAPSHOT ||
+          !("messages" in event)
+        ) {
+          return of(event);
         }
 
         const replayedResults = event.messages.flatMap((message: any) => {
           if (message.role !== "assistant" || !message.toolCalls?.length) {
-            return []
+            return [];
           }
 
-          return message.toolCalls.map((toolCall: any) => ({
-            type: EventType.TOOL_CALL_RESULT,
-            toolCallId: toolCall.id,
-            messageId: `${toolCall.id}-result`,
-            content: "",
-            role: "tool",
-          } satisfies BaseEvent))
-        })
+          return message.toolCalls.map(
+            (toolCall: any) =>
+              ({
+                type: EventType.TOOL_CALL_RESULT,
+                toolCallId: toolCall.id,
+                messageId: `${toolCall.id}-result`,
+                content: "",
+                role: "tool",
+              }) satisfies BaseEvent,
+          );
+        });
 
-        return of(...replayedResults, event)
-      })
-    ) as ReturnType<InMemoryAgentRunner["connect"]>
+        return of(...replayedResults, event);
+      }),
+    ) as ReturnType<InMemoryAgentRunner["connect"]>;
   }
 }
 
@@ -133,14 +149,13 @@ const runtime = new CopilotRuntime({
     default: defaultAgent,
   },
   runner: new CopilotKitRunner(),
-})
+});
 
 const app = createCopilotEndpoint({
   runtime,
   basePath: "/copilotkit",
-})
-
+});
 
 export const handler: (...args: unknown[]) => unknown = streamHandle(app) as (
   ...args: unknown[]
-) => unknown
+) => unknown;

@@ -1,6 +1,6 @@
-import * as cdk from "aws-cdk-lib"
-import * as iam from "aws-cdk-lib/aws-iam"
-import { Construct } from "constructs"
+import * as cdk from "aws-cdk-lib";
+import * as iam from "aws-cdk-lib/aws-iam";
+import { Construct } from "constructs";
 
 export interface AgentCoreRoleProps extends iam.RoleProps {
   // Additional props can be added here if needed
@@ -8,9 +8,9 @@ export interface AgentCoreRoleProps extends iam.RoleProps {
 
 export class AgentCoreRole extends iam.Role {
   constructor(scope: Construct, id: string, props?: AgentCoreRoleProps) {
-    const stack = cdk.Stack.of(scope)
-    const region = stack.region
-    const accountId = stack.account
+    const stack = cdk.Stack.of(scope);
+    const region = stack.region;
+    const accountId = stack.account;
 
     super(scope, id, {
       assumedBy: new iam.ServicePrincipal("bedrock-agentcore.amazonaws.com"),
@@ -91,7 +91,10 @@ export class AgentCoreRole extends iam.Role {
             new iam.PolicyStatement({
               sid: "BedrockModelInvocation",
               effect: iam.Effect.ALLOW,
-              actions: ["bedrock:InvokeModel", "bedrock:InvokeModelWithResponseStream"],
+              actions: [
+                "bedrock:InvokeModel",
+                "bedrock:InvokeModelWithResponseStream",
+              ],
               resources: [
                 "arn:aws:bedrock:*::foundation-model/*",
                 `arn:aws:bedrock:${region}:${accountId}:*`,
@@ -101,6 +104,6 @@ export class AgentCoreRole extends iam.Role {
         }),
       },
       ...props,
-    })
+    });
   }
 }

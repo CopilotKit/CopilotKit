@@ -18,7 +18,7 @@ The useAgentContext hook:
 ## Basic Usage
 
 ```tsx
-import { useAgentContext } from "@copilotkitnext/react";
+import { useAgentContext } from "@copilotkit/react-core";
 
 function UserPreferences() {
   const userSettings = {
@@ -76,7 +76,7 @@ useAgentContext({
 ### User Preferences Context
 
 ```tsx
-import { useAgentContext } from "@copilotkitnext/react";
+import { useAgentContext } from "@copilotkit/react-core";
 import { useUserPreferences } from "./hooks/useUserPreferences";
 
 function UserPreferencesContext() {
@@ -100,7 +100,7 @@ function UserPreferencesContext() {
 ### Form State Context
 
 ```tsx
-import { useAgentContext } from "@copilotkitnext/react";
+import { useAgentContext } from "@copilotkit/react-core";
 import { useState } from "react";
 
 function ContactForm() {
@@ -137,7 +137,7 @@ function ContactForm() {
 ### Application State Context
 
 ```tsx
-import { useAgentContext } from "@copilotkitnext/react";
+import { useAgentContext } from "@copilotkit/react-core";
 import { useLocation } from "react-router-dom";
 
 function AppStateContext() {
@@ -160,7 +160,7 @@ function AppStateContext() {
 ### Dynamic Data Context
 
 ```tsx
-import { useAgentContext } from "@copilotkitnext/react";
+import { useAgentContext } from "@copilotkit/react-core";
 import { useEffect, useState } from "react";
 
 function DynamicDataContext() {
@@ -187,7 +187,7 @@ function DynamicDataContext() {
 ### Multiple Contexts
 
 ```tsx
-import { useAgentContext } from "@copilotkitnext/react";
+import { useAgentContext } from "@copilotkit/react-core";
 
 function MultipleContexts() {
   const userContext = { id: "123", name: "John" };
@@ -251,10 +251,7 @@ function ReactiveContext() {
 
   return (
     <div>
-      <select
-        value={filters.category}
-        onChange={(e) => setFilters({ ...filters, category: e.target.value })}
-      >
+      <select value={filters.category} onChange={(e) => setFilters({ ...filters, category: e.target.value })}>
         <option value="all">All</option>
         <option value="electronics">Electronics</option>
         <option value="clothing">Clothing</option>
@@ -345,11 +342,7 @@ function OptimizedContext({ items }) {
 Context provided through this hook is available to agents during execution:
 
 ```tsx
-import {
-  useAgentContext,
-  useAgent,
-  useCopilotKit,
-} from "@copilotkitnext/react";
+import { useAgentContext, useAgent, useCopilotKit } from "@copilotkit/react-core";
 
 function IntegratedExample() {
   const { agent } = useAgent();

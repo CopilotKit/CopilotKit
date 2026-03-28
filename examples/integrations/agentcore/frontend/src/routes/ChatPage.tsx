@@ -1,10 +1,10 @@
-import CopilotChatInterface from "@/components/chat/CopilotKit"
-import { Button } from "@/components/ui/button"
-import { useAuth } from "@/hooks/useAuth"
-import { GlobalContextProvider } from "@/app/context/GlobalContext"
+import CopilotChatInterface from "@/components/chat/CopilotKit";
+import { Button } from "@/components/ui/button";
+import { useAuth } from "@/hooks/useAuth";
+import { GlobalContextProvider } from "@/app/context/GlobalContext";
 
 export default function ChatPage() {
-  const { isAuthenticated, signIn } = useAuth()
+  const { isAuthenticated, signIn } = useAuth();
 
   if (!isAuthenticated) {
     return (
@@ -12,7 +12,7 @@ export default function ChatPage() {
         <p className="text-4xl">Please sign in</p>
         <Button onClick={() => signIn()}>Sign In</Button>
       </div>
-    )
+    );
   }
 
   return (
@@ -21,5 +21,5 @@ export default function ChatPage() {
         <CopilotChatInterface />
       </div>
     </GlobalContextProvider>
-  )
+  );
 }

@@ -9,8 +9,8 @@ on:
       - "examples/**"
       - ".github/workflows/demos_preview.yml"
       - ".github/workflows/release.yml"
-      - "packages/v1/**/package.json"
-      - "packages/v1/**/CHANGELOG.md"
+      - "packages/**/package.json"
+      - "packages/**/CHANGELOG.md"
       - ".changeset/**"
   pull_request:
     branches: [main]

@@ -1,4 +1,4 @@
-"use client"
+"use client";
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -7,14 +7,14 @@
  * Provides shared state and functionality across components
  */
 
-import { createContext, useContext, PropsWithChildren, useState } from "react"
+import { createContext, useContext, PropsWithChildren, useState } from "react";
 
 interface GlobalContextType {
-  isLoading: boolean
-  setIsLoading: (loading: boolean) => void
+  isLoading: boolean;
+  setIsLoading: (loading: boolean) => void;
 }
 
-const GlobalContext = createContext<GlobalContextType | undefined>(undefined)
+const GlobalContext = createContext<GlobalContextType | undefined>(undefined);
 
 /**
  * Hook to access the global context
@@ -22,11 +22,11 @@ const GlobalContext = createContext<GlobalContextType | undefined>(undefined)
  * @throws Error if used outside of GlobalContextProvider
  */
 export function useGlobal(): GlobalContextType {
-  const context = useContext(GlobalContext)
+  const context = useContext(GlobalContext);
   if (context === undefined) {
-    throw new Error("useGlobal must be used within a GlobalContextProvider")
+    throw new Error("useGlobal must be used within a GlobalContextProvider");
   }
-  return context
+  return context;
 }
 
 /**
@@ -35,12 +35,14 @@ export function useGlobal(): GlobalContextType {
  * @param children - Child components to wrap
  */
 export function GlobalContextProvider({ children }: PropsWithChildren) {
-  const [isLoading, setIsLoading] = useState(false)
+  const [isLoading, setIsLoading] = useState(false);
 
   const value: GlobalContextType = {
     isLoading,
     setIsLoading,
-  }
+  };
 
-  return <GlobalContext.Provider value={value}>{children}</GlobalContext.Provider>
+  return (
+    <GlobalContext.Provider value={value}>{children}</GlobalContext.Provider>
+  );
 }
