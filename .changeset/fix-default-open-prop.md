@@ -1,5 +1,5 @@
 ---
-"@copilotkitnext/react": patch
+"@copilotkit/react-ui": patch
 ---
 
 fix: respect defaultOpen={false} in CopilotSidebar and CopilotPopup

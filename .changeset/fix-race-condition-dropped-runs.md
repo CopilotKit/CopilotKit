@@ -1,5 +1,5 @@
 ---
-"@copilotkitnext/core": patch
+"@copilotkit/core": patch
 "@copilotkit/react-core": patch
 ---
 
