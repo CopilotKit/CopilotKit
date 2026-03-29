@@ -56,7 +56,8 @@ export const useGenerativeUIExamples = () => {
 
   // Default Tool Rendering (backend tool UI)
   const ignoredTools = [
-    "generate_a2ui", // Rendered by A2UI, not as a tool card
+    "render_a2ui", // Rendered by A2UI streaming, not as a tool card
+    "generate_a2ui", // Legacy: rendered by A2UI, not as a tool card
     "log_a2ui_event", // Internal A2UI event tracker
   ];
   useDefaultRenderTool({
