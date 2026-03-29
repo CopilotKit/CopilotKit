@@ -265,8 +265,15 @@ export function A2UIBuiltInToolCallRenderer(): null {
       args: z.any(),
       render: ({ status, args: parameters }) => {
         if (status === "complete") return <></>;
-        const items = (parameters as any)?.items;
+        const params = parameters as any;
+        // Hide skeleton once the A2UI surface has enough data to render.
+        // For data-bound surfaces: items array is populated.
+        // For dashboard-style surfaces: components array has multiple entries
+        // (meaning the streaming path is emitting activity snapshots).
+        const items = params?.items;
         if (Array.isArray(items) && items.length > 0) return <></>;
+        const components = params?.components;
+        if (Array.isArray(components) && components.length > 2) return <></>;
         return <A2UIProgressIndicator parameters={parameters} />;
       },
     });
