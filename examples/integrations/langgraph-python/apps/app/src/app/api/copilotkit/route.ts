@@ -5,7 +5,7 @@ import {
 } from "@copilotkit/runtime";
 import { LangGraphAgent } from "@copilotkit/runtime/langgraph";
 import { NextRequest } from "next/server";
-import { demonstrationCatalogDefinitions } from "../../../a2ui/demonstrationCatalogDefinitions";
+import { demonstrationCatalogDefinitions } from "../../declarative-generative-ui/definitions";
 
 // Extract schema from Zod definitions for the A2UI middleware.
 // This is a server-safe operation (no React dependencies).

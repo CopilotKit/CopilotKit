@@ -17,7 +17,7 @@ import { createCatalog, type CatalogRenderers } from "@copilotkit/a2ui-renderer"
 import {
   demonstrationCatalogDefinitions,
   type DemonstrationCatalogDefinitions,
-} from "./demonstrationCatalogDefinitions";
+} from "./definitions";
 
 // ─── Renderers (type-checked against schema definitions) ────────────
 
