@@ -741,16 +741,14 @@ export class ServiceBasedExampleComponent {
       template: `
         <div
           style="
-          background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-          padding: 20px;
-          border-radius: 15px;
-          margin: 10px;
-        "
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            padding: 20px;
+            border-radius: 15px;
+            margin: 10px;
+          "
         >
-          <h4 style="color: white; margin: 0 0 10px 0;">
-            Service-Based Custom Input
-          </h4>
-          <div style="display: flex; gap: 10px;">
+          <h4 style="color: white; margin: 0 0 10px 0">Service-Based Custom Input</h4>
+          <div style="display: flex; gap: 10px">
             <input
               type="text"
               [(ngModel)]="value"
@@ -783,7 +781,7 @@ export class ServiceBasedExampleComponent {
             </button>
           </div>
           <p
-            style="color: rgba(255, 255, 255, 0.9); font-size: 12px; margin: 8px 0 0 0;"
+            style="color: rgba(255, 255, 255, 0.9); font-size: 12px; margin: 8px 0 0 0"
           >
             This component uses ChatState.submitInput()
           </p>
