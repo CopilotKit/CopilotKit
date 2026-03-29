@@ -7,6 +7,7 @@ import { LangGraphAgent } from "@copilotkit/runtime/langgraph";
 import { NextRequest } from "next/server";
 import flightSchema from "./streaming_flight_schema.json";
 import bookedSchema from "../../../a2ui/booked_schema.json";
+import { a2uiSchema } from "../../../a2ui/schema";
 
 // 1. Define the agent connection to LangGraph
 const defaultAgent = new LangGraphAgent({
@@ -25,6 +26,9 @@ export const POST = async (req: NextRequest) => {
       agents: { default: defaultAgent },
       a2ui: {
         injectA2UITool: true,
+        // Schema-first: component definitions flow to agents as context
+        schema: a2uiSchema,
+        // Streaming surfaces: backward-compatible fixed-schema streaming
         streamingSurfaces: [
           {
             toolName: "search_flights_streaming",
