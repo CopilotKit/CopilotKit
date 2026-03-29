@@ -5,7 +5,7 @@ import "@copilotkit/react-core/v2/styles.css";
 
 import { CopilotKit } from "@copilotkit/react-core";
 import { ThemeProvider } from "@/hooks/use-theme";
-import { demonstrationCatalog } from "@/a2ui/demonstrationCatalogRenderers";
+import { demonstrationCatalog } from "./declarative-generative-ui/renderers";
 
 export default function RootLayout({
   children,
