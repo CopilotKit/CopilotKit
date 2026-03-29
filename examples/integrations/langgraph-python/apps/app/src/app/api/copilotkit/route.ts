@@ -5,7 +5,7 @@ import {
 } from "@copilotkit/runtime";
 import { LangGraphAgent } from "@copilotkit/runtime/langgraph";
 import { NextRequest } from "next/server";
-import { demonstrationSchema } from "../../../a2ui/schema";
+import { demonstrationSchema } from "../../../a2ui/demonstrationCatalogDefinitions";
 
 const defaultAgent = new LangGraphAgent({
   deploymentUrl:
