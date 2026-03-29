@@ -55,7 +55,7 @@ pre-commit:
       stage_fixed: true
     lint-fix:
       tags: lint
-      run: pnpm run lint --fix && pnpm run format
+      run: pnpm run lint && pnpm run format
       stage_fixed: true
     test-and-check-packages:
       tags: test-packages
