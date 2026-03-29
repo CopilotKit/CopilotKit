@@ -292,3 +292,34 @@ def a2ui_prompt(
 ## DESIGN GUIDELINES:
 {design_guidelines}
 """
+
+
+# ---------------------------------------------------------------------------
+# Schema extraction from agent context
+# ---------------------------------------------------------------------------
+
+_A2UI_SCHEMA_DESCRIPTION_PREFIX = "A2UI Component Schema"
+
+
+def get_schema_from_context(state: dict) -> list[dict[str, Any]] | None:
+    """Extract the A2UI component schema from agent context.
+
+    The schema is injected by the A2UI middleware as a context entry
+    with a description starting with "A2UI Component Schema".
+
+    Args:
+        state: The LangGraph agent state dict.
+
+    Returns:
+        The parsed schema array, or None if no schema context found.
+    """
+    ag_ui = state.get("ag-ui", {})
+    context_entries = ag_ui.get("context", [])
+    for entry in context_entries:
+        desc = entry.get("description", "")
+        if desc.startswith(_A2UI_SCHEMA_DESCRIPTION_PREFIX):
+            try:
+                return json.loads(entry.get("value", "[]"))
+            except (json.JSONDecodeError, TypeError):
+                return None
+    return None

@@ -33,6 +33,14 @@ export {
   buildCatalogContextValue,
 } from "./catalog-utils";
 
+// Simplified catalog creation
+export { createA2UICatalog, extractA2UISchema } from "./create-catalog";
+export type {
+  A2UIComponentRenderProps,
+  A2UIComponentDefinition,
+  A2UIComponentMap,
+} from "./create-catalog";
+
 // Styles
 export { injectStyles, removeStyles } from "./styles";
 
