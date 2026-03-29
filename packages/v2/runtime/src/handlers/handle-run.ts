@@ -129,6 +129,21 @@ export async function handleRunAgent({
             console.error("Error running agent:", error);
             if (!streamClosed) {
               try {
+                // Write an error event to the SSE stream so the frontend
+                // can display it instead of getting stuck in loading state.
+                const errorMessage =
+                  error instanceof Error ? error.message : String(error);
+                const errorEvent = JSON.stringify({
+                  type: "ERROR",
+                  message: errorMessage,
+                });
+                await writer.write(
+                  encoder.encode(`event: error\ndata: ${errorEvent}\n\n`),
+                );
+              } catch {
+                // Best-effort error reporting
+              }
+              try {
                 await writer.close();
                 streamClosed = true;
               } catch {
