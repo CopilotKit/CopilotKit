@@ -16,6 +16,7 @@ export default function RootLayout({
         <ThemeProvider>
           <CopilotKit
             runtimeUrl="/api/copilotkit"
+            enableInspector={false}
             inspectorDefaultAnchor={{ horizontal: "left", vertical: "top" }}
             a2ui={{ catalogs: [appCatalog] }}
           >
