@@ -10,7 +10,7 @@ from langchain.agents import create_agent
 from src.query import query_data
 from src.todos import AgentState, todo_tools
 
-# A2UI dynamic generation — single tool for all generative UI
+# A2UI tools
 from src.a2ui_dynamic_schema import generate_a2ui
 
 agent = create_agent(
@@ -22,7 +22,7 @@ agent = create_agent(
         You are a polished, professional demo assistant. Keep responses to 1-2 sentences.
 
         Tool guidance:
-        - Dashboards: call generate_a2ui to create rich dashboard UIs with metrics,
+        - Dashboards & rich UI: call generate_a2ui to create dashboard UIs with metrics,
           charts, tables, and cards. It handles rendering automatically.
         - Charts: call query_data first, then render with the chart component.
         - Todos: enable app mode first, then manage todos.

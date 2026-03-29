@@ -26,6 +26,7 @@ CUSTOM_CATALOG_ID = "copilotkit://app-dashboard-catalog"
 @lc_tool
 def render_a2ui(
     surfaceId: str,
+    catalogId: str,
     components: list[dict],
     items: list[dict],
     actionHandlers: dict | None = None,
@@ -34,12 +35,10 @@ def render_a2ui(
 
     Args:
         surfaceId: Unique surface identifier.
+        catalogId: The catalog ID (use "copilotkit://app-dashboard-catalog").
         components: A2UI v0.9 component array (flat format). The root
-            component must have id "root". Use a List with
-            children: { componentId, path: "/items" } for repeating cards.
-        items: Plain JSON array of data objects. Each object's keys
-            correspond to the path bindings in the template components.
-            Use relative paths (no leading /) inside templates.
+            component must have id "root".
+        items: Plain JSON array of data objects for data binding.
         actionHandlers: Optional dict mapping action names to arrays of
             v0.9 A2UI operations for optimistic UI updates on button click.
     """
@@ -70,11 +69,8 @@ def generate_a2ui(runtime: ToolRuntime[Any]) -> str:
     A secondary LLM designs the UI schema and data. The result is
     returned as an a2ui_operations container for the middleware to detect.
     """
-    # The last message is this tool call (generate_a2ui) so we remove it,
-    # as it is not yet balanced with a tool call response.
     messages = runtime.state["messages"][:-1]
 
-    # Inject client-provided context (e.g. custom catalog definitions)
     context_addendum = _build_context_addendum(runtime.state)
     prompt = A2UI_GENERATION_PROMPT + context_addendum
 
@@ -88,7 +84,6 @@ def generate_a2ui(runtime: ToolRuntime[Any]) -> str:
         [SystemMessage(content=prompt), *messages],
     )
 
-    # Extract the render_a2ui tool call arguments
     if not response.tool_calls:
         return json.dumps({"error": "LLM did not call render_a2ui"})
 
@@ -96,14 +91,14 @@ def generate_a2ui(runtime: ToolRuntime[Any]) -> str:
     args = tool_call["args"]
 
     surface_id = args.get("surfaceId", "dynamic-surface")
+    catalog_id = args.get("catalogId", CUSTOM_CATALOG_ID)
     components = args.get("components", [])
     items = args.get("items", [])
     action_handlers = args.get("actionHandlers")
 
-    # Wrap as v0.9 a2ui_operations so the middleware detects it
     return a2ui.render(
         operations=[
-            a2ui.create_surface(surface_id, catalog_id=CUSTOM_CATALOG_ID),
+            a2ui.create_surface(surface_id, catalog_id=catalog_id),
             a2ui.update_components(surface_id, components),
             a2ui.update_data_model(surface_id, {"items": items}),
         ],
