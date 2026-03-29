@@ -10,7 +10,6 @@
  */
 
 import { z } from "zod";
-import { type CatalogDefinitions, extractSchema } from "@copilotkit/a2ui-renderer";
 
 export const demonstrationCatalogDefinitions = {
   Title: {
@@ -106,10 +105,7 @@ export const demonstrationCatalogDefinitions = {
       action: z.any().optional(),
     }),
   },
-} satisfies CatalogDefinitions;
-
-/** Schema for the runtime — auto-extracted from Zod definitions */
-export const demonstrationSchema = extractSchema(demonstrationCatalogDefinitions);
+};
 
 /** Type helper for renderers */
 export type DemonstrationCatalogDefinitions = typeof demonstrationCatalogDefinitions;
