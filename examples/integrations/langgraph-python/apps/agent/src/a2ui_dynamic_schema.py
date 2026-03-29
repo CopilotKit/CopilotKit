@@ -20,7 +20,7 @@ from copilotkit import a2ui
 
 A2UI_GENERATION_PROMPT = a2ui.a2ui_prompt()
 
-CUSTOM_CATALOG_ID = "https://a2ui.org/demos/dojo/custom_catalog.json"
+CUSTOM_CATALOG_ID = "copilotkit://app-dashboard-catalog"
 
 
 @lc_tool
