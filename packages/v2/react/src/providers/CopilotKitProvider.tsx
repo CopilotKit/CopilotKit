@@ -143,6 +143,11 @@ export interface CopilotKitProviderProps {
      * When omitted, the default basicCatalog is used.
      */
     catalogs?: any[];
+    /**
+     * Optional custom loading component shown while an A2UI surface is generating.
+     * When omitted, a default animated skeleton is shown.
+     */
+    loadingComponent?: React.ComponentType;
   };
   /**
    * Default anchor corner for the inspector button and window.
@@ -269,6 +274,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
           theme: a2ui?.theme ?? viewerTheme,
           onAction: a2ui?.onAction,
           catalogs: a2ui?.catalogs,
+          loadingComponent: a2ui?.loadingComponent,
         }),
       );
     }
