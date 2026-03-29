@@ -5,7 +5,17 @@ import {
 } from "@copilotkit/runtime";
 import { LangGraphAgent } from "@copilotkit/runtime/langgraph";
 import { NextRequest } from "next/server";
-import { demonstrationSchema } from "../../../a2ui/demonstrationCatalogDefinitions";
+import { demonstrationCatalogDefinitions } from "../../../a2ui/demonstrationCatalogDefinitions";
+
+// Extract schema from Zod definitions for the A2UI middleware.
+// This is a server-safe operation (no React dependencies).
+const demonstrationSchema = Object.entries(demonstrationCatalogDefinitions).map(
+  ([name, def]) => ({
+    name,
+    description: def.description,
+    props: def.props._def ? { type: "object" as const } : undefined,
+  }),
+);
 
 const defaultAgent = new LangGraphAgent({
   deploymentUrl:
