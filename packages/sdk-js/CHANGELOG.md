@@ -1,5 +1,16 @@
 # @copilotkit/sdk-js
 
+## 1.55.0-next.7
+
+### Minor Changes
+
+- 1ceb963: refactor: consolidate V1/V2 packages into flat @copilotkit/\* structure
+
+### Patch Changes
+
+- Updated dependencies [1ceb963]
+  - @copilotkit/shared@1.55.0-next.7
+
 ## 1.54.1-next.6
 
 ### Patch Changes

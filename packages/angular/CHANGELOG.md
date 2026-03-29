@@ -1,5 +1,13 @@
 # @copilotkit/angular
 
+## 1.54.1-next.7
+
+### Patch Changes
+
+- Updated dependencies [1ceb963]
+  - @copilotkit/core@1.55.0-next.7
+  - @copilotkit/shared@1.55.0-next.7
+
 ## 1.54.1-next.6
 
 ### Patch Changes

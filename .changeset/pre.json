@@ -42,11 +42,14 @@
     "@copilotkit/sqlite-runner": "1.54.0",
     "@copilotkit/typescript-config": "1.54.0",
     "@copilotkit/voice": "1.54.0",
-    "@copilotkit/web-inspector": "1.54.0"
+    "@copilotkit/web-inspector": "1.54.0",
+    "@copilotkitnext/angular": "1.54.1-next.6"
   },
   "changesets": [
+    "consolidate-v1-v2-packages",
     "cyan-buses-sell",
     "fix-default-open-prop",
+    "fix-markdown-streaming-rerenders",
     "fix-race-condition-dropped-runs",
     "fix-scrollbar-styling",
     "funny-dolls-march",
