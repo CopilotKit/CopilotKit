@@ -69,7 +69,12 @@ def generate_a2ui(runtime: ToolRuntime[Any]) -> str:
     A secondary LLM designs the UI schema and data. The result is
     returned as an a2ui_operations container for the middleware to detect.
     """
+    import time
+    t0 = time.time()
+    print(f"[A2UI-DEBUG] generate_a2ui STARTED at t=0")
+
     messages = runtime.state["messages"][:-1]
+    print(f"[A2UI-DEBUG]   messages count: {len(messages)}")
 
     context_addendum = _build_context_addendum(runtime.state)
     prompt = A2UI_GENERATION_PROMPT + context_addendum
@@ -80,11 +85,14 @@ def generate_a2ui(runtime: ToolRuntime[Any]) -> str:
         tool_choice="render_a2ui",
     )
 
+    print(f"[A2UI-DEBUG]   calling secondary LLM at t={time.time()-t0:.1f}s")
     response = model_with_tool.invoke(
         [SystemMessage(content=prompt), *messages],
     )
+    print(f"[A2UI-DEBUG]   secondary LLM responded at t={time.time()-t0:.1f}s")
 
     if not response.tool_calls:
+        print(f"[A2UI-DEBUG]   ERROR: no tool calls in response")
         return json.dumps({"error": "LLM did not call render_a2ui"})
 
     tool_call = response.tool_calls[0]
@@ -96,7 +104,9 @@ def generate_a2ui(runtime: ToolRuntime[Any]) -> str:
     items = args.get("items", [])
     action_handlers = args.get("actionHandlers")
 
-    return a2ui.render(
+    print(f"[A2UI-DEBUG]   components={len(components)} items={len(items)} surface={surface_id}")
+
+    result = a2ui.render(
         operations=[
             a2ui.create_surface(surface_id, catalog_id=catalog_id),
             a2ui.update_components(surface_id, components),
@@ -104,3 +114,5 @@ def generate_a2ui(runtime: ToolRuntime[Any]) -> str:
         ],
         action_handlers=action_handlers,
     )
+    print(f"[A2UI-DEBUG] generate_a2ui DONE at t={time.time()-t0:.1f}s result_len={len(result)}")
+    return result
