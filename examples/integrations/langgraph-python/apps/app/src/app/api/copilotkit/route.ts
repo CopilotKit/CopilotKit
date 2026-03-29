@@ -24,6 +24,15 @@ export const POST = async (req: NextRequest) => {
         injectA2UITool: true,
         schema: a2uiSchema,
       },
+      mcpApps: {
+        servers: [
+          {
+            type: "http",
+            url: process.env.MCP_SERVER_URL || "https://mcp.excalidraw.com",
+            serverId: "example_mcp_app",
+          },
+        ],
+      },
     }),
   });
 
