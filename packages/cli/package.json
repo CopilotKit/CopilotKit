@@ -104,6 +104,9 @@
       },
       "login": {
         "description": "Authenticate with Copilot Cloud"
+      },
+      "skill": {
+        "description": "Install and manage CopilotKit skills for AI coding agents"
       }
     }
   },

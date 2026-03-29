@@ -151,4 +151,15 @@ export type AnalyticsEvents = {
     step: string;
     duration_ms: number;
   };
+
+  // Skill command analytics events
+  "cli.skill.sync.completed": {
+    duration_ms: number;
+  };
+
+  "cli.skill.sync.failed": {
+    error: string;
+  };
+
+  "cli.skill.onboard.triggered": {};
 };
