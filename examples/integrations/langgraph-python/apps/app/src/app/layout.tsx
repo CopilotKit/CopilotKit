@@ -5,7 +5,7 @@ import "@copilotkit/react-core/v2/styles.css";
 
 import { CopilotKit } from "@copilotkit/react-core";
 import { ThemeProvider } from "@/hooks/use-theme";
-import { appCatalog } from "@/a2ui/catalog";
+import { demonstrationCatalog } from "@/a2ui/catalog";
 
 export default function RootLayout({
   children,
@@ -17,7 +17,7 @@ export default function RootLayout({
           <CopilotKit
             runtimeUrl="/api/copilotkit"
             inspectorDefaultAnchor={{ horizontal: "left", vertical: "top" }}
-            a2ui={{ catalogs: [appCatalog] }}
+            a2ui={{ catalogs: [demonstrationCatalog] }}
           >
             {children}
           </CopilotKit>

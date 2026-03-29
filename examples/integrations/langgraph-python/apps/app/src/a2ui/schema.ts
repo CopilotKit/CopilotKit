@@ -1,190 +1,115 @@
 /**
- * A2UI Component Schema — defines what components the agent can generate.
+ * Demonstration Catalog — Component Definitions
  *
- * This is the contract between the app and the AI agent. The schema flows
- * to agents as context so they know what components are available.
+ * Platform-agnostic definitions: component names, props (Zod), descriptions.
+ * This is the contract between the app and the AI agent. Agents receive these
+ * definitions as context so they know what components are available.
  *
- * Components here are app-level: no dependency on the A2UI basic catalog.
+ * Renderers (React, React Native, etc.) import these definitions and provide
+ * platform-specific implementations, type-checked against the Zod schemas.
  */
-export const a2uiSchema = [
-  {
-    name: "Title",
+
+import { z } from "zod";
+import { type CatalogDefinitions, extractSchema } from "@copilotkit/a2ui-renderer";
+
+export const demonstrationCatalogDefinitions = {
+  Title: {
     description: "A heading. Use for section titles and page headers.",
-    props: {
-      type: "object",
-      properties: {
-        text: { type: "string", description: "The heading text" },
-        level: { type: "string", enum: ["h1", "h2", "h3"], description: "Heading level (default h2)" },
-      },
-      required: ["text"],
-    },
+    props: z.object({
+      text: z.string(),
+      level: z.string().optional(),
+    }),
   },
-  {
-    name: "Text",
+
+  Text: {
     description: "Plain text content. Use for descriptions, labels, body copy.",
-    props: {
-      type: "object",
-      properties: {
-        text: { type: "string", description: "The text content" },
-        variant: { type: "string", enum: ["body", "caption", "bold"], description: "Text style variant" },
-      },
-      required: ["text"],
-    },
+    props: z.object({
+      text: z.string(),
+      variant: z.string().optional(),
+    }),
   },
-  {
-    name: "Row",
+
+  Row: {
     description: "Horizontal layout container. Children are laid out in a row. Use 'children' array with component IDs.",
-    props: {
-      type: "object",
-      properties: {
-        gap: { type: "number", description: "Gap between children in px (default 16)" },
-        align: { type: "string", enum: ["start", "center", "end", "stretch"], description: "Vertical alignment" },
-        justify: { type: "string", enum: ["start", "center", "end", "spaceBetween"], description: "Horizontal distribution" },
-        children: { type: "array", items: { type: "string" }, description: "Array of child component IDs" },
-      },
-      required: ["children"],
-    },
+    props: z.object({
+      gap: z.number().optional(),
+      align: z.string().optional(),
+      justify: z.string().optional(),
+      children: z.array(z.string()),
+    }),
   },
-  {
-    name: "Column",
+
+  Column: {
     description: "Vertical layout container. Children are laid out in a column. Use 'children' array with component IDs.",
-    props: {
-      type: "object",
-      properties: {
-        gap: { type: "number", description: "Gap between children in px (default 12)" },
-        children: { type: "array", items: { type: "string" }, description: "Array of child component IDs" },
-      },
-      required: ["children"],
-    },
+    props: z.object({
+      gap: z.number().optional(),
+      children: z.array(z.string()),
+    }),
   },
-  {
-    name: "DashboardCard",
+
+  DashboardCard: {
     description: "A card container with title and optional subtitle. Has a 'child' slot for content (chart, metrics, etc). Use 'child' with a single component ID.",
-    props: {
-      type: "object",
-      properties: {
-        title: { type: "string", description: "Card title" },
-        subtitle: { type: "string", description: "Optional subtitle or description" },
-        child: { type: "string", description: "ID of the single child component to render inside the card" },
-      },
-      required: ["title"],
-    },
+    props: z.object({
+      title: z.string(),
+      subtitle: z.string().optional(),
+      child: z.string().optional(),
+    }),
   },
-  {
-    name: "Metric",
+
+  Metric: {
     description: "A key metric display with label, value, and optional trend indicator. Great for KPIs and stats.",
-    props: {
-      type: "object",
-      properties: {
-        label: { type: "string", description: "Metric label (e.g. 'Total Revenue')" },
-        value: { type: "string", description: "Metric value (e.g. '$48,200')" },
-        trend: { type: "string", enum: ["up", "down", "neutral"], description: "Trend direction" },
-        trendValue: { type: "string", description: "Trend percentage (e.g. '+12%')" },
-      },
-      required: ["label", "value"],
-    },
+    props: z.object({
+      label: z.string(),
+      value: z.string(),
+      trend: z.enum(["up", "down", "neutral"]).optional(),
+      trendValue: z.string().optional(),
+    }),
   },
-  {
-    name: "PieChart",
+
+  PieChart: {
     description: "A pie/donut chart. Provide data as array of {label, value, color} objects.",
-    props: {
-      type: "object",
-      properties: {
-        data: {
-          type: "array",
-          items: {
-            type: "object",
-            properties: {
-              label: { type: "string" },
-              value: { type: "number" },
-              color: { type: "string", description: "Hex color like #3b82f6" },
-            },
-          },
-          description: "Chart data segments",
-        },
-        innerRadius: { type: "number", description: "Inner radius for donut style (0 for solid pie)" },
-      },
-      required: ["data"],
-    },
+    props: z.object({
+      data: z.array(z.object({ label: z.string(), value: z.number(), color: z.string().optional() })),
+      innerRadius: z.number().optional(),
+    }),
   },
-  {
-    name: "BarChart",
+
+  BarChart: {
     description: "A bar chart. Provide data as array of {label, value} objects.",
-    props: {
-      type: "object",
-      properties: {
-        data: {
-          type: "array",
-          items: {
-            type: "object",
-            properties: {
-              label: { type: "string" },
-              value: { type: "number" },
-            },
-          },
-          description: "Chart data bars",
-        },
-        color: { type: "string", description: "Bar color (hex)" },
-      },
-      required: ["data"],
-    },
+    props: z.object({
+      data: z.array(z.object({ label: z.string(), value: z.number() })),
+      color: z.string().optional(),
+    }),
   },
-  {
-    name: "Badge",
+
+  Badge: {
     description: "A small status badge/tag. Use for labels, statuses, categories.",
-    props: {
-      type: "object",
-      properties: {
-        text: { type: "string", description: "Badge text" },
-        variant: { type: "string", enum: ["success", "warning", "error", "info", "neutral"], description: "Color variant" },
-      },
-      required: ["text"],
-    },
+    props: z.object({
+      text: z.string(),
+      variant: z.enum(["success", "warning", "error", "info", "neutral"]).optional(),
+    }),
   },
-  {
-    name: "DataTable",
-    description: "A data table with columns and rows. Columns define headers, rows provide data.",
-    props: {
-      type: "object",
-      properties: {
-        columns: {
-          type: "array",
-          items: { type: "object", properties: { key: { type: "string" }, label: { type: "string" } } },
-          description: "Column definitions",
-        },
-        rows: {
-          type: "array",
-          items: { type: "object" },
-          description: "Row data objects (keys match column keys)",
-        },
-      },
-      required: ["columns", "rows"],
-    },
+
+  DataTable: {
+    description: "A data table with columns and rows.",
+    props: z.object({
+      columns: z.array(z.object({ key: z.string(), label: z.string() })),
+      rows: z.array(z.record(z.any())),
+    }),
   },
-  {
-    name: "Button",
-    description: "An interactive button. Must have an action event for the agent to respond to.",
-    props: {
-      type: "object",
-      properties: {
-        label: { type: "string", description: "Button text" },
-        variant: { type: "string", enum: ["primary", "secondary", "ghost"], description: "Button style" },
-        action: {
-          type: "object",
-          properties: {
-            event: {
-              type: "object",
-              properties: {
-                name: { type: "string", description: "Action event name" },
-                context: { type: "object", description: "Context data passed with the action" },
-              },
-              required: ["name"],
-            },
-          },
-          description: "Action triggered on click",
-        },
-      },
-      required: ["label"],
-    },
+
+  Button: {
+    description: "An interactive button with an action event.",
+    props: z.object({
+      label: z.string(),
+      variant: z.enum(["primary", "secondary", "ghost"]).optional(),
+      action: z.any().optional(),
+    }),
   },
-];
+} satisfies CatalogDefinitions;
+
+/** Schema for the runtime — auto-extracted from Zod definitions */
+export const demonstrationSchema = extractSchema(demonstrationCatalogDefinitions);
+
+/** Type helper for renderers */
+export type DemonstrationCatalogDefinitions = typeof demonstrationCatalogDefinitions;

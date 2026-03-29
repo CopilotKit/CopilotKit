@@ -33,10 +33,20 @@ export {
   buildCatalogContextValue,
 } from "./catalog-utils";
 
-// Simplified catalog creation
+// Catalog creation — new API (definitions + renderers)
+export { createCatalog, extractSchema } from "./create-catalog";
+export type {
+  CatalogComponentDefinition,
+  CatalogDefinitions,
+  CatalogRenderers,
+  RendererProps,
+  ComponentRenderer,
+  PropsOf,
+} from "./create-catalog";
+
+// Catalog creation — deprecated API (combined definitions + renderers)
 export { createA2UICatalog, extractA2UISchema } from "./create-catalog";
 export type {
-  A2UIComponentRenderProps,
   A2UIComponentDefinition,
   A2UIComponentMap,
 } from "./create-catalog";

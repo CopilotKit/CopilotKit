@@ -5,7 +5,7 @@ import {
 } from "@copilotkit/runtime";
 import { LangGraphAgent } from "@copilotkit/runtime/langgraph";
 import { NextRequest } from "next/server";
-import { a2uiSchema } from "../../../a2ui/schema";
+import { demonstrationSchema } from "../../../a2ui/schema";
 
 const defaultAgent = new LangGraphAgent({
   deploymentUrl:
@@ -22,7 +22,7 @@ export const POST = async (req: NextRequest) => {
       agents: { default: defaultAgent },
       a2ui: {
         injectA2UITool: true,
-        schema: a2uiSchema,
+        schema: demonstrationSchema,
       },
       mcpApps: {
         servers: [
