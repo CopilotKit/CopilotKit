@@ -4,9 +4,9 @@ import {
   copilotRuntimeNextJSAppRouterEndpoint,
 } from "@copilotkit/runtime";
 import { LangGraphAgent } from "@copilotkit/runtime/langgraph";
-import { extractCatalogSchema } from "@copilotkit/shared";
 import { NextRequest } from "next/server";
 import { demonstrationCatalogDefinitions } from "../../declarative-generative-ui/definitions";
+import { extractCatalogSchema } from "../../declarative-generative-ui/extract-schema";
 
 const demonstrationSchema = extractCatalogSchema(demonstrationCatalogDefinitions);
 
