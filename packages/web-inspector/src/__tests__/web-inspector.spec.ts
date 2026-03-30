@@ -5,7 +5,7 @@ import {
   type CopilotKitCoreSubscriber,
 } from "@copilotkit/core";
 import type { AbstractAgent, AgentSubscriber } from "@ag-ui/client";
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 type MockAgentController = {
   emit: (key: keyof AgentSubscriber, payload: unknown) => void;
@@ -115,6 +115,10 @@ describe("WebInspectorElement", () => {
     const mockClipboard = { writeText: vi.fn().mockResolvedValue(undefined) };
     (navigator as unknown as { clipboard: typeof mockClipboard }).clipboard =
       mockClipboard;
+  });
+
+  afterEach(() => {
+    vi.clearAllTimers();
   });
 
   it("records agent events and syncs state/messages/tools", async () => {
