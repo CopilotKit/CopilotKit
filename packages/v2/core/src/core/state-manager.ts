@@ -39,18 +39,21 @@ export class StateManager {
 
   /**
    * Subscribe to an agent's events to track state and messages.
-   * Uses a composite key `agentId:threadId` for per-thread clones so that
-   * subscribing a clone does not overwrite the registry agent's subscription.
+   *
+   * Registry agents (subscribed via `onAgentsChanged`) use the bare `agentId`
+   * key so that `unsubscribeFromAgent(agentId)` can remove them when they
+   * are replaced. Per-thread clones (subscribed via `subscribeAgentToStateManager`)
+   * pass `isClone = true` to use a composite `agentId:threadId` key, keeping
+   * their subscription independent of the registry agent's.
    */
-  subscribeToAgent(agent: AbstractAgent): void {
+  subscribeToAgent(agent: AbstractAgent, isClone = false): void {
     if (!agent.agentId) {
       return; // Skip agents without IDs
     }
 
     const agentId = agent.agentId;
-    const subscriptionKey = agent.threadId
-      ? `${agentId}:${agent.threadId}`
-      : agentId;
+    const subscriptionKey =
+      isClone && agent.threadId ? `${agentId}:${agent.threadId}` : agentId;
 
     // Unsubscribe existing subscription for this key only
     const existingUnsubscribe = this.agentSubscriptions.get(subscriptionKey);
@@ -133,10 +136,10 @@ export class StateManager {
   }
 
   /**
-   * Unsubscribe from an agent's events (registry subscription only).
-   * Thread-scoped subscriptions use `agentId:threadId` keys and are not
-   * removed here — they are replaced individually by subsequent
-   * subscribeToAgent() calls for the same (agentId, threadId) pair.
+   * Unsubscribe a registry agent's subscription (bare `agentId` key).
+   * Per-thread clone subscriptions use composite `agentId:threadId` keys and
+   * are replaced (not removed) by subsequent subscribeToAgent(agent, true)
+   * calls for the same (agentId, threadId) pair.
    */
   unsubscribeFromAgent(agentId: string): void {
     const unsubscribe = this.agentSubscriptions.get(agentId);

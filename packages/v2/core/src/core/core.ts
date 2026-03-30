@@ -542,7 +542,9 @@ export class CopilotKitCore {
   }
 
   subscribeAgentToStateManager(agent: AbstractAgent): void {
-    this.stateManager.subscribeToAgent(agent);
+    // isClone=true: use composite agentId:threadId key, keeping the clone's
+    // subscription independent of the registry agent's bare-agentId subscription.
+    this.stateManager.subscribeToAgent(agent, true);
   }
 
   /**

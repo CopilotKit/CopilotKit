@@ -185,6 +185,14 @@ export function useAgent({ agentId, threadId, updates }: UseAgentProps = {}) {
       isRuntimeConfigured &&
       status === CopilotKitCoreRuntimeConnectionStatus.Error
     ) {
+      // Cache the provisional so that dep changes while in Error state (e.g.
+      // headers update) return the same agent reference, matching the
+      // Disconnected/Connecting path and preventing spurious re-subscriptions.
+      const cached = provisionalAgentCache.current.get(cacheKey);
+      if (cached) {
+        cached.headers = { ...copilotkit.headers };
+        return cached;
+      }
       const provisional = new ProxiedCopilotRuntimeAgent({
         runtimeUrl: copilotkit.runtimeUrl,
         agentId,
@@ -195,6 +203,7 @@ export function useAgent({ agentId, threadId, updates }: UseAgentProps = {}) {
       if (threadId) {
         provisional.threadId = threadId;
       }
+      provisionalAgentCache.current.set(cacheKey, provisional);
       return provisional;
     }
 
