@@ -252,17 +252,16 @@ in action handlers should use plain text strings rather than {"path": "..."}.
 
 
 def a2ui_prompt(
+    component_schema: str | None = None,
     generation_guidelines: str = DEFAULT_GENERATION_GUIDELINES,
     design_guidelines: str = DEFAULT_DESIGN_GUIDELINES,
 ) -> str:
     """Build the system prompt for dynamic A2UI generation.
 
-    Combines generation and design guidelines into a prompt for a
-    secondary LLM. Component schemas are NOT included here — they
-    are injected as context by the A2UI middleware from the catalog
-    definitions passed to CopilotRuntime.
-
     Args:
+        component_schema: JSON string of available components and their props.
+            Read from state["ag-ui"]["a2ui_schema"]. If None, the prompt
+            tells the LLM to check context for the schema.
         generation_guidelines: Instructions for how to call the render_a2ui
             tool, path rules, and data format.
         design_guidelines: Visual design rules, component hierarchy tips,
@@ -271,44 +270,29 @@ def a2ui_prompt(
     Returns:
         Complete system prompt string.
     """
+    schema_section = ""
+    if component_schema:
+        schema_section = f"""
+## AVAILABLE COMPONENTS:
+The following components are available for building UI surfaces.
+Use ONLY these components with the specified props.
+
+{component_schema}
+"""
+    else:
+        schema_section = """
+## IMPORTANT: Component Schema
+The available components and their props are provided in context.
+Use ONLY those components.
+"""
+
     return f"""\
 {generation_guidelines}
 
 ## DESIGN GUIDELINES:
 {design_guidelines}
-
-## IMPORTANT: Component Schema
-The available components and their props are provided in the
-"A2UI Component Schema" context entry. Use ONLY those components.
+{schema_section}
 """
 
 
-# ---------------------------------------------------------------------------
-# Schema extraction from agent context
-# ---------------------------------------------------------------------------
-
-_A2UI_SCHEMA_DESCRIPTION_PREFIX = "A2UI Component Schema"
-
-
-def get_schema_from_context(state: dict) -> list[dict[str, Any]] | None:
-    """Extract the A2UI component schema from agent context.
-
-    The schema is injected by the A2UI middleware as a context entry
-    with a description starting with "A2UI Component Schema".
-
-    Args:
-        state: The LangGraph agent state dict.
-
-    Returns:
-        The parsed schema array, or None if no schema context found.
-    """
-    ag_ui = state.get("ag-ui", {})
-    context_entries = ag_ui.get("context", [])
-    for entry in context_entries:
-        desc = entry.get("description", "")
-        if desc.startswith(_A2UI_SCHEMA_DESCRIPTION_PREFIX):
-            try:
-                return json.loads(entry.get("value", "[]"))
-            except (json.JSONDecodeError, TypeError):
-                return None
     return None

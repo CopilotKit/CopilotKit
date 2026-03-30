@@ -18,8 +18,6 @@ from langchain_openai import ChatOpenAI
 
 from copilotkit import a2ui
 
-A2UI_GENERATION_PROMPT = a2ui.a2ui_prompt()
-
 CUSTOM_CATALOG_ID = "copilotkit://app-dashboard-catalog"
 
 
@@ -76,8 +74,14 @@ def generate_a2ui(runtime: ToolRuntime[Any]) -> str:
     messages = runtime.state["messages"][:-1]
     print(f"[A2UI-DEBUG]   messages count: {len(messages)}")
 
+    # Read A2UI component schema from state (injected by AG-UI connector
+    # into state["ag-ui"]["a2ui_schema"] as a JSON string)
+    component_schema = runtime.state.get("ag-ui", {}).get("a2ui_schema")
+    print(f"[A2UI-DEBUG]   component_schema present: {component_schema is not None}, len={len(component_schema) if component_schema else 0}")
+
+    # Build prompt with the schema and any additional context
     context_addendum = _build_context_addendum(runtime.state)
-    prompt = A2UI_GENERATION_PROMPT + context_addendum
+    prompt = a2ui.a2ui_prompt(component_schema=component_schema) + context_addendum
 
     model = ChatOpenAI(model="gpt-4.1")
     model_with_tool = model.bind_tools(
