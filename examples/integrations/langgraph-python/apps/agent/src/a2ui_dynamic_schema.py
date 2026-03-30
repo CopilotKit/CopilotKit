@@ -26,8 +26,7 @@ def render_a2ui(
     surfaceId: str,
     catalogId: str,
     components: list[dict],
-    items: list[dict],
-    actionHandlers: dict | None = None,
+    items: list[dict]
 ) -> str:
     """Render a dynamic A2UI v0.9 surface.
 
@@ -37,8 +36,6 @@ def render_a2ui(
         components: A2UI v0.9 component array (flat format). The root
             component must have id "root".
         items: Plain JSON array of data objects for data binding.
-        actionHandlers: Optional dict mapping action names to arrays of
-            v0.9 A2UI operations for optimistic UI updates on button click.
     """
     return "rendered"
 
@@ -77,6 +74,7 @@ def generate_a2ui(runtime: ToolRuntime[Any]) -> str:
     response = model_with_tool.invoke(
         [SystemMessage(content=prompt), *messages],
     )
+    print(f"[A2UI-RESPONSE] {response}")
     print(f"[A2UI-DEBUG]   secondary LLM responded at t={time.time()-t0:.1f}s")
 
     if not response.tool_calls:
@@ -90,8 +88,6 @@ def generate_a2ui(runtime: ToolRuntime[Any]) -> str:
     catalog_id = args.get("catalogId", CUSTOM_CATALOG_ID)
     components = args.get("components", [])
     items = args.get("items", [])
-    action_handlers = args.get("actionHandlers")
-
     print(f"[A2UI-DEBUG]   components={len(components)} items={len(items)} surface={surface_id}")
 
     result = a2ui.render(
@@ -100,7 +96,6 @@ def generate_a2ui(runtime: ToolRuntime[Any]) -> str:
             a2ui.update_components(surface_id, components),
             a2ui.update_data_model(surface_id, {"items": items}),
         ],
-        action_handlers=action_handlers,
     )
     print(f"[A2UI-DEBUG] generate_a2ui DONE at t={time.time()-t0:.1f}s result_len={len(result)}")
     return result
