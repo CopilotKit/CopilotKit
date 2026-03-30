@@ -29,9 +29,7 @@
     "react18-json-view": "^0.2.9",
     "recharts": "^3.7.0",
     "tailwind-merge": "^3.5.0",
-    "zod": "^3.23.8",
-    "@a2ui/react": "*",
-    "@a2ui/web_core": "*"
+    "zod": "^3.23.8"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
