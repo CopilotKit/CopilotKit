@@ -96,7 +96,7 @@ export function createCatalog<D extends CatalogDefinitions>(
   },
 ): Catalog<ReactComponentImplementation> {
   const catalogId =
-    options?.catalogId ?? `copilotkit://custom-catalog/${Date.now()}`;
+    options?.catalogId ?? "copilotkit://custom-catalog";
   const includeBasic = options?.includeBasicCatalog !== false;
 
   const customComponents: ReactComponentImplementation[] = [];
