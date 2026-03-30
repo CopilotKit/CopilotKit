@@ -110,6 +110,7 @@ function createMockCore(initialAgents: Record<string, AbstractAgent> = {}) {
 
 describe("WebInspectorElement", () => {
   beforeEach(() => {
+    vi.useFakeTimers();
     document.body.innerHTML = "";
     localStorage.clear();
     const mockClipboard = { writeText: vi.fn().mockResolvedValue(undefined) };
@@ -119,6 +120,7 @@ describe("WebInspectorElement", () => {
 
   afterEach(() => {
     vi.clearAllTimers();
+    vi.useRealTimers();
   });
 
   it("records agent events and syncs state/messages/tools", async () => {
