@@ -317,7 +317,8 @@ export function CopilotChatMessageView({
     const registryAgent = copilotkit.getAgent(config.agentId);
     // Prefer the per-thread clone so that state changes from the running agent
     // (which is the clone, not the registry) trigger re-renders.
-    const agent = getThreadClone(registryAgent, config.threadId) ?? registryAgent;
+    const agent =
+      getThreadClone(registryAgent, config.threadId) ?? registryAgent;
     if (!agent) return;
 
     const subscription = agent.subscribe({
