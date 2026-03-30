@@ -1,5 +1,4 @@
 import { useCopilotKit } from "../providers";
-import { useA2UIActionHandlerRegistry } from "../providers/A2UIActionHandlerRegistry";
 import type { ReactActivityMessageRenderer } from "../types/react-activity-message-renderer";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { z } from "zod";
@@ -15,7 +14,6 @@ import {
 import type {
   Theme,
   A2UIClientEventMessage,
-  ServerToClientMessage,
 } from "@copilotkit/a2ui-renderer";
 
 /**
@@ -46,51 +44,8 @@ export type A2UIUserAction = {
   dataContextPath?: string;
 };
 
-/** A2UI operations array. */
-export type A2UIOps = Array<Record<string, unknown>>;
-
-/**
- * Pre-declared action operations resolved for this specific action.
- * Contains the exact-match or catch-all ops from the agent's action_handlers,
- * or null if no match.
- */
-export type A2UIDeclaredOps = A2UIOps | null;
-
-/**
- * A single action handler function.
- *
- * @param action - The dispatched user action.
- * @param declaredOps - Pre-declared A2UI operations for this action from the
- *   agent's action_handlers (exact name match or "*" catch-all), or null.
- *   The handler can use these directly, modify them, or ignore them.
- */
-export type A2UIActionHandler = (
-  action: A2UIUserAction,
-  declaredOps: A2UIDeclaredOps,
-) => A2UIOps | null | undefined | void;
-
-/**
- * Orchestrator that receives the action, all registered handlers, and the
- * pre-declared action handlers map.
- *
- * Default behavior (when not provided): loops through handlers and uses
- * the first one that returns a non-empty operations array. If no handler
- * matches, falls back to the pre-declared ops directly.
- *
- * @param action - The dispatched user action.
- * @param handlers - All registered handlers (from useA2UIActionHandler hooks).
- * @param declaredHandlers - The full action_handlers map from the agent, or undefined.
- */
-export type A2UIActionOrchestrator = (
-  action: A2UIUserAction,
-  handlers: A2UIActionHandler[],
-  declaredHandlers: Record<string, A2UIOps> | undefined,
-) => A2UIOps | null | undefined | void;
-
 export type A2UIMessageRendererOptions = {
   theme: Theme;
-  /** Optional orchestrator for A2UI action dispatch. */
-  onAction?: A2UIActionOrchestrator;
   /** Optional component catalogs to pass to A2UIProvider */
   catalogs?: any[];
   /** Optional custom loading component shown while A2UI surface is generating. */
@@ -100,7 +55,7 @@ export type A2UIMessageRendererOptions = {
 export function createA2UIMessageRenderer(
   options: A2UIMessageRendererOptions,
 ): ReactActivityMessageRenderer<any> {
-  const { theme, onAction, catalogs, loadingComponent } = options;
+  const { theme, catalogs, loadingComponent } = options;
 
   return {
     activityType: "a2ui-surface",
@@ -109,9 +64,6 @@ export function createA2UIMessageRenderer(
       ensureInitialized();
 
       const [operations, setOperations] = useState<any[]>([]);
-      const [actionHandlers, setActionHandlers] = useState<
-        Record<string, any[]> | undefined
-      >(undefined);
       const { copilotkit } = useCopilotKit();
 
       const lastContentRef = useRef<unknown>(null);
@@ -123,21 +75,10 @@ export function createA2UIMessageRenderer(
         const incoming = content?.[A2UI_OPERATIONS_KEY];
         if (!content || !Array.isArray(incoming)) {
           setOperations([]);
-          setActionHandlers(undefined);
           return;
         }
 
         setOperations(incoming);
-
-        // Extract pre-declared action handlers from the content
-        const handlers = content?.actionHandlers;
-        if (
-          handlers &&
-          typeof handlers === "object" &&
-          !Array.isArray(handlers)
-        ) {
-          setActionHandlers(handlers);
-        }
       }, [content]);
 
       // Group operations by surface ID
@@ -173,8 +114,6 @@ export function createA2UIMessageRenderer(
               theme={theme}
               agent={agent}
               copilotkit={copilotkit}
-              onAction={onAction}
-              actionHandlers={actionHandlers}
               catalogs={catalogs}
             />
           ))}
@@ -190,51 +129,9 @@ type ReactSurfaceHostProps = {
   theme: Theme;
   agent: any;
   copilotkit: any;
-  onAction?: A2UIActionOrchestrator;
-  /** Pre-declared action handlers from the agent's a2ui_action_handlers */
-  actionHandlers?: Record<string, any[]>;
   /** Optional component catalogs to pass to A2UIProvider */
   catalogs?: any[];
 };
-
-/**
- * Resolve the pre-declared ops for a given action: exact name match first,
- * then "*" catch-all, or null.
- */
-export function resolveDeclaredOps(
-  action: A2UIUserAction,
-  declaredHandlers: Record<string, A2UIOps> | undefined,
-): A2UIDeclaredOps {
-  if (!declaredHandlers) return null;
-  return declaredHandlers[action.name] ?? declaredHandlers["*"] ?? null;
-}
-
-/**
- * Default orchestrator implementation.
- *
- * 1. Loops through hook-registered handlers, passing declaredOps to each.
- *    First handler that returns a non-empty array wins.
- * 2. If no handler matches, falls back to declaredOps directly.
- *
- * This means pre-declared ops are the default, but any hook can override
- * or transform them.
- */
-export function defaultActionOrchestrator(
-  action: A2UIUserAction,
-  handlers: A2UIActionHandler[],
-  declaredHandlers: Record<string, A2UIOps> | undefined,
-): A2UIOps | null {
-  const declaredOps = resolveDeclaredOps(action, declaredHandlers);
-
-  // Check hook handlers first — they can use, modify, or ignore declaredOps
-  for (const handler of handlers) {
-    const ops = handler(action, declaredOps);
-    if (ops && ops.length > 0) return ops;
-  }
-
-  // Fall back to pre-declared ops
-  return declaredOps;
-}
 
 /**
  * Renders a single A2UI surface using the React renderer.
@@ -246,36 +143,15 @@ function ReactSurfaceHost({
   theme,
   agent,
   copilotkit,
-  onAction: onActionOrchestrator,
-  actionHandlers: declaredHandlers,
   catalogs,
 }: ReactSurfaceHostProps) {
-  // Ref to access A2UI actions from inside the provider context
-  const actionsRef = useRef<ReturnType<typeof useA2UIActions> | null>(null);
-  const registry = useA2UIActionHandlerRegistry();
-
-  // Bridge: when the React renderer dispatches an action, apply
-  // optimistic updates then forward to CopilotKit
+  // Bridge: when the React renderer dispatches an action, forward to CopilotKit
   const handleAction = useCallback(
     async (message: A2UIClientEventMessage) => {
       if (!agent) return;
 
       const action = message.userAction as A2UIUserAction | undefined;
       console.info("[A2UI] Action dispatched", action);
-
-      // Run optimistic updates via orchestrator
-      if (actionsRef.current && action) {
-        const hookHandlers = registry.getHandlers();
-        const orchestrate = onActionOrchestrator ?? defaultActionOrchestrator;
-        const optimisticOps = orchestrate(
-          action,
-          hookHandlers,
-          declaredHandlers,
-        );
-        if (optimisticOps && optimisticOps.length > 0) {
-          actionsRef.current.processMessages(optimisticOps as any[]);
-        }
-      }
 
       try {
         copilotkit.setProperties({
@@ -291,13 +167,12 @@ function ReactSurfaceHost({
         }
       }
     },
-    [agent, copilotkit, onActionOrchestrator, registry, declaredHandlers],
+    [agent, copilotkit],
   );
 
   return (
     <div className="cpk:flex cpk:w-full cpk:flex-none cpk:flex-col cpk:gap-4">
       <A2UIProvider onAction={handleAction} theme={theme} catalogs={catalogs}>
-        <ActionsBridge actionsRef={actionsRef} />
         <SurfaceMessageProcessor
           surfaceId={surfaceId}
           operations={operations}
@@ -322,20 +197,6 @@ function A2UISurfaceOrError({ surfaceId }: { surfaceId: string }) {
     );
   }
   return <A2UIRenderer surfaceId={surfaceId} className="cpk:flex cpk:flex-1" />;
-}
-
-/**
- * Bridges A2UI actions context into a ref accessible by the parent component.
- * This allows handleAction (which is outside the provider) to read/write data.
- */
-function ActionsBridge({
-  actionsRef,
-}: {
-  actionsRef: React.MutableRefObject<ReturnType<typeof useA2UIActions> | null>;
-}) {
-  const actions = useA2UIActions();
-  actionsRef.current = actions;
-  return null;
 }
 
 /**

@@ -12,19 +12,10 @@ export * from "./hooks";
 export * from "./providers";
 export * from "./types";
 export * from "./lib/react-core";
-export {
-  createA2UIMessageRenderer,
-  defaultActionOrchestrator,
-  resolveDeclaredOps,
-} from "./a2ui/A2UIMessageRenderer";
-export { useA2UIActionHandler } from "./hooks/use-a2ui-action-handler";
+export { createA2UIMessageRenderer } from "./a2ui/A2UIMessageRenderer";
 export type {
   A2UIMessageRendererOptions,
-  A2UIActionHandler,
-  A2UIActionOrchestrator,
   A2UIUserAction,
-  A2UIOps,
-  A2UIDeclaredOps,
 } from "./a2ui/A2UIMessageRenderer";
 export type { Theme as A2UITheme } from "@copilotkit/a2ui-renderer";
 export { defaultTheme as a2uiDefaultTheme } from "@copilotkit/a2ui-renderer";
