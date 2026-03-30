@@ -107,9 +107,9 @@ Generate A2UI v0.9 JSON.
 
 A2UI (Agent to UI) is a protocol for rendering rich UI surfaces from agent responses.
 
-CRITICAL: You MUST call the render_a2ui tool with these arguments:
+CRITICAL: You MUST call the render_a2ui tool with ALL of these arguments:
 - surfaceId: A unique ID for the surface (e.g. "product-comparison")
-- components: The A2UI component array (schema). Use a List with
+- components: REQUIRED — the A2UI component array. NEVER omit this. Use a List with
   children: { componentId: "card-id", path: "/items" } for repeating cards.
 - items: Plain JSON array of data objects that populate the template.
 - every component must have the "component" field specifying the component type (e.g. "Text", "Image", "Row", "Column", "List", "Button", etc.)
