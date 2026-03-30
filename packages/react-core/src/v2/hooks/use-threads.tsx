@@ -6,7 +6,6 @@ import {
   ɵselectThreadsIsLoading,
   ɵselectHasNextPage,
   ɵselectIsFetchingNextPage,
-  type ɵThread as CoreThread,
   type ɵThreadRuntimeContext,
   type ɵThreadStore,
 } from "@copilotkit/core";
@@ -24,7 +23,14 @@ import {
  * Each thread has a unique `id`, an optional human-readable `name`, and
  * timestamp fields tracking creation and update times.
  */
-export interface Thread extends CoreThread {}
+export interface Thread {
+  id: string;
+  agentId: string;
+  name: string | null;
+  archived: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
 
 /**
  * Configuration for the {@link useThreads} hook.
@@ -68,18 +74,18 @@ export interface UseThreadsResult {
   error: Error | null;
   /**
    * `true` when there are more threads available to fetch via
-   * {@link fetchNextPage}. Only meaningful when `limit` is set.
+   * {@link fetchNextThreadsPage}. Only meaningful when `limit` is set.
    */
-  hasNextPage: boolean;
+  hasNextThreadsPage: boolean;
   /**
    * `true` while a subsequent page of threads is being fetched.
    */
-  isFetchingNextPage: boolean;
+  isFetchingNextThreadsPage: boolean;
   /**
-   * Fetch the next page of threads. No-op when {@link hasNextPage} is
+   * Fetch the next page of threads. No-op when {@link hasNextThreadsPage} is
    * `false` or a page fetch is already in progress.
    */
-  fetchNextPage: () => void;
+  fetchNextThreadsPage: () => void;
   /**
    * Rename a thread on the platform.
    * Resolves when the server confirms the update; rejects on failure.
@@ -169,11 +175,25 @@ export function useThreads({
     }),
   );
 
-  const threads = useThreadStoreSelector(store, ɵselectThreads);
+  const coreThreads = useThreadStoreSelector(store, ɵselectThreads);
+  const threads: Thread[] = useMemo(
+    () =>
+      coreThreads.map(
+        ({ id, agentId, name, archived, createdAt, updatedAt }) => ({
+          id,
+          agentId,
+          name,
+          archived,
+          createdAt,
+          updatedAt,
+        }),
+      ),
+    [coreThreads],
+  );
   const storeIsLoading = useThreadStoreSelector(store, ɵselectThreadsIsLoading);
   const storeError = useThreadStoreSelector(store, ɵselectThreadsError);
-  const hasNextPage = useThreadStoreSelector(store, ɵselectHasNextPage);
-  const isFetchingNextPage = useThreadStoreSelector(
+  const hasNextThreadsPage = useThreadStoreSelector(store, ɵselectHasNextPage);
+  const isFetchingNextThreadsPage = useThreadStoreSelector(
     store,
     ɵselectIsFetchingNextPage,
   );
@@ -240,15 +260,18 @@ export function useThreads({
     [store],
   );
 
-  const fetchNextPage = useCallback(() => store.fetchNextPage(), [store]);
+  const fetchNextThreadsPage = useCallback(
+    () => store.fetchNextPage(),
+    [store],
+  );
 
   return {
     threads,
     isLoading,
     error,
-    hasNextPage,
-    isFetchingNextPage,
-    fetchNextPage,
+    hasNextThreadsPage,
+    isFetchingNextThreadsPage,
+    fetchNextThreadsPage,
     renameThread,
     archiveThread,
     deleteThread,
