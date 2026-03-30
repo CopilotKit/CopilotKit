@@ -43,23 +43,6 @@ def render_a2ui(
     return "rendered"
 
 
-def _build_context_addendum(state: dict) -> str:
-    """Extract agent context from state and format as a prompt addendum."""
-    ag_ui = state.get("ag-ui", {})
-    context_entries = ag_ui.get("context", [])
-    if not context_entries:
-        return ""
-    parts = ["\n\n## Additional Context from Client:\n"]
-    for entry in context_entries:
-        desc = entry.get("description", "")
-        value = entry.get("value", "")
-        if desc:
-            parts.append(f"### {desc}\n{value}\n")
-        else:
-            parts.append(f"{value}\n")
-    return "\n".join(parts)
-
-
 @tool()
 def generate_a2ui(runtime: ToolRuntime[Any]) -> str:
     """Generate dynamic A2UI components based on the conversation.
@@ -74,14 +57,15 @@ def generate_a2ui(runtime: ToolRuntime[Any]) -> str:
     messages = runtime.state["messages"][:-1]
     print(f"[A2UI-DEBUG]   messages count: {len(messages)}")
 
-    # Read A2UI component schema from state (injected by AG-UI connector
-    # into state["ag-ui"]["a2ui_schema"] as a JSON string)
-    component_schema = runtime.state.get("ag-ui", {}).get("a2ui_schema")
-    print(f"[A2UI-DEBUG]   component_schema present: {component_schema is not None}, len={len(component_schema) if component_schema else 0}")
+    # Get context entries from copilotkit state (catalog capabilities + component schema)
+    context_entries = runtime.state.get("copilotkit", {}).get("context", [])
+    context_text = "\n\n".join(
+        entry.get("value", "") for entry in context_entries
+        if isinstance(entry, dict) and entry.get("value")
+    )
+    print(f"[A2UI-DEBUG]   context entries: {len(context_entries)}, context_text_len: {len(context_text)}")
 
-    # Build prompt with the schema and any additional context
-    context_addendum = _build_context_addendum(runtime.state)
-    prompt = a2ui.a2ui_prompt(component_schema=component_schema) + context_addendum
+    prompt = a2ui.DEFAULT_GENERATION_GUIDELINES + "\n\n" + a2ui.DEFAULT_DESIGN_GUIDELINES + "\n\n" + context_text
 
     model = ChatOpenAI(model="gpt-4.1")
     model_with_tool = model.bind_tools(
