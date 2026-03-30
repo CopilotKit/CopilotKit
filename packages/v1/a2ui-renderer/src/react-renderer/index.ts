@@ -79,8 +79,11 @@ export type {
   A2UIProviderConfig,
 } from "./types";
 
-// v0.9: Components are provided by the internalized a2ui-react basicCatalog
-// No individual component exports needed
+// Low-level a2ui-react primitives (vendored from @a2ui/react)
+export { createReactComponent } from "./a2ui-react/adapter";
+export type { ReactComponentImplementation } from "./a2ui-react/adapter";
+export { basicCatalog } from "./a2ui-react/catalog/basic";
+export { Catalog } from "@a2ui/web_core/v0_9";
 
 // Backward compat: no-op functions for initializeDefaultCatalog
 export function registerDefaultCatalog() {
