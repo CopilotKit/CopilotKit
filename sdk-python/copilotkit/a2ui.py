@@ -18,7 +18,6 @@ Usage:
 from __future__ import annotations
 
 import json
-from pathlib import Path
 from typing import Any
 
 
@@ -118,8 +117,6 @@ def render(
 # ---------------------------------------------------------------------------
 # Dynamic A2UI prompt builder
 # ---------------------------------------------------------------------------
-
-_A2UI_JSON_SCHEMA = (Path(__file__).parent / "a2ui_json_schema.json").read_text()
 
 DEFAULT_GENERATION_GUIDELINES = """\
 Generate A2UI v0.9 JSON.
@@ -260,8 +257,10 @@ def a2ui_prompt(
 ) -> str:
     """Build the system prompt for dynamic A2UI generation.
 
-    Combines the A2UI JSON schema reference with generation and design
-    guidelines into a single prompt for a secondary LLM.
+    Combines generation and design guidelines into a prompt for a
+    secondary LLM. Component schemas are NOT included here — they
+    are injected as context by the A2UI middleware from the catalog
+    definitions passed to CopilotRuntime.
 
     Args:
         generation_guidelines: Instructions for how to call the render_a2ui
@@ -271,26 +270,16 @@ def a2ui_prompt(
 
     Returns:
         Complete system prompt string.
-
-    Example::
-
-        from copilotkit import a2ui
-
-        # Use defaults
-        prompt = a2ui.a2ui_prompt()
-
-        # Custom design guidelines
-        prompt = a2ui.a2ui_prompt(design_guidelines="Keep it minimal.")
     """
     return f"""\
 {generation_guidelines}
 
-## JSON SCHEMA REFERENCE:
-{_A2UI_JSON_SCHEMA}
-
-
 ## DESIGN GUIDELINES:
 {design_guidelines}
+
+## IMPORTANT: Component Schema
+The available components and their props are provided in the
+"A2UI Component Schema" context entry. Use ONLY those components.
 """
 
 
