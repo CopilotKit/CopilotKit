@@ -34,8 +34,8 @@ export interface A2UIProviderProps {
   onAction?: OnActionCallback;
   /** Theme configuration */
   theme?: Theme;
-  /** Optional component catalogs to use instead of the default basicCatalog */
-  catalogs?: any[];
+  /** Optional component catalog to use instead of the default basicCatalog */
+  catalog?: any;
   /** Child components */
   children: ReactNode;
 }
@@ -49,7 +49,7 @@ export interface A2UIProviderProps {
 export function A2UIProvider({
   onAction,
   theme,
-  catalogs,
+  catalog,
   children,
 }: A2UIProviderProps) {
   // Store onAction in a ref so callbacks always have the latest value
@@ -60,7 +60,7 @@ export function A2UIProvider({
   const processorRef = useRef<MessageProcessor<any> | null>(null);
   if (!processorRef.current) {
     processorRef.current = new MessageProcessor(
-      catalogs ?? [basicCatalog],
+      [catalog ?? basicCatalog],
       // Action handler: convert v0.9 Action to A2UIClientEventMessage format
       (action: any) => {
         if (onActionRef.current) {

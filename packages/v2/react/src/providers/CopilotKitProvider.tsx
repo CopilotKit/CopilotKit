@@ -115,15 +115,22 @@ export interface CopilotKitProviderProps {
      */
     theme?: A2UITheme;
     /**
-     * Optional component catalogs to pass to the A2UI renderer.
+     * Optional component catalog to pass to the A2UI renderer.
      * When omitted, the default basicCatalog is used.
      */
-    catalogs?: any[];
+    catalog?: any;
     /**
      * Optional custom loading component shown while an A2UI surface is generating.
      * When omitted, a default animated skeleton is shown.
      */
     loadingComponent?: React.ComponentType;
+    /**
+     * When true (the default), the full component schemas from the catalog are
+     * sent as agent context so the agent knows what components and props are
+     * available. The A2UI middleware can overwrite this with a server-side
+     * schema if configured. Set to false to disable.
+     */
+    includeSchema?: boolean;
   };
   /**
    * Default anchor corner for the inspector button and window.
@@ -248,7 +255,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
       renderers.unshift(
         createA2UIMessageRenderer({
           theme: a2ui?.theme ?? viewerTheme,
-          catalogs: a2ui?.catalogs,
+          catalog: a2ui?.catalog,
           loadingComponent: a2ui?.loadingComponent,
         }),
       );
@@ -407,6 +414,8 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
 
   // Sync runtimeA2UIEnabled from the core once runtime info is fetched
   useEffect(() => {
+    // Check current value immediately (may already be set before subscription)
+    setRuntimeA2UIEnabled(copilotkit.a2uiEnabled);
     const subscription = copilotkit.subscribe({
       onRuntimeConnectionStatusChanged: () => {
         setRuntimeA2UIEnabled(copilotkit.a2uiEnabled);
@@ -550,7 +559,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   return (
     <CopilotKitContext.Provider value={contextValue}>
       {runtimeA2UIEnabled && <A2UIBuiltInToolCallRenderer />}
-      {runtimeA2UIEnabled && <A2UICatalogContext catalogs={a2ui?.catalogs} />}
+      {runtimeA2UIEnabled && <A2UICatalogContext catalog={a2ui?.catalog} includeSchema={a2ui?.includeSchema} />}
       {children}
       {shouldRenderInspector ? (
         <CopilotKitInspector

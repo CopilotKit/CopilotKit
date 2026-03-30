@@ -46,8 +46,8 @@ export type A2UIUserAction = {
 
 export type A2UIMessageRendererOptions = {
   theme: Theme;
-  /** Optional component catalogs to pass to A2UIProvider */
-  catalogs?: any[];
+  /** Optional component catalog to pass to A2UIProvider */
+  catalog?: any;
   /** Optional custom loading component shown while A2UI surface is generating. */
   loadingComponent?: React.ComponentType;
 };
@@ -55,7 +55,7 @@ export type A2UIMessageRendererOptions = {
 export function createA2UIMessageRenderer(
   options: A2UIMessageRendererOptions,
 ): ReactActivityMessageRenderer<any> {
-  const { theme, catalogs, loadingComponent } = options;
+  const { theme, catalog, loadingComponent } = options;
 
   return {
     activityType: "a2ui-surface",
@@ -114,7 +114,7 @@ export function createA2UIMessageRenderer(
               theme={theme}
               agent={agent}
               copilotkit={copilotkit}
-              catalogs={catalogs}
+              catalog={catalog}
             />
           ))}
         </div>
@@ -129,8 +129,8 @@ type ReactSurfaceHostProps = {
   theme: Theme;
   agent: any;
   copilotkit: any;
-  /** Optional component catalogs to pass to A2UIProvider */
-  catalogs?: any[];
+  /** Optional component catalog to pass to A2UIProvider */
+  catalog?: any;
 };
 
 /**
@@ -143,7 +143,7 @@ function ReactSurfaceHost({
   theme,
   agent,
   copilotkit,
-  catalogs,
+  catalog,
 }: ReactSurfaceHostProps) {
   // Bridge: when the React renderer dispatches an action, forward to CopilotKit
   const handleAction = useCallback(
@@ -151,7 +151,6 @@ function ReactSurfaceHost({
       if (!agent) return;
 
       const action = message.userAction as A2UIUserAction | undefined;
-      console.info("[A2UI] Action dispatched", action);
 
       try {
         copilotkit.setProperties({
@@ -172,7 +171,7 @@ function ReactSurfaceHost({
 
   return (
     <div className="cpk:flex cpk:w-full cpk:flex-none cpk:flex-col cpk:gap-4">
-      <A2UIProvider onAction={handleAction} theme={theme} catalogs={catalogs}>
+      <A2UIProvider onAction={handleAction} theme={theme} catalog={catalog}>
         <SurfaceMessageProcessor
           surfaceId={surfaceId}
           operations={operations}

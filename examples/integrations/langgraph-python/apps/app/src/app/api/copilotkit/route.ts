@@ -5,11 +5,6 @@ import {
 } from "@copilotkit/runtime";
 import { LangGraphAgent } from "@copilotkit/runtime/langgraph";
 import { NextRequest } from "next/server";
-import { demonstrationCatalogDefinitions } from "../../declarative-generative-ui/definitions";
-import { extractCatalogSchema } from "../../declarative-generative-ui/extract-schema";
-
-const demonstrationSchema = extractCatalogSchema(demonstrationCatalogDefinitions);
-
 const defaultAgent = new LangGraphAgent({
   deploymentUrl:
     process.env.LANGGRAPH_DEPLOYMENT_URL || "http://localhost:8123",
@@ -25,7 +20,6 @@ export const POST = async (req: NextRequest) => {
       agents: { default: defaultAgent },
       a2ui: {
         injectA2UITool: false,
-        schema: demonstrationSchema,
       },
       mcpApps: {
         servers: [
