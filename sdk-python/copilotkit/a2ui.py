@@ -78,39 +78,21 @@ def create_surface(
 A2UI_OPERATIONS_KEY = "a2ui_operations"
 """The container key used to wrap A2UI operations for explicit detection."""
 
-A2UI_ACTION_HANDLERS_KEY = "a2ui_action_handlers"
-"""The key for pre-declared action handlers in the container."""
-
 
 def render(
-    operations: list[dict[str, Any]],
-    action_handlers: dict[str, list[dict[str, Any]]] | None = None,
+    operations: list[dict[str, Any]]
 ) -> str:
     """Wrap operations in the a2ui_operations container and serialize to JSON.
 
     Args:
         operations: The A2UI v0.9 operations (createSurface, updateComponents, updateDataModel).
-        action_handlers: Optional dict mapping action names to A2UI operations that
-            should be applied optimistically when that action is triggered.
-            Use "*" as a catch-all for any unmatched action.
 
     Example::
-
         render(
             operations=[...],
-            action_handlers={
-                "book_flight": [
-                    update_components(sid, BOOKED_SCHEMA),
-                ],
-                "*": [
-                    update_components(sid, PROCESSING_SCHEMA),
-                ],
-            },
         )
     """
     result: dict[str, Any] = {A2UI_OPERATIONS_KEY: operations}
-    if action_handlers:
-        result[A2UI_ACTION_HANDLERS_KEY] = action_handlers
     return json.dumps(result)
 
 
@@ -125,54 +107,12 @@ Generate A2UI v0.9 JSON.
 
 A2UI (Agent to UI) is a protocol for rendering rich UI surfaces from agent responses.
 
-To render a surface, you MUST send ALL messages in a SINGLE tool call, in this order:
-
-1. **createSurface** - Create the surface (REQUIRED)
-2. **updateComponents** - Define all UI components (REQUIRED)
-3. **updateDataModel** - Set any data values (OPTIONAL)
-
-All messages MUST include `"version": "v0.9"`.
-
-### Minimal Working Example
-
-Here is the simplest possible A2UI surface - a button:
-
-```json
-[
-  {
-    "version": "v0.9",
-    "createSurface": {
-      "surfaceId": "my-surface",
-      "catalogId": "basic"
-    }
-  },
-  {
-    "version": "v0.9",
-    "updateComponents": {
-      "surfaceId": "my-surface",
-      "components": [
-        {
-          "id": "root",
-          "component": "Button",
-          "child": "btn-text",
-          "action": { "event": { "name": "button_clicked" } }
-        },
-        {
-          "id": "btn-text",
-          "component": "Text",
-          "text": "Click Me"
-        }
-      ]
-    }
-  }
-]
-```
-
 CRITICAL: You MUST call the render_a2ui tool with these arguments:
 - surfaceId: A unique ID for the surface (e.g. "product-comparison")
 - components: The A2UI component array (schema). Use a List with
   children: { componentId: "card-id", path: "/items" } for repeating cards.
 - items: Plain JSON array of data objects that populate the template.
+- every component must have the "component" field specifying the component type (e.g. "Text", "Image", "Row", "Column", "List", "Button", etc.)
 
 COMPONENT ID RULES:
 - Every component ID must be unique within the surface.
@@ -228,27 +168,8 @@ Create polished, visually appealing interfaces:
   Use variant="primary" for main action buttons, variant="borderless" for links.
   Action context is a plain object: {"name": {"path": "name"}, "id": "static-value"}.
 
-ACTION HANDLERS (for button interactivity):
-When you include Button components, also provide an "actionHandlers" argument.
-This is a dict mapping action names to arrays of A2UI operations that replace the
-surface when the button is clicked (optimistic UI update).
 
-Example: if a Button has action.event.name="select_item", provide:
-  "actionHandlers": {
-    "select_item": [
-      {"version": "v0.9", "updateComponents": {"surfaceId": "THE-SAME-SURFACE-ID", "components": [
-        {"id": "root", "component": "Card", "child": "confirm-col"},
-        {"id": "confirm-col", "component": "Column", "children": ["title", "detail"], "align": "center"},
-        {"id": "title", "component": "Text", "text": "Selected!", "variant": "h2"},
-        {"id": "detail", "component": "Text", "text": "Your selection has been confirmed.", "variant": "body"}
-      ]}}
-    ]
-  }
-Use the SAME surfaceId as the main surface. Match action names to Button action event names.
-
-Note: Action handler components are outside the List template, so Text components
-in action handlers should use plain text strings rather than {"path": "..."}.
-(Path bindings in Button action.context are fine — those capture data at click time.)"""
+Use the SAME surfaceId as the main surface. Match action names to Button action event names."""
 
 
 def a2ui_prompt(
