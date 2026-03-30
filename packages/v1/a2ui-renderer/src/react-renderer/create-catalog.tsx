@@ -42,6 +42,8 @@ export interface RendererProps<T = Record<string, unknown>> {
   props: T;
   /** Render a child component by ID */
   children: (id: string) => React.ReactNode;
+  /** Dispatch an A2UI action from this component (e.g., on button click) */
+  dispatch?: (action: any) => void;
 }
 
 /**
@@ -108,9 +110,10 @@ export function createCatalog<D extends CatalogDefinitions>(
     };
 
     const renderer = (renderers as Record<string, ComponentRenderer<any>>)[name];
-    const wrapped = createReactComponent(api, ({ props, buildChild }) => {
+    const wrapped = createReactComponent(api, ({ props, buildChild, context }) => {
       const Render = renderer;
-      return <Render props={props} children={buildChild} />;
+      const dispatch = (action: any) => context.dispatchAction(action);
+      return <Render props={props} children={buildChild} dispatch={dispatch} />;
     });
 
     customComponents.push(wrapped);

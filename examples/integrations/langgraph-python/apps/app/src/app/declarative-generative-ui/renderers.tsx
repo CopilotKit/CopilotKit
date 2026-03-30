@@ -191,7 +191,7 @@ const demonstrationCatalogRenderers: CatalogRenderers<DemonstrationCatalogDefini
     );
   },
 
-  Button: ({ props }) => {
+  Button: ({ props, dispatch }) => {
     const variants: Record<string, React.CSSProperties> = {
       primary: { background: "#111827", color: "#fff", border: "none" },
       secondary: { background: "#fff", color: "#374151", border: "1px solid #d1d5db" },
@@ -199,10 +199,17 @@ const demonstrationCatalogRenderers: CatalogRenderers<DemonstrationCatalogDefini
     };
     const style = variants[props.variant ?? "primary"] ?? variants.primary;
     return (
-      <button style={{
-        ...style, padding: "8px 16px", borderRadius: "8px", fontSize: "0.8rem",
-        fontWeight: 500, cursor: "pointer", transition: "opacity 0.15s",
-      }}>
+      <button
+        style={{
+          ...style, padding: "8px 16px", borderRadius: "8px", fontSize: "0.8rem",
+          fontWeight: 500, cursor: "pointer", transition: "opacity 0.15s",
+        }}
+        onClick={() => {
+          if (props.action && dispatch) {
+            dispatch(props.action);
+          }
+        }}
+      >
         {props.label}
       </button>
     );
