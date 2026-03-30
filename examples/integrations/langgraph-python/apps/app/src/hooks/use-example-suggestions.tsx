@@ -18,12 +18,12 @@ export const useExampleSuggestions = () => {
       {
         title: "Sales Dashboard (A2UI)",
         message:
-          "Show me a sales dashboard with total revenue, new customers, and conversion rate metrics. Include a pie chart of revenue by category and a bar chart of monthly sales.",
+          "Using A2UI, show me a sales dashboard with total revenue, new customers, and conversion rate metrics. Include a pie chart of revenue by category and a bar chart of monthly sales.",
       },
       {
         title: "Product Analytics (A2UI)",
         message:
-          "Create a product analytics view with key metrics (DAU, retention, churn), a pie chart of user segments, and a data table of the top 5 features by usage.",
+          "Using A2UI, create a product analytics view with key metrics (DAU, retention, churn), a pie chart of user segments, and a data table of the top 5 features by usage.",
       },
       // 3. Open Generative UI — MCP apps
       {
