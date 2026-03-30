@@ -164,7 +164,7 @@ return LlmAgent(
 Final step: on the frontend, pass `createA2UIMessageRenderer(...)` into `renderActivityMessages` so CopilotKit renders streamed A2UI output as UI and forwards UI actions back to the agent.
 
 ```typescript
-import { CopilotKitProvider, CopilotSidebar } from "@copilotkitnext/react";
+import { CopilotKitProvider, CopilotSidebar } from "@copilotkit/react-core/v2";
 import { createA2UIMessageRenderer } from "@copilotkit/a2ui-renderer";
 import { a2uiTheme } from "../theme";
 

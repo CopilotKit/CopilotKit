@@ -105,8 +105,8 @@ Railway Project: `ui-protocols-demo`
   "@copilotkit/react-core": "Frontend provider and hooks",
   "@copilotkit/react-ui": "CopilotSidebar component",
   "@copilotkit/a2ui-renderer": "A2UI message renderer",
-  "@copilotkitnext/runtime": "CopilotRuntime backend",
-  "@copilotkitnext/agent": "BasicAgent class",
+  "@copilotkit/runtime": "CopilotRuntime backend",
+  "@copilotkit/runtime/v2": "BasicAgent class",
   "@ag-ui/mcp-apps-middleware": "MCP Apps → AG-UI bridge"
 }
 ```

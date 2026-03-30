@@ -19,7 +19,7 @@ pnpm install
 pnpm build
 
 # Build specific package
-pnpm turbo run build --filter=@copilotkitnext/react
+pnpm turbo run build --filter=@copilotkit/react
 
 # Clean all dist outputs
 pnpm clean
@@ -33,8 +33,7 @@ pnpm clean
    pnpm dev  # Watches and compiles libraries only
    ```
 
-   - Includes: @copilotkitnext/core, @copilotkitnext/shared, @copilotkitnext/runtime, @copilotkitnext/react,
-     @copilotkitnext/angular
+   - Includes: @copilotkit/core, @copilotkit/shared, @copilotkit/runtime, @copilotkit/react, @copilotkit/angular
    - Produces dist and styles.css with hot reload for dependent apps
    - Wait for this to be ready before starting apps
 

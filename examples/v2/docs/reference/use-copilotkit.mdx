@@ -19,7 +19,7 @@ The useCopilotKit hook:
 ## Basic Usage
 
 ```tsx
-import { useCopilotKit } from "@copilotkitnext/react";
+import { useCopilotKit } from "@copilotkit/react-core";
 
 function MyComponent() {
   const { copilotkit } = useCopilotKit();
@@ -71,8 +71,8 @@ A setter function to update the current render tool calls. Useful for dynamicall
 ### Running an Agent
 
 ```tsx
-import { useCopilotKit } from "@copilotkitnext/react";
-import { useAgent } from "@copilotkitnext/react";
+import { useCopilotKit } from "@copilotkit/react-core";
+import { useAgent } from "@copilotkit/react-core";
 
 function AgentRunner() {
   const { copilotkit } = useCopilotKit();
@@ -111,7 +111,7 @@ function AgentRunner() {
 ### Monitoring Runtime Connection
 
 ```tsx
-import { useCopilotKit } from "@copilotkitnext/react";
+import { useCopilotKit } from "@copilotkit/react-core";
 
 function ConnectionStatus() {
   const { copilotkit } = useCopilotKit();

@@ -3,7 +3,7 @@ import { BrowserModule } from "@angular/platform-browser";
 import {
   provideCopilotKit,
   provideCopilotChatLabels,
-} from "@copilotkitnext/angular";
+} from "@copilotkit/angular";
 import { WildcardToolRenderComponent } from "./components/wildcard-tool-render.component";
 
 export const appConfig: ApplicationConfig = {

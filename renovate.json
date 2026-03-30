@@ -22,7 +22,7 @@
     {
       "description": "[Examples] Enable Renovate for CopilotKit packages only",
       "enabled": true,
-      "matchFileNames": ["examples/**", "!examples/v1/**", "!examples/v2/**"],
+      "matchFileNames": ["examples/**"],
       "matchPackageNames": ["/^@copilotkit/", "/^copilotkit/"],
       "labels": ["examples"],
       "groupName": "CopilotKit Examples"
@@ -30,21 +30,10 @@
     {
       "description": "[@copilotkit/*] Dependencies",
       "enabled": true,
-      "matchFileNames": ["packages/v1/**"],
+      "matchFileNames": ["packages/**"],
       "matchPackageNames": ["*"],
       "labels": ["dependencies-core"],
       "groupName": "Core Dependencies"
-    },
-    {
-      "description": "[Examples] Group all non-workspace example dependency updates weekly",
-      "enabled": true,
-      "matchFileNames": ["examples/**", "!examples/v1/**", "!examples/v2/**"],
-      "matchPackageNames": ["*"],
-      "excludePackageNames": ["/^@copilotkit/", "/^copilotkit/"],
-      "groupName": "examples-dependencies",
-      "schedule": ["before 9am on Monday"],
-      "automerge": false,
-      "labels": ["examples", "dependencies"]
     }
   ]
 }
