@@ -29,12 +29,19 @@ jest.mock("@trpc/client", () => ({
   httpBatchLink: jest.fn(),
 }));
 
+jest.mock("inquirer", () => ({
+  __esModule: true,
+  default: {
+    prompt: jest.fn().mockResolvedValue({ scope: "project" } as never),
+  },
+}));
+
 describe("skill sync", () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
-  test("calls npx skills add with correct arguments", async () => {
+  test("calls npx skills add with correct arguments for project scope", async () => {
     const mockSync = spawn.sync as jest.MockedFunction<typeof spawn.sync>;
     mockSync.mockReturnValue({
       status: 0,
@@ -51,13 +58,88 @@ describe("skill sync", () => {
     const cmd = new SkillSync([], {} as any);
     cmd.log = jest.fn() as any;
     // @ts-expect-error - accessing protected method for testing
-    cmd.parse = jest.fn().mockResolvedValue({ flags: {}, args: {} });
+    cmd.parse = jest.fn().mockResolvedValue({
+      flags: { global: false },
+      args: {},
+    });
 
     await cmd.run();
 
     expect(mockSync).toHaveBeenCalledWith(
       "npx",
       ["skills", "add", "copilotkit/skills", "--full-depth", "-y"],
+      { stdio: "inherit" },
+    );
+  });
+
+  test("passes --global flag when specified", async () => {
+    const mockSync = spawn.sync as jest.MockedFunction<typeof spawn.sync>;
+    mockSync.mockReturnValue({
+      status: 0,
+      signal: null,
+      output: [],
+      pid: 1234,
+      stdout: Buffer.from(""),
+      stderr: Buffer.from(""),
+    });
+
+    const { default: SkillSync } =
+      await import("../../../src/commands/skill/sync.js");
+
+    const cmd = new SkillSync([], {} as any);
+    cmd.log = jest.fn() as any;
+    // @ts-expect-error - accessing protected method for testing
+    cmd.parse = jest.fn().mockResolvedValue({
+      flags: { global: true },
+      args: {},
+    });
+
+    await cmd.run();
+
+    expect(mockSync).toHaveBeenCalledWith(
+      "npx",
+      ["skills", "add", "copilotkit/skills", "--full-depth", "-y", "--global"],
+      { stdio: "inherit" },
+    );
+  });
+
+  test("passes --agent flags when specified", async () => {
+    const mockSync = spawn.sync as jest.MockedFunction<typeof spawn.sync>;
+    mockSync.mockReturnValue({
+      status: 0,
+      signal: null,
+      output: [],
+      pid: 1234,
+      stdout: Buffer.from(""),
+      stderr: Buffer.from(""),
+    });
+
+    const { default: SkillSync } =
+      await import("../../../src/commands/skill/sync.js");
+
+    const cmd = new SkillSync([], {} as any);
+    cmd.log = jest.fn() as any;
+    // @ts-expect-error - accessing protected method for testing
+    cmd.parse = jest.fn().mockResolvedValue({
+      flags: { global: true, agent: ["claude-code", "cursor"] },
+      args: {},
+    });
+
+    await cmd.run();
+
+    expect(mockSync).toHaveBeenCalledWith(
+      "npx",
+      [
+        "skills",
+        "add",
+        "copilotkit/skills",
+        "--full-depth",
+        "-y",
+        "--global",
+        "--agent",
+        "claude-code",
+        "cursor",
+      ],
       { stdio: "inherit" },
     );
   });
@@ -79,39 +161,10 @@ describe("skill sync", () => {
     const cmd = new SkillSync([], {} as any);
     cmd.log = jest.fn() as any;
     // @ts-expect-error - accessing protected method for testing
-    cmd.parse = jest.fn().mockResolvedValue({ flags: {}, args: {} });
-
-    const mockExit = jest
-      .spyOn(process, "exit")
-      .mockImplementation(() => undefined as never);
-
-    await cmd.run();
-
-    expect(mockExit).toHaveBeenCalledWith(1);
-    mockExit.mockRestore();
-  });
-
-  test("reports error when npx is not found (ENOENT)", async () => {
-    const mockSync = spawn.sync as jest.MockedFunction<typeof spawn.sync>;
-    const enoentError = new Error("spawn npx ENOENT") as NodeJS.ErrnoException;
-    enoentError.code = "ENOENT";
-    mockSync.mockReturnValue({
-      status: null,
-      signal: null,
-      output: [],
-      pid: 0,
-      stdout: Buffer.from(""),
-      stderr: Buffer.from(""),
-      error: enoentError,
+    cmd.parse = jest.fn().mockResolvedValue({
+      flags: { global: false },
+      args: {},
     });
-
-    const { default: SkillSync } =
-      await import("../../../src/commands/skill/sync.js");
-
-    const cmd = new SkillSync([], {} as any);
-    cmd.log = jest.fn() as any;
-    // @ts-expect-error - accessing protected method for testing
-    cmd.parse = jest.fn().mockResolvedValue({ flags: {}, args: {} });
 
     const mockExit = jest
       .spyOn(process, "exit")

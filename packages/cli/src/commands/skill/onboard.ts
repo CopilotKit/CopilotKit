@@ -1,52 +1,50 @@
-import { Config } from "@oclif/core";
-import spawn from "cross-spawn";
+import { Config, Flags } from "@oclif/core";
 import chalk from "chalk";
 
 import { BaseCommand } from "../base-command.js";
+import { resolveScope, runSkillsSync } from "./utils.js";
 
 export default class SkillOnboard extends BaseCommand {
   static override description =
-    "Install CopilotKit skills and get onboarding instructions";
+    "Install CopilotKit skills and get onboarding instructions for your AI coding agent";
 
-  static override examples = ["<%= config.bin %> skill onboard"];
+  static override examples = [
+    "<%= config.bin %> skill onboard",
+    "<%= config.bin %> skill onboard --global",
+    "<%= config.bin %> skill onboard --agent claude-code cursor",
+  ];
+
+  static override flags = {
+    global: Flags.boolean({
+      char: "g",
+      description:
+        "Install skills globally (user-level) instead of project-level",
+      default: false,
+    }),
+    agent: Flags.string({
+      char: "a",
+      description: "Specify agents to install to (e.g. claude-code, cursor)",
+      multiple: true,
+    }),
+  };
 
   constructor(argv: string[], config: Config) {
     super(argv, config);
   }
 
   public async run(): Promise<void> {
-    await this.parse(SkillOnboard);
+    const { flags } = await this.parse(SkillOnboard);
 
-    this.log(chalk.cyan("\nSyncing CopilotKit skills...\n"));
+    const isGlobal = flags.global || (await resolveScope(this, flags));
 
-    const result = spawn.sync(
-      "npx",
-      ["skills", "add", "copilotkit/skills", "--full-depth", "-y"],
-      { stdio: "inherit" },
-    );
+    await runSkillsSync(this, {
+      global: isGlobal,
+      agent: flags.agent,
+    });
 
-    if (result.error) {
-      if ((result.error as NodeJS.ErrnoException).code === "ENOENT") {
-        await this.gracefulError(
-          "Failed to run skills installer. Make sure npm/npx is available and try again.",
-        );
-      }
-
-      await this.gracefulError(
-        `Failed to sync skills: ${result.error.message}`,
-      );
-    }
-
-    if (result.status !== 0) {
-      await this.gracefulError(
-        `Skills sync failed with exit code ${result.status}. Check the output above for details.`,
-      );
-    }
-
-    this.log(chalk.green("\nSkills synced successfully!\n"));
     this.log(chalk.bold("To start onboarding:"));
-    this.log(chalk.blue("  1. Open Claude Code in your project"));
-    this.log(chalk.blue('  2. Type: "onboard me"'));
+    this.log(chalk.blue("  1. Open your AI coding agent in this project"));
+    this.log(chalk.blue('  2. Type: "Help me onboard to CopilotKit"'));
     this.log("");
     this.log(
       chalk.gray(

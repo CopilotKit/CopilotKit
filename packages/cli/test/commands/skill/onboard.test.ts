@@ -29,6 +29,13 @@ jest.mock("@trpc/client", () => ({
   httpBatchLink: jest.fn(),
 }));
 
+jest.mock("inquirer", () => ({
+  __esModule: true,
+  default: {
+    prompt: jest.fn().mockResolvedValue({ scope: "project" } as never),
+  },
+}));
+
 describe("skill onboard", () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -54,7 +61,10 @@ describe("skill onboard", () => {
       if (msg !== undefined) logOutput.push(msg);
     }) as any;
     // @ts-expect-error - accessing protected method for testing
-    cmd.parse = jest.fn().mockResolvedValue({ flags: {}, args: {} });
+    cmd.parse = jest.fn().mockResolvedValue({
+      flags: { global: false },
+      args: {},
+    });
 
     await cmd.run();
 
@@ -67,8 +77,39 @@ describe("skill onboard", () => {
 
     // Verify onboarding instructions are printed after sync
     const output = logOutput.join("\n");
-    expect(output).toContain("onboard me");
-    expect(output).toContain("Claude Code");
+    expect(output).toContain("Help me onboard to CopilotKit");
+    expect(output).toContain("AI coding agent");
+  });
+
+  test("passes --global flag through to sync", async () => {
+    const mockSync = spawn.sync as jest.MockedFunction<typeof spawn.sync>;
+    mockSync.mockReturnValue({
+      status: 0,
+      signal: null,
+      output: [],
+      pid: 1234,
+      stdout: Buffer.from(""),
+      stderr: Buffer.from(""),
+    });
+
+    const { default: SkillOnboard } =
+      await import("../../../src/commands/skill/onboard.js");
+
+    const cmd = new SkillOnboard([], {} as any);
+    cmd.log = jest.fn() as any;
+    // @ts-expect-error - accessing protected method for testing
+    cmd.parse = jest.fn().mockResolvedValue({
+      flags: { global: true },
+      args: {},
+    });
+
+    await cmd.run();
+
+    expect(mockSync).toHaveBeenCalledWith(
+      "npx",
+      ["skills", "add", "copilotkit/skills", "--full-depth", "-y", "--global"],
+      { stdio: "inherit" },
+    );
   });
 
   test("fails gracefully when sync fails", async () => {
@@ -88,7 +129,10 @@ describe("skill onboard", () => {
     const cmd = new SkillOnboard([], {} as any);
     cmd.log = jest.fn() as any;
     // @ts-expect-error - accessing protected method for testing
-    cmd.parse = jest.fn().mockResolvedValue({ flags: {}, args: {} });
+    cmd.parse = jest.fn().mockResolvedValue({
+      flags: { global: false },
+      args: {},
+    });
 
     const mockExit = jest
       .spyOn(process, "exit")
