@@ -729,7 +729,9 @@ describe("StateManager - Edge Cases", () => {
       "thread1",
       "run1",
     );
-    expect(storedState).toEqual({});
+    // Empty state {} is not persisted — callers receive undefined, which allows
+    // renderers to distinguish "no snapshot received" from a real empty state.
+    expect(storedState).toBeUndefined();
   });
 
   it("should handle rapid successive runs", async () => {

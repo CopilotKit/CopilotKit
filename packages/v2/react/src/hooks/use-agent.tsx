@@ -1,4 +1,5 @@
 import { useCopilotKit } from "@/providers/CopilotKitProvider";
+import { useCopilotChatConfiguration } from "@/providers/CopilotChatConfigurationProvider";
 import { useMemo, useEffect, useReducer, useRef } from "react";
 import { DEFAULT_AGENT_ID } from "@copilotkitnext/shared";
 import { AbstractAgent, HttpAgent } from "@ag-ui/client";
@@ -51,10 +52,58 @@ function cloneForThread(
   return clone;
 }
 
+/**
+ * Module-level WeakMap: registryAgent → (threadId → clone).
+ * Shared across all useAgent() calls so that every component using the same
+ * (agentId, threadId) pair receives the same agent instance. Using WeakMap
+ * ensures the clone map is garbage-collected when the registry agent is
+ * replaced (e.g. after reconnect or hot-reload).
+ */
+export const globalThreadCloneMap = new WeakMap<
+  AbstractAgent,
+  Map<string, AbstractAgent>
+>();
+
+/**
+ * Look up an existing per-thread clone without creating one.
+ * Returns undefined when no clone has been created yet for this pair.
+ */
+export function getThreadClone(
+  registryAgent: AbstractAgent | undefined | null,
+  threadId: string | undefined | null,
+): AbstractAgent | undefined {
+  if (!registryAgent || !threadId) return undefined;
+  return globalThreadCloneMap.get(registryAgent)?.get(threadId);
+}
+
+function getOrCreateThreadClone(
+  existing: AbstractAgent,
+  threadId: string,
+  headers: Record<string, string>,
+): AbstractAgent {
+  let byThread = globalThreadCloneMap.get(existing);
+  if (!byThread) {
+    byThread = new Map();
+    globalThreadCloneMap.set(existing, byThread);
+  }
+  const cached = byThread.get(threadId);
+  if (cached) return cached;
+
+  const clone = cloneForThread(existing, threadId, headers);
+  byThread.set(threadId, clone);
+  return clone;
+}
+
 export function useAgent({ agentId, threadId, updates }: UseAgentProps = {}) {
   agentId ??= DEFAULT_AGENT_ID;
 
   const { copilotkit } = useCopilotKit();
+  // Fall back to the enclosing CopilotChatConfigurationProvider's threadId so
+  // that useAgent() called without explicit threadId (e.g. inside a custom
+  // message renderer) automatically uses the same per-thread clone as the
+  // CopilotChat component it lives within.
+  const chatConfig = useCopilotChatConfiguration();
+  threadId ??= chatConfig?.threadId;
   const [, forceUpdate] = useReducer((x) => x + 1, 0);
 
   const updateFlags = useMemo(
@@ -68,15 +117,6 @@ export function useAgent({ agentId, threadId, updates }: UseAgentProps = {}) {
   const provisionalAgentCache = useRef<Map<string, ProxiedCopilotRuntimeAgent>>(
     new Map(),
   );
-
-  // When threadId is provided, each (agentId, threadId) pair gets its own
-  // cloned agent instance so that messages and state are isolated.
-  // Each entry stores { source, clone } so we can detect when the registry
-  // agent is replaced (e.g. after reconnect or hot-reload) and invalidate the
-  // stale clone rather than silently returning it with the old configuration.
-  const threadAgentCache = useRef<
-    Map<string, { source: AbstractAgent; clone: AbstractAgent }>
-  >(new Map());
 
   const agent: AbstractAgent = useMemo(() => {
     // Use a composite key when threadId is provided so that different threads
@@ -96,18 +136,12 @@ export function useAgent({ agentId, threadId, updates }: UseAgentProps = {}) {
         return existing;
       }
 
-      // threadId provided — return a per-thread clone.
-      // Check source reference: if the registry agent was replaced (reconnect,
-      // hot-reload, config change) invalidate the cached clone so the new
-      // configuration is picked up rather than silently using stale state.
-      const entry = threadAgentCache.current.get(cacheKey);
-      if (entry && entry.source === existing) {
-        return entry.clone; // headers kept fresh by useEffect below
-      }
-
-      const clone = cloneForThread(existing, threadId, copilotkit.headers);
-      threadAgentCache.current.set(cacheKey, { source: existing, clone });
-      return clone;
+      // threadId provided — return the shared per-thread clone.
+      // The global WeakMap ensures all components using the same
+      // (registryAgent, threadId) pair receive the same instance, so state
+      // mutations (addMessage, setState) are visible everywhere. The WeakMap
+      // entry is GC-collected automatically when the registry agent is replaced.
+      return getOrCreateThreadClone(existing, threadId, copilotkit.headers);
     }
 
     const isRuntimeConfigured = copilotkit.runtimeUrl !== undefined;
@@ -225,14 +259,6 @@ export function useAgent({ agentId, threadId, updates }: UseAgentProps = {}) {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [agent, JSON.stringify(copilotkit.headers)]);
-
-  // Release per-thread clones on unmount so agents holding event listeners,
-  // WebSocket connections, or timers don't accumulate indefinitely.
-  useEffect(() => {
-    return () => {
-      threadAgentCache.current.clear();
-    };
-  }, []);
 
   return {
     agent,

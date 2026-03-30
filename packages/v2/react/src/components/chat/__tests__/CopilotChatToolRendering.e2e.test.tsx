@@ -248,8 +248,10 @@ class MockStepwiseAgent extends AbstractAgent {
   }
 
   clone(): MockStepwiseAgent {
-    // For tests, return same instance so we can keep controlling it.
-    return this;
+    const cloned = new MockStepwiseAgent();
+    cloned.agentId = this.agentId;
+    (cloned as unknown as { subject: Subject<BaseEvent> }).subject = this.subject;
+    return cloned;
   }
 
   run(_input: RunAgentInput): Observable<BaseEvent> {
