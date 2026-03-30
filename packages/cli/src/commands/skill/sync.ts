@@ -43,9 +43,6 @@ export default class SkillSync extends BaseCommand {
       );
     }
 
-    this.log(chalk.green("\nSkills synced successfully!"));
-    this.log(
-      chalk.blue("Next: run 'npx copilotkit skill onboard' to get started.\n"),
-    );
+    this.log(chalk.green("\nSkills synced successfully!\n"));
   }
 }
