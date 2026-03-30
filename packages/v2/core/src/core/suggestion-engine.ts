@@ -52,12 +52,19 @@ export class SuggestionEngine {
   /**
    * Reload suggestions for a specific agent
    * This triggers generation of new suggestions based on current configs
+   *
+   * @param agentId - The consumer agent ID
+   * @param consumerAgent - Optional: the specific agent instance whose messages should be used
+   *   for availability filtering and context. When running with per-thread clones, the thread
+   *   clone holds the conversation messages; passing it here ensures dynamic suggestions fire
+   *   after the first message even though the registry agent has an empty message list.
    */
-  public reloadSuggestions(agentId: string): void {
+  public reloadSuggestions(agentId: string, consumerAgent?: AbstractAgent): void {
     this.clearSuggestions(agentId);
 
-    // Get agent to check message count for availability filtering
-    const agent = (
+    // Use the provided agent instance when available; fall back to the registry agent.
+    // Per-thread clones hold the actual conversation messages; the registry agent does not.
+    const agent = consumerAgent ?? (
       this.core as unknown as CopilotKitCoreFriendsAccess
     ).getAgent(agentId);
     if (!agent) {
@@ -89,7 +96,7 @@ export class SuggestionEngine {
           hasAnySuggestions = true;
           void this.notifySuggestionsStartedLoading(agentId);
         }
-        void this.generateSuggestions(suggestionId, config, agentId);
+        void this.generateSuggestions(suggestionId, config, agentId, agent);
       } else if (isStaticSuggestionsConfig(config)) {
         this.addStaticSuggestions(suggestionId, config, agentId);
       }
@@ -128,6 +135,7 @@ export class SuggestionEngine {
     suggestionId: string,
     config: DynamicSuggestionsConfig,
     consumerAgentId: string,
+    consumerAgent?: AbstractAgent,
   ): Promise<void> {
     let agent: AbstractAgent | undefined = undefined;
     try {
@@ -139,7 +147,9 @@ export class SuggestionEngine {
           `Suggestions provider agent not found: ${config.providerAgentId}`,
         );
       }
-      const suggestionsConsumerAgent = (
+      // Use the provided consumer agent when available (per-thread clone with actual messages);
+      // fall back to the registry agent for non-threaded use.
+      const suggestionsConsumerAgent = consumerAgent ?? (
         this.core as unknown as CopilotKitCoreFriendsAccess
       ).getAgent(consumerAgentId);
       if (!suggestionsConsumerAgent) {
