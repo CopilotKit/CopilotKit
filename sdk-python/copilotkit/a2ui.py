@@ -252,7 +252,7 @@ in action handlers should use plain text strings rather than {"path": "..."}.
 
 
 def a2ui_prompt(
-    component_schema: str | None = None,
+    component_schema: str,
     generation_guidelines: str = DEFAULT_GENERATION_GUIDELINES,
     design_guidelines: str = DEFAULT_DESIGN_GUIDELINES,
 ) -> str:
@@ -260,8 +260,7 @@ def a2ui_prompt(
 
     Args:
         component_schema: JSON string of available components and their props.
-            Read from state["ag-ui"]["a2ui_schema"]. If None, the prompt
-            tells the LLM to check context for the schema.
+            Read from state["ag-ui"]["a2ui_schema"].
         generation_guidelines: Instructions for how to call the render_a2ui
             tool, path rules, and data format.
         design_guidelines: Visual design rules, component hierarchy tips,
@@ -270,28 +269,17 @@ def a2ui_prompt(
     Returns:
         Complete system prompt string.
     """
-    schema_section = ""
-    if component_schema:
-        schema_section = f"""
-## AVAILABLE COMPONENTS:
-The following components are available for building UI surfaces.
-Use ONLY these components with the specified props.
-
-{component_schema}
-"""
-    else:
-        schema_section = """
-## IMPORTANT: Component Schema
-The available components and their props are provided in context.
-Use ONLY those components.
-"""
-
     return f"""\
 {generation_guidelines}
 
 ## DESIGN GUIDELINES:
 {design_guidelines}
-{schema_section}
+
+## AVAILABLE COMPONENTS:
+The following components are available for building UI surfaces.
+Use ONLY these components with the specified props.
+
+{component_schema}
 """
 
 
