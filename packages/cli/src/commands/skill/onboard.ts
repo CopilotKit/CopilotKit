@@ -2,7 +2,12 @@ import { Config, Flags } from "@oclif/core";
 import chalk from "chalk";
 
 import { BaseCommand } from "../base-command.js";
-import { resolveScope, runSkillsSync } from "./utils.js";
+import {
+  resolveScope,
+  resolveAgents,
+  runSkillsSync,
+  savePreferences,
+} from "./utils.js";
 
 export default class SkillOnboard extends BaseCommand {
   static override description =
@@ -35,11 +40,15 @@ export default class SkillOnboard extends BaseCommand {
   public async run(): Promise<void> {
     const { flags } = await this.parse(SkillOnboard);
 
-    const isGlobal = flags.global || (await resolveScope(this, flags));
+    const isGlobal = flags.global || (await resolveScope(flags));
+    const agents = await resolveAgents(flags);
+
+    // Save preferences so `skill sync` can reuse them
+    savePreferences({ global: isGlobal, agents });
 
     await runSkillsSync(this, {
       global: isGlobal,
-      agent: flags.agent,
+      agent: agents,
     });
 
     this.log(chalk.bold("To start onboarding:"));

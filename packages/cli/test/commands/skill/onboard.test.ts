@@ -32,7 +32,23 @@ jest.mock("@trpc/client", () => ({
 jest.mock("inquirer", () => ({
   __esModule: true,
   default: {
-    prompt: jest.fn().mockResolvedValue({ scope: "project" } as never),
+    prompt: jest
+      .fn()
+      .mockResolvedValue({
+        scope: "project",
+        agents: ["claude-code"],
+      } as never),
+    Separator: class {},
+  },
+}));
+
+jest.mock("conf", () => ({
+  __esModule: true,
+  default: class {
+    get() {
+      return undefined;
+    }
+    set() {}
   },
 }));
 
@@ -71,7 +87,13 @@ describe("skill onboard", () => {
     // Verify sync was called
     expect(mockSync).toHaveBeenCalledWith(
       "npx",
-      ["skills", "add", "copilotkit/skills", "--full-depth", "-y"],
+      expect.arrayContaining([
+        "skills",
+        "add",
+        "copilotkit/skills",
+        "--full-depth",
+        "-y",
+      ]),
       { stdio: "inherit" },
     );
 
@@ -81,7 +103,7 @@ describe("skill onboard", () => {
     expect(output).toContain("AI coding agent");
   });
 
-  test("passes --global flag through to sync", async () => {
+  test("passes --global and --agent flags through to sync", async () => {
     const mockSync = spawn.sync as jest.MockedFunction<typeof spawn.sync>;
     mockSync.mockReturnValue({
       status: 0,
@@ -99,7 +121,7 @@ describe("skill onboard", () => {
     cmd.log = jest.fn() as any;
     // @ts-expect-error - accessing protected method for testing
     cmd.parse = jest.fn().mockResolvedValue({
-      flags: { global: true },
+      flags: { global: true, agent: ["cursor"] },
       args: {},
     });
 
@@ -107,7 +129,16 @@ describe("skill onboard", () => {
 
     expect(mockSync).toHaveBeenCalledWith(
       "npx",
-      ["skills", "add", "copilotkit/skills", "--full-depth", "-y", "--global"],
+      [
+        "skills",
+        "add",
+        "copilotkit/skills",
+        "--full-depth",
+        "-y",
+        "--global",
+        "--agent",
+        "cursor",
+      ],
       { stdio: "inherit" },
     );
   });

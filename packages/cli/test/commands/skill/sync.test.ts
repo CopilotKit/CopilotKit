@@ -33,6 +33,17 @@ jest.mock("inquirer", () => ({
   __esModule: true,
   default: {
     prompt: jest.fn().mockResolvedValue({ scope: "project" } as never),
+    Separator: class {},
+  },
+}));
+
+jest.mock("conf", () => ({
+  __esModule: true,
+  default: class {
+    get() {
+      return undefined;
+    }
+    set() {}
   },
 }));
 

@@ -1,11 +1,11 @@
 import { Config, Flags } from "@oclif/core";
+import chalk from "chalk";
 
 import { BaseCommand } from "../base-command.js";
-import { resolveScope, runSkillsSync } from "./utils.js";
+import { loadPreferences, resolveScope, runSkillsSync } from "./utils.js";
 
 export default class SkillSync extends BaseCommand {
-  static override description =
-    "Install or update CopilotKit skills for AI coding agents";
+  static override description = "Update CopilotKit skills for AI coding agents";
 
   static override examples = [
     "<%= config.bin %> skill sync",
@@ -34,11 +34,26 @@ export default class SkillSync extends BaseCommand {
   public async run(): Promise<void> {
     const { flags } = await this.parse(SkillSync);
 
-    const isGlobal = flags.global || (await resolveScope(this, flags));
+    // Reuse saved preferences from onboard if no flags were explicitly passed
+    const saved = loadPreferences();
+
+    const isGlobal =
+      flags.global || saved?.global || (await resolveScope(flags));
+    const agents = flags.agent?.length ? flags.agent : saved?.agents;
+
+    if (saved) {
+      const scope = isGlobal ? "global" : "project";
+      const agentDesc = agents?.length ? agents.join(", ") : "all detected";
+      this.log(
+        chalk.gray(
+          `Using saved preferences (${scope}, agents: ${agentDesc}). Pass flags to override.`,
+        ),
+      );
+    }
 
     await runSkillsSync(this, {
       global: isGlobal,
-      agent: flags.agent,
+      agent: agents,
     });
   }
 }
