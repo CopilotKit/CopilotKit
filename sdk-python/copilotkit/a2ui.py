@@ -164,9 +164,12 @@ Create polished, visually appealing interfaces:
 - NEVER use the same ID for a component and its child — this creates a
   circular dependency. E.g. if id="avatar", child must NOT be "avatar".
 - Both Row and Column support "justify" and "align".
-- Add Button for interactivity. Button needs child (Text ID) + action (event).
+- Add Button for interactivity. Button needs child (Text ID) + action.
+  Action MUST use this exact nested format:
+    "action": { "event": { "name": "myAction", "context": { "key": "value" } } }
+  The "event" key holds an OBJECT with "name" (required) and "context" (optional).
+  Do NOT use a flat format like {"event": "name"} — "event" must be an object.
   Use variant="primary" for main action buttons, variant="borderless" for links.
-  Action context is a plain object: {"name": {"path": "name"}, "id": "static-value"}.
 
 
 Use the SAME surfaceId as the main surface. Match action names to Button action event names."""
