@@ -24,7 +24,7 @@ export const POST = async (req: NextRequest) => {
     runtime: new CopilotRuntime({
       agents: { default: defaultAgent },
       a2ui: {
-        injectA2UITool: true,
+        injectA2UITool: false,
         schema: demonstrationSchema,
       },
       mcpApps: {
