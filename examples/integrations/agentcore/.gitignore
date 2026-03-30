@@ -19,6 +19,9 @@ infra-cdk/cdk.out*/
 aws-exports.json
 *.zip
 
+# Local config (contains personal email/stack name — use config.yaml.example as template)
+config.yaml
+
 # Terraform
 infra-terraform/.terraform/
 infra-terraform/*.tfstate
