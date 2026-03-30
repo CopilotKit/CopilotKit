@@ -1,4 +1,4 @@
-import { basicCatalog } from "@a2ui/react/v0_9";
+import { basicCatalog } from "./a2ui-react";
 import type { ComponentApi, Catalog } from "@a2ui/web_core/v0_9";
 import { zodToJsonSchema } from "zod-to-json-schema";
 

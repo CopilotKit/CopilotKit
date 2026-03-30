@@ -1,6 +1,6 @@
 import { Suspense, memo, type ReactNode } from "react";
 import { useA2UI } from "../hooks/useA2UI";
-import { A2uiSurface } from "@a2ui/react/v0_9";
+import { A2uiSurface } from "../a2ui-react";
 import { cn } from "../lib/utils";
 
 /** Default loading fallback - memoized to prevent recreation */
@@ -28,7 +28,7 @@ export interface A2UIRendererProps {
 /**
  * A2UIRenderer - renders an A2UI surface using the v0.9 renderer.
  *
- * Uses A2uiSurface from @a2ui/react/v0_9 which handles all component
+ * Uses A2uiSurface from a2ui-react which handles all component
  * rendering internally via the catalog system.
  */
 export const A2UIRenderer = memo(function A2UIRenderer({

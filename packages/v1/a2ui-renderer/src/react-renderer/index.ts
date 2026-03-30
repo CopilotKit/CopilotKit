@@ -77,7 +77,7 @@ export type {
   A2UIProviderConfig,
 } from "./types";
 
-// v0.9: Components are provided by @a2ui/react/v0_9 basicCatalog
+// v0.9: Components are provided by the internalized a2ui-react basicCatalog
 // No individual component exports needed
 
 // Backward compat: no-op functions for initializeDefaultCatalog

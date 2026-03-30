@@ -1,8 +1,8 @@
 import { z, type ZodObject, type ZodRawShape } from "zod";
 import { Catalog } from "@a2ui/web_core/v0_9";
 import { BASIC_FUNCTIONS } from "@a2ui/web_core/v0_9/basic_catalog";
-import { basicCatalog, createReactComponent } from "@a2ui/react/v0_9";
-import type { ReactComponentImplementation } from "@a2ui/react/v0_9";
+import { basicCatalog, createReactComponent } from "./a2ui-react";
+import type { ReactComponentImplementation } from "./a2ui-react";
 import type { ComponentApi } from "@a2ui/web_core/v0_9";
 
 // ─── Catalog Definitions (platform-agnostic) ─────────────────────────
