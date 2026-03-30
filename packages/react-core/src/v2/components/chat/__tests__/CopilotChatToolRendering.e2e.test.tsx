@@ -252,7 +252,8 @@ class MockStepwiseAgent extends AbstractAgent {
   clone(): MockStepwiseAgent {
     const cloned = new MockStepwiseAgent();
     cloned.agentId = this.agentId;
-    (cloned as unknown as { subject: Subject<BaseEvent> }).subject = this.subject;
+    (cloned as unknown as { subject: Subject<BaseEvent> }).subject =
+      this.subject;
     return cloned;
   }
 

@@ -59,14 +59,17 @@ export class SuggestionEngine {
    *   clone holds the conversation messages; passing it here ensures dynamic suggestions fire
    *   after the first message even though the registry agent has an empty message list.
    */
-  public reloadSuggestions(agentId: string, consumerAgent?: AbstractAgent): void {
+  public reloadSuggestions(
+    agentId: string,
+    consumerAgent?: AbstractAgent,
+  ): void {
     this.clearSuggestions(agentId);
 
     // Use the provided agent instance when available; fall back to the registry agent.
     // Per-thread clones hold the actual conversation messages; the registry agent does not.
-    const agent = consumerAgent ?? (
-      this.core as unknown as CopilotKitCoreFriendsAccess
-    ).getAgent(agentId);
+    const agent =
+      consumerAgent ??
+      (this.core as unknown as CopilotKitCoreFriendsAccess).getAgent(agentId);
     if (!agent) {
       return;
     }
@@ -149,9 +152,11 @@ export class SuggestionEngine {
       }
       // Use the provided consumer agent when available (per-thread clone with actual messages);
       // fall back to the registry agent for non-threaded use.
-      const suggestionsConsumerAgent = consumerAgent ?? (
-        this.core as unknown as CopilotKitCoreFriendsAccess
-      ).getAgent(consumerAgentId);
+      const suggestionsConsumerAgent =
+        consumerAgent ??
+        (this.core as unknown as CopilotKitCoreFriendsAccess).getAgent(
+          consumerAgentId,
+        );
       if (!suggestionsConsumerAgent) {
         throw new Error(
           `Suggestions consumer agent not found: ${consumerAgentId}`,

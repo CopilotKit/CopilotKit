@@ -57,9 +57,11 @@ export class MockStepwiseAgent extends AbstractAgent {
     // clone() contract (must return a distinct object).
     // Use the concrete constructor so subclasses (e.g. FailingConnectAgent)
     // preserve their overridden methods.
-    const cloned = new (this.constructor as new () => MockStepwiseAgent)() as this;
+    const cloned = new (this
+      .constructor as new () => MockStepwiseAgent)() as this;
     cloned.agentId = this.agentId;
-    (cloned as unknown as { subject: Subject<BaseEvent> }).subject = this.subject;
+    (cloned as unknown as { subject: Subject<BaseEvent> }).subject =
+      this.subject;
     return cloned;
   }
 
@@ -119,10 +121,18 @@ export class MockReconnectableAgent extends AbstractAgent {
   clone(): MockReconnectableAgent {
     const cloned = new MockReconnectableAgent();
     cloned.agentId = this.agentId;
-    (cloned as unknown as { subject: Subject<BaseEvent>; storedEvents: BaseEvent[] }).subject =
-      this.subject;
-    (cloned as unknown as { subject: Subject<BaseEvent>; storedEvents: BaseEvent[] }).storedEvents =
-      this.storedEvents;
+    (
+      cloned as unknown as {
+        subject: Subject<BaseEvent>;
+        storedEvents: BaseEvent[];
+      }
+    ).subject = this.subject;
+    (
+      cloned as unknown as {
+        subject: Subject<BaseEvent>;
+        storedEvents: BaseEvent[];
+      }
+    ).storedEvents = this.storedEvents;
     return cloned;
   }
 
@@ -464,9 +474,8 @@ export class SuggestionsProviderAgent extends MockStepwiseAgent {
 
   clone(): this {
     const cloned = super.clone();
-    (
-      cloned as unknown as { _shared: typeof this._shared }
-    )._shared = this._shared;
+    (cloned as unknown as { _shared: typeof this._shared })._shared =
+      this._shared;
     return cloned;
   }
 

@@ -584,7 +584,9 @@ describe("useFrontendTool E2E - Dynamic Registration", () => {
           // Share runCount via reference so the second run emits different args
           Object.defineProperty(cloned, "runCount", {
             get: () => this.runCount,
-            set: (v: number) => { this.runCount = v; },
+            set: (v: number) => {
+              this.runCount = v;
+            },
           });
           return cloned;
         }

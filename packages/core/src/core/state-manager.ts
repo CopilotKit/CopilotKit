@@ -81,8 +81,8 @@ export class StateManager {
     //    detect the "seen RUN_FINISHED, then RUN_STARTED again" pattern and
     //    generate a fresh runId for the second logical run.
     let revoked = false;
-    let subRunId: string | undefined;    // runId assigned to the current logical run
-    let runFinished = false;             // true after RUN_FINISHED, reset on next RUN_STARTED
+    let subRunId: string | undefined; // runId assigned to the current logical run
+    let runFinished = false; // true after RUN_FINISHED, reset on next RUN_STARTED
 
     const effectiveInput = (input: RunAgentInput): RunAgentInput => ({
       ...input,
@@ -121,11 +121,20 @@ export class StateManager {
       },
       onMessagesSnapshotEvent: ({ event, input, messages }) => {
         if (revoked) return;
-        this.handleMessagesSnapshot(agent, event, effectiveInput(input), messages);
+        this.handleMessagesSnapshot(
+          agent,
+          event,
+          effectiveInput(input),
+          messages,
+        );
       },
       onNewMessage: ({ message, input }) => {
         if (revoked) return;
-        this.handleNewMessage(agent, message, input ? effectiveInput(input) : undefined);
+        this.handleNewMessage(
+          agent,
+          message,
+          input ? effectiveInput(input) : undefined,
+        );
       },
     });
 
