@@ -28,9 +28,11 @@ export { cn } from "./lib/utils";
 
 // Catalog utilities
 export {
+  A2UI_SCHEMA_CONTEXT_DESCRIPTION,
   extendsBasicCatalog,
   getCustomComponentNames,
   buildCatalogContextValue,
+  extractCatalogComponentSchemas,
 } from "./catalog-utils";
 
 // Catalog creation — new API (definitions + renderers)

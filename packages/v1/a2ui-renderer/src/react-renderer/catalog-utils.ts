@@ -6,6 +6,14 @@ const BASIC_CATALOG_ID =
   "https://a2ui.org/specification/v0_9/basic_catalog.json";
 
 /**
+ * Context description used to identify the A2UI component schema in RunAgentInput.context.
+ * Must match the constant in @ag-ui/a2ui-middleware so the middleware can overwrite
+ * a frontend-provided schema with a server-side one.
+ */
+export const A2UI_SCHEMA_CONTEXT_DESCRIPTION =
+  "A2UI Component Schema — available components for generating UI surfaces. Use these component names and props when creating A2UI operations.";
+
+/**
  * Check whether a catalog is a superset of the basic catalog
  * (i.e., it contains all basic components by name).
  */
@@ -34,46 +42,68 @@ export function getCustomComponentNames(
 }
 
 /**
- * Build a context string describing available A2UI catalogs and custom components.
+ * Build a context string describing the available A2UI catalog and custom components.
  * Custom components (those not in the basic catalog) are described using their
  * JSON Schema representation, matching the canonical A2UI catalog format.
  */
 export function buildCatalogContextValue(
-  catalogs: Catalog<ComponentApi>[],
+  catalog?: Catalog<ComponentApi>,
 ): string {
-  const resolved = catalogs.length > 0 ? catalogs : [basicCatalog];
+  const resolved = catalog ?? basicCatalog;
   const lines: string[] = [];
-  lines.push("Available A2UI catalogs:");
+  lines.push("Available A2UI catalog:");
 
-  for (const catalog of resolved) {
-    if (catalog.id === BASIC_CATALOG_ID) {
-      lines.push(`- ${catalog.id} (basic catalog)`);
-      continue;
-    }
+  if (resolved.id === BASIC_CATALOG_ID) {
+    lines.push(`- ${resolved.id} (basic catalog)`);
+    return lines.join("\n");
+  }
 
-    const isSuperset = extendsBasicCatalog(catalog);
-    const customNames = getCustomComponentNames(catalog);
+  const isSuperset = extendsBasicCatalog(resolved);
+  const customNames = getCustomComponentNames(resolved);
 
-    lines.push(`- ${catalog.id}`);
-    if (isSuperset) {
-      lines.push(
-        "  Extends the basic catalog with all standard components plus:",
-      );
-    } else {
-      lines.push("  Custom catalog (does NOT include all basic components).");
-      lines.push("  Custom components:");
-    }
+  lines.push(`- ${resolved.id}`);
+  if (isSuperset) {
+    lines.push(
+      "  Extends the basic catalog with all standard components plus:",
+    );
+  } else {
+    lines.push("  Custom catalog (does NOT include all basic components).");
+    lines.push("  Custom components:");
+  }
 
-    for (const name of customNames) {
-      const comp = catalog.components.get(name);
-      if (!comp) continue;
-      const jsonSchema = zodToJsonSchema(comp.schema);
-      lines.push(`  - ${name}:`);
-      lines.push(
-        `    ${JSON.stringify(jsonSchema, null, 2).split("\n").join("\n    ")}`,
-      );
-    }
+  for (const name of customNames) {
+    const comp = resolved.components.get(name);
+    if (!comp) continue;
+    const jsonSchema = zodToJsonSchema(comp.schema);
+    lines.push(`  - ${name}:`);
+    lines.push(
+      `    ${JSON.stringify(jsonSchema, null, 2).split("\n").join("\n    ")}`,
+    );
   }
 
   return lines.join("\n");
+}
+
+/**
+ * Extract component schemas from a catalog in the same format used by
+ * the A2UI middleware (`A2UIComponentSchema[]`). Each component's Zod
+ * schema is converted to JSON Schema via zod-to-json-schema.
+ *
+ * When sent via `useAgentContext` with `A2UI_SCHEMA_CONTEXT_DESCRIPTION`,
+ * the middleware can optionally overwrite it with a server-side schema.
+ */
+export function extractCatalogComponentSchemas(
+  catalog?: Catalog<ComponentApi>,
+): Array<{ name: string; props: Record<string, unknown> }> {
+  const resolved = catalog ?? basicCatalog;
+  const schemas: Array<{ name: string; props: Record<string, unknown> }> = [];
+
+  for (const [name, comp] of resolved.components) {
+    schemas.push({
+      name,
+      props: zodToJsonSchema(comp.schema, { target: "openApi3" }) as Record<string, unknown>,
+    });
+  }
+
+  return schemas;
 }
