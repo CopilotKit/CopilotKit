@@ -97,14 +97,14 @@ export const demonstrationCatalogDefinitions = {
     }),
   },
 
-  Button: {
-    description: "An interactive button with an action event.",
-    props: z.object({
-      label: z.string(),
-      variant: z.enum(["primary", "secondary", "ghost"]).optional(),
-      action: z.any().optional(),
-    }),
-  },
+  // Button: {
+  //   description: "An interactive button with an action event.",
+  //   props: z.object({
+  //     label: z.string(),
+  //     variant: z.enum(["primary", "secondary", "ghost"]).optional(),
+  //     action: z.any().optional(),
+  //   }),
+  // },
 };
 
 /** Type helper for renderers */
