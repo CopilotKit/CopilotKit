@@ -872,6 +872,28 @@ export class BuiltInAgent extends AbstractAgent {
         const abortController = new AbortController();
         this.abortController = abortController;
         let terminalEventEmitted = false;
+        let messageId = randomUUID();
+        let reasoningMessageId = randomUUID();
+        let isInReasoning = false;
+
+        // Auto-close an open reasoning lifecycle.
+        // Some AI SDK providers (notably @ai-sdk/anthropic) never emit "reasoning-end",
+        // which leaves downstream state machines stuck. This helper emits the
+        // missing REASONING_MESSAGE_END + REASONING_END events so the stream
+        // can transition to text, tool-call, or finish phases.
+        // Declared before try/catch so it is accessible in the catch block.
+        const closeReasoningIfOpen = () => {
+          if (!isInReasoning) return;
+          isInReasoning = false;
+          subscriber.next({
+            type: EventType.REASONING_MESSAGE_END,
+            messageId: reasoningMessageId,
+          } as ReasoningMessageEndEvent);
+          subscriber.next({
+            type: EventType.REASONING_END,
+            messageId: reasoningMessageId,
+          } as ReasoningEndEvent);
+        };
 
         try {
           // Add AG-UI state update tools
@@ -965,28 +987,6 @@ export class BuiltInAgent extends AbstractAgent {
             abortSignal: abortController.signal,
           });
 
-          let messageId = randomUUID();
-          let reasoningMessageId = randomUUID();
-          let isInReasoning = false;
-
-          // Auto-close an open reasoning lifecycle.
-          // Some AI SDK providers (notably @ai-sdk/anthropic) never emit "reasoning-end",
-          // which leaves downstream state machines stuck. This helper emits the
-          // missing REASONING_MESSAGE_END + REASONING_END events so the stream
-          // can transition to text, tool-call, or finish phases.
-          const closeReasoningIfOpen = () => {
-            if (!isInReasoning) return;
-            isInReasoning = false;
-            subscriber.next({
-              type: EventType.REASONING_MESSAGE_END,
-              messageId: reasoningMessageId,
-            } as ReasoningMessageEndEvent);
-            subscriber.next({
-              type: EventType.REASONING_END,
-              messageId: reasoningMessageId,
-            } as ReasoningEndEvent);
-          };
-
           const toolCallStates = new Map<
             string,
             {
@@ -1047,9 +1047,8 @@ export class BuiltInAgent extends AbstractAgent {
                 break;
               }
               case "reasoning-delta": {
-                const delta =
-                  ("text" in part ? part.text : (part as any).delta) ?? "";
-                if (!delta) break; // skip — EventSchemas rejects delta: ""
+                const delta = part.text ?? "";
+                if (!delta) break; // skip — @ag-ui/core schema requires delta to be non-empty
                 const reasoningDeltaEvent: ReasoningMessageContentEvent = {
                   type: EventType.REASONING_MESSAGE_CONTENT,
                   messageId: reasoningMessageId,
@@ -1059,17 +1058,10 @@ export class BuiltInAgent extends AbstractAgent {
                 break;
               }
               case "reasoning-end": {
-                isInReasoning = false;
-                const reasoningMessageEnd: ReasoningMessageEndEvent = {
-                  type: EventType.REASONING_MESSAGE_END,
-                  messageId: reasoningMessageId,
-                };
-                subscriber.next(reasoningMessageEnd);
-                const reasoningEndEvent: ReasoningEndEvent = {
-                  type: EventType.REASONING_END,
-                  messageId: reasoningMessageId,
-                };
-                subscriber.next(reasoningEndEvent);
+                // Use closeReasoningIfOpen so this is idempotent: if a phase-transition
+                // case already auto-closed reasoning, a late reasoning-end from the SDK
+                // becomes a no-op instead of emitting duplicate end events.
+                closeReasoningIfOpen();
                 break;
               }
               case "tool-input-start": {
@@ -1284,6 +1276,7 @@ export class BuiltInAgent extends AbstractAgent {
             subscriber.complete();
           }
         } catch (error) {
+          closeReasoningIfOpen();
           if (abortController.signal.aborted) {
             subscriber.complete();
           } else {
