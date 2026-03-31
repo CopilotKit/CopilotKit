@@ -2063,7 +2063,7 @@ ${argsString}</pre
 
     // Clean up transition after animation completes
     setTimeout(() => {
-      if (document.body) {
+      if (typeof document !== "undefined" && document.body) {
         document.body.style.transition = "";
       }
     }, 300);
