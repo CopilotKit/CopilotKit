@@ -51,9 +51,18 @@ export class MockStepwiseAgent extends AbstractAgent {
     });
   }
 
-  clone(): MockStepwiseAgent {
-    // For tests, return same instance so we can keep controlling it
-    return this;
+  clone(): this {
+    // Return a new instance that shares the same subject so tests can keep
+    // controlling events via the original reference while satisfying the
+    // clone() contract (must return a distinct object).
+    // Use the concrete constructor so subclasses (e.g. FailingConnectAgent)
+    // preserve their overridden methods.
+    const cloned = new (this
+      .constructor as new () => MockStepwiseAgent)() as this;
+    cloned.agentId = this.agentId;
+    (cloned as unknown as { subject: Subject<BaseEvent> }).subject =
+      this.subject;
+    return cloned;
   }
 
   // No-op: prevent the base class from tearing down the Subject
@@ -110,7 +119,21 @@ export class MockReconnectableAgent extends AbstractAgent {
   }
 
   clone(): MockReconnectableAgent {
-    return this;
+    const cloned = new MockReconnectableAgent();
+    cloned.agentId = this.agentId;
+    (
+      cloned as unknown as {
+        subject: Subject<BaseEvent>;
+        storedEvents: BaseEvent[];
+      }
+    ).subject = this.subject;
+    (
+      cloned as unknown as {
+        subject: Subject<BaseEvent>;
+        storedEvents: BaseEvent[];
+      }
+    ).storedEvents = this.storedEvents;
+    return cloned;
   }
 
   // No-op: prevent the base class from tearing down the Subject
@@ -440,10 +463,20 @@ export function emitSuggestionToolCall(
  * A MockStepwiseAgent that emits suggestion events when run() is called
  */
 export class SuggestionsProviderAgent extends MockStepwiseAgent {
-  private _suggestions: Array<{ title: string; message: string }> = [];
+  // Shared via a container so clone() and original see the same value even
+  // when setSuggestions() is called after the clone is created.
+  private _shared: { suggestions: Array<{ title: string; message: string }> } =
+    { suggestions: [] };
 
   setSuggestions(suggestions: Array<{ title: string; message: string }>) {
-    this._suggestions = suggestions;
+    this._shared.suggestions = suggestions;
+  }
+
+  clone(): this {
+    const cloned = super.clone();
+    (cloned as unknown as { _shared: typeof this._shared })._shared =
+      this._shared;
+    return cloned;
   }
 
   run(_input: RunAgentInput): Observable<BaseEvent> {
@@ -458,7 +491,7 @@ export class SuggestionsProviderAgent extends MockStepwiseAgent {
       emitSuggestionToolCall(this, {
         toolCallId: testId("tc"),
         parentMessageId: messageId,
-        suggestions: this._suggestions,
+        suggestions: this._shared.suggestions,
       });
 
       this.emit({ type: EventType.RUN_FINISHED } as BaseEvent);

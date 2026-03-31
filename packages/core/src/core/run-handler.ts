@@ -268,6 +268,12 @@ export class RunHandler {
       await agent.detachActiveRun();
     }
 
+    // Ensure the state manager is subscribed to this agent (handles per-thread
+    // clones that are not in the registry and therefore not subscribed via
+    // onAgentsChanged). The composite-key logic in StateManager means this
+    // does not overwrite the registry agent's subscription.
+    this._internal.subscribeAgentToStateManager(agent);
+
     // Set up abort controller and agent.abortRun() intercept only for the
     // top-level call. Recursive follow-up calls from processAgentResult
     // reuse the same controller.
@@ -398,7 +404,7 @@ export class RunHandler {
       return await this.runAgent({ agent });
     }
 
-    void this._internal.suggestionEngine.reloadSuggestions(agentId);
+    void this._internal.suggestionEngine.reloadSuggestions(agentId, agent);
 
     return runAgentResult;
   }

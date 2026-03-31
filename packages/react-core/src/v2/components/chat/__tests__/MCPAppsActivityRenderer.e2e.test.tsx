@@ -78,7 +78,23 @@ class MockMCPProxyAgent extends AbstractAgent {
   }
 
   clone(): MockMCPProxyAgent {
-    return this;
+    const cloned = new MockMCPProxyAgent();
+    cloned.agentId = this.agentId;
+    type Internal = {
+      subject: Subject<BaseEvent>;
+      runAgentCalls: Array<{ input: Partial<RunAgentInput> }>;
+      runAgentResponses: Map<string, unknown>;
+    };
+    (cloned as unknown as Internal).subject = (
+      this as unknown as Internal
+    ).subject;
+    (cloned as unknown as Internal).runAgentCalls = (
+      this as unknown as Internal
+    ).runAgentCalls;
+    (cloned as unknown as Internal).runAgentResponses = (
+      this as unknown as Internal
+    ).runAgentResponses;
+    return cloned;
   }
 
   async detachActiveRun(): Promise<void> {}
