@@ -141,9 +141,12 @@ function summarizeEvent(event: BaseEvent): Record<string, unknown> {
   if (e.toolCallId) summary.toolCallId = e.toolCallId;
   if (e.toolCallName) summary.toolCallName = e.toolCallName;
   if (e.role) summary.role = e.role;
-  if (e.delta != null && typeof e.delta === "string") summary.deltaLength = e.delta.length;
-  if (e.snapshot && typeof e.snapshot === "object") summary.snapshotKeys = Object.keys(e.snapshot);
-  if (e.delta && Array.isArray(e.delta)) summary.operationCount = e.delta.length;
+  if (e.delta != null && typeof e.delta === "string")
+    summary.deltaLength = e.delta.length;
+  if (e.snapshot && typeof e.snapshot === "object")
+    summary.snapshotKeys = Object.keys(e.snapshot);
+  if (e.delta && Array.isArray(e.delta))
+    summary.operationCount = e.delta.length;
   if (e.threadId) summary.threadId = e.threadId;
   if (e.runId) summary.runId = e.runId;
   if (e.message) summary.message = e.message;
