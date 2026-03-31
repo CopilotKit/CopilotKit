@@ -3,7 +3,6 @@
   "pages": [
     "index",
     "fixed-schema",
-    "fixed-schema-streaming",
     "dynamic-schema",
     "styling",
     "advanced"
