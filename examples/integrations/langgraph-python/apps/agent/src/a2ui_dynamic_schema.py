@@ -26,7 +26,7 @@ def render_a2ui(
     surfaceId: str,
     catalogId: str,
     components: list[dict],
-    items: list[dict]
+    data: dict | None = None,
 ) -> str:
     """Render a dynamic A2UI v0.9 surface.
 
@@ -35,7 +35,8 @@ def render_a2ui(
         catalogId: The catalog ID (use "copilotkit://app-dashboard-catalog").
         components: A2UI v0.9 component array (flat format). The root
             component must have id "root".
-        items: Plain JSON array of data objects for data binding.
+        data: Optional initial data model for the surface (e.g. form values,
+            list items for data-bound components).
     """
     return "rendered"
 
@@ -62,7 +63,7 @@ def generate_a2ui(runtime: ToolRuntime[Any]) -> str:
     )
     print(f"[A2UI-DEBUG]   context entries: {len(context_entries)}, context_text_len: {len(context_text)}")
 
-    prompt = a2ui.DEFAULT_GENERATION_GUIDELINES + "\n\n" + a2ui.DEFAULT_DESIGN_GUIDELINES + "\n\n" + context_text
+    prompt = context_text
 
     model = ChatOpenAI(model="gpt-4.1")
     model_with_tool = model.bind_tools(
@@ -87,15 +88,16 @@ def generate_a2ui(runtime: ToolRuntime[Any]) -> str:
     surface_id = args.get("surfaceId", "dynamic-surface")
     catalog_id = args.get("catalogId", CUSTOM_CATALOG_ID)
     components = args.get("components", [])
-    items = args.get("items", [])
-    print(f"[A2UI-DEBUG]   components={len(components)} items={len(items)} surface={surface_id}")
+    data = args.get("data", {})
+    print(f"[A2UI-DEBUG]   components={len(components)} data_keys={list(data.keys()) if data else []} surface={surface_id}")
 
-    result = a2ui.render(
-        operations=[
-            a2ui.create_surface(surface_id, catalog_id=catalog_id),
-            a2ui.update_components(surface_id, components),
-            a2ui.update_data_model(surface_id, {"items": items}),
-        ],
-    )
+    ops = [
+        a2ui.create_surface(surface_id, catalog_id=catalog_id),
+        a2ui.update_components(surface_id, components),
+    ]
+    if data:
+        ops.append(a2ui.update_data_model(surface_id, data))
+
+    result = a2ui.render(operations=ops)
     print(f"[A2UI-DEBUG] generate_a2ui DONE at t={time.time()-t0:.1f}s result_len={len(result)}")
     return result
