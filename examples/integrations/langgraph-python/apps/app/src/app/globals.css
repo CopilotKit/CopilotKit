@@ -1,35 +1,35 @@
-/* Shadify-inspired fonts */
-@import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@300..700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+/* CopilotKit brand fonts */
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300..800&family=Spline+Sans+Mono:wght@400;500;600&display=swap');
 
 @import "tailwindcss";
 
 @custom-variant dark (&:where(.dark, .dark *));
 
 :root {
-  --background: #ffffff;
-  --foreground: #0a0a0a;
+  --background: #FFFFFF;
+  --foreground: #010507;
 
-  /* Shadcn-style semantic tokens */
-  --card: #ffffff;
-  --card-foreground: #0a0a0a;
-  --primary: #171717;
-  --primary-foreground: #fafafa;
-  --secondary: #f5f5f5;
-  --secondary-foreground: #171717;
-  --muted: #f5f5f5;
-  --muted-foreground: #737373;
-  --accent: #f5f5f5;
-  --accent-foreground: #171717;
-  --destructive: #dc2626;
-  --destructive-foreground: #fafafa;
-  --border: #e5e5e5;
-  --input: #e5e5e5;
-  --ring: #171717;
+  /* Semantic tokens — CopilotKit brand */
+  --card: #FFFFFF;
+  --card-foreground: #010507;
+  --primary: #010507;
+  --primary-foreground: #FFFFFF;
+  --secondary: #EDEDF5;
+  --secondary-foreground: #010507;
+  --muted: #EDEDF5;
+  --muted-foreground: #57575B;
+  --accent: #EEE6FE;
+  --accent-foreground: #010507;
+  --destructive: #FA5F67;
+  --destructive-foreground: #FFFFFF;
+  --border: #DBDBE5;
+  --input: #DBDBE5;
+  --ring: #BEC2FF;
 
   /* Chart tokens */
-  --chart-tooltip-bg: #ffffff;
-  --chart-tooltip-border: #e5e5e5;
-  --chart-axis: #737373;
+  --chart-tooltip-bg: #FFFFFF;
+  --chart-tooltip-border: #DBDBE5;
+  --chart-axis: #57575B;
 
   --radius: 0.75rem;
 
@@ -37,33 +37,41 @@
   --cpk-default-font-family: var(--font-body);
 
   /* Fonts */
-  --font-body: "Fredoka", "DM Sans", "Segoe UI", sans-serif;
-  --font-code: "JetBrains Mono", "SFMono-Regular", Menlo, Monaco, Consolas, monospace;
+  --font-body: "Plus Jakarta Sans", "DM Sans", "Segoe UI", sans-serif;
+  --font-code: "Spline Sans Mono", "SFMono-Regular", Menlo, Monaco, Consolas, monospace;
+
+  /* Brand accent colors */
+  --cpk-mint-400: #85ECCE;
+  --cpk-mint-800: #189370;
+  --cpk-lilac-400: #BEC2FF;
+  --cpk-orange-400: #FFAC4D;
+  --cpk-yellow-400: #FFF388;
+  --cpk-ambient-gradient: linear-gradient(90deg, #BEC2FF 0%, #85ECCE 45.673%, #FFAC4D 100%);
 }
 
 :root.dark {
-  --background: #0a0a0a;
-  --foreground: #fafafa;
+  --background: #010507;
+  --foreground: #FFFFFF;
 
-  --card: #0a0a0a;
-  --card-foreground: #fafafa;
-  --primary: #fafafa;
-  --primary-foreground: #171717;
-  --secondary: #262626;
-  --secondary-foreground: #fafafa;
-  --muted: #262626;
-  --muted-foreground: #a3a3a3;
-  --accent: #262626;
-  --accent-foreground: #fafafa;
-  --destructive: #dc2626;
-  --destructive-foreground: #fafafa;
-  --border: #262626;
-  --input: #262626;
-  --ring: #d4d4d4;
+  --card: #191A1E;
+  --card-foreground: #FFFFFF;
+  --primary: #FFFFFF;
+  --primary-foreground: #010507;
+  --secondary: #242529;
+  --secondary-foreground: #FFFFFF;
+  --muted: #242529;
+  --muted-foreground: #ADADB2;
+  --accent: #303136;
+  --accent-foreground: #FFFFFF;
+  --destructive: #FA5F67;
+  --destructive-foreground: #FFFFFF;
+  --border: #303136;
+  --input: #303136;
+  --ring: #BEC2FF;
 
-  --chart-tooltip-bg: #171717;
-  --chart-tooltip-border: #262626;
-  --chart-axis: #a3a3a3;
+  --chart-tooltip-bg: #191A1E;
+  --chart-tooltip-border: #303136;
+  --chart-axis: #ADADB2;
 }
 
 body {

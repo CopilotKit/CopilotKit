@@ -12,6 +12,10 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en">
+      <head>
+        <title>CopilotKit</title>
+        <link rel="icon" type="image/svg+xml" href="/copilotkit-logo-mark.svg" />
+      </head>
       <body className={`antialiased`}>
         <ThemeProvider>
           <CopilotKit
