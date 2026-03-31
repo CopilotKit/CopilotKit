@@ -1,0 +1,156 @@
+# Debug Mode
+
+CopilotKit has a built-in debug mode that provides detailed logging of the AG-UI event pipeline. It works on both the server (runtime) and client (React) side, and each can be enabled independently.
+
+Debug mode is useful when you need to understand:
+- What events are being emitted by your agent
+- Whether events are being received, validated, or dropped on the client
+- Where in the pipeline something is going wrong
+- The full lifecycle of a request from start to finish
+
+## Enabling Debug Mode
+
+### Server-Side (Runtime)
+
+Pass `debug: true` to the `CopilotRuntime` constructor:
+
+```ts title="app/api/copilotkit/route.ts"
+const runtime = new CopilotRuntime({
+  agents: {
+    // your agents
+  },
+  debug: true, // [!code highlight]
+});
+```
+
+This produces structured Pino logs with a `copilotkit-debug` component label:
+
+```
+[copilotkit-debug] Agent run started { agentName: "default", threadId: "abc-123" }
+[copilotkit-debug] SSE stream opened
+[copilotkit-debug] Event emitted { type: "TEXT_MESSAGE_START", messageId: "msg-1", role: "assistant" }
+[copilotkit-debug] Event emitted { type: "TEXT_MESSAGE_CONTENT", deltaLength: 42 }
+[copilotkit-debug] Event emitted { type: "TEXT_MESSAGE_END" }
+[copilotkit-debug] Event emitted { type: "RUN_FINISHED" }
+[copilotkit-debug] SSE stream completed { eventCount: 4 }
+```
+
+### Client-Side (React)
+
+Pass `debug={true}` to the `<CopilotKit>` provider:
+
+```tsx
+<CopilotKit
+  runtimeUrl="/api/copilotkit"
+  debug={true} // [!code highlight]
+>
+  <YourApp />
+</CopilotKit>
+```
+
+This produces `console.debug` output in the browser devtools, showing the event pipeline at each stage:
+
+```
+[SSE] Event received: { type: "TEXT_MESSAGE_START" }
+[HTTP] Event validated: { type: "TEXT_MESSAGE_START", valid: true }
+[VERIFY]: { type: "TEXT_MESSAGE_START" }
+[APPLY] Event applied: { type: "TEXT_MESSAGE_START", subscribers: 2 }
+```
+
+<Callout type="info">
+  The server and client debug toggles are independent. Enabling debug on the client does not affect the server, and vice versa.
+</Callout>
+
+## Granular Configuration
+
+Instead of `true`, you can pass an object for fine-grained control over what gets logged:
+
+```ts
+debug: {
+  events: true,     // Log every event emitted/received
+  lifecycle: true,  // Log request/run lifecycle (start, finish, error)
+  verbose: false,   // Log full payloads instead of summaries
+}
+```
+
+This works the same way on both the server and client.
+
+### Defaults
+
+| Input | `events` | `lifecycle` | `verbose` |
+|-------|----------|-------------|-----------|
+| `debug: true` | `true` | `true` | `true` |
+| `debug: {}` | `true` | `true` | `false` |
+| `debug: { events: false }` | `false` | `true` | `false` |
+
+When `debug` is a boolean (`true`), verbose mode is on by default so you get full event payloads. When using the object form, verbose defaults to off so you get concise summaries.
+
+### Examples
+
+Log only lifecycle events (no per-event logs):
+
+```ts
+debug: { events: false, lifecycle: true }
+```
+
+Log events with full payloads but skip lifecycle:
+
+```ts
+debug: { events: true, lifecycle: false, verbose: true }
+```
+
+## What Gets Logged
+
+### Server-Side Logs
+
+| Category | Log Message | Description |
+|----------|-------------|-------------|
+| Lifecycle | `Agent run started` | An agent run was initiated, includes agent name and thread ID |
+| Lifecycle | `SSE stream opened` | The SSE response stream was created |
+| Lifecycle | `SSE stream completed` | The stream finished, includes total event count |
+| Lifecycle | `SSE stream errored` | The stream encountered an error |
+| Events | `Event emitted` | Each AG-UI event as it's written to the stream |
+
+In **summary mode** (verbose off), event logs include key identifiers like `messageId`, `toolCallId`, `toolCallName`, `role`, and content lengths instead of full payloads.
+
+### Client-Side Logs
+
+Events pass through several pipeline stages. Debug mode logs at each one:
+
+| Stage | Prefix | What's Logged |
+|-------|--------|---------------|
+| SSE Parser | `[SSE]` | Raw events received from the server |
+| HTTP Transform | `[HTTP]` | Stream format detection, event validation (valid/invalid) |
+| Chunk Transform | `[TRANSFORM]` | Chunk events expanded into START/CONTENT/END sequences |
+| Event Verification | `[VERIFY]` | Each event passing through the state machine validator |
+| Event Application | `[APPLY]` | Events applied to state, or dropped via `stopPropagation` |
+| Agent Lifecycle | `[LIFECYCLE]` | Run started, finished, or errored |
+
+<Callout type="warn">
+  Debug mode can produce a large volume of log output, especially in verbose mode. Use it during development and debugging, not in production.
+</Callout>
+
+## Troubleshooting with Debug Mode
+
+### Events Not Reaching the Client
+
+Enable debug on both sides:
+1. Check server logs for `Event emitted` — are the expected events being sent?
+2. Check client logs for `[SSE] Event received` — are they arriving?
+3. Check `[HTTP] Event validated` — are any events failing validation?
+4. Check `[VERIFY]` — are events being rejected by the state machine?
+
+### Events Being Dropped
+
+Look for `[APPLY] Event dropped` in the client logs. This means a subscriber called `stopPropagation`, preventing the event from being applied to state.
+
+### Tool Calls Not Executing
+
+Enable debug and look for:
+1. `TOOL_CALL_START` events being emitted on the server
+2. `TOOL_CALL_ARGS` and `TOOL_CALL_END` events following correctly
+3. The events being validated and applied on the client
+
+### State Not Updating
+
+Look for `STATE_SNAPSHOT` or `STATE_DELTA` events in both server and client logs. If they appear on the server but not the client, there may be a connection issue. If they appear on the client but state isn't updating, check for `stopPropagation` in the apply stage.
