@@ -96,7 +96,7 @@ agent = create_agent(
 <Step>
 ### Configure the runtime (TypeScript)
 
-Enable A2UI in your CopilotRuntime. No `streamingSurfaces` config needed — the middleware auto-detects `render_a2ui` tool calls:
+Enable A2UI in your CopilotRuntime. The middleware auto-detects `render_a2ui` tool calls:
 
 ```typescript title="app/api/copilotkit/route.ts"
 const runtime = new CopilotRuntime({
