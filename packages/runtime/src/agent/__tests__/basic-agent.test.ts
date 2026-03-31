@@ -1,7 +1,12 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { z } from "zod";
 import { BasicAgent, defineTool, type ToolDefinition } from "../index";
-import { EventType, type RunAgentInput } from "@ag-ui/client";
+import {
+  EventType,
+  type BaseEvent,
+  type ReasoningStartEvent,
+  type RunAgentInput,
+} from "@ag-ui/client";
 import { streamText } from "ai";
 import {
   mockStreamTextResponse,
@@ -1075,7 +1080,7 @@ describe("BasicAgent", () => {
           reasoningDelta("Deep thought"),
           reasoningEnd(),
           finish(),
-        ]) as any,
+        ]),
       );
 
       const input: RunAgentInput = {
@@ -1116,7 +1121,7 @@ describe("BasicAgent", () => {
           reasoningDelta(""),
           reasoningEnd(),
           finish(),
-        ]) as any,
+        ]),
       );
 
       const input: RunAgentInput = {
@@ -1132,12 +1137,12 @@ describe("BasicAgent", () => {
 
       // No REASONING_MESSAGE_CONTENT events — empty delta skipped
       const contentEvents = events.filter(
-        (e: any) => e.type === EventType.REASONING_MESSAGE_CONTENT,
+        (e) => e.type === EventType.REASONING_MESSAGE_CONTENT,
       );
       expect(contentEvents).toHaveLength(0);
 
       // Stream still completes with RUN_FINISHED
-      const eventTypes = events.map((e: any) => e.type);
+      const eventTypes = events.map((e) => e.type);
       expect(eventTypes[eventTypes.length - 1]).toBe(EventType.RUN_FINISHED);
     });
 
@@ -1156,7 +1161,7 @@ describe("BasicAgent", () => {
           toolCall("call1", "testTool", { arg: "val" }),
           toolResult("call1", "testTool", { result: "success" }),
           finish(),
-        ]) as any,
+        ]),
       );
 
       const input: RunAgentInput = {
@@ -1169,7 +1174,7 @@ describe("BasicAgent", () => {
       };
 
       const events = await collectEvents(agent["run"](input));
-      const eventTypes = events.map((e: any) => e.type);
+      const eventTypes = events.map((e) => e.type);
 
       // REASONING_MESSAGE_END must appear before REASONING_END, which must appear before TOOL_CALL_START
       const reasoningMsgEndIdx = eventTypes.indexOf(
@@ -1206,7 +1211,7 @@ describe("BasicAgent", () => {
           textStart(),
           textDelta("Answer"),
           finish(),
-        ]) as any,
+        ]),
       );
 
       const input: RunAgentInput = {
@@ -1219,7 +1224,7 @@ describe("BasicAgent", () => {
       };
 
       const events = await collectEvents(agent["run"](input));
-      const eventTypes = events.map((e: any) => e.type);
+      const eventTypes = events.map((e) => e.type);
 
       // REASONING_MESSAGE_END must appear before REASONING_END, which must appear before TEXT_MESSAGE_CHUNK
       const reasoningMsgEndIdx = eventTypes.indexOf(
@@ -1254,7 +1259,7 @@ describe("BasicAgent", () => {
           reasoningDelta("Deep thought"),
           // NO reasoningEnd() — simulates @ai-sdk/anthropic behaviour
           finish(),
-        ]) as any,
+        ]),
       );
 
       const input: RunAgentInput = {
@@ -1267,7 +1272,7 @@ describe("BasicAgent", () => {
       };
 
       const events = await collectEvents(agent["run"](input));
-      const eventTypes = events.map((e: any) => e.type);
+      const eventTypes = events.map((e) => e.type);
 
       // REASONING_MESSAGE_END must appear before REASONING_END (auto-closed by finish case)
       const reasoningMsgEndIdx = eventTypes.indexOf(
@@ -1300,7 +1305,7 @@ describe("BasicAgent", () => {
           reasoningDelta("Thinking..."),
           // NO reasoningEnd() — stream aborts before SDK can close reasoning
           abort(),
-        ]) as any,
+        ]),
       );
 
       const input: RunAgentInput = {
@@ -1313,7 +1318,7 @@ describe("BasicAgent", () => {
       };
 
       const events = await collectEvents(agent["run"](input));
-      const eventTypes = events.map((e: any) => e.type);
+      const eventTypes = events.map((e) => e.type);
 
       // REASONING_MESSAGE_END must appear before REASONING_END, both before RUN_FINISHED
       const reasoningMsgEndIdx = eventTypes.indexOf(
@@ -1348,7 +1353,7 @@ describe("BasicAgent", () => {
           reasoningDelta("Thinking..."),
           // NO reasoningEnd() — stream errors before SDK can close reasoning
           error("stream failed"),
-        ]) as any,
+        ]),
       );
 
       const input: RunAgentInput = {
@@ -1361,16 +1366,16 @@ describe("BasicAgent", () => {
       };
 
       // subscriber.error() causes collectEvents to reject, so collect manually
-      const events: any[] = [];
+      const events: BaseEvent[] = [];
       await new Promise<void>((resolve) => {
         agent["run"](input).subscribe({
-          next: (e: any) => events.push(e),
+          next: (e) => events.push(e),
           error: () => resolve(), // error is expected
           complete: () => resolve(),
         });
       });
 
-      const eventTypes = events.map((e: any) => e.type);
+      const eventTypes = events.map((e) => e.type);
 
       // REASONING_MESSAGE_END must appear before REASONING_END, both before RUN_ERROR
       const reasoningMsgEndIdx = eventTypes.indexOf(
@@ -1405,7 +1410,7 @@ describe("BasicAgent", () => {
           reasoningDelta("Second thought"),
           reasoningEnd(),
           finish(),
-        ]) as any,
+        ]),
       );
 
       const input: RunAgentInput = {
@@ -1418,7 +1423,7 @@ describe("BasicAgent", () => {
       };
 
       const events = await collectEvents(agent["run"](input));
-      const eventTypes = events.map((e: any) => e.type);
+      const eventTypes = events.map((e) => e.type);
 
       // Both reasoning blocks must be properly closed — two complete lifecycles
       expect(
@@ -1437,12 +1442,10 @@ describe("BasicAgent", () => {
 
       // The two blocks must use distinct messageIds
       const startEvents = events.filter(
-        (e: any) => e.type === EventType.REASONING_START,
+        (e): e is ReasoningStartEvent => e.type === EventType.REASONING_START,
       );
       expect(startEvents).toHaveLength(2);
-      expect((startEvents[0] as any).messageId).not.toBe(
-        (startEvents[1] as any).messageId,
-      );
+      expect(startEvents[0].messageId).not.toBe(startEvents[1].messageId);
 
       expect(eventTypes[eventTypes.length - 1]).toBe(EventType.RUN_FINISHED);
     });
@@ -1460,7 +1463,9 @@ describe("BasicAgent", () => {
           throw new Error("unexpected network failure");
         })(),
       };
-      vi.mocked(streamText).mockReturnValue(throwingStream as any);
+      vi.mocked(streamText).mockReturnValue(
+        throwingStream as unknown as ReturnType<typeof streamText>,
+      );
 
       const input: RunAgentInput = {
         threadId: "thread1",
@@ -1472,16 +1477,16 @@ describe("BasicAgent", () => {
       };
 
       // subscriber.error() causes collectEvents to reject, so collect manually
-      const events: any[] = [];
+      const events: BaseEvent[] = [];
       await new Promise<void>((resolve) => {
         agent["run"](input).subscribe({
-          next: (e: any) => events.push(e),
+          next: (e) => events.push(e),
           error: () => resolve(), // error is expected
           complete: () => resolve(),
         });
       });
 
-      const eventTypes = events.map((e: any) => e.type);
+      const eventTypes = events.map((e) => e.type);
 
       // Reasoning must be closed before RUN_ERROR despite the exception path
       const reasoningMsgEndIdx = eventTypes.indexOf(
@@ -1512,7 +1517,7 @@ describe("BasicAgent", () => {
           reasoningStart(),
           reasoningDelta("Thinking..."),
           // deliberate: no finish(), no abort(), no error()
-        ]) as any,
+        ]),
       );
 
       const input: RunAgentInput = {
@@ -1525,7 +1530,7 @@ describe("BasicAgent", () => {
       };
 
       const events = await collectEvents(agent["run"](input));
-      const eventTypes = events.map((e: any) => e.type);
+      const eventTypes = events.map((e) => e.type);
 
       // Reasoning must be closed before RUN_FINISHED via fallback
       const reasoningMsgEndIdx = eventTypes.indexOf(
@@ -1575,7 +1580,7 @@ describe("BasicAgent", () => {
       };
 
       const events = await collectEvents(agent["run"](input));
-      const eventTypes = events.map((e: any) => e.type);
+      const eventTypes = events.map((e) => e.type);
 
       // Reasoning events precede tool call events
       const reasoningEndIdx = eventTypes.indexOf(EventType.REASONING_END);

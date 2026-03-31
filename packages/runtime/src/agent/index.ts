@@ -885,14 +885,16 @@ export class BuiltInAgent extends AbstractAgent {
         const closeReasoningIfOpen = () => {
           if (!isInReasoning) return;
           isInReasoning = false;
-          subscriber.next({
+          const reasoningMsgEnd: ReasoningMessageEndEvent = {
             type: EventType.REASONING_MESSAGE_END,
             messageId: reasoningMessageId,
-          } as ReasoningMessageEndEvent);
-          subscriber.next({
+          };
+          subscriber.next(reasoningMsgEnd);
+          const reasoningEnd: ReasoningEndEvent = {
             type: EventType.REASONING_END,
             messageId: reasoningMessageId,
-          } as ReasoningEndEvent);
+          };
+          subscriber.next(reasoningEnd);
         };
 
         try {
@@ -1008,9 +1010,14 @@ export class BuiltInAgent extends AbstractAgent {
 
           // Process fullStream events
           for await (const part of response.fullStream) {
+            // Close any open reasoning lifecycle on every event except
+            // reasoning-delta, which arrives mid-block and must not interrupt it.
+            if (part.type !== "reasoning-delta") {
+              closeReasoningIfOpen();
+            }
+
             switch (part.type) {
               case "abort": {
-                closeReasoningIfOpen();
                 const abortEndEvent: RunFinishedEvent = {
                   type: EventType.RUN_FINISHED,
                   threadId: input.threadId,
@@ -1024,7 +1031,6 @@ export class BuiltInAgent extends AbstractAgent {
                 break;
               }
               case "reasoning-start": {
-                closeReasoningIfOpen();
                 // Use SDK-provided id, or generate a fresh UUID if id is falsy/"0"
                 // to prevent consecutive reasoning blocks from sharing a messageId
                 const providedId = "id" in part ? part.id : undefined;
@@ -1058,14 +1064,11 @@ export class BuiltInAgent extends AbstractAgent {
                 break;
               }
               case "reasoning-end": {
-                // Use closeReasoningIfOpen so this is idempotent: if a phase-transition
-                // case already auto-closed reasoning, a late reasoning-end from the SDK
-                // becomes a no-op instead of emitting duplicate end events.
-                closeReasoningIfOpen();
+                // closeReasoningIfOpen() already called before the switch — no-op here
+                // if the SDK never emits this event (e.g. @ai-sdk/anthropic).
                 break;
               }
               case "tool-input-start": {
-                closeReasoningIfOpen();
                 const toolCallId = part.id;
                 const state = ensureToolCallState(toolCallId);
                 state.toolName = part.toolName;
@@ -1101,7 +1104,6 @@ export class BuiltInAgent extends AbstractAgent {
               }
 
               case "text-start": {
-                closeReasoningIfOpen();
                 // New text message starting - use the SDK-provided id
                 // Use randomUUID() if part.id is falsy or "0" to prevent message merging issues
                 const providedId = "id" in part ? part.id : undefined;
@@ -1127,7 +1129,6 @@ export class BuiltInAgent extends AbstractAgent {
               }
 
               case "tool-call": {
-                closeReasoningIfOpen();
                 const toolCallId = part.toolCallId;
                 const state = ensureToolCallState(toolCallId);
                 state.toolName = part.toolName ?? state.toolName;
@@ -1224,7 +1225,6 @@ export class BuiltInAgent extends AbstractAgent {
               }
 
               case "finish": {
-                closeReasoningIfOpen();
                 // Emit run finished event
                 const finishedEvent: RunFinishedEvent = {
                   type: EventType.RUN_FINISHED,
@@ -1240,7 +1240,6 @@ export class BuiltInAgent extends AbstractAgent {
               }
 
               case "error": {
-                closeReasoningIfOpen();
                 if (abortController.signal.aborted) {
                   break;
                 }
