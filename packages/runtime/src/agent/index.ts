@@ -215,8 +215,10 @@ export function resolveModel(
       const anthropic = createAnthropic({
         apiKey: apiKey || process.env.ANTHROPIC_API_KEY!,
       });
-      // Accepts any Claude id, e.g. "claude-3.7-sonnet", "claude-3.5-haiku"
-      return anthropic(model);
+      // Anthropic API uses hyphens in version numbers (e.g. "claude-sonnet-4-5"),
+      // but users may pass dots (e.g. "claude-sonnet-4.5"). Normalize here.
+      const anthropicModel = model.replace(/(\d+)\.(\d+)/g, "$1-$2");
+      return anthropic(anthropicModel);
     }
 
     case "google":

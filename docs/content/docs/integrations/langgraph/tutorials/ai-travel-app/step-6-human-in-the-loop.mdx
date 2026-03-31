@@ -133,7 +133,8 @@ we'll be adding `useCopilotAction` hooks for each tool call with the `renderAndW
 // ...
 import { AddTrips, EditTrips, DeleteTrips } from "@/components/humanInTheLoop"; // [!code ++]
 import { useAgent, useCoAgentStateRender } from "@copilotkit/react-core/v2"; // [!code --]
-import { useAgent, useCoAgentStateRender, useFrontendTool } from "@copilotkit/react-core/v2"; // [!code ++]
+import { useAgent, useFrontendTool } from "@copilotkit/react-core/v2"; // [!code ++]
+import { useCoAgentStateRender } from "@copilotkit/react-core"; // [!code ++]
 import { z } from "zod"; // [!code ++]
 // ...
 

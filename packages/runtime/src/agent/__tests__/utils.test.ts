@@ -40,7 +40,7 @@ describe("resolveModel", () => {
   it("should resolve Anthropic models", () => {
     const model = resolveModel("anthropic/claude-sonnet-4.5");
     expect(model).toBeDefined();
-    expect(model.modelId).toBe("claude-sonnet-4.5");
+    expect(model.modelId).toBe("claude-sonnet-4-5");
   });
 
   it("should resolve Google models", () => {

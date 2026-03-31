@@ -108,7 +108,7 @@ Use validated user identity to scope tool calls and data access:
 
 ```python
 from typing import Annotated
-from autogen import ContextVariables
+from autogen.agentchat import ContextVariables
 
 @agent.register_for_llm(description="Return account data for the authenticated user.")
 def get_account_data(
