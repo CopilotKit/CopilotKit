@@ -19,6 +19,7 @@ import { LicenseWarningBanner } from "../components/license-warning-banner";
 import {
   createLicenseContextValue,
   type LicenseContextValue,
+  type DebugConfig,
 } from "@copilotkit/shared";
 import type { CopilotKitCoreErrorCode } from "@copilotkit/core";
 import {
@@ -129,6 +130,10 @@ export interface CopilotKitProviderProps {
      */
     theme?: A2UITheme;
   };
+  /**
+   * Enable debug logging for the client-side event pipeline.
+   */
+  debug?: DebugConfig;
 }
 
 // Small helper to normalize array props to a stable reference and warn
@@ -175,6 +180,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   useSingleEndpoint = false,
   onError,
   a2ui,
+  debug,
 }) => {
   const [shouldRenderInspector, setShouldRenderInspector] = useState(false);
   const [runtimeA2UIEnabled, setRuntimeA2UIEnabled] = useState(false);
@@ -398,6 +404,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
       renderToolCalls: allRenderToolCalls,
       renderActivityMessages: allActivityRenderers,
       renderCustomMessages: renderCustomMessagesList,
+      debug,
     });
   }
   const copilotkit = copilotkitRef.current;
