@@ -400,16 +400,16 @@ describe("useThreads", () => {
       expect(result.current.isLoading).toBe(false);
     });
 
-    expect(result.current).toHaveProperty("hasNextThreadsPage");
-    expect(result.current).toHaveProperty("isFetchingNextThreadsPage");
-    expect(result.current).toHaveProperty("fetchNextThreadsPage");
+    expect(result.current).toHaveProperty("hasMoreThreads");
+    expect(result.current).toHaveProperty("isFetchingMoreThreads");
+    expect(result.current).toHaveProperty("fetchMoreThreads");
     expect(result.current).not.toHaveProperty("hasNextPage");
     expect(result.current).not.toHaveProperty("isFetchingNextPage");
     expect(result.current).not.toHaveProperty("fetchNextPage");
 
-    expect(result.current.hasNextThreadsPage).toBe(true);
-    expect(result.current.isFetchingNextThreadsPage).toBe(false);
-    expect(typeof result.current.fetchNextThreadsPage).toBe("function");
+    expect(result.current.hasMoreThreads).toBe(true);
+    expect(result.current.isFetchingMoreThreads).toBe(false);
+    expect(typeof result.current.fetchMoreThreads).toBe("function");
   });
 
   it("does not expose organizationId or createdById on threads", async () => {

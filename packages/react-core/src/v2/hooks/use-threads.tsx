@@ -74,18 +74,18 @@ export interface UseThreadsResult {
   error: Error | null;
   /**
    * `true` when there are more threads available to fetch via
-   * {@link fetchNextThreadsPage}. Only meaningful when `limit` is set.
+   * {@link fetchMoreThreads}. Only meaningful when `limit` is set.
    */
-  hasNextThreadsPage: boolean;
+  hasMoreThreads: boolean;
   /**
    * `true` while a subsequent page of threads is being fetched.
    */
-  isFetchingNextThreadsPage: boolean;
+  isFetchingMoreThreads: boolean;
   /**
-   * Fetch the next page of threads. No-op when {@link hasNextThreadsPage} is
-   * `false` or a page fetch is already in progress.
+   * Fetch the next page of threads. No-op when {@link hasMoreThreads} is
+   * `false` or a fetch is already in progress.
    */
-  fetchNextThreadsPage: () => void;
+  fetchMoreThreads: () => void;
   /**
    * Rename a thread on the platform.
    * Resolves when the server confirms the update; rejects on failure.
@@ -192,8 +192,8 @@ export function useThreads({
   );
   const storeIsLoading = useThreadStoreSelector(store, ɵselectThreadsIsLoading);
   const storeError = useThreadStoreSelector(store, ɵselectThreadsError);
-  const hasNextThreadsPage = useThreadStoreSelector(store, ɵselectHasNextPage);
-  const isFetchingNextThreadsPage = useThreadStoreSelector(
+  const hasMoreThreads = useThreadStoreSelector(store, ɵselectHasNextPage);
+  const isFetchingMoreThreads = useThreadStoreSelector(
     store,
     ɵselectIsFetchingNextPage,
   );
@@ -260,18 +260,15 @@ export function useThreads({
     [store],
   );
 
-  const fetchNextThreadsPage = useCallback(
-    () => store.fetchNextPage(),
-    [store],
-  );
+  const fetchMoreThreads = useCallback(() => store.fetchNextPage(), [store]);
 
   return {
     threads,
     isLoading,
     error,
-    hasNextThreadsPage,
-    isFetchingNextThreadsPage,
-    fetchNextThreadsPage,
+    hasMoreThreads,
+    isFetchingMoreThreads,
+    fetchMoreThreads,
     renameThread,
     archiveThread,
     deleteThread,
