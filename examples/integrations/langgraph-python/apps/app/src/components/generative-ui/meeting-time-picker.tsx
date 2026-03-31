@@ -59,7 +59,7 @@ export function MeetingTimePicker({
       <Card className="max-w-md w-full mx-auto mb-4 overflow-hidden">
         <CardContent className="p-6">
           <div className="flex flex-col items-center text-center gap-3">
-            <div className="flex items-center justify-center h-10 w-10 rounded-full bg-emerald-500">
+            <div className="flex items-center justify-center h-10 w-10 rounded-full bg-[#189370]">
               <Check className="h-5 w-5 text-white" strokeWidth={3} />
             </div>
             <div>
@@ -110,8 +110,8 @@ export function MeetingTimePicker({
     <Card className="max-w-md w-full mx-auto mb-4 overflow-hidden">
       <CardContent className="p-6">
         <div className="flex flex-col items-center text-center mb-5">
-          <div className="flex items-center justify-center h-12 w-12 rounded-full bg-indigo-100 dark:bg-indigo-950 mb-3">
-            <Clock className="h-6 w-6 text-indigo-600 dark:text-indigo-400" />
+          <div className="flex items-center justify-center h-12 w-12 rounded-full bg-[var(--accent)] mb-3">
+            <Clock className="h-6 w-6 text-[#BEC2FF]" />
           </div>
           <h3 className="text-lg font-bold text-[var(--foreground)]">
             {displayTitle}
@@ -137,8 +137,7 @@ export function MeetingTimePicker({
                 onClick={() => handleSelectSlot(slot)}
                 className="group w-full px-6 py-5 rounded-[var(--radius)]
                   border border-[var(--border)]
-                  hover:border-indigo-400 dark:hover:border-indigo-500
-                  hover:bg-indigo-50/50 dark:hover:bg-indigo-950/30
+                  hover:border-[var(--ring)] hover:bg-[var(--accent)]
                   transition-all duration-150 cursor-pointer
                   flex items-center gap-4"
               >

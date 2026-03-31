@@ -1,15 +1,14 @@
 /**
- * Curated chart palette — warm, harmonious tones that complement
- * the Fredoka / neutral-grayscale design system.
+ * CopilotKit brand chart palette — Plus Jakarta Sans / brand color system.
  */
 export const CHART_COLORS = [
-  "#6366f1", // indigo
-  "#f472b6", // pink
-  "#34d399", // emerald
-  "#fbbf24", // amber
-  "#60a5fa", // sky
-  "#a78bfa", // violet
-  "#fb923c", // orange
+  "#BEC2FF", // lilac-400
+  "#85ECCE", // mint-400
+  "#FFAC4D", // orange-400
+  "#FFF388", // yellow-400
+  "#189370", // mint-800
+  "#EEE6FE", // primary-100
+  "#FA5F67", // red-400
 ] as const;
 
 export const CHART_CONFIG = {
