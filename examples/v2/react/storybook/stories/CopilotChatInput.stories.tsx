@@ -4,7 +4,7 @@ import {
   CopilotChatInput,
   CopilotChatConfigurationProvider,
   type ToolsMenuItem,
-} from "@copilotkitnext/react";
+} from "@copilotkit/react-core/v2";
 
 const meta = {
   title: "UI/CopilotChatInput",
@@ -48,7 +48,7 @@ The CopilotChatInput component provides a streamlined chat entry experience with
 ## Basic Usage
 
 \`\`\`tsx
-import { CopilotChatInput, CopilotChatConfigurationProvider } from '@copilotkitnext/react';
+import { CopilotChatInput, CopilotChatConfigurationProvider } from '@copilotkit/react-core/v2';
 
 function ChatComponent() {
   return (

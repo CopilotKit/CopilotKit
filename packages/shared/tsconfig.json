@@ -1,0 +1,17 @@
+{
+  "extends": "../tsconfig/base.json",
+  "include": ["."],
+  "compilerOptions": {
+    "target": "es2017",
+    "lib": ["es2017", "dom"],
+    "resolveJsonModule": true
+  },
+  "exclude": [
+    "dist",
+    "build",
+    "node_modules",
+    "**/*.test.ts",
+    "**/*.test.tsx",
+    "**/__tests__/*"
+  ]
+}

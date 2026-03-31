@@ -5,7 +5,7 @@ import {
   CopilotModalHeader,
   CopilotSidebarView,
   type CopilotSidebarViewProps,
-} from "@copilotkitnext/react";
+} from "@copilotkit/react-core/v2";
 import { CopilotStoryLayout } from "./CopilotStoryLayout";
 
 const meta = {

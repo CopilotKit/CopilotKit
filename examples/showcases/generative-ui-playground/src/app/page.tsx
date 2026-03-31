@@ -1,12 +1,12 @@
 "use client";
 
 import { useState, useEffect } from "react";
-// All modes use @copilotkitnext packages
+// All modes use @copilotkit packages
 import {
   CopilotKitProvider,
   CopilotSidebar,
   CopilotPopup,
-} from "@copilotkitnext/react";
+} from "@copilotkit/react-core/v2";
 import { useMediaQuery } from "@/hooks/use-media-query";
 // A2UI mode: separate component with A2UI-specific configuration
 import { A2UIPage } from "./components/A2UIPage";
@@ -17,7 +17,7 @@ import { A2UICard } from "./components/protocol-cards/A2UICard";
 import { ComparisonTable } from "./components/ComparisonTable";
 import { PromptPill } from "./components/PromptPill";
 import { useSendMessage } from "./hooks/useSendMessage";
-import "@copilotkitnext/react/styles.css";
+import "@copilotkit/react-core/v2/styles.css";
 
 // Shared page content component - rendered inside either provider
 function PageContent({

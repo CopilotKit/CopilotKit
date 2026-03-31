@@ -32,7 +32,7 @@ jobs:
 
       - name: Install dependencies
         working-directory: sdk-python
-        run: poetry install
+        run: poetry lock && poetry install --with dev
 
       - name: Run tests
         working-directory: sdk-python

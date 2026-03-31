@@ -5,11 +5,11 @@ import {
   CopilotRuntime,
   createCopilotEndpoint,
   InMemoryAgentRunner,
-} from "@copilotkitnext/runtime";
+} from "@copilotkit/runtime/v2";
 import {
   OpenAIAgent,
   SlowToolCallStreamingAgent,
-} from "@copilotkitnext/demo-agents";
+} from "@copilotkit/demo-agents";
 
 const runtime = new CopilotRuntime({
   agents: {

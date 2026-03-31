@@ -4,7 +4,7 @@ on:
   pull_request:
     paths:
       - "sdk-python/copilotkit/langgraph_agent.py"
-      - "packages/v1/sdk-js/src/langgraph.ts"
+      - "packages/sdk-js/src/langgraph.ts"
 
 env:
   NX_CI_EXECUTION_ID: ${{ github.head_ref }}-${{ github.sha }}-${{ github.run_attempt }}
@@ -22,9 +22,6 @@ jobs:
         uses: pnpm/action-setup@v4
         with:
           version: "10.13.1"
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v6
 
       - name: Use Node.js ${{ matrix.node-version }}
         uses: actions/setup-node@v2

@@ -9,16 +9,16 @@ RUN pnpm i -g turbo
 
 # Production Stage 
 FROM base AS production
-ARG APP_DIR="src/v1.x/examples/next-openai"
+ARG APP_DIR="examples/v1/next-openai"
 COPY --from=public.ecr.aws/awsguru/aws-lambda-adapter:0.8.4 /lambda-adapter /opt/extensions/lambda-adapter
 
-WORKDIR /app/src/v1.x
-COPY src/v1.x/package.json src/v1.x/pnpm-lock.yaml src/v1.x/pnpm-workspace.yaml ./
+WORKDIR /app
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY --parents ${APP_DIR}/**/package.json ./
 
 # Copy the built artifacts from the builder stage
 WORKDIR /app/${APP_DIR}
-COPY ${APP_DIR}/.next/standalone/examples/next-openai ./
+COPY ${APP_DIR}/.next/standalone/examples/v1/next-openai ./
 COPY ${APP_DIR}/.next/static ./.next/static
 RUN pnpm i --frozen-lockfile
 

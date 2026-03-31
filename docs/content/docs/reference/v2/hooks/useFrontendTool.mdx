@@ -37,8 +37,11 @@ function useFrontendTool<T extends Record<string, unknown>>(
     A Zod schema defining the tool's input parameters. The schema is used for both validation and type inference.
   </PropertyReference>
 
-  <PropertyReference name="handler" type="(args: T) => Promise<string>" required>
-    An async function that executes when the agent calls the tool. Receives the validated, typed arguments and should return a string result that is sent back to the agent.
+  <PropertyReference name="handler" type="(args: T, context?: { toolCall, agent, signal? }) => Promise<string>" required>
+    An async function that executes when the agent calls the tool. Receives the validated, typed arguments and an optional context object:
+    - `toolCall` -- the raw tool call metadata
+    - `agent` -- the agent instance that invoked the tool
+    - `signal` -- an `AbortSignal` that is aborted when the user stops the agent (via `stopAgent()` or `agent.abortRun()`). Long-running handlers can check `signal.aborted` to exit early.
   </PropertyReference>
 
   <PropertyReference name="render" type="React.ComponentType<{ name: string; args: Partial<T>; status: ToolCallStatus; result: string | undefined }>">
@@ -100,8 +103,8 @@ function WeatherWidget() {
       city: z.string().describe("City name"),
       units: z.enum(["celsius", "fahrenheit"]).default("celsius"),
     }),
-    handler: async ({ city, units }) => {
-      const response = await fetch(`/api/weather?city=${city}&units=${units}`);
+    handler: async ({ city, units }, { signal }) => {
+      const response = await fetch(`/api/weather?city=${city}&units=${units}`, { signal });
       const data = await response.json();
       return JSON.stringify(data);
     },
