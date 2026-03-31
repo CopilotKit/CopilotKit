@@ -1195,9 +1195,7 @@ export namespace CopilotChatInput {
       <DropdownMenu>
         <Tooltip>
           <TooltipTrigger asChild>
-            <DropdownMenuTrigger asChild>
-              {button}
-            </DropdownMenuTrigger>
+            <DropdownMenuTrigger asChild>{button}</DropdownMenuTrigger>
           </TooltipTrigger>
           <TooltipContent side="bottom">
             <p className="cpk:flex cpk:items-center cpk:gap-1 cpk:text-xs cpk:font-medium">

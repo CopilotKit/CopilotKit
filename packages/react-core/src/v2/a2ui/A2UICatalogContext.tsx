@@ -8,7 +8,7 @@ import {
 import {
   A2UI_DEFAULT_GENERATION_GUIDELINES,
   A2UI_DEFAULT_DESIGN_GUIDELINES,
-} from "@copilotkitnext/shared";
+} from "@copilotkit/shared";
 import { useAgentContext } from "../hooks/use-agent-context";
 import { useCopilotKit } from "../providers/CopilotKitProvider";
 import { useLayoutEffect, useMemo } from "react";
@@ -40,7 +40,10 @@ export function A2UICatalogContext({
   // as the A2UI middleware so it can overwrite with a server-side schema if needed.
   const { copilotkit } = useCopilotKit();
   const schemaValue = useMemo(
-    () => (includeSchema !== false ? JSON.stringify(extractCatalogComponentSchemas(catalog)) : null),
+    () =>
+      includeSchema !== false
+        ? JSON.stringify(extractCatalogComponentSchemas(catalog))
+        : null,
     [catalog, includeSchema],
   );
 
@@ -55,13 +58,15 @@ export function A2UICatalogContext({
     );
     ids.push(
       copilotkit.addContext({
-        description: "A2UI generation guidelines — protocol rules, tool arguments, path rules, data model format, and form/two-way-binding instructions.",
+        description:
+          "A2UI generation guidelines — protocol rules, tool arguments, path rules, data model format, and form/two-way-binding instructions.",
         value: A2UI_DEFAULT_GENERATION_GUIDELINES,
       }),
     );
     ids.push(
       copilotkit.addContext({
-        description: "A2UI design guidelines — visual design rules, component hierarchy tips, and action handler patterns.",
+        description:
+          "A2UI design guidelines — visual design rules, component hierarchy tips, and action handler patterns.",
         value: A2UI_DEFAULT_DESIGN_GUIDELINES,
       }),
     );

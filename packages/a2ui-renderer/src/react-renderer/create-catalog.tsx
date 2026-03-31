@@ -11,7 +11,9 @@ import type { ComponentApi } from "@a2ui/web_core/v0_9";
  * A single component definition — Zod props schema + optional description.
  * Platform-agnostic: no React or rendering details.
  */
-export interface CatalogComponentDefinition<T extends ZodRawShape = ZodRawShape> {
+export interface CatalogComponentDefinition<
+  T extends ZodRawShape = ZodRawShape,
+> {
   /** Zod schema for component props */
   props: ZodObject<T>;
   /** Description for the AI agent */
@@ -22,15 +24,17 @@ export interface CatalogComponentDefinition<T extends ZodRawShape = ZodRawShape>
  * A record mapping component names to their definitions.
  * This is the platform-agnostic "contract" that agents use.
  */
-export type CatalogDefinitions = Record<string, CatalogComponentDefinition<any>>;
+export type CatalogDefinitions = Record<
+  string,
+  CatalogComponentDefinition<any>
+>;
 
 /**
  * Infer the props type for a specific component in the definitions.
  */
-export type PropsOf<
-  D extends CatalogDefinitions,
-  K extends keyof D,
-> = z.infer<D[K]["props"]>;
+export type PropsOf<D extends CatalogDefinitions, K extends keyof D> = z.infer<
+  D[K]["props"]
+>;
 
 // ─── Catalog Renderers (platform-specific) ───────────────────────────
 
@@ -49,8 +53,9 @@ export interface RendererProps<T = Record<string, unknown>> {
 /**
  * A renderer function for a component.
  */
-export type ComponentRenderer<T = Record<string, unknown>> =
-  React.FC<RendererProps<T>>;
+export type ComponentRenderer<T = Record<string, unknown>> = React.FC<
+  RendererProps<T>
+>;
 
 /**
  * A record mapping component names to React renderer functions.
@@ -97,8 +102,7 @@ export function createCatalog<D extends CatalogDefinitions>(
     includeBasicCatalog?: boolean;
   },
 ): Catalog<ReactComponentImplementation> {
-  const catalogId =
-    options?.catalogId ?? "copilotkit://custom-catalog";
+  const catalogId = options?.catalogId ?? "copilotkit://custom-catalog";
   const includeBasic = options?.includeBasicCatalog !== false;
 
   const customComponents: ReactComponentImplementation[] = [];
@@ -109,12 +113,19 @@ export function createCatalog<D extends CatalogDefinitions>(
       schema: def.props,
     };
 
-    const renderer = (renderers as Record<string, ComponentRenderer<any>>)[name];
-    const wrapped = createReactComponent(api, ({ props, buildChild, context }) => {
-      const Render = renderer;
-      const dispatch = (action: any) => context.dispatchAction(action);
-      return <Render props={props} children={buildChild} dispatch={dispatch} />;
-    });
+    const renderer = (renderers as Record<string, ComponentRenderer<any>>)[
+      name
+    ];
+    const wrapped = createReactComponent(
+      api,
+      ({ props, buildChild, context }) => {
+        const Render = renderer;
+        const dispatch = (action: any) => context.dispatchAction(action);
+        return (
+          <Render props={props} children={buildChild} dispatch={dispatch} />
+        );
+      },
+    );
 
     customComponents.push(wrapped);
   }
@@ -140,9 +151,11 @@ export function createCatalog<D extends CatalogDefinitions>(
  * Extract a JSON-serializable schema from catalog definitions.
  * Suitable for passing to the runtime's `a2ui.schema` config.
  */
-export function extractSchema(
-  definitions: CatalogDefinitions,
-): Array<{ name: string; description?: string; props?: Record<string, unknown> }> {
+export function extractSchema(definitions: CatalogDefinitions): Array<{
+  name: string;
+  description?: string;
+  props?: Record<string, unknown>;
+}> {
   return Object.entries(definitions).map(([name, def]) => ({
     name,
     description: def.description,
@@ -150,7 +163,9 @@ export function extractSchema(
   }));
 }
 
-function zodSchemaToSimpleObject(schema: ZodObject<any>): Record<string, unknown> {
+function zodSchemaToSimpleObject(
+  schema: ZodObject<any>,
+): Record<string, unknown> {
   const shape = schema.shape;
   const properties: Record<string, { type: string; description?: string }> = {};
   for (const [key, value] of Object.entries(shape)) {
@@ -198,9 +213,11 @@ export function createA2UICatalog(
 /**
  * @deprecated Use `extractSchema(definitions)` instead.
  */
-export function extractA2UISchema(
-  components: A2UIComponentMap,
-): Array<{ name: string; description?: string; props?: Record<string, unknown> }> {
+export function extractA2UISchema(components: A2UIComponentMap): Array<{
+  name: string;
+  description?: string;
+  props?: Record<string, unknown>;
+}> {
   const definitions: CatalogDefinitions = {};
   for (const [name, def] of Object.entries(components)) {
     definitions[name] = { props: def.props, description: def.description };

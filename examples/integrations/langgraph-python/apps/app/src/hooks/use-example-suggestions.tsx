@@ -17,8 +17,7 @@ export const useExampleSuggestions = () => {
       // 2a. Fixed-schema A2UI — pre-defined component schemas
       {
         title: "Search Flights (A2UI Fixed Schema)",
-        message:
-          "Find flights from SFO to JFK for next Tuesday.",
+        message: "Find flights from SFO to JFK for next Tuesday.",
       },
       // 2b. Dynamic A2UI — agent-generated dashboard UI
       {

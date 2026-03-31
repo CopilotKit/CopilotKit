@@ -14,16 +14,16 @@
  * limitations under the License.
  */
 
-import React from 'react';
-import {createReactComponent} from '../../../adapter';
-import {VideoApi} from '@a2ui/web_core/v0_9/basic_catalog';
-import {getBaseLeafStyle} from '../utils';
+import React from "react";
+import { createReactComponent } from "../../../adapter";
+import { VideoApi } from "@a2ui/web_core/v0_9/basic_catalog";
+import { getBaseLeafStyle } from "../utils";
 
-export const Video = createReactComponent(VideoApi, ({props}) => {
+export const Video = createReactComponent(VideoApi, ({ props }) => {
   const style: React.CSSProperties = {
     ...getBaseLeafStyle(),
-    width: '100%',
-    aspectRatio: '16/9',
+    width: "100%",
+    aspectRatio: "16/9",
   };
 
   return <video src={props.url} controls style={style} />;

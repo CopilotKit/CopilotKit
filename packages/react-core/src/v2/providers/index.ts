@@ -13,4 +13,4 @@ export {
   type CopilotKitContextValue,
 } from "./CopilotKitProvider";
 
-export type { Anchor as InspectorAnchor } from "@copilotkitnext/web-inspector";
+export type { Anchor as InspectorAnchor } from "@copilotkit/web-inspector";

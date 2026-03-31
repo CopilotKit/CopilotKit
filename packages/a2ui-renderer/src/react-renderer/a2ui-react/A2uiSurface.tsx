@@ -14,9 +14,13 @@
  * limitations under the License.
  */
 
-import React, {useSyncExternalStore, memo, useMemo, useCallback} from 'react';
-import {type SurfaceModel, ComponentContext, type ComponentModel} from '@a2ui/web_core/v0_9';
-import type {ReactComponentImplementation} from './adapter';
+import React, { useSyncExternalStore, memo, useMemo, useCallback } from "react";
+import {
+  type SurfaceModel,
+  ComponentContext,
+  type ComponentModel,
+} from "@a2ui/web_core/v0_9";
+import type { ReactComponentImplementation } from "./adapter";
 
 const ResolvedChild = memo(
   ({
@@ -39,7 +43,7 @@ const ResolvedChild = memo(
       () => new ComponentContext(surface, id, basePath),
       // componentModel is used as a trigger for recreation even if not in the body
       // eslint-disable-next-line react-hooks/exhaustive-deps
-      [surface, id, basePath, componentModel]
+      [surface, id, basePath, componentModel],
     );
 
     const buildChild = useCallback(
@@ -54,19 +58,19 @@ const ResolvedChild = memo(
           />
         );
       },
-      [surface, context.dataContext.path]
+      [surface, context.dataContext.path],
     );
 
     return <ComponentToRender context={context} buildChild={buildChild} />;
-  }
+  },
 );
-ResolvedChild.displayName = 'ResolvedChild';
+ResolvedChild.displayName = "ResolvedChild";
 
 export const DeferredChild: React.FC<{
   surface: SurfaceModel<ReactComponentImplementation>;
   id: string;
   basePath: string;
-}> = memo(({surface, id, basePath}) => {
+}> = memo(({ surface, id, basePath }) => {
   // 1. Subscribe specifically to this component's existence
   const store = useMemo(() => {
     let version = 0;
@@ -106,12 +110,13 @@ export const DeferredChild: React.FC<{
     return (
       <div
         style={{
-          padding: '12px 16px',
-          borderRadius: '8px',
-          background: 'linear-gradient(90deg, #f3f4f6 25%, #e5e7eb 50%, #f3f4f6 75%)',
-          backgroundSize: '200% 100%',
-          animation: 'a2ui-shimmer 1.5s ease-in-out infinite',
-          minHeight: '2rem',
+          padding: "12px 16px",
+          borderRadius: "8px",
+          background:
+            "linear-gradient(90deg, #f3f4f6 25%, #e5e7eb 50%, #f3f4f6 75%)",
+          backgroundSize: "200% 100%",
+          animation: "a2ui-shimmer 1.5s ease-in-out infinite",
+          minHeight: "2rem",
         }}
       >
         <style>{`@keyframes a2ui-shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }`}</style>
@@ -122,7 +127,11 @@ export const DeferredChild: React.FC<{
   const compImpl = surface.catalog.components.get(componentModel.type);
 
   if (!compImpl) {
-    return <div style={{color: 'red'}}>Unknown component: {componentModel.type}</div>;
+    return (
+      <div style={{ color: "red" }}>
+        Unknown component: {componentModel.type}
+      </div>
+    );
   }
 
   return (
@@ -135,11 +144,11 @@ export const DeferredChild: React.FC<{
     />
   );
 });
-DeferredChild.displayName = 'DeferredChild';
+DeferredChild.displayName = "DeferredChild";
 
-export const A2uiSurface: React.FC<{surface: SurfaceModel<ReactComponentImplementation>}> = ({
-  surface,
-}) => {
+export const A2uiSurface: React.FC<{
+  surface: SurfaceModel<ReactComponentImplementation>;
+}> = ({ surface }) => {
   // The root component always has ID 'root' and base path '/'
   return <DeferredChild surface={surface} id="root" basePath="/" />;
 };
