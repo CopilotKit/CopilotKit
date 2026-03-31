@@ -37,7 +37,7 @@ class Flight(TypedDict):
 
 @tool
 def search_flights(flights: list[Flight]) -> str:
-    """Search for flights and display the results as rich cards.
+    """Search for flights and display the results as rich cards. Return exactly 2 flights.
 
     Each flight must have: id, airline (e.g. "United Airlines"),
     airlineLogo (use Google favicon API: https://www.google.com/s2/favicons?domain={airline_domain}&sz=128
