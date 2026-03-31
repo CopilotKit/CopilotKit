@@ -5,6 +5,10 @@ import {
   A2UI_SCHEMA_CONTEXT_DESCRIPTION,
   extractCatalogComponentSchemas,
 } from "@copilotkit/a2ui-renderer";
+import {
+  A2UI_DEFAULT_GENERATION_GUIDELINES,
+  A2UI_DEFAULT_DESIGN_GUIDELINES,
+} from "@copilotkitnext/shared";
 import { useAgentContext } from "../hooks/use-agent-context";
 import { useCopilotKit } from "../providers/CopilotKitProvider";
 import { useLayoutEffect, useMemo } from "react";
@@ -42,12 +46,27 @@ export function A2UICatalogContext({
 
   useLayoutEffect(() => {
     if (!copilotkit || !schemaValue) return;
-    const id = copilotkit.addContext({
-      description: A2UI_SCHEMA_CONTEXT_DESCRIPTION,
-      value: schemaValue,
-    });
+    const ids: string[] = [];
+    ids.push(
+      copilotkit.addContext({
+        description: A2UI_SCHEMA_CONTEXT_DESCRIPTION,
+        value: schemaValue,
+      }),
+    );
+    ids.push(
+      copilotkit.addContext({
+        description: "A2UI generation guidelines — protocol rules, tool arguments, path rules, data model format, and form/two-way-binding instructions.",
+        value: A2UI_DEFAULT_GENERATION_GUIDELINES,
+      }),
+    );
+    ids.push(
+      copilotkit.addContext({
+        description: "A2UI design guidelines — visual design rules, component hierarchy tips, and action handler patterns.",
+        value: A2UI_DEFAULT_DESIGN_GUIDELINES,
+      }),
+    );
     return () => {
-      copilotkit.removeContext(id);
+      for (const id of ids) copilotkit.removeContext(id);
     };
   }, [copilotkit, schemaValue]);
 
