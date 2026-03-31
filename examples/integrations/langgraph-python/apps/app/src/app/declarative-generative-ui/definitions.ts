@@ -20,29 +20,35 @@ export const demonstrationCatalogDefinitions = {
     }),
   },
 
-  Text: {
-    description: "Plain text content. Use for descriptions, labels, body copy.",
-    props: z.object({
-      text: z.string(),
-      variant: z.string().optional(),
-    }),
-  },
+  // Text: removed — the basic catalog's Text uses DynamicStringSchema
+  // which supports path bindings (e.g. { path: "flights[*].airline" }).
+  // Overriding it with z.string() breaks fixed-schema data binding.
 
   Row: {
-    description: "Horizontal layout container. Children are laid out in a row. Use 'children' array with component IDs.",
+    description: "Horizontal layout container.",
     props: z.object({
       gap: z.number().optional(),
       align: z.string().optional(),
       justify: z.string().optional(),
-      children: z.array(z.string()),
+      // Union with { componentId, path } so GenericBinder treats this as
+      // STRUCTURAL and resolves template children from the data model.
+      children: z.union([
+        z.array(z.string()),
+        z.object({ componentId: z.string(), path: z.string() }),
+      ]),
     }),
   },
 
   Column: {
-    description: "Vertical layout container. Children are laid out in a column. Use 'children' array with component IDs.",
+    description: "Vertical layout container.",
     props: z.object({
       gap: z.number().optional(),
-      children: z.array(z.string()),
+      align: z.string().optional(),
+      // Same union as Row — required for template children support.
+      children: z.union([
+        z.array(z.string()),
+        z.object({ componentId: z.string(), path: z.string() }),
+      ]),
     }),
   },
 

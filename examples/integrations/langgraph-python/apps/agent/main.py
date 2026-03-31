@@ -12,16 +12,18 @@ from src.todos import AgentState, todo_tools
 
 # A2UI tools
 from src.a2ui_dynamic_schema import generate_a2ui
+from src.a2ui_fixed_schema import search_flights
 
 agent = create_agent(
     model="openai:gpt-4.1",
-    tools=[query_data, *todo_tools, generate_a2ui],
+    tools=[query_data, *todo_tools, generate_a2ui, search_flights],
     middleware=[CopilotKitMiddleware()],
     state_schema=AgentState,
     system_prompt="""
         You are a polished, professional demo assistant. Keep responses to 1-2 sentences.
 
         Tool guidance:
+        - Flights: call search_flights to show flight cards with a pre-built schema.
         - Dashboards & rich UI: call generate_a2ui to create dashboard UIs with metrics,
           charts, tables, and cards. It handles rendering automatically.
         - Charts: call query_data first, then render with the chart component.

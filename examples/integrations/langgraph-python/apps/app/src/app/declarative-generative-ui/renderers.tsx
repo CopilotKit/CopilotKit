@@ -32,19 +32,14 @@ const demonstrationCatalogRenderers: CatalogRenderers<DemonstrationCatalogDefini
     );
   },
 
-  Text: ({ props }) => {
-    const styles: Record<string, React.CSSProperties> = {
-      body: { margin: 0, fontSize: "0.875rem", color: "#374151", lineHeight: 1.5 },
-      caption: { margin: 0, fontSize: "0.75rem", color: "#6b7280", lineHeight: 1.4 },
-      bold: { margin: 0, fontSize: "0.875rem", color: "#111827", fontWeight: 600, lineHeight: 1.5 },
-    };
-    return <p style={styles[props.variant ?? "body"] ?? styles.body}>{props.text}</p>;
-  },
+  // Text: removed — use the basic catalog's Text (supports DynamicStringSchema
+  // for path bindings in fixed-schema templates).
 
   Row: ({ props, children }) => {
     const justifyMap: Record<string, string> = {
       start: "flex-start", center: "center", end: "flex-end", spaceBetween: "space-between",
     };
+    const items = Array.isArray(props.children) ? props.children : [];
     return (
       <div style={{
         display: "flex", flexDirection: "row", gap: `${props.gap ?? 16}px`,
@@ -52,20 +47,27 @@ const demonstrationCatalogRenderers: CatalogRenderers<DemonstrationCatalogDefini
         justifyContent: justifyMap[props.justify ?? "start"] ?? "flex-start",
         flexWrap: "wrap", width: "100%",
       }}>
-        {props.children?.map((id: string) => (
-          <div key={id} style={{ flex: "1 1 0", minWidth: 0 }}>{children(id)}</div>
-        ))}
+        {items.map((item: any, i: number) => {
+          if (typeof item === "string") return <div key={`${item}-${i}`} style={{ flex: "1 1 0", minWidth: 0 }}>{children(item)}</div>;
+          if (item && typeof item === "object" && "id" in item) return <div key={`${item.id}-${i}`} style={{ flex: "1 1 0", minWidth: 0 }}>{(children as any)(item.id, item.basePath)}</div>;
+          return null;
+        })}
       </div>
     );
   },
 
-  Column: ({ props, children }) => (
-    <div style={{ display: "flex", flexDirection: "column", gap: `${props.gap ?? 12}px`, width: "100%" }}>
-      {props.children?.map((id: string) => (
-        <React.Fragment key={id}>{children(id)}</React.Fragment>
-      ))}
-    </div>
-  ),
+  Column: ({ props, children }) => {
+    const items = Array.isArray(props.children) ? props.children : [];
+    return (
+      <div style={{ display: "flex", flexDirection: "column", gap: `${props.gap ?? 12}px`, width: "100%" }}>
+        {items.map((item: any, i: number) => {
+          if (typeof item === "string") return <React.Fragment key={`${item}-${i}`}>{children(item)}</React.Fragment>;
+          if (item && typeof item === "object" && "id" in item) return <React.Fragment key={`${item.id}-${i}`}>{(children as any)(item.id, item.basePath)}</React.Fragment>;
+          return null;
+        })}
+      </div>
+    );
+  },
 
   DashboardCard: ({ props, children }) => (
     <div style={{
