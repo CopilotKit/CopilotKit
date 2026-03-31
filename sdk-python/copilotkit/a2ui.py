@@ -111,7 +111,8 @@ CRITICAL: You MUST call the render_a2ui tool with ALL of these arguments:
 - surfaceId: A unique ID for the surface (e.g. "product-comparison")
 - components: REQUIRED — the A2UI component array. NEVER omit this. Use a List with
   children: { componentId: "card-id", path: "/items" } for repeating cards.
-- items: Plain JSON array of data objects that populate the template.
+- data: OPTIONAL — a JSON object written to the root of the surface data model.
+  Use for pre-filling form values or providing data for path-bound components.
 - every component must have the "component" field specifying the component type (e.g. "Text", "Image", "Row", "Column", "List", "Button", etc.)
 
 COMPONENT ID RULES:
@@ -131,13 +132,13 @@ The List's own path ("/items") uses a leading slash (absolute), but all
 components INSIDE the template card use paths WITHOUT leading slash.
 Do NOT use "/items/0/name" or "/items/{@key}/name" — just "name".
 
-DATA FORMAT:
-The "items" key in the tool args should be a plain JSON array of objects.
-Just use regular JSON — no typed wrappers needed:
-  "items": [
-    {"name": "Product A", "price": "$99", "rating": "4.5/5", "description": "..."},
-    {"name": "Product B", "price": "$149", "rating": "4.8/5", "description": "..."}
-  ]
+DATA MODEL:
+The "data" key in the tool args is a plain JSON object that initializes the surface
+data model. Components bound to paths (e.g. "value": { "path": "/form/name" })
+read from and write to this data model. Examples:
+  For forms:  "data": { "form": { "name": "Alice", "email": "" } }
+  For lists:  "data": { "items": [{"name": "Product A"}, {"name": "Product B"}] }
+  For mixed:  "data": { "form": { "query": "" }, "results": [...] }
 
 FORMS AND TWO-WAY DATA BINDING:
 To create editable forms, bind input components to data model paths using { "path": "..." }.
@@ -156,9 +157,10 @@ To retrieve form values when a button is clicked, include "context" with path re
 in the button's action. Paths are resolved to their current values at click time:
   "action": { "event": { "name": "submit", "context": { "userName": { "path": "/form/name" } } } }
 
-Forms do NOT require "items" — the client manages the data model locally via two-way binding.
+To pre-fill form values, pass initial data via the "data" tool argument:
+  "data": { "form": { "name": "Markus" } }
 
-FORM EXAMPLE (editable text field + submit button):
+FORM EXAMPLE (editable text field with pre-filled value + submit button):
   "components": [
     { "id": "root", "component": "Card", "child": "form-col" },
     { "id": "form-col", "component": "Column", "children": ["name-field", "submit-row"] },
@@ -167,7 +169,8 @@ FORM EXAMPLE (editable text field + submit button):
     { "id": "submit-btn", "component": "Button", "child": "btn-text", "variant": "primary",
       "action": { "event": { "name": "submit", "context": { "userName": { "path": "/form/name" } } } } },
     { "id": "btn-text", "component": "Text", "text": "Submit" }
-  ]"""
+  ],
+  "data": { "form": { "name": "Markus" } }"""
 
 DEFAULT_DESIGN_GUIDELINES = """\
 Create polished, visually appealing interfaces:
