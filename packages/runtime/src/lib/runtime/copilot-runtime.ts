@@ -23,6 +23,7 @@ import {
   getZodParameters,
   type PartialBy,
   isTelemetryDisabled,
+  type DebugConfig,
 } from "@copilotkit/shared";
 import type { RunAgentInput } from "@ag-ui/core";
 import { aguiToGQL } from "../../graphql/message-conversion/agui-to-gql";
@@ -287,6 +288,19 @@ export interface CopilotRuntimeConstructorParams_BASE<
 
   onStopGeneration?: OnStopGenerationHandler;
 
+  /**
+   * Enable debug logging for the runtime event pipeline.
+   * Pass `true` for full output, or an object for granular control:
+   *
+   * ```ts
+   * const runtime = new CopilotRuntime({
+   *   debug: true,
+   *   // or: debug: { events: true, lifecycle: true, verbose: false }
+   * });
+   * ```
+   */
+  debug?: DebugConfig;
+
   // /** Optional transcription service for audio processing. */
   // transcriptionService?: CopilotRuntimeOptionsVNext["transcriptionService"];
   // /** Optional *before* middleware – callback function or webhook URL. */
@@ -356,6 +370,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
       agents: { ...endpointAgents, ...agents },
       runner,
       licenseToken: params?.licenseToken,
+      debug: params?.debug,
       // TODO: add support for transcriptionService from CopilotRuntimeOptionsVNext once it is ready
       // transcriptionService: params?.transcriptionService,
 
