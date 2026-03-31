@@ -137,6 +137,36 @@ Just use regular JSON — no typed wrappers needed:
   "items": [
     {"name": "Product A", "price": "$99", "rating": "4.5/5", "description": "..."},
     {"name": "Product B", "price": "$149", "rating": "4.8/5", "description": "..."}
+  ]
+
+FORMS AND TWO-WAY DATA BINDING:
+To create editable forms, bind input components to data model paths using { "path": "..." }.
+The client automatically writes user input back to the data model at the bound path.
+CRITICAL: Using a literal value (e.g. "value": "") makes the field READ-ONLY.
+You MUST use { "path": "..." } to make inputs editable.
+
+All input components use "value" as the binding property:
+- TextField:     "value": { "path": "/form/fieldName" }
+- CheckBox:      "value": { "path": "/form/isChecked" }
+- Slider:        "value": { "path": "/form/sliderVal" }
+- DateTimeInput: "value": { "path": "/form/date" }
+- ChoicePicker:  "value": { "path": "/form/choices" }
+
+To retrieve form values when a button is clicked, include "context" with path references
+in the button's action. Paths are resolved to their current values at click time:
+  "action": { "event": { "name": "submit", "context": { "userName": { "path": "/form/name" } } } }
+
+Forms do NOT require "items" — the client manages the data model locally via two-way binding.
+
+FORM EXAMPLE (editable text field + submit button):
+  "components": [
+    { "id": "root", "component": "Card", "child": "form-col" },
+    { "id": "form-col", "component": "Column", "children": ["name-field", "submit-row"] },
+    { "id": "name-field", "component": "TextField", "label": "Name", "value": { "path": "/form/name" } },
+    { "id": "submit-row", "component": "Row", "justify": "end", "children": ["submit-btn"] },
+    { "id": "submit-btn", "component": "Button", "child": "btn-text", "variant": "primary",
+      "action": { "event": { "name": "submit", "context": { "userName": { "path": "/form/name" } } } } },
+    { "id": "btn-text", "component": "Text", "text": "Submit" }
   ]"""
 
 DEFAULT_DESIGN_GUIDELINES = """\
@@ -170,7 +200,10 @@ Create polished, visually appealing interfaces:
   The "event" key holds an OBJECT with "name" (required) and "context" (optional).
   Do NOT use a flat format like {"event": "name"} — "event" must be an object.
   Use variant="primary" for main action buttons, variant="borderless" for links.
-
+- For forms: wrap fields in a Card with a Column. Place the submit button in a
+  Row with justify="end". Every input MUST use path binding on the "value" property
+  (e.g. "value": { "path": "/form/name" }) to be editable. The submit button's action
+  context MUST reference the same paths to capture the user's input.
 
 Use the SAME surfaceId as the main surface. Match action names to Button action event names."""
 
