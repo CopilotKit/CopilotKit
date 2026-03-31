@@ -2,22 +2,28 @@
  * Test helpers for mocking streamText responses
  */
 
+import type { streamText } from "ai";
+import type { Observable } from "rxjs";
+import type { BaseEvent } from "@ag-ui/client";
+
 export interface MockStreamEvent {
   type: string;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 /**
- * Creates a mock streamText response with controlled events
+ * Creates a mock streamText response with controlled events.
  */
-export function mockStreamTextResponse(events: MockStreamEvent[]) {
+export function mockStreamTextResponse(
+  events: MockStreamEvent[],
+): ReturnType<typeof streamText> {
   return {
     fullStream: (async function* () {
       for (const event of events) {
         yield event;
       }
     })(),
-  };
+  } as unknown as ReturnType<typeof streamText>;
 }
 
 /**
@@ -93,7 +99,7 @@ export function toolCall(
 export function toolResult(
   toolCallId: string,
   toolName: string,
-  output: any,
+  output: unknown,
 ): MockStreamEvent {
   return {
     type: "tool-result",
@@ -146,6 +152,15 @@ export function finish(): MockStreamEvent {
 }
 
 /**
+ * Helper to create an abort event
+ */
+export function abort(): MockStreamEvent {
+  return {
+    type: "abort",
+  };
+}
+
+/**
  * Helper to create an error event
  */
 export function error(errorMessage: string): MockStreamEvent {
@@ -156,16 +171,16 @@ export function error(errorMessage: string): MockStreamEvent {
 }
 
 /**
- * Collects all events from an Observable into an array
+ * Collects all events from an Observable<BaseEvent> into an array.
  */
-export async function collectEvents<T>(observable: {
-  subscribe: (observer: any) => any;
-}): Promise<T[]> {
+export async function collectEvents(
+  observable: Observable<BaseEvent>,
+): Promise<BaseEvent[]> {
   return new Promise((resolve, reject) => {
-    const events: T[] = [];
+    const events: BaseEvent[] = [];
     const subscription = observable.subscribe({
-      next: (event: T) => events.push(event),
-      error: (err: any) => reject(err),
+      next: (event) => events.push(event),
+      error: (err: unknown) => reject(err),
       complete: () => resolve(events),
     });
 
