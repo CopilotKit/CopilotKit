@@ -23,7 +23,7 @@ export const useExampleSuggestions = () => {
       {
         title: "Sales Dashboard (A2UI Dynamic)",
         message:
-          "Using A2UI, show me a sales dashboard with total revenue, new customers, and conversion rate metrics. Include a pie chart of revenue by category and a bar chart of monthly sales.",
+          "First use the query_data tool to fetch the financial sales data, then using A2UI, show me a sales dashboard with total revenue, new customers, and conversion rate metrics. Include a pie chart of revenue by category and a bar chart of monthly sales.",
       },
       {
         title: "Product Analytics (A2UI Dynamic)",
