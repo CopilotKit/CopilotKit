@@ -3,7 +3,7 @@ import { CopilotKitIntelligence } from "../client";
 
 const fetchMock = vi.fn();
 globalThis.fetch = fetchMock;
-const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => { });
+const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
 function jsonResponse(body: unknown, status = 200) {
   return Promise.resolve({
