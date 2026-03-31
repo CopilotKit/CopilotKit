@@ -103,14 +103,18 @@ export const demonstrationCatalogDefinitions = {
     }),
   },
 
-  // Button: {
-  //   description: "An interactive button with an action event.",
-  //   props: z.object({
-  //     label: z.string(),
-  //     variant: z.enum(["primary", "secondary", "ghost"]).optional(),
-  //     action: z.any().optional(),
-  //   }),
-  // },
+  Button: {
+    description: "An interactive button with an action event. Use 'child' with a Text component ID for the label. 'action' is dispatched on click.",
+    props: z.object({
+      child: z.string().describe("The ID of the child component (e.g. a Text component for the label)."),
+      variant: z.enum(["primary", "secondary", "ghost"]).optional(),
+      // Union with { event } so GenericBinder resolves this as ACTION → callable () => void.
+      action: z.union([
+        z.object({ event: z.object({ name: z.string(), context: z.record(z.any()).optional() }) }),
+        z.null(),
+      ]).optional(),
+    }),
+  },
 };
 
 /** Type helper for renderers */
