@@ -57,7 +57,10 @@ export async function handleRunAgent({
     agent.threadId = input.threadId;
 
     if (runtime.debug?.lifecycle) {
-      const debugLogger = createLogger({ level: "debug", component: "copilotkit-debug" });
+      const debugLogger = createLogger({
+        level: "debug",
+        component: "copilotkit-debug",
+      });
       debugLogger.debug(
         { agentName: agentId, threadId: input.threadId },
         "Agent run started",
@@ -74,7 +77,13 @@ export async function handleRunAgent({
       });
     }
 
-    return handleSseRun({ runtime, request, agent, input, debug: runtime.debug ?? undefined });
+    return handleSseRun({
+      runtime,
+      request,
+      agent,
+      input,
+      debug: runtime.debug ?? undefined,
+    });
   } catch (error) {
     console.error("Error running agent:", error);
     console.error(
