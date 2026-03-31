@@ -8,10 +8,6 @@ import { TranscriptionServiceOpenAI } from "@copilotkit/voice";
 import { handle } from "hono/vercel";
 import OpenAI from "openai";
 
-const isAnthropic =
-  !process.env.OPENAI_API_KEY?.trim() &&
-  !!process.env.ANTHROPIC_API_KEY?.trim();
-
 const determineModel = () => {
   if (process.env.OPENAI_API_KEY?.trim()) {
     return "openai/gpt-5.2";
@@ -32,9 +28,10 @@ const agent = new BuiltInAgent({
     "You are a helpful AI assistant. Use reasoning to answer the user's question. If you don't know the answer, say you don't know.",
   providerOptions: {
     openai: { reasoningEffort: "high", reasoningSummary: "detailed" },
-    ...(isAnthropic && {
-      anthropic: { thinking: { type: "enabled", budgetTokens: 5000 } },
-    }),
+    ...(!process.env.OPENAI_API_KEY?.trim() &&
+      !!process.env.ANTHROPIC_API_KEY?.trim() && {
+        anthropic: { thinking: { type: "enabled", budgetTokens: 5000 } },
+      }),
   },
 });
 

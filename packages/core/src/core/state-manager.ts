@@ -43,10 +43,14 @@ export class StateManager {
    * Registry agents (subscribed via `onAgentsChanged`) use the bare `agentId`
    * key so that `unsubscribeFromAgent(agentId)` can remove them when they
    * are replaced. Per-thread clones (subscribed via `subscribeAgentToStateManager`)
-   * pass `isClone = true` to use a composite `agentId:threadId` key, keeping
+   * pass `{ isClone: true }` to use a composite `agentId:threadId` key, keeping
    * their subscription independent of the registry agent's.
    */
-  subscribeToAgent(agent: AbstractAgent, isClone = false): void {
+  subscribeToAgent(
+    agent: AbstractAgent,
+    /** @param isClone When true, uses a composite `agentId:threadId` key for per-thread isolation. */
+    { isClone = false }: { isClone?: boolean } = {},
+  ): void {
     if (!agent.agentId) {
       return; // Skip agents without IDs
     }
@@ -147,7 +151,7 @@ export class StateManager {
   /**
    * Unsubscribe a registry agent's subscription (bare `agentId` key).
    * Per-thread clone subscriptions use composite `agentId:threadId` keys and
-   * are replaced (not removed) by subsequent subscribeToAgent(agent, true)
+   * are replaced (not removed) by subsequent subscribeToAgent(agent, { isClone: true })
    * calls for the same (agentId, threadId) pair.
    */
   unsubscribeFromAgent(agentId: string): void {
@@ -299,19 +303,24 @@ export class StateManager {
   ): void {
     if (!agent.agentId) return;
 
-    if (input) {
-      const { threadId, runId } = input;
-      this.associateMessageWithRun(agent.agentId, threadId, message.id, runId);
+    if (!input) {
+      // ag-ui calls addMessage() without input, so input is undefined here.
+      // Fall back to the currently-active run for this agent's thread.
+      const threadId = agent.threadId ?? "";
+      const runId = this.activeRun.get(`${agent.agentId}:${threadId}`);
+      if (runId) {
+        this.associateMessageWithRun(
+          agent.agentId,
+          threadId,
+          message.id,
+          runId,
+        );
+      }
       return;
     }
 
-    // ag-ui calls addMessage() without input, so input is undefined here.
-    // Fall back to the currently-active run for this agent's thread.
-    const threadId = agent.threadId ?? "";
-    const runId = this.activeRun.get(`${agent.agentId}:${threadId}`);
-    if (runId) {
-      this.associateMessageWithRun(agent.agentId, threadId, message.id, runId);
-    }
+    const { threadId, runId } = input;
+    this.associateMessageWithRun(agent.agentId, threadId, message.id, runId);
   }
 
   /**
