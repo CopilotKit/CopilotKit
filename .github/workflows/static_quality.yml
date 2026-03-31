@@ -9,8 +9,8 @@ on:
       - "examples/**"
       - ".github/workflows/demos_preview.yml"
       - ".github/workflows/release.yml"
-      - "packages/v1/**/package.json"
-      - "packages/v1/**/CHANGELOG.md"
+      - "packages/**/package.json"
+      - "packages/**/CHANGELOG.md"
       - ".changeset/**"
   pull_request:
     branches: [main]
@@ -38,9 +38,6 @@ jobs:
         with:
           version: "10.13.1"
 
-      - name: Install uv
-        uses: astral-sh/setup-uv@v6
-
       - name: Use Node.js 20
         uses: actions/setup-node@v3
         with:
@@ -65,9 +62,6 @@ jobs:
         with:
           version: "10.13.1"
 
-      - name: Setup uv
-        uses: astral-sh/setup-uv@v6
-
       - name: Use Node.js 20
         uses: actions/setup-node@v3
         with:
@@ -91,9 +85,6 @@ jobs:
         uses: pnpm/action-setup@v4
         with:
           version: "10.13.1"
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v6
 
       - name: Use Node.js 20
         uses: actions/setup-node@v3

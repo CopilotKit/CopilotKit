@@ -3,8 +3,8 @@ import {
   CopilotChatConfigurationProvider,
   CopilotChatView,
   CopilotKitProvider,
-} from "@copilotkitnext/react";
-import { Suggestion } from "@copilotkitnext/core";
+} from "@copilotkit/react-core/v2";
+import { Suggestion } from "@copilotkit/core";
 
 const meta = {
   title: "UI/CopilotChatView",

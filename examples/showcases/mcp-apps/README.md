@@ -120,7 +120,7 @@ mcp-apps/
 
 ## Key Technologies
 
-- **CopilotKit** (`@copilotkitnext/*`) - AI chat interface with MCP Apps support
+- **CopilotKit** (`@copilotkit/*`) - AI chat interface with MCP Apps support
 - **AG-UI MCP Apps Middleware** - Bridges MCP servers with CopilotKit
 - **MCP SDK** (`@modelcontextprotocol/sdk`) - Model Context Protocol server
 - **Vite** - Bundles each app into single self-contained HTML files
