@@ -33,7 +33,10 @@ function toChatMessages(messages: Message[]): ChatMessage[] {
         msg.toolCalls = m.toolCalls.map((tc) => ({
           id: tc.id,
           type: "function" as const,
-          function: { name: tc.function.name, arguments: tc.function.arguments },
+          function: {
+            name: tc.function.name,
+            arguments: tc.function.arguments,
+          },
         }));
       }
       if (m.role === "tool" && "toolCallId" in m) {
