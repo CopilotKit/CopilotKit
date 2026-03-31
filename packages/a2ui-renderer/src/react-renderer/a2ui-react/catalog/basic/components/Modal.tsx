@@ -14,62 +14,64 @@
  * limitations under the License.
  */
 
-import {useState} from 'react';
-import {createReactComponent} from '../../../adapter';
-import {ModalApi} from '@a2ui/web_core/v0_9/basic_catalog';
+import { useState } from "react";
+import { createReactComponent } from "../../../adapter";
+import { ModalApi } from "@a2ui/web_core/v0_9/basic_catalog";
 
-export const Modal = createReactComponent(ModalApi, ({props, buildChild}) => {
+export const Modal = createReactComponent(ModalApi, ({ props, buildChild }) => {
   const [isOpen, setIsOpen] = useState(false);
 
   return (
     <>
-      <div onClick={() => setIsOpen(true)} style={{display: 'inline-block'}}>
+      <div onClick={() => setIsOpen(true)} style={{ display: "inline-block" }}>
         {props.trigger ? buildChild(props.trigger) : null}
       </div>
       {isOpen && (
         <div
           style={{
-            position: 'fixed',
+            position: "fixed",
             top: 0,
             left: 0,
             right: 0,
             bottom: 0,
-            backgroundColor: 'rgba(0,0,0,0.5)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
+            backgroundColor: "rgba(0,0,0,0.5)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
             zIndex: 1000,
           }}
           onClick={() => setIsOpen(false)}
         >
           <div
             style={{
-              backgroundColor: '#fff',
-              padding: '24px',
-              borderRadius: '8px',
-              maxWidth: '90%',
-              maxHeight: '90%',
-              overflow: 'auto',
-              display: 'flex',
-              flexDirection: 'column',
+              backgroundColor: "#fff",
+              padding: "24px",
+              borderRadius: "8px",
+              maxWidth: "90%",
+              maxHeight: "90%",
+              overflow: "auto",
+              display: "flex",
+              flexDirection: "column",
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div style={{display: 'flex', justifyContent: 'flex-end'}}>
+            <div style={{ display: "flex", justifyContent: "flex-end" }}>
               <button
                 onClick={() => setIsOpen(false)}
                 style={{
-                  border: 'none',
-                  background: 'none',
-                  fontSize: '20px',
-                  cursor: 'pointer',
-                  padding: '4px',
+                  border: "none",
+                  background: "none",
+                  fontSize: "20px",
+                  cursor: "pointer",
+                  padding: "4px",
                 }}
               >
                 &times;
               </button>
             </div>
-            <div style={{flex: 1}}>{props.content ? buildChild(props.content) : null}</div>
+            <div style={{ flex: 1 }}>
+              {props.content ? buildChild(props.content) : null}
+            </div>
           </div>
         </div>
       )}

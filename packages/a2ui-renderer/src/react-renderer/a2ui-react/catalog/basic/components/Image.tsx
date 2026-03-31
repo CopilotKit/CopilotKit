@@ -14,40 +14,40 @@
  * limitations under the License.
  */
 
-import React from 'react';
-import {createReactComponent} from '../../../adapter';
-import {ImageApi} from '@a2ui/web_core/v0_9/basic_catalog';
-import {getBaseLeafStyle} from '../utils';
+import React from "react";
+import { createReactComponent } from "../../../adapter";
+import { ImageApi } from "@a2ui/web_core/v0_9/basic_catalog";
+import { getBaseLeafStyle } from "../utils";
 
-export const Image = createReactComponent(ImageApi, ({props}) => {
-  const mapFit = (fit?: string): React.CSSProperties['objectFit'] => {
-    if (fit === 'scaleDown') return 'scale-down';
-    return (fit as React.CSSProperties['objectFit']) || 'fill';
+export const Image = createReactComponent(ImageApi, ({ props }) => {
+  const mapFit = (fit?: string): React.CSSProperties["objectFit"] => {
+    if (fit === "scaleDown") return "scale-down";
+    return (fit as React.CSSProperties["objectFit"]) || "fill";
   };
 
   const style: React.CSSProperties = {
     ...getBaseLeafStyle(),
     objectFit: mapFit(props.fit),
-    width: '100%',
-    height: 'auto',
-    display: 'block',
+    width: "100%",
+    height: "auto",
+    display: "block",
   };
 
-  if (props.variant === 'icon') {
-    style.width = '24px';
-    style.height = '24px';
-  } else if (props.variant === 'avatar') {
-    style.width = '40px';
-    style.height = '40px';
-    style.borderRadius = '50%';
-  } else if (props.variant === 'smallFeature') {
-    style.maxWidth = '100px';
-  } else if (props.variant === 'largeFeature') {
-    style.maxHeight = '400px';
-  } else if (props.variant === 'header') {
-    style.height = '200px';
-    style.objectFit = 'cover';
+  if (props.variant === "icon") {
+    style.width = "24px";
+    style.height = "24px";
+  } else if (props.variant === "avatar") {
+    style.width = "40px";
+    style.height = "40px";
+    style.borderRadius = "50%";
+  } else if (props.variant === "smallFeature") {
+    style.maxWidth = "100px";
+  } else if (props.variant === "largeFeature") {
+    style.maxHeight = "400px";
+  } else if (props.variant === "header") {
+    style.height = "200px";
+    style.objectFit = "cover";
   }
 
-  return <img src={props.url} alt={props.description || ''} style={style} />;
+  return <img src={props.url} alt={props.description || ""} style={style} />;
 });

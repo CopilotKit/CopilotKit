@@ -31,10 +31,17 @@ export interface ComponentDefinition {
  */
 export function extractCatalogSchema(
   definitions: Record<string, ComponentDefinition>,
-): Array<{ name: string; description?: string; props: Record<string, unknown> }> {
+): Array<{
+  name: string;
+  description?: string;
+  props: Record<string, unknown>;
+}> {
   return Object.entries(definitions).map(([name, def]) => ({
     name,
     description: def.description,
-    props: zodToJsonSchema(def.props, { target: "openApi3" }) as Record<string, unknown>,
+    props: zodToJsonSchema(def.props, { target: "openApi3" }) as Record<
+      string,
+      unknown
+    >,
   }));
 }

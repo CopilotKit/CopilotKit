@@ -588,7 +588,12 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     <CopilotKitContext.Provider value={contextValue}>
       <LicenseContext.Provider value={licenseContextValue}>
         {runtimeA2UIEnabled && <A2UIBuiltInToolCallRenderer />}
-        {runtimeA2UIEnabled && <A2UICatalogContext catalog={a2ui?.catalog} includeSchema={a2ui?.includeSchema} />}
+        {runtimeA2UIEnabled && (
+          <A2UICatalogContext
+            catalog={a2ui?.catalog}
+            includeSchema={a2ui?.includeSchema}
+          />
+        )}
         {children}
         {shouldRenderInspector ? (
           <CopilotKitInspector

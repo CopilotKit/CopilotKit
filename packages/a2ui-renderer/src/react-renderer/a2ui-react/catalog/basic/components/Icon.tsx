@@ -14,22 +14,24 @@
  * limitations under the License.
  */
 
-import React from 'react';
-import {createReactComponent} from '../../../adapter';
-import {IconApi} from '@a2ui/web_core/v0_9/basic_catalog';
-import {getBaseLeafStyle} from '../utils';
+import React from "react";
+import { createReactComponent } from "../../../adapter";
+import { IconApi } from "@a2ui/web_core/v0_9/basic_catalog";
+import { getBaseLeafStyle } from "../utils";
 
-export const Icon = createReactComponent(IconApi, ({props}) => {
+export const Icon = createReactComponent(IconApi, ({ props }) => {
   const iconName =
-    typeof props.name === 'string' ? props.name : (props.name as {path?: string})?.path;
+    typeof props.name === "string"
+      ? props.name
+      : (props.name as { path?: string })?.path;
   const style: React.CSSProperties = {
     ...getBaseLeafStyle(),
-    fontSize: '24px',
-    width: '24px',
-    height: '24px',
-    display: 'inline-flex',
-    alignItems: 'center',
-    justifyContent: 'center',
+    fontSize: "24px",
+    width: "24px",
+    height: "24px",
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
   };
 
   return (

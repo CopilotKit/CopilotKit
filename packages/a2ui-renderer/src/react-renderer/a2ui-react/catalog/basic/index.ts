@@ -14,28 +14,28 @@
  * limitations under the License.
  */
 
-import {Catalog} from '@a2ui/web_core/v0_9';
-import {BASIC_FUNCTIONS} from '@a2ui/web_core/v0_9/basic_catalog';
-import type {ReactComponentImplementation} from '../../adapter';
+import { Catalog } from "@a2ui/web_core/v0_9";
+import { BASIC_FUNCTIONS } from "@a2ui/web_core/v0_9/basic_catalog";
+import type { ReactComponentImplementation } from "../../adapter";
 
-import {Text} from './components/Text';
-import {Image} from './components/Image';
-import {Icon} from './components/Icon';
-import {Video} from './components/Video';
-import {AudioPlayer} from './components/AudioPlayer';
-import {Row} from './components/Row';
-import {Column} from './components/Column';
-import {List} from './components/List';
-import {Card} from './components/Card';
-import {Tabs} from './components/Tabs';
-import {Divider} from './components/Divider';
-import {Modal} from './components/Modal';
-import {Button} from './components/Button';
-import {TextField} from './components/TextField';
-import {CheckBox} from './components/CheckBox';
-import {ChoicePicker} from './components/ChoicePicker';
-import {Slider} from './components/Slider';
-import {DateTimeInput} from './components/DateTimeInput';
+import { Text } from "./components/Text";
+import { Image } from "./components/Image";
+import { Icon } from "./components/Icon";
+import { Video } from "./components/Video";
+import { AudioPlayer } from "./components/AudioPlayer";
+import { Row } from "./components/Row";
+import { Column } from "./components/Column";
+import { List } from "./components/List";
+import { Card } from "./components/Card";
+import { Tabs } from "./components/Tabs";
+import { Divider } from "./components/Divider";
+import { Modal } from "./components/Modal";
+import { Button } from "./components/Button";
+import { TextField } from "./components/TextField";
+import { CheckBox } from "./components/CheckBox";
+import { ChoicePicker } from "./components/ChoicePicker";
+import { Slider } from "./components/Slider";
+import { DateTimeInput } from "./components/DateTimeInput";
 
 const basicComponents: ReactComponentImplementation[] = [
   Text,
@@ -59,9 +59,9 @@ const basicComponents: ReactComponentImplementation[] = [
 ];
 
 export const basicCatalog = new Catalog<ReactComponentImplementation>(
-  'https://a2ui.org/specification/v0_9/basic_catalog.json',
+  "https://a2ui.org/specification/v0_9/basic_catalog.json",
   basicComponents,
-  BASIC_FUNCTIONS
+  BASIC_FUNCTIONS,
 );
 
 export {

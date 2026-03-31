@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-export * from './A2uiSurface';
-export * from './adapter';
+export * from "./A2uiSurface";
+export * from "./adapter";
 
 // Export basic catalog components directly for 3P developers
-export * from './catalog/basic';
+export * from "./catalog/basic";
 
 // Export minimal catalog under a namespace to avoid symbol conflicts
-export * as MinimalCatalog from './catalog/minimal';
-export {minimalCatalog} from './catalog/minimal';
+export * as MinimalCatalog from "./catalog/minimal";
+export { minimalCatalog } from "./catalog/minimal";

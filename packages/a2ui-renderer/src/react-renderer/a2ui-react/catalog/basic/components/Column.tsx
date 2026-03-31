@@ -14,25 +14,32 @@
  * limitations under the License.
  */
 
-import {createReactComponent} from '../../../adapter';
-import {ColumnApi} from '@a2ui/web_core/v0_9/basic_catalog';
-import {ChildList} from './ChildList';
-import {mapJustify, mapAlign} from '../utils';
+import { createReactComponent } from "../../../adapter";
+import { ColumnApi } from "@a2ui/web_core/v0_9/basic_catalog";
+import { ChildList } from "./ChildList";
+import { mapJustify, mapAlign } from "../utils";
 
-export const Column = createReactComponent(ColumnApi, ({props, buildChild, context}) => {
-  return (
-    <div
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        justifyContent: mapJustify(props.justify),
-        alignItems: mapAlign(props.align),
-        width: '100%',
-        margin: 0,
-        padding: 0,
-      }}
-    >
-      <ChildList childList={props.children} buildChild={buildChild} context={context} />
-    </div>
-  );
-});
+export const Column = createReactComponent(
+  ColumnApi,
+  ({ props, buildChild, context }) => {
+    return (
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: mapJustify(props.justify),
+          alignItems: mapAlign(props.align),
+          width: "100%",
+          margin: 0,
+          padding: 0,
+        }}
+      >
+        <ChildList
+          childList={props.children}
+          buildChild={buildChild}
+          context={context}
+        />
+      </div>
+    );
+  },
+);

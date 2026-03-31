@@ -11,10 +11,7 @@ import {
   injectStyles,
   DEFAULT_SURFACE_ID,
 } from "@copilotkit/a2ui-renderer";
-import type {
-  Theme,
-  A2UIClientEventMessage,
-} from "@copilotkit/a2ui-renderer";
+import type { Theme, A2UIClientEventMessage } from "@copilotkit/a2ui-renderer";
 
 /**
  * The container key used to wrap A2UI operations for explicit detection.

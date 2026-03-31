@@ -101,7 +101,10 @@ export function extractCatalogComponentSchemas(
   for (const [name, comp] of resolved.components) {
     schemas.push({
       name,
-      props: zodToJsonSchema(comp.schema, { target: "openApi3" }) as Record<string, unknown>,
+      props: zodToJsonSchema(comp.schema, { target: "openApi3" }) as Record<
+        string,
+        unknown
+      >,
     });
   }
 

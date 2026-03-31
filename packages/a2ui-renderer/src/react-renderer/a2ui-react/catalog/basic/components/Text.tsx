@@ -14,32 +14,36 @@
  * limitations under the License.
  */
 
-import React from 'react';
-import {createReactComponent} from '../../../adapter';
-import {TextApi} from '@a2ui/web_core/v0_9/basic_catalog';
-import {getBaseLeafStyle} from '../utils';
+import React from "react";
+import { createReactComponent } from "../../../adapter";
+import { TextApi } from "@a2ui/web_core/v0_9/basic_catalog";
+import { getBaseLeafStyle } from "../utils";
 
-export const Text = createReactComponent(TextApi, ({props}) => {
-  const text = props.text ?? '';
+export const Text = createReactComponent(TextApi, ({ props }) => {
+  const text = props.text ?? "";
   const style: React.CSSProperties = {
     ...getBaseLeafStyle(),
-    display: 'inline-block',
+    display: "inline-block",
   };
 
   switch (props.variant) {
-    case 'h1':
+    case "h1":
       return <h1 style={style}>{text}</h1>;
-    case 'h2':
+    case "h2":
       return <h2 style={style}>{text}</h2>;
-    case 'h3':
+    case "h3":
       return <h3 style={style}>{text}</h3>;
-    case 'h4':
+    case "h4":
       return <h4 style={style}>{text}</h4>;
-    case 'h5':
+    case "h5":
       return <h5 style={style}>{text}</h5>;
-    case 'caption':
-      return <caption style={{...style, color: '#666', textAlign: 'left'}}>{text}</caption>;
-    case 'body':
+    case "caption":
+      return (
+        <caption style={{ ...style, color: "#666", textAlign: "left" }}>
+          {text}
+        </caption>
+      );
+    case "body":
     default:
       return <span style={style}>{text}</span>;
   }

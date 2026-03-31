@@ -14,19 +14,19 @@
  * limitations under the License.
  */
 
-import React from 'react';
+import React from "react";
 
 export const ChildList: React.FC<{
   childList: unknown;
   buildChild: (id: string, basePath?: string) => React.ReactNode;
-}> = ({childList, buildChild}) => {
+}> = ({ childList, buildChild }) => {
   if (Array.isArray(childList)) {
     return (
       <>
         {childList.map((item: unknown, i: number) => {
           // The new binder outputs objects like { id: string, basePath: string } for arrays of structural nodes
-          if (item && typeof item === 'object' && 'id' in item) {
-            const node = item as {id: string; basePath?: string};
+          if (item && typeof item === "object" && "id" in item) {
+            const node = item as { id: string; basePath?: string };
             return (
               <React.Fragment key={`${node.id}-${i}`}>
                 {buildChild(node.id, node.basePath)}
@@ -34,8 +34,12 @@ export const ChildList: React.FC<{
             );
           }
           // Fallback for static string lists
-          if (typeof item === 'string') {
-            return <React.Fragment key={`${item}-${i}`}>{buildChild(item)}</React.Fragment>;
+          if (typeof item === "string") {
+            return (
+              <React.Fragment key={`${item}-${i}`}>
+                {buildChild(item)}
+              </React.Fragment>
+            );
           }
           return null;
         })}
