@@ -8,7 +8,7 @@ import json
 import os
 import logging
 
-from ag_ui.core import RunAgentInput, RunErrorEvent, RunFinishedEvent
+from ag_ui.core import RunAgentInput, RunErrorEvent
 from bedrock_agentcore.identity.auth import requires_access_token
 from bedrock_agentcore.runtime import BedrockAgentCoreApp, RequestContext
 from copilotkit import CopilotKitMiddleware, LangGraphAGUIAgent
@@ -123,45 +123,6 @@ def _build_checkpointer() -> AgentCoreMemorySaver:
         region_name=os.environ.get("AWS_DEFAULT_REGION", "us-east-1"),
     )
 
-
-async def create_langgraph_agent(tools: list):
-    try:
-        return create_agent(
-            model=_build_model(streaming=True),
-            tools=[*tools, query_data, *todo_tools],  # MCP tools + data + todo tools
-            checkpointer=_build_checkpointer(),
-            middleware=[CopilotKitMiddleware()],
-            system_prompt=SYSTEM_PROMPT,
-            state_schema=AgentState,  # extends BaseAgentState with todos: list[Todo]
-        )
-    except Exception:
-        logging.exception("Error creating LangGraph agent")
-        raise
-
-
-async def create_runtime_graph():
-    mcp_client = await create_gateway_mcp_client()
-    tools = await mcp_client.get_tools()
-    return await create_langgraph_agent(tools)
-
-
-class ActorAwareLangGraphAgent(LangGraphAGUIAgent):
-    async def run(self, input: RunAgentInput):
-        actor_id = (
-            self.config.get("configurable", {}).get("actor_id") if self.config else None
-        )
-        if not actor_id:
-            raise ValueError(
-                "Missing actor identity. Provide forwardedProps.actor_id/user_id "
-                "or include sub claim in the bearer token."
-            )
-
-        self.graph = await create_runtime_graph()
-        self.config = {"configurable": {"actor_id": actor_id}}
-        async for event in super().run(input):
-            yield event
-
-
 @app.entrypoint
 async def invocations(payload: dict, context: RequestContext):
     input_data = RunAgentInput.model_validate(payload)
@@ -176,14 +137,24 @@ async def invocations(payload: dict, context: RequestContext):
             "or include sub claim in the bearer token."
         )
 
-    request_agent = ActorAwareLangGraphAgent(
-        name="LangGraphSingleAgent",
-        description="LangGraph single agent exposed via AG-UI",
-        graph=None,
-        config={"configurable": {"actor_id": actor_id}},
-    )
-
     try:
+        mcp_client = await create_gateway_mcp_client()
+        tools = await mcp_client.get_tools()
+        graph = await create_agent(
+            model=_build_model(streaming=True),
+            tools=[*tools, query_data, *todo_tools],  # MCP tools + data + todo tools
+            checkpointer=_build_checkpointer(),
+            middleware=[CopilotKitMiddleware()],
+            system_prompt=SYSTEM_PROMPT,
+            state_schema=AgentState,  # extends BaseAgentState with todos: list[Todo]
+        )
+
+        request_agent = LangGraphAGUIAgent(
+            name="LangGraphSingleAgent",
+            description="LangGraph single agent exposed via AG-UI",
+            graph=graph,
+            config={"configurable": {"actor_id": actor_id}},
+        )
         async for event in request_agent.run(input_data):
             if event is not None:
                 yield event.model_dump(mode="json", by_alias=True, exclude_none=True)

@@ -23,9 +23,8 @@ USER bedrock_agentcore
 
 EXPOSE 8080
 
-# Copy agent code, shared utilities, and code interpreter support
+# Copy agent code and shared utilities
 COPY agents/strands-single-agent/strands_agent.py .
-COPY agents/strands-single-agent/strands_code_interpreter.py .
 COPY agents/strands-single-agent/tools/ tools/
 COPY agents/utils/ utils/
 
