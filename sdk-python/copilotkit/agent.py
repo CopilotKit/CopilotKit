@@ -8,9 +8,15 @@ from .action import ActionDict
 from .types import MetaEvent
 
 class AgentDict(TypedDict):
-    """Agent dictionary"""
+    """Legacy agent dictionary."""
     name: str
     description: Optional[str]
+
+class RuntimeAgentDescriptionDict(TypedDict):
+    """Runtime agent description used by the JS runtime discovery contract."""
+    name: str
+    description: str
+    className: str
 
 class Agent(ABC):
     """Agent class for CopilotKit"""
