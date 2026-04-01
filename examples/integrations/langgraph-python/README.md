@@ -92,28 +92,29 @@ A2UI uses three concepts:
 
 ### Two patterns
 
-| Pattern | Description | Agent tool | Frontend |
-|---------|-------------|------------|----------|
-| **Fixed schema** | Pre-defined component layout. Only the data changes per invocation. | `search_flights` | Schema in `a2ui/schemas/flight_schema.json` |
-| **Dynamic schema** | A secondary LLM generates both components and data based on the conversation. | `generate_a2ui` | Components decided at runtime |
+| Pattern            | Description                                                                   | Agent tool       | Frontend                                    |
+| ------------------ | ----------------------------------------------------------------------------- | ---------------- | ------------------------------------------- |
+| **Fixed schema**   | Pre-defined component layout. Only the data changes per invocation.           | `search_flights` | Schema in `a2ui/schemas/flight_schema.json` |
+| **Dynamic schema** | A secondary LLM generates both components and data based on the conversation. | `generate_a2ui`  | Components decided at runtime               |
 
 Both patterns use the same catalog on the frontend — the difference is where the component tree comes from.
 
 ### Key files
 
-| Purpose | Path |
-|---------|------|
-| Catalog definitions (Zod schemas) | `apps/app/src/app/declarative-generative-ui/definitions.ts` |
-| Catalog renderers (React components) | `apps/app/src/app/declarative-generative-ui/renderers.tsx` |
-| Catalog registration | `apps/app/src/app/layout.tsx` |
-| Fixed-schema agent tool | `apps/agent/src/a2ui_fixed_schema.py` |
-| Dynamic-schema agent tool | `apps/agent/src/a2ui_dynamic_schema.py` |
-| Flight schema JSON | `apps/agent/src/a2ui/schemas/flight_schema.json` |
-| Showcase config | `showcase.json` |
+| Purpose                              | Path                                                        |
+| ------------------------------------ | ----------------------------------------------------------- |
+| Catalog definitions (Zod schemas)    | `apps/app/src/app/declarative-generative-ui/definitions.ts` |
+| Catalog renderers (React components) | `apps/app/src/app/declarative-generative-ui/renderers.tsx`  |
+| Catalog registration                 | `apps/app/src/app/layout.tsx`                               |
+| Fixed-schema agent tool              | `apps/agent/src/a2ui_fixed_schema.py`                       |
+| Dynamic-schema agent tool            | `apps/agent/src/a2ui_dynamic_schema.py`                     |
+| Flight schema JSON                   | `apps/agent/src/a2ui/schemas/flight_schema.json`            |
+| Showcase config                      | `showcase.json`                                             |
 
 ### Adding a custom component
 
 1. **Define** the component schema in `definitions.ts`:
+
    ```typescript
    MyWidget: {
      description: "A brief description for the agent.",
@@ -122,6 +123,7 @@ Both patterns use the same catalog on the frontend — the difference is where t
    ```
 
 2. **Render** it in `renderers.tsx`:
+
    ```typescript
    MyWidget: ({ props }) => (
      <div>{props.title}: {props.value}</div>
