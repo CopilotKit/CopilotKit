@@ -31,7 +31,6 @@
     "@ag-ui/client": "0.0.48"
   },
   "devDependencies": {
-    "@copilotkit/eslint-config": "workspace:*",
     "@copilotkit/typescript-config": "workspace:*",
     "tsdown": "^0.20.3",
     "typescript": "5.8.2",
