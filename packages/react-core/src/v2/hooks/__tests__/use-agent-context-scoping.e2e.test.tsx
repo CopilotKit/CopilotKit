@@ -34,7 +34,9 @@ describe("useAgentContext agentId scoping - E2E", () => {
   let uuidCounter = 0;
   beforeEach(() => {
     uuidCounter = 0;
-    vi.mocked(randomUUID).mockImplementation(() => `mock-uuid-${uuidCounter++}`);
+    vi.mocked(randomUUID).mockImplementation(
+      () => `mock-uuid-${uuidCounter++}`,
+    );
   });
   afterEach(() => {
     vi.mocked(randomUUID).mockImplementation(() => "mock-thread-id");
