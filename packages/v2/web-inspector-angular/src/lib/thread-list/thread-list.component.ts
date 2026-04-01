@@ -1,6 +1,7 @@
 import {
   Component,
   ChangeDetectionStrategy,
+  Input,
   Output,
   EventEmitter,
 } from "@angular/core";
@@ -196,13 +197,14 @@ const FAKE_THREADS: InspectorThread[] = [
         text-align: center;
         color: #9ca3af;
         font-size: 12px;
+        background: #ffffff;
       }
     `,
   ],
 })
 export class ThreadListComponent {
   // Fake data for now — will be replaced with real store input
-  threads: InspectorThread[] = FAKE_THREADS;
+  @Input() threads: InspectorThread[] = FAKE_THREADS;
 
   // @Output is the Angular equivalent of a callback prop / custom event.
   // When a row is clicked, this emits the threadId.

@@ -42,11 +42,10 @@ export const Default: Story = {
 };
 
 export const Empty: Story = {
-  decorators: [
-    (story) => {
-      const s = story() as any;
-      s.componentRef?.instance && (s.componentRef.instance.threads = []);
-      return s;
-    },
-  ],
+  render: (args) => ({
+    props: args,
+    template: BG_TEMPLATE(
+      `<cpk-thread-list [threads]="[]" (threadSelected)="threadSelected($event)"></cpk-thread-list>`,
+    ),
+  }),
 };
