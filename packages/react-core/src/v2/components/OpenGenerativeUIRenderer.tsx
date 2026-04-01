@@ -1,10 +1,19 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { z } from "zod";
 import { ToolCallStatus } from "@copilotkit/core";
 import { useSandboxFunctions } from "../providers/SandboxFunctionsContext";
-import { processPartialHtml, extractCompleteStyles } from "../lib/processPartialHtml";
+import {
+  processPartialHtml,
+  extractCompleteStyles,
+} from "../lib/processPartialHtml";
 
 export const OpenGenerativeUIActivityType = "open-generative-ui";
 
@@ -68,9 +77,8 @@ function shouldFlushImmediately(
   // jsFunctions appeared
   if (next.jsFunctions && (!prev || !prev.jsFunctions)) return true;
   // jsExpressions grew
-  if (
-    (next.jsExpressions?.length ?? 0) > (prev?.jsExpressions?.length ?? 0)
-  ) return true;
+  if ((next.jsExpressions?.length ?? 0) > (prev?.jsExpressions?.length ?? 0))
+    return true;
   // First html chunk arrived (first preview — no delay)
   if (next.html?.length && (!prev || !prev.html?.length)) return true;
   return false;
@@ -80,61 +88,60 @@ function shouldFlushImmediately(
  * Outer wrapper — absorbs every parent re-render but only forwards
  * throttled content snapshots to the memoized inner component.
  */
-export const OpenGenerativeUIActivityRenderer: React.FC<
-  OpenGenerativeUIActivityRendererProps
-> = function OpenGenerativeUIActivityRenderer({ content }) {
-  const latestContentRef = useRef(content);
-  latestContentRef.current = content;
+export const OpenGenerativeUIActivityRenderer: React.FC<OpenGenerativeUIActivityRendererProps> =
+  function OpenGenerativeUIActivityRenderer({ content }) {
+    const latestContentRef = useRef(content);
+    latestContentRef.current = content;
 
-  const [throttledContent, setThrottledContent] =
-    useState<OpenGenerativeUIContent>(content);
-  const throttledContentRef = useRef(throttledContent);
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const [throttledContent, setThrottledContent] =
+      useState<OpenGenerativeUIContent>(content);
+    const throttledContentRef = useRef(throttledContent);
+    const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Synchronous state adjustment during render (React-approved pattern).
-  // When shouldFlushImmediately is true, update state before commit so the
-  // inner component sees the new content in the same render pass — no extra
-  // async cycle that would break test timing.
-  if (throttledContentRef.current !== content) {
-    if (shouldFlushImmediately(throttledContentRef.current, content)) {
-      if (timerRef.current !== null) {
-        clearTimeout(timerRef.current);
-        timerRef.current = null;
+    // Synchronous state adjustment during render (React-approved pattern).
+    // When shouldFlushImmediately is true, update state before commit so the
+    // inner component sees the new content in the same render pass — no extra
+    // async cycle that would break test timing.
+    if (throttledContentRef.current !== content) {
+      if (shouldFlushImmediately(throttledContentRef.current, content)) {
+        if (timerRef.current !== null) {
+          clearTimeout(timerRef.current);
+          timerRef.current = null;
+        }
+        throttledContentRef.current = content;
+        setThrottledContent(content);
       }
-      throttledContentRef.current = content;
-      setThrottledContent(content);
     }
-  }
 
-  const flush = useCallback(() => {
-    timerRef.current = null;
-    const latest = latestContentRef.current;
-    throttledContentRef.current = latest;
-    setThrottledContent(latest);
-  }, []);
+    const flush = useCallback(() => {
+      timerRef.current = null;
+      const latest = latestContentRef.current;
+      throttledContentRef.current = latest;
+      setThrottledContent(latest);
+    }, []);
 
-  // Schedule throttled updates for non-immediate content changes
-  useEffect(() => {
-    // Already up to date (initial render or synchronous flush above)
-    if (throttledContentRef.current === content) return;
+    // Schedule throttled updates for non-immediate content changes
+    useEffect(() => {
+      // Already up to date (initial render or synchronous flush above)
+      if (throttledContentRef.current === content) return;
 
-    // Schedule a throttled flush if none pending
-    if (timerRef.current === null) {
-      timerRef.current = setTimeout(flush, THROTTLE_MS);
-    }
-  }, [content, flush]);
-
-  // Cleanup timer on unmount
-  useEffect(() => {
-    return () => {
-      if (timerRef.current !== null) {
-        clearTimeout(timerRef.current);
+      // Schedule a throttled flush if none pending
+      if (timerRef.current === null) {
+        timerRef.current = setTimeout(flush, THROTTLE_MS);
       }
-    };
-  }, []);
+    }, [content, flush]);
 
-  return <OpenGenerativeUIActivityRendererInner content={throttledContent} />;
-};
+    // Cleanup timer on unmount
+    useEffect(() => {
+      return () => {
+        if (timerRef.current !== null) {
+          clearTimeout(timerRef.current);
+        }
+      };
+    }, []);
+
+    return <OpenGenerativeUIActivityRendererInner content={throttledContent} />;
+  };
 
 // ---------------------------------------------------------------------------
 // Inner component — all the expensive work, protected by React.memo
@@ -152,7 +159,11 @@ function ensureHead(html: string): string {
 function injectCssIntoHtml(html: string, css: string): string {
   const headCloseIdx = html.indexOf("</head>");
   if (headCloseIdx !== -1) {
-    return html.slice(0, headCloseIdx) + `<style>${css}</style>` + html.slice(headCloseIdx);
+    return (
+      html.slice(0, headCloseIdx) +
+      `<style>${css}</style>` +
+      html.slice(headCloseIdx)
+    );
   }
   return `<head><style>${css}</style></head>${html}`;
 }
@@ -172,9 +183,10 @@ const OpenGenerativeUIActivityRendererInner = React.memo(
     }, [sandboxFunctions]);
 
     // Join html chunks only when streaming is complete
-    const fullHtml = content.htmlComplete && content.html?.length
-      ? content.html.join("")
-      : undefined;
+    const fullHtml =
+      content.htmlComplete && content.html?.length
+        ? content.html.join("")
+        : undefined;
 
     // CSS from the dedicated parameter (available once cssComplete)
     const css = content.cssComplete ? content.css : undefined;
@@ -182,17 +194,28 @@ const OpenGenerativeUIActivityRendererInner = React.memo(
     // Derived state for preview streaming — gate on cssComplete so we
     // show the placeholder until styles are ready.
     const cssReady = !!content.cssComplete;
-    const partialHtml = !content.htmlComplete && content.html?.length
-      ? content.html.join("")
+    const partialHtml =
+      !content.htmlComplete && content.html?.length
+        ? content.html.join("")
+        : undefined;
+    const previewBody = partialHtml
+      ? processPartialHtml(partialHtml)
       : undefined;
-    const previewBody = partialHtml ? processPartialHtml(partialHtml) : undefined;
     const previewStyles = partialHtml ? extractCompleteStyles(partialHtml) : "";
     const hasPreview = cssReady && !!previewBody?.trim();
     const hasVisibleSandbox = !!fullHtml || hasPreview;
 
     const containerRef = useRef<HTMLDivElement>(null);
-    const sandboxRef = useRef<{ run: (code: string | Function) => Promise<unknown>; destroy: () => void; iframe: HTMLIFrameElement } | null>(null);
-    const previewSandboxRef = useRef<{ run: (code: string | Function) => Promise<unknown>; destroy: () => void; iframe: HTMLIFrameElement } | null>(null);
+    const sandboxRef = useRef<{
+      run: (code: string | Function) => Promise<unknown>;
+      destroy: () => void;
+      iframe: HTMLIFrameElement;
+    } | null>(null);
+    const previewSandboxRef = useRef<{
+      run: (code: string | Function) => Promise<unknown>;
+      destroy: () => void;
+      iframe: HTMLIFrameElement;
+    } | null>(null);
     const previewReadyRef = useRef(false);
     const sandboxReadyRef = useRef(false);
     const executedIndexRef = useRef(0);
@@ -202,7 +225,8 @@ const OpenGenerativeUIActivityRendererInner = React.memo(
     // Effect 0 — Preview sandbox creation
     useEffect(() => {
       const container = containerRef.current;
-      if (!container || fullHtml || !hasPreview || previewSandboxRef.current) return;
+      if (!container || fullHtml || !hasPreview || previewSandboxRef.current)
+        return;
 
       let cancelled = false;
 
@@ -210,11 +234,14 @@ const OpenGenerativeUIActivityRendererInner = React.memo(
         if (cancelled) return;
 
         const Websandbox = mod.default?.default ?? mod.default;
-        const sandbox = Websandbox.create({}, {
-          frameContainer: container,
-          frameContent: "<head></head><body></body>",
-          allowAdditionalAttributes: "",
-        });
+        const sandbox = Websandbox.create(
+          {},
+          {
+            frameContainer: container,
+            frameContent: "<head></head><body></body>",
+            allowAdditionalAttributes: "",
+          },
+        );
         previewSandboxRef.current = sandbox;
 
         sandbox.iframe.style.width = "100%";
@@ -238,10 +265,14 @@ const OpenGenerativeUIActivityRendererInner = React.memo(
           if (css) headParts.push(`<style>${css}</style>`);
           if (previewStyles) headParts.push(previewStyles);
           if (headParts.length) {
-            sandbox.run(`document.head.innerHTML = ${JSON.stringify(headParts.join(""))}`);
+            sandbox.run(
+              `document.head.innerHTML = ${JSON.stringify(headParts.join(""))}`,
+            );
           }
           if (previewBody) {
-            sandbox.run(`document.body.innerHTML = ${JSON.stringify(previewBody)}`);
+            sandbox.run(
+              `document.body.innerHTML = ${JSON.stringify(previewBody)}`,
+            );
           }
         });
       });
@@ -258,10 +289,14 @@ const OpenGenerativeUIActivityRendererInner = React.memo(
       if (css) headParts.push(`<style>${css}</style>`);
       if (previewStyles) headParts.push(previewStyles);
       if (headParts.length) {
-        previewSandboxRef.current.run(`document.head.innerHTML = ${JSON.stringify(headParts.join(""))}`);
+        previewSandboxRef.current.run(
+          `document.head.innerHTML = ${JSON.stringify(headParts.join(""))}`,
+        );
       }
       if (!previewBody) return;
-      previewSandboxRef.current.run(`document.body.innerHTML = ${JSON.stringify(previewBody)}`);
+      previewSandboxRef.current.run(
+        `document.body.innerHTML = ${JSON.stringify(previewBody)}`,
+      );
     }, [previewBody, previewStyles, css]);
 
     // Effect 1 — Final sandbox lifecycle (depends on fullHtml)
@@ -390,7 +425,10 @@ const OpenGenerativeUIActivityRendererInner = React.memo(
       let handled = false;
       const onMessage = (e: MessageEvent) => {
         if (handled) return;
-        if (e.source === sandbox.iframe.contentWindow && e.data?.type === "__ck_resize") {
+        if (
+          e.source === sandbox.iframe.contentWindow &&
+          e.data?.type === "__ck_resize"
+        ) {
           handled = true;
           setAutoHeight(e.data.height);
           window.removeEventListener("message", onMessage);

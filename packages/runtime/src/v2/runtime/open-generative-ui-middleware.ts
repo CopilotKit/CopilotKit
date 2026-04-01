@@ -80,7 +80,8 @@ export class ArgsParser {
             if (!this.params.jsExpressions) this.params.jsExpressions = [];
             this.params.jsExpressions.push(strValue);
           } else if (this.currentArrayKey === "placeholderMessages") {
-            if (!this.params.placeholderMessages) this.params.placeholderMessages = [];
+            if (!this.params.placeholderMessages)
+              this.params.placeholderMessages = [];
             this.params.placeholderMessages.push(strValue);
           }
           this.emitArrayItemDelta(this.currentArrayKey, strValue);
@@ -176,7 +177,8 @@ export class ArgsParser {
   private setParam(key: string, value: string | boolean | number | null): void {
     switch (key) {
       case "initialHeight":
-        this.params.initialHeight = typeof value === "number" ? value : undefined;
+        this.params.initialHeight =
+          typeof value === "number" ? value : undefined;
         this.emitSnapshot();
         break;
       case "css":
@@ -238,7 +240,9 @@ export class OpenGenerativeUIMiddleware extends Middleware {
     return this.processStream(this.runNextWithState(input, next));
   }
 
-  private processStream(source: Observable<EventWithState>): Observable<BaseEvent> {
+  private processStream(
+    source: Observable<EventWithState>,
+  ): Observable<BaseEvent> {
     return new Observable<BaseEvent>((subscriber) => {
       let heldRunFinished: EventWithState | null = null;
       // Track active generateSandboxedUi tool call IDs → their streaming parser

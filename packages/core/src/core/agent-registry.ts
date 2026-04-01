@@ -300,7 +300,8 @@ export class AgentRegistry {
       this._runtimeMode = runtimeInfoResponse.mode ?? RUNTIME_MODE_SSE;
       this._intelligence = runtimeInfoResponse.intelligence;
       this._a2uiEnabled = runtimeInfoResponse.a2uiEnabled ?? false;
-      this._openGenerativeUIEnabled = runtimeInfoResponse.openGenerativeUIEnabled ?? false;
+      this._openGenerativeUIEnabled =
+        runtimeInfoResponse.openGenerativeUIEnabled ?? false;
       this._licenseStatus = runtimeInfoResponse.licenseStatus;
 
       await this.notifyRuntimeStatusChanged(

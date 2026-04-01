@@ -56,7 +56,9 @@ function createRunInput(overrides: Partial<RunAgentInput> = {}): RunAgentInput {
   };
 }
 
-async function collectEvents(observable: Observable<BaseEvent>): Promise<BaseEvent[]> {
+async function collectEvents(
+  observable: Observable<BaseEvent>,
+): Promise<BaseEvent[]> {
   return firstValueFrom(observable.pipe(toArray()));
 }
 
@@ -65,8 +67,16 @@ describe("OpenGenerativeUIMiddleware e2e", () => {
     it("does not modify the tools list", async () => {
       const middleware = new OpenGenerativeUIMiddleware();
       const agent = new MockAgent([
-        { type: EventType.RUN_STARTED, threadId: "thread-1", runId: "run-1" } as BaseEvent,
-        { type: EventType.RUN_FINISHED, threadId: "thread-1", runId: "run-1" } as BaseEvent,
+        {
+          type: EventType.RUN_STARTED,
+          threadId: "thread-1",
+          runId: "run-1",
+        } as BaseEvent,
+        {
+          type: EventType.RUN_FINISHED,
+          threadId: "thread-1",
+          runId: "run-1",
+        } as BaseEvent,
       ]);
 
       const input = createRunInput();
@@ -81,7 +91,9 @@ describe("OpenGenerativeUIMiddleware e2e", () => {
 
     it("parses a complete JSON object in one chunk", () => {
       const parser = new ArgsParser("tc-1", noop);
-      parser.write('{"initialHeight":400,"html":"<div>hi</div>","jsFunctions":"function foo(){}","jsExpressions":["expr1","expr2"]}');
+      parser.write(
+        '{"initialHeight":400,"html":"<div>hi</div>","jsFunctions":"function foo(){}","jsExpressions":["expr1","expr2"]}',
+      );
 
       expect(parser.params).toEqual({
         initialHeight: 400,
@@ -149,7 +161,10 @@ describe("OpenGenerativeUIMiddleware e2e", () => {
       expect(parser.params.jsExpressions).toEqual(["alert(1)"]);
 
       parser.write('"console.log(2)",');
-      expect(parser.params.jsExpressions).toEqual(["alert(1)", "console.log(2)"]);
+      expect(parser.params.jsExpressions).toEqual([
+        "alert(1)",
+        "console.log(2)",
+      ]);
 
       parser.write('"document.title"]}');
       expect(parser.params.jsExpressions).toEqual([
@@ -175,7 +190,9 @@ describe("OpenGenerativeUIMiddleware e2e", () => {
 
     it("ignores unknown keys", () => {
       const parser = new ArgsParser("tc-1", noop);
-      parser.write('{"initialHeight":100,"unknown_field":"ignored","html":"ok"}');
+      parser.write(
+        '{"initialHeight":100,"unknown_field":"ignored","html":"ok"}',
+      );
 
       expect(parser.params.initialHeight).toBe(100);
       expect(parser.params.html).toBe("ok");
@@ -195,7 +212,10 @@ describe("OpenGenerativeUIMiddleware e2e", () => {
       expect(snapshot.type).toBe(EventType.ACTIVITY_SNAPSHOT);
       expect(snapshot.messageId).toBe("tc-1-activity");
       expect(snapshot.activityType).toBe("open-generative-ui");
-      expect(snapshot.content).toEqual({ initialHeight: 400, generating: true });
+      expect(snapshot.content).toEqual({
+        initialHeight: 400,
+        generating: true,
+      });
     });
 
     it("emits ACTIVITY_DELTA array for html and single delta for jsFunctions", () => {
@@ -327,13 +347,18 @@ describe("OpenGenerativeUIMiddleware e2e", () => {
       const parser = new ArgsParser("tc-1", (e) => emitted.push(e));
 
       // Simulate a full tool call with all parameter types
-      parser.write('{"initialHeight":400,"html":"<body>game</body>","jsFunctions":"function init(){}","jsExpressions":["init()","update()"]}');
+      parser.write(
+        '{"initialHeight":400,"html":"<body>game</body>","jsFunctions":"function init(){}","jsExpressions":["init()","update()"]}',
+      );
 
       // Reconstruct content by applying snapshot + deltas in order
       let content: Record<string, unknown> = {};
       for (const event of emitted) {
         if (event.type === EventType.ACTIVITY_SNAPSHOT) {
-          content = { ...(event as ActivitySnapshotEvent).content } as Record<string, unknown>;
+          content = { ...(event as ActivitySnapshotEvent).content } as Record<
+            string,
+            unknown
+          >;
         } else if (event.type === EventType.ACTIVITY_DELTA) {
           const delta = event as ActivityDeltaEvent;
           for (const op of delta.patch) {
@@ -374,7 +399,10 @@ describe("OpenGenerativeUIMiddleware e2e", () => {
       let content: Record<string, unknown> = {};
       for (const event of emitted) {
         if (event.type === EventType.ACTIVITY_SNAPSHOT) {
-          content = { ...(event as ActivitySnapshotEvent).content } as Record<string, unknown>;
+          content = { ...(event as ActivitySnapshotEvent).content } as Record<
+            string,
+            unknown
+          >;
         } else if (event.type === EventType.ACTIVITY_DELTA) {
           const delta = event as ActivityDeltaEvent;
           for (const op of delta.patch) {
@@ -424,7 +452,11 @@ describe("OpenGenerativeUIMiddleware e2e", () => {
       const parentMessageId = "msg-1";
 
       const agent = new MockAgent([
-        { type: EventType.RUN_STARTED, threadId: "thread-1", runId: "run-1" } as BaseEvent,
+        {
+          type: EventType.RUN_STARTED,
+          threadId: "thread-1",
+          runId: "run-1",
+        } as BaseEvent,
         {
           type: EventType.TEXT_MESSAGE_START,
           messageId: parentMessageId,
@@ -454,10 +486,16 @@ describe("OpenGenerativeUIMiddleware e2e", () => {
           type: EventType.TOOL_CALL_END,
           toolCallId,
         } as BaseEvent,
-        { type: EventType.RUN_FINISHED, threadId: "thread-1", runId: "run-1" } as BaseEvent,
+        {
+          type: EventType.RUN_FINISHED,
+          threadId: "thread-1",
+          runId: "run-1",
+        } as BaseEvent,
       ]);
 
-      const events = await collectEvents(middleware.run(createRunInput(), agent));
+      const events = await collectEvents(
+        middleware.run(createRunInput(), agent),
+      );
 
       // ACTIVITY_SNAPSHOT should appear before any tool call events
       const snapshotIdx = events.findIndex(
@@ -475,7 +513,10 @@ describe("OpenGenerativeUIMiddleware e2e", () => {
         (e) => e.type === EventType.ACTIVITY_SNAPSHOT,
       ) as ActivitySnapshotEvent[];
       expect(snapshots).toHaveLength(1);
-      expect(snapshots[0].content).toEqual({ initialHeight: 300, generating: true });
+      expect(snapshots[0].content).toEqual({
+        initialHeight: 300,
+        generating: true,
+      });
 
       const deltas = events.filter(
         (e) => e.type === EventType.ACTIVITY_DELTA,
@@ -502,7 +543,11 @@ describe("OpenGenerativeUIMiddleware e2e", () => {
       const parentMessageId = "msg-1";
 
       const agent = new MockAgent([
-        { type: EventType.RUN_STARTED, threadId: "thread-1", runId: "run-1" } as BaseEvent,
+        {
+          type: EventType.RUN_STARTED,
+          threadId: "thread-1",
+          runId: "run-1",
+        } as BaseEvent,
         {
           type: EventType.TEXT_MESSAGE_START,
           messageId: parentMessageId,
@@ -527,10 +572,16 @@ describe("OpenGenerativeUIMiddleware e2e", () => {
           type: EventType.TOOL_CALL_END,
           toolCallId,
         } as BaseEvent,
-        { type: EventType.RUN_FINISHED, threadId: "thread-1", runId: "run-1" } as BaseEvent,
+        {
+          type: EventType.RUN_FINISHED,
+          threadId: "thread-1",
+          runId: "run-1",
+        } as BaseEvent,
       ]);
 
-      const events = await collectEvents(middleware.run(createRunInput(), agent));
+      const events = await collectEvents(
+        middleware.run(createRunInput(), agent),
+      );
 
       const types = events.map((e) => e.type);
       expect(types).toEqual([
@@ -550,7 +601,11 @@ describe("OpenGenerativeUIMiddleware e2e", () => {
       const parentMessageId = "msg-1";
 
       const agent = new MockAgent([
-        { type: EventType.RUN_STARTED, threadId: "thread-1", runId: "run-1" } as BaseEvent,
+        {
+          type: EventType.RUN_STARTED,
+          threadId: "thread-1",
+          runId: "run-1",
+        } as BaseEvent,
         {
           type: EventType.TEXT_MESSAGE_START,
           messageId: parentMessageId,
@@ -595,17 +650,26 @@ describe("OpenGenerativeUIMiddleware e2e", () => {
           type: EventType.TOOL_CALL_END,
           toolCallId,
         } as BaseEvent,
-        { type: EventType.RUN_FINISHED, threadId: "thread-1", runId: "run-1" } as BaseEvent,
+        {
+          type: EventType.RUN_FINISHED,
+          threadId: "thread-1",
+          runId: "run-1",
+        } as BaseEvent,
       ]);
 
-      const events = await collectEvents(middleware.run(createRunInput(), agent));
+      const events = await collectEvents(
+        middleware.run(createRunInput(), agent),
+      );
 
       // Verify snapshot
       const snapshots = events.filter(
         (e) => e.type === EventType.ACTIVITY_SNAPSHOT,
       ) as ActivitySnapshotEvent[];
       expect(snapshots).toHaveLength(1);
-      expect(snapshots[0].content).toEqual({ initialHeight: 400, generating: true });
+      expect(snapshots[0].content).toEqual({
+        initialHeight: 400,
+        generating: true,
+      });
 
       // Verify deltas
       const deltas = events.filter(
@@ -615,7 +679,9 @@ describe("OpenGenerativeUIMiddleware e2e", () => {
       // html is now streamed as array: creation, chunk(s), htmlComplete
       // Then: jsFunctions, jsExpressions array creation, items, generating: false
       // Verify key structural deltas exist
-      expect(deltas[0].patch).toEqual([{ op: "add", path: "/html", value: [] }]);
+      expect(deltas[0].patch).toEqual([
+        { op: "add", path: "/html", value: [] },
+      ]);
       const htmlCompleteDelta = deltas.find((d) =>
         d.patch.some((p) => p.path === "/htmlComplete" && p.value === true),
       );
@@ -632,7 +698,10 @@ describe("OpenGenerativeUIMiddleware e2e", () => {
       let content: Record<string, unknown> = {};
       for (const event of events) {
         if (event.type === EventType.ACTIVITY_SNAPSHOT) {
-          content = { ...(event as ActivitySnapshotEvent).content } as Record<string, unknown>;
+          content = { ...(event as ActivitySnapshotEvent).content } as Record<
+            string,
+            unknown
+          >;
         } else if (event.type === EventType.ACTIVITY_DELTA) {
           for (const op of (event as ActivityDeltaEvent).patch) {
             if (op.op === "add") {

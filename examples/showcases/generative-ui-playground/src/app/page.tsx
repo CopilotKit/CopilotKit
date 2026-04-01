@@ -33,7 +33,10 @@ function PageContent({
   setActiveAgent: (agent: "default" | "a2ui" | "opengenui") => void;
   pendingMessage: string | null;
   clearPendingMessage: () => void;
-  onPillClick: (prompt: string, targetMode: "default" | "a2ui" | "opengenui") => void;
+  onPillClick: (
+    prompt: string,
+    targetMode: "default" | "a2ui" | "opengenui",
+  ) => void;
 }) {
   const { sendMessage } = useSendMessage();
 
@@ -245,7 +248,11 @@ function PageContent({
                     "Build a markdown editor with live preview",
                   ];
                   const prompts =
-                    activeAgent === "default" ? defaultPrompts : activeAgent === "a2ui" ? a2uiPrompts : openGenUIPrompts;
+                    activeAgent === "default"
+                      ? defaultPrompts
+                      : activeAgent === "a2ui"
+                        ? a2uiPrompts
+                        : openGenUIPrompts;
                   const randomPrompt =
                     prompts[Math.floor(Math.random() * prompts.length)];
                   sendMessage(randomPrompt);
@@ -264,14 +271,19 @@ function PageContent({
 
 export default function Home() {
   // Active agent state - switches between "default" (Static+MCP), "a2ui", and "opengenui"
-  const [activeAgent, setActiveAgent] = useState<"default" | "a2ui" | "opengenui">("default");
+  const [activeAgent, setActiveAgent] = useState<
+    "default" | "a2ui" | "opengenui"
+  >("default");
   // Pending message for cross-mode pill clicks (sent after provider remount)
   const [pendingMessage, setPendingMessage] = useState<string | null>(null);
   // Responsive layout: sidebar on desktop, popup on mobile
   const isDesktop = useMediaQuery("(min-width: 768px)");
 
   // Handler for protocol card pill clicks - triggers mode switch if needed
-  const handlePillClick = (prompt: string, targetMode: "default" | "a2ui" | "opengenui") => {
+  const handlePillClick = (
+    prompt: string,
+    targetMode: "default" | "a2ui" | "opengenui",
+  ) => {
     setPendingMessage(prompt);
     if (targetMode !== activeAgent) {
       setActiveAgent(targetMode);

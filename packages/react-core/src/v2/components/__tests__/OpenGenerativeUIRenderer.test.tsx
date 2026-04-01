@@ -88,7 +88,11 @@ describe("OpenGenerativeUIActivityRenderer", () => {
   });
 
   it("creates preview sandbox when html is streaming (not complete)", async () => {
-    renderRenderer({ html: ["<head></head><body>partial"], htmlComplete: false, cssComplete: true });
+    renderRenderer({
+      html: ["<head></head><body>partial"],
+      htmlComplete: false,
+      cssComplete: true,
+    });
     await flushImport();
 
     // Preview sandbox is created with empty body template
@@ -98,7 +102,10 @@ describe("OpenGenerativeUIActivityRenderer", () => {
   });
 
   it("wraps html missing <head>", async () => {
-    renderRenderer({ html: ["<body><p>No head</p></body>"], htmlComplete: true });
+    renderRenderer({
+      html: ["<body><p>No head</p></body>"],
+      htmlComplete: true,
+    });
     await flushImport();
 
     expect(mockCreate).toHaveBeenCalledTimes(1);
@@ -107,7 +114,10 @@ describe("OpenGenerativeUIActivityRenderer", () => {
   });
 
   it("joins html chunks when complete", async () => {
-    renderRenderer({ html: ["<head></head>", "<body>", "<p>Hello</p>", "</body>"], htmlComplete: true });
+    renderRenderer({
+      html: ["<head></head>", "<body>", "<p>Hello</p>", "</body>"],
+      htmlComplete: true,
+    });
     await flushImport();
 
     expect(mockCreate).toHaveBeenCalledTimes(1);
@@ -116,7 +126,10 @@ describe("OpenGenerativeUIActivityRenderer", () => {
   });
 
   it("destroys sandbox on unmount", async () => {
-    const { unmount } = renderRenderer({ html: ["<head></head><body></body>"], htmlComplete: true });
+    const { unmount } = renderRenderer({
+      html: ["<head></head><body></body>"],
+      htmlComplete: true,
+    });
     await flushImport();
 
     expect(mockCreate).toHaveBeenCalledTimes(1);
@@ -343,7 +356,10 @@ describe("OpenGenerativeUIActivityRenderer", () => {
         <SandboxFunctionsContext.Provider value={fns1}>
           <OpenGenerativeUIActivityRenderer
             activityType="open-generative-ui"
-            content={{ html: ["<head></head><body>test</body>"], htmlComplete: true }}
+            content={{
+              html: ["<head></head><body>test</body>"],
+              htmlComplete: true,
+            }}
             message={{}}
             agent={{}}
           />
@@ -373,7 +389,10 @@ describe("OpenGenerativeUIActivityRenderer", () => {
         <SandboxFunctionsContext.Provider value={fns2}>
           <OpenGenerativeUIActivityRenderer
             activityType="open-generative-ui"
-            content={{ html: ["<head></head><body>test</body>"], htmlComplete: true }}
+            content={{
+              html: ["<head></head><body>test</body>"],
+              htmlComplete: true,
+            }}
             message={{}}
             agent={{}}
           />
@@ -462,7 +481,9 @@ describe("OpenGenerativeUIActivityRenderer", () => {
 
       // Should have called run with innerHTML update (initial content — immediate flush)
       const innerHtmlCalls = mockRun.mock.calls.filter(
-        (c: unknown[]) => typeof c[0] === "string" && (c[0] as string).includes("document.body.innerHTML"),
+        (c: unknown[]) =>
+          typeof c[0] === "string" &&
+          (c[0] as string).includes("document.body.innerHTML"),
       );
       expect(innerHtmlCalls.length).toBeGreaterThanOrEqual(1);
 
@@ -490,7 +511,9 @@ describe("OpenGenerativeUIActivityRenderer", () => {
 
       // Should have updated innerHTML with new content after throttle
       const updateCalls = mockRun.mock.calls.filter(
-        (c: unknown[]) => typeof c[0] === "string" && (c[0] as string).includes("document.body.innerHTML"),
+        (c: unknown[]) =>
+          typeof c[0] === "string" &&
+          (c[0] as string).includes("document.body.innerHTML"),
       );
       expect(updateCalls.length).toBeGreaterThanOrEqual(1);
       expect(updateCalls[updateCalls.length - 1]![0]).toContain("World");
@@ -520,7 +543,9 @@ describe("OpenGenerativeUIActivityRenderer", () => {
         <OpenGenerativeUIActivityRenderer
           activityType="open-generative-ui"
           content={{
-            html: ["<head><style>body{margin:0}</style></head><body><div>Hello</div></body>"],
+            html: [
+              "<head><style>body{margin:0}</style></head><body><div>Hello</div></body>",
+            ],
             htmlComplete: true,
             cssComplete: true,
             generating: false,
@@ -592,14 +617,18 @@ describe("OpenGenerativeUIActivityRenderer", () => {
 
       // CSS should be injected into <head> as a <style> tag
       const headCalls = mockRun.mock.calls.filter(
-        (c: unknown[]) => typeof c[0] === "string" && (c[0] as string).includes("document.head.innerHTML"),
+        (c: unknown[]) =>
+          typeof c[0] === "string" &&
+          (c[0] as string).includes("document.head.innerHTML"),
       );
       expect(headCalls.length).toBeGreaterThanOrEqual(1);
       expect(headCalls[0][0]).toContain("body { margin: 0; color: red; }");
 
       // HTML body content should be rendered in the preview
       const bodyCalls = mockRun.mock.calls.filter(
-        (c: unknown[]) => typeof c[0] === "string" && (c[0] as string).includes("document.body.innerHTML"),
+        (c: unknown[]) =>
+          typeof c[0] === "string" &&
+          (c[0] as string).includes("document.body.innerHTML"),
       );
       expect(bodyCalls.length).toBeGreaterThanOrEqual(1);
       expect(bodyCalls[0][0]).toContain("Streaming content");

@@ -8,7 +8,8 @@
 "use client";
 
 const PROMPTS = {
-  "Bar Chart": "Build a bar chart showing quarterly revenue: Q1 $2.1M, Q2 $3.4M, Q3 $2.8M, Q4 $4.2M",
+  "Bar Chart":
+    "Build a bar chart showing quarterly revenue: Q1 $2.1M, Q2 $3.4M, Q3 $2.8M, Q4 $4.2M",
   Spreadsheet: "Create a spreadsheet with sample sales data for 5 products",
   "3D Cube": "Show me a rotating 3D cube using Three.js",
   Calculator: "Build me a beautiful calculator app",

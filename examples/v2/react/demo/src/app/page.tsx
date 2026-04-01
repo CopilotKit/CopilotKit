@@ -19,8 +19,18 @@ type Theme = "light" | "dark";
 
 // Match CopilotKit's oklch CSS variables for consistent theming
 const themeColors = {
-  light: { bg: "oklch(1 0 0)", text: "oklch(0.145 0 0)", border: "oklch(0.922 0 0)", muted: "oklch(0.97 0 0)" },
-  dark: { bg: "oklch(0.145 0 0)", text: "oklch(0.985 0 0)", border: "oklch(0.269 0 0)", muted: "oklch(0.269 0 0)" },
+  light: {
+    bg: "oklch(1 0 0)",
+    text: "oklch(0.145 0 0)",
+    border: "oklch(0.922 0 0)",
+    muted: "oklch(0.97 0 0)",
+  },
+  dark: {
+    bg: "oklch(0.145 0 0)",
+    text: "oklch(0.985 0 0)",
+    border: "oklch(0.269 0 0)",
+    muted: "oklch(0.269 0 0)",
+  },
 };
 
 export default function Home() {
@@ -51,10 +61,13 @@ export default function Home() {
     ),
   });
 
-  const handleSetTheme = useCallback(async (args: { mode: "light" | "dark" }) => {
-    setTheme(args.mode);
-    return `Theme set to ${args.mode}`;
-  }, []);
+  const handleSetTheme = useCallback(
+    async (args: { mode: "light" | "dark" }) => {
+      setTheme(args.mode);
+      return `Theme set to ${args.mode}`;
+    },
+    [],
+  );
 
   const sandboxFunctions = useMemo<SandboxFunction[]>(
     () => [
@@ -90,13 +103,24 @@ export default function Home() {
           transition: "background-color 0.3s, color 0.3s",
         }}
       >
-        <Chat theme={theme} onToggleTheme={() => setTheme((t) => (t === "light" ? "dark" : "light"))} />
+        <Chat
+          theme={theme}
+          onToggleTheme={() =>
+            setTheme((t) => (t === "light" ? "dark" : "light"))
+          }
+        />
       </div>
     </CopilotKitProvider>
   );
 }
 
-function Chat({ theme, onToggleTheme }: { theme: Theme; onToggleTheme: () => void }) {
+function Chat({
+  theme,
+  onToggleTheme,
+}: {
+  theme: Theme;
+  onToggleTheme: () => void;
+}) {
   const colors = themeColors[theme];
   const [selectedThreadId, setSelectedThreadId] = useState<
     "thread---a" | "thread---b" | "thread---c" | undefined
@@ -214,11 +238,29 @@ function Chat({ theme, onToggleTheme }: { theme: Theme; onToggleTheme: () => voi
           }}
         >
           {theme === "light" ? (
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
               <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
             </svg>
           ) : (
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
               <circle cx="12" cy="12" r="5" />
               <line x1="12" y1="1" x2="12" y2="3" />
               <line x1="12" y1="21" x2="12" y2="23" />
@@ -231,7 +273,14 @@ function Chat({ theme, onToggleTheme }: { theme: Theme; onToggleTheme: () => voi
             </svg>
           )}
         </button>
-        <div style={{ flex: 1, display: "flex", gap: "10px", justifyContent: "center" }}>
+        <div
+          style={{
+            flex: 1,
+            display: "flex",
+            gap: "10px",
+            justifyContent: "center",
+          }}
+        >
           {threadOptions.map(({ id, label }) => {
             const isActive = id === selectedThreadId;
             return (

@@ -28,7 +28,9 @@ describe("CopilotKitProvider — openGenerativeUI.sandboxFunctions", () => {
   });
 
   /** Helper: find the sandbox-functions context entry from the context record */
-  function findSandboxContext(ctx: Record<string, { description: string; value: string }>) {
+  function findSandboxContext(
+    ctx: Record<string, { description: string; value: string }>,
+  ) {
     return Object.values(ctx).find((c) =>
       c.description.includes("Sandbox functions"),
     );
@@ -85,7 +87,9 @@ describe("CopilotKitProvider — openGenerativeUI.sandboxFunctions", () => {
         ),
       });
 
-      const sandboxContext = findSandboxContext(result.current.copilotkit.context);
+      const sandboxContext = findSandboxContext(
+        result.current.copilotkit.context,
+      );
       expect(sandboxContext).toBeDefined();
 
       const parsed = JSON.parse(sandboxContext!.value);
@@ -105,7 +109,9 @@ describe("CopilotKitProvider — openGenerativeUI.sandboxFunctions", () => {
         ),
       });
 
-      const sandboxContext = findSandboxContext(result.current.copilotkit.context);
+      const sandboxContext = findSandboxContext(
+        result.current.copilotkit.context,
+      );
       expect(sandboxContext).toBeUndefined();
     });
 
@@ -116,7 +122,9 @@ describe("CopilotKitProvider — openGenerativeUI.sandboxFunctions", () => {
         ),
       });
 
-      const sandboxContext = findSandboxContext(result.current.copilotkit.context);
+      const sandboxContext = findSandboxContext(
+        result.current.copilotkit.context,
+      );
       expect(sandboxContext).toBeUndefined();
     });
 
@@ -131,7 +139,9 @@ describe("CopilotKitProvider — openGenerativeUI.sandboxFunctions", () => {
         ),
       });
 
-      const sandboxContext = findSandboxContext(result.current.copilotkit.context);
+      const sandboxContext = findSandboxContext(
+        result.current.copilotkit.context,
+      );
       const parsed = JSON.parse(sandboxContext!.value);
       expect(parsed).toHaveLength(2);
       expect(parsed.map((f: any) => f.name)).toEqual(["fnA", "fnB"]);
@@ -155,7 +165,9 @@ describe("CopilotKitProvider — openGenerativeUI.sandboxFunctions", () => {
         ),
       });
 
-      const sandboxContext = findSandboxContext(result.current.copilotkit.context);
+      const sandboxContext = findSandboxContext(
+        result.current.copilotkit.context,
+      );
       const parsed = JSON.parse(sandboxContext!.value);
       const params = parsed[0].parameters;
 

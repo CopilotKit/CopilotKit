@@ -482,7 +482,12 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     combined.push(...processedHumanInTheLoopTools.renderToolCalls);
 
     return combined;
-  }, [renderToolCallsList, frontendToolsList, builtInFrontendTools, processedHumanInTheLoopTools]);
+  }, [
+    renderToolCallsList,
+    frontendToolsList,
+    builtInFrontendTools,
+    processedHumanInTheLoopTools,
+  ]);
 
   // Stable instance: created once for the provider lifetime.
   // Updates are applied via setter effects below rather than recreating the instance.
