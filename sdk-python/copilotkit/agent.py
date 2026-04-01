@@ -65,8 +65,16 @@ class Agent(ABC):
 
 
     def dict_repr(self) -> AgentDict:
-        """Dict representation of the action"""
+        """Legacy dict representation kept for backwards compatibility."""
         return {
             'name': self.name,
             'description': self.description or ''
+        }
+
+    def runtime_info_repr(self) -> RuntimeAgentDescriptionDict:
+        """Runtime info representation aligned with the JS runtime contract."""
+        return {
+            'name': self.name,
+            'description': self.description or '',
+            'className': self.__class__.__name__,
         }
