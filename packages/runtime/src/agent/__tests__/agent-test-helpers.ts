@@ -7,7 +7,8 @@
 
 import { EventType, type BaseEvent, type RunAgentInput } from "@ag-ui/client";
 import type { Observable } from "rxjs";
-import { Agent, type AgentConfig } from "../agent";
+import { Agent } from "../agent";
+import type { AgentFactoryContext } from "../agent";
 import type { MockStreamEvent } from "./test-helpers";
 
 // Re-export everything from existing test helpers
@@ -28,6 +29,9 @@ export {
   error,
   collectEvents,
 } from "./test-helpers";
+
+// Re-export for test files that need to construct agents directly
+export { Agent, type AgentFactoryContext };
 
 // ---------------------------------------------------------------------------
 // Default input factory
@@ -122,6 +126,8 @@ export function mockCustomStream(
 // Agent factories
 // ---------------------------------------------------------------------------
 
+export type AgentType = "aisdk" | "tanstack" | "custom";
+
 /**
  * Creates an Agent backed by a mock factory that yields the given stream data.
  *
@@ -140,15 +146,17 @@ export function createAgent(
 ): Agent;
 export function createAgent(type: "custom", streamData: BaseEvent[]): Agent;
 export function createAgent(
-  type: "aisdk" | "tanstack" | "custom",
+  type: AgentType,
+  streamData: MockStreamEvent[] | Record<string, unknown>[] | BaseEvent[],
+): Agent;
+export function createAgent(
+  type: AgentType,
   streamData: MockStreamEvent[] | Record<string, unknown>[] | BaseEvent[],
 ): Agent {
-  let config: AgentConfig;
-
   switch (type) {
     case "aisdk": {
       const events = streamData as MockStreamEvent[];
-      config = {
+      return new Agent({
         type: "aisdk",
         factory: () => ({
           fullStream: (async function* () {
@@ -157,28 +165,23 @@ export function createAgent(
             }
           })(),
         }),
-      };
-      break;
+      });
     }
     case "tanstack": {
       const chunks = streamData as Record<string, unknown>[];
-      config = {
+      return new Agent({
         type: "tanstack",
         factory: () => mockTanStackStream(chunks),
-      };
-      break;
+      });
     }
     case "custom": {
       const events = streamData as BaseEvent[];
-      config = {
+      return new Agent({
         type: "custom",
         factory: () => mockCustomStream(events),
-      };
-      break;
+      });
     }
   }
-
-  return new Agent(config);
 }
 
 // ---------------------------------------------------------------------------
@@ -189,41 +192,23 @@ export function createAgent(
  * Creates an Agent whose factory immediately throws.
  */
 export function createThrowingAgent(
-  type: "aisdk" | "tanstack" | "custom",
+  type: AgentType,
   errorMessage: string,
 ): Agent {
-  const thrower = () => {
+  // All three factory signatures accept (ctx) and can throw before returning.
+  // Since the factory throws, the return type is irrelevant — TypeScript's
+  // `never` return satisfies all three config shapes.
+  const thrower = (): never => {
     throw new Error(errorMessage);
   };
 
   switch (type) {
     case "aisdk":
-      return new Agent({
-        type: "aisdk",
-        factory: thrower as AgentConfig & { type: "aisdk" } extends {
-          factory: infer F;
-        }
-          ? F
-          : never,
-      });
+      return new Agent({ type: "aisdk", factory: thrower });
     case "tanstack":
-      return new Agent({
-        type: "tanstack",
-        factory: thrower as AgentConfig & { type: "tanstack" } extends {
-          factory: infer F;
-        }
-          ? F
-          : never,
-      });
+      return new Agent({ type: "tanstack", factory: thrower });
     case "custom":
-      return new Agent({
-        type: "custom",
-        factory: thrower as AgentConfig & { type: "custom" } extends {
-          factory: infer F;
-        }
-          ? F
-          : never,
-      });
+      return new Agent({ type: "custom", factory: thrower });
   }
 }
 
@@ -235,7 +220,7 @@ export function createThrowingAgent(
  * - `"custom"`: yields a `TEXT_MESSAGE_CHUNK` BaseEvent then throws
  */
 export function createMidStreamErrorAgent(
-  type: "aisdk" | "tanstack" | "custom",
+  type: AgentType,
   errorMessage: string,
 ): Agent {
   switch (type) {
@@ -311,6 +296,19 @@ export async function collectEventsIncludingErrors(
 }
 
 // ---------------------------------------------------------------------------
+// Typed event field accessors (avoids `as any` casts in tests)
+// ---------------------------------------------------------------------------
+
+/**
+ * Reads a field from a BaseEvent. AG-UI's BaseEvent uses `.passthrough()` so
+ * extra fields exist at runtime but aren't in the static type. This helper
+ * provides typed access without casts.
+ */
+export function eventField<T = unknown>(event: BaseEvent, field: string): T {
+  return (event as Record<string, unknown>)[field] as T;
+}
+
+// ---------------------------------------------------------------------------
 // Assertion helpers
 // ---------------------------------------------------------------------------
 
@@ -345,31 +343,27 @@ export function expectLifecycleWrapped(
   }
 
   if (threadId !== undefined) {
-    const startEvent = first as BaseEvent & { threadId?: string };
-    if (startEvent.threadId !== threadId) {
+    if (eventField<string>(first, "threadId") !== threadId) {
       throw new Error(
-        `Expected RUN_STARTED threadId to be "${threadId}", got "${startEvent.threadId}"`,
+        `Expected RUN_STARTED threadId to be "${threadId}", got "${eventField(first, "threadId")}"`,
       );
     }
-    const finishEvent = last as BaseEvent & { threadId?: string };
-    if (finishEvent.threadId !== threadId) {
+    if (eventField<string>(last, "threadId") !== threadId) {
       throw new Error(
-        `Expected RUN_FINISHED threadId to be "${threadId}", got "${finishEvent.threadId}"`,
+        `Expected RUN_FINISHED threadId to be "${threadId}", got "${eventField(last, "threadId")}"`,
       );
     }
   }
 
   if (runId !== undefined) {
-    const startEvent = first as BaseEvent & { runId?: string };
-    if (startEvent.runId !== runId) {
+    if (eventField<string>(first, "runId") !== runId) {
       throw new Error(
-        `Expected RUN_STARTED runId to be "${runId}", got "${startEvent.runId}"`,
+        `Expected RUN_STARTED runId to be "${runId}", got "${eventField(first, "runId")}"`,
       );
     }
-    const finishEvent = last as BaseEvent & { runId?: string };
-    if (finishEvent.runId !== runId) {
+    if (eventField<string>(last, "runId") !== runId) {
       throw new Error(
-        `Expected RUN_FINISHED runId to be "${runId}", got "${finishEvent.runId}"`,
+        `Expected RUN_FINISHED runId to be "${runId}", got "${eventField(last, "runId")}"`,
       );
     }
   }

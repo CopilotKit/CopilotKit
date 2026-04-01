@@ -1,7 +1,9 @@
 import { describe, it, expect } from "vitest";
 import { EventType, type BaseEvent } from "@ag-ui/client";
-import { Agent, type AgentConfig } from "../agent";
+import type { AgentConfig } from "../agent";
 import {
+  Agent,
+  type AgentFactoryContext,
   createDefaultInput,
   createAgent,
   createThrowingAgent,
@@ -9,11 +11,11 @@ import {
   collectEvents,
   collectEventsIncludingErrors,
   expectLifecycleWrapped,
+  eventField,
   textDelta,
   finish,
   tanstackTextChunk,
-  mockTanStackStream,
-  mockCustomStream,
+  type AgentType,
   type MockStreamEvent,
 } from "./agent-test-helpers";
 
@@ -21,8 +23,7 @@ import {
 // Local helpers for parameterized tests
 // ---------------------------------------------------------------------------
 
-const allTypes = ["aisdk", "tanstack", "custom"] as const;
-type AgentType = (typeof allTypes)[number];
+const allTypes: AgentType[] = ["aisdk", "tanstack", "custom"];
 
 function minimalStreamData(type: AgentType): MockStreamEvent[] | Record<string, unknown>[] | BaseEvent[] {
   switch (type) {
@@ -62,30 +63,30 @@ describe.each(allTypes)("Agent [%s]", (type) => {
   // -------------------------------------------------------------------------
   describe("lifecycle", () => {
     it("emits RUN_STARTED as the first event with correct threadId/runId", async () => {
-      const agent = createAgent(type as any, minimalStreamData(type) as any);
+      const agent = createAgent(type, minimalStreamData(type));
       const input = createDefaultInput({ threadId: "t1", runId: "r1" });
       const events = await collectEvents(agent.run(input));
 
       expect(events.length).toBeGreaterThanOrEqual(2);
       const first = events[0];
       expect(first.type).toBe(EventType.RUN_STARTED);
-      expect((first as any).threadId).toBe("t1");
-      expect((first as any).runId).toBe("r1");
+      expect(eventField<string>(first, "threadId")).toBe("t1");
+      expect(eventField<string>(first, "runId")).toBe("r1");
     });
 
     it("emits RUN_FINISHED as the last event with correct threadId/runId", async () => {
-      const agent = createAgent(type as any, minimalStreamData(type) as any);
+      const agent = createAgent(type, minimalStreamData(type));
       const input = createDefaultInput({ threadId: "t2", runId: "r2" });
       const events = await collectEvents(agent.run(input));
 
       const last = events[events.length - 1];
       expect(last.type).toBe(EventType.RUN_FINISHED);
-      expect((last as any).threadId).toBe("t2");
-      expect((last as any).runId).toBe("r2");
+      expect(eventField<string>(last, "threadId")).toBe("t2");
+      expect(eventField<string>(last, "runId")).toBe("r2");
     });
 
     it("emits RUN_FINISHED for an empty stream", async () => {
-      const agent = createAgent(type as any, emptyStreamData(type) as any);
+      const agent = createAgent(type, emptyStreamData(type));
       const input = createDefaultInput();
       const events = await collectEvents(agent.run(input));
 
@@ -95,7 +96,7 @@ describe.each(allTypes)("Agent [%s]", (type) => {
     });
 
     it("wraps content with lifecycle events", async () => {
-      const agent = createAgent(type as any, minimalStreamData(type) as any);
+      const agent = createAgent(type, minimalStreamData(type));
       const input = createDefaultInput({ threadId: "wrap-t", runId: "wrap-r" });
       const events = await collectEvents(agent.run(input));
 
@@ -122,7 +123,7 @@ describe.each(allTypes)("Agent [%s]", (type) => {
 
       const errorEvents = events.filter((e) => e.type === EventType.RUN_ERROR);
       expect(errorEvents.length).toBe(1);
-      expect((errorEvents[0] as any).message).toBe("factory-boom");
+      expect(eventField<string>(errorEvents[0], "message")).toBe("factory-boom");
     });
 
     it("emits RUN_ERROR when stream throws mid-iteration", async () => {
@@ -132,7 +133,7 @@ describe.each(allTypes)("Agent [%s]", (type) => {
 
       const errorEvents = events.filter((e) => e.type === EventType.RUN_ERROR);
       expect(errorEvents.length).toBe(1);
-      expect((errorEvents[0] as any).message).toBe("mid-stream-boom");
+      expect(eventField<string>(errorEvents[0], "message")).toBe("mid-stream-boom");
     });
 
     it("does not emit RUN_FINISHED after RUN_ERROR", async () => {
@@ -162,7 +163,7 @@ describe.each(allTypes)("Agent [%s]", (type) => {
         case "aisdk":
           config = {
             type: "aisdk",
-            factory: ({ abortSignal }) => ({
+            factory: ({ abortSignal }: AgentFactoryContext) => ({
               fullStream: (async function* () {
                 while (!abortSignal.aborted) {
                   yield { type: "text-delta", text: "tick" };
@@ -175,7 +176,7 @@ describe.each(allTypes)("Agent [%s]", (type) => {
         case "tanstack":
           config = {
             type: "tanstack",
-            factory: ({ abortSignal }) => ({
+            factory: ({ abortSignal }: AgentFactoryContext) => ({
               [Symbol.asyncIterator]: async function* () {
                 while (!abortSignal.aborted) {
                   yield { type: "TEXT_MESSAGE_CONTENT", delta: "tick" };
@@ -188,7 +189,7 @@ describe.each(allTypes)("Agent [%s]", (type) => {
         case "custom":
           config = {
             type: "custom",
-            factory: ({ abortSignal }) => ({
+            factory: ({ abortSignal }: AgentFactoryContext) => ({
               [Symbol.asyncIterator]: async function* () {
                 while (!abortSignal.aborted) {
                   yield {
@@ -208,9 +209,8 @@ describe.each(allTypes)("Agent [%s]", (type) => {
       const input = createDefaultInput();
 
       const completed = await new Promise<boolean>((resolve) => {
-        const events: BaseEvent[] = [];
         agent.run(input).subscribe({
-          next: (e) => events.push(e),
+          next: () => {},
           error: () => resolve(false),
           complete: () => resolve(true),
         });
@@ -228,14 +228,14 @@ describe.each(allTypes)("Agent [%s]", (type) => {
   // -------------------------------------------------------------------------
   describe("factory context", () => {
     it("receives correct input with threadId, runId, and forwardedProps", async () => {
-      let capturedCtx: any = null;
+      let capturedCtx: AgentFactoryContext | null = null;
 
       let config: AgentConfig;
       switch (type) {
         case "aisdk":
           config = {
             type: "aisdk",
-            factory: (ctx) => {
+            factory: (ctx: AgentFactoryContext) => {
               capturedCtx = ctx;
               return {
                 fullStream: (async function* () {
@@ -248,7 +248,7 @@ describe.each(allTypes)("Agent [%s]", (type) => {
         case "tanstack":
           config = {
             type: "tanstack",
-            factory: (ctx) => {
+            factory: (ctx: AgentFactoryContext) => {
               capturedCtx = ctx;
               return (async function* () {
                 // empty stream
@@ -259,7 +259,7 @@ describe.each(allTypes)("Agent [%s]", (type) => {
         case "custom":
           config = {
             type: "custom",
-            factory: (ctx) => {
+            factory: (ctx: AgentFactoryContext) => {
               capturedCtx = ctx;
               return (async function* () {
                 // empty stream
@@ -279,20 +279,20 @@ describe.each(allTypes)("Agent [%s]", (type) => {
       await collectEvents(agent.run(input));
 
       expect(capturedCtx).not.toBeNull();
-      expect(capturedCtx.input.threadId).toBe("ctx-thread");
-      expect(capturedCtx.input.runId).toBe("ctx-run");
-      expect(capturedCtx.input.forwardedProps).toEqual({ model: "gpt-4" });
+      expect(capturedCtx!.input.threadId).toBe("ctx-thread");
+      expect(capturedCtx!.input.runId).toBe("ctx-run");
+      expect(capturedCtx!.input.forwardedProps).toEqual({ model: "gpt-4" });
     });
 
     it("receives abortController and abortSignal", async () => {
-      let capturedCtx: any = null;
+      let capturedCtx: AgentFactoryContext | null = null;
 
       let config: AgentConfig;
       switch (type) {
         case "aisdk":
           config = {
             type: "aisdk",
-            factory: (ctx) => {
+            factory: (ctx: AgentFactoryContext) => {
               capturedCtx = ctx;
               return {
                 fullStream: (async function* () {
@@ -305,7 +305,7 @@ describe.each(allTypes)("Agent [%s]", (type) => {
         case "tanstack":
           config = {
             type: "tanstack",
-            factory: (ctx) => {
+            factory: (ctx: AgentFactoryContext) => {
               capturedCtx = ctx;
               return (async function* () {
                 // empty
@@ -316,7 +316,7 @@ describe.each(allTypes)("Agent [%s]", (type) => {
         case "custom":
           config = {
             type: "custom",
-            factory: (ctx) => {
+            factory: (ctx: AgentFactoryContext) => {
               capturedCtx = ctx;
               return (async function* () {
                 // empty
@@ -330,8 +330,8 @@ describe.each(allTypes)("Agent [%s]", (type) => {
       const input = createDefaultInput();
       await collectEvents(agent.run(input));
 
-      expect(capturedCtx.abortController).toBeInstanceOf(AbortController);
-      expect(capturedCtx.abortSignal).toBe(capturedCtx.abortController.signal);
+      expect(capturedCtx!.abortController).toBeInstanceOf(AbortController);
+      expect(capturedCtx!.abortSignal).toBe(capturedCtx!.abortController.signal);
     });
   });
 
@@ -340,7 +340,7 @@ describe.each(allTypes)("Agent [%s]", (type) => {
   // -------------------------------------------------------------------------
   describe("clone()", () => {
     it("returns a new Agent instance (not the same reference)", () => {
-      const agent = createAgent(type as any, minimalStreamData(type) as any);
+      const agent = createAgent(type, minimalStreamData(type));
       const cloned = agent.clone();
 
       expect(cloned).toBeInstanceOf(Agent);
@@ -348,13 +348,10 @@ describe.each(allTypes)("Agent [%s]", (type) => {
     });
 
     it("produces correct lifecycle events from a cloned agent", async () => {
-      const agent = createAgent(type as any, minimalStreamData(type) as any);
+      const agent = createAgent(type, minimalStreamData(type));
       const cloned = agent.clone();
       const input = createDefaultInput({ threadId: "clone-t", runId: "clone-r" });
 
-      // Note: for aisdk/tanstack the internal async generator will be shared
-      // between original and clone if both run. Since createAgent builds
-      // a new iterable via its factory each time run() is called, both should work.
       const events = await collectEvents(cloned.run(input));
 
       expectLifecycleWrapped(events, "clone-t", "clone-r");
@@ -376,7 +373,7 @@ describe("Agent type discrimination", () => {
       (e) => e.type === EventType.TEXT_MESSAGE_CHUNK,
     );
     expect(textEvents.length).toBe(1);
-    expect((textEvents[0] as any).delta).toBe("hello from aisdk");
+    expect(eventField<string>(textEvents[0], "delta")).toBe("hello from aisdk");
   });
 
   it('"tanstack" routes to TanStack converter and produces text content', async () => {
@@ -388,7 +385,7 @@ describe("Agent type discrimination", () => {
       (e) => e.type === EventType.TEXT_MESSAGE_CHUNK,
     );
     expect(textEvents.length).toBe(1);
-    expect((textEvents[0] as any).delta).toBe("hello from tanstack");
+    expect(eventField<string>(textEvents[0], "delta")).toBe("hello from tanstack");
   });
 
   it('"custom" forwards events directly without conversion', async () => {
@@ -406,6 +403,6 @@ describe("Agent type discrimination", () => {
       (e) => e.type === EventType.TEXT_MESSAGE_CHUNK,
     );
     expect(textEvents.length).toBe(1);
-    expect((textEvents[0] as any).delta).toBe("hello from custom");
+    expect(eventField<string>(textEvents[0], "delta")).toBe("hello from custom");
   });
 });
