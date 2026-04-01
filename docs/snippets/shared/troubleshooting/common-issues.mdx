@@ -104,7 +104,7 @@ If you're getting a "CopilotKit's Remote Endpoint not found" error, it usually m
         < content-type: application/json
         <
         * Connection #0 to host localhost left intact
-        {"actions":[],"agents":[{"name":"my_agent","description":"A helpful agent.","type":"langgraph"},],"sdkVersion":"0.1.32"}%
+        {"version":"0.1.32","agents":{"my_agent":{"name":"my_agent","description":"A helpful agent.","className":"LangGraphAGUIAgent"}},"audioFileTranscriptionEnabled":false,"mode":"sse","a2uiEnabled":false}%
         ```
 
         As you can see, it's a JSON response with your registered agents and actions, as well as the `200 OK` HTTP response status.
