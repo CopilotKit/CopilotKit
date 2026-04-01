@@ -7,6 +7,7 @@ import {
   collectEvents,
   expectLifecycleWrapped,
   expectEventSequence,
+  eventField,
   mockCustomStream,
 } from "./agent-test-helpers";
 
@@ -33,9 +34,8 @@ describe("Custom Converter (passthrough)", () => {
         EventType.RUN_FINISHED,
       ]);
 
-      const textEvent = events[1] as BaseEvent & { delta: string; role: string };
-      expect(textEvent.delta).toBe("Hello world");
-      expect(textEvent.role).toBe("assistant");
+      expect(eventField<string>(events[1], "delta")).toBe("Hello world");
+      expect(eventField<string>(events[1], "role")).toBe("assistant");
     });
 
     it("should forward multiple event types in order", async () => {
@@ -90,22 +90,13 @@ describe("Custom Converter (passthrough)", () => {
         EventType.RUN_FINISHED,
       ]);
 
-      const start = events[1] as BaseEvent & {
-        toolCallId: string;
-        toolCallName: string;
-      };
-      expect(start.toolCallId).toBe("tc-1");
-      expect(start.toolCallName).toBe("myTool");
+      expect(eventField<string>(events[1], "toolCallId")).toBe("tc-1");
+      expect(eventField<string>(events[1], "toolCallName")).toBe("myTool");
 
-      const args = events[2] as BaseEvent & {
-        toolCallId: string;
-        delta: string;
-      };
-      expect(args.toolCallId).toBe("tc-1");
-      expect(args.delta).toBe('{"key":"value"}');
+      expect(eventField<string>(events[2], "toolCallId")).toBe("tc-1");
+      expect(eventField<string>(events[2], "delta")).toBe('{"key":"value"}');
 
-      const end = events[3] as BaseEvent & { toolCallId: string };
-      expect(end.toolCallId).toBe("tc-1");
+      expect(eventField<string>(events[3], "toolCallId")).toBe("tc-1");
     });
 
     it("should forward a STATE_SNAPSHOT event", async () => {
@@ -123,10 +114,7 @@ describe("Custom Converter (passthrough)", () => {
         EventType.RUN_FINISHED,
       ]);
 
-      const stateEvent = events[1] as BaseEvent & {
-        snapshot: Record<string, unknown>;
-      };
-      expect(stateEvent.snapshot).toEqual({ counter: 42, items: ["a", "b"] });
+      expect(eventField<Record<string, unknown>>(events[1], "snapshot")).toEqual({ counter: 42, items: ["a", "b"] });
     });
 
     it("should forward a STATE_DELTA event", async () => {
@@ -144,8 +132,7 @@ describe("Custom Converter (passthrough)", () => {
         EventType.RUN_FINISHED,
       ]);
 
-      const deltaEvent = events[1] as BaseEvent & { delta: unknown[] };
-      expect(deltaEvent.delta).toEqual([
+      expect(eventField<unknown[]>(events[1], "delta")).toEqual([
         { op: "replace", path: "/counter", value: 43 },
       ]);
     });
@@ -180,11 +167,8 @@ describe("Custom Converter (passthrough)", () => {
         EventType.RUN_FINISHED,
       ]);
 
-      const content1 = events[3] as BaseEvent & { content: string };
-      expect(content1.content).toBe("Thinking step 1");
-
-      const content2 = events[4] as BaseEvent & { content: string };
-      expect(content2.content).toBe("Thinking step 2");
+      expect(eventField<string>(events[3], "content")).toBe("Thinking step 1");
+      expect(eventField<string>(events[4], "content")).toBe("Thinking step 2");
     });
   });
 
@@ -223,12 +207,8 @@ describe("Custom Converter (passthrough)", () => {
       });
 
       // Second is the user-emitted one, forwarded as-is
-      const userStart = runStartedEvents[1] as BaseEvent & {
-        threadId: string;
-        runId: string;
-      };
-      expect(userStart.threadId).toBe("user-thread");
-      expect(userStart.runId).toBe("user-run");
+      expect(eventField<string>(runStartedEvents[1], "threadId")).toBe("user-thread");
+      expect(eventField<string>(runStartedEvents[1], "runId")).toBe("user-run");
     });
   });
 
@@ -273,10 +253,8 @@ describe("Custom Converter (passthrough)", () => {
         EventType.RUN_FINISHED,
       ]);
 
-      const first = events[1] as BaseEvent & { delta: string };
-      const second = events[2] as BaseEvent & { delta: string };
-      expect(first.delta).toBe("from generator");
-      expect(second.delta).toBe(" factory");
+      expect(eventField<string>(events[1], "delta")).toBe("from generator");
+      expect(eventField<string>(events[2], "delta")).toBe(" factory");
     });
 
     it("should pass through events with extra/unknown fields", async () => {
@@ -296,14 +274,9 @@ describe("Custom Converter (passthrough)", () => {
         EventType.RUN_FINISHED,
       ]);
 
-      const forwarded = events[1] as BaseEvent & {
-        customField: string;
-        nestedData: { deep: { value: number } };
-        arrayField: number[];
-      };
-      expect(forwarded.customField).toBe("custom-value");
-      expect(forwarded.nestedData).toEqual({ deep: { value: 123 } });
-      expect(forwarded.arrayField).toEqual([1, 2, 3]);
+      expect(eventField<string>(events[1], "customField")).toBe("custom-value");
+      expect(eventField<{ deep: { value: number } }>(events[1], "nestedData")).toEqual({ deep: { value: 123 } });
+      expect(eventField<number[]>(events[1], "arrayField")).toEqual([1, 2, 3]);
     });
 
     it("should forward 1000+ events without loss", async () => {
@@ -330,9 +303,8 @@ describe("Custom Converter (passthrough)", () => {
 
       // Verify order preservation
       for (let i = 0; i < count; i++) {
-        const evt = contentEvents[i] as BaseEvent & { delta: string };
-        expect(evt.type).toBe(EventType.TEXT_MESSAGE_CHUNK);
-        expect(evt.delta).toBe(`chunk-${i}`);
+        expect(contentEvents[i].type).toBe(EventType.TEXT_MESSAGE_CHUNK);
+        expect(eventField<string>(contentEvents[i], "delta")).toBe(`chunk-${i}`);
       }
     });
   });

@@ -1,11 +1,12 @@
 import { describe, it, expect } from "vitest";
-import { EventType, type BaseEvent } from "@ag-ui/client";
+import { EventType } from "@ag-ui/client";
 import {
   createAgent,
   createDefaultInput,
   collectEvents,
   expectLifecycleWrapped,
   expectEventSequence,
+  eventField,
   tanstackTextChunk,
   tanstackToolCallStart,
   tanstackToolCallArgs,
@@ -28,16 +29,11 @@ describe("TanStack AI converter (via Agent)", () => {
       );
       expect(textEvents).toHaveLength(1);
 
-      const textEvent = textEvents[0] as BaseEvent & {
-        role: string;
-        messageId: string;
-        delta: string;
-      };
-      expect(textEvent.role).toBe("assistant");
-      expect(textEvent.delta).toBe("Hello world");
-      expect(textEvent.messageId).toBeDefined();
-      expect(typeof textEvent.messageId).toBe("string");
-      expect(textEvent.messageId.length).toBeGreaterThan(0);
+      expect(eventField<string>(textEvents[0], "role")).toBe("assistant");
+      expect(eventField<string>(textEvents[0], "delta")).toBe("Hello world");
+      expect(eventField<string>(textEvents[0], "messageId")).toBeDefined();
+      expect(typeof eventField<string>(textEvents[0], "messageId")).toBe("string");
+      expect(eventField<string>(textEvents[0], "messageId").length).toBeGreaterThan(0);
     });
 
     it("multiple text chunks share the same messageId", async () => {
@@ -52,10 +48,10 @@ describe("TanStack AI converter (via Agent)", () => {
 
       const textEvents = events.filter(
         (e) => e.type === EventType.TEXT_MESSAGE_CHUNK,
-      ) as (BaseEvent & { messageId: string })[];
+      );
       expect(textEvents).toHaveLength(3);
 
-      const messageIds = new Set(textEvents.map((e) => e.messageId));
+      const messageIds = new Set(textEvents.map((e) => eventField<string>(e, "messageId")));
       expect(messageIds.size).toBe(1);
     });
 
@@ -93,29 +89,16 @@ describe("TanStack AI converter (via Agent)", () => {
         EventType.RUN_FINISHED,
       ]);
 
-      const startEvent = events[1] as BaseEvent & {
-        toolCallId: string;
-        toolCallName: string;
-      };
-      expect(startEvent.toolCallId).toBe("tc-1");
-      expect(startEvent.toolCallName).toBe("myTool");
+      expect(eventField<string>(events[1], "toolCallId")).toBe("tc-1");
+      expect(eventField<string>(events[1], "toolCallName")).toBe("myTool");
 
-      const argsEvent1 = events[2] as BaseEvent & {
-        toolCallId: string;
-        delta: string;
-      };
-      expect(argsEvent1.toolCallId).toBe("tc-1");
-      expect(argsEvent1.delta).toBe('{"key":');
+      expect(eventField<string>(events[2], "toolCallId")).toBe("tc-1");
+      expect(eventField<string>(events[2], "delta")).toBe('{"key":');
 
-      const argsEvent2 = events[3] as BaseEvent & {
-        toolCallId: string;
-        delta: string;
-      };
-      expect(argsEvent2.toolCallId).toBe("tc-1");
-      expect(argsEvent2.delta).toBe('"value"}');
+      expect(eventField<string>(events[3], "toolCallId")).toBe("tc-1");
+      expect(eventField<string>(events[3], "delta")).toBe('"value"}');
 
-      const endEvent = events[4] as BaseEvent & { toolCallId: string };
-      expect(endEvent.toolCallId).toBe("tc-1");
+      expect(eventField<string>(events[4], "toolCallId")).toBe("tc-1");
     });
 
     it("TOOL_CALL_START sets parentMessageId", async () => {
@@ -128,13 +111,15 @@ describe("TanStack AI converter (via Agent)", () => {
 
       const textEvent = events.find(
         (e) => e.type === EventType.TEXT_MESSAGE_CHUNK,
-      ) as BaseEvent & { messageId: string };
+      )!;
       const toolStartEvent = events.find(
         (e) => e.type === EventType.TOOL_CALL_START,
-      ) as BaseEvent & { parentMessageId: string };
+      )!;
 
-      expect(toolStartEvent.parentMessageId).toBeDefined();
-      expect(toolStartEvent.parentMessageId).toBe(textEvent.messageId);
+      expect(eventField<string>(toolStartEvent, "parentMessageId")).toBeDefined();
+      expect(eventField<string>(toolStartEvent, "parentMessageId")).toBe(
+        eventField<string>(textEvent, "messageId"),
+      );
     });
 
     it("multiple tool calls in sequence each get correct events", async () => {
@@ -161,38 +146,20 @@ describe("TanStack AI converter (via Agent)", () => {
       ]);
 
       // Verify first tool call
-      const start1 = events[1] as BaseEvent & {
-        toolCallId: string;
-        toolCallName: string;
-      };
-      expect(start1.toolCallId).toBe("tc-1");
-      expect(start1.toolCallName).toBe("toolA");
+      expect(eventField<string>(events[1], "toolCallId")).toBe("tc-1");
+      expect(eventField<string>(events[1], "toolCallName")).toBe("toolA");
 
-      const args1 = events[2] as BaseEvent & {
-        toolCallId: string;
-        delta: string;
-      };
-      expect(args1.toolCallId).toBe("tc-1");
+      expect(eventField<string>(events[2], "toolCallId")).toBe("tc-1");
 
-      const end1 = events[3] as BaseEvent & { toolCallId: string };
-      expect(end1.toolCallId).toBe("tc-1");
+      expect(eventField<string>(events[3], "toolCallId")).toBe("tc-1");
 
       // Verify second tool call
-      const start2 = events[4] as BaseEvent & {
-        toolCallId: string;
-        toolCallName: string;
-      };
-      expect(start2.toolCallId).toBe("tc-2");
-      expect(start2.toolCallName).toBe("toolB");
+      expect(eventField<string>(events[4], "toolCallId")).toBe("tc-2");
+      expect(eventField<string>(events[4], "toolCallName")).toBe("toolB");
 
-      const args2 = events[5] as BaseEvent & {
-        toolCallId: string;
-        delta: string;
-      };
-      expect(args2.toolCallId).toBe("tc-2");
+      expect(eventField<string>(events[5], "toolCallId")).toBe("tc-2");
 
-      const end2 = events[6] as BaseEvent & { toolCallId: string };
-      expect(end2.toolCallId).toBe("tc-2");
+      expect(eventField<string>(events[6], "toolCallId")).toBe("tc-2");
     });
 
     it("tool call with no ARGS chunks produces only START + END", async () => {
@@ -240,9 +207,9 @@ describe("TanStack AI converter (via Agent)", () => {
       // Verify content of text events
       const textEvents = events.filter(
         (e) => e.type === EventType.TEXT_MESSAGE_CHUNK,
-      ) as (BaseEvent & { delta: string })[];
-      expect(textEvents[0].delta).toBe("Let me help. ");
-      expect(textEvents[1].delta).toBe("Here are the results.");
+      );
+      expect(eventField<string>(textEvents[0], "delta")).toBe("Let me help. ");
+      expect(eventField<string>(textEvents[1], "delta")).toBe("Here are the results.");
     });
   });
 
@@ -277,9 +244,9 @@ describe("TanStack AI converter (via Agent)", () => {
 
       const textEvent = events.find(
         (e) => e.type === EventType.TEXT_MESSAGE_CHUNK,
-      ) as BaseEvent & { delta: string };
-      expect(textEvent.delta).toBe(largeDelta);
-      expect(textEvent.delta.length).toBe(100_000);
+      )!;
+      expect(eventField<string>(textEvent, "delta")).toBe(largeDelta);
+      expect(eventField<string>(textEvent, "delta").length).toBe(100_000);
     });
   });
 });

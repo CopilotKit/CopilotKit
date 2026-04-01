@@ -1,11 +1,12 @@
 import { describe, it, expect } from "vitest";
-import { EventType, type BaseEvent } from "@ag-ui/client";
+import { EventType } from "@ag-ui/client";
 import {
   createAgent,
   createDefaultInput,
   collectEvents,
   expectLifecycleWrapped,
   expectEventSequence,
+  eventField,
   textStart,
   textDelta,
   toolCallStreamingStart,
@@ -36,15 +37,10 @@ describe("AI SDK Converter", () => {
       );
       expect(textChunks).toHaveLength(1);
 
-      const chunk = textChunks[0] as BaseEvent & {
-        role: string;
-        messageId: string;
-        delta: string;
-      };
-      expect(chunk.role).toBe("assistant");
-      expect(chunk.delta).toBe("Hello");
-      expect(chunk.messageId).toBeDefined();
-      expect(typeof chunk.messageId).toBe("string");
+      expect(eventField<string>(textChunks[0], "role")).toBe("assistant");
+      expect(eventField<string>(textChunks[0], "delta")).toBe("Hello");
+      expect(eventField<string>(textChunks[0], "messageId")).toBeDefined();
+      expect(typeof eventField<string>(textChunks[0], "messageId")).toBe("string");
     });
 
     it("text-start with provider id uses that id as messageId", async () => {
@@ -58,8 +54,8 @@ describe("AI SDK Converter", () => {
 
       const chunk = events.find(
         (e) => e.type === EventType.TEXT_MESSAGE_CHUNK,
-      ) as BaseEvent & { messageId: string };
-      expect(chunk.messageId).toBe("custom-msg-id");
+      )!;
+      expect(eventField<string>(chunk, "messageId")).toBe("custom-msg-id");
     });
 
     it('text-start with "0" generates a unique messageId (not "0")', async () => {
@@ -73,10 +69,10 @@ describe("AI SDK Converter", () => {
 
       const chunk = events.find(
         (e) => e.type === EventType.TEXT_MESSAGE_CHUNK,
-      ) as BaseEvent & { messageId: string };
-      expect(chunk.messageId).not.toBe("0");
-      expect(chunk.messageId).toBeDefined();
-      expect(chunk.messageId.length).toBeGreaterThan(0);
+      )!;
+      expect(eventField<string>(chunk, "messageId")).not.toBe("0");
+      expect(eventField<string>(chunk, "messageId")).toBeDefined();
+      expect(eventField<string>(chunk, "messageId").length).toBeGreaterThan(0);
     });
 
     it("multiple text deltas share the same messageId", async () => {
@@ -90,9 +86,11 @@ describe("AI SDK Converter", () => {
 
       const textChunks = events.filter(
         (e) => e.type === EventType.TEXT_MESSAGE_CHUNK,
-      ) as (BaseEvent & { messageId: string })[];
+      );
       expect(textChunks).toHaveLength(2);
-      expect(textChunks[0].messageId).toBe(textChunks[1].messageId);
+      expect(eventField<string>(textChunks[0], "messageId")).toBe(
+        eventField<string>(textChunks[1], "messageId"),
+      );
     });
 
     it("empty stream (only finish) emits only RUN_STARTED + RUN_FINISHED", async () => {
@@ -144,31 +142,22 @@ describe("AI SDK Converter", () => {
       ]);
 
       // Verify TOOL_CALL_START details
-      const startEvt = toolEvents[0] as BaseEvent & {
-        toolCallId: string;
-        toolCallName: string;
-      };
-      expect(startEvt.toolCallId).toBe("tc-1");
-      expect(startEvt.toolCallName).toBe("myTool");
+      expect(eventField<string>(toolEvents[0], "toolCallId")).toBe("tc-1");
+      expect(eventField<string>(toolEvents[0], "toolCallName")).toBe("myTool");
 
       // Verify TOOL_CALL_ARGS deltas
       const argsEvts = toolEvents.filter(
         (e) => e.type === EventType.TOOL_CALL_ARGS,
-      ) as (BaseEvent & { delta: string })[];
-      expect(argsEvts[0].delta).toBe('{"key":');
-      expect(argsEvts[1].delta).toBe('"value"}');
+      );
+      expect(eventField<string>(argsEvts[0], "delta")).toBe('{"key":');
+      expect(eventField<string>(argsEvts[1], "delta")).toBe('"value"}');
 
       // Verify TOOL_CALL_END
-      const endEvt = toolEvents[2 + 1] as BaseEvent & { toolCallId: string };
-      expect(endEvt.toolCallId).toBe("tc-1");
+      expect(eventField<string>(toolEvents[2 + 1], "toolCallId")).toBe("tc-1");
 
       // Verify TOOL_CALL_RESULT
-      const resultEvt = toolEvents[4] as BaseEvent & {
-        toolCallId: string;
-        content: string;
-      };
-      expect(resultEvt.toolCallId).toBe("tc-1");
-      expect(JSON.parse(resultEvt.content)).toEqual({ result: "ok" });
+      expect(eventField<string>(toolEvents[4], "toolCallId")).toBe("tc-1");
+      expect(JSON.parse(eventField<string>(toolEvents[4], "content"))).toEqual({ result: "ok" });
     });
 
     it("non-streamed tool call (tool-call with input, no prior tool-input-start) emits START + ARGS + END", async () => {
@@ -194,15 +183,10 @@ describe("AI SDK Converter", () => {
         EventType.TOOL_CALL_END,
       ]);
 
-      const startEvt = toolEvents[0] as BaseEvent & {
-        toolCallName: string;
-        toolCallId: string;
-      };
-      expect(startEvt.toolCallId).toBe("tc-2");
-      expect(startEvt.toolCallName).toBe("directTool");
+      expect(eventField<string>(toolEvents[0], "toolCallId")).toBe("tc-2");
+      expect(eventField<string>(toolEvents[0], "toolCallName")).toBe("directTool");
 
-      const argsEvt = toolEvents[1] as BaseEvent & { delta: string };
-      expect(JSON.parse(argsEvt.delta)).toEqual({ foo: "bar" });
+      expect(JSON.parse(eventField<string>(toolEvents[1], "delta"))).toEqual({ foo: "bar" });
     });
 
     it("no duplicate START after tool-input-start followed by tool-call", async () => {
@@ -218,7 +202,7 @@ describe("AI SDK Converter", () => {
       const startEvents = events.filter(
         (e) =>
           e.type === EventType.TOOL_CALL_START &&
-          (e as BaseEvent & { toolCallId: string }).toolCallId === "tc-3",
+          eventField<string>(e, "toolCallId") === "tc-3",
       );
       expect(startEvents).toHaveLength(1);
     });
@@ -244,12 +228,12 @@ describe("AI SDK Converter", () => {
       const startsA = events.filter(
         (e) =>
           e.type === EventType.TOOL_CALL_START &&
-          (e as BaseEvent & { toolCallId: string }).toolCallId === "tc-a",
+          eventField<string>(e, "toolCallId") === "tc-a",
       );
       const startsB = events.filter(
         (e) =>
           e.type === EventType.TOOL_CALL_START &&
-          (e as BaseEvent & { toolCallId: string }).toolCallId === "tc-b",
+          eventField<string>(e, "toolCallId") === "tc-b",
       );
       expect(startsA).toHaveLength(1);
       expect(startsB).toHaveLength(1);
@@ -258,29 +242,29 @@ describe("AI SDK Converter", () => {
       const argsA = events.filter(
         (e) =>
           e.type === EventType.TOOL_CALL_ARGS &&
-          (e as BaseEvent & { toolCallId: string }).toolCallId === "tc-a",
-      ) as (BaseEvent & { delta: string })[];
+          eventField<string>(e, "toolCallId") === "tc-a",
+      );
       const argsB = events.filter(
         (e) =>
           e.type === EventType.TOOL_CALL_ARGS &&
-          (e as BaseEvent & { toolCallId: string }).toolCallId === "tc-b",
-      ) as (BaseEvent & { delta: string })[];
-      expect(argsA[0].delta).toBe('{"a":1}');
-      expect(argsB[0].delta).toBe('{"b":2}');
+          eventField<string>(e, "toolCallId") === "tc-b",
+      );
+      expect(eventField<string>(argsA[0], "delta")).toBe('{"a":1}');
+      expect(eventField<string>(argsB[0], "delta")).toBe('{"b":2}');
 
       // Verify results are correctly paired
       const resultsA = events.filter(
         (e) =>
           e.type === EventType.TOOL_CALL_RESULT &&
-          (e as BaseEvent & { toolCallId: string }).toolCallId === "tc-a",
-      ) as (BaseEvent & { content: string })[];
+          eventField<string>(e, "toolCallId") === "tc-a",
+      );
       const resultsB = events.filter(
         (e) =>
           e.type === EventType.TOOL_CALL_RESULT &&
-          (e as BaseEvent & { toolCallId: string }).toolCallId === "tc-b",
-      ) as (BaseEvent & { content: string })[];
-      expect(JSON.parse(resultsA[0].content)).toBe("resultA");
-      expect(JSON.parse(resultsB[0].content)).toBe("resultB");
+          eventField<string>(e, "toolCallId") === "tc-b",
+      );
+      expect(JSON.parse(eventField<string>(resultsA[0], "content"))).toBe("resultA");
+      expect(JSON.parse(eventField<string>(resultsB[0], "content"))).toBe("resultB");
     });
   });
 
@@ -320,25 +304,13 @@ describe("AI SDK Converter", () => {
       ]);
 
       // Verify messageId consistency
-      const rStart = reasoningEvents[0] as BaseEvent & { messageId: string };
-      const rMsgStart = reasoningEvents[1] as BaseEvent & {
-        messageId: string;
-        role: string;
-      };
-      const rContent = reasoningEvents[2] as BaseEvent & {
-        messageId: string;
-        delta: string;
-      };
-      const rMsgEnd = reasoningEvents[3] as BaseEvent & { messageId: string };
-      const rEnd = reasoningEvents[4] as BaseEvent & { messageId: string };
-
-      expect(rStart.messageId).toBe("r-1");
-      expect(rMsgStart.messageId).toBe("r-1");
-      expect(rMsgStart.role).toBe("reasoning");
-      expect(rContent.messageId).toBe("r-1");
-      expect(rContent.delta).toBe("thinking...");
-      expect(rMsgEnd.messageId).toBe("r-1");
-      expect(rEnd.messageId).toBe("r-1");
+      expect(eventField<string>(reasoningEvents[0], "messageId")).toBe("r-1");
+      expect(eventField<string>(reasoningEvents[1], "messageId")).toBe("r-1");
+      expect(eventField<string>(reasoningEvents[1], "role")).toBe("reasoning");
+      expect(eventField<string>(reasoningEvents[2], "messageId")).toBe("r-1");
+      expect(eventField<string>(reasoningEvents[2], "delta")).toBe("thinking...");
+      expect(eventField<string>(reasoningEvents[3], "messageId")).toBe("r-1");
+      expect(eventField<string>(reasoningEvents[4], "messageId")).toBe("r-1");
     });
 
     it("empty reasoning deltas are skipped", async () => {
@@ -355,9 +327,9 @@ describe("AI SDK Converter", () => {
 
       const contentEvents = events.filter(
         (e) => e.type === EventType.REASONING_MESSAGE_CONTENT,
-      ) as (BaseEvent & { delta: string })[];
+      );
       expect(contentEvents).toHaveLength(1);
-      expect(contentEvents[0].delta).toBe("actual content");
+      expect(eventField<string>(contentEvents[0], "delta")).toBe("actual content");
     });
 
     it("auto-close reasoning before text-delta", async () => {
@@ -470,9 +442,9 @@ describe("AI SDK Converter", () => {
 
       const chunk = events.find(
         (e) => e.type === EventType.TEXT_MESSAGE_CHUNK,
-      ) as BaseEvent & { delta: string };
-      expect(chunk.delta).toBe(largeText);
-      expect(chunk.delta.length).toBe(100_000);
+      )!;
+      expect(eventField<string>(chunk, "delta")).toBe(largeText);
+      expect(eventField<string>(chunk, "delta").length).toBe(100_000);
     });
   });
 });
