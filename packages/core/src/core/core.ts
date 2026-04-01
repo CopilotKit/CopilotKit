@@ -8,6 +8,7 @@ import {
   RuntimeLicenseStatus,
   IntelligenceRuntimeInfo,
 } from "../types";
+import { DevtoolsListener } from "./devtools-listener";
 import { AgentRegistry, CopilotKitCoreAddAgentParams } from "./agent-registry";
 import { ContextStore } from "./context-store";
 import { SuggestionEngine } from "./suggestion-engine";
@@ -242,6 +243,7 @@ export class CopilotKitCore {
   private suggestionEngine: SuggestionEngine;
   private runHandler: RunHandler;
   private stateManager: StateManager;
+  private devtoolsListener: DevtoolsListener;
 
   constructor({
     runtimeUrl,
@@ -265,12 +267,16 @@ export class CopilotKitCore {
     this.suggestionEngine = new SuggestionEngine(this);
     this.runHandler = new RunHandler(this);
     this.stateManager = new StateManager(this);
+    this.devtoolsListener = new DevtoolsListener({
+      getAgents: () => this.agents,
+    });
 
     // Initialize each subsystem
     this.agentRegistry.initialize(agents__unsafe_dev_only);
     this.runHandler.initialize(tools);
     this.suggestionEngine.initialize(suggestionsConfig);
     this.stateManager.initialize();
+    this.devtoolsListener.initialize();
 
     this.agentRegistry.setRuntimeTransport(runtimeTransport);
     this.agentRegistry.setRuntimeUrl(runtimeUrl);
