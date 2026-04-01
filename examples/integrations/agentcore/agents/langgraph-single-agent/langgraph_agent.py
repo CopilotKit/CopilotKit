@@ -138,11 +138,16 @@ async def invocations(payload: dict, context: RequestContext):
         )
 
     try:
-        mcp_client = await create_gateway_mcp_client()
-        tools = await mcp_client.get_tools()
-        graph = await create_agent(
+        try:
+            mcp_client = await create_gateway_mcp_client()
+            gateway_tools = await mcp_client.get_tools()
+        except Exception as gw_err:
+            logging.warning("Gateway tools unavailable (running locally?): %s", gw_err)
+            gateway_tools = []
+
+        graph = create_agent(
             model=_build_model(streaming=True),
-            tools=[*tools, query_data, *todo_tools],  # MCP tools + data + todo tools
+            tools=[*gateway_tools, query_data, *todo_tools],
             checkpointer=_build_checkpointer(),
             middleware=[CopilotKitMiddleware()],
             system_prompt=SYSTEM_PROMPT,
