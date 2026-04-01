@@ -3,23 +3,55 @@ import {
   CopilotRuntime,
   createCopilotEndpoint,
   InMemoryAgentRunner,
+  Agent,
 } from "@copilotkit/runtime/v2";
 import { BuiltInAgent } from "@copilotkit/runtime/v2";
 import { chat } from "@tanstack/ai";
 import { openaiText } from "@tanstack/ai-openai";
-import { TanStackAIAgent } from "./agent";
 
 export default await createHonoServer({
   configure(app) {
-    const tanstackAgent = new TanStackAIAgent(
-      ({ messages, systemPrompts, abortController }) =>
-        chat({
+    const agent = new Agent({
+      type: "tanstack",
+      factory: ({ input, abortController }) => {
+        const messages = input.messages
+          .filter((m) => m.role !== "developer" && m.role !== "system")
+          .map((m) => ({
+            role: m.role as "user" | "assistant" | "tool",
+            content: typeof m.content === "string" ? m.content : null,
+          }));
+
+        const systemPrompts: string[] = [];
+        for (const m of input.messages) {
+          if ((m.role === "system" || m.role === "developer") && m.content) {
+            systemPrompts.push(
+              typeof m.content === "string"
+                ? m.content
+                : JSON.stringify(m.content),
+            );
+          }
+        }
+
+        if (input.context?.length) {
+          for (const ctx of input.context) {
+            systemPrompts.push(`${ctx.description}:\n${ctx.value}`);
+          }
+        }
+
+        if (input.state && Object.keys(input.state).length > 0) {
+          systemPrompts.push(
+            `Application State:\n\`\`\`json\n${JSON.stringify(input.state, null, 2)}\n\`\`\``,
+          );
+        }
+
+        return chat({
           adapter: openaiText("gpt-4o"),
           messages,
           systemPrompts,
           abortController,
-        }),
-    );
+        });
+      },
+    });
 
     const builtinAgent = new BuiltInAgent({
       model: "openai/gpt-4o",
@@ -29,7 +61,7 @@ export default await createHonoServer({
 
     const runtime = new CopilotRuntime({
       agents: {
-        tanstack: tanstackAgent,
+        tanstack: agent,
         builtin: builtinAgent,
       },
       runner: new InMemoryAgentRunner(),
