@@ -17,8 +17,8 @@ import {
   HumanInTheLoopToolRenderer,
   injectAgentStore,
   registerHumanInTheLoop,
-} from "@copilotkit/angular";
-import { RenderToolCalls } from "@copilotkit/angular";
+} from "@copilotkitnext/angular";
+import { RenderToolCalls } from "@copilotkitnext/angular";
 import {
   WEB_INSPECTOR_TAG,
   type WebInspectorElement,

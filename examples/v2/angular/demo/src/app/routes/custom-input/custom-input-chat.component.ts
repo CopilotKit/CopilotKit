@@ -4,7 +4,7 @@ import {
   CopilotChatView,
   CopilotChat,
   provideCopilotChatLabels,
-} from "@copilotkit/angular";
+} from "@copilotkitnext/angular";
 import { CustomChatInputComponent } from "./custom-chat-input.component";
 
 @Component({
