@@ -3,7 +3,7 @@
 /**
  * A2UI Page Component
  *
- * Uses @copilotkitnext/react for A2A compatibility.
+ * Uses @copilotkit/react-core/v2 for A2A compatibility.
  * The A2AAgent from @ag-ui/a2a works with the v2 runtime API.
  */
 
@@ -11,7 +11,7 @@ import {
   CopilotKitProvider,
   CopilotSidebar,
   CopilotPopup,
-} from "@copilotkitnext/react";
+} from "@copilotkit/react-core/v2";
 import { createA2UIMessageRenderer } from "@copilotkit/a2ui-renderer";
 import { a2uiTheme } from "../theme";
 import { useMediaQuery } from "@/hooks/use-media-query";

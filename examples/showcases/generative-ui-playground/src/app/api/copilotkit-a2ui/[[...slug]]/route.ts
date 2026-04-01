@@ -1,7 +1,7 @@
 /**
  * CopilotKit API route for A2UI agent.
  *
- * Uses @copilotkitnext/runtime for A2A compatibility.
+ * Uses @copilotkit/runtime for A2A compatibility.
  * The A2AAgent from @ag-ui/a2a works with the v2 runtime API.
  */
 
@@ -9,7 +9,7 @@ import {
   CopilotRuntime,
   createCopilotEndpoint,
   InMemoryAgentRunner,
-} from "@copilotkitnext/runtime";
+} from "@copilotkit/runtime";
 import { handle } from "hono/vercel";
 import { A2AAgent } from "@ag-ui/a2a";
 import { A2AClient } from "@a2a-js/sdk/client";

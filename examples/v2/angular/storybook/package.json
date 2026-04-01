@@ -1,11 +1,11 @@
 {
   "name": "@copilotkit-storybook/angular",
   "private": true,
-  "version": "0.0.5",
+  "version": "0.0.6-next.1",
   "scripts": {
-    "dev": "pnpm --filter @copilotkitnext/angular run build:css && sleep 1 && ng run storybook-angular:storybook",
+    "dev": "pnpm --filter @copilotkit/angular run build:css && sleep 1 && ng run storybook-angular:storybook",
     "build": "ng run storybook-angular:build-storybook",
-    "storybook:dev": "pnpm --filter @copilotkitnext/angular run build:css && sleep 1 && ng run storybook-angular:storybook",
+    "storybook:dev": "pnpm --filter @copilotkit/angular run build:css && sleep 1 && ng run storybook-angular:storybook",
     "storybook:build": "ng run storybook-angular:build-storybook"
   },
   "dependencies": {
@@ -17,7 +17,7 @@
     "@angular/forms": "^19.0.0",
     "@angular/platform-browser": "^19.0.0",
     "@angular/platform-browser-dynamic": "^19.0.0",
-    "@copilotkitnext/core": "workspace:^",
+    "@copilotkit/core": "workspace:^",
     "rxjs": "^7.8.1",
     "tslib": "^2.8.1",
     "zod": "^3.25.75",
@@ -28,7 +28,7 @@
     "@angular/cli": "^19.0.0",
     "@angular/compiler-cli": "^19.0.0",
     "@copilotkitnext/angular": "workspace:*",
-    "@copilotkitnext/typescript-config": "workspace:*",
+    "@copilotkit/typescript-config": "workspace:*",
     "@storybook/addon-essentials": "^8",
     "@storybook/addon-interactions": "^8",
     "@storybook/addon-themes": "^8",

@@ -523,6 +523,8 @@ Before you begin, you'll need the following:
                 - Check that your OpenAI API key is correctly set in the `.env` file
                 - If using an existing agent, ensure your LangSmith API key is also configured
                 - Make sure you're in the same folder as your `langgraph.json` file when running the `langgraph dev` command
+                - **"graph is nullish" error (JavaScript starters):** This means the LangGraph CLI couldn't load your graph. Ensure the export name in your `langgraph.json` matches your code (e.g., `"starterAgent": "./src/agent.ts:graph"` requires `export const graph = ...` in `agent.ts`). Also verify all dependencies are installed with `npm install` in your agent directory.
+                - Make sure the runtime endpoint path matches the `runtimeUrl` in your CopilotKit provider
             </Accordion>
         </Accordions>
 

@@ -12,8 +12,8 @@ import {
   useAgent,
   useCopilotKit,
   useCopilotChatConfiguration,
-} from "@copilotkitnext/react";
-import { randomUUID, DEFAULT_AGENT_ID } from "@copilotkitnext/shared";
+} from "@copilotkit/react-core/v2";
+import { randomUUID, DEFAULT_AGENT_ID } from "@copilotkit/shared";
 
 export function useSendMessage() {
   const { agent } = useAgent({ agentId: DEFAULT_AGENT_ID });

@@ -1,0 +1,67 @@
+name: test / unit
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "docs/**"
+      - "README.md"
+      - "examples/**"
+      - ".github/workflows/demos_preview.yml"
+      - ".github/workflows/release.yml"
+      - "packages/**/package.json"
+      - "packages/**/CHANGELOG.md"
+      - ".changeset/**"
+  pull_request:
+    branches: [main]
+    paths-ignore:
+      - "docs/**"
+      - "README.md"
+      - "examples/**"
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: "Branch to run the workflow on"
+        required: true
+        default: "main"
+        type: string
+env:
+  NODE_OPTIONS: "--max-old-space-size=4096"
+  NX_CI_EXECUTION_ID: ${{ github.head_ref }}-${{ github.sha }}-${{ github.run_attempt }}
+  NX_CI_EXECUTION_ENV: "Unit Tests"
+
+jobs:
+  unit:
+    name: "unit"
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: [20.x, 22.x, 24.x]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.branch || github.ref }}
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: "10.13.1"
+
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate GraphQL codegen files
+        run: npx nx run @copilotkit/runtime-client-gql:graphql-codegen
+
+      - name: Build
+        run: pnpm run build
+
+      - name: Run tests
+        run: pnpm run test

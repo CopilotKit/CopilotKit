@@ -1,6 +1,7 @@
 "use client";
 
 import { TodoColumn } from "./todo-column";
+import { Button } from "@/components/ui/button";
 
 interface Todo {
   id: string;
@@ -70,20 +71,15 @@ export function TodoList({ todos, onUpdate, isAgentRunning }: TodoListProps) {
     return (
       <div className="flex flex-col items-center justify-center h-full gap-4">
         <div className="text-5xl">✏️</div>
-        <p className="text-[16px] font-semibold text-neutral-900 dark:text-neutral-100">
-          No tasks yet
+        <p className="text-base font-semibold text-[--foreground]">
+          No todos yet
         </p>
-        <p className="text-[14px] text-neutral-500 dark:text-neutral-400">
+        <p className="text-sm text-[--muted-foreground]">
           Create your first task to get started
         </p>
-        <button
-          onClick={addTodo}
-          className="mt-2 px-5 py-2.5 text-[14px] font-semibold rounded-full cursor-pointer transition-colors text-white bg-neutral-900 hover:bg-neutral-700 dark:text-neutral-900 dark:bg-neutral-100 dark:hover:bg-neutral-300"
-          aria-label="Add your first todo task"
-          disabled={isAgentRunning}
-        >
+        <Button onClick={addTodo} disabled={isAgentRunning} className="mt-2">
           Add a task
-        </button>
+        </Button>
       </div>
     );
   }
@@ -93,7 +89,7 @@ export function TodoList({ todos, onUpdate, isAgentRunning }: TodoListProps) {
       <TodoColumn
         title="To Do"
         todos={pendingTodos}
-        emptyMessage="No pending tasks"
+        emptyMessage="No pending todos"
         showAddButton
         onAddTodo={addTodo}
         onToggleStatus={toggleStatus}
@@ -106,7 +102,7 @@ export function TodoList({ todos, onUpdate, isAgentRunning }: TodoListProps) {
       <TodoColumn
         title="Done"
         todos={completedTodos}
-        emptyMessage="No completed tasks yet"
+        emptyMessage="No completed todos yet"
         onToggleStatus={toggleStatus}
         onDelete={deleteTodo}
         onUpdateTitle={updateTitle}

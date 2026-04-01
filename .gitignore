@@ -14,6 +14,7 @@ node_modules
 cdk_outputs.json
 .nx
 test-run-comment.md
+superpowers/
 
 *.egg-info/
 .installed.cfg
@@ -44,6 +45,7 @@ coverage
 .turbo
 .langgraph_api
 lefthook-local.yml
+.husky/
 .langgraph_api
 
 # Binary artifacts

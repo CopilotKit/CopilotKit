@@ -175,22 +175,21 @@ Frontend (Next.js)           CopilotKit Runtime           MCP Server
 
 ## Packages
 
-**CRITICAL**: MCP Apps support requires `@copilotkitnext/*@1.51.0-next.4` or later. The `0.0.x` versions do NOT include `MCPAppsActivityRenderer`.
+**CRITICAL**: MCP Apps support requires `@copilotkit/*@1.51.0-next.4` or later. The `0.0.x` versions do NOT include `MCPAppsActivityRenderer`.
 
 ```json
-"@copilotkitnext/agent": "1.51.0-next.4",
-"@copilotkitnext/core": "1.51.0-next.4",
-"@copilotkitnext/react": "1.51.0-next.4",
-"@copilotkitnext/runtime": "1.51.0-next.4",
-"@copilotkitnext/shared": "1.51.0-next.4",
-"@copilotkitnext/web-inspector": "1.51.0-next.4",
+"@copilotkit/core": "1.51.0-next.4",
+"@copilotkit/react-core": "1.51.0-next.4",
+"@copilotkit/runtime": "1.51.0-next.4",
+"@copilotkit/shared": "1.51.0-next.4",
+"@copilotkit/web-inspector": "1.51.0-next.4",
 "@ag-ui/mcp-apps-middleware": "^0.0.1",
 "zod": "^3.25.75"
 ```
 
-- `@copilotkitnext/react` - CopilotKitProvider, CopilotSidebar, MCPAppsActivityRenderer
-- `@copilotkitnext/runtime` - CopilotRuntime, createCopilotEndpoint
-- `@copilotkitnext/agent` - BasicAgent (deprecated, use BuiltInAgent)
+- `@copilotkit/react-core/v2` - CopilotKitProvider, CopilotSidebar, MCPAppsActivityRenderer
+- `@copilotkit/runtime` - CopilotRuntime, createCopilotEndpoint
+- `@copilotkit/runtime/v2` - BuiltInAgent (agent merged into runtime)
 - `@ag-ui/mcp-apps-middleware` - MCPAppsMiddleware
 - `@modelcontextprotocol/sdk` - MCP server SDK
 
@@ -198,5 +197,5 @@ Frontend (Next.js)           CopilotKit Runtime           MCP Server
 
 - BasicAgent is deprecated in favor of BuiltInAgent (warning only, still works)
 - Timer accuracy depends on browser tab being focused
-- Must use `@copilotkitnext/*@1.51.0-next.4+` for MCP Apps - older versions lack UI rendering
+- Must use `@copilotkit/*@1.51.0-next.4+` for MCP Apps - older versions lack UI rendering
 - Sandboxed iframes block external CDN scripts (use inline styles instead of Tailwind CDN)

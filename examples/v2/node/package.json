@@ -9,14 +9,13 @@
     "check-types": "tsc --noEmit"
   },
   "devDependencies": {
-    "@copilotkitnext/typescript-config": "workspace:^",
+    "@copilotkit/typescript-config": "workspace:^",
     "@types/node": "^22.10.7",
     "tsx": "^4.19.2",
     "typescript": "^5.8.2"
   },
   "dependencies": {
-    "@copilotkitnext/agent": "workspace:^",
-    "@copilotkitnext/runtime": "workspace:^",
+    "@copilotkit/runtime": "workspace:^",
     "@hono/node-server": "^1.13.6"
   }
 }

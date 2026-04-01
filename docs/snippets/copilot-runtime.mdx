@@ -74,6 +74,52 @@ When you register multiple agents with the runtime, it handles discovery and rou
 
 Features like [threads](/premium/threads), [observability](/premium/observability), and the [inspector](/premium/inspector) are provided through the runtime. These give you conversation persistence, monitoring, and debugging capabilities out of the box.
 
+## Built-in Middleware
+
+The runtime supports two first-class middleware options you can enable directly on `CopilotRuntime` without calling `.use()` on each agent manually.
+
+### A2UI
+
+Pass `a2ui: {}` to automatically apply `A2UIMiddleware` to all registered agents:
+
+```ts title="app/api/copilotkit/route.ts"
+const runtime = new CopilotRuntime({
+  agents: { default: myAgent },
+  a2ui: {},  // enables A2UI rendering for all agents
+});
+```
+
+To scope it to specific agents only, pass an `agents` list:
+
+```ts
+a2ui: { agents: ["my-agent"] }
+```
+
+On the frontend, the A2UI renderer activates automatically — no extra configuration needed. If you want to override the default theme, pass an `a2ui` prop to `<CopilotKit>`:
+
+```tsx
+<CopilotKit runtimeUrl="/api/copilotkit" a2ui={{ theme: myCustomTheme }}>
+  {children}
+</CopilotKit>
+```
+
+### mcpApps
+
+Pass `mcpApps` to configure MCP servers for all agents from a single place:
+
+```ts title="app/api/copilotkit/route.ts"
+const runtime = new CopilotRuntime({
+  agents: { default: myAgent },
+  mcpApps: {
+    servers: [
+      { type: "http", url: "http://localhost:3108/mcp", serverId: "my-server" },
+    ],
+  },
+});
+```
+
+Each server entry optionally accepts an `agentId` field to scope that server to a single agent. Without it, the server is available to all agents.
+
 ## What If I Want to Connect to My AG-UI Agent Directly?
 
 CopilotKit is built on the [AG-UI protocol](/ag-ui-protocol), which is an open standard. If you want to connect your frontend directly to an AG-UI-compatible agent without the runtime, you can do so by passing agent instances directly to the `CopilotKit` provider:

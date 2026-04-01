@@ -105,35 +105,34 @@ Now we'll use the `useRenderTool` hook to render the tool call in the UI with a 
 
 import { useRenderTool } from "@copilotkit/react-core/v2"; // [!code highlight]
 import { CopilotSidebar } from "@copilotkit/react-core/v2";
+import { z } from "zod"; // [!code highlight]
 
 export default function Page() {
   // [!code highlight:41]
+  const weatherParams = z.object({
+    location: z.string().describe("The location to get weather for"),
+  });
+
   useRenderTool({
     name: "get_weather",
-    parameters: [
-      {
-        name: "location",
-        description: "The location to get weather for",
-        required: true,
-      },
-    ],
-    render: ({ status, args, result }) => {
+    parameters: weatherParams,
+    render: ({ status, parameters, result }) => {
       if (status === "executing") {
         return (
           <div className="p-4 bg-blue-50 rounded-lg">
             <p className="text-sm text-blue-600">
-              Getting weather for {args.location}...
+              Getting weather for {parameters.location}...
             </p>
           </div>
         );
       }
 
       if (status === "complete" && result) {
-        const weather = result;
+        const weather = JSON.parse(result);
         return (
           <div className="p-4 bg-white border rounded-lg shadow-sm">
             <h3 className="font-semibold text-lg mb-2">
-              Weather in {args.location}
+              Weather in {parameters.location}
             </h3>
             <div className="space-y-1 text-sm">
               <p>🌡️ Temperature: {weather.temperature}°F</p>
@@ -178,18 +177,16 @@ You should see the custom UI component render with the weather information beaut
 You can access the tool arguments even while the tool is still executing:
 
 ```tsx
+const weatherParams = z.object({
+  location: z.string().describe("The location to get weather for"),
+});
+
 useRenderTool({
   name: "get_weather",
-  parameters: [
-    {
-      name: "location",
-      description: "The location to get weather for",
-      required: true,
-    },
-  ],
-  render: ({ status, args, result }) => {
-    // args is available immediately, even when status is "executing"
-    const location = args.location;
+  parameters: weatherParams,
+  render: ({ status, parameters, result }) => {
+    // parameters is available immediately, even when status is "executing"
+    const location = parameters.location;
 
     return (
       <div className="p-4 bg-blue-50 rounded-lg">
@@ -197,7 +194,7 @@ useRenderTool({
           <p>Fetching weather for {location}...</p>
         )}
         {status === "complete" && result && (
-          <p>Weather in {location}: {result.temperature}°F</p>
+          <p>Weather in {location}: {JSON.parse(result).temperature}°F</p>
         )}
       </div>
     );

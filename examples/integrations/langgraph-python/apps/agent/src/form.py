@@ -4,7 +4,7 @@ from langchain.tools import tool
 @tool
 def generate_form() -> str:
   """
-  Generates a login form for the user to sign in.
+  Generates an event registration form for the user to sign up for an event.
   """
   components = [
       {
@@ -22,11 +22,11 @@ def generate_form() -> str:
                   "children": {
                       "explicitList": [
                           "header",
+                          "name-field",
                           "email-field",
-                          "password-field",
-                          "login-btn",
-                          "divider",
-                          "signup-text"
+                          "event-type-field",
+                          "dietary-field",
+                          "register-btn"
                       ]
                   },
                   "gap": "medium"
@@ -52,7 +52,7 @@ def generate_form() -> str:
           "component": {
               "Text": {
                   "text": {
-                      "literalString": "Welcome back"
+                      "literalString": "Event Registration"
                   },
                   "usageHint": "h2"
               }
@@ -63,9 +63,26 @@ def generate_form() -> str:
           "component": {
               "Text": {
                   "text": {
-                      "literalString": "Sign in to your account"
+                      "literalString": "Register for the upcoming CopilotKit Developer Summit"
                   },
                   "usageHint": "caption"
+              }
+          }
+      },
+      {
+          "id": "name-field",
+          "component": {
+              "TextField": {
+                  "value": {
+                      "path": "/name"
+                  },
+                  "placeholder": {
+                      "literalString": "Your full name"
+                  },
+                  "label": {
+                      "literalString": "Full Name"
+                  },
+                  "action": "updateName"
               }
           }
       },
@@ -77,7 +94,7 @@ def generate_form() -> str:
                       "path": "/email"
                   },
                   "placeholder": {
-                      "literalString": "Email address"
+                      "literalString": "you@example.com"
                   },
                   "label": {
                       "literalString": "Email"
@@ -87,89 +104,55 @@ def generate_form() -> str:
           }
       },
       {
-          "id": "password-field",
+          "id": "event-type-field",
           "component": {
               "TextField": {
                   "value": {
-                      "path": "/password"
+                      "path": "/eventType"
                   },
                   "placeholder": {
-                      "literalString": "Password"
+                      "literalString": "Workshop, Talk, or Both"
                   },
                   "label": {
-                      "literalString": "Password"
+                      "literalString": "Session Type"
                   },
-                  "action": "updatePassword"
+                  "action": "updateEventType"
               }
           }
       },
       {
-          "id": "login-btn-text",
+          "id": "dietary-field",
+          "component": {
+              "TextField": {
+                  "value": {
+                      "path": "/dietary"
+                  },
+                  "placeholder": {
+                      "literalString": "Any dietary restrictions?"
+                  },
+                  "label": {
+                      "literalString": "Dietary Restrictions"
+                  },
+                  "action": "updateDietary"
+              }
+          }
+      },
+      {
+          "id": "register-btn-text",
           "component": {
               "Text": {
                   "text": {
-                      "literalString": "Sign in"
+                      "literalString": "Register"
                   }
               }
           }
       },
       {
-          "id": "login-btn",
+          "id": "register-btn",
           "component": {
               "Button": {
-                  "child": "login-btn-text",
-                  "action": "login"
-              }
-          }
-      },
-      {
-          "id": "divider",
-          "component": {
-              "Divider": {}
-          }
-      },
-      {
-          "id": "signup-text",
-          "component": {
-              "Row": {
-                  "children": {
-                      "explicitList": [
-                          "no-account",
-                          "signup-link"
-                      ]
-                  },
-                  "distribution": "center",
-                  "gap": "small"
-              }
-          }
-      },
-      {
-          "id": "no-account",
-          "component": {
-              "Text": {
-                  "text": {
-                      "literalString": "Don't have an account?"
-                  },
-                  "usageHint": "caption"
-              }
-          }
-      },
-      {
-          "id": "signup-link-text",
-          "component": {
-              "Text": {
-                  "text": {
-                      "literalString": "Sign up"
-                  }
-              }
-          }
-      },
-      {
-          "id": "signup-link",
-          "component": {
-              "Button": {
-                  "child": "signup-link-text",
-                  "action": "signup"
+                  "child": "register-btn-text",
+                  "action": "register"
               }
           }
       }
@@ -178,13 +161,13 @@ def generate_form() -> str:
   return json.dumps([
       {
           "surfaceUpdate": {
-              "surfaceId": "login-form",
+              "surfaceId": "event-registration",
               "components": components
           }
       },
       {
           "beginRendering": {
-              "surfaceId": "login-form",
+              "surfaceId": "event-registration",
               "root": "root"
           }
       }

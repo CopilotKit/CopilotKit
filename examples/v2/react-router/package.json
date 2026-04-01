@@ -1,0 +1,45 @@
+{
+  "name": "react-router-example",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "react-router dev",
+    "build": "react-router build",
+    "start": "react-router-serve ./build/server/index.js"
+  },
+  "dependencies": {
+    "@ag-ui/client": "0.0.48",
+    "@copilotkit/react-core": "workspace:*",
+    "@copilotkit/runtime": "workspace:*",
+    "@copilotkit/shared": "workspace:*",
+    "@tanstack/ai": "latest",
+    "@tanstack/ai-openai": "latest",
+    "hono": "^4.11.4",
+    "@react-router/node": "^7.11.0",
+    "isbot": "^5.1.27",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "react-router": "^7.11.0",
+    "react-router-hono-server": "^2.22.0",
+    "rxjs": "^7.8.1"
+  },
+  "devDependencies": {
+    "@react-router/dev": "^7.11.0",
+    "@react-router/fs-routes": "^7.11.0",
+    "@tailwindcss/vite": "^4.0.0",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "tailwindcss": "^4.0.0",
+    "typescript": "~5.7.0",
+    "vite": "^6.0.0",
+    "vite-tsconfig-paths": "^4.3.0"
+  },
+  "nx": {
+    "targets": {
+      "build": {
+        "cache": false
+      }
+    }
+  }
+}
