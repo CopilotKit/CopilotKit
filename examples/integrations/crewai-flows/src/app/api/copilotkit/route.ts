@@ -14,7 +14,7 @@ const serviceAdapter = new ExperimentalEmptyAdapter();
 //    integration to setup the connection.
 const runtime = new CopilotRuntime({
   agents: {
-    sample_agent: new HttpAgent({ url: "http://localhost:8000/" }),
+    sample_agent: new HttpAgent({ url: process.env.AGENT_URL || "http://localhost:8000/" }),
   },
 });
 
