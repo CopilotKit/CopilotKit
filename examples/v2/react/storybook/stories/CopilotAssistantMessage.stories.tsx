@@ -4,7 +4,7 @@ import {
   CopilotChatConfigurationProvider,
   CopilotKitProvider,
   type CopilotChatAssistantMessageProps,
-} from "@copilotkitnext/react";
+} from "@copilotkit/react-core/v2";
 
 // Simple default message
 const simpleMessage = {

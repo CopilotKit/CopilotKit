@@ -7,9 +7,9 @@ import {
   useAgent,
   useCopilotKit,
   useCopilotChatConfiguration,
-} from "@copilotkitnext/react";
+} from "@copilotkit/react-core/v2";
 import { useMediaQuery } from "@/hooks/use-media-query";
-import { randomUUID, DEFAULT_AGENT_ID } from "@copilotkitnext/shared";
+import { randomUUID, DEFAULT_AGENT_ID } from "@copilotkit/shared";
 import { useCallback } from "react";
 
 export const dynamic = "force-dynamic";

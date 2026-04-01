@@ -1,5 +1,5 @@
 ---
-"@copilotkitnext/agent": patch
+"@copilotkit/runtime": patch
 ---
 
 Add vertex AI

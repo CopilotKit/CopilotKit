@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+*.egg-info/
+.uv/
+
+# Node
+node_modules/
+dist/
+.vite/
+build/
+
+# CDK
+cdk.out*/
+infra-cdk/cdk.out*/
+
+# AWS
+aws-exports.json
+*.zip
+
+# Terraform
+infra-terraform/.terraform/
+infra-terraform/*.tfstate
+infra-terraform/*.tfstate.backup
+infra-terraform/.terraform.lock.hcl
+infra-terraform/terraform.tfvars

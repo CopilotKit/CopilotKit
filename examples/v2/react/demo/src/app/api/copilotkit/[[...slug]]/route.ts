@@ -2,10 +2,10 @@ import {
   CopilotRuntime,
   createCopilotEndpoint,
   InMemoryAgentRunner,
-} from "@copilotkitnext/runtime";
+  BuiltInAgent,
+} from "@copilotkit/runtime/v2";
 import { TranscriptionServiceOpenAI } from "@copilotkit/voice";
 import { handle } from "hono/vercel";
-import { BuiltInAgent } from "@copilotkitnext/agent";
 import OpenAI from "openai";
 
 const determineModel = () => {
@@ -13,7 +13,8 @@ const determineModel = () => {
     return "openai/gpt-5.2";
   }
   if (process.env.ANTHROPIC_API_KEY?.trim()) {
-    return "anthropic/claude-sonnet-4.5";
+    // claude-3-7-sonnet supports extended thinking
+    return "anthropic/claude-3-7-sonnet-20250219";
   }
   if (process.env.GOOGLE_API_KEY?.trim()) {
     return "google/gemini-2.5-pro";
@@ -27,6 +28,10 @@ const agent = new BuiltInAgent({
     "You are a helpful AI assistant. Use reasoning to answer the user's question. If you don't know the answer, say you don't know.",
   providerOptions: {
     openai: { reasoningEffort: "high", reasoningSummary: "detailed" },
+    ...(!process.env.OPENAI_API_KEY?.trim() &&
+      !!process.env.ANTHROPIC_API_KEY?.trim() && {
+        anthropic: { thinking: { type: "enabled", budgetTokens: 5000 } },
+      }),
   },
 });
 

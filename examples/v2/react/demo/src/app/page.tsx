@@ -7,8 +7,8 @@ import {
   useAgentContext,
   useConfigureSuggestions,
   useFrontendTool,
-} from "@copilotkitnext/react";
-import type { ToolsMenuItem, SandboxFunction } from "@copilotkitnext/react";
+} from "@copilotkit/react-core/v2";
+import type { ToolsMenuItem, SandboxFunction } from "@copilotkit/react-core/v2";
 import { useCallback, useMemo, useState } from "react";
 import { z } from "zod";
 

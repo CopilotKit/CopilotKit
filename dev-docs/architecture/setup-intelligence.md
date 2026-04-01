@@ -60,17 +60,17 @@ The important design rule is:
 ### 1. Install runtime packages
 
 ```bash
-npm install @copilotkitnext/runtime
+npm install @copilotkit/runtime
 ```
 
 ### 2. Create the Intelligence platform client
 
 ```typescript
-import { CopilotKitIntelligence } from "@copilotkitnext/runtime";
+import { CopilotKitIntelligence } from "@copilotkit/runtime";
 
 const intelligence = new CopilotKitIntelligence({
   apiKey: process.env.COPILOTKIT_INTELLIGENCE_API_KEY!,
-  tenantId: process.env.COPILOTKIT_INTELLIGENCE_TENANT_ID!,
+  organizationId: process.env.COPILOTKIT_INTELLIGENCE_ORGANIZATION_ID!,
   apiUrl: "https://your-intelligence-host/api",
   wsUrl: "wss://your-intelligence-host/socket",
 });
@@ -80,8 +80,8 @@ const intelligence = new CopilotKitIntelligence({
 
 ```typescript
 import express from "express";
-import { CopilotRuntime } from "@copilotkitnext/runtime";
-import { createCopilotEndpointExpress } from "@copilotkitnext/runtime/express";
+import { CopilotRuntime } from "@copilotkit/runtime";
+import { createCopilotEndpointExpress } from "@copilotkit/runtime/express";
 
 const app = express();
 
@@ -146,7 +146,7 @@ You do not configure a special provider flag for Intelligence.
 This stays the same:
 
 ```tsx
-import { CopilotKitProvider, CopilotChat } from "@copilotkitnext/react";
+import { CopilotKitProvider, CopilotChat } from "@copilotkit/react-core/v2";
 
 export function App() {
   return (

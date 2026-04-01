@@ -1,5 +1,5 @@
 {
-  "extends": "../../../packages/v1/tsconfig/nextjs.json",
+  "extends": "../../../packages/tsconfig/nextjs.json",
   "compilerOptions": {
     "plugins": [
       {
@@ -12,8 +12,8 @@
   "exclude": ["node_modules"],
   "paths": {
     "@/*": ["./src/*"],
-    "@copilotkit/react-core/*": ["../../../packages/v1/react-core/*"],
-    "@copilotkit/react-ui/*": ["../../../packages/v1/react-ui/*"],
-    "@copilotkit/react-textarea/*": ["../../../packages/v1/react-textarea/*"]
+    "@copilotkit/react-core/*": ["../../../packages/react-core/*"],
+    "@copilotkit/react-ui/*": ["../../../packages/react-ui/*"],
+    "@copilotkit/react-textarea/*": ["../../../packages/react-textarea/*"]
   }
 }
