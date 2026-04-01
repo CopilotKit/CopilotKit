@@ -8,6 +8,7 @@ import {
   IntelligenceRuntimeInfo,
   RUNTIME_MODE_SSE,
   RUNTIME_MODE_INTELLIGENCE,
+  resolveDebugConfig,
 } from "@copilotkit/shared";
 import { ProxiedCopilotRuntimeAgent } from "../agent";
 import type { CopilotKitCore } from "./core";
@@ -268,6 +269,9 @@ export class AgentRegistry {
 
       const credentials = (this.core as unknown as CopilotKitCoreFriendsAccess)
         .credentials;
+      const debugConfig = resolveDebugConfig(
+        (this.core as unknown as CopilotKitCoreFriendsAccess).debug,
+      );
       const agents: Record<string, AbstractAgent> = Object.fromEntries(
         Object.entries(runtimeInfo.agents).map(([id, { description }]) => {
           const agent = new ProxiedCopilotRuntimeAgent({
@@ -278,6 +282,7 @@ export class AgentRegistry {
             credentials,
             runtimeMode: runtimeInfoResponse.mode ?? RUNTIME_MODE_SSE,
             intelligence: runtimeInfoResponse.intelligence,
+            debug: debugConfig.enabled,
           });
           this.applyHeadersToAgent(agent);
           return [id, agent];
