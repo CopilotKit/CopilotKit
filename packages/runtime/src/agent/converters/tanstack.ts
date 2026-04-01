@@ -1,12 +1,100 @@
 import {
   BaseEvent,
   EventType,
+  RunAgentInput,
+  Message,
   TextMessageChunkEvent,
   ToolCallArgsEvent,
   ToolCallEndEvent,
   ToolCallStartEvent,
 } from "@ag-ui/client";
 import { randomUUID } from "crypto";
+
+/**
+ * Message format expected by TanStack AI's `chat()`.
+ */
+export interface TanStackChatMessage {
+  role: "user" | "assistant" | "tool";
+  content: string | null;
+  name?: string;
+  toolCalls?: Array<{
+    id: string;
+    type: "function";
+    function: { name: string; arguments: string };
+  }>;
+  toolCallId?: string;
+}
+
+/**
+ * Result of converting RunAgentInput to TanStack AI format.
+ */
+export interface TanStackInputResult {
+  /** Chat messages (system/developer messages excluded) */
+  messages: TanStackChatMessage[];
+  /** System prompts extracted from system/developer messages, context, and state */
+  systemPrompts: string[];
+}
+
+/**
+ * Converts a RunAgentInput into the format expected by TanStack AI's `chat()`.
+ *
+ * - Filters out system/developer messages and converts the rest to TanStack's message format
+ * - Extracts system/developer messages into `systemPrompts`
+ * - Appends context entries and application state to `systemPrompts`
+ * - Preserves tool calls on assistant messages and toolCallId on tool messages
+ */
+export function convertInputToTanStackAI(input: RunAgentInput): TanStackInputResult {
+  const messages: TanStackChatMessage[] = input.messages
+    .filter((m: Message) => m.role !== "developer" && m.role !== "system")
+    .map((m: Message): TanStackChatMessage => {
+      const msg: TanStackChatMessage = {
+        role: m.role as "user" | "assistant" | "tool",
+        content: typeof m.content === "string" ? m.content : null,
+      };
+      if (m.role === "assistant" && "toolCalls" in m && m.toolCalls) {
+        msg.toolCalls = m.toolCalls.map((tc) => ({
+          id: tc.id,
+          type: "function" as const,
+          function: {
+            name: tc.function.name,
+            arguments: tc.function.arguments,
+          },
+        }));
+      }
+      if (m.role === "tool" && "toolCallId" in m) {
+        msg.toolCallId = (m as Record<string, unknown>).toolCallId as string;
+      }
+      return msg;
+    });
+
+  const systemPrompts: string[] = [];
+  for (const m of input.messages) {
+    if ((m.role === "system" || m.role === "developer") && m.content) {
+      systemPrompts.push(
+        typeof m.content === "string" ? m.content : JSON.stringify(m.content),
+      );
+    }
+  }
+
+  if (input.context?.length) {
+    for (const ctx of input.context) {
+      systemPrompts.push(`${ctx.description}:\n${ctx.value}`);
+    }
+  }
+
+  if (
+    input.state !== undefined &&
+    input.state !== null &&
+    typeof input.state === "object" &&
+    Object.keys(input.state).length > 0
+  ) {
+    systemPrompts.push(
+      `Application State:\n\`\`\`json\n${JSON.stringify(input.state, null, 2)}\n\`\`\``,
+    );
+  }
+
+  return { messages, systemPrompts };
+}
 
 /**
  * Converts a TanStack AI stream into AG-UI `BaseEvent` objects.

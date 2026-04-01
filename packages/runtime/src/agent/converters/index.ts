@@ -1,2 +1,7 @@
 export { convertAISDKStream } from "./aisdk";
-export { convertTanStackStream } from "./tanstack";
+export {
+  convertTanStackStream,
+  convertInputToTanStackAI,
+  type TanStackChatMessage,
+  type TanStackInputResult,
+} from "./tanstack";
