@@ -282,9 +282,17 @@ A2UI_SCHEMA = r'''
                     "type": "object",
                     "description": "Single- or multi-select from fixed options. The client renders this as a dropdown (<select>) when maxAllowedSelections is 1.",
                     "properties": {
+                      "label": {
+                        "type": "object",
+                        "description": "Primary label shown above the dropdown (defaults to 'Select an item' if omitted).",
+                        "properties": {
+                          "literalString": { "type": "string" },
+                          "path": { "type": "string" }
+                        }
+                      },
                       "description": {
                         "type": "object",
-                        "description": "Optional label shown above the dropdown (defaults to 'Select an item' if omitted).",
+                        "description": "Legacy compatibility field for label text. Prefer 'label' for new payloads.",
                         "properties": {
                           "literalString": { "type": "string" },
                           "path": { "type": "string" }
@@ -421,7 +429,7 @@ UI_EXAMPLES = """
       {{ "id": "dropdown-column", "component": {{ "Column": {{ "children": {{ "explicitList": ["dropdown-title", "country-field", "role-field", "submit-button"] }} }} }} }},
       {{ "id": "dropdown-title", "component": {{ "Text": {{ "usageHint": "h2", "text": {{ "literalString": "Preferences" }} }} }} }},
       {{ "id": "country-field", "component": {{ "MultipleChoice": {{
-        "description": {{ "literalString": "Country" }},
+        "label": {{ "literalString": "Country" }},
         "selections": {{ "path": "country" }},
         "options": [
           {{ "label": {{ "literalString": "United States" }}, "value": "us" }},
@@ -431,7 +439,7 @@ UI_EXAMPLES = """
         "maxAllowedSelections": 1
       }} }} }},
       {{ "id": "role-field", "component": {{ "MultipleChoice": {{
-        "description": {{ "literalString": "Role" }},
+        "label": {{ "literalString": "Role" }},
         "selections": {{ "path": "role" }},
         "options": [
           {{ "label": {{ "literalString": "Developer" }}, "value": "dev" }},
@@ -606,7 +614,7 @@ def get_ui_prompt(base_url: str, examples: str) -> str:
     - Button: Interactive button with action
     - TextField: Text input (shortText, longText, number, date, obscured)
     - DateTimeInput: Date and/or time picker
-    - MultipleChoice: Dropdown / multi-select — provide options (label + value), selections bound with path, set maxAllowedSelections to 1 for a single-select dropdown
+    - MultipleChoice: Dropdown / multi-select — provide `label` for field title, options (label + value), selections bound with path, set maxAllowedSelections to 1 for a single-select dropdown
 
     **The only hard constraint:** Your JSON must validate against the A2UI JSON SCHEMA.
 

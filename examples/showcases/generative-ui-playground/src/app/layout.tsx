@@ -3,9 +3,9 @@ import "./globals.css";
 import "./a2ui-theme.css";
 
 export const metadata: Metadata = {
-  title: "A2UI Playground - CopilotKit",
+  title: "UI Protocols Demo - CopilotKit Generative UI Playground",
   description:
-    "Declarative A2UI with CopilotKit: agent-composed JSON UI rendered at runtime",
+    "Explore three approaches to Generative UI: Static GenUI, MCP Apps, and A2UI",
 };
 
 export default function RootLayout({

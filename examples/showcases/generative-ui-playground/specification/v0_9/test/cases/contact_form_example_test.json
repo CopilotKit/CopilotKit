@@ -1,0 +1,125 @@
+{
+  "schema": "server_to_client.json",
+  "tests": [
+    {
+      "description": "Contact Form Example: Create Surface",
+      "valid": true,
+      "data": {
+        "createSurface": {
+          "surfaceId": "contact_form_1",
+          "catalogId": "https://a2ui.dev/specification/v0_9/standard_catalog.json"
+        }
+      }
+    },
+    {
+      "description": "Contact Form Example: Update Components",
+      "valid": true,
+      "data": {
+        "updateComponents": {
+          "surfaceId": "contact_form_1",
+          "components": [
+            {
+              "id": "root",
+              "component": "Column",
+              "children": [
+                "first_name_label",
+                "first_name_field",
+                "last_name_label",
+                "last_name_field",
+                "email_label",
+                "email_field",
+                "phone_label",
+                "phone_field",
+                "notes_label",
+                "notes_field",
+                "submit_button"
+              ]
+            },
+            {
+              "id": "first_name_label",
+              "component": "Text",
+              "text": "First Name"
+            },
+            {
+              "id": "first_name_field",
+              "component": "TextField",
+              "label": "First Name",
+              "value": { "path": "/contact/firstName" },
+              "variant": "shortText"
+            },
+            {
+              "id": "last_name_label",
+              "component": "Text",
+              "text": "Last Name"
+            },
+            {
+              "id": "last_name_field",
+              "component": "TextField",
+              "label": "Last Name",
+              "value": { "path": "/contact/lastName" },
+              "variant": "shortText"
+            },
+            { "id": "email_label", "component": "Text", "text": "Email" },
+            {
+              "id": "email_field",
+              "component": "TextField",
+              "label": "Email",
+              "value": { "path": "/contact/email" },
+              "variant": "shortText",
+              "checks": [
+                {
+                  "call": "email",
+                  "args": [{ "path": "/contact/email" }],
+                  "message": "Please enter a valid email address."
+                }
+              ]
+            },
+            { "id": "phone_label", "component": "Text", "text": "Phone" },
+            {
+              "id": "phone_field",
+              "component": "TextField",
+              "label": "Phone",
+              "value": { "path": "/contact/phone" },
+              "variant": "shortText"
+            },
+            { "id": "notes_label", "component": "Text", "text": "Notes" },
+            {
+              "id": "notes_field",
+              "component": "TextField",
+              "label": "Notes",
+              "value": { "path": "/contact/notes" },
+              "variant": "longText"
+            },
+            {
+              "id": "submit_button_label",
+              "component": "Text",
+              "text": "Submit"
+            },
+            {
+              "id": "submit_button",
+              "component": "Button",
+              "child": "submit_button_label",
+              "variant": "primary",
+              "action": { "event": { "name": "submitContactForm" } }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "description": "Contact Form Example: Update Data Model",
+      "valid": true,
+      "data": {
+        "updateDataModel": {
+          "surfaceId": "contact_form_1",
+          "path": "/contact",
+          "value": {
+            "firstName": "John",
+            "lastName": "Doe",
+            "email": "john.doe@example.com"
+          }
+        }
+      }
+    }
+  ]
+}

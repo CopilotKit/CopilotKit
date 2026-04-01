@@ -1,0 +1,44 @@
+{
+  "schema": "client_to_server.json",
+  "tests": [
+
+    {
+      "description": "Valid action message",
+      "valid": true,
+      "data": {
+        "action": {
+          "name": "submit",
+          "surfaceId": "main",
+          "sourceComponentId": "btn_submit",
+          "timestamp": "2023-10-27T10:00:00Z",
+          "context": {
+            "foo": "bar"
+          }
+        }
+      }
+    },
+    {
+      "description": "Valid error message (validation failed)",
+      "valid": true,
+      "data": {
+        "error": {
+          "code": "VALIDATION_FAILED",
+          "surfaceId": "main",
+          "path": "/components/0/text",
+          "message": "Invalid type"
+        }
+      }
+    },
+    {
+      "description": "Invalid updateDataModel (renamed)",
+      "valid": false,
+      "data": {
+        "updateDataModel": {
+          "surfaceId": "main",
+          "path": "/user/name",
+          "value": "Alice"
+        }
+      }
+    }
+  ]
+}

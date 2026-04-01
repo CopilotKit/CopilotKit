@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "@a2a-js/sdk": "^0.2.5",
-    "@a2ui/lit": "^0.8.1",
+    "@a2ui/lit": "file:./lit",
     "@ag-ui/a2a": "^0.0.6",
     "@copilotkit/a2ui-renderer": "^0.0.2",
     "@copilotkitnext/core": "^1.51.0-next.4",
@@ -23,6 +23,11 @@
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "zod": "^3.25.76"
+  },
+  "overrides": {
+    "@copilotkit/a2ui-renderer": {
+      "@a2ui/lit": "file:./lit"
+    }
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

@@ -1,0 +1,332 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://a2ui.dev/specification/v0_9/common_types.json",
+  "title": "A2UI Common Types",
+  "description": "Common type definitions used across A2UI schemas.",
+  "$defs": {
+    "ComponentId": {
+      "type": "string",
+      "description": "The unique identifier for a component, used for both definitions and references within the same surface."
+    },
+    "AccessibilityAttributes": {
+      "type": "object",
+      "description": "Overrides for accessibility behavior.",
+      "properties": {
+        "label": {
+          "$ref": "#/$defs/DynamicString",
+          "description": "Overrides the content description. Use this to describe icons or provide extra context for buttons."
+        },
+        "description": {
+          "$ref": "#/$defs/DynamicString",
+          "description": "Describes the result of performing an action on the element (e.g., 'Double tap to submit')."
+        },
+        "role": {
+          "type": "string",
+          "description": "Explicitly sets the semantic role of the element.",
+          "enum": [ "button", "header", "link", "image", "adjustable", "summary", "none" ]
+        },
+        "hidden": {
+          "$ref": "#/$defs/DynamicBoolean",
+          "description": "If true, the element and its children are hidden from accessibility services."
+        },
+        "liveRegion": {
+          "type": "string",
+          "description": "Indicates that updates to this element should be announced automatically.",
+          "enum": [ "polite", "assertive", "off" ]
+        }
+      }
+    },
+    "ComponentCommon": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/ComponentId"
+        },
+        "accessibility": {
+          "$ref": "#/$defs/AccessibilityAttributes"
+        }
+      },
+      "required": ["id"]
+    },
+    "ChildList": {
+      "oneOf": [
+        {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ComponentId"
+          },
+          "description": "A static list of child component IDs."
+        },
+        {
+          "type": "object",
+          "description": "A template for generating a dynamic list of children from a data model list. The `componentId` is the component to use as a template.",
+          "properties": {
+            "componentId": {
+              "$ref": "#/$defs/ComponentId"
+            },
+            "path": {
+              "type": "string",
+              "description": "The path to the list of component property objects in the data model."
+            }
+          },
+          "required": ["componentId", "path"],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "DataBinding": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "A JSON Pointer path to a value in the data model."
+        }
+      },
+      "required": ["path"],
+      "additionalProperties": false
+    },
+    "DynamicValue": {
+      "description": "A value that can be a literal, a path, or a function call returning any type.",
+      "oneOf": [
+        { "type": "string" },
+        { "type": "number" },
+        { "type": "boolean" },
+        { "$ref": "#/$defs/DataBinding" },
+        { "$ref": "#/$defs/FunctionCall" }
+      ]
+    },
+    "DynamicString": {
+      "description": "Represents a string",
+      "oneOf": [
+        { "type": "string" },
+        { "$ref": "#/$defs/DataBinding" },
+        {
+          "allOf": [
+            { "$ref": "#/$defs/FunctionCall" },
+            {
+              "properties": { "returnType": { "const": "string" } },
+              "required": ["returnType"]
+            }
+          ]
+        }
+      ]
+    },
+    "DynamicNumber": {
+      "description": "Represents a value that can be either a literal number, a path to a number in the data model, or a function call returning a number.",
+      "oneOf": [
+        { "type": "number" },
+        { "$ref": "#/$defs/DataBinding" },
+        {
+          "allOf": [
+            { "$ref": "#/$defs/FunctionCall" },
+            {
+              "properties": { "returnType": { "const": "number" } },
+              "required": ["returnType"]
+            }
+          ]
+        }
+      ]
+    },
+    "DynamicBoolean": {
+      "description": "A boolean value that can be a literal, a path, or a logic expression (including function calls returning boolean).",
+      "oneOf": [
+        { "type": "boolean" },
+        { "$ref": "#/$defs/DataBinding" },
+        { "$ref": "#/$defs/LogicExpression" }
+      ]
+    },
+    "DynamicStringList": {
+      "description": "Represents a value that can be either a literal array of strings, a path to a string array in the data model, or a function call returning a string array.",
+      "oneOf": [
+        {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        { "$ref": "#/$defs/DataBinding" },
+        {
+          "allOf": [
+            { "$ref": "#/$defs/FunctionCall" },
+            {
+              "properties": { "returnType": { "const": "array" } },
+              "required": ["returnType"]
+            }
+          ]
+        }
+      ]
+    },
+    "FunctionCall": {
+      "type": "object",
+      "description": "Invokes a named function on the client.",
+      "properties": {
+        "call": {
+          "type": "string",
+          "description": "The name of the function to call."
+        },
+        "args": {
+          "type": "array",
+          "description": "Arguments passed to the function.",
+          "items": {
+            "anyOf": [
+              { "$ref": "#/$defs/DynamicValue" },
+              {
+                "type": "object",
+                "description": "A literal object argument (e.g. configuration)."
+              }
+            ]
+          }
+        },
+        "returnType": {
+          "type": "string",
+          "description": "The expected return type of the function call.",
+          "enum": ["string", "number", "boolean", "array", "object", "any", "void"],
+          "default": "boolean"
+        }
+      },
+      "required": ["call"]
+    },
+    "LogicExpression": {
+      "type": "object",
+      "description": "A boolean expression used for conditional state (e.g. 'enabled').",
+      "oneOf": [
+        {
+          "properties": {
+            "and": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/LogicExpression"
+              },
+              "minItems": 1
+            }
+          },
+          "required": ["and"]
+        },
+        {
+          "properties": {
+            "or": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/LogicExpression"
+              },
+              "minItems": 1
+            }
+          },
+          "required": ["or"]
+        },
+        {
+          "properties": {
+            "not": {
+              "$ref": "#/$defs/LogicExpression"
+            }
+          },
+          "required": ["not"]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/$defs/FunctionCall"
+            },
+            {
+              "properties": {
+                "returnType": {
+                  "const": "boolean"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "properties": {
+            "true": {
+              "const": true
+            }
+          },
+          "required": ["true"]
+        },
+        {
+          "properties": {
+            "false": {
+              "const": false
+            }
+          },
+          "required": ["false"]
+        }
+      ]
+    },
+    "CheckRule": {
+      "type": "object",
+      "description": "A single validaton rule applied to an input component.",
+      "unevaluatedProperties": false,
+      "allOf": [
+        {
+          "$ref": "#/$defs/LogicExpression"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "message": {
+              "type": "string",
+              "description": "The error message to display if the check fails."
+            }
+          },
+          "required": ["message"]
+        }
+      ]
+    },
+    "Checkable": {
+      "description": "Properties for components that support client-side checks.",
+      "type": "object",
+      "properties": {
+        "checks": {
+          "type": "array",
+          "description": "A list of checks to perform. These are function calls that must return a boolean indicating validity.",
+          "items": {
+            "$ref": "#/$defs/CheckRule"
+          }
+        }
+      }
+    },
+    "Action": {
+      "description": "Defines an interaction handler that can either trigger a server-side event or execute a local client-side function.",
+      "oneOf": [
+        {
+          "type": "object",
+          "description": "Triggers a server-side event.",
+          "properties": {
+            "event": {
+              "type": "object",
+              "description": "The event to dispatch to the server.",
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "description": "The name of the action to be dispatched to the server."
+                },
+                "context": {
+                  "type": "object",
+                  "description": "A JSON object containing the key-value pairs for the action context. Values can be literals or paths. Use literal values unless the value must be dynamically bound to the data model. Do NOT use paths for static IDs.",
+                  "additionalProperties": {
+                    "$ref": "#/$defs/DynamicValue"
+                  }
+                }
+              },
+              "required": ["name"],
+              "additionalProperties": false
+            }
+          },
+          "required": ["event"],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "description": "Executes a local client-side function.",
+          "properties": {
+            "functionCall": {
+              "$ref": "#/$defs/FunctionCall"
+            }
+          },
+          "required": ["functionCall"],
+          "additionalProperties": false
+        }
+      ]
+    }
+  }
+}

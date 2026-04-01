@@ -160,7 +160,9 @@ class UIGeneratorExecutor(AgentExecutor):
                                 f"Found {len(json_data)} A2UI messages"
                             )
                             for message in json_data:
-                                final_parts.append(create_a2ui_part(message))
+                                tmp = create_a2ui_part(message)
+                                logger.info(f"A2UI message: {tmp}")
+                                final_parts.append(tmp)
                         else:
                             # Single JSON object
                             logger.info("Single A2UI message")

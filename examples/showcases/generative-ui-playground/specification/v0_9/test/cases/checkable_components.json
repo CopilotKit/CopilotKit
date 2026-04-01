@@ -1,0 +1,143 @@
+{
+  "schema": "server_to_client.json",
+  "tests": [
+    {
+      "description": "TextField with valid checks",
+      "valid": true,
+      "data": {
+        "updateComponents": {
+          "surfaceId": "test_surface",
+          "components": [
+            {
+              "id": "tf1",
+              "component": "TextField",
+              "label": "Email",
+              "value": { "path": "/formData/email" },
+              "checks": [
+                {
+                  "call": "required",
+                  "args": [{ "path": "/formData/email" }],
+                  "returnType": "boolean",
+                  "message": "Email is required"
+                },
+                {
+                  "call": "email",
+                  "args": [{ "path": "/formData/email" }],
+                  "returnType": "boolean",
+                  "message": "Must be valid email"
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "description": "ChoicePicker with valid checks",
+      "valid": true,
+      "data": {
+        "updateComponents": {
+          "surfaceId": "test_surface",
+          "components": [
+            {
+              "id": "cp1",
+              "component": "ChoicePicker",
+              "label": "Interests",
+              "variant": "multipleSelection",
+              "options": [
+                { "label": "Code", "value": "code" },
+                { "label": "Design", "value": "design" }
+              ],
+              "value": { "path": "/formData/interests" },
+              "checks": [
+                {
+                  "call": "length",
+                  "args": [{ "path": "/formData/interests" }, { "min": 1 }],
+                  "returnType": "boolean",
+                  "message": "Select at least one"
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "description": "Slider with valid checks",
+      "valid": true,
+      "data": {
+        "updateComponents": {
+          "surfaceId": "test_surface",
+          "components": [
+            {
+              "id": "sl1",
+              "component": "Slider",
+              "label": "Rating",
+              "min": 1,
+              "max": 5,
+              "value": { "path": "/formData/rating" },
+              "checks": [
+                {
+                  "call": "numeric",
+                  "args": [{ "path": "/formData/rating" }, { "min": 3 }],
+                  "returnType": "boolean",
+                  "message": "Rating must be > 3"
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "description": "CheckBox with valid checks",
+      "valid": true,
+      "data": {
+        "updateComponents": {
+          "surfaceId": "test_1",
+          "components": [
+            {
+              "id": "cb1",
+              "component": "CheckBox",
+              "label": "I agree",
+              "value": { "path": "/formData/agreed" },
+              "checks": [
+                {
+                  "call": "required",
+                  "args": [{ "path": "/formData/agreed" }],
+                  "returnType": "boolean",
+                  "message": "Must agree"
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "description": "DateTimeInput with valid checks",
+      "valid": true,
+      "data": {
+        "updateComponents": {
+          "surfaceId": "test_1",
+          "components": [
+            {
+              "id": "dt1",
+              "component": "DateTimeInput",
+              "label": "Date",
+              "value": { "path": "/formData/date" },
+              "checks": [
+                {
+                  "call": "required",
+                  "args": [{ "path": "/formData/date" }],
+                  "returnType": "boolean",
+                  "message": "Date required"
+                }
+              ]
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

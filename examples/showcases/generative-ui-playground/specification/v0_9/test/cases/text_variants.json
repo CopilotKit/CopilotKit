@@ -1,0 +1,39 @@
+{
+  "schema": "server_to_client.json",
+  "tests": [
+    {
+      "description": "Text with valid variant 'h1'",
+      "valid": true,
+      "data": {
+        "updateComponents": {
+          "surfaceId": "test_surface",
+          "components": [
+            {
+              "id": "text_h1",
+              "component": "Text",
+              "text": "Header",
+              "variant": "h1"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "description": "Text with invalid variant (should fail)",
+      "valid": false,
+      "data": {
+        "updateComponents": {
+          "surfaceId": "test_surface",
+          "components": [
+            {
+              "id": "text_invalid",
+              "component": "Text",
+              "text": "Invalid",
+              "variant": "not_a_variant"
+            }
+          ]
+        }
+      }
+    }
+  ]
+}
