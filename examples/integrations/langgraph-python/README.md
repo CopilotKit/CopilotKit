@@ -86,7 +86,7 @@ This starter includes [A2UI](https://a2ui.org/specification/) support, allowing 
 
 A2UI uses three concepts:
 
-1. **Catalog** — a set of component definitions (schema) paired with React renderers. Registered once in `layout.tsx` via `<CopilotKit a2ui={{ catalog: demonstrationCatalog }}>`.
+1. **Catalog** — a set of component definitions (schema) paired with React renderers. Registered once in `layout.tsx` via `<CopilotKitProvider a2ui={{ catalog: demonstrationCatalog }}>`.
 2. **Surface** — a rendered UI instance. The agent creates a surface, sets its components, and binds data to it.
 3. **Operations** — the agent returns `a2ui.render(operations=[...])` from a tool, which the middleware streams to the frontend.
 
