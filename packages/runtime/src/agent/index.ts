@@ -89,13 +89,14 @@ export type BuiltInAgentModel =
   | "openai/o3"
   | "openai/o3-mini"
   | "openai/o4-mini"
-  // Anthropic (Claude) models
-  | "anthropic/claude-sonnet-4.5"
+  // Anthropic (Claude) models — use hyphens, not dots (Anthropic API format)
+  | "anthropic/claude-sonnet-4-6"
+  | "anthropic/claude-sonnet-4-5"
   | "anthropic/claude-sonnet-4"
-  | "anthropic/claude-3.7-sonnet"
-  | "anthropic/claude-opus-4.1"
+  | "anthropic/claude-opus-4-6"
+  | "anthropic/claude-opus-4-5"
   | "anthropic/claude-opus-4"
-  | "anthropic/claude-3.5-haiku"
+  | "anthropic/claude-haiku-4-5"
   // Google (Gemini) models
   | "google/gemini-2.5-pro"
   | "google/gemini-2.5-flash"
@@ -185,7 +186,7 @@ export function resolveModel(
 
   if (!rawProvider) {
     throw new Error(
-      `Invalid model string "${spec}". Use "openai/gpt-5", "anthropic/claude-sonnet-4.5", or "google/gemini-2.5-pro".`,
+      `Invalid model string "${spec}". Use "openai/gpt-5", "anthropic/claude-sonnet-4-5", or "google/gemini-2.5-pro".`,
     );
   }
 
@@ -194,7 +195,7 @@ export function resolveModel(
 
   if (!model) {
     throw new Error(
-      `Invalid model string "${spec}". Use "openai/gpt-5", "anthropic/claude-sonnet-4.5", or "google/gemini-2.5-pro".`,
+      `Invalid model string "${spec}". Use "openai/gpt-5", "anthropic/claude-sonnet-4-5", or "google/gemini-2.5-pro".`,
     );
   }
 
@@ -215,10 +216,9 @@ export function resolveModel(
       const anthropic = createAnthropic({
         apiKey: apiKey || process.env.ANTHROPIC_API_KEY!,
       });
-      // Anthropic API uses hyphens in version numbers (e.g. "claude-sonnet-4-5"),
-      // but users may pass dots (e.g. "claude-sonnet-4.5"). Normalize here.
-      const anthropicModel = model.replace(/(\d+)\.(\d+)/g, "$1-$2");
-      return anthropic(anthropicModel);
+      // Accepts any Anthropic model id, e.g. "claude-sonnet-4-5", "claude-haiku-4-5"
+      // Note: Anthropic uses hyphens in version numbers, not dots.
+      return anthropic(model);
     }
 
     case "google":

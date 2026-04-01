@@ -35,16 +35,17 @@ const agent = new BuiltInAgent({
 
 | Model | Specifier |
 |-------|-----------|
-| Claude Sonnet 4.5 | `anthropic:claude-sonnet-4.5` |
+| Claude Sonnet 4.6 | `anthropic:claude-sonnet-4-6` |
+| Claude Sonnet 4.5 | `anthropic:claude-sonnet-4-5` |
 | Claude Sonnet 4 | `anthropic:claude-sonnet-4` |
-| Claude 3.7 Sonnet | `anthropic:claude-3.7-sonnet` |
-| Claude Opus 4.1 | `anthropic:claude-opus-4.1` |
+| Claude Opus 4.6 | `anthropic:claude-opus-4-6` |
+| Claude Opus 4.5 | `anthropic:claude-opus-4-5` |
 | Claude Opus 4 | `anthropic:claude-opus-4` |
-| Claude 3.5 Haiku | `anthropic:claude-3.5-haiku` |
+| Claude Haiku 4.5 | `anthropic:claude-haiku-4-5` |
 
 ```typescript
 const agent = new BuiltInAgent({
-  model: "anthropic:claude-sonnet-4.5",
+  model: "anthropic:claude-sonnet-4-5",
 });
 ```
 
@@ -124,7 +125,7 @@ const agent = new BuiltInAgent({
 Under the hood, the Built-in Agent resolves model strings to AI SDK provider instances:
 
 - `"openai:gpt-4.1"` → `@ai-sdk/openai` → `openai("gpt-4.1")`
-- `"anthropic:claude-sonnet-4.5"` → `@ai-sdk/anthropic` → `anthropic("claude-sonnet-4.5")`
+- `"anthropic:claude-sonnet-4-5"` → `@ai-sdk/anthropic` → `anthropic("claude-sonnet-4-5")`
 - `"google:gemini-2.5-pro"` → `@ai-sdk/google` → `google("gemini-2.5-pro")`
 
 Both `"provider:model"` and `"provider/model"` separators are supported and work identically.
