@@ -270,8 +270,13 @@ export async function generateMetadata({
 
   if (!page) notFound();
 
+  const docType = (page.data as any).doc_type;
+
   return {
     title: page.data.title,
     description: page.data.description,
+    ...(docType && {
+      other: { "doc-type": docType },
+    }),
   } satisfies Metadata;
 }
