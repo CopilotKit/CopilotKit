@@ -43,7 +43,9 @@ export interface TanStackInputResult {
  * - Appends context entries and application state to `systemPrompts`
  * - Preserves tool calls on assistant messages and toolCallId on tool messages
  */
-export function convertInputToTanStackAI(input: RunAgentInput): TanStackInputResult {
+export function convertInputToTanStackAI(
+  input: RunAgentInput,
+): TanStackInputResult {
   const messages: TanStackChatMessage[] = input.messages
     .filter((m: Message) => m.role !== "developer" && m.role !== "system")
     .map((m: Message): TanStackChatMessage => {

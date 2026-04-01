@@ -59,7 +59,10 @@ export interface CustomAgentConfig {
 /**
  * Discriminated union of all supported agent configurations.
  */
-export type AgentConfig = AISDKAgentConfig | TanStackAgentConfig | CustomAgentConfig;
+export type AgentConfig =
+  | AISDKAgentConfig
+  | TanStackAgentConfig
+  | CustomAgentConfig;
 
 /**
  * Universal Agent class that wraps any supported stream source

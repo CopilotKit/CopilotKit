@@ -25,7 +25,9 @@ import {
 
 const allTypes: AgentType[] = ["aisdk", "tanstack", "custom"];
 
-function minimalStreamData(type: AgentType): MockStreamEvent[] | Record<string, unknown>[] | BaseEvent[] {
+function minimalStreamData(
+  type: AgentType,
+): MockStreamEvent[] | Record<string, unknown>[] | BaseEvent[] {
   switch (type) {
     case "aisdk":
       return [textDelta("hi"), finish()];
@@ -42,7 +44,9 @@ function minimalStreamData(type: AgentType): MockStreamEvent[] | Record<string, 
   }
 }
 
-function emptyStreamData(type: AgentType): MockStreamEvent[] | Record<string, unknown>[] | BaseEvent[] {
+function emptyStreamData(
+  type: AgentType,
+): MockStreamEvent[] | Record<string, unknown>[] | BaseEvent[] {
   switch (type) {
     case "aisdk":
       return [finish()];
@@ -123,7 +127,9 @@ describe.each(allTypes)("Agent [%s]", (type) => {
 
       const errorEvents = events.filter((e) => e.type === EventType.RUN_ERROR);
       expect(errorEvents.length).toBe(1);
-      expect(eventField<string>(errorEvents[0], "message")).toBe("factory-boom");
+      expect(eventField<string>(errorEvents[0], "message")).toBe(
+        "factory-boom",
+      );
     });
 
     it("emits RUN_ERROR when stream throws mid-iteration", async () => {
@@ -133,7 +139,9 @@ describe.each(allTypes)("Agent [%s]", (type) => {
 
       const errorEvents = events.filter((e) => e.type === EventType.RUN_ERROR);
       expect(errorEvents.length).toBe(1);
-      expect(eventField<string>(errorEvents[0], "message")).toBe("mid-stream-boom");
+      expect(eventField<string>(errorEvents[0], "message")).toBe(
+        "mid-stream-boom",
+      );
     });
 
     it("does not emit RUN_FINISHED after RUN_ERROR", async () => {
@@ -331,7 +339,9 @@ describe.each(allTypes)("Agent [%s]", (type) => {
       await collectEvents(agent.run(input));
 
       expect(capturedCtx!.abortController).toBeInstanceOf(AbortController);
-      expect(capturedCtx!.abortSignal).toBe(capturedCtx!.abortController.signal);
+      expect(capturedCtx!.abortSignal).toBe(
+        capturedCtx!.abortController.signal,
+      );
     });
   });
 
@@ -350,7 +360,10 @@ describe.each(allTypes)("Agent [%s]", (type) => {
     it("produces correct lifecycle events from a cloned agent", async () => {
       const agent = createAgent(type, minimalStreamData(type));
       const cloned = agent.clone();
-      const input = createDefaultInput({ threadId: "clone-t", runId: "clone-r" });
+      const input = createDefaultInput({
+        threadId: "clone-t",
+        runId: "clone-r",
+      });
 
       const events = await collectEvents(cloned.run(input));
 
@@ -365,7 +378,10 @@ describe.each(allTypes)("Agent [%s]", (type) => {
 
 describe("Agent type discrimination", () => {
   it('"aisdk" routes to AI SDK converter and produces text content', async () => {
-    const agent = createAgent("aisdk", [textDelta("hello from aisdk"), finish()]);
+    const agent = createAgent("aisdk", [
+      textDelta("hello from aisdk"),
+      finish(),
+    ]);
     const input = createDefaultInput();
     const events = await collectEvents(agent.run(input));
 
@@ -377,7 +393,9 @@ describe("Agent type discrimination", () => {
   });
 
   it('"tanstack" routes to TanStack converter and produces text content', async () => {
-    const agent = createAgent("tanstack", [tanstackTextChunk("hello from tanstack")]);
+    const agent = createAgent("tanstack", [
+      tanstackTextChunk("hello from tanstack"),
+    ]);
     const input = createDefaultInput();
     const events = await collectEvents(agent.run(input));
 
@@ -385,7 +403,9 @@ describe("Agent type discrimination", () => {
       (e) => e.type === EventType.TEXT_MESSAGE_CHUNK,
     );
     expect(textEvents.length).toBe(1);
-    expect(eventField<string>(textEvents[0], "delta")).toBe("hello from tanstack");
+    expect(eventField<string>(textEvents[0], "delta")).toBe(
+      "hello from tanstack",
+    );
   });
 
   it('"custom" forwards events directly without conversion', async () => {
@@ -403,6 +423,8 @@ describe("Agent type discrimination", () => {
       (e) => e.type === EventType.TEXT_MESSAGE_CHUNK,
     );
     expect(textEvents.length).toBe(1);
-    expect(eventField<string>(textEvents[0], "delta")).toBe("hello from custom");
+    expect(eventField<string>(textEvents[0], "delta")).toBe(
+      "hello from custom",
+    );
   });
 });

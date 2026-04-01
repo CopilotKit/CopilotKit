@@ -114,7 +114,9 @@ describe("Custom Converter (passthrough)", () => {
         EventType.RUN_FINISHED,
       ]);
 
-      expect(eventField<Record<string, unknown>>(events[1], "snapshot")).toEqual({ counter: 42, items: ["a", "b"] });
+      expect(
+        eventField<Record<string, unknown>>(events[1], "snapshot"),
+      ).toEqual({ counter: 42, items: ["a", "b"] });
     });
 
     it("should forward a STATE_DELTA event", async () => {
@@ -207,7 +209,9 @@ describe("Custom Converter (passthrough)", () => {
       });
 
       // Second is the user-emitted one, forwarded as-is
-      expect(eventField<string>(runStartedEvents[1], "threadId")).toBe("user-thread");
+      expect(eventField<string>(runStartedEvents[1], "threadId")).toBe(
+        "user-thread",
+      );
       expect(eventField<string>(runStartedEvents[1], "runId")).toBe("user-run");
     });
   });
@@ -275,7 +279,9 @@ describe("Custom Converter (passthrough)", () => {
       ]);
 
       expect(eventField<string>(events[1], "customField")).toBe("custom-value");
-      expect(eventField<{ deep: { value: number } }>(events[1], "nestedData")).toEqual({ deep: { value: 123 } });
+      expect(
+        eventField<{ deep: { value: number } }>(events[1], "nestedData"),
+      ).toEqual({ deep: { value: 123 } });
       expect(eventField<number[]>(events[1], "arrayField")).toEqual([1, 2, 3]);
     });
 
@@ -304,7 +310,9 @@ describe("Custom Converter (passthrough)", () => {
       // Verify order preservation
       for (let i = 0; i < count; i++) {
         expect(contentEvents[i].type).toBe(EventType.TEXT_MESSAGE_CHUNK);
-        expect(eventField<string>(contentEvents[i], "delta")).toBe(`chunk-${i}`);
+        expect(eventField<string>(contentEvents[i], "delta")).toBe(
+          `chunk-${i}`,
+        );
       }
     });
   });

@@ -19,22 +19,25 @@
 
 ## When to use Agent vs BuiltInAgent
 
-| Use Case | Recommended |
-|---|---|
-| Quick setup with Vercel AI SDK defaults | `BuiltInAgent` |
-| Full control over the LLM call | `Agent` |
-| TanStack AI backend | `Agent` |
-| Custom or proprietary LLM backend | `Agent` |
+| Use Case                                         | Recommended    |
+| ------------------------------------------------ | -------------- |
+| Quick setup with Vercel AI SDK defaults          | `BuiltInAgent` |
+| Full control over the LLM call                   | `Agent`        |
+| TanStack AI backend                              | `Agent`        |
+| Custom or proprietary LLM backend                | `Agent`        |
 | Need MCP, state tools, model resolution built-in | `BuiltInAgent` |
-| Want to choose model/provider per-request | `Agent` |
-| Minimal configuration, maximum convenience | `BuiltInAgent` |
+| Want to choose model/provider per-request        | `Agent`        |
+| Minimal configuration, maximum convenience       | `BuiltInAgent` |
 
 ## Quick Start
 
 ### AI SDK
 
 ```ts
-import { Agent, convertMessagesToVercelAISDKMessages } from "@copilotkit/runtime/v2";
+import {
+  Agent,
+  convertMessagesToVercelAISDKMessages,
+} from "@copilotkit/runtime/v2";
 import { streamText } from "ai";
 import { openai } from "@ai-sdk/openai";
 
@@ -65,7 +68,12 @@ const agent = new Agent({
     const systemPrompts = input.messages
       .filter((m) => m.role === "system" || m.role === "developer")
       .map((m) => m.content ?? "");
-    return chat({ adapter: openaiText("gpt-4o"), messages, systemPrompts, abortController });
+    return chat({
+      adapter: openaiText("gpt-4o"),
+      messages,
+      systemPrompts,
+      abortController,
+    });
   },
 });
 ```
@@ -108,10 +116,7 @@ const agent = new Agent({
 `AgentConfig` is a discriminated union based on the `type` field:
 
 ```ts
-type AgentConfig =
-  | AISDKAgentConfig
-  | TanStackAgentConfig
-  | CustomAgentConfig;
+type AgentConfig = AISDKAgentConfig | TanStackAgentConfig | CustomAgentConfig;
 ```
 
 #### AISDKAgentConfig
@@ -173,11 +178,11 @@ interface AgentFactoryContext {
 
 The factory function can be synchronous or async (returning a `Promise`). Each backend type expects a specific return shape:
 
-| Backend | Return Type |
-|---|---|
-| `aisdk` | `StreamTextResult` (from `streamText()`) |
-| `tanstack` | `AsyncIterable<StreamChunk>` (from `chat()`) |
-| `custom` | `AsyncIterable<BaseEvent>` (async generator or manual iterable) |
+| Backend    | Return Type                                                     |
+| ---------- | --------------------------------------------------------------- |
+| `aisdk`    | `StreamTextResult` (from `streamText()`)                        |
+| `tanstack` | `AsyncIterable<StreamChunk>` (from `chat()`)                    |
+| `custom`   | `AsyncIterable<BaseEvent>` (async generator or manual iterable) |
 
 ### What Agent handles automatically
 
@@ -201,7 +206,10 @@ The factory function can be synchronous or async (returning a `Promise`). Each b
 ### Basic text generation
 
 ```ts
-import { Agent, convertMessagesToVercelAISDKMessages } from "@copilotkit/runtime/v2";
+import {
+  Agent,
+  convertMessagesToVercelAISDKMessages,
+} from "@copilotkit/runtime/v2";
 import { streamText } from "ai";
 import { openai } from "@ai-sdk/openai";
 
@@ -248,7 +256,10 @@ const agent = new Agent({
 Reasoning events from models like Claude with extended thinking or OpenAI o3 automatically flow through the `aisdk` converter and are mapped to AG-UI reasoning events:
 
 ```ts
-import { Agent, convertMessagesToVercelAISDKMessages } from "@copilotkit/runtime/v2";
+import {
+  Agent,
+  convertMessagesToVercelAISDKMessages,
+} from "@copilotkit/runtime/v2";
 import { streamText } from "ai";
 import { anthropic } from "@ai-sdk/anthropic";
 
@@ -256,7 +267,9 @@ const agent = new Agent({
   type: "aisdk",
   factory: ({ input, abortSignal }) =>
     streamText({
-      model: anthropic("claude-sonnet-4", { thinking: { type: "enabled", budgetTokens: 10000 } }),
+      model: anthropic("claude-sonnet-4", {
+        thinking: { type: "enabled", budgetTokens: 10000 },
+      }),
       messages: convertMessagesToVercelAISDKMessages(input.messages),
       abortSignal,
     }),
@@ -316,12 +329,12 @@ const agent = new Agent({
   type: "aisdk",
   factory: ({ input, abortSignal }) => {
     const props = (input.forwardedProps ?? {}) as Record<string, unknown>;
-    const model = typeof props.model === "string"
-      ? resolveModel(props.model)
-      : openai("gpt-4o");
-    const temperature = typeof props.temperature === "number"
-      ? props.temperature
-      : 0.7;
+    const model =
+      typeof props.model === "string"
+        ? resolveModel(props.model)
+        : openai("gpt-4o");
+    const temperature =
+      typeof props.temperature === "number" ? props.temperature : 0.7;
 
     return streamText({
       model,
@@ -338,7 +351,10 @@ const agent = new Agent({
 Since `Agent` does not construct system prompts for you, build them from `input.context` and `input.state`:
 
 ```ts
-import { Agent, convertMessagesToVercelAISDKMessages } from "@copilotkit/runtime/v2";
+import {
+  Agent,
+  convertMessagesToVercelAISDKMessages,
+} from "@copilotkit/runtime/v2";
 import { streamText } from "ai";
 import { openai } from "@ai-sdk/openai";
 
@@ -353,7 +369,9 @@ const agent = new Agent({
       }
     }
     if (input.state && Object.keys(input.state).length > 0) {
-      systemParts.push(`Application State:\n${JSON.stringify(input.state, null, 2)}`);
+      systemParts.push(
+        `Application State:\n${JSON.stringify(input.state, null, 2)}`,
+      );
     }
 
     const messages = convertMessagesToVercelAISDKMessages(input.messages);
@@ -373,7 +391,10 @@ const agent = new Agent({
 Use AI SDK's structured output with `toolChoice: "required"` to force the model to call a specific tool:
 
 ```ts
-import { Agent, convertMessagesToVercelAISDKMessages } from "@copilotkit/runtime/v2";
+import {
+  Agent,
+  convertMessagesToVercelAISDKMessages,
+} from "@copilotkit/runtime/v2";
 import { streamText, tool } from "ai";
 import { openai } from "@ai-sdk/openai";
 import { z } from "zod";
@@ -516,13 +537,16 @@ const sendStateSnapshot = toolDefinition({
 
 const sendStateDelta = toolDefinition({
   name: "AGUISendStateDelta",
-  description: "Apply incremental updates to application state using JSON Patch operations",
+  description:
+    "Apply incremental updates to application state using JSON Patch operations",
   inputSchema: z.object({
-    delta: z.array(z.object({
-      op: z.enum(["add", "replace", "remove"]),
-      path: z.string(),
-      value: z.any().optional(),
-    })),
+    delta: z.array(
+      z.object({
+        op: z.enum(["add", "replace", "remove"]),
+        path: z.string(),
+        value: z.any().optional(),
+      }),
+    ),
   }),
 }).server(async ({ delta }) => ({ success: true, delta }));
 
@@ -564,13 +588,16 @@ const agent = new Agent({
     const props = (input.forwardedProps ?? {}) as Record<string, unknown>;
 
     // Allow frontend to select the adapter/model
-    const adapter = props.model === "anthropic/claude-sonnet-4"
-      ? anthropicText("claude-sonnet-4")
-      : openaiText((props.model as string) ?? "gpt-4o");
+    const adapter =
+      props.model === "anthropic/claude-sonnet-4"
+        ? anthropicText("claude-sonnet-4")
+        : openaiText((props.model as string) ?? "gpt-4o");
 
     const modelOptions: Record<string, unknown> = {};
-    if (typeof props.temperature === "number") modelOptions.temperature = props.temperature;
-    if (typeof props.max_tokens === "number") modelOptions.max_tokens = props.max_tokens;
+    if (typeof props.temperature === "number")
+      modelOptions.temperature = props.temperature;
+    if (typeof props.max_tokens === "number")
+      modelOptions.max_tokens = props.max_tokens;
 
     const messages = input.messages
       .filter((m) => m.role !== "developer" && m.role !== "system")
@@ -612,7 +639,9 @@ const agent = new Agent({
     // Collect system/developer messages
     for (const m of input.messages) {
       if ((m.role === "system" || m.role === "developer") && m.content) {
-        systemPrompts.push(typeof m.content === "string" ? m.content : JSON.stringify(m.content));
+        systemPrompts.push(
+          typeof m.content === "string" ? m.content : JSON.stringify(m.content),
+        );
       }
     }
 
@@ -625,7 +654,9 @@ const agent = new Agent({
 
     // Add application state
     if (input.state && Object.keys(input.state).length > 0) {
-      systemPrompts.push(`Application State:\n${JSON.stringify(input.state, null, 2)}`);
+      systemPrompts.push(
+        `Application State:\n${JSON.stringify(input.state, null, 2)}`,
+      );
     }
 
     return chat({

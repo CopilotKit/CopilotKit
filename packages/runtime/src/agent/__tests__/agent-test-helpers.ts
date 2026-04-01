@@ -337,9 +337,7 @@ export function expectLifecycleWrapped(
   }
 
   if (last.type !== EventType.RUN_FINISHED) {
-    throw new Error(
-      `Expected last event to be RUN_FINISHED, got ${last.type}`,
-    );
+    throw new Error(`Expected last event to be RUN_FINISHED, got ${last.type}`);
   }
 
   if (threadId !== undefined) {
@@ -408,9 +406,7 @@ export function expectNoEventAfter(
 ): void {
   const terminalIndex = events.findIndex((e) => e.type === terminalType);
   if (terminalIndex === -1) {
-    throw new Error(
-      `Terminal event type ${terminalType} not found in events`,
-    );
+    throw new Error(`Terminal event type ${terminalType} not found in events`);
   }
 
   const lifecycleTypes = new Set([

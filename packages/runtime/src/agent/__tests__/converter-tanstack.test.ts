@@ -32,8 +32,12 @@ describe("TanStack AI converter (via Agent)", () => {
       expect(eventField<string>(textEvents[0], "role")).toBe("assistant");
       expect(eventField<string>(textEvents[0], "delta")).toBe("Hello world");
       expect(eventField<string>(textEvents[0], "messageId")).toBeDefined();
-      expect(typeof eventField<string>(textEvents[0], "messageId")).toBe("string");
-      expect(eventField<string>(textEvents[0], "messageId").length).toBeGreaterThan(0);
+      expect(typeof eventField<string>(textEvents[0], "messageId")).toBe(
+        "string",
+      );
+      expect(
+        eventField<string>(textEvents[0], "messageId").length,
+      ).toBeGreaterThan(0);
     });
 
     it("multiple text chunks share the same messageId", async () => {
@@ -51,7 +55,9 @@ describe("TanStack AI converter (via Agent)", () => {
       );
       expect(textEvents).toHaveLength(3);
 
-      const messageIds = new Set(textEvents.map((e) => eventField<string>(e, "messageId")));
+      const messageIds = new Set(
+        textEvents.map((e) => eventField<string>(e, "messageId")),
+      );
       expect(messageIds.size).toBe(1);
     });
 
@@ -116,7 +122,9 @@ describe("TanStack AI converter (via Agent)", () => {
         (e) => e.type === EventType.TOOL_CALL_START,
       )!;
 
-      expect(eventField<string>(toolStartEvent, "parentMessageId")).toBeDefined();
+      expect(
+        eventField<string>(toolStartEvent, "parentMessageId"),
+      ).toBeDefined();
       expect(eventField<string>(toolStartEvent, "parentMessageId")).toBe(
         eventField<string>(textEvent, "messageId"),
       );
@@ -209,7 +217,9 @@ describe("TanStack AI converter (via Agent)", () => {
         (e) => e.type === EventType.TEXT_MESSAGE_CHUNK,
       );
       expect(eventField<string>(textEvents[0], "delta")).toBe("Let me help. ");
-      expect(eventField<string>(textEvents[1], "delta")).toBe("Here are the results.");
+      expect(eventField<string>(textEvents[1], "delta")).toBe(
+        "Here are the results.",
+      );
     });
   });
 

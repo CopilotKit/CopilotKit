@@ -207,11 +207,7 @@ export async function* convertAISDKStream(
             yield startEvent;
           }
 
-          if (
-            !state.hasArgsDelta &&
-            "input" in p &&
-            p.input !== undefined
-          ) {
+          if (!state.hasArgsDelta && "input" in p && p.input !== undefined) {
             let serializedInput = "";
             if (typeof p.input === "string") {
               serializedInput = p.input;

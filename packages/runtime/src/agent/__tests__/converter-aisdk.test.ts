@@ -40,7 +40,9 @@ describe("AI SDK Converter", () => {
       expect(eventField<string>(textChunks[0], "role")).toBe("assistant");
       expect(eventField<string>(textChunks[0], "delta")).toBe("Hello");
       expect(eventField<string>(textChunks[0], "messageId")).toBeDefined();
-      expect(typeof eventField<string>(textChunks[0], "messageId")).toBe("string");
+      expect(typeof eventField<string>(textChunks[0], "messageId")).toBe(
+        "string",
+      );
     });
 
     it("text-start with provider id uses that id as messageId", async () => {
@@ -157,7 +159,9 @@ describe("AI SDK Converter", () => {
 
       // Verify TOOL_CALL_RESULT
       expect(eventField<string>(toolEvents[4], "toolCallId")).toBe("tc-1");
-      expect(JSON.parse(eventField<string>(toolEvents[4], "content"))).toEqual({ result: "ok" });
+      expect(JSON.parse(eventField<string>(toolEvents[4], "content"))).toEqual({
+        result: "ok",
+      });
     });
 
     it("non-streamed tool call (tool-call with input, no prior tool-input-start) emits START + ARGS + END", async () => {
@@ -184,9 +188,13 @@ describe("AI SDK Converter", () => {
       ]);
 
       expect(eventField<string>(toolEvents[0], "toolCallId")).toBe("tc-2");
-      expect(eventField<string>(toolEvents[0], "toolCallName")).toBe("directTool");
+      expect(eventField<string>(toolEvents[0], "toolCallName")).toBe(
+        "directTool",
+      );
 
-      expect(JSON.parse(eventField<string>(toolEvents[1], "delta"))).toEqual({ foo: "bar" });
+      expect(JSON.parse(eventField<string>(toolEvents[1], "delta"))).toEqual({
+        foo: "bar",
+      });
     });
 
     it("no duplicate START after tool-input-start followed by tool-call", async () => {
@@ -263,8 +271,12 @@ describe("AI SDK Converter", () => {
           e.type === EventType.TOOL_CALL_RESULT &&
           eventField<string>(e, "toolCallId") === "tc-b",
       );
-      expect(JSON.parse(eventField<string>(resultsA[0], "content"))).toBe("resultA");
-      expect(JSON.parse(eventField<string>(resultsB[0], "content"))).toBe("resultB");
+      expect(JSON.parse(eventField<string>(resultsA[0], "content"))).toBe(
+        "resultA",
+      );
+      expect(JSON.parse(eventField<string>(resultsB[0], "content"))).toBe(
+        "resultB",
+      );
     });
   });
 
@@ -308,7 +320,9 @@ describe("AI SDK Converter", () => {
       expect(eventField<string>(reasoningEvents[1], "messageId")).toBe("r-1");
       expect(eventField<string>(reasoningEvents[1], "role")).toBe("reasoning");
       expect(eventField<string>(reasoningEvents[2], "messageId")).toBe("r-1");
-      expect(eventField<string>(reasoningEvents[2], "delta")).toBe("thinking...");
+      expect(eventField<string>(reasoningEvents[2], "delta")).toBe(
+        "thinking...",
+      );
       expect(eventField<string>(reasoningEvents[3], "messageId")).toBe("r-1");
       expect(eventField<string>(reasoningEvents[4], "messageId")).toBe("r-1");
     });
@@ -329,7 +343,9 @@ describe("AI SDK Converter", () => {
         (e) => e.type === EventType.REASONING_MESSAGE_CONTENT,
       );
       expect(contentEvents).toHaveLength(1);
-      expect(eventField<string>(contentEvents[0], "delta")).toBe("actual content");
+      expect(eventField<string>(contentEvents[0], "delta")).toBe(
+        "actual content",
+      );
     });
 
     it("auto-close reasoning before text-delta", async () => {
