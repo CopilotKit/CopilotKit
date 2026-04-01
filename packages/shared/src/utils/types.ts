@@ -1,3 +1,5 @@
+import type { AgentCapabilities } from "@ag-ui/core";
+
 export type MaybePromise<T> = T | PromiseLike<T>;
 
 /**
@@ -17,6 +19,7 @@ export interface AgentDescription {
   name: string;
   className: string;
   description: string;
+  capabilities?: AgentCapabilities;
 }
 
 export type RuntimeMode = "sse" | "intelligence";
