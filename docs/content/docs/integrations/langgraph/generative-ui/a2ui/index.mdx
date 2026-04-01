@@ -12,11 +12,18 @@ You can design and preview A2UI schemas visually using the [A2UI Composer](https
 
 ## Setup
 
-Enable A2UI in your CopilotRuntime by adding the `a2ui` config:
+Enable A2UI in your CopilotRuntime by adding `a2ui: true`, or pass an object to customise:
 
 ```typescript title="app/api/copilotkit/route.ts"
 import { CopilotRuntime } from "@copilotkit/runtime";
 
+// Simple — enable with defaults
+const runtime = new CopilotRuntime({
+  agents: { default: myAgent },
+  a2ui: true,
+});
+
+// Or customise — e.g. inject a render tool into the agent
 const runtime = new CopilotRuntime({
   agents: { default: myAgent },
   a2ui: {
@@ -28,7 +35,7 @@ const runtime = new CopilotRuntime({
 This tells the runtime to apply the A2UI middleware to your agents. The middleware intercepts tool results containing A2UI operations and renders them as rich UI surfaces in the chat.
 
 <Callout type="warn">
-Without `a2ui: { injectA2UITool: true }` in your CopilotRuntime config, A2UI surfaces will not render — tool results will appear as plain text.
+Without `a2ui` configured in your CopilotRuntime, A2UI surfaces will not render — tool results will appear as plain text.
 </Callout>
 
 ## Approaches
