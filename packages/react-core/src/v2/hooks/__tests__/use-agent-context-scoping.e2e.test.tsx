@@ -12,10 +12,7 @@ import React from "react";
 import { screen, fireEvent, waitFor } from "@testing-library/react";
 import { useAgentContext } from "../use-agent-context";
 import { CopilotChat } from "@/components/chat/CopilotChat";
-import {
-  type AgentSubscriber,
-  type RunAgentParameters,
-} from "@ag-ui/client";
+import { type AgentSubscriber, type RunAgentParameters } from "@ag-ui/client";
 import type { Context } from "@ag-ui/client";
 import {
   MockStepwiseAgent,

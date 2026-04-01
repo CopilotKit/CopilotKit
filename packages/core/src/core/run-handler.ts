@@ -843,7 +843,9 @@ export class RunHandler {
    * Build context entries for an agent, filtering by agentId.
    * Includes global context (no agentId) and context scoped to this agent.
    */
-  private buildContext(agentId?: string): { description: string; value: string }[] {
+  private buildContext(
+    agentId?: string,
+  ): { description: string; value: string }[] {
     return Object.values(this._internal.context)
       .filter((ctx) => !ctx.agentId || ctx.agentId === agentId)
       .map(({ description, value }) => ({ description, value }));
