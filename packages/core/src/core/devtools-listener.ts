@@ -165,13 +165,15 @@ export class DevtoolsListener {
         });
       });
 
+      const resultMessageId = randomUUID();
       this.notifySubscribers(agent, (sub) => {
         sub.onToolCallResultEvent?.({
           ...runParams,
           event: {
             type: EventType.TOOL_CALL_RESULT,
             toolCallId,
-            result: payload.result,
+            messageId: resultMessageId,
+            content: payload.result,
             role: "tool",
           },
         });
