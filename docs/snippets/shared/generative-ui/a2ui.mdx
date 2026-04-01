@@ -64,7 +64,7 @@ Once configured, any A2UI output returned from your agent will automatically be 
 The A2UI renderer activates automatically — no extra configuration needed on the frontend. Optionally, pass a custom theme:
 
 ```tsx
-import { CopilotKitProvider } from "@copilotkit/react-core";
+import { CopilotKitProvider } from "@copilotkit/react-core/v2";
 import "@copilotkit/react-core/v2/styles.css";
 import { myCustomTheme } from "@copilotkit/a2ui-renderer";
 
@@ -153,7 +153,7 @@ export const myCatalog = createCatalog(myDefinitions, myRenderers, {
 ```tsx title="app/layout.tsx"
 "use client";
 
-import { CopilotKitProvider } from "@copilotkit/react-core";
+import { CopilotKitProvider } from "@copilotkit/react-core/v2";
 import "@copilotkit/react-core/v2/styles.css";
 import { myCatalog } from "@/lib/a2ui/renderers";
 
