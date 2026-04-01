@@ -98,7 +98,7 @@ CopilotKit threads enable persistent, resumable multi-turn conversations. The `u
       return (
         <div className="flex">
           <ThreadSidebar onSelectThread={setActiveThreadId} />
-          <CopilotChat threadId={activeThreadId} /> // [!code highlight]
+          <CopilotChat threadId={activeThreadId} /> {/* [!code highlight] */}
         </div>
       );
     }

@@ -1,6 +1,6 @@
 ---
 title: "How Threads & Persistence Work"
-description: "Architecture and mental model behind CopilotKit threads — how the Intelligence Platform, IntelligenceAgent, and AgentRunner enable durable, resumable conversations with realtime sync via Phoenix WebSocket."
+description: "Architecture and mental model behind CopilotKit threads — how persistent conversations work, how reconnection replays history, and what to expect from thread lifecycle operations."
 icon: "lucide/MessageSquareMore"
 doc_type: explanation
 ---
@@ -17,20 +17,21 @@ Threads are a platform-level concept, not tied to any specific agent framework. 
 
 A **thread** is the durable container. A **run** is a single agent execution within that thread. One thread can have many runs — each time the user sends a message and the agent responds, that's a new run. The thread accumulates events across all its runs.
 
-### The three layers
+### How the pieces fit together
 
-Thread functionality spans all three layers of the CopilotKit architecture:
+From a developer's perspective, threads involve three things:
 
-| Layer | Component | Role |
-|-------|-----------|------|
-| **Frontend** | `useThreads` hook | Lists, renames, archives, and deletes threads. Subscribes to realtime metadata updates. |
-| **Frontend** | `IntelligenceAgent` | Client-side AG-UI agent that connects to threads via WebSocket. Handles starting new runs and reconnecting to existing ones. |
-| **Runtime** | `IntelligenceAgentRunner` | Server-side runner that executes agents and relays events through Phoenix channels. Stamps each event with sequence metadata. |
-| **Platform** | Intelligence Platform | Stores threads, runs, and events durably. Provides WebSocket infrastructure and REST APIs. |
+| What you use | What it does |
+|-------------|-------------|
+| `useThreads` hook | Lists, renames, archives, and deletes threads. Stays in sync across tabs and devices via WebSocket. |
+| `CopilotChat` with `threadId` | Connects to a specific thread, loads its history, and streams new events in realtime. |
+| `CopilotRuntime` | Server-side layer that executes agents, stores thread data on the Intelligence Platform, and relays events to connected clients. |
+
+You interact with the first two. The runtime and platform handle persistence and sync behind the scenes.
 
 ### Auto-naming
 
-When a new thread is created and the first run completes, the runtime automatically generates a short name (2–5 words) using the LLM. This runs asynchronously — it doesn't block thread creation. The generated name is pushed to all clients via the `renamed` WebSocket event.
+When a new thread is created and the first run completes, the runtime automatically generates a short name (2–5 words) using the LLM. This runs asynchronously — it doesn't block thread creation or the agent's response. The generated name appears in `useThreads` via the realtime sync.
 
 Auto-naming is enabled by default. Disable it with `generateThreadNames: false` on the runtime. Users can always override the generated name via `renameThread()`.
 
@@ -38,109 +39,94 @@ Auto-naming is enabled by default. Disable it with `generateThreadNames: false` 
 
 Threads support two removal operations with different semantics:
 
-- **Archive** — a soft delete. The thread remains in the database with `archived: true`. It disappears from the default list but can be shown again with `includeArchived: true`. The platform also supports **unarchive** — the `unarchived` metadata event restores the thread to the active list.
-- **Delete** — permanent and irreversible. The thread record is removed from the database entirely.
+- **Archive** — a soft delete. The thread remains stored but disappears from the default list. Show archived threads by passing `includeArchived: true` to `useThreads`. Threads can also be unarchived, which restores them to the active list.
+- **Delete** — permanent and irreversible. The thread and its history are removed entirely.
 
-Neither operation has a built-in confirmation flow — your application should implement its own if needed.
-
-### Event sequencing
-
-Every event in a thread is stamped with two pieces of metadata:
-- **`cpki_event_id`** — a unique identifier for the event
-- **`cpki_event_seq`** — a monotonically increasing sequence number within the thread
-
-These enable reliable replay. When a client reconnects to a thread, it sends its `lastSeenEventId`, and the platform responds with only the events that occurred after that point.
+Neither operation has a built-in confirmation dialog — your application should implement its own if needed.
 
 ## How it works
 
-### Starting a new conversation (run flow)
+### Starting a new conversation
 
-```mermaid
-sequenceDiagram
-    participant Client as Browser
-    participant Agent as IntelligenceAgent
-    participant Runtime as AgentRunner
-    participant Platform as Intelligence Platform
+When a user sends their first message on a new thread:
 
-    Client->>Agent: run(threadId, messages)
-    Agent->>Platform: POST /agent/{id}/run
-    Platform-->>Agent: joinToken
-    Agent->>Platform: WebSocket connect (joinToken)
-    Agent->>Platform: Join channel thread:{threadId}
-    Runtime->>Platform: Join same channel
-    Runtime->>Runtime: Execute agent
-    Runtime->>Platform: Push events (with cpki_event_id, cpki_event_seq)
-    Platform->>Agent: Relay events via WebSocket
-    Agent->>Client: Fire AG-UI events
-```
+1. Your app renders `CopilotChat` (with or without a `threadId` — if omitted, a new thread is created automatically).
+2. The runtime creates the thread on the Intelligence Platform and begins executing the agent.
+3. Events stream back to the client via WebSocket in realtime — messages, tool calls, and state updates appear as they happen.
+4. Once the first run completes, the runtime auto-generates a thread name (if enabled).
 
-1. The client calls `run()` on the `IntelligenceAgent` with a thread ID and messages.
-2. The agent sends a REST request to the runtime, which creates or retrieves the thread from the Intelligence Platform.
-3. The platform returns a `joinToken` for WebSocket authentication.
-4. Both the client agent and server runner join the same Phoenix channel (`thread:{threadId}`).
-5. The runner executes the agent and pushes events to the channel.
-6. The client receives events in realtime and fires them as AG-UI events.
+### Resuming a conversation
 
-### Resuming a conversation (connect flow)
+When a user returns to an existing thread (e.g., by clicking a thread in the sidebar), the client needs to catch up on any events it missed:
 
-When a user returns to an existing thread, the client needs to catch up on any events it missed:
-
-1. The client calls `connect()` with the thread ID and its `lastSeenEventId`.
+1. `CopilotChat` receives the new `threadId` and requests the thread's history from the platform.
 2. The platform checks whether the thread has a run in progress:
-   - **Bootstrap mode** — no active run. The platform returns historical events only. The client replays them to reconstruct the conversation.
-   - **Live mode** — a run is active. The platform returns historical events *plus* a join token. The client replays the history, then joins the WebSocket channel to receive live events.
-3. In either case, the client seamlessly transitions from replayed history to live updates.
+   - **No active run** — the platform returns historical events only. The client replays them to reconstruct the conversation.
+   - **Active run** — the platform returns historical events *plus* opens a WebSocket connection. The client replays the history, then receives live events as they stream in.
+3. In either case, the transition from replayed history to live updates is seamless.
 
 ### Switching threads
 
-When the `threadId` prop on `CopilotChat` changes, the component:
+When the `threadId` prop on `CopilotChat` changes:
 
-1. **Detaches** any active run on the current thread
-2. **Clears** all messages and agent state
-3. **Calls `connect()`** on the new thread, which fetches historical events and replays them
-4. **Re-establishes** the WebSocket channel for live updates
+1. Any active run on the current thread is detached.
+2. All messages and agent state are cleared.
+3. The new thread's history is fetched and replayed.
+4. A WebSocket connection is established for live updates on the new thread.
 
-The clear-then-replay approach means the UI briefly shows an empty chat before the history loads. This is by design — it prevents stale messages from the previous thread flashing in the new one.
+The UI briefly shows an empty chat before the history loads. This is by design — it prevents stale messages from the previous thread appearing in the new one.
 
-**Race condition safety:** If a tool call completes during a thread switch, the result is discarded rather than inserted into the new thread's messages. The implementation tracks message identity across switches to prevent cross-thread contamination.
+**Safe during tool execution:** If a tool call from the old thread completes during a switch, its result is discarded rather than inserted into the new thread's messages.
+
+### Realtime sync
+
+The `useThreads` hook maintains a WebSocket subscription for thread metadata changes. When any client creates, renames, archives, or deletes a thread, the update is pushed to all connected clients automatically. This is how a thread created on one tab appears in the sidebar on another tab without polling.
 
 ### Pessimistic updates
 
-Thread mutations (`rename`, `archive`, `delete`) use a pessimistic update model. The client sends the HTTP request and waits for the server to confirm via a WebSocket event before updating the UI. This means:
+Thread mutations (`rename`, `archive`, `delete`) use a pessimistic update model — the client waits for the server to confirm via WebSocket before updating the thread list. This means:
 
 - The thread list doesn't change until the server confirms the operation
 - If the server rejects the mutation, the UI never shows an incorrect state
-- The returned promise resolves only after server confirmation (or rejects on failure, with a 15-second timeout)
+- The returned promise resolves only after server confirmation, or rejects on failure
 
-This is different from optimistic updates where the UI changes immediately and rolls back on failure. The pessimistic approach was chosen because thread operations are infrequent and correctness matters more than perceived speed.
+## Error handling
 
-### Realtime thread metadata
+### Mutation failures
 
-The `useThreads` hook maintains a separate WebSocket subscription for thread metadata changes. When any client creates, renames, archives, or deletes a thread, the update is broadcast to all connected clients via a Phoenix channel (`user_meta:{joinCode}`). This is how a thread created on one tab appears in the sidebar on another tab without polling.
+All mutation methods (`renameThread`, `archiveThread`, `deleteThread`) return promises that reject with an `Error` if the server cannot complete the operation. Common causes:
 
-Supported metadata operations: `created`, `renamed`, `archived`, `unarchived`, `updated`, `deleted`.
+- **Network failure** — the client can't reach the runtime
+- **Thread not found** — another client deleted the thread before your mutation arrived
+- **Authorization failure** — the user doesn't have permission to modify the thread
+- **Timeout** — the server didn't respond within 15 seconds
+
+The `error` field on `useThreads` always reflects the most recent error. It resets to `null` on the next successful operation.
+
+### WebSocket disconnection
+
+If the WebSocket connection drops (network change, server restart, laptop sleep):
+
+- **Thread list** — `useThreads` stops receiving realtime updates. The list becomes stale until the connection is re-established. Reconnection is automatic with exponential backoff.
+- **Active conversation** — if `CopilotChat` loses its WebSocket mid-run, the agent's output may be interrupted. Reloading the page or switching away and back to the thread triggers the reconnection flow, which replays any missed events.
+
+### Thread locked
+
+If a thread already has an active run and another client tries to start a new run on the same thread, the request is rejected with a **409 Conflict**. This prevents two agent runs from interleaving events on the same thread. The existing run must complete or be stopped before a new one can begin.
 
 ## Design decisions
-
-### Why Phoenix WebSocket?
-
-CopilotKit uses [Phoenix channels](https://hexdocs.pm/phoenix/channels.html) rather than raw WebSocket or SSE for thread communication. Phoenix provides:
-- **Multiplexed channels** — one socket connection carries both the thread event stream and the metadata subscription
-- **Built-in reconnection** with exponential backoff and jitter
-- **Server-side channel state** — the platform can track which clients are connected to which threads
 
 ### Why event replay instead of message snapshots?
 
 Threads store the raw event stream rather than a snapshot of the final message list. This enables:
-- **Time travel** — reconstruct the conversation state at any point
-- **Partial replay** — when reconnecting, only fetch events since `lastSeenEventId` rather than the entire history
+- **Partial replay** — when reconnecting, the client only fetches events it missed rather than reloading the entire history
 - **Faithful reproduction** — streaming tokens, tool calls, and state changes replay exactly as they originally occurred
 
-The trade-off is that replay is more complex than loading a message array, and the event log grows over time. The Intelligence Platform handles this by supporting cursor-based pagination for the event history.
+The trade-off is that replay is more complex than loading a message array. The platform handles this complexity so your application doesn't have to.
 
 ### When threads are the wrong tool
 
-- **Ephemeral interactions** — if your users don't need conversation history (e.g., a one-shot Q&A widget), threads add unnecessary complexity. Use a standard `CopilotChat` without a `threadId`.
+- **Ephemeral interactions** — if your users don't need conversation history (e.g., a one-shot Q&A widget), threads add unnecessary complexity. Use `CopilotChat` without a `threadId`.
 - **Client-only state** — if you need local-only chat history without server persistence, manage messages in React state or localStorage instead.
 
 ## Next steps
