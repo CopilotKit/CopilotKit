@@ -72,7 +72,100 @@ import { myCustomTheme } from "@copilotkit/a2ui-renderer";
 </CopilotKit>
 ```
 
-The `a2ui` prop on `<CopilotKit>` is only needed if you want to override the default theme provided.
+The `a2ui` prop on `<CopilotKit>` is only needed if you want to override defaults.
+
+## Custom Components (BYOC)
+
+A2UI ships with a built-in catalog of basic components (Text, Image, Card, etc.). You can extend it with your own components that match your app's design.
+
+### 1. Define component schemas
+
+Create platform-agnostic definitions using Zod. These tell the agent what components and props are available:
+
+```ts title="lib/a2ui/definitions.ts"
+import { z } from "zod";
+
+export const myDefinitions = {
+  StatusBadge: {
+    description: "A colored status badge.",
+    props: z.object({
+      text: z.string(),
+      variant: z.enum(["success", "warning", "error"]).optional(),
+    }),
+  },
+  Metric: {
+    description: "A key metric with label and value.",
+    props: z.object({
+      label: z.string(),
+      value: z.string(),
+      trend: z.enum(["up", "down"]).optional(),
+    }),
+  },
+};
+
+export type MyDefinitions = typeof myDefinitions;
+```
+
+### 2. Create React renderers
+
+Map each definition to a React component. Props are type-checked against the Zod schemas:
+
+```tsx title="lib/a2ui/renderers.tsx"
+"use client";
+
+import { createCatalog, type CatalogRenderers } from "@copilotkit/a2ui-renderer";
+import { myDefinitions, type MyDefinitions } from "./definitions";
+
+const myRenderers: CatalogRenderers<MyDefinitions> = {
+  StatusBadge: ({ props }) => {
+    const colors = {
+      success: { bg: "#dcfce7", text: "#166534" },
+      warning: { bg: "#fef3c7", text: "#92400e" },
+      error: { bg: "#fee2e2", text: "#991b1b" },
+    };
+    const c = colors[props.variant ?? "success"];
+    return (
+      <span style={{ padding: "2px 8px", borderRadius: 9999, fontSize: "0.75rem", background: c.bg, color: c.text }}>
+        {props.text}
+      </span>
+    );
+  },
+
+  Metric: ({ props }) => (
+    <div>
+      <div style={{ fontSize: "0.75rem", color: "#6b7280" }}>{props.label}</div>
+      <div style={{ fontSize: "1.5rem", fontWeight: 700 }}>
+        {props.value} {props.trend === "up" ? "↑" : props.trend === "down" ? "↓" : ""}
+      </div>
+    </div>
+  ),
+};
+
+export const myCatalog = createCatalog(myDefinitions, myRenderers, {
+  catalogId: "my-app-catalog",
+  includeBasicCatalog: true, // merges with built-in components
+});
+```
+
+### 3. Pass the catalog to CopilotKit
+
+```tsx title="app/layout.tsx"
+"use client";
+
+import { CopilotKit } from "@copilotkit/react-core";
+import "@copilotkit/react-core/v2/styles.css";
+import { myCatalog } from "@/lib/a2ui/renderers";
+
+export default function Layout({ children }: { children: React.ReactNode }) {
+  return (
+    <CopilotKit runtimeUrl="/api/copilotkit" a2ui={{ catalog: myCatalog }}>
+      {children}
+    </CopilotKit>
+  );
+}
+```
+
+That's it — agents will now see your custom components alongside the built-in ones and can use them in A2UI surfaces.
 
 ## Using A2UI with CopilotKit
 
