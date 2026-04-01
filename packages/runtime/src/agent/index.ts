@@ -1438,3 +1438,6 @@ export class BasicAgent extends BuiltInAgent {
 }
 
 export type BasicAgentConfiguration = BuiltInAgentConfiguration;
+
+export * from "./agent";
+export * from "./converters";
