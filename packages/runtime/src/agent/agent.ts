@@ -27,7 +27,11 @@ export interface AgentFactoryContext {
  */
 export interface AISDKAgentConfig {
   type: "aisdk";
-  factory: (ctx: AgentFactoryContext) => { fullStream: AsyncIterable<unknown> };
+  factory: (
+    ctx: AgentFactoryContext,
+  ) =>
+    | { fullStream: AsyncIterable<unknown> }
+    | Promise<{ fullStream: AsyncIterable<unknown> }>;
 }
 
 /**
@@ -36,7 +40,9 @@ export interface AISDKAgentConfig {
  */
 export interface TanStackAgentConfig {
   type: "tanstack";
-  factory: (ctx: AgentFactoryContext) => AsyncIterable<unknown>;
+  factory: (
+    ctx: AgentFactoryContext,
+  ) => AsyncIterable<unknown> | Promise<AsyncIterable<unknown>>;
 }
 
 /**
@@ -45,7 +51,9 @@ export interface TanStackAgentConfig {
  */
 export interface CustomAgentConfig {
   type: "custom";
-  factory: (ctx: AgentFactoryContext) => AsyncIterable<BaseEvent>;
+  factory: (
+    ctx: AgentFactoryContext,
+  ) => AsyncIterable<BaseEvent> | Promise<AsyncIterable<BaseEvent>>;
 }
 
 /**
@@ -92,17 +100,17 @@ export class Agent extends AbstractAgent {
 
           switch (this.config.type) {
             case "aisdk": {
-              const result = this.config.factory(ctx);
+              const result = await this.config.factory(ctx);
               events = convertAISDKStream(result.fullStream, controller.signal);
               break;
             }
             case "tanstack": {
-              const stream = this.config.factory(ctx);
+              const stream = await this.config.factory(ctx);
               events = convertTanStackStream(stream, controller.signal);
               break;
             }
             case "custom": {
-              events = this.config.factory(ctx);
+              events = await this.config.factory(ctx);
               break;
             }
           }
