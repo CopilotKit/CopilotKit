@@ -10,6 +10,8 @@
  */
 import React from "react";
 import { screen, fireEvent, waitFor } from "@testing-library/react";
+import { vi } from "vitest";
+import { randomUUID } from "@copilotkit/shared";
 import { useAgentContext } from "../use-agent-context";
 import { CopilotChat } from "@/components/chat/CopilotChat";
 import { type AgentSubscriber, type RunAgentParameters } from "@ag-ui/client";
@@ -26,9 +28,28 @@ import {
 } from "@/__tests__/utils/test-helpers";
 
 describe("useAgentContext agentId scoping - E2E", () => {
+  // The global mock returns a constant "mock-thread-id" for randomUUID.
+  // This test registers multiple context entries that need distinct IDs
+  // in the ContextStore, so override the mock to produce unique values.
+  let uuidCounter = 0;
+  beforeEach(() => {
+    uuidCounter = 0;
+    vi.mocked(randomUUID).mockImplementation(() => `mock-uuid-${uuidCounter++}`);
+  });
+  afterEach(() => {
+    vi.mocked(randomUUID).mockImplementation(() => "mock-thread-id");
+  });
+
   it("agent only receives global context and context scoped to its own agentId", async () => {
     class ContextCapturingAgent extends MockStepwiseAgent {
       public contextPerRun: Context[][] = [];
+
+      clone(): this {
+        const cloned = super.clone();
+        (cloned as unknown as ContextCapturingAgent).contextPerRun =
+          this.contextPerRun;
+        return cloned;
+      }
 
       async runAgent(
         parameters?: RunAgentParameters,
