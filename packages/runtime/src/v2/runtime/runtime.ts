@@ -39,8 +39,12 @@ export interface McpAppsConfig {
 }
 
 interface CopilotRuntimeMiddlewares {
-  /** Auto-apply A2UIMiddleware to agents at run time. */
-  a2ui?: BaseCopilotRuntimeMiddlewareOptions & A2UIMiddlewareConfig;
+  /**
+   * Auto-apply A2UIMiddleware to agents at run time.
+   * Pass `true` to enable with defaults, `false` or omit to disable,
+   * or an object to customise behaviour.
+   */
+  a2ui?: boolean | (BaseCopilotRuntimeMiddlewareOptions & A2UIMiddlewareConfig);
   /** Auto-apply MCPAppsMiddleware to agents at run time. */
   mcpApps?: McpAppsConfig;
 }
@@ -139,7 +143,7 @@ abstract class BaseCopilotRuntime implements CopilotRuntimeLike {
     this.transcriptionService = transcriptionService;
     this.beforeRequestMiddleware = beforeRequestMiddleware;
     this.afterRequestMiddleware = afterRequestMiddleware;
-    this.a2ui = a2ui;
+    this.a2ui = a2ui === true ? {} : a2ui || undefined;
     this.mcpApps = mcpApps;
     this.runner = runner;
     this.licenseChecker = createLicenseChecker(options.licenseToken);
