@@ -14,7 +14,7 @@ export const THREAD_DETAILS_TAG = "cpk-thread-details" as const;
  * Call this once at app startup (or lazily before first use):
  *
  * ```ts
- * import { defineInspectorElements } from "@copilotkitnext/web-inspector-angular";
+ * import { defineInspectorElements } from "@copilotkit/web-inspector-angular";
  * defineInspectorElements();
  * ```
  *

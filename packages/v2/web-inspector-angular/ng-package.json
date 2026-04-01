@@ -6,7 +6,7 @@
   },
   "allowedNonPeerDependencies": [
     "@angular/elements",
-    "@copilotkitnext/core",
+    "@copilotkit/core",
     "tslib"
   ]
 }

@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/angular";
 import { fn } from "@storybook/test";
-import { ThreadListComponent } from "@copilotkitnext/web-inspector-angular";
+import { ThreadListComponent } from "@copilotkit/web-inspector-angular";
 
 const meta: Meta<ThreadListComponent> = {
   title: "Inspector/ThreadList",
@@ -36,7 +36,7 @@ export const Default: Story = {
   render: (args) => ({
     props: args,
     template: BG_TEMPLATE(
-      `<cpk-thread-list (threadSelected)="threadSelected($event)"></cpk-thread-list>`
+      `<cpk-thread-list (threadSelected)="threadSelected($event)"></cpk-thread-list>`,
     ),
   }),
 };

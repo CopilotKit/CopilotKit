@@ -1,14 +1,14 @@
 {
-  "name": "@copilotkitnext/web-inspector-angular",
+  "name": "@copilotkit/web-inspector-angular",
   "version": "0.0.1",
   "description": "Angular-based Custom Elements for the CopilotKit web inspector",
-  "main": "dist/fesm2022/copilotkitnext-web-inspector-angular.mjs",
-  "module": "dist/fesm2022/copilotkitnext-web-inspector-angular.mjs",
+  "main": "dist/fesm2022/copilotkit-web-inspector-angular.mjs",
+  "module": "dist/fesm2022/copilotkit-web-inspector-angular.mjs",
   "types": "dist/index.d.ts",
   "type": "module",
   "exports": {
     ".": {
-      "import": "./dist/fesm2022/copilotkitnext-web-inspector-angular.mjs"
+      "import": "./dist/fesm2022/copilotkit-web-inspector-angular.mjs"
     }
   },
   "scripts": {
@@ -19,7 +19,7 @@
   },
   "dependencies": {
     "@angular/elements": "^19.0.0",
-    "@copilotkitnext/core": "workspace:*",
+    "@copilotkit/core": "workspace:*",
     "tslib": "^2.6.0"
   },
   "peerDependencies": {
@@ -35,7 +35,10 @@
     "@angular/core": "^19.0.0",
     "@angular/platform-browser": "^19.0.0",
     "@angular/platform-browser-dynamic": "^19.0.0",
-    "@copilotkitnext/typescript-config": "workspace:*",
+    "@copilotkit/typescript-config": "workspace:*",
+    "@eslint/js": "^9.30.0",
+    "eslint": "^9.17.0",
+    "typescript-eslint": "^8.35.0",
     "ng-packagr": "^19.0.0",
     "typescript": "5.8.2",
     "zone.js": "^0.14.0"
