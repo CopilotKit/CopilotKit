@@ -83,3 +83,9 @@ body {
 body, html {
   height: 100%;
 }
+
+/* Showcase highlight for suggestion pills */
+[data-copilotkit] button[data-slot="suggestion-pill"].a2ui-highlight {
+  border-color: var(--cpk-lilac-400);
+  background: color-mix(in srgb, var(--cpk-lilac-400) 15%, var(--background));
+}
