@@ -575,7 +575,7 @@ type Tab = "conversation" | "agent-state" | "ag-ui-events";
       .cpk-td__tool-content {
         flex: 1;
         overflow-y: auto;
-        padding: 16px;
+        padding: 24px 16px 16px;
         display: flex;
         flex-direction: column;
         gap: 16px;
@@ -586,11 +586,16 @@ type Tab = "conversation" | "agent-state" | "ag-ui-events";
         flex-direction: column;
         gap: 6px;
       }
+      .cpk-td__tool-section + .cpk-td__tool-section {
+        margin-top: 16px;
+      }
 
       .cpk-td__tool-meta-label {
+        font-family: "Plus Jakarta Sans", sans-serif;
         font-size: 11px;
         font-weight: 600;
-        color: rgba(24, 28, 31, 0.48);
+        line-height: 1;
+        color: #181c1f;
       }
 
       .cpk-td__tool-meta-value {
@@ -600,8 +605,10 @@ type Tab = "conversation" | "agent-state" | "ag-ui-events";
       }
 
       .cpk-td__tool-section-label {
-        font-size: 13px;
+        font-family: "Plus Jakarta Sans", sans-serif;
+        font-size: 11px;
         font-weight: 600;
+        line-height: 1;
         color: #181c1f;
       }
 
@@ -867,16 +874,13 @@ type Tab = "conversation" | "agent-state" | "ag-ui-events";
       /* ── JSON block (shared by tool panel + agent state + ag-ui events) */
       .cpk-td__json {
         margin: 0;
-        font-family: "Fira Code", "Cascadia Code", ui-monospace, monospace;
+        font-family: "Spline Sans Mono", monospace;
+        font-weight: 500;
         font-size: 12px;
-        line-height: 1.6;
+        line-height: 1.8;
         white-space: pre-wrap;
         word-break: break-all;
         color: #374151;
-        background: #f8fafc;
-        border: 1px solid rgba(0, 0, 0, 0.08);
-        border-radius: 8px;
-        padding: 12px;
       }
 
       /* ── AG-UI Events ────────────────────────────────────────────────── */
@@ -1013,11 +1017,11 @@ export class ThreadDetailsComponent {
   // from the store (never raw user-controlled HTML).
   highlightedJson(obj: unknown): SafeHtml {
     const colors: Record<string, string> = {
-      key: "#16A34A",
-      str: "#D97706",
-      num: "#2563EB",
-      bool: "#7C3AED",
-      nil: "#9CA3AF",
+      key: "#C48338",
+      str: "#3FA184",
+      num: "#3FA184",
+      bool: "#3FA184",
+      nil: "#3FA184",
     };
 
     const esc = (s: string) =>
