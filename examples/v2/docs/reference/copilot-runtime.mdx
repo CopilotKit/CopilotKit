@@ -39,6 +39,7 @@ new CopilotRuntime(options: CopilotRuntimeOptions)
 | `transcriptionService` | `TranscriptionService` | Optional. Enables `/transcribe` and reports `audioFileTranscriptionEnabled: true` from `/info`. |
 | `beforeRequestMiddleware` | `BeforeRequestMiddleware` | Optional. Runs before every request. Can mutate the incoming `Request` or return `void`. |
 | `afterRequestMiddleware` | `AfterRequestMiddleware` | Optional. Runs after every handler resolves. Receives the response along with parsed messages, thread ID, and run ID extracted from the SSE stream. Use this for logging, metrics, telemetry, etc. |
+| `a2ui` | `boolean \| A2UIConfig` | Optional. Enable A2UI middleware so agents can generate rich UI. Pass `true` for defaults or an object to customise. See [A2UI Configuration](#a2ui-configuration) below. |
 
 ### Passing Agents
 
@@ -134,6 +135,57 @@ class MyTranscriptionService extends TranscriptionService {
   }
 }
 ```
+
+## A2UI Configuration
+
+A2UI (Agent-to-UI) lets agents generate rich, interactive UI components at runtime. When `a2ui` is configured, the runtime reports `a2uiEnabled: true` from `/info`, which tells the frontend to activate the built-in A2UI renderer automatically.
+
+### Quick enable
+
+```ts
+const runtime = new CopilotRuntime({
+  agents,
+  a2ui: true, // enable with defaults
+});
+```
+
+### Full configuration
+
+```ts
+const runtime = new CopilotRuntime({
+  agents,
+  a2ui: {
+    agents: ["my-agent"],       // only apply to specific agents
+    schema: [
+      {
+        name: "TodoCard",
+        description: "A card displaying a todo item",
+        props: { title: { type: "string" }, done: { type: "boolean" } },
+      },
+    ],
+    injectA2UITool: true,       // inject "render_a2ui" tool into agents
+    a2uiToolNames: ["render_a2ui"],
+  },
+});
+```
+
+### A2UI Options
+
+| Option | Type | Description |
+| --- | --- | --- |
+| `agents` | `string[]` | Limit middleware to these named agents. Applies to all if omitted. |
+| `schema` | `A2UIComponentSchema[]` | Declares which components are available to agents. Injected as context into `RunAgentInput`. |
+| `injectA2UITool` | `boolean \| string` | `true` injects a tool named `"render_a2ui"`. A string injects with a custom name. Omit or `false` to skip. |
+| `a2uiToolNames` | `string[]` | Tool names the middleware recognizes as A2UI rendering tools. Defaults to `["render_a2ui"]`. |
+
+### `A2UIComponentSchema`
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `name` | `string` | Component name (e.g. `"TodoCard"`). |
+| `description` | `string` | Human-readable description for the agent. |
+| `props` | `Record<string, unknown>` | Component props as JSON Schema. |
+| `slots` | `string[]` | Named slots for child components. |
 
 ## HTTP Endpoints
 
