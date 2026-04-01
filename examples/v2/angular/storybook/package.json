@@ -28,6 +28,7 @@
     "@angular/cli": "^19.0.0",
     "@angular/compiler-cli": "^19.0.0",
     "@copilotkitnext/angular": "workspace:*",
+    "@copilotkitnext/web-inspector-angular": "workspace:*",
     "@copilotkit/typescript-config": "workspace:*",
     "@storybook/addon-essentials": "^8",
     "@storybook/addon-interactions": "^8",
