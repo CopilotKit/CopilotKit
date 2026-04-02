@@ -4760,7 +4760,12 @@ ${this.announcementMarkdown}</pre
     }, 2000);
   }
 
+  private clearActionError(): void {
+    this.emitterJsonError = null;
+  }
+
   private handleEmit(): void {
+    this.clearActionError();
     if (!this.isEmitterFormValid()) return;
 
     const payload = this.getEmitterPayload();
@@ -4778,6 +4783,7 @@ ${this.announcementMarkdown}</pre
   }
 
   private handleSaveSnippet(): void {
+    this.clearActionError();
     if (!this.isEmitterFormValid()) return;
 
     if (!this.emitterShowSnippetInput) {
@@ -4819,6 +4825,7 @@ ${this.announcementMarkdown}</pre
   }
 
   private handleReplaySnippet(snippet: DevtoolsSnippet): void {
+    this.clearActionError();
     if (!this.emitterAgentId) {
       this.emitterJsonError = "Select an agent before replaying a snippet.";
       this.requestUpdate();
@@ -4836,9 +4843,14 @@ ${this.announcementMarkdown}</pre
   }
 
   private handleDeleteSnippet(id: string): void {
-    deleteSnippet(id);
-    this.emitterSnippets = loadSnippets();
-    this.requestUpdate();
+    this.clearActionError();
+    if (deleteSnippet(id)) {
+      this.emitterSnippets = loadSnippets();
+      this.requestUpdate();
+    } else {
+      this.emitterJsonError = "Failed to delete snippet from localStorage.";
+      this.requestUpdate();
+    }
   }
 }
 

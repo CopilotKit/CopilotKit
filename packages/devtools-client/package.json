@@ -33,6 +33,7 @@
   },
   "devDependencies": {
     "@copilotkit/typescript-config": "workspace:*",
+    "eslint": "^9.30.0",
     "tsdown": "^0.20.3",
     "typescript": "5.8.2",
     "vitest": "^3.2.4"

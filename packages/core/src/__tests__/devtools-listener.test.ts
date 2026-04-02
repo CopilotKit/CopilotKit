@@ -242,7 +242,7 @@ describe("DevtoolsListener", () => {
       expect(secondSub.onTextMessageContentEvent.mock.calls[0][0].textMessageBuffer).toBe("should reach all");
     });
 
-    it("guarantees RUN_FINISHED even when inner handler subscriber throws", () => {
+    it("fires RUN_FINISHED even when a subscriber event handler throws", () => {
       subscriber.onToolCallStartEvent.mockImplementation(() => {
         throw new Error("start handler crash");
       });

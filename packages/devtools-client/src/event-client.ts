@@ -18,6 +18,9 @@ export type CopilotKitEventSuffixes = StripPrefix<CopilotKitDevtoolsEvents, "cop
  * EventClient until the first emit/on call.
  * This avoids allocating resources at module evaluation time for applications
  * that import @copilotkit/core but never use devtools.
+ *
+ * If instantiation fails, the error is cached and rethrown on every
+ * subsequent access — construction is not retried.
  */
 class CopilotKitEventClient {
   private _client: EventClient<CopilotKitEventSuffixes> | null = null;
