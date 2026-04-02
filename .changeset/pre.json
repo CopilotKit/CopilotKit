@@ -43,15 +43,19 @@
     "@copilotkit/typescript-config": "1.54.0",
     "@copilotkit/voice": "1.54.0",
     "@copilotkit/web-inspector": "1.54.0",
-    "@copilotkitnext/angular": "1.54.1-next.6"
+    "@copilotkitnext/angular": "1.54.1-next.6",
+    "react-router-example": "0.1.0"
   },
   "changesets": [
     "consolidate-v1-v2-packages",
     "cyan-buses-sell",
+    "fix-copilot-messages-key",
     "fix-default-open-prop",
     "fix-markdown-streaming-rerenders",
     "fix-race-condition-dropped-runs",
+    "fix-reasoning-stall",
     "fix-scrollbar-styling",
+    "fix-thread-shared-state",
     "funny-dolls-march",
     "handle-empty-tool-arguments",
     "long-toys-enjoy"
