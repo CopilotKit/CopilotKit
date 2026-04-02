@@ -12,8 +12,8 @@ import RunAndConnect from "@/snippets/integrations/claude-agent-sdk/run-and-conn
 
 <IframeSwitcher
   id="backend-tools-example"
-  exampleUrl="https://feature-viewer.copilotkit.ai/claude-agent-sdk/feature/backend_tool_rendering?sidebar=false&chatDefaultOpen=false"
-  codeUrl="https://feature-viewer.copilotkit.ai/claude-agent-sdk/feature/backend_tool_rendering?view=code&sidebar=false&codeLayout=tabs"
+  exampleUrl="https://feature-viewer.copilotkit.ai/claude-agent-sdk-typescript/feature/backend_tool_rendering?sidebar=false&chatDefaultOpen=false"
+  codeUrl="https://feature-viewer.copilotkit.ai/claude-agent-sdk-typescript/feature/backend_tool_rendering?view=code&sidebar=false&codeLayout=tabs"
   exampleLabel="Demo"
   codeLabel="Code"
   height="700px"
@@ -43,59 +43,60 @@ when your agent is calling tools. CopilotKit allows you to fully customize how t
     <Tab value="TypeScript">
         ```typescript title="agent/server.ts"
         import { ClaudeAgentAdapter } from "@ag-ui/claude-agent-sdk";
-        import { tool } from "@anthropic-ai/claude-agent-sdk";
+        import { tool, createSdkMcpServer } from "@anthropic-ai/claude-agent-sdk";
         import { z } from "zod";
 
-        const weatherTool = tool({
-          name: "get_weather",
-          description: "Retrieves the current weather for a location.",
-          parameters: z.object({
-            location: z.string().describe("The location to get weather for"),
-          }),
-          execute: async ({ location }) => {
-            return `The weather in ${location} is sunny.`;
-          },
+        const getWeather = tool(
+          "get_weather",
+          "Get current weather for a location",
+          { location: z.string().describe("City or location name") },
+          async (args) => {
+            return {
+              content: [{ type: "text" as const, text: `The weather in ${args.location} is sunny.` }],
+            };
+          }
+        );
+
+        const weatherServer = createSdkMcpServer({
+          name: "weather",
+          version: "1.0.0",
+          tools: [getWeather],
         });
 
         const adapter = new ClaudeAgentAdapter({
+          agentId: "my_agent",
           model: "claude-haiku-4-5",
-          systemPrompt: "You are a helpful weather assistant.",
-          mcpServers: [
-            {
-              name: "weather",
-              tools: [weatherTool],
-            },
-          ],
+          systemPrompt: "You are a helpful weather assistant. When users ask about weather, use the get_weather tool.",
+          mcpServers: { weather: weatherServer },
+          allowedTools: ["mcp__weather__get_weather"],
         });
         ```
     </Tab>
     <Tab value="Python">
         ```python title="agent/server.py"
+        import json
+        from typing import Any
         from fastapi import FastAPI
         from ag_ui_claude_sdk import ClaudeAgentAdapter, add_claude_fastapi_endpoint
-        from claude_agent_sdk import tool
+        from claude_agent_sdk import tool, create_sdk_mcp_server
 
-        @tool
-        def get_weather(location: str = "the entire world") -> str:
-            """Retrieves the current weather report for a specified location.
+        @tool("get_weather", "Get current weather for a location", {"location": str})
+        async def get_weather(args: dict[str, Any]) -> dict[str, Any]:
+            """Mock weather tool that returns sample weather data."""
+            return {
+                "content": [{"type": "text", "text": f"The weather in {args['location']} is sunny."}],
+            }
 
-            Args:
-                location: The name of the location to get the weather for.
-
-            Returns:
-                The weather report for the specified location.
-            """
-            return f"The weather in {location} is sunny."
+        weather_server = create_sdk_mcp_server("weather", "1.0.0", tools=[get_weather])
 
         adapter = ClaudeAgentAdapter(
-            model="claude-haiku-4-5",
-            system_prompt="You are a helpful weather assistant.",
-            mcp_servers=[
-                {
-                    "name": "weather",
-                    "tools": [get_weather],
-                },
-            ],
+            name="my_agent",
+            options={
+                "model": "claude-haiku-4-5",
+                "system_prompt": "You are a helpful weather assistant. When users ask about weather, use the get_weather tool.",
+                "mcp_servers": {"weather": weather_server},
+                "allowed_tools": ["mcp__weather__get_weather"],
+            },
         )
 
         app = FastAPI()
