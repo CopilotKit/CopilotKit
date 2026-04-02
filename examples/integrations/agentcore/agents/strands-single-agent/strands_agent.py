@@ -135,10 +135,6 @@ def create_strands_agent(actor_id: str, session_id: str) -> StrandsAgent:
             "enableAppMode": frontend_tool_behavior,
             "enableChatMode": frontend_tool_behavior,
         },
-        # default_frontend_tool_behavior=ToolBehavior(
-        #     continue_after_frontend_call=False,
-        #     skip_messages_snapshot=False,
-        # ),
         state_context_builder=state_context_builder,
     )
 
