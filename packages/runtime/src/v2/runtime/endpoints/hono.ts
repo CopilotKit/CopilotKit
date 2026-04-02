@@ -18,6 +18,7 @@ import {
   handleUpdateThread,
   handleArchiveThread,
   handleDeleteThread,
+  handleGetThreadMessages,
 } from "../handlers/handle-threads";
 
 /**
@@ -256,6 +257,20 @@ export function createCopilotEndpoint({
 
       try {
         return await handleSubscribeToThreads({ runtime, request });
+      } catch (error) {
+        logger.error(
+          { err: error, url: request.url, path: c.req.path },
+          "Error running request handler",
+        );
+        throw error;
+      }
+    })
+    .get("/threads/:threadId/messages", async (c) => {
+      const threadId = c.req.param("threadId");
+      const request = c.get("modifiedRequest") || c.req.raw;
+
+      try {
+        return await handleGetThreadMessages({ runtime, request, threadId });
       } catch (error) {
         logger.error(
           { err: error, url: request.url, path: c.req.path },

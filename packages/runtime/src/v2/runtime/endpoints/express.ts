@@ -20,6 +20,7 @@ import {
   handleUpdateThread,
   handleArchiveThread,
   handleDeleteThread,
+  handleGetThreadMessages,
 } from "../handlers/handle-threads";
 import { logger, getLicenseWarningHeader } from "@copilotkit/shared";
 import {
@@ -116,6 +117,14 @@ export function createCopilotEndpointExpress({
     joinPath(normalizedBase, "/threads/subscribe"),
     createRouteHandler(runtime, async ({ request }) => {
       return handleSubscribeToThreads({ runtime, request });
+    }),
+  );
+
+  router.get(
+    joinPath(normalizedBase, "/threads/:threadId/messages"),
+    createRouteHandler(runtime, async ({ request, req }) => {
+      const threadId = req.params.threadId as string;
+      return handleGetThreadMessages({ runtime, request, threadId });
     }),
   );
 
