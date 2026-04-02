@@ -3,11 +3,10 @@ import {
   Message,
   State,
   RunAgentInput,
-  RunStartedEvent,
-  RunFinishedEvent,
   StateSnapshotEvent,
   StateDeltaEvent,
   MessagesSnapshotEvent,
+  randomUUID,
 } from "@ag-ui/client";
 import type { CopilotKitCore } from "./core";
 
@@ -23,6 +22,9 @@ export class StateManager {
   private messageToRun: Map<string, Map<string, Map<string, string>>> =
     new Map();
 
+  // Active run tracking: `agentId:threadId` -> runId (used when messages arrive without input)
+  private activeRun: Map<string, string> = new Map();
+
   // Agent subscriptions for cleanup
   private agentSubscriptions: Map<string, () => void> = new Map();
 
@@ -36,45 +38,121 @@ export class StateManager {
   }
 
   /**
-   * Subscribe to an agent's events to track state and messages
+   * Subscribe to an agent's events to track state and messages.
+   *
+   * Registry agents (subscribed via `onAgentsChanged`) use the bare `agentId`
+   * key so that `unsubscribeFromAgent(agentId)` can remove them when they
+   * are replaced. Per-thread clones (subscribed via `subscribeAgentToStateManager`)
+   * pass `{ isClone: true }` to use a composite `agentId:threadId` key, keeping
+   * their subscription independent of the registry agent's.
    */
-  subscribeToAgent(agent: AbstractAgent): void {
+  subscribeToAgent(
+    agent: AbstractAgent,
+    /** @param isClone When true, uses a composite `agentId:threadId` key for per-thread isolation. */
+    { isClone = false }: { isClone?: boolean } = {},
+  ): void {
     if (!agent.agentId) {
       return; // Skip agents without IDs
     }
 
     const agentId = agent.agentId;
+    const subscriptionKey =
+      isClone && agent.threadId ? `${agentId}:${agent.threadId}` : agentId;
 
-    // Unsubscribe existing subscription if any
-    this.unsubscribeFromAgent(agentId);
+    // Unsubscribe existing subscription for this key only
+    const existingUnsubscribe = this.agentSubscriptions.get(subscriptionKey);
+    if (existingUnsubscribe) {
+      existingUnsubscribe();
+      this.agentSubscriptions.delete(subscriptionKey);
+    }
 
-    // Subscribe to agent events
+    // Subscribe to agent events.
+    //
+    // Two invariants this subscription must uphold:
+    //
+    // 1. Revocation: the ag-ui pipeline captures `o = [...agent.subscribers]` at
+    //    runAgent() start. If this subscription is replaced by a newer one before
+    //    the pipeline finishes, the old pipeline may still call these callbacks
+    //    with the old input.runId. `revoked = true` turns them into no-ops once
+    //    the replacement subscription is in place.
+    //
+    // 2. Run isolation within one subscription: in tests (and edge cases), a new
+    //    run's events can arrive through the same subscription before the new
+    //    pipeline is set up. Concretely: the test emits RUN_STARTED for run2
+    //    before copilotkit.runAgent() has called subscribeAgentToStateManager for
+    //    run2. At that point S1 is still active and sees run2's events with
+    //    input1.runId. To prevent both runs from sharing the same runId key, we
+    //    detect the "seen RUN_FINISHED, then RUN_STARTED again" pattern and
+    //    generate a fresh runId for the second logical run.
+    let revoked = false;
+    let subRunId: string | undefined; // runId assigned to the current logical run
+    let runFinished = false; // true after RUN_FINISHED, reset on next RUN_STARTED
+
+    const effectiveInput = (input: RunAgentInput): RunAgentInput => ({
+      ...input,
+      runId: subRunId ?? input.runId,
+    });
+
     const { unsubscribe } = agent.subscribe({
-      onRunStartedEvent: ({ event, state }) => {
-        this.handleRunStarted(agent, event, state);
+      onRunStartedEvent: ({ input, state }) => {
+        if (revoked) return;
+        if (runFinished && input.runId === subRunId) {
+          // A new logical run's events are arriving through this same (old)
+          // subscription. This happens when the test emits events before
+          // copilotkit.runAgent() has had a chance to set up the new pipeline:
+          // the old pipeline reuses input1.runId for all events, so
+          // input.runId equals the previous run's runId. Generate a fresh
+          // runId so the new run's state doesn't collide with the old one.
+          subRunId = randomUUID();
+        } else {
+          subRunId = input.runId;
+        }
+        runFinished = false;
+        this.handleRunStarted(agent, effectiveInput(input), state);
       },
-      onRunFinishedEvent: ({ event, state }) => {
-        this.handleRunFinished(agent, event, state);
+      onRunFinishedEvent: ({ input, state }) => {
+        if (revoked) return;
+        runFinished = true;
+        this.handleRunFinished(agent, effectiveInput(input), state);
       },
       onStateSnapshotEvent: ({ event, input, state }) => {
-        this.handleStateSnapshot(agent, event, input, state);
+        if (revoked) return;
+        this.handleStateSnapshot(agent, event, effectiveInput(input), state);
       },
       onStateDeltaEvent: ({ event, input, state }) => {
-        this.handleStateDelta(agent, event, input, state);
+        if (revoked) return;
+        this.handleStateDelta(agent, event, effectiveInput(input), state);
       },
       onMessagesSnapshotEvent: ({ event, input, messages }) => {
-        this.handleMessagesSnapshot(agent, event, input, messages);
+        if (revoked) return;
+        this.handleMessagesSnapshot(
+          agent,
+          event,
+          effectiveInput(input),
+          messages,
+        );
       },
       onNewMessage: ({ message, input }) => {
-        this.handleNewMessage(agent, message, input);
+        if (revoked) return;
+        this.handleNewMessage(
+          agent,
+          message,
+          input ? effectiveInput(input) : undefined,
+        );
       },
     });
 
-    this.agentSubscriptions.set(agentId, unsubscribe);
+    this.agentSubscriptions.set(subscriptionKey, () => {
+      revoked = true;
+      unsubscribe();
+    });
   }
 
   /**
-   * Unsubscribe from an agent's events
+   * Unsubscribe a registry agent's subscription (bare `agentId` key).
+   * Per-thread clone subscriptions use composite `agentId:threadId` keys and
+   * are replaced (not removed) by subsequent subscribeToAgent(agent, { isClone: true })
+   * calls for the same (agentId, threadId) pair.
    */
   unsubscribeFromAgent(agentId: string): void {
     const unsubscribe = this.agentSubscriptions.get(agentId);
@@ -130,13 +208,20 @@ export class StateManager {
    */
   private handleRunStarted(
     agent: AbstractAgent,
-    event: RunStartedEvent,
+    input: RunAgentInput,
     state: State,
   ): void {
     if (!agent.agentId) return;
 
-    const { threadId, runId } = event;
-    this.saveState(agent.agentId, threadId, runId, state);
+    const { threadId, runId } = input;
+    this.activeRun.set(`${agent.agentId}:${threadId}`, runId);
+    // Only persist state when it carries real data. An empty {} from an
+    // initial-state-less run would cause getStateByRun to return {} instead
+    // of undefined, breaking renderers that rely on undefined to mean "no
+    // state snapshot received yet".
+    if (state && Object.keys(state).length > 0) {
+      this.saveState(agent.agentId, threadId, runId, state);
+    }
   }
 
   /**
@@ -144,13 +229,16 @@ export class StateManager {
    */
   private handleRunFinished(
     agent: AbstractAgent,
-    event: RunFinishedEvent,
+    input: RunAgentInput,
     state: State,
   ): void {
     if (!agent.agentId) return;
 
-    const { threadId, runId } = event;
-    this.saveState(agent.agentId, threadId, runId, state);
+    const { threadId, runId } = input;
+    this.activeRun.delete(`${agent.agentId}:${threadId}`);
+    if (state && Object.keys(state).length > 0) {
+      this.saveState(agent.agentId, threadId, runId, state);
+    }
   }
 
   /**
@@ -213,7 +301,23 @@ export class StateManager {
     message: Message,
     input?: RunAgentInput,
   ): void {
-    if (!agent.agentId || !input) return;
+    if (!agent.agentId) return;
+
+    if (!input) {
+      // ag-ui calls addMessage() without input, so input is undefined here.
+      // Fall back to the currently-active run for this agent's thread.
+      const threadId = agent.threadId ?? "";
+      const runId = this.activeRun.get(`${agent.agentId}:${threadId}`);
+      if (runId) {
+        this.associateMessageWithRun(
+          agent.agentId,
+          threadId,
+          message.id,
+          runId,
+        );
+      }
+      return;
+    }
 
     const { threadId, runId } = input;
     this.associateMessageWithRun(agent.agentId, threadId, message.id, runId);

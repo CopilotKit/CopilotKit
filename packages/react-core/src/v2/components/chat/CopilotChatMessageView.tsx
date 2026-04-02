@@ -12,6 +12,7 @@ import {
 } from "@ag-ui/core";
 import { twMerge } from "tailwind-merge";
 import { useRenderActivityMessage, useRenderCustomMessages } from "../../hooks";
+import { getThreadClone } from "../../hooks/use-agent";
 import { useCopilotKit } from "../../providers/CopilotKitProvider";
 import { useCopilotChatConfiguration } from "../../providers/CopilotChatConfigurationProvider";
 
@@ -313,14 +314,18 @@ export function CopilotChatMessageView({
   // Subscribe to state changes so custom message renderers re-render when state updates.
   useEffect(() => {
     if (!config?.agentId) return;
-    const agent = copilotkit.getAgent(config.agentId);
+    const registryAgent = copilotkit.getAgent(config.agentId);
+    // Prefer the per-thread clone so that state changes from the running agent
+    // (which is the clone, not the registry) trigger re-renders.
+    const agent =
+      getThreadClone(registryAgent, config.threadId) ?? registryAgent;
     if (!agent) return;
 
     const subscription = agent.subscribe({
       onStateChanged: forceUpdate,
     });
     return () => subscription.unsubscribe();
-  }, [config?.agentId, copilotkit, forceUpdate]);
+  }, [config?.agentId, config?.threadId, copilotkit, forceUpdate]);
 
   // Subscribe to interrupt element changes for in-chat rendering.
   const [interruptElement, setInterruptElement] =

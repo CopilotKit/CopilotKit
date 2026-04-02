@@ -35,6 +35,7 @@ jobs:
     name: "unit"
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         node-version: [20.x, 22.x, 24.x]
     steps:
