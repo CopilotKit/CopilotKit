@@ -14,12 +14,14 @@ Chat UI with generative charts, shared-state todo canvas, and inline tool render
 ## Deploy to AWS
 
 1. **Create your config:**
+
    ```bash
    cp config.yaml.example config.yaml
    # Edit config.yaml — set stack_name_base and admin_user_email
    ```
 
 2. **Deploy:**
+
    ```bash
    ./deploy-langgraph.sh                    # LangGraph agent (infra + frontend)
    ./deploy-langgraph.sh --skip-frontend    # infra/agent only
