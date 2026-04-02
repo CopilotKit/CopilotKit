@@ -2,7 +2,6 @@
 "@copilotkit/a2ui-renderer": minor
 "@copilotkit/core": minor
 "@copilotkit/demo-agents": minor
-"@copilotkit/eslint-config": minor
 "@copilotkit/react-core": minor
 "@copilotkit/react-textarea": minor
 "@copilotkit/react-ui": minor
