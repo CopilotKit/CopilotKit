@@ -179,7 +179,7 @@ export async function* convertAISDKStream(
         }
 
         case "text-delta": {
-          // In AI SDK 5.0, the property is 'text'
+          // AI SDK text-delta events use 'text' (not 'delta')
           const textDelta = "text" in p ? (p.text as string) : "";
           const textEvent: TextMessageChunkEvent = {
             type: EventType.TEXT_MESSAGE_CHUNK,
@@ -242,7 +242,7 @@ export async function* convertAISDKStream(
         }
 
         case "tool-result": {
-          // AI SDK uses "output" (v5+), but older versions used "result" — check both
+          // AI SDK tool-result uses "output"; older versions used "result" — check both
           const toolResult =
             "output" in p ? p.output : "result" in p ? p.result : null;
           const toolName = "toolName" in p ? (p.toolName as string) : "";
@@ -302,7 +302,7 @@ export async function* convertAISDKStream(
 
         case "error": {
           if (abortSignal.aborted) {
-            break;
+            return;
           }
           // Re-throw so the caller can emit RUN_ERROR
           const err = p.error ?? p.message ?? p.cause;

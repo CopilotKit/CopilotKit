@@ -47,8 +47,12 @@ export interface TanStackInputResult {
 export function convertInputToTanStackAI(
   input: RunAgentInput,
 ): TanStackInputResult {
+  // Allowlist: only pass user/assistant/tool messages to TanStack.
+  // Other roles (system, developer, activity, reasoning) are either
+  // extracted into systemPrompts or not applicable.
+  const chatRoles = new Set(["user", "assistant", "tool"]);
   const messages: TanStackChatMessage[] = input.messages
-    .filter((m: Message) => m.role !== "developer" && m.role !== "system")
+    .filter((m: Message) => chatRoles.has(m.role))
     .map((m: Message): TanStackChatMessage => {
       const msg: TanStackChatMessage = {
         role: m.role as "user" | "assistant" | "tool",
@@ -148,15 +152,22 @@ export async function* convertTanStackStream(
       };
       yield endEvent;
     } else if (type === "TOOL_CALL_RESULT") {
+      let serializedContent: string;
+      if (typeof raw.content === "string") {
+        serializedContent = raw.content;
+      } else {
+        try {
+          serializedContent = JSON.stringify(raw.content ?? raw.result ?? null);
+        } catch {
+          serializedContent = "[Unserializable tool result]";
+        }
+      }
       const resultEvent: ToolCallResultEvent = {
         type: EventType.TOOL_CALL_RESULT,
         role: "tool",
         messageId: randomUUID(),
         toolCallId: raw.toolCallId as string,
-        content:
-          typeof raw.content === "string"
-            ? raw.content
-            : JSON.stringify(raw.content ?? raw.result ?? null),
+        content: serializedContent,
       };
       yield resultEvent;
     }

@@ -85,17 +85,19 @@ export class Agent extends AbstractAgent {
       );
     }
 
+    // Set synchronously before Observable creation to close the TOCTOU window
+    // between the guard check above and the subscriber callback.
+    this.abortController = new AbortController();
+    const controller = this.abortController;
+
     return new Observable<BaseEvent>((subscriber) => {
-      // Emit RUN_STARTED synchronously
+      // Emit RUN_STARTED before entering the async factory
       const startEvent: RunStartedEvent = {
         type: EventType.RUN_STARTED,
         threadId: input.threadId,
         runId: input.runId,
       };
       subscriber.next(startEvent);
-
-      this.abortController = new AbortController();
-      const controller = this.abortController;
 
       const ctx: AgentFactoryContext = {
         input,

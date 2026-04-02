@@ -282,6 +282,8 @@ export interface CollectedEventsResult {
   events: BaseEvent[];
   /** Whether the observable completed via error (true) or normal completion (false) */
   errored: boolean;
+  /** Whether the safety timeout fired (indicates a hung observable) */
+  timedOut: boolean;
 }
 
 /**
@@ -294,17 +296,21 @@ export async function collectEventsIncludingErrors(
 ): Promise<CollectedEventsResult> {
   return new Promise((resolve) => {
     const events: BaseEvent[] = [];
+    const timeoutId = setTimeout(() => {
+      subscription.unsubscribe();
+      resolve({ events, errored: false, timedOut: true });
+    }, 5000);
     const subscription = observable.subscribe({
       next: (event) => events.push(event),
-      error: () => resolve({ events, errored: true }),
-      complete: () => resolve({ events, errored: false }),
+      error: () => {
+        clearTimeout(timeoutId);
+        resolve({ events, errored: true, timedOut: false });
+      },
+      complete: () => {
+        clearTimeout(timeoutId);
+        resolve({ events, errored: false, timedOut: false });
+      },
     });
-
-    // Prevent hanging tests
-    setTimeout(() => {
-      subscription.unsubscribe();
-      resolve({ events, errored: false });
-    }, 5000);
   });
 }
 

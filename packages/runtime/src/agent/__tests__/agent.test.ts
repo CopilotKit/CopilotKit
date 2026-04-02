@@ -580,13 +580,10 @@ describe("Concurrent run guard", () => {
     });
     const input = createDefaultInput();
 
-    // Start first run
+    // Start first run — abortController is now set synchronously in run()
     const sub = agent.run(input).subscribe({ next: () => {} });
 
-    // Give the async IIFE time to set abortController
-    await new Promise((r) => setTimeout(r, 10));
-
-    // Second run should throw
+    // Second run should throw immediately (no timing dependency)
     expect(() => agent.run(input)).toThrow("Agent is already running");
 
     // Cleanup
