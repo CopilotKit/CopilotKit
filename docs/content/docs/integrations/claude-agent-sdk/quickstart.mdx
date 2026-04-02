@@ -43,7 +43,7 @@ Before you begin, you'll need the following:
         <Tabs groupId="language" items={['TypeScript', 'Python']}>
             <Tab value="TypeScript">
                 ```bash
-                npm install @ag-ui/claude-agent-sdk @anthropic-ai/claude-agent-sdk zod
+                npm install @ag-ui/claude-agent-sdk @ag-ui/core @ag-ui/encoder @anthropic-ai/claude-agent-sdk zod
                 ```
             </Tab>
             <Tab value="Python">
@@ -76,7 +76,7 @@ Before you begin, you'll need the following:
                 ```typescript title="agent/server.ts"
                 import http from "node:http";
                 import { ClaudeAgentAdapter } from "@ag-ui/claude-agent-sdk";
-                import { RunAgentInput } from "@ag-ui/client";
+                import type { RunAgentInput } from "@ag-ui/core";
                 import { EventEncoder } from "@ag-ui/encoder";
 
                 const adapter = new ClaudeAgentAdapter({
@@ -86,34 +86,53 @@ Before you begin, you'll need the following:
                 });
 
                 const server = http.createServer(async (req, res) => {
-                  if (req.method === "POST") {
-                    let body = "";
-                    for await (const chunk of req) body += chunk;
-                    const input: RunAgentInput = JSON.parse(body);
+                  res.setHeader("Access-Control-Allow-Origin", "*");
+                  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+                  res.setHeader("Access-Control-Allow-Headers", "*");
 
-                    res.writeHead(200, {
-                      "Content-Type": "text/event-stream",
-                      "Access-Control-Allow-Origin": "*",
-                    });
-
-                    const encoder = new EventEncoder();
-                    const stream = adapter.run(input);
-                    stream.subscribe({
-                      next: (event) => res.write(encoder.encode(event)),
-                      complete: () => res.end(),
-                      error: (err) => { console.error(err); res.end(); },
-                    });
-                  } else if (req.method === "OPTIONS") {
-                    res.writeHead(204, {
-                      "Access-Control-Allow-Origin": "*",
-                      "Access-Control-Allow-Methods": "POST, OPTIONS",
-                      "Access-Control-Allow-Headers": "Content-Type",
-                    });
+                  if (req.method === "OPTIONS") {
+                    res.writeHead(204);
                     res.end();
-                  } else {
+                    return;
+                  }
+
+                  if (req.method !== "POST") {
                     res.writeHead(404);
                     res.end();
+                    return;
                   }
+
+                  const chunks: Buffer[] = [];
+                  for await (const chunk of req) chunks.push(chunk as Buffer);
+                  const body = Buffer.concat(chunks).toString("utf-8");
+
+                  let input: RunAgentInput;
+                  try {
+                    input = JSON.parse(body) as RunAgentInput;
+                  } catch {
+                    res.writeHead(400, { "Content-Type": "application/json" });
+                    res.end(JSON.stringify({ error: "Invalid JSON body" }));
+                    return;
+                  }
+
+                  const encoder = new EventEncoder({
+                    accept: req.headers.accept ?? "text/event-stream",
+                  });
+
+                  res.writeHead(200, {
+                    "Content-Type": encoder.getContentType(),
+                    "Cache-Control": "no-cache",
+                    Connection: "keep-alive",
+                  });
+
+                  adapter.run(input).subscribe({
+                    next: (event) => res.write(encoder.encode(event)),
+                    error: (err) => {
+                      console.error(err);
+                      res.end();
+                    },
+                    complete: () => res.end(),
+                  });
                 });
 
                 server.listen(8000, () => console.log("Agent running on http://localhost:8000"));
