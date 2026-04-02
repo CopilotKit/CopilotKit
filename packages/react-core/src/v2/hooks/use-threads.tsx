@@ -202,6 +202,13 @@ export function useThreads({
   }, [store]);
 
   useEffect(() => {
+    copilotkit.registerThreadStore(agentId, store);
+    return () => {
+      copilotkit.unregisterThreadStore(agentId);
+    };
+  }, [copilotkit, agentId, store]);
+
+  useEffect(() => {
     const context: ɵThreadRuntimeContext | null = copilotkit.runtimeUrl
       ? {
           runtimeUrl: copilotkit.runtimeUrl,
