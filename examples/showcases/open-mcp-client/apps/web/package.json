@@ -27,7 +27,7 @@
     "@mastra/mcp": "^1.0.1",
     "@modelcontextprotocol/sdk": "^1.25.2",
     "dotenv": "^17.2.3",
-    "e2b": "^1.5.1",
+    "e2b": "^2.13.0",
     "next": "16.1.1",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",

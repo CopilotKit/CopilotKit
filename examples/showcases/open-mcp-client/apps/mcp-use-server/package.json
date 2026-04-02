@@ -30,7 +30,7 @@
   "dependencies": {
     "@openai/apps-sdk-ui": "^0.2.1",
     "e2b": "^2.13.0",
-    "mcp-use": "latest",
+    "mcp-use": "^1.22.3",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "react-router": "^7.13.0",

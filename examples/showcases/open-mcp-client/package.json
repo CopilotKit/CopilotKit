@@ -8,7 +8,7 @@
     "dev": "turbo run dev",
     "build": "turbo run build",
     "lint": "turbo run lint",
-    "clean": "rm -rf node_modules pnpm-lock.yaml apps/*/node_modules apps/*/pnpm-lock.yaml",
+    "clean": "rm -rf node_modules apps/*/node_modules apps/*/.turbo .turbo",
     "fresh": "pnpm clean && pnpm i"
   },
   "devDependencies": {
