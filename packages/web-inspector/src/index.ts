@@ -3212,7 +3212,7 @@ ${argsString}</pre
         <div class="p-4">
           <div class="cpk-section-card overflow-hidden">
             <div class="cpk-section-header"><h4>AG-UI Events</h4></div>
-            <div class="flex h-40 items-center justify-center">
+            <div class="flex h-20 items-center justify-center p-4">
               <div class="flex items-center gap-2 text-xs text-gray-500">
                 <span class="text-lg text-gray-400"
                   >${this.renderIcon("Zap")}</span
@@ -3230,7 +3230,7 @@ ${argsString}</pre
         <div class="p-4">
           <div class="cpk-section-card overflow-hidden">
             <div class="cpk-section-header"><h4>AG-UI Events</h4></div>
-            <div class="flex h-40 items-center justify-center">
+            <div class="flex h-20 items-center justify-center p-4">
               <div class="flex items-center gap-2 text-xs text-gray-500">
                 <span class="text-lg text-gray-400"
                   >${this.renderIcon("Filter")}</span
@@ -3614,7 +3614,7 @@ ${prettyEvent}</pre
                 `
               : html`
                   <div
-                    class="flex h-40 items-center justify-center text-xs text-gray-500"
+                    class="flex h-12 items-center justify-center text-xs text-gray-500"
                   >
                     <div class="flex items-center gap-2 text-gray-500">
                       <span class="text-lg text-gray-400"
@@ -3632,7 +3632,7 @@ ${prettyEvent}</pre
           <div class="cpk-section-header">
             <h4>Current Messages</h4>
           </div>
-          <div class="overflow-auto">
+          <div class="overflow-auto p-4">
             ${messages && messages.length > 0
               ? html`
                   <table class="w-full text-xs">
@@ -3702,7 +3702,7 @@ ${prettyEvent}</pre
                 `
               : html`
                   <div
-                    class="flex h-40 items-center justify-center text-xs text-gray-500"
+                    class="flex h-12 items-center justify-center text-xs text-gray-500"
                   >
                     <div class="flex items-center gap-2 text-gray-500">
                       <span class="text-lg text-gray-400"
