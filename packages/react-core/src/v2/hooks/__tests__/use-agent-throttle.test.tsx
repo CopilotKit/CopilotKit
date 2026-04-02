@@ -372,13 +372,13 @@ describe("useAgent throttleMs", () => {
   ])(
     "with invalid throttleMs ($label), falls back to unthrottled and warns",
     ({ value }) => {
-      const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
       const TestComponent = createTestComponent({ throttleMs: value });
 
       render(<TestComponent />);
 
       // Should warn about the invalid value
-      expect(warnSpy).toHaveBeenCalledWith(
+      expect(errorSpy).toHaveBeenCalledWith(
         expect.stringContaining(
           "throttleMs must be a non-negative finite number",
         ),

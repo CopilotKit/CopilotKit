@@ -25,22 +25,26 @@ export interface UseAgentProps {
   threadId?: string;
   updates?: UseAgentUpdate[];
   /**
-   * Throttle React re-renders triggered by onMessagesChanged notifications
-   * (milliseconds). Useful to reduce re-render frequency during high-frequency
-   * message updates such as streaming.
+   * Throttle interval (in milliseconds) for React re-renders triggered by
+   * `OnMessagesChanged` notifications. Useful to reduce re-render frequency
+   * during high-frequency message updates such as streaming.
    *
    * Uses leading+trailing: first update fires immediately, subsequent updates
    * within the window are coalesced, and a trailing timer ensures the most
-   * recent update fires after the window expires (unless the component
-   * unmounts first).
+   * recent update fires after the window expires. The trailing edge restarts
+   * the throttle window, so no two renders occur within `throttleMs` of each
+   * other. Cleanup on unmount cancels any pending trailing timer.
    *
-   * Must be a non-negative finite number. A value of 0 disables throttling.
-   * Negative or non-finite values will fall back to unthrottled behavior (0)
-   * with a console warning. Has no effect on onStateChanged or
-   * onRunStatusChanged notifications. If `updates` does not include
+   * Must be a non-negative finite number. Negative or non-finite values fall
+   * back to unthrottled behavior with a `console.error`. Only affects
+   * `OnMessagesChanged` updates — `OnStateChanged` and `OnRunStatusChanged`
+   * always fire immediately. If `updates` does not include
    * `OnMessagesChanged`, this property has no effect.
    *
-   * Default: 0 (no throttle).
+   * This throttle is independent of and additive with any
+   * `notificationThrottle` configured on the `AbstractAgent` instance.
+   *
+   * Default: `0` (no throttle).
    */
   throttleMs?: number;
 }
@@ -134,12 +138,12 @@ export function useAgent({
       throttleMs !== undefined &&
       (!Number.isFinite(throttleMs) || throttleMs < 0)
     ) {
-      console.warn(
-        `useAgent: throttleMs must be a non-negative finite number, got ${throttleMs}. Ignoring.`,
+      console.error(
+        `useAgent: throttleMs must be a non-negative finite number, got ${throttleMs}. Falling back to unthrottled.`,
       );
-      return undefined;
+      return 0;
     }
-    return throttleMs;
+    return throttleMs ?? 0;
   }, [throttleMs]);
 
   const [, forceUpdate] = useReducer((x) => x + 1, 0);
@@ -276,7 +280,7 @@ export function useAgent({
     let active = true;
 
     if (updateFlags.includes(UseAgentUpdate.OnMessagesChanged)) {
-      const ms = effectiveThrottleMs ?? 0;
+      const ms = effectiveThrottleMs;
       if (ms > 0) {
         // Throttled onMessagesChanged: leading+trailing pattern.
         // First notification fires immediately, subsequent ones within the
