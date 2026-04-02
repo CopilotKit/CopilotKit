@@ -1118,21 +1118,43 @@ ${argsString}</pre
       }
 
       .announcement-dismiss {
+        background: none;
+        border: none;
+        cursor: pointer;
         color: #838389;
-        font-size: 12px;
-        font-family: "Plus Jakarta Sans", system-ui, sans-serif;
-        padding: 2px 8px;
-        border-radius: 8px;
-        border: 1px solid rgba(219, 219, 229, 0.6);
-        background: rgba(247, 247, 249, 0.9);
+        width: 28px;
+        height: 28px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 6px;
+        padding: 0;
         transition:
           background 120ms ease,
           color 120ms ease;
       }
 
       .announcement-dismiss:hover {
-        background: #e9e9ef;
+        background: rgba(0, 0, 0, 0.06);
         color: #010507;
+      }
+
+      /* ── Agent tab section cards ─────────────────────────────────────── */
+      .cpk-section-card {
+        border-radius: 8px;
+        background: #ffffff;
+        overflow: hidden;
+      }
+      .cpk-section-header {
+        background: #e8edf5;
+        border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+        padding: 10px 16px;
+      }
+      .cpk-section-header h4 {
+        font-size: 11px;
+        font-weight: 600;
+        color: #181c1f;
+        margin: 0;
       }
 
       .announcement-content {
@@ -1388,6 +1410,27 @@ ${argsString}</pre
       code[class*="bg-gray-100"],
       span[class*="bg-gray-100"] {
         background-color: #f0f0f4 !important;
+      }
+
+      /* ── Connected status bar: match threads header mint (#5BE4BB) ──── */
+      /* Outer strip bg + top border + text when connected badge is present */
+      .inspector-window
+        > div
+        > div:last-child
+        > div:last-child:has(div[class*="bg-emerald-50"]) {
+        background-color: rgba(91, 228, 187, 0.08) !important;
+        border-top-color: rgba(91, 228, 187, 0.3) !important;
+        color: #189370 !important;
+      }
+      /* Inner badge — slightly more opaque on the mint bg */
+      div[class*="bg-emerald-50"][class*="border-emerald-200"] {
+        background-color: rgba(91, 228, 187, 0.12) !important;
+        border-color: rgba(91, 228, 187, 0.4) !important;
+        color: #189370 !important;
+      }
+      /* Icon bubble inside connected badge → mint tint */
+      div[class*="bg-emerald-50"] span[class*="bg-white"] {
+        background-color: rgba(91, 228, 187, 0.3) !important;
       }
 
       /* ── Announcement panel ──────────────────────────────────────── */
@@ -3329,9 +3372,9 @@ ${prettyEvent}</pre
         </div>
 
         <!-- Current State Section -->
-        <div class="rounded-lg border border-gray-200 bg-white">
-          <div class="border-b border-gray-200 px-4 py-3">
-            <h4 class="text-sm font-semibold text-gray-900">Current State</h4>
+        <div class="cpk-section-card">
+          <div class="cpk-section-header">
+            <h4>Current State</h4>
           </div>
           <div class="overflow-auto p-4">
             ${this.hasRenderableState(state)
@@ -3356,11 +3399,9 @@ ${prettyEvent}</pre
         </div>
 
         <!-- Current Messages Section -->
-        <div class="rounded-lg border border-gray-200 bg-white">
-          <div class="border-b border-gray-200 px-4 py-3">
-            <h4 class="text-sm font-semibold text-gray-900">
-              Current Messages
-            </h4>
+        <div class="cpk-section-card">
+          <div class="cpk-section-header">
+            <h4>Current Messages</h4>
           </div>
           <div class="overflow-auto">
             ${messages && messages.length > 0
@@ -4314,7 +4355,7 @@ ${prettyEvent}</pre
 
     if (!this.announcementLoaded && !this.announcementMarkdown) {
       return html`<div
-        class="mx-4 my-3 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 shadow-[0_12px_30px_rgba(15,23,42,0.12)]"
+        class="mx-4 my-3 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800"
       >
         <div class="flex items-center gap-2 font-semibold">
           <span
@@ -4329,7 +4370,7 @@ ${prettyEvent}</pre
 
     if (this.announcementLoadError) {
       return html`<div
-        class="mx-4 my-3 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-900 shadow-[0_12px_30px_rgba(15,23,42,0.12)]"
+        class="mx-4 my-3 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-900"
       >
         <div class="flex items-center gap-2 font-semibold">
           <span
@@ -4357,7 +4398,7 @@ ${this.announcementMarkdown}</pre
         >`;
 
     return html`<div
-      class="mx-4 my-3 rounded-xl border border-slate-200 bg-white px-4 py-4 shadow-[0_12px_30px_rgba(15,23,42,0.12)]"
+      class="mx-4 my-3 rounded-xl border border-slate-200 bg-white px-4 py-4"
     >
       <div
         class="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-900"
@@ -4374,7 +4415,7 @@ ${this.announcementMarkdown}</pre
           @click=${this.handleDismissAnnouncement}
           aria-label="Dismiss announcement"
         >
-          Dismiss
+          ${this.renderIcon("X")}
         </button>
       </div>
       <div class="announcement-content text-sm leading-relaxed text-gray-900">

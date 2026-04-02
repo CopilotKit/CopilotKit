@@ -131,7 +131,7 @@ const FAKE_THREADS: InspectorThread[] = [
         position: relative;
         overflow: hidden;
         display: grid;
-        grid-template-columns: 120px 120px 150px 180px 1fr 90px;
+        grid-template-columns: 100px 100px 130px 1fr 1fr 60px;
         column-gap: 16px;
         padding: 0 16px;
         height: 46px;
@@ -161,14 +161,14 @@ const FAKE_THREADS: InspectorThread[] = [
 
       .cpk-thread-list__row {
         display: grid;
-        grid-template-columns: 120px 120px 150px 180px 1fr 90px;
+        grid-template-columns: 100px 100px 130px 1fr 1fr 60px;
         column-gap: 16px;
         padding: 0 16px;
         height: 46px;
         align-items: center;
         border-bottom: 1px solid #00000014;
         cursor: pointer;
-        color: #374151;
+        color: #57575b;
       }
       .cpk-thread-list__row:last-child {
         border-bottom: none;
@@ -177,16 +177,16 @@ const FAKE_THREADS: InspectorThread[] = [
         background: #ffffff;
       }
       .cpk-thread-list__row:nth-child(odd) {
-        background: #fbfdff;
+        background: #fafafc;
       }
       .cpk-thread-list__row:hover {
-        background: rgba(232, 237, 245, 0.4);
+        background: rgba(190, 194, 255, 0.08);
       }
 
       .cpk-thread-list__user-id {
         font-weight: 400;
         font-size: 13px;
-        color: rgba(24, 28, 31, 0.48);
+        color: rgba(1, 5, 7, 0.48);
       }
 
       .cpk-thread-list__truncate {
@@ -197,7 +197,7 @@ const FAKE_THREADS: InspectorThread[] = [
       .cpk-thread-list__empty {
         padding: 24px;
         text-align: center;
-        color: #9ca3af;
+        color: #838389;
         font-size: 12px;
         background: #ffffff;
       }
