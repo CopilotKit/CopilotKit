@@ -1,6 +1,6 @@
 interface ModeToggleProps {
-  mode: "chat" | "app"
-  onModeChange: (mode: "chat" | "app") => void
+  mode: "chat" | "app";
+  onModeChange: (mode: "chat" | "app") => void;
 }
 
 export function ModeToggle({ mode, onModeChange }: ModeToggleProps) {
@@ -35,5 +35,5 @@ export function ModeToggle({ mode, onModeChange }: ModeToggleProps) {
         App Mode
       </button>
     </div>
-  )
+  );
 }

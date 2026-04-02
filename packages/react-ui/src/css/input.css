@@ -122,7 +122,11 @@
 }
 
 .copilotKitInput textarea::-webkit-scrollbar-thumb:hover {
-  background-color: color-mix(in srgb, rgb(200 200 200) 80%, black); /* Darker color on hover */
+  background-color: color-mix(
+    in srgb,
+    rgb(200 200 200) 80%,
+    black
+  ); /* Darker color on hover */
 }
 
 .poweredByContainer {
@@ -149,4 +153,3 @@ html[style*="color-scheme: dark"],
 body[style*="color-scheme: dark"] .poweredBy {
   color: rgb(69, 69, 69) !important;
 }
-
