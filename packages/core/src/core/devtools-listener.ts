@@ -1,7 +1,10 @@
 import { AbstractAgent, EventType } from "@ag-ui/client";
 import type { AgentSubscriber } from "@ag-ui/client";
 import { devtoolsClient } from "@copilotkit/devtools-client";
-import type { CopilotKitDevtoolsEvents, DevtoolsEventType } from "@copilotkit/devtools-client";
+import type {
+  CopilotKitDevtoolsEvents,
+  DevtoolsEventType,
+} from "@copilotkit/devtools-client";
 import type { CopilotKitEventSuffixes } from "@copilotkit/devtools-client";
 import { randomUUID } from "@copilotkit/shared";
 
@@ -21,11 +24,21 @@ export class DevtoolsListener {
   initialize(): void {
     if (this.active) return;
     this.active = true;
-    this.registerHandler("tool-call", (payload) => this.handleToolCall(payload));
-    this.registerHandler("text-message", (payload) => this.handleTextMessage(payload));
-    this.registerHandler("reasoning", (payload) => this.handleReasoning(payload));
-    this.registerHandler("state-snapshot", (payload) => this.handleStateSnapshot(payload));
-    this.registerHandler("custom-event", (payload) => this.handleCustomEvent(payload));
+    this.registerHandler("tool-call", (payload) =>
+      this.handleToolCall(payload),
+    );
+    this.registerHandler("text-message", (payload) =>
+      this.handleTextMessage(payload),
+    );
+    this.registerHandler("reasoning", (payload) =>
+      this.handleReasoning(payload),
+    );
+    this.registerHandler("state-snapshot", (payload) =>
+      this.handleStateSnapshot(payload),
+    );
+    this.registerHandler("custom-event", (payload) =>
+      this.handleCustomEvent(payload),
+    );
   }
 
   destroy(): void {
@@ -36,14 +49,17 @@ export class DevtoolsListener {
     this.cleanups = [];
   }
 
-  private registerHandler<K extends DevtoolsEventType & keyof CopilotKitEventSuffixes>(
+  private registerHandler<
+    K extends DevtoolsEventType & keyof CopilotKitEventSuffixes,
+  >(
     event: K,
     handler: (payload: CopilotKitDevtoolsEvents[`copilotkit:${K}`]) => void,
   ): void {
     // Wrap with an active-guard so handlers become no-ops after destroy(),
     // defending against EventTarget listeners that outlive unsubscribe.
     const guardedHandler = (e: { payload: CopilotKitEventSuffixes[K] }) => {
-      if (this.active) handler(e.payload as CopilotKitDevtoolsEvents[`copilotkit:${K}`]);
+      if (this.active)
+        handler(e.payload as CopilotKitDevtoolsEvents[`copilotkit:${K}`]);
     };
     const unsubscribe = devtoolsClient.on(event, guardedHandler, {
       withEventTarget: true,
@@ -54,7 +70,9 @@ export class DevtoolsListener {
   private resolveAgent(agentId: string): AbstractAgent | undefined {
     const agent = this.deps.getAgents()[agentId];
     if (!agent) {
-      console.warn(`[CopilotKit DevTools] Agent "${agentId}" not found — event dropped.`);
+      console.warn(
+        `[CopilotKit DevTools] Agent "${agentId}" not found — event dropped.`,
+      );
     }
     return agent;
   }
@@ -73,12 +91,18 @@ export class DevtoolsListener {
     };
   }
 
-  private notifySubscribers(agent: AbstractAgent, cb: (sub: AgentSubscriber) => void): void {
+  private notifySubscribers(
+    agent: AbstractAgent,
+    cb: (sub: AgentSubscriber) => void,
+  ): void {
     for (const sub of agent.subscribers) {
       try {
         cb(sub);
       } catch (err) {
-        console.error(`[CopilotKit DevTools] Subscriber error for agent "${agent.agentId}":`, err);
+        console.error(
+          `[CopilotKit DevTools] Subscriber error for agent "${agent.agentId}":`,
+          err,
+        );
       }
     }
   }
@@ -118,7 +142,10 @@ export class DevtoolsListener {
             });
           });
         } catch (cleanupErr) {
-          console.error("[CopilotKit DevTools] Error sending RUN_FINISHED during cleanup:", cleanupErr);
+          console.error(
+            "[CopilotKit DevTools] Error sending RUN_FINISHED during cleanup:",
+            cleanupErr,
+          );
         }
       }
     }
@@ -201,7 +228,11 @@ export class DevtoolsListener {
       this.notifySubscribers(agent, (sub) => {
         sub.onTextMessageStartEvent?.({
           ...runParams,
-          event: { type: EventType.TEXT_MESSAGE_START, messageId, role: "assistant" },
+          event: {
+            type: EventType.TEXT_MESSAGE_START,
+            messageId,
+            role: "assistant",
+          },
         });
       });
 
@@ -209,7 +240,11 @@ export class DevtoolsListener {
         sub.onTextMessageContentEvent?.({
           ...runParams,
           textMessageBuffer: payload.content,
-          event: { type: EventType.TEXT_MESSAGE_CONTENT, messageId, delta: payload.content },
+          event: {
+            type: EventType.TEXT_MESSAGE_CONTENT,
+            messageId,
+            delta: payload.content,
+          },
         });
       });
 
@@ -251,7 +286,11 @@ export class DevtoolsListener {
         sub.onReasoningMessageContentEvent?.({
           ...runParams,
           reasoningMessageBuffer: payload.content,
-          event: { type: EventType.REASONING_MESSAGE_CONTENT, messageId, delta: payload.content },
+          event: {
+            type: EventType.REASONING_MESSAGE_CONTENT,
+            messageId,
+            delta: payload.content,
+          },
         });
       });
 
@@ -302,7 +341,11 @@ export class DevtoolsListener {
       this.notifySubscribers(agent, (sub) => {
         sub.onCustomEvent?.({
           ...runParams,
-          event: { type: EventType.CUSTOM, name: payload.name, value: payload.value },
+          event: {
+            type: EventType.CUSTOM,
+            name: payload.name,
+            value: payload.value,
+          },
         });
       });
     });

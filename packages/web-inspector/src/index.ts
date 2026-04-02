@@ -52,7 +52,12 @@ export const WEB_INSPECTOR_TAG = "cpk-web-inspector" as const;
 
 type LucideIconName = keyof typeof icons;
 
-type MenuKey = "ag-ui-events" | "agents" | "frontend-tools" | "agent-context" | "event-emitter";
+type MenuKey =
+  | "ag-ui-events"
+  | "agents"
+  | "frontend-tools"
+  | "agent-context"
+  | "event-emitter";
 
 type MenuItem = {
   key: MenuKey;
@@ -4401,13 +4406,16 @@ ${this.announcementMarkdown}</pre
 
     return html`
       <div class="flex h-full flex-col gap-4 overflow-y-auto p-4">
-        <div class="flex items-center gap-2 text-sm font-semibold text-gray-900">
-          ${this.renderIcon("Play")}
-          Event Emitter
+        <div
+          class="flex items-center gap-2 text-sm font-semibold text-gray-900"
+        >
+          ${this.renderIcon("Play")} Event Emitter
         </div>
 
         <!-- Agent & Event Type selectors -->
-        <div class="flex flex-col gap-3 rounded-md border border-gray-200 bg-gray-50 p-3">
+        <div
+          class="flex flex-col gap-3 rounded-md border border-gray-200 bg-gray-50 p-3"
+        >
           <div class="flex flex-col gap-1">
             <label class="text-xs font-medium text-gray-600">Agent</label>
             <select
@@ -4420,7 +4428,13 @@ ${this.announcementMarkdown}</pre
             >
               <option value="">-- select agent --</option>
               ${agentIds.map(
-                (id) => html`<option value=${id} ?selected=${this.emitterAgentId === id}>${id}</option>`,
+                (id) =>
+                  html`<option
+                    value=${id}
+                    ?selected=${this.emitterAgentId === id}
+                  >
+                    ${id}
+                  </option>`,
               )}
             </select>
           </div>
@@ -4431,16 +4445,42 @@ ${this.announcementMarkdown}</pre
               class="rounded-md border border-gray-200 bg-white px-3 py-2 text-xs text-gray-900 focus:border-gray-400 focus:outline-none"
               .value=${this.emitterEventType}
               @change=${(e: Event) => {
-                this.emitterEventType = (e.target as HTMLSelectElement).value as DevtoolsEventType;
+                this.emitterEventType = (e.target as HTMLSelectElement)
+                  .value as DevtoolsEventType;
                 this.revalidateEmitterJson();
                 this.requestUpdate();
               }}
             >
-              <option value="tool-call" ?selected=${this.emitterEventType === "tool-call"}>Tool Call</option>
-              <option value="text-message" ?selected=${this.emitterEventType === "text-message"}>Text Message</option>
-              <option value="reasoning" ?selected=${this.emitterEventType === "reasoning"}>Reasoning</option>
-              <option value="state-snapshot" ?selected=${this.emitterEventType === "state-snapshot"}>State Snapshot</option>
-              <option value="custom-event" ?selected=${this.emitterEventType === "custom-event"}>Custom Event</option>
+              <option
+                value="tool-call"
+                ?selected=${this.emitterEventType === "tool-call"}
+              >
+                Tool Call
+              </option>
+              <option
+                value="text-message"
+                ?selected=${this.emitterEventType === "text-message"}
+              >
+                Text Message
+              </option>
+              <option
+                value="reasoning"
+                ?selected=${this.emitterEventType === "reasoning"}
+              >
+                Reasoning
+              </option>
+              <option
+                value="state-snapshot"
+                ?selected=${this.emitterEventType === "state-snapshot"}
+              >
+                State Snapshot
+              </option>
+              <option
+                value="custom-event"
+                ?selected=${this.emitterEventType === "custom-event"}
+              >
+                Custom Event
+              </option>
             </select>
           </div>
         </div>
@@ -4450,14 +4490,18 @@ ${this.announcementMarkdown}</pre
 
         <!-- JSON error -->
         ${this.emitterJsonError
-          ? html`<div class="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+          ? html`<div
+              class="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700"
+            >
               ${this.emitterJsonError}
             </div>`
           : nothing}
 
         <!-- Status message -->
         ${this.emitterStatusMessage
-          ? html`<div class="rounded-md border border-green-200 bg-green-50 px-3 py-2 text-xs text-green-700">
+          ? html`<div
+              class="rounded-md border border-green-200 bg-green-50 px-3 py-2 text-xs text-green-700"
+            >
               ${this.emitterStatusMessage}
             </div>`
           : nothing}
@@ -4465,36 +4509,38 @@ ${this.announcementMarkdown}</pre
         <!-- Snippet name input -->
         ${this.emitterShowSnippetInput
           ? html`
-            <div class="flex gap-2 items-center">
-              <input
-                type="text"
-                placeholder="Snippet name"
-                class="flex-1 rounded-md border border-gray-200 bg-white px-3 py-2 text-xs text-gray-900 focus:border-gray-400 focus:outline-none"
-                .value=${this.emitterSnippetName}
-                @input=${(e: Event) => {
-                  this.emitterSnippetName = (e.target as HTMLInputElement).value;
-                  this.requestUpdate();
-                }}
-                @keydown=${(e: KeyboardEvent) => {
-                  if (e.key === "Enter") this.handleSaveSnippet();
-                  if (e.key === "Escape") this.handleCancelSnippetInput();
-                }}
-              />
-              <button
-                class="rounded-md bg-gray-900 px-3 py-2 text-xs font-medium text-white transition hover:bg-gray-800"
-                ?disabled=${!this.emitterSnippetName.trim()}
-                @click=${() => this.handleSaveSnippet()}
-              >
-                Save
-              </button>
-              <button
-                class="rounded-md border border-gray-200 px-3 py-2 text-xs font-medium text-gray-700 transition hover:bg-gray-50"
-                @click=${() => this.handleCancelSnippetInput()}
-              >
-                Cancel
-              </button>
-            </div>
-          `
+              <div class="flex gap-2 items-center">
+                <input
+                  type="text"
+                  placeholder="Snippet name"
+                  class="flex-1 rounded-md border border-gray-200 bg-white px-3 py-2 text-xs text-gray-900 focus:border-gray-400 focus:outline-none"
+                  .value=${this.emitterSnippetName}
+                  @input=${(e: Event) => {
+                    this.emitterSnippetName = (
+                      e.target as HTMLInputElement
+                    ).value;
+                    this.requestUpdate();
+                  }}
+                  @keydown=${(e: KeyboardEvent) => {
+                    if (e.key === "Enter") this.handleSaveSnippet();
+                    if (e.key === "Escape") this.handleCancelSnippetInput();
+                  }}
+                />
+                <button
+                  class="rounded-md bg-gray-900 px-3 py-2 text-xs font-medium text-white transition hover:bg-gray-800"
+                  ?disabled=${!this.emitterSnippetName.trim()}
+                  @click=${() => this.handleSaveSnippet()}
+                >
+                  Save
+                </button>
+                <button
+                  class="rounded-md border border-gray-200 px-3 py-2 text-xs font-medium text-gray-700 transition hover:bg-gray-50"
+                  @click=${() => this.handleCancelSnippetInput()}
+                >
+                  Cancel
+                </button>
+              </div>
+            `
           : nothing}
 
         <!-- Action buttons -->
@@ -4519,13 +4565,21 @@ ${this.announcementMarkdown}</pre
         ${this.emitterSnippets.length > 0
           ? html`
               <div class="flex flex-col gap-2">
-                <div class="text-xs font-medium text-gray-600">Saved Snippets</div>
+                <div class="text-xs font-medium text-gray-600">
+                  Saved Snippets
+                </div>
                 ${this.emitterSnippets.map(
                   (snippet) => html`
-                    <div class="flex items-center justify-between rounded-md border border-gray-200 bg-white px-3 py-2">
+                    <div
+                      class="flex items-center justify-between rounded-md border border-gray-200 bg-white px-3 py-2"
+                    >
                       <div class="flex flex-col gap-0.5">
-                        <span class="text-xs font-medium text-gray-900">${snippet.name}</span>
-                        <span class="text-xs text-gray-500">${snippet.eventType}</span>
+                        <span class="text-xs font-medium text-gray-900"
+                          >${snippet.name}</span
+                        >
+                        <span class="text-xs text-gray-500"
+                          >${snippet.eventType}</span
+                        >
                       </div>
                       <div class="flex gap-1">
                         <button
@@ -4555,7 +4609,9 @@ ${this.announcementMarkdown}</pre
     switch (this.emitterEventType) {
       case "tool-call":
         return html`
-          <div class="flex flex-col gap-3 rounded-md border border-gray-200 bg-gray-50 p-3">
+          <div
+            class="flex flex-col gap-3 rounded-md border border-gray-200 bg-gray-50 p-3"
+          >
             <div class="flex flex-col gap-1">
               <label class="text-xs font-medium text-gray-600">Tool Name</label>
               <input
@@ -4569,7 +4625,9 @@ ${this.announcementMarkdown}</pre
               />
             </div>
             <div class="flex flex-col gap-1">
-              <label class="text-xs font-medium text-gray-600">Arguments (JSON)</label>
+              <label class="text-xs font-medium text-gray-600"
+                >Arguments (JSON)</label
+              >
               <textarea
                 class="min-h-[80px] rounded-md border border-gray-200 bg-white px-3 py-2 font-mono text-xs text-gray-900 focus:border-gray-400 focus:outline-none"
                 .value=${this.emitterArgs}
@@ -4595,7 +4653,9 @@ ${this.announcementMarkdown}</pre
         `;
       case "text-message":
         return html`
-          <div class="flex flex-col gap-3 rounded-md border border-gray-200 bg-gray-50 p-3">
+          <div
+            class="flex flex-col gap-3 rounded-md border border-gray-200 bg-gray-50 p-3"
+          >
             <div class="flex flex-col gap-1">
               <label class="text-xs font-medium text-gray-600">Content</label>
               <textarea
@@ -4611,7 +4671,9 @@ ${this.announcementMarkdown}</pre
         `;
       case "reasoning":
         return html`
-          <div class="flex flex-col gap-3 rounded-md border border-gray-200 bg-gray-50 p-3">
+          <div
+            class="flex flex-col gap-3 rounded-md border border-gray-200 bg-gray-50 p-3"
+          >
             <div class="flex flex-col gap-1">
               <label class="text-xs font-medium text-gray-600">Content</label>
               <textarea
@@ -4627,14 +4689,20 @@ ${this.announcementMarkdown}</pre
         `;
       case "state-snapshot":
         return html`
-          <div class="flex flex-col gap-3 rounded-md border border-gray-200 bg-gray-50 p-3">
+          <div
+            class="flex flex-col gap-3 rounded-md border border-gray-200 bg-gray-50 p-3"
+          >
             <div class="flex flex-col gap-1">
-              <label class="text-xs font-medium text-gray-600">State (JSON)</label>
+              <label class="text-xs font-medium text-gray-600"
+                >State (JSON)</label
+              >
               <textarea
                 class="min-h-[80px] rounded-md border border-gray-200 bg-white px-3 py-2 font-mono text-xs text-gray-900 focus:border-gray-400 focus:outline-none"
                 .value=${this.emitterStateJson}
                 @input=${(e: Event) => {
-                  this.emitterStateJson = (e.target as HTMLTextAreaElement).value;
+                  this.emitterStateJson = (
+                    e.target as HTMLTextAreaElement
+                  ).value;
                   this.validateJson(this.emitterStateJson);
                   this.requestUpdate();
                 }}
@@ -4644,9 +4712,13 @@ ${this.announcementMarkdown}</pre
         `;
       case "custom-event":
         return html`
-          <div class="flex flex-col gap-3 rounded-md border border-gray-200 bg-gray-50 p-3">
+          <div
+            class="flex flex-col gap-3 rounded-md border border-gray-200 bg-gray-50 p-3"
+          >
             <div class="flex flex-col gap-1">
-              <label class="text-xs font-medium text-gray-600">Event Name</label>
+              <label class="text-xs font-medium text-gray-600"
+                >Event Name</label
+              >
               <input
                 type="text"
                 class="rounded-md border border-gray-200 bg-white px-3 py-2 text-xs text-gray-900 focus:border-gray-400 focus:outline-none"
@@ -4658,12 +4730,16 @@ ${this.announcementMarkdown}</pre
               />
             </div>
             <div class="flex flex-col gap-1">
-              <label class="text-xs font-medium text-gray-600">Value (JSON)</label>
+              <label class="text-xs font-medium text-gray-600"
+                >Value (JSON)</label
+              >
               <textarea
                 class="min-h-[80px] rounded-md border border-gray-200 bg-white px-3 py-2 font-mono text-xs text-gray-900 focus:border-gray-400 focus:outline-none"
                 .value=${this.emitterCustomValue}
                 @input=${(e: Event) => {
-                  this.emitterCustomValue = (e.target as HTMLTextAreaElement).value;
+                  this.emitterCustomValue = (
+                    e.target as HTMLTextAreaElement
+                  ).value;
                   this.validateJson(this.emitterCustomValue);
                   this.requestUpdate();
                 }}
@@ -4750,7 +4826,8 @@ ${this.announcementMarkdown}</pre
   }
 
   private showStatus(message: string): void {
-    if (this.emitterStatusTimeoutId !== null) clearTimeout(this.emitterStatusTimeoutId);
+    if (this.emitterStatusTimeoutId !== null)
+      clearTimeout(this.emitterStatusTimeoutId);
     this.emitterStatusMessage = message;
     this.requestUpdate();
     this.emitterStatusTimeoutId = setTimeout(() => {

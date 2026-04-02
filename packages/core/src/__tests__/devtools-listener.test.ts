@@ -1,5 +1,10 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { AbstractAgent, EventType, RunAgentInput, BaseEvent } from "@ag-ui/client";
+import {
+  AbstractAgent,
+  EventType,
+  RunAgentInput,
+  BaseEvent,
+} from "@ag-ui/client";
 import type { AgentSubscriber } from "@ag-ui/client";
 import { Observable } from "rxjs";
 import { DevtoolsListener } from "../core/devtools-listener.js";
@@ -23,7 +28,8 @@ function makeAgentsMap(agents: AbstractAgent[]): Record<string, AbstractAgent> {
   return map;
 }
 
-function createMockSubscriber(): AgentSubscriber & Record<string, ReturnType<typeof vi.fn>> {
+function createMockSubscriber(): AgentSubscriber &
+  Record<string, ReturnType<typeof vi.fn>> {
   return {
     onRunStartedEvent: vi.fn(),
     onRunFinishedEvent: vi.fn(),
@@ -133,7 +139,8 @@ describe("DevtoolsListener", () => {
       expect(subscriber.onReasoningEndEvent).toHaveBeenCalledOnce();
       expect(subscriber.onRunFinishedEvent).toHaveBeenCalledOnce();
 
-      const contentCall = subscriber.onReasoningMessageContentEvent.mock.calls[0][0];
+      const contentCall =
+        subscriber.onReasoningMessageContentEvent.mock.calls[0][0];
       expect(contentCall.reasoningMessageBuffer).toBe("Thinking about this...");
     });
   });
@@ -239,7 +246,9 @@ describe("DevtoolsListener", () => {
 
       expect(throwingSub.onTextMessageContentEvent).toHaveBeenCalledOnce();
       expect(secondSub.onTextMessageContentEvent).toHaveBeenCalledOnce();
-      expect(secondSub.onTextMessageContentEvent.mock.calls[0][0].textMessageBuffer).toBe("should reach all");
+      expect(
+        secondSub.onTextMessageContentEvent.mock.calls[0][0].textMessageBuffer,
+      ).toBe("should reach all");
     });
 
     it("fires RUN_FINISHED even when a subscriber event handler throws", () => {
