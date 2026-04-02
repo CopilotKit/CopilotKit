@@ -14,7 +14,7 @@
  * ```
  */
 
-import {
+import React, {
   useCallback,
   useEffect,
   useMemo,
@@ -761,8 +761,8 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
         <CoAgentStateRendersProvider>
           <MessagesTapProvider>
             <CopilotMessages>
-              {memoizedChildren}
-              <RegisteredActionsRenderer />
+              <React.Fragment key="children">{memoizedChildren}</React.Fragment>
+              <RegisteredActionsRenderer key="actions" />
             </CopilotMessages>
           </MessagesTapProvider>
           {bannerError && showDevConsole && (
