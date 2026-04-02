@@ -6,6 +6,7 @@ import { useCopilotKit } from "../../providers/CopilotKitProvider";
 import { MockStepwiseAgent } from "../../__tests__/utils/test-helpers";
 import { CopilotKitCoreRuntimeConnectionStatus } from "@copilotkit/core";
 import type { Message } from "@ag-ui/core";
+import type { RunAgentInput } from "@ag-ui/client";
 
 vi.mock("../../providers/CopilotKitProvider", () => ({
   useCopilotKit: vi.fn(),
@@ -64,6 +65,21 @@ function notifyStateChanged(agent: MockStepwiseAgent) {
   );
 }
 
+function createMockRunAgentInput(
+  overrides?: Partial<RunAgentInput>,
+): RunAgentInput {
+  return {
+    threadId: "t-1",
+    runId: "r-1",
+    state: {},
+    messages: [],
+    tools: [],
+    context: [],
+    forwardedProps: {},
+    ...overrides,
+  };
+}
+
 /** Helper: fire onRunInitialized on all agent subscribers */
 function notifyRunInitialized(agent: MockStepwiseAgent) {
   agent.subscribers.forEach((s) =>
@@ -71,7 +87,7 @@ function notifyRunInitialized(agent: MockStepwiseAgent) {
       messages: agent.messages,
       state: agent.state,
       agent,
-      input: {} as any,
+      input: createMockRunAgentInput(),
     }),
   );
 }
