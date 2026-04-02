@@ -107,7 +107,12 @@ export async function handleListThreads({
 
   // Local in-memory fallback — useful for local development without Intelligence
   if (runtime.runner instanceof InMemoryAgentRunner) {
-    const threads = runtime.runner.listThreads();
+    const url = new URL(request.url);
+    const agentId = url.searchParams.get("agentId");
+    let threads = runtime.runner.listThreads();
+    if (agentId) {
+      threads = threads.filter((t) => t.agentId === agentId);
+    }
     return Response.json({ threads, nextCursor: null });
   }
 

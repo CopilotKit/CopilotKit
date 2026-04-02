@@ -3140,16 +3140,21 @@ ${argsString}</pre
   }
 
   private renderThreadsView() {
+    const displayThreads =
+      this.selectedContext === "all-agents"
+        ? this._threads
+        : (this._threadsByAgent.get(this.selectedContext) ?? []);
+
     const selectedThread =
       this.selectedThreadId != null
-        ? (this._threads.find((t) => t.id === this.selectedThreadId) ?? null)
+        ? (displayThreads.find((t) => t.id === this.selectedThreadId) ?? null)
         : null;
 
     return html`
       <div style="position:relative;height:100%;overflow:hidden;">
         <div style="overflow-y:auto;padding:16px;">
           <cpk-thread-list
-            .threads=${this._threads}
+            .threads=${displayThreads}
             @threadSelected=${(e: CustomEvent<string>) => {
               this.selectedThreadId = e.detail;
               this.requestUpdate();

@@ -122,6 +122,11 @@ const GLOBAL_STORE = getGlobalStore();
 
 export class InMemoryAgentRunner extends AgentRunner {
   run(request: AgentRunnerRunRequest): Observable<BaseEvent> {
+    const isNew = !GLOBAL_STORE.has(request.threadId);
+    console.log(
+      `[InMemoryAgentRunner] run() threadId=${request.threadId} runId=${request.input.runId} agentId=${request.agent.agentId ?? "(unset)"} isNewThread=${isNew} totalThreads=${GLOBAL_STORE.size + (isNew ? 1 : 0)}`,
+    );
+
     let existingStore = GLOBAL_STORE.get(request.threadId);
     if (!existingStore) {
       existingStore = new InMemoryEventStore(request.threadId);
