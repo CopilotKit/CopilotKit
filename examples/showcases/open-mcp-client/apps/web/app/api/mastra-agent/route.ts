@@ -114,7 +114,6 @@ async function executeProxiedMcpRequest(
     { name: "mastra-mcp-proxy", version: "1.0.0" },
     {
       capabilities: {
-        // @ts-expect-error - MCP UI extension not in base types yet
         extensions: {
           "io.modelcontextprotocol/ui": { mimeTypes: ["text/html+mcp"] },
         },
