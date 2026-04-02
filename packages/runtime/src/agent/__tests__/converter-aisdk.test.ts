@@ -4,6 +4,7 @@ import {
   createAgent,
   createDefaultInput,
   collectEvents,
+  collectEventsIncludingErrors,
   expectLifecycleWrapped,
   expectEventSequence,
   eventField,
@@ -593,10 +594,9 @@ describe("AI SDK Converter", () => {
       ]);
       const input = createDefaultInput();
 
-      const { events, errored } =
-        await (await import("./agent-test-helpers")).collectEventsIncludingErrors(
-          agent.run(input),
-        );
+      const { events, errored } = await collectEventsIncludingErrors(
+        agent.run(input),
+      );
 
       expect(errored).toBe(true);
       const errorEvents = events.filter(
@@ -618,10 +618,9 @@ describe("AI SDK Converter", () => {
       ]);
       const input = createDefaultInput();
 
-      const { events, errored } =
-        await (await import("./agent-test-helpers")).collectEventsIncludingErrors(
-          agent.run(input),
-        );
+      const { events, errored } = await collectEventsIncludingErrors(
+        agent.run(input),
+      );
 
       expect(errored).toBe(true);
       const errorEvents = events.filter(
@@ -638,10 +637,9 @@ describe("AI SDK Converter", () => {
       ]);
       const input = createDefaultInput();
 
-      const { events, errored } =
-        await (await import("./agent-test-helpers")).collectEventsIncludingErrors(
-          agent.run(input),
-        );
+      const { events, errored } = await collectEventsIncludingErrors(
+        agent.run(input),
+      );
 
       expect(errored).toBe(true);
       const errorEvents = events.filter(

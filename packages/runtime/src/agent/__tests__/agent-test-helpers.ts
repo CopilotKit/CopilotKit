@@ -43,7 +43,7 @@ export { Agent, type AgentFactoryContext };
  */
 export function createDefaultInput(
   overrides?: Partial<RunAgentInput>,
-): RunAgentInput {
+) {
   return {
     threadId: "test-thread",
     runId: "test-run",
@@ -61,31 +61,31 @@ export function createDefaultInput(
 // ---------------------------------------------------------------------------
 
 /** TanStack text content chunk */
-export function tanstackTextChunk(delta: string): Record<string, unknown> {
-  return { type: "TEXT_MESSAGE_CONTENT", delta };
+export function tanstackTextChunk(delta: string) {
+  return { type: "TEXT_MESSAGE_CONTENT", delta } as const;
 }
 
 /** TanStack tool call start chunk */
 export function tanstackToolCallStart(
   toolCallId: string,
   toolCallName: string,
-): Record<string, unknown> {
-  return { type: "TOOL_CALL_START", toolCallId, toolCallName };
+) {
+  return { type: "TOOL_CALL_START", toolCallId, toolCallName } as const;
 }
 
 /** TanStack tool call args chunk */
 export function tanstackToolCallArgs(
   toolCallId: string,
   delta: string,
-): Record<string, unknown> {
-  return { type: "TOOL_CALL_ARGS", toolCallId, delta };
+) {
+  return { type: "TOOL_CALL_ARGS", toolCallId, delta } as const;
 }
 
 /** TanStack tool call end chunk */
 export function tanstackToolCallEnd(
   toolCallId: string,
-): Record<string, unknown> {
-  return { type: "TOOL_CALL_END", toolCallId };
+) {
+  return { type: "TOOL_CALL_END", toolCallId } as const;
 }
 
 // ---------------------------------------------------------------------------
@@ -97,7 +97,7 @@ export function tanstackToolCallEnd(
  */
 export function mockTanStackStream(
   chunks: Record<string, unknown>[],
-): AsyncIterable<unknown> {
+) {
   return {
     [Symbol.asyncIterator]: async function* () {
       for (const chunk of chunks) {
@@ -155,6 +155,8 @@ export function createAgent(
 ): Agent {
   switch (type) {
     case "aisdk": {
+      // Cast needed: TypeScript's control-flow narrowing doesn't propagate
+      // through overload signatures to narrow the union parameter type.
       const events = streamData as MockStreamEvent[];
       return new Agent({
         type: "aisdk",
@@ -168,6 +170,7 @@ export function createAgent(
       });
     }
     case "tanstack": {
+      // Cast needed: same overload-narrowing limitation as above.
       const chunks = streamData as Record<string, unknown>[];
       return new Agent({
         type: "tanstack",
@@ -175,6 +178,7 @@ export function createAgent(
       });
     }
     case "custom": {
+      // Cast needed: same overload-narrowing limitation as above.
       const events = streamData as BaseEvent[];
       return new Agent({
         type: "custom",
@@ -258,7 +262,7 @@ export function createMidStreamErrorAgent(
               type: EventType.TEXT_MESSAGE_CHUNK,
               role: "assistant",
               delta: "partial",
-            } as BaseEvent;
+            } as const as BaseEvent;
             throw new Error(errorMessage);
           },
         }),

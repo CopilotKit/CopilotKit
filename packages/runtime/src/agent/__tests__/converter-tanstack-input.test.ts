@@ -1,5 +1,4 @@
 import { describe, it, expect } from "vitest";
-import type { RunAgentInput } from "@ag-ui/client";
 import { convertInputToTanStackAI } from "../converters/tanstack";
 import { createDefaultInput } from "./agent-test-helpers";
 
@@ -14,7 +13,7 @@ describe("convertInputToTanStackAI", () => {
           { role: "system", content: "You are helpful" },
           { role: "user", content: "Hello" },
         ],
-      }) as RunAgentInput;
+      });
 
       const { messages } = convertInputToTanStackAI(input);
 
@@ -29,7 +28,7 @@ describe("convertInputToTanStackAI", () => {
           { role: "developer", content: "Internal instruction" },
           { role: "user", content: "Hi" },
         ],
-      }) as RunAgentInput;
+      });
 
       const { messages } = convertInputToTanStackAI(input);
 
@@ -44,7 +43,7 @@ describe("convertInputToTanStackAI", () => {
           { role: "developer", content: "Dev instruction" },
           { role: "user", content: "Hello" },
         ],
-      }) as RunAgentInput;
+      });
 
       const { systemPrompts } = convertInputToTanStackAI(input);
 
@@ -59,7 +58,7 @@ describe("convertInputToTanStackAI", () => {
           { role: "assistant", content: "Answer 1" },
           { role: "user", content: "Question 2" },
         ],
-      }) as RunAgentInput;
+      });
 
       const { messages } = convertInputToTanStackAI(input);
 
@@ -92,7 +91,7 @@ describe("convertInputToTanStackAI", () => {
             ],
           },
         ],
-      }) as RunAgentInput;
+      });
 
       const { messages } = convertInputToTanStackAI(input);
 
@@ -114,7 +113,7 @@ describe("convertInputToTanStackAI", () => {
             toolCallId: "tc-1",
           },
         ],
-      }) as RunAgentInput;
+      });
 
       const { messages } = convertInputToTanStackAI(input);
 
@@ -134,7 +133,7 @@ describe("convertInputToTanStackAI", () => {
           { description: "User preferences", value: "Dark mode enabled" },
           { description: "Current page", value: "/dashboard" },
         ],
-      }) as RunAgentInput;
+      });
 
       const { systemPrompts } = convertInputToTanStackAI(input);
 
@@ -145,7 +144,7 @@ describe("convertInputToTanStackAI", () => {
     });
 
     it("does not add context when context array is empty", () => {
-      const input = createDefaultInput({ context: [] }) as RunAgentInput;
+      const input = createDefaultInput({ context: [] });
 
       const { systemPrompts } = convertInputToTanStackAI(input);
 
@@ -160,7 +159,7 @@ describe("convertInputToTanStackAI", () => {
     it("serializes non-empty state into systemPrompts", () => {
       const input = createDefaultInput({
         state: { count: 42, items: ["a", "b"] },
-      }) as RunAgentInput;
+      });
 
       const { systemPrompts } = convertInputToTanStackAI(input);
 
@@ -172,7 +171,7 @@ describe("convertInputToTanStackAI", () => {
     });
 
     it("does not add state when state is empty object", () => {
-      const input = createDefaultInput({ state: {} }) as RunAgentInput;
+      const input = createDefaultInput({ state: {} });
 
       const { systemPrompts } = convertInputToTanStackAI(input);
 
@@ -182,7 +181,7 @@ describe("convertInputToTanStackAI", () => {
     });
 
     it("does not add state when state is null", () => {
-      const input = createDefaultInput({ state: null }) as RunAgentInput;
+      const input = createDefaultInput({ state: null });
 
       const { systemPrompts } = convertInputToTanStackAI(input);
 
@@ -197,7 +196,7 @@ describe("convertInputToTanStackAI", () => {
   // -------------------------------------------------------------------------
   describe("empty input", () => {
     it("returns empty messages and systemPrompts for default input", () => {
-      const input = createDefaultInput() as RunAgentInput;
+      const input = createDefaultInput();
 
       const { messages, systemPrompts } = convertInputToTanStackAI(input);
 
