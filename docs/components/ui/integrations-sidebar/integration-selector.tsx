@@ -16,7 +16,7 @@ import IntegrationPuzzleIcon from "../icons/integration-puzzle";
 import CheckIcon from "../icons/check";
 import { MicrosoftIcon } from "../icons/microsoft";
 import { AwsStrandsIcon } from "../icons/aws-strands";
-import { AgentSpecMarkIcon, A2AIcon } from "@/lib/icons/custom-icons";
+import { AgentSpecMarkIcon, A2AIcon, ClaudeAgentSdkIcon } from "@/lib/icons/custom-icons";
 import {
   INTEGRATION_ORDER,
   IntegrationId,
@@ -39,6 +39,7 @@ const INTEGRATION_ICONS: Record<
 > = {
   "built-in-agent": CopilotKitMarkIcon,
   langgraph: LanggraphIcon,
+  "claude-agent-sdk": ClaudeAgentSdkIcon,
   adk: AdkIcon,
   "microsoft-agent-framework": MicrosoftIcon,
   "aws-strands": AwsStrandsIcon,
