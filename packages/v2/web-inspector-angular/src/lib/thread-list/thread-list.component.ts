@@ -1,9 +1,10 @@
 import {
   Component,
   ChangeDetectionStrategy,
+  ViewEncapsulation,
   Input,
-  Output,
-  EventEmitter,
+  ElementRef,
+  inject,
 } from "@angular/core";
 import { CommonModule } from "@angular/common";
 
@@ -58,6 +59,7 @@ const FAKE_THREADS: InspectorThread[] = [
   standalone: true,
   imports: [CommonModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
+  encapsulation: ViewEncapsulation.ShadowDom,
   template: `
     <div class="cpk-thread-list">
       <!-- Table header -->
@@ -74,7 +76,7 @@ const FAKE_THREADS: InspectorThread[] = [
       <div
         *ngFor="let thread of threads"
         class="cpk-thread-list__row"
-        (click)="threadSelected.emit(thread.id)"
+        (click)="onThreadClick(thread.id)"
       >
         <span>{{ thread.createdAt | date: "mediumDate" }}</span>
         <span>{{ thread.updatedAt | date: "mediumDate" }}</span>
@@ -203,12 +205,18 @@ const FAKE_THREADS: InspectorThread[] = [
   ],
 })
 export class ThreadListComponent {
+  private el = inject(ElementRef);
+
   // Fake data for now — will be replaced with real store input
   @Input() threads: InspectorThread[] = FAKE_THREADS;
 
-  // @Output is the Angular equivalent of a callback prop / custom event.
-  // When a row is clicked, this emits the threadId.
-  // The parent (or Custom Element consumer) listens with (threadSelected)="handler($event)"
-  // or via addEventListener('threadSelected', ...) on the Custom Element.
-  @Output() threadSelected = new EventEmitter<string>();
+  onThreadClick(threadId: string): void {
+    this.el.nativeElement.dispatchEvent(
+      new CustomEvent("threadSelected", {
+        detail: threadId,
+        bubbles: true,
+        composed: true,
+      }),
+    );
+  }
 }

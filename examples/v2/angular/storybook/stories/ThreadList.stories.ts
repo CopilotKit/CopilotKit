@@ -1,14 +1,10 @@
 import type { Meta, StoryObj } from "@storybook/angular";
-import { fn } from "@storybook/test";
 import { ThreadListComponent } from "@copilotkit/web-inspector-angular";
 
 const meta: Meta<ThreadListComponent> = {
   title: "Inspector/ThreadList",
   component: ThreadListComponent,
   parameters: { layout: "fullscreen" },
-  args: {
-    threadSelected: fn(),
-  },
 };
 
 export default meta;
@@ -33,19 +29,13 @@ const BG_TEMPLATE = (innerTemplate: string) => `
 `;
 
 export const Default: Story = {
-  render: (args) => ({
-    props: args,
-    template: BG_TEMPLATE(
-      `<cpk-thread-list (threadSelected)="threadSelected($event)"></cpk-thread-list>`,
-    ),
+  render: () => ({
+    template: BG_TEMPLATE(`<cpk-thread-list></cpk-thread-list>`),
   }),
 };
 
 export const Empty: Story = {
-  render: (args) => ({
-    props: args,
-    template: BG_TEMPLATE(
-      `<cpk-thread-list [threads]="[]" (threadSelected)="threadSelected($event)"></cpk-thread-list>`,
-    ),
+  render: () => ({
+    template: BG_TEMPLATE(`<cpk-thread-list [threads]="[]"></cpk-thread-list>`),
   }),
 };

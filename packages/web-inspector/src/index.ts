@@ -44,7 +44,12 @@ export const WEB_INSPECTOR_TAG = "cpk-web-inspector" as const;
 
 type LucideIconName = keyof typeof icons;
 
-type MenuKey = "ag-ui-events" | "agents" | "frontend-tools" | "agent-context";
+type MenuKey =
+  | "ag-ui-events"
+  | "agents"
+  | "frontend-tools"
+  | "agent-context"
+  | "threads";
 
 type MenuItem = {
   key: MenuKey;
@@ -190,6 +195,7 @@ export class WebInspectorElement extends LitElement {
   private draggedDuringInteraction = false;
   private ignoreNextButtonClick = false;
   private selectedMenu: MenuKey = "ag-ui-events";
+  private selectedThreadId: string | null = null;
   private contextMenuOpen = false;
   private dockMode: DockMode = "floating";
   private previousBodyMargins: { left: string; bottom: string } | null = null;
@@ -264,6 +270,7 @@ export class WebInspectorElement extends LitElement {
     { key: "agents", label: "Agent", icon: "Bot" },
     { key: "frontend-tools", label: "Frontend Tools", icon: "Hammer" },
     { key: "agent-context", label: "Context", icon: "FileText" },
+    { key: "threads", label: "Threads", icon: "MessageSquare" },
   ];
 
   private attachToCore(core: CopilotKitCore): void {
@@ -2655,7 +2662,39 @@ ${argsString}</pre
       return this.renderContextView();
     }
 
+    if (this.selectedMenu === "threads") {
+      return this.renderThreadsView();
+    }
+
     return nothing;
+  }
+
+  private renderThreadsView() {
+    return html`
+      <div style="position:relative;height:100%;overflow:hidden;">
+        <div style="overflow-y:auto;padding:16px;">
+          <cpk-thread-list
+            @threadSelected=${(e: CustomEvent<string>) => {
+              this.selectedThreadId = e.detail;
+              this.requestUpdate();
+            }}
+          ></cpk-thread-list>
+        </div>
+        ${this.selectedThreadId
+          ? html`<div
+              style="position:absolute;inset:0;padding:16px;overflow-y:auto;"
+              @cpkback=${() => {
+                this.selectedThreadId = null;
+                this.requestUpdate();
+              }}
+            >
+              <cpk-thread-details
+                .threadId=${this.selectedThreadId}
+              ></cpk-thread-details>
+            </div>`
+          : nothing}
+      </div>
+    `;
   }
 
   private renderEventsTable() {

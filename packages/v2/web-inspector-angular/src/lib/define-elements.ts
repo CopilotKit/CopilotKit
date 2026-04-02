@@ -22,8 +22,6 @@ export const THREAD_DETAILS_TAG = "cpk-thread-details" as const;
  * framework (React, Angular, Vue, or vanilla JS).
  */
 export async function defineInspectorElements(): Promise<void> {
-  // createApplication bootstraps a minimal Angular environment without
-  // requiring a full AppModule or a root component in the DOM.
   const app = await createApplication();
 
   if (!customElements.get(THREAD_LIST_TAG)) {

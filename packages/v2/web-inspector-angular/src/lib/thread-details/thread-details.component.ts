@@ -1,6 +1,8 @@
 import {
   Component,
   ChangeDetectionStrategy,
+  ViewEncapsulation,
+  ElementRef,
   input,
   effect,
   signal,
@@ -257,6 +259,7 @@ type Tab = "conversation" | "agent-state" | "ag-ui-events";
   standalone: true,
   imports: [CommonModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
+  encapsulation: ViewEncapsulation.ShadowDom,
   template: `
     <div class="cpk-td" [class.cpk-td--split]="selectedToolCall">
       <!-- ── Main panel ──────────────────────────────────────────────── -->
@@ -925,6 +928,7 @@ type Tab = "conversation" | "agent-state" | "ag-ui-events";
 })
 export class ThreadDetailsComponent {
   private sanitizer = inject(DomSanitizer);
+  private el = inject(ElementRef);
 
   threadId = input<string | null>(null);
 
@@ -967,9 +971,8 @@ export class ThreadDetailsComponent {
   }
 
   onClose(): void {
-    const el = document.querySelector("cpk-thread-details");
-    el?.dispatchEvent(
-      new CustomEvent("cpk:back", { bubbles: true, composed: true }),
+    this.el.nativeElement.dispatchEvent(
+      new CustomEvent("cpkback", { bubbles: true, composed: true }),
     );
   }
 
