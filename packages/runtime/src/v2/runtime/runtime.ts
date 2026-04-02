@@ -144,7 +144,6 @@ abstract class BaseCopilotRuntime implements CopilotRuntimeLike {
     this.a2ui = a2ui;
     this.mcpApps = mcpApps;
     this.runner = runner;
-    this.licenseChecker = createLicenseChecker(options.licenseToken);
   }
 }
 
@@ -180,6 +179,7 @@ export class CopilotIntelligenceRuntime
     this.intelligence = options.intelligence;
     this.identifyUser = options.identifyUser;
     this.generateThreadNames = options.generateThreadNames ?? true;
+    this.licenseChecker = createLicenseChecker(options.licenseToken);
   }
 }
 
