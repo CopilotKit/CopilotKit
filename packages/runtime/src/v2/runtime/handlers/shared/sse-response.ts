@@ -63,13 +63,15 @@ export function createSseEventResponse({
     }
 
     let eventCount = 0;
+    let loggedEventCount = 0;
 
     subscription = observable.subscribe({
       next: async (event) => {
         if (!request.signal.aborted && !streamClosed) {
           try {
+            eventCount++;
             if (debug?.events) {
-              eventCount++;
+              loggedEventCount++;
               if (debug.verbose) {
                 debugLogger!.debug({ event }, "Event emitted");
               } else {
@@ -103,7 +105,7 @@ export function createSseEventResponse({
       complete: async () => {
         telemetry.capture("oss.runtime.agent_execution_stream_ended", {});
         if (debug?.lifecycle) {
-          debugLogger!.debug({ eventCount }, "SSE stream completed");
+          debugLogger!.debug({ eventCount, loggedEventCount }, "SSE stream completed");
         }
         await closeStream();
       },

@@ -82,7 +82,7 @@ export async function handleRunAgent({
       request,
       agent,
       input,
-      debug: runtime.debug ?? undefined,
+      debug: runtime.debug,
     });
   } catch (error) {
     console.error("Error running agent:", error);

@@ -79,7 +79,7 @@ describe("createSseEventResponse debug logging", () => {
     expect(mockDebug).toHaveBeenCalledWith("SSE stream opened");
   });
 
-  it("logs lifecycle message on stream complete with event count", async () => {
+  it("logs lifecycle completion with total eventCount even when event logging is off", async () => {
     const debug: ResolvedDebugConfig = {
       enabled: true,
       events: false,
@@ -109,7 +109,42 @@ describe("createSseEventResponse debug logging", () => {
     await drainResponse(response);
 
     expect(mockDebug).toHaveBeenCalledWith(
-      { eventCount: 0 },
+      { eventCount: 2, loggedEventCount: 0 },
+      "SSE stream completed",
+    );
+  });
+
+  it("logs lifecycle completion with matching eventCount and loggedEventCount when events enabled", async () => {
+    const debug: ResolvedDebugConfig = {
+      enabled: true,
+      events: true,
+      lifecycle: true,
+      verbose: false,
+    };
+
+    const events: BaseEvent[] = [
+      {
+        type: EventType.RUN_STARTED,
+        threadId: "t-1",
+        runId: "r-1",
+      } as BaseEvent,
+      {
+        type: EventType.RUN_FINISHED,
+        threadId: "t-1",
+        runId: "r-1",
+      } as BaseEvent,
+    ];
+
+    const response = createSseEventResponse({
+      request: createMockRequest(),
+      observableFactory: () => createTestObservable(events),
+      debug,
+    });
+
+    await drainResponse(response);
+
+    expect(mockDebug).toHaveBeenCalledWith(
+      { eventCount: 2, loggedEventCount: 2 },
       "SSE stream completed",
     );
   });
