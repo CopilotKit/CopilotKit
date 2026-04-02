@@ -25,9 +25,22 @@ export interface UseAgentProps {
   threadId?: string;
   updates?: UseAgentUpdate[];
   /**
-   * Throttle React re-renders triggered by onMessagesChanged during streaming
-   * (milliseconds). Uses leading+trailing: first update fires immediately,
-   * subsequent updates within the window are coalesced, last update always fires.
+   * Throttle React re-renders triggered by onMessagesChanged notifications
+   * (milliseconds). Useful to reduce re-render frequency during high-frequency
+   * message updates such as streaming.
+   *
+   * Uses leading+trailing: first update fires immediately, subsequent updates
+   * within the window are coalesced, and a trailing timer ensures the most
+   * recent update fires after the window expires (unless the component
+   * unmounts first).
+   *
+   * Must be a non-negative finite number. Values <= 0 disable throttling.
+   * Has no effect on onStateChanged or onRunStatusChanged notifications.
+   *
+   * Note: this is independent of AbstractAgent's notificationThrottleMs,
+   * which throttles at the subscriber notification layer rather than the
+   * React re-render layer.
+   *
    * Default: 0 (no throttle).
    */
   throttleMs?: number;
@@ -116,6 +129,19 @@ export function useAgent({
   // CopilotChat component it lives within.
   const chatConfig = useCopilotChatConfiguration();
   threadId ??= chatConfig?.threadId;
+
+  if (
+    throttleMs !== undefined &&
+    (!Number.isFinite(throttleMs) || throttleMs < 0)
+  ) {
+    if (process.env.NODE_ENV !== "production") {
+      console.warn(
+        `useAgent: throttleMs must be a non-negative finite number, got ${throttleMs}. Ignoring.`,
+      );
+    }
+    throttleMs = undefined;
+  }
+
   const [, forceUpdate] = useReducer((x) => x + 1, 0);
 
   const updateFlags = useMemo(
@@ -243,22 +269,49 @@ export function useAgent({
   ]);
 
   useEffect(() => {
-    if (updateFlags.length === 0) {
-      return;
-    }
+    if (updateFlags.length === 0) return;
 
     const handlers: Parameters<AbstractAgent["subscribe"]>[0] = {};
+    let timerId: ReturnType<typeof setTimeout> | null = null;
+    let active = true;
 
-    // When throttleMs is active, onMessagesChanged is handled by a separate
-    // effect below. Otherwise, wire it directly here.
-    if (
-      updateFlags.includes(UseAgentUpdate.OnMessagesChanged) &&
-      !(throttleMs && throttleMs > 0)
-    ) {
-      // Content stripping for immutableContent renderers is handled by CopilotKitCoreReact
-      handlers.onMessagesChanged = () => {
-        forceUpdate();
-      };
+    if (updateFlags.includes(UseAgentUpdate.OnMessagesChanged)) {
+      const ms = throttleMs ?? 0;
+      if (ms > 0) {
+        // Throttled onMessagesChanged: leading+trailing pattern.
+        // First notification fires immediately, subsequent ones within the
+        // window are coalesced, trailing timer ensures the last update fires.
+        let lastCall = 0;
+        let pending = false;
+
+        const throttledNotify = () => {
+          if (!active) return;
+          const now = Date.now();
+          const elapsed = now - lastCall;
+          if (elapsed >= ms) {
+            lastCall = now;
+            pending = false;
+            forceUpdate();
+          } else {
+            pending = true;
+            if (timerId === null) {
+              timerId = setTimeout(() => {
+                timerId = null;
+                if (active && pending) {
+                  lastCall = Date.now();
+                  pending = false;
+                  forceUpdate();
+                }
+              }, ms - elapsed);
+            }
+          }
+        };
+
+        handlers.onMessagesChanged = () => throttledNotify();
+      } else {
+        // Content stripping for immutableContent renderers is handled by CopilotKitCoreReact
+        handlers.onMessagesChanged = () => forceUpdate();
+      }
     }
 
     if (updateFlags.includes(UseAgentUpdate.OnStateChanged)) {
@@ -272,59 +325,15 @@ export function useAgent({
     }
 
     const subscription = agent.subscribe(handlers);
-    return () => subscription.unsubscribe();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [agent, forceUpdate, throttleMs, JSON.stringify(updateFlags)]);
-
-  // Separate concern: when throttleMs > 0, replace the onMessagesChanged
-  // subscription with a throttled version. This keeps the subscriber wiring
-  // above clean and unconditional.
-  useEffect(() => {
-    const ms = throttleMs ?? 0;
-    if (ms <= 0) return;
-    if (!updateFlags.includes(UseAgentUpdate.OnMessagesChanged)) return;
-
-    let timerId: ReturnType<typeof setTimeout> | null = null;
-    let lastCall = 0;
-    let pending = false;
-
-    const throttledNotify = () => {
-      const now = Date.now();
-      const elapsed = now - lastCall;
-      if (elapsed >= ms) {
-        lastCall = now;
-        pending = false;
-        forceUpdate();
-      } else {
-        pending = true;
-        if (timerId === null) {
-          timerId = setTimeout(() => {
-            timerId = null;
-            if (pending) {
-              lastCall = Date.now();
-              pending = false;
-              forceUpdate();
-            }
-          }, ms - elapsed);
-        }
-      }
-    };
-
-    // Override the onMessagesChanged subscription with the throttled version
-    const subscription = agent.subscribe({
-      onMessagesChanged: () => {
-        throttledNotify();
-      },
-    });
-
     return () => {
+      active = false;
       subscription.unsubscribe();
       if (timerId !== null) {
         clearTimeout(timerId);
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [agent, forceUpdate, throttleMs, JSON.stringify(updateFlags)]);
+  }, [agent, forceUpdate, throttleMs, updateFlags]);
 
   // Keep HttpAgent headers fresh without mutating inside useMemo, which is
   // unsafe in concurrent mode (React may invoke useMemo multiple times and

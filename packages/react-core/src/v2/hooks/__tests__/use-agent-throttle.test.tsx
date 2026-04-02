@@ -10,6 +10,10 @@ vi.mock("../../providers/CopilotKitProvider", () => ({
   useCopilotKit: vi.fn(),
 }));
 
+vi.mock("../../providers/CopilotChatConfigurationProvider", () => ({
+  useCopilotChatConfiguration: vi.fn(() => undefined),
+}));
+
 const mockUseCopilotKit = useCopilotKit as ReturnType<typeof vi.fn>;
 
 /** Helper: fire onMessagesChanged on all agent subscribers */
@@ -21,6 +25,36 @@ function notifyMessagesChanged(agent: MockStepwiseAgent) {
       agent,
     } as any),
   );
+}
+
+/** Helper: create a test component that tracks render count */
+function createTestComponent(
+  options: {
+    updates?: UseAgentUpdate[];
+    throttleMs?: number;
+    renderCount?: { current: number };
+  } = {},
+) {
+  const {
+    updates = [UseAgentUpdate.OnMessagesChanged],
+    throttleMs,
+    renderCount,
+  } = options;
+
+  return function TestComponent() {
+    if (renderCount) renderCount.current++;
+    const { agent } = useAgent({
+      agentId: "test-agent",
+      updates,
+      throttleMs,
+    });
+    return (
+      <>
+        <div data-testid="count">{agent.messages.length}</div>
+        <div data-testid="state">{JSON.stringify(agent.state)}</div>
+      </>
+    );
+  };
 }
 
 describe("useAgent throttleMs", () => {
@@ -51,18 +85,11 @@ describe("useAgent throttleMs", () => {
   });
 
   it("without throttleMs, component reflects latest messages after notification", () => {
-    function TestComponent() {
-      const { agent } = useAgent({
-        agentId: "test-agent",
-        updates: [UseAgentUpdate.OnMessagesChanged],
-      });
-      return <div data-testid="count">{agent.messages.length}</div>;
-    }
+    const TestComponent = createTestComponent();
 
     render(<TestComponent />);
     expect(screen.getByTestId("count").textContent).toBe("0");
 
-    // Mutate agent messages and notify
     act(() => {
       mockAgent.messages = [{ id: "1", role: "user", content: "hello" } as any];
       notifyMessagesChanged(mockAgent);
@@ -71,20 +98,37 @@ describe("useAgent throttleMs", () => {
     expect(screen.getByTestId("count").textContent).toBe("1");
   });
 
-  it("with throttleMs, first notification fires immediately (leading edge)", () => {
-    function TestComponent() {
-      const { agent } = useAgent({
-        agentId: "test-agent",
-        updates: [UseAgentUpdate.OnMessagesChanged],
-        throttleMs: 100,
-      });
-      return <div data-testid="count">{agent.messages.length}</div>;
-    }
+  it("with throttleMs: 0 (explicit), behaves identically to omitting throttleMs", () => {
+    const TestComponent = createTestComponent({ throttleMs: 0 });
 
     render(<TestComponent />);
     expect(screen.getByTestId("count").textContent).toBe("0");
 
-    // First notification should fire immediately (leading edge)
+    act(() => {
+      mockAgent.messages = [{ id: "1", role: "user", content: "hello" } as any];
+      notifyMessagesChanged(mockAgent);
+    });
+
+    expect(screen.getByTestId("count").textContent).toBe("1");
+
+    // Second notification also fires immediately (no throttle)
+    act(() => {
+      mockAgent.messages = [
+        { id: "1", role: "user", content: "hello" } as any,
+        { id: "2", role: "assistant", content: "world" } as any,
+      ];
+      notifyMessagesChanged(mockAgent);
+    });
+
+    expect(screen.getByTestId("count").textContent).toBe("2");
+  });
+
+  it("with throttleMs, first notification fires immediately (leading edge)", () => {
+    const TestComponent = createTestComponent({ throttleMs: 100 });
+
+    render(<TestComponent />);
+    expect(screen.getByTestId("count").textContent).toBe("0");
+
     act(() => {
       mockAgent.messages = [{ id: "1", role: "user", content: "hello" } as any];
       notifyMessagesChanged(mockAgent);
@@ -94,14 +138,7 @@ describe("useAgent throttleMs", () => {
   });
 
   it("with throttleMs, second notification within window is deferred until trailing edge", () => {
-    function TestComponent() {
-      const { agent } = useAgent({
-        agentId: "test-agent",
-        updates: [UseAgentUpdate.OnMessagesChanged],
-        throttleMs: 100,
-      });
-      return <div data-testid="count">{agent.messages.length}</div>;
-    }
+    const TestComponent = createTestComponent({ throttleMs: 100 });
 
     render(<TestComponent />);
 
@@ -113,12 +150,8 @@ describe("useAgent throttleMs", () => {
     expect(screen.getByTestId("count").textContent).toBe("1");
 
     // Second notification 10ms later — within throttle window
-    // With throttle: forceUpdate is scheduled via setTimeout, not called yet
-    // Without throttle: forceUpdate fires immediately
     act(() => {
       vi.advanceTimersByTime(10);
-    });
-    act(() => {
       mockAgent.messages = [
         { id: "1", role: "user", content: "a" } as any,
         { id: "2", role: "assistant", content: "b" } as any,
@@ -136,18 +169,94 @@ describe("useAgent throttleMs", () => {
     expect(screen.getByTestId("count").textContent).toBe("2");
   });
 
-  it("with throttleMs, onStateChanged still fires immediately", () => {
-    function TestComponent() {
-      const { agent } = useAgent({
-        agentId: "test-agent",
-        updates: [
-          UseAgentUpdate.OnMessagesChanged,
-          UseAgentUpdate.OnStateChanged,
-        ],
-        throttleMs: 100,
+  it("with throttleMs, rapid burst of many notifications results in exactly 2 renders (leading + trailing)", () => {
+    const renderCount = { current: 0 };
+    const TestComponent = createTestComponent({ throttleMs: 100, renderCount });
+
+    render(<TestComponent />);
+    const rendersAfterMount = renderCount.current;
+
+    // Leading edge — fires immediately
+    act(() => {
+      mockAgent.messages = [{ id: "1", role: "user", content: "tok1" } as any];
+      notifyMessagesChanged(mockAgent);
+    });
+    expect(renderCount.current).toBe(rendersAfterMount + 1);
+
+    // Fire 10 rapid notifications within the throttle window (1ms apart)
+    for (let i = 2; i <= 11; i++) {
+      act(() => {
+        vi.advanceTimersByTime(1);
+        mockAgent.messages = Array.from({ length: i }, (_, j) => ({
+          id: String(j + 1),
+          role: j % 2 === 0 ? "user" : "assistant",
+          content: `tok${j + 1}`,
+        })) as any;
+        notifyMessagesChanged(mockAgent);
       });
-      return <div data-testid="state">{JSON.stringify(agent.state)}</div>;
     }
+
+    // Should still be at leading-edge render count (burst was coalesced)
+    expect(renderCount.current).toBe(rendersAfterMount + 1);
+    expect(screen.getByTestId("count").textContent).toBe("1");
+
+    // Advance past the throttle window — trailing edge fires once
+    act(() => {
+      vi.advanceTimersByTime(100);
+    });
+    expect(renderCount.current).toBe(rendersAfterMount + 2);
+    expect(screen.getByTestId("count").textContent).toBe("11");
+  });
+
+  it("with throttleMs, new notification after trailing edge fires immediately (new cycle)", () => {
+    const TestComponent = createTestComponent({ throttleMs: 100 });
+
+    render(<TestComponent />);
+
+    // Leading edge
+    act(() => {
+      mockAgent.messages = [{ id: "1", role: "user", content: "a" } as any];
+      notifyMessagesChanged(mockAgent);
+    });
+    expect(screen.getByTestId("count").textContent).toBe("1");
+
+    // Second notification — deferred
+    act(() => {
+      vi.advanceTimersByTime(10);
+      mockAgent.messages = [
+        { id: "1", role: "user", content: "a" } as any,
+        { id: "2", role: "assistant", content: "b" } as any,
+      ];
+      notifyMessagesChanged(mockAgent);
+    });
+
+    // Trailing edge fires
+    act(() => {
+      vi.advanceTimersByTime(100);
+    });
+    expect(screen.getByTestId("count").textContent).toBe("2");
+
+    // New notification well after the window — should fire immediately as a new leading edge
+    act(() => {
+      vi.advanceTimersByTime(200);
+      mockAgent.messages = [
+        { id: "1", role: "user", content: "a" } as any,
+        { id: "2", role: "assistant", content: "b" } as any,
+        { id: "3", role: "user", content: "c" } as any,
+      ];
+      notifyMessagesChanged(mockAgent);
+    });
+    expect(screen.getByTestId("count").textContent).toBe("3");
+  });
+
+  it("with throttleMs, onStateChanged still fires immediately", () => {
+    const TestComponent = createTestComponent({
+      updates: [
+        UseAgentUpdate.OnMessagesChanged,
+        UseAgentUpdate.OnStateChanged,
+      ],
+      throttleMs: 100,
+    });
 
     render(<TestComponent />);
 
@@ -160,8 +269,6 @@ describe("useAgent throttleMs", () => {
     // Fire onStateChanged 10ms later — should render immediately, not throttled
     act(() => {
       vi.advanceTimersByTime(10);
-    });
-    act(() => {
       mockAgent.state = { count: 42 };
       mockAgent.subscribers.forEach((s) =>
         s.onStateChanged?.({
@@ -176,16 +283,8 @@ describe("useAgent throttleMs", () => {
   });
 
   it("with throttleMs, pending trailing timer does not fire after unmount", () => {
-    function TestComponent() {
-      const { agent } = useAgent({
-        agentId: "test-agent",
-        updates: [UseAgentUpdate.OnMessagesChanged],
-        throttleMs: 100,
-      });
-      // We can't spy on forceUpdate directly, but we can detect
-      // whether the component renders after unmount via console.error
-      return <div data-testid="count">{agent.messages.length}</div>;
-    }
+    const renderCount = { current: 0 };
+    const TestComponent = createTestComponent({ throttleMs: 100, renderCount });
 
     const { unmount } = render(<TestComponent />);
 
@@ -198,8 +297,6 @@ describe("useAgent throttleMs", () => {
     // Second notification — schedules trailing timer
     act(() => {
       vi.advanceTimersByTime(10);
-    });
-    act(() => {
       mockAgent.messages = [
         { id: "1", role: "user", content: "a" } as any,
         { id: "2", role: "assistant", content: "b" } as any,
@@ -207,15 +304,71 @@ describe("useAgent throttleMs", () => {
       notifyMessagesChanged(mockAgent);
     });
 
+    const countBeforeUnmount = renderCount.current;
+
     // Unmount before trailing fires
     unmount();
 
-    // Advancing past the window should NOT throw or warn about
-    // state updates on unmounted component
-    expect(() => {
-      act(() => {
-        vi.advanceTimersByTime(100);
-      });
-    }).not.toThrow();
+    // Advancing past the window should NOT cause additional renders
+    act(() => {
+      vi.advanceTimersByTime(100);
+    });
+
+    expect(renderCount.current).toBe(countBeforeUnmount);
+  });
+
+  it("with throttleMs and updates excluding OnMessagesChanged, throttle is a no-op", () => {
+    const TestComponent = createTestComponent({
+      updates: [UseAgentUpdate.OnStateChanged],
+      throttleMs: 100,
+    });
+
+    render(<TestComponent />);
+
+    // Only onStateChanged is subscribed — should fire immediately
+    act(() => {
+      mockAgent.state = { value: "test" };
+      mockAgent.subscribers.forEach((s) =>
+        s.onStateChanged?.({
+          state: mockAgent.state,
+          messages: mockAgent.messages,
+          agent: mockAgent,
+        } as any),
+      );
+    });
+
+    expect(screen.getByTestId("state").textContent).toBe('{"value":"test"}');
+
+    // No onMessagesChanged subscription should exist
+    act(() => {
+      mockAgent.messages = [{ id: "1", role: "user", content: "a" } as any];
+      notifyMessagesChanged(mockAgent);
+    });
+
+    // Messages count should still be 0 from the component's perspective
+    // (it will show 1 because the agent ref is shared, but there's no
+    // re-render triggered by onMessagesChanged)
+    expect(screen.getByTestId("state").textContent).toBe('{"value":"test"}');
+  });
+
+  it("cleans up all subscriptions after unmount", () => {
+    const TestComponent = createTestComponent({
+      updates: [
+        UseAgentUpdate.OnMessagesChanged,
+        UseAgentUpdate.OnStateChanged,
+      ],
+      throttleMs: 100,
+    });
+
+    const subscriberCountBefore = mockAgent.subscribers.length;
+    const { unmount } = render(<TestComponent />);
+
+    // Should have added subscriber(s)
+    expect(mockAgent.subscribers.length).toBeGreaterThan(subscriberCountBefore);
+
+    unmount();
+
+    // All subscriptions should be cleaned up
+    expect(mockAgent.subscribers.length).toBe(subscriberCountBefore);
   });
 });
