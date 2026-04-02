@@ -39,7 +39,6 @@
     "@types/react-dom": "^18.2.4",
     "autoprefixer": "^10.4.13",
     "cross-env": "^7.0.3",
-    "eslint-config-custom": "workspace:*",
     "postcss": "^8.4.20",
     "tailwind-config": "workspace:*",
     "tailwindcss": "^3.2.4",

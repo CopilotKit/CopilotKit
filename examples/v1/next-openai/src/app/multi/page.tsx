@@ -151,7 +151,7 @@ function TravelPlanner() {
         }}
         instructions="You are a travel planner. You help the user plan their vacation. After presenting something, don't summarize, but keep the reply short."
       />
-      {/* 
+      {/*
           ----------------------------------------------------------------
             Buttons for triggering different cases 
           ----------------------------------------------------------------

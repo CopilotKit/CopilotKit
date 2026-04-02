@@ -1,19 +1,39 @@
 {
   "name": "copilotkit",
-  "description": "CopilotKit CLI",
   "version": "1.0.0",
+  "description": "CopilotKit CLI",
+  "keywords": [
+    "oclif"
+  ],
+  "homepage": "https://github.com/CopilotKit/CopilotKit/tree/main/packages/cli",
+  "bugs": "https://github.com/CopilotKit/CopilotKit/issues",
+  "license": "MIT",
   "author": "CopilotKit",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/CopilotKit/CopilotKit.git",
+    "directory": "packages/cli"
+  },
   "bin": {
     "copilotkit": "./bin/run.js",
     "cpk": "./bin/run.js"
   },
-  "bugs": "https://github.com/CopilotKit/CopilotKit/issues",
+  "files": [
+    "/bin",
+    "/dist",
+    "/oclif.manifest.json"
+  ],
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "clean": "shx rm -rf dist",
     "extract-version": "node -p \"'// This is auto generated!\\nexport const LIB_VERSION = ' + JSON.stringify(require('./package.json').version) + ';'\" > src/utils/version.ts",
     "prebuild": "pnpm run clean && pnpm run extract-version",
     "build": "tsup",
-    "lint": "echo oops",
     "generate-manifest": "oclif manifest",
     "prepublishOnly": "pnpm run build && pnpm run generate-manifest",
     "test": "jest",
@@ -33,7 +53,9 @@
     "conf": "^13.1.0",
     "cors": "^2.8.5",
     "cross-spawn": "^7.0.6",
+    "execa": "^8.0.1",
     "express": "^4.21.2",
+    "fs-extra": "^11.2.0",
     "get-port": "^7.1.0",
     "inquirer": "^12.3.0",
     "localtunnel": "^2.0.2",
@@ -41,10 +63,8 @@
     "ora": "^8.1.1",
     "posthog-node": "^4.0.1",
     "superjson": "^2.2.1",
-    "zod": "^3.22.4",
-    "execa": "^8.0.1",
-    "fs-extra": "^11.2.0",
-    "tar": "6.1.13"
+    "tar": "6.1.13",
+    "zod": "^3.22.4"
   },
   "devDependencies": {
     "@jest/globals": "30.0.0-beta.3",
@@ -54,17 +74,15 @@
     "@types/cors": "^2.8.17",
     "@types/cross-spawn": "^6.0.6",
     "@types/express": "^5.0.0",
+    "@types/fs-extra": "^11.0.4",
     "@types/jest": "^29.5.2",
     "@types/localtunnel": "^2.0.4",
     "@types/mocha": "^10",
     "@types/node": "^18",
     "@types/sinon": "^17.0.3",
     "@types/sinon-chai": "^4.0.0",
+    "@types/tar": "6.1.13",
     "chai": "^4",
-    "eslint": "^8",
-    "eslint-config-oclif": "^5",
-    "eslint-config-oclif-typescript": "^3",
-    "eslint-config-prettier": "^9",
     "jest": "^29.5.0",
     "mocha": "^10",
     "oclif": "^4",
@@ -74,46 +92,23 @@
     "ts-jest": "^29.1.0",
     "ts-node": "^10",
     "tsup": "^8.0.2",
-    "typescript": "^5",
-    "@types/fs-extra": "^11.0.4",
-    "@types/tar": "6.1.13"
+    "typescript": "^5"
   },
-  "engines": {
-    "node": ">=18.0.0"
-  },
-  "files": [
-    "/bin",
-    "/dist",
-    "/oclif.manifest.json"
-  ],
-  "homepage": "https://github.com/CopilotKit/CopilotKit/tree/main/packages/cli",
-  "keywords": [
-    "oclif"
-  ],
-  "license": "MIT",
-  "main": "dist/index.js",
-  "type": "module",
   "oclif": {
     "bin": "copilotkit",
-    "dirname": "copilotkit",
     "commands": "./dist/commands",
+    "dirname": "copilotkit",
     "topicSeparator": " ",
     "topics": {
-      "tunnel": {
-        "description": "Create a local tunnel to expose your agent to the internet"
-      },
       "login": {
         "description": "Authenticate with Copilot Cloud"
+      },
+      "tunnel": {
+        "description": "Create a local tunnel to expose your agent to the internet"
       }
     }
   },
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/CopilotKit/CopilotKit.git",
-    "directory": "packages/cli"
-  },
-  "types": "dist/index.d.ts",
-  "publishConfig": {
-    "access": "public"
+  "engines": {
+    "node": ">=18.0.0"
   }
 }

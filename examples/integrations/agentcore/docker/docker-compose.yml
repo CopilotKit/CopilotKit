@@ -1,0 +1,95 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Use ./up.sh instead of docker compose directly —
+# it resolves STACK_NAME + MEMORY_ID and generates a local aws-exports.json.
+#
+# Requires a deployed AWS stack. See ../docs/LOCAL_DEVELOPMENT.md.
+#
+# Frontend hot reloads on save (volume mount + Vite).
+# Agent changes require: docker compose up --build agent
+
+services:
+  agent:
+    build:
+      context: ..
+      dockerfile: agents/${AGENT:-strands}-single-agent/Dockerfile
+      platforms:
+        - linux/arm64
+    ports:
+      - "8080:8080"
+    environment:
+      - MEMORY_ID=${MEMORY_ID}
+      - STACK_NAME=${STACK_NAME}
+      - AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION:-us-east-1}
+      - AWS_REGION=${AWS_DEFAULT_REGION:-us-east-1}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_SESSION_TOKEN=${AWS_SESSION_TOKEN}
+      - AGUI_ENABLED=true
+      - GATEWAY_CREDENTIAL_PROVIDER_NAME=${STACK_NAME}-runtime-gateway-auth
+      - OTEL_SDK_DISABLED=true
+    develop:
+      watch:
+        - action: sync+restart
+          path: ../agents/${AGENT:-strands}-single-agent
+          target: /app
+          ignore:
+            - __pycache__/
+            - "*.pyc"
+        - action: sync+restart
+          path: ../agents/utils
+          target: /app/utils
+          ignore:
+            - __pycache__/
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://localhost:8080/ping', timeout=2)",
+        ]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 15s
+    networks:
+      - agentcore-network
+
+  bridge:
+    build:
+      context: ../infra-cdk/lambdas/copilotkit-runtime
+      dockerfile: ../../../docker/Dockerfile.bridge.dev
+    ports:
+      - "3001:3001"
+    environment:
+      - AGENTCORE_AG_UI_URL=http://agent:8080/invocations
+      - PORT=3001
+      - OTEL_SDK_DISABLED=true
+    depends_on:
+      agent:
+        condition: service_healthy
+    networks:
+      - agentcore-network
+
+  frontend:
+    build:
+      context: ../frontend
+      dockerfile: ../docker/Dockerfile.frontend.dev
+    ports:
+      - "3000:3000"
+    volumes:
+      - ../frontend:/app
+      - /app/node_modules
+    environment:
+      - NODE_ENV=development
+    depends_on:
+      bridge:
+        condition: service_started
+    networks:
+      - agentcore-network
+
+networks:
+  agentcore-network:
+    driver: bridge

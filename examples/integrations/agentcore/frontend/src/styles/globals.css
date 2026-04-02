@@ -89,7 +89,8 @@
 
   /* Font variables for Geist fonts */
   --font-geist-sans:
-    "Geist Sans", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    "Geist Sans", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    sans-serif;
   --font-geist-mono: "Geist Mono", "Courier New", Consolas, Monaco, monospace;
 }
 

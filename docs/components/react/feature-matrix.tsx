@@ -14,7 +14,7 @@ type Feature = {
 
 const frameworks: Framework[] = [
   { name: "Built-in", slug: "built-in-agent" },
-  { name: "LangGraph", slug: "langgraph" },
+  { name: "LangChain", slug: "langgraph" },
   { name: "ADK", slug: "adk" },
   { name: "Microsoft", slug: "microsoft-agent-framework" },
   { name: "AWS Strands", slug: "aws-strands" },

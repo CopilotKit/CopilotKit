@@ -5,14 +5,14 @@ description = "Sample Google ADK-based Restaurant finder agent that uses a2ui UI
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
-    "a2a-sdk>=0.3.0",
-    "click>=8.1.8",
-    "google-adk>=1.8.0",
-    "google-genai>=1.27.0",
-    "python-dotenv>=1.1.0",
-    "litellm",
-    "a2ui",
-    "jsonschema>=4.0.0",
+  "a2a-sdk>=0.3.0",
+  "click>=8.1.8",
+  "google-adk>=1.8.0",
+  "google-genai>=1.27.0",
+  "python-dotenv>=1.1.0",
+  "litellm",
+  "a2ui",
+  "jsonschema>=4.0.0",
 ]
 
 [tool.hatch.build.targets.wheel]

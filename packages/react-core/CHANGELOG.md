@@ -1,5 +1,17 @@
 # ui
 
+## 1.55.0-next.8
+
+### Patch Changes
+
+- 0f6a61c: fix: add React keys to CopilotMessages children to suppress "unique key prop" warning
+- 53e5669: Fix multiple CopilotChat components with different threadIds sharing message state. The useAgent hook now creates per-thread agent clones when threadId is provided, ensuring each chat instance maintains isolated messages and state.
+  - @copilotkit/a2ui-renderer@1.55.0-next.8
+  - @copilotkit/core@1.55.0-next.8
+  - @copilotkit/runtime-client-gql@1.55.0-next.8
+  - @copilotkit/shared@1.55.0-next.8
+  - @copilotkit/web-inspector@1.55.0-next.8
+
 ## 1.55.0-next.7
 
 ### Minor Changes
