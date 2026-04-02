@@ -1,7 +1,7 @@
 import { FaMicrosoft, FaReact } from "react-icons/fa";
 import { HiOutlineServerStack } from "react-icons/hi2";
 import { LuBrush, LuZap, LuGlobe } from "react-icons/lu";
-import { SiLangchain } from "react-icons/si";
+import LangchainIcon from "@/components/ui/icons/langchain";
 import { TbBrandTypescript } from "react-icons/tb";
 import { FaPython } from "react-icons/fa";
 import { SiCrewai } from "@icons-pack/react-simple-icons";
@@ -379,7 +379,7 @@ export const customIcons = {
   zap: LuZap,
   brush: LuBrush,
   globe: LuGlobe,
-  langchain: SiLangchain,
+  langchain: LangchainIcon,
   typescript: TbBrandTypescript,
   python: FaPython,
   crewai: SiCrewai,

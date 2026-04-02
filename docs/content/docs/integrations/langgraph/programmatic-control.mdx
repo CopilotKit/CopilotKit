@@ -16,13 +16,13 @@ import {
 
 ## Overview
 
-The `useAgent` hook provides direct access to your LangGraph agent from any React component. It gives you real-time access to the agent's state, messages, execution status, and allows you to subscribe to custom events like interrupts.
+The `useAgent` hook provides direct access to your LangChain agent from any React component. It gives you real-time access to the agent's state, messages, execution status, and allows you to subscribe to custom events like interrupts.
 
 This enables you to build custom agent dashboards, monitoring tools, and interactive features that respond to your agent's behavior.
 
 ## Navigation
 
-This page covers everything you need to know about using `useAgent` with LangGraph. Select where you'd like to get started below.
+This page covers everything you need to know about using `useAgent` with LangChain. Select where you'd like to get started below.
 
 <Cards className="gap-6">
   <Card
@@ -57,7 +57,7 @@ This page covers everything you need to know about using `useAgent` with LangGra
     icon={<AlertCircle className="text-primary" />}
     className="p-6 rounded-xl text-base"
     title="LangGraph Interrupts"
-    description="Handle interrupt() calls from your LangGraph agent."
+    description="Handle interrupt() calls from your LangChain agent."
     href="#handling-langgraph-interrupts"
   />
   <Card
@@ -86,7 +86,7 @@ import UseAgentSnippet from "@/snippets/use-agent.mdx";
 
 ### Node-Specific State
 
-If your LangGraph agent tracks which node it's in, you can show contextual UI:
+If your LangChain agent tracks which node it's in, you can show contextual UI:
 
 ```tsx title="page.tsx"
 export function NodeStatus() {
