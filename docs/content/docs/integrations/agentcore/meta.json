@@ -1,0 +1,9 @@
+{
+  "title": "AWS AgentCore",
+  "root": true,
+  "pages": [
+    "index",
+    "quickstart",
+    "full-stack-example"
+  ]
+}

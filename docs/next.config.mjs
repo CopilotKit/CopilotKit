@@ -135,6 +135,7 @@ const config = {
       'pydantic-ai',
       'microsoft-agent-framework',
       'aws-strands',
+      'agentcore',
     ];
 
     return {

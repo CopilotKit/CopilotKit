@@ -25,6 +25,7 @@ import AgnoIcon from "../ui/icons/agno";
 import PydanticAiIcon from "../ui/icons/pydantic-ai";
 import { MicrosoftIcon } from "../ui/icons/microsoft";
 import { AwsStrandsIcon } from "../ui/icons/aws-strands";
+import CloudIcon from "../ui/icons/cloud";
 
 // Icon mapping - component-specific
 const INTEGRATION_ICONS: Record<
@@ -36,6 +37,7 @@ const INTEGRATION_ICONS: Record<
   adk: AdkIcon,
   "microsoft-agent-framework": MicrosoftIcon,
   "aws-strands": AwsStrandsIcon,
+  agentcore: CloudIcon,
   mastra: MastraIcon,
   "pydantic-ai": PydanticAiIcon,
   "crewai-flows": CrewaiIcon,

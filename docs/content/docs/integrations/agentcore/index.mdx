@@ -1,0 +1,59 @@
+---
+title: Introduction
+icon: "lucide/Cloud"
+description: Add a production-ready frontend to your AWS AgentCore agents with CopilotKit.
+hideHeader: true
+---
+
+import { Cards, Card } from "fumadocs-ui/components/card";
+import { PlayIcon, BoxIcon } from "lucide-react";
+
+## CopilotKit + AWS AgentCore
+
+[AWS Bedrock AgentCore](https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/what-is-bedrock-agentcore.html)
+gives you a secure, serverless runtime for deploying AG-UI agents at scale — handling auth, session
+isolation, and infrastructure. CopilotKit gives those agents a production-ready frontend: chat UI,
+shared state, generative UI, human-in-the-loop, and more.
+
+The two connect through **CopilotKit Runtime**, a lightweight server-side layer that sits between
+your browser and AgentCore. It's the same runtime you'd use with any CopilotKit-powered agent —
+AgentCore just requires it to run server-side (browsers can't call AgentCore directly due to
+SigV4/OAuth2 authentication).
+
+```
+Browser → CopilotKit Runtime → AgentCore Runtime → your agent
+```
+
+## What you get
+
+- **Chat UI** — prebuilt chat interface, or headless hooks to build your own
+- **Shared state** — bidirectional sync between agent state and your React UI
+- **Generative UI** — render custom components from tool calls in real time
+- **Human-in-the-loop** — let users review, approve, or redirect agent actions
+- **AgentCore memory** — conversation history persists across sessions via AgentCore's memory layer
+
+## Choose your starting point
+
+<Cards>
+  <Card
+    title="Quickstart"
+    description="You've followed the AWS guide and have a deployed agent. Connect CopilotKit in minutes."
+    href="/agentcore/quickstart"
+    icon={<PlayIcon />}
+  />
+  <Card
+    title="Full-stack example"
+    description="Start from a complete, deployable template — CDK infrastructure, LangGraph or Strands agent, generative UI, todo canvas, local dev."
+    href="/agentcore/full-stack-example"
+    icon={<BoxIcon />}
+  />
+</Cards>
+
+## Prerequisites
+
+Before you begin, you should have:
+
+- An AG-UI agent deployed to [AgentCore Runtime](https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/runtime-agui.html)
+- Your AgentCore endpoint URL (the `/invocations` URL returned after deployment)
+- A Cognito user pool set up for authentication (the AWS guide covers this)
+- Node.js 18+

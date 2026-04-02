@@ -16,6 +16,7 @@ import IntegrationPuzzleIcon from "../icons/integration-puzzle";
 import CheckIcon from "../icons/check";
 import { MicrosoftIcon } from "../icons/microsoft";
 import { AwsStrandsIcon } from "../icons/aws-strands";
+import CloudIcon from "../icons/cloud";
 import { AgentSpecMarkIcon, A2AIcon } from "@/lib/icons/custom-icons";
 import {
   INTEGRATION_ORDER,
@@ -42,6 +43,7 @@ const INTEGRATION_ICONS: Record<
   adk: AdkIcon,
   "microsoft-agent-framework": MicrosoftIcon,
   "aws-strands": AwsStrandsIcon,
+  agentcore: CloudIcon,
   mastra: MastraIcon,
   "pydantic-ai": PydanticAiIcon,
   "crewai-flows": CrewaiIcon,

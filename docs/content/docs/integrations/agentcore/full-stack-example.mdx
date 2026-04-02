@@ -1,0 +1,178 @@
+---
+title: Full-stack example
+description: A complete, deployable CopilotKit + AgentCore application with CDK, LangGraph or Strands, generative UI, and shared state.
+icon: "lucide/Box"
+---
+
+import { Callout } from "fumadocs-ui/components/callout";
+import { Tabs, Tab } from "fumadocs-ui/components/tabs";
+import { Cards, Card } from "fumadocs-ui/components/card";
+import { PlayIcon, RepeatIcon, PaintbrushIcon } from "lucide-react";
+
+If you'd rather start from a complete working application than assemble the pieces yourself,
+this template has everything: CDK infrastructure, LangGraph and Strands agent variants,
+generative UI, a shared-state todo canvas, Cognito auth, local dev with hot reload, and
+one-command deploy to AWS.
+
+## What's included
+
+| Piece | Description |
+|---|---|
+| `agents/langgraph-single-agent/` | LangGraph agent with CopilotKit middleware, AgentCore memory, and Gateway MCP tools |
+| `agents/strands-single-agent/` | Strands agent with the same feature set |
+| `infra-cdk/` | CDK stacks: Cognito, AgentCore Runtime + Gateway + Memory, CopilotKit Lambda, Amplify hosting |
+| `infra-terraform/` | Terraform equivalent of the CDK stacks |
+| `frontend/` | Vite + React with CopilotKit chat, generative charts, and a shared todo canvas |
+| `docker/` | Docker Compose for local development with agent hot reload |
+
+## Prerequisites
+
+| Tool | Version |
+|---|---|
+| AWS CLI | configured (`aws configure`) |
+| Node.js | 18+ |
+| Python | 3.8+ |
+| Docker | running |
+
+## Deploy
+
+**1. Clone the example**
+
+```bash
+git clone https://github.com/CopilotKit/CopilotKit.git
+cd CopilotKit/examples/integrations/agentcore
+```
+
+**2. Configure**
+
+```bash
+cp config.yaml.example config.yaml
+```
+
+Edit `config.yaml` and set `stack_name_base` (a short prefix for your AWS resources) and
+`admin_user_email` (where your Cognito invite will be sent).
+
+**3. Deploy**
+
+<Tabs groupId="agent-framework" items={["LangGraph", "Strands"]}>
+  <Tab value="LangGraph">
+    ```bash
+    ./deploy-langgraph.sh
+    ```
+  </Tab>
+  <Tab value="Strands">
+    ```bash
+    ./deploy-strands.sh
+    ```
+  </Tab>
+</Tabs>
+
+The script deploys the full CDK stack and prints an Amplify URL when done. Sign in with your
+`admin_user_email`.
+
+<Callout type="info" title="Infra only">
+  Pass `--skip-frontend` to deploy or update the agent and infrastructure without rebuilding
+  the frontend:
+  ```bash
+  ./deploy-langgraph.sh --skip-frontend
+  ```
+</Callout>
+
+## Local development
+
+Run the full stack locally — agent, CopilotKit runtime, and frontend — without deploying:
+
+```bash
+cd docker
+./up.sh --build
+```
+
+This starts three services via Docker Compose:
+
+| Service | Port | Description |
+|---|---|---|
+| `agent` | 8080 | Your agent (LangGraph or Strands), hot-reloads on `.py` changes |
+| `runtime` | 3001 | CopilotKit Runtime pointing at the local agent |
+| `frontend` | 3000 | Vite dev server |
+
+Open `http://localhost:3000` and sign in. Changes to your agent code reload automatically.
+
+<Callout type="info" title="Gateway tools">
+  AgentCore Gateway tools (MCP) require the deployed AWS infrastructure and are unavailable
+  locally. The agent detects this and continues without them — you'll see a warning in the
+  agent logs.
+</Callout>
+
+## Architecture
+
+```
+Browser (Cognito OIDC)
+    ↓  Bearer token
+CopilotKit Lambda  (Node.js, AgentCoreRunner)
+    ↓  AG-UI / SSE
+AgentCore Runtime
+    ↓
+langgraph_agent.py / strands_agent.py
+    ↓  MCP (OAuth2 M2M)
+AgentCore Gateway → Lambda tools
+```
+
+**Auth flow:** The user signs in via Cognito Hosted UI and gets an OIDC access token. The
+frontend passes this token as a Bearer header to the CopilotKit Lambda. The Lambda forwards
+it to AgentCore, which validates it and makes the `sub` claim available to the agent as the
+user identity.
+
+## Generative UI
+
+The agent renders charts and UI components directly in the chat by calling frontend tools.
+The frontend registers these tools with `useCopilotAction`:
+
+```tsx
+useCopilotAction({
+  name: "barChart",
+  parameters: [
+    { name: "data", type: "object[]" },
+    { name: "title", type: "string" },
+  ],
+  render: ({ data, title }) => <BarChart data={data} title={title} />,
+});
+```
+
+The agent calls `barChart` with data (fetched first via `query_data`), and the chart
+appears inline in the chat — no extra user interaction needed.
+
+## Shared state
+
+The todo canvas demonstrates bidirectional state sync between the agent and the frontend.
+The agent maintains a `todos` list in its state; the frontend reads and writes it in real time.
+
+**Agent side** (LangGraph):
+```python
+class AgentState(BaseAgentState):
+    todos: list[Todo]
+
+@tool
+def manage_todos(todos: list[Todo], runtime: ToolRuntime) -> Command:
+    """Replace the entire todo list."""
+    return Command(update={"todos": todos, "messages": [...]})
+```
+
+**Frontend side:**
+```tsx
+const { agent } = useAgent();
+
+// Read agent state
+const todos = agent.state?.todos ?? [];
+
+// Write agent state (user interaction)
+agent.setState({ todos: updatedTodos });
+```
+
+The agent calls `manage_todos` to update todos; the UI reacts instantly. Users can also
+edit todos directly and those changes flow back to the agent's state.
+
+## Tear down
+
+```bash
+cd infra-cdk && npx cdk destroy --all
+```

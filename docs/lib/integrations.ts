@@ -17,6 +17,7 @@ export const INTEGRATION_ORDER = [
   "adk",
   "microsoft-agent-framework",
   "aws-strands",
+  "agentcore",
   "mastra",
   "pydantic-ai",
   "crewai-flows",
@@ -66,6 +67,11 @@ export const INTEGRATION_METADATA: Record<
     label: "AWS Strands",
     href: "/aws-strands",
     description: "AWS SDK for building and orchestrating AI agents.",
+  },
+  agentcore: {
+    label: "AWS AgentCore",
+    href: "/agentcore",
+    description: "Deploy and scale AG-UI agents on AWS Bedrock AgentCore.",
   },
   mastra: {
     label: "Mastra",
