@@ -4,9 +4,11 @@ import {
   RuntimeMode,
   RUNTIME_MODE_SSE,
   RUNTIME_MODE_INTELLIGENCE,
+} from "@copilotkit/shared";
+import {
   createLicenseChecker,
   type LicenseChecker,
-} from "@copilotkit/shared";
+} from "@copilotkit/license-verifier";
 import { AbstractAgent } from "@ag-ui/client";
 import type { MCPClientConfig } from "@ag-ui/mcp-apps-middleware";
 import { A2UIMiddlewareConfig } from "@ag-ui/a2ui-middleware";
