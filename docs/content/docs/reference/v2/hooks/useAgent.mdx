@@ -34,6 +34,19 @@ function useAgent(options?: UseAgentProps): { agent: AbstractAgent }
 
     Pass an empty array `[]` to prevent automatic re-renders.
   </PropertyReference>
+
+  <PropertyReference name="throttleMs" type="number" default="0">
+    Throttle interval (in milliseconds) for React re-renders triggered by `OnMessagesChanged` notifications. Useful to reduce re-render frequency during streaming, where new tokens can fire many updates per second.
+
+    Uses a **leading+trailing** pattern:
+    - First update fires immediately (no delay for the initial token)
+    - Subsequent updates within the window are coalesced
+    - A trailing timer ensures the final state is always rendered
+
+    Only affects `OnMessagesChanged` — `OnStateChanged` and `OnRunStatusChanged` always fire immediately. Has no effect if `updates` does not include `OnMessagesChanged`.
+
+    Must be a non-negative finite number. Invalid values fall back to `0` with a `console.error`.
+  </PropertyReference>
 </PropertyReference>
 
 ## Return Value
@@ -231,9 +244,29 @@ function MessageCount() {
 }
 ```
 
+### Throttling Streaming Re-renders
+
+```tsx
+import { useAgent } from "@copilotkit/react-core/v2";
+
+// During streaming, coalesce rapid token updates into ~10 renders/sec
+function StreamingChat() {
+  const { agent } = useAgent({ throttleMs: 100 });
+
+  return (
+    <div>
+      {agent.messages.map((msg) => (
+        <div key={msg.id}>{msg.content}</div>
+      ))}
+    </div>
+  );
+}
+```
+
 ## Behavior
 
 - **Automatic Re-renders**: Component re-renders when agent state, messages, or execution status changes (configurable via `updates` parameter)
+- **Render Throttling**: When `throttleMs > 0`, message-change re-renders use a leading+trailing throttle — the first token renders instantly, rapid mid-stream updates are coalesced, and the final state is always rendered after the window expires. State and run-status changes are never throttled.
 - **Error Handling**: Throws error if no agent exists with specified `agentId`
 - **State Synchronization**: State updates via `setState()` are immediately available to both app and agent
 - **Event Subscriptions**: Subscribe/unsubscribe pattern for lifecycle and custom events
