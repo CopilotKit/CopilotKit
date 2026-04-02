@@ -3,12 +3,10 @@
 
 from __future__ import annotations
 
-import base64
-import json
-import os
 import logging
+import os
 
-from ag_ui.core import RunAgentInput, RunErrorEvent, RunFinishedEvent
+from ag_ui.core import RunAgentInput, RunErrorEvent
 from bedrock_agentcore.identity.auth import requires_access_token
 from bedrock_agentcore.runtime import BedrockAgentCoreApp, RequestContext
 from copilotkit import CopilotKitMiddleware, LangGraphAGUIAgent
@@ -17,6 +15,7 @@ from langchain_aws import ChatBedrock
 from langchain_mcp_adapters.client import MultiServerMCPClient
 from langgraph_checkpoint_aws import AgentCoreMemorySaver
 
+from utils.auth import extract_user_id_from_context
 from utils.ssm import get_ssm_parameter
 from tools import query_data, AgentState, todo_tools
 
@@ -29,45 +28,6 @@ SYSTEM_PROMPT = """You are a helpful assistant with access to tools via the Gate
 When demonstrating charts, always call the query_data tool first to fetch data from the database before calling any chart tool.
 When managing todos, use manage_todos to update the list and get_todos to read the current list.
 When asked about your tools, list them and explain what they do."""
-
-
-def decode_jwt_sub(authorization_header: str | None) -> str | None:
-    if not authorization_header:
-        return None
-
-    parts = authorization_header.strip().split()
-    if len(parts) != 2 or parts[0].lower() != "bearer":
-        return None
-
-    token_parts = parts[1].split(".")
-    if len(token_parts) < 2:
-        return None
-
-    try:
-        payload = token_parts[1]
-        payload += "=" * ((4 - len(payload) % 4) % 4)
-        decoded = base64.urlsafe_b64decode(payload.encode("utf-8"))
-        sub = json.loads(decoded).get("sub")
-        return sub if isinstance(sub, str) and sub else None
-    except Exception:
-        return None
-
-
-def resolve_actor_id(
-    input_data: RunAgentInput, authorization_header: str | None
-) -> str | None:
-    forwarded_props = (
-        input_data.forwarded_props
-        if isinstance(input_data.forwarded_props, dict)
-        else {}
-    )
-
-    for key in ACTOR_ID_KEYS:
-        value = forwarded_props.get(key)
-        if isinstance(value, str) and value:
-            return value
-
-    return decode_jwt_sub(authorization_header)
 
 
 @requires_access_token(
@@ -124,67 +84,55 @@ def _build_checkpointer() -> AgentCoreMemorySaver:
     )
 
 
-async def create_langgraph_agent(tools: list):
-    try:
-        return create_agent(
-            model=_build_model(streaming=True),
-            tools=[*tools, query_data, *todo_tools],  # MCP tools + data + todo tools
-            checkpointer=_build_checkpointer(),
-            middleware=[CopilotKitMiddleware()],
-            system_prompt=SYSTEM_PROMPT,
-            state_schema=AgentState,  # extends BaseAgentState with todos: list[Todo]
-        )
-    except Exception:
-        logging.exception("Error creating LangGraph agent")
-        raise
-
-
-async def create_runtime_graph():
-    mcp_client = await create_gateway_mcp_client()
-    tools = await mcp_client.get_tools()
-    return await create_langgraph_agent(tools)
-
-
-class ActorAwareLangGraphAgent(LangGraphAGUIAgent):
-    async def run(self, input: RunAgentInput):
-        actor_id = (
-            self.config.get("configurable", {}).get("actor_id") if self.config else None
-        )
-        if not actor_id:
-            raise ValueError(
-                "Missing actor identity. Provide forwardedProps.actor_id/user_id "
-                "or include sub claim in the bearer token."
-            )
-
-        self.graph = await create_runtime_graph()
-        self.config = {"configurable": {"actor_id": actor_id}}
-        async for event in super().run(input):
-            yield event
-
-
 @app.entrypoint
 async def invocations(payload: dict, context: RequestContext):
     input_data = RunAgentInput.model_validate(payload)
-    authorization_header = None
-    if context.request_headers:
-        authorization_header = context.request_headers.get("Authorization")
 
-    actor_id = resolve_actor_id(input_data, authorization_header)
+    # Extract actor identity securely from the validated JWT token.
+    try:
+        actor_id = extract_user_id_from_context(context)
+    except ValueError:
+        # Fall back to forwarded props if JWT extraction fails (e.g. local dev).
+        forwarded = (
+            input_data.forwarded_props
+            if isinstance(input_data.forwarded_props, dict)
+            else {}
+        )
+        actor_id = next(
+            (forwarded[k] for k in ACTOR_ID_KEYS if k in forwarded and forwarded[k]),
+            None,
+        )
+
     if not actor_id:
         raise ValueError(
             "Missing actor identity. Provide forwardedProps.actor_id/user_id "
             "or include sub claim in the bearer token."
         )
 
-    request_agent = ActorAwareLangGraphAgent(
-        name="LangGraphSingleAgent",
-        description="LangGraph single agent exposed via AG-UI",
-        graph=None,
-        config={"configurable": {"actor_id": actor_id}},
-    )
-
     try:
-        async for event in request_agent.run(input_data):
+        try:
+            mcp_client = await create_gateway_mcp_client()
+            gateway_tools = await mcp_client.get_tools()
+        except Exception as gw_err:
+            logging.warning("Gateway tools unavailable (running locally?): %s", gw_err)
+            gateway_tools = []
+
+        graph = create_agent(
+            model=_build_model(streaming=True),
+            tools=[*gateway_tools, query_data, *todo_tools],
+            checkpointer=_build_checkpointer(),
+            middleware=[CopilotKitMiddleware()],
+            system_prompt=SYSTEM_PROMPT,
+            state_schema=AgentState,
+        )
+
+        agent = LangGraphAGUIAgent(
+            name="LangGraphSingleAgent",
+            description="LangGraph single agent exposed via AG-UI",
+            graph=graph,
+            config={"configurable": {"actor_id": actor_id}},
+        )
+        async for event in agent.run(input_data):
             if event is not None:
                 yield event.model_dump(mode="json", by_alias=True, exclude_none=True)
     except Exception as exc:
