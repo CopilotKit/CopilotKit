@@ -1,5 +1,11 @@
 # @copilotkit/web-inspector
 
+## 1.55.0-next.8
+
+### Patch Changes
+
+- @copilotkit/core@1.55.0-next.8
+
 ## 1.55.0-next.7
 
 ### Minor Changes

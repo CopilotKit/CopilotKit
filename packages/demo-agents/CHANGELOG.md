@@ -1,5 +1,7 @@
 # @copilotkit/demo-agents
 
+## 1.55.0-next.8
+
 ## 1.55.0-next.7
 
 ### Minor Changes
