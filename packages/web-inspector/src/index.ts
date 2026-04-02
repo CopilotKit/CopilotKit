@@ -3175,33 +3175,26 @@ ${argsString}</pre
         : null;
 
     return html`
-      <div style="position:relative;height:100%;overflow:hidden;">
-        <div style="overflow-y:auto;padding:16px;">
-          <cpk-thread-list
-            .threads=${displayThreads}
-            @threadSelected=${(e: CustomEvent<string>) => {
-              this.selectedThreadId = e.detail;
-              this.requestUpdate();
-            }}
-          ></cpk-thread-list>
-        </div>
+      <div style="padding:16px;">
         ${this.selectedThreadId
-          ? html`<div
-              style="position:absolute;inset:0;padding:16px;overflow-y:auto;"
+          ? html`<cpk-thread-details
+              style="display:block;"
+              .threadId=${this.selectedThreadId}
+              .thread=${selectedThread}
+              .runtimeUrl=${this._core?.runtimeUrl ?? ""}
+              .headers=${this._core?.headers ?? {}}
               @cpkback=${() => {
                 this.selectedThreadId = null;
                 this.requestUpdate();
               }}
-            >
-              <cpk-thread-details
-                style="height:100%;display:block;"
-                .threadId=${this.selectedThreadId}
-                .thread=${selectedThread}
-                .runtimeUrl=${this._core?.runtimeUrl ?? ""}
-                .headers=${this._core?.headers ?? {}}
-              ></cpk-thread-details>
-            </div>`
-          : nothing}
+            ></cpk-thread-details>`
+          : html`<cpk-thread-list
+              .threads=${displayThreads}
+              @threadSelected=${(e: CustomEvent<string>) => {
+                this.selectedThreadId = e.detail;
+                this.requestUpdate();
+              }}
+            ></cpk-thread-list>`}
       </div>
     `;
   }

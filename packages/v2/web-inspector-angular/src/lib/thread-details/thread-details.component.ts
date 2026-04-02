@@ -466,8 +466,6 @@ type Tab = "conversation" | "agent-state" | "ag-ui-events";
         font-size: 13px;
         display: flex;
         flex-direction: row;
-        height: 100%;
-        min-height: 400px;
         border-radius: 12px;
         overflow: hidden;
         border-left: 1px solid #ffffffb8;
@@ -663,8 +661,6 @@ type Tab = "conversation" | "agent-state" | "ag-ui-events";
 
       /* ── Content area ────────────────────────────────────────────────── */
       .cpk-td__content {
-        flex: 1;
-        overflow-y: auto;
         padding: 16px;
         display: flex;
         flex-direction: column;
