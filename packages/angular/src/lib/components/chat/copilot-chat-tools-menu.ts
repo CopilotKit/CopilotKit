@@ -64,9 +64,7 @@ import { injectChatLabels } from "../../chat-config";
                   >
                     @for (subItem of item.items; track $index) {
                       @if (subItem === "-") {
-                        <div
-                          class="h-px bg-gray-200 dark:bg-gray-700 my-1"
-                        ></div>
+                        <div class="h-px bg-gray-200 dark:bg-gray-700 my-1"></div>
                       } @else if (isMenuItem(subItem)) {
                         <button
                           type="button"

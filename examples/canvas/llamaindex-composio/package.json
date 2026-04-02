@@ -76,14 +76,11 @@
     "zod": "^3.25.76"
   },
   "devDependencies": {
-    "@eslint/eslintrc": "^3.3.1",
     "@tailwindcss/postcss": "^4.1.12",
     "@types/node": "^20.19.11",
     "@types/react": "^19.1.12",
     "@types/react-dom": "^19.1.9",
     "concurrently": "^9.2.1",
-    "eslint": "^9.34.0",
-    "eslint-config-next": "15.3.2",
     "geist": "^1.4.2",
     "tailwindcss": "^4.1.12",
     "typescript": "^5.9.2"

@@ -17,7 +17,9 @@ import { cn } from "../../utils";
   host: {
     "[class]": "computedClass()",
   },
-  template: `<ng-content></ng-content>`,
+  template: `
+    <ng-content></ng-content>
+  `,
   styles: [],
 })
 export class CopilotChatToolbar {
