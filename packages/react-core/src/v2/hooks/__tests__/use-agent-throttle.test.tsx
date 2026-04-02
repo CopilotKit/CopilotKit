@@ -518,6 +518,57 @@ describe("useAgent throttleMs", () => {
     expect(screen.getByTestId("count").textContent).toBe("3");
   });
 
+  it("notification immediately after trailing edge is throttled (trailing restarts the window)", () => {
+    const renderCount = { current: 0 };
+    const TestComponent = createTestComponent({ throttleMs: 100, renderCount });
+
+    render(<TestComponent />);
+    const rendersAfterMount = renderCount.current;
+
+    // T=0: Leading edge fires immediately
+    act(() => {
+      mockAgent.messages = [userMsg("1", "a")];
+      notifyMessagesChanged(mockAgent);
+    });
+    expect(renderCount.current).toBe(rendersAfterMount + 1);
+    expect(screen.getByTestId("count").textContent).toBe("1");
+
+    // T=10: Deferred notification — schedules trailing
+    act(() => {
+      vi.advanceTimersByTime(10);
+      mockAgent.messages = [userMsg("1", "a"), assistantMsg("2", "b")];
+      notifyMessagesChanged(mockAgent);
+    });
+
+    // T=100: Trailing fires (render #2) and restarts window
+    act(() => {
+      vi.advanceTimersByTime(90);
+    });
+    expect(renderCount.current).toBe(rendersAfterMount + 2);
+    expect(screen.getByTestId("count").textContent).toBe("2");
+
+    // T=101: Notification 1ms after trailing — should be DEFERRED (within new window), not immediate
+    act(() => {
+      vi.advanceTimersByTime(1);
+      mockAgent.messages = [
+        userMsg("1", "a"),
+        assistantMsg("2", "b"),
+        userMsg("3", "c"),
+      ];
+      notifyMessagesChanged(mockAgent);
+    });
+    // Still 2 — the notification was deferred, not a new leading edge
+    expect(renderCount.current).toBe(rendersAfterMount + 2);
+    expect(screen.getByTestId("count").textContent).toBe("2");
+
+    // T=200: New trailing fires (render #3)
+    act(() => {
+      vi.advanceTimersByTime(99);
+    });
+    expect(renderCount.current).toBe(rendersAfterMount + 3);
+    expect(screen.getByTestId("count").textContent).toBe("3");
+  });
+
   it("cleans up all subscriptions after unmount", () => {
     const TestComponent = createTestComponent({
       updates: [

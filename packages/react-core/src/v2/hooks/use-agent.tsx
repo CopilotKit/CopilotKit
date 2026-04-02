@@ -290,15 +290,20 @@ export function useAgent({
         const throttledNotify = () => {
           if (!active) return;
           if (!throttleActive) {
+            // Leading edge — fire immediately and start the throttle window
             throttleActive = true;
             pending = false;
             forceUpdate();
-            timerId = setTimeout(() => {
+            timerId = setTimeout(function trailingEdge() {
               timerId = null;
-              throttleActive = false;
               if (active && pending) {
+                // Trailing edge — fire and restart the window
                 pending = false;
                 forceUpdate();
+                timerId = setTimeout(trailingEdge, ms);
+              } else {
+                // No pending notifications — end the window
+                throttleActive = false;
               }
             }, ms);
           } else {
