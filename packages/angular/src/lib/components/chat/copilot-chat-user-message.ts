@@ -148,9 +148,7 @@ function flattenUserMessageContent(content?: UserMessage["content"]): string {
             @if (showBranchNavigation()) {
               @if (branchNavigationTemplate || branchNavigationComponent()) {
                 <copilot-slot
-                  [slot]="
-                    branchNavigationTemplate || branchNavigationComponent()
-                  "
+                  [slot]="branchNavigationTemplate || branchNavigationComponent()"
                   [context]="branchNavigationContext()"
                   [defaultComponent]="CopilotChatUserMessageBranchNavigation"
                 >

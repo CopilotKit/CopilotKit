@@ -3,13 +3,13 @@ title: "Step 4: Agentic Chat UI"
 ---
 import { ImageZoom } from 'fumadocs-ui/components/image-zoom';
 
-At this point, we have a LangGraph agent running in LangGraph Studio and have a simple copilot. Now, let's 
+At this point, we have a LangChain agent running in LangGraph Studio and have a simple copilot. Now, let's 
 combine the two together to make an copilot agent (CoAgent)!
 
 <Steps>
 <Step>
 ## Connect the agent to CopilotKit
-We need to make CopilotKit aware of our running LangGraph agent. To do this, we will setup a remote 
+We need to make CopilotKit aware of our running LangChain agent. To do this, we will setup a remote 
 endpoint to connect to our locally running agent.
 
 Since we're using Copilot Cloud, this is as simple as running the following command for local development.
@@ -71,7 +71,7 @@ And we're done! Here's what we did:
 - We connected the agent to CopilotKit.
 - We specified the agent to use.
 
-Now when you head back to the app, you'll notice that we're talking to our LangGraph agent!
+Now when you head back to the app, you'll notice that we're talking to our LangChain agent!
 
 <Frame>
   <ImageZoom src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/tutorials/research-ana/fe-step-4-finish.png" alt="step-4-finish" height={1000} width={1000} />

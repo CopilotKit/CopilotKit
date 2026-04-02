@@ -8,7 +8,6 @@
     "preview": "vite preview",
     "test": "vitest --run",
     "test:watch": "vitest",
-    "lint": "eslint src/",
     "lint:fix": "eslint src/ --fix",
     "clean": "rm -rf build/ node_modules/ .vite/"
   },
@@ -40,7 +39,6 @@
     "zod": "^3.25.76"
   },
   "devDependencies": {
-    "@eslint/eslintrc": "^3",
     "@shadcn/ui": "^0.0.4",
     "@tailwindcss/postcss": "^4",
     "@testing-library/jest-dom": "^6.1.5",
@@ -49,10 +47,7 @@
     "@types/node": "^25.0.3",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "@typescript-eslint/eslint-plugin": "^8.55.0",
-    "@typescript-eslint/parser": "^8.55.0",
     "@vitejs/plugin-react": "^4.2.0",
-    "eslint": "^9.39.2",
     "fast-check": "^4.5.3",
     "jsdom": "^23.0.1",
     "prettier": "^3.8.1",

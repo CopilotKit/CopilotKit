@@ -3,7 +3,7 @@ title: "Step 2: Start the Agent"
 ---
 import { ImageZoom } from 'fumadocs-ui/components/image-zoom'
 
-Before we start integrating the LangGraph agent, let's understand how it works. 
+Before we start integrating the LangChain agent, let's understand how it works. 
 
 For the sake of this tutorial we won't be building the LangGraph together from scratch. 
 Instead, we'll be using the LangGraph constructed in the `agent/` directory. It will 
@@ -11,11 +11,11 @@ contain all of the logic we need to build our research ANA except for the Copilo
 features, which we'll add together.
 
 <Callout>
-If you're interested in a step-by-step guide for building a LangGraph agent, you can checkout the 
+If you're interested in a step-by-step guide for building a LangChain agent, you can checkout the 
 [LangGraph quickstart guide](https://docs.langchain.com/oss/python/langgraph/quickstart).
 </Callout>
 
-Let's walk through the LangGraph agent to understand how it works before we integrate it into the application.
+Let's walk through the LangChain agent to understand how it works before we integrate it into the application.
 
 <Steps>
 <Step>
@@ -67,7 +67,7 @@ The agent will be available at https://localhost:8000 for later steps.
 As we're building this agent into an agentic experience, we'll want to understand how it works. The key concepts at play here are:
 
 - **State**: The state is the data that the agent is using to make and communicate its decisions. You can see all of the state variables in the bottom left of the screen. **State will only update between node transitions.**
-- **Nodes**: Nodes are the building blocks of a LangGraph agent. They are the steps that the agent will take to complete a task. In this case, we have nodes for the **agent**, **tools** and **human input** and **processing feedback**.
+- **Nodes**: Nodes are the building blocks of a LangChain agent. They are the steps that the agent will take to complete a task. In this case, we have nodes for the **agent**, **tools** and **human input** and **processing feedback**.
 - **Edges**: Edges are the arrows that connect nodes together. They define the logic for how the agent will move from one node to the next. They are defined in code and conditional logic is handled with a `route` function.
 - **Interrupts**: Interrupts are a way to allow for a user to work along side the agent and review its decisions. In this case, we have an **interrupt** after the **human** node which blocks the agent from proceeding until the user provides feedback.
 
@@ -87,6 +87,6 @@ integrating into the application.
 Now we have a running agent! It will be available at `https://localhost:8000`. Here's what we did:
 - Installed LangGraph Studio
 - Setup the `.env` file
-- Started, visualized and tested the LangGraph agent
+- Started, visualized and tested the LangChain agent
 
-In the next step, we'll be integrating the LangGraph agent into the application as a Copilot Agent (CoAgent).
+In the next step, we'll be integrating the LangChain agent into the application as a Copilot Agent (CoAgent).

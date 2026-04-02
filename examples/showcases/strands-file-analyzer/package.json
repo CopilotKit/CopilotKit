@@ -7,8 +7,7 @@
     "dev:agent": "./scripts/run-agent.sh || scripts\\run-agent.bat",
     "dev:ui": "next dev",
     "build": "next build",
-    "start": "next start",
-    "lint": "eslint ."
+    "start": "next start"
   },
   "dependencies": {
     "@ag-ui/client": "^0.0.41",
@@ -32,8 +31,6 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "concurrently": "^9.1.2",
-    "eslint": "^9",
-    "eslint-config-next": "^16.0.7",
     "tailwindcss": "^4",
     "typescript": "5.9.3"
   }

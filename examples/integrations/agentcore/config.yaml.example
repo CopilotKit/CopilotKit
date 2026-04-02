@@ -1,0 +1,9 @@
+# ── User-editable settings ──────────────────────────────────────────────────
+stack_name_base: my-copilotkit-agentcore-lg # max 35 chars; used as prefix for all AWS resources
+admin_user_email: # e.g. you@example.com — auto-creates a Cognito user
+
+backend:
+  # Set automatically by deploy scripts — do not edit.
+  pattern: langgraph-single-agent # overwritten by deploy-langgraph.sh / deploy-strands.sh
+  deployment_type: docker # docker (default) or zip
+  network_mode: PUBLIC # PUBLIC (default) or VPC

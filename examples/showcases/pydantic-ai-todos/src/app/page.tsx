@@ -79,7 +79,7 @@ export default function Home() {
         { "--copilot-kit-primary-color": themeColor } as CopilotKitCSSProperties
       }
     >
-      {/* 
+      {/*
         🪁 Agent Chat UI
       */}
       <CopilotSidebar
