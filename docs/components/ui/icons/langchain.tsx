@@ -1,7 +1,7 @@
 import React from "react";
 import { cn } from "@/lib/utils";
 
-interface LanggraphIconProps {
+interface LangchainIconProps {
   className?: string;
   width?: number;
   height?: number;
@@ -9,11 +9,11 @@ interface LanggraphIconProps {
 
 const DEFAULT_CLASSNAME = "text-icon";
 
-const LanggraphIcon = ({
+const LangchainIcon = ({
   className,
   width = 16,
   height = 16,
-}: LanggraphIconProps) => {
+}: LangchainIconProps) => {
   return (
     <svg
       width={width}
@@ -43,4 +43,4 @@ const LanggraphIcon = ({
   );
 };
 
-export default LanggraphIcon;
+export default LangchainIcon;
