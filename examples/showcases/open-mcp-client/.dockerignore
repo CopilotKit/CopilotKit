@@ -6,3 +6,6 @@ dist
 .env
 .env.local
 *.log
+.agent
+.claude
+.cursor
