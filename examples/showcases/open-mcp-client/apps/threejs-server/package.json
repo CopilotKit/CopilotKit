@@ -9,7 +9,7 @@
     "directory": "examples/threejs-server"
   },
   "license": "MIT",
-  "main": "server.ts",
+  "main": "dist/server.js",
   "files": [
     "server.ts",
     "server-utils.ts",
@@ -28,7 +28,7 @@
   },
   "dependencies": {
     "@modelcontextprotocol/ext-apps": "^0.4.0",
-    "@modelcontextprotocol/sdk": "^1.24.0",
+    "@modelcontextprotocol/sdk": "^1.25.2",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "three": "^0.181.0",

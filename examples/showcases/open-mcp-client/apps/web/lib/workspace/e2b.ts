@@ -4,7 +4,7 @@ import type { WorkspaceProvider, WorkspaceInfo, ExecOpts, ExecResult } from "./t
 const WORKSPACE_PATH = "/home/user/workspace";
 // Hardcoded fallback so sandbox clone works without env; override with E2B_REPO_URL if needed
 const REPO_URL =
-  process.env.E2B_REPO_URL ?? "https://github.com/vivek100/mcp-use-server-template";
+  process.env.E2B_REPO_URL ?? "https://github.com/CopilotKit/CopilotKit";
 const TEMPLATE_ID = process.env.E2B_TEMPLATE;
 // Default sandbox lifetime: 60 minutes (can be extended during a session)
 const SANDBOX_TIMEOUT_MS = 60 * 60 * 1000;
