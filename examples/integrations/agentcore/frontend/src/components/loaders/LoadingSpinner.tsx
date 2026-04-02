@@ -1,8 +1,8 @@
-import { RingLoader } from "react-spinners"
+import { RingLoader } from "react-spinners";
 
 type GenerationProps = {
-  message: string
-}
+  message: string;
+};
 
 const LoadingSpinner = ({ message }: GenerationProps) => {
   return (
@@ -10,10 +10,12 @@ const LoadingSpinner = ({ message }: GenerationProps) => {
       <RingLoader size={200} color="white" />
       <div className="text-center">
         <p className="text-4xl font-medium animate-pulse mb-5">{message}</p>
-        <p className="text-2xl text-slate-100 animate-bounce">Please stand by...</p>
+        <p className="text-2xl text-slate-100 animate-bounce">
+          Please stand by...
+        </p>
       </div>
     </div>
-  )
-}
+  );
+};
 
-export default LoadingSpinner
+export default LoadingSpinner;
