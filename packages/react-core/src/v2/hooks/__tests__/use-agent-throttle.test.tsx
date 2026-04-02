@@ -389,6 +389,134 @@ describe("useAgent throttleMs", () => {
     },
   );
 
+  it("trailing-edge render reflects the latest messages, not stale data", () => {
+    const TestComponent = createTestComponent({ throttleMs: 100 });
+    render(<TestComponent />);
+
+    // Leading edge
+    act(() => {
+      mockAgent.messages = [{ id: "1", role: "user", content: "A" } as any];
+      notifyMessagesChanged(mockAgent);
+    });
+    expect(screen.getByTestId("count").textContent).toBe("1");
+
+    // Multiple deferred notifications with increasing messages
+    act(() => {
+      vi.advanceTimersByTime(20);
+      mockAgent.messages = [
+        { id: "1", role: "user", content: "A" } as any,
+        { id: "2", role: "assistant", content: "B" } as any,
+      ];
+      notifyMessagesChanged(mockAgent);
+    });
+
+    act(() => {
+      vi.advanceTimersByTime(20);
+      mockAgent.messages = [
+        { id: "1", role: "user", content: "A" } as any,
+        { id: "2", role: "assistant", content: "B" } as any,
+        { id: "3", role: "assistant", content: "C" } as any,
+      ];
+      notifyMessagesChanged(mockAgent);
+    });
+
+    // Still deferred
+    expect(screen.getByTestId("count").textContent).toBe("1");
+
+    // Trailing edge fires — must show all 3 messages (latest state)
+    act(() => {
+      vi.advanceTimersByTime(100);
+    });
+    expect(screen.getByTestId("count").textContent).toBe("3");
+  });
+
+  it("trailing edge fires at exactly throttleMs after the leading edge", () => {
+    const TestComponent = createTestComponent({ throttleMs: 100 });
+    render(<TestComponent />);
+
+    // Leading edge at T=0
+    act(() => {
+      mockAgent.messages = [{ id: "1", role: "user", content: "a" } as any];
+      notifyMessagesChanged(mockAgent);
+    });
+    expect(screen.getByTestId("count").textContent).toBe("1");
+
+    // Deferred notification at T=40
+    act(() => {
+      vi.advanceTimersByTime(40);
+      mockAgent.messages = [
+        { id: "1", role: "user", content: "a" } as any,
+        { id: "2", role: "assistant", content: "b" } as any,
+      ];
+      notifyMessagesChanged(mockAgent);
+    });
+    expect(screen.getByTestId("count").textContent).toBe("1");
+
+    // At T=99, trailing has NOT fired yet
+    act(() => {
+      vi.advanceTimersByTime(59);
+    });
+    expect(screen.getByTestId("count").textContent).toBe("1");
+
+    // At T=100, trailing fires
+    act(() => {
+      vi.advanceTimersByTime(1);
+    });
+    expect(screen.getByTestId("count").textContent).toBe("2");
+  });
+
+  it("changing throttleMs cleans up pending timers from the previous configuration", () => {
+    function DynamicThrottleComponent({ throttleMs }: { throttleMs: number }) {
+      const { agent } = useAgent({
+        agentId: "test-agent",
+        updates: [UseAgentUpdate.OnMessagesChanged],
+        throttleMs,
+      });
+      return <div data-testid="count">{agent.messages.length}</div>;
+    }
+
+    const { rerender } = render(<DynamicThrottleComponent throttleMs={200} />);
+
+    // Leading edge
+    act(() => {
+      mockAgent.messages = [{ id: "1", role: "user", content: "a" } as any];
+      notifyMessagesChanged(mockAgent);
+    });
+    expect(screen.getByTestId("count").textContent).toBe("1");
+
+    // Deferred notification — pending timer set for 200ms
+    act(() => {
+      vi.advanceTimersByTime(50);
+      mockAgent.messages = [
+        { id: "1", role: "user", content: "a" } as any,
+        { id: "2", role: "assistant", content: "b" } as any,
+      ];
+      notifyMessagesChanged(mockAgent);
+    });
+    expect(screen.getByTestId("count").textContent).toBe("1");
+
+    // Change throttleMs — effect re-runs, old 200ms timer should be cleaned up
+    rerender(<DynamicThrottleComponent throttleMs={50} />);
+
+    // New notification fires as leading edge under the new 50ms throttle
+    act(() => {
+      mockAgent.messages = [
+        { id: "1", role: "user", content: "a" } as any,
+        { id: "2", role: "assistant", content: "b" } as any,
+        { id: "3", role: "user", content: "c" } as any,
+      ];
+      notifyMessagesChanged(mockAgent);
+    });
+    expect(screen.getByTestId("count").textContent).toBe("3");
+
+    // Advance past what would have been the old 200ms trailing edge —
+    // no ghost render should occur from the old timer
+    act(() => {
+      vi.advanceTimersByTime(200);
+    });
+    expect(screen.getByTestId("count").textContent).toBe("3");
+  });
+
   it("cleans up all subscriptions after unmount", () => {
     const TestComponent = createTestComponent({
       updates: [

@@ -35,12 +35,10 @@ export interface UseAgentProps {
    * unmounts first).
    *
    * Must be a non-negative finite number. A value of 0 disables throttling.
-   * Negative or non-finite values are invalid and will be ignored with a warning.
-   * Has no effect on onStateChanged or onRunStatusChanged notifications.
-   *
-   * Note: this is independent of AbstractAgent's notificationThrottleMs,
-   * which throttles at the subscriber notification layer rather than the
-   * React re-render layer.
+   * Negative or non-finite values will fall back to unthrottled behavior (0)
+   * with a console warning. Has no effect on onStateChanged or
+   * onRunStatusChanged notifications. If `updates` does not include
+   * `OnMessagesChanged`, this property has no effect.
    *
    * Default: 0 (no throttle).
    */
@@ -131,15 +129,18 @@ export function useAgent({
   const chatConfig = useCopilotChatConfiguration();
   threadId ??= chatConfig?.threadId;
 
-  const effectiveThrottleMs =
-    throttleMs !== undefined && (!Number.isFinite(throttleMs) || throttleMs < 0)
-      ? (() => {
-          console.warn(
-            `useAgent: throttleMs must be a non-negative finite number, got ${throttleMs}. Ignoring.`,
-          );
-          return undefined;
-        })()
-      : throttleMs;
+  const effectiveThrottleMs = useMemo(() => {
+    if (
+      throttleMs !== undefined &&
+      (!Number.isFinite(throttleMs) || throttleMs < 0)
+    ) {
+      console.warn(
+        `useAgent: throttleMs must be a non-negative finite number, got ${throttleMs}. Ignoring.`,
+      );
+      return undefined;
+    }
+    return throttleMs;
+  }, [throttleMs]);
 
   const [, forceUpdate] = useReducer((x) => x + 1, 0);
 
@@ -279,30 +280,29 @@ export function useAgent({
       if (ms > 0) {
         // Throttled onMessagesChanged: leading+trailing pattern.
         // First notification fires immediately, subsequent ones within the
-        // window are coalesced, trailing timer ensures the last update fires.
-        let lastCall = 0;
+        // window are coalesced. Trailing timer fires after the window to
+        // ensure the final state is rendered.
+        let throttleActive = false;
+        // Tracks whether a notification arrived during the throttle window,
+        // so the trailing timer knows whether a re-render is needed.
         let pending = false;
 
         const throttledNotify = () => {
           if (!active) return;
-          const now = Date.now();
-          const elapsed = now - lastCall;
-          if (elapsed >= ms) {
-            lastCall = now;
+          if (!throttleActive) {
+            throttleActive = true;
             pending = false;
             forceUpdate();
+            timerId = setTimeout(() => {
+              timerId = null;
+              throttleActive = false;
+              if (active && pending) {
+                pending = false;
+                forceUpdate();
+              }
+            }, ms);
           } else {
             pending = true;
-            if (timerId === null) {
-              timerId = setTimeout(() => {
-                timerId = null;
-                if (active && pending) {
-                  lastCall = Date.now();
-                  pending = false;
-                  forceUpdate();
-                }
-              }, ms - elapsed);
-            }
           }
         };
 
@@ -325,10 +325,10 @@ export function useAgent({
     const subscription = agent.subscribe(handlers);
     return () => {
       active = false;
-      subscription.unsubscribe();
       if (timerId !== null) {
         clearTimeout(timerId);
       }
+      subscription.unsubscribe();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [agent, forceUpdate, effectiveThrottleMs, updateFlags]);
