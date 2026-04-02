@@ -164,6 +164,16 @@ export interface CopilotKitCoreSubscriber {
     copilotkit: CopilotKitCore;
     agentId: string;
   }) => void | Promise<void>;
+  /**
+   * Fired immediately before each agent run, including per-thread clones that
+   * are not in the agent registry and therefore not surfaced via onAgentsChanged.
+   * Subscribers that track agent events (e.g. the web inspector) can use this
+   * to subscribe to the concrete agent instance that will emit events.
+   */
+  onAgentRunStarted?: (event: {
+    copilotkit: CopilotKitCore;
+    agent: AbstractAgent;
+  }) => void | Promise<void>;
 }
 
 // Subscription object returned by subscribe()

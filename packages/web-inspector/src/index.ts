@@ -14,6 +14,7 @@ import {
   type ɵThreadStore,
   type ɵThread,
   ɵselectThreads,
+  ɵcreateThreadStore,
 } from "@copilotkit/core";
 import type { AbstractAgent, AgentSubscriber } from "@ag-ui/client";
 import type {
@@ -202,6 +203,8 @@ export class WebInspectorElement extends LitElement {
   private _threads: ɵThread[] = [];
   private _threadStoreSubscriptions: Map<string, () => void> = new Map();
   private _threadsByAgent: Map<string, ɵThread[]> = new Map();
+  // Thread stores created and owned by the inspector (keyed by agentId)
+  private _ownedThreadStores: Map<string, ɵThreadStore> = new Map();
   private contextMenuOpen = false;
   private dockMode: DockMode = "floating";
   private previousBodyMargins: { left: string; bottom: string } | null = null;
@@ -271,6 +274,10 @@ export class WebInspectorElement extends LitElement {
   private resizeInitialSize: { width: number; height: number } | null = null;
   private isResizing = false;
 
+  private readonly customTabIcons: Record<string, string> = {
+    threads: `<svg class="h-3.5 w-3.5" width="15" height="15" viewBox="0 0 15 15" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M9.04167 15C8.29167 15 7.65972 14.7431 7.14583 14.2292C6.63194 13.7153 6.375 13.0972 6.375 12.375C6.375 11.3194 6.80208 10.3646 7.65625 9.51042C8.51042 8.65625 9.57639 8.125 10.8542 7.91667C10.8125 7.41667 10.6875 7.03819 10.4792 6.78125C10.2708 6.52431 9.98611 6.39583 9.625 6.39583C9.20833 6.39583 8.75694 6.56944 8.27083 6.91667C7.78472 7.26389 7.20833 7.83333 6.54167 8.625C5.45833 9.91667 4.66319 10.7569 4.15625 11.1458C3.64931 11.5347 3.10417 11.7292 2.52083 11.7292C1.8125 11.7292 1.21528 11.4653 0.729167 10.9375C0.243056 10.4097 0 9.77083 0 9.02083C0 8.27083 0.163194 7.50347 0.489583 6.71875C0.815972 5.93403 1.36806 4.99306 2.14583 3.89583C2.40972 3.53472 2.60417 3.22917 2.72917 2.97917C2.85417 2.72917 2.91667 2.52778 2.91667 2.375C2.91667 2.27778 2.89931 2.20486 2.86458 2.15625C2.82986 2.10764 2.77778 2.08333 2.70833 2.08333C2.56944 2.08333 2.39583 2.17014 2.1875 2.34375C1.97917 2.51736 1.73611 2.78472 1.45833 3.14583L0 1.66667C0.444444 1.125 0.895833 0.711806 1.35417 0.427083C1.8125 0.142361 2.26389 0 2.70833 0C3.34722 0 3.88889 0.222222 4.33333 0.666667C4.77778 1.11111 5 1.66667 5 2.33333C5 2.73611 4.89583 3.18056 4.6875 3.66667C4.47917 4.15278 4.13194 4.73611 3.64583 5.41667C3.11806 6.16667 2.72569 6.82639 2.46875 7.39583C2.21181 7.96528 2.08333 8.46528 2.08333 8.89583C2.08333 9.13194 2.12153 9.31597 2.19792 9.44792C2.27431 9.57986 2.38194 9.64583 2.52083 9.64583C2.65972 9.64583 2.78125 9.60764 2.88542 9.53125C2.98958 9.45486 3.18056 9.27083 3.45833 8.97917C3.63889 8.78472 3.85417 8.54514 4.10417 8.26042C4.35417 7.97569 4.65972 7.625 5.02083 7.20833C5.89583 6.16667 6.6875 5.42361 7.39583 4.97917C8.10417 4.53472 8.84722 4.3125 9.625 4.3125C10.5556 4.3125 11.3194 4.625 11.9167 5.25C12.5139 5.875 12.8542 6.72917 12.9375 7.8125H15V9.89583H12.9375C12.8264 11.4514 12.4201 12.691 11.7188 13.6146C11.0174 14.5382 10.125 15 9.04167 15ZM9.08333 12.9167C9.52778 12.9167 9.90278 12.6632 10.2083 12.1562C10.5139 11.6493 10.7222 10.9444 10.8333 10.0417C10.1944 10.1944 9.63889 10.4965 9.16667 10.9479C8.69444 11.3993 8.45833 11.8472 8.45833 12.2917C8.45833 12.4861 8.51389 12.6389 8.625 12.75C8.73611 12.8611 8.88889 12.9167 9.08333 12.9167Z" fill="currentColor"/></svg>`,
+  };
+
   private readonly menuItems: MenuItem[] = [
     { key: "ag-ui-events", label: "AG-UI Events", icon: "Zap" },
     { key: "agents", label: "Agent", icon: "Bot" },
@@ -300,6 +307,46 @@ export class WebInspectorElement extends LitElement {
     this._threadStoreSubscriptions.clear();
     this._threadsByAgent.clear();
     this._threads = [];
+  }
+
+  private ensureOwnedThreadStore(agentId: string): void {
+    if (this._ownedThreadStores.has(agentId)) return;
+    const core = this.core;
+    if (!core?.runtimeUrl) return;
+
+    const store = ɵcreateThreadStore({ fetch: globalThis.fetch });
+    store.setContext({
+      runtimeUrl: core.runtimeUrl,
+      headers: {},
+      agentId,
+    });
+    store.start();
+    this._ownedThreadStores.set(agentId, store);
+    core.registerThreadStore(agentId, store);
+  }
+
+  private refreshOwnedThreadStore(agentId: string): void {
+    const store = this._ownedThreadStores.get(agentId);
+    const core = this.core;
+    if (!store || !core?.runtimeUrl) return;
+    // Re-dispatching setContext increments the store's sessionId, triggering a new list fetch
+    store.setContext({ runtimeUrl: core.runtimeUrl, headers: {}, agentId });
+  }
+
+  private removeOwnedThreadStore(agentId: string): void {
+    const store = this._ownedThreadStores.get(agentId);
+    if (!store) return;
+    store.stop();
+    this.core?.unregisterThreadStore(agentId);
+    this._ownedThreadStores.delete(agentId);
+  }
+
+  private teardownOwnedThreadStores(): void {
+    for (const [agentId, store] of this._ownedThreadStores) {
+      store.stop();
+      this.core?.unregisterThreadStore(agentId);
+    }
+    this._ownedThreadStores.clear();
   }
 
   private attachToCore(core: CopilotKitCore): void {
@@ -341,6 +388,15 @@ export class WebInspectorElement extends LitElement {
         this._threads = Array.from(this._threadsByAgent.values()).flat();
         this.requestUpdate();
       },
+      onAgentRunStarted: ({ agent }) => {
+        // Subscribe to the concrete agent instance about to run. This handles
+        // per-thread clones that are not in core.agents and therefore not
+        // reachable via onAgentsChanged. Replacing an existing subscription for
+        // the same agentId is safe: the previous instance emits no more events
+        // once a new run starts on a fresh clone.
+        this.subscribeToAgent(agent);
+        this.requestUpdate();
+      },
     } satisfies CopilotKitCoreSubscriber;
 
     this.coreUnsubscribe = core.subscribe(this.coreSubscriber).unsubscribe;
@@ -370,6 +426,7 @@ export class WebInspectorElement extends LitElement {
     this.toolSignature = "";
     this.teardownAgentSubscriptions();
     this.teardownThreadStoreSubscriptions();
+    this.teardownOwnedThreadStores();
   }
 
   private teardownAgentSubscriptions(): void {
@@ -395,6 +452,7 @@ export class WebInspectorElement extends LitElement {
       }
       seenAgentIds.add(agent.agentId);
       this.subscribeToAgent(agent);
+      this.ensureOwnedThreadStore(agent.agentId);
     }
 
     for (const agentId of Array.from(this.agentSubscriptions.keys())) {
@@ -403,6 +461,7 @@ export class WebInspectorElement extends LitElement {
         this.agentEvents.delete(agentId);
         this.agentMessages.delete(agentId);
         this.agentStates.delete(agentId);
+        this.removeOwnedThreadStore(agentId);
       }
     }
 
@@ -484,6 +543,7 @@ export class WebInspectorElement extends LitElement {
       },
       onRunFinishedEvent: ({ event, result }) => {
         this.recordAgentEvent(agentId, "RUN_FINISHED", { event, result });
+        this.refreshOwnedThreadStore(agentId);
       },
       onRunErrorEvent: ({ event }) => {
         this.recordAgentEvent(agentId, "RUN_ERROR", event);
@@ -679,14 +739,25 @@ export class WebInspectorElement extends LitElement {
     if (pendingContext) {
       const isPendingAvailable =
         pendingContext === "all-agents" || agentIds.has(pendingContext);
-      if (isPendingAvailable) {
+      // Only restore a specific-agent selection when there is exactly one
+      // agent registered. With multiple agents, fall back to "all-agents" so
+      // events from any agent are visible regardless of what was persisted.
+      const shouldRestore =
+        isPendingAvailable &&
+        (pendingContext === "all-agents" || agentIds.size === 1);
+      if (shouldRestore) {
         if (this.selectedContext !== pendingContext) {
           this.selectedContext = pendingContext;
           this.expandedRows.clear();
         }
         this.pendingSelectedContext = null;
       } else if (agentIds.size > 0) {
-        // Agents are loaded but the pending selection no longer exists
+        // Persisted selection is unavailable or inappropriate for multiple
+        // agents — reset to "all-agents" so nothing is silently filtered.
+        if (this.selectedContext !== "all-agents") {
+          this.selectedContext = "all-agents";
+          this.expandedRows.clear();
+        }
         this.pendingSelectedContext = null;
       }
     }
@@ -696,15 +767,13 @@ export class WebInspectorElement extends LitElement {
     );
 
     if (!hasSelectedContext && this.pendingSelectedContext === null) {
-      // Auto-select "default" agent if it exists, otherwise first agent, otherwise "all-agents"
+      // When there is exactly one agent, auto-select it so the view is
+      // immediately focused. When multiple agents are registered (e.g. "default"
+      // + "openai"), keep "all-agents" so events from any agent are visible.
       let nextSelected: string = "all-agents";
 
-      if (agentIds.has("default")) {
-        nextSelected = "default";
-      } else if (agentIds.size > 0) {
-        nextSelected = Array.from(agentIds).sort((a, b) =>
-          a.localeCompare(b),
-        )[0]!;
+      if (agentIds.size === 1) {
+        nextSelected = Array.from(agentIds)[0]!;
       }
 
       if (this.selectedContext !== nextSelected) {
@@ -1209,6 +1278,48 @@ ${argsString}</pre
       button.cpk-stat-card:hover {
         background-color: #f7f7f9 !important;
       }
+
+      /* ── Circle chevron (Frontend Tools + Context) ──────────────────── */
+      .cpk-chevron-circle {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        background-color: #f0f0f4;
+        color: #838389;
+        flex-shrink: 0;
+        transition: transform 0.2s;
+      }
+      .cpk-chevron-circle svg {
+        width: 14px !important;
+        height: 14px !important;
+      }
+      .cpk-chevron-circle--open {
+        transform: rotate(180deg);
+      }
+
+      /* ── Inline copy button ─────────────────────────────────────────── */
+      .cpk-copy-btn {
+        font-size: 10px;
+        font-weight: 500;
+        color: #57575b;
+        background: #ffffff;
+        border: 1px solid #dbdbe5;
+        cursor: pointer;
+        padding: 2px 8px;
+        border-radius: 4px;
+        flex-shrink: 0;
+        transition:
+          background-color 0.15s,
+          border-color 0.15s;
+      }
+      .cpk-copy-btn:hover {
+        background-color: #f0f0f4;
+        border-color: #afafb7;
+      }
+
       .cpk-section-header {
         background: #e8edf5;
         border-bottom: 1px solid rgba(0, 0, 0, 0.08);
@@ -1219,6 +1330,19 @@ ${argsString}</pre
         font-weight: 600;
         color: #181c1f;
         margin: 0;
+      }
+      /* Inputs/selects inside the lavender header need an explicit white bg */
+      .cpk-section-header input,
+      .cpk-section-header select {
+        background-color: #ffffff !important;
+        box-shadow: none !important;
+      }
+      .cpk-section-header select {
+        padding-right: 24px !important;
+      }
+      /* Events table column headers */
+      table thead th {
+        font-weight: 600 !important;
       }
 
       .announcement-content {
@@ -1436,12 +1560,14 @@ ${argsString}</pre
       }
       /* User role badge (blue → lilac) */
       span[class*="bg-blue-100"][class*="text-blue-800"] {
-        background-color: rgba(190, 194, 255, 0.15) !important;
-        color: #010507 !important;
+        background-color: rgba(190, 194, 255, 0.22) !important;
+        border: 1px solid rgba(190, 194, 255, 0.45) !important;
+        color: #57575b !important;
       }
       /* Assistant role badge (green → mint) */
       span[class*="bg-green-100"][class*="text-green-800"] {
-        background-color: rgba(133, 236, 206, 0.15) !important;
+        background-color: rgba(133, 236, 206, 0.18) !important;
+        border: 1px solid rgba(133, 236, 206, 0.4) !important;
         color: #189370 !important;
       }
       /* Tool role badge (amber → orange brand) */
@@ -1774,7 +1900,11 @@ ${argsString}</pre
                     aria-pressed=${isSelected}
                     @click=${() => this.handleMenuSelect(key)}
                   >
-                    <span class="cpk-tab-icon"> ${this.renderIcon(icon)} </span>
+                    <span class="cpk-tab-icon">
+                      ${key in this.customTabIcons
+                        ? unsafeHTML(this.customTabIcons[key])
+                        : this.renderIcon(icon)}
+                    </span>
                     <span>${label}</span>
                   </button>
                 `;
@@ -3057,19 +3187,17 @@ ${argsString}</pre
 
     if (events.length === 0) {
       return html`
-        <div
-          class="flex h-full items-center justify-center px-4 py-8 text-center"
-        >
-          <div class="max-w-md">
-            <div
-              class="mb-3 flex justify-center text-gray-300 [&>svg]:!h-8 [&>svg]:!w-8"
-            >
-              ${this.renderIcon("Zap")}
+        <div class="p-4">
+          <div class="cpk-section-card overflow-hidden">
+            <div class="cpk-section-header"><h4>AG-UI Events</h4></div>
+            <div class="flex h-40 items-center justify-center">
+              <div class="flex items-center gap-2 text-xs text-gray-500">
+                <span class="text-lg text-gray-400"
+                  >${this.renderIcon("Zap")}</span
+                >
+                <span>No events yet</span>
+              </div>
             </div>
-            <p class="text-sm text-gray-600">No events yet</p>
-            <p class="mt-2 text-xs text-gray-500">
-              Trigger an agent run to see live activity.
-            </p>
           </div>
         </div>
       `;
@@ -3077,27 +3205,24 @@ ${argsString}</pre
 
     if (filteredEvents.length === 0) {
       return html`
-        <div
-          class="flex h-full items-center justify-center px-4 py-8 text-center"
-        >
-          <div class="max-w-md space-y-3">
-            <div
-              class="flex justify-center text-gray-300 [&>svg]:!h-8 [&>svg]:!w-8"
-            >
-              ${this.renderIcon("Filter")}
-            </div>
-            <p class="text-sm text-gray-600">
-              No events match the current filters.
-            </p>
-            <div>
-              <button
-                type="button"
-                class="inline-flex items-center gap-1 rounded-md bg-gray-900 px-3 py-1.5 text-[11px] font-medium text-white transition hover:bg-gray-800"
-                @click=${this.resetEventFilters}
-              >
-                ${this.renderIcon("RefreshCw")}
-                <span>Reset filters</span>
-              </button>
+        <div class="p-4">
+          <div class="cpk-section-card overflow-hidden">
+            <div class="cpk-section-header"><h4>AG-UI Events</h4></div>
+            <div class="flex h-40 items-center justify-center">
+              <div class="flex items-center gap-2 text-xs text-gray-500">
+                <span class="text-lg text-gray-400"
+                  >${this.renderIcon("Filter")}</span
+                >
+                <span>No events match the current filters.</span>
+                <button
+                  type="button"
+                  class="inline-flex items-center gap-1 rounded-md bg-gray-900 px-3 py-1.5 text-[11px] font-medium text-white transition hover:bg-gray-800"
+                  @click=${this.resetEventFilters}
+                >
+                  ${this.renderIcon("RefreshCw")}
+                  <span>Reset filters</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -3105,175 +3230,179 @@ ${argsString}</pre
     }
 
     return html`
-      <div class="flex h-full flex-col">
-        <div
-          class="flex flex-col gap-1.5 border-b border-gray-200 bg-white px-4 py-2.5"
-        >
-          <div class="flex flex-wrap items-center gap-2">
-            <div class="relative min-w-[200px] flex-1">
-              <input
-                type="search"
-                class="w-full rounded-md border border-gray-200 px-3 py-1.5 text-[11px] text-gray-700 shadow-sm outline-none ring-1 ring-transparent transition focus:border-gray-300 focus:ring-gray-200"
-                placeholder="Search agent, type, payload"
-                .value=${this.eventFilterText}
-                @input=${this.handleEventFilterInput}
-              />
+      <div class="flex h-full flex-col p-4">
+        <div class="cpk-section-card flex flex-1 flex-col overflow-hidden">
+          <div class="cpk-section-header flex flex-col gap-1.5">
+            <div class="flex flex-wrap items-center gap-2">
+              <div class="relative min-w-[200px] flex-1">
+                <input
+                  type="search"
+                  class="w-full rounded-md border border-gray-200 px-3 py-1.5 text-[11px] text-gray-700 shadow-sm outline-none ring-1 ring-transparent transition focus:border-gray-300 focus:ring-gray-200"
+                  placeholder="Search agent, type, payload"
+                  .value=${this.eventFilterText}
+                  @input=${this.handleEventFilterInput}
+                />
+              </div>
+              <select
+                class="w-40 rounded-md border border-gray-200 bg-white px-2 py-1.5 text-[11px] text-gray-700 shadow-sm outline-none transition focus:border-gray-300 focus:ring-2 focus:ring-gray-200"
+                .value=${this.eventTypeFilter}
+                @change=${this.handleEventTypeChange}
+              >
+                <option value="all">All event types</option>
+                ${AGENT_EVENT_TYPES.map(
+                  (type) =>
+                    html`<option value=${type}>
+                      ${type.toLowerCase().replace(/_/g, " ")}
+                    </option>`,
+                )}
+              </select>
+              <div class="flex items-center gap-1 text-[11px]">
+                <button
+                  type="button"
+                  class="tooltip-target flex h-8 w-8 items-center justify-center rounded-md border border-gray-200 bg-white text-gray-600 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                  title="Reset filters"
+                  data-tooltip="Reset filters"
+                  aria-label="Reset filters"
+                  @click=${this.resetEventFilters}
+                  ?disabled=${!this.eventFilterText &&
+                  this.eventTypeFilter === "all"}
+                >
+                  ${this.renderIcon("RotateCw")}
+                </button>
+                <button
+                  type="button"
+                  class="tooltip-target flex h-8 w-8 items-center justify-center rounded-md border border-gray-200 bg-white text-gray-600 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                  title="Export JSON"
+                  data-tooltip="Export JSON"
+                  aria-label="Export JSON"
+                  @click=${() => this.exportEvents(filteredEvents)}
+                  ?disabled=${filteredEvents.length === 0}
+                >
+                  ${this.renderIcon("Download")}
+                </button>
+                <button
+                  type="button"
+                  class="tooltip-target flex h-8 w-8 items-center justify-center rounded-md border border-gray-200 bg-white text-gray-600 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                  title="Clear events"
+                  data-tooltip="Clear events"
+                  aria-label="Clear events"
+                  @click=${this.handleClearEvents}
+                  ?disabled=${events.length === 0}
+                >
+                  ${this.renderIcon("Trash2")}
+                </button>
+                <span class="ml-2 text-[11px] text-gray-500">
+                  Showing ${filteredEvents.length} of
+                  ${events.length}${this.selectedContext === "all-agents"
+                    ? ""
+                    : ` for ${selectedLabel}`}
+                </span>
+              </div>
             </div>
-            <select
-              class="w-40 rounded-md border border-gray-200 bg-white px-2 py-1.5 text-[11px] text-gray-700 shadow-sm outline-none transition focus:border-gray-300 focus:ring-2 focus:ring-gray-200"
-              .value=${this.eventTypeFilter}
-              @change=${this.handleEventTypeChange}
+          </div>
+          <div class="relative flex-1 w-full overflow-y-auto overflow-x-hidden">
+            <table
+              class="w-full table-fixed border-collapse text-xs box-border"
             >
-              <option value="all">All event types</option>
-              ${AGENT_EVENT_TYPES.map(
-                (type) =>
-                  html`<option value=${type}>
-                    ${type.toLowerCase().replace(/_/g, " ")}
-                  </option>`,
-              )}
-            </select>
-            <div class="flex items-center gap-1 text-[11px]">
-              <button
-                type="button"
-                class="tooltip-target flex h-8 w-8 items-center justify-center rounded-md border border-gray-200 bg-white text-gray-600 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
-                title="Reset filters"
-                data-tooltip="Reset filters"
-                aria-label="Reset filters"
-                @click=${this.resetEventFilters}
-                ?disabled=${!this.eventFilterText &&
-                this.eventTypeFilter === "all"}
-              >
-                ${this.renderIcon("RotateCw")}
-              </button>
-              <button
-                type="button"
-                class="tooltip-target flex h-8 w-8 items-center justify-center rounded-md border border-gray-200 bg-white text-gray-600 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
-                title="Export JSON"
-                data-tooltip="Export JSON"
-                aria-label="Export JSON"
-                @click=${() => this.exportEvents(filteredEvents)}
-                ?disabled=${filteredEvents.length === 0}
-              >
-                ${this.renderIcon("Download")}
-              </button>
-              <button
-                type="button"
-                class="tooltip-target flex h-8 w-8 items-center justify-center rounded-md border border-gray-200 bg-white text-gray-600 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
-                title="Clear events"
-                data-tooltip="Clear events"
-                aria-label="Clear events"
-                @click=${this.handleClearEvents}
-                ?disabled=${events.length === 0}
-              >
-                ${this.renderIcon("Trash2")}
-              </button>
-            </div>
-          </div>
-          <div class="text-[11px] text-gray-500">
-            Showing ${filteredEvents.length} of
-            ${events.length}${this.selectedContext === "all-agents"
-              ? ""
-              : ` for ${selectedLabel}`}
-          </div>
-        </div>
-        <div class="relative h-full w-full overflow-y-auto overflow-x-hidden">
-          <table class="w-full table-fixed border-collapse text-xs box-border">
-            <thead class="sticky top-0 z-10">
-              <tr class="bg-white">
-                <th
-                  class="border-b border-gray-200 bg-white px-3 py-2 text-left font-medium text-gray-900"
-                >
-                  Agent
-                </th>
-                <th
-                  class="border-b border-gray-200 bg-white px-3 py-2 text-left font-medium text-gray-900"
-                >
-                  Time
-                </th>
-                <th
-                  class="border-b border-gray-200 bg-white px-3 py-2 text-left font-medium text-gray-900"
-                >
-                  Event Type
-                </th>
-                <th
-                  class="border-b border-gray-200 bg-white px-3 py-2 text-left font-medium text-gray-900"
-                >
-                  AG-UI Event
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              ${filteredEvents.map((event, index) => {
-                const rowBg = index % 2 === 0 ? "bg-white" : "bg-gray-50/50";
-                const badgeClasses = this.getEventBadgeClasses(event.type);
-                const extractedEvent = this.extractEventFromPayload(
-                  event.payload,
-                );
-                const inlineEvent =
-                  this.stringifyPayload(extractedEvent, false) || "—";
-                const prettyEvent =
-                  this.stringifyPayload(extractedEvent, true) || inlineEvent;
-                const isExpanded = this.expandedRows.has(event.id);
-
-                return html`
-                  <tr
-                    class="${rowBg} cursor-pointer transition hover:bg-blue-50/50"
-                    @click=${() => this.toggleRowExpansion(event.id)}
+              <thead class="sticky top-0 z-10">
+                <tr class="bg-white">
+                  <th
+                    class="border-b border-gray-200 bg-white px-3 py-2 text-left font-medium text-gray-900"
                   >
-                    <td
-                      class="border-l border-r border-b border-gray-200 px-3 py-2"
+                    Agent
+                  </th>
+                  <th
+                    class="border-b border-gray-200 bg-white px-3 py-2 text-left font-medium text-gray-900"
+                  >
+                    Time
+                  </th>
+                  <th
+                    class="border-b border-gray-200 bg-white px-3 py-2 text-left font-medium text-gray-900"
+                  >
+                    Event Type
+                  </th>
+                  <th
+                    class="border-b border-gray-200 bg-white px-3 py-2 text-left font-medium text-gray-900"
+                  >
+                    AG-UI Event
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                ${filteredEvents.map((event, index) => {
+                  const rowBg = index % 2 === 0 ? "bg-white" : "bg-gray-50/50";
+                  const badgeClasses = this.getEventBadgeClasses(event.type);
+                  const extractedEvent = this.extractEventFromPayload(
+                    event.payload,
+                  );
+                  const inlineEvent =
+                    this.stringifyPayload(extractedEvent, false) || "—";
+                  const prettyEvent =
+                    this.stringifyPayload(extractedEvent, true) || inlineEvent;
+                  const isExpanded = this.expandedRows.has(event.id);
+
+                  return html`
+                    <tr
+                      class="${rowBg} cursor-pointer transition hover:bg-blue-50/50"
+                      @click=${() => this.toggleRowExpansion(event.id)}
                     >
-                      <span class="font-mono text-[11px] text-gray-600"
-                        >${event.agentId}</span
+                      <td
+                        class="border-l border-r border-b border-gray-200 px-3 py-2"
                       >
-                    </td>
-                    <td
-                      class="border-r border-b border-gray-200 px-3 py-2 font-mono text-[11px] text-gray-600"
-                    >
-                      <span title=${new Date(event.timestamp).toLocaleString()}>
-                        ${new Date(event.timestamp).toLocaleTimeString()}
-                      </span>
-                    </td>
-                    <td class="border-r border-b border-gray-200 px-3 py-2">
-                      <span class=${badgeClasses}>${event.type}</span>
-                    </td>
-                    <td
-                      class="border-r border-b border-gray-200 px-3 py-2 font-mono text-[10px] text-gray-600 ${isExpanded
-                        ? ""
-                        : "truncate max-w-xs"}"
-                    >
-                      ${isExpanded
-                        ? html`
-                            <div class="group relative">
-                              <pre
-                                class="m-0 whitespace-pre-wrap break-words text-[10px] font-mono text-gray-600"
-                              >
+                        <span class="font-mono text-[11px] text-gray-600"
+                          >${event.agentId}</span
+                        >
+                      </td>
+                      <td
+                        class="border-r border-b border-gray-200 px-3 py-2 font-mono text-[11px] text-gray-600"
+                      >
+                        <span
+                          title=${new Date(event.timestamp).toLocaleString()}
+                        >
+                          ${new Date(event.timestamp).toLocaleTimeString()}
+                        </span>
+                      </td>
+                      <td class="border-r border-b border-gray-200 px-3 py-2">
+                        <span class=${badgeClasses}>${event.type}</span>
+                      </td>
+                      <td
+                        class="border-r border-b border-gray-200 px-3 py-2 font-mono text-[10px] text-gray-600 ${isExpanded
+                          ? ""
+                          : "truncate max-w-xs"}"
+                      >
+                        ${isExpanded
+                          ? html`
+                              <div class="group relative">
+                                <pre
+                                  class="m-0 whitespace-pre-wrap break-words text-[10px] font-mono text-gray-600"
+                                >
 ${prettyEvent}</pre
-                              >
-                              <button
-                                class="absolute right-0 top-0 cursor-pointer rounded px-2 py-1 text-[10px] opacity-0 transition group-hover:opacity-100 ${this.copiedEvents.has(
-                                  event.id,
-                                )
-                                  ? "bg-green-100 text-green-700"
-                                  : "bg-gray-100 text-gray-600 hover:bg-gray-200 hover:text-gray-900"}"
-                                @click=${(e: Event) => {
-                                  e.stopPropagation();
-                                  this.copyToClipboard(prettyEvent, event.id);
-                                }}
-                              >
-                                ${this.copiedEvents.has(event.id)
-                                  ? html`<span>✓ Copied</span>`
-                                  : html`<span>Copy</span>`}
-                              </button>
-                            </div>
-                          `
-                        : inlineEvent}
-                    </td>
-                  </tr>
-                `;
-              })}
-            </tbody>
-          </table>
+                                >
+                                <button
+                                  class="absolute right-0 top-0 cursor-pointer rounded px-2 py-1 text-[10px] opacity-0 transition group-hover:opacity-100 ${this.copiedEvents.has(
+                                    event.id,
+                                  )
+                                    ? "bg-green-100 text-green-700"
+                                    : "bg-gray-100 text-gray-600 hover:bg-gray-200 hover:text-gray-900"}"
+                                  @click=${(e: Event) => {
+                                    e.stopPropagation();
+                                    this.copyToClipboard(prettyEvent, event.id);
+                                  }}
+                                >
+                                  ${this.copiedEvents.has(event.id)
+                                    ? html`<span>✓ Copied</span>`
+                                    : html`<span>Copy</span>`}
+                                </button>
+                              </div>
+                            `
+                          : inlineEvent}
+                      </td>
+                    </tr>
+                  `;
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
     `;
@@ -3527,10 +3656,10 @@ ${prettyEvent}</pre
                                 ${role}
                               </span>
                             </td>
-                            <td class="px-4 py-2">
+                            <td class="px-4 py-2 align-top">
                               ${hasContent
                                 ? html`<div
-                                    class="max-w-2xl whitespace-pre-wrap break-words text-gray-700"
+                                    class="max-w-2xl whitespace-pre-line break-words text-gray-700"
                                   >
                                     ${rawContent}
                                   </div>`
@@ -3633,19 +3762,37 @@ ${prettyEvent}</pre
       return;
     }
 
+    const previousMenu = this.selectedMenu;
     this.selectedMenu = key;
 
-    // If switching to agents view and "all-agents" is selected, switch to default or first agent
+    // If switching to agents view and "all-agents" is selected, switch to the most recently active agent
     if (key === "agents" && this.selectedContext === "all-agents") {
       const agentOptions = this.contextOptions.filter(
         (opt) => opt.key !== "all-agents",
       );
       if (agentOptions.length > 0) {
-        // Try to find "default" agent first
-        const defaultAgent = agentOptions.find((opt) => opt.key === "default");
-        this.selectedContext = defaultAgent
-          ? defaultAgent.key
+        // Pick the agent with the most recent activity; fall back to first
+        const mostRecent = agentOptions.reduce<{
+          key: string;
+          ts: number;
+        } | null>((best, opt) => {
+          const ts = this.getAgentStats(opt.key).lastActivity ?? -1;
+          return best === null || ts > best.ts ? { key: opt.key, ts } : best;
+        }, null);
+        this.selectedContext = mostRecent
+          ? mostRecent.key
           : agentOptions[0]!.key;
+      }
+    }
+
+    // If leaving the agents view with multiple agents registered, restore
+    // "all-agents" so the Events tab isn't silently filtered to one agent.
+    if (previousMenu === "agents" && key !== "agents") {
+      const agentCount = this.contextOptions.filter(
+        (opt) => opt.key !== "all-agents",
+      ).length;
+      if (agentCount > 1) {
+        this.selectedContext = "all-agents";
       }
     }
 
@@ -3870,8 +4017,8 @@ ${prettyEvent}</pre
                 : nothing}
             </div>
             <span
-              class="shrink-0 text-gray-400 transition ${isExpanded
-                ? "rotate-180"
+              class="cpk-chevron-circle ${isExpanded
+                ? "cpk-chevron-circle--open"
                 : ""}"
             >
               ${this.renderIcon("ChevronDown")}
@@ -3881,90 +4028,97 @@ ${prettyEvent}</pre
 
         ${isExpanded
           ? html`
-              <div class="border-t border-gray-200 bg-gray-50/50 px-4 py-3">
+              <div class="border-t border-gray-200 px-4">
                 ${schema.properties.length > 0
                   ? html`
-                      <h5 class="mb-3 text-xs font-semibold text-gray-700">
-                        Parameters
-                      </h5>
-                      <div class="space-y-3">
-                        ${schema.properties.map(
-                          (prop) => html`
-                            <div
-                              class="rounded-md border border-gray-200 bg-white p-3"
-                            >
-                              <div
-                                class="flex items-start justify-between gap-2 mb-1"
+                      <div class="divide-y divide-gray-100">
+                        ${schema.properties.map((prop) => {
+                          const copyKey = `tool:${tool.agentId}:${tool.name}:${prop.name}`;
+                          const copied = this.copiedContextItems.has(copyKey);
+                          return html`
+                            <div class="flex items-center gap-2 py-2.5">
+                              <span
+                                class="font-mono text-xs font-medium text-gray-800"
+                                >${prop.name}</span
                               >
-                                <span
-                                  class="font-mono text-xs font-medium text-gray-900"
-                                  >${prop.name}</span
-                                >
-                                <div class="flex items-center gap-1.5 shrink-0">
-                                  ${prop.required
-                                    ? html`<span
-                                        class="text-[10px] rounded border border-rose-200 bg-rose-50 px-1 py-0.5 font-medium text-rose-700"
-                                        >required</span
-                                      >`
-                                    : html`<span
-                                        class="text-[10px] rounded border border-gray-200 bg-gray-50 px-1 py-0.5 font-medium text-gray-600"
-                                        >optional</span
-                                      >`}
-                                  ${prop.type
-                                    ? html`<span
-                                        class="text-[10px] rounded border border-gray-200 bg-gray-50 px-1 py-0.5 font-mono text-gray-600"
-                                        >${prop.type}</span
-                                      >`
-                                    : nothing}
-                                </div>
-                              </div>
-                              ${prop.description
-                                ? html`<p class="mt-1 text-xs text-gray-600">
-                                    ${prop.description}
-                                  </p>`
+                              ${prop.required
+                                ? html`<span
+                                    class="text-[10px] rounded border border-rose-200 bg-rose-50 px-1 py-0.5 font-medium text-rose-700"
+                                    >required</span
+                                  >`
+                                : html`<span
+                                    class="text-[10px] rounded border border-gray-200 bg-gray-50 px-1 py-0.5 font-medium text-gray-600"
+                                    >optional</span
+                                  >`}
+                              ${prop.type
+                                ? html`<span
+                                    class="text-[10px] rounded border border-gray-200 bg-gray-50 px-1 py-0.5 font-mono text-gray-600"
+                                    >${prop.type}</span
+                                  >`
                                 : nothing}
-                              ${prop.defaultValue !== undefined
-                                ? html`
-                                    <div
-                                      class="mt-2 flex items-center gap-1.5 text-[10px] text-gray-500"
-                                    >
-                                      <span>Default:</span>
-                                      <code
-                                        class="rounded bg-gray-100 px-1 py-0.5 font-mono"
-                                        >${JSON.stringify(
-                                          prop.defaultValue,
-                                        )}</code
-                                      >
-                                    </div>
-                                  `
-                                : nothing}
-                              ${prop.enum && prop.enum.length > 0
-                                ? html`
-                                    <div class="mt-2">
-                                      <span class="text-[10px] text-gray-500"
-                                        >Allowed values:</span
-                                      >
-                                      <div class="mt-1 flex flex-wrap gap-1">
-                                        ${prop.enum.map(
-                                          (val) => html`
-                                            <code
-                                              class="rounded border border-gray-200 bg-gray-50 px-1.5 py-0.5 text-[10px] font-mono text-gray-700"
-                                              >${JSON.stringify(val)}</code
-                                            >
-                                          `,
-                                        )}
-                                      </div>
-                                    </div>
-                                  `
-                                : nothing}
+                              <span class="flex-1"></span>
+                              <button
+                                type="button"
+                                class="cpk-copy-btn"
+                                @click=${(e: Event) => {
+                                  e.stopPropagation();
+                                  void this.copyContextValue(
+                                    prop.name,
+                                    copyKey,
+                                  );
+                                }}
+                              >
+                                ${copied ? "✓" : "Copy"}
+                              </button>
                             </div>
-                          `,
-                        )}
+                            ${prop.description
+                              ? html`<p
+                                  class="pb-2 text-[11px] text-gray-500 -mt-1"
+                                >
+                                  ${prop.description}
+                                </p>`
+                              : nothing}
+                            ${prop.defaultValue !== undefined
+                              ? html`
+                                  <div
+                                    class="mt-2 flex items-center gap-1.5 text-[10px] text-gray-500"
+                                  >
+                                    <span>Default:</span>
+                                    <code
+                                      class="rounded bg-gray-100 px-1 py-0.5 font-mono"
+                                      >${JSON.stringify(
+                                        prop.defaultValue,
+                                      )}</code
+                                    >
+                                  </div>
+                                `
+                              : nothing}
+                            ${prop.enum && prop.enum.length > 0
+                              ? html`
+                                  <div class="mt-2">
+                                    <span class="text-[10px] text-gray-500"
+                                      >Allowed values:</span
+                                    >
+                                    <div class="mt-1 flex flex-wrap gap-1">
+                                      ${prop.enum.map(
+                                        (val) => html`
+                                          <code
+                                            class="rounded border border-gray-200 bg-gray-50 px-1.5 py-0.5 text-[10px] font-mono text-gray-700"
+                                            >${JSON.stringify(val)}</code
+                                          >
+                                        `,
+                                      )}
+                                    </div>
+                                  </div>
+                                `
+                              : nothing}
+                          `;
+                        })}
                       </div>
                     `
                   : html`
                       <div
-                        class="flex items-center justify-center py-4 text-xs text-gray-500"
+                        class="flex items-center gap-2 text-[11px] text-gray-500 py-2.5"
                       >
                         <span>No parameters defined</span>
                       </div>
@@ -4243,8 +4397,8 @@ ${prettyEvent}</pre
               </div>
             </div>
             <span
-              class="shrink-0 text-gray-400 transition ${isExpanded
-                ? "rotate-180"
+              class="cpk-chevron-circle ${isExpanded
+                ? "cpk-chevron-circle--open"
                 : ""}"
             >
               ${this.renderIcon("ChevronDown")}
@@ -4254,46 +4408,51 @@ ${prettyEvent}</pre
 
         ${isExpanded
           ? html`
-              <div class="border-t border-gray-200 bg-gray-50/50 px-4 py-3">
-                <div class="mb-3">
-                  <h5 class="mb-1 text-xs font-semibold text-gray-700">ID</h5>
+              <div
+                class="border-t border-gray-200 px-4 divide-y divide-gray-100"
+              >
+                <div class="flex items-center gap-3 py-2.5">
+                  <span class="text-xs text-gray-500 w-12 shrink-0">ID</span>
                   <code
-                    class="block rounded bg-white border border-gray-200 px-2 py-1 text-[10px] font-mono text-gray-600"
+                    class="font-mono text-xs font-medium text-gray-800 flex-1 truncate min-w-0"
                     >${id}</code
                   >
+                  <button
+                    type="button"
+                    class="cpk-copy-btn"
+                    @click=${(e: Event) => {
+                      e.stopPropagation();
+                      void this.copyContextValue(id, `${id}:id`);
+                    }}
+                  >
+                    ${this.copiedContextItems.has(`${id}:id`) ? "✓" : "Copy"}
+                  </button>
                 </div>
                 ${hasValue
                   ? html`
-                      <div class="mb-2 flex items-center justify-between gap-2">
-                        <h5 class="text-xs font-semibold text-gray-700">
-                          Value
-                        </h5>
+                      <div class="flex items-center gap-3 py-2.5">
+                        <span class="text-xs text-gray-500 w-12 shrink-0"
+                          >Value</span
+                        >
+                        <code
+                          class="font-mono text-xs font-medium text-gray-800 flex-1 truncate min-w-0"
+                          >${valuePreview}</code
+                        >
                         <button
-                          class="flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-[10px] font-medium text-gray-700 transition hover:bg-gray-50"
                           type="button"
+                          class="cpk-copy-btn"
                           @click=${(e: Event) => {
                             e.stopPropagation();
                             void this.copyContextValue(context.value, id);
                           }}
                         >
-                          ${this.copiedContextItems.has(id)
-                            ? "Copied"
-                            : "Copy JSON"}
+                          ${this.copiedContextItems.has(id) ? "✓" : "Copy"}
                         </button>
-                      </div>
-                      <div
-                        class="rounded-md border border-gray-200 bg-white p-3"
-                      >
-                        <pre
-                          class="overflow-auto text-xs text-gray-800 max-h-96"
-                        ><code>${this.formatContextValue(
-                          context.value,
-                        )}</code></pre>
                       </div>
                     `
                   : html`
                       <div
-                        class="flex items-center justify-center py-4 text-xs text-gray-500"
+                        class="flex items-center gap-2 text-[11px] text-gray-500 py-2.5"
                       >
                         <span>No value available</span>
                       </div>

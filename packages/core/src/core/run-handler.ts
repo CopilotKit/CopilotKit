@@ -274,6 +274,16 @@ export class RunHandler {
     // does not overwrite the registry agent's subscription.
     this._internal.subscribeAgentToStateManager(agent);
 
+    // Notify subscribers (e.g. the web inspector) that a run is about to start
+    // on this specific agent instance. Must be awaited so that subscribers can
+    // call agent.subscribe() before agent.runAgent() captures its subscriber
+    // snapshot — agent.runAgent() snapshots [this.subscribers] synchronously.
+    await this._internal.notifySubscribers(
+      (subscriber) =>
+        subscriber.onAgentRunStarted?.({ copilotkit: this.core, agent }),
+      "Subscriber onAgentRunStarted error:",
+    );
+
     // Set up abort controller and agent.abortRun() intercept only for the
     // top-level call. Recursive follow-up calls from processAgentResult
     // reuse the same controller.
