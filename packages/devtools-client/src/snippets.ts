@@ -14,13 +14,21 @@ export function loadSnippets(): DevtoolsSnippet[] {
 }
 
 export function saveSnippet(snippet: DevtoolsSnippet): void {
-  const snippets = loadSnippets();
-  snippets.push(snippet);
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(snippets));
+  try {
+    const snippets = loadSnippets();
+    snippets.push(snippet);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(snippets));
+  } catch (err) {
+    console.warn("[CopilotKit DevTools] Failed to save snippet:", err);
+  }
 }
 
 export function deleteSnippet(id: string): void {
-  const snippets = loadSnippets();
-  const filtered = snippets.filter((s) => s.id !== id);
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(filtered));
+  try {
+    const snippets = loadSnippets();
+    const filtered = snippets.filter((s) => s.id !== id);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(filtered));
+  } catch (err) {
+    console.warn("[CopilotKit DevTools] Failed to delete snippet:", err);
+  }
 }

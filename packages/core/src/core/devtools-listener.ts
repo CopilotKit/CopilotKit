@@ -1,6 +1,7 @@
 import { AbstractAgent, EventType } from "@ag-ui/client";
 import { devtoolsClient } from "@copilotkit/devtools-client";
-import type { CopilotKitDevtoolsEvents } from "@copilotkit/devtools-client";
+import type { CopilotKitDevtoolsEvents, DevtoolsEventType } from "@copilotkit/devtools-client";
+import type { CopilotKitEventSuffixes } from "@copilotkit/devtools-client";
 import { randomUUID } from "@copilotkit/shared";
 
 interface DevtoolsListenerDeps {
@@ -17,36 +18,16 @@ export class DevtoolsListener {
   }
 
   initialize(): void {
+    if (this.active) return;
     this.active = true;
-    this.registerHandler("tool-call", (payload) =>
-      this.handleToolCall(
-        payload as CopilotKitDevtoolsEvents["copilotkit:tool-call"],
-      ),
-    );
-    this.registerHandler("text-message", (payload) =>
-      this.handleTextMessage(
-        payload as CopilotKitDevtoolsEvents["copilotkit:text-message"],
-      ),
-    );
-    this.registerHandler("reasoning", (payload) =>
-      this.handleReasoning(
-        payload as CopilotKitDevtoolsEvents["copilotkit:reasoning"],
-      ),
-    );
-    this.registerHandler("state-snapshot", (payload) =>
-      this.handleStateSnapshot(
-        payload as CopilotKitDevtoolsEvents["copilotkit:state-snapshot"],
-      ),
-    );
-    this.registerHandler("custom-event", (payload) =>
-      this.handleCustomEvent(
-        payload as CopilotKitDevtoolsEvents["copilotkit:custom-event"],
-      ),
-    );
+    this.registerHandler("tool-call", (payload) => this.handleToolCall(payload));
+    this.registerHandler("text-message", (payload) => this.handleTextMessage(payload));
+    this.registerHandler("reasoning", (payload) => this.handleReasoning(payload));
+    this.registerHandler("state-snapshot", (payload) => this.handleStateSnapshot(payload));
+    this.registerHandler("custom-event", (payload) => this.handleCustomEvent(payload));
   }
 
   destroy(): void {
-    // Set inactive first so any leaked listener references become no-ops
     this.active = false;
     for (const cleanup of this.cleanups) {
       cleanup();
@@ -54,17 +35,27 @@ export class DevtoolsListener {
     this.cleanups = [];
   }
 
-  private registerHandler(event: string, handler: (payload: unknown) => void): void {
-    // Wrap with an active-guard so that handlers registered with withEventTarget:true
-    // (which may not be fully cleaned up by the EventClient's unsubscribe due to a
-    // library bug with anonymous function references) become no-ops after destroy().
-    const guardedHandler = (e: { payload: unknown }) => {
-      if (this.active) handler(e.payload);
+  private registerHandler<K extends DevtoolsEventType & keyof CopilotKitEventSuffixes>(
+    event: K,
+    handler: (payload: CopilotKitDevtoolsEvents[`copilotkit:${K}`]) => void,
+  ): void {
+    // Wrap with an active-guard so handlers become no-ops after destroy(),
+    // defending against EventTarget listeners that outlive unsubscribe.
+    const guardedHandler = (e: { payload: CopilotKitEventSuffixes[K] }) => {
+      if (this.active) handler(e.payload as CopilotKitDevtoolsEvents[`copilotkit:${K}`]);
     };
-    const unsubscribe = devtoolsClient.on(event as any, guardedHandler as any, {
+    const unsubscribe = devtoolsClient.on(event, guardedHandler, {
       withEventTarget: true,
-    } as any);
+    });
     this.cleanups.push(unsubscribe);
+  }
+
+  private resolveAgent(agentId: string): AbstractAgent | undefined {
+    const agent = this.deps.getAgents()[agentId];
+    if (!agent) {
+      console.warn(`[CopilotKit DevTools] Agent "${agentId}" not found — event dropped.`);
+    }
+    return agent;
   }
 
   private makeSubscriberParams(agent: AbstractAgent, runId: string) {
@@ -83,7 +74,11 @@ export class DevtoolsListener {
 
   private notifySubscribers(agent: AbstractAgent, cb: (sub: any) => void): void {
     for (const sub of agent.subscribers) {
-      cb(sub);
+      try {
+        cb(sub);
+      } catch (err) {
+        console.error("[CopilotKit DevTools] Subscriber error:", err);
+      }
     }
   }
 
@@ -105,22 +100,24 @@ export class DevtoolsListener {
       });
     }
 
-    inner(runParams);
-
-    if (!isRunning) {
-      this.notifySubscribers(agent, (sub) => {
-        sub.onRunFinishedEvent?.({
-          ...runParams,
-          event: { type: EventType.RUN_FINISHED, threadId, runId },
+    try {
+      inner(runParams);
+    } finally {
+      if (!isRunning) {
+        this.notifySubscribers(agent, (sub) => {
+          sub.onRunFinishedEvent?.({
+            ...runParams,
+            event: { type: EventType.RUN_FINISHED, threadId, runId },
+          });
         });
-      });
+      }
     }
   }
 
   private handleToolCall(
     payload: CopilotKitDevtoolsEvents["copilotkit:tool-call"],
   ): void {
-    const agent = this.deps.getAgents()[payload.agentId];
+    const agent = this.resolveAgent(payload.agentId);
     if (!agent) return;
 
     const runId = randomUUID();
@@ -184,7 +181,7 @@ export class DevtoolsListener {
   private handleTextMessage(
     payload: CopilotKitDevtoolsEvents["copilotkit:text-message"],
   ): void {
-    const agent = this.deps.getAgents()[payload.agentId];
+    const agent = this.resolveAgent(payload.agentId);
     if (!agent) return;
 
     const runId = randomUUID();
@@ -219,7 +216,7 @@ export class DevtoolsListener {
   private handleReasoning(
     payload: CopilotKitDevtoolsEvents["copilotkit:reasoning"],
   ): void {
-    const agent = this.deps.getAgents()[payload.agentId];
+    const agent = this.resolveAgent(payload.agentId);
     if (!agent) return;
 
     const runId = randomUUID();
@@ -268,7 +265,7 @@ export class DevtoolsListener {
   private handleStateSnapshot(
     payload: CopilotKitDevtoolsEvents["copilotkit:state-snapshot"],
   ): void {
-    const agent = this.deps.getAgents()[payload.agentId];
+    const agent = this.resolveAgent(payload.agentId);
     if (!agent) return;
 
     const runId = randomUUID();
@@ -286,7 +283,7 @@ export class DevtoolsListener {
   private handleCustomEvent(
     payload: CopilotKitDevtoolsEvents["copilotkit:custom-event"],
   ): void {
-    const agent = this.deps.getAgents()[payload.agentId];
+    const agent = this.resolveAgent(payload.agentId);
     if (!agent) return;
 
     const runId = randomUUID();

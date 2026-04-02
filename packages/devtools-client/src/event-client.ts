@@ -11,14 +11,40 @@ type StripPrefix<TMap, TPrefix extends string> = {
     : never]: TMap[K];
 };
 
-type CopilotKitEventSuffixes = StripPrefix<CopilotKitDevtoolsEvents, "copilotkit:">;
+export type CopilotKitEventSuffixes = StripPrefix<CopilotKitDevtoolsEvents, "copilotkit:">;
 
-class CopilotKitEventClient extends EventClient<CopilotKitEventSuffixes> {
-  constructor() {
-    super({
-      pluginId: "copilotkit",
-      debug: false,
-    });
+/**
+ * Lazy wrapper around EventClient that defers instantiation of the underlying
+ * EventClient (and its EventTarget) until the first emit/on call.
+ * This avoids allocating resources at module evaluation time for applications
+ * that import @copilotkit/core but never use devtools.
+ */
+class CopilotKitEventClient {
+  private _client: EventClient<CopilotKitEventSuffixes> | null = null;
+
+  private get client(): EventClient<CopilotKitEventSuffixes> {
+    if (!this._client) {
+      this._client = new EventClient<CopilotKitEventSuffixes>({
+        pluginId: "copilotkit",
+        debug: false,
+      });
+    }
+    return this._client;
+  }
+
+  emit<K extends keyof CopilotKitEventSuffixes & string>(
+    event: K,
+    payload: CopilotKitEventSuffixes[K],
+  ): void {
+    this.client.emit(event, payload);
+  }
+
+  on<K extends keyof CopilotKitEventSuffixes & string>(
+    event: K,
+    handler: (e: { payload: CopilotKitEventSuffixes[K] }) => void,
+    options?: { withEventTarget?: boolean },
+  ): () => void {
+    return this.client.on(event, handler as any, options as any);
   }
 }
 

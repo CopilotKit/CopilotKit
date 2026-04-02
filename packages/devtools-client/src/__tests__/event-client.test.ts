@@ -1,10 +1,17 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import { devtoolsClient } from "../event-client.js";
 
 describe("CopilotKitEventClient", () => {
+  const cleanups: (() => void)[] = [];
+
+  afterEach(() => {
+    for (const cleanup of cleanups) cleanup();
+    cleanups.length = 0;
+  });
+
   it("emits and receives tool-call events via listenToSelf", () => {
     const handler = vi.fn();
-    devtoolsClient.on("tool-call", handler, { withEventTarget: true });
+    cleanups.push(devtoolsClient.on("tool-call", handler, { withEventTarget: true }));
 
     const payload = {
       agentId: "agent-1",
@@ -23,7 +30,7 @@ describe("CopilotKitEventClient", () => {
 
   it("emits and receives text-message events", () => {
     const handler = vi.fn();
-    devtoolsClient.on("text-message", handler, { withEventTarget: true });
+    cleanups.push(devtoolsClient.on("text-message", handler, { withEventTarget: true }));
 
     const payload = {
       agentId: "agent-1",
@@ -40,7 +47,7 @@ describe("CopilotKitEventClient", () => {
 
   it("emits and receives reasoning events", () => {
     const handler = vi.fn();
-    devtoolsClient.on("reasoning", handler, { withEventTarget: true });
+    cleanups.push(devtoolsClient.on("reasoning", handler, { withEventTarget: true }));
 
     const payload = {
       agentId: "agent-1",
@@ -57,7 +64,7 @@ describe("CopilotKitEventClient", () => {
 
   it("emits and receives state-snapshot events", () => {
     const handler = vi.fn();
-    devtoolsClient.on("state-snapshot", handler, { withEventTarget: true });
+    cleanups.push(devtoolsClient.on("state-snapshot", handler, { withEventTarget: true }));
 
     const payload = {
       agentId: "agent-1",
@@ -74,7 +81,7 @@ describe("CopilotKitEventClient", () => {
 
   it("emits and receives custom-event events", () => {
     const handler = vi.fn();
-    devtoolsClient.on("custom-event", handler, { withEventTarget: true });
+    cleanups.push(devtoolsClient.on("custom-event", handler, { withEventTarget: true }));
 
     const payload = {
       agentId: "agent-1",

@@ -276,7 +276,11 @@ export class CopilotKitCore {
     this.runHandler.initialize(tools);
     this.suggestionEngine.initialize(suggestionsConfig);
     this.stateManager.initialize();
-    this.devtoolsListener.initialize();
+    try {
+      this.devtoolsListener.initialize();
+    } catch (err) {
+      console.warn("[CopilotKit] DevtoolsListener failed to initialize — devtools will be unavailable:", err);
+    }
 
     this.agentRegistry.setRuntimeTransport(runtimeTransport);
     this.agentRegistry.setRuntimeUrl(runtimeUrl);
@@ -291,6 +295,10 @@ export class CopilotKitCore {
         });
       },
     });
+  }
+
+  destroy(): void {
+    this.devtoolsListener.destroy();
   }
 
   /**

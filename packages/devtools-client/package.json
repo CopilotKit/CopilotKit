@@ -36,5 +36,8 @@
     "typescript": "5.8.2",
     "vitest": "^3.2.4"
   },
+  "engines": {
+    "node": ">=18"
+  },
   "license": "MIT"
 }

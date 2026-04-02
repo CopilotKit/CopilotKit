@@ -279,6 +279,9 @@ export class WebInspectorElement extends LitElement {
   private emitterCustomValue = "{}";
   private emitterSnippets: DevtoolsSnippet[] = [];
   private emitterJsonError: string | null = null;
+  private emitterStatusMessage: string | null = null;
+  private emitterShowSnippetInput = false;
+  private emitterSnippetName = "";
 
   private readonly menuItems: MenuItem[] = [
     { key: "ag-ui-events", label: "AG-UI Events", icon: "Zap" },
@@ -4447,6 +4450,48 @@ ${this.announcementMarkdown}</pre
             </div>`
           : nothing}
 
+        <!-- Status message -->
+        ${this.emitterStatusMessage
+          ? html`<div class="rounded-md border border-green-200 bg-green-50 px-3 py-2 text-xs text-green-700">
+              ${this.emitterStatusMessage}
+            </div>`
+          : nothing}
+
+        <!-- Snippet name input -->
+        ${this.emitterShowSnippetInput
+          ? html`
+            <div class="flex gap-2 items-center">
+              <input
+                type="text"
+                placeholder="Snippet name"
+                class="flex-1 rounded-md border border-gray-200 bg-white px-3 py-2 text-xs text-gray-900 focus:border-gray-400 focus:outline-none"
+                .value=${this.emitterSnippetName}
+                @input=${(e: Event) => {
+                  this.emitterSnippetName = (e.target as HTMLInputElement).value;
+                  this.requestUpdate();
+                }}
+                @keydown=${(e: KeyboardEvent) => {
+                  if (e.key === "Enter") this.handleSaveSnippet();
+                  if (e.key === "Escape") this.handleCancelSnippetInput();
+                }}
+              />
+              <button
+                class="rounded-md bg-gray-900 px-3 py-2 text-xs font-medium text-white transition hover:bg-gray-800"
+                ?disabled=${!this.emitterSnippetName.trim()}
+                @click=${() => this.handleSaveSnippet()}
+              >
+                Save
+              </button>
+              <button
+                class="rounded-md border border-gray-200 px-3 py-2 text-xs font-medium text-gray-700 transition hover:bg-gray-50"
+                @click=${() => this.handleCancelSnippetInput()}
+              >
+                Cancel
+              </button>
+            </div>
+          `
+          : nothing}
+
         <!-- Action buttons -->
         <div class="flex gap-2">
           <button
@@ -4670,55 +4715,95 @@ ${this.announcementMarkdown}</pre
     }
   }
 
-  private getEmitterPayload(): Record<string, unknown> {
-    switch (this.emitterEventType) {
-      case "tool-call":
-        return {
-          toolName: this.emitterToolName,
-          args: JSON.parse(this.emitterArgs),
-          result: this.emitterResult,
-        };
-      case "text-message":
-        return { content: this.emitterContent };
-      case "reasoning":
-        return { content: this.emitterContent };
-      case "state-snapshot":
-        return { state: JSON.parse(this.emitterStateJson) };
-      case "custom-event":
-        return {
-          name: this.emitterCustomName,
-          value: JSON.parse(this.emitterCustomValue),
-        };
-      default:
-        return {};
+  private getEmitterPayload(): Record<string, unknown> | null {
+    try {
+      switch (this.emitterEventType) {
+        case "tool-call":
+          return {
+            toolName: this.emitterToolName,
+            args: JSON.parse(this.emitterArgs),
+            result: this.emitterResult,
+          };
+        case "text-message":
+        case "reasoning":
+          return { content: this.emitterContent };
+        case "state-snapshot":
+          return { state: JSON.parse(this.emitterStateJson) };
+        case "custom-event":
+          return {
+            name: this.emitterCustomName,
+            value: JSON.parse(this.emitterCustomValue),
+          };
+        default:
+          return {};
+      }
+    } catch (err) {
+      this.emitterJsonError = `Invalid JSON: ${(err as Error).message}`;
+      this.requestUpdate();
+      return null;
     }
+  }
+
+  private showStatus(message: string): void {
+    this.emitterStatusMessage = message;
+    this.requestUpdate();
+    setTimeout(() => {
+      this.emitterStatusMessage = null;
+      this.requestUpdate();
+    }, 2000);
   }
 
   private handleEmit(): void {
     if (!this.isEmitterFormValid()) return;
 
     const payload = this.getEmitterPayload();
+    if (!payload) return;
+
     const fullPayload = { agentId: this.emitterAgentId, ...payload };
 
-    devtoolsClient.emit(this.emitterEventType as any, fullPayload as any);
+    try {
+      devtoolsClient.emit(this.emitterEventType as any, fullPayload as any);
+      this.showStatus("Event emitted.");
+    } catch (err) {
+      this.emitterJsonError = `Emit failed: ${(err as Error).message}`;
+      this.requestUpdate();
+    }
   }
 
   private handleSaveSnippet(): void {
     if (!this.isEmitterFormValid()) return;
 
-    const name = window.prompt("Snippet name:");
+    if (!this.emitterShowSnippetInput) {
+      this.emitterShowSnippetInput = true;
+      this.emitterSnippetName = "";
+      this.requestUpdate();
+      return;
+    }
+
+    const name = this.emitterSnippetName.trim();
     if (!name) return;
+
+    const payload = this.getEmitterPayload();
+    if (!payload) return;
 
     const snippet: DevtoolsSnippet = {
       id: `snippet-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       name,
       eventType: this.emitterEventType,
-      payload: this.getEmitterPayload(),
+      payload,
       createdAt: Date.now(),
     };
 
     saveSnippet(snippet);
     this.emitterSnippets = loadSnippets();
+    this.emitterShowSnippetInput = false;
+    this.emitterSnippetName = "";
+    this.showStatus("Snippet saved.");
+  }
+
+  private handleCancelSnippetInput(): void {
+    this.emitterShowSnippetInput = false;
+    this.emitterSnippetName = "";
     this.requestUpdate();
   }
 
@@ -4730,7 +4815,13 @@ ${this.announcementMarkdown}</pre
     }
 
     const fullPayload = { agentId: this.emitterAgentId, ...snippet.payload };
-    devtoolsClient.emit(snippet.eventType as any, fullPayload as any);
+    try {
+      devtoolsClient.emit(snippet.eventType as any, fullPayload as any);
+      this.showStatus("Snippet replayed.");
+    } catch (err) {
+      this.emitterJsonError = `Replay failed: ${(err as Error).message}`;
+      this.requestUpdate();
+    }
   }
 
   private handleDeleteSnippet(id: string): void {

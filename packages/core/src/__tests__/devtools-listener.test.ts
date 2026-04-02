@@ -80,6 +80,12 @@ describe("DevtoolsListener", () => {
 
       const startCall = subscriber.onToolCallStartEvent.mock.calls[0][0];
       expect(startCall.event.toolCallName).toBe("search");
+
+      const resultCall = subscriber.onToolCallResultEvent.mock.calls[0][0];
+      expect(resultCall.event.type).toBe(EventType.TOOL_CALL_RESULT);
+      expect(resultCall.event.content).toBe("found it");
+      expect(resultCall.event.role).toBe("tool");
+      expect(resultCall.event.messageId).toBeDefined();
     });
   });
 
@@ -176,6 +182,29 @@ describe("DevtoolsListener", () => {
       expect(subscriber.onTextMessageContentEvent).toHaveBeenCalledOnce();
       expect(subscriber.onTextMessageEndEvent).toHaveBeenCalledOnce();
       expect(subscriber.onRunFinishedEvent).not.toHaveBeenCalled();
+    });
+
+    it("does not process events after destroy()", () => {
+      listener.destroy();
+
+      devtoolsClient.emit("text-message", {
+        agentId: "test-agent",
+        content: "should be ignored",
+      });
+
+      expect(subscriber.onRunStartedEvent).not.toHaveBeenCalled();
+      expect(subscriber.onTextMessageStartEvent).not.toHaveBeenCalled();
+    });
+
+    it("is idempotent on double initialize()", () => {
+      listener.initialize();
+
+      devtoolsClient.emit("text-message", {
+        agentId: "test-agent",
+        content: "only once",
+      });
+
+      expect(subscriber.onTextMessageContentEvent).toHaveBeenCalledOnce();
     });
   });
 });
