@@ -1,7 +1,13 @@
 [build]
 builder = "dockerfile"
 dockerfilePath = "Dockerfile"
-watchPatterns = ["src/**", "public/**", "package.json", "Dockerfile", "next.config.ts"]
+watchPatterns = [
+  "src/**",
+  "public/**",
+  "package.json",
+  "Dockerfile",
+  "next.config.ts",
+]
 
 [deploy]
 startCommand = "npm start"

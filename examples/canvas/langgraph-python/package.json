@@ -52,6 +52,7 @@
     "cmdk": "1.1.1",
     "embla-carousel": "8.6.0",
     "embla-carousel-react": "8.6.0",
+    "geist": "^1.4.2",
     "input-otp": "1.4.2",
     "lodash": "^4.17.21",
     "lucide-react": "^0.542.0",
@@ -70,19 +71,15 @@
     "tailwind-merge": "^3.3.1",
     "tw-animate-css": "^1.3.7",
     "vaul": "^1.1.2",
-    "zod": "^3.25.76",
-    "geist": "^1.4.2"
+    "zod": "^3.25.76"
   },
   "devDependencies": {
-    "@eslint/eslintrc": "^3.3.1",
     "@langchain/langgraph-cli": "0.0.40",
     "@tailwindcss/postcss": "^4.1.12",
     "@types/node": "^20.19.11",
     "@types/react": "^19.1.12",
     "@types/react-dom": "^19.1.9",
     "concurrently": "^9.2.1",
-    "eslint": "^9.34.0",
-    "eslint-config-next": "15.3.2",
     "geist": "^1.4.2",
     "tailwindcss": "^4.1.12",
     "typescript": "^5.9.2"

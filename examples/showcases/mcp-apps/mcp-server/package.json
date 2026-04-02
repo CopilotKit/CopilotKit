@@ -2,6 +2,14 @@
   "name": "mcp-server",
   "version": "1.0.0",
   "description": "MCP Server for Travel Booking and Productivity Apps demo",
+  "keywords": [
+    "booking",
+    "copilotkit",
+    "mcp",
+    "travel"
+  ],
+  "license": "ISC",
+  "author": "",
   "type": "module",
   "main": "dist/server.js",
   "scripts": {
@@ -10,14 +18,6 @@
     "start": "node dist/server.js",
     "dev": "tsx watch server.ts"
   },
-  "keywords": [
-    "mcp",
-    "travel",
-    "booking",
-    "copilotkit"
-  ],
-  "author": "",
-  "license": "ISC",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.25.2",
     "cors": "^2.8.5",
