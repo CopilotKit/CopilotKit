@@ -23,8 +23,8 @@ interface FolderProps {
 function getFolderDisplayName(node: Node & { children?: Node[] }): string {
   const folderName = typeof node.name === "string" ? node.name : "";
   const folderUrl =
-    typeof node.index?.url === "string"
-      ? node.index.url
+    typeof (node as any).index?.url === "string"
+      ? (node as any).index.url
       : typeof node.url === "string"
         ? node.url
         : "";
