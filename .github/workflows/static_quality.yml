@@ -32,6 +32,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -48,8 +50,10 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Run Prettier check
-        run: pnpm run check-prettier
+      - uses: nrwl/nx-set-shas@v4
+
+      - name: Run Prettier check (affected files only)
+        run: pnpm exec nx-cloud record -- nx format:check
 
   eslint:
     runs-on: ubuntu-latest

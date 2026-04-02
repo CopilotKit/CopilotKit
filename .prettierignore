@@ -1,0 +1,13 @@
+# Match the scope of the original `prettier --check "**/*.{ts,tsx,md}"` command.
+# nx format:check runs prettier on all supported files by default,
+# so we explicitly ignore everything else to avoid false positives
+# from pre-existing unformatted files (mdx, json, css, etc.).
+*.mdx
+*.json
+*.css
+*.html
+*.js
+*.mjs
+*.mts
+*.yaml
+*.yml
