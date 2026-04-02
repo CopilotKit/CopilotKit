@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import type { AbstractAgent } from "@ag-ui/client";
 
 import { createCopilotEndpointSingleRoute } from "../endpoints";
-import { CopilotRuntime } from "../runtime";
+import { CopilotRuntime } from "../core/runtime";
 
 describe("CopilotEndpointSingleRoute routing", () => {
   const createMockRuntime = () => {

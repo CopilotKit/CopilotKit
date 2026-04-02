@@ -3,7 +3,7 @@ import { describe, it, expect, vi } from "vitest";
 import { AbstractAgent, HttpAgent } from "@ag-ui/client";
 import { A2UIMiddleware } from "@ag-ui/a2ui-middleware";
 import { handleRunAgent } from "../handlers/handle-run";
-import { CopilotRuntime } from "../runtime";
+import { CopilotRuntime } from "../core/runtime";
 import { IntelligenceAgentRunner } from "../runner/intelligence";
 import { CopilotKitIntelligence } from "../intelligence-platform/client";
 

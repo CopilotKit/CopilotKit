@@ -2,7 +2,7 @@ import { Observable } from "rxjs";
 import { describe, it, expect, vi } from "vitest";
 import { BaseEvent } from "@ag-ui/client";
 import { handleConnectAgent } from "../handlers/handle-connect";
-import { CopilotRuntime } from "../runtime";
+import { CopilotRuntime } from "../core/runtime";
 import { AgentRunnerConnectRequest } from "../runner/agent-runner";
 import { IntelligenceAgentRunner } from "../runner/intelligence";
 import { CopilotKitIntelligence } from "../intelligence-platform/client";
