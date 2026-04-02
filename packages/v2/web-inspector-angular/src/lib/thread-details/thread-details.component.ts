@@ -888,6 +888,7 @@ type Tab = "conversation" | "agent-state" | "ag-ui-events";
 
       /* ── AG-UI Events ────────────────────────────────────────────────── */
       .cpk-td__event {
+        flex-shrink: 0;
         border: 1px solid rgba(0, 0, 0, 0.08);
         border-radius: 8px;
         overflow: hidden;

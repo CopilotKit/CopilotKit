@@ -2689,6 +2689,7 @@ ${argsString}</pre
               }}
             >
               <cpk-thread-details
+                style="height:100%;display:block;"
                 .threadId=${this.selectedThreadId}
               ></cpk-thread-details>
             </div>`
