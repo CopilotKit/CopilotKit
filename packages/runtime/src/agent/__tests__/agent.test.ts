@@ -1,9 +1,9 @@
 import { describe, it, expect } from "vitest";
 import { EventType, type BaseEvent } from "@ag-ui/client";
-import type { AgentConfig } from "../agent";
 import {
-  Agent,
+  BuiltInAgent,
   type AgentFactoryContext,
+  type BuiltInAgentFactoryConfig,
   createDefaultInput,
   createAgent,
   createThrowingAgent,
@@ -177,7 +177,7 @@ describe.each(allTypes)("Agent [%s]", (type) => {
         (r) => (emittedFirstChunk = r),
       );
 
-      let config: AgentConfig;
+      let config: BuiltInAgentFactoryConfig;
       switch (type) {
         case "aisdk":
           config = {
@@ -237,7 +237,7 @@ describe.each(allTypes)("Agent [%s]", (type) => {
           break;
       }
 
-      const agent = new Agent(config);
+      const agent = new BuiltInAgent(config);
       const input = createDefaultInput();
 
       const completed = await new Promise<boolean>((resolve) => {
@@ -262,7 +262,7 @@ describe.each(allTypes)("Agent [%s]", (type) => {
     it("receives correct input with threadId, runId, and forwardedProps", async () => {
       let capturedCtx: AgentFactoryContext | null = null;
 
-      let config: AgentConfig;
+      let config: BuiltInAgentFactoryConfig;
       switch (type) {
         case "aisdk":
           config = {
@@ -301,7 +301,7 @@ describe.each(allTypes)("Agent [%s]", (type) => {
           break;
       }
 
-      const agent = new Agent(config);
+      const agent = new BuiltInAgent(config);
       const input = createDefaultInput({
         threadId: "ctx-thread",
         runId: "ctx-run",
@@ -319,7 +319,7 @@ describe.each(allTypes)("Agent [%s]", (type) => {
     it("receives abortController and abortSignal", async () => {
       let capturedCtx: AgentFactoryContext | null = null;
 
-      let config: AgentConfig;
+      let config: BuiltInAgentFactoryConfig;
       switch (type) {
         case "aisdk":
           config = {
@@ -358,7 +358,7 @@ describe.each(allTypes)("Agent [%s]", (type) => {
           break;
       }
 
-      const agent = new Agent(config);
+      const agent = new BuiltInAgent(config);
       const input = createDefaultInput();
       await collectEvents(agent.run(input));
 
@@ -377,7 +377,7 @@ describe.each(allTypes)("Agent [%s]", (type) => {
       const agent = createAgent(type, minimalStreamData(type));
       const cloned = agent.clone();
 
-      expect(cloned).toBeInstanceOf(Agent);
+      expect(cloned).toBeInstanceOf(BuiltInAgent);
       expect(cloned).not.toBe(agent);
     });
 
@@ -459,7 +459,7 @@ describe("Agent type discrimination", () => {
 
 describe("Async factory (Promise-returning)", () => {
   it("aisdk: async factory resolves and streams correctly", async () => {
-    const agent = new Agent({
+    const agent = new BuiltInAgent({
       type: "aisdk",
       factory: async () => {
         // Simulate async setup (e.g., fetching API key)
@@ -484,7 +484,7 @@ describe("Async factory (Promise-returning)", () => {
   });
 
   it("tanstack: async factory resolves and streams correctly", async () => {
-    const agent = new Agent({
+    const agent = new BuiltInAgent({
       type: "tanstack",
       factory: async () => {
         await new Promise((r) => setTimeout(r, 5));
@@ -505,7 +505,7 @@ describe("Async factory (Promise-returning)", () => {
   });
 
   it("custom: async factory resolves and streams correctly", async () => {
-    const agent = new Agent({
+    const agent = new BuiltInAgent({
       type: "custom",
       factory: async () => {
         await new Promise((r) => setTimeout(r, 5));
@@ -536,7 +536,7 @@ describe("Async factory (Promise-returning)", () => {
 
 describe("RUN_ERROR correlation fields", () => {
   it("RUN_ERROR includes threadId and runId for run correlation", async () => {
-    const agent = new Agent({
+    const agent = new BuiltInAgent({
       type: "aisdk",
       factory: () => {
         throw new Error("test-error");
@@ -567,7 +567,7 @@ describe("Concurrent run guard", () => {
     let resolveFactory: () => void;
     const factoryBlocked = new Promise<void>((r) => (resolveFactory = r));
 
-    const agent = new Agent({
+    const agent = new BuiltInAgent({
       type: "custom",
       factory: async function* ({ abortSignal }) {
         // Block until resolved externally

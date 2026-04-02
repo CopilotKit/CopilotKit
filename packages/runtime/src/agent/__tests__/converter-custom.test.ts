@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { EventType, type BaseEvent } from "@ag-ui/client";
-import { Agent } from "../agent";
+import { BuiltInAgent } from "../index";
 import {
   createAgent,
   createDefaultInput,
@@ -232,7 +232,7 @@ describe("Custom Converter (passthrough)", () => {
     });
 
     it("should work correctly with an async generator factory", async () => {
-      const agent = new Agent({
+      const agent = new BuiltInAgent({
         type: "custom",
         factory: async function* () {
           yield {

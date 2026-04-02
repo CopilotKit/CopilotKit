@@ -1,14 +1,14 @@
 /**
- * Shared test utilities for Agent class tests.
+ * Shared test utilities for BuiltInAgent factory-mode tests.
  *
  * Re-exports everything from the existing test-helpers module and adds
- * Agent-specific factories, mock stream builders, and assertion helpers.
+ * BuiltInAgent-specific factories, mock stream builders, and assertion helpers.
  */
 
 import { EventType, type BaseEvent, type RunAgentInput } from "@ag-ui/client";
 import type { Observable } from "rxjs";
-import { Agent } from "../agent";
-import type { AgentFactoryContext } from "../agent";
+import { BuiltInAgent } from "../index";
+import type { AgentFactoryContext, BuiltInAgentFactoryConfig } from "../index";
 import type { MockStreamEvent } from "./test-helpers";
 
 // Re-export everything from existing test helpers
@@ -31,7 +31,7 @@ export {
 } from "./test-helpers";
 
 // Re-export for test files that need to construct agents directly
-export { Agent, type AgentFactoryContext };
+export { BuiltInAgent, type AgentFactoryContext, type BuiltInAgentFactoryConfig };
 
 // ---------------------------------------------------------------------------
 // Default input factory
@@ -123,13 +123,13 @@ export function mockCustomStream(
 }
 
 // ---------------------------------------------------------------------------
-// Agent factories
+// BuiltInAgent factories
 // ---------------------------------------------------------------------------
 
 export type AgentType = "aisdk" | "tanstack" | "custom";
 
 /**
- * Creates an Agent backed by a mock factory that yields the given stream data.
+ * Creates a BuiltInAgent backed by a mock factory that yields the given stream data.
  *
  * Overloaded for each supported agent type:
  * - `"aisdk"` expects `MockStreamEvent[]` (AI SDK fullStream events)
@@ -139,26 +139,26 @@ export type AgentType = "aisdk" | "tanstack" | "custom";
 export function createAgent(
   type: "aisdk",
   streamData: MockStreamEvent[],
-): Agent;
+): BuiltInAgent;
 export function createAgent(
   type: "tanstack",
   streamData: Record<string, unknown>[],
-): Agent;
-export function createAgent(type: "custom", streamData: BaseEvent[]): Agent;
+): BuiltInAgent;
+export function createAgent(type: "custom", streamData: BaseEvent[]): BuiltInAgent;
 export function createAgent(
   type: AgentType,
   streamData: MockStreamEvent[] | Record<string, unknown>[] | BaseEvent[],
-): Agent;
+): BuiltInAgent;
 export function createAgent(
   type: AgentType,
   streamData: MockStreamEvent[] | Record<string, unknown>[] | BaseEvent[],
-): Agent {
+): BuiltInAgent {
   switch (type) {
     case "aisdk": {
       // Cast needed: TypeScript's control-flow narrowing doesn't propagate
       // through overload signatures to narrow the union parameter type.
       const events = streamData as MockStreamEvent[];
-      return new Agent({
+      return new BuiltInAgent({
         type: "aisdk",
         factory: () => ({
           fullStream: (async function* () {
@@ -172,7 +172,7 @@ export function createAgent(
     case "tanstack": {
       // Cast needed: same overload-narrowing limitation as above.
       const chunks = streamData as Record<string, unknown>[];
-      return new Agent({
+      return new BuiltInAgent({
         type: "tanstack",
         factory: () => mockTanStackStream(chunks),
       });
@@ -180,7 +180,7 @@ export function createAgent(
     case "custom": {
       // Cast needed: same overload-narrowing limitation as above.
       const events = streamData as BaseEvent[];
-      return new Agent({
+      return new BuiltInAgent({
         type: "custom",
         factory: () => mockCustomStream(events),
       });
@@ -193,12 +193,12 @@ export function createAgent(
 // ---------------------------------------------------------------------------
 
 /**
- * Creates an Agent whose factory immediately throws.
+ * Creates a BuiltInAgent whose factory immediately throws.
  */
 export function createThrowingAgent(
   type: AgentType,
   errorMessage: string,
-): Agent {
+): BuiltInAgent {
   // All three factory signatures accept (ctx) and can throw before returning.
   // Since the factory throws, the return type is irrelevant — TypeScript's
   // `never` return satisfies all three config shapes.
@@ -208,16 +208,16 @@ export function createThrowingAgent(
 
   switch (type) {
     case "aisdk":
-      return new Agent({ type: "aisdk", factory: thrower });
+      return new BuiltInAgent({ type: "aisdk", factory: thrower });
     case "tanstack":
-      return new Agent({ type: "tanstack", factory: thrower });
+      return new BuiltInAgent({ type: "tanstack", factory: thrower });
     case "custom":
-      return new Agent({ type: "custom", factory: thrower });
+      return new BuiltInAgent({ type: "custom", factory: thrower });
   }
 }
 
 /**
- * Creates an Agent that yields one partial event and then throws.
+ * Creates a BuiltInAgent that yields one partial event and then throws.
  *
  * - `"aisdk"`: yields `{ type: "text-delta", text: "partial" }` then throws
  * - `"tanstack"`: yields `{ type: "TEXT_MESSAGE_CONTENT", delta: "partial" }` then throws
@@ -226,10 +226,10 @@ export function createThrowingAgent(
 export function createMidStreamErrorAgent(
   type: AgentType,
   errorMessage: string,
-): Agent {
+): BuiltInAgent {
   switch (type) {
     case "aisdk": {
-      return new Agent({
+      return new BuiltInAgent({
         type: "aisdk",
         factory: () => ({
           fullStream: (async function* () {
@@ -240,7 +240,7 @@ export function createMidStreamErrorAgent(
       });
     }
     case "tanstack": {
-      return new Agent({
+      return new BuiltInAgent({
         type: "tanstack",
         factory: () => ({
           [Symbol.asyncIterator]: async function* () {
@@ -254,7 +254,7 @@ export function createMidStreamErrorAgent(
       });
     }
     case "custom": {
-      return new Agent({
+      return new BuiltInAgent({
         type: "custom",
         factory: () => ({
           [Symbol.asyncIterator]: async function* () {
