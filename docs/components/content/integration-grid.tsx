@@ -44,8 +44,8 @@ const INTEGRATIONS: Integration[] = [
   },
   {
     name: "langgraph",
-    label: "LangGraph",
-    description: "LangChain's framework for stateful agent workflows.",
+    label: "LangChain",
+    description: "Build and deploy stateful AI agents with LangChain.",
     icon: LanggraphIcon,
   },
   {
