@@ -47,10 +47,6 @@
       "outputs": ["{projectRoot}/coverage/**"],
       "cache": true
     },
-    "lint": {
-      "dependsOn": ["^lint"],
-      "cache": true
-    },
     "check-types": {
       "dependsOn": ["^build", "^check-types"],
       "cache": true

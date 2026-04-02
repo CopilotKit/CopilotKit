@@ -2,6 +2,13 @@
   "name": "mcp-server",
   "version": "1.0.0",
   "description": "MCP Server for UI Protocols Demo - 6 interactive apps",
+  "keywords": [
+    "copilotkit",
+    "mcp",
+    "ui-protocols"
+  ],
+  "license": "ISC",
+  "author": "",
   "type": "module",
   "main": "dist/server.js",
   "scripts": {
@@ -9,13 +16,6 @@
     "start": "node dist/server.js",
     "dev": "tsx watch server.ts"
   },
-  "keywords": [
-    "mcp",
-    "copilotkit",
-    "ui-protocols"
-  ],
-  "author": "",
-  "license": "ISC",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.25.2",
     "cors": "^2.8.5",

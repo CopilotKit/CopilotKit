@@ -7,6 +7,7 @@ on:
     branches: [main]
 
 env:
+  NX_VERBOSE_LOGGING: true
   NX_CI_EXECUTION_ID: ${{ github.head_ref }}-${{ github.sha }}-${{ github.run_attempt }}
   NX_CI_EXECUTION_ENV: "Commitlint"
 
