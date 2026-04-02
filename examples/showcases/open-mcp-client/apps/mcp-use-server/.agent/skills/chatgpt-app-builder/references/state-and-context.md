@@ -4,12 +4,12 @@ Manage persistent state, ephemeral UI state, and LLM interaction from widgets.
 
 ## Decision Guide
 
-| Need | Use | Visible to LLM? | Persists? |
-|------|-----|-----------------|-----------|
-| Persist data across widget reopens | `state` + `setState` from `useWidget` | Yes | Yes |
-| Ephemeral UI only (hover, animation, local form) | React `useState` | No | No |
-| Trigger LLM response from widget | `sendFollowUpMessage` from `useWidget` | N/A | N/A |
-| Call another tool from widget | `callTool` from `useWidget` | N/A | N/A |
+| Need                                             | Use                                    | Visible to LLM? | Persists? |
+| ------------------------------------------------ | -------------------------------------- | --------------- | --------- |
+| Persist data across widget reopens               | `state` + `setState` from `useWidget`  | Yes             | Yes       |
+| Ephemeral UI only (hover, animation, local form) | React `useState`                       | No              | No        |
+| Trigger LLM response from widget                 | `sendFollowUpMessage` from `useWidget` | N/A             | N/A       |
+| Call another tool from widget                    | `callTool` from `useWidget`            | N/A             | N/A       |
 
 ## Persistent State: `state` + `setState`
 
@@ -26,7 +26,10 @@ function TodoList() {
   const addTask = async (title: string) => {
     await setState((prev) => ({
       ...prev,
-      tasks: [...(prev?.tasks || []), { id: Date.now(), title, completed: false }],
+      tasks: [
+        ...(prev?.tasks || []),
+        { id: Date.now(), title, completed: false },
+      ],
     }));
   };
 
@@ -34,7 +37,7 @@ function TodoList() {
     await setState((prev) => ({
       ...prev,
       tasks: prev.tasks.map((t: any) =>
-        t.id === id ? { ...t, completed: !t.completed } : t
+        t.id === id ? { ...t, completed: !t.completed } : t,
       ),
     }));
   };
@@ -64,7 +67,9 @@ function Counter() {
   const [state, setState] = useWidgetState({ count: 0 });
 
   return (
-    <button onClick={() => setState((prev) => ({ count: (prev?.count || 0) + 1 }))}>
+    <button
+      onClick={() => setState((prev) => ({ count: (prev?.count || 0) + 1 }))}
+    >
       Count: {state?.count || 0}
     </button>
   );
@@ -154,9 +159,13 @@ function AnalyzeButton() {
   const { sendFollowUpMessage } = useWidget();
 
   return (
-    <button onClick={() => sendFollowUpMessage(
-      "Compare the top 3 results and recommend the best one based on price and reviews."
-    )}>
+    <button
+      onClick={() =>
+        sendFollowUpMessage(
+          "Compare the top 3 results and recommend the best one based on price and reviews.",
+        )
+      }
+    >
       Ask AI to Analyze
     </button>
   );
@@ -164,6 +173,7 @@ function AnalyzeButton() {
 ```
 
 Use this when:
+
 - User clicks "Find best option" and the LLM should reason about the data
 - User completes a selection and the LLM should provide recommendations
 - Widget needs the LLM to take action based on current state
@@ -195,7 +205,8 @@ import { McpUseProvider, useWidget } from "mcp-use/react";
 import { useState } from "react";
 
 export default function TodoWidget() {
-  const { props, isPending, state, setState, sendFollowUpMessage } = useWidget();
+  const { props, isPending, state, setState, sendFollowUpMessage } =
+    useWidget();
 
   // PERSISTENT: Tasks survive widget close/reopen, LLM sees them
   const tasks = state?.tasks || props.tasks || [];
@@ -203,13 +214,18 @@ export default function TodoWidget() {
   // EPHEMERAL: Which task is being viewed (resets on reopen)
   const [viewing, setViewing] = useState<string | null>(null);
 
-  if (isPending) return <McpUseProvider autoSize><div>Loading...</div></McpUseProvider>;
+  if (isPending)
+    return (
+      <McpUseProvider autoSize>
+        <div>Loading...</div>
+      </McpUseProvider>
+    );
 
   const toggleTask = async (id: string) => {
     await setState((prev: any) => ({
       ...prev,
       tasks: (prev?.tasks || tasks).map((t: any) =>
-        t.id === id ? { ...t, completed: !t.completed } : t
+        t.id === id ? { ...t, completed: !t.completed } : t,
       ),
     }));
   };
@@ -224,15 +240,27 @@ export default function TodoWidget() {
           <div
             key={t.id}
             onClick={() => setViewing(t.id)}
-            style={{ padding: 8, cursor: "pointer", opacity: t.completed ? 0.5 : 1 }}
+            style={{
+              padding: 8,
+              cursor: "pointer",
+              opacity: t.completed ? 0.5 : 1,
+            }}
           >
-            <input type="checkbox" checked={t.completed} onChange={() => toggleTask(t.id)} />
+            <input
+              type="checkbox"
+              checked={t.completed}
+              onChange={() => toggleTask(t.id)}
+            />
             {t.title}
           </div>
         ))}
-        <button onClick={() => sendFollowUpMessage(
-          `I have ${remaining} tasks left. Help me prioritize them.`
-        )}>
+        <button
+          onClick={() =>
+            sendFollowUpMessage(
+              `I have ${remaining} tasks left. Help me prioritize them.`,
+            )
+          }
+        >
           Ask AI to Prioritize
         </button>
       </div>
@@ -243,8 +271,8 @@ export default function TodoWidget() {
 
 **Why each?**
 
-| What | API | Why |
-|------|-----|-----|
-| `tasks` | `state` + `setState` | Persists. Progress survives reopen. LLM sees completion status. |
-| `viewing` | `useState` | Ephemeral. Current focus resets on reopen. |
-| "Help me prioritize" | `sendFollowUpMessage` | Triggers LLM reasoning based on current tasks. |
+| What                 | API                   | Why                                                             |
+| -------------------- | --------------------- | --------------------------------------------------------------- |
+| `tasks`              | `state` + `setState`  | Persists. Progress survives reopen. LLM sees completion status. |
+| `viewing`            | `useState`            | Ephemeral. Current focus resets on reopen.                      |
+| "Help me prioritize" | `sendFollowUpMessage` | Triggers LLM reasoning based on current tasks.                  |

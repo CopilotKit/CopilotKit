@@ -1,13 +1,21 @@
 "use client";
 
 import { CopilotKit } from "@copilotkit/react-core";
-import { createContext, useCallback, useContext, useMemo, useState } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useMemo,
+  useState,
+} from "react";
 import { DEFAULT_SERVERS, type McpServerEntry } from "../constants/mcpServers";
 import { TOOL_CALL_RENDERERS } from "./ToolCallRenderer";
 
 // ─── Shared context ───────────────────────────────────────────────────────────
 
-type ServersUpdater = McpServerEntry[] | ((prev: McpServerEntry[]) => McpServerEntry[]);
+type ServersUpdater =
+  | McpServerEntry[]
+  | ((prev: McpServerEntry[]) => McpServerEntry[]);
 
 interface McpServersContextValue {
   servers: McpServerEntry[];
@@ -40,14 +48,15 @@ export function DynamicCopilotKitProvider({
 }: {
   children: React.ReactNode;
 }) {
-  const [servers, setServersState] = useState<McpServerEntry[]>(DEFAULT_SERVERS);
+  const [servers, setServersState] =
+    useState<McpServerEntry[]>(DEFAULT_SERVERS);
 
   const setServers = useCallback((update: ServersUpdater) => {
     setServersState((prev) => {
       const next = typeof update === "function" ? update(prev) : update;
       console.log(
         `[CopilotKitProvider] Server list updated — ${next.length} server(s):`,
-        next.map((s) => s.endpoint)
+        next.map((s) => s.endpoint),
       );
       return next;
     });
@@ -59,11 +68,11 @@ export function DynamicCopilotKitProvider({
         type: "http" as const,
         url: s.endpoint,
         ...(s.serverId ? { serverId: s.serverId } : {}),
-      }))
+      })),
     );
     console.log(
       `[CopilotKitProvider] x-mcp-servers header updated — ${servers.length} server(s):`,
-      servers.map((s) => s.endpoint)
+      servers.map((s) => s.endpoint),
     );
     return { "x-mcp-servers": value };
   }, [servers]);

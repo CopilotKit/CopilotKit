@@ -31,7 +31,10 @@ function AddServerForm({
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-2 rounded-xl border border-slate-200 bg-slate-50 p-3">
+    <form
+      onSubmit={handleSubmit}
+      className="space-y-2 rounded-xl border border-slate-200 bg-slate-50 p-3"
+    >
       <input
         type="url"
         value={endpoint}
@@ -90,20 +93,29 @@ export function McpServerManager({
   // Keep CopilotKit's runtime in sync whenever the list changes
   const syncToRuntime = useCallback(
     (list: McpServerEntry[]) => {
-      console.log("[McpServerManager] syncToRuntime called with", list.length, "server(s):", list.map(s => s.endpoint));
+      console.log(
+        "[McpServerManager] syncToRuntime called with",
+        list.length,
+        "server(s):",
+        list.map((s) => s.endpoint),
+      );
       if (typeof setMcpServers === "function") {
         setMcpServers(
           list.map((s) => ({
             endpoint: s.endpoint,
             ...(s.serverId ? { serverId: s.serverId } : {}),
-          }))
+          })),
         );
-        console.log("[McpServerManager] setMcpServers called — agent server list updated");
+        console.log(
+          "[McpServerManager] setMcpServers called — agent server list updated",
+        );
       } else {
-        console.warn("[McpServerManager] setMcpServers is not available (not inside CopilotKit context?)");
+        console.warn(
+          "[McpServerManager] setMcpServers is not available (not inside CopilotKit context?)",
+        );
       }
     },
-    [setMcpServers]
+    [setMcpServers],
   );
 
   useEffect(() => {
@@ -122,9 +134,7 @@ export function McpServerManager({
   return (
     <div className="flex flex-col gap-3">
       <div className="flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-slate-800">
-          MCP servers
-        </h2>
+        <h2 className="text-sm font-semibold text-slate-800">MCP servers</h2>
         <button
           type="button"
           onClick={() => setShowAddForm((v: boolean) => !v)}
@@ -135,7 +145,10 @@ export function McpServerManager({
       </div>
 
       {showAddForm && (
-        <AddServerForm onAdd={addServer} onCancel={() => setShowAddForm(false)} />
+        <AddServerForm
+          onAdd={addServer}
+          onCancel={() => setShowAddForm(false)}
+        />
       )}
 
       {downloadError && (
@@ -147,9 +160,13 @@ export function McpServerManager({
       <ul className="space-y-1.5">
         {servers.map((s, i) => {
           const isWorkspace = activeWorkspace?.endpoint === s.endpoint;
-          const isProvisioning = isWorkspace && activeWorkspace?.status === "provisioning";
-          const isRunning = isWorkspace && activeWorkspace?.status === "running";
-          const status = serverStatuses.find((st) => st.endpoint === s.endpoint);
+          const isProvisioning =
+            isWorkspace && activeWorkspace?.status === "provisioning";
+          const isRunning =
+            isWorkspace && activeWorkspace?.status === "running";
+          const status = serverStatuses.find(
+            (st) => st.endpoint === s.endpoint,
+          );
           const hasError = Boolean(status?.error);
           const isConnecting = Boolean(status?.loading);
 
@@ -162,21 +179,32 @@ export function McpServerManager({
               const res = await fetch("/api/workspace/download", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ workspaceId: wid, stream: true, fullKit: true }),
+                body: JSON.stringify({
+                  workspaceId: wid,
+                  stream: true,
+                  fullKit: true,
+                }),
               });
               if (!res.ok) {
-                const body = (await res.json().catch(() => ({}))) as { error?: string };
-                setDownloadError(body.error || `Download failed (${res.status})`);
+                const body = (await res.json().catch(() => ({}))) as {
+                  error?: string;
+                };
+                setDownloadError(
+                  body.error || `Download failed (${res.status})`,
+                );
                 return;
               }
               const blob = await res.blob();
-              const safeId = wid.replace(/[^\w-]/g, "").slice(0, 16) || "workspace";
+              const safeId =
+                wid.replace(/[^\w-]/g, "").slice(0, 16) || "workspace";
               const cd = res.headers.get("Content-Disposition");
               const m = cd?.match(/filename="([^"]+)"/);
               const filename = m?.[1] ?? `workspace-${safeId}.tar.gz`;
               triggerBlobDownload(blob, filename);
             } catch (e) {
-              setDownloadError(e instanceof Error ? e.message : "Download failed");
+              setDownloadError(
+                e instanceof Error ? e.message : "Download failed",
+              );
             } finally {
               setDownloading(false);
             }
@@ -196,23 +224,55 @@ export function McpServerManager({
               <div className="flex min-w-0 flex-1 items-center justify-between gap-2">
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-1.5">
-                    <span className={`truncate text-sm font-medium ${hasError ? "text-red-800" : "text-slate-800"}`}>
+                    <span
+                      className={`truncate text-sm font-medium ${hasError ? "text-red-800" : "text-slate-800"}`}
+                    >
                       {s.serverId || `Server ${i + 1}`}
                     </span>
                     {isProvisioning && (
                       <span className="shrink-0 inline-flex items-center gap-1 rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">
-                        <svg className="h-2.5 w-2.5 animate-spin" viewBox="0 0 24 24" fill="none">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 00-8 8h4z" />
+                        <svg
+                          className="h-2.5 w-2.5 animate-spin"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                        >
+                          <circle
+                            className="opacity-25"
+                            cx="12"
+                            cy="12"
+                            r="10"
+                            stroke="currentColor"
+                            strokeWidth="4"
+                          />
+                          <path
+                            className="opacity-75"
+                            fill="currentColor"
+                            d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 00-8 8h4z"
+                          />
                         </svg>
                         Setting up…
                       </span>
                     )}
                     {isConnecting && !hasError && (
                       <span className="shrink-0 inline-flex items-center gap-1 rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-600">
-                        <svg className="h-2.5 w-2.5 animate-spin" viewBox="0 0 24 24" fill="none">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 00-8 8h4z" />
+                        <svg
+                          className="h-2.5 w-2.5 animate-spin"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                        >
+                          <circle
+                            className="opacity-25"
+                            cx="12"
+                            cy="12"
+                            r="10"
+                            stroke="currentColor"
+                            strokeWidth="4"
+                          />
+                          <path
+                            className="opacity-75"
+                            fill="currentColor"
+                            d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 00-8 8h4z"
+                          />
                         </svg>
                         Connecting…
                       </span>
@@ -229,7 +289,9 @@ export function McpServerManager({
                       </span>
                     )}
                   </div>
-                  <div className={`truncate text-xs ${hasError ? "text-red-600" : "text-slate-500"}`}>
+                  <div
+                    className={`truncate text-xs ${hasError ? "text-red-600" : "text-slate-500"}`}
+                  >
                     {s.endpoint}
                   </div>
                 </div>
@@ -245,42 +307,81 @@ export function McpServerManager({
                       {globalLoading ? "…" : "Reconnect"}
                     </button>
                   )}
-                {isRunning && (
+                  {isRunning && (
+                    <button
+                      type="button"
+                      onClick={handleDownload}
+                      disabled={downloading}
+                      className="rounded-lg p-1.5 text-slate-400 hover:bg-emerald-100 hover:text-emerald-700 disabled:opacity-50"
+                      aria-label="Download workspace"
+                      title="Download full app kit (.tar.gz) — monorepo + your MCP server, or MCP-only if base kit missing"
+                    >
+                      {downloading ? (
+                        <svg
+                          className="h-4 w-4 animate-spin"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                        >
+                          <circle
+                            className="opacity-25"
+                            cx="12"
+                            cy="12"
+                            r="10"
+                            stroke="currentColor"
+                            strokeWidth="4"
+                          />
+                          <path
+                            className="opacity-75"
+                            fill="currentColor"
+                            d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 00-8 8h4z"
+                          />
+                        </svg>
+                      ) : (
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          className="h-4 w-4"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                          />
+                        </svg>
+                      )}
+                    </button>
+                  )}
                   <button
                     type="button"
-                    onClick={handleDownload}
-                    disabled={downloading}
-                    className="rounded-lg p-1.5 text-slate-400 hover:bg-emerald-100 hover:text-emerald-700 disabled:opacity-50"
-                    aria-label="Download workspace"
-                    title="Download full app kit (.tar.gz) — monorepo + your MCP server, or MCP-only if base kit missing"
+                    onClick={() => removeServer(i)}
+                    className="rounded-lg p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600"
+                    aria-label="Remove server"
                   >
-                    {downloading ? (
-                      <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 00-8 8h4z" />
-                      </svg>
-                    ) : (
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                      </svg>
-                    )}
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-4 w-4"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                      />
+                    </svg>
                   </button>
-                )}
-                <button
-                  type="button"
-                  onClick={() => removeServer(i)}
-                  className="rounded-lg p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600"
-                  aria-label="Remove server"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                  </svg>
-                </button>
-              </div>
+                </div>
               </div>
               {hasError && status?.error && (
                 <p className="text-[11px] text-red-700" title={status.error}>
-                  {status.error.length > 80 ? `${status.error.slice(0, 80)}…` : status.error}
+                  {status.error.length > 80
+                    ? `${status.error.slice(0, 80)}…`
+                    : status.error}
                 </p>
               )}
             </li>

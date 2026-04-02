@@ -21,7 +21,7 @@ export function getBaseKitPath(): string | null {
  */
 export async function mergeE2bWorkspaceIntoBaseKit(
   workspaceTarGz: Buffer,
-  baseTarGzPath: string
+  baseTarGzPath: string,
 ): Promise<Readable> {
   const tmp = await fs.mkdtemp(path.join(os.tmpdir(), "mcp-kit-"));
   const workspaceArchive = path.join(tmp, "workspace.tar.gz");
@@ -46,7 +46,9 @@ export async function mergeE2bWorkspaceIntoBaseKit(
     const wsPath = path.join(wsExtract, E2B_WORKSPACE_DIR);
     const wsStat = await fs.stat(wsPath).catch(() => null);
     if (!wsStat?.isDirectory()) {
-      throw new Error(`E2B archive missing ${E2B_WORKSPACE_DIR}/ at tarball root`);
+      throw new Error(
+        `E2B archive missing ${E2B_WORKSPACE_DIR}/ at tarball root`,
+      );
     }
 
     const mcpDest = path.join(kitPath, "apps", "mcp-use-server");
@@ -54,7 +56,10 @@ export async function mergeE2bWorkspaceIntoBaseKit(
     await fs.rename(wsPath, mcpDest);
 
     const outFile = path.join(tmp, "merged.tar.gz");
-    await tar.c({ gzip: true, file: outFile, cwd: baseExtract, portable: true }, [KIT_FOLDER_NAME]);
+    await tar.c(
+      { gzip: true, file: outFile, cwd: baseExtract, portable: true },
+      [KIT_FOLDER_NAME],
+    );
 
     const rs = createReadStream(outFile);
     rs.on("close", () => {

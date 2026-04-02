@@ -20,7 +20,9 @@ export function ToolDetailContent({
   onPreviewDataChange: (data: Record<string, unknown>) => void;
 }) {
   const [tab, setTab] = useState<DetailTab>("preview");
-  const [previewJson, setPreviewJson] = useState(JSON.stringify(tool.previewData, null, 2));
+  const [previewJson, setPreviewJson] = useState(
+    JSON.stringify(tool.previewData, null, 2),
+  );
   const [previewJsonError, setPreviewJsonError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -46,13 +48,16 @@ export function ToolDetailContent({
     ((tool.inputSchema as Record<string, unknown>)?.properties as Record<
       string,
       { type?: string; description?: string }
-    >) ?? {}
+    >) ?? {},
   );
-  const required = ((tool.inputSchema as Record<string, unknown>)?.required as string[]) ?? [];
+  const required =
+    ((tool.inputSchema as Record<string, unknown>)?.required as string[]) ?? [];
   const paramKeys = params.map(([k]) => k);
   const tryPrompts =
     paramKeys.length > 0
-      ? paramKeys.slice(0, 2).map((k) => `Use ${tool.toolName} with ${k}: "example"`)
+      ? paramKeys
+          .slice(0, 2)
+          .map((k) => `Use ${tool.toolName} with ${k}: "example"`)
       : [`Use the ${tool.toolName} tool`];
 
   const toolJson = JSON.stringify(
@@ -63,7 +68,7 @@ export function ToolDetailContent({
       _meta: tool._meta,
     },
     null,
-    2
+    2,
   );
 
   const tabs: { key: DetailTab; label: string }[] = [
@@ -101,7 +106,9 @@ export function ToolDetailContent({
         {tab === "preview" && (
           <div className="space-y-3">
             <div className="flex flex-wrap items-center gap-1.5">
-              <h3 className="truncate text-sm font-semibold text-slate-900">{tool.toolName}</h3>
+              <h3 className="truncate text-sm font-semibold text-slate-900">
+                {tool.toolName}
+              </h3>
               {tool.hasUI && (
                 <span className="rounded-full border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 text-[9px] font-semibold text-emerald-700">
                   UI
@@ -118,7 +125,9 @@ export function ToolDetailContent({
                 </span>
               )}
             </div>
-            <p className="text-xs leading-relaxed text-slate-600 sm:text-[13px]">{tool.description}</p>
+            <p className="text-xs leading-relaxed text-slate-600 sm:text-[13px]">
+              {tool.description}
+            </p>
 
             {params.length > 0 && (
               <div className="rounded-xl border border-slate-100 bg-slate-50/90 p-2.5">
@@ -127,16 +136,27 @@ export function ToolDetailContent({
                 </p>
                 <ul className="space-y-1">
                   {params.slice(0, 6).map(([name, meta]) => (
-                    <li key={name} className="flex flex-wrap items-baseline gap-1.5 text-[11px]">
-                      <code className="font-semibold text-slate-800">{name}</code>
+                    <li
+                      key={name}
+                      className="flex flex-wrap items-baseline gap-1.5 text-[11px]"
+                    >
+                      <code className="font-semibold text-slate-800">
+                        {name}
+                      </code>
                       {required.includes(name) && (
-                        <span className="text-[9px] font-medium text-amber-700">required</span>
+                        <span className="text-[9px] font-medium text-amber-700">
+                          required
+                        </span>
                       )}
-                      <span className="text-slate-500">{meta?.type ?? "any"}</span>
+                      <span className="text-slate-500">
+                        {meta?.type ?? "any"}
+                      </span>
                     </li>
                   ))}
                   {params.length > 6 && (
-                    <li className="text-[10px] text-slate-400">+{params.length - 6} more in Parameters</li>
+                    <li className="text-[10px] text-slate-400">
+                      +{params.length - 6} more in Parameters
+                    </li>
                   )}
                 </ul>
               </div>
@@ -161,10 +181,13 @@ export function ToolDetailContent({
                 <p className="mb-0.5 text-[9px] font-semibold uppercase tracking-wide text-slate-400">
                   UI resource
                 </p>
-                <code className="break-all text-[10px] text-slate-600">{tool.uiResourceUri}</code>
+                <code className="break-all text-[10px] text-slate-600">
+                  {tool.uiResourceUri}
+                </code>
                 {tool.htmlSource && (
                   <span className="mt-1 block text-[10px] text-slate-400">
-                    {(tool.htmlSource.length / 1024).toFixed(1)} KB widget bundle
+                    {(tool.htmlSource.length / 1024).toFixed(1)} KB widget
+                    bundle
                   </span>
                 )}
               </div>
@@ -195,7 +218,9 @@ export function ToolDetailContent({
             {params.length > 0 ? (
               params.map(([name, meta]) => (
                 <div key={name} className="flex flex-wrap items-start gap-1.5">
-                  <code className="text-[11px] font-semibold text-slate-800">{name}</code>
+                  <code className="text-[11px] font-semibold text-slate-800">
+                    {name}
+                  </code>
                   {required.includes(name) && (
                     <span className="rounded bg-amber-100 px-1 py-0.5 text-[9px] font-semibold text-amber-700">
                       required
@@ -326,7 +351,9 @@ export function ToolDetailModal({
             >
               {tool.toolName}
             </h2>
-            <p className="line-clamp-2 text-[11px] text-slate-500 sm:text-xs">{tool.description}</p>
+            <p className="line-clamp-2 text-[11px] text-slate-500 sm:text-xs">
+              {tool.description}
+            </p>
           </div>
           <button
             type="button"
@@ -334,8 +361,19 @@ export function ToolDetailModal({
             className="shrink-0 rounded-lg border border-slate-200 bg-white p-2 text-slate-500 hover:bg-slate-50 hover:text-slate-900"
             aria-label="Close"
           >
-            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            <svg
+              className="h-4 w-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              aria-hidden
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M6 18L18 6M6 6l12 12"
+              />
             </svg>
           </button>
         </header>

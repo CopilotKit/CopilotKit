@@ -36,7 +36,7 @@ export interface ServerIntrospection {
  * Re-fetches automatically whenever `servers` changes.
  */
 export function useMcpIntrospect(
-  servers: { endpoint: string; serverId?: string }[]
+  servers: { endpoint: string; serverId?: string }[],
 ) {
   const [data, setData] = useState<ServerIntrospection[]>([]);
   const [loading, setLoading] = useState(false);
@@ -59,7 +59,7 @@ export function useMcpIntrospect(
       "[useMcpIntrospect] Fetching from",
       servers.length,
       "server(s):",
-      servers.map((s) => s.endpoint)
+      servers.map((s) => s.endpoint),
     );
     setLoading(true);
 
@@ -84,24 +84,23 @@ export function useMcpIntrospect(
           });
 
           console.log(
-            `[useMcpIntrospect] Response from ${server.endpoint}: ${res.status}`
+            `[useMcpIntrospect] Response from ${server.endpoint}: ${res.status}`,
           );
 
           if (!res.ok) {
             const body = await res.json().catch(() => ({}));
             entry.error =
-              (body as Record<string, string>).error ??
-              `HTTP ${res.status}`;
+              (body as Record<string, string>).error ?? `HTTP ${res.status}`;
             console.error(
               `[useMcpIntrospect] Error for ${server.endpoint}:`,
-              entry.error
+              entry.error,
             );
           } else {
             const body = await res.json();
             entry.tools = body.tools ?? [];
             entry.resources = body.resources ?? [];
             console.log(
-              `[useMcpIntrospect] Got ${entry.tools.length} tools, ${entry.resources.length} resources from ${server.endpoint}`
+              `[useMcpIntrospect] Got ${entry.tools.length} tools, ${entry.resources.length} resources from ${server.endpoint}`,
             );
           }
         } catch (err) {
@@ -109,14 +108,14 @@ export function useMcpIntrospect(
             entry.error = (err as Error).message ?? String(err);
             console.error(
               `[useMcpIntrospect] Fetch failed for ${server.endpoint}:`,
-              entry.error
+              entry.error,
             );
           }
         }
 
         entry.loading = false;
         return entry;
-      })
+      }),
     );
 
     if (!controller.signal.aborted) {
@@ -136,7 +135,7 @@ export function useMcpIntrospect(
   const allTools = useMemo(
     () => data.flatMap((s) => s.tools),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [data]
+    [data],
   );
 
   return { data, allTools, loading, refresh };

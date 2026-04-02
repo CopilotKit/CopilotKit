@@ -56,7 +56,9 @@ export function getChatStarterPrompts(): ChatStarterPrompt[] {
 }
 
 /** Drop duplicate title+message pairs (e.g. mis-merged env) so the UI does not repeat chips. */
-function dedupeStarterPrompts(prompts: ChatStarterPrompt[]): ChatStarterPrompt[] {
+function dedupeStarterPrompts(
+  prompts: ChatStarterPrompt[],
+): ChatStarterPrompt[] {
   const seen = new Set<string>();
   const result: ChatStarterPrompt[] = [];
   for (const p of prompts) {

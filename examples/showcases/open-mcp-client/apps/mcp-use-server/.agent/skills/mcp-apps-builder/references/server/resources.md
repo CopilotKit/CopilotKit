@@ -13,7 +13,7 @@ import { MCPServer, object, text, markdown } from "mcp-use/server";
 
 const server = new MCPServer({
   name: "my-server",
-  version: "1.0.0"
+  version: "1.0.0",
 });
 
 server.resource(
@@ -21,21 +21,23 @@ server.resource(
     name: "app_settings",
     uri: "config://settings",
     title: "Application Settings",
-    description: "Current server configuration"
+    description: "Current server configuration",
   },
-  async () => object({
-    theme: "dark",
-    version: "1.0.0",
-    language: "en",
-    features: {
-      notifications: true,
-      analytics: false
-    }
-  })
+  async () =>
+    object({
+      theme: "dark",
+      version: "1.0.0",
+      language: "en",
+      features: {
+        notifications: true,
+        analytics: false,
+      },
+    }),
 );
 ```
 
 **Key points:**
+
 - First argument: resource configuration (uri, name, description, mimeType)
 - Second argument: async handler function (no input parameters)
 - Handler returns response helper (`object()`, `text()`, `markdown()`, etc.)
@@ -46,6 +48,7 @@ server.resource(
 ## Resource Definition
 
 ### URI
+
 Use a scheme-based format for organization:
 
 ```typescript
@@ -59,7 +62,9 @@ Use a scheme-based format for organization:
 ```
 
 ### Name
+
 Machine-readable identifier (kebab-case):
+
 ```typescript
 ✅ "app_settings"
 ✅ "user_guide"
@@ -67,7 +72,9 @@ Machine-readable identifier (kebab-case):
 ```
 
 ### Title
+
 Human-readable name shown to users:
+
 ```typescript
 ✅ "Application Settings"
 ✅ "User Guide"
@@ -75,22 +82,25 @@ Human-readable name shown to users:
 ```
 
 ### Description
+
 Optional but recommended. Explains what the resource contains:
+
 ```typescript
-description: "Current server configuration including theme, language, and feature flags"
+description: "Current server configuration including theme, language, and feature flags";
 ```
 
 ### MIME Type
+
 Indicates content format:
 
-| Content Type | MIME Type |
-|--------------|-----------|
-| JSON object | `application/json` |
-| Plain text | `text/plain` |
-| Markdown | `text/markdown` |
-| HTML | `text/html` |
-| Image | `image/png`, `image/jpeg` |
-| Binary | `application/octet-stream` |
+| Content Type | MIME Type                  |
+| ------------ | -------------------------- |
+| JSON object  | `application/json`         |
+| Plain text   | `text/plain`               |
+| Markdown     | `text/markdown`            |
+| HTML         | `text/html`                |
+| Image        | `image/png`, `image/jpeg`  |
+| Binary       | `application/octet-stream` |
 
 ---
 
@@ -104,12 +114,13 @@ server.resource(
     name: "supported_languages",
     uri: "data://supported-languages",
     title: "Supported Languages",
-    description: "List of supported language codes"
+    description: "List of supported language codes",
   },
-  async () => object({
-    languages: ["en", "es", "fr", "de", "ja"],
-    default: "en"
-  })
+  async () =>
+    object({
+      languages: ["en", "es", "fr", "de", "ja"],
+      default: "en",
+    }),
 );
 
 server.resource(
@@ -117,9 +128,10 @@ server.resource(
     name: "api_guide",
     uri: "docs://api-guide",
     title: "API Documentation",
-    description: "Complete API reference and examples"
+    description: "Complete API reference and examples",
   },
-  async () => markdown(`
+  async () =>
+    markdown(`
 # API Guide
 
 ## Authentication
@@ -128,7 +140,7 @@ Use Bearer token in Authorization header...
 ## Endpoints
 - POST /api/users - Create user
 - GET /api/users/:id - Get user
-  `)
+  `),
 );
 ```
 
@@ -144,7 +156,7 @@ server.resource(
     name: "current_stats",
     uri: "stats://current",
     title: "Current Statistics",
-    description: "Real-time server statistics"
+    description: "Real-time server statistics",
   },
   async () => {
     const stats = await calculateStats();
@@ -153,9 +165,9 @@ server.resource(
       users: stats.totalUsers,
       requests: stats.requestCount,
       uptime: process.uptime(),
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     });
-  }
+  },
 );
 
 server.resource(
@@ -163,24 +175,25 @@ server.resource(
     name: "active_sessions",
     uri: "state://active-sessions",
     title: "Active Sessions",
-    description: "Currently active user sessions"
+    description: "Currently active user sessions",
   },
   async () => {
     const sessions = await getActiveSessions();
 
     return object({
       count: sessions.length,
-      sessions: sessions.map(s => ({
+      sessions: sessions.map((s) => ({
         id: s.id,
         user: s.userId,
-        started: s.startTime
-      }))
+        started: s.startTime,
+      })),
     });
-  }
+  },
 );
 ```
 
 **When to use dynamic resources:**
+
 - Data changes over time
 - Data is expensive to compute (compute on demand)
 - Data reflects current server state
@@ -197,7 +210,7 @@ server.resourceTemplate(
     name: "user_profile",
     uriTemplate: "user://{userId}/profile",
     title: "User Profile",
-    description: "Get user profile by ID"
+    description: "Get user profile by ID",
   },
   async (uri: URL, params: Record<string, string>) => {
     // Extract parameters from params object
@@ -213,31 +226,34 @@ server.resourceTemplate(
       id: user.id,
       name: user.name,
       email: user.email,
-      createdAt: user.createdAt
+      createdAt: user.createdAt,
     });
-  }
+  },
 );
 ```
 
 **URI template syntax:**
+
 - `{param}` - Single path segment
 - `{param*}` - Multiple path segments (greedy)
 
 **Examples:**
+
 ```typescript
 // Single parameter
-"user://{userId}/profile"        // Matches: user://123/profile
-"docs://{section}"               // Matches: docs://getting-started
+"user://{userId}/profile"; // Matches: user://123/profile
+"docs://{section}"; // Matches: docs://getting-started
 
 // Multiple parameters
-"files://{folder}/{filename}"    // Matches: files://documents/report.pdf
-"api://{version}/users/{id}"     // Matches: api://v1/users/42
+"files://{folder}/{filename}"; // Matches: files://documents/report.pdf
+"api://{version}/users/{id}"; // Matches: api://v1/users/42
 
 // Greedy parameter (matches multiple segments)
-"docs://{path*}"                 // Matches: docs://guides/api/authentication
+"docs://{path*}"; // Matches: docs://guides/api/authentication
 ```
 
 **Handler signature:**
+
 ```typescript
 async (uri: URL, params: Record<string, string>) => {
   // uri: URL object of the matched URI
@@ -245,10 +261,11 @@ async (uri: URL, params: Record<string, string>) => {
 
   // Extract the parameters you need
   const { userId } = params;
-}
+};
 ```
 
 **⚠️ TypeScript Best Practice:**
+
 - **Recommended:** Use explicit types and extract params inside the function body (as shown above)
 - **Not recommended:** Parameter destructuring like `async (uri, { userId }) => {}` works at runtime but TypeScript has trouble matching it against the `Record<string, string>` type, potentially causing compilation errors
 
@@ -267,14 +284,14 @@ server.resourceTemplate(
     description: "Get documentation by ID",
     callbacks: {
       complete: {
-        docId: ["getting-started", "api-reference", "faq", "changelog"]
-      }
-    }
+        docId: ["getting-started", "api-reference", "faq", "changelog"],
+      },
+    },
   },
   async (uri: URL, params: Record<string, string>) => {
     const { docId } = params;
     return markdown(await fetchDoc(docId));
-  }
+  },
 );
 
 // Dynamic suggestions via callback
@@ -286,19 +303,20 @@ server.resourceTemplate(
       complete: {
         userId: async (value: string) => {
           const users = await searchUsers(value);
-          return users.map(u => u.id);
-        }
-      }
-    }
+          return users.map((u) => u.id);
+        },
+      },
+    },
   },
   async (uri: URL, params: Record<string, string>) => {
     const { userId } = params;
     return object(await fetchUser(userId));
-  }
+  },
 );
 ```
 
 **Key points:**
+
 - `complete` maps each template variable to either a `string[]` (prefix-matched automatically) or a callback `(value: string) => Promise<string[]>`
 - Clients request suggestions via MCP `completion/complete`
 
@@ -343,6 +361,7 @@ server.resource({ uri: "data://countries", ... });
 ```
 
 When a client lists resources, they see:
+
 ```json
 {
   "resources": [
@@ -359,18 +378,21 @@ When a client lists resources, they see:
 ## Resource vs Tool
 
 **Use a resource when:**
+
 - ✅ Read-only data
 - ✅ No input parameters (or use resource templates)
 - ✅ Data that clients might browse or list
 - ✅ Configuration, docs, static data
 
 **Use a tool when:**
+
 - ✅ Action with side effects
 - ✅ Complex input validation needed
 - ✅ Needs Zod schema for structured input
 - ✅ May return visual UI (widgets)
 
 **Example:**
+
 ```typescript
 // ❌ Bad - Use resource instead
 server.tool(
@@ -407,7 +429,7 @@ server.resource(
   {
     uri: "data://expensive-computation",
     name: "Expensive Data",
-    mimeType: "application/json"
+    mimeType: "application/json",
   },
   async () => {
     const cacheKey = "expensive-computation";
@@ -424,11 +446,11 @@ server.resource(
     // Cache for 10 minutes
     cache.set(cacheKey, {
       data,
-      expires: Date.now() + 10 * 60 * 1000
+      expires: Date.now() + 10 * 60 * 1000,
     });
 
     return object(data);
-  }
+  },
 );
 ```
 
@@ -441,7 +463,7 @@ import { MCPServer, object, markdown, error } from "mcp-use/server";
 
 const server = new MCPServer({
   name: "docs-server",
-  version: "1.0.0"
+  version: "1.0.0",
 });
 
 // Static configuration
@@ -449,12 +471,13 @@ server.resource(
   {
     uri: "config://settings",
     name: "Server Settings",
-    mimeType: "application/json"
+    mimeType: "application/json",
   },
-  async () => object({
-    version: "1.0.0",
-    environment: process.env.NODE_ENV || "development"
-  })
+  async () =>
+    object({
+      version: "1.0.0",
+      environment: process.env.NODE_ENV || "development",
+    }),
 );
 
 // Dynamic list
@@ -462,12 +485,12 @@ server.resource(
   {
     uri: "data://available-docs",
     name: "Available Documentation",
-    mimeType: "application/json"
+    mimeType: "application/json",
   },
   async () => {
     const docs = await listDocuments();
     return object({ docs });
-  }
+  },
 );
 
 // Parameterized access
@@ -476,7 +499,7 @@ server.resourceTemplate(
     uriTemplate: "docs://{docId}",
     name: "Documentation",
     description: "Get documentation by ID",
-    mimeType: "text/markdown"
+    mimeType: "text/markdown",
   },
   async (uri: URL, params: Record<string, string>) => {
     const { docId } = params;
@@ -487,7 +510,7 @@ server.resourceTemplate(
     }
 
     return markdown(doc.content);
-  }
+  },
 );
 
 server.listen();
