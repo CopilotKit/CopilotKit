@@ -122,6 +122,24 @@ export async function handleListThreads({
   );
 }
 
+/**
+ * Clears all in-memory thread history for the local-dev InMemory fallback.
+ *
+ * The inspector calls this once when a new browser session starts so that
+ * a page refresh gives a clean slate without requiring a server restart.
+ * This endpoint is intentionally a no-op when the Intelligence platform is
+ * configured — real thread history lives in the database and must not be
+ * wiped by a client-side page load.
+ */
+export function handleClearThreads({
+  runtime,
+}: ThreadsHandlerParams): Response {
+  if (runtime.runner instanceof InMemoryAgentRunner) {
+    runtime.runner.clearThreads();
+  }
+  return new Response(null, { status: 204 });
+}
+
 export async function handleUpdateThread({
   runtime,
   request,

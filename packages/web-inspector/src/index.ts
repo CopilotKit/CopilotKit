@@ -350,6 +350,16 @@ export class WebInspectorElement extends LitElement {
   }
 
   private attachToCore(core: CopilotKitCore): void {
+    // Clear in-memory thread history on every new browser session so that a
+    // page refresh gives a clean slate without requiring a server restart.
+    // This is a no-op when the Intelligence platform is configured — real
+    // thread data lives in the database and must not be wiped on page load.
+    if (core.runtimeUrl) {
+      void fetch(`${core.runtimeUrl}/threads`, { method: "DELETE" }).catch(
+        () => undefined,
+      );
+    }
+
     this.runtimeStatus = core.runtimeConnectionStatus;
     this.coreProperties = core.properties;
     this.lastCoreError = null;
@@ -357,6 +367,15 @@ export class WebInspectorElement extends LitElement {
     this.coreSubscriber = {
       onRuntimeConnectionStatusChanged: ({ status }) => {
         this.runtimeStatus = status;
+        if (status === "connected") {
+          for (const agentId of this._ownedThreadStores.keys()) {
+            this.refreshOwnedThreadStore(agentId);
+          }
+        } else {
+          // Clear stale thread data immediately when the server goes away
+          this._threadsByAgent.clear();
+          this._threads = [];
+        }
         this.requestUpdate();
       },
       onPropertiesChanged: ({ properties }) => {
@@ -1331,6 +1350,11 @@ ${argsString}</pre
         color: #181c1f;
         margin: 0;
       }
+      /* Current Messages — force top alignment on both columns */
+      table tbody td {
+        vertical-align: top !important;
+      }
+
       /* Inputs/selects inside the lavender header need an explicit white bg */
       .cpk-section-header input,
       .cpk-section-header select {

@@ -413,4 +413,17 @@ export class InMemoryAgentRunner extends AgentRunner {
     // The last run's snapshot has the complete conversation history
     return store.historicRuns[store.historicRuns.length - 1]!.messages;
   }
+
+  /**
+   * Clears all in-memory thread history.
+   *
+   * Called by the inspector when a new browser session starts (i.e. on page
+   * load). This gives local development a "fresh slate" on every page refresh
+   * without requiring a server restart. It is intentionally not exposed for
+   * the Intelligence platform path — there, thread history is stored in a
+   * real database and should never be wiped this way.
+   */
+  clearThreads(): void {
+    GLOBAL_STORE.clear();
+  }
 }

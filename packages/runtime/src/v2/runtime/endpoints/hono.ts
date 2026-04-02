@@ -13,6 +13,7 @@ import {
 import { handleConnectAgent } from "../handlers/handle-connect";
 import { handleStopAgent } from "../handlers/handle-stop";
 import {
+  handleClearThreads,
   handleListThreads,
   handleSubscribeToThreads,
   handleUpdateThread,
@@ -244,6 +245,19 @@ export function createCopilotEndpoint({
 
       try {
         return await handleListThreads({ runtime, request });
+      } catch (error) {
+        logger.error(
+          { err: error, url: request.url, path: c.req.path },
+          "Error running request handler",
+        );
+        throw error;
+      }
+    })
+    .delete("/threads", async (c) => {
+      const request = c.get("modifiedRequest") || c.req.raw;
+
+      try {
+        return handleClearThreads({ runtime, request });
       } catch (error) {
         logger.error(
           { err: error, url: request.url, path: c.req.path },

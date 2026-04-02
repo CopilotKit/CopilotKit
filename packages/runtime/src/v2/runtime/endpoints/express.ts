@@ -15,6 +15,7 @@ import { handleStopAgent } from "../handlers/handle-stop";
 import { handleGetRuntimeInfo } from "../handlers/get-runtime-info";
 import { handleTranscribe } from "../handlers/handle-transcribe";
 import {
+  handleClearThreads,
   handleListThreads,
   handleSubscribeToThreads,
   handleUpdateThread,
@@ -110,6 +111,13 @@ export function createCopilotEndpointExpress({
     joinPath(normalizedBase, "/threads"),
     createRouteHandler(runtime, async ({ request }) => {
       return handleListThreads({ runtime, request });
+    }),
+  );
+
+  router.delete(
+    joinPath(normalizedBase, "/threads"),
+    createRouteHandler(runtime, async ({ request }) => {
+      return handleClearThreads({ runtime, request });
     }),
   );
 
