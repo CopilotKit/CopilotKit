@@ -5,7 +5,9 @@ import type { DevtoolsSnippet } from "../types.js";
 
 const STORAGE_KEY = "cpk:inspector:snippets";
 
-function makeSnippet(overrides: Partial<DevtoolsSnippet> = {}): DevtoolsSnippet {
+function makeSnippet(
+  overrides: Partial<DevtoolsSnippet> = {},
+): DevtoolsSnippet {
   return {
     id: "snippet-1",
     name: "Test Snippet",
@@ -74,9 +76,11 @@ describe("snippets", () => {
   });
 
   it("saveSnippet returns false on localStorage write error", () => {
-    const spy = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
-      throw new DOMException("QuotaExceededError");
-    });
+    const spy = vi
+      .spyOn(Storage.prototype, "setItem")
+      .mockImplementation(() => {
+        throw new DOMException("QuotaExceededError");
+      });
 
     const result = saveSnippet(makeSnippet());
     expect(result).toBe(false);
@@ -85,9 +89,11 @@ describe("snippets", () => {
   });
 
   it("deleteSnippet returns false on localStorage write error", () => {
-    const spy = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
-      throw new DOMException("QuotaExceededError");
-    });
+    const spy = vi
+      .spyOn(Storage.prototype, "setItem")
+      .mockImplementation(() => {
+        throw new DOMException("QuotaExceededError");
+      });
 
     const result = deleteSnippet("s1");
     expect(result).toBe(false);

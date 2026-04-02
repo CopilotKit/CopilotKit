@@ -11,7 +11,10 @@ type StripPrefix<TMap, TPrefix extends string> = {
     : never]: TMap[K];
 };
 
-export type CopilotKitEventSuffixes = StripPrefix<CopilotKitDevtoolsEvents, "copilotkit:">;
+export type CopilotKitEventSuffixes = StripPrefix<
+  CopilotKitDevtoolsEvents,
+  "copilotkit:"
+>;
 
 /**
  * Lazy wrapper around EventClient that defers instantiation of the underlying
@@ -56,7 +59,11 @@ class CopilotKitEventClient {
     handler: (e: { payload: CopilotKitEventSuffixes[K] }) => void,
     options?: { withEventTarget?: boolean },
   ): () => void {
-    return this.client.on(event, (e) => handler({ payload: e.payload }), options);
+    return this.client.on(
+      event,
+      (e) => handler({ payload: e.payload }),
+      options,
+    );
   }
 }
 
