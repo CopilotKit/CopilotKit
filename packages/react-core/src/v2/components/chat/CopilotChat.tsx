@@ -372,7 +372,20 @@ export function CopilotChat({
 
   const messages = useMemo(
     () => [...agent.messages],
-    [JSON.stringify(agent.messages)],
+    // Lightweight fingerprint instead of JSON.stringify(agent.messages):
+    //   - length + last-id catch new messages (O(1))
+    //   - last content covers text streaming (serializes only in-flight message)
+    //   - last tool-call args cover TOOL_CALL_CHUNK streaming (arguments change
+    //     on the same message without touching content or length)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [
+      agent.messages.length,
+      agent.messages.at(-1)?.id ?? "",
+      JSON.stringify(agent.messages.at(-1)?.content),
+      JSON.stringify(
+        agent.messages.at(-1)?.toolCalls?.at(-1)?.function?.arguments,
+      ),
+    ],
   );
 
   const finalProps = merge(mergedProps, {

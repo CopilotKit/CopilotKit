@@ -1,4 +1,4 @@
-import React, { useEffect, useReducer, useState } from "react";
+import React, { useEffect, useMemo, useReducer, useState } from "react";
 import { WithSlots, renderSlot, isReactComponentType } from "../../lib/slots";
 import CopilotChatAssistantMessage from "./CopilotChatAssistantMessage";
 import CopilotChatUserMessage from "./CopilotChatUserMessage";
@@ -363,9 +363,10 @@ export function CopilotChatMessageView({
   // Deduplicate messages by id, keeping the last occurrence of each.
   // During streaming, AbstractAgent.addMessage() can push duplicate messages
   // (same id) which causes React "duplicate key" warnings and rendering glitches.
-  const deduplicatedMessages = [
-    ...new Map(messages.map((m) => [m.id, m])).values(),
-  ];
+  const deduplicatedMessages = useMemo(
+    () => [...new Map(messages.map((m) => [m.id, m])).values()],
+    [messages],
+  );
 
   if (
     process.env.NODE_ENV === "development" &&
