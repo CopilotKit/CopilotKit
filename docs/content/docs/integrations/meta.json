@@ -3,6 +3,7 @@
   "pages": [
     "built-in-agent",
     "langgraph",
+    "claude-agent-sdk",
     "adk",
     "microsoft-agent-framework",
     "aws-strands",

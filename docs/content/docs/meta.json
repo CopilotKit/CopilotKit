@@ -6,6 +6,7 @@
     "reference",
     "---Integrations---",
     "...integrations",
+    "claude-agent-sdk",
     "a2a",
     "microsoft-agent-framework",
     "aws-strands",
