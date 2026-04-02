@@ -28,9 +28,39 @@ const BG_TEMPLATE = (innerTemplate: string) => `
   </div>
 `;
 
+const SAMPLE_THREADS = [
+  {
+    id: "c2f262b8-4b3e-4d9e-9d7c-8348c8cc0f67",
+    name: "Dog & Pony Show",
+    createdAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
+    updatedAt: new Date(Date.now() - 60 * 1000).toISOString(),
+    agentId: "research-agent",
+    createdById: "user-1",
+  },
+  {
+    id: "a1b2c3d4-0000-0000-0000-111111111111",
+    name: "Tech Talk",
+    createdAt: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(),
+    updatedAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+    agentId: "research-agent",
+    createdById: "user-1",
+  },
+  {
+    id: "b2c3d4e5-0000-0000-0000-222222222222",
+    name: null,
+    createdAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
+    updatedAt: new Date(Date.now() - 30 * 60 * 1000).toISOString(),
+    agentId: "chat-agent",
+    createdById: "user-2",
+  },
+];
+
 export const Default: Story = {
   render: () => ({
-    template: BG_TEMPLATE(`<cpk-thread-list></cpk-thread-list>`),
+    props: { threads: SAMPLE_THREADS },
+    template: BG_TEMPLATE(
+      `<cpk-thread-list [threads]="threads"></cpk-thread-list>`,
+    ),
   }),
 };
 

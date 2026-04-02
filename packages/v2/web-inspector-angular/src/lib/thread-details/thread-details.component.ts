@@ -13,14 +13,23 @@ import { DomSanitizer, SafeHtml } from "@angular/platform-browser";
 
 // ---- Types ------------------------------------------------------------------
 
-export interface FakeThread {
+// Mirrors ɵThread / ThreadRecord from @copilotkit/core — kept local to avoid
+// a direct package dependency from the Angular component.
+export interface InspectorThreadMeta {
   id: string;
   name: string | null;
-  summary: string | null;
   createdAt: string;
   updatedAt: string;
   agentId: string;
-  userId: string;
+  createdById: string;
+}
+
+interface ApiThreadMessage {
+  id: string;
+  role: string;
+  content?: string;
+  toolCalls?: Array<{ id: string; name: string; args: string }>;
+  toolCallId?: string;
 }
 
 export interface ConversationUser {
@@ -89,106 +98,7 @@ export interface FakeAguiEvent {
   payload: Record<string, unknown>;
 }
 
-// ---- Fake data --------------------------------------------------------------
-
-const FAKE_THREAD: FakeThread = {
-  id: "c2f262b8-4b3e-4d9e-9d7c-8348c8cc0f67",
-  name: "Tech Talk",
-  summary: "Exploring the future of AI and its impact on society",
-  createdAt: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(),
-  updatedAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-  agentId: "default",
-  userId: "b2d34f00-5a2c-4d9e-9d7c-8348c8cc0f67",
-};
-
-const FAKE_CONVERSATION: ConversationItem[] = [
-  {
-    id: "item-1",
-    type: "user",
-    content:
-      "Can you help me explore the future of AI? How do you think it will impact society?",
-    createdAt: new Date(Date.now() - 10 * 60 * 1000).toISOString(),
-  },
-  {
-    id: "item-2",
-    type: "tool_call",
-    toolName: "web_search",
-    toolCallId: "call_01J9Z4X8W2Y7TQ",
-    arguments: {
-      query: "Pulumi enterprise adoption 2025 developer sentiment",
-      recency_days: 90,
-      domains: ["reddit.com", "github.com", "news.ycombinator.com"],
-      max_results: 5,
-    },
-    result: {
-      id: "result_01J9Z4X8W2Y7TQ",
-      type: "tool_result",
-      tool_name: "web_search",
-      status: "success",
-      latency_ms: 842,
-      results: [
-        {
-          title: "Pulumi vs Terraform in 2025: Real-World Enterprise Feedback",
-          url: "https://news.ycombinator.com/item",
-        },
-      ],
-    },
-    createdAt: new Date(Date.now() - 9 * 60 * 1000).toISOString(),
-  },
-  {
-    id: "item-3",
-    type: "tool_call",
-    toolName: "image_search",
-    toolCallId: "call_02",
-    arguments: { query: "AI society impact visualization" },
-    result: { status: "success", results: [] },
-    createdAt: new Date(Date.now() - 9 * 60 * 1000).toISOString(),
-    groupId: "group-1",
-  },
-  {
-    id: "item-4",
-    type: "tool_call",
-    toolName: "video_search",
-    toolCallId: "call_03",
-    arguments: { query: "future of AI 2025" },
-    result: { status: "success", results: [] },
-    createdAt: new Date(Date.now() - 9 * 60 * 1000).toISOString(),
-    groupId: "group-1",
-  },
-  {
-    id: "item-5",
-    type: "tool_call",
-    toolName: "news_search",
-    toolCallId: "call_04",
-    arguments: { query: "AI news 2025" },
-    result: { status: "success", results: [] },
-    createdAt: new Date(Date.now() - 9 * 60 * 1000).toISOString(),
-    groupId: "group-1",
-  },
-  {
-    id: "item-6",
-    type: "reasoning",
-    duration: "7m and 36s",
-    createdAt: new Date(Date.now() - 8 * 60 * 1000).toISOString(),
-  },
-  {
-    id: "item-7",
-    type: "state_update",
-    createdAt: new Date(Date.now() - 5 * 60 * 1000).toISOString(),
-  },
-  {
-    id: "item-8",
-    type: "agent_responded",
-    createdAt: new Date(Date.now() - 4 * 60 * 1000).toISOString(),
-  },
-  {
-    id: "item-9",
-    type: "assistant",
-    content:
-      'AI will not be a single "event." It will be a layered shift across cognition, labor, institutions, and culture. The useful way to think about it is not "Will AI replace X?" but "What happens when intelligence becomes cheap, abundant, and embedded in everything?"',
-    createdAt: new Date(Date.now() - 4 * 60 * 1000).toISOString(),
-  },
-];
+// ---- Fake data (agent state + AG-UI events remain static until live data is wired) --
 
 const FAKE_AGENT_STATE = {
   thread_id: "c2f262b8-4b3e-4d9e-9d7c-8348c8cc0f67",
@@ -267,8 +177,8 @@ type Tab = "conversation" | "agent-state" | "ag-ui-events";
         <!-- Header -->
         <div class="cpk-td__header">
           <span class="cpk-td__title">
-            Thread Details<ng-container *ngIf="thread.name"
-              >: {{ thread.name }}</ng-container
+            Thread Details<ng-container *ngIf="thread()?.name"
+              >: {{ thread()?.name }}</ng-container
             >
           </span>
           <button class="cpk-td__close" (click)="onClose()" aria-label="Close">
@@ -281,29 +191,29 @@ type Tab = "conversation" | "agent-state" | "ag-ui-events";
           <div class="cpk-td__meta-row">
             <span class="cpk-td__meta-label">Title</span>
             <span class="cpk-td__meta-value">{{
-              thread.name ?? "Untitled"
+              thread()?.name ?? "Untitled"
             }}</span>
           </div>
           <div class="cpk-td__meta-row">
             <span class="cpk-td__meta-label">Created</span>
             <span class="cpk-td__meta-value">{{
-              thread.createdAt | date: "MMMM d, y 'at' h:mm a"
+              thread()?.createdAt | date: "MMMM d, y 'at' h:mm a"
             }}</span>
           </div>
           <div class="cpk-td__meta-row">
             <span class="cpk-td__meta-label">Updated</span>
             <span class="cpk-td__meta-value">{{
-              thread.updatedAt | date: "MMMM d, y 'at' h:mm a"
+              thread()?.updatedAt | date: "MMMM d, y 'at' h:mm a"
             }}</span>
           </div>
           <div class="cpk-td__meta-row">
             <span class="cpk-td__meta-label">Agent ID</span>
-            <span class="cpk-td__meta-value">{{ thread.agentId }}</span>
+            <span class="cpk-td__meta-value">{{ thread()?.agentId }}</span>
           </div>
           <div class="cpk-td__meta-row">
-            <span class="cpk-td__meta-label">User ID</span>
+            <span class="cpk-td__meta-label">Created By</span>
             <span class="cpk-td__meta-value cpk-td__meta-value--truncate">{{
-              thread.userId
+              thread()?.createdById
             }}</span>
           </div>
         </div>
@@ -325,6 +235,15 @@ type Tab = "conversation" | "agent-state" | "ag-ui-events";
         <div class="cpk-td__content">
           <!-- ── Conversation tab ── -->
           <ng-container *ngIf="activeTab() === 'conversation'">
+            <div *ngIf="isLoadingMessages()" class="cpk-td__status">
+              Loading messages…
+            </div>
+            <div
+              *ngIf="messagesError()"
+              class="cpk-td__status cpk-td__status--error"
+            >
+              {{ messagesError() }}
+            </div>
             <div *ngFor="let item of renderItems" class="cpk-td__item">
               <ng-container *ngIf="item.type === 'user'">
                 <div class="cpk-td__user-bubble">{{ item.content }}</div>
@@ -914,6 +833,16 @@ type Tab = "conversation" | "agent-state" | "ag-ui-events";
         color: rgba(24, 28, 31, 0.4);
       }
 
+      .cpk-td__status {
+        padding: 16px;
+        font-size: 12px;
+        color: #838389;
+        text-align: center;
+      }
+      .cpk-td__status--error {
+        color: #c0392b;
+      }
+
       .cpk-td__event-payload {
         margin: 0;
         font-family: "Fira Code", "Cascadia Code", ui-monospace, monospace;
@@ -932,6 +861,9 @@ export class ThreadDetailsComponent {
   private el = inject(ElementRef);
 
   threadId = input<string | null>(null);
+  thread = input<InspectorThreadMeta | null>(null);
+  runtimeUrl = input<string>("");
+  headers = input<Record<string, string>>({});
 
   readonly TAB_LIST: { id: Tab; label: string }[] = [
     { id: "conversation", label: "Conversation" },
@@ -941,26 +873,117 @@ export class ThreadDetailsComponent {
 
   activeTab = signal<Tab>("conversation");
   selectedToolCallId = signal<string | null>(null);
+  conversation = signal<ConversationItem[]>([]);
+  isLoadingMessages = signal(false);
+  messagesError = signal<string | null>(null);
 
-  // Fake data — replaced by real store data once CPK-7191 lands
-  thread: FakeThread = FAKE_THREAD;
-  conversation: ConversationItem[] = FAKE_CONVERSATION;
   agentState = FAKE_AGENT_STATE;
   aguiEvents: FakeAguiEvent[] = FAKE_AGUI_EVENTS;
 
   constructor() {
     effect(() => {
-      this.threadId();
+      const threadId = this.threadId();
       this.activeTab.set("conversation");
       this.selectedToolCallId.set(null);
+      if (threadId) {
+        void this.fetchMessages(threadId);
+      } else {
+        this.conversation.set([]);
+      }
     });
+  }
+
+  private async fetchMessages(threadId: string): Promise<void> {
+    const runtimeUrl = this.runtimeUrl();
+    if (!runtimeUrl) {
+      this.conversation.set([]);
+      return;
+    }
+    this.isLoadingMessages.set(true);
+    this.messagesError.set(null);
+    try {
+      const response = await fetch(
+        `${runtimeUrl}/threads/${encodeURIComponent(threadId)}/messages`,
+        { headers: { ...this.headers() } },
+      );
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const data = (await response.json()) as { messages: ApiThreadMessage[] };
+      this.conversation.set(this.mapMessages(data.messages));
+    } catch (err) {
+      this.messagesError.set(
+        err instanceof Error ? err.message : "Failed to load messages",
+      );
+      this.conversation.set([]);
+    } finally {
+      this.isLoadingMessages.set(false);
+    }
+  }
+
+  private mapMessages(messages: ApiThreadMessage[]): ConversationItem[] {
+    const items: ConversationItem[] = [];
+    const toolCallMap = new Map<string, ConversationToolCall>();
+
+    for (const msg of messages) {
+      if (msg.role === "user" && msg.content) {
+        items.push({
+          id: msg.id,
+          type: "user",
+          content: msg.content,
+          createdAt: "",
+        });
+      } else if (msg.role === "assistant") {
+        if (msg.toolCalls?.length) {
+          for (const tc of msg.toolCalls) {
+            let args: Record<string, unknown> = {};
+            try {
+              args = JSON.parse(tc.args) as Record<string, unknown>;
+            } catch {
+              // leave empty
+            }
+            const item: ConversationToolCall = {
+              id: tc.id,
+              type: "tool_call",
+              toolName: tc.name,
+              toolCallId: tc.id,
+              arguments: args,
+              result: null,
+              createdAt: "",
+            };
+            toolCallMap.set(tc.id, item);
+            items.push(item);
+          }
+        }
+        if (msg.content) {
+          items.push({
+            id: msg.id,
+            type: "assistant",
+            content: msg.content,
+            createdAt: "",
+          });
+        }
+      } else if (msg.role === "tool" && msg.toolCallId) {
+        const tc = toolCallMap.get(msg.toolCallId);
+        if (tc) {
+          try {
+            tc.result = JSON.parse(msg.content ?? "{}") as Record<
+              string,
+              unknown
+            >;
+          } catch {
+            tc.result = {};
+          }
+        }
+      }
+    }
+
+    return items;
   }
 
   get selectedToolCall(): ConversationToolCall | null {
     const id = this.selectedToolCallId();
     if (!id) return null;
     return (
-      this.conversation.find(
+      this.conversation().find(
         (item): item is ConversationToolCall =>
           item.type === "tool_call" && item.id === id,
       ) ?? null
@@ -978,10 +1001,11 @@ export class ThreadDetailsComponent {
   }
 
   get renderItems(): RenderItem[] {
+    const items = this.conversation();
     const result: RenderItem[] = [];
     const seen = new Set<string>();
 
-    for (const item of this.conversation) {
+    for (const item of items) {
       if (item.type === "agent_responded") continue;
       if (item.type !== "tool_call" || !item.groupId) {
         result.push(item);
@@ -992,7 +1016,7 @@ export class ThreadDetailsComponent {
       const group: ToolCallGroup = {
         type: "tool_call_group",
         id: item.groupId,
-        items: this.conversation.filter(
+        items: items.filter(
           (i): i is ConversationToolCall =>
             i.type === "tool_call" && i.groupId === item.groupId,
         ),

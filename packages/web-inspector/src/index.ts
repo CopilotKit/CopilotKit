@@ -11,6 +11,9 @@ import {
   CopilotKitCoreRuntimeConnectionStatus,
   type CopilotKitCoreSubscriber,
   type CopilotKitCoreErrorCode,
+  type ɵThreadStore,
+  type ɵThread,
+  ɵselectThreads,
 } from "@copilotkit/core";
 import type { AbstractAgent, AgentSubscriber } from "@ag-ui/client";
 import type {
@@ -196,6 +199,9 @@ export class WebInspectorElement extends LitElement {
   private ignoreNextButtonClick = false;
   private selectedMenu: MenuKey = "ag-ui-events";
   private selectedThreadId: string | null = null;
+  private _threads: ɵThread[] = [];
+  private _threadStoreSubscriptions: Map<string, () => void> = new Map();
+  private _threadsByAgent: Map<string, ɵThread[]> = new Map();
   private contextMenuOpen = false;
   private dockMode: DockMode = "floating";
   private previousBodyMargins: { left: string; bottom: string } | null = null;
@@ -273,6 +279,29 @@ export class WebInspectorElement extends LitElement {
     { key: "threads", label: "Threads", icon: "MessageSquare" },
   ];
 
+  private subscribeToThreadStore(agentId: string, store: ɵThreadStore): void {
+    if (this._threadStoreSubscriptions.has(agentId)) return;
+    const sub = store.select(ɵselectThreads).subscribe((threads) => {
+      this._threadsByAgent.set(agentId, threads as ɵThread[]);
+      this._threads = Array.from(this._threadsByAgent.values()).flat();
+      this.requestUpdate();
+    });
+    this._threadStoreSubscriptions.set(agentId, () => sub.unsubscribe());
+    // Populate immediately from current state
+    const threads = ɵselectThreads(store.getState());
+    this._threadsByAgent.set(agentId, threads);
+    this._threads = Array.from(this._threadsByAgent.values()).flat();
+  }
+
+  private teardownThreadStoreSubscriptions(): void {
+    for (const unsub of this._threadStoreSubscriptions.values()) {
+      unsub();
+    }
+    this._threadStoreSubscriptions.clear();
+    this._threadsByAgent.clear();
+    this._threads = [];
+  }
+
   private attachToCore(core: CopilotKitCore): void {
     this.runtimeStatus = core.runtimeConnectionStatus;
     this.coreProperties = core.properties;
@@ -298,10 +327,29 @@ export class WebInspectorElement extends LitElement {
         this.contextStore = this.normalizeContextStore(context);
         this.requestUpdate();
       },
+      onThreadStoreRegistered: ({ agentId, store }) => {
+        this.subscribeToThreadStore(agentId, store);
+        this.requestUpdate();
+      },
+      onThreadStoreUnregistered: ({ agentId }) => {
+        const unsub = this._threadStoreSubscriptions.get(agentId);
+        if (unsub) {
+          unsub();
+          this._threadStoreSubscriptions.delete(agentId);
+        }
+        this._threadsByAgent.delete(agentId);
+        this._threads = Array.from(this._threadsByAgent.values()).flat();
+        this.requestUpdate();
+      },
     } satisfies CopilotKitCoreSubscriber;
 
     this.coreUnsubscribe = core.subscribe(this.coreSubscriber).unsubscribe;
     this.processAgentsChanged(core.agents);
+
+    // Subscribe to any already-registered thread stores
+    for (const [agentId, store] of Object.entries(core.getThreadStores())) {
+      this.subscribeToThreadStore(agentId, store);
+    }
 
     // Initialize context from core
     if (core.context) {
@@ -321,6 +369,7 @@ export class WebInspectorElement extends LitElement {
     this.cachedTools = [];
     this.toolSignature = "";
     this.teardownAgentSubscriptions();
+    this.teardownThreadStoreSubscriptions();
   }
 
   private teardownAgentSubscriptions(): void {
@@ -1145,6 +1194,21 @@ ${argsString}</pre
         background: #ffffff;
         overflow: hidden;
       }
+
+      /* ── Agent icon bubble ───────────────────────────────────────────── */
+      .cpk-agent-icon {
+        background-color: #f0f0f4 !important;
+        color: #57575b !important;
+      }
+
+      /* ── Agent stat cards ────────────────────────────────────────────── */
+      .cpk-stat-card {
+        background-color: #ffffff !important;
+        border: 1px solid #dbdbe5 !important;
+      }
+      button.cpk-stat-card:hover {
+        background-color: #f7f7f9 !important;
+      }
       .cpk-section-header {
         background: #e8edf5;
         border-bottom: 1px solid rgba(0, 0, 0, 0.08);
@@ -1352,8 +1416,7 @@ ${argsString}</pre
       span[class*="bg-blue-100"]:not([class*="text-blue-800"]) {
         background-color: rgba(190, 194, 255, 0.15) !important;
       }
-      span[class*="text-blue-600"],
-      div[class*="text-blue-600"] {
+      span[class*="text-blue-600"] {
         color: #757cf2 !important;
       }
       /* Running badge: emerald → mint */
@@ -2947,10 +3010,16 @@ ${argsString}</pre
   }
 
   private renderThreadsView() {
+    const selectedThread =
+      this.selectedThreadId != null
+        ? (this._threads.find((t) => t.id === this.selectedThreadId) ?? null)
+        : null;
+
     return html`
       <div style="position:relative;height:100%;overflow:hidden;">
         <div style="overflow-y:auto;padding:16px;">
           <cpk-thread-list
+            .threads=${this._threads}
             @threadSelected=${(e: CustomEvent<string>) => {
               this.selectedThreadId = e.detail;
               this.requestUpdate();
@@ -2968,6 +3037,9 @@ ${argsString}</pre
               <cpk-thread-details
                 style="height:100%;display:block;"
                 .threadId=${this.selectedThreadId}
+                .thread=${selectedThread}
+                .runtimeUrl=${this._core?.runtimeUrl ?? ""}
+                .headers=${this._core?.headers ?? {}}
               ></cpk-thread-details>
             </div>`
           : nothing}
@@ -3301,7 +3373,7 @@ ${prettyEvent}</pre
           <div class="flex items-start justify-between mb-4">
             <div class="flex items-center gap-3">
               <div
-                class="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-100 text-blue-600"
+                class="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-100 text-blue-600 cpk-agent-icon"
               >
                 ${this.renderIcon("Bot")}
               </div>
@@ -3333,7 +3405,7 @@ ${prettyEvent}</pre
           <div class="grid grid-cols-2 gap-4 md:grid-cols-4">
             <button
               type="button"
-              class="rounded-md bg-gray-50 px-3 py-2 text-left transition hover:bg-gray-100 cursor-pointer overflow-hidden"
+              class="rounded-md bg-gray-50 px-3 py-2 text-left transition hover:bg-gray-100 cursor-pointer overflow-hidden cpk-stat-card"
               @click=${() => this.handleMenuSelect("ag-ui-events")}
               title="View all events in AG-UI Events"
             >
@@ -3344,7 +3416,9 @@ ${prettyEvent}</pre
                 ${stats.totalEvents}
               </div>
             </button>
-            <div class="rounded-md bg-gray-50 px-3 py-2 overflow-hidden">
+            <div
+              class="rounded-md bg-gray-50 px-3 py-2 overflow-hidden cpk-stat-card"
+            >
               <div class="truncate whitespace-nowrap text-xs text-gray-600">
                 Messages
               </div>
@@ -3352,7 +3426,9 @@ ${prettyEvent}</pre
                 ${stats.messages}
               </div>
             </div>
-            <div class="rounded-md bg-gray-50 px-3 py-2 overflow-hidden">
+            <div
+              class="rounded-md bg-gray-50 px-3 py-2 overflow-hidden cpk-stat-card"
+            >
               <div class="truncate whitespace-nowrap text-xs text-gray-600">
                 Tool Calls
               </div>
@@ -3360,7 +3436,9 @@ ${prettyEvent}</pre
                 ${stats.toolCalls}
               </div>
             </div>
-            <div class="rounded-md bg-gray-50 px-3 py-2 overflow-hidden">
+            <div
+              class="rounded-md bg-gray-50 px-3 py-2 overflow-hidden cpk-stat-card"
+            >
               <div class="truncate whitespace-nowrap text-xs text-gray-600">
                 Errors
               </div>

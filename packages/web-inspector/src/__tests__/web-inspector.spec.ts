@@ -68,6 +68,7 @@ type MockCore = {
   subscribe: (subscriber: CopilotKitCoreSubscriber) => {
     unsubscribe: () => void;
   };
+  getThreadStores: () => Record<string, never>;
 };
 
 function createMockCore(initialAgents: Record<string, AbstractAgent> = {}) {
@@ -80,6 +81,9 @@ function createMockCore(initialAgents: Record<string, AbstractAgent> = {}) {
     subscribe(subscriber: CopilotKitCoreSubscriber) {
       subscribers.add(subscriber);
       return { unsubscribe: () => subscribers.delete(subscriber) };
+    },
+    getThreadStores() {
+      return {};
     },
   };
 
