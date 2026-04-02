@@ -5,6 +5,7 @@ import { useAgent, UseAgentUpdate } from "../use-agent";
 import { useCopilotKit } from "../../providers/CopilotKitProvider";
 import { MockStepwiseAgent } from "../../__tests__/utils/test-helpers";
 import { CopilotKitCoreRuntimeConnectionStatus } from "@copilotkit/core";
+import type { Message } from "@ag-ui/core";
 
 vi.mock("../../providers/CopilotKitProvider", () => ({
   useCopilotKit: vi.fn(),
@@ -16,6 +17,31 @@ vi.mock("../../providers/CopilotChatConfigurationProvider", () => ({
 
 const mockUseCopilotKit = useCopilotKit as ReturnType<typeof vi.fn>;
 
+// ---------------------------------------------------------------------------
+// Message factories — eliminates `as any` on every message literal
+// ---------------------------------------------------------------------------
+
+function userMsg(id: string, content = `msg-${id}`): Message {
+  return { id, role: "user" as const, content };
+}
+
+function assistantMsg(id: string, content = `msg-${id}`): Message {
+  return { id, role: "assistant" as const, content };
+}
+
+/** Create N alternating user/assistant messages (ids "1" … "N") */
+function createMessages(count: number): Message[] {
+  return Array.from({ length: count }, (_, i) =>
+    i % 2 === 0
+      ? userMsg(String(i + 1), `tok${i + 1}`)
+      : assistantMsg(String(i + 1), `tok${i + 1}`),
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Subscriber notification helpers
+// ---------------------------------------------------------------------------
+
 /** Helper: fire onMessagesChanged on all agent subscribers */
 function notifyMessagesChanged(agent: MockStepwiseAgent) {
   agent.subscribers.forEach((s) =>
@@ -23,9 +49,24 @@ function notifyMessagesChanged(agent: MockStepwiseAgent) {
       messages: agent.messages,
       state: agent.state,
       agent,
-    } as any),
+    }),
   );
 }
+
+/** Helper: fire onStateChanged on all agent subscribers */
+function notifyStateChanged(agent: MockStepwiseAgent) {
+  agent.subscribers.forEach((s) =>
+    s.onStateChanged?.({
+      state: agent.state,
+      messages: agent.messages,
+      agent,
+    }),
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Test component factory
+// ---------------------------------------------------------------------------
 
 /** Helper: create a test component that tracks render count */
 function createTestComponent(
@@ -91,7 +132,7 @@ describe("useAgent throttleMs", () => {
     expect(screen.getByTestId("count").textContent).toBe("0");
 
     act(() => {
-      mockAgent.messages = [{ id: "1", role: "user", content: "hello" } as any];
+      mockAgent.messages = [userMsg("1", "hello")];
       notifyMessagesChanged(mockAgent);
     });
 
@@ -105,7 +146,7 @@ describe("useAgent throttleMs", () => {
     expect(screen.getByTestId("count").textContent).toBe("0");
 
     act(() => {
-      mockAgent.messages = [{ id: "1", role: "user", content: "hello" } as any];
+      mockAgent.messages = [userMsg("1", "hello")];
       notifyMessagesChanged(mockAgent);
     });
 
@@ -113,10 +154,7 @@ describe("useAgent throttleMs", () => {
 
     // Second notification also fires immediately (no throttle)
     act(() => {
-      mockAgent.messages = [
-        { id: "1", role: "user", content: "hello" } as any,
-        { id: "2", role: "assistant", content: "world" } as any,
-      ];
+      mockAgent.messages = [userMsg("1", "hello"), assistantMsg("2", "world")];
       notifyMessagesChanged(mockAgent);
     });
 
@@ -130,7 +168,7 @@ describe("useAgent throttleMs", () => {
     expect(screen.getByTestId("count").textContent).toBe("0");
 
     act(() => {
-      mockAgent.messages = [{ id: "1", role: "user", content: "hello" } as any];
+      mockAgent.messages = [userMsg("1", "hello")];
       notifyMessagesChanged(mockAgent);
     });
 
@@ -144,7 +182,7 @@ describe("useAgent throttleMs", () => {
 
     // First notification — leading edge, fires immediately
     act(() => {
-      mockAgent.messages = [{ id: "1", role: "user", content: "a" } as any];
+      mockAgent.messages = [userMsg("1", "a")];
       notifyMessagesChanged(mockAgent);
     });
     expect(screen.getByTestId("count").textContent).toBe("1");
@@ -152,10 +190,7 @@ describe("useAgent throttleMs", () => {
     // Second notification 10ms later — within throttle window
     act(() => {
       vi.advanceTimersByTime(10);
-      mockAgent.messages = [
-        { id: "1", role: "user", content: "a" } as any,
-        { id: "2", role: "assistant", content: "b" } as any,
-      ];
+      mockAgent.messages = [userMsg("1", "a"), assistantMsg("2", "b")];
       notifyMessagesChanged(mockAgent);
     });
 
@@ -178,7 +213,7 @@ describe("useAgent throttleMs", () => {
 
     // Leading edge — fires immediately
     act(() => {
-      mockAgent.messages = [{ id: "1", role: "user", content: "tok1" } as any];
+      mockAgent.messages = [userMsg("1", "tok1")];
       notifyMessagesChanged(mockAgent);
     });
     expect(renderCount.current).toBe(rendersAfterMount + 1);
@@ -187,11 +222,7 @@ describe("useAgent throttleMs", () => {
     for (let i = 2; i <= 11; i++) {
       act(() => {
         vi.advanceTimersByTime(1);
-        mockAgent.messages = Array.from({ length: i }, (_, j) => ({
-          id: String(j + 1),
-          role: j % 2 === 0 ? "user" : "assistant",
-          content: `tok${j + 1}`,
-        })) as any;
+        mockAgent.messages = createMessages(i);
         notifyMessagesChanged(mockAgent);
       });
     }
@@ -215,7 +246,7 @@ describe("useAgent throttleMs", () => {
 
     // Leading edge
     act(() => {
-      mockAgent.messages = [{ id: "1", role: "user", content: "a" } as any];
+      mockAgent.messages = [userMsg("1", "a")];
       notifyMessagesChanged(mockAgent);
     });
     expect(screen.getByTestId("count").textContent).toBe("1");
@@ -223,10 +254,7 @@ describe("useAgent throttleMs", () => {
     // Second notification — deferred
     act(() => {
       vi.advanceTimersByTime(10);
-      mockAgent.messages = [
-        { id: "1", role: "user", content: "a" } as any,
-        { id: "2", role: "assistant", content: "b" } as any,
-      ];
+      mockAgent.messages = [userMsg("1", "a"), assistantMsg("2", "b")];
       notifyMessagesChanged(mockAgent);
     });
 
@@ -240,9 +268,9 @@ describe("useAgent throttleMs", () => {
     act(() => {
       vi.advanceTimersByTime(200);
       mockAgent.messages = [
-        { id: "1", role: "user", content: "a" } as any,
-        { id: "2", role: "assistant", content: "b" } as any,
-        { id: "3", role: "user", content: "c" } as any,
+        userMsg("1", "a"),
+        assistantMsg("2", "b"),
+        userMsg("3", "c"),
       ];
       notifyMessagesChanged(mockAgent);
     });
@@ -262,7 +290,7 @@ describe("useAgent throttleMs", () => {
 
     // Fire onMessagesChanged to start the throttle window
     act(() => {
-      mockAgent.messages = [{ id: "1", role: "user", content: "a" } as any];
+      mockAgent.messages = [userMsg("1", "a")];
       notifyMessagesChanged(mockAgent);
     });
 
@@ -270,13 +298,7 @@ describe("useAgent throttleMs", () => {
     act(() => {
       vi.advanceTimersByTime(10);
       mockAgent.state = { count: 42 };
-      mockAgent.subscribers.forEach((s) =>
-        s.onStateChanged?.({
-          state: mockAgent.state,
-          messages: mockAgent.messages,
-          agent: mockAgent,
-        } as any),
-      );
+      notifyStateChanged(mockAgent);
     });
 
     expect(screen.getByTestId("state").textContent).toBe('{"count":42}');
@@ -290,17 +312,14 @@ describe("useAgent throttleMs", () => {
 
     // Leading edge — fires immediately
     act(() => {
-      mockAgent.messages = [{ id: "1", role: "user", content: "a" } as any];
+      mockAgent.messages = [userMsg("1", "a")];
       notifyMessagesChanged(mockAgent);
     });
 
     // Second notification — schedules trailing timer
     act(() => {
       vi.advanceTimersByTime(10);
-      mockAgent.messages = [
-        { id: "1", role: "user", content: "a" } as any,
-        { id: "2", role: "assistant", content: "b" } as any,
-      ];
+      mockAgent.messages = [userMsg("1", "a"), assistantMsg("2", "b")];
       notifyMessagesChanged(mockAgent);
     });
 
@@ -328,20 +347,14 @@ describe("useAgent throttleMs", () => {
     // Only onStateChanged is subscribed — should fire immediately
     act(() => {
       mockAgent.state = { value: "test" };
-      mockAgent.subscribers.forEach((s) =>
-        s.onStateChanged?.({
-          state: mockAgent.state,
-          messages: mockAgent.messages,
-          agent: mockAgent,
-        } as any),
-      );
+      notifyStateChanged(mockAgent);
     });
 
     expect(screen.getByTestId("state").textContent).toBe('{"value":"test"}');
 
     // No onMessagesChanged subscription should exist
     act(() => {
-      mockAgent.messages = [{ id: "1", role: "user", content: "a" } as any];
+      mockAgent.messages = [userMsg("1", "a")];
       notifyMessagesChanged(mockAgent);
     });
 
@@ -373,16 +386,13 @@ describe("useAgent throttleMs", () => {
 
       // Should behave as unthrottled — every notification fires immediately
       act(() => {
-        mockAgent.messages = [{ id: "1", role: "user", content: "a" } as any];
+        mockAgent.messages = [userMsg("1", "a")];
         notifyMessagesChanged(mockAgent);
       });
       expect(screen.getByTestId("count").textContent).toBe("1");
 
       act(() => {
-        mockAgent.messages = [
-          { id: "1", role: "user", content: "a" } as any,
-          { id: "2", role: "assistant", content: "b" } as any,
-        ];
+        mockAgent.messages = [userMsg("1", "a"), assistantMsg("2", "b")];
         notifyMessagesChanged(mockAgent);
       });
       expect(screen.getByTestId("count").textContent).toBe("2");
@@ -395,7 +405,7 @@ describe("useAgent throttleMs", () => {
 
     // Leading edge
     act(() => {
-      mockAgent.messages = [{ id: "1", role: "user", content: "A" } as any];
+      mockAgent.messages = [userMsg("1", "A")];
       notifyMessagesChanged(mockAgent);
     });
     expect(screen.getByTestId("count").textContent).toBe("1");
@@ -403,19 +413,16 @@ describe("useAgent throttleMs", () => {
     // Multiple deferred notifications with increasing messages
     act(() => {
       vi.advanceTimersByTime(20);
-      mockAgent.messages = [
-        { id: "1", role: "user", content: "A" } as any,
-        { id: "2", role: "assistant", content: "B" } as any,
-      ];
+      mockAgent.messages = [userMsg("1", "A"), assistantMsg("2", "B")];
       notifyMessagesChanged(mockAgent);
     });
 
     act(() => {
       vi.advanceTimersByTime(20);
       mockAgent.messages = [
-        { id: "1", role: "user", content: "A" } as any,
-        { id: "2", role: "assistant", content: "B" } as any,
-        { id: "3", role: "assistant", content: "C" } as any,
+        userMsg("1", "A"),
+        assistantMsg("2", "B"),
+        assistantMsg("3", "C"),
       ];
       notifyMessagesChanged(mockAgent);
     });
@@ -436,7 +443,7 @@ describe("useAgent throttleMs", () => {
 
     // Leading edge at T=0
     act(() => {
-      mockAgent.messages = [{ id: "1", role: "user", content: "a" } as any];
+      mockAgent.messages = [userMsg("1", "a")];
       notifyMessagesChanged(mockAgent);
     });
     expect(screen.getByTestId("count").textContent).toBe("1");
@@ -444,10 +451,7 @@ describe("useAgent throttleMs", () => {
     // Deferred notification at T=40
     act(() => {
       vi.advanceTimersByTime(40);
-      mockAgent.messages = [
-        { id: "1", role: "user", content: "a" } as any,
-        { id: "2", role: "assistant", content: "b" } as any,
-      ];
+      mockAgent.messages = [userMsg("1", "a"), assistantMsg("2", "b")];
       notifyMessagesChanged(mockAgent);
     });
     expect(screen.getByTestId("count").textContent).toBe("1");
@@ -479,7 +483,7 @@ describe("useAgent throttleMs", () => {
 
     // Leading edge
     act(() => {
-      mockAgent.messages = [{ id: "1", role: "user", content: "a" } as any];
+      mockAgent.messages = [userMsg("1", "a")];
       notifyMessagesChanged(mockAgent);
     });
     expect(screen.getByTestId("count").textContent).toBe("1");
@@ -487,10 +491,7 @@ describe("useAgent throttleMs", () => {
     // Deferred notification — pending timer set for 200ms
     act(() => {
       vi.advanceTimersByTime(50);
-      mockAgent.messages = [
-        { id: "1", role: "user", content: "a" } as any,
-        { id: "2", role: "assistant", content: "b" } as any,
-      ];
+      mockAgent.messages = [userMsg("1", "a"), assistantMsg("2", "b")];
       notifyMessagesChanged(mockAgent);
     });
     expect(screen.getByTestId("count").textContent).toBe("1");
@@ -501,9 +502,9 @@ describe("useAgent throttleMs", () => {
     // New notification fires as leading edge under the new 50ms throttle
     act(() => {
       mockAgent.messages = [
-        { id: "1", role: "user", content: "a" } as any,
-        { id: "2", role: "assistant", content: "b" } as any,
-        { id: "3", role: "user", content: "c" } as any,
+        userMsg("1", "a"),
+        assistantMsg("2", "b"),
+        userMsg("3", "c"),
       ];
       notifyMessagesChanged(mockAgent);
     });
