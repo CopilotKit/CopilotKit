@@ -656,9 +656,61 @@ export function convertToolDefinitionsToVercelAITools(
 }
 
 /**
- * Configuration for BuiltInAgent
+ * Context passed to the user-supplied factory function in factory mode.
  */
-export interface BuiltInAgentConfiguration {
+export interface AgentFactoryContext {
+  input: RunAgentInput;
+  abortController: AbortController;
+  abortSignal: AbortSignal;
+}
+
+/**
+ * Factory config for AI SDK backend.
+ * The factory must return an object with a `fullStream` async iterable
+ * (compatible with the result of `streamText()` — only `fullStream` is consumed).
+ */
+export interface BuiltInAgentAISDKFactoryConfig {
+  type: "aisdk";
+  factory: (
+    ctx: AgentFactoryContext,
+  ) =>
+    | { fullStream: AsyncIterable<unknown> }
+    | Promise<{ fullStream: AsyncIterable<unknown> }>;
+}
+
+/**
+ * Factory config for TanStack AI backend.
+ * The factory must return an async iterable of TanStack AI stream chunks.
+ */
+export interface BuiltInAgentTanStackFactoryConfig {
+  type: "tanstack";
+  factory: (
+    ctx: AgentFactoryContext,
+  ) => AsyncIterable<unknown> | Promise<AsyncIterable<unknown>>;
+}
+
+/**
+ * Factory config for a custom backend that directly yields AG-UI events.
+ */
+export interface BuiltInAgentCustomFactoryConfig {
+  type: "custom";
+  factory: (
+    ctx: AgentFactoryContext,
+  ) => AsyncIterable<BaseEvent> | Promise<AsyncIterable<BaseEvent>>;
+}
+
+/**
+ * Union of all factory-mode configurations.
+ */
+export type BuiltInAgentFactoryConfig =
+  | BuiltInAgentAISDKFactoryConfig
+  | BuiltInAgentTanStackFactoryConfig
+  | BuiltInAgentCustomFactoryConfig;
+
+/**
+ * Classic config — BuiltInAgent handles streamText, tools, MCP, state tools, prompt building.
+ */
+export interface BuiltInAgentClassicConfig {
   /**
    * The model to use
    */
@@ -758,6 +810,26 @@ export interface BuiltInAgentConfiguration {
    * Example: `{ openai: { reasoningEffort: "high" } }`
    */
   providerOptions?: Record<string, any>;
+}
+
+/**
+ * Configuration for BuiltInAgent.
+ *
+ * Two modes:
+ * - **Classic** (model + params): BuiltInAgent handles everything — streamText, tools, MCP, state tools.
+ * - **Factory** (type + factory): You own the LLM call. BuiltInAgent handles lifecycle only.
+ */
+export type BuiltInAgentConfiguration =
+  | BuiltInAgentClassicConfig
+  | BuiltInAgentFactoryConfig;
+
+/**
+ * Type guard: returns true if this is a factory-mode config.
+ */
+function isFactoryConfig(
+  config: BuiltInAgentConfiguration,
+): config is BuiltInAgentFactoryConfig {
+  return "factory" in config;
 }
 
 export class BuiltInAgent extends AbstractAgent {
@@ -1437,7 +1509,8 @@ export class BasicAgent extends BuiltInAgent {
   }
 }
 
-export type BasicAgentConfiguration = BuiltInAgentConfiguration;
+/** @deprecated Use BuiltInAgentClassicConfig instead */
+export type BasicAgentConfiguration = BuiltInAgentClassicConfig;
 
-export * from "./agent";
+export { Agent, type AgentConfig, type AISDKAgentConfig, type TanStackAgentConfig, type CustomAgentConfig } from "./agent";
 export * from "./converters";
