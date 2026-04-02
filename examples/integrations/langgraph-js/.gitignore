@@ -2,7 +2,7 @@
 
 # dependencies
 node_modules
-/.pnp
+.pnp
 .pnp.*
 .yarn/*
 !.yarn/patches
@@ -11,17 +11,14 @@ node_modules
 !.yarn/versions
 
 # testing
-/coverage
+coverage
 
 # next.js
 .next/
-/out/
-
-# turbo
-.turbo
+out/
 
 # production
-/build
+build
 
 # misc
 .DS_Store
@@ -35,6 +32,7 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+!.env.example
 
 # vercel
 .vercel
@@ -45,6 +43,14 @@ next-env.d.ts
 
 # lock files
 package-lock.json
-pnpm-lock.yaml
 yarn.lock
 bun.lockb
+
+# LangGraph API
+.langgraph_api
+
+# Turbo
+.turbo
+
+# Tools
+.claude

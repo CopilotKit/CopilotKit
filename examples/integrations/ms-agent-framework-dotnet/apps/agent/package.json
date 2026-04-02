@@ -1,0 +1,8 @@
+{
+  "name": "@repo/agent",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "dotnet run"
+  }
+}

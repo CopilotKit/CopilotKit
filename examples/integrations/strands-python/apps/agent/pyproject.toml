@@ -1,0 +1,27 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "strands-agent"
+version = "0.1.0"
+description = "An AWS Strands agent for CopilotKit"
+requires-python = ">=3.12, <3.14"
+dependencies = [
+    "strands-agents[OpenAI]>=1.15.0",
+    "strands-agents-tools>=0.2.14",
+    "ag-ui-strands>=0.1.2",
+    "ag-ui-protocol>=0.1.5",
+    "fastapi>=0.115.12",
+    "uvicorn>=0.34.3",
+    "python-dotenv>=1.0.0",
+]
+
+[tool.hatch.build.targets.sdist]
+include = ["main.py", "src/"]
+
+[tool.hatch.build.targets.wheel]
+include = ["main.py", "src/"]
+
+[project.scripts]
+dev = "main:main"

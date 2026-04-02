@@ -1,38 +1,23 @@
 {
-  "name": "langgraph-python-starter",
-  "version": "0.1.0",
+  "name": "copilotkit-langgraph-fastapi-template",
   "private": true,
   "scripts": {
-    "dev": "concurrently \"npm run dev:ui\" \"npm run dev:agent\" --names ui,agent --prefix-colors blue,green --kill-others",
-    "dev:debug": "LOG_LEVEL=debug npm run dev",
-    "dev:agent": "cd agent && uv run main.py",
-    "dev:ui": "next dev --turbopack",
-    "build": "next build",
-    "start": "next start",
-    "lint": "eslint .",
-    "install:agent": "cd agent && uv sync",
-    "postinstall": "npm run install:agent"
-  },
-  "dependencies": {
-    "@copilotkit/react-core": "1.52.1",
-    "@copilotkit/react-ui": "1.52.1",
-    "@copilotkit/runtime": "1.52.1",
-    "next": "16.1.1",
-    "react": "^19.2.1",
-    "react-dom": "^19.2.1",
-    "shiki": "^3.13.0",
-    "zod": "^3.24.4"
+    "dev": "turbo run dev",
+    "dev:app": "turbo run dev --filter='app'",
+    "dev:agent": "turbo run dev --filter='agent'",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "clean": "turbo run clean",
+    "install:agent": "cd apps/agent && uv sync"
   },
   "devDependencies": {
-    "@tailwindcss/postcss": "^4",
-    "@types/node": "^20",
-    "@types/react": "^19",
-    "@types/react-dom": "^19",
-    "concurrently": "^9.1.2",
-    "eslint": "^9",
-    "eslint-config-next": "16.1.1",
-    "tailwindcss": "^4",
-    "tsx": "^4.20.6",
-    "typescript": "^5"
+    "turbo": "^2.5.4",
+    "concurrently": "^9.1.2"
+  },
+  "packageManager": "pnpm@9.0.0",
+  "pnpm": {
+    "overrides": {
+      "esbuild": "^0.27.3"
+    }
   }
 }
