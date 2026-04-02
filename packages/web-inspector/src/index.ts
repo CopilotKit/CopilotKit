@@ -983,6 +983,7 @@ ${argsString}</pre
         z-index: 2147483646;
         display: block;
         will-change: transform;
+        font-family: "Plus Jakarta Sans", system-ui, sans-serif;
       }
 
       :host([data-transitioning="true"]) {
@@ -1038,13 +1039,14 @@ ${argsString}</pre
         left: 50%;
         transform: translateX(-50%) translateY(-4px);
         white-space: nowrap;
-        background: rgba(17, 24, 39, 0.95);
+        background: rgba(1, 5, 7, 0.95);
         color: white;
         padding: 4px 8px;
         border-radius: 6px;
         font-size: 10px;
+        font-family: "Plus Jakarta Sans", system-ui, sans-serif;
         line-height: 1.2;
-        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+        box-shadow: 0 4px 10px rgba(1, 5, 7, 0.18);
         opacity: 0;
         pointer-events: none;
         transition:
@@ -1065,18 +1067,19 @@ ${argsString}</pre
         min-width: 300px;
         max-width: 300px;
         background: white;
-        color: #111827;
+        color: #010507;
         font-size: 13px;
+        font-family: "Plus Jakarta Sans", system-ui, sans-serif;
         line-height: 1.4;
         border-radius: 12px;
-        box-shadow: 0 12px 28px rgba(15, 23, 42, 0.22);
+        box-shadow: 0 12px 28px rgba(1, 5, 7, 0.12);
         padding: 10px 12px;
         display: inline-flex;
         align-items: flex-start;
         gap: 8px;
         z-index: 4500;
         animation: fade-slide-in 160ms ease;
-        border: 1px solid rgba(148, 163, 184, 0.35);
+        border: 1px solid rgba(219, 219, 229, 0.4);
         white-space: normal;
         word-break: break-word;
         text-align: left;
@@ -1097,7 +1100,7 @@ ${argsString}</pre
         width: 10px;
         height: 10px;
         background: white;
-        border: 1px solid rgba(148, 163, 184, 0.35);
+        border: 1px solid rgba(219, 219, 229, 0.4);
         transform: rotate(45deg);
         top: 50%;
         margin-top: -5px;
@@ -1106,34 +1109,36 @@ ${argsString}</pre
 
       .announcement-preview[data-side="left"] .announcement-preview__arrow {
         right: -5px;
-        box-shadow: 6px -6px 10px rgba(15, 23, 42, 0.12);
+        box-shadow: 6px -6px 10px rgba(1, 5, 7, 0.08);
       }
 
       .announcement-preview[data-side="right"] .announcement-preview__arrow {
         left: -5px;
-        box-shadow: -6px 6px 10px rgba(15, 23, 42, 0.12);
+        box-shadow: -6px 6px 10px rgba(1, 5, 7, 0.08);
       }
 
       .announcement-dismiss {
-        color: #6b7280;
+        color: #838389;
         font-size: 12px;
+        font-family: "Plus Jakarta Sans", system-ui, sans-serif;
         padding: 2px 8px;
         border-radius: 8px;
-        border: 1px solid rgba(148, 163, 184, 0.5);
-        background: rgba(248, 250, 252, 0.9);
+        border: 1px solid rgba(219, 219, 229, 0.6);
+        background: rgba(247, 247, 249, 0.9);
         transition:
           background 120ms ease,
           color 120ms ease;
       }
 
       .announcement-dismiss:hover {
-        background: rgba(241, 245, 249, 1);
-        color: #111827;
+        background: #e9e9ef;
+        color: #010507;
       }
 
       .announcement-content {
-        color: #111827;
+        color: #010507;
         font-size: 14px;
+        font-family: "Plus Jakarta Sans", system-ui, sans-serif;
         line-height: 1.6;
       }
 
@@ -1173,8 +1178,231 @@ ${argsString}</pre
       }
 
       .announcement-content a {
-        color: #0f766e;
+        color: #757cf2;
         text-decoration: underline;
+      }
+
+      /* ── Brand typography ────────────────────────────────────────── */
+      /* Override Tailwind font-mono stack → Spline Sans Mono */
+      .font-mono,
+      pre,
+      code {
+        font-family:
+          "Spline Sans Mono", ui-monospace, "Cascadia Code", monospace;
+      }
+
+      /* ── Floating button ─────────────────────────────────────────── */
+      .console-button {
+        background-color: rgba(1, 5, 7, 0.95) !important;
+        border-color: rgba(190, 194, 255, 0.25) !important;
+        box-shadow:
+          0 0 0 1px rgba(190, 194, 255, 0.15),
+          0 4px 14px rgba(1, 5, 7, 0.28) !important;
+      }
+      .console-button:hover {
+        background-color: rgba(1, 5, 7, 1) !important;
+        border-color: rgba(190, 194, 255, 0.45) !important;
+      }
+      .console-button:focus-visible {
+        outline-color: #bec2ff !important;
+      }
+
+      /* ── Inspector window ────────────────────────────────────────── */
+      .inspector-window {
+        border-color: #dbdbe5 !important;
+        box-shadow:
+          0 8px 32px rgba(1, 5, 7, 0.1),
+          0 2px 8px rgba(1, 5, 7, 0.06) !important;
+      }
+
+      /* ── Header drag area ────────────────────────────────────────── */
+      .drag-handle {
+        border-bottom-color: #dbdbe5 !important;
+        /* Subtle pale lavender gradient — brand "light, spacious" surface */
+        background: linear-gradient(
+          180deg,
+          #f4f4fd 0%,
+          #ffffff 100%
+        ) !important;
+      }
+
+      /* Tab strip row: soft off-white, separated from content */
+      .drag-handle > div:last-child {
+        border-top-color: #e2e2ea !important;
+        background-color: #fafafc !important;
+      }
+
+      /* ── Tab buttons ─────────────────────────────────────────────── */
+      /*
+       * Named classes owned by this component — no Tailwind conflict.
+       * Active: brand surface/surfaceContainerActive (lilac tint) +
+       *         border/borderActionEnabled underline.
+       * Dark fill is for primary action buttons only, not nav tabs.
+       */
+      .cpk-tab-active {
+        background-color: rgba(190, 194, 255, 0.18);
+        color: #010507;
+        font-weight: 600;
+        box-shadow: inset 0 -2px 0 0 #bec2ff;
+      }
+      .cpk-tab-active .cpk-tab-icon {
+        color: #757cf2;
+      }
+      .cpk-tab-inactive {
+        background-color: transparent;
+        color: #2b2b2b;
+      }
+      .cpk-tab-inactive .cpk-tab-icon {
+        color: #838389;
+      }
+      .cpk-tab-inactive:hover {
+        background-color: rgba(190, 194, 255, 0.08);
+        color: #010507;
+      }
+
+      /* ── Header control buttons (dock, close) — first row only ───── */
+      .drag-handle > div:first-child button {
+        color: #838389 !important;
+      }
+      .drag-handle > div:first-child button:hover {
+        background-color: #f0f0f4 !important;
+        color: #57575b !important;
+      }
+      .drag-handle > div:first-child button:focus-visible {
+        outline-color: #bec2ff !important;
+      }
+
+      /* ── Agent/context dropdown ──────────────────────────────────── */
+      [data-context-dropdown-root="true"] > button {
+        border-color: #dbdbe5 !important;
+        color: #010507 !important;
+      }
+      [data-context-dropdown-root="true"] > button:hover {
+        border-color: #bec2ff !important;
+        background-color: #f7f7f9 !important;
+      }
+      [data-context-dropdown-root="true"] > button > span:last-child {
+        color: #838389 !important;
+      }
+      [data-context-dropdown-root="true"] > div {
+        border-color: #dbdbe5 !important;
+        box-shadow: 0 4px 12px rgba(1, 5, 7, 0.08) !important;
+      }
+      [data-context-dropdown-root="true"] > div button:hover,
+      [data-context-dropdown-root="true"] > div button:focus {
+        background-color: #f7f7f9 !important;
+      }
+
+      /* ── Status bar (bottom chrome) ──────────────────────────────── */
+      .inspector-window > div > div:last-child {
+        border-top-color: #dbdbe5 !important;
+        background-color: #f7f7f9 !important;
+      }
+
+      /* ── Resize handle ───────────────────────────────────────────── */
+      .resize-handle {
+        color: #838389 !important;
+      }
+      .resize-handle:hover {
+        color: #57575b !important;
+      }
+
+      /* ── AG-UI Events tab ────────────────────────────────────────── */
+      /* Row hover: replace blue tint with brand lilac */
+      tr:hover td {
+        background-color: rgba(190, 194, 255, 0.08) !important;
+      }
+      /* Reset/dark action button */
+      button[class*="bg-gray-900"] {
+        background-color: #010507 !important;
+      }
+      button[class*="bg-gray-800"] {
+        background-color: #2b2b2b !important;
+      }
+      /* Copy "copied" state: generic green → brand mint */
+      button[class*="bg-green-100"] {
+        background-color: rgba(133, 236, 206, 0.2) !important;
+        color: #189370 !important;
+      }
+
+      /* ── Agents tab ──────────────────────────────────────────────── */
+      /* Agent icon bubble: blue → lilac */
+      span[class*="bg-blue-100"]:not([class*="text-blue-800"]) {
+        background-color: rgba(190, 194, 255, 0.15) !important;
+      }
+      span[class*="text-blue-600"],
+      div[class*="text-blue-600"] {
+        color: #757cf2 !important;
+      }
+      /* Running badge: emerald → mint */
+      span[class*="bg-emerald-50"] {
+        background-color: rgba(133, 236, 206, 0.15) !important;
+      }
+      span[class*="text-emerald-700"] {
+        color: #189370 !important;
+      }
+      /* Running status dot */
+      span[class*="bg-emerald-500"] {
+        background-color: #85ecce !important;
+      }
+      /* Idle dot */
+      span[class*="bg-gray-400"] {
+        background-color: #afafb7 !important;
+      }
+      /* User role badge (blue → lilac) */
+      span[class*="bg-blue-100"][class*="text-blue-800"] {
+        background-color: rgba(190, 194, 255, 0.15) !important;
+        color: #010507 !important;
+      }
+      /* Assistant role badge (green → mint) */
+      span[class*="bg-green-100"][class*="text-green-800"] {
+        background-color: rgba(133, 236, 206, 0.15) !important;
+        color: #189370 !important;
+      }
+      /* Tool role badge (amber → orange brand) */
+      span[class*="bg-amber-100"][class*="text-amber-800"] {
+        background-color: rgba(255, 172, 77, 0.15) !important;
+        color: #57575b !important;
+      }
+
+      /* ── Frontend Tools tab ──────────────────────────────────────── */
+      /* Handler badge (blue → lilac) */
+      span[class*="bg-blue-50"][class*="text-blue-700"] {
+        background-color: rgba(190, 194, 255, 0.12) !important;
+        border-color: rgba(190, 194, 255, 0.3) !important;
+        color: #010507 !important;
+      }
+      /* Renderer badge (purple → lilac-adjacent) */
+      span[class*="bg-purple-50"][class*="text-purple-700"] {
+        background-color: rgba(190, 194, 255, 0.12) !important;
+        border-color: rgba(190, 194, 255, 0.3) !important;
+        color: #57575b !important;
+      }
+      /* Required badge (rose → brand red) */
+      span[class*="bg-rose-50"][class*="text-rose-700"] {
+        background-color: rgba(250, 95, 103, 0.1) !important;
+        border-color: rgba(250, 95, 103, 0.25) !important;
+        color: #fa5f67 !important;
+      }
+      /* Code/default value blocks */
+      code[class*="bg-gray-100"],
+      span[class*="bg-gray-100"] {
+        background-color: #f0f0f4 !important;
+      }
+
+      /* ── Announcement panel ──────────────────────────────────────── */
+      div[class*="border-slate-200"][class*="bg-white"] {
+        border-color: #dbdbe5 !important;
+      }
+      /* Announcement icon bubble: black → brand light lavender + lilac icon */
+      span[class*="bg-slate-900"],
+      div[class*="bg-slate-900"] {
+        background-color: #eee6fe !important;
+        color: #757cf2 !important;
+      }
+      span[class*="text-slate-800"],
+      div[class*="text-slate-800"] {
+        color: #010507 !important;
       }
     `,
   ];
@@ -1182,6 +1410,7 @@ ${argsString}</pre
   connectedCallback(): void {
     super.connectedCallback();
     if (typeof window !== "undefined") {
+      this.ensureBrandFonts();
       window.addEventListener("resize", this.handleResize);
       window.addEventListener(
         "pointerdown",
@@ -1193,6 +1422,17 @@ ${argsString}</pre
       this.tryAutoAttachCore();
       this.ensureAnnouncementLoading();
     }
+  }
+
+  private ensureBrandFonts(): void {
+    const FONT_LINK_ID = "cpk-inspector-brand-fonts";
+    if (document.getElementById(FONT_LINK_ID)) return;
+    const link = document.createElement("link");
+    link.id = FONT_LINK_ID;
+    link.rel = "stylesheet";
+    link.href =
+      "https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600&family=Spline+Sans+Mono:wght@600&display=swap";
+    document.head.appendChild(link);
   }
 
   disconnectedCallback(): void {
@@ -1289,7 +1529,7 @@ ${argsString}</pre
       "focus-visible:outline",
       "focus-visible:outline-2",
       "focus-visible:outline-offset-2",
-      "focus-visible:outline-rose-500",
+      "focus-visible:outline-[#BEC2FF]",
       "touch-none",
       "select-none",
       this.isDragging ? "cursor-grabbing" : "cursor-grab",
@@ -1418,9 +1658,7 @@ ${argsString}</pre
                 const isSelected = this.selectedMenu === key;
                 const tabClasses = [
                   "inline-flex items-center gap-2 rounded-md px-3 py-2 transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-300",
-                  isSelected
-                    ? "bg-gray-900 text-white shadow-sm"
-                    : "text-gray-600 hover:bg-gray-100 hover:text-gray-900",
+                  isSelected ? "cpk-tab-active" : "cpk-tab-inactive",
                 ].join(" ");
 
                 return html`
@@ -1430,11 +1668,7 @@ ${argsString}</pre
                     aria-pressed=${isSelected}
                     @click=${() => this.handleMenuSelect(key)}
                   >
-                    <span
-                      class="text-gray-400 ${isSelected ? "text-white" : ""}"
-                    >
-                      ${this.renderIcon(icon)}
-                    </span>
+                    <span class="cpk-tab-icon"> ${this.renderIcon(icon)} </span>
                     <span>${label}</span>
                   </button>
                 `;
@@ -3550,16 +3784,16 @@ ${prettyEvent}</pre
                                 <div class="flex items-center gap-1.5 shrink-0">
                                   ${prop.required
                                     ? html`<span
-                                        class="text-[9px] rounded border border-rose-200 bg-rose-50 px-1 py-0.5 font-medium text-rose-700"
+                                        class="text-[10px] rounded border border-rose-200 bg-rose-50 px-1 py-0.5 font-medium text-rose-700"
                                         >required</span
                                       >`
                                     : html`<span
-                                        class="text-[9px] rounded border border-gray-200 bg-gray-50 px-1 py-0.5 font-medium text-gray-600"
+                                        class="text-[10px] rounded border border-gray-200 bg-gray-50 px-1 py-0.5 font-medium text-gray-600"
                                         >optional</span
                                       >`}
                                   ${prop.type
                                     ? html`<span
-                                        class="text-[9px] rounded border border-gray-200 bg-gray-50 px-1 py-0.5 font-mono text-gray-600"
+                                        class="text-[10px] rounded border border-gray-200 bg-gray-50 px-1 py-0.5 font-mono text-gray-600"
                                         >${prop.type}</span
                                       >`
                                     : nothing}
