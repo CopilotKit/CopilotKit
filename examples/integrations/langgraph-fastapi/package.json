@@ -9,7 +9,6 @@
     "dev:ui": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint .",
     "install:agent": "cd agent && uv sync",
     "postinstall": "npm run install:agent"
   },
@@ -29,8 +28,6 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "concurrently": "^9.1.2",
-    "eslint": "^9",
-    "eslint-config-next": "16.1.1",
     "tailwindcss": "^4",
     "tsx": "^4.20.6",
     "typescript": "^5"

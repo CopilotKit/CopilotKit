@@ -2,18 +2,12 @@
   "name": "agent_js",
   "version": "1.0.0",
   "description": "",
+  "keywords": [],
+  "license": "ISC",
+  "author": "",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "packageManager": "pnpm@9.5.0",
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "devDependencies": {
-    "@types/html-to-text": "^9.0.4",
-    "@types/node": "^22.9.0",
-    "typescript": "^5.6.3"
   },
   "dependencies": {
     "@copilotkit/sdk-js": "workspace:*",
@@ -26,5 +20,11 @@
     "@tavily/core": "^0.0.2",
     "html-to-text": "^9.0.5",
     "zod": "^3.23.8"
-  }
+  },
+  "devDependencies": {
+    "@types/html-to-text": "^9.0.4",
+    "@types/node": "^22.9.0",
+    "typescript": "^5.6.3"
+  },
+  "packageManager": "pnpm@9.5.0"
 }

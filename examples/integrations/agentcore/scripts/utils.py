@@ -32,7 +32,7 @@ def get_stack_config(stack_name: Optional[str] = None) -> Dict:
     """
     # Load config.yaml
     script_dir = Path(__file__).parent
-    config_path = script_dir.parent / "infra-cdk" / "config.yaml"
+    config_path = script_dir.parent / "config.yaml"
 
     if not config_path.exists():
         print_msg("Configuration file not found", "error")

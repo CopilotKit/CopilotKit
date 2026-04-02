@@ -90,8 +90,8 @@ We're going to have the agent ask us to name it, so we'll need a state property 
 
 </Step>
 <Step>
-    ### Call `interrupt` in your LangGraph agent
-    Now we can call `interrupt` in our LangGraph agent.
+    ### Call `interrupt` in your LangChain agent
+    Now we can call `interrupt` in our LangChain agent.
 
     <Callout type="info">
         Your agent will not be aware of the `interrupt` interaction by default in LangGraph.
@@ -171,7 +171,7 @@ We're going to have the agent ask us to name it, so we'll need a state property 
 </Step>
 <Step>
     ### Handle the interrupt in your frontend
-    At this point, your LangGraph agent's `interrupt` will be called. However, we currently have no handling for rendering or
+    At this point, your LangChain agent's `interrupt` will be called. However, we currently have no handling for rendering or
     responding to the interrupt in the frontend.
 
     To do this, we'll use the `useInterrupt` hook, give it a component to render, and then call `resolve` with the user's response.
