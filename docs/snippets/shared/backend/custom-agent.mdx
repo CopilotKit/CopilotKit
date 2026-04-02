@@ -10,7 +10,7 @@ The `Agent` class gives you full control over the LLM call. You provide a factor
 | **Setup** | Minimal — pass a model string, CopilotKit handles the rest | You own the LLM call and stream |
 | **Model resolution** | Built-in (`"openai:gpt-4o"`) | You set up the model yourself |
 | **Tools, MCP, state tools** | Automatically wired | You wire them in your factory |
-| **AI SDK support** | Vercel AI SDK v6 only | Any backend: AI SDK, TanStack AI, or custom |
+| **AI SDK support** | Vercel AI SDK only | Any backend: AI SDK, TanStack AI, or custom |
 | **Best for** | Quick setup, standard use cases | Full control, non-standard backends, async initialization |
 
 <Callout type="info">
@@ -361,7 +361,7 @@ const agent = new Agent({
       }
     }
 
-    // Add shared application state (useCopilotChatSuggestions, etc.)
+    // Add shared application state (useCoAgent, etc.)
     if (input.state && Object.keys(input.state).length > 0) {
       systemParts.push(
         `Application State:\n${JSON.stringify(input.state, null, 2)}`,

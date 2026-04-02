@@ -242,7 +242,9 @@ export async function* convertAISDKStream(
         }
 
         case "tool-result": {
-          const toolResult = "output" in p ? p.output : null;
+          // AI SDK uses "output" (v5+), but older versions used "result" — check both
+          const toolResult =
+            "output" in p ? p.output : "result" in p ? p.result : null;
           const toolName = "toolName" in p ? (p.toolName as string) : "";
           toolCallStates.delete(p.toolCallId as string);
 
@@ -252,30 +254,42 @@ export async function* convertAISDKStream(
             toolResult &&
             typeof toolResult === "object"
           ) {
-            const stateSnapshotEvent: StateSnapshotEvent = {
-              type: EventType.STATE_SNAPSHOT,
-              snapshot: (toolResult as Record<string, unknown>).snapshot,
-            };
-            yield stateSnapshotEvent;
+            const snapshot = (toolResult as Record<string, unknown>).snapshot;
+            if (snapshot !== undefined) {
+              const stateSnapshotEvent: StateSnapshotEvent = {
+                type: EventType.STATE_SNAPSHOT,
+                snapshot,
+              };
+              yield stateSnapshotEvent;
+            }
           } else if (
             toolName === "AGUISendStateDelta" &&
             toolResult &&
             typeof toolResult === "object"
           ) {
-            const stateDeltaEvent: StateDeltaEvent = {
-              type: EventType.STATE_DELTA,
-              delta: (toolResult as Record<string, unknown>).delta,
-            };
-            yield stateDeltaEvent;
+            const delta = (toolResult as Record<string, unknown>).delta;
+            if (delta !== undefined) {
+              const stateDeltaEvent: StateDeltaEvent = {
+                type: EventType.STATE_DELTA,
+                delta,
+              };
+              yield stateDeltaEvent;
+            }
           }
 
           // Always emit the tool result event for the LLM
+          let serializedResult: string;
+          try {
+            serializedResult = JSON.stringify(toolResult);
+          } catch {
+            serializedResult = `[Unserializable tool result from ${toolName || "unknown tool"}]`;
+          }
           const resultEvent: ToolCallResultEvent = {
             type: EventType.TOOL_CALL_RESULT,
             role: "tool",
             messageId: randomUUID(),
             toolCallId: p.toolCallId as string,
-            content: JSON.stringify(toolResult),
+            content: serializedResult,
           };
           yield resultEvent;
           break;
@@ -291,7 +305,13 @@ export async function* convertAISDKStream(
             break;
           }
           // Re-throw so the caller can emit RUN_ERROR
-          throw p.error;
+          const err = p.error ?? p.message ?? p.cause;
+          if (err instanceof Error) throw err;
+          throw new Error(
+            typeof err === "string"
+              ? err
+              : `AI SDK stream error: ${JSON.stringify(p)}`,
+          );
         }
 
         default:

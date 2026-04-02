@@ -7,6 +7,7 @@ import {
   ToolCallArgsEvent,
   ToolCallEndEvent,
   ToolCallStartEvent,
+  ToolCallResultEvent,
 } from "@ag-ui/client";
 import { randomUUID } from "crypto";
 
@@ -146,7 +147,20 @@ export async function* convertTanStackStream(
         toolCallId: raw.toolCallId as string,
       };
       yield endEvent;
+    } else if (type === "TOOL_CALL_RESULT") {
+      const resultEvent: ToolCallResultEvent = {
+        type: EventType.TOOL_CALL_RESULT,
+        role: "tool",
+        messageId: randomUUID(),
+        toolCallId: raw.toolCallId as string,
+        content:
+          typeof raw.content === "string"
+            ? raw.content
+            : JSON.stringify(raw.content ?? raw.result ?? null),
+      };
+      yield resultEvent;
     }
     // Unknown chunk types are silently ignored
+    // TODO: STATE_SNAPSHOT, STATE_DELTA, and REASONING events are not yet handled
   }
 }

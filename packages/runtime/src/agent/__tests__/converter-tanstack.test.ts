@@ -188,6 +188,58 @@ describe("TanStack AI converter (via Agent)", () => {
   });
 
   // -------------------------------------------------------------------------
+  // Tool Call Result Events
+  // -------------------------------------------------------------------------
+  describe("Tool Call Result Events", () => {
+    it("TOOL_CALL_RESULT chunk produces TOOL_CALL_RESULT event with correct content", async () => {
+      const agent = createAgent("tanstack", [
+        tanstackToolCallStart("tc-1", "myTool"),
+        tanstackToolCallArgs("tc-1", '{"key":"value"}'),
+        tanstackToolCallEnd("tc-1"),
+        {
+          type: "TOOL_CALL_RESULT",
+          toolCallId: "tc-1",
+          content: JSON.stringify({ result: "ok" }),
+        },
+      ]);
+      const events = await collectEvents(agent.run(createDefaultInput()));
+
+      expectLifecycleWrapped(events);
+
+      const resultEvents = events.filter(
+        (e) => e.type === EventType.TOOL_CALL_RESULT,
+      );
+      expect(resultEvents).toHaveLength(1);
+      expect(eventField<string>(resultEvents[0], "toolCallId")).toBe("tc-1");
+      expect(eventField<string>(resultEvents[0], "role")).toBe("tool");
+      expect(
+        JSON.parse(eventField<string>(resultEvents[0], "content")),
+      ).toEqual({ result: "ok" });
+    });
+
+    it("TOOL_CALL_RESULT with object content serializes to JSON", async () => {
+      const agent = createAgent("tanstack", [
+        tanstackToolCallStart("tc-2", "myTool"),
+        tanstackToolCallEnd("tc-2"),
+        {
+          type: "TOOL_CALL_RESULT",
+          toolCallId: "tc-2",
+          result: { data: 42 },
+        },
+      ]);
+      const events = await collectEvents(agent.run(createDefaultInput()));
+
+      const resultEvents = events.filter(
+        (e) => e.type === EventType.TOOL_CALL_RESULT,
+      );
+      expect(resultEvents).toHaveLength(1);
+      expect(
+        JSON.parse(eventField<string>(resultEvents[0], "content")),
+      ).toEqual({ data: 42 });
+    });
+  });
+
+  // -------------------------------------------------------------------------
   // Mixed Content
   // -------------------------------------------------------------------------
   describe("Mixed Content", () => {

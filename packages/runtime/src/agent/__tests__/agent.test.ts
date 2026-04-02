@@ -123,8 +123,11 @@ describe.each(allTypes)("Agent [%s]", (type) => {
     it("emits RUN_ERROR when factory throws", async () => {
       const agent = createThrowingAgent(type, "factory-boom");
       const input = createDefaultInput();
-      const events = await collectEventsIncludingErrors(agent.run(input));
+      const { events, errored } = await collectEventsIncludingErrors(
+        agent.run(input),
+      );
 
+      expect(errored).toBe(true);
       const errorEvents = events.filter((e) => e.type === EventType.RUN_ERROR);
       expect(errorEvents.length).toBe(1);
       expect(eventField<string>(errorEvents[0], "message")).toBe(
@@ -135,8 +138,11 @@ describe.each(allTypes)("Agent [%s]", (type) => {
     it("emits RUN_ERROR when stream throws mid-iteration", async () => {
       const agent = createMidStreamErrorAgent(type, "mid-stream-boom");
       const input = createDefaultInput();
-      const events = await collectEventsIncludingErrors(agent.run(input));
+      const { events, errored } = await collectEventsIncludingErrors(
+        agent.run(input),
+      );
 
+      expect(errored).toBe(true);
       const errorEvents = events.filter((e) => e.type === EventType.RUN_ERROR);
       expect(errorEvents.length).toBe(1);
       expect(eventField<string>(errorEvents[0], "message")).toBe(
@@ -147,7 +153,7 @@ describe.each(allTypes)("Agent [%s]", (type) => {
     it("does not emit RUN_FINISHED after RUN_ERROR", async () => {
       const agent = createThrowingAgent(type, "no-finish");
       const input = createDefaultInput();
-      const events = await collectEventsIncludingErrors(agent.run(input));
+      const { events } = await collectEventsIncludingErrors(agent.run(input));
 
       const errorIdx = events.findIndex((e) => e.type === EventType.RUN_ERROR);
       expect(errorIdx).toBeGreaterThanOrEqual(0);
@@ -165,7 +171,12 @@ describe.each(allTypes)("Agent [%s]", (type) => {
   // -------------------------------------------------------------------------
   describe("abort", () => {
     it("completes without error after abortRun()", async () => {
-      // Create a slow agent with an infinite loop (50ms per chunk)
+      // Use a signal to synchronize: abort after the first chunk is emitted
+      let emittedFirstChunk: () => void;
+      const firstChunkEmitted = new Promise<void>(
+        (r) => (emittedFirstChunk = r),
+      );
+
       let config: AgentConfig;
       switch (type) {
         case "aisdk":
@@ -173,10 +184,15 @@ describe.each(allTypes)("Agent [%s]", (type) => {
             type: "aisdk",
             factory: ({ abortSignal }: AgentFactoryContext) => ({
               fullStream: (async function* () {
-                while (!abortSignal.aborted) {
-                  yield { type: "text-delta", text: "tick" };
-                  await new Promise((r) => setTimeout(r, 50));
-                }
+                yield { type: "text-delta", text: "tick" };
+                emittedFirstChunk();
+                // Wait for abort — use a promise that resolves on abort
+                await new Promise<void>((r) => {
+                  if (abortSignal.aborted) return r();
+                  abortSignal.addEventListener("abort", () => r(), {
+                    once: true,
+                  });
+                });
               })(),
             }),
           };
@@ -186,10 +202,14 @@ describe.each(allTypes)("Agent [%s]", (type) => {
             type: "tanstack",
             factory: ({ abortSignal }: AgentFactoryContext) => ({
               [Symbol.asyncIterator]: async function* () {
-                while (!abortSignal.aborted) {
-                  yield { type: "TEXT_MESSAGE_CONTENT", delta: "tick" };
-                  await new Promise((r) => setTimeout(r, 50));
-                }
+                yield { type: "TEXT_MESSAGE_CONTENT", delta: "tick" };
+                emittedFirstChunk();
+                await new Promise<void>((r) => {
+                  if (abortSignal.aborted) return r();
+                  abortSignal.addEventListener("abort", () => r(), {
+                    once: true,
+                  });
+                });
               },
             }),
           };
@@ -199,14 +219,18 @@ describe.each(allTypes)("Agent [%s]", (type) => {
             type: "custom",
             factory: ({ abortSignal }: AgentFactoryContext) => ({
               [Symbol.asyncIterator]: async function* () {
-                while (!abortSignal.aborted) {
-                  yield {
-                    type: EventType.TEXT_MESSAGE_CHUNK,
-                    role: "assistant",
-                    delta: "tick",
-                  } as BaseEvent;
-                  await new Promise((r) => setTimeout(r, 50));
-                }
+                yield {
+                  type: EventType.TEXT_MESSAGE_CHUNK,
+                  role: "assistant",
+                  delta: "tick",
+                } as BaseEvent;
+                emittedFirstChunk();
+                await new Promise<void>((r) => {
+                  if (abortSignal.aborted) return r();
+                  abortSignal.addEventListener("abort", () => r(), {
+                    once: true,
+                  });
+                });
               },
             }),
           };
@@ -223,8 +247,8 @@ describe.each(allTypes)("Agent [%s]", (type) => {
           complete: () => resolve(true),
         });
 
-        // Wait a tick so at least one chunk is emitted, then abort
-        setTimeout(() => agent.abortRun(), 30);
+        // Wait for the first chunk to be emitted, then abort
+        firstChunkEmitted.then(() => agent.abortRun());
       });
 
       expect(completed).toBe(true);
@@ -426,5 +450,147 @@ describe("Agent type discrimination", () => {
     expect(eventField<string>(textEvents[0], "delta")).toBe(
       "hello from custom",
     );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Async Factory (Promise-returning)
+// ---------------------------------------------------------------------------
+
+describe("Async factory (Promise-returning)", () => {
+  it("aisdk: async factory resolves and streams correctly", async () => {
+    const agent = new Agent({
+      type: "aisdk",
+      factory: async () => {
+        // Simulate async setup (e.g., fetching API key)
+        await new Promise((r) => setTimeout(r, 5));
+        return {
+          fullStream: (async function* () {
+            yield { type: "text-delta", text: "async-aisdk" };
+            yield { type: "finish", finishReason: "stop" };
+          })(),
+        };
+      },
+    });
+    const input = createDefaultInput();
+    const events = await collectEvents(agent.run(input));
+
+    expectLifecycleWrapped(events);
+    const textEvents = events.filter(
+      (e) => e.type === EventType.TEXT_MESSAGE_CHUNK,
+    );
+    expect(textEvents).toHaveLength(1);
+    expect(eventField<string>(textEvents[0], "delta")).toBe("async-aisdk");
+  });
+
+  it("tanstack: async factory resolves and streams correctly", async () => {
+    const agent = new Agent({
+      type: "tanstack",
+      factory: async () => {
+        await new Promise((r) => setTimeout(r, 5));
+        return (async function* () {
+          yield { type: "TEXT_MESSAGE_CONTENT", delta: "async-tanstack" };
+        })();
+      },
+    });
+    const input = createDefaultInput();
+    const events = await collectEvents(agent.run(input));
+
+    expectLifecycleWrapped(events);
+    const textEvents = events.filter(
+      (e) => e.type === EventType.TEXT_MESSAGE_CHUNK,
+    );
+    expect(textEvents).toHaveLength(1);
+    expect(eventField<string>(textEvents[0], "delta")).toBe("async-tanstack");
+  });
+
+  it("custom: async factory resolves and streams correctly", async () => {
+    const agent = new Agent({
+      type: "custom",
+      factory: async () => {
+        await new Promise((r) => setTimeout(r, 5));
+        return (async function* () {
+          yield {
+            type: EventType.TEXT_MESSAGE_CHUNK,
+            role: "assistant",
+            delta: "async-custom",
+          } as BaseEvent;
+        })();
+      },
+    });
+    const input = createDefaultInput();
+    const events = await collectEvents(agent.run(input));
+
+    expectLifecycleWrapped(events);
+    const textEvents = events.filter(
+      (e) => e.type === EventType.TEXT_MESSAGE_CHUNK,
+    );
+    expect(textEvents).toHaveLength(1);
+    expect(eventField<string>(textEvents[0], "delta")).toBe("async-custom");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// RUN_ERROR includes threadId and runId
+// ---------------------------------------------------------------------------
+
+describe("RUN_ERROR correlation fields", () => {
+  it("RUN_ERROR includes threadId and runId for run correlation", async () => {
+    const agent = new Agent({
+      type: "aisdk",
+      factory: () => {
+        throw new Error("test-error");
+      },
+    });
+    const input = createDefaultInput({
+      threadId: "err-thread",
+      runId: "err-run",
+    });
+    const { events, errored } = await collectEventsIncludingErrors(
+      agent.run(input),
+    );
+
+    expect(errored).toBe(true);
+    const errorEvents = events.filter((e) => e.type === EventType.RUN_ERROR);
+    expect(errorEvents).toHaveLength(1);
+    expect(eventField<string>(errorEvents[0], "threadId")).toBe("err-thread");
+    expect(eventField<string>(errorEvents[0], "runId")).toBe("err-run");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Concurrent run guard
+// ---------------------------------------------------------------------------
+
+describe("Concurrent run guard", () => {
+  it("throws when run() is called while another run is in progress", async () => {
+    let resolveFactory: () => void;
+    const factoryBlocked = new Promise<void>((r) => (resolveFactory = r));
+
+    const agent = new Agent({
+      type: "custom",
+      factory: async function* ({ abortSignal }) {
+        // Block until resolved externally
+        await new Promise<void>((r) => {
+          if (abortSignal.aborted) return r();
+          abortSignal.addEventListener("abort", () => r(), { once: true });
+          factoryBlocked.then(() => r());
+        });
+      },
+    });
+    const input = createDefaultInput();
+
+    // Start first run
+    const sub = agent.run(input).subscribe({ next: () => {} });
+
+    // Give the async IIFE time to set abortController
+    await new Promise((r) => setTimeout(r, 10));
+
+    // Second run should throw
+    expect(() => agent.run(input)).toThrow("Agent is already running");
+
+    // Cleanup
+    resolveFactory!();
+    sub.unsubscribe();
   });
 });

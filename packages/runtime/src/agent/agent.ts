@@ -79,6 +79,12 @@ export class Agent extends AbstractAgent {
   }
 
   run(input: RunAgentInput): Observable<BaseEvent> {
+    if (this.abortController) {
+      throw new Error(
+        "Agent is already running. Call abortRun() first or create a new instance.",
+      );
+    }
+
     return new Observable<BaseEvent>((subscriber) => {
       // Emit RUN_STARTED synchronously
       const startEvent: RunStartedEvent = {
@@ -116,6 +122,12 @@ export class Agent extends AbstractAgent {
               events = await this.config.factory(ctx);
               break;
             }
+            default: {
+              const _exhaustive: never = this.config;
+              throw new Error(
+                `Unknown agent config type: ${(_exhaustive as AgentConfig).type}`,
+              );
+            }
           }
 
           for await (const event of events) {
@@ -139,7 +151,9 @@ export class Agent extends AbstractAgent {
             const runErrorEvent: RunErrorEvent = {
               type: EventType.RUN_ERROR,
               message: error instanceof Error ? error.message : String(error),
-            };
+              threadId: input.threadId,
+              runId: input.runId,
+            } as RunErrorEvent;
             subscriber.next(runErrorEvent);
             subscriber.error(error);
           }
@@ -157,8 +171,11 @@ export class Agent extends AbstractAgent {
 
   clone(): Agent {
     const cloned = new Agent(this.config);
-    // Copy middlewares from parent class
-    // @ts-expect-error - accessing protected property from parent
+    // AbstractAgent.middlewares is private — no public getter exists.
+    // This mirrors AbstractAgent's own clone() implementation which
+    // accesses the field directly. If AbstractAgent ever exposes
+    // getMiddlewares(), switch to that.
+    // @ts-expect-error - accessing private property from parent (see above)
     cloned.middlewares = [...this.middlewares];
     return cloned;
   }

@@ -418,6 +418,240 @@ describe("AI SDK Converter", () => {
   });
 
   // ---------------------------------------------------------------------------
+  // State Management Tool Results
+  // ---------------------------------------------------------------------------
+
+  describe("State Management Tool Results", () => {
+    it("AGUISendStateSnapshot tool result emits STATE_SNAPSHOT event", async () => {
+      const agent = createAgent("aisdk", [
+        toolCallStreamingStart("tc-state", "AGUISendStateSnapshot"),
+        toolCallDelta("tc-state", '{"snapshot":{"count":1}}'),
+        toolCall("tc-state", "AGUISendStateSnapshot"),
+        toolResult("tc-state", "AGUISendStateSnapshot", {
+          snapshot: { count: 1 },
+        }),
+        finish(),
+      ]);
+      const input = createDefaultInput();
+      const events = await collectEvents(agent.run(input));
+
+      const stateSnapshots = events.filter(
+        (e) => e.type === EventType.STATE_SNAPSHOT,
+      );
+      expect(stateSnapshots).toHaveLength(1);
+      expect(eventField(stateSnapshots[0], "snapshot")).toEqual({ count: 1 });
+    });
+
+    it("AGUISendStateDelta tool result emits STATE_DELTA event", async () => {
+      const delta = [
+        { op: "replace", path: "/count", value: 2 },
+      ];
+      const agent = createAgent("aisdk", [
+        toolCallStreamingStart("tc-delta", "AGUISendStateDelta"),
+        toolCallDelta("tc-delta", JSON.stringify({ delta })),
+        toolCall("tc-delta", "AGUISendStateDelta"),
+        toolResult("tc-delta", "AGUISendStateDelta", { delta }),
+        finish(),
+      ]);
+      const input = createDefaultInput();
+      const events = await collectEvents(agent.run(input));
+
+      const stateDeltas = events.filter(
+        (e) => e.type === EventType.STATE_DELTA,
+      );
+      expect(stateDeltas).toHaveLength(1);
+      expect(eventField(stateDeltas[0], "delta")).toEqual(delta);
+    });
+
+    it("state tool result also emits TOOL_CALL_RESULT event", async () => {
+      const agent = createAgent("aisdk", [
+        toolCallStreamingStart("tc-state2", "AGUISendStateSnapshot"),
+        toolCallDelta("tc-state2", "{}"),
+        toolCall("tc-state2", "AGUISendStateSnapshot"),
+        toolResult("tc-state2", "AGUISendStateSnapshot", {
+          snapshot: { x: 1 },
+        }),
+        finish(),
+      ]);
+      const input = createDefaultInput();
+      const events = await collectEvents(agent.run(input));
+
+      const toolResults = events.filter(
+        (e) => e.type === EventType.TOOL_CALL_RESULT,
+      );
+      expect(toolResults).toHaveLength(1);
+      expect(eventField<string>(toolResults[0], "toolCallId")).toBe("tc-state2");
+    });
+
+    it("does not emit STATE_SNAPSHOT when snapshot field is undefined", async () => {
+      const agent = createAgent("aisdk", [
+        toolCallStreamingStart("tc-no-snap", "AGUISendStateSnapshot"),
+        toolCallDelta("tc-no-snap", "{}"),
+        toolCall("tc-no-snap", "AGUISendStateSnapshot"),
+        toolResult("tc-no-snap", "AGUISendStateSnapshot", {
+          success: true,
+        }),
+        finish(),
+      ]);
+      const input = createDefaultInput();
+      const events = await collectEvents(agent.run(input));
+
+      const stateSnapshots = events.filter(
+        (e) => e.type === EventType.STATE_SNAPSHOT,
+      );
+      expect(stateSnapshots).toHaveLength(0);
+
+      // Should still emit the TOOL_CALL_RESULT
+      const toolResults = events.filter(
+        (e) => e.type === EventType.TOOL_CALL_RESULT,
+      );
+      expect(toolResults).toHaveLength(1);
+    });
+
+    it("does not emit STATE_DELTA when delta field is undefined", async () => {
+      const agent = createAgent("aisdk", [
+        toolCallStreamingStart("tc-no-delta", "AGUISendStateDelta"),
+        toolCallDelta("tc-no-delta", "{}"),
+        toolCall("tc-no-delta", "AGUISendStateDelta"),
+        toolResult("tc-no-delta", "AGUISendStateDelta", {
+          success: true,
+        }),
+        finish(),
+      ]);
+      const input = createDefaultInput();
+      const events = await collectEvents(agent.run(input));
+
+      const stateDeltas = events.filter(
+        (e) => e.type === EventType.STATE_DELTA,
+      );
+      expect(stateDeltas).toHaveLength(0);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // Tool Result Property Compatibility
+  // ---------------------------------------------------------------------------
+
+  describe("Tool Result Property Compatibility", () => {
+    it("reads tool result from 'result' property when 'output' is absent", async () => {
+      // Simulate older AI SDK that uses "result" instead of "output"
+      const agent = createAgent("aisdk", [
+        toolCall("tc-compat", "myTool"),
+        {
+          type: "tool-result",
+          toolCallId: "tc-compat",
+          toolName: "myTool",
+          result: { data: "from-result-prop" },
+        },
+        finish(),
+      ]);
+      const input = createDefaultInput();
+      const events = await collectEvents(agent.run(input));
+
+      const resultEvents = events.filter(
+        (e) => e.type === EventType.TOOL_CALL_RESULT,
+      );
+      expect(resultEvents).toHaveLength(1);
+      expect(JSON.parse(eventField<string>(resultEvents[0], "content"))).toEqual(
+        { data: "from-result-prop" },
+      );
+    });
+
+    it("prefers 'output' over 'result' when both are present", async () => {
+      const agent = createAgent("aisdk", [
+        toolCall("tc-both", "myTool"),
+        {
+          type: "tool-result",
+          toolCallId: "tc-both",
+          toolName: "myTool",
+          output: { source: "output" },
+          result: { source: "result" },
+        },
+        finish(),
+      ]);
+      const input = createDefaultInput();
+      const events = await collectEvents(agent.run(input));
+
+      const resultEvents = events.filter(
+        (e) => e.type === EventType.TOOL_CALL_RESULT,
+      );
+      expect(JSON.parse(eventField<string>(resultEvents[0], "content"))).toEqual(
+        { source: "output" },
+      );
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // Error Event Handling
+  // ---------------------------------------------------------------------------
+
+  describe("Error Event Handling", () => {
+    it("wraps undefined error in a descriptive Error", async () => {
+      const agent = createAgent("aisdk", [
+        textDelta("before error"),
+        { type: "error" }, // no .error property
+      ]);
+      const input = createDefaultInput();
+
+      const { events, errored } =
+        await (await import("./agent-test-helpers")).collectEventsIncludingErrors(
+          agent.run(input),
+        );
+
+      expect(errored).toBe(true);
+      const errorEvents = events.filter(
+        (e) => e.type === EventType.RUN_ERROR,
+      );
+      expect(errorEvents).toHaveLength(1);
+      // Should contain a useful message, not just "undefined"
+      expect(eventField<string>(errorEvents[0], "message")).not.toBe(
+        "undefined",
+      );
+      expect(
+        eventField<string>(errorEvents[0], "message").length,
+      ).toBeGreaterThan(5);
+    });
+
+    it("preserves Error instances from error event", async () => {
+      const agent = createAgent("aisdk", [
+        { type: "error", error: new Error("rate limit exceeded") },
+      ]);
+      const input = createDefaultInput();
+
+      const { events, errored } =
+        await (await import("./agent-test-helpers")).collectEventsIncludingErrors(
+          agent.run(input),
+        );
+
+      expect(errored).toBe(true);
+      const errorEvents = events.filter(
+        (e) => e.type === EventType.RUN_ERROR,
+      );
+      expect(eventField<string>(errorEvents[0], "message")).toBe(
+        "rate limit exceeded",
+      );
+    });
+
+    it("handles string error from error event", async () => {
+      const agent = createAgent("aisdk", [
+        { type: "error", message: "auth failed" },
+      ]);
+      const input = createDefaultInput();
+
+      const { events, errored } =
+        await (await import("./agent-test-helpers")).collectEventsIncludingErrors(
+          agent.run(input),
+        );
+
+      expect(errored).toBe(true);
+      const errorEvents = events.filter(
+        (e) => e.type === EventType.RUN_ERROR,
+      );
+      expect(eventField<string>(errorEvents[0], "message")).toBe("auth failed");
+    });
+  });
+
+  // ---------------------------------------------------------------------------
   // Edge Cases
   // ---------------------------------------------------------------------------
 

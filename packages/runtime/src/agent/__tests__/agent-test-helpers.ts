@@ -272,25 +272,34 @@ export function createMidStreamErrorAgent(
 // ---------------------------------------------------------------------------
 
 /**
+ * Result of collecting events from an observable that may error.
+ */
+export interface CollectedEventsResult {
+  events: BaseEvent[];
+  /** Whether the observable completed via error (true) or normal completion (false) */
+  errored: boolean;
+}
+
+/**
  * Like `collectEvents` but resolves (instead of rejecting) when the
  * observable errors. Returns the events collected up to and including
- * the error point.
+ * the error point, along with whether it errored or completed normally.
  */
 export async function collectEventsIncludingErrors(
   observable: Observable<BaseEvent>,
-): Promise<BaseEvent[]> {
+): Promise<CollectedEventsResult> {
   return new Promise((resolve) => {
     const events: BaseEvent[] = [];
     const subscription = observable.subscribe({
       next: (event) => events.push(event),
-      error: () => resolve(events),
-      complete: () => resolve(events),
+      error: () => resolve({ events, errored: true }),
+      complete: () => resolve({ events, errored: false }),
     });
 
     // Prevent hanging tests
     setTimeout(() => {
       subscription.unsubscribe();
-      resolve(events);
+      resolve({ events, errored: false });
     }, 5000);
   });
 }
