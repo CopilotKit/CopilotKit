@@ -65,7 +65,7 @@ const IntegrationsSidebar = ({
       }
 
       // If no URL, try to match by folder name (case-insensitive)
-      // Match both the integration label (e.g., "LangGraph") and the ID (e.g., "langgraph")
+      // Match both the integration label (e.g., "LangChain") and the ID (e.g., "langgraph")
       if (folderNode.name) {
         const folderNameLower = folderNode.name.toLowerCase();
         const labelLower = integrationLabel?.toLowerCase() || "";

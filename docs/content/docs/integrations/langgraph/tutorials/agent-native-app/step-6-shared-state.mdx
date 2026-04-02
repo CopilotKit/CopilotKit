@@ -9,7 +9,7 @@ CopilotKit allows you to easily read and update this state through the use of tw
 - [`useCoAgent`](/reference/v1/hooks/useCoAgent) - Provides a way to read and write Agent state anywhere in your application.
 - [`useCoAgentStateRender`](/reference/v1/hooks/useCoAgentStateRender) - Provides a way to render Agent state in the chat.
 
-With this in mind, our current goal is to create a bidirectional connection between the application's state and the LangGraph agent's state. This will
+With this in mind, our current goal is to create a bidirectional connection between the application's state and the LangChain agent's state. This will
 allow us to render the agent's completed research in the right panel.
 
 For this, we'll be using the `useCoAgent` hook.
@@ -105,16 +105,16 @@ export function useResearch() {
 ```
 
 <Callout>
-The `useCoAgent` hook is generic. What this means is that we can specify a type for that represents the state of the LangGraph agent.
-If you are going to specify a type, you should be very careful that the type has the same shape as the state of your LangGraph agent.
+The `useCoAgent` hook is generic. What this means is that we can specify a type for that represents the state of the LangChain agent.
+If you are going to specify a type, you should be very careful that the type has the same shape as the state of your LangChain agent.
 
 It is not recommended, but you can ditch the type parameter and instead get an `any` type.
 </Callout>
 
-In this example, we use the `useCoAgent` hook to wire up the application's state to the LangGraph agent's state.
+In this example, we use the `useCoAgent` hook to wire up the application's state to the LangChain agent's state.
 - For the generic type, we pass the `AgentState` type that was already defined for the application in `@/lib/types.ts`.
 - For the `name` parameter, we pass the name of the graph as defined in `agent/langgraph.json`.
-- For the `initialState` parameter, we pass the initial state of the LangGraph agent which is already defined in `@/lib/trips.ts`.
+- For the `initialState` parameter, we pass the initial state of the LangChain agent which is already defined in `@/lib/trips.ts`.
 </Step>
 </Steps>
 

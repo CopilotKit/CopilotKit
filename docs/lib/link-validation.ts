@@ -80,7 +80,7 @@ function generateSuggestions(
       },
       {
         href: "/langgraph",
-        title: "LangGraph",
+        title: "LangChain",
         description: "Agentic workflows and state machines",
         confidence: 0.8,
       },
