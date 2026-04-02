@@ -864,6 +864,10 @@ export class ThreadDetailsComponent {
   thread = input<InspectorThreadMeta | null>(null);
   runtimeUrl = input<string>("");
   headers = input<Record<string, string>>({});
+  /** If provided, used directly instead of fetching from the API. Useful for Storybook. */
+  conversationOverride = input<ConversationItem[] | null>(null);
+  /** Which tab to show on mount (and after threadId changes). Defaults to "conversation". */
+  initialTab = input<Tab>("conversation");
 
   readonly TAB_LIST: { id: Tab; label: string }[] = [
     { id: "conversation", label: "Conversation" },
@@ -883,7 +887,7 @@ export class ThreadDetailsComponent {
   constructor() {
     effect(() => {
       const threadId = this.threadId();
-      this.activeTab.set("conversation");
+      this.activeTab.set(this.initialTab());
       this.selectedToolCallId.set(null);
       if (threadId) {
         void this.fetchMessages(threadId);
@@ -894,6 +898,11 @@ export class ThreadDetailsComponent {
   }
 
   private async fetchMessages(threadId: string): Promise<void> {
+    const override = this.conversationOverride();
+    if (override !== null) {
+      this.conversation.set(override);
+      return;
+    }
     const runtimeUrl = this.runtimeUrl();
     if (!runtimeUrl) {
       this.conversation.set([]);
