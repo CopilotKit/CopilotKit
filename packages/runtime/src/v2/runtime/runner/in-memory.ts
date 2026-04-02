@@ -75,50 +75,7 @@ class InMemoryEventStore {
   currentEvents: BaseEvent[] | null = null;
 }
 
-// Use a symbol key on globalThis to survive hot reloads in development
-const GLOBAL_STORE_KEY = Symbol.for("@copilotkit/runtime/in-memory-store");
-
-interface GlobalStoreData {
-  stores: Map<string, InMemoryEventStore>;
-  historicRunsBackup: Map<string, HistoricRun[]>;
-}
-
-function getGlobalStore(): Map<string, InMemoryEventStore> {
-  const globalAny = globalThis as unknown as Record<symbol, GlobalStoreData>;
-
-  if (!globalAny[GLOBAL_STORE_KEY]) {
-    globalAny[GLOBAL_STORE_KEY] = {
-      stores: new Map<string, InMemoryEventStore>(),
-      historicRunsBackup: new Map<string, HistoricRun[]>(),
-    };
-  }
-
-  const data = globalAny[GLOBAL_STORE_KEY];
-
-  // Restore historic runs from backup after hot reload
-  // (when stores map is empty but backup has data)
-  if (data.stores.size === 0 && data.historicRunsBackup.size > 0) {
-    for (const [threadId, historicRuns] of data.historicRunsBackup) {
-      const store = new InMemoryEventStore(threadId);
-      store.historicRuns = historicRuns;
-      data.stores.set(threadId, store);
-    }
-  }
-
-  return data.stores;
-}
-
-function backupHistoricRuns(
-  threadId: string,
-  historicRuns: HistoricRun[],
-): void {
-  const globalAny = globalThis as unknown as Record<symbol, GlobalStoreData>;
-  if (globalAny[GLOBAL_STORE_KEY]) {
-    globalAny[GLOBAL_STORE_KEY].historicRunsBackup.set(threadId, historicRuns);
-  }
-}
-
-const GLOBAL_STORE = getGlobalStore();
+const GLOBAL_STORE = new Map<string, InMemoryEventStore>();
 
 export class InMemoryAgentRunner extends AgentRunner {
   run(request: AgentRunnerRunRequest): Observable<BaseEvent> {
@@ -252,9 +209,6 @@ export class InMemoryAgentRunner extends AgentRunner {
               : [],
             createdAt: Date.now(),
           });
-
-          // Backup for hot reload survival
-          backupHistoricRuns(request.threadId, store.historicRuns);
         }
 
         // Complete the run
@@ -293,9 +247,6 @@ export class InMemoryAgentRunner extends AgentRunner {
               : [],
             createdAt: Date.now(),
           });
-
-          // Backup for hot reload survival
-          backupHistoricRuns(request.threadId, store.historicRuns);
         }
 
         // Complete the run
