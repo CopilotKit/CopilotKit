@@ -18,7 +18,9 @@ import { cn } from "../../utils";
   imports: [CommonModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
-  template: ` <div [class]="computedClass" [style]="style()"></div> `,
+  template: `
+    <div [class]="computedClass" [style]="style()"></div>
+  `,
 })
 export class CopilotChatViewFeather {
   inputClass = input<string | undefined>();

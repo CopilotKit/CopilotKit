@@ -7,9 +7,9 @@
     "build:storybook": "nx run-many -t build --projects=examples/v2/*/storybook",
     "check-types": "nx run-many -t check-types",
     "clean": "git clean -fdX --exclude=\"!.env\"",
-    "lint": "nx run-many -t lint --projects=packages/**",
-    "format": "prettier --write \"**/*.{ts,tsx,md}\"",
-    "check-prettier": "prettier --check \"**/*.{ts,tsx,md}\"",
+    "lint": "oxlint .",
+    "format": "oxfmt --write .",
+    "check-format": "oxfmt --check .",
     "test": "nx run-many -t test",
     "test:watch": "pnpm run test && nx watch --all -- pnpm run test",
     "test:coverage": "nx run-many -t test:coverage",
@@ -39,25 +39,23 @@
     "@types/node": "^18.11.17",
     "@vitest/coverage-v8": "^3.2.4",
     "danger": "^12.3.3",
-    "eslint": "^8.56.0",
-    "eslint-config-custom": "workspace:*",
     "glob": "^10.3.12",
-    "lefthook": "^2.1.1",
     "install": "^0.13.0",
+    "lefthook": "^2.1.1",
     "npm": "^10.7.0",
     "nx": "^22.5.0",
-    "prettier": "^3.6.0",
-    "prettier-plugin-tailwindcss": "^0.1.11",
+    "oxfmt": "^0.36.0",
+    "oxlint": "^1.51.0",
     "publint": "^0.3.17",
     "storybook": "^10.1.10",
     "ts-node": "^10.9.2",
     "tsdown": "^0.20.3",
     "typescript": "^5.2.3"
   },
-  "packageManager": "pnpm@10.13.1",
   "engines": {
     "node": ">=18"
   },
+  "packageManager": "pnpm@10.13.1",
   "pnpm": {
     "peerDependencyRules": {
       "ignoreMissing": [

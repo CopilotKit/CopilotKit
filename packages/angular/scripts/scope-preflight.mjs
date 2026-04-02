@@ -19,8 +19,7 @@ if (!file) {
 /** Selectors that are already scoped and should be left alone. */
 function isAlreadyScoped(selector) {
   return (
-    selector.includes("[data-copilot") ||
-    selector.includes("[data-sidebar")
+    selector.includes("[data-copilot") || selector.includes("[data-sidebar")
   );
 }
 

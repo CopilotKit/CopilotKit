@@ -1,5 +1,5 @@
 // frontend/src/hooks/useExampleSuggestions.ts
-import { useConfigureSuggestions } from "@copilotkit/react-core/v2"
+import { useConfigureSuggestions } from "@copilotkit/react-core/v2";
 
 export const useExampleSuggestions = () => {
   useConfigureSuggestions({
@@ -34,5 +34,5 @@ export const useExampleSuggestions = () => {
       },
     ],
     available: "always",
-  })
-}
+  });
+};

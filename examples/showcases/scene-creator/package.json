@@ -8,8 +8,7 @@
     "dev:agent": "cd agent && npx @langchain/langgraph-cli dev --port 8123 --no-browser",
     "dev:ui": "next dev --turbopack",
     "build": "next build",
-    "start": "next start",
-    "lint": "eslint ."
+    "start": "next start"
   },
   "dependencies": {
     "@ag-ui/langgraph": "0.0.18",
@@ -28,8 +27,6 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "concurrently": "^9.1.2",
-    "eslint": "^9",
-    "eslint-config-next": "16.0.1",
     "tailwindcss": "^4",
     "typescript": "^5"
   }

@@ -1,750 +1,910 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Todo List</title>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <style>
-    /* ==========================================================================
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Todo List</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      /* ==========================================================================
        DESIGN SYSTEM - CopilotKit Glassmorphism Theme
     ========================================================================== */
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
 
-    :root {
-      --color-lilac: #BEC2FF;
-      --color-lilac-light: #D4D7FF;
-      --color-lilac-dark: #9599CC;
-      --color-mint: #85E0CE;
-      --color-mint-light: #A8E9DC;
-      --color-mint-dark: #1B936F;
-      --color-surface: #DEDEE9;
-      --color-surface-light: #F7F7F9;
-      --color-container: #FFFFFF;
-      --color-text-primary: #010507;
-      --color-text-secondary: #57575B;
-      --color-text-tertiary: #8E8E93;
-      --color-border: #DBDBE5;
-      --color-border-light: #EBEBF0;
-      --color-border-glass: rgba(255, 255, 255, 0.3);
-      --color-glass: rgba(255, 255, 255, 0.7);
-      --color-glass-subtle: rgba(255, 255, 255, 0.5);
-      --color-glass-dark: rgba(255, 255, 255, 0.85);
-      --color-success: #22c55e;
-      --color-success-light: #dcfce7;
-      --color-warning: #f59e0b;
-      --color-warning-light: #fef3c7;
-      --color-danger: #ef4444;
-      --color-danger-light: #fee2e2;
-      --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
-      --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.07);
-      --shadow-lg: 0 10px 25px -3px rgba(0, 0, 0, 0.08);
-      --shadow-glass: 0 4px 30px rgba(0, 0, 0, 0.1);
-      --space-1: 4px;
-      --space-2: 8px;
-      --space-3: 12px;
-      --space-4: 16px;
-      --space-5: 20px;
-      --space-6: 24px;
-      --radius-sm: 6px;
-      --radius-md: 8px;
-      --radius-lg: 12px;
-      --radius-xl: 16px;
-      --radius-2xl: 24px;
-      --radius-full: 9999px;
-      --font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
-      --font-size-xs: 11px;
-      --font-size-sm: 13px;
-      --font-size-base: 15px;
-      --font-size-lg: 17px;
-      --font-size-xl: 20px;
-    }
+      :root {
+        --color-lilac: #bec2ff;
+        --color-lilac-light: #d4d7ff;
+        --color-lilac-dark: #9599cc;
+        --color-mint: #85e0ce;
+        --color-mint-light: #a8e9dc;
+        --color-mint-dark: #1b936f;
+        --color-surface: #dedee9;
+        --color-surface-light: #f7f7f9;
+        --color-container: #ffffff;
+        --color-text-primary: #010507;
+        --color-text-secondary: #57575b;
+        --color-text-tertiary: #8e8e93;
+        --color-border: #dbdbe5;
+        --color-border-light: #ebebf0;
+        --color-border-glass: rgba(255, 255, 255, 0.3);
+        --color-glass: rgba(255, 255, 255, 0.7);
+        --color-glass-subtle: rgba(255, 255, 255, 0.5);
+        --color-glass-dark: rgba(255, 255, 255, 0.85);
+        --color-success: #22c55e;
+        --color-success-light: #dcfce7;
+        --color-warning: #f59e0b;
+        --color-warning-light: #fef3c7;
+        --color-danger: #ef4444;
+        --color-danger-light: #fee2e2;
+        --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+        --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.07);
+        --shadow-lg: 0 10px 25px -3px rgba(0, 0, 0, 0.08);
+        --shadow-glass: 0 4px 30px rgba(0, 0, 0, 0.1);
+        --space-1: 4px;
+        --space-2: 8px;
+        --space-3: 12px;
+        --space-4: 16px;
+        --space-5: 20px;
+        --space-6: 24px;
+        --radius-sm: 6px;
+        --radius-md: 8px;
+        --radius-lg: 12px;
+        --radius-xl: 16px;
+        --radius-2xl: 24px;
+        --radius-full: 9999px;
+        --font-family: "Plus Jakarta Sans", system-ui, sans-serif;
+        --font-size-xs: 11px;
+        --font-size-sm: 13px;
+        --font-size-base: 15px;
+        --font-size-lg: 17px;
+        --font-size-xl: 20px;
+      }
 
-    body {
-      font-family: var(--font-family);
-      background: linear-gradient(135deg, var(--color-surface-light), var(--color-surface));
-      color: var(--color-text-primary);
-      line-height: 1.5;
-      min-height: 100vh;
-      -webkit-font-smoothing: antialiased;
-    }
+      body {
+        font-family: var(--font-family);
+        background: linear-gradient(
+          135deg,
+          var(--color-surface-light),
+          var(--color-surface)
+        );
+        color: var(--color-text-primary);
+        line-height: 1.5;
+        min-height: 100vh;
+        -webkit-font-smoothing: antialiased;
+      }
 
-    body::before {
-      content: '';
-      position: fixed;
-      top: -150px;
-      right: -100px;
-      width: 400px;
-      height: 400px;
-      background: var(--color-lilac);
-      border-radius: 50%;
-      filter: blur(100px);
-      opacity: 0.4;
-      z-index: -1;
-      animation: blob1 25s ease-in-out infinite;
-    }
+      body::before {
+        content: "";
+        position: fixed;
+        top: -150px;
+        right: -100px;
+        width: 400px;
+        height: 400px;
+        background: var(--color-lilac);
+        border-radius: 50%;
+        filter: blur(100px);
+        opacity: 0.4;
+        z-index: -1;
+        animation: blob1 25s ease-in-out infinite;
+      }
 
-    body::after {
-      content: '';
-      position: fixed;
-      bottom: -100px;
-      left: -100px;
-      width: 350px;
-      height: 350px;
-      background: var(--color-mint);
-      border-radius: 50%;
-      filter: blur(100px);
-      opacity: 0.3;
-      z-index: -1;
-      animation: blob2 30s ease-in-out infinite;
-    }
+      body::after {
+        content: "";
+        position: fixed;
+        bottom: -100px;
+        left: -100px;
+        width: 350px;
+        height: 350px;
+        background: var(--color-mint);
+        border-radius: 50%;
+        filter: blur(100px);
+        opacity: 0.3;
+        z-index: -1;
+        animation: blob2 30s ease-in-out infinite;
+      }
 
-    @keyframes blob1 {
-      0%, 100% { transform: translate(0, 0) scale(1); }
-      33% { transform: translate(-20px, 30px) scale(1.05); }
-      66% { transform: translate(15px, -20px) scale(0.95); }
-    }
+      @keyframes blob1 {
+        0%,
+        100% {
+          transform: translate(0, 0) scale(1);
+        }
+        33% {
+          transform: translate(-20px, 30px) scale(1.05);
+        }
+        66% {
+          transform: translate(15px, -20px) scale(0.95);
+        }
+      }
 
-    @keyframes blob2 {
-      0%, 100% { transform: translate(0, 0) scale(1); }
-      50% { transform: translate(30px, -25px) scale(1.08); }
-    }
+      @keyframes blob2 {
+        0%,
+        100% {
+          transform: translate(0, 0) scale(1);
+        }
+        50% {
+          transform: translate(30px, -25px) scale(1.08);
+        }
+      }
 
-    @keyframes spin { to { transform: rotate(360deg); } }
-    @keyframes slide-up {
-      from { transform: translateY(20px); opacity: 0; }
-      to { transform: translateY(0); opacity: 1; }
-    }
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+      @keyframes slide-up {
+        from {
+          transform: translateY(20px);
+          opacity: 0;
+        }
+        to {
+          transform: translateY(0);
+          opacity: 1;
+        }
+      }
 
-    #app { padding: var(--space-4); width: 100%; }
-    .hidden { display: none !important; }
+      #app {
+        padding: var(--space-4);
+        width: 100%;
+      }
+      .hidden {
+        display: none !important;
+      }
 
-    /* Todo Container */
-    .todo-container {
-      background: var(--color-glass);
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
-      border: 1px solid var(--color-border-glass);
-      border-radius: var(--radius-2xl);
-      padding: var(--space-5);
-      box-shadow: var(--shadow-glass);
-      animation: slide-up 0.3s ease;
-    }
+      /* Todo Container */
+      .todo-container {
+        background: var(--color-glass);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border: 1px solid var(--color-border-glass);
+        border-radius: var(--radius-2xl);
+        padding: var(--space-5);
+        box-shadow: var(--shadow-glass);
+        animation: slide-up 0.3s ease;
+      }
 
-    /* Header */
-    .todo-header {
-      display: flex;
-      align-items: center;
-      gap: var(--space-3);
-      margin-bottom: var(--space-4);
-    }
+      /* Header */
+      .todo-header {
+        display: flex;
+        align-items: center;
+        gap: var(--space-3);
+        margin-bottom: var(--space-4);
+      }
 
-    .todo-icon {
-      width: 40px;
-      height: 40px;
-      background: linear-gradient(135deg, var(--color-lilac), var(--color-mint));
-      border-radius: var(--radius-lg);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: white;
-    }
+      .todo-icon {
+        width: 40px;
+        height: 40px;
+        background: linear-gradient(
+          135deg,
+          var(--color-lilac),
+          var(--color-mint)
+        );
+        border-radius: var(--radius-lg);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+      }
 
-    .todo-icon svg { width: 20px; height: 20px; }
+      .todo-icon svg {
+        width: 20px;
+        height: 20px;
+      }
 
-    .todo-title {
-      font-size: var(--font-size-xl);
-      font-weight: 700;
-    }
+      .todo-title {
+        font-size: var(--font-size-xl);
+        font-weight: 700;
+      }
 
-    /* Stats */
-    .stats {
-      display: flex;
-      gap: var(--space-3);
-      margin-bottom: var(--space-4);
-    }
+      /* Stats */
+      .stats {
+        display: flex;
+        gap: var(--space-3);
+        margin-bottom: var(--space-4);
+      }
 
-    .stat {
-      background: var(--color-glass-subtle);
-      padding: var(--space-2) var(--space-3);
-      border-radius: var(--radius-full);
-      font-size: var(--font-size-xs);
-      font-weight: 500;
-      color: var(--color-text-secondary);
-      display: flex;
-      align-items: center;
-      gap: var(--space-1);
-    }
+      .stat {
+        background: var(--color-glass-subtle);
+        padding: var(--space-2) var(--space-3);
+        border-radius: var(--radius-full);
+        font-size: var(--font-size-xs);
+        font-weight: 500;
+        color: var(--color-text-secondary);
+        display: flex;
+        align-items: center;
+        gap: var(--space-1);
+      }
 
-    .stat svg { width: 12px; height: 12px; }
-    .stat-value { font-weight: 700; color: var(--color-text-primary); }
+      .stat svg {
+        width: 12px;
+        height: 12px;
+      }
+      .stat-value {
+        font-weight: 700;
+        color: var(--color-text-primary);
+      }
 
-    /* Add Todo Form */
-    .add-form {
-      display: flex;
-      gap: var(--space-2);
-      margin-bottom: var(--space-4);
-    }
+      /* Add Todo Form */
+      .add-form {
+        display: flex;
+        gap: var(--space-2);
+        margin-bottom: var(--space-4);
+      }
 
-    .add-input {
-      flex: 1;
-      padding: var(--space-3);
-      border: 1px solid var(--color-border);
-      border-radius: var(--radius-lg);
-      font-size: var(--font-size-sm);
-      font-family: var(--font-family);
-      background: var(--color-container);
-      transition: border-color 0.2s, box-shadow 0.2s;
-    }
+      .add-input {
+        flex: 1;
+        padding: var(--space-3);
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-lg);
+        font-size: var(--font-size-sm);
+        font-family: var(--font-family);
+        background: var(--color-container);
+        transition:
+          border-color 0.2s,
+          box-shadow 0.2s;
+      }
 
-    .add-input:focus {
-      outline: none;
-      border-color: var(--color-lilac);
-      box-shadow: 0 0 0 3px rgba(190, 194, 255, 0.2);
-    }
+      .add-input:focus {
+        outline: none;
+        border-color: var(--color-lilac);
+        box-shadow: 0 0 0 3px rgba(190, 194, 255, 0.2);
+      }
 
-    .add-btn {
-      padding: var(--space-3) var(--space-4);
-      background: linear-gradient(135deg, var(--color-lilac), var(--color-mint));
-      color: white;
-      border: none;
-      border-radius: var(--radius-lg);
-      font-weight: 600;
-      font-family: var(--font-family);
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      gap: var(--space-2);
-      transition: all 0.2s;
-    }
+      .add-btn {
+        padding: var(--space-3) var(--space-4);
+        background: linear-gradient(
+          135deg,
+          var(--color-lilac),
+          var(--color-mint)
+        );
+        color: white;
+        border: none;
+        border-radius: var(--radius-lg);
+        font-weight: 600;
+        font-family: var(--font-family);
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: var(--space-2);
+        transition: all 0.2s;
+      }
 
-    .add-btn:hover { box-shadow: 0 4px 12px rgba(190, 194, 255, 0.4); }
-    .add-btn:active { transform: scale(0.98); }
-    .add-btn svg { width: 16px; height: 16px; }
+      .add-btn:hover {
+        box-shadow: 0 4px 12px rgba(190, 194, 255, 0.4);
+      }
+      .add-btn:active {
+        transform: scale(0.98);
+      }
+      .add-btn svg {
+        width: 16px;
+        height: 16px;
+      }
 
-    /* Filters */
-    .filters {
-      display: flex;
-      gap: var(--space-2);
-      margin-bottom: var(--space-4);
-      flex-wrap: wrap;
-    }
+      /* Filters */
+      .filters {
+        display: flex;
+        gap: var(--space-2);
+        margin-bottom: var(--space-4);
+        flex-wrap: wrap;
+      }
 
-    .filter-btn {
-      padding: var(--space-2) var(--space-3);
-      background: var(--color-glass-subtle);
-      border: 1px solid var(--color-border-glass);
-      border-radius: var(--radius-full);
-      font-size: var(--font-size-xs);
-      font-weight: 500;
-      font-family: var(--font-family);
-      color: var(--color-text-secondary);
-      cursor: pointer;
-      transition: all 0.2s;
-    }
+      .filter-btn {
+        padding: var(--space-2) var(--space-3);
+        background: var(--color-glass-subtle);
+        border: 1px solid var(--color-border-glass);
+        border-radius: var(--radius-full);
+        font-size: var(--font-size-xs);
+        font-weight: 500;
+        font-family: var(--font-family);
+        color: var(--color-text-secondary);
+        cursor: pointer;
+        transition: all 0.2s;
+      }
 
-    .filter-btn:hover {
-      background: var(--color-glass);
-      border-color: var(--color-lilac);
-    }
+      .filter-btn:hover {
+        background: var(--color-glass);
+        border-color: var(--color-lilac);
+      }
 
-    .filter-btn.active {
-      background: var(--color-lilac);
-      border-color: var(--color-lilac);
-      color: white;
-    }
+      .filter-btn.active {
+        background: var(--color-lilac);
+        border-color: var(--color-lilac);
+        color: white;
+      }
 
-    /* Todo List */
-    .todo-list {
-      max-height: 400px;
-      overflow-y: auto;
-    }
+      /* Todo List */
+      .todo-list {
+        max-height: 400px;
+        overflow-y: auto;
+      }
 
-    .todo-item {
-      display: flex;
-      align-items: center;
-      gap: var(--space-3);
-      padding: var(--space-3);
-      background: var(--color-glass-dark);
-      border: 1px solid var(--color-border-glass);
-      border-radius: var(--radius-lg);
-      margin-bottom: var(--space-2);
-      transition: all 0.2s;
-      animation: slide-up 0.2s ease;
-    }
+      .todo-item {
+        display: flex;
+        align-items: center;
+        gap: var(--space-3);
+        padding: var(--space-3);
+        background: var(--color-glass-dark);
+        border: 1px solid var(--color-border-glass);
+        border-radius: var(--radius-lg);
+        margin-bottom: var(--space-2);
+        transition: all 0.2s;
+        animation: slide-up 0.2s ease;
+      }
 
-    .todo-item:hover {
-      box-shadow: var(--shadow-sm);
-      transform: translateY(-1px);
-    }
+      .todo-item:hover {
+        box-shadow: var(--shadow-sm);
+        transform: translateY(-1px);
+      }
 
-    .todo-item.completed {
-      opacity: 0.6;
-    }
+      .todo-item.completed {
+        opacity: 0.6;
+      }
 
-    .todo-item.completed .todo-text {
-      text-decoration: line-through;
-      color: var(--color-text-tertiary);
-    }
+      .todo-item.completed .todo-text {
+        text-decoration: line-through;
+        color: var(--color-text-tertiary);
+      }
 
-    /* Checkbox */
-    .todo-checkbox {
-      width: 22px;
-      height: 22px;
-      border: 2px solid var(--color-border);
-      border-radius: var(--radius-sm);
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      flex-shrink: 0;
-      transition: all 0.2s;
-      background: var(--color-container);
-    }
+      /* Checkbox */
+      .todo-checkbox {
+        width: 22px;
+        height: 22px;
+        border: 2px solid var(--color-border);
+        border-radius: var(--radius-sm);
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        transition: all 0.2s;
+        background: var(--color-container);
+      }
 
-    .todo-checkbox:hover { border-color: var(--color-lilac); }
+      .todo-checkbox:hover {
+        border-color: var(--color-lilac);
+      }
 
-    .todo-checkbox.checked {
-      background: linear-gradient(135deg, var(--color-mint), var(--color-mint-dark));
-      border-color: var(--color-mint);
-    }
+      .todo-checkbox.checked {
+        background: linear-gradient(
+          135deg,
+          var(--color-mint),
+          var(--color-mint-dark)
+        );
+        border-color: var(--color-mint);
+      }
 
-    .todo-checkbox svg {
-      width: 14px;
-      height: 14px;
-      color: white;
-      opacity: 0;
-    }
+      .todo-checkbox svg {
+        width: 14px;
+        height: 14px;
+        color: white;
+        opacity: 0;
+      }
 
-    .todo-checkbox.checked svg { opacity: 1; }
+      .todo-checkbox.checked svg {
+        opacity: 1;
+      }
 
-    /* Todo Content */
-    .todo-content { flex: 1; min-width: 0; }
+      /* Todo Content */
+      .todo-content {
+        flex: 1;
+        min-width: 0;
+      }
 
-    .todo-text {
-      font-size: var(--font-size-sm);
-      font-weight: 500;
-      color: var(--color-text-primary);
-      margin-bottom: var(--space-1);
-    }
+      .todo-text {
+        font-size: var(--font-size-sm);
+        font-weight: 500;
+        color: var(--color-text-primary);
+        margin-bottom: var(--space-1);
+      }
 
-    .todo-meta {
-      display: flex;
-      gap: var(--space-2);
-      flex-wrap: wrap;
-    }
+      .todo-meta {
+        display: flex;
+        gap: var(--space-2);
+        flex-wrap: wrap;
+      }
 
-    .todo-tag {
-      font-size: 10px;
-      padding: 2px var(--space-2);
-      background: var(--color-glass-subtle);
-      border-radius: var(--radius-sm);
-      color: var(--color-text-tertiary);
-    }
+      .todo-tag {
+        font-size: 10px;
+        padding: 2px var(--space-2);
+        background: var(--color-glass-subtle);
+        border-radius: var(--radius-sm);
+        color: var(--color-text-tertiary);
+      }
 
-    .priority-high { background: var(--color-danger-light); color: var(--color-danger); }
-    .priority-medium { background: var(--color-warning-light); color: var(--color-warning); }
-    .priority-low { background: var(--color-success-light); color: var(--color-success); }
+      .priority-high {
+        background: var(--color-danger-light);
+        color: var(--color-danger);
+      }
+      .priority-medium {
+        background: var(--color-warning-light);
+        color: var(--color-warning);
+      }
+      .priority-low {
+        background: var(--color-success-light);
+        color: var(--color-success);
+      }
 
-    /* Delete Button */
-    .todo-delete {
-      width: 28px;
-      height: 28px;
-      border: none;
-      background: transparent;
-      border-radius: var(--radius-md);
-      cursor: pointer;
-      color: var(--color-text-tertiary);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      transition: all 0.2s;
-      opacity: 0;
-    }
+      /* Delete Button */
+      .todo-delete {
+        width: 28px;
+        height: 28px;
+        border: none;
+        background: transparent;
+        border-radius: var(--radius-md);
+        cursor: pointer;
+        color: var(--color-text-tertiary);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s;
+        opacity: 0;
+      }
 
-    .todo-item:hover .todo-delete { opacity: 1; }
-    .todo-delete:hover {
-      background: var(--color-danger-light);
-      color: var(--color-danger);
-    }
-    .todo-delete svg { width: 16px; height: 16px; }
+      .todo-item:hover .todo-delete {
+        opacity: 1;
+      }
+      .todo-delete:hover {
+        background: var(--color-danger-light);
+        color: var(--color-danger);
+      }
+      .todo-delete svg {
+        width: 16px;
+        height: 16px;
+      }
 
-    /* Empty State */
-    .empty-state {
-      text-align: center;
-      padding: var(--space-6);
-      color: var(--color-text-tertiary);
-    }
+      /* Empty State */
+      .empty-state {
+        text-align: center;
+        padding: var(--space-6);
+        color: var(--color-text-tertiary);
+      }
 
-    .empty-icon {
-      width: 48px;
-      height: 48px;
-      margin: 0 auto var(--space-3);
-      color: var(--color-border);
-    }
+      .empty-icon {
+        width: 48px;
+        height: 48px;
+        margin: 0 auto var(--space-3);
+        color: var(--color-border);
+      }
 
-    /* Footer */
-    .todo-footer {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-top: var(--space-4);
-      padding-top: var(--space-3);
-      border-top: 1px solid var(--color-border-light);
-    }
+      /* Footer */
+      .todo-footer {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-top: var(--space-4);
+        padding-top: var(--space-3);
+        border-top: 1px solid var(--color-border-light);
+      }
 
-    .footer-text {
-      font-size: var(--font-size-xs);
-      color: var(--color-text-tertiary);
-    }
+      .footer-text {
+        font-size: var(--font-size-xs);
+        color: var(--color-text-tertiary);
+      }
 
-    .clear-btn {
-      font-size: var(--font-size-xs);
-      color: var(--color-text-tertiary);
-      background: none;
-      border: none;
-      cursor: pointer;
-      padding: var(--space-1) var(--space-2);
-      border-radius: var(--radius-sm);
-      font-family: var(--font-family);
-    }
+      .clear-btn {
+        font-size: var(--font-size-xs);
+        color: var(--color-text-tertiary);
+        background: none;
+        border: none;
+        cursor: pointer;
+        padding: var(--space-1) var(--space-2);
+        border-radius: var(--radius-sm);
+        font-family: var(--font-family);
+      }
 
-    .clear-btn:hover {
-      background: var(--color-surface-light);
-      color: var(--color-text-secondary);
-    }
+      .clear-btn:hover {
+        background: var(--color-surface-light);
+        color: var(--color-text-secondary);
+      }
 
-    /* Loading */
-    .loading-container {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      padding: var(--space-6);
-    }
+      /* Loading */
+      .loading-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: var(--space-6);
+      }
 
-    .loading-icon {
-      width: 48px;
-      height: 48px;
-      margin-bottom: var(--space-4);
-      color: var(--color-lilac-dark);
-    }
+      .loading-icon {
+        width: 48px;
+        height: 48px;
+        margin-bottom: var(--space-4);
+        color: var(--color-lilac-dark);
+      }
 
-    .loading-spinner {
-      width: 32px;
-      height: 32px;
-      border: 3px solid var(--color-border-light);
-      border-top-color: var(--color-lilac);
-      border-radius: 50%;
-      animation: spin 1s linear infinite;
-      margin-bottom: var(--space-4);
-    }
+      .loading-spinner {
+        width: 32px;
+        height: 32px;
+        border: 3px solid var(--color-border-light);
+        border-top-color: var(--color-lilac);
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+        margin-bottom: var(--space-4);
+      }
 
-    .loading-text {
-      font-size: var(--font-size-sm);
-      font-weight: 500;
-      color: var(--color-text-secondary);
-    }
-  </style>
-</head>
-<body>
-  <div id="app">
-    <!-- Loading -->
-    <div id="loading" class="loading-container">
-      <svg class="loading-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
-        <polyline points="22 4 12 14.01 9 11.01"/>
-      </svg>
-      <div class="loading-spinner"></div>
-      <p class="loading-text">Loading your tasks...</p>
-    </div>
+      .loading-text {
+        font-size: var(--font-size-sm);
+        font-weight: 500;
+        color: var(--color-text-secondary);
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app">
+      <!-- Loading -->
+      <div id="loading" class="loading-container">
+        <svg
+          class="loading-icon"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+        >
+          <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+          <polyline points="22 4 12 14.01 9 11.01" />
+        </svg>
+        <div class="loading-spinner"></div>
+        <p class="loading-text">Loading your tasks...</p>
+      </div>
 
-    <!-- Content -->
-    <div id="content" class="hidden">
-      <div class="todo-container">
-        <div class="todo-header">
-          <div class="todo-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
-              <polyline points="22 4 12 14.01 9 11.01"/>
-            </svg>
+      <!-- Content -->
+      <div id="content" class="hidden">
+        <div class="todo-container">
+          <div class="todo-header">
+            <div class="todo-icon">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                <polyline points="22 4 12 14.01 9 11.01" />
+              </svg>
+            </div>
+            <h1 class="todo-title" id="list-name">My Tasks</h1>
           </div>
-          <h1 class="todo-title" id="list-name">My Tasks</h1>
-        </div>
 
-        <div id="stats" class="stats"></div>
+          <div id="stats" class="stats"></div>
 
-        <div class="add-form">
-          <input type="text" id="add-input" class="add-input" placeholder="Add a new task..." />
-          <button id="add-btn" class="add-btn">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
-            Add
-          </button>
-        </div>
+          <div class="add-form">
+            <input
+              type="text"
+              id="add-input"
+              class="add-input"
+              placeholder="Add a new task..."
+            />
+            <button id="add-btn" class="add-btn">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <path d="M12 5v14M5 12h14" />
+              </svg>
+              Add
+            </button>
+          </div>
 
-        <div class="filters">
-          <button class="filter-btn active" data-filter="all">All</button>
-          <button class="filter-btn" data-filter="pending">Pending</button>
-          <button class="filter-btn" data-filter="in_progress">In Progress</button>
-          <button class="filter-btn" data-filter="completed">Completed</button>
-        </div>
+          <div class="filters">
+            <button class="filter-btn active" data-filter="all">All</button>
+            <button class="filter-btn" data-filter="pending">Pending</button>
+            <button class="filter-btn" data-filter="in_progress">
+              In Progress
+            </button>
+            <button class="filter-btn" data-filter="completed">
+              Completed
+            </button>
+          </div>
 
-        <div id="todo-list" class="todo-list"></div>
+          <div id="todo-list" class="todo-list"></div>
 
-        <div id="footer" class="todo-footer">
-          <span class="footer-text"><span id="items-left">0</span> items remaining</span>
-          <button id="clear-completed" class="clear-btn">Clear completed</button>
+          <div id="footer" class="todo-footer">
+            <span class="footer-text"
+              ><span id="items-left">0</span> items remaining</span
+            >
+            <button id="clear-completed" class="clear-btn">
+              Clear completed
+            </button>
+          </div>
         </div>
       </div>
     </div>
-  </div>
 
-  <script type="module">
-    // MCP App Communication
-    const mcpApp = (() => {
-      let requestId = 1;
-      const pendingRequests = new Map();
-      const notificationHandlers = {};
+    <script type="module">
+      // MCP App Communication
+      const mcpApp = (() => {
+        let requestId = 1;
+        const pendingRequests = new Map();
+        const notificationHandlers = {};
 
-      function sendRequest(method, params) {
-        const id = requestId++;
-        return new Promise((resolve, reject) => {
-          pendingRequests.set(id, { resolve, reject });
-          window.parent.postMessage({ jsonrpc: "2.0", id, method, params }, "*");
-        });
-      }
-
-      function sendNotification(method, params) {
-        window.parent.postMessage({ jsonrpc: "2.0", method, params }, "*");
-      }
-
-      window.addEventListener("message", (event) => {
-        const data = event.data;
-        if (!data || typeof data !== "object") return;
-        if (data.id && pendingRequests.has(data.id)) {
-          const { resolve, reject } = pendingRequests.get(data.id);
-          pendingRequests.delete(data.id);
-          data.error ? reject(data.error) : resolve(data.result);
-          return;
+        function sendRequest(method, params) {
+          const id = requestId++;
+          return new Promise((resolve, reject) => {
+            pendingRequests.set(id, { resolve, reject });
+            window.parent.postMessage(
+              { jsonrpc: "2.0", id, method, params },
+              "*",
+            );
+          });
         }
-        if (data.method && notificationHandlers[data.method]) {
-          notificationHandlers[data.method](data.params);
+
+        function sendNotification(method, params) {
+          window.parent.postMessage({ jsonrpc: "2.0", method, params }, "*");
         }
-      });
 
-      function onNotification(method, handler) { notificationHandlers[method] = handler; }
-
-      function reportSize() {
-        const app = document.getElementById("app");
-        sendNotification("ui/notifications/size-change", {
-          width: Math.ceil(app.scrollWidth),
-          height: Math.ceil(app.scrollHeight)
+        window.addEventListener("message", (event) => {
+          const data = event.data;
+          if (!data || typeof data !== "object") return;
+          if (data.id && pendingRequests.has(data.id)) {
+            const { resolve, reject } = pendingRequests.get(data.id);
+            pendingRequests.delete(data.id);
+            data.error ? reject(data.error) : resolve(data.result);
+            return;
+          }
+          if (data.method && notificationHandlers[data.method]) {
+            notificationHandlers[data.method](data.params);
+          }
         });
-      }
 
-      return { sendRequest, sendNotification, onNotification, reportSize };
-    })();
+        function onNotification(method, handler) {
+          notificationHandlers[method] = handler;
+        }
 
-    // State
-    let todoList = null;
-    let currentFilter = "all";
+        function reportSize() {
+          const app = document.getElementById("app");
+          sendNotification("ui/notifications/size-change", {
+            width: Math.ceil(app.scrollWidth),
+            height: Math.ceil(app.scrollHeight),
+          });
+        }
 
-    // DOM
-    const el = {
-      loading: document.getElementById("loading"),
-      content: document.getElementById("content"),
-      listName: document.getElementById("list-name"),
-      stats: document.getElementById("stats"),
-      addInput: document.getElementById("add-input"),
-      addBtn: document.getElementById("add-btn"),
-      todoList: document.getElementById("todo-list"),
-      itemsLeft: document.getElementById("items-left"),
-      clearCompleted: document.getElementById("clear-completed"),
-    };
+        return { sendRequest, sendNotification, onNotification, reportSize };
+      })();
 
-    // Icons
-    const icons = {
-      check: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>`,
-      trash: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>`,
-      clipboard: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="2" width="6" height="4" rx="1"/><path d="M9 2v4h6V2"/><rect x="4" y="4" width="16" height="18" rx="2"/></svg>`,
-    };
+      // State
+      let todoList = null;
+      let currentFilter = "all";
 
-    // Render
-    function render() {
-      if (!todoList) return;
+      // DOM
+      const el = {
+        loading: document.getElementById("loading"),
+        content: document.getElementById("content"),
+        listName: document.getElementById("list-name"),
+        stats: document.getElementById("stats"),
+        addInput: document.getElementById("add-input"),
+        addBtn: document.getElementById("add-btn"),
+        todoList: document.getElementById("todo-list"),
+        itemsLeft: document.getElementById("items-left"),
+        clearCompleted: document.getElementById("clear-completed"),
+      };
 
-      el.loading.classList.add("hidden");
-      el.content.classList.remove("hidden");
-      el.listName.textContent = todoList.name;
+      // Icons
+      const icons = {
+        check: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>`,
+        trash: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>`,
+        clipboard: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="2" width="6" height="4" rx="1"/><path d="M9 2v4h6V2"/><rect x="4" y="4" width="16" height="18" rx="2"/></svg>`,
+      };
 
-      // Stats
-      const stats = getStats();
-      el.stats.innerHTML = `
+      // Render
+      function render() {
+        if (!todoList) return;
+
+        el.loading.classList.add("hidden");
+        el.content.classList.remove("hidden");
+        el.listName.textContent = todoList.name;
+
+        // Stats
+        const stats = getStats();
+        el.stats.innerHTML = `
         <div class="stat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg> Total: <span class="stat-value">${stats.total}</span></div>
         <div class="stat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg> Done: <span class="stat-value">${stats.completed}</span></div>
-        ${stats.overdue > 0 ? `<div class="stat" style="color: var(--color-danger);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg> Overdue: <span class="stat-value">${stats.overdue}</span></div>` : ''}
+        ${stats.overdue > 0 ? `<div class="stat" style="color: var(--color-danger);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg> Overdue: <span class="stat-value">${stats.overdue}</span></div>` : ""}
       `;
 
-      // Filter items
-      const items = getFilteredItems();
-      el.itemsLeft.textContent = stats.pending + stats.inProgress;
+        // Filter items
+        const items = getFilteredItems();
+        el.itemsLeft.textContent = stats.pending + stats.inProgress;
 
-      if (!items.length) {
-        el.todoList.innerHTML = `
+        if (!items.length) {
+          el.todoList.innerHTML = `
           <div class="empty-state">
             <svg class="empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
               <polyline points="22 4 12 14.01 9 11.01"/>
             </svg>
-            <p>${currentFilter === 'all' ? 'No tasks yet. Add one above!' : `No ${currentFilter.replace('_', ' ')} tasks`}</p>
+            <p>${currentFilter === "all" ? "No tasks yet. Add one above!" : `No ${currentFilter.replace("_", " ")} tasks`}</p>
           </div>
         `;
-      } else {
-        el.todoList.innerHTML = items.map(item => `
-          <div class="todo-item ${item.status === 'completed' ? 'completed' : ''}" data-id="${item.id}">
-            <div class="todo-checkbox ${item.status === 'completed' ? 'checked' : ''}" data-action="toggle" data-id="${item.id}">
+        } else {
+          el.todoList.innerHTML = items
+            .map(
+              (item) => `
+          <div class="todo-item ${item.status === "completed" ? "completed" : ""}" data-id="${item.id}">
+            <div class="todo-checkbox ${item.status === "completed" ? "checked" : ""}" data-action="toggle" data-id="${item.id}">
               ${icons.check}
             </div>
             <div class="todo-content">
               <div class="todo-text">${item.title}</div>
               <div class="todo-meta">
                 <span class="todo-tag priority-${item.priority}">${item.priority}</span>
-                ${item.tags.slice(0, 2).map(t => `<span class="todo-tag">${t}</span>`).join('')}
+                ${item.tags
+                  .slice(0, 2)
+                  .map((t) => `<span class="todo-tag">${t}</span>`)
+                  .join("")}
               </div>
             </div>
             <button class="todo-delete" data-action="delete" data-id="${item.id}">${icons.trash}</button>
           </div>
-        `).join('');
+        `,
+            )
+            .join("");
+        }
+
+        // Event listeners
+        el.todoList.querySelectorAll('[data-action="toggle"]').forEach((cb) => {
+          cb.addEventListener("click", () => toggleItem(cb.dataset.id));
+        });
+        el.todoList
+          .querySelectorAll('[data-action="delete"]')
+          .forEach((btn) => {
+            btn.addEventListener("click", () => deleteItem(btn.dataset.id));
+          });
+
+        mcpApp.reportSize();
       }
 
-      // Event listeners
-      el.todoList.querySelectorAll('[data-action="toggle"]').forEach(cb => {
-        cb.addEventListener('click', () => toggleItem(cb.dataset.id));
-      });
-      el.todoList.querySelectorAll('[data-action="delete"]').forEach(btn => {
-        btn.addEventListener('click', () => deleteItem(btn.dataset.id));
-      });
-
-      mcpApp.reportSize();
-    }
-
-    function getStats() {
-      const items = todoList?.items || [];
-      const now = new Date();
-      return {
-        total: items.length,
-        pending: items.filter(i => i.status === 'pending').length,
-        inProgress: items.filter(i => i.status === 'in_progress').length,
-        completed: items.filter(i => i.status === 'completed').length,
-        overdue: items.filter(i => i.status !== 'completed' && i.dueDate && new Date(i.dueDate) < now).length,
-      };
-    }
-
-    function getFilteredItems() {
-      const items = todoList?.items || [];
-      if (currentFilter === 'all') return items;
-      return items.filter(i => i.status === currentFilter);
-    }
-
-    // Actions
-    async function addItem() {
-      const title = el.addInput.value.trim();
-      if (!title || !todoList) return;
-
-      try {
-        const res = await mcpApp.sendRequest("tools/call", {
-          name: "add-todo-item",
-          arguments: { listId: todoList.id, title, priority: "medium" }
-        });
-        if (res?.structuredContent?.list) {
-          todoList = res.structuredContent.list;
-          el.addInput.value = '';
-          render();
-        }
-      } catch (e) { console.error("Add failed:", e); }
-    }
-
-    async function toggleItem(itemId) {
-      if (!todoList) return;
-      const item = todoList.items.find(i => i.id === itemId);
-      if (!item) return;
-
-      const newStatus = item.status === 'completed' ? 'pending' : 'completed';
-      try {
-        const res = await mcpApp.sendRequest("tools/call", {
-          name: newStatus === 'completed' ? "complete-todo-item" : "reopen-todo-item",
-          arguments: { listId: todoList.id, itemId }
-        });
-        if (res?.structuredContent?.list) {
-          todoList = res.structuredContent.list;
-          render();
-        }
-      } catch (e) { console.error("Toggle failed:", e); }
-    }
-
-    async function deleteItem(itemId) {
-      if (!todoList) return;
-      try {
-        const res = await mcpApp.sendRequest("tools/call", {
-          name: "delete-todo-item",
-          arguments: { listId: todoList.id, itemId }
-        });
-        if (res?.structuredContent?.list) {
-          todoList = res.structuredContent.list;
-          render();
-        }
-      } catch (e) { console.error("Delete failed:", e); }
-    }
-
-    async function clearCompleted() {
-      if (!todoList) return;
-      try {
-        const res = await mcpApp.sendRequest("tools/call", {
-          name: "clear-completed",
-          arguments: { listId: todoList.id }
-        });
-        if (res?.structuredContent?.list) {
-          todoList = res.structuredContent.list;
-          render();
-        }
-      } catch (e) { console.error("Clear failed:", e); }
-    }
-
-    // Event Listeners
-    el.addBtn.addEventListener('click', addItem);
-    el.addInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') addItem(); });
-    el.clearCompleted.addEventListener('click', clearCompleted);
-
-    document.querySelectorAll('.filter-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        currentFilter = btn.dataset.filter;
-        render();
-      });
-    });
-
-    // Init
-    async function initialize() {
-      try {
-        await mcpApp.sendRequest("ui/initialize", {
-          protocolVersion: "2025-06-18",
-          appInfo: { name: "Todo List", version: "1.0.0" },
-          appCapabilities: {}
-        });
-        mcpApp.sendNotification("ui/notifications/initialized", {});
-        new ResizeObserver(() => mcpApp.reportSize()).observe(document.getElementById("app"));
-      } catch (e) { console.error("Init failed:", e); }
-    }
-
-    mcpApp.onNotification("ui/notifications/tool-result", (params) => {
-      const result = params?.structuredContent;
-      if (result?.list) {
-        todoList = result.list;
-        render();
+      function getStats() {
+        const items = todoList?.items || [];
+        const now = new Date();
+        return {
+          total: items.length,
+          pending: items.filter((i) => i.status === "pending").length,
+          inProgress: items.filter((i) => i.status === "in_progress").length,
+          completed: items.filter((i) => i.status === "completed").length,
+          overdue: items.filter(
+            (i) =>
+              i.status !== "completed" &&
+              i.dueDate &&
+              new Date(i.dueDate) < now,
+          ).length,
+        };
       }
-    });
 
-    window.addEventListener("load", initialize);
-  </script>
-</body>
+      function getFilteredItems() {
+        const items = todoList?.items || [];
+        if (currentFilter === "all") return items;
+        return items.filter((i) => i.status === currentFilter);
+      }
+
+      // Actions
+      async function addItem() {
+        const title = el.addInput.value.trim();
+        if (!title || !todoList) return;
+
+        try {
+          const res = await mcpApp.sendRequest("tools/call", {
+            name: "add-todo-item",
+            arguments: { listId: todoList.id, title, priority: "medium" },
+          });
+          if (res?.structuredContent?.list) {
+            todoList = res.structuredContent.list;
+            el.addInput.value = "";
+            render();
+          }
+        } catch (e) {
+          console.error("Add failed:", e);
+        }
+      }
+
+      async function toggleItem(itemId) {
+        if (!todoList) return;
+        const item = todoList.items.find((i) => i.id === itemId);
+        if (!item) return;
+
+        const newStatus = item.status === "completed" ? "pending" : "completed";
+        try {
+          const res = await mcpApp.sendRequest("tools/call", {
+            name:
+              newStatus === "completed"
+                ? "complete-todo-item"
+                : "reopen-todo-item",
+            arguments: { listId: todoList.id, itemId },
+          });
+          if (res?.structuredContent?.list) {
+            todoList = res.structuredContent.list;
+            render();
+          }
+        } catch (e) {
+          console.error("Toggle failed:", e);
+        }
+      }
+
+      async function deleteItem(itemId) {
+        if (!todoList) return;
+        try {
+          const res = await mcpApp.sendRequest("tools/call", {
+            name: "delete-todo-item",
+            arguments: { listId: todoList.id, itemId },
+          });
+          if (res?.structuredContent?.list) {
+            todoList = res.structuredContent.list;
+            render();
+          }
+        } catch (e) {
+          console.error("Delete failed:", e);
+        }
+      }
+
+      async function clearCompleted() {
+        if (!todoList) return;
+        try {
+          const res = await mcpApp.sendRequest("tools/call", {
+            name: "clear-completed",
+            arguments: { listId: todoList.id },
+          });
+          if (res?.structuredContent?.list) {
+            todoList = res.structuredContent.list;
+            render();
+          }
+        } catch (e) {
+          console.error("Clear failed:", e);
+        }
+      }
+
+      // Event Listeners
+      el.addBtn.addEventListener("click", addItem);
+      el.addInput.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") addItem();
+      });
+      el.clearCompleted.addEventListener("click", clearCompleted);
+
+      document.querySelectorAll(".filter-btn").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          document
+            .querySelectorAll(".filter-btn")
+            .forEach((b) => b.classList.remove("active"));
+          btn.classList.add("active");
+          currentFilter = btn.dataset.filter;
+          render();
+        });
+      });
+
+      // Init
+      async function initialize() {
+        try {
+          await mcpApp.sendRequest("ui/initialize", {
+            protocolVersion: "2025-06-18",
+            appInfo: { name: "Todo List", version: "1.0.0" },
+            appCapabilities: {},
+          });
+          mcpApp.sendNotification("ui/notifications/initialized", {});
+          new ResizeObserver(() => mcpApp.reportSize()).observe(
+            document.getElementById("app"),
+          );
+        } catch (e) {
+          console.error("Init failed:", e);
+        }
+      }
+
+      mcpApp.onNotification("ui/notifications/tool-result", (params) => {
+        const result = params?.structuredContent;
+        if (result?.list) {
+          todoList = result.list;
+          render();
+        }
+      });
+
+      window.addEventListener("load", initialize);
+    </script>
+  </body>
 </html>
