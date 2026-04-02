@@ -49,6 +49,8 @@ import { z } from "zod";
 import type { StandardSchemaV1, InferSchemaOutput } from "@copilotkit/shared";
 import { schemaToJsonSchema } from "@copilotkit/shared";
 import { jsonSchema as aiJsonSchema } from "ai";
+import { convertAISDKStream } from "./converters/aisdk";
+import { convertTanStackStream } from "./converters/tanstack";
 import {
   StreamableHTTPClientTransport,
   StreamableHTTPClientTransportOptions,
@@ -843,10 +845,15 @@ export class BuiltInAgent extends AbstractAgent {
    * Check if a property can be overridden by forwardedProps
    */
   canOverride(property: OverridableProperty): boolean {
+    if (isFactoryConfig(this.config)) return false;
     return this.config?.overridableProperties?.includes(property) ?? false;
   }
 
   run(input: RunAgentInput): Observable<BaseEvent> {
+    if (isFactoryConfig(this.config)) {
+      return this.runFactory(input, this.config);
+    }
+
     return new Observable<BaseEvent>((subscriber) => {
       // Emit RUN_STARTED event
       const startEvent: RunStartedEvent = {
@@ -1482,6 +1489,98 @@ export class BuiltInAgent extends AbstractAgent {
         Promise.all(mcpClients.map((client) => client.close())).catch(() => {
           // Ignore cleanup errors
         });
+      };
+    });
+  }
+
+  private runFactory(
+    input: RunAgentInput,
+    config: BuiltInAgentFactoryConfig,
+  ): Observable<BaseEvent> {
+    if (this.abortController) {
+      throw new Error(
+        "Agent is already running. Call abortRun() first or create a new instance.",
+      );
+    }
+
+    // Set synchronously before Observable creation to close TOCTOU window
+    this.abortController = new AbortController();
+    const controller = this.abortController;
+
+    return new Observable<BaseEvent>((subscriber) => {
+      const startEvent: RunStartedEvent = {
+        type: EventType.RUN_STARTED,
+        threadId: input.threadId,
+        runId: input.runId,
+      };
+      subscriber.next(startEvent);
+
+      const ctx: AgentFactoryContext = {
+        input,
+        abortController: controller,
+        abortSignal: controller.signal,
+      };
+
+      (async () => {
+        try {
+          let events: AsyncIterable<BaseEvent>;
+
+          switch (config.type) {
+            case "aisdk": {
+              const result = await config.factory(ctx);
+              events = convertAISDKStream(result.fullStream, controller.signal);
+              break;
+            }
+            case "tanstack": {
+              const stream = await config.factory(ctx);
+              events = convertTanStackStream(stream, controller.signal);
+              break;
+            }
+            case "custom": {
+              events = await config.factory(ctx);
+              break;
+            }
+            default: {
+              const _exhaustive: never = config;
+              throw new Error(
+                `Unknown agent config type: ${(_exhaustive as BuiltInAgentFactoryConfig).type}`,
+              );
+            }
+          }
+
+          for await (const event of events) {
+            subscriber.next(event);
+          }
+
+          if (!controller.signal.aborted) {
+            const finishedEvent: RunFinishedEvent = {
+              type: EventType.RUN_FINISHED,
+              threadId: input.threadId,
+              runId: input.runId,
+            };
+            subscriber.next(finishedEvent);
+          }
+          subscriber.complete();
+        } catch (error) {
+          if (controller.signal.aborted) {
+            subscriber.complete();
+          } else {
+            const runErrorEvent: RunErrorEvent = {
+              type: EventType.RUN_ERROR,
+              message: error instanceof Error ? error.message : String(error),
+              threadId: input.threadId,
+              runId: input.runId,
+            } as RunErrorEvent;
+            subscriber.next(runErrorEvent);
+            subscriber.error(error);
+          }
+        } finally {
+          this.abortController = undefined;
+        }
+      })();
+
+      return () => {
+        controller.abort();
       };
     });
   }
