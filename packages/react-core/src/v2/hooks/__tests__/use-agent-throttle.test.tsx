@@ -345,11 +345,49 @@ describe("useAgent throttleMs", () => {
       notifyMessagesChanged(mockAgent);
     });
 
-    // Messages count should still be 0 from the component's perspective
-    // (it will show 1 because the agent ref is shared, but there's no
-    // re-render triggered by onMessagesChanged)
+    // onMessagesChanged was sent but no handler is subscribed, so no
+    // re-render is triggered. We verify by checking state still shows the
+    // last rendered value.
     expect(screen.getByTestId("state").textContent).toBe('{"value":"test"}');
   });
+
+  it.each([
+    { label: "NaN", value: NaN },
+    { label: "Infinity", value: Infinity },
+    { label: "-1", value: -1 },
+    { label: "-Infinity", value: -Infinity },
+  ])(
+    "with invalid throttleMs ($label), falls back to unthrottled and warns",
+    ({ value }) => {
+      const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const TestComponent = createTestComponent({ throttleMs: value });
+
+      render(<TestComponent />);
+
+      // Should warn about the invalid value
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining(
+          "throttleMs must be a non-negative finite number",
+        ),
+      );
+
+      // Should behave as unthrottled — every notification fires immediately
+      act(() => {
+        mockAgent.messages = [{ id: "1", role: "user", content: "a" } as any];
+        notifyMessagesChanged(mockAgent);
+      });
+      expect(screen.getByTestId("count").textContent).toBe("1");
+
+      act(() => {
+        mockAgent.messages = [
+          { id: "1", role: "user", content: "a" } as any,
+          { id: "2", role: "assistant", content: "b" } as any,
+        ];
+        notifyMessagesChanged(mockAgent);
+      });
+      expect(screen.getByTestId("count").textContent).toBe("2");
+    },
+  );
 
   it("cleans up all subscriptions after unmount", () => {
     const TestComponent = createTestComponent({

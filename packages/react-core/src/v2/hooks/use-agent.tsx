@@ -34,7 +34,8 @@ export interface UseAgentProps {
    * recent update fires after the window expires (unless the component
    * unmounts first).
    *
-   * Must be a non-negative finite number. Values <= 0 disable throttling.
+   * Must be a non-negative finite number. A value of 0 disables throttling.
+   * Negative or non-finite values are invalid and will be ignored with a warning.
    * Has no effect on onStateChanged or onRunStatusChanged notifications.
    *
    * Note: this is independent of AbstractAgent's notificationThrottleMs,
@@ -130,17 +131,15 @@ export function useAgent({
   const chatConfig = useCopilotChatConfiguration();
   threadId ??= chatConfig?.threadId;
 
-  if (
-    throttleMs !== undefined &&
-    (!Number.isFinite(throttleMs) || throttleMs < 0)
-  ) {
-    if (process.env.NODE_ENV !== "production") {
-      console.warn(
-        `useAgent: throttleMs must be a non-negative finite number, got ${throttleMs}. Ignoring.`,
-      );
-    }
-    throttleMs = undefined;
-  }
+  const effectiveThrottleMs =
+    throttleMs !== undefined && (!Number.isFinite(throttleMs) || throttleMs < 0)
+      ? (() => {
+          console.warn(
+            `useAgent: throttleMs must be a non-negative finite number, got ${throttleMs}. Ignoring.`,
+          );
+          return undefined;
+        })()
+      : throttleMs;
 
   const [, forceUpdate] = useReducer((x) => x + 1, 0);
 
@@ -276,7 +275,7 @@ export function useAgent({
     let active = true;
 
     if (updateFlags.includes(UseAgentUpdate.OnMessagesChanged)) {
-      const ms = throttleMs ?? 0;
+      const ms = effectiveThrottleMs ?? 0;
       if (ms > 0) {
         // Throttled onMessagesChanged: leading+trailing pattern.
         // First notification fires immediately, subsequent ones within the
@@ -307,10 +306,9 @@ export function useAgent({
           }
         };
 
-        handlers.onMessagesChanged = () => throttledNotify();
+        handlers.onMessagesChanged = throttledNotify;
       } else {
-        // Content stripping for immutableContent renderers is handled by CopilotKitCoreReact
-        handlers.onMessagesChanged = () => forceUpdate();
+        handlers.onMessagesChanged = forceUpdate;
       }
     }
 
@@ -333,7 +331,7 @@ export function useAgent({
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [agent, forceUpdate, throttleMs, updateFlags]);
+  }, [agent, forceUpdate, effectiveThrottleMs, updateFlags]);
 
   // Keep HttpAgent headers fresh without mutating inside useMemo, which is
   // unsafe in concurrent mode (React may invoke useMemo multiple times and
