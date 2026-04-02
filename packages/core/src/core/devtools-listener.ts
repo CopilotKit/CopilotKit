@@ -1,4 +1,5 @@
 import { AbstractAgent, EventType } from "@ag-ui/client";
+import type { AgentSubscriber } from "@ag-ui/client";
 import { devtoolsClient } from "@copilotkit/devtools-client";
 import type { CopilotKitDevtoolsEvents, DevtoolsEventType } from "@copilotkit/devtools-client";
 import type { CopilotKitEventSuffixes } from "@copilotkit/devtools-client";
@@ -72,16 +73,21 @@ export class DevtoolsListener {
     };
   }
 
-  private notifySubscribers(agent: AbstractAgent, cb: (sub: any) => void): void {
+  private notifySubscribers(agent: AbstractAgent, cb: (sub: AgentSubscriber) => void): void {
     for (const sub of agent.subscribers) {
       try {
         cb(sub);
       } catch (err) {
-        console.error("[CopilotKit DevTools] Subscriber error:", err);
+        console.error(`[CopilotKit DevTools] Subscriber error for agent "${agent.agentId}":`, err);
       }
     }
   }
 
+  /**
+   * Wraps inner event dispatch in RUN_STARTED/RUN_FINISHED lifecycle events.
+   * If the agent already has an active run, lifecycle events are skipped to
+   * avoid nesting a synthetic devtools run inside a real agent run.
+   */
   private withRunLifecycle(
     agent: AbstractAgent,
     runId: string,
@@ -104,12 +110,16 @@ export class DevtoolsListener {
       inner(runParams);
     } finally {
       if (!isRunning) {
-        this.notifySubscribers(agent, (sub) => {
-          sub.onRunFinishedEvent?.({
-            ...runParams,
-            event: { type: EventType.RUN_FINISHED, threadId, runId },
+        try {
+          this.notifySubscribers(agent, (sub) => {
+            sub.onRunFinishedEvent?.({
+              ...runParams,
+              event: { type: EventType.RUN_FINISHED, threadId, runId },
+            });
           });
-        });
+        } catch (cleanupErr) {
+          console.error("[CopilotKit DevTools] Error sending RUN_FINISHED during cleanup:", cleanupErr);
+        }
       }
     }
   }

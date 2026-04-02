@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { loadSnippets, saveSnippet, deleteSnippet } from "../snippets.js";
 import type { DevtoolsSnippet } from "../types.js";
 
@@ -71,5 +71,31 @@ describe("snippets", () => {
     deleteSnippet("non-existent");
 
     expect(loadSnippets()).toHaveLength(1);
+  });
+
+  it("saveSnippet returns false on localStorage write error", () => {
+    const spy = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new DOMException("QuotaExceededError");
+    });
+
+    const result = saveSnippet(makeSnippet());
+    expect(result).toBe(false);
+
+    spy.mockRestore();
+  });
+
+  it("deleteSnippet returns false on localStorage write error", () => {
+    const spy = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new DOMException("QuotaExceededError");
+    });
+
+    const result = deleteSnippet("s1");
+    expect(result).toBe(false);
+
+    spy.mockRestore();
+  });
+
+  it("saveSnippet returns true on success", () => {
+    expect(saveSnippet(makeSnippet())).toBe(true);
   });
 });

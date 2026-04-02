@@ -65,7 +65,7 @@ describe("DevtoolsListener", () => {
   });
 
   describe("tool-call", () => {
-    it("expands into full AG-UI event sequence", () => {
+    it("expands into full AG-UI event sequence with correct fields", () => {
       devtoolsClient.emit("tool-call", {
         agentId: "test-agent",
         toolName: "search",
@@ -82,6 +82,15 @@ describe("DevtoolsListener", () => {
 
       const startCall = subscriber.onToolCallStartEvent.mock.calls[0][0];
       expect(startCall.event.toolCallName).toBe("search");
+
+      const argsCall = subscriber.onToolCallArgsEvent.mock.calls[0][0];
+      expect(argsCall.toolCallName).toBe("search");
+      expect(argsCall.partialToolCallArgs).toEqual({ query: "hello" });
+      expect(argsCall.toolCallBuffer).toBe(JSON.stringify({ query: "hello" }));
+
+      const endCall = subscriber.onToolCallEndEvent.mock.calls[0][0];
+      expect(endCall.toolCallName).toBe("search");
+      expect(endCall.toolCallArgs).toEqual({ query: "hello" });
 
       const resultCall = subscriber.onToolCallResultEvent.mock.calls[0][0];
       expect(resultCall.event.type).toBe(EventType.TOOL_CALL_RESULT);
@@ -146,7 +155,7 @@ describe("DevtoolsListener", () => {
   });
 
   describe("custom-event", () => {
-    it("expands into full AG-UI event sequence", () => {
+    it("expands into full AG-UI event sequence with correct fields", () => {
       devtoolsClient.emit("custom-event", {
         agentId: "test-agent",
         name: "my-event",
@@ -156,6 +165,10 @@ describe("DevtoolsListener", () => {
       expect(subscriber.onRunStartedEvent).toHaveBeenCalledOnce();
       expect(subscriber.onCustomEvent).toHaveBeenCalledOnce();
       expect(subscriber.onRunFinishedEvent).toHaveBeenCalledOnce();
+
+      const customCall = subscriber.onCustomEvent.mock.calls[0][0];
+      expect(customCall.event.name).toBe("my-event");
+      expect(customCall.event.value).toEqual({ foo: "bar" });
     });
   });
 
@@ -207,6 +220,42 @@ describe("DevtoolsListener", () => {
       });
 
       expect(subscriber.onTextMessageContentEvent).toHaveBeenCalledOnce();
+    });
+
+    it("continues notifying other subscribers when one throws", () => {
+      const throwingSub = createMockSubscriber();
+      throwingSub.onTextMessageContentEvent.mockImplementation(() => {
+        throw new Error("subscriber crash");
+      });
+      agent.subscribe(throwingSub);
+
+      const secondSub = createMockSubscriber();
+      agent.subscribe(secondSub);
+
+      devtoolsClient.emit("text-message", {
+        agentId: "test-agent",
+        content: "should reach all",
+      });
+
+      expect(throwingSub.onTextMessageContentEvent).toHaveBeenCalledOnce();
+      expect(secondSub.onTextMessageContentEvent).toHaveBeenCalledOnce();
+      expect(secondSub.onTextMessageContentEvent.mock.calls[0][0].textMessageBuffer).toBe("should reach all");
+    });
+
+    it("guarantees RUN_FINISHED even when inner handler subscriber throws", () => {
+      subscriber.onToolCallStartEvent.mockImplementation(() => {
+        throw new Error("start handler crash");
+      });
+
+      devtoolsClient.emit("tool-call", {
+        agentId: "test-agent",
+        toolName: "search",
+        args: {},
+        result: "",
+      });
+
+      expect(subscriber.onRunStartedEvent).toHaveBeenCalledOnce();
+      expect(subscriber.onRunFinishedEvent).toHaveBeenCalledOnce();
     });
   });
 });

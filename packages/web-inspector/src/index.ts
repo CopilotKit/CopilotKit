@@ -280,6 +280,7 @@ export class WebInspectorElement extends LitElement {
   private emitterSnippets: DevtoolsSnippet[] = [];
   private emitterJsonError: string | null = null;
   private emitterStatusMessage: string | null = null;
+  private emitterStatusTimeoutId: ReturnType<typeof setTimeout> | null = null;
   private emitterShowSnippetInput = false;
   private emitterSnippetName = "";
 
@@ -1241,6 +1242,10 @@ ${argsString}</pre
     if (this.transitionTimeoutId !== null) {
       clearTimeout(this.transitionTimeoutId);
       this.transitionTimeoutId = null;
+    }
+    if (this.emitterStatusTimeoutId !== null) {
+      clearTimeout(this.emitterStatusTimeoutId);
+      this.emitterStatusTimeoutId = null;
     }
     this.removeDockStyles(true); // Clean up any docking styles, skip transition
     this.detachFromCore();
@@ -4745,9 +4750,11 @@ ${this.announcementMarkdown}</pre
   }
 
   private showStatus(message: string): void {
+    if (this.emitterStatusTimeoutId !== null) clearTimeout(this.emitterStatusTimeoutId);
     this.emitterStatusMessage = message;
     this.requestUpdate();
-    setTimeout(() => {
+    this.emitterStatusTimeoutId = setTimeout(() => {
+      this.emitterStatusTimeoutId = null;
       this.emitterStatusMessage = null;
       this.requestUpdate();
     }, 2000);
@@ -4794,11 +4801,15 @@ ${this.announcementMarkdown}</pre
       createdAt: Date.now(),
     };
 
-    saveSnippet(snippet);
-    this.emitterSnippets = loadSnippets();
-    this.emitterShowSnippetInput = false;
-    this.emitterSnippetName = "";
-    this.showStatus("Snippet saved.");
+    if (saveSnippet(snippet)) {
+      this.emitterSnippets = loadSnippets();
+      this.emitterShowSnippetInput = false;
+      this.emitterSnippetName = "";
+      this.showStatus("Snippet saved.");
+    } else {
+      this.emitterJsonError = "Failed to save snippet to localStorage.";
+      this.requestUpdate();
+    }
   }
 
   private handleCancelSnippetInput(): void {

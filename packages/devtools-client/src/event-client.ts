@@ -15,19 +15,28 @@ export type CopilotKitEventSuffixes = StripPrefix<CopilotKitDevtoolsEvents, "cop
 
 /**
  * Lazy wrapper around EventClient that defers instantiation of the underlying
- * EventClient (and its EventTarget) until the first emit/on call.
+ * EventClient until the first emit/on call.
  * This avoids allocating resources at module evaluation time for applications
  * that import @copilotkit/core but never use devtools.
  */
 class CopilotKitEventClient {
   private _client: EventClient<CopilotKitEventSuffixes> | null = null;
+  private _initError: Error | null = null;
 
   private get client(): EventClient<CopilotKitEventSuffixes> {
+    if (this._initError) {
+      throw this._initError;
+    }
     if (!this._client) {
-      this._client = new EventClient<CopilotKitEventSuffixes>({
-        pluginId: "copilotkit",
-        debug: false,
-      });
+      try {
+        this._client = new EventClient<CopilotKitEventSuffixes>({
+          pluginId: "copilotkit",
+          debug: false,
+        });
+      } catch (err) {
+        this._initError = err instanceof Error ? err : new Error(String(err));
+        throw this._initError;
+      }
     }
     return this._client;
   }
@@ -44,7 +53,7 @@ class CopilotKitEventClient {
     handler: (e: { payload: CopilotKitEventSuffixes[K] }) => void,
     options?: { withEventTarget?: boolean },
   ): () => void {
-    return this.client.on(event, handler as any, options as any);
+    return this.client.on(event, (e) => handler({ payload: e.payload }), options);
   }
 }
 
