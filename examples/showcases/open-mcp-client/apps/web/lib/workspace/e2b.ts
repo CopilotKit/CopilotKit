@@ -2,7 +2,7 @@ import { Sandbox } from "e2b";
 import type { WorkspaceProvider, WorkspaceInfo, ExecOpts, ExecResult } from "./types";
 
 const WORKSPACE_PATH = "/home/user/workspace";
-// Hardcoded fallback so sandbox clone works without env (e.g. Vercel); override with E2B_REPO_URL if needed
+// Hardcoded fallback so sandbox clone works without env; override with E2B_REPO_URL if needed
 const REPO_URL =
   process.env.E2B_REPO_URL ?? "https://github.com/vivek100/mcp-use-server-template";
 const TEMPLATE_ID = process.env.E2B_TEMPLATE;

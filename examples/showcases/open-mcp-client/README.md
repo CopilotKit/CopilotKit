@@ -9,10 +9,10 @@ https://github.com/user-attachments/assets/8908af31-2b64-4426-9c83-c51ab86256de
 ## Prerequisites
 
 - Node.js 20+
-- [pnpm](https://pnpm.io/installation) (required for the workspace; Vercel uses **`pnpm install --frozen-lockfile`**)
+- [pnpm](https://pnpm.io/installation) (required for the workspace)
 - OpenAI API key (`OPENAI_API_KEY`); optional **`OPENAI_MODEL`** for `/api/mastra-agent` (default **`gpt-5.2`**)
 
-> **Lockfile:** **`pnpm-lock.yaml` is committed** and should stay in version control so installs are reproducible and Vercel can use `--frozen-lockfile`. This repo’s `.gitignore` only excludes `package-lock.json`, `yarn.lock`, and `bun.lockb` — not pnpm’s lockfile.
+> **Lockfile:** **`pnpm-lock.yaml` is committed** and should stay in version control so installs are reproducible (`--frozen-lockfile`). This repo’s `.gitignore` only excludes `package-lock.json`, `yarn.lock`, and `bun.lockb` — not pnpm’s lockfile.
 
 ## Getting started
 
@@ -72,9 +72,7 @@ The agent provisions sandboxes from an E2B **template** defined in **`template.t
 | **Dev template** (`mcp-use-server-dev`) | Day-to-day iteration | `cd apps/mcp-use-server && npx tsx --env-file=../../.env build.dev.ts` |
 | **Prod template** (`mcp-use-server`) | Stable snapshot for production | `cd apps/mcp-use-server && npx tsx --env-file=../../.env build.prod.ts` |
 
-Requirements: **`E2B_API_KEY`** in `.env` (or environment). The CLI prints a **`BuildInfo`** object; set **`E2B_TEMPLATE`** to **`templateId`** from that output (and the same in Vercel). Template **name** (e.g. `mcp-use-server-dev`) is not the same as **`templateId`**.
-
-See **Hosting on Vercel** below and **[`docs/DEPLOY.md`](docs/DEPLOY.md)** for deploy env vars and troubleshooting.
+Requirements: **`E2B_API_KEY`** in `.env` (or environment). The CLI prints a **`BuildInfo`** object; set **`E2B_TEMPLATE`** to **`templateId`** from that output (and the same in your hosting dashboard). Template **name** (e.g. `mcp-use-server-dev`) is not the same as **`templateId`**.
 
 ## Agent and UI
 
@@ -114,15 +112,6 @@ More: **[`docs/DYNAMIC_MCP.md`](docs/DYNAMIC_MCP.md)**.
 | `E2B_TEMPLATE` | **`templateId`** from `Template.build` output after **`build.dev.ts`** / **`build.prod.ts`** |
 | `E2B_REPO_URL` | Used when **`E2B_TEMPLATE`** is empty — clones repo into sandbox (slower cold start). Default in code: **`mcp-use-server-template`** GitHub URL |
 
-## Hosting on Vercel
-
-1. Push this repo (or the `with-mcp-apps` folder) to GitHub/GitLab/Bitbucket.
-2. Vercel **Root Directory:** **`apps/web`** (or **`with-mcp-apps/apps/web`** if the monorepo lives one level down).
-3. Env vars: at least **`OPENAI_API_KEY`**; for sandboxes add **`E2B_API_KEY`** + **`E2B_TEMPLATE`**. Optional MCP defaults and branding: see **[`docs/DEPLOY.md`](docs/DEPLOY.md)**.
-4. Deploy. **`apps/web/vercel.json`** runs **`pnpm install --frozen-lockfile`** from the monorepo root.
-
-Built-in default MCP is **Excalidraw** (`https://mcp.excalidraw.com`). Override via **`NEXT_PUBLIC_DEFAULT_MCP_SERVERS`** / **`DEFAULT_MCP_SERVERS`** or add servers in the sidebar.
-
 ## Hosting on Render
 
 1. Push this repo to GitHub/GitLab.
@@ -140,9 +129,8 @@ Widget tools should include **`_meta["ui/previewData"]`** for offline sidebar pr
 
 **In this repo**
 
-- **[`docs/TRACKER.md`](docs/TRACKER.md)** — **production go-live checklist** (Vercel sign-off)  
+- **[`docs/TRACKER.md`](docs/TRACKER.md)** — **production go-live checklist**  
 - **[`docs/HANDOFF.md`](docs/HANDOFF.md)** — shipped scope, CopilotKit open questions  
-- **[`docs/DEPLOY.md`](docs/DEPLOY.md)** — Vercel import, env tables, E2B rebuild, troubleshooting  
 - **[`docs/DEPLOY-RENDER.md`](docs/DEPLOY-RENDER.md)** — Render deployment guide  
 - **[`docs/DYNAMIC_MCP.md`](docs/DYNAMIC_MCP.md)** — dynamic MCP patterns  
 - **[`docs/PLAN.md`](docs/PLAN.md)** / **[`docs/E2B-IMPLEMENTATION.md`](docs/E2B-IMPLEMENTATION.md)** — roadmap and E2B design  

@@ -1,6 +1,6 @@
 /**
  * Server-side default MCP servers when no x-mcp-servers header is present.
- * Unset = no defaults (suitable for Vercel). Set DEFAULT_MCP_SERVERS (JSON array) to pre-fill.
+ * Unset = no defaults. Set DEFAULT_MCP_SERVERS (JSON array) to pre-fill.
  */
 
 export type McpServerConfig = {

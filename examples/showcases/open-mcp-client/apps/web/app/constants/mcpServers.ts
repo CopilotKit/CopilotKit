@@ -3,7 +3,7 @@ export interface McpServerEntry {
   serverId?: string;
 }
 
-/** Initial sidebar list. No defaults (localhost not available on Vercel). Set NEXT_PUBLIC_DEFAULT_MCP_SERVERS to pre-fill hosted MCP(s). */
+/** Initial sidebar list. No defaults (localhost not available in production). Set NEXT_PUBLIC_DEFAULT_MCP_SERVERS to pre-fill hosted MCP(s). */
 function getDefaultServersFromEnv(): McpServerEntry[] | null {
   const raw = process.env.NEXT_PUBLIC_DEFAULT_MCP_SERVERS;
   if (typeof raw !== "string" || !raw) return null;
