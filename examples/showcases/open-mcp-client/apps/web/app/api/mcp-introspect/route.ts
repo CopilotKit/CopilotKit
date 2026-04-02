@@ -3,7 +3,7 @@ import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/
 import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
 import { NextRequest, NextResponse } from "next/server";
 
-/** Listing tools + fetching widget HTML can exceed the default 10s Vercel limit. */
+/** Listing tools + fetching widget HTML can be slow; allow up to 5 min. */
 export const maxDuration = 300;
 
 /** Shape returned for each discovered tool. */

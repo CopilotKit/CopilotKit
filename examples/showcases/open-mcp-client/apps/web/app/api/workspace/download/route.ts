@@ -3,7 +3,7 @@ import { Readable } from "stream";
 import { getProvider } from "@/lib/workspace";
 import { getBaseKitPath, mergeE2bWorkspaceIntoBaseKit } from "@/lib/workspace/merge-download-kit";
 
-/** E2B archive + signed URL can exceed the default 10s Vercel limit. */
+/** E2B archive + signed URL can be slow; allow up to 5 min. */
 export const maxDuration = 300;
 
 type DownloadBody = {
