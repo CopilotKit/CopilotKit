@@ -41,8 +41,7 @@ Located in [scripts/](mdc:scripts):
 ## Configuration Files
 - **[CopilotKit.code-workspace](mdc:CopilotKit.code-workspace)** - VS Code workspace settings
 - **[utilities/](mdc:utilities)** - Shared utilities:
-  - [eslint-config-custom/](mdc:utilities/eslint-config-custom) - ESLint configuration
-  - [tailwind-config/](mdc:utilities/tailwind-config) - Tailwind CSS configuration  
+  - [tailwind-config/](mdc:utilities/tailwind-config) - Tailwind CSS configuration
   - [tsconfig/](mdc:utilities/tsconfig) - TypeScript configurations
 
 ## Infrastructure
