@@ -64,6 +64,18 @@ function notifyStateChanged(agent: MockStepwiseAgent) {
   );
 }
 
+/** Helper: fire onRunInitialized on all agent subscribers */
+function notifyRunInitialized(agent: MockStepwiseAgent) {
+  agent.subscribers.forEach((s) =>
+    s.onRunInitialized?.({
+      messages: agent.messages,
+      state: agent.state,
+      agent,
+      input: {} as any,
+    }),
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Test component factory
 // ---------------------------------------------------------------------------
@@ -588,5 +600,113 @@ describe("useAgent throttleMs", () => {
 
     // All subscriptions should be cleaned up
     expect(mockAgent.subscribers.length).toBe(subscriberCountBefore);
+  });
+
+  it("single notification within window does not trigger a trailing re-render", () => {
+    const renderCount = { current: 0 };
+    const TestComponent = createTestComponent({ throttleMs: 100, renderCount });
+
+    render(<TestComponent />);
+    const rendersAfterMount = renderCount.current;
+
+    // Leading edge — fires immediately
+    act(() => {
+      mockAgent.messages = [userMsg("1", "a")];
+      notifyMessagesChanged(mockAgent);
+    });
+    expect(renderCount.current).toBe(rendersAfterMount + 1);
+
+    // Advance well past the throttle window — no trailing should fire
+    act(() => {
+      vi.advanceTimersByTime(200);
+    });
+
+    // No additional render since there was no second notification
+    expect(renderCount.current).toBe(rendersAfterMount + 1);
+  });
+
+  it("with throttleMs, onRunInitialized still fires immediately during throttle window", () => {
+    const renderCount = { current: 0 };
+    const TestComponent = createTestComponent({
+      updates: [
+        UseAgentUpdate.OnMessagesChanged,
+        UseAgentUpdate.OnRunStatusChanged,
+      ],
+      throttleMs: 100,
+      renderCount,
+    });
+
+    render(<TestComponent />);
+    const rendersAfterMount = renderCount.current;
+
+    // Fire onMessagesChanged to start the throttle window
+    act(() => {
+      mockAgent.messages = [userMsg("1", "a")];
+      notifyMessagesChanged(mockAgent);
+    });
+    expect(renderCount.current).toBe(rendersAfterMount + 1);
+
+    // Fire onRunInitialized 10ms later — should render immediately
+    act(() => {
+      vi.advanceTimersByTime(10);
+      notifyRunInitialized(mockAgent);
+    });
+
+    // Run status notification is NOT throttled — renders immediately
+    expect(renderCount.current).toBe(rendersAfterMount + 2);
+  });
+
+  it("changing throttleMs from positive to 0 disables throttling immediately", () => {
+    function DynamicThrottleComponent({ throttleMs }: { throttleMs: number }) {
+      const { agent } = useAgent({
+        agentId: "test-agent",
+        updates: [UseAgentUpdate.OnMessagesChanged],
+        throttleMs,
+      });
+      return <div data-testid="count">{agent.messages.length}</div>;
+    }
+
+    const { rerender } = render(<DynamicThrottleComponent throttleMs={200} />);
+
+    // Leading edge with throttle active
+    act(() => {
+      mockAgent.messages = [userMsg("1", "a")];
+      notifyMessagesChanged(mockAgent);
+    });
+    expect(screen.getByTestId("count").textContent).toBe("1");
+
+    // Deferred notification — within throttle window
+    act(() => {
+      vi.advanceTimersByTime(50);
+      mockAgent.messages = [userMsg("1", "a"), assistantMsg("2", "b")];
+      notifyMessagesChanged(mockAgent);
+    });
+    expect(screen.getByTestId("count").textContent).toBe("1");
+
+    // Switch to unthrottled
+    rerender(<DynamicThrottleComponent throttleMs={0} />);
+
+    // Both notifications should fire immediately now
+    act(() => {
+      mockAgent.messages = [
+        userMsg("1", "a"),
+        assistantMsg("2", "b"),
+        userMsg("3", "c"),
+      ];
+      notifyMessagesChanged(mockAgent);
+    });
+    expect(screen.getByTestId("count").textContent).toBe("3");
+
+    // Second immediate notification also fires (no coalescing)
+    act(() => {
+      mockAgent.messages = [
+        userMsg("1", "a"),
+        assistantMsg("2", "b"),
+        userMsg("3", "c"),
+        assistantMsg("4", "d"),
+      ];
+      notifyMessagesChanged(mockAgent);
+    });
+    expect(screen.getByTestId("count").textContent).toBe("4");
   });
 });
