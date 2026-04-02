@@ -1,17 +1,16 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { AbstractAgent, EventType, State, RunAgentInput } from "@ag-ui/client";
+import { AbstractAgent, EventType, RunAgentInput, BaseEvent } from "@ag-ui/client";
+import type { AgentSubscriber } from "@ag-ui/client";
+import { Observable } from "rxjs";
 import { DevtoolsListener } from "../core/devtools-listener.js";
 import { devtoolsClient } from "@copilotkit/devtools-client";
 
-/**
- * Test agent that exposes subscribers for event injection testing.
- */
 class TestAgent extends AbstractAgent {
   constructor(agentId: string) {
     super({ agentId, threadId: "thread-1", initialState: {} });
   }
 
-  protected run(_input: RunAgentInput): any {
+  run(_input: RunAgentInput): Observable<BaseEvent> {
     throw new Error("not used");
   }
 }
@@ -24,32 +23,35 @@ function makeAgentsMap(agents: AbstractAgent[]): Record<string, AbstractAgent> {
   return map;
 }
 
+function createMockSubscriber(): AgentSubscriber & Record<string, ReturnType<typeof vi.fn>> {
+  return {
+    onRunStartedEvent: vi.fn(),
+    onRunFinishedEvent: vi.fn(),
+    onToolCallStartEvent: vi.fn(),
+    onToolCallArgsEvent: vi.fn(),
+    onToolCallEndEvent: vi.fn(),
+    onToolCallResultEvent: vi.fn(),
+    onTextMessageStartEvent: vi.fn(),
+    onTextMessageContentEvent: vi.fn(),
+    onTextMessageEndEvent: vi.fn(),
+    onReasoningStartEvent: vi.fn(),
+    onReasoningMessageStartEvent: vi.fn(),
+    onReasoningMessageContentEvent: vi.fn(),
+    onReasoningMessageEndEvent: vi.fn(),
+    onReasoningEndEvent: vi.fn(),
+    onStateSnapshotEvent: vi.fn(),
+    onCustomEvent: vi.fn(),
+  };
+}
+
 describe("DevtoolsListener", () => {
   let agent: TestAgent;
   let listener: DevtoolsListener;
-  let subscriber: Record<string, ReturnType<typeof vi.fn>>;
+  let subscriber: ReturnType<typeof createMockSubscriber>;
 
   beforeEach(() => {
     agent = new TestAgent("test-agent");
-
-    subscriber = {
-      onRunStartedEvent: vi.fn(),
-      onRunFinishedEvent: vi.fn(),
-      onToolCallStartEvent: vi.fn(),
-      onToolCallArgsEvent: vi.fn(),
-      onToolCallEndEvent: vi.fn(),
-      onToolCallResultEvent: vi.fn(),
-      onTextMessageStartEvent: vi.fn(),
-      onTextMessageContentEvent: vi.fn(),
-      onTextMessageEndEvent: vi.fn(),
-      onReasoningStartEvent: vi.fn(),
-      onReasoningMessageStartEvent: vi.fn(),
-      onReasoningMessageContentEvent: vi.fn(),
-      onReasoningMessageEndEvent: vi.fn(),
-      onReasoningEndEvent: vi.fn(),
-      onStateSnapshotEvent: vi.fn(),
-      onCustomEvent: vi.fn(),
-    };
+    subscriber = createMockSubscriber();
     agent.subscribe(subscriber);
 
     listener = new DevtoolsListener({
@@ -170,7 +172,7 @@ describe("DevtoolsListener", () => {
     });
 
     it("skips run lifecycle when agent is already running", () => {
-      (agent as any).isRunning = true;
+      agent.isRunning = true;
 
       devtoolsClient.emit("text-message", {
         agentId: "test-agent",
