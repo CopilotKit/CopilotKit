@@ -9,7 +9,9 @@ Widgets manage their own UI state (selections, filters, tabs, pagination). Never
 ## Widget State vs Tool State
 
 ### Widget State (UI State)
+
 **Managed by widget with `useState` or `setState`:**
+
 - Current selected item
 - Active tab
 - Filter settings
@@ -19,7 +21,9 @@ Widgets manage their own UI state (selections, filters, tabs, pagination). Never
 - Form input values (before submission)
 
 ### Tool State (Server State)
+
 **Managed by server, returned in tool response:**
+
 - List of items
 - User data
 - API results
@@ -40,14 +44,16 @@ import { z } from "zod";
 export const widgetMetadata: WidgetMetadata = {
   description: "Product list with filtering",
   props: z.object({
-    products: z.array(z.object({
-      id: z.string(),
-      name: z.string(),
-      category: z.string(),
-      price: z.number()
-    }))
+    products: z.array(
+      z.object({
+        id: z.string(),
+        name: z.string(),
+        category: z.string(),
+        price: z.number(),
+      }),
+    ),
   }),
-  exposeAsTool: false
+  exposeAsTool: false,
 };
 
 export default function ProductList() {
@@ -56,38 +62,44 @@ export default function ProductList() {
   const [sortBy, setSortBy] = useState<"name" | "price">("name");
 
   if (isPending) {
-    return <McpUseProvider autoSize><div>Loading...</div></McpUseProvider>;
+    return (
+      <McpUseProvider autoSize>
+        <div>Loading...</div>
+      </McpUseProvider>
+    );
   }
 
   // Filter and sort based on state
-  const filtered = selectedCategory === "all"
-    ? props.products
-    : props.products.filter(p => p.category === selectedCategory);
+  const filtered =
+    selectedCategory === "all"
+      ? props.products
+      : props.products.filter((p) => p.category === selectedCategory);
 
   const sorted = [...filtered].sort((a, b) => {
     if (sortBy === "name") return a.name.localeCompare(b.name);
     return a.price - b.price;
   });
 
-  const categories = ["all", ...new Set(props.products.map(p => p.category))];
+  const categories = ["all", ...new Set(props.products.map((p) => p.category))];
 
   return (
     <McpUseProvider autoSize>
       <div style={{ padding: 20 }}>
         {/* Category filter */}
         <div style={{ marginBottom: 16 }}>
-          {categories.map(cat => (
+          {categories.map((cat) => (
             <button
               key={cat}
               onClick={() => setSelectedCategory(cat)}
               style={{
                 padding: "8px 16px",
                 margin: "0 4px",
-                backgroundColor: selectedCategory === cat ? "#007bff" : "#f0f0f0",
+                backgroundColor:
+                  selectedCategory === cat ? "#007bff" : "#f0f0f0",
                 color: selectedCategory === cat ? "white" : "black",
                 border: "none",
                 borderRadius: 4,
-                cursor: "pointer"
+                cursor: "pointer",
               }}
             >
               {cat}
@@ -99,7 +111,11 @@ export default function ProductList() {
         <div style={{ marginBottom: 16 }}>
           <label>
             Sort by:
-            <select value={sortBy} onChange={(e) => setSortBy(e.target.value as any)} style={{ marginLeft: 8 }}>
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as any)}
+              style={{ marginLeft: 8 }}
+            >
               <option value="name">Name</option>
               <option value="price">Price</option>
             </select>
@@ -108,10 +124,15 @@ export default function ProductList() {
 
         {/* Product list */}
         <div>
-          {sorted.map(product => (
-            <div key={product.id} style={{ padding: 12, border: "1px solid #ddd", marginBottom: 8 }}>
+          {sorted.map((product) => (
+            <div
+              key={product.id}
+              style={{ padding: 12, border: "1px solid #ddd", marginBottom: 8 }}
+            >
               <h3>{product.name}</h3>
-              <p>Category: {product.category} | ${product.price}</p>
+              <p>
+                Category: {product.category} | ${product.price}
+              </p>
             </div>
           ))}
         </div>
@@ -122,6 +143,7 @@ export default function ProductList() {
 ```
 
 **Pattern:**
+
 - Tool provides data (products)
 - Widget manages UI state (selectedCategory, sortBy)
 - Widget renders filtered/sorted view
@@ -134,6 +156,7 @@ export default function ProductList() {
 The `setState` method from `useWidget()` is an alternative to React's `useState` with automatic state persistence across widget interactions. See [basics.md](basics.md#usewidget-hook) for full `useWidget()` API reference.
 
 **When to use `setState` vs `useState`:**
+
 - Use `useState` for simple, ephemeral UI state (resets on widget unmount)
 - Use `setState` from `useWidget` for state that persists across interactions
 
@@ -150,12 +173,17 @@ export default function ItemSelector() {
   const { props, isPending } = useWidget();
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
-  if (isPending) return <McpUseProvider autoSize><div>Loading...</div></McpUseProvider>;
+  if (isPending)
+    return (
+      <McpUseProvider autoSize>
+        <div>Loading...</div>
+      </McpUseProvider>
+    );
 
   return (
     <McpUseProvider autoSize>
       <div>
-        {props.items.map(item => (
+        {props.items.map((item) => (
           <div
             key={item.id}
             onClick={() => setSelectedId(item.id)}
@@ -163,7 +191,7 @@ export default function ItemSelector() {
               padding: 12,
               border: `2px solid ${selectedId === item.id ? "#007bff" : "#ddd"}`,
               marginBottom: 8,
-              cursor: "pointer"
+              cursor: "pointer",
             }}
           >
             {item.name}
@@ -193,21 +221,17 @@ const toggleSelection = (id: string) => {
 return (
   <McpUseProvider autoSize>
     <div>
-      {props.items.map(item => (
+      {props.items.map((item) => (
         <div
           key={item.id}
           onClick={() => toggleSelection(item.id)}
           style={{
             padding: 12,
             backgroundColor: selectedIds.has(item.id) ? "#e3f2fd" : "white",
-            border: "1px solid #ddd"
+            border: "1px solid #ddd",
           }}
         >
-          <input
-            type="checkbox"
-            checked={selectedIds.has(item.id)}
-            readOnly
-          />
+          <input type="checkbox" checked={selectedIds.has(item.id)} readOnly />
           {item.name}
         </div>
       ))}
@@ -223,14 +247,16 @@ return (
 Manage tabs without additional tool calls:
 
 ```tsx
-const [activeTab, setActiveTab] = useState<"overview" | "details" | "history">("overview");
+const [activeTab, setActiveTab] = useState<"overview" | "details" | "history">(
+  "overview",
+);
 
 return (
   <McpUseProvider autoSize>
     <div>
       {/* Tab buttons */}
       <div style={{ borderBottom: "1px solid #ddd", marginBottom: 16 }}>
-        {["overview", "details", "history"].map(tab => (
+        {["overview", "details", "history"].map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab as any)}
@@ -239,7 +265,7 @@ return (
               border: "none",
               borderBottom: activeTab === tab ? "2px solid #007bff" : "none",
               background: "none",
-              cursor: "pointer"
+              cursor: "pointer",
             }}
           >
             {tab.charAt(0).toUpperCase() + tab.slice(1)}
@@ -275,7 +301,7 @@ return (
     <div>
       {/* Items */}
       <div>
-        {currentItems.map(item => (
+        {currentItems.map((item) => (
           <div key={item.id}>{item.name}</div>
         ))}
       </div>
@@ -283,7 +309,7 @@ return (
       {/* Pagination controls */}
       <div style={{ marginTop: 16, display: "flex", gap: 8 }}>
         <button
-          onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+          onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
           disabled={currentPage === 1}
         >
           Previous
@@ -294,7 +320,7 @@ return (
         </span>
 
         <button
-          onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+          onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
           disabled={currentPage === totalPages}
         >
           Next
@@ -323,11 +349,14 @@ const [filters, setFilters] = useState<Filters>({
   search: "",
   category: "all",
   priceMin: 0,
-  priceMax: 1000
+  priceMax: 1000,
 });
 
-const filteredItems = props.items.filter(item => {
-  if (filters.search && !item.name.toLowerCase().includes(filters.search.toLowerCase())) {
+const filteredItems = props.items.filter((item) => {
+  if (
+    filters.search &&
+    !item.name.toLowerCase().includes(filters.search.toLowerCase())
+  ) {
     return false;
   }
   if (filters.category !== "all" && item.category !== filters.category) {
@@ -348,13 +377,13 @@ return (
           type="text"
           placeholder="Search..."
           value={filters.search}
-          onChange={e => setFilters({ ...filters, search: e.target.value })}
+          onChange={(e) => setFilters({ ...filters, search: e.target.value })}
           style={{ padding: 8, marginRight: 8 }}
         />
 
         <select
           value={filters.category}
-          onChange={e => setFilters({ ...filters, category: e.target.value })}
+          onChange={(e) => setFilters({ ...filters, category: e.target.value })}
           style={{ padding: 8, marginRight: 8 }}
         >
           <option value="all">All Categories</option>
@@ -364,7 +393,9 @@ return (
         <input
           type="number"
           value={filters.priceMin}
-          onChange={e => setFilters({ ...filters, priceMin: Number(e.target.value) })}
+          onChange={(e) =>
+            setFilters({ ...filters, priceMin: Number(e.target.value) })
+          }
           placeholder="Min price"
           style={{ width: 80, padding: 8, marginRight: 8 }}
         />
@@ -372,7 +403,9 @@ return (
         <input
           type="number"
           value={filters.priceMax}
-          onChange={e => setFilters({ ...filters, priceMax: Number(e.target.value) })}
+          onChange={(e) =>
+            setFilters({ ...filters, priceMax: Number(e.target.value) })
+          }
           placeholder="Max price"
           style={{ width: 80, padding: 8 }}
         />
@@ -380,8 +413,10 @@ return (
 
       {/* Filtered items */}
       <div>
-        {filteredItems.map(item => (
-          <div key={item.id}>{item.name} - ${item.price}</div>
+        {filteredItems.map((item) => (
+          <div key={item.id}>
+            {item.name} - ${item.price}
+          </div>
         ))}
       </div>
     </div>
@@ -411,7 +446,7 @@ const toggleExpand = (id: string) => {
 return (
   <McpUseProvider autoSize>
     <div>
-      {props.items.map(item => (
+      {props.items.map((item) => (
         <div key={item.id} style={{ marginBottom: 8 }}>
           <div
             onClick={() => toggleExpand(item.id)}
@@ -420,7 +455,7 @@ return (
               backgroundColor: "#f5f5f5",
               cursor: "pointer",
               display: "flex",
-              justifyContent: "space-between"
+              justifyContent: "space-between",
             }}
           >
             <span>{item.title}</span>
@@ -449,19 +484,21 @@ Track form inputs before submission:
 const [formData, setFormData] = useState({
   name: "",
   email: "",
-  message: ""
+  message: "",
 });
 
 const handleChange = (field: string, value: string) => {
-  setFormData(prev => ({ ...prev, [field]: value }));
+  setFormData((prev) => ({ ...prev, [field]: value }));
 };
 
 return (
   <McpUseProvider autoSize>
-    <form onSubmit={(e) => {
-      e.preventDefault();
-      // Handle submission (see interactivity.md)
-    }}>
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        // Handle submission (see interactivity.md)
+      }}
+    >
       <input
         type="text"
         value={formData.name}
@@ -512,6 +549,7 @@ useEffect(() => {
 ## Common Patterns
 
 ### Search + Filter + Sort
+
 ```tsx
 const [search, setSearch] = useState("");
 const [category, setCategory] = useState("all");
@@ -521,14 +559,14 @@ let filtered = props.items;
 
 // Apply search
 if (search) {
-  filtered = filtered.filter(item =>
-    item.name.toLowerCase().includes(search.toLowerCase())
+  filtered = filtered.filter((item) =>
+    item.name.toLowerCase().includes(search.toLowerCase()),
   );
 }
 
 // Apply category filter
 if (category !== "all") {
-  filtered = filtered.filter(item => item.category === category);
+  filtered = filtered.filter((item) => item.category === category);
 }
 
 // Apply sort
@@ -540,24 +578,25 @@ filtered.sort((a, b) => {
 ```
 
 ### Master-Detail View
+
 ```tsx
 const [selectedId, setSelectedId] = useState<string | null>(null);
 
 const selectedItem = selectedId
-  ? props.items.find(item => item.id === selectedId)
+  ? props.items.find((item) => item.id === selectedId)
   : null;
 
 return (
   <div style={{ display: "flex", gap: 16 }}>
     {/* Master list */}
     <div style={{ flex: 1 }}>
-      {props.items.map(item => (
+      {props.items.map((item) => (
         <div
           key={item.id}
           onClick={() => setSelectedId(item.id)}
           style={{
             padding: 12,
-            backgroundColor: selectedId === item.id ? "#e3f2fd" : "white"
+            backgroundColor: selectedId === item.id ? "#e3f2fd" : "white",
           }}
         >
           {item.name}
@@ -585,13 +624,14 @@ return (
 ## Anti-Patterns
 
 ### ❌ Don't Create Tools for UI State
+
 ```typescript
 // ❌ Bad - Tool for UI state
 server.tool(
   { name: "set-filter", schema: z.object({ category: z.string() }) },
   async ({ category }) => {
     // This is wrong! Filters should be widget state
-  }
+  },
 );
 
 // ✅ Good - Widget manages its own filters
@@ -599,6 +639,7 @@ const [filter, setFilter] = useState("all");
 ```
 
 ### ❌ Don't Call Tools for Filtering/Sorting
+
 ```typescript
 // ❌ Bad - Using a tool call for client-side filtering
 const { callTool: filterItems } = useCallTool("filter-items");
@@ -613,9 +654,10 @@ const { callTool: filterItems } = useCallTool("filter-items");
 ```
 
 ### ❌ Don't Store UI State in Props
+
 ```typescript
 // ❌ Bad - Trying to mutate props
-props.selectedId = "123";  // Error! Props are read-only
+props.selectedId = "123"; // Error! Props are read-only
 
 // ✅ Good - Use state
 const [selectedId, setSelectedId] = useState<string | null>(null);

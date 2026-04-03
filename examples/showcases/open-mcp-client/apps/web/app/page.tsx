@@ -12,8 +12,14 @@ import { ToolDetailModal } from "./components/ToolDetail";
 import { ChatSuggestions } from "./components/ChatSuggestions";
 import { LoadingSpinner, EmptyState } from "./components/shared";
 import { useMcpServers } from "./components/CopilotKitProvider";
-import { useMcpIntrospect, type ServerIntrospection } from "./hooks/useMcpIntrospect";
-import { useToolConfigStore, type MergedToolConfig } from "./hooks/useToolConfigStore";
+import {
+  useMcpIntrospect,
+  type ServerIntrospection,
+} from "./hooks/useMcpIntrospect";
+import {
+  useToolConfigStore,
+  type MergedToolConfig,
+} from "./hooks/useToolConfigStore";
 import {
   getHeaderDocsUrl,
   getHeaderLogoUrl,
@@ -41,7 +47,12 @@ export default function CopilotKitPage() {
   const { appendMessage } = useCopilotChat();
 
   const { servers } = useMcpServers();
-  const { allTools, data: serverData, loading, refresh } = useMcpIntrospect(servers);
+  const {
+    allTools,
+    data: serverData,
+    loading,
+    refresh,
+  } = useMcpIntrospect(servers);
   const toolStore = useToolConfigStore(allTools);
 
   const activeTool =
@@ -103,9 +114,14 @@ function TopBar() {
         <span className="shrink-0 text-sm font-semibold leading-none tracking-tight text-slate-900 sm:text-base">
           MCP App builder
         </span>
-        <span className="hidden h-4 w-px shrink-0 bg-slate-200 sm:block" aria-hidden />
+        <span
+          className="hidden h-4 w-px shrink-0 bg-slate-200 sm:block"
+          aria-hidden
+        />
         <div className="flex min-w-0 items-center gap-1.5 sm:gap-2">
-          <span className="shrink-0 text-[10px] font-medium text-slate-500 sm:text-xs">Powered by</span>
+          <span className="shrink-0 text-[10px] font-medium text-slate-500 sm:text-xs">
+            Powered by
+          </span>
           <a
             href={logoUrl}
             target="_blank"
@@ -178,7 +194,9 @@ function StudioView({
 }) {
   const { servers, setServers } = useMcpServers();
   const [mobileTab, setMobileTab] = useState<"chat" | "tools">("chat");
-  const [activeWorkspace, setActiveWorkspace] = useState<WorkspaceInfo | null>(null);
+  const [activeWorkspace, setActiveWorkspace] = useState<WorkspaceInfo | null>(
+    null,
+  );
   /** Tool open in the detail modal (sidebar list stays compact). */
   const [detailTool, setDetailTool] = useState<MergedToolConfig | null>(null);
 
@@ -217,15 +235,23 @@ function StudioView({
             return;
           }
           const liveEndpoint: string = info.endpoint ?? endpoint;
-          setActiveWorkspace({ workspaceId, endpoint: liveEndpoint, status: "running", path: "/home/user/workspace" });
+          setActiveWorkspace({
+            workspaceId,
+            endpoint: liveEndpoint,
+            status: "running",
+            path: "/home/user/workspace",
+          });
           setServers((prev) => {
             if (prev.some((s) => s.endpoint === liveEndpoint)) return prev;
-            return [...prev, { endpoint: liveEndpoint, serverId: serverId ?? "workspace" }];
+            return [
+              ...prev,
+              { endpoint: liveEndpoint, serverId: serverId ?? "workspace" },
+            ];
           });
         })
         .catch(() => localStorage.removeItem("mcp_active_workspace"));
     } catch {}
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Shared sidebar content — used in both mobile and desktop layouts
@@ -243,7 +269,9 @@ function StudioView({
 
       {/* Tool list — compact rows; full detail in modal */}
       <section className="flex min-h-0 flex-1 flex-col overflow-hidden">
-        <h3 className="mb-2 shrink-0 text-xs font-semibold uppercase tracking-wide text-slate-500">Tools</h3>
+        <h3 className="mb-2 shrink-0 text-xs font-semibold uppercase tracking-wide text-slate-500">
+          Tools
+        </h3>
 
         {loading && mergedTools.length === 0 && <LoadingSpinner />}
 
@@ -267,7 +295,9 @@ function StudioView({
                 >
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1.5">
-                      <span className="block truncate text-sm font-medium text-slate-900">{t.toolName}</span>
+                      <span className="block truncate text-sm font-medium text-slate-900">
+                        {t.toolName}
+                      </span>
                       {t.hasUI && (
                         <span className="shrink-0 rounded px-1 py-0.5 text-[9px] font-semibold bg-emerald-100 text-emerald-700">
                           UI
@@ -284,7 +314,9 @@ function StudioView({
                         </span>
                       )}
                     </div>
-                    <span className="block truncate text-[11px] text-slate-500">{t.description}</span>
+                    <span className="block truncate text-[11px] text-slate-500">
+                      {t.description}
+                    </span>
                   </div>
                   <svg
                     className="h-4 w-4 shrink-0 text-slate-400"
@@ -293,7 +325,12 @@ function StudioView({
                     stroke="currentColor"
                     aria-hidden
                   >
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M9 5l7 7-7 7"
+                    />
                   </svg>
                 </button>
               </li>
@@ -321,95 +358,97 @@ function StudioView({
         </div>
       </div>
       <div className="chat-container min-h-0 flex-1 overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]">
-        <CopilotChat
-          className="h-full w-full"
-          labels={CHAT_LABELS}
-        />
+        <CopilotChat className="h-full w-full" labels={CHAT_LABELS} />
       </div>
     </section>
   );
 
   return (
     <>
-    <ToolDetailModal
-      tool={detailTool}
-      open={detailTool !== null}
-      onClose={() => setDetailTool(null)}
-      onTryPrompt={(p) => {
-        onTryPrompt(p);
-        setMobileTab("chat");
-      }}
-      onPreviewDataChange={(data) => {
-        if (detailTool) {
-          toolStore.updateConfig(detailTool.toolName, { previewData: data });
-          setDetailTool({ ...detailTool, previewData: data });
+      <ToolDetailModal
+        tool={detailTool}
+        open={detailTool !== null}
+        onClose={() => setDetailTool(null)}
+        onTryPrompt={(p) => {
+          onTryPrompt(p);
+          setMobileTab("chat");
+        }}
+        onPreviewDataChange={(data) => {
+          if (detailTool) {
+            toolStore.updateConfig(detailTool.toolName, { previewData: data });
+            setDetailTool({ ...detailTool, previewData: data });
+          }
+        }}
+      />
+      <BuilderAgentProvider
+        activeTool={activeTool}
+        allToolNames={mergedTools.map((t) => t.toolName)}
+        onAddServer={(endpoint, serverId) =>
+          setServers((prev) => [...prev, { endpoint, serverId }])
         }
-      }}
-    />
-    <BuilderAgentProvider
-      activeTool={activeTool}
-      allToolNames={mergedTools.map((t) => t.toolName)}
-      onAddServer={(endpoint, serverId) => setServers((prev) => [...prev, { endpoint, serverId }])}
-      onRefreshServers={onRefresh}
-      connectedServers={servers.map((s) => s.endpoint)}
-      activeWorkspace={activeWorkspace}
-      onWorkspaceChange={setActiveWorkspace}
-    >
-      {/*
+        onRefreshServers={onRefresh}
+        connectedServers={servers.map((s) => s.endpoint)}
+        activeWorkspace={activeWorkspace}
+        onWorkspaceChange={setActiveWorkspace}
+      >
+        {/*
         Single CopilotChat: only the active layout branch mounts chat (mobile XOR desktop).
         Previously both branches stayed in the DOM; CSS hid mobile on desktop but React still
         mounted two CopilotChat instances → duplicate POST /api/mastra-agent traffic.
       */}
-      <ChatSuggestions />
-      {/* Mobile (<768px): 2-tab switcher — skip inner tree on desktop so chat is not mounted twice */}
-      <div className="mobile-layout flex h-full min-h-0 flex-col gap-2">
-        {!mdUp && (
-          <>
-            <nav className="glass-panel shrink-0 rounded-2xl p-1">
-              <div className="grid grid-cols-2 gap-1">
-                {(["chat", "tools"] as const).map((key) => (
-                  <button
-                    key={key}
-                    type="button"
-                    onClick={() => setMobileTab(key)}
-                    className={`rounded-xl px-2 py-1.5 text-[11px] font-medium capitalize transition ${
-                      mobileTab === key
-                        ? "bg-slate-900 text-white shadow-sm"
-                        : "bg-white/70 text-slate-600 hover:bg-white hover:text-slate-900"
-                    }`}
-                  >
-                    {key === "tools" ? "Tools" : "Chat"}
-                  </button>
-                ))}
-              </div>
-            </nav>
+        <ChatSuggestions />
+        {/* Mobile (<768px): 2-tab switcher — skip inner tree on desktop so chat is not mounted twice */}
+        <div className="mobile-layout flex h-full min-h-0 flex-col gap-2">
+          {!mdUp && (
+            <>
+              <nav className="glass-panel shrink-0 rounded-2xl p-1">
+                <div className="grid grid-cols-2 gap-1">
+                  {(["chat", "tools"] as const).map((key) => (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => setMobileTab(key)}
+                      className={`rounded-xl px-2 py-1.5 text-[11px] font-medium capitalize transition ${
+                        mobileTab === key
+                          ? "bg-slate-900 text-white shadow-sm"
+                          : "bg-white/70 text-slate-600 hover:bg-white hover:text-slate-900"
+                      }`}
+                    >
+                      {key === "tools" ? "Tools" : "Chat"}
+                    </button>
+                  ))}
+                </div>
+              </nav>
 
-            {mobileTab === "chat" ? (
-              chatPanel
-            ) : (
-              <aside className="glass-panel flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto rounded-2xl p-2.5">
+              {mobileTab === "chat" ? (
+                chatPanel
+              ) : (
+                <aside className="glass-panel flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto rounded-2xl p-2.5">
+                  {sidebarContent}
+                </aside>
+              )}
+            </>
+          )}
+        </div>
+
+        {/* Desktop (≥768px): fixed-width sidebar + fluid chat */}
+        <div
+          className="desktop-layout h-full gap-3"
+          style={{
+            display: "grid",
+            gridTemplateColumns: "340px minmax(0,1fr)",
+          }}
+        >
+          {mdUp && (
+            <>
+              <aside className="glass-panel flex min-h-0 flex-col gap-3 overflow-hidden rounded-2xl p-3">
                 {sidebarContent}
               </aside>
-            )}
-          </>
-        )}
-      </div>
-
-      {/* Desktop (≥768px): fixed-width sidebar + fluid chat */}
-      <div
-        className="desktop-layout h-full gap-3"
-        style={{ display: "grid", gridTemplateColumns: "340px minmax(0,1fr)" }}
-      >
-        {mdUp && (
-          <>
-            <aside className="glass-panel flex min-h-0 flex-col gap-3 overflow-hidden rounded-2xl p-3">
-              {sidebarContent}
-            </aside>
-            {chatPanel}
-          </>
-        )}
-      </div>
-    </BuilderAgentProvider>
+              {chatPanel}
+            </>
+          )}
+        </div>
+      </BuilderAgentProvider>
     </>
   );
 }

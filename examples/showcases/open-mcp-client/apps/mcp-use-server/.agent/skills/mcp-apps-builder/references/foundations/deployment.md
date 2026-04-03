@@ -50,15 +50,15 @@ Before running `mcp-use deploy`:
 mcp-use deploy [options]
 ```
 
-| Flag | Description | Default |
-|------|-------------|---------|
-| `--name <name>` | Custom deployment name | `package.json` name or directory name |
-| `--port <port>` | Server port | `3000` |
-| `--runtime <runtime>` | `"node"` or `"python"` | Auto-detected from project files |
-| `--env <KEY=VALUE>` | Set environment variable (repeatable) | — |
-| `--env-file <path>` | Load env vars from a file | — |
-| `--open` | Open deployment in browser after success | `false` |
-| `--new` | Force a fresh deployment (ignore existing link) | `false` |
+| Flag                  | Description                                     | Default                               |
+| --------------------- | ----------------------------------------------- | ------------------------------------- |
+| `--name <name>`       | Custom deployment name                          | `package.json` name or directory name |
+| `--port <port>`       | Server port                                     | `3000`                                |
+| `--runtime <runtime>` | `"node"` or `"python"`                          | Auto-detected from project files      |
+| `--env <KEY=VALUE>`   | Set environment variable (repeatable)           | —                                     |
+| `--env-file <path>`   | Load env vars from a file                       | —                                     |
+| `--open`              | Open deployment in browser after success        | `false`                               |
+| `--new`               | Force a fresh deployment (ignore existing link) | `false`                               |
 
 ### Setting Environment Variables
 

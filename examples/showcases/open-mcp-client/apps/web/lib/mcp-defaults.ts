@@ -22,7 +22,9 @@ function parseDefaultMcpServers(): McpServerConfig[] {
     if (!Array.isArray(parsed)) return BUILTIN_DEFAULTS;
     const filtered = parsed.filter(
       (s): s is McpServerConfig =>
-        s != null && typeof s.url === "string" && (s.type === "http" || s.type === "sse")
+        s != null &&
+        typeof s.url === "string" &&
+        (s.type === "http" || s.type === "sse"),
     );
     return filtered.length > 0 ? filtered : BUILTIN_DEFAULTS;
   } catch {

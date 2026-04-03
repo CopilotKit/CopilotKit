@@ -7,6 +7,7 @@ Design UX flows and API shape for your ChatGPT app.
 A **tool** is a backend action with no UI. It takes input and returns structured output. Use for CRUD operations, API calls, and actions (checkout, submit, cancel).
 
 A **widget** is a tool with a UI. It renders the tool output visually. The UI is a React component that can:
+
 - Navigate multiple views (search -> detail -> confirmation)
 - Manage its own state (selections, filters, form inputs)
 - Call other tools to fetch data or trigger actions
@@ -22,6 +23,7 @@ Extract flows from your spec's core actions. **Stick to the spec** -- don't inve
 Spec: "Book flights by destination and dates, and cancel existing bookings."
 
 Flows:
+
 ```
 Book flight:     Search -> Select -> Checkout
 Cancel booking:  Provide info -> Confirm cancellation
@@ -30,11 +32,13 @@ Cancel booking:  Provide info -> Confirm cancellation
 ## Step 2: Does the Flow Need UI?
 
 **YES → widget** if:
+
 - Browsing/comparing multiple items (search results, listings)
 - Visual data improves understanding (maps, charts, images, color swatches)
 - Selections are easier in a visual layout (seat picker, calendar)
 
 **NO → tool only** if:
+
 - Inputs are naturally conversational (amounts, dates, descriptions)
 - Output is simple text (confirmation ID, status message)
 - No visual element would meaningfully improve the experience
@@ -81,32 +85,42 @@ Tool calls are expensive. Return all needed data upfront.
 
 ```typescript
 // Widget: search-flights
-server.tool({
-  name: "search-flights",
-  schema: z.object({
-    destination: z.string().describe("Destination city"),
-    dates: z.string().describe("Travel dates"),
-  }),
-  widget: { name: "flight-search", invoking: "Searching...", invoked: "Flights found" },
-}, async ({ destination, dates }) => {
-  const flights = await fetchFlights(destination, dates);
-  return widget({
-    props: { flights, destination },
-    output: text(`Found ${flights.length} flights to ${destination}`),
-  });
-});
+server.tool(
+  {
+    name: "search-flights",
+    schema: z.object({
+      destination: z.string().describe("Destination city"),
+      dates: z.string().describe("Travel dates"),
+    }),
+    widget: {
+      name: "flight-search",
+      invoking: "Searching...",
+      invoked: "Flights found",
+    },
+  },
+  async ({ destination, dates }) => {
+    const flights = await fetchFlights(destination, dates);
+    return widget({
+      props: { flights, destination },
+      output: text(`Found ${flights.length} flights to ${destination}`),
+    });
+  },
+);
 
 // Tool: create-checkout (called by widget)
-server.tool({
-  name: "create-checkout",
-  schema: z.object({
-    flightId: z.string().describe("Selected flight ID"),
-    passengers: z.array(z.object({ name: z.string(), email: z.string() })),
-  }),
-}, async ({ flightId, passengers }) => {
-  const checkout = await createCheckoutSession(flightId, passengers);
-  return object({ checkoutUrl: checkout.url });
-});
+server.tool(
+  {
+    name: "create-checkout",
+    schema: z.object({
+      flightId: z.string().describe("Selected flight ID"),
+      passengers: z.array(z.object({ name: z.string(), email: z.string() })),
+    }),
+  },
+  async ({ flightId, passengers }) => {
+    const checkout = await createCheckoutSession(flightId, passengers);
+    return object({ checkoutUrl: checkout.url });
+  },
+);
 ```
 
 ### Flow DOES NOT NEED UI -> Tool(s) Only
@@ -115,23 +129,31 @@ server.tool({
 
 ```typescript
 // Tool: list-bookings
-server.tool({
-  name: "list-bookings",
-  schema: z.object({ email: z.string().describe("Booking email") }),
-}, async ({ email }) => {
-  const bookings = await getBookings(email);
-  return object({ bookings });
-  // LLM: "You have two flights: Paris Jan 1, Tokyo Feb 15. Which cancel?"
-});
+server.tool(
+  {
+    name: "list-bookings",
+    schema: z.object({ email: z.string().describe("Booking email") }),
+  },
+  async ({ email }) => {
+    const bookings = await getBookings(email);
+    return object({ bookings });
+    // LLM: "You have two flights: Paris Jan 1, Tokyo Feb 15. Which cancel?"
+  },
+);
 
 // Tool: cancel-booking
-server.tool({
-  name: "cancel-booking",
-  schema: z.object({ bookingId: z.string().describe("Booking ID to cancel") }),
-}, async ({ bookingId }) => {
-  await cancelBooking(bookingId);
-  return text(`Booking ${bookingId} has been cancelled.`);
-});
+server.tool(
+  {
+    name: "cancel-booking",
+    schema: z.object({
+      bookingId: z.string().describe("Booking ID to cancel"),
+    }),
+  },
+  async ({ bookingId }) => {
+    await cancelBooking(bookingId);
+    return text(`Booking ${bookingId} has been cancelled.`);
+  },
+);
 ```
 
 ## `exposeAsTool` Defaults to `false`
