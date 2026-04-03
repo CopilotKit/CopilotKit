@@ -95,6 +95,7 @@ export function generateVideoThumbnail(file: File): Promise<string | undefined> 
     };
 
     const timeout = setTimeout(() => {
+      console.warn(`[CopilotKit] generateVideoThumbnail: timed out for file "${file.name}"`);
       cleanup(undefined);
     }, 10000);
 
@@ -116,12 +117,14 @@ export function generateVideoThumbnail(file: File): Promise<string | undefined> 
         const thumbnail = canvas.toDataURL("image/jpeg", 0.7);
         cleanup(thumbnail);
       } else {
+        console.warn("[CopilotKit] generateVideoThumbnail: could not get 2d canvas context");
         cleanup(undefined);
       }
     };
 
     video.onerror = () => {
       clearTimeout(timeout);
+      console.warn(`[CopilotKit] generateVideoThumbnail: video element error for file "${file.name}"`);
       cleanup(undefined);
     };
 

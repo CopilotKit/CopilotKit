@@ -491,6 +491,8 @@ export function CopilotChat({
       const errorMessage =
         error?.message || error?.toString() || "An error occurred";
 
+      console.error(`[CopilotKit] ${operation} error:`, errorMessage, originalError ?? error);
+
       // Set chat error state for rendering
       setChatError({
         message: errorMessage,
@@ -734,6 +736,13 @@ export function CopilotChat({
     const validFiles = files.filter((file) =>
       matchesAcceptFilter(file, attachmentsAccept),
     );
+    const rejectedCount = files.length - validFiles.length;
+    if (rejectedCount > 0) {
+      triggerChatError(
+        new Error(`${rejectedCount} file(s) not accepted. Supported types: ${attachmentsAccept}`),
+        "fileUpload",
+      );
+    }
 
     for (const file of validFiles) {
       if (exceedsMaxSize(file, attachmentsMaxSize)) {
@@ -769,7 +778,7 @@ export function CopilotChat({
           if ("data" in result) {
             source = { type: "data", value: result.data, mimeType: result.mimeType };
           } else {
-            source = { type: "url", value: result.url, mimeType: result.mimeType };
+            source = { type: "url", value: result.url, mimeType: result.mimeType ?? file.type };
           }
         } else {
           const base64 = await readFileAsBase64(file);
