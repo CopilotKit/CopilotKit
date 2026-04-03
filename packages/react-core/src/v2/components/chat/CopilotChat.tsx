@@ -305,9 +305,7 @@ export function CopilotChat({
   };
   processFilesRef.current = processFiles;
 
-  const handleFileUpload = async (
-    e: React.ChangeEvent<HTMLInputElement>,
-  ) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files?.length) return;
     try {
       await processFiles(Array.from(e.target.files));

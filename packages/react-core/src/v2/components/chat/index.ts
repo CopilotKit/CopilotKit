@@ -81,4 +81,8 @@ export { CopilotPopup, type CopilotPopupProps } from "./CopilotPopup";
 export { CopilotChatAttachmentQueue } from "./CopilotChatAttachmentQueue";
 export { CopilotChatAttachmentRenderer } from "./CopilotChatAttachmentRenderer";
 
-export type { Attachment, AttachmentsConfig, AttachmentModality } from "@copilotkit/shared";
+export type {
+  Attachment,
+  AttachmentsConfig,
+  AttachmentModality,
+} from "@copilotkit/shared";

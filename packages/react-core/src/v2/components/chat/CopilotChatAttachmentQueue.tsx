@@ -1,6 +1,10 @@
 import React from "react";
 import type { Attachment } from "@copilotkit/shared";
-import { formatFileSize, getSourceUrl, getDocumentIcon } from "@copilotkit/shared";
+import {
+  formatFileSize,
+  getSourceUrl,
+  getDocumentIcon,
+} from "@copilotkit/shared";
 import { cn } from "../../lib/utils";
 
 interface CopilotChatAttachmentQueueProps {
@@ -15,12 +19,7 @@ export const CopilotChatAttachmentQueue: React.FC<
   if (attachments.length === 0) return null;
 
   return (
-    <div
-      className={cn(
-        "cpk:flex cpk:flex-wrap cpk:gap-2 cpk:p-2",
-        className,
-      )}
-    >
+    <div className={cn("cpk:flex cpk:flex-wrap cpk:gap-2 cpk:p-2", className)}>
       {attachments.map((attachment) => (
         <div
           key={attachment.id}
@@ -122,4 +121,3 @@ function AttachmentPreview({ attachment }: { attachment: Attachment }) {
       );
   }
 }
-

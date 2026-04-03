@@ -9,7 +9,13 @@ interface CopilotChatAttachmentRendererProps {
   className?: string;
 }
 
-function ImageAttachment({ src, className }: { src: string; className?: string }) {
+function ImageAttachment({
+  src,
+  className,
+}: {
+  src: string;
+  className?: string;
+}) {
   const [error, setError] = useState(false);
 
   if (error) {

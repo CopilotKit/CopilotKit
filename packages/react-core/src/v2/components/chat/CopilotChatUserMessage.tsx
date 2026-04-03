@@ -47,7 +47,11 @@ function flattenUserMessageContent(content?: UserMessage["content"]): string {
     .join("\n");
 }
 
-type MediaPart = ImageInputPart | AudioInputPart | VideoInputPart | DocumentInputPart;
+type MediaPart =
+  | ImageInputPart
+  | AudioInputPart
+  | VideoInputPart
+  | DocumentInputPart;
 
 function getMediaParts(content: UserMessage["content"]): MediaPart[] {
   if (!content || typeof content === "string") return [];
@@ -111,7 +115,10 @@ export function CopilotChatUserMessage({
     [message.content],
   );
 
-  const mediaParts = useMemo(() => getMediaParts(message.content), [message.content]);
+  const mediaParts = useMemo(
+    () => getMediaParts(message.content),
+    [message.content],
+  );
 
   const BoundMessageRenderer = renderSlot(
     messageRenderer,
