@@ -5,16 +5,33 @@ import {
   InMemoryAgentRunner,
 } from "@copilotkit/runtime/v2";
 import { BuiltInAgent } from "@copilotkit/runtime/v2";
+import { chat } from "@tanstack/ai";
+import { openaiText } from "@tanstack/ai-openai";
+import { TanStackAIAgent } from "./agent";
 
 export default await createHonoServer({
   configure(app) {
-    const agent = new BuiltInAgent({
+    const tanstackAgent = new TanStackAIAgent(
+      ({ messages, systemPrompts, abortController }) =>
+        chat({
+          adapter: openaiText("gpt-4o"),
+          messages,
+          systemPrompts,
+          abortController,
+        }),
+    );
+
+    const builtinAgent = new BuiltInAgent({
       model: "openai/gpt-4o",
-      prompt: "You are a helpful assistant. When the user sends images or files, describe what you see or analyze the content.",
+      prompt:
+        "You are a helpful assistant. When the user sends images or files, describe what you see or analyze the content.",
     });
 
     const runtime = new CopilotRuntime({
-      agents: { default: agent },
+      agents: {
+        tanstack: tanstackAgent,
+        builtin: builtinAgent,
+      },
       runner: new InMemoryAgentRunner(),
     });
 
