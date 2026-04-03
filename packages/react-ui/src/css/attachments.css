@@ -81,6 +81,12 @@
   background: rgba(0, 0, 0, 0.8);
 }
 
+.copilotKitAttachmentQueuePreviewPlaceholder {
+  width: 100%;
+  height: 100%;
+  background: var(--copilot-kit-input-background-color);
+}
+
 .copilotKitAttachmentQueuePreviewImage {
   width: 100%;
   height: 100%;

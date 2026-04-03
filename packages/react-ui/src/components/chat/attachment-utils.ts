@@ -82,9 +82,21 @@ export function readFileAsBase64(file: File): Promise<string> {
  */
 export function generateVideoThumbnail(file: File): Promise<string | undefined> {
   return new Promise((resolve) => {
+    let resolved = false;
     const video = document.createElement("video");
     const canvas = document.createElement("canvas");
     const url = URL.createObjectURL(file);
+
+    const cleanup = (result: string | undefined) => {
+      if (resolved) return;
+      resolved = true;
+      URL.revokeObjectURL(url);
+      resolve(result);
+    };
+
+    const timeout = setTimeout(() => {
+      cleanup(undefined);
+    }, 10000);
 
     video.preload = "metadata";
     video.muted = true;
@@ -95,22 +107,22 @@ export function generateVideoThumbnail(file: File): Promise<string | undefined> 
     };
 
     video.onseeked = () => {
+      clearTimeout(timeout);
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
       const ctx = canvas.getContext("2d");
       if (ctx) {
         ctx.drawImage(video, 0, 0);
         const thumbnail = canvas.toDataURL("image/jpeg", 0.7);
-        resolve(thumbnail);
+        cleanup(thumbnail);
       } else {
-        resolve(undefined);
+        cleanup(undefined);
       }
-      URL.revokeObjectURL(url);
     };
 
     video.onerror = () => {
-      URL.revokeObjectURL(url);
-      resolve(undefined);
+      clearTimeout(timeout);
+      cleanup(undefined);
     };
 
     video.src = url;
@@ -125,7 +137,7 @@ export function matchesAcceptFilter(
   file: File,
   accept: string,
 ): boolean {
-  if (accept === "*/*") return true;
+  if (!accept || accept === "*/*") return true;
 
   const filters = accept.split(",").map((f) => f.trim());
   return filters.some((filter) => {

@@ -30,6 +30,7 @@ export interface AttachmentsConfig {
 export type AttachmentModality = "image" | "audio" | "video" | "document";
 
 export interface Attachment {
+  id: string;
   type: AttachmentModality;
   source: InputContentDataSource | InputContentUrlSource;
   filename?: string;

@@ -456,7 +456,7 @@ export function CopilotChat({
 
   const [selectedAttachments, setSelectedAttachments] = useState<Attachment[]>([]);
   const [dragOver, setDragOver] = useState(false);
-  const attachmentIdCounter = useRef(0);
+  const processFilesRef = useRef<(files: File[]) => Promise<void>>(async () => {});
 
   const [chatError, setChatError] = useState<ChatError | null>(null);
   const [messageFeedback, setMessageFeedback] = useState<
@@ -584,12 +584,16 @@ export function CopilotChat({
         .map((item) => item.getAsFile())
         .filter((f): f is File => f !== null);
 
-      await processFiles(files);
+      try {
+        await processFilesRef.current(files);
+      } catch (error) {
+        triggerChatError(error, "pasteUpload", error);
+      }
     };
 
     document.addEventListener("paste", handlePaste);
     return () => document.removeEventListener("paste", handlePaste);
-  }, [attachmentsEnabled, attachmentsAccept, attachmentsMaxSize]);
+  }, [attachmentsEnabled, attachmentsAccept, attachmentsMaxSize, triggerChatError]);
 
   useEffect(() => {
     if (!additionalInstructions?.length) {
@@ -648,6 +652,20 @@ export function CopilotChat({
 
   // Wrapper for sendMessage to clear selected attachments and build multimodal content
   const handleSendMessage = (text: string) => {
+    const hasUploading = selectedAttachments.some((a) => a.status === "uploading");
+    if (hasUploading) {
+      triggerChatError(
+        new Error("Attachment(s) still uploading. Please wait."),
+        "sendMessage",
+      );
+      // Return a promise that resolves to a dummy message to satisfy the return type
+      return Promise.resolve({
+        id: randomUUID(),
+        content: text,
+        role: "user" as const,
+      } as Message);
+    }
+
     const currentAttachments = selectedAttachments.filter(
       (a) => a.status === "ready",
     );
@@ -731,9 +749,9 @@ export function CopilotChat({
       const modality = getModalityFromMimeType(file.type);
 
       // Use a unique ID to track this placeholder across concurrent uploads
-      const placeholderId = ++attachmentIdCounter.current;
-      const placeholder: Attachment & { _id: number } = {
-        _id: placeholderId,
+      const placeholderId = randomUUID();
+      const placeholder: Attachment = {
+        id: placeholderId,
         type: modality,
         source: { type: "data", value: "", mimeType: file.type },
         filename: file.name,
@@ -741,7 +759,7 @@ export function CopilotChat({
         status: "uploading",
       };
 
-      setSelectedAttachments((prev) => [...prev, placeholder as any]);
+      setSelectedAttachments((prev) => [...prev, placeholder]);
 
       try {
         let source: Attachment["source"];
@@ -766,7 +784,7 @@ export function CopilotChat({
 
         setSelectedAttachments((prev) =>
           prev.map((att) =>
-            (att as any)._id === placeholderId
+            att.id === placeholderId
               ? { ...att, source, status: "ready" as const, thumbnail }
               : att,
           ),
@@ -774,16 +792,26 @@ export function CopilotChat({
       } catch (error) {
         // Remove the failed placeholder
         setSelectedAttachments((prev) =>
-          prev.filter((att) => (att as any)._id !== placeholderId),
+          prev.filter((att) => att.id !== placeholderId),
         );
-        triggerChatError(error, "fileUpload", error);
+        const message = error instanceof Error ? error.message : String(error);
+        triggerChatError(
+          new Error(`Failed to upload "${file.name}": ${message}`),
+          "fileUpload",
+          error,
+        );
       }
     }
   };
+  processFilesRef.current = processFiles;
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     if (!event.target.files || event.target.files.length === 0) return;
-    await processFiles(Array.from(event.target.files));
+    try {
+      await processFiles(Array.from(event.target.files));
+    } catch (error) {
+      triggerChatError(error, "fileUpload", error);
+    }
   };
 
   // Drag-and-drop handlers
@@ -808,7 +836,11 @@ export function CopilotChat({
 
     const files = Array.from(e.dataTransfer.files);
     if (files.length > 0) {
-      await processFiles(files);
+      try {
+        await processFiles(files);
+      } catch (error) {
+        triggerChatError(error, "dropUpload", error);
+      }
     }
   };
 

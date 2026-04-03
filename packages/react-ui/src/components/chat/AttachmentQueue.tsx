@@ -42,6 +42,10 @@ export const AttachmentQueue: React.FC<AttachmentQueueProps> = ({
 };
 
 function AttachmentPreview({ attachment }: { attachment: Attachment }) {
+  if (attachment.status === "uploading") {
+    return <div className="copilotKitAttachmentQueuePreviewPlaceholder" />;
+  }
+
   const src = getSourceUrl(attachment);
 
   switch (attachment.type) {
