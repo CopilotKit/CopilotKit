@@ -31,6 +31,8 @@ import {
   ToolCallPart,
   ToolResultPart,
   TextPart,
+  ImagePart,
+  FilePart,
   tool as createVercelAISDKTool,
   ToolChoice,
   ToolSet,
@@ -279,9 +281,14 @@ export function defineTool<TParameters extends StandardSchemaV1>(config: {
 
 type AGUIUserMessage = Extract<Message, { role: "user" }>;
 
-function flattenUserMessageContent(
-  content?: AGUIUserMessage["content"],
-): string {
+/**
+ * Converts AG-UI user message content to Vercel AI SDK UserContent format.
+ * Handles plain strings, new modality-specific parts (image/audio/video/document),
+ * and legacy BinaryInputContent for backward compatibility.
+ */
+function convertUserMessageContent(
+  content: AGUIUserMessage["content"],
+): string | Array<TextPart | ImagePart | FilePart> {
   if (!content) {
     return "";
   }
@@ -290,21 +297,92 @@ function flattenUserMessageContent(
     return content;
   }
 
-  return content
-    .map((part) => {
-      if (
-        part &&
-        typeof part === "object" &&
-        "type" in part &&
-        (part as { type?: unknown }).type === "text" &&
-        typeof (part as { text?: unknown }).text === "string"
-      ) {
-        return (part as { text: string }).text;
+  const parts: Array<TextPart | ImagePart | FilePart> = [];
+
+  for (const part of content) {
+    if (!part || typeof part !== "object" || !("type" in part)) {
+      continue;
+    }
+
+    switch (part.type) {
+      case "text": {
+        const text = (part as { text?: string }).text;
+        if (text) {
+          parts.push({ type: "text", text });
+        }
+        break;
       }
-      return "";
-    })
-    .filter((text) => text.length > 0)
-    .join("\n");
+
+      case "image": {
+        const source = (part as { source?: any }).source;
+        if (!source) break;
+        if (source.type === "data") {
+          parts.push({
+            type: "image",
+            image: source.value,
+            mediaType: source.mimeType,
+          });
+        } else if (source.type === "url") {
+          parts.push({
+            type: "image",
+            image: new URL(source.value),
+            mediaType: source.mimeType,
+          });
+        }
+        break;
+      }
+
+      case "audio":
+      case "video":
+      case "document": {
+        const source = (part as { source?: any }).source;
+        if (!source) break;
+        if (source.type === "data") {
+          parts.push({
+            type: "file",
+            data: source.value,
+            mediaType: source.mimeType,
+          });
+        } else if (source.type === "url") {
+          parts.push({
+            type: "file",
+            data: new URL(source.value),
+            mediaType: source.mimeType,
+          });
+        }
+        break;
+      }
+
+      // Legacy BinaryInputContent backward compatibility
+      case "binary": {
+        const legacy = part as {
+          mimeType?: string;
+          data?: string;
+          url?: string;
+        };
+        const mimeType = legacy.mimeType ?? "application/octet-stream";
+        const isImage = mimeType.startsWith("image/");
+
+        if (legacy.data) {
+          if (isImage) {
+            parts.push({ type: "image", image: legacy.data, mediaType: mimeType });
+          } else {
+            parts.push({ type: "file", data: legacy.data, mediaType: mimeType });
+          }
+        } else if (legacy.url) {
+          const url = new URL(legacy.url);
+          if (isImage) {
+            parts.push({ type: "image", image: url, mediaType: mimeType });
+          } else {
+            parts.push({ type: "file", data: url, mediaType: mimeType });
+          }
+        }
+        break;
+      }
+    }
+  }
+
+  return parts.length > 0 ? parts : "";
 }
 
 /**
@@ -363,7 +441,7 @@ export function convertMessagesToVercelAISDKMessages(
     } else if (message.role === "user") {
       const userMsg: UserModelMessage = {
         role: "user",
-        content: flattenUserMessageContent(message.content),
+        content: convertUserMessageContent(message.content),
       };
       result.push(userMsg);
     } else if (message.role === "tool") {
