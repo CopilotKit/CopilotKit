@@ -25,7 +25,8 @@ function DownloadServerCodeLink({ workspaceId }: { workspaceId: string }) {
         throw new Error(data.error || `Download failed (${res.status})`);
       }
       const blob = await res.blob();
-      const safeId = workspaceId.replace(/[^\w-]/g, "").slice(0, 16) || "workspace";
+      const safeId =
+        workspaceId.replace(/[^\w-]/g, "").slice(0, 16) || "workspace";
       const cd = res.headers.get("Content-Disposition");
       const m = cd?.match(/filename="([^"]+)"/);
       const filename = m?.[1] ?? `workspace-${safeId}.tar.gz`;
@@ -35,7 +36,7 @@ function DownloadServerCodeLink({ workspaceId }: { workspaceId: string }) {
     } finally {
       setLoading(false);
     }
-  }
+  };
 
   return (
     <div className="px-3.5 py-3 border-t border-slate-200/70">
@@ -55,16 +56,25 @@ function DownloadServerCodeLink({ workspaceId }: { workspaceId: string }) {
           </>
         ) : (
           <>
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-3.5 w-3.5"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+              />
             </svg>
             Download full app kit
           </>
         )}
       </button>
-      {error && (
-        <p className="mt-1.5 text-[10px] text-red-600">{error}</p>
-      )}
+      {error && <p className="mt-1.5 text-[10px] text-red-600">{error}</p>}
     </div>
   );
 }
@@ -127,7 +137,9 @@ function ToolCallCard({
         className="flex w-full items-center gap-2 px-3.5 py-2 bg-slate-100/70 hover:bg-slate-100 transition-colors text-left"
       >
         {done ? (
-          <span className="shrink-0 font-bold text-emerald-600 text-[13px] leading-none">✓</span>
+          <span className="shrink-0 font-bold text-emerald-600 text-[13px] leading-none">
+            ✓
+          </span>
         ) : (
           <span className="h-3 w-3 shrink-0 rounded-full border-2 border-slate-400 border-t-transparent animate-spin" />
         )}
@@ -138,7 +150,9 @@ function ToolCallCard({
           ) : (
             <span className="text-amber-500">Running…</span>
           )}
-          <span className="text-slate-400 text-[10px]">{expanded ? "▲" : "▼"}</span>
+          <span className="text-slate-400 text-[10px]">
+            {expanded ? "▲" : "▼"}
+          </span>
         </span>
       </button>
 
@@ -159,7 +173,9 @@ function ToolCallCard({
 
           {/* Result */}
           {resultDisplay !== null && (
-            <div className={`px-3.5 py-3 ${hasArgs ? "border-t border-slate-200/70" : ""}`}>
+            <div
+              className={`px-3.5 py-3 ${hasArgs ? "border-t border-slate-200/70" : ""}`}
+            >
               <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-600">
                 Result
               </p>
@@ -189,7 +205,10 @@ function RestartServerCard({
   result: string | undefined;
 }) {
   const workspaceId =
-    args && typeof args === "object" && !Array.isArray(args) && "workspaceId" in args
+    args &&
+    typeof args === "object" &&
+    !Array.isArray(args) &&
+    "workspaceId" in args
       ? String((args as Record<string, unknown>).workspaceId)
       : null;
 
@@ -199,7 +218,11 @@ function RestartServerCard({
       args={args}
       status={status}
       result={result}
-      footer={workspaceId ? <DownloadServerCodeLink workspaceId={workspaceId} /> : null}
+      footer={
+        workspaceId ? (
+          <DownloadServerCodeLink workspaceId={workspaceId} />
+        ) : null
+      }
     />
   );
 }
@@ -212,7 +235,12 @@ export const TOOL_CALL_RENDERERS = [
     name: "restart_server",
     args: z.object({ workspaceId: z.string() }),
     render: ({ name, args, status, result }) => (
-      <RestartServerCard name={name} args={args} status={status} result={result} />
+      <RestartServerCard
+        name={name}
+        args={args}
+        status={status}
+        result={result}
+      />
     ),
   }),
   defineToolCallRenderer({

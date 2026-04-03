@@ -15,25 +15,27 @@ Extract the core actions from the user's request. Stick to what they asked -- do
 
 **Examples:**
 
-| User says | Core actions |
-|---|---|
-| "weather app" | Get current weather, get forecast |
-| "todo list" | Add todo, list todos, complete todo, delete todo |
-| "recipe finder" | Search recipes, get recipe details |
-| "translator" | Translate text, detect language |
-| "stock tracker" | Get stock price, compare stocks |
-| "quiz app" | Generate quiz, check answer |
+| User says       | Core actions                                     |
+| --------------- | ------------------------------------------------ |
+| "weather app"   | Get current weather, get forecast                |
+| "todo list"     | Add todo, list todos, complete todo, delete todo |
+| "recipe finder" | Search recipes, get recipe details               |
+| "translator"    | Translate text, detect language                  |
+| "stock tracker" | Get stock price, compare stocks                  |
+| "quiz app"      | Generate quiz, check answer                      |
 
 ## Step 2: Does It Need a Widget?
 
 For each action, decide if visual UI would meaningfully improve the experience.
 
 **YES → widget** if:
+
 - Browsing or comparing multiple items (search results, product cards)
 - Visual data improves understanding (charts, maps, images, dashboards)
 - Interactive selection is easier visually (seat picker, calendar, color picker)
 
 **NO → tool only** if:
+
 - Output is simple text (translation, calculation, status check)
 - Input is naturally conversational (dates, amounts, descriptions)
 - No visual element would meaningfully help
@@ -90,6 +92,7 @@ export const widgetMetadata: WidgetMetadata = {
 ## Common App Patterns
 
 ### Weather App
+
 ```
 Widget tool: get-weather
   - Input: { city }
@@ -101,6 +104,7 @@ Tool: get-forecast
 ```
 
 ### Todo List
+
 ```
 Widget tool: list-todos
   - Widget: interactive checklist with complete/delete buttons
@@ -111,6 +115,7 @@ Tool: delete-todo    { id }
 ```
 
 ### Recipe Finder
+
 ```
 Widget tool: search-recipes
   - Input: { query, cuisine? }
@@ -120,6 +125,7 @@ Resource: recipe://favorites  (user's saved recipes)
 ```
 
 ### Translator
+
 ```
 Tool: translate-text
   - Input: { text, targetLanguage, sourceLanguage? }
@@ -130,6 +136,7 @@ Tool: detect-language
 ```
 
 ### Stock Tracker
+
 ```
 Widget tool: get-stock
   - Input: { symbol }
@@ -146,16 +153,23 @@ When the user doesn't specify a real API, use realistic mock data:
 
 ```typescript
 // Mock data - replace with real API
-const mockWeather: Record<string, { temp: number; conditions: string; humidity: number }> = {
+const mockWeather: Record<
+  string,
+  { temp: number; conditions: string; humidity: number }
+> = {
   "New York": { temp: 22, conditions: "Partly Cloudy", humidity: 65 },
-  "London": { temp: 15, conditions: "Overcast", humidity: 80 },
-  "Tokyo": { temp: 28, conditions: "Sunny", humidity: 55 },
-  "Paris": { temp: 18, conditions: "Light Rain", humidity: 75 },
+  London: { temp: 15, conditions: "Overcast", humidity: 80 },
+  Tokyo: { temp: 28, conditions: "Sunny", humidity: 55 },
+  Paris: { temp: 18, conditions: "Light Rain", humidity: 75 },
 };
 
 function getWeather(city: string) {
   // Add slight randomization to feel dynamic
-  const base = mockWeather[city] || { temp: 20, conditions: "Clear", humidity: 60 };
+  const base = mockWeather[city] || {
+    temp: 20,
+    conditions: "Clear",
+    humidity: 60,
+  };
   return {
     ...base,
     temp: base.temp + Math.round((Math.random() - 0.5) * 4),
@@ -165,6 +179,7 @@ function getWeather(city: string) {
 ```
 
 **Guidelines:**
+
 - Use real names (cities, recipes, products) -- not "Example 1"
 - Add slight randomization so it feels dynamic
 - Structure like a real API would return

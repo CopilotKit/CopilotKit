@@ -18,11 +18,12 @@ import { MCPServer } from "mcp-use/server";
 const server = new MCPServer({
   name: "my-server",
   version: "1.0.0",
-  oauth: yourProvider(),  // see provider-specific guides
+  oauth: yourProvider(), // see provider-specific guides
 });
 ```
 
 This single property:
+
 - Protects all `/mcp/*` routes with bearer token authentication
 - Verifies JWTs using the provider's JWKS endpoint
 - Sets up OAuth discovery endpoints (`/.well-known/oauth-authorization-server`, `/.well-known/oauth-protected-resource`)
@@ -46,34 +47,34 @@ server.tool(
       userId: ctx.auth.user.userId,
       email: ctx.auth.user.email,
       name: ctx.auth.user.name,
-    })
+    }),
 );
 ```
 
 ### `ctx.auth` Shape
 
 ```typescript
-ctx.auth.user            // UserInfo object (see below)
-ctx.auth.accessToken     // Raw bearer token string
-ctx.auth.scopes          // string[] — parsed from JWT `scope` claim
-ctx.auth.permissions     // string[] — parsed from JWT `permissions` claim
-ctx.auth.payload         // Raw JWT payload (all claims)
+ctx.auth.user; // UserInfo object (see below)
+ctx.auth.accessToken; // Raw bearer token string
+ctx.auth.scopes; // string[] — parsed from JWT `scope` claim
+ctx.auth.permissions; // string[] — parsed from JWT `permissions` claim
+ctx.auth.payload; // Raw JWT payload (all claims)
 ```
 
 ### `ctx.auth.user` (UserInfo)
 
 All providers populate these base fields:
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `userId` | `string` | Unique user identifier (`sub` claim) |
-| `email` | `string?` | User's email |
-| `name` | `string?` | Display name |
-| `username` | `string?` | Username |
-| `nickname` | `string?` | Nickname |
-| `picture` | `string?` | Avatar URL |
-| `roles` | `string[]?` | User roles |
-| `permissions` | `string[]?` | User permissions |
+| Field         | Type        | Description                          |
+| ------------- | ----------- | ------------------------------------ |
+| `userId`      | `string`    | Unique user identifier (`sub` claim) |
+| `email`       | `string?`   | User's email                         |
+| `name`        | `string?`   | Display name                         |
+| `username`    | `string?`   | Username                             |
+| `nickname`    | `string?`   | Nickname                             |
+| `picture`     | `string?`   | Avatar URL                           |
+| `roles`       | `string[]?` | User roles                           |
+| `permissions` | `string[]?` | User permissions                     |
 
 Providers may add extra fields (e.g., WorkOS adds `organization_id`, Supabase adds `aal`). Access them via `ctx.auth.user.organization_id` or `ctx.auth.payload` for raw claims.
 
@@ -95,18 +96,18 @@ oauth: oauthCustomProvider({
     name: payload.display_name as string,
     roles: (payload.groups as string[]) || [],
   }),
-})
+});
 
 // Then access typed fields in tools:
-async (_args, ctx) => object({ email: ctx.auth.user.email })
+async (_args, ctx) => object({ email: ctx.auth.user.email });
 ```
 
 ```typescript
 // ❌ Avoid: casting raw payload in every tool handler
 async (_args, ctx) => {
-  const exp = ctx.auth.payload.exp as number;  // unknown → number cast needed
+  const exp = ctx.auth.payload.exp as number; // unknown → number cast needed
   return object({ expiresAt: new Date(exp * 1000).toISOString() });
-}
+};
 ```
 
 If you must read raw claims (e.g., for debugging or provider-specific fields not in `UserInfo`), cast explicitly:
@@ -124,8 +125,8 @@ const customField = ctx.auth.payload.my_field as string;
 All built-in providers support zero-config via environment variables. Call the factory with no arguments and it reads from `MCP_USE_OAUTH_*` env vars:
 
 ```typescript
-oauth: oauthWorkOSProvider()    // reads MCP_USE_OAUTH_WORKOS_*
-oauth: oauthSupabaseProvider()  // reads MCP_USE_OAUTH_SUPABASE_*
+oauth: oauthWorkOSProvider(); // reads MCP_USE_OAUTH_WORKOS_*
+oauth: oauthSupabaseProvider(); // reads MCP_USE_OAUTH_SUPABASE_*
 ```
 
 Or pass config explicitly to override env vars. See each provider's guide for available options.
@@ -134,11 +135,11 @@ Or pass config explicitly to override env vars. See each provider's guide for av
 
 ## Available Providers
 
-| Provider | Factory Function | Required Env Vars | Guide |
-|----------|-----------------|-------------------|-------|
-| **WorkOS** | `oauthWorkOSProvider()` | `MCP_USE_OAUTH_WORKOS_SUBDOMAIN` | [workos.md](workos.md) |
-| **Supabase** | `oauthSupabaseProvider()` | `MCP_USE_OAUTH_SUPABASE_PROJECT_ID` | [supabase.md](supabase.md) |
-| **Custom** | `oauthCustomProvider({...})` | None (all passed via config) | [custom.md](custom.md) |
+| Provider     | Factory Function             | Required Env Vars                   | Guide                      |
+| ------------ | ---------------------------- | ----------------------------------- | -------------------------- |
+| **WorkOS**   | `oauthWorkOSProvider()`      | `MCP_USE_OAUTH_WORKOS_SUBDOMAIN`    | [workos.md](workos.md)     |
+| **Supabase** | `oauthSupabaseProvider()`    | `MCP_USE_OAUTH_SUPABASE_PROJECT_ID` | [supabase.md](supabase.md) |
+| **Custom**   | `oauthCustomProvider({...})` | None (all passed via config)        | [custom.md](custom.md)     |
 
 ---
 
@@ -161,7 +162,7 @@ server.tool(
     }
 
     return object(await res.json());
-  }
+  },
 );
 ```
 

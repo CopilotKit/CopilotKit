@@ -38,44 +38,46 @@ server.tool(
       location: z.string().describe("City or neighborhood"),
     }),
     widget: {
-      name: "restaurant-list",         // Must match resources/restaurant-list.tsx
+      name: "restaurant-list", // Must match resources/restaurant-list.tsx
       invoking: "Searching restaurants...",
       invoked: "Restaurants found",
     },
     annotations: {
-      readOnlyHint: true,              // Only reads data, no side effects
+      readOnlyHint: true, // Only reads data, no side effects
     },
   },
   async ({ cuisine, location }) => {
     const restaurants = await searchRestaurants(cuisine, location);
     return widget({
       props: {
-        restaurants,                    // Full data for the widget
+        restaurants, // Full data for the widget
         cuisine,
         location,
       },
-      output: text(`Found ${restaurants.length} ${cuisine} restaurants near ${location}`),
+      output: text(
+        `Found ${restaurants.length} ${cuisine} restaurants near ${location}`,
+      ),
     });
-  }
+  },
 );
 ```
 
 ### `widget()` Response Helper
 
-| Field | Type | Description |
-|---|---|---|
-| `props` | `Record<string, any>` | Data sent to widget via `useWidget().props`. Hidden from LLM. |
-| `output` | `CallToolResult` | Response helper (`text()`, `object()`, etc.) the LLM sees. |
-| `message` | `string` (optional) | Override text message for the LLM. |
+| Field     | Type                  | Description                                                   |
+| --------- | --------------------- | ------------------------------------------------------------- |
+| `props`   | `Record<string, any>` | Data sent to widget via `useWidget().props`. Hidden from LLM. |
+| `output`  | `CallToolResult`      | Response helper (`text()`, `object()`, etc.) the LLM sees.    |
+| `message` | `string` (optional)   | Override text message for the LLM.                            |
 
 ### Tool `widget` Config
 
-| Field | Type | Default | Description |
-|---|---|---|---|
-| `name` | `string` | required | Widget name matching `resources/` file/folder |
-| `invoking` | `string` | "Loading {name}..." | Text shown while tool executes |
-| `invoked` | `string` | "{name} ready" | Text shown when complete |
-| `widgetAccessible` | `boolean` | `true` | Widget can call other tools |
+| Field              | Type      | Default             | Description                                   |
+| ------------------ | --------- | ------------------- | --------------------------------------------- |
+| `name`             | `string`  | required            | Widget name matching `resources/` file/folder |
+| `invoking`         | `string`  | "Loading {name}..." | Text shown while tool executes                |
+| `invoked`          | `string`  | "{name} ready"      | Text shown when complete                      |
+| `widgetAccessible` | `boolean` | `true`              | Widget can call other tools                   |
 
 ## Widget Component
 
@@ -87,17 +89,19 @@ import { z } from "zod";
 export const widgetMetadata: WidgetMetadata = {
   description: "Display restaurant search results",
   props: z.object({
-    restaurants: z.array(z.object({
-      id: z.string(),
-      name: z.string(),
-      cuisine: z.string(),
-      rating: z.number(),
-      priceRange: z.string(),
-    })),
+    restaurants: z.array(
+      z.object({
+        id: z.string(),
+        name: z.string(),
+        cuisine: z.string(),
+        rating: z.number(),
+        priceRange: z.string(),
+      }),
+    ),
     cuisine: z.string(),
     location: z.string(),
   }),
-  exposeAsTool: false,  // Custom tool in index.ts handles registration
+  exposeAsTool: false, // Custom tool in index.ts handles registration
 };
 
 export default function RestaurantList() {
@@ -106,7 +110,9 @@ export default function RestaurantList() {
   if (isPending) {
     return (
       <McpUseProvider autoSize>
-        <div style={{ padding: 16, textAlign: "center" }}>Searching restaurants...</div>
+        <div style={{ padding: 16, textAlign: "center" }}>
+          Searching restaurants...
+        </div>
       </McpUseProvider>
     );
   }
@@ -127,12 +133,19 @@ export default function RestaurantList() {
   return (
     <McpUseProvider autoSize>
       <div style={{ padding: 16 }}>
-        <h2>{props.cuisine} restaurants near {props.location}</h2>
+        <h2>
+          {props.cuisine} restaurants near {props.location}
+        </h2>
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           {props.restaurants.map((r) => (
-            <div key={r.id} style={{
-              padding: 12, borderRadius: 8, border: "1px solid #e5e7eb"
-            }}>
+            <div
+              key={r.id}
+              style={{
+                padding: 12,
+                borderRadius: 8,
+                border: "1px solid #e5e7eb",
+              }}
+            >
               <h3 style={{ margin: 0 }}>{r.name}</h3>
               <p style={{ margin: "4px 0", color: "#666" }}>
                 {"⭐".repeat(Math.round(r.rating))} · {r.priceRange}
@@ -157,21 +170,25 @@ Every widget file MUST export:
 ```typescript
 export const widgetMetadata: WidgetMetadata = {
   description: "What this widget shows",
-  props: z.object({ /* ... */ }),
+  props: z.object({
+    /* ... */
+  }),
   // exposeAsTool defaults to false — custom tool in index.ts handles registration
 };
 
-export default function MyWidget() { /* ... */ }
+export default function MyWidget() {
+  /* ... */
+}
 ```
 
 ## `useWidget` Core Fields
 
 ```typescript
 const {
-  props,        // Widget input data
-  isPending,    // true while tool still running (props may be partial!)
-  output,       // Additional output data from the tool
-  callTool,     // Call another tool: await callTool("name", { args })
+  props, // Widget input data
+  isPending, // true while tool still running (props may be partial!)
+  output, // Additional output data from the tool
+  callTool, // Call another tool: await callTool("name", { args })
 } = useWidget();
 ```
 
@@ -200,7 +217,7 @@ server.tool(
   async ({ restaurantId, partySize, date }) => {
     const reservation = await createReservation(restaurantId, partySize, date);
     return object({ confirmationId: reservation.id, time: reservation.time });
-  }
+  },
 );
 ```
 

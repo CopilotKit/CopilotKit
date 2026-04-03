@@ -71,6 +71,7 @@ For full scaffolding details and CLI flags, see **[quickstart.md](references/fou
 **Choose your path based on what you're building:**
 
 ### 🚀 Foundations
+
 **When:** ALWAYS read these first when starting MCP work in a new conversation. Reference later for architecture/concept clarification.
 
 1. **[concepts.md](references/foundations/concepts.md)** - MCP primitives (Tool, Resource, Prompt, Widget) and when to use each
@@ -83,6 +84,7 @@ Load these before diving into tools/resources/widgets sections.
 ---
 
 ### 🔐 Adding Authentication?
+
 **When:** Protecting your server with OAuth (WorkOS, Supabase, or custom)
 
 - **[overview.md](references/authentication/overview.md)**
@@ -104,6 +106,7 @@ Load these before diving into tools/resources/widgets sections.
 ---
 
 ### 🔧 Building Server Backend (No UI)?
+
 **When:** Implementing MCP features (actions, data, templates). Read the specific file for the primitive you're building.
 
 - **[tools.md](references/server/tools.md)**
@@ -125,6 +128,7 @@ Load these before diving into tools/resources/widgets sections.
 ---
 
 ### 🎨 Building Visual Widgets (Interactive UI)?
+
 **When:** Creating React-based visual interfaces for browsing, comparing, or selecting data
 
 - **[basics.md](references/widgets/basics.md)**
@@ -150,6 +154,7 @@ Load these before diving into tools/resources/widgets sections.
 ---
 
 ### 📚 Need Complete Examples?
+
 **When:** You want to see full implementations of common use cases
 
 - **[common-patterns.md](references/patterns/common-patterns.md)**
@@ -202,6 +207,7 @@ What do you need?
 Avoid these anti-patterns found in production MCP servers:
 
 ### Tool Definition
+
 - ❌ Returning raw objects instead of using response helpers
   - ✅ Use `text()`, `object()`, `widget()`, `error()` helpers
 - ❌ Skipping Zod schema `.describe()` on every field
@@ -212,6 +218,7 @@ Avoid these anti-patterns found in production MCP servers:
   - ✅ Use `error("message")` for graceful error responses
 
 ### Widget Development
+
 - ❌ Accessing `props` without checking `isPending`
   - ✅ Always check `if (isPending) return <Loading/>`
 - ❌ Widget handles server state (filters, selections)
@@ -222,6 +229,7 @@ Avoid these anti-patterns found in production MCP servers:
   - ✅ Use `useWidgetTheme()` for light/dark mode support
 
 ### Security & Production
+
 - ❌ Hardcoded API keys or secrets in code
   - ✅ Use `process.env.API_KEY`, document in `.env.example`
 - ❌ No error handling in tool handlers
@@ -238,21 +246,28 @@ Avoid these anti-patterns found in production MCP servers:
 **Opinionated architectural guidelines:**
 
 ### 1. One Tool = One Capability
+
 Split broad actions into focused tools:
+
 - ❌ `manage-users` (too vague)
 - ✅ `create-user`, `delete-user`, `list-users`
 
 ### 2. Return Complete Data Upfront
+
 Tool calls are expensive. Avoid lazy-loading:
+
 - ❌ `list-products` + `get-product-details` (2 calls)
 - ✅ `list-products` returns full data including details
 
 ### 3. Widgets Own Their State
+
 UI state lives in the widget, not in separate tools:
+
 - ❌ `select-item` tool, `set-filter` tool
 - ✅ Widget manages with `useState` or `setState`
 
 ### 4. `exposeAsTool` Defaults to `false`
+
 Widgets are registered as resources only by default. Use a custom tool (recommended) or set `exposeAsTool: true` to expose a widget to the model:
 
 ```typescript
@@ -261,14 +276,14 @@ Widgets are registered as resources only by default. Use a custom tool (recommen
 // Step 1: Define schema separately
 const propsSchema = z.object({
   title: z.string(),
-  items: z.array(z.string())
+  items: z.array(z.string()),
 });
 
 // Step 2: Reference schema variable in metadata
 export const widgetMetadata: WidgetMetadata = {
   description: "...",
-  props: propsSchema,  // ← NOT inline z.object()
-  exposeAsTool: false
+  props: propsSchema, // ← NOT inline z.object()
+  exposeAsTool: false,
 };
 
 // Step 3: Infer Props type from schema variable
@@ -276,7 +291,7 @@ type Props = z.infer<typeof propsSchema>;
 
 // Step 4: Use typed Props with useWidget
 export default function MyWidget() {
-  const { props, isPending } = useWidget<Props>();  // ← Add <Props>
+  const { props, isPending } = useWidget<Props>(); // ← Add <Props>
   // ...
 }
 ```
@@ -284,12 +299,15 @@ export default function MyWidget() {
 ⚠️ **Common mistake:** Only doing steps 1-2 but skipping 3-4 (loses type safety)
 
 ### 5. Validate at Boundaries Only
+
 - Trust internal code and framework guarantees
 - Validate user input, external API responses
 - Don't add error handling for scenarios that can't happen
 
 ### 6. Prefer Widgets for Browsing/Comparing
+
 When in doubt, add a widget. Visual UI improves:
+
 - Browsing multiple items
 - Comparing data side-by-side
 - Interactive selection workflows
@@ -299,6 +317,7 @@ When in doubt, add a widget. Visual UI improves:
 ## Quick Reference
 
 ### Minimal Server
+
 ```typescript
 import { MCPServer, text } from "mcp-use/server";
 import { z } from "zod";
@@ -306,14 +325,14 @@ import { z } from "zod";
 const server = new MCPServer({
   name: "my-server",
   title: "My Server",
-  version: "1.0.0"
+  version: "1.0.0",
 });
 
 server.tool(
   {
     name: "greet",
     description: "Greet a user",
-    schema: z.object({ name: z.string().describe("User's name") })
+    schema: z.object({ name: z.string().describe("User's name") }),
   },
   async ({ name }) => text("Hello " + name + "!"),
 );
@@ -325,13 +344,12 @@ server.listen();
 
 ## Response Helpers
 
-| Helper | Use When | Example |
-|--------|----------|---------|
-| `text()` | Simple string response | `text("Success!")` |
-| `object()` | Structured data | `object({ status: "ok" })` |
-| `markdown()` | Formatted text | `markdown("# Title\nContent")` |
-| `widget()` | Visual UI | `widget({ props: {...}, output: text(...) })` |
-| `mix()` | Multiple contents | `mix(text("Hi"), image(url))` |
-| `error()` | Error responses | `error("Failed to fetch data")` |
-| `resource()` | Embed resource refs | `resource("docs://guide", "text/markdown")` |
-
+| Helper       | Use When               | Example                                       |
+| ------------ | ---------------------- | --------------------------------------------- |
+| `text()`     | Simple string response | `text("Success!")`                            |
+| `object()`   | Structured data        | `object({ status: "ok" })`                    |
+| `markdown()` | Formatted text         | `markdown("# Title\nContent")`                |
+| `widget()`   | Visual UI              | `widget({ props: {...}, output: text(...) })` |
+| `mix()`      | Multiple contents      | `mix(text("Hi"), image(url))`                 |
+| `error()`    | Error responses        | `error("Failed to fetch data")`               |
+| `resource()` | Embed resource refs    | `resource("docs://guide", "text/markdown")`   |

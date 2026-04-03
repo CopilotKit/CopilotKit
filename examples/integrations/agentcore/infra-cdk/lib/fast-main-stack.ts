@@ -17,7 +17,8 @@ export class FastMainStack extends cdk.Stack {
   public readonly cognitoStack: CognitoStack;
 
   constructor(scope: Construct, id: string, props: FastAmplifyStackProps) {
-    const description = "CopilotKit + AWS AgentCore Integration Example";
+    const description =
+      "CopilotKit + AWS AgentCore Integration Example (uksb-v6dos0t5g8)";
     super(scope, id, { ...props, description });
 
     // Step 1: Create the Amplify stack to get the predictable domain
