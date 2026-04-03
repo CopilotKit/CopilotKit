@@ -539,10 +539,10 @@ describe("Auto-detect transport edge cases (AgentRegistry)", () => {
           (!init?.method || init.method === "GET")
         ) {
           return Promise.resolve(
-            new Response(
-              JSON.stringify({ error: "Internal Server Error" }),
-              { status: 500, headers: { "content-type": "application/json" } },
-            ),
+            new Response(JSON.stringify({ error: "Internal Server Error" }), {
+              status: 500,
+              headers: { "content-type": "application/json" },
+            }),
           );
         }
         // Single-endpoint attempt: POST with { method: "info" }
