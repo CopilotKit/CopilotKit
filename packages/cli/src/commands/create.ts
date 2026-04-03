@@ -427,7 +427,10 @@ export default class Create extends BaseCommand {
     }
 
     content = content.replace(patternRegex, `$1${pattern}$2`);
-    content = content.replace(stackRegex, `$1my-copilotkit-agentcore${suffix}$2`);
+    content = content.replace(
+      stackRegex,
+      `$1my-copilotkit-agentcore${suffix}$2`,
+    );
     await fs.writeFile(configPath, content, "utf-8");
   }
 
