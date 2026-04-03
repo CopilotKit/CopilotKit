@@ -5,7 +5,10 @@ export default function Index() {
   return (
     <CopilotKitProvider runtimeUrl="/api/copilotkit" showDevConsole="auto">
       <div className="h-screen w-screen">
-        <CopilotChat className="h-full w-full" />
+        <CopilotChat
+          className="h-full w-full"
+          attachments={{ enabled: true }}
+        />
       </div>
     </CopilotKitProvider>
   );
