@@ -1,5 +1,23 @@
 import * as agui from "@ag-ui/core";
 
+// Re-export AG-UI multimodal input types.
+// Note: AG-UI names the text variant TextInputContent; we export it as TextInputPart for consistency.
+export type {
+  InputContent,
+  InputContentSource,
+  InputContentDataSource,
+  InputContentUrlSource,
+  TextInputContent as TextInputPart,
+  ImageInputPart,
+  AudioInputPart,
+  VideoInputPart,
+  DocumentInputPart,
+} from "@ag-ui/core";
+
+/**
+ * @deprecated Use InputContentSource from @ag-ui/core instead.
+ * Kept for backward compatibility with AIMessage.image.
+ */
 export interface ImageData {
   format: string;
   bytes: string;
@@ -27,9 +45,7 @@ export type AIMessage = agui.AssistantMessage & {
   runId?: string;
 };
 
-export type UserMessage = agui.UserMessage & {
-  image?: ImageData;
-};
+export type UserMessage = agui.UserMessage;
 
 export type Message =
   | AIMessage
