@@ -8,7 +8,10 @@ import {
   RuntimeLicenseStatus,
   IntelligenceRuntimeInfo,
 } from "../types";
-import { DevtoolsListener, type ThreadCloneResolver } from "./devtools-listener";
+import {
+  DevtoolsListener,
+  type ThreadCloneResolver,
+} from "./devtools-listener";
 import { AgentRegistry, CopilotKitCoreAddAgentParams } from "./agent-registry";
 import { ContextStore } from "./context-store";
 import { SuggestionEngine } from "./suggestion-engine";

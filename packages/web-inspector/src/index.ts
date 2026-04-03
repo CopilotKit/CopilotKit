@@ -4491,26 +4491,31 @@ ${this.announcementMarkdown}</pre
         ${this.renderEmitterForm()}
 
         <!-- JSON error -->
-        ${this.emitterJsonError
-          ? html`<div
+        ${
+          this.emitterJsonError
+            ? html`<div
               class="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700"
             >
               ${this.emitterJsonError}
             </div>`
-          : nothing}
+            : nothing
+        }
 
         <!-- Status message -->
-        ${this.emitterStatusMessage
-          ? html`<div
+        ${
+          this.emitterStatusMessage
+            ? html`<div
               class="rounded-md border border-green-200 bg-green-50 px-3 py-2 text-xs text-green-700"
             >
               ${this.emitterStatusMessage}
             </div>`
-          : nothing}
+            : nothing
+        }
 
         <!-- Snippet name input -->
-        ${this.emitterShowSnippetInput
-          ? html`
+        ${
+          this.emitterShowSnippetInput
+            ? html`
               <div class="flex gap-2 items-center">
                 <input
                   type="text"
@@ -4543,11 +4548,13 @@ ${this.announcementMarkdown}</pre
                 </button>
               </div>
             `
-          : nothing}
+            : nothing
+        }
 
         <!-- Action buttons -->
-        ${this.emitterEditingSnippetId
-          ? html`
+        ${
+          this.emitterEditingSnippetId
+            ? html`
               <div class="flex gap-2 items-center">
                 <input
                   type="text"
@@ -4567,8 +4574,10 @@ ${this.announcementMarkdown}</pre
                 />
                 <button
                   class="rounded-md bg-blue-600 px-4 py-2 text-xs font-medium text-white transition hover:bg-blue-700"
-                  ?disabled=${!this.isEmitterFormValid() ||
-                  !this.emitterSnippetName.trim()}
+                  ?disabled=${
+                    !this.isEmitterFormValid() ||
+                    !this.emitterSnippetName.trim()
+                  }
                   @click=${() => this.handleUpdateSnippet()}
                 >
                   Update Snippet
@@ -4581,7 +4590,7 @@ ${this.announcementMarkdown}</pre
                 </button>
               </div>
             `
-          : html`
+            : html`
               <div class="flex gap-2">
                 <button
                   class="rounded-md bg-gray-900 px-4 py-2 text-xs font-medium text-white transition hover:bg-gray-800"
@@ -4598,11 +4607,13 @@ ${this.announcementMarkdown}</pre
                   Save as Snippet
                 </button>
               </div>
-            `}
+            `
+        }
 
         <!-- Saved snippets -->
-        ${this.emitterSnippets.length > 0
-          ? html`
+        ${
+          this.emitterSnippets.length > 0
+            ? html`
               <div class="flex flex-col gap-2">
                 <div class="text-xs font-medium text-gray-600">
                   Saved Snippets
@@ -4645,7 +4656,8 @@ ${this.announcementMarkdown}</pre
                 )}
               </div>
             `
-          : nothing}
+            : nothing
+        }
       </div>
     `;
   }
