@@ -2,7 +2,7 @@
 
 import React, { useId, useMemo, useEffect, useRef } from "react";
 import type { Types } from "@a2ui/lit/0.8";
-import { v0_8 } from "@a2ui/lit";
+import type { v0_8 } from "@a2ui/lit";
 import {
   A2UIProvider,
   useA2UIActions,
