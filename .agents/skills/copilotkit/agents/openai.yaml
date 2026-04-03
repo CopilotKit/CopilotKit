@@ -1,0 +1,3 @@
+interface:
+  display_name: "CopilotKit Skills"
+  description: "AI agent skills for CopilotKit — setup, develop, integrate, debug, upgrade, and contribute"

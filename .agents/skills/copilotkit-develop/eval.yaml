@@ -1,0 +1,198 @@
+version: "1"
+
+defaults:
+  agent: claude
+  provider: docker
+  trials: 3
+  timeout: 300
+  threshold: 0.8
+  docker:
+    base: node:20-slim
+    setup: |
+      apt-get update && apt-get install -y git jq
+
+tasks:
+  - name: add-chat-interface
+    description: "Add a chat interface to an existing CopilotKit project"
+    instruction: "Add a CopilotChat component to this existing CopilotKit project. The chat should appear as a sidebar."
+    graders:
+      - type: deterministic
+        check: file_contains
+        path: "src/app/page.tsx"
+        pattern: "CopilotSidebar"
+      - type: deterministic
+        check: file_contains
+        path: "src/app/page.tsx"
+        pattern: "CopilotKitProvider"
+      - type: llm_rubric
+        prompt: "Is CopilotSidebar properly imported from @copilotkit/react and rendered within a CopilotKitProvider that has a runtimeUrl configured?"
+
+  - name: add-popup-chat
+    description: "Add a floating popup chat to a CopilotKit project"
+    instruction: "Add a CopilotPopup chat interface to this project. It should be open by default and have a custom header title of 'AI Assistant'."
+    graders:
+      - type: deterministic
+        check: file_contains
+        path: "src/"
+        pattern: "CopilotPopup"
+      - type: llm_rubric
+        prompt: "Does the code use CopilotPopup from @copilotkit/react with defaultOpen={true} and a custom labels prop setting modalHeaderTitle to 'AI Assistant'?"
+
+  - name: register-frontend-tool
+    description: "Register a frontend tool for the AI to use"
+    instruction: "Add a frontend tool called 'setTheme' that lets the AI change the app theme between 'light' and 'dark'. The tool should accept a 'theme' parameter validated with Zod."
+    graders:
+      - type: deterministic
+        check: file_contains
+        path: "src/"
+        pattern: "useFrontendTool"
+      - type: deterministic
+        check: file_contains
+        path: "src/"
+        pattern: "setTheme"
+      - type: llm_rubric
+        prompt: "Does the code correctly use useFrontendTool with name 'setTheme', a Zod schema defining a 'theme' parameter constrained to 'light' or 'dark', a description, and a handler function?"
+
+  - name: share-agent-context
+    description: "Share application state with the agent using useAgentContext"
+    instruction: "Use useAgentContext to share the current user's profile and shopping cart data with the AI agent so it can reference them in conversation."
+    graders:
+      - type: deterministic
+        check: file_contains
+        path: "src/"
+        pattern: "useAgentContext"
+      - type: llm_rubric
+        prompt: "Does the code call useAgentContext with a description and a JSON-serializable value containing user profile and cart data? Is the context properly structured so the agent understands what it represents?"
+
+  - name: handle-agent-interrupt
+    description: "Handle an agent interrupt with a confirmation UI"
+    instruction: "Add interrupt handling so when the agent triggers an interrupt, the user sees a confirmation dialog with 'Approve' and 'Reject' buttons that resolve the interrupt."
+    graders:
+      - type: deterministic
+        check: file_contains
+        path: "src/"
+        pattern: "useInterrupt"
+      - type: llm_rubric
+        prompt: "Does the code use useInterrupt with a render function that displays the interrupt event, provides both Approve and Reject buttons, and calls resolve() with the user's decision?"
+
+  - name: render-tool-calls
+    description: "Add custom rendering for tool calls in the chat"
+    instruction: "Use useRenderTool to show a custom UI when the 'searchDocs' tool executes. Show a spinner during execution and formatted results on completion."
+    graders:
+      - type: deterministic
+        check: file_contains
+        path: "src/"
+        pattern: "useRenderTool"
+      - type: deterministic
+        check: file_contains
+        path: "src/"
+        pattern: "searchDocs"
+      - type: llm_rubric
+        prompt: "Does the code register a renderer for 'searchDocs' using useRenderTool with a Zod parameters schema, and handle all three statuses (inProgress, executing, complete) with appropriate UI for each?"
+
+  - name: setup-runtime-nextjs
+    description: "Set up a CopilotKit runtime endpoint in Next.js"
+    instruction: "Create a Next.js API route at app/api/copilotkit/[[...path]]/route.ts that sets up a CopilotRuntime with a LangGraphAgent and exposes it via createCopilotEndpoint."
+    graders:
+      - type: deterministic
+        check: file_exists
+        path: "app/api/copilotkit/[[...path]]/route.ts"
+      - type: deterministic
+        check: file_contains
+        path: "app/api/copilotkit/[[...path]]/route.ts"
+        pattern: "CopilotRuntime"
+      - type: deterministic
+        check: file_contains
+        path: "app/api/copilotkit/[[...path]]/route.ts"
+        pattern: "createCopilotEndpoint"
+      - type: llm_rubric
+        prompt: "Does the route file create a CopilotRuntime with agents, call createCopilotEndpoint with the correct basePath, and export GET and POST handlers from app.fetch?"
+
+  - name: setup-runtime-express
+    description: "Set up a CopilotKit runtime with Express"
+    instruction: "Create an Express server that sets up a CopilotRuntime and mounts it using createCopilotEndpointExpress at /api/copilotkit."
+    graders:
+      - type: deterministic
+        check: file_contains
+        path: "src/"
+        pattern: "createCopilotEndpointExpress"
+      - type: deterministic
+        check: file_contains
+        path: "src/"
+        pattern: "CopilotRuntime"
+      - type: llm_rubric
+        prompt: "Does the code create an Express app, instantiate CopilotRuntime with agents, and mount createCopilotEndpointExpress with basePath '/api/copilotkit' using app.use()?"
+
+  - name: human-in-the-loop
+    description: "Add a human-in-the-loop tool for agent approval workflows"
+    instruction: "Register a human-in-the-loop tool called 'approveOrder' that pauses agent execution and shows the order details with approve/reject options until the user responds."
+    graders:
+      - type: deterministic
+        check: file_contains
+        path: "src/"
+        pattern: "useHumanInTheLoop"
+      - type: deterministic
+        check: file_contains
+        path: "src/"
+        pattern: "approveOrder"
+      - type: llm_rubric
+        prompt: "Does the code use useHumanInTheLoop with name 'approveOrder', a parameters schema, and a render function that handles the 'executing' status with a respond callback for approve/reject?"
+
+  - name: customize-chat-labels
+    description: "Customize chat UI text and labels"
+    instruction: "Customize the CopilotChat labels to change the input placeholder to 'Ask me about your data...', the welcome message to 'Welcome! I can help analyze your data.', and the header title to 'Data Assistant'."
+    graders:
+      - type: deterministic
+        check: file_contains
+        path: "src/"
+        pattern: "labels"
+      - type: llm_rubric
+        prompt: "Does the code pass a labels prop to CopilotChat with chatInputPlaceholder, welcomeMessageText, and modalHeaderTitle set to the specified custom values?"
+
+  - name: configure-suggestions
+    description: "Set up AI-generated chat suggestions"
+    instruction: "Configure dynamic LLM-generated suggestions for the chat that suggest follow-up questions about the user's data. Show up to 3 suggestions, available after the first message."
+    graders:
+      - type: deterministic
+        check: file_contains
+        path: "src/"
+        pattern: "useConfigureSuggestions"
+      - type: llm_rubric
+        prompt: "Does the code call useConfigureSuggestions with instructions, maxSuggestions set to 3, and available set to 'after-first-message'?"
+
+  - name: register-component-tool
+    description: "Register a React component as a visual tool in chat"
+    instruction: "Use useComponent to register a 'dataChart' component that the agent can invoke to display a bar chart in the chat. It should accept a title and data array as parameters."
+    graders:
+      - type: deterministic
+        check: file_contains
+        path: "src/"
+        pattern: "useComponent"
+      - type: deterministic
+        check: file_contains
+        path: "src/"
+        pattern: "dataChart"
+      - type: llm_rubric
+        prompt: "Does the code use useComponent with name 'dataChart', a parameters schema with title and data fields, and a render function that displays a chart component?"
+
+  - name: add-middleware
+    description: "Add request middleware to the CopilotKit runtime"
+    instruction: "Add beforeRequestMiddleware to the CopilotRuntime that logs incoming requests and validates an API key from the Authorization header."
+    graders:
+      - type: deterministic
+        check: file_contains
+        path: "src/"
+        pattern: "beforeRequestMiddleware"
+      - type: llm_rubric
+        prompt: "Does the code configure beforeRequestMiddleware on CopilotRuntime that accesses the request, logs the path, and checks the Authorization header for a valid API key?"
+
+  - name: error-handling
+    description: "Set up error handling at provider and chat levels"
+    instruction: "Configure error handling for CopilotKit at both the provider level (global error logging) and the chat level (showing a toast notification to the user)."
+    graders:
+      - type: deterministic
+        check: file_contains
+        path: "src/"
+        pattern: "onError"
+      - type: llm_rubric
+        prompt: "Does the code set onError on both CopilotKitProvider (for global error logging) and CopilotChat (for user-facing notifications), with both handlers receiving error, code, and context?"

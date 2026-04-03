@@ -1,0 +1,50 @@
+{
+  "version": 1,
+  "skills": {
+    "copilotkit": {
+      "source": "copilotkit/skills",
+      "sourceType": "github",
+      "computedHash": "b47a5b3afb9a4f1df1d4fc712f5d722e23cfa1561370eff3bb77e926dfe31acd"
+    },
+    "copilotkit-agui": {
+      "source": "copilotkit/skills",
+      "sourceType": "github",
+      "computedHash": "278345dacda86cd0010bb513610b165d697ceaedeffdde58c21263cf06b681c7"
+    },
+    "copilotkit-contribute": {
+      "source": "copilotkit/skills",
+      "sourceType": "github",
+      "computedHash": "c6466739e7560ecb478c493bf6d5991d707ea43daa5e2b860eebb93759af5ff2"
+    },
+    "copilotkit-debug": {
+      "source": "copilotkit/skills",
+      "sourceType": "github",
+      "computedHash": "78b0d6fa3e39d585d1b1f6729c4d038d541c163857ff27b42bf07d2f1e265827"
+    },
+    "copilotkit-develop": {
+      "source": "copilotkit/skills",
+      "sourceType": "github",
+      "computedHash": "e1a5146895a0519d0da6714eaaec16b3313b349470337e9785d2a35c51144919"
+    },
+    "copilotkit-integrations": {
+      "source": "copilotkit/skills",
+      "sourceType": "github",
+      "computedHash": "55de0dfba73588f5d498eb8a9b6341cdc3a801077fc5450977c68ac43ede47ba"
+    },
+    "copilotkit-self-update": {
+      "source": "copilotkit/skills",
+      "sourceType": "github",
+      "computedHash": "44908fdde4c89b084a7a291a936f9689986769a559c8d5516912fc6648022015"
+    },
+    "copilotkit-setup": {
+      "source": "copilotkit/skills",
+      "sourceType": "github",
+      "computedHash": "1998de293318167e2aac7b196aa18e36d11ca734df9ae46f9bcc6b4f1030b70e"
+    },
+    "copilotkit-upgrade": {
+      "source": "copilotkit/skills",
+      "sourceType": "github",
+      "computedHash": "b683ca36e81df478cbc46ce0cfc310f1ff68a52bba860fa6d477605e1e45905e"
+    }
+  }
+}
