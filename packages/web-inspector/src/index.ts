@@ -40,8 +40,6 @@ import {
   isValidDockMode,
 } from "./lib/persistence";
 
-export type { Anchor } from "./lib/types";
-
 export const WEB_INSPECTOR_TAG = "cpk-web-inspector" as const;
 
 type LucideIconName = keyof typeof icons;
@@ -161,15 +159,7 @@ export class WebInspectorElement extends LitElement {
   static properties = {
     core: { attribute: false },
     autoAttachCore: { type: Boolean, attribute: "auto-attach-core" },
-    defaultAnchor: { attribute: false },
   } as const;
-
-  /**
-   * Default anchor corner for the inspector button and window.
-   * Only used on first load (before the user drags to a custom position).
-   * Defaults to top-right if not specified.
-   */
-  defaultAnchor: Anchor | null = null;
 
   private _core: CopilotKitCore | null = null;
   private coreSubscriber: CopilotKitCoreSubscriber | null = null;
@@ -213,7 +203,6 @@ export class WebInspectorElement extends LitElement {
   private toolSignature = "";
   private eventFilterText = "";
   private eventTypeFilter: InspectorAgentEventType | "all" = "all";
-  private compactMode = false;
 
   private announcementMarkdown: string | null = null;
   private announcementHtml: string | null = null;
@@ -705,90 +694,6 @@ export class WebInspectorElement extends LitElement {
     });
   }
 
-  /**
-   * Compact inspector events by consolidating consecutive streaming deltas.
-   * Multiple TEXT_MESSAGE_CONTENT events for the same messageId become one.
-   * Multiple TOOL_CALL_ARGS events for the same toolCallId become one.
-   * Events are in reverse chronological order (newest first), so we process accordingly.
-   */
-  private compactInspectorEvents(events: InspectorEvent[]): InspectorEvent[] {
-    // Work in chronological order (oldest first) for grouping
-    const chronological = [...events].reverse();
-    const result: InspectorEvent[] = [];
-
-    let i = 0;
-    while (i < chronological.length) {
-      const event = chronological[i];
-
-      if (event.type === "TEXT_MESSAGE_CONTENT") {
-        // Collect consecutive TEXT_MESSAGE_CONTENT events with same agentId
-        const group = [event];
-        while (
-          i + 1 < chronological.length &&
-          chronological[i + 1].type === "TEXT_MESSAGE_CONTENT" &&
-          chronological[i + 1].agentId === event.agentId
-        ) {
-          i++;
-          group.push(chronological[i]);
-        }
-        if (group.length > 1) {
-          // Merge: use first event as base, concatenate delta from payloads
-          const merged = { ...group[0] };
-          const deltas = group.map((e) => {
-            const p = e.payload as Record<string, unknown> | null;
-            const evt = (p?.event ?? p) as Record<string, unknown> | null;
-            return typeof evt?.delta === "string" ? evt.delta : "";
-          });
-          const mergedPayload = {
-            ...(merged.payload as Record<string, unknown>),
-            delta: deltas.join(""),
-            _compactedFrom: group.length,
-          };
-          merged.payload = mergedPayload as unknown as SanitizedValue;
-          merged.id = `${merged.id}:compacted`;
-          result.push(merged);
-        } else {
-          result.push(event);
-        }
-      } else if (event.type === "TOOL_CALL_ARGS") {
-        // Collect consecutive TOOL_CALL_ARGS events with same agentId
-        const group = [event];
-        while (
-          i + 1 < chronological.length &&
-          chronological[i + 1].type === "TOOL_CALL_ARGS" &&
-          chronological[i + 1].agentId === event.agentId
-        ) {
-          i++;
-          group.push(chronological[i]);
-        }
-        if (group.length > 1) {
-          const merged = { ...group[0] };
-          const deltas = group.map((e) => {
-            const p = e.payload as Record<string, unknown> | null;
-            const evt = (p?.event ?? p) as Record<string, unknown> | null;
-            return typeof evt?.delta === "string" ? evt.delta : "";
-          });
-          const mergedPayload = {
-            ...(merged.payload as Record<string, unknown>),
-            delta: deltas.join(""),
-            _compactedFrom: group.length,
-          };
-          merged.payload = mergedPayload as unknown as SanitizedValue;
-          merged.id = `${merged.id}:compacted`;
-          result.push(merged);
-        } else {
-          result.push(event);
-        }
-      } else {
-        result.push(event);
-      }
-      i++;
-    }
-
-    // Return in reverse chronological order (newest first)
-    return result.reverse();
-  }
-
   private getLatestStateForAgent(agentId: string): SanitizedValue | null {
     if (this.agentStates.has(agentId)) {
       const value = this.agentStates.get(agentId);
@@ -897,13 +802,15 @@ export class WebInspectorElement extends LitElement {
                 <span>${functionName}</span>
                 <span class="text-[10px] text-gray-500">ID: ${callId}</span>
               </div>
-              ${argsString
-                ? html`<pre
+              ${
+                argsString
+                  ? html`<pre
                     class="mt-2 overflow-auto rounded bg-white p-2 text-[11px] leading-relaxed text-gray-800"
                   >
 ${argsString}</pre
                   >`
-                : nothing}
+                  : nothing
+              }
             </div>
           `;
         })}
@@ -1317,15 +1224,10 @@ ${argsString}</pre
     this.measureContext("button");
     this.measureContext("window");
 
-    const anchor = this.defaultAnchor ?? {
-      horizontal: "right",
-      vertical: "top",
-    };
-
-    this.contextState.button.anchor = { ...anchor };
+    this.contextState.button.anchor = { horizontal: "right", vertical: "top" };
     this.contextState.button.anchorOffset = { x: EDGE_MARGIN, y: EDGE_MARGIN };
 
-    this.contextState.window.anchor = { ...anchor };
+    this.contextState.window.anchor = { horizontal: "right", vertical: "top" };
     this.contextState.window.anchorOffset = { x: EDGE_MARGIN, y: EDGE_MARGIN };
 
     this.hydrateStateFromStorage();
@@ -1394,9 +1296,9 @@ ${argsString}</pre
         type="button"
         aria-label="Web Inspector"
         data-drag-context="button"
-        data-dragging=${this.isDragging && this.pointerContext === "button"
-          ? "true"
-          : "false"}
+        data-dragging=${
+          this.isDragging && this.pointerContext === "button" ? "true" : "false"
+        }
         @pointerdown=${this.handlePointerDown}
         @pointermove=${this.handlePointerMove}
         @pointerup=${this.handlePointerUp}
@@ -1451,8 +1353,9 @@ ${argsString}</pre
         data-docked=${isDocked}
         data-transitioning=${isTransitioning}
       >
-        ${isDocked
-          ? html`
+        ${
+          isDocked
+            ? html`
               <div
                 class="dock-resize-handle pointer-events-auto"
                 role="presentation"
@@ -1463,16 +1366,19 @@ ${argsString}</pre
                 @pointercancel=${this.handleResizePointerCancel}
               ></div>
             `
-          : nothing}
+            : nothing
+        }
         <div
           class="flex flex-1 flex-col overflow-hidden bg-white text-gray-800"
         >
           <div
-            class="drag-handle relative z-30 flex flex-col border-b border-gray-200 bg-white/95 backdrop-blur-sm ${isDocked
-              ? ""
-              : this.isDragging && this.pointerContext === "window"
-                ? "cursor-grabbing"
-                : "cursor-grab"}"
+            class="drag-handle relative z-30 flex flex-col border-b border-gray-200 bg-white/95 backdrop-blur-sm ${
+              isDocked
+                ? ""
+                : this.isDragging && this.pointerContext === "window"
+                  ? "cursor-grabbing"
+                  : "cursor-grab"
+            }"
             data-drag-context="window"
             @pointerdown=${isDocked ? undefined : this.handlePointerDown}
             @pointermove=${isDocked ? undefined : this.handlePointerMove}
@@ -1632,19 +1538,11 @@ ${argsString}</pre
 
     const persistedButton = persisted.button;
     if (persistedButton) {
-      // When a defaultAnchor is provided, only restore persisted position
-      // if the user actually dragged the inspector to a custom position.
-      const restoreButtonPosition =
-        !this.defaultAnchor || persistedButton.hasCustomPosition;
-
-      if (restoreButtonPosition && isValidAnchor(persistedButton.anchor)) {
+      if (isValidAnchor(persistedButton.anchor)) {
         this.contextState.button.anchor = persistedButton.anchor;
       }
 
-      if (
-        restoreButtonPosition &&
-        isValidPosition(persistedButton.anchorOffset)
-      ) {
+      if (isValidPosition(persistedButton.anchorOffset)) {
         this.contextState.button.anchorOffset = persistedButton.anchorOffset;
       }
 
@@ -1655,17 +1553,11 @@ ${argsString}</pre
 
     const persistedWindow = persisted.window;
     if (persistedWindow) {
-      const restoreWindowPosition =
-        !this.defaultAnchor || persistedWindow.hasCustomPosition;
-
-      if (restoreWindowPosition && isValidAnchor(persistedWindow.anchor)) {
+      if (isValidAnchor(persistedWindow.anchor)) {
         this.contextState.window.anchor = persistedWindow.anchor;
       }
 
-      if (
-        restoreWindowPosition &&
-        isValidPosition(persistedWindow.anchorOffset)
-      ) {
+      if (isValidPosition(persistedWindow.anchorOffset)) {
         this.contextState.window.anchorOffset = persistedWindow.anchorOffset;
       }
 
@@ -2774,10 +2666,7 @@ ${argsString}</pre
 
   private renderEventsTable() {
     const events = this.getEventsForSelectedContext();
-    const afterCompact = this.compactMode
-      ? this.compactInspectorEvents(events)
-      : events;
-    const filteredEvents = this.filterEvents(afterCompact);
+    const filteredEvents = this.filterEvents(events);
     const selectedLabel =
       this.selectedContext === "all-agents"
         ? "all agents"
@@ -2863,30 +2752,14 @@ ${argsString}</pre
             <div class="flex items-center gap-1 text-[11px]">
               <button
                 type="button"
-                class="tooltip-target flex h-8 items-center gap-1 rounded-md border px-2 text-[11px] font-medium transition ${this
-                  .compactMode
-                  ? "border-gray-900 bg-gray-900 text-white"
-                  : "border-gray-200 bg-white text-gray-600 hover:bg-gray-50"}"
-                title="Compact mode — consolidate streaming deltas"
-                data-tooltip="Compact mode"
-                aria-label="Toggle compact mode"
-                @click=${() => {
-                  this.compactMode = !this.compactMode;
-                  this.requestUpdate();
-                }}
-              >
-                ${this.renderIcon("Layers")}
-                <span>Compact</span>
-              </button>
-              <button
-                type="button"
                 class="tooltip-target flex h-8 w-8 items-center justify-center rounded-md border border-gray-200 bg-white text-gray-600 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
                 title="Reset filters"
                 data-tooltip="Reset filters"
                 aria-label="Reset filters"
                 @click=${this.resetEventFilters}
-                ?disabled=${!this.eventFilterText &&
-                this.eventTypeFilter === "all"}
+                ?disabled=${
+                  !this.eventFilterText && this.eventTypeFilter === "all"
+                }
               >
                 ${this.renderIcon("RotateCw")}
               </button>
@@ -2916,11 +2789,11 @@ ${argsString}</pre
           </div>
           <div class="text-[11px] text-gray-500">
             Showing ${filteredEvents.length} of
-            ${afterCompact.length}${this.compactMode
-              ? ` (compacted from ${events.length})`
-              : ""}${this.selectedContext === "all-agents"
-              ? ""
-              : ` for ${selectedLabel}`}
+            ${events.length}${
+              this.selectedContext === "all-agents"
+                ? ""
+                : ` for ${selectedLabel}`
+            }
           </div>
         </div>
         <div class="relative h-full w-full overflow-y-auto overflow-x-hidden">
@@ -2985,12 +2858,13 @@ ${argsString}</pre
                       <span class=${badgeClasses}>${event.type}</span>
                     </td>
                     <td
-                      class="border-r border-b border-gray-200 px-3 py-2 font-mono text-[10px] text-gray-600 ${isExpanded
-                        ? ""
-                        : "truncate max-w-xs"}"
+                      class="border-r border-b border-gray-200 px-3 py-2 font-mono text-[10px] text-gray-600 ${
+                        isExpanded ? "" : "truncate max-w-xs"
+                      }"
                     >
-                      ${isExpanded
-                        ? html`
+                      ${
+                        isExpanded
+                          ? html`
                             <div class="group relative">
                               <pre
                                 class="m-0 whitespace-pre-wrap break-words text-[10px] font-mono text-gray-600"
@@ -2998,23 +2872,30 @@ ${argsString}</pre
 ${prettyEvent}</pre
                               >
                               <button
-                                class="absolute right-0 top-0 cursor-pointer rounded px-2 py-1 text-[10px] opacity-0 transition group-hover:opacity-100 ${this.copiedEvents.has(
-                                  event.id,
-                                )
-                                  ? "bg-green-100 text-green-700"
-                                  : "bg-gray-100 text-gray-600 hover:bg-gray-200 hover:text-gray-900"}"
+                                class="absolute right-0 top-0 cursor-pointer rounded px-2 py-1 text-[10px] opacity-0 transition group-hover:opacity-100 ${
+                                  this.copiedEvents.has(event.id)
+                                    ? "bg-green-100 text-green-700"
+                                    : "bg-gray-100 text-gray-600 hover:bg-gray-200 hover:text-gray-900"
+                                }"
                                 @click=${(e: Event) => {
                                   e.stopPropagation();
                                   this.copyToClipboard(prettyEvent, event.id);
                                 }}
                               >
-                                ${this.copiedEvents.has(event.id)
-                                  ? html`<span>✓ Copied</span>`
-                                  : html`<span>Copy</span>`}
+                                ${
+                                  this.copiedEvents.has(event.id)
+                                    ? html`
+                                        <span>✓ Copied</span>
+                                      `
+                                    : html`
+                                        <span>Copy</span>
+                                      `
+                                }
                               </button>
                             </div>
                           `
-                        : inlineEvent}
+                          : inlineEvent
+                      }
                     </td>
                   </tr>
                 `;
@@ -3127,27 +3008,31 @@ ${prettyEvent}</pre
               <div>
                 <h3 class="font-semibold text-sm text-gray-900">${agentId}</h3>
                 <span
-                  class="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium ${statusColors[
-                    status
-                  ]} relative -translate-y-[2px]"
+                  class="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium ${
+                    statusColors[status]
+                  } relative -translate-y-[2px]"
                 >
                   <span
-                    class="h-1.5 w-1.5 rounded-full ${status === "running"
-                      ? "bg-emerald-500 animate-pulse"
-                      : status === "error"
-                        ? "bg-rose-500"
-                        : "bg-gray-400"}"
+                    class="h-1.5 w-1.5 rounded-full ${
+                      status === "running"
+                        ? "bg-emerald-500 animate-pulse"
+                        : status === "error"
+                          ? "bg-rose-500"
+                          : "bg-gray-400"
+                    }"
                   ></span>
                   ${status.charAt(0).toUpperCase() + status.slice(1)}
                 </span>
               </div>
             </div>
-            ${stats.lastActivity
-              ? html`<span class="text-xs text-gray-500"
+            ${
+              stats.lastActivity
+                ? html`<span class="text-xs text-gray-500"
                   >Last activity:
                   ${new Date(stats.lastActivity).toLocaleTimeString()}</span
                 >`
-              : nothing}
+                : nothing
+            }
           </div>
           <div class="grid grid-cols-2 gap-4 md:grid-cols-4">
             <button
@@ -3196,13 +3081,14 @@ ${prettyEvent}</pre
             <h4 class="text-sm font-semibold text-gray-900">Current State</h4>
           </div>
           <div class="overflow-auto p-4">
-            ${this.hasRenderableState(state)
-              ? html`
+            ${
+              this.hasRenderableState(state)
+                ? html`
                   <pre
                     class="overflow-auto rounded-md bg-gray-50 p-3 text-xs text-gray-800 max-h-64"
                   ><code>${this.formatStateForDisplay(state)}</code></pre>
                 `
-              : html`
+                : html`
                   <div
                     class="flex h-40 items-center justify-center text-xs text-gray-500"
                   >
@@ -3213,7 +3099,8 @@ ${prettyEvent}</pre
                       <span>State is empty</span>
                     </div>
                   </div>
-                `}
+                `
+            }
           </div>
         </div>
 
@@ -3225,8 +3112,9 @@ ${prettyEvent}</pre
             </h4>
           </div>
           <div class="overflow-auto">
-            ${messages && messages.length > 0
-              ? html`
+            ${
+              messages && messages.length > 0
+                ? html`
                   <table class="w-full text-xs">
                     <thead class="bg-gray-50">
                       <tr>
@@ -3263,28 +3151,32 @@ ${prettyEvent}</pre
                           <tr>
                             <td class="px-4 py-2 align-top">
                               <span
-                                class="inline-flex rounded px-2 py-0.5 text-[10px] font-medium ${roleColors[
-                                  role
-                                ] || roleColors.unknown}"
+                                class="inline-flex rounded px-2 py-0.5 text-[10px] font-medium ${
+                                  roleColors[role] || roleColors.unknown
+                                }"
                               >
                                 ${role}
                               </span>
                             </td>
                             <td class="px-4 py-2">
-                              ${hasContent
-                                ? html`<div
+                              ${
+                                hasContent
+                                  ? html`<div
                                     class="max-w-2xl whitespace-pre-wrap break-words text-gray-700"
                                   >
                                     ${rawContent}
                                   </div>`
-                                : html`<div
+                                  : html`<div
                                     class="text-xs italic text-gray-400"
                                   >
                                     ${contentFallback}
-                                  </div>`}
-                              ${role === "assistant" && toolCalls.length > 0
-                                ? this.renderToolCallDetails(toolCalls)
-                                : nothing}
+                                  </div>`
+                              }
+                              ${
+                                role === "assistant" && toolCalls.length > 0
+                                  ? this.renderToolCallDetails(toolCalls)
+                                  : nothing
+                              }
                             </td>
                           </tr>
                         `;
@@ -3292,7 +3184,7 @@ ${prettyEvent}</pre
                     </tbody>
                   </table>
                 `
-              : html`
+                : html`
                   <div
                     class="flex h-40 items-center justify-center text-xs text-gray-500"
                   >
@@ -3303,7 +3195,8 @@ ${prettyEvent}</pre
                       <span>No messages available</span>
                     </div>
                   </div>
-                `}
+                `
+            }
           </div>
         </div>
       </div>
@@ -3336,8 +3229,9 @@ ${prettyEvent}</pre
             >${this.renderIcon("ChevronDown")}</span
           >
         </button>
-        ${this.contextMenuOpen
-          ? html`
+        ${
+          this.contextMenuOpen
+            ? html`
               <div
                 class="absolute left-0 z-50 mt-1.5 w-40 rounded-md border border-gray-200 bg-white py-1 shadow-md ring-1 ring-black/5"
                 data-context-dropdown-root="true"
@@ -3351,22 +3245,27 @@ ${prettyEvent}</pre
                       @click=${() => this.handleContextOptionSelect(option.key)}
                     >
                       <span
-                        class="truncate ${option.key === this.selectedContext
-                          ? "text-gray-900 font-medium"
-                          : "text-gray-600"}"
+                        class="truncate ${
+                          option.key === this.selectedContext
+                            ? "text-gray-900 font-medium"
+                            : "text-gray-600"
+                        }"
                         >${option.label}</span
                       >
-                      ${option.key === this.selectedContext
-                        ? html`<span class="text-gray-500"
+                      ${
+                        option.key === this.selectedContext
+                          ? html`<span class="text-gray-500"
                             >${this.renderIcon("Check")}</span
                           >`
-                        : nothing}
+                          : nothing
+                      }
                     </button>
                   `,
                 )}
               </div>
             `
-          : nothing}
+            : nothing
+        }
       </div>
     `;
   }
@@ -3582,9 +3481,9 @@ ${prettyEvent}</pre
                   >${tool.name}</span
                 >
                 <span
-                  class="inline-flex items-center rounded-sm border px-1.5 py-0.5 text-[10px] font-medium ${typeColors[
-                    tool.type
-                  ]}"
+                  class="inline-flex items-center rounded-sm border px-1.5 py-0.5 text-[10px] font-medium ${
+                    typeColors[tool.type]
+                  }"
                 >
                   ${tool.type}
                 </span>
@@ -3594,39 +3493,45 @@ ${prettyEvent}</pre
                   ${this.renderIcon("Bot")}
                   <span class="font-mono">${tool.agentId}</span>
                 </span>
-                ${schema.properties.length > 0
-                  ? html`
+                ${
+                  schema.properties.length > 0
+                    ? html`
                       <span class="text-gray-300">•</span>
                       <span
                         >${schema.properties.length}
-                        parameter${schema.properties.length !== 1
-                          ? "s"
-                          : ""}</span
+                        parameter${
+                          schema.properties.length !== 1 ? "s" : ""
+                        }</span
                       >
                     `
-                  : nothing}
+                    : nothing
+                }
               </div>
-              ${tool.description
-                ? html`<p class="mt-2 text-xs text-gray-600">
+              ${
+                tool.description
+                  ? html`<p class="mt-2 text-xs text-gray-600">
                     ${tool.description}
                   </p>`
-                : nothing}
+                  : nothing
+              }
             </div>
             <span
-              class="shrink-0 text-gray-400 transition ${isExpanded
-                ? "rotate-180"
-                : ""}"
+              class="shrink-0 text-gray-400 transition ${
+                isExpanded ? "rotate-180" : ""
+              }"
             >
               ${this.renderIcon("ChevronDown")}
             </span>
           </div>
         </button>
 
-        ${isExpanded
-          ? html`
+        ${
+          isExpanded
+            ? html`
               <div class="border-t border-gray-200 bg-gray-50/50 px-4 py-3">
-                ${schema.properties.length > 0
-                  ? html`
+                ${
+                  schema.properties.length > 0
+                    ? html`
                       <h5 class="mb-3 text-xs font-semibold text-gray-700">
                         Parameters
                       </h5>
@@ -3644,30 +3549,41 @@ ${prettyEvent}</pre
                                   >${prop.name}</span
                                 >
                                 <div class="flex items-center gap-1.5 shrink-0">
-                                  ${prop.required
-                                    ? html`<span
-                                        class="text-[9px] rounded border border-rose-200 bg-rose-50 px-1 py-0.5 font-medium text-rose-700"
-                                        >required</span
-                                      >`
-                                    : html`<span
-                                        class="text-[9px] rounded border border-gray-200 bg-gray-50 px-1 py-0.5 font-medium text-gray-600"
-                                        >optional</span
-                                      >`}
-                                  ${prop.type
-                                    ? html`<span
+                                  ${
+                                    prop.required
+                                      ? html`
+                                          <span
+                                            class="text-[9px] rounded border border-rose-200 bg-rose-50 px-1 py-0.5 font-medium text-rose-700"
+                                            >required</span
+                                          >
+                                        `
+                                      : html`
+                                          <span
+                                            class="text-[9px] rounded border border-gray-200 bg-gray-50 px-1 py-0.5 font-medium text-gray-600"
+                                            >optional</span
+                                          >
+                                        `
+                                  }
+                                  ${
+                                    prop.type
+                                      ? html`<span
                                         class="text-[9px] rounded border border-gray-200 bg-gray-50 px-1 py-0.5 font-mono text-gray-600"
                                         >${prop.type}</span
                                       >`
-                                    : nothing}
+                                      : nothing
+                                  }
                                 </div>
                               </div>
-                              ${prop.description
-                                ? html`<p class="mt-1 text-xs text-gray-600">
+                              ${
+                                prop.description
+                                  ? html`<p class="mt-1 text-xs text-gray-600">
                                     ${prop.description}
                                   </p>`
-                                : nothing}
-                              ${prop.defaultValue !== undefined
-                                ? html`
+                                  : nothing
+                              }
+                              ${
+                                prop.defaultValue !== undefined
+                                  ? html`
                                     <div
                                       class="mt-2 flex items-center gap-1.5 text-[10px] text-gray-500"
                                     >
@@ -3680,9 +3596,11 @@ ${prettyEvent}</pre
                                       >
                                     </div>
                                   `
-                                : nothing}
-                              ${prop.enum && prop.enum.length > 0
-                                ? html`
+                                  : nothing
+                              }
+                              ${
+                                prop.enum && prop.enum.length > 0
+                                  ? html`
                                     <div class="mt-2">
                                       <span class="text-[10px] text-gray-500"
                                         >Allowed values:</span
@@ -3699,22 +3617,23 @@ ${prettyEvent}</pre
                                       </div>
                                     </div>
                                   `
-                                : nothing}
+                                  : nothing
+                              }
                             </div>
                           `,
                         )}
                       </div>
                     `
-                  : html`
-                      <div
-                        class="flex items-center justify-center py-4 text-xs text-gray-500"
-                      >
-                        <span>No parameters defined</span>
-                      </div>
-                    `}
+                    : html`
+                        <div class="flex items-center justify-center py-4 text-xs text-gray-500">
+                          <span>No parameters defined</span>
+                        </div>
+                      `
+                }
               </div>
             `
-          : nothing}
+            : nothing
+        }
       </div>
     `;
   }
@@ -3977,26 +3896,29 @@ ${prettyEvent}</pre
                   style="max-width: 180px;"
                   >${id}</span
                 >
-                ${hasValue
-                  ? html`
+                ${
+                  hasValue
+                    ? html`
                       <span class="text-gray-300">•</span>
                       <span class="truncate">${valuePreview}</span>
                     `
-                  : nothing}
+                    : nothing
+                }
               </div>
             </div>
             <span
-              class="shrink-0 text-gray-400 transition ${isExpanded
-                ? "rotate-180"
-                : ""}"
+              class="shrink-0 text-gray-400 transition ${
+                isExpanded ? "rotate-180" : ""
+              }"
             >
               ${this.renderIcon("ChevronDown")}
             </span>
           </div>
         </button>
 
-        ${isExpanded
-          ? html`
+        ${
+          isExpanded
+            ? html`
               <div class="border-t border-gray-200 bg-gray-50/50 px-4 py-3">
                 <div class="mb-3">
                   <h5 class="mb-1 text-xs font-semibold text-gray-700">ID</h5>
@@ -4005,8 +3927,9 @@ ${prettyEvent}</pre
                     >${id}</code
                   >
                 </div>
-                ${hasValue
-                  ? html`
+                ${
+                  hasValue
+                    ? html`
                       <div class="mb-2 flex items-center justify-between gap-2">
                         <h5 class="text-xs font-semibold text-gray-700">
                           Value
@@ -4019,9 +3942,11 @@ ${prettyEvent}</pre
                             void this.copyContextValue(context.value, id);
                           }}
                         >
-                          ${this.copiedContextItems.has(id)
-                            ? "Copied"
-                            : "Copy JSON"}
+                          ${
+                            this.copiedContextItems.has(id)
+                              ? "Copied"
+                              : "Copy JSON"
+                          }
                         </button>
                       </div>
                       <div
@@ -4034,16 +3959,16 @@ ${prettyEvent}</pre
                         )}</code></pre>
                       </div>
                     `
-                  : html`
-                      <div
-                        class="flex items-center justify-center py-4 text-xs text-gray-500"
-                      >
-                        <span>No value available</span>
-                      </div>
-                    `}
+                    : html`
+                        <div class="flex items-center justify-center py-4 text-xs text-gray-500">
+                          <span>No value available</span>
+                        </div>
+                      `
+                }
               </div>
             `
-          : nothing}
+            : nothing
+        }
       </div>
     `;
   }
