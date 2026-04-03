@@ -446,8 +446,11 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
         headers: { ...headers },
         ...(this.credentials ? { credentials: this.credentials } : {}),
       });
+      // Only treat a successful (2xx) response as a valid REST runtime.
+      // 404/405 means the endpoint doesn't exist; other non-2xx errors
+      // (500, 403, etc.) should also fall through to single-endpoint.
       const status = "status" in response ? (response as Response).status : 200;
-      if (status !== 404 && status !== 405) {
+      if (status >= 200 && status < 300) {
         this.transport = "rest";
         return (await response.json()) as RuntimeInfo;
       }

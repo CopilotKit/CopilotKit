@@ -392,10 +392,6 @@ export class AgentRegistry {
    * Auto-detect transport by trying REST first, then falling back to single-endpoint.
    * Updates `_runtimeTransport` to the detected value so subsequent requests use it directly.
    */
-  /**
-   * Auto-detect transport by trying REST first, then falling back to single-endpoint.
-   * Updates `_runtimeTransport` to the detected value so subsequent requests use it directly.
-   */
   private async fetchRuntimeInfoAutoDetect(
     headers: Record<string, string>,
     credentials: RequestCredentials | undefined,
@@ -406,15 +402,15 @@ export class AgentRegistry {
         headers: { ...headers },
         ...(credentials ? { credentials } : {}),
       });
-      // If the response indicates a clear failure (404/405), the endpoint
-      // doesn't exist — fall through to the single-endpoint probe.
+      // Only treat a successful (2xx) response as a valid REST runtime.
+      // 404/405 means the endpoint doesn't exist; other non-2xx errors
+      // (500, 403, etc.) should also fall through to single-endpoint.
       const status = "status" in response ? (response as Response).status : 200;
-      if (status === 404 || status === 405) {
-        // Not a REST runtime — try single-endpoint below
-      } else {
+      if (status >= 200 && status < 300) {
         this._runtimeTransport = "rest";
         return (await response.json()) as RuntimeInfo;
       }
+      // Non-2xx — try single-endpoint below
     } catch {
       // REST failed (network error, etc.) — fall through to single-endpoint attempt
     }
