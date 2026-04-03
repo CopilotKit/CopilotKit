@@ -5,6 +5,9 @@ on:
 
 concurrency: ${{ github.workflow }}-${{ github.ref }}
 
+env:
+  NX_VERBOSE_LOGGING: true
+
 jobs:
   custom-pre:
     runs-on: ubuntu-latest

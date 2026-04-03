@@ -5,11 +5,11 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
-    "uvicorn",
-    "pydantic-ai-slim[ag-ui]",
-    "pydantic-ai-slim[openai]",
-    "python-dotenv",
-    "logfire>=4.10.0",
+  "uvicorn",
+  "pydantic-ai-slim[ag-ui]",
+  "pydantic-ai-slim[openai]",
+  "python-dotenv",
+  "logfire>=4.10.0",
 ]
 
 [build-system]

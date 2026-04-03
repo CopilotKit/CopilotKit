@@ -5,10 +5,10 @@ description = "Agent Spec FastAPI backend for CopilotKit template"
 readme = "README.md"
 requires-python = ">=3.10,<4.0"
 dependencies = [
-    "uvicorn",
-    "python-dotenv",
-    "ag-ui-agent-spec[langgraph, wayflow]",
+  "uvicorn",
+  "python-dotenv",
+  "ag-ui-agent-spec[langgraph, wayflow]",
 ]
 
 [tool.uv.sources]
-ag-ui-agent-spec = { path = "../../ag-ui/integrations/agent-spec/python", editable=true }
+ag-ui-agent-spec = { path = "../../ag-ui/integrations/agent-spec/python", editable = true }
