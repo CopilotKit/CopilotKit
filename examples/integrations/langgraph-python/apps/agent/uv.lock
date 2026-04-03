@@ -243,7 +243,7 @@ wheels = [
 
 [[package]]
 name = "copilotkit"
-version = "0.1.83"
+version = "0.1.84a1"
 source = { editable = "../../../../../sdk-python" }
 dependencies = [
     { name = "ag-ui-langgraph", extra = ["fastapi"] },
