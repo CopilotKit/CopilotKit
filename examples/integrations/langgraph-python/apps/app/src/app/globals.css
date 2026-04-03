@@ -1,5 +1,5 @@
 /* Shadify-inspired fonts */
-@import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@300..700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+@import url("https://fonts.googleapis.com/css2?family=Fredoka:wght@300..700&family=JetBrains+Mono:wght@400;500;600&display=swap");
 
 @import "tailwindcss";
 
@@ -38,7 +38,8 @@
 
   /* Fonts */
   --font-body: "Fredoka", "DM Sans", "Segoe UI", sans-serif;
-  --font-code: "JetBrains Mono", "SFMono-Regular", Menlo, Monaco, Consolas, monospace;
+  --font-code:
+    "JetBrains Mono", "SFMono-Regular", Menlo, Monaco, Consolas, monospace;
 }
 
 :root.dark {
@@ -72,6 +73,7 @@ body {
   font-family: var(--font-body);
 }
 
-body, html {
+body,
+html {
   height: 100%;
 }

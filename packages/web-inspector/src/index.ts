@@ -946,13 +946,15 @@ export class WebInspectorElement extends LitElement {
                 <span>${functionName}</span>
                 <span class="text-[10px] text-gray-500">ID: ${callId}</span>
               </div>
-              ${argsString
-                ? html`<pre
+              ${
+                argsString
+                  ? html`<pre
                     class="mt-2 overflow-auto rounded bg-white p-2 text-[11px] leading-relaxed text-gray-800"
                   >
 ${argsString}</pre
                   >`
-                : nothing}
+                  : nothing
+              }
             </div>
           `;
         })}
@@ -1417,8 +1419,7 @@ ${argsString}</pre
       .font-mono,
       pre,
       code {
-        font-family:
-          "Spline Sans Mono", ui-monospace, "Cascadia Code", monospace;
+        font-family: "Spline Sans Mono", ui-monospace, "Cascadia Code", monospace;
       }
 
       /* ── Floating button ─────────────────────────────────────────── */
@@ -1449,11 +1450,7 @@ ${argsString}</pre
       .drag-handle {
         border-bottom-color: #dbdbe5 !important;
         /* Subtle pale lavender gradient — brand "light, spacious" surface */
-        background: linear-gradient(
-          180deg,
-          #f4f4fd 0%,
-          #ffffff 100%
-        ) !important;
+        background: linear-gradient(180deg, #f4f4fd 0%, #ffffff 100%) !important;
       }
 
       /* Tab strip row: soft off-white, separated from content */
@@ -1793,9 +1790,9 @@ ${argsString}</pre
         type="button"
         aria-label="Web Inspector"
         data-drag-context="button"
-        data-dragging=${this.isDragging && this.pointerContext === "button"
-          ? "true"
-          : "false"}
+        data-dragging=${
+          this.isDragging && this.pointerContext === "button" ? "true" : "false"
+        }
         @pointerdown=${this.handlePointerDown}
         @pointermove=${this.handlePointerMove}
         @pointerup=${this.handlePointerUp}
@@ -1850,8 +1847,9 @@ ${argsString}</pre
         data-docked=${isDocked}
         data-transitioning=${isTransitioning}
       >
-        ${isDocked
-          ? html`
+        ${
+          isDocked
+            ? html`
               <div
                 class="dock-resize-handle pointer-events-auto"
                 role="presentation"
@@ -1862,16 +1860,19 @@ ${argsString}</pre
                 @pointercancel=${this.handleResizePointerCancel}
               ></div>
             `
-          : nothing}
+            : nothing
+        }
         <div
           class="flex flex-1 flex-col overflow-hidden bg-white text-gray-800"
         >
           <div
-            class="drag-handle relative z-30 flex flex-col border-b border-gray-200 bg-white/95 backdrop-blur-sm ${isDocked
-              ? ""
-              : this.isDragging && this.pointerContext === "window"
-                ? "cursor-grabbing"
-                : "cursor-grab"}"
+            class="drag-handle relative z-30 flex flex-col border-b border-gray-200 bg-white/95 backdrop-blur-sm ${
+              isDocked
+                ? ""
+                : this.isDragging && this.pointerContext === "window"
+                  ? "cursor-grabbing"
+                  : "cursor-grab"
+            }"
             data-drag-context="window"
             @pointerdown=${isDocked ? undefined : this.handlePointerDown}
             @pointermove=${isDocked ? undefined : this.handlePointerMove}
@@ -1921,9 +1922,11 @@ ${argsString}</pre
                     @click=${() => this.handleMenuSelect(key)}
                   >
                     <span class="cpk-tab-icon">
-                      ${key in this.customTabIcons
-                        ? unsafeHTML(this.customTabIcons[key])
-                        : this.renderIcon(icon)}
+                      ${
+                        key in this.customTabIcons
+                          ? unsafeHTML(this.customTabIcons[key])
+                          : this.renderIcon(icon)
+                      }
                     </span>
                     <span>${label}</span>
                   </button>
@@ -3172,8 +3175,9 @@ ${argsString}</pre
 
     return html`
       <div style="padding:16px;">
-        ${this.selectedThreadId
-          ? html`<cpk-thread-details
+        ${
+          this.selectedThreadId
+            ? html`<cpk-thread-details
               style="display:block;"
               .threadId=${this.selectedThreadId}
               .thread=${selectedThread}
@@ -3184,13 +3188,14 @@ ${argsString}</pre
                 this.requestUpdate();
               }}
             ></cpk-thread-details>`
-          : html`<cpk-thread-list
+            : html`<cpk-thread-list
               .threads=${displayThreads}
               @threadSelected=${(e: CustomEvent<string>) => {
                 this.selectedThreadId = e.detail;
                 this.requestUpdate();
               }}
-            ></cpk-thread-list>`}
+            ></cpk-thread-list>`
+        }
       </div>
     `;
   }
@@ -3205,17 +3210,19 @@ ${argsString}</pre
 
     if (events.length === 0) {
       return html`
-        <div class="p-4">
-          <div class="cpk-section-card overflow-hidden">
-            <div class="cpk-section-header"><h4>AG-UI Events</h4></div>
-            <div class="flex h-20 items-center justify-center p-4">
-              <div class="flex items-center gap-2 text-xs text-gray-500">
-                <span class="text-lg text-gray-400"
-                  >${this.renderIcon("Zap")}</span
-                >
-                <span>No events yet</span>
-              </div>
+        <div
+          class="flex h-full items-center justify-center px-4 py-8 text-center"
+        >
+          <div class="max-w-md">
+            <div
+              class="mb-3 flex justify-center text-gray-300 [&>svg]:!h-8 [&>svg]:!w-8"
+            >
+              ${this.renderIcon("Zap")}
             </div>
+            <p class="text-sm text-gray-600">No events yet</p>
+            <p class="mt-2 text-xs text-gray-500">
+              Trigger an agent run to see live activity.
+            </p>
           </div>
         </div>
       `;
@@ -3223,24 +3230,27 @@ ${argsString}</pre
 
     if (filteredEvents.length === 0) {
       return html`
-        <div class="p-4">
-          <div class="cpk-section-card overflow-hidden">
-            <div class="cpk-section-header"><h4>AG-UI Events</h4></div>
-            <div class="flex h-20 items-center justify-center p-4">
-              <div class="flex items-center gap-2 text-xs text-gray-500">
-                <span class="text-lg text-gray-400"
-                  >${this.renderIcon("Filter")}</span
-                >
-                <span>No events match the current filters.</span>
-                <button
-                  type="button"
-                  class="inline-flex items-center gap-1 rounded-md bg-gray-900 px-3 py-1.5 text-[11px] font-medium text-white transition hover:bg-gray-800"
-                  @click=${this.resetEventFilters}
-                >
-                  ${this.renderIcon("RefreshCw")}
-                  <span>Reset filters</span>
-                </button>
-              </div>
+        <div
+          class="flex h-full items-center justify-center px-4 py-8 text-center"
+        >
+          <div class="max-w-md space-y-3">
+            <div
+              class="flex justify-center text-gray-300 [&>svg]:!h-8 [&>svg]:!w-8"
+            >
+              ${this.renderIcon("Filter")}
+            </div>
+            <p class="text-sm text-gray-600">
+              No events match the current filters.
+            </p>
+            <div>
+              <button
+                type="button"
+                class="inline-flex items-center gap-1 rounded-md bg-gray-900 px-3 py-1.5 text-[11px] font-medium text-white transition hover:bg-gray-800"
+                @click=${this.resetEventFilters}
+              >
+                ${this.renderIcon("RefreshCw")}
+                <span>Reset filters</span>
+              </button>
             </div>
           </div>
         </div>
@@ -3248,179 +3258,186 @@ ${argsString}</pre
     }
 
     return html`
-      <div class="flex h-full flex-col p-4">
-        <div class="cpk-section-card flex flex-1 flex-col overflow-hidden">
-          <div class="cpk-section-header flex flex-col gap-1.5">
-            <div class="flex flex-wrap items-center gap-2">
-              <div class="relative min-w-[200px] flex-1">
-                <input
-                  type="search"
-                  class="w-full rounded-md border border-gray-200 px-3 py-1.5 text-[11px] text-gray-700 shadow-sm outline-none ring-1 ring-transparent transition focus:border-gray-300 focus:ring-gray-200"
-                  placeholder="Search agent, type, payload"
-                  .value=${this.eventFilterText}
-                  @input=${this.handleEventFilterInput}
-                />
-              </div>
-              <select
-                class="w-40 rounded-md border border-gray-200 bg-white px-2 py-1.5 text-[11px] text-gray-700 shadow-sm outline-none transition focus:border-gray-300 focus:ring-2 focus:ring-gray-200"
-                .value=${this.eventTypeFilter}
-                @change=${this.handleEventTypeChange}
+      <div class="flex h-full flex-col">
+        <div
+          class="flex flex-col gap-1.5 border-b border-gray-200 bg-white px-4 py-2.5"
+        >
+          <div class="flex flex-wrap items-center gap-2">
+            <div class="relative min-w-[200px] flex-1">
+              <input
+                type="search"
+                class="w-full rounded-md border border-gray-200 px-3 py-1.5 text-[11px] text-gray-700 shadow-sm outline-none ring-1 ring-transparent transition focus:border-gray-300 focus:ring-gray-200"
+                placeholder="Search agent, type, payload"
+                .value=${this.eventFilterText}
+                @input=${this.handleEventFilterInput}
+              />
+            </div>
+            <select
+              class="w-40 rounded-md border border-gray-200 bg-white px-2 py-1.5 text-[11px] text-gray-700 shadow-sm outline-none transition focus:border-gray-300 focus:ring-2 focus:ring-gray-200"
+              .value=${this.eventTypeFilter}
+              @change=${this.handleEventTypeChange}
+            >
+              <option value="all">All event types</option>
+              ${AGENT_EVENT_TYPES.map(
+                (type) =>
+                  html`<option value=${type}>
+                    ${type.toLowerCase().replace(/_/g, " ")}
+                  </option>`,
+              )}
+            </select>
+            <div class="flex items-center gap-1 text-[11px]">
+              <button
+                type="button"
+                class="tooltip-target flex h-8 w-8 items-center justify-center rounded-md border border-gray-200 bg-white text-gray-600 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                title="Reset filters"
+                data-tooltip="Reset filters"
+                aria-label="Reset filters"
+                @click=${this.resetEventFilters}
+                ?disabled=${
+                  !this.eventFilterText && this.eventTypeFilter === "all"
+                }
               >
-                <option value="all">All event types</option>
-                ${AGENT_EVENT_TYPES.map(
-                  (type) =>
-                    html`<option value=${type}>
-                      ${type.toLowerCase().replace(/_/g, " ")}
-                    </option>`,
-                )}
-              </select>
-              <div class="flex items-center gap-1 text-[11px]">
-                <button
-                  type="button"
-                  class="tooltip-target flex h-8 w-8 items-center justify-center rounded-md border border-gray-200 bg-white text-gray-600 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
-                  title="Reset filters"
-                  data-tooltip="Reset filters"
-                  aria-label="Reset filters"
-                  @click=${this.resetEventFilters}
-                  ?disabled=${!this.eventFilterText &&
-                  this.eventTypeFilter === "all"}
-                >
-                  ${this.renderIcon("RotateCw")}
-                </button>
-                <button
-                  type="button"
-                  class="tooltip-target flex h-8 w-8 items-center justify-center rounded-md border border-gray-200 bg-white text-gray-600 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
-                  title="Export JSON"
-                  data-tooltip="Export JSON"
-                  aria-label="Export JSON"
-                  @click=${() => this.exportEvents(filteredEvents)}
-                  ?disabled=${filteredEvents.length === 0}
-                >
-                  ${this.renderIcon("Download")}
-                </button>
-                <button
-                  type="button"
-                  class="tooltip-target flex h-8 w-8 items-center justify-center rounded-md border border-gray-200 bg-white text-gray-600 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
-                  title="Clear events"
-                  data-tooltip="Clear events"
-                  aria-label="Clear events"
-                  @click=${this.handleClearEvents}
-                  ?disabled=${events.length === 0}
-                >
-                  ${this.renderIcon("Trash2")}
-                </button>
-                <span class="ml-2 text-[11px] text-gray-500">
-                  Showing ${filteredEvents.length} of
-                  ${events.length}${this.selectedContext === "all-agents"
-                    ? ""
-                    : ` for ${selectedLabel}`}
-                </span>
-              </div>
+                ${this.renderIcon("RotateCw")}
+              </button>
+              <button
+                type="button"
+                class="tooltip-target flex h-8 w-8 items-center justify-center rounded-md border border-gray-200 bg-white text-gray-600 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                title="Export JSON"
+                data-tooltip="Export JSON"
+                aria-label="Export JSON"
+                @click=${() => this.exportEvents(filteredEvents)}
+                ?disabled=${filteredEvents.length === 0}
+              >
+                ${this.renderIcon("Download")}
+              </button>
+              <button
+                type="button"
+                class="tooltip-target flex h-8 w-8 items-center justify-center rounded-md border border-gray-200 bg-white text-gray-600 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                title="Clear events"
+                data-tooltip="Clear events"
+                aria-label="Clear events"
+                @click=${this.handleClearEvents}
+                ?disabled=${events.length === 0}
+              >
+                ${this.renderIcon("Trash2")}
+              </button>
             </div>
           </div>
-          <div class="relative flex-1 w-full overflow-y-auto overflow-x-hidden">
-            <table
-              class="w-full table-fixed border-collapse text-xs box-border"
-            >
-              <thead class="sticky top-0 z-10">
-                <tr class="bg-white">
-                  <th
-                    class="border-b border-gray-200 bg-white px-3 py-2 text-left font-medium text-gray-900"
-                  >
-                    Agent
-                  </th>
-                  <th
-                    class="border-b border-gray-200 bg-white px-3 py-2 text-left font-medium text-gray-900"
-                  >
-                    Time
-                  </th>
-                  <th
-                    class="border-b border-gray-200 bg-white px-3 py-2 text-left font-medium text-gray-900"
-                  >
-                    Event Type
-                  </th>
-                  <th
-                    class="border-b border-gray-200 bg-white px-3 py-2 text-left font-medium text-gray-900"
-                  >
-                    AG-UI Event
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                ${filteredEvents.map((event, index) => {
-                  const rowBg = index % 2 === 0 ? "bg-white" : "bg-gray-50/50";
-                  const badgeClasses = this.getEventBadgeClasses(event.type);
-                  const extractedEvent = this.extractEventFromPayload(
-                    event.payload,
-                  );
-                  const inlineEvent =
-                    this.stringifyPayload(extractedEvent, false) || "—";
-                  const prettyEvent =
-                    this.stringifyPayload(extractedEvent, true) || inlineEvent;
-                  const isExpanded = this.expandedRows.has(event.id);
-
-                  return html`
-                    <tr
-                      class="${rowBg} cursor-pointer transition hover:bg-blue-50/50"
-                      @click=${() => this.toggleRowExpansion(event.id)}
-                    >
-                      <td
-                        class="border-l border-r border-b border-gray-200 px-3 py-2"
-                      >
-                        <span class="font-mono text-[11px] text-gray-600"
-                          >${event.agentId}</span
-                        >
-                      </td>
-                      <td
-                        class="border-r border-b border-gray-200 px-3 py-2 font-mono text-[11px] text-gray-600"
-                      >
-                        <span
-                          title=${new Date(event.timestamp).toLocaleString()}
-                        >
-                          ${new Date(event.timestamp).toLocaleTimeString()}
-                        </span>
-                      </td>
-                      <td class="border-r border-b border-gray-200 px-3 py-2">
-                        <span class=${badgeClasses}>${event.type}</span>
-                      </td>
-                      <td
-                        class="border-r border-b border-gray-200 px-3 py-2 font-mono text-[10px] text-gray-600 ${isExpanded
-                          ? ""
-                          : "truncate max-w-xs"}"
-                      >
-                        ${isExpanded
-                          ? html`
-                              <div class="group relative">
-                                <pre
-                                  class="m-0 whitespace-pre-wrap break-words text-[10px] font-mono text-gray-600"
-                                >
-${prettyEvent}</pre
-                                >
-                                <button
-                                  class="absolute right-0 top-0 cursor-pointer rounded px-2 py-1 text-[10px] opacity-0 transition group-hover:opacity-100 ${this.copiedEvents.has(
-                                    event.id,
-                                  )
-                                    ? "bg-green-100 text-green-700"
-                                    : "bg-gray-100 text-gray-600 hover:bg-gray-200 hover:text-gray-900"}"
-                                  @click=${(e: Event) => {
-                                    e.stopPropagation();
-                                    this.copyToClipboard(prettyEvent, event.id);
-                                  }}
-                                >
-                                  ${this.copiedEvents.has(event.id)
-                                    ? html`<span>✓ Copied</span>`
-                                    : html`<span>Copy</span>`}
-                                </button>
-                              </div>
-                            `
-                          : inlineEvent}
-                      </td>
-                    </tr>
-                  `;
-                })}
-              </tbody>
-            </table>
+          <div class="text-[11px] text-gray-500">
+            Showing ${filteredEvents.length} of
+            ${events.length}${
+              this.selectedContext === "all-agents"
+                ? ""
+                : ` for ${selectedLabel}`
+            }
           </div>
+        </div>
+        <div class="relative h-full w-full overflow-y-auto overflow-x-hidden">
+          <table class="w-full table-fixed border-collapse text-xs box-border">
+            <thead class="sticky top-0 z-10">
+              <tr class="bg-white">
+                <th
+                  class="border-b border-gray-200 bg-white px-3 py-2 text-left font-medium text-gray-900"
+                >
+                  Agent
+                </th>
+                <th
+                  class="border-b border-gray-200 bg-white px-3 py-2 text-left font-medium text-gray-900"
+                >
+                  Time
+                </th>
+                <th
+                  class="border-b border-gray-200 bg-white px-3 py-2 text-left font-medium text-gray-900"
+                >
+                  Event Type
+                </th>
+                <th
+                  class="border-b border-gray-200 bg-white px-3 py-2 text-left font-medium text-gray-900"
+                >
+                  AG-UI Event
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              ${filteredEvents.map((event, index) => {
+                const rowBg = index % 2 === 0 ? "bg-white" : "bg-gray-50/50";
+                const badgeClasses = this.getEventBadgeClasses(event.type);
+                const extractedEvent = this.extractEventFromPayload(
+                  event.payload,
+                );
+                const inlineEvent =
+                  this.stringifyPayload(extractedEvent, false) || "—";
+                const prettyEvent =
+                  this.stringifyPayload(extractedEvent, true) || inlineEvent;
+                const isExpanded = this.expandedRows.has(event.id);
+
+                return html`
+                  <tr
+                    class="${rowBg} cursor-pointer transition hover:bg-blue-50/50"
+                    @click=${() => this.toggleRowExpansion(event.id)}
+                  >
+                    <td
+                      class="border-l border-r border-b border-gray-200 px-3 py-2"
+                    >
+                      <span class="font-mono text-[11px] text-gray-600"
+                        >${event.agentId}</span
+                      >
+                    </td>
+                    <td
+                      class="border-r border-b border-gray-200 px-3 py-2 font-mono text-[11px] text-gray-600"
+                    >
+                      <span title=${new Date(event.timestamp).toLocaleString()}>
+                        ${new Date(event.timestamp).toLocaleTimeString()}
+                      </span>
+                    </td>
+                    <td class="border-r border-b border-gray-200 px-3 py-2">
+                      <span class=${badgeClasses}>${event.type}</span>
+                    </td>
+                    <td
+                      class="border-r border-b border-gray-200 px-3 py-2 font-mono text-[10px] text-gray-600 ${
+                        isExpanded ? "" : "truncate max-w-xs"
+                      }"
+                    >
+                      ${
+                        isExpanded
+                          ? html`
+                            <div class="group relative">
+                              <pre
+                                class="m-0 whitespace-pre-wrap break-words text-[10px] font-mono text-gray-600"
+                              >
+${prettyEvent}</pre
+                              >
+                              <button
+                                class="absolute right-0 top-0 cursor-pointer rounded px-2 py-1 text-[10px] opacity-0 transition group-hover:opacity-100 ${
+                                  this.copiedEvents.has(event.id)
+                                    ? "bg-green-100 text-green-700"
+                                    : "bg-gray-100 text-gray-600 hover:bg-gray-200 hover:text-gray-900"
+                                }"
+                                @click=${(e: Event) => {
+                                  e.stopPropagation();
+                                  this.copyToClipboard(prettyEvent, event.id);
+                                }}
+                              >
+                                ${
+                                  this.copiedEvents.has(event.id)
+                                    ? html`
+                                        <span>✓ Copied</span>
+                                      `
+                                    : html`
+                                        <span>Copy</span>
+                                      `
+                                }
+                              </button>
+                            </div>
+                          `
+                          : inlineEvent
+                      }
+                    </td>
+                  </tr>
+                `;
+              })}
+            </tbody>
+          </table>
         </div>
       </div>
     `;
@@ -3527,27 +3544,31 @@ ${prettyEvent}</pre
               <div>
                 <h3 class="font-semibold text-sm text-gray-900">${agentId}</h3>
                 <span
-                  class="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium ${statusColors[
-                    status
-                  ]} relative -translate-y-[2px]"
+                  class="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium ${
+                    statusColors[status]
+                  } relative -translate-y-[2px]"
                 >
                   <span
-                    class="h-1.5 w-1.5 rounded-full ${status === "running"
-                      ? "bg-emerald-500 animate-pulse"
-                      : status === "error"
-                        ? "bg-rose-500"
-                        : "bg-gray-400"}"
+                    class="h-1.5 w-1.5 rounded-full ${
+                      status === "running"
+                        ? "bg-emerald-500 animate-pulse"
+                        : status === "error"
+                          ? "bg-rose-500"
+                          : "bg-gray-400"
+                    }"
                   ></span>
                   ${status.charAt(0).toUpperCase() + status.slice(1)}
                 </span>
               </div>
             </div>
-            ${stats.lastActivity
-              ? html`<span class="text-xs text-gray-500"
+            ${
+              stats.lastActivity
+                ? html`<span class="text-xs text-gray-500"
                   >Last activity:
                   ${new Date(stats.lastActivity).toLocaleTimeString()}</span
                 >`
-              : nothing}
+                : nothing
+            }
           </div>
           <div class="grid grid-cols-2 gap-4 md:grid-cols-4">
             <button
@@ -3602,13 +3623,14 @@ ${prettyEvent}</pre
             <h4>Current State</h4>
           </div>
           <div class="overflow-auto p-4">
-            ${this.hasRenderableState(state)
-              ? html`
+            ${
+              this.hasRenderableState(state)
+                ? html`
                   <pre
                     class="overflow-auto rounded-md bg-gray-50 p-3 text-xs text-gray-800 max-h-64"
                   ><code>${this.formatStateForDisplay(state)}</code></pre>
                 `
-              : html`
+                : html`
                   <div
                     class="flex h-12 items-center justify-center text-xs text-gray-500"
                   >
@@ -3619,7 +3641,8 @@ ${prettyEvent}</pre
                       <span>State is empty</span>
                     </div>
                   </div>
-                `}
+                `
+            }
           </div>
         </div>
 
@@ -3629,18 +3652,13 @@ ${prettyEvent}</pre
             <h4>Current Messages</h4>
           </div>
           <div class="overflow-auto">
-            ${messages && messages.length > 0
-              ? html`
+            ${
+              messages && messages.length > 0
+                ? html`
                   <div class="w-full text-xs">
                     <div class="flex bg-gray-50">
-                      <div
-                        class="w-40 shrink-0 px-4 py-2 font-medium text-gray-700"
-                      >
-                        Role
-                      </div>
-                      <div class="flex-1 px-4 py-2 font-medium text-gray-700">
-                        Content
-                      </div>
+                      <div class="w-40 shrink-0 px-4 py-2 font-medium text-gray-700">Role</div>
+                      <div class="flex-1 px-4 py-2 font-medium text-gray-700">Content</div>
                     </div>
                     <div class="divide-y divide-gray-200">
                       ${messages.map((msg) => {
@@ -3663,26 +3681,28 @@ ${prettyEvent}</pre
                           <div class="flex items-start">
                             <div class="w-40 shrink-0 px-4 py-2">
                               <span
-                                class="inline-flex rounded px-2 py-0.5 text-[10px] font-medium ${roleColors[
-                                  role
-                                ] || roleColors.unknown}"
+                                class="inline-flex rounded px-2 py-0.5 text-[10px] font-medium ${roleColors[role] || roleColors.unknown}"
                               >
                                 ${role}
                               </span>
                             </div>
                             <div class="flex-1 px-4 py-2">
-                              ${hasContent
-                                ? html`<div
+                              ${
+                                hasContent
+                                  ? html`<div
                                     class="whitespace-pre-line break-words text-gray-700"
                                   >
                                     ${rawContent}
                                   </div>`
-                                : html`<div class="italic text-gray-400">
+                                  : html`<div class="italic text-gray-400">
                                     ${contentFallback}
-                                  </div>`}
-                              ${role === "assistant" && toolCalls.length > 0
-                                ? this.renderToolCallDetails(toolCalls)
-                                : nothing}
+                                  </div>`
+                              }
+                              ${
+                                role === "assistant" && toolCalls.length > 0
+                                  ? this.renderToolCallDetails(toolCalls)
+                                  : nothing
+                              }
                             </div>
                           </div>
                         `;
@@ -3690,7 +3710,7 @@ ${prettyEvent}</pre
                     </div>
                   </div>
                 `
-              : html`
+                : html`
                   <div
                     class="flex h-12 items-center justify-center text-xs text-gray-500"
                   >
@@ -3701,7 +3721,8 @@ ${prettyEvent}</pre
                       <span>No messages available</span>
                     </div>
                   </div>
-                `}
+                `
+            }
           </div>
         </div>
       </div>
@@ -3734,8 +3755,9 @@ ${prettyEvent}</pre
             >${this.renderIcon("ChevronDown")}</span
           >
         </button>
-        ${this.contextMenuOpen
-          ? html`
+        ${
+          this.contextMenuOpen
+            ? html`
               <div
                 class="absolute left-0 z-50 mt-1.5 w-40 rounded-md border border-gray-200 bg-white py-1 shadow-md ring-1 ring-black/5"
                 data-context-dropdown-root="true"
@@ -3749,22 +3771,27 @@ ${prettyEvent}</pre
                       @click=${() => this.handleContextOptionSelect(option.key)}
                     >
                       <span
-                        class="truncate ${option.key === this.selectedContext
-                          ? "text-gray-900 font-medium"
-                          : "text-gray-600"}"
+                        class="truncate ${
+                          option.key === this.selectedContext
+                            ? "text-gray-900 font-medium"
+                            : "text-gray-600"
+                        }"
                         >${option.label}</span
                       >
-                      ${option.key === this.selectedContext
-                        ? html`<span class="text-gray-500"
+                      ${
+                        option.key === this.selectedContext
+                          ? html`<span class="text-gray-500"
                             >${this.renderIcon("Check")}</span
                           >`
-                        : nothing}
+                          : nothing
+                      }
                     </button>
                   `,
                 )}
               </div>
             `
-          : nothing}
+            : nothing
+        }
       </div>
     `;
   }
@@ -3998,9 +4025,9 @@ ${prettyEvent}</pre
                   >${tool.name}</span
                 >
                 <span
-                  class="inline-flex items-center rounded-sm border px-1.5 py-0.5 text-[10px] font-medium ${typeColors[
-                    tool.type
-                  ]}"
+                  class="inline-flex items-center rounded-sm border px-1.5 py-0.5 text-[10px] font-medium ${
+                    typeColors[tool.type]
+                  }"
                 >
                   ${tool.type}
                 </span>
@@ -4010,134 +4037,147 @@ ${prettyEvent}</pre
                   ${this.renderIcon("Bot")}
                   <span class="font-mono">${tool.agentId}</span>
                 </span>
-                ${schema.properties.length > 0
-                  ? html`
+                ${
+                  schema.properties.length > 0
+                    ? html`
                       <span class="text-gray-300">•</span>
                       <span
                         >${schema.properties.length}
-                        parameter${schema.properties.length !== 1
-                          ? "s"
-                          : ""}</span
+                        parameter${
+                          schema.properties.length !== 1 ? "s" : ""
+                        }</span
                       >
                     `
-                  : nothing}
+                    : nothing
+                }
               </div>
-              ${tool.description
-                ? html`<p class="mt-2 text-xs text-gray-600">
+              ${
+                tool.description
+                  ? html`<p class="mt-2 text-xs text-gray-600">
                     ${tool.description}
                   </p>`
-                : nothing}
+                  : nothing
+              }
             </div>
             <span
-              class="cpk-chevron-circle ${isExpanded
-                ? "cpk-chevron-circle--open"
-                : ""}"
+              class="shrink-0 text-gray-400 transition ${
+                isExpanded ? "rotate-180" : ""
+              }"
             >
               ${this.renderIcon("ChevronDown")}
             </span>
           </div>
         </button>
 
-        ${isExpanded
-          ? html`
-              <div class="border-t border-gray-200 px-4">
-                ${schema.properties.length > 0
-                  ? html`
-                      <div class="divide-y divide-gray-100">
-                        ${schema.properties.map((prop) => {
-                          const copyKey = `tool:${tool.agentId}:${tool.name}:${prop.name}`;
-                          const copied = this.copiedContextItems.has(copyKey);
-                          return html`
-                            <div class="flex items-center gap-2 py-2.5">
-                              <span
-                                class="font-mono text-xs font-medium text-gray-800"
-                                >${prop.name}</span
+        ${
+          isExpanded
+            ? html`
+              <div class="border-t border-gray-200 bg-gray-50/50 px-4 py-3">
+                ${
+                  schema.properties.length > 0
+                    ? html`
+                      <h5 class="mb-3 text-xs font-semibold text-gray-700">
+                        Parameters
+                      </h5>
+                      <div class="space-y-3">
+                        ${schema.properties.map(
+                          (prop) => html`
+                            <div
+                              class="rounded-md border border-gray-200 bg-white p-3"
+                            >
+                              <div
+                                class="flex items-start justify-between gap-2 mb-1"
                               >
-                              ${prop.required
-                                ? html`<span
-                                    class="text-[10px] rounded border border-rose-200 bg-rose-50 px-1 py-0.5 font-medium text-rose-700"
-                                    >required</span
-                                  >`
-                                : html`<span
-                                    class="text-[10px] rounded border border-gray-200 bg-gray-50 px-1 py-0.5 font-medium text-gray-600"
-                                    >optional</span
-                                  >`}
-                              ${prop.type
-                                ? html`<span
-                                    class="text-[10px] rounded border border-gray-200 bg-gray-50 px-1 py-0.5 font-mono text-gray-600"
-                                    >${prop.type}</span
-                                  >`
-                                : nothing}
-                              <span class="flex-1"></span>
-                              <button
-                                type="button"
-                                class="cpk-copy-btn"
-                                @click=${(e: Event) => {
-                                  e.stopPropagation();
-                                  void this.copyContextValue(
-                                    prop.name,
-                                    copyKey,
-                                  );
-                                }}
-                              >
-                                ${copied ? "✓" : "Copy"}
-                              </button>
-                            </div>
-                            ${prop.description
-                              ? html`<p
-                                  class="pb-2 text-[11px] text-gray-500 -mt-1"
+                                <span
+                                  class="font-mono text-xs font-medium text-gray-900"
+                                  >${prop.name}</span
                                 >
-                                  ${prop.description}
-                                </p>`
-                              : nothing}
-                            ${prop.defaultValue !== undefined
-                              ? html`
-                                  <div
-                                    class="mt-2 flex items-center gap-1.5 text-[10px] text-gray-500"
-                                  >
-                                    <span>Default:</span>
-                                    <code
-                                      class="rounded bg-gray-100 px-1 py-0.5 font-mono"
-                                      >${JSON.stringify(
-                                        prop.defaultValue,
-                                      )}</code
-                                    >
-                                  </div>
-                                `
-                              : nothing}
-                            ${prop.enum && prop.enum.length > 0
-                              ? html`
-                                  <div class="mt-2">
-                                    <span class="text-[10px] text-gray-500"
-                                      >Allowed values:</span
-                                    >
-                                    <div class="mt-1 flex flex-wrap gap-1">
-                                      ${prop.enum.map(
-                                        (val) => html`
-                                          <code
-                                            class="rounded border border-gray-200 bg-gray-50 px-1.5 py-0.5 text-[10px] font-mono text-gray-700"
-                                            >${JSON.stringify(val)}</code
+                                <div class="flex items-center gap-1.5 shrink-0">
+                                  ${
+                                    prop.required
+                                      ? html`
+                                          <span
+                                            class="text-[9px] rounded border border-rose-200 bg-rose-50 px-1 py-0.5 font-medium text-rose-700"
+                                            >required</span
                                           >
-                                        `,
-                                      )}
+                                        `
+                                      : html`
+                                          <span
+                                            class="text-[9px] rounded border border-gray-200 bg-gray-50 px-1 py-0.5 font-medium text-gray-600"
+                                            >optional</span
+                                          >
+                                        `
+                                  }
+                                  ${
+                                    prop.type
+                                      ? html`<span
+                                        class="text-[9px] rounded border border-gray-200 bg-gray-50 px-1 py-0.5 font-mono text-gray-600"
+                                        >${prop.type}</span
+                                      >`
+                                      : nothing
+                                  }
+                                </div>
+                              </div>
+                              ${
+                                prop.description
+                                  ? html`<p class="mt-1 text-xs text-gray-600">
+                                    ${prop.description}
+                                  </p>`
+                                  : nothing
+                              }
+                              ${
+                                prop.defaultValue !== undefined
+                                  ? html`
+                                    <div
+                                      class="mt-2 flex items-center gap-1.5 text-[10px] text-gray-500"
+                                    >
+                                      <span>Default:</span>
+                                      <code
+                                        class="rounded bg-gray-100 px-1 py-0.5 font-mono"
+                                        >${JSON.stringify(
+                                          prop.defaultValue,
+                                        )}</code
+                                      >
                                     </div>
-                                  </div>
-                                `
-                              : nothing}
-                          `;
-                        })}
+                                  `
+                                  : nothing
+                              }
+                              ${
+                                prop.enum && prop.enum.length > 0
+                                  ? html`
+                                    <div class="mt-2">
+                                      <span class="text-[10px] text-gray-500"
+                                        >Allowed values:</span
+                                      >
+                                      <div class="mt-1 flex flex-wrap gap-1">
+                                        ${prop.enum.map(
+                                          (val) => html`
+                                            <code
+                                              class="rounded border border-gray-200 bg-gray-50 px-1.5 py-0.5 text-[10px] font-mono text-gray-700"
+                                              >${JSON.stringify(val)}</code
+                                            >
+                                          `,
+                                        )}
+                                      </div>
+                                    </div>
+                                  `
+                                  : nothing
+                              }
+                            </div>
+                          `,
+                        )}
                       </div>
                     `
-                  : html`
-                      <div
-                        class="flex items-center gap-2 text-[11px] text-gray-500 py-2.5"
-                      >
-                        <span>No parameters defined</span>
-                      </div>
-                    `}
+                    : html`
+                        <div class="flex items-center justify-center py-4 text-xs text-gray-500">
+                          <span>No parameters defined</span>
+                        </div>
+                      `
+                }
               </div>
             `
-          : nothing}
+            : nothing
+        }
       </div>
     `;
   }
@@ -4400,31 +4440,32 @@ ${prettyEvent}</pre
                   style="max-width: 180px;"
                   >${id}</span
                 >
-                ${hasValue
-                  ? html`
+                ${
+                  hasValue
+                    ? html`
                       <span class="text-gray-300">•</span>
                       <span class="truncate">${valuePreview}</span>
                     `
-                  : nothing}
+                    : nothing
+                }
               </div>
             </div>
             <span
-              class="cpk-chevron-circle ${isExpanded
-                ? "cpk-chevron-circle--open"
-                : ""}"
+              class="shrink-0 text-gray-400 transition ${
+                isExpanded ? "rotate-180" : ""
+              }"
             >
               ${this.renderIcon("ChevronDown")}
             </span>
           </div>
         </button>
 
-        ${isExpanded
-          ? html`
-              <div
-                class="border-t border-gray-200 px-4 divide-y divide-gray-100"
-              >
-                <div class="flex items-center gap-3 py-2.5">
-                  <span class="text-xs text-gray-500 w-12 shrink-0">ID</span>
+        ${
+          isExpanded
+            ? html`
+              <div class="border-t border-gray-200 bg-gray-50/50 px-4 py-3">
+                <div class="mb-3">
+                  <h5 class="mb-1 text-xs font-semibold text-gray-700">ID</h5>
                   <code
                     class="font-mono text-xs font-medium text-gray-800 flex-1 truncate min-w-0"
                     >${id}</code
@@ -4440,16 +4481,13 @@ ${prettyEvent}</pre
                     ${this.copiedContextItems.has(`${id}:id`) ? "✓" : "Copy"}
                   </button>
                 </div>
-                ${hasValue
-                  ? html`
-                      <div class="flex items-center gap-3 py-2.5">
-                        <span class="text-xs text-gray-500 w-12 shrink-0"
-                          >Value</span
-                        >
-                        <code
-                          class="font-mono text-xs font-medium text-gray-800 flex-1 truncate min-w-0"
-                          >${valuePreview}</code
-                        >
+                ${
+                  hasValue
+                    ? html`
+                      <div class="mb-2 flex items-center justify-between gap-2">
+                        <h5 class="text-xs font-semibold text-gray-700">
+                          Value
+                        </h5>
                         <button
                           type="button"
                           class="cpk-copy-btn"
@@ -4458,20 +4496,24 @@ ${prettyEvent}</pre
                             void this.copyContextValue(context.value, id);
                           }}
                         >
-                          ${this.copiedContextItems.has(id) ? "✓" : "Copy"}
+                          ${
+                            this.copiedContextItems.has(id)
+                              ? "Copied"
+                              : "Copy JSON"
+                          }
                         </button>
                       </div>
                     `
-                  : html`
-                      <div
-                        class="flex items-center gap-2 text-[11px] text-gray-500 py-2.5"
-                      >
-                        <span>No value available</span>
-                      </div>
-                    `}
+                    : html`
+                        <div class="flex items-center justify-center py-4 text-xs text-gray-500">
+                          <span>No value available</span>
+                        </div>
+                      `
+                }
               </div>
             `
-          : nothing}
+            : nothing
+        }
       </div>
     `;
   }

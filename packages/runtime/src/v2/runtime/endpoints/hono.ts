@@ -5,7 +5,8 @@ import { telemetry } from "../telemetry";
 import { handleRunAgent } from "../handlers/handle-run";
 import { handleGetRuntimeInfo } from "../handlers/get-runtime-info";
 import { handleTranscribe } from "../handlers/handle-transcribe";
-import { logger, getLicenseWarningHeader } from "@copilotkit/shared";
+import { logger } from "@copilotkit/shared";
+import { getLicenseWarningHeader } from "@copilotkit/license-verifier";
 import {
   callBeforeRequestMiddleware,
   callAfterRequestMiddleware,

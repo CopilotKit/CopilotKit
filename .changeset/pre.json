@@ -25,7 +25,6 @@
     "@copilotkit-storybook/react": "0.0.0",
     "@copilotkit/a2ui-renderer": "1.54.0",
     "copilotkit": "0.0.59",
-    "eslint-config-custom": "1.4.12",
     "@copilotkit/react-core": "1.54.0",
     "@copilotkit/react-textarea": "1.54.0",
     "@copilotkit/react-ui": "1.54.0",
@@ -38,20 +37,23 @@
     "@copilotkit/angular": "1.54.0",
     "@copilotkit/core": "1.54.0",
     "@copilotkit/demo-agents": "1.54.0",
-    "@copilotkit/eslint-config": "1.54.0",
     "@copilotkit/sqlite-runner": "1.54.0",
     "@copilotkit/typescript-config": "1.54.0",
     "@copilotkit/voice": "1.54.0",
     "@copilotkit/web-inspector": "1.54.0",
-    "@copilotkitnext/angular": "1.54.1-next.6"
+    "@copilotkitnext/angular": "1.54.1-next.6",
+    "react-router-example": "0.1.0"
   },
   "changesets": [
     "consolidate-v1-v2-packages",
     "cyan-buses-sell",
+    "fix-copilot-messages-key",
     "fix-default-open-prop",
     "fix-markdown-streaming-rerenders",
     "fix-race-condition-dropped-runs",
+    "fix-reasoning-stall",
     "fix-scrollbar-styling",
+    "fix-thread-shared-state",
     "funny-dolls-march",
     "handle-empty-tool-arguments",
     "long-toys-enjoy"

@@ -55,6 +55,10 @@ function useFrontendTool<T extends Record<string, unknown>>(
   <PropertyReference name="available" type='"enabled" | "disabled" | "remote"' default='"enabled"'>
     Controls tool availability. Set to `"disabled"` to temporarily prevent the agent from calling the tool, or `"remote"` to indicate the tool is handled server-side.
   </PropertyReference>
+
+  <PropertyReference name="followUp" type="boolean" default="true">
+    When `false`, the agent won't generate a follow-up chat message after the tool's component renders. Use this when the rendered component is the complete response.
+  </PropertyReference>
 </PropertyReference>
 
 <PropertyReference name="deps" type="ReadonlyArray<unknown>">

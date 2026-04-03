@@ -1,7 +1,8 @@
 {
   "name": "functions",
+  "private": true,
+  "main": "lib/index.js",
   "scripts": {
-    "lint": "eslint --ext .js,.ts .",
     "build": "tsc",
     "build:watch": "tsc --watch",
     "serve": "npm run build && firebase emulators:start --only functions",
@@ -10,10 +11,6 @@
     "deploy": "firebase deploy --only functions",
     "logs": "firebase functions:log"
   },
-  "engines": {
-    "node": "18"
-  },
-  "main": "lib/index.js",
   "dependencies": {
     "@copilotkit/backend": "^0.7.0-mme-firebase-fixes.0",
     "@copilotkit/react-core": "^0.23.0-mme-firebase-fixes.0",
@@ -24,14 +21,11 @@
     "firebase-functions": "^4.3.1"
   },
   "devDependencies": {
-    "@typescript-eslint/eslint-plugin": "^5.12.0",
-    "@typescript-eslint/parser": "^5.12.0",
-    "eslint": "^8.9.0",
-    "eslint-config-google": "^0.14.0",
-    "eslint-plugin-import": "^2.25.4",
     "firebase-functions-test": "^3.1.0",
     "firebase-tools": "^13.6.0",
     "typescript": "^5.4.3"
   },
-  "private": true
+  "engines": {
+    "node": "18"
+  }
 }
