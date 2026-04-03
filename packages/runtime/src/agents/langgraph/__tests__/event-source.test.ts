@@ -9,7 +9,8 @@ function getSource() {
   return new RemoteLangGraphEventSource();
 }
 
-// Helper to call private methods
+// Helper to call private methods. Returns `any` — type safety is traded for
+// access to private implementation details that have no public test surface.
 function callPrivate(
   source: RemoteLangGraphEventSource,
   method: string,
@@ -244,15 +245,12 @@ describe("getCurrentContent", () => {
     expect(callPrivate(source, "getCurrentContent", event)).toBeNull();
   });
 
-  it("returns empty string for empty string content (treated as valid string)", () => {
+  it("returns empty string when content is empty string", () => {
     const event = {
       event: LangGraphEventTypes.OnChatModelStream,
       data: { chunk: { kwargs: { content: "" } } },
     };
-    // Empty string is falsy, so getCurrentContent falls through to tool_call_chunks check
-    // With no chunks, it falls to the string check — but "" is falsy so it skips.
-    // Result: null (no content found)
-    // Actually: empty string IS a string, so typeof === "string" returns ""
+    // Empty string is a valid string, so typeof === "string" returns it as-is
     expect(callPrivate(source, "getCurrentContent", event)).toBe("");
   });
 });

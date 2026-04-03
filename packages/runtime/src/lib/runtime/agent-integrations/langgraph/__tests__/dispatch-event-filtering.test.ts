@@ -1,6 +1,7 @@
 import { EventType } from "@ag-ui/client";
 import { LangGraphAgent } from "../agent";
 import { CustomEventNames } from "../consts";
+import { vi } from "vitest";
 
 function createAgent() {
   const agent = new LangGraphAgent({
@@ -32,6 +33,25 @@ function makeTextEvent(
     ...(type === EventType.TEXT_MESSAGE_START ? { role: "assistant" } : {}),
     rawEvent: { metadata },
   };
+}
+
+function makeCustomEvent(name: string, value: any) {
+  return {
+    type: EventType.CUSTOM,
+    name,
+    value,
+  } as any;
+}
+
+/**
+ * Mock the parent class's langGraphDefaultMergeState for a single test,
+ * using vi.spyOn for automatic cleanup.
+ */
+function withMockedParentMerge(agent: LangGraphAgent, returnValue: any) {
+  const parentProto = Object.getPrototypeOf(Object.getPrototypeOf(agent));
+  return vi
+    .spyOn(parentProto, "langGraphDefaultMergeState")
+    .mockReturnValue(returnValue);
 }
 
 describe("dispatchEvent emit-messages filtering", () => {
@@ -161,15 +181,13 @@ describe("dispatchEvent custom CopilotKit events", () => {
   it("manually_emit_message produces TextMessage event sequence", () => {
     const { agent, events } = createAgent();
 
-    const result = agent.dispatchEvent({
-      type: EventType.CUSTOM,
-      name: CustomEventNames.CopilotKitManuallyEmitMessage,
-      value: {
+    const result = agent.dispatchEvent(
+      makeCustomEvent(CustomEventNames.CopilotKitManuallyEmitMessage, {
         message_id: "msg-manual-1",
         message: "Hello from agent",
         role: "assistant",
-      },
-    } as any);
+      }),
+    );
 
     expect(result).toBe(true);
     expect(events).toHaveLength(3);
@@ -185,15 +203,13 @@ describe("dispatchEvent custom CopilotKit events", () => {
   it("manually_emit_tool_call produces ToolCall event sequence", () => {
     const { agent, events } = createAgent();
 
-    const result = agent.dispatchEvent({
-      type: EventType.CUSTOM,
-      name: CustomEventNames.CopilotKitManuallyEmitToolCall,
-      value: {
+    const result = agent.dispatchEvent(
+      makeCustomEvent(CustomEventNames.CopilotKitManuallyEmitToolCall, {
         id: "tc-manual-1",
         name: "SearchTool",
         args: { query: "test" },
-      },
-    } as any);
+      }),
+    );
 
     expect(result).toBe(true);
     expect(events).toHaveLength(3);
@@ -215,17 +231,19 @@ describe("dispatchEvent custom CopilotKit events", () => {
       values: state.values,
     });
 
-    const result = agent.dispatchEvent({
-      type: EventType.CUSTOM,
-      name: CustomEventNames.CopilotKitManuallyEmitIntermediateState,
-      value: { progress: 75 },
-    } as any);
+    const result = agent.dispatchEvent(
+      makeCustomEvent(
+        CustomEventNames.CopilotKitManuallyEmitIntermediateState,
+        {
+          progress: 75,
+        },
+      ),
+    );
 
     expect(result).toBe(true);
     expect((agent as any).activeRun.manuallyEmittedState).toEqual({
       progress: 75,
     });
-    // The STATE_SNAPSHOT event is dispatched via recursive dispatchEvent call
     const snapshotEvents = events.filter(
       (e) => e.type === EventType.STATE_SNAPSHOT,
     );
@@ -235,15 +253,15 @@ describe("dispatchEvent custom CopilotKit events", () => {
   it("copilotkit_exit produces Exit custom event", () => {
     const { agent, events } = createAgent();
 
-    const result = agent.dispatchEvent({
-      type: EventType.CUSTOM,
-      name: CustomEventNames.CopilotKitExit,
-      value: {},
-    } as any);
+    const result = agent.dispatchEvent(
+      makeCustomEvent(CustomEventNames.CopilotKitExit, {}),
+    );
 
     expect(result).toBe(true);
     expect(events).toHaveLength(1);
     expect(events[0].type).toBe(EventType.CUSTOM);
+    // "Exit" is the hardcoded downstream name in agent.ts — not a constant,
+    // because it's the value the frontend listens for, not an internal enum.
     expect(events[0].name).toBe("Exit");
     expect(events[0].value).toBe(true);
   });
@@ -266,112 +284,62 @@ describe("dispatchEvent custom CopilotKit events", () => {
 // ---------- langGraphDefaultMergeState ----------
 
 describe("langGraphDefaultMergeState", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it("merges copilotkit actions from ag-ui tools", () => {
     const { agent } = createAgent();
     const tools = [{ name: "tool1" }, { name: "tool2" }];
 
-    // Mock the parent class method
-    const originalMethod = Object.getPrototypeOf(
-      Object.getPrototypeOf(agent),
-    ).langGraphDefaultMergeState;
-    Object.getPrototypeOf(
-      Object.getPrototypeOf(agent),
-    ).langGraphDefaultMergeState = function () {
-      return {
-        "ag-ui": { tools, context: [] },
-        tools: [],
-        messages: [],
-      };
-    };
+    withMockedParentMerge(agent, {
+      "ag-ui": { tools, context: [] },
+      tools: [],
+      messages: [],
+    });
 
-    try {
-      const result = agent.langGraphDefaultMergeState({} as any, [], {} as any);
-      expect(result.copilotkit).toBeDefined();
-      expect(result.copilotkit.actions).toEqual(expect.arrayContaining(tools));
-    } finally {
-      Object.getPrototypeOf(
-        Object.getPrototypeOf(agent),
-      ).langGraphDefaultMergeState = originalMethod;
-    }
+    const result = agent.langGraphDefaultMergeState({} as any, [], {} as any);
+    expect(result.copilotkit).toBeDefined();
+    expect(result.copilotkit.actions).toEqual(expect.arrayContaining(tools));
   });
 
   it("merges copilotkit context from ag-ui", () => {
     const { agent } = createAgent();
     const context = [{ description: "user info", value: "test" }];
 
-    const originalMethod = Object.getPrototypeOf(
-      Object.getPrototypeOf(agent),
-    ).langGraphDefaultMergeState;
-    Object.getPrototypeOf(
-      Object.getPrototypeOf(agent),
-    ).langGraphDefaultMergeState = function () {
-      return {
-        "ag-ui": { tools: [], context },
-        tools: [],
-        messages: [],
-      };
-    };
+    withMockedParentMerge(agent, {
+      "ag-ui": { tools: [], context },
+      tools: [],
+      messages: [],
+    });
 
-    try {
-      const result = agent.langGraphDefaultMergeState({} as any, [], {} as any);
-      expect(result.copilotkit.context).toEqual(context);
-    } finally {
-      Object.getPrototypeOf(
-        Object.getPrototypeOf(agent),
-      ).langGraphDefaultMergeState = originalMethod;
-    }
+    const result = agent.langGraphDefaultMergeState({} as any, [], {} as any);
+    expect(result.copilotkit.context).toEqual(context);
   });
 
   it("handles missing ag-ui key without crashing", () => {
     const { agent } = createAgent();
 
-    const originalMethod = Object.getPrototypeOf(
-      Object.getPrototypeOf(agent),
-    ).langGraphDefaultMergeState;
-    Object.getPrototypeOf(
-      Object.getPrototypeOf(agent),
-    ).langGraphDefaultMergeState = function () {
-      return { messages: [] };
-    };
+    withMockedParentMerge(agent, { messages: [] });
 
-    try {
-      const result = agent.langGraphDefaultMergeState({} as any, [], {} as any);
-      expect(result.copilotkit).toBeDefined();
-      expect(result.copilotkit.actions).toEqual([]);
-      expect(result.copilotkit.context).toEqual([]);
-    } finally {
-      Object.getPrototypeOf(
-        Object.getPrototypeOf(agent),
-      ).langGraphDefaultMergeState = originalMethod;
-    }
+    const result = agent.langGraphDefaultMergeState({} as any, [], {} as any);
+    expect(result.copilotkit).toBeDefined();
+    expect(result.copilotkit.actions).toEqual([]);
+    expect(result.copilotkit.context).toEqual([]);
   });
 
   it("deduplicates tools from returnedTools and ag-ui tools", () => {
     const { agent } = createAgent();
     const tool = { name: "SharedTool", id: "shared-1" };
 
-    const originalMethod = Object.getPrototypeOf(
-      Object.getPrototypeOf(agent),
-    ).langGraphDefaultMergeState;
-    Object.getPrototypeOf(
-      Object.getPrototypeOf(agent),
-    ).langGraphDefaultMergeState = function () {
-      return {
-        "ag-ui": { tools: [tool], context: [] },
-        tools: [tool], // same tool in both
-        messages: [],
-      };
-    };
+    withMockedParentMerge(agent, {
+      "ag-ui": { tools: [tool], context: [] },
+      tools: [tool],
+      messages: [],
+    });
 
-    try {
-      const result = agent.langGraphDefaultMergeState({} as any, [], {} as any);
-      // Should deduplicate — only one instance of the tool
-      expect(result.copilotkit.actions).toHaveLength(1);
-      expect(result.copilotkit.actions[0].name).toBe("SharedTool");
-    } finally {
-      Object.getPrototypeOf(
-        Object.getPrototypeOf(agent),
-      ).langGraphDefaultMergeState = originalMethod;
-    }
+    const result = agent.langGraphDefaultMergeState({} as any, [], {} as any);
+    expect(result.copilotkit.actions).toHaveLength(1);
+    expect(result.copilotkit.actions[0].name).toBe("SharedTool");
   });
 });

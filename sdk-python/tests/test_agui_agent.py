@@ -8,6 +8,7 @@ Covers:
 
 import json
 import pytest
+from contextlib import contextmanager
 from unittest.mock import MagicMock, patch
 from ag_ui.core import (
     EventType,
@@ -20,10 +21,21 @@ from ag_ui.core import (
     ToolCallEndEvent,
     StateSnapshotEvent,
 )
+from ag_ui_langgraph import LangGraphAgent as AGUIBase
 from copilotkit.langgraph_agui_agent import (
     LangGraphAGUIAgent,
     CustomEventNames,
 )
+
+
+# The source code at langgraph_agui_agent.py:134 checks for the literal string
+# "copilotkit_exit" (not via CustomEventNames enum — exit was never added to it).
+# We intentionally match the source's literal here.
+COPILOTKIT_EXIT_EVENT_NAME = "copilotkit_exit"
+
+# The output event name "Exit" is a hardcoded downstream value in the source code
+# (langgraph_agui_agent.py:138), distinct from any CustomEventNames constant.
+EXIT_OUTPUT_NAME = "Exit"
 
 
 @pytest.fixture
@@ -36,6 +48,30 @@ def agent():
     return a
 
 
+@contextmanager
+def track_parent_dispatches(agent):
+    """Patch AGUIBase._dispatch_event to record all dispatched events.
+
+    Yields the list of captured events. The original dispatch is still called
+    so that event serialisation behaves normally.
+
+    Usage::
+
+        with track_parent_dispatches(agent) as dispatched:
+            agent._dispatch_event(some_event)
+        assert EventType.TEXT_MESSAGE_START in [e.type for e in dispatched]
+    """
+    dispatched = []
+    original = AGUIBase._dispatch_event
+
+    def _tracking(self_inner, event):
+        dispatched.append(event)
+        return original(self_inner, event)
+
+    with patch.object(AGUIBase, "_dispatch_event", new=_tracking):
+        yield dispatched
+
+
 # ---------- Custom event: ManuallyEmitMessage ----------
 
 class TestManuallyEmitMessage:
@@ -43,18 +79,7 @@ class TestManuallyEmitMessage:
 
     def test_emits_text_message_sequence(self, agent):
         """Should call super()._dispatch_event for start, content, end, and the custom event."""
-        dispatched = []
-        original_dispatch = agent.__class__.__bases__[0]._dispatch_event
-
-        def tracking_dispatch(self_inner, event):
-            dispatched.append(event)
-            return original_dispatch(self_inner, event)
-
-        with patch.object(
-            agent.__class__.__bases__[0],
-            "_dispatch_event",
-            new=tracking_dispatch,
-        ):
+        with track_parent_dispatches(agent) as dispatched:
             event = CustomEvent(
                 type=EventType.CUSTOM,
                 name=CustomEventNames.ManuallyEmitMessage.value,
@@ -66,7 +91,6 @@ class TestManuallyEmitMessage:
             )
             agent._dispatch_event(event)
 
-        # Should have dispatched: TextMessageStart, TextMessageContent, TextMessageEnd, and the original custom event
         types = [getattr(e, 'type', None) for e in dispatched]
         assert EventType.TEXT_MESSAGE_START in types
         assert EventType.TEXT_MESSAGE_CONTENT in types
@@ -74,18 +98,7 @@ class TestManuallyEmitMessage:
 
     def test_message_ids_match(self, agent):
         """All emitted events should carry the same message_id from the custom event."""
-        dispatched = []
-        original_dispatch = agent.__class__.__bases__[0]._dispatch_event
-
-        def tracking_dispatch(self_inner, event):
-            dispatched.append(event)
-            return original_dispatch(self_inner, event)
-
-        with patch.object(
-            agent.__class__.__bases__[0],
-            "_dispatch_event",
-            new=tracking_dispatch,
-        ):
+        with track_parent_dispatches(agent) as dispatched:
             event = CustomEvent(
                 type=EventType.CUSTOM,
                 name=CustomEventNames.ManuallyEmitMessage.value,
@@ -103,18 +116,7 @@ class TestManuallyEmitMessage:
 
     def test_content_delta_matches(self, agent):
         """TextMessageContentEvent should carry the message text as delta."""
-        dispatched = []
-        original_dispatch = agent.__class__.__bases__[0]._dispatch_event
-
-        def tracking_dispatch(self_inner, event):
-            dispatched.append(event)
-            return original_dispatch(self_inner, event)
-
-        with patch.object(
-            agent.__class__.__bases__[0],
-            "_dispatch_event",
-            new=tracking_dispatch,
-        ):
+        with track_parent_dispatches(agent) as dispatched:
             event = CustomEvent(
                 type=EventType.CUSTOM,
                 name=CustomEventNames.ManuallyEmitMessage.value,
@@ -138,18 +140,7 @@ class TestManuallyEmitToolCall:
 
     def test_emits_tool_call_sequence(self, agent):
         """Should dispatch start, args, end for a tool call."""
-        dispatched = []
-        original_dispatch = agent.__class__.__bases__[0]._dispatch_event
-
-        def tracking_dispatch(self_inner, event):
-            dispatched.append(event)
-            return original_dispatch(self_inner, event)
-
-        with patch.object(
-            agent.__class__.__bases__[0],
-            "_dispatch_event",
-            new=tracking_dispatch,
-        ):
+        with track_parent_dispatches(agent) as dispatched:
             event = CustomEvent(
                 type=EventType.CUSTOM,
                 name=CustomEventNames.ManuallyEmitToolCall.value,
@@ -168,18 +159,7 @@ class TestManuallyEmitToolCall:
 
     def test_tool_call_ids_match(self, agent):
         """All tool call events should carry the same tool_call_id."""
-        dispatched = []
-        original_dispatch = agent.__class__.__bases__[0]._dispatch_event
-
-        def tracking_dispatch(self_inner, event):
-            dispatched.append(event)
-            return original_dispatch(self_inner, event)
-
-        with patch.object(
-            agent.__class__.__bases__[0],
-            "_dispatch_event",
-            new=tracking_dispatch,
-        ):
+        with track_parent_dispatches(agent) as dispatched:
             event = CustomEvent(
                 type=EventType.CUSTOM,
                 name=CustomEventNames.ManuallyEmitToolCall.value,
@@ -197,18 +177,7 @@ class TestManuallyEmitToolCall:
 
     def test_args_serialized_as_json_when_dict(self, agent):
         """When args is a dict, it should be JSON-serialized in the TOOL_CALL_ARGS event."""
-        dispatched = []
-        original_dispatch = agent.__class__.__bases__[0]._dispatch_event
-
-        def tracking_dispatch(self_inner, event):
-            dispatched.append(event)
-            return original_dispatch(self_inner, event)
-
-        with patch.object(
-            agent.__class__.__bases__[0],
-            "_dispatch_event",
-            new=tracking_dispatch,
-        ):
+        with track_parent_dispatches(agent) as dispatched:
             event = CustomEvent(
                 type=EventType.CUSTOM,
                 name=CustomEventNames.ManuallyEmitToolCall.value,
@@ -222,23 +191,11 @@ class TestManuallyEmitToolCall:
 
         args_events = [e for e in dispatched if e.type == EventType.TOOL_CALL_ARGS]
         assert len(args_events) == 1
-        # Args should be a JSON string since input was a dict
         assert args_events[0].delta == json.dumps({"key": "value"})
 
     def test_args_passed_as_string_when_string(self, agent):
         """When args is already a string, it should be passed through as-is."""
-        dispatched = []
-        original_dispatch = agent.__class__.__bases__[0]._dispatch_event
-
-        def tracking_dispatch(self_inner, event):
-            dispatched.append(event)
-            return original_dispatch(self_inner, event)
-
-        with patch.object(
-            agent.__class__.__bases__[0],
-            "_dispatch_event",
-            new=tracking_dispatch,
-        ):
+        with track_parent_dispatches(agent) as dispatched:
             event = CustomEvent(
                 type=EventType.CUSTOM,
                 name=CustomEventNames.ManuallyEmitToolCall.value,
@@ -262,21 +219,9 @@ class TestManuallyEmitState:
 
     def test_emits_state_snapshot(self, agent):
         """Should set active_run['manually_emitted_state'] and dispatch a STATE_SNAPSHOT."""
-        dispatched = []
-        original_dispatch = agent.__class__.__bases__[0]._dispatch_event
-
-        def tracking_dispatch(self_inner, event):
-            dispatched.append(event)
-            return original_dispatch(self_inner, event)
-
-        # Mock get_state_snapshot since it depends on thread state
         agent.get_state_snapshot = MagicMock(return_value={"progress": 50})
 
-        with patch.object(
-            agent.__class__.__bases__[0],
-            "_dispatch_event",
-            new=tracking_dispatch,
-        ):
+        with track_parent_dispatches(agent) as dispatched:
             event = CustomEvent(
                 type=EventType.CUSTOM,
                 name=CustomEventNames.ManuallyEmitState.value,
@@ -296,26 +241,18 @@ class TestCopilotKitExit:
 
     def test_emits_exit_event(self, agent):
         """Should dispatch a CustomEvent with name 'Exit'."""
-        dispatched = []
-        original_dispatch = agent.__class__.__bases__[0]._dispatch_event
-
-        def tracking_dispatch(self_inner, event):
-            dispatched.append(event)
-            return original_dispatch(self_inner, event)
-
-        with patch.object(
-            agent.__class__.__bases__[0],
-            "_dispatch_event",
-            new=tracking_dispatch,
-        ):
+        with track_parent_dispatches(agent) as dispatched:
             event = CustomEvent(
                 type=EventType.CUSTOM,
-                name="copilotkit_exit",
+                name=COPILOTKIT_EXIT_EVENT_NAME,
                 value={},
             )
             agent._dispatch_event(event)
 
-        exit_events = [e for e in dispatched if e.type == EventType.CUSTOM and getattr(e, 'name', None) == "Exit"]
+        exit_events = [
+            e for e in dispatched
+            if e.type == EventType.CUSTOM and getattr(e, 'name', None) == EXIT_OUTPUT_NAME
+        ]
         assert len(exit_events) == 1
 
 
@@ -331,9 +268,7 @@ class TestUnknownCustomEvent:
             name="some_unknown_event",
             value={"data": "test"},
         )
-        # Should not raise
         result = agent._dispatch_event(event)
-        # super()._dispatch_event returns the serialized event (not None)
         assert result is not None
 
 
@@ -408,9 +343,8 @@ class TestLanggraphDefaultMergeState:
     def test_copilotkit_actions_from_agui_tools(self, agent):
         """Tools from ag-ui should appear under copilotkit.actions."""
         tools = [{"name": "tool1"}, {"name": "tool2"}]
-        # Mock super().langgraph_default_merge_state to return ag-ui state
         with patch.object(
-            agent.__class__.__bases__[0],
+            AGUIBase,
             "langgraph_default_merge_state",
             return_value={
                 "ag-ui": {"tools": tools, "context": []},
@@ -426,7 +360,7 @@ class TestLanggraphDefaultMergeState:
         """Context from ag-ui should appear under copilotkit.context."""
         context = [{"description": "user info", "value": "test"}]
         with patch.object(
-            agent.__class__.__bases__[0],
+            AGUIBase,
             "langgraph_default_merge_state",
             return_value={
                 "ag-ui": {"tools": [], "context": context},
@@ -440,20 +374,19 @@ class TestLanggraphDefaultMergeState:
     def test_no_agui_key_no_crash(self, agent):
         """If no ag-ui key in state, should use merged_state as fallback without crashing."""
         with patch.object(
-            agent.__class__.__bases__[0],
+            AGUIBase,
             "langgraph_default_merge_state",
             return_value={"messages": [], "tools": [{"name": "fallback"}]},
         ):
             result = agent.langgraph_default_merge_state({}, [], MagicMock())
 
         assert "copilotkit" in result
-        # Should fall back to merged_state.get('tools', [])
         assert result["copilotkit"]["actions"] == [{"name": "fallback"}]
 
     def test_empty_state_no_crash(self, agent):
         """Completely empty state should not crash."""
         with patch.object(
-            agent.__class__.__bases__[0],
+            AGUIBase,
             "langgraph_default_merge_state",
             return_value={},
         ):
@@ -466,7 +399,7 @@ class TestLanggraphDefaultMergeState:
     def test_preserves_original_state_keys(self, agent):
         """Original keys from super() should be preserved alongside copilotkit."""
         with patch.object(
-            agent.__class__.__bases__[0],
+            AGUIBase,
             "langgraph_default_merge_state",
             return_value={
                 "ag-ui": {"tools": [], "context": []},
@@ -478,5 +411,3 @@ class TestLanggraphDefaultMergeState:
 
         assert result["custom_key"] == "custom_value"
         assert result["messages"] == [{"role": "user", "content": "hi"}]
-
-
