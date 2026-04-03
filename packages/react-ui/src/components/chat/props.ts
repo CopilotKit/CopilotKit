@@ -7,38 +7,15 @@ import {
 import { CopilotChatSuggestion } from "../../types/suggestions";
 import { ReactNode } from "react";
 import { ImageData } from "@copilotkit/shared";
+import type { InputContentSource } from "@copilotkit/shared";
 import type {
-  InputContentDataSource,
-  InputContentUrlSource,
-  InputContentSource,
+  AttachmentsConfig,
+  Attachment,
+  AttachmentModality,
 } from "@copilotkit/shared";
 
-export interface AttachmentsConfig {
-  /** Enable file attachments in the chat input */
-  enabled: boolean;
-  /** MIME type filter for the file input, default all files */
-  accept?: string;
-  /** Maximum file size in bytes, default 20MB (20 * 1024 * 1024) */
-  maxSize?: number;
-  /** Custom upload handler. Return { data, mimeType } for base64 or { url, mimeType? } for URL-based delivery. */
-  onUpload?: (
-    file: File,
-  ) => Promise<
-    { data: string; mimeType: string } | { url: string; mimeType?: string }
-  >;
-}
-
-export type AttachmentModality = "image" | "audio" | "video" | "document";
-
-export interface Attachment {
-  id: string;
-  type: AttachmentModality;
-  source: InputContentDataSource | InputContentUrlSource;
-  filename?: string;
-  size?: number;
-  status: "uploading" | "ready";
-  thumbnail?: string;
-}
+// Re-export for backward compat
+export type { AttachmentsConfig, Attachment, AttachmentModality };
 
 /**
  * Event hooks for CopilotKit chat events.

@@ -3,6 +3,7 @@ export * from "./utils";
 export * from "./constants";
 export * from "./telemetry";
 export * from "./standard-schema";
+export * from "./attachments";
 
 export { logger } from "./logger";
 export { finalizeRunEvents } from "./finalize-events";
