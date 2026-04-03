@@ -21,6 +21,7 @@ import {
 } from "../../providers/CopilotKitProvider";
 import { InlineFeatureWarning } from "../../components/license-warning-banner";
 import { AbstractAgent, HttpAgent } from "@ag-ui/client";
+import { type AssistantMessage } from "@ag-ui/core";
 import { renderSlot, SlotValue } from "../../lib/slots";
 import {
   transcribeAudio,
@@ -368,22 +369,27 @@ export function CopilotChat({
     : transcribeMode;
 
   // Memoize messages array - only create new reference when content actually changes
-  // (agent.messages is mutated in place, so we need a new reference for React to detect changes)
-
+  // (agent.messages is mutated in place, so we need a new reference for React to detect changes).
+  //
+  // Lightweight fingerprint instead of JSON.stringify(agent.messages):
+  //   - length + last-id catch new messages (O(1))
+  //   - last content covers text streaming (serializes only in-flight message)
+  //   - last tool-call args cover TOOL_CALL_CHUNK streaming
+  //
+  // Known limitation: same-length in-place mutations to non-last messages
+  // (e.g. two tool results arriving in the same tick) are not detected here.
+  // The MemoizedAssistantMessage comparator handles those cases via toolResultMap.
   const messages = useMemo(
     () => [...agent.messages],
-    // Lightweight fingerprint instead of JSON.stringify(agent.messages):
-    //   - length + last-id catch new messages (O(1))
-    //   - last content covers text streaming (serializes only in-flight message)
-    //   - last tool-call args cover TOOL_CALL_CHUNK streaming (arguments change
-    //     on the same message without touching content or length)
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [
       agent.messages.length,
       agent.messages.at(-1)?.id ?? "",
       JSON.stringify(agent.messages.at(-1)?.content),
       JSON.stringify(
-        agent.messages.at(-1)?.toolCalls?.at(-1)?.function?.arguments,
+        (agent.messages.at(-1) as AssistantMessage | undefined)?.toolCalls?.at(
+          -1,
+        )?.function?.arguments,
       ),
     ],
   );

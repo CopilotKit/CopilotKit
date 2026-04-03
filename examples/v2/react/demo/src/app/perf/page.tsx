@@ -31,8 +31,8 @@ const TEXTS = [
 // with a delay between chunks to simulate live streaming.
 // ---------------------------------------------------------------------------
 class HistoryAgent extends AbstractAgent {
-  private messageCount = 0;
-  private streamDelayMs = 0;
+  protected messageCount = 0;
+  protected streamDelayMs = 0;
 
   configure(count: number, streamDelayMs = 0) {
     this.messageCount = count;
@@ -259,10 +259,15 @@ export default function PerfPage() {
       //                        reaches `count`) AND for the scroll position to
       //                        stabilise (3 consecutive identical scrollTop readings),
       //                        which means StickToBottom's spring animation has settled.
+      // How many consecutive 50 ms polls with identical scrollTop = animation settled.
+      const STABLE_POLLS_REQUIRED = 3;
+
       let phase: "emit" | "render" = "emit";
       let emitMs = 0;
       let stableCount = 0;
-      let lastScrollTop = -1;
+      // NaN ensures we don't start counting stability until we observe at least
+      // one real scrollTop value (avoids false-positive when scrollEl is null).
+      let lastScrollTop = NaN;
 
       const poll = setInterval(() => {
         if (phase === "emit") {
@@ -289,7 +294,7 @@ export default function PerfPage() {
           lastScrollTop = currentScrollTop;
         }
 
-        if (stableCount >= 3) {
+        if (stableCount >= STABLE_POLLS_REQUIRED) {
           clearInterval(poll);
           const start =
             (window as any).__perfConnectStart ?? startTimeRef.current;
@@ -391,6 +396,7 @@ export default function PerfPage() {
       <div style={{ flex: 1, overflow: "hidden", position: "relative" }}>
         <CopilotKitProvider
           key={key}
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           agents__unsafe_dev_only={{ default: agent as any }}
         >
           <RenderCounter

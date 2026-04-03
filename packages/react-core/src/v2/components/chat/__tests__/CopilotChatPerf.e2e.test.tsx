@@ -1,5 +1,5 @@
 import React from "react";
-import { screen, fireEvent, waitFor, act } from "@testing-library/react";
+import { act, screen, fireEvent, waitFor } from "@testing-library/react";
 import {
   MockStepwiseAgent,
   renderWithCopilotKit,
@@ -97,6 +97,16 @@ async function emitBatch(agent: MockStepwiseAgent, n: number) {
 // Tests
 // ---------------------------------------------------------------------------
 
+// Note: the virtual render path (useVirtualizer, activated above VIRTUALIZE_THRESHOLD=50)
+// is not exercised here. jsdom always returns clientHeight=0, which causes the
+// jsdom guard in CopilotChatMessageView to skip virtualization. The 100-message
+// test below runs the flat path even at 100 messages. Browser/Playwright tests
+// are required to cover the virtual path.
+//
+// Note: the MemoizedAssistantMessage comparator is not tested for the case where
+// a non-last message's content changes after being committed. A bug returning
+// `true` (bail-out) in that scenario would cause stale renders silently.
+
 describe("CopilotChat perf — re-render regression", () => {
   beforeEach(() => {
     renderCounts.clear();
@@ -143,10 +153,15 @@ describe("CopilotChat perf — re-render regression", () => {
     agent.emit(stateSnapshotEvent({ counter: 1 }));
     agent.emit(stateSnapshotEvent({ counter: 2 }));
 
+    // Flush React's update queue so all snapshot-triggered re-renders are
+    // committed before we inspect render counts. The Observable subscription
+    // ends after RUN_FINISHED so we cannot use a sentinel message to create a
+    // positive signal; act+tick is the idiomatic jsdom alternative.
     await act(async () => {
-      await new Promise((r) => setTimeout(r, 100));
+      await new Promise<void>((r) => setTimeout(r, 50));
     });
 
+    // None of the original 10 assistant messages should have re-rendered
     for (const [id, count] of baselineCounts) {
       expect(renderCounts.get(id)).toBe(count);
     }

@@ -314,9 +314,10 @@ export namespace CopilotChatView {
   }) => {
     const { isAtBottom, scrollToBottom, scrollRef } = useStickToBottomContext();
 
-    // Expose the scroll element on window for programmatic perf measurement.
+    // Expose the scroll element for programmatic perf measurement (dev-only).
     // The perf page polls window.__perfScrollEl to detect when scroll animation settles.
     useLayoutEffect(() => {
+      if (process.env.NODE_ENV !== "development") return;
       if (typeof window !== "undefined") {
         (window as any).__perfScrollEl = scrollRef.current;
       }
@@ -399,9 +400,9 @@ export namespace CopilotChatView {
       setHasMounted(true);
     }, []);
 
-    // Expose the scroll element for programmatic perf measurement (non-autoScroll path).
+    // Expose the scroll element for programmatic perf measurement (dev-only, non-autoScroll path).
     useLayoutEffect(() => {
-      if (autoScroll) return;
+      if (autoScroll || process.env.NODE_ENV !== "development") return;
       if (typeof window !== "undefined") {
         (window as any).__perfScrollEl = scrollRef.current;
       }

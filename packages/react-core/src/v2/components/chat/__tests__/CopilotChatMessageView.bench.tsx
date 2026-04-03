@@ -1,3 +1,7 @@
+// Note: this file uses the `.bench.tsx` extension and is NOT picked up by the
+// vitest `include` glob (`**/*.{test,spec}.{ts,tsx}`). It is a manual-only
+// benchmark — run with `npx vitest bench` directly. It documents the
+// post-fix baseline but provides no CI regression protection.
 import { bench, describe } from "vitest";
 
 // Realistic message shape — only id matters for the dedup map, but content adds
