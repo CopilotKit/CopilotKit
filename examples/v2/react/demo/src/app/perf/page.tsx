@@ -123,8 +123,15 @@ function RenderCounter({ onCount }: { onCount: (n: number) => void }) {
 // ---------------------------------------------------------------------------
 interface PerfResult {
   label: string;
-  ms: number | null;
+  /** Time from connect() start to all events emitted (ms) */
+  emitMs: number | null;
+  /** Time from events emitted to render + animation settled (ms) */
+  renderMs: number | null;
   renders: number | null;
+}
+
+function msColor(ms: number) {
+  return ms < 500 ? "#7ee8a2" : ms < 2000 ? "#fbbf24" : "#f87171";
 }
 
 function PerfPanel({ results }: { results: PerfResult[] }) {
@@ -141,7 +148,7 @@ function PerfPanel({ results }: { results: PerfResult[] }) {
         fontSize: 13,
         padding: "12px 16px",
         borderRadius: 8,
-        minWidth: 260,
+        minWidth: 320,
         zIndex: 9999,
         boxShadow: "0 4px 24px rgba(0,0,0,0.4)",
       }}
@@ -150,23 +157,39 @@ function PerfPanel({ results }: { results: PerfResult[] }) {
         ⚡ Perf Results
       </div>
       {results.map((r) => (
-        <div key={r.label} style={{ marginBottom: 4 }}>
-          <span style={{ color: "#94a3b8" }}>{r.label}: </span>
-          {r.ms !== null && (
-            <span
-              style={{
-                color:
-                  r.ms < 500 ? "#7ee8a2" : r.ms < 2000 ? "#fbbf24" : "#f87171",
-              }}
-            >
-              {r.ms.toFixed(0)} ms
-            </span>
-          )}
-          {r.renders !== null && (
-            <span style={{ color: "#c4b5fd", marginLeft: 8 }}>
-              ({r.renders} renders)
-            </span>
-          )}
+        <div key={r.label} style={{ marginBottom: 6 }}>
+          <div style={{ color: "#94a3b8", marginBottom: 2 }}>{r.label}</div>
+          <div style={{ paddingLeft: 8, fontSize: 12 }}>
+            {r.emitMs !== null && (
+              <span>
+                <span style={{ color: "#64748b" }}>emit: </span>
+                <span style={{ color: msColor(r.emitMs) }}>
+                  {r.emitMs.toFixed(0)} ms
+                </span>
+              </span>
+            )}
+            {r.renderMs !== null && (
+              <span style={{ marginLeft: 12 }}>
+                <span style={{ color: "#64748b" }}>render+anim: </span>
+                <span style={{ color: msColor(r.renderMs) }}>
+                  {r.renderMs.toFixed(0)} ms
+                </span>
+              </span>
+            )}
+            {r.emitMs !== null && r.renderMs !== null && (
+              <span style={{ marginLeft: 12 }}>
+                <span style={{ color: "#64748b" }}>total: </span>
+                <span style={{ color: msColor(r.emitMs + r.renderMs) }}>
+                  {(r.emitMs + r.renderMs).toFixed(0)} ms
+                </span>
+              </span>
+            )}
+            {r.renders !== null && (
+              <span style={{ color: "#c4b5fd", marginLeft: 12 }}>
+                ({r.renders} renders)
+              </span>
+            )}
+          </div>
         </div>
       ))}
       <div style={{ marginTop: 8, fontSize: 11, color: "#64748b" }}>
@@ -185,12 +208,13 @@ export default function PerfPage() {
   const [key, setKey] = useState(0); // remount CopilotChat to reset state
   const [results, setResults] = useState<PerfResult[]>([]);
   const [isRunning, setIsRunning] = useState(false);
+  const [noAnim, setNoAnim] = useState(false); // disable StickToBottom spring when true
   const startTimeRef = useRef<number>(0);
   const renderCountRef = useRef(0);
 
   const pushResult = useCallback(
-    (label: string, ms: number, renders: number) => {
-      const result = { label, ms, renders };
+    (label: string, emitMs: number, renderMs: number, renders: number) => {
+      const result = { label, emitMs, renderMs, renders };
       // Expose on window for programmatic access (Playwright, etc.)
       (window as any).__perfResults = (window as any).__perfResults ?? [];
       (window as any).__perfResults = [
@@ -199,7 +223,6 @@ export default function PerfPage() {
         ),
         result,
       ];
-      (window as any).__perfRunning = false;
       console.log("[perf]", JSON.stringify(result));
       setResults((prev) => {
         const next = prev.filter((r) => r.label !== label);
@@ -215,35 +238,69 @@ export default function PerfPage() {
       setIsRunning(true);
       renderCountRef.current = 0;
 
+      const suffix = noAnim ? " [noAnim]" : "";
       const label =
         streamDelayMs > 0
-          ? `Stream ${count} msgs (${streamDelayMs}ms/chunk)`
-          : `Load ${count} msgs`;
+          ? `Stream ${count} msgs (${streamDelayMs}ms/chunk)${suffix}`
+          : `Load ${count} msgs${suffix}`;
 
       agent.configure(count, streamDelayMs);
       startTimeRef.current = performance.now();
       (window as any).__perfRunning = true;
+      (window as any).__perfMsgCount = 0;
 
-      // Remount so CopilotChat starts fresh and calls agent.run() immediately
+      // Remount so CopilotChat starts fresh and calls connect() immediately.
       setKey((k) => k + 1);
 
-      // Poll until the agent's connect() finishes.
-      // connect() runs on a clone of agent, so we can't read agent.isRunning —
-      // instead the Observable sets window.__perfRunning = false when done.
-      // Use __perfConnectStart (set when connect() subscribes) as the start
-      // time — this excludes React scheduling overhead from setKey().
+      // Two-phase poll:
+      //   Phase 1 ("emit")  — wait for the Observable to finish emitting events.
+      //                        connect() sets __perfRunning=false when done.
+      //   Phase 2 ("render") — wait for React to commit all messages (__perfMsgCount
+      //                        reaches `count`) AND for the scroll position to
+      //                        stabilise (3 consecutive identical scrollTop readings),
+      //                        which means StickToBottom's spring animation has settled.
+      let phase: "emit" | "render" = "emit";
+      let emitMs = 0;
+      let stableCount = 0;
+      let lastScrollTop = -1;
+
       const poll = setInterval(() => {
-        if (!(window as any).__perfRunning) {
+        if (phase === "emit") {
+          if (!(window as any).__perfRunning) {
+            const start =
+              (window as any).__perfConnectStart ?? startTimeRef.current;
+            emitMs = performance.now() - start;
+            phase = "render";
+          }
+          return;
+        }
+
+        // Phase 2: wait for all messages committed + scroll stable.
+        const msgCount = (window as any).__perfMsgCount ?? 0;
+        if (msgCount < count) return; // still rendering
+
+        const scrollEl = (window as any).__perfScrollEl as HTMLElement | null;
+        const currentScrollTop = scrollEl?.scrollTop ?? 0;
+
+        if (currentScrollTop === lastScrollTop) {
+          stableCount++;
+        } else {
+          stableCount = 0;
+          lastScrollTop = currentScrollTop;
+        }
+
+        if (stableCount >= 3) {
           clearInterval(poll);
           const start =
             (window as any).__perfConnectStart ?? startTimeRef.current;
-          const elapsed = performance.now() - start;
-          pushResult(label, elapsed, renderCountRef.current);
+          const totalMs = performance.now() - start;
+          const renderMs = totalMs - emitMs;
+          pushResult(label, emitMs, renderMs, renderCountRef.current);
           setIsRunning(false);
         }
       }, 50);
     },
-    [isRunning, pushResult],
+    [isRunning, noAnim, pushResult],
   );
 
   const btnStyle: React.CSSProperties = {
@@ -258,6 +315,13 @@ export default function PerfPage() {
     fontFamily: "monospace",
     fontSize: 13,
     fontWeight: 600,
+  };
+
+  const toggleStyle: React.CSSProperties = {
+    ...btnStyle,
+    background: noAnim ? "#7c3aed" : "#1e293b",
+    border: "1px solid #334155",
+    cursor: "pointer",
   };
 
   return (
@@ -301,6 +365,14 @@ export default function PerfPage() {
         >
           Stream 100 (10ms/chunk)
         </button>
+        <button
+          style={toggleStyle}
+          disabled={isRunning}
+          onClick={() => setNoAnim((v) => !v)}
+          title="Toggle StickToBottom spring animation off (autoScroll=false)"
+        >
+          {noAnim ? "🚫 anim OFF" : "✨ anim ON"}
+        </button>
         {isRunning && (
           <span
             style={{
@@ -327,7 +399,11 @@ export default function PerfPage() {
             }}
           />
           <div style={{ height: "100%" }}>
-            <CopilotChat welcomeScreen={false} threadId={`perf-run-${key}`} />
+            <CopilotChat
+              welcomeScreen={false}
+              threadId={`perf-run-${key}`}
+              autoScroll={!noAnim}
+            />
           </div>
         </CopilotKitProvider>
       </div>

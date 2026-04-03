@@ -1,4 +1,14 @@
-import React, { useEffect, useMemo, useReducer, useState } from "react";
+import React, {
+  useContext,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useReducer,
+  useRef,
+  useState,
+} from "react";
+import { useVirtualizer } from "@tanstack/react-virtual";
+import { ScrollElementRefContext } from "./scroll-element-context";
 import { WithSlots, renderSlot, isReactComponentType } from "../../lib/slots";
 import CopilotChatAssistantMessage from "./CopilotChatAssistantMessage";
 import CopilotChatUserMessage from "./CopilotChatUserMessage";
@@ -294,6 +304,11 @@ export type CopilotChatMessageViewProps = Omit<
   }) => React.ReactElement;
 };
 
+// Above this many messages, activate TanStack Virtual to avoid mounting the
+// full DOM tree. Below the threshold the overhead of virtualization isn't
+// worth it and the simpler flat render is faster.
+const VIRTUALIZE_THRESHOLD = 50;
+
 export function CopilotChatMessageView({
   messages = [],
   assistantMessage,
@@ -377,141 +392,203 @@ export function CopilotChatMessageView({
     );
   }
 
-  const messageElements: React.ReactElement[] = deduplicatedMessages
-    .flatMap((message) => {
-      const elements: (React.ReactElement | null | undefined)[] = [];
-      const stateSnapshot = getStateSnapshotForMessage(message.id);
+  // ---------------------------------------------------------------------------
+  // Virtualization
+  // ---------------------------------------------------------------------------
+  // Grab the scroll container that ScrollView provides via context.
+  // On the first synchronous render this ref is not yet populated (DOM hasn't
+  // committed). After layout effects fire we check that the element has a real
+  // height (> 0) so that jsdom tests, where clientHeight is always 0, continue
+  // to render all messages without virtualization.
+  const scrollElementCtxRef = useContext(ScrollElementRefContext);
+  const [scrollElement, setScrollElement] = useState<HTMLElement | null>(null);
 
-      // Render custom message before (using memoized wrapper)
-      if (renderCustomMessage) {
-        elements.push(
-          <MemoizedCustomMessage
-            key={`${message.id}-custom-before`}
-            message={message}
-            position="before"
-            renderCustomMessage={renderCustomMessage}
-            stateSnapshot={stateSnapshot}
-          />,
-        );
+  useLayoutEffect(() => {
+    const el = scrollElementCtxRef?.current ?? null;
+    // clientHeight === 0 means no real layout (e.g. jsdom) — skip virtualization
+    if (el && el.clientHeight > 0) {
+      setScrollElement(el);
+    }
+    // scrollElementCtxRef is a stable ref object; omitting from deps is intentional.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Expose message count for programmatic perf measurement (two-phase timing).
+  // Fires after commit so it reflects when React has processed the new messages.
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      (window as any).__perfMsgCount = deduplicatedMessages.length;
+    }
+  }, [deduplicatedMessages.length]);
+
+  // Virtualize only when we have a scroll element and enough messages. The
+  // `children` render prop delegates layout to the caller, so we keep
+  // messageElements flat for that case.
+  const shouldVirtualize =
+    !!scrollElement &&
+    !children &&
+    deduplicatedMessages.length > VIRTUALIZE_THRESHOLD;
+
+  const virtualizer = useVirtualizer({
+    // count=0 disables the virtualizer without changing hook call order.
+    count: shouldVirtualize ? deduplicatedMessages.length : 0,
+    getScrollElement: () => scrollElement,
+    // Conservative height estimate. Items are measured by ResizeObserver after
+    // first render so the estimate only affects the initial total height.
+    estimateSize: () => 100,
+    overscan: 5,
+    measureElement: (el: Element) => el?.getBoundingClientRect().height ?? 0,
+    // Assume a 600 px viewport before the real element is measured so that
+    // the first virtual render shows ~6 items rather than 0.
+    initialRect: { width: 0, height: 600 },
+  });
+
+  // Scroll to the bottom of the list the first time virtual mode activates so
+  // the user sees the most recent messages (not the oldest ones).
+  const hasScrolledToBottomRef = useRef(false);
+  useLayoutEffect(() => {
+    if (!shouldVirtualize || hasScrolledToBottomRef.current) return;
+    hasScrolledToBottomRef.current = true;
+    virtualizer.scrollToIndex(deduplicatedMessages.length - 1, {
+      align: "end",
+    });
+    // Intentionally only reacts to shouldVirtualize flipping true; the other
+    // values are read at that moment and don't need to be deps.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shouldVirtualize]);
+
+  // ---------------------------------------------------------------------------
+  // Per-message rendering helper (shared by flat and virtual paths)
+  // ---------------------------------------------------------------------------
+  const renderMessageBlock = (message: Message): React.ReactElement[] => {
+    const elements: (React.ReactElement | null | undefined)[] = [];
+    const stateSnapshot = getStateSnapshotForMessage(message.id);
+
+    if (renderCustomMessage) {
+      elements.push(
+        <MemoizedCustomMessage
+          key={`${message.id}-custom-before`}
+          message={message}
+          position="before"
+          renderCustomMessage={renderCustomMessage}
+          stateSnapshot={stateSnapshot}
+        />,
+      );
+    }
+
+    if (message.role === "assistant") {
+      let AssistantComponent = CopilotChatAssistantMessage;
+      let assistantSlotProps:
+        | Partial<React.ComponentProps<typeof CopilotChatAssistantMessage>>
+        | undefined;
+
+      if (isReactComponentType(assistantMessage)) {
+        AssistantComponent =
+          assistantMessage as typeof CopilotChatAssistantMessage;
+      } else if (typeof assistantMessage === "string") {
+        assistantSlotProps = { className: assistantMessage };
+      } else if (assistantMessage && typeof assistantMessage === "object") {
+        assistantSlotProps = assistantMessage as Partial<
+          React.ComponentProps<typeof CopilotChatAssistantMessage>
+        >;
       }
 
-      // Render the main message using memoized wrappers to prevent unnecessary re-renders
-      if (message.role === "assistant") {
-        // Determine the component and props from slot value
-        let AssistantComponent = CopilotChatAssistantMessage;
-        let assistantSlotProps:
-          | Partial<React.ComponentProps<typeof CopilotChatAssistantMessage>>
-          | undefined;
+      elements.push(
+        <MemoizedAssistantMessage
+          key={message.id}
+          message={message as AssistantMessage}
+          messages={messages}
+          isRunning={isRunning}
+          AssistantMessageComponent={AssistantComponent}
+          slotProps={assistantSlotProps}
+        />,
+      );
+    } else if (message.role === "user") {
+      let UserComponent = CopilotChatUserMessage;
+      let userSlotProps:
+        | Partial<React.ComponentProps<typeof CopilotChatUserMessage>>
+        | undefined;
 
-        if (isReactComponentType(assistantMessage)) {
-          // Custom component (function, forwardRef, memo, etc.)
-          AssistantComponent =
-            assistantMessage as typeof CopilotChatAssistantMessage;
-        } else if (typeof assistantMessage === "string") {
-          // className string
-          assistantSlotProps = { className: assistantMessage };
-        } else if (assistantMessage && typeof assistantMessage === "object") {
-          // Props object
-          assistantSlotProps = assistantMessage as Partial<
-            React.ComponentProps<typeof CopilotChatAssistantMessage>
-          >;
-        }
-
-        elements.push(
-          <MemoizedAssistantMessage
-            key={message.id}
-            message={message as AssistantMessage}
-            messages={messages}
-            isRunning={isRunning}
-            AssistantMessageComponent={AssistantComponent}
-            slotProps={assistantSlotProps}
-          />,
-        );
-      } else if (message.role === "user") {
-        // Determine the component and props from slot value
-        let UserComponent = CopilotChatUserMessage;
-        let userSlotProps:
-          | Partial<React.ComponentProps<typeof CopilotChatUserMessage>>
-          | undefined;
-
-        if (isReactComponentType(userMessage)) {
-          // Custom component (function, forwardRef, memo, etc.)
-          UserComponent = userMessage as typeof CopilotChatUserMessage;
-        } else if (typeof userMessage === "string") {
-          // className string
-          userSlotProps = { className: userMessage };
-        } else if (userMessage && typeof userMessage === "object") {
-          // Props object
-          userSlotProps = userMessage as Partial<
-            React.ComponentProps<typeof CopilotChatUserMessage>
-          >;
-        }
-
-        elements.push(
-          <MemoizedUserMessage
-            key={message.id}
-            message={message as UserMessage}
-            UserMessageComponent={UserComponent}
-            slotProps={userSlotProps}
-          />,
-        );
-      } else if (message.role === "activity") {
-        // Use memoized wrapper to prevent re-renders when other messages change
-        const activityMsg = message as ActivityMessage;
-        elements.push(
-          <MemoizedActivityMessage
-            key={message.id}
-            message={activityMsg}
-            renderActivityMessage={renderActivityMessage}
-          />,
-        );
-      } else if (message.role === "reasoning") {
-        // Determine the component and props from slot value
-        let ReasoningComponent = CopilotChatReasoningMessage;
-        let reasoningSlotProps:
-          | Partial<React.ComponentProps<typeof CopilotChatReasoningMessage>>
-          | undefined;
-
-        if (isReactComponentType(reasoningMessage)) {
-          ReasoningComponent =
-            reasoningMessage as typeof CopilotChatReasoningMessage;
-        } else if (typeof reasoningMessage === "string") {
-          reasoningSlotProps = { className: reasoningMessage };
-        } else if (reasoningMessage && typeof reasoningMessage === "object") {
-          reasoningSlotProps = reasoningMessage as Partial<
-            React.ComponentProps<typeof CopilotChatReasoningMessage>
-          >;
-        }
-
-        elements.push(
-          <MemoizedReasoningMessage
-            key={message.id}
-            message={message as ReasoningMessage}
-            messages={messages}
-            isRunning={isRunning}
-            ReasoningMessageComponent={ReasoningComponent}
-            slotProps={reasoningSlotProps}
-          />,
-        );
+      if (isReactComponentType(userMessage)) {
+        UserComponent = userMessage as typeof CopilotChatUserMessage;
+      } else if (typeof userMessage === "string") {
+        userSlotProps = { className: userMessage };
+      } else if (userMessage && typeof userMessage === "object") {
+        userSlotProps = userMessage as Partial<
+          React.ComponentProps<typeof CopilotChatUserMessage>
+        >;
       }
 
-      // Render custom message after (using memoized wrapper)
-      if (renderCustomMessage) {
-        elements.push(
-          <MemoizedCustomMessage
-            key={`${message.id}-custom-after`}
-            message={message}
-            position="after"
-            renderCustomMessage={renderCustomMessage}
-            stateSnapshot={stateSnapshot}
-          />,
-        );
+      elements.push(
+        <MemoizedUserMessage
+          key={message.id}
+          message={message as UserMessage}
+          UserMessageComponent={UserComponent}
+          slotProps={userSlotProps}
+        />,
+      );
+    } else if (message.role === "activity") {
+      const activityMsg = message as ActivityMessage;
+      elements.push(
+        <MemoizedActivityMessage
+          key={message.id}
+          message={activityMsg}
+          renderActivityMessage={renderActivityMessage}
+        />,
+      );
+    } else if (message.role === "reasoning") {
+      let ReasoningComponent = CopilotChatReasoningMessage;
+      let reasoningSlotProps:
+        | Partial<React.ComponentProps<typeof CopilotChatReasoningMessage>>
+        | undefined;
+
+      if (isReactComponentType(reasoningMessage)) {
+        ReasoningComponent =
+          reasoningMessage as typeof CopilotChatReasoningMessage;
+      } else if (typeof reasoningMessage === "string") {
+        reasoningSlotProps = { className: reasoningMessage };
+      } else if (reasoningMessage && typeof reasoningMessage === "object") {
+        reasoningSlotProps = reasoningMessage as Partial<
+          React.ComponentProps<typeof CopilotChatReasoningMessage>
+        >;
       }
 
-      return elements;
-    })
-    .filter(Boolean) as React.ReactElement[];
+      elements.push(
+        <MemoizedReasoningMessage
+          key={message.id}
+          message={message as ReasoningMessage}
+          messages={messages}
+          isRunning={isRunning}
+          ReasoningMessageComponent={ReasoningComponent}
+          slotProps={reasoningSlotProps}
+        />,
+      );
+    }
 
+    if (renderCustomMessage) {
+      elements.push(
+        <MemoizedCustomMessage
+          key={`${message.id}-custom-after`}
+          message={message}
+          position="after"
+          renderCustomMessage={renderCustomMessage}
+          stateSnapshot={stateSnapshot}
+        />,
+      );
+    }
+
+    return elements.filter(Boolean) as React.ReactElement[];
+  };
+
+  // Build the flat element list only when we're not virtualizing (avoids
+  // creating 500 React elements that we'd immediately discard).
+  const messageElements: React.ReactElement[] = shouldVirtualize
+    ? []
+    : deduplicatedMessages.flatMap(renderMessageBlock);
+
+  // ---------------------------------------------------------------------------
+  // children render prop (custom layout, always non-virtual)
+  // ---------------------------------------------------------------------------
   if (children) {
     return (
       <div data-copilotkit style={{ display: "contents" }}>
@@ -525,6 +602,58 @@ export function CopilotChatMessageView({
   const lastMessage = messages[messages.length - 1];
   const showCursor = isRunning && lastMessage?.role !== "reasoning";
 
+  // ---------------------------------------------------------------------------
+  // Virtual render path
+  // ---------------------------------------------------------------------------
+  if (shouldVirtualize) {
+    return (
+      <div
+        data-copilotkit
+        data-testid="copilot-message-list"
+        className={twMerge(
+          "copilotKitMessages cpk:flex cpk:flex-col",
+          className,
+        )}
+        {...props}
+      >
+        {/* Outer div sets the total scrollable height; items are positioned
+            absolutely within it so only visible ones exist in the DOM. */}
+        <div
+          style={{ height: virtualizer.getTotalSize(), position: "relative" }}
+        >
+          {virtualizer.getVirtualItems().map((virtualItem) => {
+            const message = deduplicatedMessages[virtualItem.index];
+            return (
+              <div
+                key={message.id}
+                data-index={virtualItem.index}
+                ref={virtualizer.measureElement}
+                style={{
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                  width: "100%",
+                  transform: `translateY(${virtualItem.start}px)`,
+                }}
+              >
+                {renderMessageBlock(message)}
+              </div>
+            );
+          })}
+        </div>
+        {interruptElement}
+        {showCursor && (
+          <div className="cpk:mt-2">
+            {renderSlot(cursor, CopilotChatMessageView.Cursor, {})}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Normal (non-virtual) render path
+  // ---------------------------------------------------------------------------
   return (
     <div
       data-copilotkit

@@ -1,4 +1,5 @@
-import React, { useRef, useState, useEffect } from "react";
+import React, { useLayoutEffect, useRef, useState, useEffect } from "react";
+import { ScrollElementRefContext } from "./scroll-element-context";
 import { WithSlots, SlotValue, renderSlot } from "../../lib/slots";
 import CopilotChatMessageView from "./CopilotChatMessageView";
 import CopilotChatInput, {
@@ -311,42 +312,62 @@ export namespace CopilotChatView {
     inputContainerHeight,
     isResizing,
   }) => {
-    const { isAtBottom, scrollToBottom } = useStickToBottomContext();
+    const { isAtBottom, scrollToBottom, scrollRef } = useStickToBottomContext();
+
+    // Expose the scroll element on window for programmatic perf measurement.
+    // The perf page polls window.__perfScrollEl to detect when scroll animation settles.
+    useLayoutEffect(() => {
+      if (typeof window !== "undefined") {
+        (window as any).__perfScrollEl = scrollRef.current;
+      }
+      return () => {
+        if (typeof window !== "undefined") {
+          (window as any).__perfScrollEl = null;
+        }
+      };
+      // scrollRef is a stable object; intentionally omitted from deps.
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     const BoundFeather = renderSlot(feather, CopilotChatView.Feather, {});
 
     return (
-      <>
-        <StickToBottom.Content
-          className="cpk:overflow-y-auto cpk:overflow-x-hidden"
-          style={{ flex: "1 1 0%", minHeight: 0 }}
-        >
-          <div className="cpk:px-4 cpk:sm:px-0 cpk:[div[data-sidebar-chat]_&]:px-8 cpk:[div[data-popup-chat]_&]:px-6">
-            {children}
-          </div>
-        </StickToBottom.Content>
-
-        {/* Feather gradient overlay */}
-        {BoundFeather}
-
-        {/* Scroll to bottom button - hidden during resize */}
-        {!isAtBottom && !isResizing && (
-          <div
-            className="cpk:absolute cpk:inset-x-0 cpk:flex cpk:justify-center cpk:z-30 cpk:pointer-events-none"
-            style={{
-              bottom: `${inputContainerHeight + FEATHER_HEIGHT + 16}px`,
-            }}
+      // scrollRef from useStickToBottomContext() points to StickToBottom.Content's
+      // DOM element (the overflow-y:auto scroll container). Provide it so that
+      // CopilotChatMessageView can use it as the scroll element for useVirtualizer.
+      <ScrollElementRefContext.Provider value={scrollRef}>
+        <>
+          <StickToBottom.Content
+            className="cpk:overflow-y-auto cpk:overflow-x-hidden"
+            style={{ flex: "1 1 0%", minHeight: 0 }}
           >
-            {renderSlot(
-              scrollToBottomButton,
-              CopilotChatView.ScrollToBottomButton,
-              {
-                onClick: () => scrollToBottom(),
-              },
-            )}
-          </div>
-        )}
-      </>
+            <div className="cpk:px-4 cpk:sm:px-0 cpk:[div[data-sidebar-chat]_&]:px-8 cpk:[div[data-popup-chat]_&]:px-6">
+              {children}
+            </div>
+          </StickToBottom.Content>
+
+          {/* Feather gradient overlay */}
+          {BoundFeather}
+
+          {/* Scroll to bottom button - hidden during resize */}
+          {!isAtBottom && !isResizing && (
+            <div
+              className="cpk:absolute cpk:inset-x-0 cpk:flex cpk:justify-center cpk:z-30 cpk:pointer-events-none"
+              style={{
+                bottom: `${inputContainerHeight + FEATHER_HEIGHT + 16}px`,
+              }}
+            >
+              {renderSlot(
+                scrollToBottomButton,
+                CopilotChatView.ScrollToBottomButton,
+                {
+                  onClick: () => scrollToBottom(),
+                },
+              )}
+            </div>
+          )}
+        </>
+      </ScrollElementRefContext.Provider>
     );
   };
 
@@ -377,6 +398,21 @@ export namespace CopilotChatView {
     useEffect(() => {
       setHasMounted(true);
     }, []);
+
+    // Expose the scroll element for programmatic perf measurement (non-autoScroll path).
+    useLayoutEffect(() => {
+      if (autoScroll) return;
+      if (typeof window !== "undefined") {
+        (window as any).__perfScrollEl = scrollRef.current;
+      }
+      return () => {
+        if (typeof window !== "undefined") {
+          (window as any).__perfScrollEl = null;
+        }
+      };
+      // scrollRef is stable; autoScroll doesn't change during a mount.
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [autoScroll]);
 
     // Monitor scroll position for non-autoscroll mode
     useEffect(() => {
@@ -422,42 +458,46 @@ export namespace CopilotChatView {
       const BoundFeather = renderSlot(feather, CopilotChatView.Feather, {});
 
       return (
-        <div
-          ref={scrollRef}
-          className={cn(
-            "cpk:h-full cpk:max-h-full cpk:flex cpk:flex-col cpk:min-h-0 cpk:overflow-y-auto cpk:overflow-x-hidden cpk:relative",
-            className,
-          )}
-          {...props}
-        >
+        // scrollRef is the scroll container div (has overflow-y:auto).
+        // Provide it so CopilotChatMessageView can use it for useVirtualizer.
+        <ScrollElementRefContext.Provider value={scrollRef}>
           <div
-            ref={contentRef}
-            className="cpk:px-4 cpk:sm:px-0 cpk:[div[data-sidebar-chat]_&]:px-8 cpk:[div[data-popup-chat]_&]:px-6"
+            ref={scrollRef}
+            className={cn(
+              "cpk:h-full cpk:max-h-full cpk:flex cpk:flex-col cpk:min-h-0 cpk:overflow-y-auto cpk:overflow-x-hidden cpk:relative",
+              className,
+            )}
+            {...props}
           >
-            {children}
-          </div>
-
-          {/* Feather gradient overlay */}
-          {BoundFeather}
-
-          {/* Scroll to bottom button for manual mode */}
-          {showScrollButton && !isResizing && (
             <div
-              className="cpk:absolute cpk:inset-x-0 cpk:flex cpk:justify-center cpk:z-30 cpk:pointer-events-none"
-              style={{
-                bottom: `${inputContainerHeight + FEATHER_HEIGHT + 16}px`,
-              }}
+              ref={contentRef}
+              className="cpk:px-4 cpk:sm:px-0 cpk:[div[data-sidebar-chat]_&]:px-8 cpk:[div[data-popup-chat]_&]:px-6"
             >
-              {renderSlot(
-                scrollToBottomButton,
-                CopilotChatView.ScrollToBottomButton,
-                {
-                  onClick: () => scrollToBottom(),
-                },
-              )}
+              {children}
             </div>
-          )}
-        </div>
+
+            {/* Feather gradient overlay */}
+            {BoundFeather}
+
+            {/* Scroll to bottom button for manual mode */}
+            {showScrollButton && !isResizing && (
+              <div
+                className="cpk:absolute cpk:inset-x-0 cpk:flex cpk:justify-center cpk:z-30 cpk:pointer-events-none"
+                style={{
+                  bottom: `${inputContainerHeight + FEATHER_HEIGHT + 16}px`,
+                }}
+              >
+                {renderSlot(
+                  scrollToBottomButton,
+                  CopilotChatView.ScrollToBottomButton,
+                  {
+                    onClick: () => scrollToBottom(),
+                  },
+                )}
+              </div>
+            )}
+          </div>
+        </ScrollElementRefContext.Provider>
       );
     }
 
