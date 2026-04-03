@@ -2171,6 +2171,9 @@ importers:
       '@anthropic-ai/sdk':
         specifier: ^0.57.0
         version: 0.57.0
+      '@copilotkit/license-verifier':
+        specifier: 0.0.1-a1
+        version: 0.0.1-a1
       '@copilotkit/shared':
         specifier: workspace:*
         version: link:../shared
