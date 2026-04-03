@@ -89,6 +89,10 @@ def langgraph_default_merge_state( # pylint: disable=unused-argument
     }
 
 
+# TODO(ran-review): suspected dead code — LangGraphAgent is the pre-AG-UI implementation.
+# sdk.py already warns users to migrate to LangGraphAGUIAgent. Only non-legacy caller
+# found is examples/canvas/gemini/. The deprecated params (agent=, config=, merge_state=)
+# are unused outside _legacy/ examples. Please verify before removing.
 class LangGraphAgent(Agent):
     """
     LangGraphAgent lets you define your agent for use with CopilotKit.

@@ -47,6 +47,8 @@ class CopilotKitState(MessagesState):
 
 
 def copilotkit_messages_to_langchain(
+        # TODO(ran-review): suspected dead code — the use_function_call=True branch
+        # has no callers (the only call site passes False). Please verify before removing.
         use_function_call: bool = False
     ) -> Callable[[List[Message]], List[BaseMessage]]:
     """
