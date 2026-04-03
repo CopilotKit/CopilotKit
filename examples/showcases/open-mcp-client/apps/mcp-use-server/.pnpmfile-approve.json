@@ -1,1 +1,9 @@
-{"onlyBuiltDependencies":["@parcel/watcher","esbuild","core-js","protobufjs","@modelcontextprotocol/ext-apps"]}
+{
+  "onlyBuiltDependencies": [
+    "@parcel/watcher",
+    "esbuild",
+    "core-js",
+    "protobufjs",
+    "@modelcontextprotocol/ext-apps"
+  ]
+}

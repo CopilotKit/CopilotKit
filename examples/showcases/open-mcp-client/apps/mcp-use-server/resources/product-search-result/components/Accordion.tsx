@@ -12,7 +12,7 @@ interface AccordionProps {
 
 export const Accordion: React.FC<AccordionProps> = ({ items }) => {
   const [openAccordionIndex, setOpenAccordionIndex] = useState<number | null>(
-    null
+    null,
   );
 
   return (

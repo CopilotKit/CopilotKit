@@ -40,7 +40,7 @@ export interface MergedToolConfig {
 // ---------------------------------------------------------------------------
 
 export function generatePreviewData(
-  inputSchema: Record<string, unknown>
+  inputSchema: Record<string, unknown>,
 ): Record<string, unknown> {
   const props = inputSchema?.properties as
     | Record<
@@ -98,9 +98,11 @@ export interface ValidationResult {
   message: string;
 }
 
-export function validateToolConfig(
-  config: MergedToolConfig
-): { summary: string; results: ValidationResult[]; allPassed: boolean } {
+export function validateToolConfig(config: MergedToolConfig): {
+  summary: string;
+  results: ValidationResult[];
+  allPassed: boolean;
+} {
   const results: ValidationResult[] = [];
 
   // 1. Schema structure
@@ -241,9 +243,12 @@ export function useToolConfigStore(introspectedTools: IntrospectedTool[]) {
 
       // --- Prune: remove introspected tools no longer present in any connected server ---
       for (const key of Object.keys(next)) {
-        if (next[key].source === "introspected" && !introspectedNames.has(key)) {
+        if (
+          next[key].source === "introspected" &&
+          !introspectedNames.has(key)
+        ) {
           console.log(
-            `[useToolConfigStore] Pruning stale introspected tool "${key}" (no longer in any connected server)`
+            `[useToolConfigStore] Pruning stale introspected tool "${key}" (no longer in any connected server)`,
           );
           delete next[key];
           changed = true;
@@ -253,7 +258,9 @@ export function useToolConfigStore(introspectedTools: IntrospectedTool[]) {
       // --- Upsert: add or sync tools currently returned by introspection ---
       for (const tool of introspectedTools) {
         if (!next[tool.name]) {
-          console.log(`[useToolConfigStore] Adding new introspected tool "${tool.name}"`);
+          console.log(
+            `[useToolConfigStore] Adding new introspected tool "${tool.name}"`,
+          );
           next[tool.name] = {
             toolName: tool.name,
             source: "introspected",
@@ -273,10 +280,13 @@ export function useToolConfigStore(introspectedTools: IntrospectedTool[]) {
           if (raw.mockData !== undefined && raw.previewData === undefined) {
             next[tool.name] = {
               ...next[tool.name],
-              previewData: tool.hasUI ? {} : (raw.mockData as Record<string, unknown>),
+              previewData: tool.hasUI
+                ? {}
+                : (raw.mockData as Record<string, unknown>),
               updatedAt: Date.now(),
             };
-            delete (next[tool.name] as unknown as Record<string, unknown>).mockData;
+            delete (next[tool.name] as unknown as Record<string, unknown>)
+              .mockData;
             changed = true;
           }
           // Keep HTML in sync from server for non-locally-modified tools
@@ -294,7 +304,8 @@ export function useToolConfigStore(introspectedTools: IntrospectedTool[]) {
           if (
             next[tool.name].source === "introspected" &&
             tool.uiPreviewData &&
-            JSON.stringify(next[tool.name].previewData) !== JSON.stringify(tool.uiPreviewData)
+            JSON.stringify(next[tool.name].previewData) !==
+              JSON.stringify(tool.uiPreviewData)
           ) {
             next[tool.name] = {
               ...next[tool.name],
@@ -309,12 +320,12 @@ export function useToolConfigStore(introspectedTools: IntrospectedTool[]) {
       if (!changed) {
         console.log(
           `[useToolConfigStore] Configs in sync — ${Object.keys(next).length} tool(s):`,
-          Object.keys(next)
+          Object.keys(next),
         );
       } else {
         console.log(
           `[useToolConfigStore] Configs updated — ${Object.keys(next).length} tool(s):`,
-          Object.keys(next)
+          Object.keys(next),
         );
       }
 
@@ -330,7 +341,8 @@ export function useToolConfigStore(introspectedTools: IntrospectedTool[]) {
     const introspectedNames = introspectedTools.map((t) => t.name);
     const configKeys = Object.keys(configs);
     const staleKeys = configKeys.filter(
-      (k) => configs[k].source === "introspected" && !introspectedNames.includes(k)
+      (k) =>
+        configs[k].source === "introspected" && !introspectedNames.includes(k),
     );
     console.log("[useToolConfigStore] mergedTools recompute", {
       configsCount: configKeys.length,
@@ -343,7 +355,7 @@ export function useToolConfigStore(introspectedTools: IntrospectedTool[]) {
     for (const config of Object.values(configs)) {
       seen.add(config.toolName);
       const introspected = introspectedTools.find(
-        (t) => t.name === config.toolName
+        (t) => t.name === config.toolName,
       );
       result.push({
         toolName: config.toolName,
@@ -389,19 +401,19 @@ export function useToolConfigStore(introspectedTools: IntrospectedTool[]) {
 
   const getConfig = useCallback(
     (toolName: string): LocalToolConfig | null => configs[toolName] ?? null,
-    [configs]
+    [configs],
   );
 
   const getMockData = useCallback(
     (toolName: string): Record<string, unknown> =>
       configs[toolName]?.previewData ?? {},
-    [configs]
+    [configs],
   );
 
   const updateConfig = useCallback(
     (
       toolName: string,
-      updates: Partial<Omit<LocalToolConfig, "toolName" | "createdAt">>
+      updates: Partial<Omit<LocalToolConfig, "toolName" | "createdAt">>,
     ) => {
       setConfigs((prev) => {
         if (!prev[toolName]) return prev;
@@ -411,14 +423,14 @@ export function useToolConfigStore(introspectedTools: IntrospectedTool[]) {
         };
       });
     },
-    [setConfigs]
+    [setConfigs],
   );
 
   const createTool = useCallback(
     (
       toolName: string,
       description: string,
-      inputSchema: Record<string, unknown>
+      inputSchema: Record<string, unknown>,
     ): LocalToolConfig => {
       const config: LocalToolConfig = {
         toolName,
@@ -433,7 +445,7 @@ export function useToolConfigStore(introspectedTools: IntrospectedTool[]) {
       setConfigs((prev) => ({ ...prev, [toolName]: config }));
       return config;
     },
-    [setConfigs]
+    [setConfigs],
   );
 
   const deleteTool = useCallback(
@@ -446,14 +458,12 @@ export function useToolConfigStore(introspectedTools: IntrospectedTool[]) {
         return next;
       });
     },
-    [setConfigs]
+    [setConfigs],
   );
 
   const resetToIntrospected = useCallback(
     (toolName: string) => {
-      const introspected = introspectedTools.find(
-        (t) => t.name === toolName
-      );
+      const introspected = introspectedTools.find((t) => t.name === toolName);
       if (!introspected) return;
       setConfigs((prev) => ({
         ...prev,
@@ -467,7 +477,7 @@ export function useToolConfigStore(introspectedTools: IntrospectedTool[]) {
         },
       }));
     },
-    [introspectedTools, setConfigs]
+    [introspectedTools, setConfigs],
   );
 
   return {

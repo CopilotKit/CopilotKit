@@ -6,7 +6,7 @@ export const propSchema = z.object({
     z.object({
       fruit: z.string().describe("Fruit name"),
       color: z.string().describe("Tailwind background color class"),
-    })
+    }),
   ),
 });
 

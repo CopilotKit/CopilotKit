@@ -11,7 +11,7 @@ mcp-use is **built on top of the Hono web framework**. When you create an `MCPSe
 ```typescript
 const server = new MCPServer({
   name: "my-server",
-  version: "1.0.0"
+  version: "1.0.0",
 });
 ```
 
@@ -23,7 +23,7 @@ The underlying Hono web application that handles HTTP routing and middleware.
 
 ```typescript
 // Add custom HTTP routes
-server.app.get('/health', (c) => c.json({ status: 'ok' }));
+server.app.get("/health", (c) => c.json({ status: "ok" }));
 
 // Add Hono middleware
 server.app.use(async (c, next) => {
@@ -33,6 +33,7 @@ server.app.use(async (c, next) => {
 ```
 
 **Use for:**
+
 - Custom HTTP endpoints
 - Hono-specific middleware
 - Direct access to Hono features
@@ -47,6 +48,7 @@ server.nativeServer.server.setRequestHandler(...);
 ```
 
 **Use for:**
+
 - Advanced MCP protocol features
 - Direct SDK access (rare)
 
@@ -91,17 +93,17 @@ The Hono Context provides request/response handling:
 ```typescript
 server.app.use(async (c, next) => {
   // Request
-  const method = c.req.method;           // GET, POST, etc.
-  const url = c.req.url;                 // Full URL
-  const body = await c.req.json();       // Parse JSON body
-  const header = c.req.header('x-api-key'); // Get header
+  const method = c.req.method; // GET, POST, etc.
+  const url = c.req.url; // Full URL
+  const body = await c.req.json(); // Parse JSON body
+  const header = c.req.header("x-api-key"); // Get header
 
   await next();
 
   // Response
-  return c.json({ data: "value" });      // JSON response
-  return c.text("Hello");                // Text response
-  return c.status(404);                  // Status code
+  return c.json({ data: "value" }); // JSON response
+  return c.text("Hello"); // Text response
+  return c.status(404); // Status code
 });
 ```
 
@@ -112,15 +114,17 @@ Use Hono-compatible middleware packages. Express middleware (e.g., `express-rate
 ```typescript
 import { rateLimiter } from "hono-rate-limiter";
 
-server.use(rateLimiter({
-  windowMs: 15 * 60 * 1000,
-  limit: 100,
-  keyGenerator: (c) =>
-    c.req.header("x-forwarded-for")?.split(",")[0]?.trim() ??
-    c.req.header("cf-connecting-ip") ??
-    c.req.header("x-real-ip") ??
-    "unknown",
-}));
+server.use(
+  rateLimiter({
+    windowMs: 15 * 60 * 1000,
+    limit: 100,
+    keyGenerator: (c) =>
+      c.req.header("x-forwarded-for")?.split(",")[0]?.trim() ??
+      c.req.header("cf-connecting-ip") ??
+      c.req.header("x-real-ip") ??
+      "unknown",
+  }),
+);
 ```
 
 **Recommended:** Use established Hono-compatible packages rather than writing custom middleware.
@@ -140,6 +144,7 @@ server.app.use(middleware);
 ```
 
 **When to use each:**
+
 - `server.use()` - For middleware packages, general use
 - `server.app.use()` - When you need Hono-specific features
 
@@ -185,7 +190,7 @@ server.tool(
   async ({ name }) => {
     console.log("3. Tool handler");
     return text(`Hello, ${name}`); // 4. Response helper
-  }
+  },
 );
 ```
 
@@ -211,6 +216,7 @@ server.app.get('/api/status', (c) => {
 ```
 
 **Use cases:**
+
 - Health check endpoints
 - Webhooks
 - Admin APIs
@@ -249,6 +255,7 @@ server.use(async (c, next) => {
 ## Best Practices
 
 ### 1. Use Hono-Compatible Middleware Packages
+
 ```typescript
 ✅ import { rateLimiter } from "hono-rate-limiter";
 ✅ server.use(rateLimiter({ ... }));
@@ -257,6 +264,7 @@ server.use(async (c, next) => {
 ```
 
 ### 2. Understand the Signature
+
 ```typescript
 ✅ server.use(async (c, next) => { ... });
 
@@ -264,6 +272,7 @@ server.use(async (c, next) => {
 ```
 
 ### 3. Access Hono When Needed
+
 ```typescript
 ✅ server.app.get('/custom', (c) => c.json({ ... }));
 
@@ -271,6 +280,7 @@ server.use(async (c, next) => {
 ```
 
 ### 4. Keep MCP Separate from HTTP
+
 ```typescript
 ✅ MCP tools for AI interactions
 ✅ HTTP routes for webhooks/admin

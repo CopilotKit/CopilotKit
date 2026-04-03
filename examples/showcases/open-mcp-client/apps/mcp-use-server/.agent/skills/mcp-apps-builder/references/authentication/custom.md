@@ -11,7 +11,7 @@ import { MCPServer, oauthCustomProvider, object } from "mcp-use/server";
 import { createRemoteJWKSet, jwtVerify } from "jose";
 
 const JWKS = createRemoteJWKSet(
-  new URL("https://login.example.com/.well-known/jwks.json")
+  new URL("https://login.example.com/.well-known/jwks.json"),
 );
 
 const server = new MCPServer({
@@ -37,7 +37,7 @@ server.tool(
     object({
       userId: ctx.auth.user.userId,
       email: ctx.auth.user.email,
-    })
+    }),
 );
 
 server.listen();
@@ -60,16 +60,16 @@ oauth: oauthCustomProvider({
 })
 ```
 
-| Option | Type | Required | Description |
-|--------|------|----------|-------------|
-| `issuer` | `string` | Yes | OAuth issuer URL |
-| `jwksUrl` | `string` | Yes | JWKS endpoint for key discovery |
-| `authEndpoint` | `string` | Yes | Authorization endpoint |
-| `tokenEndpoint` | `string` | Yes | Token endpoint |
-| `verifyToken` | `(token: string) => Promise<{ payload }>` | Yes | Custom JWT verification function |
-| `getUserInfo` | `(payload) => UserInfo` | No | Custom user info extraction |
-| `scopesSupported` | `string[]` | No | Defaults to `["openid", "profile", "email"]` |
-| `grantTypesSupported` | `string[]` | No | Defaults to `["authorization_code", "refresh_token"]` |
+| Option                | Type                                      | Required | Description                                           |
+| --------------------- | ----------------------------------------- | -------- | ----------------------------------------------------- |
+| `issuer`              | `string`                                  | Yes      | OAuth issuer URL                                      |
+| `jwksUrl`             | `string`                                  | Yes      | JWKS endpoint for key discovery                       |
+| `authEndpoint`        | `string`                                  | Yes      | Authorization endpoint                                |
+| `tokenEndpoint`       | `string`                                  | Yes      | Token endpoint                                        |
+| `verifyToken`         | `(token: string) => Promise<{ payload }>` | Yes      | Custom JWT verification function                      |
+| `getUserInfo`         | `(payload) => UserInfo`                   | No       | Custom user info extraction                           |
+| `scopesSupported`     | `string[]`                                | No       | Defaults to `["openid", "profile", "email"]`          |
+| `grantTypesSupported` | `string[]`                                | No       | Defaults to `["authorization_code", "refresh_token"]` |
 
 ---
 
@@ -81,16 +81,16 @@ You must provide a `verifyToken` function that validates the JWT and returns `{ 
 import { createRemoteJWKSet, jwtVerify } from "jose";
 
 const JWKS = createRemoteJWKSet(
-  new URL("https://login.example.com/.well-known/jwks.json")
+  new URL("https://login.example.com/.well-known/jwks.json"),
 );
 
 verifyToken: async (token) => {
   const result = await jwtVerify(token, JWKS, {
     issuer: "https://login.example.com",
-    audience: "my-api",  // if your provider requires audience validation
+    audience: "my-api", // if your provider requires audience validation
   });
   return result;
-}
+};
 ```
 
 The `jose` library is already a dependency of mcp-use, so no additional install is needed.
@@ -101,17 +101,17 @@ The `jose` library is already a dependency of mcp-use, so no additional install 
 
 Without `getUserInfo`, the provider extracts standard OIDC claims automatically:
 
-| Field | Extracted From |
-|-------|---------------|
-| `userId` | `sub`, `user_id`, or `id` |
-| `email` | `email` |
-| `name` | `name` |
-| `username` | `username` or `preferred_username` |
-| `nickname` | `nickname` |
-| `picture` | `picture` or `avatar_url` |
-| `roles` | `roles` (if array) |
-| `permissions` | `permissions` (if array) |
-| `scopes` | Parsed from `scope` string |
+| Field         | Extracted From                     |
+| ------------- | ---------------------------------- |
+| `userId`      | `sub`, `user_id`, or `id`          |
+| `email`       | `email`                            |
+| `name`        | `name`                             |
+| `username`    | `username` or `preferred_username` |
+| `nickname`    | `nickname`                         |
+| `picture`     | `picture` or `avatar_url`          |
+| `roles`       | `roles` (if array)                 |
+| `permissions` | `permissions` (if array)           |
+| `scopes`      | Parsed from `scope` string         |
 
 Override this if your provider uses non-standard claim names:
 
@@ -121,7 +121,7 @@ getUserInfo: (payload) => ({
   email: payload.mail as string,
   name: payload.display_name as string,
   roles: (payload.groups as string[]) || [],
-})
+});
 ```
 
 ---
@@ -152,7 +152,7 @@ oauth: oauthCustomProvider({
     username: payload.login as string,
     picture: payload.avatar_url as string,
   }),
-})
+});
 ```
 
 ### Okta
@@ -162,7 +162,7 @@ import { createRemoteJWKSet, jwtVerify } from "jose";
 
 const OKTA_DOMAIN = process.env.OKTA_DOMAIN; // e.g., "dev-123456.okta.com"
 const JWKS = createRemoteJWKSet(
-  new URL(`https://${OKTA_DOMAIN}/oauth2/default/v1/keys`)
+  new URL(`https://${OKTA_DOMAIN}/oauth2/default/v1/keys`),
 );
 
 oauth: oauthCustomProvider({
@@ -174,7 +174,7 @@ oauth: oauthCustomProvider({
     jwtVerify(token, JWKS, {
       issuer: `https://${OKTA_DOMAIN}/oauth2/default`,
     }),
-})
+});
 ```
 
 ### Azure AD
@@ -184,7 +184,7 @@ import { createRemoteJWKSet, jwtVerify } from "jose";
 
 const TENANT_ID = process.env.AZURE_TENANT_ID;
 const JWKS = createRemoteJWKSet(
-  new URL(`https://login.microsoftonline.com/${TENANT_ID}/discovery/v2.0/keys`)
+  new URL(`https://login.microsoftonline.com/${TENANT_ID}/discovery/v2.0/keys`),
 );
 
 oauth: oauthCustomProvider({
@@ -202,7 +202,7 @@ oauth: oauthCustomProvider({
     name: payload.name as string,
     roles: (payload.roles as string[]) || [],
   }),
-})
+});
 ```
 
 ---
