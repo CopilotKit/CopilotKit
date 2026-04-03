@@ -25,7 +25,7 @@ async function connectClient(url: string) {
   try {
     const client = new Client(
       { name: "mcp-studio-introspect", version: "1.0.0" },
-      { capabilities: {} }
+      { capabilities: {} },
     );
     const transport = new StreamableHTTPClientTransport(new URL(url));
     await client.connect(transport);
@@ -34,12 +34,12 @@ async function connectClient(url: string) {
   } catch (err) {
     console.log(
       `[mcp-introspect] StreamableHTTP failed for ${url}:`,
-      (err as Error).message
+      (err as Error).message,
     );
     try {
       const client = new Client(
         { name: "mcp-studio-introspect", version: "1.0.0" },
-        { capabilities: {} }
+        { capabilities: {} },
       );
       const transport = new SSEClientTransport(new URL(url));
       await client.connect(transport);
@@ -48,7 +48,7 @@ async function connectClient(url: string) {
     } catch (sseErr) {
       console.error(
         `[mcp-introspect] SSE also failed for ${url}:`,
-        (sseErr as Error).message
+        (sseErr as Error).message,
       );
       throw sseErr;
     }
@@ -67,7 +67,7 @@ export async function POST(req: NextRequest) {
   if (!endpoint) {
     return NextResponse.json(
       { error: "Missing `endpoint` field" },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
@@ -82,7 +82,9 @@ export async function POST(req: NextRequest) {
     let cursor: string | undefined;
     do {
       const res = await client.listTools(cursor ? { cursor } : undefined);
-      console.log(`[mcp-introspect] listTools returned ${res.tools.length} tools`);
+      console.log(
+        `[mcp-introspect] listTools returned ${res.tools.length} tools`,
+      );
       for (const t of res.tools) {
         const meta = (t as Record<string, unknown>)._meta as
           | Record<string, unknown>
@@ -106,25 +108,27 @@ export async function POST(req: NextRequest) {
 
     console.log(
       `[mcp-introspect] Discovered tools:`,
-      allTools.map((t) => `${t.name} (UI: ${t.hasUI}, previewData: ${t.uiPreviewData !== null})`)
+      allTools.map(
+        (t) =>
+          `${t.name} (UI: ${t.hasUI}, previewData: ${t.uiPreviewData !== null})`,
+      ),
     );
 
     // 2. For tools with UI, fetch the resource HTML
     for (const tool of allTools) {
       if (tool.uiResourceUri) {
         console.log(
-          `[mcp-introspect] Reading resource for ${tool.name}: ${tool.uiResourceUri}`
+          `[mcp-introspect] Reading resource for ${tool.name}: ${tool.uiResourceUri}`,
         );
         try {
           const res = await client.readResource({
             uri: tool.uiResourceUri,
           });
           const textContent = res.contents.find(
-            (c) => typeof (c as Record<string, unknown>).text === "string"
+            (c) => typeof (c as Record<string, unknown>).text === "string",
           );
           if (textContent) {
-            let html = (textContent as Record<string, unknown>)
-              .text as string;
+            let html = (textContent as Record<string, unknown>).text as string;
             // Fix widget HTML for CSP-safe rendering in sandboxed iframes:
             // 1. Extract internal origin from <base> tag (e.g. http://localhost:3109)
             // 2. Strip <base> tag — blocked by CSP base-uri 'self' and unnecessary
@@ -142,23 +146,22 @@ export async function POST(req: NextRequest) {
                 if (internalOrigin !== serverOrigin) {
                   html = html.replaceAll(internalOrigin, serverOrigin);
                 }
-              } catch { /* ignore malformed base href */ }
+              } catch {
+                /* ignore malformed base href */
+              }
             }
             tool.uiHtml = html;
             console.log(
-              `[mcp-introspect] UI HTML for ${tool.name} (${tool.uiHtml.length} chars)`
+              `[mcp-introspect] UI HTML for ${tool.name} (${tool.uiHtml.length} chars)`,
             );
           } else {
             console.log(
               `[mcp-introspect] No text content found in resource for ${tool.name}. Contents:`,
-              JSON.stringify(res.contents).slice(0, 300)
+              JSON.stringify(res.contents).slice(0, 300),
             );
           }
         } catch (e) {
-          console.warn(
-            `Failed to read resource ${tool.uiResourceUri}:`,
-            e
-          );
+          console.warn(`Failed to read resource ${tool.uiResourceUri}:`, e);
         }
       }
     }
@@ -172,7 +175,7 @@ export async function POST(req: NextRequest) {
     let rCursor: string | undefined;
     do {
       const res = await client.listResources(
-        rCursor ? { cursor: rCursor } : undefined
+        rCursor ? { cursor: rCursor } : undefined,
       );
       for (const r of res.resources) {
         allResources.push({
@@ -187,7 +190,7 @@ export async function POST(req: NextRequest) {
     await client.close();
 
     console.log(
-      `[mcp-introspect] Done. ${allTools.length} tools, ${allResources.length} resources`
+      `[mcp-introspect] Done. ${allTools.length} tools, ${allResources.length} resources`,
     );
     return NextResponse.json({ tools: allTools, resources: allResources });
   } catch (err) {

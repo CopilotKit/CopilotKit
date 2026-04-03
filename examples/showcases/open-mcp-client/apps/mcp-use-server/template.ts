@@ -14,12 +14,13 @@
 import { Template, waitForPort } from "e2b";
 
 export const template = Template()
-  .fromNodeImage("lts")                          // Node.js LTS base image
+  .fromNodeImage("lts") // Node.js LTS base image
   .setWorkdir("/home/user/workspace")
-  .copy(".", "/home/user/workspace")             // copy all project files
-  .runCmd("npm install --no-audit --no-fund")    // bake node_modules into image
-  .runCmd("npm run build")                       // pre-build the mcp-use widgets
-  .setStartCmd(                                  // start the server when sandbox launches
+  .copy(".", "/home/user/workspace") // copy all project files
+  .runCmd("npm install --no-audit --no-fund") // bake node_modules into image
+  .runCmd("npm run build") // pre-build the mcp-use widgets
+  .setStartCmd(
+    // start the server when sandbox launches
     "npx tsx index.ts",
-    waitForPort(3109)                            // wait until port 3109 is open
+    waitForPort(3109), // wait until port 3109 is open
   );

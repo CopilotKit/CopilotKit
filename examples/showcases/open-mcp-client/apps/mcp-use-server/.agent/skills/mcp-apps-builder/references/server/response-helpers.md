@@ -10,23 +10,18 @@ Response helpers format output from tools, resources, and prompts. Always use he
 
 ```typescript
 // ❌ Bad - Raw return value
-server.tool(
-  { name: "get-data", schema: z.object({}) },
-  async () => {
-    return { status: "ok", data: [1, 2, 3] };  // Wrong!
-  }
-);
+server.tool({ name: "get-data", schema: z.object({}) }, async () => {
+  return { status: "ok", data: [1, 2, 3] }; // Wrong!
+});
 
 // ✅ Good - Using helper
-server.tool(
-  { name: "get-data", schema: z.object({}) },
-  async () => {
-    return object({ status: "ok", data: [1, 2, 3] });
-  }
-);
+server.tool({ name: "get-data", schema: z.object({}) }, async () => {
+  return object({ status: "ok", data: [1, 2, 3] });
+});
 ```
 
 **Why:**
+
 - Helpers set correct MIME types
 - Ensure proper serialization
 - Enable client-side rendering
@@ -45,31 +40,35 @@ server.tool(
   { name: "greet", schema: z.object({ name: z.string() }) },
   async ({ name }) => {
     return text(`Hello, ${name}!`);
-  }
+  },
 );
 
 // Multi-line text
 server.tool(
-  { name: "format-address", schema: z.object({
-    address: z.object({
-      street: z.string(),
-      city: z.string(),
-      state: z.string(),
-      zip: z.string(),
-      country: z.string()
-    })
-  }) },
+  {
+    name: "format-address",
+    schema: z.object({
+      address: z.object({
+        street: z.string(),
+        city: z.string(),
+        state: z.string(),
+        zip: z.string(),
+        country: z.string(),
+      }),
+    }),
+  },
   async ({ address }) => {
     return text(
       `${address.street}\n` +
-      `${address.city}, ${address.state} ${address.zip}\n` +
-      `${address.country}`
+        `${address.city}, ${address.state} ${address.zip}\n` +
+        `${address.country}`,
     );
-  }
+  },
 );
 ```
 
 **Use for:**
+
 - Simple messages
 - Confirmation text
 - Status updates
@@ -96,32 +95,30 @@ server.tool(
       createdAt: user.createdAt,
       settings: {
         theme: user.theme,
-        notifications: user.notifications
-      }
+        notifications: user.notifications,
+      },
     });
-  }
+  },
 );
 
 // With arrays
-server.tool(
-  { name: "list-todos", schema: z.object({}) },
-  async () => {
-    const todos = await getTodos();
+server.tool({ name: "list-todos", schema: z.object({}) }, async () => {
+  const todos = await getTodos();
 
-    return object({
-      total: todos.length,
-      items: todos.map(t => ({
-        id: t.id,
-        title: t.title,
-        completed: t.completed,
-        dueDate: t.dueDate
-      }))
-    });
-  }
-);
+  return object({
+    total: todos.length,
+    items: todos.map((t) => ({
+      id: t.id,
+      title: t.title,
+      completed: t.completed,
+      dueDate: t.dueDate,
+    })),
+  });
+});
 ```
 
 **Use for:**
+
 - Structured data
 - Lists and arrays
 - Nested objects
@@ -148,16 +145,16 @@ Total items processed: ${data.length}
 ## Breakdown
 | Category | Count |
 |----------|-------|
-| Success  | ${data.filter(d => d.status === "ok").length} |
-| Failed   | ${data.filter(d => d.status === "error").length} |
+| Success  | ${data.filter((d) => d.status === "ok").length} |
+| Failed   | ${data.filter((d) => d.status === "error").length} |
 
 ## Details
-${data.map(d => `- **${d.id}**: ${d.message}`).join('\n')}
+${data.map((d) => `- **${d.id}**: ${d.message}`).join("\n")}
 
 ---
 *Generated at ${new Date().toISOString()}*
     `);
-  }
+  },
 );
 
 // Code examples in markdown
@@ -181,11 +178,12 @@ This function performs...
 ## Returns
 Returns a Promise that resolves to...
     `);
-  }
+  },
 );
 ```
 
 **Use for:**
+
 - Documentation
 - Formatted reports
 - Explanations with structure
@@ -207,7 +205,7 @@ server.tool(
   async ({ data }) => {
     const chartUrl = await generateChart(data);
     return image(chartUrl);
-  }
+  },
 );
 
 // Base64 image
@@ -216,7 +214,7 @@ server.tool(
   async ({ text }) => {
     const qrCodeBase64 = await generateQRCode(text);
     return image(`data:image/png;base64,${qrCodeBase64}`);
-  }
+  },
 );
 
 // Image with MIME type
@@ -225,11 +223,12 @@ server.tool(
   async ({ id }) => {
     const diagramUrl = await getDiagram(id);
     return image(diagramUrl, "image/svg+xml");
-  }
+  },
 );
 ```
 
 **Use for:**
+
 - Charts and graphs
 - QR codes
 - Diagrams
@@ -258,15 +257,18 @@ server.tool(
       return object(data);
     } catch (err) {
       return error(
-        `Failed to fetch data: ${err instanceof Error ? err.message : "Unknown error"}`
+        `Failed to fetch data: ${err instanceof Error ? err.message : "Unknown error"}`,
       );
     }
-  }
+  },
 );
 
 // Multiple error cases
 server.tool(
-  { name: "update-user", schema: z.object({ id: z.string(), name: z.string() }) },
+  {
+    name: "update-user",
+    schema: z.object({ id: z.string(), name: z.string() }),
+  },
   async ({ id, name }) => {
     const user = await getUser(id);
 
@@ -280,11 +282,12 @@ server.tool(
 
     await updateUser(id, { name });
     return text("User updated successfully");
-  }
+  },
 );
 ```
 
 **Use for:**
+
 - Validation errors
 - Not found errors
 - Permission errors
@@ -304,13 +307,13 @@ server.tool(
     name: "search-products",
     description: "Search products by query",
     schema: z.object({
-      query: z.string().describe("Search query")
+      query: z.string().describe("Search query"),
     }),
     widget: {
-      name: "product-list",  // Must match resources/product-list.tsx
+      name: "product-list", // Must match resources/product-list.tsx
       invoking: "Searching...",
-      invoked: "Products loaded"
-    }
+      invoked: "Products loaded",
+    },
   },
   async ({ query }) => {
     const products = await searchProducts(query);
@@ -319,19 +322,21 @@ server.tool(
       props: {
         products,
         query,
-        totalCount: products.length
+        totalCount: products.length,
       },
-      output: text(`Found ${products.length} products matching "${query}"`)
+      output: text(`Found ${products.length} products matching "${query}"`),
     });
-  }
+  },
 );
 ```
 
 **Widget response structure:**
+
 - `props` - Data sent to widget component
 - `output` - Text/object the AI model sees
 
 **Use for:**
+
 - Browsing lists
 - Comparing items
 - Interactive selection
@@ -357,9 +362,9 @@ server.tool(
     return mix(
       markdown(`# Report: ${report.title}\n\n${report.summary}`),
       image(chartUrl),
-      text(`Generated at ${new Date().toISOString()}`)
+      text(`Generated at ${new Date().toISOString()}`),
     );
-  }
+  },
 );
 
 // Text + structured data
@@ -373,14 +378,15 @@ server.tool(
       object({
         complexity: analysis.complexity,
         issues: analysis.issues,
-        suggestions: analysis.suggestions
-      })
+        suggestions: analysis.suggestions,
+      }),
     );
-  }
+  },
 );
 ```
 
 **Use for:**
+
 - Rich responses with multiple formats
 - Text + image combinations
 - Summary + detailed data
@@ -400,9 +406,9 @@ server.tool(
   async ({ topic }) => {
     return mix(
       text(`Help documentation for: ${topic}`),
-      resource(`docs://${topic}`, "text/markdown")
+      resource(`docs://${topic}`, "text/markdown"),
     );
-  }
+  },
 );
 ```
 
@@ -411,6 +417,7 @@ server.tool(
 ## Response Patterns
 
 ### Success with Data
+
 ```typescript
 return object({
   success: true,
@@ -420,11 +427,13 @@ return object({
 ```
 
 ### Success with Message
+
 ```typescript
 return text("User created successfully");
 ```
 
 ### Not Found
+
 ```typescript
 if (!item) {
   return error(`Item not found: ${id}`);
@@ -432,6 +441,7 @@ if (!item) {
 ```
 
 ### Validation Error
+
 ```typescript
 if (!email.includes("@")) {
   return error("Invalid email address");
@@ -439,6 +449,7 @@ if (!email.includes("@")) {
 ```
 
 ### Server Error
+
 ```typescript
 try {
   // ... operation
@@ -461,35 +472,33 @@ import {
   image,
   error,
   widget,
-  mix
+  mix,
 } from "mcp-use/server";
 import { z } from "zod";
 
 const server = new MCPServer({
   name: "response-examples",
-  version: "1.0.0"
+  version: "1.0.0",
 });
 
 // Simple text
 server.tool(
   { name: "greet", schema: z.object({ name: z.string() }) },
-  async ({ name }) => text(`Hello, ${name}!`)
+  async ({ name }) => text(`Hello, ${name}!`),
 );
 
 // Structured data
-server.tool(
-  { name: "get-stats", schema: z.object({}) },
-  async () => object({
+server.tool({ name: "get-stats", schema: z.object({}) }, async () =>
+  object({
     users: 1523,
     active: 342,
-    growth: "+12%"
-  })
+    growth: "+12%",
+  }),
 );
 
 // Markdown report
-server.tool(
-  { name: "daily-summary", schema: z.object({}) },
-  async () => markdown(`
+server.tool({ name: "daily-summary", schema: z.object({}) }, async () =>
+  markdown(`
 # Daily Summary
 
 ## Metrics
@@ -501,7 +510,7 @@ server.tool(
 1. Widget Pro
 2. Gadget Plus
 3. Tool Kit
-  `)
+  `),
 );
 
 // Error handling
@@ -519,7 +528,7 @@ server.tool(
     } catch (err) {
       return error("Database error");
     }
-  }
+  },
 );
 
 // Mixed content
@@ -532,9 +541,9 @@ server.tool(
     return mix(
       markdown(`## Analysis Results\n\nProcessed ${data.length} data points`),
       object(stats),
-      image(chartUrl)
+      image(chartUrl),
     );
-  }
+  },
 );
 
 // Widget response
@@ -542,16 +551,16 @@ server.tool(
   {
     name: "browse-items",
     schema: z.object({ category: z.string() }),
-    widget: { name: "item-browser" }
+    widget: { name: "item-browser" },
   },
   async ({ category }) => {
     const items = await getItems(category);
 
     return widget({
       props: { items, category },
-      output: text(`Found ${items.length} items in ${category}`)
+      output: text(`Found ${items.length} items in ${category}`),
     });
-  }
+  },
 );
 
 server.listen();
@@ -562,12 +571,14 @@ server.listen();
 ## Best Practices
 
 ### 1. Always Use Helpers
+
 ```typescript
 ❌ return { data: "value" };
 ✅ return object({ data: "value" });
 ```
 
 ### 2. Match Helper to Content
+
 ```typescript
 ✅ text("Simple message")
 ✅ object({ structured: "data" })
@@ -576,12 +587,14 @@ server.listen();
 ```
 
 ### 3. Handle Errors Gracefully
+
 ```typescript
 ✅ return error("User not found: userId_123");
 ❌ throw new Error("Raw exception");
 ```
 
 ### 4. Provide Context in Errors
+
 ```typescript
 ✅ error(`User not found: ${userId}`);
 ✅ error(`Invalid email format: ${email}`);
@@ -589,16 +602,20 @@ server.listen();
 ```
 
 ### 5. Use Markdown for Rich Content
+
 ```typescript
 ✅ markdown(`# Title\n\n- Point 1\n- Point 2`);
 ❌ text("Title\nPoint 1\nPoint 2");  // No formatting
 ```
 
 ### 6. Widget Output is for AI
+
 ```typescript
 return widget({
-  props: { /* visual data */ },
-  output: text("Concise summary for AI")  // AI only sees this
+  props: {
+    /* visual data */
+  },
+  output: text("Concise summary for AI"), // AI only sees this
 });
 ```
 
@@ -606,16 +623,16 @@ return widget({
 
 ## Response Helper Reference
 
-| Helper | Returns | Use For | Example |
-|--------|---------|---------|---------|
-| `text(string)` | Plain text | Simple messages | `text("Hello")` |
-| `object(any)` | JSON | Structured data | `object({ id: 1 })` |
-| `markdown(string)` | Formatted text | Documentation, reports | `markdown("# Title")` |
-| `image(url, mime?)` | Image | Charts, diagrams | `image(url)` |
-| `error(msg)` | Error | Failures | `error("Not found")` |
-| `widget(config)` | UI + data | Visual interfaces | `widget({ props, output })` |
-| `mix(...results)` | Multiple | Rich responses | `mix(text(), image())` |
-| `resource(uri, mime)` | Resource ref | Embed resources | `resource("docs://guide", "text/markdown")` |
+| Helper                | Returns        | Use For                | Example                                     |
+| --------------------- | -------------- | ---------------------- | ------------------------------------------- |
+| `text(string)`        | Plain text     | Simple messages        | `text("Hello")`                             |
+| `object(any)`         | JSON           | Structured data        | `object({ id: 1 })`                         |
+| `markdown(string)`    | Formatted text | Documentation, reports | `markdown("# Title")`                       |
+| `image(url, mime?)`   | Image          | Charts, diagrams       | `image(url)`                                |
+| `error(msg)`          | Error          | Failures               | `error("Not found")`                        |
+| `widget(config)`      | UI + data      | Visual interfaces      | `widget({ props, output })`                 |
+| `mix(...results)`     | Multiple       | Rich responses         | `mix(text(), image())`                      |
+| `resource(uri, mime)` | Resource ref   | Embed resources        | `resource("docs://guide", "text/markdown")` |
 
 ---
 

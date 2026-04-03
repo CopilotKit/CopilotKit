@@ -24,15 +24,24 @@ server.tool(
     description: "Translate text between languages",
     schema: z.object({
       text: z.string().describe("Text to translate"),
-      targetLanguage: z.string().describe("Target language (e.g., 'Spanish', 'French')"),
-      sourceLanguage: z.string().optional().describe("Source language (auto-detected if omitted)"),
+      targetLanguage: z
+        .string()
+        .describe("Target language (e.g., 'Spanish', 'French')"),
+      sourceLanguage: z
+        .string()
+        .optional()
+        .describe("Source language (auto-detected if omitted)"),
     }),
   },
   async ({ text: inputText, targetLanguage, sourceLanguage }) => {
     // Your logic here
-    const translated = await translateAPI(inputText, targetLanguage, sourceLanguage);
+    const translated = await translateAPI(
+      inputText,
+      targetLanguage,
+      sourceLanguage,
+    );
     return text(`${translated}`);
-  }
+  },
 );
 ```
 
@@ -51,7 +60,7 @@ server.tool(
       city: z.string().describe("City name"),
     }),
     widget: {
-      name: "weather-display",    // Must match resources/weather-display.tsx
+      name: "weather-display", // Must match resources/weather-display.tsx
       invoking: "Fetching weather...",
       invoked: "Weather loaded",
     },
@@ -59,10 +68,10 @@ server.tool(
   async ({ city }) => {
     const data = getWeather(city);
     return widget({
-      props: { city, temp: data.temp, conditions: data.conditions },  // Sent to widget UI
-      output: text(`Weather in ${city}: ${data.temp}°C, ${data.conditions}`),  // Model sees this
+      props: { city, temp: data.temp, conditions: data.conditions }, // Sent to widget UI
+      output: text(`Weather in ${city}: ${data.temp}°C, ${data.conditions}`), // Model sees this
     });
-  }
+  },
 );
 ```
 
@@ -77,15 +86,15 @@ server.tool(
     description: "Delete an item permanently",
     schema: z.object({ id: z.string().describe("Item ID") }),
     annotations: {
-      destructiveHint: true,    // Deletes or overwrites data
-      readOnlyHint: false,      // Has side effects
-      openWorldHint: false,     // Stays within user's account
+      destructiveHint: true, // Deletes or overwrites data
+      readOnlyHint: false, // Has side effects
+      openWorldHint: false, // Stays within user's account
     },
   },
   async ({ id }) => {
     await deleteItem(id);
     return text(`Item ${id} deleted.`);
-  }
+  },
 );
 ```
 
@@ -111,7 +120,7 @@ server.tool(
 
     await ctx.reportProgress?.(100, 100, "Done");
     return text("Processed successfully");
-  }
+  },
 );
 ```
 
@@ -132,7 +141,7 @@ server.tool(
   },
   async ({ period }) => {
     return object({ total: 150, average: 42.5, trend: "up" });
-  }
+  },
 );
 ```
 
@@ -152,7 +161,7 @@ server.resource(
     description: "Current server configuration",
     mimeType: "application/json",
   },
-  async () => object({ theme: "dark", version: "1.0.0", language: "en" })
+  async () => object({ theme: "dark", version: "1.0.0", language: "en" }),
 );
 
 server.resource(
@@ -161,7 +170,7 @@ server.resource(
     name: "User Guide",
     mimeType: "text/markdown",
   },
-  async () => markdown("# User Guide\n\nWelcome to the app!")
+  async () => markdown("# User Guide\n\nWelcome to the app!"),
 );
 ```
 
@@ -177,7 +186,7 @@ server.resource(
   async () => {
     const stats = await getStats();
     return object(stats);
-  }
+  },
 );
 ```
 
@@ -194,7 +203,7 @@ server.resourceTemplate(
   async (uri, { userId }) => {
     const user = await fetchUser(userId);
     return object(user);
-  }
+  },
 );
 ```
 
@@ -216,8 +225,10 @@ server.prompt(
   },
   async ({ language, focusArea }) => {
     const focus = focusArea ? ` Focus on ${focusArea}.` : "";
-    return text(`Please review this ${language} code for best practices and potential issues.${focus}`);
-  }
+    return text(
+      `Please review this ${language} code for best practices and potential issues.${focus}`,
+    );
+  },
 );
 ```
 
@@ -227,7 +238,10 @@ server.prompt(
 // Good: descriptive, with constraints
 const schema = z.object({
   city: z.string().describe("City name (e.g., 'New York', 'Tokyo')"),
-  units: z.enum(["celsius", "fahrenheit"]).optional().describe("Temperature units"),
+  units: z
+    .enum(["celsius", "fahrenheit"])
+    .optional()
+    .describe("Temperature units"),
   limit: z.number().min(1).max(50).optional().describe("Max results to return"),
 });
 
@@ -240,6 +254,7 @@ const schema = z.object({
 ```
 
 **Rules:**
+
 - Always add `.describe()` to every field
 - Use `.optional()` for non-required fields
 - Add validation (`.min()`, `.max()`, `.enum()`) where appropriate
@@ -260,9 +275,11 @@ server.tool(
       }
       return object(data);
     } catch (err) {
-      return error(`Failed to fetch data: ${err instanceof Error ? err.message : "Unknown error"}`);
+      return error(
+        `Failed to fetch data: ${err instanceof Error ? err.message : "Unknown error"}`,
+      );
     }
-  }
+  },
 );
 ```
 
@@ -278,15 +295,20 @@ server.tool(
   { name: "get-weather", schema: z.object({ city: z.string() }) },
   async ({ city }) => {
     if (!API_KEY) {
-      return error("WEATHER_API_KEY not configured. Please set it in the Env tab.");
+      return error(
+        "WEATHER_API_KEY not configured. Please set it in the Env tab.",
+      );
     }
-    const data = await fetch(`https://api.weather.com/v1?key=${API_KEY}&city=${city}`);
+    const data = await fetch(
+      `https://api.weather.com/v1?key=${API_KEY}&city=${city}`,
+    );
     // ...
-  }
+  },
 );
 ```
 
 Create a `.env.example` documenting required variables:
+
 ```
 # Weather API key (get from weatherapi.com)
 WEATHER_API_KEY=

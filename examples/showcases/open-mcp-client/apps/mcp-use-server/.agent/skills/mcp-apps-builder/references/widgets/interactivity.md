@@ -18,11 +18,14 @@ const { callTool, callToolAsync, isPending, isSuccess, isError, data, error } =
   useCallTool("tool-name");
 
 // Fire-and-forget with optional callbacks
-callTool({ param: "value" }, {
-  onSuccess: (result) => console.log(result.structuredContent),
-  onError: (err) => console.error(err),
-  onSettled: () => hideSpinner(),
-});
+callTool(
+  { param: "value" },
+  {
+    onSuccess: (result) => console.log(result.structuredContent),
+    onError: (err) => console.error(err),
+    onSettled: () => hideSpinner(),
+  },
+);
 
 // Or async/await
 const result = await callToolAsync({ param: "value" });
@@ -30,14 +33,14 @@ const result = await callToolAsync({ param: "value" });
 
 **State flags:**
 
-| Property | Description |
-|---|---|
-| `isPending` | Tool is executing |
-| `isSuccess` | Succeeded — `data` is available |
-| `isError` | Failed — `error` is available |
-| `isIdle` | No call made yet |
-| `callTool` | Fire-and-forget; optional `onSuccess`/`onError`/`onSettled` callbacks |
-| `callToolAsync` | Returns `Promise<CallToolResult>` |
+| Property        | Description                                                           |
+| --------------- | --------------------------------------------------------------------- |
+| `isPending`     | Tool is executing                                                     |
+| `isSuccess`     | Succeeded — `data` is available                                       |
+| `isError`       | Failed — `error` is available                                         |
+| `isIdle`        | No call made yet                                                      |
+| `callTool`      | Fire-and-forget; optional `onSuccess`/`onError`/`onSettled` callbacks |
+| `callToolAsync` | Returns `Promise<CallToolResult>`                                     |
 
 **Type inference:** When using `mcp-use dev`, types for tool names, inputs, and outputs are auto-generated to `.mcp-use/tool-registry.d.ts`. The hook is fully typed with autocomplete.
 
@@ -46,19 +49,26 @@ const result = await callToolAsync({ param: "value" });
 ## Simple Button Action
 
 ```tsx
-import { McpUseProvider, useWidget, useCallTool, type WidgetMetadata } from "mcp-use/react";
+import {
+  McpUseProvider,
+  useWidget,
+  useCallTool,
+  type WidgetMetadata,
+} from "mcp-use/react";
 import { z } from "zod";
 
 export const widgetMetadata: WidgetMetadata = {
   description: "Todo list with actions",
   props: z.object({
-    todos: z.array(z.object({
-      id: z.string(),
-      title: z.string(),
-      completed: z.boolean()
-    }))
+    todos: z.array(
+      z.object({
+        id: z.string(),
+        title: z.string(),
+        completed: z.boolean(),
+      }),
+    ),
   }),
-  exposeAsTool: false
+  exposeAsTool: false,
 };
 
 export default function TodoList() {
@@ -66,21 +76,31 @@ export default function TodoList() {
   const { callTool, isPending } = useCallTool("toggle-todo");
 
   if (isLoading) {
-    return <McpUseProvider autoSize><div>Loading...</div></McpUseProvider>;
+    return (
+      <McpUseProvider autoSize>
+        <div>Loading...</div>
+      </McpUseProvider>
+    );
   }
 
   return (
     <McpUseProvider autoSize>
       <div>
-        {props.todos.map(todo => (
+        {props.todos.map((todo) => (
           <div key={todo.id} style={{ display: "flex", gap: 8, padding: 8 }}>
             <input
               type="checkbox"
               checked={todo.completed}
-              onChange={() => callTool({ id: todo.id, completed: !todo.completed })}
+              onChange={() =>
+                callTool({ id: todo.id, completed: !todo.completed })
+              }
               disabled={isPending}
             />
-            <span style={{ textDecoration: todo.completed ? "line-through" : "none" }}>
+            <span
+              style={{
+                textDecoration: todo.completed ? "line-through" : "none",
+              }}
+            >
               {todo.title}
             </span>
           </div>
@@ -92,6 +112,7 @@ export default function TodoList() {
 ```
 
 **Corresponding tool:**
+
 ```typescript
 server.tool(
   {
@@ -99,13 +120,13 @@ server.tool(
     description: "Toggle todo completion status",
     schema: z.object({
       id: z.string(),
-      completed: z.boolean()
-    })
+      completed: z.boolean(),
+    }),
   },
   async ({ id, completed }) => {
     await updateTodo(id, { completed });
     return text(`Todo ${completed ? "completed" : "uncompleted"}`);
-  }
+  },
 );
 ```
 
@@ -125,17 +146,24 @@ export default function CreateItemWidget() {
   const [title, setTitle] = useState("");
 
   if (isLoading) {
-    return <McpUseProvider autoSize><div>Loading...</div></McpUseProvider>;
+    return (
+      <McpUseProvider autoSize>
+        <div>Loading...</div>
+      </McpUseProvider>
+    );
   }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim()) return;
 
-    callTool({ title }, {
-      onSuccess: () => setTitle(""),
-      onError: () => alert("Failed to create todo"),
-    });
+    callTool(
+      { title },
+      {
+        onSuccess: () => setTitle(""),
+        onError: () => alert("Failed to create todo"),
+      },
+    );
   };
 
   return (
@@ -145,7 +173,7 @@ export default function CreateItemWidget() {
           <input
             type="text"
             value={title}
-            onChange={e => setTitle(e.target.value)}
+            onChange={(e) => setTitle(e.target.value)}
             placeholder="New todo..."
             disabled={isPending}
             style={{ padding: 8, width: 300, marginRight: 8 }}
@@ -156,7 +184,7 @@ export default function CreateItemWidget() {
         </form>
 
         <div style={{ marginTop: 16 }}>
-          {props.todos.map(todo => (
+          {props.todos.map((todo) => (
             <div key={todo.id}>{todo.title}</div>
           ))}
         </div>
@@ -167,18 +195,19 @@ export default function CreateItemWidget() {
 ```
 
 **Corresponding tool:**
+
 ```typescript
 server.tool(
   {
     name: "create-todo",
     schema: z.object({
-      title: z.string().describe("Todo title")
-    })
+      title: z.string().describe("Todo title"),
+    }),
   },
   async ({ title }) => {
     const todo = await createTodo(title);
     return text(`Created todo: ${todo.title}`);
-  }
+  },
 );
 ```
 
@@ -187,23 +216,36 @@ server.tool(
 ## Delete Action
 
 ```tsx
-const { callTool: deleteTodo, isPending: isDeleting } = useCallTool("delete-todo");
+const { callTool: deleteTodo, isPending: isDeleting } =
+  useCallTool("delete-todo");
 
 const handleDelete = (id: string) => {
   if (!confirm("Are you sure you want to delete this item?")) return;
 
-  deleteTodo({ id }, {
-    onError: () => alert("Failed to delete item"),
-  });
+  deleteTodo(
+    { id },
+    {
+      onError: () => alert("Failed to delete item"),
+    },
+  );
 };
 
 return (
   <McpUseProvider autoSize>
     <div>
-      {props.todos.map(todo => (
-        <div key={todo.id} style={{ display: "flex", justifyContent: "space-between", padding: 8 }}>
+      {props.todos.map((todo) => (
+        <div
+          key={todo.id}
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            padding: 8,
+          }}
+        >
           <span>{todo.title}</span>
-          <button onClick={() => handleDelete(todo.id)} disabled={isDeleting}>Delete</button>
+          <button onClick={() => handleDelete(todo.id)} disabled={isDeleting}>
+            Delete
+          </button>
         </div>
       ))}
     </div>
@@ -240,9 +282,11 @@ export default function OptimisticWidget() {
 
   const handleToggle = async (id: string) => {
     // Optimistic update
-    setTodos(prev => prev.map(todo =>
-      todo.id === id ? { ...todo, completed: !todo.completed } : todo
-    ));
+    setTodos((prev) =>
+      prev.map((todo) =>
+        todo.id === id ? { ...todo, completed: !todo.completed } : todo,
+      ),
+    );
 
     try {
       await callToolAsync({ id });
@@ -254,13 +298,17 @@ export default function OptimisticWidget() {
   };
 
   if (isLoading) {
-    return <McpUseProvider autoSize><div>Loading...</div></McpUseProvider>;
+    return (
+      <McpUseProvider autoSize>
+        <div>Loading...</div>
+      </McpUseProvider>
+    );
   }
 
   return (
     <McpUseProvider autoSize>
       <div>
-        {todos.map(todo => (
+        {todos.map((todo) => (
           <div key={todo.id}>
             <input
               type="checkbox"
@@ -291,16 +339,26 @@ const { callTool: deleteItem } = useCallTool("delete-item");
 return (
   <McpUseProvider autoSize>
     <div>
-      {props.items.map(item => (
-        <div key={item.id} style={{ padding: 12, border: "1px solid #ddd", marginBottom: 8 }}>
+      {props.items.map((item) => (
+        <div
+          key={item.id}
+          style={{ padding: 12, border: "1px solid #ddd", marginBottom: 8 }}
+        >
           <h3>{item.title}</h3>
           <p>{item.description}</p>
 
           <div style={{ display: "flex", gap: 8 }}>
             <button onClick={() => editItem({ id: item.id })}>Edit</button>
-            <button onClick={() => duplicateItem({ id: item.id })}>Duplicate</button>
-            <button onClick={() => archiveItem({ id: item.id })}>Archive</button>
-            <button onClick={() => deleteItem({ id: item.id })} style={{ color: "red" }}>
+            <button onClick={() => duplicateItem({ id: item.id })}>
+              Duplicate
+            </button>
+            <button onClick={() => archiveItem({ id: item.id })}>
+              Archive
+            </button>
+            <button
+              onClick={() => deleteItem({ id: item.id })}
+              style={{ color: "red" }}
+            >
               Delete
             </button>
           </div>
@@ -345,29 +403,37 @@ export default function EditableList() {
   };
 
   if (isLoading) {
-    return <McpUseProvider autoSize><div>Loading...</div></McpUseProvider>;
+    return (
+      <McpUseProvider autoSize>
+        <div>Loading...</div>
+      </McpUseProvider>
+    );
   }
 
   return (
     <McpUseProvider autoSize>
       <div>
-        {props.items.map(item => (
+        {props.items.map((item) => (
           <div key={item.id} style={{ padding: 8, display: "flex", gap: 8 }}>
             {editingId === item.id ? (
               <>
                 <input
                   type="text"
                   value={editValue}
-                  onChange={e => setEditValue(e.target.value)}
+                  onChange={(e) => setEditValue(e.target.value)}
                   autoFocus
                 />
-                <button onClick={() => saveEdit(item.id)} disabled={isSaving}>Save</button>
+                <button onClick={() => saveEdit(item.id)} disabled={isSaving}>
+                  Save
+                </button>
                 <button onClick={cancelEdit}>Cancel</button>
               </>
             ) : (
               <>
                 <span>{item.title}</span>
-                <button onClick={() => startEdit(item.id, item.title)}>Edit</button>
+                <button onClick={() => startEdit(item.id, item.title)}>
+                  Edit
+                </button>
               </>
             )}
           </div>
@@ -390,8 +456,10 @@ import { McpUseProvider, useWidget, useCallTool } from "mcp-use/react";
 
 export default function BatchActions() {
   const { props, isPending: isLoading } = useWidget();
-  const { callTool: archiveItems, isPending: isArchiving } = useCallTool("archive-items");
-  const { callTool: deleteItems, isPending: isDeleting } = useCallTool("delete-items");
+  const { callTool: archiveItems, isPending: isArchiving } =
+    useCallTool("archive-items");
+  const { callTool: deleteItems, isPending: isDeleting } =
+    useCallTool("delete-items");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   const processing = isArchiving || isDeleting;
@@ -407,39 +475,63 @@ export default function BatchActions() {
   };
 
   const handleBatchArchive = () => {
-    archiveItems({ ids: Array.from(selectedIds) }, {
-      onSuccess: () => setSelectedIds(new Set()),
-      onError: () => alert("Failed to archive items"),
-    });
+    archiveItems(
+      { ids: Array.from(selectedIds) },
+      {
+        onSuccess: () => setSelectedIds(new Set()),
+        onError: () => alert("Failed to archive items"),
+      },
+    );
   };
 
   const handleBatchDelete = () => {
-    deleteItems({ ids: Array.from(selectedIds) }, {
-      onSuccess: () => setSelectedIds(new Set()),
-      onError: () => alert("Failed to delete items"),
-    });
+    deleteItems(
+      { ids: Array.from(selectedIds) },
+      {
+        onSuccess: () => setSelectedIds(new Set()),
+        onError: () => alert("Failed to delete items"),
+      },
+    );
   };
 
   if (isLoading) {
-    return <McpUseProvider autoSize><div>Loading...</div></McpUseProvider>;
+    return (
+      <McpUseProvider autoSize>
+        <div>Loading...</div>
+      </McpUseProvider>
+    );
   }
 
   return (
     <McpUseProvider autoSize>
       <div>
         {selectedIds.size > 0 && (
-          <div style={{ padding: 12, backgroundColor: "#f5f5f5", marginBottom: 16 }}>
+          <div
+            style={{
+              padding: 12,
+              backgroundColor: "#f5f5f5",
+              marginBottom: 16,
+            }}
+          >
             <span>{selectedIds.size} selected</span>
-            <button onClick={handleBatchArchive} disabled={processing} style={{ marginLeft: 8 }}>
+            <button
+              onClick={handleBatchArchive}
+              disabled={processing}
+              style={{ marginLeft: 8 }}
+            >
               Archive
             </button>
-            <button onClick={handleBatchDelete} disabled={processing} style={{ marginLeft: 8 }}>
+            <button
+              onClick={handleBatchDelete}
+              disabled={processing}
+              style={{ marginLeft: 8 }}
+            >
               Delete
             </button>
           </div>
         )}
 
-        {props.items.map(item => (
+        {props.items.map((item) => (
           <div key={item.id} style={{ padding: 8, display: "flex", gap: 8 }}>
             <input
               type="checkbox"
@@ -456,18 +548,19 @@ export default function BatchActions() {
 ```
 
 **Corresponding tool:**
+
 ```typescript
 server.tool(
   {
     name: "delete-items",
     schema: z.object({
-      ids: z.array(z.string()).describe("Item IDs to delete")
-    })
+      ids: z.array(z.string()).describe("Item IDs to delete"),
+    }),
   },
   async ({ ids }) => {
-    await Promise.all(ids.map(id => deleteItem(id)));
+    await Promise.all(ids.map((id) => deleteItem(id)));
     return text(`Deleted ${ids.length} items`);
-  }
+  },
 );
 ```
 
@@ -484,12 +577,26 @@ return (
   <McpUseProvider autoSize>
     <div>
       {isError && (
-        <div style={{ padding: 12, backgroundColor: "#ffebee", color: "#c62828", marginBottom: 16 }}>
+        <div
+          style={{
+            padding: 12,
+            backgroundColor: "#ffebee",
+            color: "#c62828",
+            marginBottom: 16,
+          }}
+        >
           {error instanceof Error ? error.message : "Action failed"}
         </div>
       )}
 
-      <button onClick={() => callTool({ /* params */ })} disabled={isPending}>
+      <button
+        onClick={() =>
+          callTool({
+            /* params */
+          })
+        }
+        disabled={isPending}
+      >
         Perform Action
       </button>
     </div>
@@ -521,7 +628,7 @@ const handleAction = async (id: string) => {
 return (
   <McpUseProvider autoSize>
     <div>
-      {props.items.map(item => (
+      {props.items.map((item) => (
         <div key={item.id}>
           <span>{item.title}</span>
           <button
@@ -547,9 +654,12 @@ const { callTool: deleteItem } = useCallTool("delete-item");
 const handleDelete = (id: string, title: string) => {
   if (!confirm(`Are you sure you want to delete "${title}"?`)) return;
 
-  deleteItem({ id }, {
-    onError: () => alert("Failed to delete"),
-  });
+  deleteItem(
+    { id },
+    {
+      onError: () => alert("Failed to delete"),
+    },
+  );
 };
 ```
 
@@ -560,7 +670,10 @@ import { useState } from "react";
 import { useCallTool } from "mcp-use/react";
 
 const { callToolAsync } = useCallTool("delete-item");
-const [confirmDialog, setConfirmDialog] = useState<{ id: string; title: string } | null>(null);
+const [confirmDialog, setConfirmDialog] = useState<{
+  id: string;
+  title: string;
+} | null>(null);
 
 const handleDeleteClick = (id: string, title: string) => {
   setConfirmDialog({ id, title });
@@ -580,20 +693,32 @@ const handleConfirmDelete = async () => {
 return (
   <McpUseProvider autoSize>
     <div>
-      {props.items.map(item => (
+      {props.items.map((item) => (
         <div key={item.id}>
           <span>{item.title}</span>
-          <button onClick={() => handleDeleteClick(item.id, item.title)}>Delete</button>
+          <button onClick={() => handleDeleteClick(item.id, item.title)}>
+            Delete
+          </button>
         </div>
       ))}
 
       {confirmDialog && (
-        <div style={{
-          position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
-          backgroundColor: "rgba(0,0,0,0.5)", display: "flex",
-          alignItems: "center", justifyContent: "center"
-        }}>
-          <div style={{ backgroundColor: "white", padding: 24, borderRadius: 8 }}>
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: "rgba(0,0,0,0.5)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <div
+            style={{ backgroundColor: "white", padding: 24, borderRadius: 8 }}
+          >
             <h3>Confirm Delete</h3>
             <p>Delete "{confirmDialog.title}"?</p>
             <button onClick={handleConfirmDelete}>Delete</button>
@@ -619,23 +744,32 @@ export default function AnalysisWidget() {
   const { props, isPending, sendFollowUpMessage } = useWidget();
 
   if (isPending) {
-    return <McpUseProvider autoSize><div>Loading...</div></McpUseProvider>;
+    return (
+      <McpUseProvider autoSize>
+        <div>Loading...</div>
+      </McpUseProvider>
+    );
   }
 
   return (
     <McpUseProvider autoSize>
       <div style={{ padding: 20 }}>
         <h2>Results for "{props.query}"</h2>
-        {props.items.map(item => (
-          <div key={item.id} style={{ padding: 8, borderBottom: "1px solid #ddd" }}>
+        {props.items.map((item) => (
+          <div
+            key={item.id}
+            style={{ padding: 8, borderBottom: "1px solid #ddd" }}
+          >
             <strong>{item.name}</strong> — ${item.price}
           </div>
         ))}
 
         <button
-          onClick={() => sendFollowUpMessage(
-            `Compare the top 3 results for "${props.query}" and recommend the best one.`
-          )}
+          onClick={() =>
+            sendFollowUpMessage(
+              `Compare the top 3 results for "${props.query}" and recommend the best one.`,
+            )
+          }
           style={{ marginTop: 16, padding: "8px 16px" }}
         >
           Ask AI to Compare
@@ -655,20 +789,25 @@ import { useState } from "react";
 import { McpUseProvider, useWidget, useCallTool } from "mcp-use/react";
 
 export default function TodoWidget() {
-  const { props, isPending, state, setState, sendFollowUpMessage } = useWidget();
+  const { props, isPending, state, setState, sendFollowUpMessage } =
+    useWidget();
   const { callTool: toggleTodo } = useCallTool("toggle-todo");
 
   if (isPending) {
-    return <McpUseProvider autoSize><div>Loading...</div></McpUseProvider>;
+    return (
+      <McpUseProvider autoSize>
+        <div>Loading...</div>
+      </McpUseProvider>
+    );
   }
 
   const tasks = state?.tasks || props.tasks || [];
-  const remaining = tasks.filter(t => !t.completed).length;
+  const remaining = tasks.filter((t) => !t.completed).length;
 
   return (
     <McpUseProvider autoSize>
       <div style={{ padding: 20 }}>
-        {tasks.map(t => (
+        {tasks.map((t) => (
           <div key={t.id} style={{ display: "flex", gap: 8, padding: 8 }}>
             <input
               type="checkbox"
@@ -680,9 +819,11 @@ export default function TodoWidget() {
         ))}
 
         <button
-          onClick={() => sendFollowUpMessage(
-            `I have ${remaining} tasks left. Help me prioritize them.`
-          )}
+          onClick={() =>
+            sendFollowUpMessage(
+              `I have ${remaining} tasks left. Help me prioritize them.`,
+            )
+          }
           style={{ marginTop: 16, padding: "8px 16px" }}
         >
           Ask AI to Prioritize
@@ -699,15 +840,22 @@ export default function TodoWidget() {
 
 ```tsx
 import { useState } from "react";
-import { McpUseProvider, useWidget, useCallTool, type WidgetMetadata } from "mcp-use/react";
+import {
+  McpUseProvider,
+  useWidget,
+  useCallTool,
+  type WidgetMetadata,
+} from "mcp-use/react";
 import { z } from "zod";
 
 const propsSchema = z.object({
-  todos: z.array(z.object({
-    id: z.string(),
-    title: z.string(),
-    completed: z.boolean()
-  }))
+  todos: z.array(
+    z.object({
+      id: z.string(),
+      title: z.string(),
+      completed: z.boolean(),
+    }),
+  ),
 });
 
 type Props = z.infer<typeof propsSchema>;
@@ -715,29 +863,37 @@ type Props = z.infer<typeof propsSchema>;
 export const widgetMetadata: WidgetMetadata = {
   description: "Interactive todo list",
   props: propsSchema,
-  exposeAsTool: false
+  exposeAsTool: false,
 };
 
 export default function InteractiveTodoList() {
   const { props, isPending: isLoading } = useWidget<Props>();
-  const { callTool: createTodo, isPending: isCreating } = useCallTool("create-todo");
+  const { callTool: createTodo, isPending: isCreating } =
+    useCallTool("create-todo");
   const { callTool: toggleTodo } = useCallTool("toggle-todo");
   const { callTool: deleteTodo } = useCallTool("delete-todo");
   const [newTodo, setNewTodo] = useState("");
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   if (isLoading) {
-    return <McpUseProvider autoSize><div>Loading todos...</div></McpUseProvider>;
+    return (
+      <McpUseProvider autoSize>
+        <div>Loading todos...</div>
+      </McpUseProvider>
+    );
   }
 
   const handleCreate = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newTodo.trim()) return;
 
-    createTodo({ title: newTodo }, {
-      onSuccess: () => setNewTodo(""),
-      onError: () => alert("Failed to create todo"),
-    });
+    createTodo(
+      { title: newTodo },
+      {
+        onSuccess: () => setNewTodo(""),
+        onError: () => alert("Failed to create todo"),
+      },
+    );
   };
 
   const handleToggle = (id: string, completed: boolean) => {
@@ -746,10 +902,13 @@ export default function InteractiveTodoList() {
 
   const handleDelete = (id: string) => {
     setDeletingId(id);
-    deleteTodo({ id }, {
-      onError: () => alert("Failed to delete"),
-      onSettled: () => setDeletingId(null),
-    });
+    deleteTodo(
+      { id },
+      {
+        onError: () => alert("Failed to delete"),
+        onSettled: () => setDeletingId(null),
+      },
+    );
   };
 
   return (
@@ -761,7 +920,7 @@ export default function InteractiveTodoList() {
           <input
             type="text"
             value={newTodo}
-            onChange={e => setNewTodo(e.target.value)}
+            onChange={(e) => setNewTodo(e.target.value)}
             placeholder="New todo..."
             disabled={isCreating}
             style={{ padding: 8, width: 300, marginRight: 8 }}
@@ -772,12 +931,15 @@ export default function InteractiveTodoList() {
         </form>
 
         <div>
-          {props.todos.map(todo => (
+          {props.todos.map((todo) => (
             <div
               key={todo.id}
               style={{
-                display: "flex", alignItems: "center", gap: 8,
-                padding: 8, borderBottom: "1px solid #eee"
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                padding: 8,
+                borderBottom: "1px solid #eee",
               }}
             >
               <input
@@ -785,11 +947,13 @@ export default function InteractiveTodoList() {
                 checked={todo.completed}
                 onChange={() => handleToggle(todo.id, todo.completed)}
               />
-              <span style={{
-                flex: 1,
-                textDecoration: todo.completed ? "line-through" : "none",
-                color: todo.completed ? "#999" : "inherit"
-              }}>
+              <span
+                style={{
+                  flex: 1,
+                  textDecoration: todo.completed ? "line-through" : "none",
+                  color: todo.completed ? "#999" : "inherit",
+                }}
+              >
                 {todo.title}
               </span>
               <button

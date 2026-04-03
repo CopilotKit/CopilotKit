@@ -7,14 +7,14 @@ async function connectClient(url: string) {
   try {
     const client = new Client(
       { name: "mcp-studio-call-tool", version: "1.0.0" },
-      { capabilities: {} }
+      { capabilities: {} },
     );
     await client.connect(new StreamableHTTPClientTransport(new URL(url)));
     return client;
   } catch {
     const client = new Client(
       { name: "mcp-studio-call-tool", version: "1.0.0" },
-      { capabilities: {} }
+      { capabilities: {} },
     );
     await client.connect(new SSEClientTransport(new URL(url)));
     return client;
@@ -22,7 +22,11 @@ async function connectClient(url: string) {
 }
 
 export async function POST(req: NextRequest) {
-  let body: { endpoint: string; toolName: string; args?: Record<string, unknown> };
+  let body: {
+    endpoint: string;
+    toolName: string;
+    args?: Record<string, unknown>;
+  };
   try {
     body = await req.json();
   } catch {
@@ -31,7 +35,10 @@ export async function POST(req: NextRequest) {
 
   const { endpoint, toolName, args = {} } = body;
   if (!endpoint || !toolName) {
-    return NextResponse.json({ error: "Missing endpoint or toolName" }, { status: 400 });
+    return NextResponse.json(
+      { error: "Missing endpoint or toolName" },
+      { status: 400 },
+    );
   }
 
   let client: Client | null = null;
@@ -46,10 +53,14 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ result, structuredContent });
   } catch (err) {
-    try { await client?.close(); } catch { /* ignore */ }
+    try {
+      await client?.close();
+    } catch {
+      /* ignore */
+    }
     return NextResponse.json(
       { error: err instanceof Error ? err.message : String(err) },
-      { status: 502 }
+      { status: 502 },
     );
   }
 }
