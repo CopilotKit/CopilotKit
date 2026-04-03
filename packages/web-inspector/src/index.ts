@@ -1350,10 +1350,6 @@ ${argsString}</pre
         color: #181c1f;
         margin: 0;
       }
-      /* Current Messages — force top alignment on both columns */
-      table tbody td {
-        vertical-align: top !important;
-      }
 
       /* Inputs/selects inside the lavender header need an explicit white bg */
       .cpk-section-header input,
@@ -3632,25 +3628,21 @@ ${prettyEvent}</pre
           <div class="cpk-section-header">
             <h4>Current Messages</h4>
           </div>
-          <div class="overflow-auto p-4">
+          <div class="overflow-auto">
             ${messages && messages.length > 0
               ? html`
-                  <table class="w-full text-xs">
-                    <thead class="bg-gray-50">
-                      <tr>
-                        <th
-                          class="px-4 py-2 text-left font-medium text-gray-700"
-                        >
-                          Role
-                        </th>
-                        <th
-                          class="px-4 py-2 text-left font-medium text-gray-700"
-                        >
-                          Content
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody class="divide-y divide-gray-200">
+                  <div class="w-full text-xs">
+                    <div class="flex bg-gray-50">
+                      <div
+                        class="w-40 shrink-0 px-4 py-2 font-medium text-gray-700"
+                      >
+                        Role
+                      </div>
+                      <div class="flex-1 px-4 py-2 font-medium text-gray-700">
+                        Content
+                      </div>
+                    </div>
+                    <div class="divide-y divide-gray-200">
                       ${messages.map((msg) => {
                         const role = msg.role || "unknown";
                         const roleColors: Record<string, string> = {
@@ -3668,8 +3660,8 @@ ${prettyEvent}</pre
                           toolCalls.length > 0 ? "Invoked tool call" : "—";
 
                         return html`
-                          <tr>
-                            <td class="px-4 py-2 align-top">
+                          <div class="flex items-start">
+                            <div class="w-40 shrink-0 px-4 py-2">
                               <span
                                 class="inline-flex rounded px-2 py-0.5 text-[10px] font-medium ${roleColors[
                                   role
@@ -3677,28 +3669,26 @@ ${prettyEvent}</pre
                               >
                                 ${role}
                               </span>
-                            </td>
-                            <td class="px-4 py-2 align-top">
+                            </div>
+                            <div class="flex-1 px-4 py-2">
                               ${hasContent
                                 ? html`<div
-                                    class="max-w-2xl whitespace-pre-line break-words text-gray-700"
+                                    class="whitespace-pre-line break-words text-gray-700"
                                   >
                                     ${rawContent}
                                   </div>`
-                                : html`<div
-                                    class="text-xs italic text-gray-400"
-                                  >
+                                : html`<div class="italic text-gray-400">
                                     ${contentFallback}
                                   </div>`}
                               ${role === "assistant" && toolCalls.length > 0
                                 ? this.renderToolCallDetails(toolCalls)
                                 : nothing}
-                            </td>
-                          </tr>
+                            </div>
+                          </div>
                         `;
                       })}
-                    </tbody>
-                  </table>
+                    </div>
+                  </div>
                 `
               : html`
                   <div
