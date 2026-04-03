@@ -1,7 +1,11 @@
 import { defineConfig } from "tsdown";
 
 export default defineConfig({
-  entry: ["src/index.ts", "src/v2/index.ts", "src/langgraph.ts"],
+  entry: {
+    index: "src/index.ts",
+    "v2/index": "src/v2/index.ts",
+    langgraph: "src/langgraph.ts",
+  },
   format: ["esm", "cjs"],
   dts: true,
   sourcemap: true,
@@ -34,5 +38,5 @@ export default defineConfig({
     "@whatwg-node/server",
     "rxjs",
   ],
-  exports: true,
+  exports: false,
 });

@@ -11,7 +11,7 @@ export default defineConfig([
     unbundle: true,
     external: ["react", "@graphql-typed-document-node/core"],
     exclude: ["**/*.test.ts", "**/*.test.tsx", "**/__tests__/*"],
-    exports: true,
+    exports: false,
   },
   {
     entry: ["src/index.ts"],

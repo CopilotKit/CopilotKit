@@ -18,12 +18,7 @@ export default defineConfig([
       "rxjs",
       /\.css$/,
     ],
-    exports: {
-      customExports: (exports) => ({
-        ...exports,
-        "./v2/styles.css": "./dist/v2/index.css",
-      }),
-    },
+    exports: false,
   },
   {
     entry: ["src/index.tsx"],
