@@ -4,9 +4,11 @@ import {
   RuntimeMode,
   RUNTIME_MODE_SSE,
   RUNTIME_MODE_INTELLIGENCE,
+} from "@copilotkit/shared";
+import {
   createLicenseChecker,
   type LicenseChecker,
-} from "@copilotkit/shared";
+} from "@copilotkit/license-verifier";
 import { AbstractAgent } from "@ag-ui/client";
 import type { MCPClientConfig } from "@ag-ui/mcp-apps-middleware";
 import { A2UIMiddlewareConfig } from "@ag-ui/a2ui-middleware";
@@ -142,7 +144,6 @@ abstract class BaseCopilotRuntime implements CopilotRuntimeLike {
     this.a2ui = a2ui;
     this.mcpApps = mcpApps;
     this.runner = runner;
-    this.licenseChecker = createLicenseChecker(options.licenseToken);
   }
 }
 
@@ -178,6 +179,7 @@ export class CopilotIntelligenceRuntime
     this.intelligence = options.intelligence;
     this.identifyUser = options.identifyUser;
     this.generateThreadNames = options.generateThreadNames ?? true;
+    this.licenseChecker = createLicenseChecker(options.licenseToken);
   }
 }
 
