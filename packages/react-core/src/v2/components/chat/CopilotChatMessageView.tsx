@@ -441,17 +441,6 @@ export function CopilotChatMessageView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Expose message count for programmatic perf measurement (dev-only).
-  // Fires after commit so it reflects when React has processed the new messages.
-  useEffect(() => {
-    if (
-      process.env.NODE_ENV === "development" &&
-      typeof window !== "undefined"
-    ) {
-      (window as any).__perfMsgCount = deduplicatedMessages.length;
-    }
-  }, [deduplicatedMessages.length]);
-
   // Virtualize only when we have a scroll element and enough messages. The
   // `children` render prop delegates layout to the caller, so we keep
   // messageElements flat for that case.

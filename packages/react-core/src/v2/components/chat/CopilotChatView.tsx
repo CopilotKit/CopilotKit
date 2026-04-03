@@ -1,4 +1,4 @@
-import React, { useLayoutEffect, useRef, useState, useEffect } from "react";
+import React, { useRef, useState, useEffect } from "react";
 import { ScrollElementRefContext } from "./scroll-element-context";
 import { WithSlots, SlotValue, renderSlot } from "../../lib/slots";
 import CopilotChatMessageView from "./CopilotChatMessageView";
@@ -314,21 +314,6 @@ export namespace CopilotChatView {
   }) => {
     const { isAtBottom, scrollToBottom, scrollRef } = useStickToBottomContext();
 
-    // Expose the scroll element for programmatic perf measurement (dev-only).
-    // The perf page polls window.__perfScrollEl to detect when scroll animation settles.
-    useLayoutEffect(() => {
-      if (process.env.NODE_ENV !== "development") return;
-      if (typeof window !== "undefined") {
-        (window as any).__perfScrollEl = scrollRef.current;
-      }
-      return () => {
-        if (typeof window !== "undefined") {
-          (window as any).__perfScrollEl = null;
-        }
-      };
-      // scrollRef is a stable object; intentionally omitted from deps.
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
 
     const BoundFeather = renderSlot(feather, CopilotChatView.Feather, {});
 
@@ -400,20 +385,6 @@ export namespace CopilotChatView {
       setHasMounted(true);
     }, []);
 
-    // Expose the scroll element for programmatic perf measurement (dev-only, non-autoScroll path).
-    useLayoutEffect(() => {
-      if (autoScroll || process.env.NODE_ENV !== "development") return;
-      if (typeof window !== "undefined") {
-        (window as any).__perfScrollEl = scrollRef.current;
-      }
-      return () => {
-        if (typeof window !== "undefined") {
-          (window as any).__perfScrollEl = null;
-        }
-      };
-      // scrollRef is stable; autoScroll doesn't change during a mount.
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [autoScroll]);
 
     // Monitor scroll position for non-autoscroll mode
     useEffect(() => {
