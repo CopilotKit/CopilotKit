@@ -1,0 +1,17 @@
+## Performance tip: throttle streaming re-renders
+
+When streaming long responses, the agent fires a re-render for every token. With many messages in the thread, this can cause jank. Two quick fixes:
+
+1. **Throttle re-renders** — add `throttleMs` to cap update frequency:
+
+```tsx
+const { agent } = useAgent({ throttleMs: 50 }); // ~20 renders/sec
+```
+
+2. **Memoize message components** — wrap your message renderer in `React.memo` so only the streaming message re-renders:
+
+```tsx
+const Message = React.memo(({ msg }) => <p>{msg.content}</p>);
+```
+
+See the [useAgent performance docs](/reference/v2/hooks/useAgent#performance) for more details.
