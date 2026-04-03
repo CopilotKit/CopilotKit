@@ -11,9 +11,26 @@ import {
   DEFAULT_AGENT_ID,
   randomUUID,
   TranscriptionErrorCode,
+  getModalityFromMimeType,
+  exceedsMaxSize,
+  readFileAsBase64,
+  generateVideoThumbnail,
+  matchesAcceptFilter,
+  formatFileSize,
+} from "@copilotkit/shared";
+import type {
+  Attachment,
+  AttachmentsConfig,
+  InputContent,
 } from "@copilotkit/shared";
 import { Suggestion, CopilotKitCoreErrorCode } from "@copilotkit/core";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { merge } from "ts-deepmerge";
 import {
   useCopilotKit,
@@ -34,12 +51,22 @@ export type CopilotChatProps = Omit<
   | "suggestions"
   | "suggestionLoadingIndexes"
   | "onSelectSuggestion"
+  // Attachment state props — managed internally based on `attachments` config
+  | "attachments"
+  | "onRemoveAttachment"
+  | "onAddFile"
+  | "dragOver"
+  | "onDragOver"
+  | "onDragLeave"
+  | "onDrop"
 > & {
   agentId?: string;
   threadId?: string;
   labels?: Partial<CopilotChatLabels>;
   chatView?: SlotValue<typeof CopilotChatView>;
   isModalDefaultOpen?: boolean;
+  /** Enable multimodal file attachments (images, audio, video, documents). */
+  attachments?: AttachmentsConfig;
   /**
    * Error handler scoped to this chat's agent. Fires in addition to the
    * provider-level onError (does not suppress it). Receives only errors
@@ -57,6 +84,7 @@ export function CopilotChat({
   labels,
   chatView,
   isModalDefaultOpen,
+  attachments: attachmentsConfig,
   onError,
   ...props
 }: CopilotChatProps) {
@@ -130,6 +158,20 @@ export function CopilotChat({
   );
   const [isTranscribing, setIsTranscribing] = useState(false);
 
+  // Attachment state
+  const attachmentsEnabled = attachmentsConfig?.enabled ?? false;
+  const attachmentsAccept = attachmentsConfig?.accept ?? "*/*";
+  const attachmentsMaxSize = attachmentsConfig?.maxSize ?? 20 * 1024 * 1024;
+
+  const [selectedAttachments, setSelectedAttachments] = useState<Attachment[]>(
+    [],
+  );
+  const [dragOver, setDragOver] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const processFilesRef = useRef<(files: File[]) => Promise<void>>(
+    async () => {},
+  );
+
   // Check if transcription is enabled
   const isTranscriptionEnabled = copilotkit.audioFileTranscriptionEnabled;
 
@@ -184,13 +226,202 @@ export function CopilotChat({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [resolvedThreadId, agent, resolvedAgentId]);
 
+  // --- Attachment logic ---
+
+  const processFiles = async (files: File[]) => {
+    const validFiles = files.filter((file) =>
+      matchesAcceptFilter(file, attachmentsAccept),
+    );
+    const rejectedCount = files.length - validFiles.length;
+    if (rejectedCount > 0) {
+      console.error(
+        `[CopilotKit] ${rejectedCount} file(s) not accepted. Supported types: ${attachmentsAccept}`,
+      );
+    }
+
+    for (const file of validFiles) {
+      if (exceedsMaxSize(file, attachmentsMaxSize)) {
+        console.error(
+          `[CopilotKit] File "${file.name}" exceeds the maximum size of ${formatFileSize(attachmentsMaxSize)}`,
+        );
+        continue;
+      }
+
+      const modality = getModalityFromMimeType(file.type);
+      const placeholderId = randomUUID();
+      const placeholder: Attachment = {
+        id: placeholderId,
+        type: modality,
+        source: { type: "data", value: "", mimeType: file.type },
+        filename: file.name,
+        size: file.size,
+        status: "uploading",
+      };
+
+      setSelectedAttachments((prev) => [...prev, placeholder]);
+
+      try {
+        let source: Attachment["source"];
+
+        if (attachmentsConfig?.onUpload) {
+          const result = await attachmentsConfig.onUpload(file);
+          if ("data" in result) {
+            source = {
+              type: "data",
+              value: result.data,
+              mimeType: result.mimeType,
+            };
+          } else {
+            source = {
+              type: "url",
+              value: result.url,
+              mimeType: result.mimeType ?? file.type,
+            };
+          }
+        } else {
+          const base64 = await readFileAsBase64(file);
+          source = { type: "data", value: base64, mimeType: file.type };
+        }
+
+        let thumbnail: string | undefined;
+        if (modality === "video") {
+          thumbnail = await generateVideoThumbnail(file);
+        }
+
+        setSelectedAttachments((prev) =>
+          prev.map((att) =>
+            att.id === placeholderId
+              ? { ...att, source, status: "ready" as const, thumbnail }
+              : att,
+          ),
+        );
+      } catch (error) {
+        setSelectedAttachments((prev) =>
+          prev.filter((att) => att.id !== placeholderId),
+        );
+        console.error(`[CopilotKit] Failed to upload "${file.name}":`, error);
+      }
+    }
+  };
+  processFilesRef.current = processFiles;
+
+  const handleFileUpload = async (
+    e: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    if (!e.target.files?.length) return;
+    try {
+      await processFiles(Array.from(e.target.files));
+    } catch (error) {
+      console.error("[CopilotKit] Upload error:", error);
+    }
+  };
+
+  // Drag-and-drop handlers
+  const handleDragOver = (e: React.DragEvent) => {
+    if (!attachmentsEnabled) return;
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOver(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOver(false);
+  };
+
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOver(false);
+    if (!attachmentsEnabled) return;
+
+    const files = Array.from(e.dataTransfer.files);
+    if (files.length > 0) {
+      try {
+        await processFiles(files);
+      } catch (error) {
+        console.error("[CopilotKit] Drop error:", error);
+      }
+    }
+  };
+
+  // Clipboard paste handler
+  useEffect(() => {
+    if (!attachmentsEnabled) return;
+
+    const handlePaste = async (e: ClipboardEvent) => {
+      const items = Array.from(e.clipboardData?.items || []);
+      const fileItems = items.filter(
+        (item) =>
+          item.kind === "file" &&
+          item.getAsFile() !== null &&
+          matchesAcceptFilter(item.getAsFile()!, attachmentsAccept),
+      );
+
+      if (fileItems.length === 0) return;
+      e.preventDefault();
+
+      const files = fileItems
+        .map((item) => item.getAsFile())
+        .filter((f): f is File => f !== null);
+
+      try {
+        await processFilesRef.current(files);
+      } catch (error) {
+        console.error("[CopilotKit] Paste error:", error);
+      }
+    };
+
+    document.addEventListener("paste", handlePaste);
+    return () => document.removeEventListener("paste", handlePaste);
+  }, [attachmentsEnabled, attachmentsAccept]);
+
+  // --- End attachment logic ---
+
   const onSubmitInput = useCallback(
     async (value: string) => {
-      agent.addMessage({
-        id: randomUUID(),
-        role: "user",
-        content: value,
-      });
+      // Block if uploads in progress
+      const hasUploading = selectedAttachments.some(
+        (a) => a.status === "uploading",
+      );
+      if (hasUploading) {
+        console.error(
+          "[CopilotKit] Cannot send while attachments are uploading",
+        );
+        return;
+      }
+
+      const readyAttachments = selectedAttachments.filter(
+        (a) => a.status === "ready",
+      );
+      setSelectedAttachments([]);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+
+      if (readyAttachments.length > 0) {
+        const contentParts: InputContent[] = [];
+        if (value.trim()) {
+          contentParts.push({ type: "text", text: value });
+        }
+        for (const att of readyAttachments) {
+          contentParts.push({
+            type: att.type,
+            source: att.source,
+          } as InputContent);
+        }
+        agent.addMessage({
+          id: randomUUID(),
+          role: "user",
+          content: contentParts,
+        });
+      } else {
+        agent.addMessage({
+          id: randomUUID(),
+          role: "user",
+          content: value,
+        });
+      }
+
       // Clear input after submitting
       setInputValue("");
       try {
@@ -201,7 +432,7 @@ export function CopilotChat({
     },
     // copilotkit is intentionally excluded — it is a stable ref that never changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [agent],
+    [agent, selectedAttachments],
   );
 
   const handleSelectSuggestion = useCallback(
@@ -390,6 +621,17 @@ export function CopilotChat({
     onFinishTranscribeWithAudio: showTranscription
       ? handleFinishTranscribeWithAudio
       : undefined,
+    // Attachment props
+    attachments: selectedAttachments,
+    onRemoveAttachment: (id: string) =>
+      setSelectedAttachments((prev) => prev.filter((a) => a.id !== id)),
+    onAddFile: attachmentsEnabled
+      ? () => fileInputRef.current?.click()
+      : undefined,
+    dragOver,
+    onDragOver: handleDragOver,
+    onDragLeave: handleDragLeave,
+    onDrop: handleDrop,
   }) as CopilotChatViewProps;
 
   // Always create a provider with merged values
@@ -403,6 +645,16 @@ export function CopilotChat({
       labels={labels}
       isModalDefaultOpen={isModalDefaultOpen}
     >
+      {attachmentsEnabled && (
+        <input
+          type="file"
+          multiple
+          ref={fileInputRef}
+          onChange={handleFileUpload}
+          accept={attachmentsAccept}
+          style={{ display: "none" }}
+        />
+      )}
       {!isChatLicensed && <InlineFeatureWarning featureName="Chat" />}
       {transcriptionError && (
         <div

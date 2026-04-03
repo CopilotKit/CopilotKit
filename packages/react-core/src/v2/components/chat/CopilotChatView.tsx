@@ -10,6 +10,8 @@ import CopilotChatSuggestionView, {
 } from "./CopilotChatSuggestionView";
 import { Suggestion } from "@copilotkit/core";
 import { Message } from "@ag-ui/core";
+import type { Attachment } from "@copilotkit/shared";
+import { CopilotChatAttachmentQueue } from "./CopilotChatAttachmentQueue";
 import { twMerge } from "tailwind-merge";
 import {
   StickToBottom,
@@ -64,6 +66,14 @@ export type CopilotChatViewProps = WithSlots<
     onCancelTranscribe?: () => void;
     onFinishTranscribe?: () => void;
     onFinishTranscribeWithAudio?: (audioBlob: Blob) => Promise<void>;
+    // Attachment props
+    attachments?: Attachment[];
+    onRemoveAttachment?: (id: string) => void;
+    onAddFile?: () => void;
+    dragOver?: boolean;
+    onDragOver?: (e: React.DragEvent) => void;
+    onDragLeave?: (e: React.DragEvent) => void;
+    onDrop?: (e: React.DragEvent) => void;
     /**
      * @deprecated Use the `input` slot's `disclaimer` prop instead:
      * ```tsx
@@ -96,6 +106,14 @@ export function CopilotChatView({
   onCancelTranscribe,
   onFinishTranscribe,
   onFinishTranscribeWithAudio,
+  // Attachment props
+  attachments,
+  onRemoveAttachment,
+  onAddFile,
+  dragOver,
+  onDragOver,
+  onDragLeave,
+  onDrop,
   // Deprecated — forwarded to input slot
   disclaimer,
   children,
@@ -171,6 +189,7 @@ export function CopilotChatView({
     onCancelTranscribe,
     onFinishTranscribe,
     onFinishTranscribeWithAudio,
+    onAddFile,
     positioning: "static",
     keyboardHeight: isKeyboardOpen ? keyboardHeight : 0,
     containerRef: inputContainerRef,
@@ -229,6 +248,7 @@ export function CopilotChatView({
       onCancelTranscribe,
       onFinishTranscribe,
       onFinishTranscribeWithAudio,
+      onAddFile,
       positioning: "static",
       showDisclaimer: true,
       ...(disclaimer !== undefined ? { disclaimer } : {}),
@@ -252,8 +272,13 @@ export function CopilotChatView({
         data-copilotkit
         data-testid="copilot-chat"
         data-copilot-running={isRunning ? "true" : "false"}
-        className={twMerge(
+        onDragOver={onDragOver}
+        onDragLeave={onDragLeave}
+        onDrop={onDrop}
+        className={cn(
           "copilotKitChat cpk:relative cpk:h-full cpk:flex cpk:flex-col",
+          dragOver &&
+            "cpk:outline-dashed cpk:outline-2 cpk:outline-primary cpk:-outline-offset-4 cpk:rounded-lg",
           className,
         )}
         {...props}
@@ -281,13 +306,26 @@ export function CopilotChatView({
       data-copilotkit
       data-testid="copilot-chat"
       data-copilot-running={isRunning ? "true" : "false"}
-      className={twMerge(
+      onDragOver={onDragOver}
+      onDragLeave={onDragLeave}
+      onDrop={onDrop}
+      className={cn(
         "copilotKitChat cpk:relative cpk:h-full cpk:flex cpk:flex-col",
+        dragOver &&
+          "cpk:outline-dashed cpk:outline-2 cpk:outline-primary cpk:-outline-offset-4 cpk:rounded-lg",
         className,
       )}
       {...props}
     >
       {BoundScrollView}
+
+      {attachments && attachments.length > 0 && (
+        <CopilotChatAttachmentQueue
+          attachments={attachments}
+          onRemoveAttachment={onRemoveAttachment!}
+          className="cpk:px-4"
+        />
+      )}
 
       {BoundInput}
     </div>
