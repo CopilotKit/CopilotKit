@@ -272,33 +272,37 @@ CopilotKit provides throttle controls at two independent layers. They are **addi
 | Layer | Option | Where | What it throttles |
 |-------|--------|-------|-------------------|
 | **React hook** | `useAgent({ throttleMs })` | Per-component | React re-renders triggered by `OnMessagesChanged` |
-| **Agent instance** | `new HttpAgent({ notificationThrottle })` | Per-agent (all subscribers) | `onMessagesChanged` / `onStateChanged` subscriber notifications at the source |
+| **AG-UI middleware** | `EventThrottleMiddleware` | Per-agent (all subscribers) | AG-UI stream events at the source — batches and coalesces rapid chunk events before they reach subscribers |
 
 **When to use which:**
 
 - **`throttleMs` on `useAgent`** — best for headless UIs where you control the React component but not the agent creation. Simple, one-line fix.
-- **`notificationThrottle` on the agent** — best when you control agent instantiation and want to throttle for ALL consumers (not just one React component). Supports both time-based (`intervalMs`) and character-count-based (`minChunkSize`) thresholds.
-- **Both together** — the agent-level throttle reduces notification frequency at the source, and the hook-level throttle further smooths the React rendering. They compose naturally.
+- **`EventThrottleMiddleware`** — best when you control agent instantiation and want to throttle for ALL consumers (not just one React component). Supports both time-based (`intervalMs`) and character-count-based (`minChunkSize`) thresholds. Coalesces consecutive chunk events (text, tool call, reasoning) with the same ID into a single event with merged deltas.
+- **Both together** — the middleware reduces event frequency at the source, and the hook-level throttle further smooths the React rendering. They compose naturally.
 
-### Agent-level notification throttle
+### Agent-level event throttle middleware
 
-When creating an agent directly (e.g., `HttpAgent`), you can configure notification throttling:
+When creating an agent directly (e.g., `HttpAgent`), you can add `EventThrottleMiddleware` to throttle stream events:
 
 ```tsx
 import { HttpAgent } from "@ag-ui/client";
+import { EventThrottleMiddleware } from "@ag-ui/event-throttle-middleware";
 
 const agent = new HttpAgent({
   url: "https://my-agent.example.com",
-  notificationThrottle: {
+});
+
+agent.use(
+  new EventThrottleMiddleware({
     intervalMs: 16,     // ~60fps cap on notifications
     minChunkSize: 20,   // also fire when 20+ new chars accumulate
-  },
-});
+  }),
+);
 ```
 
 When both `intervalMs` and `minChunkSize` are set, a notification fires when **either** threshold is hit first — whichever comes sooner. This gives you both a minimum visual update granularity (chunk size) and a maximum latency cap (time).
 
-Mutations are always applied immediately (`agent.messages` and `agent.state` stay up to date) — only subscriber notifications are coalesced.
+Bufferable events (text chunks, tool call chunks, state snapshots) are batched and coalesced, while lifecycle events (`RUN_STARTED`, `TOOL_CALL_START`, etc.) flush the buffer and pass through immediately.
 
 ### Memoizing message components
 
