@@ -9,12 +9,14 @@ Widgets are React components that provide visual UI for MCP tools. They let user
 ## When to Use Widgets
 
 **Use a widget when:**
+
 - ✅ Browsing or comparing multiple items
 - ✅ Visual representation improves understanding (charts, images, layouts)
 - ✅ Interactive selection is easier visually than through text
 - ✅ User needs to see data structure at a glance
 
 **Use plain tool (no widget) when:**
+
 - ❌ Output is simple text or a single value
 - ❌ No visual representation adds value
 - ❌ Quick conversational response is sufficient
@@ -34,7 +36,7 @@ import { z } from "zod";
 
 const server = new MCPServer({
   name: "my-server",
-  version: "1.0.0"
+  version: "1.0.0",
 });
 
 server.tool(
@@ -42,13 +44,13 @@ server.tool(
     name: "show-weather",
     description: "Display weather for a city",
     schema: z.object({
-      city: z.string().describe("City name")
+      city: z.string().describe("City name"),
     }),
     widget: {
-      name: "weather-display",        // Must match filename: resources/weather-display.tsx
+      name: "weather-display", // Must match filename: resources/weather-display.tsx
       invoking: "Fetching weather...", // Optional: shown while loading
-      invoked: "Weather loaded"        // Optional: shown when complete
-    }
+      invoked: "Weather loaded", // Optional: shown when complete
+    },
   },
   async ({ city }) => {
     const data = await getWeather(city);
@@ -58,11 +60,13 @@ server.tool(
         city: data.city,
         temp: data.temperature,
         conditions: data.conditions,
-        icon: data.icon
+        icon: data.icon,
       },
-      output: text(`Weather in ${city}: ${data.temperature}°C, ${data.conditions}`)
+      output: text(
+        `Weather in ${city}: ${data.temperature}°C, ${data.conditions}`,
+      ),
     });
-  }
+  },
 );
 ```
 
@@ -77,13 +81,13 @@ const propsSchema = z.object({
   city: z.string(),
   temp: z.number(),
   conditions: z.string(),
-  icon: z.string()
+  icon: z.string(),
 });
 
 export const widgetMetadata: WidgetMetadata = {
   description: "Display weather information for a city",
   props: propsSchema,
-  exposeAsTool: false  // ← Critical: prevents duplicate tool registration
+  exposeAsTool: false, // ← Critical: prevents duplicate tool registration
 };
 
 type Props = z.infer<typeof propsSchema>;
@@ -113,6 +117,7 @@ export default function WeatherDisplay() {
 ```
 
 **Key requirements:**
+
 1. Export `widgetMetadata` with props schema
 2. Infer type from schema and pass to `useWidget<Props>()`
 3. `exposeAsTool` defaults to `false` — correct when pairing with a custom tool
@@ -133,16 +138,19 @@ export const widgetMetadata: WidgetMetadata = {
     id: z.string(),
     title: z.string(),
     count: z.number(),
-    items: z.array(z.object({
-      name: z.string(),
-      value: z.number()
-    }))
+    items: z.array(
+      z.object({
+        name: z.string(),
+        value: z.number(),
+      }),
+    ),
   }),
-  exposeAsTool: false  // Default; omit or set explicitly when pairing with a custom tool
+  exposeAsTool: false, // Default; omit or set explicitly when pairing with a custom tool
 };
 ```
 
 **Fields:**
+
 - `description` - What the widget displays/does
 - `props` - Zod schema defining expected props shape
 - `exposeAsTool` - Set to `true` to auto-register as a tool (default: `false`)
@@ -155,7 +163,7 @@ export const widgetMetadata: WidgetMetadata = {
   props: propsSchema,
   metadata: {
     invoking: "Fetching weather...", // Shimmer text while tool runs
-    invoked: "Weather loaded",       // Static text when complete
+    invoked: "Weather loaded", // Static text when complete
     csp: { connectDomains: ["https://api.weather.com"] },
   },
 };
@@ -171,16 +179,17 @@ The `useWidget()` hook provides access to props and widget state:
 
 ```typescript
 const {
-  props,        // Widget props from tool response
-  isPending,    // True while props are loading
-  setState,     // Update widget state
-  state,        // Current widget state
+  props, // Widget props from tool response
+  isPending, // True while props are loading
+  setState, // Update widget state
+  state, // Current widget state
 } = useWidget();
 ```
 
 **To call tools from a widget**, use the dedicated `useCallTool()` hook — see [interactivity.md](interactivity.md).
 
 ### props
+
 Data passed from tool's `widget({ props })` response:
 
 ```typescript
@@ -188,12 +197,13 @@ const { props } = useWidget();
 
 // Access props after isPending check
 if (!isPending) {
-  console.log(props.city);      // "Tokyo"
-  console.log(props.temp);      // 28
+  console.log(props.city); // "Tokyo"
+  console.log(props.temp); // 28
 }
 ```
 
 **Always check `isPending` before accessing `props`:**
+
 ```typescript
 ❌ const { props } = useWidget();
    return <div>{props.city}</div>;  // Error! props undefined while loading
@@ -204,14 +214,17 @@ if (!isPending) {
 ```
 
 ### isPending
+
 Boolean indicating if props are still loading.
 
 **CRITICAL:** Widgets render **before** the tool completes execution. On first render:
+
 - `isPending` is `true`
 - `props` is an empty object `{}`
 - Accessing `props` fields will cause errors
 
 **Widget Lifecycle:**
+
 1. Widget mounts immediately when tool is called → `isPending = true`, `props = {}`
 2. Tool executes and returns `widget({ props })`
 3. Widget re-renders → `isPending = false`, `props` contains data
@@ -275,10 +288,12 @@ export default function MyWidget() {
 ```
 
 **Props:**
+
 - `autoSize={true}` - Automatically resize iframe to content (recommended)
 - `autoSize={false}` - Fixed height, widget handles scrolling
 
 **Must wrap:**
+
 - ✅ Every return path (including loading states)
 - ✅ Root element of component
 
@@ -287,6 +302,7 @@ export default function MyWidget() {
 ## Props Handling Patterns
 
 ### Simple Props
+
 ```typescript
 export const widgetMetadata: WidgetMetadata = {
   props: z.object({
@@ -313,6 +329,7 @@ export default function SimpleWidget() {
 ```
 
 ### Array Props
+
 ```typescript
 export const widgetMetadata: WidgetMetadata = {
   props: z.object({
@@ -342,6 +359,7 @@ export default function ListWidget() {
 ```
 
 ### Nested Props
+
 ```typescript
 export const widgetMetadata: WidgetMetadata = {
   props: z.object({
@@ -376,6 +394,7 @@ export default function ProfileWidget() {
 ```
 
 ### Optional Props
+
 ```typescript
 export const widgetMetadata: WidgetMetadata = {
   props: z.object({
@@ -422,6 +441,7 @@ my-server/
 ```
 
 **Naming convention:**
+
 - Use kebab-case for widget names
 - Tool config: `widget: { name: "weather-display" }`
 - File: `resources/weather-display.tsx`
@@ -474,6 +494,7 @@ export default function WeatherWidget() {
 ## Common Mistakes
 
 ### ❌ Missing isPending Check
+
 ```typescript
 // ❌ Bad - props undefined during loading
 export default function BadWidget() {
@@ -501,6 +522,7 @@ export default function GoodWidget() {
 ```
 
 ### ❌ Missing McpUseProvider
+
 ```typescript
 // ❌ Bad - Missing provider
 export default function BadWidget() {
@@ -526,6 +548,7 @@ export default function GoodWidget() {
 ```
 
 ### `exposeAsTool` — default is `false`
+
 ```typescript
 // ✅ Default — widget is a resource only, exposed via a custom tool
 export const widgetMetadata: WidgetMetadata = {
@@ -543,6 +566,7 @@ export const widgetMetadata: WidgetMetadata = {
 ```
 
 ### ❌ Missing Type Parameter on useWidget
+
 ```typescript
 // ❌ Bad - props is UnknownObject, no autocomplete or type safety
 const propsSchema = z.object({
@@ -570,6 +594,7 @@ export default function GoodWidget() {
 ```
 
 ### ❌ Inferring Type from widgetMetadata.props
+
 ```typescript
 // ❌ Bad - Type inference fails, Props is unknown
 export const widgetMetadata: WidgetMetadata = {
@@ -621,6 +646,7 @@ Use the inspector to test widgets during development:
 5. Widget renders in inspector
 
 **Quick iteration:**
+
 - Change widget code → Auto-reload
 - Adjust props schema → Update tool call input
 - Test edge cases (empty lists, missing optional props)
@@ -636,7 +662,7 @@ import { z } from "zod";
 
 const server = new MCPServer({
   name: "product-server",
-  version: "1.0.0"
+  version: "1.0.0",
 });
 
 server.tool(
@@ -644,13 +670,13 @@ server.tool(
     name: "search-products",
     description: "Search products by keyword",
     schema: z.object({
-      query: z.string().describe("Search query")
+      query: z.string().describe("Search query"),
     }),
     widget: {
       name: "product-list",
       invoking: "Searching products...",
-      invoked: "Products loaded"
-    }
+      invoked: "Products loaded",
+    },
   },
   async ({ query }) => {
     const products = await searchProducts(query);
@@ -659,11 +685,11 @@ server.tool(
       props: {
         products,
         query,
-        totalCount: products.length
+        totalCount: products.length,
       },
-      output: text(`Found ${products.length} products matching "${query}"`)
+      output: text(`Found ${products.length} products matching "${query}"`),
     });
-  }
+  },
 );
 
 server.listen();
@@ -677,16 +703,18 @@ import { z } from "zod";
 export const widgetMetadata: WidgetMetadata = {
   description: "Display product search results",
   props: z.object({
-    products: z.array(z.object({
-      id: z.string(),
-      name: z.string(),
-      price: z.number(),
-      image: z.string()
-    })),
+    products: z.array(
+      z.object({
+        id: z.string(),
+        name: z.string(),
+        price: z.number(),
+        image: z.string(),
+      }),
+    ),
     query: z.string(),
-    totalCount: z.number()
+    totalCount: z.number(),
   }),
-  exposeAsTool: false
+  exposeAsTool: false,
 };
 
 export default function ProductList() {
@@ -706,12 +734,27 @@ export default function ProductList() {
         <h2>Search: "{props.query}"</h2>
         <p>Found {props.totalCount} products</p>
 
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 16 }}>
-          {props.products.map(product => (
-            <div key={product.id} style={{ border: "1px solid #ddd", padding: 12, borderRadius: 8 }}>
-              <img src={product.image} alt={product.name} style={{ width: "100%", height: 150, objectFit: "cover" }} />
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))",
+            gap: 16,
+          }}
+        >
+          {props.products.map((product) => (
+            <div
+              key={product.id}
+              style={{ border: "1px solid #ddd", padding: 12, borderRadius: 8 }}
+            >
+              <img
+                src={product.image}
+                alt={product.name}
+                style={{ width: "100%", height: 150, objectFit: "cover" }}
+              />
               <h3 style={{ fontSize: 16, margin: "8px 0" }}>{product.name}</h3>
-              <p style={{ fontSize: 18, fontWeight: "bold" }}>${product.price}</p>
+              <p style={{ fontSize: 18, fontWeight: "bold" }}>
+                ${product.price}
+              </p>
             </div>
           ))}
         </div>

@@ -1,20 +1,20 @@
 {
   "name": "threejs-mcp",
   "version": "0.4.0",
-  "type": "module",
   "description": "Three.js 3D visualization MCP App Server",
+  "license": "MIT",
   "repository": {
     "type": "git",
     "url": "https://github.com/modelcontextprotocol/ext-apps",
     "directory": "examples/threejs-server"
   },
-  "license": "MIT",
-  "main": "dist/server.js",
   "files": [
     "server.ts",
     "server-utils.ts",
     "dist"
   ],
+  "type": "module",
+  "main": "dist/server.js",
   "scripts": {
     "build": "tsc --noEmit && cross-env INPUT=mcp-app.html vite build",
     "watch": "cross-env INPUT=mcp-app.html vite build --watch",
@@ -46,9 +46,9 @@
     "cors": "^2.8.5",
     "cross-env": "^10.1.0",
     "express": "^5.1.0",
+    "tsx": "^4.19.2",
     "typescript": "^5.9.3",
     "vite": "^6.0.0",
-    "vite-plugin-singlefile": "^2.3.0",
-    "tsx": "^4.19.2"
+    "vite-plugin-singlefile": "^2.3.0"
   }
 }

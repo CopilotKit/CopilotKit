@@ -24,7 +24,7 @@ server.tool(
       userId: ctx.auth.user.userId,
       email: ctx.auth.user.email,
       name: ctx.auth.user.name,
-    })
+    }),
 );
 
 server.listen();
@@ -42,11 +42,11 @@ That's it. JWT verification, OAuth discovery, and token proxying are handled aut
 
 ## Environment Variables
 
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `MCP_USE_OAUTH_WORKOS_SUBDOMAIN` | Yes | Your full AuthKit domain (e.g., `my-company.authkit.app`) |
-| `MCP_USE_OAUTH_WORKOS_CLIENT_ID` | No | Pre-registered OAuth client ID. Omit for DCR mode |
-| `MCP_USE_OAUTH_WORKOS_API_KEY` | No | WorkOS API key for making WorkOS API calls |
+| Variable                         | Required | Description                                               |
+| -------------------------------- | -------- | --------------------------------------------------------- |
+| `MCP_USE_OAUTH_WORKOS_SUBDOMAIN` | Yes      | Your full AuthKit domain (e.g., `my-company.authkit.app`) |
+| `MCP_USE_OAUTH_WORKOS_CLIENT_ID` | No       | Pre-registered OAuth client ID. Omit for DCR mode         |
+| `MCP_USE_OAUTH_WORKOS_API_KEY`   | No       | WorkOS API key for making WorkOS API calls                |
 
 ### Finding Your Subdomain
 
@@ -61,7 +61,7 @@ Use the **full AuthKit domain** including `.authkit.app`. For example, if your A
 Zero-config (reads from env vars):
 
 ```typescript
-oauth: oauthWorkOSProvider()
+oauth: oauthWorkOSProvider();
 ```
 
 Explicit config (overrides env vars):
@@ -69,18 +69,18 @@ Explicit config (overrides env vars):
 ```typescript
 oauth: oauthWorkOSProvider({
   subdomain: "my-company.authkit.app",
-  clientId: "client_01KB5DRXBDDY1VGCBKY108SKJW",  // optional
-  apiKey: "sk_test_...",                             // optional
-  verifyJwt: false,                                  // development only
-})
+  clientId: "client_01KB5DRXBDDY1VGCBKY108SKJW", // optional
+  apiKey: "sk_test_...", // optional
+  verifyJwt: false, // development only
+});
 ```
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `subdomain` | `string` | env var | Full AuthKit domain (e.g., `my-company.authkit.app`) |
-| `clientId` | `string?` | env var | Pre-registered client ID. Omit for DCR |
-| `apiKey` | `string?` | env var | WorkOS API key |
-| `verifyJwt` | `boolean?` | `true` | Set `false` to skip JWT verification (development only) |
+| Option      | Type       | Default | Description                                             |
+| ----------- | ---------- | ------- | ------------------------------------------------------- |
+| `subdomain` | `string`   | env var | Full AuthKit domain (e.g., `my-company.authkit.app`)    |
+| `clientId`  | `string?`  | env var | Pre-registered client ID. Omit for DCR                  |
+| `apiKey`    | `string?`  | env var | WorkOS API key                                          |
+| `verifyJwt` | `boolean?` | `true`  | Set `false` to skip JWT verification (development only) |
 
 ---
 
@@ -91,6 +91,7 @@ DCR lets MCP clients register themselves automatically with WorkOS. This is the 
 > **Testing with the MCP Inspector:** Use DCR mode (do **not** set `MCP_USE_OAUTH_WORKOS_CLIENT_ID`). The Inspector relies on DCR to self-register — without it, the OAuth flow will stall because the Inspector has no pre-configured `client_id`.
 
 **Setup:**
+
 1. Don't set `MCP_USE_OAUTH_WORKOS_CLIENT_ID`
 2. Enable DCR in WorkOS Dashboard → **Connect** → **Configuration**
 
@@ -110,19 +111,19 @@ If you need a specific OAuth client instead of DCR:
 
 WorkOS populates these fields on `ctx.auth.user`:
 
-| Field | Type | Source |
-|-------|------|--------|
-| `userId` | `string` | `sub` claim |
-| `email` | `string?` | `email` claim |
-| `name` | `string?` | `name` claim |
-| `username` | `string?` | `preferred_username` claim |
-| `picture` | `string?` | `picture` claim |
-| `roles` | `string[]` | `roles` claim |
-| `permissions` | `string[]` | `permissions` claim |
-| `scopes` | `string[]` | Parsed from `scope` claim |
-| `email_verified` | `boolean?` | `email_verified` claim |
-| `organization_id` | `string?` | `org_id` claim |
-| `sid` | `string?` | Session ID |
+| Field             | Type       | Source                     |
+| ----------------- | ---------- | -------------------------- |
+| `userId`          | `string`   | `sub` claim                |
+| `email`           | `string?`  | `email` claim              |
+| `name`            | `string?`  | `name` claim               |
+| `username`        | `string?`  | `preferred_username` claim |
+| `picture`         | `string?`  | `picture` claim            |
+| `roles`           | `string[]` | `roles` claim              |
+| `permissions`     | `string[]` | `permissions` claim        |
+| `scopes`          | `string[]` | Parsed from `scope` claim  |
+| `email_verified`  | `boolean?` | `email_verified` claim     |
+| `organization_id` | `string?`  | `org_id` claim             |
+| `sid`             | `string?`  | Session ID                 |
 
 ### Role-Based Access
 
@@ -136,7 +137,7 @@ server.tool(
 
     // ... admin logic
     return text("Done");
-  }
+  },
 );
 ```
 
@@ -163,7 +164,7 @@ server.tool(
           Authorization: `Bearer ${WORKOS_API_KEY}`,
           "Content-Type": "application/json",
         },
-      }
+      },
     );
 
     if (!res.ok) {
@@ -171,7 +172,7 @@ server.tool(
     }
 
     return object(await res.json());
-  }
+  },
 );
 ```
 

@@ -43,7 +43,9 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
         <div style={{ padding: 20, color: "#c62828" }}>
           <h3>Something went wrong</h3>
           <p>{this.state.error?.message}</p>
-          <button onClick={() => this.setState({ hasError: false, error: null })}>
+          <button
+            onClick={() => this.setState({ hasError: false, error: null })}
+          >
             Try Again
           </button>
         </div>
@@ -59,7 +61,11 @@ export default function SafeWidget() {
   const { props, isPending } = useWidget();
 
   if (isPending) {
-    return <McpUseProvider autoSize><div>Loading...</div></McpUseProvider>;
+    return (
+      <McpUseProvider autoSize>
+        <div>Loading...</div>
+      </McpUseProvider>
+    );
   }
 
   return (
@@ -93,7 +99,7 @@ export default function OptimizedWidget() {
     let result = props.items;
 
     // Filter
-    result = result.filter(item => item.active);
+    result = result.filter((item) => item.active);
 
     // Sort
     result.sort((a, b) => b.score - a.score);
@@ -102,14 +108,19 @@ export default function OptimizedWidget() {
     return {
       items: result,
       total: result.length,
-      avgScore: result.length > 0
-        ? result.reduce((sum, item) => sum + item.score, 0) / result.length
-        : 0
+      avgScore:
+        result.length > 0
+          ? result.reduce((sum, item) => sum + item.score, 0) / result.length
+          : 0,
     };
   }, [props.items]);
 
   if (isPending) {
-    return <McpUseProvider autoSize><div>Loading...</div></McpUseProvider>;
+    return (
+      <McpUseProvider autoSize>
+        <div>Loading...</div>
+      </McpUseProvider>
+    );
   }
 
   return (
@@ -118,7 +129,7 @@ export default function OptimizedWidget() {
         <p>Total: {sortedAndFiltered.total}</p>
         <p>Average: {sortedAndFiltered.avgScore.toFixed(2)}</p>
 
-        {sortedAndFiltered.items.map(item => (
+        {sortedAndFiltered.items.map((item) => (
           <div key={item.id}>{item.name}</div>
         ))}
       </div>
@@ -143,23 +154,30 @@ export default function CallbackWidget() {
   const [loadingId, setLoadingId] = useState<string | null>(null);
 
   // Stable function reference
-  const handleAction = useCallback(async (id: string) => {
-    setLoadingId(id);
-    try {
-      await callToolAsync({ id });
-    } finally {
-      setLoadingId(null);
-    }
-  }, [callToolAsync]);
+  const handleAction = useCallback(
+    async (id: string) => {
+      setLoadingId(id);
+      try {
+        await callToolAsync({ id });
+      } finally {
+        setLoadingId(null);
+      }
+    },
+    [callToolAsync],
+  );
 
   if (isPending) {
-    return <McpUseProvider autoSize><div>Loading...</div></McpUseProvider>;
+    return (
+      <McpUseProvider autoSize>
+        <div>Loading...</div>
+      </McpUseProvider>
+    );
   }
 
   return (
     <McpUseProvider autoSize>
       <div>
-        {props.items.map(item => (
+        {props.items.map((item) => (
           <ItemRow
             key={item.id}
             item={item}
@@ -202,15 +220,19 @@ export default function AsyncWidget() {
     if (!isPending && props.itemId) {
       setLoading(true);
       fetch(`/api/items/${props.itemId}/details`)
-        .then(res => res.json())
-        .then(data => setDetails(data))
-        .catch(err => console.error("Failed to load details:", err))
+        .then((res) => res.json())
+        .then((data) => setDetails(data))
+        .catch((err) => console.error("Failed to load details:", err))
         .finally(() => setLoading(false));
     }
   }, [isPending, props.itemId]);
 
   if (isPending) {
-    return <McpUseProvider autoSize><div>Loading...</div></McpUseProvider>;
+    return (
+      <McpUseProvider autoSize>
+        <div>Loading...</div>
+      </McpUseProvider>
+    );
   }
 
   return (
@@ -233,6 +255,7 @@ export default function AsyncWidget() {
 ```
 
 **Prefer tool calls over direct API calls:**
+
 ```tsx
 // ✅ Better - Use useCallTool
 const { callToolAsync } = useCallTool("get-item-details");
@@ -241,7 +264,7 @@ useEffect(() => {
   if (!isPending && props.itemId) {
     setLoading(true);
     callToolAsync({ id: props.itemId })
-      .then(result => setDetails(result))
+      .then((result) => setDetails(result))
       .finally(() => setLoading(false));
   }
 }, [isPending, props.itemId, callToolAsync]);
@@ -285,7 +308,7 @@ function reducer(state: State, action: Action): State {
     case "SET_FILTER":
       return {
         ...state,
-        filters: { ...state.filters, [action.key]: action.value }
+        filters: { ...state.filters, [action.key]: action.value },
       };
 
     case "SET_SORT":
@@ -294,7 +317,7 @@ function reducer(state: State, action: Action): State {
     case "TOGGLE_SORT_ORDER":
       return {
         ...state,
-        sortOrder: state.sortOrder === "asc" ? "desc" : "asc"
+        sortOrder: state.sortOrder === "asc" ? "desc" : "asc",
       };
 
     case "RESET":
@@ -302,7 +325,7 @@ function reducer(state: State, action: Action): State {
         selectedIds: new Set(),
         filters: { category: "all", search: "" },
         sortBy: "name",
-        sortOrder: "asc"
+        sortOrder: "asc",
       };
 
     default:
@@ -316,11 +339,15 @@ export default function ComplexWidget() {
     selectedIds: new Set(),
     filters: { category: "all", search: "" },
     sortBy: "name",
-    sortOrder: "asc"
+    sortOrder: "asc",
   });
 
   if (isPending) {
-    return <McpUseProvider autoSize><div>Loading...</div></McpUseProvider>;
+    return (
+      <McpUseProvider autoSize>
+        <div>Loading...</div>
+      </McpUseProvider>
+    );
   }
 
   return (
@@ -329,7 +356,13 @@ export default function ComplexWidget() {
         <input
           type="text"
           value={state.filters.search}
-          onChange={e => dispatch({ type: "SET_FILTER", key: "search", value: e.target.value })}
+          onChange={(e) =>
+            dispatch({
+              type: "SET_FILTER",
+              key: "search",
+              value: e.target.value,
+            })
+          }
           placeholder="Search..."
         />
 
@@ -364,13 +397,20 @@ export default function VirtualizedList() {
   const overscan = 3;
 
   if (isPending) {
-    return <McpUseProvider autoSize><div>Loading...</div></McpUseProvider>;
+    return (
+      <McpUseProvider autoSize>
+        <div>Loading...</div>
+      </McpUseProvider>
+    );
   }
 
-  const visibleStart = Math.max(0, Math.floor(scrollTop / itemHeight) - overscan);
+  const visibleStart = Math.max(
+    0,
+    Math.floor(scrollTop / itemHeight) - overscan,
+  );
   const visibleEnd = Math.min(
     props.items.length,
-    Math.ceil((scrollTop + containerHeight) / itemHeight) + overscan
+    Math.ceil((scrollTop + containerHeight) / itemHeight) + overscan,
   );
 
   const visibleItems = props.items.slice(visibleStart, visibleEnd);
@@ -379,14 +419,19 @@ export default function VirtualizedList() {
     <McpUseProvider autoSize>
       <div
         ref={containerRef}
-        onScroll={e => setScrollTop(e.currentTarget.scrollTop)}
+        onScroll={(e) => setScrollTop(e.currentTarget.scrollTop)}
         style={{
           height: containerHeight,
           overflow: "auto",
-          position: "relative"
+          position: "relative",
         }}
       >
-        <div style={{ height: props.items.length * itemHeight, position: "relative" }}>
+        <div
+          style={{
+            height: props.items.length * itemHeight,
+            position: "relative",
+          }}
+        >
           {visibleItems.map((item, index) => (
             <div
               key={item.id}
@@ -396,7 +441,7 @@ export default function VirtualizedList() {
                 height: itemHeight,
                 width: "100%",
                 padding: 12,
-                borderBottom: "1px solid #eee"
+                borderBottom: "1px solid #eee",
               }}
             >
               {item.name}
@@ -454,13 +499,17 @@ export default function DebouncedSearchWidget() {
 
     setSearching(true);
     callToolAsync({ query: debouncedSearch })
-      .then(result => setResults(result.structuredContent?.items || []))
-      .catch(err => console.error("Search failed:", err))
+      .then((result) => setResults(result.structuredContent?.items || []))
+      .catch((err) => console.error("Search failed:", err))
       .finally(() => setSearching(false));
   }, [debouncedSearch, callToolAsync]);
 
   if (isPending) {
-    return <McpUseProvider autoSize><div>Loading...</div></McpUseProvider>;
+    return (
+      <McpUseProvider autoSize>
+        <div>Loading...</div>
+      </McpUseProvider>
+    );
   }
 
   return (
@@ -469,7 +518,7 @@ export default function DebouncedSearchWidget() {
         <input
           type="text"
           value={search}
-          onChange={e => setSearch(e.target.value)}
+          onChange={(e) => setSearch(e.target.value)}
           placeholder="Search..."
           style={{ width: "100%", padding: 8 }}
         />
@@ -477,7 +526,7 @@ export default function DebouncedSearchWidget() {
         {searching && <p>Searching...</p>}
 
         <div>
-          {results.map(item => (
+          {results.map((item) => (
             <div key={item.id}>{item.name}</div>
           ))}
         </div>
@@ -519,12 +568,12 @@ export default function InfiniteScrollWidget() {
 
   useEffect(() => {
     const observer = new IntersectionObserver(
-      entries => {
+      (entries) => {
         if (entries[0].isIntersecting && hasMore && !loading) {
           loadMore();
         }
       },
-      { threshold: 1.0 }
+      { threshold: 1.0 },
     );
 
     if (observerTarget.current) {
@@ -539,14 +588,14 @@ export default function InfiniteScrollWidget() {
     try {
       const result = await callToolAsync({
         offset: items.length,
-        limit: 20
+        limit: 20,
       });
 
       const newItems = result.structuredContent?.items || [];
       if (newItems.length === 0) {
         setHasMore(false);
       } else {
-        setItems(prev => [...prev, ...newItems]);
+        setItems((prev) => [...prev, ...newItems]);
       }
     } catch (error) {
       console.error("Failed to load more:", error);
@@ -556,14 +605,21 @@ export default function InfiniteScrollWidget() {
   };
 
   if (isPending) {
-    return <McpUseProvider autoSize><div>Loading...</div></McpUseProvider>;
+    return (
+      <McpUseProvider autoSize>
+        <div>Loading...</div>
+      </McpUseProvider>
+    );
   }
 
   return (
     <McpUseProvider autoSize>
       <div style={{ padding: 20 }}>
-        {items.map(item => (
-          <div key={item.id} style={{ padding: 12, borderBottom: "1px solid #eee" }}>
+        {items.map((item) => (
+          <div
+            key={item.id}
+            style={{ padding: 12, borderBottom: "1px solid #eee" }}
+          >
             {item.name}
           </div>
         ))}
@@ -588,7 +644,10 @@ Persist widget state across sessions:
 import { useState, useEffect } from "react";
 import { McpUseProvider, useWidget } from "mcp-use/react";
 
-function useLocalStorage<T>(key: string, initialValue: T): [T, (value: T) => void] {
+function useLocalStorage<T>(
+  key: string,
+  initialValue: T,
+): [T, (value: T) => void] {
   const [storedValue, setStoredValue] = useState<T>(() => {
     try {
       const item = window.localStorage.getItem(key);
@@ -616,19 +675,23 @@ export default function PersistentWidget() {
   const [favorites, setFavorites] = useLocalStorage<string[]>("favorites", []);
 
   const toggleFavorite = (id: string) => {
-    setFavorites(prev =>
-      prev.includes(id) ? prev.filter(fav => fav !== id) : [...prev, id]
+    setFavorites((prev) =>
+      prev.includes(id) ? prev.filter((fav) => fav !== id) : [...prev, id],
     );
   };
 
   if (isPending) {
-    return <McpUseProvider autoSize><div>Loading...</div></McpUseProvider>;
+    return (
+      <McpUseProvider autoSize>
+        <div>Loading...</div>
+      </McpUseProvider>
+    );
   }
 
   return (
     <McpUseProvider autoSize>
       <div>
-        {props.items.map(item => (
+        {props.items.map((item) => (
           <div key={item.id}>
             <button onClick={() => toggleFavorite(item.id)}>
               {favorites.includes(item.id) ? "⭐" : "☆"}
@@ -694,7 +757,11 @@ export default function DraggableList() {
   };
 
   if (isPending) {
-    return <McpUseProvider autoSize><div>Loading...</div></McpUseProvider>;
+    return (
+      <McpUseProvider autoSize>
+        <div>Loading...</div>
+      </McpUseProvider>
+    );
   }
 
   return (
@@ -705,14 +772,14 @@ export default function DraggableList() {
             key={item.id}
             draggable
             onDragStart={() => handleDragStart(index)}
-            onDragOver={e => handleDragOver(e, index)}
+            onDragOver={(e) => handleDragOver(e, index)}
             onDragEnd={handleDragEnd}
             style={{
               padding: 12,
               margin: "4px 0",
               backgroundColor: draggedIndex === index ? "#e3f2fd" : "white",
               border: "1px solid #ddd",
-              cursor: "move"
+              cursor: "move",
             }}
           >
             ⋮⋮ {item.name}
@@ -760,7 +827,11 @@ export default function KeyboardWidget() {
   }, [save]);
 
   if (isPending) {
-    return <McpUseProvider autoSize><div>Loading...</div></McpUseProvider>;
+    return (
+      <McpUseProvider autoSize>
+        <div>Loading...</div>
+      </McpUseProvider>
+    );
   }
 
   return (
@@ -768,9 +839,15 @@ export default function KeyboardWidget() {
       <div>
         <p>Keyboard shortcuts:</p>
         <ul>
-          <li><kbd>Ctrl+S</kbd> - Save</li>
-          <li><kbd>Esc</kbd> - Cancel</li>
-          <li><kbd>↑/↓</kbd> - Navigate</li>
+          <li>
+            <kbd>Ctrl+S</kbd> - Save
+          </li>
+          <li>
+            <kbd>Esc</kbd> - Cancel
+          </li>
+          <li>
+            <kbd>↑/↓</kbd> - Navigate
+          </li>
         </ul>
       </div>
     </McpUseProvider>
