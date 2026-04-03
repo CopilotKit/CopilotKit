@@ -21,7 +21,8 @@ import {
   handleArchiveThread,
   handleDeleteThread,
 } from "../handlers/handle-threads";
-import { logger, getLicenseWarningHeader } from "@copilotkit/shared";
+import { logger } from "@copilotkit/shared";
+import { getLicenseWarningHeader } from "@copilotkit/license-verifier";
 import {
   callBeforeRequestMiddleware,
   callAfterRequestMiddleware,
