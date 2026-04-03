@@ -432,6 +432,30 @@ export default class Create extends BaseCommand {
       `$1my-copilotkit-agentcore${suffix}$2`,
     );
     await fs.writeFile(configPath, content, "utf-8");
+
+    // Remove the other agent, the other deploy script, and terraform
+    const isLanggraph = framework === "agentcore-langgraph";
+    const removeAgent = isLanggraph
+      ? "strands-single-agent"
+      : "langgraph-single-agent";
+    const removeScript = isLanggraph
+      ? "deploy-strands.sh"
+      : "deploy-langgraph.sh";
+    const keepScript = isLanggraph
+      ? "deploy-langgraph.sh"
+      : "deploy-strands.sh";
+
+    await Promise.all([
+      fs.remove(path.join(projectDir, "agents", removeAgent)),
+      fs.remove(path.join(projectDir, removeScript)),
+      fs.remove(path.join(projectDir, "infra-terraform")),
+    ]);
+
+    // Rename the remaining deploy script to deploy.sh
+    const keepScriptPath = path.join(projectDir, keepScript);
+    if (await fs.pathExists(keepScriptPath)) {
+      await fs.move(keepScriptPath, path.join(projectDir, "deploy.sh"));
+    }
   }
 
   private async downloadTemplate(
