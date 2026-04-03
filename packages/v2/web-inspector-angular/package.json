@@ -2,14 +2,18 @@
   "name": "@copilotkit/web-inspector-angular",
   "version": "0.0.1",
   "description": "Angular-based Custom Elements for the CopilotKit web inspector",
+  "license": "Commercial",
+  "type": "module",
   "main": "dist/fesm2022/copilotkit-web-inspector-angular.mjs",
   "module": "dist/fesm2022/copilotkit-web-inspector-angular.mjs",
   "types": "dist/index.d.ts",
-  "type": "module",
   "exports": {
     ".": {
       "import": "./dist/fesm2022/copilotkit-web-inspector-angular.mjs"
     }
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "scripts": {
     "build": "ng-packagr -p ng-package.json",
@@ -22,12 +26,6 @@
     "@copilotkit/core": "workspace:*",
     "tslib": "^2.6.0"
   },
-  "peerDependencies": {
-    "@angular/common": "^19.0.0",
-    "@angular/core": "^19.0.0",
-    "@angular/platform-browser": "^19.0.0",
-    "rxjs": "^7.8.0"
-  },
   "devDependencies": {
     "@angular/common": "^19.0.0",
     "@angular/compiler": "^19.0.0",
@@ -38,13 +36,15 @@
     "@copilotkit/typescript-config": "workspace:*",
     "@eslint/js": "^9.30.0",
     "eslint": "^9.17.0",
-    "typescript-eslint": "^8.35.0",
     "ng-packagr": "^19.0.0",
     "typescript": "5.8.2",
+    "typescript-eslint": "^8.35.0",
     "zone.js": "^0.14.0"
   },
-  "publishConfig": {
-    "access": "public"
-  },
-  "license": "Commercial"
+  "peerDependencies": {
+    "@angular/common": "^19.0.0",
+    "@angular/core": "^19.0.0",
+    "@angular/platform-browser": "^19.0.0",
+    "rxjs": "^7.8.0"
+  }
 }

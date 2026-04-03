@@ -279,7 +279,7 @@ type Tab = "conversation" | "agent-state" | "ag-ui-events";
                   >
                     <mask
                       id="mask0_79_1337"
-                      style="mask-type:alpha"
+                      style="mask-type: alpha"
                       maskUnits="userSpaceOnUse"
                       x="0"
                       y="0"
@@ -311,7 +311,7 @@ type Tab = "conversation" | "agent-state" | "ag-ui-events";
                   >
                     <mask
                       id="mask0_79_1343"
-                      style="mask-type:alpha"
+                      style="mask-type: alpha"
                       maskUnits="userSpaceOnUse"
                       x="0"
                       y="0"
@@ -343,7 +343,7 @@ type Tab = "conversation" | "agent-state" | "ag-ui-events";
                     >
                       <mask
                         id="mask0_82_1357"
-                        style="mask-type:alpha"
+                        style="mask-type: alpha"
                         maskUnits="userSpaceOnUse"
                         x="0"
                         y="0"
