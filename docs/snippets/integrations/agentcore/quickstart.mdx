@@ -6,6 +6,7 @@ import {
   TailoredContent,
   TailoredContentOption,
 } from "@/components/react/tailored-content.tsx";
+import { AgentCoreCommandTabs } from "@/components/content/agentcore-command-tabs";
 
 <Steps>
   <TailoredContent
@@ -28,20 +29,11 @@ import {
       <Step>
         ### Run the CLI
 
-        Pick your agent framework:
-
-        <Tabs groupId="agentcore-framework" items={["LangGraph", "Strands"]}>
-          <Tab value="LangGraph">
-            ```bash
-            npx copilotkit@latest create -f agentcore-langgraph
-            ```
-          </Tab>
-          <Tab value="Strands">
-            ```bash
-            npx copilotkit@latest create -f agentcore-strands
-            ```
-          </Tab>
-        </Tabs>
+        <AgentCoreCommandTabs
+          framework={props.framework}
+          lgCommand="npx copilotkit@latest create -f agentcore-langgraph"
+          stCommand="npx copilotkit@latest create -f agentcore-strands"
+        />
 
         The CLI downloads the full AgentCore template and sets up `config.yaml` for you.
       </Step>
@@ -62,18 +54,11 @@ import {
 
         One command deploys everything — CDK infrastructure, AgentCore Runtime, and the frontend:
 
-        <Tabs groupId="agentcore-framework" items={["LangGraph", "Strands"]}>
-          <Tab value="LangGraph">
-            ```bash
-            ./deploy-langgraph.sh
-            ```
-          </Tab>
-          <Tab value="Strands">
-            ```bash
-            ./deploy-strands.sh
-            ```
-          </Tab>
-        </Tabs>
+        <AgentCoreCommandTabs
+          framework={props.framework}
+          lgCommand="./deploy-langgraph.sh"
+          stCommand="./deploy-strands.sh"
+        />
       </Step>
 
       <Step>
