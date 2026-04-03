@@ -338,10 +338,16 @@ async function resolveSingleRoute(
   let route: RouteInfo;
   switch (methodCall.method) {
     case "agent/run":
-      route = { method: "agent/run", agentId: expectString(methodCall.params, "agentId") };
+      route = {
+        method: "agent/run",
+        agentId: expectString(methodCall.params, "agentId"),
+      };
       break;
     case "agent/connect":
-      route = { method: "agent/connect", agentId: expectString(methodCall.params, "agentId") };
+      route = {
+        method: "agent/connect",
+        agentId: expectString(methodCall.params, "agentId"),
+      };
       break;
     case "agent/stop":
       route = {

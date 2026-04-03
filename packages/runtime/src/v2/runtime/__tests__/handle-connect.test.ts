@@ -211,9 +211,7 @@ describe("handleConnectAgent", () => {
       [key: string]: ((...args: any[]) => any) | undefined;
     }
 
-    const createIntelligenceRuntime = (
-      platform?: MockIntelligencePlatform,
-    ) => {
+    const createIntelligenceRuntime = (platform?: MockIntelligencePlatform) => {
       const runner = Object.create(IntelligenceAgentRunner.prototype);
       runner.connect = vi.fn(
         () =>
