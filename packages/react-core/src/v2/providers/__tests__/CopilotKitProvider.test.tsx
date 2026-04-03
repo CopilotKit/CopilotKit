@@ -583,6 +583,7 @@ describe("CopilotKitProvider", () => {
         ),
       });
 
+      // No built-in tools when openGenerativeUI is not configured
       expect(result.current.copilotkit.tools).toHaveLength(0);
       expect(result.current.copilotkit.renderToolCalls).toHaveLength(0);
     });

@@ -28,6 +28,12 @@ const protocols = [
     bestFor: "Agent-composed UI, cross-framework",
     example: "Restaurant finder, dynamic forms",
   },
+  {
+    name: "Open Generative UI",
+    features: "Agent-generated HTML/CSS/JS in sandboxed iframes",
+    bestFor: "Freeform UI, CDN libraries, live streaming",
+    example: "Charts, dashboards, spreadsheets, 3D scenes",
+  },
 ];
 
 export function ComparisonTable() {

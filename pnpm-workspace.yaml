@@ -5,6 +5,7 @@ packages:
   - "examples/v2/*/apps/*"
   - "examples/v2/react/*"
   - "examples/v2/angular/*"
+  - "examples/showcases/generative-ui-playground"
   - "!examples/v1/_legacy"
 onlyBuiltDependencies:
   - better-sqlite3
