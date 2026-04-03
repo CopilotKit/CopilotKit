@@ -63,7 +63,7 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
         return handler(request.override(tools=merged_tools))
 
     @staticmethod
-    def _fix_messages_for_bedrock(messages: list, intercepted_tc_ids: set | None = None) -> list:
+    def _fix_messages_for_bedrock(messages: list) -> list:
         """Fix messages loaded from checkpoint before sending to Bedrock.
 
         Handles four issues caused by CopilotKit's after_agent restoring
@@ -203,10 +203,7 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
         # 5. Remove orphan ToolMessages whose tool_call_id no longer matches
         #    any remaining tool_call in any AIMessage. These can be left over
         #    after stripping unanswered tool_calls above.
-        #    Preserve ToolMessages for intercepted frontend tool calls — their
-        #    tool_calls were stripped by after_model but the ToolMessages are
-        #    still needed so the LLM sees the tool result on the next call.
-        remaining_tc_ids: set = set(intercepted_tc_ids or ())
+        remaining_tc_ids: set = set()
         for msg in messages:
             if isinstance(msg, AIMessage):
                 for tc in (getattr(msg, 'tool_calls', None) or []):
@@ -226,11 +223,7 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
             request: ModelRequest,
             handler: Callable[[ModelRequest], Awaitable[ModelResponse]],
     ) -> ModelResponse:
-        # Collect IDs of intercepted frontend tool calls so _fix_messages_for_bedrock
-        # doesn't remove their ToolMessages as orphans.
-        intercepted = request.state.get("copilotkit", {}).get("intercepted_tool_calls") or []
-        intercepted_ids = {tc.get("id") for tc in intercepted if tc.get("id")}
-        self._fix_messages_for_bedrock(request.messages, intercepted_tc_ids=intercepted_ids)
+        self._fix_messages_for_bedrock(request.messages)
 
         frontend_tools = request.state.get("copilotkit", {}).get("actions", [])
 
