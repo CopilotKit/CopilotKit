@@ -8,6 +8,14 @@ import type {
 import type { CopilotKitEventSuffixes } from "@copilotkit/devtools-client";
 import { randomUUID } from "@copilotkit/shared";
 
+/**
+ * Given a registry agent, return all per-thread clones (or an empty array).
+ * Registered by the React layer so devtools events reach thread-scoped agents.
+ */
+export type ThreadCloneResolver = (
+  registryAgent: AbstractAgent,
+) => AbstractAgent[];
+
 interface DevtoolsListenerDeps {
   getAgents: () => Readonly<Record<string, AbstractAgent>>;
 }
@@ -16,9 +24,14 @@ export class DevtoolsListener {
   private deps: DevtoolsListenerDeps;
   private cleanups: (() => void)[] = [];
   private active = false;
+  private threadCloneResolver: ThreadCloneResolver | null = null;
 
   constructor(deps: DevtoolsListenerDeps) {
     this.deps = deps;
+  }
+
+  setThreadCloneResolver(resolver: ThreadCloneResolver): void {
+    this.threadCloneResolver = resolver;
   }
 
   initialize(): void {
@@ -75,6 +88,17 @@ export class DevtoolsListener {
       );
     }
     return agent;
+  }
+
+  /**
+   * Returns all agent instances for a given agentId: the registry agent
+   * plus any per-thread clones created by the React layer.
+   */
+  private resolveAllInstances(agentId: string): AbstractAgent[] {
+    const registryAgent = this.deps.getAgents()[agentId];
+    if (!registryAgent) return [];
+    const clones = this.threadCloneResolver?.(registryAgent) ?? [];
+    return clones.length > 0 ? clones : [registryAgent];
   }
 
   private makeSubscriberParams(agent: AbstractAgent, runId: string) {
@@ -159,6 +183,7 @@ export class DevtoolsListener {
 
     const runId = randomUUID();
     const toolCallId = randomUUID();
+    const parentMessageId = randomUUID();
     const argsJson = JSON.stringify(payload.args);
 
     this.withRunLifecycle(agent, runId, (runParams) => {
@@ -212,6 +237,34 @@ export class DevtoolsListener {
           },
         });
       });
+
+      // Update agent.messages on all instances (registry + thread clones)
+      // so React consumers (useAgent) re-render
+      const messages = [
+        {
+          id: parentMessageId,
+          role: "assistant" as const,
+          toolCalls: [
+            {
+              id: toolCallId,
+              type: "function" as const,
+              function: {
+                name: payload.toolName,
+                arguments: argsJson,
+              },
+            },
+          ],
+        },
+        {
+          id: resultMessageId,
+          role: "tool" as const,
+          toolCallId,
+          content: payload.result,
+        },
+      ];
+      for (const instance of this.resolveAllInstances(payload.agentId)) {
+        instance.addMessages(messages);
+      }
     });
   }
 
@@ -255,6 +308,16 @@ export class DevtoolsListener {
           event: { type: EventType.TEXT_MESSAGE_END, messageId },
         });
       });
+
+      // Update agent.messages on all instances (registry + thread clones)
+      // so React consumers (useAgent) re-render
+      for (const instance of this.resolveAllInstances(payload.agentId)) {
+        instance.addMessage({
+          id: messageId,
+          role: "assistant",
+          content: payload.content,
+        });
+      }
     });
   }
 
@@ -308,6 +371,16 @@ export class DevtoolsListener {
           event: { type: EventType.REASONING_END },
         });
       });
+
+      // Update agent.messages on all instances (registry + thread clones)
+      // so React consumers (useAgent) re-render
+      for (const instance of this.resolveAllInstances(payload.agentId)) {
+        instance.addMessage({
+          id: messageId,
+          role: "reasoning",
+          content: payload.content,
+        });
+      }
     });
   }
 
@@ -326,6 +399,12 @@ export class DevtoolsListener {
           event: { type: EventType.STATE_SNAPSHOT, snapshot: payload.state },
         });
       });
+
+      // Update agent.state on all instances (registry + thread clones)
+      // so React consumers (useAgent) re-render
+      for (const instance of this.resolveAllInstances(payload.agentId)) {
+        instance.setState(payload.state);
+      }
     });
   }
 

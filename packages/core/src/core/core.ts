@@ -8,7 +8,7 @@ import {
   RuntimeLicenseStatus,
   IntelligenceRuntimeInfo,
 } from "../types";
-import { DevtoolsListener } from "./devtools-listener";
+import { DevtoolsListener, type ThreadCloneResolver } from "./devtools-listener";
 import { AgentRegistry, CopilotKitCoreAddAgentParams } from "./agent-registry";
 import { ContextStore } from "./context-store";
 import { SuggestionEngine } from "./suggestion-engine";
@@ -302,6 +302,14 @@ export class CopilotKitCore {
 
   destroy(): void {
     this.devtoolsListener.destroy();
+  }
+
+  /**
+   * Register a resolver that returns per-thread clones for a given registry agent.
+   * Called by the React layer so devtools events reach thread-scoped agents.
+   */
+  setThreadCloneResolver(resolver: ThreadCloneResolver): void {
+    this.devtoolsListener.setThreadCloneResolver(resolver);
   }
 
   /**

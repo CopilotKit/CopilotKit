@@ -26,6 +26,20 @@ export function saveSnippet(snippet: DevtoolsSnippet): boolean {
   }
 }
 
+export function updateSnippet(updated: DevtoolsSnippet): boolean {
+  try {
+    const snippets = loadSnippets();
+    const idx = snippets.findIndex((s) => s.id === updated.id);
+    if (idx === -1) return false;
+    snippets[idx] = updated;
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(snippets));
+    return true;
+  } catch (err) {
+    console.warn("[CopilotKit DevTools] Failed to update snippet:", err);
+    return false;
+  }
+}
+
 export function deleteSnippet(id: string): boolean {
   try {
     const snippets = loadSnippets();

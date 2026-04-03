@@ -43,6 +43,7 @@ import {
   devtoolsClient,
   loadSnippets,
   saveSnippet,
+  updateSnippet,
   deleteSnippet,
   type DevtoolsSnippet,
   type DevtoolsEventType,
@@ -288,6 +289,7 @@ export class WebInspectorElement extends LitElement {
   private emitterStatusTimeoutId: ReturnType<typeof setTimeout> | null = null;
   private emitterShowSnippetInput = false;
   private emitterSnippetName = "";
+  private emitterEditingSnippetId: string | null = null;
 
   private readonly menuItems: MenuItem[] = [
     { key: "ag-ui-events", label: "AG-UI Events", icon: "Zap" },
@@ -4544,22 +4546,59 @@ ${this.announcementMarkdown}</pre
           : nothing}
 
         <!-- Action buttons -->
-        <div class="flex gap-2">
-          <button
-            class="rounded-md bg-gray-900 px-4 py-2 text-xs font-medium text-white transition hover:bg-gray-800"
-            ?disabled=${!this.isEmitterFormValid()}
-            @click=${() => this.handleEmit()}
-          >
-            Emit Event
-          </button>
-          <button
-            class="rounded-md border border-gray-200 px-4 py-2 text-xs font-medium text-gray-700 transition hover:bg-gray-50"
-            ?disabled=${!this.isEmitterFormValid()}
-            @click=${() => this.handleSaveSnippet()}
-          >
-            Save as Snippet
-          </button>
-        </div>
+        ${this.emitterEditingSnippetId
+          ? html`
+              <div class="flex gap-2 items-center">
+                <input
+                  type="text"
+                  placeholder="Snippet name"
+                  class="flex-1 rounded-md border border-gray-200 bg-white px-3 py-2 text-xs text-gray-900 focus:border-gray-400 focus:outline-none"
+                  .value=${this.emitterSnippetName}
+                  @input=${(e: Event) => {
+                    this.emitterSnippetName = (
+                      e.target as HTMLInputElement
+                    ).value;
+                    this.requestUpdate();
+                  }}
+                  @keydown=${(e: KeyboardEvent) => {
+                    if (e.key === "Enter") this.handleUpdateSnippet();
+                    if (e.key === "Escape") this.handleCancelEditSnippet();
+                  }}
+                />
+                <button
+                  class="rounded-md bg-blue-600 px-4 py-2 text-xs font-medium text-white transition hover:bg-blue-700"
+                  ?disabled=${!this.isEmitterFormValid() ||
+                  !this.emitterSnippetName.trim()}
+                  @click=${() => this.handleUpdateSnippet()}
+                >
+                  Update Snippet
+                </button>
+                <button
+                  class="rounded-md border border-gray-200 px-4 py-2 text-xs font-medium text-gray-700 transition hover:bg-gray-50"
+                  @click=${() => this.handleCancelEditSnippet()}
+                >
+                  Cancel
+                </button>
+              </div>
+            `
+          : html`
+              <div class="flex gap-2">
+                <button
+                  class="rounded-md bg-gray-900 px-4 py-2 text-xs font-medium text-white transition hover:bg-gray-800"
+                  ?disabled=${!this.isEmitterFormValid()}
+                  @click=${() => this.handleEmit()}
+                >
+                  Emit Event
+                </button>
+                <button
+                  class="rounded-md border border-gray-200 px-4 py-2 text-xs font-medium text-gray-700 transition hover:bg-gray-50"
+                  ?disabled=${!this.isEmitterFormValid()}
+                  @click=${() => this.handleSaveSnippet()}
+                >
+                  Save as Snippet
+                </button>
+              </div>
+            `}
 
         <!-- Saved snippets -->
         ${this.emitterSnippets.length > 0
@@ -4571,7 +4610,7 @@ ${this.announcementMarkdown}</pre
                 ${this.emitterSnippets.map(
                   (snippet) => html`
                     <div
-                      class="flex items-center justify-between rounded-md border border-gray-200 bg-white px-3 py-2"
+                      class="flex items-center justify-between rounded-md border ${this.emitterEditingSnippetId === snippet.id ? "border-blue-300 bg-blue-50" : "border-gray-200 bg-white"} px-3 py-2"
                     >
                       <div class="flex flex-col gap-0.5">
                         <span class="text-xs font-medium text-gray-900"
@@ -4587,6 +4626,12 @@ ${this.announcementMarkdown}</pre
                           @click=${() => this.handleReplaySnippet(snippet)}
                         >
                           Replay
+                        </button>
+                        <button
+                          class="rounded-md border border-gray-200 px-3 py-1 text-xs font-medium text-gray-700 transition hover:bg-gray-50"
+                          @click=${() => this.handleEditSnippet(snippet)}
+                        >
+                          Edit
                         </button>
                         <button
                           class="rounded-md border border-red-200 px-3 py-1 text-xs font-medium text-red-600 transition hover:bg-red-50"
@@ -4919,8 +4964,82 @@ ${this.announcementMarkdown}</pre
     }
   }
 
+  private handleEditSnippet(snippet: DevtoolsSnippet): void {
+    this.clearActionError();
+    this.emitterEditingSnippetId = snippet.id;
+    this.emitterEventType = snippet.eventType;
+    this.emitterSnippetName = snippet.name;
+
+    // Load the payload into the form fields
+    const p = snippet.payload as Record<string, any>;
+    switch (snippet.eventType) {
+      case "tool-call":
+        this.emitterToolName = p.toolName ?? "";
+        this.emitterArgs = JSON.stringify(p.args ?? {}, null, 2);
+        this.emitterResult = p.result ?? "";
+        break;
+      case "text-message":
+      case "reasoning":
+        this.emitterContent = p.content ?? "";
+        break;
+      case "state-snapshot":
+        this.emitterStateJson = JSON.stringify(p.state ?? {}, null, 2);
+        break;
+      case "custom-event":
+        this.emitterCustomName = p.name ?? "";
+        this.emitterCustomValue = JSON.stringify(p.value ?? {}, null, 2);
+        break;
+    }
+    this.revalidateEmitterJson();
+    this.requestUpdate();
+  }
+
+  private handleUpdateSnippet(): void {
+    this.clearActionError();
+    if (!this.emitterEditingSnippetId) return;
+    if (!this.isEmitterFormValid()) return;
+
+    const payload = this.getEmitterPayload();
+    if (!payload) return;
+
+    const name = this.emitterSnippetName.trim();
+    if (!name) {
+      this.emitterJsonError = "Snippet name cannot be empty.";
+      this.requestUpdate();
+      return;
+    }
+
+    const updated: DevtoolsSnippet = {
+      id: this.emitterEditingSnippetId,
+      name,
+      eventType: this.emitterEventType,
+      payload,
+      createdAt: Date.now(),
+    };
+
+    if (updateSnippet(updated)) {
+      this.emitterSnippets = loadSnippets();
+      this.emitterEditingSnippetId = null;
+      this.emitterSnippetName = "";
+      this.showStatus("Snippet updated.");
+    } else {
+      this.emitterJsonError = "Failed to update snippet.";
+      this.requestUpdate();
+    }
+  }
+
+  private handleCancelEditSnippet(): void {
+    this.emitterEditingSnippetId = null;
+    this.emitterSnippetName = "";
+    this.requestUpdate();
+  }
+
   private handleDeleteSnippet(id: string): void {
     this.clearActionError();
+    if (this.emitterEditingSnippetId === id) {
+      this.emitterEditingSnippetId = null;
+      this.emitterSnippetName = "";
+    }
     if (deleteSnippet(id)) {
       this.emitterSnippets = loadSnippets();
       this.requestUpdate();
