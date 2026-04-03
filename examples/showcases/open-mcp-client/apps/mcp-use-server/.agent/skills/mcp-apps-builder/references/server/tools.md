@@ -15,7 +15,7 @@ import { z } from "zod";
 const server = new MCPServer({
   name: "my-server",
   version: "1.0.0",
-  baseUrl: process.env.MCP_URL || "http://localhost:3000"
+  baseUrl: process.env.MCP_URL || "http://localhost:3000",
 });
 
 server.tool(
@@ -26,18 +26,22 @@ server.tool(
       to: z.string().email().describe("Recipient email address"),
       subject: z.string().describe("Email subject line"),
       body: z.string().describe("Email body content"),
-      priority: z.enum(["low", "normal", "high"]).optional().describe("Email priority")
-    })
+      priority: z
+        .enum(["low", "normal", "high"])
+        .optional()
+        .describe("Email priority"),
+    }),
   },
   async ({ to, subject, body, priority = "normal" }) => {
     // Your logic here
     await sendEmail(to, subject, body, priority);
     return text(`Email sent to ${to}`);
-  }
+  },
 );
 ```
 
 **Key points:**
+
 - First argument: tool configuration (name, description, schema)
 - Second argument: async handler function
 - Handler receives validated input matching schema
@@ -48,12 +52,15 @@ server.tool(
 ## Tool Definition
 
 ### Name
+
 - Use kebab-case: `send-email`, `fetch-user`, `create-todo`
 - Be specific: ❌ `manage-users` ✅ `create-user`, `delete-user`, `list-users`
 - One tool = one capability
 
 ### Description
+
 Clear, actionable description of what the tool does:
+
 ```typescript
 ✅ "Send an email to a user with subject and body"
 ❌ "Email tool"
@@ -64,23 +71,28 @@ The AI uses this to decide when to call your tool.
 ### Schema (Zod)
 
 **Always use `.describe()` on every field:**
+
 ```typescript
 // ✅ Good
 z.object({
   city: z.string().describe("City name (e.g., 'New York', 'Tokyo')"),
-  units: z.enum(["celsius", "fahrenheit"]).optional().describe("Temperature units"),
-  limit: z.number().min(1).max(50).optional().describe("Max results to return")
-})
+  units: z
+    .enum(["celsius", "fahrenheit"])
+    .optional()
+    .describe("Temperature units"),
+  limit: z.number().min(1).max(50).optional().describe("Max results to return"),
+});
 
 // ❌ Bad - no descriptions
 z.object({
   city: z.string(),
   units: z.string(),
-  limit: z.number()
-})
+  limit: z.number(),
+});
 ```
 
 **Schema best practices:**
+
 - Use `.optional()` for non-required fields
 - Add validation: `.min()`, `.max()`, `.email()`, `.url()`
 - Use `z.enum()` for fixed sets of values (not `z.string()`)
@@ -100,19 +112,20 @@ server.tool(
     description: "Permanently delete a user account",
     schema: z.object({ userId: z.string().describe("User ID") }),
     annotations: {
-      destructiveHint: true,    // Deletes or overwrites data
-      readOnlyHint: false,      // Has side effects
-      openWorldHint: false      // Stays within user's account (not external APIs)
-    }
+      destructiveHint: true, // Deletes or overwrites data
+      readOnlyHint: false, // Has side effects
+      openWorldHint: false, // Stays within user's account (not external APIs)
+    },
   },
   async ({ userId }) => {
     await deleteUser(userId);
     return text(`User ${userId} deleted`);
-  }
+  },
 );
 ```
 
 **Annotations:**
+
 - `destructiveHint: true` - Deletes/overwrites data, client may require confirmation
 - `readOnlyHint: true` - No side effects, safe to call repeatedly
 - `openWorldHint: true` - Calls external APIs or services outside user's control
@@ -127,7 +140,7 @@ The second parameter to tool handlers provides advanced capabilities:
 server.tool(
   {
     name: "process-large-file",
-    schema: z.object({ fileUrl: z.string().describe("URL to file") })
+    schema: z.object({ fileUrl: z.string().describe("URL to file") }),
   },
   async ({ fileUrl }, ctx) => {
     // Progress reporting
@@ -141,7 +154,11 @@ server.tool(
     await ctx.log("info", `Processed ${file.size} bytes`);
 
     // Structured logging with additional context (optional third parameter)
-    await ctx.log("info", "Processing complete", `fileSize: ${file.size} bytes, duration: 2.5s`);
+    await ctx.log(
+      "info",
+      "Processing complete",
+      `fileSize: ${file.size} bytes, duration: 2.5s`,
+    );
 
     // Check client capabilities
     if (ctx.client.can("sampling")) {
@@ -152,11 +169,12 @@ server.tool(
 
     await ctx.reportProgress?.(100, 100, "Complete");
     return object(result);
-  }
+  },
 );
 ```
 
 **Context methods:**
+
 - `ctx.reportProgress(current: number, total: number, message: string)` - Show progress to user
 - `ctx.log(level: "debug" | "info" | "warn" | "error", message: string, data?: string)` - Structured logging with optional additional context as a string
 - `ctx.sample(prompt: string)` - Ask the LLM for help (requires client support)
@@ -188,14 +206,15 @@ server.tool(
 
       // Return error to client
       return error(
-        `Failed to fetch user: ${err instanceof Error ? err.message : "Unknown error"}`
+        `Failed to fetch user: ${err instanceof Error ? err.message : "Unknown error"}`,
       );
     }
-  }
+  },
 );
 ```
 
 **Error handling rules:**
+
 - ✅ Return `error()` for graceful failure
 - ❌ Don't throw exceptions (client sees raw error)
 - ✅ Include helpful context in error messages
@@ -215,13 +234,13 @@ server.tool(
     name: "search-products",
     description: "Search products by keyword",
     schema: z.object({
-      query: z.string().describe("Search query")
+      query: z.string().describe("Search query"),
     }),
     widget: {
-      name: "product-list",           // Must match resources/product-list.tsx
+      name: "product-list", // Must match resources/product-list.tsx
       invoking: "Searching products...",
-      invoked: "Products loaded"
-    }
+      invoked: "Products loaded",
+    },
   },
   async ({ query }) => {
     const products = await searchProducts(query);
@@ -230,15 +249,16 @@ server.tool(
       props: {
         products,
         query,
-        totalCount: products.length
+        totalCount: products.length,
       },
-      output: text(`Found ${products.length} products matching "${query}"`)
+      output: text(`Found ${products.length} products matching "${query}"`),
     });
-  }
+  },
 );
 ```
 
 **Widget tool requirements:**
+
 - Add `widget: { name }` to tool config
 - Return `widget({ props, output })` from handler
 - Create matching widget file: `resources/{name}.tsx`
@@ -257,14 +277,14 @@ server.tool(
   {
     name: "calculate-stats",
     schema: z.object({
-      data: z.array(z.number()).describe("Array of numbers")
+      data: z.array(z.number()).describe("Array of numbers"),
     }),
     outputSchema: z.object({
       mean: z.number(),
       median: z.number(),
       stdDev: z.number(),
-      count: z.number()
-    })
+      count: z.number(),
+    }),
   },
   async ({ data }) => {
     const stats = calculateStats(data);
@@ -274,13 +294,14 @@ server.tool(
       mean: stats.mean,
       median: stats.median,
       stdDev: stats.stdDev,
-      count: data.length
+      count: data.length,
     });
-  }
+  },
 );
 ```
 
 **When to use `outputSchema`:**
+
 - You want runtime validation of tool output
 - Multiple code paths return different shapes
 - Debugging output consistency issues
@@ -298,31 +319,33 @@ const WEATHER_API_KEY = process.env.WEATHER_API_KEY;
 server.tool(
   {
     name: "get-weather",
-    schema: z.object({ city: z.string() })
+    schema: z.object({ city: z.string() }),
   },
   async ({ city }) => {
     if (!WEATHER_API_KEY) {
       return error(
-        "WEATHER_API_KEY not configured. Please set it in environment variables."
+        "WEATHER_API_KEY not configured. Please set it in environment variables.",
       );
     }
 
     const data = await fetch(
-      `https://api.weather.com/v1?key=${WEATHER_API_KEY}&city=${city}`
+      `https://api.weather.com/v1?key=${WEATHER_API_KEY}&city=${city}`,
     );
 
     // ... rest of logic
-  }
+  },
 );
 ```
 
 **Best practices:**
+
 - ❌ Never hardcode secrets in code
 - ✅ Use `process.env.VAR_NAME`
 - ✅ Check if required vars are set
 - ✅ Document required vars in `.env.example`
 
 **Example `.env.example`:**
+
 ```bash
 # Weather API key (get from weatherapi.com)
 WEATHER_API_KEY=
@@ -359,11 +382,11 @@ server.tool(
     // Cache for 5 minutes
     cache.set(cacheKey, {
       data,
-      expires: Date.now() + 5 * 60 * 1000
+      expires: Date.now() + 5 * 60 * 1000,
     });
 
     return object(data);
-  }
+  },
 );
 ```
 
@@ -374,15 +397,17 @@ Prevent abuse using `hono-rate-limiter`:
 ```typescript
 import { rateLimiter } from "hono-rate-limiter";
 
-server.use(rateLimiter({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  limit: 100, // 100 requests per window per key
-  keyGenerator: (c) =>
-    c.req.header("x-forwarded-for")?.split(",")[0]?.trim() ??
-    c.req.header("cf-connecting-ip") ??
-    c.req.header("x-real-ip") ??
-    "unknown",
-}));
+server.use(
+  rateLimiter({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    limit: 100, // 100 requests per window per key
+    keyGenerator: (c) =>
+      c.req.header("x-forwarded-for")?.split(",")[0]?.trim() ??
+      c.req.header("cf-connecting-ip") ??
+      c.req.header("x-real-ip") ??
+      "unknown",
+  }),
+);
 ```
 
 > Adjust the key generator depending on your hosting environment.

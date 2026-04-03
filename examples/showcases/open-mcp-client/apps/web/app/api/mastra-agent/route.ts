@@ -31,10 +31,15 @@ function readMcpServersFromHeader(req: NextRequest): McpServerConfig[] {
     if (raw == null) return getDefaultMcpServers();
     const parsed = JSON.parse(raw) as McpServerConfig[];
     if (!Array.isArray(parsed)) return getDefaultMcpServers();
-    mastraLog("[mastra-agent] MCP servers from header:", parsed.map((s) => s.url));
+    mastraLog(
+      "[mastra-agent] MCP servers from header:",
+      parsed.map((s) => s.url),
+    );
     return parsed;
   } catch {
-    console.warn("[mastra-agent] Failed to parse x-mcp-servers header, using defaults");
+    console.warn(
+      "[mastra-agent] Failed to parse x-mcp-servers header, using defaults",
+    );
     return getDefaultMcpServers();
   }
 }
@@ -53,18 +58,21 @@ function getServerHash(cfg: McpServerConfig): string {
   return crypto.createHash("md5").update(raw).digest("hex");
 }
 
-async function fetchUIToolMetadata(servers: McpServerConfig[]): Promise<Map<string, McpUIToolInfo>> {
+async function fetchUIToolMetadata(
+  servers: McpServerConfig[],
+): Promise<Map<string, McpUIToolInfo>> {
   const uiTools = new Map<string, McpUIToolInfo>();
 
   for (const server of servers) {
     try {
-      const transport = server.type === "sse"
-        ? new SSEClientTransport(new URL(server.url))
-        : new StreamableHTTPClientTransport(new URL(server.url));
+      const transport =
+        server.type === "sse"
+          ? new SSEClientTransport(new URL(server.url))
+          : new StreamableHTTPClientTransport(new URL(server.url));
 
       const client = new Client(
         { name: "mastra-ui-metadata", version: "1.0.0" },
-        { capabilities: {} }
+        { capabilities: {} },
       );
 
       await client.connect(transport);
@@ -89,7 +97,10 @@ async function fetchUIToolMetadata(servers: McpServerConfig[]): Promise<Map<stri
         }
       }
     } catch (err) {
-      console.warn(`[mastra-agent] Failed to fetch UI metadata from ${server.url}:`, err);
+      console.warn(
+        `[mastra-agent] Failed to fetch UI metadata from ${server.url}:`,
+        err,
+      );
     }
   }
 
@@ -104,11 +115,12 @@ async function fetchUIToolMetadata(servers: McpServerConfig[]): Promise<Map<stri
 async function executeProxiedMcpRequest(
   serverConfig: McpServerConfig,
   method: string,
-  params?: Record<string, unknown>
+  params?: Record<string, unknown>,
 ): Promise<unknown> {
-  const transport = serverConfig.type === "sse"
-    ? new SSEClientTransport(new URL(serverConfig.url))
-    : new StreamableHTTPClientTransport(new URL(serverConfig.url));
+  const transport =
+    serverConfig.type === "sse"
+      ? new SSEClientTransport(new URL(serverConfig.url))
+      : new StreamableHTTPClientTransport(new URL(serverConfig.url));
 
   const client = new Client(
     { name: "mastra-mcp-proxy", version: "1.0.0" },
@@ -118,14 +130,16 @@ async function executeProxiedMcpRequest(
           "io.modelcontextprotocol/ui": { mimeTypes: ["text/html+mcp"] },
         },
       },
-    }
+    },
   );
 
   try {
     await client.connect(transport);
     switch (method) {
       case "tools/call":
-        return await client.callTool(params as { name: string; arguments?: Record<string, unknown> });
+        return await client.callTool(
+          params as { name: string; arguments?: Record<string, unknown> },
+        );
       case "resources/read": {
         const result = await client.readResource(params as { uri: string });
         // Fix widget HTML for CSP-safe rendering in sandboxed iframes:
@@ -147,7 +161,9 @@ async function executeProxiedMcpRequest(
                   if (internalOrigin !== serverOrigin) {
                     html = html.replaceAll(internalOrigin, serverOrigin);
                   }
-                } catch { /* ignore */ }
+                } catch {
+                  /* ignore */
+                }
               }
               return { ...c, text: html };
             }
@@ -157,7 +173,10 @@ async function executeProxiedMcpRequest(
         return result;
       }
       case "notifications/message":
-        await client.notification({ method: "notifications/message", params: params as Record<string, unknown> });
+        await client.notification({
+          method: "notifications/message",
+          params: params as Record<string, unknown>,
+        });
         return { success: true };
       case "ping":
         return await client.ping();
@@ -175,7 +194,7 @@ async function executeProxiedMcpRequest(
 
 function createMcpUIMiddleware(
   mcpServers: McpServerConfig[],
-  uiTools: Map<string, McpUIToolInfo>
+  uiTools: Map<string, McpUIToolInfo>,
 ) {
   // Build server lookup maps for proxied requests
   const serverById = new Map<string, McpServerConfig>();
@@ -197,18 +216,25 @@ function createMcpUIMiddleware(
         // Find the server config
         let server: McpServerConfig | undefined;
         if (proxiedReq.serverId) server = serverById.get(proxiedReq.serverId);
-        if (!server && proxiedReq.serverHash) server = serverByHash.get(proxiedReq.serverHash);
+        if (!server && proxiedReq.serverHash)
+          server = serverByHash.get(proxiedReq.serverHash);
 
         const runId = input.runId;
 
-        subscriber.next({ type: "RUN_STARTED", runId, threadId: input.threadId });
+        subscriber.next({
+          type: "RUN_STARTED",
+          runId,
+          threadId: input.threadId,
+        });
 
         if (!server) {
           subscriber.next({
             type: "RUN_FINISHED",
             runId,
             threadId: input.threadId,
-            result: { error: `Unknown MCP server: ${proxiedReq.serverId || proxiedReq.serverHash}` },
+            result: {
+              error: `Unknown MCP server: ${proxiedReq.serverId || proxiedReq.serverHash}`,
+            },
           });
           subscriber.complete();
           return;
@@ -296,15 +322,24 @@ function createMcpUIMiddleware(
 
           // Record ids we've emitted so we can avoid reusing them
           if (event.messageId) emittedMessageIds.add(event.messageId);
-          if (event.parentMessageId) emittedMessageIds.add(event.parentMessageId);
+          if (event.parentMessageId)
+            emittedMessageIds.add(event.parentMessageId);
 
           // Track tool call names
-          if (event.type === "TOOL_CALL_START" && event.toolCallId && event.toolCallName) {
+          if (
+            event.type === "TOOL_CALL_START" &&
+            event.toolCallId &&
+            event.toolCallName
+          ) {
             toolNameByCallId.set(event.toolCallId, event.toolCallName);
           }
 
           // Accumulate tool call args
-          if (event.type === "TOOL_CALL_ARGS" && event.toolCallId && event.delta) {
+          if (
+            event.type === "TOOL_CALL_ARGS" &&
+            event.toolCallId &&
+            event.delta
+          ) {
             const prev = toolArgsByCallId.get(event.toolCallId) || "";
             toolArgsByCallId.set(event.toolCallId, prev + event.delta);
           }
@@ -317,8 +352,12 @@ function createMcpUIMiddleware(
 
               let toolInput: Record<string, unknown> = {};
               try {
-                toolInput = JSON.parse(toolArgsByCallId.get(event.toolCallId) || "{}");
-              } catch { /* ignore parse errors */ }
+                toolInput = JSON.parse(
+                  toolArgsByCallId.get(event.toolCallId) || "{}",
+                );
+              } catch {
+                /* ignore parse errors */
+              }
 
               // Wrap result to match MCPAppsActivityContentSchema:
               // { content?: [{type:"text", text:"..."}], structuredContent?: any, isError?: boolean }
@@ -328,13 +367,18 @@ function createMcpUIMiddleware(
               } catch {
                 rawResult = event.content || "";
               }
-              const resultText = typeof rawResult === "string" ? rawResult : JSON.stringify(rawResult);
+              const resultText =
+                typeof rawResult === "string"
+                  ? rawResult
+                  : JSON.stringify(rawResult);
               const result = {
                 content: [{ type: "text" as const, text: resultText }],
                 structuredContent: rawResult,
               };
 
-              mastraLog(`[mastra-agent] Emitting ACTIVITY_SNAPSHOT for: ${toolName}`);
+              mastraLog(
+                `[mastra-agent] Emitting ACTIVITY_SNAPSHOT for: ${toolName}`,
+              );
               subscriber.next({
                 type: "ACTIVITY_SNAPSHOT",
                 messageId: crypto.randomUUID(),
@@ -373,7 +417,9 @@ const workspaceTools: Record<string, unknown> = {
       "After success, ALWAYS call add_mcp_server(endpoint, serverId) " +
       "and set_active_workspace(workspaceId, endpoint) so the UI updates.",
     parameters: z.object({
-      name: z.string().describe("Short identifier for this workspace, e.g. 'weather-widget'"),
+      name: z
+        .string()
+        .describe("Short identifier for this workspace, e.g. 'weather-widget'"),
     }),
     execute: async ({ name }: { name: string }) => {
       const info = await workspaceProvider.provision(name);
@@ -387,20 +433,35 @@ const workspaceTools: Record<string, unknown> = {
         let idx = await sandbox.files.read(`${WS}/index.ts`);
         const hadDefault = idx.includes("registerProductSearch");
         if (hadDefault) {
-          idx = idx.replace('import { register as registerProductSearch } from "./tools/product-search";\n', '');
-          idx = idx.replace('registerProductSearch(server);\n', '');
+          idx = idx.replace(
+            'import { register as registerProductSearch } from "./tools/product-search";\n',
+            "",
+          );
+          idx = idx.replace("registerProductSearch(server);\n", "");
           await sandbox.files.write(`${WS}/index.ts`, idx);
-          await sandbox.commands.run("rm -rf resources/product-search-result tools/product-search.ts", { cwd: WS, timeoutMs: 5000 });
+          await sandbox.commands.run(
+            "rm -rf resources/product-search-result tools/product-search.ts",
+            { cwd: WS, timeoutMs: 5000 },
+          );
           // Restart so the running server drops the old tools before mcp-introspect queries it
           await sandbox.commands.run(
             "kill $(ss -tlnp 'sport = :3109' | grep -oP 'pid=\\K[0-9]+' | head -1) 2>/dev/null; sleep 1",
-            { cwd: WS, timeoutMs: 10000 }
+            { cwd: WS, timeoutMs: 10000 },
           );
-          await sandbox.commands.run("npm run dev > /tmp/dev.log 2>&1", { cwd: WS, timeoutMs: 5000, background: true });
-          mastraLog("[provision_workspace] Cleaned up default template tool + restarted server");
+          await sandbox.commands.run("npm run dev > /tmp/dev.log 2>&1", {
+            cwd: WS,
+            timeoutMs: 5000,
+            background: true,
+          });
+          mastraLog(
+            "[provision_workspace] Cleaned up default template tool + restarted server",
+          );
         }
       } catch (cleanupErr) {
-        console.warn("[provision_workspace] Template cleanup warning:", cleanupErr);
+        console.warn(
+          "[provision_workspace] Template cleanup warning:",
+          cleanupErr,
+        );
       }
 
       return JSON.stringify({
@@ -420,10 +481,20 @@ const workspaceTools: Record<string, unknown> = {
       "Read a file from the active E2B workspace. Path is relative to workspace root " +
       "(/home/user/workspace). Use this to inspect existing code before editing.",
     parameters: z.object({
-      workspaceId: z.string().describe("Sandbox ID returned by provision_workspace"),
-      path: z.string().describe("Relative file path, e.g. 'index.ts' or 'tools/my-tool.ts'"),
+      workspaceId: z
+        .string()
+        .describe("Sandbox ID returned by provision_workspace"),
+      path: z
+        .string()
+        .describe("Relative file path, e.g. 'index.ts' or 'tools/my-tool.ts'"),
     }),
-    execute: async ({ workspaceId, path }: { workspaceId: string; path: string }) => {
+    execute: async ({
+      workspaceId,
+      path,
+    }: {
+      workspaceId: string;
+      path: string;
+    }) => {
       return await workspaceProvider.readFile(workspaceId, path);
     },
   },
@@ -434,10 +505,22 @@ const workspaceTools: Record<string, unknown> = {
       "Parent directories are created automatically. Path is relative to workspace root.",
     parameters: z.object({
       workspaceId: z.string().describe("Sandbox ID"),
-      path: z.string().describe("Relative file path, e.g. 'resources/price-chart/widget.tsx'"),
+      path: z
+        .string()
+        .describe(
+          "Relative file path, e.g. 'resources/price-chart/widget.tsx'",
+        ),
       content: z.string().describe("Full file content to write"),
     }),
-    execute: async ({ workspaceId, path, content }: { workspaceId: string; path: string; content: string }) => {
+    execute: async ({
+      workspaceId,
+      path,
+      content,
+    }: {
+      workspaceId: string;
+      path: string;
+      content: string;
+    }) => {
       await workspaceProvider.writeFile(workspaceId, path, content);
       return `Wrote ${content.length} chars to "${path}"`;
     },
@@ -451,12 +534,24 @@ const workspaceTools: Record<string, unknown> = {
     parameters: z.object({
       workspaceId: z.string().describe("Sandbox ID"),
       path: z.string().describe("Relative file path"),
-      edits: z.array(z.object({
-        search: z.string().describe("Exact string to find in the file"),
-        replace: z.string().describe("String to replace it with"),
-      })).describe("Array of search/replace pairs to apply sequentially"),
+      edits: z
+        .array(
+          z.object({
+            search: z.string().describe("Exact string to find in the file"),
+            replace: z.string().describe("String to replace it with"),
+          }),
+        )
+        .describe("Array of search/replace pairs to apply sequentially"),
     }),
-    execute: async ({ workspaceId, path, edits }: { workspaceId: string; path: string; edits: Array<{ search: string; replace: string }> }) => {
+    execute: async ({
+      workspaceId,
+      path,
+      edits,
+    }: {
+      workspaceId: string;
+      path: string;
+      edits: Array<{ search: string; replace: string }>;
+    }) => {
       const sandbox = await (await import("e2b")).Sandbox.connect(workspaceId);
       const fullPath = `/home/user/workspace/${path.replace(/^\//, "")}`;
       let content = await sandbox.files.read(fullPath);
@@ -485,14 +580,31 @@ const workspaceTools: Record<string, unknown> = {
       background: z
         .boolean()
         .optional()
-        .describe("Run in background and return immediately (for servers). Default: false."),
+        .describe(
+          "Run in background and return immediately (for servers). Default: false.",
+        ),
       timeoutMs: z
         .number()
         .optional()
-        .describe("Timeout in milliseconds for foreground commands. Default: 60000."),
+        .describe(
+          "Timeout in milliseconds for foreground commands. Default: 60000.",
+        ),
     }),
-    execute: async ({ workspaceId, cmd, background, timeoutMs }: { workspaceId: string; cmd: string; background?: boolean; timeoutMs?: number }) => {
-      const result = await workspaceProvider.exec(workspaceId, cmd, { background, timeoutMs });
+    execute: async ({
+      workspaceId,
+      cmd,
+      background,
+      timeoutMs,
+    }: {
+      workspaceId: string;
+      cmd: string;
+      background?: boolean;
+      timeoutMs?: number;
+    }) => {
+      const result = await workspaceProvider.exec(workspaceId, cmd, {
+        background,
+        timeoutMs,
+      });
       if (result.background) return `Started in background: ${cmd}`;
       const parts: string[] = [];
       if (result.stdout) parts.push(`stdout:\n${result.stdout}`);
@@ -518,11 +630,15 @@ const workspaceTools: Record<string, unknown> = {
       // 1. Kill old server via ss (fuser/lsof not available in E2B)
       await sandbox.commands.run(
         "kill $(ss -tlnp 'sport = :3109' | grep -oP 'pid=\\K[0-9]+' | head -1) 2>/dev/null; sleep 2",
-        { cwd: WS, timeoutMs: 10000 }
+        { cwd: WS, timeoutMs: 10000 },
       );
 
       // 2. Start npm run dev in background (builds widgets then starts server)
-      await sandbox.commands.run("npm run dev > /tmp/dev.log 2>&1", { cwd: WS, timeoutMs: 5000, background: true });
+      await sandbox.commands.run("npm run dev > /tmp/dev.log 2>&1", {
+        cwd: WS,
+        timeoutMs: 5000,
+        background: true,
+      });
 
       // 3. Poll until server responds (up to 30s)
       for (let attempt = 0; attempt < 6; attempt++) {
@@ -531,8 +647,8 @@ const workspaceTools: Record<string, unknown> = {
         const result = await sandbox.commands.run(
           "curl -sf http://localhost:3109/mcp -X POST " +
             "-H 'Content-Type: application/json' " +
-            "-d '{\"jsonrpc\":\"2.0\",\"method\":\"tools/list\",\"id\":1,\"params\":{}}' 2>/dev/null | head -c 500",
-          { cwd: WS, timeoutMs: 10000 }
+            '-d \'{"jsonrpc":"2.0","method":"tools/list","id":1,"params":{}}\' 2>/dev/null | head -c 500',
+          { cwd: WS, timeoutMs: 10000 },
         );
 
         if (result.stdout && result.stdout.includes("tools")) {
@@ -541,7 +657,10 @@ const workspaceTools: Record<string, unknown> = {
       }
 
       // 4. Failed — return build logs for debugging
-      const logs = await sandbox.commands.run("cat /tmp/dev.log | tail -40", { cwd: WS, timeoutMs: 5000 });
+      const logs = await sandbox.commands.run("cat /tmp/dev.log | tail -40", {
+        cwd: WS,
+        timeoutMs: 5000,
+      });
       return `Server failed to start after 30s. Build logs:\n${logs.stdout}\n${logs.stderr}`;
     },
   },
@@ -565,7 +684,8 @@ const workspaceTools: Record<string, unknown> = {
       workspaceId: z.string().describe("Sandbox ID"),
     }),
     execute: async ({ workspaceId }: { workspaceId: string }) => {
-      const { downloadUrl } = await workspaceProvider.prepareDownload(workspaceId);
+      const { downloadUrl } =
+        await workspaceProvider.prepareDownload(workspaceId);
       return `Workspace packaged. Download URL (valid ~1 hour): ${downloadUrl}`;
     },
   },
@@ -655,7 +775,6 @@ WORKFLOW C — USE EXISTING MCP TOOL
 ═══════════════════════════════════════════════════════════════
 Just call the tool. No sandbox work needed.`;
 
-
 const openai = createOpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
@@ -677,7 +796,12 @@ export const POST = async (req: NextRequest) => {
 
   try {
     const mcpServers = readMcpServersFromHeader(req);
-    mastraLog("[mastra-agent] === NEW REQUEST ===", requestId, "model:", OPENAI_MODEL);
+    mastraLog(
+      "[mastra-agent] === NEW REQUEST ===",
+      requestId,
+      "model:",
+      OPENAI_MODEL,
+    );
 
     // 1. Fetch UI tool metadata (which tools have UI + their resource URIs)
     const uiTools = await fetchUIToolMetadata(mcpServers);
@@ -749,7 +873,12 @@ export const POST = async (req: NextRequest) => {
       return cloned;
     };
 
-    mastraLog("[mastra-agent] Agent ready. UI tools:", uiTools.size, "MCP tools:", Object.keys(mcpTools).length);
+    mastraLog(
+      "[mastra-agent] Agent ready. UI tools:",
+      uiTools.size,
+      "MCP tools:",
+      Object.keys(mcpTools).length,
+    );
 
     // 6. CopilotKit runtime
     const serviceAdapter = new ExperimentalEmptyAdapter();
@@ -777,11 +906,15 @@ export const POST = async (req: NextRequest) => {
       {
         status: 500,
         headers: { "Content-Type": "application/json" },
-      }
+      },
     );
   } finally {
     if (mcp) {
-      try { await mcp.disconnect(); } catch { /* ignore */ }
+      try {
+        await mcp.disconnect();
+      } catch {
+        /* ignore */
+      }
     }
   }
 };

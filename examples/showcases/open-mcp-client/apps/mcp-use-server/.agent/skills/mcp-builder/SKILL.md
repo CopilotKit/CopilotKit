@@ -5,7 +5,7 @@ description: |
   Check if `mcp-app-builder` is available in the skills folder. If not, install it:
   `npx skills install mcp-use/mcp-use --skill mcp-app-builder`
   Use `mcp-app-builder` instead of this skill.
-  
+
   Build Model Context Protocol (MCP) servers with mcp-use framework.
   Use when creating MCP servers, defining tools/resources/prompts, working with mcp-use,
   bootstrapping MCP projects, or when user mentions MCP development, tools, resources, or prompts.
@@ -31,27 +31,44 @@ Read [design-and-architecture.md](references/design-and-architecture.md): when p
 ## Quick Reference
 
 ```typescript
-import { MCPServer, text, object, markdown, html, image, widget, error } from "mcp-use/server";
+import {
+  MCPServer,
+  text,
+  object,
+  markdown,
+  html,
+  image,
+  widget,
+  error,
+} from "mcp-use/server";
 import { z } from "zod";
 
 const server = new MCPServer({ name: "my-server", version: "1.0.0" });
 
 // Tool
 server.tool(
-  { name: "my-tool", description: "...", schema: z.object({ param: z.string().describe("...") }) },
-  async ({ param }) => text("result")
+  {
+    name: "my-tool",
+    description: "...",
+    schema: z.object({ param: z.string().describe("...") }),
+  },
+  async ({ param }) => text("result"),
 );
 
 // Resource
 server.resource(
   { uri: "config://settings", name: "Settings", mimeType: "application/json" },
-  async () => object({ key: "value" })
+  async () => object({ key: "value" }),
 );
 
 // Prompt
 server.prompt(
-  { name: "my-prompt", description: "...", schema: z.object({ topic: z.string() }) },
-  async ({ topic }) => text(`Write about ${topic}`)
+  {
+    name: "my-prompt",
+    description: "...",
+    schema: z.object({ topic: z.string() }),
+  },
+  async ({ topic }) => text(`Write about ${topic}`),
 );
 
 server.listen();

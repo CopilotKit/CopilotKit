@@ -23,7 +23,7 @@ server.tool(
     object({
       userId: ctx.auth.user.userId,
       email: ctx.auth.user.email,
-    })
+    }),
 );
 
 server.listen();
@@ -41,10 +41,10 @@ JWT verification, OAuth discovery, and token proxying are handled automatically.
 
 ## Environment Variables
 
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `MCP_USE_OAUTH_SUPABASE_PROJECT_ID` | Yes | Your Supabase project ID |
-| `MCP_USE_OAUTH_SUPABASE_JWT_SECRET` | No | JWT secret for HS256 token verification |
+| Variable                            | Required | Description                             |
+| ----------------------------------- | -------- | --------------------------------------- |
+| `MCP_USE_OAUTH_SUPABASE_PROJECT_ID` | Yes      | Your Supabase project ID                |
+| `MCP_USE_OAUTH_SUPABASE_JWT_SECRET` | No       | JWT secret for HS256 token verification |
 
 > `NEXT_PUBLIC_SUPABASE_ANON_KEY` is not read by the SDK. It's a user-defined env var you'll need if your tools make Supabase REST API calls (see [Making Supabase API Calls](#making-supabase-api-calls)).
 
@@ -61,7 +61,7 @@ JWT verification, OAuth discovery, and token proxying are handled automatically.
 Zero-config (reads from env vars):
 
 ```typescript
-oauth: oauthSupabaseProvider()
+oauth: oauthSupabaseProvider();
 ```
 
 Explicit config (overrides env vars):
@@ -71,13 +71,13 @@ oauth: oauthSupabaseProvider({
   projectId: "my-project-id",
   jwtSecret: process.env.SUPABASE_JWT_SECRET,
   skipVerification: false,
-})
+});
 ```
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `projectId` | `string` | env var | Supabase project ID |
-| `jwtSecret` | `string?` | env var | JWT secret for HS256 tokens |
+| Option             | Type       | Default | Description                              |
+| ------------------ | ---------- | ------- | ---------------------------------------- |
+| `projectId`        | `string`   | env var | Supabase project ID                      |
+| `jwtSecret`        | `string?`  | env var | JWT secret for HS256 tokens              |
 | `skipVerification` | `boolean?` | `false` | Skip JWT verification (development only) |
 
 ---
@@ -102,18 +102,18 @@ The provider auto-detects the algorithm from the token header. If your project u
 
 Supabase populates these fields on `ctx.auth.user`:
 
-| Field | Type | Source |
-|-------|------|--------|
-| `userId` | `string` | `sub` or `user_id` claim |
-| `email` | `string?` | `email` claim |
-| `name` | `string?` | `user_metadata.name` or `user_metadata.full_name` |
-| `username` | `string?` | `user_metadata.username` |
-| `picture` | `string?` | `user_metadata.avatar_url` |
-| `roles` | `string[]` | `role` claim (e.g., `["authenticated"]`) |
-| `permissions` | `string[]` | Derived from AAL (e.g., `["aal:aal1"]`) |
-| `aal` | `string?` | Authentication Assurance Level |
-| `amr` | `array?` | Authentication Methods References |
-| `session_id` | `string?` | Supabase session ID |
+| Field         | Type       | Source                                            |
+| ------------- | ---------- | ------------------------------------------------- |
+| `userId`      | `string`   | `sub` or `user_id` claim                          |
+| `email`       | `string?`  | `email` claim                                     |
+| `name`        | `string?`  | `user_metadata.name` or `user_metadata.full_name` |
+| `username`    | `string?`  | `user_metadata.username`                          |
+| `picture`     | `string?`  | `user_metadata.avatar_url`                        |
+| `roles`       | `string[]` | `role` claim (e.g., `["authenticated"]`)          |
+| `permissions` | `string[]` | Derived from AAL (e.g., `["aal:aal1"]`)           |
+| `aal`         | `string?`  | Authentication Assurance Level                    |
+| `amr`         | `array?`   | Authentication Methods References                 |
+| `session_id`  | `string?`  | Supabase session ID                               |
 
 ---
 
@@ -133,22 +133,19 @@ server.tool(
       return error("Supabase credentials not configured");
     }
 
-    const res = await fetch(
-      `https://${projectId}.supabase.co/rest/v1/notes`,
-      {
-        headers: {
-          Authorization: `Bearer ${ctx.auth.accessToken}`,
-          apikey: SUPABASE_ANON_KEY,
-        },
-      }
-    );
+    const res = await fetch(`https://${projectId}.supabase.co/rest/v1/notes`, {
+      headers: {
+        Authorization: `Bearer ${ctx.auth.accessToken}`,
+        apikey: SUPABASE_ANON_KEY,
+      },
+    });
 
     if (!res.ok) {
       return error(`Supabase API failed: ${res.status}`);
     }
 
     return object(await res.json());
-  }
+  },
 );
 ```
 

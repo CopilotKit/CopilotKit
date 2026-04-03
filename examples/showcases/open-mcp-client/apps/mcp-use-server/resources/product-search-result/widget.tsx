@@ -69,7 +69,7 @@ const ProductSearchResult: React.FC = () => {
         : [...current, fruit];
       setState({ favorites: next });
     },
-    [state, setState]
+    [state, setState],
   );
 
   const accordionItems = [
@@ -196,7 +196,9 @@ const ProductSearchResult: React.FC = () => {
           <Carousel
             results={results}
             favorites={favorites}
-            onSelectFruit={(fruit: string) => getFruitDetails({ fruit } as never)}
+            onSelectFruit={(fruit: string) =>
+              getFruitDetails({ fruit } as never)
+            }
             onToggleFavorite={toggleFavorite}
           />
 
@@ -206,7 +208,7 @@ const ProductSearchResult: React.FC = () => {
               <div
                 className={`rounded-xl p-4 shrink-0 ${
                   results.find(
-                    (r: { fruit: string }) => r.fruit === selectedFruit.fruit
+                    (r: { fruit: string }) => r.fruit === selectedFruit.fruit,
                   )?.color ?? ""
                 }`}
               >
@@ -265,7 +267,7 @@ const ProductSearchResult: React.FC = () => {
                     <button
                       onClick={() =>
                         sendFollowUpMessage(
-                          `Tell me more interesting facts about ${selectedFruit.fruit}`
+                          `Tell me more interesting facts about ${selectedFruit.fruit}`,
                         )
                       }
                       className="mt-3 px-3 py-1.5 text-xs font-medium rounded-lg bg-info/10 text-info hover:bg-info/20 transition-colors cursor-pointer"

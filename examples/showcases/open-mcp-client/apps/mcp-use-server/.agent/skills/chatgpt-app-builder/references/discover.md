@@ -21,6 +21,7 @@ Proceed in phases. Even if the user provides details, complete each phase throug
 3. **What LLM lacks**: Your data? Your APIs? Ability to take real actions?
 
 **Fail patterns** (stop if any match):
+
 - Long-form or static content better suited for a website
 - Complex multi-step workflows that exceed widget display modes
 - Dashboards (use tables, lists, or short summaries instead)
@@ -44,6 +45,7 @@ Describe the user journey through core actions:
 ## Phase 4: Product Context
 
 Gather:
+
 - Existing products and APIs
 - Authentication method (OAuth, API key, none)
 - Rate limits and constraints
@@ -59,18 +61,23 @@ After phases 1-4 are discussed, assemble a brief spec:
 # App Name
 
 ## Value Proposition
+
 [Problem, user, pain point, core actions]
 
 ## Why LLM?
+
 [Conversational win, what LLM adds, what it lacks]
 
 ## UI Overview
+
 [First view, key interactions, end state]
 
 ## Product Context
+
 [APIs, auth, constraints]
 
 ## Tools and Widgets
+
 [List of tools and widgets with input/output shapes]
 ```
 
