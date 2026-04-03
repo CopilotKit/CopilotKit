@@ -2,16 +2,10 @@
   "name": "mcp-apps",
   "version": "0.1.0",
   "private": true,
-  "pnpm": {
-    "overrides": {
-      "rxjs": "7.8.2"
-    }
-  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start",
-    "lint": "eslint"
+    "start": "next start"
   },
   "dependencies": {
     "@ag-ui/client": "^0.0.42",
@@ -33,9 +27,12 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "eslint": "^9",
-    "eslint-config-next": "16.1.1",
     "tailwindcss": "^4",
     "typescript": "^5"
+  },
+  "pnpm": {
+    "overrides": {
+      "rxjs": "7.8.2"
+    }
   }
 }

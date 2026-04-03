@@ -48,9 +48,9 @@ export const INTEGRATION_METADATA: Record<
       "Use CopilotKit's built-in agent — no external framework required.",
   },
   langgraph: {
-    label: "LangGraph",
+    label: "LangChain",
     href: "/langgraph",
-    description: "LangChain's framework for stateful agent workflows.",
+    description: "Build and deploy stateful AI agents with LangChain.",
   },
   adk: {
     label: "ADK",

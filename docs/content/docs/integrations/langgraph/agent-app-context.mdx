@@ -15,11 +15,11 @@ One of the most common use cases for CopilotKit is to register app state and con
 This way, you can notify CopilotKit of what is going on in your app in real time.
 Some examples might be: the current user, the current page, etc.
 
-This context can then be shared with your LangGraph agent.
+This context can then be shared with your LangChain agent.
 
 ## Implementation
 <Callout>
-    Check out the [Frontend Data documentation](https://docs.copilotkit.ai/direct-to-llm/guides/connect-your-data/frontend) to understand what this is and how to use it.
+    Check out the [Frontend Data documentation](/built-in-agent/agent-app-context) to understand what this is and how to use it.
 </Callout>
 
 <TailoredContent
@@ -102,8 +102,8 @@ This context can then be shared with your LangGraph agent.
             </Step>
 
             <Step>
-                ### Consume the data in your LangGraph agent
-                The state of a LangGraph agent is the "hub" for applicative information used by the agent.
+                ### Consume the data in your LangChain agent
+                The state of a LangChain agent is the "hub" for applicative information used by the agent.
                 Naturally, the context from CopilotKit will be injected there.
 
                 <Tabs groupId="language_langgraph_agent" items={['Python', 'TypeScript']} default="Python" persist>
@@ -227,8 +227,8 @@ This context can then be shared with your LangGraph agent.
             </Step>
 
             <Step>
-                ### Consume the data in your LangGraph agent
-                The state of a LangGraph agent is the "hub" for applicative information used by the agent.
+                ### Consume the data in your LangChain agent
+                The state of a LangChain agent is the "hub" for applicative information used by the agent.
                 Naturally, the context from CopilotKit will be injected there.
                 In addition, the CopilotKitMiddleware is what takes context, and passes it on to your agent
 

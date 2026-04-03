@@ -43,7 +43,13 @@ services:
           ignore:
             - __pycache__/
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8080/ping', timeout=2)"]
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://localhost:8080/ping', timeout=2)",
+        ]
       interval: 30s
       timeout: 3s
       retries: 3
