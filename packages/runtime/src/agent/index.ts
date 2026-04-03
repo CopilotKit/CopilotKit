@@ -323,11 +323,17 @@ function convertUserMessageContent(
             mediaType: source.mimeType,
           });
         } else if (source.type === "url") {
-          parts.push({
-            type: "image",
-            image: new URL(source.value),
-            mediaType: source.mimeType,
-          });
+          try {
+            parts.push({
+              type: "image",
+              image: new URL(source.value),
+              mediaType: source.mimeType,
+            });
+          } catch {
+            console.warn(
+              `[CopilotKit] convertUserMessageContent: invalid URL "${source.value}" in image part — skipping`,
+            );
+          }
         }
         break;
       }
@@ -344,11 +350,17 @@ function convertUserMessageContent(
             mediaType: source.mimeType,
           });
         } else if (source.type === "url") {
-          parts.push({
-            type: "file",
-            data: new URL(source.value),
-            mediaType: source.mimeType,
-          });
+          try {
+            parts.push({
+              type: "file",
+              data: new URL(source.value),
+              mediaType: source.mimeType,
+            });
+          } catch {
+            console.warn(
+              `[CopilotKit] convertUserMessageContent: invalid URL "${source.value}" in ${part.type} part — skipping`,
+            );
+          }
         }
         break;
       }
@@ -370,13 +382,26 @@ function convertUserMessageContent(
             parts.push({ type: "file", data: legacy.data, mediaType: mimeType });
           }
         } else if (legacy.url) {
-          const url = new URL(legacy.url);
-          if (isImage) {
-            parts.push({ type: "image", image: url, mediaType: mimeType });
-          } else {
-            parts.push({ type: "file", data: url, mediaType: mimeType });
+          try {
+            const url = new URL(legacy.url);
+            if (isImage) {
+              parts.push({ type: "image", image: url, mediaType: mimeType });
+            } else {
+              parts.push({ type: "file", data: url, mediaType: mimeType });
+            }
+          } catch {
+            console.warn(
+              `[CopilotKit] convertUserMessageContent: invalid URL "${legacy.url}" in binary part — skipping`,
+            );
           }
         }
+        break;
+      }
+
+      default: {
+        console.warn(
+          `[CopilotKit] convertUserMessageContent: unrecognized content part type "${(part as { type: string }).type}" — skipping`,
+        );
         break;
       }
     }

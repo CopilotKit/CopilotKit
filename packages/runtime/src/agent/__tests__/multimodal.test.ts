@@ -99,6 +99,15 @@ describe("convertMessagesToVercelAISDKMessages — multimodal", () => {
     expect(result.content).toBe("");
   });
 
+  it("skips image parts with malformed URLs without crashing", () => {
+    const result = convertUserContent([
+      { type: "text", text: "check this" },
+      { type: "image", source: { type: "url", value: "not-a-url" } },
+    ]);
+    // Malformed URL part is skipped, text part preserved
+    expect(result.content).toEqual([{ type: "text", text: "check this" }]);
+  });
+
   // Legacy backward compat — BinaryInputContent is not in the current schema
   // but older clients may still send it. We intentionally construct untyped
   // objects here to simulate that scenario.
