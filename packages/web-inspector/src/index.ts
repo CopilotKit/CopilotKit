@@ -4958,10 +4958,41 @@ ${this.announcementMarkdown}</pre
     this.requestUpdate();
   }
 
+  private validateSnippetPayload(snippet: DevtoolsSnippet): string | null {
+    const p = snippet.payload as Record<string, any>;
+    switch (snippet.eventType) {
+      case "tool-call":
+        if (!p.toolName || typeof p.toolName !== "string" || !p.toolName.trim())
+          return "Snippet is missing a valid toolName.";
+        break;
+      case "text-message":
+      case "reasoning":
+        if (!p.content || typeof p.content !== "string" || !p.content.trim())
+          return "Snippet is missing content.";
+        break;
+      case "state-snapshot":
+        if (!p.state || typeof p.state !== "object")
+          return "Snippet is missing a valid state object.";
+        break;
+      case "custom-event":
+        if (!p.name || typeof p.name !== "string" || !p.name.trim())
+          return "Snippet is missing a valid event name.";
+        break;
+    }
+    return null;
+  }
+
   private handleReplaySnippet(snippet: DevtoolsSnippet): void {
     this.clearActionError();
     if (!this.emitterAgentId) {
       this.emitterJsonError = "Select an agent before replaying a snippet.";
+      this.requestUpdate();
+      return;
+    }
+
+    const validationError = this.validateSnippetPayload(snippet);
+    if (validationError) {
+      this.emitterJsonError = validationError;
       this.requestUpdate();
       return;
     }
