@@ -18,22 +18,30 @@ export const AttachmentRenderer: React.FC<AttachmentRendererProps> = ({
 
   switch (type) {
     case "image":
-      return <ImageAttachment src={src} content={content} className={className} />;
+      return (
+        <ImageAttachment src={src} content={content} className={className} />
+      );
     case "audio":
       return (
-        <div className={`copilotKitAttachment copilotKitAttachmentAudio ${className}`}>
+        <div
+          className={`copilotKitAttachment copilotKitAttachmentAudio ${className}`}
+        >
           <audio src={src} controls preload="metadata" />
         </div>
       );
     case "video":
       return (
-        <div className={`copilotKitAttachment copilotKitAttachmentVideo ${className}`}>
+        <div
+          className={`copilotKitAttachment copilotKitAttachmentVideo ${className}`}
+        >
           <video src={src} controls preload="metadata" />
         </div>
       );
     case "document":
       return (
-        <div className={`copilotKitAttachment copilotKitAttachmentDocument ${className}`}>
+        <div
+          className={`copilotKitAttachment copilotKitAttachmentDocument ${className}`}
+        >
           <div className="copilotKitAttachmentDocIcon">
             {getDocumentIcon(source.mimeType ?? "")}
           </div>
@@ -63,9 +71,15 @@ function ImageAttachment({
 
   if (error) {
     return (
-      <div className={`copilotKitImageRendering copilotKitImageRenderingError ${className}`}>
-        <div className="copilotKitImageRenderingErrorMessage">Failed to load image</div>
-        {content && <div className="copilotKitImageRenderingContent">{content}</div>}
+      <div
+        className={`copilotKitImageRendering copilotKitImageRenderingError ${className}`}
+      >
+        <div className="copilotKitImageRenderingErrorMessage">
+          Failed to load image
+        </div>
+        {content && (
+          <div className="copilotKitImageRenderingContent">{content}</div>
+        )}
       </div>
     );
   }
@@ -78,7 +92,9 @@ function ImageAttachment({
         className="copilotKitImageRenderingImage"
         onError={() => setError(true)}
       />
-      {content && <div className="copilotKitImageRenderingContent">{content}</div>}
+      {content && (
+        <div className="copilotKitImageRenderingContent">{content}</div>
+      )}
     </div>
   );
 }
@@ -94,7 +110,8 @@ function getDocumentIcon(mimeType: string): string {
   if (mimeType.includes("pdf")) return "PDF";
   if (mimeType.includes("word") || mimeType.includes("document")) return "DOC";
   if (mimeType.includes("sheet") || mimeType.includes("excel")) return "XLS";
-  if (mimeType.includes("presentation") || mimeType.includes("powerpoint")) return "PPT";
+  if (mimeType.includes("presentation") || mimeType.includes("powerpoint"))
+    return "PPT";
   if (mimeType.includes("text/")) return "TXT";
   return "FILE";
 }

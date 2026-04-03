@@ -129,7 +129,9 @@ describe("exceedsMaxSize", () => {
 
 describe("matchesAcceptFilter", () => {
   it('returns true for accept "*/*" regardless of file type', () => {
-    expect(matchesAcceptFilter(mockFileWithType("image/png"), "*/*")).toBe(true);
+    expect(matchesAcceptFilter(mockFileWithType("image/png"), "*/*")).toBe(
+      true,
+    );
   });
 
   it("returns true for empty accept string (accept all)", () => {
@@ -137,36 +139,56 @@ describe("matchesAcceptFilter", () => {
   });
 
   it('returns true when accept "image/*" matches "image/png"', () => {
-    expect(matchesAcceptFilter(mockFileWithType("image/png"), "image/*")).toBe(true);
+    expect(matchesAcceptFilter(mockFileWithType("image/png"), "image/*")).toBe(
+      true,
+    );
   });
 
   it('returns false when accept "image/*" rejects "audio/mp3"', () => {
-    expect(matchesAcceptFilter(mockFileWithType("audio/mp3"), "image/*")).toBe(false);
+    expect(matchesAcceptFilter(mockFileWithType("audio/mp3"), "image/*")).toBe(
+      false,
+    );
   });
 
   it('returns true for exact match accept "application/pdf"', () => {
-    expect(matchesAcceptFilter(mockFileWithType("application/pdf"), "application/pdf")).toBe(true);
+    expect(
+      matchesAcceptFilter(
+        mockFileWithType("application/pdf"),
+        "application/pdf",
+      ),
+    ).toBe(true);
   });
 
   it('returns false when exact accept "application/pdf" rejects "image/png"', () => {
-    expect(matchesAcceptFilter(mockFileWithType("image/png"), "application/pdf")).toBe(false);
+    expect(
+      matchesAcceptFilter(mockFileWithType("image/png"), "application/pdf"),
+    ).toBe(false);
   });
 
   it('returns true for comma-separated accept "image/*,application/pdf" with "image/jpeg"', () => {
     expect(
-      matchesAcceptFilter(mockFileWithType("image/jpeg"), "image/*,application/pdf"),
+      matchesAcceptFilter(
+        mockFileWithType("image/jpeg"),
+        "image/*,application/pdf",
+      ),
     ).toBe(true);
   });
 
   it('returns true for comma-separated accept "image/*,application/pdf" with "application/pdf"', () => {
     expect(
-      matchesAcceptFilter(mockFileWithType("application/pdf"), "image/*,application/pdf"),
+      matchesAcceptFilter(
+        mockFileWithType("application/pdf"),
+        "image/*,application/pdf",
+      ),
     ).toBe(true);
   });
 
   it("handles whitespace in comma-separated accept values", () => {
     expect(
-      matchesAcceptFilter(mockFileWithType("application/pdf"), "image/* , application/pdf"),
+      matchesAcceptFilter(
+        mockFileWithType("application/pdf"),
+        "image/* , application/pdf",
+      ),
     ).toBe(true);
   });
 

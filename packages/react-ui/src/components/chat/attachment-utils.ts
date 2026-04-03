@@ -80,7 +80,9 @@ export function readFileAsBase64(file: File): Promise<string> {
  * Generate a thumbnail data URL from a video file by capturing the first frame.
  * Returns undefined if thumbnail generation fails.
  */
-export function generateVideoThumbnail(file: File): Promise<string | undefined> {
+export function generateVideoThumbnail(
+  file: File,
+): Promise<string | undefined> {
   return new Promise((resolve) => {
     let resolved = false;
     const video = document.createElement("video");
@@ -95,7 +97,9 @@ export function generateVideoThumbnail(file: File): Promise<string | undefined> 
     };
 
     const timeout = setTimeout(() => {
-      console.warn(`[CopilotKit] generateVideoThumbnail: timed out for file "${file.name}"`);
+      console.warn(
+        `[CopilotKit] generateVideoThumbnail: timed out for file "${file.name}"`,
+      );
       cleanup(undefined);
     }, 10000);
 
@@ -117,14 +121,18 @@ export function generateVideoThumbnail(file: File): Promise<string | undefined> 
         const thumbnail = canvas.toDataURL("image/jpeg", 0.7);
         cleanup(thumbnail);
       } else {
-        console.warn("[CopilotKit] generateVideoThumbnail: could not get 2d canvas context");
+        console.warn(
+          "[CopilotKit] generateVideoThumbnail: could not get 2d canvas context",
+        );
         cleanup(undefined);
       }
     };
 
     video.onerror = () => {
       clearTimeout(timeout);
-      console.warn(`[CopilotKit] generateVideoThumbnail: video element error for file "${file.name}"`);
+      console.warn(
+        `[CopilotKit] generateVideoThumbnail: video element error for file "${file.name}"`,
+      );
       cleanup(undefined);
     };
 
@@ -136,10 +144,7 @@ export function generateVideoThumbnail(file: File): Promise<string | undefined> 
  * Check if a file's MIME type matches an accept filter string.
  * Handles wildcards like "image/*" and comma-separated lists.
  */
-export function matchesAcceptFilter(
-  file: File,
-  accept: string,
-): boolean {
+export function matchesAcceptFilter(file: File, accept: string): boolean {
   if (!accept || accept === "*/*") return true;
 
   const filters = accept.split(",").map((f) => f.trim());

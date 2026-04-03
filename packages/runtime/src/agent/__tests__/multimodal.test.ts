@@ -47,10 +47,17 @@ describe("convertMessagesToVercelAISDKMessages — multimodal", () => {
 
   it("converts ImageInputPart with url source to ImagePart with URL", () => {
     const result = convertUserContent([
-      { type: "image", source: urlSource("https://example.com/photo.jpg", "image/jpeg") },
+      {
+        type: "image",
+        source: urlSource("https://example.com/photo.jpg", "image/jpeg"),
+      },
     ]);
     expect(result.content).toEqual([
-      { type: "image", image: new URL("https://example.com/photo.jpg"), mediaType: "image/jpeg" },
+      {
+        type: "image",
+        image: new URL("https://example.com/photo.jpg"),
+        mediaType: "image/jpeg",
+      },
     ]);
   });
 
@@ -65,16 +72,26 @@ describe("convertMessagesToVercelAISDKMessages — multimodal", () => {
 
   it("converts VideoInputPart with url source to FilePart", () => {
     const result = convertUserContent([
-      { type: "video", source: urlSource("https://example.com/video.mp4", "video/mp4") },
+      {
+        type: "video",
+        source: urlSource("https://example.com/video.mp4", "video/mp4"),
+      },
     ]);
     expect(result.content).toEqual([
-      { type: "file", data: new URL("https://example.com/video.mp4"), mediaType: "video/mp4" },
+      {
+        type: "file",
+        data: new URL("https://example.com/video.mp4"),
+        mediaType: "video/mp4",
+      },
     ]);
   });
 
   it("converts DocumentInputPart to FilePart", () => {
     const result = convertUserContent([
-      { type: "document", source: dataSource("base64pdfdata", "application/pdf") },
+      {
+        type: "document",
+        source: dataSource("base64pdfdata", "application/pdf"),
+      },
     ]);
     expect(result.content).toEqual([
       { type: "file", data: "base64pdfdata", mediaType: "application/pdf" },
@@ -113,9 +130,17 @@ describe("convertMessagesToVercelAISDKMessages — multimodal", () => {
   // objects here to simulate that scenario.
   describe("legacy BinaryInputContent backward compat", () => {
     it("converts binary with image mimeType and data to ImagePart", () => {
-      const legacyPart = { type: "binary", mimeType: "image/jpeg", data: "legacybase64" };
+      const legacyPart = {
+        type: "binary",
+        mimeType: "image/jpeg",
+        data: "legacybase64",
+      };
       const messages: Message[] = [
-        { id: "1", role: "user", content: [legacyPart] as unknown as InputContent[] },
+        {
+          id: "1",
+          role: "user",
+          content: [legacyPart] as unknown as InputContent[],
+        },
       ];
       const result = convertMessagesToVercelAISDKMessages(messages);
       const userMsg = result[0] as UserModelMessage;
@@ -125,14 +150,26 @@ describe("convertMessagesToVercelAISDKMessages — multimodal", () => {
     });
 
     it("converts binary with non-image mimeType and url to FilePart", () => {
-      const legacyPart = { type: "binary", mimeType: "application/pdf", url: "https://example.com/doc.pdf" };
+      const legacyPart = {
+        type: "binary",
+        mimeType: "application/pdf",
+        url: "https://example.com/doc.pdf",
+      };
       const messages: Message[] = [
-        { id: "1", role: "user", content: [legacyPart] as unknown as InputContent[] },
+        {
+          id: "1",
+          role: "user",
+          content: [legacyPart] as unknown as InputContent[],
+        },
       ];
       const result = convertMessagesToVercelAISDKMessages(messages);
       const userMsg = result[0] as UserModelMessage;
       expect(userMsg.content).toEqual([
-        { type: "file", data: new URL("https://example.com/doc.pdf"), mediaType: "application/pdf" },
+        {
+          type: "file",
+          data: new URL("https://example.com/doc.pdf"),
+          mediaType: "application/pdf",
+        },
       ]);
     });
   });

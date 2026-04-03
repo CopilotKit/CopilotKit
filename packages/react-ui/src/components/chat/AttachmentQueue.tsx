@@ -80,7 +80,12 @@ function AttachmentPreview({ attachment }: { attachment: Attachment }) {
               className="copilotKitAttachmentQueuePreviewImage"
             />
           ) : (
-            <video src={src} preload="metadata" muted className="copilotKitAttachmentQueuePreviewImage" />
+            <video
+              src={src}
+              preload="metadata"
+              muted
+              className="copilotKitAttachmentQueuePreviewImage"
+            />
           )}
         </div>
       );
@@ -118,7 +123,8 @@ function getDocumentIcon(mimeType: string): string {
   if (mimeType.includes("pdf")) return "PDF";
   if (mimeType.includes("word") || mimeType.includes("document")) return "DOC";
   if (mimeType.includes("sheet") || mimeType.includes("excel")) return "XLS";
-  if (mimeType.includes("presentation") || mimeType.includes("powerpoint")) return "PPT";
+  if (mimeType.includes("presentation") || mimeType.includes("powerpoint"))
+    return "PPT";
   if (mimeType.includes("text/")) return "TXT";
   return "FILE";
 }

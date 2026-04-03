@@ -21,9 +21,10 @@ export interface AttachmentsConfig {
   /** Maximum file size in bytes, default 20MB (20 * 1024 * 1024) */
   maxSize?: number;
   /** Custom upload handler. Return { data, mimeType } for base64 or { url, mimeType? } for URL-based delivery. */
-  onUpload?: (file: File) => Promise<
-    | { data: string; mimeType: string }
-    | { url: string; mimeType?: string }
+  onUpload?: (
+    file: File,
+  ) => Promise<
+    { data: string; mimeType: string } | { url: string; mimeType?: string }
   >;
 }
 

@@ -377,9 +377,17 @@ function convertUserMessageContent(
 
         if (legacy.data) {
           if (isImage) {
-            parts.push({ type: "image", image: legacy.data, mediaType: mimeType });
+            parts.push({
+              type: "image",
+              image: legacy.data,
+              mediaType: mimeType,
+            });
           } else {
-            parts.push({ type: "file", data: legacy.data, mediaType: mimeType });
+            parts.push({
+              type: "file",
+              data: legacy.data,
+              mediaType: mimeType,
+            });
           }
         } else if (legacy.url) {
           try {

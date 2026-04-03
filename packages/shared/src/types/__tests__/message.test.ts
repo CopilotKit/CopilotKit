@@ -36,10 +36,26 @@ describe("shared message types", () => {
   it("InputContent union covers all modalities", () => {
     const parts: InputContent[] = [
       { type: "text", text: "hi" },
-      { type: "image", source: { type: "url", value: "https://example.com/img.png" } },
-      { type: "audio", source: { type: "data", value: "base64...", mimeType: "audio/mp3" } },
-      { type: "video", source: { type: "data", value: "base64...", mimeType: "video/mp4" } },
-      { type: "document", source: { type: "data", value: "base64...", mimeType: "application/pdf" } },
+      {
+        type: "image",
+        source: { type: "url", value: "https://example.com/img.png" },
+      },
+      {
+        type: "audio",
+        source: { type: "data", value: "base64...", mimeType: "audio/mp3" },
+      },
+      {
+        type: "video",
+        source: { type: "data", value: "base64...", mimeType: "video/mp4" },
+      },
+      {
+        type: "document",
+        source: {
+          type: "data",
+          value: "base64...",
+          mimeType: "application/pdf",
+        },
+      },
     ];
     expect(parts).toHaveLength(5);
   });

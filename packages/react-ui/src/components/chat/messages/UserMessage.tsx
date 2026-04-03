@@ -42,7 +42,9 @@ const getMediaParts = (content: UserMessageContent | undefined) => {
       part.type === "document",
   ) as Array<{
     type: "image" | "audio" | "video" | "document";
-    source: { type: "data"; value: string; mimeType: string } | { type: "url"; value: string; mimeType?: string };
+    source:
+      | { type: "data"; value: string; mimeType: string }
+      | { type: "url"; value: string; mimeType?: string };
   }>;
 };
 
@@ -79,11 +81,7 @@ export const UserMessage = (props: UserMessageProps) => {
     <div className="copilotKitMessage copilotKitUserMessage">
       {textContent && <div>{textContent}</div>}
       {mediaParts.map((part, index) => (
-        <AttachmentRenderer
-          key={index}
-          type={part.type}
-          source={part.source}
-        />
+        <AttachmentRenderer key={index} type={part.type} source={part.source} />
       ))}
     </div>
   );

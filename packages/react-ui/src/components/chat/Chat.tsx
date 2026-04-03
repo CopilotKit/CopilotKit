@@ -454,9 +454,13 @@ export function CopilotChat({
   const attachmentsAccept = resolvedAttachments?.accept ?? "*/*";
   const attachmentsMaxSize = resolvedAttachments?.maxSize ?? 20 * 1024 * 1024;
 
-  const [selectedAttachments, setSelectedAttachments] = useState<Attachment[]>([]);
+  const [selectedAttachments, setSelectedAttachments] = useState<Attachment[]>(
+    [],
+  );
   const [dragOver, setDragOver] = useState(false);
-  const processFilesRef = useRef<(files: File[]) => Promise<void>>(async () => {});
+  const processFilesRef = useRef<(files: File[]) => Promise<void>>(
+    async () => {},
+  );
 
   const [chatError, setChatError] = useState<ChatError | null>(null);
   const [messageFeedback, setMessageFeedback] = useState<
@@ -491,7 +495,11 @@ export function CopilotChat({
       const errorMessage =
         error?.message || error?.toString() || "An error occurred";
 
-      console.error(`[CopilotKit] ${operation} error:`, errorMessage, originalError ?? error);
+      console.error(
+        `[CopilotKit] ${operation} error:`,
+        errorMessage,
+        originalError ?? error,
+      );
 
       // Set chat error state for rendering
       setChatError({
@@ -595,7 +603,12 @@ export function CopilotChat({
 
     document.addEventListener("paste", handlePaste);
     return () => document.removeEventListener("paste", handlePaste);
-  }, [attachmentsEnabled, attachmentsAccept, attachmentsMaxSize, triggerChatError]);
+  }, [
+    attachmentsEnabled,
+    attachmentsAccept,
+    attachmentsMaxSize,
+    triggerChatError,
+  ]);
 
   useEffect(() => {
     if (!additionalInstructions?.length) {
@@ -654,7 +667,9 @@ export function CopilotChat({
 
   // Wrapper for sendMessage to clear selected attachments and build multimodal content
   const handleSendMessage = (text: string) => {
-    const hasUploading = selectedAttachments.some((a) => a.status === "uploading");
+    const hasUploading = selectedAttachments.some(
+      (a) => a.status === "uploading",
+    );
     if (hasUploading) {
       triggerChatError(
         new Error("Attachment(s) still uploading. Please wait."),
@@ -739,7 +754,9 @@ export function CopilotChat({
     const rejectedCount = files.length - validFiles.length;
     if (rejectedCount > 0) {
       triggerChatError(
-        new Error(`${rejectedCount} file(s) not accepted. Supported types: ${attachmentsAccept}`),
+        new Error(
+          `${rejectedCount} file(s) not accepted. Supported types: ${attachmentsAccept}`,
+        ),
         "fileUpload",
       );
     }
@@ -776,9 +793,17 @@ export function CopilotChat({
         if (resolvedAttachments?.onUpload) {
           const result = await resolvedAttachments.onUpload(file);
           if ("data" in result) {
-            source = { type: "data", value: result.data, mimeType: result.mimeType };
+            source = {
+              type: "data",
+              value: result.data,
+              mimeType: result.mimeType,
+            };
           } else {
-            source = { type: "url", value: result.url, mimeType: result.mimeType ?? file.type };
+            source = {
+              type: "url",
+              value: result.url,
+              mimeType: result.mimeType ?? file.type,
+            };
           }
         } else {
           const base64 = await readFileAsBase64(file);
@@ -814,7 +839,9 @@ export function CopilotChat({
   };
   processFilesRef.current = processFiles;
 
-  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
     if (!event.target.files || event.target.files.length === 0) return;
     try {
       await processFiles(Array.from(event.target.files));
@@ -940,7 +967,9 @@ export function CopilotChat({
             <AttachmentQueue
               attachments={selectedAttachments}
               onRemoveAttachment={(index) =>
-                setSelectedAttachments((prev) => prev.filter((_, i) => i !== index))
+                setSelectedAttachments((prev) =>
+                  prev.filter((_, i) => i !== index),
+                )
               }
             />
             <input
