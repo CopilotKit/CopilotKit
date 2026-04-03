@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { v0_8 } from "@a2ui/lit";
 import * as UI from "@a2ui/lit/ui";
 
 type Status = "pending" | "success" | "failure";

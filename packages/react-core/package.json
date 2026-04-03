@@ -26,7 +26,7 @@
   ],
   "main": "./dist/index.cjs",
   "module": "./dist/index.mjs",
-  "types": "./dist/index.d.cts",
+  "types": "./dist/index.d.ts",
   "unpkg": "./dist/index.umd.js",
   "jsdelivr": "./dist/index.umd.js",
   "exports": {
@@ -46,7 +46,7 @@
   },
   "scripts": {
     "build:css": "tailwindcss -i ./src/v2/styles/globals.css -o ./dist/v2/index.css -m && node scripts/scope-preflight.mjs ./dist/v2/index.css",
-    "build": "tsdown && pnpm run build:css",
+    "build": "tsdown && node ../../scripts/copy-dts.mjs && pnpm run build:css",
     "dev": "tsdown --watch",
     "test": "vitest run",
     "test:watch": "vitest",
