@@ -3,7 +3,7 @@ import {
   formatFileSize,
   exceedsMaxSize,
   matchesAcceptFilter,
-} from "../attachment-utils";
+} from "../utils";
 
 // ---------------------------------------------------------------------------
 // Helpers
