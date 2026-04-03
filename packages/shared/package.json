@@ -57,7 +57,8 @@
     "graphql": "^16.8.1",
     "partial-json": "^0.1.7",
     "uuid": "^11.1.0",
-    "zod": "^3.23.3"
+    "zod": "^3.23.3",
+    "zod-to-json-schema": "^3.23.5"
   },
   "devDependencies": {
     "@types/uuid": "^10.0.0",
@@ -68,8 +69,7 @@
     "tsdown": "^0.20.3",
     "typescript": "^5.2.3",
     "valibot": "^1.2.0",
-    "vitest": "^3.2.4",
-    "zod-to-json-schema": "^3.23.5"
+    "vitest": "^3.2.4"
   },
   "peerDependencies": {
     "@ag-ui/core": "^0.0.48"
