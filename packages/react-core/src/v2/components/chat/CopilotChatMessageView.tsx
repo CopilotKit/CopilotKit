@@ -7,7 +7,7 @@ import React, {
   useState,
 } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { ScrollElementRefContext } from "./scroll-element-context";
+import { ScrollElementContext } from "./scroll-element-context";
 import { WithSlots, renderSlot, isReactComponentType } from "../../lib/slots";
 import CopilotChatAssistantMessage from "./CopilotChatAssistantMessage";
 import CopilotChatUserMessage from "./CopilotChatUserMessage";
@@ -17,6 +17,7 @@ import {
   AssistantMessage,
   Message,
   ReasoningMessage,
+  ToolMessage,
   UserMessage,
 } from "@ag-ui/core";
 import { twMerge } from "tailwind-merge";
@@ -106,19 +107,18 @@ const MemoizedAssistantMessage = React.memo(
       const toolCallIds = new Set(prevToolCalls.map((tc) => tc.id));
 
       const prevToolResults = prevProps.messages.filter(
-        (m) => m.role === "tool" && toolCallIds.has((m as any).toolCallId),
+        (m): m is ToolMessage =>
+          m.role === "tool" && toolCallIds.has(m.toolCallId),
       );
       const nextToolResults = nextProps.messages.filter(
-        (m) => m.role === "tool" && toolCallIds.has((m as any).toolCallId),
+        (m): m is ToolMessage =>
+          m.role === "tool" && toolCallIds.has(m.toolCallId),
       );
 
       if (prevToolResults.length !== nextToolResults.length) return false;
 
       for (let i = 0; i < prevToolResults.length; i++) {
-        if (
-          (prevToolResults[i] as any).content !==
-          (nextToolResults[i] as any).content
-        )
+        if (prevToolResults[i]!.content !== nextToolResults[i]!.content)
           return false;
       }
     }
@@ -416,30 +416,37 @@ export function CopilotChatMessageView({
     );
   }
 
+  // Resolve slot values once per prop change rather than inside renderMessageBlock.
+  // resolveSlotComponent returns a new object every call when the slot is a CSS
+  // class string, which would defeat MemoizedAssistantMessage's slotProps
+  // reference-equality check and cause all completed messages to re-render.
+  const { Component: AssistantComponent, slotProps: assistantSlotProps } =
+    useMemo(
+      () => resolveSlotComponent(assistantMessage, CopilotChatAssistantMessage),
+      [assistantMessage],
+    );
+  const { Component: UserComponent, slotProps: userSlotProps } = useMemo(
+    () => resolveSlotComponent(userMessage, CopilotChatUserMessage),
+    [userMessage],
+  );
+  const { Component: ReasoningComponent, slotProps: reasoningSlotProps } =
+    useMemo(
+      () => resolveSlotComponent(reasoningMessage, CopilotChatReasoningMessage),
+      [reasoningMessage],
+    );
+
   // ---------------------------------------------------------------------------
   // Virtualization
   // ---------------------------------------------------------------------------
-  // Grab the scroll container that ScrollView provides via context.
-  // On the first synchronous render this ref is not yet populated (DOM hasn't
-  // committed). After layout effects fire we check that the element has a real
-  // height (> 0) so that jsdom tests, where clientHeight is always 0, continue
-  // to render all messages without virtualization.
-  const scrollElementCtxRef = useContext(ScrollElementRefContext);
-  const [scrollElement, setScrollElement] = useState<HTMLElement | null>(null);
-
-  useLayoutEffect(() => {
-    const el = scrollElementCtxRef?.current ?? null;
-    // clientHeight === 0 means no real layout (e.g. jsdom) — skip virtualization.
-    // Note: this effect runs exactly once. It relies on use-stick-to-bottom
-    // populating scrollRef.current synchronously during the same commit phase.
-    // If the scroll library ever defers ref assignment, this would silently keep
-    // virtualization disabled — add a ResizeObserver retry if that ever changes.
-    if (el && el.clientHeight > 0) {
-      setScrollElement(el);
-    }
-    // scrollElementCtxRef is a stable ref object; omitting from deps is intentional.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  // Receive the scroll container from context. ScrollView provides the element
+  // as state (not a ref) so this component re-renders reactively when the
+  // container first mounts. clientHeight === 0 means no real layout (jsdom) —
+  // skip virtualization so tests run the flat path.
+  const scrollElementFromCtx = useContext(ScrollElementContext);
+  const scrollElement =
+    scrollElementFromCtx && scrollElementFromCtx.clientHeight > 0
+      ? scrollElementFromCtx
+      : null;
 
   // Virtualize only when we have a scroll element and enough messages. The
   // `children` render prop delegates layout to the caller, so we keep
@@ -463,9 +470,10 @@ export function CopilotChatMessageView({
     initialRect: { width: 0, height: 600 },
   });
 
-  // Scroll to the bottom whenever virtual mode activates or the thread changes
-  // (detected by the first message ID changing). Using deps instead of a ref
-  // ensures thread switches without a full remount still scroll to the latest message.
+  // Scroll to the bottom when virtual mode first activates, when the thread
+  // changes (detected by the first message ID changing), or when new messages
+  // arrive during streaming. For the flat (non-virtual) path, use-stick-to-bottom
+  // handles auto-scrolling via content height growth detection.
   const firstMessageId = deduplicatedMessages[0]?.id;
   useLayoutEffect(() => {
     if (!shouldVirtualize || !deduplicatedMessages.length) return;
@@ -473,7 +481,7 @@ export function CopilotChatMessageView({
       align: "end",
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [shouldVirtualize, firstMessageId]);
+  }, [shouldVirtualize, firstMessageId, deduplicatedMessages.length]);
 
   // ---------------------------------------------------------------------------
   // Per-message rendering helper (shared by flat and virtual paths)
@@ -495,8 +503,6 @@ export function CopilotChatMessageView({
     }
 
     if (message.role === "assistant") {
-      const { Component: AssistantComponent, slotProps: assistantSlotProps } =
-        resolveSlotComponent(assistantMessage, CopilotChatAssistantMessage);
       elements.push(
         <MemoizedAssistantMessage
           key={message.id}
@@ -508,8 +514,6 @@ export function CopilotChatMessageView({
         />,
       );
     } else if (message.role === "user") {
-      const { Component: UserComponent, slotProps: userSlotProps } =
-        resolveSlotComponent(userMessage, CopilotChatUserMessage);
       elements.push(
         <MemoizedUserMessage
           key={message.id}
@@ -527,8 +531,6 @@ export function CopilotChatMessageView({
         />,
       );
     } else if (message.role === "reasoning") {
-      const { Component: ReasoningComponent, slotProps: reasoningSlotProps } =
-        resolveSlotComponent(reasoningMessage, CopilotChatReasoningMessage);
       elements.push(
         <MemoizedReasoningMessage
           key={message.id}

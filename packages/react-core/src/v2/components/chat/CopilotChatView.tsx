@@ -1,5 +1,5 @@
-import React, { useRef, useState, useEffect } from "react";
-import { ScrollElementRefContext } from "./scroll-element-context";
+import React, { useRef, useState, useEffect, useLayoutEffect } from "react";
+import { ScrollElementContext } from "./scroll-element-context";
 import { WithSlots, SlotValue, renderSlot } from "../../lib/slots";
 import CopilotChatMessageView from "./CopilotChatMessageView";
 import CopilotChatInput, {
@@ -314,14 +314,23 @@ export namespace CopilotChatView {
   }) => {
     const { isAtBottom, scrollToBottom, scrollRef } = useStickToBottomContext();
 
+    // Capture the scroll element in state so the context value is reactive —
+    // consumers re-render when the element is first set rather than reading a
+    // ref that silently stays null until after their own layout effects fire.
+    const [scrollEl, setScrollEl] = useState<HTMLElement | null>(null);
+    useLayoutEffect(() => {
+      setScrollEl(scrollRef.current ?? null);
+      // scrollRef is a stable object; omitting from deps is intentional.
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     const BoundFeather = renderSlot(feather, CopilotChatView.Feather, {});
 
     return (
-      // scrollRef from useStickToBottomContext() points to StickToBottom.Content's
-      // DOM element (the overflow-y:auto scroll container). Provide it so that
-      // CopilotChatMessageView can use it as the scroll element for useVirtualizer.
-      <ScrollElementRefContext.Provider value={scrollRef}>
+      // Provide the scroll element so CopilotChatMessageView can feed it to
+      // useVirtualizer's getScrollElement. Using state (not the raw ref) means
+      // the context value updates reactively when the element mounts.
+      <ScrollElementContext.Provider value={scrollEl}>
         <>
           <StickToBottom.Content
             className="cpk:overflow-y-auto cpk:overflow-x-hidden"
@@ -353,7 +362,7 @@ export namespace CopilotChatView {
             </div>
           )}
         </>
-      </ScrollElementRefContext.Provider>
+      </ScrollElementContext.Provider>
     );
   };
 
@@ -380,11 +389,25 @@ export namespace CopilotChatView {
     const [hasMounted, setHasMounted] = useState(false);
     const { scrollRef, contentRef, scrollToBottom } = useStickToBottom();
     const [showScrollButton, setShowScrollButton] = useState(false);
+    // Tracks the scroll container element for the non-autoScroll path so the
+    // context value is reactive (element state, not a ref).
+    const [nonAutoScrollEl, setNonAutoScrollEl] = useState<HTMLElement | null>(
+      null,
+    );
 
     useEffect(() => {
       setHasMounted(true);
     }, []);
 
+    // After the non-autoScroll div commits, capture its element in state so
+    // ScrollElementContext consumers re-render when the element is first set.
+    useLayoutEffect(() => {
+      if (!autoScroll && hasMounted) {
+        setNonAutoScrollEl(scrollRef.current ?? null);
+      }
+      // scrollRef is a stable object; intentionally not in deps.
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [hasMounted, autoScroll]);
 
     // Monitor scroll position for non-autoscroll mode
     useEffect(() => {
@@ -430,9 +453,9 @@ export namespace CopilotChatView {
       const BoundFeather = renderSlot(feather, CopilotChatView.Feather, {});
 
       return (
-        // scrollRef is the scroll container div (has overflow-y:auto).
-        // Provide it so CopilotChatMessageView can use it for useVirtualizer.
-        <ScrollElementRefContext.Provider value={scrollRef}>
+        // Provide the scroll element so CopilotChatMessageView can use it for
+        // useVirtualizer. Element state (not a ref) keeps the context reactive.
+        <ScrollElementContext.Provider value={nonAutoScrollEl}>
           <div
             ref={scrollRef}
             className={cn(
@@ -469,7 +492,7 @@ export namespace CopilotChatView {
               </div>
             )}
           </div>
-        </ScrollElementRefContext.Provider>
+        </ScrollElementContext.Provider>
       );
     }
 
