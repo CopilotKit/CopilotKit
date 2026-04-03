@@ -17,7 +17,6 @@ import PydanticAiIcon from "../icons/pydantic-ai";
 import ChevronRightIcon from "../icons/chevron";
 import { MicrosoftIcon } from "../icons/microsoft";
 import { AwsStrandsIcon } from "../icons/aws-strands";
-import CloudIcon from "../icons/cloud";
 import { AgentSpecMarkIcon, A2AIcon } from "@/lib/icons/custom-icons";
 import { IntegrationId } from "@/lib/integrations";
 
@@ -53,7 +52,6 @@ const INTEGRATION_ICONS: Record<
   "pydantic-ai": PydanticAiIcon,
   "microsoft-agent-framework": MicrosoftIcon,
   "aws-strands": AwsStrandsIcon,
-  agentcore: CloudIcon,
   a2a: A2AIcon,
 };
 

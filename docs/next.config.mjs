@@ -135,7 +135,6 @@ const config = {
       'pydantic-ai',
       'microsoft-agent-framework',
       'aws-strands',
-      'agentcore',
     ];
 
     return {
@@ -150,6 +149,11 @@ const config = {
           source: `/${integration}/:path*`,
           destination: `/integrations/${integration}/:path*`,
         })),
+        // Map deploy section URLs
+        {
+          source: '/agentcore/:path*',
+          destination: '/deploy/agentcore/:path*',
+        },
       ],
     };
   },

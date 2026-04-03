@@ -3,7 +3,6 @@ import AdkIcon from "@/components/ui/icons/adk";
 import Ag2Icon from "@/components/ui/icons/ag2";
 import AgnoIcon from "@/components/ui/icons/agno";
 import { AwsStrandsIcon } from "@/components/ui/icons/aws-strands";
-import CloudIcon from "@/components/ui/icons/cloud";
 import CrewaiIcon from "@/components/ui/icons/crewai";
 import CopilotKitMarkIcon from "@/components/ui/icons/copilotkit-mark";
 import LanggraphIcon from "@/components/ui/icons/langgraph";
@@ -42,7 +41,6 @@ const INTEGRATION_ICONS: Record<
   "pydantic-ai": PydanticAiIcon,
   "microsoft-agent-framework": MicrosoftIcon,
   "aws-strands": AwsStrandsIcon,
-  agentcore: CloudIcon,
   a2a: A2AIcon,
 };
 

@@ -14,7 +14,6 @@ const FRAMEWORKS = [
   "ag2",
   "microsoft-agent-framework",
   "aws-strands",
-  "agentcore",
   "a2a",
   "built-in-agent",
 ];

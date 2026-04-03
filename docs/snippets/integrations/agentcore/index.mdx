@@ -1,12 +1,4 @@
----
-title: Introduction
-icon: "lucide/Cloud"
-description: Add a production-ready frontend to your AWS AgentCore agents with CopilotKit.
-hideHeader: true
----
-
-import { Cards, Card } from "fumadocs-ui/components/card";
-import { PlayIcon, BoxIcon } from "lucide-react";
+import { Play, Box } from "lucide-react";
 
 ## CopilotKit + AWS AgentCore
 
@@ -34,20 +26,22 @@ Browser → CopilotKit Runtime → AgentCore Runtime → your agent
 
 ## Choose your starting point
 
-<Cards>
-  <Card
-    title="Quickstart"
-    description="You've followed the AWS guide and have a deployed agent. Connect CopilotKit in minutes."
-    href="/agentcore/quickstart"
-    icon={<PlayIcon />}
-  />
-  <Card
-    title="Full-stack example"
-    description="Start from a complete, deployable template — CDK infrastructure, LangGraph or Strands agent, generative UI, todo canvas, local dev."
-    href="/agentcore/full-stack-example"
-    icon={<BoxIcon />}
-  />
-</Cards>
+<div className="grid grid-cols-1 sm:grid-cols-2 gap-3 not-prose mt-4 mb-6">
+  <a href="/agentcore/quickstart" className="group flex items-start gap-3 bg-card border border-border/80 rounded-lg p-4 no-underline hover:border-primary/60 hover:bg-accent/50 transition-colors shadow-sm">
+    <Play className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
+    <div>
+      <div className="font-semibold text-foreground group-hover:text-primary mb-1">Quickstart</div>
+      <div className="text-sm text-muted-foreground leading-relaxed">You've followed the AWS guide and have a deployed agent. Connect CopilotKit in minutes.</div>
+    </div>
+  </a>
+  <a href="/agentcore/full-stack-example" className="group flex items-start gap-3 bg-card border border-border/80 rounded-lg p-4 no-underline hover:border-primary/60 hover:bg-accent/50 transition-colors shadow-sm">
+    <Box className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
+    <div>
+      <div className="font-semibold text-foreground group-hover:text-primary mb-1">Full-stack example</div>
+      <div className="text-sm text-muted-foreground leading-relaxed">Start from a complete, deployable template — CDK, LangGraph or Strands, generative UI, local dev.</div>
+    </div>
+  </a>
+</div>
 
 ## Prerequisites
 

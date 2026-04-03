@@ -6,7 +6,6 @@
     "adk",
     "microsoft-agent-framework",
     "aws-strands",
-    "agentcore",
     "mastra",
     "pydantic-ai",
     "crewai-flows",
