@@ -17,7 +17,6 @@ import {
   AssistantMessage,
   Message,
   ReasoningMessage,
-  ToolMessage,
   UserMessage,
 } from "@ag-ui/core";
 import { twMerge } from "tailwind-merge";
@@ -67,8 +66,6 @@ const MemoizedAssistantMessage = React.memo(
   }: {
     message: AssistantMessage;
     messages: Message[];
-    /** Pre-computed map of toolCallId → tool-result content for O(1) lookup. */
-    toolResultMap: Map<string, string>;
     isRunning: boolean;
     AssistantMessageComponent: typeof CopilotChatAssistantMessage;
     slotProps?: Partial<
@@ -103,16 +100,26 @@ const MemoizedAssistantMessage = React.memo(
       }
     }
 
-    // Check if tool results changed using the pre-computed map (O(k) per message,
-    // not O(n) — avoids an O(n²) scan when many messages have tool calls).
+    // Check if tool results changed for this message's tool calls.
+    // Tool results are separate messages with role="tool" that reference tool call IDs.
     if (prevToolCalls && prevToolCalls.length > 0) {
-      for (const tc of prevToolCalls) {
+      const toolCallIds = new Set(prevToolCalls.map((tc) => tc.id));
+
+      const prevToolResults = prevProps.messages.filter(
+        (m) => m.role === "tool" && toolCallIds.has((m as any).toolCallId),
+      );
+      const nextToolResults = nextProps.messages.filter(
+        (m) => m.role === "tool" && toolCallIds.has((m as any).toolCallId),
+      );
+
+      if (prevToolResults.length !== nextToolResults.length) return false;
+
+      for (let i = 0; i < prevToolResults.length; i++) {
         if (
-          prevProps.toolResultMap.get(tc.id) !==
-          nextProps.toolResultMap.get(tc.id)
-        ) {
+          (prevToolResults[i] as any).content !==
+          (nextToolResults[i] as any).content
+        )
           return false;
-        }
       }
     }
 
@@ -445,18 +452,6 @@ export function CopilotChatMessageView({
     }
   }, [deduplicatedMessages.length]);
 
-  // Pre-compute a toolCallId → result-content map so MemoizedAssistantMessage's
-  // comparator can do O(1) lookups instead of O(n) array scans.
-  const toolResultMap = useMemo(() => {
-    const map = new Map<string, string>();
-    for (const m of deduplicatedMessages.filter(
-      (m): m is ToolMessage => m.role === "tool",
-    )) {
-      map.set(m.toolCallId, String(m.content ?? ""));
-    }
-    return map;
-  }, [deduplicatedMessages]);
-
   // Virtualize only when we have a scroll element and enough messages. The
   // `children` render prop delegates layout to the caller, so we keep
   // messageElements flat for that case.
@@ -518,7 +513,6 @@ export function CopilotChatMessageView({
           key={message.id}
           message={message as AssistantMessage}
           messages={messages}
-          toolResultMap={toolResultMap}
           isRunning={isRunning}
           AssistantMessageComponent={AssistantComponent}
           slotProps={assistantSlotProps}
