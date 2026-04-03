@@ -11,6 +11,7 @@ npm install
 ```
 
 **Templates:**
+
 - `--template mcp-apps` -- ChatGPT widgets with dual-protocol support (recommended)
 - `--template starter` -- Full-featured with tools, resources, prompts, and widgets
 - `--template blank` -- Minimal starting point
@@ -40,6 +41,7 @@ npm run dev
 ## Test with Inspector
 
 Open `http://localhost:3000/inspector` to:
+
 - Execute tools with parameters
 - View resources
 - Try prompts
@@ -48,14 +50,18 @@ Open `http://localhost:3000/inspector` to:
 ## Connect to ChatGPT
 
 ### Prerequisites
+
 - ChatGPT Plus, Pro, Business, or Enterprise plan
 - Developer Mode enabled: Settings → Connectors → Advanced → Developer Mode
 
 ### Steps
+
 1. Expose local server via tunnel:
+
    ```bash
    mcp-use start --port 3000 --tunnel
    ```
+
    Or use ngrok: `ngrok http 3000`
 
 2. In ChatGPT → Apps Settings → Create App
@@ -65,6 +71,7 @@ Open `http://localhost:3000/inspector` to:
 6. Click Create
 
 ### Testing
+
 - Type `@{app-name}` in a ChatGPT chat
 - Be explicit: "Use the {app-name} connector's {tool-name} tool"
 - Disallow alternatives: "Do not use built-in tools, only use my connector"
@@ -84,6 +91,7 @@ npm run deploy
 ```
 
 After deployment:
+
 - Public URL provided
 - Auto-scaled and monitored
 - HTTPS enabled

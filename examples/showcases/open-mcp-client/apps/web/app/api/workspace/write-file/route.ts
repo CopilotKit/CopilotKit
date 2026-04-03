@@ -11,7 +11,7 @@ export async function POST(req: NextRequest) {
     if (!workspaceId || !path || content === undefined) {
       return NextResponse.json(
         { error: "workspaceId, path, and content are required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 

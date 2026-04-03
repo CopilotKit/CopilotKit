@@ -55,7 +55,9 @@ export default function WeatherDisplay() {
   if (isPending) {
     return (
       <McpUseProvider autoSize>
-        <div style={{ padding: 16, textAlign: "center" }}>Loading weather...</div>
+        <div style={{ padding: 16, textAlign: "center" }}>
+          Loading weather...
+        </div>
       </McpUseProvider>
     );
   }
@@ -66,7 +68,9 @@ export default function WeatherDisplay() {
         <h2 style={{ margin: 0, fontSize: 24 }}>{props.city}</h2>
         <div style={{ fontSize: 48, fontWeight: "bold" }}>{props.temp}°C</div>
         <p style={{ color: "#666" }}>{props.conditions}</p>
-        <p style={{ color: "#999", fontSize: 14 }}>Humidity: {props.humidity}%</p>
+        <p style={{ color: "#999", fontSize: 14 }}>
+          Humidity: {props.humidity}%
+        </p>
       </div>
     </McpUseProvider>
   );
@@ -94,7 +98,7 @@ server.tool(
       city: z.string().describe("City name"),
     }),
     widget: {
-      name: "weather-display",       // Must match resources/weather-display.tsx
+      name: "weather-display", // Must match resources/weather-display.tsx
       invoking: "Fetching weather...",
       invoked: "Weather loaded",
     },
@@ -102,10 +106,15 @@ server.tool(
   async ({ city }) => {
     const data = getWeather(city);
     return widget({
-      props: { city, temp: data.temp, conditions: data.conditions, humidity: data.humidity },
+      props: {
+        city,
+        temp: data.temp,
+        conditions: data.conditions,
+        humidity: data.humidity,
+      },
       output: text(`Weather in ${city}: ${data.temp}°C, ${data.conditions}`),
     });
-  }
+  },
 );
 
 server.listen();
@@ -120,7 +129,9 @@ Every widget file MUST export:
 ```typescript
 export const widgetMetadata: WidgetMetadata = {
   description: "Human-readable description of what this widget shows",
-  props: z.object({ /* Zod schema for widget input */ }),
+  props: z.object({
+    /* Zod schema for widget input */
+  }),
 };
 ```
 
@@ -132,17 +143,17 @@ export default function MyWidget() { ... }
 
 ### WidgetMetadata Fields
 
-| Field | Type | Required | Description |
-|---|---|---|---|
-| `description` | `string` | Yes | What the widget displays |
-| `props` | `z.ZodObject` | Yes | Zod schema for widget input data |
-| `exposeAsTool` | `boolean` | No | Auto-register as tool (default: `false`) |
-| `toolOutput` | `CallToolResult \| (params => CallToolResult)` | No | What the AI model sees |
-| `title` | `string` | No | Display title |
-| `annotations` | `object` | No | `readOnlyHint`, `destructiveHint`, etc. |
-| `metadata` | `object` | No | CSP, border, resize config, invocation status text |
-| `metadata.invoking` | `string` | No | Status text while tool runs — shown as shimmer in inspector (auto-default: `"Loading {name}..."`) |
-| `metadata.invoked` | `string` | No | Status text after tool completes — shown in inspector (auto-default: `"{name} ready"`) |
+| Field               | Type                                           | Required | Description                                                                                       |
+| ------------------- | ---------------------------------------------- | -------- | ------------------------------------------------------------------------------------------------- |
+| `description`       | `string`                                       | Yes      | What the widget displays                                                                          |
+| `props`             | `z.ZodObject`                                  | Yes      | Zod schema for widget input data                                                                  |
+| `exposeAsTool`      | `boolean`                                      | No       | Auto-register as tool (default: `false`)                                                          |
+| `toolOutput`        | `CallToolResult \| (params => CallToolResult)` | No       | What the AI model sees                                                                            |
+| `title`             | `string`                                       | No       | Display title                                                                                     |
+| `annotations`       | `object`                                       | No       | `readOnlyHint`, `destructiveHint`, etc.                                                           |
+| `metadata`          | `object`                                       | No       | CSP, border, resize config, invocation status text                                                |
+| `metadata.invoking` | `string`                                       | No       | Status text while tool runs — shown as shimmer in inspector (auto-default: `"Loading {name}..."`) |
+| `metadata.invoked`  | `string`                                       | No       | Status text after tool completes — shown in inspector (auto-default: `"{name} ready"`)            |
 
 **Invocation status text** in `metadata` is protocol-agnostic and works for both `mcpApps` and `appsSdk` widgets. For tools using `widget: { name, invoking, invoked }` in the tool config, the `invoking`/`invoked` values in `widget:` take effect instead.
 
@@ -168,7 +179,10 @@ Control what the AI model sees when the auto-registered tool is called:
 export const widgetMetadata: WidgetMetadata = {
   description: "Recipe card",
   props: z.object({ name: z.string(), ingredients: z.array(z.string()) }),
-  toolOutput: (params) => text(`Showing recipe: ${params.name} (${params.ingredients.length} ingredients)`),
+  toolOutput: (params) =>
+    text(
+      `Showing recipe: ${params.name} (${params.ingredients.length} ingredients)`,
+    ),
 };
 ```
 
@@ -179,31 +193,31 @@ The primary hook for accessing widget data and capabilities.
 ```typescript
 const {
   // Core data
-  props,              // Widget input data (from tool's widget() call or auto-registered tool)
-  isPending,          // true while tool is still executing (props may be partial)
-  toolInput,          // Original tool input arguments
-  output,             // Additional tool output data
-  metadata,           // Response metadata
+  props, // Widget input data (from tool's widget() call or auto-registered tool)
+  isPending, // true while tool is still executing (props may be partial)
+  toolInput, // Original tool input arguments
+  output, // Additional tool output data
+  metadata, // Response metadata
 
   // Persistent state
-  state,              // Persisted widget state (survives re-renders)
-  setState,           // Update persistent state: setState(newState) or setState(prev => newState)
+  state, // Persisted widget state (survives re-renders)
+  setState, // Update persistent state: setState(newState) or setState(prev => newState)
 
   // Host environment
-  theme,              // 'light' | 'dark'
-  displayMode,        // 'inline' | 'pip' | 'fullscreen'
-  safeArea,           // { insets: { top, bottom, left, right } }
-  maxHeight,          // Max available height in pixels
-  userAgent,          // { device: { type }, capabilities: { hover, touch } }
-  locale,             // User locale (e.g., 'en-US')
-  timeZone,           // IANA timezone
+  theme, // 'light' | 'dark'
+  displayMode, // 'inline' | 'pip' | 'fullscreen'
+  safeArea, // { insets: { top, bottom, left, right } }
+  maxHeight, // Max available height in pixels
+  userAgent, // { device: { type }, capabilities: { hover, touch } }
+  locale, // User locale (e.g., 'en-US')
+  timeZone, // IANA timezone
 
   // Actions
-  callTool,           // Call another MCP tool: callTool("tool-name", { args })
-  sendFollowUpMessage,// Trigger LLM response: sendFollowUpMessage("analyze this")
-  openExternal,       // Open external URL: openExternal("https://example.com")
+  callTool, // Call another MCP tool: callTool("tool-name", { args })
+  sendFollowUpMessage, // Trigger LLM response: sendFollowUpMessage("analyze this")
+  openExternal, // Open external URL: openExternal("https://example.com")
   requestDisplayMode, // Request mode change: requestDisplayMode("fullscreen")
-  mcp_url,            // MCP server base URL for custom API requests
+  mcp_url, // MCP server base URL for custom API requests
 } = useWidget();
 ```
 
@@ -215,11 +229,21 @@ Widgets render BEFORE tool execution completes. **Always handle `isPending`:**
 const { props, isPending } = useWidget();
 
 if (isPending) {
-  return <McpUseProvider autoSize><div>Loading...</div></McpUseProvider>;
+  return (
+    <McpUseProvider autoSize>
+      <div>Loading...</div>
+    </McpUseProvider>
+  );
 }
 
 // Now props are safe to use
-return <McpUseProvider autoSize><div>{props.city}: {props.temp}°C</div></McpUseProvider>;
+return (
+  <McpUseProvider autoSize>
+    <div>
+      {props.city}: {props.temp}°C
+    </div>
+  </McpUseProvider>
+);
 ```
 
 ### Calling Other Tools
@@ -242,9 +266,11 @@ const handleRefresh = async () => {
 ```tsx
 const { sendFollowUpMessage } = useWidget();
 
-<button onClick={() => sendFollowUpMessage("Compare the weather in these cities")}>
+<button
+  onClick={() => sendFollowUpMessage("Compare the weather in these cities")}
+>
   Ask AI to Compare
-</button>
+</button>;
 ```
 
 ### Persistent State
@@ -292,11 +318,11 @@ export default function MyWidget() {
 }
 ```
 
-| Prop | Type | Default | Description |
-|---|---|---|---|
-| `autoSize` | `boolean` | `false` | Auto-resize widget height to fit content |
-| `viewControls` | `boolean \| "pip" \| "fullscreen"` | `false` | Show display mode control buttons |
-| `debugger` | `boolean` | `false` | Show debug inspector overlay |
+| Prop           | Type                               | Default | Description                              |
+| -------------- | ---------------------------------- | ------- | ---------------------------------------- |
+| `autoSize`     | `boolean`                          | `false` | Auto-resize widget height to fit content |
+| `viewControls` | `boolean \| "pip" \| "fullscreen"` | `false` | Show display mode control buttons        |
+| `debugger`     | `boolean`                          | `false` | Show debug inspector overlay             |
 
 ## Styling
 
@@ -318,17 +344,17 @@ Used in tool callbacks to send data to the widget:
 import { widget, text } from "mcp-use/server";
 
 return widget({
-  props: { city: "Tokyo", temp: 25 },              // Sent to widget via useWidget().props
-  output: text("Weather in Tokyo: 25°C"),           // What the AI model sees
-  message: "Current weather for Tokyo",             // Optional text override
+  props: { city: "Tokyo", temp: 25 }, // Sent to widget via useWidget().props
+  output: text("Weather in Tokyo: 25°C"), // What the AI model sees
+  message: "Current weather for Tokyo", // Optional text override
 });
 ```
 
-| Field | Type | Description |
-|---|---|---|
-| `props` | `Record<string, any>` | Data for the widget UI (hidden from model) |
-| `output` | `CallToolResult` | Response helper result the model sees (`text()`, `object()`, etc.) |
-| `message` | `string` | Optional text message override |
+| Field     | Type                  | Description                                                        |
+| --------- | --------------------- | ------------------------------------------------------------------ |
+| `props`   | `Record<string, any>` | Data for the widget UI (hidden from model)                         |
+| `output`  | `CallToolResult`      | Response helper result the model sees (`text()`, `object()`, etc.) |
+| `message` | `string`              | Optional text message override                                     |
 
 ## Tool `widget` Config
 
@@ -360,9 +386,27 @@ const server = new MCPServer({
 });
 
 const mockRecipes = [
-  { id: "1", name: "Pasta Carbonara", cuisine: "Italian", time: 30, ingredients: ["pasta", "eggs", "bacon", "parmesan"] },
-  { id: "2", name: "Chicken Tikka", cuisine: "Indian", time: 45, ingredients: ["chicken", "yogurt", "spices", "rice"] },
-  { id: "3", name: "Sushi Rolls", cuisine: "Japanese", time: 60, ingredients: ["rice", "nori", "fish", "avocado"] },
+  {
+    id: "1",
+    name: "Pasta Carbonara",
+    cuisine: "Italian",
+    time: 30,
+    ingredients: ["pasta", "eggs", "bacon", "parmesan"],
+  },
+  {
+    id: "2",
+    name: "Chicken Tikka",
+    cuisine: "Indian",
+    time: 45,
+    ingredients: ["chicken", "yogurt", "spices", "rice"],
+  },
+  {
+    id: "3",
+    name: "Sushi Rolls",
+    cuisine: "Japanese",
+    time: 60,
+    ingredients: ["rice", "nori", "fish", "avocado"],
+  },
 ];
 
 server.tool(
@@ -380,15 +424,16 @@ server.tool(
     },
   },
   async ({ query, cuisine }) => {
-    const results = mockRecipes.filter(r =>
-      r.name.toLowerCase().includes(query.toLowerCase()) ||
-      (cuisine && r.cuisine.toLowerCase() === cuisine.toLowerCase())
+    const results = mockRecipes.filter(
+      (r) =>
+        r.name.toLowerCase().includes(query.toLowerCase()) ||
+        (cuisine && r.cuisine.toLowerCase() === cuisine.toLowerCase()),
     );
     return widget({
       props: { recipes: results, query },
       output: text(`Found ${results.length} recipes for "${query}"`),
     });
-  }
+  },
 );
 
 server.listen();
@@ -403,13 +448,15 @@ import { z } from "zod";
 export const widgetMetadata: WidgetMetadata = {
   description: "Display recipe search results",
   props: z.object({
-    recipes: z.array(z.object({
-      id: z.string(),
-      name: z.string(),
-      cuisine: z.string(),
-      time: z.number(),
-      ingredients: z.array(z.string()),
-    })),
+    recipes: z.array(
+      z.object({
+        id: z.string(),
+        name: z.string(),
+        cuisine: z.string(),
+        time: z.number(),
+        ingredients: z.array(z.string()),
+      }),
+    ),
     query: z.string(),
   }),
   exposeAsTool: false,
@@ -419,7 +466,11 @@ export default function RecipeList() {
   const { props, isPending } = useWidget();
 
   if (isPending) {
-    return <McpUseProvider autoSize><div style={{ padding: 16 }}>Searching...</div></McpUseProvider>;
+    return (
+      <McpUseProvider autoSize>
+        <div style={{ padding: 16 }}>Searching...</div>
+      </McpUseProvider>
+    );
   }
 
   return (
@@ -431,12 +482,19 @@ export default function RecipeList() {
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             {props.recipes.map((recipe) => (
-              <div key={recipe.id} style={{
-                padding: 16, borderRadius: 8, border: "1px solid #e5e7eb", background: "#fff"
-              }}>
+              <div
+                key={recipe.id}
+                style={{
+                  padding: 16,
+                  borderRadius: 8,
+                  border: "1px solid #e5e7eb",
+                  background: "#fff",
+                }}
+              >
                 <h3 style={{ margin: "0 0 4px" }}>{recipe.name}</h3>
                 <p style={{ margin: 0, color: "#666", fontSize: 14 }}>
-                  {recipe.cuisine} · {recipe.time} min · {recipe.ingredients.join(", ")}
+                  {recipe.cuisine} · {recipe.time} min ·{" "}
+                  {recipe.ingredients.join(", ")}
                 </p>
               </div>
             ))}

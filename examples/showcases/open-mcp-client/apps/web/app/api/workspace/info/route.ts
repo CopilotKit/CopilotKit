@@ -7,7 +7,10 @@ export async function POST(req: NextRequest) {
   try {
     const { workspaceId } = (await req.json()) as { workspaceId?: string };
     if (!workspaceId) {
-      return NextResponse.json({ error: "workspaceId is required" }, { status: 400 });
+      return NextResponse.json(
+        { error: "workspaceId is required" },
+        { status: 400 },
+      );
     }
 
     const provider = getProvider();

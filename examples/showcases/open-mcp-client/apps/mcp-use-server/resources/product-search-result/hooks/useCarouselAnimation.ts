@@ -2,7 +2,7 @@ import { useEffect, type RefObject } from "react";
 
 export function useCarouselAnimation(
   carouselContainerRef: RefObject<HTMLDivElement | null>,
-  scrollContainerRef: RefObject<HTMLDivElement | null>
+  scrollContainerRef: RefObject<HTMLDivElement | null>,
 ): void {
   useEffect(() => {
     let lastPointerX = 0;
@@ -26,7 +26,7 @@ export function useCarouselAnimation(
 
         // Calculate distance from cursor to center of item
         const distance = Math.sqrt(
-          relativeX * relativeX + relativeY * relativeY
+          relativeX * relativeX + relativeY * relativeY,
         );
         // Use a larger max distance to make the effect work across gaps
         const maxDistance = Math.max(rect.width, rect.height) * 2;

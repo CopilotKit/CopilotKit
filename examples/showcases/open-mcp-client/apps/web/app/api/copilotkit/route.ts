@@ -25,10 +25,15 @@ function readMcpServersFromHeader(req: NextRequest): McpServerConfig[] {
     if (raw == null) return getDefaultMcpServers();
     const parsed = JSON.parse(raw) as McpServerConfig[];
     if (!Array.isArray(parsed)) return getDefaultMcpServers();
-    console.log("[copilotkit] MCP servers from header:", parsed.map((s) => s.url));
+    console.log(
+      "[copilotkit] MCP servers from header:",
+      parsed.map((s) => s.url),
+    );
     return parsed;
   } catch {
-    console.warn("[copilotkit] Failed to parse x-mcp-servers header, using defaults");
+    console.warn(
+      "[copilotkit] Failed to parse x-mcp-servers header, using defaults",
+    );
     return getDefaultMcpServers();
   }
 }
@@ -64,19 +69,32 @@ class MCPAppsMiddlewareFixBase extends MCPAppsMiddleware {
     let serverOrigin: string | null = null;
     if (proxiedReq) {
       const cfg = this._mcpServers.find((s) => {
-        if (proxiedReq.serverId && s.serverId) return s.serverId === proxiedReq.serverId;
-        if (proxiedReq.serverHash) return getServerHash({ type: s.type, url: s.url } as Parameters<typeof getServerHash>[0]) === proxiedReq.serverHash;
+        if (proxiedReq.serverId && s.serverId)
+          return s.serverId === proxiedReq.serverId;
+        if (proxiedReq.serverHash)
+          return (
+            getServerHash({ type: s.type, url: s.url } as Parameters<
+              typeof getServerHash
+            >[0]) === proxiedReq.serverHash
+          );
         return false;
       });
       if (cfg) {
-        try { serverOrigin = new URL(cfg.url).origin; } catch { /* ignore */ }
+        try {
+          serverOrigin = new URL(cfg.url).origin;
+        } catch {
+          /* ignore */
+        }
       }
     }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return source.pipe(
       map((event: any) => {
-        if (event.type === "RUN_FINISHED" && Array.isArray(event.result?.contents)) {
+        if (
+          event.type === "RUN_FINISHED" &&
+          Array.isArray(event.result?.contents)
+        ) {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const contents = event.result.contents.map((c: any) => {
             if (typeof c.text === "string") {
@@ -91,7 +109,9 @@ class MCPAppsMiddlewareFixBase extends MCPAppsMiddleware {
                   if (serverOrigin && internalOrigin !== serverOrigin) {
                     html = html.replaceAll(internalOrigin, serverOrigin);
                   }
-                } catch { /* ignore */ }
+                } catch {
+                  /* ignore */
+                }
               }
               return { ...c, text: html };
             }
@@ -100,7 +120,7 @@ class MCPAppsMiddlewareFixBase extends MCPAppsMiddleware {
           return { ...event, result: { ...event.result, contents } };
         }
         return event;
-      })
+      }),
     );
   }
 }
@@ -121,7 +141,9 @@ const workspaceTools = [
       "After success, ALWAYS call add_mcp_server(endpoint, serverId) " +
       "and set_active_workspace(workspaceId, endpoint) so the UI updates.",
     parameters: z.object({
-      name: z.string().describe("Short identifier for this workspace, e.g. 'weather-widget'"),
+      name: z
+        .string()
+        .describe("Short identifier for this workspace, e.g. 'weather-widget'"),
     }),
     execute: async ({ name }) => {
       const info = await workspaceProvider.provision(name);
@@ -143,8 +165,12 @@ const workspaceTools = [
       "Read a file from the active E2B workspace. Path is relative to workspace root " +
       "(/home/user/workspace). Use this to inspect existing code before editing.",
     parameters: z.object({
-      workspaceId: z.string().describe("Sandbox ID returned by provision_workspace"),
-      path: z.string().describe("Relative file path, e.g. 'index.ts' or 'tools/my-tool.ts'"),
+      workspaceId: z
+        .string()
+        .describe("Sandbox ID returned by provision_workspace"),
+      path: z
+        .string()
+        .describe("Relative file path, e.g. 'index.ts' or 'tools/my-tool.ts'"),
     }),
     execute: async ({ workspaceId, path }) => {
       return await workspaceProvider.readFile(workspaceId, path);
@@ -158,7 +184,11 @@ const workspaceTools = [
       "Parent directories are created automatically. Path is relative to workspace root.",
     parameters: z.object({
       workspaceId: z.string().describe("Sandbox ID"),
-      path: z.string().describe("Relative file path, e.g. 'resources/price-chart/widget.tsx'"),
+      path: z
+        .string()
+        .describe(
+          "Relative file path, e.g. 'resources/price-chart/widget.tsx'",
+        ),
       content: z.string().describe("Full file content to write"),
     }),
     execute: async ({ workspaceId, path, content }) => {
@@ -199,14 +229,21 @@ const workspaceTools = [
       background: z
         .boolean()
         .optional()
-        .describe("Run in background and return immediately (for servers). Default: false."),
+        .describe(
+          "Run in background and return immediately (for servers). Default: false.",
+        ),
       timeoutMs: z
         .number()
         .optional()
-        .describe("Timeout in milliseconds for foreground commands. Default: 60000."),
+        .describe(
+          "Timeout in milliseconds for foreground commands. Default: 60000.",
+        ),
     }),
     execute: async ({ workspaceId, cmd, background, timeoutMs }) => {
-      const result = await workspaceProvider.exec(workspaceId, cmd, { background, timeoutMs });
+      const result = await workspaceProvider.exec(workspaceId, cmd, {
+        background,
+        timeoutMs,
+      });
       if (result.background) return `Started in background: ${cmd}`;
       const parts: string[] = [];
       if (result.stdout) parts.push(`stdout:\n${result.stdout}`);
@@ -237,7 +274,8 @@ const workspaceTools = [
       workspaceId: z.string().describe("Sandbox ID"),
     }),
     execute: async ({ workspaceId }) => {
-      const { downloadUrl } = await workspaceProvider.prepareDownload(workspaceId);
+      const { downloadUrl } =
+        await workspaceProvider.prepareDownload(workspaceId);
       return `Workspace packaged. Download URL (valid ~1 hour): ${downloadUrl}`;
     },
   }),
@@ -545,7 +583,9 @@ export const POST = async (req: NextRequest) => {
     model: "openai/gpt-4o",
     prompt: AGENT_SYSTEM_PROMPT,
     // Cast: defineTool() returns specific Zod types; BuiltInAgent expects ToolDefinition<ZodTypeAny>[]
-    tools: workspaceTools as unknown as ConstructorParameters<typeof BuiltInAgent>[0]["tools"],
+    tools: workspaceTools as unknown as ConstructorParameters<
+      typeof BuiltInAgent
+    >[0]["tools"],
   });
 
   agent.use(middleware);
