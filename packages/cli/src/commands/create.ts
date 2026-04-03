@@ -406,15 +406,29 @@ export default class Create extends BaseCommand {
     const examplePath = path.join(projectDir, "config.yaml.example");
     const configPath = path.join(projectDir, "config.yaml");
 
-    if (await fs.pathExists(examplePath)) {
-      let content = await fs.readFile(examplePath, "utf-8");
-      content = content.replace(/^(\s*pattern:\s*).*$/m, `$1${pattern}`);
-      content = content.replace(
-        /^(\s*stack_name_base:\s*).*$/m,
-        `$1my-copilotkit-agentcore${suffix}`,
+    if (!(await fs.pathExists(examplePath))) {
+      throw new Error(
+        `config.yaml.example not found in the AgentCore template at "${projectDir}". ` +
+          `The downloaded template may be incomplete. Please try again.`,
       );
-      await fs.writeFile(configPath, content, "utf-8");
     }
+
+    let content = await fs.readFile(examplePath, "utf-8");
+
+    const patternRegex = /^(\s*pattern:\s*)\S+(.*)$/m;
+    const stackRegex = /^(\s*stack_name_base:\s*)\S+(.*)$/m;
+
+    if (!patternRegex.test(content) || !stackRegex.test(content)) {
+      throw new Error(
+        `Unexpected config.yaml.example format in the AgentCore template. ` +
+          `Expected "pattern:" and "stack_name_base:" keys. Please try again or ` +
+          `report this issue at https://github.com/CopilotKit/CopilotKit/issues`,
+      );
+    }
+
+    content = content.replace(patternRegex, `$1${pattern}$2`);
+    content = content.replace(stackRegex, `$1my-copilotkit-agentcore${suffix}$2`);
+    await fs.writeFile(configPath, content, "utf-8");
   }
 
   private async downloadTemplate(
