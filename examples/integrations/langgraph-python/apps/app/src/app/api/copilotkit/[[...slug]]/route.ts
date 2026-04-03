@@ -16,6 +16,7 @@ const defaultAgent = new LangGraphAgent({
 const runtime = new CopilotRuntime({
   agents: { default: defaultAgent },
   runner: new InMemoryAgentRunner(),
+  openGenerativeUI: true,
   a2ui: {
     injectA2UITool: false,
   },

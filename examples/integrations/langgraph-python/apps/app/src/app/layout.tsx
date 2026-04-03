@@ -27,6 +27,7 @@ export default function RootLayout({
             runtimeUrl="/api/copilotkit"
             inspectorDefaultAnchor={{ horizontal: "left", vertical: "top" }}
             a2ui={{ catalog: demonstrationCatalog }}
+            openGenerativeUI={{}}
           >
             {children}
           </CopilotKitProvider>

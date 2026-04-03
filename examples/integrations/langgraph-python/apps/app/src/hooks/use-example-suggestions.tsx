@@ -3,7 +3,7 @@
  * demo feature when clicked.
  *
  * Showcase mode (showcase.json) controls which pills are visually highlighted.
- * Highlight styling: globals.css (.a2ui-highlight)
+ * Highlight styling: globals.css (.a2ui-highlight, .opengenui-highlight)
  * A2UI agent tools: apps/agent/src/a2ui_fixed_schema.py, a2ui_dynamic_schema.py
  * A2UI catalog: src/app/declarative-generative-ui/
  */
@@ -45,9 +45,26 @@ export const useExampleSuggestions = () => {
           "Using A2UI, create a product analytics view with key metrics (DAU, retention, churn), a pie chart of user segments, and a data table of the top 5 features by usage.",
         className: showcase === "a2ui" ? "a2ui-highlight" : undefined,
       },
-      // 3. Open Generative UI — MCP apps
+      // 3a. Open Generative UI — sandboxed interactive UI
       {
-        title: "Excalidraw Diagram (Open Generative UI)",
+        title: "Bar Chart (Open Generative UI)",
+        message:
+          "Build a bar chart showing quarterly revenue: Q1 $2.1M, Q2 $3.4M, Q3 $2.8M, Q4 $4.2M",
+        className: showcase === "opengenui" ? "opengenui-highlight" : undefined,
+      },
+      {
+        title: "3D Rotating Cube (Open Generative UI)",
+        message: "Show me a rotating 3D cube using Three.js",
+        className: showcase === "opengenui" ? "opengenui-highlight" : undefined,
+      },
+      {
+        title: "Calculator App (Open Generative UI)",
+        message: "Build me a beautiful calculator app",
+        className: showcase === "opengenui" ? "opengenui-highlight" : undefined,
+      },
+      // 3b. MCP Apps — external tool-backed UI
+      {
+        title: "Excalidraw Diagram (MCP App)",
         message:
           "Use Excalidraw to create a simple network diagram showing a router connected to two switches, each connected to two computers.",
       },
