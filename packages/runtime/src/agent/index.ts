@@ -330,7 +330,7 @@ function convertUserMessageContent(
               mediaType: source.mimeType,
             });
           } catch {
-            console.warn(
+            console.error(
               `[CopilotKit] convertUserMessageContent: invalid URL "${source.value}" in image part — skipping`,
             );
           }
@@ -357,7 +357,7 @@ function convertUserMessageContent(
               mediaType: source.mimeType,
             });
           } catch {
-            console.warn(
+            console.error(
               `[CopilotKit] convertUserMessageContent: invalid URL "${source.value}" in ${part.type} part — skipping`,
             );
           }
@@ -390,7 +390,7 @@ function convertUserMessageContent(
               parts.push({ type: "file", data: url, mediaType: mimeType });
             }
           } catch {
-            console.warn(
+            console.error(
               `[CopilotKit] convertUserMessageContent: invalid URL "${legacy.url}" in binary part — skipping`,
             );
           }
@@ -399,7 +399,7 @@ function convertUserMessageContent(
       }
 
       default: {
-        console.warn(
+        console.error(
           `[CopilotKit] convertUserMessageContent: unrecognized content part type "${(part as { type: string }).type}" — skipping`,
         );
         break;
