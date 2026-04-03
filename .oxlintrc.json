@@ -15,7 +15,7 @@
   },
   "overrides": [
     {
-      "files": ["packages/**/*.{ts,tsx}"],
+      "files": ["packages/**/*.{ts,tsx}", "examples/**/*.{ts,tsx}"],
       "rules": {
         "no-restricted-imports": [
           "error",
