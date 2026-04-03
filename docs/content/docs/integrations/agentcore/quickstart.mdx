@@ -1,6 +1,6 @@
 ---
 title: Quickstart
-description: Connect CopilotKit to your deployed AgentCore agent and get a full frontend in minutes.
+description: Connect CopilotKit to your AgentCore agent and get a full frontend in minutes.
 icon: "lucide/Play"
 ---
 
@@ -8,205 +8,269 @@ import { Callout } from "fumadocs-ui/components/callout";
 import { Tabs, Tab } from "fumadocs-ui/components/tabs";
 import { Cards, Card } from "fumadocs-ui/components/card";
 import { PaintbrushIcon, WrenchIcon, RepeatIcon } from "lucide-react";
-
-This guide assumes you've followed the [AWS AgentCore AG-UI guide](https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/runtime-agui.html)
-and have an AG-UI agent running on AgentCore Runtime. If you're starting fresh, the
-[full-stack example](/agentcore/full-stack-example) has everything wired up already.
-
-## Prerequisites
-
-- An AG-UI agent deployed to AgentCore Runtime with its endpoint URL
-- A Cognito user pool for authentication (covered in the AWS guide)
-- Node.js 18+ and a React frontend (Next.js recommended)
-
-## Setup
+import {
+  TailoredContent,
+  TailoredContentOption,
+} from "@/components/react/tailored-content.tsx";
 
 <Steps>
-  <Step>
-    ### Install CopilotKit
+  <TailoredContent
+    className="step"
+    id="starting-point"
+    header={
+      <div>
+        <p className="text-xl font-semibold">Choose your starting point</p>
+        <p className="text-base">
+          Start fresh with our CLI, or connect CopilotKit to an agent you've already deployed on AgentCore.
+        </p>
+      </div>
+    }
+  >
+    <TailoredContentOption
+      id="scratch"
+      title="Start from scratch"
+      description="Scaffold a complete AgentCore + CopilotKit application with one command."
+    >
+      <Step>
+        ### Run the CLI
 
-    Add CopilotKit to your project:
+        Pick your agent framework:
 
-    ```npm
-    npm install @copilotkit/react-core @copilotkit/react-ui @copilotkit/runtime @ag-ui/client rxjs
-    ```
-  </Step>
+        <Tabs groupId="agentcore-framework" items={["LangGraph", "Strands"]}>
+          <Tab value="LangGraph">
+            ```bash
+            npx copilotkit@latest create -f agentcore-langgraph
+            ```
+          </Tab>
+          <Tab value="Strands">
+            ```bash
+            npx copilotkit@latest create -f agentcore-strands
+            ```
+          </Tab>
+        </Tabs>
 
-  <Step>
-    ### Set up CopilotKit Runtime
+        The CLI downloads the full AgentCore template and sets up `config.yaml` for you.
+      </Step>
 
-    CopilotKit Runtime is the server-side layer that connects your frontend to AgentCore. It handles
-    the communication protocol, middleware, and — with AgentCore specifically — the server-side
-    authentication that browsers can't perform directly.
+      <Step>
+        ### Configure
 
-    Create an API route:
+        Open `config.yaml` and set your details:
 
-    ```typescript title="app/api/copilotkit/route.ts"
-    import {
-      CopilotRuntime,
-      ExperimentalEmptyAdapter,
-      copilotRuntimeNextJSAppRouterEndpoint,
-    } from "@copilotkit/runtime";
-    import { HttpAgent } from "@ag-ui/client";
-    import { NextRequest } from "next/server";
-    import { AgentCoreRunner } from "./agent-core-runner";
+        ```yaml title="config.yaml"
+        stack_name_base: my-agentcore-app   # prefix for all AWS resources (max 35 chars)
+        admin_user_email: you@example.com   # where your Cognito invite will be sent
+        ```
+      </Step>
 
-    const runtime = new CopilotRuntime({
-      agents: {
-        my_agent: new HttpAgent({
-          url: process.env.AGENTCORE_ENDPOINT_URL!, // your /invocations URL
-          headers: {
-            Authorization: `Bearer ${process.env.AGENTCORE_ACCESS_TOKEN}`,
+      <Step>
+        ### Deploy
+
+        One command deploys everything — CDK infrastructure, AgentCore Runtime, and the frontend:
+
+        <Tabs groupId="agentcore-framework" items={["LangGraph", "Strands"]}>
+          <Tab value="LangGraph">
+            ```bash
+            ./deploy-langgraph.sh
+            ```
+          </Tab>
+          <Tab value="Strands">
+            ```bash
+            ./deploy-strands.sh
+            ```
+          </Tab>
+        </Tabs>
+      </Step>
+
+      <Step>
+        ### 🎉 Open your app
+
+        The deploy script prints an Amplify URL when it finishes. Open it and sign in with your `admin_user_email`.
+
+        Want to understand what was deployed or run locally? See the [full-stack example](/agentcore/full-stack-example).
+      </Step>
+    </TailoredContentOption>
+
+    <TailoredContentOption
+      id="existing"
+      title="I already have an agent"
+      description="I've followed the AWS guide and have an AG-UI agent deployed on AgentCore Runtime."
+    >
+      <Step>
+        ### Install CopilotKit
+
+        ```npm
+        npm install @copilotkit/react-core @copilotkit/react-ui @copilotkit/runtime @ag-ui/client rxjs
+        ```
+      </Step>
+
+      <Step>
+        ### Set up CopilotKit Runtime
+
+        CopilotKit Runtime is the server-side layer that connects your frontend to AgentCore. It handles
+        the communication protocol, middleware, and — with AgentCore specifically — the server-side
+        authentication that browsers can't perform directly.
+
+        Create an API route:
+
+        ```typescript title="app/api/copilotkit/route.ts"
+        import {
+          CopilotRuntime,
+          ExperimentalEmptyAdapter,
+          copilotRuntimeNextJSAppRouterEndpoint,
+        } from "@copilotkit/runtime";
+        import { HttpAgent } from "@ag-ui/client";
+        import { NextRequest } from "next/server";
+        import { AgentCoreRunner } from "./agent-core-runner";
+
+        const runtime = new CopilotRuntime({
+          agents: {
+            my_agent: new HttpAgent({
+              url: process.env.AGENTCORE_ENDPOINT_URL!, // your /invocations URL
+              headers: {
+                Authorization: `Bearer ${process.env.AGENTCORE_ACCESS_TOKEN}`,
+              },
+            }),
           },
-        }),
-      },
-      runner: new AgentCoreRunner(),
-    });
+          runner: new AgentCoreRunner(),
+        });
 
-    export const POST = async (req: NextRequest) => {
-      const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
-        runtime,
-        serviceAdapter: new ExperimentalEmptyAdapter(),
-        endpoint: "/api/copilotkit",
-      });
-      return handleRequest(req);
-    };
-    ```
+        export const POST = async (req: NextRequest) => {
+          const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
+            runtime,
+            serviceAdapter: new ExperimentalEmptyAdapter(),
+            endpoint: "/api/copilotkit",
+          });
+          return handleRequest(req);
+        };
+        ```
 
-    <Callout type="info" title="What is AGENTCORE_ENDPOINT_URL?">
-      This is the invocation URL for your deployed AgentCore Runtime — the URL you call to reach
-      your agent. It takes the form:
-      `https://bedrock-agentcore.{region}.amazonaws.com/runtimes/{encoded-arn}/invocations`
-    </Callout>
+        <Callout type="info" title="What is AGENTCORE_ENDPOINT_URL?">
+          This is the invocation URL for your deployed AgentCore Runtime — the URL you call to reach
+          your agent. It takes the form:
+          `https://bedrock-agentcore.{region}.amazonaws.com/runtimes/{encoded-arn}/invocations`
+        </Callout>
 
-    <Callout type="info" title="Auth in production">
-      The example above uses a static token for simplicity. In production you'll want to pass the
-      user's Cognito JWT from the frontend through to AgentCore. See the
-      [full-stack example](/agentcore/full-stack-example) for a complete Cognito OIDC implementation.
-    </Callout>
-  </Step>
+        <Callout type="info" title="Auth in production">
+          The example above uses a static token for simplicity. In production you'll want to pass the
+          user's Cognito JWT from the frontend through to AgentCore. See the
+          [full-stack example](/agentcore/full-stack-example) for a complete Cognito OIDC implementation.
+        </Callout>
+      </Step>
 
-  <Step>
-    ### Add the AgentCoreRunner
+      <Step>
+        ### Add the AgentCoreRunner
 
-    AgentCore's memory layer stores conversation history server-side. When CopilotKit reconnects
-    to an existing thread (e.g. on page refresh), two issues arise that require a custom runner:
+        AgentCore's memory layer stores conversation history server-side. When CopilotKit reconnects
+        to an existing thread (e.g. on page refresh), two issues arise that require a custom runner:
 
-    1. **Unknown threads** — CopilotKit may call `connect()` before any `run()` has happened.
-       Without handling this, you'll get an error on first load.
-    2. **Missing tool-call results** — AgentCore's replayed history includes assistant messages
-       with tool calls, but omits the corresponding results. CopilotKit needs those to reconcile
-       its message state, so the runner synthesises empty results for each past tool call.
+        1. **Unknown threads** — CopilotKit may call `connect()` before any `run()` has happened.
+           Without handling this, you'll get an error on first load.
+        2. **Missing tool-call results** — AgentCore's replayed history includes assistant messages
+           with tool calls, but omits the corresponding results. CopilotKit needs those to reconcile
+           its message state, so the runner synthesises empty results for each past tool call.
 
-    Create the runner file alongside your API route:
+        Create the runner file alongside your API route:
 
-    ```typescript title="app/api/copilotkit/agent-core-runner.ts"
-    import { EventType, type BaseEvent } from "@ag-ui/client";
-    import { InMemoryAgentRunner } from "@copilotkit/runtime";
-    import { concatMap, of } from "rxjs";
-    import { randomUUID } from "node:crypto";
+        ```typescript title="app/api/copilotkit/agent-core-runner.ts"
+        import { EventType, type BaseEvent } from "@ag-ui/client";
+        import { InMemoryAgentRunner } from "@copilotkit/runtime";
+        import { concatMap, of } from "rxjs";
+        import { randomUUID } from "node:crypto";
 
-    export class AgentCoreRunner extends InMemoryAgentRunner {
-      private readonly knownThreadIds = new Set<string>();
+        export class AgentCoreRunner extends InMemoryAgentRunner {
+          private readonly knownThreadIds = new Set<string>();
 
-      override run(request: Parameters<InMemoryAgentRunner["run"]>[0]) {
-        if (request.threadId) this.knownThreadIds.add(request.threadId);
-        return super.run(request);
-      }
+          override run(request: Parameters<InMemoryAgentRunner["run"]>[0]) {
+            if (request.threadId) this.knownThreadIds.add(request.threadId);
+            return super.run(request);
+          }
 
-      override connect(request: Parameters<InMemoryAgentRunner["connect"]>[0]) {
-        if (!request.threadId || !this.knownThreadIds.has(request.threadId)) {
-          // Unknown thread — return an empty snapshot instead of erroring.
-          const runId = randomUUID();
-          return of(
-            { type: EventType.RUN_STARTED, threadId: request.threadId ?? randomUUID(), runId } as BaseEvent,
-            { type: EventType.MESSAGES_SNAPSHOT, messages: [] } as BaseEvent,
-            { type: EventType.RUN_FINISHED, threadId: request.threadId ?? randomUUID(), runId } as BaseEvent,
-          ) as any;
-        }
-
-        // Known thread — inject synthetic tool-call results before the snapshot
-        // so CopilotKit can reconcile its message state correctly.
-        return (super.connect(request) as any).pipe(
-          concatMap((event: any) => {
-            if (event.type !== EventType.MESSAGES_SNAPSHOT || !("messages" in event)) {
-              return of(event);
+          override connect(request: Parameters<InMemoryAgentRunner["connect"]>[0]) {
+            if (!request.threadId || !this.knownThreadIds.has(request.threadId)) {
+              const runId = randomUUID();
+              return of(
+                { type: EventType.RUN_STARTED, threadId: request.threadId ?? randomUUID(), runId } as BaseEvent,
+                { type: EventType.MESSAGES_SNAPSHOT, messages: [] } as BaseEvent,
+                { type: EventType.RUN_FINISHED, threadId: request.threadId ?? randomUUID(), runId } as BaseEvent,
+              ) as any;
             }
-            const replayedResults = event.messages.flatMap((message: any) => {
-              if (message.role !== "assistant" || !message.toolCalls?.length) return [];
-              return message.toolCalls.map((toolCall: any) => ({
-                type: EventType.TOOL_CALL_RESULT,
-                toolCallId: toolCall.id,
-                messageId: `${toolCall.id}-result`,
-                content: "",
-                role: "tool",
-              }) satisfies BaseEvent);
-            });
-            return of(...replayedResults, event);
-          }),
-        );
-      }
-    }
-    ```
-  </Step>
 
-  <Step>
-    ### Add the CopilotKit provider
+            return (super.connect(request) as any).pipe(
+              concatMap((event: any) => {
+                if (event.type !== EventType.MESSAGES_SNAPSHOT || !("messages" in event)) {
+                  return of(event);
+                }
+                const replayedResults = event.messages.flatMap((message: any) => {
+                  if (message.role !== "assistant" || !message.toolCalls?.length) return [];
+                  return message.toolCalls.map((toolCall: any) => ({
+                    type: EventType.TOOL_CALL_RESULT,
+                    toolCallId: toolCall.id,
+                    messageId: `${toolCall.id}-result`,
+                    content: "",
+                    role: "tool",
+                  }) satisfies BaseEvent);
+                });
+                return of(...replayedResults, event);
+              }),
+            );
+          }
+        }
+        ```
+      </Step>
 
-    Wrap your app with the `CopilotKit` provider and point it at your API route:
+      <Step>
+        ### Add the CopilotKit provider
 
-    ```tsx title="app/layout.tsx"
-    import { CopilotKit } from "@copilotkit/react-core";
-    import "@copilotkit/react-ui/styles.css";
+        ```tsx title="app/layout.tsx"
+        import { CopilotKit } from "@copilotkit/react-core";
+        import "@copilotkit/react-ui/styles.css";
 
-    export default function RootLayout({ children }: { children: React.ReactNode }) {
-      return (
-        <html lang="en">
-          <body>
-            <CopilotKit runtimeUrl="/api/copilotkit" agent="my_agent">
-              {children}
-            </CopilotKit>
-          </body>
-        </html>
-      );
-    }
-    ```
-  </Step>
+        export default function RootLayout({ children }: { children: React.ReactNode }) {
+          return (
+            <html lang="en">
+              <body>
+                <CopilotKit runtimeUrl="/api/copilotkit" agent="my_agent">
+                  {children}
+                </CopilotKit>
+              </body>
+            </html>
+          );
+        }
+        ```
+      </Step>
 
-  <Step>
-    ### Add the chat interface
+      <Step>
+        ### Add the chat interface
 
-    Drop in the prebuilt chat sidebar:
+        ```tsx title="app/page.tsx"
+        import { CopilotSidebar } from "@copilotkit/react-ui";
 
-    ```tsx title="app/page.tsx"
-    import { CopilotSidebar } from "@copilotkit/react-ui";
+        export default function Page() {
+          return (
+            <main>
+              <h1>My App</h1>
+              <CopilotSidebar />
+            </main>
+          );
+        }
+        ```
+      </Step>
 
-    export default function Page() {
-      return (
-        <main>
-          <h1>My App</h1>
-          <CopilotSidebar />
-        </main>
-      );
-    }
-    ```
-  </Step>
+      <Step>
+        ### 🎉 You're connected
 
-  <Step>
-    ### 🎉 You're connected
+        ```bash
+        npm run dev
+        ```
 
-    Start your dev server and navigate to `localhost:3000`. Your AgentCore agent is now accessible
-    through a full CopilotKit chat UI.
-
-    ```bash
-    npm run dev
-    ```
-  </Step>
+        Navigate to `localhost:3000`. Your AgentCore agent is now accessible through a full CopilotKit chat UI.
+      </Step>
+    </TailoredContentOption>
+  </TailoredContent>
 </Steps>
 
 ## What's next?
-
-The same CopilotKit features that work with any other agent framework work here too. Check out:
 
 <Cards>
   <Card
