@@ -6,6 +6,7 @@ import {
   input,
   effect,
   signal,
+  computed,
   inject,
 } from "@angular/core";
 import { CommonModule } from "@angular/common";
@@ -171,7 +172,7 @@ type Tab = "conversation" | "agent-state" | "ag-ui-events";
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.ShadowDom,
   template: `
-    <div class="cpk-td" [class.cpk-td--split]="selectedToolCall">
+    <div class="cpk-td" [class.cpk-td--split]="selectedToolCall()">
       <!-- ── Main panel ──────────────────────────────────────────────── -->
       <div class="cpk-td__main">
         <!-- Header -->
@@ -418,10 +419,10 @@ type Tab = "conversation" | "agent-state" | "ag-ui-events";
       </div>
 
       <!-- ── Tool call side panel ────────────────────────────────────── -->
-      <div class="cpk-td__tool-panel" *ngIf="selectedToolCall">
+      <div class="cpk-td__tool-panel" *ngIf="selectedToolCall()">
         <div class="cpk-td__header">
           <span class="cpk-td__title"
-            >Tool Call: {{ selectedToolCall.toolName }}</span
+            >Tool Call: {{ selectedToolCall().toolName }}</span
           >
           <button
             class="cpk-td__close"
@@ -435,21 +436,21 @@ type Tab = "conversation" | "agent-state" | "ag-ui-events";
           <div class="cpk-td__tool-section">
             <div class="cpk-td__tool-meta-label">Tool Call ID</div>
             <div class="cpk-td__tool-meta-value">
-              {{ selectedToolCall.toolCallId }}
+              {{ selectedToolCall().toolCallId }}
             </div>
           </div>
           <div class="cpk-td__tool-section">
             <div class="cpk-td__tool-section-label">Arguments</div>
             <pre
               class="cpk-td__json"
-              [innerHTML]="highlightedJson(selectedToolCall.arguments)"
+              [innerHTML]="highlightedJson(selectedToolCall().arguments)"
             ></pre>
           </div>
-          <div class="cpk-td__tool-section" *ngIf="selectedToolCall.result">
+          <div class="cpk-td__tool-section" *ngIf="selectedToolCall().result">
             <div class="cpk-td__tool-section-label">Result</div>
             <pre
               class="cpk-td__json"
-              [innerHTML]="highlightedJson(selectedToolCall.result)"
+              [innerHTML]="highlightedJson(selectedToolCall().result)"
             ></pre>
           </div>
         </div>
@@ -880,11 +881,15 @@ export class ThreadDetailsComponent {
   agentState = FAKE_AGENT_STATE;
   aguiEvents: FakeAguiEvent[] = FAKE_AGUI_EVENTS;
 
+  private fetchAbortController: AbortController | null = null;
+
   constructor() {
     effect(() => {
       const threadId = this.threadId();
       this.activeTab.set(this.initialTab());
       this.selectedToolCallId.set(null);
+      this.fetchAbortController?.abort();
+      this.fetchAbortController = null;
       if (threadId) {
         void this.fetchMessages(threadId);
       } else {
@@ -904,23 +909,28 @@ export class ThreadDetailsComponent {
       this.conversation.set([]);
       return;
     }
+    const controller = new AbortController();
+    this.fetchAbortController = controller;
     this.isLoadingMessages.set(true);
     this.messagesError.set(null);
     try {
       const response = await fetch(
         `${runtimeUrl}/threads/${encodeURIComponent(threadId)}/messages`,
-        { headers: { ...this.headers() } },
+        { headers: { ...this.headers() }, signal: controller.signal },
       );
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const data = (await response.json()) as { messages: ApiThreadMessage[] };
       this.conversation.set(this.mapMessages(data.messages));
     } catch (err) {
+      if (err instanceof Error && err.name === "AbortError") return;
       this.messagesError.set(
         err instanceof Error ? err.message : "Failed to load messages",
       );
       this.conversation.set([]);
     } finally {
-      this.isLoadingMessages.set(false);
+      if (!controller.signal.aborted) {
+        this.isLoadingMessages.set(false);
+      }
     }
   }
 
@@ -984,7 +994,7 @@ export class ThreadDetailsComponent {
     return items;
   }
 
-  get selectedToolCall(): ConversationToolCall | null {
+  selectedToolCall = computed<ConversationToolCall | null>(() => {
     const id = this.selectedToolCallId();
     if (!id) return null;
     return (
@@ -993,7 +1003,7 @@ export class ThreadDetailsComponent {
           item.type === "tool_call" && item.id === id,
       ) ?? null
     );
-  }
+  });
 
   selectToolCall(id: string): void {
     this.selectedToolCallId.set(this.selectedToolCallId() === id ? null : id);

@@ -17,6 +17,7 @@ export class ThreadStoreRegistry {
   }
 
   unregister(agentId: string): void {
+    if (!(agentId in this._stores)) return;
     delete this._stores[agentId];
     void this.notifyUnregistered(agentId);
   }

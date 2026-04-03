@@ -383,7 +383,7 @@ export class InMemoryAgentRunner extends AgentRunner {
       threads.push({
         id: threadId,
         name: null,
-        agentId: firstRun.agentId,
+        agentId: lastRun.agentId,
         organizationId: "",
         createdById: "",
         archived: false,

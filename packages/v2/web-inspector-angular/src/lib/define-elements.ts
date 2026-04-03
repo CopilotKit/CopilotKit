@@ -21,8 +21,11 @@ export const THREAD_DETAILS_TAG = "cpk-thread-details" as const;
  * After this, `<cpk-thread-list>` works as a plain HTML element in any
  * framework (React, Angular, Vue, or vanilla JS).
  */
+let appPromise: ReturnType<typeof createApplication> | null = null;
+
 export async function defineInspectorElements(): Promise<void> {
-  const app = await createApplication();
+  appPromise ??= createApplication();
+  const app = await appPromise;
 
   if (!customElements.get(THREAD_LIST_TAG)) {
     const ThreadListElement = createCustomElement(ThreadListComponent, {
