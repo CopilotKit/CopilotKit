@@ -25,6 +25,7 @@ export default function RootLayout({
         <ThemeProvider>
           <CopilotKitProvider
             runtimeUrl="/api/copilotkit"
+            useSingleEndpoint
             inspectorDefaultAnchor={{ horizontal: "left", vertical: "top" }}
             a2ui={{ catalog: demonstrationCatalog }}
           >
