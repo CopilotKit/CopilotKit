@@ -371,7 +371,11 @@ export interface RenderSuggestionsListProps {
 
 export interface ImageRendererProps {
   /**
-   * @deprecated Use source instead
+   * @deprecated Use `source` (type `InputContentSource`) instead.
+   * `image` only carried base64 image data. `source` supports both data and URL
+   * sources for any modality.
+   * See https://docs.copilotkit.ai/troubleshooting/migrate-attachments
+   * Since v1.x.0
    */
   image?: ImageData;
 

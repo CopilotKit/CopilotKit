@@ -15,8 +15,11 @@ export type {
 } from "@ag-ui/core";
 
 /**
- * @deprecated Use InputContentSource from @ag-ui/core instead.
- * Kept for backward compatibility with AIMessage.image.
+ * @deprecated Use `InputContentSource` from `@ag-ui/core` (re-exported from `@copilotkit/shared`) instead.
+ * `ImageData` only described base64 image payloads. `InputContentSource` supports
+ * data and URL sources for images, audio, video, and documents.
+ * See https://docs.copilotkit.ai/troubleshooting/migrate-attachments
+ * Since v1.x.0
  */
 export interface ImageData {
   format: string;

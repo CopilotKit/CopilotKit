@@ -2,6 +2,31 @@ import type { AttachmentModality } from "./props";
 
 const DEFAULT_MAX_SIZE = 20 * 1024 * 1024; // 20MB
 
+// ---------------------------------------------------------------------------
+// Deprecation warning helpers
+// ---------------------------------------------------------------------------
+
+const suppressedWarnings = new Set<string>();
+let globalSuppress = false;
+
+/**
+ * Issue a deprecation warning once per key per session.
+ * Suppressed entirely if the user calls suppressDeprecationWarnings().
+ */
+export function deprecationWarning(key: string, message: string) {
+  if (globalSuppress || suppressedWarnings.has(key)) return;
+  if (process.env.NODE_ENV === "production") return;
+  suppressedWarnings.add(key);
+  console.warn(`[CopilotKit] Deprecation: ${message}`);
+}
+
+/**
+ * Suppress all CopilotKit deprecation warnings.
+ */
+export function suppressDeprecationWarnings() {
+  globalSuppress = true;
+}
+
 /**
  * Derive the attachment modality from a MIME type string.
  */

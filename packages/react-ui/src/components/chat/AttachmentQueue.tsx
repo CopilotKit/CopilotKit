@@ -120,6 +120,10 @@ function getDocumentIcon(mimeType: string): string {
 }
 
 /**
- * @deprecated Use AttachmentQueue instead
+ * @deprecated Use `AttachmentQueue` from `@copilotkit/react-ui` instead.
+ * `ImageUploadQueue` only displayed image previews. `AttachmentQueue` supports
+ * images, audio, video, and documents.
+ * See https://docs.copilotkit.ai/troubleshooting/migrate-attachments
+ * Since v1.x.0
  */
 export { AttachmentQueue as ImageUploadQueue };
