@@ -13,6 +13,13 @@ import {
   TooltipTrigger,
 } from "../../components/ui/tooltip";
 import { renderSlot, WithSlots } from "../../lib/slots";
+import {
+  type ImageInputPart,
+  type AudioInputPart,
+  type VideoInputPart,
+  type DocumentInputPart,
+} from "@copilotkit/shared";
+import { CopilotChatAttachmentRenderer } from "./CopilotChatAttachmentRenderer";
 
 function flattenUserMessageContent(content?: UserMessage["content"]): string {
   if (!content) {
@@ -38,6 +45,19 @@ function flattenUserMessageContent(content?: UserMessage["content"]): string {
     })
     .filter((text) => text.length > 0)
     .join("\n");
+}
+
+type MediaPart = ImageInputPart | AudioInputPart | VideoInputPart | DocumentInputPart;
+
+function getMediaParts(content: UserMessage["content"]): MediaPart[] {
+  if (!content || typeof content === "string") return [];
+  return content.filter(
+    (part): part is MediaPart =>
+      part.type === "image" ||
+      part.type === "audio" ||
+      part.type === "video" ||
+      part.type === "document",
+  );
 }
 
 export interface CopilotChatUserMessageOnEditMessageProps {
@@ -90,6 +110,8 @@ export function CopilotChatUserMessage({
     () => flattenUserMessageContent(message.content),
     [message.content],
   );
+
+  const mediaParts = useMemo(() => getMediaParts(message.content), [message.content]);
 
   const BoundMessageRenderer = renderSlot(
     messageRenderer,
@@ -178,6 +200,17 @@ export function CopilotChatUserMessage({
       {...props}
     >
       {BoundMessageRenderer}
+      {mediaParts.length > 0 && (
+        <div className="cpk:flex cpk:flex-col cpk:items-end cpk:gap-2 cpk:mt-2">
+          {mediaParts.map((part, index) => (
+            <CopilotChatAttachmentRenderer
+              key={index}
+              type={part.type}
+              source={part.source}
+            />
+          ))}
+        </div>
+      )}
       {BoundToolbar}
     </div>
   );

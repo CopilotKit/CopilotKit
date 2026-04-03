@@ -1,6 +1,6 @@
 import React from "react";
 import type { Attachment } from "@copilotkit/shared";
-import { formatFileSize } from "@copilotkit/shared";
+import { formatFileSize, getSourceUrl, getDocumentIcon } from "@copilotkit/shared";
 import { cn } from "../../lib/utils";
 
 interface CopilotChatAttachmentQueueProps {
@@ -57,7 +57,7 @@ function AttachmentPreview({ attachment }: { attachment: Attachment }) {
     return <div className="cpk:w-full cpk:h-full" />;
   }
 
-  const src = getSourceUrl(attachment);
+  const src = getSourceUrl(attachment.source);
 
   switch (attachment.type) {
     case "image":
@@ -123,20 +123,3 @@ function AttachmentPreview({ attachment }: { attachment: Attachment }) {
   }
 }
 
-function getSourceUrl(attachment: Attachment): string {
-  if (attachment.source.type === "url") {
-    return attachment.source.value;
-  }
-  const mimeType = attachment.source.mimeType;
-  return `data:${mimeType};base64,${attachment.source.value}`;
-}
-
-function getDocumentIcon(mimeType: string): string {
-  if (mimeType.includes("pdf")) return "PDF";
-  if (mimeType.includes("word") || mimeType.includes("document")) return "DOC";
-  if (mimeType.includes("sheet") || mimeType.includes("excel")) return "XLS";
-  if (mimeType.includes("presentation") || mimeType.includes("powerpoint"))
-    return "PPT";
-  if (mimeType.includes("text/")) return "TXT";
-  return "FILE";
-}

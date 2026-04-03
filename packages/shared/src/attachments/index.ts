@@ -11,4 +11,6 @@ export {
   readFileAsBase64,
   generateVideoThumbnail,
   matchesAcceptFilter,
+  getSourceUrl,
+  getDocumentIcon,
 } from "./utils";

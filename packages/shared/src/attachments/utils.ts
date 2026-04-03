@@ -1,4 +1,5 @@
 import type { AttachmentModality } from "./types";
+import type { InputContentSource } from "../types/message";
 
 const DEFAULT_MAX_SIZE = 20 * 1024 * 1024; // 20MB
 
@@ -130,4 +131,28 @@ export function matchesAcceptFilter(file: File, accept: string): boolean {
     }
     return file.type === filter;
   });
+}
+
+/**
+ * Convert an InputContentSource to a usable URL string.
+ * For data sources, returns a base64 data URL; for URL sources, returns the URL directly.
+ */
+export function getSourceUrl(source: InputContentSource): string {
+  if (source.type === "url") {
+    return source.value;
+  }
+  return `data:${source.mimeType};base64,${source.value}`;
+}
+
+/**
+ * Return a short human-readable label for a document MIME type (e.g. "PDF", "DOC").
+ */
+export function getDocumentIcon(mimeType: string): string {
+  if (mimeType.includes("pdf")) return "PDF";
+  if (mimeType.includes("word") || mimeType.includes("document")) return "DOC";
+  if (mimeType.includes("sheet") || mimeType.includes("excel")) return "XLS";
+  if (mimeType.includes("presentation") || mimeType.includes("powerpoint"))
+    return "PPT";
+  if (mimeType.includes("text/")) return "TXT";
+  return "FILE";
 }
