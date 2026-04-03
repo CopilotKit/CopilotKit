@@ -18,13 +18,14 @@ const AGUI_ROOT = path.resolve(COPILOTKIT_ROOT, "..", "ag-ui");
 
 const LOCAL_PACKAGES = {
   // CopilotKit
-  "@copilotkit/react-core": path.join(
+  "@copilotkit/react-core": path.join(COPILOTKIT_ROOT, "packages/react-core"),
+  "@copilotkit/react-ui": path.join(COPILOTKIT_ROOT, "packages/react-ui"),
+  "@copilotkit/runtime": path.join(COPILOTKIT_ROOT, "packages/runtime"),
+  "@copilotkit/shared": path.join(COPILOTKIT_ROOT, "packages/shared"),
+  "@copilotkit/a2ui-renderer": path.join(
     COPILOTKIT_ROOT,
-    "packages/v1/react-core",
+    "packages/a2ui-renderer",
   ),
-  "@copilotkit/react-ui": path.join(COPILOTKIT_ROOT, "packages/v1/react-ui"),
-  "@copilotkit/runtime": path.join(COPILOTKIT_ROOT, "packages/v1/runtime"),
-  "@copilotkitnext/shared": path.join(COPILOTKIT_ROOT, "packages/v2/shared"),
   // AG-UI
   "@ag-ui/client": path.join(AGUI_ROOT, "sdks/typescript/packages/client"),
   "@ag-ui/core": path.join(AGUI_ROOT, "sdks/typescript/packages/core"),

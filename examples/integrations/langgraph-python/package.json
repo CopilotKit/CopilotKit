@@ -3,9 +3,9 @@
   "private": true,
   "scripts": {
     "dev": "turbo run dev",
-    "dev:app": "turbo run dev --filter='app'",
-    "dev:agent": "turbo run dev --filter='agent'",
-    "dev:mcp": "turbo run dev --filter='mcp'",
+    "dev:app": "turbo run dev --filter='@repo/app'",
+    "dev:agent": "turbo run dev --filter='@repo/agent'",
+    "dev:mcp": "turbo run dev --filter='@repo/mcp'",
     "build": "turbo run build",
     "lint": "turbo run lint",
     "clean": "turbo run clean",
