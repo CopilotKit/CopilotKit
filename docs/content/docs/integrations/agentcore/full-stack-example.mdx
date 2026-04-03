@@ -70,6 +70,11 @@ Edit `config.yaml` and set `stack_name_base` (a short prefix for your AWS resour
 The script deploys the full CDK stack and prints an Amplify URL when done. Sign in with your
 `admin_user_email`.
 
+<Callout type="info" title="Prefer Terraform?">
+  A Terraform equivalent is available in `infra-terraform/`. See `infra-terraform/README.md` for
+  setup and deploy steps.
+</Callout>
+
 <Callout type="info" title="Infra only">
   Pass `--skip-frontend` to deploy or update the agent and infrastructure without rebuilding
   the frontend:
