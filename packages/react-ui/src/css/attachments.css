@@ -147,6 +147,13 @@
   color: var(--copilot-kit-secondary-contrast-color);
 }
 
+/* Drag-and-drop overlay */
+.copilotKitDragOver {
+  outline: 2px dashed var(--copilot-kit-primary-color, #6366f1);
+  outline-offset: -4px;
+  border-radius: 8px;
+}
+
 /* Attachment Rendering in Messages */
 .copilotKitAttachment {
   display: inline-flex;
