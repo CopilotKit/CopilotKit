@@ -13,7 +13,7 @@ export default defineConfig([
       const externalPkgs = ["react", "react-dom", "@a2ui/lit", "zod"];
       return externalPkgs.some((pkg) => id === pkg || id.startsWith(pkg + "/"));
     },
-    exports: false,
+    exports: true,
   },
   {
     entry: ["src/index.ts"],

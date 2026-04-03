@@ -1193,10 +1193,10 @@ importers:
         version: 7.13.2(react-router@7.13.2(react-dom@19.1.0(react@19.1.0))(react@19.1.0))(typescript@5.7.3)
       '@tanstack/ai':
         specifier: latest
-        version: 0.10.0
+        version: 0.9.2
       '@tanstack/ai-openai':
         specifier: latest
-        version: 0.7.3(@tanstack/ai-client@0.7.5)(@tanstack/ai@0.10.0)(ws@8.19.0)(zod@3.25.76)
+        version: 0.7.2(@tanstack/ai-client@0.7.5)(@tanstack/ai@0.9.2)(ws@8.19.0)(zod@3.25.76)
       hono:
         specifier: ^4.11.4
         version: 4.11.4
@@ -10271,21 +10271,12 @@ packages:
     peerDependencies:
       '@tanstack/ai': 0.9.2
 
-  '@tanstack/ai-event-client@0.2.0':
-    resolution: {integrity: sha512-1O7PbBlSo0gCrv4/bmOvnemZ6Cvf+kZmHqug19JEz8Bj4/anup3GkwvKBk8XzEvPIB+vQb4GL9TLN4Tfo6ZCkA==}
+  '@tanstack/ai-openai@0.7.2':
+    resolution: {integrity: sha512-vFNhta3sDs0HSmOgPytCslw3PBS6WpdLZdItENNKTTE7GD/lNE8a9hiJEHdQHoV8ek3jgv5XgEzRgzwjaALSjg==}
     peerDependencies:
-      '@tanstack/ai': 0.10.0
-
-  '@tanstack/ai-openai@0.7.3':
-    resolution: {integrity: sha512-xdxTR7E/BzeQcFte/chDA//2WpZQqDQF4op1TgKNoaTqffW9+JMlSubaZbMkawtJoImVCGjZoPVkUfb8aRldNA==}
-    peerDependencies:
-      '@tanstack/ai': ^0.10.0
-      '@tanstack/ai-client': ^0.7.7
+      '@tanstack/ai': ^0.9.1
+      '@tanstack/ai-client': ^0.7.4
       zod: ^4.0.0
-
-  '@tanstack/ai@0.10.0':
-    resolution: {integrity: sha512-b1GDenJs2udQfjFMnAWZ6WX9RLg04O9wC85V4cSD8phuVMJscs+Qp0UkNj7FTc+V1ggqf4Pz1jLFfqjLO2z3mg==}
-    engines: {node: '>=18'}
 
   '@tanstack/ai@0.9.2':
     resolution: {integrity: sha512-4Uz310m7vZPyPzJpxjWZXGo2hCtO1X1WbaexYGrxkRxyj2iXZuVFL02rDE7r5y3/v0NRjM+AimLne4cHTkWDHg==}
@@ -32462,24 +32453,14 @@ snapshots:
       '@tanstack/ai': 0.9.2
       '@tanstack/devtools-event-client': 0.4.3
 
-  '@tanstack/ai-event-client@0.2.0(@tanstack/ai@0.10.0)':
+  '@tanstack/ai-openai@0.7.2(@tanstack/ai-client@0.7.5)(@tanstack/ai@0.9.2)(ws@8.19.0)(zod@3.25.76)':
     dependencies:
-      '@tanstack/ai': 0.10.0
-      '@tanstack/devtools-event-client': 0.4.3
-
-  '@tanstack/ai-openai@0.7.3(@tanstack/ai-client@0.7.5)(@tanstack/ai@0.10.0)(ws@8.19.0)(zod@3.25.76)':
-    dependencies:
-      '@tanstack/ai': 0.10.0
+      '@tanstack/ai': 0.9.2
       '@tanstack/ai-client': 0.7.5
       openai: 6.24.0(ws@8.19.0)(zod@3.25.76)
       zod: 3.25.76
     transitivePeerDependencies:
       - ws
-
-  '@tanstack/ai@0.10.0':
-    dependencies:
-      '@tanstack/ai-event-client': 0.2.0(@tanstack/ai@0.10.0)
-      partial-json: 0.1.7
 
   '@tanstack/ai@0.9.2':
     dependencies:

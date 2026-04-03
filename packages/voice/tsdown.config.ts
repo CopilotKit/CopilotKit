@@ -12,7 +12,7 @@ export default defineConfig([
     target: "es2022",
     outDir: "dist",
     unbundle: true,
-    exports: false,
+    exports: true,
   },
   {
     entry: ["src/index.ts"],

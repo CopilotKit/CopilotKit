@@ -14,5 +14,5 @@ export default defineConfig({
   outDir: "dist",
   unbundle: true,
   exclude: ["**/*.test.ts", "**/*.test.tsx", "**/__tests__/*"],
-  exports: false,
+  exports: true,
 });

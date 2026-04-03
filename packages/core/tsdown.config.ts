@@ -10,7 +10,7 @@ export default defineConfig([
     outDir: "dist",
     external: ["rxjs"],
     checks: { pluginTimings: false },
-    exports: false,
+    exports: true,
   },
   {
     entry: ["src/index.ts"],
