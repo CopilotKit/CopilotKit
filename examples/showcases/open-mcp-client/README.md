@@ -1,10 +1,10 @@
-# CopilotKit <> MCP Apps Starter
+# Open MCP Client Builder
 
 **Production go-live:** [`docs/TRACKER.md`](docs/TRACKER.md) · **Stakeholder / product handoff** (shipped scope, CopilotKit open questions): [`docs/HANDOFF.md`](docs/HANDOFF.md)
 
 This monorepo demonstrates **MCP Apps** with **CopilotKit**: the **MCP App builder** web UI (`apps/web`) drives a **Mastra** agent (`/api/mastra-agent`) that can provision **E2B** sandboxes running the **`mcp-use-server`** template (`apps/mcp-use-server`). An optional local sample is the [Three.js MCP example](https://github.com/modelcontextprotocol/ext-apps/tree/main/examples/threejs-server) in **`apps/threejs-server`** (used for sidebar defaults when running everything locally).
 
-https://github.com/user-attachments/assets/8908af31-2b64-4426-9c83-c51ab86256de
+https://github.com/user-attachments/assets/4bb35806-5e42-43c0-a8fe-01c0d1e5b8b3
 
 ## Prerequisites
 
