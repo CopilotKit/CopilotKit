@@ -1,28 +1,32 @@
 import React, { useState } from "react";
 import { ImageRendererProps } from "../props";
 
-/**
- * Default image rendering component that can be customized by users.
- * Uses CSS classes for styling so users can override styles.
- */
 export const ImageRenderer: React.FC<ImageRendererProps> = ({
   image,
+  source,
   content,
   className = "",
 }) => {
   const [imageError, setImageError] = useState(false);
-  const imageSrc = `data:image/${image.format};base64,${image.bytes}`;
-  const altText = content || "User uploaded image";
 
-  const handleImageError = () => {
-    setImageError(true);
-  };
+  // Determine image src from either legacy ImageData or new InputContentSource
+  let imageSrc: string;
+  if (source) {
+    imageSrc =
+      source.type === "url"
+        ? source.value
+        : `data:${source.mimeType};base64,${source.value}`;
+  } else if (image) {
+    imageSrc = `data:image/${image.format};base64,${image.bytes}`;
+  } else {
+    return null;
+  }
+
+  const altText = content || "User uploaded image";
 
   if (imageError) {
     return (
-      <div
-        className={`copilotKitImageRendering copilotKitImageRenderingError ${className}`}
-      >
+      <div className={`copilotKitImageRendering copilotKitImageRenderingError ${className}`}>
         <div className="copilotKitImageRenderingErrorMessage">
           Failed to load image
         </div>
@@ -39,7 +43,7 @@ export const ImageRenderer: React.FC<ImageRendererProps> = ({
         src={imageSrc}
         alt={altText}
         className="copilotKitImageRenderingImage"
-        onError={handleImageError}
+        onError={() => setImageError(true)}
       />
       {content && (
         <div className="copilotKitImageRenderingContent">{content}</div>

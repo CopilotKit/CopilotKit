@@ -1,4 +1,5 @@
 import { UserMessageProps } from "../props";
+import { AttachmentRenderer } from "../AttachmentRenderer";
 
 type UserMessageContent = NonNullable<UserMessageProps["message"]>["content"];
 
@@ -30,25 +31,60 @@ const getTextContent = (
   );
 };
 
+const getMediaParts = (content: UserMessageContent | undefined) => {
+  if (!content || typeof content === "string") return [];
+
+  return content.filter(
+    (part) =>
+      part.type === "image" ||
+      part.type === "audio" ||
+      part.type === "video" ||
+      part.type === "document",
+  ) as Array<{
+    type: "image" | "audio" | "video" | "document";
+    source: { type: "data"; value: string; mimeType: string } | { type: "url"; value: string; mimeType?: string };
+  }>;
+};
+
 export const UserMessage = (props: UserMessageProps) => {
   const { message, ImageRenderer } = props;
-  const isImageMessage =
-    message && "image" in message && Boolean(message.image);
+  const content = message?.content;
 
-  if (isImageMessage) {
-    const imageMessage = message!;
-    const content = getTextContent(imageMessage?.content);
+  // Legacy path: old-style image field on message
+  const isLegacyImageMessage =
+    message && "image" in message && Boolean((message as any).image);
 
+  if (isLegacyImageMessage) {
+    const legacyImage = (message as any).image;
+    const textContent = getTextContent(content);
     return (
       <div className="copilotKitMessage copilotKitUserMessage">
-        <ImageRenderer image={imageMessage.image!} content={content} />
+        <ImageRenderer image={legacyImage} content={textContent} />
       </div>
     );
   }
 
-  const content = getTextContent(message?.content);
+  const textContent = getTextContent(content);
+  const mediaParts = getMediaParts(content);
+
+  if (mediaParts.length === 0) {
+    return (
+      <div className="copilotKitMessage copilotKitUserMessage">
+        {textContent}
+      </div>
+    );
+  }
 
   return (
-    <div className="copilotKitMessage copilotKitUserMessage">{content}</div>
+    <div className="copilotKitMessage copilotKitUserMessage">
+      {textContent && <div>{textContent}</div>}
+      {mediaParts.map((part, index) => (
+        <AttachmentRenderer
+          key={index}
+          type={part.type}
+          source={part.source}
+        />
+      ))}
+    </div>
   );
 };
