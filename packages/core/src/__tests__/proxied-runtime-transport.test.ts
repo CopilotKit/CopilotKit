@@ -304,6 +304,200 @@ function createSseResponse(): Response {
   });
 }
 
+describe("Auto-detect transport from runtime info response", () => {
+  const originalFetch = global.fetch;
+  const originalWindow = (globalThis as { window?: unknown }).window;
+
+  const infoResponse = {
+    version: "1.0.0",
+    agents: {
+      remote: {
+        description: "Remote agent",
+      },
+    },
+  };
+
+  beforeEach(() => {
+    (globalThis as { window?: unknown }).window = {};
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    global.fetch = originalFetch;
+    if (originalWindow === undefined) {
+      delete (globalThis as { window?: unknown }).window;
+    } else {
+      (globalThis as { window?: unknown }).window = originalWindow;
+    }
+  });
+
+  it("auto-detects REST transport when GET /info succeeds", async () => {
+    const runtimeUrl = "https://runtime.example/rest-auto";
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify(infoResponse), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      }),
+    );
+    // @ts-expect-error - override in test environment
+    global.fetch = fetchMock;
+
+    // No runtimeTransport specified — defaults to "auto"
+    const core = new CopilotKitCore({
+      runtimeUrl,
+      headers: { Authorization: "Bearer token" },
+    });
+
+    await vi.waitFor(() => {
+      expect(fetchMock).toHaveBeenCalled();
+    });
+
+    // Should have tried REST first (GET /info)
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe(`${runtimeUrl}/info`);
+    expect(init.method ?? "GET").toBe("GET");
+
+    // Remote agent should be registered
+    const remoteAgent = core.getAgent("remote");
+    expect(remoteAgent).toBeDefined();
+    expect(remoteAgent?.agentId).toBe("remote");
+
+    // Transport should have been resolved to "rest"
+    expect(core.runtimeTransport).toBe("rest");
+  });
+
+  it("auto-detects single-endpoint transport when GET /info fails", async () => {
+    const runtimeUrl = "https://runtime.example/single-auto";
+    const fetchMock = vi
+      .fn()
+      .mockImplementation((url: string, init?: RequestInit) => {
+        // REST attempt: GET /info → 404
+        if (
+          typeof url === "string" &&
+          url.endsWith("/info") &&
+          (!init?.method || init.method === "GET")
+        ) {
+          return Promise.resolve(new Response("Not Found", { status: 404 }));
+        }
+        // Single-endpoint attempt: POST with { method: "info" }
+        if (init?.method === "POST") {
+          return Promise.resolve(
+            new Response(JSON.stringify(infoResponse), {
+              status: 200,
+              headers: { "content-type": "application/json" },
+            }),
+          );
+        }
+        return Promise.reject(new Error("Unexpected fetch call"));
+      });
+    // @ts-expect-error - override in test environment
+    global.fetch = fetchMock;
+
+    // No runtimeTransport specified — defaults to "auto"
+    const core = new CopilotKitCore({
+      runtimeUrl,
+      headers: { Authorization: "Bearer token" },
+    });
+
+    await vi.waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+    });
+
+    // First call should be REST attempt (GET /info)
+    const [url1] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url1).toBe(`${runtimeUrl}/info`);
+
+    // Second call should be single-endpoint attempt (POST with { method: "info" })
+    const [url2, init2] = fetchMock.mock.calls[1] as [string, RequestInit];
+    expect(url2).toBe(runtimeUrl);
+    expect(init2.method).toBe("POST");
+    const body = JSON.parse(init2.body as string);
+    expect(body).toEqual({ method: "info" });
+
+    // Remote agent should be registered
+    const remoteAgent = core.getAgent("remote");
+    expect(remoteAgent).toBeDefined();
+    expect(remoteAgent?.agentId).toBe("remote");
+
+    // Transport should have been resolved to "single"
+    expect(core.runtimeTransport).toBe("single");
+  });
+
+  it("explicit transport='single' flag still works without auto-detection", async () => {
+    const runtimeUrl = "https://runtime.example/explicit-single";
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify(infoResponse), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      }),
+    );
+    // @ts-expect-error - override in test environment
+    global.fetch = fetchMock;
+
+    const core = new CopilotKitCore({
+      runtimeUrl,
+      runtimeTransport: "single",
+      headers: { Authorization: "Bearer token" },
+    });
+
+    await vi.waitFor(() => {
+      expect(fetchMock).toHaveBeenCalled();
+    });
+
+    // Should have gone directly to single-endpoint (POST with { method: "info" })
+    // without trying REST first
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe(runtimeUrl);
+    expect(init.method).toBe("POST");
+    const body = JSON.parse(init.body as string);
+    expect(body).toEqual({ method: "info" });
+
+    // Remote agent should be registered
+    const remoteAgent = core.getAgent("remote");
+    expect(remoteAgent).toBeDefined();
+    expect(remoteAgent?.agentId).toBe("remote");
+
+    // Transport stays "single"
+    expect(core.runtimeTransport).toBe("single");
+  });
+
+  it("explicit transport='rest' flag still works without auto-detection", async () => {
+    const runtimeUrl = "https://runtime.example/explicit-rest";
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify(infoResponse), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      }),
+    );
+    // @ts-expect-error - override in test environment
+    global.fetch = fetchMock;
+
+    const core = new CopilotKitCore({
+      runtimeUrl,
+      runtimeTransport: "rest",
+      headers: { Authorization: "Bearer token" },
+    });
+
+    await vi.waitFor(() => {
+      expect(fetchMock).toHaveBeenCalled();
+    });
+
+    // Should have gone directly to REST (GET /info) without trying single
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe(`${runtimeUrl}/info`);
+    expect(init.method ?? "GET").toBe("GET");
+
+    // Remote agent should be registered
+    const remoteAgent = core.getAgent("remote");
+    expect(remoteAgent).toBeDefined();
+
+    // Transport stays "rest"
+    expect(core.runtimeTransport).toBe("rest");
+  });
+});
+
 describe("AgentRegistry runtime info requests", () => {
   const originalFetch = global.fetch;
   const originalWindow = (globalThis as { window?: unknown }).window;

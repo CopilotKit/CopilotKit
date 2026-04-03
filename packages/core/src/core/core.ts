@@ -230,7 +230,7 @@ export class CopilotKitCore {
 
   constructor({
     runtimeUrl,
-    runtimeTransport = "rest",
+    runtimeTransport = "auto",
     headers = {},
     credentials,
     properties = {},
