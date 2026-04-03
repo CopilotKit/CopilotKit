@@ -34,7 +34,7 @@ export function createCopilotEndpointSingleRoute({
     runtime,
     basePath: routePath,
     mode: "single-route",
-    cors: toFetchCorsConfig(corsConfig),
+    cors: corsConfig ? toFetchCorsConfig(corsConfig) : true,
     hooks,
   });
 

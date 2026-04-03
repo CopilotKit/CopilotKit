@@ -33,14 +33,12 @@ import type { CopilotRuntimeLike } from "./runtime";
  * Route info
  * --------------------------------------------------------------------------------------------- */
 
-export interface RouteInfo {
-  /** The matched route method name. */
-  method: "agent/run" | "agent/connect" | "agent/stop" | "info" | "transcribe";
-  /** The agent ID (if applicable). */
-  agentId?: string;
-  /** The thread ID (if applicable). */
-  threadId?: string;
-}
+export type RouteInfo =
+  | { method: "agent/run"; agentId: string }
+  | { method: "agent/connect"; agentId: string }
+  | { method: "agent/stop"; agentId: string; threadId: string }
+  | { method: "info" }
+  | { method: "transcribe" };
 
 /* ------------------------------------------------------------------------------------------------
  * Hook contexts

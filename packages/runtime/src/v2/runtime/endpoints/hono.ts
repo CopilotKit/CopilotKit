@@ -63,7 +63,7 @@ export function createCopilotHonoHandler({
     runtime,
     basePath,
     mode,
-    cors: toFetchCorsConfig(corsConfig),
+    cors: corsConfig ? toFetchCorsConfig(corsConfig) : true,
     hooks,
   });
 
@@ -76,10 +76,8 @@ export function createCopilotHonoHandler({
  * Convert Hono-specific CORS config to the fetch handler's CopilotCorsConfig.
  */
 export function toFetchCorsConfig(
-  config: CopilotEndpointCorsConfig | undefined,
+  config: CopilotEndpointCorsConfig,
 ): CopilotCorsConfig {
-  if (!config) return {};
-
   const origin = config.origin;
   return {
     origin:

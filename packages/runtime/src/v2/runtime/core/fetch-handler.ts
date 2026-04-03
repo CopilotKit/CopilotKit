@@ -162,28 +162,27 @@ export function createCopilotRuntimeHandler(
           runtime,
           route,
         });
-        // 6. Dispatch
-        response = await dispatchSingleRoute(
-          runtime,
-          request,
-          route,
-          methodCall,
-        );
+        // 6. Wrap body for methods that need it, then dispatch
+        if (
+          route.method === "agent/run" ||
+          route.method === "agent/connect" ||
+          route.method === "transcribe"
+        ) {
+          request = createJsonRequest(request, methodCall.body);
+        }
+        response = await dispatchRoute(runtime, request, route);
       } else {
         // Multi-route: match URL pattern
         const matched = matchRoute(path, basePath);
         if (!matched) {
-          return maybeAddCors(
-            jsonResponse({ error: "Not found" }, 404),
-            corsConfig,
-            requestOrigin,
-          );
+          throw jsonResponse({ error: "Not found" }, 404);
         }
 
         // Validate HTTP method
         const methodError = validateHttpMethod(request.method, matched);
         if (methodError) {
-          return maybeAddCors(methodError, corsConfig, requestOrigin);
+          route = matched;
+          throw methodError;
         }
 
         route = matched;
@@ -197,7 +196,7 @@ export function createCopilotRuntimeHandler(
         });
 
         // 6. Handler dispatch
-        response = await dispatchMultiRoute(runtime, request, route);
+        response = await dispatchRoute(runtime, request, route);
       }
 
       // 7. onResponse hook
@@ -275,10 +274,10 @@ export function createCopilotRuntimeHandler(
 }
 
 /* ------------------------------------------------------------------------------------------------
- * Multi-route dispatch
+ * Route dispatch
  * --------------------------------------------------------------------------------------------- */
 
-function dispatchMultiRoute(
+function dispatchRoute(
   runtime: CopilotRuntimeLike,
   request: Request,
   route: RouteInfo,
@@ -288,33 +287,27 @@ function dispatchMultiRoute(
       return handleRunAgent({
         runtime,
         request,
-        agentId: route.agentId!,
+        agentId: route.agentId,
       });
     case "agent/connect":
       return handleConnectAgent({
         runtime,
         request,
-        agentId: route.agentId!,
+        agentId: route.agentId,
       });
     case "agent/stop":
       return handleStopAgent({
         runtime,
         request,
-        agentId: route.agentId!,
-        threadId: route.threadId!,
+        agentId: route.agentId,
+        threadId: route.threadId,
       });
     case "info":
       return handleGetRuntimeInfo({ runtime, request });
     case "transcribe":
       return handleTranscribe({ runtime, request });
-    default:
-      throw new Error(`Unknown route method: ${route.method}`);
   }
 }
-
-/* ------------------------------------------------------------------------------------------------
- * Single-route dispatch
- * --------------------------------------------------------------------------------------------- */
 
 interface SingleRouteResolution {
   route: RouteInfo;
@@ -342,60 +335,30 @@ async function resolveSingleRoute(
 
   const methodCall = await parseMethodCall(request);
 
-  const route: RouteInfo = { method: methodCall.method };
-
-  if (
-    methodCall.method === "agent/run" ||
-    methodCall.method === "agent/connect"
-  ) {
-    route.agentId = expectString(methodCall.params, "agentId");
-  } else if (methodCall.method === "agent/stop") {
-    route.agentId = expectString(methodCall.params, "agentId");
-    route.threadId = expectString(methodCall.params, "threadId");
+  let route: RouteInfo;
+  switch (methodCall.method) {
+    case "agent/run":
+      route = { method: "agent/run", agentId: expectString(methodCall.params, "agentId") };
+      break;
+    case "agent/connect":
+      route = { method: "agent/connect", agentId: expectString(methodCall.params, "agentId") };
+      break;
+    case "agent/stop":
+      route = {
+        method: "agent/stop",
+        agentId: expectString(methodCall.params, "agentId"),
+        threadId: expectString(methodCall.params, "threadId"),
+      };
+      break;
+    case "info":
+      route = { method: "info" };
+      break;
+    case "transcribe":
+      route = { method: "transcribe" };
+      break;
   }
 
   return { route, methodCall };
-}
-
-function dispatchSingleRoute(
-  runtime: CopilotRuntimeLike,
-  request: Request,
-  route: RouteInfo,
-  methodCall: MethodCall,
-): Promise<Response> {
-  switch (route.method) {
-    case "agent/run": {
-      const handlerRequest = createJsonRequest(request, methodCall.body);
-      return handleRunAgent({
-        runtime,
-        request: handlerRequest,
-        agentId: route.agentId!,
-      });
-    }
-    case "agent/connect": {
-      const handlerRequest = createJsonRequest(request, methodCall.body);
-      return handleConnectAgent({
-        runtime,
-        request: handlerRequest,
-        agentId: route.agentId!,
-      });
-    }
-    case "agent/stop":
-      return handleStopAgent({
-        runtime,
-        request,
-        agentId: route.agentId!,
-        threadId: route.threadId!,
-      });
-    case "info":
-      return handleGetRuntimeInfo({ runtime, request });
-    case "transcribe": {
-      const handlerRequest = createJsonRequest(request, methodCall.body);
-      return handleTranscribe({ runtime, request: handlerRequest });
-    }
-    default:
-      throw new Error(`Unknown route method: ${route.method}`);
-  }
 }
 
 /* ------------------------------------------------------------------------------------------------

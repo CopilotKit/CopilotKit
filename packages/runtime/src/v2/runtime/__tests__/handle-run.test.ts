@@ -5,7 +5,6 @@ import { A2UIMiddleware } from "@ag-ui/a2ui-middleware";
 import { handleRunAgent } from "../handlers/handle-run";
 import { CopilotRuntime } from "../core/runtime";
 import { IntelligenceAgentRunner } from "../runner/intelligence";
-import { CopilotKitIntelligence } from "../intelligence-platform/client";
 
 describe("handleRunAgent", () => {
   const createMockRuntime = (
@@ -287,9 +286,14 @@ describe("handleRunAgent", () => {
   });
 
   describe("IntelligenceAgentRunner join code path", () => {
+    /** Loose mock type for CopilotKitIntelligence — avoids `as any` while the class has private fields. */
+    interface MockIntelligencePlatform {
+      [key: string]: ((...args: any[]) => any) | undefined;
+    }
+
     const createIntelligenceRuntime = (
       agent: AbstractAgent,
-      platform?: Partial<CopilotKitIntelligence>,
+      platform?: MockIntelligencePlatform,
       options?: {
         generateThreadNames?: boolean;
         identifyUser?: (
@@ -352,7 +356,7 @@ describe("handleRunAgent", () => {
           .fn()
           .mockResolvedValue({ joinToken: "jt-123", joinCode: "jc-123" }),
       };
-      const runtime = createIntelligenceRuntime(agent, platform as any);
+      const runtime = createIntelligenceRuntime(agent, platform);
 
       const response = await handleRunAgent({
         runtime,
@@ -392,7 +396,7 @@ describe("handleRunAgent", () => {
           .mockResolvedValue({ joinToken: "jt-123", joinCode: "jc-123" }),
       };
       const identifyUser = vi.fn().mockResolvedValue({ id: "resolved-user" });
-      const runtime = createIntelligenceRuntime(agent, platform as any, {
+      const runtime = createIntelligenceRuntime(agent, platform, {
         identifyUser,
       });
       const request = createRunRequest({ "X-User-Id": "legacy-user" });
@@ -430,7 +434,7 @@ describe("handleRunAgent", () => {
           .fn()
           .mockResolvedValue({ joinToken: "jt-456", joinCode: "jc-456" }),
       };
-      const runtime = createIntelligenceRuntime(agent, platform as any);
+      const runtime = createIntelligenceRuntime(agent, platform);
 
       await handleRunAgent({
         runtime,
@@ -453,7 +457,7 @@ describe("handleRunAgent", () => {
         getThreadMessages: vi.fn().mockResolvedValue({ messages: [] }),
         ɵacquireThreadLock: vi.fn().mockResolvedValue({ joinCode: "jc-789" }),
       };
-      const runtime = createIntelligenceRuntime(agent, platform as any);
+      const runtime = createIntelligenceRuntime(agent, platform);
 
       const response = await handleRunAgent({
         runtime,
@@ -479,7 +483,7 @@ describe("handleRunAgent", () => {
           .fn()
           .mockRejectedValue(new Error("Thread is locked by another runner")),
       };
-      const runtime = createIntelligenceRuntime(agent, platform as any);
+      const runtime = createIntelligenceRuntime(agent, platform);
 
       const response = await handleRunAgent({
         runtime,
@@ -512,7 +516,7 @@ describe("handleRunAgent", () => {
           .fn()
           .mockResolvedValue({ joinToken: "jt-123", joinCode: "jc-123" }),
       };
-      const runtime = createIntelligenceRuntime(agent, platform as any);
+      const runtime = createIntelligenceRuntime(agent, platform);
       const response = await handleRunAgent({
         runtime,
         request: new Request("https://example.com/agent/my-agent/run", {
@@ -572,7 +576,7 @@ describe("handleRunAgent", () => {
           .fn()
           .mockResolvedValue({ joinToken: "jt-123", joinCode: "jc-123" }),
       };
-      const runtime = createIntelligenceRuntime(agent, platform as any);
+      const runtime = createIntelligenceRuntime(agent, platform);
 
       const response = await handleRunAgent({
         runtime,
@@ -599,7 +603,7 @@ describe("handleRunAgent", () => {
           joinCode: "jc-created",
         }),
       };
-      const runtime = createIntelligenceRuntime(agent, platform as any);
+      const runtime = createIntelligenceRuntime(agent, platform);
 
       const response = await handleRunAgent({
         runtime,
@@ -670,7 +674,7 @@ describe("handleRunAgent", () => {
           joinCode: "jc-created",
         }),
       };
-      const runtime = createIntelligenceRuntime(baseAgent, platform as any, {
+      const runtime = createIntelligenceRuntime(baseAgent, platform, {
         generateThreadNames: true,
       });
       const response = await handleRunAgent({
@@ -725,7 +729,7 @@ describe("handleRunAgent", () => {
           joinCode: "jc-created",
         }),
       };
-      const runtime = createIntelligenceRuntime(agent, platform as any, {
+      const runtime = createIntelligenceRuntime(agent, platform, {
         generateThreadNames: false,
       });
 
@@ -754,7 +758,7 @@ describe("handleRunAgent", () => {
           joinCode: "jc-created",
         }),
       };
-      const runtime = createIntelligenceRuntime(agent, platform as any, {
+      const runtime = createIntelligenceRuntime(agent, platform, {
         generateThreadNames: true,
       });
 
@@ -810,7 +814,7 @@ describe("handleRunAgent", () => {
           joinCode: "jc-created",
         }),
       };
-      const runtime = createIntelligenceRuntime(baseAgent, platform as any, {
+      const runtime = createIntelligenceRuntime(baseAgent, platform, {
         generateThreadNames: true,
       });
       const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
@@ -865,7 +869,7 @@ describe("handleRunAgent", () => {
         getThreadMessages: vi.fn(),
         ɵacquireThreadLock: vi.fn(),
       };
-      const runtime = createIntelligenceRuntime(agent, platform as any, {
+      const runtime = createIntelligenceRuntime(agent, platform, {
         identifyUser: vi.fn().mockResolvedValue({ id: "" }),
       });
 
@@ -887,7 +891,7 @@ describe("handleRunAgent", () => {
         getThreadMessages: vi.fn(),
         ɵacquireThreadLock: vi.fn(),
       };
-      const runtime = createIntelligenceRuntime(agent, platform as any, {
+      const runtime = createIntelligenceRuntime(agent, platform, {
         identifyUser: vi.fn().mockRejectedValue(new Error("auth failed")),
       });
       const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
