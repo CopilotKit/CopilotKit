@@ -101,10 +101,8 @@ const FRAMEWORK_DOCUMENTATION: Record<AgentFramework, string> = {
   "microsoft-agent-framework-py":
     "https://learn.microsoft.com/en-us/agent-framework/",
   "mcp-apps": "https://modelcontextprotocol.github.io/ext-apps",
-  "agentcore-langgraph":
-    "https://docs.copilotkit.ai/integrations/agentcore/quickstart",
-  "agentcore-strands":
-    "https://docs.copilotkit.ai/integrations/agentcore/quickstart",
+  "agentcore-langgraph": "https://docs.copilotkit.ai/agentcore/quickstart",
+  "agentcore-strands": "https://docs.copilotkit.ai/agentcore/quickstart",
 };
 
 const FRAMEWORK_EMOJI: Record<AgentFramework, string> = {
@@ -456,6 +454,129 @@ export default class Create extends BaseCommand {
     if (await fs.pathExists(keepScriptPath)) {
       await fs.move(keepScriptPath, path.join(projectDir, "deploy.sh"));
     }
+
+    // Patch deploy.sh — remove stale references to the other script and terraform
+    const deployShPath = path.join(projectDir, "deploy.sh");
+    if (await fs.pathExists(deployShPath)) {
+      let deployContent = await fs.readFile(deployShPath, "utf-8");
+      deployContent = deployContent
+        .replace(/\(isolated from deploy-(?:langgraph|strands)\.sh\)\s*/g, "")
+        .replace(/# Using Terraform instead\?.*\n/g, "");
+      await fs.writeFile(deployShPath, deployContent, "utf-8");
+    }
+
+    // Patch config.yaml — remove stale comment about deploy scripts
+    const configYamlPath = path.join(projectDir, "config.yaml");
+    if (await fs.pathExists(configYamlPath)) {
+      let configContent = await fs.readFile(configYamlPath, "utf-8");
+      configContent = configContent.replace(
+        /# overwritten by deploy-langgraph\.sh \/ deploy-strands\.sh/g,
+        "# set by the CLI — do not change",
+      );
+      await fs.writeFile(configYamlPath, configContent, "utf-8");
+    }
+
+    // Patch docker files — set the correct default agent
+    const agentShortName = isLanggraph ? "langgraph" : "strands";
+    const otherShortName = isLanggraph ? "strands" : "langgraph";
+
+    for (const relPath of ["docker/docker-compose.yml", "docker/up.sh"]) {
+      const filePath = path.join(projectDir, relPath);
+      if (await fs.pathExists(filePath)) {
+        let fileContent = await fs.readFile(filePath, "utf-8");
+        fileContent = fileContent.replaceAll(
+          `AGENT:-${otherShortName}`,
+          `AGENT:-${agentShortName}`,
+        );
+        fileContent = fileContent.replaceAll(
+          `echo "${otherShortName}"`,
+          `echo "${agentShortName}"`,
+        );
+        await fs.writeFile(filePath, fileContent, "utf-8");
+      }
+    }
+
+    // resolve-env.py uses Python syntax — patch separately
+    const resolveEnvPath = path.join(projectDir, "docker/resolve-env.py");
+    if (await fs.pathExists(resolveEnvPath)) {
+      let resolveContent = await fs.readFile(resolveEnvPath, "utf-8");
+      resolveContent = resolveContent.replaceAll(
+        `os.environ.get("AGENT", "${otherShortName}")`,
+        `os.environ.get("AGENT", "${agentShortName}")`,
+      );
+      await fs.writeFile(resolveEnvPath, resolveContent, "utf-8");
+    }
+
+    // Write a clean framework-specific README
+    const frameworkLabel = isLanggraph ? "LangGraph" : "Strands";
+    const stackSuffix = isLanggraph ? "lg" : "st";
+    const agentFolder = isLanggraph
+      ? "langgraph-single-agent"
+      : "strands-single-agent";
+    const readme = `# CopilotKit + AWS AgentCore (${frameworkLabel})
+
+Chat UI with generative charts, shared-state todo canvas, and inline tool rendering — deployed on AWS Bedrock AgentCore.
+
+## Prerequisites
+
+| Tool    | Version                      |
+| ------- | ---------------------------- |
+| AWS CLI | configured (\`aws configure\`) |
+| Node.js | 18+                          |
+| Python  | 3.8+                         |
+| Docker  | running                      |
+
+## Deploy
+
+1. **Edit \`config.yaml\`** — set \`stack_name_base\` and \`admin_user_email\`
+
+2. **Deploy:**
+
+   \`\`\`bash
+   ./deploy.sh                    # full deploy (infra + frontend)
+   ./deploy.sh --skip-frontend    # infra/agent only
+   ./deploy.sh --skip-backend     # frontend only
+   \`\`\`
+
+3. **Open** the Amplify URL printed at the end. Sign in with your email.
+
+## Local Development
+
+\`\`\`bash
+cd docker
+cp .env.example .env
+# Fill in AWS creds — STACK_NAME, MEMORY_ID, and aws-exports.json are auto-resolved
+./up.sh --build
+\`\`\`
+
+- **Frontend** → hot reloads on save
+- **Agent** → rebuild on changes: \`docker compose up --build agent\`
+- **Browser** → \`http://localhost:3000\`
+
+The full chain runs locally: \`browser:3000 → bridge:3001 → agent:8080\`. AWS is only used for Memory and Gateway.
+
+## What's inside
+
+| Piece                          | What it does                                               |
+| ------------------------------ | ---------------------------------------------------------- |
+| \`frontend/\`                    | Vite + React with CopilotKit chat, charts, todo canvas     |
+| \`agents/${agentFolder}/\` | ${frameworkLabel} agent with tools + shared todo state             |
+| \`infra-cdk/\`                   | CDK: Cognito, AgentCore, CopilotKit Lambda, Amplify        |
+| \`docker/\`                      | Local dev via Docker Compose                               |
+
+## Tear down
+
+\`\`\`bash
+cd infra-cdk && npx cdk@latest destroy --all --output ../cdk.out-${stackSuffix}
+\`\`\`
+
+## Docs
+
+- [CopilotKit](https://docs.copilotkit.ai)
+- [AWS Bedrock AgentCore](https://aws.amazon.com/bedrock/agentcore/)
+- [AgentCore + CopilotKit Guide](https://docs.copilotkit.ai/agentcore/quickstart)
+`;
+    await fs.writeFile(path.join(projectDir, "README.md"), readme, "utf-8");
   }
 
   private async downloadTemplate(
@@ -464,6 +585,24 @@ export default class Create extends BaseCommand {
     spinner: Ora,
   ): Promise<void> {
     const templateRef = TEMPLATE_REPOS[framework];
+
+    // Local path — copy directly from filesystem (excluding heavy generated dirs)
+    if (templateRef.startsWith("/")) {
+      const EXCLUDE = [
+        "node_modules",
+        "cdk.out",
+        ".git",
+        "__pycache__",
+        ".venv",
+      ];
+      await fs.copy(templateRef, projectDir, {
+        filter: (src: string) =>
+          !EXCLUDE.some(
+            (ex) => src.split("/").includes(ex) || src.includes(`/${ex}`),
+          ),
+      });
+      return;
+    }
 
     // Monorepo subdirectory URLs use sparse checkout; standalone repos use tarball download
     if (isValidGitHubUrl(templateRef)) {

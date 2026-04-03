@@ -357,19 +357,7 @@ export class BackendStack extends cdk.NestedStack {
       ]);
     };
 
-    // Use own runtime ARN for the current stack; for the other stack,
-    // Always use this stack's own runtime — each deployment is self-contained.
-    const langgraphRuntimeArn = this.runtimeArn;
-    const strandsRuntimeArn = this.runtimeArn;
-
-    const defaultRuntimeArn =
-      config.backend?.pattern === "strands-single-agent"
-        ? strandsRuntimeArn
-        : langgraphRuntimeArn;
-    const defaultAgentCoreAgUiUrl = buildAgentCoreAgUiUrl(defaultRuntimeArn);
-    const langgraphAgentCoreAgUiUrl =
-      buildAgentCoreAgUiUrl(langgraphRuntimeArn);
-    const strandsAgentCoreAgUiUrl = buildAgentCoreAgUiUrl(strandsRuntimeArn);
+    const agentCoreAgUiUrl = buildAgentCoreAgUiUrl(this.runtimeArn);
 
     const copilotKitRuntimeLambda = new lambda.Function(
       this,
@@ -435,11 +423,9 @@ export class BackendStack extends cdk.NestedStack {
           },
         ),
         environment: {
-          AGENTCORE_AG_UI_URL: defaultAgentCoreAgUiUrl,
+          AGENTCORE_AG_UI_URL: agentCoreAgUiUrl,
           COPILOTKIT_AGENT_NAME:
-            config.backend?.pattern || "strands-single-agent",
-          LANGGRAPH_AGENTCORE_AG_UI_URL: langgraphAgentCoreAgUiUrl,
-          STRANDS_AGENTCORE_AG_UI_URL: strandsAgentCoreAgUiUrl,
+            config.backend?.pattern || "langgraph-single-agent",
         },
         timeout: cdk.Duration.seconds(30),
         memorySize: 1024,
