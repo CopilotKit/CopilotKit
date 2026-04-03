@@ -48,7 +48,9 @@ type AgentFramework =
   | "a2a"
   | "microsoft-agent-framework-dotnet"
   | "microsoft-agent-framework-py"
-  | "mcp-apps";
+  | "mcp-apps"
+  | "agentcore-langgraph"
+  | "agentcore-strands";
 
 const TEMPLATE_REPOS: Record<AgentFramework, string> = {
   "langgraph-py":
@@ -75,6 +77,10 @@ const TEMPLATE_REPOS: Record<AgentFramework, string> = {
     "https://github.com/CopilotKit/CopilotKit/tree/main/examples/integrations/ms-agent-framework-python",
   "mcp-apps":
     "https://github.com/CopilotKit/CopilotKit/tree/main/examples/integrations/mcp-apps",
+  "agentcore-langgraph":
+    "https://github.com/CopilotKit/CopilotKit/tree/main/examples/integrations/agentcore",
+  "agentcore-strands":
+    "https://github.com/CopilotKit/CopilotKit/tree/main/examples/integrations/agentcore",
 };
 
 const FRAMEWORK_DOCUMENTATION: Record<AgentFramework, string> = {
@@ -95,6 +101,10 @@ const FRAMEWORK_DOCUMENTATION: Record<AgentFramework, string> = {
   "microsoft-agent-framework-py":
     "https://learn.microsoft.com/en-us/agent-framework/",
   "mcp-apps": "https://modelcontextprotocol.github.io/ext-apps",
+  "agentcore-langgraph":
+    "https://docs.copilotkit.ai/integrations/agentcore/quickstart",
+  "agentcore-strands":
+    "https://docs.copilotkit.ai/integrations/agentcore/quickstart",
 };
 
 const FRAMEWORK_EMOJI: Record<AgentFramework, string> = {
@@ -112,6 +122,8 @@ const FRAMEWORK_EMOJI: Record<AgentFramework, string> = {
   "microsoft-agent-framework-dotnet": "🟦",
   "microsoft-agent-framework-py": "🟦",
   "mcp-apps": "♍",
+  "agentcore-langgraph": "☁️",
+  "agentcore-strands": "☁️",
 };
 
 const KITE = `
@@ -247,6 +259,14 @@ export default class Create extends BaseCommand {
       spinner.text = theme.secondary.bold("Downloading template...");
       await this.downloadTemplate(projectDir, options.agentFramework, spinner);
 
+      if (
+        options.agentFramework === "agentcore-langgraph" ||
+        options.agentFramework === "agentcore-strands"
+      ) {
+        spinner.text = theme.secondary.bold("Configuring AgentCore...");
+        await this.configureAgentCore(projectDir, options.agentFramework);
+      }
+
       const displayName = usingCurrentDir
         ? "current directory"
         : `"${projectName}"`;
@@ -359,10 +379,42 @@ export default class Create extends BaseCommand {
           { name: `${FRAMEWORK_EMOJI.agno}  Agno`, value: "agno" },
           { name: `${FRAMEWORK_EMOJI.ag2} AG2`, value: "ag2" },
           { name: `${FRAMEWORK_EMOJI.a2a} A2A`, value: "a2a" },
+          {
+            name: `${FRAMEWORK_EMOJI["agentcore-langgraph"]} AgentCore + LangGraph`,
+            value: "agentcore-langgraph",
+          },
+          {
+            name: `${FRAMEWORK_EMOJI["agentcore-strands"]} AgentCore + Strands`,
+            value: "agentcore-strands",
+          },
         ],
       },
     ]);
     return framework;
+  }
+
+  private async configureAgentCore(
+    projectDir: string,
+    framework: "agentcore-langgraph" | "agentcore-strands",
+  ): Promise<void> {
+    const pattern =
+      framework === "agentcore-langgraph"
+        ? "langgraph-single-agent"
+        : "strands-single-agent";
+    const suffix = framework === "agentcore-langgraph" ? "-lg" : "-st";
+
+    const examplePath = path.join(projectDir, "config.yaml.example");
+    const configPath = path.join(projectDir, "config.yaml");
+
+    if (await fs.pathExists(examplePath)) {
+      let content = await fs.readFile(examplePath, "utf-8");
+      content = content.replace(/^(\s*pattern:\s*).*$/m, `$1${pattern}`);
+      content = content.replace(
+        /^(\s*stack_name_base:\s*).*$/m,
+        `$1my-copilotkit-agentcore${suffix}`,
+      );
+      await fs.writeFile(configPath, content, "utf-8");
+    }
   }
 
   private async downloadTemplate(
