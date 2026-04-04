@@ -1,4 +1,4 @@
-import { AbstractAgent, Context, State } from "@ag-ui/client";
+import { AbstractAgent, Context, State, Message } from "@ag-ui/client";
 import {
   FrontendTool,
   SuggestionsConfig,
@@ -34,6 +34,21 @@ export interface CopilotKitCoreConfig {
   tools?: FrontendTool<any>[];
   /** Suggestions config for the core. */
   suggestionsConfig?: SuggestionsConfig[];
+  /** 
+   * Initial thread ID to restore state from.
+   * When provided, the agent will attempt to load existing thread state.
+   */
+  initialThreadId?: string;
+  /**
+   * Initial state to restore.
+   * When provided alongside initialThreadId, this state will be merged with loaded thread state.
+   */
+  initialState?: State;
+  /**
+   * Initial messages to restore.
+   * When provided alongside initialThreadId, these messages will be loaded into the conversation.
+   */
+  initialMessages?: Message[];
 }
 
 export type { CopilotKitCoreAddAgentParams };
@@ -199,6 +214,9 @@ export class CopilotKitCore {
     agents__unsafe_dev_only = {},
     tools = [],
     suggestionsConfig = [],
+    initialThreadId,
+    initialState,
+    initialMessages,
   }: CopilotKitCoreConfig) {
     this._headers = headers;
     this._credentials = credentials;
@@ -230,7 +248,35 @@ export class CopilotKitCore {
         });
       },
     });
+
+    // Restore initial thread state if provided
+    if (initialThreadId) {
+      this.restoreThreadState(initialThreadId, initialState, initialMessages);
+    }
   }
+
+  /**
+   * Restore thread state, messages and configuration.
+   * This is used to reload an existing conversation.
+   */
+  private restoreThreadState(
+    threadId: string,
+    initialState?: State,
+    initialMessages?: Message[],
+  ): void {
+    // Store restoration info for agents when they connect
+    this._initialThreadState = {
+      threadId,
+      state: initialState,
+      messages: initialMessages,
+    };
+  }
+
+  private _initialThreadState?: {
+    threadId: string;
+    state?: State;
+    messages?: Message[];
+  };
 
   /**
    * Internal method used by delegate classes and subclasses to notify subscribers
@@ -494,6 +540,44 @@ export class CopilotKitCore {
 
   getRunIdsForThread(agentId: string, threadId: string): string[] {
     return this.stateManager.getRunIdsForThread(agentId, threadId);
+  }
+
+  /**
+   * Restore thread state for reloading an existing conversation.
+   * This is the public API for issue #3256 - V2 restore state and thread ID
+   * and issue #2200 - Thread Reloading not working with LangGraph + AG-UI
+   */
+  restoreThread(
+    threadId: string,
+    state?: State,
+    messages?: Message[],
+  ): void {
+    this._initialThreadState = {
+      threadId,
+      state,
+      messages,
+    };
+
+    // Apply restored state to all connected agents
+    Object.keys(this.agents).forEach((agentId) => {
+      const agent = this.agents[agentId];
+      if (agent?.agentId) {
+        agent.threadId = threadId;
+        if (state) {
+          agent.setState(state);
+        }
+        if (messages) {
+          agent.setMessages(messages);
+        }
+      }
+    });
+  }
+
+  /**
+   * Get the initial thread state if one was set during construction
+   */
+  getInitialThreadState(): { threadId: string; state?: State; messages?: Message[] } | undefined {
+    return this._initialThreadState;
   }
 
   /**
