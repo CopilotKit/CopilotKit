@@ -983,4 +983,28 @@ describe("CopilotChatInput", () => {
       expect(mockOnSubmitMessage).toHaveBeenCalledWith("test message");
     });
   });
+
+  describe("Scroll behavior", () => {
+    it("does not call scrollIntoView when the textarea receives focus", async () => {
+      const scrollIntoViewMock = vi.fn();
+      HTMLElement.prototype.scrollIntoView = scrollIntoViewMock;
+
+      renderWithProvider(
+        <CopilotChatInput autoFocus onSubmitMessage={mockOnSubmitMessage} />,
+      );
+
+      const textarea = screen.getByRole("textbox");
+
+      // Trigger focus explicitly (autoFocus also triggers it, but let's be explicit)
+      fireEvent.focus(textarea);
+
+      // Wait long enough for the 300ms setTimeout inside the focus handler
+      await new Promise((resolve) => setTimeout(resolve, 500));
+
+      expect(scrollIntoViewMock).not.toHaveBeenCalled();
+
+      // Clean up
+      delete (HTMLElement.prototype as any).scrollIntoView;
+    });
+  });
 });
