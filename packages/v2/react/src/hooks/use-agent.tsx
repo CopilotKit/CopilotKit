@@ -1,7 +1,7 @@
 import { useCopilotKit } from "@/providers/CopilotKitProvider";
 import { useMemo, useEffect, useReducer } from "react";
 import { DEFAULT_AGENT_ID } from "@copilotkitnext/shared";
-import { AbstractAgent } from "@ag-ui/client";
+import { AbstractAgent, Message } from "@ag-ui/client";
 import {
   ProxiedCopilotRuntimeAgent,
   CopilotKitCoreRuntimeConnectionStatus,
@@ -22,9 +22,30 @@ const ALL_UPDATES: UseAgentUpdate[] = [
 export interface UseAgentProps {
   agentId?: string;
   updates?: UseAgentUpdate[];
+  /**
+   * Initial thread ID to restore state from.
+   * Used for reloading existing conversations (Issue #3256, #2200)
+   */
+  threadId?: string;
+  /**
+   * Initial messages to restore.
+   * Used alongside threadId for conversation restoration.
+   */
+  initialMessages?: Message[];
+  /**
+   * Initial state to restore.
+   * Used alongside threadId for state restoration.
+   */
+  initialState?: Record<string, unknown>;
 }
 
-export function useAgent({ agentId, updates }: UseAgentProps = {}) {
+export function useAgent({ 
+  agentId, 
+  updates, 
+  threadId,
+  initialMessages,
+  initialState 
+}: UseAgentProps = {}) {
   agentId ??= DEFAULT_AGENT_ID;
 
   const { copilotkit } = useCopilotKit();
@@ -85,6 +106,23 @@ export function useAgent({ agentId, updates }: UseAgentProps = {}) {
     JSON.stringify(copilotkit.headers),
     copilotkit,
   ]);
+
+  // Apply thread restoration when threadId changes (Issue #3256, #2200)
+  useEffect(() => {
+    if (threadId && agent) {
+      agent.threadId = threadId;
+      
+      // Restore initial messages if provided
+      if (initialMessages && initialMessages.length > 0) {
+        agent.setMessages(initialMessages);
+      }
+      
+      // Restore initial state if provided
+      if (initialState && Object.keys(initialState).length > 0) {
+        agent.setState(initialState);
+      }
+    }
+  }, [threadId, agent, initialMessages, initialState]);
 
   useEffect(() => {
     if (updateFlags.length === 0) {
