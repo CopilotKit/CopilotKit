@@ -1,0 +1,34 @@
+{
+  "name": "copilotkit-aws-lambda-example",
+  "version": "1.0.0",
+  "description": "AWS Lambda example for self-hosted CopilotKit Runtime - Issue #1151",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "deploy": "serverless deploy",
+    "offline": "serverless offline",
+    "test": "jest"
+  },
+  "dependencies": {
+    "@copilotkitnext/runtime": "latest",
+    "@copilotkitnext/agent": "latest",
+    "zod": "^3.23.8",
+    "aws-lambda": "^1.0.7"
+  },
+  "devDependencies": {
+    "@types/aws-lambda": "^8.10.131",
+    "@types/node": "^20.10.0",
+    "serverless": "^3.38.0",
+    "serverless-offline": "^13.3.3",
+    "serverless-plugin-typescript": "^2.1.5",
+    "typescript": "^5.3.3"
+  },
+  "keywords": [
+    "copilotkit",
+    "aws-lambda",
+    "serverless",
+    "ai",
+    "agent"
+  ],
+  "license": "MIT"
+}

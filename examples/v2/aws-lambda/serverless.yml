@@ -1,0 +1,80 @@
+service: copilotkit-lambda-runtime
+
+frameworkVersion: '3'
+
+provider:
+  name: aws
+  runtime: nodejs20.x
+  stage: ${opt:stage, 'dev'}
+  region: ${opt:region, 'us-east-1'}
+  environment:
+    OPENAI_API_KEY: ${env:OPENAI_API_KEY}
+    ANTHROPIC_API_KEY: ${env:ANTHROPIC_API_KEY}
+    NODE_ENV: production
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - logs:CreateLogGroup
+            - logs:CreateLogStream
+            - logs:PutLogEvents
+          Resource: 
+            - 'arn:aws:logs:${self:provider.region}:*:log-group:/aws/lambda/*:*:*'
+
+custom:
+  serverless-offline:
+    httpPort: 4000
+    host: 0.0.0.0
+
+plugins:
+  - serverless-plugin-typescript
+  - serverless-offline
+
+functions:
+  # Main CopilotKit Runtime endpoint - single route for all operations
+  copilotkitRuntime:
+    handler: src/index.handler
+    timeout: 30
+    memorySize: 512
+    events:
+      - http:
+          path: /api/copilotkit/{proxy+}
+          method: ANY
+          cors: true
+      - http:
+          path: /api/copilotkit
+          method: ANY
+          cors: true
+
+  # Health check endpoint
+  health:
+    handler: src/health.handler
+    timeout: 5
+    memorySize: 128
+    events:
+      - http:
+          path: /health
+          method: get
+          cors: true
+
+  # WebSocket handler for real-time communication (if needed)
+  websocket:
+    handler: src/websocket.handler
+    timeout: 30
+    memorySize: 512
+    events:
+      - websocket:
+          route: $connect
+      - websocket:
+          route: $disconnect
+      - websocket:
+          route: $default
+
+package:
+  patterns:
+    - '!node_modules/**'
+    - '!src/**/*.test.ts'
+    - '!*.md'
+    - '!.env*'
+    - '!tests/**'
