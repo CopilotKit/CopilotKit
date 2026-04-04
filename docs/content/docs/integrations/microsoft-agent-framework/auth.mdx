@@ -68,7 +68,7 @@ Configure authentication in your AG-UI server:
         new System.ClientModel.ApiKeyCredential(githubToken),
         new OpenAIClientOptions { Endpoint = new Uri("https://models.inference.ai.azure.com") }
     );
-    var agent = openAI.GetChatClient("gpt-4o-mini")
+    var agent = openAI.GetChatClient("gpt-5.2-mini")
         .CreateAIAgent(name: "AGUIAssistant", instructions: "You are a helpful assistant.");
 
     app.MapAGUI("/", agent).RequireAuthorization();
@@ -115,7 +115,7 @@ Configure authentication in your AG-UI server:
     # Build a chat client (same pattern as the Quickstart)
     def _build_chat_client() -> ChatClientProtocol:
         if bool(os.getenv("AZURE_OPENAI_ENDPOINT")):
-            deployment_name = os.getenv("AZURE_OPENAI_CHAT_DEPLOYMENT_NAME", "gpt-4o-mini")
+            deployment_name = os.getenv("AZURE_OPENAI_CHAT_DEPLOYMENT_NAME", "gpt-5.2-mini")
             return AzureOpenAIChatClient(
                 credential=DefaultAzureCredential(),
                 deployment_name=deployment_name,
@@ -123,7 +123,7 @@ Configure authentication in your AG-UI server:
             )
         if bool(os.getenv("OPENAI_API_KEY")):
             return OpenAIChatClient(
-                model_id=os.getenv("OPENAI_CHAT_MODEL_ID", "gpt-4o-mini"),
+                model_id=os.getenv("OPENAI_CHAT_MODEL_ID", "gpt-5.2-mini"),
                 api_key=os.getenv("OPENAI_API_KEY"),
             )
         raise RuntimeError("Set AZURE_OPENAI_* or OPENAI_API_KEY in agent/.env")

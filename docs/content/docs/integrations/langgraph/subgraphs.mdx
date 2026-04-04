@@ -33,16 +33,16 @@ They let you build multi-agent systems, reuse node sets across multiple graphs, 
 CopilotKit supports streaming directly from subgraphs, so nested graphs can emit events in real time just like a single graph.
 
 Using this feature requires no extra steps on the agent side.
-All you need to do, is to enable subgraph streaming in the `useCoAgent` hook:
+All you need to do, is to enable subgraph streaming using the `useAgent` hook:
 ```tsx
-  const { state, nodeName } = useCoAgent<AgentState>({
-    name: "sample_agent",
-    initialState: INITIAL_STATE,
-    config: {
-      streamSubgraphs: true, // [!code highlight]
-    }
-  });
+import { useAgent } from "@copilotkit/react-core/v2"; // [!code highlight]
+
+const { agent } = useAgent({
+  agentId: "sample_agent",
+});
+
+// Access agent state as usual - subgraph streaming is handled automatically
+const state = agent.state;
 ```
 
-The subgraph nodes will stream as usual, and you will be able to see which subgraph is streaming using the `nodeName` variable.
-You can also use `interrupt()` directly from a subgraph.
+The subgraph nodes will stream as usual, and you can also use `interrupt()` directly from a subgraph.

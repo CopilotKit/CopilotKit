@@ -1,0 +1,88 @@
+import { CodeShowcase, CodePanel } from "@/components/react/code-showcase"
+import { MessageSquare, Layers, Code, Bot, Server, BookOpen, Play, Book } from "lucide-react"
+
+<CodeShowcase tabs={[
+  { label: "Chat", icon: <MessageSquare />, filename: "app.tsx" },
+  { label: "Headless UI", icon: <Code />, filename: "chat.tsx" },
+  { label: "Generative UI", icon: <Layers />, filename: "weather-card.tsx" },
+  { label: "Runtime", icon: <Server />, filename: "route.ts" },
+]}>
+  <CodePanel>
+    ```tsx title="app.tsx"
+    import { CopilotKit } from "@copilotkit/react-core/v2";
+    import { CopilotSidebar } from "@copilotkit/react-core/v2";
+    import "@copilotkit/react-ui/v2/styles.css";
+
+    export default function App() {
+      return (
+        <CopilotKit runtimeUrl="/api/copilotkit">
+          <YourApp />
+          <CopilotSidebar/>
+        </CopilotKit>
+      );
+    }
+    ```
+  </CodePanel>
+  <CodePanel>
+    ```tsx title="chat.tsx"
+    import { useAgent } from "@copilotkit/react-core/v2";
+
+    export default function Chat() {
+      const { run, messages, isRunning } = useAgent();
+
+      return (
+        <div>
+          {messages.map((m) => (
+            <p key={m.id}>{m.content}</p>
+          ))}
+          <button onClick={() => run("Hello!")}>
+            {isRunning ? "Thinking..." : "Send"}
+          </button>
+        </div>
+      );
+    }
+    ```
+  </CodePanel>
+  <CodePanel>
+    ```tsx title="weather-card.tsx"
+    import { z } from "zod";
+    import { useComponent } from "@copilotkit/react-core/v2";
+
+    useComponent({
+      name: "showWeather",
+      description: "Display a weather card.",
+      parameters: z.object({
+        city: z.string(),
+        temp: z.number(),
+      }),
+      render: ({ city, temp }) => (
+        <div className="rounded border p-3">
+          <div className="font-medium">{city}</div>
+          <div className="text-2xl">{temp}°F</div>
+        </div>
+      ),
+    });
+    ```
+  </CodePanel>
+  <CodePanel>
+    ```ts title="api/copilotkit/route.ts" linenumbers
+    import { NextRequest } from "next/server";
+    import { HttpAgent } from "@ag-ui/client";
+    import { CopilotRuntime, copilotRuntimeNextJSAppRouterEndpoint } from "@copilotkit/runtime";
+
+    const runtime = new CopilotRuntime({
+      agents: {
+        default: new HttpAgent({ url: "https://your-agent.example.com" }),
+      },
+    });
+
+    export const POST = async (req: NextRequest) => {
+      const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
+        runtime,
+        endpoint: "/api/copilotkit",
+      });
+      return handleRequest(req);
+    };
+    ```
+  </CodePanel>
+</CodeShowcase>

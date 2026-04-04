@@ -1,0 +1,146 @@
+---
+title: "Display-only"
+icon: "lucide/Eye"
+description: "Register React components that your agent can render in the chat."
+---
+import InstallSDKSnippet from "@/snippets/install-sdk.mdx"
+import RunAndConnect from "@/snippets/integrations/langgraph/run-and-connect.mdx"
+import FrontEndToolsImpl from "@/snippets/integrations/langgraph/frontend-tools.mdx"
+import { Tabs, Tab } from "fumadocs-ui/components/tabs"
+
+## What is this?
+
+`useComponent` lets you register a React component as a tool your agent can invoke. When the agent calls the tool, CopilotKit renders your component directly in the chat with the tool's arguments as props.
+
+This is the simplest form of Generative UI — your agent decides when to show a component, and CopilotKit renders it. No handler logic, no user interaction required.
+
+## When should I use this?
+
+Use `useComponent` when you want to:
+- Display rich UI (cards, charts, tables) inline in the chat
+- Show structured data from agent responses
+- Render previews, status indicators, or visual feedback
+- Let the agent present information beyond plain text
+
+For components that need user interaction, see [Interactive](/langgraph/generative-ui/your-components/interactive) or [Interrupt-based](/langgraph/generative-ui/your-components/interrupt-based).
+
+## Implementation
+
+<Steps>
+  <Step>
+    ### Run and connect your agent
+    <RunAndConnect components={props.components} />
+  </Step>
+  <Step>
+    ### Register a component
+
+    Use the `useComponent` hook to register a React component. The agent will be able to call it by name, and CopilotKit will render it with the tool arguments as props.
+
+    ```tsx title="app/page.tsx"
+    import { useComponent } from "@copilotkit/react-core/v2"; // [!code highlight]
+    import { z } from "zod";
+
+    const weatherSchema = z.object({
+      city: z.string().describe("City name"),
+      temperature: z.number().describe("Temperature in Fahrenheit"),
+      condition: z.string().describe("Weather condition"),
+    });
+
+    function WeatherCard({ city, temperature, condition }: z.infer<typeof weatherSchema>) {
+      return (
+        <div className="rounded-lg border p-4">
+          <h3 className="font-semibold">{city}</h3>
+          <p className="text-2xl">{temperature}°F</p>
+          <p className="text-sm text-gray-500">{condition}</p>
+        </div>
+      );
+    }
+
+    function YourMainContent() {
+      // [!code highlight:9]
+      useComponent({
+        name: "showWeather",
+        description: "Display a weather card for a city.",
+        parameters: weatherSchema,
+        render: WeatherCard,
+      });
+
+      return <div>{/* ... */}</div>;
+    }
+    ```
+  </Step>
+  <Step>
+    ### Install the CopilotKit SDK
+
+    Now, we'll need to make sure your agent can access frontend tools. In your terminal, navigate to your agent's folder and continue from there.
+
+    <InstallSDKSnippet components={props.components}/>
+  </Step>
+  <Step>
+    ### Inherit from CopilotKitState
+
+    To access the frontend tools provided by CopilotKit, inherit from `CopilotKitState` in your agent's state definition:
+
+    <Tabs groupId="language_langgraph_agent" items={['Python', 'TypeScript']} default="Python" persist>
+      <Tab value="Python">
+        ```python title="agent.py"
+        from copilotkit import CopilotKitState # [!code highlight]
+
+        class AgentState(CopilotKitState): # [!code highlight]
+            pass
+        ```
+      </Tab>
+      <Tab value="TypeScript">
+        ```typescript title="agent-js/src/agent.ts"
+        import { Annotation } from "@langchain/langgraph";
+        import { CopilotKitStateAnnotation } from "@copilotkit/sdk-js/langgraph"; // [!code highlight]
+
+        export const AgentStateAnnotation = Annotation.Root({
+          ...CopilotKitStateAnnotation.spec, // [!code highlight]
+        });
+        export type AgentState = typeof AgentStateAnnotation.State;
+        ```
+      </Tab>
+    </Tabs>
+  </Step>
+  <Step>
+    ### Agent calls the component
+
+    When your agent's LLM decides to use the tool, CopilotKit automatically renders your component in the chat. The tool is registered as a frontend tool that the agent can discover and call.
+
+    <FrontEndToolsImpl components={props.components} />
+  </Step>
+  <Step>
+    ### Give it a try!
+
+    Ask your agent something that would trigger the component (e.g. "What's the weather in San Francisco?"). You should see your `WeatherCard` rendered directly in the chat.
+  </Step>
+</Steps>
+
+## Without parameters
+
+For simple components that don't need typed parameters:
+
+```tsx
+useComponent({
+  name: "showGreeting",
+  render: ({ message }: { message: string }) => (
+    <div className="rounded border p-3 bg-blue-50">
+      <p>{message}</p>
+    </div>
+  ),
+});
+```
+
+## Scoping to an agent
+
+In multi-agent setups, scope a component to a specific agent:
+
+```tsx
+useComponent({
+  name: "renderProfile",
+  parameters: z.object({ userId: z.string() }),
+  render: ProfileCard,
+  agentId: "support-agent",
+});
+```

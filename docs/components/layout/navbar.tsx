@@ -17,6 +17,7 @@ import GithubIcon from "@/components/ui/icons/github";
 import DiscordIcon from "@/components/ui/icons/discord";
 import ExternalLinkIcon from "@/components/ui/icons/external-link";
 import BurgerMenuIcon from "@/components/ui/icons/burger-menu";
+import { BookOpenIcon, ScrollTextIcon } from "lucide-react";
 
 export interface NavbarLink {
   href: string;
@@ -40,6 +41,11 @@ export const LEFT_LINKS: NavbarLink[] = [
     icon: <ConsoleIcon />,
     label: "API Reference",
     href: "/reference",
+  },
+  {
+    icon: <BookOpenIcon size={16} />,
+    label: "Learn",
+    href: "/learn",
   },
   {
     icon: <CloudIcon />,
@@ -82,8 +88,13 @@ const Navbar = ({ pageTree }: NavbarProps) => {
   // Determine active route based on current path
   const firstSegment = pathname === "/" ? "/" : `/${pathname.split("/")[1]}`;
   const isReferencePage = firstSegment === "/reference";
-  // Reference pages → /reference, Everything else (root + integrations) → /
-  const activeRoute = isReferencePage ? "/reference" : "/";
+  const isLearnPage = firstSegment === "/learn";
+  // Reference pages → /reference, Learn pages → /learn, Everything else (root + integrations) → /
+  const activeRoute = isReferencePage
+    ? "/reference"
+    : isLearnPage
+      ? "/learn"
+      : "/";
 
   // Get the appropriate href for Documentation link
   const getDocumentationHref = () => {
@@ -140,6 +151,7 @@ const Navbar = ({ pageTree }: NavbarProps) => {
                 // Hide icons for Documentation and API Reference at very narrow widths
                 const hideIconAtNarrow =
                   link.label === "Documentation" ||
+                  link.label === "Learn" ||
                   link.label === "API Reference";
                 // Use dynamic href for Documentation link
                 const href =

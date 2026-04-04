@@ -1,6 +1,5 @@
 {
   "title": "Generative UI",
   "icon": "lucide/Paintbrush",
-  "defaultOpen": true,
-  "pages": ["backend-tools", "frontend-tools", "agentic"]
+  "pages": ["your-components", "tool-rendering", "state-rendering", "mcp-apps", "a2ui"]
 }

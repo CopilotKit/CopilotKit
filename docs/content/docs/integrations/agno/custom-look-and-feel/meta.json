@@ -1,10 +1,1 @@
-{
-  "title": "Custom Look and Feel",
-  "icon": "lucide/LayoutDashboard",
-  "pages": [
-    "customize-built-in-ui-components",
-    "bring-your-own-components",
-    "headless-ui",
-    "markdown-rendering"
-  ]
-}
+{"title": "Custom Look and Feel", "icon": "lucide/LayoutDashboard", "pages": ["slots", "headless-ui"]}

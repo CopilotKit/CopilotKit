@@ -1,0 +1,62 @@
+import { IframeSwitcher } from "@/components/content"
+
+<IframeSwitcher
+  id="frontend-tools-based-hitl-example"
+  exampleUrl="https://feature-viewer.copilotkit.ai/langgraph/feature/human_in_the_loop?sidebar=false&chatDefaultOpen=false"
+  codeUrl="https://feature-viewer.copilotkit.ai/langgraph/feature/human_in_the_loop?view=code&sidebar=false&codeLayout=tabs"
+  exampleLabel="Demo"
+  codeLabel="Code"
+  height="700px"
+/>
+
+## What is this?
+
+Frontend tools enable you to define client-side functions that your agent can invoke, with execution happening entirely in the user's browser. When your agent calls a frontend tool, the logic runs on the client side, giving you direct access to the frontend environment.
+
+This can be utilized for UI control, generative UI, or Human-in-the-loop interactions. In this guide, we cover the use of frontend tools for Human-in-the-loop.
+
+## When should I use this?
+
+Use frontend tools when you need your agent to interact with client-side primitives such as:
+- Reading or modifying React component state
+- Accessing browser APIs like localStorage, sessionStorage, or cookies
+- Triggering UI updates or animations
+- Interacting with third-party frontend libraries
+- Performing actions that require the user's immediate browser context
+
+## Create a frontend human-in-the-loop tool
+
+Frontend tools can be leveraged in a variety of ways. One of those ways is to have a human-in-the-loop flow where the response of the tool is gated by a user's decision.
+
+In this example we will simulate an "approval" flow for executing a command. Use the `useHumanInTheLoop` hook to create a tool that prompts the user for approval.
+
+```tsx title="page.tsx"
+import { useHumanInTheLoop } from "@copilotkit/react-core/v2" // [!code highlight]
+import { z } from "zod";
+
+export function Page() {
+  // ...
+
+  // [!code highlight:20]
+  useHumanInTheLoop({
+    name: "humanApprovedCommand",
+    description: "Ask human for approval to run a command.",
+    parameters: z.object({
+      command: z.string().describe("The command to run"),
+    }),
+    render: ({ args, respond, status }) => {
+      if (status !== "executing") return <></>;
+      return (
+        <div>
+          <pre>{args.command}</pre>
+          {/* [!code highlight:2] */}
+          <button onClick={() => respond?.(`Command is APPROVED`)}>Approve</button>
+          <button onClick={() => respond?.(`Command is DENIED`)}>Deny</button>
+        </div>
+      );
+    },
+  });
+
+  // ...
+}
+```

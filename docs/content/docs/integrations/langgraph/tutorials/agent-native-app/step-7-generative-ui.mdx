@@ -85,7 +85,7 @@ you want to emit state to the frontend, you can do so by calling `copilotkit_emi
 Now, our state is being emitted to the frontend. However, we need to render it in the chat. To do this, we'll be using the `useCoAgentStateRender` hook.
 
 ```tsx title="frontend/src/app/layout.tsx"
-import { useCoAgentStateRender, useLangGraphInterrupt } from "@copilotkit/react-core"; // [!code ++]
+import { useCoAgentStateRender, useLangGraphInterrupt } from "@copilotkit/react-core/v2"; // [!code ++]
 
 export default function HomePage() {
     //...

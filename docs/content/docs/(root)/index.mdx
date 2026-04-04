@@ -1,388 +1,117 @@
 ---
-title: Introduction to CopilotKit
-description: "The Agentic Application Platform:  Open source framework and Cloud or self-hosted services for building AI-powered agentic applications."
+title: Overview
+description: "The Agentic Application Platform: Open source framework and Cloud or self-hosted services for building AI-powered agentic applications."
 icon: "lucide/Sparkles"
 hideTOC: true
+hideHeader: true
 ---
 
-import Image from "next/image"
-import { ImageZoom } from "fumadocs-ui/components/image-zoom"
-import { ExamplesCarousel } from "@/components/react/examples-carousel"
-import { CTACards } from "@/components/react/cta-cards"
-import { YouTubeVideo } from "@/components/react/youtube-video"
-import { MdMessage } from "react-icons/md"
-import { TbSparkles } from "react-icons/tb"
-import { SiLangchain } from "react-icons/si"
-import { AG2Icon } from "@/lib/icons/custom-icons"
-import { SiCrewai } from "@icons-pack/react-simple-icons"
-import {
-  FileSpreadsheet,
-  Banknote,
-  Plane,
-  BookOpen,
-  Telescope,
-  Play,
-  ExternalLink,
-  MessageSquare,
-  Settings,
-  CopyCheck,
-  Wrench,
-  Server,
-  Activity,
-  SearchCheck,
-} from "lucide-react"
-import { Accordions } from "fumadocs-ui/components/accordion"
-import { Accordion } from "fumadocs-ui/components/accordion"
-import { LinkToCopilotCloud } from "@/components/react/link-to-copilot-cloud"
-import { QuickstartDropdown } from "@/components/react/quickstart-dropdown"
-import { IntegrationsGrid } from "@/components/react/integrations"
-import { MaximizableVideo } from "@/components/react/maximizable-video"
-import { CopilotKitHero } from "@/components/branding/CopilotKitHero"
+import { MessageSquare, Layers, Code, Bot, Server, BookOpen, Play, Book } from "lucide-react"
+import LandingCodeShowcase from "@/snippets/landing-code-showcase.mdx"
+import { IntegrationGrid } from "@/components/content/integration-grid"
+import { LazyIframe } from "@/components/content/lazy-iframe"
 
-<div className="grid grid-cols-1 2xl:grid-cols-2 2xl:gap-2 2xl:items-center">
-  <div>
-    # What is CopilotKit?
-    CopilotKit is the Agentic Application Platform — an open-source framework with cloud or self-hosted services for building AI-powered, user-facing agentic applications.
+{/* ── Hero ── */}
 
-    CopilotKit connects your application’s logic, state, UI, and context to agentic backends, enabling interactive experiences across embedded UIs and headless interfaces. 
-    
-    Teams use CopilotKit to build, deploy, and operate agentic features that feel deeply integrated into their products.
+## Welcome to CopilotKit!
 
-  </div>
-  <div>
-    <video src="https://cdn.copilotkit.ai/docs/copilotkit/videos/coagents/overview.mp4" autoPlay controls loop muted playsInline className="rounded-xl shadow-lg mx-auto mt-auto w-5/6" />
-    <div className="text-center text-sm text-muted-foreground mt-4">
-      Starter app from running <code className="text-primary text-nowrap">npx copilotkit@latest init</code><br />
-      demonstrating key features of CopilotKit.
-    </div>
-  </div>
-  <div>
-    ## Use Any Agentic Backend, Framework and Protocol
+CopilotKit is the __frontend stack for agents__ and __generative UI__. Connect any agent framework or model to your React app for __chat__, __generative UI__, __canvas apps__, and __human-in-the-loop__ workflows.
 
-    CopilotKit connects to any agentic backend directly or via any of the [Agentic Protocols](./agentic-protocols) (AG-UI, MCP, or A2A).
+Look below to find right guide for your needs, whether you're starting from nothing or have existing agent you want to give a prebuilt chat UI or fully custom UI.
 
-    CopilotKit also provides integrations with many prominent Agent Frameworks (through the [AG-UI](./ag-ui-protocol) protocol).
-
-    By decoupling from specific frameworks, models, or agent protocols, CopilotKit lets you evolve your AI stack without redesigning your app's UX.
-
-  </div>
-  <div className="w-full max-w-2xl mx-auto">
-    <Image 
-      src="/images/agentic-backend-agentic-application-light.png" 
-      alt="Agentic Backend to Agentic Application" 
-      width={4096} 
-      height={2304}
-      className="block dark:hidden"
-    />
-    <Image 
-      src="/images/agentic-backend-agentic-application-dark.png" 
-      alt="Agentic Backend to Agentic Application" 
-      width={4096} 
-      height={2304}
-      className="hidden dark:block"
-    />
-  </div>
-
-</div>
-<div className="mb-16 text-center">
-  <h2 className="text-4xl font-bold mb-4 text-foreground">Choose your Integration</h2>
-  <div className="w-24 h-1 bg-gradient-to-r from-primary to-primary mx-auto mt-6 rounded-full"></div>
-</div>
-
-<IntegrationsGrid />
-
-<div className="mb-16 text-center">
-  <h2 className="text-4xl font-bold mb-4 text-foreground">Get Started Now</h2>
-  <div className="w-24 h-1 bg-gradient-to-r from-primary to-primary mx-auto mt-6 rounded-full"></div>
-</div>
-<div className="grid grid-cols-1 xl:grid-cols-10 gap-6 mb-12 justify-items-center">
-  <div className="xl:col-span-3 w-full max-w-sm xl:max-w-none border-2 border-border px-6 pt-1 pb-4 rounded-xl text-center transition-colors min-h-[180px] flex flex-col justify-between">
+<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 not-prose mb-10 mt-10">
+  <a href="/quickstart" className="group flex items-start gap-3 bg-card border border-border/80 rounded-lg p-4 no-underline hover:border-primary/60 hover:bg-accent/50 transition-colors shadow-sm">
+    <Play className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
     <div>
-      <h3 className="text-xl font-bold mb-3 text-foreground">Quickstart</h3>
-      <div className="text-sm text-muted-foreground mb-8">Start with an LLM<br /> or Agent Framework</div>
+      <div className="font-semibold text-foreground group-hover:text-primary mb-1">Quickstart</div>
+      <div className="text-sm text-muted-foreground leading-relaxed">Get up and running in minutes.</div>
     </div>
-    <div className="h-12 flex items-center justify-center">
-      <QuickstartDropdown />
-    </div>
-  </div>
-  <div className="xl:col-span-4 w-full max-w-sm xl:max-w-none border-2 border-border px-6 pt-1 pb-4 rounded-xl text-center transition-colors min-h-[180px] flex flex-col justify-between">
+  </a>
+  <a href="/reference" className="group flex items-start gap-3 bg-card border border-border/80 rounded-lg p-4 no-underline hover:border-primary/60 hover:bg-accent/50 transition-colors shadow-sm">
+    <Book className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
     <div>
-      <h3 className="text-xl font-bold mb-3 text-foreground">CLI</h3>
-      <div className="text-sm text-muted-foreground mb-4">Bootstrap your NextJS<br />application with CopilotKit</div>
+      <div className="font-semibold text-foreground group-hover:text-primary mb-1">API Reference</div>
+      <div className="text-sm text-muted-foreground leading-relaxed">Hooks, components, and config.</div>
     </div>
-    <div className="h-12 flex items-center justify-center">
-      
-```bash
-npx copilotkit@latest init
-```
-    </div>
-  </div>
-  <div className="xl:col-span-3 w-full max-w-sm xl:max-w-none border-2 border-border px-6 pt-1 pb-4 rounded-xl text-center transition-colors min-h-[180px] flex flex-col justify-between">
+  </a>
+  <a href="/prebuilt-components" className="group flex items-start gap-3 bg-card border border-border/80 rounded-lg p-4 no-underline hover:border-primary/60 hover:bg-accent/50 transition-colors shadow-sm">
+    <MessageSquare className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
     <div>
-      <h3 className="text-xl font-bold mb-3 text-foreground">Cloud</h3>
-      <div className="text-sm text-muted-foreground mb-4">Start the easiest way<br /> with our hosted service</div>
+      <div className="font-semibold text-foreground group-hover:text-primary mb-1">Chat UI</div>
+      <div className="text-sm text-muted-foreground leading-relaxed">Prebuilt chat with streaming.</div>
     </div>
-    <div className="h-12 flex items-center justify-center">
-      <LinkToCopilotCloud asButton={true} />
+  </a>
+  <a href="/generative-ui/your-components/display-only" className="group flex items-start gap-3 bg-card border border-border/80 rounded-lg p-4 no-underline hover:border-primary/60 hover:bg-accent/50 transition-colors shadow-sm">
+    <Layers className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
+    <div>
+      <div className="font-semibold text-foreground group-hover:text-primary mb-1">Generative UI</div>
+      <div className="text-sm text-muted-foreground leading-relaxed">Render tools as React components.</div>
     </div>
-  </div>
-  
+  </a>
 </div>
 
-<div className="mb-16 text-center">
-  <h2 className="text-4xl font-bold mb-4 text-foreground">
-    CopilotKit Features
-  </h2>
-  <div className="text-lg text-muted-foreground max-w-3xl mx-auto">
-    Everything you need to build interactive, agent-powered applications
-  </div>
-  <div className="w-24 h-1 bg-gradient-to-r from-primary to-primary mx-auto mt-6 rounded-full"></div>
-</div>
+{/* ── Code Examples ── */}
+<LandingCodeShowcase components={props.components}/>
 
-<div className="space-y-24">
-  <div className="border-b border-border pb-24">
-    <div className="grid lg:grid-cols-5 gap-12 items-start">
-      <div className="lg:col-span-2">
-        <div className="mb-4">
-          <h3 className="text-2xl font-bold mb-2 text-foreground">Generative UI</h3>
-          <div className="w-12 h-0.5 bg-gradient-to-r from-primary to-primary rounded-full"></div>
-        </div>
-        <div className="text-muted-foreground leading-relaxed mb-6">
-          Render state, progress, outputs, and tool calls with custom UI components in real-time. Bridges the gap between AI agents and user interfaces.
-        </div>
-        <div className="space-y-3">
-          <a href="/generative-ui" className="block text-primary hover:text-primary font-medium no-underline">
-            Learn more →
-          </a>
-          <a href="https://feature-viewer.copilotkit.ai/langgraph/feature/tool_based_generative_ui" className="block text-muted-foreground hover:text-foreground text-sm flex items-center gap-2 no-underline">
-            <ExternalLink className="h-4 w-4" />
-            Live demo
-          </a>
-        </div>
-      </div>
-      <div className="lg:col-span-3">
-        <video src="https://cdn.copilotkit.ai/docs/copilotkit/videos/coagents/haiku.mp4" className="w-full rounded-lg border shadow-lg" controls autoPlay muted loop playsInline />
-      </div>
+---
+
+{/* ── Explore by feature ── */}
+
+## Explore by feature
+
+<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-12 gap-y-8 mt-6 mb-16 not-prose">
+  <a href="/prebuilt-components" className="group flex items-start gap-4 no-underline">
+    <div className="flex-shrink-0 mt-1"><MessageSquare className="h-6 w-6 text-primary" /></div>
+    <div>
+      <div className="font-semibold text-foreground group-hover:text-primary transition-colors">Chat UI &rsaquo;</div>
+      <div className="text-sm text-muted-foreground leading-relaxed mt-0.5">Prebuilt chat components with streaming, tool calls, and markdown.</div>
     </div>
-  </div>
-
-{" "}
-
-<div className="border-b border-border pb-24">
-  <div className="grid lg:grid-cols-5 gap-12 items-start">
-    <div className="lg:col-span-2">
-      <div className="mb-4">
-        <h3 className="text-2xl font-bold mb-2 text-foreground">
-          Human in the Loop
-        </h3>
-        <div className="w-12 h-0.5 bg-gradient-to-r from-primary to-primary rounded-full"></div>
-      </div>
-      <div className="text-muted-foreground leading-relaxed mb-6">
-        Empower users to guide agents at key checkpoints. Combine the best of AI
-        and human judgment for more reliable and controllable agent behavior.
-      </div>
-      <div className="space-y-3">
-        <a
-          href="/human-in-the-loop"
-          className="block text-primary hover:text-primary font-medium no-underline"
-        >
-          Learn more →
-        </a>
-        <a
-          href="https://examples-coagents-ai-travel-app.vercel.app/"
-          className="block text-muted-foreground hover:text-foreground text-sm flex items-center gap-2 no-underline"
-        >
-          <ExternalLink className="h-4 w-4" />
-          Live demo
-        </a>
-      </div>
+  </a>
+  <a href="/headless" className="group flex items-start gap-4 no-underline">
+    <div className="flex-shrink-0 mt-1"><Code className="h-6 w-6 text-primary" /></div>
+    <div>
+      <div className="font-semibold text-foreground group-hover:text-primary transition-colors">Headless UI &rsaquo;</div>
+      <div className="text-sm text-muted-foreground leading-relaxed mt-0.5">Full rendering control via hooks — zero opinions on design.</div>
     </div>
-    <div className="lg:col-span-3">
-      <video
-        src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/human-in-the-loop-example.mp4"
-        className="w-full rounded-lg border shadow-lg"
-        controls
-        autoPlay
-        muted
-        loop
-        playsInline
-      />
+  </a>
+  <a href="/generative-ui/your-components/display-only" className="group flex items-start gap-4 no-underline">
+    <div className="flex-shrink-0 mt-1"><Layers className="h-6 w-6 text-primary" /></div>
+    <div>
+      <div className="font-semibold text-foreground group-hover:text-primary transition-colors">Generative UI &rsaquo;</div>
+      <div className="text-sm text-muted-foreground leading-relaxed mt-0.5">Render agent tools and state as interactive React components.</div>
     </div>
-  </div>
-</div>
-
-  <div>
-    <div className="grid lg:grid-cols-5 gap-12 items-start">
-      <div className="lg:col-span-2">
-        <div className="mb-4">
-          <h3 className="text-2xl font-bold mb-2 text-foreground">Shared State</h3>
-          <div className="w-12 h-0.5 bg-gradient-to-r from-primary to-primary rounded-full"></div>
-        </div>
-        <div className="text-muted-foreground leading-relaxed mb-6">
-          Keep your agent and your app in sync. Your agent can see everything in your app, and your app can react to your agent in real-time.
-        </div>
-        <div className="space-y-3">
-          <a href="/shared-state" className="block text-primary hover:text-primary font-medium no-underline">
-            Learn more →
-          </a>
-          <a href="https://feature-viewer.copilotkit.ai/langgraph/feature/shared_state" className="block text-muted-foreground hover:text-foreground text-sm flex items-center gap-2 no-underline">
-            <ExternalLink className="h-4 w-4" />
-            Live demo
-          </a>
-        </div>
-      </div>
-      <div className="lg:col-span-3">
-        <video src="https://cdn.copilotkit.ai/docs/copilotkit/videos/coagents/shared-state.mp4" className="w-full rounded-lg border shadow-lg" controls autoPlay muted loop playsInline />
-      </div>
+  </a>
+  <a href="/backend" className="group flex items-start gap-4 no-underline">
+    <div className="flex-shrink-0 mt-1"><Server className="h-6 w-6 text-primary" /></div>
+    <div>
+      <div className="font-semibold text-foreground group-hover:text-primary transition-colors">Backend &amp; Runtime &rsaquo;</div>
+      <div className="text-sm text-muted-foreground leading-relaxed mt-0.5">Set up the CopilotKit runtime, AG-UI middleware, and endpoints.</div>
     </div>
-  </div>
+  </a>
+  <a href="/programmatic-control" className="group flex items-start gap-4 no-underline">
+    <div className="flex-shrink-0 mt-1"><Bot className="h-6 w-6 text-primary" /></div>
+    <div>
+      <div className="font-semibold text-foreground group-hover:text-primary transition-colors">Programmatic Control &rsaquo;</div>
+      <div className="text-sm text-muted-foreground leading-relaxed mt-0.5">Build non-chat or fully custom experiences.</div>
+    </div>
+  </a>
+  <a href="/reference" className="group flex items-start gap-4 no-underline">
+    <div className="flex-shrink-0 mt-1"><BookOpen className="h-6 w-6 text-primary" /></div>
+    <div>
+      <div className="font-semibold text-foreground group-hover:text-primary transition-colors">API Reference &rsaquo;</div>
+      <div className="text-sm text-muted-foreground leading-relaxed mt-0.5">Complete reference for hooks, components, and configuration.</div>
+    </div>
+  </a>
 </div>
 
-<div className="my-24">
-  <h3 className="text-2xl font-bold mb-8 text-center text-foreground">
-    And More
-  </h3>
-  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-    <a
-      href="/agentic-chat-ui"
-      className="border border-border rounded-lg p-6 hover:border-primary transition-colors no-underline group"
-    >
-      <div className="flex items-center gap-2 mb-2">
-        <MessageSquare className="h-5 w-5 text-primary" />
-        <h4 className="font-semibold text-foreground group-hover:text-primary">
-          Agentic Chat UI
-        </h4>
-      </div>
-      <div className="text-sm text-muted-foreground">
-        Build conversational AI interfaces with built-in chat components.
-      </div>
-    </a>
-    <a
-      href="/direct-to-llm/guides/custom-look-and-feel"
-      className="border border-border rounded-lg p-6 hover:border-primary transition-colors no-underline group"
-    >
-      <div className="flex items-center gap-2 mb-2">
-        <Settings className="h-5 w-5 text-primary" />
-        <h4 className="font-semibold text-foreground group-hover:text-primary">
-          Custom Look and Feel
-        </h4>
-      </div>
-      <div className="text-sm text-muted-foreground">
-        Customize the look, feel, and functionality of CopilotKit's UI
-        components.
-      </div>
-    </a>
-    <a
-      href="/copilot-suggestions"
-      className="border border-border rounded-lg p-6 hover:border-primary transition-colors no-underline group"
-    >
-      <div className="flex items-center gap-2 mb-2">
-        <CopyCheck className="h-5 w-5 text-primary" />
-        <h4 className="font-semibold text-foreground group-hover:text-primary">
-          Copilot Suggestions
-        </h4>
-      </div>
-      <div className="text-sm text-muted-foreground">
-        Auto-generate contextual suggestions based on real-time application
-        state.
-      </div>
-    </a>
-    <a
-      href="/frontend-actions"
-      className="border border-border rounded-lg p-6 hover:border-primary transition-colors no-underline group"
-    >
-      <div className="flex items-center gap-2 mb-2">
-        <Wrench className="h-5 w-5 text-primary" />
-        <h4 className="font-semibold text-foreground group-hover:text-primary">
-          Frontend Actions
-        </h4>
-      </div>
-      <div className="text-sm text-muted-foreground">
-        Let agents interact with and control your frontend application.
-      </div>
-    </a>
-    <a
-      href="/backend-actions"
-      className="border border-border rounded-lg p-6 hover:border-primary transition-colors no-underline group"
-    >
-      <div className="flex items-center gap-2 mb-2">
-        <Server className="h-5 w-5 text-primary" />
-        <h4 className="font-semibold text-foreground group-hover:text-primary">
-          Backend Actions
-        </h4>
-      </div>
-      <div className="text-sm text-muted-foreground">
-        Connect your agents to backend services and APIs.
-      </div>
-    </a>
-    <a
-      href="/custom-look-and-feel/headless-ui"
-      className="border border-border rounded-lg p-6 hover:border-primary transition-colors no-underline group"
-    >
-      <div className="flex items-center gap-2 mb-2">
-        <Settings className="h-5 w-5 text-primary" />
-        <h4 className="font-semibold text-foreground group-hover:text-primary">
-          Headless UI
-        </h4>
-      </div>
-      <div className="text-sm text-muted-foreground">
-        Fully customize your Copilot's UI from the ground up using headless UI.
-      </div>
-    </a>
-    <a
-      href="/premium/observability"
-      className="border border-border rounded-lg p-6 hover:border-primary transition-colors no-underline group"
-    >
-      <div className="flex items-center gap-2 mb-2">
-        <Activity className="h-5 w-5 text-primary" />
-        <h4 className="font-semibold text-foreground group-hover:text-primary">
-          Observability
-        </h4>
-      </div>
-      <div className="text-sm text-muted-foreground">
-        Monitor your CopilotKit application with comprehensive observability
-        hooks.
-      </div>
-    </a>
-    <a
-      href="/premium/inspector"
-      className="border border-border rounded-lg p-6 hover:border-primary transition-colors no-underline group"
-    >
-      <div className="flex items-center gap-2 mb-2">
-        <SearchCheck className="h-5 w-5 text-primary" />
-        <h4 className="font-semibold text-foreground group-hover:text-primary">
-          Inspector
-        </h4>
-      </div>
-      <div className="text-sm text-muted-foreground">
-        Debug and inspect your CopilotKit application in real-time.
-      </div>
-    </a>
-  </div>
-</div>
+{/* ── Integrations ── */}
 
-import { LiveDemoViewer } from "@/components/react/live-demo-viewer"
+## Explore by AI backend
 
-<div className="text-center mb-8">
-  <h2 className="text-4xl font-bold mb-4 text-foreground">Live Demos</h2>
-</div>
+<IntegrationGrid />
 
-<LiveDemoViewer
-  demos={[
-    {
-      type: "saas",
-      title: "SaaS Copilot",
-      description:
-        "A traditional SaaS application enhanced with AI agents. These copilots integrate seamlessly into existing workflows, providing intelligent assistance for specific business processes. Perfect for customer service, sales automation, project management, and domain-specific tasks where users need guided, step-by-step AI assistance.",
-      iframeUrl:
-        "https://examples-coagents-ai-travel-app.vercel.app?copilotOpen=true",
-    },
-    {
-      type: "canvas",
-      title: "Canvas Copilot",
-      description:
-        "An infinite canvas interface where users collaborate with AI agents in a spatial, visual environment. These copilots excel at research, brainstorming, content creation, and complex problem-solving where information needs to be organized, connected, and explored in a non-linear, creative way.",
-      iframeUrl: "https://examples-coagents-research-canvas-ui.vercel.app/",
-    },
-  ]}
-/>
+## Feature comparison (by framework)
+
+import { FeatureMatrix } from "@/components/react/feature-matrix"
+
+<FeatureMatrix />

@@ -129,12 +129,12 @@ Before you begin, you'll need the following:
 
                         ```bash title="agent/.env (OpenAI)"
                         OPENAI_API_KEY=sk-...your-openai-key-here...
-                        OPENAI_CHAT_MODEL_ID=gpt-4o-mini
+                        OPENAI_CHAT_MODEL_ID=gpt-5.2-mini
                         ```
 
                         ```bash title="agent/.env (Azure OpenAI)"
                         AZURE_OPENAI_ENDPOINT=https://your-resource.openai.azure.com/
-                        AZURE_OPENAI_CHAT_DEPLOYMENT_NAME=gpt-4o-mini
+                        AZURE_OPENAI_CHAT_DEPLOYMENT_NAME=gpt-5.2-mini
                         # If you are not relying on az login:
                         # AZURE_OPENAI_API_KEY=...
                         ```
@@ -214,7 +214,7 @@ Before you begin, you'll need the following:
                                 Endpoint = new Uri("https://models.inference.ai.azure.com")
                             });
 
-                        var chatClient = openAI.GetChatClient("gpt-4o-mini").AsIChatClient();
+                        var chatClient = openAI.GetChatClient("gpt-5.2-mini").AsIChatClient();
                         var agent = new ChatClientAgent(
                             chatClient,
                             name: "MyAgent",
@@ -257,7 +257,7 @@ Before you begin, you'll need the following:
 
                         def _build_chat_client() -> ChatClientProtocol:
                             if bool(os.getenv("AZURE_OPENAI_ENDPOINT")):
-                                deployment_name = os.getenv("AZURE_OPENAI_CHAT_DEPLOYMENT_NAME", "gpt-4o-mini")
+                                deployment_name = os.getenv("AZURE_OPENAI_CHAT_DEPLOYMENT_NAME", "gpt-5.2-mini")
                                 return AzureOpenAIChatClient(
                                     credential=DefaultAzureCredential(),
                                     deployment_name=deployment_name,
@@ -266,7 +266,7 @@ Before you begin, you'll need the following:
 
                             if bool(os.getenv("OPENAI_API_KEY")):
                                 return OpenAIChatClient(
-                                    model_id=os.getenv("OPENAI_CHAT_MODEL_ID", "gpt-4o-mini"),
+                                    model_id=os.getenv("OPENAI_CHAT_MODEL_ID", "gpt-5.2-mini"),
                                     api_key=os.getenv("OPENAI_API_KEY"),
                                 )
 
@@ -297,10 +297,10 @@ Before you begin, you'll need the following:
                         ```bash
                         # OpenAI (agent/.env)
                         OPENAI_API_KEY=sk-...your-openai-key-here...
-                        OPENAI_CHAT_MODEL_ID=gpt-4o-mini
+                        OPENAI_CHAT_MODEL_ID=gpt-5.2-mini
                         # or Azure OpenAI (agent/.env)
                         AZURE_OPENAI_ENDPOINT=https://your-resource.openai.azure.com/
-                        AZURE_OPENAI_CHAT_DEPLOYMENT_NAME=gpt-4o-mini
+                        AZURE_OPENAI_CHAT_DEPLOYMENT_NAME=gpt-5.2-mini
                         # (optional) AZURE_OPENAI_API_KEY=...
 
                         # Run the agent
@@ -378,8 +378,8 @@ Before you begin, you'll need the following:
                 via the Microsoft Agent Framework agent.
 
                 ```tsx title="app/layout.tsx"
-                import { CopilotKit } from "@copilotkit/react-core"; // [!code highlight]
-                import "@copilotkit/react-ui/styles.css";
+                import { CopilotKit } from "@copilotkit/react-core/v2"; // [!code highlight]
+                import "@copilotkit/react-ui/v2/styles.css";
 
                 export default function RootLayout({ children }: {children: React.ReactNode}) {
                   return (
@@ -404,7 +404,7 @@ Before you begin, you'll need the following:
               "use client";
 
               // [!code highlight:1]
-              import { CopilotSidebar } from "@copilotkit/react-ui";
+              import { CopilotSidebar } from "@copilotkit/react-core/v2";
 
               export default function Page() {
                 return (
@@ -412,8 +412,8 @@ Before you begin, you'll need the following:
                     {/* [!code highlight:6] */}
                     <CopilotSidebar
                       labels={{
-                        title: "Your Assistant",
-                        initial: "Hi! How can I help you today?",
+                        modalHeaderTitle: "Your Assistant",
+                        welcomeMessageText: "Hi! How can I help you today?",
                       }}
                     />
                     <h1>Your App</h1>
@@ -525,13 +525,13 @@ Now that you have your basic agent setup, explore these advanced features:
   <Card
     title="Add some generative UI"
     description="Render your agent's progress and output in the UI."
-    href="/microsoft-agent-framework/generative-ui"
+    href="/microsoft-agent-framework/generative-ui/tool-rendering"
     icon={<PaintbrushIcon />}
   />
   <Card
     title="Setup frontend actions"
     description="Give your agent the ability to call frontend tools, directly updating your application."
-    href="/microsoft-agent-framework/frontend-actions"
+    href="/microsoft-agent-framework/frontend-tools"
     icon={<WrenchIcon />}
   />
 </Cards>

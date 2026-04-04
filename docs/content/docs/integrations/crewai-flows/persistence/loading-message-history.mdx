@@ -29,7 +29,7 @@ for a concrete example.
 To load an existing thread in CopilotKit, set the `threadId` property on `<CopilotKit>`:
 
 ```tsx
-import { CopilotKit } from "@copilotkit/react-core";
+import { CopilotKit } from "@copilotkit/react-core/v2";
 
 <CopilotKit threadId="37aa68d0-d15b-45ae-afc1-0ba6c3e11353">
   <YourApp />
@@ -42,7 +42,7 @@ You can make the `threadId` dynamic. Once set, CopilotKit will load previous mes
 
 ```tsx
 import { useState } from "react";
-import { CopilotKit } from "@copilotkit/react-core";
+import { CopilotKit } from "@copilotkit/react-core/v2";
 
 const Page = () => {
   const [threadId, setThreadId] = useState(
@@ -69,7 +69,7 @@ const YourApp = ({ setThreadId }) => {
 CopilotKit provides the current `threadId` and a `setThreadId` function from the `useCopilotContext` hook:
 
 ```tsx
-import { useCopilotContext } from "@copilotkit/react-core";
+import { useCopilotContext } from "@copilotkit/react-core/v2";
 
 const ChangeThreadButton = () => {
   const { threadId, setThreadId } = useCopilotContext();

@@ -7,7 +7,7 @@ import AdkIcon from "../icons/adk";
 import Ag2Icon from "../icons/ag2";
 import AgnoIcon from "../icons/agno";
 import CrewaiIcon from "../icons/crewai";
-import DirectToLlmIcon from "../icons/direct-to-llm";
+import CopilotKitMarkIcon from "../icons/copilotkit-mark";
 import LanggraphIcon from "../icons/langgraph";
 import LlamaIndexIcon from "../icons/llama-index";
 import MastraIcon from "../icons/mastra";
@@ -37,20 +37,19 @@ const INTEGRATION_ICONS: Record<
   IntegrationId,
   ComponentType<{ className?: string }>
 > = {
-  a2a: A2AIcon,
-  adk: AdkIcon,
-  ag2: Ag2Icon,
-  "agent-spec": AgentSpecMarkIcon,
-  agno: AgnoIcon,
-  "crewai-flows": CrewaiIcon,
-  "crewai-crews": CrewaiIcon,
-  "direct-to-llm": DirectToLlmIcon,
+  "built-in-agent": CopilotKitMarkIcon,
   langgraph: LanggraphIcon,
-  llamaindex: LlamaIndexIcon,
-  mastra: MastraIcon,
-  "pydantic-ai": PydanticAiIcon,
+  adk: AdkIcon,
   "microsoft-agent-framework": MicrosoftIcon,
   "aws-strands": AwsStrandsIcon,
+  mastra: MastraIcon,
+  "pydantic-ai": PydanticAiIcon,
+  "crewai-flows": CrewaiIcon,
+  agno: AgnoIcon,
+  ag2: Ag2Icon,
+  "agent-spec": AgentSpecMarkIcon,
+  llamaindex: LlamaIndexIcon,
+  a2a: A2AIcon,
 };
 
 // Build integration options from canonical order
@@ -97,7 +96,12 @@ const IntegrationSelector = ({
   useEffect(() => {
     const persistedSelection = sessionStorage.getItem("selectedIntegration");
     if (persistedSelection && persistedSelection !== "null") {
-      setSelectedIntegration(persistedSelection as Integration);
+      // Validate against current integration list to avoid stale values
+      if (INTEGRATION_ORDER.includes(persistedSelection as IntegrationId)) {
+        setSelectedIntegration(persistedSelection as Integration);
+      } else {
+        sessionStorage.removeItem("selectedIntegration");
+      }
     }
   }, [setSelectedIntegration]);
 
@@ -135,7 +139,7 @@ const IntegrationSelector = ({
   }, [selectedIntegration]);
 
   const integration = selectedIntegration
-    ? INTEGRATION_OPTIONS[selectedIntegration]
+    ? (INTEGRATION_OPTIONS[selectedIntegration] ?? DEFAULT_INTEGRATION)
     : DEFAULT_INTEGRATION;
 
   const { Icon } = integration;
@@ -271,13 +275,13 @@ const IntegrationSelector = ({
       </div>
 
       {isOpen && (
-        <div className="absolute top-full left-0 w-full max-w-[275px] bg-[#F7F7FA] shadow-2xl dark:bg-[#0C1112] border border-border rounded-lg p-1 z-30 max-h-[calc(100vh-200px)] overflow-y-auto custom-scrollbar">
+        <div className="absolute top-full left-0 w-full max-w-[240px] bg-[#F7F7FA] shadow-2xl dark:bg-[#0C1112] border border-border rounded-lg p-1 z-30 max-h-[calc(100vh-200px)] overflow-y-auto custom-scrollbar">
           {visibleIntegrations.map(
             ([key, { label, Icon: OptionIcon, href }]) => (
               <Link
                 key={href}
                 href={href}
-                className={`flex gap-2 justify-between items-center p-1 rounded-lg cursor-pointer group pr-3 ${
+                className={`flex gap-2 justify-between items-center px-2 py-1.5 rounded-md cursor-pointer group ${
                   integration.href === href
                     ? "bg-[#BEC2FF33] dark:bg-[#7076D533]"
                     : "hover:bg-[#0C1112]/5 dark:hover:bg-white/5"
@@ -286,20 +290,20 @@ const IntegrationSelector = ({
                   handleIntegrationClick(e, key as Integration, href)
                 }
               >
-                <div className="flex gap-4 items-center">
+                <div className="flex gap-2.5 items-center">
                   <div
-                    className={`flex justify-center items-center w-10 h-10 shrink-0 rounded-md transition-all duration-200 ${
+                    className={`flex justify-center items-center w-7 h-7 shrink-0 rounded transition-all duration-200 ${
                       integration.href === href
                         ? "bg-[#BEC2FF] dark:bg-[#7076D5]"
                         : "bg-[#0C1112]/5 dark:bg-white/5 group-hover:bg-[#0C1112]/10 dark:group-hover:bg-white/5"
                     }`}
                   >
-                    <OptionIcon className="text-[#0C1112] dark:text-white dark:group-hover:text-white transition-all duration-200" />
+                    <OptionIcon className="w-4 h-4 text-[#5C64DA] dark:text-[#BEC2FF] transition-all duration-200" />
                   </div>
-                  <span className="text-sm font-medium">{label}</span>
+                  <span className="text-xs font-medium">{label}</span>
                 </div>
                 {integration.href === href && (
-                  <CheckIcon className="text-[#5C64DA] dark:text-[#7076D5]" />
+                  <CheckIcon className="w-3.5 h-3.5 text-[#5C64DA] dark:text-[#7076D5]" />
                 )}
               </Link>
             ),

@@ -1006,4 +1006,297 @@ describe("MCP Apps Activity Renderer E2E", () => {
       });
     });
   });
+
+  describe("ui/message handler", () => {
+    /**
+     * Extended mock agent that auto-completes non-proxied runs after setup,
+     * so that runAgent calls from the ui/message handler resolve immediately
+     * instead of hanging on the Subject observable.
+     */
+    class MockUIMessageAgent extends MockMCPProxyAgent {
+      // When true, non-proxied runAgent calls are tracked and auto-completed
+      public autoCompleteRuns = false;
+      public nonProxiedRunAgentCalls: Array<
+        Partial<RunAgentInput> | undefined
+      > = [];
+
+      async runAgent(input?: Partial<RunAgentInput>): Promise<RunAgentResult> {
+        const proxiedRequest = input?.forwardedProps?.__proxiedMCPRequest;
+
+        // If autoCompleteRuns is enabled and this isn't a proxied MCP request,
+        // track the call and return immediately instead of subscribing to the Subject
+        if (this.autoCompleteRuns && !proxiedRequest) {
+          this.nonProxiedRunAgentCalls.push(input);
+          return { result: {}, newMessages: [] };
+        }
+
+        return super.runAgent(input);
+      }
+    }
+
+    /**
+     * Helper to set up the MCP Apps renderer and get the iframe ready for
+     * JSON-RPC message exchange.
+     *
+     * Returns the iframe element and the agent so tests can dispatch messages
+     * and verify behavior.
+     */
+    async function setupIframeReady() {
+      const agent = new MockUIMessageAgent();
+      const agentId = "mcp-test-agent";
+      agent.agentId = agentId;
+
+      // Spy on addMessage
+      const addMessageSpy = vi.spyOn(agent, "addMessage");
+
+      renderWithCopilotKit({
+        agents: { [agentId]: agent },
+        agentId,
+      });
+
+      // Send a chat message to trigger a run
+      const input = await screen.findByRole("textbox");
+      fireEvent.change(input, { target: { value: "Setup message" } });
+      fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
+
+      await waitFor(() => {
+        expect(screen.getByText("Setup message")).toBeDefined();
+      });
+
+      // Emit an activity that triggers the MCP apps renderer
+      agent.emit(runStartedEvent());
+      agent.emit(
+        activitySnapshotEvent({
+          messageId: testId("mcp-activity"),
+          activityType: MCPAppsActivityType,
+          content: mcpAppsActivityContent({
+            resourceUri: "ui://test/msg-handler",
+            serverHash: "msg-handler-hash",
+          }),
+        }),
+      );
+      agent.emit(runFinishedEvent());
+
+      // Wait for iframe to be created (resource fetch completes, iframe appended)
+      let iframe: HTMLIFrameElement;
+      await waitFor(
+        () => {
+          const el = document.querySelector(
+            "iframe[srcdoc]",
+          ) as HTMLIFrameElement | null;
+          expect(el).not.toBeNull();
+          iframe = el!;
+        },
+        { timeout: 3000 },
+      );
+
+      // Simulate the sandbox proxy signaling ready.
+      // The component listens for a message from the iframe's contentWindow
+      // with method "ui/notifications/sandbox-proxy-ready".
+      await act(async () => {
+        window.dispatchEvent(
+          new MessageEvent("message", {
+            source: iframe!.contentWindow,
+            data: {
+              jsonrpc: "2.0",
+              method: "ui/notifications/sandbox-proxy-ready",
+              params: {},
+            },
+          }),
+        );
+        // Allow microtasks to settle (the component's setup is async)
+        await new Promise((r) => setTimeout(r, 100));
+      });
+
+      // Enable auto-complete for subsequent non-proxied runAgent calls
+      // (triggered by ui/message handler after our fix)
+      agent.autoCompleteRuns = true;
+
+      return { agent, iframe: iframe!, addMessageSpy };
+    }
+
+    /**
+     * Helper to dispatch a JSON-RPC ui/message request from the iframe
+     */
+    function dispatchUIMessage(
+      iframe: HTMLIFrameElement,
+      params: {
+        role?: string;
+        content?: Array<{ type: string; text?: string }>;
+        followUp?: boolean;
+      },
+    ) {
+      window.dispatchEvent(
+        new MessageEvent("message", {
+          source: iframe.contentWindow,
+          data: {
+            jsonrpc: "2.0",
+            id: `msg-${Date.now()}`,
+            method: "ui/message",
+            params,
+          },
+        }),
+      );
+    }
+
+    it("calls runAgent after addMessage when ui/message has role 'user'", async () => {
+      const { agent, iframe, addMessageSpy } = await setupIframeReady();
+
+      // Clear any prior calls from setup
+      addMessageSpy.mockClear();
+      agent.nonProxiedRunAgentCalls.length = 0;
+
+      // Dispatch a user-role ui/message from the iframe
+      await act(async () => {
+        dispatchUIMessage(iframe, {
+          role: "user",
+          content: [{ type: "text", text: "Hello from MCP app" }],
+        });
+        await new Promise((r) => setTimeout(r, 100));
+      });
+
+      // Verify addMessage was called with the user message
+      await waitFor(() => {
+        expect(addMessageSpy).toHaveBeenCalledTimes(1);
+        expect(addMessageSpy).toHaveBeenCalledWith(
+          expect.objectContaining({
+            role: "user",
+            content: "Hello from MCP app",
+          }),
+        );
+      });
+
+      // Verify runAgent was called (non-proxied) to process the user message
+      await waitFor(() => {
+        expect(agent.nonProxiedRunAgentCalls.length).toBe(1);
+      });
+    });
+
+    it("does NOT call runAgent when ui/message has role 'assistant'", async () => {
+      const { agent, iframe, addMessageSpy } = await setupIframeReady();
+
+      // Clear any prior calls from setup
+      addMessageSpy.mockClear();
+      agent.nonProxiedRunAgentCalls.length = 0;
+
+      // Dispatch an assistant-role ui/message from the iframe
+      await act(async () => {
+        dispatchUIMessage(iframe, {
+          role: "assistant",
+          content: [{ type: "text", text: "Here is some info" }],
+        });
+        await new Promise((r) => setTimeout(r, 100));
+      });
+
+      // Verify addMessage was called with the assistant message
+      await waitFor(() => {
+        expect(addMessageSpy).toHaveBeenCalledTimes(1);
+        expect(addMessageSpy).toHaveBeenCalledWith(
+          expect.objectContaining({
+            role: "assistant",
+            content: "Here is some info",
+          }),
+        );
+      });
+
+      // Verify runAgent was NOT called — assistant messages are display-only
+      expect(agent.nonProxiedRunAgentCalls.length).toBe(0);
+    });
+
+    it("defaults to 'user' role and calls runAgent when role is not specified", async () => {
+      const { agent, iframe, addMessageSpy } = await setupIframeReady();
+
+      // Clear any prior calls from setup
+      addMessageSpy.mockClear();
+      agent.nonProxiedRunAgentCalls.length = 0;
+
+      // Dispatch a ui/message with no explicit role (should default to "user")
+      await act(async () => {
+        dispatchUIMessage(iframe, {
+          content: [{ type: "text", text: "No role specified" }],
+        });
+        await new Promise((r) => setTimeout(r, 100));
+      });
+
+      // Verify addMessage was called with default user role
+      await waitFor(() => {
+        expect(addMessageSpy).toHaveBeenCalledTimes(1);
+        expect(addMessageSpy).toHaveBeenCalledWith(
+          expect.objectContaining({
+            role: "user",
+            content: "No role specified",
+          }),
+        );
+      });
+
+      // Verify runAgent was called since it defaults to user role
+      await waitFor(() => {
+        expect(agent.nonProxiedRunAgentCalls.length).toBe(1);
+      });
+    });
+
+    it("skips runAgent when followUp is explicitly false for user messages", async () => {
+      const { agent, iframe, addMessageSpy } = await setupIframeReady();
+
+      addMessageSpy.mockClear();
+      agent.nonProxiedRunAgentCalls.length = 0;
+
+      // Dispatch a user message with followUp: false
+      await act(async () => {
+        dispatchUIMessage(iframe, {
+          role: "user",
+          content: [{ type: "text", text: "No follow-up please" }],
+          followUp: false,
+        });
+        await new Promise((r) => setTimeout(r, 100));
+      });
+
+      // Message should still be added
+      await waitFor(() => {
+        expect(addMessageSpy).toHaveBeenCalledTimes(1);
+        expect(addMessageSpy).toHaveBeenCalledWith(
+          expect.objectContaining({
+            role: "user",
+            content: "No follow-up please",
+          }),
+        );
+      });
+
+      // runAgent should NOT be called because followUp: false overrides role default
+      expect(agent.nonProxiedRunAgentCalls.length).toBe(0);
+    });
+
+    it("calls runAgent when followUp is explicitly true for assistant messages", async () => {
+      const { agent, iframe, addMessageSpy } = await setupIframeReady();
+
+      addMessageSpy.mockClear();
+      agent.nonProxiedRunAgentCalls.length = 0;
+
+      // Dispatch an assistant message with followUp: true
+      await act(async () => {
+        dispatchUIMessage(iframe, {
+          role: "assistant",
+          content: [{ type: "text", text: "Process this" }],
+          followUp: true,
+        });
+        await new Promise((r) => setTimeout(r, 100));
+      });
+
+      // Message should be added as assistant
+      await waitFor(() => {
+        expect(addMessageSpy).toHaveBeenCalledTimes(1);
+        expect(addMessageSpy).toHaveBeenCalledWith(
+          expect.objectContaining({
+            role: "assistant",
+            content: "Process this",
+          }),
+        );
+      });
+
+      // runAgent SHOULD be called because followUp: true overrides role default
+      await waitFor(() => {
+        expect(agent.nonProxiedRunAgentCalls.length).toBe(1);
+      });
+    });
+  });
 });

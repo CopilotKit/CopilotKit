@@ -1,5 +1,5 @@
 ---
-title: Interrupt Based
+title: Interrupts
 icon: "lucide/CirclePause"
 description: Learn how to implement Human-in-the-Loop (HITL) using a interrupt-based flow.
 ---
@@ -121,7 +121,7 @@ We're going to have the agent ask us to name it, so we'll need a state property 
                     content=f"You are a helpful assistant named {state.get('agent_name')}..."
                 )
 
-                response = ChatOpenAI(model="gpt-4o").invoke(
+                response = ChatOpenAI(model="gpt-5.2").invoke(
                     [system_message, *state["messages"]],
                     config
                 )
@@ -154,7 +154,7 @@ We're going to have the agent ask us to name it, so we'll need a state property 
                     content: `You are a helpful assistant named ${agentName}...`,
                 });
 
-                const response = await new ChatOpenAI({ model: "gpt-4o" }).invoke(
+                const response = await new ChatOpenAI({ model: "gpt-5.2" }).invoke(
                     [systemMessage, ...state.messages],
                     config
                 );
@@ -177,7 +177,7 @@ We're going to have the agent ask us to name it, so we'll need a state property 
     To do this, we'll use the `useLangGraphInterrupt` hook, give it a component to render, and then call `resolve` with the user's response.
 
     ```tsx title="app/page.tsx"
-    import { useLangGraphInterrupt } from "@copilotkit/react-core"; // [!code highlight]
+    import { useLangGraphInterrupt } from "@copilotkit/react-core/v2"; // [!code highlight]
     // ...
 
     const YourMainContent = () => {
@@ -245,7 +245,7 @@ For this reason, the hook can take an `enabled` argument which will apply it con
                     content=f"You are a helpful assistant..."
                   )
 
-                  response = ChatOpenAI(model="gpt-4o").invoke(
+                  response = ChatOpenAI(model="gpt-5.2").invoke(
                     [system_message, *state["messages"]],
                     config
                   )
@@ -276,7 +276,7 @@ For this reason, the hook can take an `enabled` argument which will apply it con
                     content: `You are a helpful assistant...`,
                   });
 
-                  const response = await new ChatOpenAI({ model: "gpt-4o" }).invoke(
+                  const response = await new ChatOpenAI({ model: "gpt-5.2" }).invoke(
                     [systemMessage, ...state.messages],
                     config
                   );
@@ -296,7 +296,7 @@ For this reason, the hook can take an `enabled` argument which will apply it con
         With two `useLangGraphInterrupt` hooks in our page, we can leverage the `enabled` property to enable each in the right time:
 
         ```tsx title="app/page.tsx"
-        import { useLangGraphInterrupt } from "@copilotkit/react-core"; // [!code highlight]
+        import { useLangGraphInterrupt } from "@copilotkit/react-core/v2"; // [!code highlight]
         // ...
 
         const ApproveComponent = ({ content, onAnswer }: { content: string; onAnswer: (approved: boolean) => void }) => (
@@ -359,7 +359,7 @@ interface AuthorizationInterruptEvent {
     accessDepartment: Department,
 }
 
-import { useLangGraphInterrupt } from "@copilotkit/react-core";
+import { useLangGraphInterrupt } from "@copilotkit/react-core/v2";
 
 const YourMainContent = () => {
     const [userEmail, setUserEmail] = useState({ email: 'example@user.com' })

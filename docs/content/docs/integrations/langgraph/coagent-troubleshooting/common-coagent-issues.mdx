@@ -134,13 +134,13 @@ If you're seeing this error, it means CopilotKit couldn't find the LangGraph age
 
         ```tsx title="MyComponent.tsx"
         // Your React component
-        useCoAgent({
+        useAgent({
             name: "my_agent", // [!code focus] This must match exactly
         });
         ```
     </Accordion>
     <Accordion title="Check your agent name in useCoAgentStateRender">
-        Make sure the that the agent defined in `langgraph.json` matches what you use n `useCoAgent` hook:
+        Make sure the that the agent defined in `langgraph.json` matches what you use in the `useAgent` hook:
 
         ```json title="langgraph.json"
         {
@@ -267,7 +267,7 @@ persisted at the end of a node.
 
                 async def chat_node(state: AgentState, config: RunnableConfig):
                     # 1) Call the model with CopilotKit's modified config
-                    model = ChatOpenAI(model="gpt-4o")
+                    model = ChatOpenAI(model="gpt-5.2")
                     response = await model.ainvoke(state["messages"], modifiedConfig)
 
                     # 2) Make sure to return the new messages
@@ -282,7 +282,7 @@ persisted at the end of a node.
 
                 async function chatNode(state: AgentState, config: RunnableConfig): Promise<AgentState> {
                     // 1) Call the model with CopilotKit's modified config
-                    const model = new ChatOpenAI({ temperature: 0, model: "gpt-4o" });
+                    const model = new ChatOpenAI({ temperature: 0, model: "gpt-5.2" });
                     const response = await model.invoke(state.messages, modifiedConfig);
 
                     // 2) Make sure to return the new messages
@@ -311,7 +311,7 @@ persisted at the end of a node.
                     )
 
                     # 2) Call the model with CopilotKit's modified config
-                    model = ChatOpenAI(model="gpt-4o")
+                    model = ChatOpenAI(model="gpt-5.2")
                     response = await model.ainvoke(state["messages"], modifiedConfig)
 
                     # 3) Don't return the new response to hide it from the user
@@ -329,7 +329,7 @@ persisted at the end of a node.
                     });
 
                     // 2) Call the model with CopilotKit's modified config
-                    const model = new ChatOpenAI({ temperature: 0, model: "gpt-4o" });
+                    const model = new ChatOpenAI({ temperature: 0, model: "gpt-5.2" });
                     const response = await model.invoke(state.messages, modifiedConfig);
 
                     // 3) Don't return the new response to hide it from the user

@@ -82,7 +82,7 @@ Previously, you had to use the `subComponent` property to render custom assistan
 #### Before
 
 ```tsx
-import { AssistantMessageProps } from "@copilotkit/react-ui";
+import { AssistantMessageProps } from "@copilotkit/react-core/v2";
 
 export const AssistantMessage = (props: AssistantMessageProps) => {
   const { message, subComponent } = props;
@@ -96,7 +96,7 @@ export const AssistantMessage = (props: AssistantMessageProps) => {
 #### After
 
 ```tsx
-import { AssistantMessageProps } from "@copilotkit/react-ui";
+import { AssistantMessageProps } from "@copilotkit/react-core/v2";
 
 export const AssistantMessage = (props: AssistantMessageProps) => {
   const { message } = props;

@@ -20,7 +20,7 @@ import { IframeSwitcher } from "@/components/content"
 Frontend tools enable you to define client-side functions that your Agno agent can invoke, with execution happening entirely in the user's browser. When your agent calls a frontend tool,
 the logic runs on the client side, giving you direct access to the frontend environment.
 
-This can be utilized for to let [your agent control the UI](/agno/frontend-tools), [generative UI](/agno/generative-ui/frontend-tools), or for [Human-in-the-loop](/agno/human-in-the-loop) interactions.
+This can be utilized for to let [your agent control the UI](/agno/frontend-tools), [generative UI](/agno/frontend-tools), or for [Human-in-the-loop](/agno/human-in-the-loop) interactions.
 
 In this guide, we cover the use of frontend tools driving and interacting with the UI.
 
@@ -47,7 +47,7 @@ Use frontend tools when you need your agent to interact with client-side primiti
         that says hello to the user.
 
         ```tsx title="page.tsx"
-        import { useFrontendTool } from "@copilotkit/react-core" // [!code highlight]
+        import { useFrontendTool } from "@copilotkit/react-core/v2" // [!code highlight]
 
         export function Page() {
           // ...
@@ -66,6 +66,7 @@ Use frontend tools when you need your agent to interact with client-side primiti
             ],
             handler: async ({ name }) => {
               alert(`Hello, ${name}!`);
+              return `Said hello to ${name}!`;
             },
           });
 
@@ -103,7 +104,7 @@ Use frontend tools when you need your agent to interact with client-side primiti
         from tools.frontend import sayHello
 
         agent = Agent(
-            model=OpenAIChat(id="gpt-4o"),
+            model=OpenAIChat(id="gpt-5.2"),
             tools=[sayHello],
             description="A helpful assistant that can answer questions and provide information.",
             instructions="Be helpful and friendly. Format your responses using markdown where appropriate.",

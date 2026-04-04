@@ -128,8 +128,7 @@ const config = {
       'agno',
       'agent-spec',
       'crewai-flows',
-      'crewai-crews',
-      'direct-to-llm',
+      'built-in-agent',
       'langgraph',
       'llamaindex',
       'mastra',
@@ -140,10 +139,10 @@ const config = {
 
     return {
       beforeFiles: [
-        // Map /guides/* to /direct-to-llm/guides/*
+        // Map /guides/* to /built-in-agent/guides/* (legacy path)
         {
           source: '/guides/:path*',
-          destination: '/direct-to-llm/guides/:path*',
+          destination: '/built-in-agent/guides/:path*',
         },
         // Map integration URLs
         ...integrations.map((integration) => ({
@@ -174,6 +173,16 @@ const config = {
       {
         source: '/coagents/:path*',
         destination: '/langgraph/:path*',
+        permanent: true,
+      },
+      {
+        source: '/crewai-crews/:path*',
+        destination: '/crewai-flows/:path*',
+        permanent: true,
+      },
+      {
+        source: '/crewai-crews',
+        destination: '/crewai-flows',
         permanent: true,
       },
       // Strip /generative-ui/ prefix from old URLs
@@ -276,7 +285,7 @@ const config = {
       },
       {
         source: '/coagents/advanced/copilotkit-state',
-        destination: '/coagents/frontend-actions',
+        destination: '/langgraph/frontend-tools',
         permanent: true,
       },
       {
@@ -315,11 +324,6 @@ const config = {
         permanent: true,
       },
       {
-        source: '/crewai-crews/multi-agent-flows',
-        destination: '/crewai-crews',
-        permanent: true,
-      },
-      {
         source: '/crewai-flows/multi-agent-flows',
         destination: '/crewai-flows',
         permanent: true,
@@ -337,11 +341,6 @@ const config = {
       {
         source: '/langgraph/quickstart/langgraph',
         destination: '/langgraph/quickstart',
-        permanent: true,
-      },
-      {
-        source: '/crewai-crews/quickstart/crewai',
-        destination: '/crewai-crews/quickstart',
         permanent: true,
       },
       {
@@ -371,52 +370,52 @@ const config = {
       },
       {
         source: '/mcp',
-        destination: '/vibe-coding-mcp',
+        destination: '/coding-agents',
+        permanent: true,
+      },
+      {
+        source: '/vibe-coding-mcp',
+        destination: '/coding-agents',
         permanent: true,
       },
       {
         source: '/ag2/mcp',
-        destination: '/ag2/vibe-coding-mcp',
+        destination: '/ag2/coding-agents',
         permanent: true,
       },
       {
         source: '/agno/mcp',
-        destination: '/agno/vibe-coding-mcp',
-        permanent: true,
-      },
-      {
-        source: '/crewai-crews/mcp',
-        destination: '/crewai-crews/vibe-coding-mcp',
+        destination: '/agno/coding-agents',
         permanent: true,
       },
       {
         source: '/crewai-flows/mcp',
-        destination: '/crewai-flows/vibe-coding-mcp',
+        destination: '/crewai-flows/coding-agents',
         permanent: true,
       },
       {
         source: '/direct-to-llm/guides/mcp',
-        destination: '/direct-to-llm/guides/vibe-coding-mcp',
+        destination: '/built-in-agent/coding-agents',
         permanent: true,
       },
       {
         source: '/langgraph/mcp',
-        destination: '/langgraph/vibe-coding-mcp',
+        destination: '/langgraph/coding-agents',
         permanent: true,
       },
       {
         source: '/llamaindex/mcp',
-        destination: '/llamaindex/vibe-coding-mcp',
+        destination: '/llamaindex/coding-agents',
         permanent: true,
       },
       {
         source: '/mastra/mcp',
-        destination: '/mastra/vibe-coding-mcp',
+        destination: '/mastra/coding-agents',
         permanent: true,
       },
       {
         source: '/pydantic-ai/mcp',
-        destination: '/pydantic-ai/vibe-coding-mcp',
+        destination: '/pydantic-ai/coding-agents',
         permanent: true,
       },
       {
@@ -431,7 +430,7 @@ const config = {
       },
       {
         source: '/adk/mcp',
-        destination: '/adk/vibe-coding-mcp',
+        destination: '/adk/coding-agents',
         permanent: true,
       },
       {
@@ -452,6 +451,73 @@ const config = {
       {
         source: "/coagents/shared-state/state-inputs-outputs",
         destination: "/langgraph/shared-state/workflow-execution",
+        permanent: true,
+      },
+      // Learn tab — content moved from root
+      {
+        source: '/agentic-protocols',
+        destination: '/learn/agentic-protocols',
+        permanent: true,
+      },
+      {
+        source: '/ag-ui-protocol',
+        destination: '/learn/ag-ui-protocol',
+        permanent: true,
+      },
+      {
+        source: '/connect-mcp-servers',
+        destination: '/learn/connect-mcp-servers',
+        permanent: true,
+      },
+      {
+        source: '/a2a-protocol',
+        destination: '/learn/a2a-protocol',
+        permanent: true,
+      },
+      {
+        source: '/architecture',
+        destination: '/learn/architecture',
+        permanent: true,
+      },
+
+      // === Docs Restructure Redirects (2026-02) ===
+
+      // Priority 1: direct-to-llm / builtin-agent → built-in-agent
+      {
+        source: '/direct-to-llm/:path*',
+        destination: '/built-in-agent/:path*',
+        permanent: true,
+      },
+      {
+        source: '/builtin-agent/:path*',
+        destination: '/built-in-agent/:path*',
+        permanent: true,
+      },
+
+      // Priority 2: LangGraph-specific redirects
+      {
+        source: '/langgraph/generative-ui/display',
+        destination: '/langgraph/generative-ui/your-components/display-only',
+        permanent: true,
+      },
+      {
+        source: '/langgraph/generative-ui/interactive/interrupt-based',
+        destination: '/langgraph/generative-ui/your-components/interrupt-based',
+        permanent: true,
+      },
+      {
+        source: '/langgraph/generative-ui/interactive/client-side',
+        destination: '/langgraph/generative-ui/your-components/interactive',
+        permanent: true,
+      },
+      {
+        source: '/langgraph/human-in-the-loop/node-flow',
+        destination: '/langgraph/human-in-the-loop/interrupt-flow',
+        permanent: true,
+      },
+      {
+        source: '/langgraph/human-in-the-loop/prebuilt-agents',
+        destination: '/langgraph/prebuilt-components',
         permanent: true,
       },
     ];

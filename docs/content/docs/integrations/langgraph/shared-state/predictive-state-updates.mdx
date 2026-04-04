@@ -1,5 +1,5 @@
 ---
-title: "Predictive state updates"
+title: "State streaming"
 icon: "lucide/Podcast"
 description: Stream in-progress agent state updates to the frontend.
 ---
@@ -118,7 +118,7 @@ When a node in your LangGraph finishes executing, **its returned state becomes t
                                 "Generating recommendations...",
                                 "Formatting final output..."
                             ]
-                            
+
                             for step in steps:
                                 self.state["observed_steps"] = self.state.get("observed_steps", []) + [step]
                                 await copilotkit_emit_state(config, state) # [!code highlight]
@@ -141,7 +141,7 @@ When a node in your LangGraph finishes executing, **its returned state becomes t
                                 "Generating recommendations...",
                                 "Formatting final output..."
                             ];
-                            
+
                             for (const step of steps) {
                                 state.observed_steps = [...(state.observed_steps ?? []), step];
                                 copilotkitEmitState(config, state);
@@ -155,7 +155,7 @@ When a node in your LangGraph finishes executing, **its returned state becomes t
 
             <TailoredContentOption
                 id="tool-emission"
-                title="Tool-Based Predictive State Updates" 
+                title="Tool-Based Predictive State Updates"
                 description="Configure specific tool calls to automatically emit intermediate state updates."
                 icon={<FaWrench />}
             >
@@ -249,7 +249,7 @@ When a node in your LangGraph finishes executing, **its returned state becomes t
                             );
 
                             const model = new ChatOpenAI({
-                                model: "gpt-4o",
+                                model: "gpt-5.2",
                             }).bindTools([stepProgress]);
 
                             const system_message = new SystemMessage("You are a task performer. Pretend doing tasks you are given, report the steps using StepProgressTool.")
@@ -275,43 +275,24 @@ When a node in your LangGraph finishes executing, **its returned state becomes t
         These predictions will be emitted as the agent runs, allowing you to track its progress before the final state is determined.
 
         ```tsx title="ui/app/page.tsx"
-        import { useCoAgent, useCoAgentStateRender } from '@copilotkit/react-core';
+        import { useAgent } from '@copilotkit/react-core/v2'; // [!code highlight]
 
-        // ...
-        type AgentState = {
-            observed_steps: string[];
-        };
-        
         const YourMainContent = () => {
-            // Get access to both predicted and final states
-            const { state } = useCoAgent<AgentState>({ name: "sample_agent" });
-
-            // Add a state renderer to observe predictions
-            useCoAgentStateRender({
-                name: "sample_agent",
-                render: ({ state }) => {
-                    if (!state.observed_steps?.length) return null;
-                    return (
-                        <div>
-                            <h3>Current Progress:</h3>
-                            <ul>
-                                {state.observed_steps.map((step, i) => (
-                                    <li key={i}>{step}</li>
-                                ))}
-                            </ul>
-                        </div>
-                    );
-                },
+            // [!code highlight:3]
+            const { agent } = useAgent({
+                agentId: "sample_agent",
             });
+
+            const observedSteps = (agent.state.observed_steps as string[]) ?? [];
 
             return (
                 <div>
                     <h1>Agent Progress</h1>
-                    {state.observed_steps?.length > 0 && (
+                    {observedSteps.length > 0 && (
                         <div>
-                            <h3>Final Steps:</h3>
+                            <h3>Steps:</h3>
                             <ul>
-                                {state.observed_steps.map((step, i) => (
+                                {observedSteps.map((step, i) => (
                                     <li key={i}>{step}</li>
                                 ))}
                             </ul>
@@ -326,7 +307,7 @@ When a node in your LangGraph finishes executing, **its returned state becomes t
         ### Give it a try!
         Now you'll notice that the state predictions are emitted as the agent makes progress, giving you insight into its work before the final state is determined.
         You can apply this pattern to any long-running task in your agent.
-        
+
         <video src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/intermediate-state-render.mp4" className="rounded-lg shadow-xl" loop playsInline controls autoPlay muted />
         <Callout>
           This video shows the result of `npx copilotkit@latest init` with the [implementation](#implementation) section applied to it!

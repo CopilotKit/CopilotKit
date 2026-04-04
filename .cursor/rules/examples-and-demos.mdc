@@ -16,7 +16,6 @@ Multi-agent systems with complex workflows:
 - **[coagents-research-canvas/](mdc:examples/coagents-research-canvas)** - Research canvas with collaborative editing
 
 ### CrewAI Integration Examples
-- **[coagents-starter-crewai-crews/](mdc:examples/coagents-starter-crewai-crews)** - CrewAI crews integration
 - **[coagents-starter-crewai-flows/](mdc:examples/coagents-starter-crewai-flows)** - CrewAI flows integration
 
 ### Frontend-Focused Examples

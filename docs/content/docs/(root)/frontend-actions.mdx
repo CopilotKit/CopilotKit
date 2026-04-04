@@ -2,38 +2,44 @@
 title: Frontend Actions
 icon: "lucide/Wrench"
 description: Create frontend actions and use them within your agent.
+hideTOC: true
 ---
-import { IntegrationsGrid } from "@/components/react/integrations";
-
-<video src="https://cdn.copilotkit.ai/docs/copilotkit/images/frontend-actions-demo.mp4" className="rounded-lg shadow-xl" loop playsInline controls autoPlay muted />
-<Callout>
-    This video shows the result of `npx copilotkit@latest init` with the [implementation](#implementation) section applied to it!
-</Callout>
+import { IntegrationGrid } from "@/components/content/integration-grid";
+import { Tabs, Tab } from "fumadocs-ui/components/tabs";
 
 ## What is this?
 
-Frontend actions are powerful tools that allow your AI agents to directly interact with and update your application's user interface. Think of them as bridges that connect your agent's decision-making capabilities with your frontend's interactive elements.
+Frontend actions let your AI agents directly interact with and update your application's UI. They bridge the gap between your agent's decision-making and your frontend's interactive elements.
+
+<Tabs items={['page.tsx']}>
+  <Tab value="page.tsx">
+  ```tsx
+  import { z } from "zod";
+  import { useFrontendTool } from "@copilotkit/react-core/v2";
+
+  useFrontendTool({
+    name: "setTheme",
+    description: "Switch the app's color theme",
+    parameters: z.object({
+      theme: z.enum(["light", "dark"]),
+    }),
+    handler: async ({ theme }) => {
+      document.documentElement.dataset.theme = theme;
+      return `Theme set to ${theme}!`;
+    },
+  });
+  ```
+  </Tab>
+</Tabs>
 
 ## When should I use this?
 
-Frontend actions are essential when you want to create truly interactive AI applications where your agent needs to:
-
+Use frontend actions when your agent needs to:
 - Dynamically update UI elements
 - Trigger frontend animations or transitions
 - Show alerts or notifications
 - Modify application state
-- Handle user interactions programmatically
 
-Without frontend actions, agents are limited to just processing and returning data. By implementing frontend actions, you can create rich, interactive experiences where your agent actively drives the user interface.
+## Get started by choosing your AI backend
 
-<div>
-
-## Choose your Integration
-
-Frontend actions can be implemented with any agentic backend, with each integration providing different approaches for connecting agents to your UI.
-
-**Choose your integration to see specific implementation guides and examples.**
-
-<IntegrationsGrid targetPage="frontend-actions" />
-
-</div> 
+<IntegrationGrid path="frontend-actions"/>

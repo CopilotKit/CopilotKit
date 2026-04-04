@@ -71,7 +71,7 @@ from autogen.ag_ui import AGUIStream, RunAgentInput
 agent = ConversableAgent(
     name="assistant",
     system_message="You are a helpful assistant.",
-    llm_config=LLMConfig({"model": "gpt-4o-mini"}),
+    llm_config=LLMConfig({"model": "gpt-5.2-mini"}),
 )
 
 stream = AGUIStream(agent)
@@ -139,7 +139,7 @@ from autogen.ag_ui import AGUIStream, RunAgentInput
 agent = ConversableAgent(
     name="assistant",
     system_message="You are a helpful assistant.",
-    llm_config=LLMConfig({"model": "gpt-4o-mini"}),
+    llm_config=LLMConfig({"model": "gpt-5.2-mini"}),
 )
 
 stream = AGUIStream(agent)
@@ -220,6 +220,6 @@ Then:
 
 ## Next Steps
 
-- [Configure chat UI with AG2 backend ->](/ag2/agentic-chat-ui)
+- [Configure chat UI with AG2 backend ->](/ag2/prebuilt-components)
 - [Learn about shared state ->](/ag2/shared-state)
 - [Implement human-in-the-loop workflows ->](/ag2/human-in-the-loop)

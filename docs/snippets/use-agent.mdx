@@ -82,6 +82,39 @@
     }
     ```
   </Step>
+
+  <Step>
+    ### Run the agent
+
+    Use `copilotkit.runAgent()` to trigger your agent programmatically:
+
+    ```tsx title="page.tsx"
+    import { useAgent } from "@copilotkit/react-core/v2";
+    import { useCopilotKit } from "@copilotkit/react-core/v2";
+    import { randomUUID } from "@copilotkit/shared/v2";
+
+    export function RunAgent() {
+      const { agent } = useAgent();
+      // [!code highlight:1]
+      const { copilotkit } = useCopilotKit();
+
+      const handleRun = async () => {
+        agent.addMessage({
+          id: randomUUID(),
+          role: "user",
+          content: "Hello, agent!",
+        });
+
+        // [!code highlight:1]
+        await copilotkit.runAgent({ agent });
+      };
+
+      return <button onClick={handleRun}>Send</button>;
+    }
+    ```
+
+    `copilotkit.runAgent()` orchestrates the full agent lifecycle — executing frontend tools, handling follow-up runs, and streaming results. This is the same method `<CopilotChat />` uses internally.
+  </Step>
 </Steps>
 
 ## Working with State

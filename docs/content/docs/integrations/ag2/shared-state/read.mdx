@@ -63,7 +63,7 @@ state updates, you can reflect these updates natively in your application.
             "You are a helpful assistant for tracking language. "
             "Always respond in the current language."
         ),
-        llm_config=LLMConfig({"model": "gpt-4o-mini"}),
+        llm_config=LLMConfig({"model": "gpt-5.2-mini"}),
     )
 
     @agent.register_for_llm(description="Update the language in shared state.")
@@ -142,10 +142,10 @@ state updates, you can reflect these updates natively in your application.
 ## Rendering agent state in the chat
 
 You can also render the agent's state in the chat UI. This is useful for informing the user about the agent's state in a
-more in-context way. To do this, you can use the [useCoAgentStateRender](/reference/v1/hooks/useCoAgentStateRender) hook.
+more in-context way. To do this, you can use the `useAgent` hook with a `render` function.
 
 ```tsx title="ui/app/page.tsx"
-import { useCoAgentStateRender } from "@copilotkit/react-core"; // [!code highlight]
+import { useAgent } from "@copilotkit/react-core/v2"; // [!code highlight]
 
 // Define the agent state type, should match the actual state of your agent
 type AgentState = {
@@ -155,11 +155,11 @@ type AgentState = {
 function YourMainContent() {
   // ...
   // [!code highlight:7]
-  useCoAgentStateRender({
+  useAgent<AgentState>({
     name: "my_agent", // MUST match the agent name in CopilotRuntime
-    render: ({ state }) => {
-      if (!state.language) return null;
-      return <div>Language: {state.language}</div>;
+    render: ({ agentState }) => {
+      if (!agentState.language) return null;
+      return <div>Language: {agentState.language}</div>;
     },
   });
   // ...
@@ -171,7 +171,7 @@ function YourMainContent() {
 </Callout>
 
 <Callout type="info">
-  The `state` in `useCoAgentStateRender` is reactive and will automatically
+  The `agentState` in `useAgent` is reactive and will automatically
   update when the agent's state changes.
 </Callout>
 

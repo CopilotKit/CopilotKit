@@ -3,8 +3,12 @@
   "root": true,
   "pages": [
     "---Getting Started---",
-    "index",
-    "quickstart",
-    "generative-ui"
+    "index", "quickstart", "coding-agents",
+    "---Basics---",
+    "prebuilt-components", "custom-look-and-feel", "programmatic-control",
+    "---Generative UI---",
+    "...generative-ui",
+    "---Backend---",
+    "copilot-runtime", "ag-ui"
   ]
 }

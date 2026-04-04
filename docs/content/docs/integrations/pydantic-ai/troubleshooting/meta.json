@@ -1,5 +1,6 @@
 {
   "pages": [
+    "migrate-to-v2",
     "error-debugging",
     "common-issues",
     "migrate-to-1.10.X",

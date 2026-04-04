@@ -56,7 +56,7 @@ In the `useResearch` hook, we'll just replace our React state objects with the `
 
 ```tsx title="frontend/src/components/research-context.tsx" {3,8-11}
 // ...
-import { useCoAgent } from "@copilotkit/react-core"; // [!code ++]
+import { useAgent } from "@copilotkit/react-core/v2"; // [!code ++]
 // ...
 
 interface ResearchContextType {
@@ -72,7 +72,7 @@ const ResearchContext = createContext<ResearchContextType | undefined>(undefined
 export function ResearchProvider({ children }: { children: ReactNode }) {
     const [sourcesModalOpen, setSourcesModalOpen] = useState<boolean>(false)
     // [!code ++:5]
-    const { state, setState, run } = useCoAgent<ResearchState>({
+    const { state, setState, run } = useAgent<ResearchState>({
         name: 'agent',
         initialState: {},
     });

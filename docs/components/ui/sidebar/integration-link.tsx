@@ -9,7 +9,7 @@ import AdkIcon from "../icons/adk";
 import Ag2Icon from "../icons/ag2";
 import AgnoIcon from "../icons/agno";
 import CrewaiIcon from "../icons/crewai";
-import DirectToLlmIcon from "../icons/direct-to-llm";
+import CopilotKitMarkIcon from "../icons/copilotkit-mark";
 import LanggraphIcon from "../icons/langgraph";
 import LlamaIndexIcon from "../icons/llama-index";
 import MastraIcon from "../icons/mastra";
@@ -40,20 +40,19 @@ const INTEGRATION_ICONS: Record<
   IntegrationId,
   ComponentType<IntegrationIconProps>
 > = {
-  a2a: A2AIcon,
   adk: AdkIcon,
   ag2: Ag2Icon,
   "agent-spec": AgentSpecMarkIcon,
   agno: AgnoIcon,
   "crewai-flows": CrewaiIcon,
-  "crewai-crews": CrewaiIcon,
-  "direct-to-llm": DirectToLlmIcon,
+  "built-in-agent": CopilotKitMarkIcon,
   langgraph: LanggraphIcon,
   llamaindex: LlamaIndexIcon,
   mastra: MastraIcon,
   "pydantic-ai": PydanticAiIcon,
   "microsoft-agent-framework": MicrosoftIcon,
   "aws-strands": AwsStrandsIcon,
+  a2a: A2AIcon,
 };
 
 const ICON_SIZE = 20;

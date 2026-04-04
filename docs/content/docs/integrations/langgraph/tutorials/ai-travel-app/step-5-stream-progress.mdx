@@ -175,14 +175,14 @@ All we need to do is tell CopilotKit to conditionally render the `search_progres
 
 ```tsx title="ui/lib/hooks/use-trips.tsx"
 // ...
-import { useCoAgent } from "@copilotkit/react-core"; // [!code --]
-import { useCoAgent, useCoAgentStateRender } from "@copilotkit/react-core"; // [!code ++]
+import { useAgent } from "@copilotkit/react-core/v2"; // [!code --]
+import { useAgent, useCoAgentStateRender } from "@copilotkit/react-core/v2"; // [!code ++]
 import { SearchProgress } from "@/components/SearchProgress"; // [!code ++]
 
 export const TripsProvider = ({ children }: { children: ReactNode }) => {
   // ...
 
-  const { state, setState } = useCoAgent<AgentState>({
+  const { state, setState } = useAgent<AgentState>({
     name: "travel",
     initialState: {
       trips: defaultTrips,

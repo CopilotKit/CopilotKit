@@ -167,8 +167,9 @@ class LangGraphAGUIAgent(LangGraphAgent):
         
         # First, check if this is a raw event that should generate a PredictState event
         if event.get("event") == LangGraphEventTypes.OnChatModelStream.value:
-            predict_state_metadata = event.get("metadata", {}).get("copilotkit:emit-intermediate-state", [])
-            event["metadata"]['predict_state'] = predict_state_metadata
+            predict_state_metadata = event.get("metadata", {}).get("copilotkit:emit-intermediate-state", None)
+            if predict_state_metadata is not None:
+                event["metadata"]['predict_state'] = predict_state_metadata
 
         # Call the parent method to handle all other events
         async for event_str in super()._handle_single_event(event, state):

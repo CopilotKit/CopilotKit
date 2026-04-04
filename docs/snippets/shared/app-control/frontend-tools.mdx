@@ -1,0 +1,53 @@
+import { IframeSwitcher } from "@/components/content"
+
+<IframeSwitcher
+  id="frontend-actions-example"
+  exampleUrl="https://feature-viewer.copilotkit.ai/langgraph/feature/agentic_chat?sidebar=false&chatDefaultOpen=false"
+  codeUrl="https://feature-viewer.copilotkit.ai/langgraph/feature/agentic_chat?view=code&sidebar=false&codeLayout=tabs"
+  exampleLabel="Demo"
+  codeLabel="Code"
+  height="700px"
+/>
+
+## What is this?
+
+Frontend tools enable you to define client-side functions that your agent can invoke, with execution happening entirely in the user's browser. When your agent calls a frontend tool, the logic runs on the client side, giving you direct access to the frontend environment.
+
+This can be utilized to let your agent control the UI, for generative UI, or for Human-in-the-loop interactions. In this guide, we cover the use of frontend tools driving and interacting with the UI.
+
+## When should I use this?
+
+Use frontend tools when you need your agent to interact with client-side primitives such as:
+- Reading or modifying React component state
+- Accessing browser APIs like localStorage, sessionStorage, or cookies
+- Triggering UI updates or animations
+- Interacting with third-party frontend libraries
+- Performing actions that require the user's immediate browser context
+
+## Create a frontend tool
+
+Use the `useFrontendTool` hook to create a tool that your agent can call from the client side:
+
+```tsx title="page.tsx"
+import { z } from "zod";
+import { useFrontendTool } from "@copilotkit/react-core/v2" // [!code highlight]
+
+export function Page() {
+  // ...
+
+  // [!code highlight:12]
+  useFrontendTool({
+    name: "sayHello",
+    description: "Say hello to the user",
+    parameters: z.object({
+      name: z.string().describe("The name of the user to say hello to"),
+    }),
+    handler: async ({ name }) => {
+      alert(`Hello, ${name}!`);
+      return `Said hello to ${name}!`;
+    },
+  });
+
+  // ...
+}
+```

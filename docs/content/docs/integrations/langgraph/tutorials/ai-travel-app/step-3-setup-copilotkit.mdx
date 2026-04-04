@@ -81,7 +81,7 @@ Now we're ready to configure the CopilotKit provider in our application.
 ```tsx title="ui/app/page.tsx" showLineNumbers
 "use client";
 
-import { CopilotKit } from "@copilotkit/react-core"; // [!code ++]
+import { CopilotKit } from "@copilotkit/react-core/v2"; // [!code ++]
 
 export default function Home() {
   // [!code ++:5]
@@ -113,9 +113,9 @@ In this tutorial, we'll use the `<CopilotSidebar/>` component to display the cha
 
 import { TasksList } from "@/components/TasksList";
 import { TasksProvider } from "@/lib/hooks/use-tasks";
-import { CopilotKit } from "@copilotkit/react-core";
-import { CopilotSidebar } from "@copilotkit/react-ui"; // [!code ++]
-import "@copilotkit/react-ui/styles.css"; // [!code ++]
+import { CopilotKit } from "@copilotkit/react-core/v2";
+import { CopilotSidebar } from "@copilotkit/react-core/v2"; // [!code ++]
+import "@copilotkit/react-ui/v2/styles.css"; // [!code ++]
 
 export default function Home() {
   return (
@@ -127,8 +127,8 @@ export default function Home() {
         defaultOpen={true}
         clickOutsideToClose={false}
         labels={{
-          title: "Travel Planner",
-          initial: "Hi! 👋 I'm here to plan your trips. I can help you manage your trips, add places to them, or just generally work with you to plan a new one.",
+          modalHeaderTitle: "Travel Planner",
+          welcomeMessageText: "Hi! 👋 I'm here to plan your trips. I can help you manage your trips, add places to them, or just generally work with you to plan a new one.",
         }}
       />
       <TooltipProvider>
@@ -172,7 +172,7 @@ And we're done! Here's what we did:
 
 import { TasksList } from "@/components/TasksList";
 import { TasksProvider } from "@/lib/hooks/use-tasks";
-import { CopilotKit } from "@copilotkit/react-core"; // [!code ++]
+import { CopilotKit } from "@copilotkit/react-core/v2"; // [!code ++]
 
 export default function Home() {
   return (
@@ -198,9 +198,9 @@ In this tutorial, we'll use the `<CopilotSidebar/>` component to display the cha
 
 import { TasksList } from "@/components/TasksList";
 import { TasksProvider } from "@/lib/hooks/use-tasks";
-import { CopilotKit } from "@copilotkit/react-core";
-import { CopilotSidebar } from "@copilotkit/react-ui"; // [!code ++]
-import "@copilotkit/react-ui/styles.css"; // [!code ++]
+import { CopilotKit } from "@copilotkit/react-core/v2";
+import { CopilotSidebar } from "@copilotkit/react-core/v2"; // [!code ++]
+import "@copilotkit/react-ui/v2/styles.css"; // [!code ++]
 
 export default function Home() {
   return (
@@ -212,8 +212,8 @@ export default function Home() {
         defaultOpen={true}
         clickOutsideToClose={false}
         labels={{
-          title: "Travel Planner",
-          initial: "Hi! 👋 I'm here to plan your trips. I can help you manage your trips, add places to them, or just generally work with you to plan a new one.",
+          modalHeaderTitle: "Travel Planner",
+          welcomeMessageText: "Hi! 👋 I'm here to plan your trips. I can help you manage your trips, add places to them, or just generally work with you to plan a new one.",
         }}
       />
       <TooltipProvider>

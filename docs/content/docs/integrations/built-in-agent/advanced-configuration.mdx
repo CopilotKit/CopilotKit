@@ -1,0 +1,145 @@
+---
+title: "Advanced Configuration"
+icon: "lucide/Cog"
+description: "Fine-tune your Built-in Agent's behavior with advanced options."
+---
+
+The `BuiltInAgent` accepts a full set of configuration options to control model behavior, tool calling, and more.
+
+## Multi-step tool calling
+
+By default, the agent performs a single generation step. Set `maxSteps` to allow the agent to call tools and then continue reasoning:
+
+```typescript title="src/copilotkit.ts"
+const agent = new BuiltInAgent({
+  model: "openai:gpt-5.2",
+  maxSteps: 5, // [!code highlight]
+  tools: [searchDocs, createTicket],
+});
+```
+
+With `maxSteps: 5`, the agent can call a tool, process the result, call another tool, and so on — up to 5 iterations. This is essential for workflows where the agent needs to chain multiple tool calls.
+
+## Tool choice
+
+Control how the agent selects tools:
+
+```typescript
+const agent = new BuiltInAgent({
+  model: "openai:gpt-5.2",
+  toolChoice: "auto",       // Let the model decide (default)
+  // toolChoice: "required", // Force the model to call a tool
+  // toolChoice: "none",     // Disable tool calling
+  // toolChoice: { type: "tool", toolName: "searchDocs" }, // Force a specific tool
+});
+```
+
+## System prompt
+
+Customize the agent's system prompt:
+
+```typescript
+const agent = new BuiltInAgent({
+  model: "openai:gpt-5.2",
+  prompt: "You are a customer support agent for Acme Corp. Be concise and helpful. Always check the knowledge base before answering.", // [!code highlight]
+});
+```
+
+## Generation parameters
+
+Fine-tune the model's output:
+
+```typescript
+const agent = new BuiltInAgent({
+  model: "openai:gpt-5.2",
+  temperature: 0.7,        // Creativity (0 = deterministic, 1+ = creative)
+  topP: 0.9,               // Nucleus sampling
+  topK: 40,                // Top-K sampling (provider-dependent)
+  maxOutputTokens: 4096,   // Maximum tokens in the response
+  presencePenalty: 0.1,    // Penalize repeated topics
+  frequencyPenalty: 0.1,   // Penalize repeated tokens
+  stopSequences: ["END"],  // Stop generation at these sequences
+  seed: 42,                // Deterministic output (provider-dependent)
+  maxRetries: 3,           // Retry on transient failures
+});
+```
+
+<Callout type="info">
+Not all parameters are supported by every provider. For example, `topK` is supported by Google but not OpenAI. Unsupported parameters are ignored.
+</Callout>
+
+## Provider-specific options
+
+Pass options specific to a model provider using `providerOptions`:
+
+```typescript
+// OpenAI reasoning models (o3, o4-mini) with reasoning effort
+const agent = new BuiltInAgent({
+  model: "openai:o3",
+  providerOptions: { // [!code highlight:3]
+    openai: { reasoningEffort: "high" },
+  },
+});
+```
+
+```typescript
+// Anthropic with extended thinking
+const agent = new BuiltInAgent({
+  model: "anthropic:claude-sonnet-4.5",
+  providerOptions: { // [!code highlight:3]
+    anthropic: { thinking: { type: "enabled", budgetTokens: 10000 } },
+  },
+});
+```
+
+## Overridable properties
+
+Allow the frontend to override specific configuration at runtime. This is useful when you want users to switch models or adjust behavior without redeploying:
+
+```typescript
+const agent = new BuiltInAgent({
+  model: "openai:gpt-5.2",
+  temperature: 0.5,
+  overridableProperties: ["model", "temperature", "prompt"], // [!code highlight]
+});
+```
+
+The full list of overridable properties:
+`model`, `toolChoice`, `maxOutputTokens`, `temperature`, `topP`, `topK`, `presencePenalty`, `frequencyPenalty`, `stopSequences`, `seed`, `maxRetries`, `prompt`, `providerOptions`
+
+## Message forwarding
+
+Control whether system and developer messages from the conversation are forwarded to the LLM:
+
+```typescript
+const agent = new BuiltInAgent({
+  model: "openai:gpt-5.2",
+  forwardSystemMessages: true,    // Forward system-role messages
+  forwardDeveloperMessages: true, // Forward developer-role messages (as system messages)
+});
+```
+
+## Full configuration reference
+
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `model` | `string \| LanguageModel` | — | Model specifier or AI SDK instance |
+| `apiKey` | `string` | env var | API key for the provider |
+| `maxSteps` | `number` | `1` | Max tool-calling iterations |
+| `toolChoice` | `"auto" \| "required" \| "none" \| { type: "tool", toolName: string }` | `"auto"` | How tools are selected |
+| `maxOutputTokens` | `number` | — | Max tokens in response |
+| `temperature` | `number` | — | Sampling temperature |
+| `topP` | `number` | — | Nucleus sampling |
+| `topK` | `number` | — | Top-K sampling |
+| `presencePenalty` | `number` | — | Presence penalty |
+| `frequencyPenalty` | `number` | — | Frequency penalty |
+| `stopSequences` | `string[]` | — | Stop sequences |
+| `seed` | `number` | — | Random seed |
+| `maxRetries` | `number` | — | Retry count |
+| `prompt` | `string` | — | System prompt |
+| `tools` | `ToolDefinition[]` | `[]` | Server-side tools |
+| `mcpServers` | `MCPClientConfig[]` | `[]` | MCP server connections |
+| `overridableProperties` | `string[]` | `[]` | Properties the frontend can override |
+| `providerOptions` | `Record<string, any>` | — | Provider-specific options |
+| `forwardSystemMessages` | `boolean` | `false` | Forward system messages |
+| `forwardDeveloperMessages` | `boolean` | `false` | Forward developer messages |

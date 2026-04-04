@@ -66,7 +66,7 @@ included in the function's final returned state. Otherwise, they will be overwri
             observed_steps: list[str] = []
 
 
-        agent = Agent('openai:gpt-4o-mini', deps_type=StateDeps[AgentState])
+        agent = Agent('openai:gpt-5.2-mini', deps_type=StateDeps[AgentState])
         app = agent.to_ag_ui(deps=StateDeps(AgentState()))
 
 
@@ -149,24 +149,24 @@ included in the function's final returned state. Otherwise, they will be overwri
         These predictions will be emitted as the agent runs, allowing you to track its progress before the final state is determined.
 
         ```tsx title="ui/app/page.tsx"
-        import { useCoAgent, useCoAgentStateRender } from '@copilotkit/react-core';
+        import { useAgent } from "@copilotkit/react-core/v2";
 
         // ...
 
         const YourMainContent = () => {
             // Get access to both predicted and final states
-            const { state } = useCoAgent({ name: "my_agent" }); // MUST match the agent name in CopilotRuntime
+            const { agentState } = useAgent({ name: "my_agent" }); // MUST match the agent name in CopilotRuntime
 
             // Add a state renderer to observe predictions
-            useCoAgentStateRender({
+            useAgent({
                 name: "my_agent", // MUST match the agent name in CopilotRuntime
-                render: ({ state }) => {
-                    if (!state.observed_steps?.length) return null;
+                render: ({ agentState }) => {
+                    if (!agentState.observed_steps?.length) return null;
                     return (
                         <div>
                             <h3>Current Progress:</h3>
                             <ul>
-                                {state.observed_steps.map((step, i) => (
+                                {agentState.observed_steps.map((step, i) => (
                                     <li key={i}>{step}</li>
                                 ))}
                             </ul>
@@ -178,11 +178,11 @@ included in the function's final returned state. Otherwise, they will be overwri
             return (
                 <div>
                     <h1>Agent Progress</h1>
-                    {state.observed_steps?.length > 0 && (
+                    {agentState.observed_steps?.length > 0 && (
                         <div>
                             <h3>Final Steps:</h3>
                             <ul>
-                                {state.observed_steps.map((step, i) => (
+                                {agentState.observed_steps.map((step, i) => (
                                     <li key={i}>{step}</li>
                                 ))}
                             </ul>

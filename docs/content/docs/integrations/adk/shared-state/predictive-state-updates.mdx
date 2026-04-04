@@ -151,8 +151,8 @@ When your agent finishes executing, **its final state becomes the single source 
 
     ```tsx title="ui/app/page.tsx"
     "use client";
-    
-    import { useCoAgent, useCoAgentStateRender } from '@copilotkit/react-core';
+
+    import { useAgent } from "@copilotkit/react-core/v2";
 
     // ...
     type AgentState = {
@@ -161,18 +161,18 @@ When your agent finishes executing, **its final state becomes the single source 
 
     const YourMainContent = () => {
         // Get access to both predicted and final states
-        const { state } = useCoAgent<AgentState>({ name: "my_agent" });
+        const { agentState } = useAgent<AgentState>({ name: "my_agent" });
 
         // Add a state renderer to observe predictions
-        useCoAgentStateRender({
+        useAgent<AgentState>({
             name: "my_agent",
-            render: ({ state }) => {
-                if (!state.observed_steps?.length) return null;
+            render: ({ agentState }) => {
+                if (!agentState.observed_steps?.length) return null;
                 return (
                     <div>
                         <h3>Current Progress:</h3>
                         <ul>
-                            {state.observed_steps.map((step, i) => (
+                            {agentState.observed_steps.map((step, i) => (
                                 <li key={i}>{step}</li>
                             ))}
                         </ul>
@@ -184,11 +184,11 @@ When your agent finishes executing, **its final state becomes the single source 
         return (
             <div>
                 <h1>Agent Progress</h1>
-                {state.observed_steps?.length > 0 && (
+                {agentState.observed_steps?.length > 0 && (
                     <div>
                         <h3>Final Steps:</h3>
                         <ul>
-                            {state.observed_steps.map((step, i) => (
+                            {agentState.observed_steps.map((step, i) => (
                                 <li key={i}>{step}</li>
                             ))}
                         </ul>

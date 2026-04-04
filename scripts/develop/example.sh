@@ -38,8 +38,7 @@ example_dir="${1:-coagents-research-canvas}"
 if [[ "$example_dir" == "coagents-starter" || \
       "$example_dir" == "langgraph-tutorial-customer-support" || \
       "$example_dir" == "langgraph-tutorial-quickstart" || \
-      "$example_dir" == "coagents-starter-crewai-flows" || \
-      "$example_dir" == "coagents-starter-crewai-crews" ]]; then
+      "$example_dir" == "coagents-starter-crewai-flows" ]]; then
   agent_dir="agent-py"
 else
   agent_dir="agent"

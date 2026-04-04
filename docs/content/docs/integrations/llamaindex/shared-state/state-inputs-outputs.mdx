@@ -104,7 +104,7 @@ In addition, some state properties contain a lot of information. Syncing them ba
         return f"Resource added: {resource}"
 
     # Initialize the LLM
-    llm = OpenAI(model="gpt-4o")
+    llm = OpenAI(model="gpt-5.2")
 
     # Create the AG-UI workflow router
     agentic_chat_router = get_ag_ui_workflow_router(
@@ -156,7 +156,7 @@ In addition, some state properties contain a lot of information. Syncing them ba
     "use client";
 
     import { useState } from "react";
-    import { useCoAgent } from "@copilotkit/react-core";
+    import { useAgent } from "@copilotkit/react-core/v2";
 
     // Define the agent state type, should match the actual state of your agent
     type AgentState = {
@@ -168,8 +168,8 @@ In addition, some state properties contain a lot of information. Syncing them ba
     function YourMainContent() { // [!code highlight]
       const [inputQuestion, setInputQuestion] = useState("What's the capital of France?");
       const [isLoading, setIsLoading] = useState(false);
-      
-      const { state, setState, run } = useCoAgent<AgentState>({
+
+      const { agentState, setAgentState, run } = useAgent<AgentState>({
         name: "my_agent",
         initialState: {
           question: "",
@@ -179,9 +179,9 @@ In addition, some state properties contain a lot of information. Syncing them ba
 
       const askQuestion = async (newQuestion: string) => {
         setIsLoading(true);
-        
+
         // Update the state with the new question
-        setState({ ...state, question: newQuestion, answer: "" });
+        setAgentState({ ...agentState, question: newQuestion, answer: "" });
         
         try {
           // Trigger the agent to run with a hint message that includes the question
@@ -232,8 +232,8 @@ In addition, some state properties contain a lot of information. Syncing them ba
           </div>
 
           <div style={{ marginTop: "1.5rem" }}>
-            <p><strong>Question:</strong> {state.question || "(none yet)"}</p>
-            <p><strong>Answer:</strong> {state.answer || (isLoading ? "Thinking..." : "Waiting for question...")}</p>
+            <p><strong>Question:</strong> {agentState.question || "(none yet)"}</p>
+            <p><strong>Answer:</strong> {agentState.answer || (isLoading ? "Thinking..." : "Waiting for question...")}</p>
           </div>
         </div>
       );

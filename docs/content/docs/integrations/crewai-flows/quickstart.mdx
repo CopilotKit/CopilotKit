@@ -144,9 +144,9 @@ Before you begin, you must have a [CrewAI Flow](https://docs.crewai.com/guides/f
 
             ```tsx title="page.tsx"
             "use client";
-            import "@copilotkit/react-ui/styles.css";
-            import { CopilotKit, useCopilotAction } from "@copilotkit/react-core";
-            import { CopilotChat } from "@copilotkit/react-ui";
+            import "@copilotkit/react-ui/v2/styles.css";
+            import { CopilotKit, useFrontendTool } from "@copilotkit/react-core/v2";
+            import { CopilotChat } from "@copilotkit/react-core/v2";
             import React, { useState } from "react";
 
             const publicApiKey = process.env.NEXT_PUBLIC_COPILOT_API_KEY || "";
@@ -164,7 +164,7 @@ Before you begin, you must have a [CrewAI Flow](https://docs.crewai.com/guides/f
               );
 
               // Action: Allow AI to change background color dynamically
-              useCopilotAction({
+              useFrontendTool({
                 name: "change_background",
                 description:
                   "Change the background color of the chat. Can be anything that the CSS background attribute accepts. Regular colors, linear of radial gradients etc.",
@@ -189,7 +189,7 @@ Before you begin, you must have a [CrewAI Flow](https://docs.crewai.com/guides/f
                       <CopilotChat
                         className="h-full"
                         labels={{
-                          initial: "Hi, I'm an agent. Want to chat?",
+                          welcomeMessageText: "Hi, I'm an agent. Want to chat?",
                           placeholder: "Type a message...",
                         }}
                       />
@@ -262,13 +262,13 @@ can help you build power agent native applications.
   <Card
     title="Add some generative UI"
     description="Render your agent's progress and output in the UI."
-    href="/crewai-flows/generative-ui"
+    href="/crewai-flows/generative-ui/tool-rendering"
     icon={<PaintbrushIcon />}
   />
   <Card
     title="Setup frontend actions"
     description="Give your agent the ability to call frontend tools, directly updating your application."
-    href="/crewai-flows/frontend-actions"
+    href="/crewai-flows/frontend-tools"
     icon={<WrenchIcon />}
   />
 </Cards>

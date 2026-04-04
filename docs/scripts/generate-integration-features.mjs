@@ -35,15 +35,27 @@ const integrationsDir = path.join(docsRoot, 'content/docs/integrations');
 const FEATURES = [
   'shared-state',
   'generative-ui',
+  'generative-ui/render-only',
+  'generative-ui/tool-rendering',
+  'generative-ui/state-rendering',
+  'generative-ui/mcp-apps',
+  'generative-ui/a2ui',
   'frontend-actions',
   'human-in-the-loop',
   'agentic-chat-ui',
   'custom-look-and-feel',
 ];
 
+// Valid integration IDs — must match INTEGRATION_ORDER in lib/integrations.ts
+const VALID_INTEGRATIONS = new Set([
+  'direct-to-llm', 'langgraph', 'adk', 'microsoft-agent-framework',
+  'aws-strands', 'mastra', 'pydantic-ai', 'crewai-flows', 'agno',
+  'ag2', 'agent-spec', 'llamaindex', 'a2a',
+]);
+
 function getIntegrations() {
   return fs.readdirSync(integrationsDir, { withFileTypes: true })
-    .filter(dirent => dirent.isDirectory())
+    .filter(dirent => dirent.isDirectory() && VALID_INTEGRATIONS.has(dirent.name))
     .map(dirent => dirent.name);
 }
 

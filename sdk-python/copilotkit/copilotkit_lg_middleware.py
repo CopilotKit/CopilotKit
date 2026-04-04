@@ -275,4 +275,3 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
     ) -> dict[str, Any] | None:
         # Delegate to sync implementation
         return self.after_agent(state, runtime)
-
