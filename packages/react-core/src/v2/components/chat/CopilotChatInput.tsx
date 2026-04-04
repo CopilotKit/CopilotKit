@@ -125,7 +125,7 @@ export function CopilotChatInput({
   onChange,
   value,
   toolsMenu,
-  autoFocus = true,
+  autoFocus = false,
   positioning = "static",
   keyboardHeight = 0,
   containerRef,
