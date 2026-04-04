@@ -15,6 +15,23 @@ export interface CopilotKitCoreReactConfig extends CopilotKitCoreConfig {
 
   // Add custom message renderers
   renderCustomMessages?: ReactCustomMessageRenderer[];
+  
+  /**
+   * Enable direct AG-UI protocol integration.
+   * When true, uses native AG-UI protocol for improved compatibility.
+   * Issue #2186: Direct Integration Between AG-UI and CopilotKit
+   */
+  aguiDirectIntegration?: boolean;
+  
+  /**
+   * Thread restoration configuration for conversation reloading.
+   * Supports Issue #3256: V2 restore state and thread ID
+   */
+  threadRestoration?: {
+    enabled: boolean;
+    persistToStorage?: boolean;
+    storageKey?: string;
+  };
 }
 
 export interface CopilotKitCoreReactSubscriber extends CopilotKitCoreSubscriber {
