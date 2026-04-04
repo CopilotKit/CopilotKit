@@ -90,6 +90,62 @@ describe("CopilotChatMessageView duplicate message deduplication", () => {
     );
   }
 
+  it("preserves assistant text content when later duplicate has empty content (multi-tool-call scenario)", () => {
+    const messages: Message[] = [
+      {
+        id: "user-1",
+        role: "user",
+        content: "Record a headache",
+      } as UserMessage,
+      {
+        id: "assistant-1",
+        role: "assistant",
+        content: "Let me record that...",
+        toolCalls: [],
+      } as AssistantMessage,
+      {
+        id: "assistant-1",
+        role: "assistant",
+        content: "", // wiped by streaming tool-call update
+        toolCalls: [
+          {
+            id: "tc-1",
+            type: "function",
+            function: { name: "captureData", arguments: "{}" },
+          } as any,
+        ],
+      } as AssistantMessage,
+      {
+        id: "assistant-1",
+        role: "assistant",
+        content: "", // still empty on second tool call
+        toolCalls: [
+          {
+            id: "tc-1",
+            type: "function",
+            function: { name: "captureData", arguments: "{}" },
+          } as any,
+          {
+            id: "tc-2",
+            type: "function",
+            function: { name: "updateMemory", arguments: "{}" },
+          } as any,
+        ],
+      } as AssistantMessage,
+    ];
+
+    renderMessageView({ messages });
+
+    // One merged assistant message (not three)
+    const assistantMessages = screen.getAllByTestId(
+      "copilot-assistant-message",
+    );
+    expect(assistantMessages).toHaveLength(1);
+
+    // Original text content must survive despite later empty-content duplicates
+    expect(assistantMessages[0].textContent).toContain("Let me record that...");
+  });
+
   it("deduplicates messages with the same id, keeping the last occurrence", () => {
     const messages: Message[] = [
       {

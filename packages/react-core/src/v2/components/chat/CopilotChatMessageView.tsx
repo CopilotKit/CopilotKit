@@ -360,19 +360,36 @@ export function CopilotChatMessageView({
     );
   };
 
-  // Deduplicate messages by id, keeping the last occurrence of each.
-  // During streaming, AbstractAgent.addMessage() can push duplicate messages
-  // (same id) which causes React "duplicate key" warnings and rendering glitches.
-  const deduplicatedMessages = [
-    ...new Map(messages.map((m) => [m.id, m])).values(),
-  ];
+  // Deduplicate messages by id. During streaming, the same message ID can appear
+  // multiple times (e.g. a text chunk followed by tool-call updates that clear
+  // the content field). For assistant messages we merge: keep the latest
+  // toolCalls (they accumulate) but recover non-empty content from any earlier
+  // occurrence if the latest wiped it. For all other roles, keep the last entry.
+  const messageAccumulator = new Map<string, Message>();
+  for (const message of messages) {
+    const existing = messageAccumulator.get(message.id);
+    if (!existing) {
+      messageAccumulator.set(message.id, message);
+    } else if (message.role === "assistant" && existing.role === "assistant") {
+      const content =
+        (message as AssistantMessage).content ||
+        (existing as AssistantMessage).content;
+      messageAccumulator.set(message.id, {
+        ...message,
+        content,
+      } as AssistantMessage);
+    } else {
+      messageAccumulator.set(message.id, message);
+    }
+  }
+  const deduplicatedMessages = [...messageAccumulator.values()];
 
   if (
     process.env.NODE_ENV === "development" &&
     deduplicatedMessages.length < messages.length
   ) {
     console.warn(
-      `CopilotChatMessageView: Deduplicated ${messages.length - deduplicatedMessages.length} message(s) with duplicate IDs.`,
+      `CopilotChatMessageView: Merged ${messages.length - deduplicatedMessages.length} message(s) with duplicate IDs.`,
     );
   }
 
