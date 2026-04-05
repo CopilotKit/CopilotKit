@@ -1006,5 +1006,27 @@ describe("CopilotChatInput", () => {
       // Clean up
       delete (HTMLElement.prototype as any).scrollIntoView;
     });
+
+    it("does not auto-focus the textarea by default", () => {
+      const focusSpy = vi.spyOn(HTMLElement.prototype, "focus");
+
+      renderWithProvider(
+        <CopilotChatInput onSubmitMessage={mockOnSubmitMessage} />,
+      );
+
+      expect(focusSpy).not.toHaveBeenCalled();
+      focusSpy.mockRestore();
+    });
+
+    it("auto-focuses with preventScroll when autoFocus is true", () => {
+      const focusSpy = vi.spyOn(HTMLElement.prototype, "focus");
+
+      renderWithProvider(
+        <CopilotChatInput autoFocus onSubmitMessage={mockOnSubmitMessage} />,
+      );
+
+      expect(focusSpy).toHaveBeenCalledWith({ preventScroll: true });
+      focusSpy.mockRestore();
+    });
   });
 });

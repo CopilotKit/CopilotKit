@@ -252,7 +252,7 @@ export function CopilotChatInput({
     }
 
     if (config?.isModalOpen && !previousModalStateRef.current) {
-      inputRef.current?.focus();
+      inputRef.current?.focus({ preventScroll: true });
     }
 
     previousModalStateRef.current = config?.isModalOpen;
@@ -1224,7 +1224,7 @@ export namespace CopilotChatInput {
 
       useEffect(() => {
         if (autoFocus) {
-          internalTextareaRef.current?.focus();
+          internalTextareaRef.current?.focus({ preventScroll: true });
         }
       }, [autoFocus]);
 
