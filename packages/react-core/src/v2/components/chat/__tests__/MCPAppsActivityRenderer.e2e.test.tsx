@@ -8,6 +8,7 @@
  * 4. Tool calls proxied back through the agent
  */
 import { fireEvent, screen, waitFor, act } from "@testing-library/react";
+import { z } from "zod";
 import { vi } from "vitest";
 import {
   activitySnapshotEvent,
@@ -643,12 +644,14 @@ describe("MCP Apps Activity Renderer E2E", () => {
       agent.agentId = agentId;
 
       // Custom renderer that overrides the built-in
-      const customRenderer: ReactActivityMessageRenderer<unknown> = {
+      const customRenderer: ReactActivityMessageRenderer<
+        z.infer<typeof MCPAppsActivityContentSchema>
+      > = {
         activityType: MCPAppsActivityType,
         content: MCPAppsActivityContentSchema,
         render: ({ content }) => (
           <div data-testid="custom-mcp-renderer">
-            Custom MCP Renderer: {(content as any).resourceUri}
+            Custom MCP Renderer: {content.resourceUri}
           </div>
         ),
       };
