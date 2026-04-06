@@ -4,8 +4,11 @@ import { Play, Box } from "lucide-react";
 
 [AWS Bedrock AgentCore](https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/what-is-bedrock-agentcore.html)
 gives you a secure, serverless runtime for deploying AG-UI agents at scale — handling auth, session
-isolation, and infrastructure. CopilotKit gives those agents a production-ready frontend: chat UI,
-shared state, generative UI, human-in-the-loop, and more.
+isolation, and infrastructure. CopilotKit gives those agents a production-ready frontend:
+
+**Chat UI** · **Shared State** · **Generative UI** · **Human-in-the-loop**
+
+## How it works
 
 The two connect through **CopilotKit Runtime**, a lightweight server-side layer that sits between
 your browser and AgentCore. It's the same runtime you'd use with any CopilotKit-powered agent —
@@ -42,12 +45,3 @@ Browser → CopilotKit Runtime → AgentCore Runtime → your agent
     </div>
   </a>
 </div>
-
-## Prerequisites
-
-Before you begin, you should have:
-
-- An AG-UI agent deployed to [AgentCore Runtime](https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/runtime-agui.html)
-- Your AgentCore endpoint URL (the `/invocations` URL returned after deployment)
-- A Cognito user pool set up for authentication (the AWS guide covers this)
-- Node.js 18+

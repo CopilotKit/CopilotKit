@@ -19,61 +19,70 @@ one-command deploy to AWS.
 
 ## Prerequisites
 
-| Tool | Version |
-|---|---|
-| AWS CLI | configured (`aws configure`) |
-| Node.js | 18+ |
-| Python | 3.8+ |
-| Docker | running |
+- **AWS CLI** — configured (`aws configure`)
+- **Node.js** 18+
+- **Python** 3.8+
+- **Docker** — running
 
 ## Deploy
 
-**1. Clone the example**
+The CLI scaffolds the project, sets up your config, and a single script deploys the full stack — CDK infrastructure, AgentCore Runtime, and the frontend — in one shot.
 
-```bash
-git clone https://github.com/CopilotKit/CopilotKit.git
-cd CopilotKit/examples/integrations/agentcore
-```
+<Steps>
+  <Step>
+    ### Scaffold the project
 
-**2. Configure**
-
-```bash
-cp config.yaml.example config.yaml
-```
-
-Edit `config.yaml` and set `stack_name_base` (a short prefix for your AWS resources) and
-`admin_user_email` (where your Cognito invite will be sent).
-
-**3. Deploy**
-
-<Tabs groupId="agent-framework" items={["LangGraph", "Strands"]}>
-  <Tab value="LangGraph">
     ```bash
-    ./deploy-langgraph.sh
+    npx copilotkit@latest create -f agentcore-langgraph
+    # or
+    npx copilotkit@latest create -f agentcore-strands
     ```
-  </Tab>
-  <Tab value="Strands">
+  </Step>
+
+  <Step>
+    ### Configure
+
     ```bash
-    ./deploy-strands.sh
+    cp config.yaml.example config.yaml
     ```
-  </Tab>
-</Tabs>
 
-The script deploys the full CDK stack and prints an Amplify URL when done. Sign in with your
-`admin_user_email`.
+    Edit `config.yaml` and set `stack_name_base` (a short prefix for your AWS resources) and
+    `admin_user_email` (where your Cognito invite will be sent).
+  </Step>
 
-<Callout type="info" title="Prefer Terraform?">
-  A Terraform equivalent is available in `infra-terraform/`. See `infra-terraform/README.md` for
-  setup and deploy steps.
-</Callout>
+  <Step>
+    ### Deploy
 
-<Callout type="info" title="Infra only">
-  Pass `--skip-frontend` to deploy or update the agent and infrastructure without rebuilding
-  the frontend:
-  ```bash
-  ./deploy-langgraph.sh --skip-frontend
-  ```
-</Callout>
+    <Tabs groupId="agent-framework" items={["LangGraph", "Strands"]}>
+      <Tab value="LangGraph">
+        ```bash
+        ./deploy-langgraph.sh
+        ```
+      </Tab>
+      <Tab value="Strands">
+        ```bash
+        ./deploy-strands.sh
+        ```
+      </Tab>
+    </Tabs>
+
+    The script deploys the full CDK stack and prints an Amplify URL when done. Sign in with your
+    `admin_user_email`.
+
+    <Callout type="info" title="Prefer Terraform?">
+      A Terraform equivalent is available in `infra-terraform/`. See `infra-terraform/README.md` for
+      setup and deploy steps.
+    </Callout>
+
+    <Callout type="info" title="Infra only">
+      Pass `--skip-frontend` to deploy or update the agent and infrastructure without rebuilding
+      the frontend:
+      ```bash
+      ./deploy-langgraph.sh --skip-frontend
+      ```
+    </Callout>
+  </Step>
+</Steps>
 
 ## Local development
 
@@ -119,56 +128,9 @@ frontend passes this token as a Bearer header to the CopilotKit Lambda. The Lamb
 it to AgentCore, which validates it and makes the `sub` claim available to the agent as the
 user identity.
 
-## Generative UI
-
-The agent renders charts and UI components directly in the chat by calling frontend tools.
-The frontend registers these tools with `useCopilotAction`:
-
-```tsx
-useCopilotAction({
-  name: "barChart",
-  parameters: [
-    { name: "data", type: "object[]" },
-    { name: "title", type: "string" },
-  ],
-  render: ({ data, title }) => <BarChart data={data} title={title} />,
-});
-```
-
-The agent calls `barChart` with data (fetched first via `query_data`), and the chart
-appears inline in the chat — no extra user interaction needed.
-
-## Shared state
-
-The todo canvas demonstrates bidirectional state sync between the agent and the frontend.
-The agent maintains a `todos` list in its state; the frontend reads and writes it in real time.
-
-**Agent side** (LangGraph):
-```python
-class AgentState(BaseAgentState):
-    todos: list[Todo]
-
-@tool
-def manage_todos(todos: list[Todo], runtime: ToolRuntime) -> Command:
-    """Replace the entire todo list."""
-    return Command(update={"todos": todos, "messages": [...]})
-```
-
-**Frontend side:**
-```tsx
-const { agent } = useAgent();
-
-// Read agent state
-const todos = agent.state?.todos ?? [];
-
-// Write agent state (user interaction)
-agent.setState({ todos: updatedTodos });
-```
-
-The agent calls `manage_todos` to update todos; the UI reacts instantly. Users can also
-edit todos directly and those changes flow back to the agent's state.
-
 ## Tear down
+
+When you're done experimenting, run this to delete all AWS resources created by the deployment — the AgentCore Runtime, Cognito user pool, Lambda, API Gateway, and Amplify app. This stops any ongoing AWS charges.
 
 ```bash
 cd infra-cdk && npx cdk destroy --all
