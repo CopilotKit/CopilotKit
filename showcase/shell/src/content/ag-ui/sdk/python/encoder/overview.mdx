@@ -1,0 +1,92 @@
+---
+title: "Overview"
+description: "Documentation for encoding Agent User Interaction Protocol events"
+---
+
+```bash
+pip install ag-ui-protocol
+```
+
+# Event Encoder
+
+The Agent User Interaction Protocol uses a streaming approach to send events
+from agents to clients. The `EventEncoder` class provides the functionality to
+encode events into a format that can be sent over HTTP.
+
+## EventEncoder
+
+`from ag_ui.encoder import EventEncoder`
+
+The `EventEncoder` class is responsible for encoding `BaseEvent` objects into
+string representations that can be transmitted to clients.
+
+```python
+from ag_ui.core import BaseEvent
+from ag_ui.encoder import EventEncoder
+
+# Initialize the encoder
+encoder = EventEncoder()
+
+# Encode an event
+encoded_event = encoder.encode(event)
+```
+
+### Usage
+
+The `EventEncoder` is typically used in HTTP handlers to convert event objects
+into a stream of data. The current implementation encodes events as Server-Sent
+Events (SSE), which can be consumed by clients using the EventSource API.
+
+### Methods
+
+#### `__init__(accept: str = None)`
+
+Creates a new encoder instance.
+
+| Parameter | Type             | Description                         |
+| --------- | ---------------- | ----------------------------------- |
+| `accept`  | `str` (optional) | Content type accepted by the client |
+
+#### `encode(event: BaseEvent) -> str`
+
+Encodes an event into a string representation.
+
+| Parameter | Type        | Description         |
+| --------- | ----------- | ------------------- |
+| `event`   | `BaseEvent` | The event to encode |
+
+**Returns**: A string representation of the event in SSE format.
+
+### Example
+
+```python
+from ag_ui.core import TextMessageContentEvent, EventType
+from ag_ui.encoder import EventEncoder
+
+# Create an event
+event = TextMessageContentEvent(
+    type=EventType.TEXT_MESSAGE_CONTENT,
+    message_id="msg_123",
+    delta="Hello, world!"
+)
+
+# Initialize the encoder
+encoder = EventEncoder()
+
+# Encode the event
+encoded_event = encoder.encode(event)
+print(encoded_event)
+# Output: data: {"type":"TEXT_MESSAGE_CONTENT","messageId":"msg_123","delta":"Hello, world!"}\n\n
+```
+
+### Implementation Details
+
+Internally, the encoder converts events to JSON and formats them as Server-Sent
+Events with the following structure:
+
+```
+data: {json-serialized event}\n\n
+```
+
+This format allows clients to receive a continuous stream of events and process
+them as they arrive.

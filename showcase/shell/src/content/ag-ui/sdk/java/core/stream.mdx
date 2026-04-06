@@ -1,0 +1,31 @@
+---
+title: "Event Stream"
+description: "Java event stream interfaces and usage"
+---
+
+# Event Stream
+
+Streaming is built around `IEventStream<T>` with a concrete `EventStream<BaseEvent>` implementation.
+
+## IEventStream
+
+Core methods:
+
+- `void next(T event)` — emit an event
+- `void error(Throwable error)` — signal error and terminate
+- `void complete()` — signal completion
+- `boolean isCancelled()` — check cancellation (for cooperative cancellation)
+
+## EventStream
+
+Utility implementation that accepts three lambdas: onNext, onError, onComplete. Used by `AbstractAgent` and Spring `AgUiService`.
+
+```java
+IEventStream<BaseEvent> stream = new EventStream<>(
+  event -> { /* handle event */ },
+  error -> { /* handle error */ },
+  () -> { /* handle complete */ }
+);
+```
+
+

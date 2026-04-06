@@ -1,0 +1,68 @@
+---
+title: "Introduction"
+description: "Learn how to get started building an AG-UI integration"
+---
+
+<video
+  src="https://copilotkit-public-assets.s3.us-east-1.amazonaws.com/docs/ag-ui/ag-ui-animation-simple.mp4"
+  autoPlay
+  playsInline
+  muted
+  className="w-full h-[390px] rounded-lg object-cover mx-auto block"
+/>
+
+# What is an Integration?
+
+An AG-UI integration makes your agent speak the AG-UI protocol. This means your agent can work with any AG-UI compatible client application - like chat interfaces, copilots, or custom AI tools.
+
+Think of it like adding a universal translator to your agent. Instead of building custom APIs for each client, you implement AG-UI once and instantly work with any compatible application.
+
+Agents integrating with AG-UI can:
+- **Stream responses** - Real-time text that appears as it's generated
+- **Call client-side tools** - Your agent can use functions and services defined by clients
+- **Share state** - Your agent's state is bidirectional shared state
+- **Execute universally** - Integrate with any AG-UI compatible client application
+- **And much more!** - Check out the full specification [here](/concepts/events).
+
+### When should I make any integration?
+If the integration you're looking for is not listed on our [integrations page](/integrations), you'll need to make an integration. We've got a few guides on this below!
+
+However, if you're looking to utilize an existing integration (like LangGraph, CrewAI, Mastra, etc.), you can skip this step and go straight to [building an application](/quickstart/applications).
+
+# Types of Integrations
+So you've decided you need an integration! Great, there are **two main ways** to implement an AG-UI integration:
+
+<CardGroup cols={2}>
+  <Card
+    icon="server"
+    title="Server Implementation"
+    href="/quickstart/server"
+  >
+    Emit AG-UI events **directly from your agent** or server.
+  </Card>
+  <Card
+    icon="code"
+    title="Middleware Implementation"
+    href="/quickstart/middleware"
+  >
+    **Translate existing protocols** and applications to AG-UI events.
+  </Card>
+</CardGroup>
+
+### When to use a server implementation
+Server implementations allow you to directly emit AG-UI events from your agent or server. If you are not using an
+agent framework or haven't created a protocol for your agent framework yet, this is the best way to get started.
+
+Server implementations are also great for:
+- Building a **new agent frameworks** from scratch
+- **Maximum control** over how and what events are emitted
+- Exposing your agent as a **standalone API**
+
+### When to use a middleware implementation
+Middleware is the flexible option. It allows you to translate existing protocols and applications to AG-UI events
+creating a bridge between your existing system and AG-UI.
+
+Middleware is great for:
+- Taking your **existing protocol or API** and **translating it universally**
+- Working within the confines of **an existing system or framework**
+- **When you don't have direct control** over the agent framework or system

@@ -1,0 +1,88 @@
+---
+title: "Ruby SDK Overview"
+description: "Connect to AG-UI agents using the official Ruby SDK"
+---
+
+The AG-UI Ruby SDK provides a robust and idiomatic way to connect Ruby applications to AG-UI agents. It enables real-time streaming communication through Server-Sent Events (SSE), allowing you to build intelligent agent-powered applications with Ruby.
+
+## Installation
+
+Install the SDK using Ruby's standard package management:
+
+```bash
+bundle add ag-ui-protocol
+```
+
+## Quick Start
+
+Here's a simple example showing how to create and encode an event:
+
+```ruby
+require "ag_ui_protocol"
+
+def send_message(message_id, content, stream)
+    encoder = AgUiProtocol::Encoder::EventEncoder.new
+
+    text_message_start_event = AgUiProtocol::Core::Events::TextMessageStartEvent.new(
+        message_id: message_id,
+    )
+    text_message_start_event_sse = encoder.encode(text_message_start_event)
+    stream.write(text_message_start_event_sse)
+
+    text_message_content_event = AgUiProtocol::Core::Events::TextMessageContentEvent.new(
+        message_id: message_id,
+        delta: content,
+    )
+    text_message_content_event_sse = encoder.encode(text_message_content_event)
+    stream.write(text_message_content_event_sse)
+
+    text_message_end_event = AgUiProtocol::Core::Events::TextMessageEndEvent.new(
+        message_id: message_id,
+    )
+    text_message_end_event_sse = encoder.encode(text_message_end_event)
+    stream.write(text_message_end_event_sse)
+end
+```
+
+## Package Structure
+
+The Ruby SDK is organized into several focused packages, each handling a specific aspect of the AG-UI protocol:
+
+### Core Package (`AgUiProtocol::Core`)
+The foundation of the SDK, providing event types, interfaces, and decoding capabilities. This package defines all the event structures used in AG-UI communication, including text messages, tool calls, state management, and lifecycle events.
+
+```ruby
+require "ag_ui_protocol/core/events"
+require "ag_ui_protocol/core/types"
+```
+
+### Encoding Package (`AgUiProtocol::Encoder::EventEncoder`)
+Provides flexible encoding for events to SSE. Includes JSON encoding, SSE writing for servers, and content negotiation for handling different MIME types.
+
+```ruby
+require "ag_ui_protocol/encoder/event_encoder"
+```
+
+## Next Steps
+
+Explore the detailed documentation for each package to learn more about specific features and advanced usage:
+
+<Card
+  title="Core Concepts"
+  icon="cube"
+  href="/sdk/ruby/core/overview"
+  color="#3B82F6"
+  iconType="solid"
+>
+  Learn about events, types, and the foundational concepts of the AG-UI protocol
+</Card>
+
+<Card
+  title="Encoding & Serialization"
+  icon="cube"
+  href="/sdk/ruby/encoding/overview"
+  color="#3B82F6"
+  iconType="solid"
+>
+  Work with different encodings, content negotiation, and SSE server implementation
+</Card>

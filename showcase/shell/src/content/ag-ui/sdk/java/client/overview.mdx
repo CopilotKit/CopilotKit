@@ -1,0 +1,65 @@
+---
+title: "Overview"
+description: "Client package overview for the Java SDK"
+---
+
+# ag-ui-client
+
+The Java Client SDK provides agent connectivity options for AI systems. It builds on the core types and events to deliver flexible connection methods to agent implementations.
+
+## AbstractAgent
+
+`AbstractAgent` is the base agent class for implementing custom agent connectivity. Extend this class and implement `run` to bridge your service to AG-UI.
+
+- Configuration — agent ID, messages, and state
+- Core Methods — runAgent, subscribe, message/state helpers
+- Protected Methods — event handling hooks
+- Properties — state and message tracking
+
+<Card
+  title="AbstractAgent Reference"
+  icon="cube"
+  href="/sdk/java/client/abstract-agent"
+  color="#3B82F6"
+  iconType="solid"
+>
+  Base class for creating custom agent connections
+</Card>
+
+## HttpAgent
+
+Concrete implementation for HTTP-based agent connectivity using an injected `BaseHttpClient` implementation.
+
+- Configuration — agentId, threadId, httpClient
+- Methods — run via HTTP streaming, close
+- Builder — fluent configuration with validation
+
+<Card
+  title="HttpAgent Reference"
+  icon="cube"
+  href="/sdk/java/client/http-agent"
+  color="#3B82F6"
+  iconType="solid"
+>
+  Ready-to-use HTTP implementation for agent connectivity
+</Card>
+
+## AgentSubscriber
+
+Event-driven subscriber system for handling agent lifecycle events and state mutations during execution.
+
+- Event Handlers — lifecycle, message, tool call, and state events
+- Usage Examples — logging, persistence, error handling patterns
+- Integration — register and use subscribers with agents
+
+<Card
+  title="AgentSubscriber Reference"
+  icon="bolt"
+  href="/sdk/java/client/subscriber"
+  color="#3B82F6"
+  iconType="solid"
+>
+  Comprehensive event system for reactive agent interaction
+</Card>
+
+

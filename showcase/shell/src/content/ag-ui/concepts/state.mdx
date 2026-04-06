@@ -1,0 +1,252 @@
+---
+title: "State Management"
+description:
+  "Understanding state synchronization between agents and frontends in AG-UI"
+---
+
+# State Management
+
+State management is a core feature of the AG-UI protocol that enables real-time
+synchronization between agents and frontend applications. By providing efficient
+mechanisms for sharing and updating state, AG-UI creates a foundation for
+collaborative experiences where both AI agents and human users can work together
+seamlessly.
+
+## Shared State Architecture
+
+In AG-UI, state is a structured data object that:
+
+1. Persists across interactions with an agent
+2. Can be accessed by both the agent and the frontend
+3. Updates in real-time as the interaction progresses
+4. Provides context for decision-making on both sides
+
+This shared state architecture creates a bidirectional communication channel
+where:
+
+- Agents can access the application's current state to make informed decisions
+- Frontends can observe and react to changes in the agent's internal state
+- Both sides can modify the state, creating a collaborative workflow
+
+## State Synchronization Methods
+
+AG-UI provides two complementary methods for state synchronization:
+
+### State Snapshots
+
+The `STATE_SNAPSHOT` event delivers a complete representation of an agent's
+current state:
+
+```typescript
+interface StateSnapshotEvent {
+  type: EventType.STATE_SNAPSHOT
+  snapshot: any // Complete state object
+}
+```
+
+Snapshots are typically used:
+
+- At the beginning of an interaction to establish the initial state
+- After connection interruptions to ensure synchronization
+- When major state changes occur that require a complete refresh
+- To establish a new baseline for future delta updates
+
+When a frontend receives a `STATE_SNAPSHOT` event, it should replace its
+existing state model entirely with the contents of the snapshot.
+
+### State Deltas
+
+The `STATE_DELTA` event delivers incremental updates to the state using JSON
+Patch format (RFC 6902):
+
+```typescript
+interface StateDeltaEvent {
+  type: EventType.STATE_DELTA
+  delta: JsonPatchOperation[] // Array of JSON Patch operations
+}
+```
+
+Deltas are bandwidth-efficient, sending only what has changed rather than the
+entire state. This approach is particularly valuable for:
+
+- Frequent small updates during streaming interactions
+- Large state objects where most properties remain unchanged
+- High-frequency updates that would be inefficient to send as full snapshots
+
+## JSON Patch Format
+
+AG-UI uses the JSON Patch format (RFC 6902) for state deltas, which defines a
+standardized way to express changes to a JSON document:
+
+```typescript
+interface JsonPatchOperation {
+  op: "add" | "remove" | "replace" | "move" | "copy" | "test"
+  path: string // JSON Pointer (RFC 6901) to the target location
+  value?: any // The value to apply (for add, replace)
+  from?: string // Source path (for move, copy)
+}
+```
+
+Common operations include:
+
+1. **add**: Adds a value to an object or array
+
+   ```json
+   { "op": "add", "path": "/user/preferences", "value": { "theme": "dark" } }
+   ```
+
+2. **replace**: Replaces a value
+
+   ```json
+   { "op": "replace", "path": "/conversation_state", "value": "paused" }
+   ```
+
+3. **remove**: Removes a value
+
+   ```json
+   { "op": "remove", "path": "/temporary_data" }
+   ```
+
+4. **move**: Moves a value from one location to another
+   ```json
+   { "op": "move", "path": "/completed_items", "from": "/pending_items/0" }
+   ```
+
+Frontends should apply these patches in sequence to maintain an accurate state
+representation. If inconsistencies are detected after applying patches, the
+frontend can request a fresh `STATE_SNAPSHOT`.
+
+## State Processing in AG-UI
+
+In the AG-UI implementation, state deltas are applied using the
+`fast-json-patch` library:
+
+```typescript
+case EventType.STATE_DELTA: {
+  const { delta } = event as StateDeltaEvent;
+
+  try {
+    // Apply the JSON Patch operations to the current state without mutating the original
+    const result = applyPatch(state, delta, true, false);
+    state = result.newDocument;
+    return emitUpdate({ state });
+  } catch (error: unknown) {
+    console.warn(
+      `Failed to apply state patch:\n` +
+      `Current state: ${JSON.stringify(state, null, 2)}\n` +
+      `Patch operations: ${JSON.stringify(delta, null, 2)}\n` +
+      `Error: ${errorMessage}`
+    );
+    return emitNoUpdate();
+  }
+}
+```
+
+This implementation ensures that:
+
+- Patches are applied atomically (all or none)
+- The original state is not mutated during the application process
+- Errors are caught and handled gracefully
+
+## Human-in-the-Loop Collaboration
+
+The shared state system is fundamental to human-in-the-loop workflows in AG-UI.
+It enables:
+
+1. **Real-time visibility**: Users can observe the agent's thought process and
+   current status
+2. **Contextual awareness**: The agent can access user actions, preferences, and
+   application state
+3. **Collaborative decision-making**: Both human and AI can contribute to the
+   evolving state
+4. **Feedback loops**: Humans can correct or guide the agent by modifying state
+   properties
+
+For example, an agent might update its state with a proposed action:
+
+```json
+{
+  "proposal": {
+    "action": "send_email",
+    "recipient": "client@example.com",
+    "content": "Draft email content..."
+  }
+}
+```
+
+The frontend can display this proposal to the user, who can then approve,
+reject, or modify it before execution.
+
+## CopilotKit Implementation
+
+[CopilotKit](https://docs.copilotkit.ai), a popular framework for building AI
+assistants, leverages AG-UI's state management system through its "shared state"
+feature. This implementation enables bidirectional state synchronization between
+agents (particularly LangGraph agents) and frontend applications.
+
+CopilotKit's shared state system is implemented through:
+
+```jsx
+// In the frontend React application
+const { state: agentState, setState: setAgentState } = useCoAgent({
+  name: "agent",
+  initialState: { someProperty: "initialValue" },
+})
+```
+
+This hook creates a real-time connection to the agent's state, allowing:
+
+1. Reading the agent's current state in the frontend
+2. Updating the agent's state from the frontend
+3. Rendering UI components based on the agent's state
+
+On the backend, LangGraph agents can emit state updates using:
+
+```python
+# In the LangGraph agent
+async def tool_node(self, state: ResearchState, config: RunnableConfig):
+    # Update state with new information
+    tool_state = {
+        "title": new_state.get("title", ""),
+        "outline": new_state.get("outline", {}),
+        "sections": new_state.get("sections", []),
+        # Other state properties...
+    }
+
+    # Emit updated state to frontend
+    await copilotkit_emit_state(config, tool_state)
+
+    return tool_state
+```
+
+These state updates are transmitted using AG-UI's state snapshot and delta
+mechanisms, creating a seamless shared context between agent and frontend.
+
+## Best Practices
+
+When implementing state management in AG-UI:
+
+1. **Use snapshots judiciously**: Full snapshots should be sent only when
+   necessary to establish a baseline.
+2. **Prefer deltas for incremental changes**: Small state updates should use
+   deltas to minimize data transfer.
+3. **Structure state thoughtfully**: Design state objects to support partial
+   updates and minimize patch complexity.
+4. **Handle state conflicts**: Implement strategies for resolving conflicting
+   updates from agent and frontend.
+5. **Include error recovery**: Provide mechanisms to resynchronize state if
+   inconsistencies are detected.
+6. **Consider security implications**: Avoid storing sensitive information in
+   shared state.
+
+## Conclusion
+
+AG-UI's state management system provides a powerful foundation for building
+collaborative applications where humans and AI agents work together. By
+efficiently synchronizing state between frontend and backend through snapshots
+and JSON Patch deltas, AG-UI enables sophisticated human-in-the-loop workflows
+that combine the strengths of both human intuition and AI capabilities.
+
+The implementation in frameworks like CopilotKit demonstrates how this shared
+state approach can create collaborative experiences that are more effective than
+either fully autonomous systems or traditional user interfaces.

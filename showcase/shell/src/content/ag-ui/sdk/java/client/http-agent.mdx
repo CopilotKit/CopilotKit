@@ -1,0 +1,36 @@
+---
+title: "HttpAgent"
+description: "HTTP-based agent for connecting to remote AI agents (Java)"
+---
+
+# HttpAgent
+
+`HttpAgent` extends `AbstractAgent` to provide HTTP-based connectivity to remote AI agents. It delegates streaming to a `BaseHttpClient` implementation and forwards incoming events to subscribers.
+
+## Configuration
+
+Use the builder to construct an instance:
+
+```java
+HttpAgent agent = HttpAgent.builder()
+  .agentId("my-agent")
+  .threadId("thread-123")
+  .httpClient(myHttpClient)
+  .messages(new ArrayList<>())
+  .state(new State())
+  .debug(true)
+  .build();
+```
+
+Required: `agentId`, `threadId`, `httpClient`
+
+## Methods
+
+- `protected void run(RunAgentInput input, IEventStream<BaseEvent> stream)` — streams events via `httpClient.streamEvents`
+- `void close()` — closes the underlying HTTP client
+
+## Builder
+
+Fluent builder with validation. Required fields must be set or an `IllegalArgumentException` is thrown.
+
+

@@ -1,0 +1,47 @@
+---
+title: "Spring"
+description: "Build Java servers that stream AG-UI events"
+---
+
+# Spring Server
+
+Use `AgUiService` to stream events to web clients via SSE.
+
+```java
+public class EchoAgent extends LocalAgent {
+  public EchoAgent() { super("echo", new State(), null, "You are echo."); }
+
+  @Override
+  protected void run(RunAgentInput input, AgentSubscriber sub) {
+    var runId = input.getRunId();
+    emitEvent(EventFactory.runStartedEvent(input.getThreadId(), runId), sub);
+
+    var messageId = UUID.randomUUID().toString();
+    emitEvent(EventFactory.textMessageStartEvent(messageId, "assistant"), sub);
+    emitEvent(EventFactory.textMessageContentEvent(messageId, "Hello"), sub);
+    emitEvent(EventFactory.textMessageEndEvent(messageId), sub);
+
+    emitEvent(EventFactory.runFinishedEvent(input.getThreadId(), runId), sub);
+  }
+}
+```
+
+```java
+@RestController
+public class AgentController {
+  private final AgUiService agUiService;
+  private final EchoAgent echoAgent;
+
+  public AgentController(AgUiService agUiService, EchoAgent echoAgent) {
+    this.agUiService = agUiService;
+    this.echoAgent = echoAgent;
+  }
+
+  @PostMapping("/agents/run")
+  public SseEmitter run(@RequestBody AgUiParameters params) {
+    return agUiService.runAgent(echoAgent, params);
+  }
+}
+```
+
+

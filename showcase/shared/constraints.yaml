@@ -1,0 +1,67 @@
+# Constraint tables for the Showcase Decision Tree.
+# Generative UI: allowlist-based (demo must appear in `allowed` list)
+# Interaction Modality: denylist-based (all allowed unless in `excluded` list)
+
+generative_ui:
+  constrained-declarative:
+    allowed:
+      - agentic-chat
+      - gen-ui-tool-based
+      - useComponent
+      - multi-modal
+      - suggestions
+      - shared-state-read
+      - shared-state-write
+      - shared-state-streaming
+      - readables
+      - subagents
+      - voice
+    excluded:
+      - tool-rendering
+      - hitl
+      - gen-ui-interrupt
+      - open-gen-ui
+
+  constrained-explicit:
+    allowed:
+      - agentic-chat
+      - gen-ui-tool-based
+      - gen-ui-interrupt
+      - gen-ui-agent
+      - hitl
+      - tool-rendering
+      - useComponent
+      - multi-modal
+      - suggestions
+      - shared-state-read
+      - shared-state-write
+      - shared-state-streaming
+      - readables
+      - subagents
+      - voice
+
+  open:
+    allowed:
+      - open-gen-ui
+      - multi-modal
+      - suggestions
+      - shared-state-read
+      - shared-state-write
+      - shared-state-streaming
+      - readables
+      - subagents
+      - voice
+    excluded:
+      - tool-rendering
+      - hitl
+      - gen-ui-tool-based
+      - gen-ui-interrupt
+      - useComponent
+      - agentic-chat
+
+interaction_modalities:
+  headless:
+    excluded:
+      - open-gen-ui
+      - voice
+  # sidebar, embedded, popup, chat: no exclusions

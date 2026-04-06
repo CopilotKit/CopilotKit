@@ -1,0 +1,692 @@
+---
+title: "Events"
+description:
+  "Documentation for the events used in the Agent User Interaction Protocol
+  Python SDK"
+---
+
+# Events
+
+The Agent User Interaction Protocol Python SDK uses a streaming event-based
+architecture. Events are the fundamental units of communication between agents
+and the frontend. This section documents the event types and their properties.
+
+## EventType Enum
+
+`from ag_ui.core import EventType`
+
+The `EventType` enum defines all possible event types in the system:
+
+```python
+class EventType(str, Enum):
+    TEXT_MESSAGE_START = "TEXT_MESSAGE_START"
+    TEXT_MESSAGE_CONTENT = "TEXT_MESSAGE_CONTENT"
+    TEXT_MESSAGE_END = "TEXT_MESSAGE_END"
+    TOOL_CALL_START = "TOOL_CALL_START"
+    TOOL_CALL_ARGS = "TOOL_CALL_ARGS"
+    TOOL_CALL_END = "TOOL_CALL_END"
+    TOOL_CALL_RESULT = "TOOL_CALL_RESULT"
+    STATE_SNAPSHOT = "STATE_SNAPSHOT"
+    STATE_DELTA = "STATE_DELTA"
+    MESSAGES_SNAPSHOT = "MESSAGES_SNAPSHOT"
+    ACTIVITY_SNAPSHOT = "ACTIVITY_SNAPSHOT"
+    ACTIVITY_DELTA = "ACTIVITY_DELTA"
+    RAW = "RAW"
+    CUSTOM = "CUSTOM"
+    RUN_STARTED = "RUN_STARTED"
+    RUN_FINISHED = "RUN_FINISHED"
+    RUN_ERROR = "RUN_ERROR"
+    STEP_STARTED = "STEP_STARTED"
+    STEP_FINISHED = "STEP_FINISHED"
+    REASONING_START = "REASONING_START"
+    REASONING_MESSAGE_START = "REASONING_MESSAGE_START"
+    REASONING_MESSAGE_CONTENT = "REASONING_MESSAGE_CONTENT"
+    REASONING_MESSAGE_END = "REASONING_MESSAGE_END"
+    REASONING_MESSAGE_CHUNK = "REASONING_MESSAGE_CHUNK"
+    REASONING_END = "REASONING_END"
+    REASONING_ENCRYPTED_VALUE = "REASONING_ENCRYPTED_VALUE"
+```
+
+## BaseEvent
+
+`from ag_ui.core import BaseEvent`
+
+All events inherit from the `BaseEvent` class, which provides common properties
+shared across all event types.
+
+```python
+class BaseEvent(ConfiguredBaseModel):
+    type: EventType
+    timestamp: Optional[int] = None
+    raw_event: Optional[Any] = None
+```
+
+| Property    | Type            | Description                                           |
+| ----------- | --------------- | ----------------------------------------------------- |
+| `type`      | `EventType`     | The type of event (discriminator field for the union) |
+| `timestamp` | `Optional[int]` | Timestamp when the event was created                  |
+| `raw_event` | `Optional[Any]` | Original event data if this event was transformed     |
+
+## Lifecycle Events
+
+These events represent the lifecycle of an agent run.
+
+### RunStartedEvent
+
+`from ag_ui.core import RunStartedEvent`
+
+Signals the start of an agent run.
+
+```python
+class RunStartedEvent(BaseEvent):
+    type: Literal[EventType.RUN_STARTED]
+    thread_id: str
+    run_id: str
+    parent_run_id: Optional[str] = None
+    input: Optional[RunAgentInput] = None
+```
+
+| Property        | Type                      | Description                                                                                                    |
+| --------------- | ------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `thread_id`     | `str`                     | ID of the conversation thread                                                                                  |
+| `run_id`        | `str`                     | ID of the agent run                                                                                            |
+| `parent_run_id` | `Optional[str]`           | (Optional) Lineage pointer for branching/time travel. If present, refers to a prior run within the same thread |
+| `input`         | `Optional[RunAgentInput]` | (Optional) The exact agent input payload sent to the agent for this run. May omit messages already in history  |
+
+### RunFinishedEvent
+
+`from ag_ui.core import RunFinishedEvent`
+
+Signals the successful completion of an agent run.
+
+```python
+class RunFinishedEvent(BaseEvent):
+    type: Literal[EventType.RUN_FINISHED]
+    thread_id: str
+    run_id: str
+    result: Optional[Any] = None
+```
+
+| Property    | Type            | Description                    |
+| ----------- | --------------- | ------------------------------ |
+| `thread_id` | `str`           | ID of the conversation thread  |
+| `run_id`    | `str`           | ID of the agent run            |
+| `result`    | `Optional[Any]` | Result data from the agent run |
+
+### RunErrorEvent
+
+`from ag_ui.core import RunErrorEvent`
+
+Signals an error during an agent run.
+
+```python
+class RunErrorEvent(BaseEvent):
+    type: Literal[EventType.RUN_ERROR]
+    message: str
+    code: Optional[str] = None
+```
+
+| Property  | Type            | Description   |
+| --------- | --------------- | ------------- |
+| `message` | `str`           | Error message |
+| `code`    | `Optional[str]` | Error code    |
+
+### StepStartedEvent
+
+`from ag_ui.core import StepStartedEvent`
+
+Signals the start of a step within an agent run.
+
+```python
+class StepStartedEvent(BaseEvent):
+    type: Literal[EventType.STEP_STARTED]
+    step_name: str
+```
+
+| Property    | Type  | Description      |
+| ----------- | ----- | ---------------- |
+| `step_name` | `str` | Name of the step |
+
+### StepFinishedEvent
+
+`from ag_ui.core import StepFinishedEvent`
+
+Signals the completion of a step within an agent run.
+
+```python
+class StepFinishedEvent(BaseEvent):
+    type: Literal[EventType.STEP_FINISHED]
+    step_name: str
+```
+
+| Property    | Type  | Description      |
+| ----------- | ----- | ---------------- |
+| `step_name` | `str` | Name of the step |
+
+## Text Message Events
+
+These events represent the lifecycle of text messages in a conversation.
+
+### TextMessageStartEvent
+
+`from ag_ui.core import TextMessageStartEvent`
+
+Signals the start of a text message.
+
+```python
+class TextMessageStartEvent(BaseEvent):
+    type: Literal[EventType.TEXT_MESSAGE_START]
+    message_id: str
+    role: Literal["assistant"]
+```
+
+| Property     | Type                   | Description                       |
+| ------------ | ---------------------- | --------------------------------- |
+| `message_id` | `str`                  | Unique identifier for the message |
+| `role`       | `Literal["assistant"]` | Role is always "assistant"        |
+
+### TextMessageContentEvent
+
+`from ag_ui.core import TextMessageContentEvent`
+
+Represents a chunk of content in a streaming text message.
+
+```python
+class TextMessageContentEvent(BaseEvent):
+    type: Literal[EventType.TEXT_MESSAGE_CONTENT]
+    message_id: str
+    delta: str  # Non-empty string
+
+    def model_post_init(self, __context):
+        if len(self.delta) == 0:
+            raise ValueError("Delta must not be an empty string")
+```
+
+| Property     | Type  | Description                               |
+| ------------ | ----- | ----------------------------------------- |
+| `message_id` | `str` | Matches the ID from TextMessageStartEvent |
+| `delta`      | `str` | Text content chunk (non-empty)            |
+
+### TextMessageEndEvent
+
+`from ag_ui.core import TextMessageEndEvent`
+
+Signals the end of a text message.
+
+```python
+class TextMessageEndEvent(BaseEvent):
+    type: Literal[EventType.TEXT_MESSAGE_END]
+    message_id: str
+```
+
+| Property     | Type  | Description                               |
+| ------------ | ----- | ----------------------------------------- |
+| `message_id` | `str` | Matches the ID from TextMessageStartEvent |
+
+## Tool Call Events
+
+These events represent the lifecycle of tool calls made by agents.
+
+### ToolCallStartEvent
+
+`from ag_ui.core import ToolCallStartEvent`
+
+Signals the start of a tool call.
+
+```python
+class ToolCallStartEvent(BaseEvent):
+    type: Literal[EventType.TOOL_CALL_START]
+    tool_call_id: str
+    tool_call_name: str
+    parent_message_id: Optional[str] = None
+```
+
+| Property            | Type            | Description                         |
+| ------------------- | --------------- | ----------------------------------- |
+| `tool_call_id`      | `str`           | Unique identifier for the tool call |
+| `tool_call_name`    | `str`           | Name of the tool being called       |
+| `parent_message_id` | `Optional[str]` | ID of the parent message            |
+
+### ToolCallArgsEvent
+
+`from ag_ui.core import ToolCallArgsEvent`
+
+Represents a chunk of argument data for a tool call.
+
+```python
+class ToolCallArgsEvent(BaseEvent):
+    type: Literal[EventType.TOOL_CALL_ARGS]
+    tool_call_id: str
+    delta: str
+```
+
+| Property       | Type  | Description                            |
+| -------------- | ----- | -------------------------------------- |
+| `tool_call_id` | `str` | Matches the ID from ToolCallStartEvent |
+| `delta`        | `str` | Argument data chunk                    |
+
+### ToolCallEndEvent
+
+`from ag_ui.core import ToolCallEndEvent`
+
+Signals the end of a tool call.
+
+```python
+class ToolCallEndEvent(BaseEvent):
+    type: Literal[EventType.TOOL_CALL_END]
+    tool_call_id: str
+```
+
+| Property       | Type  | Description                            |
+| -------------- | ----- | -------------------------------------- |
+| `tool_call_id` | `str` | Matches the ID from ToolCallStartEvent |
+
+### ToolCallResultEvent
+
+`from ag_ui.core import ToolCallResultEvent`
+
+Provides the result of a tool call execution.
+
+```python
+class ToolCallResultEvent(BaseEvent):
+    message_id: str
+    type: Literal[EventType.TOOL_CALL_RESULT]
+    tool_call_id: str
+    content: str
+    role: Optional[Literal["tool"]] = None
+```
+
+| Property       | Type                        | Description                                                 |
+| -------------- | --------------------------- | ----------------------------------------------------------- |
+| `message_id`   | `str`                       | ID of the conversation message this result belongs to       |
+| `tool_call_id` | `str`                       | Matches the ID from the corresponding ToolCallStartEvent    |
+| `content`      | `str`                       | The actual result/output content from the tool execution    |
+| `role`         | `Optional[Literal["tool"]]` | Optional role identifier, typically "tool" for tool results |
+
+## State Management Events
+
+These events are used to manage agent state.
+
+### StateSnapshotEvent
+
+`from ag_ui.core import StateSnapshotEvent`
+
+Provides a complete snapshot of an agent's state.
+
+```python
+class StateSnapshotEvent(BaseEvent):
+    type: Literal[EventType.STATE_SNAPSHOT]
+    snapshot: State
+```
+
+| Property   | Type    | Description             |
+| ---------- | ------- | ----------------------- |
+| `snapshot` | `State` | Complete state snapshot |
+
+### StateDeltaEvent
+
+`from ag_ui.core import StateDeltaEvent`
+
+Provides a partial update to an agent's state using JSON Patch.
+
+```python
+class StateDeltaEvent(BaseEvent):
+    type: Literal[EventType.STATE_DELTA]
+    delta: List[Any]  # JSON Patch (RFC 6902)
+```
+
+| Property | Type        | Description                    |
+| -------- | ----------- | ------------------------------ |
+| `delta`  | `List[Any]` | Array of JSON Patch operations |
+
+### MessagesSnapshotEvent
+
+`from ag_ui.core import MessagesSnapshotEvent`
+
+Provides a snapshot of all messages in a conversation.
+
+```python
+class MessagesSnapshotEvent(BaseEvent):
+    type: Literal[EventType.MESSAGES_SNAPSHOT]
+    messages: List[Message]
+```
+
+| Property   | Type            | Description              |
+| ---------- | --------------- | ------------------------ |
+| `messages` | `List[Message]` | Array of message objects |
+
+### ActivitySnapshotEvent
+
+`from ag_ui.core import ActivitySnapshotEvent`
+
+Delivers a complete snapshot of an activity message.
+
+```python
+class ActivitySnapshotEvent(BaseEvent):
+    type: Literal[EventType.ACTIVITY_SNAPSHOT]
+    message_id: str
+    activity_type: str
+    content: Any
+    replace: bool = True
+```
+
+| Property        | Type                    | Description                                                                        |
+| --------------- | ----------------------- | ---------------------------------------------------------------------------------- |
+| `message_id`    | `str`                   | Identifier for the target `ActivityMessage`                                        |
+| `activity_type` | `str`                   | Activity discriminator such as `"PLAN"` or `"SEARCH"`                              |
+| `content`       | `Any`                   | Structured payload describing the full activity state                              |
+| `replace`       | `bool` (default `True`) | When `False`, the snapshot is ignored if a message with the same ID already exists |
+
+### ActivityDeltaEvent
+
+`from ag_ui.core import ActivityDeltaEvent`
+
+Provides incremental updates to an activity snapshot using JSON Patch.
+
+```python
+class ActivityDeltaEvent(BaseEvent):
+    type: Literal[EventType.ACTIVITY_DELTA]
+    message_id: str
+    activity_type: str
+    patch: List[Any]
+```
+
+| Property        | Type        | Description                                                      |
+| --------------- | ----------- | ---------------------------------------------------------------- |
+| `message_id`    | `str`       | Identifier for the target `ActivityMessage`                      |
+| `activity_type` | `str`       | Activity discriminator mirroring the most recent snapshot        |
+| `patch`         | `List[Any]` | JSON Patch operations applied to the structured activity content |
+
+## Special Events
+
+### RawEvent
+
+`from ag_ui.core import RawEvent`
+
+Used to pass through events from external systems.
+
+```python
+class RawEvent(BaseEvent):
+    type: Literal[EventType.RAW]
+    event: Any
+    source: Optional[str] = None
+```
+
+| Property | Type            | Description         |
+| -------- | --------------- | ------------------- |
+| `event`  | `Any`           | Original event data |
+| `source` | `Optional[str]` | Source of the event |
+
+### CustomEvent
+
+`from ag_ui.core import CustomEvent`
+
+Used for application-specific custom events.
+
+```python
+class CustomEvent(BaseEvent):
+    type: Literal[EventType.CUSTOM]
+    name: str
+    value: Any
+```
+
+| Property | Type  | Description                     |
+| -------- | ----- | ------------------------------- |
+| `name`   | `str` | Name of the custom event        |
+| `value`  | `Any` | Value associated with the event |
+
+## Reasoning Events
+
+These events represent the lifecycle of reasoning/thinking processes within an
+agent. Reasoning events allow agents to expose their internal thought process to
+the frontend, creating `ReasoningMessage` objects that persist in the message
+history with the role `"reasoning"`.
+
+### ReasoningStartEvent
+
+`from ag_ui.core import ReasoningStartEvent`
+
+Signals the start of a reasoning phase. This is a pass-through event that
+notifies subscribers but does not create messages.
+
+```python
+class ReasoningStartEvent(BaseEvent):
+    type: Literal[EventType.REASONING_START]
+    message_id: str
+```
+
+| Property     | Type  | Description                        |
+| ------------ | ----- | ---------------------------------- |
+| `message_id` | `str` | Identifier for the reasoning phase |
+
+### ReasoningMessageStartEvent
+
+`from ag_ui.core import ReasoningMessageStartEvent`
+
+Signals the start of a reasoning message. Creates a new `ReasoningMessage` in
+the message history.
+
+```python
+class ReasoningMessageStartEvent(BaseEvent):
+    type: Literal[EventType.REASONING_MESSAGE_START]
+    message_id: str
+    role: Literal["assistant"]
+```
+
+| Property     | Type                   | Description                       |
+| ------------ | ---------------------- | --------------------------------- |
+| `message_id` | `str`                  | Unique identifier for the message |
+| `role`       | `Literal["assistant"]` | Role is always "assistant"        |
+
+### ReasoningMessageContentEvent
+
+`from ag_ui.core import ReasoningMessageContentEvent`
+
+Represents a chunk of content in a streaming reasoning message.
+
+```python
+class ReasoningMessageContentEvent(BaseEvent):
+    type: Literal[EventType.REASONING_MESSAGE_CONTENT]
+    message_id: str
+    delta: str
+```
+
+| Property     | Type  | Description                                    |
+| ------------ | ----- | ---------------------------------------------- |
+| `message_id` | `str` | Matches the ID from ReasoningMessageStartEvent |
+| `delta`      | `str` | Reasoning content chunk                        |
+
+### ReasoningMessageEndEvent
+
+`from ag_ui.core import ReasoningMessageEndEvent`
+
+Signals the end of a reasoning message.
+
+```python
+class ReasoningMessageEndEvent(BaseEvent):
+    type: Literal[EventType.REASONING_MESSAGE_END]
+    message_id: str
+```
+
+| Property     | Type  | Description                                    |
+| ------------ | ----- | ---------------------------------------------- |
+| `message_id` | `str` | Matches the ID from ReasoningMessageStartEvent |
+
+### ReasoningMessageChunkEvent
+
+`from ag_ui.core import ReasoningMessageChunkEvent`
+
+Convenience event for complete reasoning messages without manually emitting
+`ReasoningMessageStart`/`ReasoningMessageEnd`.
+
+```python
+class ReasoningMessageChunkEvent(BaseEvent):
+    type: Literal[EventType.REASONING_MESSAGE_CHUNK]
+    message_id: Optional[str] = None  # required on first chunk for a message
+    delta: Optional[str] = None
+```
+
+Behavior
+
+- Convenience: Some consumers (e.g., the JS/TS client) expand chunk events into
+  the standard start/content/end sequence automatically.
+- First chunk requirements: The first chunk for a given message must include
+  `message_id`.
+- Streaming: Subsequent chunks with the same `message_id` correspond to content
+  pieces; completion triggers an implied end in clients that perform expansion.
+
+### ReasoningEndEvent
+
+`from ag_ui.core import ReasoningEndEvent`
+
+Signals the end of a reasoning phase. This is a pass-through event that notifies
+subscribers but does not modify messages.
+
+```python
+class ReasoningEndEvent(BaseEvent):
+    type: Literal[EventType.REASONING_END]
+    message_id: str
+```
+
+| Property     | Type  | Description                        |
+| ------------ | ----- | ---------------------------------- |
+| `message_id` | `str` | Identifier for the reasoning phase |
+
+### ReasoningEncryptedValueEvent
+
+`from ag_ui.core import ReasoningEncryptedValueEvent`
+
+Attaches an encrypted value to a message or tool call. When this event is
+emitted, it finds the referenced entity by `entity_id` and sets its
+`encrypted_value` field.
+
+```python
+ReasoningEncryptedValueSubtype = Literal["tool-call", "message"]
+
+class ReasoningEncryptedValueEvent(BaseEvent):
+    type: Literal[EventType.REASONING_ENCRYPTED_VALUE]
+    subtype: ReasoningEncryptedValueSubtype
+    entity_id: str
+    encrypted_value: str
+```
+
+| Property          | Type                             | Description                                        |
+| ----------------- | -------------------------------- | -------------------------------------------------- |
+| `subtype`         | `ReasoningEncryptedValueSubtype` | The type of entity this value belongs to           |
+| `entity_id`       | `str`                            | ID of the tool call or message to attach the value |
+| `encrypted_value` | `str`                            | The encrypted value to attach to the entity        |
+
+## Deprecated Events
+
+<Warning>
+  The `THINKING_*` events are deprecated and will be removed in version 1.0.0.
+  New implementations should use `REASONING_*` events instead.
+</Warning>
+
+### Thinking Events (Deprecated)
+
+The following event types are deprecated:
+
+| Deprecated Event                | Replacement                 |
+| ------------------------------- | --------------------------- |
+| `THINKING_START`                | `REASONING_START`           |
+| `THINKING_END`                  | `REASONING_END`             |
+| `THINKING_TEXT_MESSAGE_START`   | `REASONING_MESSAGE_START`   |
+| `THINKING_TEXT_MESSAGE_CONTENT` | `REASONING_MESSAGE_CONTENT` |
+| `THINKING_TEXT_MESSAGE_END`     | `REASONING_MESSAGE_END`     |
+
+See [Reasoning Migration](/concepts/reasoning#migration-from-thinking-events)
+for detailed migration guidance.
+
+## Event Discrimination
+
+`from ag_ui.core import Event`
+
+The SDK uses Pydantic's discriminated unions for event validation:
+
+```python
+Event = Annotated[
+    Union[
+        TextMessageStartEvent,
+        TextMessageContentEvent,
+        TextMessageEndEvent,
+        ToolCallStartEvent,
+        ToolCallArgsEvent,
+        ToolCallEndEvent,
+        ToolCallResultEvent,
+        StateSnapshotEvent,
+        StateDeltaEvent,
+        MessagesSnapshotEvent,
+        ActivitySnapshotEvent,
+        ActivityDeltaEvent,
+        RawEvent,
+        CustomEvent,
+        RunStartedEvent,
+        RunFinishedEvent,
+        RunErrorEvent,
+        StepStartedEvent,
+        StepFinishedEvent,
+        ReasoningStartEvent,
+        ReasoningMessageStartEvent,
+        ReasoningMessageContentEvent,
+        ReasoningMessageEndEvent,
+        ReasoningMessageChunkEvent,
+        ReasoningEndEvent,
+        ReasoningEncryptedValueEvent,
+    ],
+    Field(discriminator="type")
+]
+```
+
+This allows for runtime validation of events and type checking at development
+time.
+
+### TextMessageChunkEvent
+
+Convenience event for complete text messages without manually emitting
+`TextMessageStart`/`TextMessageEnd`.
+
+```python
+from ag_ui.core import TextMessageChunkEvent
+
+class TextMessageChunkEvent(BaseEvent):
+    type: Literal[EventType.TEXT_MESSAGE_CHUNK]
+    message_id: Optional[str] = None  # required on first chunk for a message
+    role: Optional[TextMessageRole] = None  # defaults to "assistant" in JS client
+    delta: Optional[str] = None
+```
+
+Behavior
+
+- Convenience: Some consumers (e.g., the JS/TS client) expand chunk events into
+  the standard start/content/end sequence automatically, allowing producers to
+  omit explicit start/end events when using chunks.
+- First chunk requirements: The first chunk for a given message must include
+  `message_id`.
+- Streaming: Subsequent chunks with the same `message_id` correspond to content
+  pieces; completion triggers an implied end in clients that perform expansion.
+
+### ToolCallChunkEvent
+
+Convenience event for tool calls without manually emitting
+`ToolCallStart`/`ToolCallEnd`.
+
+```python
+from ag_ui.core import ToolCallChunkEvent
+
+class ToolCallChunkEvent(BaseEvent):
+    type: Literal[EventType.TOOL_CALL_CHUNK]
+    tool_call_id: Optional[str] = None      # required on first chunk
+    tool_call_name: Optional[str] = None    # required on first chunk
+    parent_message_id: Optional[str] = None
+    delta: Optional[str] = None
+```
+
+Behavior
+
+- Convenience: Consumers may expand chunk sequences into the standard
+  start/args/end triad (the JS/TS client does this automatically).
+- First chunk requirements: Include both `tool_call_id` and `tool_call_name` on
+  the first chunk.
+- Streaming: Subsequent chunks with the same `tool_call_id` correspond to args
+  pieces; completion triggers an implied end in clients that perform expansion.

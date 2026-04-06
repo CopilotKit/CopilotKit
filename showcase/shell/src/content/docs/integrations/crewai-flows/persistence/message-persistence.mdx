@@ -1,0 +1,17 @@
+---
+title: "Message Persistence"
+icon: "lucide/Database"
+---
+
+<Callout>
+  To learn about how to load previous messages and agent states, check out the
+  [Loading Message History](/crewai-flows/persistence/loading-message-history)
+  and [Loading Agent State](/crewai-flows/persistence/loading-agent-state)
+  pages.
+</Callout>
+
+To persist CrewAI Flow messages to a database, you can use the `@persist` decorator. For example, you might use the default `SQLiteFlowPersistence` or provide your own custom persistence class.
+
+For a concrete example of how a custom persistence class like `InMemoryFlowPersistence` can be implemented and used with the `@persist` decorator, see the [sample agent implementation](https://github.com/CopilotKit/CopilotKit/blob/main/examples/coagents-starter-crewai-flows/agent-py/sample_agent/agent.py).
+
+Read more about persistence in the [CrewAI Flows documentation](https://docs.crewai.com/concepts/flows#class-level-persistence).

@@ -1,0 +1,43 @@
+---
+title: "Overview"
+description: "Build Java servers that stream AG-UI events"
+---
+
+# ag-ui-server
+
+Server-side utilities for building agents and streaming events to clients.
+
+## Packages
+
+- `com.agui.server` — local agents and event helpers
+  - `LocalAgent` — implement server-side agents that emit events
+  - `EventFactory` — convenience methods to create events
+  - `streamer.AgentStreamer` — bridge agents to `EventStream`
+- `com.agui.server.spring` — Spring Boot integration
+  - `AgUiService` — run agents and stream `SseEmitter`
+  - `AgUiParameters` — HTTP payload mapped to `RunAgentParameters`
+  - Auto-configuration for easy wiring
+
+## LocalAgent
+
+Extend `LocalAgent` and implement `run(RunAgentInput, AgentSubscriber)` to emit events. Use `emitEvent(event, subscriber)` to dispatch to the correct subscriber method.
+
+```java
+public class EchoAgent extends LocalAgent {
+  public EchoAgent() { super("echo", new State(), null, "You are echo."); }
+
+  @Override
+  protected void run(RunAgentInput input, AgentSubscriber sub) {
+    var runId = input.getRunId();
+    emitEvent(EventFactory.runStartedEvent(input.getThreadId(), runId), sub);
+
+    var messageId = UUID.randomUUID().toString();
+    emitEvent(EventFactory.textMessageStartEvent(messageId, "assistant"), sub);
+    emitEvent(EventFactory.textMessageContentEvent(messageId, "Hello"), sub);
+    emitEvent(EventFactory.textMessageEndEvent(messageId), sub);
+
+    emitEvent(EventFactory.runFinishedEvent(input.getThreadId(), runId), sub);
+  }
+}
+```
+

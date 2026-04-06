@@ -1,0 +1,101 @@
+---
+title: "Types"
+description: "Core data types used by the Rust SDK"
+---
+
+# Types
+
+Core types live in ag_ui_core::types and are re-exported by ag-ui-client under ag_ui_client::core::types.
+
+```rust
+use ag_ui_client::core::types as types;
+```
+
+## Identifiers
+
+- MessageId, ToolCallId – unique IDs for messages and tool calls
+- ThreadId, RunId – correlate runs and threads
+- AgentId – identifies the agent implementation
+
+```rust
+use ag_ui_client::core::types::{MessageId, ToolCallId, ThreadId, RunId};
+
+let mid = MessageId::random();
+let rid = RunId::random();
+let tid = ThreadId::random();
+let tcid = ToolCallId::random();
+```
+
+## Messages
+
+Message is an enum covering different roles. Helpers exist to create messages.
+
+```rust
+use ag_ui_client::core::types::{Message, MessageId};
+
+let user = Message::new_user("Hello");
+let system = Message::new_system("You are a helpful assistant");
+let dev = Message::new_developer("internal instruction");
+let tool = Message::new_tool("result", ag_ui_client::core::types::ToolCallId::random());
+```
+
+Each variant also has a builder form; see crate docs for full fields (name, error, tool call reference, etc.).
+
+## Tools and context
+
+```rust
+use ag_ui_client::core::types::{Tool, Context};
+use serde_json::json;
+
+let tool = Tool::new(
+    "search".into(),
+    "Perform a keyword search".into(),
+    json!({
+        "type": "object",
+        "properties": {"query": {"type": "string"}},
+        "required": ["query"]
+    }),
+);
+
+let ctx = Context::new("trace_id".into(), "abc-123".into());
+```
+
+## RunAgentInput
+
+The payload sent to an agent, typically over HTTP by HttpAgent. Constructed internally by Agent::run_agent but also available directly.
+
+```rust
+use ag_ui_client::core::types::{RunAgentInput, ThreadId, RunId};
+use serde_json::json;
+
+let input = RunAgentInput::new(
+    ThreadId::random(),
+    RunId::random(),
+    serde_json::json!({}),      // state
+    vec![],                     // messages
+    vec![],                     // tools
+    vec![],                     // context
+    json!({}),                  // forwarded_props
+);
+```
+
+Type parameters allow strongly-typed state and forwarded_props when desired.
+
+## Traits: AgentState and FwdProps
+
+The client uses trait bounds instead of concrete types for state and forwarded props.
+
+- AgentState – blanket trait implemented for types that are Serialize + for<'de> Deserialize<'de> + Clone + Send + Sync + 'static
+- FwdProps – similar to AgentState, for forwarded properties
+
+```rust
+use ag_ui_client::core::AgentState;
+
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug, Default)]
+struct MyState { count: u32 }
+impl ag_ui_client::core::AgentState for MyState {}
+```
+
+## Convenience helpers
+
+RunAgentParams in the client crate provides ergonomic builders for creating inputs. See /sdk/rust/client/agent-trait

@@ -1,0 +1,9 @@
+slug: test-invalid-genui
+generative_ui: [open]
+interaction_modalities: [chat]
+demos:
+  - id: tool-rendering
+    name: Tool Rendering
+    description: test
+    tags: [agent-capabilities]
+    route: /demos/tool-rendering

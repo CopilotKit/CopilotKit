@@ -1,0 +1,72 @@
+import { MultiProviderContent, If } from "@/components/react/multi-provider-content/multi-provider-content";
+import { quickStartProviders } from "@/components/react/multi-provider-content/utils";
+import { IoLogoVercel, IoLogoNodejs } from "react-icons/io5";
+import { SiNestjs } from "react-icons/si";
+import { RiNextjsLine } from "react-icons/ri";
+import { Tab } from "../components/react/tabs";
+
+<Tabs groupId="lg-deployment-type" items={["Local (LangGraph Studio)", "Self hosted (FastAPI)", "LangGraph Platform"]}>
+  <Tab value="Local (LangGraph Studio)">
+    ```ts
+    import { 
+      CopilotRuntime,
+      LangGraphAgent  // [!code highlight]
+      // ...
+    } from "@copilotkit/runtime";
+    // ...
+    const runtime = new CopilotRuntime({
+      // [!code highlight:8]
+      agents: {
+          // New agent entry per agent you wish to use
+          'sample_agent': new LangGraphAgent({
+              deploymentUrl: '<your-api-url>',
+              graphId: 'sample_agent',
+              langsmithApiKey: '<your-langsmith-api-key>' // Optional
+          }),
+      },
+    });
+    // ...
+    ```
+  </Tab>
+  <Tab value="Self hosted (FastAPI)">
+    ```ts
+    import { 
+      CopilotRuntime,
+      LangGraphHttpAgent,
+      // ...
+    } from "@copilotkit/runtime";
+    // ...
+    const runtime = new CopilotRuntime({
+      agents: {
+          // [!code highlight:2]
+          // Our FastAPI endpoint URL
+          'sample_agent': new LangGraphHttpAgent({url: "http://localhost:8000/your-agent-endpoint"}),
+      },
+    });
+    // ...
+    ```
+  </Tab>
+
+  <Tab value="LangGraph Platform">
+    ```ts
+    import { 
+      CopilotRuntime,
+      LangGraphAgent  // [!code highlight]
+      // ...
+    } from "@copilotkit/runtime";
+    // ...
+    const runtime = new CopilotRuntime({
+      // [!code highlight:8]
+      agents: {
+          // New agent entry per agent you wish to use
+          'sample_agent': new LangGraphAgent({
+              deploymentUrl: '<your-api-url>',
+              graphId: 'sample_agent',
+              langsmithApiKey: '<your-langsmith-api-key>' // Optional
+          }),
+      },
+    });
+    // ...
+    ```
+  </Tab>
+</Tabs>

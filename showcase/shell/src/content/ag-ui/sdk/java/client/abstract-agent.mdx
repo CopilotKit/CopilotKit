@@ -1,0 +1,55 @@
+---
+title: "AbstractAgent"
+description: "Base agent implementation with core event handling (Java)"
+---
+
+# AbstractAgent
+
+The `AbstractAgent` class provides the foundation for agent implementations. It handles event stream processing, state management, and message history. Extend it and implement `protected void run(RunAgentInput input, IEventStream<BaseEvent> stream)`.
+
+## Example Implementation
+
+```java
+public class MyAgent extends AbstractAgent {
+  public MyAgent() {
+    super("my-agent", "A custom agent", "thread-123", List.of(), new State(), false);
+  }
+
+  @Override
+  protected void run(RunAgentInput input, IEventStream<BaseEvent> stream) {
+    // Emit events using the stream
+    stream.next(new RunStartedEvent(input.getThreadId(), input.getRunId()));
+    
+    // Your agent logic here...
+    
+    stream.next(new RunFinishedEvent(input.getThreadId(), input.getRunId()));
+  }
+}
+```
+
+## Configuration
+
+Constructors take: `agentId`, `description`, `threadId`, `initialMessages`, `state`, `debug`.
+
+## Core Methods
+
+- `CompletableFuture<Void> runAgent(RunAgentParameters parameters, AgentSubscriber subscriber)` — orchestrates an async run and event distribution
+- `Subscription subscribe(AgentSubscriber subscriber)` — persistent subscriber registration
+- `void addMessage(BaseMessage message)` / `void addMessages(List<BaseMessage>)`
+- `void setMessages(List<BaseMessage>)`
+- `void setState(State state)` / `State getState()`
+
+## Protected Methods
+
+- `protected abstract void run(RunAgentInput input, IEventStream<BaseEvent> stream)` — emit events into `stream`
+- `protected RunAgentInput prepareRunAgentInput(RunAgentParameters parameters)`
+- `protected void onInitialize(RunAgentInput input, List<AgentSubscriber> subscribers)`
+- `protected void handleEvent(BaseEvent event, List<AgentSubscriber> subscribers, AtomicReference<IEventStream<BaseEvent>> streamRef)`
+- `protected void handleComplete(List<AgentSubscriber> subscribers, RunAgentInput input, CompletableFuture<Void> future)`
+- `protected void handleError(Throwable error, List<AgentSubscriber> subscribers, CompletableFuture<Void> future)`
+
+### Text Message Helpers
+
+`handleTextMessageStart`, `handleTextMessageContent`, `handleTextMessageChunk`, `handleTextMessageEnd` integrate with `MessageFactory` to assemble streamed messages and notify subscribers.
+
+

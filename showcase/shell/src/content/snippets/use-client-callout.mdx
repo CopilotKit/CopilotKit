@@ -1,0 +1,12 @@
+### Specify `"use client"` (Next.js App Router)
+
+<Callout type="info">
+  This is only necessary if you are using Next.js with the App Router.
+</Callout>
+
+```tsx title="YourComponent.tsx"
+"use client"
+```
+
+Like other React hooks such as `useState` and `useEffect`, this is a **client-side** hook.
+If you're using Next.js with the App Router, you'll need to add the `"use client"` directive at the top of any file using this hook.

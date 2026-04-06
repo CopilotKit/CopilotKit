@@ -1,0 +1,44 @@
+---
+title: "Events"
+description: "Java event types used by the Agent User Interaction Protocol"
+---
+
+# Events
+
+All events live in `com.agui.core.event` and share `BaseEvent` with a `type` and `timestamp`.
+
+## Lifecycle Events
+
+- `RunStartedEvent`
+- `RunFinishedEvent`
+- `RunErrorEvent`
+- `StepStartedEvent`
+- `StepFinishedEvent`
+
+## Text Message Events
+
+- `TextMessageStartEvent` — Begin of a streamed assistant message
+- `TextMessageContentEvent` — Incremental content chunks (`delta`)
+- `TextMessageEndEvent` — Message finished
+
+## Tool Call Events
+
+- `ToolCallStartEvent`
+- `ToolCallArgsEvent`
+- `ToolCallEndEvent`
+- `ToolCallResultEvent`
+
+## State Management Events
+
+- `StateSnapshotEvent`
+- `StateDeltaEvent`
+- `MessagesSnapshotEvent`
+
+## Special Events
+
+- `RawEvent` — Raw payload passthrough
+- `CustomEvent` — Application-specific event
+
+See also: `AgentSubscriber` callbacks in the client docs for handling these events.
+
+

@@ -1,0 +1,90 @@
+---
+title: "HttpAgent"
+description: "HTTP-based Agent implementation for connecting to remote AI agents"
+---
+
+# HttpAgent
+
+The HttpAgent implements the Agent trait to provide HTTP-based connectivity to remote AI agents. It sends a POST request with a RunAgentInput payload and consumes a Server-Sent Events (SSE) stream of core events.
+
+```rust
+use ag_ui_client::HttpAgent
+```
+
+## Installation
+
+```bash
+cargo add ag-ui-client
+```
+
+## Creating an HttpAgent
+
+Use the builder to configure the base URL, headers, timeouts and optional Agent ID.
+
+```rust
+use ag_ui_client::HttpAgent;
+use reqwest::Url;
+
+let agent = HttpAgent::builder()
+    .with_url(Url::parse("https://api.example.com/v1/agent")?)
+    .with_bearer_token("your-api-key")?
+    .with_timeout(30)
+    .build()?;
+```
+
+Alternatively, pass a string URL and let the builder validate it:
+
+```rust
+let agent = HttpAgent::builder()
+    .with_url_str("https://api.example.com/v1/agent")?
+    .build()?;
+```
+
+## Configuration
+
+HttpAgent exposes a fluent builder with the following options:
+
+- `with_url(url: Url)` – Set the endpoint URL
+- `with_url_str(url: &str) -> Result<Self, AgentError>` – Parse and validate a string URL
+- `with_headers(headers: HeaderMap)` – Replace all headers
+- `with_header(name: &str, value: &str) -> Result<Self, AgentError>` – Add a single header
+- `with_header_typed(name: HeaderName, value: HeaderValue)` – Add a typed header
+- `with_bearer_token(token: &str) -> Result<Self, AgentError>` – Add Authorization: Bearer …
+- `with_http_client(client: reqwest::Client)` – Provide a custom reqwest client
+- `with_timeout(seconds: u64)` – Configure a request timeout on an internal client
+- `with_agent_id(agent_id: AgentId)` – Attach an optional AgentId reported via Agent::agent_id()
+
+Note: The builder enforces http/https schemes and returns an AgentError::Config for invalid inputs.
+
+## Running an agent over HTTP
+
+Use Agent::run_agent with your parameters (messages, tools, state, etc.). The HttpAgent takes care of sending the request and streaming events.
+
+```rust
+use ag_ui_client::{Agent, HttpAgent};
+use ag_ui_client::agent::RunAgentParams;
+use ag_ui_client::core::types::Message;
+
+let params = RunAgentParams::new()
+    .user("Tell me a short joke about Rust.");
+
+let result = agent.run_agent(&params, None).await?;
+println!("Final result: {}", result.result);
+println!("New messages: {}", result.new_messages.len());
+```
+
+## Errors
+
+HttpAgent surfaces a few structured error types through AgUiClientError (aliased as AgentError):
+
+- HttpTransport(reqwest::Error) – network and transport errors
+- HttpStatus { status, context } – non-success HTTP status with a snippet of the response body
+- Config { message } – invalid configuration inputs (e.g., malformed URL/header)
+
+Use AgUiClientError::is_retryable() to determine if an error can be retried (timeouts, 5xx, 429).
+
+## Implementation notes
+
+- Requests are sent as JSON with Content-Type: application/json; responses are handled as text/event-stream SSE.
+- The response stream is decoded into Event<StateT> items defined in ag-ui-core.
+- Agent::agent_id() returns the optional AgentId configured on the builder.

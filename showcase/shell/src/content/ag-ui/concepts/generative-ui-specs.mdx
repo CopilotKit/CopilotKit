@@ -1,0 +1,21 @@
+---
+title: "Generative UI"
+description: "Understanding AG-UI's relationship with generative UI specifications"
+---
+
+## **AG-UI and Generative UI Specs**
+
+Several recently released specs have enabled agents to return generative UI, increasing the power and flexibility of the Agent&lt;-&gt;User conversation.
+
+A2UI, MCP-UI, and Open-JSON-UI are all **generative UI specifications.** Generative UIs allow agents to respond to users not only with text but also with dynamic UI components.
+
+| **Specification** | **Origin / Maintainer** | **Purpose** |
+| --- | --- | --- |
+| **A2UI** | Google | A declarative, LLM-friendly Generative UI spec. JSONL-based and streaming, designed for platform-agnostic rendering. |
+| **Open-JSON-UI** | OpenAI | An open standardization of OpenAI's internal declarative Generative UI schema. |
+| **MCP-UI** | Microsoft + Shopify | A fully open, iframe-based Generative UI standard extending MCP for user-facing experiences. |
+
+Despite the naming similarities, **AG-UI is not a generative UI specification** — it's a **User Interaction protocol** that provides the **bi-directional runtime connection** between the agent and the application.
+
+AG-UI natively supports all of the above generative UI specs and allows developers to define **their own custom generative UI standards** as well.
+

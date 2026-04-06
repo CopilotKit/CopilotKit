@@ -1,0 +1,24 @@
+{
+  "title": "Built-in Agent",
+  "root": true,
+  "pages": [
+    "---Getting Started---",
+    "index", "quickstart", "coding-agents",
+    "---Basics---",
+    "prebuilt-components", "custom-look-and-feel", "programmatic-control", "inspector",
+    "---Generative UI---",
+    "...generative-ui",
+    "---App Control---",
+    "frontend-tools", "shared-state", "agent-app-context",
+    "---Built-in Agent---",
+    "server-tools", "mcp-servers", "model-selection", "advanced-configuration",
+    "---Backend---",
+    "copilot-runtime", "ag-ui",
+    "---Premium Features---",
+    "...premium",
+    "---Tutorials---",
+    "...tutorials",
+    "---Troubleshooting---",
+    "...troubleshooting"
+  ]
+}

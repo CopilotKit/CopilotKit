@@ -1,0 +1,7 @@
+llama-index-core==0.14.4
+llama-index-llms-openai==0.5.6
+llama-index-protocols-ag-ui==0.2.2
+jsonpatch==1.33
+uvicorn==0.34.0
+fastapi==0.115.12
+python-dotenv==1.0.1

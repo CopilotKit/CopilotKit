@@ -1,0 +1,12 @@
+{
+  "title": "Tutorial: AI Travel App",
+  "pages": [
+    "step-1-checkout-repo",
+    "step-2-langgraph-agent",
+    "step-3-setup-copilotkit",
+    "step-4-integrate-the-agent",
+    "step-5-stream-progress",
+    "step-6-human-in-the-loop",
+    "next-steps"
+  ]
+}

@@ -1,0 +1,89 @@
+---
+title: Debugging
+description:
+  A comprehensive guide to debugging Agent User Interaction Protocol (AG-UI)
+  integrations
+---
+
+# Debugging AG-UI Integrations
+
+Debugging agent-based applications can be challenging, especially when working
+with real-time, event-driven protocols like AG-UI. This guide introduces you to
+the AG-UI Dojo, a powerful tool for learning, testing, and debugging your AG-UI
+implementations.
+
+## The AG-UI Dojo
+
+The AG-UI Dojo is the best way to bring AG-UI to a new surface, and is also an
+excellent resource for learning about the protocol's basic capabilities. It
+provides a structured environment where you can test and validate each component
+of the AG-UI protocol.
+
+### What is the Dojo?
+
+The Dojo consists of a series of "hello world"-sized demonstrations for the
+different building blocks available via AG-UI. Each demonstration:
+
+1. Shows a specific AG-UI capability in action
+2. Presents both the user-visible interaction and the underlying code side by
+   side
+3. Allows you to test and verify your implementation
+
+### Using the Dojo as an Implementation Checklist
+
+When working on bringing AG-UI to a new surface or platform, you can use the
+Dojo as a comprehensive "todo list":
+
+1. Work through each demonstration one by one
+2. Implement and test each AG-UI building block in your environment
+3. When all demonstrations work correctly in your implementation, you can be
+   confident that full-featured copilots and agent-native applications can be
+   built on your new surface
+
+This methodical approach ensures you've covered all the necessary functionality
+required for a complete AG-UI implementation.
+
+### Using the Dojo as a Learning Resource
+
+For developers new to AG-UI, the Dojo serves as an interactive learning
+resource:
+
+- Each item demonstrates a specific AG-UI capability
+- You can see both what the interaction looks like from a user perspective
+- The underlying code is shown alongside, helping you understand how it works
+- The incremental complexity helps build understanding from basics to advanced
+  features
+
+### Common Debugging Patterns
+
+When using the Dojo for debugging your AG-UI implementation, keep these patterns
+in mind:
+
+1. **Event Sequence Issues**: Verify that events are being emitted in the
+   correct order and with proper nesting (e.g., `TEXT_MESSAGE_START` before
+   `TEXT_MESSAGE_CONTENT`)
+
+2. **Data Format Problems**: Ensure your event payloads match the expected
+   structure for each event type
+
+3. **Transport Layer Debugging**: Check that your chosen transport mechanism
+   (SSE, WebSockets, etc.) is correctly delivering events
+
+4. **State Synchronization**: Confirm that state updates are correctly applied
+   using snapshots and deltas
+
+5. **Tool Execution**: Verify that tool calls and responses are properly
+   formatted and processed
+
+## Getting Started with the Dojo
+
+To start using the AG-UI Dojo:
+
+1. Clone the repository from
+   [github.com/ag-ui-protocol/ag-ui](https://github.com/ag-ui-protocol/ag-ui)
+2. Follow the setup instructions in the README
+3. Start working through the demonstrations in order
+4. Use the provided test cases to validate your implementation
+
+The Dojo's structured approach makes it an invaluable resource for both learning
+AG-UI and ensuring your implementation meets all requirements.

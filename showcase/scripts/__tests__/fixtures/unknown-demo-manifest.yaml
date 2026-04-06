@@ -1,0 +1,9 @@
+slug: test-unknown-demo
+generative_ui: [constrained-explicit]
+interaction_modalities: [chat]
+demos:
+  - id: nonexistent-feature
+    name: Does Not Exist
+    description: test
+    tags: [test]
+    route: /demos/nonexistent

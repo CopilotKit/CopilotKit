@@ -1,0 +1,35 @@
+---
+title: "AgentSubscriber"
+description: "Event subscriber interface for reactive agent interaction (Java)"
+---
+
+# AgentSubscriber
+
+Implement `AgentSubscriber` to handle lifecycle, message, tool call, and state events during agent execution.
+
+## Event Handlers
+
+- Request lifecycle: `onRunInitialized`, `onRunFailed`, `onRunFinalized`
+- Lifecycle events: `onRunStartedEvent`, `onRunFinishedEvent`, `onRunErrorEvent`, `onStepStartedEvent`, `onStepFinishedEvent`
+- Text messages: `onTextMessageStartEvent`, `onTextMessageContentEvent`, `onTextMessageEndEvent`
+- Tool calls: `onToolCallStartEvent`, `onToolCallArgsEvent`, `onToolCallEndEvent`, `onToolCallResultEvent`
+- State: `onStateSnapshotEvent`, `onStateDeltaEvent`, `onMessagesSnapshotEvent`, `onMessagesChanged`, `onStateChanged`
+- Special: `onRawEvent`, `onCustomEvent`, and catch-all `onEvent`
+
+## Usage Example
+
+```java
+agent.subscribe(new AgentSubscriber() {
+  @Override
+  public void onRunStartedEvent(RunStartedEvent event) {
+    System.out.println("Run started: " + event.getRunId());
+  }
+
+  @Override
+  public void onTextMessageContentEvent(TextMessageContentEvent event) {
+    System.out.print(event.getDelta());
+  }
+});
+```
+
+
