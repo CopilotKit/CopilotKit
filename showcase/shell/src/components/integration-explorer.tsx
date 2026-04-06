@@ -62,8 +62,15 @@ export function IntegrationExplorer({ integrations, initialFeatureFilter }: Inte
 
     // Unique framework names from deployed integrations
     const frameworkOptions = useMemo(() => {
-        const names = Array.from(new Set(deployed.map((i) => i.name))).sort();
-        return names;
+        // Preserve registry sort_order (not alphabetical)
+        const seen = new Set<string>();
+        return deployed
+            .filter((i) => {
+                if (seen.has(i.name)) return false;
+                seen.add(i.name);
+                return true;
+            })
+            .map((i) => i.name);
     }, [deployed]);
 
     // Coming-soon frameworks: present in integrations but not deployed
@@ -210,7 +217,7 @@ export function IntegrationExplorer({ integrations, initialFeatureFilter }: Inte
                             onClick={() => setFramework(name)}
                         />
                     ))}
-                    {[...comingSoonFrameworks].sort().map((name) => (
+                    {[...comingSoonFrameworks].map((name) => (
                         <RadioOption
                             key={name}
                             label={name}
