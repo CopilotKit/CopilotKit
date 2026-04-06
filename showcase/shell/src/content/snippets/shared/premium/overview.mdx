@@ -1,0 +1,69 @@
+
+
+## What is CopilotKit Premium?
+CopilotKit Premium plans deliver:
+- A commercial license for premium extensions to the open source CopilotKit framework (self-hosted or using Copilot Cloud)
+- Access to the Copilot Cloud hosted service. 
+
+CopilotKit Premium is designed for teams building production-grade, agent-powered applications with CopilotKit.
+Premium extension features — such as Fully Headless UI and debugging tools — can be used in both self-hosted and cloud-hosted deployments.
+
+The Developer tier of CopilotKit Premium is always free.
+
+## Premium Plans
+- Developer – Free forever, includes early-stage access and limited cloud usage
+- Pro – For growing teams building in production
+- Enterprise – For organizations with advanced scalability, security, and support needs
+## Early Access
+Certain features—like the Headless UI—will initially be available only to Premium subscribers before becoming part of the open-source core as the framework matures.
+All CopilotKit Premium subscribers get early access to new features, tooling, and integrations as they are released.
+
+## Current Premium Features
+- [Fully Headless Chat UI](headless-ui) - Early Access
+- [Observability Hooks](observability)
+- [Copilot Cloud](https://cloud.copilotkit.ai)
+
+## FAQs
+
+### How do I get access to premium features?
+
+#### Option 1:  Use Copilot Cloud! 
+All CopilotKit Premium features are included in Copilot Cloud. 
+
+#### Option 2:  Self-host with a license key.
+Access to premium features requires a public license key. To get yours, follow the steps below.
+
+<Steps>
+  <Step>
+    #### Sign up
+
+    Create a *free* account on [Copilot Cloud](https://cloud.copilotkit.ai).
+
+    This does not require a credit card or use of Copilot Cloud.
+  </Step>
+  <Step>
+    #### Get your public license key
+
+    Once you've signed up, you'll be able to get your public license key from the left nav.
+  </Step>
+  <Step>
+    #### Use the public license key
+
+    Once you've signed up, you'll be able to use the public license key in your CopilotKit instance.
+
+    ```tsx title="layout.tsx"
+    <CopilotKit publicLicenseKey="your-public-license-key" />
+    ```
+  </Step>
+</Steps>
+
+### Can I still self-host with a public license key?
+
+Yes, you can still self-host with a public license key. It is only required if you want to use premium features, 
+for access to Copilot Cloud a public API key is utilized.
+
+
+### What is the difference between a public license key and a public API key?
+
+A public API key is a key that you use to connect your app to Copilot Cloud. Public license keys are used to access premium features
+and do not require a connection to Copilot Cloud.

@@ -1,0 +1,246 @@
+---
+title: "Overview"
+description: "Client package overview"
+---
+
+# ag_ui.client
+
+The Agent User Interaction Protocol Client SDK provides agent connectivity options for Dart applications. This package delivers flexible connection methods to AG-UI compatible agent implementations with full type safety and reactive programming support.
+
+```bash
+dart pub add ag_ui
+```
+
+## AgUiClient
+
+`AgUiClient` is the main class for connecting to AG-UI compatible servers. It handles HTTP communication, SSE streaming, and binary protocol encoding/decoding.
+
+### Key Features
+
+- **Server-Sent Events (SSE)**: Real-time event streaming with automatic reconnection
+- **Binary Protocol**: Efficient data encoding using the AG-UI binary format
+- **Error Recovery**: Built-in retry logic with exponential backoff
+- **Cancellation Support**: Clean stream cancellation and resource cleanup
+- **Type Safety**: Fully typed events and responses
+
+### Configuration
+
+Configure the client with server details and optional parameters:
+
+```dart
+final client = AgUiClient(
+  config: AgUiClientConfig(
+    baseUrl: 'http://localhost:8000',
+    headers: {'Authorization': 'Bearer token'},
+    timeout: Duration(seconds: 30),
+    retryConfig: RetryConfig(
+      maxRetries: 3,
+      baseDelay: Duration(seconds: 1),
+    ),
+  ),
+);
+```
+
+### Core Methods
+
+#### runAgent
+
+Executes an agent with the provided input and streams events:
+
+```dart
+Stream<BaseEvent> runAgent(
+  String agentId,
+  RunAgentInput input, {
+  Map<String, String>? headers,
+})
+```
+
+#### runAgentRaw
+
+Executes an agent and returns raw SSE messages without decoding:
+
+```dart
+Stream<SseMessage> runAgentRaw(
+  String agentId,
+  RunAgentInput input, {
+  Map<String, String>? headers,
+})
+```
+
+#### cancelAgent
+
+Cancels an active agent execution:
+
+```dart
+Future<void> cancelAgent(String agentId)
+```
+
+### Usage Examples
+
+#### Basic Agent Execution
+
+```dart
+final input = SimpleRunAgentInput(
+  messages: [
+    UserMessage(id: 'msg_1', content: 'What is the weather today?'),
+  ],
+);
+
+await for (final event in client.runAgent('weather-agent', input)) {
+  print('Received: ${event.type}');
+}
+```
+
+#### With Error Handling
+
+```dart
+try {
+  await for (final event in client.runAgent('agent', input)) {
+    // Process events
+  }
+} on AgUiClientError catch (e) {
+  print('Client error: ${e.message}');
+} on NetworkError catch (e) {
+  print('Network error: ${e.message}');
+}
+```
+
+#### Cancellation
+
+```dart
+// Start agent
+final stream = client.runAgent('long-running-agent', input);
+
+// Listen with cancellation option
+final subscription = stream.listen((event) {
+  // Process events
+});
+
+// Cancel when needed
+await client.cancelAgent('long-running-agent');
+await subscription.cancel();
+```
+
+<Card
+  title="AgUiClient Reference"
+  icon="plug"
+  href="/sdk/dart/client/client"
+  color="#3B82F6"
+  iconType="solid"
+>
+  Complete API reference for the AgUiClient class
+</Card>
+
+## AgUiClientConfig
+
+Configuration object for client initialization:
+
+### Properties
+
+- `baseUrl` (String): Base URL of the AG-UI server
+- `headers` (Map<String, String>?): Default headers for all requests
+- `timeout` (Duration?): Request timeout duration
+- `retryConfig` (RetryConfig?): Retry configuration for failed requests
+- `validateResponses` (bool): Enable response validation (default: true)
+
+### RetryConfig
+
+Controls retry behavior for failed requests:
+
+```dart
+class RetryConfig {
+  final int maxRetries;
+  final Duration baseDelay;
+  final Duration maxDelay;
+  final double backoffMultiplier;
+
+  const RetryConfig({
+    this.maxRetries = 3,
+    this.baseDelay = const Duration(seconds: 1),
+    this.maxDelay = const Duration(seconds: 30),
+    this.backoffMultiplier = 2.0,
+  });
+}
+```
+
+<Card
+  title="Configuration Reference"
+  icon="gear"
+  href="/sdk/dart/client/config"
+  color="#3B82F6"
+  iconType="solid"
+>
+  Detailed configuration options and examples
+</Card>
+
+## Error Handling
+
+The client provides comprehensive error handling with specific exception types:
+
+### Exception Types
+
+- `AgUiClientError`: General client errors
+- `NetworkError`: Network connectivity issues
+- `ValidationError`: Input validation failures
+- `ServerError`: Server-side errors (5xx status codes)
+- `TimeoutError`: Request timeout errors
+
+### Error Recovery
+
+The client automatically retries failed requests based on the retry configuration:
+
+```dart
+final config = AgUiClientConfig(
+  baseUrl: 'http://localhost:8000',
+  retryConfig: RetryConfig(
+    maxRetries: 5,
+    baseDelay: Duration(milliseconds: 500),
+    backoffMultiplier: 1.5,
+  ),
+);
+```
+
+## SSE Client
+
+The underlying SSE client handles Server-Sent Events with:
+
+- Automatic reconnection on connection loss
+- Exponential backoff for retry attempts
+- Event ID tracking for resumption
+- Keep-alive ping/pong support
+
+<Card
+  title="SSE Client Reference"
+  icon="stream"
+  href="/sdk/dart/client/sse"
+  color="#3B82F6"
+  iconType="solid"
+>
+  Server-Sent Events implementation details
+</Card>
+
+## Best Practices
+
+1. **Resource Management**: Always dispose of clients when done:
+   ```dart
+   client.dispose();
+   ```
+
+2. **Error Handling**: Implement comprehensive error handling:
+   ```dart
+   stream.handleError((error) {
+     // Log and recover
+   });
+   ```
+
+3. **Cancellation**: Cancel long-running operations when appropriate:
+   ```dart
+   await client.cancelAgent(agentId);
+   ```
+
+4. **Headers**: Use headers for authentication and tracking:
+   ```dart
+   client.runAgent('agent', input, headers: {
+     'X-Request-ID': 'unique-id',
+   });
+   ```

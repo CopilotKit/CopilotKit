@@ -1,0 +1,77 @@
+---
+title: "Overview"
+description: "Documentation for encoding Agent User Interaction Protocol events (Ruby SDK)"
+---
+
+# Event Encoder
+
+The Agent User Interaction Protocol uses a streaming approach to send events
+from agents to clients. The `EventEncoder` class provides the functionality to
+encode events into a format that can be sent over HTTP.
+
+## EventEncoder
+
+`AgUiProtocol::Encoder::EventEncoder`
+
+The `EventEncoder` class is responsible for encoding `BaseEvent` objects into
+string representations that can be transmitted to clients.
+
+```ruby
+
+require "ag_ui_protocol"
+
+encoder = AgUiProtocol::EventEncoder.new
+
+event = AgUiProtocol::Core::Events::TextMessageContentEvent.new(
+    message_id: "msg_123",
+    delta: "Hello, world!"
+
+)
+
+encoded = encoder.encode(event)
+
+```
+
+### Usage
+
+The `EventEncoder` is typically used in HTTP handlers to convert event objects
+into a stream of data. The current implementation encodes events as
+Server-Sent Events (SSE), which can be consumed by clients using the
+EventSource API.
+
+### Implementation Details
+
+Internally, the encoder converts events to JSON and formats them as
+Server-Sent Events with the following structure:
+
+``` data: {json-serialized event}n\n ```
+
+This format allows clients to receive a continuous stream of events and
+process them as they arrive.
+
+### Methods
+
+#### `content_type`
+
+Returns the content type of the encoder.
+
+**Returns**: `String`: The content type of the encoder
+
+#### `encode(event)`
+
+Encodes an event into a string representation.
+
+| Parameter | Type     | Description         |
+| --------- | -------- | ------------------- |
+| `event`   | `Object` | The event to encode |
+
+**Returns**: `String`: A string representation of the event in SSE format.
+
+#### `initialize(accept)`
+
+Creates a new encoder instance.
+
+| Parameter | Type                | Description               |
+| --------- | ------------------- | ------------------------- |
+| `accept`  | `String` (optional) | Media type of the request |
+

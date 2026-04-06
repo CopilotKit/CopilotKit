@@ -1,0 +1,1104 @@
+name: "Showcase: Build & Deploy"
+
+on:
+  push:
+    branches: [feature/unified-showcase-platform, main]
+    paths:
+      - "showcase/**"
+      - "examples/integrations/**"
+  workflow_dispatch:
+    inputs:
+      service:
+        description: "Service to deploy (shell, langgraph-python, mastra, all)"
+        required: true
+        default: "all"
+        type: choice
+        options:
+          - all
+          - shell
+          - langgraph-python
+          - mastra
+          - crewai-crews
+          - pydantic-ai
+          - google-adk
+          - ag2
+          - agno
+          - llamaindex
+          - langgraph-fastapi
+          - langgraph-typescript
+          - langroid
+          - spring-ai
+          - strands
+          - ms-agent-python
+          - claude-sdk-typescript
+          - ms-agent-dotnet
+          - claude-sdk-python
+          - test-integration-tmp
+          - starter-langgraph-python
+          - starter-mastra
+          - starter-crewai-crews
+          - starter-google-adk
+
+concurrency:
+  group: showcase-deploy-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  detect-changes:
+    name: Detect Changes
+    runs-on: ubuntu-latest
+    outputs:
+      shell: ${{ steps.changes.outputs.shell }}
+      langgraph: ${{ steps.changes.outputs.langgraph }}
+      mastra: ${{ steps.changes.outputs.mastra }}
+      crewai_crews: ${{ steps.changes.outputs.crewai_crews }}
+      pydantic_ai: ${{ steps.changes.outputs.pydantic_ai }}
+      google_adk: ${{ steps.changes.outputs.google_adk }}
+      ag2: ${{ steps.changes.outputs.ag2 }}
+      agno: ${{ steps.changes.outputs.agno }}
+      llamaindex: ${{ steps.changes.outputs.llamaindex }}
+      langgraph_fastapi: ${{ steps.changes.outputs.langgraph_fastapi }}
+      langgraph_typescript: ${{ steps.changes.outputs.langgraph_typescript }}
+      langroid: ${{ steps.changes.outputs.langroid }}
+      spring_ai: ${{ steps.changes.outputs.spring_ai }}
+      strands: ${{ steps.changes.outputs.strands }}
+      ms_agent_python: ${{ steps.changes.outputs.ms_agent_python }}
+      claude_sdk_typescript: ${{ steps.changes.outputs.claude_sdk_typescript }}
+      ms_agent_dotnet: ${{ steps.changes.outputs.ms_agent_dotnet }}
+      claude_sdk_python: ${{ steps.changes.outputs.claude_sdk_python }}
+      test_integration_tmp: ${{ steps.changes.outputs.test_integration_tmp }}
+      starter_langgraph_python: ${{ steps.changes.outputs.starter_langgraph_python }}
+      starter_mastra: ${{ steps.changes.outputs.starter_mastra }}
+      starter_crewai_crews: ${{ steps.changes.outputs.starter_crewai_crews }}
+      starter_google_adk: ${{ steps.changes.outputs.starter_google_adk }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: changes
+        with:
+          filters: |
+            shell:
+              - 'showcase/shell/**'
+              - 'showcase/shared/**'
+              - 'showcase/scripts/**'
+              - 'showcase/packages/*/manifest.yaml'
+            langgraph:
+              - 'showcase/packages/langgraph-python/**'
+            mastra:
+              - 'showcase/packages/mastra/**'
+            crewai_crews:
+              - 'showcase/packages/crewai-crews/**'
+            pydantic_ai:
+              - 'showcase/packages/pydantic-ai/**'
+            google_adk:
+              - 'showcase/packages/google-adk/**'
+            ag2:
+              - 'showcase/packages/ag2/**'
+            agno:
+              - 'showcase/packages/agno/**'
+            llamaindex:
+              - 'showcase/packages/llamaindex/**'
+            langgraph_fastapi:
+              - 'showcase/packages/langgraph-fastapi/**'
+            langgraph_typescript:
+              - 'showcase/packages/langgraph-typescript/**'
+            langroid:
+              - 'showcase/packages/langroid/**'
+            spring_ai:
+              - 'showcase/packages/spring-ai/**'
+            strands:
+              - 'showcase/packages/strands/**'
+            ms_agent_python:
+              - 'showcase/packages/ms-agent-python/**'
+            claude_sdk_typescript:
+              - 'showcase/packages/claude-sdk-typescript/**'
+            ms_agent_dotnet:
+              - 'showcase/packages/ms-agent-dotnet/**'
+            claude_sdk_python:
+              - 'showcase/packages/claude-sdk-python/**'
+            test_integration_tmp:
+              - 'showcase/packages/test-integration-tmp/**'
+            starter_langgraph_python:
+              - 'examples/integrations/langgraph-python/**'
+            starter_mastra:
+              - 'examples/integrations/mastra/**'
+            starter_crewai_crews:
+              - 'examples/integrations/crewai-crews/**'
+            starter_google_adk:
+              - 'examples/integrations/adk/**'
+
+  check-lockfile:
+    name: Verify Lockfile
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Verify lockfile is up to date
+        run: pnpm install --frozen-lockfile --ignore-scripts
+
+  build-shell:
+    name: Build & Push Shell
+    needs: [detect-changes, check-lockfile]
+    if: |
+      needs.detect-changes.outputs.shell == 'true' ||
+      github.event.inputs.service == 'shell' ||
+      github.event.inputs.service == 'all'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push shell image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: showcase/shell/Dockerfile
+          push: true
+          build-args: |
+            COMMIT_SHA=${{ github.sha }}
+            BRANCH=${{ github.ref_name }}
+          tags: |
+            ghcr.io/copilotkit/showcase-shell:latest
+            ghcr.io/copilotkit/showcase-shell:${{ github.sha }}
+          cache-from: type=gha,scope=shell
+          cache-to: type=gha,scope=shell,mode=max
+
+      - name: Trigger Railway deploy
+        run: |
+          curl -sf -X POST https://backboard.railway.com/graphql/v2 \
+            -H "Authorization: Bearer ${{ secrets.RAILWAY_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d '{"query":"mutation { serviceInstanceRedeploy(serviceId: \"40eea0da-6071-4ea8-bdb9-39afb19225ec\", environmentId: \"b14919f4-6417-429f-848d-c6ae2201e04f\") }"}' \
+            && echo "Deploy triggered"
+
+  build-langgraph:
+    name: Build & Push LangGraph Python
+    needs: [detect-changes, check-lockfile]
+    if: |
+      needs.detect-changes.outputs.langgraph == 'true' ||
+      github.event.inputs.service == 'langgraph-python' ||
+      github.event.inputs.service == 'all'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: showcase/packages/langgraph-python
+          push: true
+          tags: |
+            ghcr.io/copilotkit/showcase-langgraph-python:latest
+            ghcr.io/copilotkit/showcase-langgraph-python:${{ github.sha }}
+          cache-from: type=gha,scope=langgraph
+          cache-to: type=gha,scope=langgraph,mode=max
+
+      - name: Trigger Railway deploy
+        run: |
+          curl -sf -X POST https://backboard.railway.com/graphql/v2 \
+            -H "Authorization: Bearer ${{ secrets.RAILWAY_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d '{"query":"mutation { serviceInstanceRedeploy(serviceId: \"90d03214-4569-41b0-b4c1-6438a8a7b203\", environmentId: \"b14919f4-6417-429f-848d-c6ae2201e04f\") }"}' \
+            && echo "Deploy triggered"
+
+  build-mastra:
+    name: Build & Push Mastra
+    needs: [detect-changes, check-lockfile]
+    if: |
+      needs.detect-changes.outputs.mastra == 'true' ||
+      github.event.inputs.service == 'mastra' ||
+      github.event.inputs.service == 'all'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: showcase/packages/mastra
+          push: true
+          tags: |
+            ghcr.io/copilotkit/showcase-mastra:latest
+            ghcr.io/copilotkit/showcase-mastra:${{ github.sha }}
+          cache-from: type=gha,scope=mastra
+          cache-to: type=gha,scope=mastra,mode=max
+
+      - name: Trigger Railway deploy
+        run: |
+          curl -sf -X POST https://backboard.railway.com/graphql/v2 \
+            -H "Authorization: Bearer ${{ secrets.RAILWAY_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d '{"query":"mutation { serviceInstanceRedeploy(serviceId: \"d7979eb7-2405-4aab-ad21-438f4a1b08af\", environmentId: \"b14919f4-6417-429f-848d-c6ae2201e04f\") }"}' \
+            && echo "Deploy triggered"
+
+  build-crewai_crews:
+    name: Build & Push CrewAI (Crews)
+    needs: [detect-changes, check-lockfile]
+    if: |
+      needs.detect-changes.outputs.crewai_crews == 'true' ||
+      github.event.inputs.service == 'crewai-crews' ||
+      github.event.inputs.service == 'all'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: showcase/packages/crewai-crews
+          push: true
+          tags: |
+            ghcr.io/copilotkit/showcase-crewai-crews:latest
+            ghcr.io/copilotkit/showcase-crewai-crews:${{ github.sha }}
+          cache-from: type=gha,scope=crewai_crews
+          cache-to: type=gha,scope=crewai_crews,mode=max
+
+      - name: Trigger Railway deploy
+        run: |
+          curl -sf -X POST https://backboard.railway.com/graphql/v2 \
+            -H "Authorization: Bearer ${{ secrets.RAILWAY_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d '{"query":"mutation { serviceInstanceRedeploy(serviceId: \"0e9c284d-8d87-4fcf-9f82-6b704d7e4bd4\", environmentId: \"b14919f4-6417-429f-848d-c6ae2201e04f\") }"}' \
+            && echo "crewai-crews deploy triggered"
+
+  build-pydantic_ai:
+    name: Build & Push PydanticAI
+    needs: [detect-changes, check-lockfile]
+    if: |
+      needs.detect-changes.outputs.pydantic_ai == 'true' ||
+      github.event.inputs.service == 'pydantic-ai' ||
+      github.event.inputs.service == 'all'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: showcase/packages/pydantic-ai
+          push: true
+          tags: |
+            ghcr.io/copilotkit/showcase-pydantic-ai:latest
+            ghcr.io/copilotkit/showcase-pydantic-ai:${{ github.sha }}
+          cache-from: type=gha,scope=pydantic_ai
+          cache-to: type=gha,scope=pydantic_ai,mode=max
+
+      - name: Trigger Railway deploy
+        run: |
+          curl -sf -X POST https://backboard.railway.com/graphql/v2 \
+            -H "Authorization: Bearer ${{ secrets.RAILWAY_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d '{"query":"mutation { serviceInstanceRedeploy(serviceId: \"0a106173-2282-4887-a994-0ca276a99d69\", environmentId: \"b14919f4-6417-429f-848d-c6ae2201e04f\") }"}' \
+            && echo "pydantic-ai deploy triggered"
+
+  build-google_adk:
+    name: Build & Push Google ADK
+    needs: [detect-changes, check-lockfile]
+    if: |
+      needs.detect-changes.outputs.google_adk == 'true' ||
+      github.event.inputs.service == 'google-adk' ||
+      github.event.inputs.service == 'all'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: showcase/packages/google-adk
+          push: true
+          tags: |
+            ghcr.io/copilotkit/showcase-google-adk:latest
+            ghcr.io/copilotkit/showcase-google-adk:${{ github.sha }}
+          cache-from: type=gha,scope=google_adk
+          cache-to: type=gha,scope=google_adk,mode=max
+
+      - name: Trigger Railway deploy
+        run: |
+          curl -sf -X POST https://backboard.railway.com/graphql/v2 \
+            -H "Authorization: Bearer ${{ secrets.RAILWAY_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d '{"query":"mutation { serviceInstanceRedeploy(serviceId: \"87f60507-5a3d-4b8a-9e23-2b1de85d939c\", environmentId: \"b14919f4-6417-429f-848d-c6ae2201e04f\") }"}' \
+            && echo "google-adk deploy triggered"
+
+  build-ag2:
+    name: Build & Push AG2
+    needs: [detect-changes, check-lockfile]
+    if: |
+      needs.detect-changes.outputs.ag2 == 'true' ||
+      github.event.inputs.service == 'ag2' ||
+      github.event.inputs.service == 'all'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: showcase/packages/ag2
+          push: true
+          tags: |
+            ghcr.io/copilotkit/showcase-ag2:latest
+            ghcr.io/copilotkit/showcase-ag2:${{ github.sha }}
+          cache-from: type=gha,scope=ag2
+          cache-to: type=gha,scope=ag2,mode=max
+
+      - name: Trigger Railway deploy
+        run: |
+          curl -sf -X POST https://backboard.railway.com/graphql/v2 \
+            -H "Authorization: Bearer ${{ secrets.RAILWAY_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d '{"query":"mutation { serviceInstanceRedeploy(serviceId: \"87f60507-5a3d-4b8a-9e23-2b1de85d939c\", environmentId: \"b14919f4-6417-429f-848d-c6ae2201e04f\") }"}' \
+            && echo "ag2 deploy triggered"
+
+  build-agno:
+    name: Build & Push Agno
+    needs: [detect-changes, check-lockfile]
+    if: |
+      needs.detect-changes.outputs.agno == 'true' ||
+      github.event.inputs.service == 'agno' ||
+      github.event.inputs.service == 'all'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: showcase/packages/agno
+          push: true
+          tags: |
+            ghcr.io/copilotkit/showcase-agno:latest
+            ghcr.io/copilotkit/showcase-agno:${{ github.sha }}
+          cache-from: type=gha,scope=agno
+          cache-to: type=gha,scope=agno,mode=max
+
+      - name: Trigger Railway deploy
+        run: |
+          curl -sf -X POST https://backboard.railway.com/graphql/v2 \
+            -H "Authorization: Bearer ${{ secrets.RAILWAY_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d '{"query":"mutation { serviceInstanceRedeploy(serviceId: \"32cab80b-e329-45bd-9c73-c4e1ddc94305\", environmentId: \"b14919f4-6417-429f-848d-c6ae2201e04f\") }"}' \
+            && echo "agno deploy triggered"
+
+  build-llamaindex:
+    name: Build & Push LlamaIndex
+    needs: [detect-changes, check-lockfile]
+    if: |
+      needs.detect-changes.outputs.llamaindex == 'true' ||
+      github.event.inputs.service == 'llamaindex' ||
+      github.event.inputs.service == 'all'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: showcase/packages/llamaindex
+          push: true
+          tags: |
+            ghcr.io/copilotkit/showcase-llamaindex:latest
+            ghcr.io/copilotkit/showcase-llamaindex:${{ github.sha }}
+          cache-from: type=gha,scope=llamaindex
+          cache-to: type=gha,scope=llamaindex,mode=max
+
+      - name: Trigger Railway deploy
+        run: |
+          curl -sf -X POST https://backboard.railway.com/graphql/v2 \
+            -H "Authorization: Bearer ${{ secrets.RAILWAY_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d '{"query":"mutation { serviceInstanceRedeploy(serviceId: \"285386e8-492d-4cb8-b632-0a7d4607378f\", environmentId: \"b14919f4-6417-429f-848d-c6ae2201e04f\") }"}' \
+            && echo "llamaindex deploy triggered"
+
+  build-langgraph_fastapi:
+    name: Build & Push LangGraph (FastAPI)
+    needs: [detect-changes, check-lockfile]
+    if: |
+      needs.detect-changes.outputs.langgraph_fastapi == 'true' ||
+      github.event.inputs.service == 'langgraph-fastapi' ||
+      github.event.inputs.service == 'all'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: showcase/packages/langgraph-fastapi
+          push: true
+          tags: |
+            ghcr.io/copilotkit/showcase-langgraph-fastapi:latest
+            ghcr.io/copilotkit/showcase-langgraph-fastapi:${{ github.sha }}
+          cache-from: type=gha,scope=langgraph_fastapi
+          cache-to: type=gha,scope=langgraph_fastapi,mode=max
+
+      - name: Trigger Railway deploy
+        run: |
+          curl -sf -X POST https://backboard.railway.com/graphql/v2 \
+            -H "Authorization: Bearer ${{ secrets.RAILWAY_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d '{"query":"mutation { serviceInstanceRedeploy(serviceId: \"06cccb5c-59f4-46b5-8adc-7113e77011a4\", environmentId: \"b14919f4-6417-429f-848d-c6ae2201e04f\") }"}' \
+            && echo "langgraph-fastapi deploy triggered"
+
+  build-langgraph_typescript:
+    name: Build & Push LangGraph (TypeScript)
+    needs: [detect-changes, check-lockfile]
+    if: |
+      needs.detect-changes.outputs.langgraph_typescript == 'true' ||
+      github.event.inputs.service == 'langgraph-typescript' ||
+      github.event.inputs.service == 'all'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: showcase/packages/langgraph-typescript
+          push: true
+          tags: |
+            ghcr.io/copilotkit/showcase-langgraph-typescript:latest
+            ghcr.io/copilotkit/showcase-langgraph-typescript:${{ github.sha }}
+          cache-from: type=gha,scope=langgraph_typescript
+          cache-to: type=gha,scope=langgraph_typescript,mode=max
+
+      - name: Trigger Railway deploy
+        run: |
+          curl -sf -X POST https://backboard.railway.com/graphql/v2 \
+            -H "Authorization: Bearer ${{ secrets.RAILWAY_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d '{"query":"mutation { serviceInstanceRedeploy(serviceId: \"66246d3b-a18e-46f0-be51-5f3ff7a36e5a\", environmentId: \"b14919f4-6417-429f-848d-c6ae2201e04f\") }"}' \
+            && echo "langgraph-typescript deploy triggered"
+
+  build-langroid:
+    name: Build & Push Langroid
+    needs: [detect-changes, check-lockfile]
+    if: |
+      needs.detect-changes.outputs.langroid == 'true' ||
+      github.event.inputs.service == 'langroid' ||
+      github.event.inputs.service == 'all'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: showcase/packages/langroid
+          push: true
+          tags: |
+            ghcr.io/copilotkit/showcase-langroid:latest
+            ghcr.io/copilotkit/showcase-langroid:${{ github.sha }}
+          cache-from: type=gha,scope=langroid
+          cache-to: type=gha,scope=langroid,mode=max
+
+      - name: Trigger Railway deploy
+        run: |
+          curl -sf -X POST https://backboard.railway.com/graphql/v2 \
+            -H "Authorization: Bearer ${{ secrets.RAILWAY_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d '{"query":"mutation { serviceInstanceRedeploy(serviceId: \"66246d3b-a18e-46f0-be51-5f3ff7a36e5a\", environmentId: \"b14919f4-6417-429f-848d-c6ae2201e04f\") }"}' \
+            && echo "langroid deploy triggered"
+
+  build-spring_ai:
+    name: Build & Push Spring AI
+    needs: [detect-changes, check-lockfile]
+    if: |
+      needs.detect-changes.outputs.spring_ai == 'true' ||
+      github.event.inputs.service == 'spring-ai' ||
+      github.event.inputs.service == 'all'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: showcase/packages/spring-ai
+          push: true
+          tags: |
+            ghcr.io/copilotkit/showcase-spring-ai:latest
+            ghcr.io/copilotkit/showcase-spring-ai:${{ github.sha }}
+          cache-from: type=gha,scope=spring_ai
+          cache-to: type=gha,scope=spring_ai,mode=max
+
+      - name: Trigger Railway deploy
+        run: |
+          curl -sf -X POST https://backboard.railway.com/graphql/v2 \
+            -H "Authorization: Bearer ${{ secrets.RAILWAY_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d '{"query":"mutation { serviceInstanceRedeploy(serviceId: \"66246d3b-a18e-46f0-be51-5f3ff7a36e5a\", environmentId: \"b14919f4-6417-429f-848d-c6ae2201e04f\") }"}' \
+            && echo "spring-ai deploy triggered"
+
+  build-strands:
+    name: Build & Push AWS Strands
+    needs: [detect-changes, check-lockfile]
+    if: |
+      needs.detect-changes.outputs.strands == 'true' ||
+      github.event.inputs.service == 'strands' ||
+      github.event.inputs.service == 'all'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: showcase/packages/strands
+          push: true
+          tags: |
+            ghcr.io/copilotkit/showcase-strands:latest
+            ghcr.io/copilotkit/showcase-strands:${{ github.sha }}
+          cache-from: type=gha,scope=strands
+          cache-to: type=gha,scope=strands,mode=max
+
+      - name: Trigger Railway deploy
+        run: |
+          curl -sf -X POST https://backboard.railway.com/graphql/v2 \
+            -H "Authorization: Bearer ${{ secrets.RAILWAY_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d '{"query":"mutation { serviceInstanceRedeploy(serviceId: \"92e1cfad-ad53-403f-ab2b-5ab380832232\", environmentId: \"b14919f4-6417-429f-848d-c6ae2201e04f\") }"}' \
+            && echo "strands deploy triggered"
+
+  build-ms_agent_python:
+    name: Build & Push MS Agent Framework (Python)
+    needs: [detect-changes, check-lockfile]
+    if: |
+      needs.detect-changes.outputs.ms_agent_python == 'true' ||
+      github.event.inputs.service == 'ms-agent-python' ||
+      github.event.inputs.service == 'all'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: showcase/packages/ms-agent-python
+          push: true
+          tags: |
+            ghcr.io/copilotkit/showcase-ms-agent-python:latest
+            ghcr.io/copilotkit/showcase-ms-agent-python:${{ github.sha }}
+          cache-from: type=gha,scope=ms_agent_python
+          cache-to: type=gha,scope=ms_agent_python,mode=max
+
+      - name: Trigger Railway deploy
+        run: |
+          curl -sf -X POST https://backboard.railway.com/graphql/v2 \
+            -H "Authorization: Bearer ${{ secrets.RAILWAY_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d '{"query":"mutation { serviceInstanceRedeploy(serviceId: \"655db75a-af8d-427d-a4f9-441570ae5003\", environmentId: \"b14919f4-6417-429f-848d-c6ae2201e04f\") }"}' \
+            && echo "ms-agent-python deploy triggered"
+
+  build-claude_sdk_typescript:
+    name: Build & Push Claude Agent SDK (TypeScript)
+    needs: [detect-changes, check-lockfile]
+    if: |
+      needs.detect-changes.outputs.claude_sdk_typescript == 'true' ||
+      github.event.inputs.service == 'claude-sdk-typescript' ||
+      github.event.inputs.service == 'all'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: showcase/packages/claude-sdk-typescript
+          push: true
+          tags: |
+            ghcr.io/copilotkit/showcase-claude-sdk-typescript:latest
+            ghcr.io/copilotkit/showcase-claude-sdk-typescript:${{ github.sha }}
+          cache-from: type=gha,scope=claude_sdk_typescript
+          cache-to: type=gha,scope=claude_sdk_typescript,mode=max
+
+      - name: Trigger Railway deploy
+        run: |
+          curl -sf -X POST https://backboard.railway.com/graphql/v2 \
+            -H "Authorization: Bearer ${{ secrets.RAILWAY_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d '{"query":"mutation { serviceInstanceRedeploy(serviceId: \"655db75a-af8d-427d-a4f9-441570ae5003\", environmentId: \"b14919f4-6417-429f-848d-c6ae2201e04f\") }"}' \
+            && echo "claude-sdk-typescript deploy triggered"
+
+  build-ms_agent_dotnet:
+    name: Build & Push MS Agent Framework (.NET)
+    needs: [detect-changes, check-lockfile]
+    if: |
+      needs.detect-changes.outputs.ms_agent_dotnet == 'true' ||
+      github.event.inputs.service == 'ms-agent-dotnet' ||
+      github.event.inputs.service == 'all'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: showcase/packages/ms-agent-dotnet
+          push: true
+          tags: |
+            ghcr.io/copilotkit/showcase-ms-agent-dotnet:latest
+            ghcr.io/copilotkit/showcase-ms-agent-dotnet:${{ github.sha }}
+          cache-from: type=gha,scope=ms_agent_dotnet
+          cache-to: type=gha,scope=ms_agent_dotnet,mode=max
+
+      - name: Trigger Railway deploy
+        run: |
+          curl -sf -X POST https://backboard.railway.com/graphql/v2 \
+            -H "Authorization: Bearer ${{ secrets.RAILWAY_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d '{"query":"mutation { serviceInstanceRedeploy(serviceId: \"beeb2dd6-87a4-4599-aa07-0578f7bd6519\", environmentId: \"b14919f4-6417-429f-848d-c6ae2201e04f\") }"}' \
+            && echo "ms-agent-dotnet deploy triggered"
+
+  build-claude_sdk_python:
+    name: Build & Push Claude Agent SDK (Python)
+    needs: [detect-changes, check-lockfile]
+    if: |
+      needs.detect-changes.outputs.claude_sdk_python == 'true' ||
+      github.event.inputs.service == 'claude-sdk-python' ||
+      github.event.inputs.service == 'all'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: showcase/packages/claude-sdk-python
+          push: true
+          tags: |
+            ghcr.io/copilotkit/showcase-claude-sdk-python:latest
+            ghcr.io/copilotkit/showcase-claude-sdk-python:${{ github.sha }}
+          cache-from: type=gha,scope=claude_sdk_python
+          cache-to: type=gha,scope=claude_sdk_python,mode=max
+
+      - name: Trigger Railway deploy
+        run: |
+          curl -sf -X POST https://backboard.railway.com/graphql/v2 \
+            -H "Authorization: Bearer ${{ secrets.RAILWAY_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d '{"query":"mutation { serviceInstanceRedeploy(serviceId: \"beeb2dd6-87a4-4599-aa07-0578f7bd6519\", environmentId: \"b14919f4-6417-429f-848d-c6ae2201e04f\") }"}' \
+            && echo "claude-sdk-python deploy triggered"
+
+  build-test_integration_tmp:
+    name: Build & Push Test Integration
+    needs: [detect-changes, check-lockfile]
+    if: |
+      needs.detect-changes.outputs.test_integration_tmp == 'true' ||
+      github.event.inputs.service == 'test-integration-tmp' ||
+      github.event.inputs.service == 'all'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: showcase/packages/test-integration-tmp
+          push: true
+          tags: |
+            ghcr.io/copilotkit/showcase-test-integration-tmp:latest
+            ghcr.io/copilotkit/showcase-test-integration-tmp:${{ github.sha }}
+          cache-from: type=gha,scope=test_integration_tmp
+          cache-to: type=gha,scope=test_integration_tmp,mode=max
+
+      - name: Trigger Railway deploy
+        run: |
+          curl -sf -X POST https://backboard.railway.com/graphql/v2 \
+            -H "Authorization: Bearer ${{ secrets.RAILWAY_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d '{"query":"mutation { serviceInstanceRedeploy(serviceId: \"RAILWAY_SERVICE_ID\", environmentId: \"b14919f4-6417-429f-848d-c6ae2201e04f\") }"}' \
+            && echo "test-integration-tmp deploy triggered"
+
+  build-starter_langgraph_python:
+    name: Build & Push Starter LangGraph Python
+    needs: [detect-changes, check-lockfile]
+    if: |
+      needs.detect-changes.outputs.starter_langgraph_python == 'true' ||
+      github.event.inputs.service == 'starter-langgraph-python' ||
+      github.event.inputs.service == 'all'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: examples/integrations/langgraph-python
+          push: true
+          tags: |
+            ghcr.io/copilotkit/showcase-starter-langgraph-python:latest
+            ghcr.io/copilotkit/showcase-starter-langgraph-python:${{ github.sha }}
+          cache-from: type=gha,scope=starter_langgraph_python
+          cache-to: type=gha,scope=starter_langgraph_python,mode=max
+
+  build-starter_mastra:
+    name: Build & Push Starter Mastra
+    needs: [detect-changes, check-lockfile]
+    if: |
+      needs.detect-changes.outputs.starter_mastra == 'true' ||
+      github.event.inputs.service == 'starter-mastra' ||
+      github.event.inputs.service == 'all'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: examples/integrations/mastra
+          push: true
+          tags: |
+            ghcr.io/copilotkit/showcase-starter-mastra:latest
+            ghcr.io/copilotkit/showcase-starter-mastra:${{ github.sha }}
+          cache-from: type=gha,scope=starter_mastra
+          cache-to: type=gha,scope=starter_mastra,mode=max
+
+  build-starter_crewai_crews:
+    name: Build & Push Starter CrewAI Crews
+    needs: [detect-changes, check-lockfile]
+    if: |
+      needs.detect-changes.outputs.starter_crewai_crews == 'true' ||
+      github.event.inputs.service == 'starter-crewai-crews' ||
+      github.event.inputs.service == 'all'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: examples/integrations/crewai-crews
+          push: true
+          tags: |
+            ghcr.io/copilotkit/showcase-starter-crewai-crews:latest
+            ghcr.io/copilotkit/showcase-starter-crewai-crews:${{ github.sha }}
+          cache-from: type=gha,scope=starter_crewai_crews
+          cache-to: type=gha,scope=starter_crewai_crews,mode=max
+
+  build-starter_google_adk:
+    name: Build & Push Starter Google ADK
+    needs: [detect-changes, check-lockfile]
+    if: |
+      needs.detect-changes.outputs.starter_google_adk == 'true' ||
+      github.event.inputs.service == 'starter-google-adk' ||
+      github.event.inputs.service == 'all'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: examples/integrations/adk
+          push: true
+          tags: |
+            ghcr.io/copilotkit/showcase-starter-google-adk:latest
+            ghcr.io/copilotkit/showcase-starter-google-adk:${{ github.sha }}
+          cache-from: type=gha,scope=starter_google_adk
+          cache-to: type=gha,scope=starter_google_adk,mode=max

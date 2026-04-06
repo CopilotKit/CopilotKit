@@ -1,0 +1,29 @@
+---
+title: "Subscription"
+description: "Subscribe to agent events and manage listeners"
+---
+
+# Subscription
+
+Use `Subscription` to manage persistent listeners registered via `AbstractAgent.subscribe`.
+
+## Subscribe
+
+```java
+Subscription handle = agent.subscribe(new AgentSubscriber() {
+  @Override
+  public void onTextMessageContentEvent(TextMessageContentEvent e) {
+    System.out.print(e.getDelta());
+  }
+});
+```
+
+## Unsubscribe
+
+```java
+handle.unsubscribe();
+```
+
+Subscriptions receive events for all runs of the agent instance until unsubscribed.
+
+

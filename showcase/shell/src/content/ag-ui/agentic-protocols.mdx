@@ -1,0 +1,34 @@
+---
+title: "MCP, A2A, and AG-UI"
+description: "Understanding how AG-UI complements and works with MCP and A2A"
+---
+
+## Agentic Protocols
+
+The agentic ecosystem is rapidly organizing around a family of open, complementary protocols — each addressing a distinct layer of interaction.  AG-UI has emerged as the 3rd leg of the AI protocol landscape:
+<div style={{textAlign: 'center', margin: '2rem 0'}}>
+  <img src="/images/ai-protocol-stack.png" alt="AI Protocol Stack" style={{maxWidth: '40%', height: 'auto', borderRadius: '8px'}} />
+</div>
+
+You can connect your application to agents directly via **AG-UI**, **MCP**, and **A2A**.
+
+
+- **MCP** (Model Context Protocol) Connects agents to tools and to context — but those tools are themselves becoming agentic.
+- **A2A** (Agent to Agent) Connects agents to other agents.
+- **AG-UI (Agent–User Interaction)** Connects agents to users (through user-facing applications).  
+    
+    You can think of AG-UI as the **"kitchen sink" protocol** — informed by bottom-up, real-world needs for building best-in-class agentic applications.
+    
+
+These three agentic protocols are complementary and have distinct technical goals; a single agent can and often does use all 3 simultaneously.
+
+## AG-UI Handshakes with MCP and A2A
+
+AG-UI contributors have recently added handshakes, allowing AG-UI to "front for" agents through MCP and A2A protocols, which allows AG-UI client apps and libraries to seamlessly use MCP and A2A supporting agents.  
+
+AG-UI's mandate is to support the full set of building blocks required by modern agentic applications.
+
+## Generative UI Specs
+
+Recently several [generative ui specs](./concepts/generative-ui-specs) (including MCP-UI, Open JSON UI, and A2UI) have been released which allow agents to deliver UI widgets through the interaction protocols.  AG-UI works with all of these.  Visit our [generative ui specs page](./concepts/generative-ui-specs) to lern more.
+

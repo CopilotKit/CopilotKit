@@ -1,0 +1,27 @@
+import { Callout } from 'fumadocs-ui/components/callout';
+import { LinkToCopilotCloud } from '@/components/react/link-to-copilot-cloud';
+import { Accordions, Accordion } from "fumadocs-ui/components/accordion";
+
+To connect to LangGraph agents through Copilot Cloud, we leverage a concept called "Remote Endpoints"
+which allow CopilotKit runtime to connect to various backends.
+
+Navigate to <LinkToCopilotCloud asButton={false}>cloud.copilotkit.ai</LinkToCopilotCloud> and follow the video!
+
+You'll need a LangSmith API key which you can get with [this guide](https://docs.smith.langchain.com/administration/how_to_guides/organization_management/create_account_api_key#create-an-api-key) on LangSmith's website.
+
+<Accordions>
+<Accordion title="Using LangGraph Studio">
+
+    If you're using a local deployment from LangGraph Studio, you'll need to open a tunnel to your LangGraph Studio deployment URL.
+
+    ```bash
+    npx copilotkit@latest dev --port <port_number>
+    ```
+</Accordion>
+</Accordions>
+
+<Frame className="mt-4">
+    <img src="https://cdn.copilotkit.ai/docs/copilotkit/images/copilot-cloud/cpk-cloud-lgp-endpoint.gif" alt="Configure Remote Endpoint LangGraph" />
+</Frame>
+
+🎉 You should now see your LangGraph agent in the list of available agents in CopilotKit!

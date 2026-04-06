@@ -1,0 +1,116 @@
+---
+title: "Agent"
+description: "Agent trait with core event handling"
+---
+
+# Agent trait
+
+The Agent trait defines the contract for connecting any execution backend to AG‑UI. Concrete implementations (like HttpAgent) stream core events that are handled by subscribers to maintain messages and state.
+
+```rust
+use ag_ui_client::Agent;
+```
+
+## Generics
+
+- StateT: the agent state type. Must implement ag_ui_client::core::AgentState (Serialize + Deserialize + Clone + Debug + Send + Sync).
+- FwdPropsT: forwarded properties type passed through to downstream systems. Must implement ag_ui_client::core::FwdProps.
+
+Defaults for both are serde_json::Value, which works well for quick starts.
+
+## Running
+
+The core trait method you implement is run, which returns an asynchronous stream of core events:
+
+```rust
+#[async_trait::async_trait]
+pub trait Agent<StateT = JsonValue, FwdPropsT = JsonValue>
+where
+    StateT: AgentState,
+    FwdPropsT: FwdProps,
+{
+    async fn run(
+        &self,
+        input: &RunAgentInput<StateT, FwdPropsT>,
+    ) -> Result<EventStream<'async_trait, StateT>, AgentError>;
+}
+```
+
+For most consumers, use the provided convenience wrapper run_agent which:
+
+- constructs an internal RunAgentInput from RunAgentParams
+- initializes an event handler with your subscribers
+- consumes the event stream and applies mutations
+- returns RunAgentResult with final result, new messages and new state
+
+```rust
+use ag_ui_client::{Agent};
+use ag_ui_client::agent::{RunAgentParams, RunAgentResult};
+
+let params = RunAgentParams::new().user("Hello!");
+let result: RunAgentResult<_> = my_agent.run_agent(&params, ()).await?;
+```
+
+## RunAgentParams
+
+A builder for run inputs. Supports typed state and forwarded props via new_typed.
+
+```rust
+use ag_ui_client::agent::RunAgentParams;
+use ag_ui_client::core::types::{Message, Tool, Context};
+
+// JSON state (default)
+let params = RunAgentParams::new()
+    .user("User message")
+    .add_tool(Tool::new("search".into(), "Search".into(), serde_json::json!({"type":"object"})))
+    .add_context(Context::new("trace_id".into(), "123".into()));
+
+// Strongly-typed state/forwarded props
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug, Default)]
+struct MyState { count: u32 }
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug, Default)]
+struct MyProps { tenant: String }
+
+let params_typed = RunAgentParams::<MyState, MyProps>::new_typed()
+    .with_state(MyState { count: 1 })
+    .with_forwarded_props(MyProps { tenant: "acme".into() })
+    .user("Go!");
+```
+
+Builder helpers include:
+
+- with_run_id(run_id)
+- add_tool(tool)
+- add_context(ctx)
+- with_forwarded_props(props)
+- with_state(state)
+- add_message(message)
+- user(content: impl Into<String>)
+
+## RunAgentResult
+
+Returned by run_agent:
+
+```rust
+pub struct RunAgentResult<StateT: AgentState> {
+    pub result: serde_json::Value,
+    pub new_messages: Vec<Message>,
+    pub new_state: StateT,
+}
+```
+
+## AgentStateMutation
+
+Subscriber methods may return AgentStateMutation to update messages and/or state and optionally stop propagation to later subscribers.
+
+```rust
+pub struct AgentStateMutation<StateT = JsonValue> {
+    pub messages: Option<Vec<Message>>,
+    pub state: Option<StateT>,
+    pub stop_propagation: bool,
+}
+```
+
+## Errors
+
+Most Agent operations return Result<_, AgentError> where AgentError = ag_ui_client::error::AgUiClientError. See the client error page for details. Common categories include configuration errors, HTTP transport/status errors (for HttpAgent), JSON errors, and subscriber errors.

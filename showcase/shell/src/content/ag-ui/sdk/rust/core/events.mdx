@@ -1,0 +1,55 @@
+---
+title: "Events"
+description: "Streaming events emitted by agents"
+---
+
+# Events
+
+Agents emit a stream of events during execution. The Rust client decodes an SSE stream into Event<StateT> values.
+
+```rust
+use ag_ui_core::event::Event;
+```
+
+## Top-level enum
+
+```rust
+pub enum Event<StateT> {
+    RunStarted(RunStartedEvent),
+    RunFinished(RunFinishedEvent),
+    RunError(RunErrorEvent),
+    StepStarted(StepStartedEvent),
+    StepFinished(StepFinishedEvent),
+    TextMessageStart(TextMessageStartEvent),
+    TextMessageContent(TextMessageContentEvent),
+    TextMessageEnd(TextMessageEndEvent),
+    TextMessageChunk(TextMessageChunkEvent),
+    ThinkingTextMessageStart(ThinkingTextMessageStartEvent),
+    ToolCallStart(ToolCallStartEvent),
+    ToolCallArgs(ToolCallArgsEvent),
+    ToolCallEnd(ToolCallEndEvent),
+    ToolCallResult(ToolCallResultEvent),
+    StateSnapshot(StateSnapshotEvent<StateT>),
+    StateDelta(StateDeltaEvent),
+    MessagesSnapshot(MessagesSnapshotEvent),
+    Raw(RawEvent),
+    Custom(CustomEvent),
+}
+```
+
+## Frequently used events
+
+- RunStartedEvent – signals the beginning of a run
+- RunFinishedEvent – contains an optional result payload
+- RunErrorEvent – reports an error with message/context
+- TextMessageStart/Content/End – streaming assistant message text
+- ToolCall* – tool call lifecycle and argument streaming
+- StateSnapshotEvent<StateT> – full state replacement
+- StateDeltaEvent – JSON-Patch style deltas (Vec<Value>)
+- MessagesSnapshotEvent – full replacement of the message history
+
+## Handling in subscribers
+
+Every concrete event has a corresponding callback in AgentSubscriber. You can also implement on_event(&Event<StateT>, …) to observe all events.
+
+See: /sdk/rust/client/subscriber

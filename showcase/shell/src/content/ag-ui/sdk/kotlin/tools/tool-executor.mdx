@@ -1,0 +1,444 @@
+---
+title: ToolExecutor
+description: Interface for implementing custom client-side tools
+---
+
+# ToolExecutor
+
+`ToolExecutor` is the interface for implementing custom tools that agents can call during conversations. Tools execute client-side, providing secure access to local device capabilities and custom business logic.
+
+## Interface Definition
+
+```kotlin
+interface ToolExecutor {
+    val tool: Tool
+    suspend fun execute(context: ToolExecutionContext): ToolExecutionResult
+    fun validate(toolCall: ToolCall): ToolValidationResult
+    fun canExecute(toolCall: ToolCall): Boolean
+    fun getMaxExecutionTimeMs(): Long?
+}
+```
+
+## Core Components
+
+### Tool Definition
+Every executor must define its tool:
+
+```kotlin
+override val tool = Tool(
+    name = "calculator",
+    description = "Perform mathematical calculations",
+    parameters = buildJsonObject {
+        put("type", "object")
+        put("properties", buildJsonObject {
+            put("expression", buildJsonObject {
+                put("type", "string")
+                put("description", "Mathematical expression to evaluate")
+            })
+        })
+    },
+    required = listOf("expression")
+)
+```
+
+### Execution Context
+Tools receive context during execution:
+
+```kotlin
+data class ToolExecutionContext(
+    val toolCall: ToolCall,
+    val threadId: String? = null,
+    val runId: String? = null,
+    val metadata: Map<String, Any> = emptyMap()
+)
+```
+
+### Execution Result
+Tools return structured results:
+
+```kotlin
+data class ToolExecutionResult(
+    val success: Boolean,
+    val result: JsonElement? = null,
+    val message: String? = null
+)
+
+// Convenience methods
+ToolExecutionResult.success(result = JsonPrimitive("42"))
+ToolExecutionResult.failure("Invalid expression")
+```
+
+## Implementation
+
+### Basic Implementation
+
+```kotlin
+class CalculatorToolExecutor : ToolExecutor {
+    override val tool = Tool(
+        name = "calculator",
+        description = "Perform basic calculations",
+        parameters = buildJsonObject {
+            put("type", "object")
+            put("properties", buildJsonObject {
+                put("expression", buildJsonObject {
+                    put("type", "string")
+                })
+            })
+        },
+        required = listOf("expression")
+    )
+    
+    override suspend fun execute(context: ToolExecutionContext): ToolExecutionResult {
+        val args = context.toolCall.function.arguments.jsonObject
+        val expression = args["expression"]?.jsonPrimitive?.content
+            ?: return ToolExecutionResult.failure("Missing expression")
+        
+        return try {
+            val result = evaluateExpression(expression)
+            ToolExecutionResult.success(
+                result = JsonPrimitive(result),
+                message = "$expression = $result"
+            )
+        } catch (e: Exception) {
+            ToolExecutionResult.failure("Calculation error: ${e.message}")
+        }
+    }
+    
+    private fun evaluateExpression(expression: String): Double {
+        // Implementation details...
+        return 42.0
+    }
+}
+```
+
+### Using AbstractToolExecutor
+
+For common error handling patterns:
+
+```kotlin
+class WeatherToolExecutor : AbstractToolExecutor(weatherTool) {
+    override suspend fun executeInternal(context: ToolExecutionContext): ToolExecutionResult {
+        val location = extractLocation(context.toolCall)
+        val weather = fetchWeather(location)
+        
+        return ToolExecutionResult.success(
+            result = buildJsonObject {
+                put("temperature", weather.temperature)
+                put("condition", weather.condition)
+            }
+        )
+    }
+    
+    override fun validate(toolCall: ToolCall): ToolValidationResult {
+        val args = toolCall.function.arguments.jsonObject
+        
+        if (!args.containsKey("location")) {
+            return ToolValidationResult.failure("Missing required parameter: location")
+        }
+        
+        val location = args["location"]?.jsonPrimitive?.content
+        if (location.isNullOrBlank()) {
+            return ToolValidationResult.failure("Location cannot be empty")
+        }
+        
+        return ToolValidationResult.success()
+    }
+}
+```
+
+## Methods
+
+### execute
+Execute the tool with given context:
+
+```kotlin
+override suspend fun execute(context: ToolExecutionContext): ToolExecutionResult {
+    // Access tool call arguments
+    val args = context.toolCall.function.arguments.jsonObject
+    
+    // Perform tool logic
+    val result = performOperation(args)
+    
+    // Return structured result
+    return ToolExecutionResult.success(result)
+}
+```
+
+### validate
+Validate tool call arguments:
+
+```kotlin
+override fun validate(toolCall: ToolCall): ToolValidationResult {
+    val args = toolCall.function.arguments.jsonObject
+    val errors = mutableListOf<String>()
+    
+    // Check required parameters
+    if (!args.containsKey("required_param")) {
+        errors.add("Missing required parameter: required_param")
+    }
+    
+    // Validate parameter values
+    val value = args["number"]?.jsonPrimitive?.doubleOrNull
+    if (value != null && value < 0) {
+        errors.add("Number must be non-negative")
+    }
+    
+    return if (errors.isEmpty()) {
+        ToolValidationResult.success()
+    } else {
+        ToolValidationResult.failure(errors)
+    }
+}
+```
+
+### canExecute
+Check if executor can handle a tool call:
+
+```kotlin
+override fun canExecute(toolCall: ToolCall): Boolean {
+    // Default implementation matches by name
+    return toolCall.function.name == tool.name
+    
+    // Custom logic example:
+    // return toolCall.function.name == tool.name && 
+    //        hasRequiredPermissions()
+}
+```
+
+### getMaxExecutionTimeMs
+Set execution timeout:
+
+```kotlin
+override fun getMaxExecutionTimeMs(): Long? {
+    return 30_000 // 30 seconds
+    
+    // Or no timeout:
+    // return null
+}
+```
+
+## Error Handling
+
+### Validation Errors
+Return validation failures for invalid arguments:
+
+```kotlin
+override fun validate(toolCall: ToolCall): ToolValidationResult {
+    val email = getEmailParameter(toolCall)
+    
+    if (!email.contains("@")) {
+        return ToolValidationResult.failure("Invalid email format")
+    }
+    
+    return ToolValidationResult.success()
+}
+```
+
+### Execution Errors
+Handle different error types during execution:
+
+```kotlin
+override suspend fun execute(context: ToolExecutionContext): ToolExecutionResult {
+    return try {
+        val result = performRiskyOperation()
+        ToolExecutionResult.success(result)
+    } catch (e: IllegalArgumentException) {
+        // Expected validation error
+        ToolExecutionResult.failure("Invalid input: ${e.message}")
+    } catch (e: IOException) {
+        // Network/IO error
+        ToolExecutionResult.failure("Network error: ${e.message}")
+    } catch (e: SecurityException) {
+        // Permission error
+        ToolExecutionResult.failure("Permission denied: ${e.message}")
+    } catch (e: Exception) {
+        // Unrecoverable error - let framework handle
+        throw ToolExecutionException(
+            message = "Tool execution failed: ${e.message}",
+            cause = e,
+            toolName = tool.name,
+            toolCallId = context.toolCall.id
+        )
+    }
+}
+```
+
+## Best Practices
+
+### Parameter Extraction
+Create helper methods for common parameters:
+
+```kotlin
+class LocationToolExecutor : ToolExecutor {
+    private fun extractLocation(toolCall: ToolCall): String {
+        return toolCall.function.arguments.jsonObject["location"]
+            ?.jsonPrimitive?.content
+            ?: throw IllegalArgumentException("Missing location parameter")
+    }
+    
+    private fun extractUnits(toolCall: ToolCall): String {
+        return toolCall.function.arguments.jsonObject["units"]
+            ?.jsonPrimitive?.content
+            ?: "metric" // Default value
+    }
+}
+```
+
+### Resource Management
+Always clean up resources:
+
+```kotlin
+class FileToolExecutor : ToolExecutor {
+    override suspend fun execute(context: ToolExecutionContext): ToolExecutionResult {
+        var inputStream: InputStream? = null
+        return try {
+            val filename = extractFilename(context.toolCall)
+            inputStream = File(filename).inputStream()
+            val content = inputStream.readText()
+            ToolExecutionResult.success(JsonPrimitive(content))
+        } catch (e: IOException) {
+            ToolExecutionResult.failure("File error: ${e.message}")
+        } finally {
+            inputStream?.close()
+        }
+    }
+}
+```
+
+### Async Operations
+Use proper coroutine patterns:
+
+```kotlin
+class FileToolExecutor : ToolExecutor {
+    override suspend fun execute(context: ToolExecutionContext): ToolExecutionResult {
+        return try {
+            // Use suspend functions for file I/O
+            val filename = extractFilename(context.toolCall)
+            val content = File(filename).readText()
+            ToolExecutionResult.success(JsonPrimitive(content))
+        } catch (e: IOException) {
+            ToolExecutionResult.failure("File error: ${e.message}")
+        }
+    }
+    
+    override fun getMaxExecutionTimeMs(): Long = 10_000 // 10 seconds for large files
+}
+```
+
+### Platform-Specific Implementation
+Handle platform differences:
+
+```kotlin
+expect class PlatformLocationProvider {
+    suspend fun getCurrentLocation(): Location
+}
+
+class LocationToolExecutor : ToolExecutor {
+    private val locationProvider = PlatformLocationProvider()
+    
+    override suspend fun execute(context: ToolExecutionContext): ToolExecutionResult {
+        return try {
+            val location = locationProvider.getCurrentLocation()
+            ToolExecutionResult.success(buildJsonObject {
+                put("latitude", location.latitude)
+                put("longitude", location.longitude)
+            })
+        } catch (e: SecurityException) {
+            ToolExecutionResult.failure("Location permission required")
+        }
+    }
+}
+```
+
+### Tool Definition Builder
+Use builders for complex tool definitions:
+
+```kotlin
+private val complexTool = Tool(
+    name = "data_query",
+    description = "Query data with filters and sorting",
+    parameters = buildJsonObject {
+        put("type", "object")
+        put("properties", buildJsonObject {
+            put("query", buildJsonObject {
+                put("type", "string")
+                put("description", "Search query")
+            })
+            put("filters", buildJsonObject {
+                put("type", "object") 
+                put("properties", buildJsonObject {
+                    put("category", buildJsonObject {
+                        put("type", "string")
+                        put("enum", buildJsonArray {
+                            add("books")
+                            add("movies")
+                            add("music")
+                        })
+                    })
+                    put("minRating", buildJsonObject {
+                        put("type", "number")
+                        put("minimum", 0)
+                        put("maximum", 5)
+                    })
+                })
+            })
+            put("sortBy", buildJsonObject {
+                put("type", "string")
+                put("enum", buildJsonArray {
+                    add("name")
+                    add("rating")
+                    add("date")
+                })
+            })
+        })
+    },
+    required = listOf("query")
+)
+```
+
+### Testing
+Write comprehensive tests for tools:
+
+```kotlin
+class CalculatorToolExecutorTest {
+    private val calculator = CalculatorToolExecutor()
+    
+    @Test
+    fun testBasicAddition() = runTest {
+        val toolCall = ToolCall(
+            id = "test-1",
+            function = ToolCall.Function(
+                name = "calculator",
+                arguments = buildJsonObject {
+                    put("expression", "2 + 3")
+                }
+            )
+        )
+        
+        val context = ToolExecutionContext(toolCall)
+        val result = calculator.execute(context)
+        
+        assertTrue(result.success)
+        assertEquals(5.0, result.result?.jsonPrimitive?.double)
+    }
+    
+    @Test
+    fun testInvalidExpression() = runTest {
+        val toolCall = ToolCall(
+            id = "test-2", 
+            function = ToolCall.Function(
+                name = "calculator",
+                arguments = buildJsonObject {
+                    put("expression", "invalid")
+                }
+            )
+        )
+        
+        val context = ToolExecutionContext(toolCall)
+        val result = calculator.execute(context)
+        
+        assertFalse(result.success)
+        assertNotNull(result.message)
+    }
+}
+```

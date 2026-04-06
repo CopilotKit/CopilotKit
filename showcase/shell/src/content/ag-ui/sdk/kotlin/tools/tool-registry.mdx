@@ -1,0 +1,385 @@
+---
+title: ToolRegistry
+description: Registry for managing and executing client-side tools
+---
+
+# ToolRegistry
+
+`ToolRegistry` manages tool executors and handles tool execution with timeout handling, statistics tracking, and thread-safe access. It serves as the central registry for all available client-side tools.
+
+## Interface
+
+```kotlin
+interface ToolRegistry {
+    fun registerTool(executor: ToolExecutor)
+    fun unregisterTool(toolName: String): Boolean
+    fun getToolExecutor(toolName: String): ToolExecutor?
+    fun getAllTools(): List<Tool>
+    fun getAllExecutors(): Map<String, ToolExecutor>
+    fun isToolRegistered(toolName: String): Boolean
+    suspend fun executeTool(context: ToolExecutionContext): ToolExecutionResult
+    fun getToolStats(toolName: String): ToolExecutionStats?
+    fun getAllStats(): Map<String, ToolExecutionStats>
+    fun clearStats()
+}
+```
+
+## Creating a Registry
+
+### Builder Pattern
+
+```kotlin
+val toolRegistry = toolRegistry {
+    addTool(CalculatorToolExecutor())
+    addTool(WeatherToolExecutor())
+    addTool(FileToolExecutor())
+}
+```
+
+### Direct Creation
+
+```kotlin
+val toolRegistry = toolRegistry(
+    CalculatorToolExecutor(),
+    WeatherToolExecutor(),
+    FileToolExecutor()
+)
+```
+
+### Manual Registration
+
+```kotlin
+val registry: ToolRegistry = DefaultToolRegistry()
+registry.registerTool(CalculatorToolExecutor())
+registry.registerTool(WeatherToolExecutor())
+```
+
+## Tool Management
+
+### Registration
+
+```kotlin
+val calculator = CalculatorToolExecutor()
+toolRegistry.registerTool(calculator)
+
+// Throws IllegalArgumentException if tool name already exists
+try {
+    toolRegistry.registerTool(AnotherCalculatorExecutor())
+} catch (e: IllegalArgumentException) {
+    println("Tool already registered: ${e.message}")
+}
+```
+
+### Unregistration
+
+```kotlin
+val wasRemoved = toolRegistry.unregisterTool("calculator")
+if (wasRemoved) {
+    println("Calculator tool removed")
+} else {
+    println("Calculator tool was not registered")
+}
+```
+
+### Discovery
+
+```kotlin
+// Check if tool exists
+if (toolRegistry.isToolRegistered("weather")) {
+    println("Weather tool is available")
+}
+
+// Get specific executor
+val weatherExecutor = toolRegistry.getToolExecutor("weather")
+weatherExecutor?.let { executor ->
+    println("Found executor: ${executor.tool.description}")
+}
+
+// Get all tools for agent registration
+val allTools = toolRegistry.getAllTools()
+println("Available tools: ${allTools.map { it.name }}")
+```
+
+## Tool Execution
+
+The registry handles tool execution automatically when used with agents, but can also be called directly:
+
+```kotlin
+val toolCall = ToolCall(
+    id = "calc-1",
+    function = ToolCall.Function(
+        name = "calculator",
+        arguments = buildJsonObject {
+            put("expression", "2 + 3")
+        }
+    )
+)
+
+val context = ToolExecutionContext(
+    toolCall = toolCall,
+    threadId = "thread-123",
+    runId = "run-456"
+)
+
+try {
+    val result = toolRegistry.executeTool(context)
+    if (result.success) {
+        println("Result: ${result.result}")
+        println("Message: ${result.message}")
+    } else {
+        println("Execution failed: ${result.message}")
+    }
+} catch (e: ToolNotFoundException) {
+    println("Tool not found: ${e.message}")
+} catch (e: ToolExecutionException) {
+    println("Execution error: ${e.message}")
+}
+```
+
+## Statistics and Monitoring
+
+### Tool Statistics
+
+```kotlin
+data class ToolExecutionStats(
+    val executionCount: Long = 0,
+    val successCount: Long = 0,
+    val failureCount: Long = 0,
+    val totalExecutionTimeMs: Long = 0,
+    val averageExecutionTimeMs: Double = 0.0
+) {
+    val successRate: Double get() = if (executionCount > 0) successCount.toDouble() / executionCount else 0.0
+}
+```
+
+### Monitoring Individual Tools
+
+```kotlin
+val calculatorStats = toolRegistry.getToolStats("calculator")
+calculatorStats?.let { stats ->
+    println("Calculator executions: ${stats.executionCount}")
+    println("Success rate: ${String.format("%.1f%%", stats.successRate * 100)}")
+    println("Average execution time: ${stats.averageExecutionTimeMs}ms")
+    println("Total execution time: ${stats.totalExecutionTimeMs}ms")
+}
+```
+
+### Monitoring All Tools
+
+```kotlin
+val allStats = toolRegistry.getAllStats()
+allStats.forEach { (toolName, stats) ->
+    println("$toolName: ${stats.executionCount} executions, ${String.format("%.1f%%", stats.successRate * 100)} success rate")
+}
+```
+
+### Clearing Statistics
+
+```kotlin
+// Clear all statistics
+toolRegistry.clearStats()
+println("All statistics cleared")
+```
+
+## Error Handling
+
+### Tool Not Found
+
+```kotlin
+try {
+    val context = ToolExecutionContext(unknownToolCall)
+    toolRegistry.executeTool(context)
+} catch (e: ToolNotFoundException) {
+    println("Tool '${e.message}' is not registered")
+    // Could suggest similar tool names or prompt for registration
+}
+```
+
+### Execution Failures
+
+```kotlin
+try {
+    val result = toolRegistry.executeTool(context)
+    if (!result.success) {
+        println("Tool execution failed: ${result.message}")
+        // Handle graceful failure
+    }
+} catch (e: ToolExecutionException) {
+    println("Unrecoverable error: ${e.message}")
+    println("Tool: ${e.toolName}, Call ID: ${e.toolCallId}")
+    // Log error for debugging
+}
+```
+
+### Timeout Handling
+
+Timeouts are handled automatically based on each tool's `getMaxExecutionTimeMs()`:
+
+```kotlin
+class SlowToolExecutor : ToolExecutor {
+    override fun getMaxExecutionTimeMs(): Long = 60_000 // 1 minute
+    
+    override suspend fun execute(context: ToolExecutionContext): ToolExecutionResult {
+        // Long-running operation
+        delay(30_000) // 30 seconds
+        return ToolExecutionResult.success(JsonPrimitive("Done"))
+    }
+}
+```
+
+## Integration with Agents
+
+### Agent Registration
+
+```kotlin
+val agent = agentWithTools(
+    url = "https://api.example.com/agent",
+    toolRegistry = toolRegistry
+) {
+    bearerToken = "your-token"
+}
+
+// Tools are automatically available to the agent
+agent.sendMessage("Calculate 2 + 3").collect { event ->
+    // Agent will use calculator tool automatically
+}
+```
+
+### Tool Definitions
+
+The registry provides tool definitions to agents:
+
+```kotlin
+// This happens automatically in agentWithTools
+val toolDefinitions = toolRegistry.getAllTools()
+val input = RunAgentInput(
+    threadId = "thread-1",
+    runId = "run-1",
+    messages = messages,
+    tools = toolDefinitions // Registry tools sent to agent
+)
+```
+
+## Best Practices
+
+### Registry Lifecycle
+
+```kotlin
+class AgentService {
+    private val toolRegistry = toolRegistry {
+        addTool(CalculatorToolExecutor())
+        addTool(WeatherToolExecutor())
+    }
+    
+    private val agent = agentWithTools(url, toolRegistry) {
+        bearerToken = token
+    }
+    
+    fun getExecutionStats(): Map<String, ToolExecutionStats> {
+        return toolRegistry.getAllStats()
+    }
+    
+    fun resetStats() {
+        toolRegistry.clearStats()
+    }
+}
+```
+
+### Dynamic Tool Management
+
+```kotlin
+class DynamicToolManager {
+    private val registry: ToolRegistry = DefaultToolRegistry()
+    
+    fun enableFeature(feature: String) {
+        when (feature) {
+            "location" -> registry.registerTool(LocationToolExecutor())
+            "camera" -> registry.registerTool(CameraToolExecutor())
+            "files" -> registry.registerTool(FileToolExecutor())
+        }
+    }
+    
+    fun disableFeature(feature: String) {
+        registry.unregisterTool(feature)
+    }
+    
+    fun getAvailableFeatures(): List<String> {
+        return registry.getAllTools().map { it.name }
+    }
+}
+```
+
+### Error Monitoring
+
+```kotlin
+class ToolMonitor {
+    private val errorCounts = mutableMapOf<String, Int>()
+    
+    suspend fun executeWithMonitoring(
+        registry: ToolRegistry,
+        context: ToolExecutionContext
+    ): ToolExecutionResult {
+        return try {
+            val result = registry.executeTool(context)
+            if (!result.success) {
+                recordError(context.toolCall.function.name)
+            }
+            result
+        } catch (e: ToolExecutionException) {
+            recordError(context.toolCall.function.name)
+            throw e
+        }
+    }
+    
+    private fun recordError(toolName: String) {
+        errorCounts[toolName] = errorCounts.getOrDefault(toolName, 0) + 1
+        
+        // Disable problematic tools
+        if (errorCounts[toolName]!! > 5) {
+            println("Tool $toolName has too many errors, consider disabling")
+        }
+    }
+}
+```
+
+### Thread Safety
+
+`DefaultToolRegistry` is thread-safe and can be used concurrently:
+
+```kotlin
+val registry = DefaultToolRegistry()
+
+// Safe to register from multiple threads
+launch { registry.registerTool(Tool1Executor()) }
+launch { registry.registerTool(Tool2Executor()) }
+
+// Safe to execute concurrently
+launch { registry.executeTool(context1) }
+launch { registry.executeTool(context2) }
+```
+
+### Performance Optimization
+
+```kotlin
+class OptimizedToolRegistry {
+    private val registry = DefaultToolRegistry()
+    private val frequentTools = setOf("calculator", "weather", "location")
+    
+    init {
+        // Pre-register frequently used tools
+        frequentTools.forEach { toolName ->
+            when (toolName) {
+                "calculator" -> registry.registerTool(CalculatorToolExecutor())
+                "weather" -> registry.registerTool(WeatherToolExecutor())
+                "location" -> registry.registerTool(LocationToolExecutor())
+            }
+        }
+    }
+    
+    fun getOptimizedStats(): Map<String, Double> {
+        return registry.getAllStats().mapValues { (_, stats) ->
+            stats.averageExecutionTimeMs
+        }.toList().sortedBy { it.second }.toMap()
+    }
+}
+```

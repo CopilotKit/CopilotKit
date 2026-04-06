@@ -1,0 +1,310 @@
+---
+title: Types
+description: Protocol message types and data structures for the AG-UI protocol
+---
+
+# Types
+
+The AG-UI protocol defines message types, tool definitions, and data structures for agent communication. The core module provides these types with JSON serialization support.
+
+## Message Types
+
+Messages use role-based polymorphic serialization with `@JsonClassDiscriminator("role")`.
+
+### Role Enum
+
+```kotlin
+@Serializable
+enum class Role {
+    @SerialName("developer")
+    DEVELOPER,
+    @SerialName("system")
+    SYSTEM,
+    @SerialName("assistant")
+    ASSISTANT,
+    @SerialName("user")
+    USER,
+    @SerialName("tool")
+    TOOL
+}
+```
+
+### DeveloperMessage
+
+```kotlin
+@Serializable
+@SerialName("developer")
+data class DeveloperMessage(
+    override val id: String,
+    override val content: String,
+    override val name: String? = null
+) : Message()
+```
+
+**Example:**
+```kotlin
+val developerMessage = DeveloperMessage(
+    id = "dev-1",
+    content = "This is a system-level instruction for the agent"
+)
+```
+
+### SystemMessage
+
+```kotlin
+@Serializable
+@SerialName("system")
+data class SystemMessage(
+    override val id: String,
+    override val content: String?,
+    override val name: String? = null
+) : Message()
+```
+
+**Example:**
+```kotlin
+val systemMessage = SystemMessage(
+    id = "sys-1",
+    content = "You are a helpful assistant"
+)
+```
+
+### UserMessage
+
+```kotlin
+@Serializable
+@SerialName("user")
+data class UserMessage(
+    override val id: String,
+    override val content: String,
+    override val name: String? = null
+) : Message()
+```
+
+**Example:**
+```kotlin
+val userMessage = UserMessage(
+    id = "user-1",
+    content = "Hello, I need help"
+)
+```
+
+### AssistantMessage
+
+```kotlin
+@Serializable
+@SerialName("assistant")
+data class AssistantMessage(
+    override val id: String,
+    override val content: String? = null,
+    override val name: String? = null,
+    val toolCalls: List<ToolCall>? = null
+) : Message()
+```
+
+**Examples:**
+```kotlin
+// Text response
+val textResponse = AssistantMessage(
+    id = "asst-1",
+    content = "I can help with that!"
+)
+
+// Response with tool calls
+val toolResponse = AssistantMessage(
+    id = "asst-2",
+    content = "Let me check that for you.",
+    toolCalls = listOf(
+        ToolCall(
+            id = "call-1",
+            function = FunctionCall(
+                name = "lookup_info",
+                arguments = """{"query":"example"}"""
+            )
+        )
+    )
+)
+```
+
+### ToolMessage
+
+```kotlin
+@Serializable
+@SerialName("tool")
+data class ToolMessage(
+    override val id: String,
+    override val content: String,
+    override val name: String? = null,
+    val toolCallId: String
+) : Message()
+```
+
+**Example:**
+```kotlin
+val toolResult = ToolMessage(
+    id = "tool-1",
+    content = "Information found: Example result",
+    toolCallId = "call-1"
+)
+```
+
+## Tool Types
+
+### ToolCall
+
+```kotlin
+@Serializable
+data class ToolCall(
+    val id: String,
+    val function: FunctionCall
+)
+
+@Serializable
+data class FunctionCall(
+    val name: String,
+    val arguments: String // JSON-encoded string
+)
+```
+
+**Example:**
+```kotlin
+val toolCall = ToolCall(
+    id = "call-123",
+    function = FunctionCall(
+        name = "get_weather",
+        arguments = """{"location":"New York","units":"fahrenheit"}"""
+    )
+)
+```
+
+### ToolDefinition
+
+```kotlin
+@Serializable
+data class ToolDefinition(
+    val name: String,
+    val description: String,
+    val parameters: JsonObject,
+    val required: List<String> = emptyList()
+)
+```
+
+**Example:**
+```kotlin
+val weatherTool = ToolDefinition(
+    name = "get_weather",
+    description = "Get current weather",
+    parameters = buildJsonObject {
+        put("type", "object")
+        put("properties", buildJsonObject {
+            put("location", buildJsonObject {
+                put("type", "string")
+            })
+        })
+    },
+    required = listOf("location")
+)
+```
+
+## Request Types
+
+### RunAgentInput
+
+```kotlin
+@Serializable
+data class RunAgentInput(
+    val threadId: String,
+    val runId: String,
+    val messages: List<Message>,
+    val state: JsonElement? = null,
+    val tools: List<ToolDefinition> = emptyList(),
+    val context: Map<String, JsonElement> = emptyMap(),
+    val forwardedProps: Map<String, JsonElement> = emptyMap()
+)
+```
+
+**Example:**
+```kotlin
+val input = RunAgentInput(
+    threadId = "thread-123",
+    runId = "run-456",
+    messages = listOf(
+        UserMessage(id = "user-1", content = "Hello")
+    ),
+    state = buildJsonObject {
+        put("sessionId", "session-789")
+    }
+)
+```
+
+## Error Types
+
+### RunErrorEvent
+
+```kotlin
+@Serializable
+@SerialName("RUN_ERROR")
+data class RunErrorEvent(
+    val message: String,
+    val code: String? = null,
+    val timestamp: Long? = null,
+    val rawEvent: JsonElement? = null
+) : BaseEvent()
+```
+
+**Example:**
+```kotlin
+val error = RunErrorEvent(
+    message = "Connection failed",
+    code = "NETWORK_ERROR"
+)
+```
+
+## JSON Serialization
+
+### AgUiJson
+
+Use `AgUiJson` for all protocol serialization:
+
+```kotlin
+// Serialize
+val message = UserMessage(id = "1", content = "Hello")
+val json = AgUiJson.encodeToString<Message>(message)
+
+// Deserialize  
+val decoded = AgUiJson.decodeFromString<Message>(json)
+```
+
+## State Representation
+
+Agent state uses `JsonElement`:
+
+```kotlin
+val state = buildJsonObject {
+    put("topic", "weather")
+    put("location", "New York")
+    put("preferences", buildJsonObject {
+        put("units", "fahrenheit")
+    })
+}
+```
+
+## Message Processing
+
+Process messages by type:
+
+```kotlin
+fun processMessage(message: Message) {
+    when (message) {
+        is SystemMessage -> println("System: ${message.content}")
+        is UserMessage -> println("User: ${message.content}")
+        is AssistantMessage -> {
+            message.content?.let { println("Assistant: $it") }
+            message.toolCalls?.forEach { toolCall ->
+                println("Tool call: ${toolCall.name}")
+            }
+        }
+        is ToolMessage -> println("Tool result: ${message.content}")
+    }
+}
+```

@@ -1,0 +1,242 @@
+---
+title: Meta Events
+description: Annotations and signals independent of agent runs
+---
+
+# Meta Events Proposal
+
+## Summary
+
+### Problem Statement
+
+Currently, AG-UI events are tightly coupled to agent runs. There's no
+standardized way to attach user feedback, annotations, or external signals to
+the event stream that are independent of the agent's execution lifecycle.
+
+### Motivation
+
+AG-UI is extended with **MetaEvents**, a new class of events that can occur at
+any point in the event stream, independent of agent runs. MetaEvents provide a
+way to attach annotations, signals, or feedback to a serialized stream. They may
+originate from users, clients, or external systems rather than from agents.
+Examples include reactions such as thumbs up/down on a message.
+
+## Status
+
+- **Status**: Draft
+- **Author(s)**: Markus Ecker (mail@mme.xyz)
+
+## Detailed Specification
+
+### Overview
+
+This proposal introduces:
+
+- A new **MetaEvent** type for side-band annotations
+- Events that can appear anywhere in the stream
+- Support for user feedback, tags, and external annotations
+- Extensible payload structure for application-specific data
+
+## New Type: MetaEvent
+
+```typescript
+type MetaEvent = BaseEvent & {
+  type: EventType.META
+  /**
+   * Application-defined type of the meta event.
+   * Examples: "thumbs_up", "thumbs_down", "tag", "note"
+   */
+  metaType: string
+
+  /**
+   * Application-defined payload.
+   * May reference other entities (e.g., messageId) or contain freeform data.
+   */
+  payload: Record<string, unknown>
+}
+```
+
+### Key Characteristics
+
+- **Run-independent**: MetaEvents are not tied to any specific run lifecycle
+- **Position-flexible**: Can appear before, between, or after runs
+- **Origin-diverse**: May come from users, clients, or external systems
+- **Extensible**: Applications define their own metaType values and payload
+  schemas
+
+## Implementation Examples
+
+### User Feedback
+
+**Thumbs Up:**
+
+```json
+{
+  "id": "evt_123",
+  "ts": 1714063982000,
+  "type": "META",
+  "metaType": "thumbs_up",
+  "payload": {
+    "messageId": "msg_456",
+    "userId": "user_789"
+  }
+}
+```
+
+**Thumbs Down with Reason:**
+
+```json
+{
+  "id": "evt_124",
+  "ts": 1714063985000,
+  "type": "META",
+  "metaType": "thumbs_down",
+  "payload": {
+    "messageId": "msg_456",
+    "userId": "user_789",
+    "reason": "inaccurate",
+    "comment": "The calculation seems incorrect"
+  }
+}
+```
+
+### Annotations
+
+**User Note:**
+
+```json
+{
+  "id": "evt_789",
+  "ts": 1714064001000,
+  "type": "META",
+  "metaType": "note",
+  "payload": {
+    "text": "Important question to revisit",
+    "relatedRunId": "run_001",
+    "author": "user_123"
+  }
+}
+```
+
+**Tag Assignment:**
+
+```json
+{
+  "id": "evt_890",
+  "ts": 1714064100000,
+  "type": "META",
+  "metaType": "tag",
+  "payload": {
+    "tags": ["important", "follow-up"],
+    "threadId": "thread_001"
+  }
+}
+```
+
+### External System Events
+
+**Analytics Event:**
+
+```json
+{
+  "id": "evt_901",
+  "ts": 1714064200000,
+  "type": "META",
+  "metaType": "analytics",
+  "payload": {
+    "event": "conversation_shared",
+    "properties": {
+      "shareMethod": "link",
+      "recipientCount": 3
+    }
+  }
+}
+```
+
+**Moderation Flag:**
+
+```json
+{
+  "id": "evt_902",
+  "ts": 1714064300000,
+  "type": "META",
+  "metaType": "moderation",
+  "payload": {
+    "action": "flag",
+    "messageId": "msg_999",
+    "category": "inappropriate_content",
+    "confidence": 0.95
+  }
+}
+```
+
+## Common Meta Event Types
+
+While applications can define their own types, these are commonly used:
+
+| MetaType      | Description       | Typical Payload                    |
+| ------------- | ----------------- | ---------------------------------- |
+| `thumbs_up`   | Positive feedback | `{ messageId, userId }`            |
+| `thumbs_down` | Negative feedback | `{ messageId, userId, reason? }`   |
+| `note`        | User annotation   | `{ text, relatedId?, author }`     |
+| `tag`         | Categorization    | `{ tags[], targetId }`             |
+| `bookmark`    | Save for later    | `{ messageId, userId }`            |
+| `copy`        | Content copied    | `{ messageId, content }`           |
+| `share`       | Content shared    | `{ messageId, method }`            |
+| `rating`      | Numeric rating    | `{ messageId, rating, maxRating }` |
+
+## Use Cases
+
+### User Feedback Collection
+
+Capture user reactions to agent responses for quality improvement.
+
+### Conversation Annotation
+
+Allow users to add notes, tags, or bookmarks to important parts of
+conversations.
+
+### Analytics and Tracking
+
+Record user interactions and behaviors without affecting agent execution.
+
+### Content Moderation
+
+Flag or mark content for review by external moderation systems.
+
+### Collaborative Features
+
+Enable multiple users to annotate or comment on shared conversations.
+
+### Audit Trail
+
+Create a complete record of all interactions, not just agent responses.
+
+## Implementation Considerations
+
+### Client SDK Changes
+
+TypeScript SDK:
+
+- New `MetaEvent` type in `@ag-ui/core`
+- Helper functions for common meta event types
+- MetaEvent filtering and querying utilities
+
+Python SDK:
+
+- `MetaEvent` class implementation
+- Meta event builders for common types
+- Event stream filtering capabilities
+
+## Testing Strategy
+
+- Unit tests for MetaEvent creation and validation
+- Integration tests with mixed event streams
+- Performance tests with high-volume meta events
+- Security tests for payload validation
+
+## References
+
+- [AG-UI Events Documentation](/concepts/events)
+- [Event Sourcing](https://martinfowler.com/eaaDev/EventSourcing.html)
+- [CQRS Pattern](https://martinfowler.com/bliki/CQRS.html)

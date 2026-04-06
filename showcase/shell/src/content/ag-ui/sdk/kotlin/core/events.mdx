@@ -1,0 +1,615 @@
+---
+title: Events
+description: Complete reference for AG-UI protocol events in the Kotlin SDK
+---
+
+# Events
+
+The AG-UI protocol defines 25 event types that represent the complete lifecycle of agent interactions. Events are emitted as streaming responses and provide real-time updates about message content, tool calls, thinking processes, and state changes.
+
+## Event Categories
+
+### Message Events (4)
+Handle text message streaming from agents.
+
+#### TextMessageStartEvent
+Agent begins a text message response.
+
+```kotlin
+data class TextMessageStartEvent(
+    val messageId: String,
+    val timestamp: Long? = null,
+    val rawEvent: JsonElement? = null
+) : BaseEvent()
+```
+
+**Usage:**
+```kotlin
+when (event) {
+    is TextMessageStartEvent -> {
+        println("Agent started message: ${event.messageId}")
+        // Initialize message buffer
+        messageBuffer[event.messageId] = StringBuilder()
+    }
+}
+```
+
+#### TextMessageContentEvent
+Streaming text content chunk.
+
+```kotlin
+data class TextMessageContentEvent(
+    val messageId: String,
+    val delta: String,
+    val timestamp: Long? = null,
+    val rawEvent: JsonElement? = null
+) : BaseEvent()
+```
+
+**Usage:**
+```kotlin
+when (event) {
+    is TextMessageContentEvent -> {
+        print(event.delta) // Stream to UI
+        messageBuffer[event.messageId]?.append(event.delta)
+    }
+}
+```
+
+#### TextMessageEndEvent
+Agent completes text message.
+
+```kotlin
+data class TextMessageEndEvent(
+    val messageId: String,
+    val timestamp: Long? = null,
+    val rawEvent: JsonElement? = null
+) : BaseEvent()
+```
+
+**Usage:**
+```kotlin
+when (event) {
+    is TextMessageEndEvent -> {
+        val fullMessage = messageBuffer[event.messageId]?.toString()
+        println("\nMessage complete: $fullMessage")
+    }
+}
+```
+
+#### TextMessageChunkEvent
+Chunk-based text streaming (automatically converted to start/content/end sequence).
+
+```kotlin
+data class TextMessageChunkEvent(
+    val messageId: String? = null,
+    val delta: String? = null,
+    val timestamp: Long? = null,
+    val rawEvent: JsonElement? = null
+) : BaseEvent()
+```
+
+### Thinking Events (5)
+Handle agent internal reasoning processes.
+
+#### ThinkingStartEvent
+Agent begins internal reasoning.
+
+```kotlin
+data class ThinkingStartEvent(
+    val timestamp: Long? = null,
+    val rawEvent: JsonElement? = null
+) : BaseEvent()
+```
+
+**Usage:**
+```kotlin
+when (event) {
+    is ThinkingStartEvent -> {
+        showThinkingIndicator(true)
+        println("🤔 Agent is thinking...")
+    }
+}
+```
+
+#### ThinkingTextMessageStartEvent
+Agent starts thinking text message.
+
+```kotlin
+data class ThinkingTextMessageStartEvent(
+    val messageId: String,
+    val timestamp: Long? = null,
+    val rawEvent: JsonElement? = null
+) : BaseEvent()
+```
+
+#### ThinkingTextMessageContentEvent
+Streaming thinking content.
+
+```kotlin
+data class ThinkingTextMessageContentEvent(
+    val messageId: String,
+    val delta: String,
+    val timestamp: Long? = null,
+    val rawEvent: JsonElement? = null
+) : BaseEvent()
+```
+
+**Usage:**
+```kotlin
+when (event) {
+    is ThinkingTextMessageContentEvent -> {
+        // Show thinking process to user (optional)
+        displayThinking(event.delta)
+    }
+}
+```
+
+#### ThinkingTextMessageEndEvent
+Agent completes thinking text.
+
+```kotlin
+data class ThinkingTextMessageEndEvent(
+    val messageId: String,
+    val timestamp: Long? = null,
+    val rawEvent: JsonElement? = null
+) : BaseEvent()
+```
+
+#### ThinkingEndEvent
+Agent finishes reasoning process.
+
+```kotlin
+data class ThinkingEndEvent(
+    val timestamp: Long? = null,
+    val rawEvent: JsonElement? = null
+) : BaseEvent()
+```
+
+**Usage:**
+```kotlin
+when (event) {
+    is ThinkingEndEvent -> {
+        showThinkingIndicator(false)
+        println("💡 Agent finished thinking")
+    }
+}
+```
+
+### Tool Events (5)
+Handle client-side tool execution lifecycle.
+
+#### ToolCallStartEvent
+Agent requests tool execution.
+
+```kotlin
+data class ToolCallStartEvent(
+    val toolCallId: String,
+    val toolCallName: String,
+    val parentMessageId: String? = null,
+    val timestamp: Long? = null,
+    val rawEvent: JsonElement? = null
+) : BaseEvent()
+```
+
+**Usage:**
+```kotlin
+when (event) {
+    is ToolCallStartEvent -> {
+        println("🔧 Tool call: ${event.toolCallName}")
+        showToolIndicator(event.toolCallName)
+    }
+}
+```
+
+#### ToolCallArgsEvent
+Streaming tool arguments.
+
+```kotlin
+data class ToolCallArgsEvent(
+    val toolCallId: String,
+    val delta: String,
+    val timestamp: Long? = null,
+    val rawEvent: JsonElement? = null
+) : BaseEvent()
+```
+
+**Usage:**
+```kotlin
+when (event) {
+    is ToolCallArgsEvent -> {
+        // Accumulate arguments for tool execution
+        toolArgsBuffer[event.toolCallId] = 
+            (toolArgsBuffer[event.toolCallId] ?: "") + event.delta
+    }
+}
+```
+
+#### ToolCallEndEvent
+Tool call arguments complete.
+
+```kotlin
+data class ToolCallEndEvent(
+    val toolCallId: String,
+    val timestamp: Long? = null,
+    val rawEvent: JsonElement? = null
+) : BaseEvent()
+```
+
+#### ToolCallChunkEvent
+Chunk-based tool streaming (automatically converted to start/args/end sequence).
+
+```kotlin
+data class ToolCallChunkEvent(
+    val toolCallId: String? = null,
+    val toolCallName: String? = null,
+    val parentMessageId: String? = null,
+    val delta: String? = null,
+    val timestamp: Long? = null,
+    val rawEvent: JsonElement? = null
+) : BaseEvent()
+```
+
+#### ToolCallResultEvent
+Contains the result of a tool execution.
+
+```kotlin
+data class ToolCallResultEvent(
+    val toolCallId: String,
+    val result: String,
+    val timestamp: Long? = null,
+    val rawEvent: JsonElement? = null
+) : BaseEvent()
+```
+
+#### ToolResultEvent
+Tool execution result.
+
+```kotlin
+data class ToolResultEvent(
+    val messageId: String,
+    val toolCallId: String,
+    val content: String,
+    val role: String = "tool",
+    val timestamp: Long? = null,
+    val rawEvent: JsonElement? = null
+) : BaseEvent()
+```
+
+**Usage:**
+```kotlin
+when (event) {
+    is ToolResultEvent -> {
+        println("🔧 Tool result: ${event.content}")
+        hideToolIndicator()
+    }
+}
+```
+
+### State Events (2)
+Handle agent state synchronization.
+
+#### StateSnapshotEvent
+Complete state snapshot.
+
+```kotlin
+data class StateSnapshotEvent(
+    val snapshot: JsonElement,
+    val timestamp: Long? = null,
+    val rawEvent: JsonElement? = null
+) : BaseEvent()
+```
+
+**Usage:**
+```kotlin
+when (event) {
+    is StateSnapshotEvent -> {
+        currentState = event.snapshot
+        updateUI(currentState)
+    }
+}
+```
+
+#### StateDeltaEvent
+Incremental state change using JSON Patch.
+
+```kotlin
+data class StateDeltaEvent(
+    val delta: JsonElement,
+    val timestamp: Long? = null,
+    val rawEvent: JsonElement? = null
+) : BaseEvent()
+```
+
+**Usage:**
+```kotlin
+when (event) {
+    is StateDeltaEvent -> {
+        // Apply JSON patch to current state
+        currentState = applyJsonPatch(currentState, event.delta)
+        updateUI(currentState)
+    }
+}
+```
+
+### Lifecycle Events (2)
+Handle run lifecycle management.
+
+#### RunStartedEvent
+Agent run begins.
+
+```kotlin
+data class RunStartedEvent(
+    val threadId: String,
+    val runId: String,
+    val timestamp: Long? = null,
+    val rawEvent: JsonElement? = null
+) : BaseEvent()
+```
+
+**Usage:**
+```kotlin
+when (event) {
+    is RunStartedEvent -> {
+        println("🚀 Run started: ${event.runId}")
+        showLoadingIndicator(true)
+    }
+}
+```
+
+#### RunFinishedEvent
+Agent run completes.
+
+```kotlin
+data class RunFinishedEvent(
+    val threadId: String,
+    val runId: String,
+    val timestamp: Long? = null,
+    val rawEvent: JsonElement? = null
+) : BaseEvent()
+```
+
+**Usage:**
+```kotlin
+when (event) {
+    is RunFinishedEvent -> {
+        println("✅ Run finished: ${event.runId}")
+        showLoadingIndicator(false)
+    }
+}
+```
+
+### Error Events (1)
+Handle protocol and execution errors.
+
+#### ErrorEvent
+Protocol or execution error.
+
+```kotlin
+data class ErrorEvent(
+    val error: AgentError,
+    val timestamp: Long? = null,
+    val rawEvent: JsonElement? = null
+) : BaseEvent()
+```
+
+**Usage:**
+```kotlin
+when (event) {
+    is ErrorEvent -> {
+        println("❌ Error: ${event.error.message}")
+        when (event.error.type) {
+            "network" -> handleNetworkError(event.error)
+            "authentication" -> handleAuthError(event.error)
+            "protocol" -> handleProtocolError(event.error)
+            else -> handleGenericError(event.error)
+        }
+    }
+}
+```
+
+## Complete Event Handling
+
+### Comprehensive Handler
+```kotlin
+class EventHandler {
+    private val messageBuffers = mutableMapOf<String, StringBuilder>()
+    private val toolArgsBuffers = mutableMapOf<String, StringBuilder>()
+    private var currentState: JsonElement = JsonObject(emptyMap())
+    
+    fun handleEvent(event: BaseEvent) {
+        when (event) {
+            // Message Events
+            is TextMessageStartEvent -> {
+                println("📝 Agent message started: ${event.messageId}")
+                messageBuffers[event.messageId] = StringBuilder()
+            }
+            is TextMessageContentEvent -> {
+                print(event.delta)
+                messageBuffers[event.messageId]?.append(event.delta)
+            }
+            is TextMessageEndEvent -> {
+                val fullMessage = messageBuffers.remove(event.messageId)?.toString()
+                println("\n📝 Message complete: $fullMessage")
+            }
+            
+            // Thinking Events  
+            is ThinkingStartEvent -> println("🤔 Agent thinking...")
+            is ThinkingTextMessageContentEvent -> println("💭 ${event.delta}")
+            is ThinkingEndEvent -> println("💡 Thinking complete")
+            
+            // Tool Events
+            is ToolCallStartEvent -> {
+                println("🔧 Tool call: ${event.toolCallName} (${event.toolCallId})")
+                toolArgsBuffers[event.toolCallId] = StringBuilder()
+            }
+            is ToolCallArgsEvent -> {
+                toolArgsBuffers[event.toolCallId]?.append(event.delta)
+            }
+            is ToolCallEndEvent -> {
+                val args = toolArgsBuffers.remove(event.toolCallId)?.toString()
+                println("🔧 Tool args complete: $args")
+            }
+            is ToolResultEvent -> {
+                println("🔧 Tool result: ${event.content}")
+            }
+            
+            // State Events
+            is StateSnapshotEvent -> {
+                currentState = event.snapshot
+                println("📊 State updated")
+            }
+            is StateDeltaEvent -> {
+                // Apply JSON patch (simplified)
+                println("📊 State delta applied")
+            }
+            
+            // Lifecycle Events
+            is RunStartedEvent -> println("🚀 Run ${event.runId} started")
+            is RunFinishedEvent -> println("✅ Run ${event.runId} finished")
+            
+            // Error Events
+            is ErrorEvent -> {
+                println("❌ Error: ${event.error.message}")
+                println("   Type: ${event.error.type}")
+            }
+            
+            // Chunk Events (handled by ChunkTransform)
+            is TextMessageChunkEvent -> {
+                // Usually processed by transform before reaching handler
+                println("📦 Text chunk: ${event.delta}")
+            }
+            is ToolCallChunkEvent -> {
+                // Usually processed by transform before reaching handler
+                println("📦 Tool chunk: ${event.delta}")
+            }
+        }
+    }
+}
+```
+
+### Event Flow Examples
+
+#### Text Message Flow
+```kotlin
+// Typical text message event sequence:
+// 1. RunStartedEvent
+// 2. TextMessageStartEvent
+// 3. TextMessageContentEvent (multiple)
+// 4. TextMessageEndEvent  
+// 5. RunFinishedEvent
+
+agent.sendMessage("Hello").collect { event ->
+    when (event) {
+        is RunStartedEvent -> startConversation()
+        is TextMessageStartEvent -> beginResponse()
+        is TextMessageContentEvent -> streamContent(event.delta)
+        is TextMessageEndEvent -> completeResponse()
+        is RunFinishedEvent -> endConversation()
+    }
+}
+```
+
+#### Tool Call Flow
+```kotlin
+// Typical tool call event sequence:
+// 1. RunStartedEvent
+// 2. ToolCallStartEvent
+// 3. ToolCallArgsEvent (multiple)
+// 4. ToolCallEndEvent
+// 5. ToolResultEvent
+// 6. TextMessageStartEvent (agent response)
+// 7. TextMessageContentEvent (multiple)
+// 8. TextMessageEndEvent
+// 9. RunFinishedEvent
+
+agent.sendMessage("What's the weather?").collect { event ->
+    when (event) {
+        is ToolCallStartEvent -> showToolExecution(event.toolCallName)
+        is ToolResultEvent -> showToolResult(event.content)
+        is TextMessageContentEvent -> showAgentResponse(event.delta)
+    }
+}
+```
+
+#### Thinking Flow
+```kotlin
+// Agents may think before responding:
+// 1. RunStartedEvent
+// 2. ThinkingStartEvent
+// 3. ThinkingTextMessageStartEvent
+// 4. ThinkingTextMessageContentEvent (multiple)
+// 5. ThinkingTextMessageEndEvent
+// 6. ThinkingEndEvent
+// 7. TextMessageStartEvent
+// 8. TextMessageContentEvent (multiple)
+// 9. TextMessageEndEvent
+// 10. RunFinishedEvent
+
+agent.sendMessage("Complex question").collect { event ->
+    when (event) {
+        is ThinkingStartEvent -> showThinkingUI()
+        is ThinkingTextMessageContentEvent -> showThinking(event.delta)
+        is ThinkingEndEvent -> hideThinkingUI()
+        is TextMessageContentEvent -> showResponse(event.delta)
+    }
+}
+```
+
+## Best Practices
+
+### Exhaustive Handling
+```kotlin
+// Always handle all event types
+fun processEvent(event: BaseEvent): Unit = when (event) {
+    is TextMessageStartEvent -> handleTextStart(event)
+    is TextMessageContentEvent -> handleTextContent(event)
+    is TextMessageEndEvent -> handleTextEnd(event)
+    is TextMessageChunkEvent -> handleTextChunk(event)
+    is ThinkingStartEvent -> handleThinkingStart(event)
+    is ThinkingTextMessageStartEvent -> handleThinkingTextStart(event)
+    is ThinkingTextMessageContentEvent -> handleThinkingTextContent(event)
+    is ThinkingTextMessageEndEvent -> handleThinkingTextEnd(event)
+    is ThinkingEndEvent -> handleThinkingEnd(event)
+    is ToolCallStartEvent -> handleToolStart(event)
+    is ToolCallArgsEvent -> handleToolArgs(event)
+    is ToolCallEndEvent -> handleToolEnd(event)
+    is ToolCallChunkEvent -> handleToolChunk(event)
+    is ToolResultEvent -> handleToolResult(event)
+    is StateSnapshotEvent -> handleStateSnapshot(event)
+    is StateDeltaEvent -> handleStateDelta(event)
+    is RunStartedEvent -> handleRunStart(event)
+    is RunFinishedEvent -> handleRunEnd(event)
+    is ErrorEvent -> handleError(event)
+    // Compiler ensures all cases covered
+}
+```
+
+### Event Buffering
+```kotlin
+class EventBuffer {
+    private val textBuffers = mutableMapOf<String, StringBuilder>()
+    private val toolArgsBuffers = mutableMapOf<String, StringBuilder>()
+    
+    fun bufferTextContent(event: TextMessageContentEvent) {
+        textBuffers.getOrPut(event.messageId) { StringBuilder() }
+            .append(event.delta)
+    }
+    
+    fun getCompleteText(messageId: String): String? {
+        return textBuffers.remove(messageId)?.toString()
+    }
+}
+```
+
+### Error Handling
+```kotlin
+fun handleEventSafely(event: BaseEvent) {
+    try {
+        processEvent(event)
+    } catch (e: Exception) {
+        logger.error("Error processing event ${event.eventType}", e)
+        // Handle gracefully - don't crash the stream
+    }
+}
+```
