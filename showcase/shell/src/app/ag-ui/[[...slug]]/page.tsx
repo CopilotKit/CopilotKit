@@ -115,8 +115,7 @@ const NAV_DEFINITION: NavTab[] = [
                             "sdk/js/client/compaction",
                         ],
                     },
-                    "sdk/js/encoder",
-                    "sdk/js/proto",
+                    // sdk/js/encoder and sdk/js/proto removed (empty placeholder pages)
                 ],
             },
             {
