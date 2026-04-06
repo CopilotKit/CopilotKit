@@ -1,3 +1,4 @@
+import React from "react";
 import fs from "fs";
 import path from "path";
 import { notFound } from "next/navigation";
@@ -11,6 +12,206 @@ import { PropertyReference } from "@/components/property-reference";
 const CONTENT_DIR = path.join(process.cwd(), "src/content/docs");
 // Resolve snippets relative to CONTENT_DIR (which is known to work for filesystem reads)
 const SNIPPETS_DIR = path.join(CONTENT_DIR, "..", "snippets");
+
+// ---------------------------------------------------------------------------
+// Nav tree types & builder
+// ---------------------------------------------------------------------------
+
+type NavNode =
+    | { type: "page"; title: string; slug: string }
+    | { type: "section"; title: string }
+    | { type: "group"; title: string; slug: string; children: NavNode[] };
+
+/** Read the title from an MDX file's frontmatter or first heading. */
+function readTitle(filePath: string): string | null {
+    if (!fs.existsSync(filePath)) return null;
+    const raw = fs.readFileSync(filePath, "utf-8");
+    const fmMatch = raw.match(/title:\s*["']?(.+?)["']?\s*$/m);
+    if (fmMatch) return fmMatch[1].replace(/["']$/, "");
+    const headingMatch = raw.match(/^#\s+(.+)$/m);
+    if (headingMatch) return headingMatch[1];
+    return null;
+}
+
+/** Read a meta.json from a directory, returning null if missing/invalid. */
+function readMeta(dir: string): { title?: string; pages?: string[]; root?: boolean } | null {
+    const metaPath = path.join(dir, "meta.json");
+    if (!fs.existsSync(metaPath)) return null;
+    try {
+        return JSON.parse(fs.readFileSync(metaPath, "utf-8"));
+    } catch {
+        return null;
+    }
+}
+
+/**
+ * Build a nav tree from a content directory by parsing its meta.json.
+ * @param dir   Absolute path to the content directory
+ * @param prefix  URL slug prefix (e.g. "integrations/langgraph")
+ */
+function buildNavTree(dir: string, prefix: string = ""): NavNode[] {
+    const meta = readMeta(dir);
+    if (!meta) {
+        // No meta.json — fall back to filesystem listing
+        return buildNavTreeFromFilesystem(dir, prefix);
+    }
+
+    const pages = meta.pages;
+    if (!pages || !Array.isArray(pages)) {
+        return buildNavTreeFromFilesystem(dir, prefix);
+    }
+
+    const nodes: NavNode[] = [];
+
+    for (const entry of pages) {
+        // Section divider: ---Section Name---
+        const sectionMatch = entry.match(/^---(.+)---$/);
+        if (sectionMatch) {
+            nodes.push({ type: "section", title: sectionMatch[1] });
+            continue;
+        }
+
+        // External link: [Title](url)
+        if (entry.startsWith("[")) continue;
+
+        // Spread syntax: ...dirname — expand subdirectory recursively
+        const spreadMatch = entry.match(/^\.\.\.(.+)$/);
+        if (spreadMatch) {
+            const subDir = path.join(dir, spreadMatch[1]);
+            const subPrefix = prefix ? `${prefix}/${spreadMatch[1]}` : spreadMatch[1];
+            if (fs.existsSync(subDir) && fs.statSync(subDir).isDirectory()) {
+                const subMeta = readMeta(subDir);
+                const subChildren = buildNavTree(subDir, subPrefix);
+                if (subChildren.length > 0) {
+                    const groupTitle = subMeta?.title || spreadMatch[1].replace(/[()-]/g, " ").replace(/\s+/g, " ").trim();
+                    nodes.push({
+                        type: "group",
+                        title: groupTitle.charAt(0).toUpperCase() + groupTitle.slice(1),
+                        slug: subPrefix,
+                        children: subChildren,
+                    });
+                }
+            }
+            continue;
+        }
+
+        // Nested path with slash: e.g. "human-in-the-loop/interrupt-flow"
+        // or plain page slug: e.g. "quickstart"
+        const slug = prefix ? `${prefix}/${entry}` : entry;
+        const mdxFile = path.join(dir, `${entry}.mdx`);
+        const indexFile = path.join(dir, entry, "index.mdx");
+        const subDir = path.join(dir, entry);
+
+        if (fs.existsSync(mdxFile)) {
+            const title = readTitle(mdxFile) || entry.split("/").pop()!.replace(/-/g, " ");
+            nodes.push({ type: "page", title, slug });
+        } else if (fs.existsSync(subDir) && fs.statSync(subDir).isDirectory()) {
+            // Directory — check if it has its own meta.json with pages
+            const subMeta = readMeta(subDir);
+            const subPrefix = prefix ? `${prefix}/${entry}` : entry;
+
+            if (subMeta?.pages) {
+                // Has pages — build as a group
+                const subChildren = buildNavTree(subDir, subPrefix);
+                const groupTitle = subMeta.title || entry.replace(/-/g, " ");
+                nodes.push({
+                    type: "group",
+                    title: groupTitle.charAt(0).toUpperCase() + groupTitle.slice(1),
+                    slug: subPrefix,
+                    children: subChildren,
+                });
+            } else if (fs.existsSync(indexFile)) {
+                // Has index.mdx but no pages — treat as a page link
+                const title = readTitle(indexFile) || subMeta?.title || entry.replace(/-/g, " ");
+                nodes.push({ type: "page", title, slug: subPrefix });
+            } else {
+                // Directory with no meta pages and no index — build from filesystem
+                const subChildren = buildNavTreeFromFilesystem(subDir, subPrefix);
+                if (subChildren.length > 0) {
+                    const groupTitle = subMeta?.title || entry.replace(/-/g, " ");
+                    nodes.push({
+                        type: "group",
+                        title: groupTitle.charAt(0).toUpperCase() + groupTitle.slice(1),
+                        slug: subPrefix,
+                        children: subChildren,
+                    });
+                }
+            }
+        } else if (fs.existsSync(indexFile)) {
+            const title = readTitle(indexFile) || entry.replace(/-/g, " ");
+            nodes.push({ type: "page", title, slug });
+        }
+        // Skip entries that don't resolve to any file
+    }
+
+    return nodes;
+}
+
+/** Fallback: build nav from filesystem when meta.json is missing or has no pages. */
+function buildNavTreeFromFilesystem(dir: string, prefix: string): NavNode[] {
+    if (!fs.existsSync(dir)) return [];
+    const nodes: NavNode[] = [];
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+        if (entry.name.startsWith(".") || entry.name === "meta.json") continue;
+        if (entry.name.startsWith("(")) continue; // skip route groups
+        const slug = prefix ? `${prefix}/${entry.name.replace(".mdx", "")}` : entry.name.replace(".mdx", "");
+        if (entry.isDirectory()) {
+            const subChildren = buildNavTree(path.join(dir, entry.name), slug);
+            const subMeta = readMeta(path.join(dir, entry.name));
+            if (subChildren.length > 0) {
+                const groupTitle = subMeta?.title || entry.name.replace(/-/g, " ");
+                nodes.push({
+                    type: "group",
+                    title: groupTitle.charAt(0).toUpperCase() + groupTitle.slice(1),
+                    slug,
+                    children: subChildren,
+                });
+            }
+        } else if (entry.name.endsWith(".mdx") && entry.name !== "index.mdx") {
+            const title = readTitle(path.join(dir, entry.name)) || entry.name.replace(".mdx", "").replace(/-/g, " ");
+            nodes.push({ type: "page", title, slug });
+        }
+    }
+    return nodes;
+}
+
+// ---------------------------------------------------------------------------
+// Breadcrumb helpers
+// ---------------------------------------------------------------------------
+
+type Breadcrumb = { label: string; href: string | null };
+
+function buildBreadcrumbs(slugPath: string): Breadcrumb[] {
+    const parts = slugPath.split("/");
+    const crumbs: Breadcrumb[] = [{ label: "Docs", href: "/docs" }];
+
+    for (let i = 0; i < parts.length; i++) {
+        const partialSlug = parts.slice(0, i + 1).join("/");
+        const href = `/docs/${partialSlug}`;
+        const isLast = i === parts.length - 1;
+
+        // Try to resolve a nice title
+        const mdxFile = path.join(CONTENT_DIR, `${partialSlug}.mdx`);
+        const indexFile = path.join(CONTENT_DIR, partialSlug, "index.mdx");
+        const dirMeta = readMeta(path.join(CONTENT_DIR, partialSlug));
+
+        let label: string | null = null;
+        if (dirMeta?.title) {
+            label = dirMeta.title;
+        } else if (fs.existsSync(mdxFile)) {
+            label = readTitle(mdxFile);
+        } else if (fs.existsSync(indexFile)) {
+            label = readTitle(indexFile);
+        }
+        if (!label) {
+            label = parts[i].replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+        }
+
+        crumbs.push({ label, href: isLast ? null : href });
+    }
+
+    return crumbs;
+}
 
 // Map component tags to snippet file paths (relative to SNIPPETS_DIR).
 // When an MDX page contains only a single component tag like <CopilotRuntime />,
@@ -118,35 +319,7 @@ function inlineSnippets(content: string, slugPath: string = ""): string {
     return result;
 }
 
-function getNavItems(): { section: string; items: { slug: string; title: string }[] }[] {
-    const sections: Record<string, { slug: string; title: string }[]> = {};
-
-    function walk(dir: string, prefix: string = "") {
-        if (!fs.existsSync(dir)) return;
-        for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-            if (entry.name.startsWith(".") || entry.name.startsWith("(")) continue;
-            if (entry.isDirectory()) {
-                walk(path.join(dir, entry.name), prefix ? `${prefix}/${entry.name}` : entry.name);
-            } else if (entry.name.endsWith(".mdx")) {
-                const slug = prefix
-                    ? `${prefix}/${entry.name.replace(".mdx", "")}`
-                    : entry.name.replace(".mdx", "");
-                const raw = fs.readFileSync(path.join(dir, entry.name), "utf-8");
-                const titleMatch = raw.match(/title:\s*["']?(.+?)["']?\s*$/m) || raw.match(/^#\s+(.+)$/m);
-                const title = titleMatch?.[1] || entry.name.replace(".mdx", "").replace(/-/g, " ");
-                const section = prefix.split("/")[0] || "Guides";
-                const sectionLabel = section.charAt(0).toUpperCase() + section.slice(1).replace(/-/g, " ");
-                if (!sections[sectionLabel]) sections[sectionLabel] = [];
-                sections[sectionLabel].push({ slug, title });
-            }
-        }
-    }
-
-    walk(CONTENT_DIR);
-    return Object.entries(sections)
-        .filter(([, items]) => items.length > 0)
-        .map(([section, items]) => ({ section, items: items.slice(0, 20) }));
-}
+// getNavItems removed — replaced by buildNavTree() above
 
 const components = {
     Callout, Cards, Card, Accordions, Accordion, PropertyReference,
@@ -419,34 +592,108 @@ export default async function DocsPage({ params }: { params: Promise<{ slug?: st
     const titleMatch = source.match(/title:\s*["']?(.+?)["']?\s*$/m) || content.match(/^#\s+(.+)$/m);
     const title = titleMatch?.[1] || slugPath.split("/").pop()?.replace(/-/g, " ") || "Docs";
 
-    const nav = getNavItems();
+    // Integration-scoped sidebar: if under integrations/<framework>, scope to that framework
+    let navTree: NavNode[];
+    let sidebarTitle: string;
+    let backLink: { label: string; href: string } | null = null;
+    const integrationMatch = slugPath.match(/^integrations\/([^/]+)/);
+
+    if (integrationMatch) {
+        const framework = integrationMatch[1];
+        const frameworkDir = path.join(CONTENT_DIR, "integrations", framework);
+        const frameworkMeta = readMeta(frameworkDir);
+        sidebarTitle = frameworkMeta?.title || framework.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+        navTree = buildNavTree(frameworkDir, `integrations/${framework}`);
+        backLink = { label: "\u2190 Back to Docs", href: "/docs" };
+    } else {
+        sidebarTitle = "CopilotKit Docs";
+        navTree = buildNavTree(CONTENT_DIR);
+    }
+
+    const breadcrumbs = buildBreadcrumbs(slugPath);
+
+    function renderNavItem(node: NavNode, depth: number = 0): React.ReactNode {
+        const indent = depth * 16;
+        if (node.type === "section") {
+            return (
+                <div
+                    key={`section-${node.title}`}
+                    className="text-[10px] font-mono uppercase tracking-widest text-[var(--text-faint)] mt-4 mb-2"
+                    style={{ paddingLeft: `${indent}px` }}
+                >
+                    {node.title}
+                </div>
+            );
+        }
+        if (node.type === "page") {
+            return (
+                <Link
+                    key={node.slug}
+                    href={`/docs/${node.slug}`}
+                    className={`block py-[5px] text-[13px] transition-colors ${
+                        node.slug === slugPath
+                            ? "text-[var(--accent)] font-medium"
+                            : "text-[var(--text-muted)] hover:text-[var(--text-secondary)]"
+                    }`}
+                    style={{ paddingLeft: `${indent}px` }}
+                >
+                    {node.title}
+                </Link>
+            );
+        }
+        // group
+        return (
+            <div key={`group-${node.slug}`} className="mt-1">
+                <div
+                    className="py-[5px] text-[13px] font-medium text-[var(--text-secondary)]"
+                    style={{ paddingLeft: `${indent}px` }}
+                >
+                    {node.title}
+                </div>
+                {node.children.map((child) => renderNavItem(child, depth + 1))}
+            </div>
+        );
+    }
 
     return (
         <div className="flex" style={{ height: "calc(100vh - 52px)" }}>
+            {/* Sidebar */}
             <aside className="w-[220px] shrink-0 border-r border-[var(--border)] bg-[var(--bg)] overflow-y-auto p-4">
+                {backLink && (
+                    <Link
+                        href={backLink.href}
+                        className="block text-xs text-[var(--text-muted)] hover:text-[var(--text-secondary)] mb-3 transition-colors"
+                    >
+                        {backLink.label}
+                    </Link>
+                )}
                 <Link href="/docs" className="block text-xs font-mono uppercase tracking-widest text-[var(--accent)] mb-4">
-                    CopilotKit Docs
+                    {sidebarTitle}
                 </Link>
-                {nav.map(({ section, items }) => (
-                    <div key={section} className="mb-4">
-                        <div className="text-[10px] font-mono uppercase tracking-widest text-[var(--text-faint)] mb-2">{section}</div>
-                        {items.map((item) => (
-                            <Link
-                                key={item.slug}
-                                href={`/docs/${item.slug}`}
-                                className={`block py-1 text-xs transition-colors ${
-                                    item.slug === slugPath
-                                        ? "text-[var(--accent)] font-medium"
-                                        : "text-[var(--text-muted)] hover:text-[var(--text-secondary)]"
-                                }`}
-                            >
-                                {item.title}
-                            </Link>
-                        ))}
-                    </div>
-                ))}
+                {navTree.map((node) => renderNavItem(node))}
             </aside>
+
+            {/* Content */}
             <main className="flex-1 max-w-3xl px-8 py-8 overflow-y-auto">
+                {/* Breadcrumbs */}
+                <nav className="flex items-center gap-1 text-xs text-[var(--text-muted)] mb-4 flex-wrap">
+                    {breadcrumbs.map((crumb, i) => (
+                        <React.Fragment key={i}>
+                            {i > 0 && <span className="text-[var(--text-faint)]">&gt;</span>}
+                            {crumb.href ? (
+                                <Link
+                                    href={crumb.href}
+                                    className="hover:text-[var(--text-secondary)] transition-colors"
+                                >
+                                    {crumb.label}
+                                </Link>
+                            ) : (
+                                <span className="text-[var(--text)]">{crumb.label}</span>
+                            )}
+                        </React.Fragment>
+                    ))}
+                </nav>
+
                 <h1 className="text-2xl font-semibold text-[var(--text)] tracking-tight mb-6">{title}</h1>
                 <div className="reference-content">
                     <MDXRemote source={content} components={components} options={{ mdxOptions: { remarkPlugins: [remarkGfm], rehypePlugins: [rehypeHighlight] } }} />
