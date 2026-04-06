@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { getIntegrations, getFeatures, getFeatureCategories } from "@/lib/registry";
+import { GuidedFlow } from "@/components/guided-flow";
 
 const ALL_FRAMEWORKS = [
     "LangGraph", "Mastra", "CrewAI", "PydanticAI", "Agno", "AG2",
@@ -99,6 +100,11 @@ export default function HomePage() {
                         />
                     }
                 />
+            </div>
+
+            {/* Guided flow CTA */}
+            <div className="mb-14">
+                <GuidedFlow integrations={integrations} />
             </div>
 
             {/* Framework pills */}

@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 
 const TABS = [
     { href: "/integrations", label: "Explorer" },
+    { href: "/integrations/by-feature", label: "By Feature" },
     { href: "/matrix", label: "Compare" },
 ];
 
