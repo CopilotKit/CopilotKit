@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect, useLayoutEffect } from "react";
+import React, { useCallback, useRef, useState, useEffect, useLayoutEffect } from "react";
 import { ScrollElementContext } from "./scroll-element-context";
 import { WithSlots, SlotValue, renderSlot } from "../../lib/slots";
 import CopilotChatMessageView from "./CopilotChatMessageView";
@@ -395,19 +395,21 @@ export namespace CopilotChatView {
       null,
     );
 
+    // Callback ref that keeps scrollRef in sync with the DOM element while also
+    // updating context state — eliminates the need for a useLayoutEffect.
+    const nonAutoScrollRefCallback = useCallback(
+      (el: HTMLElement | null) => {
+        scrollRef.current = el;
+        setNonAutoScrollEl(el);
+      },
+      // scrollRef is a stable object from useStickToBottom; safe to omit.
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+      [],
+    );
+
     useEffect(() => {
       setHasMounted(true);
     }, []);
-
-    // After the non-autoScroll div commits, capture its element in state so
-    // ScrollElementContext consumers re-render when the element is first set.
-    useLayoutEffect(() => {
-      if (!autoScroll && hasMounted) {
-        setNonAutoScrollEl(scrollRef.current ?? null);
-      }
-      // scrollRef is a stable object; intentionally not in deps.
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [hasMounted, autoScroll]);
 
     // Monitor scroll position for non-autoscroll mode
     useEffect(() => {
@@ -457,7 +459,7 @@ export namespace CopilotChatView {
         // useVirtualizer. Element state (not a ref) keeps the context reactive.
         <ScrollElementContext.Provider value={nonAutoScrollEl}>
           <div
-            ref={scrollRef}
+            ref={nonAutoScrollRefCallback}
             className={cn(
               "cpk:h-full cpk:max-h-full cpk:flex cpk:flex-col cpk:min-h-0 cpk:overflow-y-auto cpk:overflow-x-hidden cpk:relative",
               className,

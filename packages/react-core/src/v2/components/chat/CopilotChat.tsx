@@ -374,7 +374,8 @@ export function CopilotChat({
   // Lightweight fingerprint instead of JSON.stringify(agent.messages):
   //   - length + last-id catch new messages (O(1))
   //   - last content covers text streaming (serializes only in-flight message)
-  //   - last tool-call args cover TOOL_CALL_CHUNK streaming
+  //   - last tool-call args cover TOOL_CALL_CHUNK streaming (all tool calls,
+  //     not just the last, so parallel tool-call streaming is detected)
   //
   // Known limitation: same-length in-place mutations to non-last messages
   // are not detected here. In practice this doesn't occur — tool results are
@@ -388,9 +389,9 @@ export function CopilotChat({
       agent.messages.at(-1)?.id ?? "",
       JSON.stringify(agent.messages.at(-1)?.content),
       JSON.stringify(
-        (agent.messages.at(-1) as AssistantMessage | undefined)?.toolCalls?.at(
-          -1,
-        )?.function?.arguments,
+        (agent.messages.at(-1) as AssistantMessage | undefined)?.toolCalls?.map(
+          (tc) => tc.function?.arguments,
+        ),
       ),
     ],
   );

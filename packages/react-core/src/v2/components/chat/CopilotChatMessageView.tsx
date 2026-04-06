@@ -448,6 +448,21 @@ export function CopilotChatMessageView({
       ? scrollElementFromCtx
       : null;
 
+  // Warn once in dev when a scroll element is provided but has no height —
+  // this silently disables virtualization (e.g. chat inside display:none tab).
+  useEffect(() => {
+    if (
+      process.env.NODE_ENV !== "production" &&
+      scrollElementFromCtx &&
+      scrollElementFromCtx.clientHeight === 0
+    ) {
+      console.warn(
+        "[CopilotKit] Chat scroll container has clientHeight=0 — virtualization disabled. " +
+          "Ensure the chat is rendered in a visible container with a non-zero height.",
+      );
+    }
+  }, [scrollElementFromCtx]);
+
   // Virtualize only when we have a scroll element and enough messages. The
   // `children` render prop delegates layout to the caller, so we keep
   // messageElements flat for that case.
