@@ -2,9 +2,11 @@ import {
   Component,
   ChangeDetectionStrategy,
   ViewEncapsulation,
-  Input,
   ElementRef,
   inject,
+  input,
+  signal,
+  computed,
 } from "@angular/core";
 import { CommonModule } from "@angular/common";
 
@@ -25,139 +27,178 @@ export interface InspectorThread {
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.ShadowDom,
   template: `
-    <div class="cpk-thread-list">
-      <!-- Table header -->
-      <div class="cpk-thread-list__header">
-        <span>Created</span>
-        <span>Updated</span>
-        <span>Agent</span>
-        <span>Thread Name</span>
+    <div class="cpk-tl">
+      <!-- Search -->
+      <div class="cpk-tl__search">
+        <input
+          type="text"
+          placeholder="Search threads…"
+          [value]="query()"
+          (input)="query.set($any($event.target).value)"
+          class="cpk-tl__search-input"
+        />
       </div>
 
-      <!-- Rows -->
-      <div
-        *ngFor="let thread of threads"
-        class="cpk-thread-list__row"
-        (click)="onThreadClick(thread.id)"
-      >
-        <span>{{ thread.createdAt | date: "mediumDate" }}</span>
-        <span>{{ thread.updatedAt | date: "mediumDate" }}</span>
-        <span class="cpk-thread-list__truncate cpk-thread-list__agent-id">{{
-          thread.agentId
-        }}</span>
-        <span>{{ thread.name ?? "Untitled" }}</span>
-      </div>
+      <!-- Thread list -->
+      <div class="cpk-tl__list">
+        <div
+          *ngFor="let thread of filtered()"
+          class="cpk-tl__item"
+          [class.cpk-tl__item--active]="selectedThreadId() === thread.id"
+          (click)="onThreadClick(thread.id)"
+        >
+          <div class="cpk-tl__row1">
+            <span
+              class="cpk-tl__name"
+              [class.cpk-tl__name--unnamed]="!thread.name"
+              >{{ thread.name ?? "Untitled" }}</span
+            >
+            <span class="cpk-tl__time">{{ relativeTime(thread.updatedAt) }}</span>
+          </div>
+          <div class="cpk-tl__meta">
+            <span class="cpk-tl__pill">{{ thread.agentId }}</span>
+          </div>
+        </div>
 
-      <!-- Empty state -->
-      <div *ngIf="threads.length === 0" class="cpk-thread-list__empty">
-        No threads yet.
+        <!-- Empty state -->
+        <div *ngIf="filtered().length === 0" class="cpk-tl__empty">
+          {{
+            threads().length === 0
+              ? "No threads yet."
+              : "No threads match your search."
+          }}
+        </div>
       </div>
     </div>
   `,
   styles: [
     `
-      @import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600&display=swap");
+      @import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600&family=Spline+Sans+Mono:wght@400;500&display=swap");
 
-      .cpk-thread-list {
+      :host {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        overflow: hidden;
+      }
+
+      .cpk-tl {
+        font-family: "Plus Jakarta Sans", sans-serif;
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        overflow: hidden;
+        background: #f7f7f9;
+      }
+
+      /* ── Search ── */
+      .cpk-tl__search {
+        padding: 10px 12px;
+        border-bottom: 1px solid #dbdbe5;
+        flex-shrink: 0;
+      }
+
+      .cpk-tl__search-input {
+        width: 100%;
+        box-sizing: border-box;
         font-family: "Plus Jakarta Sans", sans-serif;
         font-size: 12px;
-        width: 100%;
-        max-width: 1240px;
-        /* Container: white glass — #FFFFFF at 64% opacity */
-        background: rgba(255, 255, 255, 0.25);
-        border: 1px solid #ffffff;
-        border-radius: 16px;
-        overflow: hidden;
+        padding: 7px 10px;
+        border-radius: 6px;
+        border: 1px solid #dbdbe5;
+        background: #ffffff;
+        color: #010507;
+        outline: none;
+        transition: border-color 0.15s;
       }
 
-      /* Header: glass-surface
-       Base: #E8EDF5 at 48% opacity.
-       Three blurred colour blobs (Figma ellipses: imperial-blue #757CF2 left,
-       aquamarine-green #5BE4BB centre, sin-orange #FFAC4D right, each blur:128).
-       Radial sizes = ellipse radius + 128px blur spread. */
-      .cpk-thread-list__header::after {
-        content: "";
-        position: absolute;
-        inset: 0;
-        background-image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
-        opacity: 0.12;
-        mix-blend-mode: multiply;
-        pointer-events: none;
+      .cpk-tl__search-input:focus {
+        border-color: #bec2ff;
       }
 
-      .cpk-thread-list__header {
-        position: relative;
-        overflow: hidden;
-        display: grid;
-        grid-template-columns: 100px 100px 130px 1fr;
-        column-gap: 16px;
-        padding: 0 16px;
-        height: 46px;
-        align-items: center;
-        background:
-          radial-gradient(
-            ellipse 340px 340px at 14% 30%,
-            rgba(117, 124, 242, 0.08) 0%,
-            transparent 100%
-          ),
-          radial-gradient(
-            ellipse 380px 380px at 52% 50%,
-            rgba(91, 228, 187, 0.08) 0%,
-            transparent 100%
-          ),
-          radial-gradient(
-            ellipse 370px 370px at 97% 0%,
-            rgba(255, 172, 77, 0.08) 0%,
-            transparent 100%
-          ),
-          rgba(232, 237, 245, 0.48);
-        font-family: "Plus Jakarta Sans", sans-serif;
-        font-weight: 600;
-        font-size: 11px;
-        color: #000000;
+      /* ── List ── */
+      .cpk-tl__list {
+        flex: 1;
+        overflow-y: auto;
       }
 
-      .cpk-thread-list__row {
-        display: grid;
-        grid-template-columns: 100px 100px 130px 1fr;
-        column-gap: 16px;
-        padding: 0 16px;
-        height: 46px;
-        align-items: center;
-        border-bottom: 1px solid #00000014;
+      /* ── Thread item ── */
+      .cpk-tl__item {
+        padding: 11px 13px;
         cursor: pointer;
-        color: #57575b;
+        border-bottom: 1px solid #e9e9ef;
+        border-left: 3px solid transparent;
+        transition: background 0.1s;
       }
-      .cpk-thread-list__row:last-child {
-        border-bottom: none;
-      }
-      .cpk-thread-list__row:nth-child(even) {
+
+      .cpk-tl__item:hover {
         background: #ffffff;
       }
-      .cpk-thread-list__row:nth-child(odd) {
-        background: #fafafc;
-      }
-      .cpk-thread-list__row:hover {
-        background: rgba(190, 194, 255, 0.08);
+
+      .cpk-tl__item--active {
+        background: rgba(190, 194, 255, 0.102);
+        border-left-color: #6430ab;
       }
 
-      .cpk-thread-list__agent-id {
-        font-weight: 400;
-        font-size: 13px;
-        color: rgba(1, 5, 7, 0.48);
+      .cpk-tl__item--active:hover {
+        background: rgba(190, 194, 255, 0.16);
       }
 
-      .cpk-thread-list__truncate {
+      .cpk-tl__row1 {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 3px;
+      }
+
+      .cpk-tl__name {
+        font-size: 12px;
+        font-weight: 500;
+        color: #010507;
+        flex: 1;
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
       }
-      .cpk-thread-list__empty {
-        padding: 24px;
+
+      .cpk-tl__name--unnamed {
+        color: #838389;
+        font-style: italic;
+        font-weight: 400;
+      }
+
+      .cpk-tl__time {
+        font-family: "Spline Sans Mono", monospace;
+        font-size: 10px;
+        color: #838389;
+        flex-shrink: 0;
+      }
+
+      .cpk-tl__meta {
+        display: flex;
+        gap: 6px;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+
+      .cpk-tl__pill {
+        font-family: "Spline Sans Mono", monospace;
+        font-size: 9px;
+        padding: 1px 7px;
+        border-radius: 4px;
+        text-transform: uppercase;
+        font-weight: 500;
+        white-space: nowrap;
+        background: #eee6fe;
+        color: #6430ab;
+      }
+
+      /* ── Empty state ── */
+      .cpk-tl__empty {
+        padding: 32px 16px;
         text-align: center;
         color: #838389;
         font-size: 12px;
-        background: #ffffff;
       }
     `,
   ],
@@ -165,7 +206,34 @@ export interface InspectorThread {
 export class ThreadListComponent {
   private el = inject(ElementRef);
 
-  @Input() threads: InspectorThread[] = [];
+  threads = input<InspectorThread[]>([]);
+  selectedThreadId = input<string | null>(null);
+
+  query = signal("");
+
+  filtered = computed(() => {
+    const q = this.query().toLowerCase();
+    if (!q) return this.threads();
+    return this.threads().filter(
+      (t) =>
+        (t.name?.toLowerCase().includes(q) ?? false) ||
+        t.agentId.toLowerCase().includes(q) ||
+        t.id.toLowerCase().includes(q),
+    );
+  });
+
+  relativeTime(dateStr: string): string {
+    const date = new Date(dateStr);
+    const diffMs = Date.now() - date.getTime();
+    const diffSec = Math.floor(diffMs / 1000);
+    if (diffSec < 60) return `${diffSec}s ago`;
+    const diffMin = Math.floor(diffSec / 60);
+    if (diffMin < 60) return `${diffMin}m ago`;
+    const diffH = Math.floor(diffMin / 60);
+    if (diffH < 24) return `${diffH}h ago`;
+    const diffD = Math.floor(diffH / 24);
+    return `${diffD}d ago`;
+  }
 
   onThreadClick(threadId: string): void {
     this.el.nativeElement.dispatchEvent(

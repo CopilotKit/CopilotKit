@@ -200,6 +200,11 @@ export class WebInspectorElement extends LitElement {
   private ignoreNextButtonClick = false;
   private selectedMenu: MenuKey = "ag-ui-events";
   private selectedThreadId: string | null = null;
+  private threadListWidth = 290;
+  private threadDividerResizing = false;
+  private threadDividerPointerId = -1;
+  private threadDividerStartX = 0;
+  private threadDividerStartWidth = 0;
   private _threads: ɵThread[] = [];
   private _threadStoreSubscriptions: Map<string, () => void> = new Map();
   private _threadsByAgent: Map<string, ɵThread[]> = new Map();
@@ -3159,6 +3164,38 @@ ${argsString}</pre
     return nothing;
   }
 
+  private handleThreadDividerPointerDown = (event: PointerEvent) => {
+    this.threadDividerResizing = true;
+    this.threadDividerPointerId = event.pointerId;
+    this.threadDividerStartX = event.clientX;
+    this.threadDividerStartWidth = this.threadListWidth;
+    (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
+    event.preventDefault();
+  };
+
+  private handleThreadDividerPointerMove = (event: PointerEvent) => {
+    if (
+      !this.threadDividerResizing ||
+      this.threadDividerPointerId !== event.pointerId
+    )
+      return;
+    const delta = event.clientX - this.threadDividerStartX;
+    this.threadListWidth = Math.max(
+      180,
+      Math.min(480, this.threadDividerStartWidth + delta),
+    );
+    this.requestUpdate();
+  };
+
+  private handleThreadDividerPointerUp = (event: PointerEvent) => {
+    if (this.threadDividerPointerId !== event.pointerId) return;
+    const target = event.currentTarget as HTMLElement;
+    if (target.hasPointerCapture(this.threadDividerPointerId)) {
+      target.releasePointerCapture(this.threadDividerPointerId);
+    }
+    this.threadDividerResizing = false;
+  };
+
   private renderThreadsView() {
     const displayThreads =
       this.selectedContext === "all-agents"
@@ -3171,38 +3208,81 @@ ${argsString}</pre
         : null;
 
     return html`
-      <div style="padding:16px;">
-        ${
-          this.selectedThreadId
-            ? html`<cpk-thread-details
-              style="display:block;"
-              .threadId=${this.selectedThreadId}
-              .thread=${selectedThread}
-              .runtimeUrl=${this._core?.runtimeUrl ?? ""}
-              .headers=${this._core?.headers ?? {}}
-              .agentState=${
-                selectedThread
-                  ? (this.agentStates.get(selectedThread.agentId) ?? null)
-                  : null
-              }
-              .agentEvents=${
-                selectedThread
-                  ? (this.agentEvents.get(selectedThread.agentId) ?? [])
-                  : []
-              }
-              @cpkback=${() => {
-                this.selectedThreadId = null;
-                this.requestUpdate();
-              }}
-            ></cpk-thread-details>`
-            : html`<cpk-thread-list
-              .threads=${displayThreads}
-              @threadSelected=${(e: CustomEvent<string>) => {
-                this.selectedThreadId = e.detail;
-                this.requestUpdate();
-              }}
-            ></cpk-thread-list>`
-        }
+      <div style="display:flex;height:100%;overflow:hidden;">
+        <!-- Left sidebar: thread list -->
+        <div
+          style="width:${this.threadListWidth}px;flex-shrink:0;overflow:hidden;display:flex;flex-direction:column;border-right:1px solid #DBDBE5;"
+        >
+          <cpk-thread-list
+            style="height:100%;"
+            .threads=${displayThreads}
+            .selectedThreadId=${this.selectedThreadId}
+            @threadSelected=${(e: CustomEvent<string>) => {
+              this.selectedThreadId = e.detail;
+              this.requestUpdate();
+            }}
+          ></cpk-thread-list>
+        </div>
+
+        <!-- Resize divider -->
+        <div
+          style="width:4px;flex-shrink:0;cursor:col-resize;background:transparent;position:relative;z-index:1;"
+          @pointerdown=${this.handleThreadDividerPointerDown}
+          @pointermove=${this.handleThreadDividerPointerMove}
+          @pointerup=${this.handleThreadDividerPointerUp}
+          @pointercancel=${this.handleThreadDividerPointerUp}
+        ></div>
+
+        <!-- Center + right: thread details or empty state -->
+        <div style="flex:1;min-width:0;overflow:hidden;display:flex;">
+          ${
+            this.selectedThreadId
+              ? html`<cpk-thread-details
+                  style="flex:1;min-width:0;"
+                  .threadId=${this.selectedThreadId}
+                  .thread=${selectedThread}
+                  .runtimeUrl=${this._core?.runtimeUrl ?? ""}
+                  .headers=${this._core?.headers ?? {}}
+                  .agentState=${
+                    selectedThread
+                      ? (this.agentStates.get(selectedThread.agentId) ?? null)
+                      : null
+                  }
+                  .agentEvents=${
+                    selectedThread
+                      ? (this.agentEvents.get(selectedThread.agentId) ?? [])
+                      : []
+                  }
+                ></cpk-thread-details>`
+              : html`
+                  <div
+                    style="
+                      flex: 1;
+                      display: flex;
+                      flex-direction: column;
+                      align-items: center;
+                      justify-content: center;
+                      gap: 8px;
+                      color: #838389;
+                    "
+                  >
+                    <svg
+                      width="32"
+                      height="32"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="1.5"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                    </svg>
+                    <span style="font-size: 13px">Select a thread to inspect</span>
+                  </div>
+                `
+          }
+        </div>
       </div>
     `;
   }
