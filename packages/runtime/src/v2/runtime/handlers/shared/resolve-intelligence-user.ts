@@ -1,7 +1,7 @@
 import {
   CopilotIntelligenceRuntimeLike,
   CopilotRuntimeUser,
-} from "../../runtime";
+} from "../../core/runtime";
 import { errorResponse } from "./json-response";
 import { isValidIdentifier } from "./intelligence-utils";
 

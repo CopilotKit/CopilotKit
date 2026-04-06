@@ -1,4 +1,4 @@
-import { isIntelligenceRuntime } from "../runtime";
+import { isIntelligenceRuntime } from "../core/runtime";
 import { telemetry } from "../telemetry";
 import {
   cloneAgentForRequest,
@@ -78,12 +78,15 @@ export async function handleRunAgent({
       cause: error instanceof Error ? error.cause : undefined,
     });
 
-    return Response.json(
-      {
+    return new Response(
+      JSON.stringify({
         error: "Failed to run agent",
         message: error instanceof Error ? error.message : "Unknown error",
+      }),
+      {
+        status: 500,
+        headers: { "Content-Type": "application/json" },
       },
-      { status: 500 },
     );
   }
 }
