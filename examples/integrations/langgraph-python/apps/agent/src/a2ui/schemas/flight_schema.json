@@ -1,173 +1,27 @@
 [
   {
     "id": "root",
-    "component": "List",
+    "component": "Row",
     "children": {
       "componentId": "flight-card",
       "path": "/flights"
     },
-    "direction": "horizontal",
-    "align": "start"
+    "gap": 16
   },
   {
     "id": "flight-card",
-    "component": "Card",
-    "child": "main-col"
-  },
-  {
-    "id": "main-col",
-    "component": "Column",
-    "children": [
-      "header-row",
-      "meta-row",
-      "divider-1",
-      "times-row",
-      "route-row",
-      "divider-2",
-      "status-row",
-      "book-btn"
-    ],
-    "align": "stretch"
-  },
-
-  {
-    "id": "header-row",
-    "component": "Row",
-    "children": ["airline-info", "price-text"],
-    "justify": "spaceBetween",
-    "align": "center"
-  },
-  {
-    "id": "airline-info",
-    "component": "Row",
-    "children": ["airline-logo", "airline-name"],
-    "align": "center"
-  },
-  {
-    "id": "airline-logo",
-    "component": "Image",
-    "url": { "path": "airlineLogo" },
-    "fit": "contain",
-    "variant": "avatar"
-  },
-  {
-    "id": "airline-name",
-    "component": "Text",
-    "text": { "path": "airline" },
-    "variant": "h3"
-  },
-  {
-    "id": "price-text",
-    "component": "Text",
-    "text": { "path": "price" },
-    "variant": "h2"
-  },
-
-  {
-    "id": "meta-row",
-    "component": "Row",
-    "children": ["flight-number", "date-text"],
-    "justify": "spaceBetween",
-    "align": "center"
-  },
-  {
-    "id": "flight-number",
-    "component": "Text",
-    "text": { "path": "flightNumber" },
-    "variant": "caption"
-  },
-  {
-    "id": "date-text",
-    "component": "Text",
-    "text": { "path": "date" },
-    "variant": "caption"
-  },
-
-  { "id": "divider-1", "component": "Divider" },
-
-  {
-    "id": "times-row",
-    "component": "Row",
-    "children": ["depart-time", "duration-text", "arrive-time"],
-    "justify": "spaceBetween",
-    "align": "center"
-  },
-  {
-    "id": "depart-time",
-    "component": "Text",
-    "text": { "path": "departureTime" },
-    "variant": "h2"
-  },
-  {
-    "id": "duration-text",
-    "component": "Text",
-    "text": { "path": "duration" },
-    "variant": "caption"
-  },
-  {
-    "id": "arrive-time",
-    "component": "Text",
-    "text": { "path": "arrivalTime" },
-    "variant": "h2"
-  },
-
-  {
-    "id": "route-row",
-    "component": "Row",
-    "children": ["origin-code", "arrow-text", "dest-code"],
-    "justify": "spaceBetween",
-    "align": "center"
-  },
-  {
-    "id": "origin-code",
-    "component": "Text",
-    "text": { "path": "origin" },
-    "variant": "h3"
-  },
-  {
-    "id": "arrow-text",
-    "component": "Text",
-    "text": "\u2192",
-    "variant": "h3"
-  },
-  {
-    "id": "dest-code",
-    "component": "Text",
-    "text": { "path": "destination" },
-    "variant": "h3"
-  },
-
-  { "id": "divider-2", "component": "Divider" },
-
-  {
-    "id": "status-row",
-    "component": "Row",
-    "children": ["status-dot", "status-text"],
-    "align": "center"
-  },
-  {
-    "id": "status-dot",
-    "component": "Image",
-    "url": { "path": "statusIcon" },
-    "fit": "contain",
-    "variant": "icon"
-  },
-  {
-    "id": "status-text",
-    "component": "Text",
-    "text": { "path": "status" },
-    "variant": "caption"
-  },
-
-  {
-    "id": "book-btn-text",
-    "component": "Text",
-    "text": "Select"
-  },
-  {
-    "id": "book-btn",
-    "component": "Button",
-    "child": "book-btn-text",
+    "component": "FlightCard",
+    "airline": { "path": "airline" },
+    "airlineLogo": { "path": "airlineLogo" },
+    "flightNumber": { "path": "flightNumber" },
+    "origin": { "path": "origin" },
+    "destination": { "path": "destination" },
+    "date": { "path": "date" },
+    "departureTime": { "path": "departureTime" },
+    "arrivalTime": { "path": "arrivalTime" },
+    "duration": { "path": "duration" },
+    "status": { "path": "status" },
+    "price": { "path": "price" },
     "action": {
       "event": {
         "name": "book_flight",
