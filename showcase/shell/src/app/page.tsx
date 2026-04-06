@@ -2,10 +2,20 @@ import Link from "next/link";
 import { getIntegrations, getFeatures, getFeatureCategories } from "@/lib/registry";
 import { GuidedFlow } from "@/components/guided-flow";
 
-const ALL_FRAMEWORKS = [
-    "LangGraph", "Mastra", "CrewAI", "PydanticAI", "Agno", "AG2",
-    "LlamaIndex", "Langroid", "Strands", "Spring AI", "Google ADK",
-];
+// Derive framework list from registry sort_order — no hardcoded lists
+function getFrameworkNames(integrations: ReturnType<typeof getIntegrations>) {
+    const seen = new Set<string>();
+    return integrations
+        .filter((i) => i.deployed)
+        .map((i) => {
+            // Group LangGraph variants under "LangGraph"
+            const name = i.name.startsWith("LangGraph") ? "LangGraph" : i.name;
+            if (seen.has(name)) return null;
+            seen.add(name);
+            return name;
+        })
+        .filter(Boolean) as string[];
+}
 
 export default function HomePage() {
     const integrations = getIntegrations();
@@ -15,11 +25,7 @@ export default function HomePage() {
     const deployedIntegrations = integrations.filter((i) => i.deployed);
     const totalDemos = integrations.reduce((sum, i) => sum + i.demos.length, 0);
 
-    const liveFrameworks = new Set(
-        ALL_FRAMEWORKS.filter((fw) =>
-            integrations.find((i) => i.deployed && (i.name === fw || i.name.startsWith(fw)))
-        )
-    );
+    const frameworkNames = getFrameworkNames(integrations);
 
     return (
         <div className="flex flex-col items-center min-h-[calc(100vh-52px)] bg-[var(--bg)] px-6 py-16">
@@ -113,8 +119,8 @@ export default function HomePage() {
                     Agent Frameworks
                 </h2>
                 <div className="flex flex-wrap justify-center gap-2">
-                    {ALL_FRAMEWORKS.map((fw) => {
-                        const isLive = liveFrameworks.has(fw);
+                    {frameworkNames.map((fw) => {
+                        const isLive = true; // already filtered to deployed
                         const match = isLive
                             ? integrations.find((i) => i.deployed && (i.name === fw || i.name.startsWith(fw)))
                             : undefined;
