@@ -79,8 +79,8 @@ export const useExampleSuggestions = () => {
       },
       // 7. Frontend Tools — utility actions
       {
-        title: "Toggle Dark Mode (Frontend Tools)",
-        message: "Switch the app to dark mode using the toggleTheme tool.",
+        title: "Toggle Theme (Frontend Tools)",
+        message: "Toggle the app theme using the toggleTheme tool.",
       },
     ],
     available: "always",

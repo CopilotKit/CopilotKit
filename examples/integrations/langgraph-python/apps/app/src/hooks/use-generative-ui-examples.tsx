@@ -74,7 +74,8 @@ export const useGenerativeUIExamples = () => {
       description: "Frontend tool for toggling the theme of the app.",
       parameters: z.object({}),
       handler: async () => {
-        setTheme(theme === "dark" ? "light" : "dark");
+        const isDark = document.documentElement.classList.contains("dark");
+        setTheme(isDark ? "light" : "dark");
       },
     },
     [theme, setTheme],
