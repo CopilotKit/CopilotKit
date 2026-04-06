@@ -5,6 +5,7 @@ import {
     getFeatureCategories,
     getCategoryLabel,
 } from "@/lib/registry";
+import { IntegrationsTabs } from "@/components/integrations-tabs";
 
 export default function FeatureMatrixPage() {
     const integrations = getIntegrations();
@@ -13,8 +14,9 @@ export default function FeatureMatrixPage() {
 
     if (integrations.length === 0) {
         return (
-            <div className="mx-auto max-w-7xl px-6 py-12 text-center">
-                <h1 className="text-3xl font-light text-[var(--text)]">
+            <div className="mx-auto max-w-7xl px-6 py-8">
+                <IntegrationsTabs />
+                <h1 className="text-3xl font-light text-[var(--text)] text-center">
                     Feature Matrix
                 </h1>
                 <p className="mt-6 text-[var(--text-muted)]">
@@ -36,8 +38,9 @@ export default function FeatureMatrixPage() {
         .filter((cat) => cat.features.length > 0);
 
     return (
-        <div className="px-6 py-12">
+        <div className="px-6 py-8">
             <div className="mx-auto max-w-7xl">
+                <IntegrationsTabs />
                 <h1 className="text-3xl font-light text-[var(--text)]">
                     Feature Matrix
                 </h1>

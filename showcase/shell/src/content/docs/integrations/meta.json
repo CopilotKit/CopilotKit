@@ -1,7 +1,6 @@
 {
   "title": "Integrations",
   "pages": [
-    "built-in-agent",
     "langgraph",
     "adk",
     "microsoft-agent-framework",

@@ -1887,294 +1887,294 @@
     "title": "Advanced Configuration",
     "subtitle": "The `BuiltInAgent` accepts a full set of configuration options to control model behavior, tool calling, and more.",
     "section": "Integrations",
-    "href": "/docs/integrations/built-in-agent/advanced-configuration"
+    "href": "/docs/built-in-agent/advanced-configuration"
   },
   {
     "type": "page",
     "title": "AG-UI",
     "subtitle": "",
     "section": "Integrations",
-    "href": "/docs/integrations/built-in-agent/ag-ui"
+    "href": "/docs/built-in-agent/ag-ui"
   },
   {
     "type": "page",
     "title": "Agent Context",
     "subtitle": "Share your application's state and context with the Built-in Agent using the `useAgentContext` hook. The agent automatic",
     "section": "Integrations",
-    "href": "/docs/integrations/built-in-agent/agent-app-context"
+    "href": "/docs/built-in-agent/agent-app-context"
   },
   {
     "type": "page",
     "title": "Coding Agents",
     "subtitle": "",
     "section": "Integrations",
-    "href": "/docs/integrations/built-in-agent/coding-agents"
+    "href": "/docs/built-in-agent/coding-agents"
   },
   {
     "type": "page",
     "title": "Copilot Runtime",
     "subtitle": "",
     "section": "Integrations",
-    "href": "/docs/integrations/built-in-agent/copilot-runtime"
+    "href": "/docs/built-in-agent/copilot-runtime"
   },
   {
     "type": "page",
     "title": "Fully Headless UI",
     "subtitle": "",
     "section": "Integrations",
-    "href": "/docs/integrations/built-in-agent/custom-look-and-feel/headless-ui"
+    "href": "/docs/built-in-agent/custom-look-and-feel/headless-ui"
   },
   {
     "type": "page",
     "title": "Slots",
     "subtitle": "",
     "section": "Integrations",
-    "href": "/docs/integrations/built-in-agent/custom-look-and-feel/slots"
+    "href": "/docs/built-in-agent/custom-look-and-feel/slots"
   },
   {
     "type": "page",
     "title": "Frontend Tools",
     "subtitle": "",
     "section": "Integrations",
-    "href": "/docs/integrations/built-in-agent/frontend-tools"
+    "href": "/docs/built-in-agent/frontend-tools"
   },
   {
     "type": "page",
     "title": "A2UI",
     "subtitle": "",
     "section": "Integrations",
-    "href": "/docs/integrations/built-in-agent/generative-ui/a2ui"
+    "href": "/docs/built-in-agent/generative-ui/a2ui"
   },
   {
     "type": "page",
     "title": "MCP Apps",
     "subtitle": "MCP Apps are MCP servers that expose tools with associated UI resources. When the agent calls one of these tools, Copilo",
     "section": "Integrations",
-    "href": "/docs/integrations/built-in-agent/generative-ui/mcp-apps"
+    "href": "/docs/built-in-agent/generative-ui/mcp-apps"
   },
   {
     "type": "page",
     "title": "Tool Rendering",
     "subtitle": "",
     "section": "Integrations",
-    "href": "/docs/integrations/built-in-agent/generative-ui/tool-rendering"
+    "href": "/docs/built-in-agent/generative-ui/tool-rendering"
   },
   {
     "type": "page",
     "title": "Display-only",
     "subtitle": "",
     "section": "Integrations",
-    "href": "/docs/integrations/built-in-agent/generative-ui/your-components/display-only"
+    "href": "/docs/built-in-agent/generative-ui/your-components/display-only"
   },
   {
     "type": "page",
     "title": "Interactive",
     "subtitle": "",
     "section": "Integrations",
-    "href": "/docs/integrations/built-in-agent/generative-ui/your-components/interactive"
+    "href": "/docs/built-in-agent/generative-ui/your-components/interactive"
   },
   {
     "type": "page",
     "title": "Overview",
     "subtitle": "The **Built-in Agent** is CopilotKit's simplest agent option, i.e what you get \"built-in\". It connects directly to an LL",
     "section": "Integrations",
-    "href": "/docs/integrations/built-in-agent"
+    "href": "/docs/built-in-agent"
   },
   {
     "type": "page",
     "title": "Inspector",
     "subtitle": "",
     "section": "Integrations",
-    "href": "/docs/integrations/built-in-agent/inspector"
+    "href": "/docs/built-in-agent/inspector"
   },
   {
     "type": "page",
     "title": "MCP Servers",
     "subtitle": "MCP (Model Context Protocol) servers provide additional tools and capabilities to your agent. The Built-in Agent support",
     "section": "Integrations",
-    "href": "/docs/integrations/built-in-agent/mcp-servers"
+    "href": "/docs/built-in-agent/mcp-servers"
   },
   {
     "type": "page",
     "title": "Model Selection",
     "subtitle": "The Built-in Agent uses the [Vercel AI SDK](https://sdk.vercel.ai) under the hood, giving you access to models from Open",
     "section": "Integrations",
-    "href": "/docs/integrations/built-in-agent/model-selection"
+    "href": "/docs/built-in-agent/model-selection"
   },
   {
     "type": "page",
     "title": "Prebuilt Components",
     "subtitle": "",
     "section": "Integrations",
-    "href": "/docs/integrations/built-in-agent/prebuilt-components"
+    "href": "/docs/built-in-agent/prebuilt-components"
   },
   {
     "type": "page",
     "title": "Fully Headless UI",
     "subtitle": "",
     "section": "Integrations",
-    "href": "/docs/integrations/built-in-agent/premium/headless-ui"
+    "href": "/docs/built-in-agent/premium/headless-ui"
   },
   {
     "type": "page",
     "title": "Observability",
     "subtitle": "",
     "section": "Integrations",
-    "href": "/docs/integrations/built-in-agent/premium/observability"
+    "href": "/docs/built-in-agent/premium/observability"
   },
   {
     "type": "page",
     "title": "CopilotKit Premium",
     "subtitle": "",
     "section": "Integrations",
-    "href": "/docs/integrations/built-in-agent/premium/overview"
+    "href": "/docs/built-in-agent/premium/overview"
   },
   {
     "type": "page",
     "title": "Programmatic Control",
     "subtitle": "",
     "section": "Integrations",
-    "href": "/docs/integrations/built-in-agent/programmatic-control"
+    "href": "/docs/built-in-agent/programmatic-control"
   },
   {
     "type": "page",
     "title": "Quickstart",
     "subtitle": "WrenchIcon,",
     "section": "Integrations",
-    "href": "/docs/integrations/built-in-agent/quickstart"
+    "href": "/docs/built-in-agent/quickstart"
   },
   {
     "type": "page",
     "title": "Server Tools",
     "subtitle": "Server tools are functions that run on your backend that the Built-in Agent can invoke. They're defined using `defineToo",
     "section": "Integrations",
-    "href": "/docs/integrations/built-in-agent/server-tools"
+    "href": "/docs/built-in-agent/server-tools"
   },
   {
     "type": "page",
     "title": "Shared State",
     "subtitle": "Share state bidirectionally between your React app and the Built-in Agent. Your app can read and write agent state, and ",
     "section": "Integrations",
-    "href": "/docs/integrations/built-in-agent/shared-state"
+    "href": "/docs/built-in-agent/shared-state"
   },
   {
     "type": "page",
     "title": "Common Copilot Issues",
     "subtitle": "",
     "section": "Integrations",
-    "href": "/docs/integrations/built-in-agent/troubleshooting/common-issues"
+    "href": "/docs/built-in-agent/troubleshooting/common-issues"
   },
   {
     "type": "page",
     "title": "Error Debugging & Observability",
     "subtitle": "",
     "section": "Integrations",
-    "href": "/docs/integrations/built-in-agent/troubleshooting/error-debugging"
+    "href": "/docs/built-in-agent/troubleshooting/error-debugging"
   },
   {
     "type": "page",
     "title": "Migrate to 1.10.X",
     "subtitle": "",
     "section": "Integrations",
-    "href": "/docs/integrations/built-in-agent/troubleshooting/migrate-to-1.10.X"
+    "href": "/docs/built-in-agent/troubleshooting/migrate-to-1.10.X"
   },
   {
     "type": "page",
     "title": "Migrate to 1.8.2",
     "subtitle": "",
     "section": "Integrations",
-    "href": "/docs/integrations/built-in-agent/troubleshooting/migrate-to-1.8.2"
+    "href": "/docs/built-in-agent/troubleshooting/migrate-to-1.8.2"
   },
   {
     "type": "page",
     "title": "Migrate to V2",
     "subtitle": "",
     "section": "Integrations",
-    "href": "/docs/integrations/built-in-agent/troubleshooting/migrate-to-v2"
+    "href": "/docs/built-in-agent/troubleshooting/migrate-to-v2"
   },
   {
     "type": "page",
     "title": "Next Steps",
     "subtitle": "This is the end of the tutorial. You can now start building your own copilot-powered apps!",
     "section": "Integrations",
-    "href": "/docs/integrations/built-in-agent/tutorials/ai-powered-textarea/next-steps"
+    "href": "/docs/built-in-agent/tutorials/ai-powered-textarea/next-steps"
   },
   {
     "type": "page",
     "title": "Overview",
     "subtitle": "<div>**Time to complete:** 5 minutes</div>",
     "section": "Integrations",
-    "href": "/docs/integrations/built-in-agent/tutorials/ai-powered-textarea/overview"
+    "href": "/docs/built-in-agent/tutorials/ai-powered-textarea/overview"
   },
   {
     "type": "page",
     "title": "Step 1: Checkout the repo",
     "subtitle": "We'll begin by checking out the base code of the textarea app.",
     "section": "Integrations",
-    "href": "/docs/integrations/built-in-agent/tutorials/ai-powered-textarea/step-1-checkout-repo"
+    "href": "/docs/built-in-agent/tutorials/ai-powered-textarea/step-1-checkout-repo"
   },
   {
     "type": "page",
     "title": "Step 2: Setup CopilotKit",
     "subtitle": "TailoredContent,",
     "section": "Integrations",
-    "href": "/docs/integrations/built-in-agent/tutorials/ai-powered-textarea/step-2-setup-copilotkit"
+    "href": "/docs/built-in-agent/tutorials/ai-powered-textarea/step-2-setup-copilotkit"
   },
   {
     "type": "page",
     "title": "Step 4: Copilot Textarea",
     "subtitle": "Currently, our app has a simple textarea for replying to emails. Let's replace this with an AI-powered textarea so that ",
     "section": "Integrations",
-    "href": "/docs/integrations/built-in-agent/tutorials/ai-powered-textarea/step-3-copilot-textarea"
+    "href": "/docs/built-in-agent/tutorials/ai-powered-textarea/step-3-copilot-textarea"
   },
   {
     "type": "page",
     "title": "Step 3: Copilot Readable State",
     "subtitle": "At this point, we have set up our CopilotKit provider and `<CopilotTextarea />`, and we already benefit from a great AI ",
     "section": "Integrations",
-    "href": "/docs/integrations/built-in-agent/tutorials/ai-powered-textarea/step-4-copilot-readable-state"
+    "href": "/docs/built-in-agent/tutorials/ai-powered-textarea/step-4-copilot-readable-state"
   },
   {
     "type": "page",
     "title": "Next Steps",
     "subtitle": "This is the end of the tutorial. You can now start building your own copilot-powered apps!",
     "section": "Integrations",
-    "href": "/docs/integrations/built-in-agent/tutorials/ai-todo-app/next-steps"
+    "href": "/docs/built-in-agent/tutorials/ai-todo-app/next-steps"
   },
   {
     "type": "page",
     "title": "Overview",
     "subtitle": "<div>**Time to complete:** 5 minutes</div>",
     "section": "Integrations",
-    "href": "/docs/integrations/built-in-agent/tutorials/ai-todo-app/overview"
+    "href": "/docs/built-in-agent/tutorials/ai-todo-app/overview"
   },
   {
     "type": "page",
     "title": "Step 1: Checkout the repo",
     "subtitle": "We'll begin by checking out the base code of the todo list app.",
     "section": "Integrations",
-    "href": "/docs/integrations/built-in-agent/tutorials/ai-todo-app/step-1-checkout-repo"
+    "href": "/docs/built-in-agent/tutorials/ai-todo-app/step-1-checkout-repo"
   },
   {
     "type": "page",
     "title": "Step 2: Setup CopilotKit",
     "subtitle": "TailoredContent,",
     "section": "Integrations",
-    "href": "/docs/integrations/built-in-agent/tutorials/ai-todo-app/step-2-setup-copilotkit"
+    "href": "/docs/built-in-agent/tutorials/ai-todo-app/step-2-setup-copilotkit"
   },
   {
     "type": "page",
     "title": "Step 3: Copilot Readable State",
     "subtitle": "At this point, we have a chat popup in our app and we're able to chat directly with our copilot. This is great, but our ",
     "section": "Integrations",
-    "href": "/docs/integrations/built-in-agent/tutorials/ai-todo-app/step-3-copilot-readable-state"
+    "href": "/docs/built-in-agent/tutorials/ai-todo-app/step-3-copilot-readable-state"
   },
   {
     "type": "page",
     "title": "Step 4: Frontend Tools",
     "subtitle": "Now it's time to make our copilot even more useful by enabling it to execute tools.",
     "section": "Integrations",
-    "href": "/docs/integrations/built-in-agent/tutorials/ai-todo-app/step-4-frontend-tools"
+    "href": "/docs/built-in-agent/tutorials/ai-todo-app/step-4-frontend-tools"
   },
   {
     "type": "page",
