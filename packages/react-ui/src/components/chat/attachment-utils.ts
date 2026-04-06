@@ -18,7 +18,8 @@ let globalSuppress = false;
  */
 export function deprecationWarning(key: string, message: string) {
   if (globalSuppress || suppressedWarnings.has(key)) return;
-  if (process.env.NODE_ENV === "production") return;
+  if (typeof process !== "undefined" && process.env?.NODE_ENV === "production")
+    return;
   suppressedWarnings.add(key);
   console.warn(`[CopilotKit] Deprecation: ${message}`);
 }

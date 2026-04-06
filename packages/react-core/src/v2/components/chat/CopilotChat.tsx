@@ -1,4 +1,5 @@
 import { useAgent } from "../../hooks/use-agent";
+import { useAttachments } from "../../hooks/use-attachments";
 import { useSuggestions } from "../../hooks/use-suggestions";
 import { CopilotChatView, CopilotChatViewProps } from "./CopilotChatView";
 import { CopilotChatInputMode } from "./CopilotChatInput";
@@ -11,18 +12,8 @@ import {
   DEFAULT_AGENT_ID,
   randomUUID,
   TranscriptionErrorCode,
-  getModalityFromMimeType,
-  exceedsMaxSize,
-  readFileAsBase64,
-  generateVideoThumbnail,
-  matchesAcceptFilter,
-  formatFileSize,
 } from "@copilotkit/shared";
-import type {
-  Attachment,
-  AttachmentsConfig,
-  InputContent,
-} from "@copilotkit/shared";
+import type { AttachmentsConfig, InputContent } from "@copilotkit/shared";
 import { Suggestion, CopilotKitCoreErrorCode } from "@copilotkit/core";
 import React, {
   useCallback,
@@ -158,20 +149,20 @@ export function CopilotChat({
   );
   const [isTranscribing, setIsTranscribing] = useState(false);
 
-  // Attachment state
-  const attachmentsEnabled = attachmentsConfig?.enabled ?? false;
-  const attachmentsAccept = attachmentsConfig?.accept ?? "*/*";
-  const attachmentsMaxSize = attachmentsConfig?.maxSize ?? 20 * 1024 * 1024;
-
-  const [selectedAttachments, setSelectedAttachments] = useState<Attachment[]>(
-    [],
-  );
-  const [dragOver, setDragOver] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const chatContainerRef = useRef<HTMLDivElement>(null);
-  const processFilesRef = useRef<(files: File[]) => Promise<void>>(
-    async () => {},
-  );
+  // Attachments
+  const {
+    attachments: selectedAttachments,
+    enabled: attachmentsEnabled,
+    dragOver,
+    fileInputRef,
+    containerRef: chatContainerRef,
+    handleFileUpload,
+    handleDragOver,
+    handleDragLeave,
+    handleDrop,
+    removeAttachment,
+    consumeAttachments,
+  } = useAttachments({ config: attachmentsConfig });
 
   // Check if transcription is enabled
   const isTranscriptionEnabled = copilotkit.audioFileTranscriptionEnabled;
@@ -227,173 +218,6 @@ export function CopilotChat({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [resolvedThreadId, agent, resolvedAgentId]);
 
-  // --- Attachment logic ---
-
-  const processFiles = async (files: File[]) => {
-    const rejectedFiles = files.filter(
-      (file) => !matchesAcceptFilter(file, attachmentsAccept),
-    );
-    for (const file of rejectedFiles) {
-      attachmentsConfig?.onUploadFailed?.({
-        reason: "invalid-type",
-        file,
-        message: `File "${file.name}" is not accepted. Supported types: ${attachmentsAccept}`,
-      });
-    }
-
-    const validFiles = files.filter((file) =>
-      matchesAcceptFilter(file, attachmentsAccept),
-    );
-
-    for (const file of validFiles) {
-      if (exceedsMaxSize(file, attachmentsMaxSize)) {
-        attachmentsConfig?.onUploadFailed?.({
-          reason: "file-too-large",
-          file,
-          message: `File "${file.name}" exceeds the maximum size of ${formatFileSize(attachmentsMaxSize)}`,
-        });
-        continue;
-      }
-
-      const modality = getModalityFromMimeType(file.type);
-      const placeholderId = randomUUID();
-      const placeholder: Attachment = {
-        id: placeholderId,
-        type: modality,
-        source: { type: "data", value: "", mimeType: file.type },
-        filename: file.name,
-        size: file.size,
-        status: "uploading",
-      };
-
-      setSelectedAttachments((prev) => [...prev, placeholder]);
-
-      try {
-        let source: Attachment["source"];
-        let uploadMetadata: Record<string, unknown> | undefined;
-
-        if (attachmentsConfig?.onUpload) {
-          const { metadata: meta, ...uploadSource } =
-            await attachmentsConfig.onUpload(file);
-          source = uploadSource;
-          uploadMetadata = meta;
-        } else {
-          const base64 = await readFileAsBase64(file);
-          source = { type: "data", value: base64, mimeType: file.type };
-        }
-
-        let thumbnail: string | undefined;
-        if (modality === "video") {
-          thumbnail = await generateVideoThumbnail(file);
-        }
-
-        setSelectedAttachments((prev) =>
-          prev.map((att) =>
-            att.id === placeholderId
-              ? {
-                  ...att,
-                  source,
-                  status: "ready" as const,
-                  thumbnail,
-                  metadata: uploadMetadata,
-                }
-              : att,
-          ),
-        );
-      } catch (error) {
-        setSelectedAttachments((prev) =>
-          prev.filter((att) => att.id !== placeholderId),
-        );
-        console.error(`[CopilotKit] Failed to upload "${file.name}":`, error);
-        attachmentsConfig?.onUploadFailed?.({
-          reason: "upload-failed",
-          file,
-          message:
-            error instanceof Error
-              ? error.message
-              : `Failed to upload "${file.name}"`,
-        });
-      }
-    }
-  };
-  processFilesRef.current = processFiles;
-
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!e.target.files?.length) return;
-    try {
-      await processFiles(Array.from(e.target.files));
-    } catch (error) {
-      console.error("[CopilotKit] Upload error:", error);
-    }
-  };
-
-  // Drag-and-drop handlers
-  const handleDragOver = (e: React.DragEvent) => {
-    if (!attachmentsEnabled) return;
-    e.preventDefault();
-    e.stopPropagation();
-    setDragOver(true);
-  };
-
-  const handleDragLeave = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setDragOver(false);
-  };
-
-  const handleDrop = async (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setDragOver(false);
-    if (!attachmentsEnabled) return;
-
-    const files = Array.from(e.dataTransfer.files);
-    if (files.length > 0) {
-      try {
-        await processFiles(files);
-      } catch (error) {
-        console.error("[CopilotKit] Drop error:", error);
-      }
-    }
-  };
-
-  // Clipboard paste handler — scoped to the chat container
-  useEffect(() => {
-    if (!attachmentsEnabled) return;
-
-    const handlePaste = async (e: ClipboardEvent) => {
-      // Only intercept pastes targeting elements inside this chat
-      const target = e.target as HTMLElement | null;
-      if (!target || !chatContainerRef.current?.contains(target)) return;
-
-      const items = Array.from(e.clipboardData?.items || []);
-      const fileItems = items.filter(
-        (item) =>
-          item.kind === "file" &&
-          item.getAsFile() !== null &&
-          matchesAcceptFilter(item.getAsFile()!, attachmentsAccept),
-      );
-
-      if (fileItems.length === 0) return;
-      e.preventDefault();
-
-      const files = fileItems
-        .map((item) => item.getAsFile())
-        .filter((f): f is File => f !== null);
-
-      try {
-        await processFilesRef.current(files);
-      } catch (error) {
-        console.error("[CopilotKit] Paste error:", error);
-      }
-    };
-
-    document.addEventListener("paste", handlePaste);
-    return () => document.removeEventListener("paste", handlePaste);
-  }, [attachmentsEnabled, attachmentsAccept]);
-
-  // --- End attachment logic ---
-
   const onSubmitInput = useCallback(
     async (value: string) => {
       // Block if uploads in progress
@@ -407,11 +231,7 @@ export function CopilotChat({
         return;
       }
 
-      const readyAttachments = selectedAttachments.filter(
-        (a) => a.status === "ready",
-      );
-      setSelectedAttachments([]);
-      if (fileInputRef.current) fileInputRef.current.value = "";
+      const readyAttachments = consumeAttachments();
 
       if (readyAttachments.length > 0) {
         const contentParts: InputContent[] = [];
@@ -451,7 +271,7 @@ export function CopilotChat({
     },
     // copilotkit is intentionally excluded — it is a stable ref that never changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [agent, selectedAttachments],
+    [agent, selectedAttachments, consumeAttachments],
   );
 
   const handleSelectSuggestion = useCallback(
@@ -653,8 +473,7 @@ export function CopilotChat({
       : undefined,
     // Attachment props
     attachments: selectedAttachments,
-    onRemoveAttachment: (id: string) =>
-      setSelectedAttachments((prev) => prev.filter((a) => a.id !== id)),
+    onRemoveAttachment: removeAttachment,
     onAddFile: attachmentsEnabled
       ? () => {
           // Delay to let Radix dropdown menu close before triggering file input
@@ -687,7 +506,7 @@ export function CopilotChat({
             multiple
             ref={fileInputRef}
             onChange={handleFileUpload}
-            accept={attachmentsAccept}
+            accept={attachmentsConfig?.accept ?? "*/*"}
             style={{ display: "none" }}
           />
         )}
