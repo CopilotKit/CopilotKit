@@ -43,5 +43,6 @@ export interface RuntimeInfo {
   mode: RuntimeMode;
   intelligence?: IntelligenceRuntimeInfo;
   a2uiEnabled?: boolean;
+  openGenerativeUIEnabled?: boolean;
   licenseStatus?: RuntimeLicenseStatus;
 }

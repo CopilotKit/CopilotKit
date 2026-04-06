@@ -28,6 +28,7 @@ export default function RootLayout({
             useSingleEndpoint
             inspectorDefaultAnchor={{ horizontal: "left", vertical: "top" }}
             a2ui={{ catalog: demonstrationCatalog }}
+            openGenerativeUI={{}}
           >
             {children}
           </CopilotKitProvider>

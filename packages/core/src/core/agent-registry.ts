@@ -41,6 +41,7 @@ export class AgentRegistry {
   private _runtimeMode: RuntimeMode = RUNTIME_MODE_SSE;
   private _intelligence?: IntelligenceRuntimeInfo;
   private _a2uiEnabled: boolean = false;
+  private _openGenerativeUIEnabled: boolean = false;
   private _licenseStatus?: RuntimeLicenseStatus;
 
   constructor(private core: CopilotKitCore) {}
@@ -82,6 +83,10 @@ export class AgentRegistry {
 
   get a2uiEnabled(): boolean {
     return this._a2uiEnabled;
+  }
+
+  get openGenerativeUIEnabled(): boolean {
+    return this._openGenerativeUIEnabled;
   }
 
   get licenseStatus(): RuntimeLicenseStatus | undefined {
@@ -238,6 +243,7 @@ export class AgentRegistry {
       this._runtimeMode = RUNTIME_MODE_SSE;
       this._intelligence = undefined;
       this._a2uiEnabled = false;
+      this._openGenerativeUIEnabled = false;
       this.remoteAgents = {};
       this._agents = this.localAgents;
 
@@ -294,6 +300,8 @@ export class AgentRegistry {
       this._runtimeMode = runtimeInfoResponse.mode ?? RUNTIME_MODE_SSE;
       this._intelligence = runtimeInfoResponse.intelligence;
       this._a2uiEnabled = runtimeInfoResponse.a2uiEnabled ?? false;
+      this._openGenerativeUIEnabled =
+        runtimeInfoResponse.openGenerativeUIEnabled ?? false;
       this._licenseStatus = runtimeInfoResponse.licenseStatus;
 
       await this.notifyRuntimeStatusChanged(
@@ -308,6 +316,7 @@ export class AgentRegistry {
       this._runtimeMode = RUNTIME_MODE_SSE;
       this._intelligence = undefined;
       this._a2uiEnabled = false;
+      this._openGenerativeUIEnabled = false;
       this.remoteAgents = {};
       this._agents = this.localAgents;
 

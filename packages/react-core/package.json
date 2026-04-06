@@ -80,7 +80,9 @@
     "ts-deepmerge": "^7.0.3",
     "tw-animate-css": "^1.3.5",
     "untruncate-json": "^0.0.1",
-    "use-stick-to-bottom": "^1.1.1"
+    "use-stick-to-bottom": "^1.1.1",
+    "@jetbrains/websandbox": "^1.1.3",
+    "zod-to-json-schema": "^3.24.5"
   },
   "devDependencies": {
     "@tailwindcss/cli": "^4.1.11",

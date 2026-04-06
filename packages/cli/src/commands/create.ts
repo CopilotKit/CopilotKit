@@ -49,7 +49,8 @@ type AgentFramework =
   | "microsoft-agent-framework-dotnet"
   | "microsoft-agent-framework-py"
   | "mcp-apps"
-  | "a2ui";
+  | "a2ui"
+  | "opengenui";
 
 const TEMPLATE_REPOS: Record<AgentFramework, string> = {
   "langgraph-py":
@@ -77,6 +78,8 @@ const TEMPLATE_REPOS: Record<AgentFramework, string> = {
   "mcp-apps":
     "https://github.com/CopilotKit/CopilotKit/tree/main/examples/integrations/mcp-apps",
   a2ui: "https://github.com/CopilotKit/CopilotKit/tree/main/examples/integrations/langgraph-python",
+  opengenui:
+    "https://github.com/CopilotKit/CopilotKit/tree/main/examples/integrations/langgraph-python",
 };
 
 const FRAMEWORK_DOCUMENTATION: Record<AgentFramework, string> = {
@@ -98,6 +101,7 @@ const FRAMEWORK_DOCUMENTATION: Record<AgentFramework, string> = {
     "https://learn.microsoft.com/en-us/agent-framework/",
   "mcp-apps": "https://modelcontextprotocol.github.io/ext-apps",
   a2ui: "https://a2ui.org/specification/",
+  opengenui: "https://docs.copilotkit.ai",
 };
 
 const FRAMEWORK_EMOJI: Record<AgentFramework, string> = {
@@ -116,6 +120,7 @@ const FRAMEWORK_EMOJI: Record<AgentFramework, string> = {
   "microsoft-agent-framework-py": "🟦",
   "mcp-apps": "♍",
   a2ui: "🎨",
+  opengenui: "🖼️",
 };
 
 const KITE = `
@@ -365,6 +370,10 @@ export default class Create extends BaseCommand {
           { name: `${FRAMEWORK_EMOJI.ag2} AG2`, value: "ag2" },
           { name: `${FRAMEWORK_EMOJI.a2a} A2A`, value: "a2a" },
           { name: `${FRAMEWORK_EMOJI.a2ui} A2UI`, value: "a2ui" },
+          {
+            name: `${FRAMEWORK_EMOJI.opengenui} Open Generative UI`,
+            value: "opengenui",
+          },
         ],
       },
     ]);
@@ -421,6 +430,7 @@ export default class Create extends BaseCommand {
     Record<AgentFramework, string>
   > = {
     a2ui: "a2ui",
+    opengenui: "opengenui",
   };
 
   private async applyShowcaseConfig(
