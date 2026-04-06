@@ -22,21 +22,6 @@ import { ToolReasoning } from "@/components/tool-rendering";
 export const useGenerativeUIExamples = () => {
   const { theme, setTheme } = useTheme();
 
-  // Controlled Generative UI (frontend-defined chart components)
-  useComponent({
-    name: "pieChart",
-    description: "Controlled Generative UI that displays data as a pie chart.",
-    parameters: PieChartProps,
-    render: PieChart,
-  });
-
-  useComponent({
-    name: "barChart",
-    description: "Controlled Generative UI that displays data as a bar chart.",
-    parameters: BarChartProps,
-    render: BarChart,
-  });
-
   // Human-in-the-Loop (frontend tool requiring user decision)
   useHumanInTheLoop({
     name: "scheduleTime",
@@ -52,6 +37,21 @@ export const useGenerativeUIExamples = () => {
     render: ({ respond, status, args }) => {
       return <MeetingTimePicker status={status} respond={respond} {...args} />;
     },
+  });
+
+  // Controlled Generative UI (frontend-defined chart components)
+  useComponent({
+    name: "pieChart",
+    description: "Controlled Generative UI that displays data as a pie chart.",
+    parameters: PieChartProps,
+    render: PieChart,
+  });
+
+  useComponent({
+    name: "barChart",
+    description: "Controlled Generative UI that displays data as a bar chart.",
+    parameters: BarChartProps,
+    render: BarChart,
   });
 
   // Default Tool Rendering (backend tool UI)
