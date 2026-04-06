@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { useCopilotKit } from "../providers/CopilotKitProvider";
+import { useCopilotKit } from "../context";
 import type { ReactFrontendTool } from "../types/frontend-tool";
 
 const EMPTY_DEPS: ReadonlyArray<unknown> = [];

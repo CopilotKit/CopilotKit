@@ -2,13 +2,13 @@ import React from "react";
 import { render, act, screen } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { useAgent, UseAgentUpdate } from "../use-agent";
-import { useCopilotKit } from "../../providers/CopilotKitProvider";
+import { useCopilotKit } from "../../context";
 import { MockStepwiseAgent } from "../../__tests__/utils/test-helpers";
 import { CopilotKitCoreRuntimeConnectionStatus } from "@copilotkit/core";
 import type { Message } from "@ag-ui/core";
 import type { RunAgentInput } from "@ag-ui/client";
 
-vi.mock("../../providers/CopilotKitProvider", () => ({
+vi.mock("../../context", () => ({
   useCopilotKit: vi.fn(),
 }));
 
