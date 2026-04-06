@@ -1,4 +1,10 @@
-import React, { useCallback, useRef, useState, useEffect, useLayoutEffect } from "react";
+import React, {
+  useCallback,
+  useRef,
+  useState,
+  useEffect,
+  useLayoutEffect,
+} from "react";
 import { ScrollElementContext } from "./scroll-element-context";
 import { WithSlots, SlotValue, renderSlot } from "../../lib/slots";
 import CopilotChatMessageView from "./CopilotChatMessageView";
