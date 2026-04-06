@@ -10,6 +10,8 @@
     "...generative-ui",
     "---App Control---",
     "frontend-tools", "shared-state", "agent-app-context",
+    "---Mastra---",
+    "...human-in-the-loop",
     "---Backend---",
     "copilot-runtime", "ag-ui",
     "---Premium Features---",
