@@ -3,7 +3,6 @@
   "root": true,
   "pages": [
     "index",
-    "quickstart",
-    "full-stack-example"
+    "quickstart"
   ]
 }

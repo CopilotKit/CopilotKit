@@ -1,8 +1,7 @@
 {
-  "title": "AWS AgentCore",
-  "pages": [
-    "index",
-    "quickstart",
-    "full-stack-example"
-  ]
+    "title": "AWS AgentCore",
+    "pages": [
+        "index",
+        "quickstart"
+    ]
 }

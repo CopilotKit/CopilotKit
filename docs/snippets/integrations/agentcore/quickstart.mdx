@@ -71,8 +71,35 @@ import { AgentCoreCommandTabs } from "@/components/content/agentcore-command-tab
         ### 🎉 Open your app
 
         The deploy script prints an Amplify URL when it finishes. Open it and sign in with your `admin_user_email`.
+      </Step>
 
-        Want to understand what was deployed or run locally? See the [full-stack example](/agentcore/full-stack-example).
+      <Step>
+        ### Run locally
+
+        To run the full stack locally — agent, CopilotKit runtime, and frontend — without deploying:
+
+        ```bash
+        cd docker
+        cp .env.example .env
+        # Fill in AWS credentials and STACK_NAME
+        ./up.sh --build
+        ```
+
+        | Service | Port | Description |
+        |---|---|---|
+        | `agent` | 8080 | Your agent, hot-reloads on `.py` changes |
+        | `runtime` | 3001 | CopilotKit Runtime |
+        | `frontend` | 3000 | Vite dev server |
+      </Step>
+
+      <Step>
+        ### Tear down
+
+        When done, delete all AWS resources to stop charges:
+
+        ```bash
+        cd infra-cdk && npx cdk destroy --all
+        ```
       </Step>
     </TailoredContentOption>
 
@@ -243,13 +270,21 @@ import { AgentCoreCommandTabs } from "@/components/content/agentcore-command-tab
       </Step>
 
       <Step>
-        ### 🎉 You're connected
+        ### 🎉 Test it and deploy
+
+        **Verify locally first:**
 
         ```bash
         npm run dev
         ```
 
-        Navigate to `localhost:3000`. Your AgentCore agent is now accessible through a full CopilotKit chat UI.
+        Navigate to `localhost:3000` and confirm the chat connects to your AgentCore agent.
+
+        **Then deploy your frontend** to [AWS Amplify](https://docs.amplify.aws/nextjs/start/quickstart/). Point `runtimeUrl` to your deployed API route URL.
+
+        <Callout type="info" title="Deployment and tear down">
+          Since you're bringing your own agent and infrastructure, deployment and tear down depend on your setup. The CopilotKit Runtime Lambda can be deployed as part of your existing CDK or Terraform stack — it's a standard Node.js Lambda behind API Gateway.
+        </Callout>
       </Step>
     </TailoredContentOption>
   </TailoredContent>
@@ -261,19 +296,13 @@ import { AgentCoreCommandTabs } from "@/components/content/agentcore-command-tab
   <Card
     title="Generative UI"
     description="Render custom React components directly from your agent's tool calls."
-    href="/agentcore/full-stack-example#generative-ui"
+    href="/langgraph/generative-ui/tool-rendering"
     icon={<PaintbrushIcon />}
   />
   <Card
     title="Shared State"
     description="Sync structured state between your agent and your React UI bidirectionally."
-    href="/agentcore/full-stack-example#shared-state"
+    href="/langgraph/shared-state/in-app-agent-read"
     icon={<RepeatIcon />}
-  />
-  <Card
-    title="Full-stack example"
-    description="CDK infrastructure, LangGraph or Strands agent, auth, generative UI — all wired up."
-    href="/agentcore/full-stack-example"
-    icon={<WrenchIcon />}
   />
 </Cards>
