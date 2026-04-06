@@ -7,7 +7,7 @@ import {
   handleSubscribeToThreads,
   handleUpdateThread,
 } from "../handlers/handle-threads";
-import { CopilotRuntime } from "../runtime";
+import { CopilotRuntime } from "../core/runtime";
 
 describe("thread handlers", () => {
   const createIdentifyUser = () => vi.fn().mockResolvedValue({ id: "user-1" });

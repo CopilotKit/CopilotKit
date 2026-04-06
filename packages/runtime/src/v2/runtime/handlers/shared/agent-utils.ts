@@ -5,7 +5,7 @@ import {
 } from "@ag-ui/client";
 import { A2UIMiddleware } from "@ag-ui/a2ui-middleware";
 import { MCPAppsMiddleware } from "@ag-ui/mcp-apps-middleware";
-import { CopilotRuntimeLike } from "../../runtime";
+import { CopilotRuntimeLike } from "../../core/runtime";
 import { extractForwardableHeaders } from "../header-utils";
 import { logger } from "@copilotkit/shared";
 
@@ -31,12 +31,15 @@ export async function cloneAgentForRequest(
   const agents = await runtime.agents;
 
   if (!agents[agentId]) {
-    return Response.json(
-      {
+    return new Response(
+      JSON.stringify({
         error: "Agent not found",
         message: `Agent '${agentId}' does not exist`,
+      }),
+      {
+        status: 404,
+        headers: { "Content-Type": "application/json" },
       },
-      { status: 404 },
     );
   }
 
@@ -90,12 +93,15 @@ export async function parseRunRequest(
     return RunAgentInputSchema.parse(requestBody);
   } catch (error) {
     logger.error("Invalid run request body:", error);
-    return Response.json(
-      {
+    return new Response(
+      JSON.stringify({
         error: "Invalid request body",
         details: error instanceof Error ? error.message : String(error),
+      }),
+      {
+        status: 400,
+        headers: { "Content-Type": "application/json" },
       },
-      { status: 400 },
     );
   }
 }
@@ -125,12 +131,15 @@ export async function parseConnectRequest(request: Request): Promise<
     return { input, lastSeenEventId };
   } catch (error) {
     logger.error("Invalid connect request body:", error);
-    return Response.json(
-      {
+    return new Response(
+      JSON.stringify({
         error: "Invalid request body",
         details: error instanceof Error ? error.message : String(error),
+      }),
+      {
+        status: 400,
+        headers: { "Content-Type": "application/json" },
       },
-      { status: 400 },
     );
   }
 }

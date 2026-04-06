@@ -3,7 +3,7 @@ import type { AddressInfo } from "node:net";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { createCopilotEndpointSingleRouteExpress } from "../express";
-import { CopilotRuntime } from "../runtime";
+import { CopilotRuntime } from "../core/runtime";
 import { InMemoryAgentRunner } from "../runner/in-memory";
 
 const buildRuntime = () => {

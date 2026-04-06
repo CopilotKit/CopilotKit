@@ -11,7 +11,7 @@ with open("/config.yaml") as f:
     cfg = yaml.safe_load(f)
 
 base = re.sub(r"-(lg|st)$", "", cfg["stack_name_base"])
-agent = os.environ.get("AGENT", "strands")
+agent = os.environ.get("AGENT", "langgraph")
 suffix = "lg" if agent == "langgraph" else "st"
 stack_name = f"{base}-{suffix}"
 
