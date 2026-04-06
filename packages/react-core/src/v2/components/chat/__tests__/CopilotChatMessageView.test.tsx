@@ -27,11 +27,7 @@ function userMsg(id: string, content: string) {
 }
 
 /** Typed factory — avoids `as AssistantMessage` casts everywhere. */
-function assistantMsg(
-  id: string,
-  content?: string,
-  toolCalls?: ToolCall[],
-) {
+function assistantMsg(id: string, content?: string, toolCalls?: ToolCall[]) {
   return { id, role: "assistant" as const, content, toolCalls };
 }
 
@@ -116,9 +112,7 @@ describe("CopilotChatMessageView duplicate message deduplication", () => {
     const messages: Message[] = [
       userMsg("user-1", "Record a headache"),
       assistantMsg("assistant-1", "Let me record that..."),
-      assistantMsg("assistant-1", "", [
-        toolCall("tc-1", "captureData"),
-      ]),
+      assistantMsg("assistant-1", "", [toolCall("tc-1", "captureData")]),
       assistantMsg("assistant-1", "", [
         toolCall("tc-1", "captureData"),
         toolCall("tc-2", "updateMemory"),
