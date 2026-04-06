@@ -45,6 +45,10 @@
       "import": "./dist/v2/index.mjs",
       "require": "./dist/v2/index.cjs"
     },
+    "./v2/context": {
+      "import": "./dist/v2/context.mjs",
+      "require": "./dist/v2/context.cjs"
+    },
     "./package.json": "./package.json",
     "./v2/styles.css": "./dist/v2/index.css"
   },
