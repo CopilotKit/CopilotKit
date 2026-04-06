@@ -1,4 +1,4 @@
-import React, { useEffect, useReducer, useState } from "react";
+import React, { useEffect, useMemo, useReducer, useState } from "react";
 import { WithSlots, renderSlot, isReactComponentType } from "../../lib/slots";
 import CopilotChatAssistantMessage from "./CopilotChatAssistantMessage";
 import CopilotChatUserMessage from "./CopilotChatUserMessage";
@@ -273,6 +273,40 @@ const MemoizedCustomMessage = React.memo(
   },
 );
 
+/**
+ * Deduplicates messages by ID. For assistant messages, merges occurrences:
+ * recovers non-empty content from any earlier occurrence if the latest wiped it
+ * (empty string means the streaming update cleared the field, not blank text),
+ * while keeping the latest toolCalls and all other fields. For all other roles,
+ * keeps the last entry.
+ */
+export function deduplicateMessages(messages: Message[]): Message[] {
+  const acc = new Map<string, Message>();
+  for (const message of messages) {
+    const existing = acc.get(message.id);
+    if (
+      existing &&
+      message.role === "assistant" &&
+      existing.role === "assistant"
+    ) {
+      // Empty string means the streaming update cleared the field — fall back to
+      // any non-empty content seen earlier. Use { ...existing, ...message } so
+      // fields present only in an earlier occurrence are not silently dropped.
+      const content =
+        (message as AssistantMessage).content ||
+        (existing as AssistantMessage).content;
+      acc.set(message.id, {
+        ...existing,
+        ...message,
+        content,
+      } as AssistantMessage);
+    } else {
+      acc.set(message.id, message);
+    }
+  }
+  return [...acc.values()];
+}
+
 export type CopilotChatMessageViewProps = Omit<
   WithSlots<
     {
@@ -362,24 +396,10 @@ export function CopilotChatMessageView({
     );
   };
 
-  // Deduplicate messages by id. During streaming, the same message ID can appear
-  // multiple times (e.g. a text chunk followed by tool-call updates that clear
-  // the content field). For assistant messages we merge: keep the latest
-  // toolCalls (they accumulate) but recover non-empty content from any earlier
-  // occurrence if the latest wiped it. For all other roles, keep the last entry.
-  const messageAccumulator = new Map<string, Message>();
-  for (const message of messages) {
-    const existing = messageAccumulator.get(message.id);
-    if (!existing) {
-      messageAccumulator.set(message.id, message);
-    } else if (message.role === "assistant" && existing.role === "assistant") {
-      const content = message.content || existing.content;
-      messageAccumulator.set(message.id, { ...message, content });
-    } else {
-      messageAccumulator.set(message.id, message);
-    }
-  }
-  const deduplicatedMessages = [...messageAccumulator.values()];
+  const deduplicatedMessages = useMemo(
+    () => deduplicateMessages(messages),
+    [messages],
+  );
 
   if (
     process.env.NODE_ENV === "development" &&

@@ -4,7 +4,9 @@ import { z } from "zod";
 import { vi } from "vitest";
 import { CopilotKitProvider } from "../../../providers/CopilotKitProvider";
 import { CopilotChatConfigurationProvider } from "../../../providers/CopilotChatConfigurationProvider";
-import CopilotChatMessageView from "../CopilotChatMessageView";
+import CopilotChatMessageView, {
+  deduplicateMessages,
+} from "../CopilotChatMessageView";
 import type {
   ActivityMessage,
   AssistantMessage,
@@ -131,7 +133,7 @@ describe("CopilotChatMessageView duplicate message deduplication", () => {
     expect(assistantMessages[0].textContent).toContain("Let me record that...");
   });
 
-  it("deduplicates messages with the same id, keeping the last occurrence", () => {
+  it("uses latest content when all assistant duplicates have non-empty content", () => {
     const messages: Message[] = [
       userMsg("user-1", "Hello"),
       assistantMsg("assistant-1", "Partial response..."),
@@ -162,7 +164,7 @@ describe("CopilotChatMessageView duplicate message deduplication", () => {
     consoleSpy.mockRestore();
   });
 
-  it("preserves order of unique messages", () => {
+  it("preserves order of unique messages (no duplicates)", () => {
     const messages: Message[] = [
       userMsg("user-1", "First question"),
       assistantMsg("assistant-1", "First answer"),
@@ -178,5 +180,52 @@ describe("CopilotChatMessageView duplicate message deduplication", () => {
     );
     expect(userMessages).toHaveLength(2);
     expect(assistantMessages).toHaveLength(2);
+  });
+});
+
+describe("deduplicateMessages", () => {
+  it("recovers non-empty content and keeps latest toolCalls when later duplicate clears content", () => {
+    const messages: Message[] = [
+      assistantMsg("assistant-1", "Let me record that..."),
+      assistantMsg("assistant-1", "", [toolCall("tc-1", "captureData")]),
+      assistantMsg("assistant-1", "", [
+        toolCall("tc-1", "captureData"),
+        toolCall("tc-2", "updateMemory"),
+      ]),
+    ];
+
+    const result = deduplicateMessages(messages);
+
+    expect(result).toHaveLength(1);
+    const merged = result[0] as AssistantMessage;
+    // Content recovered from the first occurrence
+    expect(merged.content).toBe("Let me record that...");
+    // toolCalls from the latest occurrence (both tc-1 and tc-2)
+    expect(merged.toolCalls).toHaveLength(2);
+    expect(merged.toolCalls?.map((tc) => tc.id)).toEqual(["tc-1", "tc-2"]);
+  });
+
+  it("uses content from a later occurrence when early occurrence has empty content", () => {
+    const messages: Message[] = [
+      assistantMsg("assistant-1", ""),
+      assistantMsg("assistant-1", "Here is the result."),
+    ];
+
+    const result = deduplicateMessages(messages);
+
+    expect(result).toHaveLength(1);
+    expect((result[0] as AssistantMessage).content).toBe("Here is the result.");
+  });
+
+  it("keeps last entry for non-assistant roles", () => {
+    const messages: Message[] = [
+      userMsg("u-1", "Hello"),
+      userMsg("u-1", "Hello (updated)"),
+    ];
+
+    const result = deduplicateMessages(messages);
+
+    expect(result).toHaveLength(1);
+    expect((result[0] as UserMessage).content).toBe("Hello (updated)");
   });
 });
