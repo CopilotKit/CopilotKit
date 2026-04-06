@@ -11,6 +11,13 @@
 
 import { z } from "zod";
 
+/**
+ * Dynamic string: accepts either a literal string or a data-model path binding
+ * like `{ path: "airline" }`. The GenericBinder resolves path bindings to the
+ * actual value at render time.
+ */
+const DynString = z.union([z.string(), z.object({ path: z.string() })]);
+
 export const demonstrationCatalogDefinitions = {
   Title: {
     description: "A heading. Use for section titles and page headers.",
@@ -127,6 +134,36 @@ export const demonstrationCatalogDefinitions = {
         ),
       variant: z.enum(["primary", "secondary", "ghost"]).optional(),
       // Union with { event } so GenericBinder resolves this as ACTION → callable () => void.
+      action: z
+        .union([
+          z.object({
+            event: z.object({
+              name: z.string(),
+              context: z.record(z.any()).optional(),
+            }),
+          }),
+          z.null(),
+        ])
+        .optional(),
+    }),
+  },
+
+  FlightCard: {
+    description:
+      "A rich flight result card. Displays airline, flight number, route, times, duration, status, and price. Use inside a Row for side-by-side layout.",
+    props: z.object({
+      airline: DynString,
+      airlineLogo: DynString,
+      flightNumber: DynString,
+      origin: DynString,
+      destination: DynString,
+      date: DynString,
+      departureTime: DynString,
+      arrivalTime: DynString,
+      duration: DynString,
+      status: DynString,
+      statusColor: DynString.optional(),
+      price: DynString,
       action: z
         .union([
           z.object({
