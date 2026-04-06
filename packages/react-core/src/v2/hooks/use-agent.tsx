@@ -173,17 +173,13 @@ export function useAgent({
       provisionalAgentCache.current.delete(cacheKey);
       provisionalAgentCache.current.delete(agentId);
 
-      if (!threadId) {
-        // No threadId — return the shared registry agent (original behavior)
-        return existing;
-      }
-
-      // threadId provided — return the shared per-thread clone.
-      // The global WeakMap ensures all components using the same
-      // (registryAgent, threadId) pair receive the same instance, so state
-      // mutations (addMessage, setState) are visible everywhere. The WeakMap
-      // entry is GC-collected automatically when the registry agent is replaced.
-      return getOrCreateThreadClone(existing, threadId, copilotkit.headers);
+      // TEMPORARY WORKAROUND: per-thread cloning disabled.
+      // The cloning introduced in PR #3525 causes a race condition where
+      // activity message renderers (e.g. A2UI handleAction) close over the
+      // registry agent before the clone exists, so runAgent adds messages to
+      // the wrong instance and the chat never re-renders.
+      // This will be fixed properly in PR #3525 itself.
+      return existing;
     }
 
     const isRuntimeConfigured = copilotkit.runtimeUrl !== undefined;
