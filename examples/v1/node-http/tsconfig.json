@@ -1,5 +1,5 @@
 {
-  "extends": "../../packages/tsconfig/base.json",
+  "extends": "../../../packages/tsconfig/base.json",
   "compilerOptions": {
     "strictNullChecks": true,
     "outDir": "dist"
@@ -7,10 +7,6 @@
   "include": ["**/*.ts", "**/*.tsx"],
   "exclude": ["node_modules"],
   "paths": {
-    "@/*": ["./src/*"],
-    "@copilotkit/react-core/*": ["../../packages/react-core/*"],
-    "@copilotkit/react-ui/*": ["../../packages/react-ui/*"],
-    "@copilotkit/react-textarea/*": ["../../packages/react-textarea/*"],
-    "@copilotkit/runtime/*": ["../../packages/runtime/*"]
+    "@/*": ["./src/*"]
   }
 }
