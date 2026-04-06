@@ -15,9 +15,17 @@ jobs:
   release:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    permissions:
+      contents: write
+      pull-requests: write
     steps:
       - name: Checkout Repo
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: "10.13.1"
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -27,103 +35,82 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: "10.13.1"
-
       - name: Install Dependencies
         run: pnpm i
 
-      - name: Is in prerelease mode
-        id: is-in-prerelease-mode
+      - name: Check if in prerelease mode
+        id: check-pre
         run: |
           if [ -f ".changeset/pre.json" ]; then
             MODE=$(node -p "require('./.changeset/pre.json').mode")
-            if [ "$MODE" = "exit" ]; then
-              echo "::set-output name=is_in_prerelease_mode::false"
-            elif [ "$MODE" = "pre" ]; then
-              echo "::set-output name=is_in_prerelease_mode::true"
+            if [ "$MODE" = "pre" ]; then
+              echo "prerelease=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "prerelease=false" >> "$GITHUB_OUTPUT"
             fi
           else
-            echo "::set-output name=is_in_prerelease_mode::false"
+            echo "prerelease=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Get current version
-        id: current-version
-        run: |
-          echo "version=$(node -p "require('./packages/react-core/package.json').version")" >> "$GITHUB_OUTPUT"
-
-      - name: Prepare version
-        id: prepare-version
-        run: |
-          pnpm changeset version
-          pnpm install --no-frozen-lockfile
-
-      - name: Build
-        id: build
-        run: pnpm run build
-
-      - name: NPM Publish
-        id: publish
-        run: |
-          pnpm changeset publish --no-git-tag 2>&1 | tee publish-output.txt
+      - name: Create Release Pull Request or Publish
+        id: changesets
+        uses: changesets/action@v1
+        with:
+          version: pnpm run version-packages
+          publish: pnpm run release-packages
+          commit: "chore(release): version packages"
+          title: ${{ steps.check-pre.outputs.prerelease == 'true' && 'chore(release): version packages (next)' || 'chore(release): version packages' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Get new version
         id: new-version
+        if: steps.changesets.outputs.published == 'true'
         run: |
           echo "version=$(node -p "require('./packages/react-core/package.json').version")" >> "$GITHUB_OUTPUT"
 
-      - name: Check if published
-        id: check-if-published
-        run: |
-          sleep 3
-          PUBLISHED=$(node -p "const fs = require('fs'); fs.readFileSync('./publish-output.txt', 'utf-8').includes('packages published successfully:')")
-          echo "published=$PUBLISHED" >> "$GITHUB_OUTPUT"
-
-      - name: Print variables
-        run: |
-          echo "New version: ${{ steps.new-version.outputs.version }}"
-          echo "Current version: ${{ steps.current-version.outputs.version }}"
-          echo "Published: ${{ steps.check-if-published.outputs.published }}"
-          echo "Is in prerelease mode: ${{ steps.is-in-prerelease-mode.outputs.is_in_prerelease_mode }}"
-
-      - name: Update changeset state post-release
-        if: ${{ steps.check-if-published.outputs.published == 'true' }}
+      # For full releases: create git tag, GitHub release, and PR to re-enter pre mode
+      - name: Create git tag
+        if: steps.changesets.outputs.published == 'true' && steps.check-pre.outputs.prerelease == 'false'
         run: |
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git config --global user.name "github-actions[bot]"
+          git tag -a "v${{ steps.new-version.outputs.version }}" -m "Release v${{ steps.new-version.outputs.version }}"
+          git push origin "v${{ steps.new-version.outputs.version }}"
 
-          git add .
-
-          if [ ! -f ".changeset/pre.json" ]; then
-            pnpm changeset pre enter next
-          fi
-
-          git add ./.changeset/pre.json
-          git commit -m "chore(post-release): update version to ${{ steps.new-version.outputs.version }}"
-          git push origin main --force
-
-      - name: Git Tag
-        if: ${{ steps.check-if-published.outputs.published == 'true' && steps.is-in-prerelease-mode.outputs.is_in_prerelease_mode == 'false' }}
+      - name: Generate changelog
+        id: changelog
+        if: steps.changesets.outputs.published == 'true' && steps.check-pre.outputs.prerelease == 'false'
         run: |
           node -p "require('./scripts/release/generate-changelog')('${{ steps.new-version.outputs.version }}')" > changelog.txt
-          git tag -a v${{ steps.new-version.outputs.version }} -m "Release ${{ steps.new-version.outputs.version }}"
-          git push origin v${{ steps.new-version.outputs.version }}
-          git push origin main --force
 
-      - name: Create Release
-        if: ${{ steps.check-if-published.outputs.published == 'true' && steps.is-in-prerelease-mode.outputs.is_in_prerelease_mode == 'false' }}
-        id: create_release
-        uses: comnoco/create-release-action@v2.0.5
+      - name: Create GitHub Release
+        if: steps.changesets.outputs.published == 'true' && steps.check-pre.outputs.prerelease == 'false'
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # This token is provided by Actions, you do not need to create your own token
-        with:
-          tag_name: v${{ steps.new-version.outputs.version }}
-          release_name: v${{ steps.new-version.outputs.version }}
-          body_path: ./changelog.txt
-          draft: false
-          prerelease: false
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "v${{ steps.new-version.outputs.version }}" \
+            --title "v${{ steps.new-version.outputs.version }}" \
+            --notes-file changelog.txt
+
+      - name: Re-enter pre mode
+        if: steps.changesets.outputs.published == 'true' && steps.check-pre.outputs.prerelease == 'false'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="${{ steps.new-version.outputs.version }}"
+          BRANCH="chore/re-enter-pre-mode-v${VERSION}"
+
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git config --global user.name "github-actions[bot]"
+
+          git checkout -b "$BRANCH"
+          pnpm changeset pre enter next
+          git add .changeset/pre.json
+          git commit -m "chore(release): re-enter pre mode after v${VERSION}"
+          git push -u origin "$BRANCH"
+
+          gh pr create --base main --head "$BRANCH" \
+            --title "chore(release): re-enter pre mode after v${VERSION}" \
+            --body "Automatically re-enters pre-release mode (next) after publishing v${VERSION}."

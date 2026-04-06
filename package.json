@@ -22,6 +22,8 @@
     "demo:angular": "nx run-many -t dev --projects=examples/v2/angular/demo,examples/v2/angular/demo-server",
     "demo:react": "pnpm -C examples/v2/react/demo dev",
     "changeset": "changeset",
+    "version-packages": "pnpm changeset version && pnpm install --no-frozen-lockfile",
+    "release-packages": "pnpm run build && pnpm changeset publish --no-git-tag",
     "prepare": "lefthook install",
     "graph": "nx graph",
     "publint": "nx run-many -t publint --projects=packages/**",
