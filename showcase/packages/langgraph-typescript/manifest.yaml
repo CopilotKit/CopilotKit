@@ -12,7 +12,7 @@ repo: https://github.com/CopilotKit/CopilotKit/tree/main/showcase/packages/langg
 copilotkit_version: 2.0.0
 backend_url: https://showcase-langgraph-typescript-production.up.railway.app
 deployed: true
-sort_order: 30
+sort_order: 11
 generative_ui:
   - constrained-explicit
 interaction_modalities:

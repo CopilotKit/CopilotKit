@@ -9,7 +9,7 @@ repo: https://github.com/CopilotKit/CopilotKit/tree/main/showcase/packages/googl
 copilotkit_version: 2.0.0
 backend_url: https://showcase-google-adk-production.up.railway.app
 deployed: true
-sort_order: 60
+sort_order: 15
 generative_ui:
   - constrained-explicit
 interaction_modalities:

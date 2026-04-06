@@ -40,6 +40,7 @@ const CATEGORY_ORDER = [
 
 interface IntegrationExplorerProps {
     integrations: Integration[];
+    initialFeatureFilter?: string;
 }
 
 interface FilteredDemo {
@@ -47,10 +48,11 @@ interface FilteredDemo {
     demo: Integration["demos"][number];
 }
 
-export function IntegrationExplorer({ integrations }: IntegrationExplorerProps) {
+export function IntegrationExplorer({ integrations, initialFeatureFilter }: IntegrationExplorerProps) {
     const [framework, setFramework] = useState("all");
     const [genUi, setGenUi] = useState("all");
     const [modality, setModality] = useState("all");
+    const [featureFilter, setFeatureFilter] = useState(initialFeatureFilter ?? "");
 
     // Only deployed integrations participate in filtering
     const deployed = useMemo(
@@ -60,8 +62,15 @@ export function IntegrationExplorer({ integrations }: IntegrationExplorerProps) 
 
     // Unique framework names from deployed integrations
     const frameworkOptions = useMemo(() => {
-        const names = Array.from(new Set(deployed.map((i) => i.name))).sort();
-        return names;
+        // Preserve registry sort_order (not alphabetical)
+        const seen = new Set<string>();
+        return deployed
+            .filter((i) => {
+                if (seen.has(i.name)) return false;
+                seen.add(i.name);
+                return true;
+            })
+            .map((i) => i.name);
     }, [deployed]);
 
     // Coming-soon frameworks: present in integrations but not deployed
@@ -98,6 +107,11 @@ export function IntegrationExplorer({ integrations }: IntegrationExplorerProps) 
 
     const filteredDemos = useMemo(() => {
         let packages = deployed;
+
+        // Feature filter: keep only packages that support the selected feature
+        if (featureFilter) {
+            packages = packages.filter((i) => i.features.includes(featureFilter));
+        }
 
         // Framework filter: keep only packages matching selected framework
         if (framework !== "all") {
@@ -144,7 +158,7 @@ export function IntegrationExplorer({ integrations }: IntegrationExplorerProps) 
         }
 
         return results;
-    }, [deployed, framework, genUi, modality]);
+    }, [deployed, framework, genUi, modality, featureFilter]);
 
     const groupedDemos = useMemo(() => {
         const groups: Record<string, FilteredDemo[]> = {};
@@ -170,11 +184,12 @@ export function IntegrationExplorer({ integrations }: IntegrationExplorerProps) 
         return result;
     }, [filteredDemos]);
 
-    const hasActiveFilters = framework !== "all" || genUi !== "all" || modality !== "all";
+    const hasActiveFilters = framework !== "all" || genUi !== "all" || modality !== "all" || !!featureFilter;
 
-    const clearFilter = (which: "framework" | "genUi" | "modality") => {
+    const clearFilter = (which: "framework" | "genUi" | "modality" | "feature") => {
         if (which === "framework") setFramework("all");
         else if (which === "genUi") setGenUi("all");
+        else if (which === "feature") setFeatureFilter("");
         else setModality("all");
     };
 
@@ -202,7 +217,7 @@ export function IntegrationExplorer({ integrations }: IntegrationExplorerProps) 
                             onClick={() => setFramework(name)}
                         />
                     ))}
-                    {[...comingSoonFrameworks].sort().map((name) => (
+                    {[...comingSoonFrameworks].map((name) => (
                         <RadioOption
                             key={name}
                             label={name}
@@ -263,6 +278,12 @@ export function IntegrationExplorer({ integrations }: IntegrationExplorerProps) 
                 {/* Active filter chips */}
                 {hasActiveFilters && (
                     <div className="flex flex-wrap gap-2 mb-4">
+                        {featureFilter && (
+                            <FilterChip
+                                label={`Feature: ${featureFilter}`}
+                                onDismiss={() => clearFilter("feature")}
+                            />
+                        )}
                         {framework !== "all" && (
                             <FilterChip
                                 label={framework}
