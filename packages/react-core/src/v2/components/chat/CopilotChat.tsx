@@ -437,24 +437,36 @@ export function CopilotChat({
     ? "processing"
     : transcribeMode;
 
-  // Memoize messages array - only create new reference when content actually changes
-  // (agent.messages is mutated in place, so we need a new reference for React to detect changes)
-
-  // Use message id + role + content length as memo key instead of JSON.stringify
-  // to avoid serializing large base64 content on every render while still detecting
-  // content changes during streaming
+  // Memoize messages array — only create a new reference when content changes.
+  // We build a lightweight fingerprint instead of JSON.stringify to avoid
+  // serializing large base64 attachment data on every render. The key captures:
+  //   - message id, role, content length (text streaming)
+  //   - content part count (multimodal additions)
+  //   - tool call ids + argument lengths (tool call streaming)
   const messagesMemoKey = agent.messages
     .map((m) => {
-      const contentLen =
+      const contentKey =
         typeof m.content === "string"
           ? m.content.length
           : Array.isArray(m.content)
             ? m.content.length
             : 0;
-      return `${m.id}:${m.role}:${contentLen}`;
+      const toolCallsKey =
+        "toolCalls" in m && Array.isArray(m.toolCalls)
+          ? m.toolCalls
+              .map(
+                (tc: any) => `${tc.id}:${tc.function?.arguments?.length ?? 0}`,
+              )
+              .join(";")
+          : "";
+      return `${m.id}:${m.role}:${contentKey}:${toolCallsKey}`;
     })
     .join(",");
-  const messages = useMemo(() => [...agent.messages], [messagesMemoKey]);
+  const messages = useMemo(
+    () => [...agent.messages],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [messagesMemoKey],
+  );
 
   const finalProps = merge(mergedProps, {
     messages,
