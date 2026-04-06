@@ -242,7 +242,10 @@ type Tab = "conversation" | "agent-state" | "ag-ui-events";
                 <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3" />
                 <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" />
               </svg>
-              <span>State is empty</span>
+              <span>No state captured</span>
+              <span class="cpk-td__empty-hint"
+                >Emitted live from STATE_SNAPSHOT events.</span
+              >
             </div>
             <pre
               *ngIf="hasRenderableAgentState()"
@@ -266,7 +269,10 @@ type Tab = "conversation" | "agent-state" | "ag-ui-events";
               >
                 <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
               </svg>
-              <span>No events yet</span>
+              <span>No events captured</span>
+              <span class="cpk-td__empty-hint"
+                >Events are recorded live. Run the agent to see them here.</span
+              >
             </div>
             <div *ngFor="let event of aguiEvents()" class="cpk-td__event">
               <div
@@ -498,6 +504,14 @@ type Tab = "conversation" | "agent-state" | "ag-ui-events";
         color: #838389;
         font-size: 13px;
         padding: 40px 0;
+      }
+
+      .cpk-td__empty-hint {
+        font-size: 11px;
+        color: #838389;
+        text-align: center;
+        max-width: 220px;
+        line-height: 1.5;
       }
 
       /* ── Status messages ─────────────────────────────────────────────── */

@@ -3245,7 +3245,7 @@ ${argsString}</pre
                   .headers=${this._core?.headers ?? {}}
                   .agentState=${
                     selectedThread
-                      ? (this.agentStates.get(selectedThread.agentId) ?? null)
+                      ? this.getLatestStateForAgent(selectedThread.agentId)
                       : null
                   }
                   .agentEvents=${
