@@ -1,0 +1,46 @@
+name: "Showcase: Sync QA to Notion"
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "showcase/packages/*/qa/**"
+      - "showcase/packages/*/manifest.yaml"
+      - "showcase/scripts/sync-qa-to-notion.ts"
+  workflow_dispatch:
+
+concurrency:
+  group: showcase-qa-sync
+  cancel-in-progress: true
+
+jobs:
+  sync-qa:
+    name: Sync QA Instructions
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Install dependencies
+        working-directory: showcase/scripts
+        run: pnpm install --frozen-lockfile || pnpm install
+
+      - name: Validate manifests
+        working-directory: showcase/scripts
+        run: npx tsx generate-registry.ts
+
+      - name: Sync QA to Notion
+        working-directory: showcase/scripts
+        env:
+          NOTION_API_KEY: ${{ secrets.SHOWCASE_NOTION_API_KEY }}
+        run: npx tsx sync-qa-to-notion.ts
