@@ -470,10 +470,12 @@ export function CopilotChatMessageView({
     initialRect: { width: 0, height: 600 },
   });
 
-  // Scroll to the bottom when virtual mode first activates, when the thread
-  // changes (detected by the first message ID changing), or when new messages
-  // arrive during streaming. For the flat (non-virtual) path, use-stick-to-bottom
-  // handles auto-scrolling via content height growth detection.
+  // Scroll to the bottom when virtual mode first activates or the thread changes
+  // (detected by the first message ID changing). For streaming new messages,
+  // use-stick-to-bottom handles auto-scroll via content height growth detection
+  // on the virtualizer's total-size div — same as the flat path. Adding
+  // deduplicatedMessages.length here would forcibly yank the user to the bottom
+  // on every streaming chunk even if they've scrolled up to read history.
   const firstMessageId = deduplicatedMessages[0]?.id;
   useLayoutEffect(() => {
     if (!shouldVirtualize || !deduplicatedMessages.length) return;
@@ -481,7 +483,7 @@ export function CopilotChatMessageView({
       align: "end",
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [shouldVirtualize, firstMessageId, deduplicatedMessages.length]);
+  }, [shouldVirtualize, firstMessageId]);
 
   // ---------------------------------------------------------------------------
   // Per-message rendering helper (shared by flat and virtual paths)

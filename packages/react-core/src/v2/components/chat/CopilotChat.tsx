@@ -377,8 +377,9 @@ export function CopilotChat({
   //   - last tool-call args cover TOOL_CALL_CHUNK streaming
   //
   // Known limitation: same-length in-place mutations to non-last messages
-  // (e.g. two tool results arriving in the same tick) are not detected here.
-  // The MemoizedAssistantMessage comparator handles those cases via toolResultMap.
+  // are not detected here. In practice this doesn't occur — tool results are
+  // appended as new messages (length increases), so the comparator's linear
+  // scan of messages for matching role="tool" entries catches them correctly.
   const messages = useMemo(
     () => [...agent.messages],
     // eslint-disable-next-line react-hooks/exhaustive-deps
