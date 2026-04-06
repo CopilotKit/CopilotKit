@@ -359,7 +359,7 @@ export class AgentRegistry {
       headers,
       ...(credentials ? { credentials } : {}),
     });
-    if ("ok" in response && !(response as Response).ok) {
+    if (!response.ok) {
       throw new Error(
         `Runtime info request failed with status ${response.status}`,
       );
@@ -380,7 +380,7 @@ export class AgentRegistry {
       body: JSON.stringify({ method: "info" }),
       ...(credentials ? { credentials } : {}),
     });
-    if ("ok" in response && !(response as Response).ok) {
+    if (!response.ok) {
       throw new Error(
         `Runtime info request failed with status ${response.status}`,
       );
@@ -405,8 +405,7 @@ export class AgentRegistry {
       // Only treat a successful (2xx) response as a valid REST runtime.
       // 404/405 means the endpoint doesn't exist; other non-2xx errors
       // (500, 403, etc.) should also fall through to single-endpoint.
-      const status = "status" in response ? (response as Response).status : 200;
-      if (status >= 200 && status < 300) {
+      if (response.status >= 200 && response.status < 300) {
         this._runtimeTransport = "rest";
         return (await response.json()) as RuntimeInfo;
       }
@@ -415,24 +414,12 @@ export class AgentRegistry {
       // REST failed (network error, etc.) — fall through to single-endpoint attempt
     }
 
-    // Try single-endpoint (POST with { method: "info" })
-    const singleHeaders = { ...headers };
-    if (!singleHeaders["Content-Type"]) {
-      singleHeaders["Content-Type"] = "application/json";
-    }
-    const response = await fetch(this.runtimeUrl!, {
-      method: "POST",
-      headers: singleHeaders,
-      body: JSON.stringify({ method: "info" }),
-      ...(credentials ? { credentials } : {}),
-    });
-    if ("ok" in response && !(response as Response).ok) {
-      throw new Error(
-        `Runtime info request failed with status ${response.status}`,
-      );
-    }
+    const result = await this.fetchRuntimeInfoSingle(
+      { ...headers },
+      credentials,
+    );
     this._runtimeTransport = "single";
-    return (await response.json()) as RuntimeInfo;
+    return result;
   }
 
   /**
