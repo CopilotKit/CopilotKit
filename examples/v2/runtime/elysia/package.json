@@ -1,0 +1,18 @@
+{
+  "name": "@copilotkit/example-runtime-elysia",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "example-dev": "bun run --watch src/index.ts",
+    "example-build": "bun build src/index.ts --outdir dist",
+    "example-start": "bun dist/index.js"
+  },
+  "dependencies": {
+    "@copilotkit/runtime": "workspace:^",
+    "elysia": "^1.2.25"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.2.10",
+    "typescript": "^5.8.2"
+  }
+}

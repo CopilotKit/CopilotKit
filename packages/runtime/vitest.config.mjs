@@ -5,7 +5,7 @@ export default defineConfig({
     environment: "node",
     globals: true,
     include: ["src/**/*.{test,spec}.ts", "tests/**/*.{test,spec}.ts"],
-    exclude: ["**/dist/**"],
+    exclude: ["**/dist/**", "**/integration/bun/**"],
     setupFiles: ["./tests/setup.vitest.ts"],
     reporters: [["default", { summary: false }]],
     silent: true,

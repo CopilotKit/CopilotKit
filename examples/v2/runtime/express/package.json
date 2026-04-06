@@ -1,0 +1,21 @@
+{
+  "name": "@copilotkit/example-runtime-express",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "example-dev": "tsx watch src/index.ts",
+    "example-build": "tsc",
+    "example-start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@copilotkit/runtime": "workspace:^",
+    "express": "^4.21.2"
+  },
+  "devDependencies": {
+    "@copilotkit/typescript-config": "workspace:^",
+    "@types/express": "^4.17.21",
+    "@types/node": "^22.10.7",
+    "tsx": "^4.19.2",
+    "typescript": "^5.8.2"
+  }
+}

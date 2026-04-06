@@ -1,5 +1,5 @@
 import { AbstractAgent, RunAgentInput } from "@ag-ui/client";
-import { CopilotRuntimeLike } from "../../runtime";
+import { CopilotRuntimeLike } from "../../core/runtime";
 import { createSseEventResponse } from "../shared/sse-response";
 
 interface HandleSseRunParams {

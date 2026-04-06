@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseSSEResponse } from "../middleware-sse-parser";
+import { parseSSEResponse } from "../core/middleware-sse-parser";
 
 function buildSSEResponse(events: Record<string, unknown>[]): Response {
   const body = events.map((e) => `data: ${JSON.stringify(e)}\n\n`).join("");
