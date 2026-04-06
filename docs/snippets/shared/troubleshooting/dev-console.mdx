@@ -1,0 +1,56 @@
+# Using the CopilotKit Dev Console
+
+The Dev Console is the fastest way to debug CopilotKit behavior in local development. It helps you inspect how actions, readables, and messages are flowing through your app.
+
+## Enable the Dev Console
+
+Set `showDevConsole` on your provider while developing:
+
+```tsx
+import { CopilotKit } from "@copilotkit/react-core";
+
+export function App() {
+  return (
+    <CopilotKit
+      runtimeUrl="/api/copilotkit"
+      showDevConsole={process.env.NODE_ENV === "development"}
+    >
+      {/* Your app */}
+    </CopilotKit>
+  );
+}
+```
+
+<Callout type="warning">
+  Keep `showDevConsole={false}` in production to avoid exposing internal
+  debugging details.
+</Callout>
+
+## Where to Find It
+
+When enabled, the Dev Console appears in the chat header and exposes a `Debug` menu.
+
+<Frame description="CopilotKit Dev Console">
+  <img
+    src="https://cdn.copilotkit.ai/docs/copilotkit/images/contributing/copilotkit-dev-console.png"
+    className="w-auto max-w-[560px]"
+  />
+</Frame>
+
+## How to Use It for Troubleshooting
+
+Use the `Debug` menu while reproducing your issue:
+
+- **Log Actions**: validate action names, schemas, and arguments.
+- **Log Readables**: inspect the readable state available to the assistant.
+- **Log Messages**: verify message ordering and payload content.
+- **Check for Updates**: confirm your local package versions are current.
+
+## Recommended Debugging Workflow
+
+1. Reproduce the issue in development.
+2. Open the `Debug` menu and run one of the log actions.
+3. Inspect browser console output to confirm expected state and payloads.
+4. Fix mismatches in action registration, readable data shape, or message flow.
+
+If needed, pair this workflow with the [Error Debugging](/troubleshooting/error-debugging) guide.
