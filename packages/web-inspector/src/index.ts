@@ -1,10 +1,10 @@
 import { LitElement, css, html, nothing, unsafeCSS } from "lit";
+import { marked } from "marked";
 import { styleMap } from "lit/directives/style-map.js";
 import tailwindStyles from "./styles/generated.css";
 import inspectorLogoUrl from "./assets/inspector-logo.svg";
 import inspectorLogoIconUrl from "./assets/inspector-logo-icon.svg";
 import { unsafeHTML } from "lit/directives/unsafe-html.js";
-import { marked } from "marked";
 import { icons } from "lucide";
 import {
   CopilotKitCore,
@@ -225,7 +225,6 @@ export class WebInspectorElement extends LitElement {
   private announcementPreviewText: string | null = null;
   private hasUnseenAnnouncement = false;
   private announcementLoaded = false;
-  private announcementLoadError: unknown = null;
   private announcementPromise: Promise<void> | null = null;
   private showAnnouncementPreview = true;
 
@@ -1382,31 +1381,29 @@ ${argsString}</pre
       }
 
       .announcement-content h1 {
-        font-size: 1.1rem;
-      }
-
-      .announcement-content h2 {
         font-size: 1rem;
       }
-
+      .announcement-content h2 {
+        font-size: 0.9rem;
+      }
       .announcement-content h3 {
-        font-size: 0.95rem;
+        font-size: 0.85rem;
       }
 
       .announcement-content p {
-        margin: 0.25rem 0;
+        margin: 0.2rem 0;
       }
 
       .announcement-content ul {
         list-style: disc;
         padding-left: 1.25rem;
-        margin: 0.3rem 0;
+        margin: 0.2rem 0;
       }
 
       .announcement-content ol {
         list-style: decimal;
         padding-left: 1.25rem;
-        margin: 0.3rem 0;
+        margin: 0.2rem 0;
       }
 
       .announcement-content a {
@@ -1904,6 +1901,7 @@ ${argsString}</pre
                 </div>
               </div>
             </div>
+            ${this.renderAnnouncementBanner()}
             <div
               class="flex flex-wrap items-center gap-2 border-t border-gray-100 px-3 py-2 text-xs"
             >
@@ -1936,7 +1934,6 @@ ${argsString}</pre
           </div>
           <div class="flex flex-1 flex-col overflow-hidden">
             <div class="flex-1 overflow-auto">
-              ${this.renderAnnouncementPanel()}
               ${this.renderCoreWarningBanner()} ${this.renderMainContent()}
               <slot></slot>
             </div>
@@ -4642,65 +4639,29 @@ ${prettyEvent}</pre
     this.requestUpdate();
   }
 
-  private renderAnnouncementPanel() {
-    if (!this.isOpen) {
-      return nothing;
-    }
-
-    // Ensure loading is triggered even if we mounted in an already-open state
-    this.ensureAnnouncementLoading();
-
+  private renderAnnouncementBanner() {
     if (!this.hasUnseenAnnouncement) {
       return nothing;
     }
 
-    if (!this.announcementLoaded && !this.announcementMarkdown) {
+    if (!this.announcementLoaded && !this.announcementHtml) {
       return html`<div
-        class="mx-4 my-3 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800"
+        class="flex items-center gap-2 px-4 py-3 text-sm font-semibold text-slate-800"
       >
-        <div class="flex items-center gap-2 font-semibold">
-          <span
-            class="inline-flex h-6 w-6 items-center justify-center rounded-md bg-slate-900 text-white shadow-sm"
-          >
-            ${this.renderIcon("Megaphone")}
-          </span>
-          <span>Loading latest announcement…</span>
-        </div>
+        <span
+          class="inline-flex h-6 w-6 items-center justify-center rounded-md bg-slate-900 text-white shadow-sm"
+        >
+          ${this.renderIcon("Megaphone")}
+        </span>
+        <span>Loading latest announcement…</span>
       </div>`;
     }
 
-    if (this.announcementLoadError) {
-      return html`<div
-        class="mx-4 my-3 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-900"
-      >
-        <div class="flex items-center gap-2 font-semibold">
-          <span
-            class="inline-flex h-6 w-6 items-center justify-center rounded-md bg-rose-600 text-white shadow-sm"
-          >
-            ${this.renderIcon("Megaphone")}
-          </span>
-          <span>Announcement unavailable</span>
-        </div>
-        <p class="mt-2 text-xs text-rose-800">
-          We couldn’t load the latest notice. Please try opening the inspector
-          again.
-        </p>
-      </div>`;
-    }
-
-    if (!this.announcementMarkdown) {
+    if (!this.announcementHtml) {
       return nothing;
     }
 
-    const content = this.announcementHtml
-      ? unsafeHTML(this.announcementHtml)
-      : html`<pre class="whitespace-pre-wrap text-sm text-gray-900">
-${this.announcementMarkdown}</pre
-        >`;
-
-    return html`<div
-      class="mx-4 my-3 rounded-xl border border-slate-200 bg-white px-4 py-4"
-    >
+    return html`<div class="mx-4 my-3 rounded-xl border border-slate-200 bg-white px-4 py-4">
       <div
         class="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-900"
       >
@@ -4720,7 +4681,7 @@ ${this.announcementMarkdown}</pre
         </button>
       </div>
       <div class="announcement-content text-sm leading-relaxed text-gray-900">
-        ${content}
+        ${unsafeHTML(this.announcementHtml)}
       </div>
     </div>`;
   }
@@ -4805,8 +4766,7 @@ ${this.announcementMarkdown}</pre
       this.announcementLoaded = true;
 
       this.requestUpdate();
-    } catch (error) {
-      this.announcementLoadError = error;
+    } catch {
       this.announcementLoaded = true;
       this.requestUpdate();
     }
