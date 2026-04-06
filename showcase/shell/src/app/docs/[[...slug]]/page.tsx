@@ -9,6 +9,7 @@ import Link from "next/link";
 import { Callout, Cards, Card, Accordions, Accordion } from "@/components/mdx-components";
 import { PropertyReference } from "@/components/property-reference";
 import { getRegistry } from "@/lib/registry";
+import { SidebarNav } from "@/components/sidebar-nav";
 
 const CONTENT_DIR = path.join(process.cwd(), "src/content/docs");
 // Resolve snippets relative to CONTENT_DIR (which is known to work for filesystem reads)
@@ -767,12 +768,14 @@ export default async function DocsPage({ params }: { params: Promise<{ slug?: st
             );
         }
         if (node.type === "page") {
+            const isActive = node.slug === slugPath;
             return (
                 <Link
                     key={node.slug}
                     href={`/docs/${node.slug}`}
+                    data-active={isActive ? "true" : undefined}
                     className={`block py-[5px] text-[13px] transition-colors ${
-                        node.slug === slugPath
+                        isActive
                             ? "text-[var(--accent)] font-medium"
                             : "text-[var(--text-muted)] hover:text-[var(--text-secondary)]"
                     }`}
@@ -799,7 +802,7 @@ export default async function DocsPage({ params }: { params: Promise<{ slug?: st
     return (
         <div className="flex" style={{ height: "calc(100vh - 52px)" }}>
             {/* Sidebar */}
-            <aside className="w-[220px] shrink-0 border-r border-[var(--border)] bg-[var(--bg)] overflow-y-auto p-4">
+            <SidebarNav className="w-[220px] shrink-0 border-r border-[var(--border)] bg-[var(--bg)] overflow-y-auto p-4">
                 {backLink && (
                     <Link
                         href={backLink.href}
@@ -812,7 +815,7 @@ export default async function DocsPage({ params }: { params: Promise<{ slug?: st
                     {sidebarTitle}
                 </Link>
                 {navTree.map((node) => renderNavItem(node))}
-            </aside>
+            </SidebarNav>
 
             {/* Content */}
             <main className="flex-1 max-w-3xl px-8 py-8 overflow-y-auto">

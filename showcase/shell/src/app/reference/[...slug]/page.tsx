@@ -12,6 +12,7 @@ import {
     Accordions,
     Accordion,
 } from "@/components/mdx-components";
+import { SidebarNav } from "@/components/sidebar-nav";
 
 const CONTENT_DIR = path.join(process.cwd(), "src/content/reference");
 
@@ -91,7 +92,7 @@ export default async function ReferenceSlugPage({
     return (
         <div className="flex min-h-[calc(100vh-53px)]">
             {/* Sidebar */}
-            <aside className="hidden lg:block w-56 shrink-0 border-r border-[var(--border)] bg-[var(--bg-surface)] overflow-y-auto sticky top-[53px] h-[calc(100vh-53px)]">
+            <SidebarNav className="hidden lg:block w-56 shrink-0 border-r border-[var(--border)] bg-[var(--bg-surface)] overflow-y-auto sticky top-[53px] h-[calc(100vh-53px)]">
                 <nav className="p-4 space-y-6">
                     <div>
                         <Link
@@ -115,6 +116,7 @@ export default async function ReferenceSlugPage({
                                             <li key={item.slug}>
                                                 <Link
                                                     href={`/reference/${item.slug}`}
+                                                    data-active={isActive ? "true" : undefined}
                                                     className={`block text-[12px] font-mono px-2 py-1 rounded transition-colors ${
                                                         isActive
                                                             ? "bg-[var(--accent)]/10 text-[var(--accent)] font-semibold"
@@ -130,7 +132,7 @@ export default async function ReferenceSlugPage({
                         </div>
                     ))}
                 </nav>
-            </aside>
+            </SidebarNav>
 
             {/* Main content */}
             <article className="flex-1 min-w-0 max-w-3xl mx-auto px-6 py-10">
