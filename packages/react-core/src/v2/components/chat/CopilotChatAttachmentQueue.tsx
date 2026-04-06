@@ -174,10 +174,14 @@ function useLightbox() {
         flushSync(() => setOpen(false));
         thumb.style.viewTransitionName = vtName.current;
       });
-      // Clean up the name after animation finishes
-      transition.finished.then(() => {
-        thumb.style.viewTransitionName = "";
-      });
+      // Clean up the name after animation finishes (or fails)
+      transition.finished
+        .then(() => {
+          thumb.style.viewTransitionName = "";
+        })
+        .catch(() => {
+          thumb.style.viewTransitionName = "";
+        });
     } else {
       setOpen(false);
     }
@@ -326,17 +330,22 @@ function useBlobUrl(attachment: Attachment): string | null {
 
   useEffect(() => {
     if (attachment.source.type !== "data") return;
-    const binary = atob(attachment.source.value);
-    const bytes = new Uint8Array(binary.length);
-    for (let i = 0; i < binary.length; i++) {
-      bytes[i] = binary.charCodeAt(i);
+    try {
+      const binary = atob(attachment.source.value);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) {
+        bytes[i] = binary.charCodeAt(i);
+      }
+      const blob = new Blob([bytes], {
+        type: attachment.source.mimeType || "application/octet-stream",
+      });
+      const blobUrl = URL.createObjectURL(blob);
+      setUrl(blobUrl);
+      return () => URL.revokeObjectURL(blobUrl);
+    } catch (error) {
+      console.error("[CopilotKit] Failed to decode attachment data:", error);
+      setUrl(null);
     }
-    const blob = new Blob([bytes], {
-      type: attachment.source.mimeType || "application/octet-stream",
-    });
-    const blobUrl = URL.createObjectURL(blob);
-    setUrl(blobUrl);
-    return () => URL.revokeObjectURL(blobUrl);
   }, [attachment.source]);
 
   if (attachment.source.type === "url") return attachment.source.value;
@@ -392,13 +401,13 @@ function DocumentLightboxContent({
           <pre className="cpk:text-sm cpk:whitespace-pre-wrap cpk:break-words cpk:text-gray-800 cpk:dark:text-gray-200 cpk:font-mono cpk:m-0">
             {textContent}
           </pre>
-        ) : (
+        ) : blobUrl ? (
           <iframe
-            src={src}
+            src={blobUrl}
             title={attachment.filename || "Text preview"}
             className="cpk:w-full cpk:h-[80vh] cpk:border-none"
           />
-        )}
+        ) : null}
       </div>
     );
   }

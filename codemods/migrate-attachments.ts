@@ -126,9 +126,23 @@ export default function transform(file: FileInfo, api: API) {
     const properties = [];
 
     if (imageUploadsAttr) {
-      properties.push(
-        j.objectProperty(j.identifier("enabled"), j.booleanLiteral(true)),
-      );
+      let enabledExpr;
+      const val = imageUploadsAttr.value;
+      if (!val) {
+        // Shorthand: <CopilotChat imageUploadsEnabled /> means true
+        enabledExpr = j.booleanLiteral(true);
+      } else if (
+        val.type === "JSXExpressionContainer" &&
+        val.expression.type === "BooleanLiteral"
+      ) {
+        enabledExpr = j.booleanLiteral(val.expression.value);
+      } else if (val.type === "JSXExpressionContainer") {
+        // Dynamic expression — preserve as-is
+        enabledExpr = val.expression;
+      } else {
+        enabledExpr = j.booleanLiteral(true);
+      }
+      properties.push(j.objectProperty(j.identifier("enabled"), enabledExpr));
     }
 
     if (inputFileAcceptAttr) {

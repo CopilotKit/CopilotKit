@@ -304,6 +304,7 @@ export function CopilotChat({
         setSelectedAttachments((prev) =>
           prev.filter((att) => att.id !== placeholderId),
         );
+        console.error(`[CopilotKit] Failed to upload "${file.name}":`, error);
         attachmentsConfig?.onUploadFailed?.({
           reason: "upload-failed",
           file,

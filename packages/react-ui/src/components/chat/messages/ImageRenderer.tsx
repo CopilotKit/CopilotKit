@@ -5,6 +5,7 @@ import { ImageRendererProps } from "../props";
  * @deprecated Use `CopilotChatAttachmentRenderer` from `@copilotkit/react-core/v2` instead.
  * `ImageRenderer` only handles images. The v2 attachment renderer supports images, audio, video, and documents.
  * See https://docs.copilotkit.ai/troubleshooting/migrate-attachments
+ * @since 1.56.0
  */
 export const ImageRenderer: React.FC<ImageRendererProps> = ({
   image,

@@ -82,6 +82,34 @@ import { CopilotChat } from "@copilotkit/react-ui";
       expect(output).toContain("attachments={{");
     });
 
+    it("preserves imageUploadsEnabled={false}", () => {
+      const input = `
+import { CopilotChat } from "@copilotkit/react-ui";
+<CopilotChat imageUploadsEnabled={false} />;
+`;
+      const output = run(input);
+      expect(output).toContain("enabled: false");
+      expect(output).not.toContain("enabled: true");
+    });
+
+    it("preserves dynamic imageUploadsEnabled expression", () => {
+      const input = `
+import { CopilotChat } from "@copilotkit/react-ui";
+<CopilotChat imageUploadsEnabled={isEnabled} />;
+`;
+      const output = run(input);
+      expect(output).toContain("enabled: isEnabled");
+    });
+
+    it("handles shorthand imageUploadsEnabled (no value)", () => {
+      const input = `
+import { CopilotChat } from "@copilotkit/react-ui";
+<CopilotChat imageUploadsEnabled />;
+`;
+      const output = run(input);
+      expect(output).toContain("enabled: true");
+    });
+
     it("skips if attachments prop already exists", () => {
       const input = `
 import { CopilotChat } from "@copilotkit/react-ui";

@@ -216,7 +216,7 @@ export interface CopilotChatProps {
    * `imageUploadsEnabled` only supports images. The new `attachments` prop supports
    * images, audio, video, and documents.
    * See https://docs.copilotkit.ai/troubleshooting/migrate-attachments
-   * Since v1.x.0
+   * @since 1.56.0
    *
    * Enable image upload button (image inputs only supported on some models)
    */
@@ -226,7 +226,7 @@ export interface CopilotChatProps {
    * @deprecated Use `attachments={{ enabled: true, accept: "..." }}` instead.
    * The `accept` field on the `attachments` prop replaces `inputFileAccept`.
    * See https://docs.copilotkit.ai/troubleshooting/migrate-attachments
-   * Since v1.x.0
+   * @since 1.56.0
    *
    * The 'accept' attribute for the file input used for image uploads.
    * Defaults to "image/*".
@@ -381,7 +381,7 @@ export interface CopilotChatProps {
  * `ImageUpload` only described image payloads. `Attachment` supports images,
  * audio, video, and documents.
  * See https://docs.copilotkit.ai/troubleshooting/migrate-attachments
- * Since v1.x.0
+ * @since 1.56.0
  */
 export type ImageUpload = {
   contentType: string;

@@ -47,6 +47,7 @@ export type AIMessage = agui.AssistantMessage & {
   /**
    * @deprecated Use multimodal `content` array with `InputContent` parts instead.
    * See https://docs.copilotkit.ai/troubleshooting/migrate-attachments
+   * @since 1.56.0
    */
   image?: ImageData;
   runId?: string;
