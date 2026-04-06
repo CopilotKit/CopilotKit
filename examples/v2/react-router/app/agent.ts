@@ -25,13 +25,20 @@ function toChatMessages(messages: Message[]): ChatMessage[] {
   return messages
     .filter((m) => m.role !== "developer" && m.role !== "system")
     .map((m): ChatMessage => {
-      // Preserve multimodal content arrays (AG-UI InputContent[] maps
-      // directly to TanStack AI ContentPart[] — same shape)
+      // Convert AG-UI content to TanStack AI format.
+      // Text parts differ: AG-UI uses { type: "text", text } while
+      // TanStack AI uses { type: "text", content }. Multimodal parts
+      // (image, audio, video, document) share the same shape.
       let content: ChatMessage["content"];
       if (typeof m.content === "string") {
         content = m.content;
       } else if (Array.isArray(m.content)) {
-        content = m.content as Array<Record<string, unknown>>;
+        content = m.content.map((part: Record<string, unknown>) => {
+          if (part.type === "text" && "text" in part) {
+            return { type: "text", content: part.text };
+          }
+          return part;
+        });
       } else {
         content = null;
       }
