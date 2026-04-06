@@ -5,42 +5,82 @@ import { vi } from "vitest";
 import { CopilotKitProvider } from "../../../providers/CopilotKitProvider";
 import { CopilotChatConfigurationProvider } from "../../../providers/CopilotChatConfigurationProvider";
 import CopilotChatMessageView from "../CopilotChatMessageView";
-import {
+import type {
   ActivityMessage,
   AssistantMessage,
   Message,
+  ToolCall,
   UserMessage,
 } from "@ag-ui/core";
-import { ReactActivityMessageRenderer } from "../../../types";
+import type { ReactActivityMessageRenderer } from "../../../types";
+
+// ---------------------------------------------------------------------------
+// Shared constants & helpers
+// ---------------------------------------------------------------------------
+
+const AGENT_ID = "default";
+const THREAD_ID = "thread-test";
+
+/** Typed factory — avoids `as UserMessage` casts everywhere. */
+function userMsg(id: string, content: string) {
+  return { id, role: "user" as const, content };
+}
+
+/** Typed factory — avoids `as AssistantMessage` casts everywhere. */
+function assistantMsg(
+  id: string,
+  content?: string,
+  toolCalls?: ToolCall[],
+) {
+  return { id, role: "assistant" as const, content, toolCalls };
+}
+
+/** Typed factory — avoids `as ActivityMessage` casts everywhere. */
+function activityMsg(
+  id: string,
+  activityType: string,
+  content: ActivityMessage["content"],
+) {
+  return { id, role: "activity" as const, activityType, content };
+}
+
+/** Typed factory — avoids `as any` casts on tool call objects. */
+function toolCall(id: string, name: string, args = "{}") {
+  return {
+    id,
+    type: "function" as const,
+    function: { name, arguments: args },
+  };
+}
+
+/**
+ * Renders CopilotChatMessageView wrapped in the required providers.
+ * Unified helper used by all describe blocks in this file.
+ */
+function renderMessageView({
+  messages,
+  renderActivityMessages,
+}: {
+  messages: Message[];
+  renderActivityMessages?: ReactActivityMessageRenderer<{ percent: number }>[];
+}) {
+  return render(
+    <CopilotKitProvider renderActivityMessages={renderActivityMessages}>
+      <CopilotChatConfigurationProvider agentId={AGENT_ID} threadId={THREAD_ID}>
+        <CopilotChatMessageView messages={messages} />
+      </CopilotChatConfigurationProvider>
+    </CopilotKitProvider>,
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
 
 describe("CopilotChatMessageView activity rendering", () => {
-  const agentId = "default";
-  const threadId = "thread-test";
-
-  function renderMessageView({
-    messages,
-    renderActivityMessages,
-  }: {
-    messages: Message[];
-    renderActivityMessages?: ReactActivityMessageRenderer<any>[];
-  }) {
-    return render(
-      <CopilotKitProvider renderActivityMessages={renderActivityMessages}>
-        <CopilotChatConfigurationProvider agentId={agentId} threadId={threadId}>
-          <CopilotChatMessageView messages={messages} />
-        </CopilotChatConfigurationProvider>
-      </CopilotKitProvider>,
-    );
-  }
-
   it("renders activity messages via matching custom renderer", () => {
     const messages: Message[] = [
-      {
-        id: "act-1",
-        role: "activity",
-        activityType: "search-progress",
-        content: { percent: 42 },
-      } as ActivityMessage,
+      activityMsg("act-1", "search-progress", { percent: 42 }),
     ];
 
     const renderers: ReactActivityMessageRenderer<{ percent: number }>[] = [
@@ -62,12 +102,7 @@ describe("CopilotChatMessageView activity rendering", () => {
 
   it("skips rendering when no activity renderer matches", () => {
     const messages: Message[] = [
-      {
-        id: "act-2",
-        role: "activity",
-        activityType: "unknown-type",
-        content: { message: "should not render" },
-      } as ActivityMessage,
+      activityMsg("act-2", "unknown-type", { message: "should not render" }),
     ];
 
     renderMessageView({ messages, renderActivityMessages: [] });
@@ -77,61 +112,17 @@ describe("CopilotChatMessageView activity rendering", () => {
 });
 
 describe("CopilotChatMessageView duplicate message deduplication", () => {
-  const agentId = "default";
-  const threadId = "thread-test";
-
-  function renderMessageView({ messages }: { messages: Message[] }) {
-    return render(
-      <CopilotKitProvider>
-        <CopilotChatConfigurationProvider agentId={agentId} threadId={threadId}>
-          <CopilotChatMessageView messages={messages} />
-        </CopilotChatConfigurationProvider>
-      </CopilotKitProvider>,
-    );
-  }
-
   it("preserves assistant text content when later duplicate has empty content (multi-tool-call scenario)", () => {
     const messages: Message[] = [
-      {
-        id: "user-1",
-        role: "user",
-        content: "Record a headache",
-      } as UserMessage,
-      {
-        id: "assistant-1",
-        role: "assistant",
-        content: "Let me record that...",
-        toolCalls: [],
-      } as AssistantMessage,
-      {
-        id: "assistant-1",
-        role: "assistant",
-        content: "", // wiped by streaming tool-call update
-        toolCalls: [
-          {
-            id: "tc-1",
-            type: "function",
-            function: { name: "captureData", arguments: "{}" },
-          } as any,
-        ],
-      } as AssistantMessage,
-      {
-        id: "assistant-1",
-        role: "assistant",
-        content: "", // still empty on second tool call
-        toolCalls: [
-          {
-            id: "tc-1",
-            type: "function",
-            function: { name: "captureData", arguments: "{}" },
-          } as any,
-          {
-            id: "tc-2",
-            type: "function",
-            function: { name: "updateMemory", arguments: "{}" },
-          } as any,
-        ],
-      } as AssistantMessage,
+      userMsg("user-1", "Record a headache"),
+      assistantMsg("assistant-1", "Let me record that..."),
+      assistantMsg("assistant-1", "", [
+        toolCall("tc-1", "captureData"),
+      ]),
+      assistantMsg("assistant-1", "", [
+        toolCall("tc-1", "captureData"),
+        toolCall("tc-2", "updateMemory"),
+      ]),
     ];
 
     renderMessageView({ messages });
@@ -148,21 +139,9 @@ describe("CopilotChatMessageView duplicate message deduplication", () => {
 
   it("deduplicates messages with the same id, keeping the last occurrence", () => {
     const messages: Message[] = [
-      {
-        id: "user-1",
-        role: "user",
-        content: "Hello",
-      } as UserMessage,
-      {
-        id: "assistant-1",
-        role: "assistant",
-        content: "Partial response...",
-      } as AssistantMessage,
-      {
-        id: "assistant-1",
-        role: "assistant",
-        content: "Full response from the assistant.",
-      } as AssistantMessage,
+      userMsg("user-1", "Hello"),
+      assistantMsg("assistant-1", "Partial response..."),
+      assistantMsg("assistant-1", "Full response from the assistant."),
     ];
 
     const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
@@ -191,26 +170,10 @@ describe("CopilotChatMessageView duplicate message deduplication", () => {
 
   it("preserves order of unique messages", () => {
     const messages: Message[] = [
-      {
-        id: "user-1",
-        role: "user",
-        content: "First question",
-      } as UserMessage,
-      {
-        id: "assistant-1",
-        role: "assistant",
-        content: "First answer",
-      } as AssistantMessage,
-      {
-        id: "user-2",
-        role: "user",
-        content: "Second question",
-      } as UserMessage,
-      {
-        id: "assistant-2",
-        role: "assistant",
-        content: "Second answer",
-      } as AssistantMessage,
+      userMsg("user-1", "First question"),
+      assistantMsg("assistant-1", "First answer"),
+      userMsg("user-2", "Second question"),
+      assistantMsg("assistant-2", "Second answer"),
     ];
 
     renderMessageView({ messages });

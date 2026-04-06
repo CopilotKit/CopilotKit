@@ -8,6 +8,7 @@ import {
   AssistantMessage,
   Message,
   ReasoningMessage,
+  ToolMessage,
   UserMessage,
 } from "@ag-ui/core";
 import { twMerge } from "tailwind-merge";
@@ -15,6 +16,10 @@ import { useRenderActivityMessage, useRenderCustomMessages } from "../../hooks";
 import { getThreadClone } from "../../hooks/use-agent";
 import { useCopilotKit } from "../../providers/CopilotKitProvider";
 import { useCopilotChatConfiguration } from "../../providers/CopilotChatConfigurationProvider";
+
+function isToolMessage(m: Message): m is ToolMessage {
+  return m.role === "tool";
+}
 
 /**
  * Memoized wrapper for assistant messages to prevent re-renders when other messages change.
@@ -69,22 +74,19 @@ const MemoizedAssistantMessage = React.memo(
     if (prevToolCalls && prevToolCalls.length > 0) {
       const toolCallIds = new Set(prevToolCalls.map((tc) => tc.id));
 
-      const prevToolResults = prevProps.messages.filter(
-        (m) => m.role === "tool" && toolCallIds.has((m as any).toolCallId),
-      );
-      const nextToolResults = nextProps.messages.filter(
-        (m) => m.role === "tool" && toolCallIds.has((m as any).toolCallId),
-      );
+      const prevToolResults = prevProps.messages
+        .filter(isToolMessage)
+        .filter((m) => toolCallIds.has(m.toolCallId));
+      const nextToolResults = nextProps.messages
+        .filter(isToolMessage)
+        .filter((m) => toolCallIds.has(m.toolCallId));
 
       // If number of tool results changed, re-render
       if (prevToolResults.length !== nextToolResults.length) return false;
 
       // If any tool result content changed, re-render
       for (let i = 0; i < prevToolResults.length; i++) {
-        if (
-          (prevToolResults[i] as any).content !==
-          (nextToolResults[i] as any).content
-        )
+        if (prevToolResults[i].content !== nextToolResults[i].content)
           return false;
       }
     }
@@ -371,13 +373,8 @@ export function CopilotChatMessageView({
     if (!existing) {
       messageAccumulator.set(message.id, message);
     } else if (message.role === "assistant" && existing.role === "assistant") {
-      const content =
-        (message as AssistantMessage).content ||
-        (existing as AssistantMessage).content;
-      messageAccumulator.set(message.id, {
-        ...message,
-        content,
-      } as AssistantMessage);
+      const content = message.content || existing.content;
+      messageAccumulator.set(message.id, { ...message, content });
     } else {
       messageAccumulator.set(message.id, message);
     }
