@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   randomUUID,
   getModalityFromMimeType,
@@ -40,31 +40,42 @@ export interface UseAttachmentsReturn {
   /**
    * Consume ready attachments and clear the queue.
    * Returns the attachments that were ready; resets the file input.
+   * No-ops if the queue is already empty (no state update triggered).
    */
   consumeAttachments: () => Attachment[];
 }
 
+/**
+ * Hook that manages file attachment state — uploads, drag-and-drop, paste,
+ * and lifecycle. All returned callbacks are referentially stable across
+ * renders (via useCallback) to avoid destabilizing downstream memoization.
+ */
 export function useAttachments({
   config,
 }: UseAttachmentsProps): UseAttachmentsReturn {
   const enabled = config?.enabled ?? false;
-  const accept = config?.accept ?? "*/*";
-  const maxSize = config?.maxSize ?? 20 * 1024 * 1024;
 
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [dragOver, setDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const processFilesRef = useRef<(files: File[]) => Promise<void>>(
-    async () => {},
-  );
 
-  const processFiles = async (files: File[]) => {
+  // Keep a ref to the latest config so stable callbacks can read current
+  // values without appearing in dependency arrays.
+  const configRef = useRef(config);
+  configRef.current = config;
+
+  // Stable processFiles — reads config from ref, never changes identity
+  const processFiles = useCallback(async (files: File[]) => {
+    const cfg = configRef.current;
+    const accept = cfg?.accept ?? "*/*";
+    const maxSize = cfg?.maxSize ?? 20 * 1024 * 1024;
+
     const rejectedFiles = files.filter(
       (file) => !matchesAcceptFilter(file, accept),
     );
     for (const file of rejectedFiles) {
-      config?.onUploadFailed?.({
+      cfg?.onUploadFailed?.({
         reason: "invalid-type",
         file,
         message: `File "${file.name}" is not accepted. Supported types: ${accept}`,
@@ -77,7 +88,7 @@ export function useAttachments({
 
     for (const file of validFiles) {
       if (exceedsMaxSize(file, maxSize)) {
-        config?.onUploadFailed?.({
+        cfg?.onUploadFailed?.({
           reason: "file-too-large",
           file,
           message: `File "${file.name}" exceeds the maximum size of ${formatFileSize(maxSize)}`,
@@ -102,9 +113,8 @@ export function useAttachments({
         let source: Attachment["source"];
         let uploadMetadata: Record<string, unknown> | undefined;
 
-        if (config?.onUpload) {
-          const { metadata: meta, ...uploadSource } =
-            await config.onUpload(file);
+        if (cfg?.onUpload) {
+          const { metadata: meta, ...uploadSource } = await cfg.onUpload(file);
           source = uploadSource;
           uploadMetadata = meta;
         } else {
@@ -135,7 +145,7 @@ export function useAttachments({
           prev.filter((att) => att.id !== placeholderId),
         );
         console.error(`[CopilotKit] Failed to upload "${file.name}":`, error);
-        config?.onUploadFailed?.({
+        cfg?.onUploadFailed?.({
           reason: "upload-failed",
           file,
           message:
@@ -145,46 +155,51 @@ export function useAttachments({
         });
       }
     }
-  };
-  processFilesRef.current = processFiles;
+  }, []);
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!e.target.files?.length) return;
-    try {
-      await processFiles(Array.from(e.target.files));
-    } catch (error) {
-      console.error("[CopilotKit] Upload error:", error);
-    }
-  };
+  const handleFileUpload = useCallback(
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      if (!e.target.files?.length) return;
+      try {
+        await processFiles(Array.from(e.target.files));
+      } catch (error) {
+        console.error("[CopilotKit] Upload error:", error);
+      }
+    },
+    [processFiles],
+  );
 
-  const handleDragOver = (e: React.DragEvent) => {
-    if (!enabled) return;
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    if (!configRef.current?.enabled) return;
     e.preventDefault();
     e.stopPropagation();
     setDragOver(true);
-  };
+  }, []);
 
-  const handleDragLeave = (e: React.DragEvent) => {
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
     setDragOver(false);
-  };
+  }, []);
 
-  const handleDrop = async (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setDragOver(false);
-    if (!enabled) return;
+  const handleDrop = useCallback(
+    async (e: React.DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setDragOver(false);
+      if (!configRef.current?.enabled) return;
 
-    const files = Array.from(e.dataTransfer.files);
-    if (files.length > 0) {
-      try {
-        await processFiles(files);
-      } catch (error) {
-        console.error("[CopilotKit] Drop error:", error);
+      const files = Array.from(e.dataTransfer.files);
+      if (files.length > 0) {
+        try {
+          await processFiles(files);
+        } catch (error) {
+          console.error("[CopilotKit] Drop error:", error);
+        }
       }
-    }
-  };
+    },
+    [processFiles],
+  );
 
   // Clipboard paste handler — scoped to the container
   useEffect(() => {
@@ -194,6 +209,7 @@ export function useAttachments({
       const target = e.target as HTMLElement | null;
       if (!target || !containerRef.current?.contains(target)) return;
 
+      const accept = configRef.current?.accept ?? "*/*";
       const items = Array.from(e.clipboardData?.items || []);
       const fileItems = items.filter(
         (item) =>
@@ -210,7 +226,7 @@ export function useAttachments({
         .filter((f): f is File => f !== null);
 
       try {
-        await processFilesRef.current(files);
+        await processFiles(files);
       } catch (error) {
         console.error("[CopilotKit] Paste error:", error);
       }
@@ -218,18 +234,25 @@ export function useAttachments({
 
     document.addEventListener("paste", handlePaste);
     return () => document.removeEventListener("paste", handlePaste);
-  }, [enabled, accept]);
+  }, [enabled, processFiles]);
 
-  const removeAttachment = (id: string) => {
+  const removeAttachment = useCallback((id: string) => {
     setAttachments((prev) => prev.filter((a) => a.id !== id));
-  };
+  }, []);
 
-  const consumeAttachments = () => {
-    const ready = attachments.filter((a) => a.status === "ready");
-    setAttachments([]);
-    if (fileInputRef.current) fileInputRef.current.value = "";
+  const consumeAttachments = useCallback(() => {
+    let ready: Attachment[] = [];
+    setAttachments((prev) => {
+      ready = prev.filter((a) => a.status === "ready");
+      // Return same reference if already empty — avoids unnecessary re-render
+      if (prev.length === 0) return prev;
+      return [];
+    });
+    if (ready.length > 0 && fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
     return ready;
-  };
+  }, []);
 
   return {
     attachments,
