@@ -24,6 +24,7 @@ export const weatherAgent = new Agent({
       workingMemory: {
         enabled: true,
         schema: AgentState,
+        scope: "thread",
       },
     },
   }),
