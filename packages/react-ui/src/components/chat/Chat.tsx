@@ -215,7 +215,7 @@ export interface CopilotChatProps {
    * @deprecated Use `attachments={{ enabled: true }}` instead.
    * `imageUploadsEnabled` only supports images. The new `attachments` prop supports
    * images, audio, video, and documents.
-   * See https://docs.copilotkit.ai/troubleshooting/migrate-attachments
+   * See https://docs.copilotkit.ai/migration-guides/migrate-attachments
    * @since 1.56.0
    *
    * Enable image upload button (image inputs only supported on some models)
@@ -225,7 +225,7 @@ export interface CopilotChatProps {
   /**
    * @deprecated Use `attachments={{ enabled: true, accept: "..." }}` instead.
    * The `accept` field on the `attachments` prop replaces `inputFileAccept`.
-   * See https://docs.copilotkit.ai/troubleshooting/migrate-attachments
+   * See https://docs.copilotkit.ai/migration-guides/migrate-attachments
    * @since 1.56.0
    *
    * The 'accept' attribute for the file input used for image uploads.
@@ -334,7 +334,7 @@ export interface CopilotChatProps {
 
   /**
    * @deprecated Use the v2 `CopilotChat` attachment system instead.
-   * See https://docs.copilotkit.ai/troubleshooting/migrate-attachments
+   * See https://docs.copilotkit.ai/migration-guides/migrate-attachments
    *
    * A custom image rendering component to use instead of the default.
    */
@@ -380,7 +380,7 @@ export interface CopilotChatProps {
  * @deprecated Use the `Attachment` type from `@copilotkit/react-ui` instead.
  * `ImageUpload` only described image payloads. `Attachment` supports images,
  * audio, video, and documents.
- * See https://docs.copilotkit.ai/troubleshooting/migrate-attachments
+ * See https://docs.copilotkit.ai/migration-guides/migrate-attachments
  * @since 1.56.0
  */
 export type ImageUpload = {
@@ -446,7 +446,7 @@ export function CopilotChat({
       deprecationWarning(
         "imageUploadsEnabled",
         "imageUploadsEnabled is deprecated. Use attachments={{ enabled: true }} instead. " +
-          "See https://docs.copilotkit.ai/troubleshooting/migrate-attachments",
+          "See https://docs.copilotkit.ai/migration-guides/migrate-attachments",
       );
       return { enabled: true, accept: inputFileAccept || "image/*" };
     }

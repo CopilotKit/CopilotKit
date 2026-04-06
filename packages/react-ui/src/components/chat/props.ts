@@ -350,7 +350,7 @@ export interface RenderSuggestionsListProps {
 
 /**
  * @deprecated Use `CopilotChatAttachmentRenderer` from `@copilotkit/react-core/v2` instead.
- * See https://docs.copilotkit.ai/troubleshooting/migrate-attachments
+ * See https://docs.copilotkit.ai/migration-guides/migrate-attachments
  * @since 1.56.0
  */
 export interface ImageRendererProps {
@@ -358,7 +358,7 @@ export interface ImageRendererProps {
    * @deprecated Use `source` (type `InputContentSource`) instead.
    * `image` only carried base64 image data. `source` supports both data and URL
    * sources for any modality.
-   * See https://docs.copilotkit.ai/troubleshooting/migrate-attachments
+   * See https://docs.copilotkit.ai/migration-guides/migrate-attachments
    * @since 1.56.0
    */
   image?: ImageData;

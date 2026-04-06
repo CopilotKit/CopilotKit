@@ -119,7 +119,7 @@ function AttachmentPreview({ attachment }: { attachment: Attachment }) {
  * @deprecated Use `AttachmentQueue` from `@copilotkit/react-ui` instead.
  * `ImageUploadQueue` only displayed image previews. `AttachmentQueue` supports
  * images, audio, video, and documents.
- * See https://docs.copilotkit.ai/troubleshooting/migrate-attachments
+ * See https://docs.copilotkit.ai/migration-guides/migrate-attachments
  * @since 1.56.0
  */
 export { AttachmentQueue as ImageUploadQueue };

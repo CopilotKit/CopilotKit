@@ -18,7 +18,7 @@ export type {
  * @deprecated Use `InputContentSource` from `@ag-ui/core` (re-exported from `@copilotkit/shared`) instead.
  * `ImageData` only described base64 image payloads. `InputContentSource` supports
  * data and URL sources for images, audio, video, and documents.
- * See https://docs.copilotkit.ai/troubleshooting/migrate-attachments
+ * See https://docs.copilotkit.ai/migration-guides/migrate-attachments
  * @since 1.56.0
  */
 export interface ImageData {
@@ -46,7 +46,7 @@ export type AIMessage = agui.AssistantMessage & {
   state?: any;
   /**
    * @deprecated Use multimodal `content` array with `InputContent` parts instead.
-   * See https://docs.copilotkit.ai/troubleshooting/migrate-attachments
+   * See https://docs.copilotkit.ai/migration-guides/migrate-attachments
    * @since 1.56.0
    */
   image?: ImageData;
