@@ -1,4 +1,4 @@
-import { CopilotRuntimeLike } from "../../runtime";
+import { CopilotRuntimeLike } from "../../core/runtime";
 import { createSseEventResponse } from "../shared/sse-response";
 import { extractForwardableHeaders } from "../header-utils";
 

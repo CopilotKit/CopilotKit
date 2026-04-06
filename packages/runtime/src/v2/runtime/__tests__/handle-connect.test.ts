@@ -2,10 +2,9 @@ import { Observable } from "rxjs";
 import { describe, it, expect, vi } from "vitest";
 import { BaseEvent } from "@ag-ui/client";
 import { handleConnectAgent } from "../handlers/handle-connect";
-import { CopilotRuntime } from "../runtime";
+import { CopilotRuntime } from "../core/runtime";
 import { AgentRunnerConnectRequest } from "../runner/agent-runner";
 import { IntelligenceAgentRunner } from "../runner/intelligence";
-import { CopilotKitIntelligence } from "../intelligence-platform/client";
 
 describe("handleConnectAgent", () => {
   const createMockRuntime = (
@@ -207,9 +206,12 @@ describe("handleConnectAgent", () => {
         }),
       });
 
-    const createIntelligenceRuntime = (
-      platform?: Partial<CopilotKitIntelligence>,
-    ) => {
+    /** Loose mock type for CopilotKitIntelligence — avoids `as any` while the class has private fields. */
+    interface MockIntelligencePlatform {
+      [key: string]: ((...args: any[]) => any) | undefined;
+    }
+
+    const createIntelligenceRuntime = (platform?: MockIntelligencePlatform) => {
       const runner = Object.create(IntelligenceAgentRunner.prototype);
       runner.connect = vi.fn(
         () =>
@@ -240,7 +242,7 @@ describe("handleConnectAgent", () => {
           events: [],
         }),
       };
-      const runtime = createIntelligenceRuntime(platform as any);
+      const runtime = createIntelligenceRuntime(platform);
 
       const response = await handleConnectAgent({
         runtime,
@@ -272,7 +274,7 @@ describe("handleConnectAgent", () => {
           events: [{ type: "MESSAGES_SNAPSHOT", messages: [] }],
         }),
       };
-      const runtime = createIntelligenceRuntime(platform as any);
+      const runtime = createIntelligenceRuntime(platform);
 
       const response = await handleConnectAgent({
         runtime,
@@ -294,7 +296,7 @@ describe("handleConnectAgent", () => {
         ɵconnectThread: vi.fn().mockResolvedValue(null),
         createThread: vi.fn(),
       };
-      const runtime = createIntelligenceRuntime(platform as any);
+      const runtime = createIntelligenceRuntime(platform);
 
       const response = await handleConnectAgent({
         runtime,
@@ -318,7 +320,7 @@ describe("handleConnectAgent", () => {
           .fn()
           .mockRejectedValue(new Error("No active connect plan")),
       };
-      const runtime = createIntelligenceRuntime(platform as any);
+      const runtime = createIntelligenceRuntime(platform);
 
       const response = await handleConnectAgent({
         runtime,
@@ -335,7 +337,7 @@ describe("handleConnectAgent", () => {
       const platform = {
         ɵconnectThread: vi.fn().mockResolvedValue(null),
       };
-      const runtime = createIntelligenceRuntime(platform as any);
+      const runtime = createIntelligenceRuntime(platform);
 
       const response = await handleConnectAgent({
         runtime,
@@ -356,7 +358,7 @@ describe("handleConnectAgent", () => {
         ɵconnectThread: vi.fn().mockResolvedValue(null),
       };
       const identifyUser = vi.fn().mockResolvedValue({ id: "resolved-user" });
-      const runtime = createIntelligenceRuntime(platform as any);
+      const runtime = createIntelligenceRuntime(platform);
       runtime.identifyUser = identifyUser;
       const request = createConnectRequest(
         { "X-User-Id": "legacy-user" },
@@ -383,7 +385,7 @@ describe("handleConnectAgent", () => {
       const platform = {
         ɵconnectThread: vi.fn(),
       };
-      const runtime = createIntelligenceRuntime(platform as any);
+      const runtime = createIntelligenceRuntime(platform);
       runtime.identifyUser = vi.fn().mockResolvedValue({ id: "" });
 
       const response = await handleConnectAgent({
@@ -400,7 +402,7 @@ describe("handleConnectAgent", () => {
       const platform = {
         ɵconnectThread: vi.fn(),
       };
-      const runtime = createIntelligenceRuntime(platform as any);
+      const runtime = createIntelligenceRuntime(platform);
       runtime.identifyUser = vi
         .fn()
         .mockRejectedValue(new Error("auth failed"));
