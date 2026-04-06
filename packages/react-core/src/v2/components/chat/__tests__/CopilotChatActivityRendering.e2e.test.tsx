@@ -26,9 +26,9 @@ describe("CopilotChat activity message rendering", () => {
     }> = {
       activityType: "search-progress",
       content: z.object({ status: z.string(), percent: z.number() }),
-      render: ({ content, agent }) => (
+      render: ({ content, agent: rendererAgent }) => (
         <div data-testid="activity-card">
-          {content.status} · {content.percent}% · {agent?.agentId}
+          {content.status} · {content.percent}% · {rendererAgent?.agentId}
         </div>
       ),
     };

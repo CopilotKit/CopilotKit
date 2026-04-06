@@ -57,7 +57,8 @@ export function useRenderActivityMessage() {
       // Without this, button clicks accumulate messages on the registry agent
       // while CopilotChat displays from the clone — responses appear to vanish.
       const registryAgent = copilotkit.getAgent(agentId);
-      const agent = getThreadClone(registryAgent, config?.threadId) ?? registryAgent;
+      const agent =
+        getThreadClone(registryAgent, config?.threadId) ?? registryAgent;
 
       return (
         <Component
