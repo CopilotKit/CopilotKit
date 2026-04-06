@@ -277,6 +277,90 @@ const SUBPATH_TO_COMPONENT: Record<string, string> = {
     "troubleshooting/observability-connectors": "ObservabilityConnectors",
 };
 
+// ---------------------------------------------------------------------------
+// Convert markdown tables inside JSX container tags to HTML tables.
+// MDX treats content between JSX tags (like <Accordion>) as JSX, not markdown,
+// so markdown table syntax renders as raw pipe-delimited text. This function
+// finds those regions and converts the tables to HTML before MDX compilation.
+// ---------------------------------------------------------------------------
+
+const JSX_CONTAINER_TAGS = ["Accordion", "Tab"];
+
+function convertMarkdownTableToHtml(tableLines: string[]): string {
+    if (tableLines.length < 2) return tableLines.join("\n");
+
+    // Parse header row
+    const parseRow = (line: string): string[] =>
+        line.split("|").slice(1, -1).map((cell) => cell.trim());
+
+    const headers = parseRow(tableLines[0]);
+
+    // Verify separator row (line with dashes/colons)
+    const separatorLine = tableLines[1];
+    if (!/^\s*\|[\s:|-]+\|\s*$/.test(separatorLine)) {
+        return tableLines.join("\n");
+    }
+
+    const bodyRows = tableLines.slice(2).map(parseRow);
+
+    const headerHtml = headers
+        .map((h) => `<th style="padding:6px 12px;border:1px solid var(--border);text-align:left;font-size:0.875rem">${h}</th>`)
+        .join("");
+    const bodyHtml = bodyRows
+        .map(
+            (row) =>
+                "<tr>" +
+                row
+                    .map((cell) => `<td style="padding:6px 12px;border:1px solid var(--border);font-size:0.875rem">${cell}</td>`)
+                    .join("") +
+                "</tr>"
+        )
+        .join("\n");
+
+    return `<table style="width:100%;border-collapse:collapse;margin:0.75rem 0"><thead><tr>${headerHtml}</tr></thead><tbody>\n${bodyHtml}\n</tbody></table>`;
+}
+
+function convertTablesInJSX(content: string): string {
+    // Build a regex that matches content between opening and closing container tags
+    const tagPattern = JSX_CONTAINER_TAGS.join("|");
+    // Match: <Tag ...>content</Tag> — non-greedy, handles nested content line by line
+    const regex = new RegExp(
+        `(<(?:${tagPattern})[^>]*>)([\\s\\S]*?)(<\\/(?:${tagPattern})>)`,
+        "g"
+    );
+
+    return content.replace(regex, (match, openTag: string, inner: string, closeTag: string) => {
+        // Find markdown table patterns within this region
+        const lines = inner.split("\n");
+        const result: string[] = [];
+        let i = 0;
+
+        while (i < lines.length) {
+            const line = lines[i];
+            // Check if this line looks like a table row: starts with optional whitespace then |
+            if (/^\s*\|.+\|/.test(line)) {
+                // Collect consecutive table lines
+                const tableLines: string[] = [];
+                while (i < lines.length && /^\s*\|.+\|/.test(lines[i])) {
+                    tableLines.push(lines[i].trim());
+                    i++;
+                }
+                // Need at least header + separator (2 lines) to be a table
+                if (tableLines.length >= 2 && /^\s*\|[\s:|-]+\|\s*$/.test(tableLines[1])) {
+                    result.push(convertMarkdownTableToHtml(tableLines));
+                } else {
+                    result.push(...tableLines);
+                }
+            } else {
+                result.push(line);
+                i++;
+            }
+        }
+
+        return openTag + result.join("\n") + closeTag;
+    });
+}
+
 // Replace component tags (e.g. <CopilotRuntime />) with their snippet content.
 // Handles both single-component pages and tags embedded in mixed content.
 // slugPath is used to resolve <SharedContent /> in integration pages.
@@ -324,6 +408,32 @@ function inlineSnippets(content: string, slugPath: string = ""): string {
 
 const components = {
     Callout, Cards, Card, Accordions, Accordion, PropertyReference,
+    FeatureIntegrations: ({ feature }: { feature?: string }) => {
+        if (!feature) return null;
+        const reg = getRegistry();
+        const supporting = reg.integrations.filter(
+            (i) => i.deployed && i.features?.includes(feature)
+        );
+        if (supporting.length === 0) return null;
+        return (
+            <div className="my-6">
+                <div className="text-xs font-mono uppercase tracking-widest text-[var(--text-faint)] mb-2">
+                    Supported by
+                </div>
+                <div className="flex flex-wrap gap-2">
+                    {supporting.map((i) => (
+                        <Link
+                            key={i.slug}
+                            href={`/integrations/${i.slug}?demo=${feature}`}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-full border border-[var(--border)] bg-[var(--bg-surface)] text-[var(--text-secondary)] hover:border-[var(--accent)] hover:text-[var(--accent)] transition-colors"
+                        >
+                            {i.name}
+                        </Link>
+                    ))}
+                </div>
+            </div>
+        );
+    },
     InlineDemo: ({ integration, demo }: { integration?: string; demo?: string }) => {
         if (!integration || !demo) return null;
         const reg = getRegistry();
@@ -618,7 +728,8 @@ export default async function DocsPage({ params }: { params: Promise<{ slug?: st
 
     const source = fs.readFileSync(filePath, "utf-8");
     const rawContent = source.replace(/^---[\s\S]*?---\n?/, "");
-    const content = inlineSnippets(rawContent, slugPath);
+    const inlined = inlineSnippets(rawContent, slugPath);
+    const content = convertTablesInJSX(inlined);
     const titleMatch = source.match(/title:\s*["']?(.+?)["']?\s*$/m) || content.match(/^#\s+(.+)$/m);
     const title = titleMatch?.[1] || slugPath.split("/").pop()?.replace(/-/g, " ") || "Docs";
 
