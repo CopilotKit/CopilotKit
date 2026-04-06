@@ -460,7 +460,7 @@ def main():
         pattern = (
             args.pattern
             if args.pattern
-            else stack_cfg.get("pattern", "strands-single-agent")
+            else stack_cfg.get("pattern", "langgraph-single-agent")
         )
         print(f"Using pattern: {pattern}\n")
         print_section("LOCAL MODE - Auto-starting agent")

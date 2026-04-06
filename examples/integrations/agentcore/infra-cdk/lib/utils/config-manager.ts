@@ -109,7 +109,7 @@ export class ConfigManager {
         stack_name_base: stackNameBase,
         admin_user_email: parsedConfig.admin_user_email || null,
         backend: {
-          pattern: parsedConfig.backend?.pattern || "strands-single-agent",
+          pattern: parsedConfig.backend?.pattern || "langgraph-single-agent",
           deployment_type: deploymentType,
           network_mode: networkMode,
           vpc: vpcConfig,
