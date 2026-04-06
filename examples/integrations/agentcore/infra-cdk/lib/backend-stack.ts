@@ -488,29 +488,11 @@ export class BackendStack extends cdk.NestedStack {
   }
 
   private createAgentCoreGateway(config: AppConfig): void {
-    // Create sample tool Lambda
-    const toolLambda = new lambda.Function(this, "SampleToolLambda", {
-      runtime: lambda.Runtime.PYTHON_3_13,
-      handler: "sample_tool_lambda.handler",
-      code: lambda.Code.fromAsset(
-        path.join(__dirname, "../../gateway/tools/sample_tool"),
-      ),
-      timeout: cdk.Duration.seconds(30),
-      logGroup: new logs.LogGroup(this, "SampleToolLambdaLogGroup", {
-        logGroupName: `/aws/lambda/${config.stack_name_base}-sample-tool`,
-        retention: logs.RetentionDays.ONE_WEEK,
-        removalPolicy: cdk.RemovalPolicy.DESTROY,
-      }),
-    });
-
     // Create comprehensive IAM role for gateway
     const gatewayRole = new iam.Role(this, "GatewayRole", {
       assumedBy: new iam.ServicePrincipal("bedrock-agentcore.amazonaws.com"),
       description: "Role for AgentCore Gateway with comprehensive permissions",
     });
-
-    // Lambda invoke permission
-    toolLambda.grantInvoke(gatewayRole);
 
     // Bedrock permissions (region-agnostic)
     gatewayRole.addToPolicy(
@@ -563,15 +545,6 @@ export class BackendStack extends cdk.NestedStack {
           `arn:aws:logs:${this.region}:${this.account}:log-group:/aws/bedrock-agentcore/*`,
         ],
       }),
-    );
-
-    // Load tool specification from JSON file
-    const toolSpecPath = path.join(
-      __dirname,
-      "../../gateway/tools/sample_tool/tool_spec.json",
-    );
-    const apiSpec = JSON.parse(
-      require("fs").readFileSync(toolSpecPath, "utf8"),
     );
 
     // Cognito OAuth2 configuration for gateway
@@ -703,35 +676,7 @@ export class BackendStack extends cdk.NestedStack {
       description: "AgentCore Gateway with MCP protocol and JWT authentication",
     });
 
-    // Create Gateway Target using L1 construct (CfnGatewayTarget)
-    const gatewayTarget = new bedrockagentcore.CfnGatewayTarget(
-      this,
-      "GatewayTarget",
-      {
-        gatewayIdentifier: gateway.attrGatewayIdentifier,
-        name: "sample-tool-target",
-        description: "Sample tool Lambda target",
-        targetConfiguration: {
-          mcp: {
-            lambda: {
-              lambdaArn: toolLambda.functionArn,
-              toolSchema: {
-                inlinePayload: apiSpec,
-              },
-            },
-          },
-        },
-        credentialProviderConfigurations: [
-          {
-            credentialProviderType: "GATEWAY_IAM_ROLE",
-          },
-        ],
-      },
-    );
-
     // Ensure proper creation order
-    gatewayTarget.addDependency(gateway);
-    gateway.node.addDependency(toolLambda);
     gateway.node.addDependency(this.machineClient);
     gateway.node.addDependency(gatewayRole);
 
