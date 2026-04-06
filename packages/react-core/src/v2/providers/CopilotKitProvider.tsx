@@ -4,6 +4,7 @@ import type { AbstractAgent } from "@ag-ui/client";
 import type { FrontendTool } from "@copilotkit/core";
 import type React from "react";
 import {
+  Fragment,
   createContext,
   useContext,
   type ReactNode,
@@ -225,6 +226,55 @@ export interface CopilotKitProviderProps {
    * Defaults to `{ horizontal: "right", vertical: "top" }`.
    */
   inspectorDefaultAnchor?: Anchor;
+}
+
+/**
+ * Inner wrapper that holds the conditional siblings (A2UI, inspector, license
+ * banners) so that React attributes any list-key diagnostics to this component
+ * rather than to CopilotKitProvider itself.
+ */
+function CopilotKitProviderChildren({
+  children,
+  runtimeA2UIEnabled,
+  a2ui,
+  shouldRenderInspector,
+  copilotkit,
+  inspectorDefaultAnchor,
+  licenseWarningType,
+}: {
+  children: ReactNode;
+  runtimeA2UIEnabled: boolean;
+  a2ui?: CopilotKitProviderProps["a2ui"];
+  shouldRenderInspector: boolean;
+  copilotkit: any;
+  inspectorDefaultAnchor?: Anchor;
+  licenseWarningType: "no_license" | "expired" | "invalid" | "expiring" | null;
+}) {
+  return (
+    <>
+      {runtimeA2UIEnabled ? (
+        <A2UIBuiltInToolCallRenderer key="a2ui-tcr" />
+      ) : null}
+      {runtimeA2UIEnabled ? (
+        <A2UICatalogContext
+          key="a2ui-ctx"
+          catalog={a2ui?.catalog}
+          includeSchema={a2ui?.includeSchema}
+        />
+      ) : null}
+      <Fragment key="children">{children}</Fragment>
+      {shouldRenderInspector ? (
+        <CopilotKitInspector
+          key="inspector"
+          core={copilotkit}
+          defaultAnchor={inspectorDefaultAnchor}
+        />
+      ) : null}
+      {licenseWarningType ? (
+        <LicenseWarningBanner key="license" type={licenseWarningType} />
+      ) : null}
+    </>
+  );
 }
 
 // Small helper to normalize array props to a stable reference and warn
@@ -732,37 +782,31 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     [],
   );
 
+  const licenseWarningType =
+    runtimeLicenseStatus === "none" && !resolvedPublicKey
+      ? "no_license"
+      : runtimeLicenseStatus === "expired"
+        ? "expired"
+        : runtimeLicenseStatus === "invalid"
+          ? "invalid"
+          : runtimeLicenseStatus === "expiring"
+            ? "expiring"
+            : null;
+
   return (
     <SandboxFunctionsContext.Provider value={sandboxFunctionsList}>
       <CopilotKitContext.Provider value={contextValue}>
         <LicenseContext.Provider value={licenseContextValue}>
-          {runtimeA2UIEnabled && <A2UIBuiltInToolCallRenderer />}
-          {runtimeA2UIEnabled && (
-            <A2UICatalogContext
-              catalog={a2ui?.catalog}
-              includeSchema={a2ui?.includeSchema}
-            />
-          )}
-          {children}
-          {shouldRenderInspector ? (
-            <CopilotKitInspector
-              core={copilotkit}
-              defaultAnchor={inspectorDefaultAnchor}
-            />
-          ) : null}
-          {/* License warnings — driven by server-reported status */}
-          {runtimeLicenseStatus === "none" && !resolvedPublicKey && (
-            <LicenseWarningBanner type="no_license" />
-          )}
-          {runtimeLicenseStatus === "expired" && (
-            <LicenseWarningBanner type="expired" />
-          )}
-          {runtimeLicenseStatus === "invalid" && (
-            <LicenseWarningBanner type="invalid" />
-          )}
-          {runtimeLicenseStatus === "expiring" && (
-            <LicenseWarningBanner type="expiring" />
-          )}
+          <CopilotKitProviderChildren
+            runtimeA2UIEnabled={runtimeA2UIEnabled}
+            a2ui={a2ui}
+            shouldRenderInspector={shouldRenderInspector}
+            copilotkit={copilotkit}
+            inspectorDefaultAnchor={inspectorDefaultAnchor}
+            licenseWarningType={licenseWarningType}
+          >
+            {children}
+          </CopilotKitProviderChildren>
         </LicenseContext.Provider>
       </CopilotKitContext.Provider>
     </SandboxFunctionsContext.Provider>

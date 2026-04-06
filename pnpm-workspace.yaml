@@ -6,6 +6,7 @@ packages:
   - "examples/v2/react/*"
   - "examples/v2/angular/*"
   - "examples/showcases/generative-ui-playground"
+  - "examples/integrations/langgraph-python/apps/*"
   - "!examples/v1/_legacy"
 onlyBuiltDependencies:
   - better-sqlite3

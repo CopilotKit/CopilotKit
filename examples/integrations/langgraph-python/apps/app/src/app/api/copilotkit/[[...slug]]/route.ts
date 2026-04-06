@@ -1,6 +1,6 @@
 import {
   CopilotRuntime,
-  createCopilotEndpoint,
+  createCopilotEndpointSingleRoute,
   InMemoryAgentRunner,
 } from "@copilotkit/runtime/v2";
 import { LangGraphAgent } from "@copilotkit/runtime/langgraph";
@@ -31,7 +31,7 @@ const runtime = new CopilotRuntime({
   },
 });
 
-const app = createCopilotEndpoint({
+const app = createCopilotEndpointSingleRoute({
   runtime,
   basePath: "/api/copilotkit",
 });
