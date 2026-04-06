@@ -3183,6 +3183,16 @@ ${argsString}</pre
               .thread=${selectedThread}
               .runtimeUrl=${this._core?.runtimeUrl ?? ""}
               .headers=${this._core?.headers ?? {}}
+              .agentState=${
+                selectedThread
+                  ? (this.agentStates.get(selectedThread.agentId) ?? null)
+                  : null
+              }
+              .agentEvents=${
+                selectedThread
+                  ? (this.agentEvents.get(selectedThread.agentId) ?? [])
+                  : []
+              }
               @cpkback=${() => {
                 this.selectedThreadId = null;
                 this.requestUpdate();

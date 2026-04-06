@@ -93,73 +93,11 @@ export type ConversationItem =
   | ConversationStateUpdate
   | ConversationAgentResponded;
 
-export interface FakeAguiEvent {
+export interface AgentEvent {
   type: string;
-  timestamp: string;
+  timestamp: string | number;
   payload: Record<string, unknown>;
 }
-
-// ---- Fake data (agent state + AG-UI events remain static until live data is wired) --
-
-const FAKE_AGENT_STATE = {
-  thread_id: "c2f262b8-4b3e-4d9e-9d7c-8348c8cc0f67",
-  agent: "default",
-  status: "idle",
-  state: {
-    topic: "future of AI",
-    sources_searched: ["web", "image", "video", "news"],
-    response_ready: true,
-    last_query: "Pulumi enterprise adoption 2025 developer sentiment",
-  },
-};
-
-const FAKE_AGUI_EVENTS: FakeAguiEvent[] = [
-  {
-    type: "RUN_STARTED",
-    timestamp: new Date(Date.now() - 10 * 60 * 1000).toISOString(),
-    payload: {
-      run_id: "run-aaa",
-      thread_id: "c2f262b8-4b3e-4d9e-9d7c-8348c8cc0f67",
-    },
-  },
-  {
-    type: "TEXT_MESSAGE_START",
-    timestamp: new Date(Date.now() - 9 * 60 * 1000).toISOString(),
-    payload: { message_id: "item-1", role: "user" },
-  },
-  {
-    type: "TOOL_CALL_START",
-    timestamp: new Date(Date.now() - 9 * 60 * 1000).toISOString(),
-    payload: { tool_call_id: "call_01J9Z4X8W2Y7TQ", tool_name: "web_search" },
-  },
-  {
-    type: "TOOL_CALL_RESULT",
-    timestamp: new Date(Date.now() - 8 * 60 * 1000).toISOString(),
-    payload: {
-      tool_call_id: "call_01J9Z4X8W2Y7TQ",
-      status: "success",
-      latency_ms: 842,
-    },
-  },
-  {
-    type: "STATE_SNAPSHOT",
-    timestamp: new Date(Date.now() - 5 * 60 * 1000).toISOString(),
-    payload: {
-      topic: "future of AI",
-      sources_searched: ["web", "image", "video", "news"],
-    },
-  },
-  {
-    type: "TEXT_MESSAGE_START",
-    timestamp: new Date(Date.now() - 4 * 60 * 1000).toISOString(),
-    payload: { message_id: "item-9", role: "assistant" },
-  },
-  {
-    type: "RUN_FINISHED",
-    timestamp: new Date(Date.now() - 4 * 60 * 1000).toISOString(),
-    payload: { run_id: "run-aaa", status: "success" },
-  },
-];
 
 // ---- Component --------------------------------------------------------------
 
@@ -396,13 +334,13 @@ type Tab = "conversation" | "agent-state" | "ag-ui-events";
           <ng-container *ngIf="activeTab() === 'agent-state'">
             <pre
               class="cpk-td__json"
-              [innerHTML]="highlightedJson(agentState)"
+              [innerHTML]="highlightedJson(agentState())"
             ></pre>
           </ng-container>
 
           <!-- ── AG-UI Events tab ── -->
           <ng-container *ngIf="activeTab() === 'ag-ui-events'">
-            <div *ngFor="let event of aguiEvents" class="cpk-td__event">
+            <div *ngFor="let event of aguiEvents()" class="cpk-td__event">
               <div class="cpk-td__event-header">
                 <span class="cpk-td__event-type">{{ event.type }}</span>
                 <span class="cpk-td__event-time">{{
@@ -865,6 +803,12 @@ export class ThreadDetailsComponent {
   conversationOverride = input<ConversationItem[] | null>(null);
   /** Which tab to show on mount (and after threadId changes). Defaults to "conversation". */
   initialTab = input<Tab>("conversation");
+  /** Live agent state from the inspector (keyed by agentId). Null = no state yet. */
+  agentStateInput = input<Record<string, unknown> | null>(null, {
+    alias: "agentState",
+  });
+  /** Live AG-UI events from the inspector for this thread's agent. */
+  agentEventsInput = input<AgentEvent[]>([], { alias: "agentEvents" });
 
   readonly TAB_LIST: { id: Tab; label: string }[] = [
     { id: "conversation", label: "Conversation" },
@@ -878,8 +822,8 @@ export class ThreadDetailsComponent {
   isLoadingMessages = signal(false);
   messagesError = signal<string | null>(null);
 
-  agentState = FAKE_AGENT_STATE;
-  aguiEvents: FakeAguiEvent[] = FAKE_AGUI_EVENTS;
+  agentState = computed(() => this.agentStateInput() ?? {});
+  aguiEvents = computed(() => this.agentEventsInput());
 
   private fetchAbortController: AbortController | null = null;
 
