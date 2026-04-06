@@ -64,6 +64,19 @@ function getMediaParts(content: UserMessage["content"]): MediaPart[] {
   );
 }
 
+function getFilename(part: MediaPart): string | undefined {
+  const meta = part.metadata;
+  if (
+    meta != null &&
+    typeof meta === "object" &&
+    "filename" in meta &&
+    typeof meta.filename === "string"
+  ) {
+    return meta.filename;
+  }
+  return undefined;
+}
+
 export interface CopilotChatUserMessageOnEditMessageProps {
   message: UserMessage;
 }
@@ -214,6 +227,7 @@ export function CopilotChatUserMessage({
               key={index}
               type={part.type}
               source={part.source}
+              filename={getFilename(part)}
             />
           ))}
         </div>

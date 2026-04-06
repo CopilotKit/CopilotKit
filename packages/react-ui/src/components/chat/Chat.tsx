@@ -333,6 +333,9 @@ export interface CopilotChatProps {
   Input?: React.ComponentType<InputProps>;
 
   /**
+   * @deprecated Use the v2 `CopilotChat` attachment system instead.
+   * See https://docs.copilotkit.ai/troubleshooting/migrate-attachments
+   *
    * A custom image rendering component to use instead of the default.
    */
   ImageRenderer?: React.ComponentType<ImageRendererProps>;
@@ -966,9 +969,9 @@ export function CopilotChat({
           <>
             <AttachmentQueue
               attachments={selectedAttachments}
-              onRemoveAttachment={(index) =>
+              onRemoveAttachment={(id) =>
                 setSelectedAttachments((prev) =>
-                  prev.filter((_, i) => i !== index),
+                  prev.filter((att) => att.id !== id),
                 )
               }
             />

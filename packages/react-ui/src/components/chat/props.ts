@@ -348,6 +348,10 @@ export interface RenderSuggestionsListProps {
   isLoading: boolean;
 }
 
+/**
+ * @deprecated Use `CopilotChatAttachmentRenderer` from `@copilotkit/react-core/v2` instead.
+ * See https://docs.copilotkit.ai/troubleshooting/migrate-attachments
+ */
 export interface ImageRendererProps {
   /**
    * @deprecated Use `source` (type `InputContentSource`) instead.

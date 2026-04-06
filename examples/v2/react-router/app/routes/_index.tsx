@@ -39,6 +39,13 @@ export default function Index() {
             agentId={agentType}
             className="h-full w-full"
             attachments={{ enabled: true }}
+            onError={(event) => {
+              console.error(
+                "[CopilotChat] Error:",
+                event.code,
+                event.error.message,
+              );
+            }}
           />
         </div>
       </div>

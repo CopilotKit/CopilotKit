@@ -354,7 +354,7 @@ function convertUserMessageContent(
             parts.push({
               type: "file",
               data: new URL(source.value),
-              mediaType: source.mimeType,
+              mediaType: source.mimeType ?? "application/octet-stream",
             });
           } catch {
             console.error(

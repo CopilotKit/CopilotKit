@@ -18,7 +18,7 @@ import {
   useStickToBottom,
   useStickToBottomContext,
 } from "use-stick-to-bottom";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, Upload } from "lucide-react";
 import { Button } from "../../components/ui/button";
 import { cn } from "../../lib/utils";
 import {
@@ -83,6 +83,24 @@ export type CopilotChatViewProps = WithSlots<
     disclaimer?: SlotValue<React.FC<React.HTMLAttributes<HTMLDivElement>>>;
   } & React.HTMLAttributes<HTMLDivElement>
 >;
+
+function DropOverlay() {
+  return (
+    <div
+      className={cn(
+        "cpk:absolute cpk:inset-0 cpk:z-50 cpk:pointer-events-none",
+        "cpk:flex cpk:items-center cpk:justify-center",
+        "cpk:bg-primary/5 cpk:backdrop-blur-[2px]",
+        "cpk:border-2 cpk:border-dashed cpk:border-primary/40 cpk:rounded-lg cpk:m-2",
+      )}
+    >
+      <div className="cpk:flex cpk:flex-col cpk:items-center cpk:gap-2 cpk:text-primary/70">
+        <Upload className="cpk:w-8 cpk:h-8" />
+        <span className="cpk:text-sm cpk:font-medium">Drop files here</span>
+      </div>
+    </div>
+  );
+}
 
 export function CopilotChatView({
   messageView,
@@ -258,11 +276,25 @@ export function CopilotChatView({
     const welcomeScreenSlot = (
       welcomeScreen === true ? undefined : welcomeScreen
     ) as SlotValue<React.FC<WelcomeScreenProps>> | undefined;
+    // Wrap the input with attachment queue above it
+    const inputWithAttachments = (
+      <div className="cpk:w-full">
+        {attachments && attachments.length > 0 && (
+          <CopilotChatAttachmentQueue
+            attachments={attachments}
+            onRemoveAttachment={(id) => onRemoveAttachment?.(id)}
+            className="cpk:mb-2"
+          />
+        )}
+        {BoundInputForWelcome}
+      </div>
+    );
+
     const BoundWelcomeScreen = renderSlot(
       welcomeScreenSlot,
       CopilotChatView.WelcomeScreen,
       {
-        input: BoundInputForWelcome,
+        input: inputWithAttachments,
         suggestionView: BoundSuggestionView ?? <></>,
       },
     );
@@ -277,12 +309,11 @@ export function CopilotChatView({
         onDrop={onDrop}
         className={cn(
           "copilotKitChat cpk:relative cpk:h-full cpk:flex cpk:flex-col",
-          dragOver &&
-            "cpk:outline-dashed cpk:outline-2 cpk:outline-primary cpk:-outline-offset-4 cpk:rounded-lg",
           className,
         )}
         {...props}
       >
+        {dragOver && <DropOverlay />}
         {BoundWelcomeScreen}
       </div>
     );
@@ -311,21 +342,22 @@ export function CopilotChatView({
       onDrop={onDrop}
       className={cn(
         "copilotKitChat cpk:relative cpk:h-full cpk:flex cpk:flex-col",
-        dragOver &&
-          "cpk:outline-dashed cpk:outline-2 cpk:outline-primary cpk:-outline-offset-4 cpk:rounded-lg",
         className,
       )}
       {...props}
     >
+      {dragOver && <DropOverlay />}
       {BoundScrollView}
 
-      {attachments && attachments.length > 0 && (
-        <CopilotChatAttachmentQueue
-          attachments={attachments}
-          onRemoveAttachment={onRemoveAttachment!}
-          className="cpk:px-4"
-        />
-      )}
+      <div className="cpk:max-w-3xl cpk:mx-auto cpk:w-full">
+        {attachments && attachments.length > 0 && (
+          <CopilotChatAttachmentQueue
+            attachments={attachments}
+            onRemoveAttachment={(id) => onRemoveAttachment?.(id)}
+            className="cpk:px-4"
+          />
+        )}
+      </div>
 
       {BoundInput}
     </div>

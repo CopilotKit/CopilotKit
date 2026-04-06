@@ -53,12 +53,15 @@ export function readFileAsBase64(file: File): Promise<string> {
 }
 
 /**
- * Generate a thumbnail data URL from a video file by capturing the first frame.
- * Returns undefined if thumbnail generation fails.
+ * Generate a thumbnail data URL from a video file by capturing a frame near the start (at 0.1s).
+ * Returns undefined if thumbnail generation fails or if called outside a browser environment.
  */
 export function generateVideoThumbnail(
   file: File,
 ): Promise<string | undefined> {
+  if (typeof document === "undefined") {
+    return Promise.resolve(undefined);
+  }
   return new Promise((resolve) => {
     let resolved = false;
     const video = document.createElement("video");
@@ -118,13 +121,16 @@ export function generateVideoThumbnail(
 
 /**
  * Check if a file's MIME type matches an accept filter string.
- * Handles wildcards like "image/*" and comma-separated lists.
+ * Handles file extensions (e.g. ".pdf"), MIME wildcards ("image/*"), and comma-separated lists.
  */
 export function matchesAcceptFilter(file: File, accept: string): boolean {
   if (!accept || accept === "*/*") return true;
 
   const filters = accept.split(",").map((f) => f.trim());
   return filters.some((filter) => {
+    if (filter.startsWith(".")) {
+      return (file.name ?? "").toLowerCase().endsWith(filter.toLowerCase());
+    }
     if (filter.endsWith("/*")) {
       const prefix = filter.slice(0, -2);
       return file.type.startsWith(prefix + "/");
@@ -149,10 +155,10 @@ export function getSourceUrl(source: InputContentSource): string {
  */
 export function getDocumentIcon(mimeType: string): string {
   if (mimeType.includes("pdf")) return "PDF";
-  if (mimeType.includes("word") || mimeType.includes("document")) return "DOC";
   if (mimeType.includes("sheet") || mimeType.includes("excel")) return "XLS";
   if (mimeType.includes("presentation") || mimeType.includes("powerpoint"))
     return "PPT";
+  if (mimeType.includes("word") || mimeType.includes("document")) return "DOC";
   if (mimeType.includes("text/")) return "TXT";
   return "FILE";
 }

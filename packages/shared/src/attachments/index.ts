@@ -1,5 +1,8 @@
 export type {
   AttachmentsConfig,
+  AttachmentUploadResult,
+  AttachmentUploadError,
+  AttachmentUploadErrorReason,
   Attachment,
   AttachmentModality,
 } from "./types";

@@ -6,6 +6,7 @@ import { cn } from "../../lib/utils";
 interface CopilotChatAttachmentRendererProps {
   type: "image" | "audio" | "video" | "document";
   source: InputContentSource;
+  filename?: string;
   className?: string;
 }
 
@@ -43,7 +44,7 @@ function ImageAttachment({
 
 export const CopilotChatAttachmentRenderer: React.FC<
   CopilotChatAttachmentRendererProps
-> = ({ type, source, className }) => {
+> = ({ type, source, filename, className }) => {
   const src = getSourceUrl(source);
 
   switch (type) {
@@ -51,12 +52,19 @@ export const CopilotChatAttachmentRenderer: React.FC<
       return <ImageAttachment src={src} className={className} />;
     case "audio":
       return (
-        <audio
-          src={src}
-          controls
-          preload="metadata"
-          className={cn("cpk:max-w-[300px] cpk:w-full cpk:h-10", className)}
-        />
+        <div className={cn("cpk:flex cpk:flex-col cpk:gap-1", className)}>
+          <audio
+            src={src}
+            controls
+            preload="metadata"
+            className="cpk:max-w-[300px] cpk:w-full cpk:h-10"
+          />
+          {filename && (
+            <span className="cpk:text-xs cpk:text-muted-foreground cpk:truncate cpk:max-w-[300px]">
+              {filename}
+            </span>
+          )}
+        </div>
       );
     case "video":
       return (
@@ -81,8 +89,8 @@ export const CopilotChatAttachmentRenderer: React.FC<
           <span className="cpk:text-xs cpk:font-bold cpk:uppercase">
             {getDocumentIcon(source.mimeType ?? "")}
           </span>
-          <span className="cpk:text-sm cpk:text-muted-foreground">
-            {source.mimeType || "Unknown type"}
+          <span className="cpk:text-sm cpk:text-muted-foreground cpk:truncate">
+            {filename || source.mimeType || "Unknown type"}
           </span>
         </div>
       );

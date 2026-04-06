@@ -1,10 +1,14 @@
 import React from "react";
 import type { Attachment } from "./props";
-import { formatFileSize } from "./attachment-utils";
+import {
+  formatFileSize,
+  getSourceUrl,
+  getDocumentIcon,
+} from "@copilotkit/shared";
 
 interface AttachmentQueueProps {
   attachments: Attachment[];
-  onRemoveAttachment: (index: number) => void;
+  onRemoveAttachment: (id: string) => void;
   className?: string;
 }
 
@@ -17,9 +21,9 @@ export const AttachmentQueue: React.FC<AttachmentQueueProps> = ({
 
   return (
     <div className={`copilotKitAttachmentQueue ${className}`}>
-      {attachments.map((attachment, index) => (
+      {attachments.map((attachment) => (
         <div
-          key={index}
+          key={attachment.id}
           className={`copilotKitAttachmentQueueItem copilotKitAttachmentQueueItem--${attachment.type}`}
         >
           {attachment.status === "uploading" && (
@@ -29,7 +33,7 @@ export const AttachmentQueue: React.FC<AttachmentQueueProps> = ({
           )}
           <AttachmentPreview attachment={attachment} />
           <button
-            onClick={() => onRemoveAttachment(index)}
+            onClick={() => onRemoveAttachment(attachment.id)}
             className="copilotKitAttachmentQueueRemoveButton"
             aria-label="Remove attachment"
           >
@@ -46,7 +50,7 @@ function AttachmentPreview({ attachment }: { attachment: Attachment }) {
     return <div className="copilotKitAttachmentQueuePreviewPlaceholder" />;
   }
 
-  const src = getSourceUrl(attachment);
+  const src = getSourceUrl(attachment.source);
 
   switch (attachment.type) {
     case "image":
@@ -111,29 +115,11 @@ function AttachmentPreview({ attachment }: { attachment: Attachment }) {
   }
 }
 
-function getSourceUrl(attachment: Attachment): string {
-  if (attachment.source.type === "url") {
-    return attachment.source.value;
-  }
-  const mimeType = attachment.source.mimeType;
-  return `data:${mimeType};base64,${attachment.source.value}`;
-}
-
-function getDocumentIcon(mimeType: string): string {
-  if (mimeType.includes("pdf")) return "PDF";
-  if (mimeType.includes("word") || mimeType.includes("document")) return "DOC";
-  if (mimeType.includes("sheet") || mimeType.includes("excel")) return "XLS";
-  if (mimeType.includes("presentation") || mimeType.includes("powerpoint"))
-    return "PPT";
-  if (mimeType.includes("text/")) return "TXT";
-  return "FILE";
-}
-
 /**
  * @deprecated Use `AttachmentQueue` from `@copilotkit/react-ui` instead.
  * `ImageUploadQueue` only displayed image previews. `AttachmentQueue` supports
  * images, audio, video, and documents.
  * See https://docs.copilotkit.ai/troubleshooting/migrate-attachments
- * Since v1.x.0
+ * @since 1.56.0
  */
 export { AttachmentQueue as ImageUploadQueue };

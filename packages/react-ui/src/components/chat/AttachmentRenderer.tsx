@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import type { InputContentSource } from "@copilotkit/shared";
+import { getSourceUrl, getDocumentIcon } from "@copilotkit/shared";
 
 interface AttachmentRendererProps {
   type: "image" | "audio" | "video" | "document";
@@ -97,21 +98,4 @@ function ImageAttachment({
       )}
     </div>
   );
-}
-
-function getSourceUrl(source: InputContentSource): string {
-  if (source.type === "url") {
-    return source.value;
-  }
-  return `data:${source.mimeType};base64,${source.value}`;
-}
-
-function getDocumentIcon(mimeType: string): string {
-  if (mimeType.includes("pdf")) return "PDF";
-  if (mimeType.includes("word") || mimeType.includes("document")) return "DOC";
-  if (mimeType.includes("sheet") || mimeType.includes("excel")) return "XLS";
-  if (mimeType.includes("presentation") || mimeType.includes("powerpoint"))
-    return "PPT";
-  if (mimeType.includes("text/")) return "TXT";
-  return "FILE";
 }

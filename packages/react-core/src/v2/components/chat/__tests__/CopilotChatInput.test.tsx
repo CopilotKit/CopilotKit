@@ -742,7 +742,7 @@ describe("CopilotChatInput", () => {
     });
 
     const menuItem = await screen.findByRole("menuitem", {
-      name: "Add photos or files",
+      name: "Add attachments",
     });
     fireEvent.click(menuItem);
 

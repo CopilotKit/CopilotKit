@@ -168,6 +168,7 @@ export function CopilotChat({
   );
   const [dragOver, setDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const chatContainerRef = useRef<HTMLDivElement>(null);
   const processFilesRef = useRef<(files: File[]) => Promise<void>>(
     async () => {},
   );
@@ -229,21 +230,28 @@ export function CopilotChat({
   // --- Attachment logic ---
 
   const processFiles = async (files: File[]) => {
+    const rejectedFiles = files.filter(
+      (file) => !matchesAcceptFilter(file, attachmentsAccept),
+    );
+    for (const file of rejectedFiles) {
+      attachmentsConfig?.onUploadFailed?.({
+        reason: "invalid-type",
+        file,
+        message: `File "${file.name}" is not accepted. Supported types: ${attachmentsAccept}`,
+      });
+    }
+
     const validFiles = files.filter((file) =>
       matchesAcceptFilter(file, attachmentsAccept),
     );
-    const rejectedCount = files.length - validFiles.length;
-    if (rejectedCount > 0) {
-      console.error(
-        `[CopilotKit] ${rejectedCount} file(s) not accepted. Supported types: ${attachmentsAccept}`,
-      );
-    }
 
     for (const file of validFiles) {
       if (exceedsMaxSize(file, attachmentsMaxSize)) {
-        console.error(
-          `[CopilotKit] File "${file.name}" exceeds the maximum size of ${formatFileSize(attachmentsMaxSize)}`,
-        );
+        attachmentsConfig?.onUploadFailed?.({
+          reason: "file-too-large",
+          file,
+          message: `File "${file.name}" exceeds the maximum size of ${formatFileSize(attachmentsMaxSize)}`,
+        });
         continue;
       }
 
@@ -262,22 +270,13 @@ export function CopilotChat({
 
       try {
         let source: Attachment["source"];
+        let uploadMetadata: Record<string, unknown> | undefined;
 
         if (attachmentsConfig?.onUpload) {
-          const result = await attachmentsConfig.onUpload(file);
-          if ("data" in result) {
-            source = {
-              type: "data",
-              value: result.data,
-              mimeType: result.mimeType,
-            };
-          } else {
-            source = {
-              type: "url",
-              value: result.url,
-              mimeType: result.mimeType ?? file.type,
-            };
-          }
+          const { metadata: meta, ...uploadSource } =
+            await attachmentsConfig.onUpload(file);
+          source = uploadSource;
+          uploadMetadata = meta;
         } else {
           const base64 = await readFileAsBase64(file);
           source = { type: "data", value: base64, mimeType: file.type };
@@ -291,7 +290,13 @@ export function CopilotChat({
         setSelectedAttachments((prev) =>
           prev.map((att) =>
             att.id === placeholderId
-              ? { ...att, source, status: "ready" as const, thumbnail }
+              ? {
+                  ...att,
+                  source,
+                  status: "ready" as const,
+                  thumbnail,
+                  metadata: uploadMetadata,
+                }
               : att,
           ),
         );
@@ -299,7 +304,14 @@ export function CopilotChat({
         setSelectedAttachments((prev) =>
           prev.filter((att) => att.id !== placeholderId),
         );
-        console.error(`[CopilotKit] Failed to upload "${file.name}":`, error);
+        attachmentsConfig?.onUploadFailed?.({
+          reason: "upload-failed",
+          file,
+          message:
+            error instanceof Error
+              ? error.message
+              : `Failed to upload "${file.name}"`,
+        });
       }
     }
   };
@@ -344,11 +356,15 @@ export function CopilotChat({
     }
   };
 
-  // Clipboard paste handler
+  // Clipboard paste handler — scoped to the chat container
   useEffect(() => {
     if (!attachmentsEnabled) return;
 
     const handlePaste = async (e: ClipboardEvent) => {
+      // Only intercept pastes targeting elements inside this chat
+      const target = e.target as HTMLElement | null;
+      if (!target || !chatContainerRef.current?.contains(target)) return;
+
       const items = Array.from(e.clipboardData?.items || []);
       const fileItems = items.filter(
         (item) =>
@@ -405,6 +421,10 @@ export function CopilotChat({
           contentParts.push({
             type: att.type,
             source: att.source,
+            metadata: {
+              ...(att.filename ? { filename: att.filename } : {}),
+              ...att.metadata,
+            },
           } as InputContent);
         }
         agent.addMessage({
@@ -599,10 +619,21 @@ export function CopilotChat({
   // Memoize messages array - only create new reference when content actually changes
   // (agent.messages is mutated in place, so we need a new reference for React to detect changes)
 
-  const messages = useMemo(
-    () => [...agent.messages],
-    [JSON.stringify(agent.messages)],
-  );
+  // Use message id + role + content length as memo key instead of JSON.stringify
+  // to avoid serializing large base64 content on every render while still detecting
+  // content changes during streaming
+  const messagesMemoKey = agent.messages
+    .map((m) => {
+      const contentLen =
+        typeof m.content === "string"
+          ? m.content.length
+          : Array.isArray(m.content)
+            ? m.content.length
+            : 0;
+      return `${m.id}:${m.role}:${contentLen}`;
+    })
+    .join(",");
+  const messages = useMemo(() => [...agent.messages], [messagesMemoKey]);
 
   const finalProps = merge(mergedProps, {
     messages,
@@ -624,7 +655,12 @@ export function CopilotChat({
     onRemoveAttachment: (id: string) =>
       setSelectedAttachments((prev) => prev.filter((a) => a.id !== id)),
     onAddFile: attachmentsEnabled
-      ? () => fileInputRef.current?.click()
+      ? () => {
+          // Delay to let Radix dropdown menu close before triggering file input
+          setTimeout(() => {
+            fileInputRef.current?.click();
+          }, 100);
+        }
       : undefined,
     dragOver,
     onDragOver: handleDragOver,
@@ -643,36 +679,38 @@ export function CopilotChat({
       labels={labels}
       isModalDefaultOpen={isModalDefaultOpen}
     >
-      {attachmentsEnabled && (
-        <input
-          type="file"
-          multiple
-          ref={fileInputRef}
-          onChange={handleFileUpload}
-          accept={attachmentsAccept}
-          style={{ display: "none" }}
-        />
-      )}
-      {!isChatLicensed && <InlineFeatureWarning featureName="Chat" />}
-      {transcriptionError && (
-        <div
-          style={{
-            position: "absolute",
-            bottom: "100px",
-            left: "50%",
-            transform: "translateX(-50%)",
-            backgroundColor: "#ef4444",
-            color: "white",
-            padding: "8px 16px",
-            borderRadius: "8px",
-            fontSize: "14px",
-            zIndex: 50,
-          }}
-        >
-          {transcriptionError}
-        </div>
-      )}
-      {RenderedChatView}
+      <div ref={chatContainerRef} style={{ display: "contents" }}>
+        {attachmentsEnabled && (
+          <input
+            type="file"
+            multiple
+            ref={fileInputRef}
+            onChange={handleFileUpload}
+            accept={attachmentsAccept}
+            style={{ display: "none" }}
+          />
+        )}
+        {!isChatLicensed && <InlineFeatureWarning featureName="Chat" />}
+        {transcriptionError && (
+          <div
+            style={{
+              position: "absolute",
+              bottom: "100px",
+              left: "50%",
+              transform: "translateX(-50%)",
+              backgroundColor: "#ef4444",
+              color: "white",
+              padding: "8px 16px",
+              borderRadius: "8px",
+              fontSize: "14px",
+              zIndex: 50,
+            }}
+          >
+            {transcriptionError}
+          </div>
+        )}
+        {RenderedChatView}
+      </div>
     </CopilotChatConfigurationProvider>
   );
 }

@@ -104,6 +104,8 @@ function getOrCreateThreadClone(
   threadId: string,
   headers: Record<string, string>,
 ): AbstractAgent {
+  // Enable AG-UI debug logging to diagnose run issues
+  existing.debug = true;
   let byThread = globalThreadCloneMap.get(existing);
   if (!byThread) {
     byThread = new Map();
