@@ -8,6 +8,7 @@ import rehypeHighlight from "rehype-highlight";
 import Link from "next/link";
 import { Callout, Cards, Card, Accordions, Accordion } from "@/components/mdx-components";
 import { PropertyReference } from "@/components/property-reference";
+import { getRegistry } from "@/lib/registry";
 
 const CONTENT_DIR = path.join(process.cwd(), "src/content/docs");
 // Resolve snippets relative to CONTENT_DIR (which is known to work for filesystem reads)
@@ -323,6 +324,35 @@ function inlineSnippets(content: string, slugPath: string = ""): string {
 
 const components = {
     Callout, Cards, Card, Accordions, Accordion, PropertyReference,
+    InlineDemo: ({ integration, demo }: { integration?: string; demo?: string }) => {
+        if (!integration || !demo) return null;
+        const reg = getRegistry();
+        const int = reg.integrations.find((i) => i.slug === integration);
+        if (!int || !int.deployed) return null;
+        const demoUrl = `${int.backend_url}/demos/${demo}`;
+        return (
+            <div className="my-6 rounded-xl border border-[var(--border)] overflow-hidden">
+                <div className="flex items-center justify-between px-4 py-2 bg-[var(--bg-elevated)] border-b border-[var(--border)]">
+                    <span className="text-xs font-mono text-[var(--text-muted)]">
+                        Live Demo: {int.name} — {demo}
+                    </span>
+                    <a
+                        href={`/integrations/${integration}?demo=${demo}`}
+                        className="text-xs text-[var(--accent)] hover:underline"
+                    >
+                        Open full demo →
+                    </a>
+                </div>
+                <iframe
+                    src={demoUrl}
+                    className="w-full"
+                    style={{ height: "500px" }}
+                    sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+                    loading="lazy"
+                />
+            </div>
+        );
+    },
     Note: Callout,
     Warning: ({ children }: { children: React.ReactNode }) => <Callout type="warn">{children}</Callout>,
     Tip: ({ children }: { children: React.ReactNode }) => <Callout type="info">{children}</Callout>,
