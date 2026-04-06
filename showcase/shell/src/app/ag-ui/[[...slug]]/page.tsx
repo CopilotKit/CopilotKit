@@ -7,7 +7,9 @@ import remarkGfm from "remark-gfm";
 import rehypeHighlight from "rehype-highlight";
 import Link from "next/link";
 import { Callout, Cards, Card, Accordions, Accordion } from "@/components/mdx-components";
+import { SidebarNav } from "@/components/sidebar-nav";
 import { PropertyReference } from "@/components/property-reference";
+import { getRegistry } from "@/lib/registry";
 
 const CONTENT_DIR = path.join(process.cwd(), "src/content/ag-ui");
 
@@ -113,8 +115,7 @@ const NAV_DEFINITION: NavTab[] = [
                             "sdk/js/client/compaction",
                         ],
                     },
-                    "sdk/js/encoder",
-                    "sdk/js/proto",
+                    // sdk/js/encoder and sdk/js/proto removed (empty placeholder pages)
                 ],
             },
             {
@@ -190,6 +191,35 @@ const components = {
     Accordions,
     Accordion,
     PropertyReference,
+    InlineDemo: ({ integration, demo }: { integration?: string; demo?: string }) => {
+        if (!integration || !demo) return null;
+        const reg = getRegistry();
+        const int = reg.integrations.find((i) => i.slug === integration);
+        if (!int || !int.deployed) return null;
+        const demoUrl = `${int.backend_url}/demos/${demo}`;
+        return (
+            <div className="my-6 rounded-xl border border-[var(--border)] overflow-hidden">
+                <div className="flex items-center justify-between px-4 py-2 bg-[var(--bg-elevated)] border-b border-[var(--border)]">
+                    <span className="text-xs font-mono text-[var(--text-muted)]">
+                        Live Demo: {int.name} — {demo}
+                    </span>
+                    <a
+                        href={`/integrations/${integration}?demo=${demo}`}
+                        className="text-xs text-[var(--accent)] hover:underline"
+                    >
+                        Open full demo →
+                    </a>
+                </div>
+                <iframe
+                    src={demoUrl}
+                    className="w-full"
+                    style={{ height: "500px" }}
+                    sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+                    loading="lazy"
+                />
+            </div>
+        );
+    },
     Note: Callout,
     Warning: ({ children }: { children: React.ReactNode }) => (
         <Callout type="warn">{children}</Callout>
@@ -312,12 +342,14 @@ export default async function AgUiDocPage({
     function renderNavItem(item: ResolvedNavItem, depth: number = 0): React.ReactNode {
         const indent = depth * 16;
         if (item.kind === "page") {
+            const isActive = item.slug === slugPath;
             return (
                 <Link
                     key={item.slug}
                     href={`/ag-ui/${item.slug}`}
+                    data-active={isActive ? "true" : undefined}
                     className={`block py-[5px] text-[14px] transition-colors ${
-                        item.slug === slugPath
+                        isActive
                             ? "text-[var(--text)] font-medium"
                             : "text-[var(--text-secondary)] hover:text-[var(--text)]"
                     }`}
@@ -366,7 +398,7 @@ export default async function AgUiDocPage({
     return (
         <div className="flex" style={{ height: "calc(100vh - 52px)" }}>
             {/* Sidebar */}
-            <aside className="w-[220px] shrink-0 border-r border-[var(--border)] bg-[var(--bg)] overflow-y-auto p-4">
+            <SidebarNav className="w-[220px] shrink-0 border-r border-[var(--border)] bg-[var(--bg)] overflow-y-auto p-4">
                 <Link
                     href="/ag-ui"
                     className="block text-xs font-mono uppercase tracking-widest text-[var(--violet)] mb-4"
@@ -385,7 +417,7 @@ export default async function AgUiDocPage({
                         ))}
                     </div>
                 ))}
-            </aside>
+            </SidebarNav>
 
             {/* Content */}
             <main className="flex-1 max-w-3xl px-8 py-8 overflow-y-auto">

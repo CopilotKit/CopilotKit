@@ -1,11 +1,6 @@
 {
   "title": "Troubleshooting Copilots",
   "pages": [
-    "migrate-to-v2",
-    "common-issues",
-    "migrate-to-agui",
-    "migrate-to-1.10.X",
-    "migrate-to-1.8.2",
-    "error-debugging"
+    "migrate-to-agui"
   ]
 }

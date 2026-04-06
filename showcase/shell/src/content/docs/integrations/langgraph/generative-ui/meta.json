@@ -5,7 +5,6 @@
     "your-components",
     "tool-rendering",
     "state-rendering",
-    "mcp-apps",
-    "a2ui"
+    "mcp-apps"
   ]
 }

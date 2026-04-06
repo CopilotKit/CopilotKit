@@ -6,6 +6,7 @@ import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { oneLight } from "react-syntax-highlighter/dist/esm/styles/prism";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import rehypeRaw from "rehype-raw";
 import { DemoDrawer } from "@/components/demo-drawer";
 
 interface Demo {
@@ -328,8 +329,8 @@ export function ProfileClient({
                                 {starterTab === "docs" && (
                                     <div className="rounded-lg border border-[var(--border)] bg-[var(--bg-surface)] p-6 overflow-auto" style={{ maxHeight: "600px" }}>
                                         {starterReadme ? (
-                                            <div className="prose prose-sm max-w-none text-[var(--text-secondary)]">
-                                                <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                                            <div className="max-w-none [&_h1]:text-xl [&_h1]:font-semibold [&_h1]:text-[var(--text)] [&_h1]:mb-3 [&_h1]:mt-6 [&_h2]:text-lg [&_h2]:font-semibold [&_h2]:text-[var(--text)] [&_h2]:mt-6 [&_h2]:mb-2 [&_h3]:text-base [&_h3]:font-semibold [&_h3]:text-[var(--text)] [&_h3]:mt-4 [&_h3]:mb-1 [&_h4]:text-sm [&_h4]:font-semibold [&_h4]:text-[var(--text)] [&_h4]:mt-3 [&_h4]:mb-1 [&_p]:text-sm [&_p]:text-[var(--text-secondary)] [&_p]:leading-relaxed [&_p]:mb-3 [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:mb-3 [&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:mb-3 [&_li]:text-sm [&_li]:text-[var(--text-secondary)] [&_li]:mb-1 [&_strong]:text-[var(--text)] [&_code]:text-[var(--accent)] [&_code]:bg-[var(--bg-elevated)] [&_code]:px-1 [&_code]:py-0.5 [&_code]:rounded [&_code]:text-xs [&_code]:font-mono [&_pre]:bg-[var(--bg-elevated)] [&_pre]:rounded-lg [&_pre]:p-3 [&_pre]:mb-3 [&_pre]:overflow-x-auto [&_pre]:text-xs [&_a]:text-[var(--accent)] [&_a]:underline [&_details]:mb-3 [&_details]:text-sm [&_summary]:cursor-pointer [&_summary]:font-medium [&_summary]:text-[var(--text)] [&_hr]:border-[var(--border)] [&_hr]:my-4">
+                                                <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>
                                                     {starterReadme}
                                                 </ReactMarkdown>
                                             </div>

@@ -1,3 +1,4 @@
+import React from "react";
 import fs from "fs";
 import path from "path";
 import { notFound } from "next/navigation";
@@ -7,10 +8,212 @@ import rehypeHighlight from "rehype-highlight";
 import Link from "next/link";
 import { Callout, Cards, Card, Accordions, Accordion } from "@/components/mdx-components";
 import { PropertyReference } from "@/components/property-reference";
+import { getRegistry } from "@/lib/registry";
+import { SidebarNav } from "@/components/sidebar-nav";
 
 const CONTENT_DIR = path.join(process.cwd(), "src/content/docs");
 // Resolve snippets relative to CONTENT_DIR (which is known to work for filesystem reads)
 const SNIPPETS_DIR = path.join(CONTENT_DIR, "..", "snippets");
+
+// ---------------------------------------------------------------------------
+// Nav tree types & builder
+// ---------------------------------------------------------------------------
+
+type NavNode =
+    | { type: "page"; title: string; slug: string }
+    | { type: "section"; title: string }
+    | { type: "group"; title: string; slug: string; children: NavNode[] };
+
+/** Read the title from an MDX file's frontmatter or first heading. */
+function readTitle(filePath: string): string | null {
+    if (!fs.existsSync(filePath)) return null;
+    const raw = fs.readFileSync(filePath, "utf-8");
+    const fmMatch = raw.match(/title:\s*["']?(.+?)["']?\s*$/m);
+    if (fmMatch) return fmMatch[1].replace(/["']$/, "");
+    const headingMatch = raw.match(/^#\s+(.+)$/m);
+    if (headingMatch) return headingMatch[1];
+    return null;
+}
+
+/** Read a meta.json from a directory, returning null if missing/invalid. */
+function readMeta(dir: string): { title?: string; pages?: string[]; root?: boolean } | null {
+    const metaPath = path.join(dir, "meta.json");
+    if (!fs.existsSync(metaPath)) return null;
+    try {
+        return JSON.parse(fs.readFileSync(metaPath, "utf-8"));
+    } catch {
+        return null;
+    }
+}
+
+/**
+ * Build a nav tree from a content directory by parsing its meta.json.
+ * @param dir   Absolute path to the content directory
+ * @param prefix  URL slug prefix (e.g. "integrations/langgraph")
+ */
+function buildNavTree(dir: string, prefix: string = ""): NavNode[] {
+    const meta = readMeta(dir);
+    if (!meta) {
+        // No meta.json — fall back to filesystem listing
+        return buildNavTreeFromFilesystem(dir, prefix);
+    }
+
+    const pages = meta.pages;
+    if (!pages || !Array.isArray(pages)) {
+        return buildNavTreeFromFilesystem(dir, prefix);
+    }
+
+    const nodes: NavNode[] = [];
+
+    for (const entry of pages) {
+        // Section divider: ---Section Name---
+        const sectionMatch = entry.match(/^---(.+)---$/);
+        if (sectionMatch) {
+            nodes.push({ type: "section", title: sectionMatch[1] });
+            continue;
+        }
+
+        // External link: [Title](url)
+        if (entry.startsWith("[")) continue;
+
+        // Spread syntax: ...dirname — expand subdirectory recursively
+        const spreadMatch = entry.match(/^\.\.\.(.+)$/);
+        if (spreadMatch) {
+            const subDir = path.join(dir, spreadMatch[1]);
+            const subPrefix = prefix ? `${prefix}/${spreadMatch[1]}` : spreadMatch[1];
+            if (fs.existsSync(subDir) && fs.statSync(subDir).isDirectory()) {
+                const subMeta = readMeta(subDir);
+                const subChildren = buildNavTree(subDir, subPrefix);
+                if (subChildren.length > 0) {
+                    const groupTitle = subMeta?.title || spreadMatch[1].replace(/[()-]/g, " ").replace(/\s+/g, " ").trim();
+                    nodes.push({
+                        type: "group",
+                        title: groupTitle.charAt(0).toUpperCase() + groupTitle.slice(1),
+                        slug: subPrefix,
+                        children: subChildren,
+                    });
+                }
+            }
+            continue;
+        }
+
+        // Nested path with slash: e.g. "human-in-the-loop/interrupt-flow"
+        // or plain page slug: e.g. "quickstart"
+        const slug = prefix ? `${prefix}/${entry}` : entry;
+        const mdxFile = path.join(dir, `${entry}.mdx`);
+        const indexFile = path.join(dir, entry, "index.mdx");
+        const subDir = path.join(dir, entry);
+
+        if (fs.existsSync(mdxFile)) {
+            const title = readTitle(mdxFile) || entry.split("/").pop()!.replace(/-/g, " ");
+            nodes.push({ type: "page", title, slug });
+        } else if (fs.existsSync(subDir) && fs.statSync(subDir).isDirectory()) {
+            // Directory — check if it has its own meta.json with pages
+            const subMeta = readMeta(subDir);
+            const subPrefix = prefix ? `${prefix}/${entry}` : entry;
+
+            if (subMeta?.pages) {
+                // Has pages — build as a group
+                const subChildren = buildNavTree(subDir, subPrefix);
+                const groupTitle = subMeta.title || entry.replace(/-/g, " ");
+                nodes.push({
+                    type: "group",
+                    title: groupTitle.charAt(0).toUpperCase() + groupTitle.slice(1),
+                    slug: subPrefix,
+                    children: subChildren,
+                });
+            } else if (fs.existsSync(indexFile)) {
+                // Has index.mdx but no pages — treat as a page link
+                const title = readTitle(indexFile) || subMeta?.title || entry.replace(/-/g, " ");
+                nodes.push({ type: "page", title, slug: subPrefix });
+            } else {
+                // Directory with no meta pages and no index — build from filesystem
+                const subChildren = buildNavTreeFromFilesystem(subDir, subPrefix);
+                if (subChildren.length > 0) {
+                    const groupTitle = subMeta?.title || entry.replace(/-/g, " ");
+                    nodes.push({
+                        type: "group",
+                        title: groupTitle.charAt(0).toUpperCase() + groupTitle.slice(1),
+                        slug: subPrefix,
+                        children: subChildren,
+                    });
+                }
+            }
+        } else if (fs.existsSync(indexFile)) {
+            const title = readTitle(indexFile) || entry.replace(/-/g, " ");
+            nodes.push({ type: "page", title, slug });
+        }
+        // Skip entries that don't resolve to any file
+    }
+
+    return nodes;
+}
+
+/** Fallback: build nav from filesystem when meta.json is missing or has no pages. */
+function buildNavTreeFromFilesystem(dir: string, prefix: string): NavNode[] {
+    if (!fs.existsSync(dir)) return [];
+    const nodes: NavNode[] = [];
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+        if (entry.name.startsWith(".") || entry.name === "meta.json") continue;
+        if (entry.name.startsWith("(")) continue; // skip route groups
+        const slug = prefix ? `${prefix}/${entry.name.replace(".mdx", "")}` : entry.name.replace(".mdx", "");
+        if (entry.isDirectory()) {
+            const subChildren = buildNavTree(path.join(dir, entry.name), slug);
+            const subMeta = readMeta(path.join(dir, entry.name));
+            if (subChildren.length > 0) {
+                const groupTitle = subMeta?.title || entry.name.replace(/-/g, " ");
+                nodes.push({
+                    type: "group",
+                    title: groupTitle.charAt(0).toUpperCase() + groupTitle.slice(1),
+                    slug,
+                    children: subChildren,
+                });
+            }
+        } else if (entry.name.endsWith(".mdx") && entry.name !== "index.mdx") {
+            const title = readTitle(path.join(dir, entry.name)) || entry.name.replace(".mdx", "").replace(/-/g, " ");
+            nodes.push({ type: "page", title, slug });
+        }
+    }
+    return nodes;
+}
+
+// ---------------------------------------------------------------------------
+// Breadcrumb helpers
+// ---------------------------------------------------------------------------
+
+type Breadcrumb = { label: string; href: string | null };
+
+function buildBreadcrumbs(slugPath: string): Breadcrumb[] {
+    const parts = slugPath.split("/");
+    const crumbs: Breadcrumb[] = [{ label: "Docs", href: "/docs" }];
+
+    for (let i = 0; i < parts.length; i++) {
+        const partialSlug = parts.slice(0, i + 1).join("/");
+        const href = `/docs/${partialSlug}`;
+        const isLast = i === parts.length - 1;
+
+        // Try to resolve a nice title
+        const mdxFile = path.join(CONTENT_DIR, `${partialSlug}.mdx`);
+        const indexFile = path.join(CONTENT_DIR, partialSlug, "index.mdx");
+        const dirMeta = readMeta(path.join(CONTENT_DIR, partialSlug));
+
+        let label: string | null = null;
+        if (dirMeta?.title) {
+            label = dirMeta.title;
+        } else if (fs.existsSync(mdxFile)) {
+            label = readTitle(mdxFile);
+        } else if (fs.existsSync(indexFile)) {
+            label = readTitle(indexFile);
+        }
+        if (!label) {
+            label = parts[i].replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+        }
+
+        crumbs.push({ label, href: isLast ? null : href });
+    }
+
+    return crumbs;
+}
 
 // Map component tags to snippet file paths (relative to SNIPPETS_DIR).
 // When an MDX page contains only a single component tag like <CopilotRuntime />,
@@ -75,6 +278,90 @@ const SUBPATH_TO_COMPONENT: Record<string, string> = {
     "troubleshooting/observability-connectors": "ObservabilityConnectors",
 };
 
+// ---------------------------------------------------------------------------
+// Convert markdown tables inside JSX container tags to HTML tables.
+// MDX treats content between JSX tags (like <Accordion>) as JSX, not markdown,
+// so markdown table syntax renders as raw pipe-delimited text. This function
+// finds those regions and converts the tables to HTML before MDX compilation.
+// ---------------------------------------------------------------------------
+
+const JSX_CONTAINER_TAGS = ["Accordion", "Tab"];
+
+function convertMarkdownTableToHtml(tableLines: string[]): string {
+    if (tableLines.length < 2) return tableLines.join("\n");
+
+    // Parse header row
+    const parseRow = (line: string): string[] =>
+        line.split("|").slice(1, -1).map((cell) => cell.trim());
+
+    const headers = parseRow(tableLines[0]);
+
+    // Verify separator row (line with dashes/colons)
+    const separatorLine = tableLines[1];
+    if (!/^\s*\|[\s:|-]+\|\s*$/.test(separatorLine)) {
+        return tableLines.join("\n");
+    }
+
+    const bodyRows = tableLines.slice(2).map(parseRow);
+
+    const headerHtml = headers
+        .map((h) => `<th style="padding:6px 12px;border:1px solid var(--border);text-align:left;font-size:0.875rem">${h}</th>`)
+        .join("");
+    const bodyHtml = bodyRows
+        .map(
+            (row) =>
+                "<tr>" +
+                row
+                    .map((cell) => `<td style="padding:6px 12px;border:1px solid var(--border);font-size:0.875rem">${cell}</td>`)
+                    .join("") +
+                "</tr>"
+        )
+        .join("\n");
+
+    return `<table style="width:100%;border-collapse:collapse;margin:0.75rem 0"><thead><tr>${headerHtml}</tr></thead><tbody>\n${bodyHtml}\n</tbody></table>`;
+}
+
+function convertTablesInJSX(content: string): string {
+    // Build a regex that matches content between opening and closing container tags
+    const tagPattern = JSX_CONTAINER_TAGS.join("|");
+    // Match: <Tag ...>content</Tag> — non-greedy, handles nested content line by line
+    const regex = new RegExp(
+        `(<(?:${tagPattern})[^>]*>)([\\s\\S]*?)(<\\/(?:${tagPattern})>)`,
+        "g"
+    );
+
+    return content.replace(regex, (match, openTag: string, inner: string, closeTag: string) => {
+        // Find markdown table patterns within this region
+        const lines = inner.split("\n");
+        const result: string[] = [];
+        let i = 0;
+
+        while (i < lines.length) {
+            const line = lines[i];
+            // Check if this line looks like a table row: starts with optional whitespace then |
+            if (/^\s*\|.+\|/.test(line)) {
+                // Collect consecutive table lines
+                const tableLines: string[] = [];
+                while (i < lines.length && /^\s*\|.+\|/.test(lines[i])) {
+                    tableLines.push(lines[i].trim());
+                    i++;
+                }
+                // Need at least header + separator (2 lines) to be a table
+                if (tableLines.length >= 2 && /^\s*\|[\s:|-]+\|\s*$/.test(tableLines[1])) {
+                    result.push(convertMarkdownTableToHtml(tableLines));
+                } else {
+                    result.push(...tableLines);
+                }
+            } else {
+                result.push(line);
+                i++;
+            }
+        }
+
+        return openTag + result.join("\n") + closeTag;
+    });
+}
+
 // Replace component tags (e.g. <CopilotRuntime />) with their snippet content.
 // Handles both single-component pages and tags embedded in mixed content.
 // slugPath is used to resolve <SharedContent /> in integration pages.
@@ -118,38 +405,65 @@ function inlineSnippets(content: string, slugPath: string = ""): string {
     return result;
 }
 
-function getNavItems(): { section: string; items: { slug: string; title: string }[] }[] {
-    const sections: Record<string, { slug: string; title: string }[]> = {};
-
-    function walk(dir: string, prefix: string = "") {
-        if (!fs.existsSync(dir)) return;
-        for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-            if (entry.name.startsWith(".") || entry.name.startsWith("(")) continue;
-            if (entry.isDirectory()) {
-                walk(path.join(dir, entry.name), prefix ? `${prefix}/${entry.name}` : entry.name);
-            } else if (entry.name.endsWith(".mdx")) {
-                const slug = prefix
-                    ? `${prefix}/${entry.name.replace(".mdx", "")}`
-                    : entry.name.replace(".mdx", "");
-                const raw = fs.readFileSync(path.join(dir, entry.name), "utf-8");
-                const titleMatch = raw.match(/title:\s*["']?(.+?)["']?\s*$/m) || raw.match(/^#\s+(.+)$/m);
-                const title = titleMatch?.[1] || entry.name.replace(".mdx", "").replace(/-/g, " ");
-                const section = prefix.split("/")[0] || "Guides";
-                const sectionLabel = section.charAt(0).toUpperCase() + section.slice(1).replace(/-/g, " ");
-                if (!sections[sectionLabel]) sections[sectionLabel] = [];
-                sections[sectionLabel].push({ slug, title });
-            }
-        }
-    }
-
-    walk(CONTENT_DIR);
-    return Object.entries(sections)
-        .filter(([, items]) => items.length > 0)
-        .map(([section, items]) => ({ section, items: items.slice(0, 20) }));
-}
+// getNavItems removed — replaced by buildNavTree() above
 
 const components = {
     Callout, Cards, Card, Accordions, Accordion, PropertyReference,
+    FeatureIntegrations: ({ feature }: { feature?: string }) => {
+        if (!feature) return null;
+        const reg = getRegistry();
+        const supporting = reg.integrations.filter(
+            (i) => i.deployed && i.features?.includes(feature)
+        );
+        if (supporting.length === 0) return null;
+        return (
+            <div className="my-6">
+                <div className="text-xs font-mono uppercase tracking-widest text-[var(--text-faint)] mb-2">
+                    Supported by
+                </div>
+                <div className="flex flex-wrap gap-2">
+                    {supporting.map((i) => (
+                        <Link
+                            key={i.slug}
+                            href={`/integrations/${i.slug}?demo=${feature}`}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-full border border-[var(--border)] bg-[var(--bg-surface)] text-[var(--text-secondary)] hover:border-[var(--accent)] hover:text-[var(--accent)] transition-colors"
+                        >
+                            {i.name}
+                        </Link>
+                    ))}
+                </div>
+            </div>
+        );
+    },
+    InlineDemo: ({ integration, demo }: { integration?: string; demo?: string }) => {
+        if (!integration || !demo) return null;
+        const reg = getRegistry();
+        const int = reg.integrations.find((i) => i.slug === integration);
+        if (!int || !int.deployed) return null;
+        const demoUrl = `${int.backend_url}/demos/${demo}`;
+        return (
+            <div className="my-6 rounded-xl border border-[var(--border)] overflow-hidden">
+                <div className="flex items-center justify-between px-4 py-2 bg-[var(--bg-elevated)] border-b border-[var(--border)]">
+                    <span className="text-xs font-mono text-[var(--text-muted)]">
+                        Live Demo: {int.name} — {demo}
+                    </span>
+                    <a
+                        href={`/integrations/${integration}?demo=${demo}`}
+                        className="text-xs text-[var(--accent)] hover:underline"
+                    >
+                        Open full demo →
+                    </a>
+                </div>
+                <iframe
+                    src={demoUrl}
+                    className="w-full"
+                    style={{ height: "500px" }}
+                    sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+                    loading="lazy"
+                />
+            </div>
+        );
+    },
     Note: Callout,
     Warning: ({ children }: { children: React.ReactNode }) => <Callout type="warn">{children}</Callout>,
     Tip: ({ children }: { children: React.ReactNode }) => <Callout type="info">{children}</Callout>,
@@ -415,38 +729,115 @@ export default async function DocsPage({ params }: { params: Promise<{ slug?: st
 
     const source = fs.readFileSync(filePath, "utf-8");
     const rawContent = source.replace(/^---[\s\S]*?---\n?/, "");
-    const content = inlineSnippets(rawContent, slugPath);
+    const inlined = inlineSnippets(rawContent, slugPath);
+    const content = convertTablesInJSX(inlined);
     const titleMatch = source.match(/title:\s*["']?(.+?)["']?\s*$/m) || content.match(/^#\s+(.+)$/m);
     const title = titleMatch?.[1] || slugPath.split("/").pop()?.replace(/-/g, " ") || "Docs";
 
-    const nav = getNavItems();
+    // Integration-scoped sidebar: if under integrations/<framework>, scope to that framework
+    let navTree: NavNode[];
+    let sidebarTitle: string;
+    let backLink: { label: string; href: string } | null = null;
+    const integrationMatch = slugPath.match(/^integrations\/([^/]+)/);
+
+    if (integrationMatch) {
+        const framework = integrationMatch[1];
+        const frameworkDir = path.join(CONTENT_DIR, "integrations", framework);
+        const frameworkMeta = readMeta(frameworkDir);
+        sidebarTitle = frameworkMeta?.title || framework.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+        navTree = buildNavTree(frameworkDir, `integrations/${framework}`);
+        backLink = { label: "\u2190 Back to Docs", href: "/docs" };
+    } else {
+        sidebarTitle = "CopilotKit Docs";
+        navTree = buildNavTree(CONTENT_DIR);
+    }
+
+    const breadcrumbs = buildBreadcrumbs(slugPath);
+
+    function renderNavItem(node: NavNode, depth: number = 0): React.ReactNode {
+        const indent = depth * 16;
+        if (node.type === "section") {
+            return (
+                <div
+                    key={`section-${node.title}`}
+                    className="text-[10px] font-mono uppercase tracking-widest text-[var(--text-faint)] mt-4 mb-2"
+                    style={{ paddingLeft: `${indent}px` }}
+                >
+                    {node.title}
+                </div>
+            );
+        }
+        if (node.type === "page") {
+            const isActive = node.slug === slugPath;
+            return (
+                <Link
+                    key={node.slug}
+                    href={`/docs/${node.slug}`}
+                    data-active={isActive ? "true" : undefined}
+                    className={`block py-[5px] text-[13px] transition-colors ${
+                        isActive
+                            ? "text-[var(--accent)] font-medium"
+                            : "text-[var(--text-muted)] hover:text-[var(--text-secondary)]"
+                    }`}
+                    style={{ paddingLeft: `${indent}px` }}
+                >
+                    {node.title}
+                </Link>
+            );
+        }
+        // group
+        return (
+            <div key={`group-${node.slug}`} className="mt-1">
+                <div
+                    className="py-[5px] text-[13px] font-medium text-[var(--text-secondary)]"
+                    style={{ paddingLeft: `${indent}px` }}
+                >
+                    {node.title}
+                </div>
+                {node.children.map((child) => renderNavItem(child, depth + 1))}
+            </div>
+        );
+    }
 
     return (
         <div className="flex" style={{ height: "calc(100vh - 52px)" }}>
-            <aside className="w-[220px] shrink-0 border-r border-[var(--border)] bg-[var(--bg)] overflow-y-auto p-4">
+            {/* Sidebar */}
+            <SidebarNav className="w-[220px] shrink-0 border-r border-[var(--border)] bg-[var(--bg)] overflow-y-auto p-4">
+                {backLink && (
+                    <Link
+                        href={backLink.href}
+                        className="block text-xs text-[var(--text-muted)] hover:text-[var(--text-secondary)] mb-3 transition-colors"
+                    >
+                        {backLink.label}
+                    </Link>
+                )}
                 <Link href="/docs" className="block text-xs font-mono uppercase tracking-widest text-[var(--accent)] mb-4">
-                    CopilotKit Docs
+                    {sidebarTitle}
                 </Link>
-                {nav.map(({ section, items }) => (
-                    <div key={section} className="mb-4">
-                        <div className="text-[10px] font-mono uppercase tracking-widest text-[var(--text-faint)] mb-2">{section}</div>
-                        {items.map((item) => (
-                            <Link
-                                key={item.slug}
-                                href={`/docs/${item.slug}`}
-                                className={`block py-1 text-xs transition-colors ${
-                                    item.slug === slugPath
-                                        ? "text-[var(--accent)] font-medium"
-                                        : "text-[var(--text-muted)] hover:text-[var(--text-secondary)]"
-                                }`}
-                            >
-                                {item.title}
-                            </Link>
-                        ))}
-                    </div>
-                ))}
-            </aside>
+                {navTree.map((node) => renderNavItem(node))}
+            </SidebarNav>
+
+            {/* Content */}
             <main className="flex-1 max-w-3xl px-8 py-8 overflow-y-auto">
+                {/* Breadcrumbs */}
+                <nav className="flex items-center gap-1 text-xs text-[var(--text-muted)] mb-4 flex-wrap">
+                    {breadcrumbs.map((crumb, i) => (
+                        <React.Fragment key={i}>
+                            {i > 0 && <span className="text-[var(--text-faint)]">&gt;</span>}
+                            {crumb.href ? (
+                                <Link
+                                    href={crumb.href}
+                                    className="hover:text-[var(--text-secondary)] transition-colors"
+                                >
+                                    {crumb.label}
+                                </Link>
+                            ) : (
+                                <span className="text-[var(--text)]">{crumb.label}</span>
+                            )}
+                        </React.Fragment>
+                    ))}
+                </nav>
+
                 <h1 className="text-2xl font-semibold text-[var(--text)] tracking-tight mb-6">{title}</h1>
                 <div className="reference-content">
                     <MDXRemote source={content} components={components} options={{ mdxOptions: { remarkPlugins: [remarkGfm], rehypePlugins: [rehypeHighlight] } }} />
