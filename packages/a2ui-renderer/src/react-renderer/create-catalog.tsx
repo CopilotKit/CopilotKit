@@ -98,12 +98,12 @@ export function createCatalog<D extends CatalogDefinitions>(
   options?: {
     /** Catalog ID. Defaults to a generated URI. */
     catalogId?: string;
-    /** If false, only include the custom components (no basic catalog). Default: true */
+    /** If true, merge the built-in basic catalog components (Text, Button, Row, etc.) into this catalog. Default: false */
     includeBasicCatalog?: boolean;
   },
 ): Catalog<ReactComponentImplementation> {
   const catalogId = options?.catalogId ?? "copilotkit://custom-catalog";
-  const includeBasic = options?.includeBasicCatalog !== false;
+  const includeBasic = options?.includeBasicCatalog === true;
 
   const customComponents: ReactComponentImplementation[] = [];
 
