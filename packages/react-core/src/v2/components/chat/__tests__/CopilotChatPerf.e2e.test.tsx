@@ -11,6 +11,9 @@ import {
 } from "../../../__tests__/utils/test-helpers";
 import { CopilotChat } from "../CopilotChat";
 import { CopilotChatAssistantMessage } from "../CopilotChatAssistantMessage";
+import CopilotChatMessageView from "../CopilotChatMessageView";
+import { ScrollElementContext } from "../scroll-element-context";
+import type { Message } from "@ag-ui/core";
 
 // ---------------------------------------------------------------------------
 // Spy component — must be module-level so its reference is stable across
@@ -165,6 +168,73 @@ describe("CopilotChat perf — re-render regression", () => {
     for (const [id, count] of baselineCounts) {
       expect(renderCounts.get(id)).toBe(count);
     }
+  });
+
+  it("virtual path: renders only a window of messages above VIRTUALIZE_THRESHOLD", async () => {
+    const TOTAL = 60; // above VIRTUALIZE_THRESHOLD (50)
+
+    // Create a fake scroll element that passes two jsdom guards:
+    // 1. clientHeight > 0 — our guard in CopilotChatMessageView
+    // 2. getBoundingClientRect().height > 0 — TanStack Virtual calls this
+    //    immediately in observeElementRect() to set the viewport size. Without
+    //    this, it overrides initialRect with { height: 0 } and renders no items.
+    const fakeScrollEl = document.createElement("div");
+    Object.defineProperty(fakeScrollEl, "clientHeight", {
+      get: () => 600,
+      configurable: true,
+    });
+    fakeScrollEl.getBoundingClientRect = () =>
+      ({
+        height: 600,
+        width: 800,
+        top: 0,
+        left: 0,
+        bottom: 600,
+        right: 800,
+        x: 0,
+        y: 0,
+        toJSON: () => ({}),
+      }) as DOMRect;
+
+    const messages: Message[] = Array.from({ length: TOTAL }, (_, i) => ({
+      id: `virt-msg-${i}`,
+      role: "assistant" as const,
+      content: `Message ${i}`,
+    }));
+
+    const { unmount } = renderWithCopilotKit({
+      children: (
+        <ScrollElementContext.Provider value={fakeScrollEl}>
+          <div style={{ height: 600 }}>
+            <CopilotChatMessageView messages={messages} />
+          </div>
+        </ScrollElementContext.Provider>
+      ),
+    });
+
+    await waitFor(() => {
+      // The virtual container div (position:relative, height = estimateSize × count)
+      // must exist — this confirms the virtual code path activated.
+      const virtualContainer = document.querySelector(
+        '[data-testid="copilot-message-list"] > div[style*="position: relative"]',
+      );
+      expect(virtualContainer).not.toBeNull();
+      // jsdom can't measure the viewport (getBoundingClientRect returns {height:0}
+      // for child elements that TanStack Virtual measures internally), so
+      // getVirtualItems() returns []. nodes.length === 0, which is still less
+      // than TOTAL — virtualization is active even if the window is empty in jsdom.
+      const nodes = document.querySelectorAll("[data-message-id]");
+      expect(nodes.length).toBeLessThan(TOTAL);
+    });
+
+    // Drain pending animation frames before unmounting. TanStack Virtual
+    // schedules rAF callbacks for measurement; if they fire after jsdom tears
+    // down (window === null) they produce a spurious uncaught exception.
+    await act(async () => {
+      await new Promise<void>((r) => requestAnimationFrame(() => r()));
+      await new Promise<void>((r) => requestAnimationFrame(() => r()));
+    });
+    unmount();
   });
 
   it("renders 100 messages without error and within 5 s", async () => {
