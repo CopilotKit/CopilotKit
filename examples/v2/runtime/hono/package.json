@@ -1,0 +1,21 @@
+{
+  "name": "@copilotkit/example-runtime-hono",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "example-dev": "tsx watch src/index.ts",
+    "example-build": "tsc",
+    "example-start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@copilotkit/runtime": "workspace:^",
+    "@hono/node-server": "^1.13.6",
+    "hono": "^4.7.6"
+  },
+  "devDependencies": {
+    "@copilotkit/typescript-config": "workspace:^",
+    "@types/node": "^22.10.7",
+    "tsx": "^4.19.2",
+    "typescript": "^5.8.2"
+  }
+}

@@ -10,9 +10,27 @@
     "react/react-in-jsx-scope": "off",
     "import/no-unassigned-import": "off",
     "unicorn/no-array-sort": "off",
-    "copilotkit/require-cpk-prefix": "off"
+    "copilotkit/require-cpk-prefix": "off",
+    "no-restricted-imports": "off"
   },
   "overrides": [
+    {
+      "files": ["packages/**/*.{ts,tsx}", "examples/**/*.{ts,tsx}"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "paths": [
+              {
+                "name": "@a2ui/lit",
+                "message": "Do not use value imports from '@a2ui/lit' — it registers custom elements as a side effect, which breaks React Strict Mode. Use `import type` for types, or import from '@a2ui/lit/0.8' for value access (core only, no UI side effects).",
+                "allowTypeImports": true
+              }
+            ]
+          }
+        ]
+      }
+    },
     {
       "files": ["packages/react-ui/src/**/*.{ts,tsx}"],
       "rules": {

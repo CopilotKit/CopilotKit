@@ -1,10 +1,10 @@
-import { CopilotRuntimeLike, isIntelligenceRuntime } from "../runtime";
+import { CopilotRuntimeLike, isIntelligenceRuntime } from "../core/runtime";
 import {
   AgentDescription,
   RuntimeInfo,
   type RuntimeLicenseStatus,
 } from "@copilotkit/shared";
-import { VERSION } from "../runtime";
+import { VERSION } from "../core/runtime";
 
 function resolveLicenseStatus(
   runtime: CopilotRuntimeLike,

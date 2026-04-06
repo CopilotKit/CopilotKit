@@ -1,9 +1,9 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect } from "vitest";
 import {
   createCopilotEndpoint,
   createCopilotEndpointSingleRoute,
 } from "../endpoints";
-import { CopilotRuntime } from "../runtime";
+import { CopilotRuntime } from "../core/runtime";
 import type { AbstractAgent } from "@ag-ui/client";
 
 const createMockRuntime = (options: { beforeRequestMiddleware?: any } = {}) => {
