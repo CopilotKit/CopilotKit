@@ -18,11 +18,13 @@ A2UI (Agent to UI) is a protocol for rendering rich UI surfaces from agent respo
 
 CRITICAL: You MUST call the render_a2ui tool with ALL of these arguments:
 - surfaceId: A unique ID for the surface (e.g. "product-comparison")
-- components: REQUIRED — the A2UI component array. NEVER omit this. Use a List with
-  children: { componentId: "card-id", path: "/items" } for repeating cards.
+- components: REQUIRED — the A2UI component array. NEVER omit this. Only use
+  components listed in the Available Components schema provided as context.
 - data: OPTIONAL — a JSON object written to the root of the surface data model.
   Use for pre-filling form values or providing data for path-bound components.
-- every component must have the "component" field specifying the component type (e.g. "Text", "Image", "Row", "Column", "List", "Button", etc.)
+- every component must have the "component" field specifying the component type.
+  ONLY use component names from the Available Components schema — do NOT invent
+  component names or use names not in the schema.
 
 COMPONENT ID RULES:
 - Every component ID must be unique within the surface.
@@ -31,15 +33,19 @@ COMPONENT ID RULES:
   its child must be a DIFFERENT id (e.g. "avatar-img"), never "avatar".
 - The child/children tree must be a DAG — no cycles allowed.
 
+REPEATING CONTENT (TEMPLATES):
+To repeat a component for each item in an array, use the structural children format:
+  children: { componentId: "card-id", path: "/items" }
+This tells the renderer to create one instance of "card-id" per item in the "/items" array.
+
 PATH RULES FOR TEMPLATES:
-Components inside a repeating List use RELATIVE paths (no leading slash).
+Components inside a repeating template use RELATIVE paths (no leading slash).
 The path is resolved relative to each array item automatically.
-If List has children: { componentId: "card", path: "/items" } and item has key "name",
-use { "path": "name" } (NO leading slash — relative to item).
+If a container has children: { componentId: "card", path: "/items" } and each item
+has a key "name", use { "path": "name" } (NO leading slash — relative to item).
 CRITICAL: Do NOT use "/name" (absolute) inside templates — use "name" (relative).
-The List's own path ("/items") uses a leading slash (absolute), but all
-components INSIDE the template card use paths WITHOUT leading slash.
-Do NOT use "/items/0/name" or "/items/{@key}/name" — just "name".
+The container's path ("/items") uses a leading slash (absolute), but all
+components INSIDE the template use paths WITHOUT leading slash.
 
 DATA MODEL:
 The "data" key in the tool args is a plain JSON object that initializes the surface
@@ -55,30 +61,14 @@ The client automatically writes user input back to the data model at the bound p
 CRITICAL: Using a literal value (e.g. "value": "") makes the field READ-ONLY.
 You MUST use { "path": "..." } to make inputs editable.
 
-All input components use "value" as the binding property:
-- TextField:     "value": { "path": "/form/fieldName" }
-- CheckBox:      "value": { "path": "/form/isChecked" }
-- Slider:        "value": { "path": "/form/sliderVal" }
-- DateTimeInput: "value": { "path": "/form/date" }
-- ChoicePicker:  "value": { "path": "/form/choices" }
+Input components use "value" as the binding property:
+  "value": { "path": "/form/fieldName" }
 
 To retrieve form values when a button is clicked, include "context" with path references
 in the button's action. Paths are resolved to their current values at click time:
   "action": { "event": { "name": "submit", "context": { "userName": { "path": "/form/name" } } } }
 
 To pre-fill form values, pass initial data via the "data" tool argument:
-  "data": { "form": { "name": "Markus" } }
-
-FORM EXAMPLE (editable text field with pre-filled value + submit button):
-  "components": [
-    { "id": "root", "component": "Card", "child": "form-col" },
-    { "id": "form-col", "component": "Column", "children": ["name-field", "submit-row"] },
-    { "id": "name-field", "component": "TextField", "label": "Name", "value": { "path": "/form/name" } },
-    { "id": "submit-row", "component": "Row", "justify": "end", "children": ["submit-btn"] },
-    { "id": "submit-btn", "component": "Button", "child": "btn-text", "variant": "primary",
-      "action": { "event": { "name": "submit", "context": { "userName": { "path": "/form/name" } } } } },
-    { "id": "btn-text", "component": "Text", "text": "Submit" }
-  ],
   "data": { "form": { "name": "Markus" } }`;
 
 /**
@@ -86,39 +76,26 @@ FORM EXAMPLE (editable text field with pre-filled value + submit button):
  * and action handler patterns.
  */
 export const A2UI_DEFAULT_DESIGN_GUIDELINES = `\
-Create polished, visually appealing interfaces:
-- Always include a title heading (h2) for the surface, outside the List.
-  Wrap in a Column: [title, list] as root.
-- For card templates, create clear visual hierarchy:
-  - h3 for primary text (names, titles)
-  - h2 for featured numbers (prices, scores) — makes them stand out
-  - caption for secondary info (ratings, categories, metadata)
-  - body for descriptions
-- Use Divider between logical sections within cards.
-- Use Row with justify="spaceBetween" for label-value pairs
-  (e.g. "Rating" on left, "4.5/5" on right).
-- Include images when relevant (logos, icons, product photos):
-  - Use Image component with variant="smallFeature" or "avatar"
-  - Prefer company logos for branded products — Google favicons are reliable:
-    https://www.google.com/s2/favicons?domain=sony.com&sz=128
-    https://www.google.com/s2/favicons?domain=bose.com&sz=128
-  - For generic icons: https://placehold.co/128x128/EEE/999?text=🎧
-  - Do NOT invent Unsplash photo-IDs — they will 404. Only use real, known URLs.
-- Use horizontal List direction for side-by-side comparison cards.
+Create polished, visually appealing interfaces. ONLY use components listed in the
+Available Components schema — do NOT use component names that are not in the schema.
+
+Design principles:
+- Create clear visual hierarchy within cards and layouts.
 - Keep cards clean — avoid clutter. Whitespace is good.
 - Use consistent surfaceIds (lowercase, hyphenated).
 - NEVER use the same ID for a component and its child — this creates a
   circular dependency. E.g. if id="avatar", child must NOT be "avatar".
-- Both Row and Column support "justify" and "align".
-- Add Button for interactivity. Button needs child (Text ID) + action.
-  Action MUST use this exact nested format:
+- For side-by-side comparisons, use a container with structural children
+  (children: { componentId, path }) to repeat a card template per data item.
+- Include images when relevant (logos, icons, product photos):
+  - Prefer company logos via Google favicons: https://www.google.com/s2/favicons?domain=example.com&sz=128
+  - Do NOT invent Unsplash photo-IDs — they will 404. Only use real, known URLs.
+- For buttons: action MUST use this exact nested format:
     "action": { "event": { "name": "myAction", "context": { "key": "value" } } }
   The "event" key holds an OBJECT with "name" (required) and "context" (optional).
   Do NOT use a flat format like {"event": "name"} — "event" must be an object.
-  Use variant="primary" for main action buttons, variant="borderless" for links.
-- For forms: wrap fields in a Card with a Column. Place the submit button in a
-  Row with justify="end". Every input MUST use path binding on the "value" property
-  (e.g. "value": { "path": "/form/name" }) to be editable. The submit button's action
-  context MUST reference the same paths to capture the user's input.
+- For forms: every input MUST use path binding on the "value" property
+  (e.g. "value": { "path": "/form/name" }) to be editable. The submit button's
+  action context MUST reference the same paths to capture the user's input.
 
-Use the SAME surfaceId as the main surface. Match action names to Button action event names.`;
+Use the SAME surfaceId as the main surface. Match action names to button action event names.`;
