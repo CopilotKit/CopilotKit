@@ -26,7 +26,7 @@
   ],
   "main": "./dist/index.cjs",
   "module": "./dist/index.mjs",
-  "types": "./dist/index.d.ts",
+  "types": "./dist/index.d.cts",
   "unpkg": "./dist/index.umd.js",
   "jsdelivr": "./dist/index.umd.js",
   "exports": {
@@ -41,12 +41,17 @@
     "./package.json": "./package.json",
     "./v2/styles.css": "./dist/v2/index.css"
   },
+  "typesVersions": {
+    "*": {
+      "v2": ["./dist/v2/index.d.cts"]
+    }
+  },
   "publishConfig": {
     "access": "public"
   },
   "scripts": {
     "build:css": "tailwindcss -i ./src/v2/styles/globals.css -o ./dist/v2/index.css -m && node scripts/scope-preflight.mjs ./dist/v2/index.css",
-    "build": "tsdown && node ../../scripts/copy-dts.mjs && pnpm run build:css",
+    "build": "tsdown && pnpm run build:css",
     "dev": "tsdown --watch",
     "test": "vitest run",
     "test:watch": "vitest",

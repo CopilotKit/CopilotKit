@@ -5,7 +5,7 @@
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.mjs",
-  "types": "./dist/index.d.ts",
+  "types": "./dist/index.d.cts",
   "unpkg": "./dist/index.umd.js",
   "jsdelivr": "./dist/index.umd.js",
   "exports": {
@@ -19,7 +19,7 @@
     "access": "public"
   },
   "scripts": {
-    "build": "tsdown && node ../../scripts/copy-dts.mjs && pnpm run build:css",
+    "build": "tsdown && pnpm run build:css",
     "build:css": "tailwindcss -i ./src/styles/tailwind.css -o ./src/styles/generated.css -m",
     "dev": "pnpm run build:css && concurrently \"pnpm run dev:css\" \"tsdown --watch\"",
     "dev:css": "tailwindcss -i ./src/styles/tailwind.css -o ./src/styles/generated.css --watch --minify",
