@@ -60,10 +60,12 @@ export function useAttachments({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Keep a ref to the latest config so stable callbacks can read current
-  // values without appearing in dependency arrays.
+  // Keep refs to the latest values so stable callbacks can read current
+  // state without appearing in dependency arrays.
   const configRef = useRef(config);
   configRef.current = config;
+  const attachmentsRef = useRef<Attachment[]>([]);
+  attachmentsRef.current = attachments;
 
   // Stable processFiles — reads config from ref, never changes identity
   const processFiles = useCallback(async (files: File[]) => {
@@ -241,14 +243,10 @@ export function useAttachments({
   }, []);
 
   const consumeAttachments = useCallback(() => {
-    let ready: Attachment[] = [];
-    setAttachments((prev) => {
-      ready = prev.filter((a) => a.status === "ready");
-      if (ready.length === 0) return prev;
-      const remaining = prev.filter((a) => a.status !== "ready");
-      return remaining;
-    });
-    if (ready.length > 0 && fileInputRef.current) {
+    const ready = attachmentsRef.current.filter((a) => a.status === "ready");
+    if (ready.length === 0) return ready;
+    setAttachments((prev) => prev.filter((a) => a.status !== "ready"));
+    if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
     return ready;

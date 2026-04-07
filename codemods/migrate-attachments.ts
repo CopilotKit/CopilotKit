@@ -66,25 +66,70 @@ export default function transform(file: FileInfo, api: API) {
         // Rename the imported identifier
         imported.name = newName;
 
-        // NOTE: This rename is not scope-aware — it renames ALL identifiers with the
-        // matching name in the file, not just references to the import. In practice
-        // this is safe because ImageUploadQueue/ImageUpload are unlikely local variable
-        // names, but a scope-aware rename (via jscodeshift's scope utilities) would be
-        // more correct.
-
         // If the local name matched the old imported name (not aliased),
-        // update all references in the file to use the new name.
+        // update references in the file to use the new name.
+        //
+        // To avoid corrupting unrelated code, we check if any local
+        // declaration (variable, function, class) shadows the imported
+        // name. If so, we only rename type-position references (which
+        // unambiguously refer to the type import) and leave value-position
+        // references alone since they may refer to the local binding.
         if (!isAliased) {
+          const hasShadow =
+            root.find(j.VariableDeclarator, { id: { type: "Identifier", name: localName } }).length > 0 ||
+            root.find(j.FunctionDeclaration, { id: { type: "Identifier", name: localName } }).length > 0 ||
+            root.find(j.ClassDeclaration, { id: { type: "Identifier", name: localName } }).length > 0;
+
           root.find(j.Identifier, { name: localName }).forEach((idPath) => {
             // Skip the import specifier itself — already renamed above
             if (idPath.parent.node === spec) return;
+
+            const parent = idPath.parent.node;
+
+            // Skip declaration positions — these define new bindings
+            if (parent.type === "VariableDeclarator" && parent.id === idPath.node) return;
+            if (parent.type === "FunctionDeclaration" && parent.id === idPath.node) return;
+            if (parent.type === "ClassDeclaration" && parent.id === idPath.node) return;
+            if (parent.type === "TSTypeAliasDeclaration" && parent.id === idPath.node) return;
+            if (parent.type === "TSInterfaceDeclaration" && parent.id === idPath.node) return;
+
+            // Skip non-computed object property keys and member expression properties
+            if (
+              (parent.type === "Property" || parent.type === "ObjectProperty") &&
+              parent.key === idPath.node &&
+              !parent.computed
+            ) return;
+            if (
+              parent.type === "MemberExpression" &&
+              parent.property === idPath.node &&
+              !parent.computed
+            ) return;
+
+            // Skip import specifiers from other packages
+            if (
+              parent.type === "ImportSpecifier" &&
+              idPath.parent.parent?.node !== path.node
+            ) return;
+
+            // If a local declaration shadows this name, only rename
+            // unambiguous type-position references (e.g. type annotations)
+            if (hasShadow) {
+              const isTypePosition =
+                parent.type === "TSTypeReference" ||
+                parent.type === "TSTypeAnnotation" ||
+                parent.type === "TSTypeQuery";
+              if (!isTypePosition) return;
+            }
+
             idPath.node.name = newName;
           });
 
-          // Also update JSX element names (opening + closing tags)
-          root.find(j.JSXIdentifier, { name: localName }).forEach((idPath) => {
-            idPath.node.name = newName;
-          });
+          // Only rename JSX identifiers if there's no shadow
+          if (!hasShadow) {
+            root.find(j.JSXIdentifier, { name: localName }).forEach((idPath) => {
+              idPath.node.name = newName;
+            });
+          }
 
           if (spec.local) {
             spec.local.name = newName;

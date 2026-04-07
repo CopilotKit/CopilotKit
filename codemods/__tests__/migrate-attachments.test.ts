@@ -184,6 +184,38 @@ import { ImageUploadQueue } from "some-other-package";
       expect(output).toContain("ImageUploadQueue");
       expect(output).not.toContain("AttachmentQueue");
     });
+
+    it("does not rename local variables that shadow the import name", () => {
+      const input = `
+import type { ImageUpload } from "@copilotkit/react-ui";
+const x: ImageUpload = {} as any;
+const ImageUpload = "unrelated local variable";
+console.log(ImageUpload);
+`;
+      const output = run(input);
+      // Import and type reference should be renamed
+      expect(output).toContain("import type { Attachment }");
+      expect(output).toContain("const x: Attachment");
+      // Local variable declaration and its reference should NOT be renamed
+      expect(output).toContain('const ImageUpload = "unrelated local variable"');
+      expect(output).toContain("console.log(ImageUpload)");
+    });
+
+    it("does not rename object property keys or member expressions", () => {
+      const input = `
+import type { ImageUpload } from "@copilotkit/react-ui";
+const x: ImageUpload = {} as any;
+const config = { ImageUpload: true };
+const val = obj.ImageUpload;
+`;
+      const output = run(input);
+      // Import and type reference should be renamed
+      expect(output).toContain("import type { Attachment }");
+      expect(output).toContain("const x: Attachment");
+      // Object key and member access should NOT be renamed
+      expect(output).toContain("{ ImageUpload: true }");
+      expect(output).toContain("obj.ImageUpload");
+    });
   });
 
   // -----------------------------------------------------------------------
