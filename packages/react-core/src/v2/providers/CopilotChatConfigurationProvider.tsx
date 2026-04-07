@@ -10,6 +10,27 @@ import React, {
 } from "react";
 import { DEFAULT_AGENT_ID, randomUUID } from "@copilotkit/shared";
 
+/**
+ * Returns the same object reference as long as the value serializes to the
+ * same JSON string. Avoids re-renders caused by inline object props that are
+ * referentially new on every render but structurally identical.
+ *
+ * Stores the serialized form in a second ref so JSON.stringify is only called
+ * once per render (not twice for the comparison).
+ */
+function useJsonStable<T>(value: T): T {
+  const ref = useRef(value);
+  const jsonRef = useRef(JSON.stringify(value));
+
+  const currentJson = JSON.stringify(value);
+  if (currentJson !== jsonRef.current) {
+    jsonRef.current = currentJson;
+    ref.current = value;
+  }
+
+  return ref.current;
+}
+
 // Default labels
 export const CopilotChatDefaultLabels = {
   chatInputPlaceholder: "Type a message...",
@@ -65,23 +86,17 @@ export const CopilotChatConfigurationProvider: React.FC<
 > = ({ children, labels, agentId, threadId, isModalDefaultOpen }) => {
   const parentConfig = useContext(CopilotChatConfiguration);
 
-  // Deep-compare labels by serializing to JSON. This prevents re-computing
-  // mergedLabels (and changing the context value) when callers pass an inline
-  // object like `labels={{ chatInputPlaceholder: "..." }}` — a new reference
-  // on every render that would otherwise cause all context consumers to
-  // re-render on every keystroke.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const labelsKey = JSON.stringify(labels);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const parentLabelsKey = JSON.stringify(parentConfig?.labels);
+  // Stabilize labels references so that inline objects (new reference on every
+  // parent render) don't invalidate mergedLabels and churn the context value.
+  const stableLabels = useJsonStable(labels);
+  const stableParentLabels = useJsonStable(parentConfig?.labels);
   const mergedLabels: CopilotChatLabels = useMemo(
     () => ({
       ...CopilotChatDefaultLabels,
-      ...(parentConfig?.labels ?? {}),
-      ...(labels ?? {}),
+      ...(stableParentLabels ?? {}),
+      ...(stableLabels ?? {}),
     }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [labelsKey, parentLabelsKey],
+    [stableLabels, stableParentLabels],
   );
 
   const resolvedAgentId = agentId ?? parentConfig?.agentId ?? DEFAULT_AGENT_ID;
