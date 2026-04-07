@@ -9,27 +9,7 @@ import React, {
   useState,
 } from "react";
 import { DEFAULT_AGENT_ID, randomUUID } from "@copilotkit/shared";
-
-/**
- * Returns the same object reference as long as the value serializes to the
- * same JSON string. Avoids re-renders caused by inline object props that are
- * referentially new on every render but structurally identical.
- *
- * Stores the serialized form in a second ref so JSON.stringify is only called
- * once per render (not twice for the comparison).
- */
-function useJsonStable<T>(value: T): T {
-  const ref = useRef(value);
-  const jsonRef = useRef(JSON.stringify(value));
-
-  const currentJson = JSON.stringify(value);
-  if (currentJson !== jsonRef.current) {
-    jsonRef.current = currentJson;
-    ref.current = value;
-  }
-
-  return ref.current;
-}
+import { useShallowStableRef } from "../lib/slots";
 
 // Default labels
 export const CopilotChatDefaultLabels = {
@@ -88,15 +68,16 @@ export const CopilotChatConfigurationProvider: React.FC<
 
   // Stabilize labels references so that inline objects (new reference on every
   // parent render) don't invalidate mergedLabels and churn the context value.
-  const stableLabels = useJsonStable(labels);
-  const stableParentLabels = useJsonStable(parentConfig?.labels);
+  // parentConfig?.labels is already stabilized by the parent provider's own
+  // useShallowStableRef, so we only need to stabilize the local labels prop.
+  const stableLabels = useShallowStableRef(labels);
   const mergedLabels: CopilotChatLabels = useMemo(
     () => ({
       ...CopilotChatDefaultLabels,
-      ...(stableParentLabels ?? {}),
+      ...(parentConfig?.labels ?? {}),
       ...(stableLabels ?? {}),
     }),
-    [stableLabels, stableParentLabels],
+    [stableLabels, parentConfig?.labels],
   );
 
   const resolvedAgentId = agentId ?? parentConfig?.agentId ?? DEFAULT_AGENT_ID;
