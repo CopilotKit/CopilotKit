@@ -184,6 +184,8 @@ export function IntegrationExplorer({ integrations, initialFeatureFilter }: Inte
         return result;
     }, [filteredDemos]);
 
+    const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
+
     const hasActiveFilters = framework !== "all" || genUi !== "all" || modality !== "all" || !!featureFilter;
 
     const clearFilter = (which: "framework" | "genUi" | "modality" | "feature") => {
@@ -193,11 +195,100 @@ export function IntegrationExplorer({ integrations, initialFeatureFilter }: Inte
         else setModality("all");
     };
 
+    const activeFilterLabel = framework !== "all"
+        ? framework
+        : genUi !== "all"
+            ? GEN_UI_LABELS[genUi]
+            : modality !== "all"
+                ? MODALITY_LABELS[modality]
+                : "All Frameworks";
+
     return (
-        <div className="flex gap-6">
-            {/* ---- Sidebar ---- */}
+        <div className="flex flex-col sm:flex-row gap-4 sm:gap-6">
+            {/* ---- Mobile filter dropdown ---- */}
+            <div className="block sm:hidden relative">
+                <button
+                    type="button"
+                    onClick={() => setMobileFilterOpen(!mobileFilterOpen)}
+                    className="w-full flex items-center justify-between rounded-lg border border-[var(--border)] bg-[var(--bg-surface)] px-4 py-2.5 text-[13px] font-medium text-[var(--text-secondary)] hover:border-[var(--text-faint)] transition-colors"
+                >
+                    <span>Filter: {activeFilterLabel}</span>
+                    <svg
+                        className={`w-4 h-4 text-[var(--text-muted)] transition-transform ${mobileFilterOpen ? "rotate-180" : ""}`}
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                    >
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                </button>
+                {mobileFilterOpen && (
+                    <div className="absolute left-0 right-0 top-full mt-1 z-40 rounded-lg border border-[var(--border)] bg-[var(--bg-surface)] shadow-lg p-4 max-h-[60vh] overflow-y-auto">
+                        <FilterGroup title="Framework">
+                            <RadioOption
+                                label="All"
+                                count={totalDemoCount}
+                                selected={framework === "all"}
+                                onClick={() => { setFramework("all"); setMobileFilterOpen(false); }}
+                            />
+                            {frameworkOptions.map((name) => (
+                                <RadioOption
+                                    key={name}
+                                    label={name}
+                                    count={frameworkCounts[name] ?? 0}
+                                    selected={framework === name}
+                                    onClick={() => { setFramework(name); setMobileFilterOpen(false); }}
+                                />
+                            ))}
+                            {[...comingSoonFrameworks].map((name) => (
+                                <RadioOption
+                                    key={name}
+                                    label={name}
+                                    comingSoon
+                                />
+                            ))}
+                        </FilterGroup>
+
+                        <FilterGroup title="Generative UI">
+                            <RadioOption
+                                label="All"
+                                selected={genUi === "all"}
+                                onClick={() => { setGenUi("all"); setMobileFilterOpen(false); }}
+                            />
+                            {GEN_UI_VALUES.map((v) => (
+                                <RadioOption
+                                    key={v}
+                                    label={GEN_UI_LABELS[v]}
+                                    selected={genUi === v}
+                                    comingSoon={comingSoonGenUi.has(v)}
+                                    onClick={comingSoonGenUi.has(v) ? undefined : () => { setGenUi(v); setMobileFilterOpen(false); }}
+                                />
+                            ))}
+                        </FilterGroup>
+
+                        <FilterGroup title="Interaction">
+                            <RadioOption
+                                label="All"
+                                selected={modality === "all"}
+                                onClick={() => { setModality("all"); setMobileFilterOpen(false); }}
+                            />
+                            {MODALITY_VALUES.map((v) => (
+                                <RadioOption
+                                    key={v}
+                                    label={MODALITY_LABELS[v]}
+                                    selected={modality === v}
+                                    comingSoon={comingSoonModality.has(v)}
+                                    onClick={comingSoonModality.has(v) ? undefined : () => { setModality(v); setMobileFilterOpen(false); }}
+                                />
+                            ))}
+                        </FilterGroup>
+                    </div>
+                )}
+            </div>
+
+            {/* ---- Desktop sidebar ---- */}
             <aside
-                className="shrink-0 sticky top-4 self-start"
+                className="hidden sm:block shrink-0 sticky top-4 self-start"
                 style={{ width: 220 }}
             >
                 {/* Framework group */}

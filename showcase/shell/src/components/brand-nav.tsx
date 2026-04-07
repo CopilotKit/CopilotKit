@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { SearchTrigger } from "./search-trigger";
@@ -154,6 +155,7 @@ export function BrandNav() {
     const pathname = usePathname();
     const active = activeBrandFromPath(pathname);
     const links = active === "copilotkit" ? COPILOTKIT_LINKS : AG_UI_LINKS;
+    const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
     return (
         <nav className="sticky top-0 z-50 border-b border-[var(--border)] bg-[var(--bg-surface)]/90 backdrop-blur-lg">
@@ -203,8 +205,8 @@ export function BrandNav() {
                     </Link>
                 </div>
 
-                {/* Context-dependent nav links */}
-                <div className="flex items-center gap-1">
+                {/* Context-dependent nav links (desktop) */}
+                <div className="hidden sm:flex items-center gap-1">
                     {links.map(({ href, label }) => (
                         <Link
                             key={href}
@@ -216,8 +218,87 @@ export function BrandNav() {
                     ))}
                 </div>
 
-                <SearchTrigger />
+                {/* Desktop search */}
+                <div className="hidden sm:block">
+                    <SearchTrigger />
+                </div>
+
+                {/* Mobile: search icon + hamburger */}
+                <div className="flex sm:hidden items-center gap-1">
+                    <SearchTrigger iconOnly />
+                    <button
+                        onClick={() => setMobileMenuOpen(true)}
+                        className="flex items-center justify-center w-8 h-8 rounded-md text-[var(--text-muted)] hover:text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)] transition-colors cursor-pointer"
+                        aria-label="Open menu"
+                    >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                        </svg>
+                    </button>
+                </div>
             </div>
+
+            {/* Mobile slide-out menu */}
+            {mobileMenuOpen && (
+                <>
+                    {/* Backdrop */}
+                    <div
+                        className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm"
+                        onClick={() => setMobileMenuOpen(false)}
+                    />
+                    {/* Panel */}
+                    <div
+                        className="fixed top-0 right-0 bottom-0 z-50 w-[280px] bg-[var(--bg-surface)] border-l border-[var(--border)] flex flex-col"
+                        style={{
+                            boxShadow: "-8px 0 30px rgba(0,0,0,0.1)",
+                            animation: "mobileMenuSlideIn 0.2s ease",
+                        }}
+                    >
+                        {/* Close button */}
+                        <div className="flex items-center justify-end px-4 py-3 border-b border-[var(--border)]">
+                            <button
+                                onClick={() => setMobileMenuOpen(false)}
+                                className="flex items-center justify-center w-8 h-8 rounded-md text-[var(--text-muted)] hover:text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)] transition-colors cursor-pointer"
+                                aria-label="Close menu"
+                            >
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </button>
+                        </div>
+                        {/* Nav links */}
+                        <div className="flex flex-col px-4 py-4 gap-1">
+                            {links.map(({ href, label }) => (
+                                <Link
+                                    key={href}
+                                    href={href}
+                                    onClick={() => setMobileMenuOpen(false)}
+                                    className="rounded-md px-3 py-2.5 text-[14px] font-medium text-[var(--text-secondary)] hover:text-[var(--text)] hover:bg-[var(--bg-elevated)] transition-all"
+                                >
+                                    {label}
+                                </Link>
+                            ))}
+                        </div>
+                        {/* AG-UI link at bottom */}
+                        <div className="mt-auto px-4 py-4 border-t border-[var(--border)]">
+                            <Link
+                                href="/ag-ui"
+                                onClick={() => setMobileMenuOpen(false)}
+                                className="flex items-center gap-2 rounded-md px-3 py-2.5 text-[13px] font-medium text-[var(--text-muted)] hover:text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)] transition-all"
+                            >
+                                <AgUiIcon />
+                                AG-UI
+                            </Link>
+                        </div>
+                    </div>
+                    <style jsx global>{`
+                        @keyframes mobileMenuSlideIn {
+                            from { transform: translateX(100%); }
+                            to { transform: translateX(0); }
+                        }
+                    `}</style>
+                </>
+            )}
         </nav>
     );
 }
