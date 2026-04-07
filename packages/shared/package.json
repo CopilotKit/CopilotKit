@@ -24,7 +24,7 @@
   "sideEffects": false,
   "main": "./dist/index.cjs",
   "module": "./dist/index.mjs",
-  "types": "./dist/index.d.ts",
+  "types": "./dist/index.d.cts",
   "unpkg": "./dist/index.umd.js",
   "jsdelivr": "./dist/index.umd.js",
   "exports": {
@@ -38,7 +38,7 @@
     "access": "public"
   },
   "scripts": {
-    "build": "tsdown && node ../../scripts/copy-dts.mjs",
+    "build": "tsdown",
     "dev": "tsdown --watch",
     "test": "vitest run",
     "test:watch": "vitest",

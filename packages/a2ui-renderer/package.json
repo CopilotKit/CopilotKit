@@ -24,7 +24,7 @@
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.mjs",
-  "types": "./dist/index.d.ts",
+  "types": "./dist/index.d.cts",
   "unpkg": "./dist/index.umd.js",
   "jsdelivr": "./dist/index.umd.js",
   "exports": {
@@ -39,7 +39,7 @@
   },
   "scripts": {
     "prepack": "pnpm run build",
-    "build": "tsdown && node ../../scripts/copy-dts.mjs",
+    "build": "tsdown",
     "check-types": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run",
     "test:watch": "vitest",
