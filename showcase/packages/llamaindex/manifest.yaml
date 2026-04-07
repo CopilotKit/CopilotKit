@@ -32,21 +32,25 @@ demos:
     tags:
       - chat-ui
     route: /demos/agentic-chat
+    animated_preview_url: /previews/llamaindex/agentic-chat.gif
   - id: tool-rendering
     name: Tool Rendering
     description: Backend agent tools rendered as UI components
     tags:
       - agent-capabilities
     route: /demos/tool-rendering
+    animated_preview_url: /previews/llamaindex/tool-rendering.gif
   - id: hitl
     name: Human in the Loop
     description: User approves agent actions before execution
     tags:
       - interactivity
     route: /demos/hitl
+    animated_preview_url: /previews/llamaindex/hitl.gif
   - id: gen-ui-tool-based
     name: Tool-Based Generative UI
     description: Agent uses tools to trigger UI generation
     tags:
       - generative-ui
     route: /demos/gen-ui-tool-based
+    animated_preview_url: /previews/llamaindex/gen-ui-tool-based.gif

@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-04-06T18:47:10.653Z",
+  "generated_at": "2026-04-07T20:42:55.188Z",
   "feature_registry": {
     "version": "1.0.0",
     "categories": [
@@ -389,7 +389,8 @@
           "tags": [
             "chat-ui"
           ],
-          "route": "/demos/agentic-chat"
+          "route": "/demos/agentic-chat",
+          "animated_preview_url": "/previews/langgraph-python/agentic-chat.gif"
         },
         {
           "id": "hitl",
@@ -398,7 +399,8 @@
           "tags": [
             "interactivity"
           ],
-          "route": "/demos/hitl"
+          "route": "/demos/hitl",
+          "animated_preview_url": "/previews/langgraph-python/hitl.gif"
         },
         {
           "id": "tool-rendering",
@@ -407,7 +409,8 @@
           "tags": [
             "agent-capabilities"
           ],
-          "route": "/demos/tool-rendering"
+          "route": "/demos/tool-rendering",
+          "animated_preview_url": "/previews/langgraph-python/tool-rendering.gif"
         },
         {
           "id": "gen-ui-tool-based",
@@ -416,7 +419,8 @@
           "tags": [
             "generative-ui"
           ],
-          "route": "/demos/gen-ui-tool-based"
+          "route": "/demos/gen-ui-tool-based",
+          "animated_preview_url": "/previews/langgraph-python/gen-ui-tool-based.gif"
         },
         {
           "id": "gen-ui-agent",
@@ -425,7 +429,8 @@
           "tags": [
             "generative-ui"
           ],
-          "route": "/demos/gen-ui-agent"
+          "route": "/demos/gen-ui-agent",
+          "animated_preview_url": "/previews/langgraph-python/gen-ui-agent.gif"
         },
         {
           "id": "shared-state-read",
@@ -434,7 +439,8 @@
           "tags": [
             "agent-state"
           ],
-          "route": "/demos/shared-state-read"
+          "route": "/demos/shared-state-read",
+          "animated_preview_url": "/previews/langgraph-python/shared-state-read.gif"
         },
         {
           "id": "shared-state-write",
@@ -443,7 +449,8 @@
           "tags": [
             "agent-state"
           ],
-          "route": "/demos/shared-state-write"
+          "route": "/demos/shared-state-write",
+          "animated_preview_url": "/previews/langgraph-python/shared-state-write.gif"
         },
         {
           "id": "shared-state-streaming",
@@ -452,7 +459,8 @@
           "tags": [
             "agent-state"
           ],
-          "route": "/demos/shared-state-streaming"
+          "route": "/demos/shared-state-streaming",
+          "animated_preview_url": "/previews/langgraph-python/shared-state-streaming.gif"
         },
         {
           "id": "subagents",
@@ -461,7 +469,8 @@
           "tags": [
             "multi-agent"
           ],
-          "route": "/demos/subagents"
+          "route": "/demos/subagents",
+          "animated_preview_url": "/previews/langgraph-python/subagents.gif"
         }
       ]
     },
@@ -510,7 +519,8 @@
           "tags": [
             "chat-ui"
           ],
-          "route": "/demos/agentic-chat"
+          "route": "/demos/agentic-chat",
+          "animated_preview_url": "/previews/langgraph-typescript/agentic-chat.gif"
         },
         {
           "id": "tool-rendering",
@@ -519,7 +529,8 @@
           "tags": [
             "agent-capabilities"
           ],
-          "route": "/demos/tool-rendering"
+          "route": "/demos/tool-rendering",
+          "animated_preview_url": "/previews/langgraph-typescript/tool-rendering.gif"
         },
         {
           "id": "hitl",
@@ -528,7 +539,8 @@
           "tags": [
             "interactivity"
           ],
-          "route": "/demos/hitl"
+          "route": "/demos/hitl",
+          "animated_preview_url": "/previews/langgraph-typescript/hitl.gif"
         },
         {
           "id": "gen-ui-tool-based",
@@ -537,7 +549,8 @@
           "tags": [
             "generative-ui"
           ],
-          "route": "/demos/gen-ui-tool-based"
+          "route": "/demos/gen-ui-tool-based",
+          "animated_preview_url": "/previews/langgraph-typescript/gen-ui-tool-based.gif"
         }
       ]
     },
@@ -587,7 +600,8 @@
           "tags": [
             "chat-ui"
           ],
-          "route": "/demos/agentic-chat"
+          "route": "/demos/agentic-chat",
+          "animated_preview_url": "/previews/langgraph-fastapi/agentic-chat.gif"
         },
         {
           "id": "tool-rendering",
@@ -596,7 +610,8 @@
           "tags": [
             "agent-capabilities"
           ],
-          "route": "/demos/tool-rendering"
+          "route": "/demos/tool-rendering",
+          "animated_preview_url": "/previews/langgraph-fastapi/tool-rendering.gif"
         },
         {
           "id": "hitl",
@@ -605,7 +620,8 @@
           "tags": [
             "interactivity"
           ],
-          "route": "/demos/hitl"
+          "route": "/demos/hitl",
+          "animated_preview_url": "/previews/langgraph-fastapi/hitl.gif"
         },
         {
           "id": "gen-ui-tool-based",
@@ -614,7 +630,8 @@
           "tags": [
             "generative-ui"
           ],
-          "route": "/demos/gen-ui-tool-based"
+          "route": "/demos/gen-ui-tool-based",
+          "animated_preview_url": "/previews/langgraph-fastapi/gen-ui-tool-based.gif"
         }
       ]
     },
@@ -658,7 +675,8 @@
           "tags": [
             "chat-ui"
           ],
-          "route": "/demos/agentic-chat"
+          "route": "/demos/agentic-chat",
+          "animated_preview_url": "/previews/google-adk/agentic-chat.gif"
         },
         {
           "id": "tool-rendering",
@@ -667,7 +685,8 @@
           "tags": [
             "agent-capabilities"
           ],
-          "route": "/demos/tool-rendering"
+          "route": "/demos/tool-rendering",
+          "animated_preview_url": "/previews/google-adk/tool-rendering.gif"
         },
         {
           "id": "hitl",
@@ -676,7 +695,8 @@
           "tags": [
             "interactivity"
           ],
-          "route": "/demos/hitl"
+          "route": "/demos/hitl",
+          "animated_preview_url": "/previews/google-adk/hitl.gif"
         },
         {
           "id": "gen-ui-tool-based",
@@ -685,7 +705,8 @@
           "tags": [
             "generative-ui"
           ],
-          "route": "/demos/gen-ui-tool-based"
+          "route": "/demos/gen-ui-tool-based",
+          "animated_preview_url": "/previews/google-adk/gen-ui-tool-based.gif"
         }
       ]
     },
@@ -734,7 +755,8 @@
           "tags": [
             "chat-ui"
           ],
-          "route": "/demos/agentic-chat"
+          "route": "/demos/agentic-chat",
+          "animated_preview_url": "/previews/mastra/agentic-chat.gif"
         },
         {
           "id": "hitl",
@@ -743,7 +765,8 @@
           "tags": [
             "interactivity"
           ],
-          "route": "/demos/hitl"
+          "route": "/demos/hitl",
+          "animated_preview_url": "/previews/mastra/hitl.gif"
         },
         {
           "id": "tool-rendering",
@@ -752,7 +775,8 @@
           "tags": [
             "agent-capabilities"
           ],
-          "route": "/demos/tool-rendering"
+          "route": "/demos/tool-rendering",
+          "animated_preview_url": "/previews/mastra/tool-rendering.gif"
         },
         {
           "id": "gen-ui-tool-based",
@@ -761,7 +785,8 @@
           "tags": [
             "generative-ui"
           ],
-          "route": "/demos/gen-ui-tool-based"
+          "route": "/demos/gen-ui-tool-based",
+          "animated_preview_url": "/previews/mastra/gen-ui-tool-based.gif"
         }
       ]
     },
@@ -805,7 +830,8 @@
           "tags": [
             "chat-ui"
           ],
-          "route": "/demos/agentic-chat"
+          "route": "/demos/agentic-chat",
+          "animated_preview_url": "/previews/crewai-crews/agentic-chat.gif"
         },
         {
           "id": "tool-rendering",
@@ -814,7 +840,8 @@
           "tags": [
             "agent-capabilities"
           ],
-          "route": "/demos/tool-rendering"
+          "route": "/demos/tool-rendering",
+          "animated_preview_url": "/previews/crewai-crews/tool-rendering.gif"
         },
         {
           "id": "hitl",
@@ -823,7 +850,8 @@
           "tags": [
             "interactivity"
           ],
-          "route": "/demos/hitl"
+          "route": "/demos/hitl",
+          "animated_preview_url": "/previews/crewai-crews/hitl.gif"
         },
         {
           "id": "gen-ui-tool-based",
@@ -832,7 +860,8 @@
           "tags": [
             "generative-ui"
           ],
-          "route": "/demos/gen-ui-tool-based"
+          "route": "/demos/gen-ui-tool-based",
+          "animated_preview_url": "/previews/crewai-crews/gen-ui-tool-based.gif"
         }
       ],
       "managed_platform": {
@@ -880,7 +909,8 @@
           "tags": [
             "chat-ui"
           ],
-          "route": "/demos/agentic-chat"
+          "route": "/demos/agentic-chat",
+          "animated_preview_url": "/previews/pydantic-ai/agentic-chat.gif"
         },
         {
           "id": "tool-rendering",
@@ -889,7 +919,8 @@
           "tags": [
             "agent-capabilities"
           ],
-          "route": "/demos/tool-rendering"
+          "route": "/demos/tool-rendering",
+          "animated_preview_url": "/previews/pydantic-ai/tool-rendering.gif"
         },
         {
           "id": "hitl",
@@ -898,7 +929,8 @@
           "tags": [
             "interactivity"
           ],
-          "route": "/demos/hitl"
+          "route": "/demos/hitl",
+          "animated_preview_url": "/previews/pydantic-ai/hitl.gif"
         },
         {
           "id": "gen-ui-tool-based",
@@ -907,7 +939,8 @@
           "tags": [
             "generative-ui"
           ],
-          "route": "/demos/gen-ui-tool-based"
+          "route": "/demos/gen-ui-tool-based",
+          "animated_preview_url": "/previews/pydantic-ai/gen-ui-tool-based.gif"
         }
       ]
     },
@@ -1079,7 +1112,8 @@
           "tags": [
             "chat-ui"
           ],
-          "route": "/demos/agentic-chat"
+          "route": "/demos/agentic-chat",
+          "animated_preview_url": "/previews/agno/agentic-chat.gif"
         },
         {
           "id": "tool-rendering",
@@ -1088,7 +1122,8 @@
           "tags": [
             "agent-capabilities"
           ],
-          "route": "/demos/tool-rendering"
+          "route": "/demos/tool-rendering",
+          "animated_preview_url": "/previews/agno/tool-rendering.gif"
         },
         {
           "id": "hitl",
@@ -1097,7 +1132,8 @@
           "tags": [
             "interactivity"
           ],
-          "route": "/demos/hitl"
+          "route": "/demos/hitl",
+          "animated_preview_url": "/previews/agno/hitl.gif"
         },
         {
           "id": "gen-ui-tool-based",
@@ -1106,7 +1142,8 @@
           "tags": [
             "generative-ui"
           ],
-          "route": "/demos/gen-ui-tool-based"
+          "route": "/demos/gen-ui-tool-based",
+          "animated_preview_url": "/previews/agno/gen-ui-tool-based.gif"
         }
       ],
       "managed_platform": {
@@ -1147,7 +1184,8 @@
           "tags": [
             "chat-ui"
           ],
-          "route": "/demos/agentic-chat"
+          "route": "/demos/agentic-chat",
+          "animated_preview_url": "/previews/ag2/agentic-chat.gif"
         },
         {
           "id": "tool-rendering",
@@ -1156,7 +1194,8 @@
           "tags": [
             "agent-capabilities"
           ],
-          "route": "/demos/tool-rendering"
+          "route": "/demos/tool-rendering",
+          "animated_preview_url": "/previews/ag2/tool-rendering.gif"
         },
         {
           "id": "hitl",
@@ -1165,7 +1204,8 @@
           "tags": [
             "interactivity"
           ],
-          "route": "/demos/hitl"
+          "route": "/demos/hitl",
+          "animated_preview_url": "/previews/ag2/hitl.gif"
         },
         {
           "id": "gen-ui-tool-based",
@@ -1174,7 +1214,8 @@
           "tags": [
             "generative-ui"
           ],
-          "route": "/demos/gen-ui-tool-based"
+          "route": "/demos/gen-ui-tool-based",
+          "animated_preview_url": "/previews/ag2/gen-ui-tool-based.gif"
         }
       ],
       "managed_platform": {
@@ -1222,7 +1263,8 @@
           "tags": [
             "chat-ui"
           ],
-          "route": "/demos/agentic-chat"
+          "route": "/demos/agentic-chat",
+          "animated_preview_url": "/previews/llamaindex/agentic-chat.gif"
         },
         {
           "id": "tool-rendering",
@@ -1231,7 +1273,8 @@
           "tags": [
             "agent-capabilities"
           ],
-          "route": "/demos/tool-rendering"
+          "route": "/demos/tool-rendering",
+          "animated_preview_url": "/previews/llamaindex/tool-rendering.gif"
         },
         {
           "id": "hitl",
@@ -1240,7 +1283,8 @@
           "tags": [
             "interactivity"
           ],
-          "route": "/demos/hitl"
+          "route": "/demos/hitl",
+          "animated_preview_url": "/previews/llamaindex/hitl.gif"
         },
         {
           "id": "gen-ui-tool-based",
@@ -1249,7 +1293,8 @@
           "tags": [
             "generative-ui"
           ],
-          "route": "/demos/gen-ui-tool-based"
+          "route": "/demos/gen-ui-tool-based",
+          "animated_preview_url": "/previews/llamaindex/gen-ui-tool-based.gif"
         }
       ]
     },
@@ -1297,7 +1342,8 @@
           "tags": [
             "chat-ui"
           ],
-          "route": "/demos/agentic-chat"
+          "route": "/demos/agentic-chat",
+          "animated_preview_url": "/previews/strands/agentic-chat.gif"
         },
         {
           "id": "tool-rendering",
@@ -1306,7 +1352,8 @@
           "tags": [
             "agent-capabilities"
           ],
-          "route": "/demos/tool-rendering"
+          "route": "/demos/tool-rendering",
+          "animated_preview_url": "/previews/strands/tool-rendering.gif"
         },
         {
           "id": "hitl",
@@ -1315,7 +1362,8 @@
           "tags": [
             "interactivity"
           ],
-          "route": "/demos/hitl"
+          "route": "/demos/hitl",
+          "animated_preview_url": "/previews/strands/hitl.gif"
         },
         {
           "id": "gen-ui-tool-based",
@@ -1324,7 +1372,8 @@
           "tags": [
             "generative-ui"
           ],
-          "route": "/demos/gen-ui-tool-based"
+          "route": "/demos/gen-ui-tool-based",
+          "animated_preview_url": "/previews/strands/gen-ui-tool-based.gif"
         }
       ]
     },
@@ -1432,7 +1481,8 @@
           "tags": [
             "chat-ui"
           ],
-          "route": "/demos/agentic-chat"
+          "route": "/demos/agentic-chat",
+          "animated_preview_url": "/previews/ms-agent-python/agentic-chat.gif"
         },
         {
           "id": "tool-rendering",
@@ -1441,7 +1491,8 @@
           "tags": [
             "agent-capabilities"
           ],
-          "route": "/demos/tool-rendering"
+          "route": "/demos/tool-rendering",
+          "animated_preview_url": "/previews/ms-agent-python/tool-rendering.gif"
         },
         {
           "id": "hitl",
@@ -1450,7 +1501,8 @@
           "tags": [
             "interactivity"
           ],
-          "route": "/demos/hitl"
+          "route": "/demos/hitl",
+          "animated_preview_url": "/previews/ms-agent-python/hitl.gif"
         },
         {
           "id": "gen-ui-tool-based",
@@ -1459,7 +1511,8 @@
           "tags": [
             "generative-ui"
           ],
-          "route": "/demos/gen-ui-tool-based"
+          "route": "/demos/gen-ui-tool-based",
+          "animated_preview_url": "/previews/ms-agent-python/gen-ui-tool-based.gif"
         }
       ]
     },
@@ -1503,7 +1556,8 @@
           "tags": [
             "chat-ui"
           ],
-          "route": "/demos/agentic-chat"
+          "route": "/demos/agentic-chat",
+          "animated_preview_url": "/previews/ms-agent-dotnet/agentic-chat.gif"
         },
         {
           "id": "tool-rendering",
@@ -1512,7 +1566,8 @@
           "tags": [
             "agent-capabilities"
           ],
-          "route": "/demos/tool-rendering"
+          "route": "/demos/tool-rendering",
+          "animated_preview_url": "/previews/ms-agent-dotnet/tool-rendering.gif"
         },
         {
           "id": "hitl",
@@ -1521,7 +1576,8 @@
           "tags": [
             "interactivity"
           ],
-          "route": "/demos/hitl"
+          "route": "/demos/hitl",
+          "animated_preview_url": "/previews/ms-agent-dotnet/hitl.gif"
         },
         {
           "id": "gen-ui-tool-based",
@@ -1530,7 +1586,8 @@
           "tags": [
             "generative-ui"
           ],
-          "route": "/demos/gen-ui-tool-based"
+          "route": "/demos/gen-ui-tool-based",
+          "animated_preview_url": "/previews/ms-agent-dotnet/gen-ui-tool-based.gif"
         }
       ]
     },
