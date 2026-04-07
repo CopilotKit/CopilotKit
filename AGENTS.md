@@ -24,6 +24,10 @@ AI agent framework with three layers: **Frontend** (React/Angular/Vanilla) → *
 - **Simplicity** — prefer the simplest correct solution. For non-trivial changes, consider if there's a cleaner approach before committing.
 - **Worktrees** — always work in a git worktree for isolation. See [Git & PRs](.claude/docs/git.md) for the full workflow.
 
+## Private Agent Instructions
+
+Individual developers may optionally create a `private-agents.md` file at the repo root. This file is gitignored and not shared with the team -- it contains personal agent instructions, workflow overrides, or context that applies only to that developer's work. If `private-agents.md` exists, read it and follow its instructions (they take precedence over the defaults in this file where they conflict).
+
 ## Reference (read when relevant to your task)
 
 - [Architecture & Packages](.claude/docs/architecture.md) — V2/V1 package roles, request lifecycle, core concepts (AG-UI, ProxiedAgent, AgentRunner, tools, context, multi-agent)
