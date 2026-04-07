@@ -2,8 +2,9 @@ name: "Showcase: Drift Detection"
 
 on:
   schedule:
-    - cron: "0 3 * * *"      # Nightly E2E
-    - cron: "0 9 * * 1"      # Weekly version drift (Monday 9am UTC)
+    - cron: "0 */6 * * *"   # L1-L3 every 6 hours (0/6/12/18 UTC)
+    - cron: "0 0 * * *"     # L4 daily at midnight UTC
+    - cron: "0 9 * * 1"     # Weekly version drift (Monday 9am UTC) — unchanged
   workflow_dispatch:
     inputs:
       run_version_check:
@@ -13,71 +14,17 @@ on:
 
 jobs:
   drift-detection:
-    name: E2E Drift Detection
+    name: E2E Smoke Suite
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - slug: langgraph-python
-            name: "LangGraph (Python)"
-            url: https://showcase-langgraph-python-production.up.railway.app
-          - slug: mastra
-            name: "Mastra"
-            url: https://showcase-mastra-production.up.railway.app
-          - slug: test-integration-tmp
-            name: "Test Integration"
-            url: https://showcase-test-integration-tmp-production.up.railway.app
-          - slug: crewai-crews
-            name: "CrewAI (Crews)"
-            url: https://showcase-crewai-crews-production.up.railway.app
-          - slug: pydantic-ai
-            name: "PydanticAI"
-            url: https://showcase-pydantic-ai-production.up.railway.app
-          - slug: google-adk
-            name: "Google ADK"
-            url: https://showcase-google-adk-production.up.railway.app
-          - slug: ag2
-            name: "AG2"
-            url: https://showcase-ag2-production.up.railway.app
-          - slug: agno
-            name: "Agno"
-            url: https://showcase-agno-production.up.railway.app
-          - slug: llamaindex
-            name: "LlamaIndex"
-            url: https://showcase-llamaindex-production.up.railway.app
-          - slug: langgraph-fastapi
-            name: "LangGraph (FastAPI)"
-            url: https://showcase-langgraph-fastapi-production.up.railway.app
-          - slug: langgraph-typescript
-            name: "LangGraph (TypeScript)"
-            url: https://showcase-langgraph-typescript-production.up.railway.app
-          - slug: langroid
-            name: "Langroid"
-            url: https://showcase-langroid-production.up.railway.app
-          - slug: spring-ai
-            name: "Spring AI"
-            url: https://showcase-spring-ai-production.up.railway.app
-          - slug: strands
-            name: "AWS Strands"
-            url: https://showcase-strands-production.up.railway.app
-          - slug: ms-agent-python
-            name: "MS Agent Framework (Python)"
-            url: https://showcase-ms-agent-python-production.up.railway.app
-          - slug: claude-sdk-typescript
-            name: "Claude Agent SDK (TypeScript)"
-            url: https://showcase-claude-sdk-typescript-production.up.railway.app
-          - slug: ms-agent-dotnet
-            name: "MS Agent Framework (.NET)"
-            url: https://showcase-ms-agent-dotnet-production.up.railway.app
-          - slug: claude-sdk-python
-            name: "Claude Agent SDK (Python)"
-            url: https://showcase-claude-sdk-python-production.up.railway.app
+    # Don't run on the weekly version-drift-only schedule
+    if: github.event.schedule != '0 9 * * 1' || github.event_name == 'workflow_dispatch'
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          lfs: true
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -88,49 +35,45 @@ jobs:
         uses: pnpm/action-setup@v4
 
       - name: Install dependencies
-        working-directory: showcase/packages/${{ matrix.slug }}
+        working-directory: showcase/tests
         run: pnpm install --ignore-scripts || true
 
       - name: Install Playwright
-        working-directory: showcase/packages/${{ matrix.slug }}
+        working-directory: showcase/tests
         run: npx playwright install chromium
 
-      - name: Check health endpoint
-        run: |
-          status=$(curl -sf "${{ matrix.url }}/api/health" | jq -r '.status' 2>/dev/null || echo "down")
-          echo "Health status: $status"
-          if [ "$status" != "ok" ]; then
-            echo "::warning::${{ matrix.name }} health check failed (status: $status)"
-          fi
-
-      - name: Run E2E tests
-        working-directory: showcase/packages/${{ matrix.slug }}
+      - name: Run L1-L3 tests
+        working-directory: showcase/tests
         env:
-          BASE_URL: ${{ matrix.url }}
           CI: true
-        run: npx playwright test --reporter=github
+        run: npx playwright test --grep "@health|@agent|@chat" --reporter=github
+
+      - name: Run L4 tests (daily only)
+        if: github.event.schedule == '0 0 * * *' || github.event_name == 'workflow_dispatch'
+        working-directory: showcase/tests
+        env:
+          CI: true
+        run: npx playwright test --grep "@tools" --reporter=github
+
+      - name: Post failure to Slack
+        if: failure()
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
+        run: |
+          if [ -n "$SLACK_WEBHOOK" ]; then
+            curl -sf -X POST "$SLACK_WEBHOOK" \
+              -H "Content-Type: application/json" \
+              -d "$(jq -n --arg text ":x: *Showcase E2E suite failed*\n<https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|View run>" '{text: $text}')"
+          fi
 
       - name: Create issue on failure
         if: failure()
         uses: actions/github-script@v7
         with:
           script: |
-            const title = `[Drift] ${{ matrix.name }} E2E tests failing`;
-            const body = `## Drift Detection Alert
+            const title = '[Drift] Showcase E2E suite failing';
+            const body = `## E2E Drift Detection Alert\n\n**Run**: ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}\n**Schedule**: ${context.payload.schedule || 'manual'}\n\nThe centralized E2E smoke suite is failing. Please investigate.`;
 
-            **Integration**: ${{ matrix.name }} (\`${{ matrix.slug }}\`)
-            **URL**: ${{ matrix.url }}
-            **Run**: ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}
-
-            E2E tests are failing against the deployed integration. This may indicate:
-            - A CopilotKit SDK update broke compatibility
-            - The agent backend is down or misconfigured
-            - A dependency update caused a regression
-
-            Please investigate and fix.
-            `;
-
-            // Check if an issue already exists
             const { data: issues } = await github.rest.issues.listForRepo({
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -145,7 +88,7 @@ jobs:
                 repo: context.repo.repo,
                 title,
                 body,
-                labels: ['showcase-drift', '${{ matrix.slug }}'],
+                labels: ['showcase-drift'],
               });
             }
 

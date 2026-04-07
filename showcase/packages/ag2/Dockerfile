@@ -1,4 +1,5 @@
 # Stage 1: Build Next.js frontend
+# Cache bust: 2026-04-07 smoke route
 FROM node:20-slim AS frontend
 WORKDIR /app
 COPY package.json ./

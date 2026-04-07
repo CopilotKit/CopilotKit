@@ -8,7 +8,7 @@ RUN npm install --ignore-scripts
 
 COPY src/ ./src/
 COPY public/ ./public/
-COPY next.config.ts tsconfig.json postcss.config.mjs eslint.config.mjs ./
+COPY next.config.ts tsconfig.json postcss.config.mjs ./
 
 RUN npm run build
 
