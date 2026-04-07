@@ -17,7 +17,6 @@ export async function GET() {
 
     try {
         const runtime = new CopilotRuntime({
-            // @ts-expect-error -- typing mismatch pending release fix
             agents: MastraAgent.getLocalAgents({ mastra }),
         });
 

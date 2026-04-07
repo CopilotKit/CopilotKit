@@ -24,7 +24,6 @@ export async function GET() {
         });
 
         const runtime = new CopilotRuntime({
-            // @ts-expect-error -- typing mismatch pending release fix
             agents: { smoke_test: agent },
         });
 

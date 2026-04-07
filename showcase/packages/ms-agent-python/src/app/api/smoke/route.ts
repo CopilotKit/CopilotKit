@@ -19,7 +19,6 @@ export async function GET() {
         const agent = new HttpAgent({ url: `${AGENT_URL}/` });
 
         const runtime = new CopilotRuntime({
-            // @ts-expect-error -- typing mismatch pending release fix
             agents: { smoke_test: agent },
         });
 

@@ -19,12 +19,11 @@ export async function GET() {
     try {
         const agent = new LangGraphAgent({
             deploymentUrl: LANGGRAPH_URL,
-            graphId: "sample_agent",
+            graphId: "starterAgent",
             langsmithApiKey: process.env.LANGSMITH_API_KEY || "",
         });
 
         const runtime = new CopilotRuntime({
-            // @ts-expect-error -- typing mismatch pending release fix
             agents: { smoke_test: agent },
         });
 

@@ -8,7 +8,7 @@ import { LangGraphAgent } from "@copilotkit/runtime/langgraph";
 
 const INTEGRATION_SLUG = "langgraph-fastapi";
 const LANGGRAPH_URL =
-    process.env.LANGGRAPH_DEPLOYMENT_URL || "http://localhost:8123";
+    process.env.AGENT_URL || "http://localhost:8123";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
@@ -24,7 +24,6 @@ export async function GET() {
         });
 
         const runtime = new CopilotRuntime({
-            // @ts-expect-error -- typing mismatch pending release fix
             agents: { smoke_test: agent },
         });
 
