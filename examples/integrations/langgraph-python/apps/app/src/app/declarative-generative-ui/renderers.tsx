@@ -37,10 +37,10 @@ import {
 // ─── Theme-aware colors ─────────────────────────────────────────────
 
 const c = {
-  card: "hsl(var(--card, 0 0% 100%))",
-  cardFg: "hsl(var(--card-foreground, 222 47% 11%))",
-  border: "hsl(var(--border, 220 13% 91%))",
-  muted: "hsl(var(--muted-foreground, 215 16% 47%))",
+  card: "#ffffff",
+  cardFg: "#111827",
+  border: "#d1d5db",
+  muted: "#6b7280",
 };
 
 function ActionButton({
@@ -62,9 +62,7 @@ function ActionButton({
         width: "100%",
         padding: "8px 16px",
         borderRadius: "8px",
-        border: done
-          ? "1.5px solid #bbf7d0"
-          : `1.5px solid ${c.border}`,
+        border: done ? "1.5px solid #bbf7d0" : `1.5px solid ${c.border}`,
         background: done ? c.card : c.card,
         color: done ? "#059669" : c.cardFg,
         fontSize: "0.8rem",
