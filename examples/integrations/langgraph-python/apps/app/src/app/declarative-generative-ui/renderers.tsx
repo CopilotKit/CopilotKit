@@ -12,7 +12,7 @@
  */
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import {
   PieChart as RechartsPie,
   Pie,
@@ -34,6 +34,72 @@ import {
   type DemonstrationCatalogDefinitions,
 } from "./definitions";
 
+// ─── Theme-aware colors ─────────────────────────────────────────────
+
+const c = {
+  card: "hsl(var(--card, 0 0% 100%))",
+  cardFg: "hsl(var(--card-foreground, 222 47% 11%))",
+  border: "hsl(var(--border, 220 13% 91%))",
+  muted: "hsl(var(--muted-foreground, 215 16% 47%))",
+};
+
+function ActionButton({
+  label,
+  doneLabel,
+  action,
+  children: child,
+}: {
+  label: string;
+  doneLabel: string;
+  action: any;
+  children?: React.ReactNode;
+}) {
+  const [done, setDone] = useState(false);
+  return (
+    <button
+      disabled={done}
+      style={{
+        width: "100%",
+        padding: "8px 16px",
+        borderRadius: "8px",
+        border: done ? "1px solid #d1fae5" : `1px solid ${c.border}`,
+        background: done ? c.card : c.card,
+        color: done ? "#059669" : c.cardFg,
+        fontSize: "0.8rem",
+        fontWeight: 500,
+        cursor: done ? "default" : "pointer",
+        transition: "all 0.2s ease",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: "6px",
+      }}
+      onClick={() => {
+        if (!done) {
+          action?.();
+          setDone(true);
+        }
+      }}
+    >
+      {done && (
+        <svg
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="#059669"
+          strokeWidth="2.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <polyline points="20 6 9 17 4 12" />
+        </svg>
+      )}
+      {done ? doneLabel : (child ?? label)}
+    </button>
+  );
+}
+
 // ─── Renderers (type-checked against schema definitions) ────────────
 
 const demonstrationCatalogRenderers: CatalogRenderers<DemonstrationCatalogDefinitions> =
@@ -53,7 +119,7 @@ const demonstrationCatalogRenderers: CatalogRenderers<DemonstrationCatalogDefini
             margin: 0,
             fontWeight: 600,
             fontSize: sizes[props.level ?? "h2"],
-            color: "#111827",
+            color: c.cardFg,
             letterSpacing: "-0.01em",
           }}
         >
@@ -144,9 +210,9 @@ const demonstrationCatalogRenderers: CatalogRenderers<DemonstrationCatalogDefini
     DashboardCard: ({ props, children }) => (
       <div
         style={{
-          background: "#fff",
+          background: c.card,
           borderRadius: "12px",
-          border: "1px solid #e5e7eb",
+          border: `1px solid ${c.border}`,
           padding: "20px",
           boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
           display: "flex",
@@ -155,16 +221,14 @@ const demonstrationCatalogRenderers: CatalogRenderers<DemonstrationCatalogDefini
         }}
       >
         <div>
-          <div
-            style={{ fontWeight: 600, fontSize: "0.9rem", color: "#111827" }}
-          >
+          <div style={{ fontWeight: 600, fontSize: "0.9rem", color: c.cardFg }}>
             {props.title}
           </div>
           {props.subtitle && (
             <div
               style={{
                 fontSize: "0.75rem",
-                color: "#6b7280",
+                color: c.muted,
                 marginTop: "2px",
               }}
             >
@@ -180,7 +244,7 @@ const demonstrationCatalogRenderers: CatalogRenderers<DemonstrationCatalogDefini
       const trendColors: Record<string, string> = {
         up: "#059669",
         down: "#dc2626",
-        neutral: "#6b7280",
+        neutral: c.muted,
       };
       const trendIcons: Record<string, string> = {
         up: "↑",
@@ -192,7 +256,7 @@ const demonstrationCatalogRenderers: CatalogRenderers<DemonstrationCatalogDefini
           <span
             style={{
               fontSize: "0.75rem",
-              color: "#6b7280",
+              color: c.muted,
               fontWeight: 500,
               textTransform: "uppercase",
               letterSpacing: "0.05em",
@@ -205,7 +269,7 @@ const demonstrationCatalogRenderers: CatalogRenderers<DemonstrationCatalogDefini
               style={{
                 fontSize: "1.5rem",
                 fontWeight: 700,
-                color: "#111827",
+                color: c.cardFg,
                 letterSpacing: "-0.02em",
               }}
             >
@@ -216,7 +280,7 @@ const demonstrationCatalogRenderers: CatalogRenderers<DemonstrationCatalogDefini
                 style={{
                   fontSize: "0.8rem",
                   fontWeight: 500,
-                  color: trendColors[props.trend] ?? "#6b7280",
+                  color: trendColors[props.trend] ?? c.muted,
                 }}
               >
                 {trendIcons[props.trend]} {props.trendValue}
@@ -271,9 +335,9 @@ const demonstrationCatalogRenderers: CatalogRenderers<DemonstrationCatalogDefini
         <div style={{ width: "100%", height: 200 }}>
           <ResponsiveContainer>
             <RechartsBar data={data}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
-              <XAxis dataKey="label" tick={{ fontSize: 11, fill: "#6b7280" }} />
-              <YAxis tick={{ fontSize: 11, fill: "#6b7280" }} />
+              <CartesianGrid strokeDasharray="3 3" stroke={c.border} />
+              <XAxis dataKey="label" tick={{ fontSize: 11, fill: c.muted }} />
+              <YAxis tick={{ fontSize: 11, fill: c.muted }} />
               <Tooltip />
               <Bar
                 dataKey="value"
@@ -292,7 +356,7 @@ const demonstrationCatalogRenderers: CatalogRenderers<DemonstrationCatalogDefini
         warning: { bg: "#fef3c7", color: "#92400e" },
         error: { bg: "#fee2e2", color: "#991b1b" },
         info: { bg: "#dbeafe", color: "#1e40af" },
-        neutral: { bg: "#f3f4f6", color: "#374151" },
+        neutral: { bg: "hsl(var(--muted, 210 40% 96%))", color: c.cardFg },
       };
       const v = variants[props.variant ?? "neutral"] ?? variants.neutral;
       return (
@@ -332,8 +396,8 @@ const demonstrationCatalogRenderers: CatalogRenderers<DemonstrationCatalogDefini
                     style={{
                       textAlign: "left",
                       padding: "8px 12px",
-                      borderBottom: "2px solid #e5e7eb",
-                      color: "#6b7280",
+                      borderBottom: `2px solid ${c.border}`,
+                      color: c.muted,
                       fontWeight: 600,
                       fontSize: "0.7rem",
                       textTransform: "uppercase",
@@ -347,11 +411,11 @@ const demonstrationCatalogRenderers: CatalogRenderers<DemonstrationCatalogDefini
             </thead>
             <tbody>
               {rows.map((row: any, i: number) => (
-                <tr key={i} style={{ borderBottom: "1px solid #f3f4f6" }}>
+                <tr key={i} style={{ borderBottom: `1px solid ${c.border}` }}>
                   {cols.map((col: any) => (
                     <td
                       key={col.key}
-                      style={{ padding: "8px 12px", color: "#374151" }}
+                      style={{ padding: "8px 12px", color: c.cardFg }}
                     >
                       {String(row[col.key] ?? "")}
                     </td>
@@ -365,31 +429,10 @@ const demonstrationCatalogRenderers: CatalogRenderers<DemonstrationCatalogDefini
     },
 
     Button: ({ props, children }) => {
-      const variants: Record<string, React.CSSProperties> = {
-        primary: { background: "#111827", color: "#fff", border: "none" },
-        secondary: {
-          background: "#fff",
-          color: "#374151",
-          border: "1px solid #d1d5db",
-        },
-        ghost: { background: "transparent", color: "#3b82f6", border: "none" },
-      };
-      const style = variants[props.variant ?? "primary"] ?? variants.primary;
       return (
-        <button
-          style={{
-            ...style,
-            padding: "8px 16px",
-            borderRadius: "8px",
-            fontSize: "0.8rem",
-            fontWeight: 500,
-            cursor: "pointer",
-            transition: "opacity 0.15s",
-          }}
-          onClick={props.action as any}
-        >
+        <ActionButton label="Click" doneLabel="Done" action={props.action}>
           {props.child ? children(props.child) : null}
-        </button>
+        </ActionButton>
       );
     },
 
@@ -407,17 +450,18 @@ const demonstrationCatalogRenderers: CatalogRenderers<DemonstrationCatalogDefini
       return (
         <div
           style={{
-            border: "1px solid #e5e7eb",
+            border: `1px solid ${c.border}`,
             borderRadius: "16px",
             padding: "20px",
-            background: "#fff",
+            background: c.card,
+            color: c.cardFg,
             minWidth: 260,
             maxWidth: 340,
             flex: "1 1 260px",
             display: "flex",
             flexDirection: "column",
             gap: "12px",
-            boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
+            boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
           }}
         >
           {/* Header: airline + price */}
@@ -443,28 +487,31 @@ const demonstrationCatalogRenderers: CatalogRenderers<DemonstrationCatalogDefini
                 {props.airline}
               </span>
             </div>
-            <span
-              style={{ fontWeight: 700, fontSize: "1.15rem", color: "#111" }}
-            >
+            <span style={{ fontWeight: 700, fontSize: "1.15rem" }}>
               {props.price}
             </span>
           </div>
 
-          {/* Meta: flight number + date */}
+          {/* Meta */}
           <div
             style={{
               display: "flex",
               justifyContent: "space-between",
               fontSize: "0.8rem",
-              color: "#6b7280",
+              color: c.muted,
             }}
           >
             <span>{props.flightNumber}</span>
             <span>{props.date}</span>
           </div>
 
-          {/* Divider */}
-          <hr style={{ border: "none", borderTop: "1px solid #f3f4f6", margin: 0 }} />
+          <hr
+            style={{
+              border: "none",
+              borderTop: `1px solid ${c.border}`,
+              margin: 0,
+            }}
+          />
 
           {/* Times */}
           <div
@@ -477,7 +524,7 @@ const demonstrationCatalogRenderers: CatalogRenderers<DemonstrationCatalogDefini
             <span style={{ fontWeight: 700, fontSize: "1.1rem" }}>
               {props.departureTime}
             </span>
-            <span style={{ fontSize: "0.75rem", color: "#9ca3af" }}>
+            <span style={{ fontSize: "0.75rem", color: c.muted }}>
               {props.duration}
             </span>
             <span style={{ fontWeight: 700, fontSize: "1.1rem" }}>
@@ -493,50 +540,51 @@ const demonstrationCatalogRenderers: CatalogRenderers<DemonstrationCatalogDefini
               alignItems: "center",
               fontSize: "0.95rem",
               fontWeight: 600,
-              color: "#374151",
             }}
           >
             <span>{props.origin}</span>
-            <span style={{ color: "#9ca3af" }}>→</span>
+            <span style={{ color: c.muted }}>→</span>
             <span>{props.destination}</span>
           </div>
 
-          {/* Divider */}
-          <hr style={{ border: "none", borderTop: "1px solid #f3f4f6", margin: 0 }} />
-
-          {/* Status */}
-          <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-            <span
+          <div
+            style={{
+              marginTop: "auto",
+              display: "flex",
+              flexDirection: "column",
+              gap: "12px",
+            }}
+          >
+            <hr
               style={{
-                width: 8,
-                height: 8,
-                borderRadius: "50%",
-                background: dotColor,
-                display: "inline-block",
+                border: "none",
+                borderTop: `1px solid ${c.border}`,
+                margin: 0,
               }}
             />
-            <span style={{ fontSize: "0.8rem", color: "#6b7280" }}>
-              {props.status}
-            </span>
-          </div>
 
-          {/* Select button */}
-          <button
-            style={{
-              width: "100%",
-              padding: "10px",
-              borderRadius: "10px",
-              border: "1px solid #e5e7eb",
-              background: "#fff",
-              fontSize: "0.9rem",
-              fontWeight: 500,
-              cursor: "pointer",
-              transition: "background 0.15s",
-            }}
-            onClick={props.action as any}
-          >
-            Select
-          </button>
+            {/* Status */}
+            <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+              <span
+                style={{
+                  width: 8,
+                  height: 8,
+                  borderRadius: "50%",
+                  background: dotColor,
+                  display: "inline-block",
+                }}
+              />
+              <span style={{ fontSize: "0.8rem", color: c.muted }}>
+                {props.status}
+              </span>
+            </div>
+
+            <ActionButton
+              label="Select"
+              doneLabel="Selected"
+              action={props.action}
+            />
+          </div>
         </div>
       );
     },
