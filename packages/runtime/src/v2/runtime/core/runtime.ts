@@ -82,6 +82,16 @@ export interface CopilotIntelligenceRuntimeOptions extends BaseCopilotRuntimeOpt
   identifyUser: IdentifyUserCallback;
   /** Auto-generate short names for newly created threads. */
   generateThreadNames?: boolean;
+  /** Max delay (ms) for WebSocket reconnect backoff. @default 10_000 */
+  maxReconnectMs?: number;
+  /** Max delay (ms) for channel rejoin backoff. @default 30_000 */
+  maxRejoinMs?: number;
+  /** Lock TTL in seconds. Clamped to a maximum of 3600 (1 hour). @default 20 */
+  lockTtlSeconds?: number;
+  /** Custom Redis key prefix for the thread lock. */
+  lockKeyPrefix?: string;
+  /** Interval in seconds at which the runtime renews the thread lock. Clamped to a maximum of 3000 (50 minutes). @default 15 */
+  lockHeartbeatIntervalSeconds?: number;
 }
 
 export type CopilotRuntimeOptions =
@@ -111,6 +121,9 @@ export interface CopilotIntelligenceRuntimeLike extends CopilotRuntimeLike {
   intelligence: CopilotKitIntelligence;
   identifyUser: IdentifyUserCallback;
   generateThreadNames: boolean;
+  lockTtlSeconds: number;
+  lockKeyPrefix?: string;
+  lockHeartbeatIntervalSeconds: number;
   mode: RUNTIME_MODE_INTELLIGENCE;
 }
 
@@ -166,7 +179,15 @@ export class CopilotIntelligenceRuntime
   readonly intelligence: CopilotKitIntelligence;
   readonly identifyUser: IdentifyUserCallback;
   readonly generateThreadNames: boolean;
+  readonly lockTtlSeconds: number;
+  readonly lockKeyPrefix?: string;
+  readonly lockHeartbeatIntervalSeconds: number;
   readonly mode = RUNTIME_MODE_INTELLIGENCE;
+
+  /** Maximum allowed lock TTL in seconds (1 hour). */
+  static readonly MAX_LOCK_TTL_SECONDS = 3_600;
+  /** Maximum allowed heartbeat interval in seconds (50 minutes). */
+  static readonly MAX_HEARTBEAT_INTERVAL_SECONDS = 3_000;
 
   constructor(options: CopilotIntelligenceRuntimeOptions) {
     super(
@@ -174,12 +195,23 @@ export class CopilotIntelligenceRuntime
       new IntelligenceAgentRunner({
         url: options.intelligence.ɵgetRunnerWsUrl(),
         authToken: options.intelligence.ɵgetRunnerAuthToken(),
+        maxReconnectMs: options.maxReconnectMs,
+        maxRejoinMs: options.maxRejoinMs,
       }),
     );
     this.intelligence = options.intelligence;
     this.identifyUser = options.identifyUser;
     this.generateThreadNames = options.generateThreadNames ?? true;
     this.licenseChecker = createLicenseChecker(options.licenseToken);
+    this.lockTtlSeconds = Math.min(
+      options.lockTtlSeconds ?? 20,
+      CopilotIntelligenceRuntime.MAX_LOCK_TTL_SECONDS,
+    );
+    this.lockKeyPrefix = options.lockKeyPrefix;
+    this.lockHeartbeatIntervalSeconds = Math.min(
+      options.lockHeartbeatIntervalSeconds ?? 15,
+      CopilotIntelligenceRuntime.MAX_HEARTBEAT_INTERVAL_SECONDS,
+    );
   }
 }
 
@@ -249,6 +281,24 @@ export class CopilotRuntime implements CopilotRuntimeLike {
   get identifyUser(): IdentifyUserCallback | undefined {
     return isIntelligenceRuntime(this.delegate)
       ? this.delegate.identifyUser
+      : undefined;
+  }
+
+  get lockTtlSeconds(): number | undefined {
+    return isIntelligenceRuntime(this.delegate)
+      ? this.delegate.lockTtlSeconds
+      : undefined;
+  }
+
+  get lockKeyPrefix(): string | undefined {
+    return isIntelligenceRuntime(this.delegate)
+      ? this.delegate.lockKeyPrefix
+      : undefined;
+  }
+
+  get lockHeartbeatIntervalSeconds(): number | undefined {
+    return isIntelligenceRuntime(this.delegate)
+      ? this.delegate.lockHeartbeatIntervalSeconds
       : undefined;
   }
 

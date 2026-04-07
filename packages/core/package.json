@@ -5,7 +5,7 @@
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.mjs",
-  "types": "./dist/index.d.ts",
+  "types": "./dist/index.d.cts",
   "unpkg": "./dist/index.umd.js",
   "jsdelivr": "./dist/index.umd.js",
   "exports": {
@@ -19,7 +19,7 @@
     "access": "public"
   },
   "scripts": {
-    "build": "tsdown && node ../../scripts/copy-dts.mjs",
+    "build": "tsdown",
     "dev": "tsdown --watch",
     "check-types": "tsc --noEmit",
     "test": "vitest run",
@@ -29,7 +29,7 @@
     "attw": "attw --pack . --profile node16"
   },
   "dependencies": {
-    "@ag-ui/client": "0.0.48",
+    "@ag-ui/client": "0.0.51",
     "@copilotkit/shared": "workspace:*",
     "phoenix": "^1.8.4",
     "rxjs": "7.8.1",

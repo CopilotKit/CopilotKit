@@ -9,3 +9,4 @@ export { ImageRenderer } from "./messages/ImageRenderer";
 export { useChatContext } from "./ChatContext";
 export { Suggestions as RenderSuggestionsList } from "./Suggestions";
 export { Suggestion as RenderSuggestion } from "./Suggestion";
+export { suppressDeprecationWarnings } from "./attachment-utils";

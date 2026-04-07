@@ -23,7 +23,7 @@
   "sideEffects": false,
   "main": "./dist/index.cjs",
   "module": "./dist/index.mjs",
-  "types": "./dist/index.d.ts",
+  "types": "./dist/index.d.cts",
   "unpkg": "./dist/index.umd.js",
   "jsdelivr": "./dist/index.umd.js",
   "exports": {
@@ -37,7 +37,7 @@
     "access": "public"
   },
   "scripts": {
-    "build": "pnpm run graphql-codegen && tsdown && node ../../scripts/copy-dts.mjs",
+    "build": "pnpm run graphql-codegen && tsdown",
     "dev": "concurrently \"pnpm run graphql-codegen:watch\" \"tsdown --watch\"",
     "test": "vitest run",
     "test:watch": "vitest",

@@ -1190,7 +1190,7 @@ export namespace CopilotChatInput {
           </TooltipTrigger>
           <TooltipContent side="bottom">
             <p className="cpk:flex cpk:items-center cpk:gap-1 cpk:text-xs cpk:font-medium">
-              <span>Add files and more</span>
+              <span>Add attachments</span>
               <code className="cpk:rounded cpk:bg-[#4a4a4a] cpk:px-1 cpk:py-[1px] cpk:font-mono cpk:text-[11px] cpk:text-white cpk:dark:bg-[#e0e0e0] cpk:dark:text-black">
                 /
               </code>
