@@ -65,7 +65,7 @@ npm run dev       # starts Next.js on port 3000
 | Variable            | Description                                                                                           |
 | ------------------- | ----------------------------------------------------------------------------------------------------- |
 | `OPENAI_API_KEY`    | OpenAI API key (required)                                                                             |
-| `OPENAI_MODEL`      | Model to use (default: `gpt-5.4-2026-03-05`)                                                         |
+| `OPENAI_MODEL`      | Model to use (default: `gpt-5.4-2026-03-05`)                                                          |
 | `DATABASE_URL`      | Postgres connection string (default: `postgresql://erp_user:erp_password@localhost:5432/finance_erp`) |
 | `LANGCHAIN_API_KEY` | LangSmith key for tracing (optional)                                                                  |
 
@@ -77,16 +77,16 @@ npm run dev       # starts Next.js on port 3000
 
 ## Scripts
 
-| Script              | Description                                           |
-| ------------------- | ----------------------------------------------------- |
-| `npm run dev:all`   | Start everything (Postgres + seed + agent + frontend) |
-| `npm run db`        | Start Postgres container                              |
-| `npm run db:seed`   | Start Postgres and seed tables                        |
-| `npm run agent`     | Install Python deps and start the agent (port 8123)   |
-| `npm run dev`       | Start Next.js dev server (port 3000)                  |
-| `npm run env:init`  | Create `.env.local` from example (if missing)         |
-| `npm run stop`      | Stop all running services                             |
-| `npm run clean`     | Stop services, remove container and Python venv       |
+| Script             | Description                                           |
+| ------------------ | ----------------------------------------------------- |
+| `npm run dev:all`  | Start everything (Postgres + seed + agent + frontend) |
+| `npm run db`       | Start Postgres container                              |
+| `npm run db:seed`  | Start Postgres and seed tables                        |
+| `npm run agent`    | Install Python deps and start the agent (port 8123)   |
+| `npm run dev`      | Start Next.js dev server (port 3000)                  |
+| `npm run env:init` | Create `.env.local` from example (if missing)         |
+| `npm run stop`     | Stop all running services                             |
+| `npm run clean`    | Stop services, remove container and Python venv       |
 
 ## Architecture
 
