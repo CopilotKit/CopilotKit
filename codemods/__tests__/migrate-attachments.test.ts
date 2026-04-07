@@ -197,7 +197,9 @@ console.log(ImageUpload);
       expect(output).toContain("import type { Attachment }");
       expect(output).toContain("const x: Attachment");
       // Local variable declaration and its reference should NOT be renamed
-      expect(output).toContain('const ImageUpload = "unrelated local variable"');
+      expect(output).toContain(
+        'const ImageUpload = "unrelated local variable"',
+      );
       expect(output).toContain("console.log(ImageUpload)");
     });
 
