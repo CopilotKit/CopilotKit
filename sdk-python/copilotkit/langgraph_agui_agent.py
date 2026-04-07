@@ -1,7 +1,7 @@
 import json
 from typing import Dict, Any, List, Optional, Union, AsyncGenerator
 from enum import Enum
-from ag_ui_langgraph import LangGraphAgent
+from ag_ui_langgraph import LangGraphAgent, make_json_safe
 from ag_ui.core import (
     EventType,
     CustomEvent,
@@ -108,7 +108,7 @@ class LangGraphAGUIAgent(LangGraphAgent):
                         type=EventType.TOOL_CALL_ARGS,
                         tool_call_id=custom_event.value["id"],
                         delta=custom_event.value["args"] if isinstance(custom_event.value["args"], str) else json.dumps(
-                            custom_event.value["args"]),
+                            make_json_safe(custom_event.value["args"])),
                         raw_event=event,
                     )
                 )

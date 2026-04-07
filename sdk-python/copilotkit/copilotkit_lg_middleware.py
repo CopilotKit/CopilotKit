@@ -26,6 +26,7 @@ from langchain.agents.middleware import (
     ModelResponse,
 )
 from langgraph.runtime import Runtime
+from ag_ui_langgraph import make_json_safe
 
 from .langgraph import CopilotKitProperties
 
@@ -262,7 +263,7 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
         if isinstance(app_context, str):
             context_content = app_context
         else:
-            context_content = json.dumps(app_context, indent=2)
+            context_content = json.dumps(make_json_safe(app_context), indent=2)
 
         context_message_content = f"App Context:\n{context_content}"
         context_message_prefix = "App Context:\n"
