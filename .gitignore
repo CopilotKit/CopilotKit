@@ -60,3 +60,4 @@ lefthook-local.yml
 *.a
 *.lib
 *.wasm
+tasks/

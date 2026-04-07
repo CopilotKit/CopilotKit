@@ -9,6 +9,7 @@ import React, {
   useState,
 } from "react";
 import { DEFAULT_AGENT_ID, randomUUID } from "@copilotkit/shared";
+import { useShallowStableRef } from "../lib/slots";
 
 // Default labels
 export const CopilotChatDefaultLabels = {
@@ -65,13 +66,18 @@ export const CopilotChatConfigurationProvider: React.FC<
 > = ({ children, labels, agentId, threadId, isModalDefaultOpen }) => {
   const parentConfig = useContext(CopilotChatConfiguration);
 
+  // Stabilize labels references so that inline objects (new reference on every
+  // parent render) don't invalidate mergedLabels and churn the context value.
+  // parentConfig?.labels is already stabilized by the parent provider's own
+  // useShallowStableRef, so we only need to stabilize the local labels prop.
+  const stableLabels = useShallowStableRef(labels);
   const mergedLabels: CopilotChatLabels = useMemo(
     () => ({
       ...CopilotChatDefaultLabels,
       ...(parentConfig?.labels ?? {}),
-      ...(labels ?? {}),
+      ...(stableLabels ?? {}),
     }),
-    [labels, parentConfig?.labels],
+    [stableLabels, parentConfig?.labels],
   );
 
   const resolvedAgentId = agentId ?? parentConfig?.agentId ?? DEFAULT_AGENT_ID;

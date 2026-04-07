@@ -22,14 +22,13 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { merge } from "ts-deepmerge";
 import {
   useCopilotKit,
   useLicenseContext,
 } from "../../providers/CopilotKitProvider";
 import { InlineFeatureWarning } from "../../components/license-warning-banner";
 import { AbstractAgent, HttpAgent } from "@ag-ui/client";
-import { renderSlot, SlotValue } from "../../lib/slots";
+import { renderSlot, useShallowStableRef, SlotValue } from "../../lib/slots";
 import {
   transcribeAudio,
   TranscriptionError,
@@ -406,22 +405,38 @@ export function CopilotChat({
     }
   }, [transcriptionError]);
 
-  const mergedProps = merge(
-    {
-      isRunning: agent.isRunning,
-      suggestions: autoSuggestions,
-      onSelectSuggestion: handleSelectSuggestion,
-      suggestionView: providedSuggestionView,
-    },
-    {
-      ...restProps,
-      ...(typeof providedMessageView === "string"
-        ? { messageView: { className: providedMessageView } }
-        : providedMessageView !== undefined
-          ? { messageView: providedMessageView }
-          : {}),
-    },
+  // Stabilize slot object references so inline props (new object reference on
+  // every parent render) don't defeat MemoizedSlotWrapper's shallow equality
+  // check and cause unnecessary re-renders of the message list on each keystroke.
+  const stableMessageView = useShallowStableRef(
+    typeof providedMessageView === "string"
+      ? { className: providedMessageView }
+      : providedMessageView,
   );
+  const stableSuggestionView = useShallowStableRef(providedSuggestionView);
+
+  // Stabilize the `onAddFile` handler. Without useCallback, a new arrow
+  // function is created inline on every render, causing CopilotChatView to
+  // re-render on every keystroke even when nothing else changed.
+  const handleAddFile = useCallback(() => {
+    // Delay to let Radix dropdown menu close before triggering file input
+    setTimeout(() => {
+      fileInputRef.current?.click();
+    }, 100);
+  }, []);
+
+  // Use shallow spread instead of ts-deepmerge. ts-deepmerge deep-clones plain
+  // objects even from a single source, which would defeat the reference
+  // stability we just established for stableMessageView and other slot values.
+  const mergedProps: Partial<CopilotChatViewProps> = {
+    isRunning: agent.isRunning,
+    suggestions: autoSuggestions,
+    onSelectSuggestion: handleSelectSuggestion,
+    suggestionView: stableSuggestionView,
+    ...restProps,
+  };
+  if (stableMessageView !== undefined)
+    mergedProps.messageView = stableMessageView;
 
   const hasMessages = agent.messages.length > 0;
   const shouldAllowStop = agent.isRunning && hasMessages;
@@ -468,7 +483,8 @@ export function CopilotChat({
     [messagesMemoKey],
   );
 
-  const finalProps = merge(mergedProps, {
+  const finalProps: CopilotChatViewProps = {
+    ...mergedProps,
     messages,
     // Input behavior props
     onSubmitMessage: onSubmitInput,
@@ -486,19 +502,12 @@ export function CopilotChat({
     // Attachment props
     attachments: selectedAttachments,
     onRemoveAttachment: removeAttachment,
-    onAddFile: attachmentsEnabled
-      ? () => {
-          // Delay to let Radix dropdown menu close before triggering file input
-          setTimeout(() => {
-            fileInputRef.current?.click();
-          }, 100);
-        }
-      : undefined,
+    onAddFile: attachmentsEnabled ? handleAddFile : undefined,
     dragOver,
     onDragOver: handleDragOver,
     onDragLeave: handleDragLeave,
     onDrop: handleDrop,
-  }) as CopilotChatViewProps;
+  };
 
   // Always create a provider with merged values
   // This ensures priority: props > existing config > defaults
