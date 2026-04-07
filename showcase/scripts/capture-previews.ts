@@ -42,15 +42,29 @@ const VIDEO_DIR = path.resolve(PREVIEWS_DIR, "_videos");
 // Demo-specific prompts
 // ---------------------------------------------------------------------------
 
-const DEMO_PROMPTS: Record<string, { prompt: string }> = {
+interface DemoConfig {
+    prompt: string;
+    /** Extra interaction after assistant responds (e.g., click Approve) */
+    postResponse?: (page: import("playwright").Page) => Promise<void>;
+    /** Extra wait time in ms after all interactions (default: POST_RESPONSE_WAIT) */
+    extraWait?: number;
+}
+
+const DEMO_CONFIGS: Record<string, DemoConfig> = {
     "agentic-chat": {
         prompt: "Change the background to a warm sunset gradient",
+        // Wait extra for the background CSS transition to complete
+        extraWait: 4_000,
     },
     "tool-rendering": {
         prompt: "What's the weather like in San Francisco?",
+        // Weather card renders inline — default wait is fine
     },
     "hitl": {
-        prompt: "Change the background color to ocean blue",
+        prompt: "Please plan a trip to mars in 5 steps",
+        // The interesting part of HITL is the step review UI appearing — we give extra time
+        // for the agent to generate the plan and the step list to render
+        extraWait: 8_000,
     },
     "gen-ui-tool-based": {
         prompt: "What's the weather forecast for Tokyo?",
@@ -63,16 +77,36 @@ const DEMO_PROMPTS: Record<string, { prompt: string }> = {
     },
     "shared-state-write": {
         prompt: "Add a task to buy groceries for dinner",
+        postResponse: async (page) => {
+            // Wait for the todo list UI to update with the new item
+            try {
+                await page.waitForFunction(
+                    () => {
+                        // Look for common todo list patterns: li elements, checkbox items, etc.
+                        const items = document.querySelectorAll('li, [role="listitem"], [data-testid*="todo"], [data-testid*="task"]');
+                        return items.length > 0;
+                    },
+                    { timeout: 10_000 },
+                );
+            } catch {
+                console.log("    [WARN] Could not detect todo list update for shared-state-write");
+            }
+        },
+        extraWait: 2_000,
     },
     "shared-state-streaming": {
         prompt: "Add three tasks for planning a birthday party",
+        // Give extra time for streaming state updates to render
+        extraWait: 8_000,
     },
     "subagents": {
         prompt: "What's the weather like in San Francisco today?",
+        // Multi-agent responses take longer
+        extraWait: 5_000,
     },
 };
 
-const DEFAULT_PROMPT = { prompt: "Hello! What can you help me with?" };
+const DEFAULT_CONFIG: DemoConfig = { prompt: "Hello! What can you help me with?" };
 
 // ---------------------------------------------------------------------------
 // CLI flags
@@ -233,8 +267,9 @@ async function captureDemo(
             .locator('[data-testid="copilot-assistant-message"]')
             .count();
 
-        // Get demo-specific prompt
-        const { prompt } = DEMO_PROMPTS[target.demoId] ?? DEFAULT_PROMPT;
+        // Get demo-specific config
+        const config = DEMO_CONFIGS[target.demoId] ?? DEFAULT_CONFIG;
+        const { prompt } = config;
 
         // Type the message and send
         await textarea.fill(prompt);
@@ -259,8 +294,14 @@ async function captureDemo(
             await page.waitForTimeout(5_000);
         }
 
-        // Wait for streaming to finish
-        await page.waitForTimeout(POST_RESPONSE_WAIT);
+        // Run demo-specific post-response interaction (e.g., click Approve for HITL)
+        if (config.postResponse) {
+            console.log(`  Running post-response interaction for ${label} ...`);
+            await config.postResponse(page);
+        }
+
+        // Wait for visual effects to settle
+        await page.waitForTimeout(config.extraWait ?? POST_RESPONSE_WAIT);
 
         // Close context to save the video
         await context.close();
