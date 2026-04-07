@@ -179,6 +179,13 @@ export function CopilotChatInput({
     paddingRight: 0,
   });
 
+  // Cached container dimensions — updated on resize only, not per keystroke.
+  // Eliminates 3x getComputedStyle + 2x getBoundingClientRect per keystroke.
+  const containerCacheRef = useRef<{
+    compactInnerWidth: number;
+    font: string;
+  } | null>(null);
+
   const commandItems = useMemo(() => {
     const entries: ToolsMenuItem[] = [];
     const seen = new Set<string>();
@@ -677,6 +684,41 @@ export function CopilotChatInput({
     });
   }, []);
 
+  const updateContainerCache = useCallback(() => {
+    const textarea = inputRef.current;
+    const grid = gridRef.current;
+    const addContainer = addButtonContainerRef.current;
+    const actionsContainer = actionsContainerRef.current;
+    if (!textarea || !grid || !addContainer || !actionsContainer) return;
+
+    const gridStyles = window.getComputedStyle(grid);
+    const paddingLeft = parseFloat(gridStyles.paddingLeft) || 0;
+    const paddingRight = parseFloat(gridStyles.paddingRight) || 0;
+    const columnGap = parseFloat(gridStyles.columnGap) || 0;
+    const gridAvailableWidth = grid.clientWidth - paddingLeft - paddingRight;
+
+    const addWidth = addContainer.getBoundingClientRect().width;
+    const actionsWidth = actionsContainer.getBoundingClientRect().width;
+    const compactWidth = Math.max(
+      gridAvailableWidth - addWidth - actionsWidth - columnGap * 2,
+      0,
+    );
+
+    const textareaStyles = window.getComputedStyle(textarea);
+    const font =
+      textareaStyles.font ||
+      `${textareaStyles.fontStyle} ${textareaStyles.fontVariant} ${textareaStyles.fontWeight} ${textareaStyles.fontSize}/${textareaStyles.lineHeight} ${textareaStyles.fontFamily}`;
+
+    const compactInnerWidth = Math.max(
+      compactWidth -
+        (measurementsRef.current.paddingLeft || 0) -
+        (measurementsRef.current.paddingRight || 0),
+      0,
+    );
+
+    containerCacheRef.current = { compactInnerWidth, font };
+  }, []);
+
   const evaluateLayout = useCallback(() => {
     if (mode !== "input") {
       updateLayout("compact");
@@ -717,20 +759,13 @@ export function CopilotChatInput({
     let shouldExpand = hasExplicitBreak || renderedMultiline;
 
     if (!shouldExpand) {
-      const gridStyles = window.getComputedStyle(grid);
-      const paddingLeft = parseFloat(gridStyles.paddingLeft) || 0;
-      const paddingRight = parseFloat(gridStyles.paddingRight) || 0;
-      const columnGap = parseFloat(gridStyles.columnGap) || 0;
-      const gridAvailableWidth = grid.clientWidth - paddingLeft - paddingRight;
+      // Use cached container dimensions (populated on mount, refreshed on resize).
+      if (!containerCacheRef.current) {
+        updateContainerCache();
+      }
+      const cache = containerCacheRef.current;
 
-      if (gridAvailableWidth > 0) {
-        const addWidth = addContainer.getBoundingClientRect().width;
-        const actionsWidth = actionsContainer.getBoundingClientRect().width;
-        const compactWidth = Math.max(
-          gridAvailableWidth - addWidth - actionsWidth - columnGap * 2,
-          0,
-        );
-
+      if (cache && cache.compactInnerWidth > 0) {
         const canvas =
           measurementCanvasRef.current ?? document.createElement("canvas");
         if (!measurementCanvasRef.current) {
@@ -739,33 +774,20 @@ export function CopilotChatInput({
 
         const context = canvas.getContext("2d");
         if (context) {
-          const textareaStyles = window.getComputedStyle(textarea);
-          const font =
-            textareaStyles.font ||
-            `${textareaStyles.fontStyle} ${textareaStyles.fontVariant} ${textareaStyles.fontWeight} ${textareaStyles.fontSize}/${textareaStyles.lineHeight} ${textareaStyles.fontFamily}`;
-          context.font = font;
+          context.font = cache.font;
 
-          const compactInnerWidth = Math.max(
-            compactWidth -
-              (measurementsRef.current.paddingLeft || 0) -
-              (measurementsRef.current.paddingRight || 0),
-            0,
-          );
-
-          if (compactInnerWidth > 0) {
-            const lines =
-              resolvedValue.length > 0 ? resolvedValue.split("\n") : [""];
-            let longestWidth = 0;
-            for (const line of lines) {
-              const metrics = context.measureText(line || " ");
-              if (metrics.width > longestWidth) {
-                longestWidth = metrics.width;
-              }
+          const lines =
+            resolvedValue.length > 0 ? resolvedValue.split("\n") : [""];
+          let longestWidth = 0;
+          for (const line of lines) {
+            const metrics = context.measureText(line || " ");
+            if (metrics.width > longestWidth) {
+              longestWidth = metrics.width;
             }
+          }
 
-            if (longestWidth > compactInnerWidth) {
-              shouldExpand = true;
-            }
+          if (longestWidth > cache.compactInnerWidth) {
+            shouldExpand = true;
           }
         }
       }
@@ -778,6 +800,7 @@ export function CopilotChatInput({
     ensureMeasurements,
     mode,
     resolvedValue,
+    updateContainerCache,
     updateLayout,
   ]);
 
@@ -800,6 +823,9 @@ export function CopilotChatInput({
     }
 
     const scheduleEvaluation = () => {
+      // Invalidate cached container dimensions so evaluateLayout re-measures.
+      containerCacheRef.current = null;
+
       if (ignoreResizeRef.current) {
         ignoreResizeRef.current = false;
         return;
