@@ -179,10 +179,10 @@ export function CopilotChatInput({
     paddingRight: 0,
   });
 
-  // Cached container dimensions — updated on resize only, not per keystroke.
-  // Eliminates 3x getComputedStyle + 2x getBoundingClientRect per keystroke.
+  // Cached container dimensions — invalidated on resize, lazily repopulated on next layout pass.
+  // Eliminates 2x getComputedStyle + 2x getBoundingClientRect per compact-layout evaluation.
   const containerCacheRef = useRef<{
-    compactInnerWidth: number;
+    compactWidth: number;
     font: string;
   } | null>(null);
 
@@ -709,14 +709,9 @@ export function CopilotChatInput({
       textareaStyles.font ||
       `${textareaStyles.fontStyle} ${textareaStyles.fontVariant} ${textareaStyles.fontWeight} ${textareaStyles.fontSize}/${textareaStyles.lineHeight} ${textareaStyles.fontFamily}`;
 
-    const compactInnerWidth = Math.max(
-      compactWidth -
-        (measurementsRef.current.paddingLeft || 0) -
-        (measurementsRef.current.paddingRight || 0),
-      0,
-    );
+    if (!font || font.trim().length === 0) return;
 
-    containerCacheRef.current = { compactInnerWidth, font };
+    containerCacheRef.current = { compactWidth, font };
   }, []);
 
   const evaluateLayout = useCallback(() => {
@@ -759,35 +754,44 @@ export function CopilotChatInput({
     let shouldExpand = hasExplicitBreak || renderedMultiline;
 
     if (!shouldExpand) {
-      // Use cached container dimensions (populated on mount, refreshed on resize).
+      // Use cached container dimensions (lazily populated on first access, invalidated on resize).
       if (!containerCacheRef.current) {
         updateContainerCache();
       }
       const cache = containerCacheRef.current;
 
-      if (cache && cache.compactInnerWidth > 0) {
-        const canvas =
-          measurementCanvasRef.current ?? document.createElement("canvas");
-        if (!measurementCanvasRef.current) {
-          measurementCanvasRef.current = canvas;
-        }
+      if (cache && cache.compactWidth > 0) {
+        const compactInnerWidth = Math.max(
+          cache.compactWidth -
+            (measurementsRef.current.paddingLeft || 0) -
+            (measurementsRef.current.paddingRight || 0),
+          0,
+        );
 
-        const context = canvas.getContext("2d");
-        if (context) {
-          context.font = cache.font;
-
-          const lines =
-            resolvedValue.length > 0 ? resolvedValue.split("\n") : [""];
-          let longestWidth = 0;
-          for (const line of lines) {
-            const metrics = context.measureText(line || " ");
-            if (metrics.width > longestWidth) {
-              longestWidth = metrics.width;
-            }
+        if (compactInnerWidth > 0) {
+          const canvas =
+            measurementCanvasRef.current ?? document.createElement("canvas");
+          if (!measurementCanvasRef.current) {
+            measurementCanvasRef.current = canvas;
           }
 
-          if (longestWidth > cache.compactInnerWidth) {
-            shouldExpand = true;
+          const context = canvas.getContext("2d");
+          if (context) {
+            context.font = cache.font;
+
+            const lines =
+              resolvedValue.length > 0 ? resolvedValue.split("\n") : [""];
+            let longestWidth = 0;
+            for (const line of lines) {
+              const metrics = context.measureText(line || " ");
+              if (metrics.width > longestWidth) {
+                longestWidth = metrics.width;
+              }
+            }
+
+            if (longestWidth > compactInnerWidth) {
+              shouldExpand = true;
+            }
           }
         }
       }
@@ -823,13 +827,13 @@ export function CopilotChatInput({
     }
 
     const scheduleEvaluation = () => {
-      // Invalidate cached container dimensions so evaluateLayout re-measures.
-      containerCacheRef.current = null;
-
       if (ignoreResizeRef.current) {
         ignoreResizeRef.current = false;
         return;
       }
+
+      // Invalidate cached container dimensions so evaluateLayout re-measures.
+      containerCacheRef.current = null;
 
       if (typeof window === "undefined") {
         evaluateLayout();
