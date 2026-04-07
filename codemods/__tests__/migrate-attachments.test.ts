@@ -120,6 +120,17 @@ import { CopilotChat } from "@copilotkit/react-ui";
       expect(output).toContain("imageUploadsEnabled");
     });
 
+    it("preserves dynamic inputFileAccept expression", () => {
+      const input = `
+import { CopilotChat } from "@copilotkit/react-ui";
+<CopilotChat imageUploadsEnabled={true} inputFileAccept={acceptTypes} />;
+`;
+      const output = run(input);
+      expect(output).toContain("accept: acceptTypes");
+      expect(output).toContain("enabled: true");
+      expect(output).not.toContain("inputFileAccept");
+    });
+
     it("ignores non-CopilotKit components", () => {
       const input = `
 <SomeOtherChat imageUploadsEnabled={true} />;

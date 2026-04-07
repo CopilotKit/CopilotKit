@@ -709,6 +709,10 @@ export function CopilotChat({
         contentParts.push({
           type: attachment.type,
           source: attachment.source,
+          metadata: {
+            ...(attachment.filename ? { filename: attachment.filename } : {}),
+            ...attachment.metadata,
+          },
         } as InputContent);
       }
 
@@ -754,24 +758,28 @@ export function CopilotChat({
     const validFiles = files.filter((file) =>
       matchesAcceptFilter(file, attachmentsAccept),
     );
-    const rejectedCount = files.length - validFiles.length;
-    if (rejectedCount > 0) {
-      triggerChatError(
-        new Error(
-          `${rejectedCount} file(s) not accepted. Supported types: ${attachmentsAccept}`,
-        ),
-        "fileUpload",
-      );
+    const rejectedFiles = files.filter(
+      (file) => !matchesAcceptFilter(file, attachmentsAccept),
+    );
+    for (const file of rejectedFiles) {
+      const message = `File "${file.name}" is not accepted. Supported types: ${attachmentsAccept}`;
+      triggerChatError(new Error(message), "fileUpload");
+      resolvedAttachments?.onUploadFailed?.({
+        reason: "invalid-type",
+        file,
+        message,
+      });
     }
 
     for (const file of validFiles) {
       if (exceedsMaxSize(file, attachmentsMaxSize)) {
-        triggerChatError(
-          new Error(
-            `File "${file.name}" exceeds the maximum size of ${formatFileSize(attachmentsMaxSize)}`,
-          ),
-          "fileUpload",
-        );
+        const message = `File "${file.name}" exceeds the maximum size of ${formatFileSize(attachmentsMaxSize)}`;
+        triggerChatError(new Error(message), "fileUpload");
+        resolvedAttachments?.onUploadFailed?.({
+          reason: "file-too-large",
+          file,
+          message,
+        });
         continue;
       }
 
@@ -792,22 +800,13 @@ export function CopilotChat({
 
       try {
         let source: Attachment["source"];
+        let uploadMetadata: Record<string, unknown> | undefined;
 
         if (resolvedAttachments?.onUpload) {
-          const result = await resolvedAttachments.onUpload(file);
-          if ("data" in result) {
-            source = {
-              type: "data",
-              value: result.data,
-              mimeType: result.mimeType,
-            };
-          } else {
-            source = {
-              type: "url",
-              value: result.url,
-              mimeType: result.mimeType ?? file.type,
-            };
-          }
+          const { metadata: meta, ...uploadSource } =
+            await resolvedAttachments.onUpload(file);
+          source = uploadSource;
+          uploadMetadata = meta;
         } else {
           const base64 = await readFileAsBase64(file);
           source = { type: "data", value: base64, mimeType: file.type };
@@ -822,7 +821,13 @@ export function CopilotChat({
         setSelectedAttachments((prev) =>
           prev.map((att) =>
             att.id === placeholderId
-              ? { ...att, source, status: "ready" as const, thumbnail }
+              ? {
+                  ...att,
+                  source,
+                  status: "ready" as const,
+                  thumbnail,
+                  metadata: uploadMetadata,
+                }
               : att,
           ),
         );
@@ -837,6 +842,11 @@ export function CopilotChat({
           "fileUpload",
           error,
         );
+        resolvedAttachments?.onUploadFailed?.({
+          reason: "upload-failed",
+          file,
+          message: `Failed to upload "${file.name}": ${message}`,
+        });
       }
     }
   };

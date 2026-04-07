@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useId, useRef, useState } from "react";
 import { createPortal, flushSync } from "react-dom";
 import type { Attachment } from "@copilotkit/shared";
 import {
@@ -105,6 +105,8 @@ function Lightbox({ onClose, children }: LightboxProps) {
     return () => document.removeEventListener("keydown", handleKey);
   }, [onClose]);
 
+  if (typeof document === "undefined") return null;
+
   return createPortal(
     <div
       className="cpk:fixed cpk:inset-0 cpk:z-[9999] cpk:flex cpk:items-center cpk:justify-center cpk:bg-black/80 cpk:animate-fade-in"
@@ -124,9 +126,6 @@ function Lightbox({ onClose, children }: LightboxProps) {
   );
 }
 
-// Unique counter so concurrent lightboxes get distinct view-transition-names.
-let vtCounter = 0;
-
 type DocWithVT = Document & {
   startViewTransition?: (cb: () => void) => { finished: Promise<void> };
 };
@@ -144,7 +143,7 @@ type DocWithVT = Document & {
 function useLightbox() {
   const thumbnailRef = useRef<HTMLElement>(null);
   const [open, setOpen] = useState(false);
-  const vtName = useRef(`cpk-lb-${++vtCounter}`);
+  const vtName = useId();
 
   const openLightbox = useCallback(() => {
     const thumb = thumbnailRef.current;
@@ -152,7 +151,7 @@ function useLightbox() {
 
     if (doc.startViewTransition && thumb) {
       // Old snapshot: name on the thumbnail
-      thumb.style.viewTransitionName = vtName.current;
+      thumb.style.viewTransitionName = vtName;
 
       doc.startViewTransition(() => {
         // New snapshot: remove from thumb (lightbox content will have it)
@@ -172,7 +171,7 @@ function useLightbox() {
       const transition = doc.startViewTransition(() => {
         // New snapshot: name back on thumbnail
         flushSync(() => setOpen(false));
-        thumb.style.viewTransitionName = vtName.current;
+        thumb.style.viewTransitionName = vtName;
       });
       // Clean up the name after animation finishes (or fails)
       transition.finished
@@ -189,7 +188,7 @@ function useLightbox() {
 
   return {
     thumbnailRef,
-    vtName: vtName.current,
+    vtName,
     open,
     openLightbox,
     closeLightbox,
@@ -346,7 +345,11 @@ function useBlobUrl(attachment: Attachment): string | null {
       console.error("[CopilotKit] Failed to decode attachment data:", error);
       setUrl(null);
     }
-  }, [attachment.source]);
+  }, [
+    attachment.source.type,
+    attachment.source.value,
+    attachment.source.mimeType,
+  ]);
 
   if (attachment.source.type === "url") return attachment.source.value;
   return url;

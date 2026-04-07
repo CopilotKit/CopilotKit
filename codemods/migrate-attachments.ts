@@ -66,6 +66,12 @@ export default function transform(file: FileInfo, api: API) {
         // Rename the imported identifier
         imported.name = newName;
 
+        // NOTE: This rename is not scope-aware — it renames ALL identifiers with the
+        // matching name in the file, not just references to the import. In practice
+        // this is safe because ImageUploadQueue/ImageUpload are unlikely local variable
+        // names, but a scope-aware rename (via jscodeshift's scope utilities) would be
+        // more correct.
+
         // If the local name matched the old imported name (not aliased),
         // update all references in the file to use the new name.
         if (!isAliased) {
@@ -146,26 +152,31 @@ export default function transform(file: FileInfo, api: API) {
     }
 
     if (inputFileAcceptAttr) {
-      let acceptValue: string | null = null;
-
-      if (inputFileAcceptAttr.value) {
-        if (inputFileAcceptAttr.value.type === "StringLiteral") {
-          acceptValue = inputFileAcceptAttr.value.value;
+      const val = inputFileAcceptAttr.value;
+      if (val) {
+        if (val.type === "StringLiteral") {
+          properties.push(
+            j.objectProperty(
+              j.identifier("accept"),
+              j.stringLiteral(val.value),
+            ),
+          );
         } else if (
-          inputFileAcceptAttr.value.type === "JSXExpressionContainer" &&
-          inputFileAcceptAttr.value.expression.type === "StringLiteral"
+          val.type === "JSXExpressionContainer" &&
+          val.expression.type === "StringLiteral"
         ) {
-          acceptValue = inputFileAcceptAttr.value.expression.value;
+          properties.push(
+            j.objectProperty(
+              j.identifier("accept"),
+              j.stringLiteral(val.expression.value),
+            ),
+          );
+        } else if (val.type === "JSXExpressionContainer") {
+          // Dynamic expression — preserve as-is
+          properties.push(
+            j.objectProperty(j.identifier("accept"), val.expression),
+          );
         }
-      }
-
-      if (acceptValue) {
-        properties.push(
-          j.objectProperty(
-            j.identifier("accept"),
-            j.stringLiteral(acceptValue),
-          ),
-        );
       }
     }
 

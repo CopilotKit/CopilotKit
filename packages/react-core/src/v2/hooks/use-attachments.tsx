@@ -244,9 +244,9 @@ export function useAttachments({
     let ready: Attachment[] = [];
     setAttachments((prev) => {
       ready = prev.filter((a) => a.status === "ready");
-      // Return same reference if already empty — avoids unnecessary re-render
-      if (prev.length === 0) return prev;
-      return [];
+      if (ready.length === 0) return prev;
+      const remaining = prev.filter((a) => a.status !== "ready");
+      return remaining;
     });
     if (ready.length > 0 && fileInputRef.current) {
       fileInputRef.current.value = "";
