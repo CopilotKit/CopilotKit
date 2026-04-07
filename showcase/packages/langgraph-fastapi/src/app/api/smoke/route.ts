@@ -24,7 +24,7 @@ export async function GET() {
         });
 
         const runtime = new CopilotRuntime({
-            // @ts-expect-error -- LangGraphAgent/AbstractAgent type mismatch in published packages
+            // @ts-ignore -- LangGraphAgent/AbstractAgent type mismatch in published packages
             agents: { smoke_test: agent },
         });
 

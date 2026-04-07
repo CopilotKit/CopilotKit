@@ -19,7 +19,7 @@ export async function GET() {
         const agent = new HttpAgent({ url: `${AGENT_URL}/` });
 
         const runtime = new CopilotRuntime({
-            // @ts-expect-error -- HttpAgent/AbstractAgent type mismatch in published packages
+            // @ts-ignore -- HttpAgent/AbstractAgent type mismatch in published packages
             agents: { smoke_test: agent },
         });
 

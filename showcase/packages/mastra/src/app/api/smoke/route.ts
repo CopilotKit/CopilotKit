@@ -17,7 +17,7 @@ export async function GET() {
 
     try {
         const runtime = new CopilotRuntime({
-            // @ts-expect-error -- MastraAgent/AbstractAgent type mismatch in published packages
+            // @ts-ignore -- MastraAgent/AbstractAgent type mismatch in published packages
             agents: MastraAgent.getLocalAgents({ mastra }),
         });
 
