@@ -39,8 +39,10 @@ import {
 const c = {
   card: "#ffffff",
   cardFg: "#111827",
-  border: "#d1d5db",
+  border: "#e5e7eb",
   muted: "#6b7280",
+  divider: "#f3f4f6",
+  shadow: "0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04)",
 };
 
 function ActionButton({
@@ -60,12 +62,12 @@ function ActionButton({
       disabled={done}
       style={{
         width: "100%",
-        padding: "8px 16px",
-        borderRadius: "8px",
-        border: done ? "1.5px solid #bbf7d0" : `1.5px solid ${c.border}`,
-        background: done ? c.card : c.card,
+        padding: "10px 16px",
+        borderRadius: "10px",
+        border: done ? "1px solid #bbf7d0" : `1px solid ${c.border}`,
+        background: done ? "#f0fdf4" : "#f9fafb",
         color: done ? "#059669" : c.cardFg,
-        fontSize: "0.8rem",
+        fontSize: "0.85rem",
         fontWeight: 500,
         cursor: done ? "default" : "pointer",
         transition: "all 0.2s ease",
@@ -214,7 +216,7 @@ const demonstrationCatalogRenderers: CatalogRenderers<DemonstrationCatalogDefini
           borderRadius: "12px",
           border: `1px solid ${c.border}`,
           padding: "20px",
-          boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
+          boxShadow: c.shadow,
           display: "flex",
           flexDirection: "column",
           gap: "12px",
@@ -335,7 +337,7 @@ const demonstrationCatalogRenderers: CatalogRenderers<DemonstrationCatalogDefini
         <div style={{ width: "100%", height: 200 }}>
           <ResponsiveContainer>
             <RechartsBar data={data}>
-              <CartesianGrid strokeDasharray="3 3" stroke={c.border} />
+              <CartesianGrid strokeDasharray="3 3" stroke={c.divider} />
               <XAxis dataKey="label" tick={{ fontSize: 11, fill: c.muted }} />
               <YAxis tick={{ fontSize: 11, fill: c.muted }} />
               <Tooltip />
@@ -356,7 +358,7 @@ const demonstrationCatalogRenderers: CatalogRenderers<DemonstrationCatalogDefini
         warning: { bg: "#fef3c7", color: "#92400e" },
         error: { bg: "#fee2e2", color: "#991b1b" },
         info: { bg: "#dbeafe", color: "#1e40af" },
-        neutral: { bg: "hsl(var(--muted, 210 40% 96%))", color: c.cardFg },
+        neutral: { bg: "#f3f4f6", color: "#374151" },
       };
       const v = variants[props.variant ?? "neutral"] ?? variants.neutral;
       return (
@@ -411,7 +413,7 @@ const demonstrationCatalogRenderers: CatalogRenderers<DemonstrationCatalogDefini
             </thead>
             <tbody>
               {rows.map((row: any, i: number) => (
-                <tr key={i} style={{ borderBottom: `1px solid ${c.border}` }}>
+                <tr key={i} style={{ borderBottom: `1px solid ${c.divider}` }}>
                   {cols.map((col: any) => (
                     <td
                       key={col.key}
@@ -461,7 +463,7 @@ const demonstrationCatalogRenderers: CatalogRenderers<DemonstrationCatalogDefini
             display: "flex",
             flexDirection: "column",
             gap: "12px",
-            boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
+            boxShadow: c.shadow,
           }}
         >
           {/* Header: airline + price */}
@@ -508,7 +510,7 @@ const demonstrationCatalogRenderers: CatalogRenderers<DemonstrationCatalogDefini
           <hr
             style={{
               border: "none",
-              borderTop: `1px solid ${c.border}`,
+              borderTop: `1px solid ${c.divider}`,
               margin: 0,
             }}
           />
@@ -558,7 +560,7 @@ const demonstrationCatalogRenderers: CatalogRenderers<DemonstrationCatalogDefini
             <hr
               style={{
                 border: "none",
-                borderTop: `1px solid ${c.border}`,
+                borderTop: `1px solid ${c.divider}`,
                 margin: 0,
               }}
             />
