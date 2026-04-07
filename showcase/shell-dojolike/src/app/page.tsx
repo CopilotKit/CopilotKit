@@ -122,6 +122,18 @@ export default function DojoPage() {
 
     return (
         <div style={{ display: "flex", height: "100vh", overflow: "hidden" }}>
+            {/* Purple accent bar at top */}
+            <div
+                style={{
+                    position: "fixed",
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    height: 3,
+                    background: "var(--accent)",
+                    zIndex: 100,
+                }}
+            />
             {/* Sidebar */}
             <aside
                 style={{
@@ -132,6 +144,7 @@ export default function DojoPage() {
                     display: "flex",
                     flexDirection: "column",
                     overflow: "hidden",
+                    paddingTop: 3,
                 }}
             >
                 {/* Header */}
@@ -190,7 +203,7 @@ export default function DojoPage() {
                                     color: viewMode === mode ? "#fff" : "var(--text-secondary)",
                                 }}
                             >
-                                {mode === "preview" ? "Preview" : "</> Code"}
+                                {mode === "preview" ? "\u25C9 Preview" : "</> Code"}
                             </button>
                         ))}
                     </div>
@@ -270,7 +283,7 @@ export default function DojoPage() {
             </aside>
 
             {/* Main content area */}
-            <main style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+            <main style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", paddingTop: 3 }}>
                 {viewMode === "preview" && previewUrl ? (
                     <iframe
                         key={previewUrl}
