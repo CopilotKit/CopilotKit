@@ -9,7 +9,7 @@
     "start": "react-router-serve ./build/server/index.js"
   },
   "dependencies": {
-    "@ag-ui/client": "0.0.48",
+    "@ag-ui/client": "0.0.51",
     "@copilotkit/react-core": "workspace:*",
     "@copilotkit/runtime": "workspace:*",
     "@copilotkit/shared": "workspace:*",

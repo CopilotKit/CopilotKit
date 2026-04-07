@@ -159,10 +159,10 @@ const config = {
 
     // Manual redirects for specific cases
     const manualRedirects = [
-      // Redirect /whats-new/v1-50 to root
+      // Redirect /whats-new/v1-50 to /learn/whats-new/v1-50
       {
         source: '/whats-new/v1-50',
-        destination: '/',
+        destination: '/learn/whats-new/v1-50',
         permanent: true,
       },
       // Redirect /reference root to /reference/v2
