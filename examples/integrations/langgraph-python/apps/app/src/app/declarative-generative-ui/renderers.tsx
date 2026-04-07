@@ -62,7 +62,9 @@ function ActionButton({
         width: "100%",
         padding: "8px 16px",
         borderRadius: "8px",
-        border: done ? "1px solid #d1fae5" : `1px solid ${c.border}`,
+        border: done
+          ? "1.5px solid #bbf7d0"
+          : `1.5px solid ${c.border}`,
         background: done ? c.card : c.card,
         color: done ? "#059669" : c.cardFg,
         fontSize: "0.8rem",
