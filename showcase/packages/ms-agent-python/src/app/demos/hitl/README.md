@@ -8,16 +8,21 @@ User approves agent actions before execution
 
 Try asking your Copilot to:
 
-- "TODO: Add example prompts"
-- "TODO: Add more examples"
+- "Change the background color to a warm sunset gradient"
+- "Set the theme to dark mode"
+- "Make the background a calming blue-green gradient"
+
+When the agent proposes an action, you'll see an approval prompt. Click **Approve** to let it proceed or **Reject** to cancel.
 
 ## Technical Details
 
 What's happening technically:
 
-- TODO: Describe the technical implementation
-- TODO: Explain the hooks and components used
-- TODO: Note any framework-specific patterns
+- **Human-in-the-Loop (HITL)** lets the agent propose actions that require user approval before execution
+- The agent calls a tool (like `change_background`), and CopilotKit intercepts it to show a confirmation dialog
+- `useHumanInTheLoop` registers a frontend tool with `requireConfirmation: true`, adding the approval step
+- The user sees what the agent wants to do (with the proposed arguments) and can approve or reject
+- This pattern is essential for high-stakes actions — database writes, API calls, or any irreversible operation
 
 ## Building With This
 
