@@ -172,7 +172,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   frontendTools,
   humanInTheLoop,
   showDevConsole = false,
-  useSingleEndpoint = false,
+  useSingleEndpoint,
   onError,
   a2ui,
 }) => {
@@ -389,7 +389,12 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   if (copilotkitRef.current === null) {
     copilotkitRef.current = new CopilotKitCoreReact({
       runtimeUrl: chatApiEndpoint,
-      runtimeTransport: useSingleEndpoint ? "single" : "rest",
+      runtimeTransport:
+        useSingleEndpoint === true
+          ? "single"
+          : useSingleEndpoint === false
+            ? "rest"
+            : "auto",
       headers: mergedHeaders,
       credentials,
       properties,
@@ -490,7 +495,13 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
 
   useEffect(() => {
     copilotkit.setRuntimeUrl(chatApiEndpoint);
-    copilotkit.setRuntimeTransport(useSingleEndpoint ? "single" : "rest");
+    copilotkit.setRuntimeTransport(
+      useSingleEndpoint === true
+        ? "single"
+        : useSingleEndpoint === false
+          ? "rest"
+          : "auto",
+    );
     copilotkit.setHeaders(mergedHeaders);
     copilotkit.setCredentials(credentials);
     copilotkit.setProperties(properties);
