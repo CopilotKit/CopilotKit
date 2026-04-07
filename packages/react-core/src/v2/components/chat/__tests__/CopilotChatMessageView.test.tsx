@@ -217,6 +217,23 @@ describe("deduplicateMessages", () => {
     expect((result[0] as AssistantMessage).content).toBe("Here is the result.");
   });
 
+  it("recovers toolCalls when a later occurrence has non-empty content but undefined toolCalls", () => {
+    // A later streaming chunk may carry updated content but omit toolCalls entirely.
+    // The earlier accumulated toolCalls must survive rather than be wiped by the spread.
+    const messages: Message[] = [
+      assistantMsg("assistant-1", "", [toolCall("tc-1", "captureData")]),
+      assistantMsg("assistant-1", "Here is the result."),
+    ];
+
+    const result = deduplicateMessages(messages);
+
+    expect(result).toHaveLength(1);
+    const merged = result[0] as AssistantMessage;
+    expect(merged.content).toBe("Here is the result.");
+    expect(merged.toolCalls).toHaveLength(1);
+    expect(merged.toolCalls?.[0]?.id).toBe("tc-1");
+  });
+
   it("keeps last entry for non-assistant roles", () => {
     const messages: Message[] = [
       userMsg("u-1", "Hello"),

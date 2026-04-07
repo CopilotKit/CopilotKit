@@ -327,10 +327,16 @@ export function deduplicateMessages(messages: Message[]): Message[] {
       const content =
         (message as AssistantMessage).content ||
         (existing as AssistantMessage).content;
+      // Apply the same recovery logic to toolCalls: undefined on a later chunk
+      // must not silently wipe tool calls accumulated by earlier chunks.
+      const toolCalls =
+        (message as AssistantMessage).toolCalls ??
+        (existing as AssistantMessage).toolCalls;
       acc.set(message.id, {
         ...existing,
         ...message,
         content,
+        toolCalls,
       } as AssistantMessage);
     } else {
       acc.set(message.id, message);
