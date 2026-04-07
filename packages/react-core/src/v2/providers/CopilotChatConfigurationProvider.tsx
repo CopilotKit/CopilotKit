@@ -65,13 +65,23 @@ export const CopilotChatConfigurationProvider: React.FC<
 > = ({ children, labels, agentId, threadId, isModalDefaultOpen }) => {
   const parentConfig = useContext(CopilotChatConfiguration);
 
+  // Deep-compare labels by serializing to JSON. This prevents re-computing
+  // mergedLabels (and changing the context value) when callers pass an inline
+  // object like `labels={{ chatInputPlaceholder: "..." }}` — a new reference
+  // on every render that would otherwise cause all context consumers to
+  // re-render on every keystroke.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const labelsKey = JSON.stringify(labels);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const parentLabelsKey = JSON.stringify(parentConfig?.labels);
   const mergedLabels: CopilotChatLabels = useMemo(
     () => ({
       ...CopilotChatDefaultLabels,
       ...(parentConfig?.labels ?? {}),
       ...(labels ?? {}),
     }),
-    [labels, parentConfig?.labels],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [labelsKey, parentLabelsKey],
   );
 
   const resolvedAgentId = agentId ?? parentConfig?.agentId ?? DEFAULT_AGENT_ID;
