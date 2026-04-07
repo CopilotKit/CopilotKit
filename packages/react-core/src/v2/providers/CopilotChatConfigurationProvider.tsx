@@ -16,7 +16,7 @@ export const CopilotChatDefaultLabels = {
   chatInputToolbarStartTranscribeButtonLabel: "Transcribe",
   chatInputToolbarCancelTranscribeButtonLabel: "Cancel",
   chatInputToolbarFinishTranscribeButtonLabel: "Finish",
-  chatInputToolbarAddButtonLabel: "Add photos or files",
+  chatInputToolbarAddButtonLabel: "Add attachments",
   chatInputToolbarToolsButtonLabel: "Tools",
   assistantMessageToolbarCopyCodeLabel: "Copy",
   assistantMessageToolbarCopyCodeCopiedLabel: "Copied",

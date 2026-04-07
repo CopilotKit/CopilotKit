@@ -1,4 +1,5 @@
 import { useAgent } from "../../hooks/use-agent";
+import { useAttachments } from "../../hooks/use-attachments";
 import { useSuggestions } from "../../hooks/use-suggestions";
 import { CopilotChatView, CopilotChatViewProps } from "./CopilotChatView";
 import { CopilotChatInputMode } from "./CopilotChatInput";
@@ -12,8 +13,15 @@ import {
   randomUUID,
   TranscriptionErrorCode,
 } from "@copilotkit/shared";
+import type { AttachmentsConfig, InputContent } from "@copilotkit/shared";
 import { Suggestion, CopilotKitCoreErrorCode } from "@copilotkit/core";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { merge } from "ts-deepmerge";
 import {
   useCopilotKit,
@@ -34,12 +42,22 @@ export type CopilotChatProps = Omit<
   | "suggestions"
   | "suggestionLoadingIndexes"
   | "onSelectSuggestion"
+  // Attachment state props — managed internally based on `attachments` config
+  | "attachments"
+  | "onRemoveAttachment"
+  | "onAddFile"
+  | "dragOver"
+  | "onDragOver"
+  | "onDragLeave"
+  | "onDrop"
 > & {
   agentId?: string;
   threadId?: string;
   labels?: Partial<CopilotChatLabels>;
   chatView?: SlotValue<typeof CopilotChatView>;
   isModalDefaultOpen?: boolean;
+  /** Enable multimodal file attachments (images, audio, video, documents). */
+  attachments?: AttachmentsConfig;
   /**
    * Error handler scoped to this chat's agent. Fires in addition to the
    * provider-level onError (does not suppress it). Receives only errors
@@ -57,6 +75,7 @@ export function CopilotChat({
   labels,
   chatView,
   isModalDefaultOpen,
+  attachments: attachmentsConfig,
   onError,
   ...props
 }: CopilotChatProps) {
@@ -130,6 +149,21 @@ export function CopilotChat({
   );
   const [isTranscribing, setIsTranscribing] = useState(false);
 
+  // Attachments
+  const {
+    attachments: selectedAttachments,
+    enabled: attachmentsEnabled,
+    dragOver,
+    fileInputRef,
+    containerRef: chatContainerRef,
+    handleFileUpload,
+    handleDragOver,
+    handleDragLeave,
+    handleDrop,
+    removeAttachment,
+    consumeAttachments,
+  } = useAttachments({ config: attachmentsConfig });
+
   // Check if transcription is enabled
   const isTranscriptionEnabled = copilotkit.audioFileTranscriptionEnabled;
 
@@ -186,11 +220,47 @@ export function CopilotChat({
 
   const onSubmitInput = useCallback(
     async (value: string) => {
-      agent.addMessage({
-        id: randomUUID(),
-        role: "user",
-        content: value,
-      });
+      // Block if uploads in progress
+      const hasUploading = selectedAttachments.some(
+        (a) => a.status === "uploading",
+      );
+      if (hasUploading) {
+        console.error(
+          "[CopilotKit] Cannot send while attachments are uploading",
+        );
+        return;
+      }
+
+      const readyAttachments = consumeAttachments();
+
+      if (readyAttachments.length > 0) {
+        const contentParts: InputContent[] = [];
+        if (value.trim()) {
+          contentParts.push({ type: "text", text: value });
+        }
+        for (const att of readyAttachments) {
+          contentParts.push({
+            type: att.type,
+            source: att.source,
+            metadata: {
+              ...(att.filename ? { filename: att.filename } : {}),
+              ...att.metadata,
+            },
+          } as InputContent);
+        }
+        agent.addMessage({
+          id: randomUUID(),
+          role: "user",
+          content: contentParts,
+        });
+      } else {
+        agent.addMessage({
+          id: randomUUID(),
+          role: "user",
+          content: value,
+        });
+      }
+
       // Clear input after submitting
       setInputValue("");
       try {
@@ -201,7 +271,7 @@ export function CopilotChat({
     },
     // copilotkit is intentionally excluded — it is a stable ref that never changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [agent],
+    [agent, selectedAttachments, consumeAttachments],
   );
 
   const handleSelectSuggestion = useCallback(
@@ -367,12 +437,35 @@ export function CopilotChat({
     ? "processing"
     : transcribeMode;
 
-  // Memoize messages array - only create new reference when content actually changes
-  // (agent.messages is mutated in place, so we need a new reference for React to detect changes)
-
+  // Memoize messages array — only create a new reference when content changes.
+  // We build a lightweight fingerprint instead of JSON.stringify to avoid
+  // serializing large base64 attachment data on every render. The key captures:
+  //   - message id, role, content length (text streaming)
+  //   - content part count (multimodal additions)
+  //   - tool call ids + argument lengths (tool call streaming)
+  const messagesMemoKey = agent.messages
+    .map((m) => {
+      const contentKey =
+        typeof m.content === "string"
+          ? m.content.length
+          : Array.isArray(m.content)
+            ? m.content.length
+            : 0;
+      const toolCallsKey =
+        "toolCalls" in m && Array.isArray(m.toolCalls)
+          ? m.toolCalls
+              .map(
+                (tc: any) => `${tc.id}:${tc.function?.arguments?.length ?? 0}`,
+              )
+              .join(";")
+          : "";
+      return `${m.id}:${m.role}:${contentKey}:${toolCallsKey}`;
+    })
+    .join(",");
   const messages = useMemo(
     () => [...agent.messages],
-    [JSON.stringify(agent.messages)],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [messagesMemoKey],
   );
 
   const finalProps = merge(mergedProps, {
@@ -390,6 +483,21 @@ export function CopilotChat({
     onFinishTranscribeWithAudio: showTranscription
       ? handleFinishTranscribeWithAudio
       : undefined,
+    // Attachment props
+    attachments: selectedAttachments,
+    onRemoveAttachment: removeAttachment,
+    onAddFile: attachmentsEnabled
+      ? () => {
+          // Delay to let Radix dropdown menu close before triggering file input
+          setTimeout(() => {
+            fileInputRef.current?.click();
+          }, 100);
+        }
+      : undefined,
+    dragOver,
+    onDragOver: handleDragOver,
+    onDragLeave: handleDragLeave,
+    onDrop: handleDrop,
   }) as CopilotChatViewProps;
 
   // Always create a provider with merged values
@@ -403,26 +511,38 @@ export function CopilotChat({
       labels={labels}
       isModalDefaultOpen={isModalDefaultOpen}
     >
-      {!isChatLicensed && <InlineFeatureWarning featureName="Chat" />}
-      {transcriptionError && (
-        <div
-          style={{
-            position: "absolute",
-            bottom: "100px",
-            left: "50%",
-            transform: "translateX(-50%)",
-            backgroundColor: "#ef4444",
-            color: "white",
-            padding: "8px 16px",
-            borderRadius: "8px",
-            fontSize: "14px",
-            zIndex: 50,
-          }}
-        >
-          {transcriptionError}
-        </div>
-      )}
-      {RenderedChatView}
+      <div ref={chatContainerRef} style={{ display: "contents" }}>
+        {attachmentsEnabled && (
+          <input
+            type="file"
+            multiple
+            ref={fileInputRef}
+            onChange={handleFileUpload}
+            accept={attachmentsConfig?.accept ?? "*/*"}
+            style={{ display: "none" }}
+          />
+        )}
+        {!isChatLicensed && <InlineFeatureWarning featureName="Chat" />}
+        {transcriptionError && (
+          <div
+            style={{
+              position: "absolute",
+              bottom: "100px",
+              left: "50%",
+              transform: "translateX(-50%)",
+              backgroundColor: "#ef4444",
+              color: "white",
+              padding: "8px 16px",
+              borderRadius: "8px",
+              fontSize: "14px",
+              zIndex: 50,
+            }}
+          >
+            {transcriptionError}
+          </div>
+        )}
+        {RenderedChatView}
+      </div>
     </CopilotChatConfigurationProvider>
   );
 }

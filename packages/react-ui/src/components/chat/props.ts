@@ -7,6 +7,15 @@ import {
 import { CopilotChatSuggestion } from "../../types/suggestions";
 import { ReactNode } from "react";
 import { ImageData } from "@copilotkit/shared";
+import type { InputContentSource } from "@copilotkit/shared";
+import type {
+  AttachmentsConfig,
+  Attachment,
+  AttachmentModality,
+} from "@copilotkit/shared";
+
+// Re-export for backward compat
+export type { AttachmentsConfig, Attachment, AttachmentModality };
 
 /**
  * Event hooks for CopilotKit chat events.
@@ -339,11 +348,25 @@ export interface RenderSuggestionsListProps {
   isLoading: boolean;
 }
 
+/**
+ * @deprecated Use `CopilotChatAttachmentRenderer` from `@copilotkit/react-core/v2` instead.
+ * See https://docs.copilotkit.ai/migration-guides/migrate-attachments
+ * @since 1.56.0
+ */
 export interface ImageRendererProps {
   /**
-   * The image data containing format and bytes
+   * @deprecated Use `source` (type `InputContentSource`) instead.
+   * `image` only carried base64 image data. `source` supports both data and URL
+   * sources for any modality.
+   * See https://docs.copilotkit.ai/migration-guides/migrate-attachments
+   * @since 1.56.0
    */
-  image: ImageData;
+  image?: ImageData;
+
+  /**
+   * The content source for the image (new AG-UI format)
+   */
+  source?: InputContentSource;
 
   /**
    * Optional content to display alongside the image

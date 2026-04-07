@@ -11,7 +11,7 @@
     "test:coverage": "vitest --coverage"
   },
   "dependencies": {
-    "@ag-ui/client": "0.0.46",
+    "@ag-ui/client": "0.0.51",
     "@ag-ui/mcp-apps-middleware": "0.0.2",
     "@copilotkit/core": "workspace:*",
     "@copilotkit/react-core": "workspace:*",
