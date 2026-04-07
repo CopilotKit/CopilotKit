@@ -28,7 +28,7 @@ import {
 } from "../../providers/CopilotKitProvider";
 import { InlineFeatureWarning } from "../../components/license-warning-banner";
 import { AbstractAgent, HttpAgent } from "@ag-ui/client";
-import { renderSlot, shallowEqual, SlotValue } from "../../lib/slots";
+import { renderSlot, useShallowStableRef, SlotValue } from "../../lib/slots";
 import {
   transcribeAudio,
   TranscriptionError,
@@ -405,44 +405,15 @@ export function CopilotChat({
     }
   }, [transcriptionError]);
 
-  // Stabilize the messageView slot reference. Two problems without this:
-  //
-  // 1. String messageView: `{ className }` is created inline on every render,
-  //    producing a new object reference each time.
-  // 2. Object messageView: ts-deepmerge (used below) deep-clones plain objects
-  //    even from a single source, so even a stable prop reference becomes a new
-  //    object after merge().
-  //
-  // Fix: use a ref + shallowEqual to keep the same object reference as long as
-  // the slot's own properties haven't changed. This way MemoizedSlotWrapper's
-  // shallow equality check passes on every keystroke, preventing unnecessary
-  // re-renders of CopilotChatView and its message list.
-  const processedMessageView =
+  // Stabilize slot object references so inline props (new object reference on
+  // every parent render) don't defeat MemoizedSlotWrapper's shallow equality
+  // check and cause unnecessary re-renders of the message list on each keystroke.
+  const stableMessageView = useShallowStableRef(
     typeof providedMessageView === "string"
       ? { className: providedMessageView }
-      : providedMessageView;
-  const messageViewRef = useRef(processedMessageView);
-  if (messageViewRef.current !== processedMessageView) {
-    // Both are plain objects — deep-compare to avoid spurious reference churn
-    // (e.g. inline `messageView={{ assistantMessage: Cmp }}` creates a new object
-    // on every parent render even though the values haven't changed).
-    // For undefined / component / string values the reference check above is
-    // sufficient; shallowEqual is only needed when both sides are plain objects.
-    const prevMV = messageViewRef.current;
-    const shouldUpdate =
-      prevMV == null ||
-      processedMessageView == null ||
-      typeof prevMV !== "object" ||
-      typeof processedMessageView !== "object" ||
-      !shallowEqual(
-        prevMV as Record<string, unknown>,
-        processedMessageView as Record<string, unknown>,
-      );
-    if (shouldUpdate) {
-      messageViewRef.current = processedMessageView;
-    }
-  }
-  const stableMessageView = messageViewRef.current;
+      : providedMessageView,
+  );
+  const stableSuggestionView = useShallowStableRef(providedSuggestionView);
 
   // Stabilize the `onAddFile` handler. Without useCallback, a new arrow
   // function is created inline on every render, causing CopilotChatView to
@@ -457,16 +428,15 @@ export function CopilotChat({
   // Use shallow spread instead of ts-deepmerge. ts-deepmerge deep-clones plain
   // objects even from a single source, which would defeat the reference
   // stability we just established for stableMessageView and other slot values.
-  const mergedProps = {
+  const mergedProps: Partial<CopilotChatViewProps> = {
     isRunning: agent.isRunning,
     suggestions: autoSuggestions,
     onSelectSuggestion: handleSelectSuggestion,
-    suggestionView: providedSuggestionView,
+    suggestionView: stableSuggestionView,
     ...restProps,
-    ...(stableMessageView !== undefined
-      ? { messageView: stableMessageView }
-      : {}),
   };
+  if (stableMessageView !== undefined)
+    mergedProps.messageView = stableMessageView;
 
   const hasMessages = agent.messages.length > 0;
   const shouldAllowStop = agent.isRunning && hasMessages;

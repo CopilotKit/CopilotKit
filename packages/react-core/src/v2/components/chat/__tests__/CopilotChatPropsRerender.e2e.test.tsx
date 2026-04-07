@@ -1,11 +1,11 @@
 /**
- * Reproduction tests for FOR-75: messageView / labels props freeze
+ * Regression tests for FOR-75: messageView / labels props freeze
  *
  * These tests prove that passing `messageView` or `labels` as inline props
- * to CopilotChat causes completed assistant messages to re-render on every
- * keystroke — even though the messages haven't changed.
+ * to CopilotChat does NOT cause completed assistant messages to re-render on
+ * every keystroke.
  *
- * Tests FAIL on main before the fix (reproducing the bug).
+ * Tests FAIL on unfixed code (reproducing the bug).
  * Tests PASS after the fix is applied.
  *
  * Render counts are deterministic regardless of hardware — the bug is about
@@ -28,6 +28,8 @@ import {
 import { Observable, Subject } from "rxjs";
 import { CopilotKitProvider } from "../../../providers/CopilotKitProvider";
 import { CopilotChat } from "../CopilotChat";
+import { CopilotChatAssistantMessage } from "../CopilotChatAssistantMessage";
+import { useCopilotChatConfiguration } from "../../../providers/CopilotChatConfigurationProvider";
 
 // ---------------------------------------------------------------------------
 // Shared mock agent (same pattern as CopilotChatToolRerenders.e2e.test.tsx)
@@ -70,15 +72,16 @@ class MockStepwiseAgent extends AbstractAgent {
 }
 
 // ---------------------------------------------------------------------------
-// Helper: submit a user message (triggers agent.run()), then emit a
-// complete assistant response and wait for it to appear.
+// Helper: submit a user message (triggers agent.run()), then emit a complete
+// assistant response and wait for the counting component to appear in the DOM.
+//
+// Uses data-testid rather than text content to avoid false positives from
+// components that render fixed strings regardless of the message payload.
 // ---------------------------------------------------------------------------
 async function submitAndReceiveAssistantMessage(
   agent: MockStepwiseAgent,
   messageId: string,
-  assistantText: string,
 ) {
-  // Submit a user message to trigger agent.run() — this subscribes to the subject
   const input = await screen.findByRole("textbox");
   fireEvent.change(input, { target: { value: "hello" } });
   fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
@@ -87,17 +90,16 @@ async function submitAndReceiveAssistantMessage(
     expect(screen.getByText("hello")).toBeDefined();
   });
 
-  // Now emit the assistant response through the (now-subscribed) subject
   agent.emit({ type: EventType.RUN_STARTED } as BaseEvent);
   agent.emit({
     type: EventType.TEXT_MESSAGE_CHUNK,
     messageId,
-    delta: assistantText,
+    delta: "assistant reply",
   } as BaseEvent);
   agent.emit({ type: EventType.RUN_FINISHED } as BaseEvent);
 
   await waitFor(() => {
-    expect(screen.getByText(assistantText)).toBeDefined();
+    expect(screen.getByTestId("counting-assistant")).toBeDefined();
   });
 
   await act(async () => {
@@ -106,16 +108,36 @@ async function submitAndReceiveAssistantMessage(
 }
 
 // ---------------------------------------------------------------------------
-// Counting component — defined OUTSIDE tests so its reference is stable.
-// The surrounding messageView object will be an inline object (new ref every
-// render), which is what triggers the bug.
+// Test 1 — messageView inline object
+//
+// Counting component defined OUTSIDE the test so its function reference is
+// stable. The outer messageView object is inline (new ref on every render),
+// which is what triggers the bug.
 // ---------------------------------------------------------------------------
 let assistantRenderCount = 0;
 function CountingAssistantMessage(
-  _props: React.HTMLAttributes<HTMLDivElement>,
+  _props: React.ComponentProps<typeof CopilotChatAssistantMessage>,
 ) {
   assistantRenderCount++;
-  return <div data-testid="counting-assistant">hello from assistant</div>;
+  return <div data-testid="counting-assistant" />;
+}
+
+// ---------------------------------------------------------------------------
+// Test 2 — labels inline object
+//
+// Reads directly from useCopilotChatConfiguration() so that context churn
+// (caused by the labels fix being absent) is observable independently of
+// whether the messageView slot is re-rendered. Context consumers re-render
+// when their context value changes regardless of parent memoization, so this
+// is a genuine guard for the labels stabilization fix.
+// ---------------------------------------------------------------------------
+let labelConsumerRenderCount = 0;
+function LabelConsumerMessage(
+  _props: React.ComponentProps<typeof CopilotChatAssistantMessage>,
+) {
+  useCopilotChatConfiguration(); // subscribe to CopilotChatConfiguration context
+  labelConsumerRenderCount++;
+  return <div data-testid="counting-assistant" />;
 }
 
 // ---------------------------------------------------------------------------
@@ -125,20 +147,21 @@ function CountingAssistantMessage(
 describe("FOR-75: messageView / labels props — no re-renders on input change", () => {
   beforeEach(() => {
     assistantRenderCount = 0;
+    labelConsumerRenderCount = 0;
   });
 
   /**
-   * Test A: messageView inline object
+   * Test 1: messageView inline object
    *
    * When `messageView` is passed as an inline object prop (e.g.
    * `messageView={{ assistantMessage: Cmp }}`), a new object reference is
-   * created on every parent render. ts-deepmerge deep-clones the value,
-   * producing a new reference that defeats MemoizedSlotWrapper's shallow
-   * equality check → CopilotChatView + CopilotChatMessageView re-render on
-   * every keystroke → CountingAssistantMessage is called again.
+   * created on every parent render. Without the fix, ts-deepmerge clones the
+   * value, producing a new reference that defeats MemoizedSlotWrapper's
+   * shallow equality check → the whole message list re-renders on every
+   * keystroke.
    *
-   * Fix: memoize the messageView transformation in CopilotChat.tsx so the
-   * slot reference is stable across renders.
+   * Fix: useShallowStableRef in CopilotChat.tsx keeps the same object
+   * reference as long as the slot props are shallowly equal.
    */
   it("messageView inline object: completed messages do not re-render on keystroke", async () => {
     const agent = new MockStepwiseAgent();
@@ -147,25 +170,21 @@ describe("FOR-75: messageView / labels props — no re-renders on input change",
       <CopilotKitProvider agents__unsafe_dev_only={{ default: agent }}>
         <div style={{ height: 400 }}>
           <CopilotChat
-            // Inline object — new reference every render of the test component.
-            // The assistantMessage value (CountingAssistantMessage) is stable,
-            // but the outer object is cloned by ts-deepmerge on each render.
-            messageView={{ assistantMessage: CountingAssistantMessage } as any}
+            messageView={{
+              assistantMessage:
+                CountingAssistantMessage as unknown as typeof CopilotChatAssistantMessage,
+            }}
           />
         </div>
       </CopilotKitProvider>,
     );
 
-    await submitAndReceiveAssistantMessage(
-      agent,
-      "msg-1",
-      "hello from assistant",
-    );
+    await submitAndReceiveAssistantMessage(agent, "msg-1");
 
     const renderCountAfterMessage = assistantRenderCount;
     expect(renderCountAfterMessage).toBeGreaterThan(0);
 
-    // Type into the (now-cleared) input — only inputValue state changes; messages unchanged.
+    // Type into the input — only inputValue state changes; messages unchanged.
     // Completed messages must NOT re-render.
     const input = screen.getByRole("textbox");
     fireEvent.change(input, { target: { value: "a" } });
@@ -174,42 +193,48 @@ describe("FOR-75: messageView / labels props — no re-renders on input change",
 
     await act(async () => {});
 
-    // KEY ASSERTION: no additional renders caused by typing
     expect(assistantRenderCount).toBe(renderCountAfterMessage);
   });
 
   /**
-   * Test C: labels inline object
+   * Test 2: labels inline object
    *
    * When `labels` is passed as an inline object, it is a new reference every
-   * render. This invalidates the mergedLabels useMemo in
+   * render. Without the fix, this invalidates the mergedLabels useMemo in
    * CopilotChatConfigurationProvider → new context value → all context
    * consumers re-render on every keystroke.
    *
-   * Fix: deep-compare labels dep in CopilotChatConfigurationProvider.
+   * LabelConsumerMessage reads directly from useCopilotChatConfiguration(),
+   * making it a genuine guard for this fix: context consumers re-render when
+   * their context value changes regardless of parent memo boundaries, so
+   * labelConsumerRenderCount increases if the labels fix is regressed.
+   *
+   * Fix: useJsonStable in CopilotChatConfigurationProvider stabilizes the
+   * labels reference so the context value doesn't change when the caller
+   * passes an inline object.
    */
-  it("labels inline object: completed messages do not re-render on keystroke", async () => {
+  it("labels inline object: context consumers do not re-render on keystroke", async () => {
     const agent = new MockStepwiseAgent();
 
     render(
       <CopilotKitProvider agents__unsafe_dev_only={{ default: agent }}>
         <div style={{ height: 400 }}>
           <CopilotChat
-            messageView={{ assistantMessage: CountingAssistantMessage } as any}
-            // Inline labels object — new reference every render
+            messageView={{
+              assistantMessage:
+                LabelConsumerMessage as unknown as typeof CopilotChatAssistantMessage,
+            }}
+            // Inline labels object — new reference on every render of the
+            // parent. Without the fix, this churns the context value.
             labels={{ chatInputPlaceholder: "Type here..." }}
           />
         </div>
       </CopilotKitProvider>,
     );
 
-    await submitAndReceiveAssistantMessage(
-      agent,
-      "msg-labels-1",
-      "hello from assistant",
-    );
+    await submitAndReceiveAssistantMessage(agent, "msg-labels-1");
 
-    const renderCountAfterMessage = assistantRenderCount;
+    const renderCountAfterMessage = labelConsumerRenderCount;
     expect(renderCountAfterMessage).toBeGreaterThan(0);
 
     const input = screen.getByRole("textbox");
@@ -219,6 +244,6 @@ describe("FOR-75: messageView / labels props — no re-renders on input change",
 
     await act(async () => {});
 
-    expect(assistantRenderCount).toBe(renderCountAfterMessage);
+    expect(labelConsumerRenderCount).toBe(renderCountAfterMessage);
   });
 });

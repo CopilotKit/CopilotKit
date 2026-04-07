@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useRef } from "react";
 import { twMerge } from "tailwind-merge";
 
 /** Existing union (unchanged) */
@@ -24,6 +24,36 @@ export function shallowEqual<T extends Record<string, unknown>>(
   }
 
   return true;
+}
+
+/**
+ * Returns the same reference as long as the value is shallowly equal to the
+ * previous render's value. For plain-object slot props (e.g. inline
+ * `messageView={{ assistantMessage: Cmp }}`), this prevents a new object
+ * reference on every parent render from defeating MemoizedSlotWrapper's
+ * shallow equality check.
+ *
+ * Non-object values (undefined, functions, strings) are compared by reference
+ * only — shallowEqual is skipped for them.
+ */
+export function useShallowStableRef<T>(value: T): T {
+  const ref = useRef(value);
+  if (ref.current !== value) {
+    const prev = ref.current;
+    const shouldUpdate =
+      prev == null ||
+      value == null ||
+      typeof prev !== "object" ||
+      typeof value !== "object" ||
+      !shallowEqual(
+        prev as Record<string, unknown>,
+        value as Record<string, unknown>,
+      );
+    if (shouldUpdate) {
+      ref.current = value;
+    }
+  }
+  return ref.current;
 }
 
 /** Utility: concrete React elements for every slot */
