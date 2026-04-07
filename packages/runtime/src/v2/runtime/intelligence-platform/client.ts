@@ -157,6 +157,8 @@ export interface ThreadConnectionResponse {
   joinToken: string;
   /** Optional join code that can be shared with other clients to join the same channel. */
   joinCode?: string;
+  /** Lock metadata echoed back by the platform. */
+  lock?: ThreadLockInfo;
 }
 
 export interface SubscribeToThreadsRequest {
@@ -213,6 +215,28 @@ export interface AcquireThreadLockRequest {
   threadId: string;
   runId: string;
   userId: string;
+  /** Custom Redis key prefix for the lock (default: "thread"). */
+  lockKeyPrefix?: string;
+  /** Lock TTL in seconds. When set, the lock auto-expires after this duration. */
+  ttlSeconds?: number;
+}
+
+export interface RenewThreadLockRequest {
+  threadId: string;
+  runId: string;
+  /** New TTL to set on the lock in seconds. */
+  ttlSeconds: number;
+  /** Must match the prefix used when acquiring. */
+  lockKeyPrefix?: string;
+}
+
+export interface RenewThreadLockResponse {
+  ttlSeconds: number;
+}
+
+export interface ThreadLockInfo {
+  key: string;
+  ttlSeconds: number | null;
 }
 
 interface ThreadEnvelope {
@@ -596,7 +620,32 @@ export class CopilotKitIntelligence {
     return this.#request<ThreadConnectionResponse>(
       "POST",
       `/api/threads/${encodeURIComponent(params.threadId)}/lock`,
-      { runId: params.runId, userId: params.userId },
+      {
+        runId: params.runId,
+        userId: params.userId,
+        ...(params.lockKeyPrefix !== undefined
+          ? { lockKeyPrefix: params.lockKeyPrefix }
+          : {}),
+        ...(params.ttlSeconds !== undefined
+          ? { ttlSeconds: params.ttlSeconds }
+          : {}),
+      },
+    );
+  }
+
+  async ɵrenewThreadLock(
+    params: RenewThreadLockRequest,
+  ): Promise<RenewThreadLockResponse> {
+    return this.#request<RenewThreadLockResponse>(
+      "PATCH",
+      `/api/threads/${encodeURIComponent(params.threadId)}/lock`,
+      {
+        runId: params.runId,
+        ttlSeconds: params.ttlSeconds,
+        ...(params.lockKeyPrefix !== undefined
+          ? { lockKeyPrefix: params.lockKeyPrefix }
+          : {}),
+      },
     );
   }
 

@@ -1,5 +1,5 @@
 import { AssistantMessage, Message } from "@ag-ui/core";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Copy,
   Check,
@@ -265,10 +265,25 @@ export namespace CopilotChatAssistantMessage {
     const config = useCopilotChatConfiguration();
     const labels = config?.labels ?? CopilotChatDefaultLabels;
     const [copied, setCopied] = useState(false);
+    const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    useEffect(() => {
+      return () => {
+        if (timerRef.current !== null) {
+          clearTimeout(timerRef.current);
+        }
+      };
+    }, []);
 
     const handleClick = (event: React.MouseEvent<HTMLButtonElement>) => {
       setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      if (timerRef.current !== null) {
+        clearTimeout(timerRef.current);
+      }
+      timerRef.current = setTimeout(() => {
+        timerRef.current = null;
+        setCopied(false);
+      }, 2000);
 
       if (onClick) {
         onClick(event);
