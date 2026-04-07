@@ -8,16 +8,29 @@ Natural conversation with frontend tool execution
 
 Try asking your Copilot to:
 
-- "TODO: Add example prompts"
-- "TODO: Add more examples"
+- "Can you change the background color to something more vibrant?"
+- "Make the background a blue to purple gradient"
+- "What's the weather like in San Francisco?"
+- "Set the background to a sunset-themed gradient"
+
+You can also chat about other topics — the agent will respond conversationally while having the ability to use your UI tools when appropriate.
 
 ## Technical Details
 
-What's happening technically:
+**Frontend tools** are registered using `useFrontendTool`:
+- `change_background` — accepts a CSS background value and applies it to the chat container
+- CopilotKit automatically exposes this function to the agent
+- The agent determines when to call the tool based on the user's request
 
-- TODO: Describe the technical implementation
-- TODO: Explain the hooks and components used
-- TODO: Note any framework-specific patterns
+**Backend tool rendering** uses `useRenderTool`:
+- `get_weather` — a backend tool that the agent calls; the frontend renders the result as a weather card
+- The render function receives `args`, `result`, and `status` for loading/complete states
+
+**Agent context** is provided via `useAgentContext`:
+- Sends the user's name to the agent so it can personalize responses
+
+**Suggestions** are configured with `useConfigureSuggestions`:
+- Static suggestions shown as quick-action buttons below the chat
 
 ## Building With This
 
