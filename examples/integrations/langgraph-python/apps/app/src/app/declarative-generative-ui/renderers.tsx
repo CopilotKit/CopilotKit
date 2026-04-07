@@ -37,12 +37,14 @@ import {
 // ─── Theme-aware colors ─────────────────────────────────────────────
 
 const c = {
-  card: "#ffffff",
-  cardFg: "#111827",
-  border: "#e5e7eb",
-  muted: "#6b7280",
-  divider: "#f3f4f6",
+  card: "var(--card)",
+  cardFg: "var(--card-foreground)",
+  border: "var(--border)",
+  muted: "var(--muted-foreground)",
+  divider: "color-mix(in srgb, var(--border) 50%, var(--card))",
   shadow: "0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04)",
+  btnBg: "color-mix(in srgb, var(--muted) 40%, var(--card))",
+  btnDoneBg: "color-mix(in srgb, #22c55e 10%, var(--card))",
 };
 
 function ActionButton({
@@ -65,7 +67,7 @@ function ActionButton({
         padding: "10px 16px",
         borderRadius: "10px",
         border: done ? "1px solid #bbf7d0" : `1px solid ${c.border}`,
-        background: done ? "#f0fdf4" : "#f9fafb",
+        background: done ? c.btnDoneBg : c.btnBg,
         color: done ? "#059669" : c.cardFg,
         fontSize: "0.85rem",
         fontWeight: 500,
@@ -358,7 +360,7 @@ const demonstrationCatalogRenderers: CatalogRenderers<DemonstrationCatalogDefini
         warning: { bg: "#fef3c7", color: "#92400e" },
         error: { bg: "#fee2e2", color: "#991b1b" },
         info: { bg: "#dbeafe", color: "#1e40af" },
-        neutral: { bg: "#f3f4f6", color: "#374151" },
+        neutral: { bg: "var(--muted)", color: c.cardFg },
       };
       const v = variants[props.variant ?? "neutral"] ?? variants.neutral;
       return (
