@@ -304,6 +304,450 @@ function createSseResponse(): Response {
   });
 }
 
+describe("Auto-detect transport from runtime info response", () => {
+  const originalFetch = global.fetch;
+  const originalWindow = (globalThis as { window?: unknown }).window;
+
+  const infoResponse = {
+    version: "1.0.0",
+    agents: {
+      remote: {
+        description: "Remote agent",
+      },
+    },
+  };
+
+  beforeEach(() => {
+    (globalThis as { window?: unknown }).window = {};
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    global.fetch = originalFetch;
+    if (originalWindow === undefined) {
+      delete (globalThis as { window?: unknown }).window;
+    } else {
+      (globalThis as { window?: unknown }).window = originalWindow;
+    }
+  });
+
+  it("auto-detects REST transport when GET /info succeeds", async () => {
+    const runtimeUrl = "https://runtime.example/rest-auto";
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify(infoResponse), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      }),
+    );
+    // @ts-expect-error - override in test environment
+    global.fetch = fetchMock;
+
+    // No runtimeTransport specified — defaults to "auto"
+    const core = new CopilotKitCore({
+      runtimeUrl,
+      headers: { Authorization: "Bearer token" },
+    });
+
+    await vi.waitFor(() => {
+      expect(fetchMock).toHaveBeenCalled();
+    });
+
+    // Should have tried REST first (GET /info)
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe(`${runtimeUrl}/info`);
+    expect(init.method ?? "GET").toBe("GET");
+
+    // Remote agent should be registered
+    const remoteAgent = core.getAgent("remote");
+    expect(remoteAgent).toBeDefined();
+    expect(remoteAgent?.agentId).toBe("remote");
+
+    // Transport should have been resolved to "rest"
+    expect(core.runtimeTransport).toBe("rest");
+  });
+
+  it("auto-detects single-endpoint transport when GET /info fails", async () => {
+    const runtimeUrl = "https://runtime.example/single-auto";
+    const fetchMock = vi
+      .fn()
+      .mockImplementation((url: string, init?: RequestInit) => {
+        // REST attempt: GET /info → 404
+        if (
+          typeof url === "string" &&
+          url.endsWith("/info") &&
+          (!init?.method || init.method === "GET")
+        ) {
+          return Promise.resolve(new Response("Not Found", { status: 404 }));
+        }
+        // Single-endpoint attempt: POST with { method: "info" }
+        if (init?.method === "POST") {
+          return Promise.resolve(
+            new Response(JSON.stringify(infoResponse), {
+              status: 200,
+              headers: { "content-type": "application/json" },
+            }),
+          );
+        }
+        return Promise.reject(new Error("Unexpected fetch call"));
+      });
+    // @ts-expect-error - override in test environment
+    global.fetch = fetchMock;
+
+    // No runtimeTransport specified — defaults to "auto"
+    const core = new CopilotKitCore({
+      runtimeUrl,
+      headers: { Authorization: "Bearer token" },
+    });
+
+    await vi.waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+    });
+
+    // First call should be REST attempt (GET /info)
+    const [url1] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url1).toBe(`${runtimeUrl}/info`);
+
+    // Second call should be single-endpoint attempt (POST with { method: "info" })
+    const [url2, init2] = fetchMock.mock.calls[1] as [string, RequestInit];
+    expect(url2).toBe(runtimeUrl);
+    expect(init2.method).toBe("POST");
+    const body = JSON.parse(init2.body as string);
+    expect(body).toEqual({ method: "info" });
+
+    // Remote agent should be registered
+    const remoteAgent = core.getAgent("remote");
+    expect(remoteAgent).toBeDefined();
+    expect(remoteAgent?.agentId).toBe("remote");
+
+    // Transport should have been resolved to "single"
+    expect(core.runtimeTransport).toBe("single");
+  });
+
+  it("explicit transport='single' flag still works without auto-detection", async () => {
+    const runtimeUrl = "https://runtime.example/explicit-single";
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify(infoResponse), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      }),
+    );
+    // @ts-expect-error - override in test environment
+    global.fetch = fetchMock;
+
+    const core = new CopilotKitCore({
+      runtimeUrl,
+      runtimeTransport: "single",
+      headers: { Authorization: "Bearer token" },
+    });
+
+    await vi.waitFor(() => {
+      expect(fetchMock).toHaveBeenCalled();
+    });
+
+    // Should have gone directly to single-endpoint (POST with { method: "info" })
+    // without trying REST first
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe(runtimeUrl);
+    expect(init.method).toBe("POST");
+    const body = JSON.parse(init.body as string);
+    expect(body).toEqual({ method: "info" });
+
+    // Remote agent should be registered
+    const remoteAgent = core.getAgent("remote");
+    expect(remoteAgent).toBeDefined();
+    expect(remoteAgent?.agentId).toBe("remote");
+
+    // Transport stays "single"
+    expect(core.runtimeTransport).toBe("single");
+  });
+
+  it("explicit transport='rest' flag still works without auto-detection", async () => {
+    const runtimeUrl = "https://runtime.example/explicit-rest";
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify(infoResponse), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      }),
+    );
+    // @ts-expect-error - override in test environment
+    global.fetch = fetchMock;
+
+    const core = new CopilotKitCore({
+      runtimeUrl,
+      runtimeTransport: "rest",
+      headers: { Authorization: "Bearer token" },
+    });
+
+    await vi.waitFor(() => {
+      expect(fetchMock).toHaveBeenCalled();
+    });
+
+    // Should have gone directly to REST (GET /info) without trying single
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe(`${runtimeUrl}/info`);
+    expect(init.method ?? "GET").toBe("GET");
+
+    // Remote agent should be registered
+    const remoteAgent = core.getAgent("remote");
+    expect(remoteAgent).toBeDefined();
+
+    // Transport stays "rest"
+    expect(core.runtimeTransport).toBe("rest");
+  });
+});
+
+describe("Auto-detect transport edge cases (AgentRegistry)", () => {
+  const originalFetch = global.fetch;
+  const originalWindow = (globalThis as { window?: unknown }).window;
+
+  const infoResponse = {
+    version: "1.0.0",
+    agents: {
+      remote: {
+        description: "Remote agent",
+      },
+    },
+  };
+
+  beforeEach(() => {
+    (globalThis as { window?: unknown }).window = {};
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    global.fetch = originalFetch;
+    if (originalWindow === undefined) {
+      delete (globalThis as { window?: unknown }).window;
+    } else {
+      (globalThis as { window?: unknown }).window = originalWindow;
+    }
+  });
+
+  it("falls back to single-endpoint when REST probe returns 500 with JSON body", async () => {
+    const runtimeUrl = "https://runtime.example/auto-500";
+    const fetchMock = vi
+      .fn()
+      .mockImplementation((url: string, init?: RequestInit) => {
+        // REST attempt: GET /info → 500 with a JSON error body.
+        // The bug: without the fix, the code treats any non-404/405 as REST
+        // and parses this JSON as RuntimeInfo, corrupting the agent list.
+        if (
+          typeof url === "string" &&
+          url.endsWith("/info") &&
+          (!init?.method || init.method === "GET")
+        ) {
+          return Promise.resolve(
+            new Response(JSON.stringify({ error: "Internal Server Error" }), {
+              status: 500,
+              headers: { "content-type": "application/json" },
+            }),
+          );
+        }
+        // Single-endpoint attempt: POST with { method: "info" }
+        if (init?.method === "POST") {
+          return Promise.resolve(
+            new Response(JSON.stringify(infoResponse), {
+              status: 200,
+              headers: { "content-type": "application/json" },
+            }),
+          );
+        }
+        return Promise.reject(new Error("Unexpected fetch call"));
+      });
+    // @ts-expect-error - override in test environment
+    global.fetch = fetchMock;
+
+    const core = new CopilotKitCore({ runtimeUrl });
+
+    await vi.waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+    });
+
+    // First call: REST (GET /info → 500)
+    const [url1] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url1).toBe(`${runtimeUrl}/info`);
+
+    // Second call: single-endpoint (POST)
+    const [url2, init2] = fetchMock.mock.calls[1] as [string, RequestInit];
+    expect(url2).toBe(runtimeUrl);
+    expect(init2.method).toBe("POST");
+
+    // Agent registered, transport resolved to "single"
+    expect(core.getAgent("remote")).toBeDefined();
+    expect(core.runtimeTransport).toBe("single");
+  });
+
+  it("falls back to single-endpoint when REST probe returns 403", async () => {
+    const runtimeUrl = "https://runtime.example/auto-403";
+    const fetchMock = vi
+      .fn()
+      .mockImplementation((url: string, init?: RequestInit) => {
+        if (
+          typeof url === "string" &&
+          url.endsWith("/info") &&
+          (!init?.method || init.method === "GET")
+        ) {
+          return Promise.resolve(new Response("Forbidden", { status: 403 }));
+        }
+        if (init?.method === "POST") {
+          return Promise.resolve(
+            new Response(JSON.stringify(infoResponse), {
+              status: 200,
+              headers: { "content-type": "application/json" },
+            }),
+          );
+        }
+        return Promise.reject(new Error("Unexpected fetch call"));
+      });
+    // @ts-expect-error - override in test environment
+    global.fetch = fetchMock;
+
+    const core = new CopilotKitCore({ runtimeUrl });
+
+    await vi.waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+    });
+
+    expect(core.getAgent("remote")).toBeDefined();
+    expect(core.runtimeTransport).toBe("single");
+  });
+
+  it("falls back to single-endpoint when REST probe throws a network error", async () => {
+    const runtimeUrl = "https://runtime.example/auto-net-err";
+    const fetchMock = vi
+      .fn()
+      .mockImplementation((url: string, init?: RequestInit) => {
+        if (
+          typeof url === "string" &&
+          url.endsWith("/info") &&
+          (!init?.method || init.method === "GET")
+        ) {
+          return Promise.reject(new TypeError("Failed to fetch"));
+        }
+        if (init?.method === "POST") {
+          return Promise.resolve(
+            new Response(JSON.stringify(infoResponse), {
+              status: 200,
+              headers: { "content-type": "application/json" },
+            }),
+          );
+        }
+        return Promise.reject(new Error("Unexpected fetch call"));
+      });
+    // @ts-expect-error - override in test environment
+    global.fetch = fetchMock;
+
+    const core = new CopilotKitCore({ runtimeUrl });
+
+    await vi.waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+    });
+
+    expect(core.getAgent("remote")).toBeDefined();
+    expect(core.runtimeTransport).toBe("single");
+  });
+
+  it("reports error when both REST and single-endpoint probes fail", async () => {
+    const runtimeUrl = "https://runtime.example/auto-both-fail";
+    const fetchMock = vi
+      .fn()
+      .mockImplementation((url: string, init?: RequestInit) => {
+        if (
+          typeof url === "string" &&
+          url.endsWith("/info") &&
+          (!init?.method || init.method === "GET")
+        ) {
+          return Promise.resolve(new Response("Not Found", { status: 404 }));
+        }
+        if (init?.method === "POST") {
+          return Promise.resolve(
+            new Response("Internal Server Error", { status: 500 }),
+          );
+        }
+        return Promise.reject(new Error("Unexpected fetch call"));
+      });
+    // @ts-expect-error - override in test environment
+    global.fetch = fetchMock;
+
+    const errorSpy = vi.fn();
+    const core = new CopilotKitCore({ runtimeUrl });
+    core.subscribe({
+      onError: errorSpy,
+    });
+
+    await vi.waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+    });
+
+    // Should have emitted an error since single-endpoint also returned 500
+    // The connection status should be Error
+    await vi.waitFor(() => {
+      expect(core.runtimeConnectionStatus).toBe("error");
+    });
+  });
+
+  it("falls back to single-endpoint when REST probe returns 405", async () => {
+    const runtimeUrl = "https://runtime.example/auto-405";
+    const fetchMock = vi
+      .fn()
+      .mockImplementation((url: string, init?: RequestInit) => {
+        if (
+          typeof url === "string" &&
+          url.endsWith("/info") &&
+          (!init?.method || init.method === "GET")
+        ) {
+          return Promise.resolve(
+            new Response("Method Not Allowed", { status: 405 }),
+          );
+        }
+        if (init?.method === "POST") {
+          return Promise.resolve(
+            new Response(JSON.stringify(infoResponse), {
+              status: 200,
+              headers: { "content-type": "application/json" },
+            }),
+          );
+        }
+        return Promise.reject(new Error("Unexpected fetch call"));
+      });
+    // @ts-expect-error - override in test environment
+    global.fetch = fetchMock;
+
+    const core = new CopilotKitCore({ runtimeUrl });
+
+    await vi.waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+    });
+
+    expect(core.getAgent("remote")).toBeDefined();
+    expect(core.runtimeTransport).toBe("single");
+  });
+});
+
+describe("ProxiedCopilotRuntimeAgent construction and defaults", () => {
+  it("defaults transport to 'auto' when not specified", () => {
+    const agent = new ProxiedCopilotRuntimeAgent({
+      runtimeUrl: "https://runtime.example/default",
+      agentId: "test-agent",
+    });
+    // The agent should have been created without throwing.
+    // When transport is "auto", the URL is set as REST-style initially.
+    expect(agent).toBeDefined();
+    expect(agent.agentId).toBe("test-agent");
+  });
+
+  it("normalizes trailing slashes on runtimeUrl", () => {
+    const agent = new ProxiedCopilotRuntimeAgent({
+      runtimeUrl: "https://runtime.example/trailing/",
+      agentId: "test-agent",
+      transport: "rest",
+    });
+    expect(agent.runtimeUrl).toBe("https://runtime.example/trailing");
+  });
+});
+
 describe("AgentRegistry runtime info requests", () => {
   const originalFetch = global.fetch;
   const originalWindow = (globalThis as { window?: unknown }).window;

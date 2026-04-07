@@ -36,7 +36,7 @@ export class AgentRegistry {
   private _runtimeVersion?: string;
   private _runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus =
     CopilotKitCoreRuntimeConnectionStatus.Disconnected;
-  private _runtimeTransport: CopilotRuntimeTransport = "rest";
+  private _runtimeTransport: CopilotRuntimeTransport = "auto";
   private _audioFileTranscriptionEnabled: boolean = false;
   private _runtimeMode: RuntimeMode = RUNTIME_MODE_SSE;
   private _intelligence?: IntelligenceRuntimeInfo;
@@ -347,33 +347,79 @@ export class AgentRegistry {
     };
 
     if (this._runtimeTransport === "single") {
-      if (!headers["Content-Type"]) {
-        headers["Content-Type"] = "application/json";
-      }
-      const response = await fetch(this.runtimeUrl, {
-        method: "POST",
-        headers,
-        body: JSON.stringify({ method: "info" }),
-        ...(credentials ? { credentials } : {}),
-      });
-      if ("ok" in response && !(response as Response).ok) {
-        throw new Error(
-          `Runtime info request failed with status ${response.status}`,
-        );
-      }
-      return (await response.json()) as RuntimeInfo;
+      return this.fetchRuntimeInfoSingle(headers, credentials);
     }
 
+    if (this._runtimeTransport === "auto") {
+      return this.fetchRuntimeInfoAutoDetect(headers, credentials);
+    }
+
+    // REST transport
     const response = await fetch(`${this.runtimeUrl}/info`, {
       headers,
       ...(credentials ? { credentials } : {}),
     });
-    if ("ok" in response && !(response as Response).ok) {
+    if (!response.ok) {
       throw new Error(
         `Runtime info request failed with status ${response.status}`,
       );
     }
     return (await response.json()) as RuntimeInfo;
+  }
+
+  private async fetchRuntimeInfoSingle(
+    headers: Record<string, string>,
+    credentials: RequestCredentials | undefined,
+  ): Promise<RuntimeInfo> {
+    if (!headers["Content-Type"]) {
+      headers["Content-Type"] = "application/json";
+    }
+    const response = await fetch(this.runtimeUrl!, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ method: "info" }),
+      ...(credentials ? { credentials } : {}),
+    });
+    if (!response.ok) {
+      throw new Error(
+        `Runtime info request failed with status ${response.status}`,
+      );
+    }
+    return (await response.json()) as RuntimeInfo;
+  }
+
+  /**
+   * Auto-detect transport by trying REST first, then falling back to single-endpoint.
+   * Updates `_runtimeTransport` to the detected value so subsequent requests use it directly.
+   */
+  private async fetchRuntimeInfoAutoDetect(
+    headers: Record<string, string>,
+    credentials: RequestCredentials | undefined,
+  ): Promise<RuntimeInfo> {
+    // Try REST first (GET /info)
+    try {
+      const response = await fetch(`${this.runtimeUrl}/info`, {
+        headers: { ...headers },
+        ...(credentials ? { credentials } : {}),
+      });
+      // Only treat a successful (2xx) response as a valid REST runtime.
+      // 404/405 means the endpoint doesn't exist; other non-2xx errors
+      // (500, 403, etc.) should also fall through to single-endpoint.
+      if (response.status >= 200 && response.status < 300) {
+        this._runtimeTransport = "rest";
+        return (await response.json()) as RuntimeInfo;
+      }
+      // Non-2xx — try single-endpoint below
+    } catch {
+      // REST failed (network error, etc.) — fall through to single-endpoint attempt
+    }
+
+    const result = await this.fetchRuntimeInfoSingle(
+      { ...headers },
+      credentials,
+    );
+    this._runtimeTransport = "single";
+    return result;
   }
 
   /**

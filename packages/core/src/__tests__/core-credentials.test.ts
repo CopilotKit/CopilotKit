@@ -82,6 +82,8 @@ describe("CopilotKitCore credentials", () => {
 
   it("uses updated credentials for subsequent runtime requests", async () => {
     const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
       json: vi.fn().mockResolvedValue({ version: "1.0.0", agents: {} }),
     });
     global.fetch = fetchMock as unknown as typeof fetch;
@@ -113,6 +115,8 @@ describe("CopilotKitCore credentials", () => {
 
   it("propagates credentials to remote agents created from runtime info", async () => {
     const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
       json: vi.fn().mockResolvedValue({
         version: "1.0.0",
         agents: {

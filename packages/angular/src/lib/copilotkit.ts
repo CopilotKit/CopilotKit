@@ -39,7 +39,7 @@ export class CopilotKit {
   readonly runtimeConnectionStatus = this.#runtimeConnectionStatus.asReadonly();
   readonly #runtimeUrl = signal<string | undefined>(undefined);
   readonly runtimeUrl = this.#runtimeUrl.asReadonly();
-  readonly #runtimeTransport = signal<CopilotRuntimeTransport>("rest");
+  readonly #runtimeTransport = signal<CopilotRuntimeTransport>("auto");
   readonly runtimeTransport = this.#runtimeTransport.asReadonly();
   readonly #headers = signal<Record<string, string>>({});
   readonly headers = this.#headers.asReadonly();
