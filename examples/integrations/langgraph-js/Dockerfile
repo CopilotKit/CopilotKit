@@ -10,7 +10,7 @@ COPY apps/agent/package.json ./apps/agent/
 RUN pnpm install --no-frozen-lockfile
 
 COPY apps/ ./apps/
-COPY turbo.json eslint.config.mjs ./
+COPY turbo.json ./
 
 ENV NODE_OPTIONS="--max-old-space-size=4096"
 RUN pnpm --filter web build
