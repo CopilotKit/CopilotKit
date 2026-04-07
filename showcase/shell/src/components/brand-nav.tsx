@@ -243,7 +243,7 @@ export function BrandNav() {
                 <>
                     {/* Backdrop */}
                     <div
-                        className="fixed inset-0 z-50 bg-black/30 backdrop-blur-sm"
+                        className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm"
                         onClick={() => setMobileMenuOpen(false)}
                     />
                     {/* Panel */}
