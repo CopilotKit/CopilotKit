@@ -985,15 +985,20 @@ describe("CopilotChatInput", () => {
   });
 
   describe("Container dimension cache", () => {
-    let resizeObserverCallback: (() => void) | null = null;
+    let resizeObserverCallbacks: Array<() => void> = [];
     const OriginalResizeObserver = globalThis.ResizeObserver;
 
+    /** Trigger all ResizeObserver callbacks (container + textarea observers). */
+    const triggerAllResizeObservers = () => {
+      for (const cb of resizeObserverCallbacks) cb();
+    };
+
     beforeEach(() => {
-      resizeObserverCallback = null;
-      // Mock ResizeObserver so the component sets up its observer and we can
-      // trigger cache invalidation by calling the callback directly.
+      resizeObserverCallbacks = [];
+      // Mock ResizeObserver so the component sets up its observers and we can
+      // trigger cache invalidation by calling the callbacks directly.
       globalThis.ResizeObserver = vi.fn((callback: () => void) => {
-        resizeObserverCallback = callback;
+        resizeObserverCallbacks.push(callback);
         return { observe: vi.fn(), unobserve: vi.fn(), disconnect: vi.fn() };
       }) as any;
     });
@@ -1107,7 +1112,7 @@ describe("CopilotChatInput", () => {
       mockCanvasMeasureText(charWidth);
       // Invalidate the stale cache populated during the initial render
       // so the next evaluateLayout call re-measures with our mocked values.
-      resizeObserverCallback?.();
+      triggerAllResizeObservers();
     };
 
     it("expands layout via canvas text measurement when a single long line exceeds compact width", async () => {
@@ -1211,7 +1216,7 @@ describe("CopilotChatInput", () => {
       mockCanvasMeasureText(10);
 
       // Trigger resize to invalidate the cache with the new narrow dimensions
-      resizeObserverCallback?.();
+      triggerAllResizeObservers();
 
       // Trigger re-evaluation
       fireEvent.change(textarea, {
@@ -1253,7 +1258,7 @@ describe("CopilotChatInput", () => {
       });
 
       // Invalidate cache so it tries to rebuild with the empty font mock
-      resizeObserverCallback?.();
+      triggerAllResizeObservers();
 
       const textarea = screen.getByRole("textbox");
 

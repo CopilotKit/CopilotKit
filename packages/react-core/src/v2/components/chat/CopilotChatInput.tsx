@@ -705,11 +705,33 @@ export function CopilotChatInput({
     );
 
     const textareaStyles = window.getComputedStyle(textarea);
-    const font =
-      textareaStyles.font ||
-      `${textareaStyles.fontStyle} ${textareaStyles.fontVariant} ${textareaStyles.fontWeight} ${textareaStyles.fontSize}/${textareaStyles.lineHeight} ${textareaStyles.fontFamily}`;
+    let font = textareaStyles.font;
+    if (!font) {
+      // Some browsers (e.g. Safari) return empty string for the font shorthand.
+      // Fall back to constructing it from individual properties, but only if
+      // fontSize and fontFamily are available (required for a valid CSS font value).
+      const {
+        fontStyle,
+        fontVariant,
+        fontWeight,
+        fontSize,
+        lineHeight,
+        fontFamily,
+      } = textareaStyles;
+      if (fontSize && fontFamily) {
+        font = `${fontStyle} ${fontVariant} ${fontWeight} ${fontSize}/${lineHeight} ${fontFamily}`;
+      }
+    }
 
-    if (!font || font.trim().length === 0) return;
+    if (!font || font.trim().length === 0) {
+      if (process.env.NODE_ENV !== "production") {
+        console.warn(
+          "[CopilotChatInput] Could not resolve textarea font for layout measurement. " +
+            "Text-width-based expansion will be skipped until the next resize.",
+        );
+      }
+      return;
+    }
 
     containerCacheRef.current = { compactWidth, font };
   }, []);
@@ -792,6 +814,11 @@ export function CopilotChatInput({
             if (longestWidth > compactInnerWidth) {
               shouldExpand = true;
             }
+          } else if (process.env.NODE_ENV !== "production") {
+            console.warn(
+              "[CopilotChatInput] canvas.getContext('2d') returned null. " +
+                "Text-width-based expansion will be unavailable.",
+            );
           }
         }
       }
@@ -826,14 +853,22 @@ export function CopilotChatInput({
       return;
     }
 
-    const scheduleEvaluation = () => {
+    const scheduleEvaluation = (invalidateCache: boolean) => {
       if (ignoreResizeRef.current) {
         ignoreResizeRef.current = false;
+        // Still invalidate the cache for self-triggered resizes (e.g. compact↔expanded
+        // toggle changes the grid template), but skip the re-evaluation since
+        // evaluateLayout is already running and will use the freshly populated cache.
+        if (invalidateCache) {
+          containerCacheRef.current = null;
+        }
         return;
       }
 
-      // Invalidate cached container dimensions so evaluateLayout re-measures.
-      containerCacheRef.current = null;
+      if (invalidateCache) {
+        // Invalidate cached container dimensions so evaluateLayout re-measures.
+        containerCacheRef.current = null;
+      }
 
       if (typeof window === "undefined") {
         evaluateLayout();
@@ -850,17 +885,26 @@ export function CopilotChatInput({
       });
     };
 
-    const observer = new ResizeObserver(() => {
-      scheduleEvaluation();
+    // Container elements (grid, buttons) — invalidate the dimension cache on resize
+    // because compactWidth and font may have changed.
+    const containerObserver = new ResizeObserver(() => {
+      scheduleEvaluation(true);
     });
 
-    observer.observe(grid);
-    observer.observe(addContainer);
-    observer.observe(actionsContainer);
-    observer.observe(textarea);
+    // Textarea height changes (typing, manual resize) don't affect cached
+    // compactWidth or font — re-evaluate layout without invalidating the cache.
+    const textareaObserver = new ResizeObserver(() => {
+      scheduleEvaluation(false);
+    });
+
+    containerObserver.observe(grid);
+    containerObserver.observe(addContainer);
+    containerObserver.observe(actionsContainer);
+    textareaObserver.observe(textarea);
 
     return () => {
-      observer.disconnect();
+      containerObserver.disconnect();
+      textareaObserver.disconnect();
       if (
         typeof window !== "undefined" &&
         resizeEvaluationRafRef.current !== null
