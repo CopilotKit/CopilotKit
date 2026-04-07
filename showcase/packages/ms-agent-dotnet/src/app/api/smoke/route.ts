@@ -17,7 +17,7 @@ export async function GET() {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
                 method: "agent/run",
-                params: { agentId: "agentic_chat" },
+                params: { agentId: "agentic-chat" },
                 body: {
                     threadId: `smoke-${Date.now()}`,
                     runId: `smoke-run-${Date.now()}`,
