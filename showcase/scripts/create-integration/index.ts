@@ -348,6 +348,56 @@ function DemoContent() {
 `;
 }
 
+function getDemoInteraction(featureId: string): string {
+    switch (featureId) {
+        case "tool-rendering":
+            return `- "What's the weather like in San Francisco?"
+- "Check the weather in Tokyo and New York"
+- "Can you look up the current conditions in London?"`;
+        case "hitl":
+            return `- "Change the background color to a warm sunset gradient"
+- "Set the theme to dark mode"
+- "Make the background a calming blue-green gradient"
+
+When the agent proposes an action, you'll see an approval prompt. Click **Approve** to let it proceed or **Reject** to cancel.`;
+        case "gen-ui-tool-based":
+            return `- "What's the weather forecast for this week in San Francisco?"
+- "Show me the weather in Paris"
+- "Compare the weather in Tokyo and London"
+
+The agent generates structured data via tools, and the frontend renders it as rich UI components.`;
+        default:
+            return `- "TODO: Add example prompts"
+- "TODO: Add more examples"`;
+    }
+}
+
+function getDemoTechnicalDetails(featureId: string): string {
+    switch (featureId) {
+        case "tool-rendering":
+            return `- **Backend tools** are defined in the agent (e.g., \\\`get_weather\\\`) and called by the LLM when the user's query matches
+- **\\\`useRenderTool\\\`** on the frontend registers a React component that renders whenever the agent calls that tool
+- The render function receives \\\`args\\\` (input parameters), \\\`result\\\` (tool output), and \\\`status\\\` ("executing" or "complete") so the UI can show loading states
+- The tool result is displayed as a rich UI card instead of plain text — demonstrating how agent actions can produce structured, visual output`;
+        case "hitl":
+            return `- **Human-in-the-Loop (HITL)** lets the agent propose actions that require user approval before execution
+- The agent calls a tool (like \\\`change_background\\\`), and CopilotKit intercepts it to show a confirmation dialog
+- \\\`useHumanInTheLoop\\\` registers a frontend tool with \\\`requireConfirmation: true\\\`, adding the approval step
+- The user sees what the agent wants to do (with the proposed arguments) and can approve or reject
+- This pattern is essential for high-stakes actions — database writes, API calls, or any irreversible operation`;
+        case "gen-ui-tool-based":
+            return `- **Generative UI** means the agent's tool calls produce structured data that the frontend renders as custom React components
+- Unlike plain text responses, the agent returns tool results with typed parameters (city, temperature, conditions)
+- \\\`useRenderTool\\\` maps each tool name to a React component, so \\\`get_weather\\\` renders a weather card with icons, temperature displays, and forecast details
+- The agent decides when to call the tool based on context — it can mix tool-based UI generation with regular text responses
+- This pattern enables agents to create dynamic, data-driven interfaces on demand`;
+        default:
+            return `- TODO: Describe the technical implementation
+- TODO: Explain the hooks and components used
+- TODO: Note any framework-specific patterns`;
+    }
+}
+
 function generateDemoReadme(featureId: string, feature: Feature | undefined): string {
     return `# ${feature?.name || featureId}
 
@@ -359,16 +409,13 @@ ${feature?.description || "TODO: Add description"}
 
 Try asking your Copilot to:
 
-- "TODO: Add example prompts"
-- "TODO: Add more examples"
+${getDemoInteraction(featureId)}
 
 ## Technical Details
 
 What's happening technically:
 
-- TODO: Describe the technical implementation
-- TODO: Explain the hooks and components used
-- TODO: Note any framework-specific patterns
+${getDemoTechnicalDetails(featureId)}
 
 ## Building With This
 
