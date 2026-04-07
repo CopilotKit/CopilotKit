@@ -152,18 +152,26 @@ export default function HomePage() {
             </div>
 
             {/* Stats bar */}
-            <div className="flex items-center gap-3 text-xs text-[var(--text-muted)]">
-                <span className="font-medium text-[var(--text-secondary)]">{deployedIntegrations.length}</span>{" "}
-                live integrations
+            <div className="flex flex-wrap justify-center items-center gap-3 text-xs text-[var(--text-muted)]">
+                <span className="whitespace-nowrap">
+                    <span className="font-medium text-[var(--text-secondary)]">{deployedIntegrations.length}</span>{" "}
+                    live integrations
+                </span>
                 <span className="text-[var(--border)]">·</span>
-                <span className="font-medium text-[var(--text-secondary)]">{totalDemos}</span>{" "}
-                demos
+                <span className="whitespace-nowrap">
+                    <span className="font-medium text-[var(--text-secondary)]">{totalDemos}</span>{" "}
+                    demos
+                </span>
                 <span className="text-[var(--border)]">·</span>
-                <span className="font-medium text-[var(--text-secondary)]">{features.length}</span>{" "}
-                features
+                <span className="whitespace-nowrap">
+                    <span className="font-medium text-[var(--text-secondary)]">{features.length}</span>{" "}
+                    features
+                </span>
                 <span className="text-[var(--border)]">·</span>
-                <span className="font-medium text-[var(--text-secondary)]">{categories.length}</span>{" "}
-                categories
+                <span className="whitespace-nowrap">
+                    <span className="font-medium text-[var(--text-secondary)]">{categories.length}</span>{" "}
+                    categories
+                </span>
             </div>
         </div>
     );
