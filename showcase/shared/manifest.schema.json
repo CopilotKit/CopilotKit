@@ -65,8 +65,7 @@
     },
     "animated_preview_url": {
       "type": ["string", "null"],
-      "format": "uri",
-      "description": "URL to an animated preview (gif/video) shown on the landing page when no live mini-demo is available"
+      "description": "Path to an animated preview (gif/video) shown on the landing page when no live mini-demo is available"
     },
     "features": {
       "type": "array",

@@ -10,6 +10,7 @@ copilotkit_version: 2.0.0
 backend_url: https://showcase-ms-agent-python-production.up.railway.app
 deployed: true
 sort_order: 150
+animated_preview_url: /previews/ms-agent-python.gif
 generative_ui:
   - constrained-explicit
 interaction_modalities:

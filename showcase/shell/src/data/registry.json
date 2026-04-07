@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-04-06T18:47:10.653Z",
+  "generated_at": "2026-04-07T03:35:25.687Z",
   "feature_registry": {
     "version": "1.0.0",
     "categories": [
@@ -351,6 +351,7 @@
       "backend_url": "https://showcase-langgraph-python-production.up.railway.app",
       "deployed": true,
       "sort_order": 10,
+      "animated_preview_url": "/previews/langgraph-python.gif",
       "generative_ui": [
         "constrained-explicit"
       ],
@@ -478,6 +479,7 @@
       "backend_url": "https://showcase-langgraph-typescript-production.up.railway.app",
       "deployed": true,
       "sort_order": 11,
+      "animated_preview_url": "/previews/langgraph-typescript.gif",
       "generative_ui": [
         "constrained-explicit"
       ],
@@ -554,6 +556,7 @@
       "backend_url": "https://showcase-langgraph-fastapi-production.up.railway.app",
       "deployed": true,
       "sort_order": 12,
+      "animated_preview_url": "/previews/langgraph-fastapi.gif",
       "generative_ui": [
         "constrained-explicit"
       ],
@@ -631,6 +634,7 @@
       "backend_url": "https://showcase-google-adk-production.up.railway.app",
       "deployed": true,
       "sort_order": 15,
+      "animated_preview_url": "/previews/google-adk.gif",
       "generative_ui": [
         "constrained-explicit"
       ],
@@ -702,6 +706,7 @@
       "backend_url": "https://showcase-mastra-production.up.railway.app",
       "deployed": true,
       "sort_order": 20,
+      "animated_preview_url": "/previews/mastra.gif",
       "generative_ui": [
         "constrained-explicit"
       ],
@@ -778,6 +783,7 @@
       "backend_url": "https://showcase-crewai-crews-production.up.railway.app",
       "deployed": true,
       "sort_order": 40,
+      "animated_preview_url": "/previews/crewai-crews.gif",
       "generative_ui": [
         "constrained-explicit"
       ],
@@ -853,6 +859,7 @@
       "backend_url": "https://showcase-pydantic-ai-production.up.railway.app",
       "deployed": true,
       "sort_order": 50,
+      "animated_preview_url": "/previews/pydantic-ai.gif",
       "generative_ui": [
         "constrained-explicit"
       ],
@@ -1052,6 +1059,7 @@
       "backend_url": "https://showcase-agno-production.up.railway.app",
       "deployed": true,
       "sort_order": 90,
+      "animated_preview_url": "/previews/agno.gif",
       "generative_ui": [
         "constrained-explicit"
       ],
@@ -1127,6 +1135,7 @@
       "backend_url": "https://showcase-ag2-production.up.railway.app",
       "deployed": true,
       "sort_order": 100,
+      "animated_preview_url": "/previews/ag2.gif",
       "generative_ui": [
         "constrained-explicit"
       ],
@@ -1195,6 +1204,7 @@
       "backend_url": "https://showcase-llamaindex-production.up.railway.app",
       "deployed": true,
       "sort_order": 110,
+      "animated_preview_url": "/previews/llamaindex.gif",
       "generative_ui": [
         "constrained-explicit"
       ],
@@ -1270,6 +1280,7 @@
       "backend_url": "https://showcase-strands-production.up.railway.app",
       "deployed": true,
       "sort_order": 130,
+      "animated_preview_url": "/previews/strands.gif",
       "generative_ui": [
         "constrained-explicit"
       ],
@@ -1405,6 +1416,7 @@
       "backend_url": "https://showcase-ms-agent-python-production.up.railway.app",
       "deployed": true,
       "sort_order": 150,
+      "animated_preview_url": "/previews/ms-agent-python.gif",
       "generative_ui": [
         "constrained-explicit"
       ],
@@ -1476,6 +1488,7 @@
       "backend_url": "https://showcase-ms-agent-dotnet-production.up.railway.app",
       "deployed": true,
       "sort_order": 160,
+      "animated_preview_url": "/previews/ms-agent-dotnet.gif",
       "generative_ui": [
         "constrained-explicit"
       ],
