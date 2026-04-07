@@ -1,11 +1,4 @@
 import { NextResponse } from "next/server";
-import {
-    CopilotRuntime,
-    ExperimentalEmptyAdapter,
-    copilotRuntimeNextJSAppRouterEndpoint,
-} from "@copilotkit/runtime";
-import { MastraAgent } from "@ag-ui/mastra";
-import { mastra } from "@/mastra";
 
 const INTEGRATION_SLUG = "mastra";
 
@@ -14,47 +7,53 @@ export const maxDuration = 30;
 
 export async function GET() {
     const start = Date.now();
+    // Hit our own /api/copilotkit endpoint — tests the full deployed stack
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL
+        || `http://localhost:${process.env.PORT || 3000}`;
 
     try {
-        const runtime = new CopilotRuntime({
-            // @ts-ignore -- MastraAgent/AbstractAgent type mismatch in published packages
-            agents: MastraAgent.getLocalAgents({ mastra }),
-        });
-
-        const body = JSON.stringify({
-            messages: [{ role: "user", content: "Respond with exactly: OK" }],
-            tools: [],
-            agentId: "weather-agent",
-        });
-
-        const req = new Request("http://localhost/api/copilotkit", {
+        const res = await fetch(`${baseUrl}/api/copilotkit`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body,
+            body: JSON.stringify({
+                method: "agent/run",
+                params: { agentId: "weather-agent" },
+                body: {
+                    threadId: `smoke-${Date.now()}`,
+                    runId: `smoke-run-${Date.now()}`,
+                    state: {},
+                    messages: [
+                        {
+                            id: `smoke-msg-${Date.now()}`,
+                            role: "user",
+                            content: "Respond with exactly: OK",
+                        },
+                    ],
+                    tools: [],
+                    context: [],
+                    forwardedProps: {},
+                },
+            }),
+            signal: AbortSignal.timeout(25000),
         });
 
-        const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
-            runtime,
-            serviceAdapter: new ExperimentalEmptyAdapter(),
-            endpoint: "/api/copilotkit",
-        });
-
-        const response = await handleRequest(req);
         const latency = Date.now() - start;
 
-        if (!response.ok) {
+        if (!res.ok) {
+            const errBody = await res.text().catch(() => "");
             return NextResponse.json({
                 status: "error",
                 integration: INTEGRATION_SLUG,
                 stage: "runtime_response",
-                error: `Runtime returned ${response.status}`,
+                error: `Runtime returned ${res.status}: ${errBody.slice(0, 200)}`,
                 latency_ms: latency,
                 timestamp: new Date().toISOString(),
             }, { status: 502 });
         }
 
-        const text = await response.text();
-        if (text.length === 0) {
+        // Response is SSE stream — just verify we got content
+        const body = await res.text();
+        if (body.length === 0) {
             return NextResponse.json({
                 status: "error",
                 integration: INTEGRATION_SLUG,
@@ -76,8 +75,8 @@ export async function GET() {
         const latency = Date.now() - start;
 
         let stage = "unknown";
-        if (err.message.includes("fetch")) stage = "agent_unreachable";
-        else if (err.message.includes("timeout") || err.message.includes("AbortError")) stage = "timeout";
+        if (err.name === "AbortError" || err.message.includes("timeout")) stage = "timeout";
+        else if (err.message.includes("fetch") || err.message.includes("ECONNREFUSED")) stage = "agent_unreachable";
         else stage = "pipeline_error";
 
         return NextResponse.json({
