@@ -27,6 +27,13 @@
   "main": "./dist/index.cjs",
   "module": "./dist/index.mjs",
   "types": "./dist/index.d.cts",
+  "typesVersions": {
+    "*": {
+      "v2": [
+        "./dist/v2/index.d.cts"
+      ]
+    }
+  },
   "unpkg": "./dist/index.umd.js",
   "jsdelivr": "./dist/index.umd.js",
   "exports": {
@@ -40,11 +47,6 @@
     },
     "./package.json": "./package.json",
     "./v2/styles.css": "./dist/v2/index.css"
-  },
-  "typesVersions": {
-    "*": {
-      "v2": ["./dist/v2/index.d.cts"]
-    }
   },
   "publishConfig": {
     "access": "public"

@@ -29,6 +29,22 @@
   "main": "./dist/index.cjs",
   "module": "./dist/index.mjs",
   "types": "./dist/index.d.cts",
+  "typesVersions": {
+    "*": {
+      "v2": [
+        "./dist/v2/index.d.cts"
+      ],
+      "v2/express": [
+        "./dist/v2/express.d.cts"
+      ],
+      "v2/hono": [
+        "./dist/v2/hono.d.cts"
+      ],
+      "v2/node": [
+        "./dist/v2/node.d.cts"
+      ]
+    }
+  },
   "exports": {
     ".": {
       "import": "./dist/index.mjs",
@@ -55,14 +71,6 @@
       "require": "./dist/v2/node.cjs"
     },
     "./package.json": "./package.json"
-  },
-  "typesVersions": {
-    "*": {
-      "v2": ["./dist/v2/index.d.cts"],
-      "v2/express": ["./dist/v2/express.d.cts"],
-      "v2/hono": ["./dist/v2/hono.d.cts"],
-      "v2/node": ["./dist/v2/node.d.cts"]
-    }
   },
   "publishConfig": {
     "access": "public"
