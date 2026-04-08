@@ -232,6 +232,7 @@ export class WebInspectorElement extends LitElement {
   private announcementLoaded = false;
   private announcementPromise: Promise<void> | null = null;
   private showAnnouncementPreview = true;
+  private announcementExpanded = false;
 
   get core(): CopilotKitCore | null {
     return this._core;
@@ -1416,6 +1417,44 @@ ${argsString}</pre
         text-decoration: underline;
       }
 
+      .announcement-body {
+        position: relative;
+        overflow: hidden;
+        transition: max-height 0.25s ease;
+      }
+      .announcement-body--collapsed {
+        max-height: 110px;
+      }
+      .announcement-body--expanded {
+        max-height: 2000px;
+      }
+      .announcement-fade {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: 48px;
+        background: linear-gradient(to bottom, transparent, #ffffff);
+        pointer-events: none;
+      }
+      .announcement-toggle {
+        display: block;
+        width: 100%;
+        margin-top: 6px;
+        padding: 0;
+        background: none;
+        border: none;
+        font-family: "Plus Jakarta Sans", system-ui, sans-serif;
+        font-size: 12px;
+        font-weight: 500;
+        color: #757cf2;
+        cursor: pointer;
+        text-align: center;
+      }
+      .announcement-toggle:hover {
+        color: #6430ab;
+      }
+
       /* ── Brand typography ────────────────────────────────────────── */
       /* Override Tailwind font-mono stack → Spline Sans Mono */
       .font-mono,
@@ -1472,7 +1511,6 @@ ${argsString}</pre
         background-color: rgba(190, 194, 255, 0.18);
         color: #010507;
         font-weight: 600;
-        box-shadow: inset 0 -2px 0 0 #bec2ff;
       }
       .cpk-tab-active .cpk-tab-icon {
         color: #757cf2;
@@ -1487,6 +1525,10 @@ ${argsString}</pre
       .cpk-tab-inactive:hover {
         background-color: rgba(190, 194, 255, 0.08);
         color: #010507;
+        cursor: pointer;
+      }
+      .cpk-tab-active {
+        cursor: pointer;
       }
 
       /* ── Header control buttons (dock, close) — first row only ───── */
@@ -3243,12 +3285,12 @@ ${argsString}</pre
                   .thread=${selectedThread}
                   .runtimeUrl=${this._core?.runtimeUrl ?? ""}
                   .headers=${this._core?.headers ?? {}}
-                  .agentState=${
+                  .agentStateInput=${
                     selectedThread
                       ? this.getLatestStateForAgent(selectedThread.agentId)
                       : null
                   }
-                  .agentEvents=${
+                  .agentEventsInput=${
                     selectedThread
                       ? (this.agentEvents.get(selectedThread.agentId) ?? [])
                       : []
@@ -3271,14 +3313,14 @@ ${argsString}</pre
                       height="32"
                       viewBox="0 0 24 24"
                       fill="none"
-                      stroke="currentColor"
+                      stroke="#c0c0c8"
                       stroke-width="1.5"
                       stroke-linecap="round"
                       stroke-linejoin="round"
                     >
                       <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
                     </svg>
-                    <span style="font-size: 13px">Select a thread to inspect</span>
+                    <span style="font-size: 13px">${displayThreads.length === 0 ? "No threads yet" : "Select a thread to inspect"}</span>
                   </div>
                 `
           }
@@ -3302,14 +3344,11 @@ ${argsString}</pre
         >
           <div class="max-w-md">
             <div
-              class="mb-3 flex justify-center text-gray-300 [&>svg]:!h-8 [&>svg]:!w-8"
+              class="mb-3 flex justify-center text-gray-300 [&>svg]:!h-6 [&>svg]:!w-6"
             >
               ${this.renderIcon("Zap")}
             </div>
-            <p class="text-sm text-gray-600">No events yet</p>
-            <p class="mt-2 text-xs text-gray-500">
-              Trigger an agent run to see live activity.
-            </p>
+            <p class="text-sm text-gray-300">No events yet</p>
           </div>
         </div>
       `;
@@ -4741,7 +4780,7 @@ ${prettyEvent}</pre
       return nothing;
     }
 
-    return html`<div class="mx-4 my-3 rounded-xl border border-slate-200 bg-white px-4 py-4">
+    return html`<div class="mx-4 mb-3 rounded-xl border border-slate-200 bg-white px-4 py-4">
       <div
         class="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-900"
       >
@@ -4760,9 +4799,28 @@ ${prettyEvent}</pre
           ${this.renderIcon("X")}
         </button>
       </div>
-      <div class="announcement-content text-sm leading-relaxed text-gray-900">
-        ${unsafeHTML(this.announcementHtml)}
+      <div class="announcement-body ${this.announcementExpanded ? "announcement-body--expanded" : "announcement-body--collapsed"}">
+        <div class="announcement-content text-sm leading-relaxed text-gray-900">
+          ${unsafeHTML(this.announcementHtml)}
+        </div>
+        ${
+          !this.announcementExpanded
+            ? html`
+                <div class="announcement-fade"></div>
+              `
+            : nothing
+        }
       </div>
+      <button
+        class="announcement-toggle"
+        type="button"
+        @click=${() => {
+          this.announcementExpanded = !this.announcementExpanded;
+          this.requestUpdate();
+        }}
+      >
+        ${this.announcementExpanded ? "Show less ↑" : "Show more ↓"}
+      </button>
     </div>`;
   }
 

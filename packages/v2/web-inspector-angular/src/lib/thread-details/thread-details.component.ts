@@ -169,7 +169,20 @@ type Tab = "conversation" | "agent-state" | "ag-ui-events";
               <ng-container *ngIf="item.type === 'user'">
                 <div class="cpk-td__bubble cpk-td__bubble--user">
                   <div class="cpk-td__bubble-inner cpk-td__bubble-inner--user">
-                    {{ asUser(item).content }}
+                    {{
+                      asUser(item).content.length > COLLAPSE_THRESHOLD &&
+                      !isMessageExpanded(item.id)
+                        ? asUser(item).content.slice(0, COLLAPSE_THRESHOLD) + "…"
+                        : asUser(item).content
+                    }}
+                    <span
+                      *ngIf="asUser(item).content.length > COLLAPSE_THRESHOLD"
+                      class="cpk-td__show-more"
+                      (click)="toggleMessage(item.id)"
+                      >{{
+                        isMessageExpanded(item.id) ? "Show less" : "Show more"
+                      }}</span
+                    >
                   </div>
                 </div>
               </ng-container>
@@ -178,7 +191,21 @@ type Tab = "conversation" | "agent-state" | "ag-ui-events";
               <ng-container *ngIf="item.type === 'assistant'">
                 <div class="cpk-td__bubble cpk-td__bubble--assistant">
                   <div class="cpk-td__bubble-inner cpk-td__bubble-inner--assistant">
-                    {{ asAssistant(item).content }}
+                    {{
+                      asAssistant(item).content.length > COLLAPSE_THRESHOLD &&
+                      !isMessageExpanded(item.id)
+                        ? asAssistant(item).content.slice(0, COLLAPSE_THRESHOLD) +
+                          "…"
+                        : asAssistant(item).content
+                    }}
+                    <span
+                      *ngIf="asAssistant(item).content.length > COLLAPSE_THRESHOLD"
+                      class="cpk-td__show-more"
+                      (click)="toggleMessage(item.id)"
+                      >{{
+                        isMessageExpanded(item.id) ? "Show less" : "Show more"
+                      }}</span
+                    >
                   </div>
                 </div>
               </ng-container>
@@ -445,31 +472,32 @@ type Tab = "conversation" | "agent-state" | "ag-ui-events";
 
       /* ── Tab bar header ──────────────────────────────────────────────── */
       .cpk-td__tabs-header {
-        padding: 9px 16px;
+        padding: 0 8px;
         border-bottom: 1px solid #dbdbe5;
         flex-shrink: 0;
+        display: flex;
+        align-items: stretch;
       }
 
       .cpk-td__tab-group {
         display: flex;
-        gap: 2px;
-        background: #f7f7f9;
-        border-radius: 6px;
-        padding: 2px;
-        display: inline-flex;
+        gap: 0;
+        margin-bottom: -1px;
       }
 
       .cpk-td__tab {
         font-family: "Plus Jakarta Sans", sans-serif;
         font-size: 11px;
         font-weight: 500;
-        padding: 4px 14px;
-        border-radius: 4px;
+        padding: 8px 12px;
         border: none;
+        border-bottom: 2px solid transparent;
         cursor: pointer;
         background: transparent;
         color: #838389;
-        transition: all 0.12s;
+        transition:
+          color 0.12s,
+          border-color 0.12s;
         white-space: nowrap;
       }
 
@@ -478,9 +506,8 @@ type Tab = "conversation" | "agent-state" | "ag-ui-events";
       }
 
       .cpk-td__tab--active {
-        background: #ffffff;
         color: #010507;
-        box-shadow: 0 0 0 1px #dbdbe5;
+        border-bottom-color: #6430ab;
       }
 
       /* ── Scrollable content ──────────────────────────────────────────── */
@@ -549,8 +576,19 @@ type Tab = "conversation" | "agent-state" | "ag-ui-events";
 
       .cpk-td__bubble-inner--user {
         background: #eee6fe;
-        color: #3c3489;
+        color: #6430ab;
         border-radius: 10px 10px 3px 10px;
+      }
+
+      .cpk-td__show-more {
+        display: inline-block;
+        margin-top: 4px;
+        font-size: 11px;
+        font-weight: 500;
+        color: #6430ab;
+        cursor: pointer;
+        text-decoration: underline;
+        text-underline-offset: 2px;
       }
 
       .cpk-td__bubble-inner--assistant {
@@ -858,6 +896,10 @@ export class ThreadDetailsComponent {
   // Inline tool call expand/collapse
   private _expandedToolCalls = signal<Set<string>>(new Set());
 
+  // Long-message collapse
+  private _expandedMessages = signal<Set<string>>(new Set());
+  readonly COLLAPSE_THRESHOLD = 280;
+
   private fetchAbortController: AbortController | null = null;
 
   activityCounts = computed(() => {
@@ -1046,6 +1088,20 @@ export class ThreadDetailsComponent {
       s.add(id);
     }
     this._expandedToolCalls.set(s);
+  }
+
+  isMessageExpanded(id: string): boolean {
+    return this._expandedMessages().has(id);
+  }
+
+  toggleMessage(id: string): void {
+    const s = new Set(this._expandedMessages());
+    if (s.has(id)) {
+      s.delete(id);
+    } else {
+      s.add(id);
+    }
+    this._expandedMessages.set(s);
   }
 
   // ── Detail panel resize ──────────────────────────────────────────────────
