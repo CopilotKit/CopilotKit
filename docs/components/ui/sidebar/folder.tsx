@@ -20,6 +20,39 @@ interface FolderProps {
   onNavigate?: () => void;
 }
 
+function getFolderDisplayName(node: Node & { children?: Node[] }): string {
+  const folderName = typeof node.name === "string" ? node.name : "";
+  const folderUrl =
+    typeof (node as any).index?.url === "string"
+      ? (node as any).index.url
+      : typeof node.url === "string"
+        ? node.url
+        : "";
+
+  const childUrls = (node.children || [])
+    .map((child) => {
+      if (
+        child.type === "folder" &&
+        typeof (child as any).index?.url === "string"
+      ) {
+        return (child as any).index.url;
+      }
+      return typeof child.url === "string" ? child.url : "";
+    })
+    .filter(Boolean);
+
+  const isA2UIFolder =
+    folderName === "A2UI" ||
+    folderUrl.endsWith("/a2ui") ||
+    childUrls.some((url) => url.includes("/a2ui/"));
+
+  if (isA2UIFolder) {
+    return "Declerative Gen-UI (A2UI)";
+  }
+
+  return folderName;
+}
+
 /**
  * Checks if a folder's index URL matches the current pathname.
  * Handles:
@@ -77,6 +110,9 @@ const Folder = ({ node }: FolderProps) => {
   const router = useRouter();
   const folderUrl = node.index?.url;
   const folderId = node.$id;
+  const displayName = getFolderDisplayName(
+    node as Node & { children?: Node[] },
+  );
 
   // Check if folder should be open by default from meta.json defaultOpen property
   // Fumadocs exposes this property from meta.json files
@@ -138,7 +174,7 @@ const Folder = ({ node }: FolderProps) => {
           onClick={handleLinkClick}
           className="flex gap-2 justify-between items-center px-3 w-full h-10 cursor-pointer"
         >
-          <span className="w-max text-sm shrink-0">{node.name}</span>
+          <span className="w-max text-sm shrink-0">{displayName}</span>
           <ChevronDownIcon className={cn(isOpen ? "rotate-180" : "")} />
         </button>
       </li>
