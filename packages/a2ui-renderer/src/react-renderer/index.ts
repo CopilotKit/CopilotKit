@@ -6,30 +6,15 @@ export {
   useA2UIContext,
   useA2UIStore, // @deprecated - use useA2UIContext
   useA2UIStoreSelector, // @deprecated - use useA2UIContext or useA2UI
+  useA2UIError,
 } from "./core/A2UIProvider";
 export type { A2UIProviderProps } from "./core/A2UIProvider";
 export { A2UIRenderer } from "./core/A2UIRenderer";
 export type { A2UIRendererProps } from "./core/A2UIRenderer";
-export { A2UIViewer } from "./core/A2UIViewer";
-export type {
-  A2UIViewerProps,
-  ComponentInstance,
-  A2UIActionEvent,
-} from "./core/A2UIViewer";
-export { ComponentNode } from "./core/ComponentNode";
 
 // Hooks
 export { useA2UI } from "./hooks/useA2UI";
 export type { UseA2UIResult } from "./hooks/useA2UI";
-export { useA2UIComponent } from "./hooks/useA2UIComponent";
-export type { UseA2UIComponentResult } from "./hooks/useA2UIComponent";
-
-// Registry
-export { ComponentRegistry } from "./registry/ComponentRegistry";
-export {
-  registerDefaultCatalog,
-  initializeDefaultCatalog,
-} from "./registry/defaultCatalog";
 
 // Theme
 export {
@@ -37,15 +22,21 @@ export {
   useTheme,
   useThemeOptional,
 } from "./theme/ThemeContext";
-export { litTheme, defaultTheme } from "./theme/litTheme";
 
 // Utilities
-export { cn, classMapToString, stylesToObject } from "./lib/utils";
+export { cn } from "./lib/utils";
+
+// Catalog utilities
+export {
+  extendsBasicCatalog,
+  getCustomComponentNames,
+  buildCatalogContextValue,
+} from "./catalog-utils";
 
 // Styles
 export { injectStyles, removeStyles } from "./styles";
 
-// Types - re-export from types
+// Types
 export type {
   Types,
   Primitives,
@@ -68,26 +59,17 @@ export type {
   A2UIProviderConfig,
 } from "./types";
 
-// Content components
-export { Text } from "./components/content/Text";
-export { Image } from "./components/content/Image";
-export { Icon } from "./components/content/Icon";
-export { Divider } from "./components/content/Divider";
-export { Video } from "./components/content/Video";
-export { AudioPlayer } from "./components/content/AudioPlayer";
+// v0.9: Components are provided by @a2ui/react/v0_9 basicCatalog
+// No individual component exports needed
 
-// Layout components
-export { Row } from "./components/layout/Row";
-export { Column } from "./components/layout/Column";
-export { List } from "./components/layout/List";
-export { Card } from "./components/layout/Card";
-export { Tabs } from "./components/layout/Tabs";
-export { Modal } from "./components/layout/Modal";
+// Backward compat: no-op functions for initializeDefaultCatalog
+export function registerDefaultCatalog() {
+  /* v0.9: catalog is built-in */
+}
+export function initializeDefaultCatalog() {
+  /* v0.9: catalog is built-in */
+}
 
-// Interactive components
-export { Button } from "./components/interactive/Button";
-export { TextField } from "./components/interactive/TextField";
-export { CheckBox } from "./components/interactive/CheckBox";
-export { Slider } from "./components/interactive/Slider";
-export { DateTimeInput } from "./components/interactive/DateTimeInput";
-export { MultipleChoice } from "./components/interactive/MultipleChoice";
+// Backward compat: defaultTheme export (v0.9 themes are handled internally)
+export const defaultTheme: Record<string, unknown> = {};
+export const litTheme = defaultTheme;
