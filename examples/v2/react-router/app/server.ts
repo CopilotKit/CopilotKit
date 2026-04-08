@@ -6,7 +6,6 @@ import {
   BuiltInAgent,
   convertInputToTanStackAI,
 } from "@copilotkit/runtime/v2";
-import { BuiltInAgent } from "@copilotkit/runtime/v2";
 import { chat } from "@tanstack/ai";
 import { openaiText } from "@tanstack/ai-openai";
 

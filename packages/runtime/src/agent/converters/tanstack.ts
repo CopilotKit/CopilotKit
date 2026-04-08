@@ -171,7 +171,10 @@ export async function* convertTanStackStream(
       };
       yield resultEvent;
     }
-    // Unknown chunk types are silently ignored
-    // TODO: STATE_SNAPSHOT, STATE_DELTA, and REASONING events are not yet handled
+    // Unhandled chunk types are silently ignored.
+    // Known gaps: STATE_SNAPSHOT, STATE_DELTA, and REASONING events are not
+    // converted from TanStack streams. Shared state and reasoning will not
+    // surface when using the TanStack backend. Use the AI SDK backend if these
+    // features are required.
   }
 }

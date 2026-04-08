@@ -480,12 +480,21 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
     const enrichedAgents: Record<string, AbstractAgent> = { ...agents };
 
     for (const [agentId, agent] of Object.entries(enrichedAgents)) {
-      const existingConfig = (Reflect.get(agent, "config") ??
-        {}) as BuiltInAgentClassicConfig;
-      const existingTools = existingConfig.tools ?? [];
+      const existingConfig = (Reflect.get(agent, "config") ?? {}) as Record<
+        string,
+        unknown
+      >;
+
+      // Skip factory-mode agents — they don't have a tools property
+      if ("factory" in existingConfig) {
+        continue;
+      }
+
+      const classicConfig = existingConfig as BuiltInAgentClassicConfig;
+      const existingTools = classicConfig.tools ?? [];
 
       const updatedConfig: BuiltInAgentClassicConfig = {
-        ...existingConfig,
+        ...classicConfig,
         tools: [...existingTools, ...tools],
       };
 

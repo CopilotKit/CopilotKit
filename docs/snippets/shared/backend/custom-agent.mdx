@@ -161,8 +161,8 @@ The factory receives an `AgentFactoryContext` (from `@copilotkit/runtime`):
 ```typescript
 interface AgentFactoryContext {
   input: RunAgentInput;        // messages, tools, state, context, threadId, runId, forwardedProps
-  abortController: AbortController;  // for TanStack AI (uses AbortController)
-  abortSignal: AbortSignal;          // for AI SDK / fetch (uses AbortSignal)
+  abortController: AbortController;  // for TanStack AI (requires AbortController)
+  abortSignal: AbortSignal;          // preferred for AI SDK, fetch, and custom backends
 }
 ```
 

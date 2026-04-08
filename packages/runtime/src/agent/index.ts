@@ -662,6 +662,11 @@ export function convertToolDefinitionsToVercelAITools(
  */
 export interface AgentFactoryContext {
   input: RunAgentInput;
+  /**
+   * Prefer `abortSignal` for most use cases (AI SDK, fetch, custom backends).
+   * Provided for backends like TanStack AI that require the full AbortController.
+   * Do NOT call `.abort()` on this controller — use `abortRun()` on the agent instead.
+   */
   abortController: AbortController;
   abortSignal: AbortSignal;
 }
@@ -853,6 +858,16 @@ export class BuiltInAgent extends AbstractAgent {
     if (isFactoryConfig(this.config)) {
       return this.runFactory(input, this.config);
     }
+
+    if (this.abortController) {
+      throw new Error(
+        "Agent is already running. Call abortRun() first or create a new instance.",
+      );
+    }
+
+    // Set synchronously before Observable creation to close TOCTOU window
+    this.abortController = new AbortController();
+    const abortController = this.abortController;
 
     return new Observable<BaseEvent>((subscriber) => {
       // Emit RUN_STARTED event
@@ -1059,8 +1074,6 @@ export class BuiltInAgent extends AbstractAgent {
       const mcpClients: Array<{ close: () => Promise<void> }> = [];
 
       (async () => {
-        const abortController = new AbortController();
-        this.abortController = abortController;
         let terminalEventEmitted = false;
         let messageId = randomUUID();
         let reasoningMessageId = randomUUID();
@@ -1373,7 +1386,12 @@ export class BuiltInAgent extends AbstractAgent {
               }
 
               case "tool-result": {
-                const toolResult = "output" in part ? part.output : null;
+                const toolResult =
+                  "output" in part
+                    ? part.output
+                    : "result" in part
+                      ? part.result
+                      : null;
                 const toolName = "toolName" in part ? part.toolName : "";
                 toolCallStates.delete(part.toolCallId);
 
@@ -1383,32 +1401,42 @@ export class BuiltInAgent extends AbstractAgent {
                   toolResult &&
                   typeof toolResult === "object"
                 ) {
-                  // Emit StateSnapshotEvent
-                  const stateSnapshotEvent: StateSnapshotEvent = {
-                    type: EventType.STATE_SNAPSHOT,
-                    snapshot: toolResult.snapshot,
-                  };
-                  subscriber.next(stateSnapshotEvent);
+                  const snapshot = toolResult.snapshot;
+                  if (snapshot !== undefined) {
+                    const stateSnapshotEvent: StateSnapshotEvent = {
+                      type: EventType.STATE_SNAPSHOT,
+                      snapshot,
+                    };
+                    subscriber.next(stateSnapshotEvent);
+                  }
                 } else if (
                   toolName === "AGUISendStateDelta" &&
                   toolResult &&
                   typeof toolResult === "object"
                 ) {
-                  // Emit StateDeltaEvent
-                  const stateDeltaEvent: StateDeltaEvent = {
-                    type: EventType.STATE_DELTA,
-                    delta: toolResult.delta,
-                  };
-                  subscriber.next(stateDeltaEvent);
+                  const delta = toolResult.delta;
+                  if (delta !== undefined) {
+                    const stateDeltaEvent: StateDeltaEvent = {
+                      type: EventType.STATE_DELTA,
+                      delta,
+                    };
+                    subscriber.next(stateDeltaEvent);
+                  }
                 }
 
                 // Always emit the tool result event for the LLM
+                let serializedResult: string;
+                try {
+                  serializedResult = JSON.stringify(toolResult);
+                } catch {
+                  serializedResult = `[Unserializable tool result from ${toolName || part.toolCallId}]`;
+                }
                 const resultEvent: ToolCallResultEvent = {
                   type: EventType.TOOL_CALL_RESULT,
                   role: "tool",
                   messageId: randomUUID(),
                   toolCallId: part.toolCallId,
-                  content: JSON.stringify(toolResult),
+                  content: serializedResult,
                 };
                 subscriber.next(resultEvent);
                 break;
@@ -1433,15 +1461,29 @@ export class BuiltInAgent extends AbstractAgent {
                 if (abortController.signal.aborted) {
                   break;
                 }
+                const err = part.error ?? part.message ?? part.cause;
                 const runErrorEvent: RunErrorEvent = {
                   type: EventType.RUN_ERROR,
-                  message: part.error + "",
-                };
+                  message:
+                    err instanceof Error
+                      ? err.message
+                      : typeof err === "string"
+                        ? err
+                        : `AI SDK stream error: ${JSON.stringify(part)}`,
+                  threadId: input.threadId,
+                  runId: input.runId,
+                } as RunErrorEvent;
                 subscriber.next(runErrorEvent);
                 terminalEventEmitted = true;
 
                 // Handle error
-                subscriber.error(part.error);
+                if (err instanceof Error) subscriber.error(err);
+                else
+                  subscriber.error(
+                    new Error(
+                      typeof err === "string" ? err : `AI SDK stream error`,
+                    ),
+                  );
                 break;
               }
             }
@@ -1471,8 +1513,10 @@ export class BuiltInAgent extends AbstractAgent {
           } else {
             const runErrorEvent: RunErrorEvent = {
               type: EventType.RUN_ERROR,
-              message: error + "",
-            };
+              message: error instanceof Error ? error.message : String(error),
+              threadId: input.threadId,
+              runId: input.runId,
+            } as RunErrorEvent;
             subscriber.next(runErrorEvent);
             terminalEventEmitted = true;
             subscriber.error(error);
@@ -1587,8 +1631,9 @@ export class BuiltInAgent extends AbstractAgent {
 
   clone() {
     const cloned = new BuiltInAgent(this.config);
-    // Copy middlewares from parent class
-    // @ts-expect-error - accessing protected property from parent
+    // AbstractAgent.middlewares is private in @ag-ui/client — no public accessor exists.
+    // This coupling is intentional: clone() must preserve middleware chains.
+    // @ts-expect-error accessing private AbstractAgent.middlewares
     cloned.middlewares = [...this.middlewares];
     return cloned;
   }
