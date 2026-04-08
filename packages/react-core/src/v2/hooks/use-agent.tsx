@@ -125,7 +125,7 @@ export function useAgent({
 }: UseAgentProps = {}) {
   agentId ??= DEFAULT_AGENT_ID;
 
-  const { copilotkit } = useCopilotKit();
+  const { copilotkit, defaultThrottleMs: providerThrottleMs } = useCopilotKit();
   // Fall back to the enclosing CopilotChatConfigurationProvider's threadId so
   // that useAgent() called without explicit threadId (e.g. inside a custom
   // message renderer) automatically uses the same per-thread clone as the
@@ -134,17 +134,15 @@ export function useAgent({
   threadId ??= chatConfig?.threadId;
 
   const effectiveThrottleMs = useMemo(() => {
-    if (
-      throttleMs !== undefined &&
-      (!Number.isFinite(throttleMs) || throttleMs < 0)
-    ) {
+    const resolved = throttleMs ?? providerThrottleMs ?? 0;
+    if (resolved !== 0 && (!Number.isFinite(resolved) || resolved < 0)) {
       console.error(
-        `useAgent: throttleMs must be a non-negative finite number, got ${throttleMs}. Falling back to unthrottled.`,
+        `useAgent: throttleMs must be a non-negative finite number, got ${resolved}. Falling back to unthrottled.`,
       );
       return 0;
     }
-    return throttleMs ?? 0;
-  }, [throttleMs]);
+    return resolved;
+  }, [throttleMs, providerThrottleMs]);
 
   const [, forceUpdate] = useReducer((x) => x + 1, 0);
 

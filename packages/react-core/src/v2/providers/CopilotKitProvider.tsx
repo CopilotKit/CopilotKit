@@ -50,6 +50,11 @@ export interface CopilotKitContextValue {
    * are captured even before child components mount.
    */
   executingToolCallIds: ReadonlySet<string>;
+  /**
+   * Default throttle interval (ms) for `useAgent` OnMessagesChanged re-renders.
+   * Applied when the hook's own `throttleMs` prop is not set.
+   */
+  defaultThrottleMs?: number;
 }
 
 // Empty set for default context value
@@ -129,6 +134,15 @@ export interface CopilotKitProviderProps {
      */
     theme?: A2UITheme;
   };
+  /**
+   * Default throttle interval (in milliseconds) for `useAgent` re-renders
+   * triggered by `OnMessagesChanged` notifications. This value is used as
+   * a fallback when neither the `useAgent()` hook nor `<CopilotChat>` /
+   * `<CopilotSidebar>` / `<CopilotPopup>` specify an explicit `throttleMs`.
+   *
+   * @default undefined (no throttle)
+   */
+  defaultThrottleMs?: number;
 }
 
 // Small helper to normalize array props to a stable reference and warn
@@ -175,6 +189,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   useSingleEndpoint,
   onError,
   a2ui,
+  defaultThrottleMs,
 }) => {
   const [shouldRenderInspector, setShouldRenderInspector] = useState(false);
   const [runtimeA2UIEnabled, setRuntimeA2UIEnabled] = useState(false);
@@ -552,8 +567,8 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   }, []);
 
   const contextValue = useMemo<CopilotKitContextValue>(
-    () => ({ copilotkit, executingToolCallIds }),
-    [copilotkit, executingToolCallIds],
+    () => ({ copilotkit, executingToolCallIds, defaultThrottleMs }),
+    [copilotkit, executingToolCallIds, defaultThrottleMs],
   );
 
   // License context — driven by server-reported status via /info endpoint

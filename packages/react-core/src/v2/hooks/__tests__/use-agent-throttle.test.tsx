@@ -726,3 +726,134 @@ describe("useAgent throttleMs", () => {
     expect(screen.getByTestId("count").textContent).toBe("4");
   });
 });
+
+describe("useAgent defaultThrottleMs from provider", () => {
+  let mockAgent: MockStepwiseAgent;
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    mockAgent = new MockStepwiseAgent();
+    mockAgent.agentId = "test-agent";
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+
+  it("uses provider defaultThrottleMs when no explicit throttleMs is passed", () => {
+    mockUseCopilotKit.mockReturnValue({
+      copilotkit: {
+        getAgent: () => mockAgent,
+        runtimeUrl: "http://localhost:3000/api/copilot",
+        runtimeConnectionStatus:
+          CopilotKitCoreRuntimeConnectionStatus.Connected,
+        runtimeTransport: "rest",
+        headers: {},
+        agents: { "test-agent": mockAgent },
+      },
+      executingToolCallIds: new Set(),
+      defaultThrottleMs: 100,
+    });
+
+    const TestComponent = createTestComponent({ throttleMs: undefined });
+
+    render(<TestComponent />);
+
+    // Leading edge — fires immediately
+    act(() => {
+      mockAgent.messages = [userMsg("1", "hello")];
+      notifyMessagesChanged(mockAgent);
+    });
+    expect(screen.getByTestId("count").textContent).toBe("1");
+
+    // Second notification within 100ms window — should be deferred (throttled)
+    act(() => {
+      vi.advanceTimersByTime(10);
+      mockAgent.messages = [userMsg("1", "hello"), assistantMsg("2", "world")];
+      notifyMessagesChanged(mockAgent);
+    });
+    expect(screen.getByTestId("count").textContent).toBe("1");
+
+    // Trailing edge fires after 100ms
+    act(() => {
+      vi.advanceTimersByTime(100);
+    });
+    expect(screen.getByTestId("count").textContent).toBe("2");
+  });
+
+  it("explicit throttleMs overrides provider defaultThrottleMs", () => {
+    mockUseCopilotKit.mockReturnValue({
+      copilotkit: {
+        getAgent: () => mockAgent,
+        runtimeUrl: "http://localhost:3000/api/copilot",
+        runtimeConnectionStatus:
+          CopilotKitCoreRuntimeConnectionStatus.Connected,
+        runtimeTransport: "rest",
+        headers: {},
+        agents: { "test-agent": mockAgent },
+      },
+      executingToolCallIds: new Set(),
+      defaultThrottleMs: 5000,
+    });
+
+    // Explicit throttleMs=100 should override provider's 5000
+    const TestComponent = createTestComponent({ throttleMs: 100 });
+
+    render(<TestComponent />);
+
+    // Leading edge
+    act(() => {
+      mockAgent.messages = [userMsg("1", "hello")];
+      notifyMessagesChanged(mockAgent);
+    });
+    expect(screen.getByTestId("count").textContent).toBe("1");
+
+    // Deferred within 100ms window
+    act(() => {
+      vi.advanceTimersByTime(10);
+      mockAgent.messages = [userMsg("1", "hello"), assistantMsg("2", "world")];
+      notifyMessagesChanged(mockAgent);
+    });
+    expect(screen.getByTestId("count").textContent).toBe("1");
+
+    // At 100ms trailing fires (not waiting for provider's 5000ms)
+    act(() => {
+      vi.advanceTimersByTime(100);
+    });
+    expect(screen.getByTestId("count").textContent).toBe("2");
+  });
+
+  it("without provider defaultThrottleMs or explicit throttleMs, behaves unthrottled", () => {
+    mockUseCopilotKit.mockReturnValue({
+      copilotkit: {
+        getAgent: () => mockAgent,
+        runtimeUrl: "http://localhost:3000/api/copilot",
+        runtimeConnectionStatus:
+          CopilotKitCoreRuntimeConnectionStatus.Connected,
+        runtimeTransport: "rest",
+        headers: {},
+        agents: { "test-agent": mockAgent },
+      },
+      executingToolCallIds: new Set(),
+      // no defaultThrottleMs
+    });
+
+    const TestComponent = createTestComponent({});
+
+    render(<TestComponent />);
+
+    act(() => {
+      mockAgent.messages = [userMsg("1", "hello")];
+      notifyMessagesChanged(mockAgent);
+    });
+    expect(screen.getByTestId("count").textContent).toBe("1");
+
+    // Immediately fires — no throttle
+    act(() => {
+      mockAgent.messages = [userMsg("1", "hello"), assistantMsg("2", "world")];
+      notifyMessagesChanged(mockAgent);
+    });
+    expect(screen.getByTestId("count").textContent).toBe("2");
+  });
+});
