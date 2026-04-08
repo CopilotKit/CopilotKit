@@ -30,3 +30,48 @@ const copilotKit = new CopilotRuntime();
 
 </PropertyReference>
 
+## A2UI (Agent-to-UI)
+
+Enable the A2UI middleware to let agents generate rich, interactive UI components at runtime.
+
+### `a2ui`
+
+`boolean | object` **(optional)**
+
+Pass `true` to enable with defaults, `false` or omit to disable, or an object to customise behaviour.
+
+```tsx
+// Enable with defaults
+const runtime = new CopilotRuntime({
+  agents,
+  a2ui: true,
+});
+
+// Customise
+const runtime = new CopilotRuntime({
+  agents,
+  a2ui: {
+    agents: ["my-agent"],
+    schema: [
+      {
+        name: "TodoCard",
+        description: "A card displaying a todo item",
+        props: { title: { type: "string" }, done: { type: "boolean" } },
+      },
+    ],
+    injectA2UITool: true,
+  },
+});
+```
+
+When `a2ui` is configured the runtime reports `a2uiEnabled: true` from the `/info` endpoint, which tells the frontend to activate the built-in A2UI renderer automatically.
+
+#### A2UI Options (object form)
+
+| Option | Type | Description |
+| --- | --- | --- |
+| `agents` | `string[]` | Optional. Limit the middleware to these named agents. Applies to all agents if omitted. |
+| `schema` | `A2UIComponentSchema[]` | Optional. Declares which components are available to agents. Injected as context into `RunAgentInput`. |
+| `injectA2UITool` | `boolean \| string` | Optional. `true` injects a tool named `"render_a2ui"`. A string injects the tool with a custom name. `false` or omitted means no tool injection. |
+| `a2uiToolNames` | `string[]` | Optional. Tool names the middleware recognizes as A2UI rendering tools. Defaults to `["render_a2ui"]`. |
+

@@ -13,6 +13,10 @@ const FOLDER_NAME_TO_INTEGRATION_ID: Record<string, string> = {
   autogen2: "ag2",
 };
 
+const FOLDER_TITLE_OVERRIDES: Record<string, string> = {
+  "/integrations/langgraph/generative-ui/a2ui": "Declerative Gen-UI (A2UI)",
+};
+
 /**
  * Patches the pageTree to set missing indexUrl for integration folders.
  * This fixes an issue where fumadocs v16 doesn't set indexUrl for root folders
@@ -30,6 +34,20 @@ export function patchPageTree(
 
   function patchNode(node: Node): Node {
     const patchedNode = { ...node } as any;
+
+    const folderIndexUrl =
+      typeof patchedNode.index?.url === "string" ? patchedNode.index.url : "";
+    const folderUrl =
+      typeof patchedNode.url === "string" ? patchedNode.url : "";
+    const folderLookupUrl = folderIndexUrl || folderUrl;
+
+    if (
+      patchedNode.type === "folder" &&
+      folderLookupUrl &&
+      FOLDER_TITLE_OVERRIDES[folderLookupUrl]
+    ) {
+      patchedNode.name = FOLDER_TITLE_OVERRIDES[folderLookupUrl];
+    }
 
     // If this is a folder without an indexUrl, try to set it
     if (patchedNode.type === "folder" && !patchedNode.index?.url) {
