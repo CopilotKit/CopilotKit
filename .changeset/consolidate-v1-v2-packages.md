@@ -1,7 +1,6 @@
 ---
 "@copilotkit/a2ui-renderer": minor
 "@copilotkit/core": minor
-"@copilotkit/demo-agents": minor
 "@copilotkit/react-core": minor
 "@copilotkit/react-textarea": minor
 "@copilotkit/react-ui": minor
@@ -10,7 +9,6 @@
 "@copilotkit/sdk-js": minor
 "@copilotkit/shared": minor
 "@copilotkit/sqlite-runner": minor
-"@copilotkit/typescript-config": minor
 "@copilotkit/voice": minor
 "@copilotkit/web-inspector": minor
 ---
