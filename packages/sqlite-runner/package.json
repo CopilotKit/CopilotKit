@@ -27,7 +27,7 @@
     "attw": "attw --pack . --profile node16"
   },
   "dependencies": {
-    "@ag-ui/client": "0.0.50-alpha.0",
+    "@ag-ui/client": "https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@10147076ab8247ce088a4e43e6c7a1660e9fa291",
     "@copilotkit/runtime": "workspace:*",
     "rxjs": "7.8.1"
   },

@@ -59,7 +59,7 @@
     "attw": "attw --pack . --profile node16"
   },
   "dependencies": {
-    "@ag-ui/langgraph": "^0.0.26",
+    "@ag-ui/langgraph": "https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/langgraph@10147076ab8247ce088a4e43e6c7a1660e9fa291",
     "@copilotkit/shared": "workspace:*"
   },
   "devDependencies": {
