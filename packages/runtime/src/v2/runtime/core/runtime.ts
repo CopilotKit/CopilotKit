@@ -40,11 +40,20 @@ export interface McpAppsConfig {
   servers: McpAppsServerConfig[];
 }
 
+export interface OpenGenerativeUIOptions extends BaseCopilotRuntimeMiddlewareOptions {}
+
+export type OpenGenerativeUIConfig = boolean | OpenGenerativeUIOptions;
+
 interface CopilotRuntimeMiddlewares {
-  /** Auto-apply A2UIMiddleware to agents at run time. */
+  /**
+   * Auto-apply A2UIMiddleware to agents at run time.
+   * Pass an object to enable and customise behaviour, or omit to disable.
+   */
   a2ui?: BaseCopilotRuntimeMiddlewareOptions & A2UIMiddlewareConfig;
   /** Auto-apply MCPAppsMiddleware to agents at run time. */
   mcpApps?: McpAppsConfig;
+  /** Auto-apply OpenGenerativeUIMiddleware to agents at run time. */
+  openGenerativeUI?: OpenGenerativeUIConfig;
 }
 
 interface BaseCopilotRuntimeOptions extends CopilotRuntimeMiddlewares {
@@ -106,6 +115,7 @@ export interface CopilotRuntimeLike {
   runner: AgentRunner;
   a2ui: CopilotRuntimeOptions["a2ui"];
   mcpApps: CopilotRuntimeOptions["mcpApps"];
+  openGenerativeUI: CopilotRuntimeOptions["openGenerativeUI"];
   intelligence?: CopilotKitIntelligence;
   identifyUser?: IdentifyUserCallback;
   mode: RuntimeMode;
@@ -135,6 +145,7 @@ abstract class BaseCopilotRuntime implements CopilotRuntimeLike {
   public runner: AgentRunner;
   public a2ui: CopilotRuntimeOptions["a2ui"];
   public mcpApps: CopilotRuntimeOptions["mcpApps"];
+  public openGenerativeUI: CopilotRuntimeOptions["openGenerativeUI"];
   public licenseChecker?: LicenseChecker;
 
   abstract readonly intelligence?: CopilotKitIntelligence;
@@ -148,14 +159,16 @@ abstract class BaseCopilotRuntime implements CopilotRuntimeLike {
       afterRequestMiddleware,
       a2ui,
       mcpApps,
+      openGenerativeUI,
     } = options;
 
     this.agents = agents;
     this.transcriptionService = transcriptionService;
     this.beforeRequestMiddleware = beforeRequestMiddleware;
     this.afterRequestMiddleware = afterRequestMiddleware;
-    this.a2ui = a2ui;
+    this.a2ui = a2ui || undefined;
     this.mcpApps = mcpApps;
+    this.openGenerativeUI = openGenerativeUI;
     this.runner = runner;
   }
 }
@@ -266,6 +279,10 @@ export class CopilotRuntime implements CopilotRuntimeLike {
 
   get mcpApps(): CopilotRuntimeOptions["mcpApps"] {
     return this.delegate.mcpApps;
+  }
+
+  get openGenerativeUI(): CopilotRuntimeOptions["openGenerativeUI"] {
+    return this.delegate.openGenerativeUI;
   }
 
   get intelligence(): CopilotKitIntelligence | undefined {

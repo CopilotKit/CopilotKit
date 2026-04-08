@@ -55,6 +55,7 @@ export async function handleGetRuntimeInfo({
           }
         : {}),
       a2uiEnabled: !!runtime.a2ui,
+      openGenerativeUIEnabled: !!runtime.openGenerativeUI,
       ...(isIntelligenceRuntime(runtime)
         ? { licenseStatus: resolveLicenseStatus(runtime) }
         : {}),
