@@ -13,6 +13,7 @@
     --text-invert: #ffffff;
 
     --sidebar-width: 296px;
+    --font-mono: "Spline Sans Mono", ui-monospace, SFMono-Regular, monospace;
 }
 
 * {
