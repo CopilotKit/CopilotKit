@@ -12,3 +12,10 @@ export {
   type CopilotKitProviderProps,
   type CopilotKitContextValue,
 } from "./CopilotKitProvider";
+
+export type { Anchor as InspectorAnchor } from "@copilotkit/web-inspector";
+
+export {
+  SandboxFunctionsContext,
+  useSandboxFunctions,
+} from "./SandboxFunctionsContext";

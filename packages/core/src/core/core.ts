@@ -379,6 +379,10 @@ export class CopilotKitCore {
     return this.agentRegistry.a2uiEnabled;
   }
 
+  get openGenerativeUIEnabled(): boolean {
+    return this.agentRegistry.openGenerativeUIEnabled;
+  }
+
   get licenseStatus(): RuntimeLicenseStatus | undefined {
     return this.agentRegistry.licenseStatus;
   }

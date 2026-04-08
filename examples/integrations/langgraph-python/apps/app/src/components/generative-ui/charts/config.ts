@@ -1,19 +1,25 @@
+/**
+ * CopilotKit brand chart palette — Plus Jakarta Sans / brand color system.
+ */
 export const CHART_COLORS = [
-  "#3b82f6", // blue
-  "#8b5cf6", // purple
-  "#ec4899", // pink
-  "#f59e0b", // amber
-  "#10b981", // emerald
-  "#06b6d4", // cyan
-  "#f97316", // orange
-];
+  "#BEC2FF", // lilac-400
+  "#85ECCE", // mint-400
+  "#FFAC4D", // orange-400
+  "#FFF388", // yellow-400
+  "#189370", // mint-800
+  "#EEE6FE", // primary-100
+  "#FA5F67", // red-400
+] as const;
 
 export const CHART_CONFIG = {
   tooltipStyle: {
-    backgroundColor: "var(--chart-tooltip-bg)",
-    border: "1px solid var(--chart-tooltip-border)",
-    borderRadius: "8px",
-    padding: "8px 12px",
+    backgroundColor: "var(--card)",
+    border: "1px solid var(--border)",
+    borderRadius: "10px",
+    padding: "10px 14px",
     color: "var(--foreground)",
+    fontSize: "13px",
+    fontFamily: "var(--font-body)",
+    boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
   },
 };
