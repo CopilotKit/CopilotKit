@@ -706,6 +706,8 @@ export function CopilotChatInput({
       0,
     );
 
+    if (compactWidth <= 0) return null;
+
     const result = { compactWidth };
     containerCacheRef.current = result;
     return result;
@@ -857,13 +859,15 @@ export function CopilotChatInput({
     ]);
 
     const scheduleEvaluation = (invalidateCache: boolean) => {
-      if (invalidateCache) {
-        containerCacheRef.current = null;
-      }
-
       if (ignoreResizeRef.current) {
         ignoreResizeRef.current = false;
+        // Self-inflicted resize from a layout toggle — container dimensions
+        // are unchanged, so keep the cache warm.
         return;
+      }
+
+      if (invalidateCache) {
+        containerCacheRef.current = null;
       }
 
       if (typeof window === "undefined") {

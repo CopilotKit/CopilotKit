@@ -1462,7 +1462,7 @@ describe("CopilotChatInput", () => {
       expect(addRectSpy).toHaveBeenCalled();
     });
 
-    it("invalidates cache but skips re-evaluation during layout toggle (ignoreResizeRef path)", async () => {
+    it("keeps cache warm during layout toggle (ignoreResizeRef path)", async () => {
       const { container } = renderWithProvider(
         <CopilotChatInput onSubmitMessage={mockOnSubmitMessage} />,
       );
@@ -1487,10 +1487,10 @@ describe("CopilotChatInput", () => {
       });
 
       // Simulate observer firing from the layout toggle.
-      // The guard consumes ignoreResizeRef; cache is invalidated but no re-eval loop.
+      // Self-inflicted resize: ignoreResizeRef is consumed, cache stays warm.
       triggerAllResizeObservers();
 
-      // Go back to short text — cache was invalidated, so updateContainerCache must rebuild.
+      // Go back to short text — cache should still be warm from before the toggle.
       const grid = container.querySelector("div.cpk\\:grid") as HTMLElement;
       const addContainer = grid.children[0] as HTMLElement;
       const addRectSpy = vi.fn(
@@ -1508,8 +1508,8 @@ describe("CopilotChatInput", () => {
         );
       });
 
-      // Confirms cache was invalidated (needed getBoundingClientRect to rebuild)
-      expect(addRectSpy).toHaveBeenCalled();
+      // Cache was NOT invalidated — no getBoundingClientRect needed
+      expect(addRectSpy).not.toHaveBeenCalled();
     });
   });
 
