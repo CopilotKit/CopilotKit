@@ -180,10 +180,9 @@ export function CopilotChatInput({
   });
 
   // Cached container dimensions — invalidated on resize, lazily repopulated on next layout pass.
-  // Eliminates 2x getComputedStyle + 2x getBoundingClientRect per compact-layout evaluation.
+  // Eliminates getComputedStyle(grid) + 2x getBoundingClientRect per compact-layout evaluation.
   const containerCacheRef = useRef<{
     compactWidth: number;
-    font: string;
   } | null>(null);
 
   const commandItems = useMemo(() => {
@@ -684,18 +683,21 @@ export function CopilotChatInput({
     });
   }, []);
 
-  const updateContainerCache = useCallback(() => {
-    const textarea = inputRef.current;
+  const updateContainerCache = useCallback((): {
+    compactWidth: number;
+  } | null => {
     const grid = gridRef.current;
     const addContainer = addButtonContainerRef.current;
     const actionsContainer = actionsContainerRef.current;
-    if (!textarea || !grid || !addContainer || !actionsContainer) return;
+    if (!grid || !addContainer || !actionsContainer) return null;
 
     const gridStyles = window.getComputedStyle(grid);
     const paddingLeft = parseFloat(gridStyles.paddingLeft) || 0;
     const paddingRight = parseFloat(gridStyles.paddingRight) || 0;
     const columnGap = parseFloat(gridStyles.columnGap) || 0;
     const gridAvailableWidth = grid.clientWidth - paddingLeft - paddingRight;
+
+    if (gridAvailableWidth <= 0) return null;
 
     const addWidth = addContainer.getBoundingClientRect().width;
     const actionsWidth = actionsContainer.getBoundingClientRect().width;
@@ -704,36 +706,9 @@ export function CopilotChatInput({
       0,
     );
 
-    const textareaStyles = window.getComputedStyle(textarea);
-    let font = textareaStyles.font;
-    if (!font) {
-      // Some browsers (e.g. Safari) return empty string for the font shorthand.
-      // Fall back to constructing it from individual properties, but only if
-      // fontSize and fontFamily are available (required for a valid CSS font value).
-      const {
-        fontStyle,
-        fontVariant,
-        fontWeight,
-        fontSize,
-        lineHeight,
-        fontFamily,
-      } = textareaStyles;
-      if (fontSize && fontFamily) {
-        font = `${fontStyle} ${fontVariant} ${fontWeight} ${fontSize}/${lineHeight} ${fontFamily}`;
-      }
-    }
-
-    if (!font || font.trim().length === 0) {
-      if (process.env.NODE_ENV !== "production") {
-        console.warn(
-          "[CopilotChatInput] Could not resolve textarea font for layout measurement. " +
-            "Text-width-based expansion will be skipped until the next resize.",
-        );
-      }
-      return;
-    }
-
-    containerCacheRef.current = { compactWidth, font };
+    const result = { compactWidth };
+    containerCacheRef.current = result;
+    return result;
   }, []);
 
   const evaluateLayout = useCallback(() => {
@@ -777,10 +752,7 @@ export function CopilotChatInput({
 
     if (!shouldExpand) {
       // Use cached container dimensions (lazily populated on first access, invalidated on resize).
-      if (!containerCacheRef.current) {
-        updateContainerCache();
-      }
-      const cache = containerCacheRef.current;
+      const cache = containerCacheRef.current ?? updateContainerCache();
 
       if (cache && cache.compactWidth > 0) {
         const compactInnerWidth = Math.max(
@@ -791,33 +763,58 @@ export function CopilotChatInput({
         );
 
         if (compactInnerWidth > 0) {
-          const canvas =
-            measurementCanvasRef.current ?? document.createElement("canvas");
-          if (!measurementCanvasRef.current) {
-            measurementCanvasRef.current = canvas;
+          // Read font fresh each evaluation — getComputedStyle for style-only
+          // properties is cheap and avoids stale values after CSS/theme changes.
+          const textareaStyles = window.getComputedStyle(textarea);
+          let font = textareaStyles.font;
+          if (!font) {
+            const {
+              fontStyle,
+              fontVariant,
+              fontWeight,
+              fontSize,
+              lineHeight,
+              fontFamily,
+            } = textareaStyles;
+            if (fontSize && fontFamily) {
+              font = `${fontStyle} ${fontVariant} ${fontWeight} ${fontSize}/${lineHeight} ${fontFamily}`;
+            }
           }
 
-          const context = canvas.getContext("2d");
-          if (context) {
-            context.font = cache.font;
-
-            const lines =
-              resolvedValue.length > 0 ? resolvedValue.split("\n") : [""];
-            let longestWidth = 0;
-            for (const line of lines) {
-              const metrics = context.measureText(line || " ");
-              if (metrics.width > longestWidth) {
-                longestWidth = metrics.width;
-              }
+          if (font?.trim()) {
+            const canvas =
+              measurementCanvasRef.current ?? document.createElement("canvas");
+            if (!measurementCanvasRef.current) {
+              measurementCanvasRef.current = canvas;
             }
 
-            if (longestWidth > compactInnerWidth) {
-              shouldExpand = true;
+            const context = canvas.getContext("2d");
+            if (context) {
+              context.font = font;
+
+              const lines =
+                resolvedValue.length > 0 ? resolvedValue.split("\n") : [""];
+              let longestWidth = 0;
+              for (const line of lines) {
+                const metrics = context.measureText(line || " ");
+                if (metrics.width > longestWidth) {
+                  longestWidth = metrics.width;
+                }
+              }
+
+              if (longestWidth > compactInnerWidth) {
+                shouldExpand = true;
+              }
+            } else if (process.env.NODE_ENV !== "production") {
+              console.warn(
+                "[CopilotChatInput] canvas.getContext('2d') returned null. " +
+                  "Text-width-based expansion will be unavailable.",
+              );
             }
           } else if (process.env.NODE_ENV !== "production") {
             console.warn(
-              "[CopilotChatInput] canvas.getContext('2d') returned null. " +
-                "Text-width-based expansion will be unavailable.",
+              "[CopilotChatInput] Could not resolve textarea font for layout measurement. " +
+                "Text-width-based expansion will be skipped until the next evaluation.",
             );
           }
         }
@@ -853,21 +850,20 @@ export function CopilotChatInput({
       return;
     }
 
+    const containerTargets = new Set<Element>([
+      grid,
+      addContainer,
+      actionsContainer,
+    ]);
+
     const scheduleEvaluation = (invalidateCache: boolean) => {
-      if (ignoreResizeRef.current) {
-        ignoreResizeRef.current = false;
-        // Still invalidate the cache for self-triggered resizes (e.g. compact↔expanded
-        // toggle changes the grid template), but skip the re-evaluation since
-        // evaluateLayout is already running and will use the freshly populated cache.
-        if (invalidateCache) {
-          containerCacheRef.current = null;
-        }
-        return;
+      if (invalidateCache) {
+        containerCacheRef.current = null;
       }
 
-      if (invalidateCache) {
-        // Invalidate cached container dimensions so evaluateLayout re-measures.
-        containerCacheRef.current = null;
+      if (ignoreResizeRef.current) {
+        ignoreResizeRef.current = false;
+        return;
       }
 
       if (typeof window === "undefined") {
@@ -885,26 +881,28 @@ export function CopilotChatInput({
       });
     };
 
-    // Container elements (grid, buttons) — invalidate the dimension cache on resize
-    // because compactWidth and font may have changed.
-    const containerObserver = new ResizeObserver(() => {
-      scheduleEvaluation(true);
+    // Single observer for all elements — inspect entry.target to decide
+    // whether to invalidate the container dimension cache.  Container
+    // targets (grid, buttons) changing size means compactWidth may have
+    // changed; textarea height changes (typing) do not affect it.
+    const observer = new ResizeObserver((entries) => {
+      let shouldInvalidate = false;
+      for (const entry of entries) {
+        if (containerTargets.has(entry.target)) {
+          shouldInvalidate = true;
+          break;
+        }
+      }
+      scheduleEvaluation(shouldInvalidate);
     });
 
-    // Textarea height changes (typing, manual resize) don't affect cached
-    // compactWidth or font — re-evaluate layout without invalidating the cache.
-    const textareaObserver = new ResizeObserver(() => {
-      scheduleEvaluation(false);
-    });
-
-    containerObserver.observe(grid);
-    containerObserver.observe(addContainer);
-    containerObserver.observe(actionsContainer);
-    textareaObserver.observe(textarea);
+    observer.observe(grid);
+    observer.observe(addContainer);
+    observer.observe(actionsContainer);
+    observer.observe(textarea);
 
     return () => {
-      containerObserver.disconnect();
-      textareaObserver.disconnect();
+      observer.disconnect();
       if (
         typeof window !== "undefined" &&
         resizeEvaluationRafRef.current !== null
