@@ -50,13 +50,6 @@ export interface CopilotKitContextValue {
    * are captured even before child components mount.
    */
   executingToolCallIds: ReadonlySet<string>;
-  /**
-   * Default throttle interval (ms) for `useAgent` re-renders triggered by
-   * `OnMessagesChanged` notifications. Applied when the hook's own
-   * `throttleMs` prop is `undefined`. An explicit `0` at the hook level
-   * overrides this default and disables throttling.
-   */
-  defaultThrottleMs?: number;
 }
 
 // Empty set for default context value
@@ -568,8 +561,8 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     didMountRef.current = true;
   }, []);
 
-  // Validate defaultThrottleMs eagerly so misconfiguration is caught at the
-  // provider level rather than deferred to each useAgent consumer.
+  // Sync defaultThrottleMs to the instance (same pattern as setHeaders, etc.).
+  // Validate eagerly so misconfiguration is caught at the provider level.
   useEffect(() => {
     if (
       defaultThrottleMs !== undefined &&
@@ -580,11 +573,12 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
           `useAgent hooks without an explicit throttleMs will fall back to unthrottled.`,
       );
     }
-  }, [defaultThrottleMs]);
+    copilotkit.setDefaultThrottleMs(defaultThrottleMs);
+  }, [copilotkit, defaultThrottleMs]);
 
   const contextValue = useMemo<CopilotKitContextValue>(
-    () => ({ copilotkit, executingToolCallIds, defaultThrottleMs }),
-    [copilotkit, executingToolCallIds, defaultThrottleMs],
+    () => ({ copilotkit, executingToolCallIds }),
+    [copilotkit, executingToolCallIds],
   );
 
   // License context — driven by server-reported status via /info endpoint

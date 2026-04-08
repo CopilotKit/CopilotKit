@@ -125,7 +125,8 @@ export function useAgent({
 }: UseAgentProps = {}) {
   agentId ??= DEFAULT_AGENT_ID;
 
-  const { copilotkit, defaultThrottleMs: providerThrottleMs } = useCopilotKit();
+  const { copilotkit } = useCopilotKit();
+  const providerThrottleMs = copilotkit.defaultThrottleMs;
   // Fall back to the enclosing CopilotChatConfigurationProvider's threadId so
   // that useAgent() called without explicit threadId (e.g. inside a custom
   // message renderer) automatically uses the same per-thread clone as the

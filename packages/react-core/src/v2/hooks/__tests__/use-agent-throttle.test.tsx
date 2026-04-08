@@ -139,9 +139,9 @@ function createMockContext(
       runtimeTransport: "rest",
       headers: {},
       agents: { [String(agent.agentId)]: agent },
+      defaultThrottleMs: overrides.defaultThrottleMs,
     },
     executingToolCallIds: new Set(),
-    ...overrides,
   };
 }
 

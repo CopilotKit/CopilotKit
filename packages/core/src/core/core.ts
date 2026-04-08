@@ -218,6 +218,7 @@ export class CopilotKitCore {
   private _headers: Record<string, string>;
   private _credentials?: RequestCredentials;
   private _properties: Record<string, unknown>;
+  private _defaultThrottleMs?: number;
 
   private subscribers: Set<CopilotKitCoreSubscriber> = new Set();
 
@@ -357,6 +358,20 @@ export class CopilotKitCore {
 
   get properties(): Readonly<Record<string, unknown>> {
     return this._properties;
+  }
+
+  /**
+   * Default throttle interval (ms) for re-renders triggered by agent
+   * notifications. Applied when the consumer does not specify an explicit
+   * `throttleMs`. An explicit `0` at the consumer level overrides this
+   * default and disables throttling.
+   */
+  get defaultThrottleMs(): number | undefined {
+    return this._defaultThrottleMs;
+  }
+
+  setDefaultThrottleMs(value: number | undefined): void {
+    this._defaultThrottleMs = value;
   }
 
   get runtimeConnectionStatus(): CopilotKitCoreRuntimeConnectionStatus {
