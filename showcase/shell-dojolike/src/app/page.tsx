@@ -9,6 +9,7 @@ import {
     type Demo,
     type FeatureCategory,
 } from "@/lib/registry";
+import { CodeBlock } from "@/components/code-block";
 import demoContentData from "@/data/demo-content.json";
 
 type ViewMode = "preview" | "code";
@@ -331,25 +332,12 @@ export default function DojoPage() {
                             ))}
                         </div>
                         {/* Code content */}
-                        <div style={{ flex: 1, overflow: "auto", background: "var(--bg-surface)" }}>
-                            <pre
-                                style={{
-                                    margin: 0,
-                                    padding: "16px",
-                                    fontSize: 13,
-                                    lineHeight: 1.5,
-                                    fontFamily: "'SF Mono', 'Fira Code', 'Fira Mono', Menlo, Consolas, monospace",
-                                    whiteSpace: "pre",
-                                    overflowX: "auto",
-                                }}
-                            >
-                                <code>
-                                    {allFiles[selectedFileIndex]
-                                        ? addLineNumbers(allFiles[selectedFileIndex].content)
-                                        : ""}
-                                </code>
-                            </pre>
-                        </div>
+                        {allFiles[selectedFileIndex] && (
+                            <CodeBlock
+                                code={allFiles[selectedFileIndex].content}
+                                language={allFiles[selectedFileIndex].language}
+                            />
+                        )}
                     </div>
                 ) : (
                     <div
@@ -370,10 +358,3 @@ export default function DojoPage() {
     );
 }
 
-function addLineNumbers(code: string): string {
-    const lines = code.split("\n");
-    const pad = String(lines.length).length;
-    return lines
-        .map((line, i) => `${String(i + 1).padStart(pad, " ")}  ${line}`)
-        .join("\n");
-}
