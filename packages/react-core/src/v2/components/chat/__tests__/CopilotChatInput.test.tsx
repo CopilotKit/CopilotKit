@@ -35,6 +35,9 @@ const getAddMenuButton = (container: HTMLElement) =>
     .querySelector("svg.lucide-plus")
     ?.closest("button") as HTMLButtonElement | null;
 
+const getLayoutGrid = (textarea: HTMLElement) =>
+  textarea.closest("[data-layout]") as HTMLElement;
+
 const mockLayoutMetrics = (
   container: HTMLElement,
   options?: { gridWidth?: number; addWidth?: number; actionsWidth?: number },
@@ -981,6 +984,500 @@ describe("CopilotChatInput", () => {
       // It's up to the parent to manage the value
       expect((input as HTMLTextAreaElement).value).toBe("test message");
       expect(mockOnSubmitMessage).toHaveBeenCalledWith("test message");
+    });
+  });
+
+  describe("Container dimension cache", () => {
+    const OriginalResizeObserver = globalThis.ResizeObserver;
+
+    class MockResizeObserver {
+      static instances: MockResizeObserver[] = [];
+      callback: (entries: Array<{ target: Element }>) => void;
+      observedTargets = new Set<Element>();
+
+      constructor(cb: (entries: Array<{ target: Element }>) => void) {
+        this.callback = cb;
+        MockResizeObserver.instances.push(this);
+      }
+
+      observe = vi.fn((target: Element) => {
+        this.observedTargets.add(target);
+      });
+
+      unobserve = vi.fn((target: Element) => {
+        this.observedTargets.delete(target);
+      });
+
+      disconnect = vi.fn(() => {
+        this.observedTargets.clear();
+      });
+    }
+
+    const DEFAULT_LAYOUT_OPTIONS = {
+      gridWidth: 640,
+      addWidth: 48,
+      actionsWidth: 96,
+      gridPadding: 16,
+      columnGap: 8,
+      textareaPadding: 20,
+    } as const;
+
+    /** Trigger all observers with all their observed targets. */
+    const triggerAllResizeObservers = () => {
+      for (const instance of MockResizeObserver.instances) {
+        const entries = [...instance.observedTargets].map((target) => ({
+          target,
+        }));
+        if (entries.length > 0) {
+          instance.callback(entries);
+        }
+      }
+    };
+
+    /** Trigger observers that watch the given targets, with only those targets as entries. */
+    const triggerResizeForTargets = (...targets: Element[]) => {
+      for (const instance of MockResizeObserver.instances) {
+        const matching = targets.filter((t) => instance.observedTargets.has(t));
+        if (matching.length > 0) {
+          instance.callback(matching.map((t) => ({ target: t })));
+        }
+      }
+    };
+
+    beforeEach(() => {
+      MockResizeObserver.instances = [];
+      // Double cast required: MockResizeObserver's callback signature uses a
+      // simplified `{ target: Element }` entry instead of the full
+      // ResizeObserverEntry (which includes contentRect, borderBoxSize, etc.)
+      // that the real ResizeObserverCallback demands.
+      globalThis.ResizeObserver =
+        MockResizeObserver as unknown as typeof ResizeObserver;
+    });
+
+    afterEach(() => {
+      vi.restoreAllMocks();
+      globalThis.ResizeObserver = OriginalResizeObserver;
+    });
+
+    /**
+     * Extends mockLayoutMetrics with getComputedStyle mocks so that
+     * updateContainerCache can compute real compactWidth and font values,
+     * exercising the canvas-based text measurement path.
+     */
+    const mockLayoutMetricsWithComputedStyle = (
+      container: HTMLElement,
+      options?: {
+        gridWidth?: number;
+        addWidth?: number;
+        actionsWidth?: number;
+        gridPadding?: number;
+        columnGap?: number;
+        textareaPadding?: number;
+        font?: string;
+      },
+    ) => {
+      mockLayoutMetrics(container, {
+        gridWidth: options?.gridWidth,
+        addWidth: options?.addWidth,
+        actionsWidth: options?.actionsWidth,
+      });
+
+      const {
+        gridPadding = 16,
+        columnGap = 8,
+        textareaPadding = 20,
+        font = "16px sans-serif",
+      } = options ?? {};
+
+      const grid = container.querySelector(
+        "div.cpk\\:grid",
+      ) as HTMLElement | null;
+      const textarea = container.querySelector(
+        "textarea",
+      ) as HTMLElement | null;
+
+      const originalGetComputedStyle = window.getComputedStyle;
+      // Cast needed: spreading a CSSStyleDeclaration loses the indexed-property
+      // accessors and prototype methods, so the result doesn't satisfy the full
+      // CSSStyleDeclaration interface. Only the properties the SUT reads matter.
+      vi.spyOn(window, "getComputedStyle").mockImplementation((el) => {
+        if (el === grid) {
+          return {
+            ...originalGetComputedStyle(el),
+            paddingLeft: `${gridPadding}px`,
+            paddingRight: `${gridPadding}px`,
+            columnGap: `${columnGap}px`,
+          } as CSSStyleDeclaration;
+        }
+        if (el === textarea) {
+          return {
+            ...originalGetComputedStyle(el),
+            paddingLeft: `${textareaPadding}px`,
+            paddingRight: `${textareaPadding}px`,
+            paddingTop: "12px",
+            paddingBottom: "12px",
+            font,
+            fontStyle: "normal",
+            fontVariant: "normal",
+            fontWeight: "400",
+            fontSize: "16px",
+            lineHeight: "24px",
+            fontFamily: "sans-serif",
+          } as CSSStyleDeclaration;
+        }
+        return originalGetComputedStyle(el);
+      });
+    };
+
+    /**
+     * Mocks canvas measureText to return a deterministic width per character.
+     */
+    const mockCanvasMeasureText = (charWidth: number) => {
+      const originalGetContext = HTMLCanvasElement.prototype.getContext;
+      vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockImplementation(
+        // Double cast required: getContext has 6+ overloaded signatures
+        // (one per context type) and vitest's mockImplementation cannot
+        // unify them into a single callable type.
+        function (
+          this: HTMLCanvasElement,
+          contextId: string,
+          ...args: unknown[]
+        ) {
+          if (contextId === "2d") {
+            const ctx = originalGetContext.call(
+              this,
+              "2d",
+              ...(args as [unknown]),
+            ) as CanvasRenderingContext2D | null;
+            if (ctx) {
+              // Cast needed: TextMetrics has many readonly properties
+              // (actualBoundingBoxAscent, etc.) that are irrelevant to the
+              // SUT — only `width` is read.
+              ctx.measureText = (text: string) =>
+                ({ width: text.length * charWidth }) as TextMetrics;
+            }
+            return ctx;
+          }
+          return originalGetContext.call(
+            this,
+            contextId,
+            ...(args as [unknown]),
+          );
+        } as unknown as typeof HTMLCanvasElement.prototype.getContext,
+      );
+    };
+
+    /**
+     * Sets up all DOM mocks and invalidates the stale cache from the initial
+     * render by triggering the ResizeObserver callback.
+     */
+    const setupMocksAndInvalidateCache = (
+      container: HTMLElement,
+      options?: Parameters<typeof mockLayoutMetricsWithComputedStyle>[1],
+      charWidth = 10,
+    ) => {
+      mockLayoutMetricsWithComputedStyle(container, options);
+      mockCanvasMeasureText(charWidth);
+      // Invalidate the stale cache populated during the initial render
+      // so the next evaluateLayout call re-measures with our mocked values.
+      triggerAllResizeObservers();
+    };
+
+    /**
+     * Render CopilotChatInput, set up layout mocks, type text, and wait for
+     * the layout to settle. Returns the resulting data-layout attribute value.
+     */
+    const renderTypeAndExpectLayout = async (
+      text: string,
+      options?: Parameters<typeof mockLayoutMetricsWithComputedStyle>[1],
+      charWidth = 10,
+    ) => {
+      const { container } = renderWithProvider(
+        <CopilotChatInput onSubmitMessage={mockOnSubmitMessage} />,
+      );
+      setupMocksAndInvalidateCache(container, options, charWidth);
+
+      const textarea = screen.getByRole("textbox");
+      fireEvent.change(textarea, { target: { value: text } });
+
+      const grid = await waitFor(() => {
+        const g = getLayoutGrid(textarea);
+        expect(g).not.toBeNull();
+        return g;
+      });
+      return {
+        container,
+        textarea,
+        grid,
+        layout: grid.getAttribute("data-layout"),
+      };
+    };
+
+    it("expands layout via canvas text measurement when a single long line exceeds compact width", async () => {
+      // gridWidth=640, gridPadding=16 each side, columnGap=8, addWidth=48, actionsWidth=96
+      // compactWidth = (640 - 32) - 48 - 96 - 16 = 448
+      // compactInnerWidth = 448 - 20 - 20 = 408
+      // With charWidth=10, text of length 50 = width 500, which > 408 → expand
+      const { layout } = await renderTypeAndExpectLayout(
+        "a".repeat(50),
+        DEFAULT_LAYOUT_OPTIONS,
+      );
+      expect(layout).toBe("expanded");
+    });
+
+    it("stays compact when single-line text fits within the cached compact width", async () => {
+      // Width = 10 * 10 = 100, well within compactInnerWidth of 408
+      const { layout } = await renderTypeAndExpectLayout(
+        "a".repeat(10),
+        DEFAULT_LAYOUT_OPTIONS,
+      );
+      expect(layout).toBe("compact");
+    });
+
+    it("re-evaluates layout correctly after container resize invalidates the cache", async () => {
+      // Phase 1: wide container — 30 chars fit in compact
+      const { container, textarea } = await renderTypeAndExpectLayout(
+        "a".repeat(30),
+        DEFAULT_LAYOUT_OPTIONS,
+      );
+      expect(getLayoutGrid(textarea).getAttribute("data-layout")).toBe(
+        "compact",
+      );
+
+      // Phase 2: simulate a container resize to a much narrower width.
+      // compactWidth = (300 - 32) - 48 - 96 - 16 = 108
+      // compactInnerWidth = 108 - 20 - 20 = 68
+      // Text width = 30 * 10 = 300 > 68 → should expand
+      vi.restoreAllMocks();
+      mockLayoutMetricsWithComputedStyle(container, {
+        ...DEFAULT_LAYOUT_OPTIONS,
+        gridWidth: 300,
+      });
+      mockCanvasMeasureText(10);
+
+      // Trigger resize to invalidate the cache with the new narrow dimensions
+      triggerAllResizeObservers();
+
+      // Trigger re-evaluation
+      fireEvent.change(textarea, {
+        target: { value: "a".repeat(30) + " " },
+      });
+
+      await waitFor(() => {
+        expect(getLayoutGrid(textarea).getAttribute("data-layout")).toBe(
+          "expanded",
+        );
+      });
+    });
+
+    it("stays compact when textarea font cannot be resolved (empty font fallback)", async () => {
+      const { container } = renderWithProvider(
+        <CopilotChatInput onSubmitMessage={mockOnSubmitMessage} />,
+      );
+
+      mockLayoutMetrics(container, {
+        gridWidth: DEFAULT_LAYOUT_OPTIONS.gridWidth,
+        addWidth: DEFAULT_LAYOUT_OPTIONS.addWidth,
+        actionsWidth: DEFAULT_LAYOUT_OPTIONS.actionsWidth,
+      });
+
+      const originalGetComputedStyle = window.getComputedStyle;
+      // Cast needed: see comment in mockLayoutMetricsWithComputedStyle above.
+      vi.spyOn(window, "getComputedStyle").mockImplementation((el) => {
+        return {
+          ...originalGetComputedStyle(el),
+          font: "",
+          fontStyle: "",
+          fontVariant: "",
+          fontWeight: "",
+          fontSize: "",
+          lineHeight: "",
+          fontFamily: "",
+          paddingLeft: "16px",
+          paddingRight: "16px",
+          columnGap: "8px",
+        } as CSSStyleDeclaration;
+      });
+
+      // Invalidate cache so it tries to rebuild with the empty font mock
+      triggerAllResizeObservers();
+
+      const textarea = screen.getByRole("textbox");
+
+      // Single-line text (under 50-char mock wrap threshold) that would exceed
+      // compact width via canvas measurement, but font is empty → skipped → compact
+      fireEvent.change(textarea, {
+        target: { value: "a".repeat(45) },
+      });
+
+      await waitFor(() => {
+        expect(getLayoutGrid(textarea).getAttribute("data-layout")).toBe(
+          "compact",
+        );
+      });
+    });
+
+    it("stays compact when canvas.getContext returns null (no text-width measurement)", async () => {
+      const { container } = renderWithProvider(
+        <CopilotChatInput onSubmitMessage={mockOnSubmitMessage} />,
+      );
+
+      setupMocksAndInvalidateCache(container, DEFAULT_LAYOUT_OPTIONS);
+
+      // Override getContext to return null for "2d"
+      vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(null);
+
+      // Invalidate cache again so the next evaluateLayout uses the null context
+      triggerAllResizeObservers();
+
+      const textarea = screen.getByRole("textbox");
+
+      // Single-line text (under 50-char mock wrap threshold) that would exceed
+      // compact width via canvas, but getContext is null → stays compact
+      fireEvent.change(textarea, {
+        target: { value: "a".repeat(45) },
+      });
+
+      await waitFor(() => {
+        expect(getLayoutGrid(textarea).getAttribute("data-layout")).toBe(
+          "compact",
+        );
+      });
+    });
+
+    /**
+     * Render, set up all mocks, populate the cache with a short keystroke,
+     * and wait for compact layout. Returns container, textarea, and grid.
+     */
+    const renderAndWarmCache = async () => {
+      const { container } = renderWithProvider(
+        <CopilotChatInput onSubmitMessage={mockOnSubmitMessage} />,
+      );
+      setupMocksAndInvalidateCache(container, DEFAULT_LAYOUT_OPTIONS);
+
+      const textarea = screen.getByRole("textbox");
+      fireEvent.change(textarea, { target: { value: "a" } });
+
+      await waitFor(() => {
+        expect(getLayoutGrid(textarea).getAttribute("data-layout")).toBe(
+          "compact",
+        );
+      });
+
+      return {
+        container,
+        textarea,
+        grid: container.querySelector("div.cpk\\:grid") as HTMLElement,
+      };
+    };
+
+    /**
+     * Install a counting spy on an element's getBoundingClientRect,
+     * delegating to the original implementation. Returns the spy.
+     */
+    const installBoundingRectSpy = (element: HTMLElement) => {
+      const spy = vi.fn(element.getBoundingClientRect.bind(element));
+      Object.defineProperty(element, "getBoundingClientRect", {
+        value: spy,
+        configurable: true,
+      });
+      return spy;
+    };
+
+    it("does not re-read container dimensions on keystroke when cache is warm", async () => {
+      const { textarea, grid } = await renderAndWarmCache();
+
+      const addRectSpy = installBoundingRectSpy(
+        grid.children[0] as HTMLElement,
+      );
+      const actionsRectSpy = installBoundingRectSpy(
+        grid.children[2] as HTMLElement,
+      );
+
+      // Type more — should NOT call getBoundingClientRect since cache is warm
+      fireEvent.change(textarea, { target: { value: "ab" } });
+      fireEvent.change(textarea, { target: { value: "abc" } });
+
+      await waitFor(() => {
+        expect(getLayoutGrid(textarea).getAttribute("data-layout")).toBe(
+          "compact",
+        );
+      });
+
+      expect(addRectSpy).not.toHaveBeenCalled();
+      expect(actionsRectSpy).not.toHaveBeenCalled();
+    });
+
+    it("does not invalidate cache when only the textarea resizes", async () => {
+      const { textarea, grid } = await renderAndWarmCache();
+
+      const addRectSpy = installBoundingRectSpy(
+        grid.children[0] as HTMLElement,
+      );
+
+      // Trigger textarea-only resize — should NOT invalidate cache
+      triggerResizeForTargets(textarea);
+      fireEvent.change(textarea, { target: { value: "ab" } });
+
+      await waitFor(() => {
+        expect(getLayoutGrid(textarea).getAttribute("data-layout")).toBe(
+          "compact",
+        );
+      });
+
+      expect(addRectSpy).not.toHaveBeenCalled();
+    });
+
+    it("invalidates cache when container targets resize", async () => {
+      const { textarea, grid } = await renderAndWarmCache();
+
+      const addRectSpy = installBoundingRectSpy(
+        grid.children[0] as HTMLElement,
+      );
+
+      // Trigger container resize — SHOULD invalidate cache
+      triggerResizeForTargets(grid);
+      fireEvent.change(textarea, { target: { value: "ab" } });
+
+      await waitFor(() => {
+        expect(getLayoutGrid(textarea).getAttribute("data-layout")).toBe(
+          "compact",
+        );
+      });
+
+      // Cache was invalidated, so updateContainerCache called getBoundingClientRect
+      expect(addRectSpy).toHaveBeenCalled();
+    });
+
+    it("keeps cache warm during layout toggle (ignoreResizeRef path)", async () => {
+      const { textarea, grid } = await renderAndWarmCache();
+
+      // Trigger expansion — ignoreResizeRef set to true by updateLayout
+      fireEvent.change(textarea, { target: { value: "line1\nline2" } });
+      await waitFor(() => {
+        expect(getLayoutGrid(textarea).getAttribute("data-layout")).toBe(
+          "expanded",
+        );
+      });
+
+      // Simulate observer firing from the layout toggle.
+      // Self-inflicted resize: ignoreResizeRef is consumed, cache stays warm.
+      triggerAllResizeObservers();
+
+      // Go back to short text — cache should still be warm from before the toggle.
+      const addRectSpy = installBoundingRectSpy(
+        grid.children[0] as HTMLElement,
+      );
+
+      fireEvent.change(textarea, { target: { value: "short" } });
+      await waitFor(() => {
+        expect(getLayoutGrid(textarea).getAttribute("data-layout")).toBe(
+          "compact",
+        );
+      });
+
+      // Cache was NOT invalidated — no getBoundingClientRect needed
+      expect(addRectSpy).not.toHaveBeenCalled();
     });
   });
 
