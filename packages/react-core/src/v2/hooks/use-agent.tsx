@@ -135,9 +135,15 @@ export function useAgent({
 
   const effectiveThrottleMs = useMemo(() => {
     const resolved = throttleMs ?? providerThrottleMs ?? 0;
-    if (resolved !== 0 && (!Number.isFinite(resolved) || resolved < 0)) {
+    if (!Number.isFinite(resolved) || resolved < 0) {
+      const source =
+        throttleMs !== undefined
+          ? "hook-level throttleMs"
+          : providerThrottleMs !== undefined
+            ? "provider-level defaultThrottleMs"
+            : "default";
       console.error(
-        `useAgent: throttleMs must be a non-negative finite number, got ${resolved}. Falling back to unthrottled.`,
+        `useAgent: ${source} must be a non-negative finite number, got ${resolved}. Falling back to unthrottled.`,
       );
       return 0;
     }

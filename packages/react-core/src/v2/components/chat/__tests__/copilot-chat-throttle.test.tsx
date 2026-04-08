@@ -66,6 +66,24 @@ vi.mock("../../../hooks/use-attachments", () => ({
 const mockUseAgent = useAgent as ReturnType<typeof vi.fn>;
 const mockUseCopilotKit = useCopilotKit as ReturnType<typeof vi.fn>;
 
+/** Factory for the mock return value of useCopilotKit in CopilotChat tests */
+function createMockChatContext(agent: MockStepwiseAgent) {
+  return {
+    copilotkit: {
+      getAgent: () => agent,
+      runtimeUrl: "http://localhost:3000/api/copilot",
+      runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus.Connected,
+      runtimeTransport: "rest",
+      headers: {},
+      agents: { [String(agent.agentId)]: agent },
+      connectAgent: vi.fn().mockResolvedValue(undefined),
+      subscribe: vi.fn(() => ({ unsubscribe: vi.fn() })),
+      audioFileTranscriptionEnabled: false,
+    },
+    executingToolCallIds: new Set(),
+  };
+}
+
 describe("CopilotChat throttleMs prop", () => {
   let mockAgent: MockStepwiseAgent;
 
@@ -74,22 +92,7 @@ describe("CopilotChat throttleMs prop", () => {
     mockAgent.agentId = "default";
 
     mockUseAgent.mockReturnValue({ agent: mockAgent });
-
-    mockUseCopilotKit.mockReturnValue({
-      copilotkit: {
-        getAgent: () => mockAgent,
-        runtimeUrl: "http://localhost:3000/api/copilot",
-        runtimeConnectionStatus:
-          CopilotKitCoreRuntimeConnectionStatus.Connected,
-        runtimeTransport: "rest",
-        headers: {},
-        agents: { default: mockAgent },
-        connectAgent: vi.fn().mockResolvedValue(undefined),
-        subscribe: vi.fn(() => ({ unsubscribe: vi.fn() })),
-        audioFileTranscriptionEnabled: false,
-      },
-      executingToolCallIds: new Set(),
-    });
+    mockUseCopilotKit.mockReturnValue(createMockChatContext(mockAgent));
   });
 
   afterEach(() => {

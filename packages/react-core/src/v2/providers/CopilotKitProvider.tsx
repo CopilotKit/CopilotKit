@@ -51,8 +51,10 @@ export interface CopilotKitContextValue {
    */
   executingToolCallIds: ReadonlySet<string>;
   /**
-   * Default throttle interval (ms) for `useAgent` OnMessagesChanged re-renders.
-   * Applied when the hook's own `throttleMs` prop is not set.
+   * Default throttle interval (ms) for `useAgent` re-renders triggered by
+   * `OnMessagesChanged` notifications. Applied when the hook's own
+   * `throttleMs` prop is `undefined`. An explicit `0` at the hook level
+   * overrides this default and disables throttling.
    */
   defaultThrottleMs?: number;
 }
@@ -140,7 +142,7 @@ export interface CopilotKitProviderProps {
    * a fallback when neither the `useAgent()` hook nor `<CopilotChat>` /
    * `<CopilotSidebar>` / `<CopilotPopup>` specify an explicit `throttleMs`.
    *
-   * @default undefined (no throttle)
+   * @default undefined (defers to each component's throttleMs, then unthrottled)
    */
   defaultThrottleMs?: number;
 }
@@ -565,6 +567,20 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   useEffect(() => {
     didMountRef.current = true;
   }, []);
+
+  // Validate defaultThrottleMs eagerly so misconfiguration is caught at the
+  // provider level rather than deferred to each useAgent consumer.
+  useEffect(() => {
+    if (
+      defaultThrottleMs !== undefined &&
+      (!Number.isFinite(defaultThrottleMs) || defaultThrottleMs < 0)
+    ) {
+      console.error(
+        `CopilotKitProvider: defaultThrottleMs must be a non-negative finite number, got ${defaultThrottleMs}. ` +
+          `useAgent hooks without an explicit throttleMs will fall back to unthrottled.`,
+      );
+    }
+  }, [defaultThrottleMs]);
 
   const contextValue = useMemo<CopilotKitContextValue>(
     () => ({ copilotkit, executingToolCallIds, defaultThrottleMs }),

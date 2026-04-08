@@ -126,6 +126,25 @@ function createTestComponent(
   };
 }
 
+/** Factory for the mock return value of useCopilotKit */
+function createMockContext(
+  agent: MockStepwiseAgent,
+  overrides: { defaultThrottleMs?: number } = {},
+) {
+  return {
+    copilotkit: {
+      getAgent: () => agent,
+      runtimeUrl: "http://localhost:3000/api/copilot",
+      runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus.Connected,
+      runtimeTransport: "rest",
+      headers: {},
+      agents: { [String(agent.agentId)]: agent },
+    },
+    executingToolCallIds: new Set(),
+    ...overrides,
+  };
+}
+
 describe("useAgent throttleMs", () => {
   let mockAgent: MockStepwiseAgent;
 
@@ -134,18 +153,7 @@ describe("useAgent throttleMs", () => {
     mockAgent = new MockStepwiseAgent();
     mockAgent.agentId = "test-agent";
 
-    mockUseCopilotKit.mockReturnValue({
-      copilotkit: {
-        getAgent: () => mockAgent,
-        runtimeUrl: "http://localhost:3000/api/copilot",
-        runtimeConnectionStatus:
-          CopilotKitCoreRuntimeConnectionStatus.Connected,
-        runtimeTransport: "rest",
-        headers: {},
-        agents: { "test-agent": mockAgent },
-      },
-      executingToolCallIds: new Set(),
-    });
+    mockUseCopilotKit.mockReturnValue(createMockContext(mockAgent));
   });
 
   afterEach(() => {
@@ -742,19 +750,9 @@ describe("useAgent defaultThrottleMs from provider", () => {
   });
 
   it("uses provider defaultThrottleMs when no explicit throttleMs is passed", () => {
-    mockUseCopilotKit.mockReturnValue({
-      copilotkit: {
-        getAgent: () => mockAgent,
-        runtimeUrl: "http://localhost:3000/api/copilot",
-        runtimeConnectionStatus:
-          CopilotKitCoreRuntimeConnectionStatus.Connected,
-        runtimeTransport: "rest",
-        headers: {},
-        agents: { "test-agent": mockAgent },
-      },
-      executingToolCallIds: new Set(),
-      defaultThrottleMs: 100,
-    });
+    mockUseCopilotKit.mockReturnValue(
+      createMockContext(mockAgent, { defaultThrottleMs: 100 }),
+    );
 
     const TestComponent = createTestComponent({ throttleMs: undefined });
 
@@ -783,19 +781,9 @@ describe("useAgent defaultThrottleMs from provider", () => {
   });
 
   it("explicit throttleMs overrides provider defaultThrottleMs", () => {
-    mockUseCopilotKit.mockReturnValue({
-      copilotkit: {
-        getAgent: () => mockAgent,
-        runtimeUrl: "http://localhost:3000/api/copilot",
-        runtimeConnectionStatus:
-          CopilotKitCoreRuntimeConnectionStatus.Connected,
-        runtimeTransport: "rest",
-        headers: {},
-        agents: { "test-agent": mockAgent },
-      },
-      executingToolCallIds: new Set(),
-      defaultThrottleMs: 5000,
-    });
+    mockUseCopilotKit.mockReturnValue(
+      createMockContext(mockAgent, { defaultThrottleMs: 5000 }),
+    );
 
     // Explicit throttleMs=100 should override provider's 5000
     const TestComponent = createTestComponent({ throttleMs: 100 });
@@ -825,19 +813,7 @@ describe("useAgent defaultThrottleMs from provider", () => {
   });
 
   it("without provider defaultThrottleMs or explicit throttleMs, behaves unthrottled", () => {
-    mockUseCopilotKit.mockReturnValue({
-      copilotkit: {
-        getAgent: () => mockAgent,
-        runtimeUrl: "http://localhost:3000/api/copilot",
-        runtimeConnectionStatus:
-          CopilotKitCoreRuntimeConnectionStatus.Connected,
-        runtimeTransport: "rest",
-        headers: {},
-        agents: { "test-agent": mockAgent },
-      },
-      executingToolCallIds: new Set(),
-      // no defaultThrottleMs
-    });
+    mockUseCopilotKit.mockReturnValue(createMockContext(mockAgent));
 
     const TestComponent = createTestComponent({});
 
@@ -858,19 +834,9 @@ describe("useAgent defaultThrottleMs from provider", () => {
   });
 
   it("explicit throttleMs: 0 overrides non-zero provider defaultThrottleMs (opt-out)", () => {
-    mockUseCopilotKit.mockReturnValue({
-      copilotkit: {
-        getAgent: () => mockAgent,
-        runtimeUrl: "http://localhost:3000/api/copilot",
-        runtimeConnectionStatus:
-          CopilotKitCoreRuntimeConnectionStatus.Connected,
-        runtimeTransport: "rest",
-        headers: {},
-        agents: { "test-agent": mockAgent },
-      },
-      executingToolCallIds: new Set(),
-      defaultThrottleMs: 500,
-    });
+    mockUseCopilotKit.mockReturnValue(
+      createMockContext(mockAgent, { defaultThrottleMs: 500 }),
+    );
 
     const TestComponent = createTestComponent({ throttleMs: 0 });
 
@@ -889,4 +855,43 @@ describe("useAgent defaultThrottleMs from provider", () => {
     });
     expect(screen.getByTestId("count").textContent).toBe("2");
   });
+
+  it.each([
+    { label: "NaN", value: NaN },
+    { label: "Infinity", value: Infinity },
+    { label: "-1", value: -1 },
+    { label: "-Infinity", value: -Infinity },
+  ])(
+    "with invalid provider defaultThrottleMs ($label), falls back to unthrottled and warns",
+    ({ value }) => {
+      mockUseCopilotKit.mockReturnValue(
+        createMockContext(mockAgent, { defaultThrottleMs: value }),
+      );
+
+      const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+      const TestComponent = createTestComponent({ throttleMs: undefined });
+
+      render(<TestComponent />);
+
+      expect(errorSpy).toHaveBeenCalledWith(
+        expect.stringContaining("provider-level defaultThrottleMs"),
+      );
+      expect(errorSpy).toHaveBeenCalledWith(
+        expect.stringContaining("must be a non-negative finite number"),
+      );
+
+      // Should behave as unthrottled
+      act(() => {
+        mockAgent.messages = [userMsg("1", "a")];
+        notifyMessagesChanged(mockAgent);
+      });
+      expect(screen.getByTestId("count").textContent).toBe("1");
+
+      act(() => {
+        mockAgent.messages = [userMsg("1", "a"), assistantMsg("2", "b")];
+        notifyMessagesChanged(mockAgent);
+      });
+      expect(screen.getByTestId("count").textContent).toBe("2");
+    },
+  );
 });

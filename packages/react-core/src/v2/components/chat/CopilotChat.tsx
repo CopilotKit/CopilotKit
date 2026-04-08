@@ -68,11 +68,13 @@ export type CopilotChatProps = Omit<
     context: Record<string, any>;
   }) => void | Promise<void>;
   /**
-   * Throttle interval (in milliseconds) for re-renders triggered by streaming
-   * message updates. Overrides the provider-level `defaultThrottleMs` for this
-   * chat instance. Passed directly to the internal `useAgent()` call.
+   * Throttle interval (in milliseconds) for re-renders triggered by message
+   * change notifications. Overrides the provider-level `defaultThrottleMs`
+   * for this chat instance. Forwarded to the internal `useAgent()` hook,
+   * which resolves the effective throttle value.
    *
-   * @default undefined (falls back to provider `defaultThrottleMs`, then 0)
+   * @default undefined — inherits from provider `defaultThrottleMs`;
+   * if that is also unset, re-renders are unthrottled (equivalent to 0).
    */
   throttleMs?: number;
 };
