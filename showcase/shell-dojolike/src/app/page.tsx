@@ -31,7 +31,6 @@ const demoContent = demoContentData as {
     demos: Record<string, DemoContent>;
 };
 
-// Group an integration's demos by feature category, preserving category order
 function groupDemosByCategory(
     integration: Integration,
     categories: FeatureCategory[]
@@ -55,13 +54,21 @@ function groupDemosByCategory(
         }
     }
 
-    // Catch any uncategorized demos
     const uncategorized = demoByCategoryId.get("uncategorized");
     if (uncategorized && uncategorized.length > 0) {
         groups.push({ category: { id: "uncategorized", name: "Other" }, demos: uncategorized });
     }
 
     return groups;
+}
+
+const UPPERCASE_WORDS = new Set(["ui", "io", "a2ui", "hitl", "mcp", "api"]);
+
+function prettifyTag(tag: string): string {
+    return tag
+        .split("-")
+        .map((w) => UPPERCASE_WORDS.has(w) ? w.toUpperCase() : w.charAt(0).toUpperCase() + w.slice(1))
+        .join(" ");
 }
 
 export default function DojoPage() {
@@ -99,7 +106,6 @@ export default function DojoPage() {
         (slug: string) => {
             setSelectedSlug(slug);
             setSelectedFileIndex(0);
-            // Keep the same demo ID if the new integration has it, otherwise pick first
             const newIntegration = integrations.find((i) => i.slug === slug);
             if (newIntegration) {
                 const hasDemo = newIntegration.demos.find((d) => d.id === selectedDemoId);
@@ -122,7 +128,7 @@ export default function DojoPage() {
             : null;
 
     return (
-        <div style={{ display: "flex", height: "100vh", overflow: "hidden" }}>
+        <div style={{ display: "flex", height: "100vh", overflow: "hidden", background: "var(--bg)" }}>
             {/* Purple accent bar at top */}
             <div
                 style={{
@@ -135,85 +141,119 @@ export default function DojoPage() {
                     zIndex: 100,
                 }}
             />
-            {/* Sidebar */}
+
+            {/* Sidebar — floating glass card */}
             <aside
                 style={{
                     width: "var(--sidebar-width)",
                     minWidth: "var(--sidebar-width)",
-                    borderRight: "1px solid var(--border)",
-                    background: "var(--bg-surface)",
                     display: "flex",
                     flexDirection: "column",
                     overflow: "hidden",
-                    paddingTop: 3,
+                    margin: "12px 0 12px 12px",
+                    marginTop: 15,
+                    borderRadius: 12,
+                    background: "var(--glass-bg)",
+                    backdropFilter: "blur(12px)",
+                    WebkitBackdropFilter: "blur(12px)",
+                    border: "1px solid var(--glass-border)",
+                    boxShadow: "var(--shadow)",
                 }}
             >
                 {/* Header */}
-                <div style={{ padding: "16px 16px 12px", borderBottom: "1px solid var(--border)" }}>
-                    <div style={{ fontWeight: 600, fontSize: 15 }}>CopilotKit Interactive Dojo</div>
+                <div style={{ padding: "20px 20px 16px" }}>
+                    <div style={{ fontWeight: 600, fontSize: 15, color: "var(--text)" }}>
+                        CopilotKit Interactive Dojo
+                    </div>
                 </div>
 
                 {/* Integration selector */}
-                <div style={{ padding: "12px 16px", borderBottom: "1px solid var(--border)" }}>
-                    <div style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-muted)", marginBottom: 8 }}>
+                <div style={{ padding: "0 20px 16px" }}>
+                    <div style={{
+                        fontSize: 11,
+                        fontWeight: 600,
+                        textTransform: "uppercase",
+                        letterSpacing: "0.05em",
+                        color: "var(--text-muted)",
+                        marginBottom: 8,
+                    }}>
                         Integrations
                     </div>
-                    <select
-                        value={selectedSlug}
-                        onChange={(e) => handleIntegrationChange(e.target.value)}
-                        style={{
-                            width: "100%",
-                            padding: "8px 12px",
-                            fontSize: 14,
-                            fontWeight: 500,
-                            border: "1px solid var(--border)",
-                            borderRadius: 6,
-                            background: "var(--bg-surface)",
-                            color: "var(--text)",
-                            cursor: "pointer",
-                            appearance: "auto",
-                        }}
-                    >
-                        {integrations.map((i) => (
-                            <option key={i.slug} value={i.slug}>
-                                {i.name}
-                            </option>
-                        ))}
-                    </select>
+                    <div style={{ paddingBottom: 4 }}>
+                        <select
+                            value={selectedSlug}
+                            onChange={(e) => handleIntegrationChange(e.target.value)}
+                            style={{
+                                width: "100%",
+                                padding: "8px 12px",
+                                fontSize: 14,
+                                fontWeight: 500,
+                                border: "1px solid var(--border)",
+                                borderRadius: 8,
+                                background: "var(--bg-surface)",
+                                color: "var(--text)",
+                                cursor: "pointer",
+                                appearance: "auto",
+                            }}
+                        >
+                            {integrations.map((i) => (
+                                <option key={i.slug} value={i.slug}>
+                                    {i.name}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
                 </div>
 
-                {/* View mode toggle */}
-                <div style={{ padding: "12px 16px", borderBottom: "1px solid var(--border)" }}>
-                    <div style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-muted)", marginBottom: 8 }}>
+                {/* View mode toggle — inline text style */}
+                <div style={{ padding: "0 20px 12px" }}>
+                    <div style={{
+                        fontSize: 11,
+                        fontWeight: 600,
+                        textTransform: "uppercase",
+                        letterSpacing: "0.05em",
+                        color: "var(--text-muted)",
+                        marginBottom: 8,
+                    }}>
                         View
                     </div>
-                    <div style={{ display: "flex", gap: 4 }}>
-                        {(["preview", "code"] as const).map((mode) => (
-                            <button
-                                key={mode}
-                                onClick={() => setViewMode(mode)}
-                                style={{
-                                    flex: 1,
-                                    padding: "6px 12px",
-                                    fontSize: 13,
-                                    fontWeight: 500,
-                                    border: "1px solid var(--border)",
-                                    borderRadius: 6,
-                                    cursor: "pointer",
-                                    background: viewMode === mode ? "var(--accent)" : "var(--bg-surface)",
-                                    color: viewMode === mode ? "#fff" : "var(--text-secondary)",
-                                }}
-                            >
-                                {mode === "preview" ? "\u25C9 Preview" : "</> Code"}
-                            </button>
-                        ))}
+                    <div style={{
+                        display: "flex",
+                        gap: 6,
+                        paddingBottom: 4,
+                    }}>
+                        {(["preview", "code"] as const).map((mode) => {
+                            const isActive = viewMode === mode;
+                            return (
+                                <button
+                                    key={mode}
+                                    onClick={() => setViewMode(mode)}
+                                    style={{
+                                        padding: "5px 14px",
+                                        fontSize: 13,
+                                        fontWeight: isActive ? 500 : 400,
+                                        border: isActive ? "1px solid var(--border)" : "1px solid transparent",
+                                        borderRadius: 6,
+                                        cursor: "pointer",
+                                        background: isActive ? "var(--bg-surface)" : "transparent",
+                                        color: isActive ? "var(--text)" : "var(--text-muted)",
+                                        boxShadow: isActive ? "0 1px 2px rgba(0,0,0,0.04)" : "none",
+                                    }}
+                                >
+                                    {mode === "preview" ? "\u25C9 Preview" : "</> Code"}
+                                </button>
+                            );
+                        })}
                     </div>
                 </div>
 
+                {/* Divider */}
+                <div style={{ margin: "0 20px", borderTop: "1px solid var(--border)" }} />
+
                 {/* Demo list grouped by feature category */}
-                <div style={{ flex: 1, overflow: "auto", padding: "8px 0" }}>
+                <div className="sidebar-scroll" style={{ flex: 1, overflow: "auto", padding: "4px 0 12px" }}>
                     {groupedDemos.map(({ category, demos }) => (
-                        <div key={category.id} style={{ marginBottom: 4 }}>
+                        <div key={category.id} style={{ marginBottom: 2 }}>
                             <div
                                 style={{
                                     fontSize: 11,
@@ -221,14 +261,13 @@ export default function DojoPage() {
                                     textTransform: "uppercase",
                                     letterSpacing: "0.05em",
                                     color: "var(--text-muted)",
-                                    padding: "8px 16px 4px",
+                                    padding: "12px 20px 6px",
                                 }}
                             >
                                 {category.name}
                             </div>
                             {demos.map((demo) => {
                                 const isSelected = demo.id === selectedDemoId;
-                                const feature = getFeature(demo.id);
                                 return (
                                     <button
                                         key={demo.id}
@@ -237,20 +276,36 @@ export default function DojoPage() {
                                             display: "block",
                                             width: "100%",
                                             textAlign: "left",
-                                            padding: "10px 16px",
+                                            padding: "10px 20px",
                                             border: "none",
                                             cursor: "pointer",
-                                            background: isSelected ? "var(--accent-light)" : "transparent",
-                                            borderLeft: isSelected ? "3px solid var(--accent)" : "3px solid transparent",
+                                            background: isSelected ? "var(--bg-selected)" : "transparent",
+                                            borderRadius: 0,
+                                            transition: "background 0.1s",
+                                        }}
+                                        onMouseEnter={(e) => {
+                                            if (!isSelected) e.currentTarget.style.background = "var(--bg-hover)";
+                                        }}
+                                        onMouseLeave={(e) => {
+                                            if (!isSelected) e.currentTarget.style.background = "transparent";
                                         }}
                                     >
-                                        <div style={{ fontWeight: 500, fontSize: 14, color: "var(--text)" }}>
+                                        <div style={{
+                                            fontWeight: isSelected ? 600 : 500,
+                                            fontSize: 14,
+                                            color: "var(--text)",
+                                        }}>
                                             {demo.name}
                                         </div>
-                                        <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2, lineHeight: 1.3 }}>
+                                        <div style={{
+                                            fontSize: 12,
+                                            color: "var(--text-muted)",
+                                            marginTop: 2,
+                                            lineHeight: 1.4,
+                                        }}>
                                             {demo.description}
                                         </div>
-                                        {feature && (
+                                        {demo.tags.length > 0 && (
                                             <div style={{ marginTop: 6, display: "flex", flexWrap: "wrap", gap: 4 }}>
                                                 {demo.tags.map((tag) => (
                                                     <span
@@ -258,14 +313,14 @@ export default function DojoPage() {
                                                         style={{
                                                             display: "inline-block",
                                                             fontSize: 11,
-                                                            padding: "2px 8px",
+                                                            padding: "2px 10px",
                                                             borderRadius: 10,
-                                                            background: "var(--bg-elevated)",
-                                                            color: "var(--text-secondary)",
-                                                            border: "1px solid var(--border-dim)",
+                                                            background: "var(--tag-bg)",
+                                                            color: "var(--tag-text)",
+                                                            fontWeight: 500,
                                                         }}
                                                     >
-                                                        {tag}
+                                                        {prettifyTag(tag)}
                                                     </span>
                                                 ))}
                                             </div>
@@ -276,7 +331,7 @@ export default function DojoPage() {
                         </div>
                     ))}
                     {integration && integration.demos.length === 0 && (
-                        <div style={{ padding: "16px", color: "var(--text-muted)", fontSize: 13 }}>
+                        <div style={{ padding: "20px", color: "var(--text-muted)", fontSize: 13 }}>
                             No demos available for this integration.
                         </div>
                     )}
@@ -284,7 +339,18 @@ export default function DojoPage() {
             </aside>
 
             {/* Main content area */}
-            <main style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", paddingTop: 3 }}>
+            <main style={{
+                flex: 1,
+                display: "flex",
+                flexDirection: "column",
+                overflow: "hidden",
+                margin: "12px 12px 12px 12px",
+                marginTop: 15,
+                borderRadius: 12,
+                background: "var(--bg-surface)",
+                border: "1px solid var(--glass-border)",
+                boxShadow: "var(--shadow)",
+            }}>
                 {viewMode === "preview" && previewUrl ? (
                     <iframe
                         key={previewUrl}
@@ -293,12 +359,12 @@ export default function DojoPage() {
                             width: "100%",
                             height: "100%",
                             border: "none",
-                            background: "var(--bg)",
+                            borderRadius: 12,
                         }}
                         sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
                     />
                 ) : viewMode === "code" && allFiles.length > 0 ? (
-                    <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
+                    <div style={{ display: "flex", flexDirection: "column", height: "100%", borderRadius: 12, overflow: "hidden" }}>
                         {/* File tabs */}
                         <div
                             style={{
@@ -308,6 +374,7 @@ export default function DojoPage() {
                                 background: "var(--bg-elevated)",
                                 overflowX: "auto",
                                 flexShrink: 0,
+                                borderRadius: "12px 12px 0 0",
                             }}
                         >
                             {allFiles.map((file, idx) => (
@@ -315,7 +382,7 @@ export default function DojoPage() {
                                     key={file.filename}
                                     onClick={() => setSelectedFileIndex(idx)}
                                     style={{
-                                        padding: "8px 16px",
+                                        padding: "10px 18px",
                                         fontSize: 13,
                                         border: "none",
                                         borderBottom: idx === selectedFileIndex ? "2px solid var(--accent)" : "2px solid transparent",
@@ -324,14 +391,13 @@ export default function DojoPage() {
                                         color: idx === selectedFileIndex ? "var(--text)" : "var(--text-muted)",
                                         fontWeight: idx === selectedFileIndex ? 500 : 400,
                                         whiteSpace: "nowrap",
-                                        fontFamily: "monospace",
+                                        fontFamily: "'SF Mono', 'Fira Code', Menlo, monospace",
                                     }}
                                 >
                                     {file.filename}
                                 </button>
                             ))}
                         </div>
-                        {/* Code content */}
                         {allFiles[selectedFileIndex] && (
                             <CodeBlock
                                 code={allFiles[selectedFileIndex].content}
@@ -357,4 +423,3 @@ export default function DojoPage() {
         </div>
     );
 }
-
