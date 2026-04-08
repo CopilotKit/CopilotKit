@@ -164,7 +164,7 @@ export default function DojoPage() {
             >
                 {/* Header */}
                 <div style={{ padding: "16px 16px 12px 20px" }}>
-                    <div style={{ fontWeight: 300, fontSize: 18, color: "#111827" }}>
+                    <div style={{ fontWeight: 300, fontSize: 18, lineHeight: "20px", color: "#111827" }}>
                         CopilotKit Interactive Dojo
                     </div>
                 </div>
@@ -190,7 +190,7 @@ export default function DojoPage() {
                             onMouseEnter={(e) => { if (!dropdownOpen) e.currentTarget.style.background = "rgba(250,252,250,1)"; }}
                             onMouseLeave={(e) => { if (!dropdownOpen) e.currentTarget.style.background = "transparent"; }}
                         >
-                            <span style={{ fontSize: 14, fontWeight: 500, color: "var(--text-primary)", lineHeight: "22px" }}>
+                            <span style={{ fontSize: 14, fontWeight: 500, color: "var(--text-primary)", lineHeight: "22px", paddingBottom: 2 }}>
                                 {integration?.name || "Select Integration"}
                             </span>
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--text-primary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ transition: "transform 0.2s", transform: dropdownOpen ? "rotate(180deg)" : "rotate(0deg)" }}>
@@ -320,13 +320,13 @@ export default function DojoPage() {
                                                 if (!isSelected) e.currentTarget.style.background = "transparent";
                                             }}
                                         >
-                                            <div style={{ fontSize: 14, fontWeight: 500, lineHeight: 1.3 }}>
+                                            <div style={{ fontSize: 14, fontWeight: 500, lineHeight: "20px" }}>
                                                 {demo.name}
                                             </div>
                                             <div style={{
                                                 fontSize: 12,
                                                 color: "var(--text-disabled)",
-                                                lineHeight: 1.5,
+                                                lineHeight: "18px",
                                                 display: "-webkit-box",
                                                 WebkitLineClamp: 2,
                                                 WebkitBoxOrient: "vertical",
@@ -425,7 +425,7 @@ export default function DojoPage() {
                                         color: idx === selectedFileIndex ? "var(--text-primary)" : "var(--text-disabled)",
                                         fontWeight: idx === selectedFileIndex ? 500 : 400,
                                         whiteSpace: "nowrap",
-                                        fontFamily: "'Spline Sans Mono', 'SF Mono', Menlo, monospace",
+                                        fontFamily: "'Spline Sans Mono', ui-monospace, SFMono-Regular, monospace",
                                     }}
                                 >
                                     {file.filename}
