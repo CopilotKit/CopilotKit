@@ -21,3 +21,4 @@ export type {
   UseAttachmentsProps,
   UseAttachmentsReturn,
 } from "./use-attachments";
+export { useA2UIActionHandler } from "./use-a2ui-action-handler";

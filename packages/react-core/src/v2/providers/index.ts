@@ -12,3 +12,5 @@ export {
   type CopilotKitProviderProps,
   type CopilotKitContextValue,
 } from "./CopilotKitProvider";
+
+export type { Anchor as InspectorAnchor } from "@copilotkitnext/web-inspector";

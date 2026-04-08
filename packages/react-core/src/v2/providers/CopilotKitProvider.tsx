@@ -20,6 +20,7 @@ import {
   createLicenseContextValue,
   type LicenseContextValue,
 } from "@copilotkit/shared";
+import type { Anchor } from "@copilotkit/web-inspector";
 import type { CopilotKitCoreErrorCode } from "@copilotkit/core";
 import {
   MCPAppsActivityContentSchema,
@@ -27,6 +28,12 @@ import {
   MCPAppsActivityType,
 } from "../components/MCPAppsActivityRenderer";
 import { createA2UIMessageRenderer } from "../a2ui/A2UIMessageRenderer";
+import { A2UIBuiltInToolCallRenderer } from "../a2ui/A2UIToolCallRenderer";
+import { A2UICatalogContext } from "../a2ui/A2UICatalogContext";
+import {
+  A2UIActionHandlerRegistryProvider,
+  useA2UIActionHandlerRegistry,
+} from "./A2UIActionHandlerRegistry";
 import { viewerTheme } from "@copilotkit/a2ui-renderer";
 import type { Theme as A2UITheme } from "@copilotkit/a2ui-renderer";
 import { CopilotKitCoreReact } from "../lib/react-core";
@@ -128,7 +135,38 @@ export interface CopilotKitProviderProps {
      * When omitted, the built-in `viewerTheme` from `@copilotkit/a2ui-renderer` is used.
      */
     theme?: A2UITheme;
+    /**
+     * Optional orchestrator for A2UI action dispatch. Receives the action
+     * and an array of handlers registered via useA2UIActionHandler hooks.
+     *
+     * Default behavior (when omitted): loops through handlers and uses
+     * the first one that returns a non-empty operations array.
+     *
+     * @example
+     * ```tsx
+     * onAction: (action, handlers) => {
+     *   // Custom logic — e.g., log, transform, or skip
+     *   for (const h of handlers) {
+     *     const ops = h(action);
+     *     if (ops?.length) return ops;
+     *   }
+     *   return null;
+     * }
+     * ```
+     */
+    onAction?: import("../a2ui/A2UIMessageRenderer").A2UIActionOrchestrator;
+    /**
+     * Optional component catalogs to pass to the A2UI renderer.
+     * When omitted, the default basicCatalog is used.
+     */
+    catalogs?: any[];
   };
+  /**
+   * Default anchor corner for the inspector button and window.
+   * Only used on first load before the user drags to a custom position.
+   * Defaults to `{ horizontal: "right", vertical: "top" }`.
+   */
+  inspectorDefaultAnchor?: Anchor;
 }
 
 // Small helper to normalize array props to a stable reference and warn
@@ -175,6 +213,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   useSingleEndpoint,
   onError,
   a2ui,
+  inspectorDefaultAnchor,
 }) => {
   const [shouldRenderInspector, setShouldRenderInspector] = useState(false);
   const [runtimeA2UIEnabled, setRuntimeA2UIEnabled] = useState(false);
@@ -247,7 +286,11 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
 
     if (runtimeA2UIEnabled) {
       renderers.unshift(
-        createA2UIMessageRenderer({ theme: a2ui?.theme ?? viewerTheme }),
+        createA2UIMessageRenderer({
+          theme: a2ui?.theme ?? viewerTheme,
+          onAction: a2ui?.onAction,
+          catalogs: a2ui?.catalogs,
+        }),
       );
     }
 
@@ -565,9 +608,16 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   return (
     <CopilotKitContext.Provider value={contextValue}>
       <LicenseContext.Provider value={licenseContextValue}>
-        {children}
+        {runtimeA2UIEnabled && <A2UIBuiltInToolCallRenderer />}
+        {runtimeA2UIEnabled && <A2UICatalogContext catalogs={a2ui?.catalogs} />}
+        <A2UIActionHandlerRegistryProvider>
+          {children}
+        </A2UIActionHandlerRegistryProvider>
         {shouldRenderInspector ? (
-          <CopilotKitInspector core={copilotkit} />
+          <CopilotKitInspector
+            core={copilotkit}
+            defaultAnchor={inspectorDefaultAnchor}
+          />
         ) : null}
         {/* License warnings — driven by server-reported status */}
         {runtimeLicenseStatus === "none" && !resolvedPublicKey && (
