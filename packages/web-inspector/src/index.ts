@@ -40,6 +40,8 @@ import {
   isValidDockMode,
 } from "./lib/persistence";
 
+export type { Anchor } from "./lib/types";
+
 export const WEB_INSPECTOR_TAG = "cpk-web-inspector" as const;
 
 type LucideIconName = keyof typeof icons;
@@ -159,7 +161,15 @@ export class WebInspectorElement extends LitElement {
   static properties = {
     core: { attribute: false },
     autoAttachCore: { type: Boolean, attribute: "auto-attach-core" },
+    defaultAnchor: { attribute: false },
   } as const;
+
+  /**
+   * Default anchor corner for the inspector button and window.
+   * Only used on first load (before the user drags to a custom position).
+   * Defaults to top-right if not specified.
+   */
+  defaultAnchor: Anchor | null = null;
 
   private _core: CopilotKitCore | null = null;
   private coreSubscriber: CopilotKitCoreSubscriber | null = null;
@@ -203,6 +213,7 @@ export class WebInspectorElement extends LitElement {
   private toolSignature = "";
   private eventFilterText = "";
   private eventTypeFilter: InspectorAgentEventType | "all" = "all";
+  private compactMode = false;
 
   private announcementMarkdown: string | null = null;
   private announcementHtml: string | null = null;
@@ -692,6 +703,90 @@ export class WebInspectorElement extends LitElement {
         payloadText.includes(query)
       );
     });
+  }
+
+  /**
+   * Compact inspector events by consolidating consecutive streaming deltas.
+   * Multiple TEXT_MESSAGE_CONTENT events for the same messageId become one.
+   * Multiple TOOL_CALL_ARGS events for the same toolCallId become one.
+   * Events are in reverse chronological order (newest first), so we process accordingly.
+   */
+  private compactInspectorEvents(events: InspectorEvent[]): InspectorEvent[] {
+    // Work in chronological order (oldest first) for grouping
+    const chronological = [...events].reverse();
+    const result: InspectorEvent[] = [];
+
+    let i = 0;
+    while (i < chronological.length) {
+      const event = chronological[i];
+
+      if (event.type === "TEXT_MESSAGE_CONTENT") {
+        // Collect consecutive TEXT_MESSAGE_CONTENT events with same agentId
+        const group = [event];
+        while (
+          i + 1 < chronological.length &&
+          chronological[i + 1].type === "TEXT_MESSAGE_CONTENT" &&
+          chronological[i + 1].agentId === event.agentId
+        ) {
+          i++;
+          group.push(chronological[i]);
+        }
+        if (group.length > 1) {
+          // Merge: use first event as base, concatenate delta from payloads
+          const merged = { ...group[0] };
+          const deltas = group.map((e) => {
+            const p = e.payload as Record<string, unknown> | null;
+            const evt = (p?.event ?? p) as Record<string, unknown> | null;
+            return typeof evt?.delta === "string" ? evt.delta : "";
+          });
+          const mergedPayload = {
+            ...(merged.payload as Record<string, unknown>),
+            delta: deltas.join(""),
+            _compactedFrom: group.length,
+          };
+          merged.payload = mergedPayload as unknown as SanitizedValue;
+          merged.id = `${merged.id}:compacted`;
+          result.push(merged);
+        } else {
+          result.push(event);
+        }
+      } else if (event.type === "TOOL_CALL_ARGS") {
+        // Collect consecutive TOOL_CALL_ARGS events with same agentId
+        const group = [event];
+        while (
+          i + 1 < chronological.length &&
+          chronological[i + 1].type === "TOOL_CALL_ARGS" &&
+          chronological[i + 1].agentId === event.agentId
+        ) {
+          i++;
+          group.push(chronological[i]);
+        }
+        if (group.length > 1) {
+          const merged = { ...group[0] };
+          const deltas = group.map((e) => {
+            const p = e.payload as Record<string, unknown> | null;
+            const evt = (p?.event ?? p) as Record<string, unknown> | null;
+            return typeof evt?.delta === "string" ? evt.delta : "";
+          });
+          const mergedPayload = {
+            ...(merged.payload as Record<string, unknown>),
+            delta: deltas.join(""),
+            _compactedFrom: group.length,
+          };
+          merged.payload = mergedPayload as unknown as SanitizedValue;
+          merged.id = `${merged.id}:compacted`;
+          result.push(merged);
+        } else {
+          result.push(event);
+        }
+      } else {
+        result.push(event);
+      }
+      i++;
+    }
+
+    // Return in reverse chronological order (newest first)
+    return result.reverse();
   }
 
   private getLatestStateForAgent(agentId: string): SanitizedValue | null {
@@ -1224,10 +1319,15 @@ ${argsString}</pre
     this.measureContext("button");
     this.measureContext("window");
 
-    this.contextState.button.anchor = { horizontal: "right", vertical: "top" };
+    const anchor = this.defaultAnchor ?? {
+      horizontal: "right",
+      vertical: "top",
+    };
+
+    this.contextState.button.anchor = { ...anchor };
     this.contextState.button.anchorOffset = { x: EDGE_MARGIN, y: EDGE_MARGIN };
 
-    this.contextState.window.anchor = { horizontal: "right", vertical: "top" };
+    this.contextState.window.anchor = { ...anchor };
     this.contextState.window.anchorOffset = { x: EDGE_MARGIN, y: EDGE_MARGIN };
 
     this.hydrateStateFromStorage();
@@ -1538,11 +1638,19 @@ ${argsString}</pre
 
     const persistedButton = persisted.button;
     if (persistedButton) {
-      if (isValidAnchor(persistedButton.anchor)) {
+      // When a defaultAnchor is provided, only restore persisted position
+      // if the user actually dragged the inspector to a custom position.
+      const restoreButtonPosition =
+        !this.defaultAnchor || persistedButton.hasCustomPosition;
+
+      if (restoreButtonPosition && isValidAnchor(persistedButton.anchor)) {
         this.contextState.button.anchor = persistedButton.anchor;
       }
 
-      if (isValidPosition(persistedButton.anchorOffset)) {
+      if (
+        restoreButtonPosition &&
+        isValidPosition(persistedButton.anchorOffset)
+      ) {
         this.contextState.button.anchorOffset = persistedButton.anchorOffset;
       }
 
@@ -1553,11 +1661,17 @@ ${argsString}</pre
 
     const persistedWindow = persisted.window;
     if (persistedWindow) {
-      if (isValidAnchor(persistedWindow.anchor)) {
+      const restoreWindowPosition =
+        !this.defaultAnchor || persistedWindow.hasCustomPosition;
+
+      if (restoreWindowPosition && isValidAnchor(persistedWindow.anchor)) {
         this.contextState.window.anchor = persistedWindow.anchor;
       }
 
-      if (isValidPosition(persistedWindow.anchorOffset)) {
+      if (
+        restoreWindowPosition &&
+        isValidPosition(persistedWindow.anchorOffset)
+      ) {
         this.contextState.window.anchorOffset = persistedWindow.anchorOffset;
       }
 
@@ -2666,7 +2780,10 @@ ${argsString}</pre
 
   private renderEventsTable() {
     const events = this.getEventsForSelectedContext();
-    const filteredEvents = this.filterEvents(events);
+    const afterCompact = this.compactMode
+      ? this.compactInspectorEvents(events)
+      : events;
+    const filteredEvents = this.filterEvents(afterCompact);
     const selectedLabel =
       this.selectedContext === "all-agents"
         ? "all agents"
@@ -2752,6 +2869,23 @@ ${argsString}</pre
             <div class="flex items-center gap-1 text-[11px]">
               <button
                 type="button"
+                class="tooltip-target flex h-8 items-center gap-1 rounded-md border px-2 text-[11px] font-medium transition ${this
+                  .compactMode
+                  ? "border-gray-900 bg-gray-900 text-white"
+                  : "border-gray-200 bg-white text-gray-600 hover:bg-gray-50"}"
+                title="Compact mode — consolidate streaming deltas"
+                data-tooltip="Compact mode"
+                aria-label="Toggle compact mode"
+                @click=${() => {
+                  this.compactMode = !this.compactMode;
+                  this.requestUpdate();
+                }}
+              >
+                ${this.renderIcon("Layers")}
+                <span>Compact</span>
+              </button>
+              <button
+                type="button"
                 class="tooltip-target flex h-8 w-8 items-center justify-center rounded-md border border-gray-200 bg-white text-gray-600 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
                 title="Reset filters"
                 data-tooltip="Reset filters"
@@ -2789,11 +2923,11 @@ ${argsString}</pre
           </div>
           <div class="text-[11px] text-gray-500">
             Showing ${filteredEvents.length} of
-            ${events.length}${
-              this.selectedContext === "all-agents"
-                ? ""
-                : ` for ${selectedLabel}`
-            }
+            ${afterCompact.length}${this.compactMode
+              ? ` (compacted from ${events.length})`
+              : ""}${this.selectedContext === "all-agents"
+              ? ""
+              : ` for ${selectedLabel}`}
           </div>
         </div>
         <div class="relative h-full w-full overflow-y-auto overflow-x-hidden">
