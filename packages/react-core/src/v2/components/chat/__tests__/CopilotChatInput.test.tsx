@@ -1046,6 +1046,10 @@ describe("CopilotChatInput", () => {
 
     beforeEach(() => {
       MockResizeObserver.instances = [];
+      // Double cast required: MockResizeObserver's callback signature uses a
+      // simplified `{ target: Element }` entry instead of the full
+      // ResizeObserverEntry (which includes contentRect, borderBoxSize, etc.)
+      // that the real ResizeObserverCallback demands.
       globalThis.ResizeObserver =
         MockResizeObserver as unknown as typeof ResizeObserver;
     });
@@ -1093,6 +1097,9 @@ describe("CopilotChatInput", () => {
       ) as HTMLElement | null;
 
       const originalGetComputedStyle = window.getComputedStyle;
+      // Cast needed: spreading a CSSStyleDeclaration loses the indexed-property
+      // accessors and prototype methods, so the result doesn't satisfy the full
+      // CSSStyleDeclaration interface. Only the properties the SUT reads matter.
       vi.spyOn(window, "getComputedStyle").mockImplementation((el) => {
         if (el === grid) {
           return {
@@ -1128,6 +1135,9 @@ describe("CopilotChatInput", () => {
     const mockCanvasMeasureText = (charWidth: number) => {
       const originalGetContext = HTMLCanvasElement.prototype.getContext;
       vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockImplementation(
+        // Double cast required: getContext has 6+ overloaded signatures
+        // (one per context type) and vitest's mockImplementation cannot
+        // unify them into a single callable type.
         function (
           this: HTMLCanvasElement,
           contextId: string,
@@ -1140,6 +1150,9 @@ describe("CopilotChatInput", () => {
               ...(args as [unknown]),
             ) as CanvasRenderingContext2D | null;
             if (ctx) {
+              // Cast needed: TextMetrics has many readonly properties
+              // (actualBoundingBoxAscent, etc.) that are irrelevant to the
+              // SUT — only `width` is read.
               ctx.measureText = (text: string) =>
                 ({ width: text.length * charWidth }) as TextMetrics;
             }
@@ -1269,6 +1282,7 @@ describe("CopilotChatInput", () => {
       });
 
       const originalGetComputedStyle = window.getComputedStyle;
+      // Cast needed: see comment in mockLayoutMetricsWithComputedStyle above.
       vi.spyOn(window, "getComputedStyle").mockImplementation((el) => {
         return {
           ...originalGetComputedStyle(el),
@@ -1331,41 +1345,54 @@ describe("CopilotChatInput", () => {
       });
     });
 
-    it("does not re-read container dimensions on keystroke when cache is warm", async () => {
+    /**
+     * Render, set up all mocks, populate the cache with a short keystroke,
+     * and wait for compact layout. Returns container, textarea, and grid.
+     */
+    const renderAndWarmCache = async () => {
       const { container } = renderWithProvider(
         <CopilotChatInput onSubmitMessage={mockOnSubmitMessage} />,
       );
       setupMocksAndInvalidateCache(container, DEFAULT_LAYOUT_OPTIONS);
 
       const textarea = screen.getByRole("textbox");
-
-      // Populate cache with a keystroke
       fireEvent.change(textarea, { target: { value: "a" } });
+
       await waitFor(() => {
         expect(getLayoutGrid(textarea).getAttribute("data-layout")).toBe(
           "compact",
         );
       });
 
-      // Install counting spies on the button containers' getBoundingClientRect
-      const grid = container.querySelector("div.cpk\\:grid") as HTMLElement;
-      const addContainer = grid.children[0] as HTMLElement;
-      const actionsContainer = grid.children[2] as HTMLElement;
+      return {
+        container,
+        textarea,
+        grid: container.querySelector("div.cpk\\:grid") as HTMLElement,
+      };
+    };
 
-      const addRectSpy = vi.fn(
-        addContainer.getBoundingClientRect.bind(addContainer),
-      );
-      Object.defineProperty(addContainer, "getBoundingClientRect", {
-        value: addRectSpy,
+    /**
+     * Install a counting spy on an element's getBoundingClientRect,
+     * delegating to the original implementation. Returns the spy.
+     */
+    const installBoundingRectSpy = (element: HTMLElement) => {
+      const spy = vi.fn(element.getBoundingClientRect.bind(element));
+      Object.defineProperty(element, "getBoundingClientRect", {
+        value: spy,
         configurable: true,
       });
-      const actionsRectSpy = vi.fn(
-        actionsContainer.getBoundingClientRect.bind(actionsContainer),
+      return spy;
+    };
+
+    it("does not re-read container dimensions on keystroke when cache is warm", async () => {
+      const { textarea, grid } = await renderAndWarmCache();
+
+      const addRectSpy = installBoundingRectSpy(
+        grid.children[0] as HTMLElement,
       );
-      Object.defineProperty(actionsContainer, "getBoundingClientRect", {
-        value: actionsRectSpy,
-        configurable: true,
-      });
+      const actionsRectSpy = installBoundingRectSpy(
+        grid.children[2] as HTMLElement,
+      );
 
       // Type more — should NOT call getBoundingClientRect since cache is warm
       fireEvent.change(textarea, { target: { value: "ab" } });
@@ -1382,31 +1409,11 @@ describe("CopilotChatInput", () => {
     });
 
     it("does not invalidate cache when only the textarea resizes", async () => {
-      const { container } = renderWithProvider(
-        <CopilotChatInput onSubmitMessage={mockOnSubmitMessage} />,
+      const { textarea, grid } = await renderAndWarmCache();
+
+      const addRectSpy = installBoundingRectSpy(
+        grid.children[0] as HTMLElement,
       );
-      setupMocksAndInvalidateCache(container, DEFAULT_LAYOUT_OPTIONS);
-
-      const textarea = screen.getByRole("textbox");
-
-      // Populate cache
-      fireEvent.change(textarea, { target: { value: "a" } });
-      await waitFor(() => {
-        expect(getLayoutGrid(textarea).getAttribute("data-layout")).toBe(
-          "compact",
-        );
-      });
-
-      // Install spy on addContainer's getBoundingClientRect
-      const grid = container.querySelector("div.cpk\\:grid") as HTMLElement;
-      const addContainer = grid.children[0] as HTMLElement;
-      const addRectSpy = vi.fn(
-        addContainer.getBoundingClientRect.bind(addContainer),
-      );
-      Object.defineProperty(addContainer, "getBoundingClientRect", {
-        value: addRectSpy,
-        configurable: true,
-      });
 
       // Trigger textarea-only resize — should NOT invalidate cache
       triggerResizeForTargets(textarea);
@@ -1422,31 +1429,11 @@ describe("CopilotChatInput", () => {
     });
 
     it("invalidates cache when container targets resize", async () => {
-      const { container } = renderWithProvider(
-        <CopilotChatInput onSubmitMessage={mockOnSubmitMessage} />,
+      const { textarea, grid } = await renderAndWarmCache();
+
+      const addRectSpy = installBoundingRectSpy(
+        grid.children[0] as HTMLElement,
       );
-      setupMocksAndInvalidateCache(container, DEFAULT_LAYOUT_OPTIONS);
-
-      const textarea = screen.getByRole("textbox");
-      const grid = container.querySelector("div.cpk\\:grid") as HTMLElement;
-
-      // Populate cache
-      fireEvent.change(textarea, { target: { value: "a" } });
-      await waitFor(() => {
-        expect(getLayoutGrid(textarea).getAttribute("data-layout")).toBe(
-          "compact",
-        );
-      });
-
-      // Install spy on addContainer's getBoundingClientRect
-      const addContainer = grid.children[0] as HTMLElement;
-      const addRectSpy = vi.fn(
-        addContainer.getBoundingClientRect.bind(addContainer),
-      );
-      Object.defineProperty(addContainer, "getBoundingClientRect", {
-        value: addRectSpy,
-        configurable: true,
-      });
 
       // Trigger container resize — SHOULD invalidate cache
       triggerResizeForTargets(grid);
@@ -1463,20 +1450,7 @@ describe("CopilotChatInput", () => {
     });
 
     it("keeps cache warm during layout toggle (ignoreResizeRef path)", async () => {
-      const { container } = renderWithProvider(
-        <CopilotChatInput onSubmitMessage={mockOnSubmitMessage} />,
-      );
-      setupMocksAndInvalidateCache(container, DEFAULT_LAYOUT_OPTIONS);
-
-      const textarea = screen.getByRole("textbox");
-
-      // Populate cache
-      fireEvent.change(textarea, { target: { value: "a" } });
-      await waitFor(() => {
-        expect(getLayoutGrid(textarea).getAttribute("data-layout")).toBe(
-          "compact",
-        );
-      });
+      const { textarea, grid } = await renderAndWarmCache();
 
       // Trigger expansion — ignoreResizeRef set to true by updateLayout
       fireEvent.change(textarea, { target: { value: "line1\nline2" } });
@@ -1491,15 +1465,9 @@ describe("CopilotChatInput", () => {
       triggerAllResizeObservers();
 
       // Go back to short text — cache should still be warm from before the toggle.
-      const grid = container.querySelector("div.cpk\\:grid") as HTMLElement;
-      const addContainer = grid.children[0] as HTMLElement;
-      const addRectSpy = vi.fn(
-        addContainer.getBoundingClientRect.bind(addContainer),
+      const addRectSpy = installBoundingRectSpy(
+        grid.children[0] as HTMLElement,
       );
-      Object.defineProperty(addContainer, "getBoundingClientRect", {
-        value: addRectSpy,
-        configurable: true,
-      });
 
       fireEvent.change(textarea, { target: { value: "short" } });
       await waitFor(() => {
