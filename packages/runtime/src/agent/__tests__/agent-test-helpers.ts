@@ -31,7 +31,11 @@ export {
 } from "./test-helpers";
 
 // Re-export for test files that need to construct agents directly
-export { BuiltInAgent, type AgentFactoryContext, type BuiltInAgentFactoryConfig };
+export {
+  BuiltInAgent,
+  type AgentFactoryContext,
+  type BuiltInAgentFactoryConfig,
+};
 
 // ---------------------------------------------------------------------------
 // Default input factory
@@ -41,9 +45,7 @@ export { BuiltInAgent, type AgentFactoryContext, type BuiltInAgentFactoryConfig 
  * Returns a valid `RunAgentInput` with sensible defaults.
  * Any field can be overridden via the `overrides` parameter.
  */
-export function createDefaultInput(
-  overrides?: Partial<RunAgentInput>,
-) {
+export function createDefaultInput(overrides?: Partial<RunAgentInput>) {
   return {
     threadId: "test-thread",
     runId: "test-run",
@@ -74,17 +76,12 @@ export function tanstackToolCallStart(
 }
 
 /** TanStack tool call args chunk */
-export function tanstackToolCallArgs(
-  toolCallId: string,
-  delta: string,
-) {
+export function tanstackToolCallArgs(toolCallId: string, delta: string) {
   return { type: "TOOL_CALL_ARGS", toolCallId, delta } as const;
 }
 
 /** TanStack tool call end chunk */
-export function tanstackToolCallEnd(
-  toolCallId: string,
-) {
+export function tanstackToolCallEnd(toolCallId: string) {
   return { type: "TOOL_CALL_END", toolCallId } as const;
 }
 
@@ -95,9 +92,7 @@ export function tanstackToolCallEnd(
 /**
  * Creates an `AsyncIterable<unknown>` from an array of TanStack-style chunks.
  */
-export function mockTanStackStream(
-  chunks: Record<string, unknown>[],
-) {
+export function mockTanStackStream(chunks: Record<string, unknown>[]) {
   return {
     [Symbol.asyncIterator]: async function* () {
       for (const chunk of chunks) {
@@ -144,7 +139,10 @@ export function createAgent(
   type: "tanstack",
   streamData: Record<string, unknown>[],
 ): BuiltInAgent;
-export function createAgent(type: "custom", streamData: BaseEvent[]): BuiltInAgent;
+export function createAgent(
+  type: "custom",
+  streamData: BaseEvent[],
+): BuiltInAgent;
 export function createAgent(
   type: AgentType,
   streamData: MockStreamEvent[] | Record<string, unknown>[] | BaseEvent[],

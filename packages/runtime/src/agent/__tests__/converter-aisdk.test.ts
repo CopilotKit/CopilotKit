@@ -444,9 +444,7 @@ describe("AI SDK Converter", () => {
     });
 
     it("AGUISendStateDelta tool result emits STATE_DELTA event", async () => {
-      const delta = [
-        { op: "replace", path: "/count", value: 2 },
-      ];
+      const delta = [{ op: "replace", path: "/count", value: 2 }];
       const agent = createAgent("aisdk", [
         toolCallStreamingStart("tc-delta", "AGUISendStateDelta"),
         toolCallDelta("tc-delta", JSON.stringify({ delta })),
@@ -481,7 +479,9 @@ describe("AI SDK Converter", () => {
         (e) => e.type === EventType.TOOL_CALL_RESULT,
       );
       expect(toolResults).toHaveLength(1);
-      expect(eventField<string>(toolResults[0], "toolCallId")).toBe("tc-state2");
+      expect(eventField<string>(toolResults[0], "toolCallId")).toBe(
+        "tc-state2",
+      );
     });
 
     it("does not emit STATE_SNAPSHOT when snapshot field is undefined", async () => {
@@ -553,9 +553,9 @@ describe("AI SDK Converter", () => {
         (e) => e.type === EventType.TOOL_CALL_RESULT,
       );
       expect(resultEvents).toHaveLength(1);
-      expect(JSON.parse(eventField<string>(resultEvents[0], "content"))).toEqual(
-        { data: "from-result-prop" },
-      );
+      expect(
+        JSON.parse(eventField<string>(resultEvents[0], "content")),
+      ).toEqual({ data: "from-result-prop" });
     });
 
     it("prefers 'output' over 'result' when both are present", async () => {
@@ -576,9 +576,9 @@ describe("AI SDK Converter", () => {
       const resultEvents = events.filter(
         (e) => e.type === EventType.TOOL_CALL_RESULT,
       );
-      expect(JSON.parse(eventField<string>(resultEvents[0], "content"))).toEqual(
-        { source: "output" },
-      );
+      expect(
+        JSON.parse(eventField<string>(resultEvents[0], "content")),
+      ).toEqual({ source: "output" });
     });
   });
 
@@ -599,9 +599,7 @@ describe("AI SDK Converter", () => {
       );
 
       expect(errored).toBe(true);
-      const errorEvents = events.filter(
-        (e) => e.type === EventType.RUN_ERROR,
-      );
+      const errorEvents = events.filter((e) => e.type === EventType.RUN_ERROR);
       expect(errorEvents).toHaveLength(1);
       // Should contain a useful message, not just "undefined"
       expect(eventField<string>(errorEvents[0], "message")).not.toBe(
@@ -623,9 +621,7 @@ describe("AI SDK Converter", () => {
       );
 
       expect(errored).toBe(true);
-      const errorEvents = events.filter(
-        (e) => e.type === EventType.RUN_ERROR,
-      );
+      const errorEvents = events.filter((e) => e.type === EventType.RUN_ERROR);
       expect(eventField<string>(errorEvents[0], "message")).toBe(
         "rate limit exceeded",
       );
@@ -642,9 +638,7 @@ describe("AI SDK Converter", () => {
       );
 
       expect(errored).toBe(true);
-      const errorEvents = events.filter(
-        (e) => e.type === EventType.RUN_ERROR,
-      );
+      const errorEvents = events.filter((e) => e.type === EventType.RUN_ERROR);
       expect(eventField<string>(errorEvents[0], "message")).toBe("auth failed");
     });
   });

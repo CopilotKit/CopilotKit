@@ -63,12 +63,18 @@ describe("convertInputToTanStackAI", () => {
       const { messages } = convertInputToTanStackAI(input);
 
       expect(messages).toHaveLength(3);
-      expect(messages[0]).toMatchObject({ role: "user", content: "Question 1" });
+      expect(messages[0]).toMatchObject({
+        role: "user",
+        content: "Question 1",
+      });
       expect(messages[1]).toMatchObject({
         role: "assistant",
         content: "Answer 1",
       });
-      expect(messages[2]).toMatchObject({ role: "user", content: "Question 2" });
+      expect(messages[2]).toMatchObject({
+        role: "user",
+        content: "Question 2",
+      });
     });
   });
 
@@ -137,9 +143,7 @@ describe("convertInputToTanStackAI", () => {
 
       const { systemPrompts } = convertInputToTanStackAI(input);
 
-      expect(systemPrompts).toContain(
-        "User preferences:\nDark mode enabled",
-      );
+      expect(systemPrompts).toContain("User preferences:\nDark mode enabled");
       expect(systemPrompts).toContain("Current page:\n/dashboard");
     });
 
