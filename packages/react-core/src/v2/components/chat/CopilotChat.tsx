@@ -74,7 +74,9 @@ export type CopilotChatProps = Omit<
    * which resolves the effective throttle value.
    *
    * @default undefined — inherits from provider `defaultThrottleMs`;
-   * if that is also unset, re-renders are unthrottled (equivalent to 0).
+   * if that is also unset, re-renders are unthrottled. Note: passing
+   * `throttleMs={0}` explicitly disables throttling for this instance
+   * even when the provider specifies a non-zero `defaultThrottleMs`.
    */
   throttleMs?: number;
 };

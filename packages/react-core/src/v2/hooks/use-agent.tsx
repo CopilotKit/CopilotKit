@@ -41,9 +41,6 @@ export interface UseAgentProps {
    * always fire immediately. If `updates` does not include
    * `OnMessagesChanged`, this property has no effect.
    *
-   * This throttle is independent of and additive with any
-   * `notificationThrottle` configured on the `AbstractAgent` instance.
-   *
    * Default: `0` (no throttle).
    */
   throttleMs?: number;
@@ -137,12 +134,12 @@ export function useAgent({
   const effectiveThrottleMs = useMemo(() => {
     const resolved = throttleMs ?? providerThrottleMs ?? 0;
     if (!Number.isFinite(resolved) || resolved < 0) {
+      // When both throttleMs and providerThrottleMs are undefined, resolved
+      // is 0 which passes validation — so one of them must be defined here.
       const source =
         throttleMs !== undefined
           ? "hook-level throttleMs"
-          : providerThrottleMs !== undefined
-            ? "provider-level defaultThrottleMs"
-            : "default";
+          : "provider-level defaultThrottleMs";
       console.error(
         `useAgent: ${source} must be a non-negative finite number, got ${resolved}. Falling back to unthrottled.`,
       );

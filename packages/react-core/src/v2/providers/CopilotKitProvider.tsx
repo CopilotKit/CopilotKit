@@ -135,7 +135,7 @@ export interface CopilotKitProviderProps {
    * a fallback when neither the `useAgent()` hook nor `<CopilotChat>` /
    * `<CopilotSidebar>` / `<CopilotPopup>` specify an explicit `throttleMs`.
    *
-   * @default undefined (defers to each component's throttleMs, then unthrottled)
+   * @default undefined (components/hooks without an explicit throttleMs will be unthrottled)
    */
   defaultThrottleMs?: number;
 }
@@ -414,6 +414,11 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
       renderActivityMessages: allActivityRenderers,
       renderCustomMessages: renderCustomMessagesList,
     });
+    // Set initial defaultThrottleMs synchronously so child hooks see the
+    // correct value on their first render (before useEffect fires).
+    if (defaultThrottleMs !== undefined) {
+      copilotkitRef.current.setDefaultThrottleMs(defaultThrottleMs);
+    }
   }
   const copilotkit = copilotkitRef.current;
 
@@ -561,8 +566,10 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     didMountRef.current = true;
   }, []);
 
-  // Sync defaultThrottleMs to the instance (same pattern as setHeaders, etc.).
-  // Validate eagerly so misconfiguration is caught at the provider level.
+  // Sync defaultThrottleMs to the core instance on prop changes.
+  // Initial value is set synchronously during instance creation (below the
+  // ref init) so child hooks see the correct value on their first render.
+  // This effect handles subsequent updates when the prop changes.
   useEffect(() => {
     if (
       defaultThrottleMs !== undefined &&
