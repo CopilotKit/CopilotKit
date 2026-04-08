@@ -16,8 +16,9 @@ export function ToolCallPreview() {
       <div>
         <h2 className="text-sm font-semibold text-slate-900">Test MCP Tools</h2>
         <p className="mt-1 text-xs leading-relaxed text-slate-500">
-          Use the chat to trigger tool calls. This panel gives you starter prompts while the
-          conversation thread shows actual tool invocations and results.
+          Use the chat to trigger tool calls. This panel gives you starter
+          prompts while the conversation thread shows actual tool invocations
+          and results.
         </p>
       </div>
 
@@ -38,7 +39,9 @@ export function ToolCallPreview() {
       <div className="rounded-xl border border-blue-100 bg-blue-50/70 p-3 text-xs text-blue-900">
         <p className="font-medium">Tip</p>
         <p className="mt-1 leading-relaxed text-blue-800">
-          Make sure the Three.js MCP server is running (for example <code className="rounded bg-white px-1 py-0.5">pnpm dev</code> from the repo root) before testing `show_threejs_scene`.
+          Make sure the Three.js MCP server is running (for example{" "}
+          <code className="rounded bg-white px-1 py-0.5">pnpm dev</code> from
+          the repo root) before testing `show_threejs_scene`.
         </p>
       </div>
     </div>

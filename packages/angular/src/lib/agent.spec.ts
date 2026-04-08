@@ -70,7 +70,7 @@ class CopilotKitStub {
       CopilotKitCoreRuntimeConnectionStatus.Disconnected,
     );
   readonly #runtimeUrl = signal<string | undefined>(undefined);
-  readonly #runtimeTransport = signal<"rest" | "single">("rest");
+  readonly #runtimeTransport = signal<"rest" | "single" | "auto">("auto");
   readonly #headers = signal<Record<string, string>>({});
   getAgent = vi.fn((id: string) => this.#agents()[id]);
   agents = this.#agents.asReadonly();
@@ -80,7 +80,7 @@ class CopilotKitStub {
   headers = this.#headers.asReadonly();
   core = {
     runtimeUrl: undefined as string | undefined,
-    runtimeTransport: "rest" as const,
+    runtimeTransport: "auto" as const,
     runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus.Disconnected,
     headers: {} as Record<string, string>,
   };
@@ -105,7 +105,7 @@ class CopilotKitStub {
     this.core = { ...this.core, headers: value };
   }
 
-  setRuntimeTransport(value: "rest" | "single") {
+  setRuntimeTransport(value: "rest" | "single" | "auto") {
     this.#runtimeTransport.set(value);
     this.core = { ...this.core, runtimeTransport: value };
   }

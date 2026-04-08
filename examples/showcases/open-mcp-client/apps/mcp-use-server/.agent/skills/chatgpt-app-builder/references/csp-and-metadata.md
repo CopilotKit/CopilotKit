@@ -20,7 +20,10 @@ export const widgetMetadata: WidgetMetadata = {
   metadata: {
     csp: {
       // APIs your widget needs to call (fetch, WebSocket, XMLHttpRequest)
-      connectDomains: ["https://api.weather.com", "https://backup-api.weather.com"],
+      connectDomains: [
+        "https://api.weather.com",
+        "https://backup-api.weather.com",
+      ],
 
       // Static assets (images, fonts, stylesheets, videos)
       resourceDomains: ["https://cdn.weather.com"],
@@ -37,12 +40,12 @@ export const widgetMetadata: WidgetMetadata = {
 
 ### CSP Field Reference
 
-| Field | Purpose | Example |
-|-------|---------|---------|
-| `connectDomains` | APIs to call via fetch/WebSocket | `["https://api.example.com"]` |
-| `resourceDomains` | Load images, fonts, stylesheets | `["https://cdn.example.com"]` |
-| `frameDomains` | Embed external iframes | `["https://embed.example.com"]` |
-| `scriptDirectives` | Script-src CSP directives | `["'unsafe-inline'"]` |
+| Field              | Purpose                          | Example                         |
+| ------------------ | -------------------------------- | ------------------------------- |
+| `connectDomains`   | APIs to call via fetch/WebSocket | `["https://api.example.com"]`   |
+| `resourceDomains`  | Load images, fonts, stylesheets  | `["https://cdn.example.com"]`   |
+| `frameDomains`     | Embed external iframes           | `["https://embed.example.com"]` |
+| `scriptDirectives` | Script-src CSP directives        | `["'unsafe-inline'"]`           |
 
 ### Security Best Practices
 
@@ -57,6 +60,7 @@ export const widgetMetadata: WidgetMetadata = {
 **Problem:** Widget loads but assets fail
 
 **Solutions:**
+
 1. Check browser console for CSP violation messages
 2. Add missing domains to CSP:
    ```typescript
@@ -98,12 +102,12 @@ export const widgetMetadata: WidgetMetadata = {
 
 ### All Metadata Fields
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `csp` | object | Content Security Policy configuration |
-| `prefersBorder` | boolean | Show border around widget |
-| `autoResize` | boolean | Auto-resize widget to content |
-| `widgetDescription` | string | Human-readable widget description |
+| Field               | Type    | Description                           |
+| ------------------- | ------- | ------------------------------------- |
+| `csp`               | object  | Content Security Policy configuration |
+| `prefersBorder`     | boolean | Show border around widget             |
+| `autoResize`        | boolean | Auto-resize widget to content         |
+| `widgetDescription` | string  | Human-readable widget description     |
 
 ## Legacy Apps SDK Format
 
@@ -129,14 +133,15 @@ export const widgetMetadata: WidgetMetadata = {
 
 ### Migration Guide
 
-| Legacy (appsSdkMetadata) | Modern (metadata) |
-|--------------------------|-------------------|
-| `openai/widgetCSP.connect_domains` | `csp.connectDomains` |
+| Legacy (appsSdkMetadata)            | Modern (metadata)     |
+| ----------------------------------- | --------------------- |
+| `openai/widgetCSP.connect_domains`  | `csp.connectDomains`  |
 | `openai/widgetCSP.resource_domains` | `csp.resourceDomains` |
-| `openai/widgetPrefersBorder` | `prefersBorder` |
-| `openai/widgetDescription` | `widgetDescription` |
+| `openai/widgetPrefersBorder`        | `prefersBorder`       |
+| `openai/widgetDescription`          | `widgetDescription`   |
 
 **Key differences:**
+
 - Legacy uses `openai/` prefixes
 - Legacy uses `snake_case` for CSP fields
 - Modern uses `camelCase` and works with both protocols

@@ -12,7 +12,9 @@ function getDefaultServersFromEnv(): McpServerEntry[] | null {
     if (!Array.isArray(parsed)) return null;
     return parsed.filter(
       (s): s is McpServerEntry =>
-        s != null && typeof s === "object" && typeof (s as McpServerEntry).endpoint === "string"
+        s != null &&
+        typeof s === "object" &&
+        typeof (s as McpServerEntry).endpoint === "string",
     );
   } catch {
     return null;
@@ -26,4 +28,5 @@ const BUILTIN_DEFAULTS: McpServerEntry[] = [
   { endpoint: "https://mcp.excalidraw.com", serverId: "excalidraw" },
 ];
 
-export const DEFAULT_SERVERS: McpServerEntry[] = envDefaults ?? BUILTIN_DEFAULTS;
+export const DEFAULT_SERVERS: McpServerEntry[] =
+  envDefaults ?? BUILTIN_DEFAULTS;

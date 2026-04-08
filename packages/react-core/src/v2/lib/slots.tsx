@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useRef } from "react";
 import { twMerge } from "tailwind-merge";
 
 /** Existing union (unchanged) */
@@ -24,6 +24,47 @@ export function shallowEqual<T extends Record<string, unknown>>(
   }
 
   return true;
+}
+
+/**
+ * Returns true only for plain JS objects (`{}`), excluding arrays, Dates,
+ * class instances, and other exotic objects that happen to have typeof "object".
+ */
+function isPlainObject(obj: unknown): obj is Record<string, unknown> {
+  return (
+    obj !== null &&
+    typeof obj === "object" &&
+    Object.prototype.toString.call(obj) === "[object Object]"
+  );
+}
+
+/**
+ * Returns the same reference as long as the value is shallowly equal to the
+ * previous render's value.
+ *
+ * - Identical references bail out immediately (O(1)).
+ * - Plain objects ({}) are shallow-compared key-by-key.
+ * - Arrays, Dates, class instances, functions, and primitives are compared by
+ *   reference only — shallowEqual is never called on non-plain objects, which
+ *   avoids incorrect equality for e.g. [1,2] vs [1,2] (different arrays).
+ *
+ * Typical use: stabilize inline slot props so MemoizedSlotWrapper's shallow
+ * equality check isn't defeated by a new object reference on every render.
+ */
+export function useShallowStableRef<T>(value: T): T {
+  const ref = useRef(value);
+
+  // 1. Identical reference — bail early, no comparison needed.
+  if (ref.current === value) return ref.current;
+
+  // 2. Both are plain objects — shallow-compare to detect structural equality.
+  if (isPlainObject(ref.current) && isPlainObject(value)) {
+    if (shallowEqual(ref.current, value)) return ref.current;
+  }
+
+  // 3. Different values (or non-comparable types) — update the ref.
+  ref.current = value;
+  return ref.current;
 }
 
 /** Utility: concrete React elements for every slot */

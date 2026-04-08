@@ -125,7 +125,7 @@ export function CopilotChatInput({
   onChange,
   value,
   toolsMenu,
-  autoFocus = true,
+  autoFocus = false,
   positioning = "static",
   keyboardHeight = 0,
   containerRef,
@@ -252,7 +252,7 @@ export function CopilotChatInput({
     }
 
     if (config?.isModalOpen && !previousModalStateRef.current) {
-      inputRef.current?.focus();
+      inputRef.current?.focus({ preventScroll: true });
     }
 
     previousModalStateRef.current = config?.isModalOpen;
@@ -1199,7 +1199,7 @@ export namespace CopilotChatInput {
           </TooltipTrigger>
           <TooltipContent side="bottom">
             <p className="cpk:flex cpk:items-center cpk:gap-1 cpk:text-xs cpk:font-medium">
-              <span>Add files and more</span>
+              <span>Add attachments</span>
               <code className="cpk:rounded cpk:bg-[#4a4a4a] cpk:px-1 cpk:py-[1px] cpk:font-mono cpk:text-[11px] cpk:text-white cpk:dark:bg-[#e0e0e0] cpk:dark:text-black">
                 /
               </code>
@@ -1231,25 +1231,9 @@ export namespace CopilotChatInput {
         () => internalTextareaRef.current as HTMLTextAreaElement,
       );
 
-      // Auto-scroll input into view on mobile when focused
-      useEffect(() => {
-        const textarea = internalTextareaRef.current;
-        if (!textarea) return;
-
-        const handleFocus = () => {
-          // Small delay to let the keyboard start appearing
-          setTimeout(() => {
-            textarea.scrollIntoView({ behavior: "smooth", block: "nearest" });
-          }, 300);
-        };
-
-        textarea.addEventListener("focus", handleFocus);
-        return () => textarea.removeEventListener("focus", handleFocus);
-      }, []);
-
       useEffect(() => {
         if (autoFocus) {
-          internalTextareaRef.current?.focus();
+          internalTextareaRef.current?.focus({ preventScroll: true });
         }
       }, [autoFocus]);
 

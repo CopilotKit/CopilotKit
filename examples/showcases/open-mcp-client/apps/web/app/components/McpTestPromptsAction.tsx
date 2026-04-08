@@ -47,7 +47,9 @@ function TestPromptButtons({ prompts }: { prompts: McpTestPrompt[] }) {
             key={`${p.label}-${i}`}
             type="button"
             onClick={() => {
-              void appendMessage(new TextMessage({ content: p.message, role: Role.User }));
+              void appendMessage(
+                new TextMessage({ content: p.message, role: Role.User }),
+              );
             }}
             className="rounded-full border border-emerald-200/90 bg-white px-2.5 py-1 text-[11px] font-medium text-emerald-900 shadow-sm transition hover:bg-emerald-100"
           >
@@ -91,8 +93,8 @@ export function RegisterMcpTestPromptsAction() {
       if (prompts.length === 0) {
         return (
           <p className="text-xs text-amber-800">
-            Could not parse test prompts. Pass prompts_json as a JSON array of objects with label and message
-            fields.
+            Could not parse test prompts. Pass prompts_json as a JSON array of
+            objects with label and message fields.
           </p>
         );
       }

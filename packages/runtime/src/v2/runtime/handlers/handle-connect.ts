@@ -1,6 +1,6 @@
 import { handleIntelligenceConnect } from "./intelligence/connect";
 import { handleSseConnect } from "./sse/connect";
-import { isIntelligenceRuntime } from "../runtime";
+import { isIntelligenceRuntime } from "../core/runtime";
 import { telemetry } from "../telemetry";
 import {
   parseConnectRequest,
@@ -65,12 +65,15 @@ export async function handleConnectAgent({
       cause: error instanceof Error ? error.cause : undefined,
     });
 
-    return Response.json(
-      {
+    return new Response(
+      JSON.stringify({
         error: "Failed to run agent",
         message: error instanceof Error ? error.message : "Unknown error",
+      }),
+      {
+        status: 500,
+        headers: { "Content-Type": "application/json" },
       },
-      { status: 500 },
     );
   }
 }

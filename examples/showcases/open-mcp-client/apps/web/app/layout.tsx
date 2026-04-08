@@ -18,9 +18,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={"antialiased"}>
-        <DynamicCopilotKitProvider>
-          {children}
-        </DynamicCopilotKitProvider>
+        <DynamicCopilotKitProvider>{children}</DynamicCopilotKitProvider>
       </body>
     </html>
   );

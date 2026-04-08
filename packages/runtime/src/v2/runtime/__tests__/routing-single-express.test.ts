@@ -5,7 +5,7 @@ import type { AbstractAgent } from "@ag-ui/client";
 import { Observable, of } from "rxjs";
 
 import { createCopilotEndpointSingleRouteExpress } from "../express";
-import { CopilotRuntime } from "../runtime";
+import { CopilotRuntime } from "../core/runtime";
 
 vi.mock("../handlers/handle-run", () => ({
   handleRunAgent: vi

@@ -742,7 +742,7 @@ describe("CopilotChatInput", () => {
     });
 
     const menuItem = await screen.findByRole("menuitem", {
-      name: "Add photos or files",
+      name: "Add attachments",
     });
     fireEvent.click(menuItem);
 
@@ -981,6 +981,52 @@ describe("CopilotChatInput", () => {
       // It's up to the parent to manage the value
       expect((input as HTMLTextAreaElement).value).toBe("test message");
       expect(mockOnSubmitMessage).toHaveBeenCalledWith("test message");
+    });
+  });
+
+  describe("Scroll behavior", () => {
+    it("does not call scrollIntoView when the textarea receives focus", async () => {
+      const scrollIntoViewMock = vi.fn();
+      HTMLElement.prototype.scrollIntoView = scrollIntoViewMock;
+
+      renderWithProvider(
+        <CopilotChatInput autoFocus onSubmitMessage={mockOnSubmitMessage} />,
+      );
+
+      const textarea = screen.getByRole("textbox");
+
+      // Trigger focus explicitly (autoFocus also triggers it, but let's be explicit)
+      fireEvent.focus(textarea);
+
+      // Wait long enough for the 300ms setTimeout inside the focus handler
+      await new Promise((resolve) => setTimeout(resolve, 500));
+
+      expect(scrollIntoViewMock).not.toHaveBeenCalled();
+
+      // Clean up
+      delete (HTMLElement.prototype as any).scrollIntoView;
+    });
+
+    it("does not auto-focus the textarea by default", () => {
+      const focusSpy = vi.spyOn(HTMLElement.prototype, "focus");
+
+      renderWithProvider(
+        <CopilotChatInput onSubmitMessage={mockOnSubmitMessage} />,
+      );
+
+      expect(focusSpy).not.toHaveBeenCalled();
+      focusSpy.mockRestore();
+    });
+
+    it("auto-focuses with preventScroll when autoFocus is true", () => {
+      const focusSpy = vi.spyOn(HTMLElement.prototype, "focus");
+
+      renderWithProvider(
+        <CopilotChatInput autoFocus onSubmitMessage={mockOnSubmitMessage} />,
+      );
+
+      expect(focusSpy).toHaveBeenCalledWith({ preventScroll: true });
+      focusSpy.mockRestore();
     });
   });
 });

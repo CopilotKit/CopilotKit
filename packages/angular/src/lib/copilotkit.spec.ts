@@ -41,7 +41,7 @@ vi.mock("@copilotkit/core", () => {
     readonly getAgent = mockGetAgent;
     agents: Record<string, any> = {};
     runtimeUrl = undefined;
-    runtimeTransport = "rest";
+    runtimeTransport = "auto";
     headers: Record<string, string> = {};
     runtimeConnectionStatus =
       CopilotKitCoreRuntimeConnectionStatus.Disconnected;
