@@ -220,6 +220,15 @@ export interface CopilotKitProviderProps {
     includeSchema?: boolean;
   };
   /**
+   * Default throttle interval (in milliseconds) for `useAgent` re-renders
+   * triggered by `OnMessagesChanged` notifications. This value is used as
+   * a fallback when neither the `useAgent()` hook nor `<CopilotChat>` /
+   * `<CopilotSidebar>` / `<CopilotPopup>` specify an explicit `throttleMs`.
+   *
+   * @default undefined (components/hooks without an explicit throttleMs will be unthrottled)
+   */
+  defaultThrottleMs?: number;
+  /**
    * Default anchor corner for the inspector button and window.
    * Only used on first load before the user drags to a custom position.
    * Defaults to `{ horizontal: "right", vertical: "top" }`.
@@ -272,6 +281,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   useSingleEndpoint,
   onError,
   a2ui,
+  defaultThrottleMs,
   inspectorDefaultAnchor,
 }) => {
   const [shouldRenderInspector, setShouldRenderInspector] = useState(false);
@@ -541,6 +551,11 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
       renderActivityMessages: allActivityRenderers,
       renderCustomMessages: renderCustomMessagesList,
     });
+    // Set initial defaultThrottleMs synchronously so child hooks see the
+    // correct value on their first render (before useEffect fires).
+    if (defaultThrottleMs !== undefined) {
+      copilotkitRef.current.setDefaultThrottleMs(defaultThrottleMs);
+    }
   }
   const copilotkit = copilotkitRef.current;
 
@@ -690,6 +705,23 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   useEffect(() => {
     didMountRef.current = true;
   }, []);
+
+  // Sync defaultThrottleMs to the core instance on prop changes.
+  // Initial value is set synchronously during instance creation (below the
+  // ref init) so child hooks see the correct value on their first render.
+  // This effect handles subsequent updates when the prop changes.
+  useEffect(() => {
+    if (
+      defaultThrottleMs !== undefined &&
+      (!Number.isFinite(defaultThrottleMs) || defaultThrottleMs < 0)
+    ) {
+      console.error(
+        `CopilotKitProvider: defaultThrottleMs must be a non-negative finite number, got ${defaultThrottleMs}. ` +
+          `useAgent hooks without an explicit throttleMs will fall back to unthrottled.`,
+      );
+    }
+    copilotkit.setDefaultThrottleMs(defaultThrottleMs);
+  }, [copilotkit, defaultThrottleMs]);
 
   // Register design skill as agent context for the generateSandboxedUi tool
   const designSkill = openGenerativeUI?.designSkill ?? DEFAULT_DESIGN_SKILL;
