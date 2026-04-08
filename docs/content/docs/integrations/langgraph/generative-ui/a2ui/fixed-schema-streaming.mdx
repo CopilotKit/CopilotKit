@@ -1,0 +1,141 @@
+---
+title: "Fixed Schema A2UI (Streaming)"
+description: "Pre-defined schema with progressive rendering — cards appear one by one as the LLM streams data."
+---
+
+import { Callout } from "fumadocs-ui/components/callout"
+import { Steps, Step } from "fumadocs-ui/components/steps"
+
+The streaming fixed-schema approach uses the same pre-defined schema as the non-streaming variant, but cards appear progressively as the LLM streams the tool call arguments. This gives users immediate visual feedback instead of waiting for the full response.
+
+## How it works
+
+1. Schema is configured in the AG-UI A2UI middleware (typically in the CopilotRuntime config)
+2. When the LLM starts calling the tool, the middleware emits the schema immediately
+3. As the LLM streams each item in the data array, the middleware partial-parses it and emits a `dataModelUpdate`
+4. Cards appear one at a time in the UI
+
+The key difference from the non-streaming approach: **the agent tool itself is a plain `@tool`** — all the streaming magic happens in the middleware configuration.
+
+## Implementation
+
+<Steps>
+<Step>
+### Define a plain agent tool (Python)
+
+The tool is simple — no `a2ui.render()` needed. The middleware handles everything.
+
+```python title="apps/agent/src/a2ui_fixed_schema_streaming.py"
+from langchain.tools import tool
+from typing import TypedDict
+
+class Flight(TypedDict):
+    id: str
+    airline: str
+    airlineLogo: str
+    flightNumber: str
+    origin: str
+    destination: str
+    date: str
+    departureTime: str
+    arrivalTime: str
+    duration: str
+    status: str
+    statusIcon: str
+    price: str
+
+@tool
+def search_flights_streaming(flights: list[Flight]) -> str:
+    """Search for flights and display results with streaming rendering."""
+    return f"Displayed {len(flights)} flights."
+```
+
+The `Flight` TypedDict is essential — LangChain serializes it into the tool's JSON schema, which the LLM uses to generate data matching the A2UI schema's data bindings. Without typed fields, the LLM won't know what shape to produce.
+
+That's it on the Python side. The tool just returns a plain string — all rendering is handled by the middleware.
+</Step>
+
+<Step>
+### Configure streaming surfaces (TypeScript)
+
+The schema and streaming behavior are configured in the CopilotRuntime. You can generate your schema using the [A2UI Composer](https://a2ui-composer.ag-ui.com/):
+
+```typescript title="app/api/copilotkit/route.ts"
+import flightSchema from "./streaming_flight_schema.json";
+import bookedSchema from "../../../a2ui/booked_schema.json";
+
+const runtime = new CopilotRuntime({
+  agents: { default: myAgent },
+  a2ui: {
+    injectA2UITool: true,
+    streamingSurfaces: [
+      {
+        toolName: "search_flights_streaming",
+        surface: {
+          surfaceId: "flight-search-streaming",
+          root: "root",
+          components: flightSchema,
+          dataKey: "flights",  // which tool arg contains the data array
+          actionHandlers: {
+            book_flight: [
+              { surfaceUpdate: { surfaceId: "flight-search-streaming", components: bookedSchema } },
+              { dataModelUpdate: {
+                  surfaceId: "flight-search-streaming",
+                  contents: [
+                    { key: "title", valueString: "Booking Confirmed" },
+                    { key: "detail", valueString: "Your flight has been booked." },
+                  ],
+              }},
+              { beginRendering: { surfaceId: "flight-search-streaming", root: "root" } },
+            ],
+          },
+        },
+      },
+    ],
+  },
+});
+```
+</Step>
+
+<Step>
+### Register the tool
+
+```python title="apps/agent/main.py"
+from src.a2ui_fixed_schema_streaming import search_flights_streaming
+
+agent = create_agent(
+    tools=[search_flights_streaming, ...],
+    ...
+)
+```
+</Step>
+</Steps>
+
+## How streaming works under the hood
+
+The A2UI middleware intercepts `TOOL_CALL_ARGS` events for the registered tool:
+
+1. **`TOOL_CALL_START`** — middleware emits `surfaceUpdate` + `beginRendering` immediately (schema is known)
+2. **`TOOL_CALL_ARGS`** — middleware partial-parses the accumulating JSON, extracts complete items from the `dataKey` array, emits `dataModelUpdate` progressively
+3. **`TOOL_CALL_END`** — final snapshot emitted with all items
+
+<Callout type="info">
+The `dataKey` config tells the middleware which tool argument contains the data array to stream. For `search_flights_streaming`, this is `"flights"`.
+</Callout>
+
+## Action handlers
+
+The `actionHandlers` in the runtime config above declare optimistic UI responses for button clicks — the same concept as the [fixed-schema approach](./fixed-schema#action-handler-details), but declared in TypeScript rather than Python. The `"book_flight"` key matches `action.name` from the schema button. You can also use `"*"` as a catch-all.
+
+<Callout type="info">
+The schema button definition is the same across all approaches — use `action.name` and `action.context` in the JSON schema. For frontend customization, see [Advanced — Action Handlers](./advanced#action-handlers).
+</Callout>
+
+## Fixed Schema vs Fixed Schema Streaming
+
+| | Fixed Schema | Fixed Schema Streaming |
+|---|---|---|
+| **Schema defined in** | Python (JSON file) | AG-UI A2UI middleware (runtime config) |
+| **Rendering** | All at once | Card by card |
+| **Python tool complexity** | Uses `a2ui.render()` | Plain `@tool`, returns string |
+| **Streaming config** | None needed | `streamingSurfaces` in runtime |
