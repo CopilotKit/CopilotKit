@@ -116,3 +116,20 @@ describe("CopilotChat throttleMs prop", () => {
     );
   });
 });
+
+describe("throttleMs type inheritance", () => {
+  it("CopilotSidebarProps includes throttleMs via CopilotChatProps", () => {
+    // Type-level assertion — if this compiles, the type includes throttleMs.
+    const sidebarProps: import("../CopilotSidebar").CopilotSidebarProps = {
+      throttleMs: 1000,
+    };
+    expect(sidebarProps.throttleMs).toBe(1000);
+  });
+
+  it("CopilotPopupProps includes throttleMs via CopilotChatProps", () => {
+    const popupProps: import("../CopilotPopup").CopilotPopupProps = {
+      throttleMs: 2000,
+    };
+    expect(popupProps.throttleMs).toBe(2000);
+  });
+});
