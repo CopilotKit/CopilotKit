@@ -1,0 +1,61 @@
+name: publish / release
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+concurrency: ${{ github.workflow }}-${{ github.ref }}
+
+permissions:
+  contents: write
+  pull-requests: write
+
+env:
+  NX_VERBOSE_LOGGING: true
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: "10.13.1"
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+          registry-url: https://registry.npmjs.org
+
+      - name: Install Dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Configure Nx Cloud environment
+        run: |
+          echo "NX_CI_EXECUTION_ID=${{ github.run_id }}-${{ github.run_attempt }}-release" >> "$GITHUB_ENV"
+          echo "NX_CLOUD_NO_TIMEOUTS=true" >> "$GITHUB_ENV"
+          echo "NX_CLOUD_DISTRIBUTED_EXECUTION=false" >> "$GITHUB_ENV"
+          echo "NX_NO_CLOUD=true" >> "$GITHUB_ENV"
+
+      - name: Create Release PR or Publish
+        id: changesets
+        uses: changesets/action@v1
+        with:
+          version: pnpm changeset version
+          publish: pnpm ci:publish-release
+          commit: "chore: version packages"
+          title: "chore: version packages"
+          createGithubReleases: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
