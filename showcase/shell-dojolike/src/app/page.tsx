@@ -79,6 +79,7 @@ export default function DojoPage() {
     const [selectedDemoId, setSelectedDemoId] = useState(integrations[0]?.demos[0]?.id || "");
     const [viewMode, setViewMode] = useState<ViewMode>("preview");
     const [selectedFileIndex, setSelectedFileIndex] = useState(0);
+    const [dropdownOpen, setDropdownOpen] = useState(false);
 
     const integration = useMemo(
         () => integrations.find((i) => i.slug === selectedSlug),
@@ -106,6 +107,7 @@ export default function DojoPage() {
         (slug: string) => {
             setSelectedSlug(slug);
             setSelectedFileIndex(0);
+            setDropdownOpen(false);
             const newIntegration = integrations.find((i) => i.slug === slug);
             if (newIntegration) {
                 const hasDemo = newIntegration.demos.find((d) => d.id === selectedDemoId);
@@ -128,21 +130,24 @@ export default function DojoPage() {
             : null;
 
     return (
-        <div style={{ display: "flex", height: "100vh", overflow: "hidden", background: "var(--bg)" }}>
-            {/* Purple accent bar at top */}
-            <div
-                style={{
-                    position: "fixed",
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    height: 3,
-                    background: "var(--accent)",
-                    zIndex: 100,
-                }}
-            />
+        <div style={{
+            position: "relative",
+            display: "flex",
+            height: "100vh",
+            overflow: "hidden",
+            background: "var(--surface-main)",
+            padding: 8,
+            gap: 8,
+        }}>
+            {/* Background blur circles — from dojo Figma specs */}
+            <div style={{ position: "absolute", width: 446, height: 446, left: 1040, top: 11, borderRadius: "50%", background: "rgba(255, 172, 77, 0.2)", filter: "blur(103px)", zIndex: 0 }} />
+            <div style={{ position: "absolute", width: 609, height: 609, left: 1339, top: 625, borderRadius: "50%", background: "#C9C9DA", filter: "blur(103px)", zIndex: 0 }} />
+            <div style={{ position: "absolute", width: 609, height: 609, left: 670, top: -365, borderRadius: "50%", background: "#C9C9DA", filter: "blur(103px)", zIndex: 0 }} />
+            <div style={{ position: "absolute", width: 609, height: 609, left: 508, top: 702, borderRadius: "50%", background: "#F3F3FC", filter: "blur(103px)", zIndex: 0 }} />
+            <div style={{ position: "absolute", width: 446, height: 446, left: 128, top: 331, borderRadius: "50%", background: "rgba(255, 243, 136, 0.3)", filter: "blur(103px)", zIndex: 0 }} />
+            <div style={{ position: "absolute", width: 446, height: 446, left: -205, top: 803, borderRadius: "50%", background: "rgba(255, 172, 77, 0.2)", filter: "blur(103px)", zIndex: 0 }} />
 
-            {/* Sidebar — floating glass card */}
+            {/* Sidebar */}
             <aside
                 style={{
                     width: "var(--sidebar-width)",
@@ -150,188 +155,214 @@ export default function DojoPage() {
                     display: "flex",
                     flexDirection: "column",
                     overflow: "hidden",
-                    margin: "12px 0 12px 12px",
-                    marginTop: 15,
-                    borderRadius: 12,
-                    background: "var(--glass-bg)",
-                    backdropFilter: "blur(12px)",
-                    WebkitBackdropFilter: "blur(12px)",
-                    border: "1px solid var(--glass-border)",
-                    boxShadow: "var(--shadow)",
+                    borderRadius: 8,
+                    background: "rgba(255, 255, 255, 0.5)",
+                    border: "2px solid var(--border-default)",
+                    flexShrink: 0,
+                    zIndex: 1,
                 }}
             >
                 {/* Header */}
-                <div style={{ padding: "20px 20px 16px" }}>
-                    <div style={{ fontWeight: 600, fontSize: 15, color: "var(--text)" }}>
+                <div style={{ padding: "16px 16px 12px 20px" }}>
+                    <div style={{ fontWeight: 300, fontSize: 18, color: "#111827" }}>
                         CopilotKit Interactive Dojo
                     </div>
                 </div>
 
-                {/* Integration selector */}
-                <div style={{ padding: "0 20px 16px" }}>
-                    <div style={{
-                        fontSize: 11,
-                        fontWeight: 600,
-                        textTransform: "uppercase",
-                        letterSpacing: "0.05em",
-                        color: "var(--text-muted)",
-                        marginBottom: 8,
-                    }}>
-                        Integrations
-                    </div>
-                    <div style={{ paddingBottom: 4 }}>
-                        <select
-                            value={selectedSlug}
-                            onChange={(e) => handleIntegrationChange(e.target.value)}
+                {/* Controls section */}
+                <div style={{ padding: "0 16px 12px", borderBottom: "1px solid var(--border-container)" }}>
+                    {/* Integration picker */}
+                    <div style={{ marginBottom: 16 }}>
+                        <SectionTitle title="Integrations" />
+                        <div
+                            onClick={() => setDropdownOpen(!dropdownOpen)}
                             style={{
-                                width: "100%",
-                                padding: "8px 12px",
-                                fontSize: 14,
-                                fontWeight: 500,
-                                border: "1px solid var(--border)",
-                                borderRadius: 8,
-                                background: "var(--bg-surface)",
-                                color: "var(--text)",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "space-between",
+                                height: 32,
+                                borderRadius: 4,
+                                padding: "0 12px",
                                 cursor: "pointer",
-                                appearance: "auto",
+                                transition: "background 0.15s",
+                                background: dropdownOpen ? "rgba(0,0,0,0.03)" : "transparent",
                             }}
+                            onMouseEnter={(e) => { if (!dropdownOpen) e.currentTarget.style.background = "rgba(250,252,250,1)"; }}
+                            onMouseLeave={(e) => { if (!dropdownOpen) e.currentTarget.style.background = "transparent"; }}
                         >
-                            {integrations.map((i) => (
-                                <option key={i.slug} value={i.slug}>
-                                    {i.name}
-                                </option>
-                            ))}
-                        </select>
-                    </div>
-                </div>
-
-                {/* View mode toggle — inline text style */}
-                <div style={{ padding: "0 20px 12px" }}>
-                    <div style={{
-                        fontSize: 11,
-                        fontWeight: 600,
-                        textTransform: "uppercase",
-                        letterSpacing: "0.05em",
-                        color: "var(--text-muted)",
-                        marginBottom: 8,
-                    }}>
-                        View
-                    </div>
-                    <div style={{
-                        display: "flex",
-                        gap: 6,
-                        paddingBottom: 4,
-                    }}>
-                        {(["preview", "code"] as const).map((mode) => {
-                            const isActive = viewMode === mode;
-                            return (
-                                <button
-                                    key={mode}
-                                    onClick={() => setViewMode(mode)}
-                                    style={{
-                                        padding: "5px 14px",
-                                        fontSize: 13,
-                                        fontWeight: isActive ? 500 : 400,
-                                        border: isActive ? "1px solid var(--border)" : "1px solid transparent",
-                                        borderRadius: 6,
-                                        cursor: "pointer",
-                                        background: isActive ? "var(--bg-surface)" : "transparent",
-                                        color: isActive ? "var(--text)" : "var(--text-muted)",
-                                        boxShadow: isActive ? "0 1px 2px rgba(0,0,0,0.04)" : "none",
-                                    }}
-                                >
-                                    {mode === "preview" ? "\u25C9 Preview" : "</> Code"}
-                                </button>
-                            );
-                        })}
-                    </div>
-                </div>
-
-                {/* Divider */}
-                <div style={{ margin: "0 20px", borderTop: "1px solid var(--border)" }} />
-
-                {/* Demo list grouped by feature category */}
-                <div className="sidebar-scroll" style={{ flex: 1, overflow: "auto", padding: "4px 0 12px" }}>
-                    {groupedDemos.map(({ category, demos }) => (
-                        <div key={category.id} style={{ marginBottom: 2 }}>
-                            <div
-                                style={{
-                                    fontSize: 11,
-                                    fontWeight: 600,
-                                    textTransform: "uppercase",
-                                    letterSpacing: "0.05em",
-                                    color: "var(--text-muted)",
-                                    padding: "12px 20px 6px",
-                                }}
-                            >
-                                {category.name}
+                            <span style={{ fontSize: 14, fontWeight: 500, color: "var(--text-primary)", lineHeight: "22px" }}>
+                                {integration?.name || "Select Integration"}
+                            </span>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--text-primary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ transition: "transform 0.2s", transform: dropdownOpen ? "rotate(180deg)" : "rotate(0deg)" }}>
+                                <polyline points="6 9 12 15 18 9" />
+                            </svg>
+                        </div>
+                        {dropdownOpen && (
+                            <div style={{
+                                marginTop: 4,
+                                background: "var(--surface-container)",
+                                border: "1px solid var(--border-container)",
+                                borderRadius: 4,
+                                boxShadow: "0px 6px 6px -2px rgba(1, 5, 7, 0.08)",
+                                maxHeight: 300,
+                                overflow: "auto",
+                                zIndex: 10,
+                                position: "relative",
+                            }}>
+                                {integrations.map((i) => (
+                                    <div
+                                        key={i.slug}
+                                        onClick={() => handleIntegrationChange(i.slug)}
+                                        style={{
+                                            padding: "8px 12px",
+                                            fontSize: 14,
+                                            cursor: "pointer",
+                                            borderRadius: 4,
+                                            color: "var(--text-primary)",
+                                            background: i.slug === selectedSlug ? "rgba(0,0,0,0.03)" : "transparent",
+                                        }}
+                                        onMouseEnter={(e) => e.currentTarget.style.background = "#f0f0f4"}
+                                        onMouseLeave={(e) => e.currentTarget.style.background = i.slug === selectedSlug ? "rgba(0,0,0,0.03)" : "transparent"}
+                                    >
+                                        {i.name}
+                                    </div>
+                                ))}
                             </div>
-                            {demos.map((demo) => {
-                                const isSelected = demo.id === selectedDemoId;
+                        )}
+                    </div>
+
+                    {/* View toggle */}
+                    <div style={{ marginBottom: 4 }}>
+                        <SectionTitle title="View" />
+                        <div style={{ display: "flex", gap: 0, borderRadius: 8, background: "transparent" }}>
+                            {(["preview", "code"] as const).map((mode) => {
+                                const isActive = viewMode === mode;
                                 return (
                                     <button
-                                        key={demo.id}
-                                        onClick={() => handleDemoSelect(demo.id)}
+                                        key={mode}
+                                        onClick={() => setViewMode(mode)}
                                         style={{
-                                            display: "block",
-                                            width: "100%",
-                                            textAlign: "left",
-                                            padding: "10px 20px",
+                                            flex: 1,
+                                            height: 32,
+                                            padding: "0 8px",
+                                            fontSize: 14,
+                                            fontWeight: 500,
                                             border: "none",
+                                            borderRadius: 8,
                                             cursor: "pointer",
-                                            background: isSelected ? "var(--bg-selected)" : "transparent",
-                                            borderRadius: 0,
-                                            transition: "background 0.1s",
-                                        }}
-                                        onMouseEnter={(e) => {
-                                            if (!isSelected) e.currentTarget.style.background = "var(--bg-hover)";
-                                        }}
-                                        onMouseLeave={(e) => {
-                                            if (!isSelected) e.currentTarget.style.background = "transparent";
+                                            background: isActive ? "#ffffff" : "transparent",
+                                            color: "var(--text-primary)",
+                                            boxShadow: "none",
+                                            display: "flex",
+                                            alignItems: "center",
+                                            justifyContent: "center",
+                                            gap: 4,
                                         }}
                                     >
-                                        <div style={{
-                                            fontWeight: isSelected ? 600 : 500,
-                                            fontSize: 14,
-                                            color: "var(--text)",
-                                        }}>
-                                            {demo.name}
-                                        </div>
-                                        <div style={{
-                                            fontSize: 12,
-                                            color: "var(--text-muted)",
-                                            marginTop: 2,
-                                            lineHeight: 1.4,
-                                        }}>
-                                            {demo.description}
-                                        </div>
-                                        {demo.tags.length > 0 && (
-                                            <div style={{ marginTop: 6, display: "flex", flexWrap: "wrap", gap: 4 }}>
-                                                {demo.tags.map((tag) => (
-                                                    <span
-                                                        key={tag}
-                                                        style={{
-                                                            display: "inline-block",
-                                                            fontSize: 11,
-                                                            padding: "2px 10px",
-                                                            borderRadius: 10,
-                                                            background: "var(--tag-bg)",
-                                                            color: "var(--tag-text)",
-                                                            fontWeight: 500,
-                                                        }}
-                                                    >
-                                                        {prettifyTag(tag)}
-                                                    </span>
-                                                ))}
-                                            </div>
+                                        {mode === "preview" ? (
+                                            <>
+                                                <svg width="12" height="12" viewBox="0 0 256 256" fill="currentColor"><path d="M247.31,124.76c-.35-.79-8.82-19.58-27.65-38.41C194.57,61.26,162.88,48,128,48S61.43,61.26,36.34,86.35C17.51,105.18,9,124,8.69,124.76a8,8,0,0,0,0,6.5c.35.79,8.82,19.57,27.65,38.4C61.43,194.74,93.12,208,128,208s66.57-13.26,91.66-38.34c18.83-18.83,27.3-37.61,27.65-38.4A8,8,0,0,0,247.31,124.76ZM128,192c-30.78,0-57.67-11.19-79.93-33.29A169.47,169.47,0,0,1,24.4,128,169.47,169.47,0,0,1,48.07,97.29C70.33,75.19,97.22,64,128,64s57.67,11.19,79.93,33.29A169.47,169.47,0,0,1,231.6,128,169.47,169.47,0,0,1,207.93,158.71C185.67,180.81,158.78,192,128,192Zm0-112a48,48,0,1,0,48,48A48.05,48.05,0,0,0,128,80Zm0,80a32,32,0,1,1,32-32A32,32,0,0,1,128,160Z"/></svg>
+                                                Preview
+                                            </>
+                                        ) : (
+                                            <>
+                                                <svg width="12" height="12" viewBox="0 0 256 256" fill="currentColor"><path d="M69.12,94.15,28.5,128l40.62,33.85a8,8,0,1,1-10.24,12.29l-48-40a8,8,0,0,1,0-12.29l48-40a8,8,0,0,1,10.24,12.3Zm176,27.7-48-40a8,8,0,1,0-10.24,12.3L227.5,128l-40.62,33.85a8,8,0,1,0,10.24,12.29l48-40a8,8,0,0,0,0-12.29ZM162.73,32.48a8,8,0,0,0-10.25,4.79l-64,176a8,8,0,0,0,4.79,10.26A8.14,8.14,0,0,0,96,224a8,8,0,0,0,7.52-5.27l64-176A8,8,0,0,0,162.73,32.48Z"/></svg>
+                                                Code
+                                            </>
                                         )}
                                     </button>
                                 );
                             })}
                         </div>
-                    ))}
+                    </div>
+                </div>
+
+                {/* Demo list */}
+                <div className="sidebar-scroll" style={{ flex: 1, overflow: "auto" }}>
+                    <div style={{ padding: "12px 16px 8px" }}>
+                        <span style={{
+                            fontSize: 10,
+                            fontWeight: 400,
+                            textTransform: "uppercase",
+                            letterSpacing: "0.05em",
+                            color: "var(--text-secondary)",
+                        }}>
+                            Demos
+                        </span>
+                    </div>
+                    <div style={{ padding: "0 8px" }}>
+                        {groupedDemos.map(({ category, demos }) => (
+                            <div key={category.id}>
+                                {demos.map((demo) => {
+                                    const isSelected = demo.id === selectedDemoId;
+                                    return (
+                                        <button
+                                            key={demo.id}
+                                            onClick={() => handleDemoSelect(demo.id)}
+                                            style={{
+                                                display: "flex",
+                                                flexDirection: "column",
+                                                gap: 2,
+                                                width: "100%",
+                                                textAlign: "left",
+                                                padding: "8px 12px",
+                                                border: "none",
+                                                cursor: "pointer",
+                                                background: isSelected ? "rgba(255, 255, 255, 0.7)" : "transparent",
+                                                borderRadius: 4,
+                                                transition: "background 0.15s",
+                                                marginBottom: 2,
+                                            }}
+                                            onMouseEnter={(e) => {
+                                                if (!isSelected) e.currentTarget.style.background = "rgba(255, 255, 255, 0.5)";
+                                            }}
+                                            onMouseLeave={(e) => {
+                                                if (!isSelected) e.currentTarget.style.background = "transparent";
+                                            }}
+                                        >
+                                            <div style={{ fontSize: 14, fontWeight: 500, lineHeight: 1.3 }}>
+                                                {demo.name}
+                                            </div>
+                                            <div style={{
+                                                fontSize: 12,
+                                                color: "var(--text-disabled)",
+                                                lineHeight: 1.5,
+                                                display: "-webkit-box",
+                                                WebkitLineClamp: 2,
+                                                WebkitBoxOrient: "vertical",
+                                                overflow: "hidden",
+                                            }}>
+                                                {demo.description}
+                                            </div>
+                                            {demo.tags.length > 0 && (
+                                                <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 2 }}>
+                                                    {demo.tags.map((tag) => (
+                                                        <span
+                                                            key={tag}
+                                                            style={{
+                                                                display: "inline-block",
+                                                                fontSize: 12,
+                                                                padding: "2px 6px",
+                                                                borderRadius: 9999,
+                                                                background: isSelected ? "var(--text-primary)" : "rgba(255, 255, 255, 0.65)",
+                                                                color: isSelected ? "var(--text-invert)" : "var(--text-primary)",
+                                                                fontWeight: 400,
+                                                                lineHeight: 1.4,
+                                                            }}
+                                                        >
+                                                            {prettifyTag(tag)}
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        ))}
+                    </div>
                     {integration && integration.demos.length === 0 && (
-                        <div style={{ padding: "20px", color: "var(--text-muted)", fontSize: 13 }}>
+                        <div style={{ padding: "32px 16px", color: "var(--text-disabled)", fontSize: 14, textAlign: "center" }}>
                             No demos available for this integration.
                         </div>
                     )}
@@ -344,12 +375,7 @@ export default function DojoPage() {
                 display: "flex",
                 flexDirection: "column",
                 overflow: "hidden",
-                margin: "12px 12px 12px 12px",
-                marginTop: 15,
-                borderRadius: 12,
-                background: "var(--bg-surface)",
-                border: "1px solid var(--glass-border)",
-                boxShadow: "var(--shadow)",
+                zIndex: 1,
             }}>
                 {viewMode === "preview" && previewUrl ? (
                     <iframe
@@ -359,22 +385,30 @@ export default function DojoPage() {
                             width: "100%",
                             height: "100%",
                             border: "none",
-                            borderRadius: 12,
+                            borderRadius: 8,
+                            background: "#ffffff",
                         }}
                         sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
                     />
                 ) : viewMode === "code" && allFiles.length > 0 ? (
-                    <div style={{ display: "flex", flexDirection: "column", height: "100%", borderRadius: 12, overflow: "hidden" }}>
+                    <div style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        height: "100%",
+                        borderRadius: 8,
+                        overflow: "hidden",
+                        background: "#ffffff",
+                        border: "2px solid var(--border-default)",
+                    }}>
                         {/* File tabs */}
                         <div
                             style={{
                                 display: "flex",
                                 gap: 0,
-                                borderBottom: "1px solid var(--border)",
-                                background: "var(--bg-elevated)",
+                                borderBottom: "1px solid var(--border-container)",
+                                background: "#f8f8fb",
                                 overflowX: "auto",
                                 flexShrink: 0,
-                                borderRadius: "12px 12px 0 0",
                             }}
                         >
                             {allFiles.map((file, idx) => (
@@ -385,13 +419,13 @@ export default function DojoPage() {
                                         padding: "10px 18px",
                                         fontSize: 13,
                                         border: "none",
-                                        borderBottom: idx === selectedFileIndex ? "2px solid var(--accent)" : "2px solid transparent",
+                                        borderBottom: idx === selectedFileIndex ? "2px solid var(--text-primary)" : "2px solid transparent",
                                         cursor: "pointer",
-                                        background: idx === selectedFileIndex ? "var(--bg-surface)" : "transparent",
-                                        color: idx === selectedFileIndex ? "var(--text)" : "var(--text-muted)",
+                                        background: idx === selectedFileIndex ? "#ffffff" : "transparent",
+                                        color: idx === selectedFileIndex ? "var(--text-primary)" : "var(--text-disabled)",
                                         fontWeight: idx === selectedFileIndex ? 500 : 400,
                                         whiteSpace: "nowrap",
-                                        fontFamily: "'SF Mono', 'Fira Code', Menlo, monospace",
+                                        fontFamily: "'Spline Sans Mono', 'SF Mono', Menlo, monospace",
                                     }}
                                 >
                                     {file.filename}
@@ -412,7 +446,7 @@ export default function DojoPage() {
                             alignItems: "center",
                             justifyContent: "center",
                             height: "100%",
-                            color: "var(--text-muted)",
+                            color: "var(--text-disabled)",
                             fontSize: 15,
                         }}
                     >
@@ -420,6 +454,28 @@ export default function DojoPage() {
                     </div>
                 )}
             </main>
+        </div>
+    );
+}
+
+function SectionTitle({ title }: { title: string }) {
+    return (
+        <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "0 4px", marginBottom: 8 }}>
+            <span style={{
+                fontSize: 10,
+                fontWeight: 400,
+                textTransform: "uppercase",
+                letterSpacing: "0.05em",
+                color: "var(--text-secondary)",
+                whiteSpace: "nowrap",
+            }}>
+                {title}
+            </span>
+            <div style={{
+                flex: 1,
+                height: 1,
+                background: "var(--border-container)",
+            }} />
         </div>
     );
 }
