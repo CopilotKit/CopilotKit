@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const AGENT_URL = process.env.AGENT_URL || process.env.LANGGRAPH_DEPLOYMENT_URL || "N/A (in-process)";
+const AGENT_URL = process.env.AGENT_URL || "http://localhost:8000";
 
 export async function GET(req: NextRequest) {
     // Check agent backend reachability

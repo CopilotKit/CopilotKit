@@ -15,15 +15,14 @@ from typing import Any
 
 import anthropic
 from ag_ui.core import (
-    AssistantMessageEvent,
     EventType,
     Message,
-    MessageRole,
     RunAgentInput,
     RunFinishedEvent,
     RunStartedEvent,
     StateSnapshotEvent,
     TextMessageContentEvent,
+    TextMessageEndEvent,
     TextMessageStartEvent,
     ToolCallArgsEvent,
     ToolCallEndEvent,
@@ -312,7 +311,7 @@ async def run_agent(input_data: RunAgentInput) -> AsyncIterator[str]:
         yield encoder.encode(TextMessageStartEvent(
             type=EventType.TEXT_MESSAGE_START,
             message_id=msg_id,
-            role=MessageRole.ASSISTANT,
+            role="assistant",
         ))
 
         # Stream Claude response
@@ -381,11 +380,9 @@ async def run_agent(input_data: RunAgentInput) -> AsyncIterator[str]:
                         current_tool_name = None
                         current_tool_args = ""
 
-        yield encoder.encode(AssistantMessageEvent(
-            type=EventType.ASSISTANT_MESSAGE,
+        yield encoder.encode(TextMessageEndEvent(
+            type=EventType.TEXT_MESSAGE_END,
             message_id=msg_id,
-            role=MessageRole.ASSISTANT,
-            content=response_text,
         ))
 
         # No tool calls — we're done

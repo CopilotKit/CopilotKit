@@ -8,7 +8,7 @@ partner_docs: null
 repo: https://github.com/CopilotKit/CopilotKit/tree/main/showcase/packages/claude-sdk-python
 copilotkit_version: 2.0.0
 backend_url: https://showcase-claude-sdk-python-production.up.railway.app
-deployed: false
+deployed: true
 sort_order: 70
 generative_ui:
   - constrained-explicit

@@ -8,7 +8,7 @@ import { AbstractAgent, HttpAgent } from "@ag-ui/client";
 
 // The Spring AI agent backend runs as a separate Java process.
 // This runtime proxies CopilotKit requests to it via AG-UI protocol.
-const AGENT_URL = process.env.AGENT_URL || "http://localhost:8080";
+const AGENT_URL = process.env.AGENT_URL || "http://localhost:8000";
 
 console.log("[copilotkit/route] Initializing CopilotKit runtime");
 console.log(`[copilotkit/route] AGENT_URL: ${AGENT_URL}`);
