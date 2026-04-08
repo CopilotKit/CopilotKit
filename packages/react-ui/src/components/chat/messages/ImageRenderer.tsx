@@ -2,21 +2,33 @@ import React, { useState } from "react";
 import { ImageRendererProps } from "../props";
 
 /**
- * Default image rendering component that can be customized by users.
- * Uses CSS classes for styling so users can override styles.
+ * @deprecated Use `CopilotChatAttachmentRenderer` from `@copilotkit/react-core/v2` instead.
+ * `ImageRenderer` only handles images. The v2 attachment renderer supports images, audio, video, and documents.
+ * See https://docs.copilotkit.ai/migration-guides/migrate-attachments
+ * @since 1.56.0
  */
 export const ImageRenderer: React.FC<ImageRendererProps> = ({
   image,
+  source,
   content,
   className = "",
 }) => {
   const [imageError, setImageError] = useState(false);
-  const imageSrc = `data:image/${image.format};base64,${image.bytes}`;
-  const altText = content || "User uploaded image";
 
-  const handleImageError = () => {
-    setImageError(true);
-  };
+  // Determine image src from either legacy ImageData or new InputContentSource
+  let imageSrc: string;
+  if (source) {
+    imageSrc =
+      source.type === "url"
+        ? source.value
+        : `data:${source.mimeType};base64,${source.value}`;
+  } else if (image) {
+    imageSrc = `data:image/${image.format};base64,${image.bytes}`;
+  } else {
+    return null;
+  }
+
+  const altText = content || "User uploaded image";
 
   if (imageError) {
     return (
@@ -39,7 +51,7 @@ export const ImageRenderer: React.FC<ImageRendererProps> = ({
         src={imageSrc}
         alt={altText}
         className="copilotKitImageRenderingImage"
-        onError={handleImageError}
+        onError={() => setImageError(true)}
       />
       {content && (
         <div className="copilotKitImageRenderingContent">{content}</div>

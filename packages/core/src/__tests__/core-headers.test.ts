@@ -56,6 +56,8 @@ describe("CopilotKitCore headers", () => {
 
   it("uses updated headers for subsequent runtime requests", async () => {
     const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
       json: vi.fn().mockResolvedValue({ version: "1.0.0", agents: {} }),
     });
     global.fetch = fetchMock as unknown as typeof fetch;
@@ -228,6 +230,8 @@ describe("CopilotKitCore headers", () => {
 
   it("applies headers to remote agents fetched from runtime info", async () => {
     const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
       json: vi.fn().mockResolvedValue({
         version: "1.0.0",
         agents: {
