@@ -46,8 +46,9 @@ You can use this when you want to keep your interface and backend agent state sy
     from ag_ui.core import EventType, StateSnapshotEvent
     from fastapi import FastAPI, Header
     from fastapi.responses import StreamingResponse
-    from autogen import ContextVariables, ConversableAgent, LLMConfig
+    from autogen import ConversableAgent, LLMConfig
     from autogen.ag_ui import AGUIStream, RunAgentInput
+    from autogen.agentchat import ContextVariables
 
     def read_state(context: ContextVariables) -> dict:
         return context.get("agent_state", {"language": "english"})
