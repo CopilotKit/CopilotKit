@@ -15,8 +15,12 @@ export * from "./providers";
 export * from "./types";
 export * from "./lib/react-core";
 export { createA2UIMessageRenderer } from "./a2ui/A2UIMessageRenderer";
-export type { A2UIMessageRendererOptions } from "./a2ui/A2UIMessageRenderer";
+export type {
+  A2UIMessageRendererOptions,
+  A2UIUserAction,
+} from "./a2ui/A2UIMessageRenderer";
 export type { Theme as A2UITheme } from "@copilotkit/a2ui-renderer";
+export { defaultTheme as a2uiDefaultTheme } from "@copilotkit/a2ui-renderer";
 
 // V1 backward-compat re-exports
 export { CopilotKit } from "../components/copilot-provider/copilotkit";

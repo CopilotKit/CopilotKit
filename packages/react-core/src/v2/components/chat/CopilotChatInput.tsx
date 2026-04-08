@@ -1182,6 +1182,10 @@ export namespace CopilotChatInput {
     const config = useCopilotChatConfiguration();
     const labels = config?.labels ?? CopilotChatDefaultLabels;
 
+    // Defer Radix UI rendering until after hydration to avoid ID mismatches
+    const [mounted, setMounted] = useState(false);
+    useEffect(() => setMounted(true), []);
+
     const menuItems = useMemo<(ToolsMenuItem | "-")[]>(() => {
       const items: (ToolsMenuItem | "-")[] = [];
 
@@ -1246,23 +1250,28 @@ export namespace CopilotChatInput {
     const hasMenuItems = menuItems.length > 0;
     const isDisabled = disabled || !hasMenuItems;
 
+    const button = (
+      <Button
+        type="button"
+        data-testid="copilot-add-menu-button"
+        variant="chatInputToolbarSecondary"
+        size="chatInputToolbarIcon"
+        className={twMerge("cpk:ml-1", className)}
+        disabled={isDisabled}
+        {...props}
+      >
+        <Plus className="cpk:size-[20px]" />
+      </Button>
+    );
+
+    // Render plain button during SSR; Radix wrappers only after hydration
+    if (!mounted) return button;
+
     return (
       <DropdownMenu>
         <Tooltip>
           <TooltipTrigger asChild>
-            <DropdownMenuTrigger asChild>
-              <Button
-                type="button"
-                data-testid="copilot-add-menu-button"
-                variant="chatInputToolbarSecondary"
-                size="chatInputToolbarIcon"
-                className={twMerge("cpk:ml-1", className)}
-                disabled={isDisabled}
-                {...props}
-              >
-                <Plus className="cpk:size-[20px]" />
-              </Button>
-            </DropdownMenuTrigger>
+            <DropdownMenuTrigger asChild>{button}</DropdownMenuTrigger>
           </TooltipTrigger>
           <TooltipContent side="bottom">
             <p className="cpk:flex cpk:items-center cpk:gap-1 cpk:text-xs cpk:font-medium">

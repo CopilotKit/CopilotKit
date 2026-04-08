@@ -22,8 +22,11 @@ export function useFrontendTool<
     }
     copilotkit.addTool(tool);
 
-    // Register/override renderer by name and agentId through core
-    if (tool.render && tool.parameters) {
+    // Register/override renderer by name and agentId through core.
+    // The render function is registered even when tool.parameters is
+    // undefined — tools like HITL confirm dialogs have no parameters
+    // but still need their UI rendered in the chat.
+    if (tool.render) {
       copilotkit.addHookRenderToolCall({
         name,
         args: tool.parameters,
