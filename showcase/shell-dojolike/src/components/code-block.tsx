@@ -38,17 +38,17 @@ export function CodeBlock({ code, language }: CodeBlockProps) {
     const pad = String(lines.length).length;
 
     return (
-        <div style={{ display: "flex", flex: 1, overflow: "auto", background: "var(--bg-surface)" }}>
+        <div style={{ display: "flex", flex: 1, overflow: "auto", background: "#ffffff" }}>
             {/* Line numbers */}
             <div
                 style={{
                     padding: "16px 0 16px 16px",
                     textAlign: "right",
                     userSelect: "none",
-                    color: "var(--text-faint)",
+                    color: "#838389",
                     fontSize: 13,
                     lineHeight: 1.5,
-                    fontFamily: "'SF Mono', 'Fira Code', 'Fira Mono', Menlo, Consolas, monospace",
+                    fontFamily: "'Spline Sans Mono', 'SF Mono', Menlo, Consolas, monospace",
                     whiteSpace: "pre",
                     flexShrink: 0,
                 }}
@@ -64,7 +64,7 @@ export function CodeBlock({ code, language }: CodeBlockProps) {
                     padding: "16px",
                     fontSize: 13,
                     lineHeight: 1.5,
-                    fontFamily: "'SF Mono', 'Fira Code', 'Fira Mono', Menlo, Consolas, monospace",
+                    fontFamily: "'Spline Sans Mono', 'SF Mono', Menlo, Consolas, monospace",
                     whiteSpace: "pre",
                     overflowX: "auto",
                     flex: 1,
