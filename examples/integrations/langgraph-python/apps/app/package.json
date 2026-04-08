@@ -10,6 +10,7 @@
   "dependencies": {
     "@ag-ui/a2ui-middleware": "^0.0.2",
     "@ag-ui/mcp-apps-middleware": "^0.0.3",
+    "@copilotkit/a2ui-renderer": "next",
     "@copilotkit/react-core": "next",
     "@copilotkit/react-ui": "next",
     "@copilotkit/runtime": "next",
@@ -19,6 +20,7 @@
     "@radix-ui/react-separator": "^1.1.8",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "hono": "^4.12.10",
     "lucide-react": "^0.577.0",
     "next": "16.1.6",
     "react": "^19.2.4",
@@ -26,7 +28,8 @@
     "react-rnd": "^10.5.2",
     "react18-json-view": "^0.2.9",
     "recharts": "^3.7.0",
-    "tailwind-merge": "^3.5.0"
+    "tailwind-merge": "^3.5.0",
+    "zod": "^3.23.8"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
@@ -34,7 +37,6 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "tailwindcss": "^4",
-    "typescript": "^5",
-    "zod": "^3.23.8"
+    "typescript": "^5"
   }
 }
