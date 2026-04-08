@@ -147,7 +147,7 @@ export default function DojoPage() {
             <div style={{ position: "absolute", width: 446, height: 446, left: 128, top: 331, borderRadius: "50%", background: "rgba(255, 243, 136, 0.3)", filter: "blur(103px)", zIndex: 0 }} />
             <div style={{ position: "absolute", width: 446, height: 446, left: -205, top: 803, borderRadius: "50%", background: "rgba(255, 172, 77, 0.2)", filter: "blur(103px)", zIndex: 0 }} />
 
-            {/* Sidebar */}
+            {/* Sidebar — matches dojo: bg-white/50 w-74 min-w-[296px] border-2 border-white rounded-lg */}
             <aside
                 style={{
                     width: "var(--sidebar-width)",
@@ -162,18 +162,21 @@ export default function DojoPage() {
                     zIndex: 1,
                 }}
             >
-                {/* Header */}
-                <div style={{ padding: "16px 16px 12px 20px" }}>
-                    <div style={{ fontWeight: 300, fontSize: 18, lineHeight: "20px", color: "#111827" }}>
-                        CopilotKit Interactive Dojo
+                {/* Header — dojo: p-4, ml-1 */}
+                <div style={{ padding: 16 }}>
+                    <div style={{ marginLeft: 4 }}>
+                        <div style={{ fontWeight: 300, fontSize: 18, lineHeight: "20px", color: "#111827" }}>
+                            CopilotKit Interactive Dojo
+                        </div>
                     </div>
                 </div>
 
-                {/* Controls section */}
-                <div style={{ padding: "0 16px 12px", borderBottom: "1px solid var(--border-container)" }}>
-                    {/* Integration picker */}
+                {/* Controls section — dojo: p-4 border-b */}
+                <div style={{ padding: 16, paddingTop: 0, borderBottom: "1px solid var(--border-container)" }}>
+                    {/* Integration picker — dojo: mb-spacing-4 (16px) */}
                     <div style={{ marginBottom: 16 }}>
                         <SectionTitle title="Integrations" />
+                        {/* dojo: h-spacing-8 (32px) rounded-sm px-spacing-3 (12px) */}
                         <div
                             onClick={() => setDropdownOpen(!dropdownOpen)}
                             style={{
@@ -187,7 +190,7 @@ export default function DojoPage() {
                                 transition: "background 0.15s",
                                 background: dropdownOpen ? "rgba(0,0,0,0.03)" : "transparent",
                             }}
-                            onMouseEnter={(e) => { if (!dropdownOpen) e.currentTarget.style.background = "rgba(250,252,250,1)"; }}
+                            onMouseEnter={(e) => { if (!dropdownOpen) e.currentTarget.style.background = "#fafcfa"; }}
                             onMouseLeave={(e) => { if (!dropdownOpen) e.currentTarget.style.background = "transparent"; }}
                         >
                             <span style={{ fontSize: 14, fontWeight: 500, color: "var(--text-primary)", lineHeight: "22px", paddingBottom: 2 }}>
@@ -214,8 +217,11 @@ export default function DojoPage() {
                                         key={i.slug}
                                         onClick={() => handleIntegrationChange(i.slug)}
                                         style={{
-                                            padding: "8px 12px",
-                                            fontSize: 14,
+                                            padding: "10px 12px",
+                                            fontSize: 16,
+                                            height: 48,
+                                            display: "flex",
+                                            alignItems: "center",
                                             cursor: "pointer",
                                             borderRadius: 4,
                                             color: "var(--text-primary)",
@@ -231,7 +237,7 @@ export default function DojoPage() {
                         )}
                     </div>
 
-                    {/* View toggle */}
+                    {/* View toggle — dojo: mb-1, tabs h-8 rounded-lg */}
                     <div style={{ marginBottom: 4 }}>
                         <SectionTitle title="View" />
                         <div style={{ display: "flex", gap: 0, borderRadius: 8, background: "transparent" }}>
@@ -277,8 +283,9 @@ export default function DojoPage() {
                     </div>
                 </div>
 
-                {/* Demo list */}
+                {/* Demo list — dojo: flex-1 overflow-auto */}
                 <div className="sidebar-scroll" style={{ flex: 1, overflow: "auto" }}>
+                    {/* dojo: px-4 pt-3 pb-2 */}
                     <div style={{ padding: "12px 16px 8px" }}>
                         <span style={{
                             fontSize: 10,
@@ -290,12 +297,14 @@ export default function DojoPage() {
                             Demos
                         </span>
                     </div>
-                    <div style={{ padding: "0 8px" }}>
+                    {/* dojo: px-2 space-y-1 */}
+                    <div style={{ padding: "0 8px", display: "flex", flexDirection: "column", gap: 4 }}>
                         {groupedDemos.map(({ category, demos }) => (
                             <div key={category.id}>
                                 {demos.map((demo) => {
                                     const isSelected = demo.id === selectedDemoId;
                                     return (
+                                        /* dojo: py-2 px-3 rounded-sm, flex flex-col gap-0.5 */
                                         <button
                                             key={demo.id}
                                             onClick={() => handleDemoSelect(demo.id)}
@@ -311,7 +320,6 @@ export default function DojoPage() {
                                                 background: isSelected ? "rgba(255, 255, 255, 0.7)" : "transparent",
                                                 borderRadius: 4,
                                                 transition: "background 0.15s",
-                                                marginBottom: 2,
                                             }}
                                             onMouseEnter={(e) => {
                                                 if (!isSelected) e.currentTarget.style.background = "rgba(255, 255, 255, 0.5)";
@@ -320,13 +328,15 @@ export default function DojoPage() {
                                                 if (!isSelected) e.currentTarget.style.background = "transparent";
                                             }}
                                         >
-                                            <div style={{ fontSize: 14, fontWeight: 500, lineHeight: "20px" }}>
+                                            {/* dojo: text-sm font-medium leading-tight */}
+                                            <div style={{ fontSize: 14, fontWeight: 500, lineHeight: 1.25 }}>
                                                 {demo.name}
                                             </div>
+                                            {/* dojo: text-xs text-muted-foreground line-clamp-2 leading-relaxed */}
                                             <div style={{
                                                 fontSize: 12,
                                                 color: "var(--text-disabled)",
-                                                lineHeight: "18px",
+                                                lineHeight: 1.625,
                                                 display: "-webkit-box",
                                                 WebkitLineClamp: 2,
                                                 WebkitBoxOrient: "vertical",
@@ -334,6 +344,7 @@ export default function DojoPage() {
                                             }}>
                                                 {demo.description}
                                             </div>
+                                            {/* dojo: flex gap-1 flex-wrap mt-0.5, badge: text-xs px-1.5 py-0.5 rounded-full */}
                                             {demo.tags.length > 0 && (
                                                 <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 2 }}>
                                                     {demo.tags.map((tag) => (
