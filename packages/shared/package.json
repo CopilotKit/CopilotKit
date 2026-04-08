@@ -49,7 +49,7 @@
     "attw": "attw --pack . --profile node16"
   },
   "dependencies": {
-    "@ag-ui/client": "0.0.51",
+    "@ag-ui/client": "0.0.47",
     "@copilotkit/license-verifier": "0.0.1-a1",
     "@segment/analytics-node": "^2.1.2",
     "@standard-schema/spec": "^1.0.0",
@@ -72,6 +72,6 @@
     "vitest": "^3.2.4"
   },
   "peerDependencies": {
-    "@ag-ui/core": "0.0.51"
+    "@ag-ui/core": "^0.0.48"
   }
 }
