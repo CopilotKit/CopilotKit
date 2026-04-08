@@ -20,11 +20,23 @@ export const useExampleSuggestions = () => {
         message:
           "I'd like to schedule a 30-minute meeting to learn about CopilotKit. Please use the scheduleTime tool to let me pick a time.",
       },
-      // 3. Declarative UI (A2UI) — agent returns structured UI components
+      // 3. Streaming A2UI — schema emitted at tool start, data streams in progressively
       {
-        title: "Event Registration (Declarative UI)",
+        title: "Flight Search (Fixed Schema A2UI - Streaming)",
         message:
-          "Generate an event registration form using the generate_form tool.",
+          "Search for flights from LAX to ORD using the search_flights_streaming tool. Show 3 options with different airlines and times.",
+      },
+      // 3b. Fixed Schema A2UI — data-bound declarative UI with flight cards
+      {
+        title: "Flight Search (Fixed Schema A2UI)",
+        message:
+          "Search for flights using the search_flights tool. Show 4 options with diverse routes (e.g. LAX→ORD, SFO→JFK, DEN→ATL, SEA→MIA) and different airlines and times.",
+      },
+      // 3d. Dynamic Schema A2UI — LLM generates the entire UI spec from scratch
+      {
+        title: "Product Card (Dynamic A2UI)",
+        message:
+          "Use the generate_a2ui tool to create a product comparison of 3 headphones with name, price, rating, a short description, and a Select button on each card.",
       },
       // 4. Open Generative UI — MCP app renders its own UI
       {

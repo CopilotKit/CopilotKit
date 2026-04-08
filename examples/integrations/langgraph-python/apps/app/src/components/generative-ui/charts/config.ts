@@ -1,19 +1,26 @@
+/**
+ * Curated chart palette — warm, harmonious tones that complement
+ * the Fredoka / neutral-grayscale design system.
+ */
 export const CHART_COLORS = [
-  "#3b82f6", // blue
-  "#8b5cf6", // purple
-  "#ec4899", // pink
-  "#f59e0b", // amber
-  "#10b981", // emerald
-  "#06b6d4", // cyan
-  "#f97316", // orange
-];
+  "#6366f1", // indigo
+  "#f472b6", // pink
+  "#34d399", // emerald
+  "#fbbf24", // amber
+  "#60a5fa", // sky
+  "#a78bfa", // violet
+  "#fb923c", // orange
+] as const;
 
 export const CHART_CONFIG = {
   tooltipStyle: {
-    backgroundColor: "var(--chart-tooltip-bg)",
-    border: "1px solid var(--chart-tooltip-border)",
-    borderRadius: "8px",
-    padding: "8px 12px",
+    backgroundColor: "var(--card)",
+    border: "1px solid var(--border)",
+    borderRadius: "10px",
+    padding: "10px 14px",
     color: "var(--foreground)",
+    fontSize: "13px",
+    fontFamily: "var(--font-body)",
+    boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
   },
 };

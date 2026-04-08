@@ -26,7 +26,10 @@
     "react-rnd": "^10.5.2",
     "react18-json-view": "^0.2.9",
     "recharts": "^3.7.0",
-    "tailwind-merge": "^3.5.0"
+    "tailwind-merge": "^3.5.0",
+    "zod": "^3.23.8",
+    "@a2ui/react": "*",
+    "@a2ui/web_core": "*"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
@@ -34,7 +37,6 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "tailwindcss": "^4",
-    "typescript": "^5",
-    "zod": "^3.23.8"
+    "typescript": "^5"
   }
 }

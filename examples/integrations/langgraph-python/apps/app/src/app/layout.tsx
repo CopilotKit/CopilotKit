@@ -2,9 +2,12 @@
 
 import "./globals.css";
 import "@copilotkit/react-core/v2/styles.css";
+import "@/a2ui/theme.css";
 
 import { CopilotKit } from "@copilotkit/react-core";
 import { ThemeProvider } from "@/hooks/use-theme";
+import { basicCatalog } from "@a2ui/react/v0_9";
+import { customCatalog } from "@/a2ui/custom-catalog";
 
 export default function RootLayout({
   children,
@@ -15,7 +18,10 @@ export default function RootLayout({
         <ThemeProvider>
           <CopilotKit
             runtimeUrl="/api/copilotkit"
-            // a2ui={ theme } // Custom theme for A2UI, check @/lib/a2ui-theme.css
+            inspectorDefaultAnchor={{ horizontal: "left", vertical: "top" }}
+            // A2UI theming: use a2ui={{ theme }} for JS overrides, or
+            // import a CSS file targeting .a2ui-surface variables (see @/a2ui/theme.css)
+            a2ui={{ catalogs: [basicCatalog, customCatalog] }}
           >
             {children}
           </CopilotKit>

@@ -1,0 +1,36 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&display=swap');
+
+.a2ui-surface {
+  --primary: #111111;
+  --primary-foreground: #ffffff;
+  --card: #ffffff;
+  --border: #e0e0e0;
+  --radius: 12px;
+  --foreground: #111111;
+  --input: #d4d4d4;
+  --background: #fafafa;
+
+  font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, system-ui, sans-serif !important;
+  letter-spacing: -0.01em;
+}
+
+/* Constrain images to consistent sizes */
+.a2ui-surface img {
+  max-width: 28px;
+  max-height: 28px;
+  border-radius: 4px;
+}
+
+/* Status dot should be even smaller */
+.a2ui-surface img[alt="On Time"],
+.a2ui-surface img[alt="Delayed"],
+.a2ui-surface img[alt="Cancelled"] {
+  max-width: 10px;
+  max-height: 10px;
+  border-radius: 50%;
+}
+
+/* Consistent card width so single-card streaming doesn't collapse narrow */
+.a2ui-surface .a2ui-card {
+  min-width: 280px;
+}

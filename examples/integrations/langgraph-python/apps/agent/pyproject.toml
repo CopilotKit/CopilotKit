@@ -18,3 +18,6 @@ dependencies = [
   "pip>=26.0.1",
   "langchain-anthropic>=1.3.4",
 ]
+
+[tool.uv.sources]
+copilotkit = { path = "../../../../../sdk-python", editable = true }
