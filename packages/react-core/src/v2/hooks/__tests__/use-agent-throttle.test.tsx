@@ -856,4 +856,37 @@ describe("useAgent defaultThrottleMs from provider", () => {
     });
     expect(screen.getByTestId("count").textContent).toBe("2");
   });
+
+  it("explicit throttleMs: 0 overrides non-zero provider defaultThrottleMs (opt-out)", () => {
+    mockUseCopilotKit.mockReturnValue({
+      copilotkit: {
+        getAgent: () => mockAgent,
+        runtimeUrl: "http://localhost:3000/api/copilot",
+        runtimeConnectionStatus:
+          CopilotKitCoreRuntimeConnectionStatus.Connected,
+        runtimeTransport: "rest",
+        headers: {},
+        agents: { "test-agent": mockAgent },
+      },
+      executingToolCallIds: new Set(),
+      defaultThrottleMs: 500,
+    });
+
+    const TestComponent = createTestComponent({ throttleMs: 0 });
+
+    render(<TestComponent />);
+
+    // Both notifications fire immediately — throttleMs: 0 means no throttle
+    act(() => {
+      mockAgent.messages = [userMsg("1", "hello")];
+      notifyMessagesChanged(mockAgent);
+    });
+    expect(screen.getByTestId("count").textContent).toBe("1");
+
+    act(() => {
+      mockAgent.messages = [userMsg("1", "hello"), assistantMsg("2", "world")];
+      notifyMessagesChanged(mockAgent);
+    });
+    expect(screen.getByTestId("count").textContent).toBe("2");
+  });
 });
