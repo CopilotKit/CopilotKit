@@ -7,8 +7,16 @@ license = "MIT"
 readme = "README.md"
 homepage = "https://copilotkit.ai"
 repository = "https://github.com/CopilotKit/CopilotKit/tree/main/sdk-python"
-keywords = ["copilot", "copilotkit", "langgraph", "langchain", "ai", "langsmith", "langserve"]
-packages = [{include = "copilotkit"}]
+keywords = [
+  "copilot",
+  "copilotkit",
+  "langgraph",
+  "langchain",
+  "ai",
+  "langsmith",
+  "langserve",
+]
+packages = [{ include = "copilotkit" }]
 include = ["copilotkit/*.json"]
 
 [tool.poetry.dependencies]
@@ -30,6 +38,4 @@ requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
 [dependency-groups]
-dev = [
-    "pytest (>=9.0.2,<10.0.0)"
-]
+dev = ["pytest (>=9.0.2,<10.0.0)"]

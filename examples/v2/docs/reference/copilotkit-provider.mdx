@@ -227,12 +227,12 @@ const humanInTheLoop = [
 
 Configuration for the A2UI (Agent-to-UI) renderer. The built-in renderer activates automatically when the runtime reports that `a2ui` is configured in `CopilotRuntime`. This prop is only needed to override defaults.
 
-| Option | Type | Description |
-| --- | --- | --- |
-| `theme` | `Theme` | Override the default A2UI viewer theme. |
-| `catalog` | `any` | Custom component catalog. Defaults to `basicCatalog`. |
-| `loadingComponent` | `React.ComponentType` | Custom loading component shown while a surface is generating. |
-| `includeSchema` | `boolean` | When `true` (default), full component schemas are sent as agent context so the agent knows what's available. |
+| Option             | Type                  | Description                                                                                                  |
+| ------------------ | --------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `theme`            | `Theme`               | Override the default A2UI viewer theme.                                                                      |
+| `catalog`          | `any`                 | Custom component catalog. Defaults to `basicCatalog`.                                                        |
+| `loadingComponent` | `React.ComponentType` | Custom loading component shown while a surface is generating.                                                |
+| `includeSchema`    | `boolean`             | When `true` (default), full component schemas are sent as agent context so the agent knows what's available. |
 
 ```tsx
 <CopilotKitProvider
