@@ -154,7 +154,17 @@ export class LangGraphAgent extends AGUILangGraphAgent {
 
   // @ts-ignore
   run(input: RunAgentInput): Observable<BaseEvent> {
-    return super.run(input).pipe(
+    // Override the base class run() to properly catch async errors from
+    // runAgentStream. The base class creates an Observable that calls
+    // runAgentStream() but ignores the returned Promise, so any rejection
+    // becomes an unhandled promise rejection that crashes the process.
+    const safeBase = new Observable<ProcessedEvents>((subscriber) => {
+      this.runAgentStream(input, subscriber).catch((err: unknown) => {
+        subscriber.error(err);
+      });
+      return () => {};
+    });
+    return safeBase.pipe(
       map((processedEvent) => {
         // Turn raw event into emit state snapshot from tool call event
         if (processedEvent.type === EventType.RAW) {
