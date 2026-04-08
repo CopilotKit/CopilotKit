@@ -1,8 +1,5 @@
 diff --git a/dist/changesets-assemble-release-plan.cjs.js b/dist/changesets-assemble-release-plan.cjs.js
-index e07ba6e793021b6cfdec898afca517e293386ddb..8afc4efbd0d8350d14abb488747e85bbd955c9dc 100644
---- a/dist/changesets-assemble-release-plan.cjs.js
-+++ b/dist/changesets-assemble-release-plan.cjs.js
-@@ -317,6 +317,9 @@ function shouldBumpMajor({
+@@ -317,6 +317,9 @@
    preInfo,
    onlyUpdatePeerDependentsWhenOutOfRange
  }) {
@@ -12,3 +9,29 @@ index e07ba6e793021b6cfdec898afca517e293386ddb..8afc4efbd0d8350d14abb488747e85bb
    // we check if it is a peerDependency because if it is, our dependent bump type might need to be major.
    return depType === "peerDependencies" && nextRelease.type !== "none" && nextRelease.type !== "patch" && (
    // 1. If onlyUpdatePeerDependentsWhenOutOfRange set to true, bump major if the version is leaving the range.
+@@ -523,17 +526,21 @@
+       // Detailed explanation at https://github.com/changesets/changesets/pull/382#discussion_r434434182
+       if (preInfo.preVersions.get(pkg.packageJson.name) !== 0) {
+         const existingRelease = releases.get(pkg.packageJson.name);
++        const shouldSkip = shouldSkipPackage.shouldSkipPackage(pkg, {
++          ignore: refinedConfig.ignore,
++          allowPrivatePackages: refinedConfig.privatePackages.version
++        });
+         if (!existingRelease) {
++          if (shouldSkip) {
++            continue;
++          }
+           releases.set(pkg.packageJson.name, {
+             name: pkg.packageJson.name,
+             type: "patch",
+             oldVersion: pkg.packageJson.version,
+             changesets: []
+           });
+-        } else if (existingRelease.type === "none" && !shouldSkipPackage.shouldSkipPackage(pkg, {
+-          ignore: refinedConfig.ignore,
+-          allowPrivatePackages: refinedConfig.privatePackages.version
+-        })) {
++        } else if (existingRelease.type === "none" && !shouldSkip) {
+           existingRelease.type = "patch";
+         }
+       }

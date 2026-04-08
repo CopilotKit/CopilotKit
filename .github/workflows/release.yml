@@ -39,6 +39,9 @@ jobs:
       - name: Install Dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Validate release package allowlist
+        run: pnpm ci:check-release-plan
+
       - name: Create Release PR or Publish
         id: changesets
         uses: changesets/action@v1
