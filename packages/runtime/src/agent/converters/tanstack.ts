@@ -9,7 +9,7 @@ import {
   ToolCallStartEvent,
   ToolCallResultEvent,
 } from "@ag-ui/client";
-import { randomUUID } from "crypto";
+import { randomUUID } from "@copilotkit/shared";
 
 /**
  * Message format expected by TanStack AI's `chat()`.
@@ -30,7 +30,7 @@ export interface TanStackChatMessage {
  * Result of converting RunAgentInput to TanStack AI format.
  */
 export interface TanStackInputResult {
-  /** Chat messages (system/developer messages excluded) */
+  /** Chat messages (only user/assistant/tool roles; all others excluded) */
   messages: TanStackChatMessage[];
   /** System prompts extracted from system/developer messages, context, and state */
   systemPrompts: string[];
@@ -39,7 +39,7 @@ export interface TanStackInputResult {
 /**
  * Converts a RunAgentInput into the format expected by TanStack AI's `chat()`.
  *
- * - Filters out system/developer messages and converts the rest to TanStack's message format
+ * - Keeps only user/assistant/tool messages (activity, reasoning, and other roles are also excluded)
  * - Extracts system/developer messages into `systemPrompts`
  * - Appends context entries and application state to `systemPrompts`
  * - Preserves tool calls on assistant messages and toolCallId on tool messages

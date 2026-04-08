@@ -14,7 +14,7 @@ import {
   StateSnapshotEvent,
   StateDeltaEvent,
 } from "@ag-ui/client";
-import { randomUUID } from "crypto";
+import { randomUUID } from "@copilotkit/shared";
 
 /**
  * Converts an AI SDK `fullStream` into AG-UI `BaseEvent` objects.
