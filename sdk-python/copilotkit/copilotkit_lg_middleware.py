@@ -262,6 +262,14 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
         if isinstance(app_context, str):
             context_content = app_context
         else:
+            # Handle Pydantic models (e.g. ag_ui Context)
+            if hasattr(app_context, "model_dump"):
+                app_context = app_context.model_dump()
+            elif isinstance(app_context, list):
+                app_context = [
+                    item.model_dump() if hasattr(item, "model_dump") else item
+                    for item in app_context
+                ]
             context_content = json.dumps(app_context, indent=2)
 
         context_message_content = f"App Context:\n{context_content}"
@@ -300,8 +308,15 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
                     existing_context_index = i
                     break
 
-        # Create the context message
-        context_message = SystemMessage(content=context_message_content)
+        # Create the context message.
+        # When replacing an existing context message, reuse its ID so the
+        # add_messages reducer updates in-place instead of appending a
+        # duplicate at the end of the message list.
+        if existing_context_index != -1:
+            existing_id = getattr(messages[existing_context_index], "id", None)
+            context_message = SystemMessage(content=context_message_content, id=existing_id)
+        else:
+            context_message = SystemMessage(content=context_message_content)
 
         if existing_context_index != -1:
             # Replace existing context message
