@@ -101,6 +101,7 @@ This context can then be shared with your AG2 backend.
                         from fastapi.responses import StreamingResponse
                         from autogen import ContextVariables, ConversableAgent, LLMConfig
                         from autogen.ag_ui import AGUIStream, RunAgentInput
+                        from autogen.agentchat import ContextVariables
 
                         def get_readable(context: ContextVariables, description: str):
                             copilot = context.get("copilotkit", {})
