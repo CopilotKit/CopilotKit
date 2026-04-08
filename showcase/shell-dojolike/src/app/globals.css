@@ -2,26 +2,17 @@
 @import "highlight.js/styles/github.css";
 
 :root {
-    --bg: #f3f1ed;
-    --bg-surface: #ffffff;
-    --bg-elevated: #f8f7f5;
-    --bg-hover: #f4f2ef;
-    --bg-selected: #f6f4f1;
-    --border: #e8e5e0;
-    --border-dim: #f0ede8;
-    --text: #1a1a18;
-    --text-secondary: #57574f;
-    --text-muted: #8a8a80;
-    --text-faint: #b5b5ad;
-    --accent: #7c3aed;
-    --accent-light: #ede9fe;
-    --accent-dim: rgba(124, 58, 237, 0.06);
-    --sidebar-width: 272px;
-    --glass-bg: rgba(255, 255, 255, 0.85);
-    --glass-border: rgba(255, 255, 255, 0.6);
-    --shadow: 0 1px 3px rgba(0, 0, 0, 0.04), 0 4px 12px rgba(0, 0, 0, 0.03);
-    --tag-bg: #2d2d2d;
-    --tag-text: #ffffff;
+    /* CopilotCloud palette — exact from dojo */
+    --surface-main: #dedee9;
+    --surface-container: #ffffff;
+    --border-default: #ffffff;
+    --border-container: #dbdbe5;
+    --text-primary: #010507;
+    --text-secondary: #57575b;
+    --text-disabled: #838389;
+    --text-invert: #ffffff;
+
+    --sidebar-width: 296px;
 }
 
 * {
@@ -30,9 +21,9 @@
 
 body {
     margin: 0;
-    background: var(--bg);
-    color: var(--text);
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--surface-main);
+    color: var(--text-primary);
+    font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     -webkit-font-smoothing: antialiased;
 }
 
@@ -44,6 +35,6 @@ body {
     background: transparent;
 }
 .sidebar-scroll::-webkit-scrollbar-thumb {
-    background: var(--border);
+    background: var(--border-container);
     border-radius: 4px;
 }
