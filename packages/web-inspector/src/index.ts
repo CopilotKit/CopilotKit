@@ -234,6 +234,35 @@ export class WebInspectorElement extends LitElement {
   private _threadsUnlocked = false;
   private _threadsGateError: string | null = null;
 
+  /**
+   * Marketing demo mode. When true, the inspector bypasses the early-access
+   * gate and populates the Threads tab with scripted data instead of live
+   * runtime state. On load, four fake enterprise threads are shown with the
+   * "SOC 2 audit prep checklist" thread pre-selected and a static conversation
+   * visible. Clicking "Customer churn risk report" starts a streaming assistant
+   * response and populates the Agent State and AG-UI Events tabs with realistic
+   * mock data, so all three sub-tabs are immediately usable.
+   *
+   * To record: flip this to `true`, rebuild with
+   * `npx nx run @copilotkit/web-inspector:build --skip-nx-cache`, then restart
+   * the Angular demo (`npx nx run @copilotkit/angular-demo:start`). Open
+   * Screen Studio, crop to 960×720 (4:3) or 720×720 (1:1), and record. Flip
+   * back to `false` and rebuild before merging.
+   */
+  private _demoMode = false;
+  private _demoThreads: ɵThread[] = [];
+  private _demoSelectedThreadId: string | null = null;
+  private _demoConversation: {
+    id: string;
+    type: string;
+    content: string;
+    createdAt: string;
+  }[] = [];
+  private _demoAgentState: SanitizedValue | null = null;
+  private _demoAgentEvents: InspectorEvent[] = [];
+  private _demoTimers: ReturnType<typeof setTimeout>[] = [];
+  private _demoStreamInterval: ReturnType<typeof setInterval> | null = null;
+
   private announcementMarkdown: string | null = null;
   private announcementHtml: string | null = null;
   private announcementTimestamp: string | null = null;
@@ -1764,6 +1793,9 @@ ${argsString}</pre
       this.hydrateStateFromStorageEarly();
       this.tryAutoAttachCore();
       this.ensureAnnouncementLoading();
+      if (this._demoMode) {
+        this.startDemoAnimation();
+      }
     }
   }
 
@@ -1786,6 +1818,13 @@ ${argsString}</pre
         "pointerdown",
         this.handleGlobalPointerDown as EventListener,
       );
+    }
+    // Clean up demo mode timers
+    for (const id of this._demoTimers) clearTimeout(id);
+    this._demoTimers = [];
+    if (this._demoStreamInterval !== null) {
+      clearInterval(this._demoStreamInterval);
+      this._demoStreamInterval = null;
     }
     // Clear pending body-transition timers to prevent post-teardown errors
     for (const id of this.bodyTransitionTimeoutIds) {
@@ -3288,6 +3327,241 @@ ${argsString}</pre
     this.threadDividerResizing = false;
   };
 
+  private startDemoAnimation(): void {
+    const ago = (minutes: number) =>
+      new Date(Date.now() - minutes * 60 * 1000).toISOString();
+
+    const makeThread = (
+      id: string,
+      name: string,
+      agentId: string,
+      updatedAt: string,
+    ): ɵThread => ({
+      id,
+      organizationId: "demo-org",
+      agentId,
+      createdById: "demo-user",
+      name,
+      archived: false,
+      createdAt: updatedAt,
+      updatedAt,
+    });
+
+    this._demoThreads = [
+      makeThread(
+        "demo-4",
+        "Customer churn risk report",
+        "langgraph-agent",
+        ago(3),
+      ),
+      makeThread(
+        "demo-3",
+        "SOC 2 audit prep checklist",
+        "compliance-agent",
+        ago(47),
+      ),
+      makeThread(
+        "demo-2",
+        "Vendor contract renewal",
+        "langgraph-agent",
+        ago(183),
+      ),
+      makeThread("demo-1", "Q3 headcount planning", "crewai-agent", ago(1440)),
+    ];
+    // Start with SOC 2 thread open and a pre-existing conversation
+    this._demoSelectedThreadId = "demo-3";
+    this._demoConversation = [
+      {
+        id: "soc-u1",
+        type: "user",
+        content:
+          "What documentation do we still need to complete before the SOC 2 audit in June?",
+        createdAt: "",
+      },
+      {
+        id: "soc-a1",
+        type: "assistant",
+        content:
+          "Based on your current posture, here are the gaps to close before June:\n\n" +
+          "Access control policies need a formal review sign-off from your CISO. The last documented review was 14 months ago, which falls outside the 12-month requirement.\n\n" +
+          "Vendor risk assessments are missing for 3 of your critical subprocessors: the data pipeline vendor, your log aggregation provider, and your CDN. Each needs a completed questionnaire and a risk rating.\n\n" +
+          "Incident response runbooks exist but have never been tested. You need at least one tabletop exercise documented and completed before the audit window.\n\n" +
+          "Finally, your employee security training completion rate is at 71%. SOC 2 auditors typically want to see 95% or above for the prior 12 months.",
+        createdAt: "",
+      },
+    ];
+    this._threadsUnlocked = true;
+    this.selectedMenu = "threads";
+    this.requestUpdate();
+  }
+
+  private _startChurnDemo(): void {
+    this._demoSelectedThreadId = "demo-4";
+    this._demoConversation = [
+      {
+        id: "msg-u1",
+        type: "user",
+        content:
+          "Which enterprise accounts are most at risk of churning this quarter? Pull from usage metrics and support history.",
+        createdAt: "",
+      },
+      { id: "msg-a1", type: "assistant", content: "", createdAt: "" },
+    ];
+
+    // Mock agent state for the churn report thread
+    this._demoAgentState = {
+      status: "completed",
+      accounts_analyzed: 47,
+      high_risk_count: 3,
+      watch_list_count: 2,
+      data_sources: ["usage_metrics", "support_tickets", "crm"],
+      last_updated: new Date().toISOString(),
+      high_risk_accounts: [
+        {
+          name: "Meridian Financial",
+          risk_score: 0.91,
+          active_user_drop_pct: 64,
+          open_p1_tickets: 4,
+        },
+        {
+          name: "Crestwood Logistics",
+          risk_score: 0.84,
+          days_to_renewal: 47,
+          exec_sponsor_left: true,
+        },
+        {
+          name: "Atlas Healthcare",
+          risk_score: 0.79,
+          seat_utilization_pct: 12,
+          admin_inactive_days: 42,
+        },
+      ],
+    };
+
+    // Mock AG-UI events for the churn report thread
+    const t = Date.now();
+    this._demoAgentEvents = [
+      {
+        id: "demo-evt-1",
+        agentId: "langgraph-agent",
+        type: "RUN_STARTED",
+        timestamp: t - 8200,
+        payload: { run_id: "run_cHurnQ3", agent: "langgraph-agent" },
+      },
+      {
+        id: "demo-evt-2",
+        agentId: "langgraph-agent",
+        type: "TOOL_CALL_START",
+        timestamp: t - 7100,
+        payload: {
+          tool_call_id: "tc_01",
+          tool_name: "fetch_usage_metrics",
+          arguments: { window_days: 90, segment: "enterprise" },
+        },
+      },
+      {
+        id: "demo-evt-3",
+        agentId: "langgraph-agent",
+        type: "TOOL_CALL_END",
+        timestamp: t - 5800,
+        payload: { tool_call_id: "tc_01", accounts_returned: 47 },
+      },
+      {
+        id: "demo-evt-4",
+        agentId: "langgraph-agent",
+        type: "TOOL_CALL_START",
+        timestamp: t - 5700,
+        payload: {
+          tool_call_id: "tc_02",
+          tool_name: "fetch_support_history",
+          arguments: { severity: ["P1", "P2"], days: 90 },
+        },
+      },
+      {
+        id: "demo-evt-5",
+        agentId: "langgraph-agent",
+        type: "TOOL_CALL_END",
+        timestamp: t - 4300,
+        payload: { tool_call_id: "tc_02", tickets_returned: 214 },
+      },
+      {
+        id: "demo-evt-6",
+        agentId: "langgraph-agent",
+        type: "STATE_SNAPSHOT",
+        timestamp: t - 3900,
+        payload: {
+          status: "analyzing",
+          accounts_analyzed: 47,
+          high_risk_count: 3,
+        },
+      },
+      {
+        id: "demo-evt-7",
+        agentId: "langgraph-agent",
+        type: "TEXT_MESSAGE_START",
+        timestamp: t - 3100,
+        payload: { message_id: "msg-a1" },
+      },
+      {
+        id: "demo-evt-8",
+        agentId: "langgraph-agent",
+        type: "TEXT_MESSAGE_END",
+        timestamp: t - 200,
+        payload: { message_id: "msg-a1" },
+      },
+      {
+        id: "demo-evt-9",
+        agentId: "langgraph-agent",
+        type: "RUN_FINISHED",
+        timestamp: t - 100,
+        payload: { run_id: "run_cHurnQ3" },
+      },
+    ];
+
+    this.requestUpdate();
+
+    // Stream the assistant response word by word
+    const fullResponse =
+      "Based on usage data from the last 90 days, three accounts stand out as high risk.\n\n" +
+      "Meridian Financial is down 64% in active users since January and has 4 open P1 support tickets with no resolution path. " +
+      "Crestwood Logistics has a contract renewal due in 47 days and their primary exec sponsor left in February with no replacement identified. " +
+      "Atlas Healthcare is sitting at 12% seat utilization and no admin logins in 6 weeks.\n\n" +
+      "Two more accounts worth watching: Northgate Capital has gone dark on Slack and missed their last two QBRs. " +
+      "Solaris Manufacturing flagged cost concerns in their last check-in and has been evaluating alternatives.\n\n" +
+      "Recommend scheduling EBRs with Meridian and Atlas this week, and looping in their CSMs on Crestwood before the renewal window closes.";
+
+    const tokens = fullResponse.split(/(\s+)/);
+    let tokenIndex = 0;
+    this._demoStreamInterval = setInterval(() => {
+      if (tokenIndex >= tokens.length) {
+        if (this._demoStreamInterval !== null) {
+          clearInterval(this._demoStreamInterval);
+          this._demoStreamInterval = null;
+        }
+        return;
+      }
+      const last = this._demoConversation[this._demoConversation.length - 1];
+      if (!last) return;
+      const updated: {
+        id: string;
+        type: string;
+        content: string;
+        createdAt: string;
+      } = {
+        id: last.id,
+        type: last.type,
+        content: last.content + (tokens[tokenIndex] ?? ""),
+        createdAt: last.createdAt,
+      };
+      this._demoConversation = [
+        ...this._demoConversation.slice(0, -1),
+        updated,
+      ];
+      tokenIndex++;
+      this.requestUpdate();
+    }, 35);
+  }
+
   private renderThreadsGate() {
     return html`
       <div style="
@@ -3450,14 +3724,29 @@ ${argsString}</pre
       return this.renderThreadsGate();
     }
 
-    const displayThreads =
-      this.selectedContext === "all-agents"
+    const isDemoActive = this._demoMode && this._demoThreads.length > 0;
+
+    const displayThreads = isDemoActive
+      ? this._demoThreads
+      : this.selectedContext === "all-agents"
         ? this._threads
         : (this._threadsByAgent.get(this.selectedContext) ?? []);
 
+    const activeSelectedId = isDemoActive
+      ? this._demoSelectedThreadId
+      : this.selectedThreadId;
+
     const selectedThread =
-      this.selectedThreadId != null
-        ? (displayThreads.find((t) => t.id === this.selectedThreadId) ?? null)
+      activeSelectedId != null
+        ? (displayThreads.find((t) => t.id === activeSelectedId) ?? null)
+        : null;
+
+    const conversationOverride = isDemoActive
+      ? this._demoConversation
+      : selectedThread
+        ? this.mapMessagesToConversation(
+            this.agentMessages.get(selectedThread.agentId) ?? null,
+          )
         : null;
 
     return html`
@@ -3469,9 +3758,25 @@ ${argsString}</pre
           <cpk-thread-list
             style="height:100%;"
             .threads=${displayThreads}
-            .selectedThreadId=${this.selectedThreadId}
+            .selectedThreadId=${activeSelectedId}
             @threadSelected=${(e: CustomEvent<string>) => {
-              this.selectedThreadId = e.detail;
+              if (isDemoActive) {
+                if (e.detail === "demo-4") {
+                  this._startChurnDemo();
+                } else {
+                  this._demoSelectedThreadId = e.detail;
+                  // Clear churn-specific data when switching away
+                  if (this._demoStreamInterval !== null) {
+                    clearInterval(this._demoStreamInterval);
+                    this._demoStreamInterval = null;
+                  }
+                  this._demoAgentState = null;
+                  this._demoAgentEvents = [];
+                  this._demoConversation = [];
+                }
+              } else {
+                this.selectedThreadId = e.detail;
+              }
               this.requestUpdate();
             }}
           ></cpk-thread-list>
@@ -3489,31 +3794,28 @@ ${argsString}</pre
         <!-- Center + right: thread details or empty state -->
         <div style="flex:1;min-width:0;overflow:hidden;display:flex;">
           ${
-            this.selectedThreadId
+            activeSelectedId
               ? html`<cpk-thread-details
                   style="flex:1;min-width:0;"
-                  .threadId=${this.selectedThreadId}
+                  .threadId=${activeSelectedId}
                   .thread=${selectedThread}
                   .runtimeUrl=${this._core?.runtimeUrl ?? ""}
                   .headers=${this._core?.headers ?? {}}
                   .agentStateInput=${
-                    selectedThread
-                      ? this.getLatestStateForAgent(selectedThread.agentId)
-                      : null
+                    isDemoActive
+                      ? this._demoAgentState
+                      : selectedThread
+                        ? this.getLatestStateForAgent(selectedThread.agentId)
+                        : null
                   }
                   .agentEventsInput=${
-                    selectedThread
-                      ? (this.agentEvents.get(selectedThread.agentId) ?? [])
-                      : []
+                    isDemoActive
+                      ? this._demoAgentEvents
+                      : selectedThread
+                        ? (this.agentEvents.get(selectedThread.agentId) ?? [])
+                        : []
                   }
-                  .conversationOverride=${
-                    selectedThread
-                      ? this.mapMessagesToConversation(
-                          this.agentMessages.get(selectedThread.agentId) ??
-                            null,
-                        )
-                      : null
-                  }
+                  .conversationOverride=${conversationOverride}
                 ></cpk-thread-details>`
               : html`
                   <div

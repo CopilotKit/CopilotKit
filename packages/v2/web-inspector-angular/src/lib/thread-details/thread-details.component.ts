@@ -7,6 +7,7 @@ import {
   signal,
   computed,
   inject,
+  untracked,
 } from "@angular/core";
 import { CommonModule } from "@angular/common";
 import { DomSanitizer, SafeHtml } from "@angular/platform-browser";
@@ -990,7 +991,7 @@ export class ThreadDetailsComponent {
       this._expandedToolCalls.set(new Set());
       this.fetchAbortController?.abort();
       this.fetchAbortController = null;
-      if (threadId && this.conversationOverride() === null) {
+      if (threadId && untracked(this.conversationOverride) === null) {
         void this.fetchMessages(threadId);
       } else if (!threadId) {
         this.conversation.set([]);
