@@ -13,6 +13,11 @@ on:
       - ".github/workflows/starter-smoke.yml"
   workflow_dispatch: {}
 
+permissions:
+  contents: read
+  packages: read
+  issues: write
+
 jobs:
   starter-smoke:
     runs-on: ubuntu-latest
