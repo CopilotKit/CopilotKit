@@ -214,6 +214,8 @@ Before you begin, you'll need the following:
                   from langgraph.graph import END, START, MessagesState, StateGraph
                   from langchain_core.messages import SystemMessage
                   from langchain_openai import ChatOpenAI
+                  from langgrapg.checkpoint.memory import MemorySaver
+                  import uvicorn
 
                   async def mock_llm(state: MessagesState):
                     model = ChatOpenAI(model="gpt-4.1-mini")
@@ -231,7 +233,9 @@ Before you begin, you'll need the following:
                   graph.add_node(mock_llm)
                   graph.add_edge(START, "mock_llm")
                   graph.add_edge("mock_llm", END)
-                  graph = graph.compile()
+                  graph = graph.compile(
+                    checkpointer=MemorySaver()
+                  )
 
                   app = FastAPI()
 
@@ -251,7 +255,7 @@ Before you begin, you'll need the following:
                     uvicorn.run(
                       "main:app",
                       host="0.0.0.0",
-                      port="8123",
+                      port=8123,
                       reload=True,
                     )
 
