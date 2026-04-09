@@ -231,6 +231,9 @@ export class WebInspectorElement extends LitElement {
     startW: number;
   } | null = null;
 
+  private _threadsUnlocked = false;
+  private _threadsGateError: string | null = null;
+
   private announcementMarkdown: string | null = null;
   private announcementHtml: string | null = null;
   private announcementTimestamp: string | null = null;
@@ -3285,7 +3288,168 @@ ${argsString}</pre
     this.threadDividerResizing = false;
   };
 
+  private renderThreadsGate() {
+    return html`
+      <div style="
+        position:relative;
+        display:flex;
+        flex-direction:column;
+        align-items:center;
+        justify-content:center;
+        padding:40px 24px;
+        min-height:100%;
+        text-align:center;
+        background:linear-gradient(135deg,#f5f4ff 0%,#ede9fe 100%);
+        overflow:hidden;
+      ">
+        <!-- Blurred ellipses from Figma/storybook -->
+        <div style="position:absolute;width:570px;height:570px;border-radius:50%;top:-80px;left:-120px;opacity:0.25;background:#757CF2;filter:blur(120px);pointer-events:none;"></div>
+        <div style="position:absolute;width:570px;height:570px;border-radius:50%;bottom:-100px;right:-80px;opacity:0.2;background:#FFAC4D;filter:blur(120px);pointer-events:none;"></div>
+        <div style="position:absolute;width:400px;height:400px;border-radius:50%;bottom:20px;left:-60px;opacity:0.15;background:#FFAC4D;filter:blur(100px);pointer-events:none;"></div>
+
+        <div style="
+          position:relative;
+          z-index:1;
+          background:white;
+          border-radius:16px;
+          padding:32px 28px;
+          max-width:320px;
+          width:100%;
+          box-shadow:0 4px 24px rgba(99,102,241,0.12),0 1px 4px rgba(0,0,0,0.06);
+          border:1px solid #EEE6FE;
+        ">
+          <!-- Lock icon -->
+          <div style="
+            width:52px;height:52px;
+            background:#EEE6FE;
+            border-radius:14px;
+            display:flex;align-items:center;justify-content:center;
+            margin:0 auto 16px;
+          ">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+              <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+            </svg>
+          </div>
+
+          <!-- Badge -->
+          <div style="
+            display:inline-block;
+            background:#EEE6FE;
+            color:#6366f1;
+            font-size:10px;
+            font-weight:700;
+            letter-spacing:0.08em;
+            text-transform:uppercase;
+            padding:3px 10px;
+            border-radius:20px;
+            margin-bottom:12px;
+          ">Early Access</div>
+
+          <div style="font-size:16px;font-weight:700;color:#181c1f;margin-bottom:8px;line-height:1.3;">
+            Threads is coming soon
+          </div>
+          <div style="font-size:12px;color:#57575B;line-height:1.7;margin-bottom:20px;">
+            Get early access to CopilotKit Threads: persistent, observable agent conversations.
+          </div>
+
+          <a
+            href="https://copilotkit.ai/threads-early-access"
+            target="_blank"
+            style="
+              display:block;
+              background:#757CF2;
+              color:white;
+              text-decoration:none;
+              font-size:13px;
+              font-weight:600;
+              padding:10px 16px;
+              border-radius:8px;
+              margin-bottom:16px;
+            "
+          >Request early access →</a>
+
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;">
+            <div style="flex:1;height:1px;background:#EBEBF0;"></div>
+            <span style="font-size:11px;color:#838389;">have a code?</span>
+            <div style="flex:1;height:1px;background:#EBEBF0;"></div>
+          </div>
+
+          <div style="display:flex;gap:6px;">
+            <input
+              id="cpk-gate-input"
+              type="text"
+              placeholder="Enter access code"
+              style="
+                flex:1;
+                border:1px solid #DBDBE5;
+                border-radius:8px;
+                padding:8px 12px;
+                font-size:12px;
+                outline:none;
+                color:#181c1f;
+                background:#FAFAFA;
+              "
+              @keydown=${(e: KeyboardEvent) => {
+                if (e.key === "Enter") {
+                  this._submitThreadsCode(
+                    (e.currentTarget as HTMLInputElement).value,
+                  );
+                }
+              }}
+            />
+            <button
+              style="
+                background:#181c1f;
+                color:white;
+                border:none;
+                border-radius:8px;
+                padding:8px 14px;
+                font-size:12px;
+                font-weight:500;
+                cursor:pointer;
+                white-space:nowrap;
+              "
+              @click=${() => {
+                const input = this.shadowRoot?.getElementById(
+                  "cpk-gate-input",
+                ) as HTMLInputElement | null;
+                if (input) this._submitThreadsCode(input.value);
+              }}
+            >
+              Unlock
+            </button>
+          </div>
+          ${
+            this._threadsGateError
+              ? html`<div style="font-size:11px;color:#ef4444;margin-top:10px;">
+                  ${this._threadsGateError}
+                </div>`
+              : nothing
+          }
+        </div>
+      </div>
+    `;
+  }
+
+  private _submitThreadsCode(value: string): void {
+    if (value.trim().toLowerCase() === "earlyaccess") {
+      document.cookie =
+        "cpk_threads_access=1; path=/; max-age=31536000; SameSite=Lax";
+      this._threadsUnlocked = true;
+      this._threadsGateError = null;
+    } else {
+      this._threadsGateError =
+        "Incorrect code. Sign up at copilotkit.ai/threads-early-access to get yours.";
+    }
+    this.requestUpdate();
+  }
+
   private renderThreadsView() {
+    if (!this._threadsUnlocked) {
+      return this.renderThreadsGate();
+    }
+
     const displayThreads =
       this.selectedContext === "all-agents"
         ? this._threads
