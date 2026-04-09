@@ -270,7 +270,19 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
                     item.model_dump() if hasattr(item, "model_dump") else item
                     for item in app_context
                 ]
-            context_content = json.dumps(app_context, indent=2)
+            # Format context entries as readable text so LLMs can follow
+            # instructions in value fields (instead of double-serialized JSON)
+            if (isinstance(app_context, list)
+                    and app_context
+                    and all(isinstance(e, dict) and "value" in e for e in app_context)):
+                parts = []
+                for entry in app_context:
+                    desc = entry.get("description", "")
+                    val = entry.get("value", "")
+                    parts.append(f"### {desc}\n\n{val}")
+                context_content = "\n\n---\n\n".join(parts)
+            else:
+                context_content = json.dumps(app_context, indent=2)
 
         context_message_content = f"App Context:\n{context_content}"
         context_message_prefix = "App Context:\n"
