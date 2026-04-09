@@ -1,0 +1,29 @@
+{
+  "name": "@copilotkit/showcase-scripts",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "generate-registry": "tsx generate-registry.ts",
+    "validate-manifests": "tsx generate-registry.ts --validate-only",
+    "create-integration": "tsx create-integration/index.ts",
+    "sync-qa": "tsx sync-qa-to-notion.ts",
+    "sync-qa:dry": "DRY_RUN=true tsx sync-qa-to-notion.ts",
+    "bundle-content": "tsx bundle-demo-content.ts",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "ajv": "^8.17.1",
+    "ajv-formats": "^3.0.1",
+    "chalk": "^5.4.0",
+    "playwright": "^1.59.1",
+    "prompts": "^2.4.2",
+    "tsx": "^4.19.0",
+    "yaml": "^2.7.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/prompts": "^2.4.9",
+    "vitest": "^3.0.0"
+  }
+}

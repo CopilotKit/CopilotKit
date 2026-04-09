@@ -1,0 +1,99 @@
+---
+title: "Multimodal Inputs"
+description:
+  "Use modality-specific user input parts with typed data/url sources in
+  @ag-ui/core"
+---
+
+# Multimodal Inputs
+
+`UserMessage.content` accepts either plain text or an ordered array of
+multimodal content parts.
+
+```typescript
+const message: UserMessage = {
+  id: "user-1",
+  role: "user",
+  content: [
+    { type: "text", text: "Summarize this PDF and screenshot" },
+    {
+      type: "image",
+      source: {
+        type: "url",
+        value: "https://example.com/screen.png",
+        mimeType: "image/png",
+      },
+    },
+    {
+      type: "document",
+      source: {
+        type: "url",
+        value: "https://example.com/report.pdf",
+        mimeType: "application/pdf",
+      },
+    },
+  ],
+};
+```
+
+## Source Types
+
+Use `source.type` to describe payload delivery:
+
+- `data`: Inline base64 payload with required `mimeType`
+- `url`: HTTP(S) or data URL, optional `mimeType`
+
+## Common Use Cases
+
+### Visual QA
+
+```typescript
+{
+  id: "q1",
+  role: "user",
+  content: [
+    { type: "text", text: "What issue do you see in this UI?" },
+    {
+      type: "image",
+      source: { type: "url", value: "https://example.com/ui.png", mimeType: "image/png" },
+      metadata: { detail: "high" },
+    },
+  ],
+}
+```
+
+### Audio transcription
+
+```typescript
+{
+  id: "q2",
+  role: "user",
+  content: [
+    { type: "text", text: "Transcribe this recording." },
+    {
+      type: "audio",
+      source: { type: "url", value: "https://example.com/meeting.wav", mimeType: "audio/wav" },
+    },
+  ],
+}
+```
+
+### Mixed media comparison
+
+```typescript
+{
+  id: "q3",
+  role: "user",
+  content: [
+    { type: "text", text: "Compare the screenshot with the spec." },
+    {
+      type: "image",
+      source: { type: "data", value: "iVBORw0KGgo...", mimeType: "image/png" },
+    },
+    {
+      type: "document",
+      source: { type: "url", value: "https://example.com/spec.pdf", mimeType: "application/pdf" },
+    },
+  ],
+}
+```

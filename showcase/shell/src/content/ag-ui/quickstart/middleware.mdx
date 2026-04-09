@@ -1,0 +1,435 @@
+---
+title: "Middleware"
+description:
+  "Connect to existing protocols, in process agents or custom solutions via
+  AG-UI"
+---
+
+# Introduction
+
+A middleware implementation allows you to **translate existing protocols and
+applications to AG-UI events**. This approach creates a bridge between your
+existing system and AG-UI, making it perfect for adding agent capabilities to
+current applications.
+
+## When to use a middleware implementation
+
+Middleware is the flexible option. It allows you to translate existing protocols
+and applications to AG-UI events creating a bridge between your existing system
+and AG-UI.
+
+Middleware is great for:
+
+- Taking your **existing protocol or API** and **translating it universally**
+- Working within the confines of **an existing system or framework**
+- **When you don't have direct control** over the agent framework or system
+
+## What you'll build
+
+In this guide, we'll create a middleware agent that:
+
+1. Extends the `AbstractAgent` class
+2. Connects to OpenAI's GPT-4o model
+3. Translates OpenAI responses to AG-UI events
+4. Runs in-process with your application
+
+This approach gives you maximum flexibility to integrate with existing codebases
+while maintaining the full power of the AG-UI protocol.
+
+Let's get started!
+
+## Prerequisites
+
+Before we begin, make sure you have:
+
+- [Node.js](https://nodejs.org/) **v16 or later**
+- An **OpenAI API key**
+
+### 1. Provide your OpenAI API key
+
+First, let's set up your API key:
+
+```bash
+# Set your OpenAI API key
+export OPENAI_API_KEY=your-api-key-here
+```
+
+### 2. Install build utilities
+
+Install the following tools:
+
+```bash
+brew install protobuf
+```
+
+```bash
+npm i nx
+```
+
+```bash
+curl -fsSL https://get.pnpm.io/install.sh | sh -
+```
+
+## Step 1 – Scaffold your integration
+
+Start by cloning the repo
+
+```bash
+git clone git@github.com:ag-ui-protocol/ag-ui.git
+cd ag-ui/
+```
+
+Copy the middleware-starter template to create your OpenAI integration:
+
+```bash
+cp -r integrations/middleware-starter integrations/openai
+```
+
+### Update metadata
+
+Open `integrations/openai/package.json` and update the fields to match your new
+folder:
+
+```json
+{
+  "name": "@ag-ui/openai",
+  "author": "Your Name <your-email@example.com>",
+  "version": "0.0.1",
+
+  ... rest of package.json
+}
+```
+
+Next, update the class name inside `integrations/openai/src/index.ts`:
+
+```ts
+// change the name to OpenAIAgent
+export class OpenAIAgent extends AbstractAgent {}
+```
+
+Finally, introduce your integration to the dojo by adding it to
+`apps/dojo/src/menu.ts`:
+
+```ts
+// ...
+export const menuIntegrations: MenuIntegrationConfig[] = [
+  // ...
+
+  {
+    id: "openai",
+    name: "OpenAI",
+    features: ["agentic_chat"],
+  },
+];
+```
+
+And `apps/dojo/src/agents.ts`:
+
+```ts
+// ...
+
+export const agentsIntegrations: AgentIntegrationConfig[] = [
+  // ...
+
+  {
+    id: "openai",
+    agents: async () => {
+      return {
+        agentic_chat: new OpenAIAgent(),
+      };
+    },
+  },
+];
+```
+
+## Step 2 – Add package to dojo dependencies
+
+Open `apps/dojo/package.json` and add the package `@ag-ui/openai`:
+
+```json
+{
+  "name": "demo-viewer",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "@ag-ui/agno": "workspace:*",
+    "@ag-ui/langgraph": "workspace:*",
+    "@ag-ui/mastra": "workspace:*",
+    "@ag-ui/middleware-starter": "workspace:*",
+    "@ag-ui/server-starter": "workspace:*",
+    "@ag-ui/server-starter-all-features": "workspace:*",
+    "@ag-ui/vercel-ai-sdk": "workspace:*",
+    "@ag-ui/openai": "workspace:*", <- Add this line
+
+  ... rest of package.json
+}
+```
+
+## Step 3 – Start the dojo
+
+Now let's see your work in action:
+
+```bash
+# Install dependencies
+pnpm install
+
+# Compile the project and run the dojo
+pnpm dev
+```
+
+Head over to [http://localhost:3000](http://localhost:3000) and choose
+**OpenAI** from the drop-down. You'll see the stub agent replies with **Hello
+world!** for now.
+
+Here's what's happening with that stub agent:
+
+```ts
+// integrations/openai/src/index.ts
+  AbstractAgent,
+  BaseEvent,
+  EventType,
+  RunAgentInput,
+} from "@ag-ui/client"
+
+export class OpenAIAgent extends AbstractAgent {
+  run(input: RunAgentInput): Observable<BaseEvent> {
+    const messageId = Date.now().toString()
+    return new Observable<BaseEvent>((observer) => {
+      observer.next({
+        type: EventType.RUN_STARTED,
+        threadId: input.threadId,
+        runId: input.runId,
+      } as any)
+
+      observer.next({
+        type: EventType.TEXT_MESSAGE_START,
+        messageId,
+      } as any)
+
+      observer.next({
+        type: EventType.TEXT_MESSAGE_CONTENT,
+        messageId,
+        delta: "Hello world!",
+      } as any)
+
+      observer.next({
+        type: EventType.TEXT_MESSAGE_END,
+        messageId,
+      } as any)
+
+      observer.next({
+        type: EventType.RUN_FINISHED,
+        threadId: input.threadId,
+        runId: input.runId,
+      } as any)
+
+      observer.complete()
+    })
+  }
+}
+```
+
+## Step 4 – Bridge OpenAI with AG-UI
+
+Let's transform our stub into a real agent that streams completions from OpenAI.
+
+### Install the OpenAI SDK
+
+First, we need the OpenAI SDK:
+
+```bash
+cd integrations/openai
+pnpm install openai
+```
+
+### AG-UI recap
+
+An AG-UI agent extends `AbstractAgent` and emits a sequence of events to signal:
+
+- lifecycle events (`RUN_STARTED`, `RUN_FINISHED`, `RUN_ERROR`)
+- content events (`TEXT_MESSAGE_*`, `TOOL_CALL_*`, and more)
+
+### Implement the streaming agent
+
+Now we'll transform our stub agent into a real OpenAI integration. The key
+difference is that instead of sending a hardcoded "Hello world!" message, we'll
+connect to OpenAI's API and stream the response back through AG-UI events.
+
+The implementation follows the same event flow as our stub, but we'll add the
+OpenAI client initialization in the constructor and replace our mock response
+with actual API calls. We'll also handle tool calls if they're present in the
+response, making our agent fully capable of using functions when needed.
+
+```typescript
+// integrations/openai/src/index.ts
+  AbstractAgent,
+  RunAgentInput,
+  EventType,
+  BaseEvent,
+} from "@ag-ui/client"
+
+
+export class OpenAIAgent extends AbstractAgent {
+  private openai: OpenAI
+
+  constructor(openai?: OpenAI) {
+    super()
+    // Initialize OpenAI client - uses OPENAI_API_KEY from environment if not provided
+    this.openai = openai ?? new OpenAI()
+  }
+
+  run(input: RunAgentInput): Observable<BaseEvent> {
+    return new Observable<BaseEvent>((observer) => {
+      // Same as before - emit RUN_STARTED to begin
+      observer.next({
+        type: EventType.RUN_STARTED,
+        threadId: input.threadId,
+        runId: input.runId,
+      } as any)
+
+      // NEW: Instead of hardcoded response, call OpenAI's API
+      this.openai.chat.completions
+        .create({
+          model: "gpt-4o",
+          stream: true, // Enable streaming for real-time responses
+          // Convert AG-UI tools format to OpenAI's expected format
+          tools: input.tools.map((tool) => ({
+            type: "function",
+            function: {
+              name: tool.name,
+              description: tool.description,
+              parameters: tool.parameters,
+            },
+          })),
+          // Transform AG-UI messages to OpenAI's message format
+          messages: input.messages.map((message) => ({
+            role: message.role as any,
+            content: message.content ?? "",
+            // Include tool calls if this is an assistant message with tools
+            ...(message.role === "assistant" && message.toolCalls
+              ? {
+                  tool_calls: message.toolCalls,
+                }
+              : {}),
+            // Include tool call ID if this is a tool result message
+            ...(message.role === "tool"
+              ? { tool_call_id: message.toolCallId }
+              : {}),
+          })),
+        })
+        .then(async (response) => {
+          const messageId = Date.now().toString()
+
+          // NEW: Stream each chunk from OpenAI's response
+          for await (const chunk of response) {
+            // Handle text content chunks
+            if (chunk.choices[0].delta.content) {
+              observer.next({
+                type: EventType.TEXT_MESSAGE_CHUNK, // Chunk events open and close messages automatically
+                messageId,
+                delta: chunk.choices[0].delta.content,
+              } as any)
+            }
+            // Handle tool call chunks (when the model wants to use a function)
+            else if (chunk.choices[0].delta.tool_calls) {
+              let toolCall = chunk.choices[0].delta.tool_calls[0]
+
+              observer.next({
+                type: EventType.TOOL_CALL_CHUNK,
+                toolCallId: toolCall.id,
+                toolCallName: toolCall.function?.name,
+                parentMessageId: messageId,
+                delta: toolCall.function?.arguments,
+              } as any)
+            }
+          }
+
+          // Same as before - emit RUN_FINISHED when complete
+          observer.next({
+            type: EventType.RUN_FINISHED,
+            threadId: input.threadId,
+            runId: input.runId,
+          } as any)
+
+          observer.complete()
+        })
+        // NEW: Handle errors from the API
+        .catch((error) => {
+          observer.next({
+            type: EventType.RUN_ERROR,
+            message: error.message,
+          } as any)
+
+          observer.error(error)
+        })
+    })
+  }
+}
+```
+
+### What happens under the hood?
+
+Let's break down what your agent is doing:
+
+1. **Setup** – We create an OpenAI client and emit `RUN_STARTED`
+2. **Request** – We send the user's messages to `chat.completions` with
+   `stream: true`
+3. **Streaming** – We forward each chunk as either `TEXT_MESSAGE_CHUNK` or
+   `TOOL_CALL_CHUNK`
+4. **Finish** – We emit `RUN_FINISHED` (or `RUN_ERROR` if something goes wrong)
+   and complete the observable
+
+## Step 4 – Chat with your agent
+
+Reload the dojo page and start typing. You'll see GPT-4o streaming its answer in
+real-time, word by word.
+
+## Bridging AG-UI to any protocol
+
+The pattern you just implemented—translate inputs, forward streaming chunks,
+emit AG-UI events—works for virtually any backend:
+
+- REST or GraphQL APIs
+- WebSockets
+- IoT protocols such as MQTT
+
+## Connect your agent to a frontend
+
+Tools like [CopilotKit](https://docs.copilotkit.ai) already understand AG-UI and
+provide plug-and-play React components. Point them at your agent endpoint and
+you get a full-featured chat UI out of the box.
+
+## Share your integration
+
+Did you build a custom adapter that others could reuse? We welcome community
+contributions!
+
+1. Fork the [AG-UI repository](https://github.com/ag-ui-protocol/ag-ui)
+2. Add your package under `integrations`. See
+   [Contributing](../development/contributing) for more details and naming
+   conventions.
+3. Open a pull request describing your use-case and design decisions
+
+If you have questions, need feedback, or want to validate an idea first, start a
+thread in the GitHub Discussions board:
+[AG-UI GitHub Discussions board](https://github.com/orgs/ag-ui-protocol/discussions).
+
+Your integration might ship in the next release and help the entire AG-UI
+ecosystem grow.
+
+## Conclusion
+
+You now have a fully-functional AG-UI adapter for OpenAI and a local playground
+to test it. From here you can:
+
+- Add tool calls to enhance your agent
+- Publish your integration to npm
+- Bridge AG-UI to any other model or service
+
+Happy building!

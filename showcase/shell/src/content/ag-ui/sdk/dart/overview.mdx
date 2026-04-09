@@ -1,0 +1,145 @@
+---
+title: "Dart SDK"
+description: "AG-UI Protocol Dart implementation"
+---
+
+# AG-UI Dart SDK
+
+The Agent User Interaction Protocol Dart SDK provides a complete implementation for building AI applications in Dart and Flutter. This SDK enables seamless connectivity to AG-UI compatible agent systems with full type safety and reactive programming support.
+
+```bash
+dart pub add ag_ui
+```
+
+## Key Features
+
+- **Type-Safe Events**: Strongly typed event system with compile-time safety
+- **Reactive Streams**: Built on Dart's native Stream API for efficient async operations
+- **SSE Support**: Full Server-Sent Events implementation with automatic reconnection
+- **Binary Protocol**: Efficient binary encoding/decoding for optimal performance
+- **Flutter Ready**: Designed for seamless integration with Flutter applications
+- **Error Handling**: Comprehensive error handling with retry strategies
+
+## Quick Start
+
+```dart
+
+void main() async {
+  // Create client
+  final client = AgUiClient(
+    config: AgUiClientConfig(
+      baseUrl: 'http://localhost:8000',
+    ),
+  );
+
+  // Prepare input
+  final input = SimpleRunAgentInput(
+    messages: [
+      UserMessage(id: 'msg_1', content: 'Hello, agent!'),
+    ],
+  );
+
+  // Stream events
+  await for (final event in client.runAgent('my-agent', input)) {
+    switch (event) {
+      case TextMessageStartedEvent():
+        print('Assistant started typing...');
+      case TextMessageDeltaEvent(delta: final delta):
+        print('Assistant: $delta');
+      case ToolCallStartedEvent(name: final name):
+        print('Calling tool: $name');
+      default:
+        print('Event: ${event.type}');
+    }
+  }
+}
+```
+
+## Architecture
+
+The Dart SDK follows a modular architecture aligned with the AG-UI protocol specification:
+
+### Core Components
+
+<CardGroup cols={2}>
+  <Card title="Client" icon="plug" href="/sdk/dart/client/overview">
+    Main client for agent connectivity with SSE and binary protocol support
+  </Card>
+  <Card title="Types" icon="cube" href="/sdk/dart/core/types">
+    Core data structures including messages, tools, and state
+  </Card>
+  <Card title="Events" icon="bolt" href="/sdk/dart/core/events">
+    Event types for lifecycle, messages, tools, and state management
+  </Card>
+  <Card title="Encoder" icon="code" href="/sdk/dart/encoder/overview">
+    Binary encoding/decoding for efficient data transmission
+  </Card>
+</CardGroup>
+
+## Installation
+
+### Dart Projects
+
+Add to your `pubspec.yaml`:
+
+```yaml
+dependencies:
+  ag_ui: ^1.0.0
+```
+
+Then run:
+
+```bash
+dart pub get
+```
+
+### Flutter Projects
+
+For Flutter applications:
+
+```bash
+flutter pub add ag_ui
+```
+
+## Platform Support
+
+The Dart SDK supports all Dart platforms:
+
+- **Flutter**: iOS, Android, Web, Desktop (Windows, macOS, Linux)
+- **Dart VM**: Server-side and CLI applications
+- **Dart Web**: Browser-based applications
+
+## Example Application
+
+Explore the CLI example in the [example directory](https://github.com/ag-ui-protocol/ag-ui/tree/main/sdks/community/dart/example):
+
+- **CLI Tool**: Interactive command-line tool demonstrating:
+  - Basic agent conversation
+  - Tool-based generative UI flow
+  - Server-Sent Events streaming
+  - Auto-tool mode for non-interactive execution
+  - JSON output for debugging
+  - Error handling and retry logic
+
+## Testing
+
+The SDK includes comprehensive tests:
+
+```bash
+# Run all tests
+dart test
+
+# Run with coverage
+dart test --coverage=coverage
+
+# Run specific test file
+dart test test/client/client_test.dart
+```
+
+## Contributing
+
+We welcome contributions! Please see our [contribution guidelines](https://github.com/ag-ui-protocol/ag-ui/blob/main/CONTRIBUTING.md) for details.
+
+## License
+
+MIT License - see [LICENSE](https://github.com/ag-ui-protocol/ag-ui/blob/main/LICENSE) for details.
