@@ -66,14 +66,26 @@ jobs:
 
       # Auto-push clean transforms directly to the showcase branch
       - name: Auto-push clean transforms
+        id: push
         if: steps.sync.outputs.action == 'auto_push' || steps.sync.outputs.action == 'push_and_pr'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
           git add showcase/shell/src/content/ showcase/shell/.docs-sync-sha
+          CHANGED=$(git diff --cached --name-only | wc -l | tr -d ' ')
           git commit -m "Auto-sync docs from main ($(date +%Y-%m-%d))" || echo "Nothing to commit"
           git push origin "$SHOWCASE_BRANCH"
+          echo "files_changed=${CHANGED}" >> "$GITHUB_OUTPUT"
+
+      - name: Notify Slack (auto-push)
+        if: steps.sync.outputs.action == 'auto_push'
+        uses: slackapi/slack-github-action@v2.1.0
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
+          webhook-type: incoming-webhook
+          payload: |
+            { "text": ":arrows_counterclockwise: *Docs sync*: auto-pushed ${{ steps.push.outputs.files_changed || '?' }} file(s) to showcase\n<https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|View run>" }
 
       # Open PR only for files needing human review
       - name: Create PR for review items
@@ -115,3 +127,12 @@ jobs:
           )" \
             --base "$SHOWCASE_BRANCH" \
             --head "$BRANCH"
+
+      - name: Notify Slack (review needed)
+        if: steps.sync.outputs.action == 'push_and_pr'
+        uses: slackapi/slack-github-action@v2.1.0
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
+          webhook-type: incoming-webhook
+          payload: |
+            { "text": ":warning: *Docs sync*: auto-pushed ${{ steps.push.outputs.files_changed || '?' }} file(s) + opened PR for files needing manual review\n<https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|View run>" }
