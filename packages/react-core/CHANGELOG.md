@@ -1,5 +1,16 @@
 # ui
 
+## 1.55.2-next.0
+
+### Patch Changes
+
+- Updated dependencies [62c6042]
+  - @copilotkit/a2ui-renderer@1.55.2-next.0
+  - @copilotkit/core@1.55.2-next.0
+  - @copilotkit/runtime-client-gql@1.55.2-next.0
+  - @copilotkit/shared@1.55.2-next.0
+  - @copilotkit/web-inspector@1.55.2-next.0
+
 ## 1.55.1
 
 ### Patch Changes
