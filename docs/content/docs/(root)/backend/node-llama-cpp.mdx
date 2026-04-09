@@ -1,0 +1,93 @@
+---
+title: "Use node-llama-cpp with Copilot Runtime"
+description: "Run Copilot Runtime with a local llama.cpp model using LangChainAdapter and node-llama-cpp."
+icon: "custom/llamaindex"
+---
+
+import { Callout } from "fumadocs-ui/components/callout";
+
+This guide shows how to run Copilot Runtime with a local model through `node-llama-cpp`.
+
+It uses:
+
+- `@copilotkit/runtime` for the runtime endpoint
+- `LangChainAdapter` for model integration
+- `@langchain/community` `ChatLlamaCpp` backed by `node-llama-cpp`
+
+## 1. Install dependencies
+
+```bash
+pnpm add @copilotkit/runtime @langchain/community @langchain/core node-llama-cpp
+```
+
+## 2. Configure your model path
+
+Add your GGUF model path:
+
+```bash title=".env.local"
+LLAMA_CPP_MODEL_PATH=/absolute/path/to/model.gguf
+```
+
+## 3. Create the Copilot Runtime endpoint
+
+```ts title="app/api/copilotkit/route.ts"
+import {
+  CopilotRuntime,
+  LangChainAdapter,
+  copilotRuntimeNextJSAppRouterEndpoint,
+} from "@copilotkit/runtime";
+import { ChatLlamaCpp } from "@langchain/community/chat_models/llama_cpp";
+import { NextRequest } from "next/server";
+
+export const runtime = "nodejs";
+
+const modelPath = process.env.LLAMA_CPP_MODEL_PATH;
+if (!modelPath) {
+  throw new Error("Missing LLAMA_CPP_MODEL_PATH");
+}
+
+const copilotRuntime = new CopilotRuntime();
+
+// Keep a single model instance alive across requests.
+const model = new ChatLlamaCpp({
+  modelPath,
+  contextSize: 8192,
+  batchSize: 8192,
+  temperature: 0.2,
+});
+
+const serviceAdapter = new LangChainAdapter({
+  chainFn: async ({ messages, tools }) => {
+    return model.bindTools(tools).stream(messages);
+  },
+});
+
+export const POST = async (req: NextRequest) => {
+  const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
+    runtime: copilotRuntime,
+    serviceAdapter,
+    endpoint: "/api/copilotkit",
+  });
+
+  return handleRequest(req);
+};
+```
+
+## 4. Point your frontend to the runtime
+
+```tsx
+<CopilotKit runtimeUrl="/api/copilotkit">
+  <YourApp />
+</CopilotKit>
+```
+
+## 5. Troubleshooting
+
+<Callout type="warn">
+  `node-llama-cpp` requires a Node.js runtime. Do not deploy this endpoint to an
+  Edge runtime.
+</Callout>
+
+- If generation crashes on large prompts, reduce `contextSize` and `batchSize`.
+- If tools are not called, verify your model supports tool-calling behavior and that `bindTools(tools)` is used.
+- If startup is slow, preload the model once (as shown) instead of re-creating it per request.
