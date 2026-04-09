@@ -89,36 +89,44 @@ export async function checkAgentEndpoint(
   baseUrl: string,
   agentPath: string = "/api/copilotkit",
 ): Promise<AgentCheckResult> {
-  // Try GET /info first (CopilotKit runtime info endpoint)
-  // then fall back to POST on the base path
+  // Try GET /info first (CopilotKit runtime info endpoint — returns runtime
+  // metadata on starters that support it). Then fall back to POST on the base
+  // path. The key check is that we get ANY response from the CopilotKit runtime
+  // (even a 404 from its internal Hono router) rather than a Next.js 404 page.
   const infoPaths = [`${agentPath}/info`, agentPath];
 
   for (const path of infoPaths) {
     try {
       const res = await request.get(`${baseUrl}${path}`, { timeout: 15_000 });
-      if (res.status() >= 200 && res.status() < 500) {
-        return {
-          ok: true,
-          status: res.status(),
-          body: await res.text(),
-        };
+      const body = await res.text();
+      // Accept 2xx as definitive success
+      if (res.status() >= 200 && res.status() < 300) {
+        return { ok: true, status: res.status(), body };
+      }
+      // A 405 "Method not allowed" proves the route exists (just wrong method)
+      if (res.status() === 405) {
+        return { ok: true, status: res.status(), body };
       }
     } catch {
       // try next path
     }
   }
 
-  // All failed — try POST on base path as last resort
+  // Fall back to POST — the CopilotKit Hono router may return its own 404
+  // for a bare POST (expects sub-path), but that still proves the runtime
+  // is mounted. Distinguish from a Next.js 404 by checking for JSON body.
   try {
     const res = await request.post(`${baseUrl}${agentPath}`, {
       headers: { "Content-Type": "application/json" },
       data: { messages: [], tools: [], agentId: "agentic_chat" },
       timeout: 15_000,
     });
+    const body = await res.text();
+    const isRuntimeResponse = body.includes('"error"') || res.status() !== 404;
     return {
-      ok: res.status() >= 200 && res.status() < 500,
+      ok: isRuntimeResponse,
       status: res.status(),
-      body: await res.text(),
+      body,
     };
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);
