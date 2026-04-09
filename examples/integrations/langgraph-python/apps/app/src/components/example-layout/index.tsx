@@ -35,20 +35,27 @@ export function ExampleLayout({ chatContent, appContent }: ExampleLayoutProps) {
 
       {/* Chat Content */}
       <div
-        className={`max-h-full overflow-y-auto ${
+        className={`max-h-full flex flex-col ${
           mode === "app"
             ? "w-1/3 px-6 max-lg:hidden" // Hide on mobile in app mode
             : "flex-1 max-lg:px-4"
         }`}
       >
-        {chatContent}
+        <div className="shrink-0 pt-6 pl-6 pb-2 max-lg:pl-4 max-lg:pt-4">
+          <img
+            src="/copilotkit-logo.svg"
+            alt="CopilotKit"
+            className="h-7 dark:invert"
+          />
+        </div>
+        <div className="flex-1 min-h-0 overflow-y-auto">{chatContent}</div>
       </div>
 
       {/* State Panel */}
       <div
         className={`h-full overflow-hidden ${
           mode === "app"
-            ? "w-2/3 max-lg:w-full border-l border-zinc-200 dark:border-zinc-700 max-lg:border-l-0" // Full width on mobile
+            ? "w-2/3 max-lg:w-full border-l border-[var(--border)] max-lg:border-l-0" // Full width on mobile
             : "w-0 border-l-0"
         }`}
       >

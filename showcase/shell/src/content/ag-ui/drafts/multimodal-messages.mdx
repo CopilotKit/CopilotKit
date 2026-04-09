@@ -1,0 +1,497 @@
+---
+title: Multi-modal Messages
+description:
+  Support for multimodal input messages including text, images, audio, video,
+  and documents
+---
+
+# Multi-modal Messages Proposal
+
+## Summary
+
+### Problem Statement
+
+Current AG-UI protocol only supports text-based user messages. As LLMs
+increasingly support multimodal inputs (images, audio, files), the protocol
+needs to evolve to handle these richer input types.
+
+### Motivation
+
+Evolve AG-UI to support **multimodal input messages** without breaking existing
+apps. Inputs may include text, images, audio, video, and documents. Each
+modality is represented as a distinct, typed content part with a clear source
+discriminator (`data` for inline base64, `url` for references), making it
+straightforward to map to any LLM provider's API.
+
+## Status
+
+- **Status**: Implemented — October 16, 2025
+- **Author(s)**: Markus Ecker (mail@mme.xyz), Alem Tuzlak (t.zlak97@gmail.com)
+
+## Detailed Specification
+
+### Overview
+
+Extend the `UserMessage` `content` property to be either a string or an array of
+`InputContent` objects. Each modality (image, audio, video, document) has its
+own dedicated part type with a typed `source` that is either inline `data` or a
+`url` reference. This makes it trivial to map content parts to any LLM
+provider's API.
+
+```typescript
+/**
+ * Supported input modality types for multimodal content.
+ */
+type Modality = "text" | "image" | "audio" | "video" | "document";
+
+// ── Source types ──────────────────────────────────────────────
+
+interface InputContentDataSource {
+  /** Indicates this is inline data content. */
+  type: "data";
+  /** The base64-encoded content value. */
+  value: string;
+  /** MIME type of the content (e.g., "image/png", "audio/wav"). Required. */
+  mimeType: string;
+}
+
+interface InputContentUrlSource {
+  /** Indicates this is URL-referenced content. */
+  type: "url";
+  /** HTTP(S) URL or data URI pointing to the content. */
+  value: string;
+  /** Optional MIME type hint for when it can't be inferred from the URL. */
+  mimeType?: string;
+}
+
+type InputContentSource = InputContentDataSource | InputContentUrlSource;
+
+// ── Content part types ────────────────────────────────────────
+
+interface TextInputPart {
+  type: "text";
+  /** The text content. */
+  text: string;
+}
+
+interface ImageInputPart<TMetadata = unknown> {
+  type: "image";
+  /** Source of the image content. */
+  source: InputContentSource;
+  /** Provider-specific metadata (e.g., OpenAI detail: "auto" | "low" | "high"). */
+  metadata?: TMetadata;
+}
+
+interface AudioInputPart<TMetadata = unknown> {
+  type: "audio";
+  /** Source of the audio content. */
+  source: InputContentSource;
+  /** Provider-specific metadata (e.g., format, sample rate). */
+  metadata?: TMetadata;
+}
+
+interface VideoInputPart<TMetadata = unknown> {
+  type: "video";
+  /** Source of the video content. */
+  source: InputContentSource;
+  /** Provider-specific metadata (e.g., duration, resolution). */
+  metadata?: TMetadata;
+}
+
+interface DocumentInputPart<TMetadata = unknown> {
+  type: "document";
+  /** Source of the document content. */
+  source: InputContentSource;
+  /** Provider-specific metadata (e.g., Anthropic media_type for PDFs). */
+  metadata?: TMetadata;
+}
+
+type InputContent =
+  | TextInputPart
+  | ImageInputPart
+  | AudioInputPart
+  | VideoInputPart
+  | DocumentInputPart;
+
+// ── Updated UserMessage ───────────────────────────────────────
+
+type UserMessage = {
+  id: string;
+  role: "user";
+  content: string | InputContent[];
+  name?: string;
+};
+```
+
+### Modality Type
+
+The `Modality` type enumerates the supported content modalities:
+
+| Value        | Description                                |
+| ------------ | ------------------------------------------ |
+| `"text"`     | Plain text content                         |
+| `"image"`    | Image content (JPEG, PNG, GIF, WebP, etc.) |
+| `"audio"`    | Audio content (WAV, MP3, OGG, etc.)        |
+| `"video"`    | Video content (MP4, WebM, etc.)            |
+| `"document"` | Document content (PDF, DOCX, XLSX, etc.)   |
+
+### Source Types
+
+Every non-text content part carries a `source` property that describes how the
+content is delivered. The source is a discriminated union with two variants:
+
+#### InputContentDataSource
+
+Inline base64-encoded content.
+
+| Property   | Type     | Required | Description                                     |
+| ---------- | -------- | -------- | ----------------------------------------------- |
+| `type`     | `"data"` | ✓        | Discriminator for inline data                   |
+| `value`    | `string` | ✓        | Base64-encoded content                          |
+| `mimeType` | `string` | ✓        | MIME type (required to ensure correct handling) |
+
+#### InputContentUrlSource
+
+URL-referenced content.
+
+| Property   | Type      | Required | Description                     |
+| ---------- | --------- | -------- | ------------------------------- |
+| `type`     | `"url"`   | ✓        | Discriminator for URL reference |
+| `value`    | `string`  | ✓        | HTTP(S) URL or data URI         |
+| `mimeType` | `string?` |          | Optional MIME type hint         |
+
+### Content Part Types
+
+#### TextInputPart
+
+Represents plain text content within a multimodal message.
+
+| Property | Type     | Description                     |
+| -------- | -------- | ------------------------------- |
+| `type`   | `"text"` | Identifies this as text content |
+| `text`   | `string` | The text content                |
+
+#### ImageInputPart
+
+Represents image content. Maps directly to provider image inputs (e.g., OpenAI
+vision, Anthropic image blocks).
+
+| Property   | Type                 | Description                                              |
+| ---------- | -------------------- | -------------------------------------------------------- |
+| `type`     | `"image"`            | Identifies this as image content                         |
+| `source`   | `InputContentSource` | Either inline data or URL reference                      |
+| `metadata` | `TMetadata?`         | Provider-specific metadata (e.g., OpenAI `detail` level) |
+
+#### AudioInputPart
+
+Represents audio content.
+
+| Property   | Type                 | Description                                            |
+| ---------- | -------------------- | ------------------------------------------------------ |
+| `type`     | `"audio"`            | Identifies this as audio content                       |
+| `source`   | `InputContentSource` | Either inline data or URL reference                    |
+| `metadata` | `TMetadata?`         | Provider-specific metadata (e.g., format, sample rate) |
+
+#### VideoInputPart
+
+Represents video content.
+
+| Property   | Type                 | Description                                             |
+| ---------- | -------------------- | ------------------------------------------------------- |
+| `type`     | `"video"`            | Identifies this as video content                        |
+| `source`   | `InputContentSource` | Either inline data or URL reference                     |
+| `metadata` | `TMetadata?`         | Provider-specific metadata (e.g., duration, resolution) |
+
+#### DocumentInputPart
+
+Represents document content such as PDFs, Word documents, or spreadsheets.
+
+| Property   | Type                 | Description                                               |
+| ---------- | -------------------- | --------------------------------------------------------- |
+| `type`     | `"document"`         | Identifies this as document content                       |
+| `source`   | `InputContentSource` | Either inline data or URL reference                       |
+| `metadata` | `TMetadata?`         | Provider-specific metadata (e.g., Anthropic `media_type`) |
+
+### Provider Metadata
+
+The generic `metadata` field on each content part allows provider-specific
+information to flow through the protocol without polluting the core schema.
+Examples:
+
+- **OpenAI**: `ImageInputPart<{ detail: 'auto' | 'low' | 'high' }>`
+- **Anthropic**: `DocumentInputPart<{ media_type: 'application/pdf' }>`
+- **Custom**: Any provider can define its own metadata shape
+
+## Implementation Examples
+
+### Simple Text Message (Backward Compatible)
+
+```json
+{
+  "id": "msg-001",
+  "role": "user",
+  "content": "What's in this image?"
+}
+```
+
+### Image with Inline Data
+
+```json
+{
+  "id": "msg-002",
+  "role": "user",
+  "content": [
+    {
+      "type": "text",
+      "text": "What's in this image?"
+    },
+    {
+      "type": "image",
+      "source": {
+        "type": "data",
+        "value": "/9j/4AAQSkZJRg...",
+        "mimeType": "image/jpeg"
+      }
+    }
+  ]
+}
+```
+
+### Image with URL Reference
+
+```json
+{
+  "id": "msg-003",
+  "role": "user",
+  "content": [
+    {
+      "type": "text",
+      "text": "What's in this image?"
+    },
+    {
+      "type": "image",
+      "source": {
+        "type": "url",
+        "value": "https://example.com/photo.png"
+      },
+      "metadata": {
+        "detail": "high"
+      }
+    }
+  ]
+}
+```
+
+### Multiple Images with Question
+
+```json
+{
+  "id": "msg-004",
+  "role": "user",
+  "content": [
+    {
+      "type": "text",
+      "text": "What are the differences between these images?"
+    },
+    {
+      "type": "image",
+      "source": {
+        "type": "url",
+        "value": "https://example.com/image1.png",
+        "mimeType": "image/png"
+      }
+    },
+    {
+      "type": "image",
+      "source": {
+        "type": "url",
+        "value": "https://example.com/image2.png",
+        "mimeType": "image/png"
+      }
+    }
+  ]
+}
+```
+
+### Audio Transcription Request
+
+```json
+{
+  "id": "msg-005",
+  "role": "user",
+  "content": [
+    {
+      "type": "text",
+      "text": "Please transcribe this audio recording"
+    },
+    {
+      "type": "audio",
+      "source": {
+        "type": "url",
+        "value": "https://example.com/meeting-recording.wav",
+        "mimeType": "audio/wav"
+      }
+    }
+  ]
+}
+```
+
+### Document Analysis
+
+```json
+{
+  "id": "msg-006",
+  "role": "user",
+  "content": [
+    {
+      "type": "text",
+      "text": "Summarize the key points from this PDF"
+    },
+    {
+      "type": "document",
+      "source": {
+        "type": "url",
+        "value": "https://example.com/reports/q4-2024.pdf",
+        "mimeType": "application/pdf"
+      }
+    }
+  ]
+}
+```
+
+### Video Analysis
+
+```json
+{
+  "id": "msg-007",
+  "role": "user",
+  "content": [
+    {
+      "type": "text",
+      "text": "Describe what happens in this video"
+    },
+    {
+      "type": "video",
+      "source": {
+        "type": "url",
+        "value": "https://example.com/demo.mp4",
+        "mimeType": "video/mp4"
+      },
+      "metadata": {
+        "duration": 120
+      }
+    }
+  ]
+}
+```
+
+### Mixed Modalities
+
+```json
+{
+  "id": "msg-008",
+  "role": "user",
+  "content": [
+    {
+      "type": "text",
+      "text": "Compare the screenshot with the design spec"
+    },
+    {
+      "type": "image",
+      "source": {
+        "type": "data",
+        "value": "iVBORw0KGgo...",
+        "mimeType": "image/png"
+      }
+    },
+    {
+      "type": "document",
+      "source": {
+        "type": "url",
+        "value": "https://example.com/design-spec.pdf",
+        "mimeType": "application/pdf"
+      }
+    }
+  ]
+}
+```
+
+## Implementation Considerations
+
+### Client SDK Changes
+
+TypeScript SDK:
+
+- New `Modality` type and all `InputContent` types in `@ag-ui/core`
+- `InputContentSource`, `InputContentDataSource`, `InputContentUrlSource` types
+- Updated `UserMessage` with `content: string | InputContent[]`
+- Helper methods for constructing typed content parts
+- Provider-specific metadata generics on each content part type
+
+Python SDK:
+
+- Pydantic models for each content part type (`TextInputPart`, `ImageInputPart`,
+  etc.)
+- `InputContentSource` discriminated union
+- Updated `UserMessage` model
+- Provider-specific metadata support via generics
+
+### Framework Integration
+
+Frameworks need to:
+
+- Parse typed `InputContent` parts and dispatch on `part.type`
+- Map content parts to provider-specific formats (the typed structure makes this
+  straightforward)
+- Use `source.type` to determine whether to send inline data or a URL to the
+  provider
+- Forward `metadata` to providers that support it
+- Handle fallbacks for models that don't support certain modalities
+- Validate that `mimeType` is appropriate for the declared content part type
+
+## Use Cases
+
+### Visual Question Answering
+
+Users can upload images (`ImageInputPart`) and ask questions about them.
+
+### Document Processing
+
+Upload PDFs, Word documents, or spreadsheets (`DocumentInputPart`) for analysis.
+
+### Audio Transcription and Analysis
+
+Process voice recordings, podcasts, or meeting audio (`AudioInputPart`).
+
+### Video Understanding
+
+Analyze video content (`VideoInputPart`) for summaries, descriptions, or content
+moderation.
+
+### Multi-modal Comparison
+
+Compare multiple images, documents, or mixed media using different content part
+types in a single message.
+
+### Screenshot Analysis
+
+Share screenshots (`ImageInputPart`) for UI/UX feedback or debugging assistance.
+
+## Testing Strategy
+
+- Unit tests for each `InputContent` type and `InputContentSource` variant
+- Validate `source.type` discriminator correctly narrows the union
+- Integration tests with multimodal LLMs (OpenAI, Anthropic, Google)
+- Backward compatibility tests with plain `string` content
+- Verify `metadata` passthrough for provider-specific fields
+- Performance tests for large base64 payloads in `InputContentDataSource`
+- Security tests for URL validation and content sanitization
+- Type-safety tests ensuring generic `TMetadata` works across SDKs
+
+## References
+
+- [OpenAI Vision API](https://platform.openai.com/docs/guides/vision)
+- [Anthropic Vision](https://docs.anthropic.com/en/docs/vision)
+- [Vercel AI SDK — Multi-modal Content](https://sdk.vercel.ai/docs/ai-sdk-core/generating-text#multi-modal-content)
+- [MIME Types](https://developer.mozilla.org/en-US/docs/Web/HTTP/Basics_of_HTTP/MIME_types)
+- [Data URLs](https://developer.mozilla.org/en-US/docs/Web/HTTP/Basics_of_HTTP/Data_URLs)

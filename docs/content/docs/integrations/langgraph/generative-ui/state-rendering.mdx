@@ -87,7 +87,7 @@ Use state rendering when you want to:
                 search["done"] = True
                 await copilotkit_emit_state(config, state) # [!code highlight]
 
-            response = await ChatOpenAI(model="gpt-5.2").ainvoke(
+            response = await ChatOpenAI(model="gpt-5.4").ainvoke(
                 [SystemMessage(content="You are a helpful assistant."), *state["messages"]],
                 config,
             )
@@ -112,7 +112,7 @@ Use state rendering when you want to:
             await copilotkitEmitState(config, state); // [!code highlight]
           }
 
-          const response = await new ChatOpenAI({ model: "gpt-5.2" }).invoke(
+          const response = await new ChatOpenAI({ model: "gpt-5.4" }).invoke(
             [new SystemMessage("You are a helpful assistant."), ...state.messages],
             config,
           );

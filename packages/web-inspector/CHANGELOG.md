@@ -1,5 +1,38 @@
 # @copilotkit/web-inspector
 
+## 1.55.2-next.0
+
+### Patch Changes
+
+- @copilotkit/core@1.55.2-next.0
+
+## 1.55.1
+
+### Patch Changes
+
+- @copilotkit/core@1.55.1
+
+## 1.55.1-next.0
+
+### Patch Changes
+
+- @copilotkit/core@1.55.1-next.0
+
+## 1.55.0
+
+### Minor Changes
+
+- 1ceb963: refactor: consolidate V1/V2 packages into flat @copilotkit/\* structure
+
+### Patch Changes
+
+- 52a9322: Fixing license warnings, barrel export and typing
+- Updated dependencies [1ceb963]
+- Updated dependencies [b4a8b7a]
+- Updated dependencies [1ceb963]
+- Updated dependencies [1ceb963]
+  - @copilotkit/core@1.55.0
+
 ## 1.55.0-next.8
 
 ### Patch Changes

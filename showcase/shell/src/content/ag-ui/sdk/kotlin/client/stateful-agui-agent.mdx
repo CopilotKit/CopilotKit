@@ -1,0 +1,347 @@
+---
+title: StatefulAgUiAgent
+description: Stateful client that automatically manages conversation history
+---
+
+# StatefulAgUiAgent
+
+`StatefulAgUiAgent` is a stateful client implementation that automatically maintains conversation history and sends the complete message history with each request. This provides seamless conversational experiences where the agent has full context of previous interactions.
+
+## Key Features
+
+- **Automatic History Management**: Conversation history is maintained automatically per thread
+- **Simple API**: Just use `chat()` - no manual state management required
+- **Thread Support**: Multiple conversation threads with separate histories
+- **Automatic Trimming**: Configurable limits with automatic old message removal
+- **State Tracking**: Automatically captures and maintains agent state updates
+
+## Usage
+
+### Basic Conversation
+
+```kotlin
+val agent = StatefulAgUiAgent("https://api.example.com/agent") {
+    bearerToken = "your-token"
+    systemPrompt = "You are a helpful assistant"
+}
+
+// Start a conversation - system prompt is automatically included
+agent.chat("My name is Alice").collect { event ->
+    // Handle streaming events
+}
+
+// Continue conversation - previous context is automatically included
+agent.chat("What's my name?").collect { event ->
+    // Agent has full context from previous messages
+}
+```
+
+### Multiple Conversation Threads
+
+```kotlin
+// Different conversation threads maintain separate histories
+agent.chat("Let's talk about cooking", threadId = "cooking").collect { }
+agent.chat("What about baking?", threadId = "cooking").collect { }
+
+agent.chat("I need tech support", threadId = "support").collect { }
+agent.chat("My issue is urgent", threadId = "support").collect { }
+
+// Each thread maintains its own complete history
+```
+
+## Configuration
+
+### Convenience Builders
+
+The easiest way to create StatefulAgUiAgent instances:
+
+```kotlin
+
+// Chat agent with system prompt
+val agent = chatAgent(
+    url = "https://api.example.com/agent",
+    systemPrompt = "You are a helpful customer service agent"
+) {
+    bearerToken = "your-token"
+}
+
+// Stateful agent with initial state
+val agent = statefulAgent(
+    url = "https://api.example.com/agent",
+    initialState = buildJsonObject {
+        put("userType", "premium")
+        put("language", "en")
+    }
+) {
+    bearerToken = "your-token"
+    systemPrompt = "You are a premium support agent"
+}
+```
+
+### Basic Setup
+
+```kotlin
+val agent = StatefulAgUiAgent("https://api.example.com/agent") {
+    // Authentication (choose one)
+    bearerToken = "your-bearer-token"
+    // OR
+    apiKey = "your-api-key"
+    // OR
+    basicAuth("username", "password")
+
+    // System prompt (automatically included in conversations)
+    systemPrompt = "You are a customer service assistant"
+
+    // Optional user ID
+    userId = "user-123"
+}
+```
+
+### Advanced Configuration
+
+```kotlin
+val agent = StatefulAgUiAgent("https://api.example.com/agent") {
+    bearerToken = "your-token"
+    systemPrompt = "You are a helpful assistant"
+
+    // History management - automatic trimming when exceeded
+    maxHistoryLength = 50  // Limit to 50 messages per thread (0 = unlimited)
+
+    // Initial state (sent with first message)
+    initialState = buildJsonObject {
+        put("userPreferences", buildJsonObject {
+            put("language", "en")
+            put("timezone", "UTC")
+        })
+    }
+
+    // Networking options
+    requestTimeout = 30.seconds
+    debug = true
+}
+```
+
+## Methods
+
+### chat
+
+Send a message in a conversational context with automatic history:
+
+```kotlin
+fun chat(
+    message: String,
+    threadId: String = "default"
+): Flow<BaseEvent>
+```
+
+**Parameters:**
+
+- `message`: The message content to send
+- `threadId`: Optional thread ID for separate conversations (defaults to "default")
+
+**Returns:** `Flow<BaseEvent>` - Stream of AG-UI protocol events
+
+**Example:**
+
+```kotlin
+agent.chat("Hello, I need help").collect { event ->
+    when (event) {
+        is TextMessageStartEvent -> {
+            println("Agent started responding (ID: ${event.messageId})")
+        }
+        is TextMessageContentEvent -> {
+            print(event.delta) // Print each chunk as it arrives
+        }
+        is TextMessageEndEvent -> {
+            println("\nAgent finished responding")
+        }
+        is ToolCallStartEvent -> {
+            println("Agent is calling tool: ${event.toolCallName}")
+        }
+        // Handle other events as needed
+    }
+}
+```
+
+### getHistory
+
+Access the conversation history for a thread:
+
+```kotlin
+fun getHistory(threadId: String = "default"): List<Message>
+```
+
+**Example:**
+
+```kotlin
+// Check conversation history
+val history = agent.getHistory("support")
+history.forEach { message ->
+    println("${message.role}: ${message.content}")
+}
+```
+
+### clearHistory
+
+Clear conversation history for one or all threads:
+
+```kotlin
+fun clearHistory(threadId: String? = null)
+```
+
+**Example:**
+
+```kotlin
+// Clear specific thread
+agent.clearHistory("support")
+
+// Clear all conversation history
+agent.clearHistory()
+```
+
+## Automatic History Management
+
+### How It Works
+
+The StatefulAgUiAgent automatically:
+
+1. **Captures your messages**: When you call `chat()`, your message is added to the thread's history
+2. **Includes system prompt**: On first message, system prompt is automatically prepended
+3. **Sends full context**: Each request includes the complete conversation history for that thread
+4. **Captures responses**: Agent responses are automatically parsed and added to history
+5. **Manages state**: Agent state updates are captured and maintained
+6. **Trims old messages**: When `maxHistoryLength` is exceeded, oldest messages are automatically removed (system message is preserved)
+
+### Message Flow Example
+
+```kotlin
+val agent = StatefulAgUiAgent(url) {
+    systemPrompt = "You are a helpful assistant"
+}
+
+// First message - sends: [SystemMessage, UserMessage]
+agent.chat("Hello").collect { }
+
+// Second message - sends: [SystemMessage, UserMessage("Hello"), AssistantMessage("Hi there!"), UserMessage("How are you?")]
+agent.chat("How are you?").collect { }
+```
+
+### Automatic History Trimming
+
+```kotlin
+val agent = StatefulAgUiAgent(url) {
+    bearerToken = token
+
+    // Automatically trim when exceeded
+    maxHistoryLength = 20
+}
+
+// When limit is reached, oldest messages are automatically removed
+// (system message is always preserved)
+repeat(30) { i ->
+    agent.chat("Message $i").collect { }
+}
+// Only the most recent 20 messages are kept automatically
+```
+
+## Thread Management
+
+### Separate Conversations
+
+```kotlin
+// Customer service thread
+agent.chat("I have a billing question", threadId = "billing").collect { }
+agent.chat("What's my current balance?", threadId = "billing").collect { }
+
+// Technical support thread (completely separate history)
+agent.chat("My app is crashing", threadId = "tech-support").collect { }
+agent.chat("It happens on startup", threadId = "tech-support").collect { }
+```
+
+### Thread Lifecycle
+
+```kotlin
+// Start new conversation thread
+val threadId = "session-${UUID.randomUUID()}"
+
+agent.chat("Start new session", threadId = threadId).collect { }
+// ... more conversation ...
+
+// Clean up when conversation session ends
+agent.clearHistory(threadId)
+```
+
+## Error Handling
+
+### Network Errors
+
+```kotlin
+agent.chat("Hello").collect { event ->
+    when (event) {
+        is ErrorEvent -> {
+            println("Error: ${event.error}")
+            // History is preserved in memory even if request fails
+        }
+        // Handle success events
+    }
+}
+```
+
+## Best Practices
+
+### Memory Management
+
+```kotlin
+// Set reasonable history limits - automatic trimming handles the rest
+val agent = StatefulAgUiAgent(url) {
+    bearerToken = token
+    maxHistoryLength = 100  // Automatically managed
+}
+
+// Only clear manually when ending conversation sessions
+agent.clearHistory("completed-session")
+```
+
+### Threading Strategy
+
+```kotlin
+// Use meaningful thread IDs for different conversation contexts
+val userId = getCurrentUserId()
+val sessionId = "user-${userId}-${System.currentTimeMillis()}"
+
+agent.chat("Start session", threadId = sessionId).collect { }
+```
+
+## Important Notes
+
+### Memory-Only Storage
+
+Conversation history is stored in memory only. When your application restarts, all conversation history is lost. If you need persistence, you must implement your own storage solution using the `getHistory()` method to retrieve conversations and save them to a database or file.
+
+### Thread Safety
+
+The StatefulAgUiAgent is designed for single-threaded use per instance. For concurrent access, create separate agent instances or implement your own synchronization.
+
+## Comparison with AgUiAgent
+
+| Feature                  | AgUiAgent (Stateless)   | StatefulAgUiAgent       |
+| ------------------------ | ----------------------- | ----------------------- |
+| History Management       | Manual/Server-side      | Automatic               |
+| Memory Usage             | Minimal                 | Higher (stores history) |
+| Context Preservation     | Agent/Server handles    | Client handles          |
+| Multi-turn Conversations | Requires server support | Built-in                |
+| History Trimming         | Not applicable          | Automatic               |
+
+**Use AgUiAgent when:**
+
+- Agent manages state server-side
+- Single interactions
+- Memory usage is critical
+- Server has conversation context
+
+**Use StatefulAgUiAgent when:**
+
+- Client needs conversation control
+- Complex multi-turn conversations
+- Agent doesn't maintain server-side state
+- Full conversation history needed

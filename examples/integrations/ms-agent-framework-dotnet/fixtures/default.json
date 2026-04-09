@@ -1,0 +1,70 @@
+{
+  "fixtures": [
+    {
+      "match": { "userMessage": "Hello" },
+      "response": {
+        "content": "Hello! I'm the Proverbs Agent. I can help you manage a collection of proverbs, discuss their meanings, and even check the weather. What would you like to do?"
+      }
+    },
+    {
+      "match": { "userMessage": "proverbs" },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "get_proverbs",
+            "arguments": "{}",
+            "id": "call_get_proverbs_001"
+          }
+        ]
+      }
+    },
+    {
+      "match": { "toolCallId": "call_get_proverbs_001" },
+      "response": {
+        "content": "Your proverb collection is currently empty. Would you like me to add some proverbs? I can suggest some classic ones, or you can tell me your favorites!"
+      }
+    },
+    {
+      "match": { "userMessage": "add proverb" },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "add_proverbs",
+            "arguments": "{\"proverbs\":[\"A stitch in time saves nine\",\"The early bird catches the worm\"]}",
+            "id": "call_add_proverbs_001"
+          }
+        ]
+      }
+    },
+    {
+      "match": { "toolCallId": "call_add_proverbs_001" },
+      "response": {
+        "content": "I've added two proverbs to your collection:\n\n1. **A stitch in time saves nine**\n2. **The early bird catches the worm**\n\nWould you like to add more or discuss these proverbs?"
+      }
+    },
+    {
+      "match": { "userMessage": "weather" },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "get_weather",
+            "arguments": "{\"location\":\"New York\"}",
+            "id": "call_get_weather_001"
+          }
+        ]
+      }
+    },
+    {
+      "match": { "toolCallId": "call_get_weather_001" },
+      "response": {
+        "content": "The weather in New York is currently 20°C (68°F), sunny with 50% humidity, wind at 10 mph, and feels like 25°C (77°F). A lovely day!"
+      }
+    },
+    {
+      "match": {},
+      "response": {
+        "content": "You're currently running against aimock (a mock LLM server). This response is a catch-all for requests that don't match any test fixture. To use a real LLM: (1) Set your GitHubToken, (2) Remove or unset OPENAI_BASE_URL from your environment, (3) Restart the agent."
+      }
+    }
+  ]
+}

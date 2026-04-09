@@ -1,0 +1,77 @@
+---
+title: "Stream Compaction"
+description: "compactEvents utility for reducing verbose streaming sequences"
+---
+
+# compactEvents
+
+`compactEvents` reduces verbose streaming sequences in an event array while
+preserving semantics. Use it to shrink logs before persistence or to simplify
+post‑processing of Server‑Sent Events (SSE) streams.
+
+```ts
+const compacted: BaseEvent[] = compactEvents(events);
+```
+
+## API
+
+```ts
+function compactEvents(events: BaseEvent[]): BaseEvent[];
+```
+
+## What it does
+
+- Text messages: Groups `TEXT_MESSAGE_START` → `TEXT_MESSAGE_CONTENT*` →
+  `TEXT_MESSAGE_END` for the same `messageId`, concatenating all `delta`
+  chunks into a single `TEXT_MESSAGE_CONTENT` event.
+- Tool calls: Groups `TOOL_CALL_START` → `TOOL_CALL_ARGS*` → `TOOL_CALL_END`
+  for the same `toolCallId`, concatenating all `delta` chunks into a single
+  `TOOL_CALL_ARGS` event.
+- Interleaved events: Any events that occur between a start/end pair are moved
+  after that sequence so the streaming block remains contiguous.
+- Pass‑through: All other events (state, custom, etc.) are preserved unchanged.
+
+## Example
+
+Before:
+
+```ts
+[
+  { type: EventType.TEXT_MESSAGE_START, messageId: "m1", role: "assistant" },
+  { type: EventType.TEXT_MESSAGE_CONTENT, messageId: "m1", delta: "Hello" },
+  { type: EventType.TEXT_MESSAGE_CONTENT, messageId: "m1", delta: " " },
+  { type: EventType.CUSTOM, name: "thinking" },
+  { type: EventType.TEXT_MESSAGE_CONTENT, messageId: "m1", delta: "world" },
+  { type: EventType.TEXT_MESSAGE_END, messageId: "m1" },
+];
+```
+
+After:
+
+```ts
+[
+  { type: EventType.TEXT_MESSAGE_START, messageId: "m1", role: "assistant" },
+  {
+    type: EventType.TEXT_MESSAGE_CONTENT,
+    messageId: "m1",
+    delta: "Hello world",
+  },
+  { type: EventType.TEXT_MESSAGE_END, messageId: "m1" },
+  { type: EventType.CUSTOM, name: "thinking" },
+];
+```
+
+Tool call compaction works analogously for `TOOL_CALL_ARGS` chunks.
+
+## When to use
+
+- Persisting event history (store fewer frames with the same meaning)
+- Preparing snapshots for analytics or export
+- Reducing noise in tests or debugging output
+
+## Notes & limitations
+
+- This utility focuses on message and tool‑call streams. It does not modify
+  state events (`STATE_SNAPSHOT`/`STATE_DELTA`) or generate message snapshots.
+- For background and broader patterns (branching, normalization), see
+  [Serialization](/concepts/serialization).

@@ -1,0 +1,469 @@
+/**
+ * Sync docs from main CopilotKit docs to the showcase platform.
+ *
+ * Reads changed files from docs/content/docs/ and docs/snippets/,
+ * applies structural transforms, and writes to showcase/shell/src/content/.
+ *
+ * Usage:
+ *   npx tsx showcase/scripts/sync-docs-from-main.ts
+ *   npx tsx showcase/scripts/sync-docs-from-main.ts --dry-run
+ *   npx tsx showcase/scripts/sync-docs-from-main.ts --all  (sync all files, not just changed)
+ */
+
+import fs from "fs";
+import path from "path";
+import { execSync } from "child_process";
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const ROOT = path.resolve(__dirname, "../..");
+const MAIN_DOCS = path.join(ROOT, "docs/content/docs");
+const MAIN_SNIPPETS = path.join(ROOT, "docs/snippets");
+const SHOWCASE_DOCS = path.join(ROOT, "showcase/shell/src/content/docs");
+const SHOWCASE_SNIPPETS = path.join(
+  ROOT,
+  "showcase/shell/src/content/snippets",
+);
+const SYNC_MARKER = path.join(ROOT, "showcase/shell/.docs-sync-sha");
+
+// LangChain -> LangGraph exclusions (these intentionally keep "LangChain")
+const LANGCHAIN_EXCLUSIONS = [
+  "LangChain's tool call definitions",
+  "LangChain tool call format",
+  "langchain.agents",
+  "langchain_core",
+];
+
+// ---------------------------------------------------------------------------
+// Transform pipeline
+// ---------------------------------------------------------------------------
+
+/**
+ * Strip all MDX-level import statements between frontmatter and first content.
+ * Preserves imports inside code fences.
+ */
+function stripMdxImports(content: string): string {
+  const lines = content.split("\n");
+  const result: string[] = [];
+  let inFrontmatter = false;
+  let frontmatterClosed = false;
+  let inCodeFence = false;
+  let importSectionDone = false;
+  let inMultiLineImport = false;
+
+  for (const line of lines) {
+    // Track frontmatter boundaries
+    if (line.trim() === "---") {
+      if (!inFrontmatter && !frontmatterClosed) {
+        inFrontmatter = true;
+        result.push(line);
+        continue;
+      } else if (inFrontmatter) {
+        inFrontmatter = false;
+        frontmatterClosed = true;
+        result.push(line);
+        continue;
+      }
+    }
+
+    if (inFrontmatter) {
+      result.push(line);
+      continue;
+    }
+
+    // Track code fences
+    if (line.trim().startsWith("```")) {
+      inCodeFence = !inCodeFence;
+      result.push(line);
+      continue;
+    }
+
+    if (inCodeFence) {
+      result.push(line);
+      continue;
+    }
+
+    // After frontmatter, before first content: strip import lines
+    if (frontmatterClosed && !importSectionDone) {
+      // If we're inside a multi-line import, skip until closing line
+      if (inMultiLineImport) {
+        if (line.includes("} from") || line.trimStart().startsWith("from ")) {
+          inMultiLineImport = false;
+        }
+        // Skip this line either way (it's part of the import)
+        continue;
+      }
+
+      if (
+        line.trim().startsWith("import ") ||
+        line.trim().startsWith("import{")
+      ) {
+        // Check if this is a multi-line import (no `from` on same line)
+        if (
+          !line.includes(" from ") &&
+          !line.includes(' from"') &&
+          !line.includes(" from'")
+        ) {
+          inMultiLineImport = true;
+        }
+        // Skip this import line
+        continue;
+      }
+      // Also skip blank lines in the import section
+      if (line.trim() === "") {
+        continue;
+      }
+      // First non-import, non-blank line: import section is done
+      importSectionDone = true;
+    }
+
+    result.push(line);
+  }
+
+  return result.join("\n");
+}
+
+/**
+ * Remove `components={props.components}` from component usage.
+ */
+function stripComponentsProps(content: string): string {
+  return content.replace(/ components=\{props\.components\}/g, "");
+}
+
+/**
+ * Replace "LangChain" with "LangGraph" in langgraph integration files,
+ * respecting known exclusions and preserving code fence content.
+ * Code blocks may contain legitimate `langchain` package references
+ * that must not be renamed (validated by executable doc tests on main).
+ */
+function replaceLangChainWithLangGraph(
+  content: string,
+  filePath: string,
+): string {
+  // Only apply in langgraph integration directory
+  if (!filePath.includes("integrations/langgraph")) {
+    return content;
+  }
+
+  const lines = content.split("\n");
+  const result: string[] = [];
+  let inCodeFence = false;
+
+  for (const line of lines) {
+    // Track code fences — never rename inside them
+    if (line.trim().startsWith("```")) {
+      inCodeFence = !inCodeFence;
+      result.push(line);
+      continue;
+    }
+
+    if (inCodeFence) {
+      result.push(line);
+      continue;
+    }
+
+    // Check if this line contains an exclusion
+    const hasExclusion = LANGCHAIN_EXCLUSIONS.some((exc) => line.includes(exc));
+    if (hasExclusion) {
+      result.push(line);
+    } else {
+      result.push(line.replace(/LangChain/g, "LangGraph"));
+    }
+  }
+
+  return result.join("\n");
+}
+
+/**
+ * Apply the full transform pipeline to a file's content.
+ */
+function transformContent(content: string, filePath: string): string {
+  let result = content;
+  result = stripMdxImports(result);
+  result = stripComponentsProps(result);
+  result = replaceLangChainWithLangGraph(result, filePath);
+  return result;
+}
+
+// ---------------------------------------------------------------------------
+// Path mapping
+// ---------------------------------------------------------------------------
+
+/**
+ * Map a main docs path to its showcase equivalent.
+ * Strips the (root)/ directory prefix if present.
+ */
+function mainToShowcasePath(mainPath: string): string {
+  // docs/content/docs/(root)/quickstart.mdx -> showcase/shell/src/content/docs/quickstart.mdx
+  let rel = path.relative(MAIN_DOCS, mainPath);
+  // Strip (root)/ prefix
+  if (rel.startsWith("(root)/") || rel.startsWith("(root)\\")) {
+    rel = rel.slice(7);
+  }
+  return path.join(SHOWCASE_DOCS, rel);
+}
+
+function mainSnippetToShowcasePath(mainPath: string): string {
+  const rel = path.relative(MAIN_SNIPPETS, mainPath);
+  return path.join(SHOWCASE_SNIPPETS, rel);
+}
+
+// ---------------------------------------------------------------------------
+// Showcase-local modification detection
+// ---------------------------------------------------------------------------
+
+/**
+ * Check if a showcase file has been locally modified beyond standard transforms.
+ * Compares the current showcase file against a "clean transform" of the previous main version.
+ */
+function hasShowcaseLocalModifications(
+  showcasePath: string,
+  mainPath: string,
+  lastSyncSha: string,
+): boolean {
+  if (!fs.existsSync(showcasePath)) {
+    return false; // New file, no local mods
+  }
+
+  // Get the main file content at the last sync point
+  try {
+    const mainRelative = path.relative(ROOT, mainPath);
+    const previousMainContent = execSync(
+      `git show ${lastSyncSha}:${mainRelative}`,
+      { encoding: "utf-8", cwd: ROOT },
+    );
+    const cleanTransform = transformContent(previousMainContent, showcasePath);
+    const currentShowcase = fs.readFileSync(showcasePath, "utf-8");
+
+    return cleanTransform.trim() !== currentShowcase.trim();
+  } catch (err: unknown) {
+    // File didn't exist at last sync — safe to overwrite
+    if (err instanceof Error && "status" in err) {
+      return false;
+    }
+    // Unexpected error — be conservative, flag for review
+    console.warn(
+      `[WARN] hasShowcaseLocalModifications failed for ${showcasePath}: ${err}`,
+    );
+    return true;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Diff detection
+// ---------------------------------------------------------------------------
+
+function getLastSyncSha(): string {
+  if (fs.existsSync(SYNC_MARKER)) {
+    return fs.readFileSync(SYNC_MARKER, "utf-8").trim();
+  }
+  // No marker: use a reasonable default (100 commits ago)
+  try {
+    return execSync("git rev-parse HEAD~100", {
+      encoding: "utf-8",
+      cwd: ROOT,
+    }).trim();
+  } catch {
+    throw new Error(
+      "Cannot determine sync baseline: HEAD~100 is unreachable (shallow clone?). " +
+        "Run with --all to sync all files, or deepen the clone with `git fetch --unshallow`.",
+    );
+  }
+}
+
+function getChangedFiles(sinceSha: string): string[] {
+  const output = execSync(
+    `git diff --name-only ${sinceSha}..HEAD -- docs/content/docs/ docs/snippets/`,
+    { encoding: "utf-8", cwd: ROOT },
+  );
+  return output.split("\n").filter((f) => f.trim() && f.endsWith(".mdx"));
+}
+
+function getAllFiles(): string[] {
+  const files: string[] = [];
+
+  function walk(dir: string): void {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        walk(full);
+      } else if (entry.name.endsWith(".mdx")) {
+        files.push(path.relative(ROOT, full));
+      }
+    }
+  }
+
+  walk(MAIN_DOCS);
+  walk(MAIN_SNIPPETS);
+  return files;
+}
+
+// ---------------------------------------------------------------------------
+// Main
+// ---------------------------------------------------------------------------
+
+interface SyncResult {
+  copied: string[];
+  transformed: string[];
+  needsReview: string[];
+  skipped: string[];
+  deleted: string[];
+}
+
+function parseArgs(): { dryRun: boolean; all: boolean } {
+  return {
+    dryRun: process.argv.includes("--dry-run"),
+    all: process.argv.includes("--all"),
+  };
+}
+
+function main(): SyncResult {
+  const { dryRun, all } = parseArgs();
+  const lastSyncSha = getLastSyncSha();
+  const headSha = execSync("git rev-parse HEAD", {
+    encoding: "utf-8",
+    cwd: ROOT,
+  }).trim();
+
+  console.log("=== Docs Sync ===");
+  console.log(`Last sync: ${lastSyncSha.slice(0, 8)}`);
+  console.log(`Current HEAD: ${headSha.slice(0, 8)}`);
+  if (dryRun) console.log("[DRY RUN]");
+
+  // Get files to process
+  const changedRelPaths = all ? getAllFiles() : getChangedFiles(lastSyncSha);
+  console.log(`Files to process: ${changedRelPaths.length}`);
+
+  const result: SyncResult = {
+    copied: [],
+    transformed: [],
+    needsReview: [],
+    skipped: [],
+    deleted: [],
+  };
+
+  for (const relPath of changedRelPaths) {
+    const mainAbsolute = path.join(ROOT, relPath);
+    const isSnippet = relPath.startsWith("docs/snippets/");
+    const showcaseAbsolute = isSnippet
+      ? mainSnippetToShowcasePath(mainAbsolute)
+      : mainToShowcasePath(mainAbsolute);
+
+    // File deleted on main
+    if (!fs.existsSync(mainAbsolute)) {
+      if (fs.existsSync(showcaseAbsolute)) {
+        result.deleted.push(relPath);
+        console.log(
+          `  [DELETE?] ${relPath} (removed on main, exists in showcase)`,
+        );
+      }
+      continue;
+    }
+
+    // Check for showcase-local modifications
+    if (
+      hasShowcaseLocalModifications(showcaseAbsolute, mainAbsolute, lastSyncSha)
+    ) {
+      result.needsReview.push(relPath);
+      console.log(`  [REVIEW] ${relPath} (showcase has local modifications)`);
+      continue;
+    }
+
+    // Read and transform
+    const mainContent = fs.readFileSync(mainAbsolute, "utf-8");
+    const transformed = transformContent(mainContent, showcaseAbsolute);
+
+    // Check if transform changed anything
+    const isIdentical = mainContent === transformed;
+
+    // Check if showcase already has this content
+    if (fs.existsSync(showcaseAbsolute)) {
+      const existing = fs.readFileSync(showcaseAbsolute, "utf-8");
+      if (existing.trim() === transformed.trim()) {
+        result.skipped.push(relPath);
+        continue; // Already up to date
+      }
+    }
+
+    // Write
+    if (!dryRun) {
+      fs.mkdirSync(path.dirname(showcaseAbsolute), { recursive: true });
+      fs.writeFileSync(showcaseAbsolute, transformed);
+    }
+
+    if (isIdentical) {
+      result.copied.push(relPath);
+      console.log(`  [COPY] ${relPath}`);
+    } else {
+      result.transformed.push(relPath);
+      console.log(`  [TRANSFORM] ${relPath}`);
+    }
+  }
+
+  // Update sync marker
+  if (!dryRun && (result.copied.length > 0 || result.transformed.length > 0)) {
+    fs.writeFileSync(SYNC_MARKER, headSha + "\n");
+  }
+
+  // Summary
+  console.log("\n=== Summary ===");
+  console.log(`Copied (identical): ${result.copied.length}`);
+  console.log(`Transformed: ${result.transformed.length}`);
+  console.log(`Needs review: ${result.needsReview.length}`);
+  console.log(`Skipped (up to date): ${result.skipped.length}`);
+  console.log(`Deleted on main: ${result.deleted.length}`);
+
+  if (result.needsReview.length > 0) {
+    console.log("\nFiles needing manual review:");
+    for (const f of result.needsReview) {
+      console.log(`  ${f}`);
+    }
+  }
+
+  if (result.deleted.length > 0) {
+    console.log("\nFiles deleted on main (not auto-deleted in showcase):");
+    for (const f of result.deleted) {
+      console.log(`  ${f}`);
+    }
+  }
+
+  return result;
+}
+
+const result = main();
+
+// Exit codes for CI:
+//   0 = changes auto-applied (clean transforms only, safe to push directly)
+//   2 = nothing changed (CI does nothing)
+//   3 = has review items (CI should open a PR for the needsReview/deleted files)
+const hasAutoApplied =
+  result.copied.length > 0 || result.transformed.length > 0;
+const hasReviewItems =
+  result.needsReview.length > 0 || result.deleted.length > 0;
+
+if (!hasAutoApplied && !hasReviewItems) {
+  process.exit(2);
+} else if (hasReviewItems) {
+  // Write review items to a file for CI to include in PR body
+  const reviewLines: string[] = [];
+  if (result.needsReview.length > 0) {
+    reviewLines.push(
+      "Files with showcase-local modifications (need manual merge):",
+    );
+    for (const f of result.needsReview) reviewLines.push(`  - ${f}`);
+  }
+  if (result.deleted.length > 0) {
+    reviewLines.push(
+      "Files deleted on main (review whether to delete in showcase):",
+    );
+    for (const f of result.deleted) reviewLines.push(`  - ${f}`);
+  }
+  fs.writeFileSync(
+    path.join(ROOT, "review-items.txt"),
+    reviewLines.join("\n") + "\n",
+  );
+  process.exit(3);
+} else {
+  process.exit(0);
+}

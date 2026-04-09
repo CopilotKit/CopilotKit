@@ -72,14 +72,47 @@ export function CopilotListeners() {
 
   useEffect(() => {
     const subscriber: CopilotKitCoreSubscriber = {
-      onError: ({ error }) => {
-        setBannerError(
-          new CopilotKitLowLevelError({
-            error,
-            message: error.message,
-            url: typeof window !== "undefined" ? window.location.href : "",
-          }),
-        );
+      onError: ({ error, code, context }) => {
+        // Silently ignore abort errors (e.g. from navigation during active requests)
+        if (
+          error.name === "AbortError" ||
+          error.message === "Fetch is aborted" ||
+          error.message === "signal is aborted without reason" ||
+          error.message === "component unmounted" ||
+          !error.message
+        ) {
+          return;
+        }
+
+        // Always log full error details in development
+        if (process.env.NODE_ENV === "development") {
+          console.error(
+            "[CopilotKit] Agent error:",
+            error.message,
+            "\n  Code:",
+            code,
+            "\n  Context:",
+            context,
+            "\n  Stack:",
+            error.stack,
+          );
+        }
+
+        const ckError = new CopilotKitLowLevelError({
+          error,
+          message: error.message,
+          url: typeof window !== "undefined" ? window.location.href : "",
+        });
+
+        // Attach original error details for the banner to display
+        (ckError as any).details = {
+          code,
+          context,
+          stack: error.stack,
+          originalMessage: error.message,
+        };
+
+        setBannerError(ckError);
       },
     };
     const subscription = copilotkit.subscribe(subscriber);

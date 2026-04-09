@@ -1,0 +1,373 @@
+---
+title: Core Module Overview
+description: Protocol types, events, and message definitions for the AG-UI protocol
+---
+
+# Core Module
+
+The `kotlin-core` module provides the fundamental building blocks of the AG-UI protocol implementation. It contains all protocol types, event definitions, message structures, and JSON serialization logic needed for AG-UI communication.
+
+## Installation
+
+```kotlin
+dependencies {
+    implementation("com.agui:kotlin-core:0.2.1")
+}
+```
+
+**Note**: The core module is automatically included when using `kotlin-client`, so explicit installation is only needed for advanced use cases.
+
+## Core Components
+
+### Events
+
+Complete set of AG-UI protocol events with automatic serialization.
+
+- All 24 protocol event types
+- Streaming event support (TEXT_MESSAGE_CHUNK, TOOL_CALL_CHUNK)
+- Thinking/reasoning events for agent internal processes
+- State management events
+- Error handling events
+
+[Learn more about Events →](/docs/sdk/kotlin/core/events)
+
+### Types
+
+Protocol message types and data structures.
+
+- Message hierarchy with role-based discrimination
+- Tool definitions and execution types
+- State management types
+- Request/response structures
+
+[Learn more about Types →](/docs/sdk/kotlin/core/types)
+
+## Features
+
+### JSON Serialization
+
+Built on kotlinx.serialization with AG-UI protocol compliance:
+
+- Polymorphic serialization with `@JsonClassDiscriminator("role")`
+- Automatic event type discrimination
+- Proper null handling
+- Platform-agnostic JSON processing
+
+### Protocol Compliance
+
+Full implementation of the AG-UI protocol specification:
+
+- All message types (System, User, Assistant, Tool)
+- Complete event lifecycle support
+- State synchronization primitives
+- Tool call/result handling
+- Agent thinking/reasoning workflows
+
+### Type Safety
+
+Compile-time guarantees for protocol correctness:
+
+- Sealed class hierarchies prevent invalid states
+- Exhaustive when expressions for event handling
+- Null safety throughout the API
+- Immutable data structures
+
+## Usage Examples
+
+### Basic Event Handling
+
+```kotlin
+
+// Handle protocol events
+fun processEvent(event: BaseEvent) {
+    when (event) {
+        is TextMessageStartEvent -> {
+            println("Agent started message: ${event.messageId}")
+        }
+        is TextMessageContentEvent -> {
+            print(event.delta) // Stream content
+        }
+        is TextMessageEndEvent -> {
+            println("\nMessage complete")
+        }
+        is ThinkingStartEvent -> {
+            println("Agent is thinking...")
+        }
+        is ThinkingTextMessageContentEvent -> {
+            println("Thinking: ${event.delta}")
+        }
+        is ThinkingEndEvent -> {
+            println("Agent finished thinking")
+        }
+        is ToolCallStartEvent -> {
+            println("Tool call: ${event.toolCallName}")
+        }
+        // Handle all other event types...
+    }
+}
+```
+
+### Message Creation
+
+```kotlin
+// Create different message types
+val systemMessage = SystemMessage(
+    id = "sys-1",
+    content = "You are a helpful assistant"
+)
+
+val userMessage = UserMessage(
+    id = "user-1",
+    content = "What's the weather like?"
+)
+
+val assistantMessage = AssistantMessage(
+    id = "asst-1",
+    content = "I'll help you check the weather.",
+    toolCalls = listOf(
+        ToolCall(
+            id = "tool-1",
+            function = FunctionCall(
+                name = "get_weather",
+                arguments = """{"location":"New York"}"""
+            )
+        )
+    )
+)
+
+val toolMessage = ToolMessage(
+    id = "tool-1",
+    content = "Weather in New York: 72°F, sunny"
+)
+```
+
+### JSON Serialization
+
+```kotlin
+
+// Serialize events to JSON
+val event = TextMessageContentEvent(
+    messageId = "msg-1",
+    delta = "Hello world"
+)
+
+val jsonString = AgUiJson.encodeToString<BaseEvent>(event)
+println(jsonString) // {"eventType":"TEXT_MESSAGE_CONTENT",...}
+
+// Deserialize from JSON
+val decoded = AgUiJson.decodeFromString<BaseEvent>(jsonString)
+println(decoded is TextMessageContentEvent) // true
+```
+
+### State Management
+
+```kotlin
+// Work with agent state
+val initialState = buildJsonObject {
+    put("conversation", buildJsonObject {
+        put("topic", "weather")
+        put("location", "New York")
+    })
+    put("userPreferences", buildJsonObject {
+        put("units", "fahrenheit")
+        put("language", "en")
+    })
+}
+
+// State is included in requests
+val input = RunAgentInput(
+    threadId = "thread-1",
+    runId = "run-1",
+    messages = listOf(userMessage),
+    state = initialState
+)
+```
+
+## Event Types
+
+### Message Events
+
+- `TextMessageStartEvent` - Agent begins text response
+- `TextMessageContentEvent` - Streaming text content
+- `TextMessageEndEvent` - Agent completes text response
+- `TextMessageChunkEvent` - Chunk-based text streaming
+
+### Thinking Events
+
+- `ThinkingStartEvent` - Agent begins internal reasoning
+- `ThinkingTextMessageStartEvent` - Agent starts thinking text
+- `ThinkingTextMessageContentEvent` - Streaming thinking content
+- `ThinkingTextMessageEndEvent` - Agent completes thinking text
+- `ThinkingEndEvent` - Agent finishes reasoning process
+
+### Tool Events
+
+- `ToolCallStartEvent` - Tool execution begins
+- `ToolCallArgsEvent` - Streaming tool arguments
+- `ToolCallEndEvent` - Tool call complete
+- `ToolCallChunkEvent` - Chunk-based tool streaming
+- `ToolResultEvent` - Tool execution result
+
+### State Events
+
+- `StateSnapshotEvent` - Complete state snapshot
+- `StateDeltaEvent` - Incremental state change
+
+### Lifecycle Events
+
+- `RunStartedEvent` - Agent run begins
+- `RunFinishedEvent` - Agent run completes
+
+### Error Events
+
+- `ErrorEvent` - Protocol or execution errors
+
+## Message Types
+
+### Core Message Hierarchy
+
+```kotlin
+sealed class Message {
+    abstract val id: String
+    abstract val content: String?
+    abstract val role: String
+}
+
+// System messages define agent behavior
+@Serializable
+@SerialName("system")
+data class SystemMessage(
+    override val id: String,
+    override val content: String,
+    override val role: String = "system"
+) : Message()
+
+// User messages from the human
+@Serializable
+@SerialName("user")
+data class UserMessage(
+    override val id: String,
+    override val content: String,
+    override val role: String = "user"
+) : Message()
+
+// Assistant responses from the agent
+@Serializable
+@SerialName("assistant")
+data class AssistantMessage(
+    override val id: String,
+    override val content: String?,
+    val toolCalls: List<ToolCall>? = null,
+    override val role: String = "assistant"
+) : Message()
+
+// Tool execution results
+@Serializable
+@SerialName("tool")
+data class ToolMessage(
+    override val id: String,
+    override val content: String,
+    override val role: String = "tool"
+) : Message()
+```
+
+## Serialization Configuration
+
+The core module provides `AgUiJson` for protocol-compliant serialization:
+
+```kotlin
+object AgUiJson {
+    val instance = Json {
+        ignoreUnknownKeys = true
+        isLenient = true
+        encodeDefaults = false
+        classDiscriminator = "role" // For message types
+    }
+}
+
+// Use AgUiJson for all protocol serialization
+val json = AgUiJson.encodeToString(message)
+val message = AgUiJson.decodeFromString<Message>(json)
+```
+
+## Platform Support
+
+The core module is fully multiplatform:
+
+- **Android**: Full compatibility with Android API 26+
+- **iOS**: Native iOS support with Swift interop
+- **JVM**: Server-side and desktop application support
+- **Shared Code**: Common business logic across all platforms
+
+## Best Practices
+
+### Event Processing
+
+```kotlin
+// Use exhaustive when expressions for event handling
+fun handleEvent(event: BaseEvent): EventResult {
+    return when (event) {
+        is TextMessageStartEvent -> EventResult.StartMessage(event.messageId)
+        is TextMessageContentEvent -> EventResult.AppendContent(event.delta)
+        is TextMessageEndEvent -> EventResult.CompleteMessage
+        is ThinkingStartEvent -> EventResult.StartThinking
+        is ThinkingTextMessageContentEvent -> EventResult.ThinkingContent(event.delta)
+        is ThinkingEndEvent -> EventResult.CompleteThinking
+        is ToolCallStartEvent -> EventResult.StartTool(event.toolCallName)
+        is ToolCallArgsEvent -> EventResult.AppendArgs(event.delta)
+        is ToolCallEndEvent -> EventResult.CompleteTool
+        is ToolResultEvent -> EventResult.ToolResult(event.content)
+        is StateSnapshotEvent -> EventResult.UpdateState(event.snapshot)
+        is StateDeltaEvent -> EventResult.PatchState(event.delta)
+        is RunStartedEvent -> EventResult.StartRun
+        is RunFinishedEvent -> EventResult.CompleteRun
+        is ErrorEvent -> EventResult.Error(event.error)
+        // Compiler ensures all cases are covered
+    }
+}
+```
+
+### Message Processing
+
+```kotlin
+// Process messages - core module provides data access only
+fun processMessage(message: Message) {
+    when (message) {
+        is SystemMessage -> {
+            println("System prompt: ${message.content}")
+        }
+        is UserMessage -> {
+            println("User input: ${message.content}")
+        }
+        is AssistantMessage -> {
+            // Handle text content
+            message.content?.let { content ->
+                println("Assistant response: $content")
+            }
+
+            // Access tool call data (execution handled by framework)
+            message.toolCalls?.forEach { toolCall ->
+                println("Tool requested: ${toolCall.name}")
+                println("Arguments: ${toolCall.args}")
+                println("Call ID: ${toolCall.id}")
+            }
+        }
+        is ToolMessage -> {
+            println("Tool result: ${message.content}")
+        }
+    }
+}
+```
+
+### JSON Handling
+
+```kotlin
+// Always use AgUiJson for protocol serialization
+
+// Correct
+val json = AgUiJson.encodeToString<BaseEvent>(event)
+val event = AgUiJson.decodeFromString<BaseEvent>(json)
+
+// Avoid using default Json configuration for protocol types
+// val json = Json.encodeToString(event) // May not be protocol compliant
+```

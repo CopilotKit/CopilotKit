@@ -8,12 +8,14 @@ import {
   CopilotPopup,
 } from "@copilotkit/react-core/v2";
 import { useMediaQuery } from "@/hooks/use-media-query";
-// A2UI mode: separate component with A2UI-specific configuration
+// Mode-specific wrappers with their own CopilotKitProvider configurations
 import { A2UIPage } from "./components/A2UIPage";
+import { OpenGenUIPage } from "./components/OpenGenUIPage";
 import { CopilotContextProvider } from "./components/CopilotContextProvider";
 import { StaticGenUICard } from "./components/protocol-cards/StaticGenUICard";
 import { MCPAppsCard } from "./components/protocol-cards/MCPAppsCard";
 import { A2UICard } from "./components/protocol-cards/A2UICard";
+import { OpenGenUICard } from "./components/protocol-cards/OpenGenUICard";
 import { ComparisonTable } from "./components/ComparisonTable";
 import { PromptPill } from "./components/PromptPill";
 import { useSendMessage } from "./hooks/useSendMessage";
@@ -27,11 +29,14 @@ function PageContent({
   clearPendingMessage,
   onPillClick,
 }: {
-  activeAgent: "default" | "a2ui";
-  setActiveAgent: (agent: "default" | "a2ui") => void;
+  activeAgent: "default" | "a2ui" | "opengenui";
+  setActiveAgent: (agent: "default" | "a2ui" | "opengenui") => void;
   pendingMessage: string | null;
   clearPendingMessage: () => void;
-  onPillClick: (prompt: string, targetMode: "default" | "a2ui") => void;
+  onPillClick: (
+    prompt: string,
+    targetMode: "default" | "a2ui" | "opengenui",
+  ) => void;
 }) {
   const { sendMessage } = useSendMessage();
 
@@ -76,7 +81,7 @@ function PageContent({
                 </a>
               </div>
               <p className="text-lg text-[var(--color-text-secondary)] max-w-2xl mx-auto">
-                Explore three approaches to building AI-powered user interfaces
+                Explore four approaches to building AI-powered user interfaces
                 with CopilotKit
               </p>
               <div className="flex justify-center gap-3 mt-4">
@@ -139,10 +144,30 @@ function PageContent({
                   A2UI
                 </span>
               </button>
+              <button
+                onClick={() => setActiveAgent("opengenui")}
+                className={`protocol-tab ${activeAgent === "opengenui" ? "active" : ""}`}
+              >
+                <span className="flex items-center gap-2">
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                  >
+                    <path d="M12 2L2 7l10 5 10-5-10-5z" />
+                    <path d="M2 17l10 5 10-5" />
+                    <path d="M2 12l10 5 10-5" />
+                  </svg>
+                  Open Generative UI
+                </span>
+              </button>
             </div>
 
             {/* Protocol Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
               <StaticGenUICard
                 isActive={activeAgent === "default"}
                 onPromptClick={(prompt) => onPillClick(prompt, "default")}
@@ -154,6 +179,10 @@ function PageContent({
               <A2UICard
                 isActive={activeAgent === "a2ui"}
                 onPromptClick={(prompt) => onPillClick(prompt, "a2ui")}
+              />
+              <OpenGenUICard
+                isActive={activeAgent === "opengenui"}
+                onPromptClick={(prompt) => onPillClick(prompt, "opengenui")}
               />
             </div>
 
@@ -173,11 +202,18 @@ function PageContent({
                     <PromptPill prompt="Open the calculator" />
                     <PromptPill prompt="Search for flights to Paris" />
                   </>
-                ) : (
+                ) : activeAgent === "a2ui" ? (
                   <>
                     <PromptPill prompt="Find Italian restaurants nearby" />
                     <PromptPill prompt="Show me Chinese food options" />
                     <PromptPill prompt="Book a table for 4" />
+                  </>
+                ) : (
+                  <>
+                    <PromptPill prompt="Build a bar chart of quarterly revenue" />
+                    <PromptPill prompt="Create a spreadsheet with sales data" />
+                    <PromptPill prompt="Make a rotating 3D cube with Three.js" />
+                    <PromptPill prompt="Build a calculator app" />
                   </>
                 )}
               </div>
@@ -203,8 +239,20 @@ function PageContent({
                     "Show me restaurants with secret menus",
                     "Find a place that serves breakfast at midnight",
                   ];
+                  const openGenUIPrompts = [
+                    "Build a pixel art editor with a color palette",
+                    "Create a dashboard showing CPU, memory, and network stats",
+                    "Make a mini piano keyboard that plays notes when clicked",
+                    "Build a Pomodoro timer with start, pause, and reset",
+                    "Create a color palette generator with hex codes",
+                    "Build a markdown editor with live preview",
+                  ];
                   const prompts =
-                    activeAgent === "default" ? defaultPrompts : a2uiPrompts;
+                    activeAgent === "default"
+                      ? defaultPrompts
+                      : activeAgent === "a2ui"
+                        ? a2uiPrompts
+                        : openGenUIPrompts;
                   const randomPrompt =
                     prompts[Math.floor(Math.random() * prompts.length)];
                   sendMessage(randomPrompt);
@@ -222,15 +270,20 @@ function PageContent({
 }
 
 export default function Home() {
-  // Active agent state - switches between "default" (Static+MCP) and "a2ui"
-  const [activeAgent, setActiveAgent] = useState<"default" | "a2ui">("default");
+  // Active agent state - switches between "default" (Static+MCP), "a2ui", and "opengenui"
+  const [activeAgent, setActiveAgent] = useState<
+    "default" | "a2ui" | "opengenui"
+  >("default");
   // Pending message for cross-mode pill clicks (sent after provider remount)
   const [pendingMessage, setPendingMessage] = useState<string | null>(null);
   // Responsive layout: sidebar on desktop, popup on mobile
   const isDesktop = useMediaQuery("(min-width: 768px)");
 
   // Handler for protocol card pill clicks - triggers mode switch if needed
-  const handlePillClick = (prompt: string, targetMode: "default" | "a2ui") => {
+  const handlePillClick = (
+    prompt: string,
+    targetMode: "default" | "a2ui" | "opengenui",
+  ) => {
     setPendingMessage(prompt);
     if (targetMode !== activeAgent) {
       setActiveAgent(targetMode);
@@ -252,6 +305,21 @@ export default function Home() {
           onPillClick={handlePillClick}
         />
       </A2UIPage>
+    );
+  }
+
+  // Open Generative UI mode: uses BuiltInAgent with OpenGenerativeUIMiddleware
+  if (activeAgent === "opengenui") {
+    return (
+      <OpenGenUIPage>
+        <PageContent
+          activeAgent={activeAgent}
+          setActiveAgent={setActiveAgent}
+          pendingMessage={pendingMessage}
+          clearPendingMessage={clearPendingMessage}
+          onPillClick={handlePillClick}
+        />
+      </OpenGenUIPage>
     );
   }
 

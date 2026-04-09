@@ -1,0 +1,327 @@
+---
+title: Tools Module Overview
+description: Client-side tool execution framework for the Kotlin SDK
+---
+
+# Tools Module
+
+The `kotlin-tools` module provides a framework for executing client-side tools that agents can call during conversations. Tools run locally on the client device, enabling secure access to device capabilities while maintaining privacy.
+
+## Installation
+
+```kotlin
+dependencies {
+    implementation("com.agui:kotlin-tools:0.2.1")
+}
+```
+
+**Note**: The tools module is automatically included when using `kotlin-client`.
+
+## Core Components
+
+### ToolExecutor
+
+Interface for implementing custom tools that agents can call.
+
+- Defines tool execution logic
+- Handles validation and error handling
+- Provides timeout configuration
+
+[Learn more about ToolExecutor →](/docs/sdk/kotlin/tools/tool-executor)
+
+### ToolRegistry
+
+Manages and executes registered tools.
+
+- Tool registration and discovery
+- Execution with timeout handling
+- Statistics and monitoring
+- Thread-safe concurrent access
+
+[Learn more about ToolRegistry →](/docs/sdk/kotlin/tools/tool-registry)
+
+## Key Concepts
+
+### Client-Side Execution
+
+Tools execute on the client device, not on the agent's server:
+
+- Access to local device capabilities (location, camera, file system)
+- Enhanced privacy - sensitive data stays on device
+- Reduced server load
+- Custom business logic integration
+
+### Tool Lifecycle
+
+1. **Registration**: Tools are registered with a ToolRegistry
+2. **Discovery**: Agent receives tool definitions during conversation
+3. **Request**: Agent requests tool execution via ToolCall events
+4. **Execution**: Client executes tool and returns result
+5. **Response**: Agent receives tool result and continues conversation
+
+## Quick Start
+
+### Basic Tool Implementation
+
+```kotlin
+
+class CalculatorToolExecutor : ToolExecutor {
+    override val tool = Tool(
+        name = "calculator",
+        description = "Perform basic calculations",
+        parameters = buildJsonObject {
+            put("type", "object")
+            put("properties", buildJsonObject {
+                put("expression", buildJsonObject {
+                    put("type", "string")
+                    put("description", "Mathematical expression to evaluate")
+                })
+            })
+        },
+        required = listOf("expression")
+    )
+
+    override suspend fun execute(context: ToolExecutionContext): ToolExecutionResult {
+        val expression = context.toolCall.function.arguments.jsonObject["expression"]?.jsonPrimitive?.content
+            ?: return ToolExecutionResult.failure("Missing expression parameter")
+
+        return try {
+            val result = evaluateExpression(expression)
+            ToolExecutionResult.success(
+                result = JsonPrimitive(result),
+                message = "$expression = $result"
+            )
+        } catch (e: Exception) {
+            ToolExecutionResult.failure("Calculation error: ${e.message}")
+        }
+    }
+
+    private fun evaluateExpression(expression: String): Double {
+        // Simple calculator implementation
+        return when {
+            "+" in expression -> {
+                val parts = expression.split("+")
+                parts[0].trim().toDouble() + parts[1].trim().toDouble()
+            }
+            // Add more operations...
+            else -> expression.toDouble()
+        }
+    }
+}
+```
+
+### Tool Registration
+
+```kotlin
+// Create tool registry
+val toolRegistry = toolRegistry {
+    addTool(CalculatorToolExecutor())
+    addTool(WeatherToolExecutor())
+    addTool(FileToolExecutor())
+}
+
+// Use with agent
+val agent = agentWithTools(
+    url = "https://api.example.com/agent",
+    toolRegistry = toolRegistry
+) {
+    bearerToken = "your-token"
+}
+```
+
+### Using with Agents
+
+```kotlin
+// Agent can now call tools during conversation
+agent.sendMessage("What's 15% of 200?").collect { event ->
+    when (event) {
+        is ToolCallStartEvent -> {
+            println("Agent is using tool: ${event.toolCallName}")
+        }
+        is ToolResultEvent -> {
+            println("Tool result: ${event.content}")
+        }
+        is TextMessageContentEvent -> {
+            print(event.delta) // Agent response using tool result
+        }
+    }
+}
+```
+
+## Tool Execution Features
+
+### Validation
+
+Tools can validate arguments before execution:
+
+```kotlin
+override fun validate(toolCall: ToolCall): ToolValidationResult {
+    val args = toolCall.function.arguments.jsonObject
+
+    if (!args.containsKey("location")) {
+        return ToolValidationResult.failure("Missing required parameter: location")
+    }
+
+    return ToolValidationResult.success()
+}
+```
+
+### Timeouts
+
+Configure maximum execution time:
+
+```kotlin
+override fun getMaxExecutionTimeMs(): Long? = 30_000 // 30 seconds
+```
+
+### Error Handling
+
+Handle different types of errors:
+
+```kotlin
+override suspend fun execute(context: ToolExecutionContext): ToolExecutionResult {
+    return try {
+        // Tool execution logic
+        performOperation()
+        ToolExecutionResult.success(result = JsonPrimitive("success"))
+    } catch (e: IllegalArgumentException) {
+        // Validation error
+        ToolExecutionResult.failure("Invalid arguments: ${e.message}")
+    } catch (e: IOException) {
+        // Network/IO error
+        ToolExecutionResult.failure("Network error: ${e.message}")
+    } catch (e: Exception) {
+        // Unrecoverable error
+        throw ToolExecutionException("Tool failed", e, tool.name, context.toolCall.id)
+    }
+}
+```
+
+## Statistics and Monitoring
+
+### Execution Statistics
+
+Track tool performance:
+
+```kotlin
+val stats = toolRegistry.getToolStats("calculator")
+println("Executions: ${stats?.executionCount}")
+println("Success rate: ${stats?.successRate}")
+println("Average time: ${stats?.averageExecutionTimeMs}ms")
+```
+
+### Registry Information
+
+Inspect registered tools:
+
+```kotlin
+// Get all registered tools
+val allTools = toolRegistry.getAllTools()
+allTools.forEach { tool ->
+    println("Tool: ${tool.name} - ${tool.description}")
+}
+
+// Check if tool exists
+if (toolRegistry.isToolRegistered("calculator")) {
+    println("Calculator tool is available")
+}
+```
+
+## Best Practices
+
+### Tool Design
+
+- **Keep tools focused**: One tool, one responsibility
+- **Validate inputs**: Always check parameters before execution
+- **Handle errors gracefully**: Return meaningful error messages
+- **Set appropriate timeouts**: Prevent hanging operations
+
+### Performance
+
+- **Avoid blocking**: Use suspend functions for I/O operations
+- **Be efficient**: Tools should execute quickly
+- **Cache when appropriate**: Store expensive computations
+
+### Security
+
+- **Validate all inputs**: Never trust tool call arguments
+- **Limit access**: Only expose necessary capabilities
+- **Handle sensitive data**: Be careful with user information
+
+### Error Handling
+
+```kotlin
+// Good: Descriptive error messages
+ToolExecutionResult.failure("Invalid email format: must contain @ symbol")
+
+// Bad: Generic errors
+ToolExecutionResult.failure("Error")
+```
+
+### Resource Management
+
+```kotlin
+class FileToolExecutor : AbstractToolExecutor(fileTool) {
+    override suspend fun executeInternal(context: ToolExecutionContext): ToolExecutionResult {
+        var fileStream: InputStream? = null
+        return try {
+            fileStream = openFile(filename)
+            val content = fileStream.readText()
+            ToolExecutionResult.success(JsonPrimitive(content))
+        } finally {
+            fileStream?.close() // Always clean up resources
+        }
+    }
+}
+```
+
+## Platform Considerations
+
+### Android
+
+- Request appropriate permissions for device access
+- Handle runtime permission requests
+- Consider background execution limits
+
+### iOS
+
+- Request usage permissions (location, camera, etc.)
+- Handle app lifecycle events
+- Consider iOS privacy restrictions
+
+### JVM
+
+- File system access works normally
+- Network operations available
+- Consider server environment limitations
+
+## Common Tool Examples
+
+### Location Tool
+
+```kotlin
+class LocationToolExecutor : ToolExecutor {
+    override val tool = Tool(
+        name = "get_location",
+        description = "Get current device location",
+        parameters = buildJsonObject {
+            put("type", "object")
+            put("properties", buildJsonObject {})
+        }
+    )
+
+    override suspend fun execute(context: ToolExecutionContext): ToolExecutionResult {
+        return try {
+            val location = getCurrentLocation() // Platform-specific implementation
+            ToolExecutionResult.success(
+                result = buildJsonObject {
+                    put("latitude", location.latitude)
+                    put("longitude", location.longitude)
+                }
+            )
+        } catch (e: SecurityException) {
+            ToolExecutionResult.failure("Location permission denied")
+        }
+    }
+}
+```

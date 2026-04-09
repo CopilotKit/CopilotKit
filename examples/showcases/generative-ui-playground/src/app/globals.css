@@ -319,6 +319,10 @@ body {
   background: linear-gradient(135deg, #f59e0b, #d97706);
 }
 
+.protocol-card-icon.opengenui {
+  background: linear-gradient(135deg, #10b981, #059669);
+}
+
 /* =============================================================================
    PROTOCOL TABS
 ============================================================================= */

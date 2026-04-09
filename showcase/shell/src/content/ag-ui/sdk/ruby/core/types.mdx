@@ -1,0 +1,361 @@
+---
+title: "Types"
+description: "Documentation for the core types used in the Agent User Interaction Protocol (Ruby SDK)"
+---
+
+# Core Types
+
+The Agent User Interaction Protocol Ruby SDK is built on a set of core types
+that represent the fundamental structures used throughout the system. This
+page documents these types and their properties.
+
+## Context
+
+`AgUiProtocol::Core::Types::Context`
+
+Represents a piece of contextual information provided to an agent.
+
+```ruby
+
+ctx = AgUiProtocol::Core::Types::Context.new(description: "User locale",
+value: "es-CL")
+
+```
+
+| Property      | Type     | Description                                  |
+| ------------- | -------- | -------------------------------------------- |
+| `description` | `String` | Description of what this context represents. |
+| `value`       | `String` | The actual context value.                    |
+
+## RunAgentInput
+
+`AgUiProtocol::Core::Types::RunAgentInput`
+
+Input parameters for running an agent. In the HTTP API, this is the body of
+the `POST` request.
+
+```ruby
+
+input = AgUiProtocol::Core::Types::RunAgentInput.new(
+    thread_id: "thread_123",
+    run_id: "run_123",
+    parent_run_id: nil,
+    state: {},
+    messages: [],
+    tools: [],
+    context: [],
+    forwarded_props: {}
+
+)
+
+```
+
+| Property          | Type                 | Description                                                 |
+| ----------------- | -------------------- | ----------------------------------------------------------- |
+| `thread_id`       | `String`             | ID of the conversation thread                               |
+| `run_id`          | `String`             | ID of the current run                                       |
+| `state`           | `Object`             | Current state of the agent                                  |
+| `messages`        | `Array<BaseMessage>` | List of messages in the conversation                        |
+| `tools`           | `Array<Tool>`        | List of tools available to the agent                        |
+| `context`         | `Array<Context>`     | List of context objects provided to the agent               |
+| `forwarded_props` | `Object`             | Additional properties forwarded to the agent                |
+| `parent_run_id`   | `String` (optional)  | Lineage pointer for branching/time travel , Default: `nil`. |
+
+## Tool
+
+`AgUiProtocol::Core::Types::Tool`
+
+Defines a tool that can be called by an agent.
+
+```ruby
+
+tool = AgUiProtocol::Core::Types::Tool.new(
+    name: "search",
+    description: "Search the web",
+    parameters: { "type" => "object", "properties" => { "q" => { "type" => "string" } } }
+
+)
+
+```
+
+| Property      | Type     | Description                        |
+| ------------- | -------- | ---------------------------------- |
+| `name`        | `String` | Name of the tool.                  |
+| `description` | `String` | Description of what the tool does. |
+| `parameters`  | `Object` | JSON Schema for tool parameters.   |
+
+## ToolCall
+
+`AgUiProtocol::Core::Types::ToolCall`
+
+Tool calls are embedded within assistant messages.
+
+```ruby
+
+tool_call = AgUiProtocol::Core::Types::ToolCall.new(
+    id: "tc_1",
+    function: { name: "search", arguments: "{\"q\":\"AG-UI\"}" }
+
+)
+
+```
+
+| Property   | Type                  | Description                                    |
+| ---------- | --------------------- | ---------------------------------------------- |
+| `id`       | `String`              | Unique identifier for the tool call            |
+| `function` | `FunctionCall , Hash` | Function name and arguments                    |
+| `type`     | `String` (optional)   | Type of the tool call , Default: `'function'`. |
+
+### FunctionCall
+
+`AgUiProtocol::Core::Types::FunctionCall`
+
+Function invocation descriptor used inside tool calls.
+
+```ruby
+
+fn = AgUiProtocol::Core::Types::FunctionCall.new(
+    name: "search",
+    arguments: "{\"q\":\"AG-UI\"}"
+
+)
+
+```
+
+**@category** [] ToolCall
+
+| Property    | Type     | Description             |
+| ----------- | -------- | ----------------------- |
+| `name`      | `String` | Function name.          |
+| `arguments` | `String` | JSON-encoded arguments. |
+
+## Message Types
+
+The SDK includes several message types that represent different kinds of
+messages in the system.
+
+### ActivityMessage
+
+`AgUiProtocol::Core::Types::ActivityMessage`
+
+Represents structured activity progress emitted between chat messages.
+
+```ruby
+
+msg = AgUiProtocol::Core::Types::ActivityMessage.new(
+    id: "activity_1",
+    activity_type: "progress",
+    content: { "pct" => 10 }
+
+)
+
+```
+
+**@category** [] Message Types
+
+| Property        | Type     | Description                                         |
+| --------------- | -------- | --------------------------------------------------- |
+| `id`            | `String` | Unique identifier for the activity message.         |
+| `activity_type` | `String` | Activity discriminator used for renderer selection. |
+| `content`       | `Hash`   | Structured payload representing the activity state. |
+
+### AssistantMessage
+
+`AgUiProtocol::Core::Types::AssistantMessage`
+
+Represents a message from an assistant.
+
+```ruby
+
+msg = AgUiProtocol::Core::Types::AssistantMessage.new(
+    id: "asst_1",
+    content: "Hello!",
+    tool_calls: [
+      {
+        id: "tc_1",
+        function: { name: "search", arguments: "{\"q\":\"AG-UI\"}" }
+      }
+    ]
+
+)
+
+```
+
+**@category** [] Message Types
+
+| Property     | Type                                | Description                                       |
+| ------------ | ----------------------------------- | ------------------------------------------------- |
+| `id`         | `String`                            | Unique identifier for the message                 |
+| `content`    | `Object` (optional)                 | Text content of the message , Default: `nil`.     |
+| `tool_calls` | `Array<ToolCall , Hash>` (optional) | Tool calls made in this message , Default: `nil`. |
+| `name`       | `String` (optional)                 | Name of the sender , Default: `nil`.              |
+
+### BinaryInputContent
+
+`AgUiProtocol::Core::Types::BinaryInputContent`
+
+Represents binary data such as images, audio, or files.
+
+```ruby
+
+content = AgUiProtocol::Core::Types::BinaryInputContent.new(
+    mime_type: "image/png",
+    url: "https://example.com/cat.png"
+
+)
+
+```
+
+> **Validation:** At least one of `id`, `url`, or `data` must be provided.
+
+**@category** [] Message Types
+
+| Property    | Type                | Description                                                     |
+| ----------- | ------------------- | --------------------------------------------------------------- |
+| `type`      | `String` (optional) | Identifies the fragment type , Default: `"binary"`.             |
+| `mime_type` | `String`            | MIME type, for example `"image/png"`                            |
+| `id`        | `String` (optional) | Reference to previously uploaded content , Default: `nil`.      |
+| `url`       | `String` (optional) | Remote URL where the content can be retrieved , Default: `nil`. |
+| `data`      | `String` (optional) | Base64 encoded content , Default: `nil`.                        |
+| `filename`  | `String` (optional) | Optional filename hint , Default: `nil`.                        |
+
+### DeveloperMessage
+
+`AgUiProtocol::Core::Types::DeveloperMessage`
+
+Represents a message from a developer.
+
+```ruby
+
+msg = AgUiProtocol::Core::Types::DeveloperMessage.new(
+    id: "dev_1",
+    content: "You are a helpful assistant."
+
+)
+
+```
+
+**@category** [] Message Types
+
+| Property  | Type                | Description                                   |
+| --------- | ------------------- | --------------------------------------------- |
+| `id`      | `String`            | Unique identifier for the message             |
+| `content` | `Object`            | Text content of the message (required)        |
+| `name`    | `String` (optional) | Optional name of the sender , Default: `nil`. |
+
+### Role
+
+`AgUiProtocol::Core::Types::Role`
+
+Represents the possible roles a message sender can have.
+
+```ruby
+
+AgUiProtocol::Core::Types::Role # => ["developer", "system", "assistant",
+"user", "tool", "activity"]
+
+```
+
+**@category** [] Message Types
+
+### SystemMessage
+
+`AgUiProtocol::Core::Types::SystemMessage`
+
+Represents a system message.
+
+```ruby
+
+msg = AgUiProtocol::Core::Types::SystemMessage.new(
+    id: "sys_1",
+    content: "Follow the protocol."
+
+)
+
+```
+
+**@category** [] Message Types
+
+| Property  | Type                | Description                                   |
+| --------- | ------------------- | --------------------------------------------- |
+| `id`      | `String`            | Unique identifier for the message             |
+| `content` | `Object`            | Text content of the message (required)        |
+| `name`    | `String` (optional) | Optional name of the sender , Default: `nil`. |
+
+### TextInputContent
+
+`AgUiProtocol::Core::Types::TextInputContent`
+
+Represents a text fragment inside a multimodal user message.
+
+```ruby
+
+content = AgUiProtocol::Core::Types::TextInputContent.new(text: "hello")
+
+```
+
+**@category** [] Message Types
+
+| Property | Type                | Description                                       |
+| -------- | ------------------- | ------------------------------------------------- |
+| `text`   | `String`            | Text content                                      |
+| `type`   | `String` (optional) | Identifies the fragment type , Default: `"text"`. |
+
+### ToolMessage
+
+`AgUiProtocol::Core::Types::ToolMessage`
+
+Tool result message.
+
+```ruby
+
+msg = AgUiProtocol::Core::Types::ToolMessage.new(
+    id: "tool_msg_1",
+    tool_call_id: "tc_1",
+    content: "ok"
+
+)
+
+```
+
+**@category** [] Message Types
+
+| Property       | Type                | Description                                              |
+| -------------- | ------------------- | -------------------------------------------------------- |
+| `id`           | `String`            | Unique identifier for the message.                       |
+| `content`      | `String`            | Tool result content.                                     |
+| `tool_call_id` | `String`            | ID of the tool call this message responds to.            |
+| `error`        | `String` (optional) | Error payload if the tool call failed. , Default: `nil`. |
+
+### UserMessage
+
+`AgUiProtocol::Core::Types::UserMessage`
+
+Represents a message from a user.
+
+```ruby
+
+msg = AgUiProtocol::Core::Types::UserMessage.new(
+    id: "user_2",
+    content: [
+      { type: "text", text: "Please describe this image" },
+      { type: "binary", mimeType: "image/png", url: "https://example.com/cat.png" }
+    ]
+
+)
+
+```
+
+**@category** [] Message Types
+
+| Property  | Type                                                    | Description                                                           |
+| --------- | ------------------------------------------------------- | --------------------------------------------------------------------- |
+| `id`      | `String`                                                | Unique identifier for the message                                     |
+| `content` | `String , Array<TextInputContent , BinaryInputContent>` | Either a plain text string or an ordered list of multimodal fragments |
+| `name`    | `String` (optional)                                     | Optional name of the sender , Default: `nil`.                         |
+
+## State
+
+`State` is represented as `Any`.
+
+The state type is flexible and can hold any data structure needed by the agent implementation.

@@ -179,6 +179,12 @@ export function CopilotChatInput({
     paddingRight: 0,
   });
 
+  // Cached container dimensions — invalidated on resize, lazily repopulated on next layout pass.
+  // Eliminates getComputedStyle(grid) + 2x getBoundingClientRect per compact-layout evaluation.
+  const containerCacheRef = useRef<{
+    compactWidth: number;
+  } | null>(null);
+
   const commandItems = useMemo(() => {
     const entries: ToolsMenuItem[] = [];
     const seen = new Set<string>();
@@ -677,6 +683,36 @@ export function CopilotChatInput({
     });
   }, []);
 
+  const updateContainerCache = useCallback((): {
+    compactWidth: number;
+  } | null => {
+    const grid = gridRef.current;
+    const addContainer = addButtonContainerRef.current;
+    const actionsContainer = actionsContainerRef.current;
+    if (!grid || !addContainer || !actionsContainer) return null;
+
+    const gridStyles = window.getComputedStyle(grid);
+    const paddingLeft = parseFloat(gridStyles.paddingLeft) || 0;
+    const paddingRight = parseFloat(gridStyles.paddingRight) || 0;
+    const columnGap = parseFloat(gridStyles.columnGap) || 0;
+    const gridAvailableWidth = grid.clientWidth - paddingLeft - paddingRight;
+
+    if (gridAvailableWidth <= 0) return null;
+
+    const addWidth = addContainer.getBoundingClientRect().width;
+    const actionsWidth = actionsContainer.getBoundingClientRect().width;
+    const compactWidth = Math.max(
+      gridAvailableWidth - addWidth - actionsWidth - columnGap * 2,
+      0,
+    );
+
+    if (compactWidth <= 0) return null;
+
+    const result = { compactWidth };
+    containerCacheRef.current = result;
+    return result;
+  }, []);
+
   const evaluateLayout = useCallback(() => {
     if (mode !== "input") {
       updateLayout("compact");
@@ -717,55 +753,71 @@ export function CopilotChatInput({
     let shouldExpand = hasExplicitBreak || renderedMultiline;
 
     if (!shouldExpand) {
-      const gridStyles = window.getComputedStyle(grid);
-      const paddingLeft = parseFloat(gridStyles.paddingLeft) || 0;
-      const paddingRight = parseFloat(gridStyles.paddingRight) || 0;
-      const columnGap = parseFloat(gridStyles.columnGap) || 0;
-      const gridAvailableWidth = grid.clientWidth - paddingLeft - paddingRight;
+      // Use cached container dimensions (lazily populated on first access, invalidated on resize).
+      const cache = containerCacheRef.current ?? updateContainerCache();
 
-      if (gridAvailableWidth > 0) {
-        const addWidth = addContainer.getBoundingClientRect().width;
-        const actionsWidth = actionsContainer.getBoundingClientRect().width;
-        const compactWidth = Math.max(
-          gridAvailableWidth - addWidth - actionsWidth - columnGap * 2,
+      if (cache && cache.compactWidth > 0) {
+        const compactInnerWidth = Math.max(
+          cache.compactWidth -
+            (measurementsRef.current.paddingLeft || 0) -
+            (measurementsRef.current.paddingRight || 0),
           0,
         );
 
-        const canvas =
-          measurementCanvasRef.current ?? document.createElement("canvas");
-        if (!measurementCanvasRef.current) {
-          measurementCanvasRef.current = canvas;
-        }
-
-        const context = canvas.getContext("2d");
-        if (context) {
+        if (compactInnerWidth > 0) {
+          // Read font fresh each evaluation — getComputedStyle for style-only
+          // properties is cheap and avoids stale values after CSS/theme changes.
           const textareaStyles = window.getComputedStyle(textarea);
-          const font =
-            textareaStyles.font ||
-            `${textareaStyles.fontStyle} ${textareaStyles.fontVariant} ${textareaStyles.fontWeight} ${textareaStyles.fontSize}/${textareaStyles.lineHeight} ${textareaStyles.fontFamily}`;
-          context.font = font;
+          let font = textareaStyles.font;
+          if (!font) {
+            const {
+              fontStyle,
+              fontVariant,
+              fontWeight,
+              fontSize,
+              lineHeight,
+              fontFamily,
+            } = textareaStyles;
+            if (fontSize && fontFamily) {
+              font = `${fontStyle} ${fontVariant} ${fontWeight} ${fontSize}/${lineHeight} ${fontFamily}`;
+            }
+          }
 
-          const compactInnerWidth = Math.max(
-            compactWidth -
-              (measurementsRef.current.paddingLeft || 0) -
-              (measurementsRef.current.paddingRight || 0),
-            0,
-          );
+          if (font?.trim()) {
+            const canvas =
+              measurementCanvasRef.current ?? document.createElement("canvas");
+            if (!measurementCanvasRef.current) {
+              measurementCanvasRef.current = canvas;
+            }
 
-          if (compactInnerWidth > 0) {
-            const lines =
-              resolvedValue.length > 0 ? resolvedValue.split("\n") : [""];
-            let longestWidth = 0;
-            for (const line of lines) {
-              const metrics = context.measureText(line || " ");
-              if (metrics.width > longestWidth) {
-                longestWidth = metrics.width;
+            const context = canvas.getContext("2d");
+            if (context) {
+              context.font = font;
+
+              const lines =
+                resolvedValue.length > 0 ? resolvedValue.split("\n") : [""];
+              let longestWidth = 0;
+              for (const line of lines) {
+                const metrics = context.measureText(line || " ");
+                if (metrics.width > longestWidth) {
+                  longestWidth = metrics.width;
+                }
               }
-            }
 
-            if (longestWidth > compactInnerWidth) {
-              shouldExpand = true;
+              if (longestWidth > compactInnerWidth) {
+                shouldExpand = true;
+              }
+            } else if (process.env.NODE_ENV !== "production") {
+              console.warn(
+                "[CopilotChatInput] canvas.getContext('2d') returned null. " +
+                  "Text-width-based expansion will be unavailable.",
+              );
             }
+          } else if (process.env.NODE_ENV !== "production") {
+            console.warn(
+              "[CopilotChatInput] Could not resolve textarea font for layout measurement. " +
+                "Text-width-based expansion will be skipped until the next evaluation.",
+            );
           }
         }
       }
@@ -778,6 +830,7 @@ export function CopilotChatInput({
     ensureMeasurements,
     mode,
     resolvedValue,
+    updateContainerCache,
     updateLayout,
   ]);
 
@@ -799,10 +852,22 @@ export function CopilotChatInput({
       return;
     }
 
-    const scheduleEvaluation = () => {
+    const containerTargets = new Set<Element>([
+      grid,
+      addContainer,
+      actionsContainer,
+    ]);
+
+    const scheduleEvaluation = (invalidateCache: boolean) => {
       if (ignoreResizeRef.current) {
         ignoreResizeRef.current = false;
+        // Self-inflicted resize from a layout toggle — container dimensions
+        // are unchanged, so keep the cache warm.
         return;
+      }
+
+      if (invalidateCache) {
+        containerCacheRef.current = null;
       }
 
       if (typeof window === "undefined") {
@@ -820,8 +885,19 @@ export function CopilotChatInput({
       });
     };
 
-    const observer = new ResizeObserver(() => {
-      scheduleEvaluation();
+    // Single observer for all elements — inspect entry.target to decide
+    // whether to invalidate the container dimension cache.  Container
+    // targets (grid, buttons) changing size means compactWidth may have
+    // changed; textarea height changes (typing) do not affect it.
+    const observer = new ResizeObserver((entries) => {
+      let shouldInvalidate = false;
+      for (const entry of entries) {
+        if (containerTargets.has(entry.target)) {
+          shouldInvalidate = true;
+          break;
+        }
+      }
+      scheduleEvaluation(shouldInvalidate);
     });
 
     observer.observe(grid);
@@ -1106,6 +1182,10 @@ export namespace CopilotChatInput {
     const config = useCopilotChatConfiguration();
     const labels = config?.labels ?? CopilotChatDefaultLabels;
 
+    // Defer Radix UI rendering until after hydration to avoid ID mismatches
+    const [mounted, setMounted] = useState(false);
+    useEffect(() => setMounted(true), []);
+
     const menuItems = useMemo<(ToolsMenuItem | "-")[]>(() => {
       const items: (ToolsMenuItem | "-")[] = [];
 
@@ -1170,23 +1250,28 @@ export namespace CopilotChatInput {
     const hasMenuItems = menuItems.length > 0;
     const isDisabled = disabled || !hasMenuItems;
 
+    const button = (
+      <Button
+        type="button"
+        data-testid="copilot-add-menu-button"
+        variant="chatInputToolbarSecondary"
+        size="chatInputToolbarIcon"
+        className={twMerge("cpk:ml-1", className)}
+        disabled={isDisabled}
+        {...props}
+      >
+        <Plus className="cpk:size-[20px]" />
+      </Button>
+    );
+
+    // Render plain button during SSR; Radix wrappers only after hydration
+    if (!mounted) return button;
+
     return (
       <DropdownMenu>
         <Tooltip>
           <TooltipTrigger asChild>
-            <DropdownMenuTrigger asChild>
-              <Button
-                type="button"
-                data-testid="copilot-add-menu-button"
-                variant="chatInputToolbarSecondary"
-                size="chatInputToolbarIcon"
-                className={twMerge("cpk:ml-1", className)}
-                disabled={isDisabled}
-                {...props}
-              >
-                <Plus className="cpk:size-[20px]" />
-              </Button>
-            </DropdownMenuTrigger>
+            <DropdownMenuTrigger asChild>{button}</DropdownMenuTrigger>
           </TooltipTrigger>
           <TooltipContent side="bottom">
             <p className="cpk:flex cpk:items-center cpk:gap-1 cpk:text-xs cpk:font-medium">
