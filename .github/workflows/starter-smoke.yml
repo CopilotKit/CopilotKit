@@ -42,8 +42,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          # Shallow for PR triggers, deeper for scheduled to support git log blame
-          fetch-depth: ${{ github.event_name == 'schedule' && 50 || 1 }}
+          fetch-depth: 0
           lfs: false
 
       - name: Run starter smoke tests
