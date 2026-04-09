@@ -47,7 +47,8 @@ state updates, you can reflect these updates natively in your application.
     from ag_ui.core import EventType, StateSnapshotEvent
     from fastapi import FastAPI, Header
     from fastapi.responses import StreamingResponse
-    from autogen import ContextVariables, ConversableAgent, LLMConfig
+    from autogen import ConversableAgent, LLMConfig
+    from autogen.agentchat import ContextVariables
     from autogen.ag_ui import AGUIStream, RunAgentInput
 
     def read_state(context: ContextVariables) -> dict:
@@ -63,7 +64,7 @@ state updates, you can reflect these updates natively in your application.
             "You are a helpful assistant for tracking language. "
             "Always respond in the current language."
         ),
-        llm_config=LLMConfig({"model": "gpt-5.2-mini"}),
+        llm_config=LLMConfig({"model": "gpt-5.4-mini"}),
     )
 
     @agent.register_for_llm(description="Update the language in shared state.")
