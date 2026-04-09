@@ -1,5 +1,15 @@
 # ui
 
+## 1.55.1
+
+### Patch Changes
+
+- @copilotkit/a2ui-renderer@1.55.1
+- @copilotkit/core@1.55.1
+- @copilotkit/runtime-client-gql@1.55.1
+- @copilotkit/shared@1.55.1
+- @copilotkit/web-inspector@1.55.1
+
 ## 1.55.1-next.0
 
 ### Patch Changes

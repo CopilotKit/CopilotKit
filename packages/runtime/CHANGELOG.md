@@ -1,5 +1,12 @@
 # @copilotkit/runtime
 
+## 1.55.1
+
+### Patch Changes
+
+- e6e8ef8: Fix an incorrect import in open-generative-ui middleware
+  - @copilotkit/shared@1.55.1
+
 ## 1.55.1-next.0
 
 ### Patch Changes
