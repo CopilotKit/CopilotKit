@@ -1,0 +1,148 @@
+@import "tailwindcss";
+@import "@copilotkitnext/react/styles.css";
+@import "highlight.js/styles/github.css";
+
+:root {
+  --bg: #fafaf9;
+  --bg-surface: #ffffff;
+  --bg-elevated: #f5f5f3;
+  --bg-hover: #eeeeeb;
+  --border: #e5e5e0;
+  --border-dim: #f0f0ec;
+  --text: #1a1a18;
+  --text-secondary: #57574f;
+  --text-muted: #8a8a80;
+  --text-faint: #b5b5ad;
+  --accent: #7c3aed;
+  --accent-light: #ede9fe;
+  --accent-dim: rgba(124, 58, 237, 0.06);
+  --blue: #1a5fb4;
+  --violet: #7c3aed;
+  --violet-light: #ede9fe;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+/* Reference content (MDX) typography */
+.reference-content h2 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text);
+  margin-top: 2rem;
+  margin-bottom: 0.75rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.reference-content h3 {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text);
+  margin-top: 1.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.reference-content h4 {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-top: 1rem;
+  margin-bottom: 0.25rem;
+}
+
+.reference-content p {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  line-height: 1.625;
+  margin-bottom: 0.75rem;
+}
+
+.reference-content ul,
+.reference-content ol {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  padding-left: 1.25rem;
+  margin-bottom: 0.75rem;
+}
+
+.reference-content li {
+  margin-bottom: 0.25rem;
+}
+
+.reference-content ul {
+  list-style-type: disc;
+}
+
+.reference-content ol {
+  list-style-type: decimal;
+}
+
+.reference-content code {
+  font-size: 0.8125rem;
+  background: var(--bg-elevated);
+  padding: 0.125rem 0.375rem;
+  border-radius: 0.25rem;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+}
+
+.reference-content pre {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  padding: 1rem;
+  overflow-x: auto;
+  margin-bottom: 1rem;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+}
+
+.reference-content pre code {
+  background: transparent;
+  padding: 0;
+  border-radius: 0;
+}
+
+.reference-content a {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.reference-content a:hover {
+  opacity: 0.8;
+}
+
+.reference-content table {
+  width: 100%;
+  font-size: 0.8125rem;
+  border-collapse: collapse;
+  margin-bottom: 1rem;
+}
+
+.reference-content th,
+.reference-content td {
+  border: 1px solid var(--border);
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+}
+
+.reference-content th {
+  background: var(--bg-elevated);
+  font-weight: 600;
+}
+
+.reference-content strong {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.reference-content hr {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 1.5rem 0;
+}

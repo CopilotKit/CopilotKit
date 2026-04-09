@@ -1,0 +1,52 @@
+---
+title: "Types"
+description: "Core types used by the Java SDK"
+---
+
+# Types
+
+## RunAgentInput
+
+Input parameters prepared before an agent run. Built internally from `RunAgentParameters` and agent state.
+
+```java
+// Properties:
+// threadId: String
+// runId: String
+// state: State
+// messages: List<BaseMessage>
+// tools: List<Tool>
+// context: List<Context>
+// forwardedProps: Map<String, Object>
+```
+
+## Messages
+
+Base message model with role-based content.
+
+- Roles: `User`, `Assistant`, `System`
+- Concrete types: text messages with streaming support
+
+## Context
+
+Simple key/value with description and value:
+
+```java
+record Context(String description, String value)
+```
+
+## Tool
+
+Represents a function the agent can call with arguments and returns a result. See `com.agui.core.tool`.
+
+## State
+
+Mutable state bag maintained by the agent across runs.
+
+```java
+
+// Example usage:
+State state = new State();
+state.put("counter", 42);
+state.put("user_name", "Alice");
+```

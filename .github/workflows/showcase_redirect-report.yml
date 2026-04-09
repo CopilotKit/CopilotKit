@@ -1,0 +1,59 @@
+name: "Showcase: SEO Redirect Decommission Report"
+
+on:
+  schedule:
+    # 1st of each month at 9am UTC
+    - cron: "0 9 1 * *"
+  workflow_dispatch:
+
+jobs:
+  decommission-report:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run decommission report
+        id: report
+        env:
+          POSTHOG_API_KEY: ${{ secrets.POSTHOG_API_KEY }}
+          POSTHOG_PROJECT_ID: ${{ secrets.POSTHOG_PROJECT_ID }}
+        run: |
+          # Run report in Slack format, capture output
+          set +e
+          npx tsx showcase/scripts/redirect-decommission-report.ts --slack > report.txt 2>&1
+          EXIT_CODE=$?
+          set -e
+
+          if [ $EXIT_CODE -eq 2 ]; then
+            echo "No decommission candidates — skipping Slack notification"
+            echo "has_candidates=false" >> "$GITHUB_OUTPUT"
+          elif [ $EXIT_CODE -eq 0 ]; then
+            echo "has_candidates=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Report failed with exit code $EXIT_CODE"
+            cat report.txt
+            exit 1
+          fi
+
+      - name: Post to Slack
+        if: steps.report.outputs.has_candidates == 'true'
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
+        run: |
+          PAYLOAD=$(jq -n --rawfile text report.txt '{"text": $text}')
+          curl -sf -X POST -H 'Content-Type: application/json' \
+            -d "$PAYLOAD" \
+            "$SLACK_WEBHOOK_URL"

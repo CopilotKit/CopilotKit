@@ -1,0 +1,35 @@
+export default function Home() {
+  return (
+    <main style={{ padding: "2rem", maxWidth: "800px", margin: "0 auto" }}>
+      <h1>Claude Agent SDK (Python)</h1>
+      <p>Integration ID: claude-sdk-python</p>
+      <h2 style={{ marginTop: "2rem" }}>Demos</h2>
+      <div style={{ display: "grid", gap: "1rem", marginTop: "1rem" }}>
+        <a key="agentic-chat" href="/demos/agentic-chat" className="demo-card">
+          <h3>Agentic Chat</h3>
+          <p>Natural conversation with frontend tool execution</p>
+        </a>
+        <a
+          key="tool-rendering"
+          href="/demos/tool-rendering"
+          className="demo-card"
+        >
+          <h3>Tool Rendering</h3>
+          <p>Backend agent tools rendered as UI components</p>
+        </a>
+        <a key="hitl" href="/demos/hitl" className="demo-card">
+          <h3>Human in the Loop</h3>
+          <p>User approves agent actions before execution</p>
+        </a>
+        <a
+          key="gen-ui-tool-based"
+          href="/demos/gen-ui-tool-based"
+          className="demo-card"
+        >
+          <h3>Tool-Based Generative UI</h3>
+          <p>Agent uses tools to trigger UI generation</p>
+        </a>
+      </div>
+    </main>
+  );
+}

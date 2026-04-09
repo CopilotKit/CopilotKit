@@ -1,0 +1,11 @@
+{
+  "title": "A2A",
+  "root": true,
+  "pages": [
+    "---Getting Started---",
+    "index",
+    "quickstart",
+    "---Generative UI---",
+    "...generative-ui"
+  ]
+}

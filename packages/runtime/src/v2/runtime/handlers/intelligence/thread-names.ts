@@ -130,7 +130,7 @@ async function runTitleGenerationAttempt(params: {
 
   agent.setMessages(messages);
   agent.setState({});
-  agent.threadId = `thread-name:${threadId}:${randomUUID()}`;
+  agent.threadId = randomUUID();
   const { newMessages } = await agent.runAgent({
     messages,
     state: {},

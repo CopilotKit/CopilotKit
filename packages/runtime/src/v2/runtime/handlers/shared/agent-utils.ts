@@ -6,6 +6,7 @@ import {
 import { A2UIMiddleware } from "@ag-ui/a2ui-middleware";
 import { MCPAppsMiddleware } from "@ag-ui/mcp-apps-middleware";
 import { CopilotRuntimeLike } from "../../core/runtime";
+import { OpenGenerativeUIMiddleware } from "../../open-generative-ui-middleware";
 import { extractForwardableHeaders } from "../header-utils";
 import { logger } from "@copilotkit/shared";
 
@@ -74,6 +75,15 @@ export function configureAgentForRequest(params: {
 
     if (mcpServers.length > 0 && typeof agent.use === "function") {
       agent.use(new MCPAppsMiddleware({ mcpServers }));
+    }
+  }
+
+  if (runtime.openGenerativeUI) {
+    const config = runtime.openGenerativeUI;
+    const targetAgents = typeof config === "object" ? config.agents : undefined;
+    const shouldApply = !targetAgents || targetAgents.includes(agentId);
+    if (shouldApply && typeof agent.use === "function") {
+      agent.use(new OpenGenerativeUIMiddleware());
     }
   }
 

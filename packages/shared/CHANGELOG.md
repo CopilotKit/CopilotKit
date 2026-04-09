@@ -1,5 +1,21 @@
 # @copilotkit/shared
 
+## 1.55.1
+
+## 1.55.1-next.0
+
+## 1.55.0
+
+### Minor Changes
+
+- 1ceb963: refactor: consolidate V1/V2 packages into flat @copilotkit/\* structure
+- 5289791: feat: add multimodal attachment support to the builtin agent
+
+### Patch Changes
+
+- 52a9322: Fixing license warnings, barrel export and typing
+- 434ccd8: A2UI v0.9 + Open Generative UI: BYOC catalogs, dark mode, sandboxed UI generation
+
 ## 1.55.0-next.8
 
 ## 1.55.0-next.7

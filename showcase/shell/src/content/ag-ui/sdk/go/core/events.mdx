@@ -1,0 +1,631 @@
+---
+title: "Events"
+description: "Documentation for the events used in the Go AG-UI Protocol SDK"
+---
+
+# Events
+
+The AG-UI Protocol SDK uses a streaming event-based architecture. Events are the fundamental units of communication between agents and the frontend. This section documents the event types and their properties in the Go SDK.
+
+## EventType Constants
+
+The `EventType` constants define all possible event types in the system:
+
+```go
+type EventType string
+
+const (
+    EventTypeTextMessageStart   EventType = "TEXT_MESSAGE_START"
+    EventTypeTextMessageContent EventType = "TEXT_MESSAGE_CONTENT"
+    EventTypeTextMessageEnd     EventType = "TEXT_MESSAGE_END"
+    EventTypeTextMessageChunk   EventType = "TEXT_MESSAGE_CHUNK"
+    EventTypeToolCallStart      EventType = "TOOL_CALL_START"
+    EventTypeToolCallArgs       EventType = "TOOL_CALL_ARGS"
+    EventTypeToolCallEnd        EventType = "TOOL_CALL_END"
+    EventTypeToolCallChunk      EventType = "TOOL_CALL_CHUNK"
+    EventTypeToolCallResult     EventType = "TOOL_CALL_RESULT"
+    EventTypeStateSnapshot      EventType = "STATE_SNAPSHOT"
+    EventTypeStateDelta         EventType = "STATE_DELTA"
+    EventTypeMessagesSnapshot   EventType = "MESSAGES_SNAPSHOT"
+    EventTypeRaw                EventType = "RAW"
+    EventTypeCustom             EventType = "CUSTOM"
+    EventTypeRunStarted         EventType = "RUN_STARTED"
+    EventTypeRunFinished        EventType = "RUN_FINISHED"
+    EventTypeRunError           EventType = "RUN_ERROR"
+    EventTypeStepStarted        EventType = "STEP_STARTED"
+    EventTypeStepFinished       EventType = "STEP_FINISHED"
+
+    // Thinking events for reasoning phase support
+    EventTypeThinkingStart              EventType = "THINKING_START"
+    EventTypeThinkingEnd                EventType = "THINKING_END"
+    EventTypeThinkingTextMessageStart   EventType = "THINKING_TEXT_MESSAGE_START"
+    EventTypeThinkingTextMessageContent EventType = "THINKING_TEXT_MESSAGE_CONTENT"
+    EventTypeThinkingTextMessageEnd     EventType = "THINKING_TEXT_MESSAGE_END"
+)
+```
+
+## Event Interface
+
+All events implement the `Event` interface, which provides a common contract for event handling:
+
+```go
+type Event interface {
+    // Type returns the event type
+    Type() EventType
+
+    // Timestamp returns the event timestamp (Unix milliseconds)
+    Timestamp() *int64
+
+    // SetTimestamp sets the event timestamp
+    SetTimestamp(timestamp int64)
+
+    // ThreadID returns the thread ID associated with this event
+    ThreadID() string
+
+    // RunID returns the run ID associated with this event
+    RunID() string
+
+    // Validate validates the event structure and content
+    Validate() error
+
+    // ToJSON serializes the event to JSON for cross-SDK compatibility
+    ToJSON() ([]byte, error)
+
+    // GetBaseEvent returns the underlying base event
+    GetBaseEvent() *BaseEvent
+}
+```
+
+## BaseEvent
+
+All events embed the `BaseEvent` struct, which provides common fields and functionality:
+
+```go
+type BaseEvent struct {
+    EventType   EventType `json:"type"`
+    TimestampMs *int64    `json:"timestamp,omitempty"`
+    RawEvent    any       `json:"rawEvent,omitempty"`
+}
+```
+
+| Field         | Type        | Description                                              |
+| ------------- | ----------- | -------------------------------------------------------- |
+| `EventType`   | `EventType` | The type of event (discriminator field)                  |
+| `TimestampMs` | `*int64`    | Timestamp when the event was created (Unix milliseconds) |
+| `RawEvent`    | `any`       | Original event data if this event was transformed        |
+
+### Creating a Base Event
+
+```go
+
+// Create a new base event with automatic timestamp
+baseEvent := events.NewBaseEvent(events.EventTypeCustom)
+```
+
+## Text Message Events
+
+These events handle streaming text message content from agents.
+
+### TextMessageStartEvent
+
+Signals the start of a streaming text message.
+
+```go
+type TextMessageStartEvent struct {
+    *BaseEvent
+    MessageID string  `json:"messageId"`
+    Role      *string `json:"role,omitempty"`
+}
+```
+
+| Field       | Type      | Description                                            |
+| ----------- | --------- | ------------------------------------------------------ |
+| `MessageID` | `string`  | Unique identifier for the message                      |
+| `Role`      | `*string` | Role of the message sender (e.g., "assistant", "user") |
+
+**Usage Example:**
+
+```go
+// Create a text message start event
+event := events.NewTextMessageStartEvent("msg-123", events.WithRole("assistant"))
+
+// Handle the event
+switch e := event.(type) {
+case *events.TextMessageStartEvent:
+    fmt.Printf("Message started: %s with role: %s\n", e.MessageID, *e.Role)
+}
+```
+
+### TextMessageContentEvent
+
+Contains a piece of streaming text message content.
+
+```go
+type TextMessageContentEvent struct {
+    *BaseEvent
+    MessageID string `json:"messageId"`
+    Delta     string `json:"delta"`
+}
+```
+
+| Field       | Type     | Description                               |
+| ----------- | -------- | ----------------------------------------- |
+| `MessageID` | `string` | ID of the message this content belongs to |
+| `Delta`     | `string` | The text content chunk                    |
+
+**Usage Example:**
+
+```go
+// Create a content event
+event := events.NewTextMessageContentEvent("msg-123", "Hello, world!")
+
+// Handle streaming content
+switch e := event.(type) {
+case *events.TextMessageContentEvent:
+    fmt.Print(e.Delta) // Stream the content to output
+}
+```
+
+### TextMessageEndEvent
+
+Signals the end of a streaming text message.
+
+```go
+type TextMessageEndEvent struct {
+    *BaseEvent
+    MessageID string `json:"messageId"`
+}
+```
+
+| Field       | Type     | Description                      |
+| ----------- | -------- | -------------------------------- |
+| `MessageID` | `string` | ID of the message that has ended |
+
+**Usage Example:**
+
+```go
+// Create an end event
+event := events.NewTextMessageEndEvent("msg-123")
+
+// Handle message completion
+switch e := event.(type) {
+case *events.TextMessageEndEvent:
+    fmt.Printf("\nMessage %s completed\n", e.MessageID)
+}
+```
+
+## Tool Call Events
+
+These events handle tool/function calls made by the agent.
+
+### ToolCallStartEvent
+
+Signals the start of a tool call.
+
+```go
+type ToolCallStartEvent struct {
+    *BaseEvent
+    ToolCallID      string  `json:"toolCallId"`
+    ToolCallName    string  `json:"toolCallName"`
+    ParentMessageID *string `json:"parentMessageId,omitempty"`
+}
+```
+
+| Field             | Type      | Description                              |
+| ----------------- | --------- | ---------------------------------------- |
+| `ToolCallID`      | `string`  | Unique identifier for the tool call      |
+| `ToolCallName`    | `string`  | Name of the tool being called            |
+| `ParentMessageID` | `*string` | ID of the parent message (if applicable) |
+
+**Usage Example:**
+
+```go
+// Create a tool call start event
+event := events.NewToolCallStartEvent(
+    "tool-456",
+    "calculate",
+    events.WithParentMessageID("msg-123"),
+)
+
+// Handle tool call initiation
+switch e := event.(type) {
+case *events.ToolCallStartEvent:
+    fmt.Printf("Tool %s started: %s\n", e.ToolCallName, e.ToolCallID)
+}
+```
+
+### ToolCallArgsEvent
+
+Contains streaming tool call arguments.
+
+```go
+type ToolCallArgsEvent struct {
+    *BaseEvent
+    ToolCallID string `json:"toolCallId"`
+    Delta      string `json:"delta"`
+}
+```
+
+| Field        | Type     | Description                        |
+| ------------ | -------- | ---------------------------------- |
+| `ToolCallID` | `string` | ID of the tool call                |
+| `Delta`      | `string` | JSON string chunk of the arguments |
+
+**Usage Example:**
+
+```go
+// Create a tool call args event
+event := events.NewToolCallArgsEvent("tool-456", `{"x": 10, "y": 20}`)
+
+// Accumulate streaming arguments
+var argsBuffer strings.Builder
+switch e := event.(type) {
+case *events.ToolCallArgsEvent:
+    argsBuffer.WriteString(e.Delta)
+}
+```
+
+### ToolCallEndEvent
+
+Signals the end of a tool call.
+
+```go
+type ToolCallEndEvent struct {
+    *BaseEvent
+    ToolCallID string `json:"toolCallId"`
+}
+```
+
+| Field        | Type     | Description                        |
+| ------------ | -------- | ---------------------------------- |
+| `ToolCallID` | `string` | ID of the tool call that has ended |
+
+### ToolCallResultEvent
+
+Contains the result of a tool call execution.
+
+```go
+type ToolCallResultEvent struct {
+    *BaseEvent
+    MessageID  string  `json:"messageId"`
+    ToolCallID string  `json:"toolCallId"`
+    Content    string  `json:"content"`
+    Role       *string `json:"role,omitempty"`
+}
+```
+
+| Field        | Type      | Description                  |
+| ------------ | --------- | ---------------------------- |
+| `MessageID`  | `string`  | ID of the result message     |
+| `ToolCallID` | `string`  | ID of the tool call          |
+| `Content`    | `string`  | Result content from the tool |
+| `Role`       | `*string` | Role (typically "tool")      |
+
+## Run Lifecycle Events
+
+These events track the lifecycle of agent runs.
+
+### RunStartedEvent
+
+Signals the start of an agent run.
+
+```go
+type RunStartedEvent struct {
+    *BaseEvent
+    ThreadIDValue string `json:"threadId"`
+    RunIDValue    string `json:"runId"`
+}
+```
+
+| Field           | Type     | Description                   |
+| --------------- | -------- | ----------------------------- |
+| `ThreadIDValue` | `string` | ID of the conversation thread |
+| `RunIDValue`    | `string` | ID of the agent run           |
+
+**Usage Example:**
+
+```go
+// Create a run started event
+event := events.NewRunStartedEvent("thread-789", "run-012")
+
+// Handle run initiation
+switch e := event.(type) {
+case *events.RunStartedEvent:
+    fmt.Printf("Run %s started in thread %s\n", e.RunID(), e.ThreadID())
+}
+```
+
+### RunFinishedEvent
+
+Signals the successful completion of an agent run.
+
+```go
+type RunFinishedEvent struct {
+    *BaseEvent
+    ThreadIDValue string      `json:"threadId"`
+    RunIDValue    string      `json:"runId"`
+    Result        interface{} `json:"result,omitempty"`
+}
+```
+
+| Field           | Type          | Description                    |
+| --------------- | ------------- | ------------------------------ |
+| `ThreadIDValue` | `string`      | ID of the conversation thread  |
+| `RunIDValue`    | `string`      | ID of the agent run            |
+| `Result`        | `interface{}` | Result data from the agent run |
+
+### RunErrorEvent
+
+Signals an error during an agent run.
+
+```go
+type RunErrorEvent struct {
+    *BaseEvent
+    Code       *string `json:"code,omitempty"`
+    Message    string  `json:"message"`
+    RunIDValue string  `json:"runId,omitempty"`
+}
+```
+
+| Field        | Type      | Description                              |
+| ------------ | --------- | ---------------------------------------- |
+| `Code`       | `*string` | Error code                               |
+| `Message`    | `string`  | Error message                            |
+| `RunIDValue` | `string`  | ID of the run that encountered the error |
+
+**Usage Example:**
+
+```go
+// Create an error event
+event := events.NewRunErrorEvent(
+    "Tool execution failed",
+    events.WithErrorCode("TOOL_ERROR"),
+    events.WithRunID("run-012"),
+)
+```
+
+## State Management Events
+
+These events handle state synchronization between agent and client.
+
+### StateSnapshotEvent
+
+Contains a complete snapshot of the state.
+
+```go
+type StateSnapshotEvent struct {
+    *BaseEvent
+    Snapshot any `json:"snapshot"`
+}
+```
+
+| Field      | Type  | Description             |
+| ---------- | ----- | ----------------------- |
+| `Snapshot` | `any` | Complete state snapshot |
+
+**Usage Example:**
+
+```go
+// Create a state snapshot
+state := map[string]interface{}{
+    "currentStep": "processing",
+    "progress": 75,
+}
+event := events.NewStateSnapshotEvent(state)
+```
+
+### StateDeltaEvent
+
+Contains incremental state changes using JSON Patch operations (RFC 6902).
+
+```go
+type StateDeltaEvent struct {
+    *BaseEvent
+    Delta []JSONPatchOperation `json:"delta"`
+}
+
+type JSONPatchOperation struct {
+    Op    string `json:"op"`              // "add", "remove", "replace", "move", "copy", "test"
+    Path  string `json:"path"`            // JSON Pointer path
+    Value any    `json:"value,omitempty"` // Value for add, replace, test operations
+    From  string `json:"from,omitempty"`  // Source path for move, copy operations
+}
+```
+
+| Field   | Type                   | Description                    |
+| ------- | ---------------------- | ------------------------------ |
+| `Delta` | `[]JSONPatchOperation` | Array of JSON Patch operations |
+
+**Usage Example:**
+
+```go
+// Create state delta with JSON Patch operations
+delta := []events.JSONPatchOperation{
+    {
+        Op:    "replace",
+        Path:  "/progress",
+        Value: 100,
+    },
+    {
+        Op:   "add",
+        Path: "/completedAt",
+        Value: time.Now().Unix(),
+    },
+}
+event := events.NewStateDeltaEvent(delta)
+```
+
+## Thinking Events
+
+These events support reasoning/thinking phases where the agent shows its thought process.
+
+### ThinkingStartEvent
+
+Signals the start of a thinking phase.
+
+```go
+type ThinkingStartEvent struct {
+    *BaseEvent
+    Title *string `json:"title,omitempty"`
+}
+```
+
+| Field   | Type      | Description                           |
+| ------- | --------- | ------------------------------------- |
+| `Title` | `*string` | Optional title for the thinking phase |
+
+### ThinkingTextMessageContentEvent
+
+Contains streaming thinking content.
+
+```go
+type ThinkingTextMessageContentEvent struct {
+    *BaseEvent
+    Delta string `json:"delta"`
+}
+```
+
+| Field   | Type     | Description            |
+| ------- | -------- | ---------------------- |
+| `Delta` | `string` | Thinking content chunk |
+
+## Event Decoding
+
+The SDK provides an `EventDecoder` for parsing SSE events into typed Go structs:
+
+```go
+    "github.com/ag-ui-protocol/ag-ui/sdks/community/go/pkg/core/events"
+    "github.com/sirupsen/logrus"
+)
+
+// Create a decoder
+logger := logrus.New()
+decoder := events.NewEventDecoder(logger)
+
+// Decode an SSE event
+event, err := decoder.DecodeEvent("TEXT_MESSAGE_START", sseData)
+if err != nil {
+    log.Printf("Failed to decode event: %v", err)
+    return
+}
+
+// Type-safe event handling
+switch e := event.(type) {
+case *events.TextMessageStartEvent:
+    fmt.Printf("Message started: %s\n", e.MessageID)
+case *events.TextMessageContentEvent:
+    fmt.Printf("Content: %s\n", e.Delta)
+case *events.ToolCallStartEvent:
+    fmt.Printf("Tool call: %s\n", e.ToolCallName)
+}
+```
+
+## Event Validation
+
+All events support validation to ensure they conform to the protocol specification:
+
+### Individual Event Validation
+
+```go
+event := events.NewTextMessageStartEvent("")
+
+// Validate the event
+if err := event.Validate(); err != nil {
+    // Handle validation error
+    fmt.Printf("Invalid event: %v\n", err)
+}
+```
+
+### Sequence Validation
+
+The SDK can validate entire event sequences to ensure they follow the protocol rules:
+
+```go
+// Validate a sequence of events
+events := []events.Event{
+    events.NewRunStartedEvent("thread-1", "run-1"),
+    events.NewTextMessageStartEvent("msg-1"),
+    events.NewTextMessageContentEvent("msg-1", "Hello"),
+    events.NewTextMessageEndEvent("msg-1"),
+    events.NewRunFinishedEvent("thread-1", "run-1"),
+}
+
+if err := events.ValidateSequence(events); err != nil {
+    // Handle sequence validation error
+    fmt.Printf("Invalid event sequence: %v\n", err)
+}
+```
+
+Sequence validation ensures:
+
+- Runs are started before they can be finished or errored
+- Messages are started before content can be added or ended
+- Tool calls follow the proper start → args → end lifecycle
+- Events maintain referential integrity
+
+## ID Generation
+
+The SDK provides utilities for generating unique IDs:
+
+```go
+// Generate various ID types
+threadID := events.GenerateThreadID()  // "thread-{uuid}"
+runID := events.GenerateRunID()        // "run-{uuid}"
+messageID := events.GenerateMessageID() // "msg-{uuid}"
+toolCallID := events.GenerateToolCallID() // "tool-{uuid}"
+stepID := events.GenerateStepID()      // "step-{uuid}"
+
+// Use with event creation
+event := events.NewRunStartedEvent(
+    events.GenerateThreadID(),
+    events.GenerateRunID(),
+)
+```
+
+## Custom and Raw Events
+
+### CustomEvent
+
+For application-specific events:
+
+```go
+type CustomEvent struct {
+    *BaseEvent
+    Name  string `json:"name"`
+    Value any    `json:"value,omitempty"`
+}
+```
+
+**Usage Example:**
+
+```go
+// Create a custom event
+event := events.NewCustomEvent(
+    "user.preference.changed",
+    events.WithValue(map[string]string{
+        "theme": "dark",
+    }),
+)
+```
+
+### RawEvent
+
+For passing through external event data:
+
+```go
+type RawEvent struct {
+    *BaseEvent
+    Event  any     `json:"event"`
+    Source *string `json:"source,omitempty"`
+}
+```
+
+**Usage Example:**
+
+```go
+// Create a raw event
+event := events.NewRawEvent(
+    externalEventData,
+    events.WithSource("external-system"),
+)
+```

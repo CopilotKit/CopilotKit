@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "copilotkit"
-version = "0.1.85"
+version = "0.1.86"
 description = "CopilotKit python SDK"
 authors = ["Markus Ecker <markus.ecker@gmail.com>"]
 license = "MIT"
@@ -16,6 +16,8 @@ keywords = [
   "langsmith",
   "langserve",
 ]
+packages = [{ include = "copilotkit" }]
+include = ["copilotkit/*.json"]
 
 [tool.poetry.dependencies]
 python = ">=3.10,<3.13"

@@ -1,0 +1,218 @@
+---
+title: Client Module Overview
+description: High-level agent implementations and client infrastructure for the Kotlin SDK
+---
+
+# Client Module
+
+The `kotlin-client` module provides high-level agent implementations and client infrastructure for connecting to AI agents via the AG-UI protocol. It offers both stateless and stateful client options, authentication management, and tool integration capabilities.
+
+## Installation
+
+```kotlin
+dependencies {
+    implementation("com.agui:kotlin-client:0.2.1")
+}
+```
+
+The client module automatically includes `kotlin-core` and `kotlin-tools` as dependencies.
+
+## Core Components
+
+### AgUiAgent
+
+Stateless client for cases where no ongoing context is needed or the agent manages all state server-side.
+
+- Suitable for single interactions
+- Agent handles state management
+- Minimal client-side memory usage
+
+[Learn more about AgUiAgent →](/docs/sdk/kotlin/client/agui-agent)
+
+### StatefulAgUiAgent
+
+Stateful client that maintains conversation history and sends it with each request.
+
+- Client manages conversation context
+- Full conversation history sent with each request
+- Suitable for complex conversational workflows
+
+[Learn more about StatefulAgUiAgent →](/docs/sdk/kotlin/client/stateful-agui-agent)
+
+### HttpAgent
+
+Low-level HTTP transport implementation providing direct protocol access.
+
+- Direct control over HTTP communication
+- Custom request/response handling
+- Foundation for higher-level agents
+
+[Learn more about HttpAgent →](/docs/sdk/kotlin/client/http-agent)
+
+### AbstractAgent
+
+Base class for implementing custom agent connectivity patterns.
+
+- Template for custom agent implementations
+- Standardized lifecycle methods
+- Event handling framework
+
+[Learn more about AbstractAgent →](/docs/sdk/kotlin/client/abstract-agent)
+
+## Features
+
+### Authentication
+
+Multiple authentication methods supported:
+
+- Bearer Token authentication
+- API Key authentication
+- Basic authentication
+- Custom authentication providers
+
+### Streaming Responses
+
+Real-time event streaming using Kotlin Flows:
+
+- Server-sent events (SSE) parsing
+- Automatic reconnection handling
+- Backpressure management
+- Automatic expansion of `TEXT_MESSAGE_CHUNK` / `TOOL_CALL_CHUNK` events into start/content/end triads
+- Thinking telemetry exposed through `AgentState.thinking`
+
+### State Management
+
+Comprehensive state synchronization:
+
+- JSON Patch-based state updates
+- Automatic state validation
+- Error state handling
+- Tool call results surfaced as `ToolMessage` entries without additional wiring
+- Access to raw/custom protocol events via `AgentState.rawEvents` and `AgentState.customEvents`
+- Thinking streams exposed through `AgentState.thinking`
+
+### Tool Integration
+
+Client-side tool execution framework:
+
+- Custom tool development
+- Tool registry management
+- Circuit breaker patterns for reliability
+
+### Error Handling
+
+Robust error management:
+
+- Connection error recovery
+- Protocol error detection
+- User-friendly error reporting
+
+## Platform Support
+
+| Platform | Ktor Client Engine  | Status    |
+| -------- | ------------------- | --------- |
+| Android  | ktor-client-android | ✅ Stable |
+| iOS      | ktor-client-darwin  | ✅ Stable |
+| JVM      | ktor-client-cio     | ✅ Stable |
+
+## Usage Examples
+
+### Quick Start with AgUiAgent
+
+```kotlin
+
+val agent = AgUiAgent("https://api.example.com/agent") {
+    bearerToken = "your-token"
+}
+
+agent.sendMessage("Hello!").collect { state ->
+    println("Response: ${state.messages.last()}")
+}
+```
+
+### Reading Thinking Telemetry
+
+```kotlin
+agent.sendMessage("Plan the next steps").collect { state ->
+    state.thinking?.let { thinking ->
+        if (thinking.isThinking) {
+            val thought = thinking.messages.lastOrNull().orEmpty()
+            println("🤔 Agent thinking: $thought")
+        } else if (thinking.messages.isNotEmpty()) {
+            println("💡 Agent finished thinking: ${thinking.messages.joinToString()}")
+        }
+    }
+}
+```
+
+### Convenience Builders
+
+The SDK provides convenience builders for common configurations:
+
+```kotlin
+
+// Quick bearer token setup
+val agent = agentWithBearer("https://api.example.com/agent", "your-token")
+
+// Quick API key setup
+val agent = agentWithApiKey("https://api.example.com/agent", "your-api-key")
+
+// Agent with debug logging
+val agent = debugAgent("https://api.example.com/agent") {
+    bearerToken = "your-token"
+}
+```
+
+### Stateful Conversations
+
+```kotlin
+val chatAgent = StatefulAgUiAgent("https://api.example.com/agent") {
+    apiKey = "your-api-key"
+    systemPrompt = "You are a helpful assistant"
+}
+
+// Conversation context is maintained automatically
+chatAgent.chat("My name is Alice").collect { }
+chatAgent.chat("What's my name?").collect { state ->
+    // Agent knows the name from previous message
+    state.customEvents?.forEach { custom ->
+        println("Custom event ${custom.name}: ${custom.value}")
+    }
+    state.rawEvents?.forEach { raw ->
+        println("Raw payload: ${raw.event}")
+    }
+}
+```
+
+### Custom Authentication
+
+```kotlin
+val agent = AgUiAgent("https://api.example.com/agent") {
+    customAuth { request ->
+        request.headers.append("X-Custom-Auth", "custom-value")
+    }
+}
+```
+
+## Configuration Options
+
+### Connection Settings
+
+- Base URL configuration
+- Timeout settings
+- Retry policies
+- Connection pooling
+
+### Request Configuration
+
+- Custom headers
+- User ID management
+- Request/response logging
+- Content negotiation
+
+### State Configuration
+
+- Initial state setup
+- State validation rules
+- Update strategies
+- Persistence options

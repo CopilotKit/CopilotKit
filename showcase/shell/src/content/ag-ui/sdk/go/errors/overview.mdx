@@ -1,0 +1,416 @@
+---
+title: "Error Handling"
+description: "Comprehensive error handling utilities for the AG-UI Go SDK"
+---
+
+# Error Handling
+
+The AG-UI Go SDK provides a comprehensive error handling system with custom error types, severity-based handling, context management, and built-in retry logic with exponential backoff.
+
+```go
+
+```
+
+## Error Types
+
+The SDK defines specific error types for different scenarios, each with appropriate severity levels and retry behavior:
+
+| Type              | Severity | Use Case                                     | Retry  |
+| ----------------- | -------- | -------------------------------------------- | ------ |
+| `ValidationError` | Warning  | Input validation failures, malformed data    | No     |
+| `StateError`      | Error    | Invalid state transitions, state conflicts   | No     |
+| `ConflictError`   | Error    | Resource conflicts, concurrent operations    | Yes    |
+| `EncodingError`   | Error    | Encoding/decoding failures, format issues    | No     |
+| `SecurityError`   | Critical | Security violations, injection attempts      | No     |
+| `AgentError`      | Error    | Agent-specific operational errors            | Varies |
+| `OperationError`  | Error    | Operation failures with context preservation | Varies |
+
+## BaseError
+
+All custom error types embed `BaseError`, providing common fields and methods:
+
+```go
+type BaseError struct {
+    Code       string                 // Machine-readable error code
+    Message    string                 // Human-readable error message
+    Severity   Severity               // Error severity level
+    Timestamp  time.Time              // When the error occurred
+    Details    map[string]interface{} // Additional context
+    Cause      error                  // Underlying error, if any
+    Retryable  bool                   // If the operation can be retried
+    RetryAfter *time.Duration         // Suggested retry delay
+}
+```
+
+| Field        | Type                     | Description                           |
+| ------------ | ------------------------ | ------------------------------------- |
+| `Code`       | `string`                 | Machine-readable error identifier     |
+| `Message`    | `string`                 | Human-readable error description      |
+| `Severity`   | `Severity`               | Error severity level (Debug to Fatal) |
+| `Timestamp`  | `time.Time`              | When the error occurred               |
+| `Details`    | `map[string]interface{}` | Additional error context              |
+| `Cause`      | `error`                  | Underlying error for error chaining   |
+| `Retryable`  | `bool`                   | Whether the operation can be retried  |
+| `RetryAfter` | `*time.Duration`         | Suggested delay before retry          |
+
+## Severity Levels
+
+Errors are classified by severity to help with appropriate handling and logging:
+
+```go
+const (
+    SeverityDebug    Severity = iota // Informational only
+    SeverityInfo                      // Informational, no action needed
+    SeverityWarning                   // Warning, operation continues
+    SeverityError                     // Recoverable error
+    SeverityCritical                  // Critical, immediate attention
+    SeverityFatal                     // Fatal, requires termination
+)
+```
+
+| Level      | Description             | Action Required                   |
+| ---------- | ----------------------- | --------------------------------- |
+| `Debug`    | Development information | None - logging only               |
+| `Info`     | Informational messages  | None - awareness only             |
+| `Warning`  | Non-blocking issues     | Monitor, may need future action   |
+| `Error`    | Recoverable failures    | Handle error, retry if applicable |
+| `Critical` | Severe issues           | Immediate intervention required   |
+| `Fatal`    | Unrecoverable failures  | Terminate operation               |
+
+## Error Context
+
+Add context and details to errors for better debugging:
+
+```go
+// Adding details to errors
+err := errors.NewValidationError("INVALID_INPUT", "Invalid event data")
+err.WithField("eventType", "unknown").
+    WithDetail("received", eventData).
+    WithDetail("expected", []string{"text", "tool", "state"})
+
+// Preserving error chains
+originalErr := someOperation()
+wrappedErr := errors.NewStateError("STATE_CONFLICT", "Cannot transition state").
+    WithCause(originalErr).
+    WithStateID("state_123").
+    WithTransition("pending -> active")
+
+// Adding retry information
+retryableErr := errors.NewConflictError("RESOURCE_LOCKED", "Resource is locked").
+    WithRetry(5 * time.Second).
+    WithResource("agent", "agent_001")
+```
+
+## Retry Logic
+
+The SDK includes built-in retry capabilities with exponential backoff:
+
+```go
+// Default retry configuration
+config := errors.DefaultRetryConfig()
+// MaxAttempts: 3
+// InitialDelay: 100ms
+// MaxDelay: 30s
+// Multiplier: 2.0
+// Jitter: 0.1
+
+// Custom retry configuration
+config := &errors.RetryConfig{
+    MaxAttempts:  5,
+    InitialDelay: 500 * time.Millisecond,
+    MaxDelay:     1 * time.Minute,
+    Multiplier:   1.5,
+    Jitter:       0.2,
+    RetryIf: func(err error) bool {
+        // Custom retry logic
+        return errors.IsRetryable(err) && !errors.IsSecurityError(err)
+    },
+    OnRetry: func(attempt int, err error, delay time.Duration) {
+        log.Printf("Retry attempt %d after %v: %v", attempt, delay, err)
+    },
+}
+
+// Execute with retry
+err := errors.Retry(ctx, config, func() error {
+    return performOperation()
+})
+
+// Check if error is retryable
+if errors.IsRetryable(err) {
+    if duration := errors.GetRetryAfter(err); duration != nil {
+        time.Sleep(*duration)
+        // Retry operation
+    }
+}
+```
+
+## Error Creation
+
+Use type-specific constructors for creating errors:
+
+```go
+// Validation errors
+err := errors.NewValidationError("INVALID_EVENT", "Event validation failed").
+    WithField("type", eventType).
+    WithRule("event_type_required").
+    AddFieldError("timestamp", "must be positive").
+    AddFieldError("id", "exceeds maximum length")
+
+// State errors
+err := errors.NewStateError("INVALID_TRANSITION", "Invalid state transition").
+    WithStateID("state_456").
+    WithStates(currentState, expectedState).
+    WithTransition("active -> completed")
+
+// Conflict errors
+err := errors.NewConflictError("OPERATION_CONFLICT", "Concurrent modification").
+    WithResource("thread", "thread_789").
+    WithOperation("update_message").
+    WithResolution("retry with latest version")
+
+// Encoding errors
+err := errors.NewEncodingError("DECODE_FAILED", "Failed to decode JSON").
+    WithFormat("json").
+    WithOperation("decode").
+    WithMimeType("application/json").
+    WithPosition(142)
+
+// Security errors
+err := errors.NewXSSError("XSS attempt detected", "<script>alert('xss')</script>").
+    WithLocation("message.content").
+    WithDetail("user_id", "user_123")
+
+// Agent errors
+err := errors.NewAgentError(errors.ErrorTypeTimeout, "Agent response timeout", "gpt-4").
+    WithEventID("event_abc").
+    WithDetail("timeout", "30s")
+```
+
+## Error Handling Patterns
+
+Follow Go idioms for error handling:
+
+```go
+// Basic error checking
+event, err := decoder.Decode(sseData)
+if err != nil {
+    // Type assertion for specific handling
+    if valErr, ok := err.(*errors.ValidationError); ok {
+        log.Printf("Validation failed: %v", valErr.FieldErrors)
+        return nil, valErr
+    }
+
+    // Check error properties
+    if errors.IsRetryable(err) {
+        return retryOperation(err)
+    }
+
+    // Check severity
+    if errors.GetSeverity(err) >= errors.SeverityCritical {
+        alertOps(err)
+    }
+
+    return nil, err
+}
+
+// Error wrapping with context
+result, err := processEvent(event)
+if err != nil {
+    return nil, errors.WithOperation("processEvent", event.ID, err)
+}
+
+// Sentinel error checking
+if errors.Is(err, errors.ErrStateInvalid) {
+    return handleInvalidState()
+}
+
+// Extract specific error types
+var stateErr *errors.StateError
+if errors.As(err, &stateErr) {
+    log.Printf("State error in %s: %s", stateErr.StateID, stateErr.Transition)
+}
+
+// Chain multiple errors
+var errs []error
+for _, item := range items {
+    if err := process(item); err != nil {
+        errs = append(errs, err)
+    }
+}
+if chainedErr := errors.Chain(errs...); chainedErr != nil {
+    return chainedErr
+}
+```
+
+## Examples
+
+### Handling SSE Stream Errors
+
+```go
+frames, errorsChan, err := client.Stream(opts)
+if err != nil {
+    return errors.Wrap(err, "failed to start stream")
+}
+
+for {
+    select {
+    case frame := <-frames:
+        event, err := decoder.Decode(frame.Data)
+        if err != nil {
+            decodeErr := errors.NewDecodingError("DECODE_FAILED", "Invalid SSE data").
+                WithCause(err).
+                WithDetail("frame_id", frame.ID).
+                WithDetail("data_len", len(frame.Data))
+
+            if errors.GetSeverity(decodeErr) >= errors.SeverityError {
+                log.Printf("Critical decode error: %v", decodeErr)
+                return decodeErr
+            }
+            continue
+        }
+        // Process event
+
+    case err := <-errorsChan:
+        if errors.IsRetryable(err) {
+            log.Printf("Retryable error: %v", err)
+            // Implement reconnection logic
+        } else {
+            return err
+        }
+    }
+}
+```
+
+### Validating Agent Input with Detailed Errors
+
+```go
+func validateAgentInput(input *AgentInput) error {
+    valErr := errors.NewValidationError("INPUT_VALIDATION", "Agent input validation failed")
+
+    if input.ThreadID == "" {
+        valErr.AddFieldError("thread_id", "required field")
+    } else if len(input.ThreadID) > 100 {
+        valErr.AddFieldError("thread_id", "exceeds maximum length of 100")
+    }
+
+    if input.Timeout < 0 {
+        valErr.AddFieldError("timeout", "must be non-negative")
+    }
+
+    for i, msg := range input.Messages {
+        if msg.Content == "" {
+            valErr.AddFieldError(
+                fmt.Sprintf("messages[%d].content", i),
+                "message content cannot be empty",
+            )
+        }
+    }
+
+    if valErr.HasFieldErrors() {
+        return valErr
+    }
+
+    return nil
+}
+```
+
+### Implementing Retry with Backoff
+
+```go
+func fetchWithRetry(ctx context.Context, url string) (*Response, error) {
+    config := &errors.RetryConfig{
+        MaxAttempts:  3,
+        InitialDelay: 1 * time.Second,
+        MaxDelay:     10 * time.Second,
+        Multiplier:   2.0,
+        Jitter:       0.1,
+        RetryIf: func(err error) bool {
+            // Retry on network errors and 5xx status codes
+            if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
+                return true
+            }
+            if httpErr, ok := err.(*HTTPError); ok {
+                return httpErr.StatusCode >= 500
+            }
+            return false
+        },
+        OnRetry: func(attempt int, err error, delay time.Duration) {
+            log.Printf("Attempt %d failed: %v. Retrying after %v", attempt, err, delay)
+        },
+    }
+
+    var response *Response
+    err := errors.Retry(ctx, config, func() error {
+        resp, err := http.Get(url)
+        if err != nil {
+            return err
+        }
+        defer resp.Body.Close()
+
+        if resp.StatusCode >= 500 {
+            return &HTTPError{StatusCode: resp.StatusCode}
+        }
+
+        response = &Response{/* ... */}
+        return nil
+    })
+
+    if err != nil {
+        return nil, errors.Wrap(err, "failed to fetch after retries")
+    }
+
+    return response, nil
+}
+```
+
+## Common Error Codes
+
+The SDK defines standard error codes for consistent error handling:
+
+```go
+const (
+    // Validation codes
+    CodeValidationFailed  = "VALIDATION_FAILED"
+    CodeMissingEvent      = "MISSING_EVENT"
+    CodeMissingEventType  = "MISSING_EVENT_TYPE"
+    CodeNegativeTimestamp = "NEGATIVE_TIMESTAMP"
+    CodeIDTooLong         = "ID_TOO_LONG"
+
+    // Encoding codes
+    CodeEncodingFailed = "ENCODING_FAILED"
+    CodeDecodingFailed = "DECODING_FAILED"
+
+    // Security codes
+    CodeSecurityViolation = "SECURITY_VIOLATION"
+    CodeXSSDetected       = "XSS_DETECTED"
+    CodeInvalidData       = "INVALID_DATA"
+    CodeSizeExceeded      = "SIZE_EXCEEDED"
+
+    // Negotiation codes
+    CodeNegotiationFailed = "NEGOTIATION_FAILED"
+    CodeNoSuitableFormat  = "NO_SUITABLE_FORMAT"
+    CodeUnsupportedFormat = "UNSUPPORTED_FORMAT"
+)
+```
+
+## Sentinel Errors
+
+Pre-defined errors for common scenarios:
+
+```go
+var (
+    ErrStateInvalid          = errors.New("invalid state")
+    ErrValidationFailed      = errors.New("validation failed")
+    ErrConflict              = errors.New("operation conflict")
+    ErrRetryExhausted        = errors.New("retry attempts exhausted")
+    ErrContextMissing        = errors.New("required context missing")
+    ErrOperationNotPermitted = errors.New("operation not permitted")
+    ErrEncodingNotSupported  = errors.New("encoding format not supported")
+    ErrDecodingFailed        = errors.New("decoding failed")
+    ErrStreamingNotSupported = errors.New("streaming not supported")
+    ErrSecurityViolation     = errors.New("security violation")
+    ErrNegotiationFailed     = errors.New("negotiation failed")
+)
+```
+
+Use these sentinel errors with `errors.Is()` for consistent error checking across the SDK.

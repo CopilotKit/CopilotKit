@@ -192,6 +192,7 @@ const honoRuntime = new CopilotRuntime({
   runner: new InMemoryAgentRunner(),
   transcriptionService,
   a2ui: {},
+  openGenerativeUI: true,
 });
 
 const app = createCopilotEndpoint({

@@ -72,6 +72,7 @@ export const CopilotChatSuggestionView = React.forwardRef<
       CopilotChatSuggestionPillProps
     >(suggestionSlot, CopilotChatSuggestionPill, {
       children: suggestion.title,
+      className: suggestion.className,
       isLoading,
       type: "button",
       onClick: () => onSelectSuggestion?.(suggestion, index),

@@ -1,0 +1,1157 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Model C: Unified Docs + Showcase</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;1,9..144,400&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --bg: #09090b;
+        --bg-surface: #111114;
+        --bg-elevated: #18181b;
+        --bg-hover: #1f1f23;
+        --border: #27272a;
+        --border-subtle: #1e1e22;
+        --text: #fafafa;
+        --text-secondary: #a1a1aa;
+        --text-muted: #52525b;
+        --accent: #3b82f6;
+        --accent-dim: rgba(59, 130, 246, 0.12);
+        --green: #22c55e;
+        --green-dim: rgba(34, 197, 94, 0.12);
+        --amber: #f59e0b;
+        --sidebar-w: 272px;
+        --topbar-h: 48px;
+      }
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      body {
+        font-family: "Outfit", sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        overflow: hidden;
+        height: 100vh;
+      }
+
+      /* === TOP BAR === */
+      .topbar {
+        height: var(--topbar-h);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 20px;
+        border-bottom: 1px solid var(--border);
+        background: var(--bg);
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        z-index: 100;
+      }
+      .topbar .brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .topbar .brand .logo {
+        font-weight: 700;
+        font-size: 14px;
+        color: var(--text);
+        letter-spacing: -0.3px;
+      }
+      .topbar .brand .divider {
+        width: 1px;
+        height: 16px;
+        background: var(--border);
+      }
+      .topbar .brand .section {
+        font-size: 13px;
+        color: var(--text-secondary);
+        font-weight: 400;
+      }
+      .topbar .nav {
+        display: flex;
+        align-items: center;
+        gap: 2px;
+      }
+      .topbar .nav a {
+        padding: 6px 14px;
+        border-radius: 6px;
+        font-size: 13px;
+        font-weight: 500;
+        color: var(--text-muted);
+        text-decoration: none;
+        transition: all 0.15s;
+      }
+      .topbar .nav a:hover {
+        color: var(--text-secondary);
+        background: var(--bg-elevated);
+      }
+      .topbar .nav a.active {
+        color: var(--text);
+        background: var(--bg-elevated);
+      }
+      .topbar .right {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+      .topbar .search-trigger {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 12px;
+        border-radius: 8px;
+        background: var(--bg-elevated);
+        border: 1px solid var(--border);
+        cursor: pointer;
+        font-size: 12px;
+        color: var(--text-muted);
+        min-width: 200px;
+      }
+      .topbar .search-trigger .kbd {
+        margin-left: auto;
+        font-family: "IBM Plex Mono", monospace;
+        font-size: 10px;
+        color: var(--text-muted);
+        border: 1px solid var(--border);
+        padding: 1px 5px;
+        border-radius: 3px;
+      }
+
+      /* === LAYOUT === */
+      .layout {
+        display: flex;
+        margin-top: var(--topbar-h);
+        height: calc(100vh - var(--topbar-h));
+      }
+
+      /* === SIDEBAR === */
+      .sidebar {
+        width: var(--sidebar-w);
+        min-width: var(--sidebar-w);
+        border-right: 1px solid var(--border);
+        overflow-y: auto;
+        padding: 12px 0;
+        background: var(--bg-surface);
+      }
+      .sidebar::-webkit-scrollbar {
+        width: 4px;
+      }
+      .sidebar::-webkit-scrollbar-thumb {
+        background: var(--border);
+        border-radius: 2px;
+      }
+      .sidebar .back-link {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 8px 16px;
+        font-size: 12px;
+        color: var(--text-muted);
+        cursor: pointer;
+        margin-bottom: 8px;
+      }
+      .sidebar .back-link:hover {
+        color: var(--text-secondary);
+      }
+      .sidebar .integration-header {
+        padding: 4px 16px 16px;
+        border-bottom: 1px solid var(--border);
+        margin-bottom: 8px;
+      }
+      .sidebar .integration-header h2 {
+        font-size: 16px;
+        font-weight: 600;
+        color: var(--text);
+        margin-bottom: 2px;
+      }
+      .sidebar .integration-header .meta {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+      }
+      .sidebar .integration-header .tag {
+        font-size: 10px;
+        font-family: "IBM Plex Mono", monospace;
+        padding: 2px 8px;
+        border-radius: 4px;
+        background: var(--bg-elevated);
+        color: var(--text-muted);
+        border: 1px solid var(--border);
+      }
+      .sidebar .section-label {
+        font-size: 9px;
+        font-family: "IBM Plex Mono", monospace;
+        text-transform: uppercase;
+        letter-spacing: 1.5px;
+        color: var(--text-muted);
+        padding: 16px 16px 6px;
+      }
+      .sidebar .nav-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 7px 16px 7px 24px;
+        font-size: 13px;
+        color: var(--text-secondary);
+        cursor: pointer;
+        transition: all 0.1s;
+        border-left: 2px solid transparent;
+      }
+      .sidebar .nav-item:hover {
+        background: var(--bg-hover);
+        color: var(--text);
+      }
+      .sidebar .nav-item.active {
+        color: var(--accent);
+        background: var(--accent-dim);
+        border-left-color: var(--accent);
+      }
+      .sidebar .nav-item .demo-badge {
+        font-size: 9px;
+        font-family: "IBM Plex Mono", monospace;
+        padding: 2px 6px;
+        border-radius: 3px;
+        background: var(--green-dim);
+        color: var(--green);
+        display: flex;
+        align-items: center;
+        gap: 3px;
+      }
+      .sidebar .nav-item .demo-badge::before {
+        content: "";
+        width: 4px;
+        height: 4px;
+        border-radius: 50%;
+        background: var(--green);
+      }
+      .sidebar .nav-item.indent {
+        padding-left: 36px;
+        font-size: 12px;
+      }
+      .sidebar .nav-item.demo-item {
+        color: var(--green);
+      }
+      .sidebar .nav-item.demo-item .icon {
+        font-size: 11px;
+        margin-right: 4px;
+      }
+
+      /* === PAGE TABS (for switching views in mockup) === */
+      .page-tabs {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        z-index: 200;
+        background: rgba(0, 0, 0, 0.95);
+        backdrop-filter: blur(12px);
+        border-top: 1px solid var(--border);
+        display: flex;
+        align-items: center;
+        height: 40px;
+        padding: 0 20px;
+        gap: 4px;
+      }
+      .page-tabs .label {
+        font-family: "IBM Plex Mono", monospace;
+        font-size: 9px;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 1.5px;
+        margin-right: 12px;
+      }
+      .page-tab {
+        padding: 5px 12px;
+        border-radius: 5px;
+        font-size: 11px;
+        font-family: "Outfit", sans-serif;
+        background: none;
+        border: 1px solid transparent;
+        color: var(--text-muted);
+        cursor: pointer;
+      }
+      .page-tab:hover {
+        color: var(--text-secondary);
+      }
+      .page-tab.active {
+        color: var(--text);
+        background: var(--bg-elevated);
+        border-color: var(--border);
+      }
+
+      /* === MAIN CONTENT === */
+      .main {
+        flex: 1;
+        overflow-y: auto;
+        padding-bottom: 40px;
+      }
+
+      /* -- Page: Guide -- */
+      .page {
+        display: none;
+      }
+      .page.active {
+        display: block;
+      }
+
+      .guide-page {
+        padding: 40px 48px;
+        max-width: 800px;
+      }
+      .guide-page .breadcrumb {
+        font-size: 12px;
+        color: var(--text-muted);
+        margin-bottom: 24px;
+      }
+      .guide-page .breadcrumb a {
+        color: var(--text-muted);
+        text-decoration: none;
+      }
+      .guide-page .breadcrumb a:hover {
+        color: var(--text-secondary);
+      }
+      .guide-page h1 {
+        font-size: 32px;
+        font-weight: 600;
+        letter-spacing: -0.5px;
+        margin-bottom: 8px;
+      }
+      .guide-page .desc {
+        font-size: 15px;
+        color: var(--text-secondary);
+        line-height: 1.6;
+        margin-bottom: 32px;
+      }
+      .guide-page .demo-cta {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 20px;
+        border-radius: 8px;
+        background: var(--green-dim);
+        border: 1px solid rgba(34, 197, 94, 0.2);
+        color: var(--green);
+        font-size: 13px;
+        font-weight: 500;
+        cursor: pointer;
+        margin-bottom: 32px;
+        transition: all 0.2s;
+      }
+      .guide-page .demo-cta:hover {
+        background: rgba(34, 197, 94, 0.18);
+      }
+      .guide-page .demo-cta .arrow {
+        font-size: 16px;
+      }
+      .guide-page .code-block {
+        background: var(--bg-elevated);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 20px;
+        margin-bottom: 24px;
+        overflow-x: auto;
+      }
+      .guide-page .code-block .filename {
+        font-size: 11px;
+        font-family: "IBM Plex Mono", monospace;
+        color: var(--text-muted);
+        margin-bottom: 12px;
+        padding-bottom: 8px;
+        border-bottom: 1px solid var(--border);
+      }
+      .guide-page .code-block pre {
+        font-family: "IBM Plex Mono", monospace;
+        font-size: 13px;
+        line-height: 1.7;
+        color: var(--text-secondary);
+      }
+      .guide-page .code-block .kw {
+        color: #c084fc;
+      }
+      .guide-page .code-block .str {
+        color: #86efac;
+      }
+      .guide-page .code-block .fn {
+        color: #93c5fd;
+      }
+      .guide-page .code-block .cm {
+        color: var(--text-muted);
+      }
+      .guide-page p {
+        font-size: 15px;
+        color: var(--text-secondary);
+        line-height: 1.7;
+        margin-bottom: 16px;
+      }
+      .guide-page h2 {
+        font-size: 20px;
+        font-weight: 600;
+        margin: 32px 0 12px;
+        color: var(--text);
+      }
+
+      /* -- Page: Demo Viewer -- */
+      .demo-page {
+        display: flex;
+        flex-direction: column;
+        height: calc(100vh - var(--topbar-h) - 40px);
+      }
+      .demo-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 12px 24px;
+        border-bottom: 1px solid var(--border);
+        background: var(--bg-surface);
+      }
+      .demo-header .left {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+      .demo-header .back {
+        font-size: 12px;
+        color: var(--text-muted);
+        cursor: pointer;
+      }
+      .demo-header .back:hover {
+        color: var(--text-secondary);
+      }
+      .demo-header .title {
+        font-size: 14px;
+        font-weight: 600;
+      }
+      .demo-header .live-badge {
+        font-size: 10px;
+        padding: 2px 8px;
+        border-radius: 10px;
+        background: var(--green-dim);
+        color: var(--green);
+      }
+      .demo-tabs {
+        display: flex;
+        gap: 2px;
+      }
+      .demo-tab {
+        padding: 6px 14px;
+        border-radius: 6px;
+        font-size: 12px;
+        font-weight: 500;
+        background: none;
+        border: none;
+        color: var(--text-muted);
+        cursor: pointer;
+        font-family: inherit;
+      }
+      .demo-tab:hover {
+        color: var(--text-secondary);
+      }
+      .demo-tab.active {
+        color: var(--text);
+        background: var(--bg-elevated);
+      }
+      .demo-body {
+        flex: 1;
+        background: var(--bg);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .demo-placeholder {
+        text-align: center;
+        color: var(--text-muted);
+      }
+      .demo-placeholder .icon {
+        font-size: 48px;
+        margin-bottom: 12px;
+        opacity: 0.3;
+      }
+      .demo-placeholder p {
+        font-size: 14px;
+      }
+      .demo-placeholder .guide-link {
+        display: inline-block;
+        margin-top: 12px;
+        font-size: 12px;
+        color: var(--accent);
+        cursor: pointer;
+        text-decoration: underline;
+      }
+
+      /* -- Page: Matrix -- */
+      .matrix-page {
+        padding: 32px;
+      }
+      .matrix-page h1 {
+        font-size: 24px;
+        font-weight: 600;
+        margin-bottom: 4px;
+      }
+      .matrix-page .sub {
+        font-size: 13px;
+        color: var(--text-muted);
+        margin-bottom: 24px;
+      }
+      .matrix-mini {
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        overflow: hidden;
+        background: var(--bg-surface);
+      }
+      .matrix-mini table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 11px;
+      }
+      .matrix-mini th {
+        padding: 10px 12px;
+        text-align: left;
+        background: var(--bg-elevated);
+        font-family: "IBM Plex Mono", monospace;
+        font-size: 9px;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        color: var(--text-muted);
+        font-weight: 500;
+        border-bottom: 1px solid var(--border);
+      }
+      .matrix-mini th.feature {
+        text-align: center;
+        min-width: 80px;
+      }
+      .matrix-mini td {
+        padding: 8px 12px;
+        border-bottom: 1px solid var(--border-subtle);
+      }
+      .matrix-mini td.name {
+        font-weight: 500;
+        color: var(--text);
+        font-size: 12px;
+      }
+      .matrix-mini td.cat {
+        font-size: 10px;
+        color: var(--text-muted);
+      }
+      .matrix-mini td.cell {
+        text-align: center;
+      }
+      .matrix-mini .check {
+        color: var(--green);
+        cursor: pointer;
+      }
+      .matrix-mini .check:hover {
+        text-decoration: underline;
+      }
+      .matrix-mini .dash {
+        color: var(--border);
+      }
+
+      /* -- Page: Front Door -- */
+      .front-door {
+        padding: 60px 48px;
+        max-width: 720px;
+        margin: 0 auto;
+        text-align: center;
+      }
+      .front-door h1 {
+        font-size: 40px;
+        font-weight: 300;
+        letter-spacing: -0.5px;
+        line-height: 1.2;
+        margin-bottom: 16px;
+      }
+      .front-door h1 strong {
+        font-weight: 700;
+      }
+      .front-door .sub {
+        font-size: 16px;
+        color: var(--text-secondary);
+        line-height: 1.6;
+        margin-bottom: 36px;
+        max-width: 520px;
+        margin-left: auto;
+        margin-right: auto;
+      }
+      .front-door .search-big {
+        max-width: 480px;
+        margin: 0 auto 48px;
+        position: relative;
+      }
+      .front-door .search-big input {
+        width: 100%;
+        padding: 14px 20px 14px 42px;
+        border-radius: 12px;
+        background: var(--bg-elevated);
+        border: 1px solid var(--border);
+        color: var(--text);
+        font-family: inherit;
+        font-size: 15px;
+        outline: none;
+      }
+      .front-door .search-big input::placeholder {
+        color: var(--text-muted);
+      }
+      .front-door .search-big .icon {
+        position: absolute;
+        left: 16px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: var(--text-muted);
+        font-size: 14px;
+      }
+      .front-door .paths {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+        text-align: left;
+        margin-bottom: 48px;
+      }
+      .front-door .path {
+        padding: 20px;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        background: var(--bg-surface);
+        cursor: pointer;
+        transition: all 0.2s;
+      }
+      .front-door .path:hover {
+        border-color: var(--accent);
+        transform: translateY(-2px);
+      }
+      .front-door .path h3 {
+        font-size: 14px;
+        font-weight: 600;
+        margin-bottom: 4px;
+      }
+      .front-door .path p {
+        font-size: 12px;
+        color: var(--text-muted);
+        line-height: 1.4;
+      }
+      .front-door .fw-row {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 6px;
+        margin-bottom: 36px;
+      }
+      .front-door .fw-tag {
+        padding: 5px 12px;
+        border-radius: 6px;
+        font-size: 11px;
+        font-weight: 500;
+        background: var(--bg-elevated);
+        color: var(--text-muted);
+        border: 1px solid var(--border);
+        cursor: pointer;
+        transition: all 0.15s;
+      }
+      .front-door .fw-tag:hover {
+        border-color: var(--accent);
+        color: var(--text);
+      }
+      .front-door .stats-row {
+        display: flex;
+        justify-content: center;
+        gap: 32px;
+        font-size: 12px;
+        color: var(--text-muted);
+      }
+      .front-door .stats-row strong {
+        color: var(--text-secondary);
+      }
+    </style>
+  </head>
+  <body>
+    <!-- TOP BAR -->
+    <header class="topbar">
+      <div class="brand">
+        <span class="logo">CopilotKit</span>
+        <span class="divider"></span>
+        <span class="section" id="section-label">LangGraph</span>
+      </div>
+      <nav class="nav">
+        <a href="#" onclick="showPage('front-door')" id="nav-home">Home</a>
+        <a href="#" onclick="showPage('guide')" id="nav-docs">Docs</a>
+        <a
+          href="#"
+          class="active"
+          onclick="showPage('guide')"
+          id="nav-integrations"
+          >Integrations</a
+        >
+        <a href="#" onclick="showPage('matrix')" id="nav-matrix">Matrix</a>
+        <a href="#" id="nav-ref">Reference</a>
+      </nav>
+      <div class="right">
+        <div class="search-trigger">
+          <span>⌕</span> Search docs, demos, APIs...
+          <span class="kbd">⌘K</span>
+        </div>
+      </div>
+    </header>
+
+    <div class="layout">
+      <!-- SIDEBAR -->
+      <aside class="sidebar" id="sidebar">
+        <div class="back-link" onclick="showPage('front-door')">
+          ← All Integrations
+        </div>
+        <div class="integration-header">
+          <h2>LangGraph</h2>
+          <div class="meta">
+            <span class="tag">Python</span>
+            <span class="tag">Agent Framework</span>
+          </div>
+        </div>
+
+        <div class="section-label">Getting Started</div>
+        <div class="nav-item" onclick="showPage('guide')">Overview</div>
+        <div class="nav-item">Quickstart</div>
+        <div class="nav-item">Coding Agents</div>
+
+        <div class="section-label">Features & Guides</div>
+        <div class="nav-item">Prebuilt Components</div>
+        <div class="nav-item">Custom Look & Feel</div>
+        <div class="nav-item active" onclick="showPage('guide')">
+          Generative UI
+          <span class="demo-badge">demo</span>
+        </div>
+        <div class="nav-item indent" onclick="showPage('demo')">
+          Tool-Based
+          <span class="demo-badge">demo</span>
+        </div>
+        <div class="nav-item indent">
+          Agentic
+          <span class="demo-badge">demo</span>
+        </div>
+        <div class="nav-item indent">Your Components</div>
+        <div class="nav-item">
+          Shared State
+          <span class="demo-badge">demo</span>
+        </div>
+        <div class="nav-item">
+          Human in the Loop
+          <span class="demo-badge">demo</span>
+        </div>
+        <div class="nav-item">Frontend Tools</div>
+        <div class="nav-item">
+          Multi-Agent
+          <span class="demo-badge">demo</span>
+        </div>
+
+        <div class="section-label">Live Demos</div>
+        <div class="nav-item demo-item" onclick="showPage('demo')">
+          <span class="icon">✦</span> Agentic Chat
+        </div>
+        <div class="nav-item demo-item" onclick="showPage('demo')">
+          <span class="icon">✦</span> Tool Rendering
+        </div>
+        <div class="nav-item demo-item" onclick="showPage('demo')">
+          <span class="icon">✦</span> Generative UI
+        </div>
+        <div class="nav-item demo-item" onclick="showPage('demo')">
+          <span class="icon">✦</span> Human in the Loop
+        </div>
+        <div class="nav-item demo-item" onclick="showPage('demo')">
+          <span class="icon">✦</span> Shared State
+        </div>
+        <div class="nav-item demo-item" onclick="showPage('demo')">
+          <span class="icon">✦</span> State Streaming
+        </div>
+        <div class="nav-item demo-item" onclick="showPage('demo')">
+          <span class="icon">✦</span> Sub-Agents
+        </div>
+        <div
+          class="nav-item"
+          style="color: var(--text-muted); font-size: 11px; padding-left: 28px"
+        >
+          All 9 demos →
+        </div>
+
+        <div class="section-label">Backend</div>
+        <div class="nav-item">Copilot Runtime</div>
+        <div class="nav-item">AG-UI Direct</div>
+
+        <div class="section-label">Reference</div>
+        <div class="nav-item">Hooks & Components →</div>
+
+        <div class="section-label">Advanced</div>
+        <div class="nav-item">Deep Agents</div>
+        <div class="nav-item">Authentication</div>
+        <div class="nav-item">Configurable</div>
+
+        <div class="section-label">Troubleshooting</div>
+        <div class="nav-item">Common Issues</div>
+        <div class="nav-item">Debug Guide</div>
+      </aside>
+
+      <!-- MAIN CONTENT -->
+      <div class="main">
+        <!-- Front Door -->
+        <div class="page" id="page-front-door">
+          <div class="front-door">
+            <h1>Build <strong>agent-powered</strong> interfaces</h1>
+            <p class="sub">
+              Docs, live demos, and code for every major agent framework. Find
+              your integration and start building.
+            </p>
+            <div class="search-big">
+              <span class="icon">⌕</span>
+              <input
+                type="text"
+                placeholder="Search docs, demos, frameworks, APIs..."
+              />
+            </div>
+            <div class="paths">
+              <div class="path" onclick="showPage('guide')">
+                <h3>📖 Quickstart</h3>
+                <p>Get running in 5 minutes with any framework</p>
+              </div>
+              <div class="path" onclick="showPage('guide')">
+                <h3>🔌 By Framework</h3>
+                <p>LangGraph, Mastra, CrewAI, and 23 more</p>
+              </div>
+              <div class="path" onclick="showPage('demo')">
+                <h3>🎯 Live Demos</h3>
+                <p>Try features hands-on before you build</p>
+              </div>
+              <div class="path" onclick="showPage('matrix')">
+                <h3>📊 Feature Matrix</h3>
+                <p>Compare 46 features across all integrations</p>
+              </div>
+            </div>
+            <div class="fw-row">
+              <span class="fw-tag" onclick="showPage('guide')">LangGraph</span>
+              <span class="fw-tag">Mastra</span>
+              <span class="fw-tag">CrewAI</span>
+              <span class="fw-tag">PydanticAI</span>
+              <span class="fw-tag">Google ADK</span>
+              <span class="fw-tag">AWS Strands</span>
+              <span class="fw-tag">Claude SDK</span>
+              <span class="fw-tag">+19 more</span>
+            </div>
+            <div class="stats-row">
+              <span><strong>46</strong> features</span>
+              <span><strong>26</strong> integrations</span>
+              <span><strong>575</strong> doc pages</span>
+              <span><strong>9</strong> live demos</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Guide Page -->
+        <div class="page active" id="page-guide">
+          <div class="guide-page">
+            <div class="breadcrumb">
+              <a href="#" onclick="showPage('front-door')">CopilotKit</a> /
+              <a href="#">LangGraph</a> / Features / Generative UI
+            </div>
+            <h1>Generative UI</h1>
+            <p class="desc">
+              Let your agent generate interactive React components on the fly.
+              Tool-based, controlled, or fully agent-driven — choose the pattern
+              that fits your use case.
+            </p>
+            <div class="demo-cta" onclick="showPage('demo')">
+              <span class="arrow">▶</span> Try Live Demo
+            </div>
+            <h2>Overview</h2>
+            <p>
+              Generative UI allows your agent to render custom React components
+              in the chat. Instead of plain text responses, the agent can
+              produce interactive charts, forms, cards, and any component you
+              define.
+            </p>
+            <p>
+              There are three approaches, each suited to different use cases:
+            </p>
+            <div class="code-block">
+              <div class="filename">page.tsx</div>
+              <pre><span class="kw">import</span> { <span class="fn">useFrontendTool</span> } <span class="kw">from</span> <span class="str">"@copilotkit/react-core/v2"</span>;
+<span class="kw">import</span> { z } <span class="kw">from</span> <span class="str">"zod"</span>;
+
+<span class="fn">useFrontendTool</span>({
+  <span class="fn">name</span>: <span class="str">"render_chart"</span>,
+  <span class="fn">description</span>: <span class="str">"Render a data visualization"</span>,
+  <span class="fn">parameters</span>: z.object({
+    data: z.array(z.object({ label: z.string(), value: z.number() })),
+    type: z.enum([<span class="str">"bar"</span>, <span class="str">"pie"</span>, <span class="str">"line"</span>]),
+  }),
+  <span class="fn">handler</span>: <span class="kw">async</span> ({ data, type }) => {
+    <span class="cm">// The agent calls this tool and the UI renders the chart</span>
+    <span class="kw">return</span> { rendered: <span class="str">true</span> };
+  },
+});</pre>
+            </div>
+            <h2>Approaches</h2>
+            <p>
+              <strong>Tool-Based Generative UI</strong> — The agent calls a
+              frontend tool that renders a component. Best for structured,
+              predictable UI patterns like charts and forms.
+              <a href="#" onclick="showPage('demo')" style="color: var(--green)"
+                >Try the demo →</a
+              >
+            </p>
+            <p>
+              <strong>Agentic Generative UI</strong> — The agent orchestrates
+              long-running tasks and renders progress UI. Best for multi-step
+              workflows.
+              <a href="#" onclick="showPage('demo')" style="color: var(--green)"
+                >Try the demo →</a
+              >
+            </p>
+            <p>
+              <strong>Open Generative UI</strong> — The agent generates
+              arbitrary HTML/components. Maximum flexibility, less control.
+            </p>
+            <h2>API Reference</h2>
+            <p>
+              Key hooks:
+              <code
+                style="
+                  background: var(--bg-elevated);
+                  padding: 2px 6px;
+                  border-radius: 4px;
+                  font-family: &quot;IBM Plex Mono&quot;, monospace;
+                  font-size: 13px;
+                  color: #c084fc;
+                "
+                >useFrontendTool</code
+              >,
+              <code
+                style="
+                  background: var(--bg-elevated);
+                  padding: 2px 6px;
+                  border-radius: 4px;
+                  font-family: &quot;IBM Plex Mono&quot;, monospace;
+                  font-size: 13px;
+                  color: #c084fc;
+                "
+                >useRenderTool</code
+              >,
+              <code
+                style="
+                  background: var(--bg-elevated);
+                  padding: 2px 6px;
+                  border-radius: 4px;
+                  font-family: &quot;IBM Plex Mono&quot;, monospace;
+                  font-size: 13px;
+                  color: #c084fc;
+                "
+                >useComponent</code
+              >. See
+              <a href="#" style="color: var(--accent)">full reference →</a>
+            </p>
+          </div>
+        </div>
+
+        <!-- Demo Page -->
+        <div class="page" id="page-demo">
+          <div class="demo-page">
+            <div class="demo-header">
+              <div class="left">
+                <span class="back" onclick="showPage('guide')"
+                  >← Generative UI Guide</span
+                >
+                <span class="title">Tool-Based Generative UI</span>
+                <span class="live-badge">● Live</span>
+              </div>
+              <div class="demo-tabs">
+                <button class="demo-tab active">Preview</button>
+                <button class="demo-tab">Code</button>
+                <button class="demo-tab" onclick="showPage('guide')">
+                  Guide
+                </button>
+              </div>
+            </div>
+            <div class="demo-body">
+              <div class="demo-placeholder">
+                <div class="icon">💬</div>
+                <p>Live demo loads here via iframe</p>
+                <p
+                  style="
+                    font-size: 12px;
+                    margin-top: 4px;
+                    color: var(--text-muted);
+                  "
+                >
+                  langgraph-python.onrender.com/demos/gen-ui-tool-based
+                </p>
+                <span class="guide-link" onclick="showPage('guide')"
+                  >← Back to Generative UI guide</span
+                >
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Matrix Page -->
+        <div class="page" id="page-matrix">
+          <div class="matrix-page">
+            <h1>Feature Matrix</h1>
+            <div class="sub">
+              46 features across 26 integrations. Click any checkmark to try the
+              live demo.
+            </div>
+            <div class="matrix-mini">
+              <table>
+                <thead>
+                  <tr>
+                    <th style="min-width: 160px">Integration</th>
+                    <th class="feature">Chat</th>
+                    <th class="feature">Gen UI</th>
+                    <th class="feature">HITL</th>
+                    <th class="feature">State</th>
+                    <th class="feature">Streaming</th>
+                    <th class="feature">Sub-Agents</th>
+                    <th class="feature">MCP</th>
+                    <th class="feature">Voice</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>
+                      <span class="name">LangGraph (Python)</span><br /><span
+                        class="cat"
+                        >Agent Framework</span
+                      >
+                    </td>
+                    <td class="cell">
+                      <span class="check" onclick="showPage('demo')">✓</span>
+                    </td>
+                    <td class="cell">
+                      <span class="check" onclick="showPage('demo')">✓</span>
+                    </td>
+                    <td class="cell">
+                      <span class="check" onclick="showPage('demo')">✓</span>
+                    </td>
+                    <td class="cell">
+                      <span class="check" onclick="showPage('demo')">✓</span>
+                    </td>
+                    <td class="cell">
+                      <span class="check" onclick="showPage('demo')">✓</span>
+                    </td>
+                    <td class="cell">
+                      <span class="check" onclick="showPage('demo')">✓</span>
+                    </td>
+                    <td class="cell"><span class="dash">—</span></td>
+                    <td class="cell"><span class="dash">—</span></td>
+                  </tr>
+                  <tr>
+                    <td>
+                      <span class="name">Mastra</span><br /><span class="cat"
+                        >Agent Framework</span
+                      >
+                    </td>
+                    <td class="cell"><span class="dash">○</span></td>
+                    <td class="cell"><span class="dash">○</span></td>
+                    <td class="cell"><span class="dash">○</span></td>
+                    <td class="cell"><span class="dash">—</span></td>
+                    <td class="cell"><span class="dash">—</span></td>
+                    <td class="cell"><span class="dash">—</span></td>
+                    <td class="cell"><span class="dash">—</span></td>
+                    <td class="cell"><span class="dash">—</span></td>
+                  </tr>
+                  <tr>
+                    <td>
+                      <span class="name">Google ADK</span><br /><span
+                        class="cat"
+                        >Enterprise</span
+                      >
+                    </td>
+                    <td class="cell"><span class="dash">○</span></td>
+                    <td class="cell"><span class="dash">○</span></td>
+                    <td class="cell"><span class="dash">○</span></td>
+                    <td class="cell"><span class="dash">—</span></td>
+                    <td class="cell"><span class="dash">—</span></td>
+                    <td class="cell"><span class="dash">—</span></td>
+                    <td class="cell"><span class="dash">—</span></td>
+                    <td class="cell"><span class="dash">—</span></td>
+                  </tr>
+                  <tr>
+                    <td>
+                      <span class="name">CrewAI</span><br /><span class="cat"
+                        >Agent Framework</span
+                      >
+                    </td>
+                    <td class="cell"><span class="dash">○</span></td>
+                    <td class="cell"><span class="dash">—</span></td>
+                    <td class="cell"><span class="dash">○</span></td>
+                    <td class="cell"><span class="dash">—</span></td>
+                    <td class="cell"><span class="dash">—</span></td>
+                    <td class="cell"><span class="dash">—</span></td>
+                    <td class="cell"><span class="dash">—</span></td>
+                    <td class="cell"><span class="dash">—</span></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PAGE TABS (mockup switching) -->
+    <div class="page-tabs">
+      <span class="label">View</span>
+      <button class="page-tab" onclick="showPage('front-door')">
+        Front Door
+      </button>
+      <button class="page-tab active" onclick="showPage('guide')">
+        Guide Page
+      </button>
+      <button class="page-tab" onclick="showPage('demo')">Demo Viewer</button>
+      <button class="page-tab" onclick="showPage('matrix')">Matrix</button>
+    </div>
+
+    <script>
+      function showPage(id) {
+        document
+          .querySelectorAll(".page")
+          .forEach((p) => p.classList.remove("active"));
+        document
+          .querySelectorAll(".page-tab")
+          .forEach((t) => t.classList.remove("active"));
+        document.getElementById("page-" + id).classList.add("active");
+        // Update active tab
+        document.querySelectorAll(".page-tab").forEach((t) => {
+          if (
+            t.textContent
+              .toLowerCase()
+              .includes(id.replace("-", " ").replace("front door", "front"))
+          )
+            t.classList.add("active");
+        });
+        // Update sidebar visibility
+        const sidebar = document.getElementById("sidebar");
+        if (id === "front-door") {
+          sidebar.style.display = "none";
+          document.getElementById("section-label").textContent = "";
+        } else {
+          sidebar.style.display = "block";
+          document.getElementById("section-label").textContent = "LangGraph";
+        }
+        // Update nav active state
+        document
+          .querySelectorAll(".topbar .nav a")
+          .forEach((a) => a.classList.remove("active"));
+        if (id === "front-door")
+          document.getElementById("nav-home").classList.add("active");
+        else if (id === "matrix")
+          document.getElementById("nav-matrix").classList.add("active");
+        else
+          document.getElementById("nav-integrations").classList.add("active");
+      }
+    </script>
+  </body>
+</html>

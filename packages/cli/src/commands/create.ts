@@ -50,7 +50,9 @@ type AgentFramework =
   | "microsoft-agent-framework-py"
   | "mcp-apps"
   | "agentcore-langgraph"
-  | "agentcore-strands";
+  | "agentcore-strands"
+  | "a2ui"
+  | "opengenui";
 
 const TEMPLATE_REPOS: Record<AgentFramework, string> = {
   "langgraph-py":
@@ -81,6 +83,9 @@ const TEMPLATE_REPOS: Record<AgentFramework, string> = {
     "https://github.com/CopilotKit/CopilotKit/tree/main/examples/integrations/agentcore",
   "agentcore-strands":
     "https://github.com/CopilotKit/CopilotKit/tree/main/examples/integrations/agentcore",
+  a2ui: "https://github.com/CopilotKit/CopilotKit/tree/main/examples/integrations/langgraph-python",
+  opengenui:
+    "https://github.com/CopilotKit/CopilotKit/tree/main/examples/integrations/langgraph-python",
 };
 
 const FRAMEWORK_DOCUMENTATION: Record<AgentFramework, string> = {
@@ -103,6 +108,8 @@ const FRAMEWORK_DOCUMENTATION: Record<AgentFramework, string> = {
   "mcp-apps": "https://modelcontextprotocol.github.io/ext-apps",
   "agentcore-langgraph": "https://docs.copilotkit.ai/agentcore/quickstart",
   "agentcore-strands": "https://docs.copilotkit.ai/agentcore/quickstart",
+  a2ui: "https://a2ui.org/specification/",
+  opengenui: "https://docs.copilotkit.ai",
 };
 
 const FRAMEWORK_EMOJI: Record<AgentFramework, string> = {
@@ -122,6 +129,8 @@ const FRAMEWORK_EMOJI: Record<AgentFramework, string> = {
   "mcp-apps": "♍",
   "agentcore-langgraph": "☁️",
   "agentcore-strands": "☁️",
+  a2ui: "🎨",
+  opengenui: "🖼️",
 };
 
 const KITE = `
@@ -256,6 +265,7 @@ export default class Create extends BaseCommand {
 
       spinner.text = theme.secondary.bold("Downloading template...");
       await this.downloadTemplate(projectDir, options.agentFramework, spinner);
+      await this.applyShowcaseConfig(projectDir, options.agentFramework);
 
       if (
         options.agentFramework === "agentcore-langgraph" ||
@@ -384,6 +394,11 @@ export default class Create extends BaseCommand {
           {
             name: `${FRAMEWORK_EMOJI["agentcore-strands"]} AgentCore + Strands`,
             value: "agentcore-strands",
+          },
+          { name: `${FRAMEWORK_EMOJI.a2ui} A2UI`, value: "a2ui" },
+          {
+            name: `${FRAMEWORK_EMOJI.opengenui} Open Generative UI`,
+            value: "opengenui",
           },
         ],
       },
@@ -641,5 +656,22 @@ cd infra-cdk && npx cdk@latest destroy --all --output ../cdk.out-${stackSuffix}
     } catch (error: any) {
       throw new Error(`Failed to download template: ${error.message}`);
     }
+  }
+
+  private static readonly SHOWCASE_FRAMEWORKS: Partial<
+    Record<AgentFramework, string>
+  > = {
+    a2ui: "a2ui",
+    opengenui: "opengenui",
+  };
+
+  private async applyShowcaseConfig(
+    projectDir: string,
+    framework: AgentFramework,
+  ): Promise<void> {
+    const showcase = Create.SHOWCASE_FRAMEWORKS[framework];
+    if (!showcase) return;
+    const configPath = path.join(projectDir, "showcase.json");
+    await fs.writeJSON(configPath, { showcase });
   }
 }
