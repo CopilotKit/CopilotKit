@@ -14,12 +14,8 @@
  * Run one:     npx playwright test --grep "langgraph-python"
  */
 
-import {
-  test,
-  expect,
-  type APIRequestContext,
-  type Page,
-} from "@playwright/test";
+import { test, expect } from "@playwright/test";
+import { checkHealth, checkAgentEndpoint, sendChatMessage } from "./helpers";
 
 // ---------------------------------------------------------------------------
 // Integration registry — source of truth: showcase/shell/src/data/registry.json
@@ -210,154 +206,6 @@ const activeIntegrations = DEPLOYED_ONLY
   : INTEGRATIONS;
 
 // ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-/**
- * Try multiple health endpoint paths, return the first that responds 200.
- */
-async function checkHealth(
-  request: APIRequestContext,
-  backendUrl: string,
-): Promise<{ ok: boolean; status: number; path: string; body: string }> {
-  const paths = ["/api/health", "/health"];
-  for (const path of paths) {
-    try {
-      const res = await request.get(`${backendUrl}${path}`, {
-        timeout: 15_000,
-      });
-      if (res.ok()) {
-        return {
-          ok: true,
-          status: res.status(),
-          path,
-          body: await res.text(),
-        };
-      }
-    } catch {
-      // try next path
-    }
-  }
-  // All paths failed — report the first one tried
-  try {
-    const res = await request.get(`${backendUrl}${paths[0]}`, {
-      timeout: 10_000,
-    });
-    return {
-      ok: false,
-      status: res.status(),
-      path: paths[0],
-      body: await res.text(),
-    };
-  } catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : String(e);
-    return { ok: false, status: 0, path: paths[0], body: msg };
-  }
-}
-
-/**
- * POST to the CopilotKit runtime endpoint to verify the agent is reachable.
- * We send a minimal CopilotKit-shaped request. The key check is that we do NOT
- * get a 404 (which was the HttpAgent->LangGraphAgent bug symptom).
- */
-async function checkAgentEndpoint(
-  request: APIRequestContext,
-  backendUrl: string,
-): Promise<{ ok: boolean; status: number; body: string }> {
-  try {
-    const res = await request.post(`${backendUrl}/api/copilotkit`, {
-      headers: { "Content-Type": "application/json" },
-      data: {
-        // Minimal CopilotKit request shape — enough to get past routing
-        // but not a full valid conversation (we just want non-404)
-        messages: [],
-        tools: [],
-        agentId: "agentic_chat",
-      },
-      timeout: 15_000,
-    });
-    // Anything except 404 is acceptable for endpoint reachability
-    return {
-      ok: res.status() !== 404,
-      status: res.status(),
-      body: await res.text(),
-    };
-  } catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : String(e);
-    return { ok: false, status: 0, body: msg };
-  }
-}
-
-/**
- * Navigate to a demo page and interact with the chat.
- * The demo pages are served directly by each integration's Next.js app.
- */
-async function sendChatMessage(
-  page: Page,
-  backendUrl: string,
-  message: string,
-  demoPath: string = "/demos/agentic-chat",
-): Promise<{ gotResponse: boolean; responseText: string }> {
-  const demoUrl = `${backendUrl}${demoPath}`;
-  await page.goto(demoUrl, { waitUntil: "networkidle", timeout: 30_000 });
-
-  // Wait for the chat UI to be ready — CopilotKit renders a textarea
-  const textarea = page.locator("textarea").first();
-  await textarea.waitFor({ state: "visible", timeout: 15_000 });
-
-  // Count existing messages before sending
-  const messagesBefore = await page
-    .locator('[data-testid="copilot-assistant-message"]')
-    .count();
-
-  // Type and send
-  await textarea.fill(message);
-  await textarea.press("Enter");
-
-  // Wait for a new assistant message to appear
-  try {
-    await page.waitForFunction(
-      ({ selector, countBefore }) => {
-        const msgs = document.querySelectorAll(selector);
-        return msgs.length > countBefore;
-      },
-      {
-        selector: '[data-testid="copilot-assistant-message"]',
-        countBefore: messagesBefore,
-      },
-      { timeout: 60_000 },
-    );
-  } catch {
-    // Fallback: look for any new content that appeared after our message
-    // This handles cases where the selector doesn't match
-    await page.waitForTimeout(5_000);
-  }
-
-  // Extract the latest assistant message text, waiting for content to stream in
-  const assistantMessages = page.locator(
-    '[data-testid="copilot-assistant-message"]',
-  );
-  const count = await assistantMessages.count();
-  if (count > messagesBefore) {
-    const latest = assistantMessages.nth(count - 1);
-    // Wait for the message to have non-empty text (streaming may still be in progress)
-    try {
-      await page.waitForFunction(
-        (el) => (el?.textContent?.trim().length ?? 0) > 0,
-        await latest.elementHandle(),
-        { timeout: 60_000 },
-      );
-    } catch {
-      // Streaming may be slow; continue with whatever we have
-    }
-    const text = (await latest.textContent()) ?? "";
-    return { gotResponse: true, responseText: text.trim() };
-  }
-
-  return { gotResponse: false, responseText: "" };
-}
-
-// ---------------------------------------------------------------------------
 // Level 1: Health checks (@health) — fast, API-only
 // ---------------------------------------------------------------------------
 
@@ -412,6 +260,7 @@ test.describe("Level 3: Round-trip Chat @chat", () => {
         page,
         integration.backendUrl,
         "Hello, please respond with a brief greeting.",
+        "/demos/agentic-chat",
       );
 
       expect(
