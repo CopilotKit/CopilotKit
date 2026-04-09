@@ -12,6 +12,7 @@
     "direct-to-llm",
     "agent-spec",
     "langgraph",
+    "deepagents",
     "ag2",
     "agno",
     "crewai-flows",

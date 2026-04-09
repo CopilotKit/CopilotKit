@@ -1,0 +1,9 @@
+{
+  "title": "Deep Agents",
+  "root": true,
+  "pages": [
+    "---Getting Started---",
+    "index",
+    "quickstart"
+  ]
+}

@@ -1,14 +1,10 @@
 ---
-title: Deep Agents
-description: Leverage LangGraph Deep Agents to build sophisticated agentic applications.
-icon: "lucide/BrainCircuit"
+title: Quickstart
+description: Get started with Deep Agents and CopilotKit in minutes.
+icon: "lucide/Rocket"
 ---
 
 import { Tabs, Tab } from "fumadocs-ui/components/tabs";
-
-<Callout type="info" title="Deep Agents is now a first-class integration">
-  Deep Agents has been promoted to its own top-level integration. Head to the [Deep Agents integration](/deepagents) for the full documentation.
-</Callout>
 
 ## Prerequisites
 
@@ -34,19 +30,18 @@ Before you begin, you'll need the following:
     <Step>
         ### Add necessary dependencies
 
-        For this agent, we'll just need the `deepagents`, `langchain-openai`, and `copilotkit` packages:
+        Add the `deepagents`, `langchain-openai`, and `copilotkit` packages:
 
         ```bash
         uv add deepagents copilotkit langchain-openai
         ```
     </Step>
     <Step>
-        If you already have a LangChain agent written, just reference the following code. In this step
-        we create a simple LangChain agent for the sake of demonstration.
+        ### Create your Deep Agent
 
         <Tabs groupId="deployment_method" items={['LangSmith', 'FastAPI']}>
             <Tab value="LangSmith">
-                First, we'll create a simple LangChain agent:
+                Create a simple Deep Agent:
 
                 ```python title="main.py"
                 from deepagents import create_deep_agent
@@ -58,7 +53,7 @@ Before you begin, you'll need the following:
                     return f"The weather in {location} is sunny."
 
                 agent = create_deep_agent(
-                    model="openai:gpt-5.4",
+                    model="openai:gpt-4o",
                     tools=[get_weather],
                     middleware=[CopilotKitMiddleware()], # for frontend tools and context
                     system_prompt="You are a helpful research assistant.",
@@ -66,7 +61,7 @@ Before you begin, you'll need the following:
                 )
                 ```
 
-                Then to test and deploy with LangSmith, we'll also need a `langgraph.json`
+                Then to test and deploy with LangSmith, create a `langgraph.json`:
 
                 ```sh
                 touch langgraph.json
@@ -86,36 +81,37 @@ Before you begin, you'll need the following:
                 ```
             </Tab>
             <Tab value="FastAPI">
-                First, add the `ag-ui-langgraph`, `fastapi`, and `uvicorn` packages to your project:
+                Add the `ag-ui-langgraph`, `fastapi`, and `uvicorn` packages:
 
                 ```bash
                 uv add ag-ui-langgraph fastapi uvicorn
                 ```
 
-                Then create a simple LangChain agent, add a FastAPI app, and build attach our agent as an AG-UI endpoint.
+                Create a Deep Agent and expose it as an AG-UI endpoint:
 
                 ```python title="main.py"
                 import os
 
-                # [!code highlight:2]
                 from ag_ui_langgraph import add_langgraph_fastapi_endpoint
                 from copilotkit import CopilotKitMiddleware, CopilotKitState, LangGraphAGUIAgent
                 from deepagents import create_deep_agent
+                from fastapi import FastAPI
                 from langgraph.checkpoint.memory import MemorySaver
+
+                app = FastAPI()
 
                 def get_weather(location: str):
                     """Get weather for a location"""
                     return f"The weather in {location} is sunny."
 
                 agent = create_deep_agent(
-                    model="openai:gpt-5.4",
+                    model="openai:gpt-4o",
                     tools=[get_weather],
                     middleware=[CopilotKitMiddleware()], # for frontend tools and context
                     system_prompt="You are a helpful research assistant.",
                     checkpointer=MemorySaver()
                 )
 
-                # [!code highlight:9]
                 add_langgraph_fastapi_endpoint(
                     app=app,
                     agent=LangGraphAGUIAgent(
@@ -128,10 +124,11 @@ Before you begin, you'll need the following:
 
                 def main():
                     """Run the uvicorn server."""
+                    import uvicorn
                     uvicorn.run(
                         "main:app",
                         host="0.0.0.0",
-                        port="8123",
+                        port=8123,
                         reload=True,
                     )
 
@@ -142,7 +139,7 @@ Before you begin, you'll need the following:
         </Tabs>
 
         <Callout type="info" title="What is AG-UI?">
-            AG-UI is an open protocol for frontend-agent communication.
+            AG-UI is an open protocol for frontend-agent communication. Deep Agents use it to stream state and tool calls to your frontend in real-time.
         </Callout>
     </Step>
     <Step>
@@ -154,8 +151,8 @@ Before you begin, you'll need the following:
         OPENAI_API_KEY=your_openai_api_key
         ```
 
-        <Callout type="info" title="What about other models?">
-        The starter template is configured to use OpenAI's GPT-4o by default, but you can modify it to use any language model supported by LangChain.
+        <Callout type="info" title="Other models">
+        Deep Agents support any model available via LangChain. Change the `model` parameter in `create_deep_agent` to switch providers.
         </Callout>
     </Step>
     <Step>
@@ -178,7 +175,7 @@ Before you begin, you'll need the following:
     <Step>
         ### Setup Copilot Runtime
 
-        Create an API route to connect CopilotKit to your LangChain agent:
+        Create an API route to connect CopilotKit to your Deep Agent:
 
         ```sh
         mkdir -p app/api/copilotkit && touch app/api/copilotkit/route.ts
@@ -192,7 +189,6 @@ Before you begin, you'll need the following:
                     ExperimentalEmptyAdapter,
                     copilotRuntimeNextJSAppRouterEndpoint,
                 } from "@copilotkit/runtime";
-                // [!code highlight]
                 import { LangGraphAgent } from "@copilotkit/runtime/langgraph";
                 import { NextRequest } from "next/server";
 
@@ -200,9 +196,8 @@ Before you begin, you'll need the following:
 
                 const runtime = new CopilotRuntime({
                     agents: {
-                        // [!code highlight:5]
                         sample_agent: new LangGraphAgent({
-                            deploymentUrl:  process.env.LANGGRAPH_DEPLOYMENT_URL || "http://localhost:8123",
+                            deploymentUrl: process.env.LANGGRAPH_DEPLOYMENT_URL || "http://localhost:8123",
                             graphId: "sample_agent",
                             langsmithApiKey: process.env.LANGSMITH_API_KEY || "",
                         }),
@@ -227,7 +222,6 @@ Before you begin, you'll need the following:
                     ExperimentalEmptyAdapter,
                     copilotRuntimeNextJSAppRouterEndpoint,
                 } from "@copilotkit/runtime";
-                // [!code highlight]
                 import { LangGraphHttpAgent } from "@copilotkit/runtime/langgraph";
                 import { NextRequest } from "next/server";
 
@@ -235,9 +229,8 @@ Before you begin, you'll need the following:
 
                 const runtime = new CopilotRuntime({
                     agents: {
-                        // [!code highlight:3]
                         sample_agent: new LangGraphHttpAgent({
-                            url:  process.env.LANGGRAPH_DEPLOYMENT_URL || "http://localhost:8123",
+                            url: process.env.LANGGRAPH_DEPLOYMENT_URL || "http://localhost:8123",
                         }),
                     }
                 });
@@ -261,17 +254,15 @@ Before you begin, you'll need the following:
         Wrap your application with the CopilotKit provider:
 
         ```tsx title="app/layout.tsx"
-        // [!code highlight:2]
         import { CopilotKit } from "@copilotkit/react-core";
         import "@copilotkit/react-ui/v2/styles.css";
 
         // ...
 
-        export default function RootLayout({ children }: {children: React.ReactNode}) {
+        export default function RootLayout({ children }: { children: React.ReactNode }) {
             return (
                 <html lang="en">
                     <body>
-                        {/* [!code highlight:3] */}
                         <CopilotKit runtimeUrl="/api/copilotkit" agent="sample_agent">
                             {children}
                         </CopilotKit>
@@ -282,56 +273,53 @@ Before you begin, you'll need the following:
         ```
     </Step>
     <Step>
-    ### Add the chat interface
+        ### Add the chat interface
 
-    Add the CopilotSidebar component to your page:
+        Add the CopilotSidebar component to your page:
 
-    ```tsx title="app/page.tsx"
-    "use client";
+        ```tsx title="app/page.tsx"
+        "use client";
 
-    import { CopilotSidebar } from "@copilotkit/react-core/v2";
-    import { useDefaultRenderTool } from "@copilotkit/react-core/v2";
+        import { CopilotSidebar } from "@copilotkit/react-core/v2";
+        import { useDefaultRenderTool } from "@copilotkit/react-core/v2";
 
-    export default function Page() {
-        useDefaultRenderTool({
-        render: ({name, status, args, result}) => (
-            <details>
-                <summary>
-                    {status === "complete"? `Called ${name}` : `Calling ${name}`}
-                </summary>
+        export default function Page() {
+            useDefaultRenderTool({
+                render: ({ name, status, args, result }) => (
+                    <details>
+                        <summary>
+                            {status === "complete" ? `Called ${name}` : `Calling ${name}`}
+                        </summary>
+                        <p>Status: {status}</p>
+                        <p>Args: {JSON.stringify(args)}</p>
+                        <p>Result: {JSON.stringify(result)}</p>
+                    </details>
+                ),
+            });
 
-                <p>Status: {status}</p>
-                <p>Args: {JSON.stringify(args)}</p>
-                <p>Result: {JSON.stringify(result)}</p>
-            </details>
-        )})
-
-        return (
-            <main>
-                <h1>Your App</h1>
-                <CopilotSidebar />
-            </main>
-        );
-    }
-    ```
+            return (
+                <main>
+                    <h1>Your App</h1>
+                    <CopilotSidebar />
+                </main>
+            );
+        }
+        ```
     </Step>
     <Step>
         ### Start your agent
-        From your agent directory, start the agent server:
 
         <Tabs groupId="deployment_method" items={['LangSmith', 'FastAPI']}>
-        <Tab value="LangSmith">
-            ```bash
-            cd ..
-            npx @langchain/langgraph-cli dev --port 8123 --no-browser
-            ```
-        </Tab>
-        <Tab value="FastAPI">
-            ```bash
-            cd ..
-            uv run main.py
-            ```
-        </Tab>
+            <Tab value="LangSmith">
+                ```bash
+                npx @langchain/langgraph-cli dev --port 8123 --no-browser
+                ```
+            </Tab>
+            <Tab value="FastAPI">
+                ```bash
+                uv run main.py
+                ```
+            </Tab>
         </Tabs>
 
         Your agent will be available at `http://localhost:8123`.
@@ -344,26 +332,22 @@ Before you begin, you'll need the following:
         <Tabs groupId="package-manager" items={['npm', 'pnpm', 'yarn', 'bun']}>
             <Tab value="npm">
                 ```bash
-                cd frontend
-                npm run dev
+                cd frontend && npm run dev
                 ```
             </Tab>
             <Tab value="pnpm">
                 ```bash
-                cd frontend
-                pnpm dev
+                cd frontend && pnpm dev
                 ```
             </Tab>
             <Tab value="yarn">
                 ```bash
-                cd frontend
-                yarn dev
+                cd frontend && yarn dev
                 ```
             </Tab>
             <Tab value="bun">
                 ```bash
-                cd frontend
-                bun dev
+                cd frontend && bun dev
                 ```
             </Tab>
         </Tabs>
