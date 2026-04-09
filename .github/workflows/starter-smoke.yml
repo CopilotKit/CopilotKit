@@ -57,6 +57,33 @@ jobs:
         working-directory: examples/integrations/${{ matrix.starter }}
         run: docker compose -f docker-compose.test.yml down -v
 
+      - name: Capture failure cause
+        if: failure()
+        id: failure-cause
+        working-directory: examples/integrations/${{ matrix.starter }}
+        run: |
+          {
+            echo "summary<<CAUSE_EOF"
+            # Check for build failures first
+            build_err=$(docker compose -f docker-compose.test.yml logs app 2>&1 | grep -E "ERR_|Error:|error:|Build error|failed to" | head -3)
+            agent_err=$(docker compose -f docker-compose.test.yml logs agent 2>&1 | grep -E "Error|Traceback|ModuleNotFoundError|ImportError" | head -3)
+            test_err=$(docker compose -f docker-compose.test.yml logs tests 2>&1 | grep -E "✘|FAIL|Error:|expect\(" | head -5)
+
+            if [ -n "$build_err" ]; then
+              echo "Build failure:"
+              echo "$build_err"
+            elif [ -n "$agent_err" ]; then
+              echo "Agent crash:"
+              echo "$agent_err"
+            elif [ -n "$test_err" ]; then
+              echo "Test failure:"
+              echo "$test_err"
+            else
+              echo "Unknown failure — check run logs"
+            fi
+            echo "CAUSE_EOF"
+          } >> "$GITHUB_OUTPUT"
+
       - name: Upload test artifacts on failure
         if: failure()
         uses: actions/upload-artifact@v4
@@ -73,7 +100,7 @@ jobs:
           webhook-type: incoming-webhook
           payload: |
             {
-              "text": "Starter smoke test failing: *${{ matrix.starter }}*\nRun: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+              "text": "Starter smoke test failing: *${{ matrix.starter }}*\n```${{ steps.failure-cause.outputs.summary }}```\nRun: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
             }
 
       - name: Create GitHub issue on failure
@@ -82,6 +109,7 @@ jobs:
         with:
           script: |
             const title = `[Drift] Starter smoke test failing: ${{ matrix.starter }}`;
+            const cause = `${{ steps.failure-cause.outputs.summary }}`.replace(/`/g, "'");
             const { data: issues } = await github.rest.issues.listForRepo({
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -95,6 +123,6 @@ jobs:
                 repo: context.repo.repo,
                 title,
                 labels: ['starter-drift'],
-                body: `The scheduled starter smoke test for \`${{ matrix.starter }}\` is failing.\n\nRun: ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}\n\nThis likely means a floating dependency update broke the starter. Check the test artifacts for details.`,
+                body: `The scheduled starter smoke test for \`${{ matrix.starter }}\` is failing.\n\n**Cause:**\n\`\`\`\n${cause}\n\`\`\`\n\n**Run:** ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}\n\nThis likely means a floating dependency update broke the starter.`,
               });
             }
