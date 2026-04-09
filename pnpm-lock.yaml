@@ -1301,10 +1301,10 @@ importers:
         version: 7.13.2(react-router@7.13.2(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(typescript@5.7.3)
       '@tanstack/ai':
         specifier: latest
-        version: 0.10.0
+        version: 0.10.1
       '@tanstack/ai-openai':
         specifier: latest
-        version: 0.7.3(@tanstack/ai-client@0.7.5)(@tanstack/ai@0.10.0)(ws@8.19.0)(zod@3.25.76)
+        version: 0.7.3(@tanstack/ai-client@0.7.5)(@tanstack/ai@0.10.1)(ws@8.19.0)(zod@3.25.76)
       hono:
         specifier: ^4.11.4
         version: 4.11.4
@@ -2358,8 +2358,8 @@ importers:
   packages/runtime:
     dependencies:
       '@ag-ui/a2ui-middleware':
-        specifier: 0.0.3
-        version: 0.0.3(@ag-ui/client@0.0.52)(rxjs@7.8.1)
+        specifier: 0.0.4
+        version: 0.0.4(@ag-ui/client@0.0.52)(rxjs@7.8.1)
       '@ag-ui/client':
         specifier: 0.0.52
         version: 0.0.52
@@ -2938,8 +2938,8 @@ packages:
       '@ag-ui/client': '>=0.0.42'
       '@ag-ui/core': '>=0.0.42'
 
-  '@ag-ui/a2ui-middleware@0.0.3':
-    resolution: {integrity: sha512-l2vCX9xyiJ76HmwyY0eMBpez7SyG18mLJUnId1M9u8diugc/hchEYvnEbkCDJFLFBIL0muWw6ZaUkhYZONGe8A==}
+  '@ag-ui/a2ui-middleware@0.0.4':
+    resolution: {integrity: sha512-N7goCObceqsCQgFRKBpo/X9D9Q0Jp6ALV+ier2W7WnK3sy0WfY2jAeFhqEaoZRqcNeLTKEt8sDqdtd4TGQE1+w==}
     peerDependencies:
       '@ag-ui/client': '>=0.0.40'
       rxjs: 7.8.1
@@ -10756,10 +10756,10 @@ packages:
     peerDependencies:
       '@tanstack/ai': 0.9.2
 
-  '@tanstack/ai-event-client@0.2.0':
-    resolution: {integrity: sha512-1O7PbBlSo0gCrv4/bmOvnemZ6Cvf+kZmHqug19JEz8Bj4/anup3GkwvKBk8XzEvPIB+vQb4GL9TLN4Tfo6ZCkA==}
+  '@tanstack/ai-event-client@0.2.1':
+    resolution: {integrity: sha512-uq3fCZlmQmkrDeGTX1Nt1i4DrXqmF9SPeR598sWo5+FU7+hWaevRLOoWAl/Vkxuh+3+vQofoLCztJSa7QwBEAg==}
     peerDependencies:
-      '@tanstack/ai': 0.10.0
+      '@tanstack/ai': 0.10.1
 
   '@tanstack/ai-openai@0.7.3':
     resolution: {integrity: sha512-xdxTR7E/BzeQcFte/chDA//2WpZQqDQF4op1TgKNoaTqffW9+JMlSubaZbMkawtJoImVCGjZoPVkUfb8aRldNA==}
@@ -10768,8 +10768,8 @@ packages:
       '@tanstack/ai-client': ^0.7.7
       zod: ^4.0.0
 
-  '@tanstack/ai@0.10.0':
-    resolution: {integrity: sha512-b1GDenJs2udQfjFMnAWZ6WX9RLg04O9wC85V4cSD8phuVMJscs+Qp0UkNj7FTc+V1ggqf4Pz1jLFfqjLO2z3mg==}
+  '@tanstack/ai@0.10.1':
+    resolution: {integrity: sha512-hPjwgVpsazcvJqPyaXkQxJY13ExKL2sftlUrWM7tk92gBd7+gbKkpBVDVkLmvfRClhDNpweDk1Anu/ezflk1TQ==}
     engines: {node: '>=18'}
 
   '@tanstack/ai@0.9.2':
@@ -22235,7 +22235,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@ag-ui/a2ui-middleware@0.0.3(@ag-ui/client@0.0.52)(rxjs@7.8.1)':
+  '@ag-ui/a2ui-middleware@0.0.4(@ag-ui/client@0.0.52)(rxjs@7.8.1)':
     dependencies:
       '@ag-ui/client': 0.0.52
       clarinet: 0.12.6
@@ -33244,23 +33244,23 @@ snapshots:
       '@tanstack/ai': 0.9.2
       '@tanstack/devtools-event-client': 0.4.3
 
-  '@tanstack/ai-event-client@0.2.0(@tanstack/ai@0.10.0)':
+  '@tanstack/ai-event-client@0.2.1(@tanstack/ai@0.10.1)':
     dependencies:
-      '@tanstack/ai': 0.10.0
+      '@tanstack/ai': 0.10.1
       '@tanstack/devtools-event-client': 0.4.3
 
-  '@tanstack/ai-openai@0.7.3(@tanstack/ai-client@0.7.5)(@tanstack/ai@0.10.0)(ws@8.19.0)(zod@3.25.76)':
+  '@tanstack/ai-openai@0.7.3(@tanstack/ai-client@0.7.5)(@tanstack/ai@0.10.1)(ws@8.19.0)(zod@3.25.76)':
     dependencies:
-      '@tanstack/ai': 0.10.0
+      '@tanstack/ai': 0.10.1
       '@tanstack/ai-client': 0.7.5
       openai: 6.24.0(ws@8.19.0)(zod@3.25.76)
       zod: 3.25.76
     transitivePeerDependencies:
       - ws
 
-  '@tanstack/ai@0.10.0':
+  '@tanstack/ai@0.10.1':
     dependencies:
-      '@tanstack/ai-event-client': 0.2.0(@tanstack/ai@0.10.0)
+      '@tanstack/ai-event-client': 0.2.1(@tanstack/ai@0.10.1)
       partial-json: 0.1.7
 
   '@tanstack/ai@0.9.2':
@@ -34203,6 +34203,14 @@ snapshots:
       magic-string: 0.30.21
     optionalDependencies:
       vite: 7.3.1(@types/node@18.19.130)(jiti@2.6.1)(less@4.5.1)(lightningcss@1.32.0)(sass@1.97.2)(terser@5.44.1)(tsx@4.21.0)(yaml@2.8.2)
+
+  '@vitest/mocker@3.2.4(vite@7.3.1(@types/node@20.19.27)(jiti@2.6.1)(less@4.5.1)(lightningcss@1.32.0)(sass@1.97.2)(terser@5.44.1)(tsx@4.21.0)(yaml@2.8.2))':
+    dependencies:
+      '@vitest/spy': 3.2.4
+      estree-walker: 3.0.3
+      magic-string: 0.30.21
+    optionalDependencies:
+      vite: 7.3.1(@types/node@20.19.27)(jiti@2.6.1)(less@4.5.1)(lightningcss@1.32.0)(sass@1.97.2)(terser@5.44.1)(tsx@4.21.0)(yaml@2.8.2)
 
   '@vitest/mocker@3.2.4(vite@7.3.1(@types/node@22.19.11)(jiti@2.6.1)(less@4.5.1)(lightningcss@1.32.0)(sass@1.97.2)(terser@5.44.1)(tsx@4.21.0)(yaml@2.8.2))':
     dependencies:
@@ -47691,7 +47699,7 @@ snapshots:
     dependencies:
       '@types/chai': 5.2.3
       '@vitest/expect': 3.2.4
-      '@vitest/mocker': 3.2.4(vite@7.3.1(@types/node@18.19.130)(jiti@2.6.1)(less@4.5.1)(lightningcss@1.32.0)(sass@1.97.2)(terser@5.44.1)(tsx@4.21.0)(yaml@2.8.2))
+      '@vitest/mocker': 3.2.4(vite@7.3.1(@types/node@20.19.27)(jiti@2.6.1)(less@4.5.1)(lightningcss@1.32.0)(sass@1.97.2)(terser@5.44.1)(tsx@4.21.0)(yaml@2.8.2))
       '@vitest/pretty-format': 3.2.4
       '@vitest/runner': 3.2.4
       '@vitest/snapshot': 3.2.4
