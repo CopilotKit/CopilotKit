@@ -17,14 +17,14 @@
     "./package.json": "./package.json"
   },
   "scripts": {
-    "build": "tsdown && node ../../scripts/copy-dts.mjs",
+    "build": "tsdown",
     "dev": "tsdown --watch",
     "check-types": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest"
   },
   "dependencies": {
-    "@ag-ui/client": "0.0.48",
+    "@ag-ui/client": "0.0.52",
     "openai": "^4.85.1",
     "rxjs": "^7.8.1"
   },

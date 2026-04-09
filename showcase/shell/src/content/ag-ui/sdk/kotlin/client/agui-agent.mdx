@@ -1,0 +1,290 @@
+---
+title: AgUiAgent
+description: Stateless client for AG-UI protocol interactions
+---
+
+# AgUiAgent
+
+`AgUiAgent` is a stateless client implementation designed for cases where no ongoing context is needed or where the agent manages all state server-side. It provides a simple, efficient interface for interacting with AG-UI protocol agents.
+
+## Usage Scenarios
+
+### No Ongoing Context
+
+Perfect for single interactions or independent queries:
+
+```kotlin
+val agent = AgUiAgent("https://api.example.com/agent") {
+    bearerToken = "your-token"
+}
+
+// Each interaction is independent
+agent.sendMessage("What's the weather?").collect { state ->
+    println(state.messages.last().content)
+}
+```
+
+### Agent-Managed State
+
+Ideal when the agent handles conversation history server-side:
+
+```kotlin
+val agent = AgUiAgent("https://api.example.com/agent") {
+    bearerToken = "your-token"
+    // Agent manages conversation context internally
+}
+
+// Agent remembers previous interactions server-side
+agent.sendMessage("My name is Bob").collect { }
+agent.sendMessage("What's my name?").collect { state ->
+    // Agent retrieves context from server-side storage
+}
+```
+
+## Configuration
+
+### Convenience Builders
+
+The easiest way to create AgUiAgent instances:
+
+```kotlin
+
+// Quick bearer token setup
+val agent = agentWithBearer("https://api.example.com/agent", "your-token")
+
+// Quick API key setup
+val agent = agentWithApiKey("https://api.example.com/agent", "your-api-key")
+
+// Custom API key header
+val agent = agentWithApiKey("https://api.example.com/agent", "your-key", "Authorization")
+
+// Agent with tools
+val agent = agentWithTools(
+    url = "https://api.example.com/agent",
+    toolRegistry = toolRegistry {
+        addTool(CalculatorToolExecutor())
+    }
+) {
+    bearerToken = "your-token"
+}
+
+// Debug agent with logging
+val agent = debugAgent("https://api.example.com/agent") {
+    bearerToken = "your-token"
+}
+```
+
+### Basic Setup
+
+```kotlin
+val agent = AgUiAgent(
+    url = "https://api.example.com/agent"
+) {
+    // Authentication (choose one)
+    bearerToken = "your-bearer-token"
+    // OR
+    apiKey = "your-api-key"
+    // OR
+    basicAuth("username", "password")
+
+    // Optional system prompt
+    systemPrompt = "You are a helpful assistant"
+
+    // Optional user ID
+    userId = "user-123"
+}
+```
+
+### Advanced Configuration
+
+```kotlin
+val agent = AgUiAgent("https://api.example.com/agent") {
+    bearerToken = "your-token"
+
+    // Custom headers
+    customHeaders = mapOf(
+        "X-App-Version" to "1.0.0",
+        "X-Client-Type" to "mobile"
+    )
+
+    // Timeout settings
+    requestTimeout = 30.seconds
+    connectTimeout = 10.seconds
+
+    // Debug logging
+    enableLogging = true
+
+    // Custom user agent
+    userAgent = "MyApp/1.0"
+}
+```
+
+## Methods
+
+### sendMessage
+
+Send a message and receive streaming responses:
+
+```kotlin
+fun sendMessage(
+    message: String,
+    threadId: String = generateThreadId(),
+    state: JsonElement? = null,
+    includeSystemPrompt: Boolean = true
+): Flow<BaseEvent>
+```
+
+**Parameters:**
+
+- `message`: The message content to send
+- `threadId`: Thread ID for conversation (defaults to generated ID)
+- `state`: Initial state for the agent (defaults to null)
+- `includeSystemPrompt`: Whether to include the configured system prompt
+
+**Returns:** `Flow<BaseEvent>` - Stream of protocol events
+
+**Example:**
+
+```kotlin
+agent.sendMessage("Calculate 15% tip on $50").collect { event ->
+    when (event) {
+        is TextMessageStartEvent -> println("Agent started responding")
+        is TextMessageContentEvent -> print(event.delta)
+        is TextMessageEndEvent -> println("\nAgent finished responding")
+        is ToolCallStartEvent -> println("Agent is using tool: ${event.toolCallName}")
+        is RunErrorEvent -> println("Error: ${event.message}")
+    }
+}
+```
+
+### close
+
+Close the agent and release resources:
+
+```kotlin
+fun close()
+```
+
+**Example:**
+
+````kotlin
+class MyRepository {
+    private val agent = AgUiAgent("https://api.example.com/agent") {
+        bearerToken = "your-token"
+    }
+
+    fun cleanup() {
+        agent.close()
+    }
+}
+
+## Error Handling
+
+### Connection Errors
+```kotlin
+agent.sendMessage("Hello").collect { state ->
+    state.errors.forEach { error ->
+        when (error.type) {
+            ErrorType.NETWORK -> {
+                println("Network error: ${error.message}")
+                // Handle network issues
+            }
+            ErrorType.AUTHENTICATION -> {
+                println("Auth error: ${error.message}")
+                // Handle authentication issues
+            }
+            ErrorType.PROTOCOL -> {
+                println("Protocol error: ${error.message}")
+                // Handle protocol violations
+            }
+        }
+    }
+}
+````
+
+### Retry Logic
+
+```kotlin
+// Built-in retry for transient failures
+val agent = AgUiAgent("https://api.example.com/agent") {
+    bearerToken = "your-token"
+    maxRetries = 3
+    retryDelay = 1.seconds
+}
+```
+
+## Thread Safety
+
+`AgUiAgent` is thread-safe and can be used concurrently:
+
+```kotlin
+val agent = AgUiAgent("https://api.example.com/agent") {
+    bearerToken = "your-token"
+}
+
+// Safe to call from multiple coroutines
+launch {
+    agent.sendMessage("First message").collect { }
+}
+
+launch {
+    agent.sendMessage("Second message").collect { }
+}
+```
+
+## Best Practices
+
+### Resource Management
+
+```kotlin
+// Agent automatically manages HTTP connections
+// No explicit cleanup required, but you can control lifecycle:
+
+class MyRepository {
+    private val agent = AgUiAgent(url) { /* config */ }
+
+    // Agent will be garbage collected when repository is
+}
+```
+
+### Performance Optimization
+
+```kotlin
+// Reuse agent instances when possible
+val agent = AgUiAgent(url) { bearerToken = token }
+
+// Multiple interactions with same agent instance
+repeat(10) { i ->
+    agent.sendMessage("Message $i").collect { }
+}
+```
+
+### Message Threading
+
+```kotlin
+// Group related messages with threadId
+val threadId = UUID.randomUUID().toString()
+
+agent.sendMessage("Start conversation", threadId = threadId).collect { }
+agent.sendMessage("Continue conversation", threadId = threadId).collect { }
+```
+
+## Platform Considerations
+
+### Android
+
+- Uses Ktor Android engine (OkHttp under the hood)
+- Handles network state changes automatically
+- Compatible with background processing restrictions
+
+### iOS
+
+- Uses Ktor Darwin engine (NSURLSession under the hood)
+- Respects iOS app lifecycle events
+- Compatible with background app refresh
+
+### JVM
+
+- Uses Ktor CIO engine for server applications
+- Supports high-concurrency scenarios
+- Compatible with Spring Boot and other frameworks

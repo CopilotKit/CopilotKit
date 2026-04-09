@@ -1,7 +1,6 @@
 import { z } from "zod";
 import { useTheme } from "@/hooks/use-theme";
 
-// CopilotKit imports
 import {
   useComponent,
   useFrontendTool,
@@ -9,7 +8,6 @@ import {
   useDefaultRenderTool,
 } from "@copilotkit/react-core/v2";
 
-// Generative UI imports
 import {
   PieChart,
   PieChartProps,
@@ -24,28 +22,7 @@ import { ToolReasoning } from "@/components/tool-rendering";
 export const useGenerativeUIExamples = () => {
   const { theme, setTheme } = useTheme();
 
-  // ----------------------------------------------------------
-  // 1. Controlled Generative UI (frontend-defined components)
-  //    https://docs.copilotkit.ai/langgraph/generative-ui/frontend-tools
-  // ----------------------------------------------------------
-  useComponent({
-    name: "pieChart",
-    description: "Controlled Generative UI that displays data as a pie chart.",
-    parameters: PieChartProps,
-    render: PieChart,
-  });
-
-  useComponent({
-    name: "barChart",
-    description: "Controlled Generative UI that displays data as a bar chart.",
-    parameters: BarChartProps,
-    render: BarChart,
-  });
-
-  // ----------------------------------------------------------
-  // 2. Human-in-the-Loop (frontend tool requiring user decision)
-  //    https://docs.copilotkit.ai/langgraph/human-in-the-loop/frontend-tool-based
-  // ----------------------------------------------------------
+  // Human-in-the-Loop (frontend tool requiring user decision)
   useHumanInTheLoop({
     name: "scheduleTime",
     description: "Use human-in-the-loop to schedule a meeting with the user.",
@@ -62,15 +39,26 @@ export const useGenerativeUIExamples = () => {
     },
   });
 
-  // ----------------------------------------------------------
-  // 3. Default Tool Rendering (backend tool UI)
-  //    https://docs.copilotkit.ai/langgraph/generative-ui/backend-tools
-  // ----------------------------------------------------------
+  // Controlled Generative UI (frontend-defined chart components)
+  useComponent({
+    name: "pieChart",
+    description: "Controlled Generative UI that displays data as a pie chart.",
+    parameters: PieChartProps,
+    render: PieChart,
+  });
+
+  useComponent({
+    name: "barChart",
+    description: "Controlled Generative UI that displays data as a bar chart.",
+    parameters: BarChartProps,
+    render: BarChart,
+  });
+
+  // Default Tool Rendering (backend tool UI)
   const ignoredTools = [
-    // generate_form is rendered by A2UI's declarative surface system, not as a tool call
-    "generate_form",
-    // log_a2ui_event is an internal A2UI event tracker, not meaningful to display to users
-    "log_a2ui_event",
+    "render_a2ui", // Rendered by A2UI streaming, not as a tool card
+    "generate_a2ui", // Legacy: rendered by A2UI, not as a tool card
+    "log_a2ui_event", // Internal A2UI event tracker
   ];
   useDefaultRenderTool({
     render: ({ name, status, parameters }) => {
@@ -79,17 +67,15 @@ export const useGenerativeUIExamples = () => {
     },
   });
 
-  // ----------------------------------------------------------
-  // 4. Frontend Tools (direct frontend state manipulation)
-  //    https://docs.copilotkit.ai/langgraph/frontend-actions
-  // ----------------------------------------------------------
+  // Frontend Tools (direct frontend state manipulation)
   useFrontendTool(
     {
       name: "toggleTheme",
       description: "Frontend tool for toggling the theme of the app.",
       parameters: z.object({}),
       handler: async () => {
-        setTheme(theme === "dark" ? "light" : "dark");
+        const isDark = document.documentElement.classList.contains("dark");
+        setTheme(isDark ? "light" : "dark");
       },
     },
     [theme, setTheme],

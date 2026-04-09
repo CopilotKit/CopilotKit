@@ -1,6 +1,6 @@
 {
   "name": "@copilotkit/react-ui",
-  "version": "1.55.0-next.8",
+  "version": "1.55.1",
   "private": false,
   "keywords": [
     "ai",
@@ -43,7 +43,7 @@
   },
   "scripts": {
     "build:css": "node -e \"const fs=require('fs');fs.mkdirSync('./dist/v2',{recursive:true});fs.cpSync('./src/v2/styles.css','./dist/v2/index.css')\"",
-    "build": "tsdown && node ../../scripts/copy-dts.mjs && pnpm run build:css",
+    "build": "tsdown && pnpm run build:css",
     "dev": "tsdown --watch",
     "test": "vitest run",
     "test:watch": "vitest",

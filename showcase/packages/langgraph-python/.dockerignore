@@ -1,0 +1,17 @@
+node_modules/
+.next/
+.env.local
+.env
+*.pyc
+__pycache__/
+.venv/
+dist/
+playwright-report/
+test-results/
+tests/
+qa/
+.git/
+.gitignore
+README.md
+render.yaml
+playwright.config.ts

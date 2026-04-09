@@ -1,0 +1,363 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Terminal Light — Enterprise Front Door</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Berkeley+Mono:wght@400;500;600&family=Instrument+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --bg: #fafaf9;
+        --surface: #ffffff;
+        --elevated: #f5f5f3;
+        --border: #e5e5e0;
+        --border-strong: #d4d4cf;
+        --text: #1a1a18;
+        --text-secondary: #57574f;
+        --text-muted: #a3a39b;
+        --accent: #0d6e3f;
+        --accent-light: #e8f5ee;
+        --accent-dim: rgba(13, 110, 63, 0.06);
+        --blue: #1a5fb4;
+        --blue-light: #e8f0fa;
+      }
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      body {
+        font-family: "Instrument Sans", "Helvetica Neue", sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        min-height: 100vh;
+        -webkit-font-smoothing: antialiased;
+      }
+
+      .topbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 32px;
+        height: 52px;
+        border-bottom: 1px solid var(--border);
+        background: var(--surface);
+      }
+      .topbar .brand {
+        font-size: 14px;
+        font-weight: 700;
+        color: var(--text);
+        letter-spacing: -0.3px;
+      }
+      .topbar .nav {
+        display: flex;
+        gap: 4px;
+      }
+      .topbar .nav a {
+        padding: 6px 14px;
+        border-radius: 6px;
+        font-size: 13px;
+        font-weight: 500;
+        color: var(--text-secondary);
+        text-decoration: none;
+        transition: all 0.15s;
+      }
+      .topbar .nav a:hover {
+        color: var(--text);
+        background: var(--elevated);
+      }
+      .topbar .nav a.active {
+        color: var(--text);
+        background: var(--elevated);
+      }
+
+      .hero {
+        max-width: 680px;
+        margin: 0 auto;
+        padding: 72px 24px 48px;
+      }
+
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 5px 12px;
+        border-radius: 20px;
+        font-size: 11px;
+        font-weight: 600;
+        background: var(--accent-light);
+        color: var(--accent);
+        margin-bottom: 20px;
+        letter-spacing: 0.3px;
+      }
+      .badge .dot {
+        width: 5px;
+        height: 5px;
+        border-radius: 50%;
+        background: var(--accent);
+      }
+
+      h1 {
+        font-size: 36px;
+        font-weight: 700;
+        letter-spacing: -0.8px;
+        line-height: 1.2;
+        color: var(--text);
+        margin-bottom: 12px;
+      }
+
+      .subtitle {
+        font-size: 16px;
+        color: var(--text-secondary);
+        line-height: 1.6;
+        margin-bottom: 36px;
+        max-width: 520px;
+      }
+
+      .search-box {
+        display: flex;
+        align-items: center;
+        background: var(--surface);
+        border: 1px solid var(--border-strong);
+        border-radius: 10px;
+        padding: 0 16px;
+        height: 48px;
+        margin-bottom: 40px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+        transition:
+          border-color 0.2s,
+          box-shadow 0.2s;
+      }
+      .search-box:focus-within {
+        border-color: var(--accent);
+        box-shadow: 0 0 0 3px var(--accent-dim);
+      }
+      .search-box .prompt {
+        font-family: "IBM Plex Mono", monospace;
+        font-size: 13px;
+        color: var(--accent);
+        margin-right: 8px;
+        font-weight: 500;
+      }
+      .search-box input {
+        flex: 1;
+        border: none;
+        outline: none;
+        font-family: inherit;
+        font-size: 14px;
+        color: var(--text);
+        background: transparent;
+      }
+      .search-box input::placeholder {
+        color: var(--text-muted);
+      }
+      .search-box .shortcut {
+        font-family: "IBM Plex Mono", monospace;
+        font-size: 10px;
+        color: var(--text-muted);
+        border: 1px solid var(--border);
+        padding: 2px 6px;
+        border-radius: 4px;
+        background: var(--elevated);
+      }
+
+      .paths {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+        margin-bottom: 40px;
+      }
+      .path {
+        padding: 18px 20px;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        background: var(--surface);
+        cursor: pointer;
+        transition: all 0.2s;
+      }
+      .path:hover {
+        border-color: var(--accent);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+      }
+      .path .flag {
+        font-family: "IBM Plex Mono", monospace;
+        font-size: 10px;
+        color: var(--accent);
+        font-weight: 600;
+        letter-spacing: 0.5px;
+        margin-bottom: 4px;
+      }
+      .path h3 {
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--text);
+        margin-bottom: 2px;
+      }
+      .path p {
+        font-size: 12px;
+        color: var(--text-muted);
+        line-height: 1.4;
+      }
+
+      .frameworks-section {
+        margin-bottom: 40px;
+      }
+      .frameworks-label {
+        font-family: "IBM Plex Mono", monospace;
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: 1.5px;
+        color: var(--text-muted);
+        margin-bottom: 10px;
+        font-weight: 500;
+      }
+      .fw-pills {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+      .fw-pill {
+        padding: 6px 14px;
+        border-radius: 6px;
+        font-size: 12px;
+        font-weight: 500;
+        border: 1px solid var(--border);
+        background: var(--surface);
+        color: var(--text-secondary);
+        cursor: pointer;
+        transition: all 0.15s;
+      }
+      .fw-pill:hover {
+        border-color: var(--accent);
+        color: var(--accent);
+        background: var(--accent-light);
+      }
+      .fw-pill.more {
+        color: var(--text-muted);
+        border-style: dashed;
+      }
+
+      .stats-bar {
+        display: flex;
+        gap: 24px;
+        padding: 16px 0;
+        border-top: 1px solid var(--border);
+        font-size: 12px;
+        color: var(--text-muted);
+      }
+      .stats-bar .stat {
+        display: flex;
+        align-items: baseline;
+        gap: 4px;
+      }
+      .stats-bar .stat .num {
+        font-family: "IBM Plex Mono", monospace;
+        font-size: 16px;
+        font-weight: 600;
+        color: var(--text);
+      }
+
+      .footer-note {
+        text-align: center;
+        padding: 32px 24px;
+        font-size: 11px;
+        color: var(--text-muted);
+        border-top: 1px solid var(--border);
+        margin-top: 40px;
+      }
+      .footer-note a {
+        color: var(--blue);
+        text-decoration: none;
+      }
+    </style>
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">CopilotKit</div>
+      <nav class="nav">
+        <a href="#" class="active">Showcase</a>
+        <a href="#">Docs</a>
+        <a href="#">Integrations</a>
+        <a href="#">Feature Matrix</a>
+        <a href="#">Reference</a>
+      </nav>
+    </header>
+
+    <div class="hero">
+      <div class="badge">
+        <span class="dot"></span> 26 integrations · 46 features
+      </div>
+      <h1>Find the right integration for your agent stack</h1>
+      <p class="subtitle">
+        Explore live demos, browse source code, and get started with any major
+        agent framework — from LangGraph to AWS Strands.
+      </p>
+
+      <div class="search-box">
+        <span class="prompt">❯</span>
+        <input
+          type="text"
+          placeholder="Search frameworks, features, demos, docs..."
+        />
+        <span class="shortcut">⌘K</span>
+      </div>
+
+      <div class="paths">
+        <div class="path">
+          <div class="flag">BY FRAMEWORK</div>
+          <h3>I have an agent framework</h3>
+          <p>
+            See what CopilotKit adds to LangGraph, Mastra, CrewAI, and 23 more
+          </p>
+        </div>
+        <div class="path">
+          <div class="flag">BY CAPABILITY</div>
+          <h3>I need a specific feature</h3>
+          <p>Generative UI, human-in-the-loop, shared state, voice, and more</p>
+        </div>
+        <div class="path">
+          <div class="flag">GUIDED</div>
+          <h3>Help me choose</h3>
+          <p>Answer a few questions and get a tailored recommendation</p>
+        </div>
+        <div class="path">
+          <div class="flag">COMPARE</div>
+          <h3>Feature matrix</h3>
+          <p>Full comparison across 46 features × 26 integrations</p>
+        </div>
+      </div>
+
+      <div class="frameworks-section">
+        <div class="frameworks-label">Frameworks</div>
+        <div class="fw-pills">
+          <span class="fw-pill">LangGraph</span>
+          <span class="fw-pill">Mastra</span>
+          <span class="fw-pill">CrewAI</span>
+          <span class="fw-pill">PydanticAI</span>
+          <span class="fw-pill">Google ADK</span>
+          <span class="fw-pill">AWS Strands</span>
+          <span class="fw-pill">Agno</span>
+          <span class="fw-pill">AG2</span>
+          <span class="fw-pill">Claude SDK</span>
+          <span class="fw-pill">Spring AI</span>
+          <span class="fw-pill more">+16 more →</span>
+        </div>
+      </div>
+
+      <div class="stats-bar">
+        <div class="stat"><span class="num">46</span> features</div>
+        <div class="stat"><span class="num">26</span> integrations</div>
+        <div class="stat"><span class="num">12</span> categories</div>
+        <div class="stat"><span class="num">9</span> live demos</div>
+      </div>
+    </div>
+
+    <div class="footer-note">
+      <a href="#">Docs</a> · <a href="#">GitHub</a> · <a href="#">Discord</a> ·
+      <a href="#">CopilotKit.ai</a>
+    </div>
+  </body>
+</html>

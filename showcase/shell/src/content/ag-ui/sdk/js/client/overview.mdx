@@ -1,0 +1,111 @@
+---
+title: "Overview"
+description: "Client package overview"
+---
+
+# @ag-ui/client
+
+The Agent User Interaction Protocol Client SDK provides agent connectivity
+options for AI systems. This package builds on the core types and events to
+deliver flexible connection methods to agent implementations.
+
+```bash
+npm install @ag-ui/client
+```
+
+## AbstractAgent
+
+`AbstractAgent` is the base agent class for implementing custom agent
+connectivity. Extending this class and implementing `run()` lets you bridge your
+own service or agent implementation to AG-UI.
+
+- [Configuration](/sdk/js/client/abstract-agent#configuration) - Setup with
+  agent ID, messages, and state
+- [Core Methods](/sdk/js/client/abstract-agent#core-methods) - Run, abort, and
+  clone functionality
+- [Protected Methods](/sdk/js/client/abstract-agent#protected-methods) -
+  Extensible hooks for custom implementations
+- [Properties](/sdk/js/client/abstract-agent#properties) - State and message
+  tracking
+
+<Card
+  title="AbstractAgent Reference"
+  icon="cube"
+  href="/sdk/js/client/abstract-agent"
+  color="#3B82F6"
+  iconType="solid"
+>
+  Base class for creating custom agent connections
+</Card>
+
+## HttpAgent
+
+Concrete implementation for HTTP-based agent connectivity:
+
+- [Configuration](/sdk/js/client/http-agent#configuration) - URL and header
+  setup
+- [Methods](/sdk/js/client/http-agent#methods) - HTTP-specific execution and
+  cancellation
+- [Protected Methods](/sdk/js/client/http-agent#protected-methods) -
+  Customizable HTTP request handling
+- [Properties](/sdk/js/client/http-agent#properties) - Connection management
+
+<Card
+  title="HttpAgent Reference"
+  icon="cube"
+  href="/sdk/js/client/http-agent"
+  color="#3B82F6"
+  iconType="solid"
+>
+  Ready-to-use HTTP implementation for agent connectivity, using a highly
+  efficient event encoding format
+</Card>
+
+## Middleware
+
+Transform and intercept event streams flowing through agents with a flexible
+middleware system:
+
+- [Function Middleware](/sdk/js/client/middleware#function-based-middleware) - Simple
+  transformations with plain functions
+- [Class Middleware](/sdk/js/client/middleware#class-based-middleware) - Stateful
+  middleware with configuration
+- [Built-in Middleware](/sdk/js/client/middleware#built-in-middleware) -
+  FilterToolCallsMiddleware and more
+- [Middleware Patterns](/sdk/js/client/middleware#middleware-patterns) - Common
+  use cases and examples
+
+<Card
+  title="Middleware Reference"
+  icon="layer-group"
+  href="/sdk/js/client/middleware"
+  color="#3B82F6"
+  iconType="solid"
+>
+  Powerful event stream transformation and filtering for AG-UI agents
+</Card>
+
+## AgentSubscriber
+
+Event-driven subscriber system for handling agent lifecycle events and state
+mutations during agent execution:
+
+- [Event Handlers](/sdk/js/client/subscriber#event-handlers) - Lifecycle,
+  message, tool call, and state events
+- [State Management](/sdk/js/client/subscriber#state-management) - Mutation
+  control and propagation handling
+- [Usage Examples](/sdk/js/client/subscriber#usage-examples) - Logging,
+  persistence, and error handling patterns
+- [Integration](/sdk/js/client/subscriber#integration-with-agents) - Registering
+  and using subscribers with agents
+
+<Card
+  title="AgentSubscriber Reference"
+  icon="bolt"
+  href="/sdk/js/client/subscriber"
+  color="#3B82F6"
+  iconType="solid"
+>
+  Comprehensive event system for reactive agent interaction and middleware-style
+  functionality
+</Card>

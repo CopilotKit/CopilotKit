@@ -1,7 +1,7 @@
 import { AbstractAgent, Message, RunAgentInput } from "@ag-ui/client";
 import { logger } from "@copilotkit/shared";
 import { randomUUID } from "node:crypto";
-import { CopilotIntelligenceRuntimeLike } from "../../runtime";
+import { CopilotIntelligenceRuntimeLike } from "../../core/runtime";
 import {
   cloneAgentForRequest,
   configureAgentForRequest,
@@ -130,7 +130,7 @@ async function runTitleGenerationAttempt(params: {
 
   agent.setMessages(messages);
   agent.setState({});
-  agent.threadId = `thread-name:${threadId}:${randomUUID()}`;
+  agent.threadId = randomUUID();
   const { newMessages } = await agent.runAgent({
     messages,
     state: {},

@@ -11,7 +11,7 @@ import { randomUUID } from "crypto";
 
 export interface ChatMessage {
   role: "user" | "assistant" | "tool";
-  content: string | null;
+  content: string | null | Array<Record<string, unknown>>;
   name?: string;
   toolCalls?: Array<{
     id: string;
@@ -25,9 +25,27 @@ function toChatMessages(messages: Message[]): ChatMessage[] {
   return messages
     .filter((m) => m.role !== "developer" && m.role !== "system")
     .map((m): ChatMessage => {
+      // Convert AG-UI content to TanStack AI format.
+      // Text parts differ: AG-UI uses { type: "text", text } while
+      // TanStack AI uses { type: "text", content }. Multimodal parts
+      // (image, audio, video, document) share the same shape.
+      let content: ChatMessage["content"];
+      if (typeof m.content === "string") {
+        content = m.content;
+      } else if (Array.isArray(m.content)) {
+        content = m.content.map((part: Record<string, unknown>) => {
+          if (part.type === "text" && "text" in part) {
+            return { type: "text", content: part.text };
+          }
+          return part;
+        });
+      } else {
+        content = null;
+      }
+
       const msg: ChatMessage = {
         role: m.role as "user" | "assistant" | "tool",
-        content: typeof m.content === "string" ? m.content : null,
+        content,
       };
       if (m.role === "assistant" && "toolCalls" in m && m.toolCalls) {
         msg.toolCalls = m.toolCalls.map((tc) => ({

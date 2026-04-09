@@ -11,10 +11,10 @@
     "clean": "rimraf dist .angular"
   },
   "dependencies": {
-    "@ag-ui/client": "0.0.46",
-    "@ag-ui/core": "0.0.46",
-    "@ag-ui/encoder": "0.0.46",
-    "@ag-ui/proto": "0.0.46",
+    "@ag-ui/client": "0.0.51",
+    "@ag-ui/core": "0.0.51",
+    "@ag-ui/encoder": "0.0.51",
+    "@ag-ui/proto": "0.0.51",
     "@angular/animations": "^19.0.0",
     "@angular/cdk": "^19.0.0",
     "@angular/common": "^19.0.0",

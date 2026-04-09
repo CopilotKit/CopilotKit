@@ -124,7 +124,7 @@ def parse_config_yaml(config_path: Path) -> Dict[str, str]:
     Returns:
         Dictionary with stack_name_base and pattern values
     """
-    config = {"stack_name_base": "", "pattern": "strands-single-agent"}
+    config = {"stack_name_base": "", "pattern": "langgraph-single-agent"}
 
     if not config_path.exists():
         return config

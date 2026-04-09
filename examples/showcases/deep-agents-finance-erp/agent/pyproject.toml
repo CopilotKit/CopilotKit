@@ -1,0 +1,25 @@
+[project]
+name = "finance-erp-agent"
+version = "0.1.0"
+description = "Finance ERP deep agent powered by LangGraph and CopilotKit"
+requires-python = ">=3.11"
+dependencies = [
+  "copilotkit[langgraph]>=0.1.0",
+  "deepagents>=0.1.0",
+  "langgraph>=0.4.0",
+  "langchain>=0.3.0",
+  "langchain-openai>=0.3.0",
+  "langchain-community>=0.3.0",
+  "langsmith>=0.3.0",
+  "psycopg2-binary>=2.9.10",
+  "sqlalchemy>=2.0.0",
+  "uvicorn>=0.34.0",
+  "python-dotenv>=1.0.0",
+]
+
+[build-system]
+requires = ["setuptools>=75.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.langsmith]
+tracing = true

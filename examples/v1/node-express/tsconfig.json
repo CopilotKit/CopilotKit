@@ -1,5 +1,5 @@
 {
-  "extends": "../../packages/tsconfig/base.json",
+  "extends": "../../../packages/tsconfig/base.json",
   "compilerOptions": {
     "strictNullChecks": true,
     "outDir": "dist",

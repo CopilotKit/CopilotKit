@@ -1,5 +1,47 @@
 # @copilotkit/runtime
 
+## 1.55.1
+
+### Patch Changes
+
+- e6e8ef8: Fix an incorrect import in open-generative-ui middleware
+  - @copilotkit/shared@1.55.1
+
+## 1.55.1-next.0
+
+### Patch Changes
+
+- e6e8ef8: Fix an incorrect import in open-generative-ui middleware
+  - @copilotkit/shared@1.55.1-next.0
+
+## 1.55.0
+
+### Minor Changes
+
+- 1ceb963: refactor: consolidate V1/V2 packages into flat @copilotkit/\* structure
+- 9a6ee39: Add support for fetch based handler and add consistency in function naming
+- 5289791: feat: add multimodal attachment support to the builtin agent
+- 434ccd8: A2UI v0.9 + Open Generative UI: BYOC catalogs, dark mode, sandboxed UI generation
+
+### Patch Changes
+
+- 1ceb963: Add vertex AI
+- 8aafcbe: fix(agent): harden BuiltInAgent reasoning lifecycle
+  - Skip empty reasoning deltas (violates @ag-ui/core schema)
+  - Auto-close reasoning lifecycle when SDK omits reasoning-end (on consecutive-start, phase transitions, abort, error, and fallback paths)
+  - Make reasoning-end idempotent to prevent duplicate close events when auto-close already fired
+  - Regenerate reasoningMessageId for consecutive reasoning blocks when SDK provides no id
+  - Close reasoning in outer catch block so exceptions mid-reasoning emit proper lifecycle events
+
+- 52a9322: Fixing license warnings, barrel export and typing
+- 1ceb963: feat: re export state streaming langgraph middleware
+- 1ceb963: custom mcpClients configuration
+- Updated dependencies [1ceb963]
+- Updated dependencies [52a9322]
+- Updated dependencies [5289791]
+- Updated dependencies [434ccd8]
+  - @copilotkit/shared@1.55.0
+
 ## 1.55.0-next.8
 
 ### Patch Changes

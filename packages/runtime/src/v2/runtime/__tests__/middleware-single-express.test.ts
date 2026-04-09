@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { AbstractAgent } from "@ag-ui/client";
 
 import { createCopilotEndpointSingleRouteExpress } from "../express";
-import { CopilotRuntime } from "../runtime";
+import { CopilotRuntime } from "../core/runtime";
 import { logger } from "@copilotkit/shared";
 
 const dummyRuntime = (opts: Partial<CopilotRuntime> = {}) => {

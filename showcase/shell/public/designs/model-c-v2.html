@@ -1,0 +1,1174 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Model C v2 — Revised Unified Docs+Showcase</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --bg: #fafaf9;
+        --surface: #ffffff;
+        --elevated: #f5f5f3;
+        --hover: #eeeeeb;
+        --border: #e5e5e0;
+        --border-dim: #f0f0ec;
+        --text: #1a1a18;
+        --text2: #57574f;
+        --text3: #8a8a80;
+        --text4: #b5b5ad;
+        --accent: #0d6e3f;
+        --accent-light: #e8f5ee;
+        --accent-dim: rgba(13, 110, 63, 0.06);
+        --blue: #1a5fb4;
+        --blue-light: #e8f0fa;
+        --violet: #6c47b8;
+        --violet-light: #f0ecfa;
+        --sidebar-w: 260px;
+        --topbar-h: 52px;
+      }
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      body {
+        font-family: "Outfit", sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        overflow: hidden;
+        height: 100vh;
+      }
+
+      /* TOPBAR */
+      .topbar {
+        height: var(--topbar-h);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 24px;
+        border-bottom: 1px solid var(--border);
+        background: var(--surface);
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        z-index: 100;
+      }
+      .topbar .brand {
+        font-size: 14px;
+        font-weight: 700;
+        color: var(--text);
+        letter-spacing: -0.3px;
+      }
+      .topbar .nav {
+        display: flex;
+        gap: 2px;
+      }
+      .topbar .nav a {
+        padding: 6px 14px;
+        border-radius: 6px;
+        font-size: 13px;
+        font-weight: 500;
+        color: var(--text3);
+        text-decoration: none;
+        transition: all 0.15s;
+      }
+      .topbar .nav a:hover {
+        color: var(--text2);
+        background: var(--elevated);
+      }
+      .topbar .nav a.active {
+        color: var(--text);
+        background: var(--elevated);
+      }
+      .topbar .search {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 12px;
+        border-radius: 8px;
+        background: var(--elevated);
+        border: 1px solid var(--border);
+        font-size: 12px;
+        color: var(--text3);
+        cursor: pointer;
+        min-width: 220px;
+      }
+      .topbar .search .kbd {
+        margin-left: auto;
+        font-family: "IBM Plex Mono", monospace;
+        font-size: 10px;
+        border: 1px solid var(--border);
+        padding: 1px 5px;
+        border-radius: 3px;
+        background: var(--surface);
+      }
+
+      /* LAYOUT */
+      .layout {
+        display: flex;
+        margin-top: var(--topbar-h);
+        height: calc(100vh - var(--topbar-h));
+      }
+
+      /* SIDEBAR */
+      .sidebar {
+        width: var(--sidebar-w);
+        min-width: var(--sidebar-w);
+        border-right: 1px solid var(--border);
+        overflow-y: auto;
+        padding: 12px 0;
+        background: var(--surface);
+      }
+      .sidebar::-webkit-scrollbar {
+        width: 3px;
+      }
+      .sidebar::-webkit-scrollbar-thumb {
+        background: var(--border);
+        border-radius: 2px;
+      }
+      .sidebar .sec {
+        font-family: "IBM Plex Mono", monospace;
+        font-size: 9px;
+        text-transform: uppercase;
+        letter-spacing: 1.5px;
+        color: var(--text4);
+        padding: 14px 16px 6px;
+      }
+      .sidebar .item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 7px 16px 7px 20px;
+        font-size: 13px;
+        color: var(--text2);
+        cursor: pointer;
+        transition: all 0.1s;
+        border-left: 2px solid transparent;
+      }
+      .sidebar .item:hover {
+        background: var(--hover);
+        color: var(--text);
+      }
+      .sidebar .item.active {
+        color: var(--accent);
+        border-left-color: var(--accent);
+        background: var(--accent-dim);
+      }
+      .sidebar .item .demo-link {
+        font-size: 10px;
+        color: var(--accent);
+        opacity: 0;
+        transition: opacity 0.15s;
+        cursor: pointer;
+      }
+      .sidebar .item:hover .demo-link {
+        opacity: 1;
+      }
+      .sidebar .item.indent {
+        padding-left: 32px;
+        font-size: 12px;
+        color: var(--text3);
+      }
+      .sidebar .back {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 8px 16px;
+        font-size: 12px;
+        color: var(--text3);
+        cursor: pointer;
+      }
+      .sidebar .back:hover {
+        color: var(--text2);
+      }
+      .sidebar .int-header {
+        padding: 4px 16px 12px;
+        border-bottom: 1px solid var(--border);
+        margin-bottom: 4px;
+      }
+      .sidebar .int-header h2 {
+        font-size: 15px;
+        font-weight: 600;
+      }
+      .sidebar .int-header .tags {
+        display: flex;
+        gap: 6px;
+        margin-top: 4px;
+      }
+      .sidebar .int-header .tag {
+        font-size: 10px;
+        font-family: "IBM Plex Mono", monospace;
+        padding: 2px 8px;
+        border-radius: 4px;
+        background: var(--elevated);
+        color: var(--text3);
+        border: 1px solid var(--border);
+      }
+
+      /* MAIN */
+      .main {
+        flex: 1;
+        overflow-y: auto;
+        position: relative;
+      }
+
+      /* PAGES */
+      .page {
+        display: none;
+      }
+      .page.active {
+        display: block;
+      }
+
+      /* PAGE TABS */
+      .page-tabs {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        z-index: 200;
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(8px);
+        border-top: 1px solid var(--border);
+        display: flex;
+        align-items: center;
+        height: 36px;
+        padding: 0 16px;
+        gap: 4px;
+      }
+      .page-tabs .label {
+        font-family: "IBM Plex Mono", monospace;
+        font-size: 9px;
+        color: var(--text4);
+        text-transform: uppercase;
+        letter-spacing: 1.5px;
+        margin-right: 10px;
+      }
+      .page-tab {
+        padding: 4px 10px;
+        border-radius: 4px;
+        font-size: 10px;
+        background: none;
+        border: 1px solid transparent;
+        color: var(--text3);
+        cursor: pointer;
+        font-family: inherit;
+      }
+      .page-tab:hover {
+        color: var(--text2);
+      }
+      .page-tab.active {
+        color: var(--text);
+        background: var(--elevated);
+        border-color: var(--border);
+      }
+
+      /* === HOME: Conversational + Stack === */
+      .home {
+        padding: 0;
+        height: calc(100vh - var(--topbar-h) - 36px);
+        display: flex;
+      }
+      .home-left {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        border-right: 1px solid var(--border);
+      }
+      .home-header {
+        padding: 24px 32px 16px;
+        border-bottom: 1px solid var(--border);
+      }
+      .home-header h1 {
+        font-size: 22px;
+        font-weight: 600;
+        letter-spacing: -0.3px;
+      }
+      .home-header p {
+        font-size: 13px;
+        color: var(--text2);
+        margin-top: 4px;
+      }
+      .home-chat {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        padding: 20px 32px;
+      }
+      .home-chat .messages {
+        flex: 1;
+        overflow-y: auto;
+      }
+      .msg {
+        max-width: 85%;
+        padding: 12px 16px;
+        border-radius: 16px;
+        margin-bottom: 10px;
+        font-size: 14px;
+        line-height: 1.5;
+      }
+      .msg.bot {
+        background: var(--elevated);
+        color: var(--text);
+        border-bottom-left-radius: 4px;
+        margin-right: auto;
+      }
+      .msg.bot .name {
+        font-size: 10px;
+        font-weight: 600;
+        color: var(--text3);
+        margin-bottom: 4px;
+      }
+      .quick-replies {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin: 8px 0 16px;
+      }
+      .quick-reply {
+        padding: 8px 16px;
+        border-radius: 18px;
+        border: 1.5px solid var(--border);
+        background: var(--surface);
+        color: var(--text2);
+        font-size: 12px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.15s;
+        font-family: inherit;
+      }
+      .quick-reply:hover {
+        border-color: var(--accent);
+        color: var(--accent);
+        background: var(--accent-light);
+      }
+      .home-input {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 14px;
+        background: var(--surface);
+        border: 1.5px solid var(--border);
+        border-radius: 20px;
+        margin-top: 12px;
+      }
+      .home-input input {
+        flex: 1;
+        border: none;
+        outline: none;
+        font-family: inherit;
+        font-size: 14px;
+        color: var(--text);
+      }
+      .home-input input::placeholder {
+        color: var(--text4);
+      }
+      .home-input .send {
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        background: var(--accent);
+        border: none;
+        color: white;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 12px;
+      }
+
+      /* Stack nav (right side of home) */
+      .home-right {
+        width: 340px;
+        overflow-y: auto;
+        padding: 20px;
+        background: var(--elevated);
+      }
+      .home-right h3 {
+        font-size: 11px;
+        font-family: "IBM Plex Mono", monospace;
+        text-transform: uppercase;
+        letter-spacing: 1.5px;
+        color: var(--text4);
+        margin-bottom: 12px;
+      }
+      .stack-layer {
+        margin-bottom: 16px;
+      }
+      .stack-layer .layer-name {
+        font-size: 10px;
+        font-family: "IBM Plex Mono", monospace;
+        color: var(--accent);
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        margin-bottom: 6px;
+        font-weight: 600;
+      }
+      .stack-chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+      }
+      .stack-chip {
+        padding: 4px 10px;
+        border-radius: 5px;
+        font-size: 10px;
+        font-weight: 500;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        color: var(--text2);
+        cursor: pointer;
+        transition: all 0.12s;
+      }
+      .stack-chip:hover {
+        border-color: var(--accent);
+        color: var(--accent);
+      }
+      .stack-divider {
+        height: 1px;
+        background: var(--border);
+        margin: 4px 0 12px;
+      }
+      .stack-node {
+        text-align: center;
+        padding: 10px;
+        border: 2px solid var(--accent);
+        border-radius: 10px;
+        background: var(--accent-light);
+        margin: 8px 0;
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--accent);
+      }
+      .stack-node.protocol {
+        border-color: var(--violet);
+        background: var(--violet-light);
+        color: var(--violet);
+      }
+      .stack-connector {
+        text-align: center;
+        color: var(--text4);
+        font-size: 10px;
+        padding: 2px 0;
+      }
+
+      /* === GUIDE PAGE === */
+      .guide {
+        padding: 32px 40px;
+        max-width: 720px;
+      }
+      .guide .crumb {
+        font-size: 11px;
+        color: var(--text3);
+        margin-bottom: 16px;
+      }
+      .guide .crumb a {
+        color: var(--text3);
+        text-decoration: none;
+      }
+      .guide .crumb a:hover {
+        color: var(--text2);
+      }
+      .guide h1 {
+        font-size: 26px;
+        font-weight: 600;
+        letter-spacing: -0.3px;
+        margin-bottom: 6px;
+      }
+      .guide .desc {
+        font-size: 14px;
+        color: var(--text2);
+        line-height: 1.6;
+        margin-bottom: 20px;
+      }
+      .guide .demo-cta {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 18px;
+        border-radius: 8px;
+        background: var(--accent-light);
+        border: 1px solid rgba(13, 110, 63, 0.15);
+        color: var(--accent);
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+        margin-bottom: 24px;
+        transition: all 0.15s;
+      }
+      .guide .demo-cta:hover {
+        background: rgba(13, 110, 63, 0.12);
+      }
+      .guide h2 {
+        font-size: 18px;
+        font-weight: 600;
+        margin: 28px 0 8px;
+      }
+      .guide p {
+        font-size: 14px;
+        color: var(--text2);
+        line-height: 1.7;
+        margin-bottom: 12px;
+      }
+      .guide code {
+        background: var(--elevated);
+        padding: 1px 5px;
+        border-radius: 3px;
+        font-family: "IBM Plex Mono", monospace;
+        font-size: 12px;
+        color: var(--violet);
+      }
+      .guide .codeblock {
+        background: var(--elevated);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 16px;
+        margin: 10px 0 14px;
+        font-family: "IBM Plex Mono", monospace;
+        font-size: 12px;
+        line-height: 1.6;
+        color: var(--text2);
+        overflow-x: auto;
+      }
+
+      /* === DRAWER === */
+      .drawer-overlay {
+        position: fixed;
+        top: var(--topbar-h);
+        left: 0;
+        right: 0;
+        bottom: 36px;
+        background: rgba(0, 0, 0, 0.2);
+        z-index: 50;
+        display: none;
+        transition: opacity 0.2s;
+      }
+      .drawer-overlay.open {
+        display: block;
+      }
+      .drawer {
+        position: fixed;
+        top: var(--topbar-h);
+        right: 0;
+        bottom: 36px;
+        width: 55%;
+        background: var(--surface);
+        border-left: 1px solid var(--border);
+        transform: translateX(100%);
+        transition: transform 0.25s ease;
+        z-index: 60;
+        display: flex;
+        flex-direction: column;
+        box-shadow: -8px 0 30px rgba(0, 0, 0, 0.06);
+      }
+      .drawer.open {
+        transform: translateX(0);
+      }
+      .drawer-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 12px 20px;
+        border-bottom: 1px solid var(--border);
+      }
+      .drawer-header .left {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .drawer-header .title {
+        font-size: 13px;
+        font-weight: 600;
+      }
+      .drawer-header .live {
+        font-size: 9px;
+        padding: 2px 8px;
+        border-radius: 10px;
+        background: var(--accent-light);
+        color: var(--accent);
+        font-weight: 600;
+      }
+      .drawer-header .tabs {
+        display: flex;
+        gap: 2px;
+        margin-left: 12px;
+      }
+      .drawer-header .tab {
+        padding: 4px 10px;
+        border-radius: 5px;
+        font-size: 11px;
+        background: none;
+        border: none;
+        color: var(--text3);
+        cursor: pointer;
+        font-family: inherit;
+      }
+      .drawer-header .tab.active {
+        color: var(--text);
+        background: var(--elevated);
+      }
+      .drawer-header .close {
+        width: 28px;
+        height: 28px;
+        border-radius: 6px;
+        background: var(--elevated);
+        border: 1px solid var(--border);
+        color: var(--text2);
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 13px;
+      }
+      .drawer-header .close:hover {
+        background: var(--hover);
+      }
+      .drawer-body {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--text3);
+        font-size: 13px;
+        background: var(--elevated);
+      }
+
+      /* === MATRIX === */
+      .matrix {
+        padding: 28px 32px;
+      }
+      .matrix h1 {
+        font-size: 22px;
+        font-weight: 600;
+        margin-bottom: 4px;
+      }
+      .matrix .sub {
+        font-size: 12px;
+        color: var(--text3);
+        margin-bottom: 20px;
+      }
+      .matrix-table {
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        overflow: hidden;
+        background: var(--surface);
+      }
+      .matrix-table table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 11px;
+      }
+      .matrix-table th {
+        padding: 10px;
+        text-align: left;
+        background: var(--elevated);
+        font-family: "IBM Plex Mono", monospace;
+        font-size: 9px;
+        text-transform: uppercase;
+        letter-spacing: 0.8px;
+        color: var(--text3);
+        font-weight: 500;
+        border-bottom: 1px solid var(--border);
+      }
+      .matrix-table th.feat {
+        text-align: center;
+        min-width: 70px;
+      }
+      .matrix-table td {
+        padding: 8px 10px;
+        border-bottom: 1px solid var(--border-dim);
+      }
+      .matrix-table td.name {
+        font-weight: 500;
+        font-size: 12px;
+      }
+      .matrix-table td.cat {
+        font-size: 10px;
+        color: var(--text3);
+      }
+      .matrix-table td.cell {
+        text-align: center;
+      }
+      .matrix-table .check {
+        color: var(--accent);
+        font-weight: 600;
+        cursor: pointer;
+      }
+      .matrix-table .check:hover {
+        text-decoration: underline;
+      }
+      .matrix-table .dash {
+        color: var(--border);
+      }
+      .matrix-table tr:hover td {
+        background: var(--elevated);
+      }
+    </style>
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">CopilotKit</div>
+      <nav class="nav">
+        <a href="#" class="active" onclick="showPage('home')">Home</a>
+        <a href="#" onclick="showPage('guide')">Docs</a>
+        <a href="#" onclick="showPage('matrix')">Matrix</a>
+        <a href="#">Reference</a>
+      </nav>
+      <div class="search">
+        <span>⌕</span> Search docs, demos, APIs...<span class="kbd">⌘K</span>
+      </div>
+    </header>
+
+    <div class="layout">
+      <!-- SIDEBAR (hidden on home) -->
+      <aside class="sidebar" id="sidebar" style="display: none">
+        <div class="back" onclick="showPage('home')">← Home</div>
+        <div class="int-header">
+          <h2>LangGraph</h2>
+          <div class="tags">
+            <span class="tag">Python</span
+            ><span class="tag">Agent Framework</span>
+          </div>
+        </div>
+        <div class="sec">Getting Started</div>
+        <div class="item">Overview</div>
+        <div class="item" onclick="showPage('guide')">Quickstart</div>
+        <div class="sec">Features & Guides</div>
+        <div class="item" onclick="showPage('guide')">Prebuilt Components</div>
+        <div class="item active" onclick="showPage('guide')">
+          Generative UI
+          <span
+            class="demo-link"
+            onclick="
+              event.stopPropagation();
+              toggleDrawer();
+            "
+            >try →</span
+          >
+        </div>
+        <div class="item indent" onclick="toggleDrawer()">
+          Tool-Based <span class="demo-link" style="opacity: 1">try →</span>
+        </div>
+        <div class="item indent">Agentic</div>
+        <div class="item">
+          Shared State
+          <span
+            class="demo-link"
+            onclick="
+              event.stopPropagation();
+              toggleDrawer();
+            "
+            >try →</span
+          >
+        </div>
+        <div class="item">
+          Human in the Loop
+          <span
+            class="demo-link"
+            onclick="
+              event.stopPropagation();
+              toggleDrawer();
+            "
+            >try →</span
+          >
+        </div>
+        <div class="item">Frontend Tools</div>
+        <div class="item">
+          Multi-Agent
+          <span
+            class="demo-link"
+            onclick="
+              event.stopPropagation();
+              toggleDrawer();
+            "
+            >try →</span
+          >
+        </div>
+        <div class="sec">Backend</div>
+        <div class="item">Copilot Runtime</div>
+        <div class="item">AG-UI Direct</div>
+        <div class="sec">Reference</div>
+        <div class="item">Hooks & Components →</div>
+        <div class="sec">Advanced</div>
+        <div class="item">Deep Agents</div>
+        <div class="item">Authentication</div>
+      </aside>
+
+      <div class="main">
+        <!-- HOME: Conversational + Stack Nav -->
+        <div class="page active" id="page-home">
+          <div class="home">
+            <div class="home-left">
+              <div class="home-header">
+                <h1>CopilotKit Docs</h1>
+                <p>
+                  Ask anything, explore the stack, or jump straight to what you
+                  need.
+                </p>
+              </div>
+              <div class="home-chat">
+                <div class="messages">
+                  <div class="msg bot">
+                    <div class="name">CopilotKit</div>
+                    Welcome! I can help you find the right integration, explore
+                    features, or get started with a quickstart guide. What are
+                    you working on?
+                  </div>
+                  <div class="quick-replies">
+                    <button class="quick-reply" onclick="showPage('guide')">
+                      🚀 Get started with a framework
+                    </button>
+                    <button class="quick-reply" onclick="showPage('guide')">
+                      🎨 Explore Generative UI
+                    </button>
+                    <button class="quick-reply" onclick="toggleDrawer()">
+                      💬 Try a live demo
+                    </button>
+                    <button class="quick-reply" onclick="showPage('matrix')">
+                      📊 Feature comparison
+                    </button>
+                    <button class="quick-reply">
+                      🤔 Help me choose a stack
+                    </button>
+                  </div>
+                </div>
+                <div class="home-input">
+                  <input
+                    type="text"
+                    placeholder="Ask anything about CopilotKit..."
+                  />
+                  <button class="send">↑</button>
+                </div>
+              </div>
+            </div>
+            <div class="home-right">
+              <h3>The Stack</h3>
+
+              <div class="stack-layer">
+                <div class="layer-name">Frontend Platform</div>
+                <div class="stack-chips">
+                  <span class="stack-chip" onclick="showPage('guide')"
+                    >React</span
+                  >
+                  <span class="stack-chip">Angular</span>
+                  <span class="stack-chip">Vue</span>
+                  <span class="stack-chip">TanStack</span>
+                  <span class="stack-chip">React Native</span>
+                  <span class="stack-chip">SwiftUI</span>
+                </div>
+              </div>
+              <div class="stack-connector">↓</div>
+              <div class="stack-layer">
+                <div class="layer-name">Chat UI</div>
+                <div class="stack-chips">
+                  <span class="stack-chip" onclick="showPage('guide')"
+                    >CopilotChat</span
+                  >
+                  <span class="stack-chip">Sidebar</span>
+                  <span class="stack-chip">Popup</span>
+                  <span class="stack-chip">Headless</span>
+                </div>
+              </div>
+              <div class="stack-connector">↓</div>
+              <div class="stack-layer">
+                <div class="layer-name">Generative UI</div>
+                <div class="stack-chips">
+                  <span class="stack-chip" onclick="toggleDrawer()"
+                    >Controlled</span
+                  >
+                  <span class="stack-chip">Declarative</span>
+                  <span class="stack-chip">Open</span>
+                </div>
+              </div>
+              <div class="stack-connector">↓</div>
+              <div class="stack-layer">
+                <div class="layer-name">Interaction</div>
+                <div class="stack-chips">
+                  <span class="stack-chip" onclick="toggleDrawer()">HITL</span>
+                  <span class="stack-chip">Tools</span>
+                  <span class="stack-chip">Voice</span>
+                </div>
+              </div>
+              <div class="stack-connector">↓</div>
+              <div class="stack-node">CopilotKit</div>
+              <div class="stack-connector">↓</div>
+              <div class="stack-node protocol">AG-UI Protocol</div>
+              <div class="stack-connector">↓</div>
+              <div class="stack-layer">
+                <div class="layer-name">Agent Frameworks</div>
+                <div class="stack-chips">
+                  <span class="stack-chip" onclick="showPage('guide')"
+                    >LangGraph</span
+                  >
+                  <span class="stack-chip">Mastra</span>
+                  <span class="stack-chip">CrewAI</span>
+                  <span class="stack-chip">PydanticAI</span>
+                  <span class="stack-chip">Agno</span>
+                  <span class="stack-chip">+8</span>
+                </div>
+              </div>
+              <div class="stack-connector">↓</div>
+              <div class="stack-layer">
+                <div class="layer-name">Platforms</div>
+                <div class="stack-chips">
+                  <span class="stack-chip">Google ADK</span>
+                  <span class="stack-chip">AWS</span>
+                  <span class="stack-chip">Azure</span>
+                  <span class="stack-chip">Vercel</span>
+                </div>
+              </div>
+              <div class="stack-connector">↓</div>
+              <div class="stack-layer">
+                <div class="layer-name">LLM Providers</div>
+                <div class="stack-chips">
+                  <span class="stack-chip">OpenAI</span>
+                  <span class="stack-chip">Anthropic</span>
+                  <span class="stack-chip">Google</span>
+                  <span class="stack-chip">+5</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- GUIDE PAGE -->
+        <div class="page" id="page-guide">
+          <div class="guide">
+            <div class="crumb">
+              <a href="#" onclick="showPage('home')">Home</a> /
+              <a href="#">LangGraph</a> / Features / Generative UI
+            </div>
+            <h1>Generative UI</h1>
+            <p class="desc">
+              Let your agent generate interactive React components on the fly.
+              Tool-based, controlled, or fully agent-driven.
+            </p>
+            <div class="demo-cta" onclick="toggleDrawer()">▶ Try Live Demo</div>
+            <h2>Tool-Based Approach</h2>
+            <p>
+              Register a frontend tool with <code>useFrontendTool</code> and the
+              agent calls it to render components in the chat.
+            </p>
+            <div class="codeblock">
+              useFrontendTool({ name: "render_chart", parameters: z.object({
+              data: z.array(...), type: z.enum(["bar", "pie"]) }), handler:
+              async ({ data, type }) => { return { rendered: true }; }, });
+            </div>
+            <p>
+              When the agent calls this tool, CopilotKit renders your component
+              inline. The user sees an interactive chart appear in the chat.
+            </p>
+            <h2>Agentic Approach</h2>
+            <p>
+              For long-running tasks, the agent orchestrates multi-step
+              workflows and renders progress UI along the way.
+              <span
+                style="color: var(--accent); cursor: pointer"
+                onclick="toggleDrawer()"
+                >Try the demo →</span
+              >
+            </p>
+            <h2>Declarative (BYOC)</h2>
+            <p>
+              Use A2UI, Hashbrown, JSON Render, or other declarative renderers.
+              The agent sends a schema, your renderer turns it into components.
+            </p>
+            <h2>API Reference</h2>
+            <p>
+              Key hooks: <code>useFrontendTool</code>,
+              <code>useRenderTool</code>, <code>useComponent</code>.
+              <a href="#" style="color: var(--blue)">Full reference →</a>
+            </p>
+          </div>
+        </div>
+
+        <!-- MATRIX -->
+        <div class="page" id="page-matrix">
+          <div class="matrix">
+            <h1>Feature Matrix</h1>
+            <div class="sub">
+              47 features across 30 integrations. Click any checkmark to try the
+              live demo.
+            </div>
+            <div class="matrix-table">
+              <table>
+                <thead>
+                  <tr>
+                    <th style="min-width: 150px">Integration</th>
+                    <th class="feat">Chat</th>
+                    <th class="feat">Gen UI</th>
+                    <th class="feat">HITL</th>
+                    <th class="feat">State</th>
+                    <th class="feat">Streaming</th>
+                    <th class="feat">Sub-Agents</th>
+                    <th class="feat">MCP</th>
+                    <th class="feat">Voice</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>
+                      <span class="name">LangGraph (Python)</span><br /><span
+                        class="cat"
+                        >Agent Framework</span
+                      >
+                    </td>
+                    <td class="cell">
+                      <span class="check" onclick="toggleDrawer()">✓</span>
+                    </td>
+                    <td class="cell">
+                      <span class="check" onclick="toggleDrawer()">✓</span>
+                    </td>
+                    <td class="cell">
+                      <span class="check" onclick="toggleDrawer()">✓</span>
+                    </td>
+                    <td class="cell">
+                      <span class="check" onclick="toggleDrawer()">✓</span>
+                    </td>
+                    <td class="cell">
+                      <span class="check" onclick="toggleDrawer()">✓</span>
+                    </td>
+                    <td class="cell">
+                      <span class="check" onclick="toggleDrawer()">✓</span>
+                    </td>
+                    <td class="cell"><span class="dash">—</span></td>
+                    <td class="cell"><span class="dash">—</span></td>
+                  </tr>
+                  <tr>
+                    <td>
+                      <span class="name">Mastra</span><br /><span class="cat"
+                        >Agent Framework</span
+                      >
+                    </td>
+                    <td class="cell"><span class="dash">○</span></td>
+                    <td class="cell"><span class="dash">○</span></td>
+                    <td class="cell"><span class="dash">○</span></td>
+                    <td class="cell"><span class="dash">—</span></td>
+                    <td class="cell"><span class="dash">—</span></td>
+                    <td class="cell"><span class="dash">—</span></td>
+                    <td class="cell"><span class="dash">—</span></td>
+                    <td class="cell"><span class="dash">—</span></td>
+                  </tr>
+                  <tr>
+                    <td>
+                      <span class="name">Google ADK</span><br /><span
+                        class="cat"
+                        >Enterprise</span
+                      >
+                    </td>
+                    <td class="cell"><span class="dash">○</span></td>
+                    <td class="cell"><span class="dash">○</span></td>
+                    <td class="cell"><span class="dash">○</span></td>
+                    <td class="cell"><span class="dash">—</span></td>
+                    <td class="cell"><span class="dash">—</span></td>
+                    <td class="cell"><span class="dash">—</span></td>
+                    <td class="cell"><span class="dash">—</span></td>
+                    <td class="cell"><span class="dash">—</span></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- DRAWER -->
+    <div class="drawer-overlay" id="overlay" onclick="toggleDrawer()"></div>
+    <div class="drawer" id="drawer">
+      <div class="drawer-header">
+        <div class="left">
+          <span class="title">Tool-Based Generative UI</span>
+          <span class="live">● Live</span>
+          <div class="tabs">
+            <button class="tab active">Preview</button>
+            <button class="tab">Code</button>
+            <button
+              class="tab"
+              onclick="
+                toggleDrawer();
+                showPage('guide');
+              "
+            >
+              Guide
+            </button>
+          </div>
+        </div>
+        <button class="close" onclick="toggleDrawer()">✕</button>
+      </div>
+      <div class="drawer-body">
+        <div style="text-align: center">
+          <div style="font-size: 36px; opacity: 0.3; margin-bottom: 8px">
+            💬
+          </div>
+          Live demo slides in here<br />
+          <span style="font-size: 11px; color: var(--text4)"
+            >Click "Guide" tab to return to docs</span
+          >
+        </div>
+      </div>
+    </div>
+
+    <!-- PAGE TABS -->
+    <div class="page-tabs">
+      <span class="label">View</span>
+      <button class="page-tab active" onclick="showPage('home')">
+        Home (Conversational)
+      </button>
+      <button class="page-tab" onclick="showPage('guide')">
+        Guide + Drawer
+      </button>
+      <button class="page-tab" onclick="showPage('matrix')">Matrix</button>
+    </div>
+
+    <script>
+      function showPage(id) {
+        document
+          .querySelectorAll(".page")
+          .forEach((p) => p.classList.remove("active"));
+        document
+          .querySelectorAll(".page-tab")
+          .forEach((t) => t.classList.remove("active"));
+        document.getElementById("page-" + id).classList.add("active");
+        document.querySelectorAll(".page-tab").forEach((t) => {
+          if (
+            (id === "home" && t.textContent.includes("Home")) ||
+            (id === "guide" && t.textContent.includes("Guide")) ||
+            (id === "matrix" && t.textContent.includes("Matrix"))
+          )
+            t.classList.add("active");
+        });
+        const sidebar = document.getElementById("sidebar");
+        sidebar.style.display = id === "home" ? "none" : "block";
+        // Close drawer when navigating
+        document.getElementById("drawer").classList.remove("open");
+        document.getElementById("overlay").classList.remove("open");
+        // Update nav
+        document
+          .querySelectorAll(".topbar .nav a")
+          .forEach((a) => a.classList.remove("active"));
+        if (id === "home")
+          document
+            .querySelector(".topbar .nav a:nth-child(1)")
+            .classList.add("active");
+        else if (id === "guide")
+          document
+            .querySelector(".topbar .nav a:nth-child(2)")
+            .classList.add("active");
+        else if (id === "matrix")
+          document
+            .querySelector(".topbar .nav a:nth-child(3)")
+            .classList.add("active");
+      }
+      function toggleDrawer() {
+        document.getElementById("drawer").classList.toggle("open");
+        document.getElementById("overlay").classList.toggle("open");
+      }
+    </script>
+  </body>
+</html>

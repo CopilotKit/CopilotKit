@@ -12,6 +12,7 @@ node_modules
 
 # testing
 coverage
+test-results/
 
 # next.js
 .next/
@@ -57,3 +58,4 @@ bun.lockb
 
 # Tools
 .claude
+.scratch/

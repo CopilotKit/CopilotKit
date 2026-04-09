@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Showcase Design Explorations</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        background: #09090b;
+        color: #fafafa;
+        min-height: 100vh;
+        padding: 48px;
+      }
+      h1 {
+        font-size: 28px;
+        font-weight: 300;
+        margin-bottom: 8px;
+      }
+      .sub {
+        font-size: 14px;
+        color: #71717a;
+        margin-bottom: 40px;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+        gap: 16px;
+      }
+      a.card {
+        display: block;
+        padding: 24px;
+        border: 1px solid #27272a;
+        border-radius: 12px;
+        background: #111114;
+        text-decoration: none;
+        color: inherit;
+        transition: all 0.2s;
+      }
+      a.card:hover {
+        border-color: #3b82f6;
+        transform: translateY(-2px);
+      }
+      a.card h3 {
+        font-size: 15px;
+        font-weight: 600;
+        margin-bottom: 4px;
+      }
+      a.card p {
+        font-size: 12px;
+        color: #71717a;
+        line-height: 1.5;
+      }
+      a.card .tag {
+        display: inline-block;
+        font-size: 10px;
+        padding: 2px 8px;
+        border-radius: 4px;
+        margin-top: 8px;
+      }
+      .tag-frontdoor {
+        background: rgba(59, 130, 246, 0.1);
+        color: #60a5fa;
+      }
+      .tag-docs {
+        background: rgba(139, 92, 246, 0.1);
+        color: #a78bfa;
+      }
+      .tag-stack {
+        background: rgba(34, 197, 94, 0.1);
+        color: #4ade80;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Showcase Design Explorations</h1>
+    <p class="sub">Work in progress — share and discuss</p>
+    <div class="grid">
+      <a class="card" href="front-door-v1.html">
+        <h3>Front Door — Round 1</h3>
+        <p>
+          Three initial concepts: Guided Wizard, Feature-First Explorer,
+          Interactive Configurator
+        </p>
+        <span class="tag tag-frontdoor">Front Door</span>
+      </a>
+      <a class="card" href="front-door-v2.html">
+        <h3>Front Door — Round 2</h3>
+        <p>
+          Five variations: Terminal, Editorial, Constellation, Dashboard,
+          Conversational
+        </p>
+        <span class="tag tag-frontdoor">Front Door</span>
+      </a>
+      <a class="card" href="front-door-terminal-light.html">
+        <h3>Terminal Light</h3>
+        <p>Enterprise-friendly light theme version of the Terminal concept</p>
+        <span class="tag tag-frontdoor">Front Door</span>
+      </a>
+      <a class="card" href="model-c.html">
+        <h3>Model C — Unified Docs + Showcase</h3>
+        <p>
+          Interactive mockup: Front Door, Guide Page, Demo Viewer, Matrix. Tabs
+          at bottom to switch views.
+        </p>
+        <span class="tag tag-docs">Docs Integration</span>
+      </a>
+      <a class="card" href="model-c-variations.html">
+        <h3>Model C — Layout Variations</h3>
+        <p>Three approaches: Split Pane, Contextual Drawer, Inline Demos</p>
+        <span class="tag tag-docs">Docs Integration</span>
+      </a>
+      <a class="card" href="model-c-v2.html" style="border-color: #0d6e3f44">
+        <h3>Model C v2 — Revised ⭐</h3>
+        <p>
+          Incorporates all feedback: Conversational home + Stack-as-nav +
+          Contextual drawer + Light theme. The current leading direction.
+        </p>
+        <span class="tag tag-docs">Docs Integration</span>
+      </a>
+      <a class="card" href="stack-v2.html" style="border-color: #0d6e3f44">
+        <h3>Stack Diagram v2 ⭐</h3>
+        <p>
+          Revised styling (glassmorphism, light theme). A2A/MCP lateral. Gen UI
+          no-wrap spectrum. Based on team feedback.
+        </p>
+        <span class="tag tag-stack">Architecture</span>
+      </a>
+      <a class="card" href="stack.html">
+        <h3>Stack Diagram v1</h3>
+        <p>Original dark theme version. Reference only.</p>
+        <span class="tag tag-stack">Architecture</span>
+      </a>
+    </div>
+  </body>
+</html>

@@ -1,0 +1,10 @@
+{
+  "nodeModulesDir": "manual",
+  "tasks": {
+    "dev": "deno run --allow-net --allow-env --allow-read --watch src/index.ts",
+    "start": "deno run --allow-net --allow-env --allow-read src/index.ts"
+  },
+  "compilerOptions": {
+    "strict": true
+  }
+}

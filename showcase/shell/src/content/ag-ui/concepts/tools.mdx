@@ -1,0 +1,357 @@
+---
+title: "Tools"
+description: "Understanding tools and how they enable human-in-the-loop AI workflows"
+---
+
+# Tools
+
+Tools are a fundamental concept in the AG-UI protocol that enable AI agents to
+interact with external systems and incorporate human judgment into their
+workflows. By defining tools in the frontend and passing them to agents,
+developers can create sophisticated human-in-the-loop experiences that combine
+AI capabilities with human expertise.
+
+## What Are Tools?
+
+In AG-UI, tools are functions that agents can call to:
+
+1. Request specific information
+2. Perform actions in external systems
+3. Ask for human input or confirmation
+4. Access specialized capabilities
+
+Tools bridge the gap between AI reasoning and real-world actions, allowing
+agents to accomplish tasks that would be impossible through conversation alone.
+
+## Tool Structure
+
+Tools follow a consistent structure that defines their name, purpose, and
+expected parameters:
+
+```typescript
+interface Tool {
+  name: string; // Unique identifier for the tool
+  description: string; // Human-readable explanation of what the tool does
+  parameters: {
+    // JSON Schema defining the tool's parameters
+    type: "object";
+    properties: {
+      // Tool-specific parameters
+    };
+    required: string[]; // Array of required parameter names
+  };
+}
+```
+
+The `parameters` field uses [JSON Schema](https://json-schema.org/) to define
+the structure of arguments that the tool accepts. This schema is used by both
+the agent (to generate valid tool calls) and the frontend (to validate and parse
+tool arguments).
+
+## Frontend-Defined Tools
+
+A key aspect of AG-UI's tool system is that tools are defined in the frontend
+and passed to the agent during execution:
+
+```typescript
+// Define tools in the frontend
+const userConfirmationTool = {
+  name: "confirmAction",
+  description: "Ask the user to confirm a specific action before proceeding",
+  parameters: {
+    type: "object",
+    properties: {
+      action: {
+        type: "string",
+        description: "The action that needs user confirmation",
+      },
+      importance: {
+        type: "string",
+        enum: ["low", "medium", "high", "critical"],
+        description: "The importance level of the action",
+      },
+    },
+    required: ["action"],
+  },
+};
+
+// Pass tools to the agent during execution
+agent.runAgent({
+  tools: [userConfirmationTool],
+  // Other parameters...
+});
+```
+
+This approach has several advantages:
+
+1. **Frontend control**: The frontend determines what capabilities are available
+   to the agent
+2. **Dynamic capabilities**: Tools can be added or removed based on user
+   permissions, context, or application state
+3. **Separation of concerns**: Agents focus on reasoning while frontends handle
+   tool implementation
+4. **Security**: Sensitive operations are controlled by the application, not the
+   agent
+
+## Tool Call Lifecycle
+
+When an agent needs to use a tool, it follows a standardized sequence of events:
+
+1. **ToolCallStart**: Indicates the beginning of a tool call with a unique ID
+   and tool name
+
+   ```typescript
+   {
+     type: EventType.TOOL_CALL_START,
+     toolCallId: "tool-123",
+     toolCallName: "confirmAction",
+     parentMessageId: "msg-456" // Optional reference to a message
+   }
+   ```
+
+2. **ToolCallArgs**: Streams the tool arguments as they're generated
+
+   ```typescript
+   {
+     type: EventType.TOOL_CALL_ARGS,
+     toolCallId: "tool-123",
+     delta: '{"act' // Partial JSON being streamed
+   }
+   ```
+
+   ```typescript
+   {
+     type: EventType.TOOL_CALL_ARGS,
+     toolCallId: "tool-123",
+     delta: 'ion":"Depl' // More JSON being streamed
+   }
+   ```
+
+   ```typescript
+   {
+     type: EventType.TOOL_CALL_ARGS,
+     toolCallId: "tool-123",
+     delta: 'oy the application to production"}' // Final JSON fragment
+   }
+   ```
+
+3. **ToolCallEnd**: Marks the completion of the tool call
+   ```typescript
+   {
+     type: EventType.TOOL_CALL_END,
+     toolCallId: "tool-123"
+   }
+   ```
+
+The frontend accumulates these deltas to construct the complete tool call
+arguments. Once the tool call is complete, the frontend can execute the tool and
+provide results back to the agent.
+
+## Tool Results
+
+After a tool has been executed, the result is sent back to the agent as a "tool
+message":
+
+```typescript
+{
+  id: "result-789",
+  role: "tool",
+  content: "true", // Tool result as a string
+  toolCallId: "tool-123" // References the original tool call
+}
+```
+
+This message becomes part of the conversation history, allowing the agent to
+reference and incorporate the tool's result in subsequent responses.
+
+## Human-in-the-Loop Workflows
+
+The AG-UI tool system is especially powerful for implementing human-in-the-loop
+workflows. By defining tools that request human input or confirmation,
+developers can create AI experiences that seamlessly blend autonomous operation
+with human judgment.
+
+For example:
+
+1. Agent needs to make an important decision
+2. Agent calls the `confirmAction` tool with details about the decision
+3. Frontend displays a confirmation dialog to the user
+4. User provides their input
+5. Frontend sends the user's decision back to the agent
+6. Agent continues processing with awareness of the user's choice
+
+This pattern enables use cases like:
+
+- **Approval workflows**: AI suggests actions that require human approval
+- **Data verification**: Humans verify or correct AI-generated data
+- **Collaborative decision-making**: AI and humans jointly solve complex
+  problems
+- **Supervised learning**: Human feedback improves future AI decisions
+
+## CopilotKit Integration
+
+[CopilotKit](https://docs.copilotkit.ai/) provides a simplified way to work with
+AG-UI tools in React applications through its
+[`useCopilotAction`](https://docs.copilotkit.ai/guides/frontend-actions) hook:
+
+```tsx
+// Define a tool for user confirmation
+useCopilotAction({
+  name: "confirmAction",
+  description: "Ask the user to confirm an action",
+  parameters: {
+    type: "object",
+    properties: {
+      action: {
+        type: "string",
+        description: "The action to confirm",
+      },
+    },
+    required: ["action"],
+  },
+  handler: async ({ action }) => {
+    // Show a confirmation dialog
+    const confirmed = await showConfirmDialog(action);
+    return confirmed ? "approved" : "rejected";
+  },
+});
+```
+
+This approach makes it easy to define tools that integrate with your React
+components and handle the tool execution logic in a clean, declarative way.
+
+## Tool Examples
+
+Here are some common types of tools used in AG-UI applications:
+
+### User Confirmation
+
+```typescript
+{
+  name: "confirmAction",
+  description: "Ask the user to confirm an action",
+  parameters: {
+    type: "object",
+    properties: {
+      action: {
+        type: "string",
+        description: "The action to confirm"
+      },
+      importance: {
+        type: "string",
+        enum: ["low", "medium", "high", "critical"],
+        description: "The importance level"
+      }
+    },
+    required: ["action"]
+  }
+}
+```
+
+### Data Retrieval
+
+```typescript
+{
+  name: "fetchUserData",
+  description: "Retrieve data about a specific user",
+  parameters: {
+    type: "object",
+    properties: {
+      userId: {
+        type: "string",
+        description: "ID of the user"
+      },
+      fields: {
+        type: "array",
+        items: {
+          type: "string"
+        },
+        description: "Fields to retrieve"
+      }
+    },
+    required: ["userId"]
+  }
+}
+```
+
+### User Interface Control
+
+```typescript
+{
+  name: "navigateTo",
+  description: "Navigate to a different page or view",
+  parameters: {
+    type: "object",
+    properties: {
+      destination: {
+        type: "string",
+        description: "Destination page or view"
+      },
+      params: {
+        type: "object",
+        description: "Optional parameters for the navigation"
+      }
+    },
+    required: ["destination"]
+  }
+}
+```
+
+### Content Generation
+
+```typescript
+{
+  name: "generateImage",
+  description: "Generate an image based on a description",
+  parameters: {
+    type: "object",
+    properties: {
+      prompt: {
+        type: "string",
+        description: "Description of the image to generate"
+      },
+      style: {
+        type: "string",
+        description: "Visual style for the image"
+      },
+      dimensions: {
+        type: "object",
+        properties: {
+          width: { type: "number" },
+          height: { type: "number" }
+        },
+        description: "Dimensions of the image"
+      }
+    },
+    required: ["prompt"]
+  }
+}
+```
+
+## Best Practices
+
+When designing tools for AG-UI:
+
+1. **Clear naming**: Use descriptive, action-oriented names
+2. **Detailed descriptions**: Include thorough descriptions to help the agent
+   understand when and how to use the tool
+3. **Structured parameters**: Define precise parameter schemas with descriptive
+   field names and constraints
+4. **Required fields**: Only mark parameters as required if they're truly
+   necessary
+5. **Error handling**: Implement robust error handling in tool execution code
+6. **User experience**: Design tool UIs that provide appropriate context for
+   human decision-making
+
+## Conclusion
+
+Tools in AG-UI bridge the gap between AI reasoning and real-world actions,
+enabling sophisticated workflows that combine the strengths of AI and human
+intelligence. By defining tools in the frontend and passing them to agents,
+developers can create interactive experiences where AI and humans collaborate
+efficiently.
+
+The tool system is particularly powerful for implementing human-in-the-loop
+workflows, where AI can suggest actions but defer critical decisions to humans.
+This balances automation with human judgment, creating AI experiences that are
+both powerful and trustworthy.

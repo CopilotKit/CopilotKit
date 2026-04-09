@@ -385,6 +385,60 @@ describe("useThreads", () => {
     });
   });
 
+  it("exposes thread-scoped pagination properties", async () => {
+    fetchMock
+      .mockReturnValueOnce(
+        jsonResponse({
+          threads: sampleThreads,
+          joinCode: "jc-1",
+          nextCursor: "cursor-abc",
+        }),
+      )
+      .mockReturnValueOnce(jsonResponse({ joinToken: "jt-1" }));
+
+    const { result } = renderHook(() => useThreads(defaultInput));
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
+
+    expect(result.current).toHaveProperty("hasMoreThreads");
+    expect(result.current).toHaveProperty("isFetchingMoreThreads");
+    expect(result.current).toHaveProperty("fetchMoreThreads");
+    expect(result.current).not.toHaveProperty("hasNextPage");
+    expect(result.current).not.toHaveProperty("isFetchingNextPage");
+    expect(result.current).not.toHaveProperty("fetchNextPage");
+
+    expect(result.current.hasMoreThreads).toBe(true);
+    expect(result.current.isFetchingMoreThreads).toBe(false);
+    expect(typeof result.current.fetchMoreThreads).toBe("function");
+  });
+
+  it("does not expose organizationId or createdById on threads", async () => {
+    fetchMock
+      .mockReturnValueOnce(
+        jsonResponse({ threads: sampleThreads, joinCode: "jc-1" }),
+      )
+      .mockReturnValueOnce(jsonResponse({ joinToken: "jt-1" }));
+
+    const { result } = renderHook(() => useThreads(defaultInput));
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
+
+    for (const thread of result.current.threads) {
+      expect(thread).not.toHaveProperty("organizationId");
+      expect(thread).not.toHaveProperty("createdById");
+      expect(thread).toHaveProperty("id");
+      expect(thread).toHaveProperty("agentId");
+      expect(thread).toHaveProperty("name");
+      expect(thread).toHaveProperty("archived");
+      expect(thread).toHaveProperty("createdAt");
+      expect(thread).toHaveProperty("updatedAt");
+    }
+  });
+
   it("tears down sockets after repeated connection failures", async () => {
     fetchMock
       .mockReturnValueOnce(

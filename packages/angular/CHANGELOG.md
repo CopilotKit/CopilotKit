@@ -1,5 +1,34 @@
 # @copilotkit/angular
 
+## 1.54.2
+
+### Patch Changes
+
+- @copilotkit/core@1.55.1
+- @copilotkit/shared@1.55.1
+
+## 1.54.2-next.0
+
+### Patch Changes
+
+- @copilotkit/core@1.55.1-next.0
+- @copilotkit/shared@1.55.1-next.0
+
+## 1.54.1
+
+### Patch Changes
+
+- b4a8b7a: Add auto-detection of runtime transport (REST vs single-endpoint)
+- Updated dependencies [1ceb963]
+- Updated dependencies [b4a8b7a]
+- Updated dependencies [1ceb963]
+- Updated dependencies [52a9322]
+- Updated dependencies [1ceb963]
+- Updated dependencies [5289791]
+- Updated dependencies [434ccd8]
+  - @copilotkit/core@1.55.0
+  - @copilotkit/shared@1.55.0
+
 ## 1.54.1-next.8
 
 ### Patch Changes

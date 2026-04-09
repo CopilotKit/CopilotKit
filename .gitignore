@@ -1,5 +1,6 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 .vscode
+.chalk
 .claude/*.local.json
 .claude/worktrees
 
@@ -27,6 +28,7 @@ superpowers/
 
 __pycache__/
 *.env
+.doctest-output/
 *.next
 .venv
 .vercel
@@ -59,3 +61,4 @@ lefthook-local.yml
 *.a
 *.lib
 *.wasm
+tasks/

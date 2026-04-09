@@ -1,6 +1,6 @@
 {
   "name": "@copilotkit/shared",
-  "version": "1.55.0-next.8",
+  "version": "1.55.1",
   "private": false,
   "keywords": [
     "ai",
@@ -38,7 +38,7 @@
     "access": "public"
   },
   "scripts": {
-    "build": "tsdown && node ../../scripts/copy-dts.mjs",
+    "build": "tsdown",
     "dev": "tsdown --watch",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -49,7 +49,7 @@
     "attw": "attw --pack . --profile node16"
   },
   "dependencies": {
-    "@ag-ui/client": "0.0.47",
+    "@ag-ui/client": "0.0.52",
     "@copilotkit/license-verifier": "0.0.1-a1",
     "@segment/analytics-node": "^2.1.2",
     "@standard-schema/spec": "^1.0.0",
@@ -57,7 +57,8 @@
     "graphql": "^16.8.1",
     "partial-json": "^0.1.7",
     "uuid": "^11.1.0",
-    "zod": "^3.23.3"
+    "zod": "^3.23.3",
+    "zod-to-json-schema": "^3.23.5"
   },
   "devDependencies": {
     "@types/uuid": "^10.0.0",
@@ -68,10 +69,9 @@
     "tsdown": "^0.20.3",
     "typescript": "^5.2.3",
     "valibot": "^1.2.0",
-    "vitest": "^3.2.4",
-    "zod-to-json-schema": "^3.23.5"
+    "vitest": "^3.2.4"
   },
   "peerDependencies": {
-    "@ag-ui/core": "^0.0.48"
+    "@ag-ui/core": ">=0.0.48"
   }
 }

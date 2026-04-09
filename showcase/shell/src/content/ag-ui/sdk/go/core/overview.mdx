@@ -1,0 +1,57 @@
+---
+title: "Overview"
+description: "Core concepts in the Agent User Interaction Protocol Go SDK"
+---
+
+# Package Import
+
+```go
+
+```
+
+## Types Overview
+
+The core package provides the fundamental types and interfaces that power the AG-UI protocol in Go. These types represent the building blocks for agent-to-frontend communication through a strongly typed, event-driven architecture.
+
+Key types include:
+
+- **Event Interface** - The base interface implemented by all AG-UI events
+- **BaseEvent** - Common fields shared across all event types
+- **Event Type Constants** - Strongly typed event identifiers
+- **Validation Methods** - Built-in event validation
+
+## Events Overview
+
+The events package (`core/events`) forms the foundation of the SDK, providing a comprehensive event-driven system for real-time communication between agents and frontends. The architecture is built around Server-Sent Events (SSE) for efficient streaming.
+
+The event system includes:
+
+- **Text Message Events** - Streaming assistant responses with start, content, and end markers
+- **Tool Call Events** - Function execution lifecycle from invocation through result
+- **Run Lifecycle Events** - Tracking agent execution states and errors
+- **State Management Events** - Synchronizing agent state with snapshots and deltas
+- **Thinking Events** - Supporting reasoning phases with dedicated event streams
+
+All events implement the common `Event` interface, enabling consistent handling patterns while maintaining type safety through Go's type system.
+
+## Navigation Cards
+
+<Card
+  title="Events Reference"
+  icon="cube"
+  href="/sdk/go/core/events"
+  color="#3B82F6"
+  iconType="solid"
+>
+  Complete documentation of all events in the core/events package
+</Card>
+
+<Card
+  title="Types Reference"
+  icon="cube"
+  href="/sdk/go/core/types"
+  color="#3B82F6"
+  iconType="solid"
+>
+  Complete documentation of all types in the core package
+</Card>

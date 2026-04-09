@@ -1,6 +1,6 @@
 {
   "name": "@copilotkit/voice",
-  "version": "1.55.0-next.8",
+  "version": "1.55.1",
   "description": "Voice services for CopilotKit (transcription, text-to-speech, etc.)",
   "type": "module",
   "main": "./dist/index.cjs",
@@ -19,7 +19,7 @@
     "access": "public"
   },
   "scripts": {
-    "build": "tsdown && node ../../scripts/copy-dts.mjs",
+    "build": "tsdown",
     "prepublishOnly": "pnpm run build",
     "dev": "tsdown --watch",
     "check-types": "tsc --noEmit",

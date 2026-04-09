@@ -1,0 +1,968 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Model C — 3 Variations</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&family=Crimson+Pro:ital,wght@0,400;0,600;1,400&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --bg: #09090b;
+        --surface: #111114;
+        --elevated: #18181b;
+        --hover: #1f1f23;
+        --border: #27272a;
+        --border-dim: #1e1e22;
+        --text: #fafafa;
+        --text2: #a1a1aa;
+        --text3: #52525b;
+        --text4: #3f3f46;
+        --blue: #3b82f6;
+        --green: #22c55e;
+        --green-dim: rgba(34, 197, 94, 0.1);
+        --violet: #8b5cf6;
+        --amber: #f59e0b;
+        --rose: #f472b6;
+      }
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      body {
+        font-family: "Outfit", sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        overflow-x: hidden;
+      }
+
+      /* Tab nav */
+      .vtabs {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        z-index: 1000;
+        background: rgba(0, 0, 0, 0.92);
+        backdrop-filter: blur(12px);
+        display: flex;
+        align-items: center;
+        height: 44px;
+        padding: 0 16px;
+        gap: 4px;
+        border-bottom: 1px solid var(--border);
+        font-family: "IBM Plex Mono", monospace;
+        font-size: 10px;
+      }
+      .vtabs .lbl {
+        color: var(--text4);
+        margin-right: 10px;
+        text-transform: uppercase;
+        letter-spacing: 1.5px;
+      }
+      .vtab {
+        padding: 5px 12px;
+        border-radius: 5px;
+        border: 1px solid transparent;
+        background: none;
+        color: var(--text3);
+        cursor: pointer;
+        font-family: inherit;
+        font-size: 10px;
+        transition: all 0.15s;
+      }
+      .vtab:hover {
+        color: var(--text2);
+      }
+      .vtab.active {
+        color: var(--text);
+        background: var(--elevated);
+        border-color: var(--border);
+      }
+      .variation {
+        display: none;
+        padding-top: 44px;
+        min-height: 100vh;
+      }
+      .variation.active {
+        display: block;
+      }
+
+      /* Shared topbar for all variations */
+      .topbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 20px;
+        height: 48px;
+        border-bottom: 1px solid var(--border);
+        background: var(--bg);
+      }
+      .topbar .brand {
+        font-size: 14px;
+        font-weight: 700;
+        letter-spacing: -0.3px;
+      }
+      .topbar .nav {
+        display: flex;
+        gap: 2px;
+      }
+      .topbar .nav a {
+        padding: 6px 12px;
+        border-radius: 6px;
+        font-size: 12px;
+        font-weight: 500;
+        color: var(--text3);
+        text-decoration: none;
+        transition: all 0.15s;
+      }
+      .topbar .nav a:hover {
+        color: var(--text2);
+        background: var(--elevated);
+      }
+      .topbar .nav a.active {
+        color: var(--text);
+        background: var(--elevated);
+      }
+      .topbar .search {
+        padding: 6px 12px 6px 32px;
+        border-radius: 8px;
+        background: var(--elevated);
+        border: 1px solid var(--border);
+        color: var(--text2);
+        font-family: inherit;
+        font-size: 12px;
+        width: 240px;
+        outline: none;
+      }
+      .topbar .search::placeholder {
+        color: var(--text4);
+      }
+
+      /* ==============================
+   V1: SPLIT PANE — docs left, demo right
+   ============================== */
+      .v1-layout {
+        display: grid;
+        grid-template-columns: 280px 1fr 1fr;
+        height: calc(100vh - 44px - 48px);
+      }
+      .v1-sidebar {
+        border-right: 1px solid var(--border);
+        overflow-y: auto;
+        padding: 12px 0;
+        background: var(--surface);
+      }
+      .v1-sidebar .sec {
+        font-family: "IBM Plex Mono", monospace;
+        font-size: 8px;
+        text-transform: uppercase;
+        letter-spacing: 1.5px;
+        color: var(--text4);
+        padding: 14px 16px 6px;
+      }
+      .v1-sidebar .item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 7px 16px 7px 24px;
+        font-size: 12px;
+        color: var(--text2);
+        cursor: pointer;
+        transition: all 0.1s;
+        border-left: 2px solid transparent;
+      }
+      .v1-sidebar .item:hover {
+        background: var(--hover);
+        color: var(--text);
+      }
+      .v1-sidebar .item.active {
+        color: var(--blue);
+        background: rgba(59, 130, 246, 0.06);
+        border-left-color: var(--blue);
+      }
+      .v1-sidebar .badge {
+        font-size: 8px;
+        font-family: "IBM Plex Mono", monospace;
+        padding: 2px 5px;
+        border-radius: 3px;
+        background: var(--green-dim);
+        color: var(--green);
+      }
+
+      .v1-docs {
+        border-right: 1px solid var(--border);
+        overflow-y: auto;
+        padding: 32px 36px;
+      }
+      .v1-docs .crumb {
+        font-size: 11px;
+        color: var(--text4);
+        margin-bottom: 20px;
+      }
+      .v1-docs h1 {
+        font-size: 26px;
+        font-weight: 600;
+        letter-spacing: -0.3px;
+        margin-bottom: 8px;
+      }
+      .v1-docs .desc {
+        font-size: 14px;
+        color: var(--text2);
+        line-height: 1.6;
+        margin-bottom: 24px;
+      }
+      .v1-docs h2 {
+        font-size: 17px;
+        font-weight: 600;
+        margin: 24px 0 8px;
+      }
+      .v1-docs p {
+        font-size: 13px;
+        color: var(--text2);
+        line-height: 1.6;
+        margin-bottom: 12px;
+      }
+      .v1-docs code {
+        background: var(--elevated);
+        padding: 1px 5px;
+        border-radius: 3px;
+        font-family: "IBM Plex Mono", monospace;
+        font-size: 12px;
+        color: var(--violet);
+      }
+      .v1-docs .codeblock {
+        background: var(--elevated);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 16px;
+        margin: 12px 0 16px;
+        font-family: "IBM Plex Mono", monospace;
+        font-size: 12px;
+        line-height: 1.6;
+        color: var(--text2);
+        overflow-x: auto;
+      }
+
+      .v1-demo {
+        display: flex;
+        flex-direction: column;
+        background: var(--bg);
+      }
+      .v1-demo-header {
+        padding: 12px 16px;
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        background: var(--surface);
+      }
+      .v1-demo-header .title {
+        font-size: 12px;
+        font-weight: 600;
+      }
+      .v1-demo-header .live {
+        font-size: 9px;
+        padding: 2px 8px;
+        border-radius: 10px;
+        background: var(--green-dim);
+        color: var(--green);
+      }
+      .v1-demo-header .tabs {
+        display: flex;
+        gap: 2px;
+      }
+      .v1-demo-header .tab {
+        padding: 4px 10px;
+        border-radius: 5px;
+        font-size: 11px;
+        background: none;
+        border: none;
+        color: var(--text3);
+        cursor: pointer;
+        font-family: inherit;
+      }
+      .v1-demo-header .tab.active {
+        color: var(--text);
+        background: var(--elevated);
+      }
+      .v1-demo-body {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--text4);
+        font-size: 13px;
+      }
+
+      /* ==============================
+   V2: CONTEXTUAL DRAWER — docs primary, demo slides in
+   ============================== */
+      .v2-layout {
+        display: grid;
+        grid-template-columns: 260px 1fr;
+        height: calc(100vh - 44px - 48px);
+        position: relative;
+      }
+      .v2-sidebar {
+        border-right: 1px solid var(--border);
+        overflow-y: auto;
+        padding: 12px 0;
+        background: var(--surface);
+      }
+      .v2-sidebar .sec {
+        font-family: "IBM Plex Mono", monospace;
+        font-size: 8px;
+        text-transform: uppercase;
+        letter-spacing: 1.5px;
+        color: var(--text4);
+        padding: 14px 16px 6px;
+      }
+      .v2-sidebar .item {
+        padding: 7px 16px 7px 24px;
+        font-size: 12px;
+        color: var(--text2);
+        cursor: pointer;
+        transition: all 0.1s;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+      .v2-sidebar .item:hover {
+        background: var(--hover);
+        color: var(--text);
+      }
+      .v2-sidebar .item.active {
+        color: var(--blue);
+      }
+      .v2-sidebar .badge {
+        font-size: 8px;
+        font-family: "IBM Plex Mono", monospace;
+        padding: 2px 5px;
+        border-radius: 3px;
+        background: var(--green-dim);
+        color: var(--green);
+      }
+
+      .v2-main {
+        overflow-y: auto;
+        padding: 36px 48px;
+        max-width: 760px;
+      }
+      .v2-main .crumb {
+        font-size: 11px;
+        color: var(--text4);
+        margin-bottom: 20px;
+      }
+      .v2-main h1 {
+        font-size: 28px;
+        font-weight: 600;
+        margin-bottom: 8px;
+      }
+      .v2-main .desc {
+        font-size: 14px;
+        color: var(--text2);
+        line-height: 1.6;
+        margin-bottom: 24px;
+      }
+      .v2-main h2 {
+        font-size: 18px;
+        font-weight: 600;
+        margin: 28px 0 10px;
+      }
+      .v2-main p {
+        font-size: 14px;
+        color: var(--text2);
+        line-height: 1.7;
+        margin-bottom: 14px;
+      }
+      .v2-main code {
+        background: var(--elevated);
+        padding: 1px 5px;
+        border-radius: 3px;
+        font-family: "IBM Plex Mono", monospace;
+        font-size: 12px;
+        color: var(--violet);
+      }
+      .v2-main .codeblock {
+        background: var(--elevated);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 16px;
+        margin: 12px 0 16px;
+        font-family: "IBM Plex Mono", monospace;
+        font-size: 12px;
+        line-height: 1.6;
+        color: var(--text2);
+      }
+
+      .v2-demo-cta {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 20px;
+        border-radius: 8px;
+        background: var(--green-dim);
+        border: 1px solid rgba(34, 197, 94, 0.2);
+        color: var(--green);
+        font-size: 13px;
+        font-weight: 500;
+        cursor: pointer;
+        margin-bottom: 24px;
+        transition: all 0.2s;
+      }
+      .v2-demo-cta:hover {
+        background: rgba(34, 197, 94, 0.16);
+      }
+
+      .v2-drawer {
+        position: absolute;
+        top: 0;
+        right: 0;
+        width: 50%;
+        height: 100%;
+        background: var(--surface);
+        border-left: 1px solid var(--border);
+        transform: translateX(100%);
+        transition: transform 0.3s ease;
+        z-index: 50;
+        display: flex;
+        flex-direction: column;
+      }
+      .v2-drawer.open {
+        transform: translateX(0);
+      }
+      .v2-drawer-header {
+        padding: 12px 16px;
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+      .v2-drawer-header .title {
+        font-size: 13px;
+        font-weight: 600;
+      }
+      .v2-drawer-header .close {
+        width: 28px;
+        height: 28px;
+        border-radius: 6px;
+        background: var(--elevated);
+        border: 1px solid var(--border);
+        color: var(--text2);
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 14px;
+      }
+      .v2-drawer-header .close:hover {
+        background: var(--hover);
+      }
+      .v2-drawer-header .tabs {
+        display: flex;
+        gap: 2px;
+        margin-left: 12px;
+      }
+      .v2-drawer-header .tab {
+        padding: 4px 10px;
+        border-radius: 5px;
+        font-size: 11px;
+        background: none;
+        border: none;
+        color: var(--text3);
+        cursor: pointer;
+        font-family: inherit;
+      }
+      .v2-drawer-header .tab.active {
+        color: var(--text);
+        background: var(--elevated);
+      }
+      .v2-drawer-body {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--text4);
+        font-size: 13px;
+      }
+
+      /* Overlay */
+      .v2-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.4);
+        z-index: 40;
+        display: none;
+      }
+      .v2-overlay.open {
+        display: block;
+      }
+
+      /* ==============================
+   V3: INLINE DEMOS — long scroll with demos embedded in docs
+   ============================== */
+      .v3-layout {
+        display: grid;
+        grid-template-columns: 260px 1fr;
+        height: calc(100vh - 44px - 48px);
+      }
+      .v3-sidebar {
+        border-right: 1px solid var(--border);
+        overflow-y: auto;
+        padding: 12px 0;
+        background: var(--surface);
+      }
+      .v3-sidebar .sec {
+        font-family: "IBM Plex Mono", monospace;
+        font-size: 8px;
+        text-transform: uppercase;
+        letter-spacing: 1.5px;
+        color: var(--text4);
+        padding: 14px 16px 6px;
+      }
+      .v3-sidebar .item {
+        padding: 7px 16px 7px 24px;
+        font-size: 12px;
+        color: var(--text2);
+        cursor: pointer;
+        transition: all 0.1s;
+      }
+      .v3-sidebar .item:hover {
+        background: var(--hover);
+        color: var(--text);
+      }
+      .v3-sidebar .item.active {
+        color: var(--blue);
+      }
+
+      .v3-main {
+        overflow-y: auto;
+        padding: 36px 48px;
+        max-width: 800px;
+      }
+      .v3-main .crumb {
+        font-size: 11px;
+        color: var(--text4);
+        margin-bottom: 20px;
+      }
+      .v3-main h1 {
+        font-size: 28px;
+        font-weight: 600;
+        margin-bottom: 8px;
+      }
+      .v3-main .desc {
+        font-size: 14px;
+        color: var(--text2);
+        line-height: 1.6;
+        margin-bottom: 28px;
+      }
+      .v3-main h2 {
+        font-size: 18px;
+        font-weight: 600;
+        margin: 32px 0 10px;
+      }
+      .v3-main p {
+        font-size: 14px;
+        color: var(--text2);
+        line-height: 1.7;
+        margin-bottom: 14px;
+      }
+      .v3-main code {
+        background: var(--elevated);
+        padding: 1px 5px;
+        border-radius: 3px;
+        font-family: "IBM Plex Mono", monospace;
+        font-size: 12px;
+        color: var(--violet);
+      }
+      .v3-main .codeblock {
+        background: var(--elevated);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 16px;
+        margin: 12px 0 16px;
+        font-family: "IBM Plex Mono", monospace;
+        font-size: 12px;
+        line-height: 1.6;
+        color: var(--text2);
+      }
+
+      .v3-inline-demo {
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        overflow: hidden;
+        margin: 20px 0 28px;
+        background: var(--surface);
+      }
+      .v3-inline-demo-header {
+        padding: 10px 16px;
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        background: var(--elevated);
+      }
+      .v3-inline-demo-header .left {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .v3-inline-demo-header .title {
+        font-size: 12px;
+        font-weight: 600;
+      }
+      .v3-inline-demo-header .live {
+        font-size: 9px;
+        padding: 2px 8px;
+        border-radius: 10px;
+        background: var(--green-dim);
+        color: var(--green);
+      }
+      .v3-inline-demo-header .expand {
+        font-size: 10px;
+        color: var(--text3);
+        cursor: pointer;
+        padding: 4px 8px;
+        border-radius: 4px;
+        background: none;
+        border: 1px solid var(--border);
+        font-family: inherit;
+      }
+      .v3-inline-demo-header .expand:hover {
+        color: var(--text);
+        border-color: var(--text3);
+      }
+      .v3-inline-demo-body {
+        height: 320px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--text4);
+        font-size: 13px;
+        background: var(--bg);
+      }
+    </style>
+  </head>
+  <body>
+    <nav class="vtabs">
+      <span class="lbl">Variation</span>
+      <button class="vtab active" onclick="showV('v1')">1 · Split Pane</button>
+      <button class="vtab" onclick="showV('v2')">2 · Contextual Drawer</button>
+      <button class="vtab" onclick="showV('v3')">3 · Inline Demos</button>
+    </nav>
+
+    <!-- ===== V1: SPLIT PANE ===== -->
+    <section id="v1" class="variation active">
+      <header class="topbar">
+        <div class="brand">CopilotKit</div>
+        <nav class="nav">
+          <a href="#">Home</a><a href="#" class="active">Integrations</a
+          ><a href="#">Matrix</a><a href="#">Reference</a>
+        </nav>
+        <input class="search" placeholder="⌕  Search docs, demos, APIs..." />
+      </header>
+      <div class="v1-layout">
+        <aside class="v1-sidebar">
+          <div class="sec">LangGraph · Python</div>
+          <div class="item">Overview</div>
+          <div class="item">Quickstart</div>
+          <div class="sec">Features</div>
+          <div class="item active">
+            Generative UI <span class="badge">demo</span>
+          </div>
+          <div class="item">Shared State <span class="badge">demo</span></div>
+          <div class="item">
+            Human in the Loop <span class="badge">demo</span>
+          </div>
+          <div class="item">Frontend Tools</div>
+          <div class="item">Multi-Agent <span class="badge">demo</span></div>
+          <div class="sec">Reference</div>
+          <div class="item">Hooks & Components →</div>
+        </aside>
+        <div class="v1-docs">
+          <div class="crumb">LangGraph / Features / Generative UI</div>
+          <h1>Generative UI</h1>
+          <p class="desc">
+            Let your agent generate interactive React components on the fly.
+          </p>
+          <h2>Tool-Based Approach</h2>
+          <p>
+            Register a frontend tool with <code>useFrontendTool</code> and the
+            agent calls it to render components.
+          </p>
+          <div class="codeblock">
+            useFrontendTool({ name: "render_chart", parameters: z.object({...}),
+            handler: async ({ data }) => {...} });
+          </div>
+          <h2>Agentic Approach</h2>
+          <p>
+            For long-running tasks, the agent orchestrates multi-step workflows
+            and renders progress UI.
+          </p>
+          <h2>Declarative (BYOC)</h2>
+          <p>
+            Use A2UI, Hashbrown, JSON Render, or other declarative renderers for
+            schema-driven UI generation.
+          </p>
+        </div>
+        <div class="v1-demo">
+          <div class="v1-demo-header">
+            <div style="display: flex; align-items: center; gap: 8px">
+              <span class="title">Tool-Based Generative UI</span>
+              <span class="live">● Live</span>
+            </div>
+            <div class="tabs">
+              <button class="tab active">Preview</button>
+              <button class="tab">Code</button>
+            </div>
+          </div>
+          <div class="v1-demo-body">
+            <div style="text-align: center">
+              <div style="font-size: 36px; opacity: 0.2; margin-bottom: 8px">
+                💬
+              </div>
+              Live demo iframe<br />
+              <span style="font-size: 11px; color: var(--text4)"
+                >Always visible alongside the docs</span
+              >
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== V2: CONTEXTUAL DRAWER ===== -->
+    <section id="v2" class="variation">
+      <header class="topbar">
+        <div class="brand">CopilotKit</div>
+        <nav class="nav">
+          <a href="#">Home</a><a href="#" class="active">Integrations</a
+          ><a href="#">Matrix</a><a href="#">Reference</a>
+        </nav>
+        <input class="search" placeholder="⌕  Search docs, demos, APIs..." />
+      </header>
+      <div class="v2-layout">
+        <aside class="v2-sidebar">
+          <div class="sec">LangGraph · Python</div>
+          <div class="item">Overview</div>
+          <div class="item">Quickstart</div>
+          <div class="sec">Features</div>
+          <div class="item active">
+            Generative UI <span class="badge">demo</span>
+          </div>
+          <div class="item">Shared State <span class="badge">demo</span></div>
+          <div class="item">
+            Human in the Loop <span class="badge">demo</span>
+          </div>
+          <div class="item">Frontend Tools</div>
+          <div class="sec">Reference</div>
+          <div class="item">Hooks & Components →</div>
+        </aside>
+        <div class="v2-main">
+          <div class="crumb">LangGraph / Features / Generative UI</div>
+          <h1>Generative UI</h1>
+          <p class="desc">
+            Let your agent generate interactive React components on the fly.
+          </p>
+          <div class="v2-demo-cta" onclick="toggleDrawer()">
+            ▶ Try Live Demo
+          </div>
+          <h2>Tool-Based Approach</h2>
+          <p>
+            Register a frontend tool with <code>useFrontendTool</code> and the
+            agent calls it to render components. The agent determines when to
+            invoke the tool based on the user's request.
+          </p>
+          <div class="codeblock">
+            useFrontendTool({ name: "render_chart", parameters: z.object({ data:
+            z.array(...), type: z.enum(["bar", "pie"]) }), handler: async ({
+            data, type }) => { return { rendered: true }; }, });
+          </div>
+          <p>
+            When the agent calls this tool, CopilotKit renders the component you
+            defined. The user sees an interactive chart appear in the chat.
+          </p>
+          <h2>Agentic Approach</h2>
+          <p>
+            For long-running tasks, the agent orchestrates multi-step workflows
+            and renders progress UI along the way.
+          </p>
+          <div
+            class="v2-demo-cta"
+            onclick="toggleDrawer()"
+            style="
+              background: rgba(139, 92, 246, 0.08);
+              border-color: rgba(139, 92, 246, 0.2);
+              color: var(--violet);
+            "
+          >
+            ▶ Try Agentic GenUI Demo
+          </div>
+          <h2>Declarative (BYOC)</h2>
+          <p>
+            Use A2UI, Hashbrown, JSON Render, or other declarative renderers for
+            schema-driven UI generation. The agent sends a schema, your renderer
+            turns it into components.
+          </p>
+        </div>
+        <div class="v2-overlay" id="v2-overlay" onclick="toggleDrawer()"></div>
+        <div class="v2-drawer" id="v2-drawer">
+          <div class="v2-drawer-header">
+            <div style="display: flex; align-items: center; gap: 8px">
+              <span class="title">Tool-Based Generative UI</span>
+              <div class="tabs">
+                <button class="tab active">Preview</button>
+                <button class="tab">Code</button>
+                <button class="tab">Guide</button>
+              </div>
+            </div>
+            <button class="close" onclick="toggleDrawer()">✕</button>
+          </div>
+          <div class="v2-drawer-body">
+            <div style="text-align: center">
+              <div style="font-size: 36px; opacity: 0.2; margin-bottom: 8px">
+                💬
+              </div>
+              Live demo iframe<br />
+              <span style="font-size: 11px; color: var(--text4)"
+                >Slides in when you click "Try Demo"</span
+              >
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== V3: INLINE DEMOS ===== -->
+    <section id="v3" class="variation">
+      <header class="topbar">
+        <div class="brand">CopilotKit</div>
+        <nav class="nav">
+          <a href="#">Home</a><a href="#" class="active">Integrations</a
+          ><a href="#">Matrix</a><a href="#">Reference</a>
+        </nav>
+        <input class="search" placeholder="⌕  Search docs, demos, APIs..." />
+      </header>
+      <div class="v3-layout">
+        <aside class="v3-sidebar">
+          <div class="sec">LangGraph · Python</div>
+          <div class="item">Overview</div>
+          <div class="item">Quickstart</div>
+          <div class="sec">Features</div>
+          <div class="item active">Generative UI</div>
+          <div class="item">Shared State</div>
+          <div class="item">Human in the Loop</div>
+          <div class="item">Frontend Tools</div>
+          <div class="sec">Reference</div>
+          <div class="item">Hooks & Components →</div>
+        </aside>
+        <div class="v3-main">
+          <div class="crumb">LangGraph / Features / Generative UI</div>
+          <h1>Generative UI</h1>
+          <p class="desc">
+            Let your agent generate interactive React components on the fly.
+          </p>
+
+          <h2>Tool-Based Approach</h2>
+          <p>
+            Register a frontend tool with <code>useFrontendTool</code> and the
+            agent calls it to render components.
+          </p>
+          <div class="codeblock">
+            useFrontendTool({ name: "render_chart", parameters: z.object({ data:
+            z.array(...) }), handler: async ({ data }) => { ... } });
+          </div>
+
+          <!-- Inline demo -->
+          <div class="v3-inline-demo">
+            <div class="v3-inline-demo-header">
+              <div class="left">
+                <span class="title">Tool-Based Generative UI</span>
+                <span class="live">● Live</span>
+              </div>
+              <button class="expand">↗ Full Screen</button>
+            </div>
+            <div class="v3-inline-demo-body">
+              <div style="text-align: center">
+                <div style="font-size: 36px; opacity: 0.2; margin-bottom: 8px">
+                  💬
+                </div>
+                Live demo embedded in the doc flow<br />
+                <span style="font-size: 11px"
+                  >Try it right here, then keep reading</span
+                >
+              </div>
+            </div>
+          </div>
+
+          <p>
+            When the agent calls this tool, CopilotKit renders the component you
+            defined. The user sees an interactive chart appear in the chat.
+          </p>
+
+          <h2>Agentic Approach</h2>
+          <p>
+            For long-running tasks, the agent orchestrates multi-step workflows
+            and renders progress UI along the way.
+          </p>
+
+          <!-- Another inline demo -->
+          <div class="v3-inline-demo">
+            <div class="v3-inline-demo-header">
+              <div class="left">
+                <span class="title">Agentic Generative UI</span>
+                <span class="live">● Live</span>
+              </div>
+              <button class="expand">↗ Full Screen</button>
+            </div>
+            <div class="v3-inline-demo-body">
+              <div style="text-align: center">
+                <div style="font-size: 36px; opacity: 0.2; margin-bottom: 8px">
+                  ⚡
+                </div>
+                Another live demo inline<br />
+                <span style="font-size: 11px"
+                  >Each feature section has its own demo</span
+                >
+              </div>
+            </div>
+          </div>
+
+          <h2>Declarative (BYOC)</h2>
+          <p>
+            Use A2UI, Hashbrown, JSON Render, or other declarative renderers.
+            The agent sends a schema, your renderer turns it into components.
+          </p>
+          <p>
+            This approach gives you the most flexibility while keeping a
+            structured contract between agent and UI.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <script>
+      function showV(id) {
+        document
+          .querySelectorAll(".variation")
+          .forEach((v) => v.classList.remove("active"));
+        document
+          .querySelectorAll(".vtab")
+          .forEach((t) => t.classList.remove("active"));
+        document.getElementById(id).classList.add("active");
+        event.currentTarget.classList.add("active");
+      }
+      function toggleDrawer() {
+        document.getElementById("v2-drawer").classList.toggle("open");
+        document.getElementById("v2-overlay").classList.toggle("open");
+      }
+    </script>
+  </body>
+</html>

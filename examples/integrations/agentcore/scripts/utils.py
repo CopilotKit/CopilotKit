@@ -49,7 +49,7 @@ def get_stack_config(stack_name: Optional[str] = None) -> Dict:
             sys.exit(1)
 
     # Get pattern from config
-    pattern = config.get("backend", {}).get("pattern", "strands-single-agent")
+    pattern = config.get("backend", {}).get("pattern", "langgraph-single-agent")
 
     cfn = boto3.client("cloudformation")
 
