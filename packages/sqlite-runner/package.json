@@ -1,6 +1,6 @@
 {
   "name": "@copilotkit/sqlite-runner",
-  "version": "1.55.0-next.8",
+  "version": "1.55.0",
   "description": "SQLite-backed agent runner for CopilotKit2",
   "type": "module",
   "main": "./dist/index.cjs",
