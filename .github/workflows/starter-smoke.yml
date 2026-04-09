@@ -100,7 +100,6 @@ jobs:
             fi
             echo "CAUSE_EOF"
           } >> "$GITHUB_OUTPUT"
-          } >> "$GITHUB_OUTPUT"
 
       - name: Upload test artifacts on failure
         if: failure()
