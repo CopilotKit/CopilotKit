@@ -29,6 +29,10 @@ describe("useAgent stability during runtime connection", () => {
     runtimeTransport: string;
     headers: Record<string, string>;
     agents: Record<string, AbstractAgent>;
+    subscribeToAgent: (
+      agent: AbstractAgent,
+      subscriber: any,
+    ) => { unsubscribe: () => void };
   };
 
   beforeEach(() => {
@@ -40,6 +44,7 @@ describe("useAgent stability during runtime connection", () => {
       runtimeTransport: "rest",
       headers: {},
       agents: {},
+      subscribeToAgent: (agent, subscriber) => agent.subscribe(subscriber),
     };
 
     mockUseCopilotKit.mockReturnValue({

@@ -11,6 +11,7 @@ import type { AbstractAgent } from "@ag-ui/client";
 import type { Message } from "@ag-ui/client";
 import { DEFAULT_AGENT_ID } from "@copilotkit/shared";
 import {
+  CopilotKitCore,
   ProxiedCopilotRuntimeAgent,
   CopilotKitCoreRuntimeConnectionStatus,
 } from "@copilotkit/core";
@@ -28,10 +29,14 @@ export class AgentStore {
   readonly messages = this.#messages.asReadonly();
   readonly state = this.#state.asReadonly();
 
-  constructor(abstractAgent: AbstractAgent, destroyRef: DestroyRef) {
+  constructor(
+    abstractAgent: AbstractAgent,
+    destroyRef: DestroyRef,
+    core: CopilotKitCore,
+  ) {
     this.agent = abstractAgent;
 
-    this.#subscription = abstractAgent.subscribe({
+    this.#subscription = core.subscribeToAgent(abstractAgent, {
       onMessagesChanged: () => {
         this.#messages.set(abstractAgent.messages);
       },
@@ -109,7 +114,11 @@ export class CopilotkitAgentFactory {
           // Apply current headers so runs/connects inherit them
 
           (provisional as any).headers = { ...headers };
-          lastAgentStore = new AgentStore(provisional, destroyRef);
+          lastAgentStore = new AgentStore(
+            provisional,
+            destroyRef,
+            this.#copilotkit.core,
+          );
           return lastAgentStore;
         }
 
@@ -126,7 +135,11 @@ export class CopilotkitAgentFactory {
         );
       }
 
-      lastAgentStore = new AgentStore(abstractAgent, destroyRef);
+      lastAgentStore = new AgentStore(
+        abstractAgent,
+        destroyRef,
+        this.#copilotkit.core,
+      );
       return lastAgentStore;
     });
   }

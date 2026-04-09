@@ -1,4 +1,4 @@
-import { AbstractAgent, Context, State } from "@ag-ui/client";
+import { AbstractAgent, AgentSubscriber, Context, State } from "@ag-ui/client";
 import {
   FrontendTool,
   SuggestionsConfig,
@@ -377,10 +377,10 @@ export class CopilotKitCore {
   }
 
   /**
-   * Default throttle interval (ms) applied by framework hooks (e.g.
-   * `useAgent()`) when the hook/component does not specify an explicit
-   * `throttleMs`. An explicit `0` passed as `throttleMs` to `useAgent()`
-   * or `<CopilotChat>` overrides this default and disables throttling.
+   * Default throttle interval (ms) used by `subscribeToAgent()` when the
+   * caller does not specify an explicit `throttleMs`. A value of `0` means
+   * no throttling. Invalid values (negative, non-finite) are rejected by
+   * the setter.
    */
   get defaultThrottleMs(): number | undefined {
     return this._defaultThrottleMs;
@@ -388,7 +388,10 @@ export class CopilotKitCore {
 
   setDefaultThrottleMs(value: number | undefined): void {
     if (value !== undefined && (!Number.isFinite(value) || value < 0)) {
-      this._defaultThrottleMs = undefined;
+      console.error(
+        `CopilotKitCore.setDefaultThrottleMs: value must be a non-negative finite number or undefined, ` +
+          `got ${value}. Keeping current value (${this._defaultThrottleMs}).`,
+      );
       return;
     }
     this._defaultThrottleMs = value;
@@ -551,6 +554,129 @@ export class CopilotKitCore {
     return {
       unsubscribe: () => {
         this.subscribers.delete(subscriber);
+      },
+    };
+  }
+
+  /**
+   * Subscribe to an agent's events with optional throttling on
+   * `onMessagesChanged` and `onStateChanged` notifications.
+   *
+   * Resolves effective throttle: `options.throttleMs ?? this._defaultThrottleMs ?? 0`.
+   * When > 0, uses a leading+trailing pattern: first notification fires
+   * immediately, subsequent ones within the window are coalesced, and a
+   * trailing timer ensures the most recent update fires after the window.
+   *
+   * Run lifecycle events (`onRunInitialized`, `onRunFinalized`, `onRunFailed`)
+   * always fire immediately — they are never throttled.
+   *
+   * The returned `unsubscribe()` clears any pending trailing timer.
+   */
+  subscribeToAgent(
+    agent: AbstractAgent,
+    subscriber: AgentSubscriber,
+    options?: { throttleMs?: number },
+  ): { unsubscribe: () => void } {
+    const resolved = options?.throttleMs ?? this._defaultThrottleMs ?? 0;
+
+    let effectiveMs = 0;
+    if (!Number.isFinite(resolved) || resolved < 0) {
+      const source =
+        options?.throttleMs !== undefined ? "throttleMs" : "defaultThrottleMs";
+      console.error(
+        `CopilotKitCore.subscribeToAgent: ${source} must be a non-negative finite number, ` +
+          `got ${resolved}. Falling back to unthrottled.`,
+      );
+    } else {
+      effectiveMs = resolved;
+    }
+
+    if (effectiveMs <= 0) {
+      // No throttle — pass subscriber through directly.
+      const subscription = agent.subscribe(subscriber);
+      return { unsubscribe: () => subscription.unsubscribe() };
+    }
+
+    // Build a wrapper that throttles onMessagesChanged and onStateChanged
+    // behind a shared leading+trailing gate, so rapid bursts of messages
+    // and/or state changes coalesce into fewer consumer notifications.
+    // All other callbacks (run lifecycle, events) pass through unmodified.
+    let active = true;
+    let timerId: ReturnType<typeof setTimeout> | null = null;
+    let throttleActive = false;
+    let pendingMessages = false;
+    let pendingState = false;
+    let latestMessagesParams:
+      | Parameters<NonNullable<AgentSubscriber["onMessagesChanged"]>>[0]
+      | null = null;
+    let latestStateParams:
+      | Parameters<NonNullable<AgentSubscriber["onStateChanged"]>>[0]
+      | null = null;
+
+    const flushPending = () => {
+      if (
+        pendingMessages &&
+        subscriber.onMessagesChanged &&
+        latestMessagesParams
+      ) {
+        pendingMessages = false;
+        subscriber.onMessagesChanged(latestMessagesParams);
+        latestMessagesParams = null;
+      }
+      if (pendingState && subscriber.onStateChanged && latestStateParams) {
+        pendingState = false;
+        subscriber.onStateChanged(latestStateParams);
+        latestStateParams = null;
+      }
+    };
+
+    const scheduleOrFlush = () => {
+      if (!active) return;
+      if (!throttleActive) {
+        // Leading edge — fire immediately and start the throttle window
+        throttleActive = true;
+        flushPending();
+        timerId = setTimeout(function trailingEdge() {
+          timerId = null;
+          if (active && (pendingMessages || pendingState)) {
+            flushPending();
+            timerId = setTimeout(trailingEdge, effectiveMs);
+          } else {
+            throttleActive = false;
+          }
+        }, effectiveMs);
+      }
+      // else: within the window, pending flags are already set by the caller
+    };
+
+    const wrappedSubscriber: AgentSubscriber = { ...subscriber };
+
+    if (subscriber.onMessagesChanged) {
+      wrappedSubscriber.onMessagesChanged = (params) => {
+        pendingMessages = true;
+        latestMessagesParams = params;
+        scheduleOrFlush();
+      };
+    }
+
+    if (subscriber.onStateChanged) {
+      wrappedSubscriber.onStateChanged = (params) => {
+        pendingState = true;
+        latestStateParams = params;
+        scheduleOrFlush();
+      };
+    }
+
+    const subscription = agent.subscribe(wrappedSubscriber);
+
+    return {
+      unsubscribe: () => {
+        active = false;
+        if (timerId !== null) {
+          clearTimeout(timerId);
+          timerId = null;
+        }
+        subscription.unsubscribe();
       },
     };
   }

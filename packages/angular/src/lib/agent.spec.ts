@@ -78,11 +78,13 @@ class CopilotKitStub {
   runtimeUrl = this.#runtimeUrl.asReadonly();
   runtimeTransport = this.#runtimeTransport.asReadonly();
   headers = this.#headers.asReadonly();
-  core = {
+  core: Record<string, any> = {
     runtimeUrl: undefined as string | undefined,
     runtimeTransport: "auto" as const,
     runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus.Disconnected,
     headers: {} as Record<string, string>,
+    subscribeToAgent: (agent: any, subscriber: any) =>
+      agent.subscribe(subscriber),
   };
 
   setAgents(map: Record<string, AbstractAgent>) {

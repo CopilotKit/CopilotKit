@@ -4,7 +4,10 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { useAgent, UseAgentUpdate } from "../use-agent";
 import { useCopilotKit } from "../../providers/CopilotKitProvider";
 import { MockStepwiseAgent } from "../../__tests__/utils/test-helpers";
-import { CopilotKitCoreRuntimeConnectionStatus } from "@copilotkit/core";
+import {
+  CopilotKitCore,
+  CopilotKitCoreRuntimeConnectionStatus,
+} from "@copilotkit/core";
 import type { Message } from "@ag-ui/core";
 import type { RunAgentInput } from "@ag-ui/client";
 
@@ -126,11 +129,19 @@ function createTestComponent(
   };
 }
 
-/** Factory for the mock return value of useCopilotKit */
+/** Factory for the mock return value of useCopilotKit.
+ *  Uses a real CopilotKitCore instance so subscribeToAgent (with its throttle
+ *  logic) is exercised end-to-end rather than mocked. */
 function createMockContext(
   agent: MockStepwiseAgent,
   overrides: { defaultThrottleMs?: number } = {},
 ) {
+  const core = new CopilotKitCore({
+    runtimeUrl: "http://localhost:3000/api/copilot",
+  });
+  if (overrides.defaultThrottleMs !== undefined) {
+    core.setDefaultThrottleMs(overrides.defaultThrottleMs);
+  }
   return {
     copilotkit: {
       getAgent: () => agent,
@@ -139,7 +150,8 @@ function createMockContext(
       runtimeTransport: "rest",
       headers: {},
       agents: { [String(agent.agentId)]: agent },
-      defaultThrottleMs: overrides.defaultThrottleMs,
+      defaultThrottleMs: core.defaultThrottleMs,
+      subscribeToAgent: core.subscribeToAgent.bind(core),
     },
     executingToolCallIds: new Set(),
   };
@@ -313,7 +325,7 @@ describe("useAgent throttleMs", () => {
     expect(screen.getByTestId("count").textContent).toBe("3");
   });
 
-  it("with throttleMs, onStateChanged still fires immediately", async () => {
+  it("with throttleMs, onStateChanged is also throttled (shared window)", () => {
     const TestComponent = createTestComponent({
       updates: [
         UseAgentUpdate.OnMessagesChanged,
@@ -324,17 +336,26 @@ describe("useAgent throttleMs", () => {
 
     render(<TestComponent />);
 
-    // Fire onMessagesChanged to start the throttle window
+    // Fire onMessagesChanged to start the throttle window (leading edge)
     act(() => {
       mockAgent.messages = [userMsg("1", "a")];
       notifyMessagesChanged(mockAgent);
     });
+    expect(screen.getByTestId("count").textContent).toBe("1");
 
-    // Fire onStateChanged 10ms later — fires via microtask batch (not synchronously)
-    await act(async () => {
+    // Fire onStateChanged 10ms later — should be deferred (within throttle window)
+    act(() => {
       vi.advanceTimersByTime(10);
       mockAgent.state = { count: 42 };
       notifyStateChanged(mockAgent);
+    });
+
+    // State update is pending, not yet rendered
+    expect(screen.getByTestId("state").textContent).toBe("{}");
+
+    // Trailing edge fires after the window
+    act(() => {
+      vi.advanceTimersByTime(100);
     });
 
     expect(screen.getByTestId("state").textContent).toBe('{"count":42}');
@@ -372,7 +393,7 @@ describe("useAgent throttleMs", () => {
     expect(renderCount.current).toBe(countBeforeUnmount);
   });
 
-  it("with throttleMs and updates excluding OnMessagesChanged, throttle is a no-op", async () => {
+  it("with throttleMs and only OnStateChanged subscribed, first state fires on leading edge", () => {
     const TestComponent = createTestComponent({
       updates: [UseAgentUpdate.OnStateChanged],
       throttleMs: 100,
@@ -380,23 +401,21 @@ describe("useAgent throttleMs", () => {
 
     render(<TestComponent />);
 
-    // Only onStateChanged is subscribed — fires via microtask batch
-    await act(async () => {
+    // First onStateChanged fires immediately (leading edge)
+    act(() => {
       mockAgent.state = { value: "test" };
       notifyStateChanged(mockAgent);
     });
 
     expect(screen.getByTestId("state").textContent).toBe('{"value":"test"}');
 
-    // No onMessagesChanged subscription should exist
+    // No onMessagesChanged subscription should exist — messages notification
+    // does nothing because the handler was never registered.
     act(() => {
       mockAgent.messages = [userMsg("1", "a")];
       notifyMessagesChanged(mockAgent);
     });
 
-    // onMessagesChanged was sent but no handler is subscribed, so no
-    // re-render is triggered. We verify by checking state still shows the
-    // last rendered value.
     expect(screen.getByTestId("state").textContent).toBe('{"value":"test"}');
   });
 
@@ -864,23 +883,22 @@ describe("useAgent defaultThrottleMs from provider", () => {
   ])(
     "with invalid provider defaultThrottleMs ($label), falls back to unthrottled and warns",
     ({ value }) => {
+      const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
       mockUseCopilotKit.mockReturnValue(
         createMockContext(mockAgent, { defaultThrottleMs: value }),
       );
 
-      const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
       const TestComponent = createTestComponent({ throttleMs: undefined });
 
       render(<TestComponent />);
 
-      expect(errorSpy).toHaveBeenCalledWith(
-        expect.stringContaining("provider-level defaultThrottleMs"),
-      );
+      // The core setter rejects invalid values and logs an error
       expect(errorSpy).toHaveBeenCalledWith(
         expect.stringContaining("must be a non-negative finite number"),
       );
 
-      // Should behave as unthrottled
+      // Should behave as unthrottled (setter rejected the value)
       act(() => {
         mockAgent.messages = [userMsg("1", "a")];
         notifyMessagesChanged(mockAgent);
@@ -963,41 +981,44 @@ describe("useAgent defaultThrottleMs from provider", () => {
   });
 });
 
-describe("CopilotKitCore.setDefaultThrottleMs validation", () => {
+describe("CopilotKitCore.setDefaultThrottleMs", () => {
+  it("stores valid values", () => {
+    const core = new CopilotKitCore({});
+    core.setDefaultThrottleMs(100);
+    expect(core.defaultThrottleMs).toBe(100);
+  });
+
+  it("stores 0", () => {
+    const core = new CopilotKitCore({});
+    core.setDefaultThrottleMs(100);
+    core.setDefaultThrottleMs(0);
+    expect(core.defaultThrottleMs).toBe(0);
+  });
+
+  it("stores undefined", () => {
+    const core = new CopilotKitCore({});
+    core.setDefaultThrottleMs(100);
+    core.setDefaultThrottleMs(undefined);
+    expect(core.defaultThrottleMs).toBeUndefined();
+  });
+
   it.each([
     { label: "NaN", value: NaN },
     { label: "Infinity", value: Infinity },
     { label: "-1", value: -1 },
     { label: "-Infinity", value: -Infinity },
-  ])("rejects invalid value ($label) and stores undefined", ({ value }) => {
-    // Simulate the core setter behavior: invalid values are rejected
-    // and the stored value becomes undefined (no default configured).
-    // This is tested via the mock context to verify that the hook
-    // correctly handles a sanitized undefined from the core.
-    const mockAgent = new MockStepwiseAgent();
-    mockAgent.agentId = "test-agent";
-
-    // After the core setter rejects an invalid value, hooks see undefined
-    mockUseCopilotKit.mockReturnValue(
-      createMockContext(mockAgent, { defaultThrottleMs: undefined }),
-    );
-
-    vi.useFakeTimers();
-    const TestComponent = createTestComponent({ throttleMs: undefined });
-    render(<TestComponent />);
-
-    // Should behave as unthrottled (no provider default in effect)
-    act(() => {
-      mockAgent.messages = [userMsg("1", "a")];
-      notifyMessagesChanged(mockAgent);
-    });
-    expect(screen.getByTestId("count").textContent).toBe("1");
-
-    act(() => {
-      mockAgent.messages = [userMsg("1", "a"), assistantMsg("2", "b")];
-      notifyMessagesChanged(mockAgent);
-    });
-    expect(screen.getByTestId("count").textContent).toBe("2");
-    vi.useRealTimers();
-  });
+  ])(
+    "rejects invalid value ($label) and preserves previous value",
+    ({ value }) => {
+      const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+      const core = new CopilotKitCore({});
+      core.setDefaultThrottleMs(200);
+      core.setDefaultThrottleMs(value);
+      expect(core.defaultThrottleMs).toBe(200);
+      expect(errorSpy).toHaveBeenCalledWith(
+        expect.stringContaining("must be a non-negative finite number"),
+      );
+      errorSpy.mockRestore();
+    },
+  );
 });
