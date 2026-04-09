@@ -139,3 +139,36 @@ jobs:
                 prerelease: false,
               });
             }
+
+      - name: Re-enter next prerelease mode
+        if: steps.changesets.outputs.published == 'true' && steps.release-version.outputs.is_stable == 'true'
+        run: |
+          if [[ -f .changeset/pre.json ]]; then
+            echo "Changesets prerelease mode is already enabled."
+            exit 0
+          fi
+
+          pnpm changeset pre enter next
+
+      - name: Create or update prerelease mode PR
+        if: steps.changesets.outputs.published == 'true' && steps.release-version.outputs.is_stable == 'true'
+        id: prerelease-pr
+        uses: peter-evans/create-pull-request@v8
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          branch: changeset-release/re-enter-next
+          delete-branch: true
+          add-paths: .changeset/pre.json
+          commit-message: "chore: re-enter next prerelease mode"
+          title: "chore: re-enter next prerelease mode"
+          body: |
+            This PR was created automatically after publishing a stable release.
+
+            It re-enters Changesets prerelease mode for `next` so future release PRs continue on the `next` channel.
+
+      - name: Enable auto-merge for prerelease mode PR
+        if: steps.prerelease-pr.outputs.pull-request-number
+        continue-on-error: true
+        run: gh pr merge --squash --auto "${{ steps.prerelease-pr.outputs.pull-request-number }}"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
