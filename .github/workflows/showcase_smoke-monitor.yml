@@ -110,7 +110,8 @@ jobs:
                 ERROR_DESC="connection failed"
               fi
 
-              ALERTS="${ALERTS}:red_circle: *${SLUG}* — attempt: ${NEW_FAIL_COUNT}, error: ${ERROR_DESC}\n"
+              SVC_URL="${URLS[$SLUG]}"
+              ALERTS="${ALERTS}:red_circle: *${SLUG}* — attempt: ${NEW_FAIL_COUNT}, error: ${ERROR_DESC} (<${SVC_URL}/api/smoke|smoke> · <${SVC_URL}/api/health|health>)\n"
 
               # Escalation at 4 consecutive failures (1 hour at 15-min intervals)
               if [ "$NEW_FAIL_COUNT" -eq 4 ]; then
@@ -138,7 +139,7 @@ jobs:
             # Write alerts to a file to avoid escaping issues
             printf "%b" "$ALERTS" > alerts.txt
             echo "" >> alerts.txt
-            echo "<${RUN_URL}|View workflow run>" >> alerts.txt
+            echo "<https://showcase.copilotkit.ai|Showcase> · <${RUN_URL}|Workflow run>" >> alerts.txt
           else
             echo "has_alerts=false" >> "$GITHUB_OUTPUT"
           fi
