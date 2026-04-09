@@ -2,9 +2,11 @@ import { createApplication } from "@angular/platform-browser";
 import { createCustomElement } from "@angular/elements";
 import { ThreadListComponent } from "./thread-list/thread-list.component";
 import { ThreadDetailsComponent } from "./thread-details/thread-details.component";
+import { EmptyEventsComponent } from "./empty-events/empty-events.component";
 
 export const THREAD_LIST_TAG = "cpk-thread-list" as const;
 export const THREAD_DETAILS_TAG = "cpk-thread-details" as const;
+export const EMPTY_EVENTS_TAG = "cpk-empty-events" as const;
 
 /**
  * Registers CopilotKit inspector Custom Elements with the browser's
@@ -39,5 +41,12 @@ export async function defineInspectorElements(): Promise<void> {
       injector: app.injector,
     });
     customElements.define(THREAD_DETAILS_TAG, ThreadDetailsElement);
+  }
+
+  if (!customElements.get(EMPTY_EVENTS_TAG)) {
+    const EmptyEventsElement = createCustomElement(EmptyEventsComponent, {
+      injector: app.injector,
+    });
+    customElements.define(EMPTY_EVENTS_TAG, EmptyEventsElement);
   }
 }

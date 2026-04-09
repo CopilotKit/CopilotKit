@@ -223,6 +223,13 @@ export class WebInspectorElement extends LitElement {
   private toolSignature = "";
   private eventFilterText = "";
   private eventTypeFilter: InspectorAgentEventType | "all" = "all";
+  // Column widths for the AG-UI events table (agent, time, event-type; last col is auto)
+  private evtColWidths = [100, 80, 150];
+  private _evtColResize: {
+    col: number;
+    startX: number;
+    startW: number;
+  } | null = null;
 
   private announcementMarkdown: string | null = null;
   private announcementHtml: string | null = null;
@@ -283,19 +290,43 @@ export class WebInspectorElement extends LitElement {
     threads: `<svg class="h-3.5 w-3.5" width="15" height="15" viewBox="0 0 15 15" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M9.04167 15C8.29167 15 7.65972 14.7431 7.14583 14.2292C6.63194 13.7153 6.375 13.0972 6.375 12.375C6.375 11.3194 6.80208 10.3646 7.65625 9.51042C8.51042 8.65625 9.57639 8.125 10.8542 7.91667C10.8125 7.41667 10.6875 7.03819 10.4792 6.78125C10.2708 6.52431 9.98611 6.39583 9.625 6.39583C9.20833 6.39583 8.75694 6.56944 8.27083 6.91667C7.78472 7.26389 7.20833 7.83333 6.54167 8.625C5.45833 9.91667 4.66319 10.7569 4.15625 11.1458C3.64931 11.5347 3.10417 11.7292 2.52083 11.7292C1.8125 11.7292 1.21528 11.4653 0.729167 10.9375C0.243056 10.4097 0 9.77083 0 9.02083C0 8.27083 0.163194 7.50347 0.489583 6.71875C0.815972 5.93403 1.36806 4.99306 2.14583 3.89583C2.40972 3.53472 2.60417 3.22917 2.72917 2.97917C2.85417 2.72917 2.91667 2.52778 2.91667 2.375C2.91667 2.27778 2.89931 2.20486 2.86458 2.15625C2.82986 2.10764 2.77778 2.08333 2.70833 2.08333C2.56944 2.08333 2.39583 2.17014 2.1875 2.34375C1.97917 2.51736 1.73611 2.78472 1.45833 3.14583L0 1.66667C0.444444 1.125 0.895833 0.711806 1.35417 0.427083C1.8125 0.142361 2.26389 0 2.70833 0C3.34722 0 3.88889 0.222222 4.33333 0.666667C4.77778 1.11111 5 1.66667 5 2.33333C5 2.73611 4.89583 3.18056 4.6875 3.66667C4.47917 4.15278 4.13194 4.73611 3.64583 5.41667C3.11806 6.16667 2.72569 6.82639 2.46875 7.39583C2.21181 7.96528 2.08333 8.46528 2.08333 8.89583C2.08333 9.13194 2.12153 9.31597 2.19792 9.44792C2.27431 9.57986 2.38194 9.64583 2.52083 9.64583C2.65972 9.64583 2.78125 9.60764 2.88542 9.53125C2.98958 9.45486 3.18056 9.27083 3.45833 8.97917C3.63889 8.78472 3.85417 8.54514 4.10417 8.26042C4.35417 7.97569 4.65972 7.625 5.02083 7.20833C5.89583 6.16667 6.6875 5.42361 7.39583 4.97917C8.10417 4.53472 8.84722 4.3125 9.625 4.3125C10.5556 4.3125 11.3194 4.625 11.9167 5.25C12.5139 5.875 12.8542 6.72917 12.9375 7.8125H15V9.89583H12.9375C12.8264 11.4514 12.4201 12.691 11.7188 13.6146C11.0174 14.5382 10.125 15 9.04167 15ZM9.08333 12.9167C9.52778 12.9167 9.90278 12.6632 10.2083 12.1562C10.5139 11.6493 10.7222 10.9444 10.8333 10.0417C10.1944 10.1944 9.63889 10.4965 9.16667 10.9479C8.69444 11.3993 8.45833 11.8472 8.45833 12.2917C8.45833 12.4861 8.51389 12.6389 8.625 12.75C8.73611 12.8611 8.88889 12.9167 9.08333 12.9167Z" fill="currentColor"/></svg>`,
   };
 
-  private readonly menuItems: MenuItem[] = [
-    { key: "ag-ui-events", label: "AG-UI Events", icon: "Zap" },
-    { key: "agents", label: "Agent", icon: "Bot" },
-    { key: "frontend-tools", label: "Frontend Tools", icon: "Hammer" },
-    { key: "agent-context", label: "Context", icon: "FileText" },
-    { key: "threads", label: "Threads", icon: "MessageSquare" },
-  ];
+  private get menuItems(): MenuItem[] {
+    const hasFrontendTools = (this._core?.tools?.length ?? 0) > 0;
+    return [
+      {
+        key: "ag-ui-events",
+        label: "AG-UI Events",
+        icon: "Zap" as LucideIconName,
+      },
+      { key: "agents", label: "Agent", icon: "Bot" as LucideIconName },
+      ...(hasFrontendTools
+        ? [
+            {
+              key: "frontend-tools" as const,
+              label: "Frontend Tools",
+              icon: "Hammer" as LucideIconName,
+            },
+          ]
+        : []),
+      {
+        key: "agent-context",
+        label: "Context",
+        icon: "FileText" as LucideIconName,
+      },
+      {
+        key: "threads",
+        label: "Threads",
+        icon: "MessageSquare" as LucideIconName,
+      },
+    ];
+  }
 
   private subscribeToThreadStore(agentId: string, store: ɵThreadStore): void {
     if (this._threadStoreSubscriptions.has(agentId)) return;
     const sub = store.select(ɵselectThreads).subscribe((threads) => {
       this._threadsByAgent.set(agentId, threads as ɵThread[]);
       this._threads = Array.from(this._threadsByAgent.values()).flat();
+      this.autoSelectLatestThread();
       this.requestUpdate();
     });
     this._threadStoreSubscriptions.set(agentId, () => sub.unsubscribe());
@@ -303,6 +334,18 @@ export class WebInspectorElement extends LitElement {
     const threads = ɵselectThreads(store.getState());
     this._threadsByAgent.set(agentId, threads);
     this._threads = Array.from(this._threadsByAgent.values()).flat();
+    this.autoSelectLatestThread();
+  }
+
+  private autoSelectLatestThread(): void {
+    if (this._threads.length === 0) return;
+    const stillValid =
+      this.selectedThreadId != null &&
+      this._threads.some((t) => t.id === this.selectedThreadId);
+    if (!stillValid) {
+      // Threads are sorted most-recently-updated first
+      this.selectedThreadId = this._threads[0]!.id;
+    }
   }
 
   private teardownThreadStoreSubscriptions(): void {
@@ -320,22 +363,22 @@ export class WebInspectorElement extends LitElement {
     if (!core?.runtimeUrl) return;
 
     const store = ɵcreateThreadStore({ fetch: globalThis.fetch });
+    store.start();
     store.setContext({
       runtimeUrl: core.runtimeUrl,
       headers: {},
       agentId,
     });
-    store.start();
     this._ownedThreadStores.set(agentId, store);
     core.registerThreadStore(agentId, store);
   }
 
   private refreshOwnedThreadStore(agentId: string): void {
     const store = this._ownedThreadStores.get(agentId);
-    const core = this.core;
-    if (!store || !core?.runtimeUrl) return;
-    // Re-dispatching setContext increments the store's sessionId, triggering a new list fetch
-    store.setContext({ runtimeUrl: core.runtimeUrl, headers: {}, agentId });
+    if (!store) return;
+    // refresh() re-fetches without resetting threads to [] first, so the list
+    // stays visible while new data loads and survives transient fetch failures.
+    store.refresh();
   }
 
   private removeOwnedThreadStore(agentId: string): void {
@@ -355,16 +398,6 @@ export class WebInspectorElement extends LitElement {
   }
 
   private attachToCore(core: CopilotKitCore): void {
-    // Clear in-memory thread history on every new browser session so that a
-    // page refresh gives a clean slate without requiring a server restart.
-    // This is a no-op when the Intelligence platform is configured — real
-    // thread data lives in the database and must not be wiped on page load.
-    if (core.runtimeUrl) {
-      void fetch(`${core.runtimeUrl}/threads`, { method: "DELETE" }).catch(
-        () => undefined,
-      );
-    }
-
     this.runtimeStatus = core.runtimeConnectionStatus;
     this.coreProperties = core.properties;
     this.lastCoreError = null;
@@ -676,6 +709,20 @@ export class WebInspectorElement extends LitElement {
       unsubscribe();
       this.agentSubscriptions.delete(agentId);
     }
+  }
+
+  private mapMessagesToConversation(
+    messages: InspectorMessage[] | null,
+  ): { id: string; type: string; content: string; createdAt: string }[] | null {
+    if (!messages) return null;
+    return messages
+      .filter((m) => m.role === "user" || m.role === "assistant")
+      .map((m, i) => ({
+        id: m.id ?? `msg-${i}`,
+        type: m.role === "user" ? "user" : "assistant",
+        content: m.contentText,
+        createdAt: "",
+      }));
   }
 
   private recordAgentEvent(
@@ -3295,6 +3342,14 @@ ${argsString}</pre
                       ? (this.agentEvents.get(selectedThread.agentId) ?? [])
                       : []
                   }
+                  .conversationOverride=${
+                    selectedThread
+                      ? this.mapMessagesToConversation(
+                          this.agentMessages.get(selectedThread.agentId) ??
+                            null,
+                        )
+                      : null
+                  }
                 ></cpk-thread-details>`
               : html`
                   <div
@@ -3339,17 +3394,11 @@ ${argsString}</pre
 
     if (events.length === 0) {
       return html`
-        <div
-          class="flex h-full items-center justify-center px-4 py-8 text-center"
-        >
-          <div class="max-w-md">
-            <div
-              class="mb-3 flex justify-center text-gray-300 [&>svg]:!h-6 [&>svg]:!w-6"
-            >
-              ${this.renderIcon("Zap")}
-            </div>
-            <p class="text-sm text-gray-300">No events yet</p>
-          </div>
+        <div class="flex h-full items-center justify-center">
+          <cpk-empty-events
+            label="No events yet"
+            hint="Events are recorded live. Run the agent to see them here."
+          ></cpk-empty-events>
         </div>
       `;
     }
@@ -3460,23 +3509,30 @@ ${argsString}</pre
         </div>
         <div class="relative h-full w-full overflow-y-auto overflow-x-hidden">
           <table class="w-full table-fixed border-collapse text-xs box-border">
+            <colgroup>
+              <col style="width:${this.evtColWidths[0]}px">
+              <col style="width:${this.evtColWidths[1]}px">
+              <col style="width:${this.evtColWidths[2]}px">
+              <col>
+            </colgroup>
             <thead class="sticky top-0 z-10">
               <tr class="bg-white">
+                ${["Agent", "Time", "Event Type"].map(
+                  (label, col) => html`
                 <th
                   class="border-b border-gray-200 bg-white px-3 py-2 text-left font-medium text-gray-900"
+                  style="position:relative;overflow:hidden;"
                 >
-                  Agent
-                </th>
-                <th
-                  class="border-b border-gray-200 bg-white px-3 py-2 text-left font-medium text-gray-900"
-                >
-                  Time
-                </th>
-                <th
-                  class="border-b border-gray-200 bg-white px-3 py-2 text-left font-medium text-gray-900"
-                >
-                  Event Type
-                </th>
+                  ${label}
+                  <div
+                    style="position:absolute;top:0;right:0;width:5px;height:100%;cursor:col-resize;user-select:none;background:transparent;"
+                    @pointerdown=${(e: PointerEvent) => this._onEvtColResizeStart(e, col)}
+                    @pointermove=${(e: PointerEvent) => this._onEvtColResizeMove(e)}
+                    @pointerup=${() => this._onEvtColResizeEnd()}
+                    @pointercancel=${() => this._onEvtColResizeEnd()}
+                  ></div>
+                </th>`,
+                )}
                 <th
                   class="border-b border-gray-200 bg-white px-3 py-2 text-left font-medium text-gray-900"
                 >
@@ -3589,6 +3645,30 @@ ${prettyEvent}</pre
     this.eventFilterText = "";
     this.eventTypeFilter = "all";
     this.requestUpdate();
+  }
+
+  private _onEvtColResizeStart(e: PointerEvent, col: number): void {
+    e.preventDefault();
+    e.stopPropagation();
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    this._evtColResize = {
+      col,
+      startX: e.clientX,
+      startW: this.evtColWidths[col] ?? 0,
+    };
+  }
+
+  private _onEvtColResizeMove(e: PointerEvent): void {
+    if (!this._evtColResize) return;
+    const { col, startX, startW } = this._evtColResize;
+    this.evtColWidths = this.evtColWidths.map((w, i) =>
+      i === col ? Math.max(40, startW + (e.clientX - startX)) : w,
+    );
+    this.requestUpdate();
+  }
+
+  private _onEvtColResizeEnd(): void {
+    this._evtColResize = null;
   }
 
   private handleClearEvents = (): void => {
@@ -3959,6 +4039,10 @@ ${prettyEvent}</pre
       if (agentCount > 1) {
         this.selectedContext = "all-agents";
       }
+    }
+
+    if (key === "threads") {
+      this.autoSelectLatestThread();
     }
 
     this.contextMenuOpen = false;

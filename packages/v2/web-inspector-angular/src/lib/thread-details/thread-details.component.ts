@@ -10,6 +10,7 @@ import {
 } from "@angular/core";
 import { CommonModule } from "@angular/common";
 import { DomSanitizer, SafeHtml } from "@angular/platform-browser";
+import { EmptyEventsComponent } from "../empty-events/empty-events.component";
 
 // ---- Types ------------------------------------------------------------------
 
@@ -105,7 +106,7 @@ type Tab = "conversation" | "agent-state" | "ag-ui-events";
 @Component({
   selector: "cpk-thread-details",
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, EmptyEventsComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.ShadowDom,
   template: `
@@ -125,6 +126,27 @@ type Tab = "conversation" | "agent-state" | "ag-ui-events";
               {{ tab.label }}
             </button>
           </div>
+          <button
+            class="cpk-td__panel-toggle"
+            [class.cpk-td__panel-toggle--active]="showDetailPanel()"
+            (click)="showDetailPanel.set(!showDetailPanel())"
+            title="Toggle thread details"
+            type="button"
+          >
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <rect x="3" y="3" width="18" height="18" rx="2" />
+              <line x1="15" y1="3" x2="15" y2="21" />
+            </svg>
+          </button>
         </div>
 
         <!-- Scrollable content area -->
@@ -283,24 +305,11 @@ type Tab = "conversation" | "agent-state" | "ag-ui-events";
 
           <!-- ── AG-UI Events tab ── -->
           <ng-container *ngIf="activeTab() === 'ag-ui-events'">
-            <div *ngIf="aguiEvents().length === 0" class="cpk-td__empty-state">
-              <svg
-                width="28"
-                height="28"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="1.5"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              >
-                <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
-              </svg>
-              <span>No events captured</span>
-              <span class="cpk-td__empty-hint"
-                >Events are recorded live. Run the agent to see them here.</span
-              >
-            </div>
+            <cpk-empty-events
+              *ngIf="aguiEvents().length === 0"
+              label="No events captured"
+              hint="Events are recorded live. Run the agent to see them here."
+            ></cpk-empty-events>
             <div *ngFor="let event of aguiEvents()" class="cpk-td__event">
               <div
                 class="cpk-td__event-header"
@@ -369,6 +378,7 @@ type Tab = "conversation" | "agent-state" | "ag-ui-events";
 
       <!-- ── Resize divider ────────────────────────────────────────────── -->
       <div
+        *ngIf="showDetailPanel()"
         class="cpk-td__detail-divider"
         (pointerdown)="onDetailDividerDown($event)"
         (pointermove)="onDetailDividerMove($event)"
@@ -377,7 +387,11 @@ type Tab = "conversation" | "agent-state" | "ag-ui-events";
       ></div>
 
       <!-- ── Right metadata panel ──────────────────────────────────────── -->
-      <div class="cpk-td__detail" [style.width.px]="detailPanelWidth()">
+      <div
+        *ngIf="showDetailPanel()"
+        class="cpk-td__detail"
+        [style.width.px]="detailPanelWidth()"
+      >
         <!-- Thread -->
         <div class="cpk-tdp__section-title">Thread</div>
         <div class="cpk-tdp__row">
@@ -472,7 +486,7 @@ type Tab = "conversation" | "agent-state" | "ag-ui-events";
 
       /* ── Tab bar header ──────────────────────────────────────────────── */
       .cpk-td__tabs-header {
-        padding: 0 8px;
+        padding: 6px 12px 0;
         border-bottom: 1px solid #dbdbe5;
         flex-shrink: 0;
         display: flex;
@@ -489,7 +503,7 @@ type Tab = "conversation" | "agent-state" | "ag-ui-events";
         font-family: "Plus Jakarta Sans", sans-serif;
         font-size: 11px;
         font-weight: 500;
-        padding: 8px 12px;
+        padding: 10px 12px;
         border: none;
         border-bottom: 2px solid transparent;
         cursor: pointer;
@@ -507,7 +521,39 @@ type Tab = "conversation" | "agent-state" | "ag-ui-events";
 
       .cpk-td__tab--active {
         color: #010507;
-        border-bottom-color: #6430ab;
+        border-bottom-color: #bec2ff;
+      }
+
+      .cpk-td__panel-toggle {
+        margin-left: auto;
+        margin-right: 8px;
+        margin-bottom: 6px;
+        align-self: center;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 30px;
+        height: 30px;
+        border: 1px solid #dbdbe5;
+        border-radius: 5px;
+        background: transparent;
+        color: #838389;
+        cursor: pointer;
+        flex-shrink: 0;
+        transition:
+          background 0.12s,
+          color 0.12s,
+          border-color 0.12s;
+      }
+      .cpk-td__panel-toggle:hover {
+        background: #bec2ff1a;
+        border-color: #bec2ff;
+        color: #57575b;
+      }
+      .cpk-td__panel-toggle--active {
+        background: #bec2ff1a;
+        border-color: #bec2ff;
+        color: #57575b;
       }
 
       /* ── Scrollable content ──────────────────────────────────────────── */
@@ -576,7 +622,7 @@ type Tab = "conversation" | "agent-state" | "ag-ui-events";
 
       .cpk-td__bubble-inner--user {
         background: #eee6fe;
-        color: #6430ab;
+        color: #57575b;
         border-radius: 10px 10px 3px 10px;
       }
 
@@ -585,7 +631,7 @@ type Tab = "conversation" | "agent-state" | "ag-ui-events";
         margin-top: 4px;
         font-size: 11px;
         font-weight: 500;
-        color: #6430ab;
+        color: #57575b;
         cursor: pointer;
         text-decoration: underline;
         text-underline-offset: 2px;
@@ -879,6 +925,7 @@ export class ThreadDetailsComponent {
   ];
 
   activeTab = signal<Tab>("conversation");
+  showDetailPanel = signal(false);
   conversation = signal<ConversationItem[]>([]);
   isLoadingMessages = signal(false);
   messagesError = signal<string | null>(null);
@@ -928,15 +975,24 @@ export class ThreadDetailsComponent {
   });
 
   constructor() {
+    // React to live message updates from the inspector
+    effect(() => {
+      const override = this.conversationOverride();
+      if (override !== null) {
+        this.conversation.set(override);
+      }
+    });
+
+    // Fetch from server only when threadId changes and no live data is available
     effect(() => {
       const threadId = this.threadId();
       this.activeTab.set(this.initialTab());
       this._expandedToolCalls.set(new Set());
       this.fetchAbortController?.abort();
       this.fetchAbortController = null;
-      if (threadId) {
+      if (threadId && this.conversationOverride() === null) {
         void this.fetchMessages(threadId);
-      } else {
+      } else if (!threadId) {
         this.conversation.set([]);
       }
     });
@@ -1167,7 +1223,7 @@ export class ThreadDetailsComponent {
 
   evColor(type: string): { bg: string; fg: string } {
     if (type.startsWith("TEXT_MESSAGE"))
-      return { bg: "#EEE6FE", fg: "#6430AB" };
+      return { bg: "#EEE6FE", fg: "#57575B" };
     if (type.startsWith("TOOL_CALL"))
       return { bg: "rgba(133,236,206,0.15)", fg: "#189370" };
     if (type.startsWith("STATE"))
@@ -1205,7 +1261,7 @@ export class ThreadDetailsComponent {
   // from the store (never raw user-controlled HTML).
   highlightedJson(obj: unknown): SafeHtml {
     const colors: Record<string, string> = {
-      key: "#6430AB",
+      key: "#5558B2",
       str: "#189370",
       num: "#996300",
       bool: "#c0333a",

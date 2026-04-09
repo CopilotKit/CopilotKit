@@ -152,12 +152,12 @@ export interface InspectorThread {
       }
 
       .cpk-tl__item--active {
-        background: rgba(190, 194, 255, 0.102);
-        border-left-color: #6430ab;
+        background: #bec2ff1a;
+        border-left-color: #bec2ff;
       }
 
       .cpk-tl__item--active:hover {
-        background: rgba(190, 194, 255, 0.16);
+        background: #bec2ff33;
       }
 
       .cpk-tl__row1 {
@@ -206,7 +206,7 @@ export interface InspectorThread {
         font-weight: 500;
         white-space: nowrap;
         background: #eee6fe;
-        color: #6430ab;
+        color: #57575b;
       }
 
       /* ── Empty state ── */

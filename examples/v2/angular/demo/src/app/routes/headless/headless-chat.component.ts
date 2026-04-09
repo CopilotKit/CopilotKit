@@ -125,6 +125,20 @@ export class RequireApprovalComponent implements HumanInTheLoopToolRenderer {
         >
           Send
         </button>
+        <button
+          type="button"
+          (click)="clearThreads()"
+          style="
+            padding: 10px 14px;
+            border-radius: 8px;
+            border: 1px solid #d1d5db;
+            background: #ffffff;
+            color: #374151;
+            cursor: pointer;
+          "
+        >
+          Clear threads
+        </button>
       </form>
     </div>
   `,
@@ -185,6 +199,13 @@ export class HeadlessChatComponent implements OnInit, OnDestroy {
       this.inspectorElement.remove();
     }
     this.inspectorElement = null;
+  }
+
+  async clearThreads() {
+    const runtimeUrl = this.copilotkit.core?.runtimeUrl;
+    if (!runtimeUrl) return;
+    const url = runtimeUrl.replace(/\/$/, "");
+    await fetch(`${url}/threads`, { method: "DELETE", credentials: "include" });
   }
 
   async send() {
