@@ -56,15 +56,13 @@ jobs:
         run: npx playwright test --grep "@tools" --reporter=github
 
       - name: Post failure to Slack
-        if: failure()
-        env:
-          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
-        run: |
-          if [ -n "$SLACK_WEBHOOK" ]; then
-            curl -sf -X POST "$SLACK_WEBHOOK" \
-              -H "Content-Type: application/json" \
-              -d "$(jq -n --arg text ":x: *Showcase E2E suite failed*\n<https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|View run>" '{text: $text}')"
-          fi
+        if: failure() && github.event_name == 'schedule'
+        uses: slackapi/slack-github-action@v2.1.0
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
+          webhook-type: incoming-webhook
+          payload: |
+            { "text": ":x: *Showcase E2E suite failed*\n<https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|View run>" }
 
       - name: Create issue on failure
         if: failure()
