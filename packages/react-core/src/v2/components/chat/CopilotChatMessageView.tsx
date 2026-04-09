@@ -309,8 +309,11 @@ const MemoizedCustomMessage = React.memo(
  * Deduplicates messages by ID. For assistant messages, merges occurrences:
  * recovers non-empty content from any earlier occurrence if the latest wiped it
  * (empty string means the streaming update cleared the field, not blank text),
- * while keeping the latest toolCalls and all other fields. For all other roles,
- * keeps the last entry.
+ * and similarly recovers toolCalls from earlier occurrences if the latest is
+ * undefined (an empty array [] is treated as intentional and kept as-is).
+ * For all other roles, keeps the last entry.
+ *
+ * @internal Exported for unit testing only — not part of the public API.
  */
 export function deduplicateMessages(messages: Message[]): Message[] {
   const acc = new Map<string, Message>();
@@ -324,14 +327,10 @@ export function deduplicateMessages(messages: Message[]): Message[] {
       // Empty string means the streaming update cleared the field — fall back to
       // any non-empty content seen earlier. Use { ...existing, ...message } so
       // fields present only in an earlier occurrence are not silently dropped.
-      const content =
-        (message as AssistantMessage).content ||
-        (existing as AssistantMessage).content;
-      // Apply the same recovery logic to toolCalls: undefined on a later chunk
-      // must not silently wipe tool calls accumulated by earlier chunks.
-      const toolCalls =
-        (message as AssistantMessage).toolCalls ??
-        (existing as AssistantMessage).toolCalls;
+      const content = message.content || existing.content;
+      // undefined toolCalls means this chunk had no tool call activity — recover
+      // from earlier occurrences. An explicit [] means all tool calls completed.
+      const toolCalls = message.toolCalls ?? existing.toolCalls;
       acc.set(message.id, {
         ...existing,
         ...message,

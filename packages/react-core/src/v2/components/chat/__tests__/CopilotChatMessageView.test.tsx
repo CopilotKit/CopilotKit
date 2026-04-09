@@ -149,6 +149,9 @@ describe("CopilotChatMessageView duplicate message deduplication", () => {
       "copilot-assistant-message",
     );
     expect(assistantMessages).toHaveLength(1);
+    expect(assistantMessages[0].textContent).toContain(
+      "Full response from the assistant.",
+    );
 
     // Should render the user message too
     const userMessages = screen.getAllByTestId("copilot-user-message");
@@ -232,6 +235,34 @@ describe("deduplicateMessages", () => {
     expect(merged.content).toBe("Here is the result.");
     expect(merged.toolCalls).toHaveLength(1);
     expect(merged.toolCalls?.[0]?.id).toBe("tc-1");
+  });
+
+  it("keeps empty toolCalls array from a later chunk (does not fall back to earlier toolCalls)", () => {
+    // [] means all tool calls completed — it is an intentional value, not absence.
+    // ?? must treat it as defined and keep it rather than falling back.
+    const messages: Message[] = [
+      assistantMsg("assistant-1", "", [toolCall("tc-1", "captureData")]),
+      assistantMsg("assistant-1", "Done.", []),
+    ];
+
+    const result = deduplicateMessages(messages);
+
+    expect(result).toHaveLength(1);
+    expect((result[0] as AssistantMessage).toolCalls).toEqual([]);
+  });
+
+  it("handles undefined content on both occurrences without error", () => {
+    // assistantMsg with no content arg produces content: undefined.
+    // undefined || undefined = undefined — should not throw or produce garbage.
+    const messages: Message[] = [
+      assistantMsg("assistant-1"),
+      assistantMsg("assistant-1"),
+    ];
+
+    const result = deduplicateMessages(messages);
+
+    expect(result).toHaveLength(1);
+    expect((result[0] as AssistantMessage).content).toBeUndefined();
   });
 
   it("keeps last entry for non-assistant roles", () => {
