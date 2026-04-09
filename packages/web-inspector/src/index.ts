@@ -3350,7 +3350,7 @@ ${argsString}</pre
             Threads is coming soon
           </div>
           <div style="font-size:12px;color:#57575B;line-height:1.7;margin-bottom:20px;">
-            Get early access to CopilotKit Threads: persistent, observable agent conversations.
+            See inside your persistent agent conversations with CopilotKit Threads.
           </div>
 
           <a
