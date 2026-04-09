@@ -854,6 +854,25 @@ describe("CopilotChatInput", () => {
       expect(mockOnSubmitMessage).toHaveBeenCalledWith("test message");
     });
 
+    it("calls onChange with empty string after sending to clear the input", () => {
+      const mockOnChange = vi.fn();
+      const mockOnSubmitMessage = vi.fn();
+
+      const { container } = renderWithProvider(
+        <CopilotChatInput
+          value="test message"
+          onChange={mockOnChange}
+          onSubmitMessage={mockOnSubmitMessage}
+        />,
+      );
+
+      const sendButton = getSendButton(container);
+      fireEvent.click(sendButton!);
+
+      expect(mockOnSubmitMessage).toHaveBeenCalledWith("test message");
+      expect(mockOnChange).toHaveBeenCalledWith("");
+    });
+
     it("trims whitespace when submitting", () => {
       const mockOnChange = vi.fn();
       const mockOnSubmitMessage = vi.fn();

@@ -455,10 +455,7 @@ export function CopilotChatInput({
 
     onSubmitMessage(trimmed);
 
-    if (!isControlled) {
-      setInternalValue("");
-      onChange?.("");
-    }
+    clearInputValue();
 
     if (inputRef.current) {
       inputRef.current.focus();
