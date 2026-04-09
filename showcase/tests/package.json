@@ -7,9 +7,10 @@
     "test:agent": "playwright test --grep @agent",
     "test:chat": "playwright test --grep @chat",
     "test:tools": "playwright test --grep @tools",
-    "test:list": "playwright test --list"
+    "test:list": "playwright test --list",
+    "test:starter": "playwright test starter-smoke"
   },
   "devDependencies": {
-    "@playwright/test": "^1.52.0"
+    "@playwright/test": "1.52.0"
   }
 }
