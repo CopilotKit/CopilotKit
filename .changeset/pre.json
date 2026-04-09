@@ -50,5 +50,5 @@
     "@copilotkit/voice": "1.55.1",
     "@copilotkit/web-inspector": "1.55.1"
   },
-  "changesets": []
+  "changesets": ["cozy-phones-reply"]
 }
