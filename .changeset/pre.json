@@ -1,0 +1,21 @@
+{
+  "mode": "pre",
+  "tag": "next",
+  "initialVersions": {
+    "@copilotkit/a2ui-renderer": "1.55.0",
+    "@copilotkitnext/angular": "1.54.1",
+    "copilotkit": "1.0.1",
+    "@copilotkit/core": "1.55.0",
+    "@copilotkit/react-core": "1.55.0",
+    "@copilotkit/react-textarea": "1.55.0",
+    "@copilotkit/react-ui": "1.55.0",
+    "@copilotkit/runtime": "1.55.0",
+    "@copilotkit/runtime-client-gql": "1.55.0",
+    "@copilotkit/sdk-js": "1.55.0",
+    "@copilotkit/shared": "1.55.0",
+    "@copilotkit/sqlite-runner": "1.55.0",
+    "@copilotkit/voice": "1.55.0",
+    "@copilotkit/web-inspector": "1.55.0"
+  },
+  "changesets": []
+}
