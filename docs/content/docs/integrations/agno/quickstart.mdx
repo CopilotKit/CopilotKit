@@ -161,7 +161,7 @@ Before you begin, you'll need the following:
                 from agno.os.interfaces.agui import AGUI
 
                 agent = Agent(
-                    model=OpenAIChat(id="gpt-5.2"),
+                    model=OpenAIChat(id="gpt-5.4"),
                     description="A helpful assistant that can answer questions and provide information.",
                     instructions="Be helpful and friendly. Format your responses using markdown where appropriate.",
                 )
@@ -235,6 +235,7 @@ Before you begin, you'll need the following:
                 ```tsx title="app/layout.tsx"
                 import { CopilotKit } from "@copilotkit/react-core"; // [!code highlight]
                 import "@copilotkit/react-ui/v2/styles.css";
+                import './globals.css';
 
                 // ...
 

@@ -75,7 +75,7 @@ If you're looking to add an MCP App into an existing application, let's walk thr
 
     // 1. Create your agent
     const agent = new BuiltInAgent({
-      model: "openai/gpt-5.2",
+      model: "openai/gpt-5.4",
       prompt: "You are a helpful assistant.",
     });
 
@@ -121,7 +121,7 @@ If you're looking to add an MCP App into an existing application, let's walk thr
     import { MCPAppsMiddleware } from "@ag-ui/mcp-apps-middleware";
 
     const agent = new BuiltInAgent({
-      model: "openai/gpt-5.2",
+      model: "openai/gpt-5.4",
       prompt: "You are a helpful assistant.",
     }).use(
       new MCPAppsMiddleware({
