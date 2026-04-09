@@ -1,5 +1,38 @@
 # ui
 
+## 1.55.1-next.0
+
+### Patch Changes
+
+- @copilotkit/react-core@1.55.1-next.0
+- @copilotkit/runtime-client-gql@1.55.1-next.0
+- @copilotkit/shared@1.55.1-next.0
+
+## 1.55.0
+
+### Minor Changes
+
+- 1ceb963: refactor: consolidate V1/V2 packages into flat @copilotkit/\* structure
+
+### Patch Changes
+
+- 52a9322: Fixing license warnings, barrel export and typing
+- Updated dependencies [1ceb963]
+- Updated dependencies [b4a8b7a]
+- Updated dependencies [0f6a61c]
+- Updated dependencies [1ceb963]
+- Updated dependencies [1a61be4]
+- Updated dependencies [1ceb963]
+- Updated dependencies [1ceb963]
+- Updated dependencies [53e5669]
+- Updated dependencies [52a9322]
+- Updated dependencies [c341ed2]
+- Updated dependencies [5289791]
+- Updated dependencies [434ccd8]
+  - @copilotkit/react-core@1.55.0
+  - @copilotkit/runtime-client-gql@1.55.0
+  - @copilotkit/shared@1.55.0
+
 ## 1.55.0-next.8
 
 ### Patch Changes

@@ -1,5 +1,56 @@
 # ui
 
+## 1.55.1-next.0
+
+### Patch Changes
+
+- @copilotkit/a2ui-renderer@1.55.1-next.0
+- @copilotkit/core@1.55.1-next.0
+- @copilotkit/runtime-client-gql@1.55.1-next.0
+- @copilotkit/shared@1.55.1-next.0
+- @copilotkit/web-inspector@1.55.1-next.0
+
+## 1.55.0
+
+### Minor Changes
+
+- 1ceb963: refactor: consolidate V1/V2 packages into flat @copilotkit/\* structure
+- 5289791: feat: add multimodal attachment support to the builtin agent
+- 434ccd8: A2UI v0.9 + Open Generative UI: BYOC catalogs, dark mode, sandboxed UI generation
+
+### Patch Changes
+
+- b4a8b7a: Add auto-detection of runtime transport (REST vs single-endpoint)
+- 0f6a61c: fix: add React keys to CopilotMessages children to suppress "unique key prop" warning
+- 1ceb963: fix: respect defaultOpen={false} in CopilotSidebar and CopilotPopup
+- 1a61be4: fix: stabilize messageView and labels props to prevent message list re-renders on every keystroke
+
+  Passing `messageView` or `labels` as inline object props to `<CopilotChat />` previously caused all completed assistant messages to re-render on every keystroke due to reference instability. This was especially severe with large message histories (DocuSign: 100+ messages reported 2s→16s send time degradation).
+
+  Root causes fixed:
+  - `ts-deepmerge.merge()` deep-cloned plain objects even from a single source, creating a new reference every render that defeated `MemoizedSlotWrapper`'s shallow equality check. Replaced with shallow spread + `useShallowStableRef`.
+  - Inline `labels` objects created a new `mergedLabels` context value every render, causing all `useCopilotChatConfiguration()` consumers across every message to re-render. Fixed by stabilizing with `useShallowStableRef` in `CopilotChatConfigurationProvider`.
+
+  The `useShallowStableRef` hook (added to `slots.tsx`) is now the single stabilization primitive: it returns the same reference as long as the value is shallowly equal, with an `isPlainObject` guard to avoid incorrect equality for arrays, Dates, and class instances.
+
+- 1ceb963: fix: race condition in RunHandler.runAgent() causes dropped runs
+- 1ceb963: fix: address scroll bar styling when using mouse-wheel
+- 53e5669: Fix multiple CopilotChat components with different threadIds sharing message state. The useAgent hook now creates per-thread agent clones when threadId is provided, ensuring each chat instance maintains isolated messages and state.
+- 52a9322: Fixing license warnings, barrel export and typing
+- c341ed2: chore: kick CI to verify publish pipeline
+- Updated dependencies [1ceb963]
+- Updated dependencies [b4a8b7a]
+- Updated dependencies [1ceb963]
+- Updated dependencies [52a9322]
+- Updated dependencies [1ceb963]
+- Updated dependencies [5289791]
+- Updated dependencies [434ccd8]
+  - @copilotkit/a2ui-renderer@1.55.0
+  - @copilotkit/core@1.55.0
+  - @copilotkit/runtime-client-gql@1.55.0
+  - @copilotkit/shared@1.55.0
+  - @copilotkit/web-inspector@1.55.0
+
 ## 1.55.0-next.8
 
 ### Patch Changes

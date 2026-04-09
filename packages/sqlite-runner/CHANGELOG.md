@@ -1,5 +1,31 @@
 # @copilotkit/sqlite-runner
 
+## 1.55.1-next.0
+
+### Patch Changes
+
+- Updated dependencies [e6e8ef8]
+  - @copilotkit/runtime@1.55.1-next.0
+
+## 1.55.0
+
+### Minor Changes
+
+- 1ceb963: refactor: consolidate V1/V2 packages into flat @copilotkit/\* structure
+
+### Patch Changes
+
+- Updated dependencies [1ceb963]
+- Updated dependencies [1ceb963]
+- Updated dependencies [8aafcbe]
+- Updated dependencies [52a9322]
+- Updated dependencies [1ceb963]
+- Updated dependencies [9a6ee39]
+- Updated dependencies [1ceb963]
+- Updated dependencies [5289791]
+- Updated dependencies [434ccd8]
+  - @copilotkit/runtime@1.55.0
+
 ## 1.55.0-next.8
 
 ### Patch Changes

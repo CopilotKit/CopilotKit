@@ -10,7 +10,7 @@ import {
   ActivityDeltaEvent,
 } from "@ag-ui/client";
 import { Observable } from "rxjs";
-import * as clarinet from "clarinet";
+import clarinet from "clarinet";
 
 const TOOL_NAME = "generateSandboxedUi";
 const ACTIVITY_TYPE = "open-generative-ui";
